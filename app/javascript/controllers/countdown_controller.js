@@ -40,15 +40,15 @@ export default class extends Controller {
         this.daysTarget.classList.add("hidden");
         this.daysLabelTarget.classList.add("hidden");
       }
-      if (hours === 0) {
+      if (hours === 0 && days === 0) {
         this.hoursTarget.classList.add("hidden");
         this.hoursLabelTarget.classList.add("hidden");
       }
-      if (minutes === 0) {
+      if (minutes === 0 && hours === 0 && days === 0) {
         this.minutesTarget.classList.add("hidden");
         this.minutesLabelTarget.classList.add("hidden");
       }
-      if (seconds === 0) {
+      if (seconds === 0 && minutes === 0 && hours === 0 && days === 0) {
         this.secondsTarget.classList.add("hidden");
         this.secondsLabelTarget.classList.add("hidden");
       }

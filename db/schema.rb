@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema.define(version: 2025_01_23_181228) do
+ActiveRecord::Schema.define(version: 2025_02_18_200525) do
 
   # These are extensions that must be enabled in order to support this database
   enable_extension "plpgsql"
@@ -92,6 +92,9 @@ ActiveRecord::Schema.define(version: 2025_01_23_181228) do
     t.integer "fetch_restarts", default: 0, null: false
     t.decimal "account_balance", default: "0.0"
     t.datetime "last_end_of_funds_notification"
+    t.json "transient_data", default: {}, null: false
+    t.datetime "started_at"
+    t.datetime "stopped_at"
     t.index ["exchange_id"], name: "index_bots_on_exchange_id"
     t.index ["user_id"], name: "index_bots_on_user_id"
   end

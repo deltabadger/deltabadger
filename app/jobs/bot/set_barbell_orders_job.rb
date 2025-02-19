@@ -3,10 +3,19 @@ class Bot::SetBarbellOrdersJob < BotJob
     bot = Bot.find(bot_id)
     return unless can_set_orders?(bot)
 
-    result = bot.set_barbell_orders
+    interval = bot.settings['interval']
+    next_scheduled_orders_at = bot.next_scheduled_orders_at
+    setting_orders_at = next_scheduled_orders_at - 1.public_send(interval)
+    quote_amount = bot.next_quote_amount
+
+    result = bot.set_barbell_orders(quote_amount)
     raise StandardError, "Failed to set barbell orders: #{result.errors}" unless result.success?
 
-    Bot::SetBarbellOrdersJob.set(wait: 1.public_send(bot.interval)).perform_later(bot_id)
+    transient_data = bot.transient_data
+    transient_data['last_scheduled_orders_at'] = setting_orders_at
+    bot.update!(transient_data: transient_data)
+
+    Bot::SetBarbellOrdersJob.set(wait_until: next_scheduled_orders_at).perform_later(bot_id)
   end
 
   private

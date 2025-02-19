@@ -42,8 +42,7 @@ class BarbellBotsController < ApplicationController
   def destroy
     @barbell_bot = current_user.bots.barbell.find(params[:barbell_bot_id])
     puts "barbell_bot: #{@barbell_bot.inspect}"
-    @barbell_bot.cancel_scheduled_orders
-    if @barbell_bot.update(status: 'deleted')
+    if @barbell_bot.delete
       redirect_to barbell_bots_path, notice: 'Bot deleted successfully'
     else
       flash.now[:alert] = @barbell_bot.errors.messages.values.join(', ')
@@ -82,10 +81,9 @@ class BarbellBotsController < ApplicationController
   end
 
   def start
-    @barbell_bot = current_user.bots.barbell.find(params[:barbell_bot_id])
-    if @barbell_bot.update(status: 'pending', restarts: 0, delay: 0, current_delay: 0)
-      Bot::SetBarbellOrdersJob.perform_later(@barbell_bot.id)
-      redirect_to barbell_bot_path(@barbell_bot)
+    @barbell_bot = current_user.bots.barbell.find(params[:id])
+    if @barbell_bot.start
+      render partial: 'barbell_bots/bot/play_pause', locals: { bot: @barbell_bot }
     else
       flash.now[:alert] = @barbell_bot.errors.messages.values.join(', ')
       render :show, status: :unprocessable_entity
@@ -93,27 +91,13 @@ class BarbellBotsController < ApplicationController
   end
 
   def stop
-    @barbell_bot = current_user.bots.barbell.find(params[:barbell_bot_id])
-    @barbell_bot.cancel_scheduled_orders
-    if @barbell_bot.update(status: 'stopped')
-      redirect_to barbell_bot_path(@barbell_bot)
+    @barbell_bot = current_user.bots.barbell.find(params[:id])
+    if @barbell_bot.stop
+      render partial: 'barbell_bots/bot/play_pause', locals: { bot: @barbell_bot }
     else
       flash.now[:alert] = @barbell_bot.errors.messages.values.join(', ')
       render :show, status: :unprocessable_entity
     end
-
-    # render json: { stop: true }
-    #
-    #
-    # result = StopBot.call(params[:id])
-
-    # if result.success?
-    #   data = present_bot(result.data)
-    #   render json: { data: data }, status: 200
-    # else
-    #   render json: { id: params[:id], errors: result.errors }, status: 422
-    # end
-    #
   end
 
   private

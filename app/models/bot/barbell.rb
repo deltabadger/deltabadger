@@ -2,19 +2,67 @@ module Bot::Barbell
   extend ActiveSupport::Concern
 
   included do # rubocop:disable Metrics/BlockLength
+
+    after_update_commit :broadcast_countdown_update, if: :saved_change_to_status?
+
     validate :validate_barbell_bot_settings, if: :barbell?
 
-    def set_barbell_orders
+    def start
+      quote_amount = settings['quote_amount'].to_f
+      if update(
+        status: 'pending',
+        restarts: 0,
+        delay: 0,
+        current_delay: 0,
+        started_at: Time.current,
+        transient_data: {
+          pending_quote_amount: quote_amount
+        }
+      )
+        Bot::SetBarbellOrdersJob.perform_later(id)
+        true
+      else
+        false
+      end
+    end
+
+    def stop
+      if update(
+        status: 'stopped',
+        transient_data: {},
+        stopped_at: Time.current
+      )
+        cancel_scheduled_orders
+        true
+      else
+        false
+      end
+    end
+
+    def delete
+      if update(
+        status: 'deleted',
+        transient_data: {},
+        stopped_at: Time.current
+      )
+        cancel_scheduled_orders
+        true
+      else
+        false
+      end
+    end
+
+    def set_barbell_orders(quote_amount)
       # return Result::Success.new
+      update!(status: 'pending')
 
       quote_asset = settings['quote'].upcase
-      quote_amount = settings['quote_amount'].to_f
       result = exchange.get_balance(asset: quote_asset)
       return result unless result.success?
 
       available_quote_balance = result.data
       if available_quote_balance < quote_amount
-        update!(status: 'stopped')
+        stop
         # TODO: notify user
         return Result::Failure.new('Insufficient quote balance')
       end
@@ -24,33 +72,40 @@ module Bot::Barbell
 
       balances_and_prices = result.data
       order_sizes = calculate_order_sizes(**balances_and_prices)
-      order_sizes.each_with_index do |amount, index|
-        puts "amount: #{amount}, index: #{index}"
-
+      order_sizes.each_with_index do |order_size, index|
+        puts "order_size: #{order_size.inspect}"
         base_asset = settings["base#{index}"].upcase
+        base_amount = order_size[:amount]
+        base_amount_in_quote = order_size[:amount_in_quote]
+        puts "amount: #{base_amount}, index: #{index}"
+
         # TODO: cache this value
         result = exchange.get_minimum_base_size(base_asset: base_asset, quote_asset: quote_asset)
         return result unless result.success?
 
         minimum_base_size = result.data
         puts "minimum_base_size: #{minimum_base_size}"
-        if amount < minimum_base_size
-          create_skipped_transaction!(amount, balances_and_prices["price#{index}".to_sym])
+        if base_amount < minimum_base_size
+          create_skipped_transaction!(base_amount, balances_and_prices["price#{index}".to_sym])
           next
         end
 
         result = market_buy(
           base_asset: base_asset,
           quote_asset: quote_asset,
-          amount: amount,
+          amount: base_amount,
           amount_type: 'base'
         )
 
         puts "result: #{result.inspect}"
 
         if result.success?
-          update!(status: 'pending')
           order_id = result.data.dig('success_response', 'order_id')
+          transient_data['pending_orders'] = [] if transient_data['pending_orders'].nil?
+          transient_data['pending_orders'] << order_id
+          transient_data['pending_quote_amount'] = 0 if transient_data['pending_quote_amount'].nil?
+          transient_data['pending_quote_amount'] = transient_data['pending_quote_amount'] - base_amount_in_quote
+          update!(transient_data: transient_data)
           Bot::FetchOrderResultJob.perform_later(id, order_id)
 
           # bot.update(status: 'pending')
@@ -70,7 +125,6 @@ module Bot::Barbell
         # calculate missed amounts if bot was restarted
       end
 
-      update!(status: 'working')
       Result::Success.new
     end
 
@@ -80,31 +134,18 @@ module Bot::Barbell
 
       amount = result.data.dig('order', 'filled_size').to_f
       rate = result.data.dig('order', 'average_filled_price').to_f
-      create_successful_transaction!(
-        order_id,
-        rate,
-        amount
-      )
+      create_successful_transaction!(order_id, rate, amount)
+      transient_data['pending_orders'].delete(order_id)
+      if transient_data['pending_orders'].empty?
+        update!(status: 'working', transient_data: transient_data)
+      else
+        update!(transient_data: transient_data)
+      end
 
       Result::Success.new
     end
 
-    def cancel_scheduled_orders
-      sidekiq_places = [
-        Sidekiq::ScheduledSet.new,
-        Sidekiq::Queue.new(exchange.name.downcase),
-        Sidekiq::RetrySet.new
-      ]
-      sidekiq_places.each do |place|
-        place.each do |job|
-          job.delete if job.queue == exchange.name.downcase &&
-                        job.display_class == 'Bot::SetBarbellOrdersJob' &&
-                        job.display_args == [id]
-        end
-      end
-    end
-
-    def next_scheduled_order_time
+    def next_set_barbell_orders_job_at
       sidekiq_places = [
         Sidekiq::RetrySet.new,
         Sidekiq::ScheduledSet.new
@@ -117,6 +158,25 @@ module Bot::Barbell
         end
       end
       nil
+    end
+
+    def next_quote_amount
+      quote_amount = settings['quote_amount'].to_f
+      interval = settings['interval']
+      pending_quote_amount = transient_data['pending_quote_amount'] || 0
+      last_scheduled_orders_at = transient_data['last_scheduled_orders_at'] || started_at
+      intervals_since_last_scheduled_orders = ((Time.current - last_scheduled_orders_at) / 1.public_send(interval)).floor
+      missed_quote_amount = quote_amount * intervals_since_last_scheduled_orders
+      pending_quote_amount + missed_quote_amount
+    end
+
+    def next_scheduled_orders_at
+      interval = settings['interval']
+      checkpoint = started_at
+      loop do
+        checkpoint += 1.public_send(interval)
+        return checkpoint if checkpoint > Time.current
+      end
     end
 
     private
@@ -174,11 +234,21 @@ module Bot::Barbell
       base1_order_size_in_quote = [base1_offset, quote_amount - base0_order_size_in_quote].min
       base0_order_size_in_base = base0_order_size_in_quote / price0
       base1_order_size_in_base = base1_order_size_in_quote / price1
-      [base0_order_size_in_base, base1_order_size_in_base]
+      [
+        {
+          amount: base0_order_size_in_base,
+          amount_in_quote: base0_order_size_in_quote
+        },
+        {
+          amount: base1_order_size_in_base,
+          amount_in_quote: base1_order_size_in_quote
+        }
+      ]
     end
 
     def create_successful_transaction!(order_id, rate, amount)
       bot_quote_amount = settings['quote_amount'].to_f
+      interval = settings['interval']
       transactions.create!(
         offer_id: order_id,
         status: :success,
@@ -192,6 +262,7 @@ module Bot::Barbell
 
     def create_skipped_transaction!(base_amount, rate)
       bot_quote_amount = settings['quote_amount'].to_f
+      interval = settings['interval']
       transactions.create!(
         status: :skipped,
         rate: rate,
@@ -204,6 +275,7 @@ module Bot::Barbell
 
     def create_failed_transaction!(errors: nil, order_id: nil, rate: nil, amount: nil)
       bot_quote_amount = settings['quote_amount'].to_f
+      interval = settings['interval']
       transactions.create!(
         error_messages: errors,
         offer_id: order_id,
@@ -215,5 +287,21 @@ module Bot::Barbell
         transaction_type: 'REGULAR'
       )
     end
+
+    def cancel_scheduled_orders
+      sidekiq_places = [
+        Sidekiq::ScheduledSet.new,
+        Sidekiq::Queue.new(exchange.name.downcase),
+        Sidekiq::RetrySet.new
+      ]
+      sidekiq_places.each do |place|
+        place.each do |job|
+          job.delete if job.queue == exchange.name.downcase &&
+                        job.display_class == 'Bot::SetBarbellOrdersJob' &&
+                        job.display_args == [id]
+        end
+      end
+    end
+
   end
 end
