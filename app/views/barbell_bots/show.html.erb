@@ -1,6 +1,15 @@
 <%= turbo_stream_from "bot_#{@barbell_bot.id}", :countdown %>
 
-<%= render partial: "barbell_bots/bot/play_pause", locals: { bot: @barbell_bot } %>
+<div class="page-head page-head--mini">
+  <div class="time-counter time-counter--success">
+    <%= render "barbell_bots/bot/countdown", bot: @barbell_bot %>
+  </div>
+  <div class="flex-row">
+    <%= render "barbell_bots/bot/start_stop_button", bot: @barbell_bot %>
+  </div>
+  <%= button_to "Delete Bot", barbell_bot_path(@barbell_bot), class: "btn btn-danger mb-4", method: :delete %>
+</div>
+
 <div class="columns">
   <div class="column gap-2">
     <%= render partial: "barbell_bots/bot/settings", locals: { bot: @barbell_bot } %>
