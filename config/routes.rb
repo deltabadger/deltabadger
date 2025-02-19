@@ -11,6 +11,7 @@ Rails.application.routes.draw do
   match "/422", to: "errors#unprocessable_entity", via: :all
   match "/500", to: "errors#internal_server_error", via: :all
 
+  mount ActionCable.server => '/cable'
   mount Sidekiq::Prometheus::Exporter => '/sidekiq-metrics'
 
   authenticate :user, lambda { |u| u.admin? } do

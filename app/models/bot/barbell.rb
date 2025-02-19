@@ -2,6 +2,7 @@ module Bot::Barbell
   extend ActiveSupport::Concern
 
   included do # rubocop:disable Metrics/BlockLength
+    include ActionCable::Channel::Broadcasting
 
     after_update_commit :broadcast_countdown_update, if: :saved_change_to_status?
 
@@ -303,5 +304,13 @@ module Bot::Barbell
       end
     end
 
+    def broadcast_countdown_update
+      broadcast_render_to(
+        "bot_#{id}",
+        :countdown,
+        partial: 'barbell_bots/bot/countdown_update',
+        locals: { bot: self }
+      )
+    end
   end
 end
