@@ -1,0 +1,2 @@
+<%# TODO: would be nice to show a little 'saved' in the form itself %>
+<%= turbo_stream.update "bot_#{@barbell_bot.id}_settings", partial: 'barbell_bots/bot/settings', locals: { bot: @barbell_bot } %>

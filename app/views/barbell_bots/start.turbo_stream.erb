@@ -1,0 +1,2 @@
+<%= turbo_stream.update "bot_#{@barbell_bot.id}_start_stop_button", partial: 'barbell_bots/bot/start_stop_button', locals: { bot: @barbell_bot } %>
+<%= turbo_stream.update "bot_#{@barbell_bot.id}_settings", partial: 'barbell_bots/bot/settings', locals: { bot: @barbell_bot } %>

@@ -304,11 +304,20 @@ module Bot::Barbell
       end
     end
 
+    # def broadcast_countdown_update
+    #   broadcast_render_to(
+    #     "bot_#{id}",
+    #     :countdown,
+    #     partial: 'barbell_bots/bot/countdown_update',
+    #     locals: { bot: self }
+    #   )
+    # end
+
     def broadcast_countdown_update
-      broadcast_render_to(
-        "bot_#{id}",
-        :countdown,
-        partial: 'barbell_bots/bot/countdown_update',
+      broadcast_update_to(
+        ["bot_#{id}", :countdown],
+        target: "bot_#{id}_countdown",
+        partial: 'barbell_bots/bot/countdown',
         locals: { bot: self }
       )
     end

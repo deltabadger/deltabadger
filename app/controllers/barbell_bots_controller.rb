@@ -37,15 +37,12 @@ class BarbellBotsController < ApplicationController
   def update
     @barbell_bot = current_user.bots.barbell.find(params[:id])
     settings = barbell_bot_params.except(:exchange_id)
-    if @barbell_bot.update(settings: settings)
-      render partial: 'barbell_bots/bot/settings', locals: { bot: @barbell_bot }
-      # TODO: would be nice to show a little 'saved' in the form itself
-      # flash.now[:notice] = 'Bot updated successfully'
-      # render turbo_stream: turbo_stream_prepend_flash
-    else
-      flash[:alert] = @barbell_bot.errors.messages.values.join(', ')
-      render turbo_stream: turbo_stream_page_refresh
-    end
+    settings[:interval] = @barbell_bot.settings['interval'] if settings[:interval].nil?
+    puts "new settings: #{settings.inspect}"
+    return if @barbell_bot.update(settings: settings)
+
+    flash[:alert] = @barbell_bot.errors.messages.values.join(', ')
+    render turbo_stream: turbo_stream_page_refresh, status: :unprocessable_entity
   end
 
   def destroy
@@ -91,22 +88,18 @@ class BarbellBotsController < ApplicationController
 
   def start
     @barbell_bot = current_user.bots.barbell.find(params[:id])
-    if @barbell_bot.start
-      render partial: 'barbell_bots/bot/play_pause', locals: { bot: @barbell_bot }
-    else
-      flash.now[:alert] = @barbell_bot.errors.messages.values.join(', ')
-      render :show, status: :unprocessable_entity
-    end
+    return if @barbell_bot.start
+
+    flash[:alert] = @barbell_bot.errors.messages.values.join(', ')
+    render turbo_stream: turbo_stream_page_refresh, status: :unprocessable_entity
   end
 
   def stop
     @barbell_bot = current_user.bots.barbell.find(params[:id])
-    if @barbell_bot.stop
-      render partial: 'barbell_bots/bot/play_pause', locals: { bot: @barbell_bot }
-    else
-      flash.now[:alert] = @barbell_bot.errors.messages.values.join(', ')
-      render :show, status: :unprocessable_entity
-    end
+    return if @barbell_bot.stop
+
+    flash[:alert] = @barbell_bot.errors.messages.values.join(', ')
+    render turbo_stream: turbo_stream_page_refresh, status: :unprocessable_entity
   end
 
   private
