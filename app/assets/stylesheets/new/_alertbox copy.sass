@@ -1,0 +1,75 @@
+.alertbox
+    border-radius: 2rem
+    box-shadow: 0 0.5rem 2rem 0 rgba(0,0,0,0.12)
+    display: flex
+    padding: 3rem
+    overflow: hidden
+    position: relative
+    margin-bottom: 1rem
+    &__text-column
+        @media screen and (min-width: 1170px)
+            max-width: 100rem
+        @media screen and (max-width: 1169.9px)
+            padding-bottom: 15rem
+    .close
+        font-size: 2rem
+        opacity: 1
+        *
+            fill: var(--label)
+    a
+        font-weight: bold
+        color: var(--link)
+    &--news
+        background: var(--alertbox-news-background)
+        color: var(--alertbox-news-color)
+    &--primary
+        background: #17295c
+        color: white
+        .close
+            *
+                fill: #fff
+    &--welcome
+        .db-art__elem--basic
+            fill: white
+        .sbutton
+            display: inline-block
+            line-height: 5.8rem
+            position: relative
+            top: 0.5rem
+            margin-top: -2rem
+        a
+            color: white
+            font-weight: bold
+    &--success
+        background: var(--success-semitransparent)
+    ul,ol
+        margin-left: 2.5rem
+    p,li
+        margin-bottom: 2rem
+    ul,ol
+        margin-top: 4rem
+        margin-bottom: 4rem
+
+.art--legendary-plan
+    position: absolute
+    bottom: -5rem
+    right: -6rem
+    width: 40rem
+    height: 40rem
+
+.alertbox-modal
+    background: var(--background-new-semitransparent)
+    position: fixed
+    z-index: 1000000000000
+    top: 0
+    left: 0
+    width: 100vw
+    min-height: 100vh
+    display: flex
+    justify-content: center
+    align-items: center
+    padding: 2rem
+    .alertbox
+        max-width: 80rem
+        max-height: calc(100vh - 4rem)
+        overflow-y: scroll
