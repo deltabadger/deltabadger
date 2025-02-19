@@ -1,14 +1,3 @@
-
-<% if @barbell_bot.working? || @barbell_bot.pending? %>
-  <%= button_to "Stop Bot", barbell_bot_stop_path(@barbell_bot), class: "btn btn-primary mb-4" %>
-<% else %>
-  <%= button_to "Start Bot", barbell_bot_start_path(@barbell_bot), class: "btn btn-primary mb-4", data: { turbo_submits_with: "Starting..." } %>
-<% end %>
-
-<%= button_to "Delete Bot", barbell_bot_path(@barbell_bot), class: "btn btn-danger mb-4", method: :delete %>
-
-<h3>mockup for bot: <%= @barbell_bot.id %></h3>
-
 <%= render partial: "barbell_bots/bot/play_pause", locals: { bot: @barbell_bot } %>
 <div class="columns">
   <div class="column gap-2">

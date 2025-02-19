@@ -111,8 +111,8 @@ Rails.application.routes.draw do
     resources :barbell_bots, path: "/barbell-bots" do
       get :api_keys, on: :collection
       post :create_api_keys, on: :collection
-      post :start
-      post :stop
+      post :start, on: :member
+      post :stop, on: :member
     end
     resources :bots, only: [:show, :index] do
       get :show, on: :collection
