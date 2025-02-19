@@ -1,5 +1,10 @@
 nl:
     devise:
+        layout:
+            title: "Geautomatiseerde portefeuilles voor mensen die financiële vrijheid zoeken"
+            features_html: "Dollar-Cost Averaging &middot; Indexportefeuilles &middot; Herbalancering &middot; Portefeuille-analyse &middot; Aandelen & Crypto &middot; Community"
+            review:
+                content: "Ik ben super blij met mijn Deltabadger lifetime plan, dat elk uur de crypto koopt die ik wil, zodat ik tijd heb voor belangrijke dingen! Bedankt voor deze geweldige tool."
         confirmations:
             confirmed: 'Je e-mailadres is succesvol bevestigd.'
             new:
