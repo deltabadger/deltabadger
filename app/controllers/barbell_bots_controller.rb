@@ -34,10 +34,19 @@ class BarbellBotsController < ApplicationController
     render :api_keys
   end
 
-  # def update
-  #   @barbell_bot.update(params.permit(:settings))
-  #   render json: { success: true }
-  # end
+  def update
+    @barbell_bot = current_user.bots.barbell.find(params[:id])
+    settings = barbell_bot_params.except(:exchange_id)
+    if @barbell_bot.update(settings: settings)
+      render partial: 'barbell_bots/bot/settings', locals: { bot: @barbell_bot }
+      # TODO: would be nice to show a little 'saved' in the form itself
+      # flash.now[:notice] = 'Bot updated successfully'
+      # render turbo_stream: turbo_stream_prepend_flash
+    else
+      flash[:alert] = @barbell_bot.errors.messages.values.join(', ')
+      render turbo_stream: turbo_stream_page_refresh
+    end
+  end
 
   def destroy
     @barbell_bot = current_user.bots.barbell.find(params[:barbell_bot_id])

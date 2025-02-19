@@ -134,6 +134,7 @@ en:
         connect: "Connect"
     bot:
         barbell:
+            invest: "Invest"
             invest_html: "Invest %{input} /month"
         utils:
             mkt_cap_adjusted: "Market Cap adjusted"

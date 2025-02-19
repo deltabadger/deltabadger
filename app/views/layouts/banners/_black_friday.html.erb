@@ -15,22 +15,36 @@
         <h2><%= t('subscriptions.payment.pro_and_legendary_plans') %></h2>
       </div>
 
-      <div data-controller="countdown" data-countdown-target-date-value="<%= BlackFriday.end_time.iso8601 %>" data-countdown-animation-class-value="pulse">
+      <%= tag.div data: {
+        controller: "countdown",
+        countdown_target_date_value: BlackFriday.end_time.iso8601,
+        countdown_hide_if_zero_value: false,
+        countdown_days_label_value: t('subscriptions.payment.days').capitalize,
+        countdown_hours_label_value: t('subscriptions.payment.hours').capitalize,
+        countdown_minutes_label_value: t('subscriptions.payment.minutes').capitalize,
+        countdown_seconds_label_value: t('subscriptions.payment.seconds').capitalize,
+        countdown_animation_class_value: "pulse"
+      } do %>
         <div class="countdown-timer">
           <span class="countdown-segment">
-            <span data-countdown-target="days" class="value">0</span><small data-countdown-target="daysLabel"><%= t('subscriptions.payment.days').capitalize %></small>
+            <span data-countdown-target="days" class="value"></span>
+            <small data-countdown-target="daysLabel"></small>
           </span>
           <span class="countdown-segment">
-            <span data-countdown-target="hours" class="value">0</span><small data-countdown-target="hoursLabel"><%= t('subscriptions.payment.hours').capitalize %></small>
+            <span data-countdown-target="hours" class="value"></span>
+            <small data-countdown-target="hoursLabel"></small>
           </span>
           <span class="countdown-segment">
-            <span data-countdown-target="minutes" class="value">0</span><small data-countdown-target="minutesLabel"><%= t('subscriptions.payment.minutes').capitalize %></small>
+            <span data-countdown-target="minutes" class="value"></span>
+            <small data-countdown-target="minutesLabel"></small>
           </span>
           <span class="countdown-segment countdown-second">
-            <span data-countdown-target="seconds" class="value">0</span><small data-countdown-target="secondsLabel"><%= t('subscriptions.payment.seconds').capitalize %></small>
+            <span data-countdown-target="seconds" class="value"></span>
+            <small data-countdown-target="secondsLabel"></small>
           </span>
         </div>
       </div>
+      <% end %>
 
       <% if show_upgrade_button %>
         <div>
