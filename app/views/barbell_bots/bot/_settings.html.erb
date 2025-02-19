@@ -1,34 +1,66 @@
-<div class="widget widget--single">
-  <div class="conversational flex-justify-center">
-    <%= t('bot.barbell.invest_html', input: content_tag(:div, class: 'ticker-input ticker-input--autoscale') do
-      concat text_field_tag(nil, nil, class: 'numeric-input iu-numeric iu-autowidth', size: 1, placeholder: '0')
-      concat content_tag(:div, 'USDT', class: 'ticker', style: 'background: #26A17B')
-    end) %>
-  </div>
-  <div class="barbell">
+<%= turbo_frame_tag "settings" do %>
+  <div class="widget widget--single">
 
-    <div class="barbell__plate">
-      <div class="ticker" style="background: darkorange">BTC</div>
-      <b style="color: darkorange">50%</b>
-    </div>
+    <%= form_with model: bot, url: barbell_bot_path(bot), method: :patch, class: "basket__asset", data: { controller: "form--submit bot--barbell-allocation" } do |f| %>
 
-    <div class="barbell__bar">
-      <div class="slider">
-        <input step="0.01" value="1.0" class="slider__input numeric-input" data-portfolio-analyzer--asset-allocation-target="allocation" data-action="input->portfolio-analyzer--asset-allocation#updateAssetAllocation" min="0.0" max="1.0" type="range" name="asset[allocation]" id="asset_allocation">
-        <div class="slider__style">
-          <div class="slider__style__track" style="border-left-color: darkorange; background: #465580">
-            <div class="slider__style__progress" style="width: 51%; background: darkorange" data-portfolio-analyzer--asset-allocation-target="allocationSlider">
-              <div class="slider__style__thumb"></div>
+      <div class="conversational flex-justify-center">
+        <%= t('bot.barbell.invest') %>
+        <div class="ticker-input ticker-input--autoscale">
+
+          <%# in this text field, autowidth doesn't work %>
+          <%= f.text_field :quote_amount, value: bot.settings['quote_amount'], class: 'numeric-input iu-numeric iu-autowidth', size: 3, data: { action: "change->form--submit#submit" } %>
+
+          <div class="ticker" style="background: #26A17B"> <%# this doesn't work but looks good %>
+          <%#<div class="sinput sinput--select"> <%# this works but looks ugly %>
+
+            <%= bot.settings['quote'] %>
+            <%= f.select :quote, [['EUR', 'EUR']], { selected: bot.settings['quote'] }, data: { action: "change->form--submit#submit" } %>
+          </div>
+        </div>
+        /
+        <div class="sinput sinput--select">
+          <%= bot.settings['interval'] %>
+          <%= f.select :interval, [[t('bots.hour'), 'hour'], [t('bots.day'), 'day'], [t('bots.week'), 'week'], [t('bots.month'), 'month']], { selected: bot.settings['interval'] }, data: { action: "change->form--submit#submit" } %>
+        </div>
+      </div>
+
+      <div class="barbell">
+
+        <div class="barbell__plate">
+
+          <div class="ticker" style="background: darkorange"> <%# this doesn't work but looks good %>
+          <%#<div class="sinput sinput--select"> <%# this works but looks ugly %>
+
+            <%= bot.settings['base0'] %>
+            <%= f.select :base0, [['BTC', 'BTC']], { selected: bot.settings['base0'] }, data: { action: "change->form--submit#submit" } %>
+          </div>
+          <b style="color: darkorange"><span data-bot--barbell-allocation-target="allocation0Text"><%= (bot.settings['allocation0'].to_f * 100).to_i %></span>%</b>
+        </div>
+
+        <div class="barbell__bar">
+          <div class="slider">
+            <%= f.range_field :allocation0, in: 0.0..1.0, step: 0.01, value: bot.settings['allocation0'].to_f, class: "slider__input numeric-input", data: { bot__barbell_allocation_target: "allocation0", action: "input->bot--barbell-allocation#updateAllocation0 change->form--submit#submit" } %>
+            <div class="slider__style">
+              <%= tag.div class: "slider__style__track", style: "border-left-color: darkorange;  background: #465580" do %>
+                <%= tag.div class: "slider__style__progress", style: "width: #{bot.settings['allocation0'].to_f * 100}%; background: darkorange", data: { bot__barbell_allocation_target: "allocation0Slider" } do %>
+                  <div class="slider__style__thumb"></div>
+                <% end %>
+              <% end %>
             </div>
           </div>
         </div>
-      </div>
-    </div>
 
-    <div class="barbell__plate">
-      <div class="ticker" style="background: #465580">ETH</div>
-      <b style="color: #465580">50%</b>
-    </div>
+        <div class="barbell__plate">
+          <div class="ticker" style="background: #465580"> <%# this doesn't work but looks good %>
+          <%#<div class="sinput sinput--select"> <%# this works but looks ugly %>
+            <%= bot.settings['base1'] %>
+            <%= f.select :base1, [['ETH', 'ETH']], { selected: bot.settings['base1'] }, data: { action: "change->form--submit#submit" } %>
+          </div>
+          <b style="color: #465580"><span data-bot--barbell-allocation-target="allocation1Text"><%= ((1 - bot.settings['allocation0'].to_f) * 100).to_i %></span>%</b>
+        </div>
+
+      </div>
+    <% end %>
 
   </div>
-</div>
+<% end %>

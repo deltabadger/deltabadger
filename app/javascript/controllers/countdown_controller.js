@@ -3,7 +3,7 @@ import { Controller } from "@hotwired/stimulus"
 // Connects to data-controller="countdown"
 export default class extends Controller {
   static targets = ["days", "hours", "minutes", "seconds", "daysLabel", "hoursLabel", "minutesLabel", "secondsLabel"];
-  static values = { targetDate: String, animationClass: String, hideIfZero: Boolean }
+  static values = { targetDate: String, animationClass: String, hideIfZero: Boolean, daysLabel: String, hoursLabel: String, minutesLabel: String, secondsLabel: String }
 
   connect() {
     this.targetDate = new Date(this.targetDateValue);
@@ -30,10 +30,14 @@ export default class extends Controller {
     const minutes = Math.max(0, Math.floor((timeDiff % (1000 * 60 * 60)) / (1000 * 60)));
     const seconds = Math.max(0, Math.floor((timeDiff % (1000 * 60)) / 1000));
 
-    this.updateTarget(this.daysTarget, days);
-    this.updateTarget(this.hoursTarget, hours);
-    this.updateTarget(this.minutesTarget, minutes);
-    this.updateTarget(this.secondsTarget, seconds);
+    this.updateTarget(this.daysTarget, `${days}`);
+    this.daysLabelTarget.innerText = this.daysLabelValue;
+    this.updateTarget(this.hoursTarget, `${hours}`);
+    this.hoursLabelTarget.innerText = this.hoursLabelValue;
+    this.updateTarget(this.minutesTarget, `${minutes}`);
+    this.minutesLabelTarget.innerText = this.minutesLabelValue;
+    this.updateTarget(this.secondsTarget, `${seconds}`);
+    this.secondsLabelTarget.innerText = this.secondsLabelValue;
 
     if (this.hideIfZeroValue) {
       if (days === 0) {
