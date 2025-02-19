@@ -141,7 +141,7 @@ GEM
     chunky_png (1.4.0)
     coderay (1.1.3)
     concurrent-ruby (1.2.3)
-    connection_pool (2.4.1)
+    connection_pool (2.5.0)
     crass (1.0.6)
     cronex (0.15.0)
       tzinfo
@@ -378,10 +378,7 @@ GEM
       ffi (~> 1.0)
     rdoc (6.7.0)
       psych (>= 4.0.0)
-    redis (5.2.0)
-      redis-client (>= 0.22.0)
-    redis-client (0.22.1)
-      connection_pool
+    redis (4.8.1)
     regexp_parser (2.8.1)
     reline (0.5.10)
       io-console (~> 0.5)
@@ -460,10 +457,10 @@ GEM
     sentry-raven (3.1.2)
       faraday (>= 1.0)
     shellany (0.0.1)
-    sidekiq (6.5.0)
-      connection_pool (>= 2.2.2)
+    sidekiq (6.5.12)
+      connection_pool (>= 2.2.5, < 3)
       rack (~> 2.0)
-      redis (>= 4.2.0)
+      redis (>= 4.5.0, < 5)
     sidekiq-cron (2.1.0)
       cronex (>= 0.13.0)
       fugit (~> 1.8, >= 1.11.1)
@@ -580,7 +577,7 @@ DEPENDENCIES
   rack-cors
   rails (~> 6.0.4, >= 6.0.4.1)
   rails_cloudflare_turnstile!
-  redis (~> 5.0)
+  redis (~> 4.8.1)
   rqrcode
   rspec-rails
   rubocop
@@ -589,7 +586,7 @@ DEPENDENCIES
   securerandom
   selenium-webdriver
   sentry-raven
-  sidekiq (~> 6.5)
+  sidekiq (~> 6.5.12)
   sidekiq-cron
   sidekiq-limit_fetch!
   sidekiq-prometheus-exporter (~> 0.1)
