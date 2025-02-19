@@ -1,6 +1,5 @@
 <div class="page-head page-head--mini">
   <div class="time-counter time-counter--success">
-    <%= turbo_stream_from "bot_#{bot.id}", :countdown %>
     <%= render "barbell_bots/bot/countdown", bot: bot %>
   </div>
 
