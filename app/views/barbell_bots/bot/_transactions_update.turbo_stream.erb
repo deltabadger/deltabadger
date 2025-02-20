@@ -1,0 +1,5 @@
+<%# FIXME: this works if the user is watching the page 1, otherwise the %>
+<%#         new transaction is added to the top of list in wrong order %>
+
+<%= turbo_stream.remove "transaction_#{transaction_to_remove.id}" %>
+<%= turbo_stream.prepend "bot_#{transaction.bot.id}_orders", partial: 'barbell_bots/bot/transaction', locals: { transaction: transaction } %>

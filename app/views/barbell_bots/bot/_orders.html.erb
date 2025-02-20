@@ -3,26 +3,20 @@
     <thead>
       <tr>
         <th scope="col"><%= t('data_labels.date') %></th>
-        <th scope="col">BTC</th>
-        <th scope="col">ETH</th>
+        <th scope="col"><%= t('amount') %></th>
+        <th scope="col"><%= t('value') %></th>
       </tr>
     </thead>
-    <tbody>
-      <tr>
-        <td scope="row">2024-11-13 10:47 AM</td>
-        <td>0.87783155</td>
-        <td>0.87783155</td>
-      </tr>
-      <tr>
-        <td scope="row">2024-11-12 10:34 AM</td>
-        <td>1.30</td>
-        <td>0.87783155</td>
-      </tr>
-      <tr>
-        <td scope="row">2024-11-09 03:38 PM</td>
-        <td>0.36631644</td>
-        <td>0.87783155</td>
-      </tr>
+    <tbody id="bot_<%= bot.id %>_orders">
+      <% transactions.each do |transaction| %>
+        <%= render 'barbell_bots/bot/transaction', transaction: transaction %>
+      <% end %>
     </tbody>
   </table>
+
+  <%== pagy_nav(pagy) if pagy.pages > 1 %>
+
+  <div id="next_link">
+    <%= button_to "next", pagy_url_for(pagy, pagy.next) %>
+  </div>
 </div>

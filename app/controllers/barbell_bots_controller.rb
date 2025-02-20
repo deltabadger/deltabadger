@@ -1,4 +1,6 @@
 class BarbellBotsController < ApplicationController
+  include Pagy::Backend
+
   before_action :authenticate_user!
 
   def index
@@ -27,7 +29,7 @@ class BarbellBotsController < ApplicationController
 
   def show
     @barbell_bot = current_user.bots.barbell.find(params[:id])
-
+    @pagy, @transactions = pagy(Transaction.for_bot(@barbell_bot), items: 10)
     return if trader_key_id_for_user(@barbell_bot.exchange).present?
 
     @api_key = ApiKey.new(user: current_user, exchange: @barbell_bot.exchange)
@@ -52,7 +54,7 @@ class BarbellBotsController < ApplicationController
       redirect_to barbell_bots_path, notice: 'Bot deleted successfully'
     else
       flash.now[:alert] = @barbell_bot.errors.messages.values.join(', ')
-      render :show, status: :unprocessable_entity
+      render turbo_stream: turbo_stream_prepend_flash
     end
 
     # result = RemoveBot.call(bot_id: params[:id], user: current_user)

@@ -1,4 +1,5 @@
 <%= turbo_stream_from "bot_#{@barbell_bot.id}", :countdown %>
+<%= turbo_stream_from "bot_#{@barbell_bot.id}", :transactions %>
 
 <div class="page-head page-head--mini">
   <div class="time-counter time-counter--success">
@@ -27,7 +28,7 @@
     <% else %>
       <%= render partial: "barbell_bots/bot/chart" %>
       <%= render partial: "barbell_bots/bot/metrics" %>
-      <%= render partial: "barbell_bots/bot/orders" %>
+      <%= render partial: "barbell_bots/bot/orders", locals: { bot: @barbell_bot, pagy: @pagy, transactions: @transactions } %>
     <% end %>
   </div>
 </div>

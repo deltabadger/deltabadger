@@ -1,0 +1,5 @@
+<tr id="transaction_<%= transaction.id %>" style="<%= transaction.skipped? ? 'color: gray' : transaction.failure? ? 'color: red' : '' %>">
+  <td scope="row"><%= transaction.created_at.strftime("%Y-%m-%d %I:%M %p") %></td>
+  <td><%= "#{transaction.amount} #{transaction.base}" %></td>
+  <td><%= "#{transaction.amount * transaction.rate} #{transaction.quote}" %></td>
+</tr>

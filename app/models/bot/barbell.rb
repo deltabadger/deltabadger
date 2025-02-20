@@ -87,7 +87,12 @@ module Bot::Barbell
         minimum_base_size = result.data
         puts "minimum_base_size: #{minimum_base_size}"
         if base_amount < minimum_base_size
-          create_skipped_transaction!(base_amount, balances_and_prices["price#{index}".to_sym])
+          create_skipped_transaction!(
+            base: base_asset,
+            quote: quote_asset,
+            amount: base_amount,
+            rate: balances_and_prices["price#{index}".to_sym]
+          )
           next
         end
 
@@ -114,7 +119,13 @@ module Bot::Barbell
           # check_allowable_balance(get_api(bot), bot, fixing_price, notify)
           # send_user_to_sendgrid(bot)
         else
-          create_failed_transaction!(errors: result.errors)
+          create_failed_transaction!(
+            base: base_asset,
+            quote: quote_asset,
+            errors: result.errors,
+            amount: base_amount,
+            rate: balances_and_prices["price#{index}".to_sym]
+          )
           # TODO: notify user?
           # TODO: stop the bot?
           return result
@@ -133,12 +144,17 @@ module Bot::Barbell
       result = exchange.get_order(order_id: order_id)
       return result unless result.success?
 
-      amount = result.data.dig('order', 'filled_size').to_f
-      rate = result.data.dig('order', 'average_filled_price').to_f
-      create_successful_transaction!(order_id, rate, amount)
+      create_successful_transaction!(
+        order_id: order_id,
+        base: result.data.dig('order', 'product_id')&.split('-')&.first,
+        quote: result.data.dig('order', 'product_id')&.split('-')&.last,
+        rate: result.data.dig('order', 'average_filled_price')&.to_f,
+        amount: result.data.dig('order', 'filled_size')&.to_f
+      )
+
       transient_data['pending_orders'].delete(order_id)
       if transient_data['pending_orders'].empty?
-        update!(status: 'working', transient_data: transient_data)
+        update!(transient_data: transient_data, status: 'working')
       else
         update!(transient_data: transient_data)
       end
@@ -247,7 +263,7 @@ module Bot::Barbell
       ]
     end
 
-    def create_successful_transaction!(order_id, rate, amount)
+    def create_successful_transaction!(order_id:, base:, quote:, rate:, amount:)
       bot_quote_amount = settings['quote_amount'].to_f
       interval = settings['interval']
       transactions.create!(
@@ -255,26 +271,30 @@ module Bot::Barbell
         status: :success,
         rate: rate,
         amount: amount,
+        base: base,
+        quote: quote,
         bot_interval: interval,
         bot_price: bot_quote_amount,  # this is the quote amount in the bot settings
         transaction_type: 'REGULAR'
       )
     end
 
-    def create_skipped_transaction!(base_amount, rate)
+    def create_skipped_transaction!(base:, quote:, amount:, rate:)
       bot_quote_amount = settings['quote_amount'].to_f
       interval = settings['interval']
       transactions.create!(
         status: :skipped,
         rate: rate,
-        amount: base_amount,
+        amount: amount,
+        base: base,
+        quote: quote,
         bot_interval: interval,
         bot_price: bot_quote_amount,  # this is the quote amount in the bot settings
         transaction_type: 'REGULAR'
       )
     end
 
-    def create_failed_transaction!(errors: nil, order_id: nil, rate: nil, amount: nil)
+    def create_failed_transaction!(base:, quote:, errors: nil, order_id: nil, rate: nil, amount: nil)
       bot_quote_amount = settings['quote_amount'].to_f
       interval = settings['interval']
       transactions.create!(
@@ -283,6 +303,8 @@ module Bot::Barbell
         status: :failure,
         rate: rate,
         amount: amount,
+        base: base,
+        quote: quote,
         bot_interval: interval,
         bot_price: bot_quote_amount,  # this is the quote amount in the bot settings
         transaction_type: 'REGULAR'
