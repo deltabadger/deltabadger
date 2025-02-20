@@ -1,5 +1,10 @@
 pl:
     devise:
+        layout:
+            title: "Automatyczne portfele dla szukających wolności finansowej"
+            features_html: "DCA &middot; Portfele indeksowe &middot; Rebalancing &middot; Analizator portfela &middot; Akcje i Krypto &middot; Społeczność"
+            review:
+                content: "Jestem super zadowolona z mojego dożywotniego planu Deltabadger, który co godzinę kupuje kryptowaluty, które chcę, dzięki czemu mam czas na ważne rzeczy! Dziękuję za to wspaniałe narzędzie."
         confirmations:
             confirmed: 'Twój adres email został pomyślnie potwierdzony.'
             new:
