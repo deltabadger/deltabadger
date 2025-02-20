@@ -6,121 +6,57 @@
 
 <%= turbo_frame_tag "upgrade-frame" do %>
 
-    <div class="page-head">
-      <%= form_with url: upgrade_path, method: :get, data: { controller: "form--submit", turbo_frame: "upgrade-frame" }, class: "pricing-period-toggle" do |f| %>
-        <% @available_variant_years.each do |years| %>
-          <% selected = years == @selected_years %>
-          <%= tag.label class: "hide_radio_buttons" do %>
-            <%= f.radio_button :years, years, checked: selected, data: { action: "change->form--submit#submit" } %>
-            <span><%= t("subscriptions.variant#{years}") %></span>
-          <% end %>
-          <%= " / " unless years == @available_variant_years.last %>
+  <div class="page-head">
+    <%= form_with url: upgrade_path, method: :get, data: { controller: "form--submit", turbo_frame: "upgrade-frame" }, class: "pricing-period-toggle" do |f| %>
+      <% @available_variant_years.each do |years| %>
+        <% selected = years == @selected_years %>
+        <%= tag.label class: "hide_radio_buttons" do %>
+          <%= f.radio_button :years, years, checked: selected, data: { action: "change->form--submit#submit" } %>
+          <span><%= t("subscriptions.variant#{years}") %></span>
         <% end %>
-      <% end %>
-    </div>
-
-    <%= tag.div class: "pricing" do %>
-      <%= form_with url: upgrade_path, method: :get, data: { controller: "form--submit", turbo_frame: "upgrade-frame" }, html: { class: "pricing__plans" } do |f| %>
-
-        <% @payment_options.each do |available_plan_name, payment_option| %>
-          <% selected = @payment.subscription_plan.name == available_plan_name %>
-          <%= tag.label class: "hide_radio_buttons widget widget--pricing widget--pricing--#{available_plan_name} widget--pricing--#{selected ? 'selected' : 'other'}" do %>
-            <%= f.radio_button :plan_name, available_plan_name, checked: selected, data: { action: "change->form--submit#submit" } %>
-            <%= render partial: "upgrade/plan_cards/#{available_plan_name}", locals: {
-              payment_option_1y: @payment_options_1y[available_plan_name],
-              payment_option: payment_option,
-              legendary_plan: @legendary_plan, # only used in legendary plan card
-            } %>
-          <% end %>
-        <% end %>
-
-      <% end %>
-
-      <%= tag.div class: "pricing__checkout", data: {
-        controller: "zaraz",
-        zaraz_is_purchase_value: @paid_payment.present?,
-        zaraz_currency_value: @paid_payment&.country || @payment.country,
-        zaraz_name_value: plan_variant_name(@paid_payment&.subscription_plan_variant || @payment.subscription_plan_variant),
-        zaraz_price_value: @paid_payment&.price_with_vat || @payment.price_with_vat
-      } do %>
-        <%= render partial: "summary", locals: {
-          payment: @payment,
-          payment_options: @payment_options,
-          legendary_plan: @legendary_plan
-        } %>
-        <%= render partial: "billing_form", locals: { payment: @payment } %>
+        <%= " / " unless years == @available_variant_years.last %>
       <% end %>
     <% end %>
+  </div>
+
+  <%= tag.div class: "pricing" do %>
+    <%= form_with url: upgrade_path, method: :get, data: { controller: "form--submit", turbo_frame: "upgrade-frame" }, html: { class: "pricing__plans" } do |f| %>
+
+      <% @payment_options.each do |available_plan_name, payment_option| %>
+        <% selected = @payment.subscription_plan.name == available_plan_name %>
+        <%= tag.label class: "hide_radio_buttons widget widget--pricing widget--pricing--#{available_plan_name} widget--pricing--#{selected ? 'selected' : 'other'}" do %>
+          <%= f.radio_button :plan_name, available_plan_name, checked: selected, data: { action: "change->form--submit#submit" } %>
+          <%= render partial: "upgrade/plan_cards/#{available_plan_name}", locals: {
+            payment_option_1y: @payment_options_1y[available_plan_name],
+            payment_option: payment_option,
+            legendary_plan: @legendary_plan, # only used in legendary plan card
+          } %>
+        <% end %>
+      <% end %>
+
+    <% end %>
+
+    <%= tag.div class: "pricing__checkout", data: {
+      controller: "zaraz",
+      zaraz_is_purchase_value: @paid_payment.present?,
+      zaraz_currency_value: @paid_payment&.country || @payment.country,
+      zaraz_name_value: plan_variant_name(@paid_payment&.subscription_plan_variant || @payment.subscription_plan_variant),
+      zaraz_price_value: @paid_payment&.price_with_vat || @payment.price_with_vat
+    } do %>
+      <%= render partial: "summary", locals: {
+        payment: @payment,
+        payment_options: @payment_options,
+        legendary_plan: @legendary_plan
+      } %>
+      <%= render partial: "billing_form", locals: { payment: @payment } %>
+    <% end %>
+  <% end %>
+
+
+  <div class="features-grid">
+    <% SubscriptionPlan.feature_list.each do |feature| %>
+      <%= render partial: "upgrade/tile", locals: { feature: feature, selected_plan: @payment.subscription_plan } %>
+    <% end %>
+  </div>
 <% end %>
 
-<div class="features-grid">
-  <div class="feature included">
-    <h2>DCA</h2>
-    <p>DCA is a strategy that involves investing a fixed amount of money at regular intervals, regardless of the price of the asset. This strategy helps reduce the impact of market volatility and allows investors to buy more units when prices are low.</p>
-  </div>
-
-  <div class="feature included">
-    <h2>FeeCutter</h2>
-    <p>Our intelligent order routing system finds the best prices and lowest fees across exchanges, saving you money on every trade.</p>
-  </div>
-
-  <div class="feature included">
-    <h2>Automatic Withdrawals</h2>
-    <p>Set up automated withdrawals to your personal wallet. Keep your crypto secure by regularly moving it off exchanges into cold storage.</p>
-  </div>
-
-  <div class="feature included">
-    <h2>Rebalanced DCA</h2>
-    <p>Automatically rebalance your portfolio while dollar-cost averaging. This strategy helps maintain your target asset allocation while taking advantage of price movements in the market.</p>
-  </div>
-
-  <div class="feature included">
-    <h2>Barbell Strategy</h2>
-    <p>Balance risk and reward by combining very safe and very speculative positions. This strategy helps protect against extreme events while maintaining upside potential.</p>
-  </div>
-
-  <div class="feature">
-    <h2>Crypto Barbell</h2>
-    <p>Balance risk and reward by combining very safe and very speculative positions. This strategy helps protect against extreme events while maintaining upside potential.</p>
-  </div>
-
-  <div class="feature">
-    <h2>Crypto Index</h2>
-    <p>Invest in curated crypto indexes that track different segments of the market. Get broad exposure without having to pick individual assets.</p>
-  </div>
-
-  <div class="feature">
-    <h2>Custom Portfolios</h2>
-    <p>Build and manage your own custom portfolio with precise asset allocations. Full control over your investment strategy.</p>
-  </div>
-
-  <div class="feature">
-    <h2>Portfolio Rebalancing</h2>
-    <p>Automatically rebalance your portfolio to maintain your target asset allocation. This strategy helps protect against extreme events while maintaining upside potential.</p>
-  </div>
-
-  <div class="feature">
-    <h2>Portfolio Backtesting</h2>
-    <p>Test your investment strategies against historical data. See how different approaches would have performed in past market conditions.</p>
-  </div>
-
-  <div class="feature">
-    <h2>Smart Allocation</h2>
-    <p>Get data-driven recommendations for portfolio allocation based on your risk profile and market conditions.</p>
-  </div>
-
-  <div class="feature">
-    <h2>AI Insights</h2>
-    <p>Access AI-powered market analysis and portfolio insights. Make informed decisions backed by advanced analytics.</p>
-  </div>
-
-  <div class="feature">
-    <h2>Fireheads Community</h2>
-    <p>Join a community of crypto investors. Share strategies, discuss market trends, and learn from experienced traders.</p>
-  </div>
-
-    <div class="feature">
-    <h2>Legendary Badger NFT</h2>
-    <p>Own a piece of the BadgerDAO community. The Legendary Badger NFT is a limited edition collectible that grants exclusive access to special events and rewards.</p>
-  </div>
-</div>

@@ -1,0 +1,5 @@
+
+<div class="feature <%= 'included' if selected_plan.features.include?(feature) %> <%= 'unlocked' if current_user.subscription.features.include?(feature) %>">
+  <h2><%= t("subscriptions.features.#{feature}.title") %></h2>
+  <p><%= t("subscriptions.features.#{feature}.description") %></p>
+</div>

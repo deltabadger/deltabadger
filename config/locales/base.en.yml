@@ -558,6 +558,49 @@ en:
         prolong_upgrade: 'Upgrade your plan'
         upgrade: Upgrade
         upgrade_plan: 'Upgrade'
+        features:
+            dca:
+                title: "DCA"
+                description: "DCA is a strategy that involves investing a fixed amount of money at regular intervals, regardless of the price of the asset. This strategy helps reduce the impact of market volatility and allows investors to buy more units when prices are low."
+            fee_cutter:
+                title: "FeeCutter"
+                description: "Our intelligent order routing system finds the best prices and lowest fees across exchanges, saving you money on every trade."
+            automatic_withdrawals:
+                title: "Automatic Withdrawals"
+                description: "Set up automated withdrawals to your personal wallet. Keep your crypto secure by regularly moving it off exchanges into cold storage."
+            rebalanced_dca:
+                title: "Rebalanced DCA"
+                description: "Automatically rebalance your portfolio while dollar-cost averaging. This strategy helps maintain your target asset allocation while taking advantage of price movements in the market."
+            barbell_strategy:
+                title: "Barbell Strategy"
+                description: "Balance risk and reward by combining very safe and very speculative positions. This strategy helps protect against extreme events while maintaining upside potential."
+            crypto_barbell:
+                title: "Crypto Barbell"
+                description: "Balance risk and reward by combining very safe and very speculative positions. This strategy helps protect against extreme events while maintaining upside potential."
+            crypto_index:
+                title: "Crypto Index"
+                description: "Invest in curated crypto indexes that track different segments of the market. Get broad exposure without having to pick individual assets."
+            custom_portfolios:
+                title: "Custom Portfolios"
+                description: "Build and manage your own custom portfolio with precise asset allocations. Full control over your investment strategy."
+            portfolio_rebalancing:
+                title: "Portfolio Rebalancing"
+                description: "Automatically rebalance your portfolio to maintain your target asset allocation. This strategy helps protect against extreme events while maintaining upside potential."
+            portfolio_backtesting:
+                title: "Portfolio Backtesting"
+                description: "Test your investment strategies against historical data. See how different approaches would have performed in past market conditions."
+            smart_allocation:
+                title: "Smart Allocation"
+                description: "Get data-driven recommendations for portfolio allocation based on your risk profile and market conditions."
+            ai_insights:
+                title: "AI Insights"
+                description: "Access AI-powered market analysis and portfolio insights. Make informed decisions backed by advanced analytics."
+            fireheads_community:
+                title: "Fireheads Community"
+                description: "Join a community of crypto investors. Share strategies, discuss market trends, and learn from experienced traders."
+            legendary_badger_nft:
+                title: "Legendary Badger NFT"
+                description: "Own a piece of the BadgerDAO community. The Legendary Badger NFT is a limited edition collectible that grants exclusive access to special events and rewards."
     legendary_badger:
         will_be_sent: "Legendary Badger NFT will be sent to:"
         ethereum_address: "Ethereum address"

@@ -16,6 +16,7 @@ class Subscription < ApplicationRecord
   scope :by_plan_name, ->(name) { joins(:subscription_plan_variant).merge(SubscriptionPlanVariant.where(subscription_plan: SubscriptionPlan.send(name))) } # rubocop:disable Layout/LineLength
 
   include Nftable
+  include PlanFeatures
 
   def initialize(attributes = {})
     super
