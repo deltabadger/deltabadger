@@ -17,6 +17,8 @@ module Subscription::Nftable
     validate :eth_address_is_valid, if: -> { eth_address.present? }
 
     def eth_address_is_valid?
+      return false if eth_address.blank?
+
       Ethereum.valid_address?(eth_address)
     end
 
