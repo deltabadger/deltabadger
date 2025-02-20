@@ -1,4 +1,6 @@
 module ApplicationHelper
+  include Pagy::Frontend
+
   def main_body_classes
     classes = []
     classes << 'view--logged-in' if user_signed_in?

@@ -1,11 +1,11 @@
 class Transaction < ApplicationRecord
   belongs_to :bot
-  enum currency: %i[USD EUR PLN]
   enum status: %i[success failure skipped]
 
+  after_create_commit :broadcast_to_bot
   after_create :set_daily_transaction_aggregate
 
-  scope :for_bot, ->(bot) { where(bot_id: bot.id).order(id: :desc) }
+  scope :for_bot, ->(bot) { where(bot_id: bot.id).order(created_at: :desc) }
   scope :today_for_bot, ->(bot) { for_bot(bot).where('created_at >= ?', Date.today.beginning_of_day) }
   scope :for_bot_by_status, ->(bot, status: :success) { where(bot_id: bot.id).where(status: status).order(created_at: :desc) }
 
@@ -61,4 +61,13 @@ class Transaction < ApplicationRecord
     daily_transaction_aggregate.update(daily_transaction_aggregate_new_data)
   end
   # rubocop:enable Metrics/CyclomaticComplexity, Metrics/PerceivedComplexity
+
+  def broadcast_to_bot
+    transaction_to_remove = Transaction.for_bot(bot).limit(11).last
+    broadcast_render_to(
+      ["bot_#{bot_id}", :transactions],
+      partial: 'barbell_bots/bot/transactions_update',
+      locals: { transaction: self, transaction_to_remove: transaction_to_remove }
+    )
+  end
 end

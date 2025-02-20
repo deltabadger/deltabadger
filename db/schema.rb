@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema.define(version: 2025_02_18_200525) do
+ActiveRecord::Schema.define(version: 2025_02_19_183023) do
 
   # These are extensions that must be enabled in order to support this database
   enable_extension "plpgsql"
@@ -112,9 +112,7 @@ ActiveRecord::Schema.define(version: 2025_02_18_200525) do
     t.string "offer_id"
     t.decimal "rate"
     t.decimal "amount"
-    t.string "market"
     t.integer "status"
-    t.integer "currency"
     t.string "error_messages", default: "[]"
     t.decimal "bot_price", precision: 20, scale: 10, default: "0.0", null: false
     t.string "bot_interval", default: "", null: false
@@ -125,6 +123,8 @@ ActiveRecord::Schema.define(version: 2025_02_18_200525) do
     t.decimal "total_amount", precision: 20, scale: 10, default: "0.0", null: false
     t.decimal "total_value", precision: 20, scale: 10, default: "0.0", null: false
     t.decimal "total_invested", precision: 20, scale: 10, default: "0.0", null: false
+    t.string "base"
+    t.string "quote"
     t.index ["bot_id", "created_at"], name: "index_daily_transaction_aggregates_on_bot_id_and_created_at"
     t.index ["bot_id", "status", "created_at"], name: "dailies_index_status_created_at"
     t.index ["bot_id", "transaction_type", "created_at"], name: "dailies_index_bot_type_created_at"
@@ -236,9 +236,7 @@ ActiveRecord::Schema.define(version: 2025_02_18_200525) do
     t.string "offer_id"
     t.decimal "rate"
     t.decimal "amount"
-    t.string "market"
     t.integer "status"
-    t.integer "currency"
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
     t.string "error_messages", default: "[]"
@@ -246,6 +244,8 @@ ActiveRecord::Schema.define(version: 2025_02_18_200525) do
     t.string "bot_interval", default: "", null: false
     t.string "transaction_type", default: "REGULAR", null: false
     t.string "called_bot_type"
+    t.string "base"
+    t.string "quote"
     t.index ["bot_id", "created_at"], name: "index_transactions_on_bot_id_and_created_at"
     t.index ["bot_id", "status", "created_at"], name: "index_transactions_on_bot_id_and_status_and_created_at"
     t.index ["bot_id", "transaction_type", "created_at"], name: "index_bot_type_created_at"
