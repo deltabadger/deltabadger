@@ -30,8 +30,6 @@ module PlanFeatures
         pro_features
       elsif legendary?
         legendary_features
-      else
-        raise "Unknown subscription plan: #{name}"
       end
     end
 
