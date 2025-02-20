@@ -1,7 +1,7 @@
 .widgets
     border-radius: 2rem
     overflow: hidden
-    
+
 .widget
     background: var(--widget-background)
     padding: 3rem
@@ -39,8 +39,16 @@
     &--table
         padding: 0
         overflow: hidden
+        max-height: 510px
+        overflow-y: auto
         table
             margin-bottom: 0
+        thead
+            position: sticky
+            top: 0
+            background-color: var(--widget-background)
+        tbody
+            overflow-y: auto
         td, th
             padding: 1.5rem 0 1.5rem 3rem
             @media only screen and (max-width: 549.9px)

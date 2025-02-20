@@ -15,7 +15,7 @@
   <div class="column gap-2">
     <%= render partial: "barbell_bots/bot/settings", locals: { bot: @barbell_bot } %>
     <%= render partial: "barbell_bots/bot/exchange", locals: { bot: @barbell_bot } %>
-    <%= render partial: "barbell_bots/bot/settings_extra" %>
+    <%# <%= render partial: "barbell_bots/bot/settings_extra" %>
   </div>
   <div class="column gap-2">
     <% if @barbell_bot.nil? %>
@@ -28,7 +28,7 @@
     <% else %>
       <%= render partial: "barbell_bots/bot/chart" %>
       <%= render partial: "barbell_bots/bot/metrics" %>
-      <%= render partial: "barbell_bots/bot/orders", locals: { bot: @barbell_bot, pagy: @pagy, transactions: @transactions } %>
+      <%= render partial: "barbell_bots/bot/transactions_list", locals: { bot: @barbell_bot } %>
     <% end %>
   </div>
 </div>

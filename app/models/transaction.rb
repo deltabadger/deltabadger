@@ -63,11 +63,10 @@ class Transaction < ApplicationRecord
   # rubocop:enable Metrics/CyclomaticComplexity, Metrics/PerceivedComplexity
 
   def broadcast_to_bot
-    transaction_to_remove = Transaction.for_bot(bot).limit(11).last
     broadcast_render_to(
       ["bot_#{bot_id}", :transactions],
-      partial: 'barbell_bots/bot/transactions_update',
-      locals: { transaction: self, transaction_to_remove: transaction_to_remove }
+      partial: 'barbell_bots/bot/transaction_update',
+      locals: { transaction: self }
     )
   end
 end

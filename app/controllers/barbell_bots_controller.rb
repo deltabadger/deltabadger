@@ -29,7 +29,7 @@ class BarbellBotsController < ApplicationController
 
   def show
     @barbell_bot = current_user.bots.barbell.find(params[:id])
-    @pagy, @transactions = pagy(Transaction.for_bot(@barbell_bot), items: 10)
+    @pagy, @transactions = pagy_countless(Transaction.for_bot(@barbell_bot), items: 10)
     return if trader_key_id_for_user(@barbell_bot.exchange).present?
 
     @api_key = ApiKey.new(user: current_user, exchange: @barbell_bot.exchange)

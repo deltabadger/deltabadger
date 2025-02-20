@@ -114,6 +114,7 @@ Rails.application.routes.draw do
       post :create_api_keys, on: :collection
       post :start, on: :member
       post :stop, on: :member
+      post :show, on: :member
     end
     resources :bots, only: [:show, :index] do
       get :show, on: :collection

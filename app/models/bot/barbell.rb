@@ -180,8 +180,12 @@ module Bot::Barbell
     def next_quote_amount
       quote_amount = settings['quote_amount'].to_f
       interval = settings['interval']
-      pending_quote_amount = transient_data['pending_quote_amount'] || 0
-      last_scheduled_orders_at = transient_data['last_scheduled_orders_at'] || started_at
+      pending_quote_amount = transient_data['pending_quote_amount']&.to_f || 0
+      last_scheduled_orders_at = if transient_data['last_scheduled_orders_at'].present?
+                                   DateTime.parse(transient_data['last_scheduled_orders_at'])
+                                 else
+                                   started_at
+                                 end
       intervals_since_last_scheduled_orders = ((Time.current - last_scheduled_orders_at) / 1.public_send(interval)).floor
       missed_quote_amount = quote_amount * intervals_since_last_scheduled_orders
       pending_quote_amount + missed_quote_amount
