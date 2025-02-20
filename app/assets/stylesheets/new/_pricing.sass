@@ -4,9 +4,10 @@
     gap: 2rem
     &__plans
         display: grid
-        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr))
+        grid-template-columns: repeat(auto-fit, minmax(100px, 1fr))
         grid-template-rows: 1fr
         gap: 2px
+        flex: 1
         .widget
             padding: 3.25rem 3rem
             &:first-child
@@ -110,10 +111,6 @@
                     top: .25rem
         p, ul
             margin-bottom: 0
-        &__info
-            display: flex
-            flex-direction: column
-            gap: 2rem
         &__legendary-plans-left
             font-weight: 600
             color: var(--success) !important
@@ -170,7 +167,7 @@
   position: absolute
 // hide radio buttons for the tabs, guillem workaround
 
-@media only screen and (max-width: 1279.9px)
+@media only screen and (max-width: 1023.9px)
     .pricing
         &__plans
             grid-template-columns: 1fr
