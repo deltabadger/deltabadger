@@ -1,5 +1,10 @@
 fr:
     devise:
+        layout:
+            title: "Portefeuilles automatisés pour ceux qui cherchent la liberté financière"
+            features_html: "DCA &middot; Portefeuilles indiciels &middot; Rééquilibrage &middot; Analyseur de portefeuille &middot; Actions & Crypto &middot; Communauté"
+            review:
+                content: "Je suis super contente de mon plan à vie Deltabadger, qui achète toutes les heures les cryptos que je veux, donc j'ai du temps pour les choses importantes ! Merci pour cet outil formidable."
         confirmations:
             confirmed: 'Votre adresse e-mail a été confirmée avec succès.'
             new:

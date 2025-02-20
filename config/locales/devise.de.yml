@@ -1,5 +1,10 @@
 de:
     devise:
+        layout:
+            title: "Automatisierte Portfolios für Menschen, die finanzielle Freiheit suchen"
+            features_html: "DCA &middot; Index-Portfolios &middot; Rebalancing &middot; Portfolio-Analyse &middot; Aktien & Krypto &middot; Community"
+            review:
+                content: "Ich bin super glücklich mit meinem Deltabadger Lifetime-Plan, der stündlich die Kryptowährungen kauft, die ich möchte. So habe ich Zeit für die wichtigen Dinge! Danke für dieses wunderbare Tool."
         confirmations:
             confirmed: 'Ihre E-Mail-Adresse wurde erfolgreich bestätigt.'
             new:
