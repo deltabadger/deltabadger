@@ -505,11 +505,11 @@ en:
             <p>The NFT you receive turns your subscription into an asset you can transfer or sell. Each token comes with unique procedural artwork, featuring 21 hidden <i>easter eggs</i> in <a href="https://legendarybadgers.com/" class="nobreak">the collection</a>.</p>
         legendary_plan_left: "%{for_sale_count} of %{total_supply} left"
         features:
-            analyzer_html: "Prism: Portfolio Tester"
-            dca: "DCA bots"
-            price_limit: "Price limit"
-            fee_cutter: "FeeCutter"
+            dca: "DCA"
             withdrawals: "Auto-withdrawals"
+            barbell: "Barbell Rebalancing"
+            indexing: "Portfolio Rebalancing"
+            analyzer: "Portfolio Analyzer"
         analyzer_html: "Boost your portfolio with the unlimited power of the Prism: Portfolio Tester."
         expires_soon_html: "We're building fast now, so here are the most important things coming to the Pro plan: <b>portfolio monitoring</b> across all the markets, <b>portfolio rebalancing</b> powered by the Analyzer, <b>synchronizing</b> for existing accounts.</b>"
         payment:
@@ -527,7 +527,7 @@ en:
             compensation:
                 one: "Compensation for <b>1</b> unused day of the %{plan} plan."
                 other: "Compensation for <b>%{count}</b> unused days of the %{plan} plan."
-            legendary_plan_discount_html: "The price goes up %{amount} with every sale."
+            legendary_plan_discount_html: "The price goes up %{amount} every sale."
             eu_bank_country: "Belgium"
             invalid_vat_number: "Invalid EU VAT number"
             paid_with_wire_transfer: "I've sent the SEPA transfer"

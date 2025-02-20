@@ -10,6 +10,7 @@ class SubscriptionPlan < ApplicationRecord
   has_many :subscription_plan_variants, dependent: :destroy
 
   include PlanStats
+  include PlanFeatures
 
   def self.free
     all_subscription_plans[FREE_PLAN]
