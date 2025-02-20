@@ -1,4 +1,4 @@
-module PlanFeatures
+module SubscriptionPlan::PlanFeatures
   extend ActiveSupport::Concern
 
   included do # rubocop:disable Metrics/BlockLength

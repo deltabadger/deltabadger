@@ -11,12 +11,12 @@ class Subscription < ApplicationRecord
   delegate :basic?, to: :subscription_plan_variant
   delegate :pro?, to: :subscription_plan_variant
   delegate :legendary?, to: :subscription_plan_variant
+  delegate :features, to: :subscription_plan_variant
 
   scope :active, -> { where('end_time IS NULL OR end_time > ?', Time.current) }
   scope :by_plan_name, ->(name) { joins(:subscription_plan_variant).merge(SubscriptionPlanVariant.where(subscription_plan: SubscriptionPlan.send(name))) } # rubocop:disable Layout/LineLength
 
   include Nftable
-  include PlanFeatures
 
   def initialize(attributes = {})
     super
