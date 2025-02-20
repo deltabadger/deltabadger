@@ -1,0 +1,38 @@
+nl:
+    features:
+        dca:
+            title: "DCA"
+            description_html: "Onze klassieke dollar-cost averaging bot voor crypto exchanges. De eerste bot is gratis."
+        fee_cutter:
+            title: "FeeCutter"
+            description_html: "Is de fee 0,5%? Stel je bot in om 0,5% onder de huidige prijs te kopen, en betaal niets."
+        automatic_withdrawals:
+            title: "Automatische Opnames"
+            description_html: "Verplaats je crypto automatisch naar je hardware wallet. Werkt met Kraken."
+        rebalanced_dca:
+            title: "Geherbalanceerde DCA"
+            description_html: "Wil je dat je portfolio 80% Bitcoin en 20% Ethereum blijft? Geherbalanceerde DCA houdt je doelallocatie aan."
+        barbell_strategy:
+            title: "Barbell Strategie"
+            description_html: "De klassieke barbell balanceert tussen risicovolle en veilige assets zoals BTC en USDC, maar je kunt elk beschikbaar paar assets kiezen."
+        crypto_index:
+            title: "Crypto Index"
+            description_html: "Bescherm jezelf tegen single-asset risico. Investeer in maximaal 100 top assets op basis van marktkapitalisatie. Creëer je persoonlijke crypto ETF."
+        custom_portfolios:
+            title: "Aangepaste Portfolio's"
+            description_html: "Ben je op zoek naar het Altcoin Seizoen? Sluit Bitcoin uit van je index of maak een aangepaste portfolio."
+        portfolio_rebalancing:
+            title: "Portfolio Herbalancering"
+            description_html: "Behoud je doelallocatie door je portfolio periodiek te herbalanceren. Profiteer van premies door volatiliteit harvesting of behoud simpelweg het risicoprofiel van je portfolio."
+        portfolio_backtesting:
+            title: "Portfolio Backtesting"
+            description_html: "Test elke portfolio van aandelen en crypto, van Vanguard ETFs tot DeFi tokens."
+        smart_allocation:
+            title: "Slimme Allocatie"
+            description_html: "Vind de asset allocatie met de laagste volatiliteit voor elke portfolio van aandelen en crypto."
+        ai_insights:
+            title: "AI Inzichten"
+            description_html: "Ontdek de sterke en zwakke punten van je portfolio en krijg bruikbare inzichten over hoe je het kunt verbeteren."
+        legendary_badger_nft:
+            title: "Legendary Badger NFT"
+            description_html: "Elk Legendary abonnement krijgt naast levenslange toegang tot alle functies een gelimiteerde <a href=\"https://legendarybadger.com\" target=\"_blank\" alt=\"Bekijk de collectie\">Legendary Badger NFT</a>." 

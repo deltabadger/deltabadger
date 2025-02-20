@@ -1,0 +1,38 @@
+pt:
+    features:
+        dca:
+            title: "DCA"
+            description_html: "O nosso clássico bot de média de custo em dólares para exchanges de criptomoedas. O primeiro bot é gratuito."
+        fee_cutter:
+            title: "FeeCutter"
+            description_html: "A taxa é de 0,5%? Configure o seu bot para comprar 0,5% abaixo do preço atual e não pague nada."
+        automatic_withdrawals:
+            title: "Levantamentos Automáticos"
+            description_html: "Transfira automaticamente as suas criptomoedas para a sua carteira hardware. Funciona com Kraken."
+        rebalanced_dca:
+            title: "DCA Rebalanceado"
+            description_html: "Quer que a sua carteira mantenha 80% em Bitcoin e 20% em Ethereum? O DCA rebalanceado manterá a sua alocação alvo."
+        barbell_strategy:
+            title: "Estratégia Barbell"
+            description_html: "A estratégia barbell clássica equilibra entre ativos arriscados e seguros como BTC e USDC, mas pode escolher quaisquer dois ativos disponíveis."
+        crypto_index:
+            title: "Índice Cripto"
+            description_html: "Proteja-se do risco de um único ativo. Invista em até 100 principais ativos por capitalização de mercado. Crie o seu ETF cripto pessoal."
+        custom_portfolios:
+            title: "Carteiras Personalizadas"
+            description_html: "Está à procura da temporada das Altcoins? Exclua Bitcoin do seu índice ou crie qualquer carteira personalizada."
+        portfolio_rebalancing:
+            title: "Rebalanceamento de Carteira"
+            description_html: "Mantenha a alocação alvo rebalanceando a sua carteira periodicamente. Aproveite os prémios do aproveitamento da volatilidade ou simplesmente mantenha o perfil de risco da sua carteira."
+        portfolio_backtesting:
+            title: "Backtesting de Carteira"
+            description_html: "Faça backtesting de qualquer carteira de ações e criptomoedas, desde ETFs da Vanguard até tokens DeFi."
+        smart_allocation:
+            title: "Alocação Inteligente"
+            description_html: "Encontre a alocação de ativos com a menor volatilidade para qualquer carteira de ações e criptomoedas."
+        ai_insights:
+            title: "Insights de IA"
+            description_html: "Descubra os pontos fortes e fracos da sua carteira e obtenha informações práticas sobre como melhorá-la."
+        legendary_badger_nft:
+            title: "Legendary Badger NFT"
+            description_html: "Cada subscrição Legendary, além do acesso vitalício a todas as funcionalidades, recebe um <a href=\"https://legendarybadger.com\" target=\"_blank\" alt=\"Ver a coleção\">Legendary Badger NFT</a> limitado." 

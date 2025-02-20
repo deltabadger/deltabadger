@@ -1,0 +1,38 @@
+de:
+    features:
+        dca:
+            title: "DCA"
+            description_html: "Unser klassischer Dollar-Cost-Averaging-Bot für Kryptobörsen. Der erste Bot ist kostenlos."
+        fee_cutter:
+            title: "FeeCutter"
+            description_html: "Die Gebühr beträgt 0,5%? Stellen Sie Ihren Bot so ein, dass er 0,5% unter dem aktuellen Preis kauft, und zahlen Sie nichts."
+        automatic_withdrawals:
+            title: "Automatische Auszahlungen"
+            description_html: "Übertragen Sie Ihre Kryptowährungen automatisch auf Ihre Hardware-Wallet. Funktioniert mit Kraken."
+        rebalanced_dca:
+            title: "Ausbalanciertes DCA"
+            description_html: "Möchten Sie, dass Ihr Portfolio zu 80% aus Bitcoin und zu 20% aus Ethereum besteht? Ausbalanciertes DCA hält Ihre Zielallokation ein."
+        barbell_strategy:
+            title: "Barbell-Strategie"
+            description_html: "Die klassische Barbell-Strategie balanciert zwischen risikoreichen und sicheren Assets wie BTC und USDC, aber Sie können beliebige zwei verfügbare Assets wählen."
+        crypto_index:
+            title: "Krypto-Index"
+            description_html: "Schützen Sie sich vor Einzelasset-Risiken. Investieren Sie in bis zu 100 Top-Assets nach Marktkapitalisierung. Erstellen Sie Ihren persönlichen Krypto-ETF."
+        custom_portfolios:
+            title: "Individuelle Portfolios"
+            description_html: "Sind Sie auf der Jagd nach der Altcoin-Saison? Schließen Sie Bitcoin von Ihrem Index aus oder erstellen Sie ein beliebiges individuelles Portfolio."
+        portfolio_rebalancing:
+            title: "Portfolio-Rebalancing"
+            description_html: "Halten Sie die Zielallokation durch regelmäßiges Rebalancing Ihres Portfolios ein. Nutzen Sie Prämien durch Volatilitäts-Harvesting oder behalten Sie einfach das Risikoprofil Ihres Portfolios bei."
+        portfolio_backtesting:
+            title: "Portfolio-Backtesting"
+            description_html: "Testen Sie jedes Portfolio von Aktien und Krypto von Vanguard ETFs bis hin zu DeFi-Token."
+        smart_allocation:
+            title: "Intelligente Allokation"
+            description_html: "Finden Sie die Vermögensallokation mit der niedrigsten Volatilität für jedes Portfolio aus Aktien und Krypto."
+        ai_insights:
+            title: "KI-Einblicke"
+            description_html: "Entdecken Sie Stärken und Schwächen Ihres Portfolios und erhalten Sie umsetzbare Erkenntnisse zur Verbesserung."
+        legendary_badger_nft:
+            title: "Legendary Badger NFT"
+            description_html: "Jedes Legendary-Abonnement erhält neben dem lebenslangen Zugang zu allen Funktionen ein limitiertes <a href=\"https://legendarybadger.com\" target=\"_blank\" alt=\"Siehe die Kollektion\">Legendary Badger NFT</a>." 

@@ -1,0 +1,42 @@
+.features-grid
+    display: grid
+    grid-template-columns: repeat(auto-fit, minmax(400px, 1fr))
+    gap: 2rem
+    padding-top: 4rem
+
+.feature
+    padding: 2.5rem 3rem
+    border-radius: 2rem
+    border: 1px solid var(--label)
+    opacity: .5
+    position: relative
+    h2
+        font-size: 2.5rem
+        margin-bottom: 2rem
+        padding-bottom: 0
+        text-align: center
+    p
+        text-align: center
+    svg
+        position: absolute
+        top: 3rem
+        right: 3rem
+        width: 3rem
+        height: 3rem
+    .sbadge
+        position: relative
+        top: -0.35rem
+    &:not(.included)
+        .sbadge
+            background: var(--text)
+            opacity: .5
+    &.included
+        background: var(--widget-background)
+        border-color: transparent
+        opacity: 1
+        h2
+            color: var(--link)
+    &--legendary
+        // &.included
+        //     background: linear-gradient(to right, #f0f5, #00f5) !important
+        //     background-size: 120% !important

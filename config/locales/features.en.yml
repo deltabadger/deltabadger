@@ -1,0 +1,39 @@
+en:
+    features:
+        dca:
+            title: "DCA"
+            description_html: "Our classic dollar-cost averaging bot for crypto exchanges. The first bot is free."
+        fee_cutter:
+            title: "FeeCutter"
+            description_html: "The fee is 0.5%? Set your bot to buy 0.5% below the current price, and pay zero."
+        automatic_withdrawals:
+            title: "Automatic Withdrawals"
+            description_html: "Automatically transfer your crypto to your hardware wallet. Works with Kraken."
+        rebalanced_dca:
+            title: "Rebalanced DCA"
+            description_html: "Do you want your portfolio to stay 80% Bitcoin and 20% Ethereum? Rebalanced DCA will keep your target allocation."
+        barbell_strategy:
+            title: "Barbell Strategy"
+            description_html: "The classic barbell balances between risky and safe asset like BTC and USDC, but you can choose any two assets available."
+        crypto_index:
+            title: "Crypto Index"
+            description_html: "Stay safe from a single asset risk. Invest in up to 100 top assets by market cap. Create your personal crypto ETF."
+        custom_portfolios:
+            title: "Custom Portfolios"
+            description_html: "Are you hunting for Altcoin Season? Exclude Bitcoin from your index, or create any custom portfolio."
+        portfolio_rebalancing:
+            title: "Portfolio Rebalancing"
+            description_html: "Keep target allocation by rebalancing your portfolio periodically. Hunt premium from volatility harvesting or simply mantain the risk profile of your portfolio."
+        portfolio_backtesting:
+            title: "Portfolio Backtesting"
+            description_html: "Backtest any portfolio of stocks and crypto from Vanguard ETFs to DeFi tokens."
+        smart_allocation:
+            title: "Smart Allocation"
+            description_html: "Find asset allocation with the lowest volatility for any portfolio of stocks and crypto."
+        ai_insights:
+            title: "AI Insights"
+            description_html: "Discover strengths and weaknesses of your portfolio, and get actionable insights on how to improve it."
+        legendary_badger_nft:
+            title: "Legendary Badger NFT"
+            description_html: |
+                Each Legendary subscription, besides lifetime access to all features, gets a limited <a href="https://legendarybadger.com" target="_blank" alt="See the collection">Legendary Badger NFT</a>.

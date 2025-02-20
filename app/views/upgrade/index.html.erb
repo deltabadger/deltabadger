@@ -6,49 +6,57 @@
 
 <%= turbo_frame_tag "upgrade-frame" do %>
 
-    <div class="page-head">
-      <%= form_with url: upgrade_path, method: :get, data: { controller: "form--submit", turbo_frame: "upgrade-frame" }, class: "pricing-period-toggle" do |f| %>
-        <% @available_variant_years.each do |years| %>
-          <% selected = years == @selected_years %>
-          <%= tag.label class: "hide_radio_buttons" do %>
-            <%= f.radio_button :years, years, checked: selected, data: { action: "change->form--submit#submit" } %>
-            <span><%= t("subscriptions.variant#{years}") %></span>
-          <% end %>
-          <%= " / " unless years == @available_variant_years.last %>
+  <div class="page-head">
+    <%= form_with url: upgrade_path, method: :get, data: { controller: "form--submit", turbo_frame: "upgrade-frame" }, class: "pricing-period-toggle" do |f| %>
+      <% @available_variant_years.each do |years| %>
+        <% selected = years == @selected_years %>
+        <%= tag.label class: "hide_radio_buttons" do %>
+          <%= f.radio_button :years, years, checked: selected, data: { action: "change->form--submit#submit" } %>
+          <span><%= t("subscriptions.variant#{years}") %></span>
         <% end %>
-      <% end %>
-    </div>
-
-    <%= tag.div class: "pricing" do %>
-      <%= form_with url: upgrade_path, method: :get, data: { controller: "form--submit", turbo_frame: "upgrade-frame" }, html: { class: "pricing__plans" } do |f| %>
-
-        <% @payment_options.each do |available_plan_name, payment_option| %>
-          <% selected = @payment.subscription_plan.name == available_plan_name %>
-          <%= tag.label class: "hide_radio_buttons widget widget--pricing widget--pricing--#{available_plan_name} widget--pricing--#{selected ? 'selected' : 'other'}" do %>
-            <%= f.radio_button :plan_name, available_plan_name, checked: selected, data: { action: "change->form--submit#submit" } %>
-            <%= render partial: "upgrade/plan_cards/#{available_plan_name}", locals: {
-              payment_option_1y: @payment_options_1y[available_plan_name],
-              payment_option: payment_option,
-              legendary_plan: @legendary_plan, # only used in legendary plan card
-            } %>
-          <% end %>
-        <% end %>
-
-      <% end %>
-
-      <%= tag.div class: "pricing__checkout", data: {
-        controller: "zaraz",
-        zaraz_is_purchase_value: @paid_payment.present?,
-        zaraz_currency_value: @paid_payment&.country || @payment.country,
-        zaraz_name_value: plan_variant_name(@paid_payment&.subscription_plan_variant || @payment.subscription_plan_variant),
-        zaraz_price_value: @paid_payment&.price_with_vat || @payment.price_with_vat
-      } do %>
-        <%= render partial: "summary", locals: {
-          payment: @payment,
-          payment_options: @payment_options,
-          legendary_plan: @legendary_plan
-        } %>
-        <%= render partial: "billing_form", locals: { payment: @payment } %>
+        <%= " / " unless years == @available_variant_years.last %>
       <% end %>
     <% end %>
+  </div>
+
+  <%= tag.div class: "pricing" do %>
+    <%= form_with url: upgrade_path, method: :get, data: { controller: "form--submit", turbo_frame: "upgrade-frame" }, html: { class: "pricing__plans" } do |f| %>
+
+      <% @payment_options.each do |available_plan_name, payment_option| %>
+        <% selected = @payment.subscription_plan.name == available_plan_name %>
+        <%= tag.label class: "hide_radio_buttons widget widget--pricing widget--pricing--#{available_plan_name} widget--pricing--#{selected ? 'selected' : 'other'}" do %>
+          <%= f.radio_button :plan_name, available_plan_name, checked: selected, data: { action: "change->form--submit#submit" } %>
+          <%= render partial: "upgrade/plan_cards/#{available_plan_name}", locals: {
+            payment_option_1y: @payment_options_1y[available_plan_name],
+            payment_option: payment_option,
+            legendary_plan: @legendary_plan, # only used in legendary plan card
+          } %>
+        <% end %>
+      <% end %>
+
+    <% end %>
+
+    <%= tag.div class: "pricing__checkout", data: {
+      controller: "zaraz",
+      zaraz_is_purchase_value: @paid_payment.present?,
+      zaraz_currency_value: @paid_payment&.country || @payment.country,
+      zaraz_name_value: plan_variant_name(@paid_payment&.subscription_plan_variant || @payment.subscription_plan_variant),
+      zaraz_price_value: @paid_payment&.price_with_vat || @payment.price_with_vat
+    } do %>
+      <%= render partial: "summary", locals: {
+        payment: @payment,
+        payment_options: @payment_options,
+        legendary_plan: @legendary_plan
+      } %>
+      <%= render partial: "billing_form", locals: { payment: @payment } %>
+    <% end %>
+  <% end %>
+
+  <h1 style="font-size: 3.5rem; text-align: center; margin: 6.5rem 0 0 0;">Features:</h1>
+
+  <div class="features-grid">
+    <% SubscriptionPlan.feature_list.each do |feature| %>
+      <%= render partial: "upgrade/tile", locals: { feature: feature, selected_plan: @payment.subscription_plan } %>
+    <% end %>
+  </div>
 <% end %>
