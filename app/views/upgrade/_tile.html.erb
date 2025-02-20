@@ -1,5 +1,10 @@
-
-<div class="feature <%= 'included' if selected_plan.features.include?(feature) %> <%= 'unlocked' if current_user.subscription.features.include?(feature) %>">
-  <h2><%= t("subscriptions.features.#{feature}.title") %></h2>
-  <p><%= t("subscriptions.features.#{feature}.description") %></p>
+<div class="feature 
+  <%= 'included' if selected_plan.features.include?(feature) %> 
+  <%= 'unlocked' if current_user.subscription.features.include?(feature) %>
+  <%= 'feature--bots' if selected_plan.bots_features.include?(feature) %>
+  <%= 'feature--analyzer' if selected_plan.analyzer_features.include?(feature) %>
+  <%= 'feature--legendary' if selected_plan.nft_features.include?(feature) %>">
+  <%= render "upgrade/features/#{feature}" rescue nil %>
+  <h2><%= t("features.#{feature}.title") %> <%= tag.span(t('utils.soon'), class: 'sbadge sbadge--soon') if selected_plan.coming_features.include?(feature) %></h2>
+  <p><%= t("features.#{feature}.description_html") %></p>
 </div>

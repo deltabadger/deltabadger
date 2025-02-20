@@ -9,15 +9,50 @@ module SubscriptionPlan::PlanFeatures
         automatic_withdrawals
         rebalanced_dca
         barbell_strategy
-        crypto_barbell
         crypto_index
         custom_portfolios
         portfolio_rebalancing
         portfolio_backtesting
         smart_allocation
         ai_insights
-        fireheads_community
         legendary_badger_nft
+      ]
+    end
+
+    def nft_features
+      %w[
+        legendary_badger_nft
+      ]
+    end
+
+    def bots_features
+      %w[
+        dca
+        fee_cutter
+        automatic_withdrawals
+        rebalanced_dca
+        barbell_strategy
+        crypto_index
+        custom_portfolios
+        portfolio_rebalancing
+      ]
+    end
+
+    def analyzer_features
+      %w[
+        portfolio_backtesting
+        smart_allocation
+        ai_insights
+      ]
+    end
+
+    def coming_features
+      %w[
+        rebalanced_dca
+        barbell_strategy
+        crypto_index
+        custom_portfolios
+        portfolio_rebalancing
       ]
     end
 
@@ -47,19 +82,17 @@ module SubscriptionPlan::PlanFeatures
         automatic_withdrawals
         rebalanced_dca
         barbell_strategy
-        crypto_barbell
-        crypto_index
       ]
     end
 
     def pro_features
       basic_features + %w[
+        crypto_index
         custom_portfolios
         portfolio_rebalancing
         portfolio_backtesting
         smart_allocation
         ai_insights
-        fireheads_community
       ]
     end
 

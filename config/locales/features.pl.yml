@@ -1,0 +1,38 @@
+pl:
+    features:
+        dca:
+            title: "DCA"
+            description_html: "Nasz klasyczny bot do uśredniania kosztów w dolarach dla giełd kryptowalut. Pierwszy bot jest za darmo."
+        fee_cutter:
+            title: "FeeCutter"
+            description_html: "Opłata wynosi 0,5%? Ustaw bota na zakup 0,5% poniżej aktualnej ceny i nie płać nic."
+        automatic_withdrawals:
+            title: "Automatyczne Wypłaty"
+            description_html: "Automatycznie przenoś swoje kryptowaluty do portfela sprzętowego. Działa z Kraken."
+        rebalanced_dca:
+            title: "Zbalansowane DCA"
+            description_html: "Chcesz, aby Twoje portfolio utrzymywało 80% w Bitcoin i 20% w Ethereum? Zbalansowane DCA utrzyma Twoją docelową alokację."
+        barbell_strategy:
+            title: "Strategia Barbell"
+            description_html: "Klasyczna strategia barbell równoważy między ryzykownymi a bezpiecznymi aktywami jak BTC i USDC, ale możesz wybrać dowolne dwa dostępne aktywa."
+        crypto_index:
+            title: "Indeks Krypto"
+            description_html: "Chroń się przed ryzykiem pojedynczego aktywa. Inwestuj w do 100 najlepszych aktywów według kapitalizacji rynkowej. Stwórz swój osobisty ETF krypto."
+        custom_portfolios:
+            title: "Niestandardowe Portfele"
+            description_html: "Polujesz na Altcoin Season? Wyklucz Bitcoin ze swojego indeksu lub stwórz dowolne niestandardowe portfolio."
+        portfolio_rebalancing:
+            title: "Rebalancing Portfela"
+            description_html: "Utrzymuj docelową alokację poprzez okresowe rebalansowanie portfela. Zbieraj premium wynikające ze zmienności lub po prostu utrzymuj profil ryzyka swojego portfela."
+        portfolio_backtesting:
+            title: "Backtesting Portfela"
+            description_html: "Testuj dowolne portfolio akcji i kryptowalut, od ETF-ów Vanguard po tokeny DeFi."
+        smart_allocation:
+            title: "Inteligentna Alokacja"
+            description_html: "Znajdź alokację aktywów o najniższej zmienności dla dowolnego portfela akcji i kryptowalut."
+        ai_insights:
+            title: "Analizy AI"
+            description_html: "Odkryj mocne i słabe strony swojego portfela i otrzymaj praktyczne wskazówki, jak go ulepszyć."
+        legendary_badger_nft:
+            title: "Legendary Badger NFT"
+            description_html: "Każda subskrypcja Legendary, oprócz dożywotniego dostępu do wszystkich funkcji, otrzymuje limitowany <a href=\"https://legendarybadger.com\" target=\"_blank\" alt=\"Zobacz kolekcję\">Legendary Badger NFT</a>." 
