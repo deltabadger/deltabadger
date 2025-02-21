@@ -383,7 +383,7 @@ es:
             title: Contacto
     links:
         about: 'Acerca de'
-        about_html: 'Acerca del <span class="d-none d-xl-inline">proyecto</span>'
+        analyzer: 'Analizador'
         calculator: 'Calculadora'
         community: 'Comunidad Fireheads'
         contact: Contacto
@@ -475,16 +475,6 @@ es:
             other: '%{count} días disponibles'
         basic_info: 'Sin adornos, solo emociones, pero hace el trabajo.'
         pro_info: 'Obtén una vista general, información detallada y características Pro.'
-        legendary_badger_info_html: '<p>Obtén todas las funciones actuales y futuras del plan Pro de por vida.</p><p>¿Te gusta pagar una vez y obtenerlo todo? Únete a nuestro exclusivo club de 1,000 pensadores a largo plazo con manos de diamante y visión, y crea tu propia leyenda.</p><p>El NFT que recibes convierte tu suscripción en un activo que puedes transferir o vender. Cada token viene con una obra de arte procedural única, con 21 <i>easter eggs</i> ocultos en <a href="https://legendarybadgers.com/" class="nobreak">la colección</a>.</p>'
-        legendary_plan_left: "Quedan %{for_sale_count} de %{total_supply}"
-        features:
-            analyzer_html: 'Prism: Analizador de Cartera'
-            dca: 'Bots DCA'
-            price_limit: 'Límite de precio'
-            fee_cutter: 'Cortador de tarifas'
-            withdrawals: 'Retiros automáticos'
-        analyzer_html: 'Mejora tu cartera con el poder ilimitado del <b>Analizador de Cartera</b>.'
-        expires_soon_html: 'Estamos construyendo rápidamente ahora, por lo que estas son las cosas más importantes que están por llegar al plan Pro: <b>monitoreo de cartera</b> en todos los mercados, <b>reequilibrio de cartera</b> impulsado por el Analizador, <b>sincronización</b> para cuentas existentes.'
         payment:
             price_usd_html: '<span class=price-ticker>%{symbol}</span><span class=price-amount>%{price}</span>'
             price_eur_html: '<span class=price-ticker>%{symbol}</span><span class=price-amount>%{price}</span>'
@@ -537,17 +527,9 @@ es:
     welcome:
         banner_html: |
             <p>¡Bienvenido a bordo, %{name}!</p>
-            <p>Para que aproveches al máximo Deltabadger, envío pequeñas gotas de conocimiento de inversión directamente a tu buzón:</p>
-            <ol>
-                <li>Ve a tu buzón de correo.</li>
-                <li>Busca un correo mío.</li>
-                <li>Responde con <b>FIRE</b>.</li>
-            </ol>
-            <p>Eso mantiene alejadas a las criaturas del pantano del banco central para que no capturen nuestra comunicación.</p>
-            <p>Gracias, Jan</p>
-        default: 'Hola, bienvenido a Deltabadger'
-        legendary: '¡Los NFts llegarán pronto!'
-        free: '¡Deshazte de los límites y haz una actualización!'
+            <p>La nueva página de actualización es un excelente lugar para ver todas las funciones y los planes a los que pertenecen.</p>
+            <p><a class="btn btn-success btn-lg mt-3 mb-3" href="upgrade">Empieza aquí</a></p>
+            <p>Saludos, Jan</p>
     metrics:
         exp_return:
             short_name: 'Rend. Esp.'
