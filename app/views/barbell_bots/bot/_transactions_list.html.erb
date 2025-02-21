@@ -1,14 +1,20 @@
 <div class="widget widget--single widget--table">
-  <table class="table table-borderless table-striped">
-    <thead>
-      <tr>
-        <th scope="col"><%= t('data_labels.date') %></th>
-        <th scope="col"><%= t('amount') %></th>
-        <th scope="col"><%= t('value') %></th>
-      </tr>
-    </thead>
-    <tbody id="bot_<%= bot.id %>_transactions">
-    </tbody>
-  </table>
-  <%= turbo_frame_tag "transactions-pagination", src: barbell_bot_path(format: :turbo_stream), loading: :lazy %>
+  <% if bot.transactions.any? %>
+    <table class="table table-borderless table-striped">
+      <thead>
+        <tr>
+          <th scope="col"><%= t('data_labels.date') %></th>
+          <th scope="col"><%= t('amount') %></th>
+          <th scope="col"><%= t('value') %></th>
+        </tr>
+      </thead>
+      <tbody id="bot_<%= bot.id %>_transactions">
+      </tbody>
+    </table>
+    <%= turbo_frame_tag "transactions_pagination", src: barbell_bot_path(format: :turbo_stream), loading: :lazy %>
+  <% else %>
+    <div class="insight" style="margin-bottom: 2px">
+      <p>Bot orders will appear here</p>
+    </div>
+  <% end %>
 </div>
