@@ -1,21 +1,21 @@
 ---
 :concurrency: 2
 :queues:
-  - starting_bots
-  - api_keys_validation
-  - mailers
-  - [binance, 1]
-  - [binance.us, 1]
-  - [zonda, 1]
-  - [bitfinex, 1]
-  - [bitso, 1]
-  - [bitstamp, 1]
-  - [coinbase, 1]
-  - [gemini, 1]
-  - [kraken, 1]
-  - [kucoin, 1]
-  - [probit global, 1]
-  - [probit, 1]
+  - [starting_bots, 1]
+  - [api_keys_validation, 1]
+  - [mailers, 1]
+  - [binance, 2]
+  - [binance.us, 2]
+  - [zonda, 2]
+  - [bitfinex, 2]
+  - [bitso, 2]
+  - [bitstamp, 2]
+  - [coinbase, 2]
+  - [gemini, 2]
+  - [kraken, 2]
+  - [kucoin, 2]
+  - [probit global, 2]
+  - [probit, 2]
   - [default, 1]
 :limits:
   binance: 1

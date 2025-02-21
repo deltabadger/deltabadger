@@ -1,15 +1,17 @@
 class Transaction < ApplicationRecord
   belongs_to :bot
-  enum status: %i[success failure skipped]
 
+  after_create_commit :set_daily_transaction_aggregate
+  after_create_commit :update_bot_metrics
   after_create_commit :broadcast_to_bot
-  after_create :set_daily_transaction_aggregate
 
   scope :for_bot, ->(bot) { where(bot_id: bot.id).order(created_at: :desc) }
   scope :today_for_bot, ->(bot) { for_bot(bot).where('created_at >= ?', Date.today.beginning_of_day) }
   scope :for_bot_by_status, ->(bot, status: :success) { where(bot_id: bot.id).where(status: status).order(created_at: :desc) }
 
   validates :bot, presence: true
+
+  enum status: %i[success failure skipped]
 
   BTC = %w[XXBT XBT BTC].freeze
 
@@ -62,11 +64,22 @@ class Transaction < ApplicationRecord
   end
   # rubocop:enable Metrics/CyclomaticComplexity, Metrics/PerceivedComplexity
 
+  def update_bot_metrics
+    Bot::UpdateMetricsJob.perform_later(bot_id)
+  end
+
   def broadcast_to_bot
-    broadcast_render_to(
-      ["bot_#{bot_id}", :transactions],
-      partial: 'barbell_bots/bot/transaction_update',
-      locals: { transaction: self }
-    )
+    if Transaction.for_bot(bot).count == 1
+      broadcast_refresh_to(
+        ["bot_#{bot_id}", :transactions]
+      )
+    else
+      broadcast_prepend_to(
+        ["bot_#{bot_id}", :transactions],
+        target: "bot_#{bot_id}_transactions",
+        partial: 'barbell_bots/bot/transaction',
+        locals: { transaction: self }
+      )
+    end
   end
 end
