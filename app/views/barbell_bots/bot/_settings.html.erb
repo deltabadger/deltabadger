@@ -1,7 +1,7 @@
 <%= turbo_frame_tag "bot_#{@barbell_bot.id}_settings" do %>
   <div class="widget widget--single">
 
-    <%= form_with model: bot, url: barbell_bot_path(bot), method: :patch, class: "basket__asset", data: { controller: "form--submit bot--barbell-allocation" } do |f| %>
+    <%= form_with model: bot, url: update_settings_barbell_bot_path(bot), method: :patch, class: "basket__asset", data: { controller: "form--submit bot--barbell-allocation" } do |f| %>
 
       <div class="conversational flex-justify-center">
         <%= t('bot.barbell.invest') %>

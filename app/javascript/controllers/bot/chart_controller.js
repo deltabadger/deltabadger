@@ -40,12 +40,6 @@ export default class extends Controller {
     const font_color = this.#safeColor(this.#getCssVariableValue("--label"));
     const tooltip_background_color = this.#safeColor(this.#getCssVariableValue("--tooltip-background"));
     const tooltip_font_color = this.#safeColor(this.#getCssVariableValue("--tooltip-text"));
-    // const portfolio_gradient = this.#canvasContext().createLinearGradient(0, 0, 0, 300);
-    //       portfolio_gradient.addColorStop(0, this.#setTransparency(portfolio_color, 0.2));
-    //       portfolio_gradient.addColorStop(1, this.#setTransparency(portfolio_color, 0));
-    // const benchmark_gradient = this.#canvasContext().createLinearGradient(0, 0, 0, 300);
-    //       benchmark_gradient.addColorStop(0, this.#setTransparency(benchmark_color, 0.4));
-    //       benchmark_gradient.addColorStop(1, this.#setTransparency(benchmark_color, 0));
     const maxPointsToDraw = Math.min(
       this.maxPointsToDraw,
       all_series[0][0].length,
@@ -58,13 +52,11 @@ export default class extends Controller {
     let labels;
     let pointRadius;
     labels = all_labels[0].map((date) => new Date(date).getTime());
-    // series[0] = series[0].map((value) => value / series[0][0]); // Normalize to 1
-    series[0] = series[0].map((value) => value * 1); // Normalize to 1
+    series[0] = series[0].map((value) => Number(value));
     series[0] = series[0].map((x, j) => ({ x: labels[j], y: x }));
     minValue = Math.min(minValue, ...series[0].map((x) => x.y));
     maxValue = Math.max(maxValue, ...series[0].map((x) => x.y));
-    // series[1] = series[1].map((value) => value / series[1][0]); // Normalize to 1
-    series[1] = series[1].map((value) => value * 1); // Normalize to 1
+    series[1] = series[1].map((value) => Number(value));
     series[1] = series[1].map((x, j) => ({ x: labels[j], y: x }));
     minValue = Math.min(minValue, ...series[1].map((x) => x.y));
     maxValue = Math.max(maxValue, ...series[1].map((x) => x.y));
@@ -94,7 +86,6 @@ export default class extends Controller {
         lineTension: 0,
         borderWidth: 2.5,
         borderColor: benchmark_color,
-        // borderDash: [4, 2],
         pointRadius: Array(maxPointsToDraw - 1)
           .fill(0)
           .concat([3.5]),
@@ -180,19 +171,9 @@ export default class extends Controller {
             },
             ticks: {
               display: false,
-              font: { size: 11 },
-              fontColor: font_color,
-              autoSkip: true,
-              maxTicksLimit: 5,
-              maxRotation: 0,
-              minRotation: 0,
             },
             grid: {
               display: false,
-              lineWidth: 0.5,
-              color: font_color,
-              drawOnChartArea: false,
-              zeroLineWidth: 1,
             },
             border: {
               display: false,
@@ -205,60 +186,12 @@ export default class extends Controller {
             beginAtZero: false,
             scaleLabel: {
               display: false,
-              labelString: "USD",
-              fontColor: font_color,
             },
             ticks: {
               display: false,
-              font: { size: 11 },
-              fontColor: font_color,
-              beginAtZero: true,
-              autoSkip: false,
-              callback: function (value, index, values) {
-                if (log_scale) {
-                  if (
-                    value == 1 ||
-                    value == 1e1 ||
-                    value == 1e2 ||
-                    value == 1e3 ||
-                    value == 1e4 ||
-                    value == 1e5 ||
-                    value == 1e6 ||
-                    value == 1e7 ||
-                    value == 1e8 ||
-                    value == 1e9 ||
-                    value == 1e10 ||
-                    value == 1e11 ||
-                    value == 1e12 ||
-                    value == 3.5 ||
-                    value == 3.5e1 ||
-                    value == 3e2 ||
-                    value == 3e3 ||
-                    value == 3e4 ||
-                    value == 3e5 ||
-                    value == 3e6 ||
-                    value == 3e7 ||
-                    value == 3e8 ||
-                    value == 3e9 ||
-                    value == 3e10 ||
-                    value == 3e11 ||
-                    value == 3e12
-                  ) {
-                    return new Intl.NumberFormat("en-US", {
-                      style: "currency",
-                      currency: "USD",
-                      minimumFractionDigits: 0,
-                    }).format(value);
-                  }
-                } else {
-                  return "$" + value + " ";
-                }
-              },
             },
             grid: {
               display: false,
-              lineWidth: 1,
-              zeroLineWidth: 1,
             },
             border: {
               display: false,
@@ -268,16 +201,6 @@ export default class extends Controller {
         plugins: {
           legend: {
             display: false,
-            position: "bottom",
-            align: "center",
-            labels: {
-              font: { size: 16 },
-              fontColor: font_color,
-              usePointStyle: true,
-              boxWidth: 5,
-              boxHeight: 5,
-              padding: 25,
-            },
           },
           tooltip: {
             intersect: false,
@@ -297,21 +220,7 @@ export default class extends Controller {
             boxWidth: 16,
             callbacks: {
               label: function (context) {
-                let label = context.dataset.label + ": ";
-                if (context.parsed.y !== null) {
-                  let n = (context.parsed.y - 1) * 100;
-
-                  n = context.parsed.y
-                  n = Math.abs(n) == 0 || Math.abs(n) >= 1000
-                      ? Math.round(n)
-                      : n.toFixed(2);
-                  label += `${n}`;
-                  // label += new Intl.NumberFormat("en-US", {
-                  //   style: "currency",
-                  //   currency: "USD",
-                  // }).format(context.parsed.y);
-                }
-                return label;
+                return `${context.dataset.label}: ${context.parsed.y}`;
               },
             },
           },
