@@ -1,5 +1,12 @@
 de:
     features:
+        title: "Was du bekommst:"
+        short:
+            dca: "DCA"
+            withdrawals: "Auto-Auszahlungen"
+            barbell: "Barbell-Strategie"
+            indexing: "Portfolio-Rebalancing"
+            analyzer: "Portfolio-Analyzer"
         dca:
             title: "DCA"
             description_html: "Unser klassischer Dollar-Cost-Averaging-Bot für Kryptobörsen. Der erste Bot ist kostenlos."

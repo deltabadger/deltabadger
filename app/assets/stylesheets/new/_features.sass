@@ -1,9 +1,19 @@
+.features-header
+    font-size: 3rem
+    text-align: center
+    margin: 3.5rem 0 0
+    padding: 0
+    @media screen and (min-width: 1024px)
+        margin: 5rem 0 1rem
 .features-grid
     display: grid
-    grid-template-columns: repeat(auto-fit, minmax(400px, 1fr))
+    grid-template-columns: 1fr
     gap: 2rem
     padding-top: 4rem
-
+    @media only screen and (min-width: 575px)
+        grid-template-columns: repeat(auto-fit, minmax(240px, 1fr))
+    @media only screen and (min-width: 1024px)
+        grid-template-columns: repeat(4, 1fr)
 .feature
     padding: 2.5rem 3rem
     border-radius: 2rem
@@ -30,6 +40,8 @@
         .sbadge
             background: var(--text)
             opacity: .5
+            color: var(--paper)
+            font-weight: 800
     &.included
         background: var(--widget-background)
         border-color: transparent

@@ -1,5 +1,12 @@
 fr:
     features:
+        title: "Ce que vous obtenez :"
+        short:
+            dca: "DCA"
+            withdrawals: "Retraits automatiques"
+            barbell: "Stratégie Barbell"
+            indexing: "Rééquilibrage de portefeuille"
+            analyzer: "Analyseur de portefeuille"
         dca:
             title: "DCA"
             description_html: "Notre bot classique de dollar-cost averaging pour les exchanges de crypto. Le premier bot est gratuit."
