@@ -11,7 +11,7 @@
     = t('links.calculator')
 
   = link_to portfolios_path, class: 'menu-mobile__item menu-mobile__item--analyzer', data: { controller: 'tooltip', action: 'mouseenter->tooltip#showTooltip mouseleave->tooltip#hideTooltip' } do
-    = "Prism"
+    = t('links.analyzer')
 
   = link_to affiliate_path, class: "menu-mobile__item menu-mobile__item--referral-program", data: { controller: 'tooltip', action: 'mouseenter->tooltip#showTooltip mouseleave->tooltip#hideTooltip' } do
     = t('links.referral_program')
@@ -80,7 +80,7 @@
     = link_to portfolios_path, class: 'menu__item menu__item--analyzer', data: { controller: 'tooltip', action: 'mouseenter->tooltip#showTooltip mouseleave->tooltip#hideTooltip' } do
       = render 'svg/24x24_prism_c'
       .tooltip
-        = "Prism"
+        = t('links.analyzer')
 
     = link_to affiliate_path, class: "menu__item menu__item--referral-program", data: { controller: 'tooltip', action: 'mouseenter->tooltip#showTooltip mouseleave->tooltip#hideTooltip' } do
       = render 'svg/24x24_bitcoin'

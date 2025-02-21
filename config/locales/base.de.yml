@@ -398,8 +398,8 @@ de:
             specific_questions_html: 'Solltest du ein Problem haben, schick uns eine eMail %{email} oder sende uns eine Direktnachricht auf Telegram oder <a class="db-social-link" href="https://x.com/deltabadgerapp" target="_blank" rel="nofollow">𝕏</a>'
             title: Kontakt
     links:
-        about: Über das Projekt
-        about_html: Über das Projekt
+        about: Über
+        analyzer: 'Analysator'
         calculator: Rechner
         community: Fireheads Community
         contact: Kontakt
@@ -490,17 +490,8 @@ de:
             other: '%{count} Tage übrig'
         basic_info: 'Keine Schnörkel, nur Thrills, aber es erledigt den Job.'
         pro_info: 'Verschaffen Sie sich einen Überblick, tiefe Einblicke und Pro-Funktionen.'
-        legendary_badger_info_html: '<p>Alle Pro-Funktionen für immer.</p><p>Einmal zahlen und alles bekommen? Treten Sie unserem exklusiven Club von 1000 lebenslangen Abonnenten bei und schreiben Sie Ihre eigene Legende.</p><p>Wir sind langfristige Denker mit Diamond Hands und Vision.</p><p>Das NFT macht das Abonnement zu einem übertragbaren oder verkaufbaren Vermögenswert.</p><p>Jedes Token ist mit prozeduraler Kunst verbunden, mit 21 <i>Easter Eggs</i>, die in <a href="https://legendarybadgers.com/" class="nobreak">der Sammlung</a> versteckt sind.</p>'
         legendary_plan_left: "%{for_sale_count} von %{total_supply} übrig"
-        features:
-            analyzer_html: 'Prism: Portfolio-Analysator'
-            dca: 'DCA-Bots'
-            price_limit: 'Preislimit'
-            fee_cutter: 'Gebührenschneider'
-            withdrawals: 'Automatische Auszahlungen'
         limit_reached_html: '<b>Glückwunsch!</b> Du hast das kostenlose Transaktionslimit von $1200/Jahr erreicht. Um weiterhin zu bleiben, erhöhe deinen Plan auf den unbegrenzten Plan.'
-        analyzer_html: 'Stärke dein Portfolio mit der unbegrenzten Power des <b>Portfolio-Analyzers</b>.'
-        expires_soon_html: 'Wir entwickeln uns jetzt schnell weiter, daher hier die wichtigsten kommenden Funktionen des Pro-Plans: <b>Portfolioüberwachung</b> über alle Märkte hinweg, <b>Portfolioumschichtung</b> angetrieben durch den Analyzer, <b>Synchronisierung</b> für bestehende Konten.</b>'
         payment:
             price_usd_html: '<span class=price-ticker>%{symbol}</span><span class=price-amount>%{price}</span>'
             price_eur_html: '<span class=price-ticker>%{symbol}</span><span class=price-amount>%{price}</span>'
@@ -555,17 +546,9 @@ de:
     welcome:
         banner_html: |
             <p>Willkommen an Bord, %{name}!</p>
-            <p>Um sicherzustellen, dass du das Beste aus Deltabadger herausholst, sende ich dir kleine Tropfen an Investmentwissen direkt in dein Postfach:</p>
-            <ol>
-                <li>Gehe zu deinem Postfach.</li>
-                <li>Suche nach einer E-Mail von mir.</li>
-                <li>Antworte mit <b>FIRE</b>.</li>
-            </ol>
-            <p>Das hält die Sumpfkreaturen der Zentralbanken fern, damit sie unsere Kommunikation nicht abfangen.</p>
-            <p>Danke, Jan</p>
-        default: 'Hallo, willkommen bei Deltabadger'
-        legendary: 'Der NFT wird bald hier erscheinen!'
-        free: 'Befreie dich von den Limits und mach ein Upgrade!'
+            <p>Die neue Upgrade-Seite ist der perfekte Ort, um alle Funktionen und die dazugehörigen Pläne kennenzulernen.</p>
+            <p><a class="btn btn-success btn-lg mt-3 mb-3" href="upgrade">Hier starten</a></p>
+            <p>Beste Grüße, Jan</p>
     metrics:
         exp_return:
             short_name: 'Erw. Rendite'
