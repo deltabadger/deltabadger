@@ -405,8 +405,8 @@ en:
             title: Contact
     links:
         about: About
-        about_html: 'About <span class="d-none d-xl-inline">the project</span>'
         calculator: Calculator
+        analyzer: 'Analyzer'
         community: 'Fireheads Community'
         contact: Contact
         cookies_policy: 'Cookies Policy'
@@ -499,19 +499,7 @@ en:
         days_left:
             one: "1 day left"
             other: "%{count} days left"
-        legendary_badger_info_html: |
-            <p>Pay once. Get all for life.</p>
-            <p>Join our exclusive club of 1,000 long-term thinkers with diamond hands and vision, and create your own legend.</p>
-            <p>The NFT you receive turns your subscription into an asset you can transfer or sell. Each token comes with unique procedural artwork, featuring 21 hidden <i>easter eggs</i> in <a href="https://legendarybadgers.com/" class="nobreak">the collection</a>.</p>
         legendary_plan_left: "%{for_sale_count} of %{total_supply} left"
-        features:
-            dca: "DCA"
-            withdrawals: "Auto-withdrawals"
-            barbell: "Barbell Rebalancing"
-            indexing: "Portfolio Rebalancing"
-            analyzer: "Portfolio Analyzer"
-        analyzer_html: "Boost your portfolio with the unlimited power of the Prism: Portfolio Tester."
-        expires_soon_html: "We're building fast now, so here are the most important things coming to the Pro plan: <b>portfolio monitoring</b> across all the markets, <b>portfolio rebalancing</b> powered by the Analyzer, <b>synchronizing</b> for existing accounts.</b>"
         payment:
             price_usd_html: "<span class=price-ticker>%{symbol}</span><span class=price-amount>%{price}</span>"
             price_eur_html: "<span class=price-ticker>%{symbol}</span><span class=price-amount>%{price}</span>"
@@ -566,17 +554,9 @@ en:
     welcome:
         banner_html: |
             <p>Welcome aboard, %{name}!</p>
-            <p>To make sure you get the most out of Deltabadger, I send small droplets of investing knowledge straight to your mailbox:</p>
-            <ol>
-                <li>Go to your mailbox.</li>
-                <li>Look for an email from me.</li>
-                <li>Reply with <b>FIRE</b>.</li>
-            </ol>
-            <p>That keeps central bank swamp creatures out, so they won't capture our communication.</p>
-            <p>Thanks, Jan</p>
-        default: "Hi, welcome to Deltabadger"
-        legendary: "The NFT will arrive here soon!"
-        free: "Get rid of the limits, and make an upgrade!"
+            <p>The new upgrade page is great place to look at all the features and plans they belong to.</p>
+            <p><a class="btn btn-success btn-lg mt-3 mb-3" href="upgrade">Start here</a></p>
+            <p>Best, Jan</p>
     metrics:
         exp_return:
             short_name: "Exp. Return"

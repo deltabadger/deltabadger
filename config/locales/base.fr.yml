@@ -382,7 +382,7 @@ fr:
             title: 'Contact'
     links:
         about: 'À propos'
-        about_html: 'À propos du <span class="d-none d-xl-inline"> projet </span>'
+        analyzer: 'Analyseur'
         calculator: 'Calculatrice'
         community: 'Communauté Fireheads'
         contact: 'Contact'
@@ -470,16 +470,7 @@ fr:
             other: "%{count} jours restants"
         basic_info: 'Pas de fioritures, juste de l''efficacité.'
         pro_info: 'Vue d''ensemble, analyses approfondies et fonctionnalités Pro.'
-        legendary_badger_info_html: '<p>Obtenez toutes les fonctionnalités actuelles et futures du plan Pro à vie.</p><p>Aimez-vous payer une seule fois et tout obtenir ? Rejoignez notre club exclusif de 1 000 penseurs à long terme avec des mains de diamant et une vision, et créez votre propre légende.</p><p>Le NFT que vous recevez transforme votre abonnement en un actif que vous pouvez transférer ou vendre. Chaque token est associé à une œuvre d''art procédurale unique, avec 21 <i>œufs de Pâques</i> cachés dans <a href="https://legendarybadgers.com/" class="nobreak">la collection</a>.</p>'
         legendary_plan_left: "Il reste %{for_sale_count} sur %{total_supply}"
-        features:
-            analyzer_html: 'Prism: Analyseur de Portefeuille'
-            dca: 'Bots DCA'
-            price_limit: 'Limite de prix'
-            fee_cutter: 'Réducteur de frais'
-            withdrawals: 'Retraits automatiques'
-        analyzer_html: 'Boostez votre portefeuille avec la puissance illimitée de l''<b>Analyseur de Portefeuille</b>.'
-        expires_soon_html: 'Nous avançons rapidement maintenant, voici donc les choses les plus importantes à venir pour le plan Pro : <b>suivi de portefeuille</b> sur tous les marchés, <b>rééquilibrage de portefeuille</b> alimenté par l''Analyseur, <b>synchronisation</b> pour les comptes existants.</b>'
         payment:
             price_usd_html: '<span class=price-ticker>%{symbol}</span><span class=price-amount>%{price}</span>'
             price_eur_html: '<span class=price-ticker>%{symbol}</span><span class=price-amount>%{price}</span>'
@@ -532,17 +523,10 @@ fr:
         claim: 'Réclamer le NFT'
     welcome:
         banner_html: |
-            <p>Bienvenue à bord, %{name} ! Voici quelques mouvements gagnants pour toi :</p>
-            <ol>
-                <li><div class="sbutton sbutton--primary"><i class="material-icons">add</i></div> Démarre ton <b>bot DCA</b> gratuit et crie, <i>"Regarde maman, sans les mains !"</i></li>
-                <li>Améliore ton portefeuille avec le <b>🌈⃤  Prism</b> analyzer et laisse le marché dans ton rétroviseur.<sur>*</sur><br><small><sur>*</sur>Pas besoin de boule de cristal.</small></li>
-                <li>Rejoins la communauté <b>Fireheads</b> et prends ta retraite anticipée—parce que travailler jusqu'à 65 ans ? Non, merci.</li>
-            </ol>
-            <p><a href="https://skool.com/fire" target="_blank" title="Aller à la communauté">Commence dans la communauté</a>. Rejoins-nous lors de l'appel Bonfire du mercredi pour rencontrer un groupe de rebelles de la liberté financière, mon cofondateur Guillem et moi. La vie est trop courte pour attendre le week-end. (Attendre le mercredi est bien plus cool).</p>
-            <p style="margin-bottom:0">À bientôt, Jan</p>
-        default: 'Bonjour, bienvenue sur Deltabadger'
-        legendary: 'Le NFT arrive bientôt !'
-        free: 'Dites au revoir aux limites et faites une mise à niveau !'
+            <p>Bienvenue à bord, %{name} !</p>
+            <p>La nouvelle page de mise à niveau est l'endroit idéal pour découvrir toutes les fonctionnalités et les forfaits associés.</p>
+            <p><a class="btn btn-success btn-lg mt-3 mb-3" href="upgrade">Commencer ici</a></p>
+            <p>Cordialement, Jan</p>
     metrics:
         exp_return:
             short_name: 'Rendement Attendu'
