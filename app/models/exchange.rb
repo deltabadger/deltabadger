@@ -5,6 +5,7 @@ class Exchange < ApplicationRecord
   after_initialize :include_exchange_module
 
   scope :available, -> { where.not(name: ['FTX', 'FTX.US', 'Coinbase Pro']) }
+  scope :available_for_barbell_bots, -> { where(name: ['Coinbase']) } # FIXME: Temporary until all exchanges are supported
 
   # rubocop:disable Metrics/CyclomaticComplexity
   def symbols
@@ -39,8 +40,46 @@ class Exchange < ApplicationRecord
     Result::Success.new(filter_free_plan_symbols(all_symbols.data))
   end
 
-  def set_bot(bot)
-    @bot = bot
+  def set_api_key(api_key)
+    @api_key = api_key
+  end
+
+  # @returns
+  #   #=> {
+  #         symbol: [String],
+  #         base_asset: [String],
+  #         quote_asset: [String],
+  #         minimum_base_size: [Float],
+  #         minimum_quote_size: [Float],
+  #         maximum_base_size: [Float],
+  #         maximum_quote_size: [Float],
+  #         base_decimals: [Integer],
+  #         quote_decimals: [Integer],
+  #         price_decimals: [Integer]
+  #       }
+  def get_symbol_info(base_asset:, quote_asset:)
+    symbol = symbol_from_base_and_quote(base_asset, quote_asset)
+    result = get_info
+    return result unless result.success?
+
+    Result::Success.new(result.data[:symbols].find { |s| s[:symbol] == symbol })
+  end
+
+  def get_adjusted_amount(base_asset:, quote_asset:, amount:, amount_type:, method: :floor)
+    raise "Unsupported amount type #{amount_type}" unless %w[quote base].include?(amount_type)
+
+    result = get_symbol_info(base_asset: base_asset, quote_asset: quote_asset)
+    return result unless result.success?
+
+    decimals = amount_type == 'quote' ? result.data[:quote_decimals] : result.data[:base_decimals]
+    Result::Success.new(amount.send(method, decimals))
+  end
+
+  def get_adjusted_price(base_asset:, quote_asset:, price:, method: :floor)
+    result = get_symbol_info(base_asset: base_asset, quote_asset: quote_asset)
+    return result unless result.success?
+
+    Result::Success.new(price.send(method, result.data[:price_decimals]))
   end
 
   private

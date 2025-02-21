@@ -8,6 +8,7 @@ module Bot::Barbell
     after_update_commit :broadcast_metrics_update, if: :saved_change_to_metrics_status?
 
     validate :validate_barbell_bot_settings, if: :barbell?
+    validate :validate_exchange, if: :barbell?
 
     enum metrics_status: %i[unknown pending ready], _prefix: :metrics
 
@@ -77,21 +78,19 @@ module Bot::Barbell
       balances_and_prices = result.data
       order_sizes = calculate_order_sizes(**balances_and_prices)
       order_sizes.each_with_index do |order_size, index|
-        puts "order_size: #{order_size.inspect}"
         base_asset = settings["base#{index}"].upcase
         base_amount = order_size[:amount]
         base_amount_in_quote = order_size[:amount_in_quote]
+        symbol_info = exchange.get_symbol_info(base_asset: base_asset, quote_asset: quote_asset)
+        return symbol_info unless symbol_info.success?
 
         # TODO: in some cases rate is 0 ?!
         rate = balances_and_prices["price#{index}".to_sym]
 
+        puts "order_size: #{order_size.inspect}"
         puts "amount: #{base_amount}, index: #{index}, rate: #{rate}"
 
-        # TODO: cache this value
-        result = exchange.get_minimum_base_size(base_asset: base_asset, quote_asset: quote_asset)
-        return result unless result.success?
-
-        minimum_base_size = result.data
+        minimum_base_size = symbol_info.data[:minimum_base_size]
         puts "minimum_base_size: #{minimum_base_size}"
         if base_amount < minimum_base_size
           create_skipped_transaction!(
@@ -109,8 +108,6 @@ module Bot::Barbell
           amount: base_amount,
           amount_type: 'base'
         )
-
-        puts "result: #{result.inspect}"
 
         if result.success?
           order_id = result.data.dig('success_response', 'order_id')
@@ -209,7 +206,7 @@ module Bot::Barbell
 
     def metrics(recalculate: false) # rubocop:disable Metrics/MethodLength
       Rails.cache.delete("bot_#{id}_metrics") if recalculate
-      data = Rails.cache.fetch("bot_#{id}_metrics", expires_in: 90.days) do
+      data = Rails.cache.fetch("bot_#{id}_metrics", expires_in: 30.days) do
         update!(metrics_status: :pending)
         puts "recalculating metrics for bot #{id}"
 
@@ -293,6 +290,17 @@ module Bot::Barbell
                 settings['allocation0'].present? && settings['allocation0'].to_f.between?(0, 1)
 
       errors.add(:settings, :invalid_settings, message: 'Invalid settings')
+    end
+
+    def validate_exchange
+      base0 = settings['base0'].upcase
+      base1 = settings['base1'].upcase
+      quote = settings['quote'].upcase
+      result0 = exchange.get_symbol_info(base_asset: base0, quote_asset: quote)
+      result1 = exchange.get_symbol_info(base_asset: base1, quote_asset: quote)
+      return unless result0.failure? || result1.failure? || result0.data.nil? || result1.data.nil?
+
+      errors.add(:exchange, :unsupported, message: 'Unsupported assets')
     end
 
     def get_balances_and_prices

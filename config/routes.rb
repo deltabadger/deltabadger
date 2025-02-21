@@ -109,12 +109,14 @@ Rails.application.routes.draw do
       delete 'remove_api_key/:id', action: :remove_api_key, as: :remove_api_key
     end
 
-    resources :barbell_bots, path: "/barbell-bots" do
+    resources :barbell_bots, except: [:update], path: "/barbell-bots" do
       get :api_keys, on: :collection
       post :create_api_keys, on: :collection
       post :start, on: :member
       post :stop, on: :member
       post :show, on: :member
+      patch :update_settings, on: :member
+      patch :update_exchange, on: :member
     end
     resources :bots, only: [:show, :index] do
       get :show, on: :collection

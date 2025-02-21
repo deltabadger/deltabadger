@@ -1,0 +1,42 @@
+module BotHelper
+  def rounded_quote_amount_for(exchange:, base_asset:, quote_asset:, amount:)
+    rounded_amount_for(exchange: exchange, base_asset: base_asset, quote_asset: quote_asset, amount: amount, amount_type: 'quote')
+  end
+
+  def rounded_base_amount_for(exchange:, base_asset:, quote_asset:, amount:)
+    rounded_amount_for(exchange: exchange, base_asset: base_asset, quote_asset: quote_asset, amount: amount, amount_type: 'base')
+  end
+
+  def rounded_price_for(exchange:, base_asset:, quote_asset:, price:)
+    result = exchange.get_adjusted_price(
+      base_asset: base_asset,
+      quote_asset: quote_asset,
+      price: price,
+      method: :round
+    )
+
+    result.success? ? result.data : price
+  end
+
+  def rounded_chart_series_for(exchange:, base_asset:, quote_asset:, series:)
+    series.map do |serie|
+      serie.map do |amount|
+        rounded_quote_amount_for(exchange: exchange, base_asset: base_asset, quote_asset: quote_asset, amount: amount)
+      end
+    end
+  end
+
+  private
+
+  def rounded_amount_for(exchange:, base_asset:, quote_asset:, amount:, amount_type:)
+    result = exchange.get_adjusted_amount(
+      base_asset: base_asset,
+      quote_asset: quote_asset,
+      amount: amount,
+      amount_type: amount_type,
+      method: :round
+    )
+
+    result.success? ? result.data : amount
+  end
+end

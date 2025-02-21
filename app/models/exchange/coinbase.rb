@@ -2,6 +2,42 @@ module Exchange::Coinbase # rubocop:disable Metrics/ModuleLength
   extend ActiveSupport::Concern
 
   included do # rubocop:disable Metrics/BlockLength
+    def get_info
+      info = Rails.cache.fetch("exchange_#{id}_info", expires_in: 1.hour) do
+        result = client.list_products
+        return Result::Failure.new("Failed to get #{name} products") unless result.success?
+
+        products = result.data['products']
+
+        symbols = products.map do |product|
+          symbol = Utilities::Hash.dig_or_raise(product, 'product_id')
+          base_increment = Utilities::Hash.dig_or_raise(product, 'base_increment')
+          quote_increment = Utilities::Hash.dig_or_raise(product, 'quote_increment')
+          price_increment = Utilities::Hash.dig_or_raise(product, 'price_increment')
+          {
+            symbol: symbol,
+            base_asset: symbol.split('-')[0],
+            quote_asset: symbol.split('-')[1],
+            minimum_base_size: Utilities::Hash.dig_or_raise(product, 'base_min_size').to_f,
+            minimum_quote_size: Utilities::Hash.dig_or_raise(product, 'quote_min_size').to_f,
+            maximum_base_size: Utilities::Hash.dig_or_raise(product, 'base_max_size').to_f,
+            maximum_quote_size: Utilities::Hash.dig_or_raise(product, 'quote_max_size').to_f,
+            base_decimals: Utilities::Number.decimals(base_increment),
+            quote_decimals: Utilities::Number.decimals(quote_increment),
+            price_decimals: Utilities::Number.decimals(price_increment)
+            # base_asset_name: '',
+            # quote_asset_name: '',
+          }
+        end
+
+        {
+          symbols: symbols
+        }
+      end
+
+      Result::Success.new(info)
+    end
+
     def get_balance(asset: nil)
       result = client.get_api_key_permissions
       return result unless result.success?
@@ -18,14 +54,16 @@ module Exchange::Coinbase # rubocop:disable Metrics/ModuleLength
     end
 
     def get_bid_price(base_asset:, quote_asset:)
-      result = get_bid_ask_price(symbol(base_asset, quote_asset))
+      symbol = symbol_from_base_and_quote(base_asset, quote_asset)
+      result = get_bid_ask_price(symbol)
       return result unless result.success?
 
       Result::Success.new(result.data[:bid][:price])
     end
 
     def get_ask_price(base_asset:, quote_asset:)
-      result = get_bid_ask_price(symbol(base_asset, quote_asset))
+      symbol = symbol_from_base_and_quote(base_asset, quote_asset)
+      result = get_bid_ask_price(symbol)
       return result unless result.success?
 
       Result::Success.new(result.data[:ask][:price])
@@ -99,31 +137,22 @@ module Exchange::Coinbase # rubocop:disable Metrics/ModuleLength
         result.data['can_transfer'] == false
     end
 
-    def get_minimum_base_size(base_asset:, quote_asset:)
-      result = client.get_product(product_id: symbol(base_asset, quote_asset))
-      return result unless result.success?
-
-      Result::Success.new(result.data['base_min_size'].to_f)
-    end
-
-    def get_minimum_quote_size(base_asset:, quote_asset:)
-      result = client.get_product(product_id: symbol(base_asset, quote_asset))
-      return result unless result.success?
-
-      Result::Success.new(result.data['quote_min_size'].to_f)
-    end
-
     # private
 
     def client
       @client ||= CoinbaseClient.new(
-        api_key: @bot.api_key&.key,
-        api_secret: @bot.api_key&.secret
+        api_key: @api_key&.key,
+        api_secret: @api_key&.secret
       )
     end
 
-    def symbol(base, quote)
-      "#{base}-#{quote}"
+    def symbol_from_base_and_quote(base, quote)
+      "#{base.upcase}-#{quote.upcase}"
+    end
+
+    def base_and_quote_from_symbol(symbol)
+      base, quote = symbol.split('-')
+      [base.upcase, quote.upcase]
     end
 
     def get_bid_ask_price(symbol)
@@ -149,53 +178,17 @@ module Exchange::Coinbase # rubocop:disable Metrics/ModuleLength
       )
     end
 
-    def get_base_decimals(symbol)
-      result = client.get_product(product_id: symbol)
-      return result unless result.success?
-
-      Result::Success.new(Utilities::Number.decimals(result.data['base_increment']))
-    end
-
-    def get_quote_decimals(symbol)
-      result = client.get_product(product_id: symbol)
-      return result unless result.success?
-
-      Result::Success.new(Utilities::Number.decimals(result.data['quote_increment']))
-    end
-
-    def get_adjusted_amount(symbol, amount, amount_type)
-      raise 'Amount type must be either "quote" or "base"' unless amount_type.in?(%w[quote base])
-
-      result = if amount_type == 'quote'
-                 get_quote_decimals(symbol)
-               else
-                 get_base_decimals(symbol)
-               end
-      return result unless result.success?
-
-      Result::Success.new(amount.floor(result.data))
-    end
-
-    def get_price_decimals(symbol)
-      result = client.get_product(product_id: symbol)
-      return result unless result.success?
-
-      Result::Success.new(Utilities::Number.decimals(result.data['price_increment']))
-    end
-
-    def get_adjusted_price(symbol, price)
-      result = get_price_decimals(symbol)
-      return result unless result.success?
-
-      Result::Success.new(price.floor(result.data))
-    end
-
     # @param amount: Float must be a positive number
     # @param amount_type: String must be either 'quote' or 'base'
     # @param side: String must be either 'buy' or 'sell'
     def set_market_order(base_asset:, quote_asset:, amount:, amount_type:, side:)
-      symbol = symbol(base_asset, quote_asset)
-      adjusted_amount = get_adjusted_amount(symbol, amount, amount_type)
+      symbol = symbol_from_base_and_quote(base_asset, quote_asset)
+      adjusted_amount = get_adjusted_amount(
+        base_asset: base_asset,
+        quote_asset: quote_asset,
+        amount: amount,
+        amount_type: amount_type
+      )
       return adjusted_amount unless adjusted_amount.success?
 
       client_order_id = SecureRandom.uuid
@@ -225,8 +218,13 @@ module Exchange::Coinbase # rubocop:disable Metrics/ModuleLength
     # @param side: String must be either 'buy' or 'sell'
     # @param price: Float must be a positive number
     def set_limit_order(base_asset:, quote_asset:, amount:, amount_type:, side:, price:)
-      symbol = symbol(base_asset, quote_asset)
-      adjusted_amount = get_adjusted_amount(symbol, amount, amount_type)
+      symbol = symbol_from_base_and_quote(base_asset, quote_asset)
+      adjusted_amount = get_adjusted_amount(
+        base_asset: base_asset,
+        quote_asset: quote_asset,
+        amount: amount,
+        amount_type: amount_type
+      )
       return adjusted_amount unless adjusted_amount.success?
 
       adjusted_price = get_adjusted_price(symbol, price)

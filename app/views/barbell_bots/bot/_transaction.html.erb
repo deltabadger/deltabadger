@@ -1,5 +1,8 @@
+<% base_amount = rounded_base_amount_for(exchange: transaction.bot.exchange, base_asset: transaction.base, quote_asset: transaction.quote, amount: transaction.amount) %>
+<% quote_amount = rounded_quote_amount_for(exchange: transaction.bot.exchange, base_asset: transaction.base, quote_asset: transaction.quote, amount: transaction.amount * transaction.rate) %>
+
 <tr id="transaction_<%= transaction.id %>" style="<%= transaction.skipped? ? 'color: gray' : transaction.failure? ? 'color: red' : '' %>">
   <td scope="row"><%= transaction.created_at.strftime("%Y-%m-%d %I:%M %p") %></td>
-  <td><%= "#{transaction.amount} #{transaction.base}" %></td>
-  <td><%= "#{transaction.amount * transaction.rate} #{transaction.quote}" %></td>
+  <td><%= base_amount %> <%= transaction.base %></td>
+  <td><%= quote_amount %> <%= transaction.quote %></td>
 </tr>

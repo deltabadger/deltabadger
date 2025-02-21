@@ -36,12 +36,20 @@ class BarbellBotsController < ApplicationController
     render :api_keys
   end
 
-  def update
+  def update_settings
     @barbell_bot = current_user.bots.barbell.find(params[:id])
     settings = barbell_bot_params.except(:exchange_id)
     settings[:interval] = @barbell_bot.settings['interval'] if settings[:interval].nil?
     puts "new settings: #{settings.inspect}"
     return if @barbell_bot.update(settings: settings)
+
+    flash[:alert] = @barbell_bot.errors.messages.values.join(', ')
+    render turbo_stream: turbo_stream_page_refresh, status: :unprocessable_entity
+  end
+
+  def update_exchange
+    @barbell_bot = current_user.bots.barbell.find(params[:id])
+    return if @barbell_bot.update(exchange_id: barbell_bot_params[:exchange_id])
 
     flash[:alert] = @barbell_bot.errors.messages.values.join(', ')
     render turbo_stream: turbo_stream_page_refresh, status: :unprocessable_entity
