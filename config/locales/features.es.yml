@@ -1,5 +1,12 @@
 es:
     features:
+        title: "Lo que obtienes:"
+        short:
+            dca: "DCA"
+            withdrawals: "Retiros automáticos"
+            barbell: "Estrategia Barbell"
+            indexing: "Rebalanceo de cartera"
+            analyzer: "Analizador de cartera"
         dca:
             title: "DCA"
             description_html: "Nuestro clásico bot de promediado del coste en dólares para exchanges de criptomonedas. El primer bot es gratuito."

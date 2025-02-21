@@ -4,7 +4,7 @@
     gap: 2rem
     &__plans
         display: grid
-        grid-template-columns: repeat(auto-fit, minmax(100px, 1fr))
+        grid-template-columns: repeat(auto-fit, minmax(10px, 1fr))
         grid-template-rows: 1fr
         gap: 2px
         flex: 1
@@ -157,37 +157,18 @@
         cursor: default
     @media (max-width: 767.9px)
         width: 100%
-        justify-content: center
+        justify-content: flex-end
         position: relative
-        top: -0.5rem
-        z-index: -1
 // hide radio buttons for the tabs, guillem workaround
 .hide_radio_buttons > input
   visibility: hidden
   position: absolute
 // hide radio buttons for the tabs, guillem workaround
-
-@media only screen and (max-width: 1023.9px)
+@media only screen and (max-width: 1279.9px)
     .pricing
-        &__plans
-            grid-template-columns: 1fr
-            position: relative
-            width: calc(60% - 2rem)
-            .widget
-                &:first-child
-                    border-radius: 2rem 2rem 0 0 !important
-                &:last-child
-                    border-radius: 0 0 2rem 2rem !important
-                &--pricing
-                    position: relative
-                    &__amount
-                        position: absolute
-                        text-align: right
-                        top: 2.5rem
-                        right: 3rem
         &__checkout
-            width: 40%
-@media only screen and (max-width: 767.9px)
+            min-width: 30%
+@media only screen and (max-width: 959.9px)
     .pricing
         gap: 2rem
         flex-direction: column
@@ -197,9 +178,23 @@
         &--pricing
             padding-top: 2.5rem
             padding-bottom: 2.5rem
+            ul
+                display: none
+@media only screen and (max-width: 767.9px)
+    .pricing
+        &__plans
+            grid-template-columns: 1fr 1fr minmax(1fr)
+    .widget
+        &--pricing
+            padding: 1.75rem 0 1rem 0 !important
+            text-align: center
+            &__name
+                font-size: 2.25rem
             &__amount
-                top: 2rem !important
-                right: 2rem !important
+                display: none
+@media only screen and (max-width: 500px)
+    .pricing__plans
+        grid-template-columns: 1fr 1fr minmax(40%, 1fr)
 .checkout-line
     display: grid
     grid-template-columns: auto 10rem

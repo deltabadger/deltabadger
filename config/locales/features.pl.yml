@@ -1,5 +1,12 @@
 pl:
     features:
+        title: "Funkcje w wybranym planie:"
+        short:
+            dca: "DCA"
+            withdrawals: "Automatyczne wypłaty"
+            barbell: "Strategia Barbell"
+            indexing: "Rebalansowanie portfela"
+            analyzer: "Analizator portfela"
         dca:
             title: "DCA"
             description_html: "Nasz klasyczny bot do uśredniania kosztów w dolarach dla giełd kryptowalut. Pierwszy bot jest za darmo."
