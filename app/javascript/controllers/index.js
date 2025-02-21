@@ -13,6 +13,9 @@ application.register("autofocus", AutofocusController)
 import Bot__BarbellAllocationController from "./bot/barbell_allocation_controller"
 application.register("bot--barbell-allocation", Bot__BarbellAllocationController)
 
+import Bot__ChartController from "./bot/chart_controller"
+application.register("bot--chart", Bot__ChartController)
+
 import ClipboardController from "./clipboard_controller"
 application.register("clipboard", ClipboardController)
 
