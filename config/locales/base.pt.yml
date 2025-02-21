@@ -358,8 +358,8 @@ pt:
             specific_questions_html: 'Para questões mais específicas, envie-nos um e-mail para %{email} ou uma mensagem direta no Telegram ou no <a class="db-social-link" href="https://x.com/deltabadgerapp" target="_blank" rel="nofollow">𝕏</a>.'
             title: Contacto
     links:
-        about: Sobre
-        about_html: 'Sobre <span class="d-none d-xl-inline">o projeto</span>'
+        about: 'Sobre'
+        analyzer: 'Analisador'
         calculator: 'Calculadora'
         community: 'Comunidade Fireheads'
         contact: Contacto
@@ -448,16 +448,7 @@ pt:
             other: '%{count} dias restantes'
         basic_info: 'Sem frescuras, só emoção, mas faz o trabalho.'
         pro_info: 'Tenha uma visão geral, insights profundos e recursos Pro.'
-        legendary_badger_info_html: '<p>Obtenha todos os recursos atuais e futuros do plano Pro para a vida toda.</p><p>Gosta de pagar uma vez e obter tudo? Junte-se ao nosso clube exclusivo de 1.000 pensadores de longo prazo com mãos de diamante e visão, e crie sua própria lenda.</p><p>O NFT que você recebe transforma sua assinatura em um ativo que você pode transferir ou vender. Cada token vem com uma arte processual única, com 21 <i>ovos de Páscoa</i> escondidos na <a href="https://legendarybadgers.com/" class="nobreak">coleção</a>.</p>'
         legendary_plan_left: "%{for_sale_count} de %{total_supply} restantes"
-        features:
-            analyzer_html: 'Prism: Analisador de Portfólio'
-            dca: 'Bots de DCA'
-            price_limit: 'Limite de preço'
-            fee_cutter: 'Corta-Taxas'
-            withdrawals: 'Saques automáticos'
-        analyzer_html: 'Reforce seu portfólio com o poder ilimitado do <b>Analista de Portfólio</b>.'
-        expires_soon_html: 'Estamos avançando rapidamente agora, então aqui estão as coisas mais importantes que estão chegando ao plano Pro: <b>monitoramento de portfólio</b> em todos os mercados, <b>rebalanceamento de portfólio</b> impulsionado pelo Analista, <b>sincronização</b> para contas existentes.</b>'
         payment:
             price_usd_html: '<span class=price-ticker>%{symbol}</span><span class=price-amount>%{price}</span>'
             price_eur_html: '<span class=price-ticker>%{symbol}</span><span class=price-amount>%{price}</span>'
@@ -507,17 +498,9 @@ pt:
     welcome:
         banner_html: |
             <p>Bem-vindo a bordo, %{name}!</p>
-            <p>Para garantir que você aproveite ao máximo o Deltabadger, envio pequenas gotas de conhecimento de investimento diretamente para sua caixa de entrada:</p>
-            <ol>
-                <li>Vá para sua caixa de entrada.</li>
-                <li>Procure um e-mail meu.</li>
-                <li>Responda com <b>FIRE</b>.</li>
-            </ol>
-            <p>Isso mantém as criaturas do pântano do banco central longe, para que não capturem nossa comunicação.</p>
-            <p>Obrigado, Jan</p>
-        default: 'Olá, damos-te as boas-vindas ao Deltabadger'
-        legendary: 'O NFT chegará aqui em breve!'
-        free: 'Livra-te dos limites e faz um upgrade!'
+            <p>A nova página de atualização é um ótimo lugar para ver todas as funcionalidades e os planos a que pertencem.</p>
+            <p><a class="btn btn-success btn-lg mt-3 mb-3" href="upgrade">Começar aqui</a></p>
+            <p>Cumprimentos, Jan</p>
     metrics:
         exp_return:
             short_name: 'Retorno Esperado'

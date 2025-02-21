@@ -1,5 +1,12 @@
 ru:
     features:
+        title: "Что вы получаете:"
+        short:
+            dca: "DCA"
+            withdrawals: "Автовывод"
+            barbell: "Стратегия Barbell"
+            indexing: "Ребалансировка портфеля"
+            analyzer: "Анализатор портфеля"
         dca:
             title: "DCA"
             description_html: "Наш классический бот для усреднения долларовой стоимости на криптобиржах. Первый бот бесплатный."

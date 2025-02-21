@@ -1,5 +1,12 @@
 nl:
     features:
+        title: "Wat je krijgt:"
+        short:
+            dca: "DCA"
+            withdrawals: "Automatische opnames"
+            barbell: "Barbell Strategie"
+            indexing: "Portfolio herbalancering"
+            analyzer: "Portfolio analysator"
         dca:
             title: "DCA"
             description_html: "Onze klassieke dollar-cost averaging bot voor crypto exchanges. De eerste bot is gratis."
