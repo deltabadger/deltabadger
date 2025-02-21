@@ -3,7 +3,7 @@
 <% end %>
 
 <% if @pagy.next.present? %>
-  <%= turbo_stream.replace "transactions-pagination" do %>
-    <%= turbo_frame_tag "transactions-pagination", src: barbell_bot_path(page: @pagy.next, format: :turbo_stream), loading: :lazy %>
+  <%= turbo_stream.replace "transactions_pagination" do %>
+    <%= turbo_frame_tag "transactions_pagination", src: barbell_bot_path(page: @pagy.next, format: :turbo_stream), loading: :lazy %>
   <% end %>
 <% end %>

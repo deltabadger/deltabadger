@@ -1,52 +1,24 @@
-<div class="widget widget--single data-grid">
-  <div class="data-grid__item" data-controller="tooltip">
-    <div class="label">
-      <%= t('data_labels.bought_ticker', ticker: 'BTC') %>
-    </div>
-    <div class="data-grid__item__value">
-        123
-    </div>
+<%= turbo_frame_tag "bot_#{bot.id}_metrics" do %>
+  <div class="widget widget--single data-grid">
+    <%= render partial: "barbell_bots/bot/metrics_item", locals: {
+      label: t('data_labels.bought_ticker', ticker: bot.settings['base0']),
+      value: bot.metrics_unknown? ? '-' : bot.metrics_pending? ? nil : sprintf('%.6f', bot.metrics[:total_base0_amount_acquired]) } %>
+    <%= render partial: "barbell_bots/bot/metrics_item", locals: {
+      label: t('data_labels.avg_price_ticker', ticker: bot.settings['base0']),
+      value: bot.metrics_unknown? ? '-' : bot.metrics_pending? ? nil : sprintf('%.6f', bot.metrics[:base0_average_buy_rate]) } %>
+    <%= render partial: "barbell_bots/bot/metrics_item", locals: {
+      label: t('data_labels.bought_ticker', ticker: bot.settings['base1']),
+      value: bot.metrics_unknown? ? '-' : bot.metrics_pending? ? nil : sprintf('%.6f', bot.metrics[:total_base1_amount_acquired]) } %>
+    <%= render partial: "barbell_bots/bot/metrics_item", locals: {
+      label: t('data_labels.avg_price_ticker', ticker: bot.settings['base1']),
+      value: bot.metrics_unknown? ? '-' : bot.metrics_pending? ? nil : sprintf('%.6f', bot.metrics[:base1_average_buy_rate]) } %>
+    <%= render partial: "barbell_bots/bot/metrics_item", locals: {
+      label: t('data_labels.invested_ticker', ticker: bot.settings['quote']),
+      value: bot.metrics_unknown? ? '-' : bot.metrics_pending? ? nil : sprintf('%.6f', bot.metrics[:total_quote_amount_invested]) } %>
+    <%= render partial: "barbell_bots/bot/metrics_item", locals: {
+      label: t('data_labels.value_ticker', ticker: bot.settings['quote']),
+      value: bot.metrics_unknown? ? '-' : bot.metrics_pending? ? nil : sprintf('%.6f', bot.metrics[:current_investment_value_in_quote]) } %>
+    <div class="data-grid__item data-grid__item--filler data-grid__item--filler--4 data-grid__item--filler--6"></div>
+    <div class="data-grid__item data-grid__item--filler data-grid__item--filler--4 data-grid__item--filler--6"></div>
   </div>
-  <div class="data-grid__item" data-controller="tooltip">
-    <div class="label">
-      <%= t('data_labels.avg_price_ticker', ticker: 'BTC') %>
-    </div>
-    <div class="data-grid__item__value">
-        123
-    </div>
-  </div>
-  <div class="data-grid__item" data-controller="tooltip">
-    <div class="label">
-      <%= t('data_labels.bought_ticker', ticker: 'ETH') %>
-    </div>
-    <div class="data-grid__item__value">
-        123
-    </div>
-  </div>
-  <div class="data-grid__item" data-controller="tooltip">
-    <div class="label">
-      <%= t('data_labels.avg_price_ticker', ticker: 'ETH') %>
-    </div>
-    <div class="data-grid__item__value">
-        123
-    </div>
-  </div>
-  <div class="data-grid__item" data-controller="tooltip">
-    <div class="label">
-      <%= t('data_labels.invested_ticker', ticker: 'USDT') %>
-    </div>
-    <div class="data-grid__item__value">
-        123
-    </div>
-  </div>
-  <div class="data-grid__item" data-controller="tooltip">
-    <div class="label">
-      <%= t('data_labels.value_ticker', ticker: 'USDT') %>
-    </div>
-    <div class="data-grid__item__value">
-        123
-    </div>
-  </div>
-  <div class="data-grid__item data-grid__item--filler data-grid__item--filler--4 data-grid__item--filler--6"></div>
-  <div class="data-grid__item data-grid__item--filler data-grid__item--filler--4 data-grid__item--filler--6"></div>
-</div>
+<% end %>

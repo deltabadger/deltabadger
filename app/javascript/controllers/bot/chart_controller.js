@@ -4,7 +4,7 @@ import "chartjs-adapter-date-fns";
 window.Chart = Chart;
 window.Tooltip = Tooltip;
 
-// Connects to data-controller="portfolio-analyzer--chart"
+// Connects to data-controller="bot--chart"
 export default class extends Controller {
   static targets = ["analyzerChart"];
   static values = { series: Array, labels: Array, names: Array, colors: Array };
@@ -27,93 +27,55 @@ export default class extends Controller {
 
   #buildChart() {
     const all_names = this.namesValue;
-    const all_colors = this.colorsValue;
     const all_series = this.seriesValue;
     const all_labels = this.labelsValue;
 
     let minValue;
     let maxValue;
     const profitable = all_series[0][0][all_series[0][0].length - 1] > all_series[0][0][0];
-    const success_color = this.#safeColor(this.#getCssVariableValue('--success'));
-    const danger_color = this.#safeColor(this.#getCssVariableValue('--danger'));
+    const success_color = this.#safeColor(this.#getCssVariableValue("--success"));
+    const danger_color = this.#safeColor(this.#getCssVariableValue("--danger"));
     const portfolio_color = profitable ? success_color : danger_color;
-    const benchmark_color = this.#safeColor(this.#getCssVariableValue('--benchmark'));
-    const font_color = this.#safeColor(this.#getCssVariableValue('--label'));
-    const tooltip_background_color = this.#safeColor(this.#getCssVariableValue('--tooltip-background'));
-    const tooltip_font_color = this.#safeColor(this.#getCssVariableValue('--tooltip-text'));
+    const benchmark_color = this.#safeColor(this.#getCssVariableValue("--benchmark"));
+    const font_color = this.#safeColor(this.#getCssVariableValue("--label"));
+    const tooltip_background_color = this.#safeColor(this.#getCssVariableValue("--tooltip-background"));
+    const tooltip_font_color = this.#safeColor(this.#getCssVariableValue("--tooltip-text"));
     // const portfolio_gradient = this.#canvasContext().createLinearGradient(0, 0, 0, 300);
     //       portfolio_gradient.addColorStop(0, this.#setTransparency(portfolio_color, 0.2));
     //       portfolio_gradient.addColorStop(1, this.#setTransparency(portfolio_color, 0));
     // const benchmark_gradient = this.#canvasContext().createLinearGradient(0, 0, 0, 300);
     //       benchmark_gradient.addColorStop(0, this.#setTransparency(benchmark_color, 0.4));
     //       benchmark_gradient.addColorStop(1, this.#setTransparency(benchmark_color, 0));
-    const maxPointsToDraw = Math.min(this.maxPointsToDraw, all_series[0][0].length, all_series[0][1].length);
+    const maxPointsToDraw = Math.min(
+      this.maxPointsToDraw,
+      all_series[0][0].length,
+      all_series[0][1].length
+    );
 
     let log_scale = true;
 
-    const datasets = [];
-    const tooltip_multipliers = [];
-    let benchmark;
-    for (let i = 0; i < all_names.length; i++) {
-      let series = all_series[i];
-      let labels;
-      let color;
-      let pointRadius;
-      if (i === 0) {
-        labels = all_labels[i].map(date => new Date(date).getTime());
-        series[0] = series[0].map(value => (value / series[0][0])); // Normalize to 1
-        series[0] = series[0].map((x, j) => ({ x: labels[j], y: x }));
-        minValue = Math.min(minValue, ...series[0].map(x => x.y));
-        maxValue = Math.max(maxValue, ...series[0].map(x => x.y));
-        series[1] = series[1].map(value => (value / series[1][0])) // Normalize to 1
-        series[1] = series[1].map((x, j) => ({ x: labels[j], y: x }));
-        minValue = Math.min(minValue, ...series[1].map(x => x.y));
-        maxValue = Math.max(maxValue, ...series[1].map(x => x.y));
-        color = portfolio_color
-        pointRadius = 4
-        tooltip_multipliers.push(1);
-      } else {
-        const filteredLabels = [];
-        const filteredSeries = [];
-        all_labels[i].forEach((date, index) => {
-          if (all_labels[0].includes(date)) {
-            filteredLabels.push(date);
-            filteredSeries.push(series[0][index]);
-          }
-        });
+    let series = all_series[0];
+    let labels;
+    let pointRadius;
+    labels = all_labels[0].map((date) => new Date(date).getTime());
+    // series[0] = series[0].map((value) => value / series[0][0]); // Normalize to 1
+    series[0] = series[0].map((value) => value * 1); // Normalize to 1
+    series[0] = series[0].map((x, j) => ({ x: labels[j], y: x }));
+    minValue = Math.min(minValue, ...series[0].map((x) => x.y));
+    maxValue = Math.max(maxValue, ...series[0].map((x) => x.y));
+    // series[1] = series[1].map((value) => value / series[1][0]); // Normalize to 1
+    series[1] = series[1].map((value) => value * 1); // Normalize to 1
+    series[1] = series[1].map((x, j) => ({ x: labels[j], y: x }));
+    minValue = Math.min(minValue, ...series[1].map((x) => x.y));
+    maxValue = Math.max(maxValue, ...series[1].map((x) => x.y));
+    pointRadius = 4;
 
-        // make line start from main series
-        const startValue = all_series[0][0][all_labels[0].indexOf(filteredLabels[0])].y;
-        series[0] = filteredSeries.map(value => (value * startValue / filteredSeries[0]))
-        tooltip_multipliers.push(startValue);
-
-        // start from zero
-        // series[0] = filteredSeries.map(value => (value / filteredSeries[0]))
-        // tooltip_multipliers.push(1);
-
-        labels = filteredLabels.map(date => new Date(date).getTime());
-        series[0] = series[0].map((x, j) => ({ x: labels[j], y: x }));
-        minValue = Math.min(minValue, ...series[0].map(x => x.y));
-        maxValue = Math.max(maxValue, ...series[0].map(x => x.y));
-
-        // add null values for missing x values
-        const xValues = all_series[0][0].map(label => label.x);
-        xValues.forEach(label => {
-          if (!labels.includes(label)) {
-            series[0].push({ x: label, y: null });
-          }
-        });
-        series[0].sort((label1, label2) => label1.x - label2.x);
-
-        color = this.#safeColor(all_colors[i]);
-        pointRadius = 3.5
-      }
-
-      datasets.push({
-        label: all_names[i],
+    const datasets = [
+      {
+        label: all_names[0],
         lineTension: 0,
         borderWidth: 2.5,
-        borderColor: color,
+        borderColor: portfolio_color,
         pointRadius: Array(maxPointsToDraw - 1)
           .fill(0)
           .concat([pointRadius]),
@@ -121,48 +83,44 @@ export default class extends Controller {
           .fill(0)
           .concat([pointRadius]),
         pointHitRadius: 0,
-        pointBackgroundColor: color,
-        pointBorderColor: this.#setTransparency(color, 0.5),
+        pointBackgroundColor: portfolio_color,
+        pointBorderColor: this.#setTransparency(portfolio_color, 0.5),
         pointBorderWidth: 0,
         data: series[0],
-        clip: {left: false, top: false, right: false, bottom: false},
-      });
-      if (i === 0) {
-        benchmark = {
-          label: "Benchmark",
-          lineTension: 0,
-          borderWidth: 2.5,
-          borderColor: benchmark_color,
-          // borderDash: [4, 2],
-          pointRadius: Array(maxPointsToDraw - 1)
-            .fill(0)
-            .concat([3.5]),
-          pointHoverRadius: Array(maxPointsToDraw - 1)
-            .fill(0)
-            .concat([3.5]),
-          pointHitRadius: 0,
-          pointBackgroundColor: benchmark_color,
-          pointBorderColor: this.#setTransparency(benchmark_color, 0.5),
-          pointBorderWidth: 0,
-          data: series[1],
-          clip: {left: false, top: false, right: false, bottom: false},
-        }
-      }
-    }
-    datasets.push(benchmark);
-    tooltip_multipliers.push(1);
+        clip: { left: false, top: false, right: false, bottom: false },
+      },
+      {
+        label: all_names[1],
+        lineTension: 0,
+        borderWidth: 2.5,
+        borderColor: benchmark_color,
+        // borderDash: [4, 2],
+        pointRadius: Array(maxPointsToDraw - 1)
+          .fill(0)
+          .concat([3.5]),
+        pointHoverRadius: Array(maxPointsToDraw - 1)
+          .fill(0)
+          .concat([3.5]),
+        pointHitRadius: 0,
+        pointBackgroundColor: benchmark_color,
+        pointBorderColor: this.#setTransparency(benchmark_color, 0.5),
+        pointBorderWidth: 0,
+        data: series[1],
+        clip: { left: false, top: false, right: false, bottom: false },
+      },
+    ];
 
-    Tooltip.positioners.topLeft = function(elements, eventPosition) {
-        const tooltip = this;
-        return { x: 5, y: -5 };
+    Tooltip.positioners.topLeft = function (elements, eventPosition) {
+      const tooltip = this;
+      return { x: 5, y: -5 };
     };
 
-    Tooltip.positioners.dynamicPosition = function(elements, eventPosition) {
+    Tooltip.positioners.dynamicPosition = function (elements, eventPosition) {
       const tooltip = this;
       const chartArea = tooltip.chart.chartArea;
       const cursorX = eventPosition.x;
 
-      let y = -10
+      let y = -10;
       let x = 10;
 
       if (cursorX < tooltip.width + x) {
@@ -343,12 +301,11 @@ export default class extends Controller {
                 if (context.parsed.y !== null) {
                   let n = (context.parsed.y - 1) * 100;
 
-                  // make tooltip show the actual value from zero
-                  n = (context.parsed.y / tooltip_multipliers[context.datasetIndex] - 1) * 100;
-
-                  n = Math.abs(n) == 0 || Math.abs(n) >= 10 ? Math.round(n) : Math.abs(n) >= 1 ? n.toFixed(1) : n.toFixed(2);
-                  n = n > 0 ? `+${n}%` : `${n}%`;
-                  label += n;
+                  n = context.parsed.y
+                  n = Math.abs(n) == 0 || Math.abs(n) >= 1000
+                      ? Math.round(n)
+                      : n.toFixed(2);
+                  label += `${n}`;
                   // label += new Intl.NumberFormat("en-US", {
                   //   style: "currency",
                   //   currency: "USD",
@@ -375,7 +332,9 @@ export default class extends Controller {
   }
 
   #canvasContext() {
-    return this.analyzerChartTarget.getContext("2d", { colorSpace: "display-p3" });
+    return this.analyzerChartTarget.getContext("2d", {
+      colorSpace: "display-p3",
+    });
   }
 
   #getCssVariableValue(variableName) {
@@ -410,7 +369,11 @@ export default class extends Controller {
   }
 
   #wideGamutColorSupported() {
-    return this.#displaySupportsP3Color() && this.#canvasSupportsDisplayP3() && this.#canvasSupportsWideGamutCSSColors();
+    return (
+      this.#displaySupportsP3Color() &&
+      this.#canvasSupportsDisplayP3() &&
+      this.#canvasSupportsWideGamutCSSColors()
+    );
   }
 
   #isValidDisplayP3Color(colorString) {
@@ -437,7 +400,10 @@ export default class extends Controller {
 
   #safeColor(color) {
     // returns a display-p3 color string if provided and supported, otherwise returns the rgba color
-    if (this.#isValidDisplayP3Color(color) && !this.#wideGamutColorSupported()) {
+    if (
+      this.#isValidDisplayP3Color(color) &&
+      !this.#wideGamutColorSupported()
+    ) {
       return this.#displayP3ToRgba(color);
     } else if (this.#isValidHexColor(color)) {
       return this.#hexToRgba(color);
@@ -451,7 +417,7 @@ export default class extends Controller {
   #displayP3ToRgba(displayP3String) {
     const match = displayP3String.match(this.#displayP3Regex());
     if (!match) {
-      throw new Error('Invalid color(display-p3 ...) string');
+      throw new Error("Invalid color(display-p3 ...) string");
     }
     const r = parseFloat(match[1]);
     const g = parseFloat(match[5]);
@@ -465,10 +431,13 @@ export default class extends Controller {
 
   #hexToRgba(hex) {
     if (!this.#isValidHexColor(hex)) {
-      throw new Error('Invalid hex color code');
+      throw new Error("Invalid hex color code");
     }
     hex = hex.slice(1);
-    let r, g, b, a = 255;
+    let r,
+      g,
+      b,
+      a = 255;
     if (hex.length === 3) {
       r = parseInt(hex[0] + hex[0], 16);
       g = parseInt(hex[1] + hex[1], 16);
@@ -489,7 +458,7 @@ export default class extends Controller {
 
   #rgbToRgba(rgbString) {
     if (!this.#isValidRgbColor(color)) {
-      throw new Error('Invalid rgb color code');
+      throw new Error("Invalid rgb color code");
     }
     const match = rgbString.match(this.#rgbRegex());
     if (match) {
@@ -499,13 +468,13 @@ export default class extends Controller {
       const a = 1;
       return `rgba(${r}, ${g}, ${b}, ${a})`;
     }
-    throw new Error('Unexpected error parsing the RGB string');
+    throw new Error("Unexpected error parsing the RGB string");
   }
 
   #setTransparency(color, transparency) {
     // Validate transparency value
     if (transparency < 0 || transparency > 1) {
-      throw new Error('Transparency value must be between 0 and 1');
+      throw new Error("Transparency value must be between 0 and 1");
     }
 
     let match = color.match(this.#displayP3Regex());
@@ -524,7 +493,7 @@ export default class extends Controller {
       return `rgba(${r}, ${g}, ${b}, ${transparency})`;
     }
 
-    throw new Error('Invalid color format. Must be display-p3 or rgba.');
+    throw new Error("Invalid color format. Must be display-p3 or rgba.");
   }
 
   #displayP3Regex() {

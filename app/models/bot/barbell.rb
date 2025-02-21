@@ -5,8 +5,11 @@ module Bot::Barbell
     include ActionCable::Channel::Broadcasting
 
     after_update_commit :broadcast_countdown_update, if: :saved_change_to_status?
+    after_update_commit :broadcast_metrics_update, if: :saved_change_to_metrics_status?
 
     validate :validate_barbell_bot_settings, if: :barbell?
+
+    enum metrics_status: %i[unknown pending ready], _prefix: :metrics
 
     def start
       quote_amount = settings['quote_amount'].to_f
@@ -78,7 +81,11 @@ module Bot::Barbell
         base_asset = settings["base#{index}"].upcase
         base_amount = order_size[:amount]
         base_amount_in_quote = order_size[:amount_in_quote]
-        puts "amount: #{base_amount}, index: #{index}"
+
+        # TODO: in some cases rate is 0 ?!
+        rate = balances_and_prices["price#{index}".to_sym]
+
+        puts "amount: #{base_amount}, index: #{index}, rate: #{rate}"
 
         # TODO: cache this value
         result = exchange.get_minimum_base_size(base_asset: base_asset, quote_asset: quote_asset)
@@ -91,7 +98,7 @@ module Bot::Barbell
             base: base_asset,
             quote: quote_asset,
             amount: base_amount,
-            rate: balances_and_prices["price#{index}".to_sym]
+            rate: rate
           )
           next
         end
@@ -124,7 +131,7 @@ module Bot::Barbell
             quote: quote_asset,
             errors: result.errors,
             amount: base_amount,
-            rate: balances_and_prices["price#{index}".to_sym]
+            rate: rate
           )
           # TODO: notify user?
           # TODO: stop the bot?
@@ -146,10 +153,10 @@ module Bot::Barbell
 
       create_successful_transaction!(
         order_id: order_id,
-        base: result.data.dig('order', 'product_id')&.split('-')&.first,
-        quote: result.data.dig('order', 'product_id')&.split('-')&.last,
-        rate: result.data.dig('order', 'average_filled_price')&.to_f,
-        amount: result.data.dig('order', 'filled_size')&.to_f
+        base: result.data[:base],
+        quote: result.data[:quote],
+        rate: result.data[:rate],
+        amount: result.data[:amount]
       )
 
       transient_data['pending_orders'].delete(order_id)
@@ -177,7 +184,7 @@ module Bot::Barbell
       nil
     end
 
-    def next_quote_amount
+    def next_scheduled_orders_quote_amount
       quote_amount = settings['quote_amount'].to_f
       interval = settings['interval']
       pending_quote_amount = transient_data['pending_quote_amount']&.to_f || 0
@@ -198,6 +205,81 @@ module Bot::Barbell
         checkpoint += 1.public_send(interval)
         return checkpoint if checkpoint > Time.current
       end
+    end
+
+    def metrics(recalculate: false) # rubocop:disable Metrics/MethodLength
+      Rails.cache.delete("bot_#{id}_metrics") if recalculate
+      data = Rails.cache.fetch("bot_#{id}_metrics", expires_in: 90.days) do
+        update!(metrics_status: :pending)
+        puts "recalculating metrics for bot #{id}"
+
+        data = {
+          chart: {
+            labels: [],
+            series: [
+              [], # value
+              []  # invested
+            ]
+          }
+        }
+
+        total_quote_amount_invested = {
+          settings['base0'] => 0,
+          settings['base1'] => 0
+        }
+        total_base_amount_acquired = {
+          settings['base0'] => 0,
+          settings['base1'] => 0
+        }
+        current_value_in_quote = {
+          settings['base0'] => 0,
+          settings['base1'] => 0
+        }
+
+        rates = {
+          settings['base0'] => [],
+          settings['base1'] => []
+        }
+        amounts = {
+          settings['base0'] => [],
+          settings['base1'] => []
+        }
+
+        transactions.order(created_at: :asc).each do |transaction|
+          next if transaction.rate.zero?
+          next if transaction.base.nil?
+
+          # chart data
+          data[:chart][:labels] << transaction.created_at
+          amount = transaction.success? ? transaction.amount : 0
+          total_quote_amount_invested[transaction.base] += amount * transaction.rate
+          total_base_amount_acquired[transaction.base] += amount
+          data[:chart][:series][1] << total_quote_amount_invested.values.sum
+          current_value_in_quote[transaction.base] = total_base_amount_acquired[transaction.base] * transaction.rate
+          data[:chart][:series][0] << current_value_in_quote.values.sum
+
+          # metrics data
+          rates[transaction.base] << transaction.rate
+          amounts[transaction.base] << amount
+        end
+
+        rates.each_with_index do |(base, rates_array), index|
+          weighted_average = Utilities::Math.weighted_average(rates_array, amounts[base])
+          data["base#{index}_average_buy_rate".to_sym] = weighted_average
+        end
+
+        data[:total_base0_amount_acquired] = total_base_amount_acquired[settings['base0']]
+        data[:total_base1_amount_acquired] = total_base_amount_acquired[settings['base1']]
+        from_quote_value = total_quote_amount_invested.values.sum
+        to_quote_value = current_value_in_quote.values.sum
+        data[:total_quote_amount_invested] = from_quote_value
+        data[:current_investment_value_in_quote] = to_quote_value
+        data[:pnl] = (to_quote_value - from_quote_value) / from_quote_value
+
+        data
+      end
+      update!(metrics_status: :ready)
+      data
     end
 
     private
@@ -330,20 +412,19 @@ module Bot::Barbell
       end
     end
 
-    # def broadcast_countdown_update
-    #   broadcast_render_to(
-    #     "bot_#{id}",
-    #     :countdown,
-    #     partial: 'barbell_bots/bot/countdown_update',
-    #     locals: { bot: self }
-    #   )
-    # end
-
     def broadcast_countdown_update
       broadcast_update_to(
         ["bot_#{id}", :countdown],
         target: "bot_#{id}_countdown",
         partial: 'barbell_bots/bot/countdown',
+        locals: { bot: self }
+      )
+    end
+
+    def broadcast_metrics_update
+      broadcast_render_to(
+        ["bot_#{id}", :metrics],
+        partial: 'barbell_bots/bot/metrics',
         locals: { bot: self }
       )
     end

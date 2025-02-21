@@ -6,7 +6,7 @@ class Bot::SetBarbellOrdersJob < BotJob
     interval = bot.settings['interval']
     next_scheduled_orders_at = bot.next_scheduled_orders_at
     setting_orders_at = next_scheduled_orders_at - 1.public_send(interval)
-    quote_amount = bot.next_quote_amount
+    quote_amount = bot.next_scheduled_orders_quote_amount
 
     result = bot.set_barbell_orders(quote_amount)
     raise StandardError, "Failed to set barbell orders: #{result.errors}" unless result.success?

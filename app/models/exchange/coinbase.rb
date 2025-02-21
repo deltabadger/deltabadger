@@ -69,7 +69,6 @@ module Exchange::Coinbase # rubocop:disable Metrics/ModuleLength
         amount: amount,
         amount_type: amount_type,
         side: 'sell',
-
         price: price
       )
     end
@@ -78,14 +77,18 @@ module Exchange::Coinbase # rubocop:disable Metrics/ModuleLength
       result = client.get_order(order_id: order_id)
       return result unless result.success?
 
-      Result::Success.new(result.data)
-    end
+      base, quote = Utilities::Hash.dig_or_raise(result.data, 'order', 'product_id').split('-')
+      rate = Utilities::Hash.dig_or_raise(result.data, 'order', 'average_filled_price').to_f
+      amount = Utilities::Hash.dig_or_raise(result.data, 'order', 'filled_size').to_f
 
-    def valid_order?(order)
-      # result = get_order(order_id: order_id)
-      # return result unless result.success?
-
-      # Result::Success.new(result.data['status'] == 'filled')
+      Result::Success.new({
+                            order_id: order_id,
+                            base: base,
+                            quote: quote,
+                            rate: rate,
+                            amount: amount,
+                            exchange_response: result.data
+                          })
     end
 
     def valid_keys?
