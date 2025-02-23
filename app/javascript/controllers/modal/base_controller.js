@@ -41,7 +41,7 @@ export default class extends Controller {
 
   #open() {
     this.element.showModal()
-    document.body.classList.add('overflow-hidden')
+    document.body.classList.add('has-modal')
     this.#dispatchModalOpenEvent(true)
   }
 
@@ -55,7 +55,7 @@ export default class extends Controller {
     const frame = document.getElementById('modal')
     frame.removeAttribute("src")
     frame.innerHTML = ""
-    document.body.classList.remove('overflow-hidden')
+    document.body.classList.remove('has-modal')
     this.#dispatchModalOpenEvent(false)
   }
 
