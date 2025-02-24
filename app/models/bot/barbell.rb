@@ -281,6 +281,15 @@ module Bot::Barbell
       data
     end
 
+    def available_exchanges_for_current_settings
+      Exchange.available_for_barbell_bots.select do |exchange|
+        [
+          exchange.get_symbol_info(base_asset: settings['base0'], quote_asset: settings['quote']),
+          exchange.get_symbol_info(base_asset: settings['base1'], quote_asset: settings['quote'])
+        ].map { |result| result.success? && result.data }.all?
+      end
+    end
+
     private
 
     def validate_barbell_bot_settings # rubocop:disable Metrics/CyclomaticComplexity,Metrics/PerceivedComplexity

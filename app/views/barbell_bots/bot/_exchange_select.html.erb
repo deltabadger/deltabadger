@@ -2,7 +2,7 @@
   <%= form_with model: bot, url: barbell_bot_path(bot), method: :patch, class: "flex-row", data: { controller: "form--submit" } do |f| %>
     <div class="sinput sinput--select">
       <%= bot.exchange.name.capitalize %>
-      <%= f.select :exchange, Exchange.available_for_barbell_bots.map { |e| [e.name.capitalize, e.id] }, { selected: bot.exchange_id }, data: { action: "change->form--submit#submit" } %>
+      <%= f.select :exchange, bot.available_exchanges_for_current_settings.map { |e| [e.name.capitalize, e.id] }, { selected: bot.exchange_id }, data: { action: "change->form--submit#submit" } %>
     </div>
   <% end %>
 <% end %>
