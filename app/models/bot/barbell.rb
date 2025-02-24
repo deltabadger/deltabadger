@@ -93,6 +93,7 @@ module Bot::Barbell
         minimum_base_size = symbol_info.data[:minimum_base_size]
         puts "minimum_base_size: #{minimum_base_size}"
         if base_amount < minimum_base_size
+          # TODO: update pending_quote_amount
           create_skipped_transaction!(
             base: base_asset,
             quote: quote_asset,
@@ -111,9 +112,9 @@ module Bot::Barbell
 
         if result.success?
           order_id = result.data.dig('success_response', 'order_id')
-          transient_data['pending_orders'] = [] if transient_data['pending_orders'].nil?
+          transient_data['pending_orders'] ||= []
           transient_data['pending_orders'] << order_id
-          transient_data['pending_quote_amount'] = 0 if transient_data['pending_quote_amount'].nil?
+          transient_data['pending_quote_amount'] ||= 0
           transient_data['pending_quote_amount'] = transient_data['pending_quote_amount'] - base_amount_in_quote
           update!(transient_data: transient_data)
           Bot::FetchOrderResultJob.perform_later(id, order_id)
@@ -141,6 +142,7 @@ module Bot::Barbell
         # calculate missed amounts if bot was restarted
       end
 
+      update!(status: 'working') unless transient_data['pending_orders']&.any?
       Result::Success.new
     end
 
@@ -300,7 +302,7 @@ module Bot::Barbell
       result1 = exchange.get_symbol_info(base_asset: base1, quote_asset: quote)
       return unless result0.failure? || result1.failure? || result0.data.nil? || result1.data.nil?
 
-      errors.add(:exchange, :unsupported, message: 'Unsupported assets')
+      errors.add(:exchange, :unsupported, message: 'Invalid combination of assets for the selected exchange')
     end
 
     def get_balances_and_prices

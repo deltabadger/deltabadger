@@ -1,8 +1,8 @@
 <%= turbo_frame_tag "exchange-select" do %>
-  <%= form_with model: bot, url: update_exchange_barbell_bot_path(bot), method: :patch, class: "flex-row", data: { controller: "form--submit" } do |form| %>
+  <%= form_with model: bot, url: barbell_bot_path(bot), method: :patch, class: "flex-row", data: { controller: "form--submit" } do |f| %>
     <div class="sinput sinput--select">
       <%= bot.exchange.name.capitalize %>
-      <%= form.select :exchange, Exchange.available_for_barbell_bots.map { |e| [e.name.capitalize, e.id] }, { selected: bot.exchange_id }, data: { action: "change->form--submit#submit" } %>
+      <%= f.select :exchange, Exchange.available_for_barbell_bots.map { |e| [e.name.capitalize, e.id] }, { selected: bot.exchange_id }, data: { action: "change->form--submit#submit" } %>
     </div>
   <% end %>
 <% end %>

@@ -1,20 +1,17 @@
-<%= turbo_frame_tag "bot_#{@barbell_bot.id}_settings" do %>
+<%= turbo_frame_tag "bot_#{bot.id}_settings" do %>
   <div class="widget widget--single">
 
-    <%= form_with model: bot, url: update_settings_barbell_bot_path(bot), method: :patch, class: "basket__asset", data: { controller: "form--submit bot--barbell-allocation" } do |f| %>
+    <%= form_with model: bot, url: barbell_bot_path(bot), method: :patch, class: "basket__asset", data: { controller: "form--submit bot--barbell-allocation" } do |f| %>
 
       <div class="conversational flex-justify-center">
         <%= t('bot.barbell.invest') %>
         <div class="ticker-input ticker-input--autoscale">
 
           <%# in this text field, autowidth doesn't work %>
-          <%= f.text_field :quote_amount, value: bot.settings['quote_amount'], class: 'numeric-input iu-numeric iu-autowidth', size: 3, data: { action: "change->form--submit#submit" } %>
+          <%= f.number_field :quote_amount, value: bot.settings['quote_amount'], class: 'numeric-input iu-numeric iu-autowidth', min: 0.00000001, step: :any, size: 3, data: { action: "change->form--submit#submit" } %>
 
-          <div class="ticker" style="background: #26A17B"> <%# this doesn't work but looks good %>
-          <%#<div class="sinput sinput--select"> <%# this works but looks ugly %>
-
+          <div class="ticker" style="background: #26A17B">
             <%= bot.settings['quote'] %>
-            <%= f.select :quote, [['EUR', 'EUR']], { selected: bot.settings['quote'] }, data: { action: "change->form--submit#submit" } %>
           </div>
         </div>
         /
@@ -28,11 +25,8 @@
 
         <div class="barbell__plate">
 
-          <div class="ticker" style="background: darkorange"> <%# this doesn't work but looks good %>
-          <%#<div class="sinput sinput--select"> <%# this works but looks ugly %>
-
+          <div class="ticker" style="background: darkorange">
             <%= bot.settings['base0'] %>
-            <%= f.select :base0, [['BTC', 'BTC']], { selected: bot.settings['base0'] }, data: { action: "change->form--submit#submit" } %>
           </div>
           <b style="color: darkorange"><span data-bot--barbell-allocation-target="allocation0Text"><%= (bot.settings['allocation0'].to_f * 100).to_i %></span>%</b>
         </div>
@@ -51,10 +45,8 @@
         </div>
 
         <div class="barbell__plate">
-          <div class="ticker" style="background: #465580"> <%# this doesn't work but looks good %>
-          <%#<div class="sinput sinput--select"> <%# this works but looks ugly %>
+          <div class="ticker" style="background: #465580">
             <%= bot.settings['base1'] %>
-            <%= f.select :base1, [['ETH', 'ETH']], { selected: bot.settings['base1'] }, data: { action: "change->form--submit#submit" } %>
           </div>
           <b style="color: #465580"><span data-bot--barbell-allocation-target="allocation1Text"><%= ((1 - bot.settings['allocation0'].to_f) * 100).to_i %></span>%</b>
         </div>
