@@ -70,10 +70,7 @@ class BarbellBotsController < ApplicationController
   def show
     @barbell_bot = current_user.bots.barbell.find(params[:id])
     @pagy, @transactions = pagy_countless(Transaction.for_bot(@barbell_bot), items: 10)
-    return if trader_key_id_for_user(@barbell_bot.exchange).present?
-
-    @api_key = ApiKey.new(user: current_user, exchange: @barbell_bot.exchange)
-    render :api_keys
+    set_api_key_instance_variable_for_bot(@barbell_bot)
   end
 
   def edit
@@ -110,25 +107,22 @@ class BarbellBotsController < ApplicationController
     end
   end
 
-  def create_api_keys
-    @barbell_bot = current_user.bots.barbell.find(api_key_params[:bot_id])
-    @api_key = ApiKey.new(
-      user: current_user,
-      exchange_id: api_key_params[:exchange_id],
-      key: api_key_params[:key],
-      secret: api_key_params[:secret],
-      status: 'pending',
-      passphrase: '',                   # TODO: required?
-      german_trading_agreement: false   # TODO: required?
-    )
+  def new_api_key
+    @barbell_bot = current_user.bots.barbell.find(params[:id])
+    set_api_key_instance_variable_for_bot(@barbell_bot)
+  end
 
-    # TODO: verify apikey works
+  def create_api_key
+    @barbell_bot = current_user.bots.barbell.find(api_key_params[:bot_id])
+    set_api_key_instance_variable_for_bot(@barbell_bot)
+    @api_key.key = api_key_params[:key]
+    @api_key.secret = api_key_params[:secret]
 
     if @api_key.save
-      redirect_to barbell_bot_path(@barbell_bot), notice: 'API keys saved successfully'
+      flash[:notice] = 'API keys saved successfully'
+      render turbo_stream: turbo_stream_page_refresh
     else
-      flash.now[:alert] = @api_key.errors.messages.values.join(', ')
-      render :api_keys, status: :unprocessable_entity
+      render :new_api_key, status: :unprocessable_entity
     end
   end
 
@@ -171,8 +165,17 @@ class BarbellBotsController < ApplicationController
     params.require(:api_key).permit(:key, :secret, :bot_id, :exchange_id)
   end
 
-  def trader_key_id_for_user(exchange)
-    current_user.api_keys.trading.where(exchange_id: exchange.id, status: 'correct').first&.id
+  def set_api_key_instance_variable_for_bot(bot)
+    @api_key = api_key_for_bot(bot) || current_user.api_keys.new(
+      exchange: bot.exchange,
+      status: 'pending',
+      passphrase: '',                   # TODO: required?
+      german_trading_agreement: false   # TODO: required?
+    )
+  end
+
+  def api_key_for_bot(bot)
+    current_user.api_keys.trading.where(exchange_id: bot.exchange.id).first
   end
 
   def get_all_available_assets(asset_type:)

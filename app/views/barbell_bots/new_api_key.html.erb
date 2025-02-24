@@ -1,0 +1,30 @@
+<%= link_to sanitize("&larr; Back to bot"), barbell_bot_path(@barbell_bot) %>
+
+<%= render 'layouts/turbo_modal' do %>
+  <%= button_tag class: 'modal__close', data: { action: 'modal--base#animateOutCloseAndCleanUp' } do %>
+    <%= render partial: 'svg/24x24_x' %>
+  <% end %>
+  <div class="modal__body modal__body--regular">
+
+    <div class="modal__header">
+       <h1 class="modal__title"><%= t('bots.add_api_key') %></h1>
+    </div>
+
+    <%= form_with model: @api_key, url: create_api_key_barbell_bot_path(@barbell_bot), method: :post, data: { controller: "form--label-animations form--html5-validations", action: "turbo:submit-end->modal--base#submitEnd" } do |f| %>
+      <%= f.hidden_field :bot_id, value: @barbell_bot.id %>
+      <div class="db-form__row db-form__row--input">
+        <%= f.text_field :key, autofocus: true, data: { controller: "autofocus" }, class: "db-form__input", rows: 3 %>
+        <%= f.label :key, "API Key", class: "db-form__label" %>
+      </div>
+      <div class="db-form__row db-form__row--input">
+        <%= f.text_field :secret, class: "db-form__input", rows: 3 %>
+        <%= f.label :secret, "API Secret", class: "db-form__label" %>
+      </div>
+
+      <div>
+        <%= f.submit "Save API Keys", class: "btn btn-success btn-lg", data: { turbo_stream: true, turbo_submits_with: "Validating..." } %>
+      </div>
+
+    <% end %>
+  </div>
+<% end %>

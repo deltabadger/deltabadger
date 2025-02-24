@@ -129,18 +129,29 @@ module Exchange::Coinbase # rubocop:disable Metrics/ModuleLength
                           })
     end
 
-    def valid_keys?
+    def get_valid_key?
       result = client.get_api_key_permissions
-      result.success? &&
-        result.data['can_view'] == true &&
-        result.data['can_trade'] == true &&
-        result.data['can_transfer'] == false
+      return result unless result.success?
+
+      valid = if @api_key.trading?
+                result.data['can_trade'] == true && result.data['can_transfer'] == false
+              elsif @api_key.withdrawal?
+                result.data['can_transfer'] == true
+              else
+                false
+              end
+
+      Result::Success.new(valid)
     end
 
     # private
 
     def client
-      @client ||= CoinbaseClient.new(
+      @client ||= set_client
+    end
+
+    def set_client
+      @client = CoinbaseClient.new(
         api_key: @api_key&.key,
         api_secret: @api_key&.secret
       )
