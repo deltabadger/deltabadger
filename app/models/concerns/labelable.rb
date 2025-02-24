@@ -24,7 +24,7 @@ module Labelable
     label = nil
     loop do
       label = Haikunator.haikunate(0, ' ').titleize
-      break unless self.class.exists?(label: label, user_id: user_id)
+      break unless self.class.unscoped.exists?(label: label, user_id: user_id)
     end
     label
   end

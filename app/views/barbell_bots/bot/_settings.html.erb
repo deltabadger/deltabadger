@@ -7,7 +7,7 @@
         <%= t('bot.barbell.invest') %>
         <div class="ticker-input ticker-input--autoscale">
 
-          <%# in this text field, autowidth doesn't work %>
+          <%# FIXME: in this text field, autowidth doesn't work %>
           <%= f.number_field :quote_amount, value: bot.settings['quote_amount'], class: 'numeric-input iu-numeric iu-autowidth', min: 0.00000001, step: :any, size: 3, data: { action: "change->form--submit#submit" } %>
 
           <div class="ticker" style="background: #26A17B">
@@ -17,7 +17,7 @@
         /
         <div class="sinput sinput--select <%= 'sinput--disabled' if bot.working? || bot.pending? %>">
           <%= bot.settings['interval'] %>
-          <%= f.select :interval, [[t('bots.hour'), 'hour'], [t('bots.day'), 'day'], [t('bots.week'), 'week'], [t('bots.month'), 'month']], { selected: bot.settings['interval'] }, data: { action: "change->form--submit#submit" }, disabled: bot.working? || bot.pending? %>
+          <%= f.select :interval, bot_intervals, { selected: bot.settings['interval'] }, data: { action: "change->form--submit#submit" }, disabled: bot.working? || bot.pending? %>
         </div>
       </div>
 
