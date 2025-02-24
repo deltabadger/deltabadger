@@ -1,35 +1,70 @@
+<% other_bots = current_user.bots.not_deleted.barbell.order(:id).select { |bot| @barbell_bot.id != bot.id } %>
+
 <%= turbo_stream_from "bot_#{@barbell_bot.id}", :countdown %>
 <%= turbo_stream_from "bot_#{@barbell_bot.id}", :transactions %>
 <%= turbo_stream_from "bot_#{@barbell_bot.id}", :metrics %>
 
-<div class="page-head page-head--mini">
-  <div class="time-counter time-counter--success">
-    <%= render "barbell_bots/bot/countdown", bot: @barbell_bot %>
-  </div>
-  <div class="flex-row">
-    <%= render "barbell_bots/bot/start_stop_button", bot: @barbell_bot %>
-  </div>
-  <%= button_to "Delete Bot", barbell_bot_path(@barbell_bot), class: "btn btn-danger mb-4", method: :delete %>
-</div>
+<%= turbo_frame_tag "bot" do %>
+  <div class="page-head">
+    <div data-controller="dropdown" data-action="click->dropdown#toggle" data-dropdown-target="wrapper" class="sbutton sbutton--link dropdown-wrapper">
+      <%= turbo_frame_tag "bot_#{@barbell_bot.id}_label" do %>
+        <%= @barbell_bot.label %>
+      <% end %>
+      <%= render "svg/16x16_down" %>
+      <div class="dropdown dropdown--portfolio">
+        <%= link_to "#{t('utils.new')} +", new_barbell_bot_path, class: "dropdown__item", data: { turbo_frame: "modal" } %>
+        <% if other_bots.any? %>
+          <div class="dropdown__item dropdown__item--divider"></div>
+          <% other_bots.each do |bot| %>
+            <%= link_to bot.label, barbell_bot_path(bot), class: "dropdown__item", data: { turbo_frame: "bot" } %>
+          <% end %>
+        <% end %>
+      </div>
+    </div>
+    <div class="flex-row">
+      <div data-controller="dropdown" data-action="click->dropdown#toggle" data-dropdown-target="wrapper" class="sbutton sbutton--link dropdown-wrapper dropdown-wrapper--right">
+        <%= render "svg/24x24_dot_menu" %>
+        <div class="dropdown">
+          <%= link_to t('utils.change_name'), edit_barbell_bot_path(@barbell_bot), class: "dropdown__item", data: { turbo_frame: "modal" } %>
+          <div class="dropdown__item dropdown__item--divider"></div>
 
-<div class="columns">
-  <div class="column gap-2">
-    <%= render partial: "barbell_bots/bot/settings", locals: { bot: @barbell_bot } %>
-    <%= render partial: "barbell_bots/bot/exchange_select", locals: { bot: @barbell_bot } %>
-    <%= render partial: "barbell_bots/bot/settings_extra" %>
+          <%= button_to barbell_bot_path(@barbell_bot), method: :delete, class: "dropdown__item dropdown__item--danger", data: { turbo_confirm: "Deleting bot \"#{@barbell_bot.label}\". #{t('utils.are_you_sure')}" } do %>
+            <%= t('utils.delete') %>
+          <% end %>
+        </div>
+      </div>
+    </div>
   </div>
-  <div class="column gap-2">
-    <% if @barbell_bot.nil? %>
-      <%# <%= link_to new_portfolio_asset_path(@portfolio), class: "sbutton sbutton--primary sbutton--add-asset", data: { turbo_frame: "modal", modal__open_and_submit_on_key_press_target: "button" } do %> %>
-        <%# <% render "svg/24x24_plus" %> %>
-      <%# <% end %> %>
 
 
-      Lorem ipsum dolor sit amet consectetur adipisicing elit. Obcaecati odio saepe, sequi ipsum accusamus fuga, impedit quas libero qui officia earum amet architecto voluptatem repellat repudiandae, quis quidem natus dicta.
-    <% else %>
-      <%= render partial: "barbell_bots/bot/chart", locals: { bot: @barbell_bot } %>
-      <%= render partial: "barbell_bots/bot/metrics", locals: { bot: @barbell_bot } %>
-      <%= render partial: "barbell_bots/bot/transactions_list", locals: { bot: @barbell_bot } %>
-    <% end %>
+  <div class="page-head page-head--mini">
+    <div class="time-counter time-counter--success">
+      <%= render "barbell_bots/bot/countdown", bot: @barbell_bot %>
+    </div>
+    <div class="flex-row">
+      <%= render "barbell_bots/bot/start_stop_button", bot: @barbell_bot %>
+    </div>
   </div>
-</div>
+
+  <div class="columns">
+    <div class="column gap-2">
+      <%= render partial: "barbell_bots/bot/settings", locals: { bot: @barbell_bot } %>
+      <%= render partial: "barbell_bots/bot/exchange_select", locals: { bot: @barbell_bot } %>
+      <%# render partial: "barbell_bots/bot/settings_extra" %>
+    </div>
+    <div class="column gap-2">
+      <% if @barbell_bot.nil? %>
+        <%# <%= link_to new_portfolio_asset_path(@portfolio), class: "sbutton sbutton--primary sbutton--add-asset", data: { turbo_frame: "modal", modal__open_and_submit_on_key_press_target: "button" } do %> %>
+          <%# <% render "svg/24x24_plus" %> %>
+        <%# <% end %> %>
+
+
+        Lorem ipsum dolor sit amet consectetur adipisicing elit. Obcaecati odio saepe, sequi ipsum accusamus fuga, impedit quas libero qui officia earum amet architecto voluptatem repellat repudiandae, quis quidem natus dicta.
+      <% else %>
+        <%= render partial: "barbell_bots/bot/chart", locals: { bot: @barbell_bot } %>
+        <%= render partial: "barbell_bots/bot/metrics", locals: { bot: @barbell_bot } %>
+        <%= render partial: "barbell_bots/bot/transactions_list", locals: { bot: @barbell_bot } %>
+      <% end %>
+    </div>
+  </div>
+<% end %>

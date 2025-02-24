@@ -291,6 +291,8 @@ en:
         week: Week
         withdraw_interval_html: 'Withdraw every <split>2</split> days.'
         withdraw_threshold_html: 'Withdraw when at least <split>0.001</split> %{currency} is available.'
+        bot_name: 'Bot name'
+        change_bot_name: 'Change name'
     days_left:
         one: '1 day left'
         other: '%{count} days left'
@@ -683,6 +685,8 @@ en:
         title: "How long you had to save <span>$%{amount}/month</span> to %{goal}?"
         goal_millionaire: "become a millionaire"
     alert:
+        bot:
+            bot_updated: 'Bot was successfully updated.'
         portfolio:
             invalid_name: 'Invalid portfolio name.'
             invalid_benchmark: 'Invalid benchmark value.'
