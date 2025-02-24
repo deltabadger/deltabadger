@@ -42,6 +42,7 @@ class Exchange < ApplicationRecord
 
   def set_api_key(api_key)
     @api_key = api_key
+    set_client
   end
 
   # @returns

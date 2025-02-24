@@ -4,8 +4,8 @@ class Bot < ApplicationRecord
   has_many :transactions, dependent: :destroy
   has_many :daily_transaction_aggregates
 
-  after_initialize :set_exchange_api_key, if: :exchange_id?
-  after_save :set_exchange_api_key, if: :saved_change_to_exchange_id?
+  after_initialize :set_api_key, if: :exchange_id?
+  after_save :set_api_key, if: :saved_change_to_exchange_id?
   after_save :update_settings_changed_at, if: :saved_change_to_settings?
 
   enum status: %i[created working stopped deleted pending]
@@ -16,15 +16,17 @@ class Bot < ApplicationRecord
   include Barbell
   include Rankable
 
-  delegate :market_sell, :market_buy, :limit_sell, :limit_buy, :valid_keys?, to: :exchange
-
-  def set_exchange_api_key
-    exchange.set_api_key(api_key)
-  end
+  delegate :market_sell, :market_buy, :limit_sell, :limit_buy, to: :exchange
 
   def api_key
+    @api_key ||= set_api_key
+  end
+
+  def set_api_key
     key_type = withdrawal? ? :withdrawal : :trading
-    @api_key ||= ApiKey.for_bot(user_id, exchange_id, key_type).first
+    @api_key = ApiKey.for_bot(user_id, exchange_id, key_type).first
+    exchange.set_api_key(@api_key)
+    @api_key
   end
 
   def base
