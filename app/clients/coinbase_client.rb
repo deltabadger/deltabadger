@@ -5,7 +5,7 @@ class CoinbaseClient < ApplicationClient
   def initialize(api_key: nil, api_secret: nil)
     super()
     @api_key = api_key
-    @api_secret = api_secret
+    @api_secret = api_secret&.gsub('\n', "\n")
   end
 
   def self.connection

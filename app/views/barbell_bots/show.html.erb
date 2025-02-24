@@ -42,7 +42,11 @@
       <%= render "barbell_bots/bot/countdown", bot: @barbell_bot %>
     </div>
     <div class="flex-row">
-      <%= render "barbell_bots/bot/start_stop_button", bot: @barbell_bot %>
+      <% if @api_key.correct? %>
+        <%= render "barbell_bots/bot/start_stop_button", bot: @barbell_bot %>
+      <% else %>
+        <%= link_to t('bots.add_api_key'), new_api_key_barbell_bot_path(@barbell_bot), class: "btn btn-lg btn-primary btn-success", data: { turbo_frame: "modal" } %>
+      <% end %>
     </div>
   </div>
 
