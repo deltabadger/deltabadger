@@ -4,7 +4,7 @@
   <% elsif bot&.working? %>
     <%= tag.div data: {
       controller: "countdown",
-      countdown_target_date_value: bot.next_scheduled_orders_at&.iso8601,
+      countdown_target_date_value: (bot.next_set_barbell_orders_job_at || bot.next_scheduled_orders_at)&.iso8601,
       countdown_hide_if_zero_value: true,
       countdown_days_label_value: t('subscriptions.payment.days_short'),
       countdown_hours_label_value: t('subscriptions.payment.hours_short'),
