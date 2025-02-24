@@ -1,4 +1,8 @@
 module BotHelper
+  def bot_intervals
+    [[t('bots.hour'), 'hour'], [t('bots.day'), 'day'], [t('bots.week'), 'week'], [t('bots.month'), 'month']]
+  end
+
   def rounded_quote_amount_for(exchange:, base_asset:, quote_asset:, amount:)
     rounded_amount_for(exchange: exchange, base_asset: base_asset, quote_asset: quote_asset, amount: amount, amount_type: 'quote')
   end
