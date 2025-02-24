@@ -81,7 +81,7 @@ class CoinbaseClient < ApplicationClient
     end
   end
 
-  # https://docs.cdp.coinbase.com/advanced-trade/reference/retailbrokerageapi_getproducts
+  # https://docs.cdp.coinbase.com/advanced-trade/reference/retailbrokerageapi_getpublicproducts
   # @param limit [Integer] The number of products to return
   # @param offset [Integer] The offset for pagination
   # @param product_type [String] The product type (spot or future)
@@ -102,8 +102,7 @@ class CoinbaseClient < ApplicationClient
   )
     with_rescue do
       response = self.class.connection.get do |req|
-        req.url '/api/v3/brokerage/products'
-        req.headers = headers(req)
+        req.url '/api/v3/brokerage/market/products'
         req.params = {
           limit: limit,
           offset: offset,
@@ -119,7 +118,7 @@ class CoinbaseClient < ApplicationClient
     end
   end
 
-  # https://docs.cdp.coinbase.com/advanced-trade/reference/retailbrokerageapi_getproduct
+  # https://docs.cdp.coinbase.com/advanced-trade/reference/retailbrokerageapi_getpublicproduct
   # @param product_id [String] The product id
   # @param get_tradability_status [Boolean] Whether or not to populate view_only with the tradability status of the product. This is only enabled for SPOT products. # rubocop:disable Layout/LineLength
   def get_product(
@@ -128,8 +127,7 @@ class CoinbaseClient < ApplicationClient
   )
     with_rescue do
       response = self.class.connection.get do |req|
-        req.url "/api/v3/brokerage/products/#{product_id}"
-        req.headers = headers(req)
+        req.url "/api/v3/brokerage/market/products/#{product_id}"
         req.params = {
           get_tradability_status: get_tradability_status
         }.compact
