@@ -8,6 +8,8 @@ class Portfolio < ApplicationRecord
   enum benchmark: %i[65951 1713 65437 65775 65992 37818 61914 61885 51788 37549]
   enum risk_level: %i[conservative moderate_conservative balanced moderate_aggressive aggressive]
 
+  # include Labelable
+
   MAX_ASSETS = {
     limited: 4,
     unlimited: 100

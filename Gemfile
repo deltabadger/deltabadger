@@ -84,5 +84,5 @@ gem "ruby-openai", "~> 7.3.1"
 gem "dartsass-rails", "~> 0.5.1"
 gem "intercom-rails"
 gem "sidekiq-cron"
-
 gem "pagy", "~> 6.5"
+gem "haikunator", "~> 1.1"

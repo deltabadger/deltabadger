@@ -11,6 +11,7 @@ class Bot < ApplicationRecord
   enum status: %i[created working stopped deleted pending]
   enum bot_type: %i[trading withdrawal webhook barbell]
 
+  include Labelable
   include Webhook
   include Barbell
   include Rankable

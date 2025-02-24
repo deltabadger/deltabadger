@@ -96,6 +96,7 @@ ActiveRecord::Schema.define(version: 2025_02_20_154749) do
     t.datetime "started_at"
     t.datetime "stopped_at"
     t.integer "metrics_status", default: 0
+    t.string "label"
     t.index ["exchange_id"], name: "index_bots_on_exchange_id"
     t.index ["user_id"], name: "index_bots_on_user_id"
   end

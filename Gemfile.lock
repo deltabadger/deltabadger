@@ -224,6 +224,7 @@ GEM
     guard-rubocop (1.5.0)
       guard (~> 2.0)
       rubocop (< 2.0)
+    haikunator (1.1.1)
     haml (6.1.2)
       temple (>= 0.8.2)
       thor
@@ -558,6 +559,7 @@ DEPENDENCIES
   faraday-net_http_persistent (~> 2.3.0)
   guard-rspec
   guard-rubocop
+  haikunator (~> 1.1)
   haml-rails (~> 2.1)
   i18n-js (~> 3.8.0)
   intercom-rails
