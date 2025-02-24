@@ -1,0 +1,22 @@
+<%= link_to sanitize("&larr; Back to bot"), barbell_bot_path(@barbell_bot) %>
+
+<%= render 'layouts/turbo_modal' do %>
+  <%= button_tag class: 'modal__close', data: { action: 'modal--base#animateOutCloseAndCleanUp' } do %>
+    <%= render partial: 'svg/24x24_x' %>
+  <% end %>
+  <div class="modal__body modal__body--regular">
+
+    <div class="modal__header">
+       <h1 class="modal__title"><%= t('bots.change_bot_name') %></h1>
+    </div>
+
+    <%= form_with model: @barbell_bot, url: barbell_bot_path(@barbell_bot), method: :patch, class: "modal__form", data: { turbo_frame: "bot_#{@barbell_bot.id}_label", controller: "form--label-animations", action: "turbo:submit-end->modal--base#submitEnd" } do |f| %>
+      <div class="db-form__row db-form__row--input">
+        <%= f.text_field :label, autofocus: true, data: { controller: "autofocus" }, class: "db-form__input" %>
+        <%= f.label :label, t('bots.bot_name'), class: "db-form__label" %>
+      </div>
+      <%= f.submit t('utils.save'), class: "btn btn-success btn-lg" %>
+    <% end %>
+
+  </div>
+<% end %>
