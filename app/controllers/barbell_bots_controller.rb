@@ -118,6 +118,7 @@ class BarbellBotsController < ApplicationController
     @api_key.secret = api_key_params[:secret]
 
     if @api_key.save
+      @barbell_bot.set_exchange_client
       flash[:notice] = 'API keys saved successfully'
       render turbo_stream: turbo_stream_page_refresh
     else

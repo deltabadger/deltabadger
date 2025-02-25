@@ -4,7 +4,6 @@ class BotsController < ApplicationController
   def show
     @bot = current_user.bots.find(params[:id])
     respond_to do |format|
-      # format.html { render 'home/dashboard' } # Render the dashboard view
       format.json { render json: @bot }
     end
   rescue ActiveRecord::RecordNotFound

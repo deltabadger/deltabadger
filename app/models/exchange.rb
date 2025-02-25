@@ -40,11 +40,6 @@ class Exchange < ApplicationRecord
     Result::Success.new(filter_free_plan_symbols(all_symbols.data))
   end
 
-  def set_api_key(api_key)
-    @api_key = api_key
-    set_client
-  end
-
   # @returns
   #   #=> {
   #         symbol: [String],
