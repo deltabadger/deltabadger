@@ -98,7 +98,6 @@ class BarbellBotsController < ApplicationController
 
   def destroy
     @barbell_bot = current_user.bots.barbell.find(params[:barbell_bot_id])
-    puts "barbell_bot: #{@barbell_bot.inspect}"
     if @barbell_bot.delete
       redirect_to barbell_bots_path, notice: 'Bot deleted successfully'
     else
@@ -128,25 +127,29 @@ class BarbellBotsController < ApplicationController
 
   def start
     @barbell_bot = current_user.bots.barbell.find(params[:id])
-    return if @barbell_bot.start
-
-    flash[:alert] = @barbell_bot.errors.messages.values.join(', ')
-    render turbo_stream: turbo_stream_page_refresh, status: :unprocessable_entity
+    if @barbell_bot.start
+      respond_to do |format| # rubocop:disable Style/SymbolProc
+        format.turbo_stream
+      end
+    else
+      flash[:alert] = @barbell_bot.errors.messages.values.join(', ')
+      render turbo_stream: turbo_stream_page_refresh, status: :unprocessable_entity
+    end
   end
 
   def stop
     @barbell_bot = current_user.bots.barbell.find(params[:id])
-    return if @barbell_bot.stop
-
-    flash[:alert] = @barbell_bot.errors.messages.values.join(', ')
-    render turbo_stream: turbo_stream_page_refresh, status: :unprocessable_entity
+    if @barbell_bot.stop
+      respond_to do |format| # rubocop:disable Style/SymbolProc
+        format.turbo_stream
+      end
+    else
+      flash[:alert] = @barbell_bot.errors.messages.values.join(', ')
+      render turbo_stream: turbo_stream_page_refresh, status: :unprocessable_entity
+    end
   end
 
   private
-
-  # def store_barbell_bot_params_in_session
-  #   session[:barbell_bot_params] = barbell_bot_params.to_h
-  # end
 
   def barbell_bot_params
     params.require(:bot).permit(
