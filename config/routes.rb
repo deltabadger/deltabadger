@@ -116,9 +116,8 @@ Rails.application.routes.draw do
       post :stop, on: :member
       post :show, on: :member
     end
-    resources :bots, only: [:show, :index] do
-      get :show, on: :collection
-    end
+
+    resources :bots, only: [:show]
 
     get '/dashboard', to: 'home#dashboard', as: :dashboard
     get '/dashboard/bots/:id', to: 'bots#show', as: :dashboard_bot
