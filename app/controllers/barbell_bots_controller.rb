@@ -14,7 +14,7 @@ class BarbellBotsController < ApplicationController
     if @barbell_bot.save
       render turbo_stream: turbo_stream_redirect(barbell_bot_path(@barbell_bot))
     else
-      flash[:alert] = @barbell_bot.errors.full_messages.to_sentence
+      flash.now[:alert] = @barbell_bot.errors.messages.values.flatten.to_sentence
       render turbo_stream: turbo_stream_prepend_flash, status: :unprocessable_entity
     end
   end
@@ -35,8 +35,8 @@ class BarbellBotsController < ApplicationController
       end
       # flash.now[:notice] = t('alert.bot.bot_updated')
     else
-      flash[:alert] = @barbell_bot.errors.full_messages.to_sentence
-      render turbo_stream: turbo_stream_page_refresh, status: :unprocessable_entity
+      flash.now[:alert] = @barbell_bot.errors.messages.values.flatten.to_sentence
+      render turbo_stream: turbo_stream_prepend_flash, status: :unprocessable_entity
     end
   end
 
@@ -45,7 +45,7 @@ class BarbellBotsController < ApplicationController
       flash[:notice] = 'Bot deleted successfully'
       render turbo_stream: turbo_stream_redirect(barbell_bots_path)
     else
-      flash[:alert] = @barbell_bot.errors.full_messages.to_sentence
+      flash.now[:alert] = @barbell_bot.errors.messages.values.flatten.to_sentence
       render turbo_stream: turbo_stream_prepend_flash, status: :unprocessable_entity
     end
   end
@@ -71,14 +71,14 @@ class BarbellBotsController < ApplicationController
   def start
     return if @barbell_bot.start
 
-    flash.now[:alert] = @barbell_bot.errors.full_messages.to_sentence
+    flash.now[:alert] = @barbell_bot.errors.messages.values.flatten.to_sentence
     render status: :unprocessable_entity
   end
 
   def stop
     return if @barbell_bot.stop
 
-    flash.now[:alert] = @barbell_bot.errors.full_messages.to_sentence
+    flash.now[:alert] = @barbell_bot.errors.messages.values.flatten.to_sentence
     render status: :unprocessable_entity
   end
 

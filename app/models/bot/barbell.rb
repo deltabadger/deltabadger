@@ -9,6 +9,8 @@ module Bot::Barbell
 
     validate :validate_barbell_bot_settings, if: :barbell?, on: :start
     validate :validate_barbell_bot_exchange, if: :barbell?, on: :start
+    validate :validate_unchangeable_assets, if: :barbell?, on: :update
+    validate :validate_unchangeable_interval, if: :barbell?, on: :update
 
     enum metrics_status: %i[unknown pending ready], _prefix: :metrics
 
@@ -338,12 +340,33 @@ module Bot::Barbell
       base0 = settings['base0']&.upcase
       base1 = settings['base1']&.upcase
       quote = settings['quote']&.upcase
-      if base0.present? && base1.present? && quote.present?
-        result0 = exchange.get_symbol_info(base_asset: base0, quote_asset: quote)
-        result1 = exchange.get_symbol_info(base_asset: base1, quote_asset: quote)
-        return unless result0.failure? || result1.failure? || result0.data.nil? || result1.data.nil?
-      end
+      return unless base0.present? && base1.present? && quote.present? && exchange.present?
+
+      result0 = exchange.get_symbol_info(base_asset: base0, quote_asset: quote)
+      result1 = exchange.get_symbol_info(base_asset: base1, quote_asset: quote)
+      return unless result0.failure? || result1.failure? || result0.data.nil? || result1.data.nil?
+
       errors.add(:exchange, :unsupported, message: 'Invalid combination of assets for the selected exchange')
+    end
+
+    def validate_unchangeable_assets
+      return unless transactions.exists?
+      return unless settings_changed?
+      return unless settings_was['quote'] != settings['quote'] ||
+                    settings_was['base0'] != settings['base0'] ||
+                    settings_was['base1'] != settings['base1']
+
+      errors.add(:settings, :unchangeable_assets,
+                 message: 'Assets cannot be changed after orders have been created')
+    end
+
+    def validate_unchangeable_interval
+      return unless working? || pending?
+      return unless settings_changed?
+      return unless settings_was['interval'] != settings['interval']
+
+      errors.add(:settings, :unchangeable_interval,
+                 message: 'Interval cannot be changed while the bot is running')
     end
 
     def get_balances_and_prices
