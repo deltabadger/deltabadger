@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema.define(version: 2025_02_20_154749) do
+ActiveRecord::Schema.define(version: 2025_02_25_195526) do
 
   # These are extensions that must be enabled in order to support this database
   enable_extension "plpgsql"
@@ -132,6 +132,15 @@ ActiveRecord::Schema.define(version: 2025_02_20_154749) do
     t.index ["bot_id", "transaction_type", "created_at"], name: "dailies_index_bot_type_created_at"
     t.index ["bot_id"], name: "index_daily_transaction_aggregates_on_bot_id"
     t.index ["created_at"], name: "index_daily_transaction_aggregates_on_created_at"
+  end
+
+  create_table "exchange_assets", force: :cascade do |t|
+    t.bigint "exchange_id", null: false
+    t.string "ticker", null: false
+    t.string "name"
+    t.string "color"
+    t.index ["exchange_id", "ticker"], name: "index_exchange_assets_on_exchange_id_and_ticker", unique: true
+    t.index ["exchange_id"], name: "index_exchange_assets_on_exchange_id"
   end
 
   create_table "exchanges", force: :cascade do |t|
@@ -301,6 +310,7 @@ ActiveRecord::Schema.define(version: 2025_02_20_154749) do
   add_foreign_key "bots", "exchanges"
   add_foreign_key "bots", "users"
   add_foreign_key "daily_transaction_aggregates", "bots"
+  add_foreign_key "exchange_assets", "exchanges"
   add_foreign_key "fee_api_keys", "exchanges"
   add_foreign_key "payments", "subscription_plan_variants"
   add_foreign_key "payments", "users"

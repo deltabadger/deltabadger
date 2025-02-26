@@ -11,7 +11,6 @@
     </div>
 
     <%= form_with model: @api_key, url: create_api_key_barbell_bot_path(@barbell_bot), method: :post, data: { controller: "form--label-animations form--html5-validations", action: "turbo:submit-end->modal--base#submitEnd" } do |f| %>
-      <%= f.hidden_field :bot_id, value: @barbell_bot.id %>
       <div class="db-form__row db-form__row--input">
         <%= f.text_field :key, autofocus: true, data: { controller: "autofocus" }, class: "db-form__input", rows: 3 %>
         <%= f.label :key, "API Key", class: "db-form__label" %>
