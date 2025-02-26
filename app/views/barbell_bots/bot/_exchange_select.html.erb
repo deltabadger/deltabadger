@@ -1,8 +1,13 @@
-<%= turbo_frame_tag "exchange-select" do %>
+<%= turbo_frame_tag "bot_#{bot.id}_exchange_select" do %>
   <%= form_with model: bot, url: barbell_bot_path(bot), method: :patch, class: "flex-row", data: { controller: "form--submit" } do |f| %>
     <div class="sinput sinput--select">
-      <%= bot.exchange.name.capitalize %>
-      <%= f.select :exchange, bot.available_exchanges_for_current_settings.map { |e| [e.name.capitalize, e.id] }, { selected: bot.exchange_id }, data: { action: "change->form--submit#submit" } %>
+      <%= bot.exchange&.name&.capitalize || 'Any Exchange' %>
+      <%= f.select :exchange_id, [['Any Exchange', nil]] + bot.available_exchanges_for_current_settings.map { |e| [e.name.capitalize, e.id] }, { selected: bot.exchange_id }, data: { action: "change->form--submit#submit" }, disabled: bot.working? || bot.pending? %>
     </div>
+
+    <% if bot.exchange.present? && !bot.api_key.correct? %>
+      <%= link_to "Add API keys for #{bot.exchange.name.capitalize}", new_api_key_barbell_bot_path(bot), class: "btn btn-primary btn-success", data: { turbo_frame: "modal" } %>
+    <% end %>
+
   <% end %>
 <% end %>

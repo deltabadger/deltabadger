@@ -1,6 +1,6 @@
 <h1>Barbell Bots</h1>
 
-<%= link_to "New Barbell Bot", new_barbell_bot_path, class: "btn btn-primary" %>
+<%= button_to "New Barbell Bot", barbell_bots_path, method: :post, class: "btn btn-primary" %>
 
 <% @bots.each do |bot| %>
   <%= bot.id %>

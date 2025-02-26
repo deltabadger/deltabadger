@@ -110,6 +110,7 @@ Rails.application.routes.draw do
     end
 
     resources :barbell_bots, path: "/barbell-bots" do
+      get :asset_search, on: :member
       get :new_api_key, on: :member
       post :create_api_key, on: :member
       post :start, on: :member

@@ -82,8 +82,8 @@ class Exchange < ApplicationRecord
 
   def include_exchange_module
     case name.downcase
-    when 'binance', 'binance.us'
-      self.class.include(Binance) unless self.class.included_modules.include?(Binance)
+    # when 'binance', 'binance.us'
+    #   self.class.include(Binance) unless self.class.included_modules.include?(Binance)
     when 'coinbase'
       self.class.include(Coinbase) unless self.class.included_modules.include?(Coinbase)
     else

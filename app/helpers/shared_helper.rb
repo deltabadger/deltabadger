@@ -8,4 +8,8 @@ module SharedHelper
   def turbo_stream_page_refresh
     turbo_stream.refresh(request_id: nil)
   end
+
+  def turbo_stream_redirect(path)
+    turbo_stream.action(:redirect, path)
+  end
 end

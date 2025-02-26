@@ -24,9 +24,9 @@ module Exchange::Coinbase # rubocop:disable Metrics/ModuleLength
             maximum_quote_size: Utilities::Hash.dig_or_raise(product, 'quote_max_size').to_f,
             base_decimals: Utilities::Number.decimals(base_increment),
             quote_decimals: Utilities::Number.decimals(quote_increment),
-            price_decimals: Utilities::Number.decimals(price_increment)
-            # base_asset_name: '',
-            # quote_asset_name: '',
+            price_decimals: Utilities::Number.decimals(price_increment),
+            base_asset_name: Utilities::Hash.dig_or_raise(product, 'base_name'),
+            quote_asset_name: Utilities::Hash.dig_or_raise(product, 'quote_name')
           }
         end
 

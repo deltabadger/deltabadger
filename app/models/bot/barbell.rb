@@ -7,14 +7,23 @@ module Bot::Barbell
     after_update_commit :broadcast_countdown_update, if: :saved_change_to_status?
     after_update_commit :broadcast_metrics_update, if: :saved_change_to_metrics_status?
 
-    validate :validate_barbell_bot_settings, if: :barbell?
-    validate :validate_exchange, if: :barbell?
+    validate :validate_barbell_bot_settings, if: :barbell?, on: :start
+    validate :validate_barbell_bot_exchange, if: :barbell?, on: :start
 
     enum metrics_status: %i[unknown pending ready], _prefix: :metrics
 
+    def api_key
+      if exchange.present?
+        user.api_keys.trading.where(exchange: exchange).first || new_api_key
+      else
+        new_api_key
+      end
+    end
+
     def start
       quote_amount = settings['quote_amount'].to_f
-      if update(
+
+      if valid?(:start) && update(
         status: 'pending',
         restarts: 0,
         delay: 0,
@@ -50,7 +59,7 @@ module Bot::Barbell
         transient_data: {},
         stopped_at: Time.current
       )
-        cancel_scheduled_orders
+        cancel_scheduled_orders if exchange.present?
         true
       else
         false
@@ -282,6 +291,8 @@ module Bot::Barbell
     end
 
     def available_exchanges_for_current_settings
+      return Exchange.available_for_barbell_bots unless settings['base0'] && settings['base1'] && settings['quote']
+
       Exchange.available_for_barbell_bots.select do |exchange|
         [
           exchange.get_symbol_info(base_asset: settings['base0'], quote_asset: settings['quote']),
@@ -290,7 +301,27 @@ module Bot::Barbell
       end
     end
 
+    # @param asset_type: :base_asset or :quote_asset
+    def available_assets_for_current_settings(asset_type:)
+      Exchange.available_for_barbell_bots.each_with_object({}) do |exchange, asset_map|
+        next if exchange.get_info.failure?
+
+        exchange.get_info.data[:symbols].each do |symbol|
+          ticker = symbol[asset_type]
+          name = symbol["#{asset_type}_name".to_sym]
+          key = [ticker, name]
+
+          asset_map[key] ||= { ticker: ticker, name: name, exchanges: [] }
+          asset_map[key][:exchanges] << exchange.name if asset_map[key][:exchanges].exclude?(exchange.name)
+        end
+      end.values
+    end
+
     private
+
+    def new_api_key
+      user.api_keys.new(exchange: exchange, status: :pending, key_type: :trading)
+    end
 
     def validate_barbell_bot_settings # rubocop:disable Metrics/CyclomaticComplexity,Metrics/PerceivedComplexity
       return if settings['quote_amount'].present? && settings['quote_amount'].to_f.positive? &&
@@ -303,7 +334,7 @@ module Bot::Barbell
       errors.add(:settings, :invalid_settings, message: 'Invalid settings')
     end
 
-    def validate_exchange
+    def validate_barbell_bot_exchange
       base0 = settings['base0'].upcase
       base1 = settings['base1'].upcase
       quote = settings['quote'].upcase
