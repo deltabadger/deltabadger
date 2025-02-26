@@ -5,12 +5,12 @@
 </div>
 
 <div class="columns">
-  <div class="column gap-2">
+  <div class="column gap-1">
     <%= render partial: 'settings/forms/update_name', locals: { name_pattern: @name_pattern } %>
     <%= render partial: 'settings/forms/update_email', locals: { email_address_pattern: @email_address_pattern } %>
   </div>
 
-  <div class="column gap-2">
+  <div class="column gap-1">
     <%= render partial: 'settings/forms/update_password', locals: {
       password_pattern: @password_pattern,
       password_length_pattern: @password_length_pattern,

@@ -37,22 +37,21 @@
   </div>
 
 
-  <div class="page-head page-head--mini">
-    <div class="time-counter time-counter--success">
+  <div class="bot-control">
+    <div class="bot-control__status active">
+      <div class="bot-control__status__bar" style="width: 50%"></div>
       <%= render "barbell_bots/bot/countdown", bot: @barbell_bot %>
     </div>
-    <div class="flex-row">
-      <%= render "barbell_bots/bot/start_stop_button", bot: @barbell_bot %>
-    </div>
+    <%= render "barbell_bots/bot/start_stop_button", bot: @barbell_bot %>
   </div>
 
   <div class="columns">
-    <div class="column gap-2">
+    <div class="column gap-1">
       <%= render partial: "barbell_bots/bot/settings", locals: { bot: @barbell_bot } %>
       <%= render partial: "barbell_bots/bot/exchange_select", locals: { bot: @barbell_bot } %>
       <%# render partial: "barbell_bots/bot/settings_extra" %>
     </div>
-    <div class="column gap-2">
+    <div class="column gap-1">
       <%= render partial: "barbell_bots/bot/chart", locals: { bot: @barbell_bot } %>
       <%= render partial: "barbell_bots/bot/metrics", locals: { bot: @barbell_bot } %>
       <%= render partial: "barbell_bots/bot/transactions_list", locals: { bot: @barbell_bot } %>
