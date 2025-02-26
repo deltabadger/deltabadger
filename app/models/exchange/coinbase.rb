@@ -2,14 +2,19 @@ module Exchange::Coinbase # rubocop:disable Metrics/ModuleLength
   extend ActiveSupport::Concern
 
   included do # rubocop:disable Metrics/BlockLength
+    def set_client(api_key: nil)
+      @client = CoinbaseClient.new(
+        key: api_key&.key,
+        secret: api_key&.secret
+      )
+    end
+
     def get_info
       info = Rails.cache.fetch("exchange_#{id}_info", expires_in: 1.hour) do
         result = client.list_products
         return Result::Failure.new("Failed to get #{name} products") unless result.success?
 
-        products = result.data['products']
-
-        symbols = products.map do |product|
+        symbols = result.data['products'].map do |product|
           symbol = Utilities::Hash.dig_or_raise(product, 'product_id')
           base_increment = Utilities::Hash.dig_or_raise(product, 'base_increment')
           quote_increment = Utilities::Hash.dig_or_raise(product, 'quote_increment')
@@ -147,17 +152,10 @@ module Exchange::Coinbase # rubocop:disable Metrics/ModuleLength
       Result::Success.new(valid)
     end
 
-    # private
+    private
 
     def client
       @client ||= set_client
-    end
-
-    def set_client(api_key: nil)
-      @client = CoinbaseClient.new(
-        key: api_key&.key,
-        secret: api_key&.secret
-      )
     end
 
     def symbol_from_base_and_quote(base, quote)

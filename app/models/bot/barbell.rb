@@ -335,13 +335,14 @@ module Bot::Barbell
     end
 
     def validate_barbell_bot_exchange
-      base0 = settings['base0'].upcase
-      base1 = settings['base1'].upcase
-      quote = settings['quote'].upcase
-      result0 = exchange.get_symbol_info(base_asset: base0, quote_asset: quote)
-      result1 = exchange.get_symbol_info(base_asset: base1, quote_asset: quote)
-      return unless result0.failure? || result1.failure? || result0.data.nil? || result1.data.nil?
-
+      base0 = settings['base0']&.upcase
+      base1 = settings['base1']&.upcase
+      quote = settings['quote']&.upcase
+      if base0.present? && base1.present? && quote.present?
+        result0 = exchange.get_symbol_info(base_asset: base0, quote_asset: quote)
+        result1 = exchange.get_symbol_info(base_asset: base1, quote_asset: quote)
+        return unless result0.failure? || result1.failure? || result0.data.nil? || result1.data.nil?
+      end
       errors.add(:exchange, :unsupported, message: 'Invalid combination of assets for the selected exchange')
     end
 
