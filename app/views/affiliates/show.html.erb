@@ -13,7 +13,7 @@
   <div class="stitle"><%= t('.title') %></div>
 </div>
 <div class="columns">
-  <div class="column gap-2">
+  <div class="column gap-1">
     <div class="db-referral-stats">
       <% stats = Presenters::Affiliates::ReferrerStats.new(@affiliate) %>
       <div class="db-referral-stats__item">
@@ -43,7 +43,7 @@
     </div>
   </div>
 
-  <div class="column gap-2">
+  <div class="column gap-1">
     <div class="widget widget--single">
       <h4 class="db-modal__subtitle"><%= t('.link_title') %></h4>
       <div class="db-form__row db-form__row--input mb-0" data-controller="clipboard">
