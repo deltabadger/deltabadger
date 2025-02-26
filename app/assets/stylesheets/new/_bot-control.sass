@@ -1,0 +1,26 @@
+.bot-control
+    display: flex
+    gap: 1rem
+    margin-bottom: 1rem
+    &__status
+        overflow: hidden
+        line-height: 4rem
+        background: var(--widget-background)
+        flex: 2
+        border-radius: 2rem
+        padding: 0 2rem
+        color: var(--c-text-emphasis)
+        color: #def4
+        position: relative
+        &__bar
+            position: absolute
+            top: 0
+            left: 0
+            bottom: 0
+            height: 100%
+            opacity: 0.1
+            border-radius: 2rem
+        &.active
+            .bot-control__status__bar
+                background: var(--success)
+            color: var(--success)
