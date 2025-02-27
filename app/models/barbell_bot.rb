@@ -9,9 +9,10 @@ class BarbellBot < Bot
   validates :interval, presence: true, inclusion: { in: INTERVAL_OPTIONS }, on: :start
   validates :allocation0, presence: true, numericality: { greater_than_or_equal_to: 0, less_than_or_equal_to: 1 }, on: :start
 
-  validates :pending_quote_amount, numericality: { greater_than_or_equal_to: 0 }, on: :update, if: lambda {
-                                                                                                     pending_quote_amount.present?
-                                                                                                   }
+  validates :pending_quote_amount,
+            numericality: { greater_than_or_equal_to: 0 },
+            on: :update,
+            if: -> { pending_quote_amount.present? }
 
   validate :validate_barbell_bot_exchange, if: :exchange_id?, on: :start
   validate :validate_unchangeable_assets, on: :update
