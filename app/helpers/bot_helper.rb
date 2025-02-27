@@ -4,11 +4,11 @@ module BotHelper
   end
 
   def rounded_quote_amount_for(exchange:, base_asset:, quote_asset:, amount:)
-    rounded_amount_for(exchange: exchange, base_asset: base_asset, quote_asset: quote_asset, amount: amount, amount_type: 'quote')
+    rounded_amount_for(exchange: exchange, base_asset: base_asset, quote_asset: quote_asset, amount: amount, amount_type: :quote)
   end
 
   def rounded_base_amount_for(exchange:, base_asset:, quote_asset:, amount:)
-    rounded_amount_for(exchange: exchange, base_asset: base_asset, quote_asset: quote_asset, amount: amount, amount_type: 'base')
+    rounded_amount_for(exchange: exchange, base_asset: base_asset, quote_asset: quote_asset, amount: amount, amount_type: :base)
   end
 
   def rounded_price_for(exchange:, base_asset:, quote_asset:, price:)
@@ -36,6 +36,7 @@ module BotHelper
 
   private
 
+  # @param amount_type [Symbol] :base or :quote
   def rounded_amount_for(exchange:, base_asset:, quote_asset:, amount:, amount_type:)
     return amount if base_asset.nil? || quote_asset.nil?
 
