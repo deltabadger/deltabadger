@@ -1,7 +1,9 @@
-module Exchange::Coinbase # rubocop:disable Metrics/ModuleLength
-  extend ActiveSupport::Concern
+module Exchanges
+  class CoinbaseExchange
+    def initialize(exchange)
+      @exchange = exchange
+    end
 
-  included do # rubocop:disable Metrics/BlockLength
     def set_client(api_key: nil)
       @client = CoinbaseClient.new(
         key: api_key&.key,
@@ -10,9 +12,9 @@ module Exchange::Coinbase # rubocop:disable Metrics/ModuleLength
     end
 
     def get_info
-      info = Rails.cache.fetch("exchange_#{id}_info", expires_in: 1.hour) do
+      info = Rails.cache.fetch("exchange_#{@exchange.id}_info", expires_in: 1.hour) do
         result = client.list_products
-        return Result::Failure.new("Failed to get #{name} products") unless result.success?
+        return Result::Failure.new("Failed to get #{@exchange.name} products") unless result.success?
 
         symbols = result.data['products'].map do |product|
           symbol = Utilities::Hash.dig_or_raise(product, 'product_id')
@@ -43,9 +45,21 @@ module Exchange::Coinbase # rubocop:disable Metrics/ModuleLength
       Result::Success.new(info)
     end
 
+    def get_symbol_info(base_asset:, quote_asset:)
+      result = get_info
+      return result unless result.success?
+
+      symbol = symbol_from_base_and_quote(base_asset, quote_asset)
+      Result::Success.new(result.data[:symbols].find { |s| s[:symbol] == symbol })
+    end
+
     def get_balance(asset: nil)
+      puts "get_balance: #{asset}"
+      puts "client: #{client}"
       result = client.get_api_key_permissions
       return result unless result.success?
+
+      puts "result: #{result.data}"
 
       portfolio_uuid = result.data['portfolio_uuid']
       result = client.get_portfolio_breakdown(portfolio_uuid: portfolio_uuid)
@@ -195,7 +209,7 @@ module Exchange::Coinbase # rubocop:disable Metrics/ModuleLength
     # @param side: String must be either 'buy' or 'sell'
     def set_market_order(base_asset:, quote_asset:, amount:, amount_type:, side:)
       symbol = symbol_from_base_and_quote(base_asset, quote_asset)
-      adjusted_amount = get_adjusted_amount(
+      adjusted_amount = @exchange.get_adjusted_amount(
         base_asset: base_asset,
         quote_asset: quote_asset,
         amount: amount,
@@ -231,7 +245,7 @@ module Exchange::Coinbase # rubocop:disable Metrics/ModuleLength
     # @param price: Float must be a positive number
     def set_limit_order(base_asset:, quote_asset:, amount:, amount_type:, side:, price:)
       symbol = symbol_from_base_and_quote(base_asset, quote_asset)
-      adjusted_amount = get_adjusted_amount(
+      adjusted_amount = @exchange.get_adjusted_amount(
         base_asset: base_asset,
         quote_asset: quote_asset,
         amount: amount,
@@ -239,7 +253,11 @@ module Exchange::Coinbase # rubocop:disable Metrics/ModuleLength
       )
       return adjusted_amount unless adjusted_amount.success?
 
-      adjusted_price = get_adjusted_price(symbol, price)
+      adjusted_price = @exchange.get_adjusted_price(
+        base_asset: base_asset,
+        quote_asset: quote_asset,
+        price: price
+      )
       return adjusted_price unless adjusted_price.success?
 
       client_order_id = SecureRandom.uuid

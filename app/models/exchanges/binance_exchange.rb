@@ -1,7 +1,9 @@
-module Exchange::Binance
-  extend ActiveSupport::Concern
+module Exchanges
+  class BinanceExchange
+    def initialize(exchange)
+      @exchange = exchange
+    end
 
-  included do
     def get_balance; end
 
     def market_sell; end

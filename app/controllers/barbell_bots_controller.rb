@@ -96,7 +96,7 @@ class BarbellBotsController < ApplicationController
   end
 
   def barbell_bot_params
-    params.require(:bot).permit(
+    params.require(:barbell_bot).permit(
       :quote_amount,
       :quote,
       :interval,
@@ -113,10 +113,15 @@ class BarbellBotsController < ApplicationController
   end
 
   def update_params
+    permitted_params = barbell_bot_params
+    settings_params = permitted_params.except(:exchange_id, :label)
+
+    settings_params.transform_values! { |v| Utilities::String.numeric?(v) ? v.to_f : v }
+
     {
-      settings: @barbell_bot.settings.merge(barbell_bot_params.except(:exchange_id, :label)),
-      exchange_id: barbell_bot_params[:exchange_id],
-      label: barbell_bot_params[:label]
+      settings: @barbell_bot.settings.merge(settings_params),
+      exchange_id: permitted_params[:exchange_id],
+      label: permitted_params[:label]
     }.compact
   end
 

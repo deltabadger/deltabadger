@@ -103,6 +103,7 @@ class CoinbaseClient < ApplicationClient
     with_rescue do
       response = self.class.connection.get do |req|
         req.url '/api/v3/brokerage/market/products'
+        req.headers = headers(req)
         req.params = {
           limit: limit,
           offset: offset,
@@ -128,6 +129,7 @@ class CoinbaseClient < ApplicationClient
     with_rescue do
       response = self.class.connection.get do |req|
         req.url "/api/v3/brokerage/market/products/#{product_id}"
+        req.headers = headers(req)
         req.params = {
           get_tradability_status: get_tradability_status
         }.compact
@@ -159,6 +161,7 @@ class CoinbaseClient < ApplicationClient
         req.url '/api/v3/brokerage/key_permissions'
         req.headers = headers(req)
       end
+      puts "response: #{response.body}"
       Result::Success.new(response.body)
     end
   end
@@ -202,11 +205,20 @@ class CoinbaseClient < ApplicationClient
   private
 
   def headers(req)
-    if cdp_keys?
+    if unauthenticated?
+      unauthenticated_headers
+    elsif cdp_keys?
       cdp_headers(req)
     else
       legacy_headers(req)
     end
+  end
+
+  def unauthenticated_headers
+    {
+      'Accept': 'application/json',
+      'Content-Type': 'application/json'
+    }
   end
 
   def legacy_headers(req)
@@ -240,11 +252,17 @@ class CoinbaseClient < ApplicationClient
     private_key = OpenSSL::PKey::EC.new(@secret)
     jwt = JWT.encode(jwt_payload, private_key, 'ES256', { kid: @key, nonce: SecureRandom.hex })
     {
-      'Authorization': "Bearer #{jwt}"
+      'Authorization': "Bearer #{jwt}",
+      'Accept': 'application/json',
+      'Content-Type': 'application/json'
     }
   end
 
   def cdp_keys?
     @secret.start_with?('-----BEGIN EC PRIVATE KEY-----')
+  end
+
+  def unauthenticated?
+    @key.blank? || @secret.blank?
   end
 end

@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema.define(version: 2025_02_25_195526) do
+ActiveRecord::Schema.define(version: 2025_02_27_124956) do
 
   # These are extensions that must be enabled in order to support this database
   enable_extension "plpgsql"
@@ -81,10 +81,9 @@ ActiveRecord::Schema.define(version: 2025_02_25_195526) do
     t.bigint "exchange_id"
     t.integer "status", default: 0, null: false
     t.bigint "user_id"
-    t.jsonb "settings", default: "", null: false
+    t.jsonb "settings", default: {}, null: false
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
-    t.integer "bot_type"
     t.integer "restarts", default: 0, null: false
     t.integer "delay", default: 0, null: false
     t.integer "current_delay", default: 0, null: false
@@ -97,6 +96,7 @@ ActiveRecord::Schema.define(version: 2025_02_25_195526) do
     t.datetime "stopped_at"
     t.integer "metrics_status", default: 0
     t.string "label"
+    t.string "type"
     t.index ["exchange_id"], name: "index_bots_on_exchange_id"
     t.index ["user_id"], name: "index_bots_on_user_id"
   end

@@ -4,162 +4,23 @@ class Bot < ApplicationRecord
   has_many :transactions, dependent: :destroy
   has_many :daily_transaction_aggregates
 
-  after_initialize :set_exchange_client, if: :exchange_id?
-  after_save :set_exchange_client, if: :saved_change_to_exchange_id?
-  after_save :update_settings_changed_at, if: :saved_change_to_settings?
-
   enum status: %i[created working stopped deleted pending]
-  enum bot_type: %i[trading withdrawal webhook barbell]
+  enum metrics_status: %i[unknown pending ready], _prefix: :metrics
 
+  include Typeable
   include Labelable
-  include Webhook
-  include Barbell
+  include Webhookable
   include Rankable
 
   delegate :market_sell, :market_buy, :limit_sell, :limit_buy, to: :exchange
 
+  after_initialize :set_exchange_client, if: :exchange_id?
+  after_save :set_exchange_client, if: :saved_change_to_exchange_id?
+  after_save :update_settings_changed_at, if: :saved_change_to_settings?
+
   def set_exchange_client
+    puts "setting exchange client for bot #{id}"
     exchange&.set_client(api_key: api_key)
-  end
-
-  def base
-    settings['base']
-  end
-
-  def quote
-    settings['quote']
-  end
-
-  def price
-    settings['price']
-  end
-
-  def additional_price
-    settings['additional_price']
-  end
-
-  def percentage
-    settings['percentage']
-  end
-
-  def interval
-    settings['interval']
-  end
-
-  def interval_enabled
-    settings['interval_enabled']
-  end
-
-  def type
-    settings['type']
-  end
-
-  def additional_type
-    settings['additional_type']
-  end
-
-  def order_type
-    settings['order_type']
-  end
-
-  def force_smart_intervals
-    settings['force_smart_intervals']
-  end
-
-  def smart_intervals_value
-    settings['smart_intervals_value']
-  end
-
-  def price_range_enabled
-    settings['price_range_enabled']
-  end
-
-  def price_range
-    settings['price_range']
-  end
-
-  def currency
-    settings['currency']
-  end
-
-  def threshold
-    settings['threshold']
-  end
-
-  def threshold_enabled
-    settings['threshold_enabled']
-  end
-
-  def address
-    settings['address']
-  end
-
-  def already_triggered_types
-    settings['already_triggered_types']
-  end
-
-  def already_triggered_types=(triggered_type)
-    settings['already_triggered_types'] = triggered_type
-  end
-
-  def trigger_possibility
-    settings['trigger_possibility']
-  end
-
-  def additional_trigger_url
-    settings['additional_trigger_url']
-  end
-
-  def trigger_url
-    settings['trigger_url']
-  end
-
-  def name
-    settings['name']
-  end
-
-  def called_bot(webhook)
-    return 'additional_bot' if additional_type_enabled? && additional_trigger_url == webhook
-
-    'main_bot' if trigger_url == webhook
-  end
-
-  def already_triggered?(type)
-    already_triggered_types.include? type
-  end
-
-  def possible_to_call_a_webhook?(webhook)
-    return true if every_time?
-
-    !already_triggered?(called_bot(webhook))
-  end
-
-  def first_time?
-    trigger_possibility == 'first_time'
-  end
-
-  def every_time?
-    trigger_possibility == 'every_time'
-  end
-
-  def additional_type_enabled?
-    settings['additional_type_enabled']
-  end
-
-  def market?
-    order_type == 'market'
-  end
-
-  def limit?
-    !market?
-  end
-
-  def buyer?
-    type == 'buy'
-  end
-
-  def seller?
-    !buyer?
   end
 
   def last_transaction
@@ -184,14 +45,6 @@ class Bot < ApplicationRecord
 
   def total_amount
     daily_transaction_aggregates.sum(:amount)
-  end
-
-  def use_subaccount
-    settings.fetch('use_subaccount', false)
-  end
-
-  def selected_subaccount
-    settings.fetch('selected_subaccount', '')
   end
 
   def destroy

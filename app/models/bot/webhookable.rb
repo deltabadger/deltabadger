@@ -1,4 +1,4 @@
-module Bot::Webhook
+module Bot::Webhookable
   extend ActiveSupport::Concern
 
   class_methods do
