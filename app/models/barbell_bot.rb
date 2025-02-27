@@ -15,8 +15,14 @@ class BarbellBot < Bot
   validate :validate_unchangeable_assets, on: :update
   validate :validate_unchangeable_interval, on: :update
 
+  after_initialize :set_exchange_client, if: :exchange_id?
+  after_save :set_exchange_client, if: :saved_change_to_exchange_id?
   after_update_commit :broadcast_countdown_update, if: :saved_change_to_status?
   after_update_commit :broadcast_metrics_update, if: :saved_change_to_metrics_status?
+
+  def set_exchange_client
+    exchange&.set_client(api_key: api_key)
+  end
 
   def api_key
     if exchange.present?
