@@ -3,62 +3,56 @@
 <% base1_color = ensure_contrast(nil || "#3C3C3D") %>
 
 <%= turbo_frame_tag "bot_#{bot.id}_settings" do %>
-  <div class="widget widget--single">
+  <%= form_with model: bot, url: barbell_bot_path(bot), method: :patch, class: "widget widget--single", data: { controller: "form--submit bot--barbell-allocation" } do |f| %>
+    <div class="conversational flex-justify-center">
+      <%= t('bot.barbell.invest') %>
+      <div class="ticker-input ticker-input--autoscale">
+        <%# FIXME: in this text field, autowidth doesn't work %>
+        <%= f.number_field :quote_amount, value: bot.settings['quote_amount'], class: 'numeric-input iu-numeric iu-autowidth', min: 0.00000001, step: :any, size: 3, data: { action: "change->form--submit#submit" } %>
 
-    <%= form_with model: bot, url: barbell_bot_path(bot), method: :patch, data: { controller: "form--submit bot--barbell-allocation" } do |f| %>
-
-      <div class="conversational flex-justify-center">
-        <%= t('bot.barbell.invest') %>
-        <div class="ticker-input ticker-input--autoscale">
-
-          <%# FIXME: in this text field, autowidth doesn't work %>
-          <%= f.number_field :quote_amount, value: bot.settings['quote_amount'], class: 'numeric-input iu-numeric iu-autowidth', min: 0.00000001, step: :any, size: 3, data: { action: "change->form--submit#submit" } %>
-
-          <div class="ticker" style="background: <%= quote_color %>">
-            <%# TODO: disabled class has to block click events using css %>
-            <%= link_to bot.settings['quote'].presence || 'Select one asset to sell', asset_search_barbell_bot_path(bot, asset_field: 'quote'), data: { turbo_frame: "modal" }, class: bot.transactions.any? ? 'disabled' : '' %>
-          </div>
-        </div>
-        /
-        <div class="sinput sinput--select <%= 'sinput--disabled' if bot.working? || bot.pending? %>">
-          <%= bot.settings['interval'] %>
-          <%= f.select :interval, bot_intervals, { selected: bot.settings['interval'] }, data: { action: "change->form--submit#submit" }, disabled: bot.working? || bot.pending? %>
+        <div class="ticker" style="background: <%= quote_color %>">
+          <%# TODO: disabled class has to block click events using css %>
+          <%= link_to bot.settings['quote'].presence || 'Select one asset to sell', asset_search_barbell_bot_path(bot, asset_field: 'quote'), data: { turbo_frame: "modal" }, class: bot.transactions.any? ? 'disabled' : '' %>
         </div>
       </div>
+      /
+      <div class="sinput sinput--select <%= 'sinput--disabled' if bot.working? || bot.pending? %>">
+        <%= bot.settings['interval'] %>
+        <%= f.select :interval, bot_intervals, { selected: bot.settings['interval'] }, data: { action: "change->form--submit#submit" }, disabled: bot.working? || bot.pending? %>
+      </div>
+    </div>
 
-      <div class="barbell">
+    <div class="barbell">
 
-        <div class="barbell__plate">
-          <div class="ticker" style="background: <%= base0_color %>">
-            <%# TODO: disabled class has to block click events using css %>
-            <%= link_to bot.settings['base0'].presence || 'Select one asset to buy', asset_search_barbell_bot_path(bot, asset_field: 'base0'), data: { turbo_frame: "modal" }, class: bot.transactions.any? ? 'disabled' : '' %>
-          </div>
-          <b style="color: <%= base0_color %>"><span data-bot--barbell-allocation-target="allocation0Text"><%= (bot.settings['allocation0'].to_f * 100).to_i %></span>%</b>
+      <div class="barbell__plate">
+        <div class="ticker" style="background: <%= base0_color %>">
+          <%# TODO: disabled class has to block click events using css %>
+          <%= link_to bot.settings['base0'].presence || 'Select one asset to buy', asset_search_barbell_bot_path(bot, asset_field: 'base0'), data: { turbo_frame: "modal" }, class: bot.transactions.any? ? 'disabled' : '' %>
         </div>
+        <b style="color: <%= base0_color %>"><span data-bot--barbell-allocation-target="allocation0Text"><%= (bot.settings['allocation0'].to_f * 100).to_i %></span>%</b>
+      </div>
 
-        <div class="barbell__bar">
-          <div class="slider">
-            <%= f.range_field :allocation0, in: 0.0..1.0, step: 0.01, value: bot.settings['allocation0'].to_f, class: "slider__input numeric-input", data: { bot__barbell_allocation_target: "allocation0", action: "input->bot--barbell-allocation#updateAllocation0 change->form--submit#submit" } %>
-            <div class="slider__style">
-              <%= tag.div class: "slider__style__track", style: "border-left-color: #{base0_color};  background: #{base1_color}" do %>
-                <%= tag.div class: "slider__style__progress", style: "width: #{bot.settings['allocation0'].to_f * 100}%; background: #{base0_color}", data: { bot__barbell_allocation_target: "allocation0Slider" } do %>
-                  <div class="slider__style__thumb"></div>
-                <% end %>
+      <div class="barbell__bar">
+        <div class="slider">
+          <%= f.range_field :allocation0, in: 0.0..1.0, step: 0.01, value: bot.settings['allocation0'].to_f, class: "slider__input numeric-input", data: { bot__barbell_allocation_target: "allocation0", action: "input->bot--barbell-allocation#updateAllocation0 change->form--submit#submit" } %>
+          <div class="slider__style">
+            <%= tag.div class: "slider__style__track", style: "border-left-color: #{base0_color};  background: #{base1_color}" do %>
+              <%= tag.div class: "slider__style__progress", style: "width: #{bot.settings['allocation0'].to_f * 100}%; background: #{base0_color}", data: { bot__barbell_allocation_target: "allocation0Slider" } do %>
+                <div class="slider__style__thumb"></div>
               <% end %>
-            </div>
+            <% end %>
           </div>
         </div>
-
-        <div class="barbell__plate">
-          <div class="ticker" style="background: <%= base1_color %>">
-            <%# TODO: disabled class has to block click events using css %>
-            <%= link_to bot.settings['base1'].presence || 'Select one asset to buy', asset_search_barbell_bot_path(bot, asset_field: 'base1'), data: { turbo_frame: "modal" }, class: bot.transactions.any? ? 'disabled' : '' %>
-          </div>
-          <b style="color: <%= base1_color %>"><span data-bot--barbell-allocation-target="allocation1Text"><%= ((1 - bot.settings['allocation0'].to_f) * 100).to_i %></span>%</b>
-        </div>
-
       </div>
-    <% end %>
 
-  </div>
+      <div class="barbell__plate">
+        <div class="ticker" style="background: <%= base1_color %>">
+          <%# TODO: disabled class has to block click events using css %>
+          <%= link_to bot.settings['base1'].presence || 'Select one asset to buy', asset_search_barbell_bot_path(bot, asset_field: 'base1'), data: { turbo_frame: "modal" }, class: bot.transactions.any? ? 'disabled' : '' %>
+        </div>
+        <b style="color: <%= base1_color %>"><span data-bot--barbell-allocation-target="allocation1Text"><%= ((1 - bot.settings['allocation0'].to_f) * 100).to_i %></span>%</b>
+      </div>
+
+    </div>
+  <% end %>
 <% end %>

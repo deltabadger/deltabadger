@@ -3,7 +3,7 @@
   <div class="stitle"><%= t('.title') %></div>
 </div>
 <div class="columns">
-  <div class="column gap-2">
+  <div class="column gap-1">
     <div class="widget widget--single db-referral-program-registration">
       <h4 class="db-modal__subtitle">
         <%= t('.share_html') %>
@@ -29,7 +29,7 @@
     <%= t('affiliates.manual_html') %>
   </div>
 
-  <%= form_with model: @affiliate, class: "column gap-2", local: true, url: affiliate_path, data: { controller: "form--html5-validations form--label-animations" }, method: :patch do |f| %>
+  <%= form_with model: @affiliate, class: "column gap-1", local: true, url: affiliate_path, data: { controller: "form--html5-validations form--label-animations" }, method: :patch do |f| %>
     <div class="widget widget--single">
       <h4 class="mb-4">
         <span class="db-number">1</span>
