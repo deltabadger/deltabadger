@@ -46,6 +46,8 @@ module Exchanges
     end
 
     def get_symbol_info(base_asset:, quote_asset:)
+      return Result::Success.new(nil) if base_asset.blank? || quote_asset.blank?
+
       result = get_info
       return result unless result.success?
 
@@ -88,6 +90,7 @@ module Exchanges
       Result::Success.new(result.data[:ask][:price])
     end
 
+    # @param amount_type [Symbol] :base or :quote
     def market_buy(base_asset:, quote_asset:, amount:, amount_type:)
       set_market_order(
         base_asset: base_asset,
@@ -98,6 +101,7 @@ module Exchanges
       )
     end
 
+    # @param amount_type [Symbol] :base or :quote
     def market_sell(base_asset:, quote_asset:, amount:, amount_type:)
       set_market_order(
         base_asset: base_asset,
@@ -108,6 +112,7 @@ module Exchanges
       )
     end
 
+    # @param amount_type [Symbol] :base or :quote
     def limit_buy(base_asset:, quote_asset:, amount:, amount_type:, price:)
       set_limit_order(
         base_asset: base_asset,
@@ -119,6 +124,7 @@ module Exchanges
       )
     end
 
+    # @param amount_type [Symbol] :base or :quote
     def limit_sell(base_asset:, quote_asset:, amount:, amount_type:, price:)
       set_limit_order(
         base_asset: base_asset,
@@ -205,7 +211,7 @@ module Exchanges
     end
 
     # @param amount: Float must be a positive number
-    # @param amount_type: String must be either 'quote' or 'base'
+    # @param amount_type [Symbol] :base or :quote
     # @param side: String must be either 'buy' or 'sell'
     def set_market_order(base_asset:, quote_asset:, amount:, amount_type:, side:)
       symbol = symbol_from_base_and_quote(base_asset, quote_asset)
@@ -224,8 +230,8 @@ module Exchanges
         side: side.upcase,
         order_configuration: {
           market_market_ioc: {
-            quote_size: amount_type == 'quote' ? adjusted_amount.data.to_s : nil,
-            base_size: amount_type == 'base' ? adjusted_amount.data.to_s : nil
+            quote_size: amount_type == :quote ? adjusted_amount.data.to_s : nil,
+            base_size: amount_type == :base ? adjusted_amount.data.to_s : nil
           }.compact
         }
       )
@@ -240,7 +246,7 @@ module Exchanges
     end
 
     # @param amount: Float must be a positive number
-    # @param amount_type: String must be either 'quote' or 'base'
+    # @param amount_type [Symbol] :base or :quote
     # @param side: String must be either 'buy' or 'sell'
     # @param price: Float must be a positive number
     def set_limit_order(base_asset:, quote_asset:, amount:, amount_type:, side:, price:)
@@ -267,8 +273,8 @@ module Exchanges
         side: side.upcase,
         order_configuration: {
           limit_limit_gtc: {
-            quote_size: amount_type == 'quote' ? adjusted_amount.data.to_s : nil,
-            base_size: amount_type == 'base' ? adjusted_amount.data.to_s : nil,
+            quote_size: amount_type == :quote ? adjusted_amount.data.to_s : nil,
+            base_size: amount_type == :base ? adjusted_amount.data.to_s : nil,
             limit_price: adjusted_price.data.to_s
           }.compact
         }
