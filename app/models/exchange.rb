@@ -77,20 +77,24 @@ class Exchange < ApplicationRecord
     exchange_implementation.get_ask_price(base_asset: base_asset, quote_asset: quote_asset)
   end
 
+  # @param amount_type [Symbol] :base or :quote
   def market_buy(base_asset:, quote_asset:, amount:, amount_type:)
     exchange_implementation.market_buy(base_asset: base_asset, quote_asset: quote_asset, amount: amount, amount_type: amount_type)
   end
 
+  # @param amount_type [Symbol] :base or :quote
   def market_sell(base_asset:, quote_asset:, amount:, amount_type:)
     exchange_implementation.market_sell(base_asset: base_asset, quote_asset: quote_asset, amount: amount,
                                         amount_type: amount_type)
   end
 
+  # @param amount_type [Symbol] :base or :quote
   def limit_buy(base_asset:, quote_asset:, amount:, amount_type:, price:)
     exchange_implementation.limit_buy(base_asset: base_asset, quote_asset: quote_asset, amount: amount, amount_type: amount_type,
                                       price: price)
   end
 
+  # @param amount_type [Symbol] :base or :quote
   def limit_sell(base_asset:, quote_asset:, amount:, amount_type:, price:)
     exchange_implementation.limit_sell(base_asset: base_asset, quote_asset: quote_asset, amount: amount,
                                        amount_type: amount_type, price: price)
@@ -104,13 +108,14 @@ class Exchange < ApplicationRecord
     exchange_implementation.check_valid_api_key?(api_key: api_key)
   end
 
+  # @param amount_type [Symbol] :base or :quote
   def get_adjusted_amount(base_asset:, quote_asset:, amount:, amount_type:, method: :floor)
-    raise "Unsupported amount type #{amount_type}" unless %w[quote base].include?(amount_type)
+    raise "Unsupported amount type #{amount_type}" unless %i[quote base].include?(amount_type)
 
     result = get_symbol_info(base_asset: base_asset, quote_asset: quote_asset)
     return result unless result.success?
 
-    decimals = amount_type == 'quote' ? result.data[:quote_decimals] : result.data[:base_decimals]
+    decimals = amount_type == :quote ? result.data[:quote_decimals] : result.data[:base_decimals]
     Result::Success.new(amount.send(method, decimals))
   end
 

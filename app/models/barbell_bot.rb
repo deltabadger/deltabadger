@@ -1,17 +1,19 @@
 class BarbellBot < Bot
   include ActionCable::Channel::Broadcasting
 
-  store_accessor :transient_data, :pending_quote_amount, :pending_orders
+  store_accessor :transient_data, :pending_quote_amount, :pending_orders, :last_scheduled_orders_at
   store_accessor :settings, :base0, :base1, :quote, :quote_amount, :allocation0, :interval
 
   validates :quote_amount, presence: true, numericality: { greater_than: 0 }, on: :start
-  validates :quote, presence: true, on: :start
-  validates :interval, presence: true, on: :start
-  validates :base0, presence: true, on: :start
-  validates :base1, presence: true, on: :start
+  validates :quote, :base0, :base1, presence: true, format: { with: /\A[A-Z0-9]+\z/ }, on: :start
+  validates :interval, presence: true, inclusion: { in: INTERVAL_OPTIONS }, on: :start
   validates :allocation0, presence: true, numericality: { greater_than_or_equal_to: 0, less_than_or_equal_to: 1 }, on: :start
 
-  validate :validate_barbell_bot_exchange, on: :start
+  validates :pending_quote_amount, numericality: { greater_than_or_equal_to: 0 }, on: :update, if: lambda {
+                                                                                                     pending_quote_amount.present?
+                                                                                                   }
+
+  validate :validate_barbell_bot_exchange, if: :exchange_id?, on: :start
   validate :validate_unchangeable_assets, on: :update
   validate :validate_unchangeable_interval, on: :update
 
@@ -33,8 +35,6 @@ class BarbellBot < Bot
   end
 
   def start
-    quote_amount = settings['quote_amount'].to_f
-
     if valid?(:start) && update(
       status: 'pending',
       restarts: 0,
@@ -78,16 +78,18 @@ class BarbellBot < Bot
     end
   end
 
-  def set_barbell_orders(quote_amount)
+  def set_barbell_orders(temp_quote_amount)
     # return Result::Success.new
-    update!(status: 'pending')
+    update!(
+      status: 'pending',
+      pending_quote_amount: (pending_quote_amount.presence || 0) + temp_quote_amount
+    )
 
-    quote_asset = settings['quote'].upcase
-    result = exchange.get_balance(asset: quote_asset)
+    result = exchange.get_balance(asset: quote)
     return result unless result.success?
 
     available_quote_balance = result.data
-    if available_quote_balance < quote_amount
+    if available_quote_balance < temp_quote_amount
       stop
       # TODO: notify user
       return Result::Failure.new('Insufficient quote balance')
@@ -99,10 +101,9 @@ class BarbellBot < Bot
     balances_and_prices = result.data
     order_sizes = calculate_order_sizes(**balances_and_prices)
     order_sizes.each_with_index do |order_size, index|
-      base_asset = settings["base#{index}"].upcase
       base_amount = order_size[:amount]
       base_amount_in_quote = order_size[:amount_in_quote]
-      symbol_info = exchange.get_symbol_info(base_asset: base_asset, quote_asset: quote_asset)
+      symbol_info = exchange.get_symbol_info(base_asset: base(index), quote_asset: quote)
       return symbol_info unless symbol_info.success?
 
       # TODO: in some cases rate is 0 ?!
@@ -114,10 +115,9 @@ class BarbellBot < Bot
       minimum_base_size = symbol_info.data[:minimum_base_size]
       puts "minimum_base_size: #{minimum_base_size}"
       if base_amount < minimum_base_size
-        # TODO: update pending_quote_amount
         create_skipped_transaction!(
-          base: base_asset,
-          quote: quote_asset,
+          base: base(index),
+          quote: quote,
           amount: base_amount,
           rate: rate
         )
@@ -125,19 +125,18 @@ class BarbellBot < Bot
       end
 
       result = market_buy(
-        base_asset: base_asset,
-        quote_asset: quote_asset,
+        base_asset: base(index),
+        quote_asset: quote,
         amount: base_amount,
-        amount_type: 'base'
+        amount_type: :base
       )
 
       if result.success?
         order_id = result.data.dig('success_response', 'order_id')
-        transient_data['pending_orders'] ||= []
-        transient_data['pending_orders'] << order_id
-        transient_data['pending_quote_amount'] ||= 0
-        transient_data['pending_quote_amount'] = transient_data['pending_quote_amount'] - base_amount_in_quote
-        update!(transient_data: transient_data)
+        update!(
+          pending_orders: (pending_orders.presence || []) << order_id,
+          pending_quote_amount: [0, (pending_quote_amount.presence || 0) - base_amount_in_quote].max
+        )
         Bot::FetchOrderResultJob.perform_later(id, order_id)
 
         # bot.update(status: 'pending')
@@ -146,8 +145,8 @@ class BarbellBot < Bot
         # send_user_to_sendgrid(bot)
       else
         create_failed_transaction!(
-          base: base_asset,
-          quote: quote_asset,
+          base: base(index),
+          quote: quote,
           errors: result.errors,
           amount: base_amount,
           rate: rate
@@ -163,7 +162,7 @@ class BarbellBot < Bot
       # calculate missed amounts if bot was restarted
     end
 
-    update!(status: 'working') unless transient_data['pending_orders']&.any?
+    update!(status: 'working') unless pending_orders.any?
     Result::Success.new
   end
 
@@ -179,11 +178,11 @@ class BarbellBot < Bot
       amount: result.data[:amount]
     )
 
-    transient_data['pending_orders'].delete(order_id)
-    if transient_data['pending_orders'].empty?
-      update!(transient_data: transient_data, status: 'working')
+    new_pending_orders = (pending_orders || []) - [order_id]
+    if new_pending_orders.empty?
+      update!(pending_orders: new_pending_orders, status: 'working')
     else
-      update!(transient_data: transient_data)
+      update!(pending_orders: new_pending_orders)
     end
 
     Result::Success.new
@@ -205,17 +204,15 @@ class BarbellBot < Bot
   end
 
   def next_scheduled_orders_quote_amount
-    quote_amount = settings['quote_amount'].to_f
     interval = settings['interval']
-    pending_quote_amount = transient_data['pending_quote_amount']&.to_f || 0
-    last_scheduled_orders_at = if transient_data['last_scheduled_orders_at'].present?
-                                 DateTime.parse(transient_data['last_scheduled_orders_at'])
+    last_scheduled_orders_at = if last_scheduled_orders_at.present?
+                                 DateTime.parse(last_scheduled_orders_at)
                                else
                                  started_at
                                end
     intervals_since_last_scheduled_orders = ((Time.current - last_scheduled_orders_at) / 1.public_send(interval)).floor
     missed_quote_amount = quote_amount * intervals_since_last_scheduled_orders
-    pending_quote_amount + missed_quote_amount
+    (pending_quote_amount.presence || 0) + missed_quote_amount
   end
 
   def next_scheduled_orders_at
@@ -244,25 +241,25 @@ class BarbellBot < Bot
       }
 
       total_quote_amount_invested = {
-        settings['base0'] => 0,
-        settings['base1'] => 0
+        base0 => 0,
+        base1 => 0
       }
       total_base_amount_acquired = {
-        settings['base0'] => 0,
-        settings['base1'] => 0
+        base0 => 0,
+        base1 => 0
       }
       current_value_in_quote = {
-        settings['base0'] => 0,
-        settings['base1'] => 0
+        base0 => 0,
+        base1 => 0
       }
 
       rates = {
-        settings['base0'] => [],
-        settings['base1'] => []
+        base0 => [],
+        base1 => []
       }
       amounts = {
-        settings['base0'] => [],
-        settings['base1'] => []
+        base0 => [],
+        base1 => []
       }
 
       transactions.order(created_at: :asc).each do |transaction|
@@ -288,8 +285,8 @@ class BarbellBot < Bot
         data["base#{index}_average_buy_rate".to_sym] = weighted_average
       end
 
-      data[:total_base0_amount_acquired] = total_base_amount_acquired[settings['base0']]
-      data[:total_base1_amount_acquired] = total_base_amount_acquired[settings['base1']]
+      data[:total_base0_amount_acquired] = total_base_amount_acquired[base0]
+      data[:total_base1_amount_acquired] = total_base_amount_acquired[base1]
       from_quote_value = total_quote_amount_invested.values.sum
       to_quote_value = current_value_in_quote.values.sum
       data[:total_quote_amount_invested] = from_quote_value
@@ -303,12 +300,12 @@ class BarbellBot < Bot
   end
 
   def available_exchanges_for_current_settings
-    return Exchange.available_for_barbell_bots unless settings['base0'] && settings['base1'] && settings['quote']
+    return Exchange.available_for_barbell_bots unless base0.present? && base1.present? && quote.present?
 
     Exchange.available_for_barbell_bots.select do |exchange|
       [
-        exchange.get_symbol_info(base_asset: settings['base0'], quote_asset: settings['quote']),
-        exchange.get_symbol_info(base_asset: settings['base1'], quote_asset: settings['quote'])
+        exchange.get_symbol_info(base_asset: base0, quote_asset: quote),
+        exchange.get_symbol_info(base_asset: base1, quote_asset: quote)
       ].map { |result| result.success? && result.data }.all?
     end
   end
@@ -331,16 +328,15 @@ class BarbellBot < Bot
 
   private
 
+  def base(index)
+    public_send("base#{index}")
+  end
+
   def new_api_key
     user.api_keys.new(exchange: exchange, status: :pending, key_type: :trading)
   end
 
   def validate_barbell_bot_exchange
-    base0 = settings['base0']&.upcase
-    base1 = settings['base1']&.upcase
-    quote = settings['quote']&.upcase
-    return unless base0.present? && base1.present? && quote.present? && exchange.present?
-
     result0 = exchange.get_symbol_info(base_asset: base0, quote_asset: quote)
     result1 = exchange.get_symbol_info(base_asset: base1, quote_asset: quote)
     return unless result0.failure? || result1.failure? || result0.data.nil? || result1.data.nil?
@@ -369,13 +365,11 @@ class BarbellBot < Bot
   end
 
   def get_balances_and_prices
-    base0 = settings['base0']
-    base1 = settings['base1']
-    result = exchange.get_balance(asset: base0.upcase)
+    result = exchange.get_balance(asset: base0)
     return result unless result.success?
 
     balance0 = result.data
-    result = exchange.get_balance(asset: base1.upcase)
+    result = exchange.get_balance(asset: base1)
     return result unless result.success?
 
     balance1 = result.data
@@ -396,8 +390,6 @@ class BarbellBot < Bot
   end
 
   def calculate_order_sizes(balance0:, balance1:, price0:, price1:)
-    quote_amount = settings['quote_amount'].to_f
-    allocation0 = settings['allocation0'].to_f
     allocation1 = 1 - allocation0
     balance0_in_quote = balance0 * price0
     balance1_in_quote = balance1 * price1
@@ -423,7 +415,6 @@ class BarbellBot < Bot
   end
 
   def create_successful_transaction!(order_id:, base:, quote:, rate:, amount:)
-    bot_quote_amount = settings['quote_amount'].to_f
     interval = settings['interval']
     transactions.create!(
       offer_id: order_id,
@@ -433,13 +424,12 @@ class BarbellBot < Bot
       base: base,
       quote: quote,
       bot_interval: interval,
-      bot_price: bot_quote_amount,  # this is the quote amount in the bot settings
+      bot_price: quote_amount,  # this is the quote amount in the bot settings
       transaction_type: 'REGULAR'
     )
   end
 
   def create_skipped_transaction!(base:, quote:, amount:, rate:)
-    bot_quote_amount = settings['quote_amount'].to_f
     interval = settings['interval']
     transactions.create!(
       status: :skipped,
@@ -448,13 +438,12 @@ class BarbellBot < Bot
       base: base,
       quote: quote,
       bot_interval: interval,
-      bot_price: bot_quote_amount,  # this is the quote amount in the bot settings
+      bot_price: quote_amount,  # this is the quote amount in the bot settings
       transaction_type: 'REGULAR'
     )
   end
 
   def create_failed_transaction!(base:, quote:, errors: nil, order_id: nil, rate: nil, amount: nil)
-    bot_quote_amount = settings['quote_amount'].to_f
     interval = settings['interval']
     transactions.create!(
       error_messages: errors,
@@ -465,7 +454,7 @@ class BarbellBot < Bot
       base: base,
       quote: quote,
       bot_interval: interval,
-      bot_price: bot_quote_amount,  # this is the quote amount in the bot settings
+      bot_price: quote_amount,  # this is the quote amount in the bot settings
       transaction_type: 'REGULAR'
     )
   end
