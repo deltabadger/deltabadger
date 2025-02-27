@@ -14,14 +14,7 @@ class Bot < ApplicationRecord
 
   delegate :market_sell, :market_buy, :limit_sell, :limit_buy, to: :exchange
 
-  after_initialize :set_exchange_client, if: :exchange_id?
-  after_save :set_exchange_client, if: :saved_change_to_exchange_id?
   after_save :update_settings_changed_at, if: :saved_change_to_settings?
-
-  def set_exchange_client
-    puts "setting exchange client for bot #{id}"
-    exchange&.set_client(api_key: api_key)
-  end
 
   def last_transaction
     transactions.where(transaction_type: 'REGULAR').order(created_at: :desc).limit(1).last
