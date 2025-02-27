@@ -2,7 +2,7 @@ class Exchange < ApplicationRecord
   include ExchangeApi::BinanceEnum
   include ExchangeApi::FtxEnum
 
-  after_initialize :include_exchange_module
+  validates :name, presence: true
 
   scope :available, -> { where.not(name: ['FTX', 'FTX.US', 'Coinbase Pro']) }
   scope :available_for_barbell_bots, -> { where(name: ['Coinbase']) } # FIXME: Temporary until all exchanges are supported
@@ -40,6 +40,10 @@ class Exchange < ApplicationRecord
     Result::Success.new(filter_free_plan_symbols(all_symbols.data))
   end
 
+  def set_client(api_key: nil)
+    exchange_implementation.set_client(api_key: api_key)
+  end
+
   # @returns
   #   #=> {
   #         symbol: [String],
@@ -54,11 +58,50 @@ class Exchange < ApplicationRecord
   #         price_decimals: [Integer]
   #       }
   def get_symbol_info(base_asset:, quote_asset:)
-    symbol = symbol_from_base_and_quote(base_asset, quote_asset)
-    result = get_info
-    return result unless result.success?
+    exchange_implementation.get_symbol_info(base_asset: base_asset, quote_asset: quote_asset)
+  end
 
-    Result::Success.new(result.data[:symbols].find { |s| s[:symbol] == symbol })
+  def get_info
+    exchange_implementation.get_info
+  end
+
+  def get_balance(asset: nil)
+    exchange_implementation.get_balance(asset: asset)
+  end
+
+  def get_bid_price(base_asset:, quote_asset:)
+    exchange_implementation.get_bid_price(base_asset: base_asset, quote_asset: quote_asset)
+  end
+
+  def get_ask_price(base_asset:, quote_asset:)
+    exchange_implementation.get_ask_price(base_asset: base_asset, quote_asset: quote_asset)
+  end
+
+  def market_buy(base_asset:, quote_asset:, amount:, amount_type:)
+    exchange_implementation.market_buy(base_asset: base_asset, quote_asset: quote_asset, amount: amount, amount_type: amount_type)
+  end
+
+  def market_sell(base_asset:, quote_asset:, amount:, amount_type:)
+    exchange_implementation.market_sell(base_asset: base_asset, quote_asset: quote_asset, amount: amount,
+                                        amount_type: amount_type)
+  end
+
+  def limit_buy(base_asset:, quote_asset:, amount:, amount_type:, price:)
+    exchange_implementation.limit_buy(base_asset: base_asset, quote_asset: quote_asset, amount: amount, amount_type: amount_type,
+                                      price: price)
+  end
+
+  def limit_sell(base_asset:, quote_asset:, amount:, amount_type:, price:)
+    exchange_implementation.limit_sell(base_asset: base_asset, quote_asset: quote_asset, amount: amount,
+                                       amount_type: amount_type, price: price)
+  end
+
+  def get_order(order_id:)
+    exchange_implementation.get_order(order_id: order_id)
+  end
+
+  def check_valid_api_key?(api_key:)
+    exchange_implementation.check_valid_api_key?(api_key: api_key)
   end
 
   def get_adjusted_amount(base_asset:, quote_asset:, amount:, amount_type:, method: :floor)
@@ -80,16 +123,14 @@ class Exchange < ApplicationRecord
 
   private
 
-  def include_exchange_module
-    case name.downcase
-    # when 'binance', 'binance.us'
-    #   self.class.include(Binance) unless self.class.included_modules.include?(Binance)
-    when 'coinbase'
-      self.class.include(Coinbase) unless self.class.included_modules.include?(Coinbase)
-    else
-      puts "Unsupported exchange #{name}"
-      # raise "Unsupported exchange #{name}"
-    end
+  def exchange_implementation
+    @exchange_implementation ||= case name.downcase
+                                 #  when 'binance' then Exchanges::BinanceExchange.new(self)
+                                 when 'coinbase' then Exchanges::CoinbaseExchange.new(self)
+                                 else
+                                   puts "Unsupported exchange #{name}"
+                                   # raise NotImplementedError, "Unsupported exchange #{name}"
+                                 end
   end
 
   def filter_free_plan_symbols(symbols)
