@@ -42,7 +42,7 @@ gem 'lol_dba'
 
 group :development, :test do
   gem 'debug'
-  gem 'bullet'
+  gem 'bullet', '~>7.2.0'
   gem 'byebug', platforms: [:mri, :mingw, :x64_mingw]
   gem 'rubocop'
   gem 'rspec-rails'
