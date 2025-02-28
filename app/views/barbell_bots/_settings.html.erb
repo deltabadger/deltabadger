@@ -1,9 +1,11 @@
 <% quote_color = ensure_contrast(nil || "#26A17B") %>
 <% base0_color = ensure_contrast(nil || "#F7931A") %>
 <% base1_color = ensure_contrast(nil || "#3C3C3D") %>
+<% base0_color_transparent = transparent_color(base0_color, bot.allocation0) %>
+<% base1_color_transparent = transparent_color(base1_color, 1 - bot.allocation0) %>
 
 <%= turbo_frame_tag "bot_#{bot.id}_settings" do %>
-  <%= form_with model: bot, url: barbell_bot_path(bot), method: :patch, class: "widget widget--single", data: { controller: "form--submit bot--barbell-allocation" } do |f| %>
+  <%= form_with model: bot, url: barbell_bot_path(bot), method: :patch, class: "widget widget--single", data: { controller: "form--submit bot--barbell-allocation", bot__barbell_allocation_color0_value: base0_color, bot__barbell_allocation_color1_value: base1_color } do |f| %>
     <div class="conversational flex-justify-center">
       <%= t('bot.barbell.invest') %>
       <div class="ticker-input ticker-input--autoscale">
@@ -25,19 +27,19 @@
     <div class="barbell">
 
       <div class="barbell__plate">
-        <div class="ticker" style="background: <%= base0_color %>">
+        <div class="ticker" style="background: <%= base0_color_transparent %>" data-bot--barbell-allocation-target="allocation0BackgroundColor">
           <%# TODO: disabled class has to block click events using css %>
           <%= link_to bot.base0.presence || 'Select one asset to buy', asset_search_barbell_bot_path(bot, asset_field: 'base0'), data: { turbo_frame: "modal" }, class: bot.transactions.any? ? 'disabled' : '' %>
         </div>
-        <b style="color: <%= base0_color %>"><span data-bot--barbell-allocation-target="allocation0Text"><%= (bot.allocation0 * 100).to_i %></span>%</b>
+        <b style="color: <%= base0_color_transparent %>" data-bot--barbell-allocation-target="allocation0Color"><span data-bot--barbell-allocation-target="allocation0Text"><%= (bot.allocation0 * 100).to_i %></span>%</b>
       </div>
 
       <div class="barbell__bar">
         <div class="slider">
           <%= f.range_field :allocation0, in: 0.0..1.0, step: 0.01, value: bot.allocation0, class: "slider__input numeric-input", data: { bot__barbell_allocation_target: "allocation0", action: "input->bot--barbell-allocation#updateAllocation0 change->form--submit#submit" } %>
           <div class="slider__style">
-            <%= tag.div class: "slider__style__track", style: "border-left-color: #{base0_color};  background: #{base1_color}" do %>
-              <%= tag.div class: "slider__style__progress", style: "width: #{bot.allocation0 * 100}%; background: #{base0_color}", data: { bot__barbell_allocation_target: "allocation0Slider" } do %>
+            <%= tag.div class: "slider__style__track", style: "border-left-color: #{base0_color_transparent};  background: #{base1_color_transparent}", data: { bot__barbell_allocation_target: "allocation0SliderTrack" } do %>
+              <%= tag.div class: "slider__style__progress", style: "width: #{bot.allocation0 * 100}%; background: #{base0_color_transparent}", data: { bot__barbell_allocation_target: "allocation0SliderProgress" } do %>
                 <div class="slider__style__thumb"></div>
               <% end %>
             <% end %>
@@ -46,11 +48,11 @@
       </div>
 
       <div class="barbell__plate">
-        <div class="ticker" style="background: <%= base1_color %>">
+        <div class="ticker" style="background: <%= base1_color_transparent %>" data-bot--barbell-allocation-target="allocation1BackgroundColor">
           <%# TODO: disabled class has to block click events using css %>
           <%= link_to bot.base1.presence || 'Select one asset to buy', asset_search_barbell_bot_path(bot, asset_field: 'base1'), data: { turbo_frame: "modal" }, class: bot.transactions.any? ? 'disabled' : '' %>
         </div>
-        <b style="color: <%= base1_color %>"><span data-bot--barbell-allocation-target="allocation1Text"><%= ((1 - bot.allocation0) * 100).to_i %></span>%</b>
+        <b style="color: <%= base1_color_transparent %>" data-bot--barbell-allocation-target="allocation1Color"><span data-bot--barbell-allocation-target="allocation1Text"><%= ((1 - bot.allocation0) * 100).to_i %></span>%</b>
       </div>
 
     </div>
