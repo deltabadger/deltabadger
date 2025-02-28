@@ -2,8 +2,6 @@
   <div class="widget widget--single widget--chart">
     <% if bot.metrics_unknown? %>
         <%= render 'svg/landscape_empty' %>
-    <% elsif bot.metrics_pending? %>
-        <div class="loader"></div>
     <% else %>
       <% profitable = bot.metrics[:pnl] > 0 %>
       <% formatted_series = rounded_chart_series_for(exchange: bot.exchange, base_asset: bot.base0, quote_asset: bot.quote, series: bot.metrics[:chart][:series]) %>
