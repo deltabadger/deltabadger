@@ -8,10 +8,10 @@
           <th scope="col"><%= t('value') %></th>
         </tr>
       </thead>
-      <tbody id="bot_<%= bot.id %>_transactions">
+      <tbody id="bot_<%= bot.id %>_orders">
       </tbody>
     </table>
-    <%= turbo_frame_tag "transactions_pagination", src: barbell_bot_path(format: :turbo_stream), loading: :lazy %>
+    <%= turbo_frame_tag "orders_pagination", src: barbell_bot_path(format: :turbo_stream), loading: :lazy %>
   <% else %>
     <div class="insight" style="margin-bottom: 2px">
       <p>Bot orders will appear here</p>

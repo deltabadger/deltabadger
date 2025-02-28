@@ -1,6 +1,6 @@
 <%= turbo_frame_tag "bot_#{bot.id}_countdown" do %>
   <% if bot&.pending? %>
-      <div class="loader"></div>
+      Setting orders...
   <% elsif bot&.working? %>
     <%= tag.div data: {
       controller: "countdown",

@@ -6,7 +6,7 @@ class BarbellBot < Bot
 
   validates :quote_amount, presence: true, numericality: { greater_than: 0 }, on: :start
   validates :quote, :base0, :base1, presence: true, format: { with: /\A[A-Z0-9]+\z/ }, on: :start
-  validates :interval, presence: true, inclusion: { in: INTERVAL_OPTIONS }, on: :start
+  validates :interval, presence: true, inclusion: { in: INTERVALS }, on: :start
   validates :allocation0, presence: true, numericality: { greater_than_or_equal_to: 0, less_than_or_equal_to: 1 }, on: :start
 
   validates :pending_quote_amount,
@@ -479,7 +479,7 @@ class BarbellBot < Bot
     broadcast_update_to(
       ["bot_#{id}", :countdown],
       target: "bot_#{id}_countdown",
-      partial: 'barbell_bots/bot/countdown',
+      partial: 'barbell_bots/status/status_countdown',
       locals: { bot: self }
     )
   end
@@ -487,7 +487,7 @@ class BarbellBot < Bot
   def broadcast_metrics_update
     broadcast_render_to(
       ["bot_#{id}", :metrics],
-      partial: 'barbell_bots/bot/metrics',
+      partial: 'barbell_bots/metrics/metrics',
       locals: { bot: self }
     )
   end

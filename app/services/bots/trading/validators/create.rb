@@ -29,7 +29,6 @@ module Bots::Trading::Validators
                   :pro, :legendary, :force_smart_intervals, :smart_intervals_value, :exchange_name,
                   :price_range_enabled, :price_range, :use_subaccount, :selected_subaccount
 
-      INTERVALS = %w[month week day hour].freeze
       TYPES = %w[buy sell sell_old].freeze
       ORDER_TYPES = %w[market limit].freeze
 
@@ -37,7 +36,7 @@ module Bots::Trading::Validators
       validate :allowed_symbol
       validate :plan_allowed_symbol
       validate :plan_allowed_bot
-      validates :interval, inclusion: { in: INTERVALS }
+      validates :interval, inclusion: { in: Bot::INTERVALS }
       validates :type, inclusion: { in: TYPES }
       validates :order_type, inclusion: { in: ORDER_TYPES }
       validates :price, numericality: { only_float: true, greater_than: 0 }
