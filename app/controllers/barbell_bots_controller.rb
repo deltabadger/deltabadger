@@ -22,7 +22,7 @@ class BarbellBotsController < ApplicationController
   def show
     return redirect_to barbell_bots_path if @barbell_bot.deleted?
 
-    @pagy, @transactions = pagy_countless(Transaction.for_bot(@barbell_bot), items: 10)
+    @pagy, @transactions = pagy_countless(@barbell_bot.transactions.order(created_at: :desc), items: 10)
   end
 
   def edit; end
