@@ -20,7 +20,7 @@ class BarbellBot < Bot
 
   after_initialize :set_exchange_client, if: :exchange_id?
   after_save :set_exchange_client, if: :saved_change_to_exchange_id?
-  after_update_commit :broadcast_countdown_update, if: :saved_change_to_status?
+  after_update_commit :broadcast_status_bar_update, if: :saved_change_to_status?
   after_update_commit :broadcast_metrics_update, if: -> { saved_change_to_metrics_status? && metrics_ready? }
 
   def set_exchange_client
@@ -190,6 +190,8 @@ class BarbellBot < Bot
   end
 
   def next_set_barbell_orders_job_at
+    return nil unless exchange.present?
+
     sidekiq_places = [
       Sidekiq::RetrySet.new,
       Sidekiq::ScheduledSet.new
@@ -206,12 +208,12 @@ class BarbellBot < Bot
 
   def next_scheduled_orders_quote_amount
     interval = settings['interval']
-    last_scheduled_orders_at = if last_scheduled_orders_at.present?
-                                 DateTime.parse(last_scheduled_orders_at)
-                               else
-                                 started_at
-                               end
-    intervals_since_last_scheduled_orders = ((Time.current - last_scheduled_orders_at) / 1.public_send(interval)).floor
+    last_scheduled_orders_at_time = if last_scheduled_orders_at.present?
+                                      DateTime.parse(last_scheduled_orders_at)
+                                    else
+                                      started_at
+                                    end
+    intervals_since_last_scheduled_orders = ((Time.current - last_scheduled_orders_at_time) / 1.public_send(interval)).floor
     missed_quote_amount = quote_amount * intervals_since_last_scheduled_orders
     (pending_quote_amount.presence || 0) + missed_quote_amount
   end
@@ -222,6 +224,15 @@ class BarbellBot < Bot
     loop do
       checkpoint += 1.public_send(interval)
       return checkpoint if checkpoint > Time.current
+    end
+  end
+
+  def progress_percentage
+    if last_scheduled_orders_at.present? && next_set_barbell_orders_job_at.present?
+      last_scheduled_orders_at_time = DateTime.parse(last_scheduled_orders_at)
+      (Time.current - last_scheduled_orders_at_time) / (next_set_barbell_orders_job_at - last_scheduled_orders_at_time)
+    else
+      0
     end
   end
 
@@ -475,11 +486,11 @@ class BarbellBot < Bot
     end
   end
 
-  def broadcast_countdown_update
+  def broadcast_status_bar_update
     broadcast_update_to(
-      ["bot_#{id}", :countdown],
-      target: "bot_#{id}_countdown",
-      partial: 'barbell_bots/status/status_countdown',
+      ["bot_#{id}", :status_bar],
+      target: "bot_#{id}_status_bar",
+      partial: 'barbell_bots/status/status_bar',
       locals: { bot: self }
     )
   end

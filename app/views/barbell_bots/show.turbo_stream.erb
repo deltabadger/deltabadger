@@ -1,4 +1,4 @@
-<%= turbo_stream.append "bot_#{@barbell_bot.id}_orders" do %>
+<%= turbo_stream.append "bot_#{@barbell_bot.id}_orders_list" do %>
   <%= render partial: "barbell_bots/orders/order", collection: @orders %>
 <% end %>
 

@@ -1,4 +1,4 @@
-<%= turbo_stream_from "bot_#{@barbell_bot.id}", :countdown %>
+<%= turbo_stream_from "bot_#{@barbell_bot.id}", :status_bar %>
 <%= turbo_stream_from "bot_#{@barbell_bot.id}", :orders %>
 <%= turbo_stream_from "bot_#{@barbell_bot.id}", :metrics %>
 
@@ -6,7 +6,14 @@
   <div class="page-head">
     <%= render "barbell_bots/header", bot: @barbell_bot, other_bots: @other_bots %>
   </div>
-  <%= render "barbell_bots/status/status", bot: @barbell_bot %>
+
+  <div class="bot-control">
+    <div class="bot-control__status active">
+      <%= render "barbell_bots/status/status_bar", bot: @barbell_bot %>
+    </div>
+    <%= render "barbell_bots/status/status_button", bot: @barbell_bot %>
+  </div>
+
   <div class="columns">
     <div class="column gap-1">
       <%= render partial: "barbell_bots/settings", locals: { bot: @barbell_bot } %>

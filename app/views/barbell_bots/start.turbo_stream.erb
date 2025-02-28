@@ -1,7 +1,7 @@
 <% if @barbell_bot.errors.any? %>
-  <%= turbo_stream.update "bot_#{@barbell_bot.id}_action_button", partial: 'barbell_bots/status/status_action_button', locals: { bot: @barbell_bot } %>
+  <%= turbo_stream.update "bot_#{@barbell_bot.id}_button", partial: 'barbell_bots/status/status_button', locals: { bot: @barbell_bot } %>
   <%= turbo_stream_prepend_flash %>
 <% else %>
-  <%= turbo_stream.update "bot_#{@barbell_bot.id}_action_button", partial: 'barbell_bots/status/status_action_button', locals: { bot: @barbell_bot } %>
+  <%= turbo_stream.update "bot_#{@barbell_bot.id}_button", partial: 'barbell_bots/status/status_button', locals: { bot: @barbell_bot } %>
   <%= turbo_stream.update "bot_#{@barbell_bot.id}_settings", partial: 'barbell_bots/settings', locals: { bot: @barbell_bot } %>
 <% end %>

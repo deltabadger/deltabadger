@@ -73,6 +73,9 @@ application.register("portfolio-analyzer--chart", PortfolioAnalyzer__ChartContro
 import PortfolioAnalyzer__RiskLevelAllocationsController from "./portfolio_analyzer/risk_level_allocations_controller"
 application.register("portfolio-analyzer--risk-level-allocations", PortfolioAnalyzer__RiskLevelAllocationsController)
 
+import ProgressBarController from "./progress_bar_controller"
+application.register("progress-bar", ProgressBarController)
+
 import RemovalsController from "./removals_controller"
 application.register("removals", RemovalsController)
 
