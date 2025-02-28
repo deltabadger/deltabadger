@@ -113,7 +113,7 @@ GEM
     bootsnap (1.16.0)
       msgpack (~> 1.2)
     builder (3.2.4)
-    bullet (7.0.7)
+    bullet (7.2.0)
       activesupport (>= 3.0.0)
       uniform_notifier (~> 1.11)
     bundle-audit (0.1.0)
@@ -538,7 +538,7 @@ DEPENDENCIES
   administrate
   attr_encrypted (~> 3.1.0)
   bootsnap (>= 1.4.2)
-  bullet
+  bullet (~> 7.2.0)
   bundle-audit
   bundler (~> 2.5.23)
   byebug
