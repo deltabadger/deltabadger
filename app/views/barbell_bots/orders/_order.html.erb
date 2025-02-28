@@ -1,0 +1,5 @@
+<tr id="order_<%= order.id %>" style="<%= order.skipped? ? 'color: gray' : order.failure? ? 'color: red' : '' %>">
+  <td scope="row"><%= order.created_at.strftime("%Y-%m-%d %I:%M %p") %></td>
+  <td><%= rounded_base_amount_for(exchange: order.bot.exchange, base_asset: order.base, quote_asset: order.quote, amount: order.amount) %> <%= order.base %></td>
+  <td><%= rounded_quote_amount_for(exchange: order.bot.exchange, base_asset: order.base, quote_asset: order.quote, amount: order.amount * order.rate) %> <%= order.quote %></td>
+</tr>

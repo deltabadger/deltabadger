@@ -16,7 +16,7 @@ class Bot < ApplicationRecord
 
   after_save :update_settings_changed_at, if: :saved_change_to_settings?
 
-  INTERVAL_OPTIONS = %w[hour day week month].freeze
+  INTERVALS = %w[hour day week month].freeze
 
   def last_transaction
     transactions.where(transaction_type: 'REGULAR').order(created_at: :desc).limit(1).last

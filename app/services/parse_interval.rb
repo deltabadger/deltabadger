@@ -1,8 +1,6 @@
 class ParseInterval < BaseService
   Error = StandardError
 
-  INTERVALS = %w[month week day hour].freeze
-
   def call(bot)
     return 0.0 if bot.webhook?
 
@@ -24,7 +22,7 @@ class ParseInterval < BaseService
 
   def calculate_user_interval(last_transaction)
     interval = last_transaction.bot_interval
-    raise Error, 'Invalid interval' if !INTERVALS.include?(interval)
+    raise Error, 'Invalid interval' if !Bot::INTERVALS.include?(interval)
 
     1.public_send(interval).seconds
   end

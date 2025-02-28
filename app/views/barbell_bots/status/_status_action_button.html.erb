@@ -1,4 +1,4 @@
-<%= turbo_frame_tag "bot_#{bot.id}_start_stop_button" do %>
+<%= turbo_frame_tag "bot_#{bot.id}_action_button" do %>
   <% if bot.working? || bot.pending? %>
     <%= button_to stop_barbell_bot_path(bot), class: "sbutton sbutton--primary sbutton--outline", data: { hw_animate_out: "animate-button-to-start-shape"} do %>
       <div class="animicon animicon--stop">

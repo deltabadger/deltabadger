@@ -10,7 +10,7 @@ class BarbellBotsController < ApplicationController
   end
 
   def create
-    @barbell_bot = current_user.bots.barbell.new(settings: { interval: 'day', allocation0: 0.5 })
+    @barbell_bot = current_user.bots.barbell.new(settings: { interval: Bot::INTERVALS.first, allocation0: 0.5 })
     if @barbell_bot.save
       render turbo_stream: turbo_stream_redirect(barbell_bot_path(@barbell_bot))
     else
@@ -22,7 +22,8 @@ class BarbellBotsController < ApplicationController
   def show
     return redirect_to barbell_bots_path if @barbell_bot.deleted?
 
-    @pagy, @transactions = pagy_countless(@barbell_bot.transactions.order(created_at: :desc), items: 10)
+    @other_bots = current_user.bots.not_deleted.barbell.order(id: :desc).where.not(id: @barbell_bot.id)
+    @pagy, @orders = pagy_countless(@barbell_bot.transactions.order(created_at: :desc), items: 10)
   end
 
   def edit; end

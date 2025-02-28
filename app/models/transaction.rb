@@ -71,14 +71,14 @@ class Transaction < ApplicationRecord
   def broadcast_to_bot
     if Transaction.for_bot(bot).count == 1
       broadcast_refresh_to(
-        ["bot_#{bot_id}", :transactions]
+        ["bot_#{bot_id}", :orders]
       )
     else
       broadcast_prepend_to(
-        ["bot_#{bot_id}", :transactions],
-        target: "bot_#{bot_id}_transactions",
-        partial: 'barbell_bots/bot/transaction',
-        locals: { transaction: self }
+        ["bot_#{bot_id}", :orders],
+        target: "bot_#{bot_id}_orders",
+        partial: 'barbell_bots/orders/order',
+        locals: { order: self }
       )
     end
   end
