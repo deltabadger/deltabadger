@@ -1,4 +1,4 @@
-<div class="widget widget--single">
+<div class="widget">
   <h4 class="db-modal__subtitle"><%= t('settings.index.name_section') %></h4>
   <%= turbo_frame_tag "update_name_form" do %>
     <%= form_with model: current_user, url: settings_update_name_path, data: { controller: "form--html5-validations form--label-animations", turbo_frame: "update_name_form" } do |f| %>
