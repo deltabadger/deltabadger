@@ -1,5 +1,5 @@
 <%= turbo_frame_tag "bot_#{bot.id}_metrics" do %>
-  <div class="widget widget--single data-grid">
+  <div class="widget data-grid">
     <%= render partial: "barbell_bots/metrics/metrics_item", locals: {
       label: t('data_labels.bought_ticker', ticker: bot.base0),
       value: bot.metrics_unknown? ? '-' : rounded_base_amount_for(exchange: bot.exchange, base_asset: bot.base0, quote_asset: bot.quote, amount: bot.metrics[:total_base0_amount_acquired]) } %>

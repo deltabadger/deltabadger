@@ -44,7 +44,7 @@
   </div>
 
   <div class="column gap-1">
-    <div class="widget widget--single">
+    <div class="widget">
       <h4 class="db-modal__subtitle"><%= t('.link_title') %></h4>
       <div class="db-form__row db-form__row--input mb-0" data-controller="clipboard">
         <input class="db-form__input" id="referralLink" type="text" value="<%= ENV['HOME_PAGE_URL']+ref_code_path(code: @affiliate.code, locale: nil) %>" readonly="readonly" data-clipboard-target="input">
@@ -58,7 +58,7 @@
       </div>
     </div>
 
-    <div class="widget widget--single">
+    <div class="widget">
       <h4 class="db-modal__subtitle"><%= t('.update_info') %></h4>
       <% presenter = RefCodesPresenter.new(@affiliate) %>
       <p><%= t('affiliates.info_preview') %></p>
@@ -83,7 +83,7 @@
       <% end %>
     </div>
 
-    <div class="widget widget--single">
+    <div class="widget">
       <h4 class="db-modal__subtitle"><%= t('.update_bitcoin_address') %></h4>
       <%= form_with model: @affiliate, method: :patch, local: true, url: update_btc_address_affiliate_path, data: { controller: "form--html5-validations form--label-animations" } do |f| %>
 

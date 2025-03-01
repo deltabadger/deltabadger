@@ -366,7 +366,7 @@ const BotTemplate = ({
     return (
       <div 
         onClick={onClick} 
-        className={`widget widget--single bot-tile ${botRunningClass}`}
+        className={`widget bot-tile ${botRunningClass}`}
       >
         <div className="bot-tile__header">
           <div className="bot-tile__ticker">

@@ -1,5 +1,5 @@
 <%= turbo_frame_tag "bot_#{bot.id}_chart" do %>
-  <div class="widget widget--single widget--chart">
+  <div class="widget widget--chart">
     <% if bot.metrics_unknown? %>
         <%= render 'svg/landscape_empty' %>
     <% else %>
