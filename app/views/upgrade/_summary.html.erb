@@ -1,4 +1,4 @@
-<div class="pricing__checkout__calculations widget widget--single">
+<div class="pricing__checkout__calculations widget">
 
   <div class="checkout-line checkout-line--base-price">
     <div class="checkout-line__col">
@@ -89,7 +89,7 @@
 </div>
 
 <% if payment.subscription_plan.name == legendary_plan.name %>
-  <div class="widget widget--single widget--legendary-plans">
+  <div class="widget widget--legendary-plans">
     <span>
       <%= t('subscriptions.payment.legendary_plan_discount_html', amount: localized_price(10, payment.currency)) %>
     </span>

@@ -1,4 +1,4 @@
-<%= tag.div id: "smart-allocation-controls", class: "smart-allocation widget widget--single" do %>
+<%= tag.div id: "smart-allocation-controls", class: "smart-allocation widget" do %>
   <%= form_with model: portfolio, url: portfolio_toggle_smart_allocation_path(portfolio), method: :patch, data: { controller: "form--submit" } do |form| %>
     <div class="toggle">
       <%= form.check_box :smart_allocation_on, data: { action: "change->form--submit#submit" }, disabled: portfolio.limited? %>

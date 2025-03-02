@@ -4,7 +4,7 @@
 </div>
 <div class="columns">
   <div class="column gap-1">
-    <div class="widget widget--single db-referral-program-registration">
+    <div class="widget db-referral-program-registration">
       <h4 class="db-modal__subtitle">
         <%= t('.share_html') %>
         <%= image_tag "bitcoin.svg", alt: "", class: "db-card-providers__item db-card-providers__item--bitcoin" %>
@@ -30,7 +30,7 @@
   </div>
 
   <%= form_with model: @affiliate, class: "column gap-1", local: true, url: affiliate_path, data: { controller: "form--html5-validations form--label-animations" }, method: :patch do |f| %>
-    <div class="widget widget--single">
+    <div class="widget">
       <h4 class="mb-4">
         <span class="db-number">1</span>
         <%= t('.referrer_info') %>
@@ -63,7 +63,7 @@
       </div>
     </div>
 
-    <div class="widget widget--single">
+    <div class="widget">
       <h4 class="pb-3">
         <span class="db-number">2</span>
         <%= t('.payout_address') %>
@@ -75,7 +75,7 @@
       </div>
     </div>
 
-    <div class="widget widget--single">
+    <div class="widget">
       <h4 class="pb-3">
         <span class="db-number">3</span>
         <%= t('.program_settings_html') %>
@@ -88,7 +88,7 @@
       </div>
     </div>
 
-    <div class="widget widget--single">
+    <div class="widget">
       <h4 class="pb-3">
         <span class="db-number">4</span>
         <%= t('.visible_info') %>
