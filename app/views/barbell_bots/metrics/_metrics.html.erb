@@ -1,23 +1,26 @@
+<% unknown = bot.metrics_unknown? %>
+<% metrics = bot.metrics %>
+
 <%= turbo_frame_tag "bot_#{bot.id}_metrics" do %>
   <div class="widget widget--single data-grid">
     <%= render partial: "barbell_bots/metrics/metrics_item", locals: {
       label: t('data_labels.bought_ticker', ticker: bot.base0),
-      value: bot.metrics_unknown? ? '-' : rounded_base_amount_for(exchange: bot.exchange, base_asset: bot.base0, quote_asset: bot.quote, amount: bot.metrics[:total_base0_amount_acquired]) } %>
+      value: unknown ? '-' : rounded_base_amount_for(exchange: bot.exchange, base_asset: bot.base0, quote_asset: bot.quote, amount: metrics[:total_base0_amount_acquired]) } %>
     <%= render partial: "barbell_bots/metrics/metrics_item", locals: {
       label: t('data_labels.avg_price_ticker', ticker: bot.base0),
-      value: bot.metrics_unknown? ? '-' : rounded_price_for(exchange: bot.exchange, base_asset: bot.base0, quote_asset: bot.quote, price: bot.metrics[:base0_average_buy_rate]) } %>
+      value: unknown ? '-' : rounded_price_for(exchange: bot.exchange, base_asset: bot.base0, quote_asset: bot.quote, price: metrics[:base0_average_buy_rate]) } %>
     <%= render partial: "barbell_bots/metrics/metrics_item", locals: {
       label: t('data_labels.bought_ticker', ticker: bot.base1),
-      value: bot.metrics_unknown? ? '-' : rounded_base_amount_for(exchange: bot.exchange, base_asset: bot.base1, quote_asset: bot.quote, amount: bot.metrics[:total_base1_amount_acquired]) } %>
+      value: unknown ? '-' : rounded_base_amount_for(exchange: bot.exchange, base_asset: bot.base1, quote_asset: bot.quote, amount: metrics[:total_base1_amount_acquired]) } %>
     <%= render partial: "barbell_bots/metrics/metrics_item", locals: {
       label: t('data_labels.avg_price_ticker', ticker: bot.base1),
-      value: bot.metrics_unknown? ? '-' : rounded_price_for(exchange: bot.exchange, base_asset: bot.base1, quote_asset: bot.quote, price: bot.metrics[:base1_average_buy_rate]) } %>
+      value: unknown ? '-' : rounded_price_for(exchange: bot.exchange, base_asset: bot.base1, quote_asset: bot.quote, price: metrics[:base1_average_buy_rate]) } %>
     <%= render partial: "barbell_bots/metrics/metrics_item", locals: {
       label: t('data_labels.invested_ticker', ticker: bot.quote),
-      value: bot.metrics_unknown? ? '-' : rounded_quote_amount_for(exchange: bot.exchange, base_asset: bot.base0, quote_asset: bot.quote, amount: bot.metrics[:total_quote_amount_invested]) } %>
+      value: unknown ? '-' : rounded_quote_amount_for(exchange: bot.exchange, base_asset: bot.base0, quote_asset: bot.quote, amount: metrics[:total_quote_amount_invested]) } %>
     <%= render partial: "barbell_bots/metrics/metrics_item", locals: {
       label: t('data_labels.value_ticker', ticker: bot.quote),
-      value: bot.metrics_unknown? ? '-' : rounded_quote_amount_for(exchange: bot.exchange, base_asset: bot.base0, quote_asset: bot.quote, amount: bot.metrics[:current_investment_value_in_quote]) } %>
+      value: unknown ? '-' : rounded_quote_amount_for(exchange: bot.exchange, base_asset: bot.base0, quote_asset: bot.quote, amount: metrics[:current_investment_value_in_quote]) } %>
     <div class="data-grid__item data-grid__item--filler data-grid__item--filler--4 data-grid__item--filler--6"></div>
     <div class="data-grid__item data-grid__item--filler data-grid__item--filler--4 data-grid__item--filler--6"></div>
   </div>

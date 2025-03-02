@@ -1,5 +1,5 @@
 module Exchanges
-  class CoinbaseExchange
+  class CoinbaseExchange # rubocop:disable Metrics/ClassLength
     def initialize(exchange)
       @exchange = exchange
     end
@@ -55,23 +55,36 @@ module Exchanges
       Result::Success.new(result.data[:symbols].find { |s| s[:symbol] == symbol })
     end
 
-    def get_balance(asset: nil)
-      puts "get_balance: #{asset}"
-      puts "client: #{client}"
-      result = client.get_api_key_permissions
+    def get_balances(assets:)
+      result = get_portfolio_uuid
       return result unless result.success?
 
-      puts "result: #{result.data}"
-
-      portfolio_uuid = result.data['portfolio_uuid']
+      portfolio_uuid = result.data
       result = client.get_portfolio_breakdown(portfolio_uuid: portfolio_uuid)
       return result unless result.success?
 
-      Utilities::Hash.dig_or_raise(result.data, 'breakdown', 'spot_positions').each do |position|
-        return Result::Success.new(position['available_to_trade_crypto']) if position['asset'] == asset
+      balances = assets.each_with_object({}) do |asset, balances_hash|
+        balances_hash[asset] = { free: 0, locked: 0 }
+      end
+      breakdown = Utilities::Hash.dig_or_raise(result.data, 'breakdown', 'spot_positions')
+      breakdown.each do |position|
+        asset = position['asset']
+        next unless assets.include?(asset)
+
+        free = Utilities::Hash.dig_or_raise(position, 'available_to_trade_crypto').to_f
+        locked = Utilities::Hash.dig_or_raise(position, 'total_balance_crypto').to_f - free
+
+        balances[asset] = { free: free, locked: locked }
       end
 
-      Result::Success.new(0)
+      Result::Success.new(balances)
+    end
+
+    def get_balance(asset:)
+      result = get_balances(assets: [asset])
+      return result unless result.success?
+
+      Result::Success.new(result.data[asset])
     end
 
     def get_bid_price(base_asset:, quote_asset:)
@@ -143,6 +156,12 @@ module Exchanges
       base, quote = Utilities::Hash.dig_or_raise(result.data, 'order', 'product_id').split('-')
       rate = Utilities::Hash.dig_or_raise(result.data, 'order', 'average_filled_price').to_f
       amount = Utilities::Hash.dig_or_raise(result.data, 'order', 'filled_size').to_f
+      side = Utilities::Hash.dig_or_raise(result.data, 'order', 'side').downcase.to_sym
+      error_messages = [
+        result.data.dig('order', 'reject_reason'),
+        result.data.dig('order', 'cancel_message')
+      ].compact
+      status = parse_order_status(Utilities::Hash.dig_or_raise(result.data, 'order', 'status'))
 
       Result::Success.new({
                             order_id: order_id,
@@ -150,6 +169,9 @@ module Exchanges
                             quote: quote,
                             rate: rate,
                             amount: amount,
+                            side: side,
+                            error_messages: error_messages,
+                            status: status,
                             exchange_response: result.data
                           })
     end
@@ -176,6 +198,15 @@ module Exchanges
 
     def client
       @client ||= set_client
+    end
+
+    def get_portfolio_uuid
+      @get_portfolio_uuid ||= begin
+        result = client.get_api_key_permissions
+        return result unless result.success?
+
+        Result::Success.new(result.data['portfolio_uuid'])
+      end
     end
 
     def symbol_from_base_and_quote(base, quote)
@@ -287,6 +318,16 @@ module Exchanges
       end
 
       Result::Success.new(result.data)
+    end
+
+    def parse_order_status(status)
+      # PENDING, OPEN, FILLED, CANCELLED, EXPIRED, FAILED, UNKNOWN_ORDER_STATUS, QUEUED, CANCEL_QUEUED
+      case status
+      when 'FILLED'
+        :success
+      else
+        :failure
+      end
     end
   end
 end
