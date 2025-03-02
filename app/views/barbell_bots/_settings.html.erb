@@ -5,7 +5,7 @@
 <% base1_color_transparent = transparent_color(base1_color, 1 - bot.allocation0) %>
 
 <%= turbo_frame_tag "bot_#{bot.id}_settings" do %>
-  <%= form_with model: bot, url: barbell_bot_path(bot), method: :patch, class: "widget widget--single", data: { controller: "form--submit bot--barbell-allocation", bot__barbell_allocation_color0_value: base0_color, bot__barbell_allocation_color1_value: base1_color } do |f| %>
+  <%= form_with model: bot, url: barbell_bot_path(bot), method: :patch, class: "widget", data: { controller: "form--submit bot--barbell-allocation", bot__barbell_allocation_color0_value: base0_color, bot__barbell_allocation_color1_value: base1_color } do |f| %>
     <div class="conversational flex-justify-center">
       <%= t('bot.barbell.invest') %>
       <div class="ticker-input ticker-input--autoscale">
