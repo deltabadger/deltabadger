@@ -9,21 +9,25 @@ export default class extends Controller {
   static targets = ["progressBar"];
 
   connect() {
-    const fps = 60;
-    const updateInterval = 1000 / fps;
-    this.startTime = new Date(this.startTimeValue);
-    this.endTime = new Date(this.endTimeValue);
-    this.updateProgressBar();
-    this.progressInterval = setInterval(
-      () => this.updateProgressBar(),
-      updateInterval
-    );
+    const updateInterval = 500; // must match the transition-duration in the stylesheet
+    if (this.startTimeValue && this.endTimeValue) {
+      this.startTime = new Date(this.startTimeValue);
+      this.endTime = new Date(this.endTimeValue) - updateInterval;
+      this.interval = setInterval(() => this.#updateProgressBar(), updateInterval);
+      this.#updateProgressBar();
+    }
   }
 
-  updateProgressBar() {
-    let progressPercentage =
-      (new Date() - this.startTime) / (this.endTime - this.startTime);
-    progressPercentage = Math.min(Math.max(progressPercentage, 0), 1);
-    this.progressBarTarget.style.width = `${progressPercentage * 100}%`;
+  disconnect() {
+    clearInterval(this.interval);
+  }
+
+  #updateProgressBar() {
+    if (this.startTime < this.endTime) {
+      let progressPercentage =
+        (new Date() - this.startTime) / (this.endTime - this.startTime);
+      progressPercentage = Math.min(Math.max(progressPercentage, 0), 1);
+      this.progressBarTarget.style.width = `${progressPercentage * 100}%`;
+    }
   }
 }
