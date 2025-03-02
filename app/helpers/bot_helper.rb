@@ -1,6 +1,6 @@
 module BotHelper
   def bot_intervals
-    [[t('bots.hour'), 'hour'], [t('bots.day'), 'day'], [t('bots.week'), 'week'], [t('bots.month'), 'month']]
+    Bot::INTERVALS.map { |interval| [t("bots.#{interval}"), interval] }
   end
 
   def rounded_quote_amount_for(exchange:, base_asset:, quote_asset:, amount:)

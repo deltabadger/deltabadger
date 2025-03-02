@@ -3,21 +3,21 @@ import { Controller } from "@hotwired/stimulus"
 // Connects to data-controller="countdown"
 export default class extends Controller {
   static targets = ["days", "hours", "minutes", "seconds", "daysLabel", "hoursLabel", "minutesLabel", "secondsLabel"];
-  static values = { targetDate: String, animationClass: String, hideIfZero: Boolean, daysLabel: String, hoursLabel: String, minutesLabel: String, secondsLabel: String }
+  static values = { endTime: String, animationClass: String, hideIfZero: Boolean, daysLabel: String, hoursLabel: String, minutesLabel: String, secondsLabel: String }
 
   connect() {
-    this.targetDate = new Date(this.targetDateValue);
-    this.interval = setInterval(() => this.updateCountdown(), 1000);
-    this.updateCountdown();
+    this.endTime = this.endTimeValue ? new Date(this.endTimeValue) : new Date();
+    this.interval = setInterval(() => this.#updateCountdown(), 1000);
+    this.#updateCountdown();
   }
 
   disconnect() {
     clearInterval(this.interval);
   }
 
-  updateCountdown() {
+  #updateCountdown() {
     const now = new Date();
-    const timeDiff = this.targetDate - now;
+    const timeDiff = this.endTime - now;
 
     // if (timeDiff <= 0) {
     //   this.element.innerHTML = `<div class="countdown-finished">Event has started!</div>`;
