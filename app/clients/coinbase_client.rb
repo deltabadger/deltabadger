@@ -161,7 +161,6 @@ class CoinbaseClient < ApplicationClient
         req.url '/api/v3/brokerage/key_permissions'
         req.headers = headers(req)
       end
-      puts "response: #{response.body}"
       Result::Success.new(response.body)
     end
   end

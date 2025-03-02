@@ -65,7 +65,11 @@ class Exchange < ApplicationRecord
     exchange_implementation.get_info
   end
 
-  def get_balance(asset: nil)
+  def get_balances(assets:)
+    exchange_implementation.get_balances(assets: assets)
+  end
+
+  def get_balance(asset:)
     exchange_implementation.get_balance(asset: asset)
   end
 
