@@ -657,19 +657,22 @@ pl:
         soon: 'wkrótce'
         years:
             one: "%{count} rok"
-            few: "%{count} lata"
-            many: "%{count} lat"
             other: "%{count} lat"
         months:
             one: "%{count} miesiąc"
-            few: "%{count} miesiące"
-            many: "%{count} miesięcy"
             other: "%{count} miesięcy"
         days:
             one: "%{count} dzień"
-            few: "%{count} dni"
-            many: "%{count} dni"
             other: "%{count} dni"
+        hours:
+            one: "%{count} godzina"
+            other: "%{count} godzin"
+        minutes:
+            one: "%{count} minuta"
+            other: "%{count} minut"
+        seconds:
+            one: "%{count} sekunda"
+            other: "%{count} sekund"
         cash: Gotówka
         bonds: Obligacje
         gold: Złoto

@@ -7,11 +7,20 @@
       </div>
     <% end %>
   <% else %>
-    <%= button_to start_barbell_bot_path(bot), class: "sbutton sbutton--success", data: { hw_animate_out: "animate-button-to-stop-shape" }, disabled: !bot.valid?(:start) || !bot.api_key.correct? do %>
-      <div class="animicon animicon--start">
-        <div class="animicon__a"></div>
-        <div class="animicon__b"></div>
-      </div>
+    <% if bot.restarting? %>
+      <%= button_to confirm_restart_barbell_bot_path(bot), method: :get, class: "sbutton sbutton--success", data: { hw_animate_out: "animate-button-to-stop-shape", turbo_frame: "modal" }, disabled: !bot.valid?(:start) || !bot.api_key.correct? do %>
+        <div class="animicon animicon--start">
+          <div class="animicon__a"></div>
+          <div class="animicon__b"></div>
+        </div>
+      <% end %>
+    <% else %>
+      <%= button_to start_barbell_bot_path(bot), class: "sbutton sbutton--success", data: { hw_animate_out: "animate-button-to-stop-shape" }, disabled: !bot.valid?(:start) || !bot.api_key.correct? do %>
+        <div class="animicon animicon--start">
+          <div class="animicon__a"></div>
+          <div class="animicon__b"></div>
+        </div>
+      <% end %>
     <% end %>
   <% end %>
 <% end %>

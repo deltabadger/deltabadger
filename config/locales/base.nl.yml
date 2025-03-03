@@ -651,6 +651,15 @@ nl:
         days:
             one: "%{count} dag"
             other: "%{count} dagen"
+        hours:
+            one: "%{count} uur"
+            other: "%{count} uren"
+        minutes:
+            one: "%{count} minuut"
+            other: "%{count} minuten"
+        seconds:
+            one: "%{count} seconde"
+            other: "%{count} seconden"
     dca_calculator:
         title: "Hoe lang moest je <span>$%{amount}/maand</span> sparen om %{goal}?"
         goal_millionaire: "miljonair te worden"

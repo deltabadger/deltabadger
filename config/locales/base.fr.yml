@@ -25,7 +25,7 @@ fr:
                 <p>Il semble que vous souhaitiez modifier votre adresse de paiement pour le programme de parrainage :</p>
                 <p><code>%{new_btc_address}</code></p>
                 <p>Veuillez confirmer ce changement en cliquant sur le lien ci-dessous :</p>
-                <p><a href="%{confirmation_url}" title="Confirmer la nouvelle adresse de paiement">Oui, je veux utiliser cette adresse pour les paiements futurs</a></p>        
+                <p><a href="%{confirmation_url}" title="Confirmer la nouvelle adresse de paiement">Oui, je veux utiliser cette adresse pour les paiements futurs</a></p>
         referrals_payout_notification:
             subject: "C'est le jour de paye !"
             template_html: |
@@ -649,6 +649,15 @@ fr:
         days:
             one: "%{count} jour"
             other: "%{count} jours"
+        hours:
+            one: "%{count} heure"
+            other: "%{count} heures"
+        minutes:
+            one: "%{count} minute"
+            other: "%{count} minutes"
+        seconds:
+            one: "%{count} seconde"
+            other: "%{count} secondes"
     dca_calculator:
         title: "Combien de temps fallait-il épargner <span>$%{amount}/mois</span> pour %{goal} ?"
         goal_millionaire: "devenir millionnaire"
