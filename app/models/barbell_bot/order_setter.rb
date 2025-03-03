@@ -70,13 +70,13 @@ module BarbellBot::OrderSetter # rubocop:disable Metrics/ModuleLength
     allocation1 = 1 - allocation0
     balance0_in_quote = balance0 * price0
     balance1_in_quote = balance1 * price1
-    total_balance_in_quote = balance0_in_quote + balance1_in_quote + quote_amount
+    total_balance_in_quote = balance0_in_quote + balance1_in_quote + pending_quote_amount
     target_balance0_in_quote = total_balance_in_quote * allocation0
     target_balance1_in_quote = total_balance_in_quote * allocation1
     base0_offset = [0, target_balance0_in_quote - balance0_in_quote].max
     base1_offset = [0, target_balance1_in_quote - balance1_in_quote].max
-    base0_order_size_in_quote = [base0_offset, quote_amount].min
-    base1_order_size_in_quote = [base1_offset, quote_amount - base0_order_size_in_quote].min
+    base0_order_size_in_quote = [base0_offset, pending_quote_amount].min
+    base1_order_size_in_quote = [base1_offset, pending_quote_amount - base0_order_size_in_quote].min
     base0_order_size_in_base = base0_order_size_in_quote / price0
     base1_order_size_in_base = base1_order_size_in_quote / price1
     [
