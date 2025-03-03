@@ -99,6 +99,10 @@ class BarbellBot < Bot
     end.values
   end
 
+  def restarting?
+    last_pending_quote_amount_calculated_at_iso8601.present?
+  end
+
   private
 
   def new_api_key
