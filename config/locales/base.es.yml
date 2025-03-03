@@ -651,6 +651,15 @@ es:
         days:
             one: "%{count} día"
             other: "%{count} días"
+        hours:
+            one: "%{count} hora"
+            other: "%{count} horas"
+        minutes:
+            one: "%{count} minuto"
+            other: "%{count} minutos"
+        seconds:
+            one: "%{count} segundo"
+            other: "%{count} segundos"
     dca_calculator:
         title: "¿Cuánto tiempo necesitabas ahorrar <span>$%{amount}/mes</span> para %{goal}?"
         goal_millionaire: "convertirte en millonario"

@@ -12,6 +12,7 @@ module BarbellBot::OrderSetter # rubocop:disable Metrics/ModuleLength
 
   def set_barbell_orders
     calculate_pending_quote_amount
+    return Result::Success.new if pending_quote_amount.zero?
 
     result = exchange.get_balances(assets: [quote, base0, base1])
     return result unless result.success?
@@ -45,8 +46,6 @@ module BarbellBot::OrderSetter # rubocop:disable Metrics/ModuleLength
     Result::Success.new
   end
 
-  private
-
   def calculate_pending_quote_amount
     now = Time.current
 
@@ -64,6 +63,8 @@ module BarbellBot::OrderSetter # rubocop:disable Metrics/ModuleLength
       last_pending_quote_amount_calculated_at_iso8601: now.iso8601
     )
   end
+
+  private
 
   def calculate_orders_data(balance0:, balance1:, price0:, price1:)
     allocation1 = 1 - allocation0

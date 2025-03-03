@@ -670,6 +670,15 @@ de:
         days:
             one: "%{count} Tag"
             other: "%{count} Tage"
+        hours:
+            one: "%{count} Stunde"
+            other: "%{count} Stunden"
+        minutes:
+            one: "%{count} Minute"
+            other: "%{count} Minuten"
+        seconds:
+            one: "%{count} Sekunde"
+            other: "%{count} Sekunden"
     dca_calculator:
         title: "Wie lange musstest du <span>$%{amount}/Monat</span> sparen, um %{goal}?"
         goal_millionaire: "Millionär zu werden"

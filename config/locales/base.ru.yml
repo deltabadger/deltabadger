@@ -662,19 +662,22 @@ ru:
         soon: 'скоро'
         years:
             one: "%{count} год"
-            few: "%{count} года"
-            many: "%{count} лет"
             other: "%{count} лет"
         months:
             one: "%{count} месяц"
-            few: "%{count} месяца"
-            many: "%{count} месяцев"
             other: "%{count} месяцев"
         days:
             one: "%{count} день"
-            few: "%{count} дня"
-            many: "%{count} дней"
             other: "%{count} дней"
+        hours:
+            one: "%{count} час"
+            other: "%{count} часов"
+        minutes:
+            one: "%{count} минута"
+            other: "%{count} минут"
+        seconds:
+            one: "%{count} секунда"
+            other: "%{count} секунд"
     dca_calculator:
         title: "Сколько времени нужно было откладывать <span>$%{amount}/месяц,</span> чтобы %{goal}?"
         goal_millionaire: "стать миллионером"

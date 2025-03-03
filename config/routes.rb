@@ -116,6 +116,7 @@ Rails.application.routes.draw do
       post :start, on: :member
       post :stop, on: :member
       post :show, on: :member
+      get :confirm_restart, on: :member
     end
 
     resources :bots, only: [:show]
