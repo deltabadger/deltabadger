@@ -177,7 +177,7 @@ fr:
                     skip: 'Ignorer la partie manquée'
                 on_schedule:
                     continue: 'Poursuivre le programme initial'
-                    info_html: 'Il vous reste <b>%{temps}</b> jusqu''à l''ordre suivant. Vous pouvez l''ignorer et exécuter l''ordre suivant immédiatement, ou poursuivre le compte à rebours initial.'
+                    info_html: 'Il vous reste <b>%{time}</b> jusqu''à l''ordre suivant. Vous pouvez l''ignorer et exécuter l''ordre suivant immédiatement, ou poursuivre le compte à rebours initial.'
                     skip: 'Ignorer'
         buy: 'Acheter'
         counter: '%{countdown}'
