@@ -1,0 +1,27 @@
+<%= link_to sanitize("&larr; Back to bot"), barbell_bot_path(@barbell_bot) %>
+
+<%= render 'layouts/turbo_modal' do %>
+  <%= button_tag class: 'modal__close', data: { action: 'modal--base#animateOutCloseAndCleanUp' } do %>
+    <%= render partial: 'svg/24x24_x' %>
+  <% end %>
+  <div class="modal__body modal__body--regular">
+    <% if @barbell_bot.pending_quote_amount < @barbell_bot.quote_amount %>
+      <p>
+        <%= t('bots.buttons.start.on_schedule.info_html',
+                   time: localized_time_difference_from_now(@barbell_bot.next_interval_checkpoint_at, precision: :minutes, zero_time_message: t('utils.minutes', count: 0))) %>
+      </p>
+      <div>
+        <%= button_to t('bots.buttons.start.on_schedule.skip'), start_barbell_bot_path(@barbell_bot, ignore_missed_orders: true), class: 'btn', data: { action: 'click->modal--base#animateOutCloseAndCleanUp' } %>
+        <%= button_to t('bots.buttons.start.on_schedule.continue'), start_barbell_bot_path(@barbell_bot, ignore_missed_orders: false), class: 'btn btn-success', data: { action: 'click->modal--base#animateOutCloseAndCleanUp' } %>
+      </div>
+    <% else %>
+      <p>
+        <%= t('bots.buttons.start.missed.info_html', amount: rounded_quote_amount_for(exchange: @barbell_bot.exchange, base_asset: @barbell_bot.base0, quote_asset: @barbell_bot.quote, amount: @barbell_bot.pending_quote_amount), quote: @barbell_bot.quote) %>
+      </p>
+      <div>
+        <%= button_to t('bots.buttons.start.missed.skip'), start_barbell_bot_path(@barbell_bot, ignore_missed_orders: true), class: 'btn', data: { action: 'click->modal--base#animateOutCloseAndCleanUp' } %>
+        <%= button_to t('bots.buttons.start.missed.continue'), start_barbell_bot_path(@barbell_bot, ignore_missed_orders: false), class: 'btn btn-success', data: { action: 'click->modal--base#animateOutCloseAndCleanUp' } %>
+      </div>
+    <% end %>
+  </div>
+<% end %>

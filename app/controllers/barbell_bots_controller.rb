@@ -2,8 +2,7 @@ class BarbellBotsController < ApplicationController
   include Pagy::Backend
 
   before_action :authenticate_user!
-  before_action :set_barbell_bot,
-                only: %i[show edit update destroy new_api_key create_api_key start stop asset_search]
+  before_action :set_barbell_bot, except: %i[index create]
 
   def index
     @bots = current_user.bots.not_deleted.barbell.order(id: :desc)
@@ -70,7 +69,7 @@ class BarbellBotsController < ApplicationController
   end
 
   def start
-    return if @barbell_bot.start
+    return if @barbell_bot.start(ignore_missed_orders: Utilities::String.to_boolean(params[:ignore_missed_orders]))
 
     flash.now[:alert] = @barbell_bot.errors.messages.values.flatten.to_sentence
     render status: :unprocessable_entity
@@ -88,6 +87,10 @@ class BarbellBotsController < ApplicationController
     assets = @barbell_bot.available_assets_for_current_settings(asset_type: asset_type)
     @query_assets = filter_assets_by_query(assets: assets, query: params[:query] || '')
     @asset_field = params[:asset_field]
+  end
+
+  def confirm_restart
+    @barbell_bot.calculate_pending_quote_amount
   end
 
   private
