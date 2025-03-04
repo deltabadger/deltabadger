@@ -123,13 +123,13 @@ pt:
             template_html: "transação bem-sucedida, base: %{base}, quote: %{quote}, nome_do_bot: %{bot_name}, tipo: %{type}, preço: %{price}, nome_da_exchange: %{exchange_name}"
         end_of_funds:
             subject: "Seu bot está ficando sem fundos em breve"
-            template_html: "<p>Parece que seu bot está ficando sem %{quote} muito em breve.</p><p>Faça uma transferência para %{exchange_name} para garantir que o bot continue funcionando.</p>"
+            template_html: "<p>Parece que seu bot <b>%{label}</b> está ficando sem %{quote} muito em breve.</p><p>Faça uma transferência para %{exchange_name} para garantir que o bot continue funcionando.</p>"
         notify_about_error:
             subject: "Algo deu errado"
-            template_html: "<p>Algo deu errado durante o processamento da última transação.</p><p>Você pode ver o erro no registro do bot. Entre para verificar.</p><p>Erros:</p><blockquote> <b>%{exchange}:%{base}%{quote}</b> <b>%{errors}</b></blockquote>"
+            template_html: "<p>Algo deu errado durante o processamento da última transação para o bot <b>%{label}</b>.</p><p>Você pode ver o erro no registro do bot. Entre para verificar.</p><p>Erros:</p><blockquote> <b>%{exchange_name}:</b> <b>%{errors}</b></blockquote>"
         notify_about_restart:
             subject: "Ops! Próxima tentativa…"
-            template_html: "<p>O bot não pôde executar seu pedido. Parece ser um problema da exchange. Tentaremos novamente em %{delay}.</p><p>Todos os erros estão visíveis no registro do bot. Entre para verificar.</p><p>Erros:</p><blockquote> <b>%{exchange}:%{base}%{quote}</b> <b>%{errors}</b> </blockquote>"
+            template_html: "<p>O bot <b>%{label}</b> não pôde executar seu pedido. Parece ser um problema da exchange. Tentaremos novamente em %{delay}.</p><p>Todos os erros estão visíveis no registro do bot. Entre para verificar.</p><p>Erros:</p><blockquote> <b>%{exchange_name}:</b> <b>%{errors}</b> </blockquote>"
     button:
         connect: "Conectar"
     bot:

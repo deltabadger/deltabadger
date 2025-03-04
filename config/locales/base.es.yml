@@ -123,13 +123,13 @@ es:
             template_html: "transacción exitosa, base: %{base}, cotización: %{quote}, nombre del bot: %{bot_name}, tipo: %{type}, precio: %{price}, nombre del exchange: %{exchange_name}"
         end_of_funds:
             subject: "Tu bot se está quedando sin fondos pronto"
-            template_html: "<p>Parece que tu bot se está quedando sin %{quote} muy pronto.</p><p>Realiza una transferencia a %{exchange_name} para asegurarte de que el bot siga funcionando continuamente.</p>"
+            template_html: "<p>Parece que tu bot <b>%{label}</b> se está quedando sin %{quote} muy pronto.</p><p>Realiza una transferencia a %{exchange_name} para asegurarte de que el bot siga funcionando continuamente.</p>"
         notify_about_error:
             subject: "Algo salió mal"
-            template_html: "<p>Algo salió mal al procesar la última transacción.</p><p>Puedes ver el error en el registro del bot. Inicia sesión para comprobarlo.</p><p>Errores:</p><blockquote> <b>%{exchange}:%{base}%{quote}</b> <b>%{errors}</b></blockquote>"
+            template_html: "<p>Algo salió mal al procesar la última transacción para el bot <b>%{label}</b>.</p><p>Puedes ver el error en el registro del bot. Inicia sesión para comprobarlo.</p><p>Errores:</p><blockquote> <b>%{exchange_name}:</b> <b>%{errors}</b></blockquote>"
         notify_about_restart:
             subject: "¡Ups! Siguiente intento…"
-            template_html: "<p>El bot no pudo realizar tu orden. Parece un problema del exchange. Lo intentaremos de nuevo en %{delay}.</p><p>Todos los errores son visibles en el registro del bot. Inicia sesión para comprobarlo.</p><p>Errores:</p><blockquote> <b>%{exchange}:%{base}%{quote}</b> <b>%{errors}</b> </blockquote>"
+            template_html: "<p>El bot <b>%{label}</b> no pudo realizar tu orden. Parece un problema del exchange. Lo intentaremos de nuevo en %{delay}.</p><p>Todos los errores son visibles en el registro del bot. Inicia sesión para comprobarlo.</p><p>Errores:</p><blockquote> <b>%{exchange_name}:</b> <b>%{errors}</b> </blockquote>"
     button:
         connect: "Conectar"
     bot:
