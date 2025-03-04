@@ -6,7 +6,7 @@ class Bot::UpdateMetricsJob < BotJob
 
   def perform(bot)
     cancel_other_jobs(bot)
-    bot.metrics(recalculate: true)
+    bot.fetch_metrics(force: true)
   end
 
   private
@@ -21,7 +21,7 @@ class Bot::UpdateMetricsJob < BotJob
       place.each do |job|
         job.delete if job.queue == queue_name &&
                       job.display_class == 'Bot::UpdateMetricsJob' &&
-                      job.display_args == [{ '_aj_globalid' => bot.to_global_id.to_s }]
+                      job.display_args.first == { '_aj_globalid' => bot.to_global_id.to_s }
       end
     end
   end
