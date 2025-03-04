@@ -106,9 +106,6 @@ module BarbellBot::OrderSetter # rubocop:disable Metrics/ModuleLength
     )
     return result unless result.success?
 
-    # TODO: in some cases rate is 0 ?!
-    raise 'wrong order!'
-
     symbol_info = result.data
     return Result::Success.new(create_skipped_order!(order_data)) if order_data[:amount] < symbol_info[:minimum_base_size]
 
