@@ -123,13 +123,13 @@ nl:
             template_html: "transactie geslaagd, base: %{base}, quote: %{quote}, bot_naam: %{bot_name}, type: %{type}, prijs: %{price}, beurs_naam: %{exchange_name}"
         end_of_funds:
             subject: "Uw bot heeft binnenkort onvoldoende saldo"
-            template_html: "<p>Het lijkt erop dat uw bot binnenkort geen %{quote} meer heeft.</p><p>Maak een overboeking naar %{exchange_name} om er zeker van te zijn dat de bot continu blijft werken.</p>"
+            template_html: "<p>Het lijkt erop dat uw bot <b>%{label}</b> binnenkort geen %{quote} meer heeft.</p><p>Maak een overboeking naar %{exchange_name} om er zeker van te zijn dat de bot continu blijft werken.</p>"
         notify_about_error:
             subject: "Er is iets misgegaan"
-            template_html: "<p>Er is iets misgegaan tijdens het verwerken van de laatste transactie.</p><p>U kunt de fout bekijken in het bot logboek. Log in om het te controleren.</p><p>Fouten:</p><blockquote> <b>%{exchange}:%{base}%{quote}</b> <b>%{errors}</b></blockquote>"
+            template_html: "<p>Er is iets misgegaan tijdens het verwerken van de laatste transactie voor de bot <b>%{label}</b>.</p><p>U kunt de fout bekijken in het bot logboek. Log in om het te controleren.</p><p>Fouten:</p><blockquote> <b>%{exchange_name}:</b> <b>%{errors}</b></blockquote>"
         notify_about_restart:
             subject: "Oeps! Volgende poging…"
-            template_html: "<p>De bot kon uw order niet uitvoeren. Het lijkt op een probleem met de beurs. We proberen het opnieuw over %{delay}.</p><p>Alle fouten zijn zichtbaar in het bot logboek. Log in om het te bekijken.</p><p>Fouten:</p><blockquote> <b>%{exchange}:%{base}%{quote}</b> <b>%{errors}</b> </blockquote>"
+            template_html: "<p>De bot <b>%{label}</b> kon uw order niet uitvoeren. Het lijkt op een probleem met de beurs. We proberen het opnieuw over %{delay}.</p><p>Alle fouten zijn zichtbaar in het bot logboek. Log in om het te bekijken.</p><p>Fouten:</p><blockquote> <b>%{exchange_name}:</b> <b>%{errors}</b> </blockquote>"
     button:
         connect: "Verbinden"
     bot:

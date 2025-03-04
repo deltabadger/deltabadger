@@ -4,13 +4,14 @@ class Bot < ApplicationRecord
   has_many :transactions, dependent: :destroy
   has_many :daily_transaction_aggregates
 
-  enum status: %i[created working stopped deleted pending]
+  enum status: %i[created working stopped deleted pending retrying]
   enum metrics_status: %i[unknown pending ready], _prefix: :metrics
 
   include Typeable
   include Labelable
   include Webhookable
   include Rankable
+  include Notifyable
 
   delegate :market_sell, :market_buy, :limit_sell, :limit_buy, to: :exchange
 

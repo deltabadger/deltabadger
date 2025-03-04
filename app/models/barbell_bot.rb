@@ -37,7 +37,8 @@ class BarbellBot < Bot
     update_params = {
       status: 'working',
       started_at: ignore_missed_orders ? Time.current : nil,
-      transient_data: ignore_missed_orders ? {} : nil
+      transient_data: ignore_missed_orders ? {} : nil,
+      retry_count: 0
     }.compact
 
     if valid?(:start) && update(update_params)
@@ -103,6 +104,15 @@ class BarbellBot < Bot
     last_pending_quote_amount_calculated_at_iso8601.present?
   end
 
+  def broadcast_status_bar_update
+    broadcast_update_to(
+      ["bot_#{id}", :status_bar],
+      target: "bot_#{id}_status_bar",
+      partial: 'barbell_bots/status/status_bar',
+      locals: { bot: self }
+    )
+  end
+
   private
 
   def new_api_key
@@ -150,14 +160,5 @@ class BarbellBot < Bot
                       job.display_args == [id]
       end
     end
-  end
-
-  def broadcast_status_bar_update
-    broadcast_update_to(
-      ["bot_#{id}", :status_bar],
-      target: "bot_#{id}_status_bar",
-      partial: 'barbell_bots/status/status_bar',
-      locals: { bot: self }
-    )
   end
 end
