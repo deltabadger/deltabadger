@@ -103,6 +103,11 @@ class Bots::Barbell < Bot
     last_pending_quote_amount_calculated_at_iso8601.present?
   end
 
+  def restarting_within_interval?
+    restarting? && last_set_barbell_orders_job_at_iso8601.present? &&
+      DateTime.parse(last_set_barbell_orders_job_at_iso8601) > 1.public_send(interval).ago
+  end
+
   def broadcast_status_bar_update
     broadcast_update_to(
       ["bot_#{id}", :status_bar],

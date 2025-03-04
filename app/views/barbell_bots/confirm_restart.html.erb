@@ -5,7 +5,7 @@
     <%= render partial: 'svg/24x24_x' %>
   <% end %>
   <div class="modal__body modal__body--regular">
-    <% if @barbell_bot.pending_quote_amount < @barbell_bot.quote_amount %>
+    <% if @barbell_bot.restarting_within_interval? %>
       <p>
         <%= t('bots.buttons.start.on_schedule.info_html', time: time_ago_in_words(@barbell_bot.next_interval_checkpoint_at)) %>
       </p>

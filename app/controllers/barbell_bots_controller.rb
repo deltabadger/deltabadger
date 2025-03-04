@@ -100,7 +100,7 @@ class BarbellBotsController < ApplicationController
   end
 
   def barbell_bot_params
-    params.require(:barbell_bot).permit(
+    params.require(:bots_barbell).permit(
       :quote_amount,
       :quote,
       :interval,

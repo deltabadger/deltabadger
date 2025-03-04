@@ -30,6 +30,10 @@ module Bots::Barbell::Schedulable
     end
   end
 
+  def previous_interval_checkpoint_at
+    next_interval_checkpoint_at - 1.public_send(interval)
+  end
+
   def progress_percentage
     puts 'new progress_percentage'
     puts "last_set_barbell_orders_job_at_iso8601: #{last_set_barbell_orders_job_at_iso8601}"
