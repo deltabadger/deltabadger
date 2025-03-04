@@ -1,4 +1,4 @@
-module Bots
+module BotsManager
   class Update < BaseService
     def call(user, bot_params)
       bot = Bot.find(bot_params[:id])
@@ -32,22 +32,22 @@ module Bots
     end
 
     def get_validator(bot)
-      if bot.trading?
-        Bots::Trading::Validators::Update.new
+      if bot.basic?
+        BotsManager::Trading::Validators::Update.new
       elsif bot.withdrawal?
-        Bots::Withdrawal::Validators::Update.new
+        BotsManager::Withdrawal::Validators::Update.new
       else
-        Bots::Webhook::Validators::Update.new
+        BotsManager::Webhook::Validators::Update.new
       end
     end
 
     def get_formatter(bot)
-      if bot.trading?
-        Bots::Trading::FormatParams::Update.new
+      if bot.basic?
+        BotsManager::Trading::FormatParams::Update.new
       elsif bot.withdrawal?
-        Bots::Withdrawal::FormatParams::Update.new
+        BotsManager::Withdrawal::FormatParams::Update.new
       else
-        Bots::Webhook::FormatParams::Update.new
+        BotsManager::Webhook::FormatParams::Update.new
       end
     end
   end

@@ -1,4 +1,4 @@
-module Bots
+module BotsManager
   module Withdrawal
     module FormatParams
       class Create < BaseService
@@ -17,7 +17,7 @@ module Bots
           {
             user: params[:user],
             exchange_id: params[:exchange_id],
-            bot_type: 'withdrawal',
+            type: 'Bots::Withdrawal',
             settings: bot_settings,
             settings_changed_at: Time.now
           }

@@ -1,3 +1,3 @@
-class WebhookBot < Bot
+class Bots::Basic < Bot
   include Bot::LegacyMethods
 end

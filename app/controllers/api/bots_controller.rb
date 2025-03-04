@@ -10,6 +10,7 @@ module Api
       bots = current_user
              .bots
              .not_deleted
+             .where(type: %w[Bots::Basic Bots::Withdrawal Bots::Webhook])
              .includes(:exchange)
              .includes(:daily_transaction_aggregates)
              .includes(:transactions)
@@ -193,7 +194,7 @@ module Api
     end
 
     def present_bot(bot)
-      return Presenters::Api::TradingBot.call(bot) if bot.trading?
+      return Presenters::Api::TradingBot.call(bot) if bot.basic?
       return Presenters::Api::WithdrawalBot.call(bot) if bot.withdrawal?
 
       Presenters::Api::WebhookBot.call(bot)

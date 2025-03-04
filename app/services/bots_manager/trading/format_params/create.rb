@@ -1,4 +1,4 @@
-module Bots
+module BotsManager
   module Trading
     module FormatParams
       class Create < BaseService
@@ -22,7 +22,7 @@ module Bots
           {
             user: params[:user],
             exchange_id: params[:exchange_id],
-            bot_type: 'trading',
+            type: 'Bots::Basic',
             settings: bot_settings,
             settings_changed_at: Time.now
           }

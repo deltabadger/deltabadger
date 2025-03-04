@@ -1,4 +1,4 @@
-module Bots
+module BotsManager
   module Withdrawal
     module FormatParams
       class Update < BaseService

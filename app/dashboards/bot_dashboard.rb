@@ -16,7 +16,7 @@ class BotDashboard < Administrate::BaseDashboard
     settings: Field::String.with_options(searchable: false),
     created_at: Field::DateTime,
     updated_at: Field::DateTime,
-    bot_type: Field::String.with_options(searchable: false),
+    # bot_type: Field::String.with_options(searchable: false),
     type: Field::String,
     interval: Field::String,
     price: Field::String,
@@ -47,7 +47,7 @@ class BotDashboard < Administrate::BaseDashboard
     settings
     created_at
     updated_at
-    bot_type
+    type
   ].freeze
 
   # FORM_ATTRIBUTES
@@ -57,7 +57,7 @@ class BotDashboard < Administrate::BaseDashboard
     exchange
     status
     settings
-    bot_type
+    type
   ].freeze
 
   # COLLECTION_FILTERS

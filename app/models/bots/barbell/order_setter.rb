@@ -1,4 +1,4 @@
-module BarbellBot::OrderSetter # rubocop:disable Metrics/ModuleLength
+module Bots::Barbell::OrderSetter # rubocop:disable Metrics/ModuleLength
   extend ActiveSupport::Concern
 
   included do
