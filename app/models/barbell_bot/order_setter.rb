@@ -120,7 +120,7 @@ module BarbellBot::OrderSetter # rubocop:disable Metrics/ModuleLength
       update!(pending_quote_amount: pending_quote_amount - order_data[:quote_amount])
 
       order_id = Utilities::Hash.dig_or_raise(result.data, 'success_response', 'order_id')
-      Bot::CreateSuccessfulOrderJob.perform_later(id, order_id)
+      Bot::CreateSuccessfulOrderJob.perform_later(self, order_id)
       # send_user_to_sendgrid(bot)
     else
       create_failed_order!(order_data, result.errors)

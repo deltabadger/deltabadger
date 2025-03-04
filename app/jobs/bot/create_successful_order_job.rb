@@ -1,7 +1,5 @@
 class Bot::CreateSuccessfulOrderJob < BotJob
-  def perform(bot_id, order_id)
-    bot = Bot.find(bot_id)
-
+  def perform(bot, order_id)
     result = bot.exchange.get_order(order_id: order_id)
     raise StandardError, "Failed to fetch order #{order_id} result: #{result.errors}" unless result.success?
     raise StandardError, "Order #{order_id} was not successful." unless result.data[:status] == :success

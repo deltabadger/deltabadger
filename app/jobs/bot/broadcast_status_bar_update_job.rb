@@ -1,8 +1,7 @@
 class Bot::BroadcastStatusBarUpdateJob < BotJob
   retry_on StandardError, wait: 0.1.seconds, attempts: 10
 
-  def perform(bot_id, condition = nil)
-    bot = Bot.find(bot_id)
+  def perform(bot, condition = nil)
     raise unless condition_met?(bot, condition)
 
     bot.broadcast_status_bar_update

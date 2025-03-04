@@ -1,7 +1,6 @@
 class BotJob < ApplicationJob
-  queue_as do
-    bot_id = arguments.first
-    bot = Bot.find(bot_id)
-    bot.exchange.name.downcase.to_sym
+  def queue_name
+    bot = arguments.first
+    bot.exchange&.name&.downcase&.to_sym || :default
   end
 end

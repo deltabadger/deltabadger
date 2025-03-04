@@ -16,7 +16,7 @@ module BarbellBot::Schedulable
       place.each do |job|
         return job.at if job.queue == exchange.name.downcase &&
                          job.display_class == 'Bot::SetBarbellOrdersJob' &&
-                         job.display_args == [id]
+                         job.display_args == [{ '_aj_globalid' => to_global_id.to_s }]
       end
     end
     nil

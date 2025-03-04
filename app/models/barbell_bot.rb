@@ -41,7 +41,7 @@ class BarbellBot < Bot
     }.compact
 
     if valid?(:start) && update(update_params)
-      Bot::SetBarbellOrdersJob.perform_later(id)
+      Bot::SetBarbellOrdersJob.perform_later(self)
       true
     else
       false
@@ -156,7 +156,7 @@ class BarbellBot < Bot
       place.each do |job|
         job.delete if job.queue == exchange.name.downcase &&
                       job.display_class == 'Bot::SetBarbellOrdersJob' &&
-                      job.display_args == [id]
+                      job.display_args == [{ '_aj_globalid' => to_global_id.to_s }]
       end
     end
   end
