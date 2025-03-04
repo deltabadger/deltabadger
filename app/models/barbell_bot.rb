@@ -37,8 +37,7 @@ class BarbellBot < Bot
     update_params = {
       status: 'working',
       started_at: ignore_missed_orders ? Time.current : nil,
-      transient_data: ignore_missed_orders ? {} : nil,
-      retry_count: 0
+      transient_data: ignore_missed_orders ? {} : nil
     }.compact
 
     if valid?(:start) && update(update_params)
