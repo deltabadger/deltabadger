@@ -65,7 +65,7 @@ class Transaction < ApplicationRecord
   # rubocop:enable Metrics/CyclomaticComplexity, Metrics/PerceivedComplexity
 
   def update_bot_metrics
-    Bot::UpdateMetricsJob.perform_later(bot_id)
+    Bot::UpdateMetricsJob.perform_later(bot)
   end
 
   def broadcast_to_bot
