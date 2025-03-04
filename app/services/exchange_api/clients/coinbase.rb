@@ -4,7 +4,12 @@ module ExchangeApi
       include BaseFaraday
 
       def headers(api_key, api_secret, body, request_url, method = 'GET')
-        if cdp_secret?(api_secret)
+        if api_key.blank?
+          {
+            'Accept': 'application/json',
+            'Content-Type': 'application/json'
+          }
+        elsif cdp_secret?(api_secret)
           jwt = jwt_token(api_key, api_secret, method, request_url)
           {
             'Authorization': "Bearer #{jwt}"
