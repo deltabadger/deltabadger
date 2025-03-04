@@ -1,4 +1,4 @@
-module Bots::Trading::Validators
+module BotsManager::Trading::Validators
   class Create < BaseService
     def call(bot, user)
       allowed_symbols = bot.exchange.symbols

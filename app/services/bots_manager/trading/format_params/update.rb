@@ -1,4 +1,4 @@
-module Bots
+module BotsManager
   module Trading
     module FormatParams
       class Update < BaseService

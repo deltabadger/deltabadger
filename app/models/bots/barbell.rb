@@ -1,4 +1,4 @@
-class BarbellBot < Bot
+class Bots::Barbell < Bot
   include ActionCable::Channel::Broadcasting
 
   store_accessor :settings, :base0, :base1, :quote, :quote_amount, :allocation0, :interval
@@ -16,10 +16,10 @@ class BarbellBot < Bot
   after_save :set_exchange_client, if: :saved_change_to_exchange_id?
   after_update_commit :broadcast_status_bar_update, if: :saved_change_to_status?
 
-  include OrderSetter
-  include OrderCreator
-  include Measurable
-  include Schedulable
+  include Bots::Barbell::OrderSetter
+  include Bots::Barbell::OrderCreator
+  include Bots::Barbell::Measurable
+  include Bots::Barbell::Schedulable
 
   def set_exchange_client
     exchange&.set_client(api_key: api_key)

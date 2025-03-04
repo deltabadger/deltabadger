@@ -1,4 +1,4 @@
-module Bots
+module BotsManager
   class CreateBot < BaseService
     def initialize(
       bot_validator:,

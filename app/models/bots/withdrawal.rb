@@ -1,3 +1,3 @@
-class DcaBot < Bot
+class Bots::Withdrawal < Bot
   include Bot::LegacyMethods
 end

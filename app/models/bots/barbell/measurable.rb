@@ -1,4 +1,4 @@
-module BarbellBot::Measurable
+module Bots::Barbell::Measurable
   extend ActiveSupport::Concern
 
   def fetch_metrics(force: false)
@@ -8,6 +8,11 @@ module BarbellBot::Measurable
     broadcast_metrics_update if force
     metrics
   end
+
+  # TODO: add current price data
+  #     add label + series
+  #     update current_investment_value_in_quote
+  #     update pnl
 
   private
 

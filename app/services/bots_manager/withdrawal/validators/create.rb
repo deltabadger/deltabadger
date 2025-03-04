@@ -1,4 +1,4 @@
-module Bots::Withdrawal::Validators
+module BotsManager::Withdrawal::Validators
   class Create < BaseService
     def call(bot, user)
       bot_settings = BotSettings.new(bot.settings, user, bot)

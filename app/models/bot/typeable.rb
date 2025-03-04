@@ -5,25 +5,25 @@ module Bot::Typeable
   # We can't use enum because we are using STI.
 
   included do
-    scope :trading, -> { where(type: 'DcaBot') }
-    scope :withdrawal, -> { where(type: 'WithdrawalBot') }
-    scope :webhook, -> { where(type: 'WebhookBot') }
-    scope :barbell, -> { where(type: 'BarbellBot') }
+    scope :basic, -> { where(type: 'Bots::Basic') }
+    scope :withdrawal, -> { where(type: 'Bots::Withdrawal') }
+    scope :webhook, -> { where(type: 'Bots::Webhook') }
+    scope :barbell, -> { where(type: 'Bots::Barbell') }
   end
 
-  def trading?
-    type == 'DcaBot'
+  def basic?
+    type == 'Bots::Basic'
   end
 
   def withdrawal?
-    type == 'WithdrawalBot'
+    type == 'Bots::Withdrawal'
   end
 
   def webhook?
-    type == 'WebhookBot'
+    type == 'Bots::Webhook'
   end
 
   def barbell?
-    type == 'BarbellBot'
+    type == 'Bots::Barbell'
   end
 end
