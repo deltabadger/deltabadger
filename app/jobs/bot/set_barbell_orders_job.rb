@@ -11,25 +11,23 @@ class Bot::SetBarbellOrdersJob < BotJob
     Bot::SetBarbellOrdersJob.set(wait_until: bot.next_interval_checkpoint_at).perform_later(bot_id)
     Bot::BroadcastStatusBarUpdateJob.perform_later(bot_id, 'next_set_barbell_orders_job_at.present?')
   rescue StandardError => e
-    # FIXME: If a manual retry is triggered, the retry_count increases in the database but not in sidekiq
-    #        metadata. So far there's no clean way to access the sidekiq metadata, so we assume no manual
-    #        retries are happening.
-    #        Another option could be to use ActiveJob.retry_on exponential backoff, but that would ignore
-    #        retries in the Sidekiq dashboard, and potentially ignore Sentry alerts.
-    expected_delay = sidekiq_estimated_retry_delay(bot.retry_count)
-    if expected_delay > 1.public_send(bot.interval)
+    # FIXME: We could use ActiveJob retry_on exponential backoff and builtin executions instead of
+    #        middleware-injected retry_count from Sidekiq. However, this would ignore retries being
+    #        placed in the retries section in the Sidekiq dashboard, and potentially ignore Sentry alerts.
+    if sidekiq_estimated_retry_delay > 1.public_send(bot.interval)
       bot.notify_about_restart(errors: [e.message], delay: expected_delay)
-    elsif expected_delay > 10.minutes # 5 failed attempts
+    elsif sidekiq_estimated_retry_delay > 10.minutes # 5 failed attempts
       bot.notify_about_error(errors: [e.message])
     end
-    bot.update!(status: :retrying, retry_count: bot.retry_count + 1)
+    bot.update!(status: :retrying)
     Bot::BroadcastStatusBarUpdateJob.perform_later(bot_id, 'next_set_barbell_orders_job_at.present?')
     raise e
   end
 
   private
 
-  def sidekiq_estimated_retry_delay(retry_count)
-    ((retry_count**4) + 15 + (rand(10) * (retry_count + 1))).seconds
+  def sidekiq_estimated_retry_delay
+    next_retry_count = retry_count + 1
+    ((next_retry_count**4) + 15 + (rand(10) * (next_retry_count + 1))).seconds
   end
 end
