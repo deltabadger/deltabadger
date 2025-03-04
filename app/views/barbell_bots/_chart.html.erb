@@ -1,8 +1,8 @@
-<% metrics = bot.metrics %>
+<% metrics = bot.fetch_metrics %>
 
 <%= turbo_frame_tag "bot_#{bot.id}_chart" do %>
   <div class="widget widget--chart">
-    <% if bot.metrics_unknown? %>
+    <% if metrics[:chart][:labels].empty? %>
         <%= render 'svg/landscape_empty' %>
     <% else %>
       <% profitable = metrics[:pnl] > 0 %>

@@ -156,7 +156,7 @@ class BarbellBot < Bot
       place.each do |job|
         job.delete if job.queue == exchange.name.downcase &&
                       job.display_class == 'Bot::SetBarbellOrdersJob' &&
-                      job.display_args == [{ '_aj_globalid' => to_global_id.to_s }]
+                      job.display_args.first == { '_aj_globalid' => to_global_id.to_s }
       end
     end
   end

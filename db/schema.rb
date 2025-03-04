@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema.define(version: 2025_02_27_124956) do
+ActiveRecord::Schema.define(version: 2025_03_04_180008) do
 
   # These are extensions that must be enabled in order to support this database
   enable_extension "plpgsql"
@@ -94,7 +94,6 @@ ActiveRecord::Schema.define(version: 2025_02_27_124956) do
     t.json "transient_data", default: {}, null: false
     t.datetime "started_at"
     t.datetime "stopped_at"
-    t.integer "metrics_status", default: 0
     t.string "label"
     t.string "type"
     t.index ["exchange_id"], name: "index_bots_on_exchange_id"

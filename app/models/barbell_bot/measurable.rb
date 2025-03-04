@@ -1,24 +1,24 @@
 module BarbellBot::Measurable
   extend ActiveSupport::Concern
 
-  included do
-    after_update_commit :broadcast_metrics_update, if: -> { saved_change_to_metrics_status? && metrics_ready? }
-  end
-
-  def metrics(recalculate: false)
-    Rails.cache.delete("bot_#{id}_metrics") if recalculate
-    data = Rails.cache.fetch("bot_#{id}_metrics", expires_in: 30.days) do
-      update!(metrics_status: :pending)
+  def fetch_metrics(force: false)
+    metrics = Rails.cache.fetch(cache_key, expires_in: 30.days, force: force) do
       calculate_metrics
     end
-    update!(metrics_status: :ready)
-    data
+    broadcast_metrics_update if force
+    metrics
   end
 
   private
 
+  def cache_key
+    "bot_#{id}_metrics"
+  end
+
   def calculate_metrics
     data = initialize_metrics_data
+    return data if transactions.empty?
+
     totals = initialize_totals_data
 
     transactions.order(created_at: :asc).each do |transaction|
@@ -67,7 +67,9 @@ module BarbellBot::Measurable
       total_base1_amount_acquired: 0,
       total_quote_amount_invested: 0,
       current_investment_value_in_quote: 0,
-      pnl: 0
+      pnl: 0,
+      base0_average_buy_rate: nil,
+      base1_average_buy_rate: nil
     }
   end
 
