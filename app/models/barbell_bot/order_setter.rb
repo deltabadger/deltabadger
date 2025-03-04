@@ -10,7 +10,7 @@ module BarbellBot::OrderSetter # rubocop:disable Metrics/ModuleLength
               if: -> { pending_quote_amount.present? }
   end
 
-  def set_barbell_orders
+  def set_barbell_orders # rubocop:disable Metrics/CyclomaticComplexity,Metrics/PerceivedComplexity
     calculate_pending_quote_amount
     return Result::Success.new if pending_quote_amount.zero?
 
@@ -18,18 +18,20 @@ module BarbellBot::OrderSetter # rubocop:disable Metrics/ModuleLength
     return result unless result.success?
 
     balances = result.data
+    notify_end_of_funds if balances[quote][:free] < pending_quote_amount + quote_amount
     if balances[quote][:free] < pending_quote_amount
       stop
-      # TODO: notify user
-      return Result::Failure.new('Insufficient quote balance')
+      return Result::Success.new
     end
 
     result = exchange.get_ask_price(base_asset: base0, quote_asset: quote)
     return result unless result.success?
+    raise "Wrong price for #{base0}-#{quote}: #{result.data}" if result.data.zero?
 
     price0 = result.data
     result = exchange.get_ask_price(base_asset: base1, quote_asset: quote)
     return result unless result.success?
+    raise "Wrong price for #{base1}-#{quote}: #{result.data}" if result.data.zero?
 
     price1 = result.data
     orders_data = calculate_orders_data(
@@ -105,6 +107,7 @@ module BarbellBot::OrderSetter # rubocop:disable Metrics/ModuleLength
     return result unless result.success?
 
     # TODO: in some cases rate is 0 ?!
+    raise 'wrong order!'
 
     symbol_info = result.data
     return Result::Success.new(create_skipped_order!(order_data)) if order_data[:amount] < symbol_info[:minimum_base_size]
@@ -121,12 +124,10 @@ module BarbellBot::OrderSetter # rubocop:disable Metrics/ModuleLength
 
       order_id = Utilities::Hash.dig_or_raise(result.data, 'success_response', 'order_id')
       Bot::CreateSuccessfulOrderJob.perform_later(id, order_id)
-
-      # check_allowable_balance(get_api(bot), bot, fixing_price, notify)
       # send_user_to_sendgrid(bot)
     else
       create_failed_order!(order_data, result.errors)
-      # TODO: notify user?
+      notify_about_error(errors: result.errors)
       # TODO: stop the bot?
     end
     result
