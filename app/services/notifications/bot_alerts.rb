@@ -24,7 +24,7 @@ module Notifications
       BotAlertsMailer.with(
         user: bot.user,
         bot: bot,
-        delay: format_readable_duration.call(calculate_restart_delay.call(bot.restarts)),
+        restart_at: Time.current + calculate_restart_delay.call(bot.restarts),
         errors: errors
       ).notify_about_restart.deliver_later
     end
@@ -36,8 +36,7 @@ module Notifications
 
       BotAlertsMailer.with(
         bot: bot,
-        user: bot.user,
-        quote: bot.quote
+        user: bot.user
       ).end_of_funds.deliver_later
     end
 

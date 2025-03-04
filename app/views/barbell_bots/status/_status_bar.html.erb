@@ -1,7 +1,7 @@
 <%= turbo_frame_tag "bot_#{bot.id}_status_bar" do %>
   <% if bot&.pending? %>
       Setting orders...
-  <% elsif bot&.working? %>
+  <% elsif bot&.working? || bot&.retrying? %>
     <%= tag.div class: "bot-control__status__bar", style: "width: #{bot.progress_percentage * 100}%", data: {
       controller: "progress-bar",
       progress_bar_start_time_value: bot.last_set_barbell_orders_job_at_iso8601,
