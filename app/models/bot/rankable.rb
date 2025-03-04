@@ -60,7 +60,7 @@ module Bot::Rankable
     def most_popular_bots(amount)
       search_hash = {
         status: 'working',
-        bot_type: 'trading'
+        type: 'Bots::Basic'
       }
       all_bots_hash = Bot.group("bots.settings->>'base'")
                          .order(count: :desc)

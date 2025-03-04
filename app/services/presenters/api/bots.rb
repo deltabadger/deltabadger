@@ -12,7 +12,7 @@ module Presenters
 
       def present_bot(bot)
         # Each bot presentation might be loading all transactions/aggregates
-        return Presenters::Api::TradingBot.call(bot) if bot.trading?
+        return Presenters::Api::TradingBot.call(bot) if bot.basic?
         return Presenters::Api::WithdrawalBot.call(bot) if bot.withdrawal?
 
         Presenters::Api::WebhookBot.call(bot)

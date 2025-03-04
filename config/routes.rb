@@ -27,7 +27,12 @@ Rails.application.routes.draw do
       post :mark_as_paid, on: :collection
     end
     resources :api_keys, except: [:edit, :update]
-    resources :bots
+    namespace :bots do
+      resources :basics
+      resources :withdrawals
+      resources :webhooks
+      resources :barbells
+    end
     resources :conversion_rates
     resources :exchanges
     resources :transactions

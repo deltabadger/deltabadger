@@ -26,61 +26,37 @@
     <div class="itile itile--bitcoin">
       <h3 class="itile__title">Bitcoin</h3>
       <div class="itile__value">
-        <%= localized_time_difference_from_now(
-          simulation_results['btc'],
-          precision: :months,
-          zero_time_message: t('utils.months', count: 0) # "Dude! You're already a millionaire! 🤑"
-        ) %>
+        <%= time_ago_in_words(((Time.current - simulation_results['btc'].to_time) / 1.month).floor.months.ago) %>
       </div>
     </div>
     <div class="itile itile--qqq">
       <h3 class="itile__title">QQQ</h3>
       <div class="itile__value">
-        <%= localized_time_difference_from_now(
-          simulation_results['ndx'],
-          precision: :months,
-          zero_time_message: t('utils.months', count: 0) # "Dude! You're already a millionaire! 🤑"
-        ) %>
+        <%= time_ago_in_words(((Time.current - simulation_results['ndx'].to_time) / 1.month).floor.months.ago) %>
       </div>
     </div>
     <div class="itile itile--voo">
       <h3 class="itile__title">S&P 500</h3>
       <div class="itile__value">
-        <%= localized_time_difference_from_now(
-          simulation_results['gspc'],
-          precision: :months,
-          zero_time_message: t('utils.months', count: 0) # "Dude! You're already a millionaire! 🤑"
-        ) %>
+        <%= time_ago_in_words(((Time.current - simulation_results['gspc'].to_time) / 1.month).floor.months.ago) %>
       </div>
     </div>
     <div class="itile itile--gold">
       <h3 class="itile__title"><%= t('utils.gold') %></h3>
       <div class="itile__value">
-        <%= localized_time_difference_from_now(
-          simulation_results['gld'],
-          precision: :months,
-          zero_time_message: t('utils.months', count: 0) # "Dude! You're already a millionaire! 🤑"
-        ) %>
+        <%= time_ago_in_words(((Time.current - simulation_results['gld'].to_time) / 1.month).floor.months.ago) %>
       </div>
     </div>
     <div class="itile itile--bonds">
       <h3 class="itile__title">DAX</h3>
       <div class="itile__value">
-        <%= localized_time_difference_from_now(
-          simulation_results['gdaxi'],
-          precision: :months,
-          zero_time_message: t('utils.months', count: 0) # "Dude! You're already a millionaire! 🤑"
-        ) %>
+        <%= time_ago_in_words(((Time.current - simulation_results['gdaxi'].to_time) / 1.month).floor.months.ago) %>
       </div>
     </div>
     <div class="itile itile--cash">
       <h3 class="itile__title"><%= t('utils.cash') %></h3>
       <div class="itile__value">
-        <%= localized_time_difference_from_now(
-          simulation_results['usd'],
-          precision: :months,
-          zero_time_message: t('utils.months', count: 0) # "Dude! You're already a millionaire! 🤑"
-        ) %>
+        <%= time_ago_in_words(((Time.current - simulation_results['usd'].to_time) / 1.month).floor.months.ago) %>
       </div>
     </div>
   <% end %>

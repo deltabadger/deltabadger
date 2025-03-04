@@ -8,7 +8,7 @@ class MakeWebhook < BaseService
     unschedule_webhooks: UnscheduleTransactions.new,
     notifications: Notifications::BotAlerts.new,
     order_flow_helper: Helpers::OrderFlowHelper.new,
-    update_formatter: Bots::Webhook::FormatParams::Update.new
+    update_formatter: BotsManager::Webhook::FormatParams::Update.new
   )
     @get_exchange_trader = exchange_trader
     @schedule_webhook = schedule_webhook

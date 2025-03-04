@@ -21,7 +21,7 @@ class GenerateTransactionsCsv < BaseService
   end
 
   def call(bot)
-    format_data = if bot.trading?
+    format_data = if bot.basic?
                     Presenters::Api::TradingTransaction.new
                   elsif bot.withdrawal?
                     Presenters::Api::WithdrawalTransaction.new

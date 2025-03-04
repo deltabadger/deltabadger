@@ -3,6 +3,17 @@
 module Bot::LegacyMethods
   extend ActiveSupport::Concern
 
+  def bot_type
+    case type
+    when 'Bots::Basic'
+      'trading'
+    when 'Bots::Withdrawal'
+      'withdrawal'
+    when 'Bots::Webhook'
+      'webhook'
+    end
+  end
+
   def base
     settings['base']
   end
