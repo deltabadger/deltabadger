@@ -11,9 +11,6 @@ class Bot::SetBarbellOrdersJob < BotJob
     Bot::SetBarbellOrdersJob.set(wait_until: bot.next_interval_checkpoint_at).perform_later(bot_id)
     Bot::BroadcastStatusBarUpdateJob.perform_later(bot_id, 'next_set_barbell_orders_job_at.present?')
   rescue StandardError => e
-    # FIXME: We could use ActiveJob retry_on exponential backoff and builtin executions instead of
-    #        middleware-injected retry_count from Sidekiq. However, this would ignore retries being
-    #        placed in the retries section in the Sidekiq dashboard, and potentially ignore Sentry alerts.
     if sidekiq_estimated_retry_delay > 1.public_send(bot.interval)
       bot.notify_about_restart(errors: [e.message], delay: expected_delay)
     elsif sidekiq_estimated_retry_delay > 10.minutes # 5 failed attempts
