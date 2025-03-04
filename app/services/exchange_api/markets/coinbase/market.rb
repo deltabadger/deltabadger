@@ -22,7 +22,7 @@ module ExchangeApi
 
         def fetch_all_symbols
           response = Rails.cache.fetch('coinbase_symbols', expires_in: 5.minutes) do
-            request = authenticated_request('/api/v3/brokerage/products')
+            request = unauthenticated_request('/api/v3/brokerage/market/products')
             JSON.parse(request.body)
           end
           market_symbols = response['products'].map do |symbol_info|
@@ -128,6 +128,11 @@ module ExchangeApi
         end
 
         private
+
+        def unauthenticated_request(path)
+          url = API_URL + path
+          @base_client.get(url, nil, headers('', '', '', url, 'GET'))
+        end
 
         def authenticated_request(path)
           url = API_URL + path
