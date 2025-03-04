@@ -6,7 +6,7 @@ class Bot::SetBarbellOrdersJob < BotJob
     result = bot.set_barbell_orders
     raise StandardError, result.errors.to_sentence unless result.success?
 
-    bot.update!(status: :working, retry_count: 0)
+    bot.update!(status: :working)
     Bot::SetBarbellOrdersJob.set(wait_until: bot.next_interval_checkpoint_at).perform_later(bot)
     Bot::BroadcastStatusBarUpdateJob.perform_later(bot, 'next_set_barbell_orders_job_at.present?')
   rescue StandardError => e
