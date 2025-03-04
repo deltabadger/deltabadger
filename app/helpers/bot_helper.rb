@@ -12,7 +12,7 @@ module BotHelper
   end
 
   def rounded_price_for(exchange:, base_asset:, quote_asset:, price:)
-    return price if base_asset.nil? || quote_asset.nil?
+    return price if base_asset.nil? || quote_asset.nil? || price.nil?
 
     result = exchange.get_adjusted_price(
       base_asset: base_asset,
@@ -38,7 +38,7 @@ module BotHelper
 
   # @param amount_type [Symbol] :base or :quote
   def rounded_amount_for(exchange:, base_asset:, quote_asset:, amount:, amount_type:)
-    return amount if base_asset.nil? || quote_asset.nil?
+    return amount if base_asset.nil? || quote_asset.nil? || amount.nil?
 
     result = exchange.get_adjusted_amount(
       base_asset: base_asset,
