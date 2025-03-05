@@ -122,6 +122,7 @@ Rails.application.routes.draw do
       post :stop, on: :member
       post :show, on: :member
       get :confirm_restart, on: :member
+      get :new_bot_type, on: :collection
     end
 
     resources :bots, only: [:show]

@@ -3,6 +3,19 @@ module BotHelper
     Bot::INTERVALS.map { |interval| [t("bots.#{interval}"), interval] }
   end
 
+  def bot_type_label(bot)
+    case bot.type
+    when 'Bots::Barbell'
+      'Barbell DCA'
+    when 'Bots::Basic'
+      'Basic DCA'
+    when 'Bots::Withdrawal'
+      'Withdrawal'
+    when 'Bots::Webhook'
+      'Webhook'
+    end
+  end
+
   def rounded_quote_amount_for(exchange:, base_asset:, quote_asset:, amount:)
     rounded_amount_for(exchange: exchange, base_asset: base_asset, quote_asset: quote_asset, amount: amount, amount_type: :quote)
   end

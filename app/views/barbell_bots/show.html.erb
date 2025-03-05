@@ -1,7 +1,3 @@
-<%= turbo_stream_from "bot_#{@barbell_bot.id}", :status_bar %>
-<%= turbo_stream_from "bot_#{@barbell_bot.id}", :orders %>
-<%= turbo_stream_from "bot_#{@barbell_bot.id}", :metrics %>
-
 <%= turbo_frame_tag "bot" do %>
   <div class="page-head">
     <%= render "barbell_bots/header", bot: @barbell_bot, other_bots: @other_bots %>

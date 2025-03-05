@@ -5,11 +5,10 @@
     <% if metrics[:chart][:labels].empty? %>
         <%= render 'svg/landscape_empty' %>
     <% else %>
-      <% profitable = metrics[:pnl] > 0 %>
       <% formatted_series = rounded_chart_series_for(exchange: bot.exchange, base_asset: bot.base0, quote_asset: bot.quote, series: metrics[:chart][:series]) %>
       <div class="data-grid__item" data-controller="tooltip" data-action="mouseenter->tooltip#showTooltip mouseleave->tooltip#hideTooltip">
         <div class="label"><%= t('analyzer.pnl') %></div>
-        <%= tag.div class: "data-grid__item__value", style: "color: var(--#{profitable ? 'success' : 'danger'})" do %>
+        <%= tag.div class: "data-grid__item__value", style: "color: var(--#{metrics[:pnl].negative? ? 'danger' : 'success'})" do %>
           <%= sprintf('%+.0f', (metrics[:pnl] * 100)) + '%' %>
         <% end %>
       </div>
