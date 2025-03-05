@@ -167,8 +167,12 @@ const DashboardTemplate = ({
   useEffect(() => {
     const path = window.location.pathname;
     const botIdMatch = path.match(/\/dashboard\/bots\/(\d+)/);
+    const urlParams = new URLSearchParams(window.location.search);
+    const createMode = urlParams.get('create') === 'true';
 
-    if (botIdMatch) {
+    if (createMode) {
+      setIsCreating(true);
+    } else if (botIdMatch) {
       const botId = parseInt(botIdMatch[1]);
       setSelectedBotId(botId);
 
