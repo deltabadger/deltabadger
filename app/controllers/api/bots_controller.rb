@@ -39,7 +39,7 @@ module Api
     end
 
     def update
-      result = Bots::Update.call(current_user, bot_update_params)
+      result = BotsManager::Update.call(current_user, bot_update_params)
 
       if result.success?
         data = present_bot(result.data)

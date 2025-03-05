@@ -22,8 +22,7 @@
     <div class="widget widget--chart">
       <div class="data-grid__item" data-controller="tooltip" data-action="mouseenter->tooltip#showTooltip mouseleave->tooltip#hideTooltip">
         <div class="label"><%= t('analyzer.pnl') %></div>
-        <% profitable = backtest['metrics']['totalReturn'] > 0 %>
-        <%= tag.div class: "data-grid__item__value", style: "color: var(--#{profitable ? 'success' : 'danger'})" do %>
+        <%= tag.div class: "data-grid__item__value", style: "color: var(--#{backtest['metrics']['totalReturn'].negative? ? 'danger' : 'success'})" do %>
           <%= sprintf('%+.0f', (backtest['metrics']['totalReturn'] * 100)) + '%' if backtest['metrics']['totalReturn'].present? %>
         <% end %>
       </div>

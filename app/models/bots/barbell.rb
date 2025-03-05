@@ -100,7 +100,7 @@ class Bots::Barbell < Bot
   end
 
   def restarting?
-    last_pending_quote_amount_calculated_at_iso8601.present?
+    stopped? && last_pending_quote_amount_calculated_at_iso8601.present?
   end
 
   def restarting_within_interval?

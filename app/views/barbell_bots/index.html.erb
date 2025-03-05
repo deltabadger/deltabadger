@@ -1,8 +1,21 @@
-<h1>Barbell Bots</h1>
+<div class="page-head page-head--dashboard">
+  <div>
 
-<%= button_to "New Barbell Bot", barbell_bots_path, method: :post, class: "btn btn-primary" %>
+    <%= button_to new_bot_type_barbell_bots_path, method: :get, class: "sbutton sbutton--primary", data: { turbo_frame: "modal" } do %>
+      <span class="d-none d-sm-inline mr-3"><%= t('bots.add_new_bot') %></span>
+      <i class="material-icons">add</i>
+    <% end %>
+  </div>
+</div>
+
 
 <% @bots.each do |bot| %>
   <%= bot.id %>
   <%= link_to 'show', barbell_bot_path(bot) %>
 <% end %>
+
+<div className="db-bots db-bots--main">
+  <div className="db-bots__list">
+    <%= render partial: 'barbell_bots/bot_tile', collection: @bots, as: :bot %>
+  </div>
+</div>

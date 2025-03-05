@@ -2,10 +2,10 @@ class BarbellBotsController < ApplicationController
   include Pagy::Backend
 
   before_action :authenticate_user!
-  before_action :set_barbell_bot, except: %i[index create]
+  before_action :set_barbell_bot, except: %i[index create new_bot_type]
 
   def index
-    @bots = current_user.bots.not_deleted.barbell.order(id: :desc)
+    @bots = current_user.bots.not_deleted.order(id: :desc).includes(:exchange)
   end
 
   def create
@@ -92,6 +92,8 @@ class BarbellBotsController < ApplicationController
   def confirm_restart
     @barbell_bot.calculate_pending_quote_amount
   end
+
+  def new_bot_type; end
 
   private
 

@@ -1,3 +1,5 @@
+<%= turbo_stream_from "bot_#{bot.id}", :orders %>
+
 <%= turbo_frame_tag "bot_#{bot.id}_orders" do %>
   <div class="widget widget--table">
     <% if bot.transactions.any? %>
