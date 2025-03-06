@@ -1,16 +1,15 @@
 <% pnl = bot.barbell? ? bot.fetch_metrics[:pnl] : 0 %>
 <% path = bot.barbell? ? barbell_bot_path(bot) : dashboard_bot_path(bot) %>
 
-
 <div class="widget bot-tile bot--stopped">
-  <%= link_to path, style: "text-decoration: none; padding-bottom: 5rem;" do %>
+  <%= link_to path do %>
     <div class="bot-tile__header">
       <div class="bot-tile__ticker">
         <div class="bot-tile__ticker__currencies"><%= bot.label %></div>
-        <div class="bot-tile__ticker__exchange"><%= bot_type_label(bot) %></div>
         <div class="bot-tile__ticker__exchange">
+          
           <% if bot.barbell? && bot.quote.present? && bot.base0.present? && bot.base1.present? %>
-            <%= bot.quote %> → <%= bot.base0 %> + <%= bot.base1 %>
+            <%= bot.quote %> → <%= bot.base1 %>, <%= bot.base0 %>
           <% elsif bot.basic? && bot.quote.present? && bot.base.present? %>
             <%= bot.quote %> → <%= bot.base %>
           <% elsif bot.withdrawal? && bot.currency.present? %>
@@ -19,6 +18,7 @@
             <%= bot.base %>
           <% end %>
           <%= "· #{bot.exchange.name}" if bot.exchange.present? %>
+          <%# bot_type_label(bot) %>
         </div>
       </div>
       <div class="bot-tile__pnl text-danger">
@@ -27,7 +27,7 @@
     </div>
   <% end %>
   <% if bot.barbell? %>
-    <div class="bot-control" style="margin-top: -4rem;">
+    <div class="bot-control">
       <div class="bot-control__status active">
         <%= render "barbell_bots/status/status_bar", bot: bot %>
       </div>

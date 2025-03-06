@@ -4,7 +4,7 @@
   <% if bot&.pending? %>
       Setting orders...
   <% elsif bot&.working? || bot&.retrying? %>
-    <%= tag.div class: "bot-control__status__bar", style: "width: #{bot.progress_percentage * 100}%", data: {
+    <%= tag.div class: "bot-control__status__bar", style: "min-width:0.5rem; width: #{bot.progress_percentage * 100}%", data: {
       controller: "progress-bar",
       progress_bar_start_time_value: bot.previous_interval_checkpoint_at.iso8601,
       progress_bar_end_time_value: bot.next_set_barbell_orders_job_at&.iso8601,
