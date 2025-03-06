@@ -9,9 +9,11 @@
     overflow:           hidden
     text-overflow:      ellipsis
     text-wrap:          nowrap
-    a
-        text-decoration: none
+    text-decoration: none !important
+    &:hover, &:focus
+        color: #fff
 .ticker
+    display: block
     min-width: 12rem
 .ticker-group
     display: flex
