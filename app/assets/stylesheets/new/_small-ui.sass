@@ -130,7 +130,7 @@ select
         background: var(--success)
     &--danger
         background: var(--danger)
-    &--outline, &--link
+    &--outline, &--link,&--disabled,&[disabled="disabled"],&[disabled]
         background: none
         color: var(--link)
         path
@@ -151,7 +151,7 @@ select
             color: var(--menulink)
             path
                 fill: var(--menulink)
-    &--outline
+    &--outline,&--disabled,&[disabled="disabled"],&[disabled]
         border: 2px solid var(--link)
         padding: 0 calc(2rem - 2px)
         &[disabled="disabled"],&[disabled]
@@ -165,6 +165,9 @@ select
     &--disabled,&[disabled="disabled"],&[disabled]
         cursor: not-allowed
         opacity: 0.5
+        border-color: var(--label) !important
+        .animicon *
+            background-color: var(--label) !important
     &--link
         padding-left: 0
         padding-right: 0
