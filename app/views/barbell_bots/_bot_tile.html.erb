@@ -7,16 +7,19 @@
       <div class="bot-tile__hgroup">
         <div class="bot-tile__title">
           <% if bot.barbell? && bot.quote.present? && bot.base0.present? && bot.base1.present? %>
+            <span><%= bot.quote %></span>
+            &rarr;
             <span>
               <span><%= bot.base1 %></span>,
               <span><%= bot.base0 %></span>
             </span>
-            &larr;
-            <span><%= bot.quote %></span>
+            
+            
           <% elsif bot.basic? && bot.quote.present? && bot.base.present? %>
-            <span><%= bot.base %></span>
-            &larr;
             <span><%= bot.quote %></span>
+            &rarr;
+            <span><%= bot.base %></span>
+
           <% elsif bot.withdrawal? && bot.currency.present? %>
             <%= bot.currency %>
           <% elsif bot.webhook? && bot.base.present? %>
