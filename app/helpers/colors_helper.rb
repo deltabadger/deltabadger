@@ -32,6 +32,7 @@ module ColorsHelper
   end
 
   def transparent_color(color, opacity, min_opacity = 0.3)
+    opacity = opacity.to_f
     adjusted_opacity = min_opacity + (1 - min_opacity) * opacity
     alpha = (adjusted_opacity * 255).round.to_s(16).rjust(2, '0')
     color + alpha
