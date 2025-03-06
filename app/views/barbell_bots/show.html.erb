@@ -3,23 +3,25 @@
     <%= render "barbell_bots/header", bot: @barbell_bot, other_bots: @other_bots %>
   </div>
 
-  <div class="bot-control">
-    <div class="bot-control__status active">
-      <%= render "barbell_bots/status/status_bar", bot: @barbell_bot %>
+  <div class="flex-column gap-1">
+    <div class="bot-control">
+      <div class="bot-control__status active">
+        <%= render "barbell_bots/status/status_bar", bot: @barbell_bot %>
+      </div>
+      <%= render "barbell_bots/status/status_button", bot: @barbell_bot %>
     </div>
-    <%= render "barbell_bots/status/status_button", bot: @barbell_bot %>
-  </div>
 
-  <div class="columns">
-    <div class="column gap-1">
-      <%= render partial: "barbell_bots/settings", locals: { bot: @barbell_bot } %>
-      <%= render partial: "barbell_bots/exchange_select", locals: { bot: @barbell_bot } %>
-      <%# render partial: "barbell_bots/settings_extra" %>
-    </div>
-    <div class="column gap-1">
-      <%= render partial: "barbell_bots/chart", locals: { bot: @barbell_bot } %>
-      <%= render partial: "barbell_bots/metrics/metrics", locals: { bot: @barbell_bot } %>
-      <%= render partial: "barbell_bots/orders/orders", locals: { bot: @barbell_bot } %>
+    <div class="columns">
+      <div class="column gap-1">
+        <%= render partial: "barbell_bots/settings", locals: { bot: @barbell_bot } %>
+        <%= render partial: "barbell_bots/exchange_select", locals: { bot: @barbell_bot } %>
+        <%# render partial: "barbell_bots/settings_extra" %>
+      </div>
+      <div class="column gap-1">
+        <%= render partial: "barbell_bots/chart", locals: { bot: @barbell_bot } %>
+        <%= render partial: "barbell_bots/metrics/metrics", locals: { bot: @barbell_bot } %>
+        <%= render partial: "barbell_bots/orders/orders", locals: { bot: @barbell_bot } %>
+      </div>
     </div>
   </div>
 <% end %>
