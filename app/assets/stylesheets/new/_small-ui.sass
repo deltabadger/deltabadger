@@ -162,6 +162,9 @@ select
             border-color: var(--danger)
         &.sbutton--secondary
             border-color: var(--menulink)
+    &--link
+        &.sbutton--disabled,&[disabled="disabled"],&[disabled]
+            border-width: 0 !important
     &--disabled,&[disabled="disabled"],&[disabled]
         cursor: not-allowed
         opacity: 0.5
