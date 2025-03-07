@@ -1,0 +1,19 @@
+<%= render 'layouts/turbo_modal' do %>
+  <div class="modal__content">
+    <button data-action="click->modal--base#animateOutCloseAndCleanUp" class="modal__close">
+      <%= render 'svg/24x24_x' %>
+    </button>
+    <div class="modal__body community-access-instructions">
+      <%= image_tag "community-lock.webp", class: "community-access-instructions__illustration" %>
+      <div>
+        <%= t('community.access_instructions_html', 
+              name: current_user.name.present? ? " #{current_user.name}" : "",
+              email: mail_to("jan@deltabadger.com", "jan@deltabadger.com")) %>
+        <img src="https://deltabadger.com/images/signature-white.webp" alt="signature" style="width: 15rem" class="darkmode-only" %>
+        <img src="https://deltabadger.com/images/signature.webp" alt="signature" style="width: 15rem" class="lightmode-only" %>
+      </div>
+    </div>
+  </div>
+<% end %>
+
+
