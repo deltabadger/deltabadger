@@ -27,6 +27,23 @@
       </div>
     </div>
 
+    <div class="widget">
+      <h4 class="db-modal__subtitle">Community Access</h4>
+      <div class="form-group">
+        <% if current_user.community_access? %>
+          <p>You have access to our community platform.</p>
+          <div class="db-form-group--main-btn">
+            <%= link_to "Visit Community", "https://skool.com/fire", class: "btn btn-lg btn-primary", target: "_blank", rel: "noopener" %>
+          </div>
+        <% else %>
+          <p>You currently don't have access to our community platform.</p>
+          <div class="db-form-group--main-btn">
+            <%= link_to "Request Access", community_access_instructions_path, class: "btn btn-lg btn-primary", data: { turbo_frame: "modal" } %>
+          </div>
+        <% end %>
+      </div>
+    </div>
+
     <%= render partial: 'settings/forms/update_api_keys' %>
   </div>
 </div>
