@@ -689,3 +689,10 @@ fr:
             past_performance: "Performance passée"
             benchmark_performance: "Performance passée du benchmark"
             metrics_since: "Métriques depuis %{start_date} jusqu'à %{end_date} :"
+    community:
+        access_instructions_html: |
+            <p>Salut%{name}! La communauté n'est plus qu'à un pas.</p>
+            <p>Pour la garder libre de spam et de personnes peu sérieuses concernant la liberté financière :</p>
+            <p>Envoyez un email à <strong>%{email}</strong> avec <strong>"FIRE"</strong> dans l'objet.</p>
+            <p>Votre accès à vie arrivera peu après.</p>
+            <p>À bientôt, Jan</p>

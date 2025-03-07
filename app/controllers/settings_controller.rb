@@ -20,6 +20,12 @@ class SettingsController < ApplicationController
     head :no_content
   end
 
+  def update_community_access
+    current_user.update!(community_access: true)
+    flash[:notice] = 'Community access granted'
+    redirect_to dashboard_path
+  end
+
   def update_name
     if current_user.update(update_name_params)
       flash.now[:notice] = t('settings.name.updated')
