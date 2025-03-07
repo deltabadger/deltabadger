@@ -49,7 +49,7 @@ class Users::RegistrationsController < Devise::RegistrationsController
 
   def configure_permitted_parameters
     devise_parameter_sanitizer
-      .permit(:sign_up, keys: %i[terms_and_conditions updates_agreement referrer_id name])
+      .permit(:sign_up, keys: %i[terms_and_conditions updates_agreement referrer_id name community_access])
   end
 
   def after_inactive_sign_up_path_for(_resource)
@@ -59,7 +59,7 @@ class Users::RegistrationsController < Devise::RegistrationsController
   private
 
   def sign_up_params
-    params.require(:user).permit(:name, :email, :password, :terms_and_conditions)
+    params.require(:user).permit(:name, :email, :password, :terms_and_conditions, :community_access)
   end
 
   def set_code

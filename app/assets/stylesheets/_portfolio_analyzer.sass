@@ -7,11 +7,14 @@
   transform: translate(-50%, -50%)
   border-radius: 2rem
   border: none
-  height: 64rem
   background: none
   .db-form__label
     background: var(--modal-background)
-
+  @media (max-width: 574.9px)
+    width: 100vw
+    height: 100vh
+    max-width: calc(100vw - 2rem)
+    max-height: calc(100vh - 2rem)
 
 // flash messages
 #flash
