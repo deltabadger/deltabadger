@@ -20,12 +20,6 @@ class SettingsController < ApplicationController
     head :no_content
   end
 
-  def update_community_access
-    current_user.update!(community_access: true)
-    flash[:notice] = 'Community access granted'
-    redirect_to dashboard_path
-  end
-
   def update_name
     if current_user.update(update_name_params)
       flash.now[:notice] = t('settings.name.updated')
@@ -101,6 +95,14 @@ class SettingsController < ApplicationController
       set_edit_two_fa_instance_variables
       render :edit_two_fa, status: :unprocessable_entity
     end
+  end
+
+  def community_access_instructions; end
+
+  def update_community_access
+    current_user.update!(community_access: true)
+    flash[:notice] = 'Community access granted'
+    redirect_to dashboard_path
   end
 
   private
