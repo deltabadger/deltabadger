@@ -31,7 +31,7 @@
       = t('links.community')
       = render "svg/16x16_link"
   - else
-    = link_to community_access_instructions_path, class: "menu-mobile__item menu-mobile__item--community", data: { controller: 'tooltip', action: 'mouseenter->tooltip#showTooltip mouseleave->tooltip#hideTooltip', turbo_frame: "modal" } do
+    = link_to settings_community_access_instructions_path, class: "menu-mobile__item menu-mobile__item--community", data: { controller: 'tooltip', action: 'mouseenter->tooltip#showTooltip mouseleave->tooltip#hideTooltip', turbo_frame: "modal" } do
       = t('links.community')
 
   .menu-mobile__divider
@@ -108,7 +108,7 @@
         .tooltip
           = t('links.community')
     - else
-      = link_to community_access_instructions_path, class: "menu__item menu__item--community", data: { controller: 'tooltip', action: 'mouseenter->tooltip#showTooltip mouseleave->tooltip#hideTooltip', turbo_frame: "modal" } do
+      = link_to settings_community_access_instructions_path, class: "menu__item menu__item--community", data: { controller: 'tooltip', action: 'mouseenter->tooltip#showTooltip mouseleave->tooltip#hideTooltip', turbo_frame: "modal" } do
         = render 'svg/24x24_fire'
         .tooltip
           = t('links.community')

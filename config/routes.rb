@@ -76,8 +76,6 @@ Rails.application.routes.draw do
   scope "(:locale)", locale: /#{I18n.available_locales.join("|")}/ do
     root to: 'home#index'
 
-    get '/community/access_instructions', to: 'community#access_instructions', as: :community_access_instructions
-    
     devise_for :users, controllers: { sessions: 'users/sessions', passwords: 'users/passwords', confirmations: 'users/confirmations', registrations: 'users/registrations' }, path: '', path_names: { sign_in: 'login', sign_out: 'logout', sign_up: 'signup' }, skip: [:registrations]
     devise_scope :user do
       get  'signup', to: 'users/registrations#new', as: 'new_user_registration'
@@ -108,13 +106,14 @@ Rails.application.routes.draw do
       patch :hide_welcome_banner
       patch :hide_news_banner
       patch :hide_referral_banner
-      patch :update_community_access
       patch :update_password
       patch :update_email
       patch :update_name
       get :edit_two_fa
       patch :update_two_fa
       delete 'remove_api_key/:id', action: :remove_api_key, as: :remove_api_key
+      get :community_access_instructions
+      patch :update_community_access
     end
 
     resources :barbell_bots, path: "/barbell-bots" do
