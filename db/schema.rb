@@ -290,7 +290,7 @@ ActiveRecord::Schema.define(version: 2025_03_06_224414) do
     t.string "name"
     t.boolean "news_banner_dismissed", default: false
     t.boolean "sendgrid_unsubscribed", default: false
-    t.boolean "community_access", default: false, null: false
+    t.boolean "has_community_access", default: false, null: false
     t.index ["confirmation_token"], name: "index_users_on_confirmation_token", unique: true
     t.index ["email"], name: "index_users_on_email", unique: true
     t.index ["reset_password_token"], name: "index_users_on_reset_password_token", unique: true
