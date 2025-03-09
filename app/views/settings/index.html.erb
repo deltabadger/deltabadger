@@ -30,7 +30,7 @@
     <div class="widget">
       <h4 class="db-modal__subtitle">Community Access</h4>
       <div class="form-group">
-        <% if current_user.community_access? %>
+        <% if current_user.has_community_access? %>
           <p>You have access to our community platform.</p>
           <div class="db-form-group--main-btn">
             <%= link_to "Visit Community", "https://skool.com/fire", class: "btn btn-lg btn-primary", target: "_blank", rel: "noopener" %>
