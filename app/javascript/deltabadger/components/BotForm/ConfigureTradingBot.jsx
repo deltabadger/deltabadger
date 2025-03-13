@@ -316,7 +316,7 @@ export const ConfigureTradingBot = ({ showLimitOrders, currentExchange, handleRe
         <div className="db-bot__alert text-danger">{ errors }</div>
         <form>
 
-          <div className="form-inline db-bot__form__schedule">
+          <div className="conversational flex-justify-center">
             <div className="form-group mr-2">
               <select
                 value={type}

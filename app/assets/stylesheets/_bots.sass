@@ -26,35 +26,9 @@ input
   &--single
     @include media-breakpoint-up(xl)
       grid-template-columns: 50%
-  &--main
-    .db-bots__list
-      display: grid
-      grid-auto-flow: row
-      gap: 1rem
-      @media (min-width: 768px)
-        grid-template-columns: repeat(2, 1fr)
-      @media (min-width: 1024px)
-        grid-template-columns: repeat(3, 1fr)
-      @media (min-width: 1600px)
-        grid-template-columns: repeat(4, 1fr)
-    .db-bots__item
-      grid-column-start: auto
-      margin-bottom: 0
-      padding: 2rem
-    .db-bot__header
-      padding: 0
-      padding-bottom: 2rem
-    .bot-ticker
-      left: 0
   &__item
     grid-column-start:  1
     margin-bottom:      2rem
-    &--homepage
-      width:            100%
-      height:           fit-content
-      color:            var(--text)
-      border-radius:    $box-border-radius !important
-      padding-bottom:   1.5rem !important
     &--data
       @include media-breakpoint-up(xl)
         grid-column-start: 2
@@ -73,69 +47,11 @@ input
       .tab-content
         z-index:  2
         position: relative
-      .nav-item
-        .nav-link
-          padding: 1.3rem 2.4rem 1.7rem
-          color:           var(--link)
-          background:      var(--paper)
-          text-decoration: none !important
-          margin-right:    .2rem
-          position:        relative
-          &:not(.active)
-            background:    transparent
-            border-color:  transparent
-            &:hover
-              background:  var(--paperBorder)
-          &.active
-            cursor:              default
-            padding-bottom:      1.8rem
-            border-bottom-width: 0
-            color:               var(--text)
-            border-color:        var(--paperBorder)
-            z-index:             3
-            @include media-breakpoint-up(xl)
-              box-shadow:  $boxShadowBot
-            &::before
-              content:     ""
-              display:     block
-              height:      1.8rem
-              background:  var(--paper)
-              left:       -.5rem
-              position:    absolute
-              width:       calc(100% + 1rem)
-              bottom:     -1.8rem
-        &:first-child
-          .nav-link
-            &.active
-              &::before
-                left:       -.1rem
-                border-left: .1rem solid var(--paperBorder)
-                bottom:     -1.8rem
-            &:not(.active)
-              &:hover
-                &::before
-                  content:    ""
-                  z-index:   -1
-                  display:    block
-                  width:      1rem
-                  height:     1.8rem
-                  background: var(--paperBorder)
-                  left:      -.1rem
-                  position:   absolute
-                  bottom:    -1.1rem
-      .nav-link
-        border-top-right-radius: $box-border-radius
-        border-top-left-radius:  $box-border-radius
-      .nav-tabs
-        border-bottom: 0
-        flex-direction: row
-        gap: 1rem
       .tab-pane
         padding:       1.6rem 0 0
-        border:        .1rem solid var(--paperBorder)
-        background:    var(--paper)
-        border-radius: $box-border-radius
-        box-shadow:    $boxShadowBot
+        background:    var(--widget-background)
+        border-radius: 2rem
+        box-shadow:    var(--widget-shadow) 
         overflow: hidden
         h3,p,img,blockquote
           padding-left: 4rem
@@ -164,10 +80,10 @@ input
 .db-bot
   position:      relative
   overflow:      hidden
-  background:    var(--paper)
-  border:        .1rem solid var(--paperBorder)
-  border-radius: $box-border-radius
-  box-shadow:    $boxShadowBot
+  background:    var(--widget-background)
+  border:        .1rem solid var(--widgetBorder)
+  border-radius: 2rem
+  box-shadow:    var(--widget-shadow)
   .form-inline
     justify-content:  center
     row-gap:          1rem
@@ -175,27 +91,6 @@ input
       margin-right: 0 !important
   .form-control
     border-color: var(--paperBorder)
-  &--active
-    @include media-breakpoint-down(lg)
-      border-bottom-right-radius: 0
-      border-bottom-left-radius:  0
-      border-bottom:              0
-      margin-bottom:             -4rem
-      padding-bottom:             4rem
-      &+.db-bots__item--data
-        background:                 var(--paper)
-        border-right:               .1rem solid var(--paperBorder)
-        border-left:                .1rem solid var(--paperBorder)
-        border-bottom-right-radius: $box-border-radius
-        border-bottom-left-radius:  $box-border-radius
-        .nav, .tab-pane
-          margin-left:            -.1rem
-          margin-right:           -.1rem
-          border-top-right-radius: 0
-          border-top-left-radius:  0
-      &:disabled
-        background:           var(--progressBar) !important
-        color:                var(--text) !important
   &--pick-exchange, &--get-apikey
     &+.db-bots__item--data
       .db-showif--pick-exchange
