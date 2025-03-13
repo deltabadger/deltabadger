@@ -46,6 +46,7 @@
   border-radius: 2rem
   padding: 2rem 2.3rem
   border: 1px solid var(--widget-border)
+  position: relative
   h4
     margin: .55em 0 .25em
     @include media-breakpoint-down(sm)
@@ -76,11 +77,11 @@
     background-color: var(--alertPrimaryBg)
     border-color: transparent
     &[disabled]
-      box-shadow: inset 0 0 0 1px var(--widgetBorder)
+      box-shadow: inset 0 0 0 1px var(--label)
       color:            var(--alertPrimaryTxtDisabled)
       background-color: var(--alertPrimaryBgDisabled)
       border-color:     var(--alertPrimaryBorderDisabled)
-      box-shadow: none
+      opacity: 0.9
       .hide-when-disabled
         display: none
       .bot-input
