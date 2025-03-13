@@ -7,7 +7,7 @@
     <div class="widget db-referral-program-registration">
       <h4 class="modal__title">
         <%= t('.share_html') %>
-        <%= image_tag "bitcoin.svg", alt: "", class: "db-card-providers__item db-card-providers__item--bitcoin" %>
+        <%= image_tag "bitcoin.svg", alt: "Bitcoin", style: "width: 4rem; height: 4rem;" %>
       </h4>
       <div class="db-form__row db-form__row--input mb-0" data-controller="clipboard">
         <input class="db-form__input" id="referralLink" type="text" value="<%= @reflink %>" readonly="readonly" data-clipboard-target="input">
@@ -64,7 +64,7 @@
     </div>
 
     <div class="widget">
-      <h4 class="pb-3">
+      <h4>
         <span class="db-number">2</span>
         <%= t('.payout_address') %>
       </h4>
@@ -76,7 +76,7 @@
     </div>
 
     <div class="widget">
-      <h4 class="pb-3">
+      <h4>
         <span class="db-number">3</span>
         <%= t('.program_settings_html') %>
       </h4>
@@ -89,33 +89,26 @@
     </div>
 
     <div class="widget">
-      <h4 class="pb-3">
+      <h4>
         <span class="db-number">4</span>
         <%= t('.visible_info') %>
       </h4>
 
       <p><%= t('affiliates.info_preview') %></p>
-      <table class="table db-table--checkout">
-        <tbody class="table-borderless">
-          <tr>
-            <td class="text-success pr-0 pl-0" scope="col">
-              <i class="material-icons">check_circle</i>
-            </td>
-            <td scope="col">
-              <b class="text-success"><%= t('.discount_preview_html', discount_percent_preview: @presenter.discount_percent_preview) %></b>
-              <span class="db-billing-item__info">
-                <span class="db-form-preview--visible_text <%= 'db-form-preview--visible_text__visible' if @affiliate.visible_name.present? %>">
-                  <%= t('.thanks_referral') %>
-                  <b>
-                    <a href="javascript:;"><span class="db-form-preview--visible_name"><%= @affiliate.visible_name %></span></a>
-                  </b>
-                </span>
-              </span>
-            </td>
-          </tr>
-        </tbody>
-      </table>
-
+      <div class="discount-info discount-info--preview">
+        <i class="material-icons">check_circle</i>
+        <span>
+          <b class="text-success"><%= t('.discount_preview_html', discount_percent_preview: @presenter.discount_percent_preview) %></b>
+          <span class="db-billing-item__info">
+            <span class="db-form-preview--visible_text <%= 'db-form-preview--visible_text__visible' if @affiliate.visible_name.present? %>">
+              <%= t('.thanks_referral') %>
+              <b>
+                <a href="javascript:;"><span class="db-form-preview--visible_name"><%= @affiliate.visible_name %></span></a>
+              </b>
+            </span>
+          </span>
+        </span>
+      </div>
       <p class="mb-3"><%= t('affiliates.add_link_info') %></p>
 
       <div class="db-form__row db-form__row--input">
@@ -129,9 +122,9 @@
         <%= f.label :visible_link, t('helpers.label.affiliate.visible_link'), class: "db-form__label" %>
       </div>
 
-      <div class="form-check pt-2 pb-4 text-center">
-        <%= f.check_box :check, class: "form-check-input" %>
-        <%= f.label :check, t('.checked'), class: "form-check-label" %>
+      <div style="text-align: center; padding: 2rem 0;">
+        <%= f.check_box :check, style: "margin-right: 0.5rem;" %>
+        <%= f.label :check, t('.checked') %>
       </div>
 
       <div class="large-button-wrapper">

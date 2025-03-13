@@ -133,6 +133,7 @@ ru:
     button:
         connect: "Подключить"
     bot:
+        no_orders_info: "Здесь будут показаны заказы бота"
         barbell:
             invest_html: "Инвестировать %{input} /месяц"
         utils:

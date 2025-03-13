@@ -29,18 +29,22 @@ $dropdown-bg: #FFF
   --c-gradient: -webkit-linear-gradient(5deg, var(--c-gradient-step-a), var(--c-gradient-step-b), var(--c-gradient-step-c), var(--c-gradient-step-d), var(--c-gradient-step-a))
 
   --ticker-text-dark: #061A4F
-  --widget-shadow: 0.125rem 0.125rem 0.125rem rgba(0,0,0,0.05), 0.5rem 0.5rem 1.5rem rgba(0,0,0,0.05)
+  --widget-shadow: 0.125rem 0.125rem 0.125rem rgba(0,0,0,0.035), 0.5rem 0.5rem 1.5rem rgba(0,0,0,0.035)
 
 @media (prefers-color-scheme: light)
   .db-darkmode-only,.darkmode-only
     display: none
   \:root
     --primary: #2948A1
+    --primary-shadow: 0.125rem 0.125rem 0.125rem rgba(0,0,0,0.07), 0.5rem 0.5rem 0.5rem rgba(0,0,0,0.07)
     --success: color(display-p3 0 0.7 0.4)
+    --success-shadow: 0.125rem 0.125rem 0.125rem rgba(0, 30, 15, 0.07), 0.5rem 0.5rem 0.5rem rgba(0, 30, 15, 0.07)
+    --danger: #f7002d
+    --danger-shadow: 0.125rem 0.125rem 0.125rem rgba(0,0,0,0.07), 0.5rem 0.5rem 0.5rem rgba(0,0,0,0.07)
     --success-semitransparent: color(display-p3 0 0.7 0.4 / 0.2)
     --discount: color(display-p3 0 0.6 0.34)
     --ai: color(display-p3 0.7 0 0.7)
-    --danger: #f7002d
+
     --benchmark: #949db5
     --background-new: #f5f6f8
     --background-new-semitransparent: #cfdeff69

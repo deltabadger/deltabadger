@@ -42,9 +42,10 @@
       font-weight: bold
 
 .alert
-  box-shadow: $boxShadowAlert
+  box-shadow: var(--widget-shadow)
+  border-radius: 2rem
   padding: 2rem 2.3rem
-  margin-bottom: 2rem
+  border: 1px solid var(--widget-border)
   h4
     margin: .55em 0 .25em
     @include media-breakpoint-down(sm)

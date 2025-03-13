@@ -136,6 +136,7 @@ de:
     button:
         connect: "Verbinden"
     bot:
+        no_orders_info: "Bot-Bestellungen werden hier angezeigt"
         barbell:
             invest_html: "%{input} /Monat investieren"
         utils:
