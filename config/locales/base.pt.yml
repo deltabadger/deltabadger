@@ -133,6 +133,7 @@ pt:
     button:
         connect: "Conectar"
     bot:
+        no_orders_info: "As ordens do bot aparecerão aqui"
         barbell:
             invest_html: "Investir %{input} /mês"
         utils:
