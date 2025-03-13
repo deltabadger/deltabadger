@@ -175,17 +175,6 @@ input
       margin-right: 0 !important
   .form-control
     border-color: var(--paperBorder)
-  .btn-outline
-    &-primary
-      path
-        fill: var(--link)
-    &-secondary
-      &.disabled
-        color: var(--linkInactive) !important
-        border-color: var(--linkInactive) !important
-        opacity: 1 !important
-        path
-          fill: var(--linkInactive) !important
   &--active
     @include media-breakpoint-down(lg)
       border-bottom-right-radius: 0
@@ -403,37 +392,9 @@ input
     justify-content: center
     gap: 2rem
     padding: 2rem
-    .btn
-      padding-right: 1em
-      padding-left: 1em
 
 .db-bot__modal__content
   text-align: center
-.btn--reset
-  justify-content: start !important
-  margin:          0.7rem 1.4rem 1.6rem
-  left:            4rem
-  color:           var(--secondary) !important
-  text-decoration: none !important
-  align-self:      flex-start
-  width:           10rem
-  height:          4.2rem
-  span
-    color:       var(--danger)
-    margin-left: .7rem
-    opacity:     0
-  &:hover
-    color: var(--danger) !important
-    span
-      opacity: 1
-
-  &.disabled
-    display: none
-
-.btn--reset-back
-  &:hover, span
-    color: var(--primary) !important
-    color: var(--primary-p3) !important
 
 // chart
 
@@ -454,10 +415,6 @@ input
 .db-add-more-bots
   justify-content: space-between
   height: 4rem
-  .btn-outline-primary:not(:hover)
-    color: var(--addBotButton) !important
-    .material-icons
-      color: var(--addBotButton) !important
   a
     text-decoration: none
   .pagination-lg

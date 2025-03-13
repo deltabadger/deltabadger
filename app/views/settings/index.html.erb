@@ -21,24 +21,24 @@
     } %>
 
     <div class="widget">
-      <h4 class="db-modal__subtitle"><%= t('settings.index.two_factor_section') %></h4>
-      <div class="form-group db-form-group--main-btn">
-        <%= link_to @two_fa_button_text, settings_edit_two_fa_path, class: "btn btn-lg btn-primary btn-success", data: { turbo_frame: "modal" } %>
+      <h4 class="modal__title"><%= t('settings.index.two_factor_section') %></h4>
+      <div class="large-button-wrapper">
+        <%= link_to @two_fa_button_text, settings_edit_two_fa_path, class: "button button--large button--success", data: { turbo_frame: "modal" } %>
       </div>
     </div>
 
     <div class="widget">
-      <h4 class="db-modal__subtitle">Community Access</h4>
+      <h4 class="modal__title">Community Access</h4>
       <div class="form-group">
         <% if current_user.has_community_access? %>
           <p>You have access to our community platform.</p>
-          <div class="db-form-group--main-btn">
-            <%= link_to "Visit Community", "https://skool.com/fire", class: "btn btn-lg btn-primary", target: "_blank", rel: "noopener" %>
+          <div class="large-button-wrapper">
+            <%= link_to "Visit Community", "https://skool.com/fire", class: "button button--large button--primary", target: "_blank", rel: "noopener" %>
           </div>
         <% else %>
           <p>You currently don't have access to our community platform.</p>
-          <div class="db-form-group--main-btn">
-            <%= link_to "Request Access", settings_community_access_instructions_path, class: "btn btn-lg btn-primary", data: { turbo_frame: "modal" } %>
+          <div class="large-button-wrapper">
+            <%= link_to "Request Access", settings_community_access_instructions_path, class: "button button--large button--primary", data: { turbo_frame: "modal" } %>
           </div>
         <% end %>
       </div>

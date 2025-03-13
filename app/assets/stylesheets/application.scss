@@ -1,8 +1,14 @@
 :root {
   font-size: 8px;
 }
-@import "bootstrap/bootstrap";
+// @import "bootstrap/bootstrap";
 @import "variables";
+
+
+@import "new/reset";
+@import "new/variables";
+
+
 @import "mixins";
 @import "styles";
 @import "signup";
@@ -22,10 +28,8 @@
 @import "bonjoro";
 @import "bot_info";
 
-@import "new/reset";
-@import "new/variables";
-@import "new/base";
 
+@import "new/base";
 @import "new/alertbox";
 @import "new/animicon";
 @import "new/basket";
@@ -57,7 +61,7 @@
 @import "new/small-random";
 @import "new/utilities";
 
-@import "animations/portfolio_analyzer";
+@import "animations-portfolio-analyzer";
 @import "portfolio_analyzer";
 
-@import "animations/countdown";
+@import "animations-countdown";

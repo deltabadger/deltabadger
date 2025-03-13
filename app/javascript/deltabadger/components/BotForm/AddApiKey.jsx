@@ -40,7 +40,7 @@ export const AddApiKey = ({
   const ResetButton = () => (
     <div
       onClick={() => handleReset()}
-      className="sbutton sbutton--link"
+      className="button button--link"
     >
       <i className="material-icons">close</i>
       <span>{I18n.t('bots.setup.cancel')}</span>
@@ -91,7 +91,7 @@ export const AddApiKey = ({
       <div className="db-bot__header">
         { !botView && <Breadcrumbs step={2} /> }
         { (status == 'add_api_key' || status == 'invalid_api_key') &&
-          <div onClick={_handleSubmit} className={`sbutton ${disableSubmit ? 'sbutton--outline sbutton--disabled' : 'sbutton--primary'}`}>
+          <div onClick={_handleSubmit} className={`button ${disableSubmit ? 'button--outline button--disabled' : 'button--primary'}`}>
             <span>{botView ? I18n.t('bots.setup.set') : I18n.t('bots.setup.next')}</span>
           </div>
         }

@@ -57,11 +57,11 @@ export const StartButton = ({settings, getRestartType, onClickReset, setShowInfo
           <div className="db-bot__modal__btn-group">
             <div onClick={() => {
               _handleSubmit()
-            }} className="sbutton sbutton--primary sbutton--outline">{I18n.t('bots.buttons.start.changed_on_schedule.skip')}
+            }} className="button button--primary button--outline">{I18n.t('bots.buttons.start.changed_on_schedule.skip')}
             </div>
             <div onClick={() => {
               _handleSubmit(true)
-            }} className="sbutton sbutton--success">{I18n.t('bots.buttons.start.changed_on_schedule.continue')}
+            }} className="button button--success">{I18n.t('bots.buttons.start.changed_on_schedule.continue')}
             </div>
           </div>
           </div>
@@ -72,11 +72,11 @@ export const StartButton = ({settings, getRestartType, onClickReset, setShowInfo
           <div className="db-bot__modal__btn-group">
             <div onClick={() => {
               _handleSubmit()
-            }} className="sbutton sbutton--primary sbutton--outline">{I18n.t('bots.buttons.start.changed_missed.skip')}
+            }} className="button button--primary button--outline">{I18n.t('bots.buttons.start.changed_missed.skip')}
             </div>
             <div onClick={() => {
               _handleSubmit(false, missedAmount)
-            }} className="sbutton sbutton--success">{I18n.t('bots.buttons.start.changed_missed.continue')}
+            }} className="button button--success">{I18n.t('bots.buttons.start.changed_missed.continue')}
             </div>
           </div>
       </div>
@@ -87,11 +87,11 @@ export const StartButton = ({settings, getRestartType, onClickReset, setShowInfo
           <div className="db-bot__modal__btn-group">
             <div onClick={() => {
               _handleSubmit()
-            }} className="sbutton sbutton--primary sbutton--outline">{I18n.t('bots.buttons.start.missed.skip')}
+            }} className="button button--primary button--outline">{I18n.t('bots.buttons.start.missed.skip')}
             </div>
             <div onClick={() => {
               _handleSubmit(false, missedAmount)
-            }} className="sbutton sbutton--success">{I18n.t('bots.buttons.start.missed.continue')}
+            }} className="button button--success">{I18n.t('bots.buttons.start.missed.continue')}
             </div>
           </div>
           </div>
@@ -102,11 +102,11 @@ export const StartButton = ({settings, getRestartType, onClickReset, setShowInfo
           <div className="db-bot__modal__btn-group">
             <div onClick={() => {
               _handleSubmit()
-            }} className="sbutton sbutton--primary sbutton--outline">{I18n.t('bots.buttons.start.on_schedule.skip')}
+            }} className="button button--primary button--outline">{I18n.t('bots.buttons.start.on_schedule.skip')}
             </div>
             <div onClick={() => {
               _handleSubmit(true)
-            }} className="sbutton sbutton--success">{I18n.t('bots.buttons.start.on_schedule.continue')}
+            }} className="button button--success">{I18n.t('bots.buttons.start.on_schedule.continue')}
             </div>
           </div>
         </div>
@@ -148,7 +148,7 @@ export const StartButton = ({settings, getRestartType, onClickReset, setShowInfo
      { showStart &&
      <div
          onClick={_handleRestarts}
-         className="sbutton sbutton--success">
+         className="button button--success">
         <div className="animicon animicon--start">
           <div className="animicon__a"></div>
           <div className="animicon__b"></div>
@@ -167,19 +167,19 @@ export const StartButton = ({settings, getRestartType, onClickReset, setShowInfo
 }
 
 export const StartingButton = () => (
-  <div className="sbutton sbutton--success disabled">
+  <div className="button button--success disabled">
     <span>{I18n.t('bots.starting')}</span>
   </div>
 )
 export const PendingButton = () => (
-  <div className="sbutton sbutton--success disabled">
+  <div className="button button--success disabled">
     <span>{I18n.t('bots.buttons.pending.text')}</span>
   </div>
 )
 export const StopButton = ({ onClick }) => (
   <div 
     onClick={onClick} 
-    className="sbutton sbutton--primary sbutton--outline"
+    className="button button--primary button--outline"
     data-testid="stop-button"
     role="button"
     aria-label="stop"
@@ -213,7 +213,7 @@ export const RemoveButton = ({onClick, disabled}) => {
     <div>
       <div
         onClick={() => setOpen(true) }
-        className={`sbutton sbutton--link sbutton--icon-and-text ${disabled ? 'sbutton--disabled' : ''}`}
+        className={`button button--link button--icon-and-text ${disabled ? 'button--disabled' : ''}`}
       >
         <i className="material-icons">close</i>
         <span>{I18n.t('bots.buttons.delete.text')}</span>
@@ -224,8 +224,8 @@ export const RemoveButton = ({onClick, disabled}) => {
           <div className="db-bot__modal__content">
             <RawHTML tag="p">{I18n.t('bots.buttons.delete.warning_html')}</RawHTML>
             <div className="db-bot__modal__btn-group">
-              <div onClick={() => {setOpen(false)}} className="sbutton sbutton--primary sbutton--outline">{I18n.t('bots.buttons.delete.cancel')}</div>
-              <div onClick={() => {onClick() && setOpen(false)}} className="sbutton sbutton--danger">{I18n.t('bots.buttons.delete.ok')}</div>
+              <div onClick={() => {setOpen(false)}} className="button button--primary button--outline">{I18n.t('bots.buttons.delete.cancel')}</div>
+              <div onClick={() => {onClick() && setOpen(false)}} className="button button--danger">{I18n.t('bots.buttons.delete.ok')}</div>
             </div>
           </div>
         </div>

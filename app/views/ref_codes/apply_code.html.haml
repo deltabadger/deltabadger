@@ -11,8 +11,8 @@
             = f.hidden_field :code, value: refcode_presenter.code
 
             - if refcode_presenter.valid?
-              .form-group.db-form-group--main-btn
-                = f.submit t('affiliates.apply_code.accept'), class: "btn btn-success btn-lg"
+              .form-group.large-button-wrapper
+                = f.submit t('affiliates.apply_code.accept'), class: "button button--success button--large"
             - else
-              .form-group.db-form-group--main-btn
-                = link_to t('affiliates.apply_code.reject'), dashboard_path, class: "btn btn-danger btn-lg"
+              .form-group.large-button-wrapper
+                = link_to t('affiliates.apply_code.reject'), dashboard_path, class: "button button--danger button--large"

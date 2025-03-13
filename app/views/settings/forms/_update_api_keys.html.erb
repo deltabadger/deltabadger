@@ -1,10 +1,10 @@
 <%= turbo_frame_tag "update_api_keys_form" do %>
   <div class="widget">
-    <h4 class="db-modal__subtitle"><%= t('.api_keys_section') %></h4>
-    <h5 class="db-modal__subtitle">Trading keys</h5>
+    <h4 class="modal__title"><%= t('.api_keys_section') %></h4>
+    <h5>Trading keys</h5>
     <%= render partial: 'api_key', collection: current_user.trading_api_keys, as: :api_key %>
     <br>
-    <h5 class="db-modal__subtitle">Withdrawal keys</h5>
+    <h5>Withdrawal keys</h5>
     <%= render partial: 'api_key', collection: current_user.withdrawal_api_keys, as: :api_key %>
   </div>
 <% end %>

@@ -532,7 +532,7 @@ nl:
         banner_html: |
             <p>Welkom aan boord, %{name}!</p>
             <p>De nieuwe upgrade-pagina is de perfecte plek om alle functies en bijbehorende abonnementen te bekijken.</p>
-            <p><a class="btn btn-success btn-lg mt-3 mb-3" href="upgrade">Begin hier</a></p>
+            <p><a class="button button--success button--large mt-3 mb-3" href="upgrade">Begin hier</a></p>
             <p>Groeten, Jan</p>
     metrics:
         exp_return:

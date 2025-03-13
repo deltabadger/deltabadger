@@ -20,8 +20,8 @@
         <%= f.label :secret, "API Secret", class: "db-form__label" %>
       </div>
 
-      <div>
-        <%= f.submit "Save API Keys", class: "btn btn-success btn-lg", data: { turbo_stream: true, turbo_submits_with: "Validating..." } %>
+      <div class="large-button-wrapper">
+        <%= f.submit "Save API Keys", class: "button button--success button--large", data: { turbo_stream: true, turbo_submits_with: "Validating..." } %>
       </div>
 
     <% end %>

@@ -98,15 +98,14 @@ select
     text-align: center
     opacity: 0.5
 
-.sbutton
-    padding: 0 0.25rem
+.button
     font-weight: 600
+    line-height: 2rem
     border: 0
-    background: none
     cursor: pointer
     align-items: center
     border: 0
-    border-radius: 2rem
+    border-radius: 4rem
     display: flex
     justify-content: center
     height: 4rem
@@ -115,13 +114,18 @@ select
     padding: 0 2rem
     gap: 1rem
     text-decoration: none !important
-    &:not(.sbutton--link)
+    &:not(.button--link)
         min-width: 8rem
     &:hover, &:focus, &:active, &[disabled="disabled"],&[disabled]
         color: #fff
         outline: none
     svg
         fill: #fff
+    &--large
+        font-size: 2.5rem
+        padding: 2rem 4rem
+        height:  7rem
+        margin: 0 auto
     &--primary
         background: var(--primary)
     &--secondary
@@ -139,15 +143,15 @@ select
             color: var(--label)
         &:hover, &:focus, &:active, &[disabled="disabled"],&[disabled]
             color: var(--link)
-        &.sbutton--success
+        &.button--success
             color: var(--success)
             path
                 fill: var(--success)
-        &.sbutton--danger
+        &.button--danger
             color: var(--danger)
             path
                 fill: var(--danger)
-        &.sbutton--secondary
+        &.button--secondary
             color: var(--menulink)
             path
                 fill: var(--menulink)
@@ -156,14 +160,14 @@ select
         padding: 0 calc(2rem - 2px)
         &[disabled="disabled"],&[disabled]
             border-color: var(--label)
-        &.sbutton--success
+        &.button--success
             border-color: var(--success)
-        &.sbutton--danger
+        &.button--danger
             border-color: var(--danger)
-        &.sbutton--secondary
+        &.button--secondary
             border-color: var(--menulink)
     &--link
-        &.sbutton--disabled,&[disabled="disabled"],&[disabled]
+        &.button--disabled,&[disabled="disabled"],&[disabled]
             border-width: 0 !important
     &--disabled,&[disabled="disabled"],&[disabled]
         cursor: not-allowed
@@ -176,14 +180,14 @@ select
         padding-right: 0
         path
             fill: var(--link)
-        &.sbutton--ai
+        &.button--ai
             color: var(--ai)
             path
                 fill: var(--ai)
         &[disabled="disabled"],&[disabled]
             path
                 fill: var(--label) !important
-            &.sbutton--ai
+            &.button--ai
                 color: var(--label) !important
     &--add-asset
         width: 20rem
@@ -194,3 +198,19 @@ select
 .widget
     .sinput
         background: var(--background)
+
+.large-button-wrapper
+    display: flex
+    justify-content: center
+    width: 100%
+    height: 100%
+    .button
+        width: 36rem
+        max-width: 100%
+.devise, .pricing
+    .button 
+        width: 100%
+
+.widget
+    .large-button-wrapper
+        padding: 1.5rem 0

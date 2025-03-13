@@ -11,7 +11,7 @@
     </div>
 
     <% if bot.exchange.present? && !bot.api_key.correct? %>
-      <%= link_to "Add API keys for #{bot.exchange.name.capitalize}", new_api_key_barbell_bot_path(bot), class: "btn btn-primary btn-success", data: { turbo_frame: "modal" } %>
+      <%= link_to "Add API keys for #{bot.exchange.name.capitalize}", new_api_key_barbell_bot_path(bot), class: "button button--success", data: { turbo_frame: "modal" } %>
     <% end %>
 
   <% end %>

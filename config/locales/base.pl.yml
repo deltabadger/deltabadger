@@ -548,7 +548,7 @@ pl:
         banner_html: |
             <p>Witaj na pokładzie, %{name}!</p>
             <p>Nowa strona aktualizacji to świetne miejsce, aby zapoznać się ze wszystkimi funkcjami i planami, do których należą.</p>
-            <p><a class="btn btn-success btn-lg mt-3 mb-3" href="upgrade">Zacznij tutaj</a></p>
+            <p><a class="button button--success button--large mt-3 mb-3" href="upgrade">Zacznij tutaj</a></p>
             <p>Pozdrawiam, Jan</p>
     metrics:
         exp_return:
