@@ -96,7 +96,7 @@
 
       <p><%= t('affiliates.info_preview') %></p>
       <div class="discount-info discount-info--preview">
-        <i class="material-icons">check_circle</i>
+        <%= render partial: 'svg/24x24_circle-check' %>
         <span>
           <b class="text-success"><%= t('.discount_preview_html', discount_percent_preview: @presenter.discount_percent_preview) %></b>
           <span class="db-billing-item__info">
