@@ -8,8 +8,6 @@
   </div>
 </div>
 
-<div class="db-bots db-bots--main">
-  <div class="db-bots__list">
-    <%= render partial: 'barbell_bots/bot_tile', collection: @bots, as: :bot %>
-  </div>
+<div class="bots-grid">
+  <%= render partial: 'barbell_bots/bot_tile', collection: @bots, as: :bot %>
 </div>

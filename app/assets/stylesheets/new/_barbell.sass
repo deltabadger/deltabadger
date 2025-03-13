@@ -14,3 +14,15 @@
         .slider__style__thumb
             background: #fff
             box-shadow: .125rem .25rem 1rem rgba(0, 30, 60, 0.4)
+
+.bots-grid
+    display: grid
+    grid-template-columns: 1fr
+    gap: 1rem
+    @media (min-width: 576px)
+        grid-template-columns: 1fr 1fr
+    @media (min-width: 940px)
+        grid-template-columns: 1fr 1fr 1fr
+    @media (min-width: 1280px)
+        grid-template-columns: 1fr 1fr 1fr 1fr
+
