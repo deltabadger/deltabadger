@@ -529,7 +529,7 @@ fr:
         banner_html: |
             <p>Bienvenue à bord, %{name} !</p>
             <p>La nouvelle page de mise à niveau est l'endroit idéal pour découvrir toutes les fonctionnalités et les forfaits associés.</p>
-            <p><a class="btn btn-success btn-lg mt-3 mb-3" href="upgrade">Commencer ici</a></p>
+            <p><a class="button button--success button--large mt-3 mb-3" href="upgrade">Commencer ici</a></p>
             <p>Cordialement, Jan</p>
     metrics:
         exp_return:

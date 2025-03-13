@@ -1,6 +1,6 @@
 <%= turbo_frame_tag "bot_#{bot.id}_button" do %>
   <% if bot.working? || bot.pending? || bot.retrying? %>
-    <%= button_to stop_barbell_bot_path(bot), class: "sbutton sbutton--primary sbutton--outline", data: { hw_animate_out: "animate-button-to-start-shape"} do %>
+    <%= button_to stop_barbell_bot_path(bot), class: "button button--primary button--outline", data: { hw_animate_out: "animate-button-to-start-shape"} do %>
       <div class="animicon animicon--stop">
         <div class="animicon__a"></div>
         <div class="animicon__b"></div>
@@ -8,14 +8,14 @@
     <% end %>
   <% else %>
     <% if bot.restarting? %>
-      <%= button_to confirm_restart_barbell_bot_path(bot), method: :get, class: "sbutton sbutton--success", data: { hw_animate_out: "animate-button-to-stop-shape", turbo_frame: "modal" }, disabled: !bot.valid?(:start) || !bot.api_key.correct? do %>
+      <%= button_to confirm_restart_barbell_bot_path(bot), method: :get, class: "button button--success", data: { hw_animate_out: "animate-button-to-stop-shape", turbo_frame: "modal" }, disabled: !bot.valid?(:start) || !bot.api_key.correct? do %>
         <div class="animicon animicon--start">
           <div class="animicon__a"></div>
           <div class="animicon__b"></div>
         </div>
       <% end %>
     <% else %>
-      <%= button_to start_barbell_bot_path(bot, ignore_missed_orders: true), class: "sbutton sbutton--success", data: { hw_animate_out: "animate-button-to-stop-shape" }, disabled: !bot.valid?(:start) || !bot.api_key.correct? do %>
+      <%= button_to start_barbell_bot_path(bot, ignore_missed_orders: true), class: "button button--success", data: { hw_animate_out: "animate-button-to-stop-shape" }, disabled: !bot.valid?(:start) || !bot.api_key.correct? do %>
         <div class="animicon animicon--start">
           <div class="animicon__a"></div>
           <div class="animicon__b"></div>

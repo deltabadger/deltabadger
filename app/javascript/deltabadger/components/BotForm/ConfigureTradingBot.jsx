@@ -69,7 +69,7 @@ export const ConfigureTradingBot = ({ showLimitOrders, currentExchange, handleRe
   const ResetButton = () => (
     <div
       onClick={() => handleReset()}
-      className="sbutton sbutton--link"
+      className="button button--link"
     >
       <i className="material-icons">close</i>
       <span>Cancel</span>
@@ -96,11 +96,11 @@ export const ConfigureTradingBot = ({ showLimitOrders, currentExchange, handleRe
               <div className="db-bot__modal__btn-group">
                 <div onClick={() => {
                   setOpen(false)
-                }} className="sbutton sbutton--primary sbutton--outline">{I18n.t('bots.setup.frequency_limit.back_to_settings')}
+                }} className="button button--primary button--outline">{I18n.t('bots.setup.frequency_limit.back_to_settings')}
                 </div>
                 <div onClick={
                   _handleSmartIntervalsChange
-                } className="sbutton sbutton--success">{I18n.t('bots.setup.frequency_limit.start_the_bot')}
+                } className="button button--success">{I18n.t('bots.setup.frequency_limit.start_the_bot')}
                 </div>
               </div>
             </div>
@@ -153,7 +153,7 @@ export const ConfigureTradingBot = ({ showLimitOrders, currentExchange, handleRe
         <div>
           <div
               onClick={_handleStarts}
-              className={`sbutton ${disableSubmit ? 'sbutton--outline sbutton--disabled' : 'sbutton--success'}`}>
+              className={`button ${disableSubmit ? 'button--outline button--disabled' : 'button--success'}`}>
             <div className="animicon animicon--start">
               <div className="animicon__a"></div>
               <div className="animicon__b"></div>

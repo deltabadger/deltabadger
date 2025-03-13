@@ -550,7 +550,7 @@ ru:
         banner_html: |
             <p>Добро пожаловать на борт, %{name}!</p>
             <p>Новая страница обновления - отличное место, чтобы ознакомиться со всеми функциями и планами, к которым они относятся.</p>
-            <p><a class="btn btn-success btn-lg mt-3 mb-3" href="upgrade">Начать здесь</a></p>
+            <p><a class="button button--success button--large mt-3 mb-3" href="upgrade">Начать здесь</a></p>
             <p>С наилучшими пожеланиями, Jan</p>
     metrics:
         exp_return:

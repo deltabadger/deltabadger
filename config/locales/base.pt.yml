@@ -503,7 +503,7 @@ pt:
         banner_html: |
             <p>Bem-vindo a bordo, %{name}!</p>
             <p>A nova página de atualização é um ótimo lugar para ver todas as funcionalidades e os planos a que pertencem.</p>
-            <p><a class="btn btn-success btn-lg mt-3 mb-3" href="upgrade">Começar aqui</a></p>
+            <p><a class="button button--success button--large mt-3 mb-3" href="upgrade">Começar aqui</a></p>
             <p>Cumprimentos, Jan</p>
     metrics:
         exp_return:
