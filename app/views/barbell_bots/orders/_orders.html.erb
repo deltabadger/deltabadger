@@ -16,8 +16,8 @@
       </table>
       <%= turbo_frame_tag "orders_pagination", src: barbell_bot_path(bot, format: :turbo_stream), loading: :lazy %>
     <% else %>
-      <div class="insight" style="margin-bottom: 2px">
-        <p>Bot orders will appear here</p>
+      <div style="height: 100%; display: flex; align-items: center; justify-content: center; color: var(--label)">
+        <%= t('bot.no_orders_info') %>
       </div>
     <% end %>
   </div>
