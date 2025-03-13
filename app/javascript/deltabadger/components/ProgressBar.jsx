@@ -82,7 +82,7 @@ export const ProgressBar = React.memo(({bot}) => {
     }
   }, 1000);
 
-  return <ProgressBarLine colorClass={colorClass} progress={isDisabled ? 0 : progress} />;
+  // return <ProgressBarLine colorClass={colorClass} progress={isDisabled ? 0 : progress} />;
 });
 
 ProgressBar.displayName = 'ProgressBar';

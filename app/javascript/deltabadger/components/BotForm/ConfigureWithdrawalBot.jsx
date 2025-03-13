@@ -139,7 +139,7 @@ export const ConfigureWithdrawalBot = ({ currentExchange, handleReset, handleSub
       <div className="db-bot__form">
         <div className="db-bot__alert text-danger">{ errors }</div>
         <form>
-          <div className="form-inline db-bot__form__schedule">
+          <div className="conversational flex-justify-center">
             <div className="form-group mr-2">{splitTranslation(I18n.t('bots.setup.withdrawal_html', {currency: currencyName, address: address}))[0]}</div>
             <div className="form-group mr-2">
               <select
