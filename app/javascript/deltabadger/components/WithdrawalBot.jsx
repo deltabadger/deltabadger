@@ -183,7 +183,7 @@ const BotTemplate = ({
           {(!isStarting && pending) && <PendingButton />}
           {(!isStarting && !working && !pending) &&
             <div onClick={buttonClickHandler}>
-              <div onClick={_handleSubmit} className={`sbutton ${disableSubmit ? 'sbutton--outline sbutton--disabled' : 'sbutton--success'}`}>
+              <div onClick={_handleSubmit} className={`button ${disableSubmit ? 'button--outline button--disabled' : 'button--success'}`}>
                 <div className="animicon animicon--start">
                   <div className="animicon__a"></div>
                   <div className="animicon__b"></div>
@@ -205,7 +205,7 @@ const BotTemplate = ({
           {(!isStarting && working) && <StopButton onClick={() => handleStop(id)}/>}
           {(!isStarting && pending) && <PendingButton/>}
           {(!isStarting && !working && !pending) &&
-            <div onClick={_handleSubmit} className={`sbutton ${disableSubmit ? 'sbutton--outline sbutton--disabled' : 'sbutton--success'}`}>
+            <div onClick={_handleSubmit} className={`button ${disableSubmit ? 'button--outline button--disabled' : 'button--success'}`}>
               <div className="animicon animicon--start">
                 <div className="animicon__a"></div>
                 <div className="animicon__b"></div>

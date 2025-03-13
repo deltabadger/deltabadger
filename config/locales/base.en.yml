@@ -562,7 +562,7 @@ en:
         banner_html: |
             <p>Welcome aboard, %{name}!</p>
             <p>The new upgrade page is great place to look at all the features and plans they belong to.</p>
-            <p><a class="btn btn-success btn-lg mt-3 mb-3" href="upgrade">Start here</a></p>
+            <p><a class="button button--success button--large mt-3 mb-3" href="upgrade">Start here</a></p>
             <p>Best, Jan</p>
     metrics:
         exp_return:

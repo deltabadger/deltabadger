@@ -1,5 +1,5 @@
 <div class="widget">
-  <h4 class="db-modal__subtitle"><%= t('settings.index.email_section') %></h4>
+  <h4 class="modal__title"><%= t('settings.index.email_section') %></h4>
   <%= turbo_frame_tag "update_email_form" do %>
     <%= form_with model: current_user, url: settings_update_email_path, data: { controller: "form--html5-validations form--label-animations", turbo_frame: "update_email_form" } do |f| %>
 
@@ -23,8 +23,8 @@
         </div>
       <% end %>
 
-      <div class="form-group db-form-group--main-btn">
-        <%= f.submit t('settings.index.submit_email'), class: "btn btn-lg btn-primary" %>
+      <div class="large-button-wrapper">
+        <%= f.submit t('settings.index.submit_email'), class: "button button--large button--primary" %>
       </div>
     <% end %>
   <% end %>

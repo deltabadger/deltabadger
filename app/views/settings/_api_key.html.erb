@@ -1,6 +1,6 @@
 <div class="api-key-stored">
   <%= api_key.exchange_name %>
-  <%= button_to settings_remove_api_key_path(id: api_key.id), method: :delete, data: { turbo_confirm: t('settings.index.api_key_confirmation'), turbo_frame: "update_api_keys_form" }, class: "sbutton sbutton--link" do %>
+  <%= button_to settings_remove_api_key_path(id: api_key.id), method: :delete, data: { turbo_confirm: t('settings.index.api_key_confirmation'), turbo_frame: "update_api_keys_form" }, class: "button button--link" do %>
     <%= render 'svg/24x24_x' %>
   <% end %>
 </div>
