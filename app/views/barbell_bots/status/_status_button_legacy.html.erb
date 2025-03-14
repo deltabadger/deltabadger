@@ -1,6 +1,6 @@
 <%= turbo_frame_tag "bot_#{bot.id}_button" do %>
   <% if bot.working? || bot.pending? || bot.retrying? %>
-    <%= button_to stop_api_bot_path(bot), class: "sbutton sbutton--primary sbutton--outline", data: { hw_animate_out: "animate-button-to-start-shape"} do %>
+    <%= button_to stop_api_bot_path(bot), class: "button button--primary button--outline", data: { hw_animate_out: "animate-button-to-start-shape"} do %>
       <div class="animicon animicon--stop">
         <div class="animicon__a"></div>
         <div class="animicon__b"></div>
@@ -8,14 +8,14 @@
     <% end %>
   <% else %>
     <% if bot.restarting? %>
-      <%= button_to confirm_restart_legacy_barbell_bot_path(bot), method: :get, class: "sbutton sbutton--success", data: { hw_animate_out: "animate-button-to-stop-shape", turbo_frame: "modal" } do %>
+      <%= button_to confirm_restart_legacy_barbell_bot_path(bot), method: :get, class: "button button--success", data: { hw_animate_out: "animate-button-to-stop-shape", turbo_frame: "modal" } do %>
         <div class="animicon animicon--start">
           <div class="animicon__a"></div>
           <div class="animicon__b"></div>
         </div>
       <% end %>
     <% else %>
-      <%= button_to start_api_bot_path(bot, continue_params: {continue_schedule: true}), class: "sbutton sbutton--success", data: { hw_animate_out: "animate-button-to-stop-shape" } do %>
+      <%= button_to start_api_bot_path(bot, continue_params: {continue_schedule: true}), class: "button button--success", data: { hw_animate_out: "animate-button-to-stop-shape" } do %>
         <div class="animicon animicon--start">
           <div class="animicon__a"></div>
           <div class="animicon__b"></div>
