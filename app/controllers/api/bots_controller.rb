@@ -29,7 +29,7 @@ module Api
     end
 
     def create
-      result = Bots::Create.call(current_user, bot_create_params)
+      result = BotsManager::Create.call(current_user, bot_create_params)
 
       if result.success?
         render json: { data: result.data }, status: 201

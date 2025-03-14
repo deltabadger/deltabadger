@@ -16,6 +16,7 @@ class Bots::Barbell < Bot
   after_save :set_exchange_client, if: :saved_change_to_exchange_id?
   after_update_commit :broadcast_status_bar_update, if: :saved_change_to_status?
 
+  include Schedulable
   include Bots::Barbell::OrderSetter
   include Bots::Barbell::OrderCreator
   include Bots::Barbell::Measurable
@@ -104,8 +105,8 @@ class Bots::Barbell < Bot
   end
 
   def restarting_within_interval?
-    restarting? && last_set_barbell_orders_job_at_iso8601.present? &&
-      DateTime.parse(last_set_barbell_orders_job_at_iso8601) > 1.public_send(interval).ago
+    restarting? && last_action_job_at_iso8601.present? &&
+      DateTime.parse(last_action_job_at_iso8601) > 1.public_send(interval).ago
   end
 
   def broadcast_status_bar_update
@@ -159,10 +160,18 @@ class Bots::Barbell < Bot
     ]
     sidekiq_places.each do |place|
       place.each do |job|
-        job.delete if job.queue == exchange.name.downcase &&
-                      job.display_class == 'Bot::SetBarbellOrdersJob' &&
-                      job.display_args.first == { '_aj_globalid' => to_global_id.to_s }
+        job.delete if job.queue == action_job_config[:queue] &&
+                      job.display_class == action_job_config[:class] &&
+                      job.display_args.first == action_job_config[:args].first
       end
     end
+  end
+
+  def action_job_config
+    {
+      queue: exchange.name.downcase,
+      class: 'Bot::SetBarbellOrdersJob',
+      args: [{ '_aj_globalid' => to_global_id.to_s }]
+    }
   end
 end
