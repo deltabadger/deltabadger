@@ -3,7 +3,7 @@
 <%= turbo_stream.update "bot_#{@barbell_bot.id}_metrics", partial: 'barbell_bots/metrics/metrics', locals: { bot: @barbell_bot } %>
 <%= turbo_stream.update "bot_#{@barbell_bot.id}_label", @barbell_bot.label %>
 
-<%= turbo_stream.update "bot_#{@barbell_bot.id}_button", partial: 'barbell_bots/status/status_button', locals: { bot: @barbell_bot } %>
+<%= turbo_stream.update "bot_#{@barbell_bot.id}_status_button", partial: 'barbell_bots/status/status_button', locals: { bot: @barbell_bot } %>
 
 <%# TODO: would be nice to show a little 'saved' in the form itself %>
 <%= turbo_stream_prepend_flash %>

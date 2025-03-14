@@ -14,7 +14,6 @@ class Bots::Barbell < Bot
 
   after_initialize :set_exchange_client, if: :exchange_id?
   after_save :set_exchange_client, if: :saved_change_to_exchange_id?
-  after_update_commit :broadcast_status_bar_update, if: :saved_change_to_status?
 
   include Schedulable
   include Bots::Barbell::OrderSetter
@@ -107,15 +106,6 @@ class Bots::Barbell < Bot
   def restarting_within_interval?
     restarting? && last_action_job_at_iso8601.present? &&
       DateTime.parse(last_action_job_at_iso8601) > 1.public_send(interval).ago
-  end
-
-  def broadcast_status_bar_update
-    broadcast_update_to(
-      ["bot_#{id}", :status_bar],
-      target: "bot_#{id}_status_bar",
-      partial: 'barbell_bots/status/status_bar',
-      locals: { bot: self }
-    )
   end
 
   private
