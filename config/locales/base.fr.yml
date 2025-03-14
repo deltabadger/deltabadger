@@ -138,6 +138,7 @@ fr:
             paused: "En pause"
         no_orders_info: "Les commandes du bot apparaîtront ici"
         barbell:
+            invest: "Investir"
             invest_html: "Investir %{input} /mois"
         utils:
             mkt_cap_adjusted: "Ajusté à la capitalisation boursière"
@@ -216,6 +217,9 @@ fr:
                 title: 'Journal de bord'
             stats:
                 amount: 'Montant (%{base})'
+                amount1: 'Montant'
+                value: 'Valeur (%{quote})'
+                value1: 'Valeur'
                 average_price: 'Prix moyen'
                 bought: 'Acheté'
                 chart:

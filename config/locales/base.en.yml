@@ -225,6 +225,9 @@ en:
                 title: Log
             stats:
                 amount: 'Amount(%{base})'
+                amount1: 'Amount'
+                value: 'Value(%{quote})'
+                value1: 'Value'
                 average_price: 'Average price'
                 bought: Bought
                 chart:

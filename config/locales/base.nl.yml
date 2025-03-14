@@ -138,6 +138,7 @@ nl:
             paused: "Gepauzeerd"
         no_orders_info: "Bot bestellingen verschijnen hier"
         barbell:
+            invest: "Investeren"
             invest_html: "Investeer %{input} /maand"
         utils:
             mkt_cap_adjusted: "Marktkapitalisatie aangepast"
@@ -216,6 +217,9 @@ nl:
                 title: Logboek
             stats:
                 amount: 'Bedrag(%{base})'
+                amount1: 'Bedrag'
+                value: 'Waarde(%{quote})'
+                value1: 'Waarde'
                 average_price: 'Gemiddelde prijs'
                 bought: Gekocht
                 chart:

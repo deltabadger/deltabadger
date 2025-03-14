@@ -40,13 +40,13 @@
 
         </div>
       </div>
-      <div class="bot-tile__pnl text-danger">
+      <div class="bot-tile__pnl <%= pnl < 0 ? 'text-danger' : (pnl > 0 ? 'text-success' : '') %>">
         <span class="widget__pnl__value"><%= format_percent(pnl, precision: 2) %></span>
       </div>
     </div>
   <% end %>
   <div class="bot-control">
-    <div class="bot-control__status active">
+    <div class="bot-control__status <%= 'active' if bot.status == 'working' || bot.status == 'pending' %>">
       <% unless bot.webhook? %>
         <%= render "barbell_bots/status/status_bar", bot: bot %>
       <% end %>
