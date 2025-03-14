@@ -40,6 +40,7 @@ module ExchangeApi
       end
 
       def jwt_token(api_key, api_secret, method, request_url)
+        api_secret = api_secret.gsub('\n', "\n")
         private_key = OpenSSL::PKey::EC.new(api_secret)
         request_host = URI(request_url).host
         path_url = URI(request_url).path

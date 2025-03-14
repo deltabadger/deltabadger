@@ -100,7 +100,7 @@ module ExchangeApi
 
         def fetch_symbol(symbol)
           response = Rails.cache.fetch("coinbase_symbol_#{symbol}", expires_in: 5.minutes) do
-            request = authenticated_request("/api/v3/brokerage/products/#{symbol}")
+            request = authenticated_request("/api/v3/brokerage/market/products/#{symbol}")
             JSON.parse(request.body)
           end
           Result::Success.new(response)

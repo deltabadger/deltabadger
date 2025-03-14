@@ -93,12 +93,14 @@ class BarbellBotsController < ApplicationController
     @barbell_bot.calculate_pending_quote_amount
   end
 
+  def confirm_restart_legacy; end
+
   def new_bot_type; end
 
   private
 
   def set_barbell_bot
-    @barbell_bot = current_user.bots.barbell.find(params[:id])
+    @barbell_bot = current_user.bots.find(params[:id])
   end
 
   def barbell_bot_params

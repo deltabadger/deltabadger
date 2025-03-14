@@ -13,8 +13,8 @@
               <span><%= bot.base1 %></span>,
               <span><%= bot.base0 %></span>
             </span>
-            
-            
+
+
           <% elsif bot.basic? && bot.quote.present? && bot.base.present? %>
             <span><%= bot.quote %></span>
             <span class="bot-tile__operator">&rarr;</span>
@@ -37,7 +37,7 @@
         </div>
         <div class="bot-tile__subtitle">
           <%= bot.label %>
-          
+
         </div>
       </div>
       <div class="bot-tile__pnl text-danger">
@@ -45,12 +45,16 @@
       </div>
     </div>
   <% end %>
-  <% if bot.barbell? %>
-    <div class="bot-control">
-      <div class="bot-control__status active">
+  <div class="bot-control">
+    <div class="bot-control__status active">
+      <% unless bot.webhook? %>
         <%= render "barbell_bots/status/status_bar", bot: bot %>
-      </div>
-      <%= render "barbell_bots/status/status_button", bot: bot %>
+      <% end %>
     </div>
-  <% end %>
+    <% if bot.legacy? %>
+      <%= render "barbell_bots/status/status_button_legacy", bot: bot %>
+    <% else %>
+      <%= render "barbell_bots/status/status_button", bot: bot %>
+    <% end %>
+  </div>
 </div>

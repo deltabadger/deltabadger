@@ -19,6 +19,10 @@ class Bot < ApplicationRecord
 
   INTERVALS = %w[hour day week month].freeze
 
+  def legacy?
+    ['Bots::Basic', 'Bots::Withdrawal', 'Bots::Webhook'].include?(type)
+  end
+
   def last_transaction
     transactions.where(transaction_type: 'REGULAR').order(created_at: :desc).limit(1).last
   end

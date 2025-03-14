@@ -2,17 +2,19 @@
 
 <%= turbo_frame_tag "bot_#{bot.id}_status_bar" do %>
   <% if bot&.pending? %>
-      Setting orders...
+    Setting orders...
+  <% elsif bot&.stopped? %>
+    Paused
   <% elsif bot&.working? || bot&.retrying? %>
     <%= tag.div class: "bot-control__status__bar", style: "min-width:0.5rem; width: #{bot.progress_percentage * 100}%", data: {
       controller: "progress-bar",
       progress_bar_start_time_value: bot.previous_interval_checkpoint_at.iso8601,
-      progress_bar_end_time_value: bot.next_set_barbell_orders_job_at&.iso8601,
+      progress_bar_end_time_value: bot.next_action_job_at&.iso8601,
       progress_bar_target: "progressBar",
     } %>
     <%= tag.div data: {
       controller: "countdown",
-      countdown_end_time_value: bot.next_set_barbell_orders_job_at&.iso8601,
+      countdown_end_time_value: bot.next_action_job_at&.iso8601,
       countdown_hide_if_zero_value: true,
       countdown_days_label_value: t('subscriptions.payment.days_short'),
       countdown_hours_label_value: t('subscriptions.payment.hours_short'),
