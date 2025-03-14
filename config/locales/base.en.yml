@@ -133,6 +133,7 @@ en:
     button:
         connect: "Connect"
     bot:
+        new: "New bot"
         status:
             setting_orders: "Setting orders…"
             paused: "Paused"
