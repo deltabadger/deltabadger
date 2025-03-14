@@ -87,7 +87,7 @@ export const AddApiKey = ({
   })
 
   return (
-    <div className="db-bots__item db-bot db-bot--get-apikey db-bot--active">
+    <div>
       <div className="db-bot__header">
         { !botView && <Breadcrumbs step={2} /> }
         { (status == 'add_api_key' || status == 'invalid_api_key') &&
@@ -110,59 +110,51 @@ export const AddApiKey = ({
         </div>
       </div>
       <Progressbar value={33}/>
-      <div className="db-bot__form db-bot__form--apikeys">
-        <form onSubmit={_handleSubmit} className="form-row">
-          <div className="col">
-            <div className="db-form__row mb-0">
-              <input
-                id={`api-key${uniqueId}`}
-                type="text"
-                value={key}
-                onChange={e => setKey(e.target.value)}
-                className="db-form__input"
-                disabled={disableFormFields}
-                autoComplete="off"
-              />
-              <div className="db-form__info db-form__info--invalid">
-                {I18n.t('bots.setup.error_info')}
-              </div>
-              {showError && <div className="db-form__info db-form__info--invalid" style={{display: 'block'}}>{I18n.t('bots.setup.api_not_available')}</div>}
-              <label htmlFor="api-key" className="db-form__label">{ key_label }</label>
+        <form onSubmit={_handleSubmit} className="old-bot-api-key-form">
+          <div className="db-form__row">
+            <input
+              id={`api-key${uniqueId}`}
+              type="text"
+              value={key}
+              onChange={e => setKey(e.target.value)}
+              className="db-form__input"
+              disabled={disableFormFields}
+              autoComplete="off"
+            />
+            <div className="db-form__info db-form__info--invalid">
+              {I18n.t('bots.setup.error_info')}
             </div>
+            {showError && <div className="db-form__info db-form__info--invalid" style={{display: 'block'}}>{I18n.t('bots.setup.api_not_available')}</div>}
+            <label htmlFor="api-key" className="db-form__label">{ key_label }</label>
           </div>
-          <div className="col">
-            <div className="db-form__row mb-0">
-              <input
-                id={`api-secret${uniqueId}`}
-                type="text"
-                value={secret}
-                onChange={e => setSecret(e.target.value)}
-                className="db-form__input"
-                disabled={disableFormFields}
-                autoComplete="off"
-              />
-              <div className="db-form__info db-form__info--invalid">
-              </div>
-              <label htmlFor="api-secret" className="db-form__label">{ secret_label }</label>
+          <div className="db-form__row">
+            <input
+              id={`api-secret${uniqueId}`}
+              type="text"
+              value={secret}
+              onChange={e => setSecret(e.target.value)}
+              className="db-form__input"
+              disabled={disableFormFields}
+              autoComplete="off"
+            />
+            <div className="db-form__info db-form__info--invalid">
             </div>
+            <label htmlFor="api-secret" className="db-form__label">{ secret_label }</label>
           </div>
           { isPassphraseRequired(pickedExchangeName) &&
-            <div className="col">
-              <div className="db-form__row mb-0">
-                <input
-                  id={`api-passphrase${uniqueId}`}
-                  type="text"
-                  value={passphrase}
-                  onChange={e => setPassphrase(e.target.value)}
-                  className="db-form__input"
-                  disabled={disableFormFields}
-                />
-                <label htmlFor="api-passphrase" className="db-form__label">{ phrase_label }</label>
-              </div>
+            <div className="db-form__row">
+              <input
+                id={`api-passphrase${uniqueId}`}
+                type="text"
+                value={passphrase}
+                onChange={e => setPassphrase(e.target.value)}
+                className="db-form__input"
+                disabled={disableFormFields}
+              />
+              <label htmlFor="api-passphrase" className="db-form__label">{ phrase_label }</label>
             </div>
           }
         </form>
-      </div>
       { pickedExchangeName == "Kraken" &&
         <div className="alert alert-primary alert-trading-agreement">
           <div className="alert__regular-text">
