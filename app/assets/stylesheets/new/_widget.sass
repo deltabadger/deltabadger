@@ -42,6 +42,7 @@
         overflow-y: auto
         table
             margin-bottom: 0
+            border-collapse: collapse
         thead
             position: sticky
             top: 0
@@ -50,6 +51,10 @@
             overflow-y: auto
         td, th
             padding: 1.5rem 0 1.5rem 3rem
+            text-align: right
+            border: none
+            &:first-child
+                text-align: left
             @media only screen and (max-width: 549.9px)
                 padding: 1.5rem 0 1.5rem 2rem
             &:last-child

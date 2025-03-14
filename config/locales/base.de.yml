@@ -141,6 +141,7 @@ de:
             paused: "Pausiert"
         no_orders_info: "Bot-Bestellungen werden hier angezeigt"
         barbell:
+            invest: "Investieren"
             invest_html: "%{input} /Monat investieren"
         utils:
             mkt_cap_adjusted: "Marktkapitalisierung angepasst"
@@ -218,6 +219,9 @@ de:
                 title: Log
             stats:
                 amount: 'Betrag(%{base})'
+                amount1: 'Betrag'
+                value: 'Wert(%{quote})'
+                value1: 'Wert'
                 average_price: Durchschnittspreis
                 bought: Gekauft
                 chart:
