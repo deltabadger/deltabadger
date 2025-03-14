@@ -3,7 +3,7 @@ class Transaction < ApplicationRecord
 
   after_create_commit :set_daily_transaction_aggregate
   after_create_commit :update_bot_metrics, if: -> { success? }
-  after_create_commit :broadcast_to_bot
+  after_create_commit :broadcast_to_bot, unless: -> { bot.legacy? }
 
   scope :for_bot, ->(bot) { where(bot_id: bot.id).order(created_at: :desc) }
   scope :today_for_bot, ->(bot) { for_bot(bot).where('created_at >= ?', Date.today.beginning_of_day) }
