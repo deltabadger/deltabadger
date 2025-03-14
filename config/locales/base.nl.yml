@@ -133,6 +133,7 @@ nl:
     button:
         connect: "Verbinden"
     bot:
+        new: "Nieuwe bot"
         status:
             setting_orders: "Bestellingen instellen…"
             paused: "Gepauzeerd"

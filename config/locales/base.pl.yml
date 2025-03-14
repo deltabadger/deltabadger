@@ -133,6 +133,7 @@ pl:
     button:
         connect: "Połącz"
     bot:
+        new: "Nowy bot"
         status:
             setting_orders: "Inicjowanie zleceń…"
             paused: "Zatrzymany"

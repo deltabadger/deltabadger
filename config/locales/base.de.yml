@@ -136,6 +136,7 @@ de:
     button:
         connect: "Verbinden"
     bot:
+        new: "Neuer Bot"
         status:
             setting_orders: "Bestellungen setzen…"
             paused: "Pausiert"
