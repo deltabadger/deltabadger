@@ -136,6 +136,9 @@ de:
     button:
         connect: "Verbinden"
     bot:
+        status:
+            setting_orders: "Bestellungen setzen…"
+            paused: "Pausiert"
         no_orders_info: "Bot-Bestellungen werden hier angezeigt"
         barbell:
             invest_html: "%{input} /Monat investieren"

@@ -133,7 +133,9 @@ pl:
     button:
         connect: "Połącz"
     bot:
-        no_orders_info: "Zamówienia bota pojawią się tutaj"
+        status:
+            setting_orders: "Inicjowanie zleceń…"
+            paused: "Zatrzymany"
         barbell:
             invest_html: "Inwestuj %{input} /miesiąc"
         utils:

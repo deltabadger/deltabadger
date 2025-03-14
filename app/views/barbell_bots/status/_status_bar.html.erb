@@ -2,9 +2,9 @@
 
 <%= turbo_frame_tag "bot_#{bot.id}_status_bar" do %>
   <% if bot&.pending? %>
-    Setting orders...
+    <%= t('bot.status.setting_orders') %>
   <% elsif bot&.stopped? %>
-    Paused
+    <%= t('bot.status.paused') %>
   <% elsif bot&.working? || bot&.retrying? %>
     <%= tag.div class: "bot-control__status__bar", style: "min-width:0.5rem; width: #{bot.progress_percentage * 100}%", data: {
       controller: "progress-bar",

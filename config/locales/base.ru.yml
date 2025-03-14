@@ -133,6 +133,9 @@ ru:
     button:
         connect: "Подключить"
     bot:
+        status:
+            setting_orders: "Настройка заказов…"
+            paused: "Приостановлен"
         no_orders_info: "Здесь будут показаны заказы бота"
         barbell:
             invest_html: "Инвестировать %{input} /месяц"
