@@ -16,6 +16,8 @@ class Bot < ApplicationRecord
   delegate :market_sell, :market_buy, :limit_sell, :limit_buy, to: :exchange
 
   after_save :update_settings_changed_at, if: :saved_change_to_settings?
+  after_update_commit :broadcast_status_bar_update, if: :saved_change_to_status?
+  after_update_commit :broadcast_status_button_update, if: :saved_change_to_status?
 
   INTERVALS = %w[hour day week month].freeze
 
@@ -49,6 +51,24 @@ class Bot < ApplicationRecord
 
   def destroy
     update(status: 'deleted')
+  end
+
+  def broadcast_status_bar_update
+    broadcast_update_to(
+      ["bot_#{id}", :status_bar],
+      target: "bot_#{id}_status_bar",
+      partial: 'barbell_bots/status/status_bar',
+      locals: { bot: self }
+    )
+  end
+
+  def broadcast_status_button_update
+    broadcast_update_to(
+      ["bot_#{id}", :status_button],
+      target: "bot_#{id}_status_button",
+      partial: legacy? ? 'barbell_bots/status/status_button_legacy' : 'barbell_bots/status/status_button',
+      locals: { bot: self }
+    )
   end
 
   private
