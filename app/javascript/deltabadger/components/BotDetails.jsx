@@ -37,19 +37,18 @@ export const BotDetails = ({ bot }) => {
   ];
 
   const buildTab = ({ label, active, id, tabpanelId }, index) => (
-    <div className="nav-item" key={index}>
-      <a
-        className={`nav-link ${active ? 'active' : ''}`}
-        id={id}
-        data-toggle="tab"
-        href={`#${tabpanelId}`}
-        role="tab"
-        aria-controls={tabpanelId}
-        aria-selected={active}
-      >
-        {label}
-      </a>
-    </div>
+    <a
+      className={`nav-link ${active ? 'active' : ''}`}
+      id={id}
+      data-toggle="tab"
+      href={`#${tabpanelId}`}
+      role="tab"
+      aria-controls={tabpanelId}
+      aria-selected={active}
+      key={index}
+    >
+      {label}
+    </a>
   )
 
   return (
