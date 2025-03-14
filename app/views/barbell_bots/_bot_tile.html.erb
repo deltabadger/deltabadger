@@ -46,11 +46,9 @@
     </div>
   <% end %>
   <div class="bot-control">
-    <div class="bot-control__status <%= 'active' if bot.status == 'working' || bot.status == 'pending' %>">
-      <% unless bot.webhook? %>
-        <%= render "barbell_bots/status/status_bar", bot: bot %>
-      <% end %>
-    </div>
+    <% unless bot.webhook? %>
+      <%= render "barbell_bots/status/status_bar", bot: bot %>
+    <% end %>
     <% if bot.legacy? %>
       <%= render "barbell_bots/status/status_button_legacy", bot: bot %>
     <% else %>
