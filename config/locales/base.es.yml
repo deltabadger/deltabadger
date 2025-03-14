@@ -133,6 +133,9 @@ es:
     button:
         connect: "Conectar"
     bot:
+        status:
+            setting_orders: "Configurando órdenes…"
+            paused: "Pausado"
         no_orders_info: "Las órdenes del bot aparecerán aquí"
         barbell:
             invest_html: "Invertir %{input} /mes"
