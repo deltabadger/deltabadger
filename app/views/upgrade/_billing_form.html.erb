@@ -30,7 +30,7 @@
 
   <div class="widget widget--checkout">
     <div id="payTabContent" class="tab-content">
-      <div id="payZen" class="tab-pane <%= 'active' if payment.by_zen? %>" aria-labelledby="log-tab" role="tabpanel">
+      <div id="payZen" class="tab ą<%= 'active' if payment.by_zen? %>" aria-labelledby="log-tab" role="tabpanel">
         <%= render partial: "country_form", locals: { payment: payment } %>
         <%= form_with model: payment, url: upgrade_path do |f| %>
           <div class="large-button-wrapper">
@@ -41,7 +41,7 @@
         <% end %>
       </div>
 
-      <div id="payBitcoin" class="tab-pane <%= 'active' if payment.by_bitcoin? %>" aria-labelledby="log-tab" role="tabpanel">
+      <div id="payBitcoin" class="tab <%= 'active' if payment.by_bitcoin? %>" aria-labelledby="log-tab" role="tabpanel">
         <%= render partial: "country_form", locals: { payment: payment } %>
         <%= form_with model: payment, url: upgrade_path, data: { controller: "form--html5-validations form--label-animations" } do |f| %>
           <div class="db-form__row">
@@ -66,7 +66,7 @@
         <% end %>
       </div>
 
-      <div id="payWire" class="tab-pane <%= 'active' if payment.by_wire? %>" aria-labelledby="log-tab" role="tabpanel">
+      <div id="payWire" class="tab <%= 'active' if payment.by_wire? %>" aria-labelledby="log-tab" role="tabpanel">
         <%= render partial: "country_form", locals: { payment: payment } %>
         <%= form_with model: payment, url: upgrade_path, data: { controller: "form--html5-validations form--label-animations" } do |f| %>
           <div class="db-form__row">

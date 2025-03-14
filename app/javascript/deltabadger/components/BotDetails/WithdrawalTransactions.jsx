@@ -22,7 +22,7 @@ const WithdrawalStats = ({
 export const WithdrawalTransactions = ({ bot, active }) => {
   const { exchangeName } = bot;
   const currency = shouldRename(exchangeName) ? renameSymbol(bot.settings.currency) : bot.settings.currency
-  return <div className={`tab-pane show ${active ? 'active' : ''}`} id="statistics" role="tabpanel" aria-labelledby="stats-tab">
+  return <div className={`tab ${active ? 'active' : ''}`} id="statistics" role="tabpanel" aria-labelledby="stats-tab">
     <WithdrawalStats currency={currency} totalWithdrawn={bot.totalWithdrawn || 0.0} />
 
     <table className="table table-borderless table-striped db-table db-table--tx">

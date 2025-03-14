@@ -57,7 +57,7 @@ export const WebhookTransactions = ({ bot, active }) => {
   const newBot = $.isEmptyObject(bot.stats) && isEmpty(bot.transactions)
 
   return (
-    <div className={`tab-pane show ${active ? 'active' : ''}`} id="statistics" role="tabpanel" aria-labelledby="stats-tab">
+    <div className={`tab ${active ? 'active' : ''}`} id="statistics" role="tabpanel" aria-labelledby="stats-tab">
       { !newBot ? <>
           <WebhookStats type = {type} base={base} quote={quote} {...bot.stats} />
           { !bot.stats.currentPriceAvailable &&
