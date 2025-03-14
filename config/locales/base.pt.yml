@@ -153,7 +153,6 @@ pt:
         date: "Data"
     bots:
         above: acima
-        add_new_bot: 'Adicionar novo bot'
         below: abaixo
         buttons:
             automatic_withdrawal: 'Retirada automática'
