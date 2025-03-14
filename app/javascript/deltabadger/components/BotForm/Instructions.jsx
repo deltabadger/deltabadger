@@ -54,8 +54,7 @@ export const Instructions = ({ exchangeName, type }) => {
     <div className="db-exchange-instructions">
       <div className="alert alert-success" role="alert">
         <div className="alert__regular-text">
-          <b className="alert-heading mb-2">{I18n.t('bots.setup.how_to_get_keys', {exchange: name})}</b>
-          <hr/>
+          <div className="alert__heading">{I18n.t('bots.setup.how_to_get_keys', {exchange: name})}</div>
           <RawHTML>{mergedInstruction()}</RawHTML>
         </div>
       </div>
