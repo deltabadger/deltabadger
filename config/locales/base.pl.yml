@@ -153,7 +153,6 @@ pl:
         date: "Data"
     bots:
         above: powyżej
-        add_new_bot: 'Dodaj nowego bota'
         below: poniżej
         buttons:
             automatic_withdrawal: 'Automatyczna wypłata'
