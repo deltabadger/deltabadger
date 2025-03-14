@@ -53,7 +53,7 @@ export const TradingTransactions = ({ bot, active }) => {
   const type = bot.settings.type
   const base = shouldRename(exchangeName) ? renameSymbol(bot.settings.base) : bot.settings.base
   const quote = shouldRename(exchangeName) ? renameSymbol(bot.settings.quote) : bot.settings.quote
-  return <div className={`tab-pane show ${active ? 'active' : ''}`} id="statistics" role="tabpanel" aria-labelledby="stats-tab">
+  return <div className={`tab ${active ? 'active' : ''}`} id="statistics" role="tabpanel" aria-labelledby="stats-tab">
     <TradingStats type = {type} base={base} quote={quote} {...bot.stats} />
     { !bot.stats.currentPriceAvailable &&
       <p className="db-smallinfo">
