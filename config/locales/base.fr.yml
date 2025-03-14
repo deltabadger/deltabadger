@@ -153,7 +153,6 @@ fr:
         date: "Date"
     bots:
         above: 'au dessus'
-        add_new_bot: 'Ajouter un nouveau bot'
         below: 'en dessous'
         buttons:
             automatic_withdrawal: 'Retrait programmé'

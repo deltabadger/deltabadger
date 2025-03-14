@@ -336,7 +336,7 @@ const DashboardTemplate = ({
         )}
         </div>
         <button onClick={handleStartCreating} className="button button--primary">
-          <span className="d-none d-sm-inline">{I18n.t('bots.add_new_bot')}</span>
+          <span className="d-none d-sm-inline">{I18n.t('bot.new')}</span>
           <i className="material-icons">add</i>
         </button>
 
