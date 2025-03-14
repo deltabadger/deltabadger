@@ -136,7 +136,9 @@ pl:
         status:
             setting_orders: "Inicjowanie zleceń…"
             paused: "Zatrzymany"
+        no_orders_info: "Zamówienia bota pojawią się tutaj"
         barbell:
+            invest: "Inwestuj"
             invest_html: "Inwestuj %{input} /miesiąc"
         utils:
             mkt_cap_adjusted: "Dostosowane do kapitalizacji rynkowej"
@@ -215,6 +217,9 @@ pl:
                 title: Log
             stats:
                 amount: 'Ilość (%{base})'
+                amount1: 'Ilość'
+                value: 'Wartość (%{quote})'
+                value1: 'Wartość'
                 average_price: 'Średnia cena'
                 bought: Zakupione
                 chart:
