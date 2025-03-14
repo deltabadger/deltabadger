@@ -138,6 +138,7 @@ ru:
             paused: "Приостановлен"
         no_orders_info: "Здесь будут показаны заказы бота"
         barbell:
+            invest: "Инвестировать"
             invest_html: "Инвестировать %{input} /месяц"
         utils:
             mkt_cap_adjusted: "С учетом рыночной капитализации"
@@ -216,6 +217,7 @@ ru:
                 title: Журнал
             stats:
                 amount: 'Количество(%{base})'
+                value: 'Стоимость(%{quote})'
                 average_price: 'Средняя цена'
                 bought: Куплено
                 chart:

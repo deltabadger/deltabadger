@@ -138,6 +138,7 @@ pt:
             paused: "Pausado"
         no_orders_info: "As ordens do bot aparecerão aqui"
         barbell:
+            invest: "Investir"
             invest_html: "Investir %{input} /mês"
         utils:
             mkt_cap_adjusted: "Ajustado por Capitalização de Mercado"
@@ -214,6 +215,9 @@ pt:
                 title: Registo
             stats:
                 amount: 'Montante (%{base})'
+                amount1: 'Montante'
+                value: 'Valor (%{quote})'
+                value1: 'Valor'
                 average_price: 'Preço médio'
                 bought: Comprado
                 chart:
