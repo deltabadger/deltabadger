@@ -1,3 +1,10 @@
+.old-bot-api-key-form
+  padding: 2rem
+  display: flex
+  gap: 1rem
+  .db-form__row
+    flex: 1
+    margin: 0
 // bots
 
 .bot-ticker
@@ -19,16 +26,19 @@ input
 .db-bots
   display:              grid
   grid-auto-rows:       max-content
-  column-gap:           2rem
+  gap:                  1rem
   .progress
     height: 0.5rem
     background: var(--progressBar)
+    &--bot-setup
+      margin: 0 2rem
+      border-radius: 1rem 
+      overflow: hidden
   &--single
     @include media-breakpoint-up(xl)
       grid-template-columns: 50%
   &__item
     grid-column-start:  1
-    margin-bottom:      2rem
     &--data
       @include media-breakpoint-up(xl)
         grid-column-start: 2
@@ -243,23 +253,14 @@ input
 // bot dca1
 
 .db-bot__form
-  padding: 7rem 0 0
   display: flex
   flex-direction: column
   align-items: stretch
+  gap: 1rem
   &__schedule
     margin-bottom: 7rem
   form
     width: auto
-
-.db-bot__form--apikeys
-  padding-left: 2rem
-  padding-right: 2rem
-  padding-bottom: 7rem !important
-  .form-row
-    width: auto
-  .form-group
-    margin-bottom: 0
 
 .db-bot__modal
   border-radius: .7rem
