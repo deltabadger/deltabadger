@@ -30,7 +30,7 @@
 
   <div class="widget widget--checkout">
     <div id="payTabContent" class="tab-content">
-      <div id="payZen" class="tab ą<%= 'active' if payment.by_zen? %>" aria-labelledby="log-tab" role="tabpanel">
+      <div id="payZen" class="tab <%= 'active' if payment.by_zen? %>" aria-labelledby="log-tab" role="tabpanel">
         <%= render partial: "country_form", locals: { payment: payment } %>
         <%= form_with model: payment, url: upgrade_path do |f| %>
           <div class="large-button-wrapper">
