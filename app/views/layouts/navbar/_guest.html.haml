@@ -12,7 +12,7 @@
 
         = render partial: "layouts/language_dropdown", locals: { extra_classes: "dropdown-wrapper--right" }
 
-        = link_to(t('links.log_in'), new_user_session_path, class: 'btn btn-link my-sm-0 mr-4')
-        = link_to new_user_registration_path, class: 'btn btn-success my-sm-0' do
+        = link_to(t('links.log_in'), new_user_session_path, class: 'button button--link my-sm-0 mr-4')
+        = link_to new_user_registration_path, class: 'button button--success my-sm-0' do
           %span.d-inline.d-sm-none.mx-0= t('links.sign_up')
           %span.d-none.d-sm-inline= t('links.create_account')
