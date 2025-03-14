@@ -133,7 +133,10 @@ nl:
     button:
         connect: "Verbinden"
     bot:
-        no_orders_info: "Bot orders zullen hier verschijnen"
+        status:
+            setting_orders: "Bestellingen instellen…"
+            paused: "Gepauzeerd"
+        no_orders_info: "Bot bestellingen verschijnen hier"
         barbell:
             invest_html: "Investeer %{input} /maand"
         utils:

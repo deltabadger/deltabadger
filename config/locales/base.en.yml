@@ -133,6 +133,9 @@ en:
     button:
         connect: "Connect"
     bot:
+        status:
+            setting_orders: "Setting orders…"
+            paused: "Paused"
         no_orders_info: "Bot orders will appear here"
         barbell:
             invest: "Invest"
