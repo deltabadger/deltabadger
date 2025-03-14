@@ -35,14 +35,6 @@ body
   line-height: 1.5
 .db-content-body
   min-height: calc(100vh - 11.3rem)
-a:not(.btn)
-  text-decoration: underline
-.btn
-  font-size: 2rem
-  padding: .6rem 1.5rem
-.btn-lg
-  font-size: 2rem
-  padding: .8rem 2rem
 .form-control
   padding: .6rem 1.5rem
   font-size: 1.5rem
@@ -194,7 +186,7 @@ sup
       margin-bottom: -5rem
     p
       font-size: 1.5rem
-    a:not(.btn)
+    a:not(.button)
       color: var(--white)
     @include media-breakpoint-down(md)
       .text-center
@@ -311,9 +303,6 @@ sup
       flex-grow: 1
     &+.form-group
       margin-left: 1rem
-  .btn.disabled
-    opacity: 1
-    border-color: var(--primary)
 .newsletter-form-feedback
   i
     opacity: 0
@@ -642,35 +631,6 @@ sup
     color: var(--white)
     text-decoration: underline
 
-  .btn-xl
-    height: 5rem
-    position: absolute
-    right: -10rem
-    padding: 1.15rem 0
-    border-radius: 5rem
-    text-decoration: none
-    font-size: 1rem
-    line-height: 2.8rem
-    transition: opacity 150ms ease-in, bottom 300ms ease-in, color 300ms ease-in
-    animation: bounce 500ms ease-in-out infinite alternate
-    font-weight: 400
-    width: 50vw
-    min-width: 68rem !important
-    @include media-breakpoint-down(md)
-      display: none
-
-    svg
-      width: 4rem
-      height: 2rem
-      position: relative
-      path
-        transition: stroke 300ms ease-in
-        animation: bounce_svg 500ms ease-in-out infinite alternate
-
-
-.has-been-scrolled .db-group-cta .btn-xl
-  opacity: 0
-
 @keyframes bounce
   0%
     bottom: .4rem
@@ -685,9 +645,6 @@ sup
   100%
     stroke: rgba(255,255,255,.6)
 
-.btn-xl
-  transition: opacity 200ms ease-in-out
-  pointer-events: none
 .db-opacity-100
   opacity: 1
   pointer-events: all
@@ -889,8 +846,6 @@ sup
   .db-form__input
     width: 60rem
     max-width: 100%
-  .btn
-    width: 100%
   .db-form__label
     background: var(--background)
   img

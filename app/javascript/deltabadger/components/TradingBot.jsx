@@ -466,75 +466,64 @@ const BotTemplate = ({
       { apiKeyExists &&
         <div className="db-bot__form">
         <form>
-          <div className="form-inline db-bot__form__schedule">
-            <div className="form-group mr-2">
-              <select
-                value={type}
-                onChange={handleTypeChange}
-                className="bot-input bot-input--select bot-input--order-type bot-input--paper-bg"
-                disabled={working}
-              >
-                {isSellOffer() ? <>
-                    <option value="market">{I18n.t('bots.sell')}</option>
-                    <option value="limit" disabled={!showLimitOrders}>{I18n.t('bots.limit_sell')}</option>
-                  </>
-                  : <>
-                    {isLegacySell() ?<>
-                          <option value="market">{I18n.t('bots.sell')}</option>
-                          <option value="limit" disabled={!showLimitOrders}>{I18n.t('bots.limit_sell')}</option>
-                        </> :
-                        <>
-                          <option value="market">{I18n.t('bots.buy')}</option>
-                          <option value="limit" disabled={!showLimitOrders}>{I18n.t('bots.limit_buy')}</option>
-                        </>}
-                  </>
-                }
-              </select>
-            </div>
+          <div className="conversational flex-justify-center">
+            <select
+              value={type}
+              onChange={handleTypeChange}
+              className="sinput sinput--select"
+              disabled={working}
+            >
+              {isSellOffer() ? <>
+                  <option value="market">{I18n.t('bots.sell')}</option>
+                  <option value="limit" disabled={!showLimitOrders}>{I18n.t('bots.limit_sell')}</option>
+                </>
+                : <>
+                  {isLegacySell() ?<>
+                        <option value="market">{I18n.t('bots.sell')}</option>
+                        <option value="limit" disabled={!showLimitOrders}>{I18n.t('bots.limit_sell')}</option>
+                      </> :
+                      <>
+                        <option value="market">{I18n.t('bots.buy')}</option>
+                        <option value="limit" disabled={!showLimitOrders}>{I18n.t('bots.limit_buy')}</option>
+                      </>}
+                </>
+              }
+            </select>
             {isSellOffer()?
                 <>
-                  <div className="form-group mr-2">
-                    <input
-                        type="text"
-                        size={(price.length > 0) ? price.length : 3}
-                        value={price}
-                        className="bot-input bot-input--sizable bot-input--paper-bg"
-                        onChange={e => setPrice(e.target.value)}
-                        disabled={working}
-                    />
-                  </div>
-                  <div className="form-group mr-2"> {baseName} {I18n.t('bots.for')}</div>
+                  <input
+                      type="text"
+                      size={(price.length > 0) ? price.length : 3}
+                      value={price}
+                      className="sinput"
+                      onChange={e => setPrice(e.target.value)}
+                      disabled={working}
+                  /> {baseName} {I18n.t('bots.for')}
                 </>
                 :
                 <>
-                  <div className="form-group mr-2"> {baseName} {I18n.t('bots.for')}</div>
-                  <div className="form-group mr-2">
-                    <input
-                        type="text"
-                        size={(price.length > 0) ? price.length : 3}
-                        value={price}
-                        className="bot-input bot-input--sizable bot-input--paper-bg"
-                        onChange={e => setPrice(e.target.value)}
-                        disabled={working}
-                    />
-                  </div>
+                  {baseName} {I18n.t('bots.for')} <input
+                      type="text"
+                      size={(price.length > 0) ? price.length : 3}
+                      value={price}
+                      className="sinput"
+                      onChange={e => setPrice(e.target.value)}
+                      disabled={working}
+                  />
                 </>
 
             }
-            <div className="form-group mr-2"> {quoteName} /</div>
-            <div className="form-group">
-              <select
+            {quoteName} / <select
                 value={interval}
-                className="bot-input bot-input--select bot-input--interval  bot-input--paper-bg"
+                className="sinput sinput--select"
                 onChange={e => setInterval(e.target.value)}
                 disabled={working}
               >
-                <option value="hour">{I18n.t('bots.hour')}</option>
-                <option value="day">{I18n.t('bots.day')}</option>
-                <option value="week">{I18n.t('bots.week')}</option>
-                <option value="month">{I18n.t('bots.month')}</option>
-              </select>
-            </div>
+              <option value="hour">{I18n.t('bots.hour')}</option>
+              <option value="day">{I18n.t('bots.day')}</option>
+              <option value="week">{I18n.t('bots.week')}</option>
+              <option value="month">{I18n.t('bots.month')}</option>
+            </select>
           </div>
 
           {showSubaccounts && <label

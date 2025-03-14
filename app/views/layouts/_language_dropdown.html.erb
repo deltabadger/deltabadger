@@ -1,4 +1,4 @@
-<div data-controller="dropdown" data-action="click->dropdown#toggle" data-dropdown-target="wrapper" class="btn btn-link dropdown-wrapper <%= extra_classes %>">
+<div data-controller="dropdown" data-action="click->dropdown#toggle" data-dropdown-target="wrapper" class="button button--link dropdown-wrapper <%= extra_classes %>">
   <%= params[:locale]&.to_s&.upcase || 'EN' %>
   <div class="dropdown">
     <% locale = params[:locale] %>

@@ -14,7 +14,7 @@
         <%= tag.label class: "hide_radio_buttons pricing__payment-method" do %>
           <%= f.radio_button :payment_type, 'bitcoin', checked: payment.by_bitcoin?, data: { action: "change->form--submit#submit" } %>
           <div class="pricing__payment-method__tab">
-            <%= image_tag "bitcoin.svg", alt: "", class: "db-card-providers__item db-card-providers__item--lightning" %>
+            <%= image_tag "bitcoin.svg", alt: "Bitcoin", class: "db-card-providers__item db-card-providers__item--lightning" %>
           </div>
         <% end %>
       <% end %>
@@ -33,11 +33,11 @@
       <div id="payZen" class="tab-pane <%= 'active' if payment.by_zen? %>" aria-labelledby="log-tab" role="tabpanel">
         <%= render partial: "country_form", locals: { payment: payment } %>
         <%= form_with model: payment, url: upgrade_path do |f| %>
-
-          <%= f.button type: "submit", data: { turbo: false, action: "click->zaraz#trackBeginCheckoutEvent", zaraz_target: "button" }, class: "btn btn-success btn-lg w-100", disabled: payment.price_with_vat == 0 do %>
-            <%= t('subscriptions.payment.pay_html', amount_html: localized_price(payment.price_with_vat, payment.currency)) %>
-          <% end %>
-
+          <div class="large-button-wrapper">
+            <%= f.button type: "submit", data: { turbo: false, action: "click->zaraz#trackBeginCheckoutEvent", zaraz_target: "button" }, class: "button button--success button--large", disabled: payment.price_with_vat == 0 do %>
+              <%= t('subscriptions.payment.pay_html', amount_html: localized_price(payment.price_with_vat, payment.currency)) %>
+            <% end %>
+          </div>
         <% end %>
       </div>
 
@@ -57,9 +57,11 @@
             <%= f.label :birth_date, class: 'db-form__label' %>
           </div>
 
-          <%= f.button type: "submit", data: { turbo: false, action: "click->zaraz#trackBeginCheckoutEvent", zaraz_target: "button" }, class: "btn btn-success btn-lg w-100", disabled: payment.price_with_vat == 0 do %>
-            <%= t('subscriptions.payment.pay_with_bitcoin') %>
-          <% end %>
+          <div class="large-button-wrapper">
+            <%= f.button type: "submit", data: { turbo: false, action: "click->zaraz#trackBeginCheckoutEvent", zaraz_target: "button" }, class: "button button--success button--large", disabled: payment.price_with_vat == 0 do %>
+              <%= t('subscriptions.payment.pay_with_bitcoin') %>
+            <% end %>
+          </div>
 
         <% end %>
       </div>
@@ -80,13 +82,14 @@
           </div>
           <%= render partial: "wire_info", locals: { payment: payment } %>
 
-            <%= f.button type: "submit", data: { turbo: false, action: "click->zaraz#trackBeginCheckoutEvent", zaraz_target: "button" }, class: "btn btn-success btn-lg w-100", disabled: payment.price_with_vat == 0 do %>
+          <div class="large-button-wrapper">
+            <%= f.button type: "submit", data: { turbo: false, action: "click->zaraz#trackBeginCheckoutEvent", zaraz_target: "button" }, class: "button button--success button--large", disabled: payment.price_with_vat == 0 do %>
               <%= payment.from_eu? ?
                 t('subscriptions.payment.paid_with_wire_transfer') :
                 t('subscriptions.payment.paid_with_wire_transfer_other')
               %>
             <% end %>
-
+          </div>
         <% end %>
       </div>
     </div>

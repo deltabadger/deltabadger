@@ -22,13 +22,9 @@
         display: flex
         flex-direction: column
         &__calculations
-            .widget
-                &:first-child
-                    border-top-left-radius: 2rem
-                    border-top-right-radius: 2rem
-                &:last-child
-                    border-bottom-left-radius: 2rem
-                    border-bottom-right-radius: 2rem
+            gap: 2rem
+        .large-button-wrapper
+            padding: 0
     &__payment-methods
         display: flex
         background: var(--pickExchangeItemBg)
@@ -111,6 +107,9 @@
                     top: .25rem
         p, ul
             margin-bottom: 0
+        &--legendary
+            ul
+                flex: 2
         &__legendary-plans-left
             font-weight: 600
             color: var(--success) !important
@@ -202,8 +201,6 @@
     &__col
         &:last-child
             text-align: right
-    &__name
-        margin-bottom: 1rem
     &__info
         font-size: 1.75rem
         color: var(--label)
@@ -211,9 +208,11 @@
     &--vat
         padding-top: 2rem
     &--summary
-        padding-top: 2rem
         font-weight: 700
-        border-top: 1px solid var(--label)
     &--discount
         .checkout-line__col:last-child
             color: var(--discount)
+    &--divider
+        height: 1px
+        background: var(--label)
+        width: 100%

@@ -3,7 +3,7 @@
   <div class="alert alert-secondary db-alert--flex">
     <span><%= t('.deactivated.notice') %></span>
 
-    <a class="btn btn-outline-secondary" href="mailto:jan@deltabadger.com">
+    <a class="button button--outline" href="mailto:jan@deltabadger.com">
       <span><%= t('.deactivated.contact') %></span>
     </a>
   </div>
@@ -45,7 +45,7 @@
 
   <div class="column gap-1">
     <div class="widget">
-      <h4 class="db-modal__subtitle"><%= t('.link_title') %></h4>
+      <h4 class="modal__title"><%= t('.link_title') %></h4>
       <div class="db-form__row db-form__row--input mb-0" data-controller="clipboard">
         <input class="db-form__input" id="referralLink" type="text" value="<%= ENV['HOME_PAGE_URL']+ref_code_path(code: @affiliate.code, locale: nil) %>" readonly="readonly" data-clipboard-target="input">
         <label class="db-form__label"><%= t('.your_link') %></label>
@@ -59,7 +59,7 @@
     </div>
 
     <div class="widget">
-      <h4 class="db-modal__subtitle"><%= t('.update_info') %></h4>
+      <h4 class="modal__title"><%= t('.update_info') %></h4>
       <% presenter = RefCodesPresenter.new(@affiliate) %>
       <p><%= t('affiliates.info_preview') %></p>
       <%= render partial: 'ref_codes/show', locals: { affiliate: @affiliate } %>
@@ -77,14 +77,14 @@
           <%= f.label :visible_link, t('helpers.label.affiliate.visible_link'), class: 'db-form__label' %>
         </div>
 
-        <div class="form-group db-form-group--main-btn">
-          <%= f.submit t('.submit'), class: 'btn btn-lg btn-primary' %>
+        <div class="large-button-wrapper">
+          <%= f.submit t('.submit'), class: 'button button--large button--primary' %>
         </div>
       <% end %>
     </div>
 
     <div class="widget">
-      <h4 class="db-modal__subtitle"><%= t('.update_bitcoin_address') %></h4>
+      <h4 class="modal__title"><%= t('.update_bitcoin_address') %></h4>
       <%= form_with model: @affiliate, method: :patch, local: true, url: update_btc_address_affiliate_path, data: { controller: "form--html5-validations form--label-animations" } do |f| %>
 
         <% if @affiliate.new_btc_address_token.present? %>
@@ -113,8 +113,8 @@
           </div>
         <% end %>
 
-        <div class="form-group db-form-group--main-btn">
-          <%= f.submit t('.submit'), class: 'btn btn-lg btn-primary' %>
+        <div class="large-button-wrapper">
+          <%= f.submit t('.submit'), class: 'button button--large button--primary' %>
         </div>
       <% end %>
     </div>

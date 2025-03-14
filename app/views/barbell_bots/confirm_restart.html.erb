@@ -11,7 +11,7 @@
       </p>
       <div>
         <%= button_to t('bots.buttons.start.on_schedule.skip'), start_barbell_bot_path(@barbell_bot, ignore_missed_orders: true), class: 'btn', data: { action: 'click->modal--base#animateOutCloseAndCleanUp' } %>
-        <%= button_to t('bots.buttons.start.on_schedule.continue'), start_barbell_bot_path(@barbell_bot, ignore_missed_orders: false), class: 'btn btn-success', data: { action: 'click->modal--base#animateOutCloseAndCleanUp' } %>
+        <%= button_to t('bots.buttons.start.on_schedule.continue'), start_barbell_bot_path(@barbell_bot, ignore_missed_orders: false), class: 'button button--success', data: { action: 'click->modal--base#animateOutCloseAndCleanUp' } %>
       </div>
     <% else %>
       <p>
@@ -19,7 +19,7 @@
       </p>
       <div>
         <%= button_to t('bots.buttons.start.missed.skip'), start_barbell_bot_path(@barbell_bot, ignore_missed_orders: true), class: 'btn', data: { action: 'click->modal--base#animateOutCloseAndCleanUp' } %>
-        <%= button_to t('bots.buttons.start.missed.continue'), start_barbell_bot_path(@barbell_bot, ignore_missed_orders: false), class: 'btn btn-success', data: { action: 'click->modal--base#animateOutCloseAndCleanUp' } %>
+        <%= button_to t('bots.buttons.start.missed.continue'), start_barbell_bot_path(@barbell_bot, ignore_missed_orders: false), class: 'button button--success', data: { action: 'click->modal--base#animateOutCloseAndCleanUp' } %>
       </div>
     <% end %>
   </div>

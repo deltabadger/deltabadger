@@ -95,7 +95,7 @@ const BotNavigation = ({ bots, selectedBotId, onBotChange, onBackToList, loadBot
   return (
     <div className="page-head page-head--dashboard">
       <div className="page-head__controls">
-        <button onClick={goToList} className="sbutton sbutton--link">
+        <button onClick={goToList} className="button button--link">
           <i className="material-icons">chevron_left</i>
           <span>All bots</span>
         </button>
@@ -103,7 +103,7 @@ const BotNavigation = ({ bots, selectedBotId, onBotChange, onBackToList, loadBot
         <div className="page-head__controls__nav">
           <button
             onClick={goToPrevious}
-            className={`sbutton sbutton--link ${!hasPrevious ? 'sbutton--disabled' : ''}`}
+            className={`button button--link ${!hasPrevious ? 'button--disabled' : ''}`}
             disabled={!hasPrevious}
           >
             <i className="material-icons">arrow_back</i>
@@ -111,7 +111,7 @@ const BotNavigation = ({ bots, selectedBotId, onBotChange, onBackToList, loadBot
 
           <button
             onClick={goToNext}
-            className={`sbutton sbutton--link ${!hasNext ? 'sbutton--disabled' : ''}`}
+            className={`button button--link ${!hasNext ? 'button--disabled' : ''}`}
             disabled={!hasNext}
           >
             <i className="material-icons">arrow_forward</i>
@@ -313,7 +313,7 @@ const DashboardTemplate = ({
         {numberOfPages > 1 && (
           <div className="page-head__controls">
             <a
-              className={`sbutton sbutton--link ${page === 1 ? 'sbutton--disabled' : ''}`}
+              className={`button button--link ${page === 1 ? 'button--disabled' : ''}`}
               href="#"
               onClick={(e) => {
                 e.preventDefault();
@@ -323,7 +323,7 @@ const DashboardTemplate = ({
               <i className="material-icons">arrow_back</i>
             </a>
             <a
-              className={`sbutton sbutton--link ${page === numberOfPages ? 'sbutton--disabled' : ''}`}
+              className={`button button--link ${page === numberOfPages ? 'button--disabled' : ''}`}
               href="#"
               onClick={(e) => {
                 e.preventDefault();
@@ -335,8 +335,8 @@ const DashboardTemplate = ({
           </div>
         )}
         </div>
-        <button onClick={handleStartCreating} className="sbutton sbutton--primary">
-          <span className="d-none d-sm-inline mr-3">{I18n.t('bots.add_new_bot')}</span>
+        <button onClick={handleStartCreating} className="button button--primary">
+          <span className="d-none d-sm-inline">{I18n.t('bots.add_new_bot')}</span>
           <i className="material-icons">add</i>
         </button>
 

@@ -1,7 +1,7 @@
 <% start_date = Date.parse(backtest["timeSeries"]["labels"][0]) %>
 <% end_date = Date.parse(backtest["timeSeries"]["labels"][-1]) %>
 <% max_date = 3.days.ago %>
-<% start_day_button = button_to start_date, portfolio_update_backtest_start_date_path(portfolio, { portfolio: { backtest_start_date: start_date } }), method: :patch, title: start_date, class: "sbutton sbutton--link" %>
+<% start_day_button = button_to start_date, portfolio_update_backtest_start_date_path(portfolio, { portfolio: { backtest_start_date: start_date } }), method: :patch, title: start_date, class: "button button--link" %>
 <% if start_date != portfolio.backtest_start_date || end_date < max_date %>
   <div class="insight insight--warning" style="margin-bottom: 2px">
     <% if start_date != portfolio.backtest_start_date && end_date < max_date %>

@@ -19,21 +19,6 @@
   border: .1rem solid #dbe0e8;
   box-shadow: .1rem .1rem 1rem rgba(0,0,0,.05)
 }
-.view--logged-in {
-  .modal-content {
-    .btn-lg {
-      justify-content: center;
-    }
-  }
-}
-.db--loggedout {
-  .modal-content {
-    .btn-lg {
-      min-width: 18rem;
-      justify-content: center;
-    }
-  }
-}
 .modal-dialog {
   @include media-breakpoint-down(xs) {
     margin-left: 0;
@@ -48,20 +33,9 @@
 .db-modal-companion-title {
   margin-bottom: 4.8rem;
 }
-.db-modal__subtitle {
-  margin-bottom: 3.2rem;
-  text-align: center;
-}
-.db-form-group--main-btn {
-  text-align: center;
-  margin-top: 3rem;
-}
 .db-form-group--btn {
   display:     flex;
   align-items: flex-end;
-  .btn {
-    width: 100%;
-  }
 }
 .db-form-group--fg-2 {
   flex-grow: 3;

@@ -15,7 +15,9 @@
         <%= f.text_field :label, autofocus: true, data: { controller: "autofocus" }, class: "db-form__input" %>
         <%= f.label :label, t('bots.bot_name'), class: "db-form__label" %>
       </div>
-      <%= f.submit t('utils.save'), class: "btn btn-success btn-lg" %>
+      <div class="large-button-wrapper">
+        <%= f.submit t('utils.save'), class: "button button--success button--large" %>
+      </div>
     <% end %>
 
   </div>
