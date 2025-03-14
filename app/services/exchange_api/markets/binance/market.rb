@@ -80,7 +80,7 @@ module ExchangeApi
         end
 
         def fetch_all_symbols
-          request = @base_client.get('exchangeInfo')
+          request = @base_client.get('exchangeInfo', { permissions: 'SPOT', showPermissionSets: false })
           exchange_info = JSON.parse(request.body)
           symbols = exchange_info['symbols']
 
@@ -209,7 +209,7 @@ module ExchangeApi
         end
 
         def fetch_symbol_info(symbol)
-          request = @caching_client.get('exchangeInfo')
+          request = @caching_client.get('exchangeInfo', { permissions: 'SPOT', showPermissionSets: false })
           response = JSON.parse(request.body)
           found_symbol = find_symbol_in_exchange_info(symbol, response)
           return found_symbol unless found_symbol.success?
