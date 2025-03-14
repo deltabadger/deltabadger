@@ -2,7 +2,7 @@ class Transaction < ApplicationRecord
   belongs_to :bot
 
   after_create_commit :set_daily_transaction_aggregate
-  after_create_commit :update_bot_metrics, if: -> { success? }
+  after_create_commit :update_bot_metrics, if: -> { success? && !bot.legacy? }
   after_create_commit :broadcast_to_bot, unless: -> { bot.legacy? }
 
   scope :for_bot, ->(bot) { where(bot_id: bot.id).order(created_at: :desc) }
