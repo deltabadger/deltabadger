@@ -133,6 +133,7 @@ ru:
     button:
         connect: "Подключить"
     bot:
+        new: "Новый бот"
         status:
             setting_orders: "Настройка заказов…"
             paused: "Приостановлен"
