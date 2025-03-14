@@ -156,7 +156,6 @@ de:
         date: "Datum"
     bots:
         above: über
-        add_new_bot: 'Neuen Bot hinzufügen'
         below: unter
         buttons:
             automatic_withdrawal: 'Automatische Auszahlung'

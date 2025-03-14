@@ -153,7 +153,6 @@ es:
         date: "Fecha"
     bots:
         above: 'por encima'
-        add_new_bot: 'Añadir nuevo bot'
         below: 'por debajo'
         buttons:
             automatic_withdrawal: 'Retirada automática'
