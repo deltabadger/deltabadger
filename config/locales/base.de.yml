@@ -137,6 +137,20 @@ de:
         connect: "Verbinden"
     bot:
         new: "Neuer Bot"
+        start_new_bot: "Neuen Bot erstellen"
+        types:
+            dca:
+                title: "DCA"
+                description: "Dollar-Cost-Averaging für einzelne Coins"
+            barbell:
+                title: "Barbell-Strategie"
+                description: "Risiko durch Rebalancing von zwei Assets minimieren"
+            index_portfolio:
+                title: "Index-Portfolio"
+                description: "Baue deinen persönlichen Krypto-ETF"
+            custom_portfolio:
+                title: "Benutzerdefiniertes Portfolio"
+                description: "Rebalancing eines benutzerdefinierten Asset-Mix"
         status:
             setting_orders: "Bestellungen setzen…"
             paused: "Pausiert"
@@ -691,6 +705,8 @@ de:
         title: "Wie lange musstest du <span>$%{amount}/Monat</span> sparen, um %{goal}?"
         goal_millionaire: "Millionär zu werden"
     alert:
+        bot:
+            bot_updated: 'Bot wurde erfolgreich aktualisiert.'
         portfolio:
             invalid_name: 'Ungültiger Portfolioname.'
             invalid_benchmark: "Ungültiger Benchmark-Wert."

@@ -134,6 +134,20 @@ en:
         connect: "Connect"
     bot:
         new: "New bot"
+        start_new_bot: "Create new bot"
+        types:
+            dca:
+                title: "DCA"
+                description: "Single-coin dollar-cost averaging"
+            barbell:
+                title: "Barbell Strategy"
+                description: "Mitigate risk by rebalancing two assets"
+            index_portfolio:
+                title: "Index Portfolio"
+                description: "Build your personal crypto ETF"
+            custom_portfolio:
+                title: "Custom Portfolio"
+                description: "Rebalance custom asset mix"
         status:
             setting_orders: "Setting orders…"
             paused: "Paused"

@@ -134,6 +134,20 @@ nl:
         connect: "Verbinden"
     bot:
         new: "Nieuwe bot"
+        start_new_bot: "Nieuwe bot aanmaken"
+        types:
+            dca:
+                title: "DCA"
+                description: "Dollar-cost averaging voor één munt"
+            barbell:
+                title: "Barbell Strategie"
+                description: "Risico verminderen door twee activa te herbalanceren"
+            index_portfolio:
+                title: "Index Portfolio"
+                description: "Bouw uw persoonlijke crypto ETF"
+            custom_portfolio:
+                title: "Aangepast Portfolio"
+                description: "Herbalanceer aangepaste activamix"
         status:
             setting_orders: "Bestellingen instellen…"
             paused: "Gepauzeerd"
@@ -672,6 +686,8 @@ nl:
         title: "Hoe lang moest je <span>$%{amount}/maand</span> sparen om %{goal}?"
         goal_millionaire: "miljonair te worden"
     alert:
+        bot:
+            bot_updated: 'De bot is succesvol bijgewerkt.'
         portfolio:
             invalid_name: 'Ongeldige portfolionaam.'
             invalid_benchmark: 'Ongeldige benchmarkwaarde.'
