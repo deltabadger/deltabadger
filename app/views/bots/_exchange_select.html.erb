@@ -1,5 +1,5 @@
 <%= turbo_frame_tag "bot_#{bot.id}_exchange_select" do %>
-  <%= form_with model: bot, url: barbell_bot_path(bot), method: :patch, class: "flex-row", data: { controller: "form--submit" } do |f| %>
+  <%= form_with model: bot, url: bot_path(bot), method: :patch, class: "flex-row", data: { controller: "form--submit" } do |f| %>
     <div class="sinput sinput--select">
       <%= bot.exchange&.name&.capitalize || 'Any Exchange' %>
       <% if bot.transactions.any? %>
@@ -11,7 +11,7 @@
     </div>
 
     <% if bot.exchange.present? && !bot.api_key.correct? %>
-      <%= link_to "Add API keys for #{bot.exchange.name.capitalize}", new_api_key_barbell_bot_path(bot), class: "button button--success", data: { turbo_frame: "modal" } %>
+      <%= link_to "Add API keys for #{bot.exchange.name.capitalize}", new_api_key_bot_path(bot), class: "button button--success", data: { turbo_frame: "modal" } %>
     <% end %>
 
   <% end %>

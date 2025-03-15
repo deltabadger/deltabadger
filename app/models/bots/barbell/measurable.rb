@@ -91,7 +91,7 @@ module Bots::Barbell::Measurable
   def broadcast_metrics_update
     broadcast_render_to(
       ["bot_#{id}", :metrics],
-      partial: 'barbell_bots/metrics/metrics',
+      partial: 'bots/metrics/metrics',
       locals: { bot: self }
     )
   end

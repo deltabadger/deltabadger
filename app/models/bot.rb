@@ -57,7 +57,7 @@ class Bot < ApplicationRecord
     broadcast_update_to(
       ["bot_#{id}", :status_bar],
       target: "bot_#{id}_status_bar",
-      partial: 'barbell_bots/status/status_bar',
+      partial: 'bots/status/status_bar',
       locals: { bot: self }
     )
   end
@@ -66,7 +66,7 @@ class Bot < ApplicationRecord
     broadcast_update_to(
       ["bot_#{id}", :status_button],
       target: "bot_#{id}_status_button",
-      partial: legacy? ? 'barbell_bots/status/status_button_legacy' : 'barbell_bots/status/status_button',
+      partial: legacy? ? 'bots/status/status_button_legacy' : 'bots/status/status_button',
       locals: { bot: self }
     )
   end

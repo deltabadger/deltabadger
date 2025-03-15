@@ -73,14 +73,14 @@ class Transaction < ApplicationRecord
       broadcast_update_to(
         ["bot_#{bot_id}", :orders],
         target: "bot_#{bot_id}_orders",
-        partial: 'barbell_bots/orders/orders',
+        partial: 'bots/orders/orders',
         locals: { bot: bot }
       )
     else
       broadcast_prepend_to(
         ["bot_#{bot_id}", :orders],
         target: "bot_#{bot_id}_orders_list",
-        partial: 'barbell_bots/orders/order',
+        partial: 'bots/orders/order',
         locals: { order: self }
       )
     end

@@ -5,7 +5,7 @@
 <% base1_color_transparent = transparent_color(base1_color, 1 - bot.allocation0) %>
 
 <%= turbo_frame_tag "bot_#{bot.id}_settings" do %>
-  <%= form_with model: bot, url: barbell_bot_path(bot), method: :patch, class: "widget", data: { controller: "form--submit bot--barbell-allocation", bot__barbell_allocation_color0_value: base0_color, bot__barbell_allocation_color1_value: base1_color } do |f| %>
+  <%= form_with model: bot, url: bot_path(bot), method: :patch, class: "widget", data: { controller: "form--submit bot--barbell-allocation", bot__barbell_allocation_color0_value: base0_color, bot__barbell_allocation_color1_value: base1_color } do |f| %>
     <div class="conversational flex-justify-center">
       <%= t('bot.barbell.invest') %>
       <div class="ticker-input ticker-input--autoscale">
@@ -17,7 +17,7 @@
             <%= bot.quote %>
           </div>
         <% else %>
-          <%= link_to bot.quote.presence || 'Select one asset to sell', asset_search_barbell_bot_path(bot, asset_field: 'quote'), data: { turbo_frame: "modal" }, class: "ticker", style: "background: #{quote_color}" %>
+          <%= link_to bot.quote.presence || 'Select one asset to sell', asset_search_bot_path(bot, asset_field: 'quote'), data: { turbo_frame: "modal" }, class: "ticker", style: "background: #{quote_color}" %>
         <% end %>
       </div>
       /
@@ -34,7 +34,7 @@
             <%= bot.base0 %>
           </div>
         <% else %>
-          <%= link_to bot.base0.presence || 'Select one asset to buy', asset_search_barbell_bot_path(bot, asset_field: 'base0'), data: { turbo_frame: "modal", bot__barbell_allocation_target: "allocation0BackgroundColor" }, class: "ticker", style: "background: #{base0_color_transparent}" %>
+          <%= link_to bot.base0.presence || 'Select one asset to buy', asset_search_bot_path(bot, asset_field: 'base0'), data: { turbo_frame: "modal", bot__barbell_allocation_target: "allocation0BackgroundColor" }, class: "ticker", style: "background: #{base0_color_transparent}" %>
         <% end %>
         <b style="color: <%= base0_color_transparent %>" data-bot--barbell-allocation-target="allocation0Color"><span data-bot--barbell-allocation-target="allocation0Text"><%= (bot.allocation0 * 100).to_i %></span>%</b>
       </div>
@@ -58,7 +58,7 @@
             <%= bot.base1 %>
           </div>
         <% else %>
-          <%= link_to bot.base1.presence || 'Select one asset to buy', asset_search_barbell_bot_path(bot, asset_field: 'base1'), data: { turbo_frame: "modal", bot__barbell_allocation_target: "allocation1BackgroundColor" }, class: "ticker", style: "background: #{base1_color_transparent}" %>
+          <%= link_to bot.base1.presence || 'Select one asset to buy', asset_search_bot_path(bot, asset_field: 'base1'), data: { turbo_frame: "modal", bot__barbell_allocation_target: "allocation1BackgroundColor" }, class: "ticker", style: "background: #{base1_color_transparent}" %>
         <% end %>
         <b style="color: <%= base1_color_transparent %>" data-bot--barbell-allocation-target="allocation1Color"><span data-bot--barbell-allocation-target="allocation1Text"><%= ((1 - bot.allocation0) * 100).to_i %></span>%</b>
       </div>
