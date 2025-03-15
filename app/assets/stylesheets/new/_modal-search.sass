@@ -1,16 +1,36 @@
+// modal
+.dialog
+    background: #0242
+    position: fixed
+    width: 100vw
+    height: 100vh
+    max-height: 100vh
+    max-width: 100vw
+    display: flex
+    justify-content: center
+    align-items: center
+    z-index: 1000
+    border: none
+    &::backdrop
+        display: none
+    &__vertical-center
+        max-height: 100vh
+        @media screen and (min-width: 576px)
+            max-height: calc(100vh - 4rem)
 .modal
-    &__body
-        padding: 3rem 6rem 4rem
-        width: 100%
-        max-width: calc(100vw - 2rem)
-        background: var(--modal-background)
-        border-radius: 2rem
-        @media screen and (max-width: 499.9px)
-            padding-left: 3rem
-            padding-right: 3rem
-        @media screen and (min-width: 500px)
-            width: 65rem
-
+    position: relative
+    padding: 3rem 4rem 4rem
+    width: 100%
+    max-width: 100vw
+    background: var(--modal-background)
+    border-radius: 2rem
+    @media screen and (max-width: 499.9px)
+        padding-left: 3rem
+        padding-right: 3rem
+    @media screen and (min-width: 500px)
+        width: 65rem
+    @media screen and (min-width: 576px)
+        max-width: calc(100vw - 4rem)
     &__close
         position: absolute
         top: 3rem
@@ -24,7 +44,7 @@
             .flash__message &
                 fill: white
     &__header
-        margin-bottom: 7rem
+        margin-bottom: 3rem
     &__title
         font-size: 2.5rem
         margin-bottom: 0
@@ -35,6 +55,8 @@
         align-items: center
         .db-form__row
             width: 100%
+    .db-form__row
+        margin-bottom: 4rem
 
 .modal--search
     background: var(--modal-background)
@@ -120,15 +142,13 @@
             margin-right: 2.5rem
 
 .community-access-instructions
-    padding: 6rem 4rem 4rem
     width: 100rem
-    max-width: calc(100vw - 2rem)
+    padding: 6rem 4rem 4rem
     background: var(--modal-background)
     border-radius: 2rem
     display: flex
     flex-direction: column
     align-items: center
-    max-width: 100%
     gap: 4rem
     &__illustration
         width: 16rem !important
