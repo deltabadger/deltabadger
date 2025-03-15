@@ -75,11 +75,6 @@
       .tooltip
         = t('links.dashboard')
 
-    = link_to barbell_bots_path, class: 'menu__item menu__item--barbell_bots', data: { controller: 'tooltip', action: 'mouseenter->tooltip#showTooltip mouseleave->tooltip#hideTooltip' } do
-      BB
-      .tooltip
-        = "Barbell Bots"
-
     = link_to calculator_path, class: 'menu__item menu__item--calculator', data: { controller: 'tooltip', action: 'mouseenter->tooltip#showTooltip mouseleave->tooltip#hideTooltip' } do
       = render 'svg/24x24_calculator'
       -# .xsbadge= t('utils.new')
