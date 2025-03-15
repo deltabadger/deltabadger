@@ -116,7 +116,9 @@ Rails.application.routes.draw do
       patch :update_community_access
     end
 
-    resources :barbell_bots, path: "/barbell-bots" do
+    get :dashboard, to: 'home#index'
+
+    resources :bots, except: [:new], path: "/dashboard/bots" do
       get :asset_search, on: :member
       get :new_api_key, on: :member
       post :create_api_key, on: :member
@@ -127,11 +129,6 @@ Rails.application.routes.draw do
       get :confirm_restart_legacy, on: :member
       get :new_bot_type, on: :collection
     end
-
-    resources :bots, only: [:show]
-
-    get '/dashboard', to: 'home#dashboard', as: :dashboard
-    get '/dashboard/bots/:id', to: 'bots#show', as: :dashboard_bot
 
     get '/calculator', to: 'calculator#show', as: :calculator
 
