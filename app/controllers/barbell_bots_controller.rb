@@ -72,14 +72,14 @@ class BarbellBotsController < ApplicationController
     return if @barbell_bot.start(ignore_missed_orders: Utilities::String.to_boolean(params[:ignore_missed_orders]))
 
     flash.now[:alert] = @barbell_bot.errors.messages.values.flatten.to_sentence
-    render status: :unprocessable_entity
+    render turbo_stream: turbo_stream_prepend_flash, status: :unprocessable_entity
   end
 
   def stop
     return if @barbell_bot.stop
 
     flash.now[:alert] = @barbell_bot.errors.messages.values.flatten.to_sentence
-    render status: :unprocessable_entity
+    render turbo_stream: turbo_stream_prepend_flash, status: :unprocessable_entity
   end
 
   def asset_search
