@@ -5,9 +5,7 @@
 
   <div class="flex-column gap-1">
     <div class="bot-control">
-      <div class="bot-control__status <%= 'active' if @bot.status == 'working' || @bot.status == 'pending' %>">
-        <%= render "bots/status/status_bar", bot: @bot %>
-      </div>
+      <%= render "bots/status/status_bar", bot: @bot %>
       <%= render "bots/status/status_button", bot: @bot %>
     </div>
 
