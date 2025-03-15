@@ -134,6 +134,20 @@ pt:
         connect: "Conectar"
     bot:
         new: "Novo bot"
+        start_new_bot: "Create new bot"
+        types:
+            dca:
+                title: "DCA"
+                description: "Investimento programado numa única moeda"
+            barbell:
+                title: "Estratégia Barbell"
+                description: "Mitigar o risco reequilibrando dois ativos"
+            index_portfolio:
+                title: "Portefólio de Índice"
+                description: "Construa o seu ETF pessoal de criptomoedas"
+            custom_portfolio:
+                title: "Portefólio Personalizado"
+                description: "Reequilibrar uma mistura personalizada de ativos"
         status:
             setting_orders: "Configurando ordens…"
             paused: "Pausado"
@@ -643,6 +657,8 @@ pt:
         title: "Quanto tempo você precisava poupar <span>$%{amount}/mês</span> para %{goal}?"
         goal_millionaire: "se tornar milionário"
     alert:
+        bot:
+            bot_updated: 'O bot foi atualizado com sucesso.'
         portfolio:
             invalid_name: 'Nome de portfólio inválido.'
             invalid_benchmark: 'Valor de referência inválido.'
