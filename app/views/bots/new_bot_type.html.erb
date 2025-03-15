@@ -1,4 +1,4 @@
-<%= link_to sanitize("&larr; Back to bots"), barbell_bots_path %>
+<%= link_to sanitize("&larr; Back to bots"), bots_path %>
 
 <%= render 'layouts/turbo_modal' do %>
   <%= button_tag class: 'modal__close', data: { action: 'modal--base#animateOutCloseAndCleanUp' } do %>
@@ -9,7 +9,7 @@
       <%= link_to dashboard_path(create: true), class: 'btn', data: { action: 'click->modal--base#animateOutCloseAndCleanUp', turbo: false } do %>
         New Legacy Bot
       <% end %>
-      <%= button_to barbell_bots_path, method: :post, class: 'btn', data: { action: 'click->modal--base#animateOutCloseAndCleanUp' } do %>
+      <%= button_to bots_path, method: :post, class: 'btn', data: { action: 'click->modal--base#animateOutCloseAndCleanUp' } do %>
         New Barbell Bot
       <% end %>
     </div>

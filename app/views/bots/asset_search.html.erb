@@ -1,6 +1,6 @@
 <%= render 'layouts/turbo_modal' do %>
   <div class="modal--search modal--search__background">
-    <%= form_with url: asset_search_barbell_bot_path(@barbell_bot, asset_field: @asset_field), method: :get, data: { controller: "form--submit-after-delay", turbo_frame: "asset-picker" }, html: { style: "position:relative" } do |f| %>
+    <%= form_with url: asset_search_bot_path(@bot, asset_field: @asset_field), method: :get, data: { controller: "form--submit-after-delay", turbo_frame: "asset-picker" }, html: { style: "position:relative" } do |f| %>
 
       <svg class="modal--search__zoom-icon" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="12" cy="12" r="9" stroke-width="2"/><path d="m19 19 4 4" stroke-width="2" stroke-linecap="round"/></svg>
       <%= f.hidden_field :asset_field, value: @asset_field %>
@@ -16,7 +16,7 @@
       <% end %>
 
       <% @query_assets.each_with_index do |asset, index| %>
-        <%= form_with model: @barbell_bot, url: barbell_bot_path(@barbell_bot), method: :patch, data: { arrow_keys_navigation_target: "item" }, class: "modal--search__assets__item" do |f| %>
+        <%= form_with model: @bot, url: bot_path(@bot), method: :patch, data: { arrow_keys_navigation_target: "item" }, class: "modal--search__assets__item" do |f| %>
           <%= f.hidden_field @asset_field, value: asset[:ticker] %>
           <%= button_tag type: :submit, data: { arrow_keys_navigation_target: "button" } do %>
             <div class="modal--search__cell modal--search__cell--ticker"><%= asset[:ticker] %></div>
