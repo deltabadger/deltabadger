@@ -1,0 +1,24 @@
+<%= render 'layouts/turbo_modal' do %>
+  <%= button_tag class: 'modal__close', data: { action: 'modal--base#animateOutCloseAndCleanUp' } do %>
+    <%= render partial: 'svg/24x24_x' %>
+  <% end %>
+  <div class="modal__body modal__body--regular">
+    <% if @bot.restarting_within_interval? %>
+      <p>
+        <%= t('bots.buttons.start.on_schedule.info_html', time: time_ago_in_words(@bot.next_interval_checkpoint_at)) %>
+      </p>
+      <div>
+        <%= button_to t('bots.buttons.start.on_schedule.skip'), start_bot_path(@bot, ignore_missed_orders: true), class: 'button', data: { action: 'click->modal--base#animateOutCloseAndCleanUp' } %>
+        <%= button_to t('bots.buttons.start.on_schedule.continue'), start_bot_path(@bot, ignore_missed_orders: false), class: 'button button--success', data: { action: 'click->modal--base#animateOutCloseAndCleanUp' } %>
+      </div>
+    <% else %>
+      <p>
+        <%= t('bots.buttons.start.missed.info_html', amount: rounded_quote_amount_for(exchange: @bot.exchange, base_asset: @bot.base0, quote_asset: @bot.quote, amount: @bot.pending_quote_amount), quote: @bot.quote) %>
+      </p>
+      <div>
+        <%= button_to t('bots.buttons.start.missed.skip'), start_bot_path(@bot, ignore_missed_orders: true), class: 'button', data: { action: 'click->modal--base#animateOutCloseAndCleanUp' } %>
+        <%= button_to t('bots.buttons.start.missed.continue'), start_bot_path(@bot, ignore_missed_orders: false), class: 'button button--success', data: { action: 'click->modal--base#animateOutCloseAndCleanUp' } %>
+      </div>
+    <% end %>
+  </div>
+<% end %>

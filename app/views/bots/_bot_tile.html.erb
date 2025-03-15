@@ -1,5 +1,5 @@
-<% pnl = bot.barbell? ? bot.fetch_metrics[:pnl] : 0 %>
-<% path = bot.barbell? ? barbell_bot_path(bot) : dashboard_bot_path(bot) %>
+<% pnl = bot.legacy? ? 0 : bot.fetch_metrics[:pnl] %>
+<% path = bot.legacy? ? bot_path(bot) : bot_path(bot) %>
 
 <div class="widget bot-tile">
   <%= link_to path do %>
@@ -43,12 +43,12 @@
   <% end %>
   <div class="bot-control">
     <% unless bot.webhook? %>
-      <%= render "barbell_bots/status/status_bar", bot: bot %>
+      <%= render "bots/status/status_bar", bot: bot %>
     <% end %>
     <% if bot.legacy? %>
-      <%= render "barbell_bots/status/status_button_legacy", bot: bot %>
+      <%= render "bots/status/status_button_legacy", bot: bot %>
     <% else %>
-      <%= render "barbell_bots/status/status_button", bot: bot %>
+      <%= render "bots/status/status_button", bot: bot %>
     <% end %>
   </div>
 </div>

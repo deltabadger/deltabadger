@@ -1,7 +1,7 @@
 <div class="page-head page-head--dashboard">
   <div></div>
   <div>
-    <%= button_to new_bot_type_barbell_bots_path, method: :get, class: "button button--primary", data: { turbo_frame: "modal" } do %>
+    <%= button_to new_bot_type_bots_path, method: :get, class: "button button--primary", data: { turbo_frame: "modal" } do %>
       <span class="d-none d-sm-inline"><%= t('bot.new') %></span>
       <i class="material-icons">add</i>
     <% end %>
@@ -9,5 +9,5 @@
 </div>
 
 <div class="bots-grid">
-  <%= render partial: 'barbell_bots/bot_tile', collection: @bots, as: :bot %>
+  <%= render partial: 'bots/bot_tile', collection: @bots, as: :bot %>
 </div>

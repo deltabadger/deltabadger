@@ -1,4 +1,4 @@
-<%= link_to sanitize("&larr; Back to bot"), barbell_bot_path(@barbell_bot) %>
+<%= link_to sanitize("&larr; Back to bot"), bot_path(@bot) %>
 
 <%= render 'layouts/turbo_modal' do %>
   <%= button_tag class: 'modal__close', data: { action: 'modal--base#animateOutCloseAndCleanUp' } do %>
@@ -10,7 +10,7 @@
        <h1 class="modal__title"><%= t('bots.add_api_key') %></h1>
     </div>
 
-    <%= form_with model: @api_key, url: create_api_key_barbell_bot_path(@barbell_bot), method: :post, data: { controller: "form--label-animations form--html5-validations", action: "turbo:submit-end->modal--base#submitEnd" } do |f| %>
+    <%= form_with model: @api_key, url: create_api_key_bot_path(@bot), method: :post, data: { controller: "form--label-animations form--html5-validations", action: "turbo:submit-end->modal--base#submitEnd" } do |f| %>
       <div class="db-form__row db-form__row--input">
         <%= f.text_field :key, autofocus: true, data: { controller: "autofocus" }, class: "db-form__input", rows: 3 %>
         <%= f.label :key, "API Key", class: "db-form__label" %>

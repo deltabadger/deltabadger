@@ -1,0 +1,2 @@
+<%= turbo_stream.update "bot_#{bot.id}_chart", partial: 'bots/chart', locals: { bot: bot } %>
+<%= turbo_stream.update "bot_#{bot.id}_metrics", partial: 'bots/metrics/metrics', locals: { bot: bot } %>

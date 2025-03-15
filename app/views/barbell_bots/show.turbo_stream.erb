@@ -1,9 +1,0 @@
-<%= turbo_stream.append "bot_#{@barbell_bot.id}_orders_list" do %>
-  <%= render partial: "barbell_bots/orders/order", collection: @orders %>
-<% end %>
-
-<% if @pagy.next.present? %>
-  <%= turbo_stream.replace "orders_pagination" do %>
-    <%= turbo_frame_tag "orders_pagination", src: barbell_bot_path(page: @pagy.next, format: :turbo_stream), loading: :lazy %>
-  <% end %>
-<% end %>
