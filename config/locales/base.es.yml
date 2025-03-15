@@ -134,6 +134,20 @@ es:
         connect: "Conectar"
     bot:
         new: "Nuevo bot"
+        start_new_bot: "Crear nuevo bot"
+        types:
+            dca:
+                title: "DCA"
+                description: "Promedio de coste en dólares de una sola moneda"
+            barbell:
+                title: "Estrategia Barbell"
+                description: "Mitiga el riesgo reequilibrando dos activos"
+            index_portfolio:
+                title: "Cartera Índice"
+                description: "Construye tu ETF de criptomonedas personal"
+            custom_portfolio:
+                title: "Cartera Personalizada"
+                description: "Reequilibra una mezcla personalizada de activos"
         status:
             setting_orders: "Configurando órdenes…"
             paused: "Pausado"
@@ -672,6 +686,8 @@ es:
         title: "¿Cuánto tiempo necesitabas ahorrar <span>$%{amount}/mes</span> para %{goal}?"
         goal_millionaire: "convertirte en millonario"
     alert:
+        bot:
+            bot_updated: 'El bot se ha actualizado con éxito.'
         portfolio:
             invalid_name: 'Nombre de cartera no válido.'
             invalid_benchmark: "Valor de referencia no válido."

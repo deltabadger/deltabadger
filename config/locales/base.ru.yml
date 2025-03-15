@@ -134,6 +134,20 @@ ru:
         connect: "Подключить"
     bot:
         new: "Новый бот"
+        start_new_bot: "Создать нового бота"
+        types:
+            dca:
+                title: "DCA"
+                description: "Усреднение стоимости одной монеты"
+            barbell:
+                title: "Стратегия Barbell"
+                description: "Снижение риска путем ребалансировки двух активов"
+            index_portfolio:
+                title: "Индексный портфель"
+                description: "Создайте свой личный крипто-ETF"
+            custom_portfolio:
+                title: "Пользовательский портфель"
+                description: "Ребалансировка пользовательского набора активов"
         status:
             setting_orders: "Настройка заказов…"
             paused: "Приостановлен"
@@ -688,6 +702,8 @@ ru:
         title: "Сколько времени нужно было откладывать <span>$%{amount}/месяц,</span> чтобы %{goal}?"
         goal_millionaire: "стать миллионером"
     alert:
+        bot:
+            bot_updated: 'Бот был успешно обновлен.'
         portfolio:
             invalid_name: 'Недопустимое название портфеля.'
             invalid_benchmark: 'Недопустимое значение эталона.'

@@ -30,11 +30,15 @@
     @media screen and (max-width: 499.9px)
         padding-left: 3rem
         padding-right: 3rem
-    @media screen and (min-width: 500px)
-        width: 65rem
     @media screen and (min-width: 576px)
         max-width: calc(100vw - 4rem)
+        width: 64rem
+        &--medium
+            width: 104rem
+        &--large
+            width: 128rem
     &__close
+        cursor: pointer
         position: absolute
         top: 3rem
         right: 3rem
@@ -150,7 +154,6 @@
             margin-right: 2.5rem
 
 .community-access-instructions
-    width: 100rem
     padding: 6rem 4rem 4rem
     background: var(--modal-background)
     border-radius: 2rem
