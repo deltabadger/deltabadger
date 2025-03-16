@@ -60,7 +60,8 @@ const BotNavigation = ({ bots, selectedBotId, onBotChange, onBackToList, loadBot
     if (hasPrevious) {
       const prevBotId = bots[currentIndex - 1].id;
       // First update the URL
-      const newUrl = `/dashboard/bots/${prevBotId}`;
+      // const newUrl = `/dashboard/bots/${prevBotId}`;
+      const newUrl = `/bots/${prevBotId}`;
       window.history.pushState({ selectedBotId: prevBotId }, '', newUrl);
 
       // Then load fresh data and update the selection
@@ -75,7 +76,8 @@ const BotNavigation = ({ bots, selectedBotId, onBotChange, onBackToList, loadBot
     if (hasNext) {
       const nextBotId = bots[currentIndex + 1].id;
       // First update the URL
-      const newUrl = `/dashboard/bots/${nextBotId}`;
+      // const newUrl = `/dashboard/bots/${nextBotId}`;
+      const newUrl = `/bots/${nextBotId}`;
       window.history.pushState({ selectedBotId: nextBotId }, '', newUrl);
 
       // Then load fresh data and update the selection
@@ -92,34 +94,34 @@ const BotNavigation = ({ bots, selectedBotId, onBotChange, onBackToList, loadBot
     }, 0);
   };
 
-  return (
-    <div className="page-head page-head--dashboard">
-      <div className="page-head__controls">
-        <button onClick={goToList} className="button button--link">
-          <i className="material-icons">chevron_left</i>
-          <span>All bots</span>
-        </button>
+  // return (
+  //   <div className="page-head page-head--dashboard">
+  //     <div className="page-head__controls">
+  //       <button onClick={goToList} className="button button--link">
+  //         <i className="material-icons">chevron_left</i>
+  //         <span>All bots</span>
+  //       </button>
 
-        <div className="page-head__controls__nav">
-          <button
-            onClick={goToPrevious}
-            className={`button button--link ${!hasPrevious ? 'button--disabled' : ''}`}
-            disabled={!hasPrevious}
-          >
-            <i className="material-icons">arrow_back</i>
-          </button>
+  //       <div className="page-head__controls__nav">
+  //         <button
+  //           onClick={goToPrevious}
+  //           className={`button button--link ${!hasPrevious ? 'button--disabled' : ''}`}
+  //           disabled={!hasPrevious}
+  //         >
+  //           <i className="material-icons">arrow_back</i>
+  //         </button>
 
-          <button
-            onClick={goToNext}
-            className={`button button--link ${!hasNext ? 'button--disabled' : ''}`}
-            disabled={!hasNext}
-          >
-            <i className="material-icons">arrow_forward</i>
-          </button>
-        </div>
-      </div>
-    </div>
-  );
+  //         <button
+  //           onClick={goToNext}
+  //           className={`button button--link ${!hasNext ? 'button--disabled' : ''}`}
+  //           disabled={!hasNext}
+  //         >
+  //           <i className="material-icons">arrow_forward</i>
+  //         </button>
+  //       </div>
+  //     </div>
+  //   </div>
+  // );
 };
 
 const DashboardTemplate = ({
@@ -166,7 +168,9 @@ const DashboardTemplate = ({
 
   useEffect(() => {
     const path = window.location.pathname;
-    const botIdMatch = path.match(/\/dashboard\/bots\/(\d+)/);
+    // const botIdMatch = path.match(/\/dashboard\/bots\/(\d+)/);
+    const botIdMatch = path.match(/\/bots\/(\d+)/);
+    console.log('botIdMatch', botIdMatch)
     const urlParams = new URLSearchParams(window.location.search);
     const createMode = urlParams.get('create') === 'true';
 
@@ -185,7 +189,8 @@ const DashboardTemplate = ({
 
   const handleBotClick = (botId) => {
     // First update the URL
-    const newUrl = `/dashboard/bots/${botId}`;
+    // const newUrl = `/dashboard/bots/${botId}`;
+    const newUrl = `/bots/${botId}`;
     window.history.pushState({ selectedBotId: botId }, '', newUrl);
 
     // Then load fresh data for this bot
@@ -196,7 +201,8 @@ const DashboardTemplate = ({
 
   const handleBackToList = () => {
     setSelectedBotId(null);
-    window.history.pushState(null, '', '/dashboard');
+    // window.history.pushState(null, '', '/dashboard');
+    window.history.pushState(null, '', '/bots');
   };
 
   const handleStartCreating = () => {
