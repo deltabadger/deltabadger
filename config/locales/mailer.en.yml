@@ -1,0 +1,60 @@
+en:
+    mailer:
+        follow_us_on_x: 'Follow us on 𝕏'
+        we_reply_faster_on_telegram: 'We reply faster on Telegram'
+        greeting: 'Ahoy captain,'
+        greeting_name: 'Hey %{name},'
+    affiliate_mailer:
+        new_btc_address_confirmation:
+            subject: "Confirm new payout address"
+            template_html: |
+                <p>It looks like you want to change your payout address for the referral program:</p>
+                <p><code>%{new_btc_address}</code></p>
+                <p>Please confirm this change by clicking the link below:</p>
+                <p><a href="%{confirmation_url}" title="Confirm new payout address">Yes, I want to use this address for future payouts</a></p>
+        referrals_payout_notification:
+            subject: "It's a payday!"
+            template_html: |
+                <p>Thank you. Deltabadger grows only thanks to word-of-mouth referrals.</p>
+                <p>And yours really works:</p>
+                <p>Just a while ago, we transfererred <b>%{amount} BTC</b> to you.</p>
+                <p>The best part? It's not over:</p>
+                <p><b>You'll get 20% every time those referrals prolong subscription</b>.</p>
+                <p>Do you know somebody else who may benefit from Deltabadger?</p>
+            grow_stream: "Let them know and grow your recurring stream"
+        registration_reminder:
+            subject: "Wow! You earned %{amount} BTC!"
+            template_html: |
+                <p>You have a new commission from the referral program waiting!</p>
+                <p>Complete the registration to receive your bitcoin:</p>
+            complete_registration: "Complete registration"
+    bot_alerts_mailer:
+        successful_webhook_bot_transaction:
+            subject: "Transaction has been successful"
+            template_html: "transaction successful, base: %{base}, quote: %{quote}, bot_name: %{bot_name}, type: %{type}, price: %{price}, exchange: %{exchange_name}"
+        end_of_funds:
+            subject: "Your bot is running out of funds soon"
+            template_html: "<p>It looks like your bot <b>%{label}</b> is running out of %{quote} very soon.</p><p>Make a transfer to %{exchange_name} to be sure the bot is working continuously.</p>"
+        notify_about_error:
+            subject: "Something went wrong"
+            template_html: "<p>Something went wrong while processing the last transaction for bot <b>%{label}</b>.</p><p>You can see the error in the bot log. Sign in to check it.</p><p>Errors:</p><blockquote> <b>%{exchange_name}:</b> <b>%{errors}</b></blockquote>"
+        notify_about_restart:
+            subject: "Oops! Next try…"
+            template_html: "<p>The bot <b>%{label}</b> couldn't perform your order. It looks like an exchange issue. We'll try again in %{delay}.</p><p>All error are visible in the bot log. Sign in to check it out.</p><p>Errors:</p><blockquote> <b>%{exchange_name}:</b> <b>%{errors}</b> </blockquote>"
+    subscription_mailer:
+        invoice:
+            subject: 'Receipt'
+            template_html: |
+                <h2>Deltabadger %{plan_name} Plan (%{years}-year)</h2>
+                <p> <b>Paid:</b></p>
+                <h2>%{total_paid} %{currency}</h2>
+                <p><b>Paid at:</b></p>
+                <p>%{paid_at}</p>
+                <p><b>Seller:</b></p>
+                <p>Deltabadger OÜ<br>
+                Pärnu mnt 158/2-88 <br>
+                11317 Tallinn <br> Estonia <br>
+                Reg.No.14781461</p>
+                <p><b>Buyer:</b></p>
+                <p> %{first_name} %{last_name} <br>
+                %{email}</p>

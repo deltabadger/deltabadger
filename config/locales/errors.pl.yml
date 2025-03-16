@@ -1,0 +1,83 @@
+pl:
+    activerecord:
+        errors:
+            models:
+                affiliate:
+                    attributes:
+                        code:
+                            invalid_format: 'musi składać się z dużych liter i cyfr'
+                subscription:
+                    attributes:
+                        eth_address:
+                            invalid_address: '"%{eth_address}" nie jest poprawnym adresem Ethereum. Spróbuj ponownie.'
+                asset:
+                    attributes:
+                        portfolio:
+                            max_assets_reached: "Maksymalna liczba aktywów osiągnięta."
+    errors:
+        bitcoin_address_not_updated: 'Adres bitcoinowy nie mógł zostać zaktualizowany'
+        format: '%{attribute}%{message}'
+        frequency_limit: 'Przekroczyłeś limit częstotliwości'
+        invalid_api_keys: 'Nieprawidłowe tokeny'
+        invalid_risk_free_rate_key: 'Nieprawidłowy klucz wolnej od ryzyka stopy procentowej.'
+        unable_to_get_risk_free_rate: 'Nie można uzyskać wolnej od ryzyka stopy procentowej dla %{risk_free_rate_name}. Serwer API danych jest niedostępny.'
+        invalid_number_of_allocations: 'Nieprawidłowa liczba alokacji'
+        invalid_allocation_value: 'Nieprawidłowa wartość alokacji'
+        messages:
+            accepted: 'musi zostać zaakceptowany'
+            already_confirmed: 'został już potwierdzony, spróbuj się zalogować.'
+            bad_2fa_code: 'Błędny kod 2FA. Spróbuj ponownie.'
+            bad_credentials: 'Błędny e-mail lub hasło.'
+            bad_credentials_with_code: 'Błędny adres e-mail, hasło lub kod 2FA.'
+            blank: 'nie może być puste'
+            confirmation: 'nie pasuje do %{attribute}'
+            confirmation_period_expired: 'musi zostać potwierdzony w ciągu %{period}. Poproś o nowy.'
+            empty: 'nie może być puste'
+            empty_two_fa_token: 'Pominięty kod 2FA. Spróbuj ponownie.'
+            equal_to: 'musi być równa %{count}'
+            even: 'musi być równa'
+            exclusion: 'jest zarezerwowany'
+            expired: 'wygasł, poproś o nowy.'
+            greater_than: 'musi być większa niż %{count}'
+            greater_than_or_equal_to: 'musi być większa lub równa %{count}'
+            in: 'musi być w %{count}'
+            inclusion: 'nie znajduje się na liście'
+            invalid: 'jest nieważny'
+            less_than: 'musi być mniejsza niż %{count}'
+            less_than_or_equal_to: 'musi być mniejsza lub równa %{count}'
+            model_invalid: 'Weryfikacja nie powiodła się: %{errors}'
+            not_a_number: 'nie jest liczbą'
+            not_an_integer: 'musi być liczbą całkowitą'
+            not_found: 'Taki bot nie istnieje.'
+            not_locked: 'nie był zablokowany.'
+            not_saved:
+                one: '1 błąd uniemożliwił zapisanie  %{resource}:'
+                few: '%{cound} błędy uniemożliwiły zapisanie  %{resource}:'
+                many: '%{cound} błędów uniemożliwiło zapisanie  %{resource}:'
+                other: '%{cound} błędów uniemożliwiło zapisanie  %{resource}:'
+            odd: 'musi być nieparzysta'
+            other_than: 'nie może wynosić %{count}'
+            password_not_match: 'Hasła nie są zgodne'
+            present: 'musi być puste'
+            too_long:
+                one: 'Za dużo znaków (nie może być więcej niż 1 znak)'
+                few: 'Za dużo znaków (nie może być więcej niż %{count} znaki)'
+                many: 'Za dużo znaków (nie może być więcej niż %{count} znaków)'
+                other: 'Za dużo znaków (nie może być więcej niż %{count} znaków)'
+            too_short:
+                one: 'Za mało znaków (musi być co najmniej 1 znak)'
+                few: 'Za mało znaków (muszą być co najmniej %{count} znaki)'
+                many: 'Za mało znaków (musi być co najmniej %{count} znaków)'
+                other: 'Za mało znaków (musi być co najmniej %{count} znaków)'
+            too_short_password: 'Hasło jest za krótkie'
+            too_simple_password: 'Hasło musi zawierać znaki z każdej z następujących kategorii: duże litery (A-Z), małe litery (a-z), cyfry (0-9), znaki specjalne (np. #,?,!).'
+            wrong_email: 'Błędny adres e-mail.'
+            wrong_length:
+                one: 'Błędna długość (musi być 1 znak)'
+                few: 'Błędna długość (muszą być %{count} znaki)'
+                many: 'Błędna długość (musi być %{count} znaków)'
+                other: 'Błędna długość (musi być %{count} znaków)'
+            wrong_password: 'Błędne hasło.'
+            wrong_two_fa_token: 'Podany kod jest nieprawidłowy.'
+        referral_program_inactive: 'Twój program referencyjny jest nieaktywny'
+        unverified_request: 'Odśwież przeglądarkę i spróbuj ponownie'

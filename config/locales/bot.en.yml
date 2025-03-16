@@ -1,0 +1,179 @@
+en:
+    bot:
+        new: "New bot"
+        start_new_bot: "Create new bot"
+        types:
+            dca:
+                title: "DCA"
+                description: "Single-coin dollar-cost averaging"
+            barbell:
+                title: "Barbell Strategy"
+                description: "Mitigate risk by rebalancing two assets"
+            index_portfolio:
+                title: "Index Portfolio"
+                description: "Build your personal crypto ETF"
+            custom_portfolio:
+                title: "Custom Portfolio"
+                description: "Rebalance custom asset mix"
+        status:
+            setting_orders: "Setting orders…"
+            paused: "Paused"
+        no_orders_info: "Bot orders will appear here"
+        pick_exchange: "Pick Exchange"
+        add_api_keys: "Add API keys for %{exchange}"
+        barbell:
+            invest: "Invest"
+            invest_html: "Invest %{input} /month"
+        utils:
+            mkt_cap_adjusted: "Market Cap adjusted"
+            mkt_cap_adjusted_info: |
+                The allocation is automatically set based on the market cap of the coins in your portfolio. The larger the market cap, the larger the allocation.
+    bots:
+        above: "above"
+        below: "below"
+        buttons:
+            automatic_withdrawal: "Automatic Withdrawal"
+            request_exchange: "Ask to add an exchange"
+            move_existing_bot: "Move existing bot to another exchange"
+            webhook: "Webhook Trade"
+            delete:
+                cancel: "Cancel"
+                ok: "Remove completely"
+                text: "Delete"
+                warning_html: "That will remove the bot with all<br>its historical data. Are you sure?"
+            dollar_cost_averaging: "Dollar-Cost Averaging"
+            pending:
+                info_html: "Processing…"
+                text: "Pending"
+            start:
+                changed_missed:
+                    continue: "Yes, buy and continue"
+                    info_html: "Do you want to invest <b>%{amount} %{quote}</b> missed while the bot was paused? The new schedule will start after the current countdown is finished."
+                    skip: "Ignore the missed part"
+                changed_on_schedule:
+                    continue: "I understand"
+                    info_html: "The new schedule will start after the remaining <b>%{time}</b> of the last one is finished."
+                    skip: "Ignore it and start immediately"
+                missed:
+                    continue: "Yes, buy and continue"
+                    info_html: "Do you want to invest <b>%{amount} %{quote}</b> missed while the bot was paused, and continue the original time schedule?"
+                    skip: "Skip the missed part"
+                on_schedule:
+                    continue: "Continue original schedule"
+                    info_html: "You have still <b>%{time}</b> remaining to the next order. You can skip it, and execute the next order immediately, or continue the original countdown."
+                    skip: "Skip it"
+        buy: Buy
+        counter: '%{countdown}'
+        day: Day
+        details:
+            info:
+                title: Info
+                what_is_dca_html: |
+                    <h3>What is DCA?</h3>
+                    <p>Imagine market as your piggy bank. Every day you drop in one coin—whether prices are up, down, or sideways.</p>
+                    <p>We call it <i>averaging</i>, but trust me, there's nothing average about what you're doing.</p>
+                    <p>The average investor? They hesitate, panic, sell too soon.</p>
+                    <p>But not you.</p>
+                    <p>You're chilling like Grandpa Warren sipping his Coke, letting the market do its thing.</p>
+                    <p>The game is long, but simple. It begins with pressing ▶️</p>
+                smart_intervals_html: |
+                    <h3>Smart Intervals</h3>
+                    <p>Exchanges have minimum order sizes. Smart intervals handle this for you:</p>
+                    <p>Want to buy $5 a day, but the minimum is $10? They'll place your $10 order every second day.</p>
+                daily_weekly_monthly_html: |
+                    <h3>Daily? Weekly? Monthly?</h3>
+                    <p>Surprisingly, long-term results are so close it doesn't really matter.</p>
+                    <p>But watch out—if your tax reporting software charges per transaction, that's a good reason to buy less often.</p>
+                    <p>Otherwise, keep transactions small and frequent, and let the magic of DCA kick in sooner.</p>
+                withdrawal_html: |
+                    <h3>Auto-Withdrawals</h3>
+                    <p><i>Not your keys not your Bitcoin.</i> — Andreas Antonopoulos</p>
+                    <p>Withdraw your funds to your own wallet. It's the safest way to store your crypto.</p>
+                webhook:
+                    info_html: '<p>The Webhook bot buys and sells based on signals from third-party services like TradingView. It''s a great way to create orders based on RSI, moving averages, or other indicators.</p><p>The bot can work one way or two ways:</p><ul><li><em>One way</em> means it will only buy or only sell.</li><li><em>Two ways</em> mean it will both buy and sell using two different signals.</li></ul><p>For each way, you get one webhook URL. This is how to use it with TradingView:</p>'
+                    create_alert: Create alert.
+                    configure_signal: Configure desired signal.
+                    set_webhook: Switch to the Notifications tab, and provide Webhook URL that you see in your bot panel on the left.
+                    experimental: The webhook bot is still very experimental. One improvement that is coming soon is the ability to buy and sell using all funds available on the account. Please, test it and let us know how can we improve it.
+                    working_and_waiting: The bot is working and waiting for a signal.
+            log:
+                date: Date
+                errors: Errors
+                title: Log
+            stats:
+                amount: 'Amount(%{base})'
+                amount1: 'Amount'
+                value: 'Value(%{quote})'
+                value1: 'Value'
+                average_price: 'Average price'
+                bought: Bought
+                chart:
+                    total_invested: 'Total invested'
+                    value: Value
+                csv_download_html: 'The table above shows only the last ten transactions. The full report is available to download in CSV format below.'
+                current_value: 'Current value'
+                current_value_sold: 'Current value of the %{base} sold'
+                date: Date
+                download_csv: 'Download .csv'
+                exchange_unavailable_html: 'The exchange API does not respond at the moment.<br>Calculations are based on the last data available.'
+                order: Order
+                profit_loss: Profit/Loss
+                rate: 'Rate(%{quote})'
+                sold: Sold
+                title: Statistics
+                total_invested: 'Total invested'
+        for: for
+        force_smart_intervals_html: '<b>Smart intervals<sup>®</sup></b> · Buy with orders of <split>$100</split> %{currency} each.'
+        feecutter_html: '<b>FeeCutter<sup>®</sup></b> · Cut fees with limit orders'
+        hour: Hour
+        limit_buy: 'Limit buy'
+        limit_sell: 'Limit sell'
+        messages:
+            symbol_not_supported: "%{symbol} is not supported"
+            symbol_not_supported_subscription: "%{symbol} is not supported in your subscription"
+            upgrade_plan_more_bots: "Upgrade your plan to run more bots"
+            upgrade_plan_limit_orders: "Upgrade your plan to use FeeCutter"
+            specify_percentage_limit_order: "Specify percentage when creating a limit order"
+            smart_intervals_above_minimum: "Smart intervals value should be greater than %{minimum}"
+            invalid_price_range: "Price range is invalid"
+            upgrade_price_range: "Upgrade to use Price Range"
+            subaccounts_not_allowed: "Subaccounts not allowed on this exchange"
+            no_subaccount_name: "No subaccount name supplied"
+            wrong_subaccount_name: "Wrong subaccount name"
+        minimum_withdrawal_disclaimer: 'The minimum withdrawal size is %{minimum} %{currency}.'
+        minimum_withdrawal_disclaimer_usd: 'The minimum withdrawal size is %{minimum} USD.'
+        month: Month
+        next_buy: 'Next in %{countdown}'
+        next_sell: 'Next in %{countdown}'
+        next_withdrawal: 'Next in %{countdown}'
+        not_found: 'Such a bot doesn''t exist.'
+        price: 'the price'
+        price_range_buy_html: 'Buy only in the price range from <split>$100</split> to <split>$1000</split> %{quote} per %{base}.'
+        price_range_sell_html: "Sell only in the price range from <split>$100</split> to <split>$1000</split> %{quote} per %{base}."
+        sell: "Sell"
+        buy_all: "Buy all"
+        sell_all: "Sell all"
+        first_time: "first time"
+        every_time: "every time"
+        name: "Name:"
+        triggered_title: "this webhook is triggered:"
+        triggered_first: "the first webhook is triggered."
+        triggered_second: "the second webhook is triggered."
+        webhook_has_been_copied: "Webhook has been copied to clipboard."
+        fees: "Fees"
+        maker_fee: "Maker"
+        taker_fee: "Taker"
+        withdrawal_fee: "Withdrawal (₿)"
+        additional_title: "Two-way bot"
+        smart_intervals_disclaimer: 'Orders size on %{exchange} is defined in %{currency}. The minimum order size is %{minimum}%{currency}.'
+        smart_intervals_disclaimer_base: 'Orders size on %{exchange} is defined in %{currency}. The minimum order size is %{minimum}%{currency}.'
+        smart_intervals_disclaimer_quote: 'The minimum order size is %{minimum}%{currency}.'
+        start: Start
+        starting: Starting
+        stop: Pause
+        subaccounts_info: 'Use subaccount'
+        week: Week
+        withdraw_interval_html: 'Withdraw every <split>2</split> days.'
+        withdraw_threshold_html: 'Withdraw when at least <split>0.001</split> %{currency} is available.'
+        bot_name: 'Bot name'
+        change_bot_name: 'Change name'

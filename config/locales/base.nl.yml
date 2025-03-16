@@ -1,343 +1,19 @@
 nl:
-    activerecord:
-        errors:
-            models:
-                affiliate:
-                    attributes:
-                        code:
-                            invalid_format: 'moet bestaan uit alfanumerieke hoofdletters'
-                subscription:
-                    attributes:
-                        eth_address:
-                            invalid_address: '"%{eth_address}" est une adresse Ethereum invalide. Veuillez réessayer.'
-                asset:
-                    attributes:
-                        portfolio:
-                            max_assets_reached: "Maximum aantal activa bereikt."
     ads:
         dca_profit_html: |
             <p>Als u de afgelopen %{years}&nbsp;jaar aan dollar-cost averaging had gedaan met Bitcoin, zou u nu <b style="color: #00A36C;">%{profit}%</b> in de plus staan.</p>
             <p>Dat is <b style="color: #00A36C;">%{sp500_diff}%</b> meer dan de S&P 500 in dezelfde periode.</p>
-    affiliate_mailer:
-        new_btc_address_confirmation:
-            subject: "Bevestig nieuw uitbetalingsadres"
-            template_html: |
-                <p>Het lijkt erop dat u uw uitbetalingsadres voor het verwijzingsprogramma wilt wijzigen:</p>
-                <p><code>%{new_btc_address}</code></p>
-                <p>Bevestig deze wijziging door op onderstaande link te klikken:</p>
-                <p><a href="%{confirmation_url}" title="Bevestig nieuw uitbetalingsadres">Ja, ik wil dit adres gebruiken voor toekomstige uitbetalingen</a></p>
-        referrals_payout_notification:
-            subject: "Het is uitbetalingsdag!"
-            template_html: |
-                <p>Bedankt. Deltabadger groeit alleen dankzij mond-tot-mond verwijzingen.</p>
-                <p>En die van u werken echt goed:</p>
-                <p>Zojuist hebben we <b>%{amount} BTC</b> naar u overgemaakt.</p>
-                <p>Het beste deel? Het is nog niet voorbij:</p>
-                <p><b>U krijgt 20% elke keer dat deze doorverwezen personen hun abonnement verlengen</b>.</p>
-                <p>Kent u nog iemand anders die baat zou kunnen hebben bij Deltabadger?</p>
-            grow_stream: "Laat het ze weten en laat uw terugkerende inkomsten groeien"
-        registration_reminder:
-            subject: "Wow! U heeft %{amount} BTC verdiend!"
-            template_html: |
-                <p>Er staat een nieuwe commissie van het verwijzingsprogramma op u te wachten!</p>
-                <p>Voltooi de registratie om uw bitcoin te ontvangen:</p>
-            complete_registration: "Registratie voltooien"
-    affiliates:
-        add_link_info: 'U kunt uw naam en link naar uw website toevoegen zodat de doorverwezen persoon weet waar de korting vandaan komt. U kan dit veld ook leeg laten:'
-        apply_code:
-            accept: Accepteren
-            reject: Terug
-            title: 'Referral Link'
-        btc_address_changed: 'Bitcoin-adres gewijzigd'
-        btc_address_confirmation_sent: 'Bevestigingsmail verzonden'
-        create:
-            error: 'Verwijzingsprogramma registratie mislukt'
-            free_plan_error: 'Je moet upgraden om je te registreren'
-        current_bitcoin_address: 'Huidig Bitcoin-adres'
-        discount:
-            accepted: 'U heeft de referral link geaccepteerd'
-            already_used: 'U hebt reeds een referral link gebruikt'
-            congrats_html: 'Gefeliciteerd! De <span class="db-form-label-range--discount-percent">%{discount_percent}</span>% korting is actief.'
-            flash_html: 'Hallo! Geniet van %{discount_percent}% korting vanwege <span class="text-success text-success--lighter">%{visible_name}</span>'
-            invalid: 'De referral link lijkt ongeldig of verouderd'
-            referrer_html: 'Dankzij de referral link van <b><a href="%{visible_link}"><span class="db-form-preview--visible_name">%{visible_name}</span></a>.</b>'
-            valid_for: 'Geldig voor de eerste aankoop op het platform.'
-        info_preview: 'Dit is een preview van wat doorverwezen personen zullen zien tijdens de registratie:'
-        invalid_bitcoin_address: 'Bitcoin-adres ongeldig'
-        manual_html: |
-            <div class="alert alert-success">
-              <p class="mt-1">Ons verwijzingsprogramma betaalt <b>20% commissie</b> op elke abonnementsbetaling van uw doorverwezen gebruikers. Er is geen limiet - u blijft verdienen zolang zij geabonneerd blijven. Bijvoorbeeld:</p>
-              <ol>
-                <li>Uw vriend koopt een Pro-plan voor $299/jaar. U verdient $60 in BTC (tegen de wisselkoers van de transactie).</li>
-                <li>Als zij geabonneerd blijven, blijft u $60 verdienen elk jaar dat zij verlengen.</li>
-                <li>Als zij upgraden naar ons Lifetime-plan ($2.000+), verdient u direct $400+ in BTC.</li>
-                <li>Uw inkomsten worden vastgelegd in BTC op het moment van de transactie, waardoor u beschermd bent tegen prijsschommelingen.</li>
-                <li>Commissies worden direct bijgeschreven en maandelijks uitbetaald.</li>
-              </ol>
-              <p><em>Bitcoin verdienen is de beste manier om aan DCA te doen!</em></p>
-            </div>
-        new:
-            checked: 'Ik heb alles nauwkeurig nagekeken.'
-            discount_info_html: 'U <b> verdient <span class="db-form-label-range--earn-percent">%{earn_percent_preview}%</span></b>, en de persoon die werd doorverwezen krijgt <b><span class="db-form-label-range--discount-percent">%{discount_percent_preview}%</span> korting</b>.'
-            discount_preview_html: '<span class="db-form-label-range--discount-percent">%{discount_percent_preview}</span> % korting bij de eerste aankoop.<br>'
-            eu_company: EU-bedrijf
-            payout_address: Uitbetalingsadres
-            pick_referral_code: 'Kies uw referral code'
-            private: Privé
-            program_settings_html: 'Link <span class="text-danger">(kan niet worden gewijzigd)</span>'
-            referrer_info: 'Referrer info'
-            share_html: 'Deel deze link en <span class="text-success">verdien bitcoin</span>'
-            submit: 'Laten we beginnen!'
-            thanks_referral: 'Dankzij de referral link van'
-            title: 'Registratie voor verwijzingsprogramma''s'
-            title_info: 'U kan uw link onmiddellijk delen, maar om Bitcoin-uitbetalingen te ontvangen, moet u eerst de registratie voltooien.'
-            unchangable_warning: 'De instellingen in dit onderdeel kunnen later niet worden gewijzigd.'
-            upgrade: 'Om deel te nemen aan ons befaamde verwijzingsprogramma, dient u te upgraden naar één van onze betaalde abonnementen.'
-            visible_info: 'Zichtbare informatie'
-        program_joined: 'U bent lid geworden van het verwijzingsprogramma'
-        show:
-            deactivated:
-                contact: 'Contacteer ons'
-                notice: 'Dit programma lijkt gedeactiveerd. Neem contact met ons op als u niet zeker weet waarom dit is gebeurd.'
-            expired: 'Oh nee... uw abonnement is verlopen. Verleng uw abonnement om te blijven profiteren van uw verwijzingsprogramma.'
-            info_preview: 'Preview van de info die zichtbaar is voor de doorverwezen persoon:'
-            link_title: 'Uw link'
-            manual_title: 'Hoe werkt het?'
-            paid_commission: 'Betaald (BTC)'
-            paid_so_far: 'Reeds uitbetaald (BTC)'
-            referrals: 'Aantal personen doorverwezen'
-            stats: Stats
-            submit: Update
-            submit_bitcoin_address: 'Bitcoin-adres wijzigen'
-            submit_info: 'Zichtbare informatie wijzigen'
-            title: Verwijzingsprogramma
-            unpaid: 'Te betalen (BTC)'
-            unpaid_commission: 'Te betalen (BTC)'
-            update_bitcoin_address: 'Bitcoin-adres wijzigen'
-            update_info: 'Zichtbare informatie wijzigen'
-            your_link: 'Uw referral link'
-        your_bitcoin_address: 'Uw Bitcoin-adres'
-    bot_alerts_mailer:
-        successful_webhook_bot_transaction:
-            subject: "Transactie is geslaagd"
-            template_html: "transactie geslaagd, base: %{base}, quote: %{quote}, bot_naam: %{bot_name}, type: %{type}, prijs: %{price}, beurs_naam: %{exchange_name}"
-        end_of_funds:
-            subject: "Uw bot heeft binnenkort onvoldoende saldo"
-            template_html: "<p>Het lijkt erop dat uw bot <b>%{label}</b> binnenkort geen %{quote} meer heeft.</p><p>Maak een overboeking naar %{exchange_name} om er zeker van te zijn dat de bot continu blijft werken.</p>"
-        notify_about_error:
-            subject: "Er is iets misgegaan"
-            template_html: "<p>Er is iets misgegaan tijdens het verwerken van de laatste transactie voor de bot <b>%{label}</b>.</p><p>U kunt de fout bekijken in het bot logboek. Log in om het te controleren.</p><p>Fouten:</p><blockquote> <b>%{exchange_name}:</b> <b>%{errors}</b></blockquote>"
-        notify_about_restart:
-            subject: "Oeps! Volgende poging…"
-            template_html: "<p>De bot <b>%{label}</b> kon uw order niet uitvoeren. Het lijkt op een probleem met de beurs. We proberen het opnieuw over %{delay}.</p><p>Alle fouten zijn zichtbaar in het bot logboek. Log in om het te bekijken.</p><p>Fouten:</p><blockquote> <b>%{exchange_name}:</b> <b>%{errors}</b> </blockquote>"
     button:
         connect: "Verbinden"
-    bot:
-        new: "Nieuwe bot"
-        status:
-            setting_orders: "Bestellingen instellen…"
-            paused: "Gepauzeerd"
-        no_orders_info: "Bot bestellingen verschijnen hier"
-        barbell:
-            invest: "Investeren"
-            invest_html: "Investeer %{input} /maand"
-        utils:
-            mkt_cap_adjusted: "Marktkapitalisatie aangepast"
-            mkt_cap_adjusted_info: |
-                De allocatie wordt automatisch ingesteld op basis van de marktkapitalisatie van de munten in uw portfolio. Hoe groter de marktkapitalisatie, hoe groter de allocatie.
     data_labels:
         bought_ticker: "Gekocht (%{ticker})"
         avg_price_ticker: "Gem. Prijs (%{ticker})"
         invested_ticker: "Geïnvesteerd (%{ticker})"
         value_ticker: "Waarde (%{ticker})"
         date: "Datum"
-    bots:
-        above: boven
-        below: onder
-        buttons:
-            automatic_withdrawal: 'Automatische Opname'
-            request_exchange: 'Vraag om een beurs toe te voegen'
-            move_existing_bot: 'Bestaande bot naar een andere beurs verplaatsen'
-            delete:
-                cancel: Annuleren
-                ok: 'Volledig verwijderen'
-                text: Verwijderen
-                warning_html: 'Dit zal de bot verwijderen met al<br>zijn historische gegevens. Weet je het zeker?'
-            dollar_cost_averaging: 'Dollar-Cost Averaging'
-            pending:
-                info_html: Processing...
-                text: Pending
-            start:
-                changed_missed:
-                    continue: 'Ja, kopen en verder gaan'
-                    info_html: 'Wilt u <b>%{amount} %{quote}</b> investeren, dat de bot gemist heeft terwijl hij gepauzeerd was? Het nieuwe schema start nadat het huidige aftellen is voltooid.'
-                    skip: 'Negeer het ontbrekende deel'
-                changed_on_schedule:
-                    continue: 'Ik begrijp het'
-                    info_html: 'Het nieuwe schema zal starten nadat de resterende <b>%{time}</b> van het vorige schema is afgelopen.'
-                    skip: 'Negeren en onmiddellijk starten'
-                missed:
-                    continue: 'Ja, kopen en verder gaan'
-                    info_html: 'Wilt u <b>%{amount} %{quote}</b> investeren, dat de bot gemisd heeft terwijl hij gepauzeerd was, en het oorspronkelijke tijdschema verderzetten?'
-                    skip: 'Sla het ontbrekende deel over'
-                on_schedule:
-                    continue: 'Verdergaan met het oorspronkelijke schema'
-                    info_html: 'U hebt nog <b>%{time}</b> over tot de uitvoering van het volgende order. U kunt het overslaan, en het volgende order onmiddellijk uitvoeren, of doorgaan met de oorspronkelijke aftelling.'
-                    skip: Overslaan
-        buy: Kopen
-        counter: '%{countdown}'
-        day: Dag
-        details:
-            info:
-                title: Info
-                what_is_dca_html: |
-                    <h3>Wat is DCA?</h3>
-                    <p>Stel je de markt voor als je spaarvarken. Elke dag gooi je er een muntje in—of de prijzen nu stijgen, dalen of stabiel blijven.</p>
-                    <p>We noemen het <i>gemiddelde</i>, maar geloof me, er is niets gemiddeld aan wat je doet.</p>
-                    <p>De gemiddelde belegger? Twijfelt, raakt in paniek, verkoopt te vroeg.</p>
-                    <p>Jij niet.</p>
-                    <p>Jij chillt zoals opa Warren met zijn Cola, en laat de markt zijn werk doen.</p>
-                    <p>Het spel is lang, maar simpel. Het begint met het indrukken van ▶️</p>
-                smart_intervals_html: |
-                    <h3>Slimme Intervallen</h3>
-                    <p>Beurzen hebben minimale ordergroottes. Slimme intervallen regelen dit voor je:</p>
-                    <p>Wil je $5 per dag kopen, maar het minimum is $10? Ze plaatsen je bestelling van $10 elke tweede dag.</p>
-                daily_weekly_monthly_html: |
-                    <h3>Dagelijks? Wekelijks? Maandelijks?</h3>
-                    <p>Op de lange termijn zijn de resultaten zo vergelijkbaar dat het nauwelijks uitmaakt.</p>
-                    <p>Let op—als je belastingaangifte-software per transactie kosten rekent, is dat een goede reden om minder vaak te kopen.</p>
-                    <p>Anders, hou het klein en vaak, en laat de magie van DCA sneller zijn werk doen.</p>
-                withdrawal_html: |
-                    <h3>Automatische Opnames</h3>
-                    <p><i>Niet jouw sleutels, niet jouw Bitcoin.</i> — Andreas Antonopoulos</p>
-                    <p>Haal je fondsen naar je eigen wallet. Het is de veiligste manier om je crypto op te slaan.</p>
-            log:
-                date: Datum
-                errors: Errors
-                title: Logboek
-            stats:
-                amount: 'Bedrag(%{base})'
-                amount1: 'Bedrag'
-                value: 'Waarde(%{quote})'
-                value1: 'Waarde'
-                average_price: 'Gemiddelde prijs'
-                bought: Gekocht
-                chart:
-                    total_invested: 'Totaal geïnvesteerd'
-                    value: Waarde
-                csv_download_html: 'Bovenstaande tabel toont enkel de laatste tien transacties. Het volledige rapport is hieronder beschikbaar om te downloaden in CSV-formaat.'
-                current_value: 'Huidige waarde'
-                current_value_sold: 'Huidige waarde van de verkochte %{base}'
-                date: Datum
-                download_csv: 'Download .csv'
-                exchange_unavailable_html: 'De exchange API reageert momenteel niet.<br>De berekeningen zijn gebaseerd op de laatst beschikbare gegevens.'
-                order: Order
-                profit_loss: Winst/verlies
-                rate: 'Tarief(%{quote})'
-                sold: Verkocht
-                title: Statistieken
-                total_invested: 'Totaal geïnvesteerd'
-        for: voor
-        force_smart_intervals_html: '<b>Slimme intervallen<sup>®</sup></b> · Koop met bestellingen van <split>100$</split> %{currency} per stuk.'
-        feecutter_html: '<b>FeeCutter<sup>®</sup></b> · Verlaag kosten met limietorders'
-        hour: Uur
-        limit_buy: 'Limiet aankoop'
-        limit_sell: 'Limiet verkoop'
-        messages:
-            symbol_not_supported: "%{symbol} wordt niet ondersteund"
-            symbol_not_supported_subscription: "%{symbol} wordt niet ondersteund door je abonnement"
-            upgrade_plan_more_bots: "Upgrade je plan om meer bots te draaien"
-            upgrade_plan_limit_orders: "Upgrade je plan om limietorders te gebruiken"
-            specify_percentage_limit_order: "Geef het percentage op bij het maken van een limietorder"
-            smart_intervals_above_minimum: "De waarde van slimme intervallen moet groter zijn dan %{minimum}"
-            invalid_price_range: "De prijsklasse is ongeldig"
-            upgrade_price_range: "Upgrade om de prijsklasse te gebruiken"
-            subaccounts_not_allowed: "Subaccounts zijn niet toegestaan op deze uitwisseling"
-            no_subaccount_name: "Geen subaccountnaam opgegeven"
-            wrong_subaccount_name: "Verkeerde subaccountnaam"
-        minimum_withdrawal_disclaimer: 'De minimale opnamegrootte is %{minimum} %{currency}.'
-        minimum_withdrawal_disclaimer_usd: 'De minimale opname bedraagt %{minimum} USD.'
-        month: Maand
-        next_buy: 'Volgende aankoop in %{countdown}'
-        next_sell: 'Volgende verkoop in %{countdown}'
-        next_withdrawal: 'Volgende opname in %{countdown}'
-        price: 'de prijs'
-        price_range_buy_html: 'Koop alleen in het prijsbereik van <split>$100</split> tot <split>$1000</split> %{quote} per %{base}.'
-        price_range_sell_html: 'Verkoop enkel in het prijsbereik van <split>$100</split> tot <split>$1000</split> %{quote} per %{base}.'
-        sell: Verkopen
-        smart_intervals_disclaimer: 'De ordergrootte bij %{exchange} wordt bepaald in %{currency}. De minimale ordergrootte is %{minimum}%{currency}.'
-        smart_intervals_disclaimer_base: 'De ordergrootte bij %{exchange} wordt bepaald in %{currency}. De minimale ordergrootte is %{minimum}%{currency}.'
-        smart_intervals_disclaimer_quote: 'De minimale ordergrootte is %{minimum}%{currency}.'
-        start: Start
-        starting: Startend
-        stop: Pauzeren
-        subaccounts_info: 'Gebruik subaccount '
-        week: Week
-        withdraw_interval_html: 'Neem elke <split>2</split> dagen fondsen op.'
-        withdraw_threshold_html: 'Fondsen opnamen zodra er minimum <split>0.001</split> %{currency} beschikbaar is.'
-        withdrawal_percentage: '%{percentage}%'
     days_left:
         one: '1 dag over'
         other: '%{count} dagen over'
-    errors:
-        bitcoin_address_not_updated: 'Bitcoin-adres kon niet worden bijgewerkt'
-        format: '%{attribute}%{message}'
-        frequency_limit: 'Frequentiegrens overschreden'
-        invalid_api_keys: 'Ongeldige tokens'
-        invalid_risk_free_rate_key: 'Ongeldige risicovrije rentetarief sleutel.'
-        unable_to_get_risk_free_rate: 'Kan het risicovrije rentetarief voor %{risk_free_rate_name} niet verkrijgen. Gegevens-API-server is niet bereikbaar.'
-        invalid_number_of_allocations: 'Ongeldig aantal toewijzingen'
-        invalid_allocation_value: 'Ongeldige toewijzingswaarde'
-        messages:
-            accepted: 'moet worden geaccepteerd'
-            already_confirmed: 'was reeds bevestigd, probeer u aan te melden.'
-            bad_2fa_code: 'Ongeldige code. Probeer het opnieuw.'
-            bad_credentials: 'Verkeerde email of wachtwoord.'
-            bad_credentials_with_code: 'Verkeerde email, wachtwoord of 2FA code.'
-            blank: 'kan niet leeg zijn'
-            confirmation: 'komt niet overeen met %{attribute}'
-            confirmation_period_expired: 'moet binnen %{period} worden bevestigd, vraag een nieuwe aan.'
-            empty: 'kan niet leeg zijn'
-            empty_two_fa_token: 'Ontbrekende 2FA code. Probeer het opnieuw.'
-            equal_to: 'moet gelijk zijn aan %{count}'
-            even: 'moet even zijn'
-            exclusion: 'is gereserveerd'
-            expired: 'is verlopen, vraag een nieuwe aan.'
-            greater_than: 'moet groter zijn dan %{count}'
-            greater_than_or_equal_to: 'moet groter zijn dan of gelijk aan %{count}'
-            in: 'moet in %{count} zijn'
-            inclusion: 'staat niet op de lijst'
-            invalid: 'is ongeldig'
-            less_than: 'moet kleiner zijn dan %{count}'
-            less_than_or_equal_to: 'moet kleiner zijn dan of gelijk zijn aan %{count}'
-            model_invalid: 'Validatie mislukt: %{errors}'
-            not_a_number: 'is geen getal'
-            not_an_integer: 'moet een geheel getal zijn'
-            not_found: 'niet gevonden.'
-            not_locked: 'was niet vergrendeld.'
-            not_saved:
-                one: '1 error verbiedt het opslaan van deze %{resource}:'
-                other: '%{count} errors verbieden het opslaan van deze %{resource}:'
-            odd: 'moet oneven zijn'
-            other_than: 'moet verschillend zijn dan %{count}'
-            password_not_match: 'Wachtwoorden komen niet overeen'
-            present: 'moet leeg zijn'
-            too_long:
-                one: 'is te lang (maximum 1 karakter)'
-                other: 'is te lang (maximum %{count} karakters)'
-            too_short:
-                one: 'is te kort (minimum 1 karakter)'
-                other: 'is te kort (minimum %{count} karakters)'
-            too_short_password: 'Wachtwoord is te kort'
-            too_simple_password: 'Het wachtwoord moet tekens bevatten uit elk van deze categorieën: hoofdletters (A-Z), kleine letters (a-z), cijfers (0-9), speciale tekens (bv. #,?,!).'
-            wrong_email: 'Verkeerde email.'
-            wrong_length:
-                one: 'is de verkeerde lengte (moet 1 karakter zijn)'
-                other: 'is de verkeerde lengte (moet %{count} karakters zijn)'
-            wrong_password: 'Verkeerd wachtwoord'
-            wrong_two_fa_token: 'Ingegeven code is verkeerd.'
-        referral_program_inactive: 'Uw verwijzingsprogramma is inactief'
-        unverified_request: 'Vernieuw uw browser en probeer het opnieuw'
     forms:
         for_confirmation: '(ter bevestiging)'
         minimum_length: 'Minimaal %{length} tekens'
@@ -408,11 +84,6 @@ nl:
         settings: Instellingen
         sign_up: Registreren
         terms_and_conditions: 'Algemene voorwaarden'
-    mailer:
-        follow_us_on_x: 'Volg ons op 𝕏'
-        we_reply_faster_on_telegram: 'We reageren sneller op Telegram'
-        greeting: 'Ahoy kapitein,'
-        greeting_name: 'Ahoy %{name},'
     meta:
         desc: 'Start gratis met de meest bewezen strategie die werkt met Binance, Coinbase, Kraken, Kucoin en andere exchanges. Geen KYC.'
         title: 'Deltabadger - Automatiseer Dollar-Cost Averaging voor elke Crypto'
@@ -451,23 +122,6 @@ nl:
         knowledge_base: Kennisbank
         telegram: 'Word lid van onze Telegram-groep'
         twitter: 'Volg ons op 𝕏'
-    subscription_mailer:
-        invoice:
-            subject: 'Factuur'
-            template_html: |
-                <h2>Deltabadger %{plan_name} Plan (%{years}-jarig)</h2>
-                <p> <b>Betaald:</b></p>
-                <h2>%{total_paid} %{currency}</h2>
-                <p><b>Betaald op:</b></p>
-                <p>%{paid_at}</p>
-                <p><b>Verkoper:</b></p>
-                <p>Deltabadger OÜ<br>
-                Pärnu mnt 158/2-88 <br>
-                11317 Tallinn <br> Estland <br>
-                KvK nr.14781461</p>
-                <p><b>Koper:</b></p>
-                <p> %{first_name} %{last_name} <br>
-                %{email}</p>
     subscriptions:
         per_month_html: "/maand"
         per_year_html: "/jaar"
@@ -542,71 +196,6 @@ nl:
             <p>De nieuwe upgrade-pagina is de perfecte plek om alle functies en bijbehorende abonnementen te bekijken.</p>
             <p><a class="button button--success button--large mt-3 mb-3" href="upgrade">Begin hier</a></p>
             <p>Groeten, Jan</p>
-    metrics:
-        exp_return:
-            short_name: 'Verwachte Rendement'
-            short_info: 'Het verwachte jaarlijkse rendement op basis van het CAPM-model.'
-            best: 'Hoogste Verwachte Rendement'
-        cagr:
-            short_name: 'CAGR'
-            short_info: 'Hoeveel uw portefeuille gemiddeld elk jaar is gegroeid.'
-            best: 'Hoogste CAGR'
-        max_drawdown:
-            short_name: 'Max. Terugval'
-            short_info: 'De grootste daling van de waarde van uw portefeuille vanaf het hoogste punt.'
-            best: 'Laagste Max. Terugval'
-        volatility:
-            short_name: 'Risico'
-            short_info: 'Volatiliteit — hoe sterk fluctueert de waarde van je portefeuille in een jaar.'
-            best: 'Laagste risico'
-        var:
-            short_name: 'VaR'
-            short_info: 'Er is 95% kans dat uw portefeuille niet meer dan dit bedrag in één dag verliest.'
-            best: 'Laagste VaR'
-        cvar:
-            short_name: 'CVaR'
-            short_info: 'Als de verliezen de VaR overschrijden, is dit het gemiddelde verlies dat u kunt verwachten.'
-            best: 'Laagste CVaR'
-        sharpe_ratio:
-            short_name: 'Sharpe Ratio'
-            short_info: 'Het rendement dat u krijgt voor het risico dat u neemt.'
-            best: 'Hoogste Sharpe Ratio'
-        sortino_ratio:
-            short_name: 'Sortino Ratio'
-            short_info: 'Vergelijkbaar met de Sharpe Ratio, maar houdt alleen rekening met neerwaarts risico.'
-            best: 'Hoogste Sortino Ratio'
-        calmar_ratio:
-            short_name: 'Calmar Ratio'
-            short_info: 'Het rendement vergeleken met het grootste verlies dat uw portefeuille heeft ervaren.'
-            best: 'Hoogste Calmar Ratio'
-        alpha:
-            short_name: 'Alpha'
-            short_info: 'Hoeveel uw portefeuille beter heeft gepresteerd dan de markt, aangepast voor risico.'
-            best: 'Hoogste Alpha'
-        beta:
-            short_name: 'Beta'
-            short_info: 'Hoe de rendementen van uw portefeuille bewegen in vergelijking met de markt.'
-            best: 'Laagste Beta'
-        treynor_ratio:
-            short_name: 'Treynor Ratio'
-            short_info: 'Het rendement dat u krijgt voor elke eenheid marktrisico.'
-            best: 'Hoogste Treynor Ratio'
-        omega_ratio:
-            short_name: 'Omega Ratio'
-            short_info: 'De kans op winst vergeleken met de kans op verlies.'
-            best: 'Hoogste Omega Ratio'
-        r_squared:
-            short_name: 'R²'
-            short_info: 'Hoe nauwkeurig de rendementen van uw portefeuille overeenkomen met de totale markt.'
-            best: 'Hoogste R²'
-        info_ratio:
-            short_name: 'Info Ratio'
-            short_info: 'Hoe consistent uw portefeuille beter presteert dan de benchmark.'
-            best: 'Hoogste Info Ratio'
-        diversification:
-            short_name: 'Diversificatie'
-            short_info: 'De verscheidenheid aan verschillende investeringen in uw portefeuille om het risico te spreiden.'
-            best: 'Beste Diversificatie'
     analyzer:
         default_portfolio: 'Standaardportefeuille'
         change_portfolio_name: 'Naam wijzigen'
@@ -672,6 +261,8 @@ nl:
         title: "Hoe lang moest je <span>$%{amount}/maand</span> sparen om %{goal}?"
         goal_millionaire: "miljonair te worden"
     alert:
+        bot:
+            bot_updated: 'De bot is succesvol bijgewerkt.'
         portfolio:
             invalid_name: 'Ongeldige portfolionaam.'
             invalid_benchmark: 'Ongeldige benchmarkwaarde.'
