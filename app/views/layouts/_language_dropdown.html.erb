@@ -20,6 +20,9 @@
     <% unless locale == 'pt' %>
       <%= link_to "🇵🇹 Português", url_for(request.params.merge(locale: 'pt')), class: "dropdown__item" %>
     <% end %>
+    <% unless locale == 'it' %>
+      <%= link_to "🇮🇹 Italiano", url_for(request.params.merge(locale: 'it')), class: "dropdown__item" %>
+    <% end %>
     <% unless locale == 'pl' %>
       <%= link_to "🇵🇱 Polski", url_for(request.params.merge(locale: 'pl')), class: "dropdown__item" %>
     <% end %>
