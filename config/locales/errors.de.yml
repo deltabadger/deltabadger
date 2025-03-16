@@ -1,0 +1,73 @@
+de:
+    activerecord:
+        errors:
+            models:
+                affiliate:
+                    attributes:
+                        code:
+                            invalid_format: 'muss aus alphanumerischen Zeichen in Großbuchstaben bestehen'
+                subscription:
+                    attributes:
+                        eth_address:
+                            invalid_address: '"%{eth_address}" ist eine ungültige Ethereum-Adresse. Bitte versuchen Sie es erneut.'
+                asset:
+                    attributes:
+                        portfolio:
+                            max_assets_reached: 'Maximale Anzahl von Assets erreicht.'
+    errors:
+        bitcoin_address_not_updated: 'Deine Bitcoin-Adresse konnte nicht aktualisiert werden'
+        format: '%{attribute} %{message}'
+        frequency_limit: 'Frequenzgrenze überschritten'
+        invalid_api_keys: 'Ungültige Tokens'
+        invalid_risk_free_rate_key: 'Ungültiger risikofreier Zinssatz-Schlüssel.'
+        unable_to_get_risk_free_rate: 'Der risikofreie Zinssatz für %{risk_free_rate_name} kann nicht abgerufen werden. Daten-API-Server ist nicht erreichbar.'
+        invalid_number_of_allocations: 'Ungültige Anzahl von Zuordnungen'
+        invalid_allocation_value: 'Ungültiger Zuordnungswert'
+        messages:
+            accepted: 'muss akzeptiert werden'
+            already_confirmed: 'wurde bereits bestätigt, bitte versuche dich anzumelden.'
+            bad_2fa_code: 'Ungültiger Code. Versuchen Sie es erneut.'
+            bad_credentials: 'Falsche E-Mail oder falsches Passwort.'
+            bad_credentials_with_code: 'Falsche E-Mail, falsches Passwort oder falscher 2FA-Code.'
+            blank: 'darf nicht frei bleiben'
+            confirmation: 'stimmt nicht mit %{attribute} überein'
+            confirmation_period_expired: 'muss innerhalb von %{period} bestätigt werden. Bitte fordere ein neues an.'
+            empty: 'darf nicht leer bleiben'
+            empty_two_fa_token: 'Falscher 2FA-Code. Versuchen Sie es erneut.'
+            equal_to: 'muss gleich %{count} sein'
+            even: 'muss gerade sein'
+            exclusion: 'ist reserviert'
+            expired: 'ist abgelaufen. Bitte fordere ein neues an.'
+            greater_than: 'muss größer als %{count} betragen'
+            greater_than_or_equal_to: 'muss größer oder gleich %{count} betragen'
+            in: 'muss in %{count} liegen'
+            inclusion: 'ist nicht in der Liste beinhaltet'
+            invalid: 'ist ungültig'
+            less_than: 'muss weniger als %{count} betragen'
+            less_than_or_equal_to: 'muss weniger oder gleich %{count} betragen'
+            model_invalid: 'Validierung ist fehlgeschlagen: %{errors}'
+            not_a_number: 'ist keine Zahl'
+            not_an_integer: 'muss eine ganze Zahl sein'
+            not_found: 'Dieser Bot existiert nicht.'
+            not_locked: 'wurde nicht gesperrt.'
+            not_saved:
+                one: '1 Fehler verhinderte das Speichern dieses %{resource}.'
+                other: '%{count} Fehler verhinderte das Speichern dieses %{resource}.'
+            odd: 'muss ungerade sein'
+            other_than: 'darf nicht %{count} sein'
+            password_not_match: 'Die Passwörter stimmen nicht überein'
+            present: 'muss frei sein'
+            too_long:
+                one: 'ist zu lang (maximal %{count} Zeichen)'
+                other: 'ist zu lang (maximal %{count} Zeichen)'
+            too_short:
+                one: 'ist zu kurz (mindestens 1 Zeichen)'
+                other: 'ist zu kurz (mindestens %{count} Zeichen)'
+            wrong_email: 'Falsche E-Mail.'
+            wrong_length:
+                one: 'ist die falsche Länge (sollte %{count} Zeichen lang sein)'
+                other: 'ist die falsche Länge (sollte %{count} Zeichen lang sein)'
+            wrong_password: 'Falsches Passwort'
+            wrong_two_fa_token: 'Falscher 2FA-Code.'
+        referral_program_inactive: 'Dein Werbeprogramm ist nicht aktiv.'
+        unverified_request: 'Bitte lade deinen Browser neu und versuche es noch einmal'

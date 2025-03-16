@@ -1,0 +1,76 @@
+nl:
+    affiliates:
+        add_link_info: 'U kunt uw naam en link naar uw website toevoegen zodat de doorverwezen persoon weet waar de korting vandaan komt. U kan dit veld ook leeg laten:'
+        apply_code:
+            accept: Accepteren
+            reject: Terug
+            title: 'Referral Link'
+        btc_address_changed: 'Bitcoin-adres gewijzigd'
+        btc_address_confirmation_sent: 'Bevestigingsmail verzonden'
+        create:
+            error: 'Verwijzingsprogramma registratie mislukt'
+            free_plan_error: 'Je moet upgraden om je te registreren'
+        current_bitcoin_address: 'Huidig Bitcoin-adres'
+        discount:
+            accepted: 'U heeft de referral link geaccepteerd'
+            already_used: 'U hebt reeds een referral link gebruikt'
+            congrats_html: 'Gefeliciteerd! De <span class="db-form-label-range--discount-percent">%{discount_percent}</span>% korting is actief.'
+            flash_html: 'Hallo! Geniet van %{discount_percent}% korting vanwege <span class="text-success text-success--lighter">%{visible_name}</span>'
+            invalid: 'De referral link lijkt ongeldig of verouderd'
+            referrer_html: 'Dankzij de referral link van <b><a href="%{visible_link}"><span class="db-form-preview--visible_name">%{visible_name}</span></a>.</b>'
+            valid_for: 'Geldig voor de eerste aankoop op het platform.'
+        info_preview: 'Dit is een preview van wat doorverwezen personen zullen zien tijdens de registratie:'
+        invalid_bitcoin_address: 'Bitcoin-adres ongeldig'
+        manual_html: |
+            <div class="widget widget--info">
+              <p class="mt-1">Ons verwijzingsprogramma betaalt <b>20% commissie</b> op elke abonnementsbetaling van uw doorverwezen gebruikers. Er is geen limiet - u blijft verdienen zolang zij geabonneerd blijven. Bijvoorbeeld:</p>
+              <ol>
+                <li>Uw vriend koopt een Pro-plan voor $299/jaar. U verdient $60 in BTC (tegen de wisselkoers van de transactie).</li>
+                <li>Als zij geabonneerd blijven, blijft u $60 verdienen elk jaar dat zij verlengen.</li>
+                <li>Als zij upgraden naar ons Lifetime-plan ($2.000+), verdient u direct $400+ in BTC.</li>
+                <li>Uw inkomsten worden vastgelegd in BTC op het moment van de transactie, waardoor u beschermd bent tegen prijsschommelingen.</li>
+                <li>Commissies worden direct bijgeschreven en maandelijks uitbetaald.</li>
+              </ol>
+              <p><em>Bitcoin verdienen is de beste manier om aan DCA te doen!</em></p>
+            </div>
+        new:
+            checked: 'Ik heb alles nauwkeurig nagekeken.'
+            discount_info_html: 'U <b> verdient <span class="db-form-label-range--earn-percent">%{earn_percent_preview}%</span></b>, en de persoon die werd doorverwezen krijgt <b><span class="db-form-label-range--discount-percent">%{discount_percent_preview}%</span> korting</b>.'
+            discount_preview_html: '<span class="db-form-label-range--discount-percent">%{discount_percent_preview}</span> % korting bij de eerste aankoop.<br>'
+            eu_company: EU-bedrijf
+            payout_address: Uitbetalingsadres
+            pick_referral_code: 'Kies uw referral code'
+            private: Privé
+            program_settings_html: 'Link <span class="text-danger">(kan niet worden gewijzigd)</span>'
+            referrer_info: 'Referrer info'
+            share_html: 'Deel deze link en <span class="text-success">verdien bitcoin</span>'
+            submit: 'Laten we beginnen!'
+            thanks_referral: 'Dankzij de referral link van'
+            title: 'Registratie voor verwijzingsprogramma''s'
+            title_info: 'U kan uw link onmiddellijk delen, maar om Bitcoin-uitbetalingen te ontvangen, moet u eerst de registratie voltooien.'
+            unchangable_warning: 'De instellingen in dit onderdeel kunnen later niet worden gewijzigd.'
+            upgrade: 'Om deel te nemen aan ons befaamde verwijzingsprogramma, dient u te upgraden naar één van onze betaalde abonnementen.'
+            visible_info: 'Zichtbare informatie'
+        program_joined: 'U bent lid geworden van het verwijzingsprogramma'
+        show:
+            deactivated:
+                contact: 'Contacteer ons'
+                notice: 'Dit programma lijkt gedeactiveerd. Neem contact met ons op als u niet zeker weet waarom dit is gebeurd.'
+            expired: 'Oh nee... uw abonnement is verlopen. Verleng uw abonnement om te blijven profiteren van uw verwijzingsprogramma.'
+            info_preview: 'Preview van de info die zichtbaar is voor de doorverwezen persoon:'
+            link_title: 'Uw link'
+            manual_title: 'Hoe werkt het?'
+            paid_commission: 'Betaald (BTC)'
+            paid_so_far: 'Reeds uitbetaald (BTC)'
+            referrals: 'Aantal personen doorverwezen'
+            stats: Stats
+            submit: Update
+            submit_bitcoin_address: 'Bitcoin-adres wijzigen'
+            submit_info: 'Zichtbare informatie wijzigen'
+            title: Verwijzingsprogramma
+            unpaid: 'Te betalen (BTC)'
+            unpaid_commission: 'Te betalen (BTC)'
+            update_bitcoin_address: 'Bitcoin-adres wijzigen'
+            update_info: 'Zichtbare informatie wijzigen'
+            your_link: 'Uw referral link'
+        your_bitcoin_address: 'Uw Bitcoin-adres'

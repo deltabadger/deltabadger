@@ -1,5 +1,7 @@
 <%= turbo_frame_tag "modal" do %>
-  <dialog data-controller="modal--base" data-action="click->modal--base#clickOutside" class="turbo-modal" data-hw-animate-in="animate-modal-in" data-hw-animate-out="animate-modal-out">
-    <%= yield %>
+  <dialog data-controller="modal--base" data-action="click->modal--base#clickOutside" class="dialog" data-hw-animate-in="animate-modal-in" data-hw-animate-out="animate-modal-out">
+    <div class="dialog__vertical-center">
+      <%= yield %>
+    </div>
   </dialog>
 <% end %>

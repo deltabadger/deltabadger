@@ -1,11 +1,12 @@
 <%= render 'layouts/turbo_modal' do %>
-  <%= button_tag class: 'modal__close', data: { action: 'modal--base#animateOutCloseAndCleanUp' } do %>
-    <%= render partial: 'svg/24x24_x' %>
-  <% end %>
-  <div class="modal__body modal__body--regular">
-    <% if @bot.restarting_within_interval? %>
-      <p>
-        <%= t('bots.buttons.start.on_schedule.info_html', time: time_ago_in_words(@bot.next_interval_checkpoint_at)) %>
+  <div class="modal">
+    <div class="modal__body modal__body--regular">
+      <%= button_tag class: 'modal__close', data: { action: 'modal--base#animateOutCloseAndCleanUp' } do %>
+        <%= render partial: 'svg/24x24_x' %>
+      <% end %>
+      <% if @bot.restarting_within_interval? %>
+        <p>
+          <%= t('bots.buttons.start.on_schedule.info_html', time: time_ago_in_words(@bot.next_interval_checkpoint_at)) %>
       </p>
       <div>
         <%= button_to t('bots.buttons.start.on_schedule.skip'), start_api_bot_path(@bot, continue_params: {continue_schedule: false}), class: 'button', data: { action: 'click->modal--base#animateOutCloseAndCleanUp' } %>

@@ -10,6 +10,8 @@
     gap: 3rem
     border-radius: 2rem
     box-shadow: var(--widget-shadow)
+    &--info
+        background: var(--insight-background)
     &.widget--chart
         padding-bottom: 2rem
         @media only screen and (max-width: 549.9px)
@@ -63,7 +65,10 @@
             background-color: var(--pickExchangeItemBg)
     .sinput
         box-shadow: none
-
+    p:last-child
+        margin-bottom: 0
+    strong
+        color: var(--emphasis)
 .data-grid
     background: none
     display: grid

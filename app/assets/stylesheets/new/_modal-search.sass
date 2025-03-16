@@ -1,17 +1,44 @@
+// modal
+.dialog
+    background: var(--modal-backdrop)
+    position: fixed
+    width: 100vw
+    height: 100vh
+    max-height: 100vh
+    max-width: 100vw
+    display: flex
+    justify-content: center
+    align-items: center
+    z-index: 1000
+    border: none
+    &::backdrop
+        display: none
+    &__vertical-center
+        max-height: 100vh
+        position: fixed
+        overflow: scroll
+        padding: 1rem 0
+        @media screen and (min-width: 576px)
+            padding: 2rem 0
 .modal
-    &__body
-        padding: 3rem 6rem 4rem
-        width: 100%
-        max-width: calc(100vw - 2rem)
-        background: var(--modal-background)
-        border-radius: 2rem
-        @media screen and (max-width: 499.9px)
-            padding-left: 3rem
-            padding-right: 3rem
-        @media screen and (min-width: 500px)
-            width: 65rem
-
+    position: relative
+    padding: 3rem 4rem 4rem
+    width: 100vw
+    max-width: calc(100vw - 2rem)
+    background: var(--modal-background)
+    border-radius: 2rem
+    @media screen and (max-width: 499.9px)
+        padding-left: 3rem
+        padding-right: 3rem
+    @media screen and (min-width: 576px)
+        max-width: calc(100vw - 4rem)
+        width: 64rem
+        &--medium
+            width: 104rem
+        &--large
+            width: 128rem
     &__close
+        cursor: pointer
         position: absolute
         top: 3rem
         right: 3rem
@@ -24,7 +51,7 @@
             .flash__message &
                 fill: white
     &__header
-        margin-bottom: 7rem
+        margin-bottom: 3rem
     &__title
         font-size: 2.5rem
         margin-bottom: 0
@@ -35,11 +62,18 @@
         align-items: center
         .db-form__row
             width: 100%
+    .db-form__row
+        margin-bottom: 4rem
 
 .modal--search
     background: var(--modal-background)
     width: 100rem
     max-width: calc(100vw - 2rem)
+    max-height: calc(100vh - 2rem)
+    position: relative
+    @media screen and (min-width: 576px)
+        max-width: calc(100vw - 4rem)
+        max-height: calc(100vh - 4rem)
     &__background
         background: var(--modal-background)
         border-radius: 2rem
@@ -120,15 +154,12 @@
             margin-right: 2.5rem
 
 .community-access-instructions
-    padding: 6rem 4rem 4rem
-    width: 100rem
-    max-width: calc(100vw - 2rem)
+    padding: 4rem 3rem 3rem
     background: var(--modal-background)
     border-radius: 2rem
     display: flex
     flex-direction: column
     align-items: center
-    max-width: 100%
     gap: 4rem
     &__illustration
         width: 16rem !important
@@ -136,6 +167,7 @@
         @media screen and (min-width: 786px)
             width: 24rem !important
     @media screen and (min-width: 786px)
+        padding: 6rem 4rem 4rem
         flex-direction: row
         padding: 10rem
         gap: 8rem

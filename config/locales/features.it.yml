@@ -1,0 +1,121 @@
+it:
+    features:
+        title: "Cosa ottieni:"
+        short:
+            dca: "DCA"
+            withdrawals: "Prelievi automatici"
+            barbell: "Strategia Barbell"
+            indexing: "Ribilanciamento Portfolio"
+            analyzer: "Analizzatore Portfolio"
+        dca:
+            title: "DCA"
+            description_html: "Il nostro classico bot di dollar-cost averaging per exchange crypto. Il primo bot è gratuito."
+        fee_cutter:
+            title: "FeeCutter"
+            description_html: "La commissione è dello 0,5%? Imposta il tuo bot per comprare allo 0,5% sotto il prezzo attuale, e paga zero."
+        automatic_withdrawals:
+            title: "Prelievi Automatici"
+            description_html: "Trasferisci automaticamente le tue crypto nel tuo hardware wallet. Funziona con Kraken."
+        rebalanced_dca:
+            title: "DCA Ribilanciato"
+            description_html: "Vuoi che il tuo portfolio rimanga all'80% Bitcoin e 20% Ethereum? Il DCA ribilanciato manterrà la tua allocazione target."
+        barbell_strategy:
+            title: "Strategia Barbell"
+            description_html: "Il classico barbell bilancia tra asset rischiosi e sicuri come BTC e USDC, ma puoi scegliere qualsiasi due asset disponibili."
+        crypto_index:
+            title: "Indice Crypto"
+            description_html: "Rimani al sicuro dal rischio di un singolo asset. Investi fino a 100 top asset per capitalizzazione di mercato. Crea il tuo ETF crypto personale."
+        custom_portfolios:
+            title: "Portfolio Personalizzati"
+            description_html: "Stai cercando l'Altcoin Season? Escludi Bitcoin dal tuo indice, o crea qualsiasi portfolio personalizzato."
+        portfolio_rebalancing:
+            title: "Ribilanciamento Portfolio"
+            description_html: "Mantieni l'allocazione target ribilanciando periodicamente il tuo portfolio. Caccia il premio dalla raccolta della volatilità o semplicemente mantieni il profilo di rischio del tuo portfolio."
+        portfolio_backtesting:
+            title: "Backtesting Portfolio"
+            description_html: "Testa qualsiasi portfolio di azioni e crypto, dagli ETF Vanguard ai token DeFi."
+        smart_allocation:
+            title: "Allocazione Intelligente"
+            description_html: "Trova l'allocazione degli asset con la volatilità più bassa per qualsiasi portfolio di azioni e crypto."
+        ai_insights:
+            title: "Approfondimenti AI"
+            description_html: "Scopri i punti di forza e di debolezza del tuo portfolio, e ottieni approfondimenti attuabili su come migliorarlo."
+        legendary_badger_nft:
+            title: "Legendary Badger NFT"
+            description_html: |
+                Ogni abbonamento Legendary, oltre all'accesso a vita a tutte le funzionalità, ottiene un <a href="https://legendarybadger.com" target="_blank" alt="Vedi la collezione">NFT Legendary Badger</a> limitato.
+        api_access:
+            title: 'Accesso API'
+            description: 'Accedi a tutte le funzionalità della piattaforma tramite la nostra API RESTful.'
+        automated_trading:
+            title: 'Trading Automatizzato'
+            description: 'Automatizza le tue strategie di trading con i nostri bot avanzati.'
+        backtesting:
+            title: 'Backtesting'
+            description: 'Testa le tue strategie sui dati storici per valutarne l efficacia.'
+        custom_alerts:
+            title: 'Alert Personalizzati'
+            description: 'Crea alert personalizzati basati su prezzo, volume, indicatori tecnici e altro.'
+        custom_indicators:
+            title: 'Indicatori Personalizzati'
+            description: 'Crea e utilizza indicatori tecnici personalizzati per le tue analisi.'
+        custom_strategies:
+            title: 'Strategie Personalizzate'
+            description: 'Crea strategie di trading personalizzate utilizzando il nostro editor visuale o codice.'
+        data_export:
+            title: 'Esportazione Dati'
+            description: 'Esporta i tuoi dati in vari formati per analisi esterne.'
+        exchange_integration:
+            title: 'Integrazione Exchange'
+            description: 'Connetti i tuoi account exchange per il trading automatizzato.'
+        market_data:
+            title: 'Dati di Mercato'
+            description: 'Accedi a dati di mercato in tempo reale e storici per migliaia di asset.'
+        mobile_app:
+            title: 'App Mobile'
+            description: 'Accedi alla piattaforma da qualsiasi luogo con la nostra app mobile.'
+        multi_exchange:
+            title: 'Multi-Exchange'
+            description: 'Gestisci e fai trading su più exchange da un unica interfaccia.'
+        portfolio_analytics:
+            title: 'Analisi del Portafoglio'
+            description: 'Analizza le performance del tuo portafoglio con metriche avanzate.'
+        portfolio_management:
+            title: 'Gestione del Portafoglio'
+            description: 'Gestisci e monitora il tuo portafoglio di asset digitali.'
+        price_alerts:
+            title: 'Alert di Prezzo'
+            description: 'Ricevi notifiche quando il prezzo di un asset raggiunge un livello specifico.'
+        real_time_data:
+            title: 'Dati in Tempo Reale'
+            description: 'Accedi a dati di mercato in tempo reale per prendere decisioni informate.'
+        reporting:
+            title: 'Reportistica'
+            description: 'Genera report dettagliati sulle performance del tuo portafoglio e delle tue strategie.'
+        risk_management:
+            title: 'Gestione del Rischio'
+            description: 'Strumenti avanzati per gestire e mitigare i rischi di trading.'
+        social_trading:
+            title: 'Social Trading'
+            description: 'Segui e copia le strategie di trader di successo.'
+        strategy_marketplace:
+            title: 'Marketplace Strategie'
+            description: 'Acquista, vendi o condividi strategie di trading con altri utenti.'
+        technical_analysis:
+            title: 'Analisi Tecnica'
+            description: 'Strumenti avanzati di analisi tecnica per identificare opportunità di trading.'
+        trading_bots:
+            title: 'Bot di Trading'
+            description: 'Utilizza bot di trading pre-configurati per automatizzare le tue strategie.'
+        trading_signals:
+            title: 'Segnali di Trading'
+            description: 'Ricevi segnali di trading basati su analisi tecniche e fondamentali.'
+        two_factor_auth:
+            title: 'Autenticazione a Due Fattori'
+            description: 'Proteggi il tuo account con l autenticazione a due fattori.'
+        unlimited_portfolios:
+            title: 'Portafogli Illimitati'
+            description: 'Crea e gestisci un numero illimitato di portafogli.'
+        unlimited_watchlists:
+            title: 'Watchlist Illimitate'
+            description: 'Crea e gestisci un numero illimitato di watchlist.' 

@@ -1,0 +1,66 @@
+en:
+    metrics:
+        exp_return:
+            short_name: "Exp. Return"
+            short_info: "The expected yearly return based on the CAPM model."
+            best: "Highest Exp. Return"
+        cagr:
+            short_name: "Avg. Return"
+            short_info: "How much your portfolio has grown on average each year."
+            best: "Highest Avg. Return"
+        max_drawdown:
+            short_name: "Max. Drawdown"
+            short_info: "The biggest drop in your portfolio's value from its highest point."
+            best: "Lowest Max. Drawdown"
+        volatility:
+            short_name: "Risk"
+            short_info: "Volatility — how much your portfolio value fluctuates in a year."
+            best: "Lowest Risk"
+        var:
+            short_name: "VaR"
+            short_info: "There is a 95% chance that your portfolio won't lose more than this amount in a single day."
+            best: "Lowest VaR"
+        cvar:
+            short_name: "CVaR"
+            short_info: "If losses exceed the VaR, this is the average loss you can expect."
+            best: "Lowest CVaR"
+        sharpe_ratio:
+            short_name: "Sharpe Ratio"
+            short_info: "How much return you're getting for the risk you're taking."
+            best: "Highest Sharpe Ratio"
+        sortino_ratio:
+            short_name: "Sortino Ratio"
+            short_info: "Similar to Sharpe Ratio, but only considers downside risk."
+            best: "Highest Sortino Ratio"
+        calmar_ratio:
+            short_name: "Calmar Ratio"
+            short_info: "The return compared to the biggest loss your portfolio has experienced."
+            best: "Highest Calmar Ratio"
+        alpha:
+            short_name: "Alpha"
+            short_info: "How much your portfolio outperformed the market, adjusted for risk."
+            best: "Highest Alpha"
+        beta:
+            short_name: "Beta"
+            short_info: "How your portfolio's returns move compared to the market."
+            best: "Lowest Beta"
+        treynor_ratio:
+            short_name: "Treynor Ratio"
+            short_info: "The return you're getting for each unit of market risk."
+            best: "Highest Treynor Ratio"
+        omega_ratio:
+            short_name: "Omega Ratio"
+            short_info: "The chance of gains compared to the chance of losses."
+            best: "Highest Omega Ratio"
+        r_squared:
+            short_name: "R²"
+            short_info: "How closely your portfolio's returns match the overall market."
+            best: "Highest R²"
+        info_ratio:
+            short_name: "Info. Ratio"
+            short_info: "How consistently your portfolio outperforms the benchmark."
+            best: "Highest Info. Ratio"
+        diversification:
+            short_name: "Diversification"
+            short_info: "The variety of different investments in your portfolio to spread risk."
+            best: "Best Diversification"

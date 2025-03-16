@@ -1,0 +1,106 @@
+it:
+    devise:
+        layout:
+            title: "Portfolio automatizzati per chi cerca la libertà finanziaria"
+            features_html: "Dollar-Cost Averaging &middot; Portfolio Indice &middot; Ribilanciamento &middot; Analizzatore Portfolio &middot; Azioni & Crypto &middot; Community"
+            review:
+                content: "Sono super felice del mio piano a vita Deltabadger, che compra ogni ora le crypto che voglio, così ho tempo per le cose importanti! Grazie per questo strumento meraviglioso."
+        confirmations:
+            confirmed: 'Il tuo indirizzo email è stato confermato con successo.'
+            new:
+                submit: 'Reinvia'
+                title: 'Reinvia istruzioni'
+            send_instructions: 'Riceverai un''email con le istruzioni per confermare il tuo indirizzo email tra pochi minuti.'
+            send_paranoid_instructions: 'Se il tuo indirizzo email esiste nel nostro database, riceverai un''email con le istruzioni per confermare il tuo indirizzo email tra pochi minuti.'
+        passwords:
+            edit:
+                submit: 'Cambia password'
+                title: 'Cambia password'
+            new:
+                submit: 'Invia istruzioni'
+                title: 'Password dimenticata?'
+            no_token: 'Non puoi accedere a questa pagina senza provenire da un''email di reset della password. Se provieni da un''email di reset della password, assicurati di aver utilizzato l''URL completo fornito.'
+            send_instructions: 'Riceverai un''email con le istruzioni su come reimpostare la tua password tra pochi minuti.'
+            send_paranoid_instructions: 'Se il tuo indirizzo email esiste nel nostro database, riceverai un link per il recupero della password al tuo indirizzo email tra pochi minuti.'
+            updated: 'La tua password è stata modificata con successo. Ora sei connesso.'
+            updated_not_active: 'La tua password è stata modificata con successo.'
+            token_expired: 'Il tuo link per reimpostare la password è scaduto. Richiedi un nuovo link.'
+            validations:
+                length: 'Almeno %{count} caratteri'
+                uppercase: 'Contiene un carattere maiuscolo'
+                lowercase: 'Contiene un carattere minuscolo'
+                digit: 'Contiene una cifra'
+                symbol: 'Contiene un simbolo'
+                match: 'Le password corrispondono'
+        registrations:
+            edit:
+                awaiting_confirmation: 'Attualmente, in attesa di conferma per: %{email}'
+            new:
+                email_invalid: 'Email non valida!'
+                email_suggestion_html: 'Email non valida! Intendevi: <b>%{suggestion}</b>'
+                name_invalid: 'Non deve essere reale 👻'
+                submit: 'Registrati'
+                title_html: 'Crea account <span class="text-success">gratuito</span>'
+            signed_up: 'Benvenuto! Ti sei registrato con successo.'
+            signed_up_but_inactive: 'Ti sei registrato con successo. Tuttavia, non abbiamo potuto accederti perché il tuo account non è ancora attivato.'
+            signed_up_but_unconfirmed: 'Un messaggio con un link di conferma è stato inviato al tuo indirizzo email. Segui il link per attivare il tuo account.'
+            update_needs_confirmation: 'Hai aggiornato il tuo account con successo, ma dobbiamo verificare il tuo nuovo indirizzo email. Controlla la tua email e segui il link di conferma per confermare il tuo nuovo indirizzo email.'
+            updated: 'Il tuo account è stato aggiornato con successo.'
+            updated_but_not_signed_in: 'Il tuo account è stato aggiornato con successo, ma poiché la tua password è stata modificata, devi accedere nuovamente.'
+            destroyed: 'Ciao! Il tuo account è stato cancellato con successo. Speriamo di rivederti presto.'
+        sessions:
+            new:
+                forgot_password: 'Password dimenticata?'
+                submit: 'Accedi'
+                title: 'Bentornato!'
+            signed_in: 'Accesso effettuato con successo.'
+            signed_out: 'Disconnessione effettuata con successo.'
+            already_signed_out: 'Disconnessione effettuata con successo.'
+            two_factor:
+                submit: "Verifica"
+                invalid_code: "Codice errato. Riprova."
+        failure:
+            already_authenticated: 'Hai già effettuato l''accesso.'
+            inactive: 'Il tuo account non è ancora attivato.'
+            invalid: '%{authentication_keys} o password non validi.'
+            not_found_in_database: '%{authentication_keys} o password non validi.'
+            timeout: 'La tua sessione è scaduta. Accedi nuovamente per continuare.'
+            unauthenticated: 'Devi accedere o registrarti prima di continuare.'
+            unconfirmed: 'Devi confermare il tuo indirizzo email prima di continuare.'
+        mailer:
+            confirmation_instructions:
+                subject: 'Conferma la tua email'
+                template_html: |
+                    <p>Benvenuto su Deltabadger!</p>
+                    <p>Clicca sul link qui sotto per confermare il tuo indirizzo email:</p>
+                confirm_button: 'Conferma la mia email'
+            email_changed:
+                subject: 'La tua email è stata modificata'
+                template_html: |
+                    <p>Ti contattiamo per informarti che la tua email è stata modificata in %{email}.</p>
+            confirm_email:
+                subject: 'Conferma il tuo nuovo indirizzo email'
+                template_html: |
+                    <p>Ti contattiamo per informarti che la tua email sta per essere modificata in %{unconfirmed_email}.</p>
+            password_change:
+                subject: 'Password Modificata'
+                template_html: |
+                    <p>Ti contattiamo per informarti che la tua password è stata modificata.</p>
+            reset_password_instructions:
+                subject: 'Istruzioni per reimpostare la password'
+                template_html: |
+                    <p>Qualcuno ha richiesto un link per modificare la tua password.</p>
+                    <p>Puoi farlo tramite il link qui sotto:</p>
+                change_password_button: 'Cambia la mia password'
+                ignore_mail_html: |
+                    <p>Se non hai richiesto questo, ignora questa email e la tua password non cambierà.</p>
+                wont_change_html: |
+                    <p>La tua password non cambierà finché non accederai al link sopra e ne creerai una nuova.</p>
+            email_already_taken:
+                subject: 'Email già in uso'
+                message: 'Questa email è già registrata.'
+                reset_password_message: 'Se questo è il tuo account, puoi reimpostare la tua password qui:'
+                reset_password_button: 'Reimposta password'
+        omniauth_callbacks:
+            failure: 'Non è stato possibile autenticarti da %{kind} perché "%{reason}".'
+            success: 'Autenticazione riuscita dall''account %{kind}.' 

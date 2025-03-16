@@ -1,0 +1,146 @@
+pt:
+    bot:
+        new: "Novo bot"
+        start_new_bot: "Create new bot"
+        types:
+            dca:
+                title: "DCA"
+                description: "Investimento programado numa única moeda"
+            barbell:
+                title: "Estratégia Barbell"
+                description: "Mitigar o risco reequilibrando dois ativos"
+            index_portfolio:
+                title: "Portefólio de Índice"
+                description: "Construa o seu ETF pessoal de criptomoedas"
+            custom_portfolio:
+                title: "Portefólio Personalizado"
+                description: "Reequilibrar uma mistura personalizada de ativos"
+        status:
+            setting_orders: "Configurando ordens…"
+            paused: "Pausado"
+        no_orders_info: "As ordens do bot aparecerão aqui"
+        barbell:
+            invest: "Investir"
+            invest_html: "Investir %{input} /mês"
+        utils:
+            mkt_cap_adjusted: "Ajustado por Capitalização de Mercado"
+            mkt_cap_adjusted_info: |
+                A alocação é automaticamente definida com base na capitalização de mercado das moedas em seu portfólio. Quanto maior a capitalização de mercado, maior a alocação.
+    bots:
+        above: acima
+        below: abaixo
+        buttons:
+            automatic_withdrawal: 'Retirada automática'
+            request_exchange: 'Peça para adicionar uma troca'
+            move_existing_bot: 'Mover bot existente para outra troca'
+            delete:
+                cancel: Cancelar
+                ok: 'Remover completamente'
+                text: Eliminar
+                warning_html: 'Isto irá remover o bot<br> com os seus dados históricos. Tem a certeza?'
+            pending:
+                text: Pendente
+            start:
+                changed_missed:
+                    continue: 'Sim, comprar e continuar'
+                    info_html: 'Pretende investir <b>%{amount} %{quote}</b> em falta quando o bot estava em pausa? O novo horário será iniciado quando a contagem decrescente atual terminar.'
+                    skip: 'Ignorar a parte em falta'
+                changed_on_schedule:
+                    continue: Compreendi
+                    info_html: 'O novo horário será iniciado no fim dos restantes <b>%{time}</b> do último horário.'
+                    skip: 'Ignorar e começar imediatamente'
+                missed:
+                    continue: 'Sim, comprar e continuar'
+                    info_html: 'Pretende investir <b>%{amount} %{quote}</b> em falta quando o bot estava em pausa e continuar com o horário original?'
+                    skip: 'Ignorar a parte em falta'
+                on_schedule:
+                    continue: 'Continuar com o horário original'
+                    info_html: 'Ainda tem <b>%{time}</b> até ao próximo pedido. Pode ignorá-lo e executar imediatamente o próximo pedido ou continuar a contagem decrescente original.'
+                    skip: Ignorar
+        buy: Comprar
+        counter: '%{countdown}'
+        day: Dia
+        details:
+            info:
+                title: Informações
+                what_is_dca_html: |
+                    <h3>O que é DCA?</h3>
+                    <p>Imagine o mercado como seu cofrinho. Todos os dias, você coloca uma moeda—seja com preços subindo, descendo ou estáveis.</p>
+                    <p>Chamamos isso de <i>média de custo</i>, mas acredite, não há nada de médio no que você está fazendo.</p>
+                    <p>O investidor médio? Hesita, entra em pânico, vende cedo demais.</p>
+                    <p>Não você.</p>
+                    <p>Você está tranquilo, como o vovô Warren saboreando sua Coca-Cola, deixando o mercado seguir seu curso.</p>
+                    <p>O jogo é longo, mas simples. Começa ao apertar ▶️</p>
+                smart_intervals_html: |
+                    <h3>Intervalos Inteligentes</h3>
+                    <p>As exchanges têm tamanhos mínimos de pedido. Intervalos inteligentes cuidam disso para você:</p>
+                    <p>Quer comprar $5 por dia, mas o mínimo é $10? Eles fazem pedidos de $10 a cada dois dias.</p>
+                daily_weekly_monthly_html: |
+                    <h3>Diário? Semanal? Mensal?</h3>
+                    <p>Surpreendentemente, os resultados a longo prazo são tão próximos que não faz muita diferença.</p>
+                    <p>Mas atenção—se o seu software de declaração de impostos cobrar por transação, é um bom motivo para comprar com menos frequência.</p>
+                    <p>De outra forma, mantenha as transações pequenas e frequentes e deixe a mágica do DCA acontecer mais rápido.</p>
+                withdrawal_html: |
+                    <h3>Saques Automáticos</h3>
+                    <p><i>Se não são suas chaves, não são seus bitcoin.</i> — Andreas Antonopoulos</p>
+                    <p>Saque seus fundos para sua própria carteira. É a maneira mais segura de armazenar suas criptomoedas.</p>
+            log:
+                date: Data
+                errors: Erros
+                title: Registo
+            stats:
+                amount: 'Montante (%{base})'
+                amount1: 'Montante'
+                value: 'Valor (%{quote})'
+                value1: 'Valor'
+                average_price: 'Preço médio'
+                bought: Comprado
+                chart:
+                    total_invested: 'Total investido'
+                csv_download_html: 'A tabela acima mostra apenas as últimas 10 transações. O relatório completo está disponível para transferência no formato CSV, abaixo.'
+                current_value: 'Valor atual'
+                current_value_sold: 'Valor atual de %{base} vendido'
+                date: Data
+                download_csv: 'Transferir .csv'
+                exchange_unavailable_html: 'A API do câmbio não responde atualmente<br>Os cálculos baseiam-se nos últimos dados disponíveis.'
+                order: Pedido
+                profit_loss: Lucro/perda
+                rate: 'Taxa (%{quote})'
+                sold: Vendido
+                title: Estatísticas
+                total_invested: 'Total investido'
+        for: para
+        force_smart_intervals_html: '<b>Intervalos Inteligentes<sup>®</sup></b> · Compre com ordens de <split>$100</split> %{currency} cada uma.'
+        feecutter_html: '<b>FeeCutter<sup>®</sup></b> · Corte taxas com ordens limitadas'
+        hour: Hora
+        limit_buy: 'Limitar compra'
+        limit_sell: 'Limitar venda'
+        messages:
+            symbol_not_supported: "%{symbol} não é suportado"
+            symbol_not_supported_subscription: "%{symbol} não é suportado pela sua assinatura"
+            upgrade_plan_more_bots: "Atualize seu plano para executar mais bots"
+            upgrade_plan_limit_orders: "Atualize seu plano para usar ordens limitadas"
+            specify_percentage_limit_order: "Especifique a porcentagem ao criar uma ordem limitada"
+            smart_intervals_above_minimum: "O valor dos intervalos inteligentes deve ser maior que %{minimum}"
+            invalid_price_range: "A faixa de preço é inválida"
+            upgrade_price_range: "Atualize para usar a faixa de preço"
+            subaccounts_not_allowed: "Subcontas não são permitidas nesta troca"
+            no_subaccount_name: "Nenhum nome de subconta fornecido"
+            wrong_subaccount_name: "Nome de subconta incorreto"
+        minimum_withdrawal_disclaimer: "O tamanho mínimo de retirada é %{minimum} %{currency}."
+        minimum_withdrawal_disclaimer_usd: "O tamanho mínimo de retirada é %{minimum} USD."
+        month: Mês
+        next_buy: 'Próxima compra em %{countdown}'
+        next_sell: 'Próxima venda em %{countdown}'
+        price: 'do preço'
+        price_range_buy_html: 'Comprar apenas no intervalo de preços de <split>$100</split> a <split>$1000</split> %{quote} por %{base}.'
+        price_range_sell_html: 'Vender apenas no intervalo de preços de  <split>$100</split> a <split>$1000</split> %{quote} por %{base}.'
+        sell: Vender
+        smart_intervals_disclaimer: 'A dimensão das ordens em %{exchange} é definida em %{currency}. A dimensão mínima da ordem é %{minimum}%{currency}.'
+        smart_intervals_disclaimer_base: 'A dimensão das ordens em %{exchange} é definida em %{currency}. A dimensão mínima da ordem é %{minimum}%{currency}.'
+        smart_intervals_disclaimer_quote: 'A dimensão da ordem mínima é %{minimum}%{currency}.'
+        start: Iniciar
+        starting: Começar
+        stop: Pausa
+        subaccounts_info: 'Usar subconta'
+        week: Semana

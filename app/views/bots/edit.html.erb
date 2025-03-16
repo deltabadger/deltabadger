@@ -1,11 +1,10 @@
 <%= link_to sanitize("&larr; Back to bot"), bot_path(@bot) %>
 
 <%= render 'layouts/turbo_modal' do %>
-  <%= button_tag class: 'modal__close', data: { action: 'modal--base#animateOutCloseAndCleanUp' } do %>
-    <%= render partial: 'svg/24x24_x' %>
-  <% end %>
-  <div class="modal__body modal__body--regular">
-
+  <div class="modal">
+    <%= button_tag class: 'modal__close', data: { action: 'modal--base#animateOutCloseAndCleanUp' } do %>
+      <%= render partial: 'svg/24x24_x' %>
+    <% end %>
     <div class="modal__header">
        <h1 class="modal__title"><%= t('bots.change_bot_name') %></h1>
     </div>

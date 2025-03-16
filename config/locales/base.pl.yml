@@ -1,353 +1,21 @@
 pl:
-    activerecord:
-        errors:
-            models:
-                affiliate:
-                    attributes:
-                        code:
-                            invalid_format: 'musi składać się z dużych liter i cyfr'
-                subscription:
-                    attributes:
-                        eth_address:
-                            invalid_address: '"%{eth_address}" nie jest poprawnym adresem Ethereum. Spróbuj ponownie.'
-                asset:
-                    attributes:
-                        portfolio:
-                            max_assets_reached: "Maksymalna liczba aktywów osiągnięta."
     ads:
         dca_profit_html: |
             <p>Gdybyś stosował strategię dollar-cost averaging w Bitcoinie przez ostatnie %{years}&nbsp;lata, byłbyś teraz na plusie <b style="color: #00A36C;">%{profit}%</b>.</p>
             <p>To <b style="color: #00A36C;">%{sp500_diff}%</b> więcej niż S&P 500 w tym samym okresie.</p>
-    affiliate_mailer:
-        new_btc_address_confirmation:
-            subject: "Potwierdź nowy adres wypłat"
-            template_html: |
-                <p>Wygląda na to, że chcesz zmienić swój adres wypłat dla programu poleceń:</p>
-                <p><code>%{new_btc_address}</code></p>
-                <p>Potwierdź tę zmianę klikając w poniższy link:</p>
-                <p><a href="%{confirmation_url}" title="Potwierdź nowy adres wypłat">Tak, chcę używać tego adresu do przyszłych wypłat</a></p>
-        referrals_payout_notification:
-            subject: "Czas na wypłatę!"
-            template_html: |
-                <p>Dziękujemy! Deltabadger rośnie tylko dzięki poleceniom.</p>
-                <p>A Twoje naprawdę działają:</p>
-                <p>Właśnie przelaliśmy Ci <b>%{amount} BTC</b>.</p>
-                <p>Najlepsza część? To nie koniec:</p>
-                <p><b>Otrzymasz 20% za każdym razem, gdy polecone osoby przedłużą subskrypcję</b>.</p>
-                <p>Znasz kogoś, kto mógłby skorzystać z Deltabadgera?</p>
-            grow_stream: "Daj im znać i zwiększ swój powracający dochód"
-        registration_reminder:
-            subject: "Wow! Zarobiłeś %{amount} BTC!"
-            template_html: |
-                <p>Czeka na Ciebie nowa prowizja z programu poleceń!</p>
-                <p>Dokończ rejestrację, aby otrzymać swoje bitcoiny:</p>
-            complete_registration: "Dokończ rejestrację"
-    affiliates:
-        add_link_info: 'Możesz dodać swoje imię/nick/nazwę i link do strony internetowej, aby korzystający z linku wiedział, skąd pochodzi. Możesz również pozostawić te pola puste:'
-        apply_code:
-            accept: Akceptuję
-            reject: Powrót
-            title: 'Link polecający'
-        btc_address_changed: 'Adres bitcoinowy został zmieniony'
-        btc_address_confirmation_sent: 'Wysłano e-mail potwierdzający'
-        create:
-            error: 'Rejestracja programu referencyjnego nie powiodła się'
-            free_plan_error: 'Musisz dokonać upgrade''u, aby się zarejestrować'
-        current_bitcoin_address: 'Aktualny adres Bitcoin'
-        discount:
-            accepted: 'Zaakceptowałeś link polecający'
-            already_used: 'Użyłeś już innego linku polecającego'
-            congrats_html: 'Gratulacje! Zniżka <span class="db-form-label-range--discount-percent">%{discount_percent}%</span> jest aktywna.'
-            flash_html: 'Witaj! ciesz się %{discount_percent}% rabatem od <span class="text-success text-success--lighter">%{visible_name}</span>'
-            invalid: 'Link polecający wydaje się nieprawidłowy lub nieaktualny'
-            referrer_html: 'Dzięki linkowi polecającemu od <b><a href="%{visible_link}"><span class="db-form-preview--visible_name">%{visible_name}</span></a></b>.'
-            valid_for: 'Ważny przy pierwszym zakupie na platformie.'
-        info_preview: 'To jest podgląd tego, co korzystający z linku zobaczą podczas rejestracji:'
-        invalid_bitcoin_address: 'Adres bitcoinowy jest nieprawidłowy'
-        manual_html: |
-            <div class="alert alert-success">
-              <p class="mt-1">Nasz program polecający wypłaca <b>20% prowizji</b> od każdej płatności za subskrypcję dokonanej przez polecone osoby. Nie ma limitu - zarabiasz tak długo, jak długo pozostają subskrybentami. Na przykład:</p>
-              <ol>
-                <li>Twój znajomy kupuje plan Pro za 299$/rok. Zarabiasz 60$ w BTC (po kursie z momentu transakcji).</li>
-                <li>Jeśli pozostają subskrybentami, zarabiasz 60$ każdego roku, gdy odnawiają.</li>
-                <li>Jeśli przejdą na nasz plan Lifetime (2000$+), natychmiast zarabiasz 400$+ w BTC.</li>
-                <li>Twoje zarobki są ustalane w BTC w momencie transakcji, chroniąc Cię przed wahaniami cen.</li>
-                <li>Prowizje są naliczane natychmiast i wypłacane miesięcznie.</li>
-              </ol>
-              <p><em>Zarabianie bitcoinów to najlepszy sposób na DCA!</em></p>
-            </div>
-        new:
-            checked: 'Sprawdziłem wszystko dokładnie.'
-            discount_info_html: '<b> Zarobisz <span class="db-form-label-range--earn-percent">%{earn_percent_preview}</span>%</b>, a korzystający z linku otrzyma <b><span class="db-form-label-range--discount-percent">%{discount_percent_preview}</span>% rabatu</b>.'
-            discount_preview_html: '<span class="db-form-label-range--discount-percent">%{discount_percent_preview}%</span> rabatu na pierwszy zakup.<br>'
-            eu_company: 'Firma z Unii Europejskiej'
-            payout_address: 'Adres do wypłat'
-            pick_referral_code: 'Wpisz swój kod referencyjny'
-            private: 'Osoba prywatna'
-            program_settings_html: 'Link <span class="text-danger">(nie można zmienić później)</span>'
-            referrer_info: 'Informacje o polecającym'
-            share_html: 'Udostępnij ten link i <span class="text-success">zarabiaj bitcoiny</span>'
-            submit: Zaczynajmy!
-            thanks_referral: 'Dzięki linkowi referencyjnemu od'
-            title: 'Rejestracja do programu polecającego'
-            title_info: 'Możesz od razu zacząć udostępniać swój link, ale aby otrzymywać wypłaty w BTC, musisz najpierw zakończyć rejestrację.'
-            unchangable_warning: 'Ustawienia w tej sekcji nie mogą być później zmienione.'
-            upgrade: 'Aby dołączyć do naszego słynnego programu poleceń, uaktualnij do jednego z naszych płatnych planów.'
-            visible_info: 'Widoczne informacje'
-        program_joined: 'Przystąpiłeś do programu referencyjnego'
-        show:
-            deactivated:
-                contact: 'Skontaktuj się z nami'
-                notice: 'Wygląda na to, że ten program został zdezaktywowany. Skontaktuj się z nami, jeśli nie jesteś pewien, dlaczego tak się stało.'
-            expired: 'O nie… Twoja subskrypcja wygasła. Odnów swój plan, aby nadal korzystać z programu.'
-            info_preview: 'Podgląd informacji widocznych dla korzystającego z linku:'
-            link_title: 'Twój link'
-            manual_title: 'Jak to działa?'
-            paid_commission: 'Wypłacone (BTC)'
-            paid_so_far: 'Wpłacono (BTC)'
-            referrals: Użytkownicy
-            stats: Statystyki
-            submit: Zaktualizuj
-            submit_bitcoin_address: 'Zaktualizuj adres Bitcoin'
-            submit_info: 'Zaktualizuj widoczną informację'
-            title: 'Program referencyjny'
-            unpaid: 'Do wypłaty (BTC)'
-            unpaid_commission: 'Do wypłaty (BTC)'
-            update_bitcoin_address: 'Zaktualizuj adres Bitcoin'
-            update_info: 'Zaktualizuj widoczną informację'
-            your_link: 'Twój link polecający'
-        your_bitcoin_address: 'Twój adres bitcoinowy'
-    bot_alerts_mailer:
-        successful_webhook_bot_transaction:
-            subject: "Transakcja zakończona sukcesem"
-            template_html: "transakcja udana, base: %{base}, quote: %{quote}, nazwa bota: %{bot_name}, typ: %{type}, cena: %{price}, giełda: %{exchange_name}"
-        end_of_funds:
-            subject: "Twojemu botowi wkrótce zabraknie środków"
-            template_html: "<p>Wygląda na to, że twojemu botowi <b>%{label}</b> wkrótce zabraknie %{quote}.</p><p>Wykonaj przelew na %{exchange_name}, aby bot mógł działać nieprzerwanie.</p>"
-        notify_about_error:
-            subject: "Coś poszło nie tak"
-            template_html: "<p>Coś poszło nie tak podczas przetwarzania ostatniej transakcji dla bota <b>%{label}</b>.</p><p>Możesz zobaczyć błąd w logach bota. Zaloguj się, aby to sprawdzić.</p><p>Błędy:</p><blockquote> <b>%{exchange_name}:</b> <b>%{errors}</b></blockquote>"
-        notify_about_restart:
-            subject: "Ups! Następna próba…"
-            template_html: "<p>Bot <b>%{label}</b> nie mógł wykonać twojego zlecenia. Wygląda na problem z giełdą. Spróbujemy ponownie za %{delay}.</p><p>Wszystkie błędy są widoczne w logach bota. Zaloguj się, aby je sprawdzić.</p><p>Błędy:</p><blockquote> <b>%{exchange_name}:</b> <b>%{errors}</b> </blockquote>"
     button:
         connect: "Połącz"
-    bot:
-        new: "Nowy bot"
-        status:
-            setting_orders: "Inicjowanie zleceń…"
-            paused: "Zatrzymany"
-        no_orders_info: "Zamówienia bota pojawią się tutaj"
-        barbell:
-            invest: "Inwestuj"
-            invest_html: "Inwestuj %{input} /miesiąc"
-        utils:
-            mkt_cap_adjusted: "Dostosowane do kapitalizacji rynkowej"
-            mkt_cap_adjusted_info: |
-                Alokacja jest automatycznie ustawiana na podstawie kapitalizacji rynkowej monet w twoim portfelu. Im większa kapitalizacja rynkowa, tym większa alokacja.
     data_labels:
         bought_ticker: "Kupiono (%{ticker})"
         avg_price_ticker: "Śr. cena (%{ticker})"
         invested_ticker: "Zainwestowano (%{ticker})"
         value_ticker: "Wartość (%{ticker})"
         date: "Data"
-    bots:
-        above: powyżej
-        below: poniżej
-        buttons:
-            automatic_withdrawal: 'Automatyczna wypłata'
-            request_exchange: 'Poproś o dodanie giełdy'
-            move_existing_bot: 'Przenieś istniejącego bota na inną giełdę'
-            delete:
-                cancel: Anuluj
-                ok: 'Usuń całkowicie'
-                text: Usuń
-                warning_html: 'Spowoduje to usunięcie bota wraz z jego wszystkimi<br>danymi historycznymi. Czy jesteś pewien?'
-            dollar_cost_averaging: 'Uśrednianie ceny (DCA)'
-            pending:
-                info_html: Przetwarzanie...
-                text: 'W trakcie…'
-            start:
-                changed_missed:
-                    continue: 'Tak, kup i kontynuuj'
-                    info_html: 'Czy chcesz zainwestować <b>%{amount} %{quote}</b> pominięte w czasie gdy bot był wstrzymany? Nowy harmonogram rozpocznie się po zakończeniu bieżącego odliczania.'
-                    skip: 'Zignoruj pominiętą część'
-                changed_on_schedule:
-                    continue: Rozumiem
-                    info_html: 'Nowy harmonogram rozpocznie się po upływie <b>%{time}</b> pozostałego do końca bieżącego odliczania.'
-                    skip: 'Zignoruj to i zacznij teraz'
-                missed:
-                    continue: 'Tak, kup i kontynuuj'
-                    info_html: 'Czy chcesz zainwestować <b>%{amount} %{quote}</b> pominięte w czasie gdy bot był wstrzymany i kontynuować pierwotny harmonogram?'
-                    skip: 'Pomiń zaległą część'
-                on_schedule:
-                    continue: 'Kontynuuj zgodnie z planem'
-                    info_html: 'Do następnego zlecenia pozostało jeszcze <b>%{time}</b>. Możesz je pominąć i od razu wykonać następne lub kontynuować oryginalne odliczanie.'
-                    skip: Omiń
-        buy: Kup
-        counter: '%{countdown}'
-        day: Dzień
-        details:
-            info:
-                title: Info
-                what_is_dca_html: |
-                    <h3>Co to jest DCA?</h3>
-                    <p>Wyobraź sobie rynek jako swoją skarbonkę. Codziennie wrzucasz do niej monetę—niezależnie od tego, czy ceny rosną, spadają, czy stoją w miejscu.</p>
-                    <p>Nazywamy to <i>uśrednianiem</i>, ale uwierz mi, w tym co robisz, nie ma nic przeciętnego.</p>
-                    <p>Przeciętny inwestor? Waha się, wpada w panikę, sprzedaje za wcześnie.</p>
-                    <p>Ale nie ty.</p>
-                    <p>Ty czilujesz jak dziadek Warren, popijając swoją Colę i pozwalając rynkowi działać.</p>
-                    <p>Gra jest długa, ale prosta. Zaczyna się od naciśnięcia ▶️</p>
-                smart_intervals_html: |
-                    <h3>Inteligentne Interwały</h3>
-                    <p>Giełdy mają minimalne kwoty zamówień. Inteligentne interwały to za Ciebie załatwią:</p>
-                    <p>Chcesz kupować za 5$ dziennie, ale minimalna kwota to 10$? Zrealizują zamówienie na 10$ co drugi dzień.</p>
-                daily_weekly_monthly_html: |
-                    <h3>Dziennie? Co tydzień? Co miesiąc?</h3>
-                    <p>Co zaskakujące, wyniki długoterminowe są tak bliskie, że to naprawdę nie ma znaczenia.</p>
-                    <p>Ale uważaj—jeśli twoje oprogramowanie do rozliczeń podatkowych nalicza opłaty za transakcję, to dobry powód, żeby kupować rzadziej.</p>
-                    <p>W przeciwnym razie trzymaj transakcje małe i częste, i pozwól, aby magia DCA zaczęła działać szybciej.</p>
-                withdrawal_html: |
-                    <h3>Automatyczne Wypłaty</h3>
-                    <p><i>Nie Twoje klucze, nie Twój Bitcoin.</i> — Andreas Antonopoulos</p>
-                    <p>Wypłać swoje środki do własnego portfela. To najbezpieczniejszy sposób przechowywania kryptowalut.</p>
-            log:
-                date: Data
-                errors: Błędy
-                title: Log
-            stats:
-                amount: 'Ilość (%{base})'
-                amount1: 'Ilość'
-                value: 'Wartość (%{quote})'
-                value1: 'Wartość'
-                average_price: 'Średnia cena'
-                bought: Zakupione
-                chart:
-                    total_invested: 'Zainwestowana suma'
-                    value: Wartość
-                csv_download_html: 'Powyższa tabela przedstawia tylko dziesięć ostatnich transakcji. Pełny raport jest dostępny do pobrania w formacie CSV poniżej.'
-                current_value: 'Bieżąca wartość'
-                current_value_sold: 'Aktualna wartość sprzedanych %{base}'
-                date: Data
-                download_csv: 'Pobierz .csv'
-                exchange_unavailable_html: 'API giełdy nie odpowiada w tej chwili.<br>Obliczenia są oparte na ostatnich dostępnych danych.'
-                order: Zlecenie
-                profit_loss: Zysk/Strata
-                rate: 'Kurs (%{quote})'
-                sold: Sprzedane
-                title: Statystyki
-                total_invested: 'Zainwestowana suma'
-        for: za
-        force_smart_intervals_html: '<b>Inteligentne Interwały<sup>®</sup></b> · Kupuj za pomocą zleceń o wartości <split>100$</split> %{currency} każde.'
-        feecutter_html: '<b>FeeCutter<sup>®</sup></b> · Zmniejsz opłaty za pomocą zleceń z limitem'
-        hour: Godzina
-        limit_buy: 'Kup z limitem'
-        limit_sell: 'Sprzedaj z limitem'
-        messages:
-            symbol_not_supported: "%{symbol} nie jest obsługiwany"
-            symbol_not_supported_subscription: "%{symbol} nie jest obsługiwany przez twoją subskrypcję"
-            upgrade_plan_more_bots: "Zrób upgrade, aby uruchomić więcej botów"
-            upgrade_plan_limit_orders: "Zrób upgrade, aby używać zleceń z limitem"
-            specify_percentage_limit_order: "Podaj procent przy tworzeniu zlecenia z limitem"
-            smart_intervals_above_minimum: "Wartość inteligentnych interwałów powinna być większa niż %{minimum}"
-            invalid_price_range: "Zakres cenowy jest nieprawidłowy"
-            upgrade_price_range: "Zrób upgrade, aby używać zakresu cenowego"
-            subaccounts_not_allowed: "Subkonta nie są dozwolone na tej giełdzie"
-            no_subaccount_name: "Nie podano nazwy subkonta"
-            wrong_subaccount_name: "Nieprawidłowa nazwa subkonta"
-        minimum_withdrawal_disclaimer: 'Minimalna wielkość wypłaty to %{minimum} %{currency}.'
-        minimum_withdrawal_disclaimer_usd: 'Minimalna wielkość wypłaty to %{minimum} USD.'
-        month: Miesiąc
-        next_buy: 'Kolejna za %{countdown}'
-        next_sell: 'Kolejna za %{countdown}'
-        next_withdrawal: 'Kolejna za %{countdown}'
-        price: 'aktualnej ceny'
-        price_range_buy_html: 'Kupuj tylko w przedziale cenowym od <split>$100</split> do <split>$1000</split> %{quote} za %{base}.'
-        price_range_sell_html: 'Sprzedawaj tylko w przedziale cenowym od <split> 100 USD </split> do <split> 1000 USD </split> %{quote} za %{base}.'
-        sell: Sprzedaj
-        smart_intervals_disclaimer: '%{exchange} definiuje zlecenia w %{currency}. Minimalna wielkość zlecenia to %{minimum} %{currency}.'
-        smart_intervals_disclaimer_base: '%{exchange} definiuje zlecenia w %{currency}. Minimalna wielkość zlecenia to %{minimum} %{currency}.'
-        smart_intervals_disclaimer_quote: 'Minimalna wielkość zlecenia to%{minimum}%{currency}.'
-        start: Start
-        starting: Uruchamianie
-        stop: Wstrzymaj
-        subaccounts_info: 'Użyj subkonta'
-        week: Tydzień
-        withdraw_interval_html: 'Wypłacaj co <split>2</split> dni.'
-        withdraw_threshold_html: 'Wypłać, gdy dostępne jest co najmniej <split>0,001</split> %{currency}.'
-        withdrawal_percentage: '%{percentage}%'
     days_left:
         one: 'Pozostał 1 dzień'
         few: 'Pozostały %{count} dni'
         many: 'Pozostało %{count} dni'
         other: 'Pozostało %{count} dni'
-    errors:
-        bitcoin_address_not_updated: 'Adres bitcoinowy nie mógł zostać zaktualizowany'
-        format: '%{attribute}%{message}'
-        frequency_limit: 'Przekroczyłeś limit częstotliwości'
-        invalid_api_keys: 'Nieprawidłowe tokeny'
-        invalid_risk_free_rate_key: 'Nieprawidłowy klucz wolnej od ryzyka stopy procentowej.'
-        unable_to_get_risk_free_rate: 'Nie można uzyskać wolnej od ryzyka stopy procentowej dla %{risk_free_rate_name}. Serwer API danych jest niedostępny.'
-        invalid_number_of_allocations: 'Nieprawidłowa liczba alokacji'
-        invalid_allocation_value: 'Nieprawidłowa wartość alokacji'
-        messages:
-            accepted: 'musi zostać zaakceptowany'
-            already_confirmed: 'został już potwierdzony, spróbuj się zalogować.'
-            bad_2fa_code: 'Błędny kod 2FA. Spróbuj ponownie.'
-            bad_credentials: 'Błędny e-mail lub hasło.'
-            bad_credentials_with_code: 'Błędny adres e-mail, hasło lub kod 2FA.'
-            blank: 'nie może być puste'
-            confirmation: 'nie pasuje do %{attribute}'
-            confirmation_period_expired: 'musi zostać potwierdzony w ciągu %{period}. Poproś o nowy.'
-            empty: 'nie może być puste'
-            empty_two_fa_token: 'Pominięty kod 2FA. Spróbuj ponownie.'
-            equal_to: 'musi być równa %{count}'
-            even: 'musi być równa'
-            exclusion: 'jest zarezerwowany'
-            expired: 'wygasł, poproś o nowy.'
-            greater_than: 'musi być większa niż %{count}'
-            greater_than_or_equal_to: 'musi być większa lub równa %{count}'
-            in: 'musi być w %{count}'
-            inclusion: 'nie znajduje się na liście'
-            invalid: 'jest nieważny'
-            less_than: 'musi być mniejsza niż %{count}'
-            less_than_or_equal_to: 'musi być mniejsza lub równa %{count}'
-            model_invalid: 'Weryfikacja nie powiodła się: %{errors}'
-            not_a_number: 'nie jest liczbą'
-            not_an_integer: 'musi być liczbą całkowitą'
-            not_found: 'Taki bot nie istnieje.'
-            not_locked: 'nie był zablokowany.'
-            not_saved:
-                one: '1 błąd uniemożliwił zapisanie  %{resource}:'
-                few: '%{cound} błędy uniemożliwiły zapisanie  %{resource}:'
-                many: '%{cound} błędów uniemożliwiło zapisanie  %{resource}:'
-                other: '%{cound} błędów uniemożliwiło zapisanie  %{resource}:'
-            odd: 'musi być nieparzysta'
-            other_than: 'nie może wynosić %{count}'
-            password_not_match: 'Hasła nie są zgodne'
-            present: 'musi być puste'
-            too_long:
-                one: 'Za dużo znaków (nie może być więcej niż 1 znak)'
-                few: 'Za dużo znaków (nie może być więcej niż %{count} znaki)'
-                many: 'Za dużo znaków (nie może być więcej niż %{count} znaków)'
-                other: 'Za dużo znaków (nie może być więcej niż %{count} znaków)'
-            too_short:
-                one: 'Za mało znaków (musi być co najmniej 1 znak)'
-                few: 'Za mało znaków (muszą być co najmniej %{count} znaki)'
-                many: 'Za mało znaków (musi być co najmniej %{count} znaków)'
-                other: 'Za mało znaków (musi być co najmniej %{count} znaków)'
-            too_short_password: 'Hasło jest za krótkie'
-            too_simple_password: 'Hasło musi zawierać znaki z każdej z następujących kategorii: duże litery (A-Z), małe litery (a-z), cyfry (0-9), znaki specjalne (np. #,?,!).'
-            wrong_email: 'Błędny adres e-mail.'
-            wrong_length:
-                one: 'Błędna długość (musi być 1 znak)'
-                few: 'Błędna długość (muszą być %{count} znaki)'
-                many: 'Błędna długość (musi być %{count} znaków)'
-                other: 'Błędna długość (musi być %{count} znaków)'
-            wrong_password: 'Błędne hasło.'
-            wrong_two_fa_token: 'Podany kod jest nieprawidłowy.'
-        referral_program_inactive: 'Twój program referencyjny jest nieaktywny'
-        unverified_request: 'Odśwież przeglądarkę i spróbuj ponownie'
     forms:
         for_confirmation: '(dla potwierdzenia)'
         minimum_length: 'Co najmniej %{length} znaków'
@@ -418,11 +86,6 @@ pl:
         settings: Ustawienia
         sign_up: 'Stwórz konto'
         terms_and_conditions: Regulamin
-    mailer:
-        follow_us_on_x: 'Śledź nas na 𝕏'
-        we_reply_faster_on_telegram: 'Szybciej odpowiadamy na Telegramie'
-        greeting: 'Hej kapitanie,'
-        greeting_name: 'Hej %{name},'
     meta:
         desc: 'Wystartuj za darmo najlepiej sprawdzoną strategię DCA, która działa z Binance, Coinbase, Kraken, Kucoin i innymi giełdami. Bez KYC.'
         title: 'Deltabadger • Automatyczne uśrednianie ceny dowolnej kryptowaluty'
@@ -463,23 +126,6 @@ pl:
         knowledge_base: 'Baza wiedzy'
         telegram: 'Dołącz do naszej grupy na Telegramie'
         twitter: 'Śledź nas na 𝕏'
-    subscription_mailer:
-        invoice:
-            subject: 'Rachunek'
-            template_html: |
-                <h2>Plan Deltabadger %{plan_name} (%{years}-letni)</h2>
-                <p> <b>Zapłacono:</b></p>
-                <h2>%{total_paid} %{currency}</h2>
-                <p><b>Data płatności:</b></p>
-                <p>%{paid_at}</p>
-                <p><b>Sprzedawca:</b></p>
-                <p>Deltabadger OÜ<br>
-                Pärnu mnt 158/2-88 <br>
-                11317 Tallinn <br> Estonia <br>
-                Nr rej. 14781461</p>
-                <p><b>Nabywca:</b></p>
-                <p> %{first_name} %{last_name} <br>
-                %{email}</p>
     subscriptions:
         free: Oszczędny
         per_month_html: "/miesiąc"
@@ -558,71 +204,6 @@ pl:
             <p>Nowa strona aktualizacji to świetne miejsce, aby zapoznać się ze wszystkimi funkcjami i planami, do których należą.</p>
             <p><a class="button button--success button--large mt-3 mb-3" href="upgrade">Zacznij tutaj</a></p>
             <p>Pozdrawiam, Jan</p>
-    metrics:
-        exp_return:
-            short_name: 'Oczekiwany Zwrot'
-            short_info: 'Oczekiwany roczny zwrot na podstawie modelu CAPM.'
-            best: 'Najwyższy Oczekiwany Zwrot'
-        cagr:
-            short_name: 'CAGR'
-            short_info: 'Średni roczny wzrost wartości portfela.'
-            best: 'Najwyższy CAGR'
-        max_drawdown:
-            short_name: 'Maks. Spadek'
-            short_info: 'Największy spadek wartości portfela od najwyższego punktu.'
-            best: 'Najniższy Maks. Spadek'
-        volatility:
-            short_name: 'Ryzyko'
-            short_info: 'Zmienność — jak bardzo wartość portfela zmienia się w ciągu roku.'
-            best: 'Najniższe ryzyko'
-        var:
-            short_name: 'VaR'
-            short_info: 'Istnieje 95% szans, że portfel nie straci więcej niż tę kwotę w ciągu jednego dnia.'
-            best: 'Najniższy VaR'
-        cvar:
-            short_name: 'CVaR'
-            short_info: 'Jeśli straty przekraczają VaR, jest to średnia strata, jakiej można się spodziewać.'
-            best: 'Najniższy CVaR'
-        sharpe_ratio:
-            short_name: 'Wskaźnik Sharpe''a'
-            short_info: 'Ilość zwrotu za podejmowane ryzyko.'
-            best: 'Najwyższy Wskaźnik Sharpe''a'
-        sortino_ratio:
-            short_name: 'Wskaźnik Sortino'
-            short_info: 'Podobny do wskaźnika Sharpe''a, ale uwzględnia tylko ryzyko spadku.'
-            best: 'Najwyższy Wskaźnik Sortino'
-        calmar_ratio:
-            short_name: 'Wskaźnik Calmar'
-            short_info: 'Zwrot w porównaniu do największej straty, jaką poniósł portfel.'
-            best: 'Najwyższy Wskaźnik Calmar'
-        alpha:
-            short_name: 'Alpha'
-            short_info: 'Ile portfel przewyższył rynek, z uwzględnieniem ryzyka.'
-            best: 'Najwyższa Alpha'
-        beta:
-            short_name: 'Beta'
-            short_info: 'Jak zwroty portfela poruszają się w porównaniu do rynku.'
-            best: 'Najniższa Beta'
-        treynor_ratio:
-            short_name: 'Wskaźnik Treynora'
-            short_info: 'Zwrot za każdą jednostkę ryzyka rynkowego.'
-            best: 'Najwyższy Wskaźnik Treynora'
-        omega_ratio:
-            short_name: 'Wskaźnik Omega'
-            short_info: 'Szansa na zyski w porównaniu do szans na straty.'
-            best: 'Najwyższy Wskaźnik Omega'
-        r_squared:
-            short_name: 'R²'
-            short_info: 'Jak blisko zwroty portfela odpowiadają całemu rynkowi.'
-            best: 'Najwyższy R²'
-        info_ratio:
-            short_name: 'Wskaźnik Informacyjny'
-            short_info: 'Jak konsekwentnie portfel przewyższa benchmark.'
-            best: 'Najwyższy Wskaźnik Informacyjny'
-        diversification:
-            short_name: 'Dywersyfikacja'
-            short_info: 'Różnorodność inwestycji w portfelu w celu rozproszenia ryzyka.'
-            best: 'Najlepsza Dywersyfikacja'
     analyzer:
         default_portfolio: 'Domyślne portfolio'
         change_portfolio_name: 'Zmień nazwę'
@@ -688,6 +269,8 @@ pl:
         title: "Jak długo musiałbyś oszczędzać <span>$%{amount}/miesięcznie,</span> aby %{goal}?"
         goal_millionaire: "zostać milionerem"
     alert:
+        bot:
+            bot_updated: 'Bot został pomyślnie zaktualizowany.'
         portfolio:
             invalid_name: 'Nieprawidłowa nazwa portfela.'
             invalid_benchmark: 'Nieprawidłowa wartość benchmarku.'

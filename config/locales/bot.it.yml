@@ -1,0 +1,291 @@
+it:
+    bot:
+        new: "Nuovo bot"
+        start_new_bot: "Crea nuovo bot"
+        types:
+            dca:
+                title: "DCA"
+                description: "Dollar-cost averaging su singola moneta"
+            barbell:
+                title: "Strategia Barbell"
+                description: "Mitiga il rischio ribilanciando due asset"
+            index_portfolio:
+                title: "Portfolio Indice"
+                description: "Costruisci il tuo ETF crypto personale"
+            custom_portfolio:
+                title: "Portfolio Personalizzato"
+                description: "Ribilancia mix di asset personalizzato"
+        status:
+            setting_orders: "Impostazione ordini…"
+            paused: "In pausa"
+        no_orders_info: "Gli ordini del bot appariranno qui"
+        pick_exchange: "Scegli Exchange"
+        add_api_keys: "Aggiungi chiavi API per %{exchange}"
+        barbell:
+            invest: "Investi"
+            invest_html: "Investi %{input} /mese"
+        utils:
+            mkt_cap_adjusted: "Regolato per Capitalizzazione di Mercato"
+            mkt_cap_adjusted_info: |
+                L'allocazione è impostata automaticamente in base alla capitalizzazione di mercato delle monete nel tuo portfolio. Maggiore è la capitalizzazione di mercato, maggiore sarà l'allocazione.
+        actions:
+            add_asset: 'Aggiungi Asset'
+            add_asset_to_portfolio: 'Aggiungi Asset al Portafoglio'
+            add_to_portfolio: 'Aggiungi al Portafoglio'
+            add_to_watchlist: 'Aggiungi alla Watchlist'
+            allocate: 'Alloca'
+            allocate_assets: 'Alloca Asset'
+            allocate_portfolio: 'Alloca Portafoglio'
+            allocate_portfolio_assets: 'Alloca Asset del Portafoglio'
+            allocate_watchlist: 'Alloca Watchlist'
+            allocate_watchlist_assets: 'Alloca Asset della Watchlist'
+            allocation_history: 'Cronologia Allocazioni'
+            allocation_history_for: 'Cronologia Allocazioni per %{name}'
+            allocation_history_for_portfolio: 'Cronologia Allocazioni per il Portafoglio'
+            allocation_history_for_watchlist: 'Cronologia Allocazioni per la Watchlist'
+            allocation_settings: 'Impostazioni Allocazione'
+            allocation_settings_for: 'Impostazioni Allocazione per %{name}'
+            allocation_settings_for_portfolio: 'Impostazioni Allocazione per il Portafoglio'
+            allocation_settings_for_watchlist: 'Impostazioni Allocazione per la Watchlist'
+            back: 'Indietro'
+            back_to_portfolio: 'Torna al Portafoglio'
+            back_to_watchlist: 'Torna alla Watchlist'
+            cancel: 'Annulla'
+            clear_portfolio: 'Svuota Portafoglio'
+            clear_watchlist: 'Svuota Watchlist'
+            close: 'Chiudi'
+            confirm: 'Conferma'
+            create_portfolio: 'Crea Portafoglio'
+            create_watchlist: 'Crea Watchlist'
+            delete: 'Elimina'
+            delete_portfolio: 'Elimina Portafoglio'
+            delete_watchlist: 'Elimina Watchlist'
+            edit: 'Modifica'
+            edit_portfolio: 'Modifica Portafoglio'
+            edit_watchlist: 'Modifica Watchlist'
+            help: 'Aiuto'
+            home: 'Home'
+            login: 'Accedi'
+            logout: 'Esci'
+            manage_portfolio: 'Gestisci Portafoglio'
+            manage_watchlist: 'Gestisci Watchlist'
+            new_allocation: 'Nuova Allocazione'
+            new_allocation_for: 'Nuova Allocazione per %{name}'
+            new_allocation_for_portfolio: 'Nuova Allocazione per il Portafoglio'
+            new_allocation_for_watchlist: 'Nuova Allocazione per la Watchlist'
+            new_portfolio: 'Nuovo Portafoglio'
+            new_watchlist: 'Nuova Watchlist'
+            next: 'Avanti'
+            portfolio: 'Portafoglio'
+            portfolio_details: 'Dettagli Portafoglio'
+            portfolio_history: 'Cronologia Portafoglio'
+            portfolio_settings: 'Impostazioni Portafoglio'
+            previous: 'Precedente'
+            register: 'Registrati'
+            remove: 'Rimuovi'
+            remove_asset: 'Rimuovi Asset'
+            remove_from_portfolio: 'Rimuovi dal Portafoglio'
+            remove_from_watchlist: 'Rimuovi dalla Watchlist'
+            save: 'Salva'
+            save_allocation: 'Salva Allocazione'
+            save_changes: 'Salva Modifiche'
+            save_portfolio: 'Salva Portafoglio'
+            save_watchlist: 'Salva Watchlist'
+            search: 'Cerca'
+            search_assets: 'Cerca Asset'
+            settings: 'Impostazioni'
+            submit: 'Invia'
+            update: 'Aggiorna'
+            update_allocation: 'Aggiorna Allocazione'
+            update_portfolio: 'Aggiorna Portafoglio'
+            update_watchlist: 'Aggiorna Watchlist'
+            view: 'Visualizza'
+            view_allocation: 'Visualizza Allocazione'
+            view_allocation_history: 'Visualizza Cronologia Allocazioni'
+            view_portfolio: 'Visualizza Portafoglio'
+            view_watchlist: 'Visualizza Watchlist'
+            watchlist: 'Watchlist'
+            watchlist_details: 'Dettagli Watchlist'
+            watchlist_history: 'Cronologia Watchlist'
+            watchlist_settings: 'Impostazioni Watchlist'
+        messages:
+            allocation_created: 'Allocazione creata con successo.'
+            allocation_deleted: 'Allocazione eliminata con successo.'
+            allocation_updated: 'Allocazione aggiornata con successo.'
+            asset_added: 'Asset aggiunto con successo.'
+            asset_removed: 'Asset rimosso con successo.'
+            portfolio_cleared: 'Portafoglio svuotato con successo.'
+            portfolio_created: 'Portafoglio creato con successo.'
+            portfolio_deleted: 'Portafoglio eliminato con successo.'
+            portfolio_updated: 'Portafoglio aggiornato con successo.'
+            watchlist_cleared: 'Watchlist svuotata con successo.'
+            watchlist_created: 'Watchlist creata con successo.'
+            watchlist_deleted: 'Watchlist eliminata con successo.'
+            watchlist_updated: 'Watchlist aggiornata con successo.'
+        placeholders:
+            allocation_name: 'Nome Allocazione'
+            asset_name: 'Nome Asset'
+            asset_symbol: 'Simbolo Asset'
+            portfolio_name: 'Nome Portafoglio'
+            search_assets: 'Cerca asset...'
+            watchlist_name: 'Nome Watchlist'
+        prompts:
+            confirm_allocation_delete: 'Sei sicuro di voler eliminare questa allocazione?'
+            confirm_asset_remove: 'Sei sicuro di voler rimuovere questo asset?'
+            confirm_portfolio_clear: 'Sei sicuro di voler svuotare il portafoglio?'
+            confirm_portfolio_delete: 'Sei sicuro di voler eliminare questo portafoglio?'
+            confirm_watchlist_clear: 'Sei sicuro di voler svuotare la watchlist?'
+            confirm_watchlist_delete: 'Sei sicuro di voler eliminare questa watchlist?'
+            select_allocation_method: 'Seleziona il metodo di allocazione:'
+            select_asset: 'Seleziona un asset:'
+            select_portfolio: 'Seleziona un portafoglio:'
+            select_watchlist: 'Seleziona una watchlist:'
+    bots:
+        above: "sopra"
+        below: "sotto"
+        buttons:
+            automatic_withdrawal: "Prelievo Automatico"
+            request_exchange: "Chiedi di aggiungere un exchange"
+            move_existing_bot: "Sposta bot esistente su un altro exchange"
+            webhook: "Webhook Trade"
+            delete:
+                cancel: "Annulla"
+                ok: "Rimuovi completamente"
+                text: "Elimina"
+                warning_html: "Questo rimuoverà il bot con tutti<br>i suoi dati storici. Sei sicuro?"
+            dollar_cost_averaging: "Dollar-Cost Averaging"
+            pending:
+                info_html: "Elaborazione…"
+                text: "In attesa"
+            start:
+                changed_missed:
+                    continue: "Sì, acquista e continua"
+                    info_html: "Vuoi investire <b>%{amount} %{quote}</b> persi mentre il bot era in pausa? Il nuovo programma inizierà dopo che il conto alla rovescia attuale sarà terminato."
+                    skip: "Ignora la parte persa"
+                changed_on_schedule:
+                    continue: "Ho capito"
+                    info_html: "Il nuovo programma inizierà dopo che i restanti <b>%{time}</b> dell'ultimo saranno terminati."
+                    skip: "Ignoralo e inizia immediatamente"
+                missed:
+                    continue: "Sì, acquista e continua"
+                    info_html: "Vuoi investire <b>%{amount} %{quote}</b> persi mentre il bot era in pausa, e continuare il programma temporale originale?"
+                    skip: "Salta la parte persa"
+                on_schedule:
+                    continue: "Continua il programma originale"
+                    info_html: "Hai ancora <b>%{time}</b> rimanenti per il prossimo ordine. Puoi saltarlo ed eseguire il prossimo ordine immediatamente, o continuare il conto alla rovescia originale."
+                    skip: "Saltalo"
+        buy: Compra
+        counter: '%{countdown}'
+        day: Giorno
+        details:
+            info:
+                title: Info
+                what_is_dca_html: |
+                    <h3>Cos'è il DCA?</h3>
+                    <p>Immagina il mercato come il tuo salvadanaio. Ogni giorno inserisci una moneta—che i prezzi siano in rialzo, in ribasso o stabili.</p>
+                    <p>Lo chiamiamo <i>averaging</i>, ma credimi, non c'è nulla di medio in quello che stai facendo.</p>
+                    <p>L'investitore medio? Esita, va nel panico, vende troppo presto.</p>
+                    <p>Ma non tu.</p>
+                    <p>Tu sei rilassato come Nonno Warren che sorseggia la sua Coca, lasciando che il mercato faccia il suo corso.</p>
+                    <p>Il gioco è lungo, ma semplice. Inizia premendo ▶️</p>
+                smart_intervals_html: |
+                    <h3>Intervalli Intelligenti</h3>
+                    <p>Gli exchange hanno dimensioni minime per gli ordini. Gli intervalli intelligenti gestiscono questo per te:</p>
+                    <p>Vuoi comprare $5 al giorno, ma il minimo è $10? Piazzeranno il tuo ordine di $10 ogni due giorni.</p>
+                daily_weekly_monthly_html: |
+                    <h3>Giornaliero? Settimanale? Mensile?</h3>
+                    <p>Sorprendentemente, i risultati a lungo termine sono così simili che non fa davvero differenza.</p>
+                    <p>Ma attenzione—se il tuo software di dichiarazione fiscale addebita per transazione, questo è un buon motivo per comprare meno frequentemente.</p>
+                    <p>Altrimenti, mantieni le transazioni piccole e frequenti, e lascia che la magia del DCA inizi prima.</p>
+                withdrawal_html: |
+                    <h3>Prelievi Automatici</h3>
+                    <p><i>Not your keys not your Bitcoin.</i> — Andreas Antonopoulos</p>
+                    <p>Preleva i tuoi fondi nel tuo wallet. È il modo più sicuro per conservare le tue crypto.</p>
+                webhook:
+                    info_html: '<p>Il bot Webhook compra e vende in base ai segnali da servizi di terze parti come TradingView. È un ottimo modo per creare ordini basati su RSI, medie mobili o altri indicatori.</p><p>Il bot può funzionare in un modo o in due modi:</p><ul><li><em>Un modo</em> significa che comprerà solo o venderà solo.</li><li><em>Due modi</em> significa che comprerà e venderà usando due segnali diversi.</li></ul><p>Per ogni modo, ottieni un URL webhook. Ecco come usarlo con TradingView:</p>'
+                    create_alert: Crea un alert.
+                    configure_signal: Configura il segnale desiderato.
+                    set_webhook: Passa alla scheda Notifiche e fornisci l'URL Webhook che vedi nel pannello del tuo bot a sinistra.
+                    experimental: Il bot webhook è ancora molto sperimentale. Un miglioramento che arriverà presto è la possibilità di comprare e vendere usando tutti i fondi disponibili sull'account. Per favore, testalo e facci sapere come possiamo migliorarlo.
+                    working_and_waiting: Il bot è in funzione e in attesa di un segnale.
+            log:
+                date: Data
+                errors: Errori
+                title: Log
+            stats:
+                amount: 'Quantità(%{base})'
+                amount1: 'Quantità'
+                value: 'Valore(%{quote})'
+                value1: 'Valore'
+                average_price: 'Prezzo medio'
+                bought: Comprato
+                chart:
+                    total_invested: 'Totale investito'
+                    value: Valore
+                csv_download_html: 'La tabella sopra mostra solo le ultime dieci transazioni. Il rapporto completo è disponibile per il download in formato CSV qui sotto.'
+                current_value: 'Valore attuale'
+                current_value_sold: 'Valore attuale del %{base} venduto'
+                date: Data
+                download_csv: 'Scarica .csv'
+                exchange_unavailable_html: 'L''API dell''exchange non risponde al momento.<br>I calcoli sono basati sugli ultimi dati disponibili.'
+                order: Ordine
+                profit_loss: Profitto/Perdita
+                rate: 'Tasso(%{quote})'
+                sold: Venduto
+                title: Statistiche
+                total_invested: 'Totale investito'
+        for: per
+        force_smart_intervals_html: '<b>Intervalli intelligenti<sup>®</sup></b> · Compra con ordini di <split>$100</split> %{currency} ciascuno.'
+        feecutter_html: '<b>FeeCutter<sup>®</sup></b> · Taglia le commissioni con ordini limite'
+        hour: Ora
+        limit_buy: 'Compra limite'
+        limit_sell: 'Vendi limite'
+        messages:
+            symbol_not_supported: "%{symbol} non è supportato"
+            symbol_not_supported_subscription: "%{symbol} non è supportato nel tuo abbonamento"
+            upgrade_plan_more_bots: "Aggiorna il tuo piano per eseguire più bot"
+            upgrade_plan_limit_orders: "Aggiorna il tuo piano per usare FeeCutter"
+            specify_percentage_limit_order: "Specifica la percentuale quando crei un ordine limite"
+            smart_intervals_above_minimum: "Il valore degli intervalli intelligenti dovrebbe essere maggiore di %{minimum}"
+            invalid_price_range: "L'intervallo di prezzo non è valido"
+            upgrade_price_range: "Aggiorna per usare l'Intervallo di Prezzo"
+            subaccounts_not_allowed: "Subaccount non consentiti su questo exchange"
+            no_subaccount_name: "Nessun nome di subaccount fornito"
+            wrong_subaccount_name: "Nome subaccount errato"
+        minimum_withdrawal_disclaimer: 'La dimensione minima di prelievo è %{minimum} %{currency}.'
+        minimum_withdrawal_disclaimer_usd: 'La dimensione minima di prelievo è %{minimum} USD.'
+        month: Mese
+        next_buy: 'Prossimo in %{countdown}'
+        next_sell: 'Prossimo in %{countdown}'
+        next_withdrawal: 'Prossimo in %{countdown}'
+        not_found: 'Questo bot non esiste.'
+        price: 'il prezzo'
+        price_range_buy_html: 'Compra solo nell''intervallo di prezzo da <split>$100</split> a <split>$1000</split> %{quote} per %{base}.'
+        price_range_sell_html: "Vendi solo nell'intervallo di prezzo da <split>$100</split> a <split>$1000</split> %{quote} per %{base}."
+        sell: "Vendi"
+        buy_all: "Compra tutto"
+        sell_all: "Vendi tutto"
+        first_time: "prima volta"
+        every_time: "ogni volta"
+        name: "Nome:"
+        triggered_title: "questo webhook viene attivato:"
+        triggered_first: "il primo webhook viene attivato."
+        triggered_second: "il secondo webhook viene attivato."
+        webhook_has_been_copied: "Webhook copiato negli appunti."
+        fees: "Commissioni"
+        maker_fee: "Maker"
+        taker_fee: "Taker"
+        withdrawal_fee: "Prelievo (₿)"
+        additional_title: "Bot a due vie"
+        smart_intervals_disclaimer: 'La dimensione degli ordini su %{exchange} è definita in %{currency}. La dimensione minima dell''ordine è %{minimum}%{currency}.'
+        smart_intervals_disclaimer_base: 'La dimensione degli ordini su %{exchange} è definita in %{currency}. La dimensione minima dell''ordine è %{minimum}%{currency}.'
+        smart_intervals_disclaimer_quote: 'La dimensione minima dell''ordine è %{minimum}%{currency}.'
+        start: Avvia
+        starting: Avvio
+        stop: Pausa
+        subaccounts_info: 'Usa subaccount'
+        week: Settimana
+        withdraw_interval_html: 'Preleva ogni <split>2</split> giorni.'
+        withdraw_threshold_html: 'Preleva quando almeno <split>0.001</split> %{currency} è disponibile.'
+        bot_name: 'Nome bot'
+        change_bot_name: 'Cambia nome' 
