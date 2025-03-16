@@ -18,30 +18,6 @@ en:
         dca_profit_html: |
             <p>If you were dollar-cost averaging into Bitcoin for the last %{years}&nbsp;years, you're now up <b style="color: #00A36C;">%{profit}%</b>.</p>
             <p>That's <b style="color: #00A36C;">%{sp500_diff}%</b> more than S&P 500 in the same time.</p>
-    affiliate_mailer:
-        new_btc_address_confirmation:
-            subject: "Confirm new payout address"
-            template_html: |
-                <p>It looks like you want to change your payout address for the referral program:</p>
-                <p><code>%{new_btc_address}</code></p>
-                <p>Please confirm this change by clicking the link below:</p>
-                <p><a href="%{confirmation_url}" title="Confirm new payout address">Yes, I want to use this address for future payouts</a></p>
-        referrals_payout_notification:
-            subject: "It's a payday!"
-            template_html: |
-                <p>Thank you. Deltabadger grows only thanks to word-of-mouth referrals.</p>
-                <p>And yours really works:</p>
-                <p>Just a while ago, we transfererred <b>%{amount} BTC</b> to you.</p>
-                <p>The best part? It's not over:</p>
-                <p><b>You'll get 20% every time those referrals prolong subscription</b>.</p>
-                <p>Do you know somebody else who may benefit from Deltabadger?</p>
-            grow_stream: "Let them know and grow your recurring stream"
-        registration_reminder:
-            subject: "Wow! You earned %{amount} BTC!"
-            template_html: |
-                <p>You have a new commission from the referral program waiting!</p>
-                <p>Complete the registration to receive your bitcoin:</p>
-            complete_registration: "Complete registration"
     affiliates:
         add_link_info: "You can add your name and link to your website to let the referral know where the discount is coming from. You can also leave it blank:"
         apply_code:
@@ -117,19 +93,6 @@ en:
             update_info: 'Update visible info'
             your_link: 'Your referral link'
         your_bitcoin_address: 'Your Bitcoin address'
-    bot_alerts_mailer:
-        successful_webhook_bot_transaction:
-            subject: "Transaction has been successful"
-            template_html: "transaction successful, base: %{base}, quote: %{quote}, bot_name: %{bot_name}, type: %{type}, price: %{price}, exchange: %{exchange_name}"
-        end_of_funds:
-            subject: "Your bot is running out of funds soon"
-            template_html: "<p>It looks like your bot <b>%{label}</b> is running out of %{quote} very soon.</p><p>Make a transfer to %{exchange_name} to be sure the bot is working continuously.</p>"
-        notify_about_error:
-            subject: "Something went wrong"
-            template_html: "<p>Something went wrong while processing the last transaction for bot <b>%{label}</b>.</p><p>You can see the error in the bot log. Sign in to check it.</p><p>Errors:</p><blockquote> <b>%{exchange_name}:</b> <b>%{errors}</b></blockquote>"
-        notify_about_restart:
-            subject: "Oops! Next try…"
-            template_html: "<p>The bot <b>%{label}</b> couldn't perform your order. It looks like an exchange issue. We'll try again in %{delay}.</p><p>All error are visible in the bot log. Sign in to check it out.</p><p>Errors:</p><blockquote> <b>%{exchange_name}:</b> <b>%{errors}</b> </blockquote>"
     button:
         connect: "Connect"
     bot:
@@ -152,6 +115,8 @@ en:
             setting_orders: "Setting orders…"
             paused: "Paused"
         no_orders_info: "Bot orders will appear here"
+        pick_exchange: "Pick Exchange"
+        add_api_keys: "Add API keys for %{exchange}"
         barbell:
             invest: "Invest"
             invest_html: "Invest %{input} /month"
@@ -448,11 +413,6 @@ en:
         sign_up: 'Sign up'
         terms_and_conditions: 'Terms & Conditions'
         legendary_badger: 'Legendary Badger'
-    mailer:
-        follow_us_on_x: 'Follow us on 𝕏'
-        we_reply_faster_on_telegram: 'We reply faster on Telegram'
-        greeting: 'Ahoy captain,'
-        greeting_name: 'Hey %{name},'
     meta:
         desc: "Start for free the most proven strategy that works with Binance, Coinbase, Kraken, Kucoin, and other exchanges. No KYC."
         title: "Deltabadger • Automate Dollar-Cost Averaging for any Crypto"
@@ -491,23 +451,6 @@ en:
         knowledge_base: 'Knowledge base'
         telegram: 'Join our Telegram group'
         twitter: 'Follow us on 𝕏'
-    subscription_mailer:
-        invoice:
-            subject: 'Receipt'
-            template_html: |
-                <h2>Deltabadger %{plan_name} Plan (%{years}-year)</h2>
-                <p> <b>Paid:</b></p>
-                <h2>%{total_paid} %{currency}</h2>
-                <p><b>Paid at:</b></p>
-                <p>%{paid_at}</p>
-                <p><b>Seller:</b></p>
-                <p>Deltabadger OÜ<br>
-                Pärnu mnt 158/2-88 <br>
-                11317 Tallinn <br> Estonia <br>
-                Reg.No.14781461</p>
-                <p><b>Buyer:</b></p>
-                <p> %{first_name} %{last_name} <br>
-                %{email}</p>
     subscriptions:
         per_month_html: "/mo"
         per_year_html: "/yr"
@@ -585,71 +528,6 @@ en:
             <p>The new upgrade page is great place to look at all the features and plans they belong to.</p>
             <p><a class="button button--success button--large mt-3 mb-3" href="upgrade">Start here</a></p>
             <p>Best, Jan</p>
-    metrics:
-        exp_return:
-            short_name: "Exp. Return"
-            short_info: "The expected yearly return based on the CAPM model."
-            best: "Highest Exp. Return"
-        cagr:
-            short_name: "Avg. Return"
-            short_info: "How much your portfolio has grown on average each year."
-            best: "Highest Avg. Return"
-        max_drawdown:
-            short_name: "Max. Drawdown"
-            short_info: "The biggest drop in your portfolio's value from its highest point."
-            best: "Lowest Max. Drawdown"
-        volatility:
-            short_name: "Risk"
-            short_info: "Volatility — how much your portfolio value fluctuates in a year."
-            best: "Lowest Risk"
-        var:
-            short_name: "VaR"
-            short_info: "There is a 95% chance that your portfolio won't lose more than this amount in a single day."
-            best: "Lowest VaR"
-        cvar:
-            short_name: "CVaR"
-            short_info: "If losses exceed the VaR, this is the average loss you can expect."
-            best: "Lowest CVaR"
-        sharpe_ratio:
-            short_name: "Sharpe Ratio"
-            short_info: "How much return you're getting for the risk you're taking."
-            best: "Highest Sharpe Ratio"
-        sortino_ratio:
-            short_name: "Sortino Ratio"
-            short_info: "Similar to Sharpe Ratio, but only considers downside risk."
-            best: "Highest Sortino Ratio"
-        calmar_ratio:
-            short_name: "Calmar Ratio"
-            short_info: "The return compared to the biggest loss your portfolio has experienced."
-            best: "Highest Calmar Ratio"
-        alpha:
-            short_name: "Alpha"
-            short_info: "How much your portfolio outperformed the market, adjusted for risk."
-            best: "Highest Alpha"
-        beta:
-            short_name: "Beta"
-            short_info: "How your portfolio's returns move compared to the market."
-            best: "Lowest Beta"
-        treynor_ratio:
-            short_name: "Treynor Ratio"
-            short_info: "The return you're getting for each unit of market risk."
-            best: "Highest Treynor Ratio"
-        omega_ratio:
-            short_name: "Omega Ratio"
-            short_info: "The chance of gains compared to the chance of losses."
-            best: "Highest Omega Ratio"
-        r_squared:
-            short_name: "R²"
-            short_info: "How closely your portfolio's returns match the overall market."
-            best: "Highest R²"
-        info_ratio:
-            short_name: "Info. Ratio"
-            short_info: "How consistently your portfolio outperforms the benchmark."
-            best: "Highest Info. Ratio"
-        diversification:
-            short_name: "Diversification"
-            short_info: "The variety of different investments in your portfolio to spread risk."
-            best: "Best Diversification"
     analyzer:
         default_portfolio: "Default portfolio"
         change_portfolio_name: 'Change name'
