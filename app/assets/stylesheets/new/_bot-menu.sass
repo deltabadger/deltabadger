@@ -1,7 +1,9 @@
 .bot-menu
     display: grid
-    grid-template-columns: 1fr 1fr
+    grid-template-columns: 1fr
     gap: 1rem
+    @media screen and (min-width: 576px)
+        grid-template-columns: 1fr 1fr
     .bot-menu__item
         display: flex
         flex-direction: column
@@ -15,10 +17,11 @@
         text-decoration: none
         border: none
         color: var(--link)
-        height: 32rem
         font-weight: bold
         cursor: pointer
         text-align: center
+        @media screen and (min-width: 576px)
+            height: 32rem
         &__title
             font-size: 2.75rem
         &__description
