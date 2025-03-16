@@ -1,0 +1,83 @@
+ru:
+    activerecord:
+        errors:
+            models:
+                affiliate:
+                    attributes:
+                        code:
+                            invalid_format: 'должен состоять из буквенно-цифровых символов верхнего регистра'
+                subscription:
+                    attributes:
+                        eth_address:
+                            invalid_address: '"%{eth_address}" является недействительным адресом Ethereum. Пожалуйста, попробуйте снова.'
+                asset:
+                    attributes:
+                        portfolio:
+                            max_assets_reached: "Максимальное количество активов достигнуто."
+    errors:
+        bitcoin_address_not_updated: 'Биткоин-адрес не может быть обновлен'
+        format: ''
+        frequency_limit: 'Превышено ограничение частоты'
+        invalid_api_keys: 'Недействительные токены'
+        invalid_risk_free_rate_key: 'Неверный ключ безрисковой ставки.'
+        unable_to_get_risk_free_rate: 'Невозможно получить безрисковую ставку для %{risk_free_rate_name}. Сервер API данных недоступен.'
+        invalid_number_of_allocations: 'Недопустимое количество распределений'
+        invalid_allocation_value: 'Недопустимое значение распределения'
+        messages:
+            accepted: 'должен быть принят'
+            already_confirmed: 'уже подтвержден, попробуйте войти.'
+            bad_2fa_code: 'Неверный код. Попробуйте еще раз.'
+            bad_credentials: 'Неправильный адрес электронной почты или пароль.'
+            bad_credentials_with_code: 'Неверный адрес электронной почты, пароль или код 2FA.'
+            blank: 'не может быть пустым'
+            confirmation: 'не совпадает %{attribute}'
+            confirmation_period_expired: 'необходимо подтвердить в течение %{period}, пожалуйста, запросите новый.'
+            empty: 'не может быть пустым'
+            empty_two_fa_token: 'Пропущен код 2FA. Попробуйте еще раз'
+            equal_to: 'должно быть равно %{count}'
+            even: 'должно быть четным'
+            exclusion: зарезервировано
+            expired: 'срок действия истек, запросите новый.'
+            greater_than: 'должно быть больше чем %{count}'
+            greater_than_or_equal_to: 'должно быть больше или равно %{count}'
+            in: 'должно быть в %{count}'
+            inclusion: 'не входит в список'
+            invalid: недействительно
+            less_than: 'должно быть меньше чем %{count}'
+            less_than_or_equal_to: 'должно быть меньше или равно %{count}'
+            model_invalid: 'Проверка не удалась: %{errors}'
+            not_a_number: 'не является числом'
+            not_an_integer: 'должно быть целым числом'
+            not_found: 'не найден.'
+            not_locked: 'не был заблокирован.'
+            not_saved:
+                one: ''
+                few: ''
+                many: ''
+                other: ''
+            odd: 'должно быть нечетным'
+            other_than: 'должно отличаться от %{count}'
+            password_not_match: 'Пароли не совпадают'
+            present: 'должно быть пустым'
+            too_long:
+                one: ''
+                few: ''
+                many: ''
+                other: ''
+            too_short:
+                one: ''
+                few: ''
+                many: ''
+                other: ''
+            too_short_password: 'Пароль слишком короткий'
+            too_simple_password: ''
+            wrong_email: 'Неправильный адрес электронной почты'
+            wrong_length:
+                one: ''
+                few: ''
+                many: ''
+                other: ''
+            wrong_password: 'Неправильный пароль'
+            wrong_two_fa_token: 'Предоставленный код неверный'
+        referral_program_inactive: 'Ваша реферальная программа неактивна'
+        unverified_request: 'Обновите страницу в браузере и попробуйте еще раз'
