@@ -118,7 +118,7 @@ Rails.application.routes.draw do
 
     get :dashboard, to: 'home#index'
 
-    resources :bots, except: [:new], path: "/dashboard/bots" do
+    resources :bots, except: [:new] do
       get :asset_search, on: :member
       get :new_api_key, on: :member
       post :create_api_key, on: :member
