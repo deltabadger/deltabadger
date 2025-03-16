@@ -18,30 +18,6 @@ pt:
         dca_profit_html: |
             <p>Se tivesse feito dollar-cost averaging em Bitcoin nos últimos %{years}&nbsp;anos, agora estaria com um lucro de <b style="color: #00A36C;">%{profit}%</b>.</p>
             <p>Isso é <b style="color: #00A36C;">%{sp500_diff}%</b> mais do que o S&P 500 no mesmo período.</p>
-    affiliate_mailer:
-        new_btc_address_confirmation:
-            subject: "Confirmar novo endereço de pagamento"
-            template_html: |
-                <p>Parece que pretende alterar o seu endereço de pagamento para o programa de referência:</p>
-                <p><code>%{new_btc_address}</code></p>
-                <p>Por favor, confirme esta alteração clicando na ligação abaixo:</p>
-                <p><a href="%{confirmation_url}" title="Confirmar novo endereço de pagamento">Sim, quero usar este endereço para pagamentos futuros</a></p>
-        referrals_payout_notification:
-            subject: "É dia de pagamento!"
-            template_html: |
-                <p>Obrigado. A Deltabadger cresce apenas graças a referências de boca a boca.</p>
-                <p>E as suas funcionam mesmo:</p>
-                <p>Há pouco, transferimos <b>%{amount} BTC</b> para si.</p>
-                <p>A melhor parte? Não acaba aqui:</p>
-                <p><b>Receberá 20% sempre que essas pessoas referidas prolongarem a subscrição</b>.</p>
-                <p>Conhece mais alguém que possa beneficiar da Deltabadger?</p>
-            grow_stream: "Avise-os e aumente o seu fluxo recorrente"
-        registration_reminder:
-            subject: "Uau! Ganhou %{amount} BTC!"
-            template_html: |
-                <p>Tem uma nova comissão do programa de referência à sua espera!</p>
-                <p>Complete o registo para receber os seus bitcoin:</p>
-            complete_registration: "Completar registo"
     affiliates:
         add_link_info: 'Pode adicionar o seu nome e ligação ao seu site para informar a pessoa referida da origem do desconto. Também pode deixar em branco:'
         apply_code:
@@ -117,19 +93,6 @@ pt:
             update_info: 'Atualizar informação visível'
             your_link: 'A sua ligação de referência'
         your_bitcoin_address: 'O seu endereço Bitcoin'
-    bot_alerts_mailer:
-        successful_webhook_bot_transaction:
-            subject: "A transação foi bem-sucedida"
-            template_html: "transação bem-sucedida, base: %{base}, quote: %{quote}, nome_do_bot: %{bot_name}, tipo: %{type}, preço: %{price}, nome_da_exchange: %{exchange_name}"
-        end_of_funds:
-            subject: "Seu bot está ficando sem fundos em breve"
-            template_html: "<p>Parece que seu bot <b>%{label}</b> está ficando sem %{quote} muito em breve.</p><p>Faça uma transferência para %{exchange_name} para garantir que o bot continue funcionando.</p>"
-        notify_about_error:
-            subject: "Algo deu errado"
-            template_html: "<p>Algo deu errado durante o processamento da última transação para o bot <b>%{label}</b>.</p><p>Você pode ver o erro no registro do bot. Entre para verificar.</p><p>Erros:</p><blockquote> <b>%{exchange_name}:</b> <b>%{errors}</b></blockquote>"
-        notify_about_restart:
-            subject: "Ops! Próxima tentativa…"
-            template_html: "<p>O bot <b>%{label}</b> não pôde executar seu pedido. Parece ser um problema da exchange. Tentaremos novamente em %{delay}.</p><p>Todos os erros estão visíveis no registro do bot. Entre para verificar.</p><p>Erros:</p><blockquote> <b>%{exchange_name}:</b> <b>%{errors}</b> </blockquote>"
     button:
         connect: "Conectar"
     bot:
@@ -399,11 +362,6 @@ pt:
         settings: Definições
         sign_up: Registar
         terms_and_conditions: 'Termos e Condições'
-    mailer:
-        follow_us_on_x: 'Siga-nos no 𝕏'
-        we_reply_faster_on_telegram: 'Respondemos mais rápido no Telegram'
-        greeting: 'Olá capitão,'
-        greeting_name: 'Olá %{name},'
     meta:
         title: "Deltabadger • Automatizar o cálculo da média do custo do dólar para qualquer criptomoeda"
         descriptions:
@@ -439,23 +397,6 @@ pt:
         knowledge_base: 'Base de conhecimento'
         telegram: 'Adira ao nosso grupo no Telegram'
         twitter: 'Siga-nos no 𝕏'
-    subscription_mailer:
-        invoice:
-            subject: 'Recibo'
-            template_html: |
-                <h2>Plano %{plan_name} Deltabadger (%{years} anos)</h2>
-                <p> <b>Pago:</b></p>
-                <h2>%{total_paid} %{currency}</h2>
-                <p><b>Data de pagamento:</b></p>
-                <p>%{paid_at}</p>
-                <p><b>Vendedor:</b></p>
-                <p>Deltabadger OÜ<br>
-                Pärnu mnt 158/2-88 <br>
-                11317 Tallinn <br> Estónia <br>
-                Reg.No.14781461</p>
-                <p><b>Comprador:</b></p>
-                <p> %{first_name} %{last_name} <br>
-                %{email}</p>
     subscriptions:
         per_month_html: "/mês"
         per_year_html: "/ano"
