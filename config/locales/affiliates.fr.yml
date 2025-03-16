@@ -1,0 +1,76 @@
+fr:
+    affiliates:
+        add_link_info: 'Vous pouvez ajouter votre nom et un lien vers votre site web pour que le parrainé sache d''où vient la réduction. Vous pouvez également ne rien ajouter :'
+        apply_code:
+            accept: 'J''accepte'
+            reject: 'Retour'
+            title: 'Lien de parrainage'
+        btc_address_changed: 'L''adresse Bitcoin a été modifiée'
+        btc_address_confirmation_sent: 'Envoi de l''e-mail de confirmation'
+        create:
+            error: 'Échec de l''inscription au programme de parrainage'
+            free_plan_error: 'Vous devez mettre à niveau pour vous inscrire'
+        current_bitcoin_address: 'Adresse Bitcoin actuelle'
+        discount:
+            accepted: 'Vous avez accepté le lien de parrainage'
+            already_used: 'Vous avez déjà utilisé un lien de parrainage'
+            congrats_html: 'Félicitations ! Le <span class="db-form-label-range--discount-percent"> %{discount_percent} </span> % de réduction est actif'
+            flash_html: 'Bonjour ! Profite de %{discount_percent} % de réduction grâce à <span class="text-success text-success--lighter"> %{visible_name} </span>'
+            invalid: 'Le lien de référence semble invalide ou obsolète.'
+            referrer_html: 'Grâce au lien de parrainage de <b> <a href="%{visible_link}"> <span class="db-form-preview--visible_name">%{visible_name} </span> </a></b>.'
+            valid_for: 'Valable dès le premier achat sur la plateforme.'
+        info_preview: 'Voici un aperçu de ce que les membres parrainés verront lors de l''inscription :'
+        invalid_bitcoin_address: 'Adresse Bitcoin invalide'
+        manual_html: |
+            <div class="alert alert-success">
+              <p class="mt-1">Notre programme de parrainage verse une <b>commission de 20%</b> sur chaque paiement d'abonnement de vos filleuls. Il n'y a pas de plafond - vous continuez à gagner tant qu'ils restent abonnés. Par exemple :</p>
+              <ol>
+                <li>Votre ami achète un plan Pro à 299$/an. Vous gagnez 60$ en BTC (au taux de change de la transaction).</li>
+                <li>S'ils restent abonnés, vous continuez à gagner 60$ chaque année qu'ils renouvellent.</li>
+                <li>S'ils passent à notre plan Lifetime (2000$+), vous gagnez instantanément 400$+ en BTC.</li>
+                <li>Vos gains sont fixés en BTC au moment de la transaction, vous protégeant des fluctuations de prix.</li>
+                <li>Les commissions sont créditées instantanément et payées mensuellement.</li>
+              </ol>
+              <p><em>Gagner des bitcoin est la meilleure façon de faire du DCA !</em></p>
+            </div>
+        new:
+            checked: 'J''ai tout vérifié avec soin.'
+            discount_info_html: 'Vous <b> gagnerez <span class="db-form-label-range--earn-percent">%{earn_percent_preview}</span></b>, et le parrain obtiendra <b><span class="db-form-label-range--discount-percent">%{discount_percent_preview}% de</span> réduction</b>.'
+            discount_preview_html: '<span class="db-form-label-range--discount-percent">%{discount_percent_preview}</span>% de réduction pour le premier achat.'
+            eu_company: 'Entreprise de l''UE'
+            payout_address: 'Adresse de paiement'
+            pick_referral_code: 'Choisissez votre code de parrainage'
+            private: 'Privé'
+            program_settings_html: 'Lien <span class="text-danger"> (ne peut pas être modifié) </span>'
+            referrer_info: 'Informations du parrain'
+            share_html: 'Partagez ce lien et <span class="text-success">gagnez des bitcoin</span>'
+            submit: 'C''est parti !'
+            thanks_referral: 'Grâce au lien de parrainage de'
+            title: 'Inscription au programme de parrainage'
+            title_info: 'Vous pouvez partager votre lien dès maintenant, mais pour recevoir des versements en Bitcoin, vous devez d''abord finaliser votre inscription.'
+            unchangable_warning: 'Les paramètres de cette section ne peuvent pas être modifiés ultérieurement'
+            upgrade: 'Pour rejoindre notre célèbre programme de parrainage, passez à l''un de nos forfaits payants'
+            visible_info: 'Informations visibles'
+        program_joined: 'Vous avez rejoint le programme de parrainage'
+        show:
+            deactivated:
+                contact: 'Nous contacter'
+                notice: 'On dirait que ce programme a été désactivé. Contactez-nous si vous n''êtes pas sûr de la raison de cette désactivation.'
+            expired: 'Oh, non... votre abonnement a expiré. Renouvelez votre forfait pour continuer à bénéficier de votre programme de parrainage.'
+            info_preview: 'Aperçu des informations visibles pour le parrain :'
+            link_title: 'Votre lien'
+            manual_title: 'Comment ça marche ?'
+            paid_commission: 'Payé (BTC)'
+            paid_so_far: 'Payé à ce jour (BTC)'
+            referrals: 'Membres parrainés'
+            stats: 'Statistiques'
+            submit: 'Mettre à jour'
+            submit_bitcoin_address: 'Mettre à jour l''adresse Bitcoin'
+            submit_info: 'Mettre à jour les informations visibles'
+            title: 'Programme de parrainage'
+            unpaid: 'Non payé (BTC)'
+            unpaid_commission: 'À payer (BTC)'
+            update_bitcoin_address: 'Mettre à jour l''adresse Bitcoin'
+            update_info: 'Mettre à jour les informations visibles'
+            your_link: 'Ton lien de parrainage'
+        your_bitcoin_address: 'Votre adresse Bitcoin'

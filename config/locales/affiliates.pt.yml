@@ -1,0 +1,76 @@
+pt:
+    affiliates:
+        add_link_info: 'Pode adicionar o seu nome e ligação ao seu site para informar a pessoa referida da origem do desconto. Também pode deixar em branco:'
+        apply_code:
+            accept: Aceitar
+            reject: Voltar
+            title: 'Ligação de referência'
+        btc_address_changed: 'O endereço Bitcoin foi alterado'
+        btc_address_confirmation_sent: 'E-mail de confirmação enviado'
+        create:
+            error: 'Falha ao registar o programa de referência'
+            free_plan_error: 'Tem de atualizar para registar'
+        current_bitcoin_address: 'Endereço Bitcoin atual'
+        discount:
+            accepted: 'Aceitou a ligação de referência'
+            already_used: 'Já utilizou uma ligação de referência'
+            congrats_html: 'Parabéns! O desconto de <span class="db-form-label-range--discount-percent">%{discount_percent}</span>% está ativo.'
+            flash_html: 'Olá! Desfrute do desconto de %{discount_percent}% de <span class="text-success text-success--lighter">%{visible_name}</span>'
+            invalid: 'A ligação de referência parece inválida ou obsoleta'
+            referrer_html: 'Graças à ligação de referência de <b><a href="%{visible_link}"><span class="db-form-preview--visible_name">%{visible_name}</span></a></b>.'
+            valid_for: 'Válido para a primeira compra na plataforma.'
+        info_preview: 'Esta é uma pré-visualização do que as pessoas referidas verão durante o registo:'
+        invalid_bitcoin_address: 'Endereço Bitcoin inválido'
+        manual_html: |
+            <div class="alert alert-success">
+              <p class="mt-1">Nosso programa de referência paga <b>20% de comissão</b> em cada pagamento de assinatura que seus referidos fazem. Não há limite - você continua ganhando enquanto eles permanecerem assinantes. Por exemplo:</p>
+              <ol>
+                <li>Seu amigo compra um plano Pro por $299/ano. Você ganha $60 em BTC (à taxa de câmbio da transação).</li>
+                <li>Se eles continuarem assinantes, você continua ganhando $60 a cada ano que renovarem.</li>
+                <li>Se eles atualizarem para nosso plano Lifetime ($2.000+), você ganha $400+ em BTC instantaneamente.</li>
+                <li>Seus ganhos são fixados em BTC no momento da transação, protegendo você contra flutuações de preço.</li>
+                <li>As comissões são creditadas instantaneamente e pagas mensalmente.</li>
+              </ol>
+              <p><em>Ganhar bitcoin é a melhor maneira de fazer DCA!</em></p>
+            </div>
+        new:
+            checked: 'Verifiquei tudo cuidadosamente.'
+            discount_info_html: 'Irá <b> ganhar <span class="db-form-label-range--earn-percent">%{earn_percent_preview}</span>%</b>, e a pessoa referida irá receber <b><span class="db-form-label-range--discount-percent">%{discount_percent_preview}</span>% de desconto</b>.'
+            discount_preview_html: '<span class="db-form-label-range--discount-percent">%{discount_percent_preview}</span>% de desconto na primeira compra.<br>'
+            eu_company: 'Empresa da UE'
+            payout_address: 'Endereço de pagamentos'
+            pick_referral_code: 'Escolha o seu código de referência'
+            private: Privado
+            program_settings_html: 'Ligação <span class="text-danger">(não é possível alterar)</span>'
+            referrer_info: 'Informação da pessoa que refere'
+            share_html: 'Partilhe este link e <span class="text-success">ganhe bitcoin</span>'
+            submit: 'Vamos começar!'
+            thanks_referral: 'Graças à ligação de referência de'
+            title: 'Registo no programa de referência'
+            title_info: 'Pode começar a partilhar o seu link de imediato, mas para receber pagamentos em Bitcoin tem de terminar o registo primeiro.'
+            unchangable_warning: 'As definições desta secção podem ser alteradas mais tarde.'
+            upgrade: 'Para aderir ao nosso famoso programa de referência, atualize para um dos nossos planos pagos.'
+            visible_info: 'Informação visível'
+        program_joined: 'Aderiu ao programa de referência'
+        show:
+            deactivated:
+                contact: Contacte-nos
+                notice: 'Parece que este programa foi desativado. Contacte-nos se não tiver a certeza do que aconteceu.'
+            expired: 'Oh, não… A sua subscrição expirou. Renove o seu plano para continuar a beneficiar do seu programa de referência.'
+            info_preview: 'Pré-visualização da informação visível para a pessoa referida:'
+            link_title: 'A sua ligação'
+            manual_title: 'Como funciona?'
+            paid_commission: 'Pago (BTC)'
+            paid_so_far: 'Pago até agora (BTC)'
+            referrals: 'Pessoas referidas'
+            stats: Estatísticas
+            submit: Atualizar
+            submit_bitcoin_address: 'Atualizar endereço Bitcoin'
+            submit_info: 'Atualizar informação visível'
+            title: 'Programa de referência'
+            unpaid: 'Não pago (BTC)'
+            unpaid_commission: 'A pagar (BTC)'
+            update_bitcoin_address: 'Atualizar endereço Bitcoin'
+            update_info: 'Atualizar informação visível'
+            your_link: 'A sua ligação de referência'
+        your_bitcoin_address: 'O seu endereço Bitcoin'

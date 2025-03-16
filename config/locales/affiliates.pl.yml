@@ -1,0 +1,76 @@
+pl:
+    affiliates:
+        add_link_info: 'Możesz dodać swoje imię/nick/nazwę i link do strony internetowej, aby korzystający z linku wiedział, skąd pochodzi. Możesz również pozostawić te pola puste:'
+        apply_code:
+            accept: Akceptuję
+            reject: Powrót
+            title: 'Link polecający'
+        btc_address_changed: 'Adres bitcoinowy został zmieniony'
+        btc_address_confirmation_sent: 'Wysłano e-mail potwierdzający'
+        create:
+            error: 'Rejestracja programu referencyjnego nie powiodła się'
+            free_plan_error: 'Musisz dokonać upgrade''u, aby się zarejestrować'
+        current_bitcoin_address: 'Aktualny adres Bitcoin'
+        discount:
+            accepted: 'Zaakceptowałeś link polecający'
+            already_used: 'Użyłeś już innego linku polecającego'
+            congrats_html: 'Gratulacje! Zniżka <span class="db-form-label-range--discount-percent">%{discount_percent}%</span> jest aktywna.'
+            flash_html: 'Witaj! ciesz się %{discount_percent}% rabatem od <span class="text-success text-success--lighter">%{visible_name}</span>'
+            invalid: 'Link polecający wydaje się nieprawidłowy lub nieaktualny'
+            referrer_html: 'Dzięki linkowi polecającemu od <b><a href="%{visible_link}"><span class="db-form-preview--visible_name">%{visible_name}</span></a></b>.'
+            valid_for: 'Ważny przy pierwszym zakupie na platformie.'
+        info_preview: 'To jest podgląd tego, co korzystający z linku zobaczą podczas rejestracji:'
+        invalid_bitcoin_address: 'Adres bitcoinowy jest nieprawidłowy'
+        manual_html: |
+            <div class="alert alert-success">
+              <p class="mt-1">Nasz program polecający wypłaca <b>20% prowizji</b> od każdej płatności za subskrypcję dokonanej przez polecone osoby. Nie ma limitu - zarabiasz tak długo, jak długo pozostają subskrybentami. Na przykład:</p>
+              <ol>
+                <li>Twój znajomy kupuje plan Pro za 299$/rok. Zarabiasz 60$ w BTC (po kursie z momentu transakcji).</li>
+                <li>Jeśli pozostają subskrybentami, zarabiasz 60$ każdego roku, gdy odnawiają.</li>
+                <li>Jeśli przejdą na nasz plan Lifetime (2000$+), natychmiast zarabiasz 400$+ w BTC.</li>
+                <li>Twoje zarobki są ustalane w BTC w momencie transakcji, chroniąc Cię przed wahaniami cen.</li>
+                <li>Prowizje są naliczane natychmiast i wypłacane miesięcznie.</li>
+              </ol>
+              <p><em>Zarabianie bitcoinów to najlepszy sposób na DCA!</em></p>
+            </div>
+        new:
+            checked: 'Sprawdziłem wszystko dokładnie.'
+            discount_info_html: '<b> Zarobisz <span class="db-form-label-range--earn-percent">%{earn_percent_preview}</span>%</b>, a korzystający z linku otrzyma <b><span class="db-form-label-range--discount-percent">%{discount_percent_preview}</span>% rabatu</b>.'
+            discount_preview_html: '<span class="db-form-label-range--discount-percent">%{discount_percent_preview}%</span> rabatu na pierwszy zakup.<br>'
+            eu_company: 'Firma z Unii Europejskiej'
+            payout_address: 'Adres do wypłat'
+            pick_referral_code: 'Wpisz swój kod referencyjny'
+            private: 'Osoba prywatna'
+            program_settings_html: 'Link <span class="text-danger">(nie można zmienić później)</span>'
+            referrer_info: 'Informacje o polecającym'
+            share_html: 'Udostępnij ten link i <span class="text-success">zarabiaj bitcoiny</span>'
+            submit: Zaczynajmy!
+            thanks_referral: 'Dzięki linkowi referencyjnemu od'
+            title: 'Rejestracja do programu polecającego'
+            title_info: 'Możesz od razu zacząć udostępniać swój link, ale aby otrzymywać wypłaty w BTC, musisz najpierw zakończyć rejestrację.'
+            unchangable_warning: 'Ustawienia w tej sekcji nie mogą być później zmienione.'
+            upgrade: 'Aby dołączyć do naszego słynnego programu poleceń, uaktualnij do jednego z naszych płatnych planów.'
+            visible_info: 'Widoczne informacje'
+        program_joined: 'Przystąpiłeś do programu referencyjnego'
+        show:
+            deactivated:
+                contact: 'Skontaktuj się z nami'
+                notice: 'Wygląda na to, że ten program został zdezaktywowany. Skontaktuj się z nami, jeśli nie jesteś pewien, dlaczego tak się stało.'
+            expired: 'O nie… Twoja subskrypcja wygasła. Odnów swój plan, aby nadal korzystać z programu.'
+            info_preview: 'Podgląd informacji widocznych dla korzystającego z linku:'
+            link_title: 'Twój link'
+            manual_title: 'Jak to działa?'
+            paid_commission: 'Wypłacone (BTC)'
+            paid_so_far: 'Wpłacono (BTC)'
+            referrals: Użytkownicy
+            stats: Statystyki
+            submit: Zaktualizuj
+            submit_bitcoin_address: 'Zaktualizuj adres Bitcoin'
+            submit_info: 'Zaktualizuj widoczną informację'
+            title: 'Program referencyjny'
+            unpaid: 'Do wypłaty (BTC)'
+            unpaid_commission: 'Do wypłaty (BTC)'
+            update_bitcoin_address: 'Zaktualizuj adres Bitcoin'
+            update_info: 'Zaktualizuj widoczną informację'
+            your_link: 'Twój link polecający'
+        your_bitcoin_address: 'Twój adres bitcoinowy'
