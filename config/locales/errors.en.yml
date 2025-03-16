@@ -1,0 +1,76 @@
+en:
+    activerecord:
+        errors:
+            models:
+                affiliate:
+                    attributes:
+                        code:
+                            invalid_format: "has to consist of uppercase alphanumeric characters"
+                subscription:
+                    attributes:
+                        eth_address:
+                            invalid_address: '"%{eth_address}" is an invalid Ethereum address. Please try again.'
+                asset:
+                    attributes:
+                        portfolio:
+                            max_assets_reached: "Maximum number of assets reached."
+    errors:
+        cloudflare_turnstile: 'Cloudflare Turnstile verification failed'
+        bitcoin_address_not_updated: 'Bitcoin address could not be updated'
+        format: '%{attribute} %{message}'
+        frequency_limit: 'Frequency limit exceeded'
+        invalid_api_keys: 'Invalid tokens'
+        invalid_risk_free_rate_key: 'Invalid Risk Free Rate Key.'
+        unable_to_get_risk_free_rate: 'Unable to get the risk free rate for %{risk_free_rate_name}. Data API server is unreachable.'
+        invalid_number_of_allocations: 'Invalid number of allocations'
+        invalid_allocation_value: 'Invalid allocation value'
+        messages:
+            accepted: 'must be accepted'
+            already_confirmed: 'was already confirmed, please try signing in.'
+            bad_2fa_code: 'Invalid code. Try again.'
+            bad_credentials: 'Wrong email or password.'
+            bad_credentials_with_code: 'Wrong email, password, or 2FA code.'
+            blank: 'can''t be blank'
+            confirmation: 'doesn''t match %{attribute}'
+            confirmation_period_expired: 'needs to be confirmed within %{period}, please request a new one.'
+            empty: 'can''t be empty'
+            empty_two_fa_token: 'Missed 2FA code. Try again.'
+            equal_to: 'must be equal to %{count}'
+            even: 'must be even'
+            exclusion: 'is reserved'
+            expired: 'has expired, please request a new one.'
+            greater_than: 'must be greater than %{count}'
+            greater_than_or_equal_to: 'must be greater than or equal to %{count}'
+            in: 'must be in %{count}'
+            inclusion: 'is not included in the list'
+            invalid: 'is invalid'
+            less_than: 'must be less than %{count}'
+            less_than_or_equal_to: 'must be less than or equal to %{count}'
+            model_invalid: 'Validation failed: %{errors}'
+            not_a_number: 'is not a number'
+            not_an_integer: 'must be an integer'
+            not_found: 'not found.'
+            not_locked: 'was not locked.'
+            not_saved:
+                one: '1 error prohibited this %{resource} from being saved:'
+                other: '%{count} errors prohibited this %{resource} from being saved:'
+            odd: 'must be odd'
+            other_than: 'must be other than %{count}'
+            password_not_match: 'Passwords do not match'
+            present: 'must be blank'
+            too_long:
+                one: 'is too long (maximum is 1 character)'
+                other: 'is too long (maximum is %{count} characters)'
+            too_short:
+                one: 'is too short (minimum is 1 character)'
+                other: 'is too short (minimum is %{count} characters)'
+            too_short_password: 'Password is too short'
+            too_simple_password: 'Password must contain characters from each of the following categories: uppercase characters (A-Z), lowercase characters (a-z),  digits (0-9), special characters (e.g. #,?,!).'
+            wrong_email: 'Wrong email.'
+            wrong_length:
+                one: 'is the wrong length (should be 1 character)'
+                other: 'is the wrong length (should be %{count} characters)'
+            wrong_password: 'Wrong password'
+            wrong_two_fa_token: 'Supplied code is wrong.'
+        referral_program_inactive: 'Your referral program is inactive'
+        unverified_request: 'Please refresh your browser and try again'
