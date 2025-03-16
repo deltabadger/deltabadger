@@ -22,7 +22,7 @@ pt:
         info_preview: 'Esta é uma pré-visualização do que as pessoas referidas verão durante o registo:'
         invalid_bitcoin_address: 'Endereço Bitcoin inválido'
         manual_html: |
-            <div class="alert alert-success">
+            <div class="widget widget--info">
               <p class="mt-1">Nosso programa de referência paga <b>20% de comissão</b> em cada pagamento de assinatura que seus referidos fazem. Não há limite - você continua ganhando enquanto eles permanecerem assinantes. Por exemplo:</p>
               <ol>
                 <li>Seu amigo compra um plano Pro por $299/ano. Você ganha $60 em BTC (à taxa de câmbio da transação).</li>

@@ -22,7 +22,7 @@ de:
         info_preview: 'Dies ist eine Vorschau von dem, was die Geworbenen während der Anmeldung sehen:'
         invalid_bitcoin_address: 'Ungültige Bitcoin-Adresse'
         manual_html: |
-            <div class="alert alert-success">
+            <div class="widget widget--info">
               <p class="mt-1">Unser Empfehlungsprogramm zahlt <b>20% Provision</b> auf jede Abonnementzahlung Ihrer Empfehlungen. Es gibt keine Obergrenze - Sie verdienen weiter, solange sie abonniert bleiben. Beispiel:</p>
               <ol>
                 <li>Ihr Freund kauft einen Pro-Plan für 299 $/Jahr. Sie verdienen 60 $ in BTC (zum Wechselkurs der Transaktion).</li>

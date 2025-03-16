@@ -22,7 +22,7 @@ fr:
         info_preview: 'Voici un aperçu de ce que les membres parrainés verront lors de l''inscription :'
         invalid_bitcoin_address: 'Adresse Bitcoin invalide'
         manual_html: |
-            <div class="alert alert-success">
+            <div class="widget widget--info">
               <p class="mt-1">Notre programme de parrainage verse une <b>commission de 20%</b> sur chaque paiement d'abonnement de vos filleuls. Il n'y a pas de plafond - vous continuez à gagner tant qu'ils restent abonnés. Par exemple :</p>
               <ol>
                 <li>Votre ami achète un plan Pro à 299$/an. Vous gagnez 60$ en BTC (au taux de change de la transaction).</li>

@@ -1,0 +1,303 @@
+it:
+    ads:
+        dca_profit_html: |
+            <p>Se avessi fatto dollar-cost averaging in Bitcoin negli ultimi %{years}&nbsp;anni, ora saresti in attivo del <b style="color: #00A36C;">%{profit}%</b>.</p>
+            <p>Questo è <b style="color: #00A36C;">%{sp500_diff}%</b> in più rispetto all'S&P 500 nello stesso periodo.</p>
+    button:
+        connect: "Connetti"
+    data_labels:
+        bought_ticker: "Acquistato (%{ticker})"
+        avg_price_ticker: "Prezzo medio (%{ticker})"
+        invested_ticker: "Investito (%{ticker})"
+        value_ticker: "Valore (%{ticker})"
+        date: "Data"
+    days_left:
+        one: '1 giorno rimasto'
+        other: '%{count} giorni rimasti'
+    forms:
+        for_confirmation: '(per conferma)'
+        minimum_length: 'Minimo %{length} caratteri'
+    helpers:
+        label:
+            affiliate:
+                address: 'Indirizzo dell''azienda:'
+                btc_address: 'Indirizzo BTC'
+                btc_address_tooltip: 'Indirizzo BTC su cui desideri ricevere i tuoi pagamenti.'
+                check: Verifica
+                code_tooltip: 'Scegli il tuo codice referral desiderato.'
+                name: 'Nome dell''azienda:'
+                vat_number: 'Partita IVA (opzionale):'
+                visible_link: Link
+                visible_name: 'Nome nella preview'
+            payment:
+                birth_date: 'Data di nascita'
+                business_invoice: 'Ho bisogno di una fattura aziendale.'
+                country: Paese
+                first_name: Nome
+                last_name: Cognome
+                other: Altro
+            settings:
+                current_status: 'Stato attuale:'
+                disable_two_fa: 'Disabilita 2FA'
+                disabled: Disabilitato
+                enable_two_fa: 'Abilita 2FA'
+                enabled: Abilitato
+                enter_two_fa_code: 'Inserisci codice 2FA'
+                scan_code_info: 'Scansiona il codice QR o copia il codice qui sotto:'
+            user:
+                current_password: 'Password attuale'
+                email: Email
+                new_name: 'Nuovo nome'
+                new_email: 'Nuova email'
+                new_password: 'Nuova password'
+                new_password_confirmation: 'Conferma nuova password'
+                password: Password
+                password_confirmation: 'Conferma password'
+                remember_me: 'Ricordami'
+                terms_and_conditions_tooltip: 'Continuando accetto i %{terms_and_conditions} e la %{privacy_policy}.'
+    home:
+        confirm_registration:
+            deliverability_html: '<b>Questo è molto importante!</b><br><br> Se non hai ricevuto l''email di conferma, controlla la tua <b>cartella spam</b>. Se ancora non riesci a trovarla, per favore, mandami un''email a %{email}. <br><br>Grazie, Jan'
+            text_html: 'Controlla la tua casella di posta e clicca sul <b>link di conferma</b> che ti abbiamo inviato. Poi vai alla pagina di login.'
+            title: Grazie!
+        contact:
+            general_questions_html: 'Per domande generali, prova il nostro <a class="db-social-link" href="https://t.me/deltabadgerchat" target="_blank" rel="nofollow">canale Telegram</a>. Questo è solitamente il modo più veloce per ottenere una risposta. Inoltre: tutti i feedback, idee sul prodotto e richieste di exchange sono benvenuti.'
+            specific_questions_html: 'Per problemi più specifici, mandaci un''email: %{email}, o un messaggio diretto su Telegram o <a class="db-social-link" href="https://x.com/deltabadgerapp" target="_blank" rel="nofollow">𝕏</a>.'
+            title: Contatti
+    links:
+        about: Chi siamo
+        calculator: Calcolatore
+        analyzer: 'Analizzatore'
+        community: 'Community Fireheads'
+        contact: Contatti
+        cookies_policy: 'Politica dei Cookie'
+        create_account: 'Crea account gratuito'
+        dashboard: Dashboard
+        homepage: 'Link alla homepage'
+        log_in: 'Accedi'
+        log_out: Esci
+        menu: Menu
+        privacy_policy: 'Privacy Policy'
+        earn: 'Guadagna'
+        referral_program: 'Programma Affiliati'
+        resend_link: 'Reinvia link'
+        settings: Impostazioni
+        sign_up: 'Registrati'
+        terms_and_conditions: 'Termini e Condizioni'
+        legendary_badger: 'Legendary Badger'
+    meta:
+        desc: "Inizia gratuitamente la strategia più collaudata che funziona con Binance, Coinbase, Kraken, Kucoin e altri exchange. Nessun KYC."
+        title: "Deltabadger • Automatizza il Dollar-Cost Averaging per qualsiasi Crypto"
+        title_short: "Deltabadger • DCA Automatizzato per Bitcoin e Altri Asset"
+        twitter_image_alt: "Dollar-cost averaging automatizzato per Bitcoin, Ethereum, Polkadot, Cardano, Solana e altri asset digitali."
+        descriptions:
+            default: "Inizia gratuitamente la strategia più collaudata che funziona con Binance, Coinbase, Kraken, Kucoin e altri exchange. Nessun KYC."
+            privacy_policy: "Scopri come Deltabadger protegge la tua privacy e gestisce i tuoi dati quando utilizzi la nostra piattaforma DCA crypto automatizzata."
+            terms_and_conditions: "Leggi i nostri termini di servizio per comprendere i tuoi diritti e responsabilità quando utilizzi la piattaforma DCA crypto automatizzata di Deltabadger."
+        titles:
+            privacy_policy: "Privacy Policy • Deltabadger"
+            terms_and_conditions: "Termini e Condizioni • Deltabadger"
+    referral:
+        banner_html: '<b>Condividi il tuo link referral con gli amici e <a href="/referral-program" alt="Leggi di più">guadagna il 20% di commissione ricorrente</a> in BTC. Il modo migliore per fare DCA su Bitcoin è guadagnarlo!</b>'
+        copied: Copiato!
+    settings:
+        name:
+            updated: "Il tuo nome è stato aggiornato."
+        two_fa:
+            disabled: 'L''autenticazione a due fattori è stata disabilitata.'
+            enabled: 'L''autenticazione a due fattori è stata abilitata.'
+        index:
+            api_key_confirmation: 'Sei sicuro?'
+            api_keys_section: 'Chiavi API'
+            email_section: Email
+            name_section: Nome
+            password_section: Password
+            free_plan_reset_date_html: 'Il tuo limite si resetta il <b>%{end_time}</b>.'
+            submit_email: 'Aggiorna email'
+            submit_name: 'Aggiorna nome'
+            submit_password: 'Cambia password'
+            title: Impostazioni
+            two_factor_section: 'Autenticazione a Due Fattori'
+    social:
+        blog: 'Leggi il nostro blog'
+        knowledge_base: 'Base di conoscenza'
+        telegram: 'Unisciti al nostro gruppo Telegram'
+        twitter: 'Seguici su 𝕏'
+    subscriptions:
+        per_month_html: "/mese"
+        per_year_html: "/anno"
+        plan_1_year: "1 anno"
+        plan_4_year: "4 anni"
+        plan_life_time: "A vita"
+        variant1: "1 anno"
+        variant4: "4 anni, uno gratis"
+        free: "Gratuito"
+        basic: "Base"
+        pro: "Pro"
+        Legendary: "Legendary"
+        days_left:
+            one: "1 giorno rimasto"
+            other: "%{count} giorni rimasti"
+        legendary_plan_left: "%{for_sale_count} di %{total_supply} rimasti"
+        payment:
+            price_usd_html: "<span class=price-ticker>%{symbol}</span><span class=price-amount>%{price}</span>"
+            price_eur_html: "<span class=price-ticker>%{symbol}</span><span class=price-amount>%{price}</span>"
+            card: "Carta"
+            account_holder: "Intestatario conto"
+            account_number: "Numero conto"
+            account_type: "Tipo di conto"
+            after_wire_transfer_html: "Grazie! Ti ricontatteremo presto! Se hai bisogno di ulteriore assistenza, faccelo sapere: <a href='mailto:support@deltabadger.com'>support@deltabadger.com</a>."
+            bank_address: "Indirizzo banca"
+            billing_information: "Informazioni di fatturazione"
+            active_plan_discount: "Sconto piano attivo"
+            base_price: "Prezzo base"
+            compensation:
+                one: "Compensazione per <b>1</b> giorno non utilizzato del piano %{plan}."
+                other: "Compensazione per <b>%{count}</b> giorni non utilizzati del piano %{plan}."
+            legendary_plan_discount_html: "Il prezzo aumenta di %{amount} ad ogni vendita."
+            eu_bank_country: "Belgio"
+            invalid_vat_number: "Numero di partita IVA UE non valido"
+            paid_with_wire_transfer: "Ho inviato il bonifico SEPA"
+            paid_with_wire_transfer_other: "Ho inviato il bonifico"
+            pay_html: "Paga %{amount_html}"
+            pay_with_bitcoin: "Paga con bitcoin"
+            pay_with_card: "Paga con Carta"
+            payment_ordered: "Pagamento ordinato!"
+            referral_discount: "Sconto del %{discount_percent}"
+            referral_discount_html: 'Grazie al link referral di <b><a href="%{visible_link}">%{visible_name}</a></b>, ottieni uno sconto sul primo acquisto sulla piattaforma.'
+            black_friday_discount_info: "%{discount_percent} DI SCONTO"
+            black_friday_sale: "Saldi Black Friday"
+            pro_and_legendary_plans: "Piani Pro e Legendary"
+            days: "giorni"
+            hours: "ore"
+            minutes: "minuti"
+            seconds: "secondi"
+            days_short: "g"
+            hours_short: "h"
+            minutes_short: "m"
+            seconds_short: "s"
+            upgrade_now: "Aggiorna Ora"
+            routing_number: "Numero di routing"
+            server_error: "errore del server dei pagamenti. riprova più tardi"
+            vat: "IVA"
+            wire_cost_html: "Per favore, invia <b>%{price}</b> al seguente conto bancario:"
+            wire_cost_pending_html: "Se non hai ancora effettuato un pagamento, invia <b>%{price}</b> al seguente conto bancario:"
+            wire_transfer: "Bonifico Bancario"
+            wire_transfer_fill_form: "Per favore, compila il modulo sopra per procedere…"
+            wire_transfer_pending: "Grazie! Attiveremo il tuo account presto e ti contatteremo via email."
+            you_pay: "Paghi"
+        prolong_upgrade: 'Aggiorna il tuo piano'
+        upgrade: Aggiorna
+        upgrade_plan: 'Aggiorna'
+    legendary_badger:
+        will_be_sent: "L'NFT Legendary Badger sarà inviato a:"
+        ethereum_address: "Indirizzo Ethereum"
+        confirm_info_html: "Confermo che l'indirizzo è corretto e comprendo che l'NFT sarà inviato a questo indirizzo. Una volta che clicco su <b>Richiedi NFT</b>, se l'indirizzo è sbagliato, nessuno potrà recuperare l'NFT."
+        claim: "Richiedi NFT"
+    welcome:
+        banner_html: |
+            <p>Benvenuto a bordo, %{name}!</p>
+            <p>La nuova pagina di aggiornamento è un ottimo posto per vedere tutte le funzionalità e i piani a cui appartengono.</p>
+            <p><a class="button button--success button--large mt-3 mb-3" href="upgrade">Inizia qui</a></p>
+            <p>Cordiali saluti, Jan</p>
+    analyzer:
+        default_portfolio: "Portfolio predefinito"
+        change_portfolio_name: 'Cambia nome'
+        compare: 'Confronta'
+        new_portfolio: 'Nuovo portfolio'
+        total_value: 'Valore totale'
+        no_assets: 'Inizia aggiungendo un nuovo asset.'
+        assets_dont_coexist: 'Impossibile testare questo portfolio. Gli asset selezionati non sono mai coesistiti dal %{backtest_start_date}!'
+        api_unreachable: 'Impossibile testare questo portfolio in questo momento. Il server API dei dati non è raggiungibile.'
+        these_assets: 'Questi asset non riducono la Volatilità né aumentano lo Sharpe Ratio del tuo portfolio:'
+        smart_allocation:
+            name: 'Allocazione Intelligente'
+            short_info_html: '<p>L''Allocazione Intelligente applica gli algoritmi della <b>Teoria Moderna del Portafoglio (MPT)</b> per trovare la migliore allocazione degli asset per il tuo portfolio.</p>Puoi ottimizzare per due diverse metriche e persino scegliere un punto desiderato tra queste due ottimizzazioni.'
+        risk_free_rate: 'Tasso Privo di Rischio'
+        us_bonds: 'Obbligazioni USA'
+        benchmark: 'Benchmark'
+        benchmark_info: 'Migliore è la scelta del benchmark, più affidabile sarà il calcolo del Rendimento Atteso. Scegli un benchmark che corrisponda strettamente alla strategia di investimento e al segmento di mercato del tuo portfolio. Altre metriche influenzate dal benchmark includono Alpha, Beta, R² e Info Ratio.'
+        insights: 'Approfondimenti'
+        pnl: 'Profitto/Perdita'
+        strategy:
+            fixed: 'Investimento una tantum'
+            dca: 'DCA'
+            rebalancing: 'Ribilanciamento'
+        backtest:
+            time_window:
+                adjusted_both_html: "La finestra temporale del backtest è stata modificata per iniziare il <strong>%{start_date}</strong> e terminare il <strong>%{end_date}</strong> per adattarsi alla storia disponibile di tutti gli asset."
+                adjusted_start_html: "La data di inizio del backtest è stata modificata al <strong>%{start_date}</strong> per adattarsi alla storia disponibile di tutti gli asset."
+                adjusted_end_html: "La data di fine del backtest è stata modificata al <strong>%{end_date}</strong> per adattarsi alla storia disponibile di tutti gli asset."
+    utils:
+        assets: Asset
+        cash: Contanti
+        bonds: Obbligazioni
+        gold: Oro
+        are_you_sure: 'Sei sicuro?'
+        change_name: 'Cambia nome'
+        delete: 'Elimina'
+        duplicate: 'Duplica'
+        important: 'Importante!'
+        new: 'Nuovo'
+        save: 'Salva'
+        see_at_coingecko: 'Vedi su CoinGecko'
+        since: 'dal'
+        soon: 'presto'
+        years:
+            one: "%{count} anno"
+            other: "%{count} anni"
+        months:
+            one: "%{count} mese"
+            other: "%{count} mesi"
+        days:
+            one: "%{count} giorno"
+            other: "%{count} giorni"
+        hours:
+            one: "%{count} ora"
+            other: "%{count} ore"
+        minutes:
+            one: "%{count} minuto"
+            other: "%{count} minuti"
+        seconds:
+            one: "%{count} secondo"
+            other: "%{count} secondi"
+    dca_calculator:
+        title: "Per quanto tempo avresti dovuto risparmiare <span>$%{amount}/mese</span> per %{goal}?"
+        goal_millionaire: "diventare milionario"
+    alert:
+        bot:
+            bot_updated: 'Il bot è stato aggiornato con successo.'
+        portfolio:
+            invalid_name: 'Nome portfolio non valido.'
+            invalid_benchmark: 'Valore benchmark non valido.'
+            invalid_strategy: 'Valore strategia non valido.'
+            invalid_start_date: 'Valore data di inizio non valido.'
+            invalid_risk_free_rate: 'Valore tasso privo di rischio non valido.'
+            invalid_smart_allocation: 'Valore allocazione intelligente non valido.'
+            invalid_risk_level: 'Valore livello di rischio non valido.'
+            unable_to_calculate: 'Impossibile calcolare le Allocazioni Intelligenti per questi parametri.'
+            portfolio_normalized: 'Le allocazioni del portfolio sono state normalizzate.'
+            risk_level_updated: 'Il livello di rischio è stato aggiornato.'
+            smart_allocation_updated: 'Le allocazioni intelligenti sono state aggiornate.'
+            unable_to_set_risk_rate: 'Impossibile impostare il tasso privo di rischio a %{risk_free_rate_name}.'
+            api_unreachable: 'Il server API dei dati non è raggiungibile.'
+            portfolio_created: 'Il portfolio è stato creato con successo.'
+            portfolio_updated: 'Il portfolio è stato aggiornato con successo.'
+            portfolio_destroyed: 'Il portfolio è stato eliminato con successo.'
+            portfolio_duplicated: 'Il portfolio è stato duplicato con successo.'
+            unable_to_duplicate_portfolio: 'Impossibile duplicare il portfolio.'
+    ai:
+        insights:
+            intro: "Valuta il mio portfolio nello stile dei tweet di Naval. Trova la tesi geopolitica o tecnica dietro, e gli eventi macro rilevanti negli ultimi anni. Nota se il portfolio ti ricorda qualche stile di investimento o idea popolare come il portfolio a 3 fondi, ecc. Evidenzia asset sovrapposti come ETF con le stesse azioni (solo se ce ne sono). Poi mostra fino a 5 pro e/o contro organizzati in modo che tutti i pro vengano prima. Presta più attenzione a metriche come volatilità e beta, poi a quelle che riflettono principalmente il passato come Sharpe. Usa la scala Scarso/Neutro/Buono/Eccezionale."
+            response_format: |
+                Rispondi nel seguente formato HTML (tutti i testi nel template sono solo esempi). Inserisco la tua risposta direttamente nel mio template HTML quindi NON restituirla come snippet di codice: <div class="insight insight--summary"><span class="insight__name">Titolo provocatorio</span>. Breve narrativa sul portfolio in 5 frasi.</div><div class="insight insight--pro"><span class="insight__name">Nome metrica <b>2.22</b> &middot; Eccezionale</span>. Valutazione in una frase</div><div class="insight insight--con"><span class="insight__name">Nome metrica <b>-1.36%</b> &middot; Scarso</span>. Valutazione in una frase.</div>
+            past_performance: "Performance passata"
+            benchmark_performance: "Performance passata del benchmark"
+            metrics_since: "Metriche per il periodo dal %{start_date} al %{end_date}:"
+    community:
+        access_instructions_html: |
+            <p>Ciao%{name}! La community è a un solo passo di distanza.</p>
+            <p>Per mantenerla libera da spam e da persone non seriamente interessate alla libertà finanziaria:</p>
+            <p>Invia un'email a <strong>%{email}</strong> con <strong>"FIRE"</strong> nell'oggetto.</p>
+            <p>Il tuo accesso a vita arriverà poco dopo.</p>
+            <p>A presto, Jan</p> 

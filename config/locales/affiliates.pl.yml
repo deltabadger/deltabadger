@@ -22,7 +22,7 @@ pl:
         info_preview: 'To jest podgląd tego, co korzystający z linku zobaczą podczas rejestracji:'
         invalid_bitcoin_address: 'Adres bitcoinowy jest nieprawidłowy'
         manual_html: |
-            <div class="alert alert-success">
+            <div class="widget widget--info">
               <p class="mt-1">Nasz program polecający wypłaca <b>20% prowizji</b> od każdej płatności za subskrypcję dokonanej przez polecone osoby. Nie ma limitu - zarabiasz tak długo, jak długo pozostają subskrybentami. Na przykład:</p>
               <ol>
                 <li>Twój znajomy kupuje plan Pro za 299$/rok. Zarabiasz 60$ w BTC (po kursie z momentu transakcji).</li>

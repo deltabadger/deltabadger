@@ -22,7 +22,7 @@ en:
         info_preview: 'This is a preview of what referrals will see during registration:'
         invalid_bitcoin_address: 'Invalid Bitcoin address'
         manual_html: |
-            <div class="alert alert-success">
+            <div class="widget widget--info">
               <p class="mt-1">Our referral program pays <b>20% commission</b> on every subscription payment your referrals make. There's no cap - you keep earning as long as they stay subscribed. For example:</p>
               <ol>
                 <li>Your friend buys a Pro plan for $299/year. You earn $60 in BTC (at the exchange rate of the transaction).</li>

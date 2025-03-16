@@ -1,0 +1,63 @@
+it:
+    bot_info:
+        how_to_use: |
+            <p>Come usi questa strategia?</p>
+            <p>Ecco alcuni esempi:</p>
+        barbell:
+            info: |
+                <p>La <strong>Strategia Barbell</strong> è una semplice strategia a due asset per migliorare la gestione del rischio nei tuoi investimenti, con DCA ribilanciato.</p>
+                <p>Il bot ottiene il ribilanciamento utilizzando solo ordini di ACQUISTO, quindi non crea mai eventi fiscali pur mirando alla tua allocazione desiderata.</p>
+            examples: |
+                <p><strong>BTC-ETH</strong> — "Oro digitale" incontra il Web3. Copri il 74% del mercato crypto con un portfolio semplice e senza problemi che si ribilancia automaticamente.</p>
+                <p><strong>ETH-SOL</strong> — Quale piattaforma Web3 vincerà? Investi in entrambe e lascia che il mercato decida. Il ribilanciamento assicura che tu finisca dalla parte vincente.</p>
+                <p><strong>BTC-PAXG</strong> — Diversificazione tra asset diversi. PAXG è una stablecoin unica che non è correlata con le crypto ma offre comunque un interessante potenziale di crescita.</p>
+        allocation_methods:
+            equal_weight: 'Peso Uguale'
+            equal_weight_info: 'Ogni asset nel tuo portafoglio riceve la stessa allocazione.'
+            market_cap: 'Capitalizzazione di Mercato'
+            market_cap_info: 'L allocazione è impostata automaticamente in base alla capitalizzazione di mercato delle monete nel tuo portafoglio. Maggiore è la capitalizzazione di mercato, maggiore sarà l allocazione.'
+            market_cap_sqrt: 'Radice Quadrata della Capitalizzazione di Mercato'
+            market_cap_sqrt_info: 'L allocazione è impostata automaticamente in base alla radice quadrata della capitalizzazione di mercato delle monete nel tuo portafoglio. Questo riduce l impatto delle monete a grande capitalizzazione rispetto al metodo di capitalizzazione di mercato standard.'
+            custom: 'Personalizzato'
+            custom_info: 'Imposta manualmente l allocazione per ogni asset nel tuo portafoglio.'
+        allocation_types:
+            fixed: 'Fisso'
+            fixed_info: 'L allocazione rimane fissa nel tempo. Nessun ribilanciamento automatico.'
+            rebalancing: 'Ribilanciamento'
+            rebalancing_info: 'L allocazione viene ribilanciata automaticamente in base alla frequenza di ribilanciamento selezionata.'
+        rebalancing_frequencies:
+            daily: 'Giornaliero'
+            daily_info: 'Il portafoglio viene ribilanciato ogni giorno.'
+            weekly: 'Settimanale'
+            weekly_info: 'Il portafoglio viene ribilanciato ogni settimana.'
+            monthly: 'Mensile'
+            monthly_info: 'Il portafoglio viene ribilanciato ogni mese.'
+            quarterly: 'Trimestrale'
+            quarterly_info: 'Il portafoglio viene ribilanciato ogni trimestre.'
+        risk_levels:
+            low: 'Basso'
+            low_info: 'Portafoglio conservativo con bassa volatilità e rendimenti potenziali più bassi.'
+            medium: 'Medio'
+            medium_info: 'Portafoglio bilanciato con volatilità e rendimenti potenziali moderati.'
+            high: 'Alto'
+            high_info: 'Portafoglio aggressivo con alta volatilità e rendimenti potenziali più elevati.'
+        strategy_types:
+            hodl: 'HODL'
+            hodl_info: 'Strategia di acquisto e mantenimento a lungo termine.'
+            dca: 'DCA (Dollar Cost Averaging)'
+            dca_info: 'Investimento di una somma fissa a intervalli regolari, indipendentemente dal prezzo.'
+            momentum: 'Momentum'
+            momentum_info: 'Acquisto di asset con performance recenti forti e vendita di quelli con performance deboli.'
+            contrarian: 'Contrarian'
+            contrarian_info: 'Acquisto di asset con performance recenti deboli e vendita di quelli con performance forti.'
+            trend_following: 'Trend Following'
+            trend_following_info: 'Seguire le tendenze di mercato a medio-lungo termine.'
+            value: 'Value'
+            value_info: 'Acquisto di asset sottovalutati in base a metriche fondamentali.'
+        time_horizons:
+            short_term: 'Breve Termine'
+            short_term_info: 'Meno di 1 anno.'
+            medium_term: 'Medio Termine'
+            medium_term_info: 'Da 1 a 3 anni.'
+            long_term: 'Lungo Termine'
+            long_term_info: 'Più di 3 anni.' 

@@ -22,7 +22,7 @@ nl:
         info_preview: 'Dit is een preview van wat doorverwezen personen zullen zien tijdens de registratie:'
         invalid_bitcoin_address: 'Bitcoin-adres ongeldig'
         manual_html: |
-            <div class="alert alert-success">
+            <div class="widget widget--info">
               <p class="mt-1">Ons verwijzingsprogramma betaalt <b>20% commissie</b> op elke abonnementsbetaling van uw doorverwezen gebruikers. Er is geen limiet - u blijft verdienen zolang zij geabonneerd blijven. Bijvoorbeeld:</p>
               <ol>
                 <li>Uw vriend koopt een Pro-plan voor $299/jaar. U verdient $60 in BTC (tegen de wisselkoers van de transactie).</li>

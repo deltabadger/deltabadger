@@ -22,7 +22,7 @@ es:
         info_preview: 'Esta es una vista previa de lo que los referidos verán durante el registro:'
         invalid_bitcoin_address: 'Dirección de Bitcoin no válida'
         manual_html: |
-            <div class="alert alert-success">
+            <div class="widget widget--info">
               <p class="mt-1">Nuestro programa de referidos paga una <b>comisión del 20%</b> por cada pago de suscripción que realicen tus referidos. No hay límite - sigues ganando mientras permanezcan suscritos. Por ejemplo:</p>
               <ol>
                 <li>Tu amigo compra un plan Pro por $299/año. Tú ganas $60 en BTC (al tipo de cambio de la transacción).</li>
