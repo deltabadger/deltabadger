@@ -5,6 +5,7 @@ import { German } from "flatpickr/dist/l10n/de.js";
 import { Dutch } from "flatpickr/dist/l10n/nl.js";
 import { French } from "flatpickr/dist/l10n/fr.js";
 import { Spanish } from "flatpickr/dist/l10n/es.js";
+import { Italian } from "flatpickr/dist/l10n/it.js";
 import { Catalan } from "flatpickr/dist/l10n/cat.js";
 import { Portuguese } from "flatpickr/dist/l10n/pt.js";
 import { Polish } from "flatpickr/dist/l10n/pl.js";
@@ -25,6 +26,7 @@ export default class extends Controller {
     nl: Dutch,
     fr: French,
     es: Spanish,
+    it: Italian,
     ca: Catalan,
     pt: Portuguese,
     pl: Polish,

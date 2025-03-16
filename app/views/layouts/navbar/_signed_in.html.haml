@@ -50,6 +50,8 @@
     = link_to "Español", url_for(request.params.merge(locale: 'es')), class: "menu-mobile__item"
   - unless locale == 'pt'
     = link_to "Português", url_for(request.params.merge(locale: 'pt')), class: "menu-mobile__item"
+  - unless locale == 'it'
+    = link_to "Italiano", url_for(request.params.merge(locale: 'it')), class: "menu-mobile__item"
   - unless locale == 'pl'
     = link_to "Polski", url_for(request.params.merge(locale: 'pl')), class: "menu-mobile__item"
   - unless locale == 'ru'
