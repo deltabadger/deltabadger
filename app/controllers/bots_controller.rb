@@ -23,7 +23,7 @@ class BotsController < ApplicationController
 
     if @bot.legacy?
       respond_to do |format|
-        format.html { render 'home/dashboard' } # Render the dashboard view on refresh
+        format.html { render 'home/dashboard' }
         format.json { render json: @bot }
       end
     else
