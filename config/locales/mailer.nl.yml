@@ -1,0 +1,60 @@
+nl:
+    mailer:
+        follow_us_on_x: 'Volg ons op 𝕏'
+        we_reply_faster_on_telegram: 'We reageren sneller op Telegram'
+        greeting: 'Ahoy kapitein,'
+        greeting_name: 'Ahoy %{name},'
+    affiliate_mailer:
+        new_btc_address_confirmation:
+            subject: "Bevestig nieuw uitbetalingsadres"
+            template_html: |
+                <p>Het lijkt erop dat u uw uitbetalingsadres voor het verwijzingsprogramma wilt wijzigen:</p>
+                <p><code>%{new_btc_address}</code></p>
+                <p>Bevestig deze wijziging door op onderstaande link te klikken:</p>
+                <p><a href="%{confirmation_url}" title="Bevestig nieuw uitbetalingsadres">Ja, ik wil dit adres gebruiken voor toekomstige uitbetalingen</a></p>
+        referrals_payout_notification:
+            subject: "Het is uitbetalingsdag!"
+            template_html: |
+                <p>Bedankt. Deltabadger groeit alleen dankzij mond-tot-mond verwijzingen.</p>
+                <p>En die van u werken echt goed:</p>
+                <p>Zojuist hebben we <b>%{amount} BTC</b> naar u overgemaakt.</p>
+                <p>Het beste deel? Het is nog niet voorbij:</p>
+                <p><b>U krijgt 20% elke keer dat deze doorverwezen personen hun abonnement verlengen</b>.</p>
+                <p>Kent u nog iemand anders die baat zou kunnen hebben bij Deltabadger?</p>
+            grow_stream: "Laat het ze weten en laat uw terugkerende inkomsten groeien"
+        registration_reminder:
+            subject: "Wow! U heeft %{amount} BTC verdiend!"
+            template_html: |
+                <p>Er staat een nieuwe commissie van het verwijzingsprogramma op u te wachten!</p>
+                <p>Voltooi de registratie om uw bitcoin te ontvangen:</p>
+            complete_registration: "Registratie voltooien"
+    bot_alerts_mailer:
+        successful_webhook_bot_transaction:
+            subject: "Transactie is geslaagd"
+            template_html: "transactie geslaagd, base: %{base}, quote: %{quote}, bot_naam: %{bot_name}, type: %{type}, prijs: %{price}, beurs_naam: %{exchange_name}"
+        end_of_funds:
+            subject: "Uw bot heeft binnenkort onvoldoende saldo"
+            template_html: "<p>Het lijkt erop dat uw bot <b>%{label}</b> binnenkort geen %{quote} meer heeft.</p><p>Maak een overboeking naar %{exchange_name} om er zeker van te zijn dat de bot continu blijft werken.</p>"
+        notify_about_error:
+            subject: "Er is iets misgegaan"
+            template_html: "<p>Er is iets misgegaan tijdens het verwerken van de laatste transactie voor de bot <b>%{label}</b>.</p><p>U kunt de fout bekijken in het bot logboek. Log in om het te controleren.</p><p>Fouten:</p><blockquote> <b>%{exchange_name}:</b> <b>%{errors}</b></blockquote>"
+        notify_about_restart:
+            subject: "Oeps! Volgende poging…"
+            template_html: "<p>De bot <b>%{label}</b> kon uw order niet uitvoeren. Het lijkt op een probleem met de beurs. We proberen het opnieuw over %{delay}.</p><p>Alle fouten zijn zichtbaar in het bot logboek. Log in om het te bekijken.</p><p>Fouten:</p><blockquote> <b>%{exchange_name}:</b> <b>%{errors}</b> </blockquote>"
+    subscription_mailer:
+        invoice:
+            subject: 'Factuur'
+            template_html: |
+                <h2>Deltabadger %{plan_name} Plan (%{years}-jarig)</h2>
+                <p> <b>Betaald:</b></p>
+                <h2>%{total_paid} %{currency}</h2>
+                <p><b>Betaald op:</b></p>
+                <p>%{paid_at}</p>
+                <p><b>Verkoper:</b></p>
+                <p>Deltabadger OÜ<br>
+                Pärnu mnt 158/2-88 <br>
+                11317 Tallinn <br> Estland <br>
+                KvK nr.14781461</p>
+                <p><b>Koper:</b></p>
+                <p> %{first_name} %{last_name} <br>
+                %{email}</p>
