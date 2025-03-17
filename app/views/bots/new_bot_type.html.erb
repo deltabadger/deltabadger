@@ -7,11 +7,11 @@
        <h1 class="modal__title"><%= t('bot.start_new_bot') %></h1>
     </div>
     <div class="bot-menu">
-      <%= link_to dashboard_path(create: true), class: 'bot-menu__item', data: { action: 'click->modal--base#animateOutCloseAndCleanUp', turbo: false } do %>
+      <%= link_to dashboard_path(create: true), class: 'bot-menu__item bot-menu__item--dca', data: { action: 'click->modal--base#animateOutCloseAndCleanUp', turbo: false } do %>
         <div class="bot-menu__item__title"><%= t('bot.types.dca.title') %></div>
         <div class="bot-menu__item__description"><%= t('bot.types.dca.description') %></div>
       <% end %>
-      <%= button_to bots_path, method: :post, class: 'bot-menu__item', data: { action: 'click->modal--base#animateOutCloseAndCleanUp' } do %>
+      <%= button_to bots_path, method: :post, class: 'bot-menu__item bot-menu__item--barbell', data: { action: 'click->modal--base#animateOutCloseAndCleanUp' } do %>
         <div class="bot-menu__item__title"><%= t('bot.types.barbell.title') %> <span class="sbadge sbadge--danger"><%= t('utils.new') %></span></div>
         <div class="bot-menu__item__description"><%= t('bot.types.barbell.description') %></div>
       <% end %>
