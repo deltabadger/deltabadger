@@ -1,6 +1,5 @@
 .widgets
     border-radius: 2rem
-    overflow: hidden
 
 .widget
     background: var(--widget-background)
@@ -18,7 +17,6 @@
             padding-bottom: 1rem
     &.data-grid
         border-radius: 2rem
-        overflow: hidden
     &--thin
         padding: 1.5rem 3rem
         @media only screen and (max-width: 549.9px)
@@ -70,7 +68,7 @@
     strong
         color: var(--emphasis)
 .data-grid
-    background: none
+    background-image: linear-gradient(to right, transparent, transparent calc(25% - 2px), var(--background) calc(25% - 2px), var(--background) calc(25%), transparent calc(25%)), linear-gradient(to right, transparent, transparent calc(50% - 2px), var(--background) calc(50% - 2px), var(--background) calc(50%), transparent calc(50%)), linear-gradient(to right, transparent, transparent calc(75% - 2px), var(--background) calc(75% - 2px), var(--background) calc(75%), transparent calc(75%))
     display: grid
     grid-template-columns: repeat(6, 1fr)
     gap: 2px
@@ -80,19 +78,15 @@
         grid-template-columns:  repeat(4, 1fr)
     @container (max-width: 767px)
         grid-template-columns:  repeat(3, 1fr)
-    @container (max-width: 511px)
+    @container (max-width: 512px)
         grid-template-columns:  repeat(2, 1fr)
     &__item
         padding: 2.5rem 2.5rem 2rem 3rem
         position: relative
         display: flex
         flex-direction: column
-        background-color: var(--widget-background)
         @media only screen and (max-width: 549.9px)
             padding: 2rem 2rem 1rem 2rem
-        &:not(.data-grid__item--empty):hover
-            // background-color: var(--widget-line)
-            // cursor: pointer
         &__value
             font-size: 3rem
             line-height: 5rem
@@ -103,23 +97,6 @@
                 fill: var(--label)
             svg
                 width: 3rem
-        &--filler
-            display: none !important
-            &--2
-                @container (max-width: 511px)
-                    display: flex !important
-            &--3
-                @container (min-width: 511rem) and (max-width: 767px)
-                    display: flex !important
-            &--4
-                @container (min-width: 767.5px) and (max-width: 959px)
-                    display: flex !important
-            &--5
-                @container (min-width: 959.5px) and (max-width: 1223px)
-                    display: flex !important
-            &--6
-                @container (min-width: 1223.5px)
-                    display: flex !important
         .tooltip
             bottom: calc(100% - 1rem)
             left: 0

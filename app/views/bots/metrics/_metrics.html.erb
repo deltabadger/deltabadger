@@ -22,7 +22,5 @@
     <%= render partial: "bots/metrics/metrics_item", locals: {
       label: t('data_labels.value_ticker', ticker: bot.quote),
       value: bot.exchange.present? ? rounded_quote_amount_for(exchange: bot.exchange, base_asset: bot.base0, quote_asset: bot.quote, amount: metrics[:current_investment_value_in_quote]) : nil } %>
-    <div class="data-grid__item data-grid__item--filler data-grid__item--filler--4 data-grid__item--filler--6"></div>
-    <div class="data-grid__item data-grid__item--filler data-grid__item--filler--4 data-grid__item--filler--6"></div>
   </div>
 <% end %>
