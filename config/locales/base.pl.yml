@@ -142,7 +142,7 @@ pl:
             other: 'Pozostało %{count} dni'
         basic_info: 'Bez szmerów bajerów, ale konkret.'
         pro_info: 'Zyskaj szeroki obraz, dogłębną analizę i funkcje Pro.'
-        legendary_plan_left: "Pozostało %{for_sale_count} z %{total_supply}"
+        legendary_plan_left_html: "Pozostało %{for_sale_count} <span class='hide-on-mobile'>z %{total_supply}</span>"
         payment:
             price_usd_html: '<span class=price-ticker>%{symbol}</span><span class=price-amount>%{price}</span>'
             price_eur_html: '<span class=price-ticker>%{symbol}</span><span class=price-amount>%{price}</span>'

@@ -138,7 +138,7 @@ it:
         days_left:
             one: "1 giorno rimasto"
             other: "%{count} giorni rimasti"
-        legendary_plan_left: "%{for_sale_count} di %{total_supply} rimasti"
+        legendary_plan_left_html: "%{for_sale_count} <span class='hide-on-mobile'>di %{total_supply}</span> rimasti"
         payment:
             price_usd_html: "<span class=price-ticker>%{symbol}</span><span class=price-amount>%{price}</span>"
             price_eur_html: "<span class=price-ticker>%{symbol}</span><span class=price-amount>%{price}</span>"

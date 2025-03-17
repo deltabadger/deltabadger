@@ -138,7 +138,8 @@ en:
         days_left:
             one: "1 day left"
             other: "%{count} days left"
-        legendary_plan_left: "%{for_sale_count} of %{total_supply} left"
+        legendary_plan_left_html: "%{for_sale_count} <span class='hide-on-mobile'>of %{total_supply}</span> left"
+        legendary_plan_discount: "10%"
         payment:
             price_usd_html: "<span class=price-ticker>%{symbol}</span><span class=price-amount>%{price}</span>"
             price_eur_html: "<span class=price-ticker>%{symbol}</span><span class=price-amount>%{price}</span>"

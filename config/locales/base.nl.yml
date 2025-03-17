@@ -136,7 +136,7 @@ nl:
             other: '%{count} dagen over'
         basic_info: 'Geen franje, alleen spanning, maar doet het werk.'
         pro_info: 'Krijg een overzicht, diepgaande inzichten en Pro-functies.'
-        legendary_plan_left: "%{for_sale_count} van %{total_supply} over"
+        legendary_plan_left_html: "%{for_sale_count} <span class='hide-on-mobile'>van %{total_supply}</span> over"
         payment:
             price_usd_html: '<span class=price-ticker>%{symbol}</span><span class=price-amount>%{price}</span>'
             price_eur_html: '<span class=price-ticker>%{symbol}</span><span class=price-amount>%{price}</span>'
