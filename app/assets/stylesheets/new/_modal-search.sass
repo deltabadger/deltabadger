@@ -66,18 +66,16 @@
         margin-bottom: 4rem
 
 .modal--search
-    background: var(--modal-background)
     width: 100rem
     max-width: calc(100vw - 2rem)
     max-height: calc(100vh - 2rem)
     position: relative
+    background: var(--modal-background)
+    border-radius: 2rem
+    overflow: hidden
     @media screen and (min-width: 576px)
         max-width: calc(100vw - 4rem)
         max-height: calc(100vh - 4rem)
-    &__background
-        background: var(--modal-background)
-        border-radius: 2rem
-        overflow: hidden
     &__zoom-icon
         width: 3rem
         height: 3rem

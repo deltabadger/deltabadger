@@ -8,7 +8,7 @@ fr:
                 description: "Investissement programmé sur une seule cryptomonnaie"
             barbell:
                 title: "Stratégie Barbell"
-                description: "Réduire le risque en rééquilibrant deux actifs"
+                description: "Rééquilibrage de deux actifs sans impôts"
             index_portfolio:
                 title: "Portefeuille Indice"
                 description: "Construisez votre ETF crypto personnel"

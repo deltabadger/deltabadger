@@ -8,7 +8,7 @@ es:
                 description: "Promedio de coste en dólares de una sola moneda"
             barbell:
                 title: "Estrategia Barbell"
-                description: "Mitiga el riesgo reequilibrando dos activos"
+                description: "Reequilibrio de dos activos sin impuestos"
             index_portfolio:
                 title: "Cartera Índice"
                 description: "Construye tu ETF de criptomonedas personal"

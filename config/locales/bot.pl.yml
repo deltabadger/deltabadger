@@ -8,7 +8,7 @@ pl:
                 description: "Uśrednianie kosztów dla pojedynczej kryptowaluty"
             barbell:
                 title: "Strategia Barbell"
-                description: "Zmniejsz ryzyko poprzez rebalansowanie dwóch aktywów"
+                description: "Rebalansowanie dwóch aktywów bez podatku"
             index_portfolio:
                 title: "Portfolio Indeksowe"
                 description: "Zbuduj swój osobisty krypto ETF"

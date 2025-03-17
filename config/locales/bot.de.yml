@@ -8,7 +8,7 @@ de:
                 description: "Dollar-Cost-Averaging für einzelne Coins"
             barbell:
                 title: "Barbell-Strategie"
-                description: "Risiko durch Rebalancing von zwei Assets minimieren"
+                description: "Rebalancing von zwei Assets ohne Steuern"
             index_portfolio:
                 title: "Index-Portfolio"
                 description: "Baue deinen persönlichen Krypto-ETF"
