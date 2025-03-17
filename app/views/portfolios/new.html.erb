@@ -1,11 +1,8 @@
-<%= link_to sanitize("&larr; Back to portfolios"), portfolios_path %>
-
 <%= render 'layouts/turbo_modal' do %>
-  <%= button_tag class: 'modal__close', data: { action: 'modal--base#animateOutCloseAndCleanUp' } do %>
-    <%= render partial: 'svg/24x24_x' %>
-  <% end %>
   <div class="modal modal--regular">
-
+    <%= button_tag class: 'modal__close', data: { action: 'modal--base#animateOutCloseAndCleanUp' } do %>
+      <%= render partial: 'svg/24x24_x' %>
+    <% end %>
     <div class="modal__header">
       <h1 class="modal__title"><%= t('analyzer.new_portfolio') %></h1>
     </div>

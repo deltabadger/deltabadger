@@ -98,6 +98,17 @@ select
     text-align: center
     opacity: 0.5
 
+.buttons
+    display: flex
+    margin-top: 4rem
+    &--col
+        flex-direction: column
+        gap: 2rem
+        @media screen and (min-width: 576px)
+            gap: 2rem
+        .button
+            width: 100%
+
 .button
     font-weight: 600
     line-height: 2rem
