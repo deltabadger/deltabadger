@@ -47,6 +47,7 @@
             position: sticky
             top: 0
             background-color: var(--widget-background)
+            box-shadow: 0 2px var(--widget-shadow-line)
         tbody
             overflow-y: auto
         td, th
@@ -59,8 +60,6 @@
                 padding: 1.5rem 0 1.5rem 2rem
             &:last-child
                 padding-right: 3rem
-        .table-striped tbody tr:nth-of-type(odd)
-            background-color: var(--pickExchangeItemBg)
     .sinput
         box-shadow: none
     p:last-child
@@ -71,17 +70,17 @@
     display: grid
     grid-template-columns: repeat(2, 1fr)
     gap: 2px
-    background-image: linear-gradient(to right, transparent, transparent calc(50% - 2px), var(--background) calc(50% - 2px), var(--background) calc(50%), transparent calc(50%)), linear-gradient(to bottom, transparent, transparent calc(12.5rem), var(--background) calc(12.5rem), var(--background) calc(12.5rem + 2px), transparent calc(12.5rem + 2px))
+    background-image: linear-gradient(to right, transparent, transparent calc(50% - 2px), var(--widget-shadow-line) calc(50% - 2px), var(--widget-shadow-line) calc(50%), transparent calc(50%)), linear-gradient(to bottom, transparent, transparent calc(12.5rem), var(--widget-shadow-line) calc(12.5rem), var(--widget-shadow-line) calc(12.5rem + 2px), transparent calc(12.5rem + 2px))
     background-size: 100% 100%, 100% calc(12.5rem + 2px)
     background-repeat: no-repeat, repeat-y
     @container (min-width: 576px)
         grid-template-columns: repeat(3, 1fr)
-        background-image: linear-gradient(to right, transparent, transparent calc(33.33% - 2px), var(--background) calc(33.33% - 2px), var(--background) calc(33.33%), transparent calc(33.33%)), linear-gradient(to right, transparent, transparent calc(66.66% - 2px), var(--background) calc(66.66% - 2px), var(--background) calc(66.66%), transparent calc(66.66%)), linear-gradient(to bottom, transparent, transparent calc(12.5rem), var(--background) calc(12.5rem), var(--background) calc(12.5rem + 2px), transparent calc(12.5rem + 2px))
+        background-image: linear-gradient(to right, transparent, transparent calc(33.33% - 2px), var(--widget-shadow-line) calc(33.33% - 2px), var(--widget-shadow-line) calc(33.33%), transparent calc(33.33%)), linear-gradient(to right, transparent, transparent calc(66.66% - 2px), var(--widget-shadow-line) calc(66.66% - 2px), var(--widget-shadow-line) calc(66.66%), transparent calc(66.66%)), linear-gradient(to bottom, transparent, transparent calc(12.5rem), var(--widget-shadow-line) calc(12.5rem), var(--widget-shadow-line) calc(12.5rem + 2px), transparent calc(12.5rem + 2px))
         background-size: 100% 100%, 100% 100%, 100% calc(12.5rem + 2px)
         background-repeat: no-repeat, no-repeat, repeat-y
     @container (min-width: 768px)
         grid-template-columns: repeat(4, 1fr)
-        background-image: linear-gradient(to right, transparent, transparent calc(25% - 2px), var(--background) calc(25% - 2px), var(--background) calc(25%), transparent calc(25%)), linear-gradient(to right, transparent, transparent calc(50% - 2px), var(--background) calc(50% - 2px), var(--background) calc(50%), transparent calc(50%)), linear-gradient(to right, transparent, transparent calc(75% - 2px), var(--background) calc(75% - 2px), var(--background) calc(75%), transparent calc(75%)), linear-gradient(to bottom, transparent, transparent calc(12.5rem), var(--background) calc(12.5rem), var(--background) calc(12.5rem + 2px), transparent calc(12.5rem + 2px))
+        background-image: linear-gradient(to right, transparent, transparent calc(25% - 2px), var(--widget-shadow-line) calc(25% - 2px), var(--widget-shadow-line) calc(25%), transparent calc(25%)), linear-gradient(to right, transparent, transparent calc(50% - 2px), var(--widget-shadow-line) calc(50% - 2px), var(--widget-shadow-line) calc(50%), transparent calc(50%)), linear-gradient(to right, transparent, transparent calc(75% - 2px), var(--widget-shadow-line) calc(75% - 2px), var(--widget-shadow-line) calc(75%), transparent calc(75%)), linear-gradient(to bottom, transparent, transparent calc(12.5rem), var(--widget-shadow-line) calc(12.5rem), var(--widget-shadow-line) calc(12.5rem + 2px), transparent calc(12.5rem + 2px))
         background-size: 100% 100%, 100% 100%, 100% 100%, 100% calc(12.5rem + 2px)
         background-repeat: no-repeat, no-repeat, no-repeat, repeat-y
     &__item
