@@ -132,7 +132,7 @@ fr:
             other: "%{count} jours restants"
         basic_info: 'Pas de fioritures, juste de l''efficacité.'
         pro_info: 'Vue d''ensemble, analyses approfondies et fonctionnalités Pro.'
-        legendary_plan_left: "Il reste %{for_sale_count} sur %{total_supply}"
+        legendary_plan_left_html: "Il reste %{for_sale_count} <span class='hide-on-mobile'>sur %{total_supply}</span>"
         payment:
             price_usd_html: '<span class=price-ticker>%{symbol}</span><span class=price-amount>%{price}</span>'
             price_eur_html: '<span class=price-ticker>%{symbol}</span><span class=price-amount>%{price}</span>'

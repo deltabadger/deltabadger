@@ -57,6 +57,8 @@
         margin-bottom: 0
         padding-top: 3.25rem
         padding-bottom: 3.25rem
+        @media (max-width: 767.9px)
+            gap: 1rem
         &__badge
             background: var(--success)
             padding: 0 1rem
@@ -116,9 +118,8 @@
         &__legendary-plans-left
             font-weight: 600
             color: var(--success) !important
-            span
-                display: block
-                margin-bottom: 1rem
+            .slider
+                margin-top: 0.75rem
             .slider__style
                 background: var(--success-semitransparent)
                 &__track
@@ -140,6 +141,10 @@
                 filter: brightness(2.75) saturate(0.5)
     &--checkout
         border-radius: 0 0 2rem 2rem
+        .tab
+            display: none
+            &.active
+                display: block
         .db-form__label
             background: var(--widget-background)
 
@@ -172,7 +177,6 @@
             min-width: 30%
 @media only screen and (max-width: 959.9px)
     .pricing
-        gap: 2rem
         flex-direction: column
         &__plans, &__checkout
             width: 100%
@@ -194,6 +198,11 @@
                 font-size: 2.25rem
             &__amount
                 display: none
+    .legendary-counter
+        padding: 1rem 2rem
+        &__discount
+            display: none
+    .legendary-counter__discount
 @media only screen and (max-width: 500px)
     .pricing__plans
         grid-template-columns: 1fr 1fr minmax(40%, 1fr)
@@ -218,3 +227,14 @@
         height: 1px
         background: var(--label)
         width: 100%
+
+@media (max-width: 575.9px)
+    .hide-on-mobile
+        display: none
+    .hide-on-desktop
+        display: inline
+@media (min-width: 576px)
+    .hide-on-mobile
+        display: inline
+    .hide-on-desktop
+        display: none
