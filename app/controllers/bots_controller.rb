@@ -21,13 +21,13 @@ class BotsController < ApplicationController
   def show
     return redirect_to bots_path if @bot.deleted?
 
+    @other_bots = current_user.bots.not_deleted.order(id: :desc).where.not(id: @bot.id)
     if @bot.legacy?
       respond_to do |format|
         format.html { render 'home/dashboard' }
         format.json { render json: @bot }
       end
     else
-      @other_bots = current_user.bots.not_deleted.barbell.order(id: :desc).where.not(id: @bot.id)
       @pagy, @orders = pagy_countless(@bot.transactions.order(created_at: :desc), items: 10)
     end
   end
@@ -35,11 +35,13 @@ class BotsController < ApplicationController
   def edit; end
 
   def update
-    if @bot.update(update_params)
+    if !@bot.legacy? && @bot.update(update_params)
       if @bot.exchange.present? && @bot.available_exchanges_for_current_settings.exclude?(@bot.exchange)
         @bot.update!(exchange_id: nil)
         flash.now[:alert] = 'Exchange not supported for current settings'
       end
+      # flash.now[:notice] = t('alert.bot.bot_updated')
+    elsif @bot.legacy? && @bot.update(update_params_legacy)
       # flash.now[:notice] = t('alert.bot.bot_updated')
     else
       flash.now[:alert] = @bot.errors.messages.values.flatten.to_sentence
@@ -125,6 +127,18 @@ class BotsController < ApplicationController
     )
   end
 
+  def basic_bot_params
+    params.require(:bots_basic).permit(:label)
+  end
+
+  def withdrawal_bot_params
+    params.require(:bots_withdrawal).permit(:label)
+  end
+
+  def webhook_bot_params
+    params.require(:bots_webhook).permit(:label)
+  end
+
   def api_key_params
     params.require(:api_key).permit(:key, :secret)
   end
@@ -140,6 +154,17 @@ class BotsController < ApplicationController
       exchange_id: permitted_params[:exchange_id],
       label: permitted_params[:label]
     }.compact
+  end
+
+  def update_params_legacy
+    case @bot.type
+    when 'Bots::Basic'
+      basic_bot_params
+    when 'Bots::Withdrawal'
+      withdrawal_bot_params
+    when 'Bots::Webhook'
+      webhook_bot_params
+    end
   end
 
   def filter_assets_by_query(assets:, query:)

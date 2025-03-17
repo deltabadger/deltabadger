@@ -1,8 +1,7 @@
 <% pnl = bot.legacy? ? 0 : bot.fetch_metrics[:pnl] %>
-<% path = bot.legacy? ? bot_path(bot) : bot_path(bot) %>
 
 <div class="widget bot-tile">
-  <%= link_to path do %>
+  <%= link_to bot_path(bot) do %>
     <div class="bot-tile__header">
       <div class="bot-tile__hgroup">
         <div class="bot-tile__title">
