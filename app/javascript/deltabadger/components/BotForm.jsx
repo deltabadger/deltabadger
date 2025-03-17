@@ -340,14 +340,14 @@ export const BotForm = ({
 
   return (
     <>
-    <NavigationPanel
+    {/* <NavigationPanel
       handleCancel={handleCancel}
       closedFormHandler={closedFormHandler}
       step={chooseStep(step)}
       page={page}
       setPage={setPage}
       numberOfPages={numberOfPages}
-    />
+    /> */}
     { renderForm() }
     { chooseStep(step) > 0 && <Details /> }
     </>

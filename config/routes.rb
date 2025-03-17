@@ -74,7 +74,7 @@ Rails.application.routes.draw do
   end
 
   scope "(:locale)", locale: /#{I18n.available_locales.join("|")}/ do
-    root to: 'home#index'
+    root to: 'bots#index'
 
     devise_for :users, controllers: { sessions: 'users/sessions', passwords: 'users/passwords', confirmations: 'users/confirmations', registrations: 'users/registrations' }, path: '', path_names: { sign_in: 'login', sign_out: 'logout', sign_up: 'signup' }, skip: [:registrations]
     devise_scope :user do
@@ -116,7 +116,7 @@ Rails.application.routes.draw do
       patch :update_community_access
     end
 
-    get :dashboard, to: 'home#index'
+    get :dashboard, to: 'home#dashboard'
 
     resources :bots, except: [:new] do
       get :asset_search, on: :member
