@@ -8,7 +8,7 @@ it:
                 description: "Dollar-cost averaging su singola moneta"
             barbell:
                 title: "Strategia Barbell"
-                description: "Mitiga il rischio ribilanciando due asset"
+                description: "Ribilanciamento di due asset senza tasse"
             index_portfolio:
                 title: "Portfolio Indice"
                 description: "Costruisci il tuo ETF crypto personale"
