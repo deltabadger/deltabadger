@@ -8,7 +8,7 @@ pt:
                 description: "Investimento programado numa única moeda"
             barbell:
                 title: "Estratégia Barbell"
-                description: "Mitigar o risco reequilibrando dois ativos"
+                description: "Reequilíbrio de dois ativos sem impostos"
             index_portfolio:
                 title: "Portefólio de Índice"
                 description: "Construa o seu ETF pessoal de criptomoedas"

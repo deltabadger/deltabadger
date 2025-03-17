@@ -8,7 +8,7 @@ ru:
                 description: "Усреднение стоимости одной монеты"
             barbell:
                 title: "Стратегия Barbell"
-                description: "Снижение риска путем ребалансировки двух активов"
+                description: "Ребалансировка двух активов без налогов"
             index_portfolio:
                 title: "Индексный портфель"
                 description: "Создайте свой личный крипто-ETF"

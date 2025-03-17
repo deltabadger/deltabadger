@@ -8,7 +8,7 @@ nl:
                 description: "Dollar-cost averaging voor één munt"
             barbell:
                 title: "Barbell Strategie"
-                description: "Risico verminderen door twee activa te herbalanceren"
+                description: "Herbalancering van twee activa zonder belasting"
             index_portfolio:
                 title: "Index Portfolio"
                 description: "Bouw uw persoonlijke crypto ETF"
