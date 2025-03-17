@@ -135,7 +135,7 @@ de:
             other: '%{count} Tage übrig'
         basic_info: 'Keine Schnörkel, nur Thrills, aber es erledigt den Job.'
         pro_info: 'Verschaffen Sie sich einen Überblick, tiefe Einblicke und Pro-Funktionen.'
-        legendary_plan_left: "%{for_sale_count} von %{total_supply} übrig"
+        legendary_plan_left_html: "%{for_sale_count} <span class='hide-on-mobile'>von %{total_supply}</span> übrig"
         limit_reached_html: '<b>Glückwunsch!</b> Du hast das kostenlose Transaktionslimit von $1200/Jahr erreicht. Um weiterhin zu bleiben, erhöhe deinen Plan auf den unbegrenzten Plan.'
         payment:
             price_usd_html: '<span class=price-ticker>%{symbol}</span><span class=price-amount>%{price}</span>'

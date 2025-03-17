@@ -133,7 +133,7 @@ pt:
             other: '%{count} dias restantes'
         basic_info: 'Sem frescuras, só emoção, mas faz o trabalho.'
         pro_info: 'Tenha uma visão geral, insights profundos e recursos Pro.'
-        legendary_plan_left: "%{for_sale_count} de %{total_supply} restantes"
+        legendary_plan_left_html: "%{for_sale_count} <span class='hide-on-mobile'>de %{total_supply}</span> restantes"
         payment:
             price_usd_html: '<span class=price-ticker>%{symbol}</span><span class=price-amount>%{price}</span>'
             price_eur_html: '<span class=price-ticker>%{symbol}</span><span class=price-amount>%{price}</span>'
