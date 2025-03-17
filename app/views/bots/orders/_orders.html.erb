@@ -3,7 +3,7 @@
 <%= turbo_frame_tag "bot_#{bot.id}_orders" do %>
   <div class="widget widget--table">
     <% if bot.transactions.any? %>
-      <table class="table table-borderless table-striped">
+      <table class="table">
         <thead>
           <tr>
             <th scope="col"><%= t('bots.details.stats.date') %></th>
