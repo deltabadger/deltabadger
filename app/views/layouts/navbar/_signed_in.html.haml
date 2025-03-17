@@ -4,7 +4,7 @@
 .hamburger.hamburger__b
 
 .menu-mobile
-  = link_to root_path, class: 'menu-mobile__item menu-mobile__item--dashboard', data: { controller: 'tooltip', action: 'mouseenter->tooltip#showTooltip mouseleave->tooltip#hideTooltip' } do
+  = link_to bots_path, class: 'menu-mobile__item menu-mobile__item--dashboard', data: { controller: 'tooltip', action: 'mouseenter->tooltip#showTooltip mouseleave->tooltip#hideTooltip' } do
     = t('links.dashboard')
 
   = link_to calculator_path, class: 'menu-mobile__item menu-mobile__item--calculator', data: { controller: 'tooltip', action: 'mouseenter->tooltip#showTooltip mouseleave->tooltip#hideTooltip' } do
@@ -62,7 +62,7 @@
 .menu
   .menu__section.menu__section--top.menu__section--logo
 
-    = link_to root_path, class: 'menu__logo' do
+    = link_to bots_path, class: 'menu__logo' do
       -unless current_user.subscription.name == 'legendary'
         = render 'svg/40x30_logo'
         -# = render 'layouts/devise_messages'
@@ -72,7 +72,7 @@
 
   .menu__section.menu__section--top.menu__section--main-menu
 
-    = link_to root_path, class: 'menu__item menu__item--dashboard', data: { controller: 'tooltip', action: 'mouseenter->tooltip#showTooltip mouseleave->tooltip#hideTooltip' } do
+    = link_to bots_path, class: 'menu__item menu__item--dashboard', data: { controller: 'tooltip', action: 'mouseenter->tooltip#showTooltip mouseleave->tooltip#hideTooltip' } do
       = render 'svg/24x24_dashboard'
       .tooltip
         = t('links.dashboard')
