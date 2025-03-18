@@ -284,7 +284,7 @@ en:
             api_unreachable: 'Data API server is unreachable.'
             portfolio_created: 'Portfolio was successfully created.'
             portfolio_updated: 'Portfolio was successfully updated.'
-            portfolio_destroyed: 'Portfolio was successfully destroyed.'
+            portfolio_destroyed: 'Portfolio was successfully deleted.'
             portfolio_duplicated: 'Portfolio was successfully duplicated.'
             unable_to_duplicate_portfolio: 'Unable to duplicate portfolio.'
     ai:

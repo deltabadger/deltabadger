@@ -11,11 +11,6 @@ class HomeController < ApplicationController
 
   before_action :authenticate_user!, except: PUBLIC_PAGES
 
-  # TODO: Remove this once the legacy dashboard is removed, also from DB
-  before_action :set_welcome_banner, only: [:dashboard], if: -> { !current_user.welcome_banner_dismissed? }
-  before_action :set_news_banner, only: [:dashboard], if: -> { !current_user.news_banner_dismissed? }
-  before_action :set_referral_banner, only: [:dashboard], if: -> { !current_user.referral_banner_dismissed? }
-
   layout 'guest', only: PUBLIC_PAGES
 
   def index
@@ -31,19 +26,5 @@ class HomeController < ApplicationController
     end
 
     render layout: 'devise'
-  end
-
-  private
-
-  def set_welcome_banner
-    @show_welcome_banner = true
-  end
-
-  def set_news_banner
-    @show_news_banner = true
-  end
-
-  def set_referral_banner
-    @show_referral_banner = true
   end
 end
