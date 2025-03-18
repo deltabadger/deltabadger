@@ -4,7 +4,7 @@
   <% end %>
   <%= render "svg/16x16_down" %>
   <div class="dropdown dropdown--bots">
-    <%= button_to "#{t('bot.new')} +", bots_path, method: :post, class: "dropdown__item" %>
+    <%= button_to "#{t('bot.new')} +", new_bot_type_bots_path, method: :get, class: "dropdown__item", data: { turbo_frame: "modal" } %>
     <% if other_bots.any? %>
       <div class="dropdown__item dropdown__item--divider"></div>
       <% other_bots.each do |other_bot| %>
