@@ -4,18 +4,29 @@ export default class extends Controller {
   static targets = ["toggleable"]
   static values = {
     class: { type: String, default: "show-tooltip" },
-    dynamicDelay: { type: Number, default: 500 }
+    dynamicDelay: { type: Number, default: 500 },
+    outsideClickHandler: { type: Boolean, default: false }
   }
   static hoverTimeout = null;
   static noHoverTimeout = null;
 
   connect() {
     this.showTimeout = null;
+    this.handleOutsideClick = this.handleOutsideClick.bind(this);
   }
 
   toggle() {
     this.element.classList.toggle(this.classValue);
     this.#handlePasswordToggling(this.element);
+    
+    // Handle outside click for dropdowns or other elements that need it
+    if (this.outsideClickHandlerValue) {
+      if (this.element.classList.contains(this.classValue)) {
+        document.addEventListener("click", this.handleOutsideClick);
+      } else {
+        document.removeEventListener("click", this.handleOutsideClick);
+      }
+    }
   }
 
   toggleTarget(event) {
@@ -30,6 +41,16 @@ export default class extends Controller {
     } else {
       this.element.classList.toggle(this.classValue);
       this.#handlePasswordToggling(this.element);
+    }
+    
+    // Handle outside click for dropdowns or other elements that need it
+    if (this.outsideClickHandlerValue) {
+      if ((this.hasToggleableTarget && this.toggleableTarget.classList.contains(this.classValue)) ||
+          (!this.hasToggleableTarget && this.element.classList.contains(this.classValue))) {
+        document.addEventListener("click", this.handleOutsideClick);
+      } else {
+        document.removeEventListener("click", this.handleOutsideClick);
+      }
     }
   }
 
@@ -54,6 +75,15 @@ export default class extends Controller {
     this.constructor.noHoverTimeout = setTimeout(() => {
       this.dynamicDelayValue = 500;
     }, 500);
+  }
+
+  handleOutsideClick(event) {
+    const targetElement = this.hasToggleableTarget ? this.toggleableTarget : this.element;
+    
+    if (!this.element.contains(event.target)) {
+      targetElement.classList.remove(this.classValue);
+      document.removeEventListener("click", this.handleOutsideClick);
+    }
   }
 
   #clearTimeouts() {
