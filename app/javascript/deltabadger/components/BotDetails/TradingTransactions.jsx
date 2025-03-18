@@ -16,7 +16,7 @@ const TradingStats = ({
   profitLoss = {},
   currentPriceAvailable
 }) => (
-    <table className="table table-borderless db-table">
+    <table className="table">
       <tbody>
         <tr>
           <td scope="col">{ isBuyingBot(type) ? I18n.t('bots.details.stats.bought') : I18n.t('bots.details.stats.sold')}:</td>
@@ -53,7 +53,7 @@ export const TradingTransactions = ({ bot, active }) => {
   const type = bot.settings.type
   const base = shouldRename(exchangeName) ? renameSymbol(bot.settings.base) : bot.settings.base
   const quote = shouldRename(exchangeName) ? renameSymbol(bot.settings.quote) : bot.settings.quote
-  return <div className={`tab ${active ? 'active' : ''}`} id="statistics" role="tabpanel" aria-labelledby="stats-tab">
+  return <div className={`legacy-tab ${active ? 'active' : ''}`} id="statistics" role="tabpanel" aria-labelledby="stats-tab">
     <TradingStats type = {type} base={base} quote={quote} {...bot.stats} />
     { !bot.stats.currentPriceAvailable &&
       <p className="db-smallinfo">
@@ -66,7 +66,7 @@ export const TradingTransactions = ({ bot, active }) => {
 
     <Chart bot={bot} />
 
-    <table className="table table-borderless table-striped db-table db-table--tx">
+    <table className="table">
       <thead>
         <tr>
           <th scope="col">{ I18n.t('bots.details.stats.date') }</th>

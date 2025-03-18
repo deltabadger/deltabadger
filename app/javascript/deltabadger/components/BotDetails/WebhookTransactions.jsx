@@ -57,7 +57,7 @@ export const WebhookTransactions = ({ bot, active }) => {
   const newBot = $.isEmptyObject(bot.stats) && isEmpty(bot.transactions)
 
   return (
-    <div className={`tab ${active ? 'active' : ''}`} id="statistics" role="tabpanel" aria-labelledby="stats-tab">
+    <div className={`legacy-tab ${active ? 'active' : ''}`} id="statistics" role="tabpanel" aria-labelledby="stats-tab">
       { !newBot ? <>
           <WebhookStats type = {type} base={base} quote={quote} {...bot.stats} />
           { !bot.stats.currentPriceAvailable &&
@@ -72,7 +72,7 @@ export const WebhookTransactions = ({ bot, active }) => {
 
           <Chart bot={bot} />
 
-          <table className="table table-borderless table-striped db-table db-table--tx">
+          <table className="table">
             <thead>
               <tr>
                 <th scope="col">{ I18n.t('bots.details.stats.date') }</th>
