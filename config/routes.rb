@@ -99,6 +99,7 @@ Rails.application.routes.draw do
       get :zen_payment_failure
       post :zen_payment_ipn
       get :success
+      get :upgrade_instructions
     end
 
     namespace :settings do
