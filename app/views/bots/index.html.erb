@@ -1,7 +1,24 @@
+<% if BlackFriday.week? && !current_user.subscription.legendary? %>
+  <%= render partial: 'layouts/banners/black_friday', locals: { show_upgrade_button: true } %>
+<% end %>
+
+<% unless current_user.news_banner_dismissed? %>
+  <%= render 'layouts/banners/news_message' %>
+<% end %>
+
+<% unless current_user.referral_banner_dismissed? %>
+  <%= render 'layouts/banners/referral_message' %>
+<% end %>
+
+
+<% unless current_user.welcome_banner_dismissed? %>
+  <%= render partial: 'bots/welcome_message' %>
+<% end %>
+
 <div class="page-head page-head--dashboard">
   <div></div>
   <div>
-    <%= button_to new_bot_type_bots_path, method: :get, class: "button button--primary", data: { turbo_frame: "modal" } do %>
+    <%= button_to new_bot_path, method: :get, class: "button button--primary", data: { turbo_frame: "modal" } do %>
       <span class="d-none d-sm-inline"><%= t('bot.new') %></span>
       <i class="material-icons">add</i>
     <% end %>

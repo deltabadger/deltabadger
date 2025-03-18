@@ -111,7 +111,8 @@ Rails.application.routes.draw do
       patch :update_name
       get :edit_two_fa
       patch :update_two_fa
-      delete 'remove_api_key/:id', action: :remove_api_key, as: :remove_api_key
+      get 'confirm_destroy_api_key/:id', action: :confirm_destroy_api_key, as: :confirm_destroy_api_key
+      delete 'destroy_api_key/:id', action: :destroy_api_key, as: :destroy_api_key
       get :community_access_instructions
     end
 
@@ -119,16 +120,18 @@ Rails.application.routes.draw do
       "/#{request.params[:locale] || I18n.default_locale}/bots"
     }
 
-    resources :bots, except: [:new] do
-      get :asset_search, on: :member
-      get :new_api_key, on: :member
-      post :create_api_key, on: :member
-      post :start, on: :member
-      post :stop, on: :member
-      post :show, on: :member
-      get :confirm_restart, on: :member
-      get :confirm_restart_legacy, on: :member
-      get :new_bot_type, on: :collection
+    resources :bots do
+      member do
+        get :asset_search
+        get :new_api_key
+        post :create_api_key
+        post :start
+        post :stop
+        post :show
+        get :confirm_restart
+        get :confirm_restart_legacy
+        get :confirm_destroy
+      end
     end
 
     get '/calculator', to: 'calculator#show', as: :calculator
@@ -160,6 +163,7 @@ Rails.application.routes.draw do
       post :duplicate
       get :openai_insights
       get :compare
+      get :confirm_destroy
     end
   end
 

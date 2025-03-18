@@ -69,11 +69,19 @@ class SettingsController < ApplicationController
     end
   end
 
-  def remove_api_key
+  def confirm_destroy_api_key
+    @api_key = current_user.api_keys.find(params[:id])
+  end
+
+  def destroy_api_key
     api_key = current_user.api_keys.find(params[:id])
-    stop_working_bots(api_key) if api_key
-    api_key.destroy!
-    redirect_to settings_path
+    if api_key.present? && stop_working_bots(api_key) && api_key.destroy
+      flash[:notice] = 'API key deleted successfully'
+      render turbo_stream: turbo_stream_redirect(settings_path)
+    else
+      flash.now[:alert] = api_key.errors.messages.values.flatten.to_sentence
+      render turbo_stream: turbo_stream_prepend_flash, status: :unprocessable_entity
+    end
   end
 
   def edit_two_fa
