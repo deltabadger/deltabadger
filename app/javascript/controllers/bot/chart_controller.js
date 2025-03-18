@@ -46,7 +46,7 @@ export default class extends Controller {
       all_series[0][1].length
     );
 
-    let log_scale = true;
+    let log_scale = false;
 
     let series = all_series[0];
     let labels;
