@@ -12,7 +12,7 @@ export const Details = () => {
       </ul>
       <div className="tab-content" id="botFormInfo">
         <div className="tab" id="botFormInfoTab" role="tabpanel" aria-labelledby="botFormInfoTab">
-          <div  className="db-showif db-showif--pick-exchange">
+          <div  className="legacy-tab__section db-showif--pick-exchange">
             <RawHTML>
               {I18n.t('bots.details.info.what_is_dca_html')}
             </RawHTML>
@@ -21,10 +21,10 @@ export const Details = () => {
           <RawHTML className="db-bot-info--dca">
             {I18n.t('bots.details.info.smart_intervals_html')}
           </RawHTML>
-          <RawHTML className="db-showif db-showif--setup db-bot-info--dca second-info-title">
+          <RawHTML className="legacy-tab__section db-showif--setup db-bot-info--dca second-info-title">
             {I18n.t('bots.details.info.daily_weekly_monthly_html')}
           </RawHTML>
-          <RawHTML className="db-showif db-showif--setup db-bot-info--withdrawal">
+          <RawHTML className="legacy-tab__section db-showif--setup db-bot-info--withdrawal">
             {I18n.t('bots.details.info.withdrawal_html')}
           </RawHTML>
           <div className="db-bot-info--webhook mt-2">
