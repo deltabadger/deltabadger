@@ -5,7 +5,7 @@
       <div class="toggle__style"></div>
       <%= form.label :smart_allocation_on, t('analyzer.smart_allocation.name'), class: "label" %>
 
-      <div class="tooltip-info-icon" data-controller="tooltip" data-action="click->tooltip#toggle">
+      <div class="tooltip-info-icon" data-controller="toggle" data-toggle-class-value="show-tooltip" data-action="click->toggle#toggle mouseenter->toggle#show mouseleave->toggle#hide">
         <div class="tooltip-icon--off">
           <%= render 'svg/24x24_info' %>
         </div>

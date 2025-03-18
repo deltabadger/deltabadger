@@ -20,7 +20,7 @@
     </div>
 
     <div class="widget widget--chart">
-      <div class="data-grid__item" data-controller="tooltip" data-action="mouseenter->tooltip#showTooltip mouseleave->tooltip#hideTooltip">
+      <div class="data-grid__item" data-controller="toggle" data-toggle-class-value="show-tooltip" data-action="mouseenter->toggle#show mouseleave->toggle#hide">
         <div class="label"><%= t('analyzer.pnl') %></div>
         <%= tag.div class: "data-grid__item__value", style: "color: var(--#{backtest['metrics']['totalReturn'].negative? ? 'danger' : 'success'})" do %>
           <%= sprintf('%+.0f', (backtest['metrics']['totalReturn'] * 100)) + '%' if backtest['metrics']['totalReturn'].present? %>
@@ -60,7 +60,7 @@
       } %>
 
       <% metrics.each do |key, value| %>
-        <div class="data-grid__item" data-controller="tooltip" data-action="mouseenter->tooltip#showTooltip mouseleave->tooltip#hideTooltip">
+        <div class="data-grid__item" data-controller="toggle" data-toggle-class-value="show-tooltip" data-action="mouseenter->toggle#show mouseleave->toggle#hide">
           <div class="label">
             <%= t("metrics.#{key}.short_name") %>
           </div>
