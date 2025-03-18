@@ -7,7 +7,7 @@
        <h1 class="modal__title"><%= t('bot.start_new_bot') %></h1>
     </div>
     <div class="bot-menu">
-      <%= link_to dashboard_path(create: true), class: 'bot-menu__item bot-menu__item--dca', data: { action: 'click->modal--base#animateOutCloseAndCleanUp', turbo: false } do %>
+      <%= link_to bots_path(create: true), class: 'bot-menu__item bot-menu__item--dca', data: { action: 'click->modal--base#animateOutCloseAndCleanUp', turbo: false } do %>
         <div class="bot-menu__item__title"><%= t('bot.types.dca.title') %></div>
         <div class="bot-menu__item__description"><%= t('bot.types.dca.description') %></div>
       <% end %>

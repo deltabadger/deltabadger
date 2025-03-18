@@ -5,6 +5,8 @@ class BotsController < ApplicationController
   before_action :set_bot, except: %i[index create new_bot_type]
 
   def index
+    return render 'bots/react_dashboard' if params[:create] # TODO: remove this once the legacy dashboard is removed
+
     @bots = current_user.bots.not_deleted.order(id: :desc).includes(:exchange)
   end
 
@@ -23,8 +25,9 @@ class BotsController < ApplicationController
 
     @other_bots = current_user.bots.not_deleted.order(id: :desc).where.not(id: @bot.id)
     if @bot.legacy?
+      # TODO: remove this once the legacy dashboard is removed
       respond_to do |format|
-        format.html { render 'home/dashboard' }
+        format.html { render 'bots/react_dashboard' }
         format.json { render json: @bot }
       end
     else
@@ -111,7 +114,7 @@ class BotsController < ApplicationController
   def set_bot
     @bot = current_user.bots.find(params[:id])
   rescue ActiveRecord::RecordNotFound
-    redirect_to dashboard_path, alert: t('bots.not_found')
+    redirect_to bots_path, alert: t('bots.not_found')
   end
 
   def barbell_bot_params

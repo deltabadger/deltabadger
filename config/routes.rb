@@ -116,7 +116,9 @@ Rails.application.routes.draw do
       patch :update_community_access
     end
 
-    get :dashboard, to: 'home#dashboard'
+    get :dashboard, to: redirect { |params, request|
+      "/#{request.params[:locale] || I18n.default_locale}/bots"
+    }
 
     resources :bots, except: [:new] do
       get :asset_search, on: :member
