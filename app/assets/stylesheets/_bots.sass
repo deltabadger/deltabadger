@@ -101,10 +101,6 @@ input
       margin-right: 0 !important
   .form-control
     border-color: var(--paperBorder)
-  &--pick-exchange, &--get-apikey
-    &+.db-bots__item--data
-      .db-showif--pick-exchange
-        display:              block
   &--collapsed
     height:                   8.9rem
     overflow:                 hidden
@@ -245,11 +241,6 @@ input
       path
         fill: var(--secondary)
 
-// db-showif
-
-.db-showif
-  display: none
-
 // bot dca1
 
 .db-bot__form
@@ -357,3 +348,14 @@ input
 .db-bot__progressbar-wrapper
   margin-left: 2rem
   margin-right: 2rem
+
+
+.legacy-tab
+  background: var(--widget-background)
+  border-radius: 2rem
+  padding: 2rem 0
+  display: none
+  &.active
+    display: flex
+    flex-direction: column
+    gap: 2rem
