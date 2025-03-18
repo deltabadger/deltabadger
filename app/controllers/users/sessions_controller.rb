@@ -48,6 +48,12 @@ class Users::SessionsController < Devise::SessionsController
     end
   end
 
+  def destroy
+    super do
+      flash.clear
+    end
+  end
+
   private
 
   def continue_sign_in(resource_name, resource)
