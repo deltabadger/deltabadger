@@ -2,7 +2,7 @@ import React from 'react'
 import I18n from 'i18n-js'
 
 export const Logs = ({ bot, active }) => (
-  <div className={`tab ${active ? 'active' : ''}`} id="log" role="tabpanel" aria-labelledby="log-tab">
+  <div className={`legacy-tab ${active ? 'active' : ''}`} id="log" role="tabpanel" aria-labelledby="log-tab">
     <table className="table table-striped table-borderless db-table db-table--tx">
       <thead>
         <tr>
