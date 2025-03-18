@@ -99,12 +99,6 @@ class SettingsController < ApplicationController
 
   def community_access_instructions; end
 
-  def update_community_access
-    current_user.update!(has_community_access: true)
-    flash[:notice] = 'Community access granted'
-    redirect_to dashboard_path
-  end
-
   private
 
   def set_index_instance_variables

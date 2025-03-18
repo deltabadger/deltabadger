@@ -113,7 +113,6 @@ Rails.application.routes.draw do
       patch :update_two_fa
       delete 'remove_api_key/:id', action: :remove_api_key, as: :remove_api_key
       get :community_access_instructions
-      patch :update_community_access
     end
 
     get :dashboard, to: redirect { |params, request|
