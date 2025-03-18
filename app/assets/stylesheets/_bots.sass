@@ -22,7 +22,6 @@ input
 .bot-footer
   display:              flex
   justify-content:      flex-start
-  padding:              2rem
 .db-bots
   display:              grid
   grid-auto-rows:       max-content
@@ -52,8 +51,6 @@ input
         justify-content: center
         padding:         2rem 4rem 4rem
         margin-bottom:   2rem
-      th:first-child, td:first-child
-        padding-left:    2.4rem !important
       .tab-content
         z-index:  2
         position: relative
@@ -286,7 +283,6 @@ input
 // chart
 
 .db-chart-container
-  margin: 2.5rem 1.5rem
   max-width: 100%
 
 .db-limit-bot-modifier
@@ -349,13 +345,48 @@ input
   margin-left: 2rem
   margin-right: 2rem
 
+.db-bots__tabs
+  border-radius: 2rem
+  display: flex
+  flex-direction: row
+  gap: 1rem
+  margin-bottom: 1rem
+  .nav-link
+    font-weight: 600
+    padding: 0 2rem
+    line-height: 4rem
+    display: block
+    text-decoration: none
+    border: none
+    background: none
+    cursor: pointer
+    color: var(--text)
+    border-radius: 2rem
+    &.active
+      background: var(--widget-background)
+      box-shadow: var(--widget-shadow)
+      cursor: default
+      color: var(--emphasized)
 
 .legacy-tab
   background: var(--widget-background)
   border-radius: 2rem
-  padding: 2rem 0
+  padding: 2rem
   display: none
+  gap: 2rem
+  box-shadow: var(--widget-shadow)
+  @media (min-width: 768px)
+    padding: 4rem
+    gap: 4rem
   &.active
     display: flex
     flex-direction: column
     gap: 2rem
+  * 
+    margin-bottom: 0
+  &__section
+    gap: 2rem
+    display: flex
+    flex-direction: column
+  table
+    text-align: left
