@@ -5,7 +5,7 @@
     </button>
     <%= image_tag "community-lock.webp", class: "community-access-instructions__illustration" %>
     <div>
-      <%= t('community.access_instructions_html', 
+      <%= t('community.access_instructions_html',
             name: current_user.name.present? ? " #{current_user.name}" : "",
             email: mail_to("jan@deltabadger.com", "jan@deltabadger.com")) %>
       <img src="https://deltabadger.com/images/signature-white.webp" alt="signature" style="width: 15rem" class="darkmode-only" %>
@@ -13,5 +13,3 @@
     </div>
   </div>
 <% end %>
-
-

@@ -2,13 +2,15 @@ class BotsController < ApplicationController
   include Pagy::Backend
 
   before_action :authenticate_user!
-  before_action :set_bot, except: %i[index create new_bot_type]
+  before_action :set_bot, except: %i[index create new]
 
   def index
     return render 'bots/react_dashboard' if params[:create] # TODO: remove this once the legacy dashboard is removed
 
     @bots = current_user.bots.not_deleted.order(id: :desc).includes(:exchange)
   end
+
+  def new; end
 
   def create
     @bot = current_user.bots.barbell.new(settings: { interval: Bot::INTERVALS.first, allocation0: 0.5 })
@@ -52,8 +54,10 @@ class BotsController < ApplicationController
     end
   end
 
+  def confirm_destroy; end
+
   def destroy
-    if @bot.delete
+    if @bot.destroy
       flash[:notice] = 'Bot deleted successfully'
       render turbo_stream: turbo_stream_redirect(bots_path)
     else
@@ -106,8 +110,6 @@ class BotsController < ApplicationController
   end
 
   def confirm_restart_legacy; end
-
-  def new_bot_type; end
 
   private
 
