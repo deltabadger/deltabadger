@@ -74,7 +74,7 @@ Rails.application.routes.draw do
   end
 
   scope "(:locale)", locale: /#{I18n.available_locales.join("|")}/ do
-    root to: 'bots#index'
+    root to: 'home#index'
 
     devise_for :users, controllers: { sessions: 'users/sessions', passwords: 'users/passwords', confirmations: 'users/confirmations', registrations: 'users/registrations' }, path: '', path_names: { sign_in: 'login', sign_out: 'logout', sign_up: 'signup' }, skip: [:registrations]
     devise_scope :user do
