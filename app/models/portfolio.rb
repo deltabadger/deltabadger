@@ -44,6 +44,10 @@ class Portfolio < ApplicationRecord
     user.subscription.free? || user.subscription.basic?
   end
 
+  def max_assets
+    limited? ? MAX_ASSETS[:limited] : MAX_ASSETS[:unlimited]
+  end
+
   def compare_to_select_options
     user.portfolios.includes(:assets).all.map do |portfolio|
       if !portfolio.id.in?([id] + compare_to) && portfolio.assets.present? && portfolio.allocations_are_normalized?

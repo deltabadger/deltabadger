@@ -1,9 +1,18 @@
 <%= tag.div id: "benchmark-select" do %>
-  <%= form_with model: portfolio, url: portfolio_update_benchmark_path(portfolio), method: :patch, class: "flex-row", data: { controller: "form--submit" } do |form| %>
-    <%= form.label :benchmark, t('analyzer.benchmark') + ":", class: "label" %>
-    <div class="sinput sinput--select <%= 'sinput--disabled' unless current_user.subscription.name == 'legendary' || current_user.subscription.name == 'pro' %>">
-      <%= portfolio.benchmark_name %>
-      <%= form.select :benchmark, Portfolio.benchmark_select_options, { selected: portfolio.benchmark }, data: { action: "change->form--submit#submit" }, disabled: portfolio.limited? %>
-    </div>
+  <% if portfolio.limited? %>
+    <div class="label"><%= t('analyzer.benchmark') + ":" %></div>
+    <%= link_to upgrade_upgrade_instructions_path, data: { turbo_frame: "modal" } do %>
+      <div class="sinput sinput--select sinput--disabled">
+        <%= portfolio.benchmark_name %>
+      </div>
+    <% end %>
+  <% else %>
+    <%= form_with model: portfolio, url: portfolio_update_benchmark_path(portfolio), method: :patch, class: "flex-row", data: { controller: "form--submit" } do |form| %>
+      <%= form.label :benchmark, t('analyzer.benchmark') + ":", class: "label" %>
+      <div class="sinput sinput--select <%= 'sinput--disabled' unless current_user.subscription.name == 'legendary' || current_user.subscription.name == 'pro' %>">
+        <%= portfolio.benchmark_name %>
+        <%= form.select :benchmark, Portfolio.benchmark_select_options, { selected: portfolio.benchmark }, data: { action: "change->form--submit#submit" } %>
+      </div>
+    <% end %>
   <% end %>
 <% end %>

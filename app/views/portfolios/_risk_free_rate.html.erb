@@ -1,16 +1,31 @@
-<%= tag.div id: "risk-free-rate", style: "display: flex; gap: 2rem; flex-wrap: wrap" do %>
-  <%= form_with model: portfolio, url: portfolio_update_risk_free_rate_path(portfolio), method: :patch, data: { controller: "form--submit" } do |form| %>
-    <%= form.label :risk_free_rate, t('analyzer.risk_free_rate') + ":", class: "label" %>
-    <div class="sinput sinput--number sinput--rate">
-      <%= form.number_field :risk_free_rate, step: 0.01, value: sprintf('%.2f', (portfolio.risk_free_rate * 100)), data: { action: "change->form--submit#submit" }, disabled: portfolio.limited? %>
-      <span class="label">%</span>
-    </div>
-  <% end %>
-  <span class="label flex-row gap-1">
-    <%= t('analyzer.us_bonds') %>:
-    <% Portfolio::RISK_FREE_RATES.keys.each do |key| %>
-        <%= button_to Portfolio::RISK_FREE_RATES[key][:shortname], portfolio_update_risk_free_rate_path(portfolio, risk_free_rate_shortcut: key), method: :patch, title: Portfolio::RISK_FREE_RATES[key][:name], class: "button button--link", disabled: portfolio.limited? %>
+<div id="risk-free-rate" style="display: flex; gap: 2rem; flex-wrap: wrap">
+  <% if portfolio.limited? %>
+    <div class="label"><%= t('analyzer.risk_free_rate') + ":" %></div>
+    <%= link_to upgrade_upgrade_instructions_path, data: { turbo_frame: "modal" }, disabled: true do %>
+      <div class="sinput sinput--number sinput--rate">
+        <%= sprintf('%.2f', (portfolio.risk_free_rate * 100)) %>
+        <span class="label">%</span>
+      </div>
     <% end %>
-
-  </span>
-<% end %>
+    <span class="label flex-row gap-1">
+      <%= t('analyzer.us_bonds') %>:
+      <% Portfolio::RISK_FREE_RATES.keys.each do |key| %>
+          <%= link_to Portfolio::RISK_FREE_RATES[key][:shortname], upgrade_upgrade_instructions_path, class: "button button--link", data: { turbo_frame: "modal" }, disabled: true %>
+      <% end %>
+    </span>
+  <% else %>
+    <%= form_with model: portfolio, url: portfolio_update_risk_free_rate_path(portfolio), method: :patch, data: { controller: "form--submit" } do |form| %>
+      <%= form.label :risk_free_rate, t('analyzer.risk_free_rate') + ":", class: "label" %>
+      <div class="sinput sinput--number sinput--rate">
+        <%= form.number_field :risk_free_rate, step: 0.01, value: sprintf('%.2f', (portfolio.risk_free_rate * 100)), data: { action: "change->form--submit#submit" } %>
+        <span class="label">%</span>
+      </div>
+    <% end %>
+    <span class="label flex-row gap-1">
+      <%= t('analyzer.us_bonds') %>:
+      <% Portfolio::RISK_FREE_RATES.keys.each do |key| %>
+          <%= button_to Portfolio::RISK_FREE_RATES[key][:shortname], portfolio_update_risk_free_rate_path(portfolio, risk_free_rate_shortcut: key), method: :patch, title: Portfolio::RISK_FREE_RATES[key][:name], class: "button button--link" %>
+      <% end %>
+    </span>
+  <% end %>
+</div>

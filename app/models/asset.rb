@@ -4,7 +4,7 @@ class Asset < ApplicationRecord
   validates :ticker, presence: true
   validates :api_id, presence: true, uniqueness: { scope: :portfolio_id }
   validates :allocation, presence: true, numericality: { greater_than_or_equal_to: 0, less_than_or_equal_to: 1 }
-  validate :max_assets_per_portfolio
+  validate :max_assets_per_portfolio, on: :create
 
   after_create :reset_portfolio_memoization
   after_update :reset_portfolio_memoization
@@ -30,8 +30,7 @@ class Asset < ApplicationRecord
   end
 
   def max_assets_per_portfolio
-    max_assets = portfolio.limited? ? Portfolio::MAX_ASSETS[:limited] : Portfolio::MAX_ASSETS[:unlimited]
-    return if portfolio.assets.count < max_assets
+    return if portfolio.assets.count < portfolio.max_assets
 
     errors.add(:portfolio, :max_assets_reached)
   end

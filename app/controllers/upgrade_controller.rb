@@ -98,6 +98,8 @@ class UpgradeController < ApplicationController
     end
   end
 
+  def upgrade_instructions; end
+
   private
 
   def set_navigation_session # rubocop:disable Metrics/CyclomaticComplexity,Metrics/PerceivedComplexity
