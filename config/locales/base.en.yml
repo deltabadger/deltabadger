@@ -155,7 +155,7 @@ en:
             compensation:
                 one: "Compensation for <b>1</b> unused day of the %{plan} plan."
                 other: "Compensation for <b>%{count}</b> unused days of the %{plan} plan."
-            legendary_plan_discount_html: "The price goes up %{amount} every sale."
+            legendary_plan_discount_html: "The price goes up %{amount} every sale"
             eu_bank_country: "Belgium"
             invalid_vat_number: "Invalid EU VAT number"
             paid_with_wire_transfer: "I've sent the SEPA transfer"
