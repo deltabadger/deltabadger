@@ -11,6 +11,8 @@
     align-items: center
     z-index: 1000
     border: none
+    top: 0
+    left: 0
     &::backdrop
         display: none
     &__vertical-center
@@ -64,6 +66,19 @@
         align-items: center
         .db-form__row
             width: 100%
+    &--welcome
+        color: white
+        background-image: linear-gradient(#193581 0%,#001f75aa 50%,#0011ff40), url("journey-day02.jpg")
+        background-size: cover
+        background-position: center bottom
+        padding-bottom: 24rem
+        width: calc(100vw - 2rem)
+        max-width: 72rem
+        .modal__close path
+            fill: #fff7
+        img
+            position: relative
+            top: -0.5rem
     .db-form__row
         margin-bottom: 4rem
 
