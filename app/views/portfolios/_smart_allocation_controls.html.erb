@@ -1,30 +1,31 @@
-<%= tag.div id: "smart-allocation-controls", class: "smart-allocation widget" do %>
+<div id="smart-allocation-controls" class="smart-allocation widget">
+  <%= form_with model: portfolio, url: portfolio_toggle_smart_allocation_path(portfolio), method: :patch, data: { controller: "form--submit" } do |form| %>
+    <div class="toggle">
+      <% data = portfolio.limited? ? {
+        controller: "turbo-frame-trigger",
+        turbo_frame_trigger_url_value: upgrade_upgrade_instructions_path,
+        turbo_frame_trigger_frame_value: "modal",
+        action: "click->turbo-frame-trigger#loadFrame"
+      } : {
+        action: "change->form--submit#submit"
+      } %>
+      <%= form.check_box :smart_allocation_on, data: data %>
+      <div class="toggle__style"></div>
+      <%= form.label :smart_allocation_on, t('analyzer.smart_allocation.name'), class: "label" %>
 
-  <div class="toggle">
-    <% if portfolio.limited? %>
-      <%= link_to upgrade_upgrade_instructions_path, data: { turbo_frame: "modal" } do %>
-        <div class="toggle__style"></div>
-        <div class="label"><%= t('analyzer.smart_allocation.name') %></div>
-      <% end %>
-    <% else %>
-      <%= form_with model: portfolio, url: portfolio_toggle_smart_allocation_path(portfolio), method: :patch, data: { controller: "form--submit" } do |form| %>
-        <%= form.check_box :smart_allocation_on, data: { action: "change->form--submit#submit" } %>
-        <div class="toggle__style"></div>
-        <%= form.label :smart_allocation_on, t('analyzer.smart_allocation.name'), class: "label" %>
-      <% end %>
-    <% end %>
-    <div class="tooltip-info-icon" data-controller="tooltip" data-action="click->tooltip#toggle">
-      <div class="tooltip-icon--off">
-        <%= render 'svg/24x24_info' %>
-      </div>
-      <div class="tooltip-icon--on">
-        <%= render 'svg/24x24_info-filled' %>
-      </div>
-      <div class="tooltip tooltip--smart-allocation">
-        <%= t('analyzer.smart_allocation.short_info_html') %>
+      <div class="tooltip-info-icon" data-controller="tooltip" data-action="click->tooltip#toggle">
+        <div class="tooltip-icon--off">
+          <%= render 'svg/24x24_info' %>
+        </div>
+        <div class="tooltip-icon--on">
+          <%= render 'svg/24x24_info-filled' %>
+        </div>
+        <div class="tooltip tooltip--smart-allocation">
+          <%= t('analyzer.smart_allocation.short_info_html') %>
+        </div>
       </div>
     </div>
-  </div>
+  <% end %>
 
   <%= form_with model: portfolio, url: portfolio_update_risk_level_path(portfolio),
   method: :patch,
@@ -91,5 +92,4 @@
       </div>
     </div>
   <% end %>
-<% end %>
-
+</div>

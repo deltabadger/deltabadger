@@ -1,18 +1,17 @@
-<%= tag.div id: "benchmark-select" do %>
-  <% if portfolio.limited? %>
-    <div class="label"><%= t('analyzer.benchmark') + ":" %></div>
-    <%= link_to upgrade_upgrade_instructions_path, data: { turbo_frame: "modal" } do %>
-      <div class="sinput sinput--select sinput--disabled">
-        <%= portfolio.benchmark_name %>
-      </div>
-    <% end %>
-  <% else %>
-    <%= form_with model: portfolio, url: portfolio_update_benchmark_path(portfolio), method: :patch, class: "flex-row", data: { controller: "form--submit" } do |form| %>
-      <%= form.label :benchmark, t('analyzer.benchmark') + ":", class: "label" %>
-      <div class="sinput sinput--select <%= 'sinput--disabled' unless current_user.subscription.name == 'legendary' || current_user.subscription.name == 'pro' %>">
-        <%= portfolio.benchmark_name %>
-        <%= form.select :benchmark, Portfolio.benchmark_select_options, { selected: portfolio.benchmark }, data: { action: "change->form--submit#submit" } %>
-      </div>
-    <% end %>
+<div id="benchmark-select">
+  <%= form_with model: portfolio, url: portfolio_update_benchmark_path(portfolio), method: :patch, class: "flex-row", data: { controller: "form--submit" } do |form| %>
+    <% data = portfolio.limited? ? {
+      controller: "turbo-frame-trigger",
+      turbo_frame_trigger_url_value: upgrade_upgrade_instructions_path,
+      turbo_frame_trigger_frame_value: "modal",
+      action: "click->turbo-frame-trigger#loadFrame"
+    } : {
+      action: "change->form--submit#submit"
+    } %>
+    <%= form.label :benchmark, t('analyzer.benchmark') + ":", class: "label" %>
+    <div class="sinput sinput--select %>">
+      <%= portfolio.benchmark_name %>
+      <%= form.select :benchmark, Portfolio.benchmark_select_options, { selected: portfolio.benchmark }, data: data %>
+    </div>
   <% end %>
-<% end %>
+</div>

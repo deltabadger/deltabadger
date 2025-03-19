@@ -1,12 +1,13 @@
 <% if @bot.legacy? %>
-  <%= turbo_stream.update "bot_#{@bot.id}_label", @bot.label %>
+  <%= turbo_stream.replace dom_id(@bot, :label), @bot.label %>
   <%= turbo_stream_prepend_flash %>
 <% else %>
-  <%= turbo_stream.update "bot_#{@bot.id}_settings", partial: 'bots/settings', locals: { bot: @bot } %>
-  <%= turbo_stream.update "bot_#{@bot.id}_exchange_select", partial: 'bots/exchange_select', locals: { bot: @bot } %>
-  <%= turbo_stream.update "bot_#{@bot.id}_metrics", partial: 'bots/metrics/metrics', locals: { bot: @bot } %>
-  <%= turbo_stream.update "bot_#{@bot.id}_label", @bot.label %>
-  <%= turbo_stream.update "bot_#{@bot.id}_status_button", partial: 'bots/status/status_button', locals: { bot: @bot } %>
+  <%= turbo_stream.replace 'settings', partial: 'bots/settings', locals: { bot: @bot } %>
+  <%= turbo_stream.replace 'exchange_select', partial: 'bots/exchange_select', locals: { bot: @bot } %>
+  <%= turbo_stream.replace 'metrics', partial: 'bots/metrics/metrics', locals: { bot: @bot } %>
+  <%= turbo_stream.replace 'chart', partial: 'bots/chart', locals: { bot: @bot } %>
+  <%= turbo_stream.replace dom_id(@bot, :label), @bot.label %>
+  <%= turbo_stream.replace dom_id(@bot, :status_button), partial: 'bots/status/status_button', locals: { bot: @bot } %>
 
   <%# TODO: would be nice to show a little 'saved' in the form itself %>
   <%= turbo_stream_prepend_flash %>

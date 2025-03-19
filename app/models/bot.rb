@@ -12,6 +12,7 @@ class Bot < ApplicationRecord
   include Webhookable
   include Rankable
   include Notifyable
+  include DomIdable
 
   delegate :market_sell, :market_buy, :limit_sell, :limit_buy, to: :exchange
 
@@ -54,18 +55,18 @@ class Bot < ApplicationRecord
   end
 
   def broadcast_status_bar_update
-    broadcast_update_to(
+    broadcast_replace_to(
       ["bot_#{id}", :status_bar],
-      target: "bot_#{id}_status_bar",
+      target: dom_id(self, :status_bar),
       partial: 'bots/status/status_bar',
       locals: { bot: self }
     )
   end
 
   def broadcast_status_button_update
-    broadcast_update_to(
+    broadcast_replace_to(
       ["bot_#{id}", :status_button],
-      target: "bot_#{id}_status_button",
+      target: dom_id(self, :status_button),
       partial: legacy? ? 'bots/status/status_button_legacy' : 'bots/status/status_button',
       locals: { bot: self }
     )

@@ -2,25 +2,23 @@
 
 <% metrics = bot.fetch_metrics %>
 
-<%= turbo_frame_tag "bot_#{bot.id}_metrics" do %>
-  <div class="widget data-grid">
-    <%= render partial: "bots/metrics/metrics_item", locals: {
-      label: t('data_labels.bought_ticker', ticker: bot.base0),
-      value: bot.exchange.present? ? rounded_base_amount_for(exchange: bot.exchange, base_asset: bot.base0, quote_asset: bot.quote, amount: metrics[:total_base0_amount_acquired]) : nil } %>
-    <%= render partial: "bots/metrics/metrics_item", locals: {
-      label: t('data_labels.avg_price_ticker', ticker: bot.base0),
-      value: bot.exchange.present? ? rounded_price_for(exchange: bot.exchange, base_asset: bot.base0, quote_asset: bot.quote, price: metrics[:base0_average_buy_rate]) : nil } %>
-    <%= render partial: "bots/metrics/metrics_item", locals: {
-      label: t('data_labels.bought_ticker', ticker: bot.base1),
-      value: bot.exchange.present? ? rounded_base_amount_for(exchange: bot.exchange, base_asset: bot.base1, quote_asset: bot.quote, amount: metrics[:total_base1_amount_acquired]) : nil } %>
-    <%= render partial: "bots/metrics/metrics_item", locals: {
-      label: t('data_labels.avg_price_ticker', ticker: bot.base1),
-      value: bot.exchange.present? ? rounded_price_for(exchange: bot.exchange, base_asset: bot.base1, quote_asset: bot.quote, price: metrics[:base1_average_buy_rate]) : nil } %>
-    <%= render partial: "bots/metrics/metrics_item", locals: {
-      label: t('data_labels.invested_ticker', ticker: bot.quote),
-      value: bot.exchange.present? ? rounded_quote_amount_for(exchange: bot.exchange, base_asset: bot.base0, quote_asset: bot.quote, amount: metrics[:total_quote_amount_invested]) : nil } %>
-    <%= render partial: "bots/metrics/metrics_item", locals: {
-      label: t('data_labels.value_ticker', ticker: bot.quote),
-      value: bot.exchange.present? ? rounded_quote_amount_for(exchange: bot.exchange, base_asset: bot.base0, quote_asset: bot.quote, amount: metrics[:current_investment_value_in_quote]) : nil } %>
-  </div>
-<% end %>
+<div id="metrics" class="widget data-grid">
+  <%= render partial: "bots/metrics/metrics_item", locals: {
+    label: t('data_labels.bought_ticker', ticker: bot.base0),
+    value: bot.exchange.present? ? rounded_base_amount_for(exchange: bot.exchange, base_asset: bot.base0, quote_asset: bot.quote, amount: metrics[:total_base0_amount_acquired]) : nil } %>
+  <%= render partial: "bots/metrics/metrics_item", locals: {
+    label: t('data_labels.avg_price_ticker', ticker: bot.base0),
+    value: bot.exchange.present? ? rounded_price_for(exchange: bot.exchange, base_asset: bot.base0, quote_asset: bot.quote, price: metrics[:base0_average_buy_rate]) : nil } %>
+  <%= render partial: "bots/metrics/metrics_item", locals: {
+    label: t('data_labels.bought_ticker', ticker: bot.base1),
+    value: bot.exchange.present? ? rounded_base_amount_for(exchange: bot.exchange, base_asset: bot.base1, quote_asset: bot.quote, amount: metrics[:total_base1_amount_acquired]) : nil } %>
+  <%= render partial: "bots/metrics/metrics_item", locals: {
+    label: t('data_labels.avg_price_ticker', ticker: bot.base1),
+    value: bot.exchange.present? ? rounded_price_for(exchange: bot.exchange, base_asset: bot.base1, quote_asset: bot.quote, price: metrics[:base1_average_buy_rate]) : nil } %>
+  <%= render partial: "bots/metrics/metrics_item", locals: {
+    label: t('data_labels.invested_ticker', ticker: bot.quote),
+    value: bot.exchange.present? ? rounded_quote_amount_for(exchange: bot.exchange, base_asset: bot.base0, quote_asset: bot.quote, amount: metrics[:total_quote_amount_invested]) : nil } %>
+  <%= render partial: "bots/metrics/metrics_item", locals: {
+    label: t('data_labels.value_ticker', ticker: bot.quote),
+    value: bot.exchange.present? ? rounded_quote_amount_for(exchange: bot.exchange, base_asset: bot.base0, quote_asset: bot.quote, amount: metrics[:current_investment_value_in_quote]) : nil } %>
+</div>

@@ -1,4 +1,4 @@
-<%= tag.div id: "start-date", class: "flex-row" do %>
+<div id="start-date" class="flex-row">
 
   <%# using flatpickr %>
   <%# <%= form_with model: portfolio, url: portfolio_update_backtest_start_date_path(portfolio), method: :patch, data: { controller: "flatpickr form--submit", flatpickr_locale_value: I18n.locale, flatpickr_max_date_value: 2.days.ago } do |f| %>
@@ -13,4 +13,4 @@
   <%= button_to "1Y", portfolio_update_backtest_start_date_path(portfolio, { portfolio: { backtest_start_date: 1.years.ago.to_date } }), method: :patch, title: "1 year ago", class: "button button--link" %>
   <%= button_to "3Y", portfolio_update_backtest_start_date_path(portfolio, { portfolio: { backtest_start_date: 3.years.ago.to_date } }), method: :patch, title: "3 years ago", class: "button button--link" %>
   <%= button_to "5Y", portfolio_update_backtest_start_date_path(portfolio, { portfolio: { backtest_start_date: 5.year.ago.to_date } }), method: :patch, title: "5 years ago", class: "button button--link" %>
-<% end %>
+</div>

@@ -1,1 +1,2 @@
-<%= turbo_stream.update "bot_#{@bot.id}_settings", partial: 'bots/settings', locals: { bot: @bot } %>
+<%= turbo_stream.replace 'settings', partial: 'bots/settings', locals: { bot: @bot } %>
+<%= turbo_stream.replace 'exchange_select', partial: 'bots/exchange_select', locals: { bot: @bot } %>

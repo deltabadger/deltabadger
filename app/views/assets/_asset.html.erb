@@ -1,8 +1,8 @@
-<% id_prefix = asset.portfolio.active_assets.map(&:id).include?(asset.id) ? 'active' : 'idle' %>
+<% id_prefix = asset.portfolio.active_assets.map(&:id).include?(asset.id) ? :active : :idle %>
 <% asset_color = asset.color || "#F7931A" %>
 <% adjusted_color = ensure_contrast(asset_color) %>
 
-<%= tag.div id: "#{id_prefix}_#{dom_id(asset)}" do %>
+<%= tag.div id: dom_id(asset, id_prefix) do %>
   <%= tag.div class: "basket__asset-wrapper", data: {
     controller: "portfolio-analyzer--asset-allocation",
     portfolio_analyzer__asset_allocation_asset_api_id_value: asset.api_id,
