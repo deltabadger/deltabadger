@@ -1,16 +1,13 @@
-<div data-controller="removals">
-  <div class="alertbox-modal">
-    <div class="alertbox alertbox--primary alertbox--welcome" style="margin-bottom: 2rem">
-      <div style="width: 100%">
-        <div class="alertbox__text-column">
-          <%= t('welcome.banner_html', name: current_user.name).html_safe %>
-          <img src="https://deltabadger.com/images/signature-white.webp" alt="signature" style="width: 15rem" %>
-        </div>
-      </div>
-      <%= button_to settings_hide_welcome_banner_path, method: :patch, title: "Close", class: "close", data: { action: "click->removals#submitAndRemove" } do %>
+<div data-controller="removals" class="dialog">
+  <div class="dialog__vertical-center">
+    <div class="modal modal--welcome">
+      <%= button_to settings_hide_welcome_banner_path, method: :patch, title: "Close", class: 'modal__close', data: { action: "click->removals#submitAndRemove" } do %>
         <%= render partial: 'svg/24x24_x' %>
       <% end %>
-      <%# render partial: 'layouts/svg_bubbleart_01' %>
+      <div class="alertbox__text-column">
+        <%= t('welcome.banner_html', name: current_user.name).html_safe %>
+        <img src="https://deltabadger.com/images/signature-white.webp" alt="signature" style="width: 15rem" %>
+      </div>
     </div>
   </div>
 </div>
