@@ -101,13 +101,19 @@ select
 .buttons
     display: flex
     margin-top: 4rem
-    &--col
-        flex-direction: column
+    gap: 2rem
+    @media screen and (min-width: 576px)
         gap: 2rem
-        @media screen and (min-width: 576px)
-            gap: 2rem
-        .button
-            width: 100%
+    *
+        flex: 1
+    .button
+        width: 100%
+    &--col
+        flex-direction: column 
+    &--row
+        &--2
+            display: grid
+            grid-template-columns: 1fr 1fr
 
 .button
     font-weight: 600

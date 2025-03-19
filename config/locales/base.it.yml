@@ -154,7 +154,7 @@ it:
             compensation:
                 one: "Compensazione per <b>1</b> giorno non utilizzato del piano %{plan}."
                 other: "Compensazione per <b>%{count}</b> giorni non utilizzati del piano %{plan}."
-            legendary_plan_discount_html: "Il prezzo aumenta di %{amount} ad ogni vendita."
+            legendary_plan_discount_html: "Il prezzo aumenta di %{amount} ad ogni vendita"
             eu_bank_country: "Belgio"
             invalid_vat_number: "Numero di partita IVA UE non valido"
             paid_with_wire_transfer: "Ho inviato il bonifico SEPA"

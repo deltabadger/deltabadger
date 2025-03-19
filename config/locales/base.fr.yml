@@ -148,7 +148,7 @@ fr:
             compensation:
                 one: "Compensation pour <b>1</b> jour inutilisé du plan %{plan}."
                 other: "Compensation pour <b>%{count}</b> jours inutilisés du plan %{plan}."
-            legendary_plan_discount_html: 'Le prix du plan Légendaire augmente de %{amount} à chaque achat.'
+            legendary_plan_discount_html: 'Le prix augmente de %{amount} à chaque vente'
             eu_bank_country: 'Belgique'
             invalid_vat_number: 'Numéro de TVA européen non valide'
             paid_with_wire_transfer: 'J''ai effectué un virement SEPA'
