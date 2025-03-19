@@ -1,4 +1,4 @@
-<%= turbo_frame_tag "bot_#{bot.id}_exchange_select" do %>
+<%= tag.div id: dom_id(bot, :exchange_select) do %>
   <%= form_with model: bot, url: bot_path(bot), method: :patch, class: "flex-row", data: { controller: "form--submit" } do |f| %>
     <div class="sinput sinput--select">
       <%= bot.exchange&.name&.capitalize || t('bot.pick_exchange') %>
