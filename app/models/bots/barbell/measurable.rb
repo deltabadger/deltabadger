@@ -89,9 +89,17 @@ module Bots::Barbell::Measurable
   end
 
   def broadcast_metrics_update
-    broadcast_render_to(
+    broadcast_replace_to(
       ["bot_#{id}", :metrics],
+      target: 'metrics',
       partial: 'bots/metrics/metrics',
+      locals: { bot: self }
+    )
+
+    broadcast_replace_to(
+      ["bot_#{id}", :chart],
+      target: 'chart',
+      partial: 'bots/chart',
       locals: { bot: self }
     )
   end

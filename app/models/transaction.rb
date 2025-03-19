@@ -70,16 +70,16 @@ class Transaction < ApplicationRecord
 
   def broadcast_to_bot
     if bot.transactions.limit(2).count == 1
-      broadcast_update_to(
+      broadcast_replace_to(
         ["bot_#{bot_id}", :orders],
-        target: "bot_#{bot_id}_orders",
+        target: 'orders',
         partial: 'bots/orders/orders',
         locals: { bot: bot }
       )
     else
       broadcast_prepend_to(
         ["bot_#{bot_id}", :orders],
-        target: "bot_#{bot_id}_orders_list",
+        target: 'orders_list',
         partial: 'bots/orders/order',
         locals: { order: self }
       )

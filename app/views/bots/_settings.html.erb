@@ -4,64 +4,62 @@
 <% base0_color_transparent = transparent_color(base0_color, bot.allocation0) %>
 <% base1_color_transparent = transparent_color(base1_color, 1 - bot.allocation0) %>
 
-<%= turbo_frame_tag "bot_#{bot.id}_settings" do %>
-  <%= form_with model: bot, url: bot_path(bot), method: :patch, class: "widget", data: { controller: "form--submit bot--barbell-allocation", bot__barbell_allocation_color0_value: base0_color, bot__barbell_allocation_color1_value: base1_color } do |f| %>
-    <div class="conversational flex-justify-center">
-      <%= t('bot.barbell.invest') %>
-      <div class="ticker-input ticker-input--autoscale">
-        <%# FIXME: in this text field, autowidth doesn't work %>
-        <%= f.number_field :quote_amount, value: bot.quote_amount, class: 'numeric-input iu-numeric iu-autowidth', min: 0.00000001, step: :any, size: 3, data: { action: "change->form--submit#submit" } %>
+<%= form_with model: bot, url: bot_path(bot), method: :patch, id: "settings", class: "widget", data: { controller: "form--submit bot--barbell-allocation", bot__barbell_allocation_color0_value: base0_color, bot__barbell_allocation_color1_value: base1_color } do |f| %>
+  <div class="conversational flex-justify-center">
+    <%= t('bot.barbell.invest') %>
+    <div class="ticker-input ticker-input--autoscale">
+      <%# FIXME: in this text field, autowidth doesn't work %>
+      <%= f.number_field :quote_amount, value: bot.quote_amount, class: 'numeric-input iu-numeric iu-autowidth', min: 0.00000001, step: :any, size: 3, data: { action: "change->form--submit#submit" } %>
 
-        <% if bot.transactions.any? %>
-          <div class="ticker" style="background: <%= quote_color %>">
-            <%= bot.quote %>
-          </div>
-        <% else %>
-          <%= link_to bot.quote.presence || 'Select one asset to sell', asset_search_bot_path(bot, asset_field: 'quote'), data: { turbo_frame: "modal" }, class: "ticker", style: "background: #{quote_color}" %>
-        <% end %>
-      </div>
-      /
-      <div class="sinput sinput--select <%= 'sinput--disabled' if bot.working? || bot.pending? %>">
-        <%= t("bots.#{bot.interval}") %>
-        <%= f.select :interval, bot_intervals, { selected: bot.interval }, data: { action: "change->form--submit#submit" }, disabled: bot.working? || bot.pending? %>
-      </div>
+      <% if bot.transactions.any? %>
+        <div class="ticker" style="background: <%= quote_color %>">
+          <%= bot.quote %>
+        </div>
+      <% else %>
+        <%= link_to bot.quote.presence || 'Select one asset to sell', asset_search_bot_path(bot, asset_field: 'quote'), data: { turbo_frame: "modal" }, class: "ticker", style: "background: #{quote_color}" %>
+      <% end %>
+    </div>
+    /
+    <div class="sinput sinput--select <%= 'sinput--disabled' if bot.working? || bot.pending? %>">
+      <%= t("bots.#{bot.interval}") %>
+      <%= f.select :interval, bot_intervals, { selected: bot.interval }, data: { action: "change->form--submit#submit" }, disabled: bot.working? || bot.pending? %>
+    </div>
+  </div>
+
+  <div class="barbell">
+    <div class="barbell__plate">
+      <% if bot.transactions.any? %>
+        <div class="ticker" style="background: <%= base0_color_transparent %>" data-bot--barbell-allocation-target="allocation0BackgroundColor">
+          <%= bot.base0 %>
+        </div>
+      <% else %>
+        <%= link_to bot.base0.presence || 'Select one asset to buy', asset_search_bot_path(bot, asset_field: 'base0'), data: { turbo_frame: "modal", bot__barbell_allocation_target: "allocation0BackgroundColor" }, class: "ticker", style: "background: #{base0_color_transparent}" %>
+      <% end %>
+      <b style="color: <%= base0_color_transparent %>" data-bot--barbell-allocation-target="allocation0Color"><span data-bot--barbell-allocation-target="allocation0Text"><%= (bot.allocation0 * 100).to_i %></span>%</b>
     </div>
 
-    <div class="barbell">
-      <div class="barbell__plate">
-        <% if bot.transactions.any? %>
-          <div class="ticker" style="background: <%= base0_color_transparent %>" data-bot--barbell-allocation-target="allocation0BackgroundColor">
-            <%= bot.base0 %>
-          </div>
-        <% else %>
-          <%= link_to bot.base0.presence || 'Select one asset to buy', asset_search_bot_path(bot, asset_field: 'base0'), data: { turbo_frame: "modal", bot__barbell_allocation_target: "allocation0BackgroundColor" }, class: "ticker", style: "background: #{base0_color_transparent}" %>
-        <% end %>
-        <b style="color: <%= base0_color_transparent %>" data-bot--barbell-allocation-target="allocation0Color"><span data-bot--barbell-allocation-target="allocation0Text"><%= (bot.allocation0 * 100).to_i %></span>%</b>
-      </div>
-
-      <div class="barbell__bar">
-        <div class="slider">
-          <%= f.range_field :allocation0, in: 0.0..1.0, step: 0.01, value: bot.allocation0, class: "slider__input numeric-input", data: { bot__barbell_allocation_target: "allocation0", action: "input->bot--barbell-allocation#updateAllocation0 change->form--submit#submit" } %>
-          <div class="slider__style">
-            <%= tag.div class: "slider__style__track", style: "border-left-color: #{base0_color_transparent};  background: #{base1_color_transparent}", data: { bot__barbell_allocation_target: "allocation0SliderTrack" } do %>
-              <%= tag.div class: "slider__style__progress", style: "width: #{bot.allocation0 * 100}%; background: #{base0_color_transparent}", data: { bot__barbell_allocation_target: "allocation0SliderProgress" } do %>
-                <div class="slider__style__thumb"></div>
-              <% end %>
+    <div class="barbell__bar">
+      <div class="slider">
+        <%= f.range_field :allocation0, in: 0.0..1.0, step: 0.01, value: bot.allocation0, class: "slider__input numeric-input", data: { bot__barbell_allocation_target: "allocation0", action: "input->bot--barbell-allocation#updateAllocation0 change->form--submit#submit" } %>
+        <div class="slider__style">
+          <%= tag.div class: "slider__style__track", style: "border-left-color: #{base0_color_transparent};  background: #{base1_color_transparent}", data: { bot__barbell_allocation_target: "allocation0SliderTrack" } do %>
+            <%= tag.div class: "slider__style__progress", style: "width: #{bot.allocation0 * 100}%; background: #{base0_color_transparent}", data: { bot__barbell_allocation_target: "allocation0SliderProgress" } do %>
+              <div class="slider__style__thumb"></div>
             <% end %>
-          </div>
+          <% end %>
         </div>
       </div>
-
-      <div class="barbell__plate">
-        <% if bot.transactions.any? %>
-          <div class="ticker" style="background: <%= base1_color_transparent %>" data-bot--barbell-allocation-target="allocation1BackgroundColor">
-            <%= bot.base1 %>
-          </div>
-        <% else %>
-          <%= link_to bot.base1.presence || 'Select one asset to buy', asset_search_bot_path(bot, asset_field: 'base1'), data: { turbo_frame: "modal", bot__barbell_allocation_target: "allocation1BackgroundColor" }, class: "ticker", style: "background: #{base1_color_transparent}" %>
-        <% end %>
-        <b style="color: <%= base1_color_transparent %>" data-bot--barbell-allocation-target="allocation1Color"><span data-bot--barbell-allocation-target="allocation1Text"><%= ((1 - bot.allocation0) * 100).to_i %></span>%</b>
-      </div>
     </div>
-  <% end %>
+
+    <div class="barbell__plate">
+      <% if bot.transactions.any? %>
+        <div class="ticker" style="background: <%= base1_color_transparent %>" data-bot--barbell-allocation-target="allocation1BackgroundColor">
+          <%= bot.base1 %>
+        </div>
+      <% else %>
+        <%= link_to bot.base1.presence || 'Select one asset to buy', asset_search_bot_path(bot, asset_field: 'base1'), data: { turbo_frame: "modal", bot__barbell_allocation_target: "allocation1BackgroundColor" }, class: "ticker", style: "background: #{base1_color_transparent}" %>
+      <% end %>
+      <b style="color: <%= base1_color_transparent %>" data-bot--barbell-allocation-target="allocation1Color"><span data-bot--barbell-allocation-target="allocation1Text"><%= ((1 - bot.allocation0) * 100).to_i %></span>%</b>
+    </div>
+  </div>
 <% end %>
