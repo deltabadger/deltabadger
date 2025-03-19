@@ -151,7 +151,7 @@ nl:
             compensation:
                 one: "Compensatie voor <b>1</b> ongebruikte dag van het %{plan}-plan."
                 other: "Compensatie voor <b>%{count}</b> ongebruikte dagen van het %{plan}-plan."
-            legendary_plan_discount_html: 'De prijs van het Legendarische plan stijgt met %{amount} bij elke aankoop.'
+            legendary_plan_discount_html: 'De prijs stijgt met %{amount} bij elke verkoop'
             eu_bank_country: België
             invalid_vat_number: 'Ongeldig EU-BTW-nummer'
             paid_with_wire_transfer: 'Ik heb SEPA overschrijving gedaan'

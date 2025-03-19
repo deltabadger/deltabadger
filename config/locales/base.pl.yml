@@ -159,7 +159,7 @@ pl:
                 few: "Rekompensata za <b>%{count}</b> niewykorzystane dni planu %{plan}."
                 many: "Rekompensata za <b>%{count}</b> niewykorzystanych dni planu %{plan}."
                 other: "Rekompensata za <b>%{count}</b> niewykorzystanych dni planu %{plan}."
-            legendary_plan_discount_html: 'Cena planu Legendarnego wzrasta o %{amount} przy każdym zakupie.'
+            legendary_plan_discount_html: 'Cena wzrasta o %{amount} przy każdej sprzedaży'
             eu_bank_country: Belgia
             invalid_vat_number: 'Nieprawidłowy numer VAT UE'
             paid_with_wire_transfer: 'Zrobiłem przelew'

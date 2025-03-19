@@ -6,7 +6,7 @@
     <div class="modal__header">
       <h1 class="modal__title"><%= @bot.label %></h1>
     </div>
-    <div class="modal__body modal__body--regular">
+    <div class="modal__body text-center">
       <% if @bot.restarting_within_interval? %>
       <p>
         <%= t('bots.buttons.start.on_schedule.info_html', time: time_ago_in_words(@bot.next_interval_checkpoint_at)) %>
