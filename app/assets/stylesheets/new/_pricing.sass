@@ -1,6 +1,6 @@
 .pricing
     display: flex
-    flow-direction: row
+    flex-direction: row
     gap: 1rem
     &__plans
         display: grid
@@ -17,7 +17,7 @@
                 border-top-right-radius: 2rem
                 border-bottom-right-radius: 2rem
     &__checkout
-        width: calc(25% - 1rem)
+        width: calc(25% - 0.75rem)
         gap: 1rem
         display: flex
         flex-direction: column
@@ -171,10 +171,6 @@
   visibility: hidden
   position: absolute
 // hide radio buttons for the tabs, guillem workaround
-@media only screen and (max-width: 1279.9px)
-    .pricing
-        &__checkout
-            min-width: 30%
 @media only screen and (max-width: 959.9px)
     .pricing
         flex-direction: column
