@@ -3,7 +3,7 @@ class UpgradeController < ApplicationController
   skip_before_action :verify_authenticity_token, only: %i[btcpay_payment_ipn zen_payment_ipn]
 
   def index
-    redirect_to legendary_path if current_user.subscription.legendary?
+    redirect_to legendary_path and return if current_user.subscription.legendary?
 
     # TODO: style the pending_wire_transfer view
     if current_user.pending_wire_transfer.present?
@@ -115,11 +115,18 @@ class UpgradeController < ApplicationController
   end
 
   def new_payment_for(plan_name, years)
+    variant = SubscriptionPlanVariant.includes(:subscription_plan).find_by(
+      subscription_plan: SubscriptionPlan.find_by(name: plan_name),
+      years: years
+    ) || SubscriptionPlanVariant.includes(:subscription_plan).find_by(
+      subscription_plan: SubscriptionPlan.find_by(name: plan_name),
+      years: nil
+    )
     Payment.new(
       user: current_user,
       status: 'unpaid',
       payment_type: session[:payment_type],
-      subscription_plan_variant: SubscriptionPlanVariant.send(plan_name, years),
+      subscription_plan_variant: variant,
       country: session[:country],
       currency: session[:country] != VatRate::NOT_EU ? 'EUR' : 'USD'
     )
@@ -155,7 +162,7 @@ class UpgradeController < ApplicationController
   end
 
   def available_variant_years
-    @available_variant_years ||= SubscriptionPlanVariant.variant_years
+    @available_variant_years ||= SubscriptionPlanVariant.all_variant_years
   end
 
   def available_plan_names
