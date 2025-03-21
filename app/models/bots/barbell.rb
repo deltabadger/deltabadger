@@ -1,7 +1,7 @@
 class Bots::Barbell < Bot
   include ActionCable::Channel::Broadcasting
 
-  store_accessor :settings, :base0, :base1, :quote, :quote_amount, :allocation0, :interval
+  store_accessor :settings, :base0, :base1, :quote, :quote_amount, :allocation0, :interval, :market_cap_adjusted
 
   validates :quote_amount, presence: true, numericality: { greater_than: 0 }, on: :start
   validates :quote, :base0, :base1, presence: true, format: { with: /\A[A-Z0-9]+\z/ }, on: :start
@@ -106,6 +106,18 @@ class Bots::Barbell < Bot
   def restarting_within_interval?
     restarting? && last_action_job_at_iso8601.present? &&
       DateTime.parse(last_action_job_at_iso8601) > 1.public_send(interval).ago
+  end
+
+  def market_cap_adjusted?
+    market_cap_adjusted.present? && market_cap_adjusted
+  end
+
+  def effective_allocation0
+    if market_cap_adjusted?
+      allocation0 # TODO: call Coingecko API to get the effective allocation
+    else
+      allocation0
+    end
   end
 
   private

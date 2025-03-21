@@ -127,6 +127,7 @@ class BotsController < ApplicationController
       :base0,
       :base1,
       :allocation0,
+      :market_cap_adjusted,
       :exchange_id,
       :label
     )
@@ -150,9 +151,11 @@ class BotsController < ApplicationController
 
   def update_params
     permitted_params = barbell_bot_params
-    settings_params = permitted_params.except(:exchange_id, :label)
-
-    settings_params.transform_values! { |v| Utilities::String.numeric?(v) ? v.to_f : v }
+    settings_params = permitted_params.except(:exchange_id, :label).tap do |p|
+      p[:market_cap_adjusted] = p[:market_cap_adjusted] == '1' if p[:market_cap_adjusted].present?
+      p[:quote_amount] = p[:quote_amount].to_f if p[:quote_amount].present?
+      p[:allocation0] = p[:allocation0].to_f if p[:allocation0].present?
+    end
 
     {
       settings: @bot.settings.merge(settings_params),
