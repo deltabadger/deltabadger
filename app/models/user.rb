@@ -44,14 +44,6 @@ class User < ApplicationRecord
     referrer if eligible_for_discount?
   end
 
-  def withdrawal_api_keys
-    api_keys.where(key_type: 'withdrawal')
-  end
-
-  def trading_api_keys
-    api_keys.where(key_type: 'trading')
-  end
-
   def webhook_bots_transactions
     transactions.where(bot_id: bots.webhook.pluck(:id))
   end
