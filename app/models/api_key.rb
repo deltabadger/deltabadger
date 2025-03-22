@@ -15,8 +15,6 @@ class ApiKey < ApplicationRecord
   enum status: [*STATES]
   enum key_type: [*TYPES]
 
-  delegate :name, to: :exchange, prefix: true
-
   scope :for_bot, lambda { |user_id, exchange_id, key_type = 'trading'|
     where(user_id: user_id, exchange_id: exchange_id, key_type: key_type)
   }
