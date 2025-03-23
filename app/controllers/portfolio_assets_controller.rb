@@ -1,4 +1,4 @@
-class AssetsController < ApplicationController
+class PortfolioAssetsController < ApplicationController
   before_action :authenticate_user!
   before_action :set_portfolio
   before_action :set_asset, only: %i[destroy update]
@@ -14,7 +14,7 @@ class AssetsController < ApplicationController
   def create
     # TODO: add condition asset ticker must be valid
 
-    @asset = @portfolio.assets.new(asset_params)
+    @asset = @portfolio.portfolio_assets.new(asset_params)
     if @asset.save
       set_backtest_data
       respond_to do |format|
@@ -65,7 +65,7 @@ class AssetsController < ApplicationController
   private
 
   def asset_params
-    params.require(:asset).permit(:ticker, :name, :allocation, :category, :color, :api_id, :url, :country, :exchange)
+    params.require(:portfolio_asset).permit(:ticker, :name, :allocation, :category, :color, :api_id, :url, :country, :exchange)
   end
 
   def set_asset
@@ -73,7 +73,7 @@ class AssetsController < ApplicationController
       redirect_to portfolios_path, alert: 'No Asset ID provided.'
       return
     end
-    @asset = @portfolio.assets.find(params[:id])
+    @asset = @portfolio.portfolio_assets.find(params[:id])
   rescue ActiveRecord::RecordNotFound
     redirect_to portfolios_path, alert: 'Asset not found.'
   end
@@ -94,7 +94,7 @@ class AssetsController < ApplicationController
     @backtest = @portfolio.backtest
     @backtest['compare_to'] = @portfolio.compare_to.map do |portfolio_id|
       portfolio = current_user.portfolios.find(portfolio_id)
-      if portfolio.assets.present? && portfolio.allocations_are_normalized?
+      if portfolio.portfolio_assets.present? && portfolio.allocations_are_normalized?
         [portfolio.label, portfolio.backtest(custom_start_date: @portfolio.backtest_start_date)]
       end
     end.compact

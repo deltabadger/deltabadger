@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema.define(version: 2025_03_06_224414) do
+ActiveRecord::Schema.define(version: 2025_03_23_130809) do
 
   # These are extensions that must be enabled in order to support this database
   enable_extension "plpgsql"
@@ -59,22 +59,6 @@ ActiveRecord::Schema.define(version: 2025_03_06_224414) do
     t.integer "key_type", default: 0, null: false
     t.index ["exchange_id"], name: "index_api_keys_on_exchange_id"
     t.index ["user_id"], name: "index_api_keys_on_user_id"
-  end
-
-  create_table "assets", force: :cascade do |t|
-    t.bigint "portfolio_id", null: false
-    t.string "ticker"
-    t.float "allocation", default: 0.0, null: false
-    t.datetime "created_at", precision: 6, null: false
-    t.datetime "updated_at", precision: 6, null: false
-    t.string "color"
-    t.string "name"
-    t.string "api_id"
-    t.string "category"
-    t.string "url"
-    t.string "country"
-    t.string "exchange"
-    t.index ["portfolio_id"], name: "index_assets_on_portfolio_id"
   end
 
   create_table "bots", force: :cascade do |t|
@@ -192,6 +176,22 @@ ActiveRecord::Schema.define(version: 2025_03_06_224414) do
     t.index ["user_id"], name: "index_payments_on_user_id"
   end
 
+  create_table "portfolio_assets", force: :cascade do |t|
+    t.bigint "portfolio_id", null: false
+    t.string "ticker"
+    t.float "allocation", default: 0.0, null: false
+    t.datetime "created_at", precision: 6, null: false
+    t.datetime "updated_at", precision: 6, null: false
+    t.string "color"
+    t.string "name"
+    t.string "api_id"
+    t.string "category"
+    t.string "url"
+    t.string "country"
+    t.string "exchange"
+    t.index ["portfolio_id"], name: "index_portfolio_assets_on_portfolio_id"
+  end
+
   create_table "portfolios", force: :cascade do |t|
     t.bigint "user_id", null: false
     t.integer "strategy", default: 0, null: false
@@ -306,7 +306,6 @@ ActiveRecord::Schema.define(version: 2025_03_06_224414) do
   add_foreign_key "affiliates", "users"
   add_foreign_key "api_keys", "exchanges"
   add_foreign_key "api_keys", "users"
-  add_foreign_key "assets", "portfolios"
   add_foreign_key "bots", "exchanges"
   add_foreign_key "bots", "users"
   add_foreign_key "daily_transaction_aggregates", "bots"
@@ -314,6 +313,7 @@ ActiveRecord::Schema.define(version: 2025_03_06_224414) do
   add_foreign_key "fee_api_keys", "exchanges"
   add_foreign_key "payments", "subscription_plan_variants"
   add_foreign_key "payments", "users"
+  add_foreign_key "portfolio_assets", "portfolios"
   add_foreign_key "portfolios", "users"
   add_foreign_key "subscription_plan_variants", "subscription_plans"
   add_foreign_key "subscriptions", "subscription_plan_variants"

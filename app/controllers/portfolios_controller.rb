@@ -61,7 +61,7 @@ class PortfoliosController < ApplicationController
       new_portfolio.label = "#{new_portfolio.label} copy"
       raise ActiveRecord::Rollback, 'Portfolio duplication failed' unless new_portfolio.save
 
-      @portfolio.assets.each do |asset|
+      @portfolio.portfolio_assets.each do |asset|
         new_asset = asset.dup
         new_asset.portfolio = new_portfolio
         raise ActiveRecord::Rollback, 'Asset duplication failed' unless new_asset.save
@@ -291,13 +291,15 @@ class PortfoliosController < ApplicationController
       if @portfolio.compare_to.present?
         @backtest['compare_to'] = @portfolio.compare_to.map do |portfolio_id|
           portfolio = current_user.portfolios.find(portfolio_id)
-          if portfolio.assets.present? && portfolio.allocations_are_normalized?
+          if portfolio.portfolio_assets.present? && portfolio.allocations_are_normalized?
             [portfolio.label, portfolio.backtest(custom_start_date: @portfolio.backtest_start_date)]
           end
         end.compact
       end
     end
-    return unless @portfolio.smart_allocation_on? && @portfolio.assets.present? && @portfolio.smart_allocations[0].empty?
+    unless @portfolio.smart_allocation_on? && @portfolio.portfolio_assets.present? && @portfolio.smart_allocations[0].empty?
+      return
+    end
 
     # show flash message if the data API server is unreachable.
     flash.now[:alert] = t('alert.portfolio.unable_to_calculate')

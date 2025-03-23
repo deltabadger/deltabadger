@@ -1,15 +1,15 @@
 <% @portfolio.reload %>
-<% if @portfolio.assets.size == 1 || @portfolio.smart_allocation_on? %>
+<% if @portfolio.portfolio_assets.size == 1 || @portfolio.smart_allocation_on? %>
   <%= turbo_stream.replace "smart-allocation-controls", partial: "portfolios/smart_allocation_controls", locals: { portfolio: @portfolio } %>
 <% end %>
-<% if @portfolio.assets.size == 1 %>
+<% if @portfolio.portfolio_assets.size == 1 %>
   <%= turbo_stream.remove "portfolio-empty" %>
   <%= turbo_stream.replace "normalize-button", partial: "portfolios/normalize_button", locals: { portfolio: @portfolio } %>
 <% end %>
 <% if @portfolio.smart_allocation_on? %>
   <%= turbo_stream_update_portfolio_assets(@portfolio, @last_active_assets_ids, @last_idle_assets_ids) %>
 <% else %>
-  <%= turbo_stream.append 'portfolio-active-assets', partial: 'assets/asset', locals: { asset: @asset } %>
+  <%= turbo_stream.append 'portfolio-active-assets', partial: 'portfolio_assets/asset', locals: { asset: @asset } %>
 <% end %>
 <% if @portfolio.limited? %>
   <%= turbo_stream.replace "add-asset-button", partial: "portfolios/add_asset_button", locals: { portfolio: @portfolio } %>

@@ -11,7 +11,7 @@ module PortfolioAnalyzerManager
 
       start_time = Time.now
       query_downcase = query.downcase
-      portfolio_assets_api_ids = portfolio.assets.pluck(:api_id)
+      portfolio_assets_api_ids = portfolio.portfolio_assets.pluck(:api_id)
       end_time = Time.now
       Rails.logger.info("portfolio_assets_api_ids took #{end_time - start_time} seconds")
 

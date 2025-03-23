@@ -1,4 +1,4 @@
-class Asset < ApplicationRecord
+class PortfolioAsset < ApplicationRecord
   belongs_to :portfolio
 
   validates :ticker, presence: true
@@ -30,7 +30,7 @@ class Asset < ApplicationRecord
   end
 
   def max_assets_per_portfolio
-    return if portfolio.assets.count < portfolio.max_assets
+    return if portfolio.portfolio_assets.count < portfolio.max_assets
 
     errors.add(:portfolio, :max_assets_reached)
   end

@@ -16,7 +16,7 @@
         <% end %>
 
         <% @query_assets.each_with_index do |asset, index| %>
-          <%= form_with model: Asset, url: portfolio_assets_path(@portfolio), data: { arrow_keys_navigation_target: "item" }, class: "modal--search__assets__item" do |form| %>
+          <%= form_with model: PortfolioAsset, url: portfolio_assets_path(@portfolio), data: { arrow_keys_navigation_target: "item" }, class: "modal--search__assets__item" do |form| %>
             <%= form.hidden_field :ticker, value: asset[:ticker] %>
             <%= form.hidden_field :name, value: asset[:name] %>
             <%= form.hidden_field :category, value: asset[:category] %>

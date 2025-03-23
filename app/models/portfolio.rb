@@ -1,6 +1,6 @@
 class Portfolio < ApplicationRecord
   belongs_to :user
-  has_many :assets, dependent: :destroy
+  has_many :portfolio_assets, dependent: :destroy
 
   validates :strategy, :benchmark, :risk_level, presence: true
 
@@ -49,8 +49,8 @@ class Portfolio < ApplicationRecord
   end
 
   def compare_to_select_options
-    user.portfolios.includes(:assets).all.map do |portfolio|
-      if !portfolio.id.in?([id] + compare_to) && portfolio.assets.present? && portfolio.allocations_are_normalized?
+    user.portfolios.includes(:portfolio_assets).all.map do |portfolio|
+      if !portfolio.id.in?([id] + compare_to) && portfolio.portfolio_assets.present? && portfolio.allocations_are_normalized?
         [portfolio.label, portfolio.id]
       end
     end.compact
@@ -67,9 +67,9 @@ class Portfolio < ApplicationRecord
     @smart_allocations ||= begin
       smart_allocations_result = PortfolioAnalyzerManager::SmartAllocationsGetter.call(self)
       if smart_allocations_result.failure?
-        Rails.logger.error("Smart allocations error: #{smart_allocations_result.errors} for assets #{assets.map(&:api_id)}")
+        Rails.logger.error("Smart allocations error: #{smart_allocations_result.errors} for assets #{portfolio_assets.map(&:api_id)}")
         # set all allocations as 0 if there is an API error
-        self.class.risk_levels.keys.map { |_| assets.map { |a| [a.api_id, 0] }.to_h }
+        self.class.risk_levels.keys.map { |_| portfolio_assets.map { |a| [a.api_id, 0] }.to_h }
       else
         smart_allocations_result.data
       end
@@ -81,7 +81,7 @@ class Portfolio < ApplicationRecord
   end
 
   def total_allocation
-    assets.map(&:effective_allocation).sum.round(4)
+    portfolio_assets.map(&:effective_allocation).sum.round(4)
   end
 
   def allocations_are_normalized?
@@ -92,10 +92,10 @@ class Portfolio < ApplicationRecord
     return if allocations_are_normalized?
 
     if total_allocation.zero?
-      equal_allocation = (1.0 / assets.size).round(4)
-      new_allocations = Hash[assets.map { |a| [a.api_id, equal_allocation] }]
+      equal_allocation = (1.0 / portfolio_assets.size).round(4)
+      new_allocations = Hash[portfolio_assets.map { |a| [a.api_id, equal_allocation] }]
     else
-      new_allocations = Hash[assets.map { |a| [a.api_id, (a.allocation / total_allocation).round(4)] }]
+      new_allocations = Hash[portfolio_assets.map { |a| [a.api_id, (a.allocation / total_allocation).round(4)] }]
     end
     new_allocations = correct_normalized_allocations(new_allocations)
     batch_update_allocations!(new_allocations)
@@ -138,11 +138,11 @@ class Portfolio < ApplicationRecord
   end
 
   def ordered_assets
-    @ordered_assets ||= assets.order(:id)
+    @ordered_assets ||= portfolio_assets.order(:id)
   end
 
   def active_assets
-    @active_assets ||= if assets.present? && smart_allocation_on? && !smart_allocations[risk_level_int].empty?
+    @active_assets ||= if portfolio_assets.present? && smart_allocation_on? && !smart_allocations[risk_level_int].empty?
                          ordered_assets.select do |asset|
                            smart_allocations.map { |sa| sa[asset.api_id] }.sum.positive?
                          end
@@ -156,11 +156,11 @@ class Portfolio < ApplicationRecord
   end
 
   def max_assets_reached?
-    assets.size >= if user.subscription.pro? || user.subscription.legendary?
-                     100
-                   else
-                     4
-                   end
+    portfolio_assets.size >= if user.subscription.pro? || user.subscription.legendary?
+                               100
+                             else
+                               4
+                             end
   end
 
   def reset_memoized_assets
@@ -205,10 +205,13 @@ class Portfolio < ApplicationRecord
   private
 
   def batch_update_allocations!(new_allocations)
-    raise ActiveRecord::RecordInvalid, I18n.t('errors.invalid_number_of_allocations') if assets.size != new_allocations.size
+    if portfolio_assets.size != new_allocations.size
+      raise ActiveRecord::RecordInvalid,
+            I18n.t('errors.invalid_number_of_allocations')
+    end
 
     ActiveRecord::Base.transaction do
-      assets.each do |asset|
+      portfolio_assets.each do |asset|
         unless asset.update(allocation: new_allocations[asset.api_id])
           raise ActiveRecord::RecordInvalid, I18n.t('errors.invalid_allocation_value')
         end

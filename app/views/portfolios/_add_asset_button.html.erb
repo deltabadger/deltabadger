@@ -1,6 +1,6 @@
 <div id="add-asset-button">
-  <% path = @portfolio.limited? && @portfolio.assets.count == @portfolio.max_assets ? upgrade_upgrade_instructions_path : new_portfolio_asset_path(@portfolio) %>
-  <% data = @portfolio.limited? && @portfolio.assets.count == @portfolio.max_assets ? { turbo_frame: "modal" } : { turbo_frame: "modal", controller: "modal--open-and-submit-on-key-press", modal__open_and_submit_on_key_press_target: "button" } %>
+  <% path = @portfolio.limited? && @portfolio.portfolio_assets.count == @portfolio.max_assets ? upgrade_upgrade_instructions_path : new_portfolio_asset_path(@portfolio) %>
+  <% data = @portfolio.limited? && @portfolio.portfolio_assets.count == @portfolio.max_assets ? { turbo_frame: "modal" } : { turbo_frame: "modal", controller: "modal--open-and-submit-on-key-press", modal__open_and_submit_on_key_press_target: "button" } %>
   <%= link_to path, class: "button button--primary button--add-asset", data: data do %>
     <% render "svg/24x24_plus" %>
   <% end %>

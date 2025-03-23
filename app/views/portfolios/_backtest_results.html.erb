@@ -78,7 +78,7 @@
       <% end %>
 
     </div>
-  <% elsif portfolio.assets.empty? || !portfolio.allocations_are_normalized? %>
+  <% elsif portfolio.portfolio_assets.empty? || !portfolio.allocations_are_normalized? %>
     <div class="widget">
       <%= render 'svg/landscape_empty' %>
     </div>

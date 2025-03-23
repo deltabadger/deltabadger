@@ -42,7 +42,7 @@ module PortfolioAnalyzerManager
       text += I18n.t('ai.insights.response_format') + ' '
       text += ' '
       text += I18n.t('utils.assets') + ':'
-      portfolio.assets.each do |asset|
+      portfolio.portfolio_assets.each do |asset|
         text += " #{asset.ticker} #{(asset.effective_allocation * 100).round(1)}%"
       end
       text += '. '

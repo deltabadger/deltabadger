@@ -5,8 +5,8 @@ module PortfolioAnalyzerManager
       start_date = custom_start_date || portfolio.backtest_start_date
       Rails.cache.fetch(portfolio.backtest_cache_key(custom_start_date: start_date), expires_in: expires_in) do
         client = FinancialDataApiClient.new
-        symbols = portfolio.assets.map(&:api_id).join(',')
-        allocations = portfolio.assets.map(&:effective_allocation).join(',')
+        symbols = portfolio.portfolio_assets.map(&:api_id).join(',')
+        allocations = portfolio.portfolio_assets.map(&:effective_allocation).join(',')
         metrics_result = client.metrics(
           symbols: symbols,
           allocations: allocations,

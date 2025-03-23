@@ -44,12 +44,12 @@
     <div class="column gap-1 ">
 
       <div class="widget">
-        <% if @portfolio.assets.empty? %>
+        <% if @portfolio.portfolio_assets.empty? %>
           <%= render "empty", portfolio: @portfolio %>
         <% end %>
         <div id="portfolio-active-assets" class="basket">
           <% @portfolio.active_assets.each do |asset| %>
-            <%= render 'assets/asset', asset: asset %>
+            <%= render 'portfolio_assets/asset', asset: asset %>
           <% end %>
         </div>
         <% if @portfolio.idle_assets.any? %>
@@ -57,7 +57,7 @@
         <% end %>
         <div id="portfolio-idle-assets" class="basket basket--idle">
           <% @portfolio.idle_assets.each do |asset| %>
-            <%= render 'assets/asset', asset: asset %>
+            <%= render 'portfolio_assets/asset', asset: asset %>
           <% end %>
         </div>
 
