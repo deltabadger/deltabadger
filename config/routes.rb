@@ -151,7 +151,7 @@ Rails.application.routes.draw do
     post '/h/:webhook', to: 'api/bots#webhook', as: :webhooks
 
     resources :portfolios, except: [:index], path: '/portfolio-analyzer' do
-      resources :assets, only: [:new, :create, :destroy, :update]
+      resources :portfolio_assets, only: [:new, :create, :destroy, :update], as: :assets
       get :show, on: :collection
       patch :toggle_smart_allocation
       patch :update_risk_level
