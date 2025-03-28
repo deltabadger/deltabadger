@@ -1,5 +1,6 @@
 class Transaction < ApplicationRecord
   belongs_to :bot
+  belongs_to :exchange
 
   after_create_commit :set_daily_transaction_aggregate
   after_create_commit :update_bot_metrics, if: -> { success? && !bot.legacy? }
@@ -62,7 +63,7 @@ class Transaction < ApplicationRecord
     return unless success?
 
     daily_transaction_aggregate = DailyTransactionAggregate.today_for_bot(bot).first
-    return DailyTransactionAggregate.create(attributes.except('id')) unless daily_transaction_aggregate
+    return DailyTransactionAggregate.create(attributes.except('id', 'exchange_id')) unless daily_transaction_aggregate
 
     bot_transactions = Transaction.today_for_bot(bot)
     bot_transactions_with_rate = bot_transactions.reject { |t| t.rate.nil? }

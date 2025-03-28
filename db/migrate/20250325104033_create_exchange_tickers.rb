@@ -7,10 +7,10 @@ class CreateExchangeTickers < ActiveRecord::Migration[6.0]
       t.string :ticker, null: false
       t.string :base, null: false
       t.string :quote, null: false
-      t.string :minimum_base_size, null: false
-      t.string :minimum_quote_size, null: false
-      t.string :maximum_base_size, null: false
-      t.string :maximum_quote_size, null: false
+      t.numeric :minimum_base_size, null: false
+      t.numeric :minimum_quote_size, null: false
+      t.numeric :maximum_base_size, null: false
+      t.numeric :maximum_quote_size, null: false
       t.integer :base_decimals, null: false
       t.integer :quote_decimals, null: false
       t.integer :price_decimals, null: false

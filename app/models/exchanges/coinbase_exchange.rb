@@ -66,13 +66,13 @@ module Exchanges
       end
       breakdown = Utilities::Hash.dig_or_raise(result.data, 'breakdown', 'spot_positions')
       breakdown.each do |position|
-        asset_id = external_id_from_symbol(position['asset'])
-        next unless asset_ids.include?(asset_id)
+        asset = asset_from_symbol(symbol: position['asset'])
+        next unless asset_ids.include?(asset.id)
 
         free = Utilities::Hash.dig_or_raise(position, 'available_to_trade_crypto').to_f
         locked = Utilities::Hash.dig_or_raise(position, 'total_balance_crypto').to_f - free
 
-        balances[asset_id] = { free: free, locked: locked }
+        balances[asset.id] = { free: free, locked: locked }
       end
 
       Result::Success.new(balances)
@@ -149,7 +149,9 @@ module Exchanges
       result = client.get_order(order_id: order_id)
       return result unless result.success?
 
-      base, quote = Utilities::Hash.dig_or_raise(result.data, 'order', 'product_id').split('-')
+      base_symbol, quote_symbol = Utilities::Hash.dig_or_raise(result.data, 'order', 'product_id').split('-')
+      base_asset = asset_from_symbol(symbol: base_symbol)
+      quote_asset = asset_from_symbol(symbol: quote_symbol)
       rate = Utilities::Hash.dig_or_raise(result.data, 'order', 'average_filled_price').to_f
       amount = Utilities::Hash.dig_or_raise(result.data, 'order', 'filled_size').to_f
       side = Utilities::Hash.dig_or_raise(result.data, 'order', 'side').downcase.to_sym
@@ -161,8 +163,8 @@ module Exchanges
 
       Result::Success.new({
                             order_id: order_id,
-                            base: base,
-                            quote: quote,
+                            base_asset: base_asset,
+                            quote_asset: quote_asset,
                             rate: rate,
                             amount: amount,
                             side: side,
@@ -205,21 +207,12 @@ module Exchanges
       end
     end
 
-    def external_id_from_symbol(symbol)
-      @external_id_from_symbol ||= @exchange.tickers.each_with_object({}) do |t, map|
-        map[t.base] ||= t.base_asset.external_id
-        map[t.quote] ||= t.quote_asset.external_id
+    def asset_from_symbol(symbol:)
+      @asset_from_symbol ||= @exchange.tickers.includes(:base_asset, :quote_asset).each_with_object({}) do |t, map|
+        map[t.base] ||= t.base_asset
+        map[t.quote] ||= t.quote_asset
       end
-      @external_id_from_symbol[symbol]
-    end
-
-    def symbol_from_base_and_quote(base, quote)
-      "#{base.upcase}-#{quote.upcase}"
-    end
-
-    def base_and_quote_from_symbol(symbol)
-      base, quote = symbol.split('-')
-      [base.upcase, quote.upcase]
+      @asset_from_symbol[symbol]
     end
 
     def get_bid_ask_price(base_asset_id:, quote_asset_id:)

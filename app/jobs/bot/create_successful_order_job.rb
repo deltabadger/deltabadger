@@ -5,7 +5,8 @@ class Bot::CreateSuccessfulOrderJob < BotJob
     raise StandardError, "Order #{order_id} was not successful." unless result.data[:status] == :success
 
     order_data = {
-      base: result.data[:base],
+      base_asset: result.data[:base_asset],
+      quote_asset: result.data[:quote_asset],
       rate: result.data[:rate],
       amount: result.data[:amount]
     }
