@@ -2,10 +2,18 @@ class Exchange < ApplicationRecord
   include ExchangeApi::BinanceEnum
   include ExchangeApi::FtxEnum
 
+  has_many :exchange_assets
+  has_many :assets, through: :exchange_assets
+  # has_many :exchange_tickers, through: :exchange_assets, source: :base_exchange_tickers # Or quote_exchange_tickers
+  has_many :exchange_tickers
+  has_many :tickers, class_name: 'ExchangeTicker' # alias for exchange_tickers
+
   validates :name, presence: true
 
   scope :available, -> { where.not(name: ['FTX', 'FTX.US', 'Coinbase Pro']) }
   scope :available_for_barbell_bots, -> { where(name: ['Coinbase']) } # FIXME: Temporary until all exchanges are supported
+
+  include RemoteDataAggregator
 
   # rubocop:disable Metrics/CyclomaticComplexity
   def symbols
@@ -44,11 +52,15 @@ class Exchange < ApplicationRecord
     exchange_implementation.set_client(api_key: api_key)
   end
 
+  def coingecko_id
+    exchange_implementation.coingecko_id
+  end
+
   # @returns
   #   #=> {
-  #         symbol: [String],
-  #         base_asset: [String],
-  #         quote_asset: [String],
+  #         ticker: [String],
+  #         base: [String],
+  #         quote: [String],
   #         minimum_base_size: [Float],
   #         minimum_quote_size: [Float],
   #         maximum_base_size: [Float],
@@ -57,50 +69,47 @@ class Exchange < ApplicationRecord
   #         quote_decimals: [Integer],
   #         price_decimals: [Integer]
   #       }
-  def get_symbol_info(base_asset:, quote_asset:)
-    exchange_implementation.get_symbol_info(base_asset: base_asset, quote_asset: quote_asset)
+  def get_tickers_info
+    exchange_implementation.get_tickers_info
   end
 
-  def get_info
-    exchange_implementation.get_info
+  def get_balances(asset_ids: nil)
+    exchange_implementation.get_balances(asset_ids: asset_ids)
   end
 
-  def get_balances(assets:)
-    exchange_implementation.get_balances(assets: assets)
+  def get_balance(asset_id:)
+    exchange_implementation.get_balance(asset_id: asset_id)
   end
 
-  def get_balance(asset:)
-    exchange_implementation.get_balance(asset: asset)
+  def get_bid_price(base_asset_id:, quote_asset_id:)
+    exchange_implementation.get_bid_price(base_asset_id: base_asset_id, quote_asset_id: quote_asset_id)
   end
 
-  def get_bid_price(base_asset:, quote_asset:)
-    exchange_implementation.get_bid_price(base_asset: base_asset, quote_asset: quote_asset)
-  end
-
-  def get_ask_price(base_asset:, quote_asset:)
-    exchange_implementation.get_ask_price(base_asset: base_asset, quote_asset: quote_asset)
+  def get_ask_price(base_asset_id:, quote_asset_id:)
+    exchange_implementation.get_ask_price(base_asset_id: base_asset_id, quote_asset_id: quote_asset_id)
   end
 
   # @param amount_type [Symbol] :base or :quote
-  def market_buy(base_asset:, quote_asset:, amount:, amount_type:)
-    exchange_implementation.market_buy(base_asset: base_asset, quote_asset: quote_asset, amount: amount, amount_type: amount_type)
+  def market_buy(base_asset_id:, quote_asset_id:, amount:, amount_type:)
+    exchange_implementation.market_buy(base_asset_id: base_asset_id, quote_asset_id: quote_asset_id, amount: amount,
+                                       amount_type: amount_type)
   end
 
   # @param amount_type [Symbol] :base or :quote
-  def market_sell(base_asset:, quote_asset:, amount:, amount_type:)
-    exchange_implementation.market_sell(base_asset: base_asset, quote_asset: quote_asset, amount: amount,
+  def market_sell(base_asset_id:, quote_asset_id:, amount:, amount_type:)
+    exchange_implementation.market_sell(base_asset_id: base_asset_id, quote_asset_id: quote_asset_id, amount: amount,
                                         amount_type: amount_type)
   end
 
   # @param amount_type [Symbol] :base or :quote
-  def limit_buy(base_asset:, quote_asset:, amount:, amount_type:, price:)
-    exchange_implementation.limit_buy(base_asset: base_asset, quote_asset: quote_asset, amount: amount, amount_type: amount_type,
-                                      price: price)
+  def limit_buy(base_asset_id:, quote_asset_id:, amount:, amount_type:, price:)
+    exchange_implementation.limit_buy(base_asset_id: base_asset_id, quote_asset_id: quote_asset_id, amount: amount,
+                                      amount_type: amount_type, price: price)
   end
 
   # @param amount_type [Symbol] :base or :quote
-  def limit_sell(base_asset:, quote_asset:, amount:, amount_type:, price:)
-    exchange_implementation.limit_sell(base_asset: base_asset, quote_asset: quote_asset, amount: amount,
+  def limit_sell(base_asset_id:, quote_asset_id:, amount:, amount_type:, price:)
+    exchange_implementation.limit_sell(base_asset_id: base_asset_id, quote_asset_id: quote_asset_id, amount: amount,
                                        amount_type: amount_type, price: price)
   end
 
@@ -113,21 +122,18 @@ class Exchange < ApplicationRecord
   end
 
   # @param amount_type [Symbol] :base or :quote
-  def get_adjusted_amount(base_asset:, quote_asset:, amount:, amount_type:, method: :floor)
+  def adjusted_amount(base_asset_id:, quote_asset_id:, amount:, amount_type:, method: :floor)
     raise "Unsupported amount type #{amount_type}" unless %i[quote base].include?(amount_type)
 
-    result = get_symbol_info(base_asset: base_asset, quote_asset: quote_asset)
-    return result unless result.success?
-
-    decimals = amount_type == :quote ? result.data[:quote_decimals] : result.data[:base_decimals]
-    Result::Success.new(amount.send(method, decimals))
+    ticker = exchange_tickers.find_by(base_asset_id: base_asset_id, quote_asset_id: quote_asset_id)
+    decimals = amount_type == :quote ? ticker.quote_decimals : ticker.base_decimals
+    amount.send(method, decimals)
   end
 
-  def get_adjusted_price(base_asset:, quote_asset:, price:, method: :floor)
-    result = get_symbol_info(base_asset: base_asset, quote_asset: quote_asset)
-    return result unless result.success?
-
-    Result::Success.new(price.send(method, result.data[:price_decimals]))
+  def adjusted_price(base_asset_id:, quote_asset_id:, price:, method: :floor)
+    ticker = exchange_tickers.find_by(base_asset_id: base_asset_id, quote_asset_id: quote_asset_id)
+    decimals = ticker.price_decimals
+    price.send(method, decimals)
   end
 
   private

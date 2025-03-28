@@ -32,15 +32,16 @@ module Bots::Barbell::Measurable
       # chart data
       data[:chart][:labels] << transaction.created_at
       amount = transaction.success? ? transaction.amount : 0
-      totals[:total_quote_amount_invested][transaction.base] += amount * transaction.rate
-      totals[:total_base_amount_acquired][transaction.base] += amount
+      totals[:total_quote_amount_invested][transaction.base_asset.id] += amount * transaction.rate
+      totals[:total_base_amount_acquired][transaction.base_asset.id] += amount
       data[:chart][:series][1] << totals[:total_quote_amount_invested].values.sum
-      totals[:current_value_in_quote][transaction.base] = totals[:total_base_amount_acquired][transaction.base] * transaction.rate
+      totals[:current_value_in_quote][transaction.base_asset.id] =
+        totals[:total_base_amount_acquired][transaction.base_asset.id] * transaction.rate
       data[:chart][:series][0] << totals[:current_value_in_quote].values.sum
 
       # metrics data
-      totals[:rates][transaction.base] << transaction.rate
-      totals[:amounts][transaction.base] << amount
+      totals[:rates][transaction.base_asset.id] << transaction.rate
+      totals[:amounts][transaction.base_asset.id] << amount
     end
 
     totals[:rates].each_with_index do |(base, rates_array), index|
@@ -48,8 +49,8 @@ module Bots::Barbell::Measurable
       data["base#{index}_average_buy_rate".to_sym] = weighted_average
     end
 
-    data[:total_base0_amount_acquired] = totals[:total_base_amount_acquired][base0]
-    data[:total_base1_amount_acquired] = totals[:total_base_amount_acquired][base1]
+    data[:total_base0_amount_acquired] = totals[:total_base_amount_acquired][base0_asset_id]
+    data[:total_base1_amount_acquired] = totals[:total_base_amount_acquired][base1_asset_id]
     from_quote_value = totals[:total_quote_amount_invested].values.sum
     to_quote_value = totals[:current_value_in_quote].values.sum
     data[:total_quote_amount_invested] = from_quote_value
@@ -80,11 +81,11 @@ module Bots::Barbell::Measurable
 
   def initialize_totals_data
     {
-      total_quote_amount_invested: { base0 => 0, base1 => 0 },
-      total_base_amount_acquired: { base0 => 0, base1 => 0 },
-      current_value_in_quote: { base0 => 0, base1 => 0 },
-      rates: { base0 => [], base1 => [] },
-      amounts: { base0 => [], base1 => [] }
+      total_quote_amount_invested: { base0_asset_id => 0, base1_asset_id => 0 },
+      total_base_amount_acquired: { base0_asset_id => 0, base1_asset_id => 0 },
+      current_value_in_quote: { base0_asset_id => 0, base1_asset_id => 0 },
+      rates: { base0_asset_id => [], base1_asset_id => [] },
+      amounts: { base0_asset_id => [], base1_asset_id => [] }
     }
   end
 

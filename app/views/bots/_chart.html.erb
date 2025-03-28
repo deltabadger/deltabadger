@@ -6,7 +6,7 @@
   <% if metrics[:chart][:labels].empty? %>
     <%= render 'svg/landscape_empty' %>
   <% else %>
-    <% formatted_series = rounded_chart_series_for(exchange: bot.exchange, base_asset: bot.base0, quote_asset: bot.quote, series: metrics[:chart][:series]) %>
+    <% formatted_series = rounded_chart_series_for(exchange: bot.exchange, base_asset_id: bot.base0_asset_id, quote_asset_id: bot.quote_asset_id, series: metrics[:chart][:series]) %>
     <div class="data-grid__item" data-controller="tooltip" data-action="mouseenter->tooltip#showTooltip mouseleave->tooltip#hideTooltip">
       <div class="label"><%= t('analyzer.pnl') %></div>
       <%= tag.div class: "data-grid__item__value", style: "color: var(--#{metrics[:pnl].negative? ? 'danger' : 'success'})" do %>
@@ -16,8 +16,8 @@
     <%= tag.div data: {
       controller: "bot--chart",
       bot__chart_names_value: [
-        t('data_labels.value_ticker', ticker: bot.quote),
-        t('data_labels.invested_ticker', ticker: bot.quote)
+        t('data_labels.value_symbol', symbol: bot.quote_asset.symbol),
+        t('data_labels.invested_symbol', symbol: bot.quote_asset.symbol)
       ],
       bot__chart_labels_value: [metrics[:chart][:labels]],
       bot__chart_series_value: [formatted_series],

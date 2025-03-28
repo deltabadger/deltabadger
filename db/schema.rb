@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema.define(version: 2025_03_23_130809) do
+ActiveRecord::Schema.define(version: 2025_03_28_131035) do
 
   # These are extensions that must be enabled in order to support this database
   enable_extension "plpgsql"
@@ -59,6 +59,26 @@ ActiveRecord::Schema.define(version: 2025_03_23_130809) do
     t.integer "key_type", default: 0, null: false
     t.index ["exchange_id"], name: "index_api_keys_on_exchange_id"
     t.index ["user_id"], name: "index_api_keys_on_user_id"
+  end
+
+  create_table "assets", force: :cascade do |t|
+    t.string "external_id", null: false
+    t.string "symbol"
+    t.string "name"
+    t.string "isin"
+    t.string "color"
+    t.string "category"
+    t.string "country"
+    t.string "country_exchange"
+    t.string "url"
+    t.string "image_url"
+    t.integer "market_cap_rank"
+    t.datetime "created_at", precision: 6, null: false
+    t.datetime "updated_at", precision: 6, null: false
+    t.index ["external_id"], name: "index_assets_on_external_id", unique: true
+    t.index ["isin"], name: "index_assets_on_isin"
+    t.index ["name"], name: "index_assets_on_name"
+    t.index ["symbol"], name: "index_assets_on_symbol"
   end
 
   create_table "bots", force: :cascade do |t|
@@ -118,12 +138,37 @@ ActiveRecord::Schema.define(version: 2025_03_23_130809) do
   end
 
   create_table "exchange_assets", force: :cascade do |t|
+    t.bigint "asset_id", null: false
     t.bigint "exchange_id", null: false
-    t.string "ticker", null: false
-    t.string "name"
-    t.string "color"
-    t.index ["exchange_id", "ticker"], name: "index_exchange_assets_on_exchange_id_and_ticker", unique: true
+    t.datetime "created_at", precision: 6, null: false
+    t.datetime "updated_at", precision: 6, null: false
+    t.index ["asset_id", "exchange_id"], name: "index_exchange_assets_on_asset_id_and_exchange_id", unique: true
+    t.index ["asset_id"], name: "index_exchange_assets_on_asset_id"
     t.index ["exchange_id"], name: "index_exchange_assets_on_exchange_id"
+  end
+
+  create_table "exchange_tickers", force: :cascade do |t|
+    t.bigint "exchange_id", null: false
+    t.bigint "base_asset_id", null: false
+    t.bigint "quote_asset_id", null: false
+    t.string "ticker", null: false
+    t.string "base", null: false
+    t.string "quote", null: false
+    t.string "minimum_base_size", null: false
+    t.string "minimum_quote_size", null: false
+    t.string "maximum_base_size", null: false
+    t.string "maximum_quote_size", null: false
+    t.integer "base_decimals", null: false
+    t.integer "quote_decimals", null: false
+    t.integer "price_decimals", null: false
+    t.datetime "created_at", precision: 6, null: false
+    t.datetime "updated_at", precision: 6, null: false
+    t.index ["base_asset_id"], name: "index_exchange_tickers_on_base_asset_id"
+    t.index ["exchange_id", "base", "quote"], name: "index_exchange_tickers_on_unique_base_and_quote", unique: true
+    t.index ["exchange_id", "base_asset_id", "quote_asset_id"], name: "index_exchange_tickers_on_unique_base_asset_and_quote_asset", unique: true
+    t.index ["exchange_id", "ticker"], name: "index_exchange_tickers_on_unique_ticker", unique: true
+    t.index ["exchange_id"], name: "index_exchange_tickers_on_exchange_id"
+    t.index ["quote_asset_id"], name: "index_exchange_tickers_on_quote_asset_id"
   end
 
   create_table "exchanges", force: :cascade do |t|
@@ -256,11 +301,13 @@ ActiveRecord::Schema.define(version: 2025_03_23_130809) do
     t.string "called_bot_type"
     t.string "base"
     t.string "quote"
+    t.bigint "exchange_id", null: false
     t.index ["bot_id", "created_at"], name: "index_transactions_on_bot_id_and_created_at"
     t.index ["bot_id", "status", "created_at"], name: "index_transactions_on_bot_id_and_status_and_created_at"
     t.index ["bot_id", "transaction_type", "created_at"], name: "index_bot_type_created_at"
     t.index ["bot_id"], name: "index_transactions_on_bot_id"
     t.index ["created_at"], name: "index_transactions_on_created_at"
+    t.index ["exchange_id"], name: "index_transactions_on_exchange_id"
   end
 
   create_table "users", force: :cascade do |t|
@@ -309,7 +356,11 @@ ActiveRecord::Schema.define(version: 2025_03_23_130809) do
   add_foreign_key "bots", "exchanges"
   add_foreign_key "bots", "users"
   add_foreign_key "daily_transaction_aggregates", "bots"
+  add_foreign_key "exchange_assets", "assets"
   add_foreign_key "exchange_assets", "exchanges"
+  add_foreign_key "exchange_tickers", "assets", column: "base_asset_id"
+  add_foreign_key "exchange_tickers", "assets", column: "quote_asset_id"
+  add_foreign_key "exchange_tickers", "exchanges"
   add_foreign_key "fee_api_keys", "exchanges"
   add_foreign_key "payments", "subscription_plan_variants"
   add_foreign_key "payments", "users"
@@ -319,6 +370,7 @@ ActiveRecord::Schema.define(version: 2025_03_23_130809) do
   add_foreign_key "subscriptions", "subscription_plan_variants"
   add_foreign_key "subscriptions", "users"
   add_foreign_key "transactions", "bots"
+  add_foreign_key "transactions", "exchanges"
   add_foreign_key "users", "affiliates", column: "referrer_id"
   add_foreign_key "users", "subscription_plan_variants", column: "pending_plan_variant_id"
 

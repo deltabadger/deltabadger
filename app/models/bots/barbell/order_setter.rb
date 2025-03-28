@@ -14,31 +14,31 @@ module Bots::Barbell::OrderSetter # rubocop:disable Metrics/ModuleLength
     calculate_pending_quote_amount
     return Result::Success.new if pending_quote_amount.zero?
 
-    result = exchange.get_balances(assets: [quote, base0, base1])
+    result = exchange.get_balances(asset_ids: [quote_asset_id, base0_asset_id, base1_asset_id])
     return result unless result.success?
 
     balances = result.data
-    notify_end_of_funds if balances[quote][:free] < pending_quote_amount + quote_amount
-    if balances[quote][:free] < pending_quote_amount
+    notify_end_of_funds if balances[quote_asset_id][:free] < pending_quote_amount + quote_amount
+    if balances[quote_asset_id][:free] < pending_quote_amount
       stop
       return Result::Success.new
     end
 
-    result = exchange.get_ask_price(base_asset: base0, quote_asset: quote)
-    return result unless result.success?
-    raise "Wrong price for #{base0}-#{quote}: #{result.data}" if result.data.zero?
+    ticker = exchange.tickers.find_by(base_asset_id: base0_asset_id, quote_asset_id: quote_asset_id)
+    result0 = exchange.get_ask_price(ticker: ticker.ticker)
+    return result0 unless result0.success?
+    raise "Wrong price for #{ticker.ticker}: #{result0.data}" if result0.data.zero?
 
-    price0 = result.data
-    result = exchange.get_ask_price(base_asset: base1, quote_asset: quote)
-    return result unless result.success?
-    raise "Wrong price for #{base1}-#{quote}: #{result.data}" if result.data.zero?
+    ticker = exchange.tickers.find_by(base_asset_id: base1_asset_id, quote_asset_id: quote_asset_id)
+    result1 = exchange.get_ask_price(ticker: ticker.ticker)
+    return result1 unless result1.success?
+    raise "Wrong price for #{ticker.ticker}: #{result1.data}" if result1.data.zero?
 
-    price1 = result.data
     orders_data = calculate_orders_data(
-      balance0: balances[base0][:free],
-      balance1: balances[base1][:free],
-      price0: price0,
-      price1: price1
+      balance0: balances[base0_asset_id][:free],
+      balance1: balances[base1_asset_id][:free],
+      price0: result0.data,
+      price1: result1.data
     )
     orders_data.each do |order_data|
       result = set_order(order_data)
@@ -83,15 +83,15 @@ module Bots::Barbell::OrderSetter # rubocop:disable Metrics/ModuleLength
     base1_order_size_in_base = base1_order_size_in_quote / price1
     [
       {
-        base: base0,
-        quote: quote,
+        base_asset_id: base0_asset_id,
+        quote_asset_id: quote_asset_id,
         rate: price0,
         amount: base0_order_size_in_base,
         quote_amount: base0_order_size_in_quote
       },
       {
-        base: base1,
-        quote: quote,
+        base_asset_id: base1_asset_id,
+        quote_asset_id: quote_asset_id,
         rate: price1,
         amount: base1_order_size_in_base,
         quote_amount: base1_order_size_in_quote
@@ -100,18 +100,13 @@ module Bots::Barbell::OrderSetter # rubocop:disable Metrics/ModuleLength
   end
 
   def set_order(order_data)
-    result = exchange.get_symbol_info(
-      base_asset: order_data[:base],
-      quote_asset: order_data[:quote]
-    )
-    return result unless result.success?
+    ticker = exchange.tickers.find_by!(base_asset_id: order_data[:base_asset_id], quote_asset_id: order_data[:quote_asset_id])
 
-    symbol_info = result.data
-    return Result::Success.new(create_skipped_order!(order_data)) if order_data[:amount] < symbol_info[:minimum_base_size]
+    return Result::Success.new(create_skipped_order!(order_data)) if order_data[:amount] < ticker.minimum_base_size
 
     result = market_buy(
-      base_asset: order_data[:base],
-      quote_asset: order_data[:quote],
+      base_asset_id: order_data[:base_asset_id],
+      quote_asset_id: order_data[:quote_asset_id],
       amount: order_data[:amount],
       amount_type: :base
     )

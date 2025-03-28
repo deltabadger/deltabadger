@@ -1,14 +1,14 @@
 class Bots::Barbell < Bot
   include ActionCable::Channel::Broadcasting
 
-  store_accessor :settings, :base0, :base1, :quote, :quote_amount, :allocation0, :interval, :market_cap_adjusted
+  store_accessor :settings, :base0, :base1, :quote, :quote_amount, :allocation0, :interval, :market_cap_adjusted,
+                 :base0_asset_id, :base1_asset_id, :quote_asset_id
 
   validates :quote_amount, presence: true, numericality: { greater_than: 0 }, on: :start
-  validates :quote, :base0, :base1, presence: true, format: { with: /\A[A-Z0-9]+\z/ }, on: :start
   validates :interval, presence: true, inclusion: { in: INTERVALS }, on: :start
   validates :allocation0, presence: true, numericality: { greater_than_or_equal_to: 0, less_than_or_equal_to: 1 }, on: :start
-
   validate :validate_barbell_bot_exchange, if: :exchange_id?, on: :start
+  validate :validate_external_ids, on: :start
   validate :validate_unchangeable_assets, on: :update
   validate :validate_unchangeable_interval, on: :update
 
@@ -73,30 +73,30 @@ class Bots::Barbell < Bot
   end
 
   def available_exchanges_for_current_settings
-    return Exchange.available_for_barbell_bots unless base0.present? && base1.present? && quote.present?
-
-    Exchange.available_for_barbell_bots.select do |exchange|
-      [
-        exchange.get_symbol_info(base_asset: base0, quote_asset: quote),
-        exchange.get_symbol_info(base_asset: base1, quote_asset: quote)
-      ].map { |result| result.success? && result.data }.all?
-    end
+    base_asset_ids = [base0_asset_id, base1_asset_id].compact
+    scope = ExchangeTicker.where(exchange: Exchange.available_for_barbell_bots)
+    scope = scope.where(base_asset_id: base_asset_ids) if base_asset_ids.any?
+    scope = scope.where(quote_asset_id: quote_asset_id) if quote_asset_id.present?
+    exchange_ids = scope.pluck(:exchange_id).uniq
+    Exchange.where(id: exchange_ids)
   end
 
   # @param asset_type: :base_asset or :quote_asset
-  def available_assets_for_current_settings(asset_type:)
-    Exchange.available_for_barbell_bots.each_with_object({}) do |exchange, asset_map|
-      next if exchange.get_info.failure?
+  def available_assets_for_current_settings(asset_type:, include_exchanges: false)
+    available_exchanges = exchange.present? ? [exchange] : Exchange.available_for_barbell_bots
+    base_asset_ids = [base0_asset_id, base1_asset_id].compact
 
-      exchange.get_info.data[:symbols].each do |symbol|
-        ticker = symbol[asset_type]
-        name = symbol["#{asset_type}_name".to_sym]
-        key = [ticker, name]
-
-        asset_map[key] ||= { ticker: ticker, name: name, exchanges: [] }
-        asset_map[key][:exchanges] << exchange.name if asset_map[key][:exchanges].exclude?(exchange.name)
-      end
-    end.values
+    case asset_type
+    when :base_asset
+      scope = ExchangeTicker.where(exchange: available_exchanges)
+                            .where.not(base_asset_id: base_asset_ids)
+      scope = scope.where(quote_asset_id: quote_asset_id) if quote_asset_id.present?
+    when :quote_asset
+      scope = ExchangeTicker.where(exchange: available_exchanges)
+      scope = scope.where(base_asset_id: base_asset_ids) if base_asset_ids.any?
+    end
+    asset_ids = scope.pluck("#{asset_type}_id").uniq
+    include_exchanges ? Asset.includes(:exchanges).where(id: asset_ids) : Asset.where(id: asset_ids)
   end
 
   def restarting?
@@ -120,16 +120,33 @@ class Bots::Barbell < Bot
     end
   end
 
+  def base0_asset
+    @base0_asset ||= base0_asset_id.present? ? Asset.find(base0_asset_id) : nil
+  end
+
+  def base1_asset
+    @base1_asset ||= base1_asset_id.present? ? Asset.find(base1_asset_id) : nil
+  end
+
+  def quote_asset
+    @quote_asset ||= quote_asset_id.present? ? Asset.find(quote_asset_id) : nil
+  end
+
   private
 
   def new_api_key
     user.api_keys.new(exchange: exchange, status: :pending, key_type: :trading)
   end
 
+  def validate_external_ids
+    errors.add(:base0_asset_id, :invalid) unless Asset.exists?(base0_asset_id)
+    errors.add(:base1_asset_id, :invalid) unless Asset.exists?(base1_asset_id)
+    errors.add(:quote_asset_id, :invalid) unless Asset.exists?(quote_asset_id)
+  end
+
   def validate_barbell_bot_exchange
-    result0 = exchange.get_symbol_info(base_asset: base0, quote_asset: quote)
-    result1 = exchange.get_symbol_info(base_asset: base1, quote_asset: quote)
-    return unless result0.failure? || result1.failure? || result0.data.nil? || result1.data.nil?
+    return if exchange.tickers.exists?(base_asset: base0_asset, quote_asset: quote_asset) &&
+              exchange.tickers.exists?(base_asset: base1_asset, quote_asset: quote_asset)
 
     errors.add(:exchange, :unsupported, message: 'Invalid combination of assets for the selected exchange')
   end
@@ -137,12 +154,10 @@ class Bots::Barbell < Bot
   def validate_unchangeable_assets
     return unless transactions.exists?
     return unless settings_changed?
-    return unless settings_was['quote'] != settings['quote'] ||
-                  settings_was['base0'] != settings['base0'] ||
-                  settings_was['base1'] != settings['base1']
 
-    errors.add(:settings, :unchangeable_assets,
-               message: 'Assets cannot be changed after orders have been created')
+    errors.add(:base0_asset_id, :unchangeable) if settings_was['base0_asset_id'] != settings['base0_asset_id']
+    errors.add(:base1_asset_id, :unchangeable) if settings_was['base1_asset_id'] != settings['base1_asset_id']
+    errors.add(:quote_asset_id, :unchangeable) if settings_was['quote_asset_id'] != settings['quote_asset_id']
   end
 
   def validate_unchangeable_interval
