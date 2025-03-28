@@ -6,10 +6,10 @@ nl:
     button:
         connect: "Verbinden"
     data_labels:
-        bought_ticker: "Gekocht (%{ticker})"
-        avg_price_ticker: "Gem. Prijs (%{ticker})"
-        invested_ticker: "Geïnvesteerd (%{ticker})"
-        value_ticker: "Waarde (%{ticker})"
+        bought_symbol: "Gekocht (%{symbol})"
+        avg_price_symbol: "Gem. Prijs (%{symbol})"
+        invested_symbol: "Geïnvesteerd (%{symbol})"
+        value_symbol: "Waarde (%{symbol})"
         date: "Datum"
     days_left:
         one: '1 dag over'

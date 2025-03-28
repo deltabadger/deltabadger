@@ -5,12 +5,12 @@
     <div class="bot-tile__header">
       <div class="bot-tile__hgroup">
         <div class="bot-tile__title">
-          <% if bot.barbell? && bot.quote.present? && bot.base0.present? && bot.base1.present? %>
-            <span><%= bot.quote %></span>
+          <% if bot.barbell? && bot.quote_asset_id.present? && bot.base0_asset_id.present? && bot.base1_asset_id.present? %>
+            <span><%= bot.quote_asset.symbol %></span>
             <span class="bot-tile__operator">&rarr;</span>
             <span>
-              <span><%= bot.base1 %></span>,
-              <span><%= bot.base0 %></span>
+              <span><%= bot.base0_asset.symbol %></span>,
+              <span><%= bot.base1_asset.symbol %></span>
             </span>
           <% elsif bot.basic? && bot.quote.present? && bot.base.present? %>
             <span><%= bot.quote %></span>

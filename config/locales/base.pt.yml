@@ -6,10 +6,10 @@ pt:
     button:
         connect: "Conectar"
     data_labels:
-        bought_ticker: "Comprado (%{ticker})"
-        avg_price_ticker: "Preço Médio (%{ticker})"
-        invested_ticker: "Investido (%{ticker})"
-        value_ticker: "Valor (%{ticker})"
+        bought_symbol: "Comprado (%{symbol})"
+        avg_price_symbol: "Preço Médio (%{symbol})"
+        invested_symbol: "Investido (%{symbol})"
+        value_symbol: "Valor (%{symbol})"
         date: "Data"
     days_left:
         one: "1 dia restante"

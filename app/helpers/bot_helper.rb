@@ -4,45 +4,56 @@ module BotHelper
   end
 
   def bot_type_label(bot)
-    case bot.type
-    when 'Bots::Barbell'
-      'Barbell DCA'
-    when 'Bots::Basic'
-      'Basic DCA'
-    when 'Bots::Withdrawal'
-      'Withdrawal'
-    when 'Bots::Webhook'
-      'Webhook'
-    end
+    {
+      'Bots::Barbell' => 'Barbell DCA',
+      'Bots::Basic' => 'Basic DCA',
+      'Bots::Withdrawal' => 'Withdrawal',
+      'Bots::Webhook' => 'Webhook'
+    }[bot.type]
   end
 
-  def rounded_quote_amount_for(exchange:, base_asset:, quote_asset:, amount:)
-    rounded_amount_for(exchange: exchange, base_asset: base_asset, quote_asset: quote_asset, amount: amount, amount_type: :quote)
+  def rounded_quote_amount_for(exchange:, base_asset_id:, quote_asset_id:, amount:)
+    rounded_amount_for(
+      exchange: exchange,
+      base_asset_id: base_asset_id,
+      quote_asset_id: quote_asset_id,
+      amount: amount,
+      amount_type: :quote
+    )
   end
 
-  def rounded_base_amount_for(exchange:, base_asset:, quote_asset:, amount:)
-    rounded_amount_for(exchange: exchange, base_asset: base_asset, quote_asset: quote_asset, amount: amount, amount_type: :base)
+  def rounded_base_amount_for(exchange:, base_asset_id:, quote_asset_id:, amount:)
+    rounded_amount_for(
+      exchange: exchange,
+      base_asset_id: base_asset_id,
+      quote_asset_id: quote_asset_id,
+      amount: amount,
+      amount_type: :base
+    )
   end
 
-  def rounded_price_for(exchange:, base_asset:, quote_asset:, price:)
-    return price if base_asset.nil? || quote_asset.nil? || price.nil?
+  def rounded_price_for(exchange:, base_asset_id:, quote_asset_id:, price:)
+    return price if base_asset_id.nil? || quote_asset_id.nil? || price.nil?
 
-    result = exchange.get_adjusted_price(
-      base_asset: base_asset,
-      quote_asset: quote_asset,
+    exchange.adjusted_price(
+      base_asset_id: base_asset_id,
+      quote_asset_id: quote_asset_id,
       price: price,
       method: :round
     )
-
-    result.success? ? result.data : price
   end
 
-  def rounded_chart_series_for(exchange:, base_asset:, quote_asset:, series:)
-    return series if base_asset.nil? || quote_asset.nil?
+  def rounded_chart_series_for(exchange:, base_asset_id:, quote_asset_id:, series:)
+    return series if base_asset_id.nil? || quote_asset_id.nil?
 
     series.map do |serie|
       serie.map do |amount|
-        rounded_quote_amount_for(exchange: exchange, base_asset: base_asset, quote_asset: quote_asset, amount: amount)
+        rounded_quote_amount_for(
+          exchange: exchange,
+          base_asset_id: base_asset_id,
+          quote_asset_id: quote_asset_id,
+          amount: amount
+        )
       end
     end
   end
@@ -50,17 +61,15 @@ module BotHelper
   private
 
   # @param amount_type [Symbol] :base or :quote
-  def rounded_amount_for(exchange:, base_asset:, quote_asset:, amount:, amount_type:)
-    return amount if base_asset.nil? || quote_asset.nil? || amount.nil?
+  def rounded_amount_for(exchange:, base_asset_id:, quote_asset_id:, amount:, amount_type:)
+    return amount if base_asset_id.nil? || quote_asset_id.nil? || amount.nil?
 
-    result = exchange.get_adjusted_amount(
-      base_asset: base_asset,
-      quote_asset: quote_asset,
+    exchange.adjusted_amount(
+      base_asset_id: base_asset_id,
+      quote_asset_id: quote_asset_id,
       amount: amount,
       amount_type: amount_type,
       method: :round
     )
-
-    result.success? ? result.data : amount
   end
 end
