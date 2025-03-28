@@ -1,8 +1,8 @@
 class Bots::Barbell < Bot
   include ActionCable::Channel::Broadcasting
 
-  store_accessor :settings, :base0, :base1, :quote, :quote_amount, :allocation0, :interval, :market_cap_adjusted,
-                 :base0_asset_id, :base1_asset_id, :quote_asset_id
+  store_accessor :settings, :base0_asset_id, :base1_asset_id, :quote_asset_id, :quote_amount,
+                 :allocation0, :interval, :market_cap_adjusted
 
   validates :quote_amount, presence: true, numericality: { greater_than: 0 }, on: :start
   validates :interval, presence: true, inclusion: { in: INTERVALS }, on: :start

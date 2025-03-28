@@ -7,7 +7,8 @@ module Bots::Barbell::OrderCreator
       offer_id: order_id,
       rate: order_data[:rate],
       amount: order_data[:amount],
-      base: order_data[:base]
+      base: order_data[:base_asset].symbol,
+      quote: order_data[:quote_asset].symbol
     )
     transactions.create!(order_values)
   end
@@ -19,7 +20,8 @@ module Bots::Barbell::OrderCreator
       status: :skipped,
       rate: order_data[:rate],
       amount: order_data[:amount],
-      base: order_data[:base]
+      base: order_data[:base_asset].symbol,
+      quote: order_data[:quote_asset].symbol
     )
     transactions.create!(order_values)
   end
@@ -30,17 +32,18 @@ module Bots::Barbell::OrderCreator
       error_messages: order_errors,
       rate: order_data[:rate],
       amount: order_data[:amount],
-      base: order_data[:base]
+      base: order_data[:base_asset].symbol,
+      quote: order_data[:quote_asset].symbol
     )
     transactions.create!(order_values)
   end
 
   def base_order_values
     {
-      quote: quote,
       bot_interval: interval,
       bot_price: quote_amount,
-      transaction_type: 'REGULAR'
+      transaction_type: 'REGULAR',
+      exchange: exchange
     }
   end
 end
