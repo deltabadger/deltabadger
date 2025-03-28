@@ -6,10 +6,10 @@ ru:
     button:
         connect: "Подключить"
     data_labels:
-        bought_ticker: "Куплено (%{ticker})"
-        avg_price_ticker: "Средняя цена (%{ticker})"
-        invested_ticker: "Инвестировано (%{ticker})"
-        value_ticker: "Стоимость (%{ticker})"
+        bought_symbol: "Куплено (%{symbol})"
+        avg_price_symbol: "Средняя цена (%{symbol})"
+        invested_symbol: "Инвестировано (%{symbol})"
+        value_symbol: "Стоимость (%{symbol})"
         date: "Дата"
     days_left:
         one: "Остался 1 день"

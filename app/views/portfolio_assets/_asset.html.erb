@@ -1,5 +1,5 @@
 <% id_prefix = asset.portfolio.active_assets.map(&:id).include?(asset.id) ? :active : :idle %>
-<% asset_color = asset.color || "#F7931A" %>
+<% asset_color = asset.color || "#8A9BA8" %>
 <% adjusted_color = ensure_contrast(asset_color) %>
 
 <%= tag.div id: dom_id(asset, id_prefix) do %>

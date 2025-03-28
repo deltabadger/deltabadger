@@ -60,6 +60,7 @@ group :development do
   gem 'guard-rspec', require: false
   gem 'guard-rubocop'
   gem 'web-console'
+  gem "rack-mini-profiler", "~> 3.3"
 end
 
 group :test do
@@ -86,3 +87,5 @@ gem "intercom-rails"
 gem "sidekiq-cron"
 gem "pagy", "~> 6.5"
 gem "haikunator", "~> 1.1"
+
+gem "mini_magick", "~> 5.2"

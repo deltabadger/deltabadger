@@ -16,7 +16,7 @@ class Bot < ApplicationRecord
 
   delegate :market_sell, :market_buy, :limit_sell, :limit_buy, to: :exchange
 
-  after_save :update_settings_changed_at, if: :saved_change_to_settings?
+  before_save :update_settings_changed_at, if: :will_save_change_to_settings?
   after_update_commit :broadcast_status_bar_update, if: :saved_change_to_status?
   after_update_commit :broadcast_status_button_update, if: :saved_change_to_status?
 
@@ -75,6 +75,6 @@ class Bot < ApplicationRecord
   private
 
   def update_settings_changed_at
-    update!(settings_changed_at: Time.current)
+    self.settings_changed_at = Time.current
   end
 end

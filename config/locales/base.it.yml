@@ -6,10 +6,10 @@ it:
     button:
         connect: "Connetti"
     data_labels:
-        bought_ticker: "Acquistato (%{ticker})"
-        avg_price_ticker: "Prezzo medio (%{ticker})"
-        invested_ticker: "Investito (%{ticker})"
-        value_ticker: "Valore (%{ticker})"
+        bought_symbol: "Acquistato (%{symbol})"
+        avg_price_symbol: "Prezzo medio (%{symbol})"
+        invested_symbol: "Investito (%{symbol})"
+        value_symbol: "Valore (%{symbol})"
         date: "Data"
     days_left:
         one: '1 giorno rimasto'
@@ -300,4 +300,4 @@ it:
             <p>Per mantenerla libera da spam e da persone non seriamente interessate alla libertà finanziaria:</p>
             <p>Invia un'email a <strong>%{email}</strong> con <strong>"FIRE"</strong> nell'oggetto.</p>
             <p>Il tuo accesso a vita arriverà poco dopo.</p>
-            <p>A presto, Jan</p> 
+            <p>A presto, Jan</p>

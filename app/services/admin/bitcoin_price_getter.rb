@@ -5,7 +5,7 @@ module Admin
     end
 
     def call(quote:)
-      price_result = @client.simple_price(['bitcoin'], [quote])
+      price_result = @client.coin_price_by_ids(coin_ids: ['bitcoin'], vs_currencies: [quote])
       return Result::Failure.new("Couldn\\'t fetch Bitcoin price ") if price_result.failure?
 
       bitcoin_price = price_result.data['bitcoin'][quote.downcase]

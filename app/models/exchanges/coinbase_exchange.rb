@@ -1,5 +1,12 @@
 module Exchanges
   class CoinbaseExchange # rubocop:disable Metrics/ClassLength
+    COINGECKO_ID = 'gdax'.freeze # https://docs.coingecko.com/reference/exchanges-list
+    TICKER_BLACKLIST = [
+      'RENDER-USD', # same as RNDR-USD. Remove it when Coinbase delists RENDER-USD
+      'ZETACHAIN-USD', # same as ZETA-USD. Remove it when Coinbase delists ZETACHAIN-USD
+      'WAXL-USD' # same as AXL-USD. Remove it when Coinbase delists WAXL-USD
+    ].freeze
+
     def initialize(exchange)
       @exchange = exchange
     end
@@ -11,51 +18,41 @@ module Exchanges
       )
     end
 
-    def get_info
-      info = Rails.cache.fetch("exchange_#{@exchange.id}_info", expires_in: 1.hour) do
+    def coingecko_id
+      COINGECKO_ID
+    end
+
+    def get_tickers_info
+      tickers_info = Rails.cache.fetch("exchange_#{@exchange.id}_info", expires_in: 1.hour) do
         result = client.list_products
         return Result::Failure.new("Failed to get #{@exchange.name} products") unless result.success?
 
-        symbols = result.data['products'].map do |product|
-          symbol = Utilities::Hash.dig_or_raise(product, 'product_id')
+        result.data['products'].map do |product|
+          ticker = Utilities::Hash.dig_or_raise(product, 'product_id')
+          next if TICKER_BLACKLIST.include?(ticker)
+
           base_increment = Utilities::Hash.dig_or_raise(product, 'base_increment')
           quote_increment = Utilities::Hash.dig_or_raise(product, 'quote_increment')
           price_increment = Utilities::Hash.dig_or_raise(product, 'price_increment')
           {
-            symbol: symbol,
-            base_asset: symbol.split('-')[0],
-            quote_asset: symbol.split('-')[1],
+            ticker: ticker,
+            base: ticker.split('-')[0],
+            quote: ticker.split('-')[1],
             minimum_base_size: Utilities::Hash.dig_or_raise(product, 'base_min_size').to_f,
             minimum_quote_size: Utilities::Hash.dig_or_raise(product, 'quote_min_size').to_f,
             maximum_base_size: Utilities::Hash.dig_or_raise(product, 'base_max_size').to_f,
             maximum_quote_size: Utilities::Hash.dig_or_raise(product, 'quote_max_size').to_f,
             base_decimals: Utilities::Number.decimals(base_increment),
             quote_decimals: Utilities::Number.decimals(quote_increment),
-            price_decimals: Utilities::Number.decimals(price_increment),
-            base_asset_name: Utilities::Hash.dig_or_raise(product, 'base_name'),
-            quote_asset_name: Utilities::Hash.dig_or_raise(product, 'quote_name')
+            price_decimals: Utilities::Number.decimals(price_increment)
           }
-        end
-
-        {
-          symbols: symbols
-        }
+        end.compact
       end
 
-      Result::Success.new(info)
+      Result::Success.new(tickers_info)
     end
 
-    def get_symbol_info(base_asset:, quote_asset:)
-      return Result::Success.new(nil) if base_asset.blank? || quote_asset.blank?
-
-      result = get_info
-      return result unless result.success?
-
-      symbol = symbol_from_base_and_quote(base_asset, quote_asset)
-      Result::Success.new(result.data[:symbols].find { |s| s[:symbol] == symbol })
-    end
-
-    def get_balances(assets:)
+    def get_balances(asset_ids: nil)
       result = get_portfolio_uuid
       return result unless result.success?
 
@@ -63,51 +60,50 @@ module Exchanges
       result = client.get_portfolio_breakdown(portfolio_uuid: portfolio_uuid)
       return result unless result.success?
 
-      balances = assets.each_with_object({}) do |asset, balances_hash|
-        balances_hash[asset] = { free: 0, locked: 0 }
+      asset_ids ||= @exchange.assets.pluck(:id)
+      balances = asset_ids.each_with_object({}) do |asset_id, balances_hash|
+        balances_hash[asset_id] = { free: 0, locked: 0 }
       end
       breakdown = Utilities::Hash.dig_or_raise(result.data, 'breakdown', 'spot_positions')
       breakdown.each do |position|
-        asset = position['asset']
-        next unless assets.include?(asset)
+        asset_id = external_id_from_symbol(position['asset'])
+        next unless asset_ids.include?(asset_id)
 
         free = Utilities::Hash.dig_or_raise(position, 'available_to_trade_crypto').to_f
         locked = Utilities::Hash.dig_or_raise(position, 'total_balance_crypto').to_f - free
 
-        balances[asset] = { free: free, locked: locked }
+        balances[asset_id] = { free: free, locked: locked }
       end
 
       Result::Success.new(balances)
     end
 
-    def get_balance(asset:)
-      result = get_balances(assets: [asset])
+    def get_balance(asset_id:)
+      result = get_balances(asset_ids: [asset_id])
       return result unless result.success?
 
-      Result::Success.new(result.data[asset])
+      Result::Success.new(result.data[asset_id])
     end
 
-    def get_bid_price(base_asset:, quote_asset:)
-      symbol = symbol_from_base_and_quote(base_asset, quote_asset)
-      result = get_bid_ask_price(symbol)
+    def get_bid_price(base_asset_id:, quote_asset_id:)
+      result = get_bid_ask_price(base_asset_id: base_asset_id, quote_asset_id: quote_asset_id)
       return result unless result.success?
 
       Result::Success.new(result.data[:bid][:price])
     end
 
-    def get_ask_price(base_asset:, quote_asset:)
-      symbol = symbol_from_base_and_quote(base_asset, quote_asset)
-      result = get_bid_ask_price(symbol)
+    def get_ask_price(base_asset_id:, quote_asset_id:)
+      result = get_bid_ask_price(base_asset_id: base_asset_id, quote_asset_id: quote_asset_id)
       return result unless result.success?
 
       Result::Success.new(result.data[:ask][:price])
     end
 
     # @param amount_type [Symbol] :base or :quote
-    def market_buy(base_asset:, quote_asset:, amount:, amount_type:)
+    def market_buy(base_asset_id:, quote_asset_id:, amount:, amount_type:)
       set_market_order(
-        base_asset: base_asset,
-        quote_asset: quote_asset,
+        base_asset_id: base_asset_id,
+        quote_asset_id: quote_asset_id,
         amount: amount,
         amount_type: amount_type,
         side: 'buy'
@@ -115,10 +111,10 @@ module Exchanges
     end
 
     # @param amount_type [Symbol] :base or :quote
-    def market_sell(base_asset:, quote_asset:, amount:, amount_type:)
+    def market_sell(base_asset_id:, quote_asset_id:, amount:, amount_type:)
       set_market_order(
-        base_asset: base_asset,
-        quote_asset: quote_asset,
+        base_asset_id: base_asset_id,
+        quote_asset_id: quote_asset_id,
         amount: amount,
         amount_type: amount_type,
         side: 'sell'
@@ -126,10 +122,10 @@ module Exchanges
     end
 
     # @param amount_type [Symbol] :base or :quote
-    def limit_buy(base_asset:, quote_asset:, amount:, amount_type:, price:)
+    def limit_buy(base_asset_id:, quote_asset_id:, amount:, amount_type:, price:)
       set_limit_order(
-        base_asset: base_asset,
-        quote_asset: quote_asset,
+        base_asset_id: base_asset_id,
+        quote_asset_id: quote_asset_id,
         amount: amount,
         amount_type: amount_type,
         side: 'buy',
@@ -138,10 +134,10 @@ module Exchanges
     end
 
     # @param amount_type [Symbol] :base or :quote
-    def limit_sell(base_asset:, quote_asset:, amount:, amount_type:, price:)
+    def limit_sell(base_asset_id:, quote_asset_id:, amount:, amount_type:, price:)
       set_limit_order(
-        base_asset: base_asset,
-        quote_asset: quote_asset,
+        base_asset_id: base_asset_id,
+        quote_asset_id: quote_asset_id,
         amount: amount,
         amount_type: amount_type,
         side: 'sell',
@@ -209,6 +205,14 @@ module Exchanges
       end
     end
 
+    def external_id_from_symbol(symbol)
+      @external_id_from_symbol ||= @exchange.tickers.each_with_object({}) do |t, map|
+        map[t.base] ||= t.base_asset.external_id
+        map[t.quote] ||= t.quote_asset.external_id
+      end
+      @external_id_from_symbol[symbol]
+    end
+
     def symbol_from_base_and_quote(base, quote)
       "#{base.upcase}-#{quote.upcase}"
     end
@@ -218,12 +222,15 @@ module Exchanges
       [base.upcase, quote.upcase]
     end
 
-    def get_bid_ask_price(symbol)
-      result = client.get_best_bid_ask(product_ids: [symbol])
+    def get_bid_ask_price(base_asset_id:, quote_asset_id:)
+      ticker = @exchange.tickers.find_by(base_asset_id: base_asset_id, quote_asset_id: quote_asset_id)
+      return Result::Failure.new("No ticker found for #{base_asset_id} and #{quote_asset_id}") unless ticker
+
+      result = client.get_best_bid_ask(product_ids: [ticker.ticker])
       return result unless result.success?
 
-      if result.data['pricebooks'][0]['product_id'] != symbol
-        return Result::Failure.new("No bid or ask price found for #{symbol}",
+      if result.data['pricebooks'][0]['product_id'] != ticker.ticker
+        return Result::Failure.new("No bid or ask price found for #{ticker.ticker}",
                                    data: result.data)
       end
 
@@ -244,25 +251,22 @@ module Exchanges
     # @param amount: Float must be a positive number
     # @param amount_type [Symbol] :base or :quote
     # @param side: String must be either 'buy' or 'sell'
-    def set_market_order(base_asset:, quote_asset:, amount:, amount_type:, side:)
-      symbol = symbol_from_base_and_quote(base_asset, quote_asset)
-      adjusted_amount = @exchange.get_adjusted_amount(
-        base_asset: base_asset,
-        quote_asset: quote_asset,
-        amount: amount,
-        amount_type: amount_type
-      )
-      return adjusted_amount unless adjusted_amount.success?
+    def set_market_order(base_asset_id:, quote_asset_id:, amount:, amount_type:, side:)
+      ticker = @exchange.tickers.find_by(base_asset_id: base_asset_id, quote_asset_id: quote_asset_id)
+      return Result::Failure.new("No ticker found for #{base_asset_id} and #{quote_asset_id}") unless ticker
+
+      adjusted_amount = @exchange.adjusted_amount(base_asset_id: base_asset_id, quote_asset_id: quote_asset_id,
+                                                  amount: amount, amount_type: amount_type)
 
       client_order_id = SecureRandom.uuid
       result = client.create_order(
         client_order_id: client_order_id,
-        product_id: symbol,
+        product_id: ticker.ticker,
         side: side.upcase,
         order_configuration: {
           market_market_ioc: {
-            quote_size: amount_type == :quote ? adjusted_amount.data.to_s : nil,
-            base_size: amount_type == :base ? adjusted_amount.data.to_s : nil
+            quote_size: amount_type == :quote ? adjusted_amount.to_d.to_s('F') : nil,
+            base_size: amount_type == :base ? adjusted_amount.to_d.to_s('F') : nil
           }.compact
         }
       )
@@ -280,33 +284,25 @@ module Exchanges
     # @param amount_type [Symbol] :base or :quote
     # @param side: String must be either 'buy' or 'sell'
     # @param price: Float must be a positive number
-    def set_limit_order(base_asset:, quote_asset:, amount:, amount_type:, side:, price:)
-      symbol = symbol_from_base_and_quote(base_asset, quote_asset)
-      adjusted_amount = @exchange.get_adjusted_amount(
-        base_asset: base_asset,
-        quote_asset: quote_asset,
-        amount: amount,
-        amount_type: amount_type
-      )
-      return adjusted_amount unless adjusted_amount.success?
+    def set_limit_order(base_asset_id:, quote_asset_id:, amount:, amount_type:, side:, price:)
+      ticker = @exchange.tickers.find_by(base_asset_id: base_asset_id, quote_asset_id: quote_asset_id)
+      return Result::Failure.new("No ticker found for #{base_asset_id} and #{quote_asset_id}") unless ticker
 
-      adjusted_price = @exchange.get_adjusted_price(
-        base_asset: base_asset,
-        quote_asset: quote_asset,
-        price: price
-      )
-      return adjusted_price unless adjusted_price.success?
+      adjusted_amount = @exchange.adjusted_amount(base_asset_id: base_asset_id, quote_asset_id: quote_asset_id,
+                                                  amount: amount, amount_type: amount_type)
+      adjusted_price = @exchange.adjusted_price(base_asset_id: base_asset_id, quote_asset_id: quote_asset_id,
+                                                price: price)
 
       client_order_id = SecureRandom.uuid
       result = client.create_order(
         client_order_id: client_order_id,
-        product_id: symbol,
+        product_id: ticker.ticker,
         side: side.upcase,
         order_configuration: {
           limit_limit_gtc: {
-            quote_size: amount_type == :quote ? adjusted_amount.data.to_s : nil,
-            base_size: amount_type == :base ? adjusted_amount.data.to_s : nil,
-            limit_price: adjusted_price.data.to_s
+            quote_size: amount_type == :quote ? adjusted_amount.to_d.to_s('F') : nil,
+            base_size: amount_type == :base ? adjusted_amount.to_d.to_s('F') : nil,
+            limit_price: adjusted_price.to_d.to_s('F')
           }.compact
         }
       )

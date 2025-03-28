@@ -27,7 +27,7 @@ class GrantAffiliateCommissionJob < ApplicationJob
   def get_btc_price(quote)
     quote = quote.downcase
     Rails.cache.fetch("btc_price_#{quote}", expires_in: 1.minute) do
-      result = client.simple_price(['bitcoin'], [quote])
+      result = client.coin_price_by_ids(coin_ids: ['bitcoin'], vs_currencies: [quote])
       raise StandardError, result.errors if result.failure?
 
       Utilities::Hash.dig_or_raise(result.data, 'bitcoin', quote)

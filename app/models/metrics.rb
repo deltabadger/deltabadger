@@ -129,8 +129,9 @@ class Metrics
 
   def top_coins_data(count:)
     coingecko_client = CoingeckoClient.new
-    top_coins_result = coingecko_client.coins_markets(vs_currency: 'usd', per_page: count)
-    top_stablecoins_result = coingecko_client.coins_markets(vs_currency: 'usd', category: 'stablecoins', per_page: count)
+    top_coins_result = coingecko_client.coins_list_with_market_data(vs_currency: 'usd', per_page: count)
+    top_stablecoins_result = coingecko_client.coins_list_with_market_data(vs_currency: 'usd', category: 'stablecoins',
+                                                                          per_page: count)
     top_stablecoins_ids = top_stablecoins_result.data.map { |coin| coin['id'] }
     top_coins = []
     top_coins_result.data.each_with_index do |coin, index|

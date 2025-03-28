@@ -21,6 +21,19 @@ class Transaction < ApplicationRecord
     amount * rate
   end
 
+  # TODO: Migrate transactions to directly refference assets instead of symbols
+  def base_asset
+    @base_asset ||= ticker.base_asset
+  end
+
+  def quote_asset
+    @quote_asset ||= ticker.quote_asset
+  end
+
+  def ticker
+    @ticker ||= bot.exchange.tickers.find_by(base: base, quote: quote)
+  end
+
   # def count_by_status_and_exchange(status, exchange)
   #   joins(:bot).where(bots: { exchange_id: exchange.id }).where(status: status).count
   # end

@@ -99,9 +99,9 @@ class BotsController < ApplicationController
   end
 
   def asset_search
-    asset_type = params[:asset_field] == 'quote' ? :quote_asset : :base_asset
-    assets = @bot.available_assets_for_current_settings(asset_type: asset_type)
-    @query_assets = filter_assets_by_query(assets: assets, query: params[:query] || '')
+    asset_type = params[:asset_field] == 'quote_asset_id' ? :quote_asset : :base_asset
+    assets = @bot.available_assets_for_current_settings(asset_type: asset_type, include_exchanges: true)
+    @assets = filter_assets_by_query(assets: assets, query: params[:query] || '')
     @asset_field = params[:asset_field]
   end
 
@@ -122,10 +122,10 @@ class BotsController < ApplicationController
   def barbell_bot_params
     params.require(:bots_barbell).permit(
       :quote_amount,
-      :quote,
+      :quote_asset_id,
       :interval,
-      :base0,
-      :base1,
+      :base0_asset_id,
+      :base1_asset_id,
       :allocation0,
       :market_cap_adjusted,
       :exchange_id,
@@ -151,10 +151,10 @@ class BotsController < ApplicationController
 
   def update_params
     permitted_params = barbell_bot_params
-    settings_params = permitted_params.except(:exchange_id, :label).tap do |p|
-      p[:market_cap_adjusted] = p[:market_cap_adjusted] == '1' if p[:market_cap_adjusted].present?
-      p[:quote_amount] = p[:quote_amount].to_f if p[:quote_amount].present?
-      p[:allocation0] = p[:allocation0].to_f if p[:allocation0].present?
+    settings_params = permitted_params.except(:exchange_id, :label).tap do |pp|
+      pp[:market_cap_adjusted] = pp[:market_cap_adjusted] == '1' if pp[:market_cap_adjusted].present?
+      pp[:quote_amount] = pp[:quote_amount].to_f if pp[:quote_amount].present?
+      pp[:allocation0] = pp[:allocation0].to_f if pp[:allocation0].present?
     end
 
     {
@@ -176,19 +176,19 @@ class BotsController < ApplicationController
   end
 
   def filter_assets_by_query(assets:, query:)
-    return assets if query.blank?
+    return assets.order(:market_cap_rank) if query.blank?
 
     assets
       .map { |asset| [asset, similarities_for(asset, query.downcase)] }
-      .select { |_, similarities| similarities.first >= 0.8 }
-      .sort_by { |_, similarities| similarities.map(&:-@) }
+      .select { |_, similarities| similarities.first >= 0.7 }
+      .sort_by { |asset, similarities| [similarities.map(&:-@), asset.market_cap_rank || Float::INFINITY] }
       .map(&:first)
   end
 
   def similarities_for(asset, query)
     [
-      JaroWinkler.similarity(asset[:ticker].downcase.to_s, query),
-      JaroWinkler.similarity(asset[:name].downcase.to_s, query)
+      asset.symbol.present? ? JaroWinkler.similarity(asset.symbol.downcase.to_s, query) : 0,
+      asset.name.present? ? JaroWinkler.similarity(asset.name.downcase.to_s, query) : 0
     ].sort.reverse
   end
 end
