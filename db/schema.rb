@@ -154,10 +154,10 @@ ActiveRecord::Schema.define(version: 2025_03_28_131035) do
     t.string "ticker", null: false
     t.string "base", null: false
     t.string "quote", null: false
-    t.string "minimum_base_size", null: false
-    t.string "minimum_quote_size", null: false
-    t.string "maximum_base_size", null: false
-    t.string "maximum_quote_size", null: false
+    t.decimal "minimum_base_size", null: false
+    t.decimal "minimum_quote_size", null: false
+    t.decimal "maximum_base_size", null: false
+    t.decimal "maximum_quote_size", null: false
     t.integer "base_decimals", null: false
     t.integer "quote_decimals", null: false
     t.integer "price_decimals", null: false
