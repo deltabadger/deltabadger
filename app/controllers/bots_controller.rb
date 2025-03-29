@@ -152,6 +152,9 @@ class BotsController < ApplicationController
   def update_params
     permitted_params = barbell_bot_params
     settings_params = permitted_params.except(:exchange_id, :label).tap do |pp|
+      pp[:base0_asset_id] = pp[:base0_asset_id].to_i if pp[:base0_asset_id].present?
+      pp[:base1_asset_id] = pp[:base1_asset_id].to_i if pp[:base1_asset_id].present?
+      pp[:quote_asset_id] = pp[:quote_asset_id].to_i if pp[:quote_asset_id].present?
       pp[:market_cap_adjusted] = pp[:market_cap_adjusted] == '1' if pp[:market_cap_adjusted].present?
       pp[:quote_amount] = pp[:quote_amount].to_f if pp[:quote_amount].present?
       pp[:allocation0] = pp[:allocation0].to_f if pp[:allocation0].present?

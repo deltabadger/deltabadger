@@ -5,6 +5,8 @@ class Asset < ApplicationRecord
   validates :external_id, presence: true, uniqueness: true
   validate :can_be_destroyed, on: :destroy
 
+  include Undeletable
+
   def sync_data_with_coingecko
     result = coingecko_client.coin_data_by_id(id: external_id)
     return Result::Failure.new("Failed to get #{external_id} data from coingecko") unless result.success?
@@ -30,17 +32,5 @@ class Asset < ApplicationRecord
 
   def coingecko_client
     @coingecko_client ||= CoingeckoClient.new
-  end
-
-  def can_be_destroyed
-    if ExchangeAsset.where(asset: self).empty? &&
-       ExchangeTicker.where(base_asset: self).empty? &&
-       ExchangeTicker.where(quote_asset: self).empty? &&
-       Transaction.where(base: external_id).empty? &&
-       Transaction.where(quote: external_id).empty?
-      return
-    end
-
-    errors.add(:id, 'cannot be destroyed because it is used in an exchange asset, ticker or transaction')
   end
 end
