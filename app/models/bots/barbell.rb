@@ -93,7 +93,16 @@ class Bots::Barbell < Bot
       scope = scope.where(quote_asset_id: quote_asset_id) if quote_asset_id.present?
     when :quote_asset
       scope = ExchangeTicker.where(exchange: available_exchanges)
-      scope = scope.where(base_asset_id: base_asset_ids) if base_asset_ids.any?
+                            .where.not(quote_asset_id: base_asset_ids + [quote_asset_id])
+      if base_asset_ids.any?
+        scope = scope.where(base_asset_id: base_asset_ids)
+        valid_quote_asset_ids = scope.pluck(:quote_asset_id, :base_asset_id)
+                                     .group_by(&:first)
+                                     .transform_values { |pairs| pairs.map(&:last) }
+                                     .select { |_, bb| base_asset_ids.map { |b| bb.include?(b.to_i) }.all? }
+                                     .keys
+        scope = scope.where(quote_asset_id: valid_quote_asset_ids)
+      end
     end
     asset_ids = scope.pluck("#{asset_type}_id").uniq
     include_exchanges ? Asset.includes(:exchanges).where(id: asset_ids) : Asset.where(id: asset_ids)

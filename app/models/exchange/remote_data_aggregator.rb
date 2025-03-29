@@ -92,13 +92,15 @@ module Exchange::RemoteDataAggregator
           quote_coingecko_id: ticker['target_coin_id'] || "#{ticker['target'].upcase}.FOREX"
         }
 
-        # # manually add the USDC pairs (not listed by default in Coingecko)
-        # next unless ticker['target'] == 'USD'
+        # manually add the coinbase USDC pairs (not listed by default in Coingecko)
+        next unless coingecko_id == Exchanges::CoinbaseExchange::COINGECKO_ID && ticker['target'] == 'USD'
 
-        # coingecko_ids[symbol_from_base_and_quote(ticker['base'], 'USDC')] = {
-        #   base_coingecko_id: ticker['coin_id'] || "#{ticker['base'].upcase}.FOREX",
-        #   quote_coingecko_id: 'usd-coin'
-        # }
+        tickers_info << {
+          base: ticker['base'],
+          quote: 'USDC',
+          base_coingecko_id: ticker['coin_id'] || "#{ticker['base'].upcase}.FOREX",
+          quote_coingecko_id: 'usd-coin'
+        }
       end
       break if result.data['tickers'].count < 100
 

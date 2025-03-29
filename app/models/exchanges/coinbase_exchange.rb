@@ -194,6 +194,14 @@ module Exchanges
 
     private
 
+    def asset_from_symbol(symbol:)
+      @asset_from_symbol ||= @exchange.tickers.includes(:base_asset, :quote_asset).each_with_object({}) do |t, map|
+        map[t.base] ||= t.base_asset
+        map[t.quote] ||= t.quote_asset
+      end
+      @asset_from_symbol[symbol]
+    end
+
     def client
       @client ||= set_client
     end
@@ -205,14 +213,6 @@ module Exchanges
 
         Result::Success.new(result.data['portfolio_uuid'])
       end
-    end
-
-    def asset_from_symbol(symbol:)
-      @asset_from_symbol ||= @exchange.tickers.includes(:base_asset, :quote_asset).each_with_object({}) do |t, map|
-        map[t.base] ||= t.base_asset
-        map[t.quote] ||= t.quote_asset
-      end
-      @asset_from_symbol[symbol]
     end
 
     def get_bid_ask_price(base_asset_id:, quote_asset_id:)
