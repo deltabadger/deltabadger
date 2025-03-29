@@ -92,7 +92,7 @@ module Exchange::RemoteDataAggregator
           quote_coingecko_id: ticker['target_coin_id'] || "#{ticker['target'].upcase}.FOREX"
         }
 
-        # manually add the coinbase USDC pairs (not listed by default in Coingecko)
+        # FIXME: Find a cleaner way for this. Manually add the coinbase USDC pairs (not listed by default in Coingecko)
         next unless coingecko_id == Exchanges::CoinbaseExchange::COINGECKO_ID && ticker['target'] == 'USD'
 
         tickers_info << {
