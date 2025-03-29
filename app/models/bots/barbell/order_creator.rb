@@ -4,7 +4,7 @@ module Bots::Barbell::OrderCreator
   def create_successful_order!(order_data, order_id)
     order_values = base_order_values.merge(
       status: :success,
-      offer_id: order_id,
+      external_id: order_id,
       rate: order_data[:rate],
       amount: order_data[:amount],
       base: order_data[:base_asset].symbol,

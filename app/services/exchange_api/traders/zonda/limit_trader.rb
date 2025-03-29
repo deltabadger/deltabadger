@@ -36,7 +36,7 @@ module ExchangeApi
         def parse_response(response)
           if response.fetch('status') == 'Ok'
             Result::Success.new(
-              offer_id: response.fetch('offerId')
+              external_id: response.fetch('offerId')
             )
           else
             error_to_failure(response.fetch('errors'))
