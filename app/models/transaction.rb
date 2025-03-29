@@ -2,6 +2,7 @@ class Transaction < ApplicationRecord
   belongs_to :bot
   belongs_to :exchange
 
+  before_create :set_exchange, if: -> { bot.legacy? }
   after_create_commit :set_daily_transaction_aggregate
   after_create_commit :update_bot_metrics, if: -> { success? && !bot.legacy? }
   after_create_commit :broadcast_to_bot, unless: -> { bot.legacy? }
@@ -57,6 +58,10 @@ class Transaction < ApplicationRecord
   #     .where("bots.settings->>'type' = ? AND bots.settings->>'base' IN (?)", type, BTC)
   #     .sum(:amount).ceil(8)
   # end
+
+  def set_exchange
+    self.exchange ||= bot.exchange
+  end
 
   # rubocop:disable Metrics/CyclomaticComplexity, Metrics/PerceivedComplexity
   def set_daily_transaction_aggregate
