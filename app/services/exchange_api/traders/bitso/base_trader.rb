@@ -31,7 +31,7 @@ module ExchangeApi
           rate = (sum_order_minor(response) / amount)
 
           Result::Success.new(
-            offer_id: order_id,
+            external_id: order_id,
             amount: amount,
             rate: rate
           )
@@ -97,7 +97,7 @@ module ExchangeApi
             response = response.fetch('payload')
             order_id = response.fetch('oid')
 
-            Result::Success.new(offer_id: order_id)
+            Result::Success.new(external_id: order_id)
           else
             error_to_failure([response.fetch('error').fetch('code')])
           end

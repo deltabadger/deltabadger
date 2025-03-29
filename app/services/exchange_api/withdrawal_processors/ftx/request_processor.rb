@@ -57,7 +57,7 @@ module ExchangeApi
           result = response.fetch('result')
 
           {
-            offer_id: result.fetch('id'),
+            external_id: result.fetch('id'),
             amount: result.fetch('size')
           }
         end

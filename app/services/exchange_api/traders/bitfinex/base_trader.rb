@@ -34,7 +34,7 @@ module ExchangeApi
           price = response[0][16].to_f
 
           Result::Success.new(
-            offer_id: order_id,
+            external_id: order_id,
             amount: amount.abs,
             rate: price
           )
@@ -79,7 +79,7 @@ module ExchangeApi
           response = JSON.parse(request.body)
           if success?(response)
             order_id = response[4][0][0].to_s
-            Result::Success.new(offer_id: order_id)
+            Result::Success.new(external_id: order_id)
           else
             error_message = @map_errors.error_regex_mapping(response[2])
             error_to_failure([error_message])

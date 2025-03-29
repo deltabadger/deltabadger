@@ -67,7 +67,7 @@ module ExchangeApi
           end
 
           Result::Success.new(
-            offer_id: response['id'],
+            external_id: response['id'],
             rate: response['price'],
             amount: response['amount']
           )

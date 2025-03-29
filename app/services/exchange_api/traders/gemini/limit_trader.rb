@@ -89,7 +89,7 @@ module ExchangeApi
           if was_filled?(request)
             order_id = response.fetch('id')
 
-            Result::Success.new(offer_id: order_id)
+            Result::Success.new(external_id: order_id)
           else
             error_to_failure([response.fetch('reason', 'Unknown error')])
           end

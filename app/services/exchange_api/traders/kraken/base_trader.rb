@@ -31,7 +31,7 @@ module ExchangeApi
           amount = order_data.fetch('vol').to_f
 
           Result::Success.new(
-            offer_id: order_id,
+            external_id: order_id,
             amount: amount,
             rate: rate
           )
@@ -79,8 +79,8 @@ module ExchangeApi
 
         def parse_response(response)
           created_order = response.fetch('result')
-          offer_id = created_order.fetch('txid').first
-          { offer_id: offer_id }
+          external_id = created_order.fetch('txid').first
+          { external_id: external_id }
         end
 
         def common_order_params(symbol)

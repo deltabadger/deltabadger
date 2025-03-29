@@ -36,7 +36,7 @@ module ExchangeApi
           return Result::Failure.new('Waiting for Coinbase Pro response', **NOT_FETCHED) unless filled?(amount)
 
           Result::Success.new(
-            offer_id: order_id,
+            external_id: order_id,
             amount: amount,
             rate: (response.fetch('executed_value').to_f / amount)
           )
@@ -100,7 +100,7 @@ module ExchangeApi
           if success?(request)
             order_id = response.fetch('id')
 
-            Result::Success.new(offer_id: order_id)
+            Result::Success.new(external_id: order_id)
           else
             error_to_failure([response.fetch('message')])
           end
