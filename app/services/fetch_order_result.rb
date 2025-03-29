@@ -75,19 +75,19 @@ class FetchOrderResult < BaseService
 
   # rubocop:disable Metrics/CyclomaticComplexity, Metrics/PerceivedComplexity
   def perform_action(api, result_params, bot, price, called_bot = nil)
-    offer_id = get_offer_id(result_params)
-    Rails.logger.info "Fetching order id: #{offer_id} for bot: #{bot.id}"
+    external_id = get_external_id(result_params)
+    Rails.logger.info "Fetching order id: #{external_id} for bot: #{bot.id}"
     result_params = result_params.merge(quote: bot.settings['quote'], base: bot.settings['base']) if probit?(bot)
     use_subaccount = bot.use_subaccount
     selected_subaccount = bot.selected_subaccount
     result = if already_fetched?(result_params)
-               api.fetch_order_by_id(offer_id, result_params)
+               api.fetch_order_by_id(external_id, result_params)
              elsif probit?(bot)
-               api.fetch_order_by_id(offer_id, result_params)
+               api.fetch_order_by_id(external_id, result_params)
              elsif use_subaccount
-               api.fetch_order_by_id(offer_id, use_subaccount, selected_subaccount)
+               api.fetch_order_by_id(external_id, use_subaccount, selected_subaccount)
              else
-               api.fetch_order_by_id(offer_id)
+               api.fetch_order_by_id(external_id)
              end
 
     Transaction.create(transaction_params(result, bot, price, called_bot)) if result.success? || fetched?(result)
@@ -115,7 +115,7 @@ class FetchOrderResult < BaseService
   # rubocop:disable Metrics/CyclomaticComplexity, Metrics/PerceivedComplexity
   def transaction_params(result, bot, price = nil, called_bot = nil)
     if result.success?
-      result.data.slice(:offer_id, :rate, :amount).merge(
+      result.data.slice(:external_id, :rate, :amount).merge(
         bot_id: bot.id,
         status: :success,
         bot_interval: bot.webhook? ? '' : bot.interval,
@@ -149,9 +149,9 @@ class FetchOrderResult < BaseService
     result_params.key?(:amount)
   end
 
-  def get_offer_id(result_params)
-    result_params.fetch(:offer_id)
+  def get_external_id(result_params)
+    result_params.fetch(:external_id)
   rescue StandardError
-    result_params.fetch('offer_id')
+    result_params.fetch('external_id')
   end
 end

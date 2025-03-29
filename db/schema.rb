@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema.define(version: 2025_03_28_131035) do
+ActiveRecord::Schema.define(version: 2025_03_29_040727) do
 
   # These are extensions that must be enabled in order to support this database
   enable_extension "plpgsql"
@@ -114,7 +114,7 @@ ActiveRecord::Schema.define(version: 2025_03_28_131035) do
 
   create_table "daily_transaction_aggregates", force: :cascade do |t|
     t.bigint "bot_id"
-    t.string "offer_id"
+    t.string "external_id"
     t.decimal "rate"
     t.decimal "amount"
     t.integer "status"
@@ -288,7 +288,7 @@ ActiveRecord::Schema.define(version: 2025_03_28_131035) do
 
   create_table "transactions", force: :cascade do |t|
     t.bigint "bot_id"
-    t.string "offer_id"
+    t.string "external_id"
     t.decimal "rate"
     t.decimal "amount"
     t.integer "status"
@@ -308,6 +308,7 @@ ActiveRecord::Schema.define(version: 2025_03_28_131035) do
     t.index ["bot_id"], name: "index_transactions_on_bot_id"
     t.index ["created_at"], name: "index_transactions_on_created_at"
     t.index ["exchange_id"], name: "index_transactions_on_exchange_id"
+    t.index ["external_id"], name: "index_transactions_on_external_id", unique: true
   end
 
   create_table "users", force: :cascade do |t|

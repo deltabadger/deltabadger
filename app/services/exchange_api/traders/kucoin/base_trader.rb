@@ -32,7 +32,7 @@ module ExchangeApi
           amount = response['data'].fetch('dealSize').to_f
 
           Result::Success.new(
-            offer_id: order_id,
+            external_id: order_id,
             amount: amount,
             rate: (response['data'].fetch('dealFunds').to_f / amount)
           )
@@ -97,7 +97,7 @@ module ExchangeApi
           response = JSON.parse(request.body)
           if success?(request, response)
             order_id = response['data'].fetch('orderId')
-            Result::Success.new(offer_id: order_id)
+            Result::Success.new(external_id: order_id)
           else
             error_to_failure([response.fetch('msg')])
           end
