@@ -11,6 +11,6 @@ class Bot::CreateSuccessfulOrderJob < BotJob
       amount: result.data[:amount]
     }
 
-    bot.create_successful_order!(order_data, order_id)
+    bot.create_successful_order!(order_data, order_id) unless Transaction.exists?(external_id: order_id)
   end
 end

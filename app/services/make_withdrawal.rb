@@ -89,7 +89,7 @@ class MakeWithdrawal < BaseService
   end
 
   def transaction_params(result, bot)
-    result.data.slice(:offer_id, :amount).merge(
+    result.data.slice(:external_id, :amount).merge(
       bot_id: bot.id,
       status: :success,
       transaction_type: 'WITHDRAWAL'

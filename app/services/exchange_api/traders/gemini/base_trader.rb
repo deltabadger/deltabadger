@@ -37,7 +37,7 @@ module ExchangeApi
           amount = response.fetch('executed_amount').to_f
           rate = response.fetch('avg_execution_price').to_f
           Result::Success.new(
-            offer_id: order_id,
+            external_id: order_id,
             amount: amount,
             rate: rate
           )
@@ -89,7 +89,7 @@ module ExchangeApi
           if was_filled?(request)
             order_id = response.fetch('order_id')
 
-            Result::Success.new(offer_id: order_id)
+            Result::Success.new(external_id: order_id)
           else
             error_to_failure([response.fetch('reason', 'Unknown error')])
           end
