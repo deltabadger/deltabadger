@@ -130,6 +130,9 @@ de:
         variant1: "1 Jahr"
         variant4: "4 Jahre, ein Jahr gratis"
         free: Sparer
+        upgrade_modal:
+            title: "Auf Pro upgraden"
+            description: "Zugang zu allen erweiterten Funktionen."
         days_left:
             one: '1 Tag übrig'
             other: '%{count} Tage übrig'

@@ -131,6 +131,9 @@ es:
         variant1: "1 año"
         variant4: "4 años, uno gratis"
         free: Gratis
+        upgrade_modal:
+            title: "Actualizar a Pro"
+            description: "Accede a todas las funciones avanzadas."
         days_left:
             one: '1 día menos'
             other: '%{count} días disponibles'

@@ -131,6 +131,9 @@ nl:
         variant1: "1 jaar"
         variant4: "4 jaar, één gratis"
         free: Spaarder
+        upgrade_modal:
+            title: "Upgraden naar Pro"
+            description: "Toegang tot alle geavanceerde functies."
         days_left:
             one: '1 dag over'
             other: '%{count} dagen over'

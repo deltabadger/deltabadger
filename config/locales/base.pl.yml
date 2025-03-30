@@ -135,6 +135,9 @@ pl:
         plan_life_time: "Dożywotni"
         variant1: "1 rok"
         variant4: "4 lata, jeden za darmo"
+        upgrade_modal:
+            title: "Przejdź na Pro"
+            description: "Uzyskaj dostęp do wszystkich zaawansowanych funkcji."
         days_left:
             one: 'Pozostał 1 dzień'
             few: 'Pozostały %{count} dni'
@@ -191,7 +194,7 @@ pl:
             wire_transfer_pending: 'Dziękujemy! Twoje konto zostanie wkrótce aktywowane. Skontaktujemy się z Tobą drogą mailową.'
             you_pay: Do zapłaty
         prolong_upgrade: 'Zrób upgrade'
-        upgrade: Upgrade
+        upgrade: Zrób upgrade
         upgrade_plan: 'Zrób upgrade'
     legendary_badger:
         will_be_sent: 'Legendary Badger NFT będzie wysłany na ten adres:'

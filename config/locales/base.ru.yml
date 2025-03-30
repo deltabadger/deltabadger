@@ -137,6 +137,9 @@ ru:
         variant1: "1 год"
         variant4: "4 года, один бесплатно"
         free: Вкладчик
+        upgrade_modal:
+            title: "Перейти на Pro"
+            description: "Получите доступ ко всем расширенным функциям."
         days_left:
             one: 'Остался 1 день'
             few: 'Осталось %{count} дня'

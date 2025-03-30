@@ -1,10 +1,14 @@
 <%= render 'layouts/turbo_modal' do %>
-  <div class="modal modal--medium community-access-instructions">
+  <div class="modal modal--regular modal--upgrade">
     <button data-action="click->modal--base#animateOutCloseAndCleanUp" class="modal__close">
       <%= render 'svg/24x24_x' %>
     </button>
-
-
-
+    <div class="modal__header">
+      <h1 class="modal__title"><%= t('subscriptions.upgrade_modal.title') %></h1>
+    </div>
+    <div class="modal__body">
+      <p><%= t('subscriptions.upgrade_modal.description') %></p>
+      <%= link_to t('subscriptions.upgrade'), '/upgrade', class: "button button--large button--success" %>
+    </div>
   </div>
 <% end %>
