@@ -135,6 +135,9 @@ it:
         basic: "Base"
         pro: "Pro"
         Legendary: "Legendary"
+        upgrade_modal:
+            title: "Passa a Pro"
+            description: "Accedi a tutte le funzionalità avanzate."
         days_left:
             one: "1 giorno rimasto"
             other: "%{count} giorni rimasti"
