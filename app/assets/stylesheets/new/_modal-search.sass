@@ -56,6 +56,8 @@
                 fill: white
     &__header
         margin-bottom: 3rem
+        min-height: 3rem
+        line-height: 3rem
     &__title
         font-size: 2.5rem
         margin-bottom: 0
@@ -79,6 +81,25 @@
         img
             position: relative
             top: -0.5rem
+    &--upgrade
+        padding-bottom: 26rem
+        color: white
+        background-image: url("upgrade01.webp"), linear-gradient(to bottom,color(display-p3 0 .2 .7) 10%,color(display-p3 0.08 .16 .63) 60%)
+        background-position: bottom center
+        background-size: 100%
+        background-position: center bottom
+        background-repeat: no-repeat
+        @media screen and (max-width: 575px)
+            padding-bottom: calc(45vw - 2rem)
+        p
+            margin-bottom: 3.5rem
+            text-align: center
+        .icon-24
+            *
+                fill: #fff7
+    .button
+        width: 100%
+        max-width: 27rem
     .db-form__row
         margin-bottom: 4rem
 
@@ -167,7 +188,6 @@
             color: var(--label)
             text-align: right
             margin-right: 2.5rem
-
 .community-access-instructions
     padding: 4rem 3rem 3rem
     background: var(--modal-background)
