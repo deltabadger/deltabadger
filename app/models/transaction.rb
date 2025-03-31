@@ -17,8 +17,8 @@ class Transaction < ApplicationRecord
 
   BTC = %w[XXBT XBT BTC].freeze
 
-  def price
-    return 0.0 unless rate.present?
+  def quote_amount
+    return nil unless amount.present? && rate.present?
 
     amount * rate
   end

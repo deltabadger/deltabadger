@@ -59,7 +59,7 @@ class GetRestartParams < BaseService
       number_of_transactions += 1
     end
 
-    number_of_transactions * last_transaction.price.to_f *
+    number_of_transactions * (last_transaction.quote_amount || 0.0) *
       (bot.price.to_f / last_transaction.bot_price)
   end
 
