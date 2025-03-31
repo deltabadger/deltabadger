@@ -167,3 +167,4 @@ de:
         withdraw_threshold_html: 'Auszahlen, wenn mindestens <split>0,001</split> %{currency} verfügbar ist.'
         withdrawal_percentage: '%{percentage}%'
         withdrawal: 'Auszahlung'
+        minimum_transaction_size_warning: "%{amount} %{quote_currency} liegt unter der Mindesttransaktionsgröße von %{exchange_name} (%{min_transaction_size} %{base_currency}). Der Puffer ist zu %{buffer_percentage}% gefüllt und wird verwendet, sobald 100% der Mittel angesammelt sind."

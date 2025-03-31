@@ -150,4 +150,5 @@ nl:
         week: Week
         withdraw_interval_html: 'Neem elke <split>2</split> dagen fondsen op.'
         withdraw_threshold_html: 'Fondsen opnamen zodra er minimum <split>0.001</split> %{currency} beschikbaar is.'
+        minimum_transaction_size_warning: "%{amount} %{quote_currency} is lager dan de minimale transactiegrootte van %{exchange_name} (%{min_transaction_size} %{base_currency}). De buffer is %{buffer_percentage}% klaar en wordt gebruikt wanneer 100% van de fondsen zijn verzameld."
         withdrawal_percentage: '%{percentage}%'
