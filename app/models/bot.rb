@@ -7,6 +7,9 @@ class Bot < ApplicationRecord
   enum status: %i[created working stopped deleted pending retrying]
   enum metrics_status: %i[unknown pending ready], _prefix: :metrics
 
+  scope :legacy, -> { where(type: %w[Bots::Basic Bots::Withdrawal Bots::Webhook]) }
+  scope :not_legacy, -> { where.not(type: %w[Bots::Basic Bots::Withdrawal Bots::Webhook]) }
+
   include Typeable
   include Labelable
   include Webhookable
