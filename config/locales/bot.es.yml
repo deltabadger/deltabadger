@@ -151,4 +151,5 @@ es:
         week: Semana
         withdraw_interval_html: 'Retirar cada <split>2</split> días.'
         withdraw_threshold_html: 'Retirar cuando haya al menos <split>0,001</split> %{currency} disponible.'
+        minimum_transaction_size_warning: "%{amount} %{quote_currency} está por debajo del tamaño mínimo de transacción de %{exchange_name} (%{min_transaction_size} %{base_currency}). Se ha añadido al búfer y se utilizará cuando se acumulen suficientes fondos."
         withdrawal_percentage: '%{percentage}%'

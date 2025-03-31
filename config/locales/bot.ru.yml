@@ -147,5 +147,6 @@ ru:
         subaccounts_info: 'Использовать субсчет'
         week: Неделя
         withdraw_interval_html: ''
+        minimum_transaction_size_warning: "%{amount} %{quote_currency} меньше минимального размера транзакции %{exchange_name} (%{min_transaction_size} %{base_currency}). Сумма добавлена в буфер и будет использована, когда накопится достаточно средств."
         withdraw_threshold_html: ''
         withdrawal_percentage: '%{percentage}%'
