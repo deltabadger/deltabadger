@@ -287,5 +287,6 @@ it:
         week: Settimana
         withdraw_interval_html: 'Preleva ogni <split>2</split> giorni.'
         withdraw_threshold_html: 'Preleva quando almeno <split>0.001</split> %{currency} è disponibile.'
+        minimum_transaction_size_warning: "%{amount} %{quote_currency} è inferiore alla dimensione minima della transazione di %{exchange_name} (%{min_transaction_size} %{base_currency}). Il buffer è pronto al %{buffer_percentage}% e verrà utilizzato quando si accumuleranno il 100% dei fondi."
         bot_name: 'Nome bot'
         change_bot_name: 'Cambia nome' 

@@ -143,4 +143,5 @@ pt:
         starting: Começar
         stop: Pausa
         subaccounts_info: 'Usar subconta'
+        minimum_transaction_size_warning: "%{amount} %{quote_currency} está abaixo do tamanho mínimo de transação de %{exchange_name} (%{min_transaction_size} %{base_currency}). O buffer está %{buffer_percentage}% pronto e será usado quando 100% dos fundos forem acumulados."
         week: Semana
