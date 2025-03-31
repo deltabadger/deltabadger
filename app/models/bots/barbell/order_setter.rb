@@ -1,6 +1,8 @@
 module Bots::Barbell::OrderSetter # rubocop:disable Metrics/ModuleLength
   extend ActiveSupport::Concern
 
+  include Bots::Barbell::Measurable
+
   included do
     store_accessor :transient_data, :pending_quote_amount, :last_pending_quote_amount_calculated_at_iso8601
 
@@ -16,35 +18,31 @@ module Bots::Barbell::OrderSetter # rubocop:disable Metrics/ModuleLength
 
     puts 'Setting barbell orders'
 
-    result = exchange.get_balances(asset_ids: [quote_asset_id, base0_asset_id, base1_asset_id])
+    result = exchange.get_balance(asset_id: quote_asset_id)
     return result unless result.success?
 
-    puts "Balances: #{result.data}"
+    puts "Quote balance: #{result.data}"
 
-    balances = result.data
-    notify_end_of_funds if balances[quote_asset_id][:free] < pending_quote_amount + quote_amount
-    if balances[quote_asset_id][:free] < pending_quote_amount
+    quote_balance = result.data
+    notify_end_of_funds if quote_balance[:free] < pending_quote_amount + quote_amount
+    if quote_balance[:free] < pending_quote_amount
       stop
       return Result::Success.new
     end
 
-    puts 'Getting tickers'
+    result = get_metrics_with_current_prices
+    return result unless result.success?
 
-    ticker = exchange.tickers.find_by(base_asset_id: base0_asset_id, quote_asset_id: quote_asset_id)
     result0 = exchange.get_ask_price(base_asset_id: base0_asset_id, quote_asset_id: quote_asset_id)
     return result0 unless result0.success?
-    raise "Wrong price for #{ticker.ticker}: #{result0.data}" if result0.data.zero?
 
-    ticker = exchange.tickers.find_by(base_asset_id: base1_asset_id, quote_asset_id: quote_asset_id)
-    result1 = exchange.get_ask_price(base_asset_id: base0_asset_id, quote_asset_id: quote_asset_id)
+    result1 = exchange.get_ask_price(base_asset_id: base1_asset_id, quote_asset_id: quote_asset_id)
     return result1 unless result1.success?
-    raise "Wrong price for #{ticker.ticker}: #{result1.data}" if result1.data.zero?
 
     puts 'Calculating orders data'
-
     orders_data = calculate_orders_data(
-      balance0: balances[base0_asset_id][:free],
-      balance1: balances[base1_asset_id][:free],
+      balance0: result.data[:total_base0_amount_acquired],
+      balance1: result.data[:total_base1_amount_acquired],
       price0: result0.data,
       price1: result1.data
     )
