@@ -92,15 +92,21 @@ module Exchange::RemoteDataAggregator
           quote_coingecko_id: ticker['target_coin_id'] || "#{ticker['target'].upcase}.FOREX"
         }
 
-        # FIXME: Find a cleaner way for this. Manually add the coinbase USDC pairs (not listed by default in Coingecko)
+        # FIXME: Find a cleaner way for this: add the coinbase USDC pairs (not listed by default in Coingecko)
         next unless coingecko_id == Exchanges::CoinbaseExchange::COINGECKO_ID && ticker['target'] == 'USD'
 
-        tickers_info << {
+        usdc_ticker_info = {
           base: ticker['base'],
           quote: 'USDC',
           base_coingecko_id: ticker['coin_id'] || "#{ticker['base'].upcase}.FOREX",
           quote_coingecko_id: 'usd-coin'
         }
+        if tickers_info.include?(usdc_ticker_info)
+          coingecko_tickers = result.data['tickers'].map { |t| "#{t['base']}-#{t['target']}" }
+          raise "USDC ticker already exists: #{ticker['base']}-USDC, coingecko tickers: #{coingecko_tickers.inspect}"
+        end
+
+        tickers_info << usdc_ticker_info
       end
       break if result.data['tickers'].count < 100
 

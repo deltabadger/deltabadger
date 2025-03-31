@@ -22,7 +22,6 @@ module Bots::Barbell::Measurable
 
   def calculate_metrics
     data = initialize_metrics_data
-    return data if true
     return data if transactions.empty?
 
     totals = initialize_totals_data

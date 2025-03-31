@@ -3,8 +3,11 @@ module Exchanges
     COINGECKO_ID = 'gdax'.freeze # https://docs.coingecko.com/reference/exchanges-list
     TICKER_BLACKLIST = [
       'RENDER-USD', # same as RNDR-USD. Remove it when Coinbase delists RENDER-USD
+      'RENDER-USDC',
       'ZETACHAIN-USD', # same as ZETA-USD. Remove it when Coinbase delists ZETACHAIN-USD
-      'WAXL-USD' # same as AXL-USD. Remove it when Coinbase delists WAXL-USD
+      'ZETACHAIN-USDC',
+      'WAXL-USD', # same as AXL-USD. Remove it when Coinbase delists WAXL-USD
+      'WAXL-USDC'
     ].freeze
 
     def initialize(exchange)

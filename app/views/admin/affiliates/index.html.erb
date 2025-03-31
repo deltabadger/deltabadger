@@ -74,7 +74,7 @@ It renders the `_table` partial to display details about the resources.
     mark_as_exported_admin_affiliates_path,
     class: "button #{'disabled' unless @total_unexported.to_f.positive?}",
     method: :post,
-    data: { turbo_confirm: "Are you sure?" },
+    data: { turbo_confirm: t('utils.are_you_sure') },
   ) %>
 
   <%= link_to(
@@ -96,7 +96,7 @@ It renders the `_table` partial to display details about the resources.
     id: "confirm-payout",
     class: "button disabled",
     method: :post,
-    data: { turbo_confirm: "Are you sure?" },
+    data: { turbo_confirm: t('utils.are_you_sure') },
   ) %>
 </section>
 
