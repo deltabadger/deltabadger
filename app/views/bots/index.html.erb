@@ -15,16 +15,23 @@
   <%= render partial: 'bots/welcome_message' %>
 <% end %>
 
-<div class="page-head page-head--dashboard">
-  <div></div>
-  <div>
-    <%= button_to new_bot_path, method: :get, class: "button button--primary", data: { turbo_frame: "modal" } do %>
-      <span class="d-none d-sm-inline"><%= t('bot.new') %></span>
-      <i class="material-icons">add</i>
-    <% end %>
-  </div>
-</div>
+<% if @bots.empty? %>
 
-<div class="bots-grid">
-  <%= render partial: 'bots/bot_tile', collection: @bots, as: :bot %>
-</div>
+  Create your first bot --> edit this to show some intro for first-time landing
+
+  <%= render partial: 'bots/new_menu' %>
+<% else %>
+  <div class="page-head page-head--dashboard">
+    <div></div>
+    <div>
+      <%= button_to new_bot_path, method: :get, class: "button button--primary", data: { turbo_frame: "modal" } do %>
+        <span class="d-none d-sm-inline"><%= t('bot.new') %></span>
+        <i class="material-icons">add</i>
+      <% end %>
+    </div>
+  </div>
+
+  <div class="bots-grid">
+    <%= render partial: 'bots/bot_tile', collection: @bots, as: :bot %>
+  </div>
+<% end %>
