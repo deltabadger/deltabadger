@@ -32,8 +32,8 @@ class BotsController < ApplicationController
         format.html { render 'bots/react_dashboard' }
         format.json { render json: @bot }
       end
-    else
-      @pagy, @orders = pagy_countless(@bot.transactions.order(created_at: :desc), items: 10)
+    elsif request.format.turbo_stream?
+      @pagy, @orders = pagy_countless(@bot.transactions.includes(:exchange).order(created_at: :desc), items: 10)
     end
   end
 
