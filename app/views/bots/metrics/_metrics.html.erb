@@ -1,6 +1,6 @@
 <%= turbo_stream_from "bot_#{bot.id}", :metrics %>
 
-<% metrics = bot.fetch_metrics %>
+<% metrics = bot.metrics_with_current_prices %>
 
 <div id="metrics" class="widget data-grid">
   <%= render partial: "bots/metrics/metrics_item", locals: {

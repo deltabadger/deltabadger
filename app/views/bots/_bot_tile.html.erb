@@ -1,5 +1,3 @@
-<% pnl = bot.legacy? ? 0 : bot.fetch_metrics[:pnl] %>
-
 <div class="widget bot-tile">
   <%= link_to bot_path(bot) do %>
     <div class="bot-tile__header">
@@ -35,9 +33,14 @@
           <%= bot.label %>
         </div>
       </div>
-      <div class="bot-tile__pnl <%= pnl < 0 ? 'text-danger' : (pnl > 0 ? 'text-success' : '') %>">
-        <span class="widget__pnl__value"><%= format_percent(pnl, precision: 2) %></span>
-      </div>
+      <% unless bot.legacy? %>
+        <% pnl = bot.metrics_with_current_prices[:pnl] %>
+        <% if pnl.present? %>
+          <div class="bot-tile__pnl <%= pnl.negative? ? 'text-danger' : pnl.positive? ? 'text-success' : '' %>">
+            <span class="widget__pnl__value"><%= format_percent(pnl, precision: 2) %></span>
+          </div>
+        <% end %>
+      <% end %>
     </div>
   <% end %>
   <div class="bot-control">

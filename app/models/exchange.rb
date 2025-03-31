@@ -82,6 +82,10 @@ class Exchange < ApplicationRecord
     exchange_implementation.get_balance(asset_id: asset_id)
   end
 
+  def get_last_price(base_asset_id:, quote_asset_id:)
+    exchange_implementation.get_last_price(base_asset_id: base_asset_id, quote_asset_id: quote_asset_id)
+  end
+
   def get_bid_price(base_asset_id:, quote_asset_id:)
     exchange_implementation.get_bid_price(base_asset_id: base_asset_id, quote_asset_id: quote_asset_id)
   end
