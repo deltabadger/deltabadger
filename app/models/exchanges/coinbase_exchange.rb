@@ -88,18 +88,34 @@ module Exchanges
       Result::Success.new(result.data[asset_id])
     end
 
+    def get_last_price(base_asset_id:, quote_asset_id:)
+      result = get_product(base_asset_id: base_asset_id, quote_asset_id: quote_asset_id)
+      return result unless result.success?
+
+      price = Utilities::Hash.dig_or_raise(result.data, 'price').to_f
+      raise "Wrong last price for #{base_asset_id}-#{quote_asset_id}: #{price}" if price.zero?
+
+      Result::Success.new(price)
+    end
+
     def get_bid_price(base_asset_id:, quote_asset_id:)
       result = get_bid_ask_price(base_asset_id: base_asset_id, quote_asset_id: quote_asset_id)
       return result unless result.success?
 
-      Result::Success.new(result.data[:bid][:price])
+      price = result.data[:bid][:price]
+      raise "Wrong bid price for #{base_asset_id}-#{quote_asset_id}: #{price}" if price.zero?
+
+      Result::Success.new(price)
     end
 
     def get_ask_price(base_asset_id:, quote_asset_id:)
       result = get_bid_ask_price(base_asset_id: base_asset_id, quote_asset_id: quote_asset_id)
       return result unless result.success?
 
-      Result::Success.new(result.data[:ask][:price])
+      price = result.data[:ask][:price]
+      raise "Wrong ask price for #{base_asset_id}-#{quote_asset_id}: #{price}" if price.zero?
+
+      Result::Success.new(price)
     end
 
     # @param amount_type [Symbol] :base or :quote
@@ -216,6 +232,16 @@ module Exchanges
 
         Result::Success.new(result.data['portfolio_uuid'])
       end
+    end
+
+    def get_product(base_asset_id:, quote_asset_id:)
+      ticker = @exchange.tickers.find_by(base_asset_id: base_asset_id, quote_asset_id: quote_asset_id)
+      return Result::Failure.new("No ticker found for #{base_asset_id} and #{quote_asset_id}") unless ticker
+
+      result = client.get_product(product_id: ticker.ticker)
+      return result unless result.success?
+
+      Result::Success.new(result.data)
     end
 
     def get_bid_ask_price(base_asset_id:, quote_asset_id:)

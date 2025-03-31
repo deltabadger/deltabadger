@@ -1,4 +1,4 @@
-<% if bot.pending_quote_amount.positive? %>
+<% if bot.pending_quote_amount&.positive? %>
   <div class="insight insight--warning insight--in-progress" style="--progress: 66%">
     <%= t(
       'bots.minimum_transaction_size_warning',
