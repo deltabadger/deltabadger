@@ -1,0 +1,13 @@
+<% if bot.pending_quote_amount.positive? %>
+  <div class="insight insight--warning insight--in-progress" style="--progress: 66%">
+    <%= t(
+      'bots.minimum_transaction_size_warning',
+      amount: bot.pending_quote_amount,
+      quote_currency: bot.quote_asset.symbol,
+      exchange_name: bot.exchange&.name || 'Coinbase',
+      min_transaction_size: 0.01,
+      base_currency: 'BTC',
+      buffer_percentage: 66
+    ) %>
+  </div>
+<% end %>
