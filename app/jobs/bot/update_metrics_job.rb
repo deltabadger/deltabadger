@@ -6,7 +6,7 @@ class Bot::UpdateMetricsJob < BotJob
 
   def perform(bot)
     cancel_other_jobs(bot)
-    bot.fetch_metrics(force: true)
+    bot.metrics(force: true)
   end
 
   private
