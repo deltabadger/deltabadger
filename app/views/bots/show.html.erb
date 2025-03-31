@@ -15,16 +15,7 @@
         <%= render partial: "bots/description", locals: { bot: @bot } %>
       </div>
       <div class="column gap-1">
-        <div class="insight insight--warning insight--in-progress" style="--progress: 66%">
-          <%= t('bots.minimum_transaction_size_warning',
-                amount: @warning_amount || 10,
-                quote_currency: @warning_quote_currency || 'USD',
-                exchange_name: @bot.exchange&.name || 'Coinbase',
-                min_transaction_size: @warning_min_size || 0.001,
-                base_currency: @warning_base_currency || 'BTC',
-                buffer_percentage: @warning_buffer_percentage || 66)
-           %>
-        </div>
+        <%= render partial: "bots/warning", locals: { bot: @bot } %>
         <%= render partial: "bots/chart", locals: { bot: @bot } %>
         <%= render partial: "bots/metrics/metrics", locals: { bot: @bot } %>
         <%= render partial: "bots/orders/orders", locals: { bot: @bot } %>
