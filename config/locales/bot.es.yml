@@ -151,5 +151,14 @@ es:
         week: Semana
         withdraw_interval_html: 'Retirar cada <split>2</split> días.'
         withdraw_threshold_html: 'Retirar cuando haya al menos <split>0,001</split> %{currency} disponible.'
-        minimum_transaction_size_warning: "%{amount} %{quote_currency} está por debajo del tamaño mínimo de transacción de %{exchange_name} (%{min_transaction_size} %{base_currency}). El búfer está listo al %{buffer_percentage}% y se utilizará cuando se acumule el 100% de los fondos."
         withdrawal_percentage: '%{percentage}%'
+        warning:
+            title: "¡Felicitaciones! Tu bot está funcionando."
+            both_below:
+                intro: "Ambos montos están por debajo del tamaño mínimo de transacción de %{exchange_name} (%{min_base} %{base_ticker} y %{min_quote} %{quote_ticker}). Así es como el bot lo maneja:"
+            one_below:
+                intro: "Tu bot compró %{bought_amount} %{bought_ticker}, pero el monto de %{missed_ticker} estaba por debajo del tamaño mínimo de transacción de %{exchange_name} (%{min_missed} %{missed_ticker}). Así es como el bot lo maneja:"
+            buffer_explanation:
+                one: "El monto perdido se ha añadido al búfer y se utilizará en la próxima transacción programada, asegurando que tu horario y asignación se mantengan lo más cerca posible de los mínimos de la bolsa."
+                other: "Los montos perdidos se han añadido al búfer y se utilizarán en la próxima transacción programada, asegurando que tu horario y asignación se mantengan lo más cerca posible de los mínimos de la bolsa."
+            general_note: "Los mínimos de la bolsa y los montos de reequilibrio requeridos cambian. Las transacciones pueden parecer irregulares a veces, pero el bot siempre apunta a tu asignación y horario deseado, por lo que no se necesita trabajo adicional."

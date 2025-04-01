@@ -143,5 +143,14 @@ pt:
         starting: Começar
         stop: Pausa
         subaccounts_info: 'Usar subconta'
-        minimum_transaction_size_warning: "%{amount} %{quote_currency} está abaixo do tamanho mínimo de transação de %{exchange_name} (%{min_transaction_size} %{base_currency}). O buffer está %{buffer_percentage}% pronto e será usado quando 100% dos fundos forem acumulados."
         week: Semana
+        warning:
+            title: "Parabéns! Seu bot está funcionando."
+            both_below:
+                intro: "Ambos os valores estão abaixo do tamanho mínimo de transação da %{exchange_name} (%{min_base} %{base_ticker} e %{min_quote} %{quote_ticker}). Veja como o bot lida com isso:"
+            one_below:
+                intro: "Seu bot comprou %{bought_amount} %{bought_ticker}, mas o valor de %{missed_ticker} estava abaixo do tamanho mínimo de transação da %{exchange_name} (%{min_missed} %{missed_ticker}). Veja como o bot lida com isso:"
+            buffer_explanation:
+                one: "O valor perdido foi adicionado ao buffer e será usado na próxima transação programada, garantindo que seu cronograma e alocação permaneçam o mais próximo possível dos mínimos da exchange."
+                other: "Os valores perdidos foram adicionados ao buffer e serão usados na próxima transação programada, garantindo que seu cronograma e alocação permaneçam o mais próximo possível dos mínimos da exchange."
+            general_note: "Os mínimos da exchange e os valores de rebalanceamento necessários mudam. As transações podem às vezes parecer irregulares, mas o bot sempre mira em sua alocação e cronograma desejados, então não é necessário trabalho adicional."
