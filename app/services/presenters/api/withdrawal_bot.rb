@@ -10,10 +10,25 @@ module Presenters
       end
 
       def call(bot)
-        transactions = bot.transactions.where(status: 'success').limit(10).order(created_at: :desc)
+        # Select only necessary fields for the limited transactions
+        tx_fields = %i[id created_at amount status]
+        transactions = bot.transactions
+                          .select(tx_fields)
+                          .where(status: 'success')
+                          .limit(10)
+                          .order(created_at: :desc)
         daily_transaction_aggregates = bot.daily_transaction_aggregates.order(created_at: :desc)
-        skipped_transactions = bot.transactions.where(status: 'skipped').limit(10).order(created_at: :desc)
-        logs = bot.transactions.limit(10).order(id: :desc)
+        skipped_tx_fields = %i[id created_at amount status]
+        skipped_transactions = bot.transactions
+                                  .select(skipped_tx_fields)
+                                  .where(status: 'skipped')
+                                  .limit(10)
+                                  .order(created_at: :desc)
+        log_fields = %i[id created_at error_messages]
+        logs = bot.transactions
+                  .select(log_fields)
+                  .limit(10)
+                  .order(id: :desc)
 
         {
           id: bot.id,
