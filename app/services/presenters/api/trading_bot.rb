@@ -15,7 +15,7 @@ module Presenters
         transactions = bot.transactions.where(status: 'success').limit(10).order(created_at: :desc)
         daily_transaction_aggregates = bot.daily_transaction_aggregates.order(created_at: :desc)
         skipped_transactions = bot.transactions.where(status: 'skipped').limit(10).order(created_at: :desc)
-        logs = bot.transactions.limit(10).order(id: :desc)
+        logs = bot.transactions.limit(10).order(created_at: :desc)
         {
           id: bot.id,
           bot_type: bot.bot_type,
