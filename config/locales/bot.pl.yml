@@ -150,5 +150,14 @@ pl:
         week: Tydzień
         withdraw_interval_html: 'Wypłacaj co <split>2</split> dni.'
         withdraw_threshold_html: 'Wypłać, gdy dostępne jest co najmniej <split>0,001</split> %{currency}.'
-        minimum_transaction_size_warning: "%{amount} %{quote_currency} jest poniżej minimalnej wielkości transakcji %{exchange_name} (%{min_transaction_size} %{base_currency}). Bufor jest gotowy w %{buffer_percentage}% i zostanie użyty, gdy zgromadzi się 100% środków."
         withdrawal_percentage: '%{percentage}%'
+        warning:
+            title: "Gratulacje! Twój bot działa."
+            both_below:
+                intro: "Obie kwoty są poniżej minimalnego rozmiaru transakcji na %{exchange_name} (%{min_base} %{base_ticker} i %{min_quote} %{quote_ticker}). Oto jak bot to obsługuje:"
+            one_below:
+                intro: "Twój bot kupił %{bought_amount} %{bought_ticker}, ale kwota %{missed_ticker} była poniżej minimalnego rozmiaru transakcji na %{exchange_name} (%{min_missed} %{missed_ticker}). Oto jak bot to obsługuje:"
+            buffer_explanation:
+                one: "Przegapiona kwota została dodana do bufora i zostanie wykorzystana w następnej zaplanowanej transakcji, zapewniając, że Twój harmonogram i alokacja pozostaną jak najbliżej minimów giełdowych."
+                other: "Przegapione kwoty zostały dodane do bufora i zostaną wykorzystane w następnej zaplanowanej transakcji, zapewniając, że Twój harmonogram i alokacja pozostaną jak najbliżej minimów giełdowych."
+            general_note: "Minima giełdowe i wymagane kwoty rebalansu się zmieniają. Transakcje mogą czasami wyglądać nieregularnie, ale bot zawsze celuje w Twoją pożądaną alokację i harmonogram, więc nie jest potrzebna dodatkowa praca."

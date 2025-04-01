@@ -1,13 +1,40 @@
+<%# Placeholder variables - replace with actual data from controller/context %>
+<% @exchange_name = 'Kraken' %>
+<% @min_base = 0.001 %>
+<% @base_ticker = 'BTC' %>
+<% @min_quote = 0.00001 %>
+<% @quote_ticker = 'ETH' %>
+<% @bought_amount = 0.001 %>
+<% @bought_ticker = 'BTC' %>
+<% @missed_ticker = 'ETH' %>
+<% @min_missed = 0.00001 %>
+<% @missed_count = 1 # or 2, depending on the scenario %>
+<% @both_missed = (@missed_count == 2) %>
+<%# End Placeholder variables %>
+
 <% if bot.pending_quote_amount&.positive? %>
-  <div class="insight insight--warning insight--in-progress" style="--progress: 66%">
-    <%= t(
-      'bots.minimum_transaction_size_warning',
-      amount: bot.pending_quote_amount,
-      quote_currency: bot.quote_asset.symbol,
-      exchange_name: bot.exchange&.name || 'Coinbase',
-      min_transaction_size: 0.01,
-      base_currency: 'BTC',
-      buffer_percentage: 66
-    ) %>
-  </div>
+  <h2><%= t('bots.warning.title') %></h2>
+
+  <% if @both_missed %>
+    <!-- 1a: Both missed -->
+    <p><%= t('bots.warning.both_below.intro',
+              exchange_name: @exchange_name,
+              min_base: @min_base,
+              base_ticker: @base_ticker,
+              min_quote: @min_quote,
+              quote_ticker: @quote_ticker) %></p>
+  <% else %>
+    <!-- 1b: One missed -->
+    <p><%= t('bots.warning.one_below.intro',
+              bought_amount: @bought_amount,
+              bought_ticker: @bought_ticker,
+              missed_ticker: @missed_ticker,
+              exchange_name: @exchange_name,
+              min_missed: @min_missed) %></p>
+  <% end %>
+
+  <p><%= t('bots.warning.buffer_explanation', count: @missed_count) %></p>
+
+  <!-- 2: General Note -->
+  <p><%= t('bots.warning.general_note') %></p>
 <% end %>
