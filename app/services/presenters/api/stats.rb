@@ -11,22 +11,14 @@ module Presenters
         market = @get_exchange_market.call(bot.exchange_id)
         market_symbol = market.symbol(bot.base, bot.quote)
         current_price_result = market.current_price(market_symbol)
-        
-        # Fetch sums directly from the database
-        sums = bot.daily_transaction_aggregates
-                  .select("SUM(amount) as total_amount, SUM(amount * rate) as total_invested_value")
-                  .first
+        current_price = current_price_result.or(transactions.last.rate)
 
-        # Handle case where there might be no aggregates yet
-        transactions_amount_sum = sums&.total_amount || 0.0
-        total_invested = sums&.total_invested_value || 0.0
+        daily_aggregates = bot.daily_transaction_aggregates
 
-        # Avoid division by zero if amount sum is zero
-        average_price = transactions_amount_sum.positive? ? (total_invested / transactions_amount_sum) : 0.0
+        transactions_amount_sum = daily_aggregates.sum(:amount)
+        total_invested = daily_aggregates.sum { |agg| agg.amount * agg.rate }
 
-        # Use the last transaction rate as fallback if current price fetch fails
-        current_price = current_price_result.or(bot.daily_transaction_aggregates.order(created_at: :desc).first&.rate || 0.0)
-
+        average_price = total_invested / transactions_amount_sum
         current_value = current_price * transactions_amount_sum
 
         {
