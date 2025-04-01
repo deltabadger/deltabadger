@@ -28,7 +28,7 @@ class BotsRepository < BaseRepository
       .without_deleted
       .includes(:exchange)
       .includes(:daily_transaction_aggregates)
-      .includes(:transactions)
+      # .includes(:transactions) # Removed: Loading all transactions is too slow
       .order(created_at: :desc)
       .page(page_number)
   end
