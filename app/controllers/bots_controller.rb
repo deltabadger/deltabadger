@@ -2,7 +2,9 @@ class BotsController < ApplicationController
   include Pagy::Backend
 
   before_action :authenticate_user!
-  before_action :set_bot, except: %i[index create new]
+  before_action :set_bot,
+                except: %i[index create new barbell_new_step_one barbell_new_step_two barbell_new_step_three barbell_new_step_four
+                           barbell_new_step_five]
 
   def index
     return render 'bots/react_dashboard' if params[:create] # TODO: remove this once the legacy dashboard is removed
@@ -11,6 +13,44 @@ class BotsController < ApplicationController
   end
 
   def new; end
+
+  # select base0 asset
+  def barbell_new_step_one
+    set_new_barbell_bot
+    assets = @bot.available_assets_for_current_settings(asset_type: :base_asset, include_exchanges: true)
+    @assets = filter_assets_by_query(assets: assets, query: params[:query] || '')
+  end
+
+  # select base1 asset
+  def barbell_new_step_two
+    set_new_barbell_bot
+    assets = @bot.available_assets_for_current_settings(asset_type: :base_asset, include_exchanges: true)
+    @assets = filter_assets_by_query(assets: assets, query: params[:query] || '')
+  end
+
+  # select exchange
+  def barbell_new_step_three
+    set_new_barbell_bot
+  end
+
+  # select quote asset
+  def barbell_new_step_four
+    set_new_barbell_bot
+    assets = @bot.available_assets_for_current_settings(asset_type: :quote_asset, include_exchanges: true)
+    @assets = filter_assets_by_query(assets: assets, query: params[:query] || '')
+  end
+
+  # confirm and create
+  def barbell_new_step_five
+    set_new_barbell_bot
+  end
+
+  def asset_search
+    asset_type = params[:asset_field] == 'quote_asset_id' ? :quote_asset : :base_asset
+    assets = @bot.available_assets_for_current_settings(asset_type: asset_type, include_exchanges: true)
+    @assets = filter_assets_by_query(assets: assets, query: params[:query] || '')
+    @asset_field = params[:asset_field]
+  end
 
   def create
     @bot = current_user.bots.barbell.new(settings: { interval: Bot::INTERVALS.first, allocation0: 0.5 })
@@ -40,7 +80,7 @@ class BotsController < ApplicationController
   def edit; end
 
   def update
-    if !@bot.legacy? && @bot.update(update_params)
+    if !@bot.legacy? && @bot.update(barbell_bot_update_params)
       if @bot.exchange.present? && @bot.available_exchanges_for_current_settings.exclude?(@bot.exchange)
         @bot.update!(exchange_id: nil)
         flash.now[:alert] = 'Exchange not supported for current settings'
@@ -119,6 +159,19 @@ class BotsController < ApplicationController
     redirect_to bots_path, alert: t('bots.not_found')
   end
 
+  def set_new_barbell_bot
+    @bot = current_user.bots.barbell.new(
+      settings: {
+        interval: Bot::INTERVALS.first,
+        allocation0: 0.5,
+        base0_asset_id: params[:base0_asset_id]&.to_i,
+        base1_asset_id: params[:base1_asset_id]&.to_i,
+        quote_asset_id: params[:quote_asset_id]&.to_i
+      }.compact,
+      exchange_id: params[:exchange_id].presence
+    )
+  end
+
   def barbell_bot_params
     params.require(:bots_barbell).permit(
       :quote_amount,
@@ -149,7 +202,7 @@ class BotsController < ApplicationController
     params.require(:api_key).permit(:key, :secret)
   end
 
-  def update_params
+  def barbell_bot_update_params
     permitted_params = barbell_bot_params
     settings_params = permitted_params.except(:exchange_id, :label).tap do |pp|
       pp[:base0_asset_id] = pp[:base0_asset_id].to_i if pp[:base0_asset_id].present?

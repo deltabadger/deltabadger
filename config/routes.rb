@@ -122,6 +122,11 @@ Rails.application.routes.draw do
     }
 
     resources :bots do
+      get :barbell_new_step_one, on: :collection
+      get :barbell_new_step_two, on: :collection
+      get :barbell_new_step_three, on: :collection
+      get :barbell_new_step_four, on: :collection
+      get :barbell_new_step_five, on: :collection
       member do
         get :asset_search
         get :new_api_key
