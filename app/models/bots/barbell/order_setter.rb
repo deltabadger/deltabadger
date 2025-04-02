@@ -2,14 +2,24 @@ module Bots::Barbell::OrderSetter # rubocop:disable Metrics/ModuleLength
   extend ActiveSupport::Concern
 
   include Bots::Barbell::Measurable
+  include Bot::Schedulable
 
   included do
-    store_accessor :transient_data, :pending_quote_amount, :last_pending_quote_amount_calculated_at_iso8601
+    store_accessor :transient_data, :pending_quote_amount, :last_pending_quote_amount_calculated_at
 
     validates :pending_quote_amount,
               numericality: { greater_than_or_equal_to: 0 },
-              on: :update,
               if: -> { pending_quote_amount.present? }
+  end
+
+  def pending_quote_amount
+    value = super
+    value.present? ? value.to_d : nil
+  end
+
+  def last_pending_quote_amount_calculated_at
+    value = super
+    value.present? ? Time.zone.parse(value) : nil
   end
 
   def set_barbell_orders # rubocop:disable Metrics/CyclomaticComplexity,Metrics/PerceivedComplexity
@@ -57,10 +67,10 @@ module Bots::Barbell::OrderSetter # rubocop:disable Metrics/ModuleLength
   end
 
   def calculate_pending_quote_amount
-    now = Time.current
+    now = last_interval_checkpoint_at
+    last_calc_at = last_pending_quote_amount_calculated_at
 
-    calculated_amount = if last_pending_quote_amount_calculated_at_iso8601.present?
-                          last_calc_at = DateTime.parse(last_pending_quote_amount_calculated_at_iso8601)
+    calculated_amount = if last_calc_at.present?
                           intervals_since_last_calc = ((now - last_calc_at) / 1.public_send(interval)).floor
                           missed_quote_amount = quote_amount * intervals_since_last_calc
                           pending_quote_amount + missed_quote_amount
@@ -70,7 +80,7 @@ module Bots::Barbell::OrderSetter # rubocop:disable Metrics/ModuleLength
 
     update!(
       pending_quote_amount: calculated_amount,
-      last_pending_quote_amount_calculated_at_iso8601: now.iso8601
+      last_pending_quote_amount_calculated_at: now
     )
   end
 
@@ -126,7 +136,8 @@ module Bots::Barbell::OrderSetter # rubocop:disable Metrics/ModuleLength
       Bot::CreateSuccessfulOrderJob.perform_later(self, order_id)
       # send_user_to_sendgrid(bot)
     else
-      create_failed_order!(order_data, result.errors)
+      order_data.merge!(error_messages: result.errors)
+      create_failed_order!(order_data)
       notify_about_error(errors: result.errors)
       # TODO: stop the bot?
     end

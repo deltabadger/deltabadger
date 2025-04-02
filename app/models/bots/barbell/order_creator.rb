@@ -1,15 +1,28 @@
 module Bots::Barbell::OrderCreator
   extend ActiveSupport::Concern
 
-  def create_successful_order!(order_data, order_id)
+  def create_successful_order!(order_data)
     order_values = base_order_values.merge(
       status: :success,
-      external_id: order_id,
+      external_id: order_data[:order_id],
       rate: order_data[:rate],
       amount: order_data[:amount],
       base: order_data[:base_asset].symbol,
       quote: order_data[:quote_asset].symbol
-    )
+    ).compact
+    transactions.create!(order_values)
+  end
+
+  def create_failed_order!(order_data)
+    order_values = base_order_values.merge(
+      status: :failure,
+      external_id: order_data[:order_id],
+      error_messages: order_data[:error_messages],
+      rate: order_data[:rate],
+      amount: order_data[:amount],
+      base: order_data[:base_asset].symbol,
+      quote: order_data[:quote_asset].symbol
+    ).compact
     transactions.create!(order_values)
   end
 
@@ -22,19 +35,7 @@ module Bots::Barbell::OrderCreator
       amount: order_data[:amount],
       base: order_data[:base_asset].symbol,
       quote: order_data[:quote_asset].symbol
-    )
-    transactions.create!(order_values)
-  end
-
-  def create_failed_order!(order_data, order_errors)
-    order_values = base_order_values.merge(
-      status: :failure,
-      error_messages: order_errors,
-      rate: order_data[:rate],
-      amount: order_data[:amount],
-      base: order_data[:base_asset].symbol,
-      quote: order_data[:quote_asset].symbol
-    )
+    ).compact
     transactions.create!(order_values)
   end
 

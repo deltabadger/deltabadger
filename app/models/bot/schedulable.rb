@@ -32,7 +32,7 @@ module Bot::Schedulable
     end
   end
 
-  def previous_interval_checkpoint_at
+  def last_interval_checkpoint_at
     next_interval_checkpoint_at - 1.public_send(interval)
   end
 
