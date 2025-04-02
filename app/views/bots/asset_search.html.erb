@@ -1,4 +1,4 @@
-<%= render 'layouts/turbo_modal' do %>
+<%= render 'layouts/modal/base' do %>
   <div class="min-height: 64rem">
     <div class="modal--search">
       <%= form_with url: asset_search_bot_path(@bot, asset_field: @asset_field), method: :get, data: { controller: "form--submit-after-delay", turbo_frame: "asset-picker" }, html: { style: "position:relative" } do |f| %>

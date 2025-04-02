@@ -5,20 +5,20 @@
 <div id="metrics" class="widget data-grid">
   <%= render partial: "bots/metrics/metrics_item", locals: {
     label: t('data_labels.bought_symbol', symbol: bot.base0_asset&.symbol || ''),
-    value: bot.exchange.present? ? rounded_base_amount_for(exchange: bot.exchange, base_asset_id: bot.base0_asset_id, quote_asset_id: bot.quote_asset_id, amount: metrics[:total_base0_amount_acquired]) : nil } %>
+    value: (bot.transactions.any? && bot.exchange.present?) ? rounded_base_amount_for(exchange: bot.exchange, base_asset_id: bot.base0_asset_id, quote_asset_id: bot.quote_asset_id, amount: metrics[:total_base0_amount_acquired]) : nil } %>
   <%= render partial: "bots/metrics/metrics_item", locals: {
     label: t('data_labels.avg_price_symbol', symbol: bot.base0_asset&.symbol || ''),
-    value: bot.exchange.present? ? rounded_price_for(exchange: bot.exchange, base_asset_id: bot.base0_asset_id, quote_asset_id: bot.quote_asset_id, price: metrics[:base0_average_buy_rate]) : nil } %>
+    value: (bot.transactions.any? && bot.exchange.present?) ? rounded_price_for(exchange: bot.exchange, base_asset_id: bot.base0_asset_id, quote_asset_id: bot.quote_asset_id, price: metrics[:base0_average_buy_rate]) : nil } %>
   <%= render partial: "bots/metrics/metrics_item", locals: {
     label: t('data_labels.bought_symbol', symbol: bot.base1_asset&.symbol || ''),
-    value: bot.exchange.present? ? rounded_base_amount_for(exchange: bot.exchange, base_asset_id: bot.base1_asset_id, quote_asset_id: bot.quote_asset_id, amount: metrics[:total_base1_amount_acquired]) : nil } %>
+    value: (bot.transactions.any? && bot.exchange.present?) ? rounded_base_amount_for(exchange: bot.exchange, base_asset_id: bot.base1_asset_id, quote_asset_id: bot.quote_asset_id, amount: metrics[:total_base1_amount_acquired]) : nil } %>
   <%= render partial: "bots/metrics/metrics_item", locals: {
     label: t('data_labels.avg_price_symbol', symbol: bot.base1_asset&.symbol || ''),
-    value: bot.exchange.present? ? rounded_price_for(exchange: bot.exchange, base_asset_id: bot.base1_asset_id, quote_asset_id: bot.quote_asset_id, price: metrics[:base1_average_buy_rate]) : nil } %>
+    value: (bot.transactions.any? && bot.exchange.present?) ? rounded_price_for(exchange: bot.exchange, base_asset_id: bot.base1_asset_id, quote_asset_id: bot.quote_asset_id, price: metrics[:base1_average_buy_rate]) : nil } %>
   <%= render partial: "bots/metrics/metrics_item", locals: {
     label: t('data_labels.invested_symbol', symbol: bot.quote_asset&.symbol || ''),
-    value: bot.exchange.present? ? rounded_quote_amount_for(exchange: bot.exchange, base_asset_id: bot.base0_asset_id, quote_asset_id: bot.quote_asset_id, amount: metrics[:total_quote_amount_invested]) : nil } %>
+    value: (bot.transactions.any? && bot.exchange.present?) ? rounded_quote_amount_for(exchange: bot.exchange, base_asset_id: bot.base0_asset_id, quote_asset_id: bot.quote_asset_id, amount: metrics[:total_quote_amount_invested]) : nil } %>
   <%= render partial: "bots/metrics/metrics_item", locals: {
     label: t('data_labels.value_symbol', symbol: bot.quote_asset&.symbol || ''),
-    value: bot.exchange.present? ? rounded_quote_amount_for(exchange: bot.exchange, base_asset_id: bot.base0_asset_id, quote_asset_id: bot.quote_asset_id, amount: metrics[:current_investment_value_in_quote]) : nil } %>
+    value: (bot.transactions.any? && bot.exchange.present?) ? rounded_quote_amount_for(exchange: bot.exchange, base_asset_id: bot.base0_asset_id, quote_asset_id: bot.quote_asset_id, amount: metrics[:current_investment_value_in_quote]) : nil } %>
 </div>

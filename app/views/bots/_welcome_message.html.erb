@@ -1,4 +1,4 @@
-<%= render 'layouts/turbo_modal' do %>
+<%= render 'layouts/modal/base' do %>
   <div class="modal modal--welcome">
     <%= button_to settings_hide_welcome_banner_path, method: :patch, title: "Close", class: 'modal__close', data: { action: "click->modal--base#animateOutCloseAndCleanUp" } do %>
       <%= render partial: 'svg/24x24_x' %>

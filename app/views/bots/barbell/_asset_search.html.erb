@@ -1,17 +1,12 @@
-<% bot_params = {
-  base0_asset_id: bot.base0_asset_id,
-  base1_asset_id: bot.base1_asset_id,
-  quote_asset_id: bot.quote_asset_id,
-  exchange_id: bot.exchange_id
-}.compact %>
-
 <div class="modal--search">
   <%= form_with url: search_form_path, method: :get, data: { controller: "form--submit-after-delay", turbo_frame: "asset-picker" }, html: { style: "position:relative" } do |f| %>
 
     <svg class="modal--search__zoom-icon" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="12" cy="12" r="9" stroke-width="2"/><path d="m19 19 4 4" stroke-width="2" stroke-linecap="round"/></svg>
-    <% bot_params.each do |key, value| %>
-      <%= f.hidden_field key, value: value %>
-    <% end %>
+    <%= f.hidden_field :label, value: bot.label %>
+    <%= f.hidden_field :base0_asset_id, value: bot.base0_asset_id %>
+    <%= f.hidden_field :base1_asset_id, value: bot.base1_asset_id %>
+    <%= f.hidden_field :quote_asset_id, value: bot.quote_asset_id %>
+    <%= f.hidden_field :exchange_id, value: bot.exchange_id %>
     <%= f.text_field :query, autofocus: true, autocomplete: "off", placeholder: "Search for an asset…", data: { action: "input->form--submit-after-delay#submit" }, class: "modal--search__input" %>
 
   <% end %>
@@ -24,16 +19,21 @@
     <% end %>
 
     <% @assets.each_with_index do |asset, index| %>
-      <div class="modal--search__assets__item" data-arrow-keys-navigation-target="item">
-        <%#= button_to next_step_path, method: :get, params: bot_params.merge({ asset_field => asset.id }), data: { arrow_keys_navigation_target: "button", turbo: false } do %>
-        <%= button_to next_step_path, method: :get, params: bot_params.merge({ asset_field => asset.id }), data: { arrow_keys_navigation_target: "button", turbo_frame: "modal", action: 'modal--base#animateOutCloseAndCleanUp' } do %>
+      <%= form_with model: bot, url: next_step_path, method: :get, data: { arrow_keys_navigation_target: "item" }, class: "modal--search__assets__item" do |f| %>
+        <%= f.hidden_field :label, value: bot.label %>
+        <%= f.hidden_field asset_field, value: asset.id %>
+        <%= f.hidden_field :base0_asset_id, value: bot.base0_asset_id if asset_field != :base0_asset_id %>
+        <%= f.hidden_field :base1_asset_id, value: bot.base1_asset_id if asset_field != :base1_asset_id %>
+        <%= f.hidden_field :quote_asset_id, value: bot.quote_asset_id if asset_field != :quote_asset_id %>
+        <%= f.hidden_field :exchange_id, value: bot.exchange_id %>
+        <%= button_tag type: :submit, data: { arrow_keys_navigation_target: "button", turbo_frame: "modal_content" } do %>
           <div class="modal--search__cell modal--search__cell--ticker"><%= asset.symbol %></div>
           <div class="modal--search__cell modal--search__cell--name">
             <%= asset.name %>
             <span class="modal--search__cell--name__country" style="margin-left: 1rem"><%= asset.exchanges.map(&:name).join(', ') %></span>
           </div>
         <% end %>
-      </div>
+      <% end %>
     <% end %>
 
   <% end %>

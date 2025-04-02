@@ -1,0 +1,15 @@
+<%= render 'layouts/modal/full_page' do %>
+  <%= render partial: 'bots/barbell/progress_bar', locals: {
+    current_step: :api
+  } %>
+  <%= @bot.inspect%>
+  <div class="conversational conversational--bot-setup">Invest in <%= @bot.base0_asset.symbol %> and <%= @bot.base1_asset.symbol %> at <%= @bot.exchange.name.capitalize %> spending <%= @bot.quote_asset.symbol %>.</div>
+  <%= form_with model: @bot, url: bots_path(@bot), method: :post, data: { action: "turbo:submit-end->modal--base#submitEnd" } do |f| %>
+    <%= f.hidden_field :label, value: @bot.label %>
+    <%= f.hidden_field :base0_asset_id, value: @bot.base0_asset_id %>
+    <%= f.hidden_field :base1_asset_id, value: @bot.base1_asset_id %>
+    <%= f.hidden_field :quote_asset_id, value: @bot.quote_asset_id %>
+    <%= f.hidden_field :exchange_id, value: @bot.exchange_id %>
+    <%= f.submit 'Create' %>
+  <% end %>
+<% end %>
