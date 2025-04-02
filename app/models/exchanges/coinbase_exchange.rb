@@ -41,10 +41,10 @@ module Exchanges
             ticker: ticker,
             base: ticker.split('-')[0],
             quote: ticker.split('-')[1],
-            minimum_base_size: Utilities::Hash.dig_or_raise(product, 'base_min_size').to_f,
-            minimum_quote_size: Utilities::Hash.dig_or_raise(product, 'quote_min_size').to_f,
-            maximum_base_size: Utilities::Hash.dig_or_raise(product, 'base_max_size').to_f,
-            maximum_quote_size: Utilities::Hash.dig_or_raise(product, 'quote_max_size').to_f,
+            minimum_base_size: Utilities::Hash.dig_or_raise(product, 'base_min_size').to_d,
+            minimum_quote_size: Utilities::Hash.dig_or_raise(product, 'quote_min_size').to_d,
+            maximum_base_size: Utilities::Hash.dig_or_raise(product, 'base_max_size').to_d,
+            maximum_quote_size: Utilities::Hash.dig_or_raise(product, 'quote_max_size').to_d,
             base_decimals: Utilities::Number.decimals(base_increment),
             quote_decimals: Utilities::Number.decimals(quote_increment),
             price_decimals: Utilities::Number.decimals(price_increment)
@@ -72,8 +72,8 @@ module Exchanges
         asset = asset_from_symbol(symbol: position['asset'])
         next unless asset_ids.include?(asset.id)
 
-        free = Utilities::Hash.dig_or_raise(position, 'available_to_trade_crypto').to_f
-        locked = Utilities::Hash.dig_or_raise(position, 'total_balance_crypto').to_f - free
+        free = Utilities::Hash.dig_or_raise(position, 'available_to_trade_crypto').to_d
+        locked = Utilities::Hash.dig_or_raise(position, 'total_balance_crypto').to_d - free
 
         balances[asset.id] = { free: free, locked: locked }
       end
@@ -92,7 +92,7 @@ module Exchanges
       result = get_product(base_asset_id: base_asset_id, quote_asset_id: quote_asset_id)
       return result unless result.success?
 
-      price = Utilities::Hash.dig_or_raise(result.data, 'price').to_f
+      price = Utilities::Hash.dig_or_raise(result.data, 'price').to_d
       raise "Wrong last price for #{base_asset_id}-#{quote_asset_id}: #{price}" if price.zero?
 
       Result::Success.new(price)
@@ -171,12 +171,13 @@ module Exchanges
       base_symbol, quote_symbol = Utilities::Hash.dig_or_raise(result.data, 'order', 'product_id').split('-')
       base_asset = asset_from_symbol(symbol: base_symbol)
       quote_asset = asset_from_symbol(symbol: quote_symbol)
-      rate = Utilities::Hash.dig_or_raise(result.data, 'order', 'average_filled_price').to_f
-      amount = Utilities::Hash.dig_or_raise(result.data, 'order', 'filled_size').to_f
+      rate = Utilities::Hash.dig_or_raise(result.data, 'order', 'average_filled_price').to_d
+      amount = Utilities::Hash.dig_or_raise(result.data, 'order', 'filled_size').to_d
       side = Utilities::Hash.dig_or_raise(result.data, 'order', 'side').downcase.to_sym
       error_messages = [
-        result.data.dig('order', 'reject_reason'),
-        result.data.dig('order', 'cancel_message')
+        result.data.dig('order', 'reject_reason').presence,
+        result.data.dig('order', 'reject_message').presence,
+        result.data.dig('order', 'cancel_message').presence
       ].compact
       status = parse_order_status(Utilities::Hash.dig_or_raise(result.data, 'order', 'status'))
 
@@ -259,12 +260,12 @@ module Exchanges
       Result::Success.new(
         {
           bid: {
-            price: result.data['pricebooks'][0]['bids'][0]['price'].to_f,
-            size: result.data['pricebooks'][0]['bids'][0]['size'].to_f
+            price: result.data['pricebooks'][0]['bids'][0]['price'].to_d,
+            size: result.data['pricebooks'][0]['bids'][0]['size'].to_d
           },
           ask: {
-            price: result.data['pricebooks'][0]['asks'][0]['price'].to_f,
-            size: result.data['pricebooks'][0]['asks'][0]['size'].to_f
+            price: result.data['pricebooks'][0]['asks'][0]['price'].to_d,
+            size: result.data['pricebooks'][0]['asks'][0]['size'].to_d
           }
         }
       )
@@ -343,8 +344,10 @@ module Exchanges
       case status
       when 'FILLED'
         :success
-      else
+      when 'CANCELLED', 'EXPIRED', 'FAILED', 'CANCEL_QUEUED'
         :failure
+      else
+        :unknown
       end
     end
   end
