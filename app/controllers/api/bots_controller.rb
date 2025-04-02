@@ -10,7 +10,7 @@ module Api
       bots = current_user
              .bots
              .not_deleted
-             .where(type: %w[Bots::Basic Bots::Withdrawal Bots::Webhook])
+             .legacy
              .includes(:exchange)
              .includes(:daily_transaction_aggregates)
              .includes(:transactions)
