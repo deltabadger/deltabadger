@@ -1,0 +1,13 @@
+<div class="process-progress">
+  <div class="process-progress__step <%= current_step == :currencies ? 'process-progress__step--now' : 'process-progress__step--todo' %>">
+    Currencies
+  </div>
+  <div class="process-progress__step process-progress__connector"></div>
+  <div class="process-progress__step <%= current_step == :exchange ? 'process-progress__step--now' : 'process-progress__step--todo' %>">
+    Exchange
+  </div>
+  <div class="process-progress__step process-progress__connector"></div>
+  <div class="process-progress__step <%= current_step == :api ? 'process-progress__step--now' : 'process-progress__step--todo' %>">
+    API
+  </div>
+</div>

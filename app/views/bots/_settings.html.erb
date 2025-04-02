@@ -9,7 +9,7 @@
     <%= t('bot.barbell.invest') %>
     <div class="ticker-input ticker-input--autoscale">
       <%# FIXME: in this text field, autowidth doesn't work %>
-      <%= f.number_field :quote_amount, value: bot.quote_amount.to_d.to_s('F'), class: 'numeric-input iu-numeric iu-autowidth', min: 0.00000001, step: :any, size: 3, data: { action: "change->form--submit#submit" } %>
+      <%= f.number_field :quote_amount, value: bot.quote_amount.to_d.to_s('F'), class: 'numeric-input iu-numeric iu-autowidth', min: 0, step: :any, size: 3, data: { action: "change->form--submit#submit" } %>
 
       <% if bot.transactions.any? %>
         <div class="ticker" style="background: <%= quote_color %>">
