@@ -18,14 +18,14 @@ class BotsController < ApplicationController
   def barbell_new_step_one
     set_new_barbell_bot
     assets = @bot.available_assets_for_current_settings(asset_type: :base_asset, include_exchanges: true)
-    @assets = filter_assets_by_query(assets: assets, query: params[:query] || '')
+    @assets = filter_assets_by_query(assets: assets, query: params[:query])
   end
 
   # select base1 asset
   def barbell_new_step_two
     set_new_barbell_bot
     assets = @bot.available_assets_for_current_settings(asset_type: :base_asset, include_exchanges: true)
-    @assets = filter_assets_by_query(assets: assets, query: params[:query] || '')
+    @assets = filter_assets_by_query(assets: assets, query: params[:query])
   end
 
   # select exchange
@@ -37,7 +37,7 @@ class BotsController < ApplicationController
   def barbell_new_step_four
     set_new_barbell_bot
     assets = @bot.available_assets_for_current_settings(asset_type: :quote_asset, include_exchanges: true)
-    @assets = filter_assets_by_query(assets: assets, query: params[:query] || '')
+    @assets = filter_assets_by_query(assets: assets, query: params[:query])
   end
 
   # confirm and create
@@ -48,7 +48,7 @@ class BotsController < ApplicationController
   def asset_search
     asset_type = params[:asset_field] == 'quote_asset_id' ? :quote_asset : :base_asset
     assets = @bot.available_assets_for_current_settings(asset_type: asset_type, include_exchanges: true)
-    @assets = filter_assets_by_query(assets: assets, query: params[:query] || '')
+    @assets = filter_assets_by_query(assets: assets, query: params[:query])
     @asset_field = params[:asset_field]
   end
 
@@ -162,8 +162,6 @@ class BotsController < ApplicationController
   def set_new_barbell_bot
     @bot = current_user.bots.barbell.new(
       settings: {
-        interval: Bot::INTERVALS.first,
-        allocation0: 0.5,
         base0_asset_id: params[:base0_asset_id]&.to_i,
         base1_asset_id: params[:base1_asset_id]&.to_i,
         quote_asset_id: params[:quote_asset_id]&.to_i
