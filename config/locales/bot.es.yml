@@ -1,6 +1,7 @@
 es:
     bot:
         new: "Nuevo bot"
+        create_first: "Inicia primer bot"
         start_new_bot: "Crear nuevo bot"
         types:
             dca:
