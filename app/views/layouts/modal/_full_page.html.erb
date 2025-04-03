@@ -1,10 +1,16 @@
-<%= render 'layouts/modal/base' do %>
-  <div class="modal modal--full">
-    <%= button_tag class: 'modal__close', data: { action: 'modal--base#animateOutCloseAndCleanUp' } do %>
-      <%= render partial: 'svg/24x24_x' %>
-    <% end %>
-    <%= turbo_frame_tag "modal_content" do %>
-      <%= yield %>
-    <% end %>
-  </div>
+<%= turbo_frame_tag "modal" do %>
+  <dialog data-controller="modal--base" data-action="click->modal--base#clickOutside" class="dialog" data-hw-animate-in="animate-modal-in" data-hw-animate-out="animate-modal-out">
+    <div class="dialog__vertical-center">
+
+      <div class="modal modal--full">
+        <%= button_tag class: 'modal__close', data: { action: 'modal--base#animateOutCloseAndCleanUp' } do %>
+          <%= render partial: 'svg/24x24_x' %>
+        <% end %>
+        <%= turbo_frame_tag "modal_content" do %>
+          <%= yield %>
+        <% end %>
+      </div>
+
+    </div>
+  </dialog>
 <% end %>
