@@ -1,13 +1,29 @@
+<% quote_color = ensure_contrast(@bot.quote_asset&.color || "#8A9BA8") %>
+<% base0_color = ensure_contrast(@bot.base0_asset&.color || "#8A9BA8") %>
+<% base1_color = ensure_contrast(@bot.base1_asset&.color || "#8A9BA8") %>
+
 <%= render 'layouts/modal/full_page' do %>
   <%= render partial: 'bots/barbell/new/progress_bar', locals: {
     current_step: :exchange
   } %>
   <div class="conversational conversational--bot-setup">
     Invest in
-    <div class="ticker" style="background: <%= @bot.base0_asset.color %>"><%= @bot.base0_asset.symbol %></div>
+
+    <%= link_to @bot.base0_asset.symbol, barbell_new_step_to_first_asset_bots_path({
+    bots_barbell: {
+      label: @bot.label,
+    }}), data: { turbo_frame: "modal_content" }, class: "ticker", style: "background: #{base0_color}" %>
+
     and
-    <div class="ticker" style="background: <%= @bot.base1_asset.color %>"><%= @bot.base1_asset.symbol %></div>
+
+    <%= link_to @bot.base1_asset.symbol, barbell_new_step_to_second_asset_bots_path({
+    bots_barbell: {
+      label: @bot.label,
+      base0_asset_id: @bot.base0_asset_id,
+    }}), data: { turbo_frame: "modal_content" }, class: "ticker", style: "background: #{base1_color}" %>
+
     at
+
     <%= form_with model: @bot, url: barbell_new_step_api_key_bots_path, method: :get, id: "exchange_select", class: "flex-row", data: { controller: "form--submit" } do |f| %>
       <div class="sinput sinput--select"></div>
         <%= f.hidden_field :label, value: @bot.label %>
