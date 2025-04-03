@@ -1,6 +1,7 @@
 nl:
     bot:
         new: "Nieuwe bot"
+        create_first: "Start eerste bot"
         start_new_bot: "Nieuwe bot aanmaken"
         types:
             dca:
