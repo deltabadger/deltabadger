@@ -1,8 +1,7 @@
 <%= render 'layouts/modal/full_page' do %>
-  <%= render partial: 'bots/barbell/progress_bar', locals: {
+  <%= render partial: 'bots/barbell/new/progress_bar', locals: {
     current_step: :api
   } %>
-  <%= @bot.inspect%>
   <div class="conversational conversational--bot-setup">Invest in <div class="ticker" style="background: <%= @bot.base0_asset.color %>"><%= @bot.base0_asset.symbol %></div> and <div class="ticker" style="background: <%= @bot.base1_asset.color %>"><%= @bot.base1_asset.symbol %></div> at <%= @bot.exchange.name.capitalize %> spending <div class="ticker" style="background: <%= @bot.quote_asset.color %>"><%= @bot.quote_asset.symbol %></div>.</div>
   <%= form_with model: @bot, url: bots_path(@bot), method: :post, data: { action: "turbo:submit-end->modal--base#submitEnd" } do |f| %>
     <%= f.hidden_field :label, value: @bot.label %>

@@ -1,24 +1,13 @@
-<div class="modal--search">
-  <%= form_with url: search_form_path, method: :get, data: { controller: "form--submit-after-delay", turbo_frame: "asset-picker" }, html: { style: "position:relative" } do |f| %>
-
-    <svg class="modal--search__zoom-icon" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="12" cy="12" r="9" stroke-width="2"/><path d="m19 19 4 4" stroke-width="2" stroke-linecap="round"/></svg>
-    <%= f.hidden_field :label, value: bot.label %>
-    <%= f.hidden_field :base0_asset_id, value: bot.base0_asset_id %>
-    <%= f.hidden_field :base1_asset_id, value: bot.base1_asset_id %>
-    <%= f.hidden_field :quote_asset_id, value: bot.quote_asset_id %>
-    <%= f.hidden_field :exchange_id, value: bot.exchange_id %>
-    <%= f.text_field :query, autofocus: true, autocomplete: "off", placeholder: "Search for an asset…", data: { action: "input->form--submit-after-delay#submit" }, class: "modal--search__input" %>
-
-  <% end %>
+<%# <div class="modal--search"> %>
   <%= turbo_frame_tag "asset-picker", data: { action: "keydown@window->arrow-keys-navigation#navigate", controller: "arrow-keys-navigation" }, class: "modal--search__assets" do %>
 
     <%# FIXME: test spinner. %>
-    <% if @assets.blank? %>
+    <% if assets.blank? %>
       <%# This is just a placeholder to design the style, however it's shown even if no text is input in the form. To solve it I have to enable background tasks, that process the search and broadcast the results once ready. %>
       <div class="loader"></div>
     <% end %>
 
-    <% @assets.each_with_index do |asset, index| %>
+    <% assets.each_with_index do |asset, index| %>
       <%= form_with model: bot, url: next_step_path, method: :get, data: { arrow_keys_navigation_target: "item" }, class: "modal--search__assets__item" do |f| %>
         <%= f.hidden_field :label, value: bot.label %>
         <%= f.hidden_field asset_field, value: asset.id %>
@@ -37,4 +26,4 @@
     <% end %>
 
   <% end %>
-</div>
+<%# </div> %>

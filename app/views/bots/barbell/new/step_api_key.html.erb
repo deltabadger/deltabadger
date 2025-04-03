@@ -1,0 +1,14 @@
+<%= render 'layouts/modal/full_page' do %>
+  <%= render partial: 'bots/barbell/new/progress_bar', locals: {
+    current_step: :api
+  } %>
+  <%= render 'bots/api_key_form', api_key: @api_key, from_path: barbell_new_step_from_asset_bots_path(
+    bots_barbell: {
+      label: @bot.label,
+      base0_asset_id: @bot.base0_asset_id,
+      base1_asset_id: @bot.base1_asset_id,
+      quote_asset_id: @bot.quote_asset_id,
+      exchange_id: @bot.exchange_id
+    }
+  ) %>
+<% end %>
