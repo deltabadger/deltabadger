@@ -1,15 +1,38 @@
+<% quote_color = ensure_contrast(@bot.quote_asset&.color || "#8A9BA8") %>
+<% base0_color = ensure_contrast(@bot.base0_asset&.color || "#8A9BA8") %>
+<% base1_color = ensure_contrast(@bot.base1_asset&.color || "#8A9BA8") %>
+
 <%= render 'layouts/modal/full_page' do %>
   <%= render partial: 'bots/barbell/new/progress_bar', locals: {
     current_step: :exchange
   } %>
   <div class="conversational conversational--bot-setup">
     Invest in
-    <div class="ticker" style="background: <%= @bot.base0_asset.color %>"><%= @bot.base0_asset.symbol %></div>
+
+    <%= link_to @bot.base0_asset.symbol, barbell_new_step_to_first_asset_bots_path({
+    bots_barbell: {
+      label: @bot.label,
+    }}), data: { turbo_frame: "modal_content" }, class: "ticker", style: "background: #{base0_color}" %>
+
     and
-    <div class="ticker" style="background: <%= @bot.base1_asset.color %>"><%= @bot.base1_asset.symbol %></div>
+
+    <%= link_to @bot.base1_asset.symbol, barbell_new_step_to_second_asset_bots_path({
+    bots_barbell: {
+      label: @bot.label,
+      base0_asset_id: @bot.base0_asset_id,
+    }}), data: { turbo_frame: "modal_content" }, class: "ticker", style: "background: #{base1_color}" %>
+
     at
-    <%= @bot.exchange.name.capitalize %>
+
+    <%= link_to @bot.exchange.name.capitalize, barbell_new_step_exchange_bots_path({
+    bots_barbell: {
+      label: @bot.label,
+      base0_asset_id: @bot.base0_asset_id,
+      base1_asset_id: @bot.base1_asset_id,
+    }}), data: { turbo_frame: "modal_content" }, class: "sinput sinput--select" %>
+
     spending
+
     <%= render partial: 'bots/barbell/new/asset_search_input', locals: {
       bot: @bot,
       search_form_path: barbell_new_step_from_asset_bots_path

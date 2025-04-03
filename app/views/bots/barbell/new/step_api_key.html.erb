@@ -2,6 +2,7 @@
   <%= render partial: 'bots/barbell/new/progress_bar', locals: {
     current_step: :api
   } %>
+  <%= t('bots.add_api_key') %> for <%= @bot.exchange.name.capitalize %>
   <%= render 'bots/api_key_form', api_key: @api_key, from_path: barbell_new_step_from_asset_bots_path(
     bots_barbell: {
       label: @bot.label,
