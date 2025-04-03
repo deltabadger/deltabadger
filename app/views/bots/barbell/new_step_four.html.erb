@@ -2,7 +2,7 @@
   <%= render partial: 'bots/barbell/progress_bar', locals: {
     current_step: :exchange
   } %>
-  <div class="conversational conversational--bot-setup">Invest in <%= @bot.base0_asset.symbol %> and <%= @bot.base1_asset.symbol %> at <%= @bot.exchange.name.capitalize %> spending …</div>
+  <div class="conversational conversational--bot-setup">Invest in <div class="ticker" style="background: <%= @bot.base0_asset.color %>"><%= @bot.base0_asset.symbol %></div> and <div class="ticker" style="background: <%= @bot.base1_asset.color %>"><%= @bot.base1_asset.symbol %></div> at <%= @bot.exchange.name.capitalize %> spending …</div>
 
 <%= @bot.inspect%>
   <%= render partial: 'bots/barbell/asset_search', locals: {

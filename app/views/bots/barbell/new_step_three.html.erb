@@ -2,7 +2,7 @@
   <%= render partial: 'bots/barbell/progress_bar', locals: {
     current_step: :exchange
   } %>
-  <div class="conversational conversational--bot-setup">Invest in <%= @bot.base0_asset.symbol %> and <%= @bot.base1_asset.symbol %> at …</div>
+  <div class="conversational conversational--bot-setup">Invest in <div class="ticker" style="background: <%= @bot.base0_asset.color %>"><%= @bot.base0_asset.symbol %></div> and <div class="ticker" style="background: <%= @bot.base1_asset.color %>"><%= @bot.base1_asset.symbol %></div> at …</div>
 <%= @bot.inspect%>
   <%= form_with model: @bot, url: barbell_new_step_four_bots_path, method: :get, id: "exchange_select", class: "flex-row", data: { controller: "form--submit" } do |f| %>
     <div class="sinput sinput--select"></div>
