@@ -3,8 +3,8 @@ class BotsController < ApplicationController
 
   before_action :authenticate_user!
   before_action :set_new_barbell_bot,
-                only: %i[barbell_new_step_one barbell_new_step_two barbell_new_step_three barbell_new_step_four
-                         barbell_new_step_five]
+                only: %i[barbell_new_step_to_first_asset barbell_new_step_to_second_asset barbell_new_step_exchange
+                         barbell_new_step_api_key barbell_new_step_from_asset barbell_new_step_confirm]
   before_action :set_bot,
                 only: %i[show edit update destroy confirm_destroy new_api_key create_api_key asset_search start
                          confirm_restart confirm_restart_legacy stop]
@@ -17,35 +17,54 @@ class BotsController < ApplicationController
 
   def new; end
 
-  # select base0 asset
-  def barbell_new_step_one
+  def barbell_new_step_to_first_asset
     assets = @bot.available_assets_for_current_settings(asset_type: :base_asset, include_exchanges: true)
-    @assets = filter_assets_by_query(assets: assets, query: params[:query])
-    render 'bots/barbell/new_step_one'
+    @assets = filter_assets_by_query(assets: assets, query: barbell_bot_params[:query])
+    render 'bots/barbell/new/step_to_first_asset'
   end
 
-  # select base1 asset
-  def barbell_new_step_two
+  def barbell_new_step_to_second_asset
     assets = @bot.available_assets_for_current_settings(asset_type: :base_asset, include_exchanges: true)
-    @assets = filter_assets_by_query(assets: assets, query: params[:query])
-    render 'bots/barbell/new_step_two'
+    @assets = filter_assets_by_query(assets: assets, query: barbell_bot_params[:query])
+    render 'bots/barbell/new/step_to_second_asset'
   end
 
-  # select exchange
-  def barbell_new_step_three
-    render 'bots/barbell/new_step_three'
+  def barbell_new_step_exchange
+    render 'bots/barbell/new/step_exchange'
   end
 
-  # select quote asset
-  def barbell_new_step_four
+  def barbell_new_step_api_key
+    @api_key = @bot.api_key
+    next_step_path = barbell_new_step_from_asset_bots_path(
+      bots_barbell: {
+        label: @bot.label,
+        base0_asset_id: @bot.base0_asset_id,
+        base1_asset_id: @bot.base1_asset_id,
+        quote_asset_id: @bot.quote_asset_id,
+        exchange_id: @bot.exchange_id
+      }
+    )
+    if @api_key.correct?
+      redirect_to next_step_path
+    else
+      @api_key.key = api_key_params[:key]
+      @api_key.secret = api_key_params[:secret]
+      if @api_key.save
+        redirect_to next_step_path
+      else
+        render 'bots/barbell/new/step_api_keys', status: :unprocessable_entity
+      end
+    end
+  end
+
+  def barbell_new_step_from_asset
     assets = @bot.available_assets_for_current_settings(asset_type: :quote_asset, include_exchanges: true)
-    @assets = filter_assets_by_query(assets: assets, query: params[:query])
-    render 'bots/barbell/new_step_four'
+    @assets = filter_assets_by_query(assets: assets, query: barbell_bot_params[:query])
+    render 'bots/barbell/new/step_from_asset'
   end
 
-  # confirm and create
-  def barbell_new_step_five
-    render 'bots/barbell/new_step_five'
+  def barbell_new_step_confirm
+    render 'bots/barbell/new/step_confirm'
   end
 
   def create
