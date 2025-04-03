@@ -1,6 +1,7 @@
 ru:
     bot:
         new: "Новый бот"
+        create_first: "Запустить первого бота"
         start_new_bot: "Создать нового бота"
         types:
             dca:
