@@ -22,6 +22,29 @@
         padding: 1rem 0
         @media screen and (min-width: 576px)
             padding: 2rem 0
+.dialogview
+    border: none
+    width: 100vw
+    height: 100vh
+    max-height: 100vh
+    max-width: 100vw
+    display: flex
+    justify-content: center
+    z-index: 1000
+    @media screen and (min-width: 768px)
+        align-items: center
+    .modal__close
+        top: 2rem
+        right: 2rem
+        @media screen and (min-width: 768px)
+            top: 4rem
+            right: 4rem
+    &__vertical-center
+        max-height: 100vh
+        padding: 2rem 0
+        @media screen and (min-width: 768px)
+            padding: 4rem 0
+            
 .modal
     position: relative
     padding: 3rem 4rem 4rem
