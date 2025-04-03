@@ -1,13 +1,19 @@
 .conversational
     display: flex
-    line-height: 4rem
+    line-height: 3rem
     gap: 1rem
     font-weight: 600
+    @media (min-width: 768px)
+        line-height: 4rem
     &--bot-setup
-        font-size: 3rem
+        font-size: 2.25rem
         padding: 8rem 2.25rem 6rem
         font-weight: bold
-
+        justify-content: center
+        flex-wrap: wrap
+        @media (min-width: 768px)
+            padding: 12rem 2.25rem 10rem
+            font-size: 3rem
 .db-bot
     .conversational
         padding: 3rem 0 4rem
