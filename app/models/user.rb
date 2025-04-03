@@ -59,7 +59,8 @@ class User < ApplicationRecord
   private
 
   def set_subscription
-    subscriptions.create!(subscription_plan_variant: SubscriptionPlanVariant.free)
+    subscription_plan_variant = SubscriptionPlanVariant.find_by(subscription_plan: SubscriptionPlan.free)
+    subscriptions.create!(subscription_plan_variant: subscription_plan_variant)
   end
 
   def set_affiliate
