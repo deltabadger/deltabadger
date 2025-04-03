@@ -47,7 +47,7 @@
   <% end %>
 
   <div class="db-form__row">
-    <ul data-form--password-strength-target="requirementsList" class="hidden">
+    <ul data-form--password-strength-target="requirementsList" class="hidden password-requirements">
       <li class="db-form__validation" data-form--password-strength-target="length"><%= t('devise.passwords.validations.length', count: @password_minimum_length) %></li>
       <li class="db-form__validation" data-form--password-strength-target="uppercase"><%= t('devise.passwords.validations.uppercase') %></li>
       <li class="db-form__validation" data-form--password-strength-target="lowercase"><%= t('devise.passwords.validations.lowercase') %></li>
