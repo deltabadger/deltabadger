@@ -1,5 +1,5 @@
 pl:
-    bots:
+    bot:
         setup:
             api_not_available: 'API giełdy nie jest dostępne'
             binance:
