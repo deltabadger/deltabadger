@@ -20,21 +20,21 @@ export const BotDetails = ({ bot }) => {
 
   const tabs = [
     {
-      label: I18n.t('bots.details.stats.title'),
+      label: I18n.t('bot.details.stats.title'),
       active: activeTab === 'statistics',
       visible: statisticsActive,
       id: 'stats-tab',
       tabpanelId: 'statistics',
     },
     {
-      label: I18n.t('bots.details.log.title'),
+      label: I18n.t('bot.details.log.title'),
       active: activeTab === 'log',
       visible: isNotEmpty(bot.logs),
       id: 'log-tab',
       tabpanelId: 'log',
     },
     {
-      label: I18n.t('bots.details.info.title'),
+      label: I18n.t('bot.details.info.title'),
       active: activeTab === 'info',
       visible: true,
       id: 'info-tab',

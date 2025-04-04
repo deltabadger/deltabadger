@@ -1,5 +1,6 @@
 fr:
     bot:
+        add_api_keys: "Ajouter les clés API pour %{exchange}"
         new: "Nouveau bot"
         create_first: "Démarrer premier bot"
         start_new_bot: "Créer un nouveau bot"
@@ -27,7 +28,6 @@ fr:
             mkt_cap_adjusted: "Ajusté à la capitalisation boursière"
             mkt_cap_adjusted_info: |
                 L'allocation est automatiquement définie en fonction de la capitalisation boursière des cryptomonnaies de votre portefeuille. Plus la capitalisation est importante, plus l'allocation est élevée.
-    bots:
         above: 'au dessus'
         below: 'en dessous'
         buttons:

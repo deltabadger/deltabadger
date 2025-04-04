@@ -4,19 +4,19 @@
       <%= render partial: 'svg/24x24_x' %>
     <% end %>
     <div class="modal__header">
-       <h1 class="modal__title"><%= t('bots.add_api_key') %></h1>
+       <h1 class="modal__title"><%= t('bot.add_api_key') %></h1>
     </div>
     <%= form_with model: @api_key, url: create_api_key_bot_path(@bot), method: :post, data: { controller: "form--label-animations form--html5-validations", action: "turbo:submit-end->modal--base#submitEnd" } do |f| %>
       <div class="db-form__row db-form__row--input">
         <%= f.text_field :key, autofocus: true, data: { controller: "autofocus" }, class: "db-form__input", rows: 3 %>
-        <%= f.label :key, t('bots.setup.'+@bot.exchange.downcase+'.public_key'), class: "db-form__label" %>
+        <%= f.label :key, t('bot.setup.'+@bot.exchange.downcase+'.public_key'), class: "db-form__label" %>
       </div>
       <div class="db-form__row db-form__row--input">
         <%= f.text_field :secret, class: "db-form__input", rows: 3 %>
-        <%= f.label :secret, t('bots.setup.'+@bot.exchange.downcase+'.private_key'), class: "db-form__label" %>
+        <%= f.label :secret, t('bot.setup.'+@bot.exchange.downcase+'.private_key'), class: "db-form__label" %>
       </div>
       <div class="large-button-wrapper">
-        <%= f.submit "Save API Key", class: "button button--success button--large", data: { turbo_stream: true, turbo_submits_with: i18n.t('bots.setup.validating') } %>
+        <%= f.submit "Save API Key", class: "button button--success button--large", data: { turbo_stream: true, turbo_submits_with: i18n.t('bot.setup.validating') } %>
       </div>
     <% end %>
   </div>

@@ -157,7 +157,7 @@ export const FetchFromExchangeTimer = ({ bot, callback }) => {
 
   return (
     <div className="db-bot__infotext__right">
-      {I18n.t('bots.buttons.pending.info_html')}
+      {I18n.t('bot.buttons.pending.info_html')}
     </div>
   );
 };

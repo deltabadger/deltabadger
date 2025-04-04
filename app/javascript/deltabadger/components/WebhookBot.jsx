@@ -244,9 +244,9 @@ const BotTemplate = ({
 
   const getSmartIntervalsDisclaimer = () => {
     if (minimumOrderParams.showQuote) {
-      return I18n.t('bots.smart_intervals_disclaimer', {exchange: exchangeName, currency: currencyOfMinimum, minimum: minimumOrderParams.value})
+      return I18n.t('bot.smart_intervals_disclaimer', {exchange: exchangeName, currency: currencyOfMinimum, minimum: minimumOrderParams.value})
     } else {
-      return I18n.t('bots.smart_intervals_disclaimer_quote', {currency: currencyOfMinimum, minimum: minimumOrderParams.value});
+      return I18n.t('bot.smart_intervals_disclaimer_quote', {currency: currencyOfMinimum, minimum: minimumOrderParams.value});
     }
   }
 
@@ -357,7 +357,7 @@ const BotTemplate = ({
         <div className="db-bot__form">
         <form className="db-bot__form__schedule">
           <div className="form-inline mb-4 pb-5">
-            {working ? <b className="form-group mr-2">{name}</b> : <div className="form-group mr-2">{I18n.t('bots.name')}</div>}
+            {working ? <b className="form-group mr-2">{name}</b> : <div className="form-group mr-2">{I18n.t('bot.name')}</div>}
             {working ? null :
               <div className="form-group">
                 <input
@@ -382,11 +382,11 @@ const BotTemplate = ({
                 disabled={working}
               >
                 {isSellOffer() ? <>
-                    <option value="sell">{I18n.t('bots.sell')}</option>
-                    <option value="sell_all">{I18n.t('bots.sell_all')}</option>
+                    <option value="sell">{I18n.t('bot.sell')}</option>
+                    <option value="sell_all">{I18n.t('bot.sell_all')}</option>
                   </> : <>
-                    <option value="buy">{I18n.t('bots.buy')}</option>
-                    <option value="buy_all">{I18n.t('bots.buy_all')}</option>
+                    <option value="buy">{I18n.t('bot.buy')}</option>
+                    <option value="buy_all">{I18n.t('bot.buy_all')}</option>
                   </>
                 }
               </select>
@@ -403,9 +403,9 @@ const BotTemplate = ({
                       disabled={working}
                   />
                 </div>}
-                <div className="form-group mr-2"> {baseName} {I18n.t('bots.for')}</div>
+                <div className="form-group mr-2"> {baseName} {I18n.t('bot.for')}</div>
               </> : <>
-                <div className="form-group mr-2"> {baseName} {I18n.t('bots.for')}</div>
+                <div className="form-group mr-2"> {baseName} {I18n.t('bot.for')}</div>
                 {isBuySellType(type) && <div className="form-group mr-2">
                   <input
                       type="text"
@@ -427,17 +427,17 @@ const BotTemplate = ({
                   className="bot-input bot-input--select bot-input--interval bot-input--paper-bg"
                   disabled={working}
               >
-                <option value="first_time">{I18n.t('bots.first_time')}</option>
-                <option value="every_time">{I18n.t('bots.every_time')}</option>
+                <option value="first_time">{I18n.t('bot.first_time')}</option>
+                <option value="every_time">{I18n.t('bot.every_time')}</option>
               </select>
             </div>
 
             {triggerUrl && <>
               <div className="form-group mr-2">
-                {I18n.t('bots.triggered_title')}
+                {I18n.t('bot.triggered_title')}
               </div>
               <div className="form-group bot-input bot-input--sizable bot-input--paper-bg">
-                <CopyToClipboardText text={webhookUrl} feedbackText={I18n.t('bots.webhook_has_been_copied')} />
+                <CopyToClipboardText text={webhookUrl} feedbackText={I18n.t('bot.webhook_has_been_copied')} />
               </div>
             </>}
           </div>
@@ -445,7 +445,7 @@ const BotTemplate = ({
           {working ? null : (
 
             <div className="form-inline mb-4">
-              <label className="form-group mr-2" for="twoWaysBot">{I18n.t('bots.additional_title')}</label>
+              <label className="form-group mr-2" for="twoWaysBot">{I18n.t('bot.additional_title')}</label>
               <div className="form-group mr-2">
                 <input
                     type="checkbox"
@@ -471,11 +471,11 @@ const BotTemplate = ({
                 >
                   {isBuyOffer()?
                       <>
-                        <option value="sell">{I18n.t('bots.sell')}</option>
-                        <option value="sell_all">{I18n.t('bots.sell_all')}</option>
+                        <option value="sell">{I18n.t('bot.sell')}</option>
+                        <option value="sell_all">{I18n.t('bot.sell_all')}</option>
                       </> : <>
-                        <option value="buy">{I18n.t('bots.buy')}</option>
-                        <option value="buy_all">{I18n.t('bots.buy_all')}</option>
+                        <option value="buy">{I18n.t('bot.buy')}</option>
+                        <option value="buy_all">{I18n.t('bot.buy_all')}</option>
                       </>
                   }
                 </select>
@@ -483,7 +483,7 @@ const BotTemplate = ({
               {isSellOffer()?
                   <>
                     <div className="form-group mr-2">{baseName}</div>
-                    <div className="form-group mr-2">{I18n.t('bots.for')}</div>
+                    <div className="form-group mr-2">{I18n.t('bot.for')}</div>
                     {isBuySellType(additionalType) && <div className="form-group mr-2">
                       <input
                           type="text"
@@ -496,7 +496,7 @@ const BotTemplate = ({
                       />
                     </div>}
                     <div className="form-group mr-2">{quoteName}</div>
-                    <div className="form-group mr-2">{I18n.t('bots.'+triggerPossibility)}</div>
+                    <div className="form-group mr-2">{I18n.t('bot.'+triggerPossibility)}</div>
                   </> : <>
                     {isBuySellType(additionalType) && <div className="form-group mr-2">
                       <input
@@ -510,17 +510,17 @@ const BotTemplate = ({
                       />
                     </div>}
                     <div className="form-group mr-2">{baseName}</div>
-                    <div className="form-group mr-2">{I18n.t('bots.for')}</div>
+                    <div className="form-group mr-2">{I18n.t('bot.for')}</div>
                     <div className="form-group mr-2">{quoteName}</div>
-                    <div className="form-group mr-2">{I18n.t('bots.'+triggerPossibility)}</div>
+                    <div className="form-group mr-2">{I18n.t('bot.'+triggerPossibility)}</div>
                   </>
               }
               {settings.additional_trigger_url && <>
                 <div className="form-group mr-2">
-                  {I18n.t('bots.triggered_title')}
+                  {I18n.t('bot.triggered_title')}
                 </div>
                 <div className="form-group bot-input bot-input--sizable bot-input--paper-bg">
-                  <CopyToClipboardText text={additionalWebhookUrl} feedbackText={I18n.t('bots.webhook_has_been_copied')} />
+                  <CopyToClipboardText text={additionalWebhookUrl} feedbackText={I18n.t('bot.webhook_has_been_copied')} />
                 </div>
               </>}
             </div>

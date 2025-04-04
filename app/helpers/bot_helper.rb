@@ -1,6 +1,6 @@
 module BotHelper
   def bot_intervals
-    Bot::INTERVALS.map { |interval| [t("bots.#{interval}"), interval] }
+    Bot::INTERVALS.map { |interval| [t("bot.#{interval}"), interval] }
   end
 
   def bot_type_label(bot)

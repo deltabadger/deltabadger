@@ -271,9 +271,9 @@ const BotTemplate = ({
 
   const getSmartIntervalsDisclaimer = () => {
     if (minimumOrderParams.showQuote) {
-      return I18n.t('bots.smart_intervals_disclaimer', {exchange: exchangeName, currency: currencyOfMinimum, minimum: minimumOrderParams.value})
+      return I18n.t('bot.smart_intervals_disclaimer', {exchange: exchangeName, currency: currencyOfMinimum, minimum: minimumOrderParams.value})
     } else {
-      return I18n.t('bots.smart_intervals_disclaimer_quote', {currency: currencyOfMinimum, minimum: minimumOrderParams.value});
+      return I18n.t('bot.smart_intervals_disclaimer_quote', {currency: currencyOfMinimum, minimum: minimumOrderParams.value});
     }
   }
 
@@ -470,17 +470,17 @@ const BotTemplate = ({
             disabled={working}
           >
             {isSellOffer() ? <>
-                <option value="market">{I18n.t('bots.sell')}</option>
-                <option value="limit" disabled={!showLimitOrders}>{I18n.t('bots.limit_sell')}</option>
+                <option value="market">{I18n.t('bot.sell')}</option>
+                <option value="limit" disabled={!showLimitOrders}>{I18n.t('bot.limit_sell')}</option>
               </>
               : <>
                 {isLegacySell() ?<>
-                      <option value="market">{I18n.t('bots.sell')}</option>
-                      <option value="limit" disabled={!showLimitOrders}>{I18n.t('bots.limit_sell')}</option>
+                      <option value="market">{I18n.t('bot.sell')}</option>
+                      <option value="limit" disabled={!showLimitOrders}>{I18n.t('bot.limit_sell')}</option>
                     </> :
                     <>
-                      <option value="market">{I18n.t('bots.buy')}</option>
-                      <option value="limit" disabled={!showLimitOrders}>{I18n.t('bots.limit_buy')}</option>
+                      <option value="market">{I18n.t('bot.buy')}</option>
+                      <option value="limit" disabled={!showLimitOrders}>{I18n.t('bot.limit_buy')}</option>
                     </>}
               </>
             }
@@ -494,11 +494,11 @@ const BotTemplate = ({
                     className="sinput"
                     onChange={e => setPrice(e.target.value)}
                     disabled={working}
-                /> {baseName} {I18n.t('bots.for')}
+                /> {baseName} {I18n.t('bot.for')}
               </>
               :
               <>
-                {baseName} {I18n.t('bots.for')} <input
+                {baseName} {I18n.t('bot.for')} <input
                     type="text"
                     size={(price.length > 0) ? price.length : 3}
                     value={price}
@@ -515,10 +515,10 @@ const BotTemplate = ({
               onChange={e => setInterval(e.target.value)}
               disabled={working}
             >
-            <option value="hour">{I18n.t('bots.hour')}</option>
-            <option value="day">{I18n.t('bots.day')}</option>
-            <option value="week">{I18n.t('bots.week')}</option>
-            <option value="month">{I18n.t('bots.month')}</option>
+            <option value="hour">{I18n.t('bot.hour')}</option>
+            <option value="day">{I18n.t('bot.day')}</option>
+            <option value="week">{I18n.t('bot.week')}</option>
+            <option value="month">{I18n.t('bot.month')}</option>
           </select>
         </div>
 
@@ -534,7 +534,7 @@ const BotTemplate = ({
               disabled={working}
           />
           <div>
-            <RawHTML tag="span">{splitTranslation(I18n.t('bots.subaccounts_info'))}</RawHTML>
+            <RawHTML tag="span">{splitTranslation(I18n.t('bot.subaccounts_info'))}</RawHTML>
             <select
                 value={selectedSubaccount}
                 onChange={e => setSelectedSubaccount(e.target.value)}
@@ -561,7 +561,7 @@ const BotTemplate = ({
             disabled={working}
           />
           <div>
-            <RawHTML tag="span">{splitTranslation(I18n.t('bots.force_smart_intervals_html', {currency: currencyOfMinimum}))[0]}</RawHTML>
+            <RawHTML tag="span">{splitTranslation(I18n.t('bot.force_smart_intervals_html', {currency: currencyOfMinimum}))[0]}</RawHTML>
             <input
               type="text"
               className="bot-input bot-input--sizable"
@@ -571,7 +571,7 @@ const BotTemplate = ({
               onBlur={validateSmartIntervalsValue}
               disabled={working}
             />
-            <RawHTML tag="span">{splitTranslation(I18n.t('bots.force_smart_intervals_html', {currency: currencyOfMinimum}))[1]}</RawHTML>
+            <RawHTML tag="span">{splitTranslation(I18n.t('bot.force_smart_intervals_html', {currency: currencyOfMinimum}))[1]}</RawHTML>
 
             <small className="hide-when-running hide-when-disabled">
               <div>
@@ -594,7 +594,7 @@ const BotTemplate = ({
             disabled={working || !showLimitOrders}
           />
           <div>
-            <RawHTML tag="span">{ I18n.t('bots.feecutter_html')}</RawHTML> <input
+            <RawHTML tag="span">{ I18n.t('bot.feecutter_html')}</RawHTML> <input
             type="text"
             value={percentage}
             size={(percentage.length > 0) ? percentage.length : 3}
@@ -602,7 +602,7 @@ const BotTemplate = ({
             onChange={e => setPercentage(e.target.value)}
             onBlur={validatePercentage}
             disabled={working || !showLimitOrders || !isLimitSelected()}
-          /> % {isSellOffer() ? I18n.t('bots.above') : (isLegacySell() ? I18n.t('bots.above') :I18n.t('bots.below'))} {I18n.t('bots.price')}.
+          /> % {isSellOffer() ? I18n.t('bot.above') : (isLegacySell() ? I18n.t('bot.above') :I18n.t('bot.below'))} {I18n.t('bot.price')}.
 
             { isLimitSelected() && <small className="hide-when-running"><LimitOrderNotice/></small> }
             { !showLimitOrders && <div className="bot input bot-input--pro-plan-only--before"><a href={`/${document.body.dataset.locale}/upgrade`}>Pro</a></div> }
@@ -621,7 +621,7 @@ const BotTemplate = ({
             disabled={working || !showLimitOrders}
           />
           <div>
-            <RawHTML tag="span">{splitTranslation(I18n.t((isLegacySell() || isSellOffer()) ? 'bots.price_range_sell_html' :'bots.price_range_buy_html', {quote: quoteName, base: baseName}))[0]}</RawHTML>
+            <RawHTML tag="span">{splitTranslation(I18n.t((isLegacySell() || isSellOffer()) ? 'bot.price_range_sell_html' :'bot.price_range_buy_html', {quote: quoteName, base: baseName}))[0]}</RawHTML>
             <input
               type="text"
               className="bot-input bot-input--sizable"
@@ -630,7 +630,7 @@ const BotTemplate = ({
               disabled={working || !showLimitOrders}
               size={Math.max(priceRange.low.length, 1)}
             />
-            <RawHTML tag="span">{splitTranslation(I18n.t((isLegacySell() || isSellOffer()) ? 'bots.price_range_sell_html' :'bots.price_range_buy_html', {quote: quoteName, base: baseName}))[1]}</RawHTML>
+            <RawHTML tag="span">{splitTranslation(I18n.t((isLegacySell() || isSellOffer()) ? 'bot.price_range_sell_html' :'bot.price_range_buy_html', {quote: quoteName, base: baseName}))[1]}</RawHTML>
             <input
               type="text"
               className="bot-input bot-input--sizable"
@@ -639,7 +639,7 @@ const BotTemplate = ({
               disabled={working || !showLimitOrders}
               size={ Math.max(priceRange.high.length, 1) }
             />
-            <RawHTML tag="span">{splitTranslation(I18n.t((isLegacySell() || isSellOffer()) ? 'bots.price_range_sell_html' :'bots.price_range_buy_html', {quote: quoteName, base: baseName}))[2]}</RawHTML>
+            <RawHTML tag="span">{splitTranslation(I18n.t((isLegacySell() || isSellOffer()) ? 'bot.price_range_sell_html' :'bot.price_range_buy_html', {quote: quoteName, base: baseName}))[2]}</RawHTML>
             { !showLimitOrders && <div className="bot input bot-input--pro-plan-only--before"><a href={`/${document.body.dataset.locale}/upgrade`} >Pro</a></div> }
           </div>
         </label>

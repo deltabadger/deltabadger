@@ -13,11 +13,11 @@
 <%# End Placeholder variables %>
 
 <% if bot.pending_quote_amount&.positive? %>
-  <h2><%= t('bots.warning.title') %></h2>
+  <h2><%= t('bot.warning.title') %></h2>
 
   <% if @both_missed %>
     <!-- 1a: Both missed -->
-    <p><%= t('bots.warning.both_below.intro',
+    <p><%= t('bot.warning.both_below.intro',
               exchange_name: @exchange_name,
               min_base: @min_base,
               base_ticker: @base_ticker,
@@ -25,7 +25,7 @@
               quote_ticker: @quote_ticker) %></p>
   <% else %>
     <!-- 1b: One missed -->
-    <p><%= t('bots.warning.one_below.intro',
+    <p><%= t('bot.warning.one_below.intro',
               bought_amount: @bought_amount,
               bought_ticker: @bought_ticker,
               missed_ticker: @missed_ticker,
@@ -33,8 +33,8 @@
               min_missed: @min_missed) %></p>
   <% end %>
 
-  <p><%= t('bots.warning.buffer_explanation', count: @missed_count) %></p>
+  <p><%= t('bot.warning.buffer_explanation', count: @missed_count) %></p>
 
   <!-- 2: General Note -->
-  <p><%= t('bots.warning.general_note') %></p>
+  <p><%= t('bot.warning.general_note') %></p>
 <% end %>
