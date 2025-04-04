@@ -186,28 +186,6 @@ de:
     dca_calculator:
         title: "Wie lange musstest du <span>$%{amount}/Monat</span> sparen, um %{goal}?"
         goal_millionaire: "Millionär zu werden"
-    alert:
-        bot:
-            bot_updated: 'Bot wurde erfolgreich aktualisiert.'
-        portfolio:
-            invalid_name: 'Ungültiger Portfolioname.'
-            invalid_benchmark: "Ungültiger Benchmark-Wert."
-            invalid_strategy: "Ungültiger Strategie-Wert."
-            invalid_start_date: "Ungültiger Startdatum-Wert."
-            invalid_risk_free_rate: "Ungültiger risikofreier Zinssatz."
-            invalid_smart_allocation: "Ungültiger Smart-Allocation-Wert."
-            invalid_risk_level: "Ungültiger Risikoniveau-Wert."
-            unable_to_calculate: "Es können keine Smart-Allocations für diese Parameter berechnet werden."
-            portfolio_normalized: "Portfolio-Zuweisungen wurden normalisiert."
-            risk_level_updated: "Das Risikoniveau wurde aktualisiert."
-            smart_allocation_updated: "Die Smart-Allocations wurden aktualisiert."
-            unable_to_set_risk_rate: "Der risikofreie Zinssatz kann nicht auf %{risk_free_rate_name} festgelegt werden."
-            api_unreachable: "Daten-API-Server ist nicht erreichbar."
-            portfolio_created: 'Portfolio wurde erfolgreich erstellt.'
-            portfolio_updated: 'Portfolio wurde erfolgreich aktualisiert.'
-            portfolio_destroyed: 'Portfolio wurde erfolgreich gelöscht.'
-            portfolio_duplicated: 'Portfolio wurde erfolgreich dupliziert.'
-            unable_to_duplicate_portfolio: 'Portfolio konnte nicht dupliziert werden.'
     ai:
         insights:
             intro: "Bewerte mein Portfolio im Stil von Naval-Tweets. Finde geopolitische oder technische Thesen dahinter und relevante makroökonomische Ereignisse der letzten Jahre. Beachte, ob das Portfolio dich an eine bestimmte Anlagestrategie oder bekannte Idee wie das 3-Fonds-Portfolio erinnert. Weisen Sie auf überschneidende Vermögenswerte hin, wie ETFs mit denselben Aktien (nur wenn vorhanden). Zeigen Sie bis zu 5 Vor- und/oder Nachteile auf. Organisieren Sie sie: Vorteile zuerst. Legen Sie mehr Wert auf Metriken wie Volatilität und Beta, dann auf solche, die hauptsächlich die Vergangenheit widerspiegeln, wie den Sharpe-Quotienten. Verwenden Sie die Skala Schlecht/Neutral/Gut/Ausgezeichnet."

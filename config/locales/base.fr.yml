@@ -180,28 +180,6 @@ fr:
     dca_calculator:
         title: "Combien de temps fallait-il épargner <span>$%{amount}/mois</span> pour %{goal} ?"
         goal_millionaire: "devenir millionnaire"
-    alert:
-        bot:
-            bot_updated: 'Le bot a été mis à jour avec succès.'
-        portfolio:
-            invalid_name: 'Nom de portefeuille invalide.'
-            invalid_benchmark: 'Valeur de référence invalide.'
-            invalid_strategy: 'Valeur de stratégie invalide.'
-            invalid_start_date: 'Valeur de date de début invalide.'
-            invalid_risk_free_rate: 'Valeur de taux sans risque invalide.'
-            invalid_smart_allocation: 'Valeur d''allocation intelligente invalide.'
-            invalid_risk_level: 'Valeur de niveau de risque invalide.'
-            unable_to_calculate: 'Impossible de calculer les allocations intelligentes pour ces paramètres.'
-            portfolio_normalized: 'Les allocations du portefeuille ont été normalisées.'
-            risk_level_updated: 'Le niveau de risque a été mis à jour.'
-            smart_allocation_updated: 'Les allocations intelligentes ont été mises à jour.'
-            unable_to_set_risk_rate: 'Impossible de définir le taux sans risque à %{risk_free_rate_name}.'
-            api_unreachable: 'Le serveur API de données est inaccessible.'
-            portfolio_created: 'Le portefeuille a été créé avec succès.'
-            portfolio_updated: 'Le portefeuille a été mis à jour avec succès.'
-            portfolio_destroyed: 'Le portefeuille a été supprimé avec succès.'
-            portfolio_duplicated: 'Le portefeuille a été dupliqué avec succès.'
-            unable_to_duplicate_portfolio: 'Impossible de dupliquer le portefeuille.'
     ai:
         insights:
             intro: "Évaluez mon portefeuille dans le style des tweets de Naval. Trouvez la thèse géopolitique ou technique sous-jacente et les événements macroéconomiques pertinents des dernières années. Remarquez si le portefeuille vous rappelle un style d'investissement ou une idée populaire, comme le portefeuille à 3 fonds, etc. Identifiez les actifs se chevauchant comme les ETF avec les mêmes actions (seulement s'il y en a). Indiquez jusqu'à 5 avantages et/ou inconvénients. Organisez-les : avantages en premier. Accordez plus d'importance aux métriques comme la volatilité et le bêta, puis à celles reflétant principalement le passé, comme le ratio de Sharpe. Utilisez l'échelle Mauvais/Neutre/Bon/Exceptionnel."
