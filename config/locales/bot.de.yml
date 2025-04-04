@@ -1,5 +1,6 @@
 de:
     bot:
+        add_api_keys: "API-Schlüssel für %{exchange} hinzufügen"
         new: "Neuer Bot"
         create_first: "Starte ersten Bot"
         start_new_bot: "Neuen Bot erstellen"
@@ -27,7 +28,6 @@ de:
             mkt_cap_adjusted: "Marktkapitalisierung angepasst"
             mkt_cap_adjusted_info: |
                 Die Zuteilung wird automatisch basierend auf der Marktkapitalisierung der Coins in deinem Portfolio festgelegt. Je größer die Marktkapitalisierung, desto größer die Zuteilung.
-    bots:
         above: über
         below: unter
         buttons:

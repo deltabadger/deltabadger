@@ -6,8 +6,8 @@ export const Logs = ({ bot, active }) => (
     <table className="table table-striped table-borderless db-table db-table--tx">
       <thead>
         <tr>
-          <th scope="col">{I18n.t('bots.details.log.date')}</th>
-          <th scope="col">{I18n.t('bots.details.log.errors')}</th>
+          <th scope="col">{I18n.t('bot.details.log.date')}</th>
+          <th scope="col">{I18n.t('bot.details.log.errors')}</th>
         </tr>
       </thead>
       <tbody>

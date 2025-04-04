@@ -1,5 +1,6 @@
 it:
     bot:
+        add_api_keys: "Aggiungi chiavi API per %{exchange}"
         new: "Nuovo bot"
         create_first: "Avvia il primo bot"
         start_new_bot: "Crea nuovo bot"
@@ -21,7 +22,6 @@ it:
             paused: "In pausa"
         no_orders_info: "Gli ordini del bot appariranno qui"
         pick_exchange: "Scegli Exchange"
-        add_api_keys: "Aggiungi chiavi API per %{exchange}"
         barbell:
             invest: "Investi"
             invest_html: "Investi %{input} /mese"
@@ -29,7 +29,6 @@ it:
             mkt_cap_adjusted: "Aggiustato per capitalizzazione di mercato"
             mkt_cap_adjusted_info: |
                 L'allocazione è impostata automaticamente in base alla capitalizzazione di mercato delle monete nel tuo portfolio. Maggiore è la capitalizzazione di mercato, maggiore sarà l'allocazione.
-    bots:
         above: "sopra"
         below: "sotto"
         buttons:

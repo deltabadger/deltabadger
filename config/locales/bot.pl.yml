@@ -1,5 +1,6 @@
 pl:
     bot:
+        add_api_keys: "Dodaj klucze API dla %{exchange}"
         new: "Nowy bot"
         create_first: "Uruchom pierwszego bota"
         start_new_bot: "Utwórz nowego bota"
@@ -27,7 +28,6 @@ pl:
             mkt_cap_adjusted: "Dostosowane do kapitalizacji rynkowej"
             mkt_cap_adjusted_info: |
                 Alokacja jest automatycznie ustawiana na podstawie kapitalizacji rynkowej monet w twoim portfelu. Im większa kapitalizacja rynkowa, tym większa alokacja.
-    bots:
         above: powyżej
         below: poniżej
         buttons:

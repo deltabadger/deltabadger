@@ -42,7 +42,7 @@ export const PercentageProgress = ({bot, callback}) => {
   const percentage = progressPercentage >= 1 ? Math.floor(progressPercentage) : parseFloat(progressPercentage).toFixed(2);
   return (
     <div className="db-bot__infotext__right">
-      <span className="d-none d-sm-inline">{I18n.t('bots.withdrawal_percentage', {percentage: percentage})}</span>
+      <span className="d-none d-sm-inline">{I18n.t('bot.withdrawal_percentage', {percentage: percentage})}</span>
     </div>
   )
 }

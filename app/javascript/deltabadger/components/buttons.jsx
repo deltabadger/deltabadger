@@ -53,60 +53,60 @@ export const StartButton = ({settings, getRestartType, onClickReset, setShowInfo
     <div>
       { getType === startButtonType.CHANGED_ON_SCHEDULE &&
         <div>
-          <RawHTML tag="p">{I18n.t('bots.buttons.start.changed_on_schedule.info_html', { time: timeToNextTransaction })}</RawHTML>
+          <RawHTML tag="p">{I18n.t('bot.buttons.start.changed_on_schedule.info_html', { time: timeToNextTransaction })}</RawHTML>
           <div className="db-bot__modal__btn-group">
             <div onClick={() => {
               _handleSubmit()
-            }} className="button button--primary button--outline">{I18n.t('bots.buttons.start.changed_on_schedule.skip')}
+            }} className="button button--primary button--outline">{I18n.t('bot.buttons.start.changed_on_schedule.skip')}
             </div>
             <div onClick={() => {
               _handleSubmit(true)
-            }} className="button button--success">{I18n.t('bots.buttons.start.changed_on_schedule.continue')}
+            }} className="button button--success">{I18n.t('bot.buttons.start.changed_on_schedule.continue')}
             </div>
           </div>
           </div>
       }
       { getType === startButtonType.CHANGED_MISSED &&
         <div>
-          <RawHTML tag="p">{I18n.t('bots.buttons.start.changed_missed.info_html', { amount: cleverToFixed(missedAmount), quote: settings.quote })}</RawHTML>
+          <RawHTML tag="p">{I18n.t('bot.buttons.start.changed_missed.info_html', { amount: cleverToFixed(missedAmount), quote: settings.quote })}</RawHTML>
           <div className="db-bot__modal__btn-group">
             <div onClick={() => {
               _handleSubmit()
-            }} className="button button--primary button--outline">{I18n.t('bots.buttons.start.changed_missed.skip')}
+            }} className="button button--primary button--outline">{I18n.t('bot.buttons.start.changed_missed.skip')}
             </div>
             <div onClick={() => {
               _handleSubmit(false, missedAmount)
-            }} className="button button--success">{I18n.t('bots.buttons.start.changed_missed.continue')}
+            }} className="button button--success">{I18n.t('bot.buttons.start.changed_missed.continue')}
             </div>
           </div>
       </div>
       }
       { getType === startButtonType.MISSED &&
         <div>
-          <RawHTML tag="p">{I18n.t('bots.buttons.start.missed.info_html', { amount: cleverToFixed(missedAmount), quote: settings.quote })}</RawHTML>
+          <RawHTML tag="p">{I18n.t('bot.buttons.start.missed.info_html', { amount: cleverToFixed(missedAmount), quote: settings.quote })}</RawHTML>
           <div className="db-bot__modal__btn-group">
             <div onClick={() => {
               _handleSubmit()
-            }} className="button button--primary button--outline">{I18n.t('bots.buttons.start.missed.skip')}
+            }} className="button button--primary button--outline">{I18n.t('bot.buttons.start.missed.skip')}
             </div>
             <div onClick={() => {
               _handleSubmit(false, missedAmount)
-            }} className="button button--success">{I18n.t('bots.buttons.start.missed.continue')}
+            }} className="button button--success">{I18n.t('bot.buttons.start.missed.continue')}
             </div>
           </div>
           </div>
       }
       { getType === startButtonType.ON_SCHEDULE &&
         <div>
-          <RawHTML tag="p">{I18n.t('bots.buttons.start.on_schedule.info_html', { time: timeToNextTransaction })}</RawHTML>
+          <RawHTML tag="p">{I18n.t('bot.buttons.start.on_schedule.info_html', { time: timeToNextTransaction })}</RawHTML>
           <div className="db-bot__modal__btn-group">
             <div onClick={() => {
               _handleSubmit()
-            }} className="button button--primary button--outline">{I18n.t('bots.buttons.start.on_schedule.skip')}
+            }} className="button button--primary button--outline">{I18n.t('bot.buttons.start.on_schedule.skip')}
             </div>
             <div onClick={() => {
               _handleSubmit(true)
-            }} className="button button--success">{I18n.t('bots.buttons.start.on_schedule.continue')}
+            }} className="button button--success">{I18n.t('bot.buttons.start.on_schedule.continue')}
             </div>
           </div>
         </div>
@@ -168,12 +168,12 @@ export const StartButton = ({settings, getRestartType, onClickReset, setShowInfo
 
 export const StartingButton = () => (
   <div className="button button--success disabled">
-    <span>{I18n.t('bots.starting')}</span>
+    <span>{I18n.t('bot.starting')}</span>
   </div>
 )
 export const PendingButton = () => (
   <div className="button button--success disabled">
-    <span>{I18n.t('bots.buttons.pending.text')}</span>
+    <span>{I18n.t('bot.buttons.pending.text')}</span>
   </div>
 )
 export const StopButton = ({ onClick }) => (
@@ -216,16 +216,16 @@ export const RemoveButton = ({onClick, disabled}) => {
         className={`button button--link button--icon-and-text ${disabled ? 'button--disabled' : ''}`}
       >
         <i className="material-icons">close</i>
-        <span>{I18n.t('bots.buttons.delete.text')}</span>
+        <span>{I18n.t('bot.buttons.delete.text')}</span>
       </div>
 
       { isOpen &&
         <div ref={node} className="db-bot__modal">
           <div className="db-bot__modal__content">
-            <RawHTML tag="p">{I18n.t('bots.buttons.delete.warning_html')}</RawHTML>
+            <RawHTML tag="p">{I18n.t('bot.buttons.delete.warning_html')}</RawHTML>
             <div className="db-bot__modal__btn-group">
               <div onClick={() => {setOpen(false)}} className="button button--primary button--outline">{I18n.t('utils.cancel')}</div>
-              <div onClick={() => {onClick() && setOpen(false)}} className="button button--danger">{I18n.t('bots.buttons.delete.ok')}</div>
+              <div onClick={() => {onClick() && setOpen(false)}} className="button button--danger">{I18n.t('bot.buttons.delete.ok')}</div>
             </div>
           </div>
         </div>
