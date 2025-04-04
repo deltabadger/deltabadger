@@ -1,5 +1,5 @@
 en:
-    bots:
+    bot:
         setup:
             api_not_available: "Exchange API is not available"
             sentence:
