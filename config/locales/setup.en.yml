@@ -2,6 +2,11 @@ en:
     bots:
         setup:
             api_not_available: "Exchange API is not available"
+            sentence:
+                invest_in: "Invest in"
+                and: "and"
+                at: "at"
+                spending: "spending"
             binance:
                 instructions_1_html: 'Log into your %{exchange_link} account.'
                 instructions_2_html: 'In user menu (round icon in the top right corner) go to <b>API Management</b>.'

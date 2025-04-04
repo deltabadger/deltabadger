@@ -7,14 +7,14 @@
     current_step: :currencies
   } %>
   <div class="conversational conversational--bot-setup">
-    Invest in
+    <%= t('bots.setup.sentence.invest_in') %>
 
     <%= link_to @bot.base0_asset.symbol, barbell_new_step_to_first_asset_bots_path({
     bots_barbell: {
       label: @bot.label,
     }}), data: { turbo_frame: "modal_content" }, class: "ticker", style: "background: #{base0_color}" %>
 
-    and
+    <%= t('bots.setup.sentence.and') %>
     <%= render partial: 'bots/barbell/new/asset_search_input', locals: {
       bot: @bot,
       search_form_path: barbell_new_step_to_second_asset_bots_path

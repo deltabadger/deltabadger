@@ -1,6 +1,12 @@
 ru:
     bots:
         setup:
+            api_not_available: "API биржи недоступна"
+            sentence:
+                invest_in: "Инвестировать в"
+                and: "и"
+                at: "на"
+                spending: "используя"
             binance:
                 instructions_1_html: 'Войдите в свой аккаунт %{{exchange_link}}.'
                 instructions_2_html: 'В пользовательском меню (круглый значок в правом верхнем углу) перейдите в <b>Управление API</b>.'
