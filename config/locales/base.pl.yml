@@ -237,14 +237,18 @@ pl:
                 adjusted_end_html: 'Data zakończenia testu wstecznego została dostosowana do <strong>%{end_date}</strong>, aby dopasować się do dostępnej historii wszystkich aktywów.'
     utils:
         assets: Aktywa
-        are_you_sure: 'Czy jesteś pewny?'
+        cash: Gotówka
+        bonds: Obligacje
+        gold: Złoto
+        are_you_sure: 'Jesteś pewien?'
         change_name: 'Zmień nazwę'
         delete: 'Usuń'
         duplicate: 'Duplikuj'
         important: 'Ważne!'
-        new: 'Nowość'
+        new: 'Nowe'
         save: 'Zapisz'
         see_at_coingecko: 'Zobacz na CoinGecko'
+        search_placeholder: 'Szukaj aktywa…'
         since: 'od'
         soon: 'wkrótce'
         years:
@@ -265,9 +269,6 @@ pl:
         seconds:
             one: "%{count} sekunda"
             other: "%{count} sekund"
-        cash: Gotówka
-        bonds: Obligacje
-        gold: Złoto
     dca_calculator:
         title: "Jak długo musiałbyś oszczędzać <span>$%{amount}/miesięcznie,</span> aby %{goal}?"
         goal_millionaire: "zostać milionerem"

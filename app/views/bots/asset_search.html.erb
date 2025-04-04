@@ -5,7 +5,7 @@
 
         <svg class="modal--search__zoom-icon" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="12" cy="12" r="9" stroke-width="2"/><path d="m19 19 4 4" stroke-width="2" stroke-linecap="round"/></svg>
         <%= f.hidden_field :asset_field, value: @asset_field %>
-        <%= f.text_field :query, autofocus: true, autocomplete: "off", placeholder: "Search for an asset…", data: { action: "input->form--submit-after-delay#submit" }, class: "modal--search__input" %>
+        <%= f.text_field :query, autofocus: true, autocomplete: "off", placeholder: t('utils.search_placeholder'), data: { action: "input->form--submit-after-delay#submit" }, class: "modal--search__input" %>
 
       <% end %>
       <%= turbo_frame_tag "asset-picker", data: { action: "turbo:submit-end->modal--base#submitEnd keydown@window->arrow-keys-navigation#navigate", controller: "arrow-keys-navigation" }, class: "modal--search__assets" do %>
