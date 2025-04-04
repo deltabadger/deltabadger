@@ -153,6 +153,7 @@ fr:
         important: 'Important !'
         new: 'Nouveau'
         save: 'Enregistrer'
+        cancel: 'Annuler'
         see_at_coingecko: 'Voir sur CoinGecko'
         search:
             placeholder:

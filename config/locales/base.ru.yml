@@ -161,6 +161,7 @@ ru:
         important: 'Важно!'
         new: 'Новый'
         save: 'Сохранить'
+        cancel: 'Отменить'
         see_at_coingecko: 'Смотреть на CoinGecko'
         search:
             placeholder:

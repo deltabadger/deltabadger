@@ -224,7 +224,7 @@ export const RemoveButton = ({onClick, disabled}) => {
           <div className="db-bot__modal__content">
             <RawHTML tag="p">{I18n.t('bots.buttons.delete.warning_html')}</RawHTML>
             <div className="db-bot__modal__btn-group">
-              <div onClick={() => {setOpen(false)}} className="button button--primary button--outline">{I18n.t('bots.buttons.delete.cancel')}</div>
+              <div onClick={() => {setOpen(false)}} className="button button--primary button--outline">{I18n.t('utils.cancel')}</div>
               <div onClick={() => {onClick() && setOpen(false)}} className="button button--danger">{I18n.t('bots.buttons.delete.ok')}</div>
             </div>
           </div>

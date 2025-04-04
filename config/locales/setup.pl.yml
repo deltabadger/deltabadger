@@ -56,7 +56,6 @@ pl:
                 instructions_9_html: 'Wklej oba klucze do danych wejściowych powyżej.'
                 private_key: 'API Secret'
                 public_key: 'Klucz API'
-            cancel: Anuluj
             coinbase:
                 instructions_1_html: 'Zaloguj się na swoje konto %{exchange_link}.'
                 instructions_2_html: 'Wybierz zakładkę <b>Więcej</b> z lewego paska bocznego.'
