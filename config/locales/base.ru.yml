@@ -145,9 +145,6 @@ ru:
             few: 'Осталось %{count} дня'
             many: 'Осталось %{count} дней'
             other: 'Осталось %{count} дней'
-        basic_info: 'Ничего лишнего, только дело.'
-        pro_info: 'Получите общую картину, глубокую аналитику и функции Pro.'
-        legendary_plan_left_html: "Осталось %{for_sale_count} <span class='hide-on-mobile'>из %{total_supply}</span>"
         payment:
             price_usd_html: '<span class=price-ticker>%{symbol}</span><span class=price-amount>%{price}</span>'
             price_eur_html: '<span class=price-ticker>%{symbol}</span><span class=price-amount>%{price}</span>'
