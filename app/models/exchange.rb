@@ -2,9 +2,10 @@ class Exchange < ApplicationRecord
   include ExchangeApi::BinanceEnum
   include ExchangeApi::FtxEnum
 
+  has_many :bots
+  has_many :api_keys
   has_many :exchange_assets
   has_many :assets, through: :exchange_assets
-  # has_many :exchange_tickers, through: :exchange_assets, source: :base_exchange_tickers # Or quote_exchange_tickers
   has_many :exchange_tickers
   has_many :tickers, class_name: 'ExchangeTicker' # alias for exchange_tickers
   has_many :transactions
@@ -49,8 +50,14 @@ class Exchange < ApplicationRecord
     Result::Success.new(filter_free_plan_symbols(all_symbols.data))
   end
 
-  def set_client(api_key: nil)
-    exchange_implementation.set_client(api_key: api_key)
+  def set_exchange_implementation(api_key: nil)
+    @exchange_implementation = case name.downcase
+                                 #  when 'binance' then Exchanges::BinanceExchange.new(self)
+                               when 'coinbase' then Exchanges::CoinbaseExchange.new(self, api_key)
+                               else
+                                 puts "Unsupported exchange #{name}"
+                                 # raise NotImplementedError, "Unsupported exchange #{name}"
+                               end
   end
 
   def coingecko_id
@@ -144,13 +151,7 @@ class Exchange < ApplicationRecord
   private
 
   def exchange_implementation
-    @exchange_implementation ||= case name.downcase
-                                 #  when 'binance' then Exchanges::BinanceExchange.new(self)
-                                 when 'coinbase' then Exchanges::CoinbaseExchange.new(self)
-                                 else
-                                   puts "Unsupported exchange #{name}"
-                                   # raise NotImplementedError, "Unsupported exchange #{name}"
-                                 end
+    @exchange_implementation ||= set_exchange_implementation
   end
 
   def filter_free_plan_symbols(symbols)

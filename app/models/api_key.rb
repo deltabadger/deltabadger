@@ -7,7 +7,7 @@ class ApiKey < ApplicationRecord
   attr_encrypted :passphrase, key: ENV.fetch('API_PASSPHRASE_ENCRRYPTION_KEY')
 
   validate :unique_for_user_exchange_and_key_type, on: :create
-  validate :validate_key_permissions, if: -> { key.present? && secret.present? }
+  validate :validate_key_permissions, on: :create
 
   STATES = %i[pending correct incorrect].freeze
   TYPES = %i[trading withdrawal].freeze

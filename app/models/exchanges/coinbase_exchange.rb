@@ -10,15 +10,9 @@ module Exchanges
       'WAXL-USDC'
     ].freeze
 
-    def initialize(exchange)
+    def initialize(exchange, api_key = nil)
       @exchange = exchange
-    end
-
-    def set_client(api_key: nil)
-      @client = CoinbaseClient.new(
-        key: api_key&.key,
-        secret: api_key&.secret
-      )
+      @api_key = api_key
     end
 
     def coingecko_id
@@ -223,7 +217,10 @@ module Exchanges
     end
 
     def client
-      @client ||= set_client
+      @client ||= CoinbaseClient.new(
+        key: @api_key&.key,
+        secret: @api_key&.secret
+      )
     end
 
     def get_portfolio_uuid
