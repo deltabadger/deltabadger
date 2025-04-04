@@ -84,18 +84,6 @@ fr:
         settings: 'Paramètres'
         sign_up: 'S''inscrire'
         terms_and_conditions: 'Conditions générales'
-    meta:
-        desc: 'Commencez gratuitement à utiliser la stratégie optimale avec Binance, Coinbase, Kraken et d''autres exchanges, sans KYC.'
-        title: 'Deltabadger • Automatisez les achats périodiques en n''importe quelle crypto-monnaie'
-        title_short: 'Deltabadger • DCA automatisé en Bitcoin et autres'
-        twitter_image_alt: 'Achats périodiques automatisés en Bitcoin, Ethereum, Polkadot, Cardano, Solana, et autres actifs numériques.'
-        descriptions:
-            default: "Commencez gratuitement à utiliser la stratégie optimale avec Binance, Coinbase, Kraken et d'autres exchanges, sans KYC."
-            privacy_policy: "Découvrez comment Deltabadger protège votre vie privée et gère vos données lors de l'utilisation de notre plateforme automatisée de DCA en crypto-monnaies."
-            terms_and_conditions: "Lisez nos conditions d'utilisation pour comprendre vos droits et responsabilités lors de l'utilisation de la plateforme automatisée de DCA en crypto-monnaies de Deltabadger."
-        titles:
-            privacy_policy: "Politique de Confidentialité • Deltabadger"
-            terms_and_conditions: "Conditions d'Utilisation • Deltabadger"
     referral:
         banner_html: '<b>Partagez votre lien de parrainage avec vos amis et <a href="/referral-program" alt="Read more">gagnez une commission récurrente de 20%</a> en BTC. La meilleure façon de faire du DCA en Bitcoin est d''en gagner !</b>'
         copied: Copié !
