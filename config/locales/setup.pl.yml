@@ -184,7 +184,7 @@ pl:
                 private_key: 'Klucz Prywatny'
                 public_key: 'Klucz Publiczny'
             sentence:
-                invest_in: "Zainwestuj w"
+                invest_in: "Inwestuj w"
                 and: "i"
                 at: "na"
                 spending: "wydając"
