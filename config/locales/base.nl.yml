@@ -228,7 +228,7 @@ nl:
                 adjusted_start_html: 'De startdatum van de backtest is aangepast naar <strong>%{start_date}</strong> om aan te sluiten op de beschikbare geschiedenis van alle activa.'
                 adjusted_end_html: 'De einddatum van de backtest is aangepast naar <strong>%{end_date}</strong> om aan te sluiten op de beschikbare geschiedenis van alle activa.'
     utils:
-        assets: 'Activas'
+        assets: Activa
         cash: Contant geld
         bonds: Obligaties
         gold: Goud
@@ -240,6 +240,7 @@ nl:
         new: 'Nieuw'
         save: 'Opslaan'
         see_at_coingecko: 'Zie op CoinGecko'
+        search_placeholder: 'Zoek naar een asset…'
         since: 'sinds'
         soon: 'binnenkort'
         years:

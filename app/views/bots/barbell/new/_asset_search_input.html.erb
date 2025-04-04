@@ -5,6 +5,6 @@
     <%= f.hidden_field :base1_asset_id, value: bot.base1_asset_id %>
     <%= f.hidden_field :quote_asset_id, value: bot.quote_asset_id %>
     <%= f.hidden_field :exchange_id, value: bot.exchange_id %>
-    <%= f.text_field :query, autofocus: true, autocomplete: "off", placeholder: "Search for an asset…", data: { action: "input->form--submit-after-delay#submit" }, class: "modal--search__input" %>
+    <%= f.text_field :query, autofocus: true, autocomplete: "off", placeholder: t('utils.search_placeholder'), data: { action: "input->form--submit-after-delay#submit" }, class: "modal--search__input" %>
   <% end %>
 </div>

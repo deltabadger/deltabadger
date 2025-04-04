@@ -21,9 +21,16 @@ en:
         frequency_limit: 'Frequency limit exceeded'
         invalid_api_keys: 'Invalid tokens'
         invalid_risk_free_rate_key: 'Invalid Risk Free Rate Key.'
+        api_key_permission_validation_failed: 'Failed to validate API key permissions'
+        api_key_already_exists: 'An API key for %{exchange_name} already exists'
+        incorrect_api_key_permissions: 'Incorrect API key permissions'
         unable_to_get_risk_free_rate: 'Unable to get the risk free rate for %{risk_free_rate_name}. Data API server is unreachable.'
         invalid_number_of_allocations: 'Invalid number of allocations'
         invalid_allocation_value: 'Invalid allocation value'
+        bots:
+            exchange_asset_mismatch: "Not all the assets are listed on %{exchange_name}"
+            destroy_success: "Bot %{bot_label} deleted successfully"
+            api_key_success: "API keys saved successfully"
         messages:
             accepted: 'must be accepted'
             already_confirmed: 'was already confirmed, please try signing in.'
@@ -64,7 +71,6 @@ en:
             too_short:
                 one: 'is too short (minimum is 1 character)'
                 other: 'is too short (minimum is %{count} characters)'
-            too_short_password: 'Password is too short'
             too_simple_password: 'Password must contain characters from each of the following categories: uppercase characters (A-Z), lowercase characters (a-z),  digits (0-9), special characters (e.g. #,?,!).'
             wrong_email: 'Wrong email.'
             wrong_length:

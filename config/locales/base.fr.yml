@@ -226,8 +226,8 @@ fr:
                 adjusted_start_html: "La date de début du test rétroactif a été ajustée au <strong>%{start_date}</strong> pour correspondre à l''historique disponible de tous les actifs."
                 adjusted_end_html: "La date de fin du test rétroactif a été ajustée au <strong>%{end_date}</strong> pour correspondre à l''historique disponible de tous les actifs."
     utils:
-        assets: 'Actifs'
-        cash: Argent liquide
+        assets: Actifs
+        cash: Liquidités
         bonds: Obligations
         gold: Or
         are_you_sure: 'Es-tu sûr ?'
@@ -238,6 +238,7 @@ fr:
         new: 'Nouveau'
         save: 'Enregistrer'
         see_at_coingecko: 'Voir sur CoinGecko'
+        search_placeholder: 'Rechercher un actif…'
         since: 'depuis'
         soon: 'bientôt'
         years:

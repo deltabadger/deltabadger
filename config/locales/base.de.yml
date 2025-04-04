@@ -230,7 +230,7 @@ de:
                 adjusted_start_html: "Das Startdatum des Backtests wurde auf <strong>%{start_date}</strong> angepasst, um der verfügbaren Historie aller Vermögenswerte zu entsprechen."
                 adjusted_end_html: "Das Enddatum des Backtests wurde auf <strong>%{end_date}</strong> angepasst, um der verfügbaren Historie aller Vermögenswerte zu entsprechen."
     utils:
-        assets: Assets
+        assets: Vermögenswerte
         cash: Bargeld
         bonds: Anleihen
         gold: Gold
@@ -239,9 +239,10 @@ de:
         delete: 'Löschen'
         duplicate: 'Duplizieren'
         important: 'Wichtig!'
-        new: 'neu'
+        new: 'Neu'
         save: 'Speichern'
-        see_at_coingecko: 'Siehe bei CoinGecko'
+        see_at_coingecko: 'Bei CoinGecko ansehen'
+        search_placeholder: 'Nach einem Asset suchen…'
         since: 'seit'
         soon: 'bald'
         years:
