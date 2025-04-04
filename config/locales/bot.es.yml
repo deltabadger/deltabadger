@@ -35,7 +35,6 @@ es:
             request_exchange: 'Pedir agregar un intercambio'
             move_existing_bot: 'Mover el bot existente a otro intercambio'
             delete:
-                cancel: Cancelar
                 ok: 'Eliminar por completo'
                 text: Eliminar
                 warning_html: 'Eso eliminará el bot con todos sus<br>datos históricos. ¿Estás seguro?'

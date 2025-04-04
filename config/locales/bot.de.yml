@@ -35,7 +35,6 @@ de:
             request_exchange: 'Anfrage zum Hinzufügen einer Börse'
             move_existing_bot: 'Vorhandenen Bot zu einer anderen Börse verschieben'
             delete:
-                cancel: Abbrechen
                 ok: 'Komplett entfernen'
                 text: Löschen
                 warning_html: 'Dadurch wird der Bot mit all<br> seinen Verlaufsdaten entfernt. Bist du sicher?'

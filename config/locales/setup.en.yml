@@ -56,7 +56,6 @@ en:
                 instructions_9_html: 'Copy and paste your new API keys into the form above.'
                 private_key: 'API Secret'
                 public_key: 'API Key'
-            cancel: Cancel
             coinbase:
                 instructions_1_html: 'Log into your %{exchange_link} account.'
                 instructions_2_html: 'Select the <b>More</b> tab from the left sidebar.'

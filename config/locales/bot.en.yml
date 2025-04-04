@@ -38,7 +38,6 @@ en:
             move_existing_bot: "Move existing bot to another exchange"
             webhook: "Webhook Trade"
             delete:
-                cancel: "Cancel"
                 ok: "Remove completely"
                 text: "Delete"
                 warning_html: "That will remove the bot with all<br>its historical data. Are you sure?"
