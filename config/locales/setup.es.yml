@@ -157,7 +157,7 @@ es:
             step_exchange: 'Exchange'
             step_schedule: Programar
             step_type: Tipo
-            validating: 'Validación en curso'
+            validating: 'Validación…'
             withdrawal:
                 kraken:
                     instructions_1_html: 'Inicia sesión en tu cuenta %{exchange_link}.'
