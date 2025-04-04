@@ -183,3 +183,8 @@ nl:
                 instructions_6_html: 'Kopieer en plak uw nieuwe API keys in het bovenstaande formulier.'
                 private_key: 'Private Key'
                 public_key: 'Public Key'
+            sentence:
+                invest_in: "Investeer in"
+                and: "en"
+                at: "op"
+                spending: "uitgeven"

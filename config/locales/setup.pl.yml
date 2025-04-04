@@ -183,3 +183,8 @@ pl:
                 instructions_6_html: 'Wklej oba klucze do danych wejściowych powyżej.'
                 private_key: 'Klucz Prywatny'
                 public_key: 'Klucz Publiczny'
+            sentence:
+                invest_in: "Zainwestuj w"
+                and: "i"
+                at: "na"
+                spending: "wydając"

@@ -7,14 +7,14 @@
     current_step: :exchange
   } %>
   <div class="conversational conversational--bot-setup">
-    Invest in
+    <%= t('bots.setup.sentence.invest_in') %>
 
     <%= link_to @bot.base0_asset.symbol, barbell_new_step_to_first_asset_bots_path({
     bots_barbell: {
       label: @bot.label,
     }}), data: { turbo_frame: "modal_content" }, class: "ticker", style: "background: #{base0_color}" %>
 
-    and
+    <%= t('bots.setup.sentence.and') %>
 
     <%= link_to @bot.base1_asset.symbol, barbell_new_step_to_second_asset_bots_path({
     bots_barbell: {
@@ -22,7 +22,7 @@
       base0_asset_id: @bot.base0_asset_id,
     }}), data: { turbo_frame: "modal_content" }, class: "ticker", style: "background: #{base1_color}" %>
 
-    at
+    <%= t('bots.setup.sentence.at') %>
 
     <%= form_with model: @bot, url: barbell_new_step_api_key_bots_path, method: :get, id: "exchange_select", class: "flex-row", data: { controller: "form--submit" } do |f| %>
       <div class="sinput sinput--select"></div>

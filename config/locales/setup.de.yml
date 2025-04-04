@@ -2,6 +2,11 @@ de:
     bots:
         setup:
             api_not_available: "Exchange API ist nicht verfügbar"
+            sentence:
+                invest_in: "Investiere in"
+                and: "und"
+                at: "bei"
+                spending: "mit"
             binance:
                 instructions_1_html: 'Melde dich bei deinem %{exchange_link}-Konto an.'
                 instructions_2_html: 'Gehe im Benutzermenü (obere rechte Ecke) zu <b>API-Management</b>.'
