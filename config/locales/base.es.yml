@@ -84,18 +84,6 @@ es:
         settings: Configuración
         sign_up: Registrarse
         terms_and_conditions: 'Términos y condiciones'
-    meta:
-        desc: 'Comienza de forma gratuita,la estrategia probada que funciona con Binance, Coinbase, Kraken, Kucoin, y otros exchanges. Sin KYC.'
-        title: 'Deltabadger • Inversión constante automatizada (DCA) en cualquier criptomoneda'
-        title_short: 'Deltabadger • DCA automatizada en Bitcoin y otros activos'
-        twitter_image_alt: 'Inversión constante automatizada en Bitcoin, Ethereum, Polkadot, Cardano, Solana y otros activos digitales.'
-        descriptions:
-            default: "Comienza de forma gratuita, la estrategia probada que funciona con Binance, Coinbase, Kraken, Kucoin, y otros exchanges. Sin KYC."
-            privacy_policy: "Descubre cómo Deltabadger protege tu privacidad y maneja tus datos al usar nuestra plataforma automatizada de DCA en criptomonedas."
-            terms_and_conditions: "Lee nuestros términos de servicio para entender tus derechos y responsabilidades al usar la plataforma automatizada de DCA en criptomonedas de Deltabadger."
-        titles:
-            privacy_policy: "Política de Privacidad • Deltabadger"
-            terms_and_conditions: "Términos y Condiciones • Deltabadger"
     referral:
         banner_html: '<b>Comparte tu enlace de referidos con amigos y <a href="/referral-program" alt="Read more">gana una comisión recurrente del 20%</a> en BTC. ¡La mejor forma de hacer DCA en Bitcoin es ganándolo!</b>'
         copied: ¡Copiado!

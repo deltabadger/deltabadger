@@ -85,18 +85,6 @@ it:
         sign_up: 'Registrati'
         terms_and_conditions: 'Termini e Condizioni'
         legendary_badger: 'Legendary Badger'
-    meta:
-        desc: "Inizia gratuitamente la strategia più collaudata che funziona con Binance, Coinbase, Kraken, Kucoin e altri exchange. Nessun KYC."
-        title: "Deltabadger • Automatizza il Dollar-Cost Averaging per qualsiasi Crypto"
-        title_short: "Deltabadger • DCA Automatizzato per Bitcoin e Altri Asset"
-        twitter_image_alt: "Dollar-cost averaging automatizzato per Bitcoin, Ethereum, Polkadot, Cardano, Solana e altri asset digitali."
-        descriptions:
-            default: "Inizia gratuitamente la strategia più collaudata che funziona con Binance, Coinbase, Kraken, Kucoin e altri exchange. Nessun KYC."
-            privacy_policy: "Scopri come Deltabadger protegge la tua privacy e gestisce i tuoi dati quando utilizzi la nostra piattaforma DCA crypto automatizzata."
-            terms_and_conditions: "Leggi i nostri termini di servizio per comprendere i tuoi diritti e responsabilità quando utilizzi la piattaforma DCA crypto automatizzata di Deltabadger."
-        titles:
-            privacy_policy: "Privacy Policy • Deltabadger"
-            terms_and_conditions: "Termini e Condizioni • Deltabadger"
     referral:
         banner_html: '<b>Condividi il tuo link referral con gli amici e <a href="/referral-program" alt="Leggi di più">guadagna il 20% di commissione ricorrente</a> in BTC. Il modo migliore per fare DCA su Bitcoin è guadagnarlo!</b>'
         copied: Copiato!
