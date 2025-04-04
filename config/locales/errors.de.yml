@@ -15,6 +15,7 @@ de:
                         portfolio:
                             max_assets_reached: 'Maximale Anzahl von Assets erreicht.'
     errors:
+        cloudflare_turnstile: 'Cloudflare Turnstile-Überprüfung fehlgeschlagen'
         bitcoin_address_not_updated: 'Deine Bitcoin-Adresse konnte nicht aktualisiert werden'
         format: '%{attribute} %{message}'
         frequency_limit: 'Frequenzgrenze überschritten'
@@ -25,7 +26,11 @@ de:
         incorrect_api_key_permissions: 'Falsche API-Schlüsselberechtigungen'
         unable_to_get_risk_free_rate: 'Der risikofreie Zinssatz für %{risk_free_rate_name} kann nicht abgerufen werden. Daten-API-Server ist nicht erreichbar.'
         invalid_number_of_allocations: 'Ungültige Anzahl von Zuordnungen'
-        invalid_allocation_value: 'Ungültiger Zuordnungswert'
+        invalid_allocation_value: 'Ungültiger Zuweisungswert'
+        bots:
+            exchange_asset_mismatch: "Nicht alle Vermögenswerte sind auf %{exchange_name} gelistet"
+            destroy_success: "Bot %{bot_label} erfolgreich gelöscht"
+            api_key_success: "API-Schlüssel erfolgreich gespeichert"
         messages:
             accepted: 'muss akzeptiert werden'
             already_confirmed: 'wurde bereits bestätigt, bitte versuche dich anzumelden.'
@@ -66,6 +71,7 @@ de:
             too_short:
                 one: 'ist zu kurz (mindestens 1 Zeichen)'
                 other: 'ist zu kurz (mindestens %{count} Zeichen)'
+            too_simple_password: 'Das Passwort muss Zeichen aus jeder der folgenden Kategorien enthalten: Großbuchstaben (A-Z), Kleinbuchstaben (a-z), Ziffern (0-9), Sonderzeichen (z.B. #,?,!).'
             wrong_email: 'Falsche E-Mail.'
             wrong_length:
                 one: 'ist die falsche Länge (sollte %{count} Zeichen lang sein)'

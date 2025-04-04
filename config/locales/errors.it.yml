@@ -27,6 +27,10 @@ it:
         unable_to_get_risk_free_rate: 'Impossibile ottenere il tasso privo di rischio per %{risk_free_rate_name}. Il server API dei dati non è raggiungibile.'
         invalid_number_of_allocations: 'Numero di allocazioni non valido'
         invalid_allocation_value: 'Valore di allocazione non valido'
+        bots:
+            exchange_asset_mismatch: "Non tutte le attività sono quotate su %{exchange_name}"
+            destroy_success: "Bot %{bot_label} eliminato con successo"
+            api_key_success: "Chiavi API salvate con successo"
         messages:
             accepted: 'deve essere accettato'
             already_confirmed: 'è già stato confermato, prova ad accedere.'
@@ -67,7 +71,6 @@ it:
             too_short:
                 one: 'è troppo corto (il minimo è 1 carattere)'
                 other: 'è troppo corto (il minimo è %{count} caratteri)'
-            too_short_password: 'La password è troppo corta'
             too_simple_password: 'La password deve contenere caratteri di ciascuna delle seguenti categorie: caratteri maiuscoli (A-Z), caratteri minuscoli (a-z), cifre (0-9), caratteri speciali (es. #,?,!).'
             wrong_email: 'Email errata.'
             wrong_length:
