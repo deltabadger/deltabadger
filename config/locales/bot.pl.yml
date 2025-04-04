@@ -137,6 +137,7 @@ pl:
         next_buy: 'Kolejna za %{countdown}'
         next_sell: 'Kolejna za %{countdown}'
         next_withdrawal: 'Kolejna za %{countdown}'
+        not_found: 'Taki bot nie istnieje.'
         price: 'aktualnej ceny'
         price_range_buy_html: 'Kupuj tylko w przedziale cenowym od <split>$100</split> do <split>$1000</split> %{quote} za %{base}.'
         price_range_sell_html: 'Sprzedawaj tylko w przedziale cenowym od <split> 100 USD </split> do <split> 1000 USD </split> %{quote} za %{base}.'
