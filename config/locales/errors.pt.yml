@@ -15,19 +15,24 @@ pt:
                         portfolio:
                             max_assets_reached: "Número máximo de ativos atingido."
     errors:
+        cloudflare_turnstile: 'A verificação de Cloudflare Turnstile falhou'
         bitcoin_address_not_updated: 'Não foi possível atualizar o endereço Bitcoin'
         format: '%{attribute}%{message}'
         frequency_limit: 'Excedido o limite de frequência'
         invalid_api_keys: 'Tokens inválidos'
-        invalid_risk_free_rate_key: 'Ungültiger risikofreier Zinssatz-Schlüssel.'
+        invalid_risk_free_rate_key: 'Chave de taxa livre de risco inválida.'
         api_key_permission_validation_failed: 'Falha na validação das permissões da chave API'
         api_key_already_exists: 'Já existe uma chave API para %{exchange_name}'
         incorrect_api_key_permissions: 'Permissões de chave API incorretas'
-        unable_to_get_risk_free_rate: 'Der risikofreie Zinssatz für %{risk_free_rate_name} kann nicht abgerufen werden. Daten-API-Server ist nicht erreichbar.'
-        invalid_number_of_allocations: 'Ungültige Anzahl von Zuordnungen'
-        invalid_allocation_value: 'Ungültiger Zuordnungswert'
+        unable_to_get_risk_free_rate: 'Não é possível obter a taxa livre de risco para %{risk_free_rate_name}. O servidor da API de dados está inacessível.'
+        invalid_number_of_allocations: 'Número de alocações inválido'
+        invalid_allocation_value: 'Valor de alocação inválido'
+        bots:
+            exchange_asset_mismatch: "Nem todos os ativos estão listados em %{exchange_name}"
+            destroy_success: "Bot %{bot_label} excluído com sucesso"
+            api_key_success: "Chaves de API salvas com sucesso"
         messages:
-            accepted: 'tem de ser aceite'
+            accepted: 'deve ser aceite'
             already_confirmed: 'já foi confirmado, tente novamente mais tarde.'
             bad_2fa_code: 'Código inválido. Tente de novo.'
             bad_credentials: 'Email ou palavra-passe errada.'
@@ -53,12 +58,24 @@ pt:
             not_an_integer: 'tem de ser um número inteiro'
             not_found: 'Este bot não existe.'
             not_locked: 'não estava bloqueado'
+            not_saved:
+                one: '1 erro impediu que este %{resource} fosse guardado:'
+                other: '%{count} erros impediram que este %{resource} fosse guardado:'
             odd: 'tem de ser ímpar'
             other_than: 'tem de ser diferente de %{count}'
             password_not_match: 'As palavras-passe não coincidem'
             present: 'tem de estar em branco'
-            too_short_password: 'A palavra-passe é demasiado curta'
+            too_long:
+                one: 'é demasiado longo (máximo é 1 caráter)'
+                other: 'é demasiado longo (máximo é %{count} carateres)'
+            too_short:
+                one: 'é demasiado curto (mínimo é 1 caráter)'
+                other: 'é demasiado curto (mínimo é %{count} carateres)'
+            too_simple_password: 'A palavra-passe deve conter caracteres de cada uma das seguintes categorias: caracteres maiúsculos (A-Z), caracteres minúsculos (a-z), dígitos (0-9), caracteres especiais (ex. #,?,!).'
             wrong_email: 'Email errado.'
+            wrong_length:
+                one: 'tem um comprimento incorreto (deve ter 1 caráter)'
+                other: 'tem um comprimento incorreto (deve ter %{count} carateres)'
             wrong_password: 'Palavra-passe errada'
             wrong_two_fa_token: 'O código fornecido está errado.'
         referral_program_inactive: 'O seu programa de referência está inativo'
