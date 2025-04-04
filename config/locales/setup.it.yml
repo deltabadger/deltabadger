@@ -157,7 +157,7 @@ it:
             step_exchange: Exchange
             step_schedule: Programma
             step_type: Tipo
-            validating: Validazione
+            validating: Validazione…
             withdrawal:
                 kraken:
                     instructions_1_html: 'Accedi al tuo account %{exchange_link}.'
