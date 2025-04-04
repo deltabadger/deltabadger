@@ -187,7 +187,7 @@ class BotsController < ApplicationController
   def set_bot
     @bot = current_user.bots.find(params[:id])
   rescue ActiveRecord::RecordNotFound
-    redirect_to bots_path, alert: t('bots.not_found')
+    redirect_to bots_path, alert: t('bot.not_found')
   end
 
   def set_new_barbell_bot

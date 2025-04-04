@@ -1,5 +1,6 @@
 nl:
     bot:
+        add_api_keys: "API-sleutels voor %{exchange} toevoegen"
         new: "Nieuwe bot"
         create_first: "Start eerste bot"
         start_new_bot: "Nieuwe bot aanmaken"
@@ -27,7 +28,6 @@ nl:
             mkt_cap_adjusted: "Marktkapitalisatie aangepast"
             mkt_cap_adjusted_info: |
                 De allocatie wordt automatisch ingesteld op basis van de marktkapitalisatie van de munten in uw portfolio. Hoe groter de marktkapitalisatie, hoe groter de allocatie.
-    bots:
         above: boven
         below: onder
         buttons:

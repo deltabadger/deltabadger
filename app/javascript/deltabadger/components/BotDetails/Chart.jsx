@@ -71,8 +71,8 @@ export const Chart = ({bot}) => {
 
   const { exchangeName } = bot;
   const base = shouldRename(exchangeName) ? renameSymbol(bot.settings.base) : bot.settings.base
-  const value_label = isBuyingBot(bot) ? I18n.t('bots.details.stats.current_value') : I18n.t('bots.details.stats.current_value_sold', {base: base})
-  const invested_label = isBuyingBot(bot) ? I18n.t('bots.details.stats.chart.total_invested') : I18n.t('bots.details.stats.bought')
+  const value_label = isBuyingBot(bot) ? I18n.t('bot.details.stats.current_value') : I18n.t('bot.details.stats.current_value_sold', {base: base})
+  const invested_label = isBuyingBot(bot) ? I18n.t('bot.details.stats.chart.total_invested') : I18n.t('bot.details.stats.bought')
   const chartData = {
     labels: labels,
     datasets: [
