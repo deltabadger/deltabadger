@@ -212,6 +212,7 @@
                 display: grid
                 grid-template-columns: 15rem 1fr 12rem
                 width: 100%
+                cursor: pointer
                 @media screen and (max-width: 500px)
                     grid-template-columns: 13rem 1fr 12rem
     &__cell
@@ -225,6 +226,7 @@
             font-weight: bold
             color: var(--emphasis)
         &--name
+            color: var(--emphasis)
             &__country
                 font-weight: 400
                 color: var(--label)
@@ -235,6 +237,15 @@
                 top: -.125rem
                 path
                     fill: var(--label)
+        &--exchanges
+            font-weight: 400
+            color: var(--label)
+            text-align: end
+            padding-right: 2.5rem
+            svg
+                width: 2rem
+                height: 2rem
+                fill: var(--label)
         &--category
             color: var(--label)
             text-align: right

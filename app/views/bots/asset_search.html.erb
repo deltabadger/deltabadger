@@ -22,7 +22,16 @@
               <div class="modal--search__cell modal--search__cell--ticker"><%= asset.symbol %></div>
               <div class="modal--search__cell modal--search__cell--name">
                 <%= asset.name %>
-                <span class="modal--search__cell--name__country" style="margin-left: 1rem"><%= asset.exchanges.map(&:name).join(', ') %></span>
+              </div>
+              <div class="modal--search__cell modal--search__cell--exchanges">
+                <%= asset.exchanges.map do |exchange| 
+                  exchange_name = exchange.name.downcase
+                  exchange_name = case exchange_name
+                                  when 'binance.us' then 'binance'
+                                  else exchange_name
+                                  end
+                  render "svg/exchange-#{exchange_name}", title: exchange.name
+                end.join(' ').html_safe %>
               </div>
             <% end %>
           <% end %>
