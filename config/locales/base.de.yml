@@ -242,7 +242,9 @@ de:
         new: 'Neu'
         save: 'Speichern'
         see_at_coingecko: 'Bei CoinGecko ansehen'
-        search_placeholder: 'Nach einem Asset suchen…'
+        search:
+            placeholder:
+                asset: 'Nach einem Asset suchen…'
         since: 'seit'
         soon: 'bald'
         years:
