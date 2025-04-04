@@ -106,6 +106,8 @@ en:
         two_fa:
             disabled: 'Two-factor authentication has been disabled.'
             enabled: 'Two-factor authentication has been enabled.'
+        api_keys:
+            confirm_delete: 'Do you want to delete this API key?'
         index:
             api_key_confirmation: 'Are you sure?'
             api_keys_section: 'API keys'
@@ -142,7 +144,6 @@ en:
             one: "1 day left"
             other: "%{count} days left"
         legendary_plan_left_html: "%{for_sale_count} <span class='hide-on-mobile'>of %{total_supply}</span> left"
-        legendary_plan_discount: "10%"
         payment:
             price_usd_html: "<span class=price-ticker>%{symbol}</span><span class=price-amount>%{price}</span>"
             price_eur_html: "<span class=price-ticker>%{symbol}</span><span class=price-amount>%{price}</span>"
@@ -243,6 +244,7 @@ en:
         important: 'Important!'
         new: 'New'
         save: 'Save'
+        cancel: 'Cancel'
         see_at_coingecko: 'See at CoinGecko'
         search:
             placeholder:
