@@ -157,7 +157,7 @@ en:
             step_exchange: Exchange
             step_schedule: Schedule
             step_type: Type
-            validating: Validating
+            validating: Validating…
             withdrawal:
                 kraken:
                     instructions_1_html: 'Log into your %{exchange_link} account.'
