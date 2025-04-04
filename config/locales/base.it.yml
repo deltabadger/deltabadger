@@ -244,6 +244,7 @@ it:
         new: 'Nuovo'
         save: 'Salva'
         see_at_coingecko: 'Vedi su CoinGecko'
+        search_placeholder: 'Cerca un asset…'
         since: 'dal'
         soon: 'presto'
         years:
