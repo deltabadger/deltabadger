@@ -56,7 +56,6 @@ fr:
                 instructions_9_html: 'Copiez-collez les deux clés dans les entrées ci-dessus.'
                 private_key: 'API Secret'
                 public_key: 'Clé API'
-            cancel: 'Annuler'
             coinbase:
                 instructions_1_html: 'Connectez-vous à votre compte %{exchange_link}.'
                 instructions_2_html: 'Sélectionnez l''onglet <b>Plus</b> dans la barre latérale gauche.'

@@ -156,6 +156,7 @@ nl:
         important: 'Belangrijk!'
         new: 'Nieuw'
         save: 'Opslaan'
+        cancel: 'Annuleren'
         see_at_coingecko: 'Zie op CoinGecko'
         search:
             placeholder:

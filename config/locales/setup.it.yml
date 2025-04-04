@@ -56,7 +56,6 @@ it:
                 instructions_9_html: 'Copia e incolla le tue nuove chiavi API nel modulo sopra.'
                 private_key: 'API Secret'
                 public_key: 'API Key'
-            cancel: Annulla
             coinbase:
                 instructions_1_html: 'Accedi al tuo account %{exchange_link}.'
                 instructions_2_html: 'Seleziona la scheda <b>Altro</b> dalla barra laterale sinistra.'
