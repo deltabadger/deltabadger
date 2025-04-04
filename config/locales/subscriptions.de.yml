@@ -1,0 +1,75 @@
+de:
+    subscriptions:
+        per_month_html: "/Monat"
+        per_year_html: "/Jahr"
+        plan_1_year: "1 Jahr"
+        plan_4_year: "4 Jahre"
+        plan_life_time: "Lebenslang"
+        variant1: "1 Jahr"
+        variant4: "4 Jahre, ein Jahr gratis"
+        free: "Free"
+        basic: "Basic"
+        pro: "Pro"
+        Legendary: "Legendary"
+        upgrade_modal:
+            title: "Auf Pro upgraden"
+            description: "Zugang zu allen erweiterten Funktionen."
+        days_left:
+            one: '1 Tag übrig'
+            other: '%{count} Tage übrig'
+        legendary_plan_left_html: "%{for_sale_count} <span class='hide-on-mobile'>von %{total_supply}</span> übrig"
+        payment:
+            price_usd_html: '<span class=price-ticker>%{symbol}</span><span class=price-amount>%{price}</span>'
+            price_eur_html: '<span class=price-ticker>%{symbol}</span><span class=price-amount>%{price}</span>'
+            card: 'Karte'
+            account_holder: 'Kontoinhaber'
+            account_number: 'Kontonummer'
+            account_type: 'Kontotyp'
+            after_wire_transfer_html: 'Vielen Dank! Wir melden uns bald wieder bei dir! Wenn du weitere Unterstützung benötigst, lass es uns wissen: <a href=''mailto:support@deltabadger.com''>support@deltabadger.com</a>.'
+            bank_address: 'Adresse der Bank'
+            billing_information: Zahlungsinformationen
+            active_plan_discount: 'Rabatt für Pläne aktiv'
+            base_price: 'Grundpreis'
+            compensation:
+                one: "Entschädigung für <b>1</b> ungenutzten Tag des %{plan}-Plans."
+                other: "Entschädigung für <b>%{count}</b> ungenutzte Tage des %{plan}-Plans."
+            legendary_plan_discount_html: 'Der Preis steigt bei jedem Verkauf um %{amount}'
+            eu_bank_country: Belgien
+            invalid_vat_number: 'Ungültige EU-Mehrwertsteuernummer'
+            paid_with_wire_transfer: 'Ich habe eine SEPA-Überweisung durchgeführt'
+            paid_with_wire_transfer_other: 'Ich habe eine Überweisung per Wire Transfer durchgeführt'
+            pay_html: 'Bezahlen %{amount_html}'
+            pay_with_bitcoin: 'Zahle mit bitcoin'
+            pay_with_card: 'Zahle mit Kreditkarte'
+            payment_ordered: 'Zahlung angefordert!'
+            referral_discount: 'Rabatt in Höhe von %{discount_percent}'
+            referral_discount_html: 'Dank dem Empfehlungslink von <b><a href="%{visible_link}">%{visible_name}</a></b> erhältst du einen Rabatt auf den ersten Kauf auf der Plattform.'
+            black_friday_discount_info: '%{discount_percent} Rabatt'
+            black_friday_sale: 'Black Friday Angebot'
+            pro_and_legendary_plans: 'Pro- und Legendary-Pläne'
+            days: 'tage'
+            hours: 'stunden'
+            minutes: 'minuten'
+            seconds: 'sekunden'
+            days_short: 't'
+            hours_short: 's'
+            minutes_short: 'm'
+            seconds_short: 's'
+            upgrade_now: 'Jetzt upgraden'
+            routing_number: Bankleitzahl
+            server_error: 'Fehler beim Zahlungsserver. Versuche es später noch einmal.'
+            vat: MwSt
+            wire_cost_html: 'Bitte überweise <b>%{price}</b> auf das folgende Bankkonto:'
+            wire_cost_pending_html: 'Falls du die Zahlung noch nicht durchgeführt hast, überweise <b>%{price}</b> auf das folgende Bankkonto:'
+            wire_transfer: Banküberweisung
+            wire_transfer_fill_form: 'Bitte fülle das obige Formular aus, um fortzufahren...'
+            wire_transfer_pending: 'Danke! Wir werden dein Konto bald aktivieren und dich per E-Mail kontaktieren.'
+            you_pay: 'Du zahlst'
+        prolong_upgrade: 'Stufe deinen Plan hoch'
+        upgrade: Hochstufung
+        upgrade_plan: 'Plan hochstufen'
+    legendary_badger:
+        will_be_sent: 'Das Legendary Badger NFT wird gesendet an:'
+        ethereum_address: Ethereum-Adresse
+        confirm_info_html: 'Ich bestätige, dass die Adresse korrekt ist und verstehe, dass das NFT an diese Adresse gesendet wird. Sobald ich auf <b>NFT beanspruchen</b> klicke, kann niemand das NFT wiederherstellen, wenn die Adresse falsch ist.'
+        claim: 'NFT beanspruchen'

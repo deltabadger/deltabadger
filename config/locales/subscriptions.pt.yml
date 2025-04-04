@@ -1,0 +1,66 @@
+pt:
+    subscriptions:
+        per_month_html: "/mês"
+        per_year_html: "/ano"
+        plan_1_year: "1 ano"
+        plan_4_year: "4 anos"
+        plan_life_time: "Vitalício"
+        variant1: "1 ano"
+        variant4: "4 anos, um grátis"
+        free: Free
+        upgrade_modal:
+            title: "Atualizar para Pro"
+            description: "Acesse todas as funcionalidades avançadas."
+        days_left:
+            one: '1 dia restante'
+            other: '%{count} dias restantes'
+        payment:
+            price_usd_html: '<span class=price-ticker>%{symbol}</span><span class=price-amount>%{price}</span>'
+            price_eur_html: '<span class=price-ticker>%{symbol}</span><span class=price-amount>%{price}</span>'
+            account_holder: 'Titular da conta'
+            account_number: 'Número da conta'
+            account_type: 'Tipo de conta'
+            after_wire_transfer_html: 'Obrigado! Entraremos em contato com você em breve! Se precisar de mais assistência, avise-nos: <a href=''mailto:support@deltabadger.com''>support@deltabadger.com</a>.'
+            bank_address: 'Endereço do banco'
+            billing_information: 'Informações de faturamento'
+            active_plan_discount: 'Desconto no plano ativo'
+            base_price: 'Preço base'
+            compensation:
+                one: "Compensação por <b>1</b> dia não utilizado do plano %{plan}."
+                other: "Compensação por <b>%{count}</b> dias não utilizados do plano %{plan}."
+            legendary_plan_discount_html: 'O preço aumenta %{amount} a cada venda'
+            eu_bank_country: Bélgica
+            invalid_vat_number: 'Número de IVA europeu inválido'
+            paid_with_wire_transfer: 'Efetuei uma transferência SEPA'
+            paid_with_wire_transfer_other: 'Fiz transferência bancária'
+            pay_with_bitcoin: 'Pagar com bitcoin'
+            payment_ordered: 'Pagamento solicitado!'
+            referral_discount: '%{discount_percent} de desconto'
+            referral_discount_html: 'Graças à ligação de referência de <b><a href="%{visible_link}">%{visible_name}</a></b>, recebe um desconto na primeira compra efetuada na plataforma.'
+            black_friday_discount_info: '%{discount_percent} de desconto'
+            black_friday_sale: 'Wyprzedaż Black Friday'
+            pro_and_legendary_plans: 'Planos Pro e Legendary'
+            days: 'dias'
+            hours: 'horas'
+            minutes: 'minutos'
+            seconds: 'segundos'
+            days_short: 'd'
+            hours_short: 'h'
+            minutes_short: 'm'
+            seconds_short: 's'
+            upgrade_now: 'Atualize agora'
+            routing_number: 'Número de encaminhamento'
+            vat: IVA
+            wire_cost_html: 'Por favor, envie <b>%{price}</b> para a seguinte conta bancária:'
+            wire_transfer: 'Transferência bancária'
+            wire_transfer_fill_form: 'Preencha o formulário acima para continuar…'
+            wire_transfer_pending: 'Obrigado! Ativaremos a tua conta em breve e entraremos em contacto contigo por e-mail.'
+            you_pay: 'Tu pagas'
+        prolong_upgrade: 'Atualizar plano'
+        upgrade: Atualizar
+        upgrade_plan: 'Atualizar plano'
+    legendary_badger:
+        will_be_sent: 'O NFT Legendary Badger será enviado para:'
+        ethereum_address: 'Endereço Ethereum'
+        confirm_info_html: 'Confirmo que o endereço está correto e entendo que o NFT será enviado para este endereço. Uma vez que eu clique em <b>Reivindicar NFT</b>, se o endereço estiver errado, ninguém poderá recuperar o NFT.'
+        claim: 'Reivindicar NFT'

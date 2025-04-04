@@ -1,0 +1,73 @@
+ru:
+    subscriptions:
+        per_month_html: "/мес"
+        per_year_html: "/год"
+        plan_1_year: "1 год"
+        plan_4_year: "4 года"
+        plan_life_time: "Пожизненный"
+        variant1: "1 год"
+        variant4: "4 года, один бесплатно"
+        free: Вкладчик
+        upgrade_modal:
+            title: "Перейти на Pro"
+            description: "Получите доступ ко всем расширенным функциям."
+        days_left:
+            one: 'Остался 1 день'
+            few: 'Осталось %{count} дня'
+            many: 'Осталось %{count} дней'
+            other: 'Осталось %{count} дней'
+        payment:
+            price_usd_html: '<span class=price-ticker>%{symbol}</span><span class=price-amount>%{price}</span>'
+            price_eur_html: '<span class=price-ticker>%{symbol}</span><span class=price-amount>%{price}</span>'
+            account_holder: 'Владелец счета'
+            account_number: 'Номер счета'
+            account_type: 'Тип аккаунта'
+            active_plan_discount: 'Скидка на активный план'
+            after_wire_transfer_html: 'Спасибо! Мы скоро вернемся! Если вам нужна дополнительная помощь, дайте нам знать: <a href=''mailto:support@deltabadger.com''>support@deltabadger.com</a>.'
+            bank_address: 'Адрес банка'
+            billing_information: 'Информация об оплате'
+            bitcoin: Биткоин
+            base_price: 'Базовая цена'
+            compensation:
+                one: "Компенсация за <b>1</b> неиспользованный день плана %{plan}."
+                few: "Компенсация за <b>%{count}</b> неиспользованных дня плана %{plan}."
+                many: "Компенсация за <b>%{count}</b> неиспользованных дней плана %{plan}."
+                other: "Компенсация за <b>%{count}</b> неиспользованных дней плана %{plan}."
+            legendary_plan_discount_html: 'Цена увеличивается на %{amount} при каждой продаже'
+            eu_bank_country: Бельгия
+            invalid_vat_number: 'Недействительный номер НДС в ЕС'
+            paid_with_wire_transfer: 'Я сделал перевод SEPA'
+            paid_with_wire_transfer_other: 'Я сделал(а) банковский перевод'
+            pay_with_bitcoin: 'Оплатить биткоинами'
+            payment_ordered: 'Оплата заказана!'
+            referral_discount: '%{discount_percent} скидка'
+            referral_discount_html: 'Благодаря реферальной ссылке от <b><a href="%{visible_link}">%{visible_name}</a></b>, вы получаете скидку на первую покупку на платформе.'
+            black_friday_discount_info: 'Скидка %{discount_percent}'
+            black_friday_sale: 'Распродажа на Черную пятницу'
+            pro_and_legendary_plans: 'Планы Pro и Legendary'
+            days: 'дни'
+            hours: 'часы'
+            minutes: 'минуты'
+            seconds: 'секунды'
+            days_short: 'д'
+            hours_short: 'ч'
+            minutes_short: 'м'
+            seconds_short: 'с'
+            upgrade_now: 'Обновить сейчас'
+            routing_number: 'Номер маршрута'
+            vat: НДС
+            wire_cost_html: 'Пожалуйста, отправьте <b>%{price}</b> на следующий банковский счет:'
+            wire_cost_pending_html: 'Если вы еще не совершили платеж, отправьте <b>%{price}</b> на следующий банковский счет:'
+            wire_transfer: 'Безналичный перевод'
+            wire_transfer_description_html: 'Для оплаты безналичным переводом отправьте основную информацию для счета: <b>имя</b>, <b>фамилия</b>, <b>физический адрес</b>, <b>электронная почта</b>, которые используются в Deltabadger, и план, который вы хотите купить: <a href="mailto:support@deltabadger.com">support@deltabadger.com</a>.'
+            wire_transfer_fill_form: 'Пожалуйста, заполните форму выше, чтобы продолжить…'
+            wire_transfer_pending: 'Спасибо! Мы скоро активируем ваш аккаунт и свяжемся с вами по электронной почте.'
+            you_pay: 'Вы платите'
+        prolong_upgrade: ''
+        upgrade: Обновить
+        upgrade_plan: 'Обновить план'
+    legendary_badger:
+        will_be_sent: 'NFT Legendary Badger будет отправлен на:'
+        ethereum_address: 'Адрес Ethereum'
+        confirm_info_html: 'Я подтверждаю, что адрес правильный и понимаю, что NFT будет отправлено на этот адрес. После нажатия на <b>Получить NFT</b>, если адрес неверен, никто не сможет восстановить NFT.'
+        claim: 'Получить NFT'
