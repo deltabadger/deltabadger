@@ -151,6 +151,7 @@ pt:
                     force_smart_intervals: 'Para %{base}%{quote}, %{exchangeName} aplicou às ordens um valor mínimo de <b>%{minimumValue}%{minimumCurrency}</b>%{approximatedQuote}. A Deltabadger irá executar este agendamento, utilizando ordens no valor de %{minimumValue}%{minimumCurrency}, e ajustar o intervalo de tempo para corresponder ao seu agendamento. A isto chamamos de <i>intervalos inteligentes</i>.'
                     other: 'Para %{base}%{quote}, %{exchangeName} aplicou às ordens um valor mínimo de <b>%{minimumValue}%{minimumCurrency}</b>%{approximatedQuote}. A Deltabadger pode executar este agendamento, utilizando ordens no valor de %{minimumValue}%{minimumCurrency}, e ajustar o intervalo de tempo para corresponder ao seu agendamento. A isto chamamos de <i>intervalos inteligentes</i>. '
             step_api_key: 'Chave API'
+            step_currencies: 'Moedas'
             step_exchange: Câmbio
             step_schedule: Horário
             validating: 'A validar'

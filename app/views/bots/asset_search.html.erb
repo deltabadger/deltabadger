@@ -2,8 +2,7 @@
   <div class="min-height: 64rem">
     <div class="modal--search">
       <%= form_with url: asset_search_bot_path(@bot, asset_field: @asset_field), method: :get, data: { controller: "form--submit-after-delay", turbo_frame: "asset-picker" }, html: { style: "position:relative" } do |f| %>
-
-        <svg class="modal--search__zoom-icon" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="12" cy="12" r="9" stroke-width="2"/><path d="m19 19 4 4" stroke-width="2" stroke-linecap="round"/></svg>
+        <%= render partial: 'svg/24x24_zoom' %>
         <%= f.hidden_field :asset_field, value: @asset_field %>
         <%= f.text_field :query, autofocus: true, autocomplete: "off", placeholder: t('utils.search.placeholder.asset'), data: { action: "input->form--submit-after-delay#submit" }, class: "modal--search__input" %>
 

@@ -1,10 +1,22 @@
 <div class="process-progress">
-  <div class="process-progress__step <%= current_step == :currencies ? 'process-progress__step--now' : 'process-progress__step--todo' %>">
-    Currencies
+  <div class="process-progress__step <%= if current_step == :currencies
+                                           'process-progress__step--now'
+                                         elsif [:exchange, :api].include?(current_step)
+                                           'process-progress__step--done'
+                                         else
+                                           'process-progress__step--todo'
+                                         end %>">
+    <%= t('bots.setup.step_currencies') %>
   </div>
   <div class="process-progress__step process-progress__connector"></div>
-  <div class="process-progress__step <%= current_step == :exchange ? 'process-progress__step--now' : 'process-progress__step--todo' %>">
-    Exchange
+  <div class="process-progress__step <%= if current_step == :exchange
+                                           'process-progress__step--now'
+                                         elsif current_step == :api
+                                           'process-progress__step--done'
+                                         else
+                                           'process-progress__step--todo'
+                                         end %>">
+    <%= t('bots.setup.step_exchange') %>
   </div>
   <div class="process-progress__step process-progress__connector"></div>
   <div class="process-progress__step <%= current_step == :api ? 'process-progress__step--now' : 'process-progress__step--todo' %>">
