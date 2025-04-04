@@ -55,7 +55,6 @@ ru:
                 instructions_9_html: 'Вставьте оба ключа в поля ввода выше.'
                 private_key: 'API Секрет'
                 public_key: 'Ключ API'
-            cancel: Отменить
             error_info: 'Проверка не удалась. Попробуйте еще раз или создайте новые ключи.'
             frequency_limit:
                 back_to_settings: 'Вернуться в настройки'

@@ -56,7 +56,6 @@ de:
                 instructions_9_html: 'Füge beide Schlüssel in die Eingabe oben ein.'
                 private_key: API-Geheimnis
                 public_key: API-Schlüssel
-            cancel: Abbrechen
             coinbase:
                 instructions_1_html: 'Melden Sie sich in Ihrem %{exchange_link} Konto an.'
                 instructions_2_html: 'Wählen Sie die Registerkarte <b>Mehr</b> aus der linken Seitenleiste.'

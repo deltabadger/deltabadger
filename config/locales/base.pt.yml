@@ -155,6 +155,7 @@ pt:
         important: 'Importante!'
         new: 'Novo'
         save: 'Salvar'
+        cancel: 'Cancelar'
         see_at_coingecko: 'Ver no CoinGecko'
         search:
             placeholder:

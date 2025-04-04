@@ -35,7 +35,6 @@ pl:
             request_exchange: 'Poproś o dodanie giełdy'
             move_existing_bot: 'Przenieś istniejącego bota na inną giełdę'
             delete:
-                cancel: Anuluj
                 ok: 'Usuń całkowicie'
                 text: Usuń
                 warning_html: 'Spowoduje to usunięcie bota wraz z jego wszystkimi<br>danymi historycznymi. Czy jesteś pewien?'

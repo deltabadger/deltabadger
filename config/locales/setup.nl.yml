@@ -56,7 +56,6 @@ nl:
                 instructions_9_html: 'Kopieer en plak uw nieuwe API keys in het bovenstaande formulier.'
                 private_key: 'API Secret'
                 public_key: 'API Key'
-            cancel: Annuleren
             coinbase:
                 instructions_1_html: 'Log in op uw %{exchange_link} account.'
                 instructions_2_html: 'Selecteer het tabblad <b>Meer</b> in de linkerzijbalk.'
