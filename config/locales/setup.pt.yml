@@ -1,6 +1,12 @@
 pt:
     bots:
         setup:
+            api_not_available: "API do Exchange não disponível"
+            sentence:
+                invest_in: "Investir em"
+                and: "e"
+                at: "em"
+                spending: "gastando"
             binance:
                 instructions_1_html: 'Inicie sessão na sua conta %{exchange_link}.'
                 instructions_2_html: 'No menu do utilizador (ícone redondo no canto superior direito), aceda a <b>Gestão de API</b>.'

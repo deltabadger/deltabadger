@@ -2,6 +2,11 @@ it:
     bots:
         setup:
             api_not_available: "L'API dell'exchange non è disponibile"
+            sentence:
+                invest_in: "Investi in"
+                and: "e"
+                at: "su"
+                spending: "spendendo" 
             binance:
                 instructions_1_html: 'Accedi al tuo account %{exchange_link}.'
                 instructions_2_html: 'Nel menu utente (icona rotonda nell''angolo in alto a destra) vai a <b>Gestione API</b>.'
@@ -182,4 +187,4 @@ it:
                 instructions_5_html: 'Premi <b>Crea</b>.'
                 instructions_6_html: 'Copia e incolla le tue nuove chiavi API nel modulo sopra.'
                 private_key: 'Chiave Privata'
-                public_key: 'Chiave Pubblica' 
+                public_key: 'Chiave Pubblica'
