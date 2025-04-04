@@ -153,7 +153,7 @@ en:
                     force_smart_intervals: 'For %{base}%{quote}, %{exchangeName} has a minimum order size of <b>%{minimumValue}%{minimumCurrency}</b>%{approximatedQuote}. Deltabadger will execute this schedule using %{minimumValue}%{minimumCurrency} orders, and adjusting the time interval to match your schedule. We call it <i>smart intervals</i>.'
                     other: 'For %{base}%{quote}, %{exchangeName} has a minimum order size of <b>%{minimumValue}%{minimumCurrency}</b>%{approximatedQuote}. Deltabadger may execute this schedule using %{minimumValue}%{minimumCurrency} orders, and adjusting the time interval to match your schedule. We call it <i>smart intervals</i>.'
             step_api_key: 'API Key'
-            step_currencies: Currencies
+            step_assets: Assets
             step_exchange: Exchange
             step_schedule: Schedule
             step_type: Type

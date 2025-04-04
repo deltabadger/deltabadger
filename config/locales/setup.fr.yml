@@ -153,7 +153,7 @@ fr:
                     force_smart_intervals: 'Pour %{base}%{quote}, %{exchangeName} a un montant d''ordre minimale de <b>%{minimumValue}%{minimumCurrency}%{approximatedQuote}</b>. Deltabadger exécutera ce programme en utilisant les ordres %{minimumValue}%{minimumCurrency}, et en ajustant l''intervalle de temps pour correspondre à votre programme. Nous appelons cela des <i>intervalles intelligents</i>.'
                     other: 'Pour %{base}%{quote}, %{exchangeName} a un montant d''ordre minimal de <b>%{minimumValue}%{minimumCurrency}%{approximatedQuote}</b>. Deltabadger exécutera ce programme en utilisant les ordres %{minimumValue}%{minimumCurrency}, et en ajustant l''intervalle de temps pour correspondre à votre programme. Nous appelons cela des <i>intervalles intelligents</i>.'
             step_api_key: 'Clé API'
-            step_currencies: 'Devises'
+            step_assets: 'Actifs'
             step_exchange: 'Exchange'
             step_schedule: 'Programmer'
             step_type: 'Type'

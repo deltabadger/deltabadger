@@ -153,6 +153,7 @@ de:
                     force_smart_intervals: 'Für %{base}%{quote} hat %{exchangeName} eine Mindestordermenge von <b>%{minimumValue}%{minimumCurrency}</b>%{approximatedQuote}. Deltabadger kann diesen Zeitplan mit %{minimumValue}%{minimumCurrency}-Aufträgen ausführen und das Zeitintervall an Ihren Zeitplan anpassen. Wir nennen das <i>Smart Intervals</i>.'
                     other: 'Für %{base}%{quote} hat %{exchangeName} eine Mindestordermenge von <b>%{minimumValue}%{minimumCurrency}</b>%{approximatedQuote}. Deltabadger kann diesen Zeitplan mit %{minimumValue}%{minimumCurrency}-Aufträgen ausführen und das Zeitintervall an Ihren Zeitplan anpassen. Wir nennen das <i>Smart Intervals</i>.'
             step_api_key: API-Schlüssel
+            step_assets: Assets
             step_exchange: Umtauschen
             step_schedule: Planen
             validating: 'Wird validiert'

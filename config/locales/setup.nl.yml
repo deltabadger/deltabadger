@@ -148,7 +148,7 @@ nl:
                     force_smart_intervals: 'Voor %{base}%{quote}, %{exchangeName} heeft een minimale ordergrootte van <b>%{minimumValue}%{minimumCurrency}</b>%{approximatedQuote}. Deltabadger zal dit schema uitvoeren met orders van %{minimumValue}%{minimumCurrency}, en het tijdsinterval aanpassen aan uw schema. Wij noemen dit <i>slimme intervallen</i>.'
                     other: 'Voor %{base}%{quote}, %{exchangeName} heeft een minimum ordergrootte van <b>%{minimumValue}%{minimumCurrency}</b>%{approximatedQuote}. Deltabadger kan dit schema uitvoeren met orders van %{minimumValue}%{minimumCurrency}, en past het tijdsinterval aan aan uw schema. We noemen dit <i>slimme intervallen</i>.'
             step_api_key: 'API Key'
-            step_currencies: Valuta
+            step_assets: Assets
             step_exchange: Exchange
             step_schedule: Schema
             step_type: Type
