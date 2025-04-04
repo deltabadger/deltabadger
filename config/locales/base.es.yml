@@ -84,27 +84,30 @@ es:
         settings: Configuración
         sign_up: Registrarse
         terms_and_conditions: 'Términos y condiciones'
+        legendary_badger: 'Legendary Badger'
     referral:
         banner_html: '<b>Comparte tu enlace de referidos con amigos y <a href="/referral-program" alt="Read more">gana una comisión recurrente del 20%</a> en BTC. ¡La mejor forma de hacer DCA en Bitcoin es ganándolo!</b>'
         copied: ¡Copiado!
     settings:
+        name:
+            updated: "Tu nombre ha sido actualizado."
+        two_fa:
+            disabled: 'La autenticación de dos factores ha sido desactivada.'
+            enabled: 'La autenticación de dos factores ha sido activada.'
+        api_keys:
+            confirm_delete: '¿Quieres eliminar esta clave API?'
         index:
             api_key_confirmation: '¿Estás seguro?'
             api_keys_section: 'Claves API'
             email_section: 'Correo electrónico'
-            name_section: Nombre
-            password_section: Contraseña
-            free_plan_reset_date_html: 'Tu tiempo se resetea en <b>%{end_time}</b>'
+            name_section: 'Nombre'
+            password_section: 'Contraseña'
+            free_plan_reset_date_html: 'Tu límite se restablece el <b>%{end_time}</b>.'
             submit_email: 'Actualizar correo electrónico'
             submit_name: 'Actualizar nombre'
             submit_password: 'Cambiar contraseña'
-            title: Configuración
-            two_factor_section: 'Autenticación de segundo factor'
-        name:
-            updated: 'Tu nombre ha sido actualizado.'
-        two_fa:
-            disabled: 'La autenticación de dos factores ha sido desactivada.'
-            enabled: 'La autenticación de dos factores ha sido activada.'
+            title: 'Configuración'
+            two_factor_section: 'Autenticación de Segundo Factor'
     social:
         blog: 'Lee nuestro blog'
         knowledge_base: 'Base de conocimientos'
@@ -113,8 +116,7 @@ es:
     welcome:
         banner_html: |
             <p>¡Bienvenido a bordo, %{name}!</p>
-            <p>La nueva página de actualización es un excelente lugar para ver todas las funciones y los planes a los que pertenecen.</p>
-            <p><a class="button button--success button--large mt-3 mb-3" href="upgrade">Empieza aquí</a></p>
+            <p>La nueva página de actualización <img src="/assets/upgrade.svg" alt="Actualizar" width="24" height="24"> es un gran lugar para ver todas las funciones y los planes a los que pertenecen.</p>
             <p>Saludos, Jan</p>
     analyzer:
         default_portfolio: 'Cartera predeterminada'
@@ -156,6 +158,7 @@ es:
         important: '¡Importante!'
         new: 'Nuevo'
         save: 'Guardar'
+        cancel: 'Cancelar'
         see_at_coingecko: 'Ver en CoinGecko'
         search:
             placeholder:
@@ -198,4 +201,3 @@ es:
             <p>Envía un correo electrónico a <strong>%{email}</strong> con <strong>"FIRE"</strong> en la línea de asunto.</p>
             <p>Tu acceso de por vida llegará poco después.</p>
             <p>Nos vemos allí, Jan</p>
-    not_found: 'Este bot no existe.'
