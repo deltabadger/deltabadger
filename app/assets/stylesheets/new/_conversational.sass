@@ -14,6 +14,22 @@
         @media (min-width: 768px)
             padding: 12rem 2.25rem 10rem
             font-size: 3rem
+    &__input
+        border: none
+        margin: 0
+        background: none
+        color: var(--text) !important
+        text-align: left
+        max-width: 10rem
+        text-transform: uppercase
+        &:focus
+            outline: none
+        &::placeholder
+            color: var(--label)
+    .ticker
+        margin: 0 0.125rem
+        @media (min-width: 768px)
+            margin: 0 0.25rem
 .db-bot
     .conversational
         padding: 3rem 0 4rem
