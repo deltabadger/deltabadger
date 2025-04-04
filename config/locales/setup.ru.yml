@@ -138,6 +138,7 @@ ru:
                     force_smart_intervals: 'Для %{base}%{quote}, минимальный размер ордера %{exchangeName} составляет <b>%{minimumValue}%{minimumCurrency}</b>%{approximatedQuote}. Deltabadger выполнит этот график с применением ордеров %{minimumValue}%{minimumCurrency} и настройкой временного интервала в соответствии с вашим расписанием. Мы называем их <i>умными интервалами</i>. '
                     other: 'Для %{base}%{quote}, минимальный размер ордера %{exchangeName} составляет <b>%{minimumValue}%{minimumCurrency}</b>%{approximatedQuote}. Deltabadger выполнит этот график с применением ордеров %{minimumValue}%{minimumCurrency} и настройкой временного интервала в соответствии с вашим расписанием. Мы называем их <i>умными интервалами</i>. '
             step_api_key: 'Ключ API'
+            step_currencies: Валюты
             step_exchange: Биржа
             step_schedule: График
             validating: Проверка
