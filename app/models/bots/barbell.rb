@@ -12,8 +12,7 @@ class Bots::Barbell < Bot
   validate :validate_unchangeable_assets, on: :update
   validate :validate_unchangeable_interval, on: :update
 
-  after_initialize :set_exchange_client, if: :exchange_id?
-  after_save :set_exchange_client, if: :saved_change_to_exchange_id?
+  after_save :unset_exchange_implementation, if: :saved_change_to_exchange_id?
 
   include Schedulable
   include Bots::Barbell::OrderSetter
@@ -21,16 +20,26 @@ class Bots::Barbell < Bot
   include Bots::Barbell::Measurable
   include Bots::Barbell::Schedulable
 
-  def set_exchange_client
-    exchange&.set_client(api_key: api_key)
+  def exchange
+    @exchange ||= super
+    unless exchange_implementation_set?
+      @exchange.set_exchange_implementation(api_key: api_key)
+      @exchange_implementation_set = true
+    end
+    @exchange
+  end
+
+  def exchange_implementation_set?
+    @exchange_implementation_set || false
+  end
+
+  def unset_exchange_implementation
+    @exchange_implementation_set = false
   end
 
   def api_key
-    if exchange.present?
-      user.api_keys.trading.where(exchange: exchange).first || new_api_key
-    else
-      new_api_key
-    end
+    @api_key ||= user.api_keys.trading.find_by(exchange_id: exchange_id) ||
+                 user.api_keys.trading.new(exchange_id: exchange_id, status: :pending)
   end
 
   def start(ignore_missed_orders: true)
@@ -143,10 +152,6 @@ class Bots::Barbell < Bot
   end
 
   private
-
-  def new_api_key
-    user.api_keys.new(exchange: exchange, status: :pending, key_type: :trading)
-  end
 
   def validate_external_ids
     errors.add(:base0_asset_id, :invalid) unless Asset.exists?(base0_asset_id)

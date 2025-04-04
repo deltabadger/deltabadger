@@ -4,7 +4,8 @@ class BotsController < ApplicationController
   before_action :authenticate_user!
   before_action :set_new_barbell_bot,
                 only: %i[barbell_new_step_to_first_asset barbell_new_step_to_second_asset barbell_new_step_exchange
-                         barbell_new_step_api_key barbell_new_step_from_asset barbell_new_step_confirm]
+                         barbell_new_step_api_key barbell_new_step_api_key_create barbell_new_step_from_asset
+                         barbell_new_step_confirm]
   before_action :set_bot,
                 only: %i[show edit update destroy confirm_destroy new_api_key create_api_key asset_search start
                          confirm_restart confirm_restart_legacy stop]
@@ -35,25 +36,37 @@ class BotsController < ApplicationController
 
   def barbell_new_step_api_key
     @api_key = @bot.api_key
-    next_step_path = barbell_new_step_from_asset_bots_path(
-      bots_barbell: {
-        label: @bot.label,
-        base0_asset_id: @bot.base0_asset_id,
-        base1_asset_id: @bot.base1_asset_id,
-        quote_asset_id: @bot.quote_asset_id,
-        exchange_id: @bot.exchange_id
-      }
-    )
     if @api_key.correct?
-      redirect_to next_step_path
+      redirect_to barbell_new_step_from_asset_bots_path(
+        bots_barbell: {
+          label: @bot.label,
+          base0_asset_id: @bot.base0_asset_id,
+          base1_asset_id: @bot.base1_asset_id,
+          quote_asset_id: @bot.quote_asset_id,
+          exchange_id: @bot.exchange_id
+        }
+      )
     else
-      @api_key.key = api_key_params[:key]
-      @api_key.secret = api_key_params[:secret]
-      if @api_key.save
-        redirect_to next_step_path
-      else
-        render 'bots/barbell/new/step_api_keys', status: :unprocessable_entity
-      end
+      render 'bots/barbell/new/step_api_key'
+    end
+  end
+
+  def barbell_new_step_api_key_create
+    @api_key = @bot.api_key
+    @api_key.key = api_key_params[:key]
+    @api_key.secret = api_key_params[:secret]
+    if @api_key.save
+      redirect_to barbell_new_step_from_asset_bots_path(
+        bots_barbell: {
+          label: @bot.label,
+          base0_asset_id: @bot.base0_asset_id,
+          base1_asset_id: @bot.base1_asset_id,
+          quote_asset_id: @bot.quote_asset_id,
+          exchange_id: @bot.exchange_id
+        }
+      )
+    else
+      render 'bots/barbell/new/step_api_key', status: :unprocessable_entity
     end
   end
 
@@ -136,7 +149,6 @@ class BotsController < ApplicationController
     @api_key.secret = api_key_params[:secret]
 
     if @api_key.save
-      @bot.set_exchange_client
       flash[:notice] = 'API keys saved successfully'
       render turbo_stream: turbo_stream_page_refresh
     else

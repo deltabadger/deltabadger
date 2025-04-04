@@ -3,7 +3,7 @@
     current_step: :api
   } %>
   <%= t('bots.add_api_key') %> for <%= @bot.exchange.name.capitalize %>
-  <%= render 'bots/api_key_form', api_key: @api_key, from_path: barbell_new_step_from_asset_bots_path(
+  <%= form_with model: @api_key, url: barbell_new_step_api_key_create_bots_path(
     bots_barbell: {
       label: @bot.label,
       base0_asset_id: @bot.base0_asset_id,
@@ -11,5 +11,17 @@
       quote_asset_id: @bot.quote_asset_id,
       exchange_id: @bot.exchange_id
     }
-  ) %>
+  ), method: :post, data: { controller: "form--label-animations form--html5-validations", turbo_frame: 'modal_content' } do |f| %>
+    <div class="db-form__row db-form__row--input">
+      <%= f.text_field :key, autofocus: true, data: { controller: "autofocus" }, class: "db-form__input", rows: 3 %>
+      <%= f.label :key, "API Key", class: "db-form__label" %>
+    </div>
+    <div class="db-form__row db-form__row--input">
+      <%= f.text_field :secret, class: "db-form__input", rows: 3 %>
+      <%= f.label :secret, "API Secret", class: "db-form__label" %>
+    </div>
+    <div class="large-button-wrapper">
+      <%= f.submit "Save API Key", class: "button button--success button--large", data: { turbo_stream: true, turbo_submits_with: "Validating..." } %>
+    </div>
+  <% end %>
 <% end %>
