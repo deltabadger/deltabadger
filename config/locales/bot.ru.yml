@@ -134,7 +134,8 @@ ru:
         month: Месяц
         next_buy: 'Следующая покупка через %{countdown}'
         next_sell: 'Следующая продажа через %{countdown}'
-        next_withdrawal: ''
+        next_withdrawal: 'Следующий вывод через %{countdown}'
+        not_found: 'Такой бот не существует.'
         price: цены
         price_range_buy_html: 'Покупать только в диапазоне цен от  <split>$100</split> до <split>$1000</split> %{quote} за %{base}.'
         price_range_sell_html: 'Продавать только в диапазоне цен от  <split>$100</split> до <split>$1000</split> %{quote} за %{base}.'
