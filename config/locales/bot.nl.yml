@@ -137,6 +137,7 @@ nl:
         next_buy: 'Volgende aankoop in %{countdown}'
         next_sell: 'Volgende verkoop in %{countdown}'
         next_withdrawal: 'Volgende opname in %{countdown}'
+        not_found: 'Deze bot bestaat niet.'
         price: 'de prijs'
         price_range_buy_html: 'Koop alleen in het prijsbereik van <split>$100</split> tot <split>$1000</split> %{quote} per %{base}.'
         price_range_sell_html: 'Verkoop enkel in het prijsbereik van <split>$100</split> tot <split>$1000</split> %{quote} per %{base}.'
