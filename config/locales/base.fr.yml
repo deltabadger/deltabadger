@@ -238,7 +238,9 @@ fr:
         new: 'Nouveau'
         save: 'Enregistrer'
         see_at_coingecko: 'Voir sur CoinGecko'
-        search_placeholder: 'Rechercher un actif…'
+        search:
+            placeholder:
+                asset: 'Rechercher un actif…'
         since: 'depuis'
         soon: 'bientôt'
         years:
