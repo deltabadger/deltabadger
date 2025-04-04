@@ -6,7 +6,7 @@ it:
                 invest_in: "Investi in"
                 and: "e"
                 at: "su"
-                spending: "spendendo" 
+                spending: "spendendo"
             binance:
                 instructions_1_html: 'Accedi al tuo account %{exchange_link}.'
                 instructions_2_html: 'Nel menu utente (icona rotonda nell''angolo in alto a destra) vai a <b>Gestione API</b>.'
@@ -157,7 +157,7 @@ it:
             step_exchange: Exchange
             step_schedule: Programma
             step_type: Tipo
-            validating: Validazione…
+            validating: Validando…
             withdrawal:
                 kraken:
                     instructions_1_html: 'Accedi al tuo account %{exchange_link}.'
