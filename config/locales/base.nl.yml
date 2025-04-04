@@ -198,4 +198,3 @@ nl:
             <p>Stuur een e-mail naar <strong>%{email}</strong> met <strong>"FIRE"</strong> in de onderwerpregel.</p>
             <p>Je levenslange toegang zal kort daarna arriveren.</p>
             <p>Tot ziens, Jan</p>
-    not_found: 'Deze bot bestaat niet.'
