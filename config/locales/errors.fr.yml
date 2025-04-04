@@ -15,11 +15,19 @@ fr:
                         portfolio:
                             max_assets_reached: "Nombre maximum d'actifs atteint."
     errors:
+        bots:
+            exchange_asset_mismatch: "Tous les actifs ne sont pas répertoriés sur %{exchange_name}"
+            destroy_success: "Bot %{bot_label} supprimé avec succès"
+            api_key_success: "Clés API enregistrées avec succès"
+        cloudflare_turnstile: 'La vérification de Cloudflare Turnstile a échoué'
         bitcoin_address_not_updated: 'L''adresse Bitcoin n''a pas pu être mise à jour'
         format: '%{attribute} %{message}'
         frequency_limit: 'Limite de fréquence dépassée'
         invalid_api_keys: 'Tokens non valides'
         invalid_risk_free_rate_key: 'Clé de taux sans risque non valide.'
+        api_key_permission_validation_failed: 'Échec de la validation des autorisations de clé API'
+        api_key_already_exists: 'Une clé API pour %{exchange_name} existe déjà'
+        incorrect_api_key_permissions: 'Autorisations de clé API incorrectes'
         unable_to_get_risk_free_rate: 'Impossible d''obtenir le taux sans risque pour %{risk_free_rate_name}. Le serveur de l''API de données est inaccessible.'
         invalid_number_of_allocations: 'Nombre d''allocations non valide'
         invalid_allocation_value: 'Valeur d''allocation non valide'
@@ -63,7 +71,6 @@ fr:
             too_short:
                 one: 'est trop court (le minimum est de 1 caractère)'
                 other: 'est trop court (le minimum est de %{count} caractères)'
-            too_short_password: 'Le mot de passe est trop court'
             too_simple_password: 'Le mot de passe doit comporter des caractères de chacune des catégories suivantes : caractères majuscules (A-Z), caractères minuscules (a-z), chiffres (0-9), caractères spéciaux (par ex., #, ?,!).'
             wrong_email: 'Adresse e-mail incorrecte'
             wrong_length:
