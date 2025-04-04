@@ -109,7 +109,6 @@ de:
             email_section: E-Mail
             name_section: Nachname
             password_section: Passwort
-            free_plan_days_left_html: '<b>$%{credits}</b> des Limits des kostenlosen Plans übrig.'
             free_plan_reset_date_html: 'Dein Limit wird am <b>%{end_time}</b> zurückgesetzt.'
             submit_email: 'E-Mail aktualisieren'
             submit_name: 'Namen aktualisieren'
@@ -129,17 +128,17 @@ de:
         plan_life_time: "Lebenslang"
         variant1: "1 Jahr"
         variant4: "4 Jahre, ein Jahr gratis"
-        free: Sparer
+        free: "Free"
+        basic: "Basic"
+        pro: "Pro"
+        Legendary: "Legendary
         upgrade_modal:
             title: "Auf Pro upgraden"
             description: "Zugang zu allen erweiterten Funktionen."
         days_left:
             one: '1 Tag übrig'
             other: '%{count} Tage übrig'
-        basic_info: 'Keine Schnörkel, nur Thrills, aber es erledigt den Job.'
-        pro_info: 'Verschaffen Sie sich einen Überblick, tiefe Einblicke und Pro-Funktionen.'
         legendary_plan_left_html: "%{for_sale_count} <span class='hide-on-mobile'>von %{total_supply}</span> übrig"
-        limit_reached_html: '<b>Glückwunsch!</b> Du hast das kostenlose Transaktionslimit von $1200/Jahr erreicht. Um weiterhin zu bleiben, erhöhe deinen Plan auf den unbegrenzten Plan.'
         payment:
             price_usd_html: '<span class=price-ticker>%{symbol}</span><span class=price-amount>%{price}</span>'
             price_eur_html: '<span class=price-ticker>%{symbol}</span><span class=price-amount>%{price}</span>'
@@ -158,8 +157,8 @@ de:
             legendary_plan_discount_html: 'Der Preis steigt bei jedem Verkauf um %{amount}'
             eu_bank_country: Belgien
             invalid_vat_number: 'Ungültige EU-Mehrwertsteuernummer'
-            paid_with_wire_transfer: 'I habe eine SEPA-Überweisung durchgeführt'
-            paid_with_wire_transfer_other: 'I habe eine Überweisung per Wire Transfer durchgeführt'
+            paid_with_wire_transfer: 'Ich habe eine SEPA-Überweisung durchgeführt'
+            paid_with_wire_transfer_other: 'Ich habe eine Überweisung per Wire Transfer durchgeführt'
             pay_html: 'Bezahlen %{amount_html}'
             pay_with_bitcoin: 'Zahle mit bitcoin'
             pay_with_card: 'Zahle mit Kreditkarte'
@@ -198,8 +197,7 @@ de:
     welcome:
         banner_html: |
             <p>Willkommen an Bord, %{name}!</p>
-            <p>Die neue Upgrade-Seite ist der perfekte Ort, um alle Funktionen und die dazugehörigen Pläne kennenzulernen.</p>
-            <p><a class="button button--success button--large mt-3 mb-3" href="upgrade">Hier starten</a></p>
+            <p>Die neue Upgrade-Seite <img src="/assets/upgrade.svg" alt="Upgrade" width="24" height="24"> ist der perfekte Ort, um alle Funktionen und die dazugehörigen Pläne kennenzulernen.</p>
             <p>Beste Grüße, Jan</p>
     analyzer:
         default_portfolio: 'Standardportfolio'
@@ -241,6 +239,7 @@ de:
         important: 'Wichtig!'
         new: 'Neu'
         save: 'Speichern'
+        cancel: 'Abbrechen'
         see_at_coingecko: 'Bei CoinGecko ansehen'
         search:
             placeholder:
