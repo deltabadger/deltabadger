@@ -183,28 +183,6 @@ es:
     dca_calculator:
         title: "¿Cuánto tiempo necesitabas ahorrar <span>$%{amount}/mes</span> para %{goal}?"
         goal_millionaire: "convertirte en millonario"
-    alert:
-        bot:
-            bot_updated: 'El bot se ha actualizado con éxito.'
-        portfolio:
-            invalid_name: 'Nombre de cartera no válido.'
-            invalid_benchmark: "Valor de referencia no válido."
-            invalid_strategy: "Valor de estrategia no válido."
-            invalid_start_date: "Valor de fecha de inicio no válido."
-            invalid_risk_free_rate: "Valor de tasa libre de riesgo no válido."
-            invalid_smart_allocation: "Valor de asignación inteligente no válido."
-            invalid_risk_level: "Valor de nivel de riesgo no válido."
-            unable_to_calculate: "No se pueden calcular asignaciones inteligentes para estos parámetros."
-            portfolio_normalized: "Las asignaciones de la cartera se han normalizado."
-            risk_level_updated: "El nivel de riesgo ha sido actualizado."
-            smart_allocation_updated: "Las asignaciones inteligentes han sido actualizadas."
-            unable_to_set_risk_rate: "No se puede establecer la tasa libre de riesgo en %{risk_free_rate_name}."
-            api_unreachable: "El servidor de la API de datos no está disponible."
-            portfolio_created: 'La cartera se ha creado con éxito.'
-            portfolio_updated: 'La cartera se ha actualizado con éxito.'
-            portfolio_destroyed: 'La cartera se ha eliminado con éxito.'
-            portfolio_duplicated: 'La cartera se ha duplicado con éxito.'
-            unable_to_duplicate_portfolio: 'No se puede duplicar la cartera.'
     ai:
         insights:
             intro: "Evalúa mi cartera en el estilo de los tweets de Naval. Encuentra la tesis geopolítica o técnica detrás y los eventos macro relevantes de los últimos años. Observa si la cartera te recuerda a algún estilo de inversión o idea popular como la cartera de 3 fondos, etc. Señala los activos superpuestos, como los ETFs con las mismas acciones (solo si los hay). Muestra hasta 5 pros y/o contras. Organízalos: primero los pros. Presta más atención a métricas como volatilidad y beta, luego a aquellas que reflejan principalmente el pasado, como el ratio de Sharpe. Usa la escala Malo/Neutral/Bueno/Excepcional."
