@@ -250,6 +250,7 @@ ru:
         new: 'Новый'
         save: 'Сохранить'
         see_at_coingecko: 'Смотреть на CoinGecko'
+        search_placeholder: 'Искать актив…'
         since: 'с'
         soon: 'скоро'
         years:

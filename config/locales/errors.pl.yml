@@ -19,8 +19,11 @@ pl:
         format: '%{attribute}%{message}'
         frequency_limit: 'Przekroczyłeś limit częstotliwości'
         invalid_api_keys: 'Nieprawidłowe tokeny'
-        invalid_risk_free_rate_key: 'Nieprawidłowy klucz wolnej od ryzyka stopy procentowej.'
-        unable_to_get_risk_free_rate: 'Nie można uzyskać wolnej od ryzyka stopy procentowej dla %{risk_free_rate_name}. Serwer API danych jest niedostępny.'
+        invalid_risk_free_rate_key: 'Nieprawidłowy klucz stopy wolnej od ryzyka.'
+        api_key_permission_validation_failed: 'Nie udało się zweryfikować uprawnień klucza API'
+        api_key_already_exists: 'Klucz API dla %{exchange_name} już istnieje'
+        incorrect_api_key_permissions: 'Nieprawidłowe uprawnienia klucza API'
+        unable_to_get_risk_free_rate: 'Nie można uzyskać stopy wolnej od ryzyka dla %{risk_free_rate_name}. Serwer API danych jest nieosiągalny.'
         invalid_number_of_allocations: 'Nieprawidłowa liczba alokacji'
         invalid_allocation_value: 'Nieprawidłowa wartość alokacji'
         messages:

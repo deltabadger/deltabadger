@@ -19,8 +19,11 @@ ru:
         format: ''
         frequency_limit: 'Превышено ограничение частоты'
         invalid_api_keys: 'Недействительные токены'
-        invalid_risk_free_rate_key: 'Неверный ключ безрисковой ставки.'
-        unable_to_get_risk_free_rate: 'Невозможно получить безрисковую ставку для %{risk_free_rate_name}. Сервер API данных недоступен.'
+        invalid_risk_free_rate_key: 'Недействительный ключ безрисковой ставки.'
+        api_key_permission_validation_failed: 'Не удалось проверить разрешения ключа API'
+        api_key_already_exists: 'Ключ API для %{exchange_name} уже существует'
+        incorrect_api_key_permissions: 'Неверные разрешения ключа API'
+        unable_to_get_risk_free_rate: 'Не удается получить безрисковую ставку для %{risk_free_rate_name}. Сервер API данных недоступен.'
         invalid_number_of_allocations: 'Недопустимое количество распределений'
         invalid_allocation_value: 'Недопустимое значение распределения'
         messages:
