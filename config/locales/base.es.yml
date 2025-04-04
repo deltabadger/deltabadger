@@ -240,6 +240,7 @@ es:
         new: 'Nuevo'
         save: 'Guardar'
         see_at_coingecko: 'Ver en CoinGecko'
+        search_placeholder: 'Buscar un activo…'
         since: 'desde'
         soon: 'pronto'
         years:

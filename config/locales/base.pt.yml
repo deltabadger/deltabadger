@@ -234,6 +234,7 @@ pt:
         new: 'Novo'
         save: 'Salvar'
         see_at_coingecko: 'Ver no CoinGecko'
+        search_placeholder: 'Procurar um ativo…'
         since: 'desde'
         soon: 'em breve'
         years:
