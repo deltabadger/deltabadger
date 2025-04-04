@@ -152,7 +152,7 @@ pl:
             step_exchange: Giełda
             step_schedule: Harmonogram
             step_type: Typ
-            validating: Weryfikacja
+            validating: Weryfikacja…
             withdrawal:
                 kraken:
                     instructions_1_html: 'Zaloguj się do swojego konta %{exchange_link}.'

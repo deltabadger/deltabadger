@@ -152,7 +152,7 @@ nl:
             step_exchange: Exchange
             step_schedule: Schema
             step_type: Type
-            validating: Validating
+            validating: Validating…
             withdrawal:
                 kraken:
                     instructions_1_html: 'Log in op uw %{exchange_link} account.'

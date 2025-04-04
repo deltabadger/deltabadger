@@ -141,7 +141,7 @@ ru:
             step_assets: Активы
             step_exchange: Биржа
             step_schedule: График
-            validating: Проверка
+            validating: Проверка…
             withdrawal:
                 kraken:
                     instructions_1_html: 'Войдите в свой аккаунт %{{exchange_link}}.'

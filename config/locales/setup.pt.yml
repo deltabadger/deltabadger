@@ -154,7 +154,7 @@ pt:
             step_assets: 'Ativos'
             step_exchange: Câmbio
             step_schedule: Horário
-            validating: 'A validar'
+            validating: 'A validar…'
             withdrawal:
                 kraken:
                     instructions_1_html: 'Inicie sessão na sua conta %{exchange_link}.'
