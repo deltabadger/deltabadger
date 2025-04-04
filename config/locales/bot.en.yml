@@ -1,5 +1,6 @@
 en:
     bot:
+        add_api_keys: "Add API keys for %{exchange}"
         new: "New bot"
         create_first: "Start first bot"
         start_new_bot: "Create new bot"
@@ -21,7 +22,6 @@ en:
             paused: "Paused"
         no_orders_info: "Bot orders will appear here"
         pick_exchange: "Pick Exchange"
-        add_api_keys: "Add API keys for %{exchange}"
         barbell:
             invest: "Invest"
             invest_html: "Invest %{input} /month"
@@ -29,7 +29,6 @@ en:
             mkt_cap_adjusted: "Market Cap adjusted"
             mkt_cap_adjusted_info: |
                 The allocation is automatically set based on the market cap of the coins in your portfolio. The larger the market cap, the larger the allocation.
-    bots:
         above: "above"
         below: "below"
         buttons:

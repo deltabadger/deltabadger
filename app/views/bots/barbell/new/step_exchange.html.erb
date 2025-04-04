@@ -7,14 +7,14 @@
     current_step: :exchange
   } %>
   <div class="conversational conversational--bot-setup">
-    <%= t('bots.setup.sentence.invest_in') %>
+    <%= t('bot.setup.sentence.invest_in') %>
 
     <%= link_to @bot.base0_asset.symbol, barbell_new_step_to_first_asset_bots_path({
     bots_barbell: {
       label: @bot.label,
     }}), data: { turbo_frame: "modal_content" }, class: "ticker", style: "background: #{base0_color}" %>
 
-    <%= t('bots.setup.sentence.and') %>
+    <%= t('bot.setup.sentence.and') %>
 
     <%= link_to @bot.base1_asset.symbol, barbell_new_step_to_second_asset_bots_path({
     bots_barbell: {
@@ -22,7 +22,7 @@
       base0_asset_id: @bot.base0_asset_id,
     }}), data: { turbo_frame: "modal_content" }, class: "ticker", style: "background: #{base1_color}" %>
 
-    <%= t('bots.setup.sentence.at') %>
+    <%= t('bot.setup.sentence.at') %>
 
     <%= form_with model: @bot, url: barbell_new_step_exchange_bots_path, method: :get, data: { controller: "form--submit-after-delay", turbo_frame: "exchange-picker" } do |f| %>
       <%= f.hidden_field :label, value: @bot.label %>

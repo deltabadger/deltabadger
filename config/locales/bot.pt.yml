@@ -1,5 +1,6 @@
 pt:
     bot:
+        add_api_keys: "Adicionar chaves API para %{exchange}"
         new: "Novo bot"
         create_first: "Iniciar primeiro bot"
         start_new_bot: "Create new bot"
@@ -27,7 +28,6 @@ pt:
             mkt_cap_adjusted: "Ajustado por Capitalização de Mercado"
             mkt_cap_adjusted_info: |
                 A alocação é automaticamente definida com base na capitalização de mercado das moedas em seu portfólio. Quanto maior a capitalização de mercado, maior a alocação.
-    bots:
         above: acima
         below: abaixo
         buttons:

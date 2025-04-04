@@ -11,9 +11,9 @@ const apiKeyNames = exchangeName => {
   const { translation_key } = getExchange(exchangeName)
 
   return {
-    private: I18n.t('bots.setup.' + translation_key + '.private_key'),
-    public: I18n.t('bots.setup.' + translation_key + '.public_key'),
-    passphrase: I18n.t('bots.setup.' + translation_key + '.passphrase')
+    private: I18n.t('bot.setup.' + translation_key + '.private_key'),
+    public: I18n.t('bot.setup.' + translation_key + '.public_key'),
+    passphrase: I18n.t('bot.setup.' + translation_key + '.passphrase')
   }
 }
 
@@ -92,12 +92,12 @@ export const AddApiKey = ({
         { !botView && <Breadcrumbs step={2} /> }
         { (status == 'add_api_key' || status == 'invalid_api_key') &&
           <div onClick={_handleSubmit} className={`button ${disableSubmit ? 'button--outline button--disabled' : 'button--primary'}`}>
-            <span>{botView ? I18n.t('bots.setup.set') : I18n.t('bots.setup.next')}</span>
+            <span>{botView ? I18n.t('bot.setup.set') : I18n.t('bot.setup.next')}</span>
           </div>
         }
         { status == 'validating_api_key' &&
           <div>
-            <div className="db-bot__infotext__right">{I18n.t('bots.setup.validating')}</div>
+            <div className="db-bot__infotext__right">{I18n.t('bot.setup.validating')}</div>
             <Spinner />
           </div>
         }
@@ -122,9 +122,9 @@ export const AddApiKey = ({
               autoComplete="off"
             />
             <div className="db-form__info db-form__info--invalid">
-              {I18n.t('bots.setup.error_info')}
+              {I18n.t('bot.setup.error_info')}
             </div>
-            {showError && <div className="db-form__info db-form__info--invalid" style={{display: 'block'}}>{I18n.t('bots.setup.api_not_available')}</div>}
+            {showError && <div className="db-form__info db-form__info--invalid" style={{display: 'block'}}>{I18n.t('bot.setup.api_not_available')}</div>}
             <label htmlFor="api-key" className="db-form__label">{ key_label }</label>
           </div>
           <div className="db-form__row">
@@ -158,7 +158,7 @@ export const AddApiKey = ({
       { pickedExchangeName == "Kraken" &&
         <div className="alert alert-primary alert-trading-agreement">
           <div className="alert__regular-text">
-            <RawHTML tag="p">{I18n.t('bots.setup.kraken.trading_agreement_html')}</RawHTML>
+            <RawHTML tag="p">{I18n.t('bot.setup.kraken.trading_agreement_html')}</RawHTML>
             <div className="form-check">
               <input
                 id="trading-agreement"
@@ -169,7 +169,7 @@ export const AddApiKey = ({
                 disabled={disableFormFields}
               />
               <label htmlFor="trading-agreement" className="form-check-label">
-                <RawHTML tag="b">{I18n.t('bots.setup.kraken.trading_agreement_label_html')}</RawHTML>
+                <RawHTML tag="b">{I18n.t('bot.setup.kraken.trading_agreement_label_html')}</RawHTML>
               </label>
             </div>
           </div>
