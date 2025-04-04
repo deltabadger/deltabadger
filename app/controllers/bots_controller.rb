@@ -114,10 +114,6 @@ class BotsController < ApplicationController
     barbell_bot_params_to_update = barbell_bot_params_as_hash
     barbell_bot_params_to_update[:settings] = @bot.settings.merge(barbell_bot_params_to_update[:settings])
     if !@bot.legacy? && @bot.update(barbell_bot_params_to_update)
-      if @bot.exchange.present? && @bot.available_exchanges_for_current_settings.exclude?(@bot.exchange)
-        @bot.update!(exchange_id: nil)
-        flash.now[:alert] = t('errors.bots.exchange_asset_mismatch', exchange_name: @bot.exchange.name)
-      end
       # flash.now[:notice] = t('alert.bot.bot_updated')
     elsif @bot.legacy? && @bot.update(update_params_legacy)
       # flash.now[:notice] = t('alert.bot.bot_updated')
