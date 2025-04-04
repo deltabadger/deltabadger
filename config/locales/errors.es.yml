@@ -15,6 +15,7 @@ es:
                         portfolio:
                             max_assets_reached: "Se ha alcanzado el máximo número de activos."
     errors:
+        cloudflare_turnstile: 'La verificación de Cloudflare Turnstile ha fallado'    
         bitcoin_address_not_updated: 'No se ha podido actualizar la dirección de Bitcoin'
         format: '%{attribute} %{message}'
         frequency_limit: 'Límite de frecuencia superado'
@@ -26,6 +27,10 @@ es:
         unable_to_get_risk_free_rate: 'No se puede obtener la tasa libre de riesgo para %{risk_free_rate_name}. El servidor de la API de datos no está disponible.'
         invalid_number_of_allocations: 'Número de asignaciones no válido'
         invalid_allocation_value: 'Valor de asignación no válido'
+        bots:
+            exchange_asset_mismatch: "No todos los activos están listados en %{exchange_name}"
+            destroy_success: "Bot %{bot_label} eliminado con éxito"
+            api_key_success: "Claves de API guardadas con éxito"
         messages:
             accepted: 'debe ser aceptado'
             already_confirmed: 'ya estaba confirmado, intenta iniciar sesión.'
@@ -66,7 +71,6 @@ es:
             too_short:
                 one: 'es demasiado corta (mínimo 1 caracter)'
                 other: 'no es la longitud adecuada (debería ser %{count} caracteres)'
-            too_short_password: 'La contraseña es demasiado corta'
             too_simple_password: 'La contraseña debe incluir caracteres de cada una de las siguientes categorías: caracteres en mayúsculas (A-Z), caracteres en minúsculas (a-z), dígitos (0-9) y caracteres especiales (por ejemplo, #,?,!).'
             wrong_email: 'Correo electrónico incorrecto'
             wrong_length:

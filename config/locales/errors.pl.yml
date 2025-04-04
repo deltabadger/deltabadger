@@ -15,6 +15,7 @@ pl:
                         portfolio:
                             max_assets_reached: "Maksymalna liczba aktywów osiągnięta."
     errors:
+        cloudflare_turnstile: 'Weryfikacja Cloudflare Turnstile nie powiodła się'
         bitcoin_address_not_updated: 'Adres bitcoinowy nie mógł zostać zaktualizowany'
         format: '%{attribute}%{message}'
         frequency_limit: 'Przekroczyłeś limit częstotliwości'
@@ -26,8 +27,12 @@ pl:
         unable_to_get_risk_free_rate: 'Nie można uzyskać stopy wolnej od ryzyka dla %{risk_free_rate_name}. Serwer API danych jest nieosiągalny.'
         invalid_number_of_allocations: 'Nieprawidłowa liczba alokacji'
         invalid_allocation_value: 'Nieprawidłowa wartość alokacji'
+        bots:
+            exchange_asset_mismatch: "Nie wszystkie aktywa są notowane na %{exchange_name}"
+            destroy_success: "Bot %{bot_label} został pomyślnie usunięty"
+            api_key_success: "Klucze API zostały pomyślnie zapisane"
         messages:
-            accepted: 'musi zostać zaakceptowany'
+            accepted: 'musi zostać zaakceptowane'
             already_confirmed: 'został już potwierdzony, spróbuj się zalogować.'
             bad_2fa_code: 'Błędny kod 2FA. Spróbuj ponownie.'
             bad_credentials: 'Błędny e-mail lub hasło.'
@@ -55,9 +60,9 @@ pl:
             not_locked: 'nie był zablokowany.'
             not_saved:
                 one: '1 błąd uniemożliwił zapisanie  %{resource}:'
-                few: '%{cound} błędy uniemożliwiły zapisanie  %{resource}:'
-                many: '%{cound} błędów uniemożliwiło zapisanie  %{resource}:'
-                other: '%{cound} błędów uniemożliwiło zapisanie  %{resource}:'
+                few: '%{count} błędów uniemożliwiło zapisanie  %{resource}:'
+                many: '%{count} błędów uniemożliwiło zapisanie  %{resource}:'
+                other: '%{count} błędów uniemożliwiło zapisanie  %{resource}:'
             odd: 'musi być nieparzysta'
             other_than: 'nie może wynosić %{count}'
             password_not_match: 'Hasła nie są zgodne'
@@ -72,7 +77,6 @@ pl:
                 few: 'Za mało znaków (muszą być co najmniej %{count} znaki)'
                 many: 'Za mało znaków (musi być co najmniej %{count} znaków)'
                 other: 'Za mało znaków (musi być co najmniej %{count} znaków)'
-            too_short_password: 'Hasło jest za krótkie'
             too_simple_password: 'Hasło musi zawierać znaki z każdej z następujących kategorii: duże litery (A-Z), małe litery (a-z), cyfry (0-9), znaki specjalne (np. #,?,!).'
             wrong_email: 'Błędny adres e-mail.'
             wrong_length:
