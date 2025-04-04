@@ -1,5 +1,5 @@
 ru:
-    bots:
+    bot:
         setup:
             api_not_available: "API биржи недоступна"
             sentence:

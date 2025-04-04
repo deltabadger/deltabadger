@@ -1,5 +1,5 @@
 nl:
-    bots:
+    bot:
         setup:
             api_not_available: 'Exchange API is niet beschikbaar'
             binance:
