@@ -1,6 +1,7 @@
 en:
     bot:
         add_api_keys: "Add API keys for %{exchange}"
+        save_api_keys: "Save API Keys"
         new: "New bot"
         create_first: "Start first bot"
         start_new_bot: "Create new bot"
