@@ -94,7 +94,6 @@ class Bots::Barbell < Bot
   def available_assets_for_current_settings(asset_type:, include_exchanges: false)
     available_exchanges = exchange.present? ? [exchange] : Exchange.available_for_barbell_bots
     base_asset_ids = [base0_asset_id, base1_asset_id].compact
-    puts "base_asset_ids: #{base_asset_ids}"
 
     case asset_type
     when :base_asset

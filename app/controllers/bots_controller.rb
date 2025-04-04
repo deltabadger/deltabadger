@@ -31,6 +31,9 @@ class BotsController < ApplicationController
   end
 
   def barbell_new_step_exchange
+    exchanges = @bot.available_exchanges_for_current_settings
+    @exchanges = filter_exchanges_by_query(exchanges: exchanges, query: barbell_bot_params[:query])
+    puts "exchanges: #{@exchanges.inspect}"
     render 'bots/barbell/new/step_exchange'
   end
 
@@ -255,16 +258,32 @@ class BotsController < ApplicationController
     return assets.order(:market_cap_rank) if query.blank?
 
     assets
-      .map { |asset| [asset, similarities_for(asset, query.downcase)] }
+      .map { |asset| [asset, similarities_for_asset(asset, query.downcase)] }
       .select { |_, similarities| similarities.first >= 0.7 }
       .sort_by { |asset, similarities| [similarities.map(&:-@), asset.market_cap_rank || Float::INFINITY] }
       .map(&:first)
   end
 
-  def similarities_for(asset, query)
+  def similarities_for_asset(asset, query)
     [
       asset.symbol.present? ? JaroWinkler.similarity(asset.symbol.downcase.to_s, query) : 0,
       asset.name.present? ? JaroWinkler.similarity(asset.name.downcase.to_s, query) : 0
+    ].sort.reverse
+  end
+
+  def filter_exchanges_by_query(exchanges:, query:)
+    return exchanges.order(:name) if query.blank?
+
+    exchanges
+      .map { |exchange| [exchange, similarities_for_exchange(exchange, query.downcase)] }
+      .select { |_, similarities| similarities.first >= 0.7 }
+      .sort_by { |_, similarities| similarities.map(&:-@) }
+      .map(&:first)
+  end
+
+  def similarities_for_exchange(exchange, query)
+    [
+      exchange.name.present? ? JaroWinkler.similarity(exchange.name.downcase.to_s, query) : 0
     ].sort.reverse
   end
 end
