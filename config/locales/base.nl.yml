@@ -183,28 +183,6 @@ nl:
     dca_calculator:
         title: "Hoe lang moest je <span>$%{amount}/maand</span> sparen om %{goal}?"
         goal_millionaire: "miljonair te worden"
-    alert:
-        bot:
-            bot_updated: 'De bot is succesvol bijgewerkt.'
-        portfolio:
-            invalid_name: 'Ongeldige portfolionaam.'
-            invalid_benchmark: 'Ongeldige benchmarkwaarde.'
-            invalid_strategy: 'Ongeldige strategie waarde.'
-            invalid_start_date: 'Ongeldige startdatum waarde.'
-            invalid_risk_free_rate: 'Ongeldige risicovrije rente waarde.'
-            invalid_smart_allocation: 'Ongeldige slimme allocatie waarde.'
-            invalid_risk_level: 'Ongeldige risiconiveau waarde.'
-            unable_to_calculate: 'Niet in staat om slimme allocaties voor deze parameters te berekenen.'
-            portfolio_normalized: 'Portefeuille allocaties zijn genormaliseerd.'
-            risk_level_updated: 'Het risiconiveau is bijgewerkt.'
-            smart_allocation_updated: 'Slimme allocaties zijn bijgewerkt.'
-            unable_to_set_risk_rate: 'Niet in staat om de risicovrije rente vast te stellen op %{risk_free_rate_name}.'
-            api_unreachable: 'Gegevens API-server is onbereikbaar.'
-            portfolio_created: 'Portefeuille is succesvol aangemaakt.'
-            portfolio_updated: 'Portefeuille is succesvol bijgewerkt.'
-            portfolio_destroyed: 'Portefeuille is succesvol verwijderd.'
-            portfolio_duplicated: 'Portefeuille is succesvol gedupliceerd.'
-            unable_to_duplicate_portfolio: 'Niet in staat om portefeuille te dupliceren.'
     ai:
         insights:
             intro: "Evalueer mijn portefeuille in de stijl van Naval-tweets. Vind de geopolitieke of technische thesis erachter, en relevante macro-economische gebeurtenissen van de afgelopen jaren. Merk op of de portefeuille je doet denken aan een bepaalde beleggingsstijl of populair idee, zoals een 3-fondsen portefeuille, enz. Wijs op overlappende activa, zoals ETF's met dezelfde aandelen (alleen als die er zijn). Geef maximaal 5 voor- en/of nadelen weer. Organiseer ze: eerst de voordelen. Besteed meer aandacht aan statistieken zoals volatiliteit en beta, en daarna aan die welke voornamelijk het verleden weerspiegelen, zoals de Sharpe-ratio. Gebruik de schaal Slecht/Neutraal/Goed/Uitmuntend."

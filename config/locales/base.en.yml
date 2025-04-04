@@ -186,28 +186,6 @@ en:
     dca_calculator:
         title: "How long you had to save <span>$%{amount}/month</span> to %{goal}?"
         goal_millionaire: "become a millionaire"
-    alert:
-        bot:
-            bot_updated: 'Bot was successfully updated.'
-        portfolio:
-            invalid_name: 'Invalid portfolio name.'
-            invalid_benchmark: 'Invalid benchmark value.'
-            invalid_strategy: 'Invalid strategy value.'
-            invalid_start_date: 'Invalid start date value.'
-            invalid_risk_free_rate: 'Invalid risk free rate value.'
-            invalid_smart_allocation: 'Invalid smart allocation value.'
-            invalid_risk_level: 'Invalid risk level value.'
-            unable_to_calculate: 'Unable to calculate Smart Allocations for these parameters.'
-            portfolio_normalized: 'Portfolio allocations have been normalized.'
-            risk_level_updated: 'Risk level has been updated.'
-            smart_allocation_updated: 'Smart allocations have been updated.'
-            unable_to_set_risk_rate: 'Unable to set the risk free rate to %{risk_free_rate_name}.'
-            api_unreachable: 'Data API server is unreachable.'
-            portfolio_created: 'Portfolio was successfully created.'
-            portfolio_updated: 'Portfolio was successfully updated.'
-            portfolio_destroyed: 'Portfolio was successfully deleted.'
-            portfolio_duplicated: 'Portfolio was successfully duplicated.'
-            unable_to_duplicate_portfolio: 'Unable to duplicate portfolio.'
     ai:
         insights:
             intro: "Evaluate my portfolio in the style of Naval tweets. Find geopolitical or technical thesis behind, and relevant macro events in the recent years. Notice if portfolio reminds you of some investing style or popular idea like 3-fund portfolio, etc. Point out overlapping assets like ETFs with the same stocks (only if there are any). Then show up to 5 pros and/or cons organized so all pros go first. Put more attention to metrics like volatility and beta, then those mostly reflecting past like Sharpe. Use Poor/Neutral/Good/Exceptional scale."
