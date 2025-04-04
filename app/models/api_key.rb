@@ -24,7 +24,7 @@ class ApiKey < ApplicationRecord
   def unique_for_user_exchange_and_key_type
     return unless ApiKey.exists?(user_id: user_id, exchange_id: exchange_id, key_type: key_type)
 
-    errors.add(:key, 'An API key for this user, exchange and key type already exists')
+    errors.add(:key, I18n.t('errors.api_key_already_exists', exchange_name: exchange.name))
   end
 
   def validate_key_permissions
@@ -32,13 +32,13 @@ class ApiKey < ApplicationRecord
     if result.success?
       self.status = result.data ? :correct : :incorrect
       if result.data == false
-        message = 'Incorrect API key permissions'
+        message = I18n.t('errors.incorrect_api_key_permissions')
         errors.add(:key, message)
         errors.add(:secret, message)
       end
     else
       self.status = :pending
-      message = 'Failed to validate API key permissions'
+      message = I18n.t('errors.api_key_permission_validation_failed')
       errors.add(:key, message)
       errors.add(:secret, message)
     end
