@@ -244,6 +244,7 @@ en:
         new: 'New'
         save: 'Save'
         see_at_coingecko: 'See at CoinGecko'
+        search_placeholder: 'Search for an asset…'
         since: 'since'
         soon: 'soon'
         years:

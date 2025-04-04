@@ -116,7 +116,7 @@ class BotsController < ApplicationController
     if !@bot.legacy? && @bot.update(barbell_bot_params_to_update)
       if @bot.exchange.present? && @bot.available_exchanges_for_current_settings.exclude?(@bot.exchange)
         @bot.update!(exchange_id: nil)
-        flash.now[:alert] = 'Exchange not supported for current settings'
+        flash.now[:alert] = t('errors.bots.exchange_asset_mismatch', exchange_name: @bot.exchange.name)
       end
       # flash.now[:notice] = t('alert.bot.bot_updated')
     elsif @bot.legacy? && @bot.update(update_params_legacy)
@@ -131,7 +131,7 @@ class BotsController < ApplicationController
 
   def destroy
     if @bot.destroy
-      flash[:notice] = "Bot #{@bot.label} deleted successfully"
+      flash[:notice] = t('errors.bots.destroy_success', bot_label: @bot.label)
       render turbo_stream: turbo_stream_redirect(bots_path)
     else
       flash.now[:alert] = @bot.errors.messages.values.flatten.to_sentence
@@ -149,7 +149,7 @@ class BotsController < ApplicationController
     @api_key.secret = api_key_params[:secret]
 
     if @api_key.save
-      flash[:notice] = 'API keys saved successfully'
+      flash[:notice] = t('errors.bots.api_key_success')
       render turbo_stream: turbo_stream_page_refresh
     else
       render :new_api_key, status: :unprocessable_entity

@@ -15,14 +15,22 @@ nl:
                         portfolio:
                             max_assets_reached: "Maximum aantal activa bereikt."
     errors:
+        cloudflare_turnstile: 'Cloudflare Turnstile-validatie mislukt'
         bitcoin_address_not_updated: 'Bitcoin-adres kon niet worden bijgewerkt'
         format: '%{attribute}%{message}'
         frequency_limit: 'Frequentiegrens overschreden'
         invalid_api_keys: 'Ongeldige tokens'
-        invalid_risk_free_rate_key: 'Ongeldige risicovrije rentetarief sleutel.'
-        unable_to_get_risk_free_rate: 'Kan het risicovrije rentetarief voor %{risk_free_rate_name} niet verkrijgen. Gegevens-API-server is niet bereikbaar.'
+        invalid_risk_free_rate_key: 'Ongeldige risicovrije rentesleutel.'
+        api_key_permission_validation_failed: 'API-sleutelmachtigingen konden niet worden gevalideerd'
+        api_key_already_exists: 'Er bestaat al een API-sleutel voor %{exchange_name}'
+        incorrect_api_key_permissions: 'Onjuiste API-sleutelmachtigingen'
+        unable_to_get_risk_free_rate: 'Kan de risicovrije rente voor %{risk_free_rate_name} niet ophalen. De Data API-server is niet bereikbaar.'
         invalid_number_of_allocations: 'Ongeldig aantal toewijzingen'
         invalid_allocation_value: 'Ongeldige toewijzingswaarde'
+        bots:
+            exchange_asset_mismatch: "Niet alle activa staan genoteerd op %{exchange_name}"
+            destroy_success: "Bot %{bot_label} succesvol verwijderd"
+            api_key_success: "API-sleutels succesvol opgeslagen"
         messages:
             accepted: 'moet worden geaccepteerd'
             already_confirmed: 'was reeds bevestigd, probeer u aan te melden.'
@@ -63,7 +71,6 @@ nl:
             too_short:
                 one: 'is te kort (minimum 1 karakter)'
                 other: 'is te kort (minimum %{count} karakters)'
-            too_short_password: 'Wachtwoord is te kort'
             too_simple_password: 'Het wachtwoord moet tekens bevatten uit elk van deze categorieën: hoofdletters (A-Z), kleine letters (a-z), cijfers (0-9), speciale tekens (bv. #,?,!).'
             wrong_email: 'Verkeerde email.'
             wrong_length:
