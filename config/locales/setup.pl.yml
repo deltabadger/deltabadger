@@ -148,7 +148,7 @@ pl:
                     force_smart_intervals: 'Dla pary %{base}%{quote}, %{exchangeName} ma minimalną wielkość zlecenia <b>%{minimumValue}%{minimumCurrency}%{approximatedQuote}</b>. Deltabadger wykona ten harmonogram używając zleceń %{minimumValue}%{minimumCurrency} i dostosowując interwał tak, żeby statystycznie uzyskać oczekiwany przez ciebie rezultat. Nazywamy to <i>inteligentnymi interwałami</i>.'
                     other: 'Dla pary %{base}%{quote}, %{exchangeName} ma minimalną wielkość zlecenia <b>%{minimumValue}%{minimumCurrency}%{approximatedQuote}</b>. Deltabadger może wykonać ten harmonogram używając zleceń %{minimumValue}%{minimumCurrency} i dostosowując interwał tak, żeby statystycznie uzyskać oczekiwany przez ciebie rezultat. Nazywamy to <i>inteligentnymi interwałami</i>.'
             step_api_key: 'Klucz API'
-            step_currencies: 'Waluty'
+            step_assets: Aktywa
             step_exchange: Giełda
             step_schedule: Harmonogram
             step_type: Typ
