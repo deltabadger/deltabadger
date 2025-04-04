@@ -71,7 +71,7 @@ en:
                 instructions_7_html: 'Click <b>Create & download</b> and complete the 2-step verification.'
                 instructions_8_html: 'Copy and paste your new API keys into the form above.'
                 private_key: 'Secret'
-                public_key: 'API key name'
+                public_key: 'API key'
             error_info: 'Validation failed. Try again or generate new keys.'
             frequency_limit:
                 back_to_settings: 'Back to settings'
