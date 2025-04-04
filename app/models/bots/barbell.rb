@@ -7,7 +7,7 @@ class Bots::Barbell < Bot
   validates :quote_amount, presence: true, numericality: { greater_than: 0 }, on: :start
   validates :interval, presence: true, inclusion: { in: INTERVALS }, on: :start
   validates :allocation0, presence: true, numericality: { greater_than_or_equal_to: 0, less_than_or_equal_to: 1 }, on: :start
-  validate :validate_barbell_bot_exchange, if: :exchange_id?, on: :start
+  validate :validate_barbell_bot_exchange, if: :exchange_id?, on: :update
   validate :validate_external_ids, on: :start
   validate :validate_unchangeable_assets, on: :update
   validate :validate_unchangeable_interval, on: :update
@@ -163,7 +163,7 @@ class Bots::Barbell < Bot
     return if exchange.tickers.exists?(base_asset: base0_asset, quote_asset: quote_asset) &&
               exchange.tickers.exists?(base_asset: base1_asset, quote_asset: quote_asset)
 
-    errors.add(:exchange, :unsupported, message: 'Invalid combination of assets for the selected exchange')
+    errors.add(:exchange, :unsupported, message: I18n.t('errors.bots.exchange_asset_mismatch', exchange_name: exchange.name))
   end
 
   def validate_unchangeable_assets
