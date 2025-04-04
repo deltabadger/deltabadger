@@ -22,7 +22,7 @@ class Bots::Barbell < Bot
 
   def exchange
     @exchange ||= super
-    unless exchange_implementation_set?
+    if @exchange.present? && !exchange_implementation_set?
       @exchange.set_exchange_implementation(api_key: api_key)
       @exchange_implementation_set = true
     end
