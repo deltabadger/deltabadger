@@ -90,19 +90,6 @@ ru:
         start_fast: 'Начать за 5 минут'
         start_fast_longer_html: 'Начать <span class="d-none d-sm-inline">бесплатно</span> через 5 минут'
         terms_and_conditions: 'Условия и положения'
-    meta:
-        desc: 'Начните бесплатно самую проверенную стратегию, которая работает с Binance, Coinbase, Kraken, Kucoin и другими биржами. Без KYC.'
-        title: 'Deltabadger • Автоматизируйте усреднение долларовой стоимости для любой криптовалюты'
-        title_short: 'Deltabadger • Авто-усреднение для Bitcoin и других активов'
-        twitter_image_alt: 'Автоматизированное усреднение долларовой стоимости для Bitcoin, Ethereum, Polkadot, Cardano, Solana и других цифровых активов.'
-        title: "Deltabadger • Автоматизируйте усреднение долларовой стоимости для любой криптовалюты"
-        descriptions:
-            default: "Начните бесплатно самую проверенную стратегию, которая работает с Binance, Coinbase, Kraken, Kucoin и другими биржами. Без KYC."
-            privacy_policy: "Узнайте, как Deltabadger защищает вашу конфиденциальность и управляет вашими данными при использовании нашей автоматизированной платформы DCA для криптовалют."
-            terms_and_conditions: "Ознакомьтесь с нашими условиями использования, чтобы понять свои права и обязанности при использовании автоматизированной платформы DCA Deltabadger."
-        titles:
-            privacy_policy: "Политика Конфиденциальности • Deltabadger"
-            terms_and_conditions: "Условия Использования • Deltabadger"
     referral:
         banner_html: '<b>Поделитесь своей реферальной ссылкой с друзьями и <a href="/referral-program" alt="Read more">получайте 20% регулярной комиссии</a> в BTC. Лучший способ делать DCA в Bitcoin - это заработать его!</b>'
         copied: Скопировано!
