@@ -68,7 +68,11 @@ Rails.application.configure do
   config.assets.digest = false
 
   # Suppress logger output for asset requests.
-  config.assets.quiet = true
+  config.assets.quiet = true 
+  
+  # Enable source maps
+  config.assets.source_maps = true
+
   config.active_storage.service = :local
   # Raises error for missing translations
   # config.action_view.raise_on_missing_translations = true
