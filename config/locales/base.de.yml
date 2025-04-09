@@ -545,9 +545,8 @@ de:
         claim: 'NFT beanspruchen'
     welcome:
         banner_html: |
-            <p>Willkommen an Bord, %{name}!</p>
-            <p>Die neue Upgrade-Seite ist der perfekte Ort, um alle Funktionen und die dazugehörigen Pläne kennenzulernen.</p>
-            <p><a class="btn btn-success btn-lg mt-3 mb-3" href="upgrade">Hier starten</a></p>
+            <p>Indexierung und Rebalancing befinden sich in der finalen Testphase, %{name}!</p>
+            <p>Starten Sie unseren <b>klassischen DCA-Bot</b> und nutzen Sie den <b>Portfolio-Analyzer</b>, aber rechnen Sie in Kürze mit allem, was Sie auf der Startseite sehen.</p>
             <p>Beste Grüße, Jan</p>
     metrics:
         exp_return:
