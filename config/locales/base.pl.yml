@@ -542,9 +542,8 @@ pl:
         claim: 'Odbierz NFT'
     welcome:
         banner_html: |
-            <p>Witaj na pokładzie, %{name}!</p>
-            <p>Nowa strona aktualizacji to świetne miejsce, aby zapoznać się ze wszystkimi funkcjami i planami, do których należą.</p>
-            <p><a class="btn btn-success btn-lg mt-3 mb-3" href="upgrade">Zacznij tutaj</a></p>
+            <p>Indeksowanie i rebalansowanie są w fazie końcowych testów, %{name}!</p>
+            <p>Uruchom naszego <b>klasycznego bota DCA</b> i korzystaj z <b>Analizatora Portfela</b>, ale spodziewaj się wkrótce wszystkiego, co widzisz na stronie głównej.</p>
             <p>Pozdrawiam, Jan</p>
     metrics:
         exp_return:
