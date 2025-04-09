@@ -526,9 +526,8 @@ es:
         claim: 'Reclamar NFT'
     welcome:
         banner_html: |
-            <p>¡Bienvenido a bordo, %{name}!</p>
-            <p>La nueva página de actualización es un excelente lugar para ver todas las funciones y los planes a los que pertenecen.</p>
-            <p><a class="btn btn-success btn-lg mt-3 mb-3" href="upgrade">Empieza aquí</a></p>
+            <p>La indexación y el rebalanceo están en pruebas finales, %{name}!</p>
+            <p>Inicie nuestro <b>bot DCA clásico</b> y aproveche el <b>Analizador de Cartera</b>, pero espere tener muy pronto todo lo que ve en la página de inicio.</p>
             <p>Saludos, Jan</p>
     metrics:
         exp_return:
