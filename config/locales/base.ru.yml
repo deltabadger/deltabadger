@@ -252,7 +252,7 @@ ru:
         month: Месяц
         next_buy: 'Следующая покупка через %{countdown}'
         next_sell: 'Следующая продажа через %{countdown}'
-        next_withdrawal: ''
+        next_withdrawal: 'Следующий вывод через %{countdown}'
         price: цены
         price_range_buy_html: 'Покупать только в диапазоне цен от  <split>$100</split> до <split>$1000</split> %{quote} за %{base}.'
         price_range_sell_html: 'Продавать только в диапазоне цен от  <split>$100</split> до <split>$1000</split> %{quote} за %{base}.'
@@ -265,9 +265,10 @@ ru:
         stop: Пауза
         subaccounts_info: 'Использовать субсчет'
         week: Неделя
-        withdraw_interval_html: ''
-        withdraw_threshold_html: ''
+        withdraw_interval_html: 'Выводить каждые <split>2</split> дня.'
+        withdraw_threshold_html: 'Выводить, когда доступно не менее <split>0,001</split> %{currency}.'
         withdrawal_percentage: '%{percentage}%'
+        withdrawal: 'Вывод'
     days_left:
         one: ''
         few: ''
