@@ -111,8 +111,8 @@ pt:
         twitter: 'Siga-nos no 𝕏'
     welcome:
         banner_html: |
-            <p>A indexação e o rebalanceamento estão em testes finais, %{name}!</p>
-            <p>Inicie nosso <b>bot DCA clássico</b> e aproveite o <b>Analisador de Portfólio</b>, mas espere em breve tudo o que você vê na página inicial.</p>
+            <p>A indexação, o rebalanceamento e o novo bot DCA estão em testes finais, %{name}!</p>
+            <p>Experimente o novíssimo <b>Barbell Bot</b> e utilize o <b>Analisador de Portfólio</b>, mas espere em breve tudo o que você vê na página inicial.</p>
             <p>Cumprimentos, Jan</p>
     analyzer:
         default_portfolio: 'Portfólio padrão'

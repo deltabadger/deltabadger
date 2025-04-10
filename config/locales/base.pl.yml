@@ -115,8 +115,8 @@ pl:
         twitter: 'Śledź nas na 𝕏'
     welcome:
         banner_html: |
-            <p>Indeksowanie i rebalansowanie są w fazie końcowych testów, %{name}!</p>
-            <p>Uruchom naszego <b>klasycznego bota DCA</b> i korzystaj z <b>Analizatora Portfela</b>, ale spodziewaj się wkrótce wszystkiego, co widzisz na stronie głównej.</p>
+            <p>Indeksowanie, rebalansowanie i nowy bot DCA są w fazie końcowych testów, %{name}!</p>
+            <p>Wypróbuj zupełnie nowego <b>Barbell Bota</b> i korzystaj z <b>Analizatora Portfela</b>, ale spodziewaj się wkrótce wszystkiego, co widzisz na stronie głównej.</p>
             <p>Pozdrawiam, Jan</p>
     analyzer:
         default_portfolio: 'Domyślne portfolio'

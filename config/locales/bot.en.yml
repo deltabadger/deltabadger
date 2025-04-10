@@ -177,6 +177,8 @@ en:
         withdraw_threshold_html: 'Withdraw when at least <split>0.001</split> %{currency} is available.'
         bot_name: 'Bot name'
         change_bot_name: 'Change name'
+        withdrawal_percentage: '%{percentage}%'
+        withdrawal: 'Withdrawal'
         warning:
             title: "Congratulations! Your bot is running."
             both_below:

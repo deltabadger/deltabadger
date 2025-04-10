@@ -152,6 +152,7 @@ pl:
         withdraw_interval_html: 'Wypłacaj co <split>2</split> dni.'
         withdraw_threshold_html: 'Wypłać, gdy dostępne jest co najmniej <split>0,001</split> %{currency}.'
         withdrawal_percentage: '%{percentage}%'
+        withdrawal: 'Wypłata'
         warning:
             title: "Gratulacje! Twój bot działa."
             both_below:
