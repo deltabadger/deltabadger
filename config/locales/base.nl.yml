@@ -112,9 +112,8 @@ nl:
         twitter: 'Volg ons op 𝕏'
     welcome:
         banner_html: |
-            <p>Welkom aan boord, %{name}!</p>
-            <p>De nieuwe upgrade-pagina is de perfecte plek om alle functies en bijbehorende abonnementen te bekijken.</p>
-            <p><a class="button button--success button--large mt-3 mb-3" href="upgrade">Begin hier</a></p>
+            <p>Indexering, herbalancering en een nieuwe DCA-bot zijn in de laatste testfase, %{name}!</p>
+            <p>Probeer de gloednieuwe <b>Barbell Bot</b> en maak gebruik van de <b>Portfolio Analyzer</b>, maar verwacht binnenkort alles wat u op de homepage ziet.</p>
             <p>Groeten, Jan</p>
     analyzer:
         default_portfolio: 'Standaardportefeuille'

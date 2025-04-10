@@ -153,6 +153,7 @@ fr:
         withdraw_threshold_html: 'Retirer lorsqu''un minimum de <split>0,001</split> %{currency} est disponible.'
         minimum_transaction_size_warning: "%{amount} %{quote_currency} est inférieur à la taille de transaction minimale de %{exchange_name} (%{min_transaction_size} %{base_currency}). Le tampon est prêt à %{buffer_percentage}% et sera utilisé lorsque 100% des fonds seront accumulés."
         withdrawal_percentage: '%{percentage}%'
+        withdrawal: 'Retrait'
         warning:
             title: "Félicitations ! Votre bot fonctionne."
             both_below:
