@@ -115,8 +115,8 @@ es:
         twitter: 'Síguenos en 𝕏'
     welcome:
         banner_html: |
-            <p>¡Bienvenido a bordo, %{name}!</p>
-            <p>La nueva página de actualización <img src="/assets/upgrade.svg" alt="Actualizar" width="24" height="24"> es un gran lugar para ver todas las funciones y los planes a los que pertenecen.</p>
+            <p>La indexación, el rebalanceo y el nuevo bot DCA están en pruebas finales, %{name}!</p>
+            <p>Pruebe el nuevo <b>Barbell Bot</b> y aproveche el <b>Analizador de Cartera</b>, pero espere tener muy pronto todo lo que ve en la página de inicio.</p>
             <p>Saludos, Jan</p>
     analyzer:
         default_portfolio: 'Cartera predeterminada'
