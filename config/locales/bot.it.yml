@@ -176,6 +176,8 @@ it:
         withdraw_threshold_html: 'Preleva quando almeno <split>0.001</split> %{currency} è disponibile.'
         bot_name: 'Nome bot'
         change_bot_name: 'Cambia nome'
+        withdrawal_percentage: '%{percentage}%'
+        withdrawal: 'Prelievo'
         warning:
             title: "Congratulazioni! Il tuo bot è in esecuzione."
             both_below:

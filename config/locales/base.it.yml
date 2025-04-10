@@ -113,9 +113,8 @@ it:
         twitter: 'Seguici su 𝕏'
     welcome:
         banner_html: |
-            <p>Benvenuto a bordo, %{name}!</p>
-            <p>La nuova pagina di aggiornamento è un ottimo posto per vedere tutte le funzionalità e i piani a cui appartengono.</p>
-            <p><a class="button button--success button--large mt-3 mb-3" href="upgrade">Inizia qui</a></p>
+            <p>L'indicizzazione, il ribilanciamento e il nuovo bot DCA sono in fase di test finale, %{name}!</p>
+            <p>Prova il nuovissimo <b>Barbell Bot</b> e utilizza l'<b>Analizzatore di Portfolio</b>, ma aspettati molto presto tutto ciò che vedi nella homepage.</p>
             <p>Cordiali saluti, Jan</p>
     analyzer:
         default_portfolio: "Portfolio predefinito"

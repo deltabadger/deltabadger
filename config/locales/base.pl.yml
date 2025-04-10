@@ -115,9 +115,8 @@ pl:
         twitter: 'Śledź nas na 𝕏'
     welcome:
         banner_html: |
-            <p>Witaj na pokładzie, %{name}!</p>
-            <p>Nowa strona aktualizacji to świetne miejsce, aby zapoznać się ze wszystkimi funkcjami i planami, do których należą.</p>
-            <p><a class="button button--success button--large mt-3 mb-3" href="upgrade">Zacznij tutaj</a></p>
+            <p>Indeksowanie, rebalansowanie i nowy bot DCA są w fazie końcowych testów, %{name}!</p>
+            <p>Wypróbuj zupełnie nowego <b>Barbell Bota</b> i korzystaj z <b>Analizatora Portfela</b>, ale spodziewaj się wkrótce wszystkiego, co widzisz na stronie głównej.</p>
             <p>Pozdrawiam, Jan</p>
     analyzer:
         default_portfolio: 'Domyślne portfolio'
