@@ -115,8 +115,8 @@ en:
         twitter: 'Follow us on 𝕏'
     welcome:
         banner_html: |
-            <p>Indexing and rebalancing are in final testing, %{name}!</p>
-            <p>Start our <b>classic DCA bot</b>, and leverage the <b>Portfolio Analyzer</b>, but expect everything you see on the homepage very soon.</p>
+            <p>Indexing, rebalancing and new DCA bot are in final testing, %{name}!</p>
+            <p>Try the brand new <b>Barbell Bot</b>, and leverage the <b>Portfolio Analyzer</b>, but expect everything you see on the homepage very soon.</p>
             <p>Best, Jan</p>
     analyzer:
         default_portfolio: "Default portfolio"
