@@ -249,6 +249,7 @@ pt:
         month: Mês
         next_buy: 'Próxima compra em %{countdown}'
         next_sell: 'Próxima venda em %{countdown}'
+        next_withdrawal: 'Próxima retirada em %{countdown}'
         price: 'do preço'
         price_range_buy_html: 'Comprar apenas no intervalo de preços de <split>$100</split> a <split>$1000</split> %{quote} por %{base}.'
         price_range_sell_html: 'Vender apenas no intervalo de preços de  <split>$100</split> a <split>$1000</split> %{quote} por %{base}.'
@@ -261,6 +262,8 @@ pt:
         stop: Pausa
         subaccounts_info: 'Usar subconta'
         week: Semana
+        withdrawal_percentage: '%{percentage}%'
+        withdrawal: 'Retirada'   
     errors:
         bitcoin_address_not_updated: 'Não foi possível atualizar o endereço Bitcoin'
         format: '%{attribute}%{message}'
