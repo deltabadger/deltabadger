@@ -108,9 +108,8 @@ fr:
         twitter: 'Suivez-nous sur 𝕏'
     welcome:
         banner_html: |
-            <p>Bienvenue à bord, %{name} !</p>
-            <p>La nouvelle page de mise à niveau est l'endroit idéal pour découvrir toutes les fonctionnalités et les forfaits associés.</p>
-            <p><a class="button button--success button--large mt-3 mb-3" href="upgrade">Commencer ici</a></p>
+            <p>L'indexation et le rééquilibrage sont en phase de test final, %{name} !</p>
+            <p>Lancez notre <b>bot DCA classique</b> et utilisez l'<b>Analyseur de Portefeuille</b>, mais attendez-vous à voir très bientôt tout ce que vous voyez sur la page d'accueil.</p>
             <p>Cordialement, Jan</p>
     analyzer:
         default_portfolio: 'Portefeuille par défaut'
