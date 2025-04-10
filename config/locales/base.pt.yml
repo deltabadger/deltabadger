@@ -111,9 +111,8 @@ pt:
         twitter: 'Siga-nos no 𝕏'
     welcome:
         banner_html: |
-            <p>Bem-vindo a bordo, %{name}!</p>
-            <p>A nova página de atualização é um ótimo lugar para ver todas as funcionalidades e os planos a que pertencem.</p>
-            <p><a class="button button--success button--large mt-3 mb-3" href="upgrade">Começar aqui</a></p>
+            <p>A indexação e o rebalanceamento estão em testes finais, %{name}!</p>
+            <p>Inicie nosso <b>bot DCA clássico</b> e aproveite o <b>Analisador de Portfólio</b>, mas espere em breve tudo o que você vê na página inicial.</p>
             <p>Cumprimentos, Jan</p>
     analyzer:
         default_portfolio: 'Portfólio padrão'
