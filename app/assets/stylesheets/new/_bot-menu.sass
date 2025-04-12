@@ -3,79 +3,8 @@
     grid-template-columns: 1fr
     gap: 1rem
     @media screen and (min-width: 576px)
-        grid-template-columns: repeat(auto-fill, minmax(min(100%, 320px), 1fr))
-    .bot-menu__item
-        display: flex
-        flex-direction: column
-        align-items: center
-        justify-content: center
-        gap: 2rem
-        padding: 3rem !important
-        width: 100%
-        border-radius: 1.5rem
-        text-decoration: none
-        border: none
-        color: var(--link)
-        font-weight: bold
-        cursor: pointer
-        text-align: center
-        position: relative
-        overflow: hidden
-        transition: all 0.2s ease-in
-        background: var(--pick-bot-item-bg) 
-        &::before, &::after
-            content: ""
-            position: absolute
-            top: 0
-            left: 0
-            width: 100%
-            height: 100%
-            transition: all 0.2s ease-in     
-        &::after
-            z-index: 1
-            opacity: 0
-        > *
-            position: relative
-            z-index: 2
-        &--dca
-            &::after
-                background: linear-gradient(rgba(12, 34, 119, 0.6), rgba(12, 34, 119, .9)), url(/assets/strategy-01.jpg) top center / cover
-            &:hover::after
-                opacity: 1
-        &--barbell
-            &::after
-                background: linear-gradient(rgba(12, 34, 119, 0.6), rgba(12, 34, 119, .9)), url(/assets/strategy-03.jpg) top center / cover
-            &:hover::after
-                opacity: 1
-        @media screen and (min-width: 576px)
-            min-height: 32rem
-            height: 100%
-        &__title
-            font-size: 2.75rem
-        &__description
-            font-weight: 400
-        &:hover
-            color: #fff
-        .sbadge
-            font-weight: 600
-            position: relative
-            top: -0.5rem
-            &--soon
-                background: var(--primary)
-            &--warning
-                background: var(--warning)
-                color: var(--warning-text)
-        &.inactive
-            background: none
-            border: 2px solid var(--label)
-            color: var(--label)
-            cursor: default
-            opacity: 0.5
-            .sbadge
-                font-weight: 800
-                background: var(--label)
-                color: var(--widget-background)
-    .portfolio-assets
+        grid-template-columns: repeat(auto-fill, minmax(min(100%, 280px), 1fr))
+    &__item
         gap: 1rem !important
         position: relative
         overflow: hidden
@@ -85,7 +14,21 @@
         border-radius: 1.5rem
         display: flex
         flex-direction: column
+        border: none
+        width: 100%
+        height: 100%
+        text-align: left
+        text-decoration: none
+        color: var(--text)
+        transition: all 0.3s ease
+        &:hover
+            color: var(--text-emphasis)
+            cursor: pointer
+            .theme-img
+                opacity: 1
+                transform: scale(1.05)
         .theme-img
+            transition: all 0.3s ease
             position: absolute
             top: 0
             left: 0
@@ -96,6 +39,7 @@
             background-position: center !important
             background-repeat: no-repeat !important
             z-index: -1
+            opacity: 0.8
             &::after
                 position: absolute
                 top: 0
@@ -112,17 +56,16 @@
     .index-title
         font-size: 2.25rem
         line-height: 3rem
-        font-weight: 700
-        margin-bottom: 4rem
+        font-weight: 700 !important
     .index-info
         font-size: 1.75rem
         line-height: 2.65rem
         font-weight: 400
-        margin-bottom: 4rem
         display: block
         min-height: 9rem
         overflow: hidden
-        opacity: 0.5
+        opacity: 0.75
+        min-height: 16rem
     .index-asset
         display: flex
         flex-direction: column
