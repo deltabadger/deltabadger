@@ -190,8 +190,8 @@ module Exchanges
 
     def check_valid_api_key?(api_key:)
       result = CoinbaseClient.new(
-        key: api_key.key,
-        secret: api_key.secret
+        api_key: api_key.key,
+        api_secret: api_key.secret
       ).get_api_key_permissions
       return result unless result.success?
 
@@ -200,7 +200,7 @@ module Exchanges
               elsif api_key.withdrawal?
                 result.data['can_transfer'] == true
               else
-                false
+                raise StandardError, 'Invalid API key'
               end
 
       Result::Success.new(valid)
@@ -218,8 +218,8 @@ module Exchanges
 
     def client
       @client ||= CoinbaseClient.new(
-        key: @api_key&.key,
-        secret: @api_key&.secret
+        api_key: @api_key&.key,
+        api_secret: @api_key&.secret
       )
     end
 
@@ -297,7 +297,11 @@ module Exchanges
                                    data: result.data)
       end
 
-      Result::Success.new(result.data)
+      data = {
+        order_id: Utilities::Hash.dig_or_raise(result.data, 'success_response', 'order_id')
+      }
+
+      Result::Success.new(data)
     end
 
     # @param amount: Float must be a positive number
@@ -333,7 +337,11 @@ module Exchanges
                                    data: result.data)
       end
 
-      Result::Success.new(result.data)
+      data = {
+        order_id: Utilities::Hash.dig_or_raise(result.data, 'success_response', 'order_id')
+      }
+
+      Result::Success.new(data)
     end
 
     def parse_order_status(status)

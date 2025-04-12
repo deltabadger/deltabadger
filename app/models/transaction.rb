@@ -25,12 +25,14 @@ class Transaction < ApplicationRecord
 
   # TODO: Migrate Transaction & DailyTransactionAggregate to directly refference assets instead of symbols
   def base_asset
-    @base_asset ||= exchange.tickers.find_by(base: base)&.base_asset ||
+    @base_asset ||= exchange.assets.find_by(symbol: base) ||
+                    exchange.tickers.find_by(base: base)&.base_asset ||
                     exchange.tickers.find_by(quote: base)&.quote_asset
   end
 
   def quote_asset
-    @quote_asset ||= exchange.tickers.find_by(quote: quote)&.quote_asset ||
+    @quote_asset ||= exchange.assets.find_by(symbol: quote) ||
+                     exchange.tickers.find_by(quote: quote)&.quote_asset ||
                      exchange.tickers.find_by(base: quote)&.base_asset
   end
 

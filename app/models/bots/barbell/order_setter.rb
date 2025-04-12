@@ -22,7 +22,7 @@ module Bots::Barbell::OrderSetter # rubocop:disable Metrics/ModuleLength
     value.present? ? Time.zone.parse(value) : nil
   end
 
-  def set_barbell_orders # rubocop:disable Metrics/CyclomaticComplexity,Metrics/PerceivedComplexity
+  def set_barbell_orders
     calculate_pending_quote_amount
     return Result::Success.new if pending_quote_amount.zero?
 
@@ -120,19 +120,24 @@ module Bots::Barbell::OrderSetter # rubocop:disable Metrics/ModuleLength
   def set_order(order_data)
     ticker = exchange.tickers.find_by!(base_asset: order_data[:base_asset], quote_asset: order_data[:quote_asset])
 
-    return Result::Success.new(create_skipped_order!(order_data)) if order_data[:amount] < ticker.minimum_base_size
+    minimum_quote_size_in_base = ticker.minimum_quote_size / order_data[:rate]
+    minimum_base_size_in_base = ticker.minimum_base_size
+    amount_type = minimum_quote_size_in_base < minimum_base_size_in_base ? :quote : :base
+    minimum_amount = amount_type == :base ? minimum_base_size_in_base : minimum_quote_size_in_base
+
+    return Result::Success.new(create_skipped_order!(order_data)) if order_data[:amount] < minimum_amount
 
     result = market_buy(
       base_asset_id: order_data[:base_asset].id,
       quote_asset_id: order_data[:quote_asset].id,
-      amount: order_data[:amount],
-      amount_type: :base
+      amount: amount_type == :base ? order_data[:amount] : order_data[:quote_amount],
+      amount_type: amount_type
     )
 
     if result.success?
       update!(pending_quote_amount: pending_quote_amount - order_data[:quote_amount])
 
-      order_id = Utilities::Hash.dig_or_raise(result.data, 'success_response', 'order_id')
+      order_id = result.data[:order_id]
       Bot::CreateSuccessfulOrderJob.perform_later(self, order_id)
       # send_user_to_sendgrid(bot)
     else

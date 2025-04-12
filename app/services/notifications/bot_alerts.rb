@@ -36,7 +36,8 @@ module Notifications
 
       BotAlertsMailer.with(
         bot: bot,
-        user: bot.user
+        user: bot.user,
+        quote: bot.quote
       ).end_of_funds.deliver_later
     end
 
