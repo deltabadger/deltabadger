@@ -8,11 +8,11 @@ module Exchange::RemoteDataAggregator
     return result unless result.success?
 
     coingecko_tickers_info = result.data
-    coingecko_ids = coingecko_tickers_info.map { |t| [t[:base_coingecko_id], t[:quote_coingecko_id]] }.flatten.compact.uniq
+    external_ids = coingecko_tickers_info.map { |t| [t[:base_external_id], t[:quote_external_id]] }.flatten.compact.uniq
 
-    create_missing_coingecko_assets!(coingecko_ids)
+    create_missing_coingecko_assets!(external_ids)
 
-    assets_ids = Asset.where(external_id: coingecko_ids).pluck(:id)
+    assets_ids = Asset.where(external_id: external_ids).pluck(:id)
     destroy_delisted_exchange_assets(assets_ids)
     create_missing_exchange_assets!(assets_ids)
 
@@ -23,6 +23,10 @@ module Exchange::RemoteDataAggregator
     destroy_delisted_exchange_tickers(coingecko_tickers_info, exchange_tickers_info)
     create_missing_or_update_existing_exchange_tickers!(coingecko_tickers_info, exchange_tickers_info)
     Result::Success.new
+  end
+
+  def get_coingecko_tickers_info_public
+    get_coingecko_tickers_info
   end
 
   private
@@ -75,6 +79,13 @@ module Exchange::RemoteDataAggregator
       name: 'Canadian Dollar',
       color: '#D80621'
     )
+    Asset.find_or_create_by(
+      external_id: external_id_eodhd('AUD'),
+      category: 'Currency',
+      symbol: 'AUD',
+      name: 'Australian Dollar',
+      color: '#3A9C9F'
+    )
   end
 
   def get_coingecko_tickers_info
@@ -88,13 +99,15 @@ module Exchange::RemoteDataAggregator
         tickers_info << {
           base: ticker['base'],
           quote: ticker['target'],
-          base_coingecko_id: ticker['coin_id'] || "#{ticker['base'].upcase}.FOREX",
-          quote_coingecko_id: ticker['target_coin_id'] || "#{ticker['target'].upcase}.FOREX"
+          base_external_id: ticker['coin_id'] || "#{ticker['base'].upcase}.FOREX",
+          quote_external_id: ticker['target_coin_id'] || "#{ticker['target'].upcase}.FOREX"
         }
 
         # FIXME: Find a cleaner way for this: add the coinbase USDC pairs (not listed by default in Coingecko)
-        usdc_ticker_info = coinbase_usdc_ticker_info(ticker, tickers_info)
-        tickers_info << usdc_ticker_info if usdc_ticker_info.present?
+        if coingecko_id == Exchanges::CoinbaseExchange::COINGECKO_ID
+          usdc_ticker_info = coinbase_usdc_ticker_info(ticker, tickers_info)
+          tickers_info << usdc_ticker_info if usdc_ticker_info.present?
+        end
       end
       break if result.data['tickers'].count < 100
 
@@ -103,15 +116,15 @@ module Exchange::RemoteDataAggregator
     Result::Success.new(tickers_info)
   end
 
-  def create_missing_coingecko_assets!(coingecko_ids)
+  def create_missing_coingecko_assets!(external_ids)
     all_assets_external_ids = Asset.pluck(:external_id)
 
-    coingecko_ids.each do |coingecko_id|
-      next if all_assets_external_ids.include?(coingecko_id)
+    external_ids.each do |external_id|
+      next if all_assets_external_ids.include?(external_id)
 
       asset = Asset.create!({
-                              external_id: coingecko_id,
-                              category: 'Cryptocurrency'
+                              external_id: external_id,
+                              category: external_id.include?('.FOREX') ? 'Currency' : 'Cryptocurrency'
                             })
       Asset::FetchDataFromCoingeckoJob.perform_later(asset)
     end
@@ -149,8 +162,8 @@ module Exchange::RemoteDataAggregator
       if exchange_ticker.present?
         exchange_ticker.update!(ticker_info)
       else
-        base_asset_external_id = coingecko_ticker_info[:base_coingecko_id] || external_id_eodhd(ticker_info[:base])
-        quote_asset_external_id = coingecko_ticker_info[:quote_coingecko_id] || external_id_eodhd(ticker_info[:quote])
+        base_asset_external_id = coingecko_ticker_info[:base_external_id] || external_id_eodhd(ticker_info[:base])
+        quote_asset_external_id = coingecko_ticker_info[:quote_external_id] || external_id_eodhd(ticker_info[:quote])
         exchange_tickers.create!({
           base_asset: Asset.find_by(external_id: base_asset_external_id),
           quote_asset: Asset.find_by(external_id: quote_asset_external_id)
@@ -168,16 +181,15 @@ module Exchange::RemoteDataAggregator
   end
 
   def coinbase_usdc_ticker_info(ticker, tickers_info)
-    return unless coingecko_id == Exchanges::CoinbaseExchange::COINGECKO_ID
-    return unless ticker['target'] == 'USD'
+    return if ticker['target'] != 'USD'
     return if (ticker['base'] == 'USDT' && ticker['target'] == 'USD') ||
               (ticker['base'] == 'EURC' && ticker['target'] == 'USD')
 
     ticker_info = {
       base: ticker['base'],
       quote: 'USDC',
-      base_coingecko_id: ticker['coin_id'] || "#{ticker['base'].upcase}.FOREX",
-      quote_coingecko_id: 'usd-coin'
+      base_external_id: ticker['coin_id'] || "#{ticker['base'].upcase}.FOREX",
+      quote_external_id: 'usd-coin'
     }
 
     if tickers_info.include?(ticker_info)

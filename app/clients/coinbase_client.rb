@@ -2,10 +2,10 @@ class CoinbaseClient < ApplicationClient
   # https://docs.cdp.coinbase.com/advanced-trade/docs/api-overview
   URL = 'https://api.coinbase.com'.freeze
 
-  def initialize(key: nil, secret: nil)
+  def initialize(api_key: nil, api_secret: nil)
     super()
-    @key = key
-    @secret = secret&.gsub('\n', "\n")
+    @api_key = api_key
+    @api_secret = api_secret&.gsub('\n', "\n")
   end
 
   def self.connection
@@ -226,9 +226,9 @@ class CoinbaseClient < ApplicationClient
     request_path = req.path
     body = req.body.present? ? req.body : ''
     payload = "#{timestamp}#{method}#{request_path}#{body}"
-    signature = OpenSSL::HMAC.hexdigest('sha256', @secret, payload)
+    signature = OpenSSL::HMAC.hexdigest('sha256', @api_secret, payload)
     {
-      'CB-ACCESS-KEY': @key,
+      'CB-ACCESS-KEY': @api_key,
       'CB-ACCESS-TIMESTAMP': timestamp,
       'CB-ACCESS-SIGN': signature,
       'Accept': 'application/json',
@@ -242,14 +242,14 @@ class CoinbaseClient < ApplicationClient
     request_host = URI(URL).host
     request_path = req.path
     jwt_payload = {
-      sub: @key,
+      sub: @api_key,
       iss: 'coinbase-cloud',
       nbf: timestamp,
       exp: timestamp + 120,
       uri: "#{method} #{request_host}#{request_path}"
     }
-    private_key = OpenSSL::PKey::EC.new(@secret)
-    jwt = JWT.encode(jwt_payload, private_key, 'ES256', { kid: @key, nonce: SecureRandom.hex })
+    private_key = OpenSSL::PKey::EC.new(@api_secret)
+    jwt = JWT.encode(jwt_payload, private_key, 'ES256', { kid: @api_key, nonce: SecureRandom.hex })
     {
       'Authorization': "Bearer #{jwt}",
       'Accept': 'application/json',
@@ -258,10 +258,10 @@ class CoinbaseClient < ApplicationClient
   end
 
   def cdp_keys?
-    @secret.start_with?('-----BEGIN EC PRIVATE KEY-----')
+    @api_secret.start_with?('-----BEGIN EC PRIVATE KEY-----')
   end
 
   def unauthenticated?
-    @key.blank? || @secret.blank?
+    @api_key.blank? || @api_secret.blank?
   end
 end

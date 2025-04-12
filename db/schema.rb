@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema.define(version: 2025_03_29_040727) do
+ActiveRecord::Schema.define(version: 2025_04_10_154858) do
 
   # These are extensions that must be enabled in order to support this database
   enable_extension "plpgsql"
@@ -156,8 +156,8 @@ ActiveRecord::Schema.define(version: 2025_03_29_040727) do
     t.string "quote", null: false
     t.decimal "minimum_base_size", null: false
     t.decimal "minimum_quote_size", null: false
-    t.decimal "maximum_base_size", null: false
-    t.decimal "maximum_quote_size", null: false
+    t.decimal "maximum_base_size"
+    t.decimal "maximum_quote_size"
     t.integer "base_decimals", null: false
     t.integer "quote_decimals", null: false
     t.integer "price_decimals", null: false

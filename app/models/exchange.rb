@@ -13,7 +13,9 @@ class Exchange < ApplicationRecord
   validates :name, presence: true
 
   scope :available, -> { where.not(name: ['FTX', 'FTX.US', 'Coinbase Pro']) }
-  scope :available_for_barbell_bots, -> { where(name: ['Coinbase']) } # FIXME: Temporary until all exchanges are supported
+  scope :available_for_barbell_bots, lambda {
+                                       where(name: %w[Coinbase Kraken])
+                                     } # FIXME: Temporary until all exchanges are supported
 
   include RemoteDataAggregator
 
@@ -52,8 +54,9 @@ class Exchange < ApplicationRecord
 
   def set_exchange_implementation(api_key: nil)
     @exchange_implementation = case name.downcase
-                                 #  when 'binance' then Exchanges::BinanceExchange.new(self)
+                               #  when 'binance' then Exchanges::BinanceExchange.new(self, api_key)
                                when 'coinbase' then Exchanges::CoinbaseExchange.new(self, api_key)
+                               when 'kraken' then Exchanges::KrakenExchange.new(self, api_key)
                                else
                                  puts "Unsupported exchange #{name}"
                                  # raise NotImplementedError, "Unsupported exchange #{name}"
