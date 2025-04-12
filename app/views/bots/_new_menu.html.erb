@@ -2,13 +2,13 @@
 
     <%= link_to bots_path(create: true), class: 'bot-menu__item bot-menu__item--dca', data: { action: 'click->modal--base#animateOutCloseAndCleanUp', turbo: false } do %>
         <div class="theme-img" style="background-image: url('https://deltabadger.com/images/aurora-03.jpg')"></div>
-        <h2 class="index-title"><%= t('bot.types.dca.title') %></h2>
+        <div class="index-title"><%= t('bot.types.dca.title') %></div>
         <p class="index-info"><%= t('bot.types.dca.description') %></p>
     <% end %>
 
     <%= button_to barbell_new_step_to_first_asset_bots_path, method: :get, params: { bots_barbell: {label: nil}}, class: 'bot-menu__item bot-menu__item--barbell', data: { turbo_frame: "modal", action: 'click->modal--base#animateOutCloseAndCleanUp' } do %>
         <div class="theme-img" style="background-image: url('https://deltabadger.com/images/aurora-03.jpg')"></div>
-        <h2 class="index-title"><%= t('bot.types.barbell.title') %> <span class="sbadge sbadge--danger"><%= t('utils.new') %></span></h2>
+        <div class="index-title"><%= t('bot.types.barbell.title') %> <span class="sbadge sbadge--danger"><%= t('utils.new') %></span></div>
         <p class="index-info"><%= t('bot.types.barbell.description') %></p>
     <% end %>
     <!--
@@ -25,7 +25,7 @@
 
     <div class="bot-menu__item">
         <div class="theme-img" style="background-image: url('https://deltabadger.com/images/aurora-03.jpg')"></div>
-        <h2 class="index-title">Layer 1</h2>
+        <div class="index-title">Layer 1</div>
         <p class="index-info">Primary blockchain networks that process transactions directly and provide the foundation for blockchain infrastructure.</p>
         
         <div class="index-asset">
@@ -171,7 +171,7 @@
 
     <div class="bot-menu__item">
         <div class="theme-img" style="background-image: url('https://deltabadger.com/images/crystal-05.jpg')"></div>
-        <h2 class="index-title">DeFi</h2>
+        <div class="index-title">DeFi</div>
         <p class="index-info">Financial services built on blockchain that operate without central authorities, providing lending, borrowing, and trading capabilities.</p>
         
         <div class="index-asset">
@@ -317,7 +317,7 @@
 
     <div class="bot-menu__item">
         <div class="theme-img" style="background-image: url('https://deltabadger.com/images/index-usa01.webp')"></div>
-        <h2 class="index-title">Made in USA</h2>
+        <div class="index-title">Made in USA</div>
         <p class="index-info">Cryptocurrencies with significant connections to the United States through their founding teams or company headquarters.</p>
         
         <div class="index-asset">
@@ -463,7 +463,7 @@
 
     <div class="bot-menu__item">
         <div class="theme-img" style="background-image: url('https://deltabadger.com/images/index-sec.webp')"></div>
-        <h2 class="index-title">Alleged SEC Securities</h2>
+        <div class="index-title">Alleged SEC Securities</div>
         <p class="index-info">Tokens and cryptocurrencies that have been alleged to be securities by the U.S. Securities and Exchange Commission.</p>
         
         <div class="index-asset">
@@ -609,7 +609,7 @@
 
     <div class="bot-menu__item">
         <div class="theme-img" style="background-image: url('https://deltabadger.com/images/index-pepe01.webp')"></div>
-        <h2 class="index-title">Memecoins</h2>
+        <div class="index-title">Memecoins</div>
         <p class="index-info">Coins that derive value from internet memes and community hype rather than underlying technology or utility.</p>
         
         <div class="index-asset">
@@ -756,7 +756,7 @@
 
     <div class="bot-menu__item">
         <div class="theme-img" style="background-image: url('https://deltabadger.com/images/index-elon01.webp')"></div>
-        <h2 class="index-title">Elon Musk Inspired</h2>
+        <div class="index-title">Elon Musk Inspired</div>
         <p class="index-info">Meme coins inspired by Elon Musk, none of these projects are (necessarily) endorsed or created by Elon Musk.</p>
 
         <div class="index-asset">
@@ -903,7 +903,7 @@
 
     <div class="bot-menu__item">
         <div class="theme-img" style="background-image: url('https://deltabadger.com/images/index-ai.webp')"></div>
-        <h2 class="index-title">AI Portfolio</h2>
+        <div class="index-title">AI Portfolio</div>
         <p class="index-info">Artificial Intelligence (AI) tokens are cryptocurrencies that power AI-related projects.</p>
 
         <div class="index-asset">
@@ -1050,7 +1050,7 @@
 
     <div class="bot-menu__item">
         <div class="theme-img" style="background-image: url('https://deltabadger.com/images/index-layer2.webp')"></div>
-        <h2 class="index-title">Layer 2</h2>
+        <div class="index-title">Layer 2</div>
         <p class="index-info">Layer 2 solutions are scaling solutions built on top of Layer 1 blockchains to improve transaction speed and reduce costs.</p>
 
         <div class="index-asset">
@@ -1197,7 +1197,7 @@
 
     <div class="bot-menu__item">
         <div class="theme-img" style="background-image: url('https://deltabadger.com/images/index-layer0.webp')"></div>
-        <h2 class="index-title">Layer 0</h2>
+        <div class="index-title">Layer 0</div>
         <p class="index-info">Layer 0 protocols provide the foundational infrastructure for building and connecting multiple blockchains.</p>
 
         <div class="index-asset">
@@ -1316,7 +1316,7 @@
 
     <div class="bot-menu__item">
         <div class="theme-img" style="background-image: url('https://deltabadger.com/images/index-gamefi.webp')"></div>
-        <h2 class="index-title">GameFi</h2>
+        <div class="index-title">GameFi</div>
         <p class="index-info">GameFi tokens power blockchain-based gaming platforms and virtual worlds, combining gaming with decentralized finance.</p>
 
         <div class="index-asset">
@@ -1463,7 +1463,7 @@
 
     <div class="bot-menu__item">
         <div class="theme-img" style="background-image: url('https://deltabadger.com/images/index-yield.webp')"></div>
-        <h2 class="index-title">Yield Farming</h2>
+        <div class="index-title">Yield Farming</div>
         <p class="index-info">Yield farming tokens enable users to earn rewards by providing liquidity to decentralized finance protocols.</p>
 
         <div class="index-asset">
@@ -1610,7 +1610,7 @@
 
     <div class="bot-menu__item">
         <div class="theme-img" style="background-image: url('https://deltabadger.com/images/index-consensys.webp')"></div>
-        <h2 class="index-title">Consensys Portfolio</h2>
+        <div class="index-title">Consensys Portfolio</div>
         <p class="index-info">Protocols and tokens that Consensys have invested in.</p>
 
         <div class="index-asset">
