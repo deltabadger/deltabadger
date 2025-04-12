@@ -3,7 +3,7 @@
     grid-template-columns: 1fr
     gap: 1rem
     @media screen and (min-width: 576px)
-        grid-template-columns: 1fr 1fr
+        grid-template-columns: repeat(auto-fill, minmax(min(100%, 320px), 1fr))
     .bot-menu__item
         display: flex
         flex-direction: column
@@ -48,7 +48,8 @@
             &:hover::after
                 opacity: 1
         @media screen and (min-width: 576px)
-            height: 32rem
+            min-height: 32rem
+            height: 100%
         &__title
             font-size: 2.75rem
         &__description
@@ -74,3 +75,70 @@
                 font-weight: 800
                 background: var(--label)
                 color: var(--widget-background)
+    .portfolio-assets
+        gap: 1rem !important
+        position: relative
+        overflow: hidden
+        background: var(--pick-bot-item-bg)
+        padding: 20rem 3rem 3rem
+        z-index: 0
+        border-radius: 1.5rem
+        display: flex
+        flex-direction: column
+        .theme-img
+            position: absolute
+            top: 0
+            left: 0
+            display: block
+            width: 100%
+            height: 22rem
+            background-size: cover !important
+            background-position: center !important
+            background-repeat: no-repeat !important
+            z-index: -1
+            &::after
+                position: absolute
+                top: 0
+                left: 0
+                content: ""
+                display: block
+                width: 100%
+                height: 22rem
+                background-image: linear-gradient(to bottom, #0000 0%, var(--pick-bot-item-bg) 22rem)
+                background-size: 100% auto !important
+                background-position: top !important
+                background-repeat: no-repeat !important
+                z-index: -1
+    .index-title
+        font-size: 2.25rem
+        line-height: 3rem
+        font-weight: 700
+        margin-bottom: 4rem
+    .index-info
+        font-size: 1.75rem
+        line-height: 2.65rem
+        font-weight: 400
+        margin-bottom: 4rem
+        display: block
+        min-height: 9rem
+        overflow: hidden
+        opacity: 0.5
+    .index-asset
+        display: flex
+        flex-direction: column
+        gap: 0.5rem !important
+        &__row
+            display: flex
+            gap: 1rem
+        .slider
+            margin-bottom: 0
+        .ticker
+            width: 22rem
+            min-width: 0
+            padding: 0 1rem
+            height: 3rem
+            font-size: 1.75rem
+            line-height: 3rem
+        .allocation
+            min-width: 7rem
+            text-align: right
