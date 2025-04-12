@@ -23,7 +23,7 @@ class BotAlertsMailer < ApplicationMailer
   def end_of_funds
     @user = params[:user]
     @bot = params[:bot]
-    @quote = @bot.quote
+    @quote = params[:quote]
     @label = @bot.label
     @exchange_name = Exchange.find(@bot.exchange_id).name
 
