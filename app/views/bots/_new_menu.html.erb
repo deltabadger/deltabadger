@@ -8,7 +8,7 @@
 
     <%= button_to barbell_new_step_to_first_asset_bots_path, method: :get, params: { bots_barbell: {label: nil}}, class: 'bot-menu__item bot-menu__item--barbell', data: { turbo_frame: "modal", action: 'click->modal--base#animateOutCloseAndCleanUp' } do %>
         <div class="theme-img" style="background-image: url('https://deltabadger.com/images/aurora-03.jpg')"></div>
-        <div class="index-title"><%= t('bot.types.barbell.title') %> <span class="sbadge sbadge--danger"><%= t('utils.new') %></span></div>
+        <div class="index-title"><%= t('bot.types.barbell.title') %></div>
         <p class="index-info"><%= t('bot.types.barbell.description') %></p>
     <% end %>
     <!--
@@ -25,6 +25,356 @@
 
     <div class="bot-menu__item">
         <div class="theme-img" style="background-image: url('https://deltabadger.com/images/aurora-03.jpg')"></div>
+        <div class="index-title">Bitcoin</div>
+        <p class="index-info">DCA into Bitcoin is a gold standard for long-term crypto investing.</p>
+        <b class="sbadge sbadge--success"><%= t('utils.free') %></b>
+        <div class="index-asset">
+            <div class="index-asset__row">
+                <div class="ticker" style="background-color: #F7931A">BTC</div>
+                <div class="slider">
+                    <div class="slider__style">
+                        <div class="slider__style__track" style="border-left-color: #F7931A;">
+                            <div class="slider__style__progress" style="width: 100%; background-color: #F7931A;"></div>
+                        </div>
+                    </div>
+                </div>
+                <div class="allocation">100%</div>
+            </div>
+        </div>
+    </div>
+
+    <div class="bot-menu__item">
+        <div class="theme-img" style="background-image: url('https://deltabadger.com/images/aurora-03.jpg')"></div>
+        <div class="index-title">Crypto Barbell</div>
+        <p class="index-info">Primary blockchain networks that process transactions directly and provide the foundation for blockchain infrastructure.</p>
+
+        <div class="index-asset">
+            <div class="index-asset__row">
+                <div class="ticker" style="background-color: #F7931A">BTC</div>
+                <div class="slider">
+                    <div class="slider__style">
+                        <div class="slider__style__track" style="border-left-color: #F7931A;">
+                            <div class="slider__style__progress" style="width: 85.10%; background-color: #F7931A;"></div>
+                        </div>
+                    </div>
+                </div>
+                <div class="allocation">85.10%</div>
+            </div>
+        </div>
+        
+        <div class="index-asset">
+            <div class="index-asset__row">
+                <div class="ticker" style="background-color: #627EEA">ETH</div>
+                <div class="slider">
+                    <div class="slider__style">
+                        <div class="slider__style__track" style="border-left-color: #627EEA;">
+                            <div class="slider__style__progress" style="width: 14.90%; background-color: #627EEA;"></div>
+                        </div>
+                    </div>
+                </div>
+                <div class="allocation">14.90%</div>
+            </div>
+        </div>
+    </div>
+
+    <div class="bot-menu__item bot-menu__item--pro">
+        <div class="theme-img" style="background-image: url('https://deltabadger.com/images/aurora-03.jpg')"></div>
+        <b class="sbadge sbadge--pro"><%= t('utils.pro') %></b>
+        <div class="index-title">Crypto Index</div>
+        <p class="index-info">Primary blockchain networks that process transactions directly and provide the foundation for blockchain infrastructure.</p>
+        
+        <div class="index-asset">
+            <div class="index-asset__row">
+                <div class="ticker" style="background-color: #F7931A">BTC</div>
+                <div class="slider">
+                    <div class="slider__style">
+                        <div class="slider__style__track" style="border-left-color: #F7931A;">
+                            <div class="slider__style__progress" style="width: 75.30%; background-color: #F7931A;"></div>
+                        </div>
+                    </div>
+                </div>
+                <div class="allocation">75.30%</div>
+            </div>
+        </div>
+        
+        <div class="index-asset">
+            <div class="index-asset__row">
+                <div class="ticker" style="background-color: #627EEA">ETH</div>
+                <div class="slider">
+                    <div class="slider__style">
+                        <div class="slider__style__track" style="border-left-color: #627EEA;">
+                            <div class="slider__style__progress" style="width: 8.74%; background-color: #627EEA;"></div>
+                        </div>
+                    </div>
+                </div>
+                <div class="allocation">8.74%</div>
+            </div>
+        </div>
+
+        <div class="index-asset">
+            <div class="index-asset__row">
+                <div class="ticker" style="background-color: #456">XRP</div>
+                <div class="slider">
+                    <div class="slider__style">
+                        <div class="slider__style__track" style="border-left-color: #456;">
+                            <div class="slider__style__progress" style="width: 5.82%; background-color: #456;"></div>
+                        </div>
+                    </div>
+                </div>
+                <div class="allocation">5.82%</div>
+            </div>
+        </div>
+        
+        <div class="index-asset">
+            <div class="index-asset__row">
+                <div class="ticker" style="background-color: #F3BA2F">BNB</div>
+                <div class="slider">
+                    <div class="slider__style">
+                        <div class="slider__style__track" style="border-left-color: #F3BA2F;">
+                            <div class="slider__style__progress" style="width: 3.86%; background-color: #F3BA2F;"></div>
+                        </div>
+                    </div>
+                </div>
+                <div class="allocation">3.86%</div>
+            </div>
+        </div>
+        
+        <div class="index-asset">
+            <div class="index-asset__row">
+                <div class="ticker" style="background-color: #00BD62">SOL</div>
+                <div class="slider">
+                    <div class="slider__style">
+                        <div class="slider__style__track" style="border-left-color: #00BD62;">
+                            <div class="slider__style__progress" style="width: 3.01%; background-color: #00BD62;"></div>
+                        </div>
+                    </div>
+                </div>
+                <div class="allocation">3.01%</div>
+            </div>
+        </div>
+        
+        <div class="index-asset">
+            <div class="index-asset__row">
+                <div class="ticker" style="background-color: #0033AD">ADA</div>
+                <div class="slider">
+                    <div class="slider__style">
+                        <div class="slider__style__track" style="border-left-color: #0033AD;">
+                            <div class="slider__style__progress" style="width: 1.06%; background-color: #0033AD;"></div>
+                        </div>
+                    </div>
+                </div>
+                <div class="allocation">1.06%</div>
+            </div>
+        </div>
+        
+        <div class="index-asset">
+            <div class="index-asset__row">
+                <div class="ticker" style="background-color: #FF060A">TRX</div>
+                <div class="slider">
+                    <div class="slider__style">
+                        <div class="slider__style__track" style="border-left-color: #FF060A;">
+                            <div class="slider__style__progress" style="width: 1.05%; background-color: #FF060A;"></div>
+                        </div>
+                    </div>
+                </div>
+                <div class="allocation">1.05%</div>
+            </div>
+        </div>
+        
+        <div class="index-asset">
+            <div class="index-asset__row">
+                <div class="ticker" style="background-color: #0088CC">TON</div>
+                <div class="slider">
+                    <div class="slider__style">
+                        <div class="slider__style__track" style="border-left-color: #0088CC;">
+                            <div class="slider__style__progress" style="width: 0.42%; background-color: #0088CC;"></div>
+                        </div>
+                    </div>
+                </div>
+                <div class="allocation">0.42%</div>
+            </div>
+        </div>
+        
+        <div class="index-asset">
+            <div class="index-asset__row">
+                <div class="ticker" style="background-color: #E84142">AVAX</div>
+                <div class="slider">
+                    <div class="slider__style">
+                        <div class="slider__style__track" style="border-left-color: #E84142;">
+                            <div class="slider__style__progress" style="width: 0.37%; background-color: #E84142;"></div>
+                        </div>
+                    </div>
+                </div>
+                <div class="allocation">0.37%</div>
+            </div>
+        </div>
+        
+        <div class="index-asset">
+            <div class="index-asset__row">
+                <div class="ticker" style="background-color: #0098ff">SUI</div>
+                <div class="slider">
+                    <div class="slider__style">
+                        <div class="slider__style__track" style="border-left-color: #0098ff;">
+                            <div class="slider__style__progress" style="width: 0.34%; background-color: #0098ff;"></div>
+                        </div>
+                    </div>
+                </div>
+                <div class="allocation">0.34%</div>
+            </div>
+        </div>
+    </div>
+
+    <div class="bot-menu__item bot-menu__item--pro">
+        <div class="theme-img" style="background-image: url('https://deltabadger.com/images/aurora-03.jpg')"></div>
+        <b class="sbadge sbadge--pro"><%= t('utils.pro') %></b>
+        <div class="index-title">Altcoin Season</div>
+        <p class="index-info">Primary blockchain networks that process transactions directly and provide the foundation for blockchain infrastructure.</p>
+        
+        <div class="index-asset">
+            <div class="index-asset__row">
+                <div class="ticker" style="background-color: #627EEA">ETH</div>
+                <div class="slider">
+                    <div class="slider__style">
+                        <div class="slider__style__track" style="border-left-color: #627EEA;">
+                            <div class="slider__style__progress" style="width: 35.24%; background-color: #627EEA;"></div>
+                        </div>
+                    </div>
+                </div>
+                <div class="allocation">35.24%</div>
+            </div>
+        </div>
+
+        <div class="index-asset">
+            <div class="index-asset__row">
+                <div class="ticker" style="background-color: #456">XRP</div>
+                <div class="slider">
+                    <div class="slider__style">
+                        <div class="slider__style__track" style="border-left-color: #456;">
+                            <div class="slider__style__progress" style="width: 23.45%; background-color: #456;"></div>
+                        </div>
+                    </div>
+                </div>
+                <div class="allocation">23.45%</div>
+            </div>
+        </div>
+        
+        <div class="index-asset">
+            <div class="index-asset__row">
+                <div class="ticker" style="background-color: #F3BA2F">BNB</div>
+                <div class="slider">
+                    <div class="slider__style">
+                        <div class="slider__style__track" style="border-left-color: #F3BA2F;">
+                            <div class="slider__style__progress" style="width: 15.56%; background-color: #F3BA2F;"></div>
+                        </div>
+                    </div>
+                </div>
+                <div class="allocation">15.56%</div>
+            </div>
+        </div>
+        
+        <div class="index-asset">
+            <div class="index-asset__row">
+                <div class="ticker" style="background-color: #00BD62">SOL</div>
+                <div class="slider">
+                    <div class="slider__style">
+                        <div class="slider__style__track" style="border-left-color: #00BD62;">
+                            <div class="slider__style__progress" style="width: 12.14%; background-color: #00BD62;"></div>
+                        </div>
+                    </div>
+                </div>
+                <div class="allocation">12.14%</div>
+            </div>
+        </div>
+        
+        <div class="index-asset">
+            <div class="index-asset__row">
+                <div class="ticker" style="background-color: #0033AD">ADA</div>
+                <div class="slider">
+                    <div class="slider__style">
+                        <div class="slider__style__track" style="border-left-color: #0033AD;">
+                            <div class="slider__style__progress" style="width: 4.28%; background-color: #0033AD;"></div>
+                        </div>
+                    </div>
+                </div>
+                <div class="allocation">4.28%</div>
+            </div>
+        </div>
+        
+        <div class="index-asset">
+            <div class="index-asset__row">
+                <div class="ticker" style="background-color: #FF060A">TRX</div>
+                <div class="slider">
+                    <div class="slider__style">
+                        <div class="slider__style__track" style="border-left-color: #FF060A;">
+                            <div class="slider__style__progress" style="width: 4.23%; background-color: #FF060A;"></div>
+                        </div>
+                    </div>
+                </div>
+                <div class="allocation">4.23%</div>
+            </div>
+        </div>
+        
+        <div class="index-asset">
+            <div class="index-asset__row">
+                <div class="ticker" style="background-color: #0088CC">TON</div>
+                <div class="slider">
+                    <div class="slider__style">
+                        <div class="slider__style__track" style="border-left-color: #0088CC;">
+                            <div class="slider__style__progress" style="width: 0.35%; background-color: #0088CC;"></div>
+                        </div>
+                    </div>
+                </div>
+                <div class="allocation">0.35%</div>
+            </div>
+        </div>
+        
+        <div class="index-asset">
+            <div class="index-asset__row">
+                <div class="ticker" style="background-color: #E84142">AVAX</div>
+                <div class="slider">
+                    <div class="slider__style">
+                        <div class="slider__style__track" style="border-left-color: #E84142;">
+                            <div class="slider__style__progress" style="width: 1.51%; background-color: #E84142;"></div>
+                        </div>
+                    </div>
+                </div>
+                <div class="allocation">1.51%</div>
+            </div>
+        </div>
+        
+        <div class="index-asset">
+            <div class="index-asset__row">
+                <div class="ticker" style="background-color: #0098ff">SUI</div>
+                <div class="slider">
+                    <div class="slider__style">
+                        <div class="slider__style__track" style="border-left-color: #0098ff;">
+                            <div class="slider__style__progress" style="width: 1.38%; background-color: #0098ff;"></div>
+                        </div>
+                    </div>
+                </div>
+                <div class="allocation">1.38%</div>
+            </div>
+        </div>
+        
+        <div class="index-asset">
+            <div class="index-asset__row">
+                <div class="ticker" style="background-color: #00a1be">HBAR</div>
+                <div class="slider">
+                    <div class="slider__style">
+                        <div class="slider__style__track" style="border-left-color: #00a1be;">
+                            <div class="slider__style__progress" style="width: 1.33%; background-color: #00a1be;"></div>
+                        </div>
+                    </div>
+                </div>
+                <div class="allocation">1.33%</div>
+            </div>
+        </div>
+    </div>
+
+
+    <div class="bot-menu__item bot-menu__item--legendary">
+        <div class="theme-img" style="background-image: url('https://deltabadger.com/images/aurora-03.jpg')"></div>
+        <b class="sbadge sbadge--legendary"><%= t('utils.legendary') %></b>
         <div class="index-title">Layer 1</div>
         <p class="index-info">Primary blockchain networks that process transactions directly and provide the foundation for blockchain infrastructure.</p>
         
@@ -169,154 +519,9 @@
         </div>
     </div>
 
-    <div class="bot-menu__item">
-        <div class="theme-img" style="background-image: url('https://deltabadger.com/images/crystal-05.jpg')"></div>
-        <div class="index-title">DeFi</div>
-        <p class="index-info">Financial services built on blockchain that operate without central authorities, providing lending, borrowing, and trading capabilities.</p>
-        
-        <div class="index-asset">
-            <div class="index-asset__row">
-                <div class="ticker" style="background-color: #00A3FF">STETH</div>
-                <div class="slider">
-                    <div class="slider__style">
-                        <div class="slider__style__track" style="border-left-color: #00A3FF;">
-                            <div class="slider__style__progress" style="width: 32.16%; background-color: #00A3FF;"></div>
-                        </div>
-                    </div>
-                </div>
-                <div class="allocation">32.16%</div>
-            </div>
-        </div>
-        
-        <div class="index-asset">
-            <div class="index-asset__row">
-                <div class="ticker" style="background-color: #2A5ADA">LINK</div>
-                <div class="slider">
-                    <div class="slider__style">
-                        <div class="slider__style__track" style="border-left-color: #2A5ADA;">
-                            <div class="slider__style__progress" style="width: 15.67%; background-color: #2A5ADA;"></div>
-                        </div>
-                    </div>
-                </div>
-                <div class="allocation">15.67%</div>
-            </div>
-        </div>
-        
-        <div class="index-asset">
-            <div class="index-asset__row">
-                <div class="ticker" style="background-color: #00A3FF">WSTETH</div>
-                <div class="slider">
-                    <div class="slider__style">
-                        <div class="slider__style__track" style="border-left-color: #00A3FF;">
-                            <div class="slider__style__progress" style="width: 14.76%; background-color: #00A3FF;"></div>
-                        </div>
-                    </div>
-                </div>
-                <div class="allocation">14.76%</div>
-            </div>
-        </div>
-        
-        <div class="index-asset">
-            <div class="index-asset__row">
-                <div class="ticker" style="background-color: #FF0000">HYPE</div>
-                <div class="slider">
-                    <div class="slider__style">
-                        <div class="slider__style__track" style="border-left-color: #FF0000;">
-                            <div class="slider__style__progress" style="width: 7.51%; background-color: #FF0000;"></div>
-                        </div>
-                    </div>
-                </div>
-                <div class="allocation">7.51%</div>
-            </div>
-        </div>
-        
-        <div class="index-asset">
-            <div class="index-asset__row">
-                <div class="ticker" style="background-color: #FF007A">UNI</div>
-                <div class="slider">
-                    <div class="slider__style">
-                        <div class="slider__style__track" style="border-left-color: #FF007A;">
-                            <div class="slider__style__progress" style="width: 6.78%; background-color: #FF007A;"></div>
-                        </div>
-                    </div>
-                </div>
-                <div class="allocation">6.78%</div>
-            </div>
-        </div>
-        
-        <div class="index-asset">
-            <div class="index-asset__row">
-                <div class="ticker" style="background-color: #F5AC37">DAI</div>
-                <div class="slider">
-                    <div class="slider__style">
-                        <div class="slider__style__track" style="border-left-color: #F5AC37;">
-                            <div class="slider__style__progress" style="width: 5.97%; background-color: #F5AC37;"></div>
-                        </div>
-                    </div>
-                </div>
-                <div class="allocation">5.97%</div>
-            </div>
-        </div>
-        
-        <div class="index-asset">
-            <div class="index-asset__row">
-                <div class="ticker" style="background-color: #789">ONDO</div>
-                <div class="slider">
-                    <div class="slider__style">
-                        <div class="slider__style__track" style="border-left-color: #789;">
-                            <div class="slider__style__progress" style="width: 4.86%; background-color: #789;"></div>
-                        </div>
-                    </div>
-                </div>
-                <div class="allocation">4.86%</div>
-            </div>
-        </div>
-        
-        <div class="index-asset">
-            <div class="index-asset__row">
-                <div class="ticker" style="background-color: #328332">ETC</div>
-                <div class="slider">
-                    <div class="slider__style">
-                        <div class="slider__style__track" style="border-left-color: #328332;">
-                            <div class="slider__style__progress" style="width: 4.69%; background-color: #328332;"></div>
-                        </div>
-                    </div>
-                </div>
-                <div class="allocation">4.69%</div>
-            </div>
-        </div>
-        
-        <div class="index-asset">
-            <div class="index-asset__row">
-                <div class="ticker" style="background-color: #B6509E">AAVE</div>
-                <div class="slider">
-                    <div class="slider__style">
-                        <div class="slider__style__track" style="border-left-color: #B6509E;">
-                            <div class="slider__style__progress" style="width: 4.37%; background-color: #B6509E;"></div>
-                        </div>
-                    </div>
-                </div>
-                <div class="allocation">4.37%</div>
-            </div>
-        </div>
-        
-        <div class="index-asset">
-            <div class="index-asset__row">
-                <div class="ticker" style="background-color: #369">ENA</div>
-                <div class="slider">
-                    <div class="slider__style">
-                        <div class="slider__style__track" style="border-left-color: #369;">
-                            <div class="slider__style__progress" style="width: 3.22%; background-color: #369;"></div>
-                        </div>
-                    </div>
-                </div>
-                <div class="allocation">3.22%</div>
-            </div>
-        </div>
-    </div>
-
-    <div class="bot-menu__item">
+    <div class="bot-menu__item bot-menu__item--legendary">
         <div class="theme-img" style="background-image: url('https://deltabadger.com/images/index-usa01.webp')"></div>
+        <b class="sbadge sbadge--legendary"><%= t('utils.legendary') %></b>
         <div class="index-title">Made in USA</div>
         <p class="index-info">Cryptocurrencies with significant connections to the United States through their founding teams or company headquarters.</p>
         
@@ -461,8 +666,9 @@
         </div>
     </div>
 
-    <div class="bot-menu__item">
+    <div class="bot-menu__item bot-menu__item--legendary">
         <div class="theme-img" style="background-image: url('https://deltabadger.com/images/index-sec.webp')"></div>
+        <b class="sbadge sbadge--legendary"><%= t('utils.legendary') %></b>
         <div class="index-title">Alleged SEC Securities</div>
         <p class="index-info">Tokens and cryptocurrencies that have been alleged to be securities by the U.S. Securities and Exchange Commission.</p>
         
@@ -607,8 +813,9 @@
         </div>
     </div>
 
-    <div class="bot-menu__item">
+    <div class="bot-menu__item bot-menu__item--legendary">
         <div class="theme-img" style="background-image: url('https://deltabadger.com/images/index-pepe01.webp')"></div>
+        <b class="sbadge sbadge--legendary"><%= t('utils.legendary') %></b>
         <div class="index-title">Memecoins</div>
         <p class="index-info">Coins that derive value from internet memes and community hype rather than underlying technology or utility.</p>
         
@@ -754,8 +961,9 @@
         
     </div>
 
-    <div class="bot-menu__item">
+    <div class="bot-menu__item bot-menu__item--legendary">
         <div class="theme-img" style="background-image: url('https://deltabadger.com/images/index-elon01.webp')"></div>
+        <b class="sbadge sbadge--legendary"><%= t('utils.legendary') %></b>
         <div class="index-title">Elon Musk Inspired</div>
         <p class="index-info">Meme coins inspired by Elon Musk, none of these projects are (necessarily) endorsed or created by Elon Musk.</p>
 
@@ -901,8 +1109,9 @@
         
     </div>
 
-    <div class="bot-menu__item">
+    <div class="bot-menu__item bot-menu__item--legendary">
         <div class="theme-img" style="background-image: url('https://deltabadger.com/images/index-ai.webp')"></div>
+        <b class="sbadge sbadge--legendary"><%= t('utils.legendary') %></b>
         <div class="index-title">AI Portfolio</div>
         <p class="index-info">Artificial Intelligence (AI) tokens are cryptocurrencies that power AI-related projects.</p>
 
@@ -1048,8 +1257,9 @@
         
     </div>
 
-    <div class="bot-menu__item">
+    <div class="bot-menu__item bot-menu__item--legendary">
         <div class="theme-img" style="background-image: url('https://deltabadger.com/images/index-layer2.webp')"></div>
+        <b class="sbadge sbadge--legendary"><%= t('utils.legendary') %></b>
         <div class="index-title">Layer 2</div>
         <p class="index-info">Layer 2 solutions are scaling solutions built on top of Layer 1 blockchains to improve transaction speed and reduce costs.</p>
 
@@ -1195,8 +1405,9 @@
         
     </div>
 
-    <div class="bot-menu__item">
+    <div class="bot-menu__item bot-menu__item--legendary">
         <div class="theme-img" style="background-image: url('https://deltabadger.com/images/index-layer0.webp')"></div>
+        <b class="sbadge sbadge--legendary"><%= t('utils.legendary') %></b>
         <div class="index-title">Layer 0</div>
         <p class="index-info">Layer 0 protocols provide the foundational infrastructure for building and connecting multiple blockchains.</p>
 
@@ -1314,8 +1525,9 @@
         
     </div>
 
-    <div class="bot-menu__item">
+    <div class="bot-menu__item bot-menu__item--legendary">
         <div class="theme-img" style="background-image: url('https://deltabadger.com/images/index-gamefi.webp')"></div>
+        <b class="sbadge sbadge--legendary"><%= t('utils.legendary') %></b>
         <div class="index-title">GameFi</div>
         <p class="index-info">GameFi tokens power blockchain-based gaming platforms and virtual worlds, combining gaming with decentralized finance.</p>
 
@@ -1461,8 +1673,9 @@
         
     </div>
 
-    <div class="bot-menu__item">
+    <div class="bot-menu__item bot-menu__item--legendary">
         <div class="theme-img" style="background-image: url('https://deltabadger.com/images/index-yield.webp')"></div>
+        <b class="sbadge sbadge--legendary"><%= t('utils.legendary') %></b>
         <div class="index-title">Yield Farming</div>
         <p class="index-info">Yield farming tokens enable users to earn rewards by providing liquidity to decentralized finance protocols.</p>
 
@@ -1608,8 +1821,9 @@
         
     </div>
 
-    <div class="bot-menu__item">
+    <div class="bot-menu__item bot-menu__item--legendary">
         <div class="theme-img" style="background-image: url('https://deltabadger.com/images/index-consensys.webp')"></div>
+        <b class="sbadge sbadge--legendary"><%= t('utils.legendary') %></b>
         <div class="index-title">Consensys Portfolio</div>
         <p class="index-info">Protocols and tokens that Consensys have invested in.</p>
 
