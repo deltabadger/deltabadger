@@ -25,7 +25,7 @@
     &:not(.itile--soon)
         &:hover
             background: var(--pick-bot-item-bg)
-            box-shadow: 0.5rem 0.5rem 1.5rem #0242
+            box-shadow: 0.5rem 0.5rem 1.5rem #0242s
             color: var(--pick-bot-item-text-hover) !important
             cursor: pointer
             .theme-img
@@ -40,7 +40,6 @@
         .theme-img
             opacity: 0.8 !important
             height: 100% !important
-            //transition: all 1s ease !important
             &::after
                 opacity: 1 !important
                 background-image: linear-gradient(to bottom, #0000 0%, #00a 100%) !important
@@ -58,6 +57,12 @@
         position: absolute
         top: 1rem
         right: 1rem
+        &--soon
+            opacity: 0.85
+            background-color: var(--label)
+            color: var(--widget-background)
+        &--beta
+            background-color: #0040ff
     .slider__style__track
         border-right: none
     .theme-img
