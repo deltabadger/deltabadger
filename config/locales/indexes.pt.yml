@@ -13,7 +13,7 @@ pt:
             title: "Temporada de altcoins"
             info: "Invista com segurança numa carteira de altcoins vencedoras. Reduza o risco de criptomoedas de pequena capitalização substituindo a alocação manual por indexação automática."
         layer_1:
-            title: "Camada 1"
+            title: "Layer 1"
             info: "Redes blockchain primárias que processam transações diretamente e fornecem a base para a infraestrutura blockchain."
         made_in_usa:
             title: "Made in USA"
@@ -31,11 +31,11 @@ pt:
             title: "Carteira de IA"
             info: "Os tokens de Inteligência Artificial (IA) são criptomoedas que potenciam projetos relacionados com IA."
         layer_2:
-            title: "Camada 2"
-            info: "As soluções de Camada 2 são soluções de escalabilidade construídas sobre blockchains de Camada 1 para melhorar a velocidade das transações e reduzir os custos."
+            title: "Layer 2"
+            info: "As soluções de Layer 2 são soluções de escalabilidade construídas sobre blockchains de Layer 1 para melhorar a velocidade das transações e reduzir os custos."
         layer_0:
-            title: "Camada 0"
-            info: "Os protocolos de Camada 0 fornecem a infraestrutura fundamental para construir e conectar múltiplas blockchains."
+            title: "Layer 0"
+            info: "Os protocolos de Layer 0 fornecem a infraestrutura fundamental para construir e conectar múltiplas blockchains."
         gamefi:
             title: "GameFi"
             info: "Os tokens GameFi potenciam plataformas de jogos baseadas em blockchain e mundos virtuais, combinando jogos com finanças descentralizadas."
