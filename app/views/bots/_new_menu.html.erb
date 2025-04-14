@@ -1,24 +1,24 @@
 <div class="bot-menu">
 
-    <%= link_to bots_path(create: true), class: 'bot-menu__item bot-menu__item--dca', data: { action: 'click->modal--base#animateOutCloseAndCleanUp', turbo: false } do %>
+    <%= link_to bots_path(create: true), class: 'itile itile--dca', data: { action: 'click->modal--base#animateOutCloseAndCleanUp', turbo: false } do %>
         <div class="theme-img" style="background-image: url('https://deltabadger.com/images/aurora-02.jpg')"></div>
         <div class="index-title"><%= t('bot.types.dca.title') %></div>
         <p class="index-info"><%= t('bot.types.dca.description') %></p>
     <% end %>
 
-    <%= button_to barbell_new_step_to_first_asset_bots_path, method: :get, params: { bots_barbell: {label: nil}}, class: 'bot-menu__item bot-menu__item--barbell', data: { turbo_frame: "modal", action: 'click->modal--base#animateOutCloseAndCleanUp' } do %>
+    <%= button_to barbell_new_step_to_first_asset_bots_path, method: :get, params: { bots_barbell: {label: nil}}, class: 'itile itile--barbell', data: { turbo_frame: "modal", action: 'click->modal--base#animateOutCloseAndCleanUp' } do %>
         <div class="theme-img" style="background-image: url('https://deltabadger.com/images/aurora-03.jpg')"></div>
         <div class="index-title"><%= t('bot.types.barbell.title') %></div>
         <p class="index-info"><%= t('bot.types.barbell.description') %></p>
     <% end %>
 
-    <div class="bot-menu__item bot-menu__item--soon">
+    <div class="itile itile--soon">
         <div class="theme-img" style="background-image: url('https://deltabadger.com/blog/when-to-sell.jpg')"></div>
         <b class="sbadge sbadge--soon"><%= t('utils.soon') %></b>
         <div class="index-title">Crypto Index</div>
         <p class="index-info">Primary blockchain networks that process transactions directly and provide the foundation for blockchain infrastructure.</p>
     </div>
-    <div class="bot-menu__item bot-menu__item--soon">
+    <div class="itile itile--soon">
         <div class="theme-img" style="background-image: url('https://deltabadger.com/blog/when-to-sell.jpg')"></div>
         <b class="sbadge sbadge--soon"><%= t('utils.soon') %></b>
         <div class="index-title">Custom Portfolio</div>
