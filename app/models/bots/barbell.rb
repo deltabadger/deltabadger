@@ -132,7 +132,15 @@ class Bots::Barbell < Bot
 
   def effective_allocation0
     if market_cap_adjusted?
-      allocation0 # TODO: call Coingecko API to get the effective allocation
+      result0 = base0_asset.get_market_cap
+      result1 = base1_asset.get_market_cap
+      if result0.success? && result1.success?
+        (result0.data.to_f / (result0.data + result1.data)).round(2)
+      else
+        Rails.logger.error("Failed to get market cap for #{base0_asset.symbol}") if result0.failure?
+        Rails.logger.error("Failed to get market cap for #{base1_asset.symbol}") if result1.failure?
+        allocation0
+      end
     else
       allocation0
     end
