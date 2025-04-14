@@ -8,7 +8,15 @@ class Asset < ApplicationRecord
   include Undeletable
 
   def sync_data_with_coingecko
-    result = coingecko_client.coin_data_by_id(id: external_id)
+    result = coingecko_client.coin_data_by_id(
+      id: external_id,
+      localization: false,
+      tickers: false,
+      market_data: true,
+      community_data: false,
+      developer_data: false,
+      sparkline: false
+    )
     return Result::Failure.new("Failed to get #{external_id} data from coingecko") unless result.success?
 
     update!(
@@ -26,6 +34,18 @@ class Asset < ApplicationRecord
 
     colors = Utilities::Image.extract_dominant_colors(image_url)
     update!(color: Utilities::Image.most_vivid_color(colors))
+  end
+
+  def get_market_cap(currency: 'usd')
+    return Result::Failure.new('Asset is not a cryptocurrency') if category != 'Cryptocurrency'
+
+    market_cap = Rails.cache.fetch("asset_market_cap_#{external_id}_#{currency}", expires_in: 6.hours) do
+      result = coingecko_client.coins_list_with_market_data(vs_currency: currency, ids: [external_id])
+      return result unless result.success?
+
+      Utilities::Hash.dig_or_raise(result.data, 0, 'market_cap').to_i
+    end
+    Result::Success.new(market_cap)
   end
 
   private
