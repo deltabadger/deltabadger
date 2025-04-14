@@ -13,13 +13,13 @@
     border: none
     top: 0
     left: 0
-    backdrop-filter: blur(1rem)
+    backdrop-filter: blur(4rem)
     &::backdrop
         display: none
     &__vertical-center
         max-height: 100vh
         position: fixed
-        overflow: scroll
+        // overflow: scroll
         padding: 1rem 0
         @media screen and (min-width: 576px)
             padding: 2rem 0
@@ -68,8 +68,26 @@
             width: 128rem
         &--xlarge
             width: calc(100vw - 4rem)
-            max-width: 280rem
-            background: none
+            max-width: 106rem
+            
+            
+    &--xlarge
+        background: none
+        padding: 1rem 0 0
+        .itile  
+            //box-shadow: 0 0 1rem #abc7
+            &--soon
+                background: #fff6
+                color: var(--label)
+                .theme-img
+                    display: none
+                
+        .modal__close
+            top: 1rem
+            right: 1rem
+            *
+                fill: var(--text)
+            
     &--full
         width: 100vw
         max-width: 100vw

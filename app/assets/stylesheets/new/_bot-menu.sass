@@ -22,16 +22,38 @@
     color: var(--text)
     transition: all 0.2s ease
     box-shadow: 0.5rem 0.5rem 1rem #0241
-    &:hover
-        background: var(--pick-bot-item-bg)
-        box-shadow: 0.5rem 0.5rem 1.5rem #0242
-        color: var(--pick-bot-item-text-hover) !important
-        cursor: pointer
+    &:not(.itile--soon)
+        &:hover
+            background: var(--pick-bot-item-bg)
+            box-shadow: 0.5rem 0.5rem 1.5rem #0242
+            color: var(--pick-bot-item-text-hover) !important
+            cursor: pointer
+            .theme-img
+                opacity: 1
+                transform: scale(1.05)
+                &::after
+                    background-image: linear-gradient(to bottom, #0000 40%, var(--pick-bot-item-bg) 22rem)
+    &--bot-type
+        .index-title,.index-info
+            color: #fff !important
+            text-shadow: 0 0 10rem #01f
         .theme-img
-            opacity: 1
-            transform: scale(1.05)
+            opacity: 0.8 !important
+            height: 100% !important
+            //transition: all 1s ease !important
             &::after
-                background-image: linear-gradient(to bottom, #0000 40%, var(--pick-bot-item-bg) 22rem)
+                opacity: 1 !important
+                background-image: linear-gradient(to bottom, #0000 0%, #00a 100%) !important
+                height: 100% !important
+        &:hover
+            .theme-img
+                transform: scale(1.1) !important
+                opacity: 1 !important
+    &--dca
+        .theme-img::after
+            background-image: linear-gradient(to bottom, #0000 0%, color(display-p3 0 0.31 0.34) 100%) !important
+    p
+        margin-bottom: 0
     .sbadge
         position: absolute
         top: 1rem
@@ -72,18 +94,19 @@
     .index-info
         font-size: 1.75rem
         line-height: 2.65rem
-        font-weight: 400
+        font-weight: 500
         display: block
         overflow: hidden
         opacity: 0.75
         flex-grow: 2
     .index-assets
+        padding-top: 1.5rem
         display: flex
         flex-direction: column
         gap: 0.75rem !important
         justify-content: flex-start
         @media screen and (min-width: 920px)
-            height: 37rem
+            height: 38.5rem
     .index-asset
         display: flex
         flex-direction: column
