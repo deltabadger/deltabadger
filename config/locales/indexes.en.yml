@@ -1,0 +1,47 @@
+en:
+    index:
+        bitcoin:
+            title: "Bitcoin"
+            info: "Dollar-cost average into Bitcoin is a gold standard for long-term investors."
+        crypto_berbell:
+            title: "Crypto Barbell"
+            info: "Cover 74% of the crypto market with a simple, no-hassle portfolio that rebalances on autopilot."
+        crypto_index:
+            title: "Crypto Index"
+            info: "There is no crypto S&P 500, but now you can build one. Automate an index portfolio of top crypto."
+        altcoin_season:
+            title: "Altcoin Season"
+            info: "Invest in a portfolio of winning altcoins safely. Mitigate small-cap crypto risk by replacing manual allocation with automatic indexing."
+        layer_1:
+            title: "Layer 1"
+            info: "Primary blockchain networks that process transactions directly and provide the foundation for blockchain infrastructure."
+        made_in_usa:
+            title: "Made in USA"
+            info: "Cryptocurrencies with significant connections to the United States through their founding teams or company headquarters."
+        alleged_sec_securities:
+            title: "Alleged SEC Securities"
+            info: "Tokens and cryptocurrencies that have been alleged to be securities by the U.S. Securities and Exchange Commission."
+        memecoins:
+            title: "Memecoins"
+            info: "Coins that derive value from internet memes and community hype rather than underlying technology or utility."
+        elon_musk_inspired:
+            title: "Elon Musk Inspired"
+            info: "Meme coins inspired by Elon Musk, none of these projects are (necessarily) endorsed or created by Elon Musk."
+        ai_portfolio:
+            title: "AI Portfolio"
+            info: "Artificial Intelligence (AI) tokens are cryptocurrencies that power AI-related projects."
+        layer_2:
+            title: "Layer 2"
+            info: "Layer 2 solutions are scaling solutions built on top of Layer 1 blockchains to improve transaction speed and reduce costs."
+        layer_0:
+            title: "Layer 0"
+            info: "Layer 0 protocols provide the foundational infrastructure for building and connecting multiple blockchains."
+        gamefi:
+            title: "GameFi"
+            info: "GameFi tokens power blockchain-based gaming platforms and virtual worlds, combining gaming with decentralized finance."
+        yield_farming:
+            title: "Yield Farming" 
+            info: "Yield farming tokens enable users to earn rewards by providing liquidity to decentralized finance protocols."
+        consensys_portfolio:
+            title: "Consensys Portfolio"
+            info: "Protocols and tokens that Consensys have invested in."
