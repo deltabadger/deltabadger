@@ -1,0 +1,47 @@
+it:
+    index:
+        bitcoin:
+            title: "Bitcoin"
+            info: "Il costo medio in dollari di Bitcoin è uno standard d'oro per gli investitori a lungo termine."
+        crypto_berbell:
+            title: "Bilanciere crypto"
+            info: "Copri il 74% del mercato delle criptovalute con un portafoglio semplice e senza problemi che si riequilibra automaticamente."
+        crypto_index:
+            title: "Indice crypto"
+            info: "Non esiste un S&P 500 delle criptovalute, ma ora puoi crearne uno. Automatizza un portafoglio indicizzato delle principali criptovalute."
+        altcoin_season:
+            title: "Stagione delle altcoin"
+            info: "Investi in sicurezza in un portafoglio di altcoin vincenti. Mitiga il rischio delle criptovalute a piccola capitalizzazione sostituendo l'allocazione manuale con l'indicizzazione automatica."
+        layer_1:
+            title: "Layer 1"
+            info: "Reti blockchain primarie che elaborano direttamente le transazioni e forniscono la base per l'infrastruttura blockchain."
+        made_in_usa:
+            title: "Made in USA"
+            info: "Criptovalute con significative connessioni agli Stati Uniti attraverso i loro team fondatori o sedi aziendali."
+        alleged_sec_securities:
+            title: "Criptovalute monitorate dalla SEC"
+            info: "Token e criptovalute che la Commissione per i Titoli e gli Scambi degli Stati Uniti (SEC) considera strumenti finanziari regolamentati."
+        memecoins:
+            title: "Memecoins"
+            info: "Monete che derivano valore dai meme di internet e dall'entusiasmo della comunità piuttosto che dalla tecnologia sottostante o dall'utilità."
+        elon_musk_inspired:
+            title: "Ispirato a Elon Musk"
+            info: "Meme coin ispirate a Elon Musk, nessuno di questi progetti è (necessariamente) approvato o creato da Elon Musk."
+        ai_portfolio:
+            title: "Portafoglio IA"
+            info: "I token di Intelligenza Artificiale (IA) sono criptovalute che alimentano progetti legati all'IA."
+        layer_2:
+            title: "Layer 2"
+            info: "Le soluzioni Layer 2 sono soluzioni di scalabilità costruite su blockchain Layer 1 per migliorare la velocità delle transazioni e ridurre i costi."
+        layer_0:
+            title: "Layer 0"
+            info: "I protocolli Layer 0 forniscono l'infrastruttura fondamentale per costruire e connettere molteplici blockchain."
+        gamefi:
+            title: "GameFi"
+            info: "I token GameFi alimentano piattaforme di gioco basate su blockchain e mondi virtuali, combinando il gioco con la finanza decentralizzata."
+        yield_farming:
+            title: "Yield farming" 
+            info: "I token di yield farming consentono agli utenti di guadagnare ricompense fornendo liquidità ai protocolli di finanza decentralizzata."
+        consensys_portfolio:
+            title: "Portafoglio Consensys"
+            info: "Protocolli e token in cui Consensys ha investito." 
