@@ -1,13 +1,12 @@
 
-
+<div class="page-head page-head--dashboard">
+    <h1 class="big-header big-header--2 big-header--desktop-only">Start here:</h1>
+    <%= button_to new_bot_path, method: :get, class: "button button--primary", data: { turbo_frame: "modal" } do %>
+        <span class="d-none d-sm-inline"><%= t('bot.new') %></span>
+        <i class="material-icons">add</i>
+    <% end %>
+</div>
 <div style="display: flex; gap: 4rem; flex-direction: column">
-    <div style="display: flex; justify-content: space-between;">
-        <h1 class="big-header big-header--2">Start here:</h1>
-        <%= button_to new_bot_path, method: :get, class: "button button--primary", data: { turbo_frame: "modal" } do %>
-            <span class="d-none d-sm-inline"><%= t('bot.new') %></span>
-            <i class="material-icons">add</i>
-        <% end %>
-    </div>
     <div class="bot-menu">
         <!--
     <%= link_to bots_path(create: true), class: 'itile itile--dca', data: { action: 'click->modal--base#animateOutCloseAndCleanUp', turbo: false } do %>
@@ -227,7 +226,7 @@
         </div>
     </div>
 </div>
-<h2 class="big-header big-header--2">…or go beyond:</h2>
+<h2 class="big-header big-header--2 big-header--desktop-only">…or go beyond:</h2>
 <div class="bot-menu">
     <div class="itile itile--pro">
         <div class="theme-img" style="background-image: url('https://deltabadger.com/images/planet-landscape-03.jpg')"></div>
