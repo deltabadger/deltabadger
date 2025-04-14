@@ -139,7 +139,7 @@ class Bots::Barbell < Bot
       else
         Rails.logger.error("Failed to get market cap for #{base0_asset.symbol}") if result0.failure?
         Rails.logger.error("Failed to get market cap for #{base1_asset.symbol}") if result1.failure?
-        allocation0
+        raise StandardError, "Failed to get market cap adjusted allocation for barbell bot #{id}"
       end
     else
       allocation0
