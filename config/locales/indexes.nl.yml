@@ -13,7 +13,7 @@ nl:
             title: "Altcoin seizoen"
             info: "Investeer veilig in een portefeuille van winnende altcoins. Verminder het risico van small-cap crypto door handmatige toewijzing te vervangen door automatische indexering."
         layer_1:
-            title: "Laag 1"
+            title: "Layer 1"
             info: "Primaire blockchain-netwerken die transacties direct verwerken en de basis vormen voor blockchain-infrastructuur."
         made_in_usa:
             title: "Made in USA"
@@ -31,11 +31,11 @@ nl:
             title: "AI-portefeuille"
             info: "Artificial Intelligence (AI)-tokens zijn cryptocurrencies die AI-gerelateerde projecten ondersteunen."
         layer_2:
-            title: "Laag 2"
-            info: "Laag 2-oplossingen zijn schaalbaarheidsoplossingen gebouwd op Laag 1-blockchains om de transactiesnelheid te verbeteren en kosten te verlagen."
+            title: "Layer 2"
+            info: "Layer 2-oplossingen zijn schaalbaarheidsoplossingen gebouwd op Layer 1-blockchains om de transactiesnelheid te verbeteren en kosten te verlagen."
         layer_0:
-            title: "Laag 0"
-            info: "Laag 0-protocollen bieden de fundamentele infrastructuur voor het bouwen en verbinden van meerdere blockchains."
+            title: "Layer 0"
+            info: "Layer 0-protocollen bieden de fundamentele infrastructuur voor het bouwen en verbinden van meerdere blockchains."
         gamefi:
             title: "GameFi"
             info: "GameFi-tokens ondersteunen blockchain-gebaseerde gameplatformen en virtuele werelden, waarbij gaming wordt gecombineerd met gedecentraliseerde financiën."
