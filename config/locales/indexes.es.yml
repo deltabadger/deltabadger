@@ -13,7 +13,7 @@ es:
             title: "Temporada de altcoins"
             info: "Invierte de forma segura en una cartera de altcoins ganadoras. Mitiga el riesgo de las criptomonedas de pequeña capitalización reemplazando la asignación manual con indexación automática."
         layer_1:
-            title: "Capa 1"
+            title: "Layer 1"
             info: "Redes blockchain primarias que procesan transacciones directamente y proporcionan la base para la infraestructura blockchain."
         made_in_usa:
             title: "Made in USA"
@@ -31,11 +31,11 @@ es:
             title: "Cartera de IA"
             info: "Los tokens de Inteligencia Artificial (IA) son criptomonedas que impulsan proyectos relacionados con la IA."
         layer_2:
-            title: "Capa 2"
-            info: "Las soluciones de Capa 2 son soluciones de escalabilidad construidas sobre blockchains de Capa 1 para mejorar la velocidad de las transacciones y reducir los costes."
+            title: "Layer 2"
+            info: "Las soluciones de Layer 2 son soluciones de escalabilidad construidas sobre blockchains de Layer 1 para mejorar la velocidad de las transacciones y reducir los costes."
         layer_0:
-            title: "Capa 0"
-            info: "Los protocolos de Capa 0 proporcionan la infraestructura fundamental para construir y conectar múltiples blockchains."
+            title: "Layer 0"
+            info: "Los protocolos de Layer 0 proporcionan la infraestructura fundamental para construir y conectar múltiples blockchains."
         gamefi:
             title: "GameFi"
             info: "Los tokens GameFi impulsan plataformas de juegos basadas en blockchain y mundos virtuales, combinando juegos con finanzas descentralizadas."

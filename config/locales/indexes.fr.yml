@@ -13,7 +13,7 @@ fr:
             title: "Saison des altcoins"
             info: "Investissez en toute sécurité dans un portefeuille d'altcoins gagnants. Atténuez le risque des cryptomonnaies à petite capitalisation en remplaçant l'allocation manuelle par une indexation automatique."
         layer_1:
-            title: "Couche 1"
+            title: "Layer 1"
             info: "Réseaux blockchain primaires qui traitent directement les transactions et fournissent la base de l'infrastructure blockchain."
         made_in_usa:
             title: "Made in USA"
@@ -31,11 +31,11 @@ fr:
             title: "Portefeuille IA"
             info: "Les jetons d'Intelligence Artificielle (IA) sont des cryptomonnaies qui alimentent des projets liés à l'IA."
         layer_2:
-            title: "Couche 2"
-            info: "Les solutions de Couche 2 sont des solutions d'évolutivité construites sur des blockchains de Couche 1 pour améliorer la vitesse des transactions et réduire les coûts."
+            title: "Layer 2"
+            info: "Les solutions de Layer 2 sont des solutions d'évolutivité construites sur des blockchains de Layer 1 pour améliorer la vitesse des transactions et réduire les coûts."
         layer_0:
-            title: "Couche 0"
-            info: "Les protocoles de Couche 0 fournissent l'infrastructure fondamentale pour construire et connecter plusieurs blockchains."
+            title: "Layer 0"
+            info: "Les protocoles de Layer 0 fournissent l'infrastructure fondamentale pour construire et connecter plusieurs blockchains."
         gamefi:
             title: "GameFi"
             info: "Les jetons GameFi alimentent des plateformes de jeu basées sur la blockchain et des mondes virtuels, combinant le jeu avec la finance décentralisée."
