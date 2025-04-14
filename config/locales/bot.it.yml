@@ -2,7 +2,6 @@ it:
     bot:
         add_api_keys: "Aggiungi chiavi API per %{exchange}"
         new: "Nuovo bot"
-        create_first: "Avvia il primo bot"
         start_new_bot: "Crea nuovo bot"
         types:
             dca:

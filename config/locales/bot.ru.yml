@@ -2,7 +2,6 @@ ru:
     bot:
         add_api_keys: "Добавить API-ключи для %{exchange}"
         new: "Новый бот"
-        create_first: "Запустить первого бота"
         start_new_bot: "Создать нового бота"
         types:
             dca:
