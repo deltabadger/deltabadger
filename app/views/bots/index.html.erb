@@ -16,13 +16,7 @@
 <% end %>
 
 <% if @bots.empty? %>
-
-  <div class="page-head">
-    <div class="stitle"><%= t('bot.create_first') %></div>
-  </div>
-
-
-  <%= render partial: 'bots/new_menu' %>
+  <%= render partial: 'bots/new_menu_start' %>
 <% else %>
   <div class="page-head page-head--dashboard">
     <div></div>
