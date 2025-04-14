@@ -87,12 +87,12 @@ module Bots::Barbell::OrderSetter # rubocop:disable Metrics/ModuleLength
   private
 
   def calculate_orders_data(balance0:, balance1:, price0:, price1:)
-    allocation1 = 1 - allocation0
+    effective_allocation1 = 1 - effective_allocation0
     balance0_in_quote = balance0 * price0
     balance1_in_quote = balance1 * price1
     total_balance_in_quote = balance0_in_quote + balance1_in_quote + pending_quote_amount
-    target_balance0_in_quote = total_balance_in_quote * allocation0
-    target_balance1_in_quote = total_balance_in_quote * allocation1
+    target_balance0_in_quote = total_balance_in_quote * effective_allocation0
+    target_balance1_in_quote = total_balance_in_quote * effective_allocation1
     base0_offset = [0, target_balance0_in_quote - balance0_in_quote].max
     base1_offset = [0, target_balance1_in_quote - balance1_in_quote].max
     base0_order_size_in_quote = [base0_offset, pending_quote_amount].min
