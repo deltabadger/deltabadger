@@ -4,16 +4,16 @@ pl:
             title: "Bitcoin"
             info: "Uśrednianie kosztów w Bitcoin to złoty standard dla inwestorów długoterminowych."
         crypto_berbell:
-            title: "Sztanga krypto"
+            title: "Kryptosztanga"
             info: "Pokryj 74% rynku kryptowalut prostym, bezproblemowym portfelem, który automatycznie się rebalansuje."
         crypto_index:
-            title: "Indeks krypto"
+            title: "Indeks kryptowalut"
             info: "Nie istnieje kryptowalutowy S&P 500, ale teraz możesz go zbudować. Zautomatyzuj portfel indeksowy najlepszych kryptowalut."
         altcoin_season:
             title: "Sezon altcoinów"
             info: "Inwestuj bezpiecznie w portfel wygrywających altcoinów. Zmniejsz ryzyko związane z kryptowalutami o małej kapitalizacji, zastępując ręczną alokację automatyczną indeksacją."
         layer_1:
-            title: "Warstwa 1"
+            title: "Layer 1"
             info: "Podstawowe sieci blockchain, które bezpośrednio przetwarzają transakcje i stanowią podstawę infrastruktury blockchain."
         made_in_usa:
             title: "Made in USA"
@@ -31,11 +31,11 @@ pl:
             title: "Portfel AI"
             info: "Tokeny Sztucznej Inteligencji (AI) to kryptowaluty, które zasilają projekty związane z AI."
         layer_2:
-            title: "Warstwa 2"
-            info: "Rozwiązania Warstwy 2 to rozwiązania skalowalności zbudowane na blockchainach Warstwy 1, aby poprawić szybkość transakcji i obniżyć koszty."
+            title: "Layer 2"
+            info: "Rozwiązania Layer 2 to rozwiązania skalowalności zbudowane na blockchainach Layer 1, aby poprawić szybkość transakcji i obniżyć koszty."
         layer_0:
-            title: "Warstwa 0"
-            info: "Protokoły Warstwy 0 zapewniają fundamentalną infrastrukturę do budowania i łączenia wielu blockchainów."
+            title: "Layer 0"
+            info: "Protokoły Layer 0 zapewniają fundamentalną infrastrukturę do budowania i łączenia wielu blockchainów."
         gamefi:
             title: "GameFi"
             info: "Tokeny GameFi zasilają platformy gier opartych na blockchainie i wirtualne światy, łącząc gry z zdecentralizowanymi finansami."
