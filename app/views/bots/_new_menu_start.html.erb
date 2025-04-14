@@ -2,19 +2,19 @@
     <h1 class="big-header big-header--2">Start here:</h1>
     <div class="bot-menu">
         <!--
-    <%= link_to bots_path(create: true), class: 'bot-menu__item bot-menu__item--dca', data: { action: 'click->modal--base#animateOutCloseAndCleanUp', turbo: false } do %>
+    <%= link_to bots_path(create: true), class: 'itile itile--dca', data: { action: 'click->modal--base#animateOutCloseAndCleanUp', turbo: false } do %>
         <div class="theme-img" style="background-image: url('https://deltabadger.com/images/aurora-02.jpg')"></div>
         <div class="index-title"><%= t('bot.types.dca.title') %></div>
         <p class="index-info"><%= t('bot.types.dca.description') %></p>
     <% end %>
 
-    <%= button_to barbell_new_step_to_first_asset_bots_path, method: :get, params: { bots_barbell: {label: nil}}, class: 'bot-menu__item bot-menu__item--barbell', data: { turbo_frame: "modal", action: 'click->modal--base#animateOutCloseAndCleanUp' } do %>
+    <%= button_to barbell_new_step_to_first_asset_bots_path, method: :get, params: { bots_barbell: {label: nil}}, class: 'itile itile--barbell', data: { turbo_frame: "modal", action: 'click->modal--base#animateOutCloseAndCleanUp' } do %>
         <div class="theme-img" style="background-image: url('https://deltabadger.com/images/aurora-03.jpg')"></div>
         <div class="index-title"><%= t('bot.types.barbell.title') %></div>
         <p class="index-info"><%= t('bot.types.barbell.description') %></p>
     <% end %>
     -->
-    <div class="bot-menu__item">
+    <div class="itile">
         <div class="theme-img" style="background-image: url('https://deltabadger.com/images/astronaut-02.jpg')"></div>
         <div class="index-title"><%= t('index.bitcoin.title') %></div>
         <p class="index-info"><%= t('index.bitcoin.info') %></p>
@@ -36,7 +36,7 @@
         </div>
     </div>
 
-    <div class="bot-menu__item">
+    <div class="itile">
         <div class="theme-img" style="background-image: url('https://deltabadger.com/images/planet-landscape-01.jpg')"></div>
         <div class="index-title"><%= t('index.crypto_berbell.title') %></div>
         <p class="index-info"><%= t('index.crypto_berbell.info') %></p>
@@ -71,7 +71,7 @@
         </div>
     </div>
 
-    <div class="bot-menu__item bot-menu__item--pro">
+    <div class="itile itile--pro">
         <div class="theme-img" style="background-image: url('https://deltabadger.com/blog/when-to-sell.jpg')"></div>
         <b class="sbadge sbadge--pro"><%= t('utils.pro') %></b>
         <div class="index-title"><%= t('index.crypto_index.title') %></div>
@@ -221,7 +221,7 @@
 </div>
 <h2 class="big-header big-header--2">…or go beyond:</h2>
 <div class="bot-menu">
-    <div class="bot-menu__item bot-menu__item--pro">
+    <div class="itile itile--pro">
         <div class="theme-img" style="background-image: url('https://deltabadger.com/images/planet-landscape-03.jpg')"></div>
         <b class="sbadge sbadge--pro"><%= t('utils.pro') %></b>
         <div class="index-title"><%= t('index.altcoin_season.title') %></div>
@@ -371,7 +371,7 @@
     </div>
 
 
-    <div class="bot-menu__item bot-menu__item--pro">
+    <div class="itile itile--pro">
         <div class="theme-img" style="background-image: url('https://deltabadger.com/images/season-01.jpg')"></div>
         <b class="sbadge sbadge--pro"><%= t('utils.pro') %></b>
         <div class="index-title"><%= t('index.layer_1.title') %></div>
@@ -519,7 +519,7 @@
         </div>
     </div>
 
-    <div class="bot-menu__item bot-menu__item--legendary">
+    <div class="itile itile--legendary">
         <div class="theme-img" style="background-image: url('https://deltabadger.com/images/index-usa01.webp')"></div>
         <b class="sbadge sbadge--legendary"><%= t('utils.legendary') %></b>
         <div class="index-title"><%= t('index.made_in_usa.title') %></div>
@@ -667,7 +667,7 @@
         </div>
     </div>
 
-    <div class="bot-menu__item bot-menu__item--legendary">
+    <div class="itile itile--legendary">
         <div class="theme-img" style="background-image: url('https://deltabadger.com/images/index-sec.webp')"></div>
         <b class="sbadge sbadge--legendary"><%= t('utils.legendary') %></b>
         <div class="index-title"><%= t('index.alleged_sec_securities.title') %></div>
@@ -815,7 +815,7 @@
         </div>
     </div>
 
-    <div class="bot-menu__item bot-menu__item--legendary">
+    <div class="itile itile--legendary">
         <div class="theme-img" style="background-image: url('https://deltabadger.com/images/index-pepe01.webp')"></div>
         <b class="sbadge sbadge--legendary"><%= t('utils.legendary') %></b>
         <div class="index-title"><%= t('index.memecoins.title') %></div>
@@ -963,7 +963,7 @@
         </div>
     </div>
 
-    <div class="bot-menu__item bot-menu__item--legendary">
+    <div class="itile itile--legendary">
         <div class="theme-img" style="background-image: url('https://deltabadger.com/images/index-elon01.webp')"></div>
         <b class="sbadge sbadge--legendary"><%= t('utils.legendary') %></b>
         <div class="index-title"><%= t('index.elon_musk_inspired.title') %></div>
@@ -1111,7 +1111,7 @@
         </div>
     </div>
 
-    <div class="bot-menu__item bot-menu__item--legendary">
+    <div class="itile itile--legendary">
         <div class="theme-img" style="background-image: url('https://deltabadger.com/images/index-ai.webp')"></div>
         <b class="sbadge sbadge--legendary"><%= t('utils.legendary') %></b>
         <div class="index-title"><%= t('index.ai_portfolio.title') %></div>
@@ -1259,7 +1259,7 @@
         </div>
     </div>
 
-    <div class="bot-menu__item bot-menu__item--legendary">
+    <div class="itile itile--legendary">
         <div class="theme-img" style="background-image: url('https://deltabadger.com/images/index-layer2.webp')"></div>
         <b class="sbadge sbadge--legendary"><%= t('utils.legendary') %></b>
         <div class="index-title"><%= t('index.layer_2.title') %></div>
@@ -1407,7 +1407,7 @@
         </div>
     </div>
 
-    <div class="bot-menu__item bot-menu__item--legendary">
+    <div class="itile itile--legendary">
         <div class="theme-img" style="background-image: url('https://deltabadger.com/images/index-layer0.webp')"></div>
         <b class="sbadge sbadge--legendary"><%= t('utils.legendary') %></b>
         <div class="index-title"><%= t('index.layer_0.title') %></div>
@@ -1527,7 +1527,7 @@
         </div>
     </div>
 
-    <div class="bot-menu__item bot-menu__item--legendary">
+    <div class="itile itile--legendary">
         <div class="theme-img" style="background-image: url('https://deltabadger.com/images/index-gamefi.webp')"></div>
         <b class="sbadge sbadge--legendary"><%= t('utils.legendary') %></b>
         <div class="index-title"><%= t('index.gamefi.title') %></div>
@@ -1675,7 +1675,7 @@
         </div>
     </div>
 
-    <div class="bot-menu__item bot-menu__item--legendary">
+    <div class="itile itile--legendary">
         <div class="theme-img" style="background-image: url('https://deltabadger.com/images/index-yield.webp')"></div>
         <b class="sbadge sbadge--legendary"><%= t('utils.legendary') %></b>
         <div class="index-title"><%= t('index.yield_farming.title') %></div>
@@ -1823,7 +1823,7 @@
         </div>
     </div>
 
-    <div class="bot-menu__item bot-menu__item--legendary">
+    <div class="itile itile--legendary">
         <div class="theme-img" style="background-image: url('https://deltabadger.com/images/index-consensys.webp')"></div>
         <b class="sbadge sbadge--legendary"><%= t('utils.legendary') %></b>
         <div class="index-title"><%= t('index.consensys_portfolio.title') %></div>

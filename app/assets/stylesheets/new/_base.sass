@@ -108,51 +108,6 @@ ol, ul
             position: absolute
             top: 2.25rem
             right: 2rem
-.itiles
-    display: grid
-    grid-template-columns: repeat(auto-fill, minmax(42rem, 1fr))
-    gap: 1rem
-    &--blackfriday
-        grid-template-columns: 1fr !important
-    @media only screen and (min-width: 1520px)
-        grid-template-columns: repeat(3, 1fr)
-    @media only screen and (min-width: 1920px)
-        grid-template-columns: repeat(6, 1fr)
-.itile
-    padding: 3rem 4rem 4rem
-    border-radius: 2rem
-    background: var(--primary) no-repeat center center
-    color: #fff
-    font-weight: 700
-    display: flex
-    flex-direction: column
-    background-size: cover
-    @media screen and (max-width: 575.9px)
-        padding: 2rem 2rem 2.5rem 2.5rem
-        gap: 0
-    // styles for light mode
-    @media (prefers-color-scheme: light)
-        opacity: 0.9
-        filter: saturate(1.5)
-    &__title
-        font-weight: 700
-        margin-bottom: 2rem
-    &__value
-        font-size: 2rem
-    &--bitcoin
-        background-image: linear-gradient(#ee480099,#ee4800ee), url("bg-bitcoin.jpg")
-    &--ethereum
-        background-image: linear-gradient(#361757bb,#361757ee), url("bg-ethereum.jpg")
-    &--voo
-        background-image: linear-gradient(#601a,#601c), url("bg-voo.jpg")
-    &--qqq
-        background-image: linear-gradient(#0c2277cc,#0c2277ee), url("bg-qqq.jpg")
-    &--gold
-        background-image: linear-gradient(#530c,#530e), url("bg-gold.jpg")
-    &--bonds
-        background-image: linear-gradient(#032c,#032e), url("bg-bonds1.jpg")
-    &--cash
-        background-image: linear-gradient(#044c,#044e), url("bg-bonds.jpg")
 .hinput
     background:  var(--widget-background) !important
     border: none
