@@ -58,7 +58,7 @@ export default class extends Controller {
       this.#transparentColor(this.color1Value, newValue1);
   }
 
-  #transparentColor(color, opacity, minOpacity = 0.3) {
+  #transparentColor(color, opacity, minOpacity = 0.6) {
     const adjustedOpacity = minOpacity + (1 - minOpacity) * opacity;
     const alpha = Math.round(adjustedOpacity * 255)
       .toString(16)
