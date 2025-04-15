@@ -80,15 +80,15 @@ class BotsController < ApplicationController
   end
 
   def barbell_new_step_confirm
+    @bot.interval ||= Bot::INTERVALS.first
+    @bot.allocation0 ||= 0.5
     render 'bots/barbell/new/step_confirm'
   end
 
   def create
     params_to_create = barbell_bot_params_as_hash
-    params_to_create[:settings][:interval] = Bot::INTERVALS.first
-    params_to_create[:settings][:allocation0] = 0.5
     @bot = current_user.bots.barbell.new(params_to_create)
-    if @bot.save
+    if @bot.save && @bot.start(ignore_missed_orders: true)
       render turbo_stream: turbo_stream_redirect(bot_path(@bot))
     else
       flash.now[:alert] = @bot.errors.messages.values.flatten.to_sentence
