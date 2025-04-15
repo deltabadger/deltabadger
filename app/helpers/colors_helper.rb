@@ -31,7 +31,7 @@ module ColorsHelper
     white_contrast >= contrast_ratio ? '#fff' : 'var(--text-dark)'
   end
 
-  def transparent_color(color, opacity, min_opacity = 0.3)
+  def transparent_color(color, opacity, min_opacity = 0.6)
     adjusted_opacity = min_opacity + (1 - min_opacity) * opacity
     alpha = (adjusted_opacity * 255).round.to_s(16).rjust(2, '0')
     color + alpha
