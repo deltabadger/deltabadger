@@ -81,13 +81,18 @@
     &--xlarge
         background: none
         padding: 1rem 0 0
+        @media screen and (min-width: 768px)
+            padding-bottom: 12rem
         .itile
             &--soon
                 background: var(--itile-soon-bg)
                 color: var(--label)
                 .theme-img
                     display: none
-                
+        .modal__header
+            margin-bottom: 3rem
+        .modal__title
+            line-height: 3rem
         .modal__close
             top: 1rem
             right: 1rem
