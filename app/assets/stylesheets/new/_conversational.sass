@@ -3,22 +3,21 @@
     line-height: 3rem
     gap: 1rem
     font-weight: 600
+    color: var(--text)
     @media (min-width: 768px)
         line-height: 4rem
     &--bot-setup
         font-size: 2.25rem
-        padding: 8rem 2.25rem 6rem
         font-weight: bold
-        // justify-content: center
         flex-wrap: wrap
+        justify-content: center
         @media (min-width: 768px)
-            padding: 12rem 2.25rem 10rem
             font-size: 3rem
     &__input
         border: none
         margin: 0
         background: none
-        color: var(--text) !important
+        color: var(--emphasis) !important
         text-align: left
         max-width: 10rem
         text-transform: uppercase
@@ -95,4 +94,12 @@
         color:                  var(--pickExchangeItemTxt)
         cursor:                 pointer
         &:hover
-            background: var(--pickExchangeItemBg)
+            background: var(--modal-search-highlight-background)
+
+.bot-creation-layout
+    display: flex
+    flex-direction: column
+    gap: 6rem
+    @media (min-width: 768px)
+        gap: 12rem
+        
