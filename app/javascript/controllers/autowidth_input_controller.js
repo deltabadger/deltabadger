@@ -7,7 +7,7 @@ export default class extends Controller {
     this.resize = this.resize.bind(this)
     this.createMirrorElement()
     this.transferStyles()
-    this.resize()
+    requestAnimationFrame(this.resize)
     this.element.addEventListener('input', this.resize)
   }
 

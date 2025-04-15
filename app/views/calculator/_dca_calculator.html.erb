@@ -1,22 +1,18 @@
 <div class="infoheader" data-controller="show-hide">
   <nav class="infoheader__head">
-    <div>
-      <h2 class="infoheader__h" id="infoheader-title" data-show-hide-target="hideable">
-        <% input_field = form_with url: calculator_path, method: :get, data: { controller: "form--submit", turbo_frame: "tiles" }, html: { style: "display: inline;" } do |f| %>
-          <%= f.text_field :invest_amount,
-            value: invest_amount,
-            class: "hinput",
-            placeholder: "0",
-            style: " width: #{invest_amount.to_s.size}ch; min-width: 1ch",
-            oninput: "this.style.width = (this.value.length) + 'ch'",
-            data: { action: "change->form--submit#submit" }
-          %>
-        <% end %>
-        <%= t('dca_calculator.title',
-          amount: input_field,
-          goal: t('dca_calculator.goal_millionaire')
-        ).html_safe %>
-      </h2>
+    <div class="conversational conversational--big" id="infoheader-title" data-show-hide-target="hideable">
+      <% input_field = form_with url: calculator_path, method: :get, data: { controller: "form--submit", turbo_frame: "tiles" }, html: { style: "display: inline;" } do |f| %>
+        <%= f.text_field :invest_amount,
+          value: invest_amount,
+          class: "sinput",
+          placeholder: "0",
+          data: { controller: "autowidth-input", action: "change->form--submit#submit input->autowidth-input#resize" }
+        %>
+      <% end %>
+      <%= t('dca_calculator.title',
+        amount: input_field,
+        goal: t('dca_calculator.goal_millionaire')
+      ).html_safe %>
     </div>
     <%# <div class="infoheader__icon active"  id="infoheader-icon" data-action="click->show-hide#toggle"  data-show-hide-target="toggleButton">i</div> %>
   </nav>
