@@ -4,7 +4,7 @@
       <%= button_tag class: 'modal__close', data: { action: 'modal--base#animateOutCloseAndCleanUp' } do %>
         <%= render partial: 'svg/24x24_close' %>
       <% end %>
-      <%= turbo_frame_tag "modal_content" do %>
+      <%= turbo_frame_tag "modal_content", class: "bot-creation-layout" do %>
         <%= yield %>
       <% end %>
     </div>
