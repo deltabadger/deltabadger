@@ -84,9 +84,16 @@ class Bots::Barbell < Bot
   def available_exchanges_for_current_settings
     base_asset_ids = [base0_asset_id, base1_asset_id].compact
     scope = ExchangeTicker.where(exchange: Exchange.available_for_barbell_bots)
-    scope = scope.where(base_asset_id: base_asset_ids) if base_asset_ids.any?
     scope = scope.where(quote_asset_id: quote_asset_id) if quote_asset_id.present?
-    exchange_ids = scope.pluck(:exchange_id).uniq
+    scope = scope.where(base_asset_id: base_asset_ids) if base_asset_ids.any?
+    exchange_ids = if base_asset_ids.size > 1
+                     scope.group_by(&:exchange_id)
+                          .transform_values { |tickers| tickers.map(&:base_asset_id).uniq }
+                          .select { |_, b_a_ids| b_a_ids.size >= base_asset_ids.size }
+                          .keys
+                   else
+                     scope.pluck(:exchange_id).uniq
+                   end
     Exchange.where(id: exchange_ids)
   end
 
