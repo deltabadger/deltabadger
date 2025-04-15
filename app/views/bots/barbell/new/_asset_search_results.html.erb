@@ -1,4 +1,4 @@
-<%= turbo_frame_tag "asset-picker", data: { action: "keydown@window->arrow-keys-navigation#navigate", controller: "arrow-keys-navigation" }, class: "modal--search__assets" do %>
+<%= turbo_frame_tag "asset-picker", data: { action: "keydown@window->arrow-keys-navigation#navigate", controller: "arrow-keys-navigation" }, class: "modal--search__assets selectable-options" do %>
 
   <%# FIXME: test spinner. %>
   <% if assets.blank? %>

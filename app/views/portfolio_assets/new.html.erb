@@ -7,7 +7,7 @@
         <%= form.text_field :query, autofocus: true, autocomplete: "off", placeholder: t('utils.search.placeholder.asset'), data: { action: "input->form--submit-after-delay#submit", modal__open_and_submit_on_key_press_target: "input" }, class: "modal--search__input" %>
 
       <% end %>
-      <%= turbo_frame_tag "asset-picker", data: { action: "turbo:submit-end->modal--base#submitEnd keydown@window->arrow-keys-navigation#navigate", controller: "arrow-keys-navigation" }, class: "modal--search__assets" do %>
+      <%= turbo_frame_tag "asset-picker", data: { action: "turbo:submit-end->modal--base#submitEnd keydown@window->arrow-keys-navigation#navigate", controller: "arrow-keys-navigation" }, class: "modal--search__assets selectable-options" do %>
 
         <%# FIXME: test spinner. %>
         <% if @query_assets.blank? %>
