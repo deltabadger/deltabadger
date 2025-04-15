@@ -21,7 +21,7 @@
       <div class="ticker-input ticker-input--autoscale">
         <%# FIXME: in this text field, autowidth doesn't work %>
         <% value = @bot.quote_amount.present? ? @bot.quote_amount.to_d.to_s('F') : nil %>
-        <%= f.number_field :quote_amount, value: value, class: 'numeric-input iu-numeric iu-autowidth', min: 0, step: :any, size: 3, data: { action: "change->form--submit#submit" }, autofocus: true %>
+        <%= f.number_field :quote_amount, value: value, class: 'numeric-input', min: 0, step: :any, size: 3, data: { controller: "autowidth-input", action: "change->form--submit#submit autowidth-input#resize" }, autofocus: true %>
 
         <%= link_to @bot.quote_asset.symbol, barbell_new_step_from_asset_bots_path({
         bots_barbell: {

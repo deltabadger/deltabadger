@@ -18,8 +18,8 @@
             width: 5rem   
     &--autoscale
         .numeric-input
-            min-width: 2rem
-            width: 100%
+            width: 5.5rem
+            padding-left: 1.5rem
     &--reverse
         flex-direction: row-reverse
         .numeric-input
@@ -38,6 +38,21 @@
         color: var(--input-text-inactive)
     &:focus
         outline: none
+
+
+/* Hide spinners for WebKit browsers (Chrome, Safari, new Edge) */
+input[type=number]::-webkit-outer-spin-button,
+input[type=number]::-webkit-inner-spin-button
+    -webkit-appearance: none // Remove default WebKit styling
+    margin: 0 // Remove any default margin spinners might have
+
+/* Hide spinners for Firefox */
+input[type=number]
+    -moz-appearance: textfield // Treat the number input like a text field in Firefox
+
+/* Optional: General fallback (may not be needed with the above, but doesn't hurt) */
+input[type=number]
+    appearance: none
 
 .widget
     .ticker-input
