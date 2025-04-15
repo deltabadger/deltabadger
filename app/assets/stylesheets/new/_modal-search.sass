@@ -48,7 +48,16 @@
         padding: 2rem 0
         @media screen and (min-width: 768px)
             padding: 4rem 0
-            
+#modal
+    .modal
+        position: relative
+        top: 20vh
+        opacity: 0
+        transition: all 0.2s ease-out
+    &[complete]
+        .modal
+            top: 0
+            opacity: 1
 .modal
     position: relative
     padding: 3rem 4rem 4rem
@@ -74,8 +83,7 @@
     &--xlarge
         background: none
         padding: 1rem 0 0
-        .itile  
-            //box-shadow: 0 0 1rem #abc7
+        .itile
             &--soon
                 background: var(--itile-soon-bg)
                 color: var(--label)
