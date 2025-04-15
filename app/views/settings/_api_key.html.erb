@@ -1,6 +1,6 @@
 <div class="api-key-stored">
   <%= api_key.exchange.name %>
   <%= link_to settings_confirm_destroy_api_key_path(id: api_key.id), class: "button button--link", data: { turbo_frame: "modal" } do %>
-    <%= render 'svg/24x24_x' %>
+    <%= render 'svg/24x24_close' %>
   <% end %>
 </div>
