@@ -1,5 +1,5 @@
 <%= form_with model: bot, url: bot_path(bot), method: :patch, id: "exchange_select", class: "flex-row", data: { controller: "form--submit" } do |f| %>
-  <div class="sinput sinput--select">
+  <div>
     <%= bot.exchange&.name&.capitalize || t('bot.pick_exchange') %>
     <% if bot.transactions.any? %>
       <% exchange_options = bot.available_exchanges_for_current_settings.map { |e| [e.name.capitalize, e.id] } %>

@@ -18,10 +18,13 @@ input
     &:not(:checked)
       box-shadow:       inset 0 0 1.5rem var(--inactive)
       filter:           none
-
+.csv-download-button
+  display: flex
+  justify-content: flex-start
 .bot-footer
   display:              flex
   justify-content:      flex-start
+  padding: 2rem
 .db-bots
   display:              grid
   grid-auto-rows:       max-content
@@ -329,18 +332,6 @@ input
 .db-input--dca-amount
   max-width: 4.1em
 
-.infotab-image-container
-  width: 100%
-  aspect-ratio: 16/10
-  background-image: linear-gradient(#fff,#fff0,#fff0), url('journey-day02.jpg')
-  background-position: center top, center
-  margin-bottom: -2rem
-  // night mode
-  @media (prefers-color-scheme: dark)
-    background-image: linear-gradient(var(--paper),  #0000, #0000), url('journey-night01.jpg')
-    background-position: center top, center bottom
-  background-size: cover
-
 .db-bot__progressbar-wrapper
   margin-left: 2rem
   margin-right: 2rem
@@ -362,6 +353,7 @@ input
     cursor: pointer
     color: var(--text)
     border-radius: 2rem
+    list-style: none
     &.active
       background: var(--widget-background)
       box-shadow: var(--widget-shadow)

@@ -5,18 +5,17 @@ import { RawHTML } from '../RawHtml'
 export const Details = () => {
   return (
     <div className="db-bots__item db-bots__item--data">
-      <ul className="nav nav-tabs" id="botFormInfo" role="tablist">
-        <li className="nav-item">
+      <div className="db-bots__tabs" id="botFormInfo" role="tablist">
+        <div className="nav-item">
           <a className="nav-link active" id="botFormInfoTab" data-toggle="tab" href="#botFormInfoTab"  role="tab" aria-controls="botFormInfoTab"  aria-selected="false">Info</a>
-        </li>
-      </ul>
+        </div>
+      </div>
       <div className="tab-content" id="botFormInfo">
-        <div className="tab" id="botFormInfoTab" role="tabpanel" aria-labelledby="botFormInfoTab">
+        <div className="legacy-tab active" id="botFormInfoTab" role="tabpanel" aria-labelledby="botFormInfoTab">
           <div  className="legacy-tab__section db-showif--pick-exchange">
             <RawHTML>
               {I18n.t('bot.details.info.what_is_dca_html')}
             </RawHTML>
-            <div className="infotab-image-container"></div>
           </div>
           <RawHTML className="db-bot-info--dca">
             {I18n.t('bot.details.info.smart_intervals_html')}
