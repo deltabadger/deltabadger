@@ -13,7 +13,7 @@
     border: none
     top: 0
     left: 0
-    backdrop-filter: blur(4rem)
+    backdrop-filter: blur(1rem)
     &::backdrop
         display: none
     &__vertical-center
@@ -85,8 +85,9 @@
             padding-bottom: 12rem
         .itile
             &--soon
-                background: var(--itile-soon-bg)
+                background: var(--widget-background) // var(--itile-soon-bg)
                 color: var(--label)
+                backdrop-filter: blur(4rem)
                 .theme-img
                     display: none
         .modal__header
