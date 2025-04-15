@@ -10,6 +10,9 @@ application.register("arrow-keys-navigation", ArrowKeysNavigationController)
 import AutofocusController from "./autofocus_controller"
 application.register("autofocus", AutofocusController)
 
+import AutowidthInputController from "./autowidth_input_controller"
+application.register("autowidth-input", AutowidthInputController)
+
 import Bot__BarbellAllocationController from "./bot/barbell_allocation_controller"
 application.register("bot--barbell-allocation", Bot__BarbellAllocationController)
 
