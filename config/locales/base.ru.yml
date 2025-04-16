@@ -165,6 +165,7 @@ ru:
         since: 'с'
         soon: 'Скоро'
         see_at_coingecko: 'Смотреть на CoinGecko'
+        start: 'Запустить'
         search:
             placeholder:
                 asset: 'Искать актив…'

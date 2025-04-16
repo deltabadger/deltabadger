@@ -157,6 +157,7 @@ fr:
         since: 'depuis'
         soon: 'Bientôt'
         see_at_coingecko: 'Voir sur CoinGecko'
+        start: 'Commencer'
         search:
             placeholder:
                 asset: 'Rechercher un actif…'
