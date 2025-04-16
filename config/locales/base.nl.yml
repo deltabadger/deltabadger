@@ -92,6 +92,8 @@ nl:
         index:
             api_key_confirmation: 'Weet je het zeker?'
             api_keys_section: 'API keys'
+            trading_keys_section: 'Trading keys'
+            withdrawal_keys_section: 'Withdrawal keys'
             email_section: Email
             name_section: Voornaam
             password_section: Wachtwoord

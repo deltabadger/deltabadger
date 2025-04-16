@@ -100,6 +100,8 @@ es:
         index:
             api_key_confirmation: '¿Estás seguro?'
             api_keys_section: 'Claves API'
+            trading_keys_section: 'Claves de trading'
+            withdrawal_keys_section: 'Claves de retiro'
             email_section: 'Correo electrónico'
             name_section: 'Nombre'
             password_section: 'Contraseña'

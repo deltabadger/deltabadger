@@ -94,6 +94,8 @@ pl:
         index:
             api_key_confirmation: 'Jesteś pewny?'
             api_keys_section: 'Klucze API'
+            trading_keys_section: 'Klucze handlowe'
+            withdrawal_keys_section: 'Klucze wypłat'
             email_section: E-mail
             name_section: Imię
             password_section: Hasło

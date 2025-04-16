@@ -1,13 +1,13 @@
 <div class="widget">
-  <h4 class="modal__title"><%= t('.api_keys_section') %></h4>
+  <h4 class="modal__title"><%= t('settings.index.api_keys_section') %></h4>
   <%= turbo_frame_tag "api_keys" do %>
     <% if trading_api_keys.any? %>
-      <h5>Trading keys</h5>
+      <h5><%= t('settings.index.trading_keys_section') %></h5>
       <%= render partial: 'api_key', collection: trading_api_keys, as: :api_key %>
       <br>
     <% end %>
     <% if withdrawal_api_keys.any? %>
-      <h5>Withdrawal keys</h5>
+      <h5><%= t('settings.index.withdrawal_keys_section') %></h5>
       <%= render partial: 'api_key', collection: withdrawal_api_keys, as: :api_key %>
     <% end %>
   <% end %>

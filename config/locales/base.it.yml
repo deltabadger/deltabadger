@@ -98,6 +98,8 @@ it:
         index:
             api_key_confirmation: 'Sei sicuro?'
             api_keys_section: 'Chiavi API'
+            trading_keys_section: 'Chiavi Trading'
+            withdrawal_keys_section: 'Chiavi Prelievo'
             email_section: Email
             name_section: Nome
             password_section: Password
