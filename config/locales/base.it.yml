@@ -161,6 +161,7 @@ it:
         since: 'dal'
         soon: 'Presto'
         see_at_coingecko: 'Vedi su CoinGecko'
+        start: 'Inizia'
         search:
             placeholder:
                 asset: 'Cerca un asset…'

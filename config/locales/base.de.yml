@@ -165,6 +165,7 @@ de:
         since: 'seit'
         soon: 'Bald'
         see_at_coingecko: 'Bei CoinGecko ansehen'
+        start: 'Starten'
         search:
             placeholder:
                 asset: 'Nach einem Asset suchen…'

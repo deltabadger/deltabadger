@@ -163,6 +163,7 @@ es:
         since: 'desde'
         soon: 'Pronto'
         see_at_coingecko: 'Ver en CoinGecko'
+        start: 'Iniciar'
         search:
             placeholder:
                 asset: 'Buscar un activo…'
