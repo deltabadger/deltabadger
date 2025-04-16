@@ -113,8 +113,8 @@ nl:
         twitter: 'Volg ons op 𝕏'
     welcome:
         banner_html: |
-            <p>Indexering, herbalancering en een nieuwe DCA-bot zijn in de laatste testfase, %{name}!</p>
-            <p>Probeer de gloednieuwe <b>Barbell Bot</b> en maak gebruik van de <b>Portfolio Analyzer</b>, maar verwacht binnenkort alles wat u op de homepage ziet.</p>
+            <p>Welkom, %{name}!</p>
+            <p>Geniet van geherbalanceerde DCA met de gloednieuwe <b>Barbell Bot</b>, en maak gebruik van de <b>Portfolio Analyzer</b>. Indexering komt binnenkort.</p>
             <p>Groeten, Jan</p>
     analyzer:
         default_portfolio: 'Standaardportefeuille'
