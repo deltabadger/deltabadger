@@ -3,8 +3,6 @@ es:
         dca_profit_html: |
             <p>Si hubieras promediado el costo en dólares en Bitcoin durante los últimos %{years}&nbsp;años, ahora tendrías un <b style="color: #00A36C;">%{profit}%</b> de ganancia.</p>
             <p>Eso es un <b style="color: #00A36C;">%{sp500_diff}%</b> más que el S&P 500 en el mismo período.</p>
-    button:
-        connect: "Conectar"
     data_labels:
         bought_symbol: "Comprado (%{symbol})"
         avg_price_symbol: "Precio promedio (%{symbol})"
@@ -164,7 +162,7 @@ es:
             placeholder:
                 asset: 'Buscar un activo…'
         since: 'desde'
-        soon: 'pronto'
+        soon: 'Pronto'
         years:
             one: "%{count} año"
             other: "%{count} años"

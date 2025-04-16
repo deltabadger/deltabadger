@@ -164,7 +164,7 @@ de:
             placeholder:
                 asset: 'Nach einem Asset suchen…'
         since: 'seit'
-        soon: 'bald'
+        soon: 'Bald'
         years:
             one: "%{count} Jahr"
             other: "%{count} Jahre"

@@ -3,8 +3,6 @@ en:
         dca_profit_html: |
             <p>If you were dollar-cost averaging into Bitcoin for the last %{years}&nbsp;years, you're now up <b style="color: #00A36C;">%{profit}%</b>.</p>
             <p>That's <b style="color: #00A36C;">%{sp500_diff}%</b> more than S&P 500 in the same time.</p>
-    button:
-        connect: "Connect"
     data_labels:
         bought_symbol: "Bought (%{symbol})"
         avg_price_symbol: "Avg. Price (%{symbol})"
