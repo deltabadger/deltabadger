@@ -1,4 +1,7 @@
 pt:
+    header:
+        start_investing: 'Comece a investir:'
+        subscribe_to_secure_early_access: 'Assine o plano Legendary para obter acesso antecipado aos índices (próximamente disponível):'
     ads:
         dca_profit_html: |
             <p>Se tivesse feito dollar-cost averaging em Bitcoin nos últimos %{years}&nbsp;anos, agora estaria com um lucro de <b style="color: #00A36C;">%{profit}%</b>.</p>
@@ -153,12 +156,12 @@ pt:
         new: 'Novo'
         save: 'Salvar'
         cancel: 'Cancelar'
+        since: 'desde'
+        soon: 'Em breve'
         see_at_coingecko: 'Ver no CoinGecko'
         search:
             placeholder:
                 asset: 'Procurar um ativo…'
-        since: 'desde'
-        soon: 'Em breve'
         years:
             one: "%{count} ano"
             other: "%{count} anos"

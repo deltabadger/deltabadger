@@ -1,4 +1,7 @@
 de:
+    header:
+        start_investing: 'Beginnen Sie zu investieren:'
+        subscribe_to_secure_early_access: 'Abonnieren Sie den Legendary-Plan, um sich frühzeitigen Zugang zu Indizes zu sichern (demnächst verfügbar):'
     ads:
         dca_profit_html: |
             <p>Wenn Sie in den letzten %{years}&nbsp;Jahren regelmäßig in Bitcoin investiert hätten, lägen Sie jetzt <b style="color: #00A36C;">%{profit}%</b> im Plus.</p>
@@ -159,12 +162,12 @@ de:
         new: 'Neu'
         save: 'Speichern'
         cancel: 'Abbrechen'
+        since: 'seit'
+        soon: 'Bald'
         see_at_coingecko: 'Bei CoinGecko ansehen'
         search:
             placeholder:
                 asset: 'Nach einem Asset suchen…'
-        since: 'seit'
-        soon: 'Bald'
         years:
             one: "%{count} Jahr"
             other: "%{count} Jahre"

@@ -1,4 +1,7 @@
 pl:
+    header:
+        start_investing: 'Zacznij inwestować:'
+        subscribe_to_secure_early_access: 'Subskrybuj plan Legendary, aby zabezpieczyć wczesny dostęp do indeksów (dostępne wkrótce):'
     ads:
         dca_profit_html: |
             <p>Gdybyś stosował strategię dollar-cost averaging w Bitcoinie przez ostatnie %{years}&nbsp;lata, byłbyś teraz na plusie <b style="color: #00A36C;">%{profit}%</b>.</p>
@@ -157,12 +160,12 @@ pl:
         new: 'Nowe'
         save: 'Zapisz'
         cancel: 'Anuluj'
+        since: 'od'
+        soon: 'Wkrótce'
         see_at_coingecko: 'Zobacz na CoinGecko'
         search:
             placeholder:
                 asset: 'Szukaj aktywa…'
-        since: 'od'
-        soon: 'Wkrótce'
         years:
             one: "%{count} rok"
             other: "%{count} lat"
