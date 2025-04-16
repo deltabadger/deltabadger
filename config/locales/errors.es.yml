@@ -15,7 +15,7 @@ es:
                         portfolio:
                             max_assets_reached: "Se ha alcanzado el máximo número de activos."
     errors:
-        cloudflare_turnstile: 'La verificación de Cloudflare Turnstile ha fallado'    
+        cloudflare_turnstile: 'La verificación de Cloudflare Turnstile ha fallado'
         bitcoin_address_not_updated: 'No se ha podido actualizar la dirección de Bitcoin'
         format: '%{attribute} %{message}'
         frequency_limit: 'Límite de frecuencia superado'
@@ -30,7 +30,7 @@ es:
         bots:
             exchange_asset_mismatch: "No todos los activos están listados en %{exchange_name}"
             destroy_success: "Bot %{bot_label} eliminado con éxito"
-            api_key_success: "Claves de API guardadas con éxito"
+            api_key_success: "claves API guardadas con éxito"
         messages:
             accepted: 'debe ser aceptado'
             already_confirmed: 'ya estaba confirmado, intenta iniciar sesión.'
