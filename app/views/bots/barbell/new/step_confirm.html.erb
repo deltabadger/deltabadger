@@ -9,7 +9,7 @@
     <%= render partial: 'bots/barbell/new/progress_bar', locals: {
       current_step: :api
     } %>
-    <div style="display: flex; flex-direction: column; gap: 1rem; padding: 0 1rem; filter: drop-shadow(0.5rem 0.5rem 1rem #0241) drop-shadow(0 0 10rem #0241);">
+    <div class="bot-creation-preview">
       <%= form_with model: @bot, url: barbell_new_step_confirm_bots_path, method: :get, class: "widget", data: { controller: "form--submit bot--barbell-allocation", bot__barbell_allocation_color0_value: base0_color, bot__barbell_allocation_color1_value: base1_color } do |f| %>
         <%= f.hidden_field :label, value: @bot.label %>
         <%= f.hidden_field :base0_asset_id, value: @bot.base0_asset_id %>
