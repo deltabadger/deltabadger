@@ -8,7 +8,7 @@ es:
             info: "Cubre el 74% del mercado de criptomonedas con una cartera simple y sin complicaciones que se reequilibra de forma automática."
         crypto_index:
             title: "Índice cripto"
-            info: "No existe un S&P 500 de criptomonedas, pero ahora puedes crear uno. Automatiza una cartera indexada de las principales criptomonedas."
+            info: "No existe un S&P 500 de criptomonedas, pero ahora puedes crear uno. Automatiza una cartera indexada basada en las principales criptomonedas."
         altcoin_season:
             title: "Temporada de altcoins"
             info: "Invierte de forma segura en una cartera de altcoins ganadoras. Mitiga el riesgo de las criptomonedas de pequeña capitalización reemplazando la asignación manual con indexación automática."
@@ -38,10 +38,10 @@ es:
             info: "Los protocolos de Layer 0 proporcionan la infraestructura fundamental para construir y conectar múltiples blockchains."
         gamefi:
             title: "GameFi"
-            info: "Los tokens GameFi impulsan plataformas de juegos basadas en blockchain y mundos virtuales, combinando juegos con finanzas descentralizadas."
+            info: "Los tokens GameFi impulsan plataformas de juegos basadas en blockchain y mundos virtuales, combinando juegos con DeFi."
         yield_farming:
-            title: "Farming de rendimiento" 
-            info: "Los tokens de yield farming permiten a los usuarios ganar recompensas proporcionando liquidez a protocolos de finanzas descentralizadas."
+            title: "Farming de rendimiento"
+            info: "Los tokens de yield farming permiten a los usuarios ganar recompensas proporcionando liquidez a protocolos DeFi."
         consensys_portfolio:
             title: "Cartera de Consensys"
-            info: "Protocolos y tokens en los que Consensys ha invertido." 
+            info: "Protocolos y tokens en los que Consensys ha invertido."

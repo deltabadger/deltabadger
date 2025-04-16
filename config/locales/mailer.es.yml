@@ -33,7 +33,7 @@ es:
             subject: "La transacción ha sido exitosa"
             template_html: "transacción exitosa, base: %{base}, cotización: %{quote}, nombre del bot: %{bot_name}, tipo: %{type}, precio: %{price}, nombre del exchange: %{exchange_name}"
         end_of_funds:
-            subject: "Tu bot se está quedando sin fondos pronto"
+            subject: "Tu bot pronto se quedará sin fondos"
             template_html: "<p>Parece que tu bot <b>%{label}</b> se está quedando sin %{quote} muy pronto.</p><p>Realiza una transferencia a %{exchange_name} para asegurarte de que el bot siga funcionando continuamente.</p>"
         notify_about_error:
             subject: "Algo salió mal"

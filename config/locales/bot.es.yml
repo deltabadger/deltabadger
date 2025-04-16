@@ -6,16 +6,16 @@ es:
         types:
             dca:
                 title: "DCA"
-                description: "Promedio de coste en dólares de una sola moneda"
+                description: "Dollar-Cost-Averaging en una sola moneda"
             barbell:
                 title: "Estrategia Barbell"
-                description: "Reequilibrio de dos activos sin impuestos"
+                description: "Rebalanceo de dos activos sin impuestos"
             index_portfolio:
                 title: "Cartera Índice"
                 description: "Construye tu ETF de criptomonedas personal"
             custom_portfolio:
                 title: "Cartera Personalizada"
-                description: "Reequilibra una mezcla personalizada de activos"
+                description: "Rebalancea una mezcla personalizada de activos"
         status:
             setting_orders: "Configurando órdenes…"
             paused: "Pausado"
@@ -31,29 +31,29 @@ es:
         below: 'por debajo'
         buttons:
             automatic_withdrawal: 'Retirada automática'
-            request_exchange: 'Pedir agregar un intercambio'
+            request_exchange: 'Quiero otro exchange'
             move_existing_bot: 'Mover el bot existente a otro intercambio'
             delete:
                 ok: 'Eliminar por completo'
                 text: Eliminar
                 warning_html: 'Eso eliminará el bot con todos sus<br>datos históricos. ¿Estás seguro?'
-            dollar_cost_averaging: 'Promedio del coste en dólares'
+            dollar_cost_averaging: 'Dollar-Cost-Averaging'
             pending:
                 info_html: Procesando...
                 text: Pendiente
             start:
                 changed_missed:
                     continue: 'Sí, comprar y continuar'
-                    info_html: '¿Quiere invertir los <b>%{amount} %{quote}</b> perdidos mientras el bot estaba en pausa? La nueva programación se iniciará una vez finalizada la cuenta atrás actual.'
-                    skip: 'Ignorar la parte perdida'
+                    info_html: '¿Quieres invertir los <b>%{amount} %{quote}</b> que el bot no invirtió mientras estaba en pausa? La nueva programación se iniciará una vez finalizada la cuenta atrás actual.'
+                    skip: 'Ignorar la cantidad no invertida'
                 changed_on_schedule:
                     continue: Entendido
                     info_html: 'La nueva programación se iniciará una vez terminen los <b>%{time}</b> que quedan de la última.'
                     skip: 'Ignorarlo y empezar inmediatamente'
                 missed:
                     continue: 'Sí, comprar y continuar'
-                    info_html: '¿Quieres invertir los <b>%{amount} %{quote}</b> perdidos mientras el bot estaba en pausa y continuar con la programación original?'
-                    skip: 'Saltar la parte perdida'
+                    info_html: '¿Quieres invertir los <b>%{amount} %{quote}</b> que el bot no invirtió mientras estaba en pausa y continuar con la programación original?'
+                    skip: 'Ignorar la parte no invertida'
                 on_schedule:
                     continue: 'Continuar con el programa original'
                     info_html: 'Todavía te quedan <b>%{time}</b> hasta la siguiente orden. Puedes saltártela y ejecutar la siguiente orden inmediatamente, o continuar con la cuenta atrás original.'
