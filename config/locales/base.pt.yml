@@ -3,8 +3,6 @@ pt:
         dca_profit_html: |
             <p>Se tivesse feito dollar-cost averaging em Bitcoin nos últimos %{years}&nbsp;anos, agora estaria com um lucro de <b style="color: #00A36C;">%{profit}%</b>.</p>
             <p>Isso é <b style="color: #00A36C;">%{sp500_diff}%</b> mais do que o S&P 500 no mesmo período.</p>
-    button:
-        connect: "Conectar"
     data_labels:
         bought_symbol: "Comprado (%{symbol})"
         avg_price_symbol: "Preço Médio (%{symbol})"
@@ -160,7 +158,7 @@ pt:
             placeholder:
                 asset: 'Procurar um ativo…'
         since: 'desde'
-        soon: 'em breve'
+        soon: 'Em breve'
         years:
             one: "%{count} ano"
             other: "%{count} anos"
