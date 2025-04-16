@@ -3,8 +3,6 @@ pl:
         dca_profit_html: |
             <p>Gdybyś stosował strategię dollar-cost averaging w Bitcoinie przez ostatnie %{years}&nbsp;lata, byłbyś teraz na plusie <b style="color: #00A36C;">%{profit}%</b>.</p>
             <p>To <b style="color: #00A36C;">%{sp500_diff}%</b> więcej niż S&P 500 w tym samym okresie.</p>
-    button:
-        connect: "Połącz"
     data_labels:
         bought_symbol: "Kupiono (%{symbol})"
         avg_price_symbol: "Śr. cena (%{symbol})"
@@ -164,7 +162,7 @@ pl:
             placeholder:
                 asset: 'Szukaj aktywa…'
         since: 'od'
-        soon: 'wkrótce'
+        soon: 'Wkrótce'
         years:
             one: "%{count} rok"
             other: "%{count} lat"
