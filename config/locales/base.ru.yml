@@ -98,6 +98,8 @@ ru:
         index:
             api_key_confirmation: 'Вы уверены?'
             api_keys_section: 'Ключи API'
+            trading_keys_section: 'Ключи торговли'
+            withdrawal_keys_section: 'Ключи вывода'
             email_section: 'Электронная почта'
             name_section: 'Обновить имя'
             password_section: Пароль
