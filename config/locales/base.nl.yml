@@ -160,6 +160,7 @@ nl:
         since: 'sinds'
         soon: 'Binnenkort'
         see_at_coingecko: 'Zie op CoinGecko'
+        start: 'Starten'
         search:
             placeholder:
                 asset: 'Zoek naar een asset…'

@@ -163,6 +163,7 @@ en:
         since: 'since'
         soon: 'Soon'
         see_at_coingecko: 'See at CoinGecko'
+        start: 'Start'
         search:
             placeholder:
                 asset: 'Search for an asset…'

@@ -113,19 +113,17 @@
         <% end %>
       </div>
     </div>
-    <div class="large-button-wrapper">
-      <%= form_with model: @bot, url: bots_path(@bot), method: :post, data: { action: "turbo:submit-end->modal--base#submitEnd" } do |f| %>
-        <%= f.hidden_field :label, value: @bot.label %>
-        <%= f.hidden_field :base0_asset_id, value: @bot.base0_asset_id %>
-        <%= f.hidden_field :base1_asset_id, value: @bot.base1_asset_id %>
-        <%= f.hidden_field :quote_asset_id, value: @bot.quote_asset_id %>
-        <%= f.hidden_field :exchange_id, value: @bot.exchange_id %>
-        <%= f.hidden_field :quote_amount, value: @bot.quote_amount %>
-        <%= f.hidden_field :interval, value: @bot.interval %>
-        <%= f.hidden_field :allocation0, value: @bot.allocation0 %>
-        <%= f.hidden_field :market_cap_adjusted, value: @bot.market_cap_adjusted %>
-        <%= f.submit t('bot.buttons.start'), class: 'button button--large button--success' %>
-      <% end %>
-    </div>
+    <%= form_with model: @bot, url: bots_path(@bot), method: :post, data: { action: "turbo:submit-end->modal--base#submitEnd" } do |f| %>
+      <%= f.hidden_field :label, value: @bot.label %>
+      <%= f.hidden_field :base0_asset_id, value: @bot.base0_asset_id %>
+      <%= f.hidden_field :base1_asset_id, value: @bot.base1_asset_id %>
+      <%= f.hidden_field :quote_asset_id, value: @bot.quote_asset_id %>
+      <%= f.hidden_field :exchange_id, value: @bot.exchange_id %>
+      <%= f.hidden_field :quote_amount, value: @bot.quote_amount %>
+      <%= f.hidden_field :interval, value: @bot.interval %>
+      <%= f.hidden_field :allocation0, value: @bot.allocation0 %>
+      <%= f.hidden_field :market_cap_adjusted, value: @bot.market_cap_adjusted %>
+      <%= f.submit t('utils.start'), class: 'button button--large button--success', style: "min-width: 30rem" %>
+    <% end %>
   </div>
 <% end %>
