@@ -5,8 +5,8 @@ export default class extends Controller {
 
   connect() {
     this.resize = this.resize.bind(this)
-    this.createMirrorElement()
-    this.transferStyles()
+    this.#createMirrorElement()
+    this.#transferStyles()
     requestAnimationFrame(this.resize)
     this.element.addEventListener('input', this.resize)
   }
@@ -18,7 +18,23 @@ export default class extends Controller {
     }
   }
 
-  createMirrorElement() {
+  resize() {
+    // Use input value or placeholder as the text to measure
+    const text = this.element.value || this.element.placeholder || ''
+    this.mirrorElement.textContent = text;
+
+    // Measure the width of the mirror element
+    const measuredWidth = this.mirrorElement.offsetWidth;
+
+    // Add a small buffer (e.g., 2px) to prevent text clipping or overflow
+    const buffer = 2;
+    const newWidth = measuredWidth + buffer;
+
+    // Set the input element's width
+    this.element.style.width = `${newWidth}px`;
+  }
+
+  #createMirrorElement() {
     this.mirrorElement = document.createElement('span')
     // Apply styles to make it invisible but measurable
     Object.assign(this.mirrorElement.style, {
@@ -33,7 +49,7 @@ export default class extends Controller {
     document.body.appendChild(this.mirrorElement)
   }
 
-  transferStyles() {
+  #transferStyles() {
     const computedStyle = window.getComputedStyle(this.element)
     // List of CSS properties that affect horizontal size
     const stylesToCopy = [
@@ -48,20 +64,4 @@ export default class extends Controller {
       this.mirrorElement.style[prop] = computedStyle[prop]
     })
   }
-
-  resize() {
-    // Use input value or placeholder as the text to measure
-    const text = this.element.value || this.element.placeholder || ''
-    this.mirrorElement.textContent = text;
-
-    // Measure the width of the mirror element
-    const measuredWidth = this.mirrorElement.offsetWidth;
-
-    // Add a small buffer (e.g., 2px) to prevent text clipping or overflow
-    const buffer = 2; 
-    const newWidth = measuredWidth + buffer;
-
-    // Set the input element's width
-    this.element.style.width = `${newWidth}px`;
-  }
-} 
+}
