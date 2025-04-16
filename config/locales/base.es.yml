@@ -1,4 +1,7 @@
 es:
+    header:
+        start_investing: 'Comienza a invertir:'
+        subscribe_to_secure_early_access: 'Suscríbete al plan Legendary para obtener acceso anticipado a los índices (próximamente):'
     ads:
         dca_profit_html: |
             <p>Si hubieras promediado el costo en dólares en Bitcoin durante los últimos %{years}&nbsp;años, ahora tendrías un <b style="color: #00A36C;">%{profit}%</b> de ganancia.</p>
@@ -157,12 +160,12 @@ es:
         new: 'Nuevo'
         save: 'Guardar'
         cancel: 'Cancelar'
+        since: 'desde'
+        soon: 'Pronto'
         see_at_coingecko: 'Ver en CoinGecko'
         search:
             placeholder:
                 asset: 'Buscar un activo…'
-        since: 'desde'
-        soon: 'Pronto'
         years:
             one: "%{count} año"
             other: "%{count} años"

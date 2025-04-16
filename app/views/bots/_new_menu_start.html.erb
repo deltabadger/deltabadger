@@ -8,8 +8,8 @@
 </div>-->
 
 <div style="display: flex; gap: 4rem; flex-direction: column">
-    <div class="big-header big-header--2">Start investing:</div>
-    <div class="bot-menu">
+    <div class="big-header big-header--2"><%= t('header.start_investing') %></div>
+    <div class="itiles">
 
         <%= link_to bots_path(create: true), class: 'itile itile--bot-type itile--dca', data: { action: 'click->modal--base#animateOutCloseAndCleanUp', turbo: false } do %>
             <div class="theme-img" style="background-image: url('https://deltabadger.com/blog/fnilx-stock.jpg')"></div>
@@ -232,8 +232,8 @@
         -->
 
     </div>
-    <div class="big-header big-header--2">Subscribe for Legendary plan to secure early access to indexes (coming soon):</div>
-    <div class="bot-menu">
+    <div class="big-header big-header--2"><%= t('header.subscribe_to_secure_early_access') %></div>
+    <div class="itiles">
         <div class="itile itile--pro itile--soon itile--faded">
             <div class="theme-img" style="background-image: url('https://deltabadger.com/blog/when-to-sell.jpg')"></div>
             <b class="sbadge sbadge--pro"><%= t('utils.pro') %></b>

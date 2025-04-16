@@ -1,4 +1,7 @@
 en:
+    header:
+        start_investing: 'Start investing:'
+        subscribe_to_secure_early_access: 'Subscribe for Legendary plan to secure early access to indexes (coming soon):'
     ads:
         dca_profit_html: |
             <p>If you were dollar-cost averaging into Bitcoin for the last %{years}&nbsp;years, you're now up <b style="color: #00A36C;">%{profit}%</b>.</p>
@@ -157,12 +160,12 @@ en:
         new: 'New'
         save: 'Save'
         cancel: 'Cancel'
+        since: 'since'
+        soon: 'Soon'
         see_at_coingecko: 'See at CoinGecko'
         search:
             placeholder:
                 asset: 'Search for an asset…'
-        since: 'since'
-        soon: 'soon'
         years:
             one: "%{count} year"
             other: "%{count} years"
