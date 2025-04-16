@@ -2,9 +2,7 @@ it:
     ads:
         dca_profit_html: |
             <p>Se avessi fatto dollar-cost averaging in Bitcoin negli ultimi %{years}&nbsp;anni, ora saresti in attivo del <b style="color: #00A36C;">%{profit}%</b>.</p>
-            <p>Questo è <b style="color: #00A36C;">%{sp500_diff}%</b> in più rispetto all'S&P 500 nello stesso periodo.</p>
-    button:
-        connect: "Connetti"
+            <p>Questo è <b style="color: #00A36C;">%{sp500_diff}%</b> in più rispetto all'S&P 500 nello stesso periodo.</p>        
     data_labels:
         bought_symbol: "Acquistato (%{symbol})"
         avg_price_symbol: "Prezzo medio (%{symbol})"
@@ -162,7 +160,7 @@ it:
             placeholder:
                 asset: 'Cerca un asset…'
         since: 'dal'
-        soon: 'presto'
+        soon: 'Presto'
         years:
             one: "%{count} anno"
             other: "%{count} anni"

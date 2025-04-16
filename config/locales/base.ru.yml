@@ -3,8 +3,6 @@ ru:
         dca_profit_html: |
             <p>Если бы вы использовали стратегию усреднения стоимости в Bitcoin последние %{years}&nbsp;года, сейчас вы были бы в плюсе на <b style="color: #00A36C;">%{profit}%</b>.</p>
             <p>Это на <b style="color: #00A36C;">%{sp500_diff}%</b> больше, чем S&P 500 за тот же период.</p>
-    button:
-        connect: "Подключить"
     data_labels:
         bought_symbol: "Куплено (%{symbol})"
         avg_price_symbol: "Средняя цена (%{symbol})"
@@ -166,7 +164,7 @@ ru:
             placeholder:
                 asset: 'Искать актив…'
         since: 'с'
-        soon: 'скоро'
+        soon: 'Скоро'
         years:
             one: "%{count} год"
             other: "%{count} лет"
