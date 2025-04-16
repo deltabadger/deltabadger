@@ -109,8 +109,8 @@ fr:
         twitter: 'Suivez-nous sur 𝕏'
     welcome:
         banner_html: |
-            <p>L'indexation, le rééquilibrage et le nouveau bot DCA sont en phase de test final, %{name} !</p>
-            <p>Essayez le tout nouveau <b>Barbell Bot</b> et utilisez l'<b>Analyseur de Portefeuille</b>, mais attendez-vous à voir très bientôt tout ce que vous voyez sur la page d'accueil.</p>
+            <p>Bienvenue, %{name}!</p>
+            <p>Profitez du DCA rééquilibré avec le tout nouveau <b>Barbell Bot</b>, et tirez parti de l'<b>Analyseur de Portefeuille</b>. L'indexation arrive bientôt.</p>
             <p>Cordialement, Jan</p>
     analyzer:
         default_portfolio: 'Portefeuille par défaut'

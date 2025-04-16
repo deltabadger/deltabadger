@@ -118,8 +118,8 @@ de:
         twitter: 'Folge uns auf 𝕏'
     welcome:
         banner_html: |
-            <p>Indexierung, Rebalancing und neuer DCA-Bot befinden sich in der finalen Testphase, %{name}!</p>
-            <p>Testen Sie den brandneuen <b>Barbell Bot</b> und nutzen Sie den <b>Portfolio-Analyzer</b>, aber erwarten Sie in Kürze alles, was Sie auf der Startseite sehen.</p>
+            <p>Willkommen, %{name}!</p>
+            <p>Genieße ausbalanciertes DCA mit dem brandneuen <b>Barbell Bot</b> und nutze den <b>Portfolio Analyzer</b>. Indexierung kommt bald.</p>
             <p>Beste Grüße, Jan</p>
     analyzer:
         default_portfolio: 'Standardportfolio'
