@@ -116,8 +116,8 @@ es:
         twitter: 'Síguenos en 𝕏'
     welcome:
         banner_html: |
-            <p>La indexación, el rebalanceo y el nuevo bot DCA están en pruebas finales, %{name}!</p>
-            <p>Pruebe el nuevo <b>Barbell Bot</b> y aproveche el <b>Analizador de Cartera</b>, pero espere tener muy pronto todo lo que ve en la página de inicio.</p>
+            <p>¡Bienvenido, %{name}!</p>
+            <p>Disfruta del DCA rebalanceado con el nuevo <b>Barbell Bot</b>, y aprovecha el <b>Analizador de Carteras</b>. La indexación llegará pronto.</p>
             <p>Saludos, Jan</p>
     analyzer:
         default_portfolio: 'Cartera predeterminada'
