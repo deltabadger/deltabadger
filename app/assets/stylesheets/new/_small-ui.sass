@@ -46,6 +46,7 @@
     height: 4rem
     width: fit-content
     box-shadow: var(--widget-shadow)
+    cursor: pointer
     .label
         min-width: 2.2rem
     &--calendar
@@ -80,10 +81,32 @@
         .icon-24
             path 
                 fill: var(--label)
-
-
-.sinput--disabled, input[disabled], select[disabled]
-    color: var(--label)
+    &--exchange
+        display: flex
+        align-items: center
+        gap: 0.5rem
+        color: #fff !important
+        font-size: 2rem
+        @media (min-width: 768px)
+            font-size: 2.25rem
+        svg
+            width: 2.5rem
+            height: 2.5rem
+            path
+                fill: #fff !important
+        &--kraken
+            background: #7133f5 !important
+        &--coinbase
+            background: #0052ff !important
+            padding-left: 1rem
+        &--binance
+            background: #181a1f !important
+            color: #fcd535 !important
+            svg
+                path
+                    fill: #fcd535 !important
+        &--kucoin
+            background: #00a1f1 !important
     cursor: not-allowed
 
 .label--select,.sinput--select
