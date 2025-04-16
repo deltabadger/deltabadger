@@ -1,14 +1,14 @@
 es:
     header:
-        start_investing: 'Comienza a invertir:'
+        start_investing: 'Empieza a invertir:'
         subscribe_to_secure_early_access: 'Suscríbete al plan Legendary para obtener acceso anticipado a los índices (próximamente):'
     ads:
         dca_profit_html: |
-            <p>Si hubieras promediado el costo en dólares en Bitcoin durante los últimos %{years}&nbsp;años, ahora tendrías un <b style="color: #00A36C;">%{profit}%</b> de ganancia.</p>
+            <p>Si hubieras hecho DCA en Bitcoin durante los últimos %{years}&nbsp;años, ahora tendrías unos beneficios de <b style="color: #00A36C;">%{profit}%</b>.</p>
             <p>Eso es un <b style="color: #00A36C;">%{sp500_diff}%</b> más que el S&P 500 en el mismo período.</p>
     data_labels:
         bought_symbol: "Comprado (%{symbol})"
-        avg_price_symbol: "Precio promedio (%{symbol})"
+        avg_price_symbol: "Precio medio (%{symbol})"
         invested_symbol: "Invertido (%{symbol})"
         value_symbol: "Valor (%{symbol})"
         date: "Fecha"
