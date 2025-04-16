@@ -92,6 +92,8 @@ fr:
         index:
             api_key_confirmation: 'Êtes-vous sûr ?'
             api_keys_section: 'Clés API'
+            trading_keys_section: 'Clés de trading'
+            withdrawal_keys_section: 'Clés de retrait'
             current_password: 'Mot de passe actuel (pour confirmation)'
             email_section: 'E-mail'
             name_section: 'Nom'
