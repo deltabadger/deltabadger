@@ -111,6 +111,11 @@ class BotsController < ApplicationController
     end
   end
 
+  # TODO: move to custom :show logic according to bot type
+  def show_index_bot
+    render 'bots/index_bot'
+  end
+
   def edit; end
 
   def update
