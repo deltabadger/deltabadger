@@ -11,7 +11,8 @@ module Exchanges
       'ZCAD' => 'CAD',
       'ZAUD' => 'AUD',
       'XXBT' => 'XBT',
-      'XETH' => 'ETH'
+      'XETH' => 'ETH',
+      'XXDG' => 'XDG'
     }.freeze # matches how assets are shown in the balances response with how they are shown in the tickers
 
     def initialize(exchange, api_key = nil)
