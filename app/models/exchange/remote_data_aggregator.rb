@@ -96,6 +96,12 @@ module Exchange::RemoteDataAggregator
       return Result::Failure.new("Failed to get #{name} Coingecko tickers") unless result.success?
 
       result.data['tickers'].each do |ticker|
+        # FIXME: Find a cleaner way for this: translate DOGE pairs to XDG (Coingecko uses DOGE instead of XDG)
+        if coingecko_id == Exchanges::KrakenExchange::COINGECKO_ID
+          ticker['base'] = 'XDG' if ticker['base'] == 'DOGE'
+          ticker['target'] = 'XDG' if ticker['target'] == 'DOGE'
+        end
+
         tickers_info << {
           base: ticker['base'],
           quote: ticker['target'],
