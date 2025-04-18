@@ -168,7 +168,6 @@ select
     &:not(.button--link)
         min-width: 8rem
     &:hover, &:focus, &:active, &[disabled="disabled"],&[disabled]
-        color: #fff
         outline: none
     svg
         fill: #fff
@@ -193,25 +192,18 @@ select
         box-shadow: var(--primary-shadow)
     &--outline, &--link,&--disabled,&[disabled="disabled"],&[disabled]
         background: none
+    &--outline, &--link  
         color: var(--link)
         path
             fill: var(--link)
-        &[disabled="disabled"]
-            color: var(--label)
-        &:hover, &:focus, &:active, &[disabled="disabled"],&[disabled]
-            color: var(--link)
-        &.button--success
-            color: var(--success)
+    &--disabled,&[disabled="disabled"],&[disabled]
+        color: var(--label) !important
+        &:hover, &:focus, &:active
+            color: var(--label) !important
+        &.button--success,&.button--secondary,&.button--danger
+            color: var(--label) !important
             path
-                fill: var(--success)
-        &.button--danger
-            color: var(--danger)
-            path
-                fill: var(--danger)
-        &.button--secondary
-            color: var(--menulink)
-            path
-                fill: var(--menulink)
+                fill: var(--label) !important
     &--outline,&--disabled,&[disabled="disabled"],&[disabled]
         border: 2px solid var(--link)
         padding: 0 calc(2rem - 2px)
