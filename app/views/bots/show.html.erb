@@ -4,6 +4,7 @@
   </div>
   <div class="flex-column gap-1">
     <div class="bot-control">
+      <%= render partial: "bots/exchange_select", locals: { bot: @bot } %>
       <%= render "bots/status/status_bar", bot: @bot %>
       <%= render "bots/status/status_button", bot: @bot %>
     </div>
@@ -11,7 +12,6 @@
       <div class="column gap-1">
         <%= render partial: "bots/settings", locals: { bot: @bot } %>
         <%= render partial: "bots/settings_extra", locals: { bot: @bot } %>
-        <%= render partial: "bots/exchange_select", locals: { bot: @bot } %>
         <%= render partial: "bots/description", locals: { bot: @bot } %>
       </div>
       <div class="column gap-1">
