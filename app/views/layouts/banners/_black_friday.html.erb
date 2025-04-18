@@ -1,5 +1,5 @@
-<div class="black-friday"class data-controller="show-hide">
-  <div data-show-hide-target="hideable">
+<div class="black-friday"class data-controller="show-hide" data-show-hide-toggle-class-value='["hidden"]'>
+  <div data-show-hide-target="togglable">
     <div class="black-friday__body">
       <div class="big-discount">
         <div class="big-discount__number">
@@ -54,7 +54,7 @@
     </div>
   </div>
   <nav class="black-friday-toggle" style="align-self: flex-end">
-    <div class="black-friday-toggle__icon active" id="infoheader-icon" data-action="click->show-hide#toggle"  data-show-hide-target="toggleButton">
+    <div class="black-friday-toggle__icon active" id="infoheader-icon" data-action="click->show-hide#toggle">
         <b>30% OFF</b>
         <%= render partial: 'svg/24x24_close' %>
     </div>

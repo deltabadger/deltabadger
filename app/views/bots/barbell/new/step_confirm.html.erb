@@ -10,6 +10,17 @@
       current_step: :api
     } %>
     <div class="bot-creation-preview">
+      <div class="flex-row">
+        <%= link_to barbell_new_step_exchange_bots_path({
+        bots_barbell: {
+          label: @bot.label,
+          base0_asset_id: @bot.base0_asset_id,
+          base1_asset_id: @bot.base1_asset_id,
+        }}), data: { turbo_frame: "modal_content" }, class: "sinput sinput--select sinput--exchange sinput--exchange--#{@bot.exchange.name.downcase}" do %>
+          <%= render "svg/exchange-#{@bot.exchange.name.downcase}", title: @bot.exchange.name %>
+          <%= @bot.exchange.name.capitalize %>
+        <% end %>
+      </div>
       <%= form_with model: @bot, url: barbell_new_step_confirm_bots_path, method: :get, class: "widget", data: { controller: "form--submit bot--barbell-allocation", bot__barbell_allocation_color0_value: base0_color, bot__barbell_allocation_color1_value: base1_color } do |f| %>
         <%= f.hidden_field :label, value: @bot.label %>
         <%= f.hidden_field :base0_asset_id, value: @bot.base0_asset_id %>
@@ -101,17 +112,6 @@
         </div>
       <% end %>
 
-      <div class="flex-row">
-        <%= link_to barbell_new_step_exchange_bots_path({
-        bots_barbell: {
-          label: @bot.label,
-          base0_asset_id: @bot.base0_asset_id,
-          base1_asset_id: @bot.base1_asset_id,
-        }}), data: { turbo_frame: "modal_content" }, class: "sinput sinput--select sinput--exchange sinput--exchange--#{@bot.exchange.name.downcase}" do %>
-          <%= render "svg/exchange-#{@bot.exchange.name.downcase}", title: @bot.exchange.name %>
-          <%= @bot.exchange.name.capitalize %>
-        <% end %>
-      </div>
     </div>
     <%= form_with model: @bot, url: bots_path(@bot), method: :post, data: { action: "turbo:submit-end->modal--base#submitEnd" } do |f| %>
       <%= f.hidden_field :label, value: @bot.label %>
