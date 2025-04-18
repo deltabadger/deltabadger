@@ -23,11 +23,11 @@
 .widget--strategy
     transition: all 0.5s ease !important
     padding: 24rem 3rem 3rem
+    .active-only
+        padding-top: 2rem
     &:not(.itile--soon)
         &:hover,&.active
             .theme-img
-                
-                transform: scale(1.02)
                 &::after
                     transition: all 0.5s ease !important
                     background-image: linear-gradient(to bottom, #0000 30%, var(--pick-bot-item-bg) 40rem) 
@@ -37,7 +37,7 @@
                 transform: scale(1.1)
     .theme-img
         opacity: 0.9 !important
-        transition: all 0.5s ease !important
+        transition: all 3s ease-out !important
         height: 40rem
         background-position: center !important
         &::after
