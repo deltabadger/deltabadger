@@ -5,13 +5,60 @@
     @media screen and (min-width: 576px)
         grid-template-columns: repeat(auto-fill, minmax(min(100%, 280px), 1fr))
 .itile
-    height: 100%
-.itile,.widget--index
+    padding: 20rem 3rem 3rem
+    &:not(.itile--soon)
+        &:hover,&.active
+            .theme-img
+                transform: scale(1.05)
+                &::after
+                    background-image: linear-gradient(to bottom, #0000 40%, var(--pick-bot-item-bg) 22rem)
+    .theme-img
+        height: 22rem
+        background-position: center !important
+        &::after
+            height: 22rem
+            background-image: linear-gradient(to bottom, #0000 40%, var(--pick-bot-item-bg) 22rem) 
+    p
+        margin-bottom: 0
+.widget--strategy
+    transition: all 0.5s ease !important
+    padding: 24rem 3rem 3rem
+    &:not(.itile--soon)
+        &:hover,&.active
+            .theme-img
+                
+                transform: scale(1.02)
+                &::after
+                    transition: all 0.5s ease !important
+                    background-image: linear-gradient(to bottom, #0000 30%, var(--pick-bot-item-bg) 40rem) 
+        &.active
+            .theme-img
+                transition: all 0.5s ease
+                transform: scale(1.1)
+    .theme-img
+        opacity: 0.9 !important
+        transition: all 0.5s ease !important
+        height: 40rem
+        background-position: center !important
+        &::after
+            height: 40rem
+            background-image: linear-gradient(to bottom, #0000 30%, var(--widget-background) 40rem)
+    &--barbell
+        &:not(.itile--soon)
+            &:hover,&.active
+                .theme-img
+                    &::after
+                        background-image: linear-gradient(to bottom, #0000 30%, var(--pick-bot-item-bg) 40rem) 
+    p
+        color: #fffc !important
+    strong
+        color: #fff !important
+
+.itile,.widget--strategy
     gap: 1rem !important
     position: relative
     overflow: hidden
     background: var(--widget-background)
-    padding: 20rem 3rem 3rem
     z-index: 0
     border-radius: 1.5rem
     display: flex
@@ -24,16 +71,13 @@
     transition: all 0.2s ease
     box-shadow: 0.25rem 0.25rem 2rem #00224419
     &:not(.itile--soon)
-        &:hover
+        &:hover,&.active
             background: var(--pick-bot-item-bg)
             box-shadow: 0.5rem 0.5rem 1.5rem #0242s
-            color: var(--pick-bot-item-text-hover) !important
+            color: var(--pick-bot-item-text-hover)
             cursor: pointer
             .theme-img
                 opacity: 1
-                transform: scale(1.05)
-                &::after
-                    background-image: linear-gradient(to bottom, #0000 40%, var(--pick-bot-item-bg) 22rem)
     &--faded
         filter: opacity(0.5) saturate(0.9)
     &--bot-type
@@ -51,11 +95,16 @@
             .theme-img
                 transform: scale(1.1) !important
                 opacity: 1 !important
+    &--barbell
+        color: #fff !important
+        &:hover, &.active
+            background: #00a !important
+        .theme-img
+            &::after
+                background-image: linear-gradient(to bottom, #0000 0%, #00a 100%) !important
     &--dca
         .theme-img::after
             background-image: linear-gradient(to bottom, #0000 0%, color(display-p3 0 0.31 0.34) 100%) !important
-    p
-        margin-bottom: 0
     .sbadge
         position: absolute
         top: 1rem
@@ -75,9 +124,7 @@
         left: 0
         display: block
         width: 100%
-        height: 22rem
         background-size: cover !important
-        background-position: center !important
         background-repeat: no-repeat !important
         z-index: -1
         opacity: 0.6
@@ -89,8 +136,6 @@
             content: ""
             display: block
             width: 100%
-            height: 22rem
-            background-image: linear-gradient(to bottom, #0000 40%, var(--widget-background) 22rem)
             background-size: 100% auto !important
             background-position: bottom !important
             background-repeat: no-repeat !important
