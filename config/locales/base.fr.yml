@@ -7,11 +7,16 @@ fr:
             <p>Si vous aviez fait du dollar-cost averaging sur Bitcoin ces %{years}&nbsp;dernières années, vous seriez maintenant en hausse de <b style="color: #00A36C;">%{profit}%</b>.</p>
             <p>C'est <b style="color: #00A36C;">%{sp500_diff}%</b> de plus que le S&P 500 sur la même période.</p>
     data_labels:
-        bought_symbol: "Acheté (%{symbol})"
-        avg_price_symbol: "Prix moyen (%{symbol})"
-        invested_symbol: "Investi (%{symbol})"
-        value_symbol: "Valeur (%{symbol})"
+        invested: "Total Invested"
+        value: "Current Value"
         date: "Date"
+        asset: "Actif"
+        amount: "Montant"
+        avg_price: "Prix moy."
+        price: "Prix"
+        pnl: "P/L"
+        bought: "Acheté"
+        current_price: "Current Price"
     days_left:
         one: '1 jour restant'
         other: '%{count} jours restants'
