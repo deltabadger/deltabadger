@@ -19,6 +19,9 @@ application.register("bot--barbell-allocation", Bot__BarbellAllocationController
 import Bot__ChartController from "./bot/chart_controller"
 application.register("bot--chart", Bot__ChartController)
 
+import ClassToggleController from "./class_toggle_controller"
+application.register("class-toggle", ClassToggleController)
+
 import ClipboardController from "./clipboard_controller"
 application.register("clipboard", ClipboardController)
 
@@ -81,9 +84,6 @@ application.register("progress-bar", ProgressBarController)
 
 import RemovalsController from "./removals_controller"
 application.register("removals", RemovalsController)
-
-import ShowHideController from "./show_hide_controller"
-application.register("show-hide", ShowHideController)
 
 import TooltipController from "./tooltip_controller"
 application.register("tooltip", TooltipController)
