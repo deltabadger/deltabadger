@@ -7,11 +7,16 @@ en:
             <p>If you were dollar-cost averaging into Bitcoin for the last %{years}&nbsp;years, you're now up <b style="color: #00A36C;">%{profit}%</b>.</p>
             <p>That's <b style="color: #00A36C;">%{sp500_diff}%</b> more than S&P 500 in the same time.</p>
     data_labels:
-        bought_symbol: "Bought (%{symbol})"
-        avg_price_symbol: "Avg. Price (%{symbol})"
-        invested_symbol: "Invested (%{symbol})"
-        value_symbol: "Value (%{symbol})"
+        invested: "Total Invested"
+        value: "Current Value"
         date: "Date"
+        asset: "Asset"
+        amount: "Amount"
+        avg_price: "Avg. Price"
+        price: "Price"
+        pnl: "P/L"
+        bought: "Bought"
+        current_price: "Current Price"
     days_left:
         one: '1 day left'
         other: '%{count} days left'
