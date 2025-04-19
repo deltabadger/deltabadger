@@ -7,9 +7,11 @@ ru:
             <p>Если бы вы использовали стратегию усреднения стоимости в Bitcoin последние %{years}&nbsp;года, сейчас вы были бы в плюсе на <b style="color: #00A36C;">%{profit}%</b>.</p>
             <p>Это на <b style="color: #00A36C;">%{sp500_diff}%</b> больше, чем S&P 500 за тот же период.</p>
     data_labels:
-        invested: "Инвестировано всего"
+        invested: "Всего вложено"
         portfolio_value: "Стоимость портфеля"
         value: "Стоимость"
+        value_symbol: "Стоимость (%{symbol})"
+        invested_symbol: "Вложено (%{symbol})"
         date: "Дата"
         asset: "Актив"
         amount: "Количество"

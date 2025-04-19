@@ -10,6 +10,8 @@ es:
         invested: "Total invertido"
         portfolio_value: "Valor de la cartera"
         value: "Valor"
+        value_symbol: "Valor (%{symbol})"
+        invested_symbol: "Invertido (%{symbol})"
         date: "Fecha"
         asset: "Activo"
         amount: "Cantidad"
