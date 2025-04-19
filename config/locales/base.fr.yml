@@ -7,9 +7,11 @@ fr:
             <p>Si vous aviez fait du dollar-cost averaging sur Bitcoin ces %{years}&nbsp;dernières années, vous seriez maintenant en hausse de <b style="color: #00A36C;">%{profit}%</b>.</p>
             <p>C'est <b style="color: #00A36C;">%{sp500_diff}%</b> de plus que le S&P 500 sur la même période.</p>
     data_labels:
-        invested: "Total investi"
-        portfolio_value: "Valeur du portefeuille"
+        invested: "Total Investi"
+        portfolio_value: "Valeur du Portefeuille"
         value: "Valeur"
+        value_symbol: "Valeur (%{symbol})"
+        invested_symbol: "Investi (%{symbol})"
         date: "Date"
         asset: "Actif"
         amount: "Montant"
