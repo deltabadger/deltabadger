@@ -7,11 +7,16 @@ ru:
             <p>Если бы вы использовали стратегию усреднения стоимости в Bitcoin последние %{years}&nbsp;года, сейчас вы были бы в плюсе на <b style="color: #00A36C;">%{profit}%</b>.</p>
             <p>Это на <b style="color: #00A36C;">%{sp500_diff}%</b> больше, чем S&P 500 за тот же период.</p>
     data_labels:
-        bought_symbol: "Куплено (%{symbol})"
-        avg_price_symbol: "Средняя цена (%{symbol})"
-        invested_symbol: "Инвестировано (%{symbol})"
-        value_symbol: "Стоимость (%{symbol})"
+        invested: "Total Invested"
+        value: "Current Value"
         date: "Дата"
+        asset: "Актив"
+        amount: "Количество"
+        avg_price: "Ср. цена"
+        price: "Цена"
+        pnl: "П/У"
+        bought: "Куплено"
+        current_price: "Current Price"
     days_left:
         one: "Остался 1 день"
         few: "Осталось %{count} дней"
