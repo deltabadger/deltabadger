@@ -1,6 +1,6 @@
-<div class="infoheader" data-controller="show-hide" data-show-hide-toggle-class-value='["hidden"]'>
+<div class="infoheader" data-controller="class-toggle" data-class-toggle-toggle-classes-value='["hidden"]'>
   <nav class="infoheader__head">
-    <div class="conversational conversational--big" id="infoheader-title" data-show-hide-target="togglable">
+    <div class="conversational conversational--big" id="infoheader-title" data-class-toggle-target="togglable">
       <% input_field = form_with url: calculator_path, method: :get, data: { controller: "form--submit", turbo_frame: "tiles" }, html: { style: "display: inline;" } do |f| %>
         <%= f.text_field :invest_amount,
           value: invest_amount,
@@ -14,10 +14,10 @@
         goal: t('dca_calculator.goal_millionaire')
       ).html_safe %>
     </div>
-    <%# <div class="infoheader__icon active"  id="infoheader-icon" data-action="click->show-hide#toggle">i</div> %>
+    <%# <div class="infoheader__icon active"  id="infoheader-icon" data-action="click->class-toggle#toggle">i</div> %>
   </nav>
 
-  <%# <%= turbo_frame_tag "tiles", class: "itiles", data: { show_hide_target: "togglable" } do %>
+  <%# <%= turbo_frame_tag "tiles", class: "itiles", data: { class_toggle_target: "togglable" } do %>
   <%= turbo_frame_tag "tiles", class: "itiles" do %>
     <div class="itile">
       <div class="theme-img" style="background-image: url('https://deltabadger.com/images/astronaut-02.jpg')"></div>
@@ -72,5 +72,5 @@
 //     &--bonds
 //         background-image: linear-gradient(#032c,#032e), url("bg-bonds1.jpg")
 //     &--cash
-//         background-image: linear-gradient(#044c,#044e), url("bg-bonds.jpg")  
+//         background-image: linear-gradient(#044c,#044e), url("bg-bonds.jpg")
 -->
