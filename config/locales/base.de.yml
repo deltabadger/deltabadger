@@ -9,8 +9,9 @@ de:
     button:
         connect: "Verbinden"
     data_labels:
-        invested: "Total Invested"
-        value: "Current Value"
+        invested: "Gesamtinvestition"
+        portfolio_value: "Portfoliowert"
+        value: "Wert"
         date: "Datum"
         asset: "Anlagewert"
         amount: "Menge"
@@ -18,7 +19,7 @@ de:
         price: "Preis"
         pnl: "G/V"
         bought: "Gekauft"
-        current_price: "Current Price"
+        current_price: "Aktueller Preis"
     days_left:
         one: '1 Tag übrig'
         other: '%{count} Tage übrig'

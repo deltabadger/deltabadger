@@ -8,7 +8,8 @@ en:
             <p>That's <b style="color: #00A36C;">%{sp500_diff}%</b> more than S&P 500 in the same time.</p>
     data_labels:
         invested: "Total Invested"
-        value: "Current Value"
+        portfolio_value: "Portfolio Value"
+        value: "Value"
         date: "Date"
         asset: "Asset"
         amount: "Amount"

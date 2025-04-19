@@ -1,13 +1,13 @@
 <%= turbo_stream_from "bot_#{bot.id}", :metrics %>
 
 <% metrics = bot.metrics_with_current_prices %>
-<div id="metrics" class="widget data-grid">
+<div id="metrics" class="widget data-grid data-grid--two-columns">
   <%= render partial: "bots/metrics/metrics_item", locals: {
     label: t('data_labels.invested'),
-    value: (bot.transactions.any? && bot.exchange.present?) ? rounded_quote_amount_for(exchange: bot.exchange, base_asset_id: bot.base0_asset_id, quote_asset_id: bot.quote_asset_id, amount: metrics[:total_quote_amount_invested]) : nil } %>
+    value: (bot.transactions.any? && bot.exchange.present?) ? "#{rounded_quote_amount_for(exchange: bot.exchange, base_asset_id: bot.base0_asset_id, quote_asset_id: bot.quote_asset_id, amount: metrics[:total_quote_amount_invested])}".html_safe : nil } %>
   <%= render partial: "bots/metrics/metrics_item", locals: {
-    label: t('data_labels.value'),
-    value: (bot.transactions.any? && bot.exchange.present?) ? rounded_quote_amount_for(exchange: bot.exchange, base_asset_id: bot.base0_asset_id, quote_asset_id: bot.quote_asset_id, amount: metrics[:current_investment_value_in_quote]) : nil } %>
+    label: t('data_labels.portfolio_value'),
+    value: (bot.transactions.any? && bot.exchange.present?) ? "#{rounded_quote_amount_for(exchange: bot.exchange, base_asset_id: bot.base0_asset_id, quote_asset_id: bot.quote_asset_id, amount: metrics[:current_investment_value_in_quote])}".html_safe : nil } %>
 </div>
 
 <%# Check if data is available to display the table %>
@@ -19,7 +19,7 @@
           <th scope="col"><%= t('data_labels.asset') %></th>
           <th scope="col"><%= t('data_labels.amount') %></th>
           <th scope="col"><%= t('data_labels.avg_price') %></th>
-          <th scope="col"><%= t('data_labels.price') %></th>
+          <th scope="col"><%= t('data_labels.value') %></th>
           <th scope="col"><%= t('data_labels.pnl') %></th>
         </tr>
       </thead>
@@ -31,6 +31,7 @@
             avg_price0 = metrics[:base0_average_buy_rate]
             price0_result = bot.exchange.get_last_price(base_asset_id: bot.base0_asset_id, quote_asset_id: bot.quote_asset_id)
             current_price0 = price0_result.success? ? price0_result.data : nil
+            value0 = (amount0 && current_price0) ? amount0 * current_price0 : nil
             pnl0 = (current_price0 && avg_price0 && avg_price0.positive?) ? (current_price0 - avg_price0) / avg_price0 : nil
             pnl0_class = pnl0 ? (pnl0.negative? ? 'text-danger' : 'text-success') : ''
           %>
@@ -38,7 +39,7 @@
             <td scope="row"><%= bot.base0_asset.symbol %></td>
             <td><%= rounded_base_amount_for(exchange: bot.exchange, base_asset_id: bot.base0_asset_id, quote_asset_id: bot.quote_asset_id, amount: amount0) %></td>
             <td><%= rounded_price_for(exchange: bot.exchange, base_asset_id: bot.base0_asset_id, quote_asset_id: bot.quote_asset_id, price: avg_price0) %></td>
-            <td><%= rounded_price_for(exchange: bot.exchange, base_asset_id: bot.base0_asset_id, quote_asset_id: bot.quote_asset_id, price: current_price0) %></td>
+            <td><%= rounded_quote_amount_for(exchange: bot.exchange, base_asset_id: bot.base0_asset_id, quote_asset_id: bot.quote_asset_id, amount: value0) %></td>
             <td class="<%= pnl0_class %>"><%= pnl0 ? format_percent(pnl0, precision: 1) : '-' %></td>
           </tr>
         <% end %>
@@ -50,6 +51,7 @@
             avg_price1 = metrics[:base1_average_buy_rate]
             price1_result = bot.exchange.get_last_price(base_asset_id: bot.base1_asset_id, quote_asset_id: bot.quote_asset_id)
             current_price1 = price1_result.success? ? price1_result.data : nil
+            value1 = (amount1 && current_price1) ? amount1 * current_price1 : nil
             pnl1 = (current_price1 && avg_price1 && avg_price1.positive?) ? (current_price1 - avg_price1) / avg_price1 : nil
             pnl1_class = pnl1 ? (pnl1.negative? ? 'text-danger' : 'text-success') : ''
           %>
@@ -57,7 +59,7 @@
             <td scope="row"><%= bot.base1_asset.symbol %></td>
             <td><%= rounded_base_amount_for(exchange: bot.exchange, base_asset_id: bot.base1_asset_id, quote_asset_id: bot.quote_asset_id, amount: amount1) %></td>
             <td><%= rounded_price_for(exchange: bot.exchange, base_asset_id: bot.base1_asset_id, quote_asset_id: bot.quote_asset_id, price: avg_price1) %></td>
-            <td><%= rounded_price_for(exchange: bot.exchange, base_asset_id: bot.base1_asset_id, quote_asset_id: bot.quote_asset_id, price: current_price1) %></td>
+            <td><%= rounded_quote_amount_for(exchange: bot.exchange, base_asset_id: bot.base1_asset_id, quote_asset_id: bot.quote_asset_id, amount: value1) %></td>
             <td class="<%= pnl1_class %>"><%= pnl1 ? format_percent(pnl1, precision: 1) : '-' %></td>
           </tr>
         <% end %>
@@ -73,7 +75,7 @@
           <th scope="col"><%= t('data_labels.asset') %></th>
           <th scope="col"><%= t('data_labels.amount') %></th>
           <th scope="col"><%= t('data_labels.avg_price') %></th>
-          <th scope="col"><%= t('data_labels.price') %></th>
+          <th scope="col"><%= t('data_labels.value') %></th>
           <th scope="col"><%= t('data_labels.pnl') %></th>
         </tr>
       </thead>

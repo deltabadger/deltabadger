@@ -7,8 +7,9 @@ pt:
             <p>Se tivesse feito dollar-cost averaging em Bitcoin nos últimos %{years}&nbsp;anos, agora estaria com um lucro de <b style="color: #00A36C;">%{profit}%</b>.</p>
             <p>Isso é <b style="color: #00A36C;">%{sp500_diff}%</b> mais do que o S&P 500 no mesmo período.</p>
     data_labels:
-        invested: "Total Invested"
-        value: "Current Value"
+        invested: "Total investido"
+        portfolio_value: "Valor da carteira"
+        value: "Valor"
         date: "Data"
         asset: "Ativo"
         amount: "Quantidade"
@@ -16,7 +17,7 @@ pt:
         price: "Preço"
         pnl: "L/P"
         bought: "Comprado"
-        current_price: "Current Price"
+        current_price: "Preço atual"
     days_left:
         one: "1 dia restante"
         other: "%{count} dias restantes"

@@ -17,14 +17,13 @@
             padding-bottom: 1rem
     &.data-grid
         border-radius: 2rem
+        padding: 0
     &--thin
         padding: 1.5rem 3rem
         @media only screen and (max-width: 549.9px)
             padding: 1.5rem 2rem !important
     @media only screen and (max-width: 549.9px)
         padding: 2rem
-    &.data-grid
-        padding: 0
     &--chart
         gap: 0
         .data-grid__item
@@ -75,6 +74,11 @@
     background-image: linear-gradient(to right, transparent, transparent calc(50% - 2px), var(--widget-shadow-line) calc(50% - 2px), var(--widget-shadow-line) calc(50%), transparent calc(50%)), linear-gradient(to bottom, transparent, transparent calc(12.3rem), var(--widget-shadow-line) calc(12.3rem), var(--widget-shadow-line) calc(12.3rem + 2px), transparent calc(12.3rem + 2px))
     background-size: 100% 100%, 100% calc(12.3rem + 2px)
     background-repeat: no-repeat, repeat-y
+    &--two-columns
+        grid-template-columns: repeat(2, 50%) !important
+        background-image: linear-gradient(to right, transparent, transparent calc(50% - 2px), var(--widget-shadow-line) calc(50% - 2px), var(--widget-shadow-line) calc(50%), transparent calc(50%)) !important
+        .data-grid__item__value
+            min-height: auto
     @container (min-width: 576px)
         grid-template-columns: repeat(3, 33%)
         background-image: linear-gradient(to right, transparent, transparent calc(33.33% - 2px), var(--widget-shadow-line) calc(33.33% - 2px), var(--widget-shadow-line) calc(33.33%), transparent calc(33.33%)), linear-gradient(to right, transparent, transparent calc(66.66% - 2px), var(--widget-shadow-line) calc(66.66% - 2px), var(--widget-shadow-line) calc(66.66%), transparent calc(66.66%)), linear-gradient(to bottom, transparent, transparent calc(12.3rem), var(--widget-shadow-line) calc(12.3rem), var(--widget-shadow-line) calc(12.3rem + 2px), transparent calc(12.3rem + 2px))
@@ -104,6 +108,8 @@
                 fill: var(--label)
             svg
                 width: 3rem
+            small
+                color: var(--label)
         .tooltip
             bottom: calc(100% - 1rem)
             left: 0

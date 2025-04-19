@@ -7,8 +7,9 @@ nl:
             <p>Als u de afgelopen %{years}&nbsp;jaar aan dollar-cost averaging had gedaan met Bitcoin, zou u nu <b style="color: #00A36C;">%{profit}%</b> in de plus staan.</p>
             <p>Dat is <b style="color: #00A36C;">%{sp500_diff}%</b> meer dan de S&P 500 in dezelfde periode.</p>
     data_labels:
-        invested: "Total Invested"
-        value: "Current Value"
+        invested: "Totaal geïnvesteerd"
+        portfolio_value: "Portefeuillewaarde"
+        value: "Waarde"
         date: "Datum"
         asset: "Activa"
         amount: "Bedrag"
@@ -16,7 +17,7 @@ nl:
         price: "Prijs"
         pnl: "W/V"
         bought: "Gekocht"
-        current_price: "Current Price"
+        current_price: "Huidige prijs"
     days_left:
         one: '1 dag over'
         other: '%{count} dagen over'
