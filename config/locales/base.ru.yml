@@ -7,8 +7,9 @@ ru:
             <p>Если бы вы использовали стратегию усреднения стоимости в Bitcoin последние %{years}&nbsp;года, сейчас вы были бы в плюсе на <b style="color: #00A36C;">%{profit}%</b>.</p>
             <p>Это на <b style="color: #00A36C;">%{sp500_diff}%</b> больше, чем S&P 500 за тот же период.</p>
     data_labels:
-        invested: "Total Invested"
-        value: "Current Value"
+        invested: "Инвестировано всего"
+        portfolio_value: "Стоимость портфеля"
+        value: "Стоимость"
         date: "Дата"
         asset: "Актив"
         amount: "Количество"
@@ -16,7 +17,7 @@ ru:
         price: "Цена"
         pnl: "П/У"
         bought: "Куплено"
-        current_price: "Current Price"
+        current_price: "Текущая цена"
     days_left:
         one: "Остался 1 день"
         few: "Осталось %{count} дней"

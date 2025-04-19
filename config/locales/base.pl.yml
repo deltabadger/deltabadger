@@ -7,8 +7,9 @@ pl:
             <p>Gdybyś stosował strategię dollar-cost averaging w Bitcoinie przez ostatnie %{years}&nbsp;lata, byłbyś teraz na plusie <b style="color: #00A36C;">%{profit}%</b>.</p>
             <p>To <b style="color: #00A36C;">%{sp500_diff}%</b> więcej niż S&P 500 w tym samym okresie.</p>
     data_labels:
-        invested: "Total Invested"
-        value: "Current Value"
+        invested: "Zainwestowano łącznie"
+        portfolio_value: "Wartość portfela"
+        value: "Wartość"
         date: "Data"
         asset: "Aktywo"
         amount: "Ilość"
@@ -16,7 +17,7 @@ pl:
         price: "Cena"
         pnl: "Z/S"
         bought: "Kupiono"
-        current_price: "Current Price"
+        current_price: "Aktualna cena"
     days_left:
         one: 'Pozostał 1 dzień'
         few: 'Pozostały %{count} dni'
