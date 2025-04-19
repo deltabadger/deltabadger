@@ -8,8 +8,10 @@ nl:
             <p>Dat is <b style="color: #00A36C;">%{sp500_diff}%</b> meer dan de S&P 500 in dezelfde periode.</p>
     data_labels:
         invested: "Totaal geïnvesteerd"
-        portfolio_value: "Portefeuillewaarde"
+        portfolio_value: "Portfoliowaarde"
         value: "Waarde"
+        value_symbol: "Waarde (%{symbol})"
+        invested_symbol: "Geïnvesteerd (%{symbol})"
         date: "Datum"
         asset: "Activa"
         amount: "Bedrag"

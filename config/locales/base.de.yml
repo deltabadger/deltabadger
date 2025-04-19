@@ -12,6 +12,8 @@ de:
         invested: "Gesamtinvestition"
         portfolio_value: "Portfoliowert"
         value: "Wert"
+        value_symbol: "Wert (%{symbol})"
+        invested_symbol: "Investiert (%{symbol})"
         date: "Datum"
         asset: "Anlagewert"
         amount: "Menge"
