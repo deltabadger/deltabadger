@@ -7,8 +7,9 @@ es:
             <p>Si hubieras hecho DCA en Bitcoin durante los últimos %{years}&nbsp;años, ahora tendrías unos beneficios de <b style="color: #00A36C;">%{profit}%</b>.</p>
             <p>Eso es un <b style="color: #00A36C;">%{sp500_diff}%</b> más que el S&P 500 en el mismo período.</p>
     data_labels:
-        invested: "Total Invested"
-        value: "Current Value"
+        invested: "Total invertido"
+        portfolio_value: "Valor de la cartera"
+        value: "Valor"
         date: "Fecha"
         asset: "Activo"
         amount: "Cantidad"
@@ -16,7 +17,7 @@ es:
         price: "Precio"
         pnl: "G/P"
         bought: "Comprado"
-        current_price: "Current Price"
+        current_price: "Precio actual"
     days_left:
         one: '1 día disponible'
         other: '%{count} días restantes'
