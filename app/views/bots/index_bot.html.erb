@@ -266,8 +266,8 @@
           <table class="table">
             <thead>
               <tr>
-                <th scope="col"></th>
-                <th scope="col">Bought</th>
+                <th scope="col">Asset</th>
+                <th scope="col">Amount</th>
                 <th scope="col">Avg.Price</th>
                 <th scope="col">Price</th>
                 <th scope="col">PnL</th>
@@ -296,14 +296,146 @@
                 <td>0.03</td>
                 <td class="text-danger">-2.1%</td>
               </tr>
+              <tr>
+                <td scope="row">BNB</td>
+                <td>0.00000342</td>
+                <td>0.05</td>
+                <td>0.06</td>
+                <td class="text-success">15.3%</td>
+              </tr>
+              <tr>
+                <td scope="row">SOL</td>
+                <td>0.00000578</td>
+                <td>0.04</td>
+                <td>0.05</td>
+                <td class="text-success">22.7%</td>
+              </tr>
+              <tr>
+                <td scope="row">ADA</td>
+                <td>0.00001235</td>
+                <td>0.02</td>
+                <td>0.02</td>
+                <td class="text-success">5.8%</td>
+              </tr>
+              <tr>
+                <td scope="row">TRX</td>
+                <td>0.00003456</td>
+                <td>0.01</td>
+                <td>0.01</td>
+                <td class="text-danger">-1.2%</td>
+              </tr>
+              <tr>
+                <td scope="row">TON</td>
+                <td>0.00000765</td>
+                <td>0.03</td>
+                <td>0.04</td>
+                <td class="text-success">18.9%</td>
+              </tr>
+              <tr>
+                <td scope="row">AVAX</td>
+                <td>0.00000421</td>
+                <td>0.02</td>
+                <td>0.02</td>
+                <td class="text-danger">-3.5%</td>
+              </tr>
+              <tr>
+                <td scope="row">SUI</td>
+                <td>0.00000892</td>
+                <td>0.01</td>
+                <td>0.01</td>
+                <td class="text-success">7.2%</td>
+              </tr>
             </tbody>
           </table>
       </div>
 
         <div id="orders" class="widget widget--table">
-          <div style="height: 100%; display: flex; align-items: center; justify-content: center; color: var(--label)">
-            Bot orders will appear here
-          </div>
+          <table class="table">
+            <thead>
+              <tr>
+                <th scope="col">Date</th>
+                <th scope="col">Amount</th>
+                <th scope="col">Value</th>
+              </tr>
+            </thead>
+            <tbody id="orders_list">
+              <tr id="order_130" class="">
+                <td scope="row">2025-04-13 12:18 PM</td>
+                <td>0.00001728 ETH</td>
+                <td>0.02 EUR</td>
+              </tr>
+              <tr id="order_129" class="">
+                <td scope="row">2025-04-13 12:18 PM</td>
+                <td>0.00000034 BTC</td>
+                <td>0.03 EUR</td>
+              </tr>
+              <tr id="order_128" class="">
+                <td scope="row">2025-04-13 11:18 AM</td>
+                <td>0.00002002 ETH</td>
+                <td>0.03 EUR</td>
+              </tr>
+              <tr id="order_127" class="">
+                <td scope="row">2025-04-13 11:18 AM</td>
+                <td>0.00000029 BTC</td>
+                <td>0.02 EUR</td>
+              </tr>
+              <tr id="order_126" class="">
+                <td scope="row">2025-04-13 10:18 AM</td>
+                <td>0.00001776 ETH</td>
+                <td>0.03 EUR</td>
+              </tr>
+              <tr id="order_125" class="">
+                <td scope="row">2025-04-13 10:18 AM</td>
+                <td>0.00000032 BTC</td>
+                <td>0.02 EUR</td>
+              </tr>
+              <tr id="order_124" class="">
+                <td scope="row">2025-04-13 09:18 AM</td>
+                <td>0.00000788 ETH</td>
+                <td>0.01 EUR</td>
+              </tr>
+              <tr id="order_123" class="">
+                <td scope="row">2025-04-13 09:18 AM</td>
+                <td>0.00000051 BTC</td>
+                <td>0.04 EUR</td>
+              </tr>
+              <tr id="order_122" class="">
+                <td scope="row">2025-04-13 08:20 AM</td>
+                <td>0.00002575 ETH</td>
+                <td>0.04 EUR</td>
+              </tr>
+              <tr id="order_121" class="">
+                <td scope="row">2025-04-13 08:20 AM</td>
+                <td>0.00000017 BTC</td>
+                <td>0.01 EUR</td>
+              </tr>
+                            <tr id="order_125" class="">
+                <td scope="row">2025-04-13 10:18 AM</td>
+                <td>0.00000032 BTC</td>
+                <td>0.02 EUR</td>
+              </tr>
+              <tr id="order_124" class="">
+                <td scope="row">2025-04-13 09:18 AM</td>
+                <td>0.00000788 ETH</td>
+                <td>0.01 EUR</td>
+              </tr>
+              <tr id="order_123" class="">
+                <td scope="row">2025-04-13 09:18 AM</td>
+                <td>0.00000051 BTC</td>
+                <td>0.04 EUR</td>
+              </tr>
+              <tr id="order_122" class="">
+                <td scope="row">2025-04-13 08:20 AM</td>
+                <td>0.00002575 ETH</td>
+                <td>0.04 EUR</td>
+              </tr>
+              <tr id="order_121" class="">
+                <td scope="row">2025-04-13 08:20 AM</td>
+                <td>0.00000017 BTC</td>
+                <td>0.01 EUR</td>
+              </tr>
+            </tbody>
+          </table>
         </div>
       </div>
     </div>
