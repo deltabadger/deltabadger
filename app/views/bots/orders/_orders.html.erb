@@ -13,7 +13,7 @@
       <tbody id="orders_list">
       </tbody>
     </table>
-    <%= turbo_frame_tag 'orders_pagination', src: bot_path(bot, format: :turbo_stream), loading: :lazy %>
+    <%= turbo_frame_tag 'orders_pagination', src: bot_path(bot, format: :turbo_stream), loading: :laz, style: "display:none" %>
   <% else %>
     <div style="height: 100%; display: flex; align-items: center; justify-content: center; color: var(--label)">
       <%= t('bot.no_orders_info') %>
