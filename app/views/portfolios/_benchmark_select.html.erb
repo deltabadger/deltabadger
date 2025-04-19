@@ -9,7 +9,7 @@
       action: "change->form--submit#submit"
     } %>
     <%= form.label :benchmark, t('analyzer.benchmark') + ":", class: "label" %>
-    <div class="sinput sinput--select %>">
+    <div class="sinput sinput--select">
       <%= portfolio.benchmark_name %>
       <%= form.select :benchmark, Portfolio.benchmark_select_options, { selected: portfolio.benchmark }, data: data %>
     </div>
