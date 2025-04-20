@@ -12,14 +12,14 @@
     <div class="itiles">
 
         <%= link_to bots_path(create: true), class: 'itile itile--bot-type itile--dca', data: { action: 'click->modal--base#animateOutCloseAndCleanUp', turbo: false } do %>
-            <div class="theme-img" style="background-image: url('https://deltabadger.com/blog/fnilx-stock.jpg')"></div>
+            <div class="theme-img" style="background-image: url('<%= asset_path('strategy--dca.webp') %>')"></div>
             <div class="index-title"><%= t('bot.types.dca.title') %></div>
             <p class="index-info"><%= t('bot.types.dca.description') %></p>
         <% end %>
 
         <%= button_to barbell_new_step_to_first_asset_bots_path, method: :get, params: { bots_barbell: {label: nil}}, class: 'itile itile--bot-type', data: { turbo_frame: "modal", action: 'click->modal--base#animateOutCloseAndCleanUp' } do %>
             <b class="sbadge sbadge--beta"><%= t('utils.beta') %></b>
-            <div class="theme-img" style="background-image: url('https://deltabadger.com/blog/fitlx0000.jpg')"></div>
+            <div class="theme-img" style="background-image: url('<%= asset_path('strategy--barbell.webp') %>')"></div>
             <div class="index-title"><%= t('bot.types.barbell.title') %></div>
             <p class="index-info"><%= t('bot.types.barbell.description') %></p>
         <% end %>
@@ -235,7 +235,7 @@
     <div class="big-header big-header--2"><%= t('header.subscribe_to_secure_early_access') %></div>
     <div class="itiles">
         <div class="itile itile--pro itile--soon itile--faded">
-            <div class="theme-img" style="background-image: url('https://deltabadger.com/blog/when-to-sell.jpg')"></div>
+            <div class="theme-img" style="background-image: url('<%= asset_path('strategy--crypto-index.webp') %>')"></div>
             <b class="sbadge sbadge--pro"><%= t('utils.pro') %></b>
             <div class="index-title"><%= t('index.crypto_index.title') %></div>
             <p class="index-info"><%= t('index.crypto_index.info') %></p>
@@ -383,7 +383,7 @@
         </div>
 
         <div class="itile itile--pro itile--soon itile--faded">
-            <div class="theme-img" style="background-image: url('https://deltabadger.com/images/planet-landscape-03.jpg')"></div>
+            <div class="theme-img" style="background-image: url('<%= asset_path('strategy--altcoin-season.webp') %>')"></div>
             <b class="sbadge sbadge--pro"><%= t('utils.pro') %></b>
             <div class="index-title"><%= t('index.altcoin_season.title') %></div>
             <p class="index-info"><%= t('index.altcoin_season.info') %></p>
@@ -533,7 +533,7 @@
 
 
         <div class="itile itile--pro itile--soon itile--faded">
-            <div class="theme-img" style="background-image: url('https://deltabadger.com/images/season-01.jpg')"></div>
+            <div class="theme-img" style="background-image: url('<%= asset_path('strategy--layer-1.webp') %>')"></div>
             <b class="sbadge sbadge--pro"><%= t('utils.pro') %></b>
             <div class="index-title"><%= t('index.layer_1.title') %></div>
             <p class="index-info"><%= t('index.layer_1.info') %></p>
@@ -681,7 +681,7 @@
         </div>
 
         <div class="itile itile--legendary itile--soon itile--faded">
-            <div class="theme-img" style="background-image: url('https://deltabadger.com/images/index-usa01.webp')"></div>
+            <div class="theme-img" style="background-image: url('<%= asset_path('strategy--made-in-usa.jpg') %>')"></div>
             <b class="sbadge sbadge--legendary"><%= t('utils.legendary') %></b>
             <div class="index-title"><%= t('index.made_in_usa.title') %></div>
             <p class="index-info"><%= t('index.made_in_usa.info') %></p>
@@ -829,7 +829,7 @@
         </div>
 
         <div class="itile itile--legendary itile--soon itile--faded">
-            <div class="theme-img" style="background-image: url('https://deltabadger.com/images/index-sec.webp')"></div>
+            <div class="theme-img" style="background-image: url('<%= asset_path('strategy--alleged-sec-securities.webp') %>')"></div>
             <b class="sbadge sbadge--legendary"><%= t('utils.legendary') %></b>
             <div class="index-title"><%= t('index.alleged_sec_securities.title') %></div>
             <p class="index-info"><%= t('index.alleged_sec_securities.info') %></p>
@@ -977,7 +977,7 @@
         </div>
 
         <div class="itile itile--legendary itile--soon itile--faded">
-            <div class="theme-img" style="background-image: url('https://deltabadger.com/images/index-pepe01.webp')"></div>
+            <div class="theme-img" style="background-image: url('<%= asset_path('strategy--memecoins.jpg') %>')"></div>
             <b class="sbadge sbadge--legendary"><%= t('utils.legendary') %></b>
             <div class="index-title"><%= t('index.memecoins.title') %></div>
             <p class="index-info"><%= t('index.memecoins.info') %></p>
@@ -1125,7 +1125,7 @@
         </div>
 
         <div class="itile itile--legendary itile--soon itile--faded">
-            <div class="theme-img" style="background-image: url('https://deltabadger.com/images/index-elon01.webp')"></div>
+            <div class="theme-img" style="background-image: url('<%= asset_path('strategy--elon-musk-inspired.webp') %>')"></div>
             <b class="sbadge sbadge--legendary"><%= t('utils.legendary') %></b>
             <div class="index-title"><%= t('index.elon_musk_inspired.title') %></div>
             <p class="index-info"><%= t('index.elon_musk_inspired.info') %></p>
@@ -1421,7 +1421,7 @@
         </div>
         -->
         <div class="itile itile--legendary itile--soon itile--faded">
-            <div class="theme-img" style="background-image: url('https://deltabadger.com/images/index-layer2.webp')"></div>
+            <div class="theme-img" style="background-image: url('<%= asset_path('strategy--layer-2.jpg') %>')"></div>
             <b class="sbadge sbadge--legendary"><%= t('utils.legendary') %></b>
             <div class="index-title"><%= t('index.layer_2.title') %></div>
             <p class="index-info"><%= t('index.layer_2.info') %></p>
@@ -1569,7 +1569,7 @@
         </div>
 
         <div class="itile itile--legendary itile--soon itile--faded">
-            <div class="theme-img" style="background-image: url('https://deltabadger.com/images/index-layer0.webp')"></div>
+            <div class="theme-img" style="background-image: url('<%= asset_path('strategy--layer-0.webp') %>')"></div>
             <b class="sbadge sbadge--legendary"><%= t('utils.legendary') %></b>
             <div class="index-title"><%= t('index.layer_0.title') %></div>
             <p class="index-info"><%= t('index.layer_0.info') %></p>
@@ -1689,7 +1689,7 @@
         </div>
 
         <div class="itile itile--legendary itile--soon itile--faded">
-            <div class="theme-img" style="background-image: url('https://deltabadger.com/images/index-gamefi.webp')"></div>
+            <div class="theme-img" style="background-image: url('<%= asset_path('strategy--gamefi.webp') %>')"></div>
             <b class="sbadge sbadge--legendary"><%= t('utils.legendary') %></b>
             <div class="index-title"><%= t('index.gamefi.title') %></div>
             <p class="index-info"><%= t('index.gamefi.info') %></p>
@@ -1837,7 +1837,7 @@
         </div>
 
         <div class="itile itile--legendary itile--soon itile--faded">
-            <div class="theme-img" style="background-image: url('https://deltabadger.com/images/index-yield.webp')"></div>
+            <div class="theme-img" style="background-image: url('<%= asset_path('strategy--yield-farming.webp') %>')"></div>
             <b class="sbadge sbadge--legendary"><%= t('utils.legendary') %></b>
             <div class="index-title"><%= t('index.yield_farming.title') %></div>
             <p class="index-info"><%= t('index.yield_farming.info') %></p>
@@ -1985,7 +1985,7 @@
         </div>
 
         <div class="itile itile--legendary itile--soon itile--faded">
-            <div class="theme-img" style="background-image: url('https://deltabadger.com/images/index-consensys.webp')"></div>
+            <div class="theme-img" style="background-image: url('<%= asset_path('strategy--consensys-portfolio.webp') %>')"></div>
             <b class="sbadge sbadge--legendary"><%= t('utils.legendary') %></b>
             <div class="index-title"><%= t('index.consensys_portfolio.title') %></div>
             <p class="index-info"><%= t('index.consensys_portfolio.info') %></p>
