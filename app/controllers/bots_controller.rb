@@ -91,6 +91,7 @@ class BotsController < ApplicationController
     if @bot.save && @bot.start(ignore_missed_orders: true)
       render turbo_stream: turbo_stream_redirect(bot_path(@bot))
     else
+      # FIXME: flash messages are not shown as they are rendered behind the modal
       flash.now[:alert] = @bot.errors.messages.values.flatten.to_sentence
       render turbo_stream: turbo_stream_prepend_flash, status: :unprocessable_entity
     end
@@ -236,7 +237,7 @@ class BotsController < ApplicationController
       pp[:base0_asset_id] = pp[:base0_asset_id].present? ? pp[:base0_asset_id].to_i : nil
       pp[:base1_asset_id] = pp[:base1_asset_id].present? ? pp[:base1_asset_id].to_i : nil
       pp[:quote_asset_id] = pp[:quote_asset_id].present? ? pp[:quote_asset_id].to_i : nil
-      pp[:market_cap_adjusted] = pp[:market_cap_adjusted] == '1' if pp[:market_cap_adjusted].present?
+      pp[:market_cap_adjusted] = %w[1 true].include?(pp[:market_cap_adjusted]) if pp[:market_cap_adjusted].present?
       pp[:quote_amount] = pp[:quote_amount].present? ? pp[:quote_amount].to_f : nil
       pp[:allocation0] = pp[:allocation0].present? ? pp[:allocation0].to_f : nil
     end.compact
