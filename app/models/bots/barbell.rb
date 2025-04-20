@@ -4,11 +4,11 @@ class Bots::Barbell < Bot
   store_accessor :settings, :base0_asset_id, :base1_asset_id, :quote_asset_id, :quote_amount,
                  :allocation0, :interval, :market_cap_adjusted
 
-  validates :quote_amount, presence: true, numericality: { greater_than: 0 }, on: :start
-  validates :interval, presence: true, inclusion: { in: INTERVALS }, on: :start
-  validates :allocation0, presence: true, numericality: { greater_than_or_equal_to: 0, less_than_or_equal_to: 1 }, on: :start
+  validates :quote_amount, presence: true, numericality: { greater_than: 0 }
+  validates :interval, presence: true, inclusion: { in: INTERVALS }
+  validates :allocation0, presence: true, numericality: { greater_than_or_equal_to: 0, less_than_or_equal_to: 1 }
   validate :validate_barbell_bot_exchange, if: :exchange_id?, on: :update
-  validate :validate_external_ids, on: :start
+  validate :validate_external_ids, on: :update
   validate :validate_unchangeable_assets, on: :update
   validate :validate_unchangeable_interval, on: :update
 
