@@ -6,6 +6,22 @@ it:
         dca_profit_html: |
             <p>Se avessi fatto dollar-cost averaging in Bitcoin negli ultimi %{years}&nbsp;anni, ora saresti in attivo del <b style="color: #00A36C;">%{profit}%</b>.</p>
             <p>Questo è <b style="color: #00A36C;">%{sp500_diff}%</b> in più rispetto all'S&P 500 nello stesso periodo.</p>        
+    button:
+        ok: 'OK'
+        update: 'Aggiorna'
+        save: 'Salva'
+        cancel: 'Annulla'
+        close: 'Chiudi'
+        enable: 'Abilita'
+        disable: 'Disabilita'
+        delete: 'Elimina'
+        duplicate: 'Duplica'
+        copy: 'Copia'
+        submit: 'Invia'
+        reset: 'Reimposta'
+        add: 'Aggiungi'
+        remove: 'Rimuovi'
+        start: 'Inizia'
     data_labels:
         invested: "Totale Investito"
         portfolio_value: "Valore del Portafoglio"
@@ -203,19 +219,3 @@ it:
             <p>Invia un'email a <strong>%{email}</strong> con <strong>"FIRE"</strong> nell'oggetto.</p>
             <p>Il tuo accesso a vita arriverà poco dopo.</p>
             <p>A presto, Jan</p>
-    button:
-        ok: 'OK'
-        update: 'Aggiorna'
-        save: 'Salva'
-        cancel: 'Annulla'
-        close: 'Chiudi'
-        enable: 'Abilita'
-        disable: 'Disabilita'
-        delete: 'Elimina'
-        duplicate: 'Duplica'
-        copy: 'Copia'
-        submit: 'Invia'
-        reset: 'Reimposta'
-        add: 'Aggiungi'
-        remove: 'Rimuovi'
-        start: 'Inizia'

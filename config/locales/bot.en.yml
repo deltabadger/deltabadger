@@ -38,7 +38,6 @@ en:
             webhook: "Webhook Trade"
             delete:
                 ok: "Remove completely"
-                text: "Delete"
                 warning_html: "That will remove the bot with all<br>its historical data. Are you sure?"
             dollar_cost_averaging: "Dollar-Cost Averaging"
             pending:

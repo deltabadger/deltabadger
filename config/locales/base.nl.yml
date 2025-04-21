@@ -6,6 +6,22 @@ nl:
         dca_profit_html: |
             <p>Als u de afgelopen %{years}&nbsp;jaar aan dollar-cost averaging had gedaan met Bitcoin, zou u nu <b style="color: #00A36C;">%{profit}%</b> in de plus staan.</p>
             <p>Dat is <b style="color: #00A36C;">%{sp500_diff}%</b> meer dan de S&P 500 in dezelfde periode.</p>
+    button:
+        ok: 'OK'
+        update: 'Bijwerken'
+        save: 'Opslaan'
+        cancel: 'Annuleren'
+        close: 'Sluiten'
+        enable: 'Inschakelen'
+        disable: 'Uitschakelen'
+        delete: 'Verwijderen'
+        duplicate: 'Dupliceren'
+        copy: 'Kopiëren'
+        submit: 'Verzenden'
+        reset: 'Resetten'
+        add: 'Toevoegen'
+        remove: 'Verwijderen'
+        start: 'Starten'
     data_labels:
         invested: "Totaal geïnvesteerd"
         portfolio_value: "Portfoliowaarde"
@@ -202,19 +218,3 @@ nl:
             <p>Stuur een e-mail naar <strong>%{email}</strong> met <strong>"FIRE"</strong> in de onderwerpregel.</p>
             <p>Je levenslange toegang zal kort daarna arriveren.</p>
             <p>Tot ziens, Jan</p>
-    button:
-        ok: 'OK'
-        update: 'Bijwerken'
-        save: 'Opslaan'
-        cancel: 'Annuleren'
-        close: 'Sluiten'
-        enable: 'Inschakelen'
-        disable: 'Uitschakelen'
-        delete: 'Verwijderen'
-        duplicate: 'Dupliceren'
-        copy: 'Kopiëren'
-        submit: 'Verzenden'
-        reset: 'Resetten'
-        add: 'Toevoegen'
-        remove: 'Verwijderen'
-        start: 'Starten'

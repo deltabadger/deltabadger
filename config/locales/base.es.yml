@@ -6,6 +6,22 @@ es:
         dca_profit_html: |
             <p>Si hubieras hecho DCA en Bitcoin durante los últimos %{years}&nbsp;años, ahora tendrías unos beneficios de <b style="color: #00A36C;">%{profit}%</b>.</p>
             <p>Eso es un <b style="color: #00A36C;">%{sp500_diff}%</b> más que el S&P 500 en el mismo período.</p>
+    button:
+        ok: 'Aceptar'
+        update: 'Actualizar'
+        save: 'Guardar'
+        cancel: 'Cancelar'
+        close: 'Cerrar'
+        enable: 'Activar'
+        disable: 'Desactivar'
+        delete: 'Eliminar'
+        duplicate: 'Duplicar'
+        copy: 'Copiar'
+        submit: 'Enviar'
+        reset: 'Reiniciar'
+        add: 'Añadir'
+        remove: 'Quitar'
+        start: 'Empezar'
     data_labels:
         invested: "Total invertido"
         portfolio_value: "Valor de la cartera"
@@ -205,19 +221,3 @@ es:
             <p>Envía un correo electrónico a <strong>%{email}</strong> con <strong>"FIRE"</strong> en la línea de asunto.</p>
             <p>Tu acceso de por vida llegará poco después.</p>
             <p>Nos vemos allí, Jan</p>
-    button:
-        ok: 'Aceptar'
-        update: 'Actualizar'
-        save: 'Guardar'
-        cancel: 'Cancelar'
-        close: 'Cerrar'
-        enable: 'Activar'
-        disable: 'Desactivar'
-        delete: 'Eliminar'
-        duplicate: 'Duplicar'
-        copy: 'Copiar'
-        submit: 'Enviar'
-        reset: 'Reiniciar'
-        add: 'Añadir'
-        remove: 'Quitar'
-        start: 'Empezar'
