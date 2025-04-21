@@ -6,6 +6,22 @@ pl:
         dca_profit_html: |
             <p>Gdybyś stosował strategię dollar-cost averaging w Bitcoinie przez ostatnie %{years}&nbsp;lata, byłbyś teraz na plusie <b style="color: #00A36C;">%{profit}%</b>.</p>
             <p>To <b style="color: #00A36C;">%{sp500_diff}%</b> więcej niż S&P 500 w tym samym okresie.</p>
+    button:
+        ok: 'OK'
+        update: 'Aktualizuj'
+        save: 'Zapisz'
+        cancel: 'Anuluj'
+        close: 'Zamknij'
+        enable: 'Włącz'
+        disable: 'Wyłącz'
+        delete: 'Usuń'
+        duplicate: 'Duplikuj'
+        copy: 'Kopiuj'
+        submit: 'Wyślij'
+        reset: 'Resetuj'
+        add: 'Dodaj'
+        remove: 'Usuń'
+        start: 'Start'
     data_labels:
         invested: "Łącznie zainwestowano"
         portfolio_value: "Wartość portfela"
@@ -205,20 +221,4 @@ pl:
             <p>Wyślij e-mail na adres <strong>%{email}</strong> z <strong>"FIRE"</strong> w temacie wiadomości.</p>
             <p>Twój dożywotni dostęp pojawi się wkrótce potem.</p>
             <p>Do zobaczenia, Jan</p>
-    button:
-        ok: 'OK'
-        update: 'Aktualizuj'
-        save: 'Zapisz'
-        cancel: 'Anuluj'
-        close: 'Zamknij'
-        enable: 'Włącz'
-        disable: 'Wyłącz'
-        delete: 'Usuń'
-        duplicate: 'Duplikuj'
-        copy: 'Kopiuj'
-        submit: 'Wyślij'
-        reset: 'Resetuj'
-        add: 'Dodaj'
-        remove: 'Usuń'
-        start: 'Start'
 
