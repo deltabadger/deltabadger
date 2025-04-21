@@ -35,7 +35,6 @@ es:
             move_existing_bot: 'Mover el bot existente a otro intercambio'
             delete:
                 ok: 'Eliminar por completo'
-                text: Eliminar
                 warning_html: 'Eso eliminará el bot con todos sus<br>datos históricos. ¿Estás seguro?'
             dollar_cost_averaging: 'Dollar-Cost-Averaging'
             pending:

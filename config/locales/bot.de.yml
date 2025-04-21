@@ -35,7 +35,6 @@ de:
             move_existing_bot: 'Vorhandenen Bot zu einer anderen Börse verschieben'
             delete:
                 ok: 'Komplett entfernen'
-                text: Löschen
                 warning_html: 'Dadurch wird der Bot mit all<br> seinen Verlaufsdaten entfernt. Bist du sicher?'
             dollar_cost_averaging: 'Dollar-Cost Averaging'
             pending:

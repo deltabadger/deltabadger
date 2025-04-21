@@ -37,7 +37,6 @@ it:
             webhook: "Scambio Webhook"
             delete:
                 ok: "Rimuovi completamente"
-                text: "Elimina"
                 warning_html: "Questo rimuoverà il bot con tutti<br>i suoi dati storici. Sei sicuro?"
             dollar_cost_averaging: "Dollar-Cost Averaging"
             pending:

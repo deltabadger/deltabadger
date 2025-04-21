@@ -35,7 +35,6 @@ nl:
             move_existing_bot: 'Bestaande bot naar een andere beurs verplaatsen'
             delete:
                 ok: 'Volledig verwijderen'
-                text: Verwijderen
                 warning_html: 'Dit zal de bot verwijderen met al<br>zijn historische gegevens. Weet je het zeker?'
             dollar_cost_averaging: 'Dollar-Cost Averaging'
             pending:

@@ -35,7 +35,6 @@ pl:
             move_existing_bot: 'Przenieś istniejącego bota na inną giełdę'
             delete:
                 ok: 'Usuń całkowicie'
-                text: Usuń
                 warning_html: 'Spowoduje to usunięcie bota wraz z jego wszystkimi<br>danymi historycznymi. Czy jesteś pewien?'
             dollar_cost_averaging: 'Uśrednianie ceny (DCA)'
             pending:

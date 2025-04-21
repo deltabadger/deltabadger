@@ -111,9 +111,6 @@ ru:
             email_section: 'Электронная почта'
             name_section: 'Обновить имя'
             password_section: Пароль
-            submit_email: 'Обновить электронную почту'
-            submit_name: 'Обновить имя'
-            submit_password: 'Изменить пароль'
             title: Настройки
             two_factor_section: 'Аутентификация по второму фактору'
         name:
@@ -166,16 +163,11 @@ ru:
         gold: Золото
         are_you_sure: 'Вы уверены?'
         change_name: 'Изменить имя'
-        delete: 'Удалить'
-        duplicate: 'Дублировать'
         important: 'Важно!'
         new: 'Новый'
-        save: 'Сохранить'
-        cancel: 'Отменить'
         since: 'с'
         soon: 'Скоро'
         see_at_coingecko: 'Смотреть на CoinGecko'
-        start: 'Запустить'
         search:
             placeholder:
                 asset: 'Искать актив…'
@@ -215,3 +207,19 @@ ru:
             <p>Отправьте электронное письмо на адрес <strong>%{email}</strong> с <strong>"FIRE"</strong> в строке темы.</p>
             <p>Ваш пожизненный доступ будет предоставлен вскоре после этого.</p>
             <p>До встречи, Jan</p>
+    button:
+        ok: 'OK'
+        update: 'Обновить'
+        save: 'Сохранить'
+        cancel: 'Отмена'
+        close: 'Закрыть'
+        enable: 'Включить'
+        disable: 'Выключить'
+        delete: 'Удалить'
+        duplicate: 'Дублировать'
+        copy: 'Копировать'
+        submit: 'Отправить'
+        reset: 'Сбросить'
+        add: 'Добавить'
+        remove: 'Удалить'
+        start: 'Начать'

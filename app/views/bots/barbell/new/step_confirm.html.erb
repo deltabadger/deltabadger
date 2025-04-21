@@ -123,7 +123,7 @@
       <%= f.hidden_field :interval, value: @bot.interval %>
       <%= f.hidden_field :allocation0, value: @bot.allocation0 %>
       <%= f.hidden_field :market_cap_adjusted, value: @bot.market_cap_adjusted %>
-      <%= f.submit t('utils.start'), class: 'button button--large button--success', style: "min-width: 30rem", disabled: @bot.quote_amount.blank? || @bot.quote_amount.to_d.zero? %>
+      <%= f.submit t('button.start'), class: 'button button--large button--success', style: "min-width: 30rem", disabled: @bot.quote_amount.blank? || @bot.quote_amount.to_d.zero? %>
     <% end %>
   </div>
 <% end %>

@@ -20,7 +20,7 @@
     <div class="dropdown">
       <%= link_to t('utils.change_name'), edit_bot_path(bot), class: "dropdown__item", data: { turbo_frame: "modal" } %>
       <div class="dropdown__item dropdown__item--divider"></div>
-      <%= link_to t('utils.delete'), confirm_destroy_bot_path(bot), class: "dropdown__item dropdown__item--danger", data: { turbo_frame: "modal" } %>
+      <%= link_to t('button.delete'), confirm_destroy_bot_path(bot), class: "dropdown__item dropdown__item--danger", data: { turbo_frame: "modal" } %>
     </div>
   </div>
 </div>

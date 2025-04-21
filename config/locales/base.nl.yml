@@ -106,9 +106,6 @@ nl:
             name_section: Voornaam
             password_section: Wachtwoord
             free_plan_reset_date_html: 'Uw limiet wordt gereset op <b>%{end_time}</b>.'
-            submit_email: 'Email wijzigen'
-            submit_name: 'Naam wijzigen'
-            submit_password: 'Wachtwoord wijzigen'
             title: Instellingen
             two_factor_section: 'Second Factor Authentication'
         name:
@@ -161,16 +158,11 @@ nl:
         gold: Goud
         are_you_sure: 'Weet je het zeker?'
         change_name: 'Naam wijzigen'
-        delete: 'Verwijderen'
-        duplicate: 'Dupliceren'
         important: 'Belangrijk!'
         new: 'Nieuw'
-        save: 'Opslaan'
-        cancel: 'Annuleren'
         since: 'sinds'
         soon: 'Binnenkort'
         see_at_coingecko: 'Zie op CoinGecko'
-        start: 'Starten'
         search:
             placeholder:
                 asset: 'Zoek naar een asset…'
@@ -210,3 +202,19 @@ nl:
             <p>Stuur een e-mail naar <strong>%{email}</strong> met <strong>"FIRE"</strong> in de onderwerpregel.</p>
             <p>Je levenslange toegang zal kort daarna arriveren.</p>
             <p>Tot ziens, Jan</p>
+    button:
+        ok: 'OK'
+        update: 'Bijwerken'
+        save: 'Opslaan'
+        cancel: 'Annuleren'
+        close: 'Sluiten'
+        enable: 'Inschakelen'
+        disable: 'Uitschakelen'
+        delete: 'Verwijderen'
+        duplicate: 'Dupliceren'
+        copy: 'Kopiëren'
+        submit: 'Verzenden'
+        reset: 'Resetten'
+        add: 'Toevoegen'
+        remove: 'Verwijderen'
+        start: 'Starten'

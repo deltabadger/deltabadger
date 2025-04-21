@@ -105,9 +105,6 @@ pt:
             email_section: E-mail
             name_section: 'Primeiro nome'
             password_section: Palavra-passe
-            submit_email: 'Atualizar e-mail'
-            submit_name: 'Atualizar nome'
-            submit_password: 'Alterar palavra-passe'
             title: Definições
             two_factor_section: 'Autenticação do Segundo Fator'
         name:
@@ -160,16 +157,11 @@ pt:
         gold: Ouro
         are_you_sure: 'Você tem certeza?'
         change_name: 'Mudar nome'
-        delete: 'Excluir'
-        duplicate: 'Duplicar'
         important: 'Importante!'
         new: 'Novo'
-        save: 'Salvar'
-        cancel: 'Cancelar'
         since: 'desde'
         soon: 'Em breve'
         see_at_coingecko: 'Ver no CoinGecko'
-        start: 'Iniciar'
         search:
             placeholder:
                 asset: 'Procurar um ativo…'
@@ -210,3 +202,19 @@ pt:
             <p>Envie um email para <strong>%{email}</strong> com <strong>"FIRE"</strong> na linha de assunto.</p>
             <p>O seu acesso vitalício chegará logo de seguida.</p>
             <p>Até breve, Jan</p>
+    button:
+        ok: 'OK'
+        update: 'Atualizar'
+        save: 'Guardar'
+        cancel: 'Cancelar'
+        close: 'Fechar'
+        enable: 'Ativar'
+        disable: 'Desativar'
+        delete: 'Eliminar'
+        duplicate: 'Duplicar'
+        copy: 'Copiar'
+        submit: 'Enviar'
+        reset: 'Redefinir'
+        add: 'Adicionar'
+        remove: 'Remover'
+        start: 'Iniciar'

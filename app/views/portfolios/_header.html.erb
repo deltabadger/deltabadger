@@ -18,10 +18,10 @@
     <%= render "svg/24x24_dot_menu" %>
     <div class="dropdown">
       <%= link_to t('utils.change_name'), edit_portfolio_path(portfolio), class: "dropdown__item", data: { turbo_frame: "modal" } %>
-      <%= button_to t('utils.duplicate'), portfolio_duplicate_path(portfolio), class: "dropdown__item", data: { turbo_frame: "modal" } %>
+      <%= button_to t('button.duplicate'), portfolio_duplicate_path(portfolio), class: "dropdown__item", data: { turbo_frame: "modal" } %>
       <div class="dropdown__item dropdown__item--divider"></div>
 
-      <%= link_to t('utils.delete'), portfolio_confirm_destroy_path(portfolio), class: "dropdown__item dropdown__item--danger", data: { turbo_frame: "modal" } %>
+      <%= link_to t('button.delete'), portfolio_confirm_destroy_path(portfolio), class: "dropdown__item dropdown__item--danger", data: { turbo_frame: "modal" } %>
     </div>
   </div>
 </div>
