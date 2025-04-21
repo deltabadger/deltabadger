@@ -140,9 +140,7 @@ ru:
         smart_intervals_disclaimer: 'Размер ордеров на %{exchange} указывается в %{currency}. Минимальный размер ордера составляет %{minimum}%{currency}.'
         smart_intervals_disclaimer_base: 'Размер ордеров на %{exchange} указывается в %{currency}. Минимальный размер ордера составляет %{minimum}%{currency}.'
         smart_intervals_disclaimer_quote: 'Минимальный размер ордера составляет %{minimum}%{currency}.'
-        start: Начать
         starting: Начало
-        stop: Пауза
         subaccounts_info: 'Использовать субсчет'
         week: Неделя
         withdraw_interval_html: ''

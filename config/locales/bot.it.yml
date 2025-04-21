@@ -165,9 +165,7 @@ it:
         smart_intervals_disclaimer: 'La dimensione degli ordini su %{exchange} è definita in %{currency}. La dimensione minima dell''ordine è %{minimum}%{currency}.'
         smart_intervals_disclaimer_base: 'La dimensione degli ordini su %{exchange} è definita in %{currency}. La dimensione minima dell''ordine è %{minimum}%{currency}.'
         smart_intervals_disclaimer_quote: 'La dimensione minima dell''ordine è %{minimum}%{currency}.'
-        start: Avvia
         starting: Avvio in corso
-        stop: Pausa
         subaccounts_info: 'Usa sottoconto'
         week: Settimana
         withdraw_interval_html: 'Preleva ogni <split>2</split> giorni.'
