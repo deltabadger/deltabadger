@@ -142,9 +142,7 @@ nl:
         smart_intervals_disclaimer: 'De ordergrootte bij %{exchange} wordt bepaald in %{currency}. De minimale ordergrootte is %{minimum}%{currency}.'
         smart_intervals_disclaimer_base: 'De ordergrootte bij %{exchange} wordt bepaald in %{currency}. De minimale ordergrootte is %{minimum}%{currency}.'
         smart_intervals_disclaimer_quote: 'De minimale ordergrootte is %{minimum}%{currency}.'
-        start: Start
         starting: Startend
-        stop: Pauzeren
         subaccounts_info: 'Gebruik subaccount '
         week: Week
         withdraw_interval_html: 'Neem elke <split>2</split> dagen fondsen op.'
