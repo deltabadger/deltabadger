@@ -12,9 +12,9 @@
     </p>
     <div class="buttons buttons--row--2">
       <%= button_tag class: 'button button--outline button--large', data: { action: 'modal--base#animateOutCloseAndCleanUp' } do %>
-        <%= t('utils.cancel') %>
+        <%= t('button.cancel') %>
       <% end %>
-      <%= button_to t('utils.delete'), settings_destroy_api_key_path(id: @api_key.id), method: :delete, class: 'button button--danger button--large', data: { turbo_frame: "api_keys", action: 'modal--base#animateOutCloseAndCleanUp' } %>
+      <%= button_to t('button.delete'), settings_destroy_api_key_path(id: @api_key.id), method: :delete, class: 'button button--danger button--large', data: { turbo_frame: "api_keys", action: 'modal--base#animateOutCloseAndCleanUp' } %>
     </div>
   </div>
 <% end %>

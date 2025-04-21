@@ -112,9 +112,6 @@ it:
             name_section: Nome
             password_section: Password
             free_plan_reset_date_html: 'Il tuo limite si resetta il <b>%{end_time}</b>.'
-            submit_email: 'Aggiorna email'
-            submit_name: 'Aggiorna nome'
-            submit_password: 'Cambia password'
             title: Impostazioni
             two_factor_section: 'Autenticazione a Due Fattori'
     social:
@@ -162,16 +159,11 @@ it:
         gold: Oro
         are_you_sure: 'Sei sicuro?'
         change_name: 'Cambia nome'
-        delete: 'Elimina'
-        duplicate: 'Duplica'
         important: 'Importante!'
         new: 'Nuovo'
-        save: 'Salva'
-        cancel: 'Annulla'
         since: 'dal'
         soon: 'Presto'
         see_at_coingecko: 'Vedi su CoinGecko'
-        start: 'Inizia'
         search:
             placeholder:
                 asset: 'Cerca un asset…'
@@ -211,3 +203,19 @@ it:
             <p>Invia un'email a <strong>%{email}</strong> con <strong>"FIRE"</strong> nell'oggetto.</p>
             <p>Il tuo accesso a vita arriverà poco dopo.</p>
             <p>A presto, Jan</p>
+    button:
+        ok: 'OK'
+        update: 'Aggiorna'
+        save: 'Salva'
+        cancel: 'Annulla'
+        close: 'Chiudi'
+        enable: 'Abilita'
+        disable: 'Disabilita'
+        delete: 'Elimina'
+        duplicate: 'Duplica'
+        copy: 'Copia'
+        submit: 'Invia'
+        reset: 'Reimposta'
+        add: 'Aggiungi'
+        remove: 'Rimuovi'
+        start: 'Inizia'

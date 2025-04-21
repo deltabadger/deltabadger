@@ -107,9 +107,6 @@ fr:
             name_section: 'Nom'
             password_section: 'Mot de passe'
             free_plan_reset_date_html: 'Votre limite sera réinitialisée le <b>%{end_time}</b>.'
-            submit_email: 'Mettre à jour l''e-mail'
-            submit_name: 'Mettre à jour le nom'
-            submit_password: 'Modifier le mot de passe'
             title: 'Paramètres'
             two_factor_section: 'Authentification à deux facteurs'
     social:
@@ -158,16 +155,11 @@ fr:
         gold: Or
         are_you_sure: 'Es-tu sûr ?'
         change_name: 'Changer de nom'
-        delete: 'Supprimer'
-        duplicate: 'Dupliquer'
         important: 'Important !'
         new: 'Nouveau'
-        save: 'Enregistrer'
-        cancel: 'Annuler'
         since: 'depuis'
         soon: 'Bientôt'
         see_at_coingecko: 'Voir sur CoinGecko'
-        start: 'Commencer'
         search:
             placeholder:
                 asset: 'Rechercher un actif…'
@@ -207,3 +199,19 @@ fr:
             <p>Envoyez un email à <strong>%{email}</strong> avec <strong>"FIRE"</strong> dans l'objet.</p>
             <p>Votre accès à vie arrivera peu après.</p>
             <p>À bientôt, Jan</p>
+    button:
+        ok: 'OK'
+        update: 'Mettre à jour'
+        save: 'Enregistrer'
+        cancel: 'Annuler'
+        close: 'Fermer'
+        enable: 'Activer'
+        disable: 'Désactiver'
+        delete: 'Supprimer'
+        duplicate: 'Dupliquer'
+        copy: 'Copier'
+        submit: 'Soumettre'
+        reset: 'Réinitialiser'
+        add: 'Ajouter'
+        remove: 'Supprimer'
+        start: 'Démarrer'

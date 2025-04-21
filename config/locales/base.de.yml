@@ -8,6 +8,21 @@ de:
             <p>Das sind <b style="color: #00A36C;">%{sp500_diff}%</b> mehr als der S&P 500 im gleichen Zeitraum.</p>
     button:
         connect: "Verbinden"
+        ok: 'OK'
+        update: 'Aktualisieren'
+        save: 'Speichern'
+        cancel: 'Abbrechen'
+        close: 'Schließen'
+        enable: 'Aktivieren'
+        disable: 'Deaktivieren'
+        delete: 'Löschen'
+        duplicate: 'Duplizieren'
+        copy: 'Kopieren'
+        submit: 'Senden'
+        reset: 'Zurücksetzen'
+        add: 'Hinzufügen'
+        remove: 'Entfernen'
+        start: 'Starten'
     data_labels:
         invested: "Gesamtinvestition"
         portfolio_value: "Portfoliowert"
@@ -114,9 +129,6 @@ de:
             name_section: Name
             password_section: Passwort
             free_plan_reset_date_html: 'Dein Limit wird am <b>%{end_time}</b> zurückgesetzt.'
-            submit_email: 'E-Mail aktualisieren'
-            submit_name: 'Namen aktualisieren'
-            submit_password: 'Passwort ändern'
             title: Einstellungen
             two_factor_section: Zwei-Faktor-Authentifizierung
     social:
@@ -168,12 +180,9 @@ de:
         duplicate: 'Duplizieren'
         important: 'Wichtig!'
         new: 'Neu'
-        save: 'Speichern'
-        cancel: 'Abbrechen'
         since: 'seit'
         soon: 'Bald'
         see_at_coingecko: 'Bei CoinGecko ansehen'
-        start: 'Starten'
         search:
             placeholder:
                 asset: 'Nach einem Asset suchen…'

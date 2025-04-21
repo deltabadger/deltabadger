@@ -216,7 +216,7 @@ export const RemoveButton = ({onClick, disabled}) => {
         className={`button button--link button--icon-and-text ${disabled ? 'button--disabled' : ''}`}
       >
         <i className="material-icons">close</i>
-        <span>{I18n.t('bot.buttons.delete.text')}</span>
+        <span>{I18n.t('button.delete')}</span>
       </div>
 
       { isOpen &&
@@ -224,7 +224,7 @@ export const RemoveButton = ({onClick, disabled}) => {
           <div className="db-bot__modal__content">
             <RawHTML tag="p">{I18n.t('bot.buttons.delete.warning_html')}</RawHTML>
             <div className="db-bot__modal__btn-group">
-              <div onClick={() => {setOpen(false)}} className="button button--primary button--outline">{I18n.t('utils.cancel')}</div>
+              <div onClick={() => {setOpen(false)}} className="button button--primary button--outline">{I18n.t('button.cancel')}</div>
               <div onClick={() => {onClick() && setOpen(false)}} className="button button--danger">{I18n.t('bot.buttons.delete.ok')}</div>
             </div>
           </div>
