@@ -6,6 +6,22 @@ en:
         dca_profit_html: |
             <p>If you were dollar-cost averaging into Bitcoin for the last %{years}&nbsp;years, you're now up <b style="color: #00A36C;">%{profit}%</b>.</p>
             <p>That's <b style="color: #00A36C;">%{sp500_diff}%</b> more than S&P 500 in the same time.</p>
+    button:
+        ok: 'OK'
+        update: 'Update'
+        save: 'Save'
+        cancel: 'Cancel'
+        close: 'Close'
+        enable: 'Enable'
+        disable: 'Disable'
+        delete: 'Delete'
+        duplicate: 'Duplicate'
+        copy: 'Copy'
+        submit: 'Submit'
+        reset: 'Reset'
+        add: 'Add'
+        remove: 'Remove' 
+        start: 'Start'
     data_labels:
         invested: "Total Invested"
         portfolio_value: "Portfolio Value"
@@ -114,9 +130,6 @@ en:
             name_section: Name
             password_section: Password
             free_plan_reset_date_html: 'Your limit resets on <b>%{end_time}</b>.'
-            submit_email: 'Update email'
-            submit_name: 'Update name'
-            submit_password: 'Change password'
             title: Settings
             two_factor_section: 'Second Factor Authentication'
     social:
@@ -164,16 +177,11 @@ en:
         gold: Gold
         are_you_sure: 'Are you sure?'
         change_name: 'Change name'
-        delete: 'Delete'
-        duplicate: 'Duplicate'
         important: 'Important!'
         new: 'New'
-        save: 'Save'
-        cancel: 'Cancel'
         since: 'since'
         soon: 'Soon'
         see_at_coingecko: 'See at CoinGecko'
-        start: 'Start'
         search:
             placeholder:
                 asset: 'Search for an asset…'

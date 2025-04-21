@@ -43,7 +43,7 @@ export const AddApiKey = ({
       className="button button--link"
     >
       <i className="material-icons">close</i>
-      <span>{I18n.t('utils.cancel')}</span>
+      <span>{I18n.t('button.cancel')}</span>
     </div>
   )
 

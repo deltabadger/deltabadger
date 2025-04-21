@@ -35,7 +35,6 @@ pt:
             move_existing_bot: 'Mover bot existente para outra troca'
             delete:
                 ok: 'Remover completamente'
-                text: Eliminar
                 warning_html: 'Isto irá remover o bot<br> com os seus dados históricos. Tem a certeza?'
             pending:
                 text: Pendente
