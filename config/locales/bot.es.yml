@@ -143,9 +143,7 @@ es:
         smart_intervals_disclaimer: 'El tamaño de las órdenes en %{exchange} se define en %{currency}. El tamaño mínimo de la orden es de %{minimum}%{currency}.'
         smart_intervals_disclaimer_base: 'El tamaño de las órdenes en %{exchange} se define en %{currency}. El tamaño mínimo de la orden es de %{minimum}%{currency}.'
         smart_intervals_disclaimer_quote: 'El tamaño mínimo de orden es de %{minimum}%{currency}.'
-        start: Empezar
         starting: Empezar
-        stop: Pausar
         subaccounts_info: 'Utilizar la subcuenta'
         week: Semana
         withdraw_interval_html: 'Retirar cada <split>2</split> días.'

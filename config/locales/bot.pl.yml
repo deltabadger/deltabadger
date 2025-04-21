@@ -142,9 +142,7 @@ pl:
         smart_intervals_disclaimer: '%{exchange} definiuje zlecenia w %{currency}. Minimalna wielkość zlecenia to %{minimum} %{currency}.'
         smart_intervals_disclaimer_base: '%{exchange} definiuje zlecenia w %{currency}. Minimalna wielkość zlecenia to %{minimum} %{currency}.'
         smart_intervals_disclaimer_quote: 'Minimalna wielkość zlecenia to%{minimum}%{currency}.'
-        start: Start
         starting: Uruchamianie
-        stop: Wstrzymaj
         subaccounts_info: 'Użyj subkonta'
         week: Tydzień
         withdraw_interval_html: 'Wypłacaj co <split>2</split> dni.'
