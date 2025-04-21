@@ -137,9 +137,7 @@ pt:
         smart_intervals_disclaimer: 'A dimensão das ordens em %{exchange} é definida em %{currency}. A dimensão mínima da ordem é %{minimum}%{currency}.'
         smart_intervals_disclaimer_base: 'A dimensão das ordens em %{exchange} é definida em %{currency}. A dimensão mínima da ordem é %{minimum}%{currency}.'
         smart_intervals_disclaimer_quote: 'A dimensão da ordem mínima é %{minimum}%{currency}.'
-        start: Iniciar
         starting: Começar
-        stop: Pausa
         subaccounts_info: 'Usar subconta'
         week: Semana
         warning:

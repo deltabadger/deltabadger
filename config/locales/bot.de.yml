@@ -156,9 +156,7 @@ de:
         smart_intervals_disclaimer: ' Die Mindestordergröße beträgt %{minimum}%{currency}'
         smart_intervals_disclaimer_base: ' Die Mindestordergröße beträgt %{minimum}%{currency}'
         smart_intervals_disclaimer_quote: 'Die Mindestordergröße beträgt %{minimum}%{currency}'
-        start: Starten
         starting: 'Wird gestartet'
-        stop: Pausieren
         subaccounts_info: 'Unterkonto verwenden'
         week: Woche
         withdraw_interval_html: 'Zahle alle <split>2</split> Tage aus.'
