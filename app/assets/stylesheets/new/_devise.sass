@@ -122,9 +122,22 @@
         background: none !important
 
 .password-requirements
+    list-style-type: none
     padding-left: 0 !important
-    .db-form__validation
-        color: #fffa
+    li
+        color: var(--label)
+        padding-left: 0 !important
+        &:before
+            content: "✓"
+            opacity: 0
+            margin-right: 1.125rem
     .db-form__validation--success
         color: var(--success)
-        text-shadow: 0.25rem 0.25rem 0.25rem #0005
+        &:before
+            opacity: 1
+.view--signup
+    .db-form__validation
+        color: #fffa
+        &--success
+            text-shadow: 0.25rem 0.25rem 0.25rem #0002
+            color: var(--success)
