@@ -6,6 +6,22 @@ ru:
         dca_profit_html: |
             <p>Если бы вы использовали стратегию усреднения стоимости в Bitcoin последние %{years}&nbsp;года, сейчас вы были бы в плюсе на <b style="color: #00A36C;">%{profit}%</b>.</p>
             <p>Это на <b style="color: #00A36C;">%{sp500_diff}%</b> больше, чем S&P 500 за тот же период.</p>
+    button:
+        ok: 'OK'
+        update: 'Обновить'
+        save: 'Сохранить'
+        cancel: 'Отмена'
+        close: 'Закрыть'
+        enable: 'Включить'
+        disable: 'Выключить'
+        delete: 'Удалить'
+        duplicate: 'Дублировать'
+        copy: 'Копировать'
+        submit: 'Отправить'
+        reset: 'Сбросить'
+        add: 'Добавить'
+        remove: 'Удалить'
+        start: 'Начать'
     data_labels:
         invested: "Всего вложено"
         portfolio_value: "Стоимость портфеля"
@@ -207,19 +223,3 @@ ru:
             <p>Отправьте электронное письмо на адрес <strong>%{email}</strong> с <strong>"FIRE"</strong> в строке темы.</p>
             <p>Ваш пожизненный доступ будет предоставлен вскоре после этого.</p>
             <p>До встречи, Jan</p>
-    button:
-        ok: 'OK'
-        update: 'Обновить'
-        save: 'Сохранить'
-        cancel: 'Отмена'
-        close: 'Закрыть'
-        enable: 'Включить'
-        disable: 'Выключить'
-        delete: 'Удалить'
-        duplicate: 'Дублировать'
-        copy: 'Копировать'
-        submit: 'Отправить'
-        reset: 'Сбросить'
-        add: 'Добавить'
-        remove: 'Удалить'
-        start: 'Начать'
