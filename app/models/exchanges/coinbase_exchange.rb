@@ -293,8 +293,7 @@ module Exchanges
       return result unless result.success?
 
       if result.data['success'] == false
-        return Result::Failure.new("Order #{client_order_id} failed: #{result.data['message']}",
-                                   data: result.data)
+        return Result::Failure.new(result.data.dig('error_response', 'message'), data: result.data)
       end
 
       data = {
@@ -333,8 +332,7 @@ module Exchanges
       return result unless result.success?
 
       if result.data['success'] == false
-        return Result::Failure.new("Order #{client_order_id} failed: #{result.data['message']}",
-                                   data: result.data)
+        return Result::Failure.new(result.data.dig('error_response', 'message'), data: result.data)
       end
 
       data = {

@@ -305,10 +305,7 @@ module Exchanges
       )
       return result unless result.success?
 
-      if result.data['error'].any?
-        return Result::Failure.new("Order #{client_order_id} failed: #{result.data['error'].to_sentence}",
-                                   data: result.data)
-      end
+      return Result::Failure.new(result.data['error'].to_sentence, data: result.data) if result.data['error'].any?
 
       data = {
         order_id: Utilities::Hash.dig_or_raise(result.data, 'result', 'txid').first
@@ -342,10 +339,7 @@ module Exchanges
       )
       return result unless result.success?
 
-      if result.data['error'].any?
-        return Result::Failure.new("Order #{client_order_id} failed: #{result.data['error'].to_sentence}",
-                                   data: result.data)
-      end
+      return Result::Failure.new(result.data['error'].to_sentence, data: result.data) if result.data['error'].any?
 
       data = {
         order_id: Utilities::Hash.dig_or_raise(result.data, 'result', 'txid').first
