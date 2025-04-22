@@ -82,7 +82,7 @@ gem "jwt", "~> 2.9.3"
 gem "jaro_winkler", "~> 1.6"
 gem "oj", "~> 3.16"
 gem "ruby-openai", "~> 7.3.1"
-gem 'sass-rails', '~> 6.0'
+gem "dartsass-rails", "~> 0.5.1"
 gem "intercom-rails"
 gem "sidekiq-cron"
 gem "pagy", "~> 6.5"
