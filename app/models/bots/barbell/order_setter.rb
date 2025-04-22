@@ -22,8 +22,8 @@ module Bots::Barbell::OrderSetter # rubocop:disable Metrics/ModuleLength
     value.present? ? Time.zone.parse(value) : nil
   end
 
-  def required_balance_for_the_next_3_days
-    quote_amount * (3.days.to_f / 1.public_send(interval))
+  def required_balance_buffer
+    quote_amount * ([3.days, 1.public_send(interval)].max.to_f / 1.public_send(interval))
   end
 
   def set_barbell_orders
@@ -34,7 +34,7 @@ module Bots::Barbell::OrderSetter # rubocop:disable Metrics/ModuleLength
     return result unless result.success?
 
     quote_balance = result.data
-    notify_end_of_funds if quote_balance[:free] < pending_quote_amount + required_balance_for_the_next_3_days
+    notify_end_of_funds if quote_balance[:free] < pending_quote_amount + required_balance_buffer
 
     result = get_metrics_with_current_prices
     return result unless result.success?
