@@ -23,7 +23,7 @@ module Bots::Barbell::OrderSetter # rubocop:disable Metrics/ModuleLength
   end
 
   def required_balance_buffer
-    quote_amount * ([3.days, 1.public_send(interval)].max.to_f / 1.public_send(interval))
+    quote_amount * (3.days.to_f / 1.public_send(interval))
   end
 
   def set_barbell_orders
