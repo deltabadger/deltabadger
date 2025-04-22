@@ -22,23 +22,19 @@ module Bots::Barbell::OrderSetter # rubocop:disable Metrics/ModuleLength
     value.present? ? Time.zone.parse(value) : nil
   end
 
+  def required_balance_for_the_next_3_days
+    quote_amount * (3.days.to_f / 1.public_send(interval))
+  end
+
   def set_barbell_orders
     calculate_pending_quote_amount
     return Result::Success.new if pending_quote_amount.zero?
 
-    puts 'Setting barbell orders'
-
     result = exchange.get_balance(asset_id: quote_asset_id)
     return result unless result.success?
 
-    puts "Quote balance: #{result.data}"
-
     quote_balance = result.data
-    notify_end_of_funds if quote_balance[:free] < pending_quote_amount + quote_amount
-    if quote_balance[:free] < pending_quote_amount
-      stop
-      return Result::Success.new
-    end
+    notify_end_of_funds if quote_balance[:free] < pending_quote_amount + required_balance_for_the_next_3_days
 
     result = get_metrics_with_current_prices
     return result unless result.success?
@@ -49,16 +45,13 @@ module Bots::Barbell::OrderSetter # rubocop:disable Metrics/ModuleLength
     result1 = exchange.get_ask_price(base_asset_id: base1_asset_id, quote_asset_id: quote_asset_id)
     return result1 unless result1.success?
 
-    puts 'Calculating orders data'
     orders_data = calculate_orders_data(
       balance0: result.data[:total_base0_amount_acquired],
       balance1: result.data[:total_base1_amount_acquired],
       price0: result0.data,
       price1: result1.data
     )
-    puts "Orders data: #{orders_data}"
     orders_data.each do |order_data|
-      puts "Setting order: #{order_data}"
       result = set_order(order_data)
       return result unless result.success?
     end
@@ -143,8 +136,7 @@ module Bots::Barbell::OrderSetter # rubocop:disable Metrics/ModuleLength
     else
       order_data.merge!(error_messages: result.errors)
       create_failed_order!(order_data)
-      notify_about_error(errors: result.errors)
-      # TODO: stop the bot?
+      # notify_about_error(errors: result.errors) --> handled in the job
     end
     result
   end
