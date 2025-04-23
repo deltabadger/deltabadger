@@ -30,7 +30,7 @@
     justify-content: space-between
     align-items: flex-start
   &--discount
-    border: 2px solid var(--temporaryDiscount)
+    border: 0.25rem solid var(--temporaryDiscount)
     color: #fff
     background: var(--temporaryDiscount)
     font-size: 2.2rem
@@ -67,7 +67,7 @@
     background-color: var(--alertPrimaryBg)
     border-color: transparent
     &[disabled]
-      box-shadow: inset 0 0 0 1px var(--label)
+      box-shadow: inset 0 0 0 0.125rem var(--label)
       color:            var(--alertPrimaryTxtDisabled)
       background-color: var(--alertPrimaryBgDisabled)
       border-color:     var(--alertPrimaryBorderDisabled)
@@ -106,7 +106,7 @@ select:disabled, input:disabled
   padding:          0 .3rem
   text-align:       center
   &:invalid
-    border:         2px solid $danger
+    border:         0.25rem solid $danger
   &::selection
     color:          #024
     background:     #abc
@@ -160,7 +160,7 @@ select:disabled, input:disabled
       position: relative
       left: 0.5rem
     &[disabled]
-      border: 1px solid var(--label)
+      border: 0.125rem solid var(--label)
     small
       padding-top: 1.5rem
       display: block
