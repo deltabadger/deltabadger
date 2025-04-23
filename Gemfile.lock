@@ -195,6 +195,9 @@ GEM
     faraday-multipart (1.0.4)
       multipart-post (~> 2)
     faraday-net_http (3.0.2)
+    faraday-net_http_persistent (2.3.0)
+      faraday (~> 2.5)
+      net-http-persistent (>= 4.0.4, < 5)
     ffi (1.16.3)
     formatador (1.1.0)
     fugit (1.11.1)
@@ -298,6 +301,8 @@ GEM
     msgpack (1.7.2)
     multipart-post (2.4.1)
     nenv (0.3.0)
+    net-http-persistent (4.0.4)
+      connection_pool (~> 2.2)
     net-imap (0.3.7)
       date
       net-protocol
@@ -557,6 +562,7 @@ DEPENDENCIES
   faker
   faraday
   faraday-manual-cache!
+  faraday-net_http_persistent (~> 2.3.0)
   guard-rspec
   guard-rubocop
   haikunator (~> 1.1)
