@@ -4,7 +4,7 @@
     gap: 1rem
     &__plans
         display: grid
-        grid-template-columns: repeat(auto-fit, minmax(10px, 1fr))
+        grid-template-columns: #{repeat(auto-fit, minmax(10px, 1fr))}
         grid-template-rows: 1fr
         gap: 1rem
         flex: 1
@@ -185,7 +185,7 @@
 @media only screen and (max-width: 767.9px)
     .pricing
         &__plans
-            grid-template-columns: 1fr 1fr minmax(1fr)
+            grid-template-columns: #{1fr 1fr minmax(1fr)}
     .widget
         &--pricing
             padding: 1.75rem 0 1rem 0 !important
@@ -200,7 +200,7 @@
             display: none
 @media only screen and (max-width: 500px)
     .pricing__plans
-        grid-template-columns: 1fr 1fr minmax(40%, 1fr)
+        grid-template-columns: #{1fr 1fr minmax(40%, 1fr)}
 .checkout-line
     display: grid
     grid-template-columns: auto 10rem
