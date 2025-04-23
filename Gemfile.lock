@@ -206,6 +206,8 @@ GEM
     globalid (1.1.0)
       activesupport (>= 5.0)
     google-protobuf (3.25.5-arm64-darwin)
+    google-protobuf (3.25.5-x86_64-darwin)
+    google-protobuf (3.25.5-x86_64-linux)
     guard (2.18.0)
       formatador (>= 0.2.4)
       listen (>= 2.7, < 4.0)
