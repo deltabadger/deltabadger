@@ -578,6 +578,7 @@ DEPENDENCIES
   listen (>= 3.0.5, < 4.0)
   lol_dba
   mini_magick (~> 5.2)
+  net-http-persistent (~> 4.0.4)
   nio4r (= 2.5.9)
   oj (~> 3.16)
   pagy (~> 6.5)
