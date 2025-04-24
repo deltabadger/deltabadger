@@ -22,7 +22,7 @@ it:
         add: 'Aggiungi'
         remove: 'Rimuovi'
         start: 'Inizia'
-        connect: 'Connetti Exchange'
+        connect: 'Connetti'
     data_labels:
         invested: "Totale Investito"
         portfolio_value: "Valore del Portafoglio"
