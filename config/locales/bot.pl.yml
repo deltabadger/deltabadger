@@ -150,12 +150,13 @@ pl:
         withdrawal_percentage: '%{percentage}%'
         withdrawal: 'Wypłata'
         warning:
-            title: "Gratulacje! Twój bot działa."
+            title: "Twój bot jest gotowy, ale…"
             both_below:
-                intro: "Obie kwoty są poniżej minimalnego rozmiaru transakcji na %{exchange_name} (%{min_base} %{base_ticker} i %{min_quote} %{quote_ticker}). Oto jak bot to obsługuje:"
+                intro: "Zarówno kwota %{base_ticker}, jak i %{quote_ticker} jest poniżej minimalnego rozmiaru zlecenia %{exchange_name} (odpowiednio %{min_base} %{base_ticker} i %{min_quote} %{quote_ticker}). Oto jak bot sobie z tym radzi:"
             one_below:
-                intro: "Twój bot kupił %{bought_amount} %{bought_ticker}, ale kwota %{missed_ticker} była poniżej minimalnego rozmiaru transakcji na %{exchange_name} (%{min_missed} %{missed_ticker}). Oto jak bot to obsługuje:"
+                intro: "Twój bot od razu kupi początkową kwotę %{bought_amount} %{bought_ticker}. Jednak kwota %{missed_ticker} jest poniżej minimalnego rozmiaru zlecenia %{exchange_name} (%{min_missed} %{missed_ticker}). Oto jak bot sobie z tym radzi:"
             buffer_explanation:
-                one: "Przegapiona kwota została dodana do bufora i zostanie wykorzystana w następnej zaplanowanej transakcji, zapewniając, że Twój harmonogram i alokacja pozostaną jak najbliżej minimów giełdowych."
-                other: "Przegapione kwoty zostały dodane do bufora i zostaną wykorzystane w następnej zaplanowanej transakcji, zapewniając, że Twój harmonogram i alokacja pozostaną jak najbliżej minimów giełdowych."
-            general_note: "Minima giełdowe i wymagane kwoty rebalansu się zmieniają. Transakcje mogą czasami wyglądać nieregularnie, ale bot zawsze celuje w Twoją pożądaną alokację i harmonogram, więc nie jest potrzebna dodatkowa praca."
+                one: "Buforuje pominiętą kwotę i dodaje ją do następnego zaplanowanego zlecenia, zapewniając utrzymanie harmonogramu i alokacji tak blisko, jak pozwalają na to minima giełdowe."
+                other: "Buforuje pominięte kwoty i dodaje je do następnych zaplanowanych zleceń, zapewniając utrzymanie harmonogramu i alokacji tak blisko, jak pozwalają na to minima giełdowe."
+            general_note: "Minimalne kwoty na giełdach i wymagane kwoty rebalancingu mogą się zmieniać. Zlecenia mogą czasami wyglądać nieregularnie, ale bot zawsze dąży do Twojej pożądanej alokacji i harmonogramu, więc nie jest wymagana dodatkowa praca."
+            tooltip_explanation: "To zlecenie zostało pominięte, ponieważ kwota była poniżej minimalnego rozmiaru zlecenia %{exchange_name}. Pominięta kwota została zbuforowana i zostanie dodana do następnego zlecenia."
