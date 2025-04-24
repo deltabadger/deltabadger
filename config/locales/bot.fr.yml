@@ -151,12 +151,13 @@ fr:
         withdrawal_percentage: '%{percentage}%'
         withdrawal: 'Retrait'
         warning:
-            title: "Félicitations ! Votre bot fonctionne."
+            title: "Votre bot est prêt, mais…"
             both_below:
-                intro: "Les deux montants sont inférieurs à la taille minimale de transaction de %{exchange_name} (%{min_base} %{base_ticker} et %{min_quote} %{quote_ticker}). Voici comment le bot gère cela :"
+                intro: "Les montants de %{base_ticker} et %{quote_ticker} sont tous deux inférieurs à la taille minimale de commande de %{exchange_name} (%{min_base} %{base_ticker} et %{min_quote} %{quote_ticker}, respectivement). Voici comment le bot gère cela :"
             one_below:
-                intro: "Votre bot a acheté %{bought_amount} %{bought_ticker}, mais le montant de %{missed_ticker} était inférieur à la taille minimale de transaction de %{exchange_name} (%{min_missed} %{missed_ticker}). Voici comment le bot gère cela :"
+                intro: "Votre bot achètera immédiatement le montant initial de %{bought_amount} %{bought_ticker}. Cependant, le montant de %{missed_ticker} est inférieur à la taille minimale de commande de %{exchange_name} (%{min_missed} %{missed_ticker}). Voici comment le bot gère cela :"
             buffer_explanation:
-                one: "Le montant manqué a été ajouté au tampon et sera utilisé lors de la prochaine transaction planifiée, assurant que votre calendrier et votre allocation restent aussi proches que possible des minimums de l'exchange."
-                other: "Les montants manqués ont été ajoutés au tampon et seront utilisés lors de la prochaine transaction planifiée, assurant que votre calendrier et votre allocation restent aussi proches que possible des minimums de l'exchange."
-            general_note: "Les minimums de l'exchange et les montants de rééquilibrage requis changent. Les transactions peuvent parfois sembler irrégulières, mais le bot cible toujours votre allocation et votre calendrier souhaités, donc aucun travail supplémentaire n'est nécessaire."
+                one: "Il met en mémoire tampon le montant manqué et l'ajoute à la prochaine commande planifiée, garantissant que votre calendrier et votre allocation sont maintenus aussi fidèlement que le permettent les minimums de l'échange."
+                other: "Il met en mémoire tampon les montants manqués et les ajoute aux prochaines commandes planifiées, garantissant que votre calendrier et votre allocation sont maintenus aussi fidèlement que le permettent les minimums de l'échange."
+            general_note: "Les minimums d'échange et les montants de rééquilibrage requis peuvent changer. Les commandes peuvent parfois sembler irrégulières, mais le bot cible toujours votre allocation et votre calendrier souhaités, donc aucun travail supplémentaire n'est nécessaire."
+            tooltip_explanation: "Cette commande a été ignorée car le montant était inférieur à la taille minimale de commande de %{exchange_name}. Le montant ignoré a été mis en mémoire tampon et sera ajouté à la prochaine commande."
