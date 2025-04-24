@@ -7,7 +7,7 @@ de:
             <p>Wenn Sie in den letzten %{years}&nbsp;Jahren regelmäßig in Bitcoin investiert hätten, lägen Sie jetzt <b style="color: #00A36C;">%{profit}%</b> im Plus.</p>
             <p>Das sind <b style="color: #00A36C;">%{sp500_diff}%</b> mehr als der S&P 500 im gleichen Zeitraum.</p>
     button:
-        connect: "Verbinden"
+        connect: "Börse verbinden"
         ok: 'OK'
         update: 'Aktualisieren'
         save: 'Speichern'
