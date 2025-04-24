@@ -22,7 +22,7 @@ ru:
         add: 'Добавить'
         remove: 'Удалить'
         start: 'Начать'
-        connect: 'Подключить Биржу'
+        connect: 'Подключить'
     data_labels:
         invested: "Всего вложено"
         portfolio_value: "Стоимость портфеля"
