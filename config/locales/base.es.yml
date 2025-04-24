@@ -22,6 +22,7 @@ es:
         add: 'Añadir'
         remove: 'Quitar'
         start: 'Empezar'
+        connect: 'Conectar Exchange'
     data_labels:
         invested: "Total invertido"
         portfolio_value: "Valor de la cartera"
