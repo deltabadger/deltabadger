@@ -4,15 +4,20 @@ module Utilities
       image = MiniMagick::Image.new(image_path)
 
       # Get image histogram
-      result = ''
-      MiniMagick::Tool::Magick.new do |convert|
-        convert << image.path
-        convert << '-format' << '%c'
-        convert << '-colors' << quantity.to_s
-        convert << '-depth' << '8'
-        convert << '-alpha' << 'on'
-        convert << 'histogram:info:'
-        result = convert.call
+      result = begin
+        MiniMagick::Tool::Magick.new do |convert|
+          convert << image.path
+          convert << '-format' << '%c'
+          convert << '-colors' << quantity.to_s
+          convert << '-depth' << '8'
+          convert << '-alpha' << 'on'
+          convert << 'histogram:info:'
+          convert.call
+        end
+      rescue MiniMagick::Error
+        # handle Imagemagick version <7
+        # TODO: remove this rescue block once all servers are running ImageMagick >=7 (quick test: `magick --version`)
+        image.run_command('convert', image.path, '-format', '%c', '-colors', quantity, '-depth', 8, 'histogram:info:')
       end
 
       # Extract colors and frequencies from result
