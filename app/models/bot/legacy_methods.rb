@@ -158,4 +158,14 @@ module Bot::LegacyMethods
   def selected_subaccount
     settings.fetch('selected_subaccount', '')
   end
+
+  def pnl
+    return if transactions.empty? || bot_type == 'withdrawal'
+
+    stats = Presenters::Api::Stats.call(
+      bot: self,
+      transactions: daily_transaction_aggregates.order(created_at: :desc)
+    )
+    (stats[:currentValue].to_f - stats[:totalInvested].to_f) / stats[:totalInvested].to_f
+  end
 end
