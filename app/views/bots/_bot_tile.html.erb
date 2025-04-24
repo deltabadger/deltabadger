@@ -33,13 +33,11 @@
           <%= bot.label %>
         </div>
       </div>
-      <% unless bot.legacy? %>
-        <% pnl = bot.metrics_with_current_prices[:pnl] %>
-        <% if pnl.present? %>
-          <div class="bot-tile__pnl <%= pnl.negative? ? 'text-danger' : pnl.positive? ? 'text-success' : '' %>">
-            <span class="widget__pnl__value"><%= format_percent(pnl, precision: 2) %></span>
-          </div>
-        <% end %>
+      <% pnl = bot.legacy? ? bot.pnl : bot.metrics_with_current_prices[:pnl] %>
+      <% if pnl.present? %>
+        <div class="bot-tile__pnl <%= pnl.negative? ? 'text-danger' : pnl.positive? ? 'text-success' : '' %>">
+          <span class="widget__pnl__value"><%= format_percent(pnl, precision: 2) %></span>
+        </div>
       <% end %>
     </div>
   <% end %>
