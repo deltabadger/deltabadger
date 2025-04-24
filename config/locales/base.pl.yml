@@ -22,7 +22,7 @@ pl:
         add: 'Dodaj'
         remove: 'Usuń'
         start: 'Start'
-        connect: 'Podłącz'
+        connect: 'Połącz'
     data_labels:
         invested: "Łącznie zainwestowano"
         portfolio_value: "Wartość portfela"

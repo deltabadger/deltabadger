@@ -22,7 +22,7 @@ nl:
         add: 'Toevoegen'
         remove: 'Verwijderen'
         start: 'Starten'
-        connect: 'Exchange Verbinden'
+        connect: 'Verbinden'
     data_labels:
         invested: "Totaal geïnvesteerd"
         portfolio_value: "Portfoliowaarde"
