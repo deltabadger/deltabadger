@@ -3,18 +3,21 @@ class Bots::Withdrawal < Bot
   include Schedulable
 
   def restarting?
-    restart_params = GetRestartParams.call(bot_id: id)
-    restart_params[:restartType] == 'missed'
+    false
+    # restart_params = GetRestartParams.call(bot_id: id)
+    # restart_params[:restartType] == 'missed'
   end
 
   def restarting_within_interval?
-    restart_params = GetRestartParams.call(bot_id: id)
-    restart_params[:restartType] == 'onSchedule'
+    false
+    # restart_params = GetRestartParams.call(bot_id: id)
+    # restart_params[:restartType] == 'onSchedule'
   end
 
   def missed_amount
-    restart_params = GetRestartParams.call(bot_id: id)
-    restart_params[:missedAmount]
+    0
+    # restart_params = GetRestartParams.call(bot_id: id)
+    # restart_params[:missedAmount]
   end
 
   private
