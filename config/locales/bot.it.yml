@@ -175,12 +175,13 @@ it:
         withdrawal_percentage: '%{percentage}%'
         withdrawal: 'Prelievo'
         warning:
-            title: "Congratulazioni! Il tuo bot è in esecuzione."
+            title: "Il tuo bot è pronto, ma…"
             both_below:
-                intro: "Entrambi gli importi sono sotto la dimensione minima di transazione di %{exchange_name} (%{min_base} %{base_ticker} e %{min_quote} %{quote_ticker}). Ecco come il bot lo gestisce:"
+                intro: "Entrambi gli importi di %{base_ticker} e %{quote_ticker} sono inferiori alla dimensione minima dell'ordine di %{exchange_name} (%{min_base} %{base_ticker} e %{min_quote} %{quote_ticker}, rispettivamente). Ecco come il bot gestisce la situazione:"
             one_below:
-                intro: "Il tuo bot ha acquistato %{bought_amount} %{bought_ticker}, ma l'importo di %{missed_ticker} era sotto la dimensione minima di transazione di %{exchange_name} (%{min_missed} %{missed_ticker}). Ecco come il bot lo gestisce:"
+                intro: "Il tuo bot acquisterà subito l'importo iniziale di %{bought_amount} %{bought_ticker}. Tuttavia, l'importo di %{missed_ticker} è inferiore alla dimensione minima dell'ordine di %{exchange_name} (%{min_missed} %{missed_ticker}). Ecco come il bot gestisce la situazione:"
             buffer_explanation:
-                one: "L'importo mancato è stato aggiunto al buffer e sarà utilizzato con la prossima transazione programmata, assicurando che il tuo programma e l'allocazione siano mantenuti il più possibile vicini ai minimi dell'exchange."
-                other: "Gli importi mancati sono stati aggiunti al buffer e saranno utilizzati con la prossima transazione programmata, assicurando che il tuo programma e l'allocazione siano mantenuti il più possibile vicini ai minimi dell'exchange."
-            general_note: "I minimi dell'exchange e gli importi di ribilanciamento richiesti cambiano. Le transazioni potrebbero a volte sembrare irregolari, ma il bot mira sempre alla tua allocazione e programma desiderati, quindi non è necessario alcun lavoro aggiuntivo."
+                one: "Mette in buffer l'importo mancato e lo aggiunge al prossimo ordine programmato, assicurando che la tua pianificazione e allocazione siano mantenute il più vicino possibile a quanto consentito dai minimi dell'exchange."
+                other: "Mette in buffer gli importi mancati e li aggiunge ai prossimi ordini programmati, assicurando che la tua pianificazione e allocazione siano mantenute il più vicino possibile a quanto consentito dai minimi dell'exchange."
+            general_note: "I minimi dell'exchange e gli importi di ribilanciamento richiesti possono cambiare. Gli ordini potrebbero a volte sembrare irregolari, ma il bot mira sempre all'allocazione e alla pianificazione desiderate, quindi non è necessario alcun lavoro aggiuntivo."
+            tooltip_explanation: "Questo ordine è stato saltato perché l'importo era inferiore alla dimensione minima dell'ordine di %{exchange_name}. L'importo saltato è stato messo in buffer e verrà aggiunto al prossimo ordine."

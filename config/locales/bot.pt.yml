@@ -141,12 +141,13 @@ pt:
         subaccounts_info: 'Usar subconta'
         week: Semana
         warning:
-            title: "Parabéns! Seu bot está funcionando."
+            title: "Seu bot está pronto, mas…"
             both_below:
-                intro: "Ambos os valores estão abaixo do tamanho mínimo de transação da %{exchange_name} (%{min_base} %{base_ticker} e %{min_quote} %{quote_ticker}). Veja como o bot lida com isso:"
+                intro: "Tanto a quantidade de %{base_ticker} quanto a de %{quote_ticker} estão abaixo do tamanho mínimo de ordem da %{exchange_name} (respectivamente, %{min_base} %{base_ticker} e %{min_quote} %{quote_ticker}). Veja como o bot lida com isso:"
             one_below:
-                intro: "Seu bot comprou %{bought_amount} %{bought_ticker}, mas o valor de %{missed_ticker} estava abaixo do tamanho mínimo de transação da %{exchange_name} (%{min_missed} %{missed_ticker}). Veja como o bot lida com isso:"
+                intro: "Seu bot comprará a quantidade inicial de %{bought_amount} %{bought_ticker} imediatamente. No entanto, a quantidade de %{missed_ticker} está abaixo do tamanho mínimo de ordem da %{exchange_name} (%{min_missed} %{missed_ticker}). Veja como o bot lida com isso:"
             buffer_explanation:
-                one: "O valor perdido foi adicionado ao buffer e será usado na próxima transação programada, garantindo que seu cronograma e alocação permaneçam o mais próximo possível dos mínimos da exchange."
-                other: "Os valores perdidos foram adicionados ao buffer e serão usados na próxima transação programada, garantindo que seu cronograma e alocação permaneçam o mais próximo possível dos mínimos da exchange."
-            general_note: "Os mínimos da exchange e os valores de rebalanceamento necessários mudam. As transações podem às vezes parecer irregulares, mas o bot sempre mira em sua alocação e cronograma desejados, então não é necessário trabalho adicional."
+                one: "Ele armazena a quantidade perdida e a adiciona à próxima ordem agendada, garantindo que seu cronograma e alocação sejam mantidos o mais próximo possível do permitido pelos mínimos da exchange."
+                other: "Ele armazena as quantidades perdidas e as adiciona às próximas ordens agendadas, garantindo que seu cronograma e alocação sejam mantidos o mais próximo possível do permitido pelos mínimos da exchange."
+            general_note: "Os mínimos da exchange e as quantidades de rebalanceamento necessárias podem mudar. As ordens podem parecer irregulares às vezes, mas o bot sempre visa sua alocação e cronograma desejados, portanto, nenhum trabalho extra é necessário."
+            tooltip_explanation: "Esta ordem foi pulada porque a quantidade estava abaixo do tamanho mínimo de ordem da %{exchange_name}. A quantidade pulada foi armazenada e será adicionada à próxima ordem."

@@ -150,12 +150,13 @@ nl:
         withdrawal_percentage: '%{percentage}%'
         withdrawal: 'Opname'
         warning:
-            title: "Gefeliciteerd! Je bot draait."
+            title: "Je bot is klaar, maar…"
             both_below:
-                intro: "Beide bedragen zijn onder de minimale transactiegrootte van %{exchange_name} (%{min_base} %{base_ticker} en %{min_quote} %{quote_ticker}). Zo gaat de bot hiermee om:"
+                intro: "Zowel het %{base_ticker}- als het %{quote_ticker}-bedrag ligt onder de minimale ordergrootte van %{exchange_name} (respectievelijk %{min_base} %{base_ticker} en %{min_quote} %{quote_ticker}). Zo handelt de bot dit af:"
             one_below:
-                intro: "Je bot heeft %{bought_amount} %{bought_ticker} gekocht, maar het %{missed_ticker} bedrag was onder de minimale transactiegrootte van %{exchange_name} (%{min_missed} %{missed_ticker}). Zo gaat de bot hiermee om:"
+                intro: "Je bot koopt direct het initiële bedrag van %{bought_amount} %{bought_ticker}. Het %{missed_ticker}-bedrag ligt echter onder de minimale ordergrootte van %{exchange_name} (%{min_missed} %{missed_ticker}). Zo handelt de bot dit af:"
             buffer_explanation:
-                one: "Het gemiste bedrag is toegevoegd aan de buffer en zal worden gebruikt bij de volgende geplande transactie, waardoor je schema en allocatie zo dicht mogelijk bij de beursminima blijven."
-                other: "De gemiste bedragen zijn toegevoegd aan de buffer en zullen worden gebruikt bij de volgende geplande transactie, waardoor je schema en allocatie zo dicht mogelijk bij de beursminima blijven."
-            general_note: "Beursminima en vereiste herbalanceringsbedragen veranderen. Transacties kunnen soms onregelmatig lijken, maar de bot mikt altijd op je gewenste allocatie en schema, dus er is geen extra werk nodig."
+                one: "Het buffert het gemiste bedrag en voegt het toe aan de volgende geplande order, zodat je schema en toewijzing zo nauwkeurig mogelijk worden gehandhaafd binnen de limieten van de exchange."
+                other: "Het buffert de gemiste bedragen en voegt ze toe aan de volgende geplande orders, zodat je schema en toewijzing zo nauwkeurig mogelijk worden gehandhaafd binnen de limieten van de exchange."
+            general_note: "Minimale bedragen van exchanges en vereiste herbalanceringsbedragen kunnen veranderen. Orders kunnen er soms onregelmatig uitzien, maar de bot streeft altijd naar de gewenste toewijzing en schema, dus er is geen extra werk nodig."
+            tooltip_explanation: "Deze order is overgeslagen omdat het bedrag onder de minimale ordergrootte van %{exchange_name} lag. Het overgeslagen bedrag is gebufferd en wordt toegevoegd aan de volgende order."
