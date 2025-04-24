@@ -22,7 +22,7 @@ fr:
         add: 'Ajouter'
         remove: 'Supprimer'
         start: 'Démarrer'
-        connect: 'Connecter Échange'
+        connect: 'Connecter'
     data_labels:
         invested: "Total Investi"
         portfolio_value: "Valeur du Portefeuille"
