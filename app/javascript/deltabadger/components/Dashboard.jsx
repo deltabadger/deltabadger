@@ -210,9 +210,12 @@ const DashboardTemplate = ({
   };
 
   const handleFinishCreating = (id = null) => {
-    setIsCreating(false);
     if (id) {
-      loadBots(false, 1).then(() => startBot(id));
+      loadBots(false, 1)
+        .then(() => startBot(id))
+        .then(() => window.location.href = `/bots/${id}`);
+    } else {
+      window.location.href = '/bots';
     }
   };
 
