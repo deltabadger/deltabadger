@@ -217,6 +217,6 @@ it:
         access_instructions_html: |
             <p>Ciao%{name}! La community è a un solo passo di distanza.</p>
             <p>Per mantenerla libera da spam e da persone non seriamente interessate alla libertà finanziaria:</p>
-            <p>Invia un'email a <strong>%{email}</strong> con <strong>"FIRE"</strong> nell'oggetto.</p>
+            <p>Invia un'email a <strong><a href="mailto:jan@deltabadger.com">jan@deltabadger.com</a></strong> con <strong>"FIRE"</strong> nell'oggetto.</p>
             <p>Il tuo accesso a vita arriverà poco dopo.</p>
             <p>A presto, Jan</p>

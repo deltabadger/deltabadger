@@ -216,6 +216,6 @@ pt:
         access_instructions_html: |
             <p>Olá%{name}! A comunidade está apenas a um passo de distância.</p>
             <p>Para a manter livre de spam e de pessoas que não levam a sério a liberdade financeira:</p>
-            <p>Envie um email para <strong>%{email}</strong> com <strong>"FIRE"</strong> na linha de assunto.</p>
+            <p>Envie um email para <strong><a href="mailto:jan@deltabadger.com">jan@deltabadger.com</a></strong> com <strong>"FIRE"</strong> na linha de assunto.</p>
             <p>O seu acesso vitalício chegará logo de seguida.</p>
             <p>Até breve, Jan</p>
