@@ -213,6 +213,6 @@ fr:
         access_instructions_html: |
             <p>Salut%{name}! La communauté n'est plus qu'à un pas.</p>
             <p>Pour la garder libre de spam et de personnes peu sérieuses concernant la liberté financière :</p>
-            <p>Envoyez un email à <strong>%{email}</strong> avec <strong>"FIRE"</strong> dans l'objet.</p>
+            <p>Envoyez un email à <strong><a href="mailto:jan@deltabadger.com">jan@deltabadger.com</a></strong> avec <strong>"FIRE"</strong> dans l'objet.</p>
             <p>Votre accès à vie arrivera peu après.</p>
             <p>À bientôt, Jan</p>

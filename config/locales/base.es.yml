@@ -219,6 +219,6 @@ es:
         access_instructions_html: |
             <p>¡Hola%{name}! La comunidad está a solo un paso.</p>
             <p>Para mantenerla libre de spam y de personas que no se toman en serio la libertad financiera:</p>
-            <p>Envía un correo electrónico a <strong>%{email}</strong> con <strong>"FIRE"</strong> en la línea de asunto.</p>
+            <p>Envía un correo electrónico a <strong><a href="mailto:jan@deltabadger.com">jan@deltabadger.com</a></strong> con <strong>"FIRE"</strong> en la línea de asunto.</p>
             <p>Tu acceso de por vida llegará poco después.</p>
             <p>Nos vemos allí, Jan</p>
