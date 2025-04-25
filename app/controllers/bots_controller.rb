@@ -80,7 +80,7 @@ class BotsController < ApplicationController
   end
 
   def barbell_new_step_confirm
-    @bot.interval ||= Bot::INTERVALS.first
+    @bot.interval ||= Bot::INTERVALS.include?('day') ? 'day' : Bot::INTERVALS.first
     @bot.allocation0 ||= 0.5
     render 'bots/barbell/new/step_confirm'
   end
