@@ -8,7 +8,8 @@ class Bot::SetBarbellOrdersJob < BotJob
 
     bot.update!(status: :working) if bot.pending?
     Bot::SetBarbellOrdersJob.set(wait_until: bot.next_interval_checkpoint_at).perform_later(bot)
-    Bot::BroadcastStatusBarUpdateJob.perform_later(bot, condition: 'next_action_job_at.present?')
+    sleep 0.25 # wait for sidekiq to schedule the job
+    bot.broadcast_status_bar_update
   rescue StandardError => e
     if sidekiq_estimated_retry_delay > 1.public_send(bot.interval)
       bot.notify_about_restart(errors: [e.message], delay: sidekiq_estimated_retry_delay)
@@ -16,7 +17,7 @@ class Bot::SetBarbellOrdersJob < BotJob
       bot.notify_about_error(errors: [e.message])
     end
     bot.update!(status: :retrying)
-    Bot::BroadcastStatusBarUpdateJob.perform_later(bot, condition: 'next_action_job_at.present?')
+    bot.broadcast_status_bar_update
     raise e
   end
 
