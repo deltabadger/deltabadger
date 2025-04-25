@@ -120,15 +120,24 @@ class BotsController < ApplicationController
   def edit; end
 
   def update
-    barbell_bot_params_to_update = barbell_bot_params_as_hash
-    barbell_bot_params_to_update[:settings] = @bot.settings.merge(barbell_bot_params_to_update[:settings])
-    if !@bot.legacy? && @bot.update(barbell_bot_params_to_update)
-      # flash.now[:notice] = t('alert.bot.bot_updated')
-    elsif @bot.legacy? && @bot.update(update_params_legacy)
-      # flash.now[:notice] = t('alert.bot.bot_updated')
+    if @bot.barbell?
+      barbell_bot_params_to_update = barbell_bot_params_as_hash
+      barbell_bot_params_to_update[:settings] = @bot.settings.merge(barbell_bot_params_to_update[:settings])
+      if @bot.update(barbell_bot_params_to_update)
+        # flash.now[:notice] = t('alert.bot.bot_updated')
+      else
+        flash.now[:alert] = @bot.errors.messages.values.flatten.to_sentence
+        render turbo_stream: turbo_stream_prepend_flash, status: :unprocessable_entity
+      end
+    elsif @bot.legacy?
+      if @bot.update(update_params_legacy)
+        # flash.now[:notice] = t('alert.bot.bot_updated')
+      else
+        flash.now[:alert] = @bot.errors.messages.values.flatten.to_sentence
+        render turbo_stream: turbo_stream_prepend_flash, status: :unprocessable_entity
+      end
     else
-      flash.now[:alert] = @bot.errors.messages.values.flatten.to_sentence
-      render turbo_stream: turbo_stream_prepend_flash, status: :unprocessable_entity
+      raise "Unknown bot type: #{@bot.type}"
     end
   end
 
