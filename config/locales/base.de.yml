@@ -217,7 +217,7 @@ de:
         access_instructions_html: |
             <p>Hallo%{name}! Die Community ist nur einen Schritt entfernt.</p>
             <p>Um sie frei von Spam und Menschen zu halten, die finanzielle Freiheit nicht ernst nehmen:</p>
-            <p>Sende eine E-Mail an <strong>%{email}</strong> mit <strong>"FIRE"</strong> in der Betreffzeile.</p>
+            <p>Sende eine E-Mail an <strong><a href="mailto:jan@deltabadger.com">jan@deltabadger.com</a></strong> mit <strong>"FIRE"</strong> in der Betreffzeile.</p>
             <p>Dein lebenslanger Zugang wird kurz darauf eintreffen.</p>
             <p>Bis bald, Jan</p>
 

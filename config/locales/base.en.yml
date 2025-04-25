@@ -219,6 +219,6 @@ en:
         access_instructions_html: |
             <p>Hey%{name}! The community is just one step away.</p>
             <p>To keep it free of spam, and people not serious about financial freedom:</p>
-            <p>Send an email to <strong>%{email}</strong> with <strong>"FIRE"</strong> in the subject line.</p>
+            <p>Send an email to <strong><a href="mailto:jan@deltabadger.com">jan@deltabadger.com</a></strong> with <strong>"FIRE"</strong> in the subject line.</p>
             <p>Your lifetime access will arrive shortly after.</p>
             <p>See you there, Jan</p>
