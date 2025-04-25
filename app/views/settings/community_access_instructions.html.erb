@@ -5,8 +5,7 @@
     </button>
     <%= image_tag "community-lock.webp", class: "community-access-instructions__illustration" %>
     <div>
-      <%= t('community.access_instructions_html',
-            name: current_user.name.present? ? " #{current_user.name}" : "") %>
+      <%= raw t('community.access_instructions_html', name: sanitize(current_user.name.present? ? " #{current_user.name}" : "")) %>
       <img src="https://deltabadger.com/images/signature-white.webp" alt="signature" style="width: 15rem" class="darkmode-only" %>
       <img src="https://deltabadger.com/images/signature.webp" alt="signature" style="width: 15rem" class="lightmode-only" %>
     </div>
