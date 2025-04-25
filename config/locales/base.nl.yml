@@ -216,6 +216,6 @@ nl:
         access_instructions_html: |
             <p>Hallo%{name}! De community is slechts één stap verwijderd.</p>
             <p>Om het vrij te houden van spam en mensen die financiële vrijheid niet serieus nemen:</p>
-            <p>Stuur een e-mail naar <strong>%{email}</strong> met <strong>"FIRE"</strong> in de onderwerpregel.</p>
+            <p>Stuur een e-mail naar <strong><a href="mailto:jan@deltabadger.com">jan@deltabadger.com</a></strong> met <strong>"FIRE"</strong> in de onderwerpregel.</p>
             <p>Je levenslange toegang zal kort daarna arriveren.</p>
             <p>Tot ziens, Jan</p>
