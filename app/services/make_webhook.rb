@@ -36,13 +36,13 @@ class MakeWebhook < BaseService
       send_user_to_sendgrid(bot)
     elsif restart && recoverable?(result)
       result = range_check_result if result.nil?
-      Transaction.create(failed_transaction_params(result, bot))
+      Transaction.create!(failed_transaction_params(result, bot))
       bot.update(status: 'working', restarts: bot.restarts + 1, fetch_restarts: 0)
       @schedule_webhook.call(bot, webhook)
       @notifications.restart_occured(bot: bot, errors: result.errors) if notify
       result = Result::Success.new
     else
-      Transaction.create(failed_transaction_params(result, bot))
+      Transaction.create!(failed_transaction_params(result, bot))
       @notifications.error_occured(bot: bot, errors: result.errors) if notify
     end
 
@@ -139,10 +139,11 @@ class MakeWebhook < BaseService
       amount: result[:amount],
       bot_interval: bot.interval,
       bot_price: bot.price,
-      transaction_type: 'REGULAR'
+      transaction_type: 'REGULAR',
+      exchange: bot.exchange
     }
 
-    Transaction.create(transaction_params)
+    Transaction.create!(transaction_params)
   end
 
   def fixing_transaction?(price)
@@ -163,7 +164,8 @@ class MakeWebhook < BaseService
       status: :failure,
       error_messages: result.errors,
       bot_price: bot.price,
-      transaction_type: 'REGULAR'
+      transaction_type: 'REGULAR',
+      exchange: bot.exchange
     }
   end
 
