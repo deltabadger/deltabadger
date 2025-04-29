@@ -48,6 +48,6 @@ module Bot::Schedulable
   private
 
   def legacy_next_interval_checkpoint_at
-    NextTradingBotTransactionAt.new.call(self)
+    NextTradingBotTransactionAt.new.call(self) || Time.current
   end
 end

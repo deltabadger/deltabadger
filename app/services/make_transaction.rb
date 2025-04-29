@@ -45,13 +45,13 @@ class MakeTransaction < BaseService
       send_user_to_sendgrid(bot)
     elsif restart && (!range_check_result.success? || recoverable?(result))
       result = range_check_result if result.nil?
-      Transaction.create(failed_transaction_params(result, bot, fixing_price))
+      Transaction.create!(failed_transaction_params(result, bot, fixing_price))
       bot.update(status: 'working', restarts: bot.restarts + 1, fetch_restarts: 0)
       @schedule_transaction.call(bot)
       @notifications.restart_occured(bot: bot, errors: result.errors) if notify
       result = Result::Success.new
     else
-      Transaction.create(failed_transaction_params(result, bot, fixing_price))
+      Transaction.create!(failed_transaction_params(result, bot, fixing_price))
       @order_flow_helper.stop_bot(bot, notify, result.errors)
     end
 
@@ -128,10 +128,11 @@ class MakeTransaction < BaseService
       amount: result[:amount],
       bot_interval: bot.interval,
       bot_price: bot.price,
-      transaction_type: 'REGULAR'
+      transaction_type: 'REGULAR',
+      exchange: bot.exchange
     }
 
-    Transaction.create(transaction_params)
+    Transaction.create!(transaction_params)
   end
 
   def fixing_transaction?(price)
@@ -153,7 +154,8 @@ class MakeTransaction < BaseService
       error_messages: result.errors,
       bot_interval: bot.interval,
       bot_price: fixing_transaction?(price) ? price : bot.price,
-      transaction_type: fixing_transaction?(price) ? 'FIXING' : 'REGULAR'
+      transaction_type: fixing_transaction?(price) ? 'FIXING' : 'REGULAR',
+      exchange: bot.exchange
     }
   end
 
