@@ -1,12 +1,12 @@
 <%= turbo_stream_from "bot_#{bot.id}", :status_bar %>
 
 <%= tag.div id: dom_id(bot, :status_bar), style: "width: 100%; display: flex" do %>
-  <div class="bot-control__status <%= 'active' if bot.status == 'working' || bot.status == 'pending' %>">
-    <% if bot&.pending? %>
+  <div class="bot-control__status <%= 'active' if bot.working? || bot.pending? %>">
+    <% if bot.pending? %>
       <%= t('barbell_bots.status.setting_orders') %>
-    <% elsif bot&.stopped? %>
+    <% elsif bot.stopped? %>
       <%= t('barbell_bots.status.paused') %>
-    <% elsif bot&.working? || bot&.retrying? %>
+    <% elsif bot.working? || bot.retrying? %>
       <%= tag.div class: "bot-control__status__bar", style: "min-width:0.5rem; width: #{bot.progress_percentage * 100}%", data: {
         controller: "progress-bar",
         progress_bar_start_time_value: bot.last_interval_checkpoint_at.iso8601,
