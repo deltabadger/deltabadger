@@ -23,15 +23,15 @@ class MakeWithdrawal < BaseService
 
     result = perform_action(bot)
     if result&.success?
-      Transaction.create(transaction_params(result, bot))
+      Transaction.create!(transaction_params(result, bot))
       bot.update(status: 'working', restarts: 0, account_balance: 0.0)
       @schedule_withdrawal.call(bot)
     elsif insufficient_balance?(result)
-      Transaction.create(skipped_transaction_params(bot))
+      Transaction.create!(skipped_transaction_params(bot))
       bot.update(status: 'working', restarts: 0)
       @schedule_withdrawal.call(bot)
     else
-      Transaction.create(failed_transaction_params(result, bot))
+      Transaction.create!(failed_transaction_params(result, bot))
       Rails.logger.info '=======================  make_withdrawal ELSE =============================='
       Rails.logger.info "================= #{result.errors.inspect} ======================="
       Rails.logger.info '====================================================='
@@ -92,7 +92,8 @@ class MakeWithdrawal < BaseService
     result.data.slice(:external_id, :amount).merge(
       bot_id: bot.id,
       status: :success,
-      transaction_type: 'WITHDRAWAL'
+      transaction_type: 'WITHDRAWAL',
+      exchange: bot.exchange
     )
   end
 
@@ -101,7 +102,8 @@ class MakeWithdrawal < BaseService
       bot_id: bot.id,
       status: :failure,
       error_messages: result.errors,
-      transaction_type: 'WITHDRAWAL'
+      transaction_type: 'WITHDRAWAL',
+      exchange: bot.exchange
     }
   end
 
@@ -109,7 +111,8 @@ class MakeWithdrawal < BaseService
     {
       bot_id: bot.id,
       status: :skipped,
-      transaction_type: 'WITHDRAWAL'
+      transaction_type: 'WITHDRAWAL',
+      exchange: bot.exchange
     }
   end
 

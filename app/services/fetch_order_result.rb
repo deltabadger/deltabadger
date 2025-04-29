@@ -90,7 +90,7 @@ class FetchOrderResult < BaseService
                api.fetch_order_by_id(external_id)
              end
 
-    Transaction.create(transaction_params(result, bot, price, called_bot)) if result.success? || fetched?(result)
+    Transaction.create!(transaction_params(result, bot, price, called_bot)) if result.success? || fetched?(result)
 
     if result.success?
       bot.reload # TODO: needed?
@@ -121,7 +121,8 @@ class FetchOrderResult < BaseService
         bot_interval: bot.webhook? ? '' : bot.interval,
         bot_price: fixing_transaction?(price) ? price : bot.price,
         transaction_type: fixing_transaction?(price) ? 'FIXING' : 'REGULAR',
-        called_bot_type: bot.webhook? ? called_bot_type(bot, called_bot) : nil
+        called_bot_type: bot.webhook? ? called_bot_type(bot, called_bot) : nil,
+        exchange: bot.exchange
       )
     else
       {
@@ -131,7 +132,8 @@ class FetchOrderResult < BaseService
         bot_interval: bot.webhook? ? '' : bot.interval,
         bot_price: fixing_transaction?(price) ? price : bot.price,
         transaction_type: fixing_transaction?(price) ? 'FIXING' : 'REGULAR',
-        called_bot_type: bot.webhook? ? called_bot_type(bot, called_bot) : nil
+        called_bot_type: bot.webhook? ? called_bot_type(bot, called_bot) : nil,
+        exchange: bot.exchange
       }
     end
   end
