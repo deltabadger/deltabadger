@@ -1,0 +1,34 @@
+.set-api
+    margin: 0 2rem
+    padding: 2rem
+    display: flex
+    flex-direction: column
+    gap: 10rem
+    border: 0.125rem solid var(--label-select-inactive)
+    border-radius: 1.5rem
+    @media screen and (min-width: 576px)
+        padding: 4rem
+    &__header
+        font-size: 2.4rem
+        line-height: 3rem
+        font-weight: 550
+        color: var(--text)
+        text-align: center
+    &__form,&__instructions
+        display: flex
+        flex-direction: column
+        gap: 4rem
+        ul,ol,li
+            margin-top:0
+            padding-top:0
+            margin-bottom:0
+            padding-bottom:0
+            color: var(--text)
+            b
+                color: var(--link)
+            a
+                color: var(--link)
+                text-decoration: underline
+                &:hover
+                    color: var(--link-hover)
+                    text-decoration: none

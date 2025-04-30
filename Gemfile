@@ -28,7 +28,7 @@ gem 'rails', '~> 6.0.4', '>= 6.0.4.1'
 gem 'rails_cloudflare_turnstile', git: 'https://github.com/guillemap/rails-cloudflare-turnstile', branch: 'add-turbo-support' # TODO: use the official gem once https://github.com/instrumentl/rails-cloudflare-turnstile/pull/186 is merged
 gem 'rqrcode'
 gem 'webpacker', '~> 5.4'
-gem 'sidekiq', '~> 6.5'
+gem 'sidekiq', '~> 6.5.12'
 gem 'sidekiq-limit_fetch', git: 'https://github.com/brainopia/sidekiq-limit_fetch'
 gem 'scenic'
 gem 'uglifier', '>= 1.3.0'
@@ -42,7 +42,7 @@ gem 'lol_dba'
 
 group :development, :test do
   gem 'debug'
-  gem 'bullet'
+  gem 'bullet', '~>7.2.0'
   gem 'byebug', platforms: [:mri, :mingw, :x64_mingw]
   gem 'rubocop'
   gem 'rspec-rails'
@@ -60,6 +60,7 @@ group :development do
   gem 'guard-rspec', require: false
   gem 'guard-rubocop'
   gem 'web-console'
+  gem "rack-mini-profiler", "~> 3.3"
 end
 
 group :test do
@@ -76,7 +77,7 @@ gem "faraday-net_http_persistent", "~> 2.3.0"
 
 gem "turbo-rails", "~> 2.0.11"
 gem "stimulus-rails", "~> 1.3.4"
-gem 'redis', '~> 5.0'
+gem 'redis', '~> 4.8.1'
 gem "jwt", "~> 2.9.3"
 gem "jaro_winkler", "~> 1.6"
 gem "oj", "~> 3.16"
@@ -84,3 +85,7 @@ gem "ruby-openai", "~> 7.3.1"
 gem "dartsass-rails", "~> 0.5.1"
 gem "intercom-rails"
 gem "sidekiq-cron"
+gem "pagy", "~> 6.5"
+gem "haikunator", "~> 1.1"
+gem "sqids" # for obfuscating IDs
+gem "mini_magick", "~> 5.2"

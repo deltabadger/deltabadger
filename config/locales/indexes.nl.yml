@@ -1,0 +1,47 @@
+nl:
+    index:
+        bitcoin:
+            title: "Bitcoin"
+            info: "Gemiddelde kostprijs in Bitcoin is een gouden standaard voor langetermijnbeleggers."
+        crypto_berbell:
+            title: "Crypto halter"
+            info: "Dek 74% van de cryptomarkt met een eenvoudige, probleemloze portefeuille die automatisch herbalanceert."
+        crypto_index:
+            title: "Crypto index"
+            info: "Er is geen crypto S&P 500, maar nu kunt u er een maken. Automatiseer een indexportefeuille van top crypto."
+        altcoin_season:
+            title: "Altcoin seizoen"
+            info: "Investeer veilig in een portefeuille van winnende altcoins. Verminder het risico van small-cap crypto door handmatige toewijzing te vervangen door automatische indexering."
+        layer_1:
+            title: "Layer 1"
+            info: "Primaire blockchain-netwerken die transacties direct verwerken en de basis vormen voor blockchain-infrastructuur."
+        made_in_usa:
+            title: "Made in USA"
+            info: "Cryptocurrencies met significante connecties met de Verenigde Staten via hun oprichtersteams of bedrijfszetels."
+        alleged_sec_securities:
+            title: "Door de SEC gereguleerde cryptovaluta"
+            info: "Tokens en cryptocurrencies die door de Amerikaanse Securities and Exchange Commission (SEC) worden beschouwd als gereguleerde financiële instrumenten."
+        memecoins:
+            title: "Memecoins"
+            info: "Munten die waarde ontlenen aan internetmemes en community-hype in plaats van onderliggende technologie of nut."
+        elon_musk_inspired:
+            title: "Geïnspireerd door Elon Musk"
+            info: "Meme coins geïnspireerd door Elon Musk, geen van deze projecten wordt (noodzakelijkerwijs) goedgekeurd of gemaakt door Elon Musk."
+        ai_portfolio:
+            title: "AI-portefeuille"
+            info: "Artificial Intelligence (AI)-tokens zijn cryptocurrencies die AI-gerelateerde projecten ondersteunen."
+        layer_2:
+            title: "Layer 2"
+            info: "Layer 2-oplossingen zijn schaalbaarheidsoplossingen gebouwd op Layer 1-blockchains om de transactiesnelheid te verbeteren en kosten te verlagen."
+        layer_0:
+            title: "Layer 0"
+            info: "Layer 0-protocollen bieden de fundamentele infrastructuur voor het bouwen en verbinden van meerdere blockchains."
+        gamefi:
+            title: "GameFi"
+            info: "GameFi-tokens ondersteunen blockchain-gebaseerde gameplatformen en virtuele werelden, waarbij gaming wordt gecombineerd met gedecentraliseerde financiën."
+        yield_farming:
+            title: "Yield farming"
+            info: "Yield farming-tokens stellen gebruikers in staat beloningen te verdienen door liquiditeit te verschaffen aan gedecentraliseerde financiële protocollen."
+        consensys_portfolio:
+            title: "Consensys portefeuille"
+            info: "Protocollen en tokens waarin Consensys heeft geïnvesteerd." 

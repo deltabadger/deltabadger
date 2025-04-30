@@ -2,6 +2,23 @@ class Exchange < ApplicationRecord
   include ExchangeApi::BinanceEnum
   include ExchangeApi::FtxEnum
 
+  has_many :bots
+  has_many :api_keys
+  has_many :exchange_assets
+  has_many :assets, through: :exchange_assets
+  has_many :exchange_tickers
+  has_many :tickers, class_name: 'ExchangeTicker' # alias for exchange_tickers
+  has_many :transactions
+
+  validates :name, presence: true
+
+  scope :available, -> { where.not(name: ['FTX', 'FTX.US', 'Coinbase Pro']) }
+  scope :available_for_barbell_bots, lambda {
+                                       where(name: %w[Coinbase Kraken])
+                                     } # FIXME: Temporary until all exchanges are supported
+
+  include RemoteDataAggregator
+
   # rubocop:disable Metrics/CyclomaticComplexity
   def symbols
     market = case name.downcase
@@ -35,7 +52,110 @@ class Exchange < ApplicationRecord
     Result::Success.new(filter_free_plan_symbols(all_symbols.data))
   end
 
+  def set_exchange_implementation(api_key: nil)
+    @exchange_implementation = case name.downcase
+                               #  when 'binance' then Exchanges::BinanceExchange.new(self, api_key)
+                               when 'coinbase' then Exchanges::CoinbaseExchange.new(self, api_key)
+                               when 'kraken' then Exchanges::KrakenExchange.new(self, api_key)
+                               else
+                                 puts "Unsupported exchange #{name}"
+                                 # raise NotImplementedError, "Unsupported exchange #{name}"
+                               end
+  end
+
+  def coingecko_id
+    exchange_implementation.coingecko_id
+  end
+
+  # @returns
+  #   #=> {
+  #         ticker: [String],
+  #         base: [String],
+  #         quote: [String],
+  #         minimum_base_size: [Float],
+  #         minimum_quote_size: [Float],
+  #         maximum_base_size: [Float],
+  #         maximum_quote_size: [Float],
+  #         base_decimals: [Integer],
+  #         quote_decimals: [Integer],
+  #         price_decimals: [Integer]
+  #       }
+  def get_tickers_info
+    exchange_implementation.get_tickers_info
+  end
+
+  def get_balances(asset_ids: nil)
+    exchange_implementation.get_balances(asset_ids: asset_ids)
+  end
+
+  def get_balance(asset_id:)
+    exchange_implementation.get_balance(asset_id: asset_id)
+  end
+
+  def get_last_price(base_asset_id:, quote_asset_id:)
+    exchange_implementation.get_last_price(base_asset_id: base_asset_id, quote_asset_id: quote_asset_id)
+  end
+
+  def get_bid_price(base_asset_id:, quote_asset_id:)
+    exchange_implementation.get_bid_price(base_asset_id: base_asset_id, quote_asset_id: quote_asset_id)
+  end
+
+  def get_ask_price(base_asset_id:, quote_asset_id:)
+    exchange_implementation.get_ask_price(base_asset_id: base_asset_id, quote_asset_id: quote_asset_id)
+  end
+
+  # @param amount_type [Symbol] :base or :quote
+  def market_buy(base_asset_id:, quote_asset_id:, amount:, amount_type:)
+    exchange_implementation.market_buy(base_asset_id: base_asset_id, quote_asset_id: quote_asset_id, amount: amount,
+                                       amount_type: amount_type)
+  end
+
+  # @param amount_type [Symbol] :base or :quote
+  def market_sell(base_asset_id:, quote_asset_id:, amount:, amount_type:)
+    exchange_implementation.market_sell(base_asset_id: base_asset_id, quote_asset_id: quote_asset_id, amount: amount,
+                                        amount_type: amount_type)
+  end
+
+  # @param amount_type [Symbol] :base or :quote
+  def limit_buy(base_asset_id:, quote_asset_id:, amount:, amount_type:, price:)
+    exchange_implementation.limit_buy(base_asset_id: base_asset_id, quote_asset_id: quote_asset_id, amount: amount,
+                                      amount_type: amount_type, price: price)
+  end
+
+  # @param amount_type [Symbol] :base or :quote
+  def limit_sell(base_asset_id:, quote_asset_id:, amount:, amount_type:, price:)
+    exchange_implementation.limit_sell(base_asset_id: base_asset_id, quote_asset_id: quote_asset_id, amount: amount,
+                                       amount_type: amount_type, price: price)
+  end
+
+  def get_order(order_id:)
+    exchange_implementation.get_order(order_id: order_id)
+  end
+
+  def check_valid_api_key?(api_key:)
+    exchange_implementation.check_valid_api_key?(api_key: api_key)
+  end
+
+  # @param amount_type [Symbol] :base or :quote
+  def adjusted_amount(base_asset_id:, quote_asset_id:, amount:, amount_type:, method: :floor)
+    raise "Unsupported amount type #{amount_type}" unless %i[quote base].include?(amount_type)
+
+    ticker = exchange_tickers.find_by(base_asset_id: base_asset_id, quote_asset_id: quote_asset_id)
+    decimals = amount_type == :quote ? ticker.quote_decimals : ticker.base_decimals
+    amount.send(method, decimals)
+  end
+
+  def adjusted_price(base_asset_id:, quote_asset_id:, price:, method: :floor)
+    ticker = exchange_tickers.find_by(base_asset_id: base_asset_id, quote_asset_id: quote_asset_id)
+    decimals = ticker.price_decimals
+    price.send(method, decimals)
+  end
+
   private
+
+  def exchange_implementation
+    @exchange_implementation ||= set_exchange_implementation
+  end
 
   def filter_free_plan_symbols(symbols)
     return symbols # disable free plan symbols limitation

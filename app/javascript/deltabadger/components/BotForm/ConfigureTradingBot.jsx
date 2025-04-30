@@ -69,7 +69,7 @@ export const ConfigureTradingBot = ({ showLimitOrders, currentExchange, handleRe
   const ResetButton = () => (
     <div
       onClick={() => handleReset()}
-      className="sbutton sbutton--link"
+      className="button button--link"
     >
       <i className="material-icons">close</i>
       <span>Cancel</span>
@@ -92,15 +92,15 @@ export const ConfigureTradingBot = ({ showLimitOrders, currentExchange, handleRe
       return (
           <div>
             <div>
-              <RawHTML tag="p">{I18n.t('bots.setup.frequency_limit.limit_exceeded', {frequency_limit: frequencyLimit, price: newIntervalsValue, currency: currencyOfMinimum})}</RawHTML>
+              <RawHTML tag="p">{I18n.t('bot.setup.frequency_limit.limit_exceeded', {frequency_limit: frequencyLimit, price: newIntervalsValue, currency: currencyOfMinimum})}</RawHTML>
               <div className="db-bot__modal__btn-group">
                 <div onClick={() => {
                   setOpen(false)
-                }} className="sbutton sbutton--primary sbutton--outline">{I18n.t('bots.setup.frequency_limit.back_to_settings')}
+                }} className="button button--primary button--outline">{I18n.t('bot.setup.frequency_limit.back_to_settings')}
                 </div>
                 <div onClick={
                   _handleSmartIntervalsChange
-                } className="sbutton sbutton--success">{I18n.t('bots.setup.frequency_limit.start_the_bot')}
+                } className="button button--success">{I18n.t('bot.setup.frequency_limit.start_the_bot')}
                 </div>
               </div>
             </div>
@@ -153,7 +153,7 @@ export const ConfigureTradingBot = ({ showLimitOrders, currentExchange, handleRe
         <div>
           <div
               onClick={_handleStarts}
-              className={`sbutton ${disableSubmit ? 'sbutton--outline sbutton--disabled' : 'sbutton--success'}`}>
+              className={`button ${disableSubmit ? 'button--outline button--disabled' : 'button--success'}`}>
             <div className="animicon animicon--start">
               <div className="animicon__a"></div>
               <div className="animicon__b"></div>
@@ -206,7 +206,7 @@ export const ConfigureTradingBot = ({ showLimitOrders, currentExchange, handleRe
       smartIntervalsValue,
       price: price.trim(),
       percentage: isLimitOrder() ? percentage.trim() : undefined,
-      botType: 'free',
+      botType: 'trading',
     }
 
     return botParams
@@ -267,7 +267,7 @@ export const ConfigureTradingBot = ({ showLimitOrders, currentExchange, handleRe
       smartIntervalsValue,
       price: price.trim(),
       percentage: isLimitOrder() ? percentage.trim() : undefined,
-      botType: 'free',
+      botType: 'trading',
       priceRangeEnabled,
       priceRange,
       useSubaccount,
@@ -296,9 +296,9 @@ export const ConfigureTradingBot = ({ showLimitOrders, currentExchange, handleRe
 
   const getSmartIntervalsDisclaimer = () => {
     if (minimumOrderParams.showQuote) {
-      return I18n.t('bots.smart_intervals_disclaimer', {exchange: currentExchange.name, currency: currencyOfMinimum, minimum: minimumOrderParams.value})
+      return I18n.t('bot.smart_intervals_disclaimer', {exchange: currentExchange.name, currency: currencyOfMinimum, minimum: minimumOrderParams.value})
     } else {
-      return I18n.t('bots.smart_intervals_disclaimer_quote', {currency: currencyOfMinimum, minimum: minimumOrderParams.value});
+      return I18n.t('bot.smart_intervals_disclaimer_quote', {currency: currencyOfMinimum, minimum: minimumOrderParams.value});
     }
   }
 
@@ -316,17 +316,17 @@ export const ConfigureTradingBot = ({ showLimitOrders, currentExchange, handleRe
         <div className="db-bot__alert text-danger">{ errors }</div>
         <form>
 
-          <div className="form-inline db-bot__form__schedule">
+          <div className="conversational flex-justify-center">
             <div className="form-group mr-2">
               <select
                 value={type}
                 onChange={e => setType(e.target.value)}
                 className="bot-input bot-input--select bot-input--order-type bot-input--paper-bg"
               >
-                <option value="market_buy">{I18n.t('bots.buy')}</option>
-                <option value="market_sell">{I18n.t('bots.sell')}</option>
-                <option value="limit_buy" disabled={!showLimitOrders}>{I18n.t('bots.limit_buy')}</option>
-                <option value="limit_sell" disabled={!showLimitOrders}>{I18n.t('bots.limit_sell')}</option>
+                <option value="market_buy">{I18n.t('bot.buy')}</option>
+                <option value="market_sell">{I18n.t('bot.sell')}</option>
+                <option value="limit_buy" disabled={!showLimitOrders}>{I18n.t('bot.limit_buy')}</option>
+                <option value="limit_sell" disabled={!showLimitOrders}>{I18n.t('bot.limit_sell')}</option>
               </select>
             </div>
             {isSellOffer()?
@@ -359,7 +359,7 @@ export const ConfigureTradingBot = ({ showLimitOrders, currentExchange, handleRe
                       }
                     </select>
                   </div>
-                  <div className="form-group mr-2">{I18n.t('bots.for')}</div>
+                  <div className="form-group mr-2">{I18n.t('bot.for')}</div>
                 </>
                 :
                 <>
@@ -381,7 +381,7 @@ export const ConfigureTradingBot = ({ showLimitOrders, currentExchange, handleRe
                       }
                     </select>
                   </div>
-                  <div className="form-group mr-2">{I18n.t('bots.for')}</div>
+                  <div className="form-group mr-2">{I18n.t('bot.for')}</div>
                   <div className="form-group mr-2">
                     <input
                         type="text"
@@ -414,10 +414,10 @@ export const ConfigureTradingBot = ({ showLimitOrders, currentExchange, handleRe
                       onChange={e => setInterval(e.target.value)}
                       className="bot-input bot-input--select bot-input--interval bot-input--paper-bg"
               >
-                <option value="hour">{I18n.t('bots.hour')}</option>
-                <option value="day">{I18n.t('bots.day')}</option>
-                <option value="week">{I18n.t('bots.week')}</option>
-                <option value="month">{I18n.t('bots.month')}</option>
+                <option value="hour">{I18n.t('bot.hour')}</option>
+                <option value="day">{I18n.t('bot.day')}</option>
+                <option value="week">{I18n.t('bot.week')}</option>
+                <option value="month">{I18n.t('bot.month')}</option>
               </select>
             </div>
           </div>
@@ -432,7 +432,7 @@ export const ConfigureTradingBot = ({ showLimitOrders, currentExchange, handleRe
                 onChange={() => setUseSubaccounts(!useSubaccount)}
             />
             <div>
-              <RawHTML tag="span">{splitTranslation(I18n.t('bots.subaccounts_info'))}</RawHTML>
+              <RawHTML tag="span">{splitTranslation(I18n.t('bot.subaccounts_info'))}</RawHTML>
               <select
                   value={selectedSubaccount}
                   onChange={e => setSelectedSubaccount(e.target.value)}
@@ -456,7 +456,7 @@ export const ConfigureTradingBot = ({ showLimitOrders, currentExchange, handleRe
                 onChange={() => setForceSmartIntervals(!forceSmartIntervals)}
             />
             <div>
-              <RawHTML tag="span">{splitTranslation(I18n.t('bots.force_smart_intervals_html', {currency: currencyOfMinimum}))[0]}</RawHTML>
+              <RawHTML tag="span">{splitTranslation(I18n.t('bot.force_smart_intervals_html', {currency: currencyOfMinimum}))[0]}</RawHTML>
               <input
                   type="text"
                   size={(smartIntervalsValue.length > 0) ? smartIntervalsValue.length : 3 }
@@ -466,7 +466,7 @@ export const ConfigureTradingBot = ({ showLimitOrders, currentExchange, handleRe
                   onBlur={validateSmartIntervalsValue}
                   min={minimumOrderParams.value}
               />
-              <RawHTML tag="span">{splitTranslation(I18n.t('bots.force_smart_intervals_html', {currency: currencyOfMinimum}))[1]}</RawHTML>
+              <RawHTML tag="span">{splitTranslation(I18n.t('bot.force_smart_intervals_html', {currency: currencyOfMinimum}))[1]}</RawHTML>
 
               <small className="hide-when-running hide-when-disabled">
                 <div>
@@ -487,7 +487,7 @@ export const ConfigureTradingBot = ({ showLimitOrders, currentExchange, handleRe
               disabled={!showLimitOrders}
             />
             <div>
-              <RawHTML tag="span">{ I18n.t('bots.feecutter_html')}</RawHTML> <input
+              <RawHTML tag="span">{ I18n.t('bot.feecutter_html')}</RawHTML> <input
                 type="text"
                 value={percentage}
                 size={(percentage.length > 0) ? percentage.length : 3}
@@ -495,7 +495,7 @@ export const ConfigureTradingBot = ({ showLimitOrders, currentExchange, handleRe
                 onChange={e => setPercentage(e.target.value)}
                 onBlur={validatePercentage}
                 disabled={!showLimitOrders || !isLimitOrder()}
-                /> % { isSellOffer() ? I18n.t('bots.above') : I18n.t('bots.below') } {I18n.t('bots.price')}.
+                /> % { isSellOffer() ? I18n.t('bot.above') : I18n.t('bot.below') } {I18n.t('bot.price')}.
 
               { isLimitOrder() && <small><LimitOrderNotice /></small> }
               { !showLimitOrders && <div className="bot input bot-input--pro-plan-only--before"><a href={`/${document.body.dataset.locale}/upgrade`} >Pro</a></div> }
@@ -513,7 +513,7 @@ export const ConfigureTradingBot = ({ showLimitOrders, currentExchange, handleRe
               disabled={!showLimitOrders}
             />
             <div>
-              <RawHTML tag="span">{splitTranslation(I18n.t(isSellOffer() ? 'bots.price_range_sell_html' :'bots.price_range_buy_html', {quote: quote, base: base}))[0]}</RawHTML>
+              <RawHTML tag="span">{splitTranslation(I18n.t(isSellOffer() ? 'bot.price_range_sell_html' :'bot.price_range_buy_html', {quote: quote, base: base}))[0]}</RawHTML>
               <input
                 type="text"
                 className="bot-input bot-input--sizable"
@@ -523,7 +523,7 @@ export const ConfigureTradingBot = ({ showLimitOrders, currentExchange, handleRe
                 size={Math.max(priceRange.low.length, 1)}
               />
 
-              <RawHTML tag="span">{splitTranslation(I18n.t(isSellOffer() ? 'bots.price_range_sell_html' :'bots.price_range_buy_html', {quote: quote, base: base}))[1]}</RawHTML>
+              <RawHTML tag="span">{splitTranslation(I18n.t(isSellOffer() ? 'bot.price_range_sell_html' :'bot.price_range_buy_html', {quote: quote, base: base}))[1]}</RawHTML>
               <input
                 type="text"
                 className="bot-input bot-input--sizable"
@@ -532,7 +532,7 @@ export const ConfigureTradingBot = ({ showLimitOrders, currentExchange, handleRe
                 disabled={!showLimitOrders}
                 size={ Math.max(priceRange.high.length, 1) }
               />
-              <RawHTML tag="span">{splitTranslation(I18n.t(isSellOffer() ? 'bots.price_range_sell_html' :'bots.price_range_buy_html', {quote: quote, base: base}))[2]}</RawHTML>
+              <RawHTML tag="span">{splitTranslation(I18n.t(isSellOffer() ? 'bot.price_range_sell_html' :'bot.price_range_buy_html', {quote: quote, base: base}))[2]}</RawHTML>
               { !showLimitOrders && <div className="bot input bot-input--pro-plan-only--before"><a href={`/${document.body.dataset.locale}/upgrade`} >Pro</a></div> }
             </div>
           </label>

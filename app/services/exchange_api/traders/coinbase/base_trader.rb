@@ -47,7 +47,7 @@ module ExchangeApi
               return fetch_order_by_id(order_id)
             end
             Result::Success.new(
-              offer_id: order_id,
+              external_id: order_id,
               amount: amount,
               rate: rate
             )
@@ -122,7 +122,7 @@ module ExchangeApi
             order_id = response.dig('success_response', 'order_id')
             raise KeyError if order_id.nil?
 
-            Result::Success.new(offer_id: order_id)
+            Result::Success.new(external_id: order_id)
           else
             error_to_failure([response.dig('error_response', 'message')])
           end
@@ -147,7 +147,7 @@ module ExchangeApi
         end
 
         def coinbase_engine_error?(parsed_response)
-          parsed_response.dig('order', 'cancel_message') == "Internal error"
+          parsed_response.dig('order', 'cancel_message') == 'Internal error'
         end
       end
     end

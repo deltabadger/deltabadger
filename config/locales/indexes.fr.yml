@@ -1,0 +1,47 @@
+fr:
+    index:
+        bitcoin:
+            title: "Bitcoin"
+            info: "L'investissement régulier dans le Bitcoin est une référence pour les investisseurs à long terme."
+        crypto_berbell:
+            title: "Haltère crypto"
+            info: "Couvrez 74% du marché des cryptomonnaies avec un portefeuille simple et sans tracas qui se rééquilibre automatiquement."
+        crypto_index:
+            title: "Indice crypto"
+            info: "Il n'existe pas de S&P 500 pour les cryptomonnaies, mais vous pouvez maintenant en créer un. Automatisez un portefeuille indexé des principales cryptomonnaies."
+        altcoin_season:
+            title: "Saison des altcoins"
+            info: "Investissez en toute sécurité dans un portefeuille d'altcoins gagnants. Atténuez le risque des cryptomonnaies à petite capitalisation en remplaçant l'allocation manuelle par une indexation automatique."
+        layer_1:
+            title: "Layer 1"
+            info: "Réseaux blockchain primaires qui traitent directement les transactions et fournissent la base de l'infrastructure blockchain."
+        made_in_usa:
+            title: "Made in USA"
+            info: "Cryptomonnaies ayant des liens significatifs avec les États-Unis par l'intermédiaire de leurs équipes fondatrices ou de leurs sièges sociaux."
+        alleged_sec_securities:
+            title: "Cryptomonnaies surveillées par la SEC"
+            info: "Jetons et cryptomonnaies que la Commission des valeurs mobilières des États-Unis (SEC) considère comme des instruments financiers réglementés."
+        memecoins:
+            title: "Memecoins"
+            info: "Monnaies qui tirent leur valeur des mèmes Internet et de l'engouement de la communauté plutôt que de la technologie sous-jacente ou de l'utilité."
+        elon_musk_inspired:
+            title: "Inspiré par Elon Musk"
+            info: "Meme coins inspirées par Elon Musk, aucun de ces projets n'est (nécessairement) approuvé ou créé par Elon Musk."
+        ai_portfolio:
+            title: "Portefeuille IA"
+            info: "Les jetons d'Intelligence Artificielle (IA) sont des cryptomonnaies qui alimentent des projets liés à l'IA."
+        layer_2:
+            title: "Layer 2"
+            info: "Les solutions de Layer 2 sont des solutions d'évolutivité construites sur des blockchains de Layer 1 pour améliorer la vitesse des transactions et réduire les coûts."
+        layer_0:
+            title: "Layer 0"
+            info: "Les protocoles de Layer 0 fournissent l'infrastructure fondamentale pour construire et connecter plusieurs blockchains."
+        gamefi:
+            title: "GameFi"
+            info: "Les jetons GameFi alimentent des plateformes de jeu basées sur la blockchain et des mondes virtuels, combinant le jeu avec la finance décentralisée."
+        yield_farming:
+            title: "Yield farming"
+            info: "Les jetons de yield farming permettent aux utilisateurs de gagner des récompenses en fournissant de la liquidité aux protocoles de finance décentralisée."
+        consensys_portfolio:
+            title: "Portefeuille Consensys"
+            info: "Protocoles et jetons dans lesquels Consensys a investi." 

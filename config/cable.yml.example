@@ -1,0 +1,13 @@
+development:
+  # adapter: async
+  adapter: redis
+  url: <%= ENV['REDIS_CABLE_URL'] %>
+  channel_prefix: deltabadger_development
+
+test:
+  adapter: test
+
+production:
+  adapter: redis
+  url: <%= ENV['REDIS_CABLE_URL'] %>
+  channel_prefix: deltabadger_production

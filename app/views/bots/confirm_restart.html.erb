@@ -1,0 +1,28 @@
+<%= render 'layouts/modal/base' do %>
+  <div class="modal">
+    <%= button_tag class: 'modal__close', data: { action: 'modal--base#animateOutCloseAndCleanUp' } do %>
+      <%= render partial: 'svg/24x24_close' %>
+    <% end %>
+    <div class="modal__header">
+      <h1 class="modal__title"><%= @bot.label %></h1>
+    </div>
+    <div class="modal__body text-center">
+      <% if @bot.restarting_within_interval? %>
+      <p>
+        <%= t('bot.buttons.start.on_schedule.info_html', time: distance_of_time_in_words(Time.current, @bot.next_interval_checkpoint_at)) %>
+      </p>
+      <div class="buttons buttons--col">
+        <%= button_to t('bot.buttons.start.on_schedule.skip'), start_bot_path(@bot, ignore_missed_orders: true), class: 'button button--outline button--large', data: { action: 'click->modal--base#animateOutCloseAndCleanUp' } %>
+        <%= button_to t('bot.buttons.start.on_schedule.continue'), start_bot_path(@bot, ignore_missed_orders: false), class: 'button button--success button--large', data: { action: 'click->modal--base#animateOutCloseAndCleanUp' } %>
+      </div>
+    <% else %>
+      <p>
+        <%= t('bot.buttons.start.missed.info_html', amount: rounded_quote_amount_for(exchange: @bot.exchange, base_asset_id: @bot.base0_asset_id, quote_asset_id: @bot.quote_asset_id, amount: @bot.pending_quote_amount), quote: @bot.quote_asset.symbol) %>
+      </p>
+      <div class="buttons buttons--col">
+        <%= button_to t('bot.buttons.start.missed.skip'), start_bot_path(@bot, ignore_missed_orders: true), class: 'button button--outline button--large', data: { action: 'click->modal--base#animateOutCloseAndCleanUp' } %>
+        <%= button_to t('bot.buttons.start.missed.continue'), start_bot_path(@bot, ignore_missed_orders: false), class: 'button button--success button--large', data: { action: 'click->modal--base#animateOutCloseAndCleanUp' } %>
+      </div>
+    <% end %>
+  </div>
+<% end %>

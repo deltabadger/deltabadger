@@ -1,5 +1,5 @@
 nl:
-    bots:
+    bot:
         setup:
             api_not_available: 'Exchange API is niet beschikbaar'
             binance:
@@ -56,7 +56,6 @@ nl:
                 instructions_9_html: 'Kopieer en plak uw nieuwe API keys in het bovenstaande formulier.'
                 private_key: 'API Secret'
                 public_key: 'API Key'
-            cancel: Annuleren
             coinbase:
                 instructions_1_html: 'Log in op uw %{exchange_link} account.'
                 instructions_2_html: 'Selecteer het tabblad <b>Meer</b> in de linkerzijbalk.'
@@ -149,10 +148,11 @@ nl:
                     force_smart_intervals: 'Voor %{base}%{quote}, %{exchangeName} heeft een minimale ordergrootte van <b>%{minimumValue}%{minimumCurrency}</b>%{approximatedQuote}. Deltabadger zal dit schema uitvoeren met orders van %{minimumValue}%{minimumCurrency}, en het tijdsinterval aanpassen aan uw schema. Wij noemen dit <i>slimme intervallen</i>.'
                     other: 'Voor %{base}%{quote}, %{exchangeName} heeft een minimum ordergrootte van <b>%{minimumValue}%{minimumCurrency}</b>%{approximatedQuote}. Deltabadger kan dit schema uitvoeren met orders van %{minimumValue}%{minimumCurrency}, en past het tijdsinterval aan aan uw schema. We noemen dit <i>slimme intervallen</i>.'
             step_api_key: 'API Key'
+            step_assets: Assets
             step_exchange: Exchange
             step_schedule: Schema
             step_type: Type
-            validating: Validating
+            validating: Validating…
             withdrawal:
                 kraken:
                     instructions_1_html: 'Log in op uw %{exchange_link} account.'
@@ -184,3 +184,8 @@ nl:
                 instructions_6_html: 'Kopieer en plak uw nieuwe API keys in het bovenstaande formulier.'
                 private_key: 'Private Key'
                 public_key: 'Public Key'
+            sentence:
+                invest_in: "Investeer in"
+                and: "en"
+                at: "op"
+                spending: "uitgeven"

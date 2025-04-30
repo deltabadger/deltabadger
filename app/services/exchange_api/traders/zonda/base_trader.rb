@@ -84,7 +84,7 @@ module ExchangeApi
         def parse_response(response)
           if response.fetch('status') == 'Ok'
             Result::Success.new(
-              offer_id: response.fetch('offerId'),
+              external_id: response.fetch('offerId'),
               rate: response.fetch('transactions').first.fetch('rate'),
               amount: response.fetch('transactions').first.fetch('amount')
             )

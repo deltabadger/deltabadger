@@ -1,0 +1,104 @@
+nl:
+    activerecord:
+        errors:
+            models:
+                affiliate:
+                    attributes:
+                        code:
+                            invalid_format: 'moet bestaan uit alfanumerieke hoofdletters'
+                subscription:
+                    attributes:
+                        eth_address:
+                            invalid_address: '"%{eth_address}" est une adresse Ethereum invalide. Veuillez réessayer.'
+                asset:
+                    attributes:
+                        portfolio:
+                            max_assets_reached: "Maximum aantal activa bereikt."
+    errors:
+        cloudflare_turnstile: 'Cloudflare Turnstile-validatie mislukt'
+        bitcoin_address_not_updated: 'Bitcoin-adres kon niet worden bijgewerkt'
+        format: '%{attribute}%{message}'
+        frequency_limit: 'Frequentiegrens overschreden'
+        invalid_api_keys: 'Ongeldige tokens'
+        invalid_risk_free_rate_key: 'Ongeldige risicovrije rentesleutel.'
+        api_key_permission_validation_failed: 'API-sleutelmachtigingen konden niet worden gevalideerd'
+        api_key_already_exists: 'Er bestaat al een API-sleutel voor %{exchange_name}'
+        incorrect_api_key_permissions: 'Onjuiste API-sleutelmachtigingen'
+        unable_to_get_risk_free_rate: 'Kan de risicovrije rente voor %{risk_free_rate_name} niet ophalen. De Data API-server is niet bereikbaar.'
+        invalid_number_of_allocations: 'Ongeldig aantal toewijzingen'
+        invalid_allocation_value: 'Ongeldige toewijzingswaarde'
+        bots:
+            exchange_asset_mismatch: "Niet alle activa staan genoteerd op %{exchange_name}"
+            destroy_success: "Bot %{bot_label} succesvol verwijderd"
+            api_key_success: "API-sleutels succesvol opgeslagen"
+        messages:
+            accepted: 'moet worden geaccepteerd'
+            already_confirmed: 'was reeds bevestigd, probeer u aan te melden.'
+            bad_2fa_code: 'Ongeldige code. Probeer het opnieuw.'
+            bad_credentials: 'Verkeerde email of wachtwoord.'
+            bad_credentials_with_code: 'Verkeerde email, wachtwoord of 2FA code.'
+            blank: 'kan niet leeg zijn'
+            confirmation: 'komt niet overeen met %{attribute}'
+            confirmation_period_expired: 'moet binnen %{period} worden bevestigd, vraag een nieuwe aan.'
+            empty: 'kan niet leeg zijn'
+            empty_two_fa_token: 'Ontbrekende 2FA code. Probeer het opnieuw.'
+            equal_to: 'moet gelijk zijn aan %{count}'
+            even: 'moet even zijn'
+            exclusion: 'is gereserveerd'
+            expired: 'is verlopen, vraag een nieuwe aan.'
+            greater_than: 'moet groter zijn dan %{count}'
+            greater_than_or_equal_to: 'moet groter zijn dan of gelijk aan %{count}'
+            in: 'moet in %{count} zijn'
+            inclusion: 'staat niet op de lijst'
+            invalid: 'is ongeldig'
+            less_than: 'moet kleiner zijn dan %{count}'
+            less_than_or_equal_to: 'moet kleiner zijn dan of gelijk zijn aan %{count}'
+            model_invalid: 'Validatie mislukt: %{errors}'
+            not_a_number: 'is geen getal'
+            not_an_integer: 'moet een geheel getal zijn'
+            not_found: 'niet gevonden.'
+            not_locked: 'was niet vergrendeld.'
+            not_saved:
+                one: '1 error verbiedt het opslaan van deze %{resource}:'
+                other: '%{count} errors verbieden het opslaan van deze %{resource}:'
+            odd: 'moet oneven zijn'
+            other_than: 'moet verschillend zijn dan %{count}'
+            password_not_match: 'Wachtwoorden komen niet overeen'
+            present: 'moet leeg zijn'
+            too_long:
+                one: 'is te lang (maximum 1 karakter)'
+                other: 'is te lang (maximum %{count} karakters)'
+            too_short:
+                one: 'is te kort (minimum 1 karakter)'
+                other: 'is te kort (minimum %{count} karakters)'
+            too_simple_password: 'Het wachtwoord moet tekens bevatten uit elk van deze categorieën: hoofdletters (A-Z), kleine letters (a-z), cijfers (0-9), speciale tekens (bv. #,?,!).'
+            wrong_email: 'Verkeerde email.'
+            wrong_length:
+                one: 'is de verkeerde lengte (moet 1 karakter zijn)'
+                other: 'is de verkeerde lengte (moet %{count} karakters zijn)'
+            wrong_password: 'Verkeerd wachtwoord'
+            wrong_two_fa_token: 'Ingegeven code is verkeerd.'
+        referral_program_inactive: 'Uw verwijzingsprogramma is inactief'
+        unverified_request: 'Vernieuw uw browser en probeer het opnieuw'
+    alert:
+        bot:
+            bot_updated: 'De bot is succesvol bijgewerkt.'
+        portfolio:
+            invalid_name: 'Ongeldige portfolionaam.'
+            invalid_benchmark: 'Ongeldige benchmarkwaarde.'
+            invalid_strategy: 'Ongeldige strategie waarde.'
+            invalid_start_date: 'Ongeldige startdatum waarde.'
+            invalid_risk_free_rate: 'Ongeldige risicovrije rente waarde.'
+            invalid_smart_allocation: 'Ongeldige slimme allocatie waarde.'
+            invalid_risk_level: 'Ongeldige risiconiveau waarde.'
+            unable_to_calculate: 'Niet in staat om slimme allocaties voor deze parameters te berekenen.'
+            portfolio_normalized: 'Portefeuille allocaties zijn genormaliseerd.'
+            risk_level_updated: 'Het risiconiveau is bijgewerkt.'
+            smart_allocation_updated: 'Slimme allocaties zijn bijgewerkt.'
+            unable_to_set_risk_rate: 'Niet in staat om de risicovrije rente vast te stellen op %{risk_free_rate_name}.'
+            api_unreachable: 'Gegevens API-server is onbereikbaar.'
+            portfolio_created: 'Portefeuille is succesvol aangemaakt.'
+            portfolio_updated: 'Portefeuille is succesvol bijgewerkt.'
+            portfolio_destroyed: 'Portefeuille is succesvol verwijderd.'
+            portfolio_duplicated: 'Portefeuille is succesvol gedupliceerd.'
+            unable_to_duplicate_portfolio: 'Niet in staat om portefeuille te dupliceren.'

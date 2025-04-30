@@ -3,14 +3,24 @@
     border-radius: 2rem
     color: #fff
     font-weight: 700
-    line-height: 4rem
+    line-height: 3rem
     text-align: center
     padding:            0 1.5rem
     overflow:           hidden
     text-overflow:      ellipsis
     text-wrap:          nowrap
+    text-decoration: none !important
+    &:hover, &:focus
+        color: #fff
+    @media (min-width: 768px)
+        line-height: 4rem
 .ticker
-    min-width: 12rem
+    display: block
+    min-width: 10rem
+    font-size: 2rem
+    @media (min-width: 768px)
+        min-width: 12rem
+        font-size: 2.25rem
 .ticker-group
     display: flex
     @for $i from 1 through 20

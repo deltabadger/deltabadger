@@ -1,0 +1,12 @@
+<%= turbo_frame_tag "modal" do %>
+  <dialog data-controller="modal--base" class="dialogview" data-hw-animate-in="animate-modal-in" data-hw-animate-out="animate-modal-out">
+    <div class="dialogview__vertical-center">
+      <%= button_tag class: 'modal__close', data: { action: 'modal--base#animateOutCloseAndCleanUp' } do %>
+        <%= render partial: 'svg/24x24_close' %>
+      <% end %>
+      <%= turbo_frame_tag "modal_content" do %>
+        <%= yield %>
+      <% end %>
+    </div>
+  </dialog>
+<% end %>

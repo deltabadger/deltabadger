@@ -13,7 +13,7 @@ class CheckWithdrawalMinimums < BaseService
   private
 
   def minimum_defined_in_usd(exchange_id)
-    exchange = ExchangesRepository.new.find(exchange_id)
+    exchange = Exchange.find(exchange_id)
     %w[ftx ftx.us].include?(exchange.name.downcase)
   end
 end

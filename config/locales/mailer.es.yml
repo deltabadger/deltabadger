@@ -1,0 +1,60 @@
+es:
+    mailer:
+        follow_us_on_x: 'Síguenos en 𝕏'
+        we_reply_faster_on_telegram: 'Respondemos más rápido en Telegram'
+        greeting: 'Arrr capitán,'
+        greeting_name: 'Ahoy %{name},'
+    affiliate_mailer:
+        new_btc_address_confirmation:
+            subject: "Confirmar nueva dirección de pago"
+            template_html: |
+                <p>Parece que quieres cambiar tu dirección de pago para el programa de referidos:</p>
+                <p><code>%{new_btc_address}</code></p>
+                <p>Por favor, confirma este cambio haciendo clic en el enlace de abajo:</p>
+                <p><a href="%{confirmation_url}" title="Confirmar nueva dirección de pago">Sí, quiero usar esta dirección para futuros pagos</a></p>
+        referrals_payout_notification:
+            subject: "¡Es día de pago!"
+            template_html: |
+                <p>Gracias. Deltabadger crece solo gracias a las recomendaciones de boca en boca.</p>
+                <p>Y las tuyas realmente funcionan:</p>
+                <p>Hace poco, te transferimos <b>%{amount} BTC</b>.</p>
+                <p>¿La mejor parte? No termina aquí:</p>
+                <p><b>Recibirás un 20% cada vez que esos referidos prolonguen su suscripción</b>.</p>
+                <p>¿Conoces a alguien más que podría beneficiarse de Deltabadger?</p>
+            grow_stream: "Hazles saber y aumenta tus ingresos recurrentes"
+        registration_reminder:
+            subject: "¡Wow! ¡Has ganado %{amount} BTC!"
+            template_html: |
+                <p>¡Tienes una nueva comisión del programa de referidos esperándote!</p>
+                <p>Completa el registro para recibir tus bitcoin:</p>
+            complete_registration: "Completar registro"
+    bot_alerts_mailer:
+        successful_webhook_bot_transaction:
+            subject: "La transacción ha sido exitosa"
+            template_html: "transacción exitosa, base: %{base}, cotización: %{quote}, nombre del bot: %{bot_name}, tipo: %{type}, precio: %{price}, nombre del exchange: %{exchange_name}"
+        end_of_funds:
+            subject: "Tu bot pronto se quedará sin fondos"
+            template_html: "<p>Parece que tu bot <b>%{label}</b> se está quedando sin %{quote} muy pronto.</p><p>Realiza una transferencia a %{exchange_name} para asegurarte de que el bot siga funcionando continuamente.</p>"
+        notify_about_error:
+            subject: "Algo salió mal"
+            template_html: "<p>Algo salió mal al procesar la última transacción para el bot <b>%{label}</b>.</p><p>Puedes ver el error en el registro del bot. Inicia sesión para comprobarlo.</p><p>Errores:</p><blockquote> <b>%{exchange_name}:</b> <b>%{errors}</b></blockquote>"
+        notify_about_restart:
+            subject: "¡Ups! Siguiente intento…"
+            template_html: "<p>El bot <b>%{label}</b> no pudo realizar tu orden. Parece un problema del exchange. Lo intentaremos de nuevo en %{delay}.</p><p>Todos los errores son visibles en el registro del bot. Inicia sesión para comprobarlo.</p><p>Errores:</p><blockquote> <b>%{exchange_name}:</b> <b>%{errors}</b> </blockquote>"
+    subscription_mailer:
+        invoice:
+            subject: 'Recibo'
+            template_html: |
+                <h2>Plan %{plan_name} de Deltabadger (%{years} años)</h2>
+                <p> <b>Pagado:</b></p>
+                <h2>%{total_paid} %{currency}</h2>
+                <p><b>Fecha de pago:</b></p>
+                <p>%{paid_at}</p>
+                <p><b>Vendedor:</b></p>
+                <p>Deltabadger OÜ<br>
+                Pärnu mnt 158/2-88 <br>
+                11317 Tallinn <br> Estonia <br>
+                Reg.No.14781461</p>
+                <p><b>Comprador:</b></p>
+                <p> %{first_name} %{last_name} <br>
+                %{email}</p>

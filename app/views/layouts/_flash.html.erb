@@ -2,7 +2,7 @@
   <% style_class = flash_type.to_sym == :alert ? 'danger' : 'primary' %>
   <%= tag.div class: "flash__message salert salert--#{style_class}", data: { controller: "removals", action: "animationend->removals#remove" }, role: "alert" do %>
     <%= button_tag class: 'modal__close', data: { action: 'removals#remove' } do %>
-      <%= render partial: 'svg/24x24_x' %>
+      <%= render partial: 'svg/24x24_close' %>
     <% end %>
     <%= message %>
   <% end %>

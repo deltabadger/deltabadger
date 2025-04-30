@@ -1,0 +1,47 @@
+pt:
+    index:
+        bitcoin:
+            title: "Bitcoin"
+            info: "A média de custo em dólares em Bitcoin é um padrão de ouro para investidores de longo prazo."
+        crypto_berbell:
+            title: "Barra cripto"
+            info: "Cobre 74% do mercado de criptomoedas com uma carteira simples e sem complicações que reequilibra automaticamente."
+        crypto_index:
+            title: "Índice cripto"
+            info: "Não existe um S&P 500 de criptomoedas, mas agora pode criar um. Automatize uma carteira indexada das principais criptomoedas."
+        altcoin_season:
+            title: "Temporada de altcoins"
+            info: "Invista com segurança numa carteira de altcoins vencedoras. Reduza o risco de criptomoedas de pequena capitalização substituindo a alocação manual por indexação automática."
+        layer_1:
+            title: "Layer 1"
+            info: "Redes blockchain primárias que processam transações diretamente e fornecem a base para a infraestrutura blockchain."
+        made_in_usa:
+            title: "Made in USA"
+            info: "Criptomoedas com ligações significativas aos Estados Unidos através das suas equipas fundadoras ou sedes de empresas."
+        alleged_sec_securities:
+            title: "Criptomoedas sob supervisão da SEC"
+            info: "Tokens e criptomoedas que a Comissão de Valores Mobiliários dos EUA (SEC) considera como instrumentos financeiros sujeitos a regulamentação."
+        memecoins:
+            title: "Memecoins"
+            info: "Moedas que derivam valor de memes da internet e entusiasmo da comunidade em vez da tecnologia subjacente ou utilidade."
+        elon_musk_inspired:
+            title: "Inspirado em Elon Musk"
+            info: "Meme coins inspiradas em Elon Musk, nenhum destes projetos é (necessariamente) endossado ou criado por Elon Musk."
+        ai_portfolio:
+            title: "Carteira de IA"
+            info: "Os tokens de Inteligência Artificial (IA) são criptomoedas que potenciam projetos relacionados com IA."
+        layer_2:
+            title: "Layer 2"
+            info: "As soluções de Layer 2 são soluções de escalabilidade construídas sobre blockchains de Layer 1 para melhorar a velocidade das transações e reduzir os custos."
+        layer_0:
+            title: "Layer 0"
+            info: "Os protocolos de Layer 0 fornecem a infraestrutura fundamental para construir e conectar múltiplas blockchains."
+        gamefi:
+            title: "GameFi"
+            info: "Os tokens GameFi potenciam plataformas de jogos baseadas em blockchain e mundos virtuais, combinando jogos com finanças descentralizadas."
+        yield_farming:
+            title: "Farming de rendimento"
+            info: "Os tokens de yield farming permitem aos utilizadores ganhar recompensas fornecendo liquidez a protocolos de finanças descentralizadas."
+        consensys_portfolio:
+            title: "Carteira Consensys"
+            info: "Protocolos e tokens nos quais a Consensys investiu." 
