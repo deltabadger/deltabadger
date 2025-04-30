@@ -129,7 +129,6 @@ Rails.application.routes.draw do
       get :barbell_new_step_api_key, on: :collection
       post :barbell_new_step_api_key_create, on: :collection
       get :barbell_new_step_confirm, on: :collection
-      get :barbell_new_step_confirm_minimums, on: :collection
       get :show_index_bot, on: :collection # TODO: move to custom :show logic according to bot type
       member do
         get :asset_search

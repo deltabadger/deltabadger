@@ -25,7 +25,7 @@ module Bot::Schedulable
   def next_interval_checkpoint_at
     return legacy_next_interval_checkpoint_at if legacy?
 
-    checkpoint = started_at
+    checkpoint = started_at || Time.current
     loop do
       checkpoint += 1.public_send(interval)
       return checkpoint if checkpoint > Time.current
