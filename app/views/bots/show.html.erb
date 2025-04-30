@@ -1,3 +1,5 @@
+<%= turbo_stream_from "bot_#{@bot.id}", :warning_below_minimums %>
+
 <%= turbo_frame_tag "bot" do %>
   <div class="page-head">
     <%= render "bots/header", bot: @bot, other_bots: @other_bots %>
@@ -16,7 +18,6 @@
         <%= render partial: "bots/settings_extra_weekday", locals: { bot: @bot } %>
       </div>
       <div class="column gap-1">
-        <%# render partial: "bots/warning", locals: { bot: @bot } %>
         <%= render partial: "bots/chart", locals: { bot: @bot } %>
         <%= render partial: "bots/metrics/metrics", locals: { bot: @bot } %>
         <%= render partial: "bots/orders/orders", locals: { bot: @bot } %>
