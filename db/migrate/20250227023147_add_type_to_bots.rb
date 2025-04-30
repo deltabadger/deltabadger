@@ -1,16 +1,21 @@
 class AddTypeToBots < ActiveRecord::Migration[6.0]
   def up
+    Rails.logger.info 'Adding type to bots'
     add_column :bots, :type, :string
 
     Bot.find_each do |bot|
       case bot.bot_type
       when 0
+        Rails.logger.info "Updating bot #{bot.id} with type DcaBot"
         bot.update_column(:type, 'DcaBot')
       when 1
+        Rails.logger.info "Updating bot #{bot.id} with type WithdrawalBot"
         bot.update_column(:type, 'WithdrawalBot')
       when 2
+        Rails.logger.info "Updating bot #{bot.id} with type WebhookBot"
         bot.update_column(:type, 'WebhookBot')
       when 3
+        Rails.logger.info "Updating bot #{bot.id} with type BarbellBot"
         bot.update_column(:type, 'BarbellBot')
       end
     end

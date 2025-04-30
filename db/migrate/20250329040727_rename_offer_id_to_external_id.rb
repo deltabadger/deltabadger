@@ -4,13 +4,16 @@ class RenameOfferIdToExternalId < ActiveRecord::Migration[6.0]
     rename_column :daily_transaction_aggregates, :offer_id, :external_id
 
     # find duplicated external ids
+    Rails.logger.info 'Finding duplicated external ids'
     external_ids = Transaction.pluck(:external_id).compact
     duplicated_external_ids = external_ids.select { |id| external_ids.count(id) > 1 }
-    puts "Duplicated external ids: #{duplicated_external_ids.inspect}"
+    Rails.logger.info "Duplicated external ids: #{duplicated_external_ids.inspect}"
 
     # update transactions with duplicated external ids
+    Rails.logger.info 'Updating transactions with duplicated external ids'
     duplicated_transactions = {}
     Transaction.where(external_id: duplicated_external_ids).find_each do |transaction|
+      Rails.logger.info "Processing transaction #{transaction.id} with external id #{transaction.external_id}"
       if duplicated_transactions[transaction.external_id].present?
         if transaction.bot_id == duplicated_transactions[transaction.external_id].bot_id &&
            transaction.rate == duplicated_transactions[transaction.external_id].rate &&
@@ -26,9 +29,9 @@ class RenameOfferIdToExternalId < ActiveRecord::Migration[6.0]
            transaction.exchange_id == duplicated_transactions[transaction.external_id].exchange_id
           transaction.destroy
         else
-          puts "Inconsistent transaction #{transaction.id} with external id #{transaction.external_id}. Transactions doesn't match:"
-          puts "transaction: #{transaction.attributes.inspect}"
-          puts "duplicated_transaction: #{duplicated_transactions[transaction.external_id].attributes.inspect}"
+          Rails.logger.info "Inconsistent transaction #{transaction.id} with external id #{transaction.external_id}. Transactions doesn't match:"
+          Rails.logger.info "transaction: #{transaction.attributes.inspect}"
+          Rails.logger.info "duplicated_transaction: #{duplicated_transactions[transaction.external_id].attributes.inspect}"
           raise
         end
       else
