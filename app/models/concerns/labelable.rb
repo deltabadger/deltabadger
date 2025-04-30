@@ -30,7 +30,6 @@ module Labelable
       max_attempts -= 1
       break if max_attempts.zero?
     end
-
     label
   end
 end
