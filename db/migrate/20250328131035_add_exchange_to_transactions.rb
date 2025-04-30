@@ -7,7 +7,7 @@ class AddExchangeToTransactions < ActiveRecord::Migration[6.0]
 
     # Fetch bot data
     bot_data = Bot.pluck(:id, :exchange_id).to_h
-    bot_ids = bot_data.keys
+    bot_ids = bot_data.keys.sort
 
     # Process in parallel using available cores
     Parallel.each(bot_ids, in_threads: ENV.fetch('MAX_DB_CONNECTIONS', 1)) do |id|
