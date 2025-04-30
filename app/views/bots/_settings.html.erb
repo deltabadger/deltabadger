@@ -1,0 +1,64 @@
+<% quote_color = ensure_contrast(bot.quote_asset&.color || "#8A9BA8") %>
+<% base0_color = ensure_contrast(bot.base0_asset&.color || "#8A9BA8") %>
+<% base1_color = ensure_contrast(bot.base1_asset&.color || "#8A9BA8") %>
+<% base0_color_transparent = transparent_color(base0_color, bot.effective_allocation0) %>
+<% base1_color_transparent = transparent_color(base1_color, 1 - bot.effective_allocation0) %>
+
+<%= form_with model: bot, url: bot_path(bot), method: :patch, id: "settings", class: "widget", data: { controller: "form--submit bot--barbell-allocation", bot__barbell_allocation_color0_value: base0_color, bot__barbell_allocation_color1_value: base1_color } do |f| %>
+  <div class="conversational flex-justify-center">
+    <%= t('bot.barbell.invest') %>
+    <div class="ticker-input ticker-input--autoscale">
+      <%= f.number_field :quote_amount, value: bot.quote_amount.to_d.to_s('F').sub(/^(?!0\.0$)([1-9]\d*)\.0$/, '\1'), class: 'numeric-input', min: 0, step: :any, size: 3, data: { controller: "autowidth-input", action: "change->form--submit#submit input->autowidth-input#resize" }, disabled: bot.working? || bot.pending? %>
+
+      <% if bot.transactions.any? %>
+        <div class="ticker" style="background: <%= quote_color %>">
+          <%= bot.quote_asset.symbol %>
+        </div>
+      <% else %>
+        <%= link_to bot.quote_asset&.symbol || 'Select one asset to sell', asset_search_bot_path(bot, asset_field: 'quote_asset_id'), data: { turbo_frame: "modal" }, class: "ticker", style: "background: #{quote_color}" %>
+      <% end %>
+    </div>
+    /
+    <div class="sinput sinput--select <%= 'sinput--disabled' if bot.working? || bot.pending? %>">
+      <%= t("bot.#{bot.interval}") %>
+      <%= f.select :interval, bot_intervals, { selected: bot.interval }, data: { action: "change->form--submit#submit" }, disabled: bot.working? || bot.pending? %>
+    </div>
+  </div>
+
+  <div class="barbell">
+    <div class="barbell__plate">
+      <% if bot.transactions.any? %>
+        <div class="ticker" style="background: <%= base0_color_transparent %>" data-bot--barbell-allocation-target="allocation0BackgroundColor">
+          <%= bot.base0_asset.symbol %>
+        </div>
+      <% else %>
+        <%= link_to bot.base0_asset&.symbol || 'Select one asset to buy', asset_search_bot_path(bot, asset_field: 'base0_asset_id'), data: { turbo_frame: "modal", bot__barbell_allocation_target: "allocation0BackgroundColor" }, class: "ticker", style: "background: #{base0_color_transparent}" %>
+      <% end %>
+      <b style="color: <%= base0_color_transparent %>" data-bot--barbell-allocation-target="allocation0Color"><span data-bot--barbell-allocation-target="allocation0Text"><%= (bot.effective_allocation0 * 100).to_i %></span>%</b>
+    </div>
+
+    <div class="barbell__bar">
+      <div class="slider">
+        <%= f.range_field :allocation0, in: 0.0..1.0, step: 0.01, value: bot.effective_allocation0, class: "slider__input numeric-input", data: { bot__barbell_allocation_target: "allocation0", action: "input->bot--barbell-allocation#updateAllocation0 change->form--submit#submit" }, disabled: bot.market_cap_adjusted? || bot.working? || bot.pending? %>
+        <div class="slider__style">
+          <%= tag.div class: "slider__style__track", style: "border-left-color: #{base0_color_transparent};  background: #{base1_color_transparent}", data: { bot__barbell_allocation_target: "allocation0SliderTrack" } do %>
+            <%= tag.div class: "slider__style__progress", style: "width: #{bot.effective_allocation0 * 100}%; background: #{base0_color_transparent}", data: { bot__barbell_allocation_target: "allocation0SliderProgress" } do %>
+              <div class="slider__style__thumb"></div>
+            <% end %>
+          <% end %>
+        </div>
+      </div>
+    </div>
+
+    <div class="barbell__plate">
+      <% if bot.transactions.any? %>
+        <div class="ticker" style="background: <%= base1_color_transparent %>" data-bot--barbell-allocation-target="allocation1BackgroundColor">
+          <%= bot.base1_asset.symbol %>
+        </div>
+      <% else %>
+        <%= link_to bot.base1_asset&.symbol || 'Select one asset to buy', asset_search_bot_path(bot, asset_field: 'base1_asset_id'), data: { turbo_frame: "modal", bot__barbell_allocation_target: "allocation1BackgroundColor" }, class: "ticker", style: "background: #{base1_color_transparent}" %>
+      <% end %>
+      <b style="color: <%= base1_color_transparent %>" data-bot--barbell-allocation-target="allocation1Color"><span data-bot--barbell-allocation-target="allocation1Text"><%= ((1 - bot.effective_allocation0).round(2) * 100).to_i %></span>%</b>
+    </div>
+  </div>
+<% end %>

@@ -10,7 +10,7 @@ module Admin
     before_action :authenticate_admin
 
     def authenticate_admin
-      redirect_to dashboard_path if !current_user.admin?
+      redirect_to root_path if !current_user.admin?
     end
 
     def model_name

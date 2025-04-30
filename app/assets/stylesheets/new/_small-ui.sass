@@ -4,6 +4,9 @@
 .label
     font-weight: 600
     color: var(--label)
+    white-space: nowrap
+    overflow: hidden
+    text-overflow: ellipsis
     &__value,&--select
         color: var(--emphasis)
     &__value
@@ -28,6 +31,10 @@
         background: var(--warning)
     &--soon
         background: var(--warning)
+    &--pro
+        background: $pro
+    &--legendary
+        background: $legendary
 .sinput
     font-weight: 600 !important
     background: var(--sinput-background)
@@ -38,6 +45,11 @@
     padding: 0 1.5rem
     height: 4rem
     width: fit-content
+    box-shadow: var(--widget-shadow)
+    cursor: pointer
+    text-decoration: none !important
+    .label
+        min-width: 2.2rem
     &--calendar
         width: 15rem
         text-align: center
@@ -70,10 +82,33 @@
         .icon-24
             path 
                 fill: var(--label)
-
-
-.sinput--disabled, input[disabled], select[disabled]
-    color: var(--label)
+    &--exchange
+        display: flex
+        align-items: center
+        gap: 0.5rem
+        color: #fff !important
+        font-size: 2rem
+        @media (min-width: 768px)
+            font-size: 2.25rem
+        svg
+            width: 2.5rem
+            height: 2.5rem
+            max-width: 2.5rem
+            path
+                fill: #fff !important
+        &--kraken
+            background: #7133f5 !important
+        &--coinbase
+            background: #0052ff !important
+            padding-left: 1rem
+        &--binance
+            background: #181a1f !important
+            color: #fcd535 !important
+            svg
+                path
+                    fill: #fcd535 !important
+        &--kucoin
+            background: #00a1f1 !important
     cursor: not-allowed
 
 .label--select,.sinput--select
@@ -97,15 +132,31 @@ select
     text-align: center
     opacity: 0.5
 
-.sbutton
-    padding: 0 0.25rem
+.buttons
+    display: flex
+    margin-top: 4rem
+    gap: 2rem
+    @media screen and (min-width: 576px)
+        gap: 2rem
+    *
+        flex: 1
+    .button
+        width: 100%
+    &--col
+        flex-direction: column 
+    &--row
+        &--2
+            display: grid
+            grid-template-columns: 1fr 1fr
+
+.button
     font-weight: 600
+    line-height: 2rem
     border: 0
-    background: none
     cursor: pointer
     align-items: center
     border: 0
-    border-radius: 2rem
+    border-radius: 4rem
     display: flex
     justify-content: center
     height: 4rem
@@ -114,67 +165,79 @@ select
     padding: 0 2rem
     gap: 1rem
     text-decoration: none !important
+    &:not(.button--link)
+        min-width: 8rem
     &:hover, &:focus, &:active, &[disabled="disabled"],&[disabled]
-        color: #fff
         outline: none
+    &--primary:hover,&--success:hover,&--danger:hover
+        color: #fff
     svg
         fill: #fff
+    &--large
+        font-size: 2.5rem
+        padding: 2rem 4rem
+        height:  7rem
+        margin: 0 auto
     &--primary
-        background: var(--primary)
+        background: var(--primary-button)
+        box-shadow: var(--primary-shadow)
     &--secondary
         background: var(--menulink)
+        box-shadow: var(--secondary-shadow)
     &--success
         background: var(--success)
+        box-shadow: var(--success-shadow)
     &--danger
         background: var(--danger)
-    &--outline, &--link
+        box-shadow: var(--danger-shadow)
+    &--outline
+        box-shadow: var(--primary-shadow)
+    &--outline, &--link,&--disabled,&[disabled="disabled"],&[disabled]
         background: none
+    &--outline, &--link  
         color: var(--link)
         path
             fill: var(--link)
-        &[disabled="disabled"]
-            color: var(--label)
-        &:hover, &:focus, &:active, &[disabled="disabled"],&[disabled]
-            color: var(--link)
-        &.sbutton--success
-            color: var(--success)
+    &--disabled,&[disabled="disabled"],&[disabled]
+        color: var(--label) !important
+        &:hover, &:focus, &:active
+            color: var(--label) !important
+        &.button--success,&.button--secondary,&.button--danger
+            color: var(--label) !important
             path
-                fill: var(--success)
-        &.sbutton--danger
-            color: var(--danger)
-            path
-                fill: var(--danger)
-        &.sbutton--secondary
-            color: var(--menulink)
-            path
-                fill: var(--menulink)
-    &--outline
-        border: 2px solid var(--link)
-        padding: 0 calc(2rem - 2px)
+                fill: var(--label) !important
+    &--outline,&--disabled,&[disabled="disabled"],&[disabled]
+        border: 0.25rem solid var(--link)
+        padding: 0 calc(2rem - 0.25rem)
         &[disabled="disabled"],&[disabled]
             border-color: var(--label)
-        &.sbutton--success
+        &.button--success
             border-color: var(--success)
-        &.sbutton--danger
+        &.button--danger
             border-color: var(--danger)
-        &.sbutton--secondary
+        &.button--secondary
             border-color: var(--menulink)
     &--disabled,&[disabled="disabled"],&[disabled]
         cursor: not-allowed
         opacity: 0.5
+        border-color: var(--label) !important
+        .animicon *
+            background-color: var(--label) !important
     &--link
-        padding-left: 0
-        padding-right: 0
+        padding-left: 0 !important
+        padding-right: 0 !important
+        &.button--disabled,&[disabled="disabled"],&[disabled]
+            border-width: 0 !important
         path
             fill: var(--link)
-        &.sbutton--ai
+        &.button--ai
             color: var(--ai)
             path
                 fill: var(--ai)
         &[disabled="disabled"],&[disabled]
             path
                 fill: var(--label) !important
-            &.sbutton--ai
+            &.button--ai
                 color: var(--label) !important
     &--add-asset
         width: 20rem
@@ -185,3 +248,21 @@ select
 .widget
     .sinput
         background: var(--background)
+
+.large-button-wrapper
+    display: flex
+    justify-content: center
+    width: 100%
+    height: 100%
+    .button
+        width: 100%
+        max-width: 100%
+        @media screen and (min-width: 576px)
+            width: 36rem
+.devise, .pricing
+    .button 
+        width: 100%
+
+.widget
+    .large-button-wrapper
+        padding: 1.5rem 0

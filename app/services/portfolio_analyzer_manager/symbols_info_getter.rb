@@ -1,5 +1,3 @@
-require 'utilities/time'
-
 module PortfolioAnalyzerManager
   class SymbolsInfoGetter < BaseService
     def call(source = 'all')

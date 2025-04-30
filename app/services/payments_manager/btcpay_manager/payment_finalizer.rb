@@ -1,5 +1,3 @@
-require 'utilities/number'
-
 module PaymentsManager
   module BtcpayManager
     class PaymentFinalizer < BaseService
@@ -29,7 +27,7 @@ module PaymentsManager
 
         @notifications.invoice(payment: payment)
 
-        GrantAffiliateCommissionJob.perform_later(payment.id)
+        GrantAffiliateCommissionJob.perform_later(payment)
 
         PaymentsManager::SubscriptionUpgrader.call(payment)
       end

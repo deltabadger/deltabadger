@@ -87,7 +87,7 @@ module ExchangeApi
           if request.status == 200 && request.reason_phrase == 'OK'
             order_id = response.fetch('payload').fetch('oid')
 
-            Result::Success.new(offer_id: order_id)
+            Result::Success.new(external_id: order_id)
           else
             error_to_failure([response.fetch('error').fetch('code')])
           end

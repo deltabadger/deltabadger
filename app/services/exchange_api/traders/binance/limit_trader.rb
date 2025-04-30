@@ -33,7 +33,7 @@ module ExchangeApi
           return error_to_failure([response['msg']]) if response['msg'].present?
 
           Result::Success.new(
-            offer_id: response['orderId'],
+            external_id: response['orderId'],
             rate: response['price'],
             amount: response['origQty'] # We treat the order as fully completed
           )

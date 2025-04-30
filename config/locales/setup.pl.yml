@@ -1,5 +1,5 @@
 pl:
-    bots:
+    bot:
         setup:
             api_not_available: 'API giełdy nie jest dostępne'
             binance:
@@ -56,7 +56,6 @@ pl:
                 instructions_9_html: 'Wklej oba klucze do danych wejściowych powyżej.'
                 private_key: 'API Secret'
                 public_key: 'Klucz API'
-            cancel: Anuluj
             coinbase:
                 instructions_1_html: 'Zaloguj się na swoje konto %{exchange_link}.'
                 instructions_2_html: 'Wybierz zakładkę <b>Więcej</b> z lewego paska bocznego.'
@@ -149,10 +148,11 @@ pl:
                     force_smart_intervals: 'Dla pary %{base}%{quote}, %{exchangeName} ma minimalną wielkość zlecenia <b>%{minimumValue}%{minimumCurrency}%{approximatedQuote}</b>. Deltabadger wykona ten harmonogram używając zleceń %{minimumValue}%{minimumCurrency} i dostosowując interwał tak, żeby statystycznie uzyskać oczekiwany przez ciebie rezultat. Nazywamy to <i>inteligentnymi interwałami</i>.'
                     other: 'Dla pary %{base}%{quote}, %{exchangeName} ma minimalną wielkość zlecenia <b>%{minimumValue}%{minimumCurrency}%{approximatedQuote}</b>. Deltabadger może wykonać ten harmonogram używając zleceń %{minimumValue}%{minimumCurrency} i dostosowując interwał tak, żeby statystycznie uzyskać oczekiwany przez ciebie rezultat. Nazywamy to <i>inteligentnymi interwałami</i>.'
             step_api_key: 'Klucz API'
+            step_assets: Aktywa
             step_exchange: Giełda
             step_schedule: Harmonogram
             step_type: Typ
-            validating: Weryfikacja
+            validating: Weryfikacja…
             withdrawal:
                 kraken:
                     instructions_1_html: 'Zaloguj się do swojego konta %{exchange_link}.'
@@ -184,3 +184,8 @@ pl:
                 instructions_6_html: 'Wklej oba klucze do danych wejściowych powyżej.'
                 private_key: 'Klucz Prywatny'
                 public_key: 'Klucz Publiczny'
+            sentence:
+                invest_in: "Inwestuj w"
+                and: "i"
+                at: "na"
+                spending: "wydając"

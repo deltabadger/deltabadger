@@ -1,4 +1,4 @@
-<div data-controller="dropdown" data-action="click->dropdown#toggle" data-dropdown-target="wrapper" class="btn btn-link dropdown-wrapper <%= extra_classes %>">
+<div data-controller="dropdown" data-action="click->dropdown#toggle" data-dropdown-target="wrapper" class="button button--link dropdown-wrapper <%= extra_classes %>">
   <%= params[:locale]&.to_s&.upcase || 'EN' %>
   <div class="dropdown">
     <% locale = params[:locale] %>
@@ -19,6 +19,9 @@
     <% end %>
     <% unless locale == 'pt' %>
       <%= link_to "🇵🇹 Português", url_for(request.params.merge(locale: 'pt')), class: "dropdown__item" %>
+    <% end %>
+    <% unless locale == 'it' %>
+      <%= link_to "🇮🇹 Italiano", url_for(request.params.merge(locale: 'it')), class: "dropdown__item" %>
     <% end %>
     <% unless locale == 'pl' %>
       <%= link_to "🇵🇱 Polski", url_for(request.params.merge(locale: 'pl')), class: "dropdown__item" %>

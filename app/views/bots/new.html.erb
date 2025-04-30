@@ -1,0 +1,11 @@
+<%= render 'layouts/modal/base' do %>
+  <div class="modal modal--xlarge">
+    <%= button_tag class: 'modal__close', data: { action: 'modal--base#animateOutCloseAndCleanUp' } do %>
+      <%= render partial: 'svg/24x24_close' %>
+    <% end %>
+    <div class="modal__header">
+       <h1 class="modal__title"><%= t('bot.start_new_bot') %></h1>
+    </div>
+    <%= render partial: 'bots/new_menu' %>
+  </div>
+<% end %>

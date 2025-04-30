@@ -1,0 +1,54 @@
+<div class="widget bot-tile">
+  <%= link_to bot_path(bot) do %>
+    <div class="bot-tile__header">
+      <div class="bot-tile__hgroup">
+        <div class="bot-tile__title">
+          <% if bot.barbell? && bot.quote_asset_id.present? && bot.base0_asset_id.present? && bot.base1_asset_id.present? %>
+            <span><%= bot.quote_asset.symbol %></span>
+            <span class="bot-tile__operator">&rarr;</span>
+            <span>
+              <span><%= bot.base0_asset.symbol %></span>,
+              <span><%= bot.base1_asset.symbol %></span>
+            </span>
+          <% elsif bot.basic? && bot.quote.present? && bot.base.present? %>
+            <span><%= bot.quote %></span>
+            <span class="bot-tile__operator">&rarr;</span>
+            <span><%= bot.base %></span>
+          <% elsif bot.withdrawal? && bot.currency.present? %>
+            <%= bot.currency %>
+          <% elsif bot.webhook? && bot.base.present? %>
+            <span><%= bot.base %></span>
+          <% end %>
+          <% if bot.exchange.present? %>
+            <% exchange_name = bot.exchange.name.downcase %>
+            <% exchange_name = case exchange_name
+               when 'binance.us' then 'binance'
+               else exchange_name
+               end %>
+            <%= render "svg/exchange-#{exchange_name}", title: bot.exchange.name %>
+          <% end %>
+          <%# bot_type_label(bot) %>
+        </div>
+        <div class="bot-tile__subtitle">
+          <%= bot.label %>
+        </div>
+      </div>
+      <% pnl = bot.legacy? ? bot.pnl : bot.metrics_with_current_prices[:pnl] %>
+      <% if pnl.present? %>
+        <div class="bot-tile__pnl <%= pnl.negative? ? 'text-danger' : pnl.positive? ? 'text-success' : '' %>">
+          <span class="widget__pnl__value"><%= format_percent(pnl, precision: 2) %></span>
+        </div>
+      <% end %>
+    </div>
+  <% end %>
+  <div class="bot-control">
+    <% unless bot.webhook? %>
+      <%= render "bots/status/status_bar", bot: bot %>
+    <% end %>
+    <% if bot.legacy? %>
+      <%= render "bots/status/status_button_legacy", bot: bot %>
+    <% else %>
+      <%= render "bots/status/status_button", bot: bot %>
+    <% end %>
+  </div>
+</div>

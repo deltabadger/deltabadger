@@ -3,11 +3,9 @@ module Presenters
     class WebhookBot < BaseService
       def initialize(
         next_bot_transaction_at: NextWebhookBotTransactionAt.new, # TODO: need?
-        transactions_repository: TransactionsRepository.new,
         next_result_fetching_at: NextResultFetchingAt.new
       )
         @next_bot_transaction_at = next_bot_transaction_at # TODO: need?
-        @transactions_repository = transactions_repository
         @next_result_fetching_at = next_result_fetching_at
       end
 
@@ -29,7 +27,7 @@ module Presenters
           logs: logs.map(&method(:present_log)),
           stats: present_stats(bot, daily_transaction_aggregates),
           nowTimestamp: Time.now.to_i,
-          nextResultFetchingTimestamp: next_result_fetching_timestamp(bot),
+          nextResultFetchingTimestamp: next_result_fetching_timestamp(bot)
           # nextTransactionTimestamp: next_transaction_timestamp(bot)
         }
       end

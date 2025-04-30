@@ -1,0 +1,14 @@
+en:
+    bot_info:
+        how_to_use: |
+            <p>How do you use this strategy?</p>
+            <p>Here are some examples:</p>
+        barbell:
+            info: |
+                <p><strong>Barbell Strategy</strong> is a simple two-asset strategy to improve risk management in your investing, with rebalanced DCA.</p>
+                <p>The bot achieves rebalancing using only BUY orders, so it never creates tax events while still targeting your desired allocation.</p>
+            examples: |
+                <p><strong>BTC-ETH</strong> — "Digital gold" meets Web3. Cover 74% of the crypto market with a simple, no-hassle portfolio that rebalances on autopilot.</p>
+                <p><strong>ETH-SOL</strong> — Which Web3 platform will win? Invest in both and let the market decide. Rebalancing ensures you end up on the winning side.</p>
+                <p><strong>BTC-PAXG</strong> — Cross-asset diversification. PAXG is a unique stablecoin that is not correlated with crypto but still offers attractive upside.</p>
+

@@ -1,0 +1,6 @@
+<div class="widget">
+  <h4 class="modal__title"><%= t('settings.index.two_factor_section') %></h4>
+  <div class="large-button-wrapper">
+    <%= link_to two_fa_button_text, settings_edit_two_fa_path, class: "button button--large button--success", data: { turbo_frame: "modal" } %>
+  </div>
+</div>

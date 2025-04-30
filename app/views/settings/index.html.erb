@@ -5,13 +5,13 @@
 </div>
 
 <div class="columns">
-  <div class="column gap-2">
-    <%= render partial: 'settings/forms/update_name', locals: { name_pattern: @name_pattern } %>
-    <%= render partial: 'settings/forms/update_email', locals: { email_address_pattern: @email_address_pattern } %>
+  <div class="column gap-1">
+    <%= render partial: 'settings/widgets/name', locals: { name_pattern: @name_pattern } %>
+    <%= render partial: 'settings/widgets/email', locals: { email_address_pattern: @email_address_pattern } %>
   </div>
 
-  <div class="column gap-2">
-    <%= render partial: 'settings/forms/update_password', locals: {
+  <div class="column gap-1">
+    <%= render partial: 'settings/widgets/password', locals: {
       password_pattern: @password_pattern,
       password_length_pattern: @password_length_pattern,
       password_uppercase_pattern: @password_uppercase_pattern,
@@ -19,14 +19,10 @@
       password_digit_pattern: @password_digit_pattern,
       password_symbol_pattern: @password_symbol_pattern,
     } %>
-
-    <div class="widget widget--single">
-      <h4 class="db-modal__subtitle"><%= t('settings.index.two_factor_section') %></h4>
-      <div class="form-group db-form-group--main-btn">
-        <%= link_to @two_fa_button_text, settings_edit_two_fa_path, class: "btn btn-lg btn-primary btn-success", data: { turbo_frame: "modal" } %>
-      </div>
-    </div>
-
-    <%= render partial: 'settings/forms/update_api_keys' %>
+    <%= render partial: 'settings/widgets/two_fa', locals: { two_fa_button_text: @two_fa_button_text } %>
+    <%= render partial: 'settings/widgets/api_keys', locals: {
+      trading_api_keys: @trading_api_keys,
+      withdrawal_api_keys: @withdrawal_api_keys
+    } %>
   </div>
 </div>

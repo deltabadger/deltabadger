@@ -38,7 +38,7 @@ module Admin
       payment.reload
       return unless grant_commission?(status_before_update, payment.status)
 
-      GrantAffiliateCommissionJob.perform_later(payment.id)
+      GrantAffiliateCommissionJob.perform_later(payment)
     end
 
     def csv

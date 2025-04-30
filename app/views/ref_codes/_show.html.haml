@@ -1,20 +1,9 @@
 - code_presenter = RefCodesPresenter.new(affiliate)
-%table.table.db-table--checkout
-  %tbody.table-borderless
-    - if code_presenter.valid?
-      %tr
-        %td.text-success.pr-0.pl-0(scope="col")
-          <i class="material-icons">check_circle</i>
-        %td(scope="col")
-          %b.text-success
-            = t('affiliates.discount.congrats_html', discount_percent: code_presenter.discount_percent)
-          %span.db-billing-item__info
-            - if code_presenter.info?
-              = t('affiliates.discount.referrer_html', visible_link: code_presenter.visible_path, visible_name: code_presenter.visible_name)
-            = t('affiliates.discount.valid_for')
-    - else
-      %tr.text-danger
-        %td(scope="col")
-          <i class="material-icons">broken_image</i>
-        %td(scope="col")
-          %b= t('affiliates.discount.invalid')
+- if code_presenter.valid?
+  %b.text-success
+    = t('affiliates.discount.congrats_html', discount_percent: code_presenter.discount_percent)
+    - if code_presenter.info?
+      = t('affiliates.discount.referrer_html', visible_link: code_presenter.visible_path, visible_name: code_presenter.visible_name)
+    = t('affiliates.discount.valid_for')
+- else
+  %b= t('affiliates.discount.invalid')

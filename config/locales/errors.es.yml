@@ -1,0 +1,104 @@
+es:
+    activerecord:
+        errors:
+            models:
+                affiliate:
+                    attributes:
+                        code:
+                            invalid_format: 'tiene que constar de caracteres alfanuméricos en mayúscula'
+                subscription:
+                    attributes:
+                        eth_address:
+                            invalid_address: '"%{eth_address}" es una dirección de Ethereum inválida. Por favor, inténtalo de nuevo.'
+                asset:
+                    attributes:
+                        portfolio:
+                            max_assets_reached: "Se ha alcanzado el máximo número de activos."
+    errors:
+        cloudflare_turnstile: 'La verificación de Cloudflare Turnstile ha fallado'
+        bitcoin_address_not_updated: 'No se ha podido actualizar la dirección de Bitcoin'
+        format: '%{attribute} %{message}'
+        frequency_limit: 'Límite de frecuencia superado'
+        invalid_api_keys: 'Tokens no válidos'
+        invalid_risk_free_rate_key: 'Clave de tasa libre de riesgo no válida.'
+        api_key_permission_validation_failed: 'Error al validar los permisos de la clave API'
+        api_key_already_exists: 'Ya existe una clave API para %{exchange_name}'
+        incorrect_api_key_permissions: 'Permisos de clave API incorrectos'
+        unable_to_get_risk_free_rate: 'No se puede obtener la tasa libre de riesgo para %{risk_free_rate_name}. El servidor de la API de datos no está disponible.'
+        invalid_number_of_allocations: 'Número de asignaciones no válido'
+        invalid_allocation_value: 'Valor de asignación no válido'
+        bots:
+            exchange_asset_mismatch: "No todos los activos están listados en %{exchange_name}"
+            destroy_success: "Bot %{bot_label} eliminado con éxito"
+            api_key_success: "claves API guardadas con éxito"
+        messages:
+            accepted: 'debe ser aceptado'
+            already_confirmed: 'ya estaba confirmado, intenta iniciar sesión.'
+            bad_2fa_code: 'Código no válido. Inténtalo de nuevo.'
+            bad_credentials: 'Correo electrónico o contraseña incorrectos.'
+            bad_credentials_with_code: 'Correo electrónico, contraseña o código 2FA incorrectos.'
+            blank: 'no puede estar en blanco'
+            confirmation: 'no coincide con %{attribute}'
+            confirmation_period_expired: 'debe ser confirmado en un plazo de %{period}, solicita uno nuevo.'
+            empty: 'no puede estar vacío'
+            empty_two_fa_token: 'Falta el código 2FA. Inténtalo de nuevo.'
+            equal_to: 'debe ser igual a %{count}'
+            even: 'debe ser par'
+            exclusion: 'está reservado'
+            expired: 'ha caducado, solicita uno nuevo.'
+            greater_than: 'debe ser mayor que %{count}'
+            greater_than_or_equal_to: 'debe ser mayor o igual a %{count}'
+            in: 'debe estar en %{count}'
+            inclusion: 'no está incluido en la lista'
+            invalid: 'no es válido'
+            less_than: 'debe ser menor que %{count}'
+            less_than_or_equal_to: 'debe ser menor o igual que %{count}'
+            model_invalid: 'Error en la validación: %{errors}'
+            not_a_number: 'no es un número'
+            not_an_integer: 'debe ser un número entero'
+            not_found: 'no encontrado.'
+            not_locked: 'no estaba bloqueado.'
+            not_saved:
+                one: '1 error impidió que este %{recurso} fuera guardado'
+                other: '%{count} errores impidieron que este %{resource} fuera guardado.'
+            odd: 'debe ser impar'
+            other_than: 'debe ser distinto de %{count}'
+            password_not_match: 'Las contraseñas no coinciden'
+            present: 'debe estar en blanco'
+            too_long:
+                one: 'es demasiado largo (máximo 1 caracter)'
+                other: 'es demasiado largo (máximo es %{count} caracteres)'
+            too_short:
+                one: 'es demasiado corta (mínimo 1 caracter)'
+                other: 'no es la longitud adecuada (debería ser %{count} caracteres)'
+            too_simple_password: 'La contraseña debe incluir caracteres de cada una de las siguientes categorías: caracteres en mayúsculas (A-Z), caracteres en minúsculas (a-z), dígitos (0-9) y caracteres especiales (por ejemplo, #,?,!).'
+            wrong_email: 'Correo electrónico incorrecto'
+            wrong_length:
+                one: 'no es la longitud adecuada (debería ser 1 caracter)'
+                other: 'es la longitud equivocada (debería ser %{count} caracteres)'
+            wrong_password: 'Contraseña incorrecta'
+            wrong_two_fa_token: 'El código indicado es erróneo'
+        referral_program_inactive: 'Tu programa de referidos está inactivo'
+        unverified_request: 'Actualiza tu navegador e inténtalo de nuevo.'
+    alert:
+        bot:
+            bot_updated: 'El bot se ha actualizado con éxito.'
+        portfolio:
+            invalid_name: 'Nombre de cartera no válido.'
+            invalid_benchmark: "Valor de referencia no válido."
+            invalid_strategy: "Valor de estrategia no válido."
+            invalid_start_date: "Valor de fecha de inicio no válido."
+            invalid_risk_free_rate: "Valor de tasa libre de riesgo no válido."
+            invalid_smart_allocation: "Valor de asignación inteligente no válido."
+            invalid_risk_level: "Valor de nivel de riesgo no válido."
+            unable_to_calculate: "No se pueden calcular asignaciones inteligentes para estos parámetros."
+            portfolio_normalized: "Las asignaciones de la cartera se han normalizado."
+            risk_level_updated: "El nivel de riesgo ha sido actualizado."
+            smart_allocation_updated: "Las asignaciones inteligentes han sido actualizadas."
+            unable_to_set_risk_rate: "No se puede establecer la tasa libre de riesgo en %{risk_free_rate_name}."
+            api_unreachable: "El servidor de la API de datos no está disponible."
+            portfolio_created: 'La cartera se ha creado con éxito.'
+            portfolio_updated: 'La cartera se ha actualizado con éxito.'
+            portfolio_destroyed: 'La cartera se ha eliminado con éxito.'
+            portfolio_duplicated: 'La cartera se ha duplicado con éxito.'
+            unable_to_duplicate_portfolio: 'No se puede duplicar la cartera.'

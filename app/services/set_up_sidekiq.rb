@@ -9,7 +9,7 @@ class SetUpSidekiq
 
   def fill_sidekiq_queue(dry_run: false)
     Bot.working.each do |bot|
-      if bot.trading?
+      if bot.basic?
         params = continue_params(bot)
         if params.present? && (params[:price] - bot.settings['price'].to_f).positive?
           puts "User: #{bot.user.id}, bot: #{bot.id}, email: #{bot.user.email}, missed amount: #{params[:price].to_f}, bot settings: #{bot.settings}"

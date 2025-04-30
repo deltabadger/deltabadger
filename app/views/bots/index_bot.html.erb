@@ -1,0 +1,443 @@
+<turbo-frame id="bot" complete="">
+  <div class="page-head">
+    <div data-controller="dropdown" data-action="click->dropdown#toggle" data-dropdown-target="wrapper" class="button button--link dropdown-wrapper">
+      <div id="label_bots_barbell_27">
+        Still Voice
+      </div>
+      <svg class="icon-16" fill="none" viewBox="0 0 16 16" xmlns="http://www.w3.org/2000/svg">
+        <path clip-rule="evenodd" d="M4.3 6.3a1 1 0 0 1 1.4 0L8 8.6l2.3-2.3a1 1 0 1 1 1.4 1.4l-3 3a1 1 0 0 1-1.4 0l-3-3a1 1 0 0 1 0-1.4Z" fill-rule="evenodd"></path>
+      </svg>
+      <div class="dropdown dropdown--bots">
+        <a class="dropdown__item" data-turbo-frame="modal" href="/bots/new">New bot +</a>
+      </div>
+    </div>
+    <div class="flex-row">
+      <div data-controller="dropdown" data-action="click->dropdown#toggle" data-dropdown-target="wrapper" class="button button--link dropdown-wrapper dropdown-wrapper--right">
+        <svg class="icon-24" fill="none" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+          <path d="M14 6a2 2 0 1 1-4 0 2 2 0 0 1 4 0Zm0 6a2 2 0 1 1-4 0 2 2 0 0 1 4 0Zm0 6a2 2 0 1 1-4 0 2 2 0 0 1 4 0Z"></path>
+        </svg>
+        <div class="dropdown">
+          <a class="dropdown__item" data-turbo-frame="modal" href="/bots/27/edit">Change name</a>
+          <div class="dropdown__item dropdown__item--divider"></div>
+          <a class="dropdown__item dropdown__item--danger" data-turbo-frame="modal" href="/bots/27/confirm_destroy">Delete</a>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="flex-column gap-1">
+
+    <div class="bot-control">
+      <turbo-cable-stream-source channel="Turbo::StreamsChannel" signed-stream-name="ImJvdF8yNzpzdGF0dXNfYmFyIg==--6d32adac6c0168458e5f316c4a2e394b27c8c67ab403d4e408fc8db22863ffeb" connected=""></turbo-cable-stream-source>
+      <form id="exchange_select" class="flex-row" data-controller="form--submit" action="/bots/27" accept-charset="UTF-8" method="post">
+        <input type="hidden" name="_method" value="patch">
+        <input type="hidden" name="authenticity_token" value="cp5NcohltjdvDBlrYUCZnsKq8Hn+NR8jBxmot/8vXCIbkcsmYeigOu1oaVmBCunC9mNEBvyl0IYFtsPfJjGN4w==">
+        <div class="sinput sinput--select sinput--exchange sinput--exchange--coinbase sinput--disabled">
+          <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path fill-rule="evenodd" clip-rule="evenodd" d="M15.0477 18.2617L18.0952 17.7009L20 20.6916C18.2857 21.6262 16.1905 22 14.2857 22C8.38094 22 4 18.2617 4 11.9065C4 5.73832 8.57143 2 14.4762 2C16.381 2 18.0953 2.37383 19.8096 3.1215L17.9048 6.29906C16.7619 5.92523 16 5.73832 14.8572 5.73832C11.0476 5.73832 8.38099 7.98131 8.38099 11.9065C8.38099 15.6449 11.0477 18.2617 15.0477 18.2617Z" fill="var(--label)"></path>
+          </svg>
+          Coinbase
+        </div>
+      </form>
+      <div id="status_bar_bots_barbell_27" style="width: 100%; display: flex">
+        <div class="bot-control__status active">
+          <div class="bot-control__status__bar" style="min-width: 0.5rem; width: 4.6033%;" data-controller="progress-bar" data-progress-bar-start-time-value="2025-04-16T18:59:30Z" data-progress-bar-end-time-value="2025-05-16T18:59:30Z" data-progress-bar-target="progressBar"></div>
+          <div data-controller="countdown" data-countdown-end-time-value="2025-05-16T18:59:30Z" data-countdown-hide-if-zero-value="true" data-countdown-days-label-value="d" data-countdown-hours-label-value="h" data-countdown-minutes-label-value="m" data-countdown-seconds-label-value="s">
+            <span data-countdown-target="days">28</span><span data-countdown-target="daysLabel">d</span>
+            <span data-countdown-target="hours">14</span><span data-countdown-target="hoursLabel">h</span>
+            <span data-countdown-target="minutes">51</span><span data-countdown-target="minutesLabel">m</span>
+            <span data-countdown-target="seconds">22</span><span data-countdown-target="secondsLabel">s</span>
+          </div>
+        </div>
+      </div>
+      <turbo-cable-stream-source channel="Turbo::StreamsChannel" signed-stream-name="ImJvdF8yNzpzdGF0dXNfYnV0dG9uIg==--0c503d13f6662535724755738d5c61a98a4fe9c55582f4e7fa36bd4ab03fd51e" connected=""></turbo-cable-stream-source>
+      <div id="status_button_bots_barbell_27">
+        <form class="button_to" method="post" action="/bots/27/stop">
+          <button class="button button--primary button--outline" data-hw-animate-out="animate-button-to-start-shape" type="submit">
+            <div class="animicon animicon--stop">
+              <div class="animicon__a"></div>
+              <div class="animicon__b"></div>
+            </div>
+          </button>
+          <input type="hidden" name="authenticity_token" value="LSPmDdJGCkRx59xYOgdlhgSlIoHrS468tMp0plYUa2yyBLWKBVzTV8P+Gb2LH3TNYR19BwnR8tNmTYSOpsKqyg==">
+        </form>
+      </div>
+    </div>
+
+    <div class="columns">
+      <div class="column gap-1">
+        <div class="widget widget--strategy widget--strategy--barbell" data-controller="class-toggle" data-action="click->class-toggle#toggle" data-class-toggle-target="togglable" data-class-toggle-toggle-classes-value='["active"]'>
+          <b class="sbadge sbadge--beta"><%= t('utils.beta') %></b>
+          <div class="theme-img" style="background-image: url('https://deltabadger.com/blog/when-to-sell.jpg')"></div>
+          <div class="index-title">Crypto-10 Index</div>
+          <div class="active-only">
+            <p class="index-info">There is no crypto S&amp;P 500, but now you can build one. Automate an index portfolio of top crypto.</p>
+          </div>
+        </div>
+      <div class="widget">
+          <div class="conversational flex-justify-center">
+            Invest
+            <div class="ticker-input ticker-input--autoscale">
+              <input value="0.1" class="numeric-input" min="0" step="any" size="3" data-controller="autowidth-input" data-action="change->form--submit#submit input->autowidth-input#resize" type="number" name="bots_barbell[quote_amount]" id="bots_barbell_quote_amount" style="width: 43px;">
+
+                <div class="ticker" style="background: #6683b7">
+                  EUR
+                </div>
+            </div>
+            /
+            <div class="sinput sinput--select ">
+              Week
+              <select data-action="change->form--submit#submit" name="bots_barbell[interval]" id="bots_barbell_interval"><option value="hour">Hour</option>
+            <option value="day">Day</option>
+            <option selected="selected" value="week">Week</option>
+            <option value="month">Month</option></select>
+            </div>
+          </div>
+          <div>
+            <div class="flex-row space-between">
+              <div class="label label--select ellipsis">
+                Allocation flattening
+              </div>
+              <div class="label label--select ellipsis">
+                0%
+              </div>
+            </div>
+            <div class="slider slider--flattening">
+                <input id="flattening" type="range" min="0" max="100" value="0" class="slider__input" step="1">
+                <div class="slider__style">
+                    <div class="slider__style__track">
+                        <div class="slider__style__progress" style="width: 0%;">
+                            <div class="slider__style__thumb drag-me"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+          <div class="index-assets">
+            <div class="index-asset">
+              <div class="index-asset__row">
+                <div class="ticker" style="background-color: #F7931A">BTC</div>
+                <div class="slider">
+                  <div class="slider__style">
+                    <div class="slider__style__track" style="border-left-color: #F7931A;">
+                      <div class="slider__style__progress" style="width: 75.30%; background-color: #F7931A;"></div>
+                    </div>
+                  </div>
+                </div>
+                <div class="allocation">75.30%</div>
+              </div>
+            </div>
+
+            <div class="index-asset">
+              <div class="index-asset__row">
+                <div class="ticker" style="background-color: #627EEA">ETH</div>
+                <div class="slider">
+                  <div class="slider__style">
+                    <div class="slider__style__track" style="border-left-color: #627EEA;">
+                      <div class="slider__style__progress" style="width: 8.74%; background-color: #627EEA;"></div>
+                    </div>
+                  </div>
+                </div>
+                <div class="allocation">8.74%</div>
+              </div>
+            </div>
+
+            <div class="index-asset">
+              <div class="index-asset__row">
+                <div class="ticker" style="background-color: #456">XRP</div>
+                <div class="slider">
+                  <div class="slider__style">
+                    <div class="slider__style__track" style="border-left-color: #456;">
+                      <div class="slider__style__progress" style="width: 5.82%; background-color: #456;"></div>
+                    </div>
+                  </div>
+                </div>
+                <div class="allocation">5.82%</div>
+              </div>
+            </div>
+
+            <div class="index-asset">
+              <div class="index-asset__row">
+                <div class="ticker" style="background-color: #F3BA2F">BNB</div>
+                <div class="slider">
+                  <div class="slider__style">
+                    <div class="slider__style__track" style="border-left-color: #F3BA2F;">
+                      <div class="slider__style__progress" style="width: 3.86%; background-color: #F3BA2F;"></div>
+                    </div>
+                  </div>
+                </div>
+                <div class="allocation">3.86%</div>
+              </div>
+            </div>
+
+            <div class="index-asset">
+              <div class="index-asset__row">
+                <div class="ticker" style="background-color: #00BD62">SOL</div>
+                <div class="slider">
+                  <div class="slider__style">
+                    <div class="slider__style__track" style="border-left-color: #00BD62;">
+                      <div class="slider__style__progress" style="width: 3.01%; background-color: #00BD62;"></div>
+                    </div>
+                  </div>
+                </div>
+                <div class="allocation">3.01%</div>
+              </div>
+            </div>
+
+            <div class="index-asset">
+              <div class="index-asset__row">
+                <div class="ticker" style="background-color: #0033AD">ADA</div>
+                <div class="slider">
+                  <div class="slider__style">
+                    <div class="slider__style__track" style="border-left-color: #0033AD;">
+                      <div class="slider__style__progress" style="width: 1.06%; background-color: #0033AD;"></div>
+                    </div>
+                  </div>
+                </div>
+                <div class="allocation">1.06%</div>
+              </div>
+            </div>
+
+            <div class="index-asset">
+              <div class="index-asset__row">
+                <div class="ticker" style="background-color: #FF060A">TRX</div>
+                <div class="slider">
+                  <div class="slider__style">
+                    <div class="slider__style__track" style="border-left-color: #FF060A;">
+                      <div class="slider__style__progress" style="width: 1.05%; background-color: #FF060A;"></div>
+                    </div>
+                  </div>
+                </div>
+                <div class="allocation">1.05%</div>
+              </div>
+            </div>
+
+            <div class="index-asset">
+              <div class="index-asset__row">
+                <div class="ticker" style="background-color: #0088CC">TON</div>
+                <div class="slider">
+                  <div class="slider__style">
+                    <div class="slider__style__track" style="border-left-color: #0088CC;">
+                      <div class="slider__style__progress" style="width: 0.42%; background-color: #0088CC;"></div>
+                    </div>
+                  </div>
+                </div>
+                <div class="allocation">0.42%</div>
+              </div>
+            </div>
+
+            <div class="index-asset">
+              <div class="index-asset__row">
+                <div class="ticker" style="background-color: #E84142">AVAX</div>
+                <div class="slider">
+                  <div class="slider__style">
+                    <div class="slider__style__track" style="border-left-color: #E84142;">
+                      <div class="slider__style__progress" style="width: 0.37%; background-color: #E84142;"></div>
+                    </div>
+                  </div>
+                </div>
+                <div class="allocation">0.37%</div>
+              </div>
+            </div>
+
+            <div class="index-asset">
+              <div class="index-asset__row">
+                <div class="ticker" style="background-color: #0098ff">SUI</div>
+                <div class="slider">
+                  <div class="slider__style">
+                    <div class="slider__style__track" style="border-left-color: #0098ff;">
+                      <div class="slider__style__progress" style="width: 0.34%; background-color: #0098ff;"></div>
+                    </div>
+                  </div>
+                </div>
+                <div class="allocation">0.34%</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="column gap-1">
+        <div id="chart" class="widget widget--chart">
+          <svg fill="none" style="width: 100%; max-width: 497px; align-self: center; justify-self: center; padding: 6vw 1vw; opacity: 0.2" viewBox="0 0 497 200" xmlns="http://www.w3.org/2000/svg">
+            <path clip-rule="evenodd" d="M215 10a5 5 0 1 0 0-10 5 5 0 0 0 0 10Zm147.5 34a2.5 2.5 0 1 0-5 0v6a2.5 2.5 0 1 0 5 0v-6ZM347 54.5a2.5 2.5 0 1 0 0 5h6a2.5 2.5 0 1 0 0-5h-6Zm20 0a2.5 2.5 0 1 0 0 5h6a2.5 2.5 0 1 0 0-5h-6Zm-4.5 9.5a2.5 2.5 0 1 0-5 0v6a2.5 2.5 0 1 0 5 0v-6ZM497 109a5 5 0 0 1-9.4 2.3l-11.5 1-17.1 6.4-15.5 12-17.1 18.7-18.5 4.3-18-4.3-15.5-.5-15.6 8.8-19.6-.4-15.9-2.4-16.5 14-16.2-.8-18 7.6L256 177l-17.3 3-17.1-1.4-16.5-.8-17 .4-17.6 3.7-16.3-3.8a2 2 0 0 1 1-3.8l15.4 3.6 17.1-3.7 17.4-.4 16.7.8 16.7 1.3 17-3 16.1-1.3 18.3-7.6 15.5.7 16.7-14.2 17.4 2.8 18.3.3 15.6-8.9 17.1.7 17.4 4 16.3-3.7 16.6-18L457 115l18.2-6.7 12-1a5 5 0 0 1 9.8 1.6ZM69.5 156.5 52.7 152l-16.3 3-17.4-.4-17.3 2.2a2 2 0 0 0 .6 4l17-2.2 17.4.4 15.9-3 15.9 4.4a2 2 0 0 0 1-3.9Zm42-62.2a5 5 0 1 0-4.6 0l-16.2 41.8a2 2 0 1 0 3.7 1.5l14.7-37.9 5.2 15.3a2 2 0 1 0 3.8-1.3l-6.6-19.4Zm13.7 32.6a5 5 0 0 1-7.4 4.3L99.9 145a2 2 0 0 1-2.4-3.2l17.9-13.7a5 5 0 0 1 4.8-6.2 5 5 0 0 1 5 5Zm-32 22v.6l43 24-12.9-34a2 2 0 1 1 3.8-1.3l14.7 39L150 197a2 2 0 0 1-3.7 1.5l-7.7-18.3-70 19.5a2 2 0 0 1-2.3-2.7l15-37.5A2 2 0 0 1 85 161l-13.4 34 63.1-17.7L91.1 153a5 5 0 1 1 2.1-4Z" fill="var(--label)" fill-rule="evenodd"></path>
+          </svg>
+        </div>
+
+        <div id="orders" class="widget widget--table">
+          <table class="table">
+            <thead>
+              <tr>
+                <th scope="col">Asset</th>
+                <th scope="col">Amount</th>
+                <th scope="col">Avg.Price</th>
+                <th scope="col">Price</th>
+                <th scope="col">PnL</th>
+              </tr>
+            </thead>
+            <tbody id="orders_list">
+
+              <tr>
+                <td scope="row">BTC</td>
+                <td>0.00002499</td>
+                <td>0.03</td>
+                <td>0.03</td>
+                <td class="text-success">10.1%</td>
+              </tr>
+              <tr>
+                <td scope="row">ETH</td>
+                <td>0.00000089</td>
+                <td>0.07</td>
+                <td>0.07</td>
+                <td class="text-success">40.5%</td>
+              </tr>
+              <tr>
+                <td scope="row">XRP</td>
+                <td>0.00000126</td>
+                <td>0.1</td>
+                <td>0.03</td>
+                <td class="text-danger">-2.1%</td>
+              </tr>
+              <tr>
+                <td scope="row">BNB</td>
+                <td>0.00000342</td>
+                <td>0.05</td>
+                <td>0.06</td>
+                <td class="text-success">15.3%</td>
+              </tr>
+              <tr>
+                <td scope="row">SOL</td>
+                <td>0.00000578</td>
+                <td>0.04</td>
+                <td>0.05</td>
+                <td class="text-success">22.7%</td>
+              </tr>
+              <tr>
+                <td scope="row">ADA</td>
+                <td>0.00001235</td>
+                <td>0.02</td>
+                <td>0.02</td>
+                <td class="text-success">5.8%</td>
+              </tr>
+              <tr>
+                <td scope="row">TRX</td>
+                <td>0.00003456</td>
+                <td>0.01</td>
+                <td>0.01</td>
+                <td class="text-danger">-1.2%</td>
+              </tr>
+              <tr>
+                <td scope="row">TON</td>
+                <td>0.00000765</td>
+                <td>0.03</td>
+                <td>0.04</td>
+                <td class="text-success">18.9%</td>
+              </tr>
+              <tr>
+                <td scope="row">AVAX</td>
+                <td>0.00000421</td>
+                <td>0.02</td>
+                <td>0.02</td>
+                <td class="text-danger">-3.5%</td>
+              </tr>
+              <tr>
+                <td scope="row">SUI</td>
+                <td>0.00000892</td>
+                <td>0.01</td>
+                <td>0.01</td>
+                <td class="text-success">7.2%</td>
+              </tr>
+            </tbody>
+          </table>
+      </div>
+
+        <div id="orders" class="widget widget--table">
+          <table class="table">
+            <thead>
+              <tr>
+                <th scope="col">Date</th>
+                <th scope="col">Amount</th>
+                <th scope="col">Value</th>
+              </tr>
+            </thead>
+            <tbody id="orders_list">
+              <tr id="order_130" class="">
+                <td scope="row">2025-04-13 12:18 PM</td>
+                <td>0.00001728 ETH</td>
+                <td>0.02 EUR</td>
+              </tr>
+              <tr id="order_129" class="">
+                <td scope="row">2025-04-13 12:18 PM</td>
+                <td>0.00000034 BTC</td>
+                <td>0.03 EUR</td>
+              </tr>
+              <tr id="order_128" class="">
+                <td scope="row">2025-04-13 11:18 AM</td>
+                <td>0.00002002 ETH</td>
+                <td>0.03 EUR</td>
+              </tr>
+              <tr id="order_127" class="">
+                <td scope="row">2025-04-13 11:18 AM</td>
+                <td>0.00000029 BTC</td>
+                <td>0.02 EUR</td>
+              </tr>
+              <tr id="order_126" class="">
+                <td scope="row">2025-04-13 10:18 AM</td>
+                <td>0.00001776 ETH</td>
+                <td>0.03 EUR</td>
+              </tr>
+              <tr id="order_125" class="">
+                <td scope="row">2025-04-13 10:18 AM</td>
+                <td>0.00000032 BTC</td>
+                <td>0.02 EUR</td>
+              </tr>
+              <tr id="order_124" class="">
+                <td scope="row">2025-04-13 09:18 AM</td>
+                <td>0.00000788 ETH</td>
+                <td>0.01 EUR</td>
+              </tr>
+              <tr id="order_123" class="">
+                <td scope="row">2025-04-13 09:18 AM</td>
+                <td>0.00000051 BTC</td>
+                <td>0.04 EUR</td>
+              </tr>
+              <tr id="order_122" class="">
+                <td scope="row">2025-04-13 08:20 AM</td>
+                <td>0.00002575 ETH</td>
+                <td>0.04 EUR</td>
+              </tr>
+              <tr id="order_121" class="">
+                <td scope="row">2025-04-13 08:20 AM</td>
+                <td>0.00000017 BTC</td>
+                <td>0.01 EUR</td>
+              </tr>
+                            <tr id="order_125" class="">
+                <td scope="row">2025-04-13 10:18 AM</td>
+                <td>0.00000032 BTC</td>
+                <td>0.02 EUR</td>
+              </tr>
+              <tr id="order_124" class="">
+                <td scope="row">2025-04-13 09:18 AM</td>
+                <td>0.00000788 ETH</td>
+                <td>0.01 EUR</td>
+              </tr>
+              <tr id="order_123" class="">
+                <td scope="row">2025-04-13 09:18 AM</td>
+                <td>0.00000051 BTC</td>
+                <td>0.04 EUR</td>
+              </tr>
+              <tr id="order_122" class="">
+                <td scope="row">2025-04-13 08:20 AM</td>
+                <td>0.00002575 ETH</td>
+                <td>0.04 EUR</td>
+              </tr>
+              <tr id="order_121" class="">
+                <td scope="row">2025-04-13 08:20 AM</td>
+                <td>0.00000017 BTC</td>
+                <td>0.01 EUR</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+</turbo-frame>

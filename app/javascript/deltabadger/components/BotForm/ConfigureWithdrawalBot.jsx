@@ -42,7 +42,7 @@ export const ConfigureWithdrawalBot = ({ currentExchange, handleReset, handleSub
   const ResetButton = () => (
     <div
       onClick={() => handleReset()}
-      className="sbutton sbutton--link"
+      className="button button--link"
     >
       <i className="material-icons">close</i>
       <span>Cancel</span>
@@ -117,8 +117,8 @@ export const ConfigureWithdrawalBot = ({ currentExchange, handleReset, handleSub
 
   const getMinimumDisclaimer = () => {
     return currentExchange.name === 'kraken' ?
-      I18n.t('bots.minimum_withdrawal_disclaimer', {currency: currencyName, minimum: minimum}) :
-      I18n.t('bots.minimum_withdrawal_disclaimer_usd', {minimum: minimum, exchange: currentExchange.name})
+      I18n.t('bot.minimum_withdrawal_disclaimer', {currency: currencyName, minimum: minimum}) :
+      I18n.t('bot.minimum_withdrawal_disclaimer_usd', {minimum: minimum, exchange: currentExchange.name})
   }
 
   return (
@@ -126,7 +126,7 @@ export const ConfigureWithdrawalBot = ({ currentExchange, handleReset, handleSub
 
       <div className="db-bot__header">
         <Breadcrumbs step={3} />
-        <div onClick={_handleSubmit} className={`sbutton ${disableSubmit ? 'sbutton--outline sbutton--disabled' : 'sbutton--success'}`}>
+        <div onClick={_handleSubmit} className={`button ${disableSubmit ? 'button--outline button--disabled' : 'button--success'}`}>
           <div className="animicon animicon--start">
             <div className="animicon__a"></div>
             <div className="animicon__b"></div>
@@ -139,8 +139,8 @@ export const ConfigureWithdrawalBot = ({ currentExchange, handleReset, handleSub
       <div className="db-bot__form">
         <div className="db-bot__alert text-danger">{ errors }</div>
         <form>
-          <div className="form-inline db-bot__form__schedule">
-            <div className="form-group mr-2">{splitTranslation(I18n.t('bots.setup.withdrawal_html', {currency: currencyName, address: address}))[0]}</div>
+          <div className="conversational flex-justify-center">
+            <div className="form-group mr-2">{splitTranslation(I18n.t('bot.setup.withdrawal_html', {currency: currencyName, address: address}))[0]}</div>
             <div className="form-group mr-2">
               <select
                 value={currency}
@@ -156,7 +156,7 @@ export const ConfigureWithdrawalBot = ({ currentExchange, handleReset, handleSub
             </div>
             { existsAddress() &&
               <>
-                <div className="form-group mr-2">{splitTranslation(I18n.t('bots.setup.withdrawal_html', {currency: currencyName, address: address}))[1]}</div>
+                <div className="form-group mr-2">{splitTranslation(I18n.t('bot.setup.withdrawal_html', {currency: currencyName, address: address}))[1]}</div>
                 <div className="form-group mr-2">
                   <select
                     value={address}
@@ -170,15 +170,15 @@ export const ConfigureWithdrawalBot = ({ currentExchange, handleReset, handleSub
                     }
                   </select>
                 </div>
-                <div className="form-group mr-2">{splitTranslation(I18n.t('bots.setup.withdrawal_html', {currency: currencyName, address: address}))[2]}</div>
+                <div className="form-group mr-2">{splitTranslation(I18n.t('bot.setup.withdrawal_html', {currency: currencyName, address: address}))[2]}</div>
               </>
             }
             { (!existsAddress() && !exchangeWithoutAddressEndpoint()) &&
-              <div className="form-group mr-2">{I18n.t('bots.setup.no_wallet_found', {exchangeName: currentExchange.name})}</div>
+              <div className="form-group mr-2">{I18n.t('bot.setup.no_wallet_found', {exchangeName: currentExchange.name})}</div>
             }
             { currentExchange.name.toLowerCase() === 'kraken' &&
               <>
-                <div className="form-group mr-2">{splitTranslation(I18n.t('bots.setup.withdrawal_html', {currency: currencyName, address: address}))[1]}</div>
+                <div className="form-group mr-2">{splitTranslation(I18n.t('bot.setup.withdrawal_html', {currency: currencyName, address: address}))[1]}</div>
                 <div className="form-group mr-2">
                   <input
                     type="text"
@@ -188,7 +188,7 @@ export const ConfigureWithdrawalBot = ({ currentExchange, handleReset, handleSub
                     className="bot-input bot-input--sizable bot-input--paper-bg"
                   />
                 </div>
-                <div className="form-group mr-2">{splitTranslation(I18n.t('bots.setup.withdrawal_html', {currency: currencyName, address: address}))[2]}</div>
+                <div className="form-group mr-2">{splitTranslation(I18n.t('bot.setup.withdrawal_html', {currency: currencyName, address: address}))[2]}</div>
               </>
             }
           </div>
@@ -203,7 +203,7 @@ export const ConfigureWithdrawalBot = ({ currentExchange, handleReset, handleSub
               onChange={() => setThresholdEnabled(!thresholdEnabled)}
             />
             <div>
-              <RawHTML tag="span">{splitTranslation(I18n.t('bots.withdraw_threshold_html', {currency: currencyName}))[0]}</RawHTML>
+              <RawHTML tag="span">{splitTranslation(I18n.t('bot.withdraw_threshold_html', {currency: currencyName}))[0]}</RawHTML>
               <input
                 type="text"
                 size={(threshold.length > 0) ? threshold.length : 3 }
@@ -211,7 +211,7 @@ export const ConfigureWithdrawalBot = ({ currentExchange, handleReset, handleSub
                 value={threshold}
                 onChange={e => setThreshold(e.target.value)}
               />
-              <RawHTML tag="span">{splitTranslation(I18n.t('bots.withdraw_threshold_html', {currency: currencyName}))[1]}</RawHTML>
+              <RawHTML tag="span">{splitTranslation(I18n.t('bot.withdraw_threshold_html', {currency: currencyName}))[1]}</RawHTML>
 
               <small className="hide-when-running hide-when-disabled">
                 <div>
@@ -231,7 +231,7 @@ export const ConfigureWithdrawalBot = ({ currentExchange, handleReset, handleSub
               onChange={() => setIntervalEnabled(!intervalEnabled)}
             />
             <div>
-              <RawHTML tag="span">{splitTranslation(I18n.t('bots.withdraw_interval_html'))[0]}</RawHTML>
+              <RawHTML tag="span">{splitTranslation(I18n.t('bot.withdraw_interval_html'))[0]}</RawHTML>
               <input
                 type="text"
                 size={(interval.length > 0) ? interval.length : 3 }
@@ -239,7 +239,7 @@ export const ConfigureWithdrawalBot = ({ currentExchange, handleReset, handleSub
                 value={interval}
                 onChange={e => setInterval(e.target.value)}
               />
-              <RawHTML tag="span">{splitTranslation(I18n.t('bots.withdraw_interval_html'))[1]}</RawHTML>
+              <RawHTML tag="span">{splitTranslation(I18n.t('bot.withdraw_interval_html'))[1]}</RawHTML>
             </div>
           </label>
         </form>

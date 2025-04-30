@@ -1,5 +1,3 @@
-require 'utilities/hash'
-
 class Sendgrid::RemoveEmailFromListJob < SendgridJob
   def perform(email, list_name)
     list_id = get_list_id(list_name)

@@ -34,6 +34,7 @@ class UserDashboard < Administrate::BaseDashboard
     welcome_banner_dismissed: Field::Boolean,
     news_banner_dismissed: Field::Boolean,
     referral_banner_dismissed: Field::Boolean,
+    has_community_access: Field::Boolean,
     referrer: Field::HasOne.with_options(class_name: 'Affiliate'),
     otp_secret_key: Field::String,
     otp_module: Field::Select.with_options(collection: %w[disabled enabled])
@@ -78,6 +79,7 @@ class UserDashboard < Administrate::BaseDashboard
     welcome_banner_dismissed
     news_banner_dismissed
     referral_banner_dismissed
+    has_community_access
     referrer
   ].freeze
 
@@ -97,6 +99,7 @@ class UserDashboard < Administrate::BaseDashboard
     welcome_banner_dismissed
     news_banner_dismissed
     referral_banner_dismissed
+    has_community_access
   ].freeze
 
   # COLLECTION_FILTERS

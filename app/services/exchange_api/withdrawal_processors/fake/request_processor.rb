@@ -7,7 +7,7 @@ module ExchangeApi
         SUCCESS = true
 
         def make_withdrawal(params)
-          Result::Success.new(amount: params[:amount], offer_id: rand(2000))
+          Result::Success.new(amount: params[:amount], external_id: rand(2000))
         end
       end
     end

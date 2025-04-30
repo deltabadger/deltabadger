@@ -1,0 +1,66 @@
+it:
+    metrics:
+        exp_return:
+            short_name: "Rend. Atteso"
+            short_info: "Il rendimento annuale atteso basato sul modello CAPM."
+            best: "Rendimento Atteso più alto"
+        cagr:
+            short_name: "Rend. Medio"
+            short_info: "Quanto è cresciuto il tuo portfolio in media ogni anno."
+            best: "Rendimento Medio più alto"
+        max_drawdown:
+            short_name: "Max. Drawdown"
+            short_info: "La più grande caduta nel valore del tuo portfolio dal suo punto più alto."
+            best: "Max. Drawdown più basso"
+        volatility:
+            short_name: "Rischio"
+            short_info: "Volatilità — quanto fluttua il valore del tuo portfolio in un anno."
+            best: "Rischio più basso"
+        var:
+            short_name: "VaR"
+            short_info: "C'è una probabilità del 95% che il tuo portfolio non perda più di questo importo in un singolo giorno."
+            best: "VaR più basso"
+        cvar:
+            short_name: "CVaR"
+            short_info: "Se le perdite superano il VaR, questa è la perdita media che puoi aspettarti."
+            best: "CVaR più basso"
+        sharpe_ratio:
+            short_name: "Indice Sharpe"
+            short_info: "Quanto rendimento stai ottenendo per il rischio che stai assumendo."
+            best: "Indice Sharpe più alto"
+        sortino_ratio:
+            short_name: "Indice Sortino"
+            short_info: "Simile all'Indice Sharpe, ma considera solo il rischio al ribasso."
+            best: "Indice Sortino più alto"
+        calmar_ratio:
+            short_name: "Indice Calmar"
+            short_info: "Il rendimento confrontato con la più grande perdita che il tuo portfolio ha sperimentato."
+            best: "Indice Calmar più alto"
+        alpha:
+            short_name: "Alpha"
+            short_info: "Quanto il tuo portfolio ha sovraperformato il mercato, aggiustato per il rischio."
+            best: "Alpha più alto"
+        beta:
+            short_name: "Beta"
+            short_info: "Come si muovono i rendimenti del tuo portfolio rispetto al mercato."
+            best: "Beta più basso"
+        treynor_ratio:
+            short_name: "Indice Treynor"
+            short_info: "Il rendimento che stai ottenendo per ogni unità di rischio di mercato."
+            best: "Indice Treynor più alto"
+        omega_ratio:
+            short_name: "Indice Omega"
+            short_info: "La probabilità di guadagni rispetto alla probabilità di perdite."
+            best: "Indice Omega più alto"
+        r_squared:
+            short_name: "R²"
+            short_info: "Quanto strettamente i rendimenti del tuo portfolio corrispondono al mercato generale."
+            best: "R² più alto"
+        info_ratio:
+            short_name: "Indice Info."
+            short_info: "Quanto costantemente il tuo portfolio sovraperforma il benchmark."
+            best: "Indice Info. più alto"
+        diversification:
+            short_name: "Diversificazione"
+            short_info: "La varietà di diversi investimenti nel tuo portfolio per distribuire il rischio."
+            best: "Migliore Diversificazione" 

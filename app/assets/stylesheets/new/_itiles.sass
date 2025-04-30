@@ -1,0 +1,181 @@
+.itiles
+    display: grid
+    grid-template-columns: 1fr
+    gap: 1rem
+    @media screen and (min-width: 576px)
+        grid-template-columns: repeat(auto-fill, minmax(280px, 1fr))
+.itile
+    padding: 20rem 3rem 3rem
+    &:not(.itile--soon)
+        &:hover,&.active
+            .theme-img
+                transform: scale(1.05)
+                &::after
+                    background-image: linear-gradient(to bottom, #0000 40%, var(--pick-bot-item-bg) 22rem)
+    .theme-img
+        height: 22rem
+        background-position: center !important
+        &::after
+            height: 22rem
+            background-image: linear-gradient(to bottom, #0000 40%, var(--pick-bot-item-bg) 22rem) 
+    p
+        margin-bottom: 0
+.widget--strategy
+    transition: all 0.5s ease !important
+    padding: 24rem 3rem 3rem
+    .active-only
+        padding-top: 2rem
+    &:not(.itile--soon)
+        &:hover,&.active
+            .theme-img
+                &::after
+                    transition: all 0.5s ease !important
+                    background-image: linear-gradient(to bottom, #0000 30%, var(--pick-bot-item-bg) 40rem) 
+        &.active
+            .theme-img
+                transition: all 0.5s ease
+                transform: scale(1.1)
+    .theme-img
+        opacity: 0.9 !important
+        transition: all 3s ease-out !important
+        height: 40rem
+        background-position: center !important
+        &::after
+            height: 40rem
+            background-image: linear-gradient(to bottom, #0000 30%, var(--widget-background) 40rem)
+    &--barbell
+        &:not(.itile--soon)
+            &:hover,&.active
+                .theme-img
+                    &::after
+                        background-image: linear-gradient(to bottom, #0000 30%, var(--pick-bot-item-bg) 40rem) 
+    p
+        color: #fffc !important
+    strong
+        color: #fff !important
+
+.itile,.widget--strategy
+    gap: 1rem !important
+    position: relative
+    overflow: hidden
+    background: var(--widget-background)
+    z-index: 0
+    border-radius: 1.5rem
+    display: flex
+    flex-direction: column
+    border: none
+    width: 100%
+    text-align: left
+    text-decoration: none
+    color: var(--text)
+    transition: all 0.2s ease
+    box-shadow: 0.25rem 0.25rem 2rem #00224419
+    &:not(.itile--soon)
+        &:hover,&.active
+            background: var(--pick-bot-item-bg)
+            box-shadow: 0.5rem 0.5rem 1.5rem #0242s
+            color: var(--pick-bot-item-text-hover)
+            cursor: pointer
+            .theme-img
+                opacity: 1
+    &--faded
+        filter: opacity(0.5) saturate(0.9)
+    &--bot-type
+        .index-title,.index-info
+            color: #fff !important
+            text-shadow: 0 0 10rem #01f
+        .theme-img
+            opacity: 0.8 !important
+            height: 100% !important
+            &::after
+                opacity: 1 !important
+                background-image: linear-gradient(to bottom, #0000 0%, #00a 100%) !important
+                height: 100% !important
+        &:hover
+            .theme-img
+                transform: scale(1.1) !important
+                opacity: 1 !important
+    &--barbell
+        color: #fff !important
+        &:hover, &.active
+            background: #00a !important
+        .theme-img
+            &::after
+                background-image: linear-gradient(to bottom, #0000 0%, #00a 100%) !important
+    &--dca
+        .theme-img::after
+            background-image: linear-gradient(to bottom, #0000 0%, color(display-p3 0 0.31 0.34) 100%) !important
+    .sbadge
+        position: absolute
+        top: 1rem
+        right: 1rem
+        &--soon
+            opacity: 0.85
+            background-color: var(--label)
+            color: var(--widget-background)
+        &--beta
+            background-color: #0040ff
+    .slider__style__track
+        border-right: none
+    .theme-img
+        transition: all 0.2s ease
+        position: absolute
+        top: 0
+        left: 0
+        display: block
+        width: 100%
+        background-size: cover !important
+        background-repeat: no-repeat !important
+        z-index: -1
+        opacity: 0.6
+        &::after
+            transition: all 0.2s ease
+            position: absolute
+            top: 0.1rem
+            left: 0
+            content: ""
+            display: block
+            width: 100%
+            background-size: 100% auto !important
+            background-position: bottom !important
+            background-repeat: no-repeat !important
+            z-index: -1
+.index-title
+    font-size: 2.25rem
+    line-height: 3rem
+    font-weight: 700 !important
+.index-info
+    font-size: 1.75rem
+    line-height: 2.65rem
+    font-weight: 500
+    display: block
+    overflow: hidden
+    opacity: 0.75
+    flex-grow: 2
+.index-assets
+    padding-top: 1.5rem
+    display: flex
+    flex-direction: column
+    gap: 0.75rem !important
+    justify-content: flex-start
+    @media screen and (min-width: 920px)
+        height: 38.5rem
+.index-asset
+    display: flex
+    flex-direction: column
+    gap: 0.5rem !important
+    &__row
+        display: flex
+        gap: 1rem
+    .slider
+        margin-bottom: 0
+    .ticker
+        width: 22rem
+        min-width: 0
+        padding: 0 1rem
+        height: 3rem
+        font-size: 1.75rem
+        line-height: 3rem
+    .allocation
+        min-width: 7rem
+        text-align: right

@@ -1,172 +1,32 @@
-# rubocop:disable Metrics/ClassLength
 class Bot < ApplicationRecord
-  belongs_to :exchange
+  belongs_to :exchange, optional: true
   belongs_to :user
   has_many :transactions, dependent: :destroy
   has_many :daily_transaction_aggregates
-  scope :without_deleted, -> { where.not(status: 'deleted') }
 
-  STATES = %i[created working stopped deleted pending].freeze
-  TYPES = %i[free withdrawal webhook].freeze
+  enum status: %i[created working stopped deleted pending retrying]
+  enum metrics_status: %i[unknown pending ready], _prefix: :metrics
 
-  enum status: [*STATES]
-  enum bot_type: [*TYPES]
+  scope :legacy, -> { where(type: %w[Bots::Basic Bots::Withdrawal Bots::Webhook]) }
+  scope :not_legacy, -> { where.not(type: %w[Bots::Basic Bots::Withdrawal Bots::Webhook]) }
 
-  def self.by_webhook(webhook)
-    queries = [{ trigger_url: webhook }.to_json, { additional_trigger_url: webhook }.to_json]
-    without_deleted.find_by('settings @> ? OR settings @> ? AND settings @> \'{"additional_type_enabled":true}\'', *queries)
-  end
+  include Typeable
+  include Labelable
+  include Webhookable
+  include Rankable
+  include Notifyable
+  include DomIdable
 
-  def base
-    settings['base']
-  end
+  delegate :market_sell, :market_buy, :limit_sell, :limit_buy, to: :exchange
 
-  def quote
-    settings['quote']
-  end
+  before_save :update_settings_changed_at, if: :will_save_change_to_settings?
+  after_update_commit :broadcast_status_bar_update, if: :saved_change_to_status?
+  after_update_commit :broadcast_status_button_update, if: :saved_change_to_status?
 
-  def price
-    settings['price']
-  end
+  INTERVALS = %w[hour day week month].freeze
 
-  def additional_price
-    settings['additional_price']
-  end
-
-  def percentage
-    settings['percentage']
-  end
-
-  def interval
-    settings['interval']
-  end
-
-  def interval_enabled
-    settings['interval_enabled']
-  end
-
-  def type
-    settings['type']
-  end
-
-  def additional_type
-    settings['additional_type']
-  end
-
-  def order_type
-    settings['order_type']
-  end
-
-  def force_smart_intervals
-    settings['force_smart_intervals']
-  end
-
-  def smart_intervals_value
-    settings['smart_intervals_value']
-  end
-
-  def price_range_enabled
-    settings['price_range_enabled']
-  end
-
-  def price_range
-    settings['price_range']
-  end
-
-  def currency
-    settings['currency']
-  end
-
-  def threshold
-    settings['threshold']
-  end
-
-  def threshold_enabled
-    settings['threshold_enabled']
-  end
-
-  def address
-    settings['address']
-  end
-
-  def already_triggered_types
-    settings['already_triggered_types']
-  end
-
-  def already_triggered_types=(triggered_type)
-    settings['already_triggered_types'] = triggered_type
-  end
-
-  def trigger_possibility
-    settings['trigger_possibility']
-  end
-
-  def additional_trigger_url
-    settings['additional_trigger_url']
-  end
-
-  def trigger_url
-    settings['trigger_url']
-  end
-
-  def name
-    settings['name']
-  end
-
-  def called_bot(webhook)
-    return 'additional_bot' if additional_type_enabled? && additional_trigger_url == webhook
-
-    'main_bot' if trigger_url == webhook
-  end
-
-  def already_triggered?(type)
-    already_triggered_types.include? type
-  end
-
-  def possible_to_call_a_webhook?(webhook)
-    return true if every_time?
-
-    !already_triggered?(called_bot(webhook))
-  end
-
-  def first_time?
-    trigger_possibility == 'first_time'
-  end
-
-  def every_time?
-    trigger_possibility == 'every_time'
-  end
-
-  def additional_type_enabled?
-    settings['additional_type_enabled']
-  end
-
-  def trading?
-    bot_type == 'free'
-  end
-
-  def withdrawal?
-    bot_type == 'withdrawal'
-  end
-
-  def webhook?
-    bot_type == 'webhook'
-  end
-
-  def market?
-    order_type == 'market'
-  end
-
-  def limit?
-    !market?
-  end
-
-  def buyer?
-    type == 'buy'
-  end
-
-  def seller?
-    !buyer?
+  def legacy?
+    ['Bots::Basic', 'Bots::Withdrawal', 'Bots::Webhook'].include?(type)
   end
 
   def last_transaction
@@ -193,16 +53,31 @@ class Bot < ApplicationRecord
     daily_transaction_aggregates.sum(:amount)
   end
 
-  def use_subaccount
-    settings.fetch('use_subaccount', false)
-  end
-
-  def selected_subaccount
-    settings.fetch('selected_subaccount', '')
-  end
-
   def destroy
-    update_attribute(:status, 'deleted')
+    update(status: 'deleted')
+  end
+
+  def broadcast_status_bar_update
+    broadcast_replace_to(
+      ["bot_#{id}", :status_bar],
+      target: dom_id(self, :status_bar),
+      partial: 'bots/status/status_bar',
+      locals: { bot: self }
+    )
+  end
+
+  def broadcast_status_button_update
+    broadcast_replace_to(
+      ["bot_#{id}", :status_button],
+      target: dom_id(self, :status_button),
+      partial: legacy? ? 'bots/status/status_button_legacy' : 'bots/status/status_button',
+      locals: { bot: self }
+    )
+  end
+
+  private
+
+  def update_settings_changed_at
+    self.settings_changed_at = Time.current
   end
 end
-# rubocop:enable Metrics/ClassLength

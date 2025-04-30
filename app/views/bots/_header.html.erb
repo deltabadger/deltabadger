@@ -1,0 +1,26 @@
+<div data-controller="dropdown" data-action="click->dropdown#toggle" data-dropdown-target="wrapper" class="button button--link dropdown-wrapper">
+  <%= tag.div id: dom_id(bot, :label) do %>
+    <%= bot.label %>
+  <% end %>
+  <%= render "svg/16x16_down" %>
+  <div class="dropdown dropdown--bots">
+    <%= link_to "#{t('bot.new')} +", new_bot_path, class: "dropdown__item", data: { turbo_frame: "modal" } %>
+    <% if other_bots.any? %>
+      <div class="dropdown__item dropdown__item--divider"></div>
+      <% other_bots.each do |other_bot| %>
+        <% data = other_bot.legacy? ? { turbo: false } : { turbo_frame: "bot", turbo_action: "advance" } %>
+        <%= link_to other_bot.label, bot_path(other_bot), class: "dropdown__item", data: data %>
+      <% end %>
+    <% end %>
+  </div>
+</div>
+<div class="flex-row">
+  <div data-controller="dropdown" data-action="click->dropdown#toggle" data-dropdown-target="wrapper" class="button button--link dropdown-wrapper dropdown-wrapper--right">
+    <%= render "svg/24x24_dot_menu" %>
+    <div class="dropdown">
+      <%= link_to t('utils.change_name'), edit_bot_path(bot), class: "dropdown__item", data: { turbo_frame: "modal" } %>
+      <div class="dropdown__item dropdown__item--divider"></div>
+      <%= link_to t('button.delete'), confirm_destroy_bot_path(bot), class: "dropdown__item dropdown__item--danger", data: { turbo_frame: "modal" } %>
+    </div>
+  </div>
+</div>

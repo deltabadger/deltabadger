@@ -1,40 +1,56 @@
-require 'utilities/time'
-
 class Asset < ApplicationRecord
-  belongs_to :portfolio
+  has_many :exchange_assets
+  has_many :exchanges, through: :exchange_assets
 
-  validates :ticker, presence: true
-  validates :api_id, presence: true, uniqueness: { scope: :portfolio_id }
-  validates :allocation, presence: true, numericality: { greater_than_or_equal_to: 0, less_than_or_equal_to: 1 }
-  validate :max_assets_per_portfolio
+  validates :external_id, presence: true, uniqueness: true
+  validate :can_be_destroyed, on: :destroy
 
-  after_create :reset_portfolio_memoization
-  after_update :reset_portfolio_memoization
-  after_destroy :reset_portfolio_memoization
+  include Undeletable
 
-  def symbol
-    # TODO: rename ticker to symbol everywhere
-    ticker
+  def sync_data_with_coingecko
+    result = coingecko_client.coin_data_by_id(
+      id: external_id,
+      localization: false,
+      tickers: false,
+      market_data: true,
+      community_data: false,
+      developer_data: false,
+      sparkline: false
+    )
+    return Result::Failure.new("Failed to get #{external_id} data from coingecko") unless result.success?
+
+    update!(
+      symbol: Utilities::Hash.dig_or_raise(result.data, 'symbol').upcase,
+      name: Utilities::Hash.dig_or_raise(result.data, 'name'),
+      url: "https://www.coingecko.com/coins/#{Utilities::Hash.dig_or_raise(result.data, 'web_slug')}",
+      image_url: Utilities::Hash.dig_or_raise(result.data, 'image', 'large'),
+      market_cap_rank: result.data['market_cap_rank']
+    )
+    Result::Success.new(self)
   end
 
-  def effective_allocation
-    if portfolio.smart_allocation_on?
-      portfolio.smart_allocations[portfolio.risk_level_int][api_id]
-    else
-      allocation
+  def infer_color_from_image
+    return if image_url.blank?
+
+    colors = Utilities::Image.extract_dominant_colors(image_url)
+    update!(color: Utilities::Image.most_vivid_color(colors))
+  end
+
+  def get_market_cap(currency: 'usd')
+    return Result::Failure.new('Asset is not a cryptocurrency') if category != 'Cryptocurrency'
+
+    market_cap = Rails.cache.fetch("asset_market_cap_#{external_id}_#{currency}", expires_in: 6.hours) do
+      result = coingecko_client.coins_list_with_market_data(vs_currency: currency, ids: [external_id])
+      return result unless result.success?
+
+      Utilities::Hash.dig_or_raise(result.data, 0, 'market_cap').to_i
     end
+    Result::Success.new(market_cap)
   end
 
   private
 
-  def reset_portfolio_memoization
-    portfolio.reset_memoized_assets if portfolio.present?
-  end
-
-  def max_assets_per_portfolio
-    max_assets = portfolio.limited? ? Portfolio::MAX_ASSETS[:limited] : Portfolio::MAX_ASSETS[:unlimited]
-    return if portfolio.assets.count < max_assets
-
-    errors.add(:portfolio, :max_assets_reached)
+  def coingecko_client
+    @coingecko_client ||= CoingeckoClient.new
   end
 end

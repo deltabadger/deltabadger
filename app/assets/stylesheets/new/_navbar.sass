@@ -52,6 +52,8 @@
     &--logo
       @media only screen and (max-width: 1359px)
         width: 13rem
+    &--bottom
+      align-items: center
   &__logo
     width: 5rem
     height: 3rem
@@ -105,8 +107,9 @@
     fill: var(--success)
 
 .view
-  &--home-dashboard .menu__item--dashboard, &--calculator-show .menu__item--calculator, &--portfolios-show .menu__item--analyzer, &--affiliates-new .menu__item--referral-program, &--affiliates-show .menu__item--referral-program, &--settings-index .menu__item--settings, &--upgrade-index .menu__item--upgrade, &--legendaries-show .menu__item--legendary-plan
+  &--bots-index .menu__item--dashboard, &--calculator-show .menu__item--calculator, &--portfolios-show .menu__item--analyzer, &--affiliates-new .menu__item--referral-program, &--affiliates-show .menu__item--referral-program, &--settings-index .menu__item--settings, &--upgrade-index .menu__item--upgrade, &--legendaries-show .menu__item--legendary-plan
     background: var(--menuicon-active-background)
+    box-shadow: var(--widget-shadow)
     .fill--icon
       fill: var(--menulink-active)
 
@@ -129,11 +132,6 @@
     bottom: -0.875rem
 
 .menu
-  .btn-link
-    color: var(--menulink)
-    text-decoration: none
-    a
-      color: var(--link)
   .dropdown-wrapper
     display: flex
     align-items: center

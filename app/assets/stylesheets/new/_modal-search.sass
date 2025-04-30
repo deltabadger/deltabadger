@@ -1,27 +1,148 @@
+// modal
+.dialog
+    background: var(--modal-backdrop)
+    position: fixed
+    width: 100vw
+    height: 100vh
+    max-height: 100vh
+    max-width: 100vw
+    display: flex
+    justify-content: center
+    align-items: center
+    z-index: 1000
+    border: none
+    top: 0
+    left: 0
+    backdrop-filter: blur(1rem)
+    &::backdrop
+        display: none
+    &__vertical-center
+        max-height: 100vh
+        position: fixed
+        // overflow: scroll
+        padding: 1rem 0
+        @media screen and (min-width: 576px)
+            padding: 2rem 0
+.dialogview
+    background: var(--modal-background)
+    border: none
+    width: 100vw
+    height: 100vh
+    max-height: 100vh
+    max-width: 100vw
+    display: flex
+    justify-content: center
+    z-index: 1000
+    @media screen and (min-width: 768px)
+        align-items: center
+    .modal__close
+        top: 2rem
+        right: 2rem
+        @media screen and (min-width: 768px)
+            top: 4rem
+            right: 4rem
+    &__vertical-center
+        height: 100vh
+        max-width: 100rem
+        width: 100%
+        padding: 2rem 0
+        @media screen and (min-width: 768px)
+            padding: 4rem 0
+#modal
+    .modal
+        position: relative
+        top: 20vh
+        opacity: 0
+        transition: all 0.2s ease-out
+    &[complete]
+        .modal
+            top: 0
+            opacity: 1
 .modal
-    &__body
-        padding: 3rem 8rem 4rem
-        width: 65rem
-        max-width: calc(100vw - 4.8rem)
-        background: var(--modal-background)
-        border-radius: 2rem
-        @media screen and (max-width: 500px)
-            padding-left: 3rem
-            padding-right: 3rem
+    position: relative
+    padding: 4rem
+    width: 100vw
+    max-width: calc(100vw - 2rem)
+    background: var(--modal-background)
+    border-radius: 2rem
+    @media screen and (max-width: 499.9px)
+        padding-left: 3rem
+        padding-right: 3rem
+    @media screen and (min-width: 576px)
+        max-width: calc(100vw - 4rem)
+        width: 64rem
+        &--medium
+            width: 104rem
+        &--large
+            width: 128rem
+        &--xlarge
+            width: calc(100vw - 4rem)
+            max-width: 106rem 
+    &--xlarge
+        background: none
+        padding: 1rem 0 0
+        @media screen and (min-width: 768px)
+            padding-bottom: 12rem
+        .itile
+            &--soon
+                background: var(--widget-background) // var(--itile-soon-bg)
+                color: var(--label)
+                backdrop-filter: blur(4rem)
+                .theme-img
+                    display: none
+        .modal__header
+            margin-bottom: 3rem
+        .modal__title
+            line-height: 3rem
+        .modal__close
+            top: 1rem
+            right: 1rem
+            *
+                fill: var(--link)      
+    &--full
+        width: 100vw
+        max-width: 100vw
+        height: 100vh
+        max-height: 100vh
+        border-radius: 0
+        top: -2rem
+        margin-bottom: -4rem
+        display: flex
+        flex-direction: column
+        align-items: center
+        padding: 7rem
+        gap: 4rem
+        *
+            max-width: 128rem
+        .modal__close
+            top: 5rem
+            right: 5rem
+            width: 4rem
+            height: 4rem
+            min-width: 4rem
+        .icon-24
+            width: 4rem
+            height: 4rem
+            min-width: 4rem
+    &--2fa
+        text-align: center
     &__close
+        cursor: pointer
         position: absolute
-        top: 3rem
-        right: 3rem
+        top: 4rem
+        right: 4rem
         width: 3rem
         height: 3rem
         background: none // <button>
         border: none     // <button>
         path
-            fill: var(--label)
+            fill: var(--link)
             .flash__message &
                 fill: white
     &__header
-        margin-bottom: 7rem
+        margin-bottom: 4rem
+        min-height: 3rem
+        line-height: 3rem
     &__title
         font-size: 2.5rem
         margin-bottom: 0
@@ -32,15 +153,53 @@
         align-items: center
         .db-form__row
             width: 100%
-
+    &--welcome
+        color: white
+        background-image: linear-gradient(#193581 0%,#001f75aa 50%,#0011ff40), url("journey-day02.jpg")
+        background-size: cover
+        background-position: center
+        padding-bottom: 24rem
+        width: calc(100vw - 2rem)
+        max-width: 72rem
+        .modal__close path
+            fill: #fff
+        img
+            position: relative
+            top: -0.5rem
+    &--upgrade
+        padding-bottom: 26rem
+        color: white
+        background-image: url("upgrade01.webp"), linear-gradient(to bottom,color(display-p3 0 .2 .7) 10%,color(display-p3 0.08 .16 .63) 60%)
+        background-position: bottom center
+        background-size: 100%
+        background-position: center bottom
+        background-repeat: no-repeat
+        @media screen and (max-width: 575px)
+            padding-bottom: calc(45vw - 2rem)
+        p
+            margin-bottom: 3.5rem
+            text-align: center
+        .icon-24
+            *
+                fill: #fff
+    &__close
+        &:focus-visible
+            outline: none !important
+    .button
+        width: 100%
+    .db-form__row
+        margin-bottom: 4rem
 .modal--search
-    background: var(--modal-background)
     width: 100rem
-    max-width: calc(100vw - 4.8rem)
-    &__background
-        background: var(--modal-background)
-        border-radius: 2rem
-        overflow: hidden
+    max-width: calc(100vw - 2rem)
+    max-height: calc(100vh - 2rem)
+    position: relative
+    background: var(--modal-background)
+    border-radius: 2rem
+    overflow: hidden
+    @media screen and (min-width: 576px)
+        max-width: calc(100vw - 4rem)
+        max-height: calc(100vh - 4rem)
     &__zoom-icon
         width: 3rem
         height: 3rem
@@ -50,7 +209,7 @@
         path,circle
             stroke: var(--modal-search-placeholder)
     &__input
-        box-shadow: 0 1px var(--slider-track) !important
+        box-shadow: 0 0.125rem var(--slider-track) !important
         background: rgba(0,0,0,0)
         font-weight: 500
         width: 100%
@@ -63,7 +222,7 @@
         &::placeholder
             color: var(--modal-search-placeholder)
     &__assets
-        max-height: 57rem !important
+        max-height: 56.875rem !important
         display: block
         overflow-y: scroll
         scrollbar-width: none
@@ -73,11 +232,11 @@
             .loader
                 display: block
         &__item
-            border-bottom: 1px solid var(--slider-track) !important
+            border-bottom: 0.125rem solid var(--slider-track) !important
             &:last-child
                 border-bottom: none !important
             &:hover
-                background: var(--modal-search-hover-background)
+                background: var(--modal-search-highlight-background)
             &__highlight
                 background: var(--modal-search-highlight-background)
                 &:hover
@@ -88,6 +247,7 @@
                 display: grid
                 grid-template-columns: 15rem 1fr 12rem
                 width: 100%
+                cursor: pointer
                 @media screen and (max-width: 500px)
                     grid-template-columns: 13rem 1fr 12rem
     &__cell
@@ -101,17 +261,56 @@
             font-weight: bold
             color: var(--emphasis)
         &--name
+            color: var(--emphasis)
             &__country
                 font-weight: 400
                 color: var(--label)
             a
                 text-decoration: none
             .icon-24
+                display: inline-block
                 position: relative
                 top: -.125rem
                 path
                     fill: var(--label)
+        &--exchanges
+            font-weight: 400
+            color: var(--label)
+            text-align: end
+            padding-right: 2.5rem
+            svg
+                width: 2rem
+                height: 2rem
+                fill: var(--label)
         &--category
             color: var(--label)
             text-align: right
             margin-right: 2.5rem
+.community-access-instructions
+    padding: 4rem 3rem 3rem
+    background: var(--modal-background)
+    border-radius: 2rem
+    display: flex
+    flex-direction: column
+    align-items: center
+    gap: 4rem
+    &__illustration
+        width: 16rem !important
+        display: block
+        @media screen and (min-width: 786px)
+            width: 24rem !important
+    @media screen and (min-width: 786px)
+        padding: 6rem 4rem 4rem
+        flex-direction: row
+        padding: 10rem
+        gap: 8rem
+.selectable-options:hover
+    .modal--search__assets__item__highlight
+        background: none !important
+        &:hover
+            background: var(--modal-search-highlight-background) !important
+
+.flash__message
+    .modal__close
+        right: 3rem
+        top: 3rem

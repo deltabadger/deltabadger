@@ -1,0 +1,69 @@
+nl:
+    subscriptions:
+        per_month_html: "/maand"
+        per_year_html: "/jaar"
+        plan_1_year: "1 jaar"
+        plan_4_year: "4 jaar"
+        plan_life_time: "Levenslang"
+        variant1: "1 jaar"
+        variant4: "4 jaar, één gratis"
+        free: Spaarder
+        upgrade_modal:
+            title: "Upgraden naar Pro"
+            description: "Toegang tot alle geavanceerde functies."
+        days_left:
+            one: '1 dag over'
+            other: '%{count} dagen over'
+        payment:
+            price_usd_html: '<span class=price-ticker>%{symbol}</span><span class=price-amount>%{price}</span>'
+            price_eur_html: '<span class=price-ticker>%{symbol}</span><span class=price-amount>%{price}</span>'
+            account_holder: Rekeninghouder
+            account_number: Rekeningnummer
+            account_type: 'Rekening soort'
+            active_plan_discount: 'Korting op actief plan'
+            after_wire_transfer_html: 'Bedankt! We nemen snel contact met u op! Als u verdere hulp nodig hebt, laat het ons weten: <a href=''mailto:support@deltabadger.com''>support@deltabadger.com.</a>'
+            bank_address: 'Bank adres'
+            billing_information: Factuurgegevens
+            base_price: 'Basisprijs'
+            compensation:
+                one: "Compensatie voor <b>1</b> ongebruikte dag van het %{plan}-plan."
+                other: "Compensatie voor <b>%{count}</b> ongebruikte dagen van het %{plan}-plan."
+            legendary_plan_discount_html: 'De prijs stijgt met %{amount} bij elke verkoop'
+            eu_bank_country: België
+            invalid_vat_number: 'Ongeldig EU-BTW-nummer'
+            paid_with_wire_transfer: 'Ik heb SEPA overschrijving gedaan'
+            paid_with_wire_transfer_other: 'Ik heb een bankoverschrijving gedaan'
+            pay_html: 'Betaal %{amount_html}'
+            pay_with_bitcoin: 'Betaal met bitcoin'
+            payment_ordered: 'Betaling besteld!'
+            referral_discount: '%{discount_percent} korting'
+            referral_discount_html: 'Dankzij de referral link van <b><a href="%{visible_link}">%{visible_name}</a></b>, krijg je een korting voor de eerste aankoop op het platform.'
+            black_friday_discount_info: '%{discount_percent} korting'
+            black_friday_sale: 'Black Friday Aanbieding'
+            pro_and_legendary_plans: 'Pro- en Legendary-plannen'
+            days: 'dagen'
+            hours: 'uren'
+            minutes: 'minuten'
+            seconds: 'seconden'
+            days_short: 'd'
+            hours_short: 'u'
+            minutes_short: 'm'
+            seconds_short: 's'
+            upgrade_now: 'Upgrade nu'
+            routing_number: 'Routing nummer'
+            server_error: 'Betalingen server error. Probeer het later opnieuw.'
+            vat: BTW
+            wire_cost_html: 'Stuur alstublieft <b>%{price}</b> naar de volgende bankrekening:'
+            wire_cost_pending_html: 'Als je nog niet betaald hebt, stuur dan <b>%{price}</b> naar volgende bankrekening:'
+            wire_transfer: Bankoverschrijving
+            wire_transfer_fill_form: 'Vul het bovenstaande formulier in om verder te gaan...'
+            wire_transfer_pending: 'Bedankt! We activeren uw account spoedig en nemen per email contact met u op.'
+            you_pay: 'U betaalt'
+        prolong_upgrade: 'Upgrade je abonnement'
+        upgrade: Upgrade
+        upgrade_plan: 'Upgrade abonnement'
+    legendary_badger:
+        will_be_sent: 'Le NFT Legendary Badger sera envoyé à :'
+        ethereum_address: 'Adresse Ethereum'
+        confirm_info_html: 'Ik bevestig dat het adres correct is en begrijp dat de NFT naar dit adres zal worden verzonden. Zodra ik op <b>Claim NFT</b> klik, kan niemand de NFT herstellen als het adres onjuist is.'
+        claim: 'Claim NFT'

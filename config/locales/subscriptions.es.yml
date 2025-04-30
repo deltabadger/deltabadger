@@ -1,0 +1,70 @@
+es:
+    subscriptions:
+        per_month_html: "/mes"
+        per_year_html: "/año"
+        plan_1_year: "1 año"
+        plan_4_year: "4 años"
+        plan_life_time: "De por vida"
+        variant1: "1 año"
+        variant4: "4 años, uno gratis"
+        free: Gratis
+        upgrade_modal:
+            title: "Actualizar a Pro"
+            description: "Accede a todas las funciones avanzadas."
+        days_left:
+            one: '1 día menos'
+            other: '%{count} días disponibles'
+        legendary_plan_left_html: "%{for_sale_count} <span class='hide-on-mobile'>de %{total_supply}</span> restantes"
+        payment:
+            price_usd_html: '<span class=price-ticker>%{symbol}</span><span class=price-amount>%{price}</span>'
+            price_eur_html: '<span class=price-ticker>%{symbol}</span><span class=price-amount>%{price}</span>'
+            account_holder: 'Titular de la cuenta'
+            account_number: 'Número de cuenta'
+            account_type: 'Tipo de cuenta'
+            active_plan_discount: 'Descuento del plan activo'
+            after_wire_transfer_html: '¡Gracias! Pronto nos pondremos en contacto contigo. Si necesitas ayuda adicional, envíanos un mensaje a <a href=''mailto:support@deltabadger.com''>support@deltabadger.com</a>.'
+            bank_address: 'Dirección del banco'
+            billing_information: 'Datos de facturación'
+            base_price: 'Precio base'
+            compensation:
+                one: "Compensación por <b>1</b> día no utilizado del plan %{plan}."
+                other: "Compensación por <b>%{count}</b> días no utilizados del plan %{plan}."
+            legendary_plan_discount_html: 'El precio aumenta %{amount} con cada venta'
+            eu_bank_country: Bélgica
+            invalid_vat_number: 'Número de IVA intracomunitario no válido'
+            paid_with_wire_transfer: 'He realizado una transferencia SEPA'
+            paid_with_wire_transfer_other: 'He realizado una transferencia bancaria'
+            pay_html: 'Pagar %{amount_html}'
+            pay_with_bitcoin: 'Pagar con bitcoin'
+            payment_ordered: '¡Pago ordenado!'
+            referral_discount: '%{discount_percent} de descuento'
+            referral_discount_html: 'Gracias al enlace de referidos de <b><a href="%{visible_link}">%{visible_name}</a></b>, obtienes un descuento para la primera compra en la plataforma.'
+            black_friday_discount_info: '%{discount_percent} de descuento'
+            black_friday_sale: 'Oferta de Black Friday'
+            pro_and_legendary_plans: 'Planes Pro y Legendary'
+            days: 'días'
+            hours: 'horas'
+            minutes: 'minutos'
+            seconds: 'segundos'
+            days_short: 'd'
+            hours_short: 'h'
+            minutes_short: 'm'
+            seconds_short: 's'
+            upgrade_now: 'Actualiza ahora'
+            routing_number: 'Número de ruta bancaria'
+            server_error: 'Se ha producido un error en el servidor de pagos, inténtalo de nuevo más tarde'
+            vat: IVA
+            wire_cost_html: 'Envía <b>%{price}</b> a la siguiente cuenta bancaria:'
+            wire_cost_pending_html: 'Si no hiciste un pago aún, envía <b>%{price}</b> a la siguiente cuenta bancaria:'
+            wire_transfer: 'Transferencia bancaria'
+            wire_transfer_fill_form: 'Rellena el formulario de arriba para continuar...'
+            wire_transfer_pending: '¡Gracias! Pronto activaremos tu cuenta y nos pondremos en contacto contigo por correo electrónico.'
+            you_pay: 'Total'
+        prolong_upgrade: 'Actualiza tu plan'
+        upgrade: Actualizar
+        upgrade_plan: 'Actualizar plan'
+    legendary_badger:
+        will_be_sent: 'Legendary Badger NFT será enviado a:'
+        ethereum_address: 'Dirección de Ethereum'
+        confirm_info_html: 'Confirmo que la dirección es correcta y entiendo que el NFT será enviado a esta dirección. Una vez que haga clic en <b>Reclamar NFT</b>, si la dirección es incorrecta, nadie podrá recuperar el NFT.'
+        claim: 'Reclamar NFT'

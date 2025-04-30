@@ -1,0 +1,30 @@
+.bot-control
+    display: flex
+    gap: 1rem
+    &__status
+        overflow: hidden
+        line-height: 4rem
+        background: var(--widget-background)
+        flex: 2
+        border-radius: 2rem
+        padding: 0 2rem
+        color: var(--label)
+        position: relative
+        box-shadow: var(--widget-shadow)
+        font-weight: 600
+        &__bar
+            position: absolute
+            top: 0
+            left: 0
+            bottom: 0
+            height: 100%
+            opacity: 0.3
+            border-radius: 2rem
+            transition: width 0.5s linear // match "progress-bar" controller update interval
+        &.active
+            .bot-control__status__bar
+                background: var(--success)
+            color: var(--success)
+
+turbo-cable-stream-source
+    display: none !important

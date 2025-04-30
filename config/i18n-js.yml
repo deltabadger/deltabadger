@@ -1,2 +1,2 @@
 translations:
-  - only: ["*.bots.*", "*.cookies.*", "*.links.*", "*.cookie.*"]
+  - only: ["*.bot.*", "*.utils.*", "*.button.*", "*.errors.*"]

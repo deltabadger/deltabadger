@@ -4,14 +4,18 @@ $primary: rgb(41, 72, 161)
 $text:    #061A4F
 $success: color(display-p3 0 0.7 0.4)
 $danger:  color(display-p3 1 0 0)
+$warning: color(display-p3 1 0.5 0)
+$soon:    color(display-p3 1 0.5 0)
+$pro:     rgb(0, 64, 255)
+$legendary: rgb(140, 0, 255)
 
 $gray-100: #EDF0F6
 $gray-150: #dde0ea
 $gray-200: #b4bcd1
 $gray-300: #8894B6
 
-$page-bg: #FFF
-$widget-bg: #F2F5FA
+$page-bg: #f5f6f8
+$widget-bg: #fff
 
 $dropdown-bg: #FFF
 
@@ -29,54 +33,78 @@ $dropdown-bg: #FFF
   --c-gradient: -webkit-linear-gradient(5deg, var(--c-gradient-step-a), var(--c-gradient-step-b), var(--c-gradient-step-c), var(--c-gradient-step-d), var(--c-gradient-step-a))
 
   --ticker-text-dark: #061A4F
+  --widget-shadow: 0.125rem 0.125rem 0.125rem rgba(0,0,0,0.035), 0.5rem 0.5rem 1.5rem rgba(0,0,0,0.035)
 
 @media (prefers-color-scheme: light)
   .db-darkmode-only,.darkmode-only
     display: none
   \:root
     --primary: #2948A1
+    --primary-button: #2948A1
+    --primary-shadow: 0.125rem 0.125rem 0.125rem rgba(0,0,0,0.07), 0.5rem 0.5rem 0.5rem rgba(0,0,0,0.07)
     --success: color(display-p3 0 0.7 0.4)
+    --success-shadow: 0.125rem 0.125rem 0.125rem rgba(0, 30, 15, 0.07), 0.5rem 0.5rem 0.5rem rgba(0, 30, 15, 0.07)
+    --danger: #f7002d
+    --danger-shadow: 0.125rem 0.125rem 0.125rem rgba(0,0,0,0.07), 0.5rem 0.5rem 0.5rem rgba(0,0,0,0.07)
+    --warning: color(display-p3 1 0.5 0)
+    --warning-semitransparent: color(display-p3 1 0.5 0 / 0.38)
+    --warning-shadow: 0.125rem 0.125rem 0.125rem rgba(0,0,0,0.07), 0.5rem 0.5rem 0.5rem rgba(0,0,0,0.07)
+    --soon: color(display-p3 1 0.5 0)
+    --soon-shadow: 0.125rem 0.125rem 0.125rem rgba(0,0,0,0.07), 0.5rem 0.5rem 0.5rem rgba(0,0,0,0.07)
     --success-semitransparent: color(display-p3 0 0.7 0.4 / 0.2)
     --discount: color(display-p3 0 0.6 0.34)
     --ai: color(display-p3 0.7 0 0.7)
-    --danger: #f7002d
+
     --benchmark: #949db5
-    --background-new: #fff
+    --background-new: #f5f6f8
     --background-new-semitransparent: #cfdeff69
-    --widget-background: #F2F5FA
+    --widget-background: #fff
     --widget-line: #D9E0E7
     --insight-title: #061A4F
-    --insight-background: #2948A177
+    --insight-background: #8098dd77
     --insight-pro-background: #a1f1d9
     --insight-con-background: #ffd3e2
-    --insight-warning-background: #feebd6
+    --insight-warning-background: #ffd7ab
     --slider-track: #3453B019
     --slider-progress:#2948A1
     --label: #061a4f80
     --label-select-inactive: #3453b05e
+    
     --emphasis: #2948A1
+
+    --modal-backdrop: #bcc4d338
+
+    --pick-bot-item-bg: #fff
+    --pick-bot-item-text-hover: #012
+    --big-header: #2948A1
 
     --input-text: #061A4F
     --input-text-inactive:  #8894B6
 
-    --sinput-background: #F2F5FA
+    --sinput-background: #fff
+    --sinput-on-paper: #ebeef2
+  
     --sinput-text: #2948A1
 
-    --sbutton-add-asset: #F2F5FA
-    --sbutton-add-asset-hover: #d9e0e7
+    --button-add-asset: #fff
+  
+    --button-add-asset-hover: #d9e0e7
 
     --toggle-background: #061a4f80
     --toggle-background-active: color(display-p3 0 0.7 0.4)
 
     --modal-background: #fff
-    --modal-search-hover-background: #F2F5FA
+    --modal-search-hover-background: #fff
+
+    --itile-soon-bg: #fff6
+  
     --modal-search-highlight-background: #e3ecfa
     --modal-search-placeholder: #8894B6
 
     --menu-tooltip-background: #fff
     --menu-tooltip-text: #061A4F
-    --menuicon-active-background: #F2F5FA
-
+    --menuicon-active-background: #fff
+  
     --tooltip-background: #fff
     --tooltip-text: #061A4F
 
@@ -89,19 +117,23 @@ $dropdown-bg: #FFF
     --dropdown-hover-text: #061A4F
 
     --text-strong: #061A4F
-    --text-faded: #8195cf
+    --text-faded: #8b92a7
+
+    --widget-shadow-line: #0241
 
 @media (prefers-color-scheme: dark)
   .db-lightmode-only,.lightmode-only
     display: none
   \:root
     --primary: #2948A1
+    --primary-button: #0040ff
     --success: color(display-p3 0 0.7 0.4)
     --success-semitransparent: color(display-p3 0 0.7 0.4 / 0.2)
     --discount: color(display-p3 0 0.75 0.42)
     --ai: color(display-p3 0.7 0 0.7)
     --danger: #f7002d
     --warning: color(display-p3 1 0.5 0)
+    --warning-semitransparent: color(display-p3 1 0.5 0 / 0.38)
     --benchmark: #465f81
     --background-new: #001b36
     --background-new-semitransparent: #001b3669
@@ -111,28 +143,37 @@ $dropdown-bg: #FFF
     --insight-background: #2948A177
     --insight-pro-background: #0F3440
     --insight-con-background: #361D3E
-    --insight-warning-background: #312d27
+    --insight-warning-background: #884f00b0
     --slider-track: #D4DAEC22
     --slider-progress: #2948A1
     --label: #b2d5ff77
     --label-select-inactive: #d4daec3b
     --emphasis: #fff
 
+    --modal-backdrop: #012b
+
+    --pick-bot-item-bg: #0D223F
+    --pick-bot-item-text-hover: #fff
+    --big-header: #61798d
+
     --input-text: #fff
     --input-text-inactive: #8894B6
 
     --sinput-background: #0D223F
+    --sinput-on-paper: #001b36
     --sinput-text: #fff
 
-    --sbutton-add-asset: #0D223F
-    --sbutton-add-asset-hover: #172a46
+    --button-add-asset: #0D223F
+    --button-add-asset-hover: #172a46
 
     --toggle-background: #b2d5ff45
     --toggle-background-active: color(display-p3 0 0.7 0.4)
 
-    --modal-background: #172a46
+    --modal-background: #0d203c
     --modal-search-hover-background: #0D223F
-    --modal-search-highlight-background: #0D223F
+    --itile-soon-bg: #233c6261
+    
+    --modal-search-highlight-background: #112849
     --modal-search-placeholder: #8894B6
 
     --menu-tooltip-background: #2948A1
@@ -151,3 +192,5 @@ $dropdown-bg: #FFF
 
     --text-strong: #fff
     --text-faded: #345176
+
+    --widget-shadow-line: #0128

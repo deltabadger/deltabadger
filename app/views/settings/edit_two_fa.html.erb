@@ -1,16 +1,13 @@
-<%= link_to sanitize("&larr; Back to settings"), settings_path %>
-
-<%= render 'layouts/turbo_modal' do %>
-  <%= button_tag class: 'modal__close', data: { action: 'modal--base#animateOutCloseAndCleanUp' } do %>
-    <%= render partial: 'svg/24x24_x' %>
-  <% end %>
-  <div class="modal__body modal__body--regular">
-
+<%= render 'layouts/modal/base' do %>
+  <div class="modal modal--2fa">
+    <%= button_tag class: 'modal__close', data: { action: 'modal--base#animateOutCloseAndCleanUp' } do %>
+      <%= render partial: 'svg/24x24_close' %>
+    <% end %>
     <div class="modal__header">
        <h1 class="modal__title">2FA</h1>
     </div>
 
-    <div class="db-form__row text-center pb-4">
+    <div class="db-form__row">
       <%= t('helpers.label.settings.current_status') %>
       <b class="<%= current_user.otp_module_enabled? ? 'text-success' : 'text-secondary' %>">
         <%= @two_fa_status_text %>
@@ -26,8 +23,8 @@
         <%= f.label :otp_label, t('helpers.label.settings.enter_two_fa_code'), class: "db-form__label" %>
       </div>
 
-      <div class="form-group db-form-group--main-btn">
-        <%= f.submit @two_fa_button_text, class: "btn btn-lg btn-primary btn-success" %>
+      <div class="large-button-wrapper">
+        <%= f.submit @two_fa_button_text, class: "button button--large button--success" %>
       </div>
     <% end %>
   </div>

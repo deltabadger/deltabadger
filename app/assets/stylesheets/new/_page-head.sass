@@ -1,0 +1,18 @@
+.page-head
+  &--dashboard
+    .page-head__controls
+      display: flex
+      justify-content: space-between
+      align-items: center
+      gap: 2rem
+      &__nav
+        display: flex
+        gap: 1rem
+        align-items: center
+      .button
+        display: flex
+        align-items: center
+        gap: 0.5rem
+        &--disabled,&[disabled]
+          opacity: 0.5
+          pointer-events: none

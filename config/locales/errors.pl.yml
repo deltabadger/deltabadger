@@ -1,0 +1,112 @@
+pl:
+    activerecord:
+        errors:
+            models:
+                affiliate:
+                    attributes:
+                        code:
+                            invalid_format: 'musi składać się z dużych liter i cyfr'
+                subscription:
+                    attributes:
+                        eth_address:
+                            invalid_address: '"%{eth_address}" nie jest poprawnym adresem Ethereum. Spróbuj ponownie.'
+                asset:
+                    attributes:
+                        portfolio:
+                            max_assets_reached: "Maksymalna liczba aktywów osiągnięta."
+    errors:
+        cloudflare_turnstile: 'Weryfikacja Cloudflare Turnstile nie powiodła się'
+        bitcoin_address_not_updated: 'Adres bitcoinowy nie mógł zostać zaktualizowany'
+        format: '%{attribute}%{message}'
+        frequency_limit: 'Przekroczyłeś limit częstotliwości'
+        invalid_api_keys: 'Nieprawidłowe tokeny'
+        invalid_risk_free_rate_key: 'Nieprawidłowy klucz stopy wolnej od ryzyka.'
+        api_key_permission_validation_failed: 'Nie udało się zweryfikować uprawnień klucza API'
+        api_key_already_exists: 'Klucz API dla %{exchange_name} już istnieje'
+        incorrect_api_key_permissions: 'Nieprawidłowe uprawnienia klucza API'
+        unable_to_get_risk_free_rate: 'Nie można uzyskać stopy wolnej od ryzyka dla %{risk_free_rate_name}. Serwer API danych jest nieosiągalny.'
+        invalid_number_of_allocations: 'Nieprawidłowa liczba alokacji'
+        invalid_allocation_value: 'Nieprawidłowa wartość alokacji'
+        bots:
+            exchange_asset_mismatch: "Nie wszystkie aktywa są notowane na %{exchange_name}"
+            destroy_success: "Bot %{bot_label} został pomyślnie usunięty"
+            api_key_success: "Klucze API zostały pomyślnie zapisane"
+        messages:
+            accepted: 'musi zostać zaakceptowane'
+            already_confirmed: 'został już potwierdzony, spróbuj się zalogować.'
+            bad_2fa_code: 'Błędny kod 2FA. Spróbuj ponownie.'
+            bad_credentials: 'Błędny e-mail lub hasło.'
+            bad_credentials_with_code: 'Błędny adres e-mail, hasło lub kod 2FA.'
+            blank: 'nie może być puste'
+            confirmation: 'nie pasuje do %{attribute}'
+            confirmation_period_expired: 'musi zostać potwierdzony w ciągu %{period}. Poproś o nowy.'
+            empty: 'nie może być puste'
+            empty_two_fa_token: 'Pominięty kod 2FA. Spróbuj ponownie.'
+            equal_to: 'musi być równa %{count}'
+            even: 'musi być równa'
+            exclusion: 'jest zarezerwowany'
+            expired: 'wygasł, poproś o nowy.'
+            greater_than: 'musi być większa niż %{count}'
+            greater_than_or_equal_to: 'musi być większa lub równa %{count}'
+            in: 'musi być w %{count}'
+            inclusion: 'nie znajduje się na liście'
+            invalid: 'jest nieważny'
+            less_than: 'musi być mniejsza niż %{count}'
+            less_than_or_equal_to: 'musi być mniejsza lub równa %{count}'
+            model_invalid: 'Weryfikacja nie powiodła się: %{errors}'
+            not_a_number: 'nie jest liczbą'
+            not_an_integer: 'musi być liczbą całkowitą'
+            not_found: 'Taki bot nie istnieje.'
+            not_locked: 'nie był zablokowany.'
+            not_saved:
+                one: '1 błąd uniemożliwił zapisanie  %{resource}:'
+                few: '%{count} błędów uniemożliwiło zapisanie  %{resource}:'
+                many: '%{count} błędów uniemożliwiło zapisanie  %{resource}:'
+                other: '%{count} błędów uniemożliwiło zapisanie  %{resource}:'
+            odd: 'musi być nieparzysta'
+            other_than: 'nie może wynosić %{count}'
+            password_not_match: 'Hasła nie są zgodne'
+            present: 'musi być puste'
+            too_long:
+                one: 'Za dużo znaków (nie może być więcej niż 1 znak)'
+                few: 'Za dużo znaków (nie może być więcej niż %{count} znaki)'
+                many: 'Za dużo znaków (nie może być więcej niż %{count} znaków)'
+                other: 'Za dużo znaków (nie może być więcej niż %{count} znaków)'
+            too_short:
+                one: 'Za mało znaków (musi być co najmniej 1 znak)'
+                few: 'Za mało znaków (muszą być co najmniej %{count} znaki)'
+                many: 'Za mało znaków (musi być co najmniej %{count} znaków)'
+                other: 'Za mało znaków (musi być co najmniej %{count} znaków)'
+            too_simple_password: 'Hasło musi zawierać znaki z każdej z następujących kategorii: duże litery (A-Z), małe litery (a-z), cyfry (0-9), znaki specjalne (np. #,?,!).'
+            wrong_email: 'Błędny adres e-mail.'
+            wrong_length:
+                one: 'Błędna długość (musi być 1 znak)'
+                few: 'Błędna długość (muszą być %{count} znaki)'
+                many: 'Błędna długość (musi być %{count} znaków)'
+                other: 'Błędna długość (musi być %{count} znaków)'
+            wrong_password: 'Błędne hasło.'
+            wrong_two_fa_token: 'Podany kod jest nieprawidłowy.'
+        referral_program_inactive: 'Twój program referencyjny jest nieaktywny'
+        unverified_request: 'Odśwież przeglądarkę i spróbuj ponownie'
+    alert:
+        bot:
+            bot_updated: 'Bot został pomyślnie zaktualizowany.'
+        portfolio:
+            invalid_name: 'Nieprawidłowa nazwa portfela.'
+            invalid_benchmark: 'Nieprawidłowa wartość benchmarku.'
+            invalid_strategy: 'Nieprawidłowa wartość strategii.'
+            invalid_start_date: 'Nieprawidłowa wartość daty początkowej.'
+            invalid_risk_free_rate: 'Nieprawidłowa wartość stopy wolnej od ryzyka.'
+            invalid_smart_allocation: 'Nieprawidłowa wartość inteligentnej alokacji.'
+            invalid_risk_level: 'Nieprawidłowa wartość poziomu ryzyka.'
+            unable_to_calculate: 'Nie można obliczyć inteligentnych alokacji dla tych parametrów.'
+            portfolio_normalized: 'Alokacje portfela zostały znormalizowane.'
+            risk_level_updated: 'Poziom ryzyka został zaktualizowany.'
+            smart_allocation_updated: 'Inteligentne alokacje zostały zaktualizowane.'
+            unable_to_set_risk_rate: 'Nie można ustawić stopy wolnej od ryzyka na %{risk_free_rate_name}.'
+            api_unreachable: 'Serwer API danych jest niedostępny.'
+            portfolio_created: 'Portfel został pomyślnie utworzony.'
+            portfolio_updated: 'Portfel został pomyślnie zaktualizowany.'
+            portfolio_destroyed: 'Portfel został pomyślnie usunięty.'
+            portfolio_duplicated: 'Portfel został pomyślnie zduplikowany.'
+            unable_to_duplicate_portfolio: 'Nie można zduplikować portfela.'

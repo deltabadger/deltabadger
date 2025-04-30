@@ -1,0 +1,20 @@
+<%= render 'layouts/modal/base' do %>
+  <div class="modal">
+    <%= button_tag class: 'modal__close', data: { action: 'modal--base#animateOutCloseAndCleanUp' } do %>
+      <%= render partial: 'svg/24x24_close' %>
+    <% end %>
+    <div class="modal__header">
+      <h1 class="modal__title"><%= @bot.label %></h1>
+    </div>
+    <div class="modal__body text-center">
+    <p>
+      Do you want to delete this bot?
+    </p>
+    <div class="buttons buttons--row--2">
+      <%= button_tag class: 'button button--outline button--large', data: { action: 'modal--base#animateOutCloseAndCleanUp' } do %>
+        Cancel
+      <% end %>
+      <%= button_to t('button.delete'), bot_path(@bot), method: :delete, class: 'button button--danger button--large' %>
+    </div>
+  </div>
+<% end %>

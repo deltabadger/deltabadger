@@ -4,6 +4,7 @@ import "chartjs-adapter-date-fns";
 window.Chart = Chart;
 window.Tooltip = Tooltip;
 
+// Connects to data-controller="portfolio-analyzer--chart"
 export default class extends Controller {
   static targets = ["analyzerChart"];
   static values = { series: Array, labels: Array, names: Array, colors: Array };
@@ -240,7 +241,7 @@ export default class extends Controller {
             },
           },
           y: {
-            type: "logarithmic",
+            type: log_scale ? "logarithmic" : "linear",
             min: minValue,
             max: maxValue,
             beginAtZero: false,

@@ -37,23 +37,29 @@ module LocalesHelper
     end
   end
 
-  def localized_time_difference_from_today(date, precision: :days, zero_time_message: t('utils.days', count: 0))
+  def localized_time_difference_from_now(date, precision: :days, zero_time_message: t('utils.days', count: 0))
     return '-' if date.nil?
 
-    duration = Time.current - date.to_datetime
+    remaining = [Time.current - date.to_time, date.to_time - Time.current].max
+
+    time_units = [
+      { duration: 1.year,  key: 'utils.years',   precision: :years },
+      { duration: 1.month, key: 'utils.months',  precision: :months },
+      { duration: 1.day,   key: 'utils.days',    precision: :days },
+      { duration: 1.hour,  key: 'utils.hours',   precision: :hours },
+      { duration: 1.minute, key: 'utils.minutes', precision: :minutes },
+      { duration: 1.second, key: 'utils.seconds', precision: :seconds }
+    ]
 
     result = []
-    result << time_difference_from_today_time_component(duration, 1.year, 'utils.years')
-    return time_difference_from_today_finalize_result(result, zero_time_message) if precision == :years
+    time_units.each do |unit|
+      result << localized_time_difference_from_now_component(remaining, unit[:duration], unit[:key])
+      return localized_time_difference_from_now_finalize_result(result, zero_time_message) if unit[:precision] == precision
 
-    remaining_after_years = duration % 1.year
-    result << time_difference_from_today_time_component(remaining_after_years, 1.month, 'utils.months')
-    return time_difference_from_today_finalize_result(result, zero_time_message) if precision == :months
+      remaining = remaining % unit[:duration]
+    end
 
-    remaining_after_months = remaining_after_years % 1.month
-    result << time_difference_from_today_time_component(remaining_after_months, 1.day, 'utils.days')
-
-    time_difference_from_today_finalize_result(result, zero_time_message)
+    localized_time_difference_from_now_finalize_result(result, zero_time_message)
   end
 
   def localized_dca_profit_recap(asset, years)
@@ -71,12 +77,12 @@ module LocalesHelper
 
   private
 
-  def time_difference_from_today_time_component(duration, unit, translation_key)
+  def localized_time_difference_from_now_component(duration, unit, translation_key)
     value = (duration / unit).floor
     value.positive? ? t(translation_key, count: value) : ''
   end
 
-  def time_difference_from_today_finalize_result(result, zero_time_message)
+  def localized_time_difference_from_now_finalize_result(result, zero_time_message)
     result_string = result.compact.join(' ').strip
     result_string.blank? ? zero_time_message : result_string
   end

@@ -1,6 +1,12 @@
 ru:
-    bots:
+    bot:
         setup:
+            api_not_available: "API биржи недоступна"
+            sentence:
+                invest_in: "Инвестировать в"
+                and: "и"
+                at: "на"
+                spending: "используя"
             binance:
                 instructions_1_html: 'Войдите в свой аккаунт %{{exchange_link}}.'
                 instructions_2_html: 'В пользовательском меню (круглый значок в правом верхнем углу) перейдите в <b>Управление API</b>.'
@@ -55,7 +61,6 @@ ru:
                 instructions_9_html: 'Вставьте оба ключа в поля ввода выше.'
                 private_key: 'API Секрет'
                 public_key: 'Ключ API'
-            cancel: Отменить
             error_info: 'Проверка не удалась. Попробуйте еще раз или создайте новые ключи.'
             frequency_limit:
                 back_to_settings: 'Вернуться в настройки'
@@ -133,9 +138,10 @@ ru:
                     force_smart_intervals: 'Для %{base}%{quote}, минимальный размер ордера %{exchangeName} составляет <b>%{minimumValue}%{minimumCurrency}</b>%{approximatedQuote}. Deltabadger выполнит этот график с применением ордеров %{minimumValue}%{minimumCurrency} и настройкой временного интервала в соответствии с вашим расписанием. Мы называем их <i>умными интервалами</i>. '
                     other: 'Для %{base}%{quote}, минимальный размер ордера %{exchangeName} составляет <b>%{minimumValue}%{minimumCurrency}</b>%{approximatedQuote}. Deltabadger выполнит этот график с применением ордеров %{minimumValue}%{minimumCurrency} и настройкой временного интервала в соответствии с вашим расписанием. Мы называем их <i>умными интервалами</i>. '
             step_api_key: 'Ключ API'
+            step_assets: Активы
             step_exchange: Биржа
             step_schedule: График
-            validating: Проверка
+            validating: Проверка…
             withdrawal:
                 kraken:
                     instructions_1_html: 'Войдите в свой аккаунт %{{exchange_link}}.'

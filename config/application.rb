@@ -9,6 +9,7 @@ require "active_storage/engine"
 require "action_controller/railtie"
 require "action_mailer/railtie"
 require "action_view/railtie"
+require "action_cable/engine"
 require "sprockets/railtie"
 
 # Require the gems listed in Gemfile, including any gems
@@ -39,7 +40,7 @@ module Deltabadger
     # Don't generate system test files.
     config.generators.system_tests = nil
 
-    config.i18n.available_locales = [:en, :pl, :es, :de, :nl, :fr, :pt, :ru]
+    config.i18n.available_locales = [:en, :pl, :es, :de, :nl, :fr, :pt, :ru, :it]
     config.i18n.default_locale = :en
     config.i18n.fallbacks = true
 

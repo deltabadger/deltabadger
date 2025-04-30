@@ -13,7 +13,7 @@ Rails.application.configure do
   # Full error reports are disabled and caching is turned on.
   config.consider_all_requests_local       = false
   config.action_controller.perform_caching = true
-  config.cache_store = :file_store, Rails.root.join('tmp', 'cache', 'views')
+  config.cache_store = :redis_cache_store, { url: ENV.fetch('REDIS_CACHE_URL') }
 
   # Ensures that a master key has been made available in either ENV["RAILS_MASTER_KEY"]
   # or in config/master.key. This key is used to decrypt credentials (and other encrypted files).
@@ -25,7 +25,7 @@ Rails.application.configure do
 
   # Compress JavaScripts and CSS.
   config.assets.js_compressor = Uglifier.new(harmony: true)
-  # config.assets.css_compressor = :sass
+  config.assets.css_compressor = :sass
 
   # Do not fallback to assets pipeline if a precompiled asset is missed.
   config.assets.compile = false
@@ -44,7 +44,7 @@ Rails.application.configure do
 
   # Use the lowest log level to ensure availability of diagnostic information
   # when problems arise.
-  config.log_level = :debug
+  config.log_level = :info
 
   # Prepend all log lines with the following tags.
   config.log_tags = [ :request_id ]
@@ -109,4 +109,7 @@ Rails.application.configure do
   config.hosts << "community.deltabadger.com"
 
   config.exceptions_app = self.routes
+
+  config.action_cable.allowed_request_origins = ["https://app.deltabadger.com", "https://test.deltabadger.com"]
+  config.action_cable.worker_pool_size = ENV.fetch('MAX_DB_CONNECTIONS', 4)
 end

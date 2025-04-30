@@ -1,14 +1,16 @@
 :root {
   font-size: 8px;
 }
-@import "bootstrap/bootstrap";
 @import "variables";
+
+@import "new/reset";
+@import "new/variables";
+
 @import "mixins";
 @import "styles";
 @import "signup";
 @import "pages";
 @import "navbar";
-@import "sidebar";
 @import "bots";
 @import "forms";
 @import "spinner";
@@ -22,11 +24,7 @@
 @import "bonjoro";
 @import "bot_info";
 
-@import "new/reset";
-@import "new/variables";
 @import "new/base";
-
-@import "new/alertbox";
 @import "new/animicon";
 @import "new/basket";
 @import "new/dropdown";
@@ -50,11 +48,18 @@
 @import "new/barbell";
 @import "new/devise";
 @import "new/features";
+@import "new/page-head";
+@import "new/bot-control";
+@import "new/bot-tile";
+@import "new/itiles";
+@import "new/set-api";
 
 @import "new/small-random";
 @import "new/utilities";
 
-@import "animations/portfolio_analyzer";
+@import "animations-portfolio-analyzer";
 @import "portfolio_analyzer";
 
-@import "animations/countdown";
+@import "animations-countdown";
+@import "new/start";
+

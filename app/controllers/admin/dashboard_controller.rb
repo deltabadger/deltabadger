@@ -8,7 +8,7 @@ class Admin::DashboardController < Admin::ApplicationController
       number_of_legendary_plans_sold: legendary_plan.active_subscriptions_count,
       number_of_legendary_plans_available: legendary_plan.for_sale_count,
       number_of_all_bots: Bot.count,
-      number_of_working_bots: BotsRepository.new.count_with_status('working')
+      number_of_working_bots: Bot.working.count
     }
   end
 

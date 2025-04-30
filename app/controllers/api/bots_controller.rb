@@ -2,24 +2,34 @@ module Api
   # rubocop:disable Metrics/ClassLength
   class BotsController < Api::BaseController
     include ActionController::Live
+
     skip_before_action :authenticate_user!, only: [:webhook]
     skip_before_action :verify_authenticity_token, only: [:webhook]
+
     def index
-      bots = BotsRepository.new.for_user(current_user, params[:page])
+      bots = current_user
+             .bots
+             .not_deleted
+             .legacy
+             .includes(:exchange)
+             .includes(:daily_transaction_aggregates)
+             .includes(:transactions)
+             .order(created_at: :desc)
+             .page(params[:page])
       data = present_bots(bots)
 
       render json: { data: data }
     end
 
     def show
-      bot = BotsRepository.new.by_id_for_user(current_user, params[:id])
+      bot = Bot.find(params[:id])
       data = present_bot(bot)
 
       render json: { data: data }
     end
 
     def create
-      result = Bots::Create.call(current_user, bot_create_params)
+      result = BotsManager::Create.call(current_user, bot_create_params)
 
       if result.success?
         render json: { data: result.data }, status: 201
@@ -29,7 +39,7 @@ module Api
     end
 
     def update
-      result = Bots::Update.call(current_user, bot_update_params)
+      result = BotsManager::Update.call(current_user, bot_update_params)
 
       if result.success?
         data = present_bot(result.data)
@@ -40,7 +50,7 @@ module Api
     end
 
     def webhook
-      bot = BotsRepository.new.by_webhook_for_user(params[:webhook])
+      bot = Bot.find_by_webhook(params[:webhook])
       return render json: { errors: 'No bot found' }, status: 422 unless bot
       unless bot.possible_to_call_a_webhook?(params[:webhook])
         return render json: { errors: 'This webhook has already been called before' }, status: 422
@@ -149,7 +159,7 @@ module Api
         newly_transactions = current_user.newly_webhook_bots_transactions(last_updated_at)
         if newly_transactions.present?
           bots = newly_transactions.map(&:bot).uniq
-          bots.each{|bot| sse.write(present_webhook_bot(bot)) }
+          bots.each { |bot| sse.write(present_webhook_bot(bot)) }
           last_updated_at = Time.current
         end
 
@@ -169,7 +179,7 @@ module Api
 
     def bot_create_params
       @bot_create_params ||= case params[:bot][:bot_type]
-                             when 'free' then trading_bot_create_params
+                             when 'trading' then trading_bot_create_params
                              when 'withdrawal' then withdrawal_bot_create_params
                              else webhook_bot_create_params
                              end
@@ -177,14 +187,14 @@ module Api
 
     def bot_update_params
       @bot_update_params ||= case params[:bot][:bot_type]
-                             when 'free' then trading_bot_update_params
+                             when 'trading' then trading_bot_update_params
                              when 'withdrawal' then withdrawal_bot_update_params
                              else webhook_bot_update_params
                              end
     end
 
     def present_bot(bot)
-      return Presenters::Api::TradingBot.call(bot) if bot.trading?
+      return Presenters::Api::TradingBot.call(bot) if bot.basic?
       return Presenters::Api::WithdrawalBot.call(bot) if bot.withdrawal?
 
       Presenters::Api::WebhookBot.call(bot)

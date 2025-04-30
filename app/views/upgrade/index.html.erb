@@ -19,7 +19,7 @@
     <% end %>
   </div>
 
-  <%= tag.div class: "pricing" do %>
+  <div class="pricing">
     <%= form_with url: upgrade_path, method: :get, data: { controller: "form--submit", turbo_frame: "upgrade-frame" }, html: { class: "pricing__plans" } do |f| %>
 
       <% @payment_options.each do |available_plan_name, payment_option| %>
@@ -50,7 +50,7 @@
       } %>
       <%= render partial: "billing_form", locals: { payment: @payment } %>
     <% end %>
-  <% end %>
+  </div>
 
   <h2 class="features-header"><%= t("features.title") %></h1>
 

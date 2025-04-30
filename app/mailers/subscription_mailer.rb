@@ -1,5 +1,6 @@
 class SubscriptionMailer < ApplicationMailer
   include LocalesHelper
+
   helper LocalesHelper
 
   def subscription_granted

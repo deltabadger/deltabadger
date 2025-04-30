@@ -25,11 +25,11 @@ module ExchangeApi
           Result::Failure.new('Could not fetch order parameters from Binance')
         end
 
-        def currency_balance(currency, bot_id = nil)
+        def currency_balance(currency, _bot_id = nil)
           request = @signed_client.get('account')
 
           response = JSON.parse(request.body)
-          balance = response['balances'].find{ |b| b['asset'] == currency }.try(:[], 'free').to_f
+          balance = response['balances'].find { |b| b['asset'] == currency }.try(:[], 'free').to_f
           Result::Success.new(balance)
         rescue StandardError => e
           Result::Failure.new("Could not fetch account info from Binance. Error: #{e}")
@@ -110,7 +110,7 @@ module ExchangeApi
 
           rate = BigDecimal(response['cummulativeQuoteQty']) / BigDecimal(response['executedQty'])
           Result::Success.new(
-            offer_id: response['orderId'],
+            external_id: response['orderId'],
             rate: rate,
             amount: response['executedQty']
           )

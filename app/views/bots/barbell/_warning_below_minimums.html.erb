@@ -1,0 +1,44 @@
+<%= render 'layouts/modal/base' do %>
+  <div class="modal">
+    <%= button_tag class: 'modal__close', data: { action: 'modal--base#animateOutCloseAndCleanUp' } do %>
+      <%= render partial: 'svg/24x24_close' %>
+    <% end %>
+    <div class="modal__header">
+       <h1 class="modal__title"><%= t('bot.warning.title') %></h1>
+    </div>
+
+    <% if missed_count == 2 %>
+      <!-- 1a: Both missed -->
+      <p><%= t('bot.warning.both_below.intro',
+                base0_symbol: base0_symbol,
+                base1_symbol: base1_symbol,
+                base0_minimum_base_size: base0_minimum_base_size,
+                base0_minimum_quote_size: base0_minimum_quote_size,
+                quote_symbol: quote_symbol,
+                base1_minimum_base_size: base1_minimum_base_size,
+                base1_minimum_quote_size: base1_minimum_quote_size,
+                exchange_name: exchange_name) %></p>
+    <% else %>
+      <!-- 1b: One missed -->
+      <p><%= t('bot.warning.one_below.intro',
+                bought_quote_amount: bought_quote_amount,
+                quote_symbol: quote_symbol,
+                bought_symbol: bought_symbol,
+                missed_symbol: missed_symbol,
+                missed_minimum_base_size: missed_minimum_base_size,
+                missed_minimum_quote_size: missed_minimum_quote_size,
+                exchange_name: exchange_name) %></p>
+    <% end %>
+
+    <p><%= t('bot.warning.buffer_explanation', count: missed_count) %></p>
+
+    <!-- 2: General Note -->
+    <p><%= t('bot.warning.general_note') %></p>
+
+    <div class="large-button-wrapper">
+      <%= button_tag class: 'button button--success button--large', data: { action: 'modal--base#animateOutCloseAndCleanUp' } do %>
+        Got it!
+      <% end %>
+    </div>
+  </div>
+<% end %>

@@ -1,10 +1,7 @@
-require 'utilities/hash'
-
 class GrantAffiliateCommissionJob < ApplicationJob
   queue_as :default
 
-  def perform(payment_id)
-    payment = Payment.find(payment_id)
+  def perform(payment)
     return if payment.commission.zero?
 
     affiliate = payment.user.referrer
@@ -27,10 +24,10 @@ class GrantAffiliateCommissionJob < ApplicationJob
     @client ||= CoingeckoClient.new
   end
 
-  def get_btc_price(quote:)
+  def get_btc_price(quote)
     quote = quote.downcase
     Rails.cache.fetch("btc_price_#{quote}", expires_in: 1.minute) do
-      result = client.simple_price(['bitcoin'], [quote])
+      result = client.coin_price_by_ids(coin_ids: ['bitcoin'], vs_currencies: [quote])
       raise StandardError, result.errors if result.failure?
 
       Utilities::Hash.dig_or_raise(result.data, 'bitcoin', quote)
@@ -42,7 +39,7 @@ class GrantAffiliateCommissionJob < ApplicationJob
       commission_multiplier = payment.commission / payment.total
       (payment.btc_paid * commission_multiplier).floor(8)
     else
-      btc_price = get_btc_price(quote: payment.currency)
+      btc_price = get_btc_price(payment.currency)
       (payment.commission / btc_price).floor(8)
     end
   end

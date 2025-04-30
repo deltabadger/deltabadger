@@ -1,5 +1,3 @@
-require 'utilities/hash'
-
 class Sendgrid::UpdateEmailJob < SendgridJob
   def perform(old_email, new_email)
     old_contact_details = Rails.cache.fetch(cache_key(old_email), expires_in: 30.days) do

@@ -1,0 +1,187 @@
+it:
+    bot:
+        add_api_keys: "Aggiungi chiavi API per %{exchange}"
+        new: "Nuovo bot"
+        start_new_bot: "Crea nuovo bot"
+        types:
+            dca:
+                title: "DCA"
+                description: "Dollar-cost averaging a singola moneta"
+            barbell:
+                title: "Strategia Barbell"
+                description: "Ribilanciamento di due asset senza tasse"
+            index_portfolio:
+                title: "Portfolio Indice"
+                description: "Costruisci il tuo ETF crypto personale"
+            custom_portfolio:
+                title: "Portfolio Personalizzato"
+                description: "Ribilancia mix di asset personalizzato"
+        status:
+            setting_orders: "Impostazione ordini…"
+            paused: "In pausa"
+        no_orders_info: "Gli ordini del bot appariranno qui"
+        pick_exchange: "Scegli Exchange"
+        barbell:
+            invest: "Investi"
+            invest_html: "Investi %{input} /mese"
+        utils:
+            mkt_cap_adjusted: "Aggiustato per capitalizzazione di mercato"
+            mkt_cap_adjusted_info: |
+                L'allocazione è impostata automaticamente in base alla capitalizzazione di mercato delle monete nel tuo portfolio. Maggiore è la capitalizzazione di mercato, maggiore sarà l'allocazione.
+        above: "sopra"
+        below: "sotto"
+        buttons:
+            automatic_withdrawal: "Prelievo Automatico"
+            request_exchange: "Chiedi di aggiungere un exchange"
+            move_existing_bot: "Sposta bot esistente su un altro exchange"
+            webhook: "Scambio Webhook"
+            delete:
+                ok: "Rimuovi completamente"
+                warning_html: "Questo rimuoverà il bot con tutti<br>i suoi dati storici. Sei sicuro?"
+            dollar_cost_averaging: "Dollar-Cost Averaging"
+            pending:
+                info_html: "Elaborazione…"
+                text: "In attesa"
+            start:
+                changed_missed:
+                    continue: "Sì, acquista e continua"
+                    info_html: "Vuoi investire <b>%{amount} %{quote}</b> persi mentre il bot era in pausa? Il nuovo programma inizierà dopo che il conto alla rovescia attuale sarà terminato."
+                    skip: "Ignora la parte persa"
+                changed_on_schedule:
+                    continue: "Ho capito"
+                    info_html: "Il nuovo programma inizierà dopo che saranno trascorsi i restanti <b>%{time}</b> dell'ultimo."
+                    skip: "Ignoralo e inizia immediatamente"
+                missed:
+                    continue: "Sì, acquista e continua"
+                    info_html: "Vuoi investire <b>%{amount} %{quote}</b> persi mentre il bot era in pausa e continuare il programma temporale originale?"
+                    skip: "Salta la parte persa"
+                on_schedule:
+                    continue: "Continua il programma originale"
+                    info_html: "Hai ancora <b>%{time}</b> rimanenti per il prossimo ordine. Puoi saltarlo ed eseguire il prossimo ordine immediatamente, o continuare il conto alla rovescia originale."
+                    skip: "Saltalo"
+        buy: Compra
+        counter: '%{countdown}'
+        day: Giorno
+        details:
+            info:
+                title: Info
+                what_is_dca_html: |
+                    <h3>Cos'è il DCA?</h3>
+                    <p>Immagina il mercato come il tuo salvadanaio. Ogni giorno inserisci una moneta—che i prezzi salgano, scendano o restino invariati.</p>
+                    <p>Lo chiamiamo <i>media</i>, ma fidati, non c'è nulla di medio in quello che stai facendo.</p>
+                    <p>L'investitore medio? Esita, va nel panico, vende troppo presto.</p>
+                    <p>Ma non tu.</p>
+                    <p>Tu sei rilassato come nonno Warren che sorseggia la sua Coca, lasciando che il mercato faccia il suo corso.</p>
+                    <p>Il gioco è lungo, ma semplice. Inizia premendo ▶️</p>
+                smart_intervals_html: |
+                    <h3>Intervalli Intelligenti</h3>
+                    <p>Gli exchange hanno dimensioni minime per gli ordini. Gli intervalli intelligenti gestiscono questo per te:</p>
+                    <p>Vuoi comprare $5 al giorno, ma il minimo è $10? Piazzeranno il tuo ordine di $10 ogni due giorni.</p>
+                daily_weekly_monthly_html: |
+                    <h3>Giornaliero? Settimanale? Mensile?</h3>
+                    <p>Sorprendentemente, i risultati a lungo termine sono così simili che non fa davvero differenza.</p>
+                    <p>Ma attenzione—se il tuo software di dichiarazione fiscale addebita per transazione, è un buon motivo per comprare meno frequentemente.</p>
+                    <p>Altrimenti, mantieni le transazioni piccole e frequenti, e lascia che la magia del DCA inizi prima.</p>
+                withdrawal_html: |
+                    <h3>Prelievi Automatici</h3>
+                    <p><i>Non le tue chiavi non i tuoi Bitcoin.</i> — Andreas Antonopoulos</p>
+                    <p>Preleva i tuoi fondi nel tuo wallet. È il modo più sicuro per conservare le tue crypto.</p>
+                webhook:
+                    info_html: '<p>Il bot Webhook compra e vende in base ai segnali di servizi di terze parti come TradingView. È un ottimo modo per creare ordini basati su RSI, medie mobili o altri indicatori.</p><p>Il bot può funzionare in un modo o in due modi:</p><ul><li><em>Un modo</em> significa che comprerà solo o venderà solo.</li><li><em>Due modi</em> significa che comprerà e venderà usando due segnali diversi.</li></ul><p>Per ogni modo, ottieni un URL webhook. Ecco come usarlo con TradingView:</p>'
+                    create_alert: Crea un avviso.
+                    configure_signal: Configura il segnale desiderato.
+                    set_webhook: Passa alla scheda Notifiche e fornisci l'URL Webhook che vedi nel pannello del tuo bot a sinistra.
+                    experimental: Il bot webhook è ancora molto sperimentale. Un miglioramento che arriverà presto è la possibilità di comprare e vendere usando tutti i fondi disponibili sull'account. Per favore, testalo e facci sapere come possiamo migliorarlo.
+                    working_and_waiting: Il bot sta funzionando e aspetta un segnale.
+            log:
+                date: Data
+                errors: Errori
+                title: Registro
+            stats:
+                amount: 'Importo(%{base})'
+                amount1: 'Importo'
+                value: 'Valore(%{quote})'
+                value1: 'Valore'
+                average_price: 'Prezzo medio'
+                bought: Acquistato
+                chart:
+                    total_invested: 'Totale investito'
+                    value: Valore
+                csv_download_html: 'La tabella sopra mostra solo le ultime dieci transazioni. Il report completo è disponibile per il download in formato CSV qui sotto.'
+                current_value: 'Valore attuale'
+                current_value_sold: 'Valore attuale del %{base} venduto'
+                date: Data
+                download_csv: 'Scarica .csv'
+                exchange_unavailable_html: 'L''API dell''exchange non risponde al momento.<br>I calcoli sono basati sugli ultimi dati disponibili.'
+                order: Ordine
+                profit_loss: Profitto/Perdita
+                rate: 'Tasso(%{quote})'
+                sold: Venduto
+                title: Statistiche
+                total_invested: 'Totale investito'
+        for: per
+        force_smart_intervals_html: '<b>Intervalli intelligenti<sup>®</sup></b> · Compra con ordini di <split>$100</split> %{currency} ciascuno.'
+        feecutter_html: '<b>FeeCutter<sup>®</sup></b> · Taglia le commissioni con ordini limite'
+        hour: Ora
+        limit_buy: 'Acquisto limite'
+        limit_sell: 'Vendita limite'
+        messages:
+            symbol_not_supported: "%{symbol} non è supportato"
+            symbol_not_supported_subscription: "%{symbol} non è supportato nel tuo abbonamento"
+            upgrade_plan_more_bots: "Aggiorna il tuo piano per eseguire più bot"
+            upgrade_plan_limit_orders: "Aggiorna il tuo piano per utilizzare FeeCutter"
+            specify_percentage_limit_order: "Specifica la percentuale quando crei un ordine limite"
+            smart_intervals_above_minimum: "Il valore degli intervalli intelligenti dovrebbe essere maggiore di %{minimum}"
+            invalid_price_range: "L'intervallo di prezzo non è valido"
+            upgrade_price_range: "Aggiorna per utilizzare l'Intervallo di Prezzo"
+            subaccounts_not_allowed: "Sottoconti non permessi su questo exchange"
+            no_subaccount_name: "Nessun nome di sottoconto fornito"
+            wrong_subaccount_name: "Nome del sottoconto errato"
+        minimum_withdrawal_disclaimer: 'La dimensione minima di prelievo è %{minimum} %{currency}.'
+        minimum_withdrawal_disclaimer_usd: 'La dimensione minima di prelievo è %{minimum} USD.'
+        month: Mese
+        next_buy: 'Prossimo tra %{countdown}'
+        next_sell: 'Prossimo tra %{countdown}'
+        next_withdrawal: 'Prossimo tra %{countdown}'
+        not_found: 'Questo bot non esiste.'
+        price: 'il prezzo'
+        price_range_buy_html: 'Compra solo nell''intervallo di prezzo da <split>$100</split> a <split>$1000</split> %{quote} per %{base}.'
+        price_range_sell_html: "Vendi solo nell'intervallo di prezzo da <split>$100</split> a <split>$1000</split> %{quote} per %{base}."
+        sell: "Vendi"
+        buy_all: "Compra tutto"
+        sell_all: "Vendi tutto"
+        first_time: "prima volta"
+        every_time: "ogni volta"
+        name: "Nome:"
+        triggered_title: "questo webhook è attivato:"
+        triggered_first: "il primo webhook è attivato."
+        triggered_second: "il secondo webhook è attivato."
+        webhook_has_been_copied: "Il webhook è stato copiato negli appunti."
+        fees: "Commissioni"
+        maker_fee: "Maker"
+        taker_fee: "Taker"
+        withdrawal_fee: "Prelievo (₿)"
+        additional_title: "Bot bidirezionale"
+        smart_intervals_disclaimer: 'La dimensione degli ordini su %{exchange} è definita in %{currency}. La dimensione minima dell''ordine è %{minimum}%{currency}.'
+        smart_intervals_disclaimer_base: 'La dimensione degli ordini su %{exchange} è definita in %{currency}. La dimensione minima dell''ordine è %{minimum}%{currency}.'
+        smart_intervals_disclaimer_quote: 'La dimensione minima dell''ordine è %{minimum}%{currency}.'
+        starting: Avvio in corso
+        subaccounts_info: 'Usa sottoconto'
+        week: Settimana
+        withdraw_interval_html: 'Preleva ogni <split>2</split> giorni.'
+        withdraw_threshold_html: 'Preleva quando almeno <split>0.001</split> %{currency} è disponibile.'
+        bot_name: 'Nome bot'
+        change_bot_name: 'Cambia nome'
+        withdrawal_percentage: '%{percentage}%'
+        withdrawal: 'Prelievo'
+        warning:
+            title: "Congratulazioni! Il tuo bot è in esecuzione."
+            both_below:
+                intro: "Tuttavia, sia la quantità dell'ordine di %{base0_symbol} che quella di %{base1_symbol} sono inferiori alle dimensioni minime dell'ordine di %{exchange_name} (%{base0_minimum_base_size} %{base0_symbol} o %{base0_minimum_quote_size} %{quote_symbol} per %{base0_symbol} e %{base1_minimum_base_size} %{base1_symbol} o %{base1_minimum_quote_size} %{quote_symbol} per %{base1_symbol}). Ecco come il bot gestisce la situazione:"
+            one_below:
+                intro: "Il tuo bot ha acquistato %{bought_quote_amount} %{quote_symbol} di %{bought_symbol}, ma la quantità di %{missed_symbol} era inferiore alla dimensione minima dell'ordine di %{exchange_name} (%{missed_minimum_base_size} %{missed_symbol} o %{missed_minimum_quote_size} %{quote_symbol} per %{missed_symbol}). Ecco come il bot gestisce la situazione:"
+            buffer_explanation:
+                one: "L'importo mancante è stato messo in buffer e verrà utilizzato con il prossimo ordine programmato, assicurando che la tua pianificazione e allocazione siano mantenute il più vicino possibile ai minimi dell'exchange."
+                other: "Gli importi mancanti sono stati messi in buffer e verranno utilizzati con i prossimi ordini programmati, assicurando che la tua pianificazione e allocazione siano mantenute il più vicino possibile ai minimi dell'exchange."
+            general_note: "I minimi dell'exchange e gli importi di ribilanciamento richiesti possono cambiare. Gli ordini potrebbero a volte sembrare irregolari, ma il bot mira sempre all'allocazione e alla pianificazione desiderate, quindi non è necessario alcun lavoro aggiuntivo."
+            tooltip_explanation: "Questo ordine è stato saltato perché l'importo era inferiore alla dimensione minima dell'ordine di %{exchange_name}. L'importo saltato è stato messo in buffer e verrà aggiunto al prossimo ordine."

@@ -56,7 +56,7 @@ module ExchangeApi
           end
           response_data = response['data']
           order_id = response_data['id']
-          Result::Success.new(offer_id: order_id)
+          Result::Success.new(external_id: order_id)
         end
 
         def transaction_cost(price, symbol, force_smart_intervals, smart_intervals_value)

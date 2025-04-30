@@ -1,0 +1,2135 @@
+
+<!--<div class="page-head page-head--dashboard">
+    
+    <%= button_to new_bot_path, method: :get, class: "button button--primary", data: { turbo_frame: "modal" } do %>
+        <span class="d-none d-sm-inline"><%= t('bot.new') %></span>
+        <i class="material-icons">add</i>
+    <% end %>
+</div>-->
+
+<div style="display: flex; gap: 4rem; flex-direction: column">
+    <div class="big-header big-header--2"><%= t('header.start_investing') %></div>
+    <div class="itiles">
+
+        <%= link_to bots_path(create: true), class: 'itile itile--bot-type itile--dca', data: { action: 'click->modal--base#animateOutCloseAndCleanUp', turbo: false } do %>
+            <div class="theme-img" style="background-image: url('<%= asset_path('strategy--dca.webp') %>')"></div>
+            <div class="index-title"><%= t('bot.types.dca.title') %></div>
+            <p class="index-info"><%= t('bot.types.dca.description') %></p>
+        <% end %>
+
+        <%= button_to barbell_new_step_to_first_asset_bots_path, method: :get, params: { bots_barbell: {label: nil}}, class: 'itile itile--bot-type', data: { turbo_frame: "modal", action: 'click->modal--base#animateOutCloseAndCleanUp' } do %>
+            <b class="sbadge sbadge--beta"><%= t('utils.beta') %></b>
+            <div class="theme-img" style="background-image: url('<%= asset_path('strategy--barbell.webp') %>')"></div>
+            <div class="index-title"><%= t('bot.types.barbell.title') %></div>
+            <p class="index-info"><%= t('bot.types.barbell.description') %></p>
+        <% end %>
+
+        <!--
+            <div class="itile">
+                <div class="theme-img" style="background-image: url('https://deltabadger.com/images/astronaut-02.jpg')"></div>
+                <div class="index-title"><%= t('index.bitcoin.title') %></div>
+                <p class="index-info"><%= t('index.bitcoin.info') %></p>
+                <b class="sbadge sbadge--success"><%= t('utils.free') %></b>
+                <div class="index-assets">
+                    <div class="index-asset">
+                        <div class="index-asset__row">
+                            <div class="ticker" style="background-color: #F7931A">BTC</div>
+                            <div class="slider">
+                                <div class="slider__style">
+                                    <div class="slider__style__track" style="border-left-color: #F7931A;">
+                                        <div class="slider__style__progress" style="width: 100%; background-color: #F7931A;"></div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="allocation">100%</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="itile">
+                <div class="theme-img" style="background-image: url('https://deltabadger.com/images/planet-landscape-01.jpg')"></div>
+                <div class="index-title"><%= t('index.crypto_berbell.title') %></div>
+                <p class="index-info"><%= t('index.crypto_berbell.info') %></p>
+                <div class="index-assets">          
+                    <div class="index-asset">
+                        <div class="index-asset__row">
+                            <div class="ticker" style="background-color: #F7931A">BTC</div>
+                            <div class="slider">
+                                <div class="slider__style">
+                                    <div class="slider__style__track" style="border-left-color: #F7931A;">
+                                        <div class="slider__style__progress" style="width: 85.10%; background-color: #F7931A;"></div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="allocation">85.10%</div>
+                        </div>
+                    </div>
+                
+                    <div class="index-asset">
+                        <div class="index-asset__row">
+                            <div class="ticker" style="background-color: #627EEA">ETH</div>
+                            <div class="slider">
+                                <div class="slider__style">
+                                    <div class="slider__style__track" style="border-left-color: #627EEA;">
+                                        <div class="slider__style__progress" style="width: 14.90%; background-color: #627EEA;"></div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="allocation">14.90%</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="itile itile--pro">
+                <div class="theme-img" style="background-image: url('https://deltabadger.com/blog/when-to-sell.jpg')"></div>
+                <b class="sbadge sbadge--pro"><%= t('utils.pro') %></b>
+                <div class="index-title"><%= t('index.crypto_index.title') %></div>
+                <p class="index-info"><%= t('index.crypto_index.info') %></p>
+                <div class="index-assets">
+                    <div class="index-asset">
+                        <div class="index-asset__row">
+                            <div class="ticker" style="background-color: #F7931A">BTC</div>
+                            <div class="slider">
+                                <div class="slider__style">
+                                    <div class="slider__style__track" style="border-left-color: #F7931A;">
+                                        <div class="slider__style__progress" style="width: 75.30%; background-color: #F7931A;"></div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="allocation">75.30%</div>
+                        </div>
+                    </div>
+                    
+                    <div class="index-asset">
+                        <div class="index-asset__row">
+                            <div class="ticker" style="background-color: #627EEA">ETH</div>
+                            <div class="slider">
+                                <div class="slider__style">
+                                    <div class="slider__style__track" style="border-left-color: #627EEA;">
+                                        <div class="slider__style__progress" style="width: 8.74%; background-color: #627EEA;"></div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="allocation">8.74%</div>
+                        </div>
+                    </div>
+
+                    <div class="index-asset">
+                        <div class="index-asset__row">
+                            <div class="ticker" style="background-color: #456">XRP</div>
+                            <div class="slider">
+                                <div class="slider__style">
+                                    <div class="slider__style__track" style="border-left-color: #456;">
+                                        <div class="slider__style__progress" style="width: 5.82%; background-color: #456;"></div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="allocation">5.82%</div>
+                        </div>
+                    </div>
+                    
+                    <div class="index-asset">
+                        <div class="index-asset__row">
+                            <div class="ticker" style="background-color: #F3BA2F">BNB</div>
+                            <div class="slider">
+                                <div class="slider__style">
+                                    <div class="slider__style__track" style="border-left-color: #F3BA2F;">
+                                        <div class="slider__style__progress" style="width: 3.86%; background-color: #F3BA2F;"></div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="allocation">3.86%</div>
+                        </div>
+                    </div>
+                    
+                    <div class="index-asset">
+                        <div class="index-asset__row">
+                            <div class="ticker" style="background-color: #00BD62">SOL</div>
+                            <div class="slider">
+                                <div class="slider__style">
+                                    <div class="slider__style__track" style="border-left-color: #00BD62;">
+                                        <div class="slider__style__progress" style="width: 3.01%; background-color: #00BD62;"></div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="allocation">3.01%</div>
+                        </div>
+                    </div>
+                    
+                    <div class="index-asset">
+                        <div class="index-asset__row">
+                            <div class="ticker" style="background-color: #0033AD">ADA</div>
+                            <div class="slider">
+                                <div class="slider__style">
+                                    <div class="slider__style__track" style="border-left-color: #0033AD;">
+                                        <div class="slider__style__progress" style="width: 1.06%; background-color: #0033AD;"></div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="allocation">1.06%</div>
+                        </div>
+                    </div>
+                    
+                    <div class="index-asset">
+                        <div class="index-asset__row">
+                            <div class="ticker" style="background-color: #FF060A">TRX</div>
+                            <div class="slider">
+                                <div class="slider__style">
+                                    <div class="slider__style__track" style="border-left-color: #FF060A;">
+                                        <div class="slider__style__progress" style="width: 1.05%; background-color: #FF060A;"></div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="allocation">1.05%</div>
+                        </div>
+                    </div>
+                    
+                    <div class="index-asset">
+                        <div class="index-asset__row">
+                            <div class="ticker" style="background-color: #0088CC">TON</div>
+                            <div class="slider">
+                                <div class="slider__style">
+                                    <div class="slider__style__track" style="border-left-color: #0088CC;">
+                                        <div class="slider__style__progress" style="width: 0.42%; background-color: #0088CC;"></div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="allocation">0.42%</div>
+                        </div>
+                    </div>
+                    
+                    <div class="index-asset">
+                        <div class="index-asset__row">
+                            <div class="ticker" style="background-color: #E84142">AVAX</div>
+                            <div class="slider">
+                                <div class="slider__style">
+                                    <div class="slider__style__track" style="border-left-color: #E84142;">
+                                        <div class="slider__style__progress" style="width: 0.37%; background-color: #E84142;"></div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="allocation">0.37%</div>
+                        </div>
+                    </div>
+                    
+                    <div class="index-asset">
+                        <div class="index-asset__row">
+                            <div class="ticker" style="background-color: #0098ff">SUI</div>
+                            <div class="slider">
+                                <div class="slider__style">
+                                    <div class="slider__style__track" style="border-left-color: #0098ff;">
+                                        <div class="slider__style__progress" style="width: 0.34%; background-color: #0098ff;"></div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="allocation">0.34%</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        -->
+
+    </div>
+    <div class="big-header big-header--2"><%= t('header.subscribe_to_secure_early_access') %></div>
+    <div class="itiles">
+        <div class="itile itile--pro itile--soon itile--faded">
+            <div class="theme-img" style="background-image: url('<%= asset_path('strategy--crypto-index.webp') %>')"></div>
+            <b class="sbadge sbadge--pro"><%= t('utils.pro') %></b>
+            <div class="index-title"><%= t('index.crypto_index.title') %></div>
+            <p class="index-info"><%= t('index.crypto_index.info') %></p>
+            <div class="index-assets">
+                <div class="index-asset">
+                    <div class="index-asset__row">
+                        <div class="ticker" style="background-color: #F7931A">BTC</div>
+                        <div class="slider">
+                            <div class="slider__style">
+                                <div class="slider__style__track" style="border-left-color: #F7931A;">
+                                    <div class="slider__style__progress" style="width: 75.30%; background-color: #F7931A;"></div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="allocation">75.30%</div>
+                    </div>
+                </div>
+                
+                <div class="index-asset">
+                    <div class="index-asset__row">
+                        <div class="ticker" style="background-color: #627EEA">ETH</div>
+                        <div class="slider">
+                            <div class="slider__style">
+                                <div class="slider__style__track" style="border-left-color: #627EEA;">
+                                    <div class="slider__style__progress" style="width: 8.74%; background-color: #627EEA;"></div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="allocation">8.74%</div>
+                    </div>
+                </div>
+
+                <div class="index-asset">
+                    <div class="index-asset__row">
+                        <div class="ticker" style="background-color: #456">XRP</div>
+                        <div class="slider">
+                            <div class="slider__style">
+                                <div class="slider__style__track" style="border-left-color: #456;">
+                                    <div class="slider__style__progress" style="width: 5.82%; background-color: #456;"></div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="allocation">5.82%</div>
+                    </div>
+                </div>
+                
+                <div class="index-asset">
+                    <div class="index-asset__row">
+                        <div class="ticker" style="background-color: #F3BA2F">BNB</div>
+                        <div class="slider">
+                            <div class="slider__style">
+                                <div class="slider__style__track" style="border-left-color: #F3BA2F;">
+                                    <div class="slider__style__progress" style="width: 3.86%; background-color: #F3BA2F;"></div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="allocation">3.86%</div>
+                    </div>
+                </div>
+                
+                <div class="index-asset">
+                    <div class="index-asset__row">
+                        <div class="ticker" style="background-color: #00BD62">SOL</div>
+                        <div class="slider">
+                            <div class="slider__style">
+                                <div class="slider__style__track" style="border-left-color: #00BD62;">
+                                    <div class="slider__style__progress" style="width: 3.01%; background-color: #00BD62;"></div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="allocation">3.01%</div>
+                    </div>
+                </div>
+                
+                <div class="index-asset">
+                    <div class="index-asset__row">
+                        <div class="ticker" style="background-color: #0033AD">ADA</div>
+                        <div class="slider">
+                            <div class="slider__style">
+                                <div class="slider__style__track" style="border-left-color: #0033AD;">
+                                    <div class="slider__style__progress" style="width: 1.06%; background-color: #0033AD;"></div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="allocation">1.06%</div>
+                    </div>
+                </div>
+                
+                <div class="index-asset">
+                    <div class="index-asset__row">
+                        <div class="ticker" style="background-color: #FF060A">TRX</div>
+                        <div class="slider">
+                            <div class="slider__style">
+                                <div class="slider__style__track" style="border-left-color: #FF060A;">
+                                    <div class="slider__style__progress" style="width: 1.05%; background-color: #FF060A;"></div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="allocation">1.05%</div>
+                    </div>
+                </div>
+                
+                <div class="index-asset">
+                    <div class="index-asset__row">
+                        <div class="ticker" style="background-color: #0088CC">TON</div>
+                        <div class="slider">
+                            <div class="slider__style">
+                                <div class="slider__style__track" style="border-left-color: #0088CC;">
+                                    <div class="slider__style__progress" style="width: 0.42%; background-color: #0088CC;"></div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="allocation">0.42%</div>
+                    </div>
+                </div>
+                
+                <div class="index-asset">
+                    <div class="index-asset__row">
+                        <div class="ticker" style="background-color: #E84142">AVAX</div>
+                        <div class="slider">
+                            <div class="slider__style">
+                                <div class="slider__style__track" style="border-left-color: #E84142;">
+                                    <div class="slider__style__progress" style="width: 0.37%; background-color: #E84142;"></div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="allocation">0.37%</div>
+                    </div>
+                </div>
+                
+                <div class="index-asset">
+                    <div class="index-asset__row">
+                        <div class="ticker" style="background-color: #0098ff">SUI</div>
+                        <div class="slider">
+                            <div class="slider__style">
+                                <div class="slider__style__track" style="border-left-color: #0098ff;">
+                                    <div class="slider__style__progress" style="width: 0.34%; background-color: #0098ff;"></div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="allocation">0.34%</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="itile itile--pro itile--soon itile--faded">
+            <div class="theme-img" style="background-image: url('<%= asset_path('strategy--altcoin-season.webp') %>')"></div>
+            <b class="sbadge sbadge--pro"><%= t('utils.pro') %></b>
+            <div class="index-title"><%= t('index.altcoin_season.title') %></div>
+            <p class="index-info"><%= t('index.altcoin_season.info') %></p>
+            <div class="index-assets">
+                
+                <div class="index-asset">
+                    <div class="index-asset__row">
+                        <div class="ticker" style="background-color: #627EEA">ETH</div>
+                        <div class="slider">
+                            <div class="slider__style">
+                                <div class="slider__style__track" style="border-left-color: #627EEA;">
+                                    <div class="slider__style__progress" style="width: 35.24%; background-color: #627EEA;"></div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="allocation">35.24%</div>
+                    </div>
+                </div>
+
+                <div class="index-asset">
+                    <div class="index-asset__row">
+                        <div class="ticker" style="background-color: #456">XRP</div>
+                        <div class="slider">
+                            <div class="slider__style">
+                                <div class="slider__style__track" style="border-left-color: #456;">
+                                    <div class="slider__style__progress" style="width: 23.45%; background-color: #456;"></div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="allocation">23.45%</div>
+                    </div>
+                </div>
+                
+                <div class="index-asset">
+                    <div class="index-asset__row">
+                        <div class="ticker" style="background-color: #F3BA2F">BNB</div>
+                        <div class="slider">
+                            <div class="slider__style">
+                                <div class="slider__style__track" style="border-left-color: #F3BA2F;">
+                                    <div class="slider__style__progress" style="width: 15.56%; background-color: #F3BA2F;"></div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="allocation">15.56%</div>
+                    </div>
+                </div>
+                
+                <div class="index-asset">
+                    <div class="index-asset__row">
+                        <div class="ticker" style="background-color: #00BD62">SOL</div>
+                        <div class="slider">
+                            <div class="slider__style">
+                                <div class="slider__style__track" style="border-left-color: #00BD62;">
+                                    <div class="slider__style__progress" style="width: 12.14%; background-color: #00BD62;"></div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="allocation">12.14%</div>
+                    </div>
+                </div>
+                
+                <div class="index-asset">
+                    <div class="index-asset__row">
+                        <div class="ticker" style="background-color: #0033AD">ADA</div>
+                        <div class="slider">
+                            <div class="slider__style">
+                                <div class="slider__style__track" style="border-left-color: #0033AD;">
+                                    <div class="slider__style__progress" style="width: 4.28%; background-color: #0033AD;"></div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="allocation">4.28%</div>
+                    </div>
+                </div>
+                
+                <div class="index-asset">
+                    <div class="index-asset__row">
+                        <div class="ticker" style="background-color: #FF060A">TRX</div>
+                        <div class="slider">
+                            <div class="slider__style">
+                                <div class="slider__style__track" style="border-left-color: #FF060A;">
+                                    <div class="slider__style__progress" style="width: 4.23%; background-color: #FF060A;"></div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="allocation">4.23%</div>
+                    </div>
+                </div>
+                
+                <div class="index-asset">
+                    <div class="index-asset__row">
+                        <div class="ticker" style="background-color: #0088CC">TON</div>
+                        <div class="slider">
+                            <div class="slider__style">
+                                <div class="slider__style__track" style="border-left-color: #0088CC;">
+                                    <div class="slider__style__progress" style="width: 0.35%; background-color: #0088CC;"></div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="allocation">0.35%</div>
+                    </div>
+                </div>
+                
+                <div class="index-asset">
+                    <div class="index-asset__row">
+                        <div class="ticker" style="background-color: #E84142">AVAX</div>
+                        <div class="slider">
+                            <div class="slider__style">
+                                <div class="slider__style__track" style="border-left-color: #E84142;">
+                                    <div class="slider__style__progress" style="width: 1.51%; background-color: #E84142;"></div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="allocation">1.51%</div>
+                    </div>
+                </div>
+                
+                <div class="index-asset">
+                    <div class="index-asset__row">
+                        <div class="ticker" style="background-color: #0098ff">SUI</div>
+                        <div class="slider">
+                            <div class="slider__style">
+                                <div class="slider__style__track" style="border-left-color: #0098ff;">
+                                    <div class="slider__style__progress" style="width: 1.38%; background-color: #0098ff;"></div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="allocation">1.38%</div>
+                    </div>
+                </div>
+                
+                <div class="index-asset">
+                    <div class="index-asset__row">
+                        <div class="ticker" style="background-color: #00a1be">HBAR</div>
+                        <div class="slider">
+                            <div class="slider__style">
+                                <div class="slider__style__track" style="border-left-color: #00a1be;">
+                                    <div class="slider__style__progress" style="width: 1.33%; background-color: #00a1be;"></div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="allocation">1.33%</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+
+        <div class="itile itile--pro itile--soon itile--faded">
+            <div class="theme-img" style="background-image: url('<%= asset_path('strategy--layer-1.webp') %>')"></div>
+            <b class="sbadge sbadge--pro"><%= t('utils.pro') %></b>
+            <div class="index-title"><%= t('index.layer_1.title') %></div>
+            <p class="index-info"><%= t('index.layer_1.info') %></p>
+            <div class="index-assets">
+                <div class="index-asset">
+                    <div class="index-asset__row">
+                        <div class="ticker" style="background-color: #F7931A">BTC</div>
+                        <div class="slider">
+                            <div class="slider__style">
+                                <div class="slider__style__track" style="border-left-color: #F7931A;">
+                                    <div class="slider__style__progress" style="width: 78.84%; background-color: #F7931A;"></div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="allocation">78.84%</div>
+                    </div>
+                </div>
+                
+                <div class="index-asset">
+                    <div class="index-asset__row">
+                        <div class="ticker" style="background-color: #627EEA">ETH</div>
+                        <div class="slider">
+                            <div class="slider__style">
+                                <div class="slider__style__track" style="border-left-color: #627EEA;">
+                                    <div class="slider__style__progress" style="width: 10.43%; background-color: #627EEA;"></div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="allocation">10.43%</div>
+                    </div>
+                </div>
+                
+                <div class="index-asset">
+                    <div class="index-asset__row">
+                        <div class="ticker" style="background-color: #F3BA2F">BNB</div>
+                        <div class="slider">
+                            <div class="slider__style">
+                                <div class="slider__style__track" style="border-left-color: #F3BA2F;">
+                                    <div class="slider__style__progress" style="width: 4.18%; background-color: #F3BA2F;"></div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="allocation">4.18%</div>
+                    </div>
+                </div>
+                
+                <div class="index-asset">
+                    <div class="index-asset__row">
+                        <div class="ticker" style="background-color: #00BD62">SOL</div>
+                        <div class="slider">
+                            <div class="slider__style">
+                                <div class="slider__style__track" style="border-left-color: #00BD62;">
+                                    <div class="slider__style__progress" style="width: 2.89%; background-color: #00BD62;"></div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="allocation">2.89%</div>
+                    </div>
+                </div>
+                
+                <div class="index-asset">
+                    <div class="index-asset__row">
+                        <div class="ticker" style="background-color: #0033AD">ADA</div>
+                        <div class="slider">
+                            <div class="slider__style">
+                                <div class="slider__style__track" style="border-left-color: #0033AD;">
+                                    <div class="slider__style__progress" style="width: 1.11%; background-color: #0033AD;"></div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="allocation">1.11%</div>
+                    </div>
+                </div>
+                
+                <div class="index-asset">
+                    <div class="index-asset__row">
+                        <div class="ticker" style="background-color: #FF060A">TRX</div>
+                        <div class="slider">
+                            <div class="slider__style">
+                                <div class="slider__style__track" style="border-left-color: #FF060A;">
+                                    <div class="slider__style__progress" style="width: 1.06%; background-color: #FF060A;"></div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="allocation">1.06%</div>
+                    </div>
+                </div>
+                
+                <div class="index-asset">
+                    <div class="index-asset__row">
+                        <div class="ticker" style="background-color: #0088CC">TON</div>
+                        <div class="slider">
+                            <div class="slider__style">
+                                <div class="slider__style__track" style="border-left-color: #0088CC;">
+                                    <div class="slider__style__progress" style="width: 0.44%; background-color: #0088CC;"></div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="allocation">0.44%</div>
+                    </div>
+                </div>
+                
+                <div class="index-asset">
+                    <div class="index-asset__row">
+                        <div class="ticker" style="background-color: #E84142">AVAX</div>
+                        <div class="slider">
+                            <div class="slider__style">
+                                <div class="slider__style__track" style="border-left-color: #E84142;">
+                                    <div class="slider__style__progress" style="width: 0.36%; background-color: #E84142;"></div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="allocation">0.36%</div>
+                    </div>
+                </div>
+                
+                <div class="index-asset">
+                    <div class="index-asset__row">
+                        <div class="ticker" style="background-color: #0098ff">SUI</div>
+                        <div class="slider">
+                            <div class="slider__style">
+                                <div class="slider__style__track" style="border-left-color: #0098ff;">
+                                    <div class="slider__style__progress" style="width: 0.35%; background-color: #0098ff;"></div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="allocation">0.35%</div>
+                    </div>
+                </div>
+                
+                <div class="index-asset">
+                    <div class="index-asset__row">
+                        <div class="ticker" style="background-color: #00a1be">HBAR</div>
+                        <div class="slider">
+                            <div class="slider__style">
+                                <div class="slider__style__track" style="border-left-color: #00a1be;">
+                                    <div class="slider__style__progress" style="width: 0.33%; background-color: #00a1be;"></div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="allocation">0.33%</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="itile itile--legendary itile--soon itile--faded">
+            <div class="theme-img" style="background-image: url('<%= asset_path('strategy--made-in-usa.webp') %>')"></div>
+            <b class="sbadge sbadge--legendary"><%= t('utils.legendary') %></b>
+            <div class="index-title"><%= t('index.made_in_usa.title') %></div>
+            <p class="index-info"><%= t('index.made_in_usa.info') %></p>
+            <div class="index-assets">
+                <div class="index-asset">
+                    <div class="index-asset__row">
+                        <div class="ticker" style="background-color: #456">XRP</div>
+                        <div class="slider">
+                            <div class="slider__style">
+                                <div class="slider__style__track" style="border-left-color: #456;">
+                                    <div class="slider__style__progress" style="width: 38.63%; background-color: #456;"></div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="allocation">38.63%</div>
+                    </div>
+                </div>
+                
+                <div class="index-asset">
+                    <div class="index-asset__row">
+                        <div class="ticker" style="background-color: #00BD62">SOL</div>
+                        <div class="slider">
+                            <div class="slider__style">
+                                <div class="slider__style__track" style="border-left-color: #00BD62;">
+                                    <div class="slider__style__progress" style="width: 19.72%; background-color: #00BD62;"></div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="allocation">19.72%</div>
+                    </div>
+                </div>
+                
+                <div class="index-asset">
+                    <div class="index-asset__row">
+                        <div class="ticker" style="background-color: #2775CA">USDC</div>
+                        <div class="slider">
+                            <div class="slider__style">
+                                <div class="slider__style__track" style="border-left-color: #2775CA;">
+                                    <div class="slider__style__progress" style="width: 19.60%; background-color: #2775CA;"></div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="allocation">19.60%</div>
+                    </div>
+                </div>
+                
+                <div class="index-asset">
+                    <div class="index-asset__row">
+                        <div class="ticker" style="background-color: #0033AD">ADA</div>
+                        <div class="slider">
+                            <div class="slider__style">
+                                <div class="slider__style__track" style="border-left-color: #0033AD;">
+                                    <div class="slider__style__progress" style="width: 7.57%; background-color: #0033AD;"></div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="allocation">7.57%</div>
+                    </div>
+                </div>
+                
+                <div class="index-asset">
+                    <div class="index-asset__row">
+                        <div class="ticker" style="background-color: #2A5ADA">LINK</div>
+                        <div class="slider">
+                            <div class="slider__style">
+                                <div class="slider__style__track" style="border-left-color: #2A5ADA;">
+                                    <div class="slider__style__progress" style="width: 2.68%; background-color: #2A5ADA;"></div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="allocation">2.68%</div>
+                    </div>
+                </div>
+                
+                <div class="index-asset">
+                    <div class="index-asset__row">
+                        <div class="ticker" style="background-color: #567">XLM</div>
+                        <div class="slider">
+                            <div class="slider__style">
+                                <div class="slider__style__track" style="border-left-color: #567;">
+                                    <div class="slider__style__progress" style="width: 2.61%; background-color: #567;"></div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="allocation">2.61%</div>
+                    </div>
+                </div>
+                
+                <div class="index-asset">
+                    <div class="index-asset__row">
+                        <div class="ticker" style="background-color: #E84142">AVAX</div>
+                        <div class="slider">
+                            <div class="slider__style">
+                                <div class="slider__style__track" style="border-left-color: #E84142;">
+                                    <div class="slider__style__progress" style="width: 2.47%; background-color: #E84142;"></div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="allocation">2.47%</div>
+                    </div>
+                </div>
+                
+                <div class="index-asset">
+                    <div class="index-asset__row">
+                        <div class="ticker" style="background-color: #0098ff">SUI</div>
+                        <div class="slider">
+                            <div class="slider__style">
+                                <div class="slider__style__track" style="border-left-color: #0098ff;">
+                                    <div class="slider__style__progress" style="width: 2.45%; background-color: #0098ff;"></div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="allocation">2.45%</div>
+                    </div>
+                </div>
+                
+                <div class="index-asset">
+                    <div class="index-asset__row">
+                        <div class="ticker" style="background-color: #00a1be">HBAR</div>
+                        <div class="slider">
+                            <div class="slider__style">
+                                <div class="slider__style__track" style="border-left-color: #00a1be;">
+                                    <div class="slider__style__progress" style="width: 2.23%; background-color: #00a1be;"></div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="allocation">2.23%</div>
+                    </div>
+                </div>
+                
+                <div class="index-asset">
+                    <div class="index-asset__row">
+                        <div class="ticker" style="background-color: #345D9D">LTC</div>
+                        <div class="slider">
+                            <div class="slider__style">
+                                <div class="slider__style__track" style="border-left-color: #345D9D;">
+                                    <div class="slider__style__progress" style="width: 2.05%; background-color: #345D9D;"></div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="allocation">2.05%</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="itile itile--legendary itile--soon itile--faded">
+            <div class="theme-img" style="background-image: url('<%= asset_path('strategy--alleged-sec-securities.webp') %>')"></div>
+            <b class="sbadge sbadge--legendary"><%= t('utils.legendary') %></b>
+            <div class="index-title"><%= t('index.alleged_sec_securities.title') %></div>
+            <p class="index-info"><%= t('index.alleged_sec_securities.info') %></p>
+                <div class="index-assets">
+                <div class="index-asset">
+                    <div class="index-asset__row">
+                        <div class="ticker" style="background-color: #F3BA2F">BNB</div>
+                        <div class="slider">
+                            <div class="slider__style">
+                                <div class="slider__style__track" style="border-left-color: #F3BA2F;">
+                                    <div class="slider__style__progress" style="width: 41.01%; background-color: #F3BA2F;"></div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="allocation">41.01%</div>
+                    </div>
+                </div>
+                
+                <div class="index-asset">
+                    <div class="index-asset__row">
+                        <div class="ticker" style="background-color: #00BD62">SOL</div>
+                        <div class="slider">
+                            <div class="slider__style">
+                                <div class="slider__style__track" style="border-left-color: #00BD62;">
+                                    <div class="slider__style__progress" style="width: 28.37%; background-color: #00BD62;"></div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="allocation">28.37%</div>
+                    </div>
+                </div>
+                
+                <div class="index-asset">
+                    <div class="index-asset__row">
+                        <div class="ticker" style="background-color: #0033AD">ADA</div>
+                        <div class="slider">
+                            <div class="slider__style">
+                                <div class="slider__style__track" style="border-left-color: #0033AD;">
+                                    <div class="slider__style__progress" style="width: 10.89%; background-color: #0033AD;"></div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="allocation">10.89%</div>
+                    </div>
+                </div>
+                
+                <div class="index-asset">
+                    <div class="index-asset__row">
+                        <div class="ticker" style="background-color: #FF060A">TRX</div>
+                        <div class="slider">
+                            <div class="slider__style">
+                                <div class="slider__style__track" style="border-left-color: #FF060A;">
+                                    <div class="slider__style__progress" style="width: 10.43%; background-color: #FF060A;"></div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="allocation">10.43%</div>
+                    </div>
+                </div>
+                
+                <div class="index-asset">
+                    <div class="index-asset__row">
+                        <div class="ticker" style="background-color: #0088CC">TON</div>
+                        <div class="slider">
+                            <div class="slider__style">
+                                <div class="slider__style__track" style="border-left-color: #0088CC;">
+                                    <div class="slider__style__progress" style="width: 4.33%; background-color: #0088CC;"></div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="allocation">4.33%</div>
+                    </div>
+                </div>
+                
+                <div class="index-asset">
+                    <div class="index-asset__row">
+                        <div class="ticker" style="background-color: #789">NEAR</div>
+                        <div class="slider">
+                            <div class="slider__style">
+                                <div class="slider__style__track" style="border-left-color: #789;">
+                                    <div class="slider__style__progress" style="width: 1.38%; background-color: #789;"></div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="allocation">1.38%</div>
+                    </div>
+                </div>
+                
+                <div class="index-asset">
+                    <div class="index-asset__row">
+                        <div class="ticker" style="background-color: #29B6F6">ICP</div>
+                        <div class="slider">
+                            <div class="slider__style">
+                                <div class="slider__style__track" style="border-left-color: #29B6F6;">
+                                    <div class="slider__style__progress" style="width: 1.15%; background-color: #29B6F6;"></div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="allocation">1.15%</div>
+                    </div>
+                </div>
+                
+                <div class="index-asset">
+                    <div class="index-asset__row">
+                        <div class="ticker" style="background-color: #2E3148">ATOM</div>
+                        <div class="slider">
+                            <div class="slider__style">
+                                <div class="slider__style__track" style="border-left-color: #2E3148;">
+                                    <div class="slider__style__progress" style="width: 0.91%; background-color: #2E3148;"></div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="allocation">0.91%</div>
+                    </div>
+                </div>
+                
+                <div class="index-asset">
+                    <div class="index-asset__row">
+                        <div class="ticker" style="background-color: #0090FF">FIL</div>
+                        <div class="slider">
+                            <div class="slider__style">
+                                <div class="slider__style__track" style="border-left-color: #0090FF;">
+                                    <div class="slider__style__progress" style="width: 0.83%; background-color: #0090FF;"></div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="allocation">0.83%</div>
+                    </div>
+                </div>
+                
+                <div class="index-asset">
+                    <div class="index-asset__row">
+                        <div class="ticker" style="background-color: #000000">ALGO</div>
+                        <div class="slider">
+                            <div class="slider__style">
+                                <div class="slider__style__track" style="border-left-color: #000000;">
+                                    <div class="slider__style__progress" style="width: 0.70%; background-color: #000000;"></div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="allocation">0.70%</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="itile itile--legendary itile--soon itile--faded">
+            <div class="theme-img" style="background-image: url('<%= asset_path('strategy--memecoins.webp') %>')"></div>
+            <b class="sbadge sbadge--legendary"><%= t('utils.legendary') %></b>
+            <div class="index-title"><%= t('index.memecoins.title') %></div>
+            <p class="index-info"><%= t('index.memecoins.info') %></p>
+                <div class="index-assets">
+                <div class="index-asset">
+                    <div class="index-asset__row">
+                        <div class="ticker" style="background-color: #C2A633">DOGE</div>
+                        <div class="slider">
+                            <div class="slider__style">
+                                <div class="slider__style__track" style="border-left-color: #C2A633;">
+                                    <div class="slider__style__progress" style="width: 61.95%; background-color: #C2A633;"></div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="allocation">61.95%</div>
+                    </div>
+                </div>
+                
+                <div class="index-asset">
+                    <div class="index-asset__row">
+                        <div class="ticker" style="background-color: #FF0000">SHIB</div>
+                        <div class="slider">
+                            <div class="slider__style">
+                                <div class="slider__style__track" style="border-left-color: #FF0000;">
+                                    <div class="slider__style__progress" style="width: 18.25%; background-color: #FF0000;"></div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="allocation">18.25%</div>
+                    </div>
+                </div>
+                
+                <div class="index-asset">
+                    <div class="index-asset__row">
+                        <div class="ticker" style="background-color: #00996a">PEPE</div>
+                        <div class="slider">
+                            <div class="slider__style">
+                                <div class="slider__style__track" style="border-left-color: #00996a;">
+                                    <div class="slider__style__progress" style="width: 7.72%; background-color: #00996a;"></div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="allocation">7.72%</div>
+                    </div>
+                </div>
+                
+                <div class="index-asset">
+                    <div class="index-asset__row">
+                        <div class="ticker" style="background-color: #FF0000">TRUMP</div>
+                        <div class="slider">
+                            <div class="slider__style">
+                                <div class="slider__style__track" style="border-left-color: #FF0000;">
+                                    <div class="slider__style__progress" style="width: 4.70%; background-color: #FF0000;"></div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="allocation">4.70%</div>
+                    </div>
+                </div>
+                
+                <div class="index-asset">
+                    <div class="index-asset__row">
+                        <div class="ticker" style="background-color: #F7931A">BONK</div>
+                        <div class="slider">
+                            <div class="slider__style">
+                                <div class="slider__style__track" style="border-left-color: #F7931A;">
+                                    <div class="slider__style__progress" style="width: 2.18%; background-color: #F7931A;"></div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="allocation">2.18%</div>
+                    </div>
+                </div>
+                
+                <div class="index-asset">
+                    <div class="index-asset__row">
+                        <div class="ticker" style="background-color: #E84142">FLOKI</div>
+                        <div class="slider">
+                            <div class="slider__style">
+                                <div class="slider__style__track" style="border-left-color: #E84142;">
+                                    <div class="slider__style__progress" style="width: 1.36%; background-color: #E84142;"></div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="allocation">1.36%</div>
+                    </div>
+                </div>
+                
+                <div class="index-asset">
+                    <div class="index-asset__row">
+                        <div class="ticker" style="background-color: #248">SPX</div>
+                        <div class="slider">
+                            <div class="slider__style">
+                                <div class="slider__style__track" style="border-left-color: #248;">
+                                    <div class="slider__style__progress" style="width: 1.04%; background-color: #248;"></div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="allocation">1.04%</div>
+                    </div>
+                </div>
+                
+                <div class="index-asset">
+                    <div class="index-asset__row">
+                        <div class="ticker" style="background-color: #FF00FF">FARTCOIN</div>
+                        <div class="slider">
+                            <div class="slider__style">
+                                <div class="slider__style__track" style="border-left-color: #FF00FF;">
+                                    <div class="slider__style__progress" style="width: 0.99%; background-color: #FF00FF;"></div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="allocation">0.99%</div>
+                    </div>
+                </div>
+                
+                <div class="index-asset">
+                    <div class="index-asset__row">
+                        <div class="ticker" style="background-color: #FF69B4">WIF</div>
+                        <div class="slider">
+                            <div class="slider__style">
+                                <div class="slider__style__track" style="border-left-color: #FF69B4;">
+                                    <div class="slider__style__progress" style="width: 0.96%; background-color: #FF69B4;"></div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="allocation">0.96%</div>
+                    </div>
+                </div>
+                
+                <div class="index-asset">
+                    <div class="index-asset__row">
+                        <div class="ticker" style="background-color: #9c471b">CHEEMS</div>
+                        <div class="slider">
+                            <div class="slider__style">
+                                <div class="slider__style__track" style="border-left-color: #9c471b;">
+                                    <div class="slider__style__progress" style="width: 0.85%; background-color: #9c471b;"></div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="allocation">0.85%</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="itile itile--legendary itile--soon itile--faded">
+            <div class="theme-img" style="background-image: url('<%= asset_path('strategy--elon-musk-inspired.webp') %>')"></div>
+            <b class="sbadge sbadge--legendary"><%= t('utils.legendary') %></b>
+            <div class="index-title"><%= t('index.elon_musk_inspired.title') %></div>
+            <p class="index-info"><%= t('index.elon_musk_inspired.info') %></p>
+            <div class="index-assets">
+                <div class="index-asset">
+                    <div class="index-asset__row">
+                        <div class="ticker" style="background-color: #C2A633">DOGE</div>
+                        <div class="slider">
+                            <div class="slider__style">
+                                <div class="slider__style__track" style="border-left-color: #C2A633;">
+                                    <div class="slider__style__progress" style="width: 99.44%; background-color: #C2A633;"></div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="allocation">99.44%</div>
+                    </div>
+                </div>
+                
+                <div class="index-asset">
+                    <div class="index-asset__row">
+                        <div class="ticker" style="background-color: #FF0000">ELON</div>
+                        <div class="slider">
+                            <div class="slider__style">
+                                <div class="slider__style__track" style="border-left-color: #FF0000;">
+                                    <div class="slider__style__progress" style="width: 0.28%; background-color: #FF0000;"></div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="allocation">0.28%</div>
+                    </div>
+                </div>
+                
+                <div class="index-asset">
+                    <div class="index-asset__row">
+                        <div class="ticker" style="background-color: #00aa00">KEKIUS</div>
+                        <div class="slider">
+                            <div class="slider__style">
+                                <div class="slider__style__track" style="border-left-color: #00aa00;">
+                                    <div class="slider__style__progress" style="width: 0.09%; background-color: #00aa00;"></div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="allocation">0.09%</div>
+                    </div>
+                </div>
+                
+                <div class="index-asset">
+                    <div class="index-asset__row">
+                        <div class="ticker" style="background-color: #0000FF">ELON4AFD</div>
+                        <div class="slider">
+                            <div class="slider__style">
+                                <div class="slider__style__track" style="border-left-color: #0000FF;">
+                                    <div class="slider__style__progress" style="width: 0.07%; background-color: #0000FF;"></div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="allocation">0.07%</div>
+                    </div>
+                </div>
+                
+                <div class="index-asset">
+                    <div class="index-asset__row">
+                        <div class="ticker" style="background-color: #FFA500">$GROK</div>
+                        <div class="slider">
+                            <div class="slider__style">
+                                <div class="slider__style__track" style="border-left-color: #FFA500;">
+                                    <div class="slider__style__progress" style="width: 0.05%; background-color: #FFA500;"></div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="allocation">0.05%</div>
+                    </div>
+                </div>
+                
+                <div class="index-asset">
+                    <div class="index-asset__row">
+                        <div class="ticker" style="background-color: #800080">ETF500</div>
+                        <div class="slider">
+                            <div class="slider__style">
+                                <div class="slider__style__track" style="border-left-color: #800080;">
+                                    <div class="slider__style__progress" style="width: 0.03%; background-color: #800080;"></div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="allocation">0.03%</div>
+                    </div>
+                </div>
+                
+                <div class="index-asset">
+                    <div class="index-asset__row">
+                        <div class="ticker" style="background-color: #008000">SHRUB</div>
+                        <div class="slider">
+                            <div class="slider__style">
+                                <div class="slider__style__track" style="border-left-color: #008000;">
+                                    <div class="slider__style__progress" style="width: 0.01%; background-color: #008000;"></div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="allocation">0.01%</div>
+                    </div>
+                </div>
+                
+                <div class="index-asset">
+                    <div class="index-asset__row">
+                        <div class="ticker" style="background-color: #FF0000">TERMINUS</div>
+                        <div class="slider">
+                            <div class="slider__style">
+                                <div class="slider__style__track" style="border-left-color: #FF0000;">
+                                    <div class="slider__style__progress" style="width: 0.01%; background-color: #FF0000;"></div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="allocation">0.01%</div>
+                    </div>
+                </div>
+                
+                <div class="index-asset">
+                    <div class="index-asset__row">
+                        <div class="ticker" style="background-color: #00aa00">KM</div>
+                        <div class="slider">
+                            <div class="slider__style">
+                                <div class="slider__style__track" style="border-left-color: #00aa00;">
+                                    <div class="slider__style__progress" style="width: 0.01%; background-color: #00aa00;"></div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="allocation">0.01%</div>
+                    </div>
+                </div>
+                
+                <div class="index-asset">
+                    <div class="index-asset__row">
+                        <div class="ticker" style="background-color: #9c471b">MUSKIT</div>
+                        <div class="slider">
+                            <div class="slider__style">
+                                <div class="slider__style__track" style="border-left-color: #9c471b;">
+                                    <div class="slider__style__progress" style="width: 0.01%; background-color: #9c471b;"></div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="allocation">0.01%</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <!--
+        <div class="itile itile--legendary itile--soon itile--faded">
+            <div class="theme-img" style="background-image: url('https://deltabadger.com/images/index-ai.webp')"></div>
+            <b class="sbadge sbadge--legendary"><%= t('utils.legendary') %></b>
+            <div class="index-title"><%= t('index.ai_portfolio.title') %></div>
+            <p class="index-info"><%= t('index.ai_portfolio.info') %></p>
+            <div class="index-assets">
+            <div class="index-asset">
+                <div class="index-asset__row">
+                    <div class="ticker" style="background-color: #789">NEAR</div>
+                        <div class="slider">
+                            <div class="slider__style">
+                                <div class="slider__style__track" style="border-left-color: #789;">
+                                    <div class="slider__style__progress" style="width: 18.36%; background-color: #789;"></div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="allocation">18.36%</div>
+                    </div>
+                </div>
+                
+                <div class="index-asset">
+                    <div class="index-asset__row">
+                        <div class="ticker" style="background-color: #29B6F6">ICP</div>
+                        <div class="slider">
+                            <div class="slider__style">
+                                <div class="slider__style__track" style="border-left-color: #29B6F6;">
+                                    <div class="slider__style__progress" style="width: 17.81%; background-color: #29B6F6;"></div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="allocation">17.81%</div>
+                    </div>
+                </div>
+                
+                <div class="index-asset">
+                    <div class="index-asset__row">
+                        <div class="ticker" style="background-color: #40C4FF">TAO</div>
+                        <div class="slider">
+                            <div class="slider__style">
+                                <div class="slider__style__track" style="border-left-color: #40C4FF;">
+                                    <div class="slider__style__progress" style="width: 15.46%; background-color: #40C4FF;"></div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="allocation">15.46%</div>
+                    </div>
+                </div>
+                
+                <div class="index-asset">
+                    <div class="index-asset__row">
+                        <div class="ticker" style="background-color: #5433FF">RENDER</div>
+                        <div class="slider">
+                            <div class="slider__style">
+                                <div class="slider__style__track" style="border-left-color: #5433FF;">
+                                    <div class="slider__style__progress" style="width: 14.23%; background-color: #5433FF;"></div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="allocation">14.23%</div>
+                    </div>
+                </div>
+                
+                <div class="index-asset">
+                    <div class="index-asset__row">
+                        <div class="ticker" style="background-color: #1E88E5">FET</div>
+                        <div class="slider">
+                            <div class="slider__style">
+                                <div class="slider__style__track" style="border-left-color: #1E88E5;">
+                                    <div class="slider__style__progress" style="width: 8.64%; background-color: #1E88E5;"></div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="allocation">8.64%</div>
+                    </div>
+                </div>
+                
+                <div class="index-asset">
+                    <div class="index-asset__row">
+                        <div class="ticker" style="background-color: #E91E63">IP</div>
+                        <div class="slider">
+                            <div class="slider__style">
+                                <div class="slider__style__track" style="border-left-color: #E91E63;">
+                                    <div class="slider__style__progress" style="width: 7.34%; background-color: #E91E63;"></div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="allocation">7.34%</div>
+                    </div>
+                </div>
+                
+                <div class="index-asset">
+                    <div class="index-asset__row">
+                        <div class="ticker" style="background-color: #9C27B0">SEI</div>
+                        <div class="slider">
+                            <div class="slider__style">
+                                <div class="slider__style__track" style="border-left-color: #9C27B0;">
+                                    <div class="slider__style__progress" style="width: 5.98%; background-color: #9C27B0;"></div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="allocation">5.98%</div>
+                    </div>
+                </div>
+                
+                <div class="index-asset">
+                    <div class="index-asset__row">
+                        <div class="ticker" style="background-color: #673AB7">GRT</div>
+                        <div class="slider">
+                            <div class="slider__style">
+                                <div class="slider__style__track" style="border-left-color: #673AB7;">
+                                    <div class="slider__style__progress" style="width: 5.52%; background-color: #673AB7;"></div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="allocation">5.52%</div>
+                    </div>
+                </div>
+                
+                <div class="index-asset">
+                    <div class="index-asset__row">
+                        <div class="ticker" style="background-color: #0277BD">BDX</div>
+                        <div class="slider">
+                            <div class="slider__style">
+                                <div class="slider__style__track" style="border-left-color: #0277BD;">
+                                    <div class="slider__style__progress" style="width: 3.43%; background-color: #0277BD;"></div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="allocation">3.43%</div>
+                    </div>
+                </div>
+                
+                <div class="index-asset">
+                    <div class="index-asset__row">
+                        <div class="ticker" style="background-color: #4CAF50">GRASS</div>
+                        <div class="slider">
+                            <div class="slider__style">
+                                <div class="slider__style__track" style="border-left-color: #4CAF50;">
+                                    <div class="slider__style__progress" style="width: 3.23%; background-color: #4CAF50;"></div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="allocation">3.23%</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        -->
+        <div class="itile itile--legendary itile--soon itile--faded">
+            <div class="theme-img" style="background-image: url('<%= asset_path('strategy--layer-2.webp') %>')"></div>
+            <b class="sbadge sbadge--legendary"><%= t('utils.legendary') %></b>
+            <div class="index-title"><%= t('index.layer_2.title') %></div>
+            <p class="index-info"><%= t('index.layer_2.info') %></p>
+            <div class="index-assets">
+            <div class="index-asset">
+                <div class="index-asset__row">
+                    <div class="ticker" style="background-color: #0288D1">MNT</div>
+                        <div class="slider">
+                            <div class="slider__style">
+                                <div class="slider__style__track" style="border-left-color: #0288D1;">
+                                    <div class="slider__style__progress" style="width: 24.04%; background-color: #0288D1;"></div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="allocation">24.04%</div>
+                    </div>
+                </div>
+                
+                <div class="index-asset">
+                    <div class="index-asset__row">
+                        <div class="ticker" style="background-color: #FF5722">POL</div>
+                        <div class="slider">
+                            <div class="slider__style">
+                                <div class="slider__style__track" style="border-left-color: #FF5722;">
+                                    <div class="slider__style__progress" style="width: 16.24%; background-color: #FF5722;"></div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="allocation">16.24%</div>
+                    </div>
+                </div>
+                
+                <div class="index-asset">
+                    <div class="index-asset__row">
+                        <div class="ticker" style="background-color: #8BC34A">ARB</div>
+                        <div class="slider">
+                            <div class="slider__style">
+                                <div class="slider__style__track" style="border-left-color: #8BC34A;">
+                                    <div class="slider__style__progress" style="width: 13.96%; background-color: #8BC34A;"></div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="allocation">13.96%</div>
+                    </div>
+                </div>
+                
+                <div class="index-asset">
+                    <div class="index-asset__row">
+                        <div class="ticker" style="background-color: #FF9800">OP</div>
+                        <div class="slider">
+                            <div class="slider__style">
+                                <div class="slider__style__track" style="border-left-color: #FF9800;">
+                                    <div class="slider__style__progress" style="width: 11.15%; background-color: #FF9800;"></div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="allocation">11.15%</div>
+                    </div>
+                </div>
+                
+                <div class="index-asset">
+                    <div class="index-asset__row">
+                        <div class="ticker" style="background-color: #607D8B">STX</div>
+                        <div class="slider">
+                            <div class="slider__style">
+                                <div class="slider__style__track" style="border-left-color: #607D8B;">
+                                    <div class="slider__style__progress" style="width: 9.47%; background-color: #607D8B;"></div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="allocation">9.47%</div>
+                    </div>
+                </div>
+                
+                <div class="index-asset">
+                    <div class="index-asset__row">
+                        <div class="ticker" style="background-color: #795548">MOVE</div>
+                        <div class="slider">
+                            <div class="slider__style">
+                                <div class="slider__style__track" style="border-left-color: #795548;">
+                                    <div class="slider__style__progress" style="width: 8.31%; background-color: #795548;"></div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="allocation">8.31%</div>
+                    </div>
+                </div>
+                
+                <div class="index-asset">
+                    <div class="index-asset__row">
+                        <div class="ticker" style="background-color: #3949AB">IMX</div>
+                        <div class="slider">
+                            <div class="slider__style">
+                                <div class="slider__style__track" style="border-left-color: #3949AB;">
+                                    <div class="slider__style__progress" style="width: 7.67%; background-color: #3949AB;"></div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="allocation">7.67%</div>
+                    </div>
+                </div>
+                
+                <div class="index-asset">
+                    <div class="index-asset__row">
+                        <div class="ticker" style="background-color: #9E9E9E">STRK</div>
+                        <div class="slider">
+                            <div class="slider__style">
+                                <div class="slider__style__track" style="border-left-color: #9E9E9E;">
+                                    <div class="slider__style__progress" style="width: 3.86%; background-color: #9E9E9E;"></div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="allocation">3.86%</div>
+                    </div>
+                </div>
+                
+                <div class="index-asset">
+                    <div class="index-asset__row">
+                        <div class="ticker" style="background-color: #3F51B5">MATIC</div>
+                        <div class="slider">
+                            <div class="slider__style">
+                                <div class="slider__style__track" style="border-left-color: #3F51B5;">
+                                    <div class="slider__style__progress" style="width: 3.28%; background-color: #3F51B5;"></div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="allocation">3.28%</div>
+                    </div>
+                </div>
+                
+                <div class="index-asset">
+                    <div class="index-asset__row">
+                        <div class="ticker" style="background-color: #CDDC39">ASTR</div>
+                        <div class="slider">
+                            <div class="slider__style">
+                                <div class="slider__style__track" style="border-left-color: #CDDC39;">
+                                    <div class="slider__style__progress" style="width: 2.03%; background-color: #CDDC39;"></div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="allocation">2.03%</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="itile itile--legendary itile--soon itile--faded">
+            <div class="theme-img" style="background-image: url('<%= asset_path('strategy--layer-0.webp') %>')"></div>
+            <b class="sbadge sbadge--legendary"><%= t('utils.legendary') %></b>
+            <div class="index-title"><%= t('index.layer_0.title') %></div>
+            <p class="index-info"><%= t('index.layer_0.info') %></p>
+            <div class="index-assets">
+                <div class="index-asset">
+                    <div class="index-asset__row">
+                        <div class="ticker" style="background-color: #E6007A">DOT</div>
+                        <div class="slider">
+                            <div class="slider__style">
+                                <div class="slider__style__track" style="border-left-color: #E6007A;">
+                                    <div class="slider__style__progress" style="width: 53.37%; background-color: #E6007A;"></div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="allocation">53.37%</div>
+                    </div>
+                </div>
+                
+                <div class="index-asset">
+                    <div class="index-asset__row">
+                        <div class="ticker" style="background-color: #29B6F6">ICP</div>
+                        <div class="slider">
+                            <div class="slider__style">
+                                <div class="slider__style__track" style="border-left-color: #29B6F6;">
+                                    <div class="slider__style__progress" style="width: 24.13%; background-color: #29B6F6;"></div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="allocation">24.13%</div>
+                    </div>
+                </div>
+                
+                <div class="index-asset">
+                    <div class="index-asset__row">
+                        <div class="ticker" style="background-color: #2E3148">ATOM</div>
+                        <div class="slider">
+                            <div class="slider__style">
+                                <div class="slider__style__track" style="border-left-color: #2E3148;">
+                                    <div class="slider__style__progress" style="width: 18.29%; background-color: #2E3148;"></div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="allocation">18.29%</div>
+                    </div>
+                </div>
+                
+                <div class="index-asset">
+                    <div class="index-asset__row">
+                        <div class="ticker" style="background-color: #03A9F4">ZRO</div>
+                        <div class="slider">
+                            <div class="slider__style">
+                                <div class="slider__style__track" style="border-left-color: #03A9F4;">
+                                    <div class="slider__style__progress" style="width: 2.78%; background-color: #03A9F4;"></div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="allocation">2.78%</div>
+                    </div>
+                </div>
+                
+                <div class="index-asset">
+                    <div class="index-asset__row">
+                        <div class="ticker" style="background-color: #FF4081">DAG</div>
+                        <div class="slider">
+                            <div class="slider__style">
+                                <div class="slider__style__track" style="border-left-color: #FF4081;">
+                                    <div class="slider__style__progress" style="width: 1.21%; background-color: #FF4081;"></div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="allocation">1.21%</div>
+                    </div>
+                </div>
+                
+                <div class="index-asset">
+                    <div class="index-asset__row">
+                        <div class="ticker" style="background-color: #7C4DFF">DATA</div>
+                        <div class="slider">
+                            <div class="slider__style">
+                                <div class="slider__style__track" style="border-left-color: #7C4DFF;">
+                                    <div class="slider__style__progress" style="width: 0.12%; background-color: #7C4DFF;"></div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="allocation">0.12%</div>
+                    </div>
+                </div>
+                
+                <div class="index-asset">
+                    <div class="index-asset__row">
+                        <div class="ticker" style="background-color: #00BCD4">CELL</div>
+                        <div class="slider">
+                            <div class="slider__style">
+                                <div class="slider__style__track" style="border-left-color: #00BCD4;">
+                                    <div class="slider__style__progress" style="width: 0.09%; background-color: #00BCD4;"></div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="allocation">0.09%</div>
+                    </div>
+                </div>
+                
+                <div class="index-asset">
+                    <div class="index-asset__row">
+                        <div class="ticker" style="background-color: #FFEB3B">GEEQ</div>
+                        <div class="slider">
+                            <div class="slider__style">
+                                <div class="slider__style__track" style="border-left-color: #FFEB3B;">
+                                    <div class="slider__style__progress" style="width: 0.01%; background-color: #FFEB3B;"></div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="allocation">0.01%</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="itile itile--legendary itile--soon itile--faded">
+            <div class="theme-img" style="background-image: url('<%= asset_path('strategy--gamefi.webp') %>')"></div>
+            <b class="sbadge sbadge--legendary"><%= t('utils.legendary') %></b>
+            <div class="index-title"><%= t('index.gamefi.title') %></div>
+            <p class="index-info"><%= t('index.gamefi.info') %></p>
+            <div class="index-assets">
+                <div class="index-asset">
+                    <div class="index-asset__row">
+                        <div class="ticker" style="background-color: #3949AB">IMX</div>
+                        <div class="slider">
+                            <div class="slider__style">
+                                <div class="slider__style__track" style="border-left-color: #3949AB;">
+                                    <div class="slider__style__progress" style="width: 16.13%; background-color: #3949AB;"></div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="allocation">16.13%</div>
+                    </div>
+                </div>
+                
+                <div class="index-asset">
+                    <div class="index-asset__row">
+                        <div class="ticker" style="background-color: #FF6D00">SAND</div>
+                        <div class="slider">
+                            <div class="slider__style">
+                                <div class="slider__style__track" style="border-left-color: #FF6D00;">
+                                    <div class="slider__style__progress" style="width: 13.57%; background-color: #FF6D00;"></div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="allocation">13.57%</div>
+                    </div>
+                </div>
+                
+                <div class="index-asset">
+                    <div class="index-asset__row">
+                        <div class="ticker" style="background-color: #2196F3">GALA</div>
+                        <div class="slider">
+                            <div class="slider__style">
+                                <div class="slider__style__track" style="border-left-color: #2196F3;">
+                                    <div class="slider__style__progress" style="width: 13.55%; background-color: #2196F3;"></div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="allocation">13.55%</div>
+                    </div>
+                </div>
+                
+                <div class="index-asset">
+                    <div class="index-asset__row">
+                        <div class="ticker" style="background-color: #E84142">FLOKI</div>
+                        <div class="slider">
+                            <div class="slider__style">
+                                <div class="slider__style__track" style="border-left-color: #E84142;">
+                                    <div class="slider__style__progress" style="width: 11.43%; background-color: #E84142;"></div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="allocation">11.43%</div>
+                    </div>
+                </div>
+                
+                <div class="index-asset">
+                    <div class="index-asset__row">
+                        <div class="ticker" style="background-color: #D500F9">MANA</div>
+                        <div class="slider">
+                            <div class="slider__style">
+                                <div class="slider__style__track" style="border-left-color: #D500F9;">
+                                    <div class="slider__style__progress" style="width: 10.05%; background-color: #D500F9;"></div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="allocation">10.05%</div>
+                    </div>
+                </div>
+                
+                <div class="index-asset">
+                    <div class="index-asset__row">
+                        <div class="ticker" style="background-color: #8E24AA">AXS</div>
+                        <div class="slider">
+                            <div class="slider__style">
+                                <div class="slider__style__track" style="border-left-color: #8E24AA;">
+                                    <div class="slider__style__progress" style="width: 7.89%; background-color: #8E24AA;"></div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="allocation">7.89%</div>
+                    </div>
+                </div>
+                
+                <div class="index-asset">
+                    <div class="index-asset__row">
+                        <div class="ticker" style="background-color: #388E3C">APE</div>
+                        <div class="slider">
+                            <div class="slider__style">
+                                <div class="slider__style__track" style="border-left-color: #388E3C;">
+                                    <div class="slider__style__progress" style="width: 7.21%; background-color: #388E3C;"></div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="allocation">7.21%</div>
+                    </div>
+                </div>
+                
+                <div class="index-asset">
+                    <div class="index-asset__row">
+                        <div class="ticker" style="background-color: #F44336">RON</div>
+                        <div class="slider">
+                            <div class="slider__style">
+                                <div class="slider__style__track" style="border-left-color: #F44336;">
+                                    <div class="slider__style__progress" style="width: 7.07%; background-color: #F44336;"></div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="allocation">7.07%</div>
+                    </div>
+                </div>
+                
+                <div class="index-asset">
+                    <div class="index-asset__row">
+                        <div class="ticker" style="background-color: #FFC107">BEAM</div>
+                        <div class="slider">
+                            <div class="slider__style">
+                                <div class="slider__style__track" style="border-left-color: #FFC107;">
+                                    <div class="slider__style__progress" style="width: 6.83%; background-color: #FFC107;"></div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="allocation">6.83%</div>
+                    </div>
+                </div>
+                
+                <div class="index-asset">
+                    <div class="index-asset__row">
+                        <div class="ticker" style="background-color: #0097A7">WEMIX</div>
+                        <div class="slider">
+                            <div class="slider__style">
+                                <div class="slider__style__track" style="border-left-color: #0097A7;">
+                                    <div class="slider__style__progress" style="width: 6.27%; background-color: #0097A7;"></div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="allocation">6.27%</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="itile itile--legendary itile--soon itile--faded">
+            <div class="theme-img" style="background-image: url('<%= asset_path('strategy--yield-farming.webp') %>')"></div>
+            <b class="sbadge sbadge--legendary"><%= t('utils.legendary') %></b>
+            <div class="index-title"><%= t('index.yield_farming.title') %></div>
+            <p class="index-info"><%= t('index.yield_farming.info') %></p>
+            <div class="index-assets">
+                <div class="index-asset">
+                    <div class="index-asset__row">
+                        <div class="ticker" style="background-color: #FF007A">UNI</div>
+                        <div class="slider">
+                            <div class="slider__style">
+                                <div class="slider__style__track" style="border-left-color: #FF007A;">
+                                    <div class="slider__style__progress" style="width: 36.67%; background-color: #FF007A;"></div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="allocation">36.67%</div>
+                    </div>
+                </div>
+                
+                <div class="index-asset">
+                    <div class="index-asset__row">
+                        <div class="ticker" style="background-color: #B6509E">AAVE</div>
+                        <div class="slider">
+                            <div class="slider__style">
+                                <div class="slider__style__track" style="border-left-color: #B6509E;">
+                                    <div class="slider__style__progress" style="width: 24.33%; background-color: #B6509E;"></div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="allocation">24.33%</div>
+                    </div>
+                </div>
+                
+                <div class="index-asset">
+                    <div class="index-asset__row">
+                        <div class="ticker" style="background-color: #009688">CRV</div>
+                        <div class="slider">
+                            <div class="slider__style">
+                                <div class="slider__style__track" style="border-left-color: #009688;">
+                                    <div class="slider__style__progress" style="width: 9.20%; background-color: #009688;"></div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="allocation">9.20%</div>
+                    </div>
+                </div>
+                
+                <div class="index-asset">
+                    <div class="index-asset__row">
+                        <div class="ticker" style="background-color: #EC407A">CAKE</div>
+                        <div class="slider">
+                            <div class="slider__style">
+                                <div class="slider__style__track" style="border-left-color: #EC407A;">
+                                    <div class="slider__style__progress" style="width: 6.71%; background-color: #EC407A;"></div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="allocation">6.71%</div>
+                    </div>
+                </div>
+                
+                <div class="index-asset">
+                    <div class="index-asset__row">
+                        <div class="ticker" style="background-color: #5D4037">RAY</div>
+                        <div class="slider">
+                            <div class="slider__style">
+                                <div class="slider__style__track" style="border-left-color: #5D4037;">
+                                    <div class="slider__style__progress" style="width: 6.18%; background-color: #5D4037;"></div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="allocation">6.18%</div>
+                    </div>
+                </div>
+                
+                <div class="index-asset">
+                    <div class="index-asset__row">
+                        <div class="ticker" style="background-color: #F06292">PENDLE</div>
+                        <div class="slider">
+                            <div class="slider__style">
+                                <div class="slider__style__track" style="border-left-color: #F06292;">
+                                    <div class="slider__style__progress" style="width: 5.97%; background-color: #F06292;"></div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="allocation">5.97%</div>
+                    </div>
+                </div>
+                
+                <div class="index-asset">
+                    <div class="index-asset__row">
+                        <div class="ticker" style="background-color: #7B1FA2">COMP</div>
+                        <div class="slider">
+                            <div class="slider__style">
+                                <div class="slider__style__track" style="border-left-color: #7B1FA2;">
+                                    <div class="slider__style__progress" style="width: 4.15%; background-color: #7B1FA2;"></div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="allocation">4.15%</div>
+                    </div>
+                </div>
+                
+                <div class="index-asset">
+                    <div class="index-asset__row">
+                        <div class="ticker" style="background-color: #C2185B">SNX</div>
+                        <div class="slider">
+                            <div class="slider__style">
+                                <div class="slider__style__track" style="border-left-color: #C2185B;">
+                                    <div class="slider__style__progress" style="width: 2.55%; background-color: #C2185B;"></div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="allocation">2.55%</div>
+                    </div>
+                </div>
+                
+                <div class="index-asset">
+                    <div class="index-asset__row">
+                        <div class="ticker" style="background-color: #00796B">STG</div>
+                        <div class="slider">
+                            <div class="slider__style">
+                                <div class="slider__style__track" style="border-left-color: #00796B;">
+                                    <div class="slider__style__progress" style="width: 2.14%; background-color: #00796B;"></div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="allocation">2.14%</div>
+                    </div>
+                </div>
+                
+                <div class="index-asset">
+                    <div class="index-asset__row">
+                        <div class="ticker" style="background-color: #0288D1">ORCA</div>
+                        <div class="slider">
+                            <div class="slider__style">
+                                <div class="slider__style__track" style="border-left-color: #0288D1;">
+                                    <div class="slider__style__progress" style="width: 2.10%; background-color: #0288D1;"></div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="allocation">2.10%</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="itile itile--legendary itile--soon itile--faded">
+            <div class="theme-img" style="background-image: url('<%= asset_path('strategy--consensys-portfolio.webp') %>')"></div>
+            <b class="sbadge sbadge--legendary"><%= t('utils.legendary') %></b>
+            <div class="index-title"><%= t('index.consensys_portfolio.title') %></div>
+            <p class="index-info"><%= t('index.consensys_portfolio.info') %></p>
+            <div class="index-assets">
+                <div class="index-asset">
+                    <div class="index-asset__row">
+                        <div class="ticker" style="background-color: #9E9E9E">STRK</div>
+                        <div class="slider">
+                            <div class="slider__style">
+                                <div class="slider__style__track" style="border-left-color: #9E9E9E;">
+                                    <div class="slider__style__progress" style="width: 23.39%; background-color: #9E9E9E;"></div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="allocation">23.39%</div>
+                    </div>
+                </div>
+                
+                <div class="index-asset">
+                    <div class="index-asset__row">
+                        <div class="ticker" style="background-color: #8E24AA">AXS</div>
+                        <div class="slider">
+                            <div class="slider__style">
+                                <div class="slider__style__track" style="border-left-color: #8E24AA;">
+                                    <div class="slider__style__progress" style="width: 22.70%; background-color: #8E24AA;"></div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="allocation">22.70%</div>
+                    </div>
+                </div>
+                
+                <div class="index-asset">
+                    <div class="index-asset__row">
+                        <div class="ticker" style="background-color: #558B2F">NTGL</div>
+                        <div class="slider">
+                            <div class="slider__style">
+                                <div class="slider__style__track" style="border-left-color: #558B2F;">
+                                    <div class="slider__style__progress" style="width: 14.33%; background-color: #558B2F;"></div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="allocation">14.33%</div>
+                    </div>
+                </div>
+                
+                <div class="index-asset">
+                    <div class="index-asset__row">
+                        <div class="ticker" style="background-color: #6A1B9A">ZK</div>
+                        <div class="slider">
+                            <div class="slider__style">
+                                <div class="slider__style__track" style="border-left-color: #6A1B9A;">
+                                    <div class="slider__style__progress" style="width: 11.93%; background-color: #6A1B9A;"></div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="allocation">11.93%</div>
+                    </div>
+                </div>
+                
+                <div class="index-asset">
+                    <div class="index-asset__row">
+                        <div class="ticker" style="background-color: #EF6C00">SKL</div>
+                        <div class="slider">
+                            <div class="slider__style">
+                                <div class="slider__style__track" style="border-left-color: #EF6C00;">
+                                    <div class="slider__style__progress" style="width: 7.09%; background-color: #EF6C00;"></div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="allocation">7.09%</div>
+                    </div>
+                </div>
+                
+                <div class="index-asset">
+                    <div class="index-asset__row">
+                        <div class="ticker" style="background-color: #43A047">ETHFI</div>
+                        <div class="slider">
+                            <div class="slider__style">
+                                <div class="slider__style__track" style="border-left-color: #43A047;">
+                                    <div class="slider__style__progress" style="width: 6.82%; background-color: #43A047;"></div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="allocation">6.82%</div>
+                    </div>
+                </div>
+                
+                <div class="index-asset">
+                    <div class="index-asset__row">
+                        <div class="ticker" style="background-color: #1976D2">BICO</div>
+                        <div class="slider">
+                            <div class="slider__style">
+                                <div class="slider__style__track" style="border-left-color: #1976D2;">
+                                    <div class="slider__style__progress" style="width: 5.60%; background-color: #1976D2;"></div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="allocation">5.60%</div>
+                    </div>
+                </div>
+                
+                <div class="index-asset">
+                    <div class="index-asset__row">
+                        <div class="ticker" style="background-color: #AD1457">RPL</div>
+                        <div class="slider">
+                            <div class="slider__style">
+                                <div class="slider__style__track" style="border-left-color: #AD1457;">
+                                    <div class="slider__style__progress" style="width: 4.98%; background-color: #AD1457;"></div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="allocation">4.98%</div>
+                    </div>
+                </div>
+                
+                <div class="index-asset">
+                    <div class="index-asset__row">
+                        <div class="ticker" style="background-color: #26A69A">TLOS</div>
+                        <div class="slider">
+                            <div class="slider__style">
+                                <div class="slider__style__track" style="border-left-color: #26A69A;">
+                                    <div class="slider__style__progress" style="width: 2.14%; background-color: #26A69A;"></div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="allocation">2.14%</div>
+                    </div>
+                </div>
+                
+                <div class="index-asset">
+                    <div class="index-asset__row">
+                        <div class="ticker" style="background-color: #5E35B1">TOKE</div>
+                        <div class="slider">
+                            <div class="slider__style">
+                                <div class="slider__style__track" style="border-left-color: #5E35B1;">
+                                    <div class="slider__style__progress" style="width: 1.01%; background-color: #5E35B1;"></div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="allocation">1.01%</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>

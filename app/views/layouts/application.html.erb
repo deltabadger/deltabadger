@@ -11,10 +11,6 @@
     <%= canonical_url_for_static_page if content_for?(:static_page) %>
     <meta name="description" content="<%= content_for?(:meta_description) ? yield(:meta_description) : t('meta.descriptions.default') %>">
 
-    <script src="https://code.jquery.com/jquery-3.2.1.slim.min.js" crossorigin="anonymous" integrity="sha384-KJ3o2DKtIkvYIK3UENzmM7KCkRr/rE9/Qpg6aAZGJwFDMVNA/GpGFF93hXpG5KkN"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.12.9/umd/popper.min.js" crossorigin="anonymous" integrity="sha384-ApNbgh9B+Y1QKtv3Rn7W3mgPxhU9K/ScQsAP7hUibX39j7fakFPskvXusvfa0b4Q"></script>
-    <script src="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0/js/bootstrap.min.js" crossorigin="anonymous" integrity="sha384-JZR6Spejh4U02d8jOt6vLEHfe/JQGiRRSQQxSfFWpi1MquVdAyjUar5+76PVCmYl"></script>
-
     <title><%= content_for?(:title) ? yield(:title) : t('meta.title') %></title>
 
     <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
@@ -33,26 +29,6 @@
         bonjoro('identify', "<%= current_user.email %>", { userHash: "<%= escape_javascript bonjoro_user_hash(current_user.email) %>" });
       </script>
     <% end %>
-    <script>
-      // referral program registration - TODO: Remove and use hotwire turboframes
-      $(document).ready(function() {
-        $(".radio--eu-company").click(function() {
-          $(".db-form-group--eu-company").addClass("db-form-group--eu-company__visible");
-        });
-        $(".radio--private").click(function() {
-          $(".db-form-group--eu-company").removeClass("db-form-group--eu-company__visible");
-        });
-        $(".db-form-control-text--visible_name").on('input', function(e) {
-          if (!e.target) return;
-          if (e.target.value.trim()) {
-            $(".db-form-preview--visible_text").addClass("db-form-preview--visible_text__visible");
-          } else {
-            $(".db-form-preview--visible_text").removeClass("db-form-preview--visible_text__visible");
-          }
-          $(".db-form-preview--visible_name").text(e.target.value);
-        });
-      });
-    </script>
     <script>
       // service worker registration for PWA
       if ('serviceWorker' in navigator) {

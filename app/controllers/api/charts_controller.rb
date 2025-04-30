@@ -1,7 +1,7 @@
 module Api
   class ChartsController < Api::BaseController
     def portfolio_value_over_time
-      bot = BotsRepository.new.by_id_for_user(current_user, params[:bot_id])
+      bot = Bot.find(params[:bot_id])
 
       result = Charts::PortfolioValueOverTime::Chart.call(bot)
 

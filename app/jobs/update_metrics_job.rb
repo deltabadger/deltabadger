@@ -2,6 +2,7 @@ class UpdateMetricsJob < ApplicationJob
   queue_as :default
 
   def perform
-    MetricsRepository.new.update_metrics
+    metrics = Metrics.new
+    metrics.update_metrics
   end
 end

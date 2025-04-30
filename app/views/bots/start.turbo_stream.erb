@@ -1,0 +1,3 @@
+<%= turbo_stream.replace 'settings', partial: 'bots/settings', locals: { bot: @bot } %>
+<%= turbo_stream.replace 'settings-extra', partial: 'bots/settings_extra', locals: { bot: @bot } %>
+<%= turbo_stream.replace 'exchange_select', partial: 'bots/exchange_select', locals: { bot: @bot } %>

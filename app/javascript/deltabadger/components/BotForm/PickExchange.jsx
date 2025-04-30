@@ -15,17 +15,17 @@ export const PickExchange = ({ handleSubmit, exchanges, type }) => {
       <Progressbar value={0} />
       <div className="db-bot__exchanges">
         <div className="db-bot__exchanges__item db-bot__exchanges__item--header">
-          <div>{I18n.t('bots.fees')}</div>
-          <div>{I18n.t('bots.maker_fee')}</div>
-          <div>{I18n.t('bots.taker_fee')}</div>
-          <div>{I18n.t('bots.withdrawal_fee')}</div>
+          <div>{I18n.t('bot.fees')}</div>
+          <div>{I18n.t('bot.maker_fee')}</div>
+          <div>{I18n.t('bot.taker_fee')}</div>
+          <div>{I18n.t('bot.withdrawal_fee')}</div>
         </div>
         {
           exchanges.map(e =>
             <ExchangeButton key={e.id} handleClick={handleSubmit} exchange={e} type={type}/>
           )
         }
-        <a href="mailto:jan@deltabadger.com?subject=Exchange%20request" className="db-bot__exchanges__item db-bot__exchanges__item--link">{I18n.t('bots.buttons.request_exchange')}</a>
+        <a href="mailto:jan@deltabadger.com?subject=Exchange%20request" className="db-bot__exchanges__item db-bot__exchanges__item--link">{I18n.t('bot.buttons.request_exchange')}</a>
       </div>
 
     </div>

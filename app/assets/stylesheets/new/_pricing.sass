@@ -1,12 +1,12 @@
 .pricing
     display: flex
-    flow-direction: row
-    gap: 2rem
+    flex-direction: row
+    gap: 1rem
     &__plans
         display: grid
-        grid-template-columns: repeat(auto-fit, minmax(10px, 1fr))
+        grid-template-columns: #{repeat(auto-fit, minmax(10px, 1fr))}
         grid-template-rows: 1fr
-        gap: 2px
+        gap: 1rem
         flex: 1
         .widget
             padding: 3.25rem 3rem
@@ -17,18 +17,14 @@
                 border-top-right-radius: 2rem
                 border-bottom-right-radius: 2rem
     &__checkout
-        width: calc(25% - 1rem)
-        gap: 2rem
+        width: calc(25% - 0.75rem)
+        gap: 1rem
         display: flex
         flex-direction: column
         &__calculations
-            .widget
-                &:first-child
-                    border-top-left-radius: 2rem
-                    border-top-right-radius: 2rem
-                &:last-child
-                    border-bottom-left-radius: 2rem
-                    border-bottom-right-radius: 2rem
+            gap: 2rem
+        .large-button-wrapper
+            padding: 0
     &__payment-methods
         display: flex
         background: var(--pickExchangeItemBg)
@@ -47,17 +43,22 @@
             justify-content: center
             align-items: center
             border-radius: 2rem 2rem 0 0
-
+.db-card-providers__item--visa
+    @media (prefers-color-scheme: dark)
+        mix-blend-mode: plus-lighter
+        filter: brightness(10)
 .price-ticker
     font-size: 75%
     margin: 0 .1em
 
 .widget
     &--pricing
-        gap: 4rem
+        gap: 2rem
         margin-bottom: 0
         padding-top: 3.25rem
         padding-bottom: 3.25rem
+        @media (max-width: 767.9px)
+            gap: 1rem
         &__badge
             background: var(--success)
             padding: 0 1rem
@@ -111,12 +112,14 @@
                     top: .25rem
         p, ul
             margin-bottom: 0
+        &--legendary
+            ul
+                flex: 2
         &__legendary-plans-left
             font-weight: 600
             color: var(--success) !important
-            span
-                display: block
-                margin-bottom: 1rem
+            .slider
+                margin-top: 0.75rem
             .slider__style
                 background: var(--success-semitransparent)
                 &__track
@@ -128,7 +131,7 @@
         &--other
             background: var(--pickExchangeItemBg)
         &--selected
-            background: var(--primary)
+            background: var(--primary-button)
             color: #fffc
             --text-strong: #fff
             --text-faded: #8195cf
@@ -138,6 +141,10 @@
                 filter: brightness(2.75) saturate(0.5)
     &--checkout
         border-radius: 0 0 2rem 2rem
+        .tab
+            display: none
+            &.active
+                display: block
         .db-form__label
             background: var(--widget-background)
 
@@ -153,7 +160,7 @@
         color: var(--text-faded)
     [checked="checked"] + span
         color: var(--text-strong)
-        border-bottom: 2px solid var(--text-strong)
+        border-bottom: 0.25rem solid var(--text-strong)
         cursor: default
     @media (max-width: 767.9px)
         width: 100%
@@ -164,13 +171,8 @@
   visibility: hidden
   position: absolute
 // hide radio buttons for the tabs, guillem workaround
-@media only screen and (max-width: 1279.9px)
-    .pricing
-        &__checkout
-            min-width: 30%
 @media only screen and (max-width: 959.9px)
     .pricing
-        gap: 2rem
         flex-direction: column
         &__plans, &__checkout
             width: 100%
@@ -183,7 +185,7 @@
 @media only screen and (max-width: 767.9px)
     .pricing
         &__plans
-            grid-template-columns: 1fr 1fr minmax(1fr)
+            grid-template-columns: 1fr 1fr 1fr
     .widget
         &--pricing
             padding: 1.75rem 0 1rem 0 !important
@@ -192,9 +194,13 @@
                 font-size: 2.25rem
             &__amount
                 display: none
+    .legendary-counter
+        padding: 1rem 2rem
+        &__discount
+            display: none
 @media only screen and (max-width: 500px)
     .pricing__plans
-        grid-template-columns: 1fr 1fr minmax(40%, 1fr)
+        grid-template-columns: 1fr 1fr 1fr
 .checkout-line
     display: grid
     grid-template-columns: auto 10rem
@@ -202,18 +208,28 @@
     &__col
         &:last-child
             text-align: right
-    &__name
-        margin-bottom: 1rem
     &__info
         font-size: 1.75rem
         color: var(--label)
-        margin-bottom: 2rem
     &--vat
         padding-top: 2rem
     &--summary
-        padding-top: 2rem
         font-weight: 700
-        border-top: 1px solid var(--label)
     &--discount
         .checkout-line__col:last-child
             color: var(--discount)
+    &--divider
+        height: 0.125rem
+        background: var(--label)
+        width: 100%
+
+@media (max-width: 575.9px)
+    .hide-on-mobile
+        display: none
+    .hide-on-desktop
+        display: inline
+@media (min-width: 576px)
+    .hide-on-mobile
+        display: inline
+    .hide-on-desktop
+        display: none

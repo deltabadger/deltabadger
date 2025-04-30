@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema.define(version: 2025_01_23_181228) do
+ActiveRecord::Schema.define(version: 2025_04_16_185148) do
 
   # These are extensions that must be enabled in order to support this database
   enable_extension "plpgsql"
@@ -62,29 +62,32 @@ ActiveRecord::Schema.define(version: 2025_01_23_181228) do
   end
 
   create_table "assets", force: :cascade do |t|
-    t.bigint "portfolio_id", null: false
-    t.string "ticker"
-    t.float "allocation", default: 0.0, null: false
+    t.string "external_id", null: false
+    t.string "symbol"
+    t.string "name"
+    t.string "isin"
+    t.string "color"
+    t.string "category"
+    t.string "country"
+    t.string "country_exchange"
+    t.string "url"
+    t.string "image_url"
+    t.integer "market_cap_rank"
     t.datetime "created_at", precision: 6, null: false
     t.datetime "updated_at", precision: 6, null: false
-    t.string "color"
-    t.string "name"
-    t.string "api_id"
-    t.string "category"
-    t.string "url"
-    t.string "country"
-    t.string "exchange"
-    t.index ["portfolio_id"], name: "index_assets_on_portfolio_id"
+    t.index ["external_id"], name: "index_assets_on_external_id", unique: true
+    t.index ["isin"], name: "index_assets_on_isin"
+    t.index ["name"], name: "index_assets_on_name"
+    t.index ["symbol"], name: "index_assets_on_symbol"
   end
 
   create_table "bots", force: :cascade do |t|
     t.bigint "exchange_id"
     t.integer "status", default: 0, null: false
     t.bigint "user_id"
-    t.jsonb "settings", default: "", null: false
+    t.jsonb "settings", default: {}, null: false
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
-    t.integer "bot_type"
     t.integer "restarts", default: 0, null: false
     t.integer "delay", default: 0, null: false
     t.integer "current_delay", default: 0, null: false
@@ -92,6 +95,11 @@ ActiveRecord::Schema.define(version: 2025_01_23_181228) do
     t.integer "fetch_restarts", default: 0, null: false
     t.decimal "account_balance", default: "0.0"
     t.datetime "last_end_of_funds_notification"
+    t.json "transient_data", default: {}, null: false
+    t.datetime "started_at"
+    t.datetime "stopped_at"
+    t.string "label"
+    t.string "type"
     t.index ["exchange_id"], name: "index_bots_on_exchange_id"
     t.index ["user_id"], name: "index_bots_on_user_id"
   end
@@ -106,12 +114,10 @@ ActiveRecord::Schema.define(version: 2025_01_23_181228) do
 
   create_table "daily_transaction_aggregates", force: :cascade do |t|
     t.bigint "bot_id"
-    t.string "offer_id"
+    t.string "external_id"
     t.decimal "rate"
     t.decimal "amount"
-    t.string "market"
     t.integer "status"
-    t.integer "currency"
     t.string "error_messages", default: "[]"
     t.decimal "bot_price", precision: 20, scale: 10, default: "0.0", null: false
     t.string "bot_interval", default: "", null: false
@@ -122,11 +128,47 @@ ActiveRecord::Schema.define(version: 2025_01_23_181228) do
     t.decimal "total_amount", precision: 20, scale: 10, default: "0.0", null: false
     t.decimal "total_value", precision: 20, scale: 10, default: "0.0", null: false
     t.decimal "total_invested", precision: 20, scale: 10, default: "0.0", null: false
+    t.string "base"
+    t.string "quote"
     t.index ["bot_id", "created_at"], name: "index_daily_transaction_aggregates_on_bot_id_and_created_at"
     t.index ["bot_id", "status", "created_at"], name: "dailies_index_status_created_at"
     t.index ["bot_id", "transaction_type", "created_at"], name: "dailies_index_bot_type_created_at"
     t.index ["bot_id"], name: "index_daily_transaction_aggregates_on_bot_id"
     t.index ["created_at"], name: "index_daily_transaction_aggregates_on_created_at"
+  end
+
+  create_table "exchange_assets", force: :cascade do |t|
+    t.bigint "asset_id", null: false
+    t.bigint "exchange_id", null: false
+    t.datetime "created_at", precision: 6, null: false
+    t.datetime "updated_at", precision: 6, null: false
+    t.index ["asset_id", "exchange_id"], name: "index_exchange_assets_on_asset_id_and_exchange_id", unique: true
+    t.index ["asset_id"], name: "index_exchange_assets_on_asset_id"
+    t.index ["exchange_id"], name: "index_exchange_assets_on_exchange_id"
+  end
+
+  create_table "exchange_tickers", force: :cascade do |t|
+    t.bigint "exchange_id", null: false
+    t.bigint "base_asset_id", null: false
+    t.bigint "quote_asset_id", null: false
+    t.string "ticker", null: false
+    t.string "base", null: false
+    t.string "quote", null: false
+    t.decimal "minimum_base_size", null: false
+    t.decimal "minimum_quote_size", null: false
+    t.decimal "maximum_base_size"
+    t.decimal "maximum_quote_size"
+    t.integer "base_decimals", null: false
+    t.integer "quote_decimals", null: false
+    t.integer "price_decimals", null: false
+    t.datetime "created_at", precision: 6, null: false
+    t.datetime "updated_at", precision: 6, null: false
+    t.index ["base_asset_id"], name: "index_exchange_tickers_on_base_asset_id"
+    t.index ["exchange_id", "base", "quote"], name: "index_exchange_tickers_on_unique_base_and_quote", unique: true
+    t.index ["exchange_id", "base_asset_id", "quote_asset_id"], name: "index_exchange_tickers_on_unique_base_asset_and_quote_asset", unique: true
+    t.index ["exchange_id", "ticker"], name: "index_exchange_tickers_on_unique_ticker", unique: true
+    t.index ["exchange_id"], name: "index_exchange_tickers_on_exchange_id"
+    t.index ["quote_asset_id"], name: "index_exchange_tickers_on_quote_asset_id"
   end
 
   create_table "exchanges", force: :cascade do |t|
@@ -136,6 +178,9 @@ ActiveRecord::Schema.define(version: 2025_01_23_181228) do
     t.string "taker_fee"
     t.string "withdrawal_fee"
     t.string "maker_fee"
+    t.string "url"
+    t.string "color"
+    t.string "external_id"
   end
 
   create_table "fee_api_keys", force: :cascade do |t|
@@ -177,6 +222,22 @@ ActiveRecord::Schema.define(version: 2025_01_23_181228) do
     t.index ["status"], name: "index_payments_on_status"
     t.index ["subscription_plan_variant_id"], name: "index_payments_on_subscription_plan_variant_id"
     t.index ["user_id"], name: "index_payments_on_user_id"
+  end
+
+  create_table "portfolio_assets", force: :cascade do |t|
+    t.bigint "portfolio_id", null: false
+    t.string "ticker"
+    t.float "allocation", default: 0.0, null: false
+    t.datetime "created_at", precision: 6, null: false
+    t.datetime "updated_at", precision: 6, null: false
+    t.string "color"
+    t.string "name"
+    t.string "api_id"
+    t.string "category"
+    t.string "url"
+    t.string "country"
+    t.string "exchange"
+    t.index ["portfolio_id"], name: "index_portfolio_assets_on_portfolio_id"
   end
 
   create_table "portfolios", force: :cascade do |t|
@@ -230,12 +291,10 @@ ActiveRecord::Schema.define(version: 2025_01_23_181228) do
 
   create_table "transactions", force: :cascade do |t|
     t.bigint "bot_id"
-    t.string "offer_id"
+    t.string "external_id"
     t.decimal "rate"
     t.decimal "amount"
-    t.string "market"
     t.integer "status"
-    t.integer "currency"
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
     t.string "error_messages", default: "[]"
@@ -243,11 +302,16 @@ ActiveRecord::Schema.define(version: 2025_01_23_181228) do
     t.string "bot_interval", default: "", null: false
     t.string "transaction_type", default: "REGULAR", null: false
     t.string "called_bot_type"
+    t.string "base"
+    t.string "quote"
+    t.bigint "exchange_id", null: false
     t.index ["bot_id", "created_at"], name: "index_transactions_on_bot_id_and_created_at"
     t.index ["bot_id", "status", "created_at"], name: "index_transactions_on_bot_id_and_status_and_created_at"
     t.index ["bot_id", "transaction_type", "created_at"], name: "index_bot_type_created_at"
     t.index ["bot_id"], name: "index_transactions_on_bot_id"
     t.index ["created_at"], name: "index_transactions_on_created_at"
+    t.index ["exchange_id"], name: "index_transactions_on_exchange_id"
+    t.index ["external_id"], name: "index_transactions_on_external_id", unique: true
   end
 
   create_table "users", force: :cascade do |t|
@@ -277,6 +341,7 @@ ActiveRecord::Schema.define(version: 2025_01_23_181228) do
     t.string "name"
     t.boolean "news_banner_dismissed", default: false
     t.boolean "sendgrid_unsubscribed", default: false
+    t.boolean "has_community_access", default: false, null: false
     t.index ["confirmation_token"], name: "index_users_on_confirmation_token", unique: true
     t.index ["email"], name: "index_users_on_email", unique: true
     t.index ["reset_password_token"], name: "index_users_on_reset_password_token", unique: true
@@ -292,18 +357,24 @@ ActiveRecord::Schema.define(version: 2025_01_23_181228) do
   add_foreign_key "affiliates", "users"
   add_foreign_key "api_keys", "exchanges"
   add_foreign_key "api_keys", "users"
-  add_foreign_key "assets", "portfolios"
   add_foreign_key "bots", "exchanges"
   add_foreign_key "bots", "users"
   add_foreign_key "daily_transaction_aggregates", "bots"
+  add_foreign_key "exchange_assets", "assets"
+  add_foreign_key "exchange_assets", "exchanges"
+  add_foreign_key "exchange_tickers", "assets", column: "base_asset_id"
+  add_foreign_key "exchange_tickers", "assets", column: "quote_asset_id"
+  add_foreign_key "exchange_tickers", "exchanges"
   add_foreign_key "fee_api_keys", "exchanges"
   add_foreign_key "payments", "subscription_plan_variants"
   add_foreign_key "payments", "users"
+  add_foreign_key "portfolio_assets", "portfolios"
   add_foreign_key "portfolios", "users"
   add_foreign_key "subscription_plan_variants", "subscription_plans"
   add_foreign_key "subscriptions", "subscription_plan_variants"
   add_foreign_key "subscriptions", "users"
   add_foreign_key "transactions", "bots"
+  add_foreign_key "transactions", "exchanges"
   add_foreign_key "users", "affiliates", column: "referrer_id"
   add_foreign_key "users", "subscription_plan_variants", column: "pending_plan_variant_id"
 

@@ -1,3 +1,10 @@
+.old-bot-api-key-form
+  padding: 2rem
+  display: flex
+  gap: 1rem
+  .db-form__row
+    flex: 1
+    margin: 0
 // bots
 
 .bot-ticker
@@ -11,50 +18,29 @@ input
     &:not(:checked)
       box-shadow:       inset 0 0 1.5rem var(--inactive)
       filter:           none
-
+.csv-download-button
+  display: flex
+  justify-content: flex-start
 .bot-footer
   display:              flex
   justify-content:      flex-start
-  padding:              2rem
+  padding: 2rem
 .db-bots
   display:              grid
   grid-auto-rows:       max-content
-  column-gap:           2rem
+  gap:                  1rem
   .progress
     height: 0.5rem
     background: var(--progressBar)
+    &--bot-setup
+      margin: 0 2rem
+      border-radius: 1rem 
+      overflow: hidden
   &--single
     @include media-breakpoint-up(xl)
       grid-template-columns: 50%
-  &--main
-    .db-bots__list
-      display: grid
-      grid-auto-flow: row
-      gap: 2rem
-      @media (min-width: 768px)
-        grid-template-columns: repeat(2, 1fr)
-      @media (min-width: 1024px)
-        grid-template-columns: repeat(3, 1fr)
-      @media (min-width: 1600px)
-        grid-template-columns: repeat(4, 1fr)
-    .db-bots__item
-      grid-column-start: auto
-      margin-bottom: 0
-      padding: 2rem
-    .db-bot__header
-      padding: 0
-      padding-bottom: 2rem
-    .bot-ticker
-      left: 0
   &__item
     grid-column-start:  1
-    margin-bottom:      2rem
-    &--homepage
-      width:            100%
-      height:           fit-content
-      color:            var(--text)
-      border-radius:    $box-border-radius !important
-      padding-bottom:   1.5rem !important
     &--data
       @include media-breakpoint-up(xl)
         grid-column-start: 2
@@ -68,74 +54,14 @@ input
         justify-content: center
         padding:         2rem 4rem 4rem
         margin-bottom:   2rem
-      th:first-child, td:first-child
-        padding-left:    2.4rem !important
       .tab-content
         z-index:  2
         position: relative
-      .nav-item
-        .nav-link
-          padding: 1.3rem 2.4rem 1.7rem
-          color:           var(--link)
-          background:      var(--paper)
-          text-decoration: none !important
-          margin-right:    .2rem
-          position:        relative
-          &:not(.active)
-            background:    transparent
-            border-color:  transparent
-            &:hover
-              background:  var(--paperBorder)
-          &.active
-            cursor:              default
-            padding-bottom:      1.8rem
-            border-bottom-width: 0
-            color:               var(--text)
-            border-color:        var(--paperBorder)
-            z-index:             3
-            @include media-breakpoint-up(xl)
-              box-shadow:  $boxShadowBot
-            &::before
-              content:     ""
-              display:     block
-              height:      1.8rem
-              background:  var(--paper)
-              left:       -.5rem
-              position:    absolute
-              width:       calc(100% + 1rem)
-              bottom:     -1.8rem
-        &:first-child
-          .nav-link
-            &.active
-              &::before
-                left:       -.1rem
-                border-left: .1rem solid var(--paperBorder)
-                bottom:     -1.8rem
-            &:not(.active)
-              &:hover
-                &::before
-                  content:    ""
-                  z-index:   -1
-                  display:    block
-                  width:      1rem
-                  height:     1.8rem
-                  background: var(--paperBorder)
-                  left:      -.1rem
-                  position:   absolute
-                  bottom:    -1.1rem
-      .nav-link
-        border-top-right-radius: $box-border-radius
-        border-top-left-radius:  $box-border-radius
-      .nav-tabs
-        border-bottom: 0
-        flex-direction: row
-        gap: 1rem
       .tab-pane
         padding:       1.6rem 0 0
-        border:        .1rem solid var(--paperBorder)
-        background:    var(--paper)
-        border-radius: $box-border-radius
-        box-shadow:    $boxShadowBot
+        background:    var(--widget-background)
+        border-radius: 2rem
+        box-shadow:    var(--widget-shadow) 
         overflow: hidden
         h3,p,img,blockquote
           padding-left: 4rem
@@ -164,10 +90,10 @@ input
 .db-bot
   position:      relative
   overflow:      hidden
-  background:    var(--paper)
-  border:        .1rem solid var(--paperBorder)
-  border-radius: $box-border-radius
-  box-shadow:    $boxShadowBot
+  background:    var(--widget-background)
+  border:        .1rem solid var(--widgetBorder)
+  border-radius: 2rem
+  box-shadow:    var(--widget-shadow)
   .form-inline
     justify-content:  center
     row-gap:          1rem
@@ -175,42 +101,6 @@ input
       margin-right: 0 !important
   .form-control
     border-color: var(--paperBorder)
-  .btn-outline
-    &-primary
-      path
-        fill: var(--link)
-    &-secondary
-      &.disabled
-        color: var(--linkInactive) !important
-        border-color: var(--linkInactive) !important
-        opacity: 1 !important
-        path
-          fill: var(--linkInactive) !important
-  &--active
-    @include media-breakpoint-down(lg)
-      border-bottom-right-radius: 0
-      border-bottom-left-radius:  0
-      border-bottom:              0
-      margin-bottom:             -4rem
-      padding-bottom:             4rem
-      &+.db-bots__item--data
-        background:                 var(--paper)
-        border-right:               .1rem solid var(--paperBorder)
-        border-left:                .1rem solid var(--paperBorder)
-        border-bottom-right-radius: $box-border-radius
-        border-bottom-left-radius:  $box-border-radius
-        .nav, .tab-pane
-          margin-left:            -.1rem
-          margin-right:           -.1rem
-          border-top-right-radius: 0
-          border-top-left-radius:  0
-      &:disabled
-        background:           var(--progressBar) !important
-        color:                var(--text) !important
-  &--pick-exchange, &--get-apikey
-    &+.db-bots__item--data
-      .db-showif--pick-exchange
-        display:              block
   &--collapsed
     height:                   8.9rem
     overflow:                 hidden
@@ -351,31 +241,17 @@ input
       path
         fill: var(--secondary)
 
-// db-showif
-
-.db-showif
-  display: none
-
 // bot dca1
 
 .db-bot__form
-  padding: 7rem 0 0
   display: flex
   flex-direction: column
   align-items: stretch
+  gap: 1rem
   &__schedule
     margin-bottom: 7rem
   form
     width: auto
-
-.db-bot__form--apikeys
-  padding-left: 2rem
-  padding-right: 2rem
-  padding-bottom: 7rem !important
-  .form-row
-    width: auto
-  .form-group
-    margin-bottom: 0
 
 .db-bot__modal
   border-radius: .7rem
@@ -403,42 +279,13 @@ input
     justify-content: center
     gap: 2rem
     padding: 2rem
-    .btn
-      padding-right: 1em
-      padding-left: 1em
 
 .db-bot__modal__content
   text-align: center
-.btn--reset
-  justify-content: start !important
-  margin:          0.7rem 1.4rem 1.6rem
-  left:            4rem
-  color:           var(--secondary) !important
-  text-decoration: none !important
-  align-self:      flex-start
-  width:           10rem
-  height:          4.2rem
-  span
-    color:       var(--danger)
-    margin-left: .7rem
-    opacity:     0
-  &:hover
-    color: var(--danger) !important
-    span
-      opacity: 1
-
-  &.disabled
-    display: none
-
-.btn--reset-back
-  &:hover, span
-    color: var(--primary) !important
-    color: var(--primary-p3) !important
 
 // chart
 
 .db-chart-container
-  margin: 2.5rem 1.5rem
   max-width: 100%
 
 .db-limit-bot-modifier
@@ -454,10 +301,6 @@ input
 .db-add-more-bots
   justify-content: space-between
   height: 4rem
-  .btn-outline-primary:not(:hover)
-    color: var(--addBotButton) !important
-    .material-icons
-      color: var(--addBotButton) !important
   a
     text-decoration: none
   .pagination-lg
@@ -489,90 +332,53 @@ input
 .db-input--dca-amount
   max-width: 4.1em
 
-.infotab-image-container
-  width: 100%
-  aspect-ratio: 16/10
-  background-image: linear-gradient(#fff,#fff0,#fff0), url('journey-day02.jpg')
-  background-position: center top, center
-  margin-bottom: -2rem
-  // night mode
-  @media (prefers-color-scheme: dark)
-    background-image: linear-gradient(var(--paper),  #0000, #0000), url('journey-night01.jpg')
-    background-position: center top, center bottom
-  background-size: cover
-
-.bot-tile
-  padding-top: 2rem
-  cursor: pointer
-  &__header
-    display: flex
-    justify-content: space-between
-  &__ticker
-    &__currencies
-      font-weight: 550
-      font-size: 2.5rem
-      line-height: 2.5rem
-    &__exchange
-      color: var(--label)
-      line-height: 4.5rem
-      font-size: 1.75rem
-  &__pnl
-    font-weight: 650
-    font-size: 2.5rem
-    line-height: 2.5rem
-  &__controls
-    display: flex
-    gap: 2rem
-    justify-content: space-between
-    align-items: center
-    &__feedback
-      display: flex
-      flex-direction: column
-      align-items: stretch
-      justify-content: flex-end
-      width: 100%
-      height: 100%
-      color: var(--label)
-  .progress
-    height:                   .5rem
-    border-radius:            1rem
-    background:               var(--progressBar)
-    .progress-bar
-      border-radius:          1rem
-    *
-      transition:             all 200ms linear
-  .db-spinner-positioner
-    width: 2.5rem !important
-    height: 2.5rem !important
-    overflow: hidden
-    position: relative
-    top: -.75rem
-.bot-counting
-  color: var(--success)
-  font-weight: 600
-
-.page-head
-  &--dashboard
-    .page-head__controls
-      display: flex
-      justify-content: space-between
-      align-items: center
-      gap: 2rem
-
-      &__nav
-        display: flex
-        gap: 1rem
-        align-items: center
-
-      .sbutton
-        display: flex
-        align-items: center
-        gap: 0.5rem
-
-        &--disabled
-          opacity: 0.5
-          pointer-events: none
-
 .db-bot__progressbar-wrapper
   margin-left: 2rem
   margin-right: 2rem
+
+.db-bots__tabs
+  border-radius: 2rem
+  display: flex
+  flex-direction: row
+  gap: 1rem
+  margin-bottom: 1rem
+  .nav-link
+    font-weight: 600
+    padding: 0 2rem
+    line-height: 4rem
+    display: block
+    text-decoration: none
+    border: none
+    background: none
+    cursor: pointer
+    color: var(--text)
+    border-radius: 2rem
+    list-style: none
+    &.active
+      background: var(--widget-background)
+      box-shadow: var(--widget-shadow)
+      cursor: default
+      color: var(--emphasized)
+
+.legacy-tab
+  background: var(--widget-background)
+  border-radius: 2rem
+  padding: 2rem
+  display: none
+  gap: 2rem
+  box-shadow: var(--widget-shadow)
+  @media (min-width: 768px)
+    padding: 4rem
+    gap: 4rem
+  &.active
+    display: flex
+    flex-direction: column
+    gap: 2rem
+  * 
+    margin-bottom: 0
+  &__section
+    gap: 2rem
+    display: flex
+    flex-direction: column
+  table
+    text-align: left

@@ -1,0 +1,47 @@
+de:
+    index:
+        bitcoin:
+            title: "Bitcoin"
+            info: "Der Durchschnittskosteneffekt beim Bitcoin-Investment ist ein Goldstandard für langfristige Anleger."
+        crypto_berbell:
+            title: "Krypto-Hantel"
+            info: "Decken Sie 74% des Kryptomarktes mit einem einfachen, unkomplizierten Portfolio ab, das sich automatisch ausbalanciert."
+        crypto_index:
+            title: "Krypto-Index"
+            info: "Es gibt keinen Krypto-S&P 500, aber jetzt können Sie einen erstellen. Automatisieren Sie ein Indexportfolio der wichtigsten Kryptowährungen."
+        altcoin_season:
+            title: "Altcoin-Saison"
+            info: "Investieren Sie sicher in ein Portfolio erfolgreicher Altcoins. Minimieren Sie das Risiko von Small-Cap-Kryptowährungen, indem Sie manuelle Zuweisung durch automatische Indexierung ersetzen."
+        layer_1:
+            title: "Layer 1"
+            info: "Primäre Blockchain-Netzwerke, die Transaktionen direkt verarbeiten und die Grundlage für die Blockchain-Infrastruktur bilden."
+        made_in_usa:
+            title: "Made in USA"
+            info: "Kryptowährungen mit bedeutenden Verbindungen zu den Vereinigten Staaten durch ihre Gründerteams oder Unternehmenssitze."
+        alleged_sec_securities:
+            title: "Von der SEC regulierte Kryptowährungen"
+            info: "Token und Kryptowährungen, die von der US-amerikanischen Börsenaufsichtsbehörde SEC als regulierte Finanzinstrumente betrachtet werden."
+        memecoins:
+            title: "Memecoins"
+            info: "Münzen, die ihren Wert aus Internet-Memes und Community-Hype statt aus der zugrunde liegenden Technologie oder Nützlichkeit ableiten."
+        elon_musk_inspired:
+            title: "Von Elon Musk inspiriert"
+            info: "Von Elon Musk inspirierte Meme-Coins, keines dieser Projekte wird (notwendigerweise) von Elon Musk unterstützt oder erstellt."
+        ai_portfolio:
+            title: "KI-Portfolio"
+            info: "Künstliche Intelligenz (KI)-Token sind Kryptowährungen, die KI-bezogene Projekte antreiben."
+        layer_2:
+            title: "Layer 2"
+            info: "Layer-2-Lösungen sind Skalierungslösungen, die auf Layer-1-Blockchains aufbauen, um die Transaktionsgeschwindigkeit zu verbessern und die Kosten zu senken."
+        layer_0:
+            title: "Layer 0"
+            info: "Layer-0-Protokolle bieten die grundlegende Infrastruktur zum Aufbau und zur Verbindung mehrerer Blockchains."
+        gamefi:
+            title: "GameFi"
+            info: "GameFi-Token treiben Blockchain-basierte Spieleplattformen und virtuelle Welten an und kombinieren Gaming mit dezentralen Finanzen."
+        yield_farming:
+            title: "Yield Farming" 
+            info: "Yield-Farming-Token ermöglichen es Benutzern, Belohnungen zu verdienen, indem sie Liquidität für dezentrale Finanzprotokolle bereitstellen."
+        consensys_portfolio:
+            title: "Consensys-Portfolio"
+            info: "Protokolle und Token, in die Consensys investiert hat." 

@@ -1,0 +1,13 @@
+es:
+    bot_info:
+        how_to_use: |
+            <p>¿Cómo se utiliza esta estrategia?</p>
+            <p>Aquí tienes algunos ejemplos:</p>
+        barbell:
+            info: |
+                <p><strong>Estrategia Barbell</strong> es una estrategia simple de dos activos para mejorar la gestión de riesgos en tus inversiones, con DCA reequilibrado.</p>
+                <p>El bot logra el reequilibrio utilizando solo órdenes de COMPRA, por lo que nunca crea eventos fiscales mientras sigue apuntando a la asignación deseada.</p>
+            examples: |
+                <p><strong>BTC-ETH</strong> — El "oro digital" se encuentra con Web3. Cubre el 74% del mercado cripto con una cartera simple y sin complicaciones que se reequilibra automáticamente.</p>
+                <p><strong>ETH-SOL</strong> — ¿Qué plataforma Web3 ganará? Invierte en ambas y deja que el mercado decida. El reequilibrio asegura que termines del lado ganador.</p>
+                <p><strong>BTC-PAXG</strong> — Diversificación entre activos. PAXG es una stablecoin única que no está correlacionada con las criptomonedas pero sigue ofreciendo un atractivo potencial alcista.</p> 

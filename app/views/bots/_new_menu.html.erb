@@ -1,0 +1,27 @@
+<div class="itiles">
+
+    <%= link_to bots_path(create: true), class: 'itile itile--bot-type itile--dca', data: { action: 'click->modal--base#animateOutCloseAndCleanUp', turbo: false } do %>
+        <div class="theme-img" style="background-image: url('https://deltabadger.com/blog/fnilx-stock.jpg')"></div>
+        <div class="index-title"><%= t('bot.types.dca.title') %></div>
+        <p class="index-info"><%= t('bot.types.dca.description') %></p>
+    <% end %>
+
+    <%= button_to barbell_new_step_to_first_asset_bots_path, method: :get, params: { bots_barbell: {label: nil}}, class: 'itile itile--bot-type', data: { turbo_frame: "modal", action: 'click->modal--base#animateOutCloseAndCleanUp' } do %>
+        <b class="sbadge sbadge--beta"><%= t('utils.beta') %></b>
+        <div class="theme-img" style="background-image: url('https://deltabadger.com/blog/fitlx0000.jpg')"></div>
+        <div class="index-title"><%= t('bot.types.barbell.title') %></div>
+        <p class="index-info"><%= t('bot.types.barbell.description') %></p>
+    <% end %>
+
+    <div class="itile itile--soon">
+        <b class="sbadge sbadge--soon"><%= t('utils.soon') %></b>
+        <div class="index-title"><%= t('bot.types.index_portfolio.title') %></div>
+        <p class="index-info"><%= t('bot.types.index_portfolio.description') %></p>
+    </div>
+    <div class="itile itile--soon">
+        <b class="sbadge sbadge--soon"><%= t('utils.soon') %></b>
+        <div class="index-title"><%= t('bot.types.custom_portfolio.title') %></div>
+        <p class="index-info"><%= t('bot.types.custom_portfolio.description') %></p>
+    </div>
+
+</div>

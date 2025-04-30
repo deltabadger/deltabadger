@@ -1,0 +1,24 @@
+module SubscriptionHelper
+  def plan_variant_name(subscription_plan_variant)
+    years = subscription_plan_variant.years
+    if years.nil?
+      subscription_plan_variant.name
+    else
+      "#{subscription_plan_variant.name} (#{years_amount(years)})"
+    end
+  end
+
+  def legendary_badger_nft_name(subscription)
+    if subscription.nft_rarity.present?
+      "#{subscription.nft_name} · #{subscription.nft_rarity}"
+    else
+      subscription.nft_name
+    end
+  end
+
+  private
+
+  def years_amount(number)
+    "#{number} #{'year'.pluralize(number)}"
+  end
+end

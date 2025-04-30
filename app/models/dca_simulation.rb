@@ -1,5 +1,3 @@
-require 'utilities/time'
-
 class DcaSimulation
   API_ID_MAP = {
     'btc' => 1713,     # Bitcoin

@@ -122,12 +122,6 @@ class BtcpayClient < ApplicationClient
     with_rescue do
       response = self.class.connection.get do |req|
         req.url "/invoices/#{id}"
-        req.headers = {
-          'x-accept-version' => '2.0.0',
-          'Accept' => 'application/json',
-          'Content-Type' => 'application/json',
-          'Authorization' => AUTHORIZATION_HEADER
-        }
       end
       Result::Success.new(response.body)
     end

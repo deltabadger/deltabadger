@@ -1,0 +1,13 @@
+nl:
+    bot_info:
+        how_to_use: |
+            <p>Hoe gebruik je deze strategie?</p>
+            <p>Hier zijn enkele voorbeelden:</p>
+        barbell:
+            info: |
+                <p><strong>Barbell Strategie</strong> is een eenvoudige twee-activa strategie om risicobeheer in je investeringen te verbeteren, met geherbalanceerde DCA.</p>
+                <p>De bot bereikt herbalancering door alleen KOOP-orders te gebruiken, zodat er nooit belastbare gebeurtenissen ontstaan terwijl je gewenste allocatie wordt nagestreefd.</p>
+            examples: |
+                <p><strong>BTC-ETH</strong> — "Digitaal goud" ontmoet Web3. Dek 74% van de cryptomarkt met een eenvoudige, probleemloze portefeuille die automatisch herbalanceert.</p>
+                <p><strong>ETH-SOL</strong> — Welk Web3-platform gaat winnen? Investeer in beide en laat de markt beslissen. Herbalancering zorgt ervoor dat je aan de winnende kant eindigt.</p>
+                <p><strong>BTC-PAXG</strong> — Cross-asset diversificatie. PAXG is een unieke stablecoin die niet gecorreleerd is met crypto maar nog steeds aantrekkelijk opwaarts potentieel biedt.</p> 

@@ -1,7 +1,15 @@
-<%= tag.div id: "smart-allocation-controls", class: "smart-allocation widget widget--single" do %>
+<div id="smart-allocation-controls" class="smart-allocation widget">
   <%= form_with model: portfolio, url: portfolio_toggle_smart_allocation_path(portfolio), method: :patch, data: { controller: "form--submit" } do |form| %>
     <div class="toggle">
-      <%= form.check_box :smart_allocation_on, data: { action: "change->form--submit#submit" }, disabled: portfolio.limited? %>
+      <% data = portfolio.limited? ? {
+        controller: "turbo-frame-trigger",
+        turbo_frame_trigger_url_value: upgrade_upgrade_instructions_path,
+        turbo_frame_trigger_frame_value: "modal",
+        action: "click->turbo-frame-trigger#loadFrame"
+      } : {
+        action: "change->form--submit#submit"
+      } %>
+      <%= form.check_box :smart_allocation_on, data: data %>
       <div class="toggle__style"></div>
       <%= form.label :smart_allocation_on, t('analyzer.smart_allocation.name'), class: "label" %>
 
@@ -16,7 +24,6 @@
           <%= t('analyzer.smart_allocation.short_info_html') %>
         </div>
       </div>
-
     </div>
   <% end %>
 
@@ -29,7 +36,7 @@
   data: {
     controller: "portfolio-analyzer--risk-level-allocations",
     portfolio_analyzer__risk_level_allocations_risk_levels_value: Portfolio.humanized_risk_levels,
-    portfolio_analyzer__risk_level_allocations_smart_allocations_value: portfolio.assets.present? && portfolio.smart_allocation_on? ? portfolio.smart_allocations : [],
+    portfolio_analyzer__risk_level_allocations_smart_allocations_value: portfolio.portfolio_assets.present? && portfolio.smart_allocation_on? ? portfolio.smart_allocations : [],
   } do |form| %>
     <div class="flex-row space-between">
       <div class="label label--select ellipsis">
@@ -72,7 +79,7 @@
       </div>
     </div>
     <div class="slider">
-      <%= form.range_field :risk_level, in: Portfolio.risk_levels.values, value: portfolio.risk_level_int, class: "slider__input", data: { action: "input->portfolio-analyzer--risk-level-allocations#updateRiskLevel" }, disabled: !portfolio.smart_allocation_on? || portfolio.assets.empty? %>
+      <%= form.range_field :risk_level, in: Portfolio.risk_levels.values, value: portfolio.risk_level_int, class: "slider__input", data: { action: "input->portfolio-analyzer--risk-level-allocations#updateRiskLevel" }, disabled: !portfolio.smart_allocation_on? || portfolio.portfolio_assets.empty? %>
       <div class="slider__style">
         <% disabled_color = "#8894B6" %> <%# TODO: move this to css variable? %>
         <% slider_color = portfolio.smart_allocation_on? ? "#2948A1" : disabled_color %>
@@ -85,5 +92,4 @@
       </div>
     </div>
   <% end %>
-<% end %>
-
+</div>

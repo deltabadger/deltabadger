@@ -1,0 +1,112 @@
+ru:
+    activerecord:
+        errors:
+            models:
+                affiliate:
+                    attributes:
+                        code:
+                            invalid_format: 'должен состоять из буквенно-цифровых символов верхнего регистра'
+                subscription:
+                    attributes:
+                        eth_address:
+                            invalid_address: '"%{eth_address}" является недействительным адресом Ethereum. Пожалуйста, попробуйте снова.'
+                asset:
+                    attributes:
+                        portfolio:
+                            max_assets_reached: "Максимальное количество активов достигнуто."
+    errors:
+        cloudflare_turnstile: 'Валидация Cloudflare Turnstile не прошла'
+        bitcoin_address_not_updated: 'Биткоин-адрес не может быть обновлен'
+        format: '%{attribute}%{message}'
+        frequency_limit: 'Превышено ограничение частоты'
+        invalid_api_keys: 'Недействительные токены'
+        invalid_risk_free_rate_key: 'Недействительный ключ безрисковой ставки.'
+        api_key_permission_validation_failed: 'Не удалось проверить разрешения ключа API'
+        api_key_already_exists: 'Ключ API для %{exchange_name} уже существует'
+        incorrect_api_key_permissions: 'Неверные разрешения ключа API'
+        unable_to_get_risk_free_rate: 'Не удается получить безрисковую ставку для %{risk_free_rate_name}. Сервер API данных недоступен.'
+        invalid_number_of_allocations: 'Недопустимое количество распределений'
+        invalid_allocation_value: 'Недопустимое значение распределения'
+        bots:
+            exchange_asset_mismatch: "Не все активы котируются на %{exchange_name}"
+            destroy_success: "Бот %{bot_label} успешно удален"
+            api_key_success: "Ключи API успешно сохранены"
+        messages:
+            accepted: 'должно быть принят'
+            already_confirmed: 'уже подтвержден, попробуйте войти.'
+            bad_2fa_code: 'Неверный код. Попробуйте еще раз.'
+            bad_credentials: 'Неправильный адрес электронной почты или пароль.'
+            bad_credentials_with_code: 'Неверный адрес электронной почты, пароль или код 2FA.'
+            blank: 'не может быть пустым'
+            confirmation: 'не совпадает %{attribute}'
+            confirmation_period_expired: 'необходимо подтвердить в течение %{period}, пожалуйста, запросите новый.'
+            empty: 'не может быть пустым'
+            empty_two_fa_token: 'Пропущен код 2FA. Попробуйте еще раз'
+            equal_to: 'должно быть равно %{count}'
+            even: 'должно быть четным'
+            exclusion: 'зарезервировано'
+            expired: 'срок действия истек, запросите новый.'
+            greater_than: 'должно быть больше чем %{count}'
+            greater_than_or_equal_to: 'должно быть больше или равно %{count}'
+            in: 'должно быть в %{count}'
+            inclusion: 'не входит в список'
+            invalid: 'недействительно'
+            less_than: 'должно быть меньше чем %{count}'
+            less_than_or_equal_to: 'должно быть меньше или равно %{count}'
+            model_invalid: 'Проверка не удалась: %{errors}'
+            not_a_number: 'не является числом'
+            not_an_integer: 'должно быть целым числом'
+            not_found: 'не найден.'
+            not_locked: 'не был заблокирован.'
+            not_saved:
+                one: '1 ошибка помешала сохранить %{resource}:'
+                few: '%{count} ошибок помешали сохранить %{resource}:'
+                many: '%{count} ошибок помешали сохранить %{resource}:'
+                other: '%{count} ошибок помешали сохранить %{resource}:'
+            odd: 'должно быть нечетным'
+            other_than: 'должно отличаться от %{count}'
+            password_not_match: 'Пароли не совпадают'
+            present: 'должно быть пустым'
+            too_long:
+                one: 'слишком длинный (максимум 1 символ)'
+                few: 'слишком длинный (максимум %{count} символа)'
+                many: 'слишком длинный (максимум %{count} символов)'
+                other: 'слишком длинный (максимум %{count} символов)'
+            too_short:
+                one: 'слишком короткий (минимум 1 символ)'
+                few: 'слишком короткий (минимум %{count} символа)'
+                many: 'слишком короткий (минимум %{count} символов)'
+                other: 'слишком короткий (минимум %{count} символов)'
+            too_simple_password: 'Пароль должен содержать символы из каждой из следующих категорий: заглавные буквы (A-Z), строчные буквы (a-z), цифры (0-9), специальные символы (например, #,?,!).'
+            wrong_email: 'Неправильный адрес электронной почты'
+            wrong_length:
+                one: 'неверная длина (должен быть 1 символ)'
+                few: 'неверная длина (должно быть %{count} символа)'
+                many: 'неверная длина (должно быть %{count} символов)'
+                other: 'неверная длина (должно быть %{count} символов)'
+            wrong_password: 'Неправильный пароль'
+            wrong_two_fa_token: 'Предоставленный код неверный'
+        referral_program_inactive: 'Ваша реферальная программа неактивна'
+        unverified_request: 'Обновите страницу в браузере и попробуйте еще раз'
+    alert:
+        bot:
+            bot_updated: 'Бот был успешно обновлен.'
+        portfolio:
+            invalid_name: 'Недопустимое название портфеля.'
+            invalid_benchmark: 'Недопустимое значение эталона.'
+            invalid_strategy: 'Недопустимое значение стратегии.'
+            invalid_start_date: 'Недопустимое значение даты начала.'
+            invalid_risk_free_rate: 'Недопустимое значение безрисковой ставки.'
+            invalid_smart_allocation: 'Недопустимое значение умного распределения.'
+            invalid_risk_level: 'Недопустимое значение уровня риска.'
+            unable_to_calculate: 'Невозможно рассчитать умное распределение для этих параметров.'
+            portfolio_normalized: 'Распределение активов в портфеле было нормализовано.'
+            risk_level_updated: 'Уровень риска был обновлен.'
+            smart_allocation_updated: 'Умное распределение было обновлено.'
+            unable_to_set_risk_rate: 'Невозможно установить безрисковую ставку на %{risk_free_rate_name}.'
+            api_unreachable: 'Сервер API данных недоступен.'
+            portfolio_created: 'Портфель был успешно создан.'
+            portfolio_updated: 'Портфель был успешно обновлен.'
+            portfolio_destroyed: 'Портфель был успешно удален.'
+            portfolio_duplicated: 'Портфель был успешно продублирован.'
+            unable_to_duplicate_portfolio: 'Невозможно продублировать портфель.'

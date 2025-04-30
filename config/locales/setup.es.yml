@@ -1,7 +1,12 @@
 es:
-    bots:
+    bot:
         setup:
             api_not_available: 'La API del Exchange no está disponible'
+            sentence:
+                invest_in: "Invertir en"
+                and: "y"
+                at: "en"
+                spending: "gastando"
             binance:
                 instructions_1_html: 'Inicia sesión en tu cuenta %{exchange_link}.'
                 instructions_2_html: 'En el menú de usuario (icono redondo en la esquina superior derecha) ve a <b>Gestión de API</b>.'
@@ -56,7 +61,6 @@ es:
                 instructions_9_html: 'Pega ambas claves en las entradas de arriba.'
                 private_key: 'Secreto de API'
                 public_key: 'Clave API'
-            cancel: Cancelar
             coinbase:
                 instructions_1_html: 'Inicia sesión en tu cuenta %{exchange_link}.'
                 instructions_2_html: 'Selecciona la pestaña <b>Más</b> en la barra lateral izquierda.'
@@ -149,10 +153,11 @@ es:
                     force_smart_intervals: 'Para %{base}%{quote}, %{exchangeName} tiene una orden mínima de <b>%{minimumValue}%{minimumCurrency}</b>%{approximatedQuote}. Deltabadger puede ejecutar esta programación usando órdenes de %{minimumValue}%{minimumCurrency} y ajustando el intervalo de tiempo para que coincida con lo que tenías programado. Es lo que llamamos <i>intervalos inteligentes</i>.'
                     other: 'Para %{base}%{quote}, %{exchangeName} tiene una orden mínima de <b>%{minimumValue}%{minimumCurrency}</b>%{approximatedQuote}. Deltabadger puede ejecutar esta programación usando órdenes de %{minimumValue}%{minimumCurrency} y ajustando el intervalo de tiempo para que coincida con lo que tenías programado. Es lo que llamamos <i>intervalos inteligentes</i>.'
             step_api_key: 'Clave API'
-            step_exchange: 'Plataforma de intercambio'
+            step_assets: 'Activos'
+            step_exchange: 'Exchange'
             step_schedule: Programar
             step_type: Tipo
-            validating: 'Validación en curso'
+            validating: 'Validando…'
             withdrawal:
                 kraken:
                     instructions_1_html: 'Inicia sesión en tu cuenta %{exchange_link}.'

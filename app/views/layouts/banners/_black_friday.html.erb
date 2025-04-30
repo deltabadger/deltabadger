@@ -1,5 +1,5 @@
-<div class="black-friday"class data-controller="show-hide">
-  <div data-show-hide-target="hideable">
+<div class="black-friday"class data-controller="class-toggle" data-class-toggle-toggle-classes-value='["hidden"]'>
+  <div data-class-toggle-target="togglable">
     <div class="black-friday__body">
       <div class="big-discount">
         <div class="big-discount__number">
@@ -15,34 +15,48 @@
         <h2><%= t('subscriptions.payment.pro_and_legendary_plans') %></h2>
       </div>
 
-      <div data-controller="countdown" data-countdown-target-date-value="<%= BlackFriday.end_time.iso8601 %>">
+      <%= tag.div data: {
+        controller: "countdown",
+        countdown_end_time_value: BlackFriday.end_time.iso8601,
+        countdown_hide_if_zero_value: false,
+        countdown_days_label_value: t('subscriptions.payment.days').capitalize,
+        countdown_hours_label_value: t('subscriptions.payment.hours').capitalize,
+        countdown_minutes_label_value: t('subscriptions.payment.minutes').capitalize,
+        countdown_seconds_label_value: t('subscriptions.payment.seconds').capitalize,
+        countdown_animation_class_value: "pulse"
+      } do %>
         <div class="countdown-timer">
           <span class="countdown-segment">
-            <span  data-countdown-target="days" class="value">0</span><small><%= t('subscriptions.payment.days') %></small>
+            <span data-countdown-target="days" class="value"></span>
+            <small data-countdown-target="daysLabel"></small>
           </span>
           <span class="countdown-segment">
-            <span  data-countdown-target="hours" class="value">0</span><small><%= t('subscriptions.payment.hours') %></small>
+            <span data-countdown-target="hours" class="value"></span>
+            <small data-countdown-target="hoursLabel"></small>
           </span>
           <span class="countdown-segment">
-            <span  data-countdown-target="minutes" class="value">0</span><small><%= t('subscriptions.payment.minutes') %></small>
+            <span data-countdown-target="minutes" class="value"></span>
+            <small data-countdown-target="minutesLabel"></small>
           </span>
           <span class="countdown-segment countdown-second">
-            <span  data-countdown-target="seconds" class="value">0</span><small><%= t('subscriptions.payment.seconds') %></small>
+            <span data-countdown-target="seconds" class="value"></span>
+            <small data-countdown-target="secondsLabel"></small>
           </span>
         </div>
       </div>
+      <% end %>
 
       <% if show_upgrade_button %>
-        <div>
-          <%= link_to t('subscriptions.payment.upgrade_now'), upgrade_path, class: "btn btn-lg btn-success" %>
+        <div class="large-button-wrapper">
+          <%= link_to t('subscriptions.payment.upgrade_now'), upgrade_path, class: "button button--large button--success" %>
         </div>
       <% end %>
     </div>
   </div>
   <nav class="black-friday-toggle" style="align-self: flex-end">
-    <div class="black-friday-toggle__icon active" id="infoheader-icon" data-action="click->show-hide#toggle"  data-show-hide-target="toggleButton">
+    <div class="black-friday-toggle__icon active" id="infoheader-icon" data-action="click->class-toggle#toggle">
         <b>30% OFF</b>
-        <%= render partial: 'svg/24x24_x' %>
+        <%= render partial: 'svg/24x24_close' %>
     </div>
   </nav>
 </div>

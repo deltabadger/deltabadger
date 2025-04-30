@@ -1,7 +1,12 @@
 en:
-    bots:
+    bot:
         setup:
             api_not_available: "Exchange API is not available"
+            sentence:
+                invest_in: "Invest in"
+                and: "and"
+                at: "at"
+                spending: "spending"
             binance:
                 instructions_1_html: 'Log into your %{exchange_link} account.'
                 instructions_2_html: 'In user menu (round icon in the top right corner) go to <b>API Management</b>.'
@@ -56,7 +61,6 @@ en:
                 instructions_9_html: 'Copy and paste your new API keys into the form above.'
                 private_key: 'API Secret'
                 public_key: 'API Key'
-            cancel: Cancel
             coinbase:
                 instructions_1_html: 'Log into your %{exchange_link} account.'
                 instructions_2_html: 'Select the <b>More</b> tab from the left sidebar.'
@@ -71,7 +75,7 @@ en:
                 instructions_7_html: 'Click <b>Create & download</b> and complete the 2-step verification.'
                 instructions_8_html: 'Copy and paste your new API keys into the form above.'
                 private_key: 'Secret'
-                public_key: 'API key name'
+                public_key: 'API key'
             error_info: 'Validation failed. Try again or generate new keys.'
             frequency_limit:
                 back_to_settings: 'Back to settings'
@@ -149,10 +153,11 @@ en:
                     force_smart_intervals: 'For %{base}%{quote}, %{exchangeName} has a minimum order size of <b>%{minimumValue}%{minimumCurrency}</b>%{approximatedQuote}. Deltabadger will execute this schedule using %{minimumValue}%{minimumCurrency} orders, and adjusting the time interval to match your schedule. We call it <i>smart intervals</i>.'
                     other: 'For %{base}%{quote}, %{exchangeName} has a minimum order size of <b>%{minimumValue}%{minimumCurrency}</b>%{approximatedQuote}. Deltabadger may execute this schedule using %{minimumValue}%{minimumCurrency} orders, and adjusting the time interval to match your schedule. We call it <i>smart intervals</i>.'
             step_api_key: 'API Key'
+            step_assets: Assets
             step_exchange: Exchange
             step_schedule: Schedule
             step_type: Type
-            validating: Validating
+            validating: Validating…
             withdrawal:
                 kraken:
                     instructions_1_html: 'Log into your %{exchange_link} account.'

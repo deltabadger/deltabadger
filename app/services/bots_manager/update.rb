@@ -1,0 +1,54 @@
+module BotsManager
+  class Update < BaseService
+    def call(user, bot_params)
+      bot = Bot.find(bot_params[:id])
+      bot_validator = get_validator(bot)
+      format_params = get_formatter(bot)
+
+      settings_params =
+        format_params
+        .call(bot, bot_params.merge(user: user))
+        .slice(:settings)
+
+      if configuration_changed?(bot, settings_params[:settings])
+        settings_params = settings_params.merge(settings_changed_at: Time.now)
+      end
+
+      bot.assign_attributes(settings_params)
+      validation = bot_validator.call(bot, user)
+
+      if validation.success?
+        bot.save!
+        Result::Success.new(bot)
+      else
+        Result::Failure.new(*validation.errors)
+      end
+    end
+
+    private
+
+    def configuration_changed?(bot, new_settings)
+      bot.settings != new_settings
+    end
+
+    def get_validator(bot)
+      if bot.basic?
+        BotsManager::Trading::Validators::Update.new
+      elsif bot.withdrawal?
+        BotsManager::Withdrawal::Validators::Update.new
+      else
+        BotsManager::Webhook::Validators::Update.new
+      end
+    end
+
+    def get_formatter(bot)
+      if bot.basic?
+        BotsManager::Trading::FormatParams::Update.new
+      elsif bot.withdrawal?
+        BotsManager::Withdrawal::FormatParams::Update.new
+      else
+        BotsManager::Webhook::FormatParams::Update.new
+      end
+    end
+  end
+end

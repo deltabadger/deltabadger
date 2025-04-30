@@ -11,6 +11,7 @@ Rails.application.routes.draw do
   match "/422", to: "errors#unprocessable_entity", via: :all
   match "/500", to: "errors#internal_server_error", via: :all
 
+  mount ActionCable.server => '/cable'
   mount Sidekiq::Prometheus::Exporter => '/sidekiq-metrics'
 
   authenticate :user, lambda { |u| u.admin? } do
@@ -26,7 +27,12 @@ Rails.application.routes.draw do
       post :mark_as_paid, on: :collection
     end
     resources :api_keys, except: [:edit, :update]
-    resources :bots
+    namespace :bots do
+      resources :basics
+      resources :withdrawals
+      resources :webhooks
+      resources :barbells
+    end
     resources :conversion_rates
     resources :exchanges
     resources :transactions
@@ -93,6 +99,7 @@ Rails.application.routes.draw do
       get :zen_payment_failure
       post :zen_payment_ipn
       get :success
+      get :upgrade_instructions
     end
 
     namespace :settings do
@@ -105,15 +112,36 @@ Rails.application.routes.draw do
       patch :update_name
       get :edit_two_fa
       patch :update_two_fa
-      delete 'remove_api_key/:id', action: :remove_api_key, as: :remove_api_key
+      get 'confirm_destroy_api_key/:id', action: :confirm_destroy_api_key, as: :confirm_destroy_api_key
+      delete 'destroy_api_key/:id', action: :destroy_api_key, as: :destroy_api_key
+      get :community_access_instructions
     end
 
-    resources :bots, only: [:show, :index] do
-      get :show, on: :collection
-    end
+    get :dashboard, to: redirect { |params, request|
+      "/#{request.params[:locale] || I18n.default_locale}/bots"
+    }
 
-    get '/dashboard', to: 'home#dashboard', as: :dashboard
-    get '/dashboard/bots/:id', to: 'bots#show', as: :dashboard_bot
+    resources :bots do
+      get :barbell_new_step_to_first_asset, on: :collection
+      get :barbell_new_step_to_second_asset, on: :collection
+      get :barbell_new_step_exchange, on: :collection
+      get :barbell_new_step_from_asset, on: :collection
+      get :barbell_new_step_api_key, on: :collection
+      post :barbell_new_step_api_key_create, on: :collection
+      get :barbell_new_step_confirm, on: :collection
+      get :show_index_bot, on: :collection # TODO: move to custom :show logic according to bot type
+      member do
+        get :asset_search
+        get :new_api_key
+        post :create_api_key
+        post :start
+        post :stop
+        post :show
+        get :confirm_restart
+        get :confirm_restart_legacy
+        get :confirm_destroy
+      end
+    end
 
     get '/calculator', to: 'calculator#show', as: :calculator
 
@@ -131,7 +159,7 @@ Rails.application.routes.draw do
     post '/h/:webhook', to: 'api/bots#webhook', as: :webhooks
 
     resources :portfolios, except: [:index], path: '/portfolio-analyzer' do
-      resources :assets, only: [:new, :create, :destroy, :update]
+      resources :portfolio_assets, only: [:new, :create, :destroy, :update], as: :assets
       get :show, on: :collection
       patch :toggle_smart_allocation
       patch :update_risk_level
@@ -144,6 +172,7 @@ Rails.application.routes.draw do
       post :duplicate
       get :openai_insights
       get :compare
+      get :confirm_destroy
     end
   end
 

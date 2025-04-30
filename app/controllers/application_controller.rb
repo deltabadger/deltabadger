@@ -1,11 +1,11 @@
 class ApplicationController < ActionController::Base
+  include SharedHelper
+  include MetaTagsHelper
+
   before_action :set_raven_context
   before_action :set_no_cache, if: :user_signed_in?
   before_action :set_signed_in_cookie
   around_action :switch_locale
-
-  include SharedHelper
-  include MetaTagsHelper
 
   def switch_locale(&action)
     locale = params[:locale] || current_user.try(:locale) || I18n.default_locale

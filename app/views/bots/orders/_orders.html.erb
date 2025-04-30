@@ -1,0 +1,22 @@
+<%= turbo_stream_from "bot_#{bot.id}", :orders %>
+
+<div id="orders" class="widget widget--table">
+  <% if bot.transactions.any? %>
+    <table class="table">
+      <thead>
+        <tr>
+          <th scope="col"><%= t('data_labels.date') %></th>
+          <th scope="col"><%= t('data_labels.amount') %></th>
+          <th scope="col"><%= t('data_labels.value') %></th>
+        </tr>
+      </thead>
+      <tbody id="orders_list">
+      </tbody>
+    </table>
+    <%= turbo_frame_tag 'orders_pagination', src: bot_path(bot, format: :turbo_stream), loading: :laz, style: "display:none" %>
+  <% else %>
+    <div style="height: 100%; display: flex; align-items: center; justify-content: center; color: var(--label)">
+      <%= t('bot.no_orders_info') %>
+    </div>
+  <% end %>
+</div>

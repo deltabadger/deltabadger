@@ -5,12 +5,8 @@ module ExchangeApi
       include ExchangeApi::FtxEnum
       DISABLE_EXCHANGES_API = ENV.fetch('DISABLE_EXCHANGES_API') == 'true'
 
-      def initialize(exchanges_repository: ExchangesRepository.new)
-        @exchanges_repository = exchanges_repository
-      end
-
       def call(exchange_id, key_type)
-        exchange = @exchanges_repository.find(exchange_id)
+        exchange = Exchange.find(exchange_id)
         key_type == 'withdrawal' ? get_withdrawal_key_validator(exchange) : get_trading_key_validator(exchange)
       end
 

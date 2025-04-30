@@ -44,7 +44,7 @@ module ExchangeApi
 
         def common_order_params
           {
-            offer_id: SecureRandom.uuid
+            external_id: SecureRandom.uuid
           }
         end
 

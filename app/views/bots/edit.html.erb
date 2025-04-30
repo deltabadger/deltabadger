@@ -1,0 +1,21 @@
+<%= render 'layouts/modal/base' do %>
+  <div class="modal">
+    <%= button_tag class: 'modal__close', data: { action: 'modal--base#animateOutCloseAndCleanUp' } do %>
+      <%= render partial: 'svg/24x24_close' %>
+    <% end %>
+    <div class="modal__header">
+       <h1 class="modal__title"><%= t('bot.change_bot_name') %></h1>
+    </div>
+
+    <%= form_with model: @bot, url: bot_path(@bot), method: :patch, class: "modal__form", data: { controller: "form--label-animations", action: "turbo:submit-end->modal--base#submitEnd" } do |f| %>
+      <div class="db-form__row db-form__row--input">
+        <%= f.text_field :label, autofocus: true, data: { controller: "autofocus" }, class: "db-form__input" %>
+        <%= f.label :label, t('bot.bot_name'), class: "db-form__label" %>
+      </div>
+      <div class="large-button-wrapper">
+        <%= f.submit t('button.save'), class: "button button--success button--large" %>
+      </div>
+    <% end %>
+
+  </div>
+<% end %>

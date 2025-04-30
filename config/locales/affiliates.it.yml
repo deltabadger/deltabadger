@@ -1,0 +1,76 @@
+it:
+    affiliates:
+        add_link_info: "Puoi aggiungere il tuo nome e link al tuo sito web per far sapere al referral da dove proviene lo sconto. Puoi anche lasciarlo vuoto:"
+        apply_code:
+            accept: "Accetta"
+            reject: "Indietro"
+            title: "Link Referral"
+        btc_address_changed: "Indirizzo Bitcoin modificato"
+        btc_address_confirmation_sent: "Email di conferma inviata"
+        create:
+            error: "Registrazione al programma referral fallita"
+            free_plan_error: "Devi fare l'upgrade per registrarti"
+        current_bitcoin_address: "Indirizzo Bitcoin attuale"
+        discount:
+            accepted: "Hai accettato il link referral"
+            already_used: "Hai già usato un link referral"
+            congrats_html: 'Congratulazioni! Lo sconto del <span class="db-form-label-range--discount-percent">%{discount_percent}</span>% è attivo.'
+            flash_html: 'Ciao! goditi lo sconto del %{discount_percent}% da <span class="text-success text-success--lighter">%{visible_name}</span>'
+            invalid: "Il link referral sembra non valido o obsoleto"
+            referrer_html: 'Grazie al link referral di <b><a href="%{visible_link}"><span class="db-form-preview--visible_name">%{visible_name}</span></a>.</b>'
+            valid_for: "Valido per il primo acquisto sulla piattaforma."
+        info_preview: 'Questa è un''anteprima di ciò che i referral vedranno durante la registrazione:'
+        invalid_bitcoin_address: 'Indirizzo Bitcoin non valido'
+        manual_html: |
+            <div class="widget widget--info">
+              <p class="mt-1">Il nostro programma referral paga <b>commissioni del 20%</b> su ogni pagamento di abbonamento che i tuoi referral effettuano. Non c'è limite - continui a guadagnare finché rimangono abbonati. Per esempio:</p>
+              <ol>
+                <li>Il tuo amico acquista un piano Pro per $299/anno. Tu guadagni $60 in BTC (al tasso di cambio della transazione).</li>
+                <li>Se rimangono abbonati, continui a guadagnare $60 ogni anno che rinnovano.</li>
+                <li>Se fanno l'upgrade al nostro piano Lifetime ($2,000+), guadagni $400+ in BTC istantaneamente.</li>
+                <li>I tuoi guadagni sono bloccati in BTC al momento della transazione, proteggendoti dalle fluttuazioni di prezzo.</li>
+                <li>Le commissioni sono accreditate istantaneamente e pagate mensilmente.</li>
+              </ol>
+              <p><em>Guadagnare bitcoin è il modo migliore per fare DCA!</em></p>
+            </div>
+        new:
+            checked: 'Ho controllato tutto attentamente.'
+            discount_info_html: 'Guadagnerai <b><span class="db-form-label-range--earn-percent">%{earn_percent_preview}</span>% di commissione ricorrente</b> su tutti i pagamenti, e il tuo referral otterrà uno <b>sconto del <span class="db-form-label-range--discount-percent">%{discount_percent_preview}</span>%</b>.'
+            discount_preview_html: '<span class="db-form-label-range--discount-percent">%{discount_percent_preview}</span>% di sconto per il primo acquisto.'
+            eu_company: 'Azienda UE'
+            payout_address: 'Indirizzo di pagamento'
+            pick_referral_code: 'Scegli il tuo codice referral'
+            private: Privato
+            program_settings_html: 'Link <span class="text-danger">(non può essere modificato)</span>'
+            referrer_info: 'Info referrer'
+            share_html: 'Condividi questo link e <span class="text-success">guadagna bitcoin</span>'
+            submit: 'Iniziamo!'
+            thanks_referral: 'Grazie al link referral di'
+            title: 'Registrazione programma referral'
+            title_info: 'Puoi iniziare a condividere il tuo link immediatamente, ma per ricevere pagamenti in Bitcoin, devi prima completare la registrazione.'
+            unchangable_warning: 'Le impostazioni in questa sezione non possono essere modificate in seguito.'
+            upgrade: 'Per unirti al nostro famoso programma referral, fai l''upgrade a uno dei nostri piani a pagamento.'
+            visible_info: 'Info visibili'
+        program_joined: 'Ti sei unito al programma referral'
+        show:
+            deactivated:
+                contact: 'Contattaci'
+                notice: 'Sembra che questo programma sia stato disattivato. Contattaci se non sei sicuro del perché è successo.'
+            expired: 'Oh, no… il tuo abbonamento è scaduto. Rinnova il tuo piano per continuare a beneficiare del tuo programma referral.'
+            info_preview: 'Anteprima delle informazioni visibili per il referral:'
+            link_title: 'Il tuo link'
+            manual_title: 'Come funziona?'
+            paid_commission: 'Pagato (BTC)'
+            paid_so_far: 'Pagato finora (BTC)'
+            referrals: Referral
+            stats: Statistiche
+            submit: Aggiorna
+            submit_bitcoin_address: 'Aggiorna indirizzo Bitcoin'
+            submit_info: 'Aggiorna info visibili'
+            title: 'Programma referral'
+            unpaid: 'Non pagato (BTC)'
+            unpaid_commission: 'Da pagare (BTC)'
+            update_bitcoin_address: 'Aggiorna indirizzo Bitcoin'
+            update_info: 'Aggiorna info visibili'
+            your_link: 'Il tuo link referral'
+        your_bitcoin_address: 'Il tuo indirizzo Bitcoin' 

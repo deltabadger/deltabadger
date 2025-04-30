@@ -1,4 +1,13 @@
 Rails.application.configure do
+  config.after_initialize do
+    Bullet.enable        = true
+    Bullet.alert         = true
+    Bullet.bullet_logger = true
+    Bullet.console       = true
+    Bullet.rails_logger  = true
+    Bullet.add_footer    = true
+  end
+
   # Settings specified here will take precedence over those in config/application.rb.
 
   # In the development environment your application's code is reloaded on
@@ -28,7 +37,7 @@ Rails.application.configure do
     # DO NOT use the same REDIS_URL for caching and Sidekiq:
     # https://github.com/sidekiq/sidekiq/wiki/Using-Redis#multiple-redis-instances
     # https://medium.com/@simptive/rails-using-redis-for-caching-as-well-as-for-sidekiq-jobs-5254ba0d2f7d
-    # config.cache_store = :redis_cache_store
+    # config.cache_store = :redis_cache_store, { url: ENV.fetch('REDIS_CACHE_URL') }
   else
     config.action_controller.perform_caching = false
     config.cache_store = :null_store
@@ -56,8 +65,14 @@ Rails.application.configure do
   # number of complex assets.
   config.assets.debug = true
 
+  config.assets.digest = false
+
   # Suppress logger output for asset requests.
   config.assets.quiet = true
+
+  # Enable source maps
+  config.assets.source_maps = true
+
   config.active_storage.service = :local
   # Raises error for missing translations
   # config.action_view.raise_on_missing_translations = true
@@ -70,5 +85,5 @@ Rails.application.configure do
   config.action_mailer.perform_deliveries = true
   config.action_mailer.default_url_options = { host: 'localhost', port: 3000 }
 
-  routes.default_url_options = {host: ENV['APP_ROOT_URL'], protocol: 'http'}
+  routes.default_url_options = {host: ENV.fetch('APP_ROOT_URL'), protocol: 'http'}
 end

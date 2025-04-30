@@ -13,9 +13,9 @@ const mockStore = configureStore(middlewares);
 jest.mock('i18n-js', () => ({
   t: (key) => {
     const translations = {
-      'bots.withdrawal': 'Withdrawal',
-      'bots.withdrawal_percentage': 'Withdrawal progress',
-      'bots.buttons.pending.info_html': 'Pending'
+      'bot.withdrawal': 'Withdrawal',
+      'bot.withdrawal_percentage': 'Withdrawal progress',
+      'bot.buttons.pending.info_html': 'Pending'
       // Add other translations as needed
     };
     return translations[key] || `[missing "${key}" translation]`;

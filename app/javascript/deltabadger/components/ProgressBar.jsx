@@ -3,7 +3,7 @@ import moment from 'moment';
 import { useInterval } from '../utils/interval';
 
 const ProgressBarLine = React.memo(({colorClass, progress}) => (
-  <div className="progress progress--thin progress--bot-setup">
+  <div className="progress progress--bot-setup">
     <div 
       className={`progress-bar bg-${colorClass}`} 
       role="progressbar" 
@@ -82,7 +82,7 @@ export const ProgressBar = React.memo(({bot}) => {
     }
   }, 1000);
 
-  return <ProgressBarLine colorClass={colorClass} progress={isDisabled ? 0 : progress} />;
+  // return <ProgressBarLine colorClass={colorClass} progress={isDisabled ? 0 : progress} />;
 });
 
 ProgressBar.displayName = 'ProgressBar';

@@ -1,0 +1,20 @@
+<%= render 'layouts/modal/base' do %>
+  <div class="modal">
+    <%= button_tag class: 'modal__close', data: { action: 'modal--base#animateOutCloseAndCleanUp' } do %>
+      <%= render partial: 'svg/24x24_close' %>
+    <% end %>
+    <div class="modal__header">
+      <h1 class="modal__title"><%= @api_key.exchange.name %></h1>
+    </div>
+    <div class="modal__body text-center">
+    <p>
+      <%= t('settings.api_keys.confirm_delete') %>
+    </p>
+    <div class="buttons buttons--row--2">
+      <%= button_tag class: 'button button--outline button--large', data: { action: 'modal--base#animateOutCloseAndCleanUp' } do %>
+        <%= t('button.cancel') %>
+      <% end %>
+      <%= button_to t('button.delete'), settings_destroy_api_key_path(id: @api_key.id), method: :delete, class: 'button button--danger button--large', data: { turbo_frame: "api_keys", action: 'modal--base#animateOutCloseAndCleanUp' } %>
+    </div>
+  </div>
+<% end %>

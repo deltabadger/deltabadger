@@ -141,20 +141,20 @@ const BotTemplate = ({
 
   const getMinimumDisclaimer = () => {
     return exchangeName === 'kraken' ?
-      I18n.t('bots.minimum_withdrawal_disclaimer', {currency: currencyName, minimum: minimum}) :
-      I18n.t('bots.minimum_withdrawal_disclaimer_usd', {minimum: minimum, exchange: exchangeName})
+      I18n.t('bot.minimum_withdrawal_disclaimer', {currency: currencyName, minimum: minimum}) :
+      I18n.t('bot.minimum_withdrawal_disclaimer_usd', {minimum: minimum, exchange: exchangeName})
   }
 
   if (tileMode) {
     return (
       <div 
         onClick={onClick} 
-        className={`widget widget--single bot-tile ${botRunningClass}`}
+        className={`widget bot-tile ${botRunningClass}`}
       >
         <div className="bot-tile__header">
           <div className="bot-tile__ticker">
             <div className="bot-tile__ticker__currencies">{currencyName}</div>
-            <div className="bot-tile__ticker__exchange">{I18n.t('bots.withdrawal')} · {exchangeName}</div>
+            <div className="bot-tile__ticker__exchange">{I18n.t('bot.withdrawal')} · {exchangeName}</div>
           </div>
           
           {bot.stats && bot.stats.totalWithdrawn && (
@@ -183,7 +183,7 @@ const BotTemplate = ({
           {(!isStarting && pending) && <PendingButton />}
           {(!isStarting && !working && !pending) &&
             <div onClick={buttonClickHandler}>
-              <div onClick={_handleSubmit} className={`sbutton ${disableSubmit ? 'sbutton--outline sbutton--disabled' : 'sbutton--success'}`}>
+              <div onClick={_handleSubmit} className={`button ${disableSubmit ? 'button--outline button--disabled' : 'button--success'}`}>
                 <div className="animicon animicon--start">
                   <div className="animicon__a"></div>
                   <div className="animicon__b"></div>
@@ -205,7 +205,7 @@ const BotTemplate = ({
           {(!isStarting && working) && <StopButton onClick={() => handleStop(id)}/>}
           {(!isStarting && pending) && <PendingButton/>}
           {(!isStarting && !working && !pending) &&
-            <div onClick={_handleSubmit} className={`sbutton ${disableSubmit ? 'sbutton--outline sbutton--disabled' : 'sbutton--success'}`}>
+            <div onClick={_handleSubmit} className={`button ${disableSubmit ? 'button--outline button--disabled' : 'button--success'}`}>
               <div className="animicon animicon--start">
                 <div className="animicon__a"></div>
                 <div className="animicon__b"></div>
@@ -242,8 +242,8 @@ const BotTemplate = ({
       { apiKeyExists &&
         <div className="db-bot__form">
           <form>
-            <div className="form-inline db-bot__form__schedule">
-              <div className="form-group mr-2">{I18n.t('bots.setup.withdrawal_html',
+            <div className="conversational flex-justify-center">
+              <div className="form-group mr-2">{I18n.t('bot.setup.withdrawal_html',
                 {currency: currencyName, address: settings.address}).replaceAll(/<\/?split>/g, '')}</div>
             </div>
 
@@ -258,7 +258,7 @@ const BotTemplate = ({
                 disabled={working}
               />
               <div>
-                <RawHTML tag="span">{splitTranslation(I18n.t('bots.withdraw_threshold_html', {currency: currencyName}))[0]}</RawHTML>
+                <RawHTML tag="span">{splitTranslation(I18n.t('bot.withdraw_threshold_html', {currency: currencyName}))[0]}</RawHTML>
                 <input
                   type="text"
                   size={(threshold.length > 0) ? threshold.length : 3 }
@@ -267,7 +267,7 @@ const BotTemplate = ({
                   onChange={e => setThreshold(e.target.value)}
                   disabled={working}
                 />
-                <RawHTML tag="span">{splitTranslation(I18n.t('bots.withdraw_threshold_html', {currency: currencyName}))[1]}</RawHTML>
+                <RawHTML tag="span">{splitTranslation(I18n.t('bot.withdraw_threshold_html', {currency: currencyName}))[1]}</RawHTML>
 
                 <small className="hide-when-running hide-when-disabled">
                   <div>
@@ -288,7 +288,7 @@ const BotTemplate = ({
                 disabled={working}
               />
               <div>
-                <RawHTML tag="span">{splitTranslation(I18n.t('bots.withdraw_interval_html'))[0]}</RawHTML>
+                <RawHTML tag="span">{splitTranslation(I18n.t('bot.withdraw_interval_html'))[0]}</RawHTML>
                 <input
                   type="text"
                   size={(interval.length > 0) ? interval.length : 3 }
@@ -297,7 +297,7 @@ const BotTemplate = ({
                   onChange={e => setInterval(e.target.value)}
                   disabled={working}
                 />
-                <RawHTML tag="span">{splitTranslation(I18n.t('bots.withdraw_interval_html'))[1]}</RawHTML>
+                <RawHTML tag="span">{splitTranslation(I18n.t('bot.withdraw_interval_html'))[1]}</RawHTML>
               </div>
             </label>
           </form>

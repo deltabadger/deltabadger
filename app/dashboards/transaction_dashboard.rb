@@ -10,7 +10,7 @@ class TransactionDashboard < Administrate::BaseDashboard
   ATTRIBUTE_TYPES = {
     bot: Field::BelongsTo,
     id: Field::Number,
-    offer_id: Field::String.with_options(searchable: false),
+    external_id: Field::String.with_options(searchable: false),
     rate: Field::String.with_options(searchable: false),
     amount: Field::String.with_options(searchable: false),
     market: Field::String,
@@ -29,7 +29,7 @@ class TransactionDashboard < Administrate::BaseDashboard
   COLLECTION_ATTRIBUTES = %i[
     bot
     id
-    offer_id
+    external_id
     rate
     amount
   ].freeze
@@ -39,7 +39,7 @@ class TransactionDashboard < Administrate::BaseDashboard
   SHOW_PAGE_ATTRIBUTES = %i[
     bot
     id
-    offer_id
+    external_id
     rate
     amount
     market
@@ -55,7 +55,7 @@ class TransactionDashboard < Administrate::BaseDashboard
   # on the model's form (`new` and `edit`) pages.
   FORM_ATTRIBUTES = %i[
     bot
-    offer_id
+    external_id
     rate
     amount
     market

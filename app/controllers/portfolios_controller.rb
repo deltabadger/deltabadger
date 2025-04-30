@@ -6,7 +6,7 @@ class PortfoliosController < ApplicationController
   after_action :save_last_assets, except: %i[update_risk_level normalize_allocations compare]
 
   def show
-    @portfolios = current_user.portfolios.all
+    @other_portfolios = current_user.portfolios.all.order(:id).where.not(id: @portfolio.id)
     set_backtest_data
   end
 
@@ -42,10 +42,17 @@ class PortfoliosController < ApplicationController
     end
   end
 
+  def confirm_destroy; end
+
   def destroy
-    @portfolio.destroy
-    session[:portfolio_id] = nil
-    redirect_to portfolios_path, notice: t('alert.portfolio.portfolio_destroyed')
+    if @portfolio.destroy
+      session[:portfolio_id] = nil
+      flash[:notice] = t('alert.portfolio.portfolio_destroyed')
+      render turbo_stream: turbo_stream_redirect(portfolios_path)
+    else
+      flash.now[:alert] = @bot.errors.messages.values.flatten.to_sentence
+      render turbo_stream: turbo_stream_prepend_flash, status: :unprocessable_entity
+    end
   end
 
   def duplicate
@@ -54,7 +61,7 @@ class PortfoliosController < ApplicationController
       new_portfolio.label = "#{new_portfolio.label} copy"
       raise ActiveRecord::Rollback, 'Portfolio duplication failed' unless new_portfolio.save
 
-      @portfolio.assets.each do |asset|
+      @portfolio.portfolio_assets.each do |asset|
         new_asset = asset.dup
         new_asset.portfolio = new_portfolio
         raise ActiveRecord::Rollback, 'Asset duplication failed' unless new_asset.save
@@ -251,7 +258,6 @@ class PortfoliosController < ApplicationController
   end
 
   def set_portfolio
-    puts "params: #{params}"
     @portfolio = if params.present? && params[:id].present?
                    current_user.portfolios.find(params[:id])
                  elsif params.present? && params[:portfolio_id].present?
@@ -261,10 +267,7 @@ class PortfoliosController < ApplicationController
                  else
                    current_user.portfolios.first
                  end
-    unless @portfolio.present?
-      @portfolio = Portfolio.new(default_portfolio_params)
-      @portfolio.save
-    end
+    @portfolio = Portfolio.create(default_portfolio_params) unless @portfolio.present?
     session[:portfolio_id] = @portfolio.id
   end
 
@@ -288,13 +291,15 @@ class PortfoliosController < ApplicationController
       if @portfolio.compare_to.present?
         @backtest['compare_to'] = @portfolio.compare_to.map do |portfolio_id|
           portfolio = current_user.portfolios.find(portfolio_id)
-          if portfolio.assets.present? && portfolio.allocations_are_normalized?
+          if portfolio.portfolio_assets.present? && portfolio.allocations_are_normalized?
             [portfolio.label, portfolio.backtest(custom_start_date: @portfolio.backtest_start_date)]
           end
         end.compact
       end
     end
-    return unless @portfolio.smart_allocation_on? && @portfolio.assets.present? && @portfolio.smart_allocations[0].empty?
+    unless @portfolio.smart_allocation_on? && @portfolio.portfolio_assets.present? && @portfolio.smart_allocations[0].empty?
+      return
+    end
 
     # show flash message if the data API server is unreachable.
     flash.now[:alert] = t('alert.portfolio.unable_to_calculate')

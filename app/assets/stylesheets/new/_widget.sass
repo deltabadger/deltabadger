@@ -1,32 +1,38 @@
-.widgets
+.widget-group
     border-radius: 2rem
     overflow: hidden
-    
+    display: flex
+    flex-direction: column
+    gap: 0.25rem
+
+    box-shadow: var(--widget-shadow)
+    .widget, .insight
+        border-radius: 0
+        box-shadow: none
+
 .widget
     background: var(--widget-background)
     padding: 3rem
     display: flex
     flex-direction: column
-    gap: 2rem
-    margin-bottom: 2px
-    &--single
+    gap: 3rem
+    border-radius: 2rem
+    box-shadow: var(--widget-shadow)
+    &--info
+        background: var(--insight-background)
+    &.widget--chart
+        padding-bottom: 2rem
+        @media only screen and (max-width: 549.9px)
+            padding-bottom: 1rem
+    &.data-grid
         border-radius: 2rem
-        margin-bottom: 0
-        &.widget--chart
-            padding-bottom: 2rem
-            @media only screen and (max-width: 549.9px)
-                padding-bottom: 1rem
-        &.data-grid
-            border-radius: 2rem
-            overflow: hidden
+        padding: 0
     &--thin
         padding: 1.5rem 3rem
         @media only screen and (max-width: 549.9px)
             padding: 1.5rem 2rem !important
     @media only screen and (max-width: 549.9px)
         padding: 2rem
-    &.data-grid
-        padding: 0
     &--chart
         gap: 0
         .data-grid__item
@@ -38,69 +44,81 @@
                 font-weight: 600
     &--table
         padding: 0
-        overflow: hidden
+        overflow: scroll
+        max-height: 528px
+        overflow-y: auto
+        text-wrap: nowrap
         table
             margin-bottom: 0
+            border-collapse: collapse
+        thead
+            position: sticky
+            top: 0
+            background-color: var(--widget-background)
+            box-shadow: 0 0.25rem var(--widget-shadow-line)
+        tbody
+            overflow-y: auto
         td, th
             padding: 1.5rem 0 1.5rem 3rem
+            text-align: right
+            border: none
+            &:first-child
+                text-align: left
             @media only screen and (max-width: 549.9px)
-                padding: 1.5rem 0 1.5rem 2rem
+                padding-left: 2rem
             &:last-child
                 padding-right: 3rem
-        .table-striped tbody tr:nth-of-type(odd)
-            background-color: var(--pickExchangeItemBg)
-
+                @media only screen and (max-width: 549.9px)
+                    padding-right: 2rem
+    .sinput
+        box-shadow: none
+    p:last-child
+        margin-bottom: 0
+    strong
+        color: var(--emphasis)
 .data-grid
-    background: none
     display: grid
-    grid-template-columns: repeat(6, 1fr)
-    gap: 2px
-    @container (max-width: 1223px)
-        grid-template-columns:  repeat(5, 1fr)
-    @container (max-width: 959px)
-        grid-template-columns:  repeat(4, 1fr)
-    @container (max-width: 767px)
-        grid-template-columns:  repeat(3, 1fr)
-    @container (max-width: 511px)
-        grid-template-columns:  repeat(2, 1fr)
+    gap: 0
+    grid-template-columns: repeat(2, 50%)
+    background-image: linear-gradient(to right, transparent, transparent calc(50% - 0.25rem), var(--widget-shadow-line) calc(50% - 0.25rem), var(--widget-shadow-line) calc(50%), transparent calc(50%)), linear-gradient(to bottom, transparent, transparent calc(12.3rem), var(--widget-shadow-line) calc(12.3rem), var(--widget-shadow-line) calc(12.3rem + 0.25rem), transparent calc(12.3rem + 0.25rem))
+    background-size: 100% 100%, 100% calc(12.3rem + 0.25rem)
+    background-repeat: no-repeat, repeat-y
+    &--two-columns
+        grid-template-columns: repeat(2, 50%) !important
+        background-image: linear-gradient(to right, transparent, transparent calc(50% - 0.25rem), var(--widget-shadow-line) calc(50% - 0.25rem), var(--widget-shadow-line) calc(50%), transparent calc(50%)) !important
+        .data-grid__item__value
+            min-height: auto
+    @container (min-width: 576px)
+        grid-template-columns: repeat(3, 33%)
+        background-image: linear-gradient(to right, transparent, transparent calc(33.33% - 0.25rem), var(--widget-shadow-line) calc(33.33% - 0.25rem), var(--widget-shadow-line) calc(33.33%), transparent calc(33.33%)), linear-gradient(to right, transparent, transparent calc(66.66% - 0.25rem), var(--widget-shadow-line) calc(66.66% - 0.25rem), var(--widget-shadow-line) calc(66.66%), transparent calc(66.66%)), linear-gradient(to bottom, transparent, transparent calc(12.3rem), var(--widget-shadow-line) calc(12.3rem), var(--widget-shadow-line) calc(12.3rem + 0.25rem), transparent calc(12.3rem + 0.25rem))
+        background-size: 100% 100%, 100% 100%, 100% calc(12.3rem + 0.25rem)
+        background-repeat: no-repeat, no-repeat, repeat-y
+    @container (min-width: 768px)
+        grid-template-columns: repeat(4, 25%)
+        background-image: linear-gradient(to right, transparent, transparent calc(25% - 0.25rem), var(--widget-shadow-line) calc(25% - 0.25rem), var(--widget-shadow-line) calc(25%), transparent calc(25%)), linear-gradient(to right, transparent, transparent calc(50% - 0.25rem), var(--widget-shadow-line) calc(50% - 0.25rem), var(--widget-shadow-line) calc(50%), transparent calc(50%)), linear-gradient(to right, transparent, transparent calc(75% - 0.25rem), var(--widget-shadow-line) calc(75% - 0.25rem), var(--widget-shadow-line) calc(75%), transparent calc(75%)), linear-gradient(to bottom, transparent, transparent calc(12.3rem), var(--widget-shadow-line) calc(12.3rem), var(--widget-shadow-line) calc(12.3rem + 0.25rem), transparent calc(12.3rem + 0.25rem))
+        background-size: 100% 100%, 100% 100%, 100% 100%, 100% calc(12.3rem + 0.25rem)
+        background-repeat: no-repeat, no-repeat, no-repeat, repeat-y
     &__item
         padding: 2.5rem 2.5rem 2rem 3rem
         position: relative
         display: flex
         flex-direction: column
-        background-color: var(--widget-background)
         @media only screen and (max-width: 549.9px)
             padding: 2rem 2rem 1rem 2rem
-        &:not(.data-grid__item--empty):hover
-            // background-color: var(--widget-line)
-            // cursor: pointer
         &__value
             font-size: 3rem
             line-height: 5rem
             color: var(--emphasis)
             min-width: 3rem
-            min-height: 3rem
+            min-height: 5rem
+            @media (max-width: 549.9px)
+                min-height: 6.5rem
             path
                 fill: var(--label)
             svg
                 width: 3rem
-        &--filler
-            display: none !important
-            &--2
-                @container (max-width: 511px)
-                    display: flex !important
-            &--3
-                @container (min-width: 511rem) and (max-width: 767px)
-                    display: flex !important
-            &--4
-                @container (min-width: 767.5px) and (max-width: 959px)
-                    display: flex !important
-            &--5
-                @container (min-width: 959.5px) and (max-width: 1223px)
-                    display: flex !important
-            &--6
-                @container (min-width: 1223.5px)
-                    display: flex !important
+            small
+                color: var(--label)
         .tooltip
             bottom: calc(100% - 1rem)
             left: 0
