@@ -151,13 +151,13 @@ es:
         withdrawal_percentage: '%{percentage}%'
         withdrawal: 'Retirada'
         warning:
-            title: "Tu bot está listo, pero…"
+            title: "¡Enhorabuena! Tu bot está en marcha."
             both_below:
-                intro: "Tanto la cantidad de %{base_ticker} como la de %{quote_ticker} están por debajo del tamaño mínimo de orden de %{exchange_name} (%{min_base} %{base_ticker} y %{min_quote} %{quote_ticker}, respectivamente). Así es como el bot maneja esto:"
+                intro: "Sin embargo, tanto la cantidad de la orden de %{base0_symbol} como la de %{base1_symbol} están por debajo de los tamaños mínimos de orden de %{exchange_name} (%{base0_minimum_base_size} %{base0_symbol} o %{base0_minimum_quote_size} %{quote_symbol} para %{base0_symbol} y %{base1_minimum_base_size} %{base1_symbol} o %{base1_minimum_quote_size} %{quote_symbol} para %{base1_symbol}). Así es como el bot lo gestiona:"
             one_below:
-                intro: "Tu bot comprará la cantidad inicial de %{bought_amount} %{bought_ticker} de inmediato. Sin embargo, la cantidad de %{missed_ticker} está por debajo del tamaño mínimo de orden de %{exchange_name} (%{min_missed} %{missed_ticker}). Así es como el bot maneja esto:"
+                intro: "Tu bot ha comprado %{bought_quote_amount} %{quote_symbol} de %{bought_symbol}, pero la cantidad de %{missed_symbol} estaba por debajo del tamaño mínimo de orden de %{exchange_name} (%{missed_minimum_base_size} %{missed_symbol} o %{missed_minimum_quote_size} %{quote_symbol} para %{missed_symbol}). Así es como el bot lo gestiona:"
             buffer_explanation:
-                one: "Almacena la cantidad omitida y la añade a la siguiente orden programada, asegurando que tu horario y asignación se mantengan lo más cerca posible de lo que permiten los mínimos del exchange."
-                other: "Almacena las cantidades omitidas y las añade a las siguientes órdenes programadas, asegurando que tu horario y asignación se mantengan lo más cerca posible de lo que permiten los mínimos del exchange."
-            general_note: "Los mínimos del exchange y las cantidades de reequilibrio requeridas pueden cambiar. Las órdenes pueden parecer irregulares a veces, pero el bot siempre apunta a tu asignación y horario deseados, por lo que no se necesita trabajo adicional."
+                one: "La cantidad que no se pudo usar se ha guardado y se usará con la próxima orden programada, asegurando que tu programación y asignación se mantengan lo más cerca posible de los mínimos del exchange."
+                other: "Las cantidades que no se pudieron usar se han guardado y se usarán con las próximas órdenes programadas, asegurando que tu programación y asignación se mantengan lo más cerca posible de los mínimos del exchange."
+            general_note: "Los mínimos del exchange y las cantidades requeridas para el rebalanceo pueden cambiar. Las transacciones a veces pueden parecer irregulares, pero el bot siempre apunta a tu asignación y programación deseadas, así que no necesitas hacer nada más."
             tooltip_explanation: "Esta orden se omitió porque la cantidad estaba por debajo del tamaño mínimo de orden de %{exchange_name}. La cantidad omitida se ha almacenado y se añadirá a la siguiente orden."

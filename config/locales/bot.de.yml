@@ -164,13 +164,13 @@ de:
         withdrawal_percentage: '%{percentage}%'
         withdrawal: 'Auszahlung'
         warning:
-            title: "Dein Bot ist bereit, aber…"
+            title: "Glückwunsch! Dein Bot läuft."
             both_below:
-                intro: "Sowohl der %{base_ticker}- als auch der %{quote_ticker}-Betrag liegen unter der Mindestbestellgröße von %{exchange_name} (%{min_base} %{base_ticker} bzw. %{min_quote} %{quote_ticker}). So geht der Bot damit um:"
+                intro: "Allerdings liegen sowohl die Ordermengen von %{base0_symbol} als auch %{base1_symbol} unter den Mindestbestellgrößen von %{exchange_name} (%{base0_minimum_base_size} %{base0_symbol} oder %{base0_minimum_quote_size} %{quote_symbol} für %{base0_symbol} und %{base1_minimum_base_size} %{base1_symbol} oder %{base1_minimum_quote_size} %{quote_symbol} für %{base1_symbol}). So geht der Bot damit um:"
             one_below:
-                intro: "Dein Bot wird den anfänglichen Betrag von %{bought_amount} %{bought_ticker} sofort kaufen. Der %{missed_ticker}-Betrag liegt jedoch unter der Mindestbestellgröße von %{exchange_name} (%{min_missed} %{missed_ticker}). So geht der Bot damit um:"
+                intro: "Dein Bot hat %{bought_quote_amount} %{quote_symbol} von %{bought_symbol} gekauft, aber die Menge von %{missed_symbol} lag unter der Mindestbestellgröße von %{exchange_name} (%{missed_minimum_base_size} %{missed_symbol} oder %{missed_minimum_quote_size} %{quote_symbol} für %{missed_symbol}). So geht der Bot damit um:"
             buffer_explanation:
-                one: "Er puffert den verpassten Betrag und fügt ihn der nächsten geplanten Bestellung hinzu, um sicherzustellen, dass dein Zeitplan und deine Zuweisung so genau wie möglich eingehalten werden, wie es die Mindestbeträge der Börse zulassen."
-                other: "Er puffert die verpassten Beträge und fügt sie den nächsten geplanten Bestellungen hinzu, um sicherzustellen, dass dein Zeitplan und deine Zuweisung so genau wie möglich eingehalten werden, wie es die Mindestbeträge der Börse zulassen."
-            general_note: "Die Mindestbeträge der Börsen und die erforderlichen Neugewichtungsbeträge können sich ändern. Bestellungen können manchmal unregelmäßig erscheinen, aber der Bot zielt immer auf deine gewünschte Zuweisung und deinen Zeitplan ab, sodass keine zusätzliche Arbeit erforderlich ist."
+                one: "Der verpasste Betrag wurde gepuffert und wird mit der nächsten geplanten Order verwendet, sodass dein Zeitplan und deine Allokation so gut wie möglich entsprechend den Börsen-Mindestgrößen eingehalten werden."
+                other: "Die verpassten Beträge wurden gepuffert und werden mit den nächsten geplanten Orders verwendet, sodass dein Zeitplan und deine Allokation so gut wie möglich entsprechend den Börsen-Mindestgrößen eingehalten werden."
+            general_note: "Börsen-Mindestgrößen und erforderliche Rebalancing-Beträge ändern sich. Transaktionen können manchmal unregelmäßig aussehen, aber der Bot hält immer deine gewünschte Allokation und deinen Zeitplan ein, sodass kein zusätzlicher Aufwand nötig ist."
             tooltip_explanation: "Diese Bestellung wurde übersprungen, da der Betrag unter der Mindestbestellgröße von %{exchange_name} lag. Der übersprungene Betrag wurde gepuffert und wird der nächsten Bestellung hinzugefügt."

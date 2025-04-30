@@ -26,6 +26,25 @@ module Bots::Barbell::OrderSetter # rubocop:disable Metrics/ModuleLength
     quote_amount * (3.days.to_f / 1.public_send(interval))
   end
 
+  def get_barbell_orders(total_orders_amount_in_quote)
+    result = get_metrics_with_current_prices
+    return result unless result.success?
+
+    result0 = exchange.get_ask_price(base_asset_id: base0_asset_id, quote_asset_id: quote_asset_id)
+    return result0 unless result0.success?
+
+    result1 = exchange.get_ask_price(base_asset_id: base1_asset_id, quote_asset_id: quote_asset_id)
+    return result1 unless result1.success?
+
+    Result::Success.new(calculate_orders_data(
+                          balance0: result.data[:total_base0_amount_acquired],
+                          balance1: result.data[:total_base1_amount_acquired],
+                          price0: result0.data,
+                          price1: result1.data,
+                          total_orders_amount_in_quote: total_orders_amount_in_quote
+                        ))
+  end
+
   def set_barbell_orders
     calculate_pending_quote_amount
     return Result::Success.new if pending_quote_amount.zero?
@@ -36,21 +55,10 @@ module Bots::Barbell::OrderSetter # rubocop:disable Metrics/ModuleLength
     quote_balance = result.data
     notify_end_of_funds if quote_balance[:free] < pending_quote_amount + required_balance_buffer
 
-    result = get_metrics_with_current_prices
+    result = get_barbell_orders(pending_quote_amount)
     return result unless result.success?
 
-    result0 = exchange.get_ask_price(base_asset_id: base0_asset_id, quote_asset_id: quote_asset_id)
-    return result0 unless result0.success?
-
-    result1 = exchange.get_ask_price(base_asset_id: base1_asset_id, quote_asset_id: quote_asset_id)
-    return result1 unless result1.success?
-
-    orders_data = calculate_orders_data(
-      balance0: result.data[:total_base0_amount_acquired],
-      balance1: result.data[:total_base1_amount_acquired],
-      price0: result0.data,
-      price1: result1.data
-    )
+    orders_data = result.data
     orders_data.each do |order_data|
       result = set_order(order_data)
       return result unless result.success?
@@ -77,19 +85,35 @@ module Bots::Barbell::OrderSetter # rubocop:disable Metrics/ModuleLength
     )
   end
 
+  def calculate_best_amount_info(order_data)
+    ticker = exchange.tickers.find_by!(base_asset: order_data[:base_asset], quote_asset: order_data[:quote_asset])
+
+    minimum_quote_size_in_base = ticker.minimum_quote_size / order_data[:rate]
+    minimum_base_size_in_base = ticker.minimum_base_size
+    amount_type = minimum_quote_size_in_base < minimum_base_size_in_base ? :quote : :base
+    amount = amount_type == :base ? order_data[:amount] : order_data[:quote_amount]
+    minimum_amount_in_base = amount_type == :base ? minimum_base_size_in_base : minimum_quote_size_in_base
+
+    {
+      amount_type: amount_type,
+      amount: amount,
+      below_minimum_amount: amount < minimum_amount_in_base
+    }
+  end
+
   private
 
-  def calculate_orders_data(balance0:, balance1:, price0:, price1:)
+  def calculate_orders_data(balance0:, balance1:, price0:, price1:, total_orders_amount_in_quote:)
     effective_allocation1 = 1 - effective_allocation0
     balance0_in_quote = balance0 * price0
     balance1_in_quote = balance1 * price1
-    total_balance_in_quote = balance0_in_quote + balance1_in_quote + pending_quote_amount
+    total_balance_in_quote = balance0_in_quote + balance1_in_quote + total_orders_amount_in_quote
     target_balance0_in_quote = total_balance_in_quote * effective_allocation0
     target_balance1_in_quote = total_balance_in_quote * effective_allocation1
     base0_offset = [0, target_balance0_in_quote - balance0_in_quote].max
     base1_offset = [0, target_balance1_in_quote - balance1_in_quote].max
-    base0_order_size_in_quote = [base0_offset, pending_quote_amount].min
-    base1_order_size_in_quote = [base1_offset, pending_quote_amount - base0_order_size_in_quote].min
+    base0_order_size_in_quote = [base0_offset, total_orders_amount_in_quote].min
+    base1_order_size_in_quote = [base1_offset, total_orders_amount_in_quote - base0_order_size_in_quote].min
     base0_order_size_in_base = base0_order_size_in_quote / price0
     base1_order_size_in_base = base1_order_size_in_quote / price1
     [
@@ -111,20 +135,17 @@ module Bots::Barbell::OrderSetter # rubocop:disable Metrics/ModuleLength
   end
 
   def set_order(order_data)
-    ticker = exchange.tickers.find_by!(base_asset: order_data[:base_asset], quote_asset: order_data[:quote_asset])
+    return Result::Success.new if order_data[:amount].zero?
 
-    minimum_quote_size_in_base = ticker.minimum_quote_size / order_data[:rate]
-    minimum_base_size_in_base = ticker.minimum_base_size
-    amount_type = minimum_quote_size_in_base < minimum_base_size_in_base ? :quote : :base
-    minimum_amount = amount_type == :base ? minimum_base_size_in_base : minimum_quote_size_in_base
+    amount_info = calculate_best_amount_info(order_data)
 
-    return Result::Success.new(create_skipped_order!(order_data)) if order_data[:amount] < minimum_amount
+    return Result::Success.new(create_skipped_order!(order_data)) if amount_info[:below_minimum_amount]
 
     result = market_buy(
       base_asset_id: order_data[:base_asset].id,
       quote_asset_id: order_data[:quote_asset].id,
-      amount: amount_type == :base ? order_data[:amount] : order_data[:quote_amount],
-      amount_type: amount_type
+      amount: amount_info[:amount],
+      amount_type: amount_info[:amount_type]
     )
 
     if result.success?
