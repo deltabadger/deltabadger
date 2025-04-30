@@ -1,5 +1,121 @@
 .conversational
     display: flex
-    line-height: 4rem
+    line-height: 3rem
     gap: 1rem
     font-weight: 600
+    color: var(--text)
+    @media (min-width: 768px)
+        line-height: 4rem
+    &--bot-setup
+        font-size: 2.25rem
+        font-weight: bold
+        flex-wrap: wrap
+        justify-content: center
+        @media (min-width: 768px)
+            font-size: 2.5rem
+    &__input
+        border: none
+        margin: 0
+        background: none
+        color: var(--emphasis) !important
+        text-align: left
+        max-width: 10rem
+        text-transform: uppercase
+        &:focus
+            outline: none
+        &::placeholder
+            color: var(--label)
+    .ticker
+        margin: 0 0.125rem
+        @media (min-width: 768px)
+            margin: 0 0.25rem
+    .ticker-input
+        background: var(--sinput-on-paper) !important
+    .sinput
+        font-weight: 700 !important
+        color: var(--input-text)
+        background: var(--sinput-on-paper)
+        @media (max-width: 767.9px)
+            line-height: 3rem
+            height: 3rem
+    &--big
+        font-size: 2.5rem
+        .sinput
+            background: var(--widget-background) !important
+.db-bot
+    .conversational
+        padding: 3rem 0 4rem
+    .sinput
+        box-shadow: none
+        background: var(--sinput-on-paper)
+        text-align: center
+
+.process-progress
+    display: flex
+    align-items: center
+    justify-content: center
+    gap: 0.5rem
+    &__connector
+        width: 4rem
+        height: 0.25rem
+        border-radius: 0.25rem
+        background: var(--link)
+        @media (max-width: 768px)
+            width: 2rem
+    &__step
+        display: flex
+        flex-direction: column
+        align-items: center
+        font-weight: bold
+        &--done
+            color: var(--link)
+        &--now
+             color: var(--link)
+             &~.process-progress__connector
+                background: var(--label)
+                opacity: 0.5
+        &--todo
+            color: var(--label)
+            opacity: 0.5
+
+.exchange-picker
+    &__items
+        display: flex
+        flex-direction: column
+        gap: 1rem
+    &__item
+      display:                  grid
+      grid-template-columns:    30% 20% 20% 30%
+      width:                    100%
+      text-align:               left
+      padding:                  2rem
+      @media (min-width: 768px)
+        padding: 3rem
+      &--header
+        color:                  var(--label)
+      &--exchange
+        background:             none
+        font-weight:            bold
+        border-radius:          $small-box-border-radius          
+        width:                  100%
+        border:                 0
+        color:                  var(--pickExchangeItemTxt)
+        cursor:                 pointer
+        &:hover
+            background: var(--modal-search-highlight-background)
+
+.bot-creation-layout
+    display: flex
+    flex-direction: column
+    gap: 6rem
+    @media (min-width: 768px)
+        gap: 12rem
+.bot-creation-preview
+    display: flex
+    flex-direction: column
+    gap: 1rem
+    padding: 0 1rem
+    @media (prefers-color-scheme: light)
+        filter: drop-shadow(0.5rem 0.5rem 1rem #0241) drop-shadow(0 0 10rem #0241)
+    @media (prefers-color-scheme: dark)
+        filter: drop-shadow(0.5rem 0.5rem 1rem #0127) drop-shadow(0 0 10rem #0127)

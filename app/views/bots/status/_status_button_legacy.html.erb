@@ -1,0 +1,28 @@
+<%= turbo_stream_from "bot_#{bot.id}", :status_button %>
+
+<%= tag.div id: dom_id(bot, :status_button) do %>
+  <% if bot.working? || bot.pending? || bot.retrying? %>
+    <%= button_to stop_api_bot_path(bot), class: "button button--primary button--outline", data: { hw_animate_out: "animate-button-to-start-shape"} do %>
+      <div class="animicon animicon--stop">
+        <div class="animicon__a"></div>
+        <div class="animicon__b"></div>
+      </div>
+    <% end %>
+  <% else %>
+    <% if bot.restarting? %>
+      <%= button_to confirm_restart_legacy_bot_path(bot), method: :get, class: "button button--success", data: { hw_animate_out: "animate-button-to-stop-shape", turbo_frame: "modal" } do %>
+        <div class="animicon animicon--start">
+          <div class="animicon__a"></div>
+          <div class="animicon__b"></div>
+        </div>
+      <% end %>
+    <% else %>
+      <%= button_to start_api_bot_path(bot, continue_params: {continue_schedule: true}), class: "button button--success", data: { hw_animate_out: "animate-button-to-stop-shape" } do %>
+        <div class="animicon animicon--start">
+          <div class="animicon__a"></div>
+          <div class="animicon__b"></div>
+        </div>
+      <% end %>
+    <% end %>
+  <% end %>
+<% end %>

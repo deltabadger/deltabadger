@@ -10,6 +10,18 @@ application.register("arrow-keys-navigation", ArrowKeysNavigationController)
 import AutofocusController from "./autofocus_controller"
 application.register("autofocus", AutofocusController)
 
+import AutowidthInputController from "./autowidth_input_controller"
+application.register("autowidth-input", AutowidthInputController)
+
+import Bot__BarbellAllocationController from "./bot/barbell_allocation_controller"
+application.register("bot--barbell-allocation", Bot__BarbellAllocationController)
+
+import Bot__ChartController from "./bot/chart_controller"
+application.register("bot--chart", Bot__ChartController)
+
+import ClassToggleController from "./class_toggle_controller"
+application.register("class-toggle", ClassToggleController)
+
 import ClipboardController from "./clipboard_controller"
 application.register("clipboard", ClipboardController)
 
@@ -30,6 +42,9 @@ application.register("form--html5-validations", Form__Html5ValidationsController
 
 import Form__LabelAnimationsController from "./form/label_animations_controller"
 application.register("form--label-animations", Form__LabelAnimationsController)
+
+import Form__MoveCursorToEndController from "./form/move_cursor_to_end_controller"
+application.register("form--move-cursor-to-end", Form__MoveCursorToEndController)
 
 import Form__PasswordMatchController from "./form/password_match_controller"
 application.register("form--password-match", Form__PasswordMatchController)
@@ -67,14 +82,17 @@ application.register("portfolio-analyzer--chart", PortfolioAnalyzer__ChartContro
 import PortfolioAnalyzer__RiskLevelAllocationsController from "./portfolio_analyzer/risk_level_allocations_controller"
 application.register("portfolio-analyzer--risk-level-allocations", PortfolioAnalyzer__RiskLevelAllocationsController)
 
+import ProgressBarController from "./progress_bar_controller"
+application.register("progress-bar", ProgressBarController)
+
 import RemovalsController from "./removals_controller"
 application.register("removals", RemovalsController)
 
-import ShowHideController from "./show_hide_controller"
-application.register("show-hide", ShowHideController)
-
 import TooltipController from "./tooltip_controller"
 application.register("tooltip", TooltipController)
+
+import TurboFrameTriggerController from "./turbo_frame_trigger_controller"
+application.register("turbo-frame-trigger", TurboFrameTriggerController)
 
 import ZarazController from "./zaraz_controller"
 application.register("zaraz", ZarazController)

@@ -1,8 +1,9 @@
 class BotAlertsMailer < ApplicationMailer
   def notify_about_error
     @user = params[:user]
-    @errors = params[:errors]
+    @errors = params[:errors].to_sentence
     @bot = params[:bot]
+    @label = @bot.label
     @exchange_name = Exchange.find(@bot.exchange_id).name.upcase
 
     mail(to: @user.email, subject: default_i18n_subject)
@@ -10,9 +11,10 @@ class BotAlertsMailer < ApplicationMailer
 
   def notify_about_restart
     @user = params[:user]
-    @delay = params[:delay]
-    @errors = params[:errors]
+    @restart_at = params[:restart_at]
+    @errors = params[:errors].to_sentence
     @bot = params[:bot]
+    @label = @bot.label
     @exchange_name = Exchange.find(@bot.exchange_id).name.upcase
 
     mail(to: @user.email, subject: default_i18n_subject)
@@ -22,6 +24,7 @@ class BotAlertsMailer < ApplicationMailer
     @user = params[:user]
     @bot = params[:bot]
     @quote = params[:quote]
+    @label = @bot.label
     @exchange_name = Exchange.find(@bot.exchange_id).name
 
     mail(to: @user.email, subject: default_i18n_subject)

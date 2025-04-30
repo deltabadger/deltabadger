@@ -15,16 +15,13 @@ class GenerateTransactionsCsv < BaseService
   end
 
   def initialize(
-    transactions_repository: TransactionsRepository.new,
     generate_csv: GenerateCsv.new
   )
-
-    @transactions_repository = transactions_repository
     @generate_csv = generate_csv
   end
 
   def call(bot)
-    format_data = if bot.trading?
+    format_data = if bot.basic?
                     Presenters::Api::TradingTransaction.new
                   elsif bot.withdrawal?
                     Presenters::Api::WithdrawalTransaction.new
@@ -32,7 +29,7 @@ class GenerateTransactionsCsv < BaseService
                     Presenters::Api::WebhookTransaction.new
                   end
 
-    transactions = @transactions_repository.for_bot_by_status(bot, status: :success)
+    transactions = Transaction.for_bot_by_status(bot, status: :success)
     formatted_data = transactions.map { |t| format_data.call(t) }
     @generate_csv.call(formatted_data)
   end

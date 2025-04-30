@@ -4,7 +4,7 @@
 .hamburger.hamburger__b
 
 .menu-mobile
-  = link_to root_path, class: 'menu-mobile__item menu-mobile__item--dashboard', data: { controller: 'tooltip', action: 'mouseenter->tooltip#showTooltip mouseleave->tooltip#hideTooltip' } do
+  = link_to bots_path, class: 'menu-mobile__item menu-mobile__item--dashboard', data: { controller: 'tooltip', action: 'mouseenter->tooltip#showTooltip mouseleave->tooltip#hideTooltip' } do
     = t('links.dashboard')
 
   = link_to calculator_path, class: 'menu-mobile__item menu-mobile__item--calculator', data: { controller: 'tooltip', action: 'mouseenter->tooltip#showTooltip mouseleave->tooltip#hideTooltip' } do
@@ -26,9 +26,13 @@
     = link_to upgrade_path, class: 'menu-mobile__item menu-mobile__item--upgrade', data: { controller: 'tooltip', action: 'mouseenter->tooltip#showTooltip mouseleave->tooltip#hideTooltip' } do
       = t('subscriptions.upgrade_plan')
   .menu-mobile__divider
-  = link_to 'https://skool.com/fire', class: "menu-mobile__item menu-mobile__item--community", data: { controller: 'tooltip', action: 'mouseenter->tooltip#showTooltip mouseleave->tooltip#hideTooltip' }, target: "_blank", rel: "noopener" do
-    = t('links.community')
-    = render "svg/16x16_link"
+  - if current_user.has_community_access? || ["basic", "legendary", "pro"].include?(current_user.subscription.name)
+    = link_to 'https://skool.com/fire', class: "menu-mobile__item menu-mobile__item--community", data: { controller: 'tooltip', action: 'mouseenter->tooltip#showTooltip mouseleave->tooltip#hideTooltip' }, target: "_blank", rel: "noopener" do
+      = t('links.community')
+      = render "svg/16x16_link"
+  - else
+    = link_to settings_community_access_instructions_path, class: "menu-mobile__item menu-mobile__item--community", data: { controller: 'tooltip', action: 'mouseenter->tooltip#showTooltip mouseleave->tooltip#hideTooltip', turbo_frame: "modal" } do
+      = t('links.community')
 
   .menu-mobile__divider
   .menu-mobile__item
@@ -46,6 +50,8 @@
     = link_to "Español", url_for(request.params.merge(locale: 'es')), class: "menu-mobile__item"
   - unless locale == 'pt'
     = link_to "Português", url_for(request.params.merge(locale: 'pt')), class: "menu-mobile__item"
+  - unless locale == 'it'
+    = link_to "Italiano", url_for(request.params.merge(locale: 'it')), class: "menu-mobile__item"
   - unless locale == 'pl'
     = link_to "Polski", url_for(request.params.merge(locale: 'pl')), class: "menu-mobile__item"
   - unless locale == 'ru'
@@ -56,7 +62,7 @@
 .menu
   .menu__section.menu__section--top.menu__section--logo
 
-    = link_to root_path, class: 'menu__logo' do
+    = link_to bots_path, class: 'menu__logo' do
       -unless current_user.subscription.name == 'legendary'
         = render 'svg/40x30_logo'
         -# = render 'layouts/devise_messages'
@@ -66,7 +72,7 @@
 
   .menu__section.menu__section--top.menu__section--main-menu
 
-    = link_to root_path, class: 'menu__item menu__item--dashboard', data: { controller: 'tooltip', action: 'mouseenter->tooltip#showTooltip mouseleave->tooltip#hideTooltip' } do
+    = link_to bots_path, class: 'menu__item menu__item--dashboard', data: { controller: 'tooltip', action: 'mouseenter->tooltip#showTooltip mouseleave->tooltip#hideTooltip' } do
       = render 'svg/24x24_dashboard'
       .tooltip
         = t('links.dashboard')
@@ -92,11 +98,17 @@
       .tooltip
         = t('links.settings')
 
-    = link_to 'https://skool.com/fire', class: "menu__item menu__item--community", data: { controller: 'tooltip', action: 'mouseenter->tooltip#showTooltip mouseleave->tooltip#hideTooltip' }, target: "_blank", rel: "noopener" do
-      = render 'svg/24x24_fire'
-      //.xsbadge= t('utils.new')
-      .tooltip
-        = t('links.community')
+    - if current_user.has_community_access? || ["basic", "legendary", "pro"].include?(current_user.subscription.name)
+      = link_to 'https://skool.com/fire', class: "menu__item menu__item--community", data: { controller: 'tooltip', action: 'mouseenter->tooltip#showTooltip mouseleave->tooltip#hideTooltip' }, target: "_blank", rel: "noopener" do
+        = render 'svg/24x24_fire'
+        //.xsbadge= t('utils.new')
+        .tooltip
+          = t('links.community')
+    - else
+      = link_to settings_community_access_instructions_path, class: "menu__item menu__item--community", data: { controller: 'tooltip', action: 'mouseenter->tooltip#showTooltip mouseleave->tooltip#hideTooltip', turbo_frame: "modal" } do
+        = render 'svg/24x24_fire'
+        .tooltip
+          = t('links.community')
 
     - if current_user.subscription.name == 'legendary'
       = link_to legendary_path, class: 'menu__item menu__item--legendary-plan', data: { controller: 'tooltip', action: 'mouseenter->tooltip#showTooltip mouseleave->tooltip#hideTooltip' } do

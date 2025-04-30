@@ -1,0 +1,20 @@
+<%= render 'layouts/modal/full_page' do %>
+  <div class="bot-creation-layout">
+    <%= render partial: 'bots/barbell/new/progress_bar', locals: {
+      current_step: :currencies
+    } %>
+    <div class="conversational conversational--bot-setup">
+      <%= t('bot.setup.sentence.invest_in') %>
+      <%= render partial: 'bots/barbell/new/asset_search_input', locals: {
+        bot: @bot,
+        search_form_path: barbell_new_step_to_first_asset_bots_path
+      } %>
+    </div>
+    <%= render partial: 'bots/barbell/new/asset_search_results', locals: {
+      bot: @bot,
+      asset_field: :base0_asset_id,
+      next_step_path: barbell_new_step_to_second_asset_bots_path,
+      assets: @assets
+    } %>
+  </div>
+<% end %>

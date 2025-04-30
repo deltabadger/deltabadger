@@ -1,0 +1,114 @@
+<% quote_color = ensure_contrast(@bot.quote_asset&.color || "#8A9BA8") %>
+<% base0_color = ensure_contrast(@bot.base0_asset&.color || "#8A9BA8") %>
+<% base1_color = ensure_contrast(@bot.base1_asset&.color || "#8A9BA8") %>
+
+<%= render 'layouts/modal/full_page' do %>
+  <div class="bot-creation-layout">
+    <%= render partial: 'bots/barbell/new/progress_bar', locals: {
+      current_step: :api
+    } %>
+    <div class="conversational conversational--bot-setup">
+      <%= t('bot.setup.sentence.invest_in') %>
+
+      <%= link_to @bot.base0_asset.symbol, barbell_new_step_to_first_asset_bots_path({
+      bots_barbell: {
+        label: @bot.label,
+      }}), data: { turbo_frame: "modal_content" }, class: "ticker", style: "background: #{base0_color}" %>
+
+      <%= t('bot.setup.sentence.and') %>
+
+      <%= link_to @bot.base1_asset.symbol, barbell_new_step_to_second_asset_bots_path({
+      bots_barbell: {
+        label: @bot.label,
+        base0_asset_id: @bot.base0_asset_id,
+      }}), data: { turbo_frame: "modal_content" }, class: "ticker", style: "background: #{base1_color}" %>
+      <div style="display: flex; gap: 1rem">
+        <%= t('bot.setup.sentence.at') %>
+
+        <%= link_to barbell_new_step_exchange_bots_path({
+        bots_barbell: {
+          label: @bot.label,
+          base0_asset_id: @bot.base0_asset_id,
+          base1_asset_id: @bot.base1_asset_id,
+        }}), data: { turbo_frame: "modal_content" }, class: "sinput sinput--select sinput--exchange sinput--exchange--#{@bot.exchange.name.downcase}" do %>
+          <%= render "svg/exchange-#{@bot.exchange.name.downcase}", title: @bot.exchange.name %>
+          <%= @bot.exchange.name.capitalize %>
+        <% end %>
+      </div>
+    </div>
+    <div class="set-api">
+      <div class="set-api__form">
+
+        <h2 class="set-api__header"><%= t('bot.add_api_keys', exchange: @bot.exchange.name.capitalize) %></h2>
+
+        <%= form_with model: @api_key, url: barbell_new_step_api_key_create_bots_path(
+          bots_barbell: {
+            label: @bot.label,
+            base0_asset_id: @bot.base0_asset_id,
+            base1_asset_id: @bot.base1_asset_id,
+            quote_asset_id: @bot.quote_asset_id,
+            exchange_id: @bot.exchange_id
+          }
+        ), method: :post, data: { controller: "form--label-animations form--html5-validations", turbo_frame: 'modal_content' } do |f| %>
+          <div class="db-form__row db-form__row--input">
+            <%= f.text_field :key, autofocus: true, data: { controller: "autofocus" }, class: "db-form__input", rows: 3 %>
+            <%= f.label :key, "API Key", class: "db-form__label" %>
+          </div>
+          <div class="db-form__row db-form__row--input">
+            <%= f.text_field :secret, class: "db-form__input", rows: 3 %>
+            <%= f.label :secret, "API Secret", class: "db-form__label" %>
+          </div>
+          <div class="large-button-wrapper">
+            <%= f.submit t('button.connect'), class: "button button--success button--large", data: { turbo_stream: true, turbo_submits_with: t('bot.setup.validating') } %>
+          </div>
+        <% end %>
+      </div>
+
+      <div class="set-api__instructions">
+        <h2 class="set-api__header"><%= t('bot.setup.how_to_get_keys', exchange: @bot.exchange.name) %></h2>
+        <ol class="set-__list">
+          <% exchange_key = @bot.exchange.name.downcase %>
+          <% instructions = t("bot.api.#{exchange_key}") %>
+
+          <% # First level keys (instructions_1, etc.) - optionally match _html %>
+          <% main_keys = instructions.keys.select { |k| k.to_s.match(/^instructions_\d+(_html)?$/) }.sort_by { |k| k.to_s.match(/^instructions_(\d+)/)[1].to_i } %>
+
+          <% main_keys.each do |main_key| %>
+            <% main_num = main_key.to_s.match(/^instructions_(\d+)/)[1] %>
+            <% instruction_text = instructions[main_key] %>
+            <% if instruction_text.include?('%{exchange_link}') %>
+              <li><%= instruction_text.gsub('%{exchange_link}', @bot.exchange.name.capitalize).html_safe %></li>
+            <% else %>
+              <li><%= instruction_text.html_safe %></li>
+            <% end %>
+
+            <% # Second level keys (instructions_4_1) - optionally match _html %>
+            <% sub_keys = instructions.keys.select { |k| k.to_s.match(/^instructions_#{main_num}_\d+(_html)?$/) }.sort_by { |k| k.to_s.match(/^instructions_#{main_num}_(\d+)/)[1].to_i } %>
+
+            <% if sub_keys.any? %>
+              <ol>
+                <% sub_keys.each do |sub_key| %>
+                  <% sub_match = sub_key.to_s.match(/^instructions_(\d+_\d+)/) %>
+                  <% next unless sub_match %>
+                  <% sub_nums = sub_match[1] %>
+                  <li><%= instructions[sub_key].html_safe %></li>
+
+                  <% # Third level keys (instructions_4_1_1) - optionally match _html %>
+                  <% third_keys = instructions.keys.select { |k| k.to_s.match(/^instructions_#{sub_nums}_\d+(_html)?$/) }.sort_by { |k| k.to_s.match(/^instructions_#{sub_nums}_(\d+)/)[1].to_i } %>
+
+                  <% if third_keys.any? %>
+                    <ul>
+                      <% third_keys.each do |third_key| %>
+                        <li><%= instructions[third_key].html_safe %></li>
+                      <% end %>
+                    </ul>
+                  <% end %>
+                <% end %>
+              </ol>
+            <% end %>
+          <% end %>
+        </ol>
+      </div>
+    </div>
+  </div>
+<% end %>

@@ -69,11 +69,21 @@ class SettingsController < ApplicationController
     end
   end
 
-  def remove_api_key
+  def confirm_destroy_api_key
+    @api_key = current_user.api_keys.find(params[:id])
+  end
+
+  def destroy_api_key
     api_key = current_user.api_keys.find(params[:id])
-    stop_working_bots(api_key) if api_key
-    api_key.destroy!
-    redirect_to settings_path
+    if api_key.present? && stop_working_bots(api_key) && api_key.destroy
+      trading_api_keys = current_user.api_keys.includes(:exchange).where(key_type: 'trading')
+      withdrawal_api_keys = current_user.api_keys.includes(:exchange).where(key_type: 'withdrawal')
+      render partial: 'settings/widgets/api_keys',
+             locals: { trading_api_keys: trading_api_keys, withdrawal_api_keys: withdrawal_api_keys }
+    else
+      flash.now[:alert] = api_key.errors.messages.values.flatten.to_sentence
+      render turbo_stream: turbo_stream_prepend_flash, status: :unprocessable_entity
+    end
   end
 
   def edit_two_fa
@@ -97,6 +107,8 @@ class SettingsController < ApplicationController
     end
   end
 
+  def community_access_instructions; end
+
   private
 
   def set_index_instance_variables
@@ -109,6 +121,8 @@ class SettingsController < ApplicationController
     @password_symbol_pattern = User::Password::SYMBOL_PATTERN
     @password_pattern = User::Password::PATTERN
     @password_minimum_length = Devise.password_length.min
+    @trading_api_keys = current_user.api_keys.includes(:exchange).where(key_type: 'trading')
+    @withdrawal_api_keys = current_user.api_keys.includes(:exchange).where(key_type: 'withdrawal')
     @two_fa_button_text = if current_user.otp_module_enabled?
                             t('helpers.label.settings.disable_two_fa')
                           else
@@ -132,7 +146,7 @@ class SettingsController < ApplicationController
   end
 
   def stop_working_bots(api_key)
-    current_user.bots.without_deleted.each do |bot|
+    current_user.bots.not_deleted.each do |bot|
       StopBot.call(bot.id) if same_exchange_and_type?(bot, api_key)
     end
   end

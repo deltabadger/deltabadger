@@ -44,14 +44,6 @@ class User < ApplicationRecord
     referrer if eligible_for_discount?
   end
 
-  def withdrawal_api_keys
-    api_keys.where(key_type: 'withdrawal')
-  end
-
-  def trading_api_keys
-    api_keys.where(key_type: 'trading')
-  end
-
   def webhook_bots_transactions
     transactions.where(bot_id: bots.webhook.pluck(:id))
   end
@@ -67,7 +59,8 @@ class User < ApplicationRecord
   private
 
   def set_subscription
-    subscriptions.create!(subscription_plan_variant: SubscriptionPlanVariant.free)
+    subscription_plan_variant = SubscriptionPlanVariant.find_by(subscription_plan: SubscriptionPlan.free)
+    subscriptions.create!(subscription_plan_variant: subscription_plan_variant)
   end
 
   def set_affiliate

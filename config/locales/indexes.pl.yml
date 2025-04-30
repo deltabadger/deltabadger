@@ -1,0 +1,47 @@
+pl:
+    index:
+        bitcoin:
+            title: "Bitcoin"
+            info: "Uśrednianie kosztów w Bitcoin to złoty standard dla inwestorów długoterminowych."
+        crypto_berbell:
+            title: "Kryptosztanga"
+            info: "Pokryj 74% rynku kryptowalut prostym, bezproblemowym portfelem, który automatycznie się rebalansuje."
+        crypto_index:
+            title: "Indeks kryptowalut"
+            info: "Nie istnieje kryptowalutowy S&P 500, ale teraz możesz go zbudować. Zautomatyzuj portfel indeksowy najlepszych kryptowalut."
+        altcoin_season:
+            title: "Sezon altcoinów"
+            info: "Inwestuj bezpiecznie w portfel wygrywających altcoinów. Zmniejsz ryzyko związane z kryptowalutami o małej kapitalizacji, zastępując ręczną alokację automatyczną indeksacją."
+        layer_1:
+            title: "Layer 1"
+            info: "Podstawowe sieci blockchain, które bezpośrednio przetwarzają transakcje i stanowią podstawę infrastruktury blockchain."
+        made_in_usa:
+            title: "Made in USA"
+            info: "Kryptowaluty o znaczących powiązaniach ze Stanami Zjednoczonymi poprzez zespoły założycielskie lub siedziby firm."
+        alleged_sec_securities:
+            title: "Domniemane kryptowaluty w posiadaniu SEC"
+            info: "Tokeny i kryptowaluty, które zostały uznane przez amerykańską Komisję Papierów Wartościowych i Giełd (SEC) za instrumenty finansowe podlegające regulacjom."
+        memecoins:
+            title: "Memecoiny"
+            info: "Monety, które czerpią wartość z internetowych memów i szumu społeczności, a nie z podstawowej technologii czy użyteczności."
+        elon_musk_inspired:
+            title: "Inspirowane przez Elona Muska"
+            info: "Meme coiny inspirowane przez Elona Muska, żaden z tych projektów nie jest (koniecznie) zatwierdzony lub stworzony przez Elona Muska."
+        ai_portfolio:
+            title: "Portfel AI"
+            info: "Tokeny Sztucznej Inteligencji (AI) to kryptowaluty, które zasilają projekty związane z AI."
+        layer_2:
+            title: "Layer 2"
+            info: "Rozwiązania Layer 2 to rozwiązania skalowalności zbudowane na blockchainach Layer 1, aby poprawić szybkość transakcji i obniżyć koszty."
+        layer_0:
+            title: "Layer 0"
+            info: "Protokoły Layer 0 zapewniają fundamentalną infrastrukturę do budowania i łączenia wielu blockchainów."
+        gamefi:
+            title: "GameFi"
+            info: "Tokeny GameFi zasilają platformy gier opartych na blockchainie i wirtualne światy, łącząc gry z zdecentralizowanymi finansami."
+        yield_farming:
+            title: "Yield farming"
+            info: "Tokeny yield farming umożliwiają użytkownikom zdobywanie nagród poprzez dostarczanie płynności do protokołów zdecentralizowanych finansów."
+        consensys_portfolio:
+            title: "Portfel Consensys"
+            info: "Protokoły i tokeny, w które zainwestowała firma Consensys." 

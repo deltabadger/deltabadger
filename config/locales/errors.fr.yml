@@ -1,0 +1,104 @@
+fr:
+    activerecord:
+        errors:
+            models:
+                affiliate:
+                    attributes:
+                        code:
+                            invalid_format: 'doit être composé de caractères alphanumériques majuscules'
+                subscription:
+                    attributes:
+                        eth_address:
+                            invalid_address: '"%{eth_address}" est une adresse Ethereum invalide. Veuillez réessayer.'
+                asset:
+                    attributes:
+                        portfolio:
+                            max_assets_reached: "Nombre maximum d'actifs atteint."
+    errors:
+        bots:
+            exchange_asset_mismatch: "Tous les actifs ne sont pas répertoriés sur %{exchange_name}"
+            destroy_success: "Bot %{bot_label} supprimé avec succès"
+            api_key_success: "Clés API enregistrées avec succès"
+        cloudflare_turnstile: 'La vérification de Cloudflare Turnstile a échoué'
+        bitcoin_address_not_updated: 'L''adresse Bitcoin n''a pas pu être mise à jour'
+        format: '%{attribute} %{message}'
+        frequency_limit: 'Limite de fréquence dépassée'
+        invalid_api_keys: 'Tokens non valides'
+        invalid_risk_free_rate_key: 'Clé de taux sans risque non valide.'
+        api_key_permission_validation_failed: 'Échec de la validation des autorisations de clé API'
+        api_key_already_exists: 'Une clé API pour %{exchange_name} existe déjà'
+        incorrect_api_key_permissions: 'Autorisations de clé API incorrectes'
+        unable_to_get_risk_free_rate: 'Impossible d''obtenir le taux sans risque pour %{risk_free_rate_name}. Le serveur de l''API de données est inaccessible.'
+        invalid_number_of_allocations: 'Nombre d''allocations non valide'
+        invalid_allocation_value: 'Valeur d''allocation non valide'
+        messages:
+            accepted: 'doit être accepté'
+            already_confirmed: 'a déjà été confirmé, veuillez essayer de vous connecter.'
+            bad_2fa_code: 'Code invalide. Réessayez.'
+            bad_credentials: 'Adresse e-mail ou mot de passe incorrects.'
+            bad_credentials_with_code: 'Adresse e-mail, mot de passe ou code 2FA incorrects.'
+            blank: 'ne peut pas être vide'
+            confirmation: 'ne correspond pas à %{attribute}'
+            confirmation_period_expired: 'doit être confirmé d''ici %{period}, merci d''en demander un nouveau.'
+            empty: 'ne peut pas être vide'
+            empty_two_fa_token: 'Code 2FA erroné. Réessayez.'
+            equal_to: 'doit être égal à %{count}'
+            even: 'doit être un chiffre pair'
+            exclusion: 'est réservé'
+            expired: 'a expiré, merci d''en demander un nouveau.'
+            greater_than: 'doit être supérieur à %{count}'
+            greater_than_or_equal_to: 'doit être supérieur ou égal à %{count}'
+            in: 'doit être en %{count}'
+            inclusion: 'n''est pas inclus dans la liste'
+            invalid: 'n''est pas valable'
+            less_than: 'doit être inférieur à %{count}'
+            less_than_or_equal_to: 'doit être inférieur ou égal à %{count}'
+            model_invalid: 'Échec de la validation : %{errors}'
+            not_a_number: 'n''est pas un numéro'
+            not_an_integer: 'doit être un entier'
+            not_found: 'introuvable.'
+            not_locked: 'n''était pas verrouillé.'
+            not_saved:
+                one: '1 erreur a empêché %{resource} d''être enregistré'
+                other: '%{count} erreurs ont empêché %{resource} d''être enregistrés'
+            odd: 'doit être un chiffre impair'
+            other_than: 'doit être autre que %{count}'
+            password_not_match: 'Les mots de passe ne correspondent pas'
+            present: 'doit être vide'
+            too_long:
+                one: 'est trop court (le minimum est de 1 caractère)'
+                other: 'est trop court (le minimum est de %{count} caractères)'
+            too_short:
+                one: 'est trop court (le minimum est de 1 caractère)'
+                other: 'est trop court (le minimum est de %{count} caractères)'
+            too_simple_password: 'Le mot de passe doit comporter des caractères de chacune des catégories suivantes : caractères majuscules (A-Z), caractères minuscules (a-z), chiffres (0-9), caractères spéciaux (par ex., #, ?,!).'
+            wrong_email: 'Adresse e-mail incorrecte'
+            wrong_length:
+                one: 'est de la mauvaise longueur (devrait être 1 caractère)'
+                other: 'est de la mauvaise longueur (devrait être %{count} caractères)'
+            wrong_password: 'Mot de passe incorrect'
+            wrong_two_fa_token: 'Le code fourni est incorrect'
+        referral_program_inactive: 'Votre programme de parrainage est inactif'
+        unverified_request: 'Veuillez actualiser votre navigateur et réessayer'
+    alert:
+        bot:
+            bot_updated: 'Le bot a été mis à jour avec succès.'
+        portfolio:
+            invalid_name: 'Nom de portefeuille invalide.'
+            invalid_benchmark: 'Valeur de référence invalide.'
+            invalid_strategy: 'Valeur de stratégie invalide.'
+            invalid_start_date: 'Valeur de date de début invalide.'
+            invalid_risk_free_rate: 'Valeur de taux sans risque invalide.'
+            invalid_smart_allocation: 'Valeur d''allocation intelligente invalide.'
+            invalid_risk_level: 'Valeur de niveau de risque invalide.'
+            unable_to_calculate: 'Impossible de calculer les allocations intelligentes pour ces paramètres.'
+            portfolio_normalized: 'Les allocations du portefeuille ont été normalisées.'
+            risk_level_updated: 'Le niveau de risque a été mis à jour.'
+            smart_allocation_updated: 'Les allocations intelligentes ont été mises à jour.'
+            unable_to_set_risk_rate: 'Impossible de définir le taux sans risque à %{risk_free_rate_name}.'
+            api_unreachable: 'Le serveur API de données est inaccessible.'
+            portfolio_created: 'Le portefeuille a été créé avec succès.'
+            portfolio_updated: 'Le portefeuille a été mis à jour avec succès.'
+            portfolio_destroyed: 'Le portefeuille a été supprimé avec succès.'
+            portfolio_duplicated: 'Le portefeuille a été dupliqué avec succès.'
+            unable_to_duplicate_portfolio: 'Impossible de dupliquer le portefeuille.'

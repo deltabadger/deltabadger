@@ -1,0 +1,13 @@
+es:
+    meta:
+        desc: "Comienza gratis la estrategia más probada que funciona con Binance, Coinbase, Kraken, Kucoin y otros exchanges. Sin KYC."
+        title: "Deltabadger • Automatiza el Dollar-Cost Averaging para cualquier criptomoneda"
+        title_short: "Deltabadger • DCA automatizado para Bitcoin y otros activos"
+        twitter_image_alt: "Dollar-cost averaging automatizado para Bitcoin, Ethereum, Polkadot, Cardano, Solana y otros activos digitales."
+        descriptions:
+            default: "Comienza gratis la estrategia más probada que funciona con Binance, Coinbase, Kraken, Kucoin y otros exchanges. Sin KYC."
+            privacy_policy: "Aprende cómo Deltabadger protege tu privacidad y gestiona tus datos al utilizar nuestra plataforma automatizada de DCA de criptomonedas."
+            terms_and_conditions: "Lee nuestros términos de servicio para entender tus derechos y responsabilidades al utilizar la plataforma automatizada de DCA de criptomonedas de Deltabadger."
+        titles:
+            privacy_policy: "Política de Privacidad • Deltabadger"
+            terms_and_conditions: "Términos y Condiciones • Deltabadger" 

@@ -4,9 +4,6 @@ class FetchOrderResult < BaseService
     schedule_transaction: ScheduleTransaction.new,
     schedule_result_fetching: ScheduleResultFetching.new,
     unschedule_transactions: UnscheduleTransactions.new,
-    bots_repository: BotsRepository.new,
-    transactions_repository: TransactionsRepository.new,
-    api_keys_repository: ApiKeysRepository.new,
     notifications: Notifications::BotAlerts.new,
     order_flow_helper: Helpers::OrderFlowHelper.new
   )
@@ -14,23 +11,20 @@ class FetchOrderResult < BaseService
     @schedule_transaction = schedule_transaction
     @schedule_result_fetching = schedule_result_fetching
     @unschedule_transactions = unschedule_transactions
-    @bots_repository = bots_repository
-    @transactions_repository = transactions_repository
-    @api_keys_repository = api_keys_repository
     @notifications = notifications
     @order_flow_helper = order_flow_helper
   end
 
   # rubocop:disable Metrics/CyclomaticComplexity, Metrics/PerceivedComplexity
   def call(bot_id, result_params, fixing_price, notify: true, restart: true, called_bot: nil)
-    bot = @bots_repository.find(bot_id)
+    bot = Bot.find(bot_id)
     return Result::Failure.new unless bot.pending?
 
     Rails.logger.info "Fetching order result for bot: #{bot.id}. result_params: #{result_params.inspect}"
     result = perform_action(get_api(bot), result_params, bot, fixing_price, called_bot)
 
     if result.success?
-      bot = @bots_repository.update(bot.id, restarts: 0, fetch_restarts: 0, **success_status(bot))
+      bot.update(restarts: 0, fetch_restarts: 0, **success_status(bot))
       if notify && bot.webhook?
         @notifications.successful_webhook_bot_transaction(bot: bot,
                                                           type: called_bot_type(
@@ -39,11 +33,11 @@ class FetchOrderResult < BaseService
       end
       @schedule_transaction.call(bot) if !bot.webhook?
     elsif !fetched?(result)
-      bot = @bots_repository.update(bot.id, fetch_restarts: bot.fetch_restarts + 1)
+      bot.update(fetch_restarts: bot.fetch_restarts + 1)
       @schedule_result_fetching.call(bot, result_params, fixing_price)
       result = Result::Success.new
     elsif restart && recoverable?(result)
-      bot = @bots_repository.update(bot.id, status: 'working', restarts: bot.restarts + 1, fetch_restarts: 0)
+      bot.update(status: 'working', restarts: bot.restarts + 1, fetch_restarts: 0)
       @schedule_transaction.call(bot)
       @notifications.restart_occured(bot: bot, errors: result.errors) if notify
       result = Result::Success.new
@@ -75,28 +69,28 @@ class FetchOrderResult < BaseService
   end
 
   def get_api(bot)
-    api_key = @api_keys_repository.for_bot(bot.user_id, bot.exchange_id)
+    api_key = ApiKey.for_bot(bot.user_id, bot.exchange_id).first
     @get_exchange_trader.call(api_key, bot.order_type)
   end
 
   # rubocop:disable Metrics/CyclomaticComplexity, Metrics/PerceivedComplexity
   def perform_action(api, result_params, bot, price, called_bot = nil)
-    offer_id = get_offer_id(result_params)
-    Rails.logger.info "Fetching order id: #{offer_id} for bot: #{bot.id}"
+    external_id = get_external_id(result_params)
+    Rails.logger.info "Fetching order id: #{external_id} for bot: #{bot.id}"
     result_params = result_params.merge(quote: bot.settings['quote'], base: bot.settings['base']) if probit?(bot)
     use_subaccount = bot.use_subaccount
     selected_subaccount = bot.selected_subaccount
     result = if already_fetched?(result_params)
-               api.fetch_order_by_id(offer_id, result_params)
+               api.fetch_order_by_id(external_id, result_params)
              elsif probit?(bot)
-               api.fetch_order_by_id(offer_id, result_params)
+               api.fetch_order_by_id(external_id, result_params)
              elsif use_subaccount
-               api.fetch_order_by_id(offer_id, use_subaccount, selected_subaccount)
+               api.fetch_order_by_id(external_id, use_subaccount, selected_subaccount)
              else
-               api.fetch_order_by_id(offer_id)
+               api.fetch_order_by_id(external_id)
              end
 
-    @transactions_repository.create(transaction_params(result, bot, price, called_bot)) if result.success? || fetched?(result)
+    Transaction.create!(transaction_params(result, bot, price, called_bot)) if result.success? || fetched?(result)
 
     if result.success?
       bot.reload # TODO: needed?
@@ -121,13 +115,14 @@ class FetchOrderResult < BaseService
   # rubocop:disable Metrics/CyclomaticComplexity, Metrics/PerceivedComplexity
   def transaction_params(result, bot, price = nil, called_bot = nil)
     if result.success?
-      result.data.slice(:offer_id, :rate, :amount).merge(
+      result.data.slice(:external_id, :rate, :amount).merge(
         bot_id: bot.id,
         status: :success,
         bot_interval: bot.webhook? ? '' : bot.interval,
         bot_price: fixing_transaction?(price) ? price : bot.price,
         transaction_type: fixing_transaction?(price) ? 'FIXING' : 'REGULAR',
-        called_bot_type: bot.webhook? ? called_bot_type(bot, called_bot) : nil
+        called_bot_type: bot.webhook? ? called_bot_type(bot, called_bot) : nil,
+        exchange: bot.exchange
       )
     else
       {
@@ -137,7 +132,8 @@ class FetchOrderResult < BaseService
         bot_interval: bot.webhook? ? '' : bot.interval,
         bot_price: fixing_transaction?(price) ? price : bot.price,
         transaction_type: fixing_transaction?(price) ? 'FIXING' : 'REGULAR',
-        called_bot_type: bot.webhook? ? called_bot_type(bot, called_bot) : nil
+        called_bot_type: bot.webhook? ? called_bot_type(bot, called_bot) : nil,
+        exchange: bot.exchange
       }
     end
   end
@@ -155,9 +151,9 @@ class FetchOrderResult < BaseService
     result_params.key?(:amount)
   end
 
-  def get_offer_id(result_params)
-    result_params.fetch(:offer_id)
+  def get_external_id(result_params)
+    result_params.fetch(:external_id)
   rescue StandardError
-    result_params.fetch('offer_id')
+    result_params.fetch('external_id')
   end
 end

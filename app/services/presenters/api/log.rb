@@ -12,7 +12,7 @@ module Presenters
           price: price(transaction.rate, transaction.amount),
           created_at: transaction.created_at.strftime('%F %I:%M:%S %p'),
           status: transaction.status,
-          offer_id: transaction.offer_id,
+          external_id: transaction.external_id,
           errors: errors(transaction)
         }
       end

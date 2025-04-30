@@ -1,6 +1,12 @@
 pt:
-    bots:
+    bot:
         setup:
+            api_not_available: "API do Exchange não disponível"
+            sentence:
+                invest_in: "Investir em"
+                and: "e"
+                at: "em"
+                spending: "gastando"
             binance:
                 instructions_1_html: 'Inicie sessão na sua conta %{exchange_link}.'
                 instructions_2_html: 'No menu do utilizador (ícone redondo no canto superior direito), aceda a <b>Gestão de API</b>.'
@@ -55,7 +61,6 @@ pt:
                 instructions_9_html: 'Cole ambas as chaves no formulário acima.'
                 private_key: 'Segredo API'
                 public_key: 'Chave API'
-            cancel: Cancelar
             coinbase:
                 instructions_1_html: 'Faça login na sua conta %{exchange_link}.'
                 instructions_2_html: 'Selecione a aba <b>Mais</b> na barra lateral esquerda.'
@@ -146,9 +151,10 @@ pt:
                     force_smart_intervals: 'Para %{base}%{quote}, %{exchangeName} aplicou às ordens um valor mínimo de <b>%{minimumValue}%{minimumCurrency}</b>%{approximatedQuote}. A Deltabadger irá executar este agendamento, utilizando ordens no valor de %{minimumValue}%{minimumCurrency}, e ajustar o intervalo de tempo para corresponder ao seu agendamento. A isto chamamos de <i>intervalos inteligentes</i>.'
                     other: 'Para %{base}%{quote}, %{exchangeName} aplicou às ordens um valor mínimo de <b>%{minimumValue}%{minimumCurrency}</b>%{approximatedQuote}. A Deltabadger pode executar este agendamento, utilizando ordens no valor de %{minimumValue}%{minimumCurrency}, e ajustar o intervalo de tempo para corresponder ao seu agendamento. A isto chamamos de <i>intervalos inteligentes</i>. '
             step_api_key: 'Chave API'
+            step_assets: 'Ativos'
             step_exchange: Câmbio
             step_schedule: Horário
-            validating: 'A validar'
+            validating: Validando…
             withdrawal:
                 kraken:
                     instructions_1_html: 'Inicie sessão na sua conta %{exchange_link}.'
