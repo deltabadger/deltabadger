@@ -9,7 +9,7 @@ class AddExchangeToTransactions < ActiveRecord::Migration[6.0]
     bot_data = Bot.pluck(:id, :exchange_id).sort
 
     # Process in parallel using available cores
-    Parallel.each(bot_data, in_threads: Parallel.processor_count) do |id, exchange_id|
+    Parallel.each(bot_data, in_threads: ENV.fetch('MAX_DB_CONNECTIONS', 1)) do |id, exchange_id|
       Rails.logger.info "Updating transactions for bot #{id} with exchange #{exchange_id}"
       puts "Updating transactions for bot #{id} with exchange #{exchange_id}"
 
