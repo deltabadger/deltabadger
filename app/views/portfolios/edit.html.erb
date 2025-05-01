@@ -4,7 +4,7 @@
       <%= render partial: 'svg/24x24_close' %>
     <% end %>
     <div class="modal__header">
-       <h1 class="modal__title"><%= t('analyzer.change_portfolio_name') %></h1>
+       <h1 class="modal__title"><%= action_name == 'duplicate' ? t('analyzer.duplicate_portfolio') : t('utils.change_name') %></h1>
     </div>
 
     <%= render "edit_form", portfolio: @portfolio %>

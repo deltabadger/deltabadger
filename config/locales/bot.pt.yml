@@ -1,6 +1,7 @@
 pt:
     bot:
         add_api_keys: "Adicionar chaves API para %{exchange}"
+        bot_name: "Nome do bot"
         new: "Novo bot"
         start_new_bot: "Create new bot"
         types:
@@ -120,6 +121,7 @@ pt:
         limit_buy: 'Limitar compra'
         limit_sell: 'Limitar venda'
         messages:
+            do_you_want_to_delete: 'Quer eliminar este bot?'
             symbol_not_supported: "%{symbol} não é suportado"
             symbol_not_supported_subscription: "%{symbol} não é suportado pela sua assinatura"
             upgrade_plan_more_bots: "Atualize seu plano para executar mais bots"

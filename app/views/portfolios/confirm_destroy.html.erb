@@ -4,15 +4,15 @@
       <%= render partial: 'svg/24x24_close' %>
     <% end %>
     <div class="modal__header">
-      <h1 class="modal__title"><%= @portfolio.label %></h1>
+      <h1 class="modal__title"><%= @portfolio.label.present? ? @portfolio.label : t('analyzer.default_portfolio') %></h1>
     </div>
     <div class="modal__body text-center">
     <p>
-      Do you want to delete this portfolio?
+      <%= t('analyzer.do_you_want_to_delete') %>
     </p>
     <div class="buttons buttons--row--2">
       <%= button_tag class: 'button button--outline button--large', data: { action: 'modal--base#animateOutCloseAndCleanUp' } do %>
-        Cancel
+        <%= t('button.cancel') %>
       <% end %>
       <%= button_to t('button.delete'), portfolio_path(@portfolio), method: :delete, class: 'button button--danger button--large' %>
     </div>
