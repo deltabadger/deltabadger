@@ -6,10 +6,10 @@ de:
         types:
             dca:
                 title: "DCA"
-                description: "Dollar-Cost-Averaging für einzelne Coins"
+                description: "Einzel-Asset DCA"
             barbell:
-                title: "Barbell-Strategie"
-                description: "Rebalancing von zwei Assets ohne Steuern"
+                title: "Barbell Strategie"
+                description: "Zwei-Asset ausbalanciertes DCA"
             index_portfolio:
                 title: "Index-Portfolio"
                 description: "Baue deinen persönlichen Krypto-ETF"
@@ -17,16 +17,22 @@ de:
                 title: "Benutzerdefiniertes Portfolio"
                 description: "Rebalancing eines benutzerdefinierten Asset-Mix"
         status:
-            setting_orders: "Bestellungen setzen…"
+            setting_orders: "Orders werden erstellt…"
             paused: "Pausiert"
+            next_try: "Nächster Versuch in %{countdown}"
         no_orders_info: "Bot-Bestellungen werden hier angezeigt"
         barbell:
             invest: "Investieren"
             invest_html: "%{input} /Monat investieren"
         utils:
             mkt_cap_adjusted: "Marktkapitalisierung angepasst"
-            mkt_cap_adjusted_info: |
-                Die Zuteilung wird automatisch basierend auf der Marktkapitalisierung der Coins in deinem Portfolio festgelegt. Je größer die Marktkapitalisierung, desto größer die Zuteilung.
+            mkt_cap_adjusted_info_html: |
+                <p><b>Marktkapitalisierung</b> ist eine Methode, um zu messen, wie groß oder wertvoll eine Kryptowährung ist. Sie wird berechnet, indem man die Gesamtzahl der Coins mit dem aktuellen Preis eines Coins multipliziert. In deinem Bot erhält die Coin mit der größeren Marktkapitalisierung einen größeren Anteil deiner Investition.</p>
+                <p><b>Beispiel:</b></p>
+                <p><b>Coin A:</b> Es existieren 2 Millionen Coins, jeder im Wert von 10 $. Die Marktkapitalisierung beträgt 2M × 10 $ = 20M $.</p>
+                <p><b>Coin B:</b> Es existiert 1 Million Coins, jeder im Wert von 1 $. Marktkapitalisierung = 1M × 1 $ = 1M $.</p>
+                <p>Wenn du 100 $ investierst, teilt der Bot dies proportional zu ihren Marktkapitalisierungen auf: 95,2 $ für Coin A, 4,8 $ für Coin B.</p>
+                <p>Aber wenn der Preis von Coin B auf 3 $ steigt, wird seine Marktkapitalisierung 3M $. Jetzt werden die nächsten 100 $ mit 87 $ für Coin A und 13 $ für Coin B aufgeteilt.</p>
         above: über
         below: unter
         buttons:
