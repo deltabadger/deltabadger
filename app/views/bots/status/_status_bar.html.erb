@@ -26,7 +26,7 @@
         countdown_seconds_label_value: t('subscriptions.payment.seconds_short')
       } do %>
         <% if bot.retrying? %>
-          <%= t('bot.status.next_try') %>
+          <%= t('bot.status.next_try') %> 
         <% end %>
         <span data-countdown-target="days"></span><span data-countdown-target="daysLabel"></span>
         <span data-countdown-target="hours"></span><span data-countdown-target="hoursLabel"></span>

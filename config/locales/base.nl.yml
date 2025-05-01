@@ -185,6 +185,15 @@ nl:
         search:
             placeholder:
                 asset: 'Zoek naar een asset…'
+        time_periods:
+            ytd: 'YTD'
+            ytd_title: 'Begin van het jaar'
+            one_year: '1J'
+            one_year_title: '1 jaar geleden'
+            three_years: '3J'
+            three_years_title: '3 jaar geleden'
+            five_years: '5J'
+            five_years_title: '5 jaar geleden'
         years:
             one: "%{count} jaar"
             other: "%{count} jaar"

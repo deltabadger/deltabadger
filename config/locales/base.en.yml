@@ -190,6 +190,15 @@ en:
         search:
             placeholder:
                 asset: 'Search for an asset…'
+        time_periods:
+            ytd: 'YTD'
+            ytd_title: 'Beginning of the year'
+            one_year: '1Y'
+            one_year_title: '1 year ago'
+            three_years: '3Y'
+            three_years_title: '3 years ago'
+            five_years: '5Y'
+            five_years_title: '5 years ago'
         years:
             one: "%{count} year"
             other: "%{count} years"
