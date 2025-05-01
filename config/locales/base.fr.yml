@@ -138,8 +138,8 @@ fr:
             <p>Cordialement, Jan</p>
     analyzer:
         default_portfolio: 'Portefeuille par défaut'
-        change_portfolio_name: 'Changer le nom'
         duplicate_portfolio: 'Dupliquer le portefeuille'
+        do_you_want_to_delete: 'Voulez-vous vraiment supprimer ce portefeuille ?'
         portfolio_name: 'Nom du portefeuille'
         compare: 'Comparer'
         new_portfolio: 'Nouveau portefeuille'

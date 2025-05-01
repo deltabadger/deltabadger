@@ -143,8 +143,8 @@ it:
             <p>Cordialmente, Jan</p>
     analyzer:
         default_portfolio: "Portfolio predefinito"
-        change_portfolio_name: 'Cambia nome'
         duplicate_portfolio: 'Duplica portfolio'
+        do_you_want_to_delete: 'Vuoi eliminare questo portfolio?'
         portfolio_name: 'Nome del portfolio'
         compare: 'Confronta'
         new_portfolio: 'Nuovo portfolio'

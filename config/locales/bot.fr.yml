@@ -1,6 +1,7 @@
 fr:
     bot:
         add_api_keys: "Ajouter les clés API pour %{exchange}"
+        bot_name: 'Nom du bot'
         new: "Nouveau bot"
         start_new_bot: "Créer un nouveau bot"
         types:
@@ -123,6 +124,7 @@ fr:
         limit_buy: 'Achat limité'
         limit_sell: 'Vente limitée'
         messages:
+            do_you_want_to_delete: 'Voulez-vous vraiment supprimer ce bot ?'
             symbol_not_supported: "%{symbol} n''est pas pris en charge"
             symbol_not_supported_subscription: "%{symbol} n''est pas pris en charge par votre abonnement"
             upgrade_plan_more_bots: "Mettez à jour votre plan pour exécuter plus de bots"

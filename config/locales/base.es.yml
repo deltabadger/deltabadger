@@ -145,8 +145,8 @@ es:
             <p>Saludos, Jan</p>
     analyzer:
         default_portfolio: 'Cartera predeterminada'
-        change_portfolio_name: 'Cambiar nombre'
         duplicate_portfolio: 'Duplicar cartera'
+        do_you_want_to_delete: '¿Quieres eliminar esta cartera?'
         portfolio_name: 'Nombre de la cartera'
         compare: 'Comparar'
         new_portfolio: 'Nueva cartera'
