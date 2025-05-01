@@ -26,8 +26,13 @@ pt:
             invest_html: "Investir %{input} /mês"
         utils:
             mkt_cap_adjusted: "Ajustado por Capitalização de Mercado"
-            mkt_cap_adjusted_info: |
-                A alocação é automaticamente definida com base na capitalização de mercado das moedas em seu portfólio. Quanto maior a capitalização de mercado, maior a alocação.
+            mkt_cap_adjusted_info_html: |
+                <p><b>Capitalização de mercado</b> é uma forma de medir o tamanho ou valor de uma moeda. É calculada multiplicando o número total de moedas pelo preço atual de uma moeda. No seu bot, a moeda com maior capitalização de mercado recebe uma parte maior do seu investimento.</p>
+                <p><b>Exemplo:</b></p>
+                <p><b>Moeda A:</b> Existem 2 milhões de moedas, cada uma no valor de 10 €. A capitalização de mercado é igual a 2M × 10 € = 20M €.</p>
+                <p><b>Moeda B:</b> Existe 1 milhão de moedas, cada uma no valor de 1 €. Capitalização de mercado = 1M × 1 € = 1M €.</p>
+                <p>Se investir 100 €, o bot irá dividi-los proporcionalmente às suas capitalizações de mercado: 95,2 € para a Moeda A e 4,8 € para a Moeda B.</p>
+                <p>Mas se o preço da Moeda B subir para 3 €, a sua capitalização de mercado torna-se 3M €. Agora, os próximos 100 € serão alocados 87 € para a Moeda A e 13 € para a Moeda B.</p>
         above: acima
         below: abaixo
         buttons:
