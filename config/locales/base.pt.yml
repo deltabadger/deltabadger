@@ -141,7 +141,9 @@ pt:
             <p>Cumprimentos, Jan</p>
     analyzer:
         default_portfolio: 'Portfólio padrão'
-        change_portfolio_name: 'Mudar nome'
+        duplicate_portfolio: 'Duplicar portfólio'
+        do_you_want_to_delete: 'Quer eliminar este portfólio?'
+        portfolio_name: 'Nome do portfólio'
         compare: 'Comparar'
         new_portfolio: 'Novo portfólio'
         total_value: 'Valor Total'
