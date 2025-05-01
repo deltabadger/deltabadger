@@ -17,8 +17,9 @@ de:
                 title: "Benutzerdefiniertes Portfolio"
                 description: "Rebalancing eines benutzerdefinierten Asset-Mix"
         status:
-            setting_orders: "Bestellungen setzen…"
+            setting_orders: "Orders werden erstellt…"
             paused: "Pausiert"
+            next_try: "Nächster Versuch in %{countdown}"
         no_orders_info: "Bot-Bestellungen werden hier angezeigt"
         barbell:
             invest: "Investieren"

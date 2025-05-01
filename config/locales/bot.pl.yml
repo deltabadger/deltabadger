@@ -17,8 +17,9 @@ pl:
                 title: "Niestandardowe Portfolio"
                 description: "Rebalansuj niestandardowy zestaw aktywów"
         status:
-            setting_orders: "Inicjowanie zleceń…"
-            paused: "Zatrzymany"
+            setting_orders: "Ustawianie zleceń…"
+            paused: "Wstrzymany"
+            next_try: "Następna próba za %{countdown}"
         no_orders_info: "Zamówienia bota pojawią się tutaj"
         barbell:
             invest: "Inwestuj"
