@@ -1,19 +1,23 @@
 <%= form_with model: bot, url: bot_path(bot), method: :patch, id: "settings-extra", class: "widget", data: { controller: "form--submit" } do |f| %>
-  <div class="toggle">
-    <%= f.check_box :market_cap_adjusted, data: { action: "change->form--submit#submit" }, disabled: bot.working? || bot.pending? %>
-    <div class="toggle__style"></div>
-    <%= f.label :market_cap_adjusted, t('bot.utils.mkt_cap_adjusted'), class: "label" %>
+  <div class="bot-extra-settings" data-controller="class-toggle" data-class-toggle-toggle-classes-value='["hidden"]'>
+    <div class="toggle">
+      <%= f.check_box :market_cap_adjusted, data: { action: "change->form--submit#submit" }, disabled: bot.working? || bot.pending? %>
+      <div class="toggle__style"></div>
+      <%= f.label :market_cap_adjusted, t('bot.utils.mkt_cap_adjusted'), class: "label" %>
 
-    <div class="tooltip-info-icon" data-controller="tooltip" data-action="click->tooltip#toggle">
-      <div class="tooltip-icon--off">
-        <%= render 'svg/24x24_info' %>
+      <div class="tooltip-info-icon" data-controller="tooltip" data-action="click->tooltip#toggle click->class-toggle#toggle">
+        <div class="tooltip-icon--off">
+          <%= render 'svg/24x24_info' %>
+        </div>
+        <div class="tooltip-icon--on">
+          <%= render 'svg/24x24_info-filled' %>
+        </div>
+
       </div>
-      <div class="tooltip-icon--on">
-        <%= render 'svg/24x24_info-filled' %>
-      </div>
-      <div class="tooltip tooltip--smart-allocation">
-        <%= t('bot.utils.mkt_cap_adjusted_info') %>
-      </div>
+    </div>
+
+    <div class="hidden" data-class-toggle-target="togglable">
+      <%= t('bot.utils.mkt_cap_adjusted_info_html').html_safe %>
     </div>
   </div>
 <% end %>

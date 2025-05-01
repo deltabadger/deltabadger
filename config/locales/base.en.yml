@@ -23,6 +23,7 @@ en:
         remove: 'Remove' 
         start: 'Start'
         connect: 'Connect'
+        understand: 'Got it!'
     data_labels:
         invested: "Total Invested"
         portfolio_value: "Portfolio Value"

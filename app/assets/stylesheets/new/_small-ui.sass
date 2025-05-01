@@ -48,6 +48,8 @@
     box-shadow: var(--widget-shadow)
     cursor: pointer
     text-decoration: none !important
+    &[disabled="disabled"],&[disabled]
+        cursor: not-allowed
     .label
         min-width: 2.2rem
     &--calendar
@@ -109,7 +111,6 @@
                     fill: #fcd535 !important
         &--kucoin
             background: #00a1f1 !important
-    cursor: not-allowed
 
 .label--select,.sinput--select
     position: relative
@@ -169,7 +170,7 @@ select
         min-width: 8rem
     &:hover, &:focus, &:active, &[disabled="disabled"],&[disabled]
         outline: none
-    &--primary:hover,&--success:hover,&--danger:hover
+    &--primary:hover:not(.button--outline),&--success:hover:not(.button--outline),&--danger:hover:not(.button--outline)
         color: #fff
     svg
         fill: #fff
