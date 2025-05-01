@@ -27,8 +27,13 @@ en:
             invest_html: "Invest %{input} /month"
         utils:
             mkt_cap_adjusted: "Market Cap adjusted"
-            mkt_cap_adjusted_info: |
-                The allocation is automatically set based on the market cap of the coins in your portfolio. The larger the market cap, the larger the allocation.
+            mkt_cap_adjusted_info_html: |
+                <p><b>Market cap</b> is a way to measure how big or valuable a coin is. It's calculated by multiplying the total number of coins by the current price of one coin. In your bot, the coin with the bigger market cap gets a larger share of your investment.</p>
+                <p><b>Example:</b></p>
+                <p><b>Coin A:</b> 2 millions coins exist, each worth $10. The market cap equals 2M × $10 = $20M.</p>
+                <p><b>Coin B:</b> 1 million coins exist, each worth $1. Market cap = 1M × $1 = $1M.</p>
+                <p>If you invest $100, the bot will split it proportionally to their market caps: $95.2 to Coin A, $4.8 to Coin B.</p>
+                <p>But if Coin B's price rises to $3, its market cap becomes $3M. Now, the next $100 will allocate $87 to Coin A and $13 to Coin B.</p>
         above: "above"
         below: "below"
         buttons:
