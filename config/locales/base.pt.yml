@@ -142,6 +142,7 @@ pt:
     analyzer:
         default_portfolio: 'Portfólio padrão'
         change_portfolio_name: 'Mudar nome'
+        duplicate_portfolio: 'Duplicar portfólio'
         portfolio_name: 'Nome do portfólio'
         compare: 'Comparar'
         new_portfolio: 'Novo portfólio'

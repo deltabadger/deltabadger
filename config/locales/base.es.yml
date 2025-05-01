@@ -146,6 +146,7 @@ es:
     analyzer:
         default_portfolio: 'Cartera predeterminada'
         change_portfolio_name: 'Cambiar nombre'
+        duplicate_portfolio: 'Duplicar cartera'
         portfolio_name: 'Nombre de la cartera'
         compare: 'Comparar'
         new_portfolio: 'Nueva cartera'
