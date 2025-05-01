@@ -144,6 +144,7 @@ de:
     analyzer:
         default_portfolio: 'Standardportfolio'
         change_portfolio_name: 'Namen ändern'
+        portfolio_name: 'Portfoliowert'
         compare: 'Vergleichen'
         new_portfolio: 'Neues Portfolio'
         total_value: 'Gesamtwert'

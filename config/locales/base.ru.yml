@@ -148,6 +148,7 @@ ru:
     analyzer:
         default_portfolio: 'Портфель по умолчанию'
         change_portfolio_name: 'Изменить имя'
+        portfolio_name: 'Имя портфеля'
         compare: 'Сравнить'
         new_portfolio: 'Новый портфель'
         total_value: 'Общая стоимость'
