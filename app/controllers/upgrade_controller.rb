@@ -98,7 +98,14 @@ class UpgradeController < ApplicationController
     end
   end
 
-  def upgrade_instructions; end
+  def upgrade_instructions
+    # FIXME: we need this sleep to workaround the situation when a rendering the upgrade_instructions modal
+    # is called from another modal (e.g. the new barbell bot creation for a free user with other bots created).
+    # The problem is that turbo has not yet cleaned up the modal object and it tries to render this modal
+    # into the same modal partial, and crashes.
+    # Potential solution: wait for the turbo cleanup to be done before trying to render the modal.
+    sleep 0.25
+  end
 
   private
 

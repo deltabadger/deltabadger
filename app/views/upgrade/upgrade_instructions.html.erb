@@ -1,14 +1,14 @@
 <%= render 'layouts/modal/base' do %>
   <div class="modal modal--regular modal--upgrade">
-    <button data-action="click->modal--base#animateOutCloseAndCleanUp" class="modal__close">
-      <%= render 'svg/24x24_close' %>
-    </button>
+    <%= button_tag class: 'modal__close', data: { action: 'modal--base#animateOutCloseAndCleanUp' } do %>
+      <%= render partial: 'svg/24x24_close' %>
+    <% end %>
     <div class="modal__header">
       <h1 class="modal__title"><%= t('subscriptions.upgrade_modal.title') %></h1>
     </div>
     <div class="modal__body">
       <p><%= t('subscriptions.upgrade_modal.description') %></p>
-      <%= link_to t('subscriptions.upgrade'), '/upgrade', class: "button button--large button--success" %>
+      <%= button_to t('subscriptions.upgrade'), upgrade_path, method: :get, class: 'button button--large button--success', data: { action: 'click->modal--base#animateOutCloseAndCleanUp', turbo: false } %>
     </div>
   </div>
 <% end %>
