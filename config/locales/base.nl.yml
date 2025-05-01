@@ -142,8 +142,8 @@ nl:
             <p>Groeten, Jan</p>
     analyzer:
         default_portfolio: 'Standaardportefeuille'
-        change_portfolio_name: 'Naam wijzigen'
         duplicate_portfolio: 'Portefeuille dupliceren'
+        do_you_want_to_delete: 'Wil je deze portefeuille verwijderen?'
         portfolio_name: 'Portefeuille naam'
         compare: 'Vergelijken'
         new_portfolio: 'Nieuwe portefeuille'

@@ -1,6 +1,7 @@
 nl:
     bot:
         add_api_keys: "API-sleutels voor %{exchange} toevoegen"
+        bot_name: "Botnaam"
         new: "Nieuwe bot"
         start_new_bot: "Nieuwe bot aanmaken"
         types:
@@ -123,6 +124,7 @@ nl:
         limit_buy: 'Limiet aankoop'
         limit_sell: 'Limiet verkoop'
         messages:
+            do_you_want_to_delete: 'Wil je deze bot verwijderen?'
             symbol_not_supported: "%{symbol} wordt niet ondersteund"
             symbol_not_supported_subscription: "%{symbol} wordt niet ondersteund door je abonnement"
             upgrade_plan_more_bots: "Upgrade je plan om meer bots te draaien"
