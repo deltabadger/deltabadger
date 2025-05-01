@@ -6,10 +6,10 @@ ru:
         types:
             dca:
                 title: "DCA"
-                description: "Усреднение стоимости одной монеты"
+                description: "DCA одного актива"
             barbell:
                 title: "Стратегия Barbell"
-                description: "Ребалансировка двух активов без налогов"
+                description: "DCA с ребалансировкой двух активов"
             index_portfolio:
                 title: "Индексный портфель"
                 description: "Создайте свой личный крипто-ETF"
