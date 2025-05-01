@@ -143,6 +143,7 @@ nl:
     analyzer:
         default_portfolio: 'Standaardportefeuille'
         change_portfolio_name: 'Naam wijzigen'
+        portfolio_name: 'Portefeuille naam'
         compare: 'Vergelijken'
         new_portfolio: 'Nieuwe portefeuille'
         total_value: 'Totale waarde'

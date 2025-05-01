@@ -146,6 +146,7 @@ es:
     analyzer:
         default_portfolio: 'Cartera predeterminada'
         change_portfolio_name: 'Cambiar nombre'
+        portfolio_name: 'Nombre de la cartera'
         compare: 'Comparar'
         new_portfolio: 'Nueva cartera'
         total_value: 'Valor total'
