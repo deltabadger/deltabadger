@@ -26,8 +26,13 @@ pl:
             invest_html: "Inwestuj %{input} /miesiąc"
         utils:
             mkt_cap_adjusted: "Dostosowane do kapitalizacji rynkowej"
-            mkt_cap_adjusted_info: |
-                Alokacja jest automatycznie ustawiana na podstawie kapitalizacji rynkowej monet w twoim portfelu. Im większa kapitalizacja rynkowa, tym większa alokacja.
+            mkt_cap_adjusted_info_html: |
+                <p><b>Kapitalizacja rynkowa</b> to sposób na zmierzenie, jak duża lub wartościowa jest moneta. Oblicza się ją, mnożąc całkowitą liczbę monet przez aktualną cenę jednej monety. W twoim bocie, moneta o większej kapitalizacji rynkowej otrzymuje większą część twojej inwestycji.</p>
+                <p><b>Przykład:</b></p>
+                <p><b>Moneta A:</b> Istnieje 2 miliony monet, każda warta 10 $. Kapitalizacja rynkowa wynosi 2M × 10 $ = 20M $.</p>
+                <p><b>Moneta B:</b> Istnieje 1 milion monet, każda warta 1 $. Kapitalizacja rynkowa = 1M × 1 $ = 1M $.</p>
+                <p>Jeśli zainwestujesz 100 $, bot podzieli tę kwotę proporcjonalnie do ich kapitalizacji rynkowych: 95,2 $ dla Monety A, 4,8 $ dla Monety B.</p>
+                <p>Ale jeśli cena Monety B wzrośnie do 3 $, jej kapitalizacja rynkowa stanie się równa 3M $. Teraz, kolejne 100 $ zostanie podzielone: 87 $ dla Monety A i 13 $ dla Monety B.</p>
         above: powyżej
         below: poniżej
         buttons:
