@@ -19,8 +19,17 @@ class BotsController < ApplicationController
   def new; end
 
   def barbell_new_step_to_first_asset
+    # FIXME: we need this sleep because this method will render a modal while being called from another modal.
+    # The problem is that turbo has not yet cleaned up the modal object and it tries to render this modal
+    # into the same modal partial, and crashes.
+    # Seems the issue is actually related to the modal--base#animateOutCloseAndCleanUp action, which is triggered
+    # but not awaited to finish before rendering the modal.
+    # The FIX must address both upgrade_upgrade_instructions_path and barbell_new_step_to_first_asset_bots_path.
+    a = Time.current
     assets = @bot.available_assets_for_current_settings(asset_type: :base_asset, include_exchanges: true)
     @assets = filter_assets_by_query(assets: assets, query: barbell_bot_params[:query])
+    b = Time.current
+    sleep [0.25 - (b - a), 0].max
     render 'bots/barbell/new/step_to_first_asset'
   end
 
