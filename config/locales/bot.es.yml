@@ -19,6 +19,7 @@ es:
         status:
             setting_orders: "Configurando órdenes…"
             paused: "Pausado"
+            next_try: "Próximo intento en %{countdown}"
         no_orders_info: "Las órdenes del bot aparecerán aquí"
         barbell:
             invest: "Invertir"
