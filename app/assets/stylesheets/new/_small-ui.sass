@@ -48,6 +48,8 @@
     box-shadow: var(--widget-shadow)
     cursor: pointer
     text-decoration: none !important
+    &[disabled="disabled"],&[disabled]
+        cursor: not-allowed
     .label
         min-width: 2.2rem
     &--calendar
@@ -109,7 +111,6 @@
                     fill: #fcd535 !important
         &--kucoin
             background: #00a1f1 !important
-    cursor: not-allowed
 
 .label--select,.sinput--select
     position: relative
