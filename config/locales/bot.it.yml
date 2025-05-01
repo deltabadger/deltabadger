@@ -27,8 +27,13 @@ it:
             invest_html: "Investi %{input} /mese"
         utils:
             mkt_cap_adjusted: "Aggiustato per capitalizzazione di mercato"
-            mkt_cap_adjusted_info: |
-                L'allocazione è impostata automaticamente in base alla capitalizzazione di mercato delle monete nel tuo portfolio. Maggiore è la capitalizzazione di mercato, maggiore sarà l'allocazione.
+            mkt_cap_adjusted_info_html: |
+                <p><b>Capitalizzazione di mercato</b> è un modo per misurare quanto grande o preziosa sia una criptovaluta. Si calcola moltiplicando il numero totale di monete per il prezzo attuale di una moneta. Nel tuo bot, la criptovaluta con la maggiore capitalizzazione di mercato riceve una quota maggiore del tuo investimento.</p>
+                <p><b>Esempio:</b></p>
+                <p><b>Criptovaluta A:</b> Esistono 2 milioni di monete, ciascuna del valore di 10 $. La capitalizzazione di mercato equivale a 2M × 10 $ = 20M $.</p>
+                <p><b>Criptovaluta B:</b> Esiste 1 milione di monete, ciascuna del valore di 1 $. Capitalizzazione di mercato = 1M × 1 $ = 1M $.</p>
+                <p>Se investi 100 $, il bot li dividerà proporzionalmente alle loro capitalizzazioni di mercato: 95,2 $ alla Criptovaluta A, 4,8 $ alla Criptovaluta B.</p>
+                <p>Ma se il prezzo della Criptovaluta B sale a 3 $, la sua capitalizzazione di mercato diventa 3M $. Ora, i prossimi 100 $ saranno allocati 87 $ alla Criptovaluta A e 13 $ alla Criptovaluta B.</p>
         above: "sopra"
         below: "sotto"
         buttons:

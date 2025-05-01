@@ -48,8 +48,6 @@ module SubscriptionPlan::PlanFeatures
 
     def coming_features
       %w[
-        rebalanced_dca
-        barbell_strategy
         crypto_index
         custom_portfolios
         portfolio_rebalancing
