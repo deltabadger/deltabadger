@@ -6,10 +6,10 @@ pl:
         types:
             dca:
                 title: "DCA"
-                description: "Uśrednianie kosztów dla pojedynczej kryptowaluty"
+                description: "DCA pojedynczego aktywa"
             barbell:
                 title: "Strategia Barbell"
-                description: "Rebalansowanie dwóch aktywów bez podatku"
+                description: "DCA z rebalansowaniem dwóch aktywów"
             index_portfolio:
                 title: "Portfolio Indeksowe"
                 description: "Zbuduj swój osobisty krypto ETF"

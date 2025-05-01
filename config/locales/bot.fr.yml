@@ -6,10 +6,10 @@ fr:
         types:
             dca:
                 title: "DCA"
-                description: "Investissement programmé sur une seule cryptomonnaie"
+                description: "DCA mono-actif"
             barbell:
                 title: "Stratégie Barbell"
-                description: "Rééquilibrage de deux actifs sans impôts"
+                description: "DCA rééquilibré à deux actifs"
             index_portfolio:
                 title: "Portefeuille Indice"
                 description: "Construisez votre ETF crypto personnel"
