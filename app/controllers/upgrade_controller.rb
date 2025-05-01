@@ -106,7 +106,6 @@ class UpgradeController < ApplicationController
     # Seems the issue is actually related to the modal--base#animateOutCloseAndCleanUp action, which is triggered
     # but not awaited to finish before rendering the modal.
     # The FIX must address both upgrade_upgrade_instructions_path and barbell_new_step_to_first_asset_bots_path.
-    # Potential solution: wait for the turbo cleanup to be done before trying to render the modal.
     sleep 0.25
   end
 
