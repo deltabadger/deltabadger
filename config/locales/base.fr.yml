@@ -182,6 +182,15 @@ fr:
         search:
             placeholder:
                 asset: 'Rechercher un actif…'
+        time_periods:
+            ytd: 'YTD'
+            ytd_title: 'Début de l''année'
+            one_year: '1A'
+            one_year_title: '1 an'
+            three_years: '3A'
+            three_years_title: '3 ans'
+            five_years: '5A'
+            five_years_title: '5 ans'
         years:
             one: "%{count} an"
             other: "%{count} ans"

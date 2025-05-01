@@ -186,6 +186,15 @@ de:
         search:
             placeholder:
                 asset: 'Nach einem Asset suchen…'
+        time_periods:
+            ytd: 'YTD'
+            ytd_title: 'Beginn des Jahres'
+            one_year: '1J'
+            one_year_title: '1 Jahr her'
+            three_years: '3J'
+            three_years_title: '3 Jahre her'
+            five_years: '5J'
+            five_years_title: '5 Jahre her'
         years:
             one: "%{count} Jahr"
             other: "%{count} Jahre"
