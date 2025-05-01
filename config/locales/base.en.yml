@@ -147,6 +147,7 @@ en:
     analyzer:
         default_portfolio: "Default portfolio"
         change_portfolio_name: 'Change name'
+        duplicate_portfolio: 'Duplicate Portfolio'
         portfolio_name: 'Portfolio name'
         compare: 'Compare'
         new_portfolio: 'New portfolio'
