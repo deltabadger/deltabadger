@@ -6,10 +6,10 @@ it:
         types:
             dca:
                 title: "DCA"
-                description: "Dollar-cost averaging a singola moneta"
+                description: "DCA a singolo asset"
             barbell:
                 title: "Strategia Barbell"
-                description: "Ribilanciamento di due asset senza tasse"
+                description: "DCA bilanciato a due asset"
             index_portfolio:
                 title: "Portfolio Indice"
                 description: "Costruisci il tuo ETF crypto personale"
