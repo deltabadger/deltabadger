@@ -143,8 +143,8 @@ de:
             <p>Beste Grüße, Jan</p>
     analyzer:
         default_portfolio: 'Standardportfolio'
-        change_portfolio_name: 'Namen ändern'
         duplicate_portfolio: 'Duplizieren'
+        do_you_want_to_delete: 'Möchten Sie dieses Portfolio löschen?'
         portfolio_name: 'Portfoliowert'
         compare: 'Vergleichen'
         new_portfolio: 'Neues Portfolio'

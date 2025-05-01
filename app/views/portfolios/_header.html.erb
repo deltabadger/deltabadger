@@ -4,7 +4,7 @@
   <%= portfolio_label %>
   <%= render "svg/16x16_down" %>
   <div class="dropdown dropdown--portfolio">
-    <%= link_to "#{t('utils.new')} +", new_portfolio_path, class: "dropdown__item", data: { turbo_frame: "modal" } %>
+    <%= link_to "#{t('analyzer.new_portfolio')} +", new_portfolio_path, class: "dropdown__item", data: { turbo_frame: "modal" } %>
     <% if other_portfolios.any? %>
       <div class="dropdown__item dropdown__item--divider"></div>
       <% other_portfolios.each do |portfolio| %>

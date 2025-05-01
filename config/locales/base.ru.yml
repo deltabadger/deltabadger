@@ -147,8 +147,8 @@ ru:
             <p>С наилучшими пожеланиями, Jan</p>
     analyzer:
         default_portfolio: 'Портфель по умолчанию'
-        change_portfolio_name: 'Изменить имя'
         duplicate_portfolio: 'Дублировать портфель'
+        do_you_want_to_delete: 'Вы хотите удалить этот портфель?'
         portfolio_name: 'Имя портфеля'
         compare: 'Сравнить'
         new_portfolio: 'Новый портфель'
