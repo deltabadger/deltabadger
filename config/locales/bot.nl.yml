@@ -6,10 +6,10 @@ nl:
         types:
             dca:
                 title: "DCA"
-                description: "Dollar-cost averaging voor één munt"
+                description: "Enkele-asset DCA"
             barbell:
                 title: "Barbell Strategie"
-                description: "Herbalancering van twee activa zonder belasting"
+                description: "Twee-asset geherbalanceerde DCA"
             index_portfolio:
                 title: "Index Portfolio"
                 description: "Bouw uw persoonlijke crypto ETF"

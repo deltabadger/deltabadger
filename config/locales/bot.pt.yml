@@ -6,10 +6,10 @@ pt:
         types:
             dca:
                 title: "DCA"
-                description: "Investimento programado numa única moeda"
+                description: "DCA de ativo único"
             barbell:
                 title: "Estratégia Barbell"
-                description: "Reequilíbrio de dois ativos sem impostos"
+                description: "DCA rebalanceado de dois ativos"
             index_portfolio:
                 title: "Portefólio de Índice"
                 description: "Construa o seu ETF pessoal de criptomoedas"
