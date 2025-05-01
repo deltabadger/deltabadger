@@ -1,5 +1,5 @@
-desc 'rake task to update transactions exchange'
-task update_transactions_exchange: :environment do
+desc 'rake task to remove duplicated transactions'
+task remove_duplicated_transactions: :environment do
   Rails.logger.info 'Finding duplicated external ids'
   puts 'Finding external ids'
   external_ids = Transaction.pluck(:external_id).compact
