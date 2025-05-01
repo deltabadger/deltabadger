@@ -186,6 +186,15 @@ it:
         search:
             placeholder:
                 asset: 'Cerca un asset…'
+        time_periods:
+            ytd: 'YTD'
+            ytd_title: 'Principio dell''anno'
+            one_year: '1A'
+            one_year_title: '1 anno fa'
+            three_years: '3A'
+            three_years_title: '3 anni fa'
+            five_years: '5A'
+            five_years_title: '5 anni fa'
         years:
             one: "%{count} anno"
             other: "%{count} anni"

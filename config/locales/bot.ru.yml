@@ -20,7 +20,7 @@ ru:
         status:
             setting_orders: "Настройка ордеров…"
             paused: "На паузе"
-            next_try: "Следующая попытка через %{countdown}"
+            next_try: "Следующая попытка через"
         no_orders_info: "Здесь будут показаны заказы бота"
         barbell:
             invest: "Инвестировать"
