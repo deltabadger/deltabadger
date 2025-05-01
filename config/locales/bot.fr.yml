@@ -6,10 +6,10 @@ fr:
         types:
             dca:
                 title: "DCA"
-                description: "Investissement programmé sur une seule cryptomonnaie"
+                description: "DCA mono-actif"
             barbell:
                 title: "Stratégie Barbell"
-                description: "Rééquilibrage de deux actifs sans impôts"
+                description: "DCA rééquilibré à deux actifs"
             index_portfolio:
                 title: "Portefeuille Indice"
                 description: "Construisez votre ETF crypto personnel"
@@ -19,14 +19,20 @@ fr:
         status:
             setting_orders: "Configuration des commandes…"
             paused: "En pause"
+            next_try: "Prochain essai dans %{countdown}"
         no_orders_info: "Les commandes du bot apparaîtront ici"
         barbell:
             invest: "Investir"
             invest_html: "Investir %{input} /mois"
         utils:
             mkt_cap_adjusted: "Ajusté à la capitalisation boursière"
-            mkt_cap_adjusted_info: |
-                L'allocation est automatiquement définie en fonction de la capitalisation boursière des cryptomonnaies de votre portefeuille. Plus la capitalisation est importante, plus l'allocation est élevée.
+            mkt_cap_adjusted_info_html: |
+                <p><b>Capitalisation boursière</b> est une façon de mesurer la taille ou la valeur d'une cryptomonnaie. Elle est calculée en multipliant le nombre total de pièces par le prix actuel d'une pièce. Dans votre bot, la cryptomonnaie avec la plus grande capitalisation boursière reçoit une plus grande part de votre investissement.</p>
+                <p><b>Exemple :</b></p>
+                <p><b>Cryptomonnaie A :</b> 2 millions de pièces existent, chacune valant 10 €. La capitalisation boursière équivaut à 2M × 10 € = 20M €.</p>
+                <p><b>Cryptomonnaie B :</b> 1 million de pièces existent, chacune valant 1 €. Capitalisation boursière = 1M × 1 € = 1M €.</p>
+                <p>Si vous investissez 100 €, le bot les répartira proportionnellement à leurs capitalisations boursières : 95,2 € pour la Cryptomonnaie A, 4,8 € pour la Cryptomonnaie B.</p>
+                <p>Mais si le prix de la Cryptomonnaie B monte à 3 €, sa capitalisation boursière devient 3M €. Maintenant, les 100 € suivants alloueront 87 € à la Cryptomonnaie A et 13 € à la Cryptomonnaie B.</p>
         above: 'au dessus'
         below: 'en dessous'
         buttons:
