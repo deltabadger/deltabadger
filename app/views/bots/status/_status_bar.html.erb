@@ -3,16 +3,23 @@
 <%= tag.div id: dom_id(bot, :status_bar), style: "width: 100%; display: flex" do %>
   <div class="bot-control__status <%= 'active' if bot.working? || bot.pending? %>">
     <% if bot.pending? %>
-      <%= t('barbell_bots.status.setting_orders') %>
+      <%= t('bot.status.setting_orders') %>
     <% elsif bot.stopped? %>
-      <%= t('barbell_bots.status.paused') %>
+      <%= t('bot.status.paused') %>
     <% elsif bot.working? || bot.retrying? %>
-      <%= tag.div class: "bot-control__status__bar", style: "min-width:0.5rem; width: #{bot.progress_percentage * 100}%", data: {
-        controller: "progress-bar",
-        progress_bar_start_time_value: bot.last_interval_checkpoint_at.iso8601,
-        progress_bar_end_time_value: bot.next_action_job_at&.iso8601,
-        progress_bar_target: "progressBar",
-      } %>
+      <% if bot.working? %>
+        <%= tag.div class: "bot-control__status__bar", style: "min-width:0.5rem; width: #{bot.progress_percentage * 100}%", data: {
+          controller: "progress-bar",
+          progress_bar_start_time_value: bot.last_interval_checkpoint_at.iso8601,
+          progress_bar_end_time_value: bot.next_action_job_at&.iso8601,
+          progress_bar_target: "progressBar",
+        } %>
+      <% end %>
+      
+      <% if bot.retrying? %>
+        <%= t('bot.status.next_try', countdown: "") %>
+      <% end %>
+      
       <%= tag.div data: {
         controller: "countdown",
         countdown_end_time_value: bot.next_action_job_at&.iso8601,
