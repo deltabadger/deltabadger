@@ -35,9 +35,9 @@
     <!-- 2: General Note -->
     <p><%= t('bot.warning.general_note') %></p>
 
-    <div class="large-button-wrapper">
+    <div class="large-button-wrapper" style="padding-top: 2rem;">
       <%= button_tag class: 'button button--success button--large', data: { action: 'modal--base#animateOutCloseAndCleanUp' } do %>
-        Got it!
+        <%= t('button.understand') %>
       <% end %>
     </div>
   </div>
