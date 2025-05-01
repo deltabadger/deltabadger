@@ -165,13 +165,19 @@
         background-size: cover
         background-position: center
         padding-bottom: 24rem
+        padding-top: 4rem
         width: calc(100vw - 2rem)
         max-width: 72rem
-        .modal__close path
-            fill: #fff
+        .modal__close
+            &:hover
+                background: #fff2
+            path
+                fill: #fff
         img
             position: relative
             top: -0.5rem
+        p
+            margin-bottom: 2.5rem
     &--upgrade
         padding-bottom: 26rem
         color: white
