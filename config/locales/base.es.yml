@@ -188,6 +188,15 @@ es:
         search:
             placeholder:
                 asset: 'Buscar un activo…'
+        time_periods:
+            ytd: 'YTD'
+            ytd_title: 'Principio del año'
+            one_year: '1A'
+            one_year_title: '1 año atrás'
+            three_years: '3A'
+            three_years_title: '3 años atrás'
+            five_years: '5A'
+            five_years_title: '5 años atrás'
         years:
             one: "%{count} año"
             other: "%{count} años"

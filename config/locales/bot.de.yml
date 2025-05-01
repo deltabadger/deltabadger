@@ -20,7 +20,7 @@ de:
         status:
             setting_orders: "Orders werden erstellt…"
             paused: "Pausiert"
-            next_try: "Nächster Versuch in %{countdown}"
+            next_try: "Nächster Versuch in"
         no_orders_info: "Bot-Bestellungen werden hier angezeigt"
         barbell:
             invest: "Investieren"
