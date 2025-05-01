@@ -17,8 +17,9 @@ nl:
                 title: "Aangepast Portfolio"
                 description: "Herbalanceer aangepaste activamix"
         status:
-            setting_orders: "Bestellingen instellen…"
+            setting_orders: "Orders instellen…"
             paused: "Gepauzeerd"
+            next_try: "Volgende poging in %{countdown}"
         no_orders_info: "Bot bestellingen verschijnen hier"
         barbell:
             invest: "Investeren"
