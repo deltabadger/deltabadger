@@ -1,6 +1,7 @@
 ru:
     bot:
         add_api_keys: "Добавить API-ключи для %{exchange}"
+        bot_name: "Имя бота"
         new: "Новый бот"
         start_new_bot: "Создать нового бота"
         types:
@@ -121,6 +122,7 @@ ru:
         limit_buy: 'Лимитная покупка'
         limit_sell: 'Лимитная продажа'
         messages:
+            do_you_want_to_delete: 'Вы хотите удалить этого бота?'
             symbol_not_supported: "%{symbol} не поддерживается"
             symbol_not_supported_subscription: "%{symbol} не поддерживается вашей подпиской"
             upgrade_plan_more_bots: "Обновите план, чтобы запускать больше ботов"

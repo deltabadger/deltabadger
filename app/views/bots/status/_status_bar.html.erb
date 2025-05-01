@@ -16,10 +16,6 @@
         } %>
       <% end %>
       
-      <% if bot.retrying? %>
-        <%= t('bot.status.next_try', countdown: "") %>
-      <% end %>
-      
       <%= tag.div data: {
         controller: "countdown",
         countdown_end_time_value: bot.next_action_job_at&.iso8601,
@@ -29,6 +25,9 @@
         countdown_minutes_label_value: t('subscriptions.payment.minutes_short'),
         countdown_seconds_label_value: t('subscriptions.payment.seconds_short')
       } do %>
+        <% if bot.retrying? %>
+          <%= t('bot.status.next_try') %>
+        <% end %>
         <span data-countdown-target="days"></span><span data-countdown-target="daysLabel"></span>
         <span data-countdown-target="hours"></span><span data-countdown-target="hoursLabel"></span>
         <span data-countdown-target="minutes"></span><span data-countdown-target="minutesLabel"></span>
