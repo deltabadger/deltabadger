@@ -188,6 +188,15 @@ pl:
         search:
             placeholder:
                 asset: 'Szukaj aktywa…'
+        time_periods:
+            ytd: 'YTD'
+            ytd_title: 'Początek roku'
+            one_year: '1Y'
+            one_year_title: '1 rok temu'
+            three_years: '3Y'
+            three_years_title: '3 lata temu'
+            five_years: '5Y'
+            five_years_title: '5 lat temu'
         years:
             one: "%{count} rok"
             other: "%{count} lat"
