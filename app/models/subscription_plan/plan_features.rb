@@ -7,9 +7,9 @@ module SubscriptionPlan::PlanFeatures
         dca
         fee_cutter
         automatic_withdrawals
-        rebalanced_dca
         barbell_strategy
         crypto_index
+        crypto_index_advanced
         custom_portfolios
         portfolio_rebalancing
         portfolio_backtesting
@@ -30,7 +30,6 @@ module SubscriptionPlan::PlanFeatures
         dca
         fee_cutter
         automatic_withdrawals
-        rebalanced_dca
         barbell_strategy
         crypto_index
         custom_portfolios
@@ -48,9 +47,8 @@ module SubscriptionPlan::PlanFeatures
 
     def coming_features
       %w[
-        rebalanced_dca
-        barbell_strategy
         crypto_index
+        crypto_index_advanced
         custom_portfolios
         portfolio_rebalancing
       ]
@@ -80,7 +78,6 @@ module SubscriptionPlan::PlanFeatures
       free_features + %w[
         fee_cutter
         automatic_withdrawals
-        rebalanced_dca
         barbell_strategy
       ]
     end
@@ -98,6 +95,7 @@ module SubscriptionPlan::PlanFeatures
 
     def legendary_features
       pro_features + %w[
+        crypto_index_advanced
         legendary_badger_nft
       ]
     end

@@ -16,15 +16,15 @@ nl:
         automatic_withdrawals:
             title: "Automatische Opnames"
             description_html: "Verplaats je crypto automatisch naar je hardware wallet. Werkt met Kraken."
-        rebalanced_dca:
-            title: "Geherbalanceerde DCA"
-            description_html: "Wil je dat je portfolio 80% Bitcoin en 20% Ethereum blijft? Geherbalanceerde DCA houdt je doelallocatie aan."
         barbell_strategy:
             title: "Barbell Strategie"
-            description_html: "De klassieke barbell balanceert tussen risicovolle en veilige assets zoals BTC en USDC, maar je kunt elk beschikbaar paar assets kiezen."
+            description_html: "Wil je dat je portfolio 80% Bitcoin en 20% Ethereum blijft? Geherbalanceerde DCA houdt je doelallocatie aan."
         crypto_index:
             title: "Crypto Index"
             description_html: "Bescherm jezelf tegen single-asset risico. Investeer in maximaal 100 top assets op basis van marktkapitalisatie. Creëer je persoonlijke crypto ETF."
+        crypto_index_advanced:
+            title: "Geavanceerde Crypto Indexen"
+            description_html: "Ga verder dan de totale marktindex met indexen gericht op specifieke sectoren, thema's en populaire portfolio's."
         custom_portfolios:
             title: "Aangepaste Portfolio's"
             description_html: "Ben je op zoek naar het Altcoin Seizoen? Sluit Bitcoin uit van je index of maak een aangepaste portfolio."

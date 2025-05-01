@@ -6,10 +6,10 @@ nl:
         types:
             dca:
                 title: "DCA"
-                description: "Dollar-cost averaging voor één munt"
+                description: "Enkele-asset DCA"
             barbell:
                 title: "Barbell Strategie"
-                description: "Herbalancering van twee activa zonder belasting"
+                description: "Twee-asset geherbalanceerde DCA"
             index_portfolio:
                 title: "Index Portfolio"
                 description: "Bouw uw persoonlijke crypto ETF"
@@ -17,16 +17,22 @@ nl:
                 title: "Aangepast Portfolio"
                 description: "Herbalanceer aangepaste activamix"
         status:
-            setting_orders: "Bestellingen instellen…"
+            setting_orders: "Orders instellen…"
             paused: "Gepauzeerd"
+            next_try: "Volgende poging in %{countdown}"
         no_orders_info: "Bot bestellingen verschijnen hier"
         barbell:
             invest: "Investeren"
             invest_html: "Investeer %{input} /maand"
         utils:
             mkt_cap_adjusted: "Marktkapitalisatie aangepast"
-            mkt_cap_adjusted_info: |
-                De allocatie wordt automatisch ingesteld op basis van de marktkapitalisatie van de munten in uw portfolio. Hoe groter de marktkapitalisatie, hoe groter de allocatie.
+            mkt_cap_adjusted_info_html: |
+                <p><b>Marktkapitalisatie</b> is een manier om te meten hoe groot of waardevol een munt is. Het wordt berekend door het totale aantal munten te vermenigvuldigen met de huidige prijs van één munt. In uw bot krijgt de munt met de grotere marktkapitalisatie een groter deel van uw investering.</p>
+                <p><b>Voorbeeld:</b></p>
+                <p><b>Munt A:</b> Er bestaan 2 miljoen munten, elk ter waarde van €10. De marktkapitalisatie is gelijk aan 2M × €10 = €20M.</p>
+                <p><b>Munt B:</b> Er bestaat 1 miljoen munten, elk ter waarde van €1. Marktkapitalisatie = 1M × €1 = €1M.</p>
+                <p>Als u €100 investeert, zal de bot dit proportioneel verdelen volgens hun marktkapitalisaties: €95,2 naar Munt A, €4,8 naar Munt B.</p>
+                <p>Maar als de prijs van Munt B stijgt naar €3, wordt de marktkapitalisatie €3M. Nu zal de volgende €100 worden verdeeld als €87 naar Munt A en €13 naar Munt B.</p>
         above: boven
         below: onder
         buttons:
