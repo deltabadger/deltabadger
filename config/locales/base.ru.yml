@@ -190,6 +190,15 @@ ru:
         search:
             placeholder:
                 asset: 'Искать актив…'
+        time_periods:
+            ytd: 'YTD'
+            ytd_title: 'Начало года'
+            one_year: '1Y'
+            one_year_title: '1 год назад'
+            three_years: '3Y'
+            three_years_title: '3 года назад'
+            five_years: '5Y'
+            five_years_title: '5 лет назад'
         years:
             one: "%{count} год"
             other: "%{count} лет"
