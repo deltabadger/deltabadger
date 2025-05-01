@@ -1,6 +1,7 @@
 en:
     bot:
         add_api_keys: "Add API keys for %{exchange}"
+        bot_name: 'Bot name'
         new: "New bot"
         start_new_bot: "Create new bot"
         types:
@@ -132,6 +133,7 @@ en:
         limit_buy: 'Limit buy'
         limit_sell: 'Limit sell'
         messages:
+            do_you_want_to_delete: 'Do you want to delete this bot?'
             symbol_not_supported: "%{symbol} is not supported"
             symbol_not_supported_subscription: "%{symbol} is not supported in your subscription"
             upgrade_plan_more_bots: "Upgrade your plan to run more bots"
@@ -175,9 +177,7 @@ en:
         subaccounts_info: 'Use subaccount'
         week: Week
         withdraw_interval_html: 'Withdraw every <split>2</split> days.'
-        withdraw_threshold_html: 'Withdraw when at least <split>0.001</split> %{currency} is available.'
-        bot_name: 'Bot name'
-        change_bot_name: 'Change name'
+        withdraw_threshold_html: 'Withdraw when at least <split>0.001</split> %{currency} is available.' 
         withdrawal_percentage: '%{percentage}%'
         withdrawal: 'Withdrawal'
         warning:
