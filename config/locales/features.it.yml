@@ -16,12 +16,9 @@ it:
         automatic_withdrawals:
             title: "Prelievi Automatici"
             description_html: "Trasferisci automaticamente le tue crypto nel tuo hardware wallet. Funziona con Kraken."
-        rebalanced_dca:
-            title: "DCA Ribilanciato"
-            description_html: "Vuoi che il tuo portfolio rimanga all'80% Bitcoin e 20% Ethereum? Il DCA ribilanciato manterrà la tua allocazione target."
         barbell_strategy:
             title: "Strategia Barbell"
-            description_html: "Il classico barbell bilancia tra asset rischiosi e sicuri come BTC e USDC, ma puoi scegliere qualsiasi due asset disponibili."
+            description_html: "Vuoi che il tuo portfolio rimanga all'80% Bitcoin e 20% Ethereum? Il DCA ribilanciato manterrà la tua allocazione target."
         crypto_index:
             title: "Indice Crypto"
             description_html: "Rimani al sicuro dal rischio di un singolo asset. Investi fino a 100 top asset per capitalizzazione di mercato. Crea il tuo ETF crypto personale."

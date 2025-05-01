@@ -16,15 +16,15 @@ pl:
         automatic_withdrawals:
             title: "Automatyczne Wypłaty"
             description_html: "Automatycznie przenoś swoje kryptowaluty do portfela sprzętowego. Działa z Kraken."
-        rebalanced_dca:
-            title: "Zbalansowane DCA"
-            description_html: "Chcesz, aby Twoje portfolio utrzymywało 80% w Bitcoin i 20% w Ethereum? Zbalansowane DCA utrzyma Twoją docelową alokację."
         barbell_strategy:
             title: "Strategia Barbell"
-            description_html: "Klasyczna strategia barbell równoważy między ryzykownymi a bezpiecznymi aktywami jak BTC i USDC, ale możesz wybrać dowolne dwa dostępne aktywa."
+            description_html: "Chcesz, aby Twoje portfolio utrzymywało 80% w Bitcoin i 20% w Ethereum? Zbalansowane DCA utrzyma Twoją docelową alokację."
         crypto_index:
             title: "Indeks Krypto"
             description_html: "Chroń się przed ryzykiem pojedynczego aktywa. Inwestuj w do 100 najlepszych aktywów według kapitalizacji rynkowej. Stwórz swój osobisty ETF krypto."
+        crypto_index_advanced:
+            title: "Zaawansowane Indeksy Krypto"
+            description_html: "Wyjdź poza całkowity indeks rynkowy dzięki indeksom ukierunkowanym na konkretne sektory, tematy i popularne portfele."
         custom_portfolios:
             title: "Niestandardowe Portfele"
             description_html: "Polujesz na Altcoin Season? Wyklucz Bitcoin ze swojego indeksu lub stwórz dowolne niestandardowe portfolio."

@@ -60,7 +60,7 @@
             opacity: 1
 .modal
     position: relative
-    padding: 4rem
+    padding: 3.25rem 4rem 4rem
     width: 100vw
     max-width: calc(100vw - 2rem)
     background: var(--modal-background)
@@ -129,16 +129,22 @@
     &__close
         cursor: pointer
         position: absolute
-        top: 4rem
-        right: 4rem
-        width: 3rem
-        height: 3rem
+        top: 2.5rem
+        right: 2.5rem
+        width: 5rem
+        height: 5rem
+        padding: 1rem
+        border-radius: 50%
         background: none // <button>
         border: none     // <button>
         path
-            fill: var(--link)
+            fill: var(--label)
             .flash__message &
                 fill: white
+        &:focus-visible
+            outline: none !important
+        &:hover
+            background: var(--close-hover)
     &__header
         margin-bottom: 4rem
         min-height: 3rem
@@ -159,13 +165,19 @@
         background-size: cover
         background-position: center
         padding-bottom: 24rem
+        padding-top: 4rem
         width: calc(100vw - 2rem)
         max-width: 72rem
-        .modal__close path
-            fill: #fff
+        .modal__close
+            &:hover
+                background: #fff2
+            path
+                fill: #fff
         img
             position: relative
             top: -0.5rem
+        p
+            margin-bottom: 2.5rem
     &--upgrade
         padding-bottom: 26rem
         color: white
@@ -177,14 +189,13 @@
         @media screen and (max-width: 575px)
             padding-bottom: calc(45vw - 2rem)
         p
-            margin-bottom: 3.5rem
+            margin-bottom: 4rem
             text-align: center
+        .modal__close:hover
+            background: #fff2
         .icon-24
             *
                 fill: #fff
-    &__close
-        &:focus-visible
-            outline: none !important
     .button
         width: 100%
     .db-form__row

@@ -16,15 +16,15 @@ en:
         automatic_withdrawals:
             title: "Automatic Withdrawals"
             description_html: "Automatically transfer your crypto to your hardware wallet. Works with Kraken."
-        rebalanced_dca:
-            title: "Rebalanced DCA"
-            description_html: "Do you want your portfolio to stay 80% Bitcoin and 20% Ethereum? Rebalanced DCA will keep your target allocation."
         barbell_strategy:
             title: "Barbell Strategy"
-            description_html: "The classic barbell balances between risky and safe asset like BTC and USDC, but you can choose any two assets available."
+            description_html: "Do you want your portfolio to stay 80% Bitcoin and 20% Ethereum? Rebalanced DCA will keep your target allocation."
         crypto_index:
             title: "Crypto Index"
             description_html: "Stay safe from a single asset risk. Invest in up to 100 top assets by market cap. Create your personal crypto ETF."
+        crypto_index_advanced:
+            title: "Advanced Crypto Indexes"
+            description_html: "Go beyond the total market index with indexes targeting specific sectors, themes, and popular portfolios."
         custom_portfolios:
             title: "Custom Portfolios"
             description_html: "Are you hunting for Altcoin Season? Exclude Bitcoin from your index, or create any custom portfolio."

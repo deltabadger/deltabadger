@@ -6,10 +6,10 @@ es:
         types:
             dca:
                 title: "DCA"
-                description: "Dollar-Cost-Averaging en una sola moneda"
+                description: "DCA de un solo activo"
             barbell:
                 title: "Estrategia Barbell"
-                description: "Rebalanceo de dos activos sin impuestos"
+                description: "DCA rebalanceado de dos activos"
             index_portfolio:
                 title: "Cartera Índice"
                 description: "Construye tu ETF de criptomonedas personal"
@@ -19,14 +19,20 @@ es:
         status:
             setting_orders: "Configurando órdenes…"
             paused: "Pausado"
+            next_try: "Próximo intento en %{countdown}"
         no_orders_info: "Las órdenes del bot aparecerán aquí"
         barbell:
             invest: "Invertir"
             invest_html: "Invertir %{input} /mes"
         utils:
             mkt_cap_adjusted: "Ajustado por capitalización de mercado"
-            mkt_cap_adjusted_info: |
-                La asignación se establece automáticamente según la capitalización de mercado de las monedas en tu cartera. Cuanto mayor sea la capitalización de mercado, mayor será la asignación.
+            mkt_cap_adjusted_info_html: |
+                <p><b>Capitalización de mercado</b> es una forma de medir el tamaño o valor de una criptomoneda. Se calcula multiplicando el número total de monedas por el precio actual de una moneda. En tu bot, la moneda con mayor capitalización de mercado recibe una mayor parte de tu inversión.</p>
+                <p><b>Ejemplo:</b></p>
+                <p><b>Moneda A:</b> Existen 2 millones de monedas, cada una con un valor de 10 $. La capitalización de mercado es igual a 2M × 10 $ = 20M $.</p>
+                <p><b>Moneda B:</b> Existe 1 millón de monedas, cada una con un valor de 1 $. Capitalización de mercado = 1M × 1 $ = 1M $.</p>
+                <p>Si inviertes 100 $, el bot lo dividirá proporcionalmente según sus capitalizaciones de mercado: 95,2 $ para la Moneda A y 4,8 $ para la Moneda B.</p>
+                <p>Pero si el precio de la Moneda B sube a 3 $, su capitalización de mercado se convierte en 3M $. Ahora, los siguientes 100 $ se asignarán 87 $ a la Moneda A y 13 $ a la Moneda B.</p>
         above: 'por encima'
         below: 'por debajo'
         buttons:
