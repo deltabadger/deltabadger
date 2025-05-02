@@ -21,7 +21,6 @@ pl:
             setting_orders: "Ustawianie zleceń…"
             paused: "Wstrzymany"
             next_try: "Następna próba za"
-        no_orders_info: "Zamówienia bota pojawią się tutaj"
         barbell:
             invest: "Inwestuj"
             invest_html: "Inwestuj %{input} /miesiąc"
