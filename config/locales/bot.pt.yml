@@ -133,6 +133,8 @@ pt:
             subaccounts_not_allowed: "Subcontas não são permitidas nesta troca"
             no_subaccount_name: "Nenhum nome de subconta fornecido"
             wrong_subaccount_name: "Nome de subconta incorreto"
+            failed_tooltip_explanation: "Esta ordem falhou: %{error_message}"
+            skipped_tooltip_explanation: "Esta ordem foi pulada porque a quantidade estava abaixo do tamanho mínimo de ordem da %{exchange_name}. A quantidade pulada foi armazenada e será adicionada à próxima ordem."
         minimum_withdrawal_disclaimer: "O tamanho mínimo de retirada é %{minimum} %{currency}."
         minimum_withdrawal_disclaimer_usd: "O tamanho mínimo de retirada é %{minimum} USD."
         month: Mês
@@ -158,4 +160,3 @@ pt:
                 one: "A quantidade perdida foi armazenada em buffer e será usada com a próxima ordem agendada, garantindo que seu cronograma e alocação sejam mantidos o mais próximo possível dos mínimos da exchange."
                 other: "As quantidades perdidas foram armazenadas em buffer e serão usadas com as próximas ordens agendadas, garantindo que seu cronograma e alocação sejam mantidos o mais próximo possível dos mínimos da exchange."
             general_note: "Os mínimos da exchange e as quantidades de rebalanceamento necessárias podem mudar. As ordens podem parecer irregulares às vezes, mas o bot sempre visa sua alocação e cronograma desejados, portanto, nenhum trabalho extra é necessário."
-            tooltip_explanation: "Esta ordem foi pulada porque a quantidade estava abaixo do tamanho mínimo de ordem da %{exchange_name}. A quantidade pulada foi armazenada e será adicionada à próxima ordem."

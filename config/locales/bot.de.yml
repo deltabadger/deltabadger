@@ -136,6 +136,8 @@ de:
             subaccounts_not_allowed: "Unterkonten sind auf diesem Austausch nicht erlaubt"
             no_subaccount_name: "Kein Unterkontoname angegeben"
             wrong_subaccount_name: "Falscher Unterkontoname"
+            failed_tooltip_explanation: "Diese Bestellung ist fehlgeschlagen: %{error_message}"
+            skipped_tooltip_explanation: "Diese Bestellung wurde übersprungen, da der Betrag unter der Mindestbestellgröße von %{exchange_name} lag. Der übersprungene Betrag wurde gepuffert und wird der nächsten Bestellung hinzugefügt."
         minimum_withdrawal_disclaimer: 'Der Mindestauszahlungsbetrag beträgt %{minimum} %{currency}.'
         minimum_withdrawal_disclaimer_usd: 'Der Mindestauszahlungsbetrag beträgt %{minimum} USD.'
         month: Monat
@@ -181,4 +183,3 @@ de:
                 one: "Der verpasste Betrag wurde gepuffert und wird mit der nächsten geplanten Order verwendet, sodass dein Zeitplan und deine Allokation so gut wie möglich entsprechend den Börsen-Mindestgrößen eingehalten werden."
                 other: "Die verpassten Beträge wurden gepuffert und werden mit den nächsten geplanten Orders verwendet, sodass dein Zeitplan und deine Allokation so gut wie möglich entsprechend den Börsen-Mindestgrößen eingehalten werden."
             general_note: "Börsen-Mindestgrößen und erforderliche Rebalancing-Beträge ändern sich. Transaktionen können manchmal unregelmäßig aussehen, aber der Bot hält immer deine gewünschte Allokation und deinen Zeitplan ein, sodass kein zusätzlicher Aufwand nötig ist."
-            tooltip_explanation: "Diese Bestellung wurde übersprungen, da der Betrag unter der Mindestbestellgröße von %{exchange_name} lag. Der übersprungene Betrag wurde gepuffert und wird der nächsten Bestellung hinzugefügt."
