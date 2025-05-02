@@ -141,7 +141,9 @@ pt:
             <p>Cumprimentos, Jan</p>
     analyzer:
         default_portfolio: 'Portfólio padrão'
-        change_portfolio_name: 'Mudar nome'
+        duplicate_portfolio: 'Duplicar portfólio'
+        do_you_want_to_delete: 'Quer eliminar este portfólio?'
+        portfolio_name: 'Nome do portfólio'
         compare: 'Comparar'
         new_portfolio: 'Novo portfólio'
         total_value: 'Valor Total'
@@ -182,6 +184,15 @@ pt:
         search:
             placeholder:
                 asset: 'Procurar um ativo…'
+        time_periods:
+            ytd: 'YTD'
+            ytd_title: 'Início do ano'
+            one_year: '1A'
+            one_year_title: '1 ano atrás'
+            three_years: '3A'
+            three_years_title: '3 anos atrás'
+            five_years: '5A'
+            five_years_title: '5 anos atrás'
         years:
             one: "%{count} ano"
             other: "%{count} anos"

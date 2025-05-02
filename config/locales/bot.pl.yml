@@ -1,6 +1,7 @@
 pl:
     bot:
         add_api_keys: "Dodaj klucze API dla %{exchange}"
+        bot_name: "Nazwa bota"
         new: "Nowy bot"
         start_new_bot: "Utwórz nowego bota"
         types:
@@ -19,7 +20,7 @@ pl:
         status:
             setting_orders: "Ustawianie zleceń…"
             paused: "Wstrzymany"
-            next_try: "Następna próba za %{countdown}"
+            next_try: "Następna próba za"
         no_orders_info: "Zamówienia bota pojawią się tutaj"
         barbell:
             invest: "Inwestuj"
@@ -123,6 +124,7 @@ pl:
         limit_buy: 'Kup z limitem'
         limit_sell: 'Sprzedaj z limitem'
         messages:
+            do_you_want_to_delete: 'Czy chcesz usunąć tego bota?'
             symbol_not_supported: "%{symbol} nie jest obsługiwany"
             symbol_not_supported_subscription: "%{symbol} nie jest obsługiwany przez twoją subskrypcję"
             upgrade_plan_more_bots: "Zrób upgrade, aby uruchomić więcej botów"
