@@ -2,14 +2,14 @@
 <% asset_color = asset.color || "#8A9BA8" %>
 <% adjusted_color = ensure_contrast(asset_color) %>
 
-<%= tag.div id: dom_id(asset, id_prefix) do %>
-  <%= tag.div class: "basket__asset-wrapper", data: {
+<%= tag.div id: dom_id(asset, id_prefix), data: {
     controller: "portfolio-analyzer--asset-allocation",
     portfolio_analyzer__asset_allocation_asset_api_id_value: asset.api_id,
     hw_animate_in_append: "animate-asset-in",
     hw_animate_in_after: "animate-asset-in",
     hw_animate_out_remove: "animate-asset-out"
   } do %>
+  <%= tag.div class: "basket__asset-wrapper" do %>
     <%= form_with model: asset, url: portfolio_asset_path(asset.portfolio_id, asset), method: :patch, html: { class: "basket__asset", onchange: "requestSubmit();" } do |form| %>
 
 
