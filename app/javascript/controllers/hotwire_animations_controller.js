@@ -2,7 +2,8 @@ import { Controller } from "@hotwired/stimulus";
 
 // Animations for turbo streams & turbo frames:
 // This code adds classes to elements that are about to be removed or added to the page.
-// It uses the animation classes defined in the turbo-frame's first child data attributes.
+// It uses the animation classes defined in the turbo-frame's data attributes (same element where the turbo frame
+// id is defined).
 // The data attributes must be named hw-animate-in OR hw-animate-out.
 // Optional: Add the turbo stream action to the data attribute name, e.g. hw-animate-in-append.
 
@@ -55,7 +56,7 @@ export default class extends Controller {
   }
 
   #animateElementToRemove(targetId, actionStr, event) {
-    const elementToRemove = document.getElementById(targetId)?.firstElementChild;
+    const elementToRemove = document.getElementById(targetId);
     if (elementToRemove) {
       const exitAnimationClass = this.#getAnimationClass(elementToRemove, "Out", actionStr);
       if (exitAnimationClass) {
@@ -65,7 +66,7 @@ export default class extends Controller {
   }
 
   #animateElementToAdd(element, actionStr) {
-    const elementToAdd = element?.firstElementChild;
+    const elementToAdd = element;
     if (elementToAdd) {
       const enterAnimationClass = this.#getAnimationClass(elementToAdd, "In", actionStr);
       if (enterAnimationClass) {
