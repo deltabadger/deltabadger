@@ -21,7 +21,6 @@ it:
             setting_orders: "Impostazione ordini…"
             paused: "In pausa"
             next_try: "Prossimo tentativo in"
-        no_orders_info: "Gli ordini del bot appariranno qui"
         pick_exchange: "Scegli Exchange"
         barbell:
             invest: "Investi"

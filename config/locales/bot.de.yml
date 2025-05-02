@@ -21,7 +21,6 @@ de:
             setting_orders: "Orders werden erstellt…"
             paused: "Pausiert"
             next_try: "Nächster Versuch in"
-        no_orders_info: "Bot-Bestellungen werden hier angezeigt"
         barbell:
             invest: "Investieren"
             invest_html: "%{input} /Monat investieren"

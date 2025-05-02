@@ -21,7 +21,6 @@ en:
             setting_orders: "Setting orders…"
             paused: "Paused"
             next_try: "Next try in"
-        no_orders_info: "Bot orders will appear here"
         pick_exchange: "Pick Exchange"
         barbell:
             invest: "Invest"
