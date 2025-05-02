@@ -55,7 +55,7 @@ class Bots::Barbell < Bot
       else
         Bot::SetBarbellOrdersJob.set(wait_until: next_interval_checkpoint_at).perform_later(self)
         #  Schedule the broadcast status bar update to make sure sidekiq has time to schedule the job
-        Bot::BroadcastStatusBarUpdateJob.set(wait: 0.25.seconds).perform_later(self)
+        Bot::BroadcastStatusBarUpdateAfterScheduledOrderJob.perform_later(self)
       end
       true
     else
