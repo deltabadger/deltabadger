@@ -1,6 +1,7 @@
 it:
     bot:
         add_api_keys: "Aggiungi chiavi API per %{exchange}"
+        bot_name: 'Nome bot'
         new: "Nuovo bot"
         start_new_bot: "Crea nuovo bot"
         types:
@@ -19,7 +20,7 @@ it:
         status:
             setting_orders: "Impostazione ordini…"
             paused: "In pausa"
-            next_try: "Prossimo tentativo in %{countdown}"
+            next_try: "Prossimo tentativo in"
         no_orders_info: "Gli ordini del bot appariranno qui"
         pick_exchange: "Scegli Exchange"
         barbell:
@@ -132,6 +133,7 @@ it:
         limit_buy: 'Acquisto limite'
         limit_sell: 'Vendita limite'
         messages:
+            do_you_want_to_delete: 'Vuoi eliminare questo bot?'
             symbol_not_supported: "%{symbol} non è supportato"
             symbol_not_supported_subscription: "%{symbol} non è supportato nel tuo abbonamento"
             upgrade_plan_more_bots: "Aggiorna il tuo piano per eseguire più bot"
@@ -176,8 +178,6 @@ it:
         week: Settimana
         withdraw_interval_html: 'Preleva ogni <split>2</split> giorni.'
         withdraw_threshold_html: 'Preleva quando almeno <split>0.001</split> %{currency} è disponibile.'
-        bot_name: 'Nome bot'
-        change_bot_name: 'Cambia nome'
         withdrawal_percentage: '%{percentage}%'
         withdrawal: 'Prelievo'
         warning:
