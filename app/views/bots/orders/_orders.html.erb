@@ -16,8 +16,20 @@
     </table>
     <%= turbo_frame_tag 'orders_pagination', src: bot_path(bot, format: :turbo_stream), loading: :laz, style: "display:none" %>
   <% else %>
-    <div style="height: 100%; display: flex; align-items: center; justify-content: center; color: var(--label)">
-      <%= t('bot.no_orders_info') %>
-    </div>
+    <table class="table">
+      <thead>
+        <tr>
+          <th scope="col"><%= t('data_labels.date') %></th>
+          <th scope="col"><%= t('data_labels.amount') %></th>
+          <th scope="col"><%= t('data_labels.value') %></th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td colspan="4" class="text-center text-inactive" style="padding-bottom: 2rem;">. . .</td>
+        </tr>
+      </tbody>
+    </table>
   <% end %>
 </div>

@@ -21,7 +21,6 @@ es:
             setting_orders: "Configurando órdenes…"
             paused: "Pausado"
             next_try: "Próximo intento en"
-        no_orders_info: "Las órdenes del bot aparecerán aquí"
         barbell:
             invest: "Invertir"
             invest_html: "Invertir %{input} /mes"
