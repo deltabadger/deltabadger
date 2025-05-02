@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema.define(version: 2025_04_16_185148) do
+ActiveRecord::Schema.define(version: 2025_05_02_123949) do
 
   # These are extensions that must be enabled in order to support this database
   enable_extension "plpgsql"
@@ -95,7 +95,7 @@ ActiveRecord::Schema.define(version: 2025_04_16_185148) do
     t.integer "fetch_restarts", default: 0, null: false
     t.decimal "account_balance", default: "0.0"
     t.datetime "last_end_of_funds_notification"
-    t.json "transient_data", default: {}, null: false
+    t.jsonb "transient_data", default: {}, null: false
     t.datetime "started_at"
     t.datetime "stopped_at"
     t.string "label"
@@ -250,7 +250,7 @@ ActiveRecord::Schema.define(version: 2025_04_16_185148) do
     t.datetime "updated_at", precision: 6, null: false
     t.float "risk_free_rate", default: 0.0, null: false
     t.string "label"
-    t.json "compare_to", default: [], null: false
+    t.jsonb "compare_to", default: [], null: false
     t.date "backtest_start_date", default: "2020-01-01", null: false
     t.index ["user_id"], name: "index_portfolios_on_user_id"
   end
@@ -297,7 +297,7 @@ ActiveRecord::Schema.define(version: 2025_04_16_185148) do
     t.integer "status"
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
-    t.string "error_messages", default: "[]"
+    t.jsonb "error_messages", default: [], null: false
     t.decimal "bot_price", precision: 20, scale: 10, default: "0.0", null: false
     t.string "bot_interval", default: "", null: false
     t.string "transaction_type", default: "REGULAR", null: false
@@ -342,6 +342,7 @@ ActiveRecord::Schema.define(version: 2025_04_16_185148) do
     t.boolean "news_banner_dismissed", default: false
     t.boolean "sendgrid_unsubscribed", default: false
     t.boolean "has_community_access", default: false, null: false
+    t.string "time_zone", default: "UTC", null: false
     t.index ["confirmation_token"], name: "index_users_on_confirmation_token", unique: true
     t.index ["email"], name: "index_users_on_email", unique: true
     t.index ["reset_password_token"], name: "index_users_on_reset_password_token", unique: true
