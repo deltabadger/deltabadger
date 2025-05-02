@@ -138,7 +138,9 @@ fr:
             <p>Cordialement, Jan</p>
     analyzer:
         default_portfolio: 'Portefeuille par défaut'
-        change_portfolio_name: 'Changer le nom'
+        duplicate_portfolio: 'Dupliquer le portefeuille'
+        do_you_want_to_delete: 'Voulez-vous vraiment supprimer ce portefeuille ?'
+        portfolio_name: 'Nom du portefeuille'
         compare: 'Comparer'
         new_portfolio: 'Nouveau portefeuille'
         total_value: 'Valeur Totale'
@@ -180,6 +182,15 @@ fr:
         search:
             placeholder:
                 asset: 'Rechercher un actif…'
+        time_periods:
+            ytd: 'YTD'
+            ytd_title: 'Début de l''année'
+            one_year: '1A'
+            one_year_title: '1 an'
+            three_years: '3A'
+            three_years_title: '3 ans'
+            five_years: '5A'
+            five_years_title: '5 ans'
         years:
             one: "%{count} an"
             other: "%{count} ans"
