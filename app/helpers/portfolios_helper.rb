@@ -43,6 +43,12 @@ module PortfoliosHelper
     streams.compact.join.html_safe
   end
 
+  def turbo_stream_update_insights_button(portfolio)
+    turbo_stream.replace('openai-insights-button',
+                         partial: 'portfolios/insights_button',
+                         locals: { portfolio: portfolio })
+  end
+
   private
 
   def generate_remove_streams(current_ids, last_ids, prefix)

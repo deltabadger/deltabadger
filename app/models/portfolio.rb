@@ -88,6 +88,10 @@ class Portfolio < ApplicationRecord
     total_allocation == 1
   end
 
+  def normalized?
+    portfolio_assets.present? && allocations_are_normalized? && backtest.present?
+  end
+
   def normalize_allocations!
     return if allocations_are_normalized?
 

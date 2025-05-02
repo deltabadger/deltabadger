@@ -4,3 +4,4 @@
 <% end %>
 <%= turbo_stream.replace "normalize-button", partial: "portfolios/normalize_button", locals: { portfolio: @asset.portfolio } %>
 <%= turbo_stream_prepend_flash %>
+<%= turbo_stream_update_insights_button(@portfolio) %>
