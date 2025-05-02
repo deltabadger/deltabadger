@@ -4,7 +4,7 @@
       <%= render partial: 'svg/24x24_close' %>
     <% end %>
     <div class="modal__header">
-       <h1 class="modal__title"><%= t('bot.change_bot_name') %></h1>
+       <h1 class="modal__title"><%= t('utils.change_name') %></h1>
     </div>
 
     <%= form_with model: @bot, url: bot_path(@bot), method: :patch, class: "modal__form", data: { controller: "form--label-animations", action: "turbo:submit-end->modal--base#submitEnd" } do |f| %>

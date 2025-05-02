@@ -141,13 +141,15 @@ pl:
     welcome:
         banner_html: |
             <p>Witaj, %{name}!</p>
-            <p>Ciesz się rebalansowanym DCA z nową <b>Strategią Barbell</b> i korzystaj z <b>Analizatora Portfolio</b>. Indeksowanie dostępne wkrótce.</p>
+            <p>Ciesz się rebalansowanym DCA z nową <b>Strategią Barbell</b> i korzystaj z <b>Analizatora Portfela</b>. Indeksowanie dostępne wkrótce.</p>
             <p>Pozdrawiam, Jan</p>
     analyzer:
-        default_portfolio: 'Domyślne portfolio'
-        change_portfolio_name: 'Zmień nazwę'
+        default_portfolio: 'Domyślny portfel'
+        portfolio_name: 'Nazwa portfela'
+        duplicate_portfolio: 'Duplikuj portfel'
+        do_you_want_to_delete: 'Czy chcesz usunąć ten portfel?'
         compare: 'Porównaj'
-        new_portfolio: 'Nowe portfolio'
+        new_portfolio: 'Nowy portfel'
         total_value: 'Całkowita wartość'
         no_assets: 'Zacznij od dodania nowego aktywa.'
         assets_dont_coexist: 'Nie można przetestować tego portfela. Wybrane aktywa nigdy nie współistniały od %{backtest_start_date}!'
@@ -186,6 +188,15 @@ pl:
         search:
             placeholder:
                 asset: 'Szukaj aktywa…'
+        time_periods:
+            ytd: 'YTD'
+            ytd_title: 'Początek roku'
+            one_year: '1Y'
+            one_year_title: '1 rok temu'
+            three_years: '3Y'
+            three_years_title: '3 lata temu'
+            five_years: '5Y'
+            five_years_title: '5 lat temu'
         years:
             one: "%{count} rok"
             other: "%{count} lat"
