@@ -12,7 +12,7 @@ module ExchangeApi
         price = result.data
         Result::Success.new((price.bid + price.ask) / 2)
       rescue StandardError => e
-        Result::Failure.new("Couldn't fetch current price", **RECOVERABLE)
+        Result::Failure.new("Couldn't fetch current price", RECOVERABLE.to_s)
       end
 
       def current_bid_price(symbol)
@@ -63,7 +63,7 @@ module ExchangeApi
         0.1
       end
 
-      def subaccounts(api_keys)
+      def subaccounts(_api_keys)
         Result::Success.new([])
       end
 
