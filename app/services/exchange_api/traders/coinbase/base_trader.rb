@@ -75,7 +75,7 @@ module ExchangeApi
           parse_request(request)
         rescue StandardError => e
           Raven.capture_exception(e)
-          Result::Failure.new('Could not make Coinbase order', **RECOVERABLE)
+          Result::Failure.new('Could not make Coinbase order', RECOVERABLE.to_s)
         end
 
         def transaction_price(symbol, price, force_smart_intervals, smart_intervals_value, price_in_quote)
@@ -127,7 +127,7 @@ module ExchangeApi
             error_to_failure([response.dig('error_response', 'message')])
           end
         rescue JSON::ParserError
-          Result::Failure.new('Could not parse Coinbase response', **RECOVERABLE)
+          Result::Failure.new('Could not parse Coinbase response', RECOVERABLE.to_s)
         end
 
         def order_done?(request, response)

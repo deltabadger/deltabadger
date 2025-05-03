@@ -27,7 +27,7 @@ module ExchangeApi
           response = JSON.parse(request.body)
 
           status = response[0][13]
-          return Result::Failure.new('Waiting for Bitfinex response', **NOT_FETCHED) unless order_done?(status)
+          return Result::Failure.new('Waiting for Bitfinex response', NOT_FETCHED.to_s) unless order_done?(status)
           return error_to_failure(['Order was canceled']) if cancelled?(response)
 
           amount = response[0][7].to_f
@@ -54,7 +54,7 @@ module ExchangeApi
           parse_request(request)
         rescue StandardError => e
           Raven.capture_exception(e)
-          Result::Failure.new('Could not make Bitfinex order', **RECOVERABLE)
+          Result::Failure.new('Could not make Bitfinex order', RECOVERABLE.to_s)
         end
 
         def smart_volume(symbol, price, rate, force_smart_intervals, smart_intervals_value, price_in_quote)
