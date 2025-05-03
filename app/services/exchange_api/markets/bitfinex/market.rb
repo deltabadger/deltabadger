@@ -23,7 +23,7 @@ module ExchangeApi
           end
           Result::Success.new(market_symbols)
         rescue StandardError
-          Result::Failure.new("Couldn't fetch Bitfinex symbols", **RECOVERABLE)
+          Result::Failure.new("Couldn't fetch Bitfinex symbols", RECOVERABLE.to_s)
         end
 
         def minimum_order_size(symbol)
@@ -58,7 +58,8 @@ module ExchangeApi
           path = '/auth/r/summary'.freeze
           url = PRIVATE_API_URL + path
           fee_api_keys = FeeApiKey.find_by(exchange_id: exchange_id)
-          JSON.parse(@caching_client.post(url, nil, headers(fee_api_keys.key, fee_api_keys.secret, nil, path)).body)[4][0][0].to_f * 100
+          JSON.parse(@caching_client.post(url, nil,
+                                          headers(fee_api_keys.key, fee_api_keys.secret, nil, path)).body)[4][0][0].to_f * 100
         end
 
         private
@@ -69,7 +70,7 @@ module ExchangeApi
 
           Result::Success.new(response)
         rescue StandardError
-          Result::Failure.new("Couldn't fetch Bitfinex symbols", **RECOVERABLE)
+          Result::Failure.new("Couldn't fetch Bitfinex symbols", RECOVERABLE.to_s)
         end
 
         def fetch_symbol(symbol)
@@ -79,7 +80,7 @@ module ExchangeApi
           symbol_details = symbols.data[0].detect { |s| s[0] == symbol }
           Result::Success.new(symbol_details)
         rescue StandardError
-          Result::Failure.new("Couldn't fetch Bitfinex symbol", **RECOVERABLE)
+          Result::Failure.new("Couldn't fetch Bitfinex symbol", RECOVERABLE.to_s)
         end
 
         def fetch_ticker(symbol)
@@ -88,7 +89,7 @@ module ExchangeApi
 
           Result::Success.new(response)
         rescue StandardError
-          Result::Failure.new("Couldn't fetch Bitfinex ticker", **RECOVERABLE)
+          Result::Failure.new("Couldn't fetch Bitfinex ticker", RECOVERABLE.to_s)
         end
 
         def current_bid_ask_price(symbol)
@@ -101,7 +102,7 @@ module ExchangeApi
 
           Result::Success.new(BidAskPrice.new(bid, ask))
         rescue StandardError
-          Result::Failure.new("Couldn't fetch bid/ask price from Bitfinex", **RECOVERABLE)
+          Result::Failure.new("Couldn't fetch bid/ask price from Bitfinex", RECOVERABLE.to_s)
         end
 
         def skip_symbol?(symbol_info)

@@ -92,7 +92,7 @@ module ExchangeApi
 
           Result::Success.new(market_symbols)
         rescue StandardError => e
-          Result::Failure.new("Binance exchange info is unavailable. Error: #{e}", **RECOVERABLE)
+          Result::Failure.new("Binance exchange info is unavailable. Error: #{e}", RECOVERABLE.to_s)
         end
 
         def current_fee
@@ -127,7 +127,7 @@ module ExchangeApi
 
           Result::Success.new(BidAskPrice.new(bid, ask))
         rescue StandardError => e
-          Result::Failure.new("Could not fetch current price from Binance. Error: #{e}", **RECOVERABLE)
+          Result::Failure.new("Could not fetch current price from Binance. Error: #{e}", RECOVERABLE.to_s)
         end
 
         def find_symbol_in_exchange_info(symbol, exchange_info)

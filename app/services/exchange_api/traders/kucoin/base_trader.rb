@@ -27,7 +27,7 @@ module ExchangeApi
           request = conn.get(path, nil, headers(@api_key, @api_secret, @passphrase, '', path, 'GET'))
           response = JSON.parse(request.body)
 
-          return Result::Failure.new('Waiting for KuCoin response', **NOT_FETCHED) unless order_done?(request, response)
+          return Result::Failure.new('Waiting for KuCoin response', NOT_FETCHED.to_s) unless order_done?(request, response)
 
           amount = response['data'].fetch('dealSize').to_f
 
@@ -52,7 +52,7 @@ module ExchangeApi
           parse_request(request)
         rescue StandardError => e
           Raven.capture_exception(e)
-          Result::Failure.new('Could not make KuCoin order', **RECOVERABLE)
+          Result::Failure.new('Could not make KuCoin order', RECOVERABLE.to_s)
         end
 
         def transaction_price(symbol, price, force_smart_intervals, smart_intervals_value, price_in_quote = true)
