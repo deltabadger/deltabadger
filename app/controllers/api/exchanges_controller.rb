@@ -28,7 +28,7 @@ module Api
         }
       end
 
-      render json: { data: Exchange.available.map(&build_data) }
+      render json: { data: Exchange.available.map(&build_data).sort_by { |e| e[:name] } }
     end
 
     private

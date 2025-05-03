@@ -21,7 +21,6 @@ fr:
             setting_orders: "Configuration des commandes…"
             paused: "En pause"
             next_try: "Prochain essai dans"
-        no_orders_info: "Les commandes du bot apparaîtront ici"
         barbell:
             invest: "Investir"
             invest_html: "Investir %{input} /mois"
@@ -136,6 +135,8 @@ fr:
             subaccounts_not_allowed: "Les sous-comptes ne sont pas autorisés sur cet échange"
             no_subaccount_name: "Aucun nom de sous-compte fourni"
             wrong_subaccount_name: "Nom de sous-compte incorrect"
+            failed_tooltip_explanation: "Cette commande a échoué: %{error_message}"
+            skipped_tooltip_explanation: "Cette commande a été ignorée car le montant était inférieur à la taille minimale de commande de %{exchange_name}. Le montant ignoré a été mis en mémoire tampon et sera ajouté à la prochaine commande."
         minimum_withdrawal_disclaimer: 'Le montant minimal de retrait est de %{minimum} %{currency}'
         minimum_withdrawal_disclaimer_usd: 'Le montant minimal de retrait est %{minimum} USD.'
         month: 'Mois'
@@ -168,4 +169,3 @@ fr:
                 one: "Le montant manqué a été mis en mémoire tampon et sera utilisé avec la prochaine commande programmée, garantissant que votre calendrier et votre allocation sont maintenus aussi près que possible des minimums de l'échange."
                 other: "Les montants manqués ont été mis en mémoire tampon et seront utilisés avec les prochaines commandes programmées, garantissant que votre calendrier et votre allocation sont maintenus aussi près que possible des minimums de l'échange."
             general_note: "Les minimums d'échange et les montants de rééquilibrage requis peuvent changer. Les commandes peuvent parfois sembler irrégulières, mais le bot cible toujours votre allocation et votre calendrier souhaités, donc aucun travail supplémentaire n'est nécessaire."
-            tooltip_explanation: "Cette commande a été ignorée car le montant était inférieur à la taille minimale de commande de %{exchange_name}. Le montant ignoré a été mis en mémoire tampon et sera ajouté à la prochaine commande."

@@ -52,10 +52,10 @@ export default class extends Controller {
         this.minutesTarget.classList.add("hidden");
         this.minutesLabelTarget.classList.add("hidden");
       }
-      if (seconds === 0 && minutes === 0 && hours === 0 && days === 0) {
-        this.secondsTarget.classList.add("hidden");
-        this.secondsLabelTarget.classList.add("hidden");
-      }
+      // if (seconds === 0 && minutes === 0 && hours === 0 && days === 0) {
+      //   this.secondsTarget.classList.add("hidden");
+      //   this.secondsLabelTarget.classList.add("hidden");
+      // }
     }
   }
 

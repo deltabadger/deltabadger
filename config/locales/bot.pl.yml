@@ -21,7 +21,6 @@ pl:
             setting_orders: "Ustawianie zleceń…"
             paused: "Wstrzymany"
             next_try: "Następna próba za"
-        no_orders_info: "Zamówienia bota pojawią się tutaj"
         barbell:
             invest: "Inwestuj"
             invest_html: "Inwestuj %{input} /miesiąc"
@@ -136,6 +135,8 @@ pl:
             subaccounts_not_allowed: "Subkonta nie są dozwolone na tej giełdzie"
             no_subaccount_name: "Nie podano nazwy subkonta"
             wrong_subaccount_name: "Nieprawidłowa nazwa subkonta"
+            failed_tooltip_explanation: "To zlecenie zakończyło się niepowodzeniem: %{error_message}"
+            skipped_tooltip_explanation: "To zlecenie zostało pominięte, ponieważ kwota była poniżej minimalnego rozmiaru zlecenia %{exchange_name}. Pominięta kwota została zbuforowana i zostanie dodana do następnego zlecenia."
         minimum_withdrawal_disclaimer: 'Minimalna wielkość wypłaty to %{minimum} %{currency}.'
         minimum_withdrawal_disclaimer_usd: 'Minimalna wielkość wypłaty to %{minimum} USD.'
         month: Miesiąc
@@ -167,4 +168,3 @@ pl:
                 one: "Pominięta kwota została zbuforowana i zostanie użyta przy następnym zaplanowanym zleceniu, dzięki czemu Twój harmonogram i alokacja będą utrzymane jak najbliżej giełdowych minimów."
                 other: "Pominięte kwoty zostały zbuforowane i zostaną użyte przy kolejnych zaplanowanych zleceniach, dzięki czemu Twój harmonogram i alokacja będą utrzymane jak najbliżej giełdowych minimów."
             general_note: "Minimalne kwoty na giełdach i wymagane kwoty rebalancingu mogą się zmieniać. Zlecenia mogą czasami wyglądać nieregularnie, ale bot zawsze dąży do Twojej pożądanej alokacji i harmonogramu, więc nie jest wymagana dodatkowa praca."
-            tooltip_explanation: "To zlecenie zostało pominięte, ponieważ kwota była poniżej minimalnego rozmiaru zlecenia %{exchange_name}. Pominięta kwota została zbuforowana i zostanie dodana do następnego zlecenia."
