@@ -30,7 +30,7 @@ module ExchangeApi
             response.data.merge(rate: params[:rate], amount: params[:amount])
           )
         rescue StandardError
-          Result::Failure.new('Could not make Zonda order', **RECOVERABLE)
+          Result::Failure.new('Could not make Zonda order', RECOVERABLE.to_s)
         end
 
         def parse_response(response)

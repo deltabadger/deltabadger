@@ -23,7 +23,7 @@ module ExchangeApi
           end
           Result::Success.new(market_symbols)
         rescue StandardError
-          Result::Failure.new("Couldn't fetch KuCoin symbols", **RECOVERABLE)
+          Result::Failure.new("Couldn't fetch KuCoin symbols", RECOVERABLE.to_s)
         end
 
         def minimum_quote_size(symbol)
@@ -47,7 +47,7 @@ module ExchangeApi
           result = GetNumberOfDecimalPoints.call(response.data['quoteIncrement'])
           Result::Success.new(result)
         rescue StandardError
-          Result::Failure.new("Couldn't fetch KuCoin symbol details", **RECOVERABLE)
+          Result::Failure.new("Couldn't fetch KuCoin symbol details", RECOVERABLE.to_s)
         end
 
         def base_decimals(symbol)
@@ -58,7 +58,7 @@ module ExchangeApi
 
           Result::Success.new(result)
         rescue StandardError
-          Result::Failure.new("Couldn't fetch KuCoin symbol details", **RECOVERABLE)
+          Result::Failure.new("Couldn't fetch KuCoin symbol details", RECOVERABLE.to_s)
         end
 
         def price_decimals(symbol)
@@ -68,7 +68,7 @@ module ExchangeApi
           result = GetNumberOfDecimalPoints.call(response.data['priceIncrement'])
           Result::Success.new(result)
         rescue StandardError
-          Result::Failure.new("Couldn't fetch KuCoin symbol details", **RECOVERABLE)
+          Result::Failure.new("Couldn't fetch KuCoin symbol details", RECOVERABLE.to_s)
         end
 
         def symbol(base, quote)
@@ -94,7 +94,8 @@ module ExchangeApi
           exchange_id = Exchange.find_by(name: 'KuCoin').id
           fee_api_keys = FeeApiKey.find_by(exchange_id: exchange_id)
           path = '/api/v1/base-fee'.freeze
-          response = @caching_client.get(path, nil, headers(fee_api_keys.key, fee_api_keys.secret, fee_api_keys.passphrase, '', path, 'GET')).body
+          response = @caching_client.get(path, nil,
+                                         headers(fee_api_keys.key, fee_api_keys.secret, fee_api_keys.passphrase, '', path, 'GET')).body
           JSON.parse(response)['data']['makerFeeRate'].to_f * 100
         end
 
@@ -106,7 +107,7 @@ module ExchangeApi
 
           Result::Success.new(response)
         rescue StandardError
-          Result::Failure.new("Couldn't fetch KuCoin symbols", **RECOVERABLE)
+          Result::Failure.new("Couldn't fetch KuCoin symbols", RECOVERABLE.to_s)
         end
 
         def fetch_symbol(symbol)
@@ -116,7 +117,7 @@ module ExchangeApi
           symbol_details = symbols.data.fetch('data').detect { |s| s.fetch('symbol') == symbol }
           Result::Success.new(symbol_details)
         rescue StandardError
-          Result::Failure.new("Couldn't fetch KuCoin symbol", **RECOVERABLE)
+          Result::Failure.new("Couldn't fetch KuCoin symbol", RECOVERABLE.to_s)
         end
 
         def fetch_ticker(symbol)
@@ -125,7 +126,7 @@ module ExchangeApi
 
           Result::Success.new(response['data'])
         rescue StandardError
-          Result::Failure.new("Couldn't fetch KuCoin ticker", **RECOVERABLE)
+          Result::Failure.new("Couldn't fetch KuCoin ticker", RECOVERABLE.to_s)
         end
 
         def current_bid_ask_price(symbol)
@@ -138,7 +139,7 @@ module ExchangeApi
 
           Result::Success.new(BidAskPrice.new(bid, ask))
         rescue StandardError
-          Result::Failure.new("Couldn't fetch bid/ask price from KuCoin", **RECOVERABLE)
+          Result::Failure.new("Couldn't fetch bid/ask price from KuCoin", RECOVERABLE.to_s)
         end
 
         def get_quote(symbol_info)

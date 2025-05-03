@@ -22,11 +22,11 @@ module ExchangeApi
           path = "/v3/order_trades/#{order_id}".freeze
           url = API_URL + path
           request = Faraday.get(url, nil, headers(@api_key, @api_secret, nil, path, 'GET'))
-          return Result::Failure.new('Waiting for Bitso response', **NOT_FETCHED) unless success?(request)
+          return Result::Failure.new('Waiting for Bitso response', NOT_FETCHED.to_s) unless success?(request)
 
           response = JSON.parse(request.body).fetch('payload')
           amount = sum_order_major(response)
-          return Result::Failure.new('Waiting for Bitso response', **NOT_FETCHED) unless filled?(amount)
+          return Result::Failure.new('Waiting for Bitso response', NOT_FETCHED.to_s) unless filled?(amount)
 
           rate = (sum_order_minor(response) / amount)
 
@@ -50,7 +50,7 @@ module ExchangeApi
           parse_request(request)
         rescue StandardError => e
           Raven.capture_exception(e)
-          Result::Failure.new('Could not make Bitso order', **RECOVERABLE)
+          Result::Failure.new('Could not make Bitso order', RECOVERABLE.to_s)
         end
 
         def transaction_price(symbol, price, force_smart_intervals, smart_intervals_value)
