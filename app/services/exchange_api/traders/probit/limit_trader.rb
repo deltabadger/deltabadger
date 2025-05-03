@@ -24,7 +24,7 @@ module ExchangeApi
           return Result::Failure.new('Order cancelled by Probit') if response_data['status'] == 'cancelled'
 
           if response_data['status'] == 'open' || response_data['filled_quantity'].zero?
-            return Result::Failure.new('Waiting for Probit response', **NOT_FETCHED)
+            return Result::Failure.new('Waiting for Probit response', NOT_FETCHED.to_s)
           end
 
           Result::Success.new(
@@ -65,7 +65,7 @@ module ExchangeApi
 
           Result::Success.new(response.data.merge(rate: order_params[:limit_price], amount: order_params[:quantity]))
         rescue StandardError
-          Result::Failure.new(['Could not make Probit order', **RECOVERABLE])
+          Result::Failure.new('Could not make Probit order', RECOVERABLE.to_s)
         end
 
         def rate_percentage(symbol, rate, percentage)
