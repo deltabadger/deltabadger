@@ -24,7 +24,7 @@ module ExchangeApi
           end
           Result::Success.new(market_symbols)
         rescue StandardError
-          Result::Failure.new("Couldn't fetch Coinbase symbols", **RECOVERABLE)
+          Result::Failure.new("Couldn't fetch Coinbase symbols", RECOVERABLE.to_s)
         end
 
         def minimum_order_price(symbol)
@@ -90,7 +90,8 @@ module ExchangeApi
           fee_api_keys = FeeApiKey.find_by(exchange_id: exchange_id)
           path = '/fees'.freeze
           url = API_URL + path
-          response = @caching_client.get(url, nil, headers(fee_api_keys.key, fee_api_keys.secret, fee_api_keys.passphrase, '', path, 'GET')).body
+          response = @caching_client.get(url, nil,
+                                         headers(fee_api_keys.key, fee_api_keys.secret, fee_api_keys.passphrase, '', path, 'GET')).body
           JSON.parse(response)['maker_fee_rate'].to_f * 100
         end
 
@@ -102,7 +103,7 @@ module ExchangeApi
 
           Result::Success.new(response)
         rescue StandardError
-          Result::Failure.new("Couldn't fetch chosen symbol from Coinbase", **RECOVERABLE)
+          Result::Failure.new("Couldn't fetch chosen symbol from Coinbase", RECOVERABLE.to_s)
         end
 
         def current_bid_ask_price(symbol)
@@ -113,7 +114,7 @@ module ExchangeApi
 
           Result::Success.new(BidAskPrice.new(bid, ask))
         rescue StandardError
-          Result::Failure.new("Couldn't fetch bid/ask price from Coinbase", **RECOVERABLE)
+          Result::Failure.new("Couldn't fetch bid/ask price from Coinbase", RECOVERABLE.to_s)
         end
       end
     end
