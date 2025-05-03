@@ -24,7 +24,7 @@ module ExchangeApi
           end
           Result::Success.new(market_symbols)
         rescue StandardError
-          Result::Failure.new("Couldn't fetch Bitstamp symbols", **RECOVERABLE)
+          Result::Failure.new("Couldn't fetch Bitstamp symbols", RECOVERABLE.to_s)
         end
 
         def minimum_order_price(symbol)
@@ -57,7 +57,7 @@ module ExchangeApi
 
           Result::Success.new(result)
         rescue StandardError
-          Result::Failure.new("Couldn't fetch Bitstamp symbol details", **RECOVERABLE)
+          Result::Failure.new("Couldn't fetch Bitstamp symbol details", RECOVERABLE.to_s)
         end
 
         def base_decimals(symbol)
@@ -68,7 +68,7 @@ module ExchangeApi
 
           Result::Success.new(result)
         rescue StandardError
-          Result::Failure.new("Couldn't fetch Bitstamp symbol details", **RECOVERABLE)
+          Result::Failure.new("Couldn't fetch Bitstamp symbol details", RECOVERABLE.to_s)
         end
 
         def symbol(base, quote)
@@ -103,7 +103,7 @@ module ExchangeApi
 
           Result::Success.new(response)
         rescue StandardError
-          Result::Failure.new("Couldn't fetch Bitstamp symbols", **RECOVERABLE)
+          Result::Failure.new("Couldn't fetch Bitstamp symbols", RECOVERABLE.to_s)
         end
 
         def fetch_symbol(symbol)
@@ -113,7 +113,7 @@ module ExchangeApi
           symbol_details = books.data.detect { |b| b.fetch('url_symbol') == symbol }
           Result::Success.new(symbol_details)
         rescue StandardError
-          Result::Failure.new("Couldn't fetch Bitstamp symbol", **RECOVERABLE)
+          Result::Failure.new("Couldn't fetch Bitstamp symbol", RECOVERABLE.to_s)
         end
 
         def fetch_ticker(symbol)
@@ -122,7 +122,7 @@ module ExchangeApi
 
           Result::Success.new(response)
         rescue StandardError
-          Result::Failure.new("Couldn't fetch chosen symbol from Bitstamp", **RECOVERABLE)
+          Result::Failure.new("Couldn't fetch chosen symbol from Bitstamp", RECOVERABLE.to_s)
         end
 
         def current_bid_ask_price(symbol)
@@ -135,7 +135,7 @@ module ExchangeApi
 
           Result::Success.new(BidAskPrice.new(bid, ask))
         rescue StandardError
-          Result::Failure.new("Couldn't fetch bid/ask price from Bitstamp", **RECOVERABLE)
+          Result::Failure.new("Couldn't fetch bid/ask price from Bitstamp", RECOVERABLE.to_s)
         end
 
         def disabled_symbol?(symbol_info)
