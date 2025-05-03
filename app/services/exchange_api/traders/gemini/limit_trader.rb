@@ -81,7 +81,7 @@ module ExchangeApi
             response.data.merge(rate: order_params[:price], amount: order_params[:amount])
           )
         rescue StandardError
-          Result::Failure.new('Could not make Gemini order', **RECOVERABLE)
+          Result::Failure.new('Could not make Gemini order', RECOVERABLE.to_s)
         end
 
         def parse_request(request)
@@ -94,7 +94,7 @@ module ExchangeApi
             error_to_failure([response.fetch('reason', 'Unknown error')])
           end
         rescue JSON::ParserError
-          Result::Failure.new('Could not parse Gemini response', **RECOVERABLE)
+          Result::Failure.new('Could not parse Gemini response', RECOVERABLE.to_s)
         end
 
         def common_order_params(symbol)
