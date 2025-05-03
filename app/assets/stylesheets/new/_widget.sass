@@ -49,7 +49,7 @@
     &--table
         padding: 0
         overflow: scroll
-        max-height: 528px
+        max-height: 68rem
         overflow-y: auto
         text-wrap: nowrap
         table
@@ -62,6 +62,13 @@
             box-shadow: 0 0.25rem var(--widget-shadow-line)
         tbody
             overflow-y: auto
+            height: 0
+        th
+            color: var(--label)
+            font-weight: 600
+            z-index: 1
+        thead
+            z-index: 1
         td, th
             padding: 1.5rem 0 1.5rem 3rem
             text-align: right
@@ -74,6 +81,27 @@
                 padding-right: 3rem
                 @media only screen and (max-width: 549.9px)
                     padding-right: 2rem
+        .tooltip-info-icon
+            width: 3rem
+            float: right
+        .tooltip
+            top: -2rem
+            right: 4rem
+            left: auto
+            width: calc(100vw - 8rem)
+            max-width: 70rem
+            text-wrap: auto
+            text-align: left
+            &::before
+                right: -3rem
+                left: auto
+                top: 2.5rem
+                border-color: #fff0
+                border-left-color: var(--primary) !important
+
+
+        path
+            fill: var(--label)
     .sinput
         box-shadow: none
     p:last-child

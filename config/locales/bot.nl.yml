@@ -21,7 +21,6 @@ nl:
             setting_orders: "Orders instellen…"
             paused: "Gepauzeerd"
             next_try: "Volgende poging in"
-        no_orders_info: "Bot bestellingen verschijnen hier"
         barbell:
             invest: "Investeren"
             invest_html: "Investeer %{input} /maand"
@@ -136,6 +135,8 @@ nl:
             subaccounts_not_allowed: "Subaccounts zijn niet toegestaan op deze uitwisseling"
             no_subaccount_name: "Geen subaccountnaam opgegeven"
             wrong_subaccount_name: "Verkeerde subaccountnaam"
+            failed_tooltip_explanation: "Deze bestelling is mislukt: %{error_message}"
+            skipped_tooltip_explanation: "Deze bestelling is overgeslagen omdat het bedrag onder de minimale ordergrootte van %{exchange_name} lag. Het overgeslagen bedrag is gebufferd en wordt toegevoegd aan de volgende bestelling."
         minimum_withdrawal_disclaimer: 'De minimale opnamegrootte is %{minimum} %{currency}.'
         minimum_withdrawal_disclaimer_usd: 'De minimale opname bedraagt %{minimum} USD.'
         month: Maand
@@ -167,4 +168,3 @@ nl:
                 one: "Het gemiste bedrag is gebufferd en zal worden gebruikt bij de volgende geplande order, zodat je schema en allocatie zo goed mogelijk volgens de exchange-minimums worden aangehouden."
                 other: "De gemiste bedragen zijn gebufferd en zullen worden gebruikt bij de volgende geplande orders, zodat je schema en allocatie zo goed mogelijk volgens de exchange-minimums worden aangehouden."
             general_note: "Minimale bedragen van exchanges en vereiste herbalanceringsbedragen kunnen veranderen. Orders kunnen er soms onregelmatig uitzien, maar de bot streeft altijd naar de gewenste toewijzing en schema, dus er is geen extra werk nodig."
-            tooltip_explanation: "Deze order is overgeslagen omdat het bedrag onder de minimale ordergrootte van %{exchange_name} lag. Het overgeslagen bedrag is gebufferd en wordt toegevoegd aan de volgende order."
