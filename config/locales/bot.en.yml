@@ -21,7 +21,6 @@ en:
             setting_orders: "Setting orders…"
             paused: "Paused"
             next_try: "Next try in"
-        no_orders_info: "Bot orders will appear here"
         pick_exchange: "Pick Exchange"
         barbell:
             invest: "Invest"
@@ -145,6 +144,8 @@ en:
             subaccounts_not_allowed: "Subaccounts not allowed on this exchange"
             no_subaccount_name: "No subaccount name supplied"
             wrong_subaccount_name: "Wrong subaccount name"
+            failed_tooltip_explanation: "This order failed: %{error_message}"
+            skipped_tooltip_explanation: "This order has been skipped because the amount was below the %{exchange_name} minimum order size. The amount has been buffered and added to the next order."
         minimum_withdrawal_disclaimer: 'The minimum withdrawal size is %{minimum} %{currency}.'
         minimum_withdrawal_disclaimer_usd: 'The minimum withdrawal size is %{minimum} USD.'
         month: Month
@@ -177,7 +178,7 @@ en:
         subaccounts_info: 'Use subaccount'
         week: Week
         withdraw_interval_html: 'Withdraw every <split>2</split> days.'
-        withdraw_threshold_html: 'Withdraw when at least <split>0.001</split> %{currency} is available.' 
+        withdraw_threshold_html: 'Withdraw when at least <split>0.001</split> %{currency} is available.'
         withdrawal_percentage: '%{percentage}%'
         withdrawal: 'Withdrawal'
         warning:
@@ -190,4 +191,3 @@ en:
                 one: "The missed amount has been buffered and will be used with the next scheduled order, ensuring your schedule and allocation are maintained as closely as exchange minimums allow."
                 other: "The missed amounts have been buffered and will be used with the next scheduled orders, ensuring your schedule and allocation are maintained as closely as exchange minimums allow."
             general_note: "Exchange minimums and required rebalancing amounts change. Transactions might sometimes look irregular, but the bot always targets your desired allocation and schedule, so no extra work is needed."
-            tooltip_explanation: "This order was skipped because the amount was below the %{exchange_name} minimum order size. The amount was buffered and added to the next order."
