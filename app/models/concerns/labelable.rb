@@ -22,13 +22,9 @@ module Labelable
 
   def generate_label
     label = nil
-    max_attempts = 100
-    loop do
+    100.times do
       label = Haikunator.haikunate(0, ' ').titleize
       break unless self.class.unscoped.exists?(label: label, user_id: user_id)
-
-      max_attempts -= 1
-      break if max_attempts.zero?
     end
     label
   end

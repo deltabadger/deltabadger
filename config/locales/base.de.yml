@@ -143,7 +143,7 @@ de:
             <p>Beste Grüße, Jan</p>
     analyzer:
         default_portfolio: 'Standardportfolio'
-        duplicate_portfolio: 'Duplizieren'
+        duplicate_portfolio: 'Portfolio duplizieren'
         do_you_want_to_delete: 'Möchten Sie dieses Portfolio löschen?'
         portfolio_name: 'Portfoliowert'
         compare: 'Vergleichen'
