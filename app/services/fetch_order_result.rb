@@ -80,6 +80,7 @@ class FetchOrderResult < BaseService
     result_params = result_params.merge(quote: bot.settings['quote'], base: bot.settings['base']) if probit?(bot)
     use_subaccount = bot.use_subaccount
     selected_subaccount = bot.selected_subaccount
+    result = nil
     10.times do |i|
       result = if already_fetched?(result_params)
                  api.fetch_order_by_id(external_id, result_params)
@@ -90,7 +91,7 @@ class FetchOrderResult < BaseService
                else
                  api.fetch_order_by_id(external_id)
                end
-      break unless result.failure? && errors.last == ExchangeApi::Traders::BaseTrader::NOT_FETCHED.to_s
+      break unless result.failure? && result.errors.last == ExchangeApi::Traders::BaseTrader::NOT_FETCHED.to_s
 
       Rails.logger.info "Order #{external_id} not fetched, retrying #{i + 1} of 10..."
       sleep 0.5
