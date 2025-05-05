@@ -136,8 +136,9 @@ pt:
         twitter: 'Siga-nos no 𝕏'
     welcome:
         banner_html: |
-            <p>Bem-vindo, %{name}!</p>
-            <p>Desfrute do DCA rebalanceado com o novíssimo <b>Barbell Bot</b>, e aproveite o <b>Analisador de Portfólio</b>. A indexação estará disponível em breve.</p>
+            <p>Bem-vindo a bordo, %{name}!</p>
+            <p>Recomendo vivamente que experimente o bot <b>Estratégia Barbell</b> — é uma experiência completamente nova.</p>
+            <p>O bot DCA de moeda única é a versão mais antiga que será atualizada em breve, com os índices a chegarem pouco depois.</p>
             <p>Cumprimentos, Jan</p>
     analyzer:
         default_portfolio: 'Portfólio padrão'
