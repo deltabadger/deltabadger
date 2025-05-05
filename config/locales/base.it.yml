@@ -138,9 +138,10 @@ it:
         twitter: 'Seguici su 𝕏'
     welcome:
         banner_html: |
-            <p>Benvenuto, %{name}!</p>
-            <p>Goditi il DCA ribilanciato con il nuovissimo <b>Barbell Bot</b>, e sfrutta l'<b>Analizzatore di Portfolio</b>. L'indicizzazione arriverà presto.</p>
-            <p>Cordialmente, Jan</p>
+            <p>Benvenuto a bordo, %{name}!</p>
+            <p>Ti consiglio vivamente di provare il bot <b>Strategia Barbell</b> — è un'esperienza completamente nuova.</p>
+            <p>Il bot DCA a moneta singola è la versione precedente che sarà aggiornata presto, con gli indici che seguiranno poco dopo.</p>
+            <p>Cordiali saluti, Jan</p>
     analyzer:
         default_portfolio: "Portfolio predefinito"
         duplicate_portfolio: 'Duplica portfolio'
