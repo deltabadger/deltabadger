@@ -141,12 +141,16 @@ class Exchange < ApplicationRecord
     raise "Unsupported amount type #{amount_type}" unless %i[quote base].include?(amount_type)
 
     ticker = exchange_tickers.find_by(base_asset_id: base_asset_id, quote_asset_id: quote_asset_id)
+    return amount unless ticker.present?
+
     decimals = amount_type == :quote ? ticker.quote_decimals : ticker.base_decimals
     amount.send(method, decimals)
   end
 
   def adjusted_price(base_asset_id:, quote_asset_id:, price:, method: :floor)
     ticker = exchange_tickers.find_by(base_asset_id: base_asset_id, quote_asset_id: quote_asset_id)
+    return price unless ticker.present?
+
     decimals = ticker.price_decimals
     price.send(method, decimals)
   end
