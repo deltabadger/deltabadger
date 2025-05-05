@@ -33,6 +33,8 @@ module Bot::Schedulable
   end
 
   def last_interval_checkpoint_at
+    return legacy_last_interval_checkpoint_at if legacy?
+
     next_interval_checkpoint_at - 1.public_send(interval)
   end
 
@@ -49,5 +51,16 @@ module Bot::Schedulable
 
   def legacy_next_interval_checkpoint_at
     NextTradingBotTransactionAt.new.call(self) || Time.current
+  end
+
+  def legacy_last_interval_checkpoint_at
+    case type
+    when 'Bots::Basic'
+      next_interval_checkpoint_at - 1.public_send(interval)
+    when 'Bots::Withdrawal'
+      transactions.last&.created_at || Time.current
+    when 'Bots::Webhook'
+      Time.current
+    end
   end
 end
