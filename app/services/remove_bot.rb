@@ -5,6 +5,7 @@ class RemoveBot < BaseService
 
   def call(bot_id:, user:)
     bot = user.bots.find(bot_id)
+    return Result::Failure.new('Bot not found') unless bot
 
     if bot.working?
       Result::Failure.new('Bot is currently working. Stop bot before removing')
