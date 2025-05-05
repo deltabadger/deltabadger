@@ -38,7 +38,7 @@ class MakeWithdrawal < BaseService
       @order_flow_helper.stop_bot(bot, true, result.errors)
     end
     result
-  rescue StandardError
+  rescue StandardError => e
     Rails.logger.info '=======================  make_withdrawal RESCUE 2 =============================='
     Rails.logger.info "================= #{e.inspect} ======================="
     Rails.logger.info '====================================================='
