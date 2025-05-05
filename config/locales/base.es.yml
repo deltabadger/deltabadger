@@ -140,8 +140,9 @@ es:
         twitter: 'Síguenos en 𝕏'
     welcome:
         banner_html: |
-            <p>¡Bienvenido, %{name}!</p>
-            <p>Disfruta del DCA rebalanceado con el nuevo <b>Barbell Bot</b>, y aprovecha el <b>Analizador de Carteras</b>. La indexación llegará pronto.</p>
+            <p>¡Bienvenido a bordo, %{name}!</p>
+            <p>Te recomiendo encarecidamente que pruebes el bot de <b>Estrategia Barbell</b> — es una experiencia completamente nueva.</p>
+            <p>El bot DCA de moneda única es la versión anterior que se actualizará pronto, con índices que llegarán poco después.</p>
             <p>Saludos, Jan</p>
     analyzer:
         default_portfolio: 'Cartera predeterminada'
