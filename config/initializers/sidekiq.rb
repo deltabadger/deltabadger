@@ -1,6 +1,7 @@
 class Sidekiq::RetryMiddleware
   def call(_, job, _)
-    if job['retry_count']
+    # add retry_count to the job args if it's a hash (it's a hash when using ApplicationJob)
+    if job['retry_count'] && job['args'].first.is_a?(Hash)
       job['args'].first['retry_count'] = job['retry_count']
     end
     yield
