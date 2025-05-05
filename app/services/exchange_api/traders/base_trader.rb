@@ -12,18 +12,18 @@ module ExchangeApi
         raise NotImplementedError
       end
 
-      def currency_balance(currency, bot_id = nil)
+      def currency_balance(_currency, _bot_id = nil)
         Result::Failure.new('Could not fetch account info')
       end
 
-      def send_user_to_sendgrid(exchange_name, user)
+      def send_user_to_sendgrid(_exchange_name, _user)
         Result::Failure.new('Failed to save user to Sendgrid')
       end
 
       protected
 
       def error_to_failure(error)
-        Rails.logger.error "Coinbase error #{error.to_json}"
+        Rails.logger.error "error_to_failure error #{error.to_json}"
         mapped_error = @map_errors.call(error)
         Result::Failure.new(
           *mapped_error.message, data: { recoverable: mapped_error.recoverable }
