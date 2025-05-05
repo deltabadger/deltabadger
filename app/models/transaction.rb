@@ -42,13 +42,15 @@ class Transaction < ApplicationRecord
   def base_asset
     @base_asset ||= exchange.assets.find_by(symbol: base) ||
                     exchange.tickers.find_by(base: base)&.base_asset ||
-                    exchange.tickers.find_by(quote: base)&.quote_asset
+                    exchange.tickers.find_by(quote: base)&.quote_asset ||
+                    Asset.find_by(symbol: base)
   end
 
   def quote_asset
     @quote_asset ||= exchange.assets.find_by(symbol: quote) ||
                      exchange.tickers.find_by(quote: quote)&.quote_asset ||
-                     exchange.tickers.find_by(base: quote)&.base_asset
+                     exchange.tickers.find_by(base: quote)&.base_asset ||
+                     Asset.find_by(symbol: quote)
   end
 
   # def count_by_status_and_exchange(status, exchange)
