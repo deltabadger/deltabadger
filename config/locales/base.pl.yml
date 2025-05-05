@@ -140,8 +140,9 @@ pl:
         twitter: 'Śledź nas na 𝕏'
     welcome:
         banner_html: |
-            <p>Witaj, %{name}!</p>
-            <p>Ciesz się rebalansowanym DCA z nową <b>Strategią Barbell</b> i korzystaj z <b>Analizatora Portfela</b>. Indeksowanie dostępne wkrótce.</p>
+            <p>Witaj na pokładzie, %{name}!</p>
+            <p>Gorąco polecam wypróbowanie bota <b>Barbell Strategy</b> — to zupełnie nowe doświadczenie.</p>
+            <p>Bot Single-coin DCA to starsza wersja, która wkrótce zostanie zaktualizowana, a indeksy pojawią się niedługo potem.</p>
             <p>Pozdrawiam, Jan</p>
     analyzer:
         default_portfolio: 'Domyślny portfel'
