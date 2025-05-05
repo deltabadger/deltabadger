@@ -48,11 +48,13 @@ class MakeWebhook < BaseService
 
     result
   rescue StandardError => e
-    @unschedule_webhooks.call(bot)
-    @order_flow_helper.stop_bot(bot, notify)
     Rails.logger.info '======================= RESCUE 1 MakeWebhook =============================='
     Rails.logger.info "================= #{e.inspect} ======================="
     Rails.logger.info '====================================================='
+    if bot.present?
+      @unschedule_webhooks.call(bot)
+      @order_flow_helper.stop_bot(bot, notify)
+    end
 
     raise
   end

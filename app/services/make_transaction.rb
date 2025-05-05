@@ -57,11 +57,13 @@ class MakeTransaction < BaseService
 
     result
   rescue StandardError => e
-    @unschedule_transactions.call(bot)
-    @order_flow_helper.stop_bot(bot, notify)
     Rails.logger.info '======================= RESCUE 1 MakeTransaction =============================='
     Rails.logger.info "================= #{e.inspect} ======================="
     Rails.logger.info '====================================================='
+    if bot.present?
+      @unschedule_transactions.call(bot)
+      @order_flow_helper.stop_bot(bot, notify)
+    end
 
     raise
   end
