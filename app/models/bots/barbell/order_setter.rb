@@ -53,7 +53,9 @@ module Bots::Barbell::OrderSetter # rubocop:disable Metrics/ModuleLength
     return result unless result.success?
 
     quote_balance = result.data
-    notify_end_of_funds if quote_balance[:free] < pending_quote_amount + required_balance_buffer
+    if quote_balance[:free] >= pending_quote_amount && quote_balance[:free] < pending_quote_amount + required_balance_buffer
+      notify_end_of_funds
+    end
 
     result = get_barbell_orders(pending_quote_amount)
     return result unless result.success?
