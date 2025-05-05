@@ -52,3 +52,13 @@ if (document.getElementById("referral_banner_link")) {
       });
   });
 }
+
+// Update theme color meta tag based on the background color of the body
+document.addEventListener("turbo:load", () => {
+  function updateThemeColor() {
+    const themeColor = getComputedStyle(document.documentElement).getPropertyValue('--background').trim();
+    document.getElementById('theme-color-meta').setAttribute('content', themeColor);
+  }
+  updateThemeColor();
+  window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', updateThemeColor);
+});
