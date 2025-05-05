@@ -28,6 +28,9 @@ class ApiKey < ApplicationRecord
   end
 
   def validate_key_permissions
+    # TODO: remove this once all exchanges are supported
+    return unless Exchange.available_for_barbell_bots.include?(exchange)
+
     result = exchange.check_valid_api_key?(api_key: self)
     if result.success?
       self.status = result.data ? :correct : :incorrect
