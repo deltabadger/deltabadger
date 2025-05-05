@@ -279,7 +279,7 @@ class BotsController < ApplicationController
   end
 
   def filter_assets_by_query(assets:, query:)
-    return assets.order(:market_cap_rank) if query.blank?
+    return assets.order(:market_cap_rank, :symbol) if query.blank?
 
     assets
       .map { |asset| [asset, similarities_for_asset(asset, query.downcase)] }
