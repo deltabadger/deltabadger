@@ -48,6 +48,8 @@
         padding: 2rem 0
         @media screen and (min-width: 768px)
             padding: 4rem 0
+    .modal--search__assets
+        max-height: none !important
 #modal
     .modal
         position: relative
@@ -170,6 +172,7 @@
         padding-top: 4rem
         width: calc(100vw - 2rem)
         max-width: 72rem
+        height: calc(100vh - 2rem)
         .modal__close
             &:hover
                 background: #fff2
@@ -180,6 +183,8 @@
             top: -0.5rem
         p
             margin-bottom: 2.5rem
+        @media screen and (min-width: 768px)
+            height: auto
     &--upgrade
         padding-bottom: 26rem
         color: white
