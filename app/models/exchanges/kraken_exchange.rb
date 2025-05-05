@@ -63,6 +63,7 @@ module Exchanges
       balances_data = Utilities::Hash.dig_or_raise(result.data, 'result')
       balances_data.each do |asset, balance|
         asset = asset_from_symbol(symbol: asset)
+        next unless asset.present?
         next unless asset_ids.include?(asset.id)
 
         total = Utilities::Hash.dig_or_raise(balance, 'balance').to_d

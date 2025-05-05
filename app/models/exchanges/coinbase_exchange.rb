@@ -64,6 +64,7 @@ module Exchanges
       breakdown = Utilities::Hash.dig_or_raise(result.data, 'breakdown', 'spot_positions')
       breakdown.each do |position|
         asset = asset_from_symbol(symbol: position['asset'])
+        next unless asset.present?
         next unless asset_ids.include?(asset.id)
 
         free = Utilities::Hash.dig_or_raise(position, 'available_to_trade_crypto').to_d
