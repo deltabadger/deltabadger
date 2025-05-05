@@ -38,6 +38,8 @@ class NextTradingBotTransactionAt < BaseService
   end
 
   def last_paid_transaction(bot)
+    return Time.current unless bot.last_transaction.present?
+
     interval = parse_interval.call(bot)
 
     number_of_transactions = if interval.zero?
