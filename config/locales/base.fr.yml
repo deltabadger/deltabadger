@@ -133,8 +133,9 @@ fr:
         twitter: 'Suivez-nous sur 𝕏'
     welcome:
         banner_html: |
-            <p>Bienvenue, %{name}!</p>
-            <p>Profitez du DCA rééquilibré avec le tout nouveau <b>Barbell Bot</b>, et tirez parti de l'<b>Analyseur de Portefeuille</b>. L'indexation arrive bientôt.</p>
+            <p>Bienvenue à bord, %{name} !</p>
+            <p>Je vous recommande vivement d'essayer le bot <b>Stratégie Barbell</b> — c'est une expérience complètement nouvelle.</p>
+            <p>Le bot DCA à monnaie unique est l'ancienne version qui sera bientôt mise à jour, avec les indices qui suivront peu après.</p>
             <p>Cordialement, Jan</p>
     analyzer:
         default_portfolio: 'Portefeuille par défaut'

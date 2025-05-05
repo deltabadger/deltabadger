@@ -141,8 +141,9 @@ en:
         twitter: 'Follow us on 𝕏'
     welcome:
         banner_html: |
-            <p>Welcome, %{name}!</p>
-            <p>Enjoy rebalanced DCA with the brand new <b>Barbell Bot</b>, and leverage the <b>Portfolio Analyzer</b>. Indexing is coming soon.</p>
+            <p>Welcome on board, %{name}!</p>
+            <p>I highly recommend you try the <b>Barbell Strategy</b> bot — it's a completely new experience.</p>
+            <p>Single-coin DCA bot is the older version that will be updated soon, with indexes coming shortly after.</p>
             <p>Best, Jan</p>
     analyzer:
         default_portfolio: "Default portfolio"
