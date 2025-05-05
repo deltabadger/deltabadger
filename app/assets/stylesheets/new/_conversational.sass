@@ -44,8 +44,14 @@
             height: 3rem
     &--big
         font-size: 2.5rem
+        display: inline-block
+        line-height: 4rem
+        text-align: center
+        @media (min-width: 768px)
+            text-align: left
         .sinput
             background: var(--widget-background) !important
+            display: inline-block
 .db-bot
     .conversational
         padding: 3rem 0 4rem
