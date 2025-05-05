@@ -42,8 +42,11 @@ class MakeWithdrawal < BaseService
     Rails.logger.info '=======================  make_withdrawal RESCUE 2 =============================='
     Rails.logger.info "================= #{e.inspect} ======================="
     Rails.logger.info '====================================================='
-    @unschedule_transactions.call(bot)
-    @order_flow_helper.stop_bot(bot, true)
+    if bot.present?
+      @unschedule_transactions.call(bot)
+      @order_flow_helper.stop_bot(bot, true)
+    end
+
     raise
   end
 

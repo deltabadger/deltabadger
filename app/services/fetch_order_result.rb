@@ -54,8 +54,11 @@ class FetchOrderResult < BaseService
     Rails.logger.info '=======================   RESCUE 2 =============================='
     Rails.logger.info "================= #{e.inspect} ======================="
     Rails.logger.info '====================================================='
-    @unschedule_transactions.call(bot)
-    @order_flow_helper.stop_bot(bot, notify)
+    if bot.present?
+      @unschedule_transactions.call(bot)
+      @order_flow_helper.stop_bot(bot, notify)
+    end
+
     raise
   end
   # rubocop:enable Metrics/CyclomaticComplexity, Metrics/PerceivedComplexity
