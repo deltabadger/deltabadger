@@ -30,6 +30,7 @@ const TYPES = [
 ]
 
 export const BotForm = ({
+  isBasic,
   isPro,
   isLegendary,
   open,
@@ -306,7 +307,7 @@ export const BotForm = ({
         />
       case 'configure_trading_bot':
         return <ConfigureTradingBot
-          showLimitOrders={isPro || isLegendary}
+          showLimitOrders={isBasic || isPro || isLegendary}
           currentExchange={pickedExchange}
           handleReset={resetFormToStep(1)}
           handleSubmit={configureTradingBotHandler}
@@ -326,7 +327,7 @@ export const BotForm = ({
         />
       case 'configure_webhook_bot':
         return <ConfigureWebhookBot
-            showLimitOrders={isPro || isLegendary}
+            showLimitOrders={isBasic || isPro || isLegendary}
             currentExchange={pickedExchange}
             handleReset={resetFormToStep(1)}
             handleSubmit={configureWebhookBotHandler}
