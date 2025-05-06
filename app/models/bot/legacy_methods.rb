@@ -174,7 +174,7 @@ module Bot::LegacyMethods
   end
 
   def pnl
-    return if transactions.empty? || bot_type == 'withdrawal' || last_successful_transaction.nil?
+    return if daily_transaction_aggregates.empty? || bot_type == 'withdrawal' || last_successful_transaction.nil?
 
     stats = Presenters::Api::Stats.call(
       bot: self,
