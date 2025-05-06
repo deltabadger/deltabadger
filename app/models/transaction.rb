@@ -3,7 +3,6 @@ class Transaction < ApplicationRecord
   belongs_to :exchange
 
   before_create :set_exchange, if: -> { bot.legacy? }
-  before_create :set_error_messages_json
   after_create_commit :set_daily_transaction_aggregate
   after_create_commit :update_bot_metrics, if: -> { success? && !bot.legacy? }
   after_create_commit :broadcast_to_bot, unless: -> { bot.legacy? }
@@ -23,19 +22,6 @@ class Transaction < ApplicationRecord
     return nil unless amount.present? && rate.present?
 
     amount * rate
-  end
-
-  # TODO: Rake task is populating all error_messages_json with properly parsed json, once it's
-  # done remove the column error_messages and rename error_messages_json to error_messages
-  def error_messages
-    error_messages_array = super == '[nil]' ? '[null]' : super
-    JSON.parse(error_messages_array)
-  end
-
-  # TODO: Rake task is populating all error_messages_json with properly parsed json, once it's
-  # done remove the column error_messages and rename error_messages_json to error_messages
-  def set_error_messages_json
-    self.error_messages_json = error_messages
   end
 
   # TODO: Migrate Transaction & DailyTransactionAggregate to directly refference assets instead of symbols
