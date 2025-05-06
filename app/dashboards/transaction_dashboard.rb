@@ -13,12 +13,15 @@ class TransactionDashboard < Administrate::BaseDashboard
     external_id: Field::String.with_options(searchable: false),
     rate: Field::String.with_options(searchable: false),
     amount: Field::String.with_options(searchable: false),
-    market: Field::String,
     status: Field::String.with_options(searchable: false),
-    currency: Field::String.with_options(searchable: false),
+    bot_price: Field::String.with_options(searchable: false),
+    bot_interval: Field::String.with_options(searchable: false),
     created_at: Field::DateTime,
     updated_at: Field::DateTime,
-    error_messages: Field::String
+    error_messages: Field::String.with_options(searchable: false),
+    base: Field::String.with_options(searchable: false),
+    quote: Field::String.with_options(searchable: false),
+    exchange: Field::BelongsTo
   }.freeze
 
   # COLLECTION_ATTRIBUTES
@@ -32,22 +35,26 @@ class TransactionDashboard < Administrate::BaseDashboard
     external_id
     rate
     amount
+    exchange
   ].freeze
 
   # SHOW_PAGE_ATTRIBUTES
   # an array of attributes that will be displayed on the model's show page.
   SHOW_PAGE_ATTRIBUTES = %i[
-    bot
     id
     external_id
+    bot
+    exchange
     rate
     amount
-    market
     status
-    currency
+    bot_price
+    bot_interval
+    error_messages
+    base
+    quote
     created_at
     updated_at
-    error_messages
   ].freeze
 
   # FORM_ATTRIBUTES
@@ -62,6 +69,9 @@ class TransactionDashboard < Administrate::BaseDashboard
     status
     currency
     error_messages
+    base
+    quote
+    exchange
   ].freeze
 
   # COLLECTION_FILTERS
