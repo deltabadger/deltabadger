@@ -3,6 +3,7 @@ class Transaction < ApplicationRecord
   belongs_to :exchange
 
   before_create :set_exchange, if: -> { bot.legacy? }
+  before_create :round_numeric_fields
   after_create_commit :set_daily_transaction_aggregate
   after_create_commit :update_bot_metrics, if: -> { success? && !bot.legacy? }
   after_create_commit :broadcast_to_bot, unless: -> { bot.legacy? }
@@ -64,6 +65,12 @@ class Transaction < ApplicationRecord
 
   def set_exchange
     self.exchange ||= bot.exchange
+  end
+
+  def round_numeric_fields
+    self.rate = rate&.round(18)
+    self.amount = amount&.round(18)
+    self.bot_price = bot_price&.round(18)
   end
 
   # rubocop:disable Metrics/CyclomaticComplexity, Metrics/PerceivedComplexity
