@@ -7,8 +7,6 @@ class BotUpdatesChannel < ApplicationCable::Channel
     bot = Bot.find(params['bot_id'])
     return if bot.nil?
 
-    puts "bot: #{bot}"
-
     Bot::BroadcastMetricsUpdateJob.perform_later(bot)
   end
 
