@@ -173,6 +173,10 @@ module Bot::LegacyMethods
     settings.fetch('selected_subaccount', '')
   end
 
+  #
+  # Methods for forward compatibility with new bot types
+  #
+
   def pnl
     return if daily_transaction_aggregates.empty? || bot_type == 'withdrawal' || last_successful_transaction.nil?
 
@@ -181,5 +185,15 @@ module Bot::LegacyMethods
       transactions: daily_transaction_aggregates.order(created_at: :desc)
     )
     (stats[:currentValue].to_f - stats[:totalInvested].to_f) / stats[:totalInvested].to_f
+  end
+
+  def broadcast_pnl_update
+    puts "broadcast_pnl_update for #{id}!! #{pnl.inspect}"
+    broadcast_replace_to(
+      ["user_#{user_id}", :bot_updates],
+      target: dom_id(self, :pnl),
+      partial: 'bots/bot_tile/bot_tile_pnl',
+      locals: { bot: self, pnl: pnl || '', loading: false }
+    )
   end
 end

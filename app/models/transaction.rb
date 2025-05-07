@@ -100,7 +100,7 @@ class Transaction < ApplicationRecord
   def broadcast_to_bot
     if bot.transactions.limit(2).count == 1
       broadcast_replace_to(
-        ["bot_#{bot_id}", :orders],
+        ["user_#{bot.user_id}", :bot_updates],
         target: 'orders',
         partial: 'bots/orders/orders',
         locals: { bot: bot }
@@ -115,7 +115,7 @@ class Transaction < ApplicationRecord
       }
 
       broadcast_prepend_to(
-        ["bot_#{bot_id}", :orders],
+        ["user_#{bot.user_id}", :bot_updates],
         target: 'orders_list',
         partial: 'bots/orders/order',
         locals: { order: self, decimals: @decimals }
@@ -167,7 +167,7 @@ class Transaction < ApplicationRecord
              end
 
     broadcast_replace_to(
-      ["bot_#{bot_id}", :warning_below_minimums],
+      ["user_#{bot.user_id}", :bot_updates],
       target: 'modal',
       partial: 'bots/barbell/warning_below_minimums',
       locals: locals
