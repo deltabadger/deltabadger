@@ -1,9 +1,9 @@
 <%= turbo_stream.append 'orders_list' do %>
-  <%= render partial: "bots/orders/order", collection: @orders %>
+  <%= render partial: "bots/orders/order", collection: @orders, locals: { decimals: @decimals } %>
 <% end %>
 
 <% if @pagy.next.present? %>
   <%= turbo_stream.replace 'orders_pagination' do %>
-    <%= turbo_frame_tag 'orders_pagination', src: bot_path(page: @pagy.next, format: :turbo_stream), loading: :lazy %>
+    <%= turbo_frame_tag 'orders_pagination', src: bot_path(page: @pagy.next, format: :turbo_stream, params: { decimals: @decimals }), loading: :lazy %>
   <% end %>
 <% end %>

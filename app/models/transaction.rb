@@ -106,11 +106,19 @@ class Transaction < ApplicationRecord
         locals: { bot: bot }
       )
     else
+
+      # TODO: When transactions point to real asset ids, we can use the asset ids directly instead of symbols
+      ticker = exchange.tickers.find_by(base_asset: base_asset, quote_asset: quote_asset)
+      @decimals = {
+        base_asset.symbol => ticker.base_decimals,
+        quote_asset.symbol => ticker.quote_decimals
+      }
+
       broadcast_prepend_to(
         ["bot_#{bot_id}", :orders],
         target: 'orders_list',
         partial: 'bots/orders/order',
-        locals: { order: self }
+        locals: { order: self, decimals: @decimals }
       )
     end
   end
