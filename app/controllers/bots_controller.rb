@@ -42,7 +42,6 @@ class BotsController < ApplicationController
   def barbell_new_step_exchange
     exchanges = @bot.available_exchanges_for_current_settings
     @exchanges = filter_exchanges_by_query(exchanges: exchanges, query: barbell_bot_params[:query])
-    puts "exchanges: #{@exchanges.inspect}"
     render 'bots/barbell/new/step_exchange'
   end
 
