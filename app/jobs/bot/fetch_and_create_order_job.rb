@@ -1,4 +1,4 @@
-class Bot::CreateSuccessfulOrderJob < BotJob
+class Bot::FetchAndCreateOrderJob < BotJob
   def perform(bot, order_id)
     return if Transaction.exists?(external_id: order_id)
 
