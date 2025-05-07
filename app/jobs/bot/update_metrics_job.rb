@@ -1,4 +1,4 @@
-class Bot::UpdateMetricsJob < BotJob
+class Bot::UpdateMetricsJob < ApplicationJob
   queue_as :default
 
   # FIXME: ideally calling this job should kill any running Bot::UpdateMetricsJob
