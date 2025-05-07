@@ -27,8 +27,7 @@ module Bots::Barbell::OrderSetter # rubocop:disable Metrics/ModuleLength
   end
 
   def get_barbell_orders(total_orders_amount_in_quote)
-    result = get_metrics_with_current_prices
-    return result unless result.success?
+    metrics_data = metrics(force: true)
 
     result0 = exchange.get_ask_price(base_asset_id: base0_asset_id, quote_asset_id: quote_asset_id)
     return result0 unless result0.success?
@@ -37,8 +36,8 @@ module Bots::Barbell::OrderSetter # rubocop:disable Metrics/ModuleLength
     return result1 unless result1.success?
 
     Result::Success.new(calculate_orders_data(
-                          balance0: result.data[:base0_total_amount],
-                          balance1: result.data[:base1_total_amount],
+                          balance0: metrics_data[:base0_total_amount],
+                          balance1: metrics_data[:base1_total_amount],
                           price0: result0.data,
                           price1: result1.data,
                           total_orders_amount_in_quote: total_orders_amount_in_quote

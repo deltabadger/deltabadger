@@ -73,6 +73,9 @@ application.register("modal--open-and-submit-on-key-press", Modal__OpenAndSubmit
 import NestedLinkInButtonController from "./nested_link_in_button_controller"
 application.register("nested-link-in-button", NestedLinkInButtonController)
 
+import PerformOnPageLoadController from "./perform_on_page_load_controller"
+application.register("perform-on-page-load", PerformOnPageLoadController)
+
 import PortfolioAnalyzer__AssetAllocationController from "./portfolio_analyzer/asset_allocation_controller"
 application.register("portfolio-analyzer--asset-allocation", PortfolioAnalyzer__AssetAllocationController)
 

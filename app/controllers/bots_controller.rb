@@ -13,18 +13,7 @@ class BotsController < ApplicationController
   def index
     return render 'bots/react_dashboard' if params[:create] # TODO: remove this once the legacy dashboard is removed
 
-    @bots = current_user.bots.not_deleted.includes(:exchange, :daily_transaction_aggregates).order(id: :desc)
-    @loading = {}
-    @bots.each do |bot|
-      if bot.legacy?
-        @loading[bot.id] = false
-      elsif bot.metrics_with_current_prices_cached?
-        @loading[bot.id] = false
-      else
-        @loading[bot.id] = true
-        Bot::BroadcastMetricsAfterFetchingCurrentPricesJob.perform_later(bot)
-      end
-    end
+    @bots = current_user.bots.not_deleted.includes(:exchange).order(id: :desc)
   end
 
   def new; end
@@ -140,14 +129,7 @@ class BotsController < ApplicationController
           @bot.base1_asset.symbol => @bot.decimals[:base1],
           @bot.quote_asset.symbol => @bot.decimals[:quote]
         }
-        if @bot.metrics_with_current_prices_cached?
-          @metrics = @bot.metrics_with_current_prices
-          @loading = false
-        else
-          @metrics = @bot.metrics
-          @loading = true
-          Bot::BroadcastMetricsAfterFetchingCurrentPricesJob.perform_later(@bot)
-        end
+        @metrics = @bot.metrics
       end
     end
   end
