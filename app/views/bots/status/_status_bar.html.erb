@@ -1,5 +1,3 @@
-<%= turbo_stream_from "bot_#{bot.id}", :status_bar %>
-
 <%= tag.div id: dom_id(bot, :status_bar), style: "width: 100%; display: flex" do %>
   <div class="bot-control__status <%= 'active' if bot.working? || bot.pending? %>">
     <% if bot.pending? %>
@@ -15,7 +13,7 @@
           progress_bar_target: "progressBar",
         } %>
       <% end %>
-      
+
       <%= tag.div data: {
         controller: "countdown",
         countdown_end_time_value: bot.next_action_job_at&.iso8601,
@@ -26,7 +24,7 @@
         countdown_seconds_label_value: t('subscriptions.payment.seconds_short')
       } do %>
         <% if bot.retrying? %>
-          <%= t('bot.status.next_try') %> 
+          <%= t('bot.status.next_try') %>
         <% end %>
         <span data-countdown-target="days"></span><span data-countdown-target="daysLabel"></span>
         <span data-countdown-target="hours"></span><span data-countdown-target="hoursLabel"></span>
