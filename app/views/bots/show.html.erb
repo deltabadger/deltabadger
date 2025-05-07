@@ -1,9 +1,9 @@
 <%= turbo_stream_from "user_#{current_user.id}", :bot_updates %>
 
 <%= turbo_frame_tag "bot", data: { controller: "perform-on-page-load",
-                                    perform_on_page_load_channel_value: "BotUpdatesChannel",
-                                    perform_on_page_load_method_value: "broadcast_metrics_update",
-                                    perform_on_page_load_method_args_value: { bot_id: @bot.id }.to_json } do %>
+                                   perform_on_page_load_channel_value: "BotUpdatesChannel",
+                                   perform_on_page_load_method_value: "broadcast_metrics_update",
+                                   perform_on_page_load_method_args_value: { bot_id: @bot.id }.to_json } do %>
   <div class="page-head">
     <%= render "bots/header", bot: @bot, other_bots: @other_bots %>
   </div>
