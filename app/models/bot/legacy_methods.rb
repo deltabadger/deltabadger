@@ -188,7 +188,6 @@ module Bot::LegacyMethods
   end
 
   def broadcast_pnl_update
-    puts "broadcast_pnl_update for #{id}!! #{pnl.inspect}"
     broadcast_replace_to(
       ["user_#{user_id}", :bot_updates],
       target: dom_id(self, :pnl),
