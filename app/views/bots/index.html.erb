@@ -31,9 +31,9 @@
   </div>
 
   <%= tag.div class: 'itiles', data: { controller: "perform-on-page-load",
-                                            perform_on_page_load_channel_value: "BotUpdatesChannel",
-                                            perform_on_page_load_method_value: "broadcast_pnl_update",
-                                              perform_on_page_load_method_args_value: { bot_ids: @bots.map(&:id) }.to_json } do %>
+                                       perform_on_page_load_channel_value: "BotUpdatesChannel",
+                                       perform_on_page_load_method_value: "broadcast_pnl_update",
+                                       perform_on_page_load_method_args_value: { bot_ids: @bots.map(&:id) }.to_json } do %>
     <%= render partial: 'bots/bot_tile/bot_tile', collection: @bots, as: :bot, locals: { loading: @loading } %>
   <% end %>
 <% end %>
