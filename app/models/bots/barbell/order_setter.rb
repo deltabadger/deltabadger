@@ -37,8 +37,8 @@ module Bots::Barbell::OrderSetter # rubocop:disable Metrics/ModuleLength
     return result1 unless result1.success?
 
     Result::Success.new(calculate_orders_data(
-                          balance0: result.data[:total_base0_amount_acquired],
-                          balance1: result.data[:total_base1_amount_acquired],
+                          balance0: result.data[:base0_total_amount],
+                          balance1: result.data[:base1_total_amount],
                           price0: result0.data,
                           price1: result1.data,
                           total_orders_amount_in_quote: total_orders_amount_in_quote

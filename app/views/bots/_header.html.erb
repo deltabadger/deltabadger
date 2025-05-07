@@ -5,11 +5,11 @@
   <%= render "svg/16x16_down" %>
   <div class="dropdown dropdown--bots">
     <%= link_to "#{t('bot.new')} +", new_bot_path, class: "dropdown__item", data: { turbo_frame: "modal" } %>
-    <% if other_bots.any? %>
+    <% if other_bots.present? %>
       <div class="dropdown__item dropdown__item--divider"></div>
-      <% other_bots.each do |other_bot| %>
-        <% data = other_bot.legacy? ? { turbo: false } : { turbo_frame: "bot", turbo_action: "advance" } %>
-        <%= link_to other_bot.label, bot_path(other_bot), class: "dropdown__item", data: data %>
+      <% other_bots.each do |id, label, type| %>
+        <% data = type != 'Bots::Barbell' ? { turbo: false } : { turbo_frame: "bot", turbo_action: "advance" } %>
+        <%= link_to label, bot_path(id), class: "dropdown__item", data: data %>
       <% end %>
     <% end %>
   </div>

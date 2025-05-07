@@ -1,0 +1,14 @@
+<%= turbo_stream_from "bot_#{bot.id}", :pnl %>
+
+<div id="<%= dom_id(bot, :pnl) %>">
+  <% if loading %>
+    <div class="loader" style="position: unset;"></div>
+  <% else %>
+    <% pnl = bot.legacy? ? bot.pnl : bot.metrics_with_current_prices[:pnl] %>
+    <% if pnl.present? %>
+      <div class="bot-tile__pnl <%= pnl.negative? ? 'text-danger' : pnl.positive? ? 'text-success' : '' %>">
+        <span class="widget__pnl__value"><%= format_percent(pnl, precision: 2) %></span>
+      </div>
+    <% end %>
+  <% end %>
+</div>

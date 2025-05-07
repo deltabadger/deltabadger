@@ -159,16 +159,42 @@ class Bots::Barbell < Bot
     end
   end
 
+  def assets
+    @assets ||= Asset.where(id: [base0_asset_id, base1_asset_id, quote_asset_id]).presence
+  end
+
   def base0_asset
-    @base0_asset ||= base0_asset_id.present? ? Asset.find(base0_asset_id) : nil
+    @base0_asset ||= assets.select { |asset| asset.id == base0_asset_id }.first if assets.present?
   end
 
   def base1_asset
-    @base1_asset ||= base1_asset_id.present? ? Asset.find(base1_asset_id) : nil
+    @base1_asset ||= assets.select { |asset| asset.id == base1_asset_id }.first if assets.present?
   end
 
   def quote_asset
-    @quote_asset ||= quote_asset_id.present? ? Asset.find(quote_asset_id) : nil
+    @quote_asset ||= assets.select { |asset| asset.id == quote_asset_id }.first if assets.present?
+  end
+
+  def tickers
+    @tickers ||= exchange.tickers.where(base_asset_id: [base0_asset_id, base1_asset_id], quote_asset_id: quote_asset_id).presence
+  end
+
+  def ticker0
+    @ticker0 ||= tickers.select { |ticker| ticker.base_asset_id == base0_asset_id }.first if tickers.present?
+  end
+
+  def ticker1
+    @ticker1 ||= tickers.select { |ticker| ticker.base_asset_id == base1_asset_id }.first if tickers.present?
+  end
+
+  def decimals
+    @decimals ||= {
+      base0: ticker0.base_decimals,
+      base1: ticker1.base_decimals,
+      quote: [ticker0.quote_decimals, ticker1.quote_decimals].max,
+      base0_price: ticker0.price_decimals,
+      base1_price: ticker1.price_decimals
+    }
   end
 
   private
