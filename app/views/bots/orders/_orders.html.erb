@@ -14,7 +14,7 @@
       <tbody id="orders_list">
       </tbody>
     </table>
-    <%= turbo_frame_tag 'orders_pagination', src: bot_path(bot, format: :turbo_stream), loading: :laz, style: "display:none" %>
+    <%= turbo_frame_tag 'orders_pagination', src: bot_path(bot, format: :turbo_stream), loading: :lazy %>
   <% else %>
     <table class="table">
       <thead>
