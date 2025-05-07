@@ -29,6 +29,6 @@
   </div>
 
   <div class="itiles">
-    <%= render partial: 'bots/bot_tile', collection: @bots, as: :bot %>
+    <%= render partial: 'bots/bot_tile/bot_tile', collection: @bots, as: :bot, locals: { loading: @loading } %>
   </div>
 <% end %>
