@@ -33,7 +33,7 @@
           <%= bot.label %>
         </div>
       </div>
-      <%= render "bots/bot_tile/bot_tile_pnl", bot: bot, loading: loading[bot.id] %>
+      <%= render "bots/bot_tile/bot_tile_pnl", bot: bot, loading: true, pnl: nil %>
     </div>
   <% end %>
   <div class="bot-control">
