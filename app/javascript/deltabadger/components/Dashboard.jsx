@@ -125,6 +125,7 @@ const BotNavigation = ({ bots, selectedBotId, onBotChange, onBackToList, loadBot
 };
 
 const DashboardTemplate = ({
+  isBasic,
   isPro,
   isLegendary,
   bots = [],
@@ -261,7 +262,7 @@ const DashboardTemplate = ({
         />
         <div className="db-bots db-bots--single">
           <BotComponent
-            showLimitOrders={isPro || isLegendary}
+            showLimitOrders={isBasic || isPro || isLegendary}
             bot={selectedBot}
             open={true}
             errors={errors[selectedBot.id]}
@@ -297,6 +298,7 @@ const DashboardTemplate = ({
     return (
       <div className="db-bots db-bots--single">
         <BotForm
+          isBasic={isBasic}
           isPro={isPro}
           isLegendary={isLegendary}
           open={true}
@@ -359,7 +361,7 @@ const DashboardTemplate = ({
               bot={bot}
               isOpen={false}
               onClick={() => handleBotClick(bot.id)}
-              showLimitOrders={isPro || isLegendary}
+              showLimitOrders={isBasic || isPro || isLegendary}
               errors={errors[bot.id]}
               exchanges={exchanges}
               apiKeyTimeout={apiKeyTimeout}

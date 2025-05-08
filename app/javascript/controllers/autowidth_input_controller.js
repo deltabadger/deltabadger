@@ -13,9 +13,6 @@ export default class extends Controller {
 
   disconnect() {
     this.element.removeEventListener('input', this.resize)
-    if (this.mirrorElement) {
-      document.body.removeChild(this.mirrorElement)
-    }
   }
 
   resize() {

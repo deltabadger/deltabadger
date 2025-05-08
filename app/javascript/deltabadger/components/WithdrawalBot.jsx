@@ -147,8 +147,8 @@ const BotTemplate = ({
 
   if (tileMode) {
     return (
-      <div 
-        onClick={onClick} 
+      <div
+        onClick={onClick}
         className={`widget bot-tile ${botRunningClass}`}
       >
         <div className="bot-tile__header">
@@ -156,26 +156,26 @@ const BotTemplate = ({
             <div className="bot-tile__ticker__currencies">{currencyName}</div>
             <div className="bot-tile__ticker__exchange">{I18n.t('bot.withdrawal')} · {exchangeName}</div>
           </div>
-          
+
           {bot.stats && bot.stats.totalWithdrawn && (
             <div className="bot-tile__pnl">
               {bot.stats.totalWithdrawn} {currencyName}
             </div>
           )}
         </div>
-        
+
         <div className="bot-tile__controls">
           <div className="bot-tile__controls__feedback">
             {working && !intervalEnabled && <PercentageProgress bot={bot} callback={reload}/>}
-            {working && intervalEnabled && nextTransactionTimestamp && 
+            {working && intervalEnabled && nextTransactionTimestamp &&
               <Timer bot={bot} callback={reload}/>
             }
             {!working && isNotEmpty(errors) && <Errors data={errors}/>}
             <ProgressBar bot={bot} />
           </div>
-      
+
           {isStarting && <StartingButton />}
-          {(!isStarting && working) && 
+          {(!isStarting && working) &&
             <div onClick={buttonClickHandler}>
               <StopButton onClick={() => handleStop(id)}/>
             </div>
@@ -200,7 +200,7 @@ const BotTemplate = ({
     <div onClick={() => handleClick(id)} className={`db-bots__item db-bot db-bot--withdrawal db-bot--setup-finished ${botOpenClass} ${botRunningClass}`}>
       { apiKeyExists &&
         <div className="db-bot__header">
-          
+
           { isStarting && <StartingButton/> }
           {(!isStarting && working) && <StopButton onClick={() => handleStop(id)}/>}
           {(!isStarting && pending) && <PendingButton/>}
@@ -304,7 +304,8 @@ const BotTemplate = ({
         </div>
       }
       <div className="bot-footer" hidden={working}>
-        <RemoveButton onClick={() => { handleRemove(id).then(() => reloadPage()) }} disabled={working}/>
+        <div></div>
+        {/* <RemoveButton onClick={() => { handleRemove(id).then(() => reloadPage()) }} disabled={working}/> */}
       </div>
 
     </div>
