@@ -3,7 +3,7 @@ class Transaction < ApplicationRecord
   belongs_to :exchange
 
   before_create :set_exchange, if: -> { bot.legacy? }
-  before_create :set_error_messages_json
+  before_create :round_numeric_fields
   after_create_commit :set_daily_transaction_aggregate
   after_create_commit :update_bot_metrics, if: -> { success? && !bot.legacy? }
   after_create_commit :broadcast_to_bot, unless: -> { bot.legacy? }
@@ -23,19 +23,6 @@ class Transaction < ApplicationRecord
     return nil unless amount.present? && rate.present?
 
     amount * rate
-  end
-
-  # TODO: Rake task is populating all error_messages_json with properly parsed json, once it's
-  # done remove the column error_messages and rename error_messages_json to error_messages
-  def error_messages
-    error_messages_array = super == '[nil]' ? '[null]' : super
-    JSON.parse(error_messages_array)
-  end
-
-  # TODO: Rake task is populating all error_messages_json with properly parsed json, once it's
-  # done remove the column error_messages and rename error_messages_json to error_messages
-  def set_error_messages_json
-    self.error_messages_json = error_messages
   end
 
   # TODO: Migrate Transaction & DailyTransactionAggregate to directly refference assets instead of symbols
@@ -80,6 +67,12 @@ class Transaction < ApplicationRecord
     self.exchange ||= bot.exchange
   end
 
+  def round_numeric_fields
+    self.rate = rate&.round(18)
+    self.amount = amount&.round(18)
+    self.bot_price = bot_price&.round(18)
+  end
+
   # rubocop:disable Metrics/CyclomaticComplexity, Metrics/PerceivedComplexity
   def set_daily_transaction_aggregate
     return unless success?
@@ -107,17 +100,25 @@ class Transaction < ApplicationRecord
   def broadcast_to_bot
     if bot.transactions.limit(2).count == 1
       broadcast_replace_to(
-        ["bot_#{bot_id}", :orders],
+        ["user_#{bot.user_id}", :bot_updates],
         target: 'orders',
         partial: 'bots/orders/orders',
         locals: { bot: bot }
       )
     else
+
+      # TODO: When transactions point to real asset ids, we can use the asset ids directly instead of symbols
+      ticker = exchange.tickers.find_by(base_asset: base_asset, quote_asset: quote_asset)
+      @decimals = {
+        base_asset.symbol => ticker.base_decimals,
+        quote_asset.symbol => ticker.quote_decimals
+      }
+
       broadcast_prepend_to(
-        ["bot_#{bot_id}", :orders],
+        ["user_#{bot.user_id}", :bot_updates],
         target: 'orders_list',
         partial: 'bots/orders/order',
-        locals: { order: self }
+        locals: { order: self, decimals: @decimals }
       )
     end
   end
@@ -166,7 +167,7 @@ class Transaction < ApplicationRecord
              end
 
     broadcast_replace_to(
-      ["bot_#{bot_id}", :warning_below_minimums],
+      ["user_#{bot.user_id}", :bot_updates],
       target: 'modal',
       partial: 'bots/barbell/warning_below_minimums',
       locals: locals

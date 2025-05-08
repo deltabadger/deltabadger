@@ -79,9 +79,9 @@ const BotTemplate = ({
   const [minimumOrderParams, setMinimumOrderParams] = useState({});
   const [currencyOfMinimum, setCurrencyOfMinimum] = useState(settings.quote || defaultSettings.quote);
   const [priceRangeEnabled, setPriceRangeEnabled] = useState(settings.price_range_enabled !== undefined ? settings.price_range_enabled : defaultSettings.price_range_enabled);
-  const [priceRange, setPriceRange] = useState({ 
-    low: (settings.price_range && settings.price_range[0] !== undefined ? settings.price_range[0] : defaultSettings.price_range[0]).toString(), 
-    high: (settings.price_range && settings.price_range[1] !== undefined ? settings.price_range[1] : defaultSettings.price_range[1]).toString() 
+  const [priceRange, setPriceRange] = useState({
+    low: (settings.price_range && settings.price_range[0] !== undefined ? settings.price_range[0] : defaultSettings.price_range[0]).toString(),
+    high: (settings.price_range && settings.price_range[1] !== undefined ? settings.price_range[1] : defaultSettings.price_range[1]).toString()
   });
   const [apiKeyExists, setApiKeyExists] = useState(true);
   const [apiKeysState, setApiKeysState] = useState(apiKeyStatus["ADD"]);
@@ -294,7 +294,7 @@ const BotTemplate = ({
     } else if (keyInvalid(keyStatus)) {
       setApiKeysState(apiKeyStatus["INVALID"]);
     }
-    
+
     return keyStatus;
   };
 
@@ -348,9 +348,9 @@ const BotTemplate = ({
       setSmartIntervalsValue(settings.smart_intervals_value !== undefined ? settings.smart_intervals_value : defaultSettings.smart_intervals_value);
       setCurrencyOfMinimum(settings.quote || defaultSettings.quote);
       setPriceRangeEnabled(settings.price_range_enabled !== undefined ? settings.price_range_enabled : defaultSettings.price_range_enabled);
-      setPriceRange({ 
-        low: (settings.price_range && settings.price_range[0] !== undefined ? settings.price_range[0] : defaultSettings.price_range[0]).toString(), 
-        high: (settings.price_range && settings.price_range[1] !== undefined ? settings.price_range[1] : defaultSettings.price_range[1]).toString() 
+      setPriceRange({
+        low: (settings.price_range && settings.price_range[0] !== undefined ? settings.price_range[0] : defaultSettings.price_range[0]).toString(),
+        high: (settings.price_range && settings.price_range[1] !== undefined ? settings.price_range[1] : defaultSettings.price_range[1]).toString()
       });
     }
   }, [bot?.id]); // Only run when bot ID changes
@@ -364,8 +364,8 @@ const BotTemplate = ({
     };
 
     return (
-      <div 
-        onClick={onClick} 
+      <div
+        onClick={onClick}
         className={`widget bot-tile ${botRunningClass}`}
       >
         <div className="bot-tile__header">
@@ -373,7 +373,7 @@ const BotTemplate = ({
             <div className="bot-tile__ticker__currencies">{baseName}{quoteName}</div>
             <div className="bot-tile__ticker__exchange">DCA · {exchangeName}</div>
           </div>
-          
+
           {bot.stats && bot.stats.currentValue && bot.stats.totalInvested && (
             <div className={`bot-tile__pnl ${profitLoss.positive ? 'text-success' : 'text-danger'}`}>
               <span className="widget__pnl__value">
@@ -383,21 +383,21 @@ const BotTemplate = ({
             </div>
           )}
         </div>
-        
+
         <div className="bot-tile__controls">
             <div className="bot-tile__controls__feedback">
-              {pending && nextResultFetchingTimestamp && 
+              {pending && nextResultFetchingTimestamp &&
                 <FetchFromExchangeTimer bot={bot} callback={reload}/>
               }
-              {working && nextTransactionTimestamp && 
+              {working && nextTransactionTimestamp &&
                 <Timer bot={bot} callback={reload}/>
               }
               {!working && isNotEmpty(errors) && <Errors data={errors}/>}
               <ProgressBar bot={bot} />
             </div>
-        
+
             {isStarting && <StartingButton />}
-            {(!isStarting && working) && 
+            {(!isStarting && working) &&
               <div onClick={buttonClickHandler}>
                 <StopButton onClick={() => handleStop(id)}/>
               </div>
@@ -405,18 +405,18 @@ const BotTemplate = ({
             {(!isStarting && pending) && <PendingButton />}
             {(!isStarting && !working && !pending) &&
               <div onClick={buttonClickHandler}>
-                <StartButton 
-                  settings={settings} 
-                  getRestartType={getStartButtonType} 
+                <StartButton
+                  settings={settings}
+                  getRestartType={getStartButtonType}
                   onClickReset={_handleSubmit}
-                  setShowInfo={setShowSmartIntervalsInfo} 
-                  exchangeName={exchangeName} 
+                  setShowInfo={setShowSmartIntervalsInfo}
+                  exchangeName={exchangeName}
                   newSettings={newSettings()}
                 />
               </div>
             }
         </div>
-        
+
       </div>
     );
   }
@@ -646,7 +646,8 @@ const BotTemplate = ({
       </form>
       }
       <div className="bot-footer" hidden={working}>
-        <RemoveButton onClick={() => { handleRemove(id).then(() => reloadPage()) }} disabled={working}/>
+        <div></div>
+        {/* <RemoveButton onClick={() => { handleRemove(id).then(() => reloadPage()) }} disabled={working}/> */}
       </div>
 
     </div>

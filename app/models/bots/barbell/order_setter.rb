@@ -27,8 +27,7 @@ module Bots::Barbell::OrderSetter # rubocop:disable Metrics/ModuleLength
   end
 
   def get_barbell_orders(total_orders_amount_in_quote)
-    result = get_metrics_with_current_prices
-    return result unless result.success?
+    metrics_data = metrics(force: true)
 
     result0 = exchange.get_ask_price(base_asset_id: base0_asset_id, quote_asset_id: quote_asset_id)
     return result0 unless result0.success?
@@ -37,8 +36,8 @@ module Bots::Barbell::OrderSetter # rubocop:disable Metrics/ModuleLength
     return result1 unless result1.success?
 
     Result::Success.new(calculate_orders_data(
-                          balance0: result.data[:total_base0_amount_acquired],
-                          balance1: result.data[:total_base1_amount_acquired],
+                          balance0: metrics_data[:base0_total_amount],
+                          balance1: metrics_data[:base1_total_amount],
                           price0: result0.data,
                           price1: result1.data,
                           total_orders_amount_in_quote: total_orders_amount_in_quote
@@ -50,7 +49,14 @@ module Bots::Barbell::OrderSetter # rubocop:disable Metrics/ModuleLength
     return Result::Success.new if pending_quote_amount.zero?
 
     result = exchange.get_balance(asset_id: quote_asset_id)
-    return result unless result.success?
+    unless result.success?
+      create_failed_order!({
+                             base_asset: base0_asset,
+                             quote_asset: quote_asset,
+                             error_messages: result.errors
+                           })
+      return result
+    end
 
     quote_balance = result.data
     if quote_balance[:free] >= pending_quote_amount && quote_balance[:free] < pending_quote_amount + required_balance_buffer
@@ -58,12 +64,39 @@ module Bots::Barbell::OrderSetter # rubocop:disable Metrics/ModuleLength
     end
 
     result = get_barbell_orders(pending_quote_amount)
-    return result unless result.success?
+    unless result.success?
+      create_failed_order!({
+                             base_asset: base0_asset,
+                             quote_asset: quote_asset,
+                             error_messages: result.errors
+                           })
+      return result
+    end
 
     orders_data = result.data
     orders_data.each do |order_data|
-      result = set_order(order_data)
-      return result unless result.success?
+      next if order_data[:amount].zero?
+
+      amount_info = calculate_best_amount_info(order_data)
+      if amount_info[:below_minimum_amount]
+        create_skipped_order!(order_data)
+        next
+      end
+
+      result = market_buy(
+        base_asset_id: order_data[:base_asset].id,
+        quote_asset_id: order_data[:quote_asset].id,
+        amount: amount_info[:amount],
+        amount_type: amount_info[:amount_type]
+      )
+      if result.success?
+        update!(pending_quote_amount: pending_quote_amount - order_data[:quote_amount])
+        order_id = result.data[:order_id]
+        Bot::FetchAndCreateOrderJob.perform_later(self, order_id)
+      else
+        create_failed_order!(order_data.merge!(error_messages: result.errors))
+        return result
+      end
     end
 
     Result::Success.new
@@ -134,33 +167,5 @@ module Bots::Barbell::OrderSetter # rubocop:disable Metrics/ModuleLength
         quote_amount: base1_order_size_in_quote
       }
     ]
-  end
-
-  def set_order(order_data)
-    return Result::Success.new if order_data[:amount].zero?
-
-    amount_info = calculate_best_amount_info(order_data)
-
-    return Result::Success.new(create_skipped_order!(order_data)) if amount_info[:below_minimum_amount]
-
-    result = market_buy(
-      base_asset_id: order_data[:base_asset].id,
-      quote_asset_id: order_data[:quote_asset].id,
-      amount: amount_info[:amount],
-      amount_type: amount_info[:amount_type]
-    )
-
-    if result.success?
-      update!(pending_quote_amount: pending_quote_amount - order_data[:quote_amount])
-
-      order_id = result.data[:order_id]
-      Bot::CreateSuccessfulOrderJob.perform_later(self, order_id)
-      # send_user_to_sendgrid(bot)
-    else
-      order_data.merge!(error_messages: result.errors)
-      create_failed_order!(order_data)
-      # notify_about_error(errors: result.errors) --> handled in the job
-    end
-    result
   end
 end
