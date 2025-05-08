@@ -1,5 +1,5 @@
 class CoinbaseClient < ApplicationClient
-  # https://docs.cdp.coinbase.com/advanced-trade/docs/api-overview
+  # https://docs.cdp.coinbase.com/coinbase-app/trade/docs/api-overview
   URL = 'https://api.coinbase.com'.freeze
 
   def initialize(api_key: nil, api_secret: nil)
@@ -20,7 +20,7 @@ class CoinbaseClient < ApplicationClient
     end
   end
 
-  # https://docs.cdp.coinbase.com/advanced-trade/reference/retailbrokerageapi_gethistoricalorder
+  # https://docs.cdp.coinbase.com/coinbase-app/trade/reference/retailbrokerageapi_gethistoricalorder
   # @param order_id [String] The order id
   def get_order(order_id:)
     with_rescue do
@@ -32,7 +32,7 @@ class CoinbaseClient < ApplicationClient
     end
   end
 
-  # https://docs.cdp.coinbase.com/advanced-trade/reference/retailbrokerageapi_postorder
+  # https://docs.cdp.coinbase.com/coinbase-app/trade/reference/retailbrokerageapi_postorder
   # @param client_order_id [String] The client order id
   # @param product_id [String] The product id (BTC-USD)
   # @param side [String] The side of the order (buy or sell)
@@ -58,7 +58,7 @@ class CoinbaseClient < ApplicationClient
     end
   end
 
-  # https://docs.cdp.coinbase.com/advanced-trade/reference/retailbrokerageapi_gettransactionsummary
+  # https://docs.cdp.coinbase.com/coinbase-app/trade/reference/retailbrokerageapi_gettransactionsummary
   # @param product_type [String] The product type (spot or future)
   # @param contract_expiry_type [String] The contract expiry type (expiring or perpetual)
   # @param product_venue [String] The product venue (cbe, fcm, intx)
@@ -81,7 +81,7 @@ class CoinbaseClient < ApplicationClient
     end
   end
 
-  # https://docs.cdp.coinbase.com/advanced-trade/reference/retailbrokerageapi_getpublicproducts
+  # https://docs.cdp.coinbase.com/coinbase-app/trade/reference/retailbrokerageapi_getpublicproducts
   # @param limit [Integer] The number of products to return
   # @param offset [Integer] The offset for pagination
   # @param product_type [String] The product type (spot or future)
@@ -119,7 +119,7 @@ class CoinbaseClient < ApplicationClient
     end
   end
 
-  # https://docs.cdp.coinbase.com/advanced-trade/reference/retailbrokerageapi_getpublicproduct
+  # https://docs.cdp.coinbase.com/coinbase-app/trade/reference/retailbrokerageapi_getpublicproduct
   # @param product_id [String] The product id
   # @param get_tradability_status [Boolean] Whether or not to populate view_only with the tradability status of the product. This is only enabled for SPOT products. # rubocop:disable Layout/LineLength
   def get_product(
@@ -138,7 +138,7 @@ class CoinbaseClient < ApplicationClient
     end
   end
 
-  # https://docs.cdp.coinbase.com/advanced-trade/reference/retailbrokerageapi_getbestbidask
+  # https://docs.cdp.coinbase.com/coinbase-app/trade/reference/retailbrokerageapi_getbestbidask
   # @param product_ids [Array<String>] The product ids
   def get_best_bid_ask(product_ids: nil)
     with_rescue do
@@ -154,7 +154,7 @@ class CoinbaseClient < ApplicationClient
     end
   end
 
-  # https://docs.cdp.coinbase.com/advanced-trade/reference/retailbrokerageapi_getapikeypermissions
+  # https://docs.cdp.coinbase.com/coinbase-app/trade/reference/retailbrokerageapi_getapikeypermissions
   def get_api_key_permissions
     with_rescue do
       response = self.class.connection.get do |req|
