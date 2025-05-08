@@ -31,12 +31,12 @@
               <td><%= metrics[:base0_total_amount].round(bot.decimals[:base0]) %></td>
               <td><%= metrics[:base0_average_buy_rate].present? ? metrics[:base0_average_buy_rate].round(bot.decimals[:base0_price]) : '-' %></td>
               <% if loading %>
-                <td><div class="loader" style="position: unset;"></div></td>
+                <td><div class="loader--small" style="position: unset; float:right"></div></td>
               <% else %>
                 <td><%= metrics[:base0_total_amount_value_in_quote].round(bot.decimals[:quote]) %></td>
               <% end %>
               <% if loading %>
-                <td><div class="loader" style="position: unset;"></div></td>
+                <td><div class="loader--small" style="position: unset; float:right"></div></td>
               <% else %>
                 <% pnl0 = metrics[:base0_pnl] %>
                 <td class="<%= pnl0.negative? ? 'text-danger' : pnl0.positive? ? 'text-success' : '' %>">
@@ -53,12 +53,12 @@
               <td><%= metrics[:base1_total_amount].round(bot.decimals[:base1]) %></td>
               <td><%= metrics[:base1_average_buy_rate].present? ? metrics[:base1_average_buy_rate].round(bot.decimals[:base1_price]) : '-' %></td>
               <% if loading %>
-                <td><div class="loader" style="position: unset;"></div></td>
+                <td><div class="loader--small" style="position: unset; float:right"></div></td>
               <% else %>
                 <td><%= metrics[:base1_total_amount_value_in_quote].round(bot.decimals[:quote]) %></td>
               <% end %>
               <% if loading %>
-                <td><div class="loader" style="position: unset;"></div></td>
+                <td><div class="loader-" style="position: unset; float:right"></div></td>
               <% else %>
                 <% pnl1 = metrics[:base1_pnl] %>
                 <td class="<%= pnl1.negative? ? 'text-danger' : pnl1.positive? ? 'text-success' : '' %>">

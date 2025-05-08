@@ -39,7 +39,26 @@ $spinnerColor: darken(#e9ecef,3%);
     transform:rotate(450deg);
   }
 }
-
+.loader--small {
+  width: 2rem;
+  height: 2rem;
+  border-radius: 50%;
+  position: relative;
+  animation: rotate 1s linear infinite;
+  position: absolute;
+  top: 1.5rem;
+  right: 1.5rem;
+}
+.loader--small::before {
+  content: "";
+  box-sizing: border-box;
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  border: 0.25rem solid var(--modal-search-placeholder);
+  animation: prixClipFix 3s linear infinite;
+  animation-direction: alternate;
+}
 
 .loader {
   width: 4rem;

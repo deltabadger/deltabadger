@@ -1,6 +1,6 @@
 <div id="<%= dom_id(bot, :pnl) %>">
   <% if (bot.type == 'Bots::Basic' || bot.type == 'Bots::Barbell') && loading %>
-    <div class="loader" style="position: unset;"></div>
+    <div class="loader--small" style="position: unset;"></div>
   <% else %>
     <% if pnl.present? %>
       <div class="bot-tile__pnl <%= pnl.negative? ? 'text-danger' : pnl.positive? ? 'text-success' : '' %>">
