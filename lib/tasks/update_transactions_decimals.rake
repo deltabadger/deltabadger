@@ -3,7 +3,7 @@ task update_transactions_decimals: :environment do
   DailyTransactionAggregate.find_each do |daily_transaction_aggregate|
     puts "Updating daily_transaction_aggregate #{daily_transaction_aggregate.id}"
     daily_transaction_aggregate.update!(
-      rate: daily_transaction_aggregate.rate.round(18),
+      rate: daily_transaction_aggregate.rate&.round(18),
       amount: daily_transaction_aggregate.amount.round(18),
       bot_price: daily_transaction_aggregate.bot_price.round(18),
       total_amount: daily_transaction_aggregate.total_amount.round(18),
