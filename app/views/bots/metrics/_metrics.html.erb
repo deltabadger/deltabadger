@@ -58,7 +58,7 @@
                 <td><%= metrics[:base1_total_amount_value_in_quote].round(bot.decimals[:quote]) %></td>
               <% end %>
               <% if loading %>
-                <td><div class="loader-" style="position: unset; float:right"></div></td>
+                <td><div class="loader--small" style="position: unset; float:right"></div></td>
               <% else %>
                 <% pnl1 = metrics[:base1_pnl] %>
                 <td class="<%= pnl1.negative? ? 'text-danger' : pnl1.positive? ? 'text-success' : '' %>">
