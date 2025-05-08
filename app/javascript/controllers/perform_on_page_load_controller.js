@@ -31,7 +31,7 @@ export default class extends Controller {
       { channel: channel },
       {
         connected() {
-          // console.log(`ready to perform ${method}`);
+          console.log(`calling ${method}`);
           this.perform(method, methodArgs);
         },
         error(err) {
