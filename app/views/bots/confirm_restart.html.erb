@@ -17,7 +17,7 @@
       </div>
     <% else %>
       <p>
-        <%= t('bot.buttons.start.missed.info_html', amount: rounded_quote_amount_for(exchange: @bot.exchange, base_asset_id: @bot.base0_asset_id, quote_asset_id: @bot.quote_asset_id, amount: @bot.pending_quote_amount), quote: @bot.quote_asset.symbol) %>
+        <%= t('bot.buttons.start.missed.info_html', amount: @bot.pending_quote_amount.round(@bot.decimals[:quote]), quote: @bot.quote_asset.symbol) %>
       </p>
       <div class="buttons buttons--col">
         <%= button_to t('bot.buttons.start.missed.skip'), start_bot_path(@bot, ignore_missed_orders: true), class: 'button button--outline button--large', data: { action: 'click->modal--base#animateOutCloseAndCleanUp' } %>

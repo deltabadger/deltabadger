@@ -42,13 +42,12 @@ class BotsController < ApplicationController
   def barbell_new_step_exchange
     exchanges = @bot.available_exchanges_for_current_settings
     @exchanges = filter_exchanges_by_query(exchanges: exchanges, query: barbell_bot_params[:query])
-    puts "exchanges: #{@exchanges.inspect}"
     render 'bots/barbell/new/step_exchange'
   end
 
   def barbell_new_step_api_key
     @api_key = @bot.api_key
-    if @api_key.correct?
+    if @api_key.correct? && validate_api_key_permissions?
       redirect_to barbell_new_step_from_asset_bots_path(
         bots_barbell: {
           label: @bot.label,
@@ -109,15 +108,28 @@ class BotsController < ApplicationController
   def show
     return redirect_to bots_path if @bot.deleted?
 
-    @other_bots = current_user.bots.not_deleted.order(id: :desc).where.not(id: @bot.id)
-    if @bot.legacy?
-      # TODO: remove this once the legacy dashboard is removed
-      respond_to do |format|
-        format.html { render 'bots/react_dashboard' }
-        format.json { render json: @bot }
-      end
-    elsif request.format.turbo_stream?
+    if request.format.turbo_stream?
       @pagy, @orders = pagy_countless(@bot.transactions.includes(:exchange).order(created_at: :desc), items: 10)
+      permitted_params = params.require(:decimals).permit(*Asset.all.pluck(:symbol))
+      @decimals = permitted_params.transform_values(&:to_i)
+    else
+      @other_bots = current_user.bots.not_deleted.order(id: :desc).where.not(id: @bot.id).pluck(:id, :label, :type)
+
+      if @bot.legacy?
+        # TODO: remove this once the legacy dashboard is removed
+        respond_to do |format|
+          format.html { render 'bots/react_dashboard' }
+          format.json { render json: @bot }
+        end
+      else
+        # TODO: When transactions point to real asset ids, we can use the asset ids directly instead of symbols
+        @decimals = {
+          @bot.base0_asset.symbol => @bot.decimals[:base0],
+          @bot.base1_asset.symbol => @bot.decimals[:base1],
+          @bot.quote_asset.symbol => @bot.decimals[:quote]
+        }
+        @metrics = @bot.metrics
+      end
     end
   end
 
@@ -309,5 +321,10 @@ class BotsController < ApplicationController
     [
       exchange.name.present? ? JaroWinkler.similarity(exchange.name.downcase.to_s, query) : 0
     ].sort.reverse
+  end
+
+  def validate_api_key_permissions?
+    @api_key.validate_key_permissions
+    @api_key.errors.empty?
   end
 end

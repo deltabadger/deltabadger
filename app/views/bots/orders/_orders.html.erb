@@ -1,5 +1,3 @@
-<%= turbo_stream_from "bot_#{bot.id}", :orders %>
-
 <div id="orders" class="widget widget--table">
   <% if bot.transactions.any? %>
     <table class="table">
@@ -14,7 +12,7 @@
       <tbody id="orders_list">
       </tbody>
     </table>
-    <%= turbo_frame_tag 'orders_pagination', src: bot_path(bot, format: :turbo_stream), loading: :laz, style: "display:none" %>
+    <%= turbo_frame_tag 'orders_pagination', src: bot_path(bot, format: :turbo_stream, params: { decimals: decimals }), loading: :lazy %>
   <% else %>
     <table class="table">
       <thead>

@@ -1,12 +1,9 @@
-<%= turbo_stream_from "bot_#{bot.id}", :chart %>
-
-<% metrics = bot.metrics_with_current_prices %>
-
 <div id="chart" class="widget widget--chart">
-  <% if metrics[:chart][:labels].empty? %>
+  <% if loading %>
+    <div class="loader" style="position: relative; left: calc(50% - 3rem); top: calc(50% - 3rem)"></div>
+  <% elsif metrics[:chart][:labels].empty? %>
     <%= render 'svg/landscape_empty' %>
   <% else %>
-    <% formatted_series = rounded_chart_series_for(exchange: bot.exchange, base_asset_id: bot.base0_asset_id, quote_asset_id: bot.quote_asset_id, series: metrics[:chart][:series]) %>
     <div class="data-grid__item" data-controller="tooltip" data-action="mouseenter->tooltip#showTooltip mouseleave->tooltip#hideTooltip">
       <div class="label"><%= t('analyzer.pnl') %></div>
       <%= tag.div class: "data-grid__item__value", style: "color: var(--#{metrics[:pnl].negative? ? 'danger' : 'success'})" do %>
@@ -20,7 +17,9 @@
         t('data_labels.invested_symbol', symbol: bot.quote_asset.symbol)
       ],
       bot__chart_labels_value: [metrics[:chart][:labels]],
-      bot__chart_series_value: [formatted_series],
+      bot__chart_series_value: [
+        metrics[:chart][:series].map { |serie| serie.map { |amount| amount.round(bot.decimals[:quote]) } }
+      ]
     } do %>
       <canvas data-bot--chart-target="analyzerChart" width="200" height="60"></canvas>
     <% end %>
