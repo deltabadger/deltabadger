@@ -1,6 +1,6 @@
 <div id="chart" class="widget widget--chart">
   <% if loading %>
-    <div class="loader" style="position: unset;"></div>
+    <div class="loader" style="position: relative; left: calc(50% - 3rem); top: calc(50% - 3rem)"></div>
   <% elsif metrics[:chart][:labels].empty? %>
     <%= render 'svg/landscape_empty' %>
   <% else %>
