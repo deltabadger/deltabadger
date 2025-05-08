@@ -19,7 +19,9 @@
     <%= csrf_meta_tags %>
     <%= csp_meta_tag %>
 
-    <script src="/cdn-cgi/zaraz/i.js" referrerpolicy="origin"></script>
+    <% if Rails.env.production? %>
+      <script src="/cdn-cgi/zaraz/i.js" referrerpolicy="origin"></script>
+    <% end %>
 
     <%= yield(:head) %>
 
