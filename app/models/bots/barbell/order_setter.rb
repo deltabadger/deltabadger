@@ -5,43 +5,26 @@ module Bots::Barbell::OrderSetter # rubocop:disable Metrics/ModuleLength
   include Bot::Schedulable
 
   included do
-    store_accessor :transient_data, :pending_quote_amount, :last_pending_quote_amount_calculated_at
+    store_accessor :transient_data, :missed_quote_amount
 
-    validates :pending_quote_amount,
+    validates :missed_quote_amount,
               numericality: { greater_than_or_equal_to: 0 },
-              if: -> { pending_quote_amount.present? }
+              if: -> { missed_quote_amount.present? }
+
+    before_save :set_missed_quote_amount, if: :will_save_change_to_settings?
   end
 
-  def pending_quote_amount
+  def missed_quote_amount
     value = super
-    value.present? ? value.to_d : nil
+    value.present? ? value.to_d : 0
   end
 
-  def last_pending_quote_amount_calculated_at
-    value = super
-    value.present? ? Time.zone.parse(value) : nil
-  end
+  def set_barbell_orders(quote_amount:, update_missed_quote_amount: false)
+    raise StandardError, 'quote_amount is required' if quote_amount.blank?
+    raise StandardError, 'quote_amount must be positive' if quote_amount.negative?
+    return Result::Success.new if quote_amount.zero?
 
-  def set_barbell_orders
-    calculate_pending_quote_amount
-    return Result::Success.new if pending_quote_amount.zero?
-
-    result = exchange.get_balance(asset_id: quote_asset_id)
-    unless result.success?
-      create_failed_order!({
-                             base_asset: base0_asset,
-                             quote_asset: quote_asset,
-                             error_messages: result.errors
-                           })
-      return result
-    end
-
-    quote_balance = result.data
-    if quote_balance[:free] >= pending_quote_amount && quote_balance[:free] < pending_quote_amount + required_balance_buffer
-      notify_end_of_funds
-    end
-
-    result = get_barbell_orders(pending_quote_amount)
+    result = get_barbell_orders(quote_amount)
     unless result.success?
       create_failed_order!({
                              base_asset: base0_asset,
@@ -68,9 +51,9 @@ module Bots::Barbell::OrderSetter # rubocop:disable Metrics/ModuleLength
         amount_type: amount_info[:amount_type]
       )
       if result.success?
-        update!(pending_quote_amount: pending_quote_amount - order_data[:quote_amount])
         order_id = result.data[:order_id]
         Bot::FetchAndCreateOrderJob.perform_later(self, order_id)
+        update!(missed_quote_amount: [0, missed_quote_amount - order_data[:quote_amount]].max) if update_missed_quote_amount
       else
         create_failed_order!(order_data.merge!(error_messages: result.errors))
         return result
@@ -80,28 +63,35 @@ module Bots::Barbell::OrderSetter # rubocop:disable Metrics/ModuleLength
     Result::Success.new
   end
 
-  def calculate_pending_quote_amount
-    now = last_interval_checkpoint_at
-    last_calc_at = last_pending_quote_amount_calculated_at
+  def pending_quote_amount(before_settings_change: false)
+    return quote_amount if started_at.nil?
 
-    calculated_amount = if last_calc_at.present?
-                          intervals_since_last_calc = ((now - last_calc_at) / 1.public_send(interval)).floor
-                          missed_quote_amount = quote_amount * intervals_since_last_calc
-                          pending_quote_amount + missed_quote_amount
-                        else
-                          quote_amount
-                        end
+    quote_amount = before_settings_change ? settings_was['quote_amount'] : self.quote_amount
+    interval = before_settings_change ? settings_was['interval'] : self.interval
+    settings_changed_at = before_settings_change ? settings_changed_at_was : self.settings_changed_at
 
-    update!(
-      pending_quote_amount: calculated_amount,
-      last_pending_quote_amount_calculated_at: now
-    )
+    from_start = started_at > settings_changed_at
+    start_at = from_start ? started_at : settings_changed_at
+    total_quote_amount_invested = transactions.success
+                                              .where('created_at >= ?', start_at)
+                                              .pluck(:rate, :amount)
+                                              .sum { |rate, amount| rate * amount }
+    intervals_since_start_at = [0, ((last_interval_checkpoint_at - start_at) / 1.public_send(interval)).floor].max
+    intervals_since_start_at += 1 if from_start
+
+    # puts "intervals_since_start_at: #{intervals_since_start_at}"
+    # puts "missed_quote_amount: #{missed_quote_amount}"
+    # puts "total_quote_amount_invested: #{total_quote_amount_invested}"
+    # puts "quote_amount: #{quote_amount}"
+    # puts "result: #{quote_amount * intervals_since_start_at + missed_quote_amount - total_quote_amount_invested}"
+
+    quote_amount * intervals_since_start_at + missed_quote_amount - total_quote_amount_invested
   end
 
   private
 
-  def required_balance_buffer
-    quote_amount * (3.days.to_f / 1.public_send(interval))
+  def set_missed_quote_amount
+    self.missed_quote_amount = pending_quote_amount(before_settings_change: true)
   end
 
   def get_barbell_orders(total_orders_amount_in_quote)

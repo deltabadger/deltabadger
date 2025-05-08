@@ -19,6 +19,7 @@ class Bots::Barbell < Bot
   include Bots::Barbell::OrderCreator
   include Bots::Barbell::Measurable
   include Bots::Barbell::Schedulable
+  include Bots::Barbell::Fundable
 
   def exchange
     @exchange ||= super
@@ -42,19 +43,18 @@ class Bots::Barbell < Bot
                  user.api_keys.trading.new(exchange_id: exchange_id, status: :pending)
   end
 
-  def start(ignore_missed_orders: true)
+  def start(start_fresh: true)
     update_params = {
       status: 'working',
-      started_at: ignore_missed_orders ? Time.current : nil,
-      transient_data: ignore_missed_orders ? {} : nil
+      started_at: start_fresh ? Time.current : nil,
+      transient_data: start_fresh ? {} : nil
     }.compact
 
     if valid?(:start) && update(update_params)
-      if ignore_missed_orders
+      if start_fresh || pending_quote_amount >= quote_amount
         Bot::SetBarbellOrdersJob.perform_later(self)
       else
         Bot::SetBarbellOrdersJob.set(wait_until: next_interval_checkpoint_at).perform_later(self)
-        #  Schedule the broadcast status bar update to make sure sidekiq has time to schedule the job
         Bot::BroadcastStatusBarUpdateAfterScheduledOrderJob.perform_later(self)
       end
       true
@@ -131,12 +131,11 @@ class Bots::Barbell < Bot
   end
 
   def restarting?
-    stopped? && last_pending_quote_amount_calculated_at.present?
+    stopped? && last_action_job_at.present?
   end
 
   def restarting_within_interval?
-    restarting? && last_action_job_at_iso8601.present? &&
-      DateTime.parse(last_action_job_at_iso8601) > 1.public_send(interval).ago
+    restarting? && pending_quote_amount < quote_amount
   end
 
   def market_cap_adjusted?
