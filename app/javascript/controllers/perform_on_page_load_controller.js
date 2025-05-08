@@ -9,9 +9,11 @@ export default class extends Controller {
     // console.log("connected to perform-on-page-load controller");
     if (document.readyState === "complete" || document.readyState === "interactive") {
       // DOM is already loaded, run the action immediately
+      console.log("DOM is already loaded, running the action immediately");
       this.#triggerJob();
     } else {
       // Wait for DOMContentLoaded if DOM isn't ready
+      console.log("Waiting for turbo:load or DOMContentLoaded");
       this.boundTriggerJob = this.#triggerJob.bind(this);
       window.addEventListener("turbo:load", this.boundTriggerJob, { once: true });
       window.addEventListener("DOMContentLoaded", this.boundTriggerJob, { once: true });
