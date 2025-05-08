@@ -171,6 +171,7 @@ module Exchanges
 
       rate = Utilities::Hash.dig_or_raise(order_data, 'price').to_d
       amount = Utilities::Hash.dig_or_raise(order_data, 'vol_exec').to_d
+      quote_amount = Utilities::Hash.dig_or_raise(order_data, 'cost').to_d
       side = Utilities::Hash.dig_or_raise(order_data, 'descr', 'type').downcase.to_sym
       error_messages = [
         order_data['reason'].presence,
@@ -184,6 +185,7 @@ module Exchanges
                             quote_asset: quote_asset,
                             rate: rate,
                             amount: amount,
+                            quote_amount: quote_amount,
                             side: side,
                             error_messages: error_messages,
                             status: status,
