@@ -9,7 +9,7 @@ export default class extends Controller {
     // console.log("connected to perform-on-page-load controller");
     this.boundTriggerJob = this.#triggerJob.bind(this);
     window.addEventListener("turbo:load", this.boundTriggerJob, { once: true });
-    window.addEventListener("load", this.boundTriggerJob, { once: true });
+    window.addEventListener("DOMContentLoaded", this.boundTriggerJob, { once: true });
   }
 
   disconnect() {
@@ -17,7 +17,7 @@ export default class extends Controller {
     if (this.boundTriggerJob) {
       // console.log("removing event listeners");
       window.removeEventListener("turbo:load", this.boundTriggerJob);
-      window.removeEventListener("load", this.boundTriggerJob);
+      window.removeEventListener("DOMContentLoaded", this.boundTriggerJob);
     }
   }
 
@@ -31,7 +31,7 @@ export default class extends Controller {
       { channel: channel },
       {
         connected() {
-          // console.log(`ready to perform ${method}`);
+          console.log(`calling ${method}`);
           this.perform(method, methodArgs);
         },
         error(err) {

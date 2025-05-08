@@ -10,6 +10,8 @@
     <%= csrf_meta_tags %>
     <%= csp_meta_tag %>
 
+    <script src="/z/i.js" referrerpolicy="origin"></script>
+
     <%= canonical_url_for_static_page if content_for?(:static_page) %>
     <meta name="description" content="<%= content_for?(:meta_description) ? yield(:meta_description) : t('meta.descriptions.default') %>">
 
@@ -35,7 +37,7 @@
       // service worker registration for PWA
       if ('serviceWorker' in navigator) {
         navigator.serviceWorker.register("<%= asset_pack_path('service-worker.js') %>").then(function(registration) {
-          console.log('ServiceWorker registration successful with scope: ', registration.scope);
+          // console.log('ServiceWorker registration successful with scope: ', registration.scope);
         }).catch(function(error) {
           console.log('ServiceWorker registration failed: ', error);
         });
