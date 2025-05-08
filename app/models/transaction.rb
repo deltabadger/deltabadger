@@ -5,7 +5,7 @@ class Transaction < ApplicationRecord
   before_create :set_exchange, if: -> { bot.legacy? }
   before_create :round_numeric_fields
   after_create_commit :set_daily_transaction_aggregate
-  after_create_commit :update_bot_metrics, if: -> { success? && !bot.legacy? }
+  after_create_commit :update_bot_metrics, unless: -> { bot.legacy? }
   after_create_commit :broadcast_to_bot, unless: -> { bot.legacy? }
   after_create_commit :broadcast_below_minimums_warning_to_bot, unless: -> { bot.legacy? }
 
@@ -98,29 +98,26 @@ class Transaction < ApplicationRecord
   end
 
   def broadcast_to_bot
+    # TODO: When transactions point to real asset ids, we can use the asset ids directly instead of symbols
+    ticker = exchange.tickers.find_by(base_asset: base_asset, quote_asset: quote_asset)
+    decimals = {
+      base_asset.symbol => ticker.base_decimals,
+      quote_asset.symbol => ticker.quote_decimals
+    }
+
     if bot.transactions.limit(2).count == 1
-      broadcast_replace_to(
+      broadcast_remove_to(
         ["user_#{bot.user_id}", :bot_updates],
-        target: 'orders',
-        partial: 'bots/orders/orders',
-        locals: { bot: bot }
-      )
-    else
-
-      # TODO: When transactions point to real asset ids, we can use the asset ids directly instead of symbols
-      ticker = exchange.tickers.find_by(base_asset: base_asset, quote_asset: quote_asset)
-      @decimals = {
-        base_asset.symbol => ticker.base_decimals,
-        quote_asset.symbol => ticker.quote_decimals
-      }
-
-      broadcast_prepend_to(
-        ["user_#{bot.user_id}", :bot_updates],
-        target: 'orders_list',
-        partial: 'bots/orders/order',
-        locals: { order: self, decimals: @decimals }
+        target: 'orders_list_placeholder'
       )
     end
+
+    broadcast_prepend_to(
+      ["user_#{bot.user_id}", :bot_updates],
+      target: 'orders_list',
+      partial: 'bots/orders/order',
+      locals: { order: self, decimals: decimals }
+    )
   end
 
   def broadcast_below_minimums_warning_to_bot
