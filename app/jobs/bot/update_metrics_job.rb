@@ -7,7 +7,7 @@ class Bot::UpdateMetricsJob < ApplicationJob
   def perform(bot)
     cancel_other_jobs(bot)
     bot.metrics(force: true)
-    bot.broadcast_metrics_update
+    Bot::BroadcastMetricsUpdateJob.perform_later(bot)
   end
 
   private
