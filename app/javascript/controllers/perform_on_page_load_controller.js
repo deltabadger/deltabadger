@@ -7,9 +7,15 @@ export default class extends Controller {
 
   connect() {
     // console.log("connected to perform-on-page-load controller");
-    this.boundTriggerJob = this.#triggerJob.bind(this);
-    window.addEventListener("turbo:load", this.boundTriggerJob, { once: true });
-    window.addEventListener("DOMContentLoaded", this.boundTriggerJob, { once: true });
+    if (document.readyState === "complete" || document.readyState === "interactive") {
+      // DOM is already loaded, run the action immediately
+      this.#triggerJob();
+    } else {
+      // Wait for DOMContentLoaded if DOM isn't ready
+      this.boundTriggerJob = this.#triggerJob.bind(this);
+      window.addEventListener("turbo:load", this.boundTriggerJob, { once: true });
+      window.addEventListener("DOMContentLoaded", this.boundTriggerJob, { once: true });
+    }
   }
 
   disconnect() {
