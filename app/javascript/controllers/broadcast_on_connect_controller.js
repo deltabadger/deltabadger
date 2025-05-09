@@ -1,11 +1,21 @@
 import { Controller } from "@hotwired/stimulus";
-import { createConsumer } from "@rails/actioncable";
 
 // Connects to data-controller="broadcast-on-connect"
 export default class extends Controller {
   static values = { method: String, methodArgs: Object };
 
   connect() {
+    this.checkConnectionInterval = setInterval(() => {
+      if (this.#isConnectedToTurboStreamsChannel()) {
+        this.#triggerJob();
+        clearInterval(this.checkConnectionInterval);
+      } else {
+        console.log("Client is not connected to Turbo::StreamsChannel");
+      }
+    }, 100);
+  }
+
+  #triggerJob() {
     fetch(`/${this.methodValue}`, {
       method: "POST",
       headers: {
@@ -14,5 +24,18 @@ export default class extends Controller {
       },
       body: JSON.stringify(this.methodArgsValue),
     });
+  }
+
+  #isConnectedToTurboStreamsChannel() {
+    if (!window.Turbo) {
+      return false;
+    }
+
+    // Check for Turbo::StreamsChannel subscriptions
+    const turboStreamElements = document.querySelectorAll(
+      'turbo-cable-stream-source[channel="Turbo::StreamsChannel"][connected]'
+    );
+
+    return turboStreamElements.length > 0;
   }
 }
