@@ -15,11 +15,11 @@ module Bots::Barbell::Measurable
 
       totals = initialize_totals_data
       transactions_array.each do |created_at, rate, amount, status, base|
-        next if rate.nil? || rate.zero? || base.nil?
+        next if rate.nil? || rate.zero? || base.nil? || status != 'success'
 
         # chart data
         data[:chart][:labels] << created_at
-        amount = status == 'success' ? amount : 0
+        # amount = status == 'success' ? amount : 0
         totals[:total_quote_amount_invested][asset_symbol_to_id[base]] += amount * rate
         totals[:total_base_amount_acquired][asset_symbol_to_id[base]] += amount
         data[:chart][:series][1] << totals[:total_quote_amount_invested].values.sum
