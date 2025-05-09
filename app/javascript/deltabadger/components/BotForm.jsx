@@ -6,7 +6,6 @@ import { ConfigureTradingBot } from './BotForm/ConfigureTradingBot';
 import { AddApiKey } from './BotForm/AddApiKey';
 import { Details } from './BotForm/Details';
 import { removeInvalidApiKeys } from "./helpers";
-import { NavigationPanel } from "./BotForm/NavigationPanel";
 import { ConfigureWithdrawalBot } from "./BotForm/ConfigureWithdrawalBot";
 import { ConfigureWebhookBot } from './BotForm/ConfigureWebhookBot';
 import { PickBotType } from "./BotForm/PickBotType";
@@ -41,9 +40,6 @@ export const BotForm = ({
   exchanges,
   fetchExchanges,
   apiKeyTimeout,
-  page,
-  setPage,
-  numberOfPages,
   step,
   setStep
 }) => {
@@ -131,12 +127,6 @@ export const BotForm = ({
       setFormState({})
     }
   }, [currentBot])
-
-  const closedFormHandler = () => {
-    setPage(1)
-    setStep(1)
-    callbackAfterOpening()
-  }
 
   const pickBotTypeHandler = (type) => {
     setType(type)
@@ -341,14 +331,6 @@ export const BotForm = ({
 
   return (
     <>
-    {/* <NavigationPanel
-      handleCancel={handleCancel}
-      closedFormHandler={closedFormHandler}
-      step={chooseStep(step)}
-      page={page}
-      setPage={setPage}
-      numberOfPages={numberOfPages}
-    /> */}
     { renderForm() }
     { chooseStep(step) > 0 && <Details /> }
     </>
