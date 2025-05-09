@@ -6,35 +6,41 @@ export default class extends Controller {
   static values = { channel: String, method: String, methodArgs: Object };
 
   connect() {
-    // console.log("connected to perform-on-page-load controller");
-    if (document.readyState === "complete" || document.readyState === "interactive") {
-      // DOM is already loaded, run the action immediately
-      console.log("DOM is already loaded, running the action immediately");
-      this.#triggerJob();
-    } else {
-      // Wait for DOMContentLoaded if DOM isn't ready
-      console.log("Waiting for turbo:load or DOMContentLoaded");
-      this.boundTriggerJob = this.#triggerJob.bind(this);
-      window.addEventListener("turbo:load", this.boundTriggerJob, { once: true });
-      window.addEventListener("DOMContentLoaded", this.boundTriggerJob, { once: true });
-    }
+    this.boundTriggerJob = this.#triggerJob.bind(this);
+    this.hasTriggered = false;
+
+    window.addEventListener("turbo:load", this.boundTriggerJob, { once: true });
+    window.addEventListener("DOMContentLoaded", this.boundTriggerJob, { once: true });
+
+    this.fallbackTimeout = setTimeout(() => {
+      if (!this.hasTriggered) {
+        console.log("Fallback: triggering job after 5 seconds");
+        this.boundTriggerJob();
+      }
+    }, 5000);
   }
 
   disconnect() {
-    // console.log("disconnected from perform-on-page-load controller");
     if (this.boundTriggerJob) {
-      // console.log("removing event listeners");
       window.removeEventListener("turbo:load", this.boundTriggerJob);
       window.removeEventListener("DOMContentLoaded", this.boundTriggerJob);
+    }
+    if (this.fallbackTimeout) {
+      clearTimeout(this.fallbackTimeout);
     }
   }
 
   #triggerJob() {
-    // console.log("#triggerJob");
+    if (this.hasTriggered) return;
+
+    this.hasTriggered = true;
+    clearTimeout(this.fallbackTimeout);
+
     const consumer = createConsumer();
     const channel = this.channelValue;
     const method = this.methodValue;
     const methodArgs = this.methodArgsValue;
+
     consumer.subscriptions.create(
       { channel: channel },
       {

@@ -3,7 +3,7 @@
     <%= render partial: "bots/metrics/metrics_item", locals: {
       label: t('data_labels.invested'),
       value: metrics[:total_quote_amount_invested].round(bot.decimals[:quote]),
-      loading: loading
+      loading: false
     } %>
     <%= render partial: "bots/metrics/metrics_item", locals: {
       label: t('data_labels.portfolio_value'),
