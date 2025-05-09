@@ -1,33 +1,20 @@
-<div id="orders" class="widget widget--table">
-  <% if bot.transactions.any? %>
-    <table class="table">
-      <thead>
-        <tr>
-          <th scope="col"><%= t('data_labels.date') %></th>
-          <th scope="col"><%= t('data_labels.amount') %></th>
-          <th scope="col"><%= t('data_labels.value') %></th>
-          <th></th>
-        </tr>
-      </thead>
-      <tbody id="orders_list">
-      </tbody>
-    </table>
-    <%= turbo_frame_tag 'orders_pagination', src: bot_path(bot, format: :turbo_stream, params: { decimals: decimals }), loading: :lazy %>
-  <% else %>
-    <table class="table">
-      <thead>
-        <tr>
-          <th scope="col"><%= t('data_labels.date') %></th>
-          <th scope="col"><%= t('data_labels.amount') %></th>
-          <th scope="col"><%= t('data_labels.value') %></th>
-          <th></th>
-        </tr>
-      </thead>
-      <tbody>
-        <tr>
+<div class="widget widget--table">
+  <table class="table">
+    <thead>
+      <tr>
+        <th scope="col"><%= t('data_labels.date') %></th>
+        <th scope="col"><%= t('data_labels.amount') %></th>
+        <th scope="col"><%= t('data_labels.value') %></th>
+        <th></th>
+      </tr>
+    </thead>
+    <tbody id="orders_list">
+      <% if bot.transactions.none? %>
+        <tr id="orders_list_placeholder">
           <td colspan="4" class="text-center text-inactive" style="padding-bottom: 2rem;">. . .</td>
         </tr>
-      </tbody>
-    </table>
-  <% end %>
+      <% end %>
+    </tbody>
+  </table>
+  <%= turbo_frame_tag 'orders_pagination', src: bot_path(bot, format: :turbo_stream, params: { decimals: decimals }), loading: :lazy %>
 </div>

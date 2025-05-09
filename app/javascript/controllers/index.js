@@ -19,6 +19,9 @@ application.register("bot--barbell-allocation", Bot__BarbellAllocationController
 import Bot__ChartController from "./bot/chart_controller"
 application.register("bot--chart", Bot__ChartController)
 
+import BroadcastOnConnectController from "./broadcast_on_connect_controller"
+application.register("broadcast-on-connect", BroadcastOnConnectController)
+
 import ClassToggleController from "./class_toggle_controller"
 application.register("class-toggle", ClassToggleController)
 
@@ -72,9 +75,6 @@ application.register("modal--open-and-submit-on-key-press", Modal__OpenAndSubmit
 
 import NestedLinkInButtonController from "./nested_link_in_button_controller"
 application.register("nested-link-in-button", NestedLinkInButtonController)
-
-import PerformOnPageLoadController from "./perform_on_page_load_controller"
-application.register("perform-on-page-load", PerformOnPageLoadController)
 
 import PortfolioAnalyzer__AssetAllocationController from "./portfolio_analyzer/asset_allocation_controller"
 application.register("portfolio-analyzer--asset-allocation", PortfolioAnalyzer__AssetAllocationController)
