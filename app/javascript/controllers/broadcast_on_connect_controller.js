@@ -5,6 +5,7 @@ export default class extends Controller {
   static values = { method: String, methodArgs: Object };
 
   connect() {
+    // console.log("broadcast-on-connect controller connected");
     this.checkConnectionInterval = setInterval(() => {
       if (this.#isConnectedToTurboStreamsChannel()) {
         this.#triggerBroadcast();
