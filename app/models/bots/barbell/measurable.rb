@@ -2,6 +2,7 @@ module Bots::Barbell::Measurable
   extend ActiveSupport::Concern
 
   def metrics(force: false)
+    cache_key = "bot_#{id}_metrics"
     Rails.cache.fetch(cache_key, expires_in: 30.days, force: force) do
       data = initialize_metrics_data
       transactions_array = transactions.success.order(created_at: :asc).pluck(:created_at, :rate, :amount, :base)
@@ -15,6 +16,8 @@ module Bots::Barbell::Measurable
 
       totals = initialize_totals_data
       transactions_array.each do |created_at, rate, amount, base|
+        next if rate.zero?
+
         # chart data
         data[:chart][:labels] << created_at
         totals[:total_quote_amount_invested][asset_symbol_to_id[base]] += amount * rate
@@ -51,11 +54,13 @@ module Bots::Barbell::Measurable
   end
 
   def metrics_with_current_prices(force: false)
-    Rails.cache.fetch(metrics_with_current_prices_cache_key, expires_in: 5.minutes, force: force) do
+    Rails.cache.fetch(metrics_with_current_prices_cache_key,
+                      expires_in: Utilities::Time.seconds_to_next_five_minute_cut,
+                      force: force) do
       return metrics if metrics[:chart][:labels].empty?
 
-      result0 = exchange.get_last_price(base_asset_id: base0_asset_id, quote_asset_id: quote_asset_id)
-      result1 = exchange.get_last_price(base_asset_id: base1_asset_id, quote_asset_id: quote_asset_id)
+      result0 = get_last_price_from_cache(base0_asset_id, quote_asset_id)
+      result1 = get_last_price_from_cache(base1_asset_id, quote_asset_id)
       return metrics unless result0.success? && result1.success?
 
       metrics_data = metrics.deep_dup
@@ -111,12 +116,20 @@ module Bots::Barbell::Measurable
 
   private
 
-  def metrics_cache_key
-    "bot_#{id}_metrics"
-  end
-
   def metrics_with_current_prices_cache_key
     "bot_#{id}_metrics_with_current_prices"
+  end
+
+  def get_last_price_from_cache(base_asset_id, quote_asset_id)
+    # we cache the price so many users can use it without hitting the API too much
+    cache_key = "exchange_#{exchange.id}_last_price_for_#{base_asset_id}_#{quote_asset_id}"
+    price = Rails.cache.fetch(cache_key, expires_in: Utilities::Time.seconds_to_next_five_minute_cut) do
+      result = exchange.get_last_price(base_asset_id: base_asset_id, quote_asset_id: quote_asset_id)
+      return result unless result.success?
+
+      result.data
+    end
+    Result::Success.new(price)
   end
 
   def calculate_pnl(from, to)
