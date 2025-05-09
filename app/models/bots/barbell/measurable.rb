@@ -2,7 +2,6 @@ module Bots::Barbell::Measurable
   extend ActiveSupport::Concern
 
   def metrics(force: false)
-    cache_key = "bot_#{id}_metrics"
     Rails.cache.fetch(cache_key, expires_in: 30.days, force: force) do
       data = initialize_metrics_data
       transactions_array = transactions.order(created_at: :asc).pluck(:created_at, :rate, :amount, :status, :base)
@@ -54,43 +53,34 @@ module Bots::Barbell::Measurable
     end
   end
 
-  def metrics_with_current_prices(metrics:, price0:, price1:)
-    return metrics if metrics[:chart][:labels].empty?
+  def metrics_with_current_prices(force: false)
+    Rails.cache.fetch(metrics_with_current_prices_cache_key, expires_in: 5.minutes, force: force) do
+      return metrics if metrics[:chart][:labels].empty?
 
-    metrics[:base0_total_amount_value_in_quote] = metrics[:base0_total_amount] * price0
-    metrics[:base1_total_amount_value_in_quote] = metrics[:base1_total_amount] * price1
-    metrics[:total_amount_value_in_quote] =
-      metrics[:base0_total_amount_value_in_quote] + metrics[:base1_total_amount_value_in_quote]
-    metrics[:base0_pnl] =
-      calculate_pnl(metrics[:base0_total_quote_amount_invested], metrics[:base0_total_amount_value_in_quote])
-    metrics[:base1_pnl] =
-      calculate_pnl(metrics[:base1_total_quote_amount_invested], metrics[:base1_total_amount_value_in_quote])
-    metrics[:pnl] = calculate_pnl(metrics[:total_quote_amount_invested], metrics[:total_amount_value_in_quote])
-    metrics[:chart][:series][0] << metrics[:total_amount_value_in_quote]
-    metrics[:chart][:series][1] << metrics[:total_quote_amount_invested]
-    metrics[:chart][:labels] << Time.current
-    metrics
-  end
+      result0 = exchange.get_last_price(base_asset_id: base0_asset_id, quote_asset_id: quote_asset_id)
+      result1 = exchange.get_last_price(base_asset_id: base1_asset_id, quote_asset_id: quote_asset_id)
+      return metrics unless result0.success? && result1.success?
 
-  def get_current_prices
-    result0 = get_current_price(base_asset_id: base0_asset_id, quote_asset_id: quote_asset_id)
-    return result0 unless result0.success?
+      metrics_data = metrics.deep_dup
+      metrics_data[:base0_total_amount_value_in_quote] = metrics_data[:base0_total_amount] * result0.data
+      metrics_data[:base1_total_amount_value_in_quote] = metrics_data[:base1_total_amount] * result1.data
+      metrics_data[:total_amount_value_in_quote] =
+        metrics_data[:base0_total_amount_value_in_quote] + metrics_data[:base1_total_amount_value_in_quote]
+      metrics_data[:base0_pnl] =
+        calculate_pnl(metrics_data[:base0_total_quote_amount_invested], metrics_data[:base0_total_amount_value_in_quote])
+      metrics_data[:base1_pnl] =
+        calculate_pnl(metrics_data[:base1_total_quote_amount_invested], metrics_data[:base1_total_amount_value_in_quote])
+      metrics_data[:pnl] = calculate_pnl(metrics_data[:total_quote_amount_invested], metrics_data[:total_amount_value_in_quote])
+      metrics_data[:chart][:series][0] << metrics_data[:total_amount_value_in_quote]
+      metrics_data[:chart][:series][1] << metrics_data[:total_quote_amount_invested]
+      metrics_data[:chart][:labels] << Time.current
 
-    result1 = get_current_price(base_asset_id: base1_asset_id, quote_asset_id: quote_asset_id)
-    return result1 unless result1.success?
-
-    Result::Success.new({ price0: result0.data, price1: result1.data })
+      metrics_data
+    end
   end
 
   def broadcast_metrics_update
-    prices_result = get_current_prices
-    metrics_data = if prices_result.success?
-                     metrics_with_current_prices(metrics: metrics,
-                                                 price0: prices_result.data[:price0],
-                                                 price1: prices_result.data[:price1])
-                   else
-                     metrics
-                   end
+    metrics_data = metrics_with_current_prices
 
     broadcast_replace_to(
       ["user_#{user_id}", :bot_updates],
@@ -108,14 +98,7 @@ module Bots::Barbell::Measurable
   end
 
   def broadcast_pnl_update
-    prices_result = get_current_prices
-    metrics_data = if prices_result.success?
-                     metrics_with_current_prices(metrics: metrics,
-                                                 price0: prices_result.data[:price0],
-                                                 price1: prices_result.data[:price1])
-                   else
-                     metrics
-                   end
+    metrics_data = metrics_with_current_prices
 
     broadcast_replace_to(
       ["user_#{user_id}", :bot_updates],
@@ -125,17 +108,18 @@ module Bots::Barbell::Measurable
     )
   end
 
+  def metrics_with_current_prices_from_cache
+    Rails.cache.read(metrics_with_current_prices_cache_key)
+  end
+
   private
 
-  def get_current_price(base_asset_id:, quote_asset_id:, force: false)
-    cache_key = "exchange_#{exchange.id}_last_price_#{base_asset_id}_#{quote_asset_id}"
-    price = Rails.cache.fetch(cache_key, expires_in: 5.minutes, force: force) do
-      result = exchange.get_last_price(base_asset_id: base_asset_id, quote_asset_id: quote_asset_id)
-      return result unless result.success?
+  def metrics_cache_key
+    "bot_#{id}_metrics"
+  end
 
-      result.data
-    end
-    Result::Success.new(price)
+  def metrics_with_current_prices_cache_key
+    "bot_#{id}_metrics_with_current_prices"
   end
 
   def calculate_pnl(from, to)

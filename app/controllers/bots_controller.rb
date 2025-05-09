@@ -14,6 +14,17 @@ class BotsController < ApplicationController
     return render 'bots/react_dashboard' if params[:create] # TODO: remove this once the legacy dashboard is removed
 
     @bots = current_user.bots.not_deleted.includes(:exchange).order(id: :desc)
+    @pnl_hash = {}
+    @loading_hash = {}
+    @bots.each do |bot|
+      next if bot.withdrawal? || bot.webhook?
+
+      metrics_with_current_prices = bot.metrics_with_current_prices_from_cache
+      @pnl_hash[bot.id] = metrics_with_current_prices[:pnl] unless metrics_with_current_prices.nil?
+      @loading_hash[bot.id] = metrics_with_current_prices.nil?
+    end
+    puts "pnl_hash: #{@pnl_hash}"
+    puts "loading_hash: #{@loading_hash}"
   end
 
   def new; end
@@ -128,7 +139,9 @@ class BotsController < ApplicationController
           @bot.base1_asset.symbol => @bot.decimals[:base1],
           @bot.quote_asset.symbol => @bot.decimals[:quote]
         }
-        @metrics = @bot.metrics
+        metrics_with_current_prices = @bot.metrics_with_current_prices_from_cache
+        @loading = metrics_with_current_prices.nil?
+        @metrics = @loading ? @bot.metrics : metrics_with_current_prices
       end
     end
   end
