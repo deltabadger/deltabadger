@@ -14,6 +14,17 @@ class BotsController < ApplicationController
     return render 'bots/react_dashboard' if params[:create] # TODO: remove this once the legacy dashboard is removed
 
     @bots = current_user.bots.not_deleted.includes(:exchange).order(id: :desc)
+    @pnl_hash = {}
+    @loading_hash = {}
+    @bots.each do |bot|
+      next if bot.withdrawal? || bot.webhook?
+
+      metrics_with_current_prices = bot.metrics_with_current_prices_from_cache
+      @pnl_hash[bot.id] = metrics_with_current_prices[:pnl] unless metrics_with_current_prices.nil?
+      @loading_hash[bot.id] = metrics_with_current_prices.nil?
+    end
+    puts "pnl_hash: #{@pnl_hash}"
+    puts "loading_hash: #{@loading_hash}"
   end
 
   def new; end
@@ -96,7 +107,7 @@ class BotsController < ApplicationController
   def create
     params_to_create = barbell_bot_params_as_hash
     @bot = current_user.bots.barbell.new(params_to_create)
-    if @bot.save && @bot.start(ignore_missed_orders: true)
+    if @bot.save && @bot.start(start_fresh: true)
       render turbo_stream: turbo_stream_redirect(bot_path(@bot))
     else
       # FIXME: flash messages are not shown as they are rendered behind the modal
@@ -109,7 +120,7 @@ class BotsController < ApplicationController
     return redirect_to bots_path if @bot.deleted?
 
     if request.format.turbo_stream?
-      @pagy, @orders = pagy_countless(@bot.transactions.includes(:exchange).order(created_at: :desc), items: 10)
+      @pagy, @orders = pagy_countless(@bot.transactions.order(created_at: :desc), items: 10)
       permitted_params = params.require(:decimals).permit(*Asset.all.pluck(:symbol))
       @decimals = permitted_params.transform_values(&:to_i)
     else
@@ -128,7 +139,9 @@ class BotsController < ApplicationController
           @bot.base1_asset.symbol => @bot.decimals[:base1],
           @bot.quote_asset.symbol => @bot.decimals[:quote]
         }
-        @metrics = @bot.metrics
+        metrics_with_current_prices = @bot.metrics_with_current_prices_from_cache
+        @loading = metrics_with_current_prices.nil?
+        @metrics = @loading ? @bot.metrics : metrics_with_current_prices
       end
     end
   end
@@ -192,7 +205,7 @@ class BotsController < ApplicationController
   end
 
   def start
-    return if @bot.start(ignore_missed_orders: Utilities::String.to_boolean(params[:ignore_missed_orders]))
+    return if @bot.start(start_fresh: Utilities::String.to_boolean(params[:start_fresh]))
 
     flash.now[:alert] = @bot.errors.messages.values.flatten.to_sentence
     render turbo_stream: turbo_stream_prepend_flash, status: :unprocessable_entity
@@ -212,9 +225,7 @@ class BotsController < ApplicationController
     @asset_field = params[:asset_field]
   end
 
-  def confirm_restart
-    @bot.calculate_pending_quote_amount
-  end
+  def confirm_restart; end
 
   def confirm_restart_legacy; end
 

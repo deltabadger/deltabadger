@@ -10,8 +10,6 @@
     <%= csrf_meta_tags %>
     <%= csp_meta_tag %>
 
-    <script src="/z/i.js" referrerpolicy="origin"></script>
-
     <%= canonical_url_for_static_page if content_for?(:static_page) %>
     <meta name="description" content="<%= content_for?(:meta_description) ? yield(:meta_description) : t('meta.descriptions.default') %>">
 
