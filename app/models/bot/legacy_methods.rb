@@ -182,7 +182,9 @@ module Bot::LegacyMethods
   end
 
   def metrics_with_current_prices(force: false)
-    Rails.cache.fetch(metrics_with_current_prices_cache_key, expires_in: 5.minutes, force: force) do
+    Rails.cache.fetch(metrics_with_current_prices_cache_key,
+                      expires_in: Utilities::Time.seconds_to_next_five_minute_cut,
+                      force: force) do
       puts 'metrics_with_current_prices cache miss for bot_id: ' + id.to_s
       return { pnl: nil } if daily_transaction_aggregates.empty? || bot_type == 'withdrawal' || last_successful_transaction.nil?
 

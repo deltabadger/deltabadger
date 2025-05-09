@@ -25,7 +25,7 @@ class DcaSimulation
 
   def time_series
     # TODO: handle API error
-    expires_in = Utilities::Time.seconds_to_midnight_utc.seconds + 5.minutes
+    expires_in = Utilities::Time.seconds_to_end_of_day_utc.seconds + 5.minutes
     Rails.cache.fetch("all_time_series_#{@asset}", expires_in: expires_in) do
       time_series_result = @client.time_series(symbol: API_ID_MAP[@asset], timeframe: '1d')
       return time_series_result if time_series_result.failure?

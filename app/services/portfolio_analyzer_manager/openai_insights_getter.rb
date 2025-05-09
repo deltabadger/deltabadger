@@ -1,7 +1,7 @@
 module PortfolioAnalyzerManager
   class OpenaiInsightsGetter < BaseService
     def call(portfolio)
-      expires_in = Utilities::Time.seconds_to_midnight_utc.seconds + 5.minutes
+      expires_in = Utilities::Time.seconds_to_end_of_day_utc.seconds + 5.minutes
       cache_key = 'openai_insights_' + portfolio.backtest_cache_key
       Rails.cache.fetch(cache_key, expires_in: expires_in) do
         messages = training_prompts.map { |prompt| { role: 'system', content: prompt } }
