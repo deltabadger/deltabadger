@@ -7,15 +7,15 @@ export default class extends Controller {
   connect() {
     this.checkConnectionInterval = setInterval(() => {
       if (this.#isConnectedToTurboStreamsChannel()) {
-        this.#triggerJob();
+        this.#triggerBroadcast();
         clearInterval(this.checkConnectionInterval);
       } else {
-        console.log("Client is not connected to Turbo::StreamsChannel");
+        // console.log("Client is not connected to Turbo::StreamsChannel");
       }
     }, 100);
   }
 
-  #triggerJob() {
+  #triggerBroadcast() {
     fetch(`/${this.methodValue}`, {
       method: "POST",
       headers: {
