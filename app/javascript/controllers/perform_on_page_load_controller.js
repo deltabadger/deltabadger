@@ -10,7 +10,7 @@ export default class extends Controller {
     this.hasTriggered = false;
 
     window.addEventListener("turbo:load", this.boundTriggerJob, { once: true });
-    window.addEventListener("DOMContentLoaded", this.boundTriggerJob, { once: true });
+    window.addEventListener("load", this.boundTriggerJob, { once: true });
 
     this.fallbackTimeout = setTimeout(() => {
       if (!this.hasTriggered) {
@@ -23,7 +23,7 @@ export default class extends Controller {
   disconnect() {
     if (this.boundTriggerJob) {
       window.removeEventListener("turbo:load", this.boundTriggerJob);
-      window.removeEventListener("DOMContentLoaded", this.boundTriggerJob);
+      window.removeEventListener("load", this.boundTriggerJob);
     }
     if (this.fallbackTimeout) {
       clearTimeout(this.fallbackTimeout);
