@@ -23,8 +23,6 @@ class BotsController < ApplicationController
       @pnl_hash[bot.id] = metrics_with_current_prices[:pnl] unless metrics_with_current_prices.nil?
       @loading_hash[bot.id] = metrics_with_current_prices.nil?
     end
-    puts "pnl_hash: #{@pnl_hash}"
-    puts "loading_hash: #{@loading_hash}"
   end
 
   def new; end
