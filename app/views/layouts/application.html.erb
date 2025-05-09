@@ -10,10 +10,6 @@
     <%= csrf_meta_tags %>
     <%= csp_meta_tag %>
 
-    <% if Rails.env.production? %>
-      <script src="/cdn-cgi/zaraz/i.js" referrerpolicy="origin"></script>
-    <% end %>
-
     <%= canonical_url_for_static_page if content_for?(:static_page) %>
     <meta name="description" content="<%= content_for?(:meta_description) ? yield(:meta_description) : t('meta.descriptions.default') %>">
 
@@ -45,6 +41,10 @@
         });
       }
     </script>
+
+    <% if Rails.env.production? %>
+      <script src="/z/i.js" referrerpolicy="origin"></script>
+    <% end %>
   </head>
 
   <%# data-locale & current_user_subscription are only needed for the react dashboard %>
