@@ -168,6 +168,7 @@ module Exchanges
       quote_asset = asset_from_symbol(symbol: quote_symbol)
       rate = Utilities::Hash.dig_or_raise(result.data, 'order', 'average_filled_price').to_d
       amount = Utilities::Hash.dig_or_raise(result.data, 'order', 'filled_size').to_d
+      quote_amount = Utilities::Hash.dig_or_raise(result.data, 'order', 'total_value_after_fees').to_d
       side = Utilities::Hash.dig_or_raise(result.data, 'order', 'side').downcase.to_sym
       error_messages = [
         result.data.dig('order', 'reject_reason').presence,
@@ -182,6 +183,7 @@ module Exchanges
                             quote_asset: quote_asset,
                             rate: rate,
                             amount: amount,
+                            quote_amount: quote_amount,
                             side: side,
                             error_messages: error_messages,
                             status: status,

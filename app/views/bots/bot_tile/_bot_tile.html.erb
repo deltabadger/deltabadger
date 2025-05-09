@@ -33,7 +33,9 @@
           <%= bot.label %>
         </div>
       </div>
-      <%= render "bots/bot_tile/bot_tile_pnl", bot: bot, loading: true, pnl: nil %>
+      <% if bot.barbell? || bot.basic? %>
+        <%= render "bots/bot_tile/bot_tile_pnl", bot: bot, loading: loading_hash[bot.id], pnl: pnl_hash[bot.id] || '' %>
+      <% end %>
     </div>
   <% end %>
   <div class="bot-control">
