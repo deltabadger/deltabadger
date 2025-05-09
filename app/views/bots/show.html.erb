@@ -1,8 +1,8 @@
 <%= turbo_stream_from "user_#{current_user.id}", :bot_updates %>
 
-<%= turbo_frame_tag "bot", data: { controller: "broadcast-on-connect",
-                                   broadcast_on_connect_method_value: "broadcast_metrics_update",
-                                   broadcast_on_connect_method_args_value: { bot_id: @bot.id }.to_json } do %>
+<%= turbo_frame_tag "bot", data: @loading ? { controller: "broadcast-on-connect",
+                                              broadcast_on_connect_method_value: "broadcast_metrics_update",
+                                              broadcast_on_connect_method_args_value: { bot_id: @bot.id }.to_json } : {} do %>
   <div class="page-head">
     <%= render "bots/header", bot: @bot, other_bots: @other_bots %>
   </div>
@@ -22,8 +22,8 @@
         <%# render partial: "bots/settings_extra_price_limit", locals: { bot: @bot } %>
       </div>
       <div class="column gap-1">
-        <%= render partial: "bots/chart", locals: { bot: @bot, metrics: @metrics, loading: true } %>
-        <%= render partial: "bots/metrics/metrics", locals: { bot: @bot, metrics: @metrics, loading: true } %>
+        <%= render partial: "bots/chart", locals: { bot: @bot, metrics: @metrics, loading: @loading } %>
+        <%= render partial: "bots/metrics/metrics", locals: { bot: @bot, metrics: @metrics, loading: @loading } %>
         <%= render partial: "bots/orders/orders", locals: { bot: @bot, decimals: @decimals } %>
       </div>
     </div>

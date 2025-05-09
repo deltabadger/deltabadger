@@ -177,22 +177,37 @@ module Bot::LegacyMethods
   # Methods for forward compatibility with new bot types
   #
 
-  def pnl
-    return if daily_transaction_aggregates.empty? || bot_type == 'withdrawal' || last_successful_transaction.nil?
+  def metrics_with_current_prices_from_cache
+    Rails.cache.read(metrics_with_current_prices_cache_key)
+  end
 
-    stats = Presenters::Api::Stats.call(
-      bot: self,
-      transactions: daily_transaction_aggregates.order(created_at: :desc)
-    )
-    (stats[:currentValue].to_f - stats[:totalInvested].to_f) / stats[:totalInvested].to_f
+  def metrics_with_current_prices(force: false)
+    Rails.cache.fetch(metrics_with_current_prices_cache_key, expires_in: 5.minutes, force: force) do
+      puts 'metrics_with_current_prices cache miss for bot_id: ' + id.to_s
+      return { pnl: nil } if daily_transaction_aggregates.empty? || bot_type == 'withdrawal' || last_successful_transaction.nil?
+
+      stats = Presenters::Api::Stats.call(
+        bot: self,
+        transactions: daily_transaction_aggregates.order(created_at: :desc)
+      )
+      { pnl: (stats[:currentValue].to_f - stats[:totalInvested].to_f) / stats[:totalInvested].to_f }
+    end
   end
 
   def broadcast_pnl_update
+    metrics_data = metrics_with_current_prices
+
     broadcast_replace_to(
       ["user_#{user_id}", :bot_updates],
       target: dom_id(self, :pnl),
       partial: 'bots/bot_tile/bot_tile_pnl',
-      locals: { bot: self, pnl: pnl || '', loading: false }
+      locals: { bot: self, pnl: metrics_data[:pnl] || '', loading: false }
     )
+  end
+
+  private
+
+  def metrics_with_current_prices_cache_key
+    "bot_#{id}_metrics_with_current_prices"
   end
 end
