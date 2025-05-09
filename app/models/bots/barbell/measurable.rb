@@ -4,7 +4,7 @@ module Bots::Barbell::Measurable
   def metrics(force: false)
     Rails.cache.fetch(cache_key, expires_in: 30.days, force: force) do
       data = initialize_metrics_data
-      transactions_array = transactions.order(created_at: :asc).pluck(:created_at, :rate, :amount, :status, :base)
+      transactions_array = transactions.success.order(created_at: :asc).pluck(:created_at, :rate, :amount, :base)
       return data if transactions_array.empty?
 
       # TODO: When transactions point to real asset ids, we can use the asset ids directly
@@ -14,12 +14,9 @@ module Bots::Barbell::Measurable
       }
 
       totals = initialize_totals_data
-      transactions_array.each do |created_at, rate, amount, status, base|
-        next if rate.nil? || rate.zero? || base.nil? || status != 'success'
-
+      transactions_array.each do |created_at, rate, amount, base|
         # chart data
         data[:chart][:labels] << created_at
-        # amount = status == 'success' ? amount : 0
         totals[:total_quote_amount_invested][asset_symbol_to_id[base]] += amount * rate
         totals[:total_base_amount_acquired][asset_symbol_to_id[base]] += amount
         data[:chart][:series][1] << totals[:total_quote_amount_invested].values.sum
