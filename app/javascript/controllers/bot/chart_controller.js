@@ -11,18 +11,29 @@ export default class extends Controller {
 
   connect() {
     this.resizeObserver = new ResizeObserver(() => {
-      const width = this.element.offsetWidth;
-      if (width !== this.previousWidth) {
-        this.maxPointsToDraw = Math.floor(width / 3.5);
-        this.previousWidth = width;
-        this.#buildChart();
+      // Cancel any pending resize handlers
+      if (this.resizeTimeout) {
+        clearTimeout(this.resizeTimeout);
       }
+
+      // Set a new timeout to handle resize after a short delay
+      this.resizeTimeout = setTimeout(() => {
+        const width = this.element.offsetWidth;
+        if (width !== this.previousWidth) {
+          this.maxPointsToDraw = Math.floor(width / 3.5);
+          this.previousWidth = width;
+          this.#buildChart();
+        }
+      }, 100); // 100ms delay
     });
     this.resizeObserver.observe(this.element);
   }
 
   disconnect() {
     this.resizeObserver.disconnect();
+    if (this.resizeTimeout) {
+      clearTimeout(this.resizeTimeout);
+    }
   }
 
   #buildChart() {

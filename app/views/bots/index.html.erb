@@ -30,10 +30,10 @@
     </div>
   </div>
 
-  <%= tag.div class: 'itiles', data: { controller: "perform-on-page-load",
-                                       perform_on_page_load_channel_value: "BotUpdatesChannel",
-                                       perform_on_page_load_method_value: "broadcast_pnl_update",
-                                       perform_on_page_load_method_args_value: { bot_ids: @bots.map(&:id) }.to_json } do %>
-    <%= render partial: 'bots/bot_tile/bot_tile', collection: @bots, as: :bot, locals: { loading: @loading } %>
+  <% ids_to_load = @loading_hash.select { |_, loading| loading }.keys %>
+  <%= tag.div class: 'itiles', data: ids_to_load.any? ? { controller: "broadcast-on-connect",
+                                                          broadcast_on_connect_method_value: "broadcast_pnl_update",
+                                                          broadcast_on_connect_method_args_value: {    bot_ids: ids_to_load }.to_json } : {} do %>
+    <%= render partial: 'bots/bot_tile/bot_tile', collection: @bots, as: :bot, locals: { pnl_hash: @pnl_hash, loading_hash: @loading_hash } %>
   <% end %>
 <% end %>

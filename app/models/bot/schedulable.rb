@@ -2,7 +2,12 @@ module Bot::Schedulable
   extend ActiveSupport::Concern
 
   included do
-    store_accessor :transient_data, :last_action_job_at_iso8601
+    store_accessor :transient_data, :last_action_job_at, :last_successful_action_interval_checkpoint_at
+  end
+
+  def last_action_job_at
+    value = super
+    value.present? ? Time.zone.parse(value) : nil
   end
 
   def next_action_job_at
@@ -39,8 +44,7 @@ module Bot::Schedulable
   end
 
   def progress_percentage
-    if last_action_job_at_iso8601.present? && next_action_job_at.present?
-      last_action_job_at = DateTime.parse(last_action_job_at_iso8601)
+    if last_action_job_at.present? && next_action_job_at.present?
       (Time.current - last_action_job_at) / (next_action_job_at - last_action_job_at)
     else
       0
