@@ -2,7 +2,10 @@ module Bots::Barbell::Fundable
   extend ActiveSupport::Concern
 
   def notify_if_funds_are_low
-    result = exchange.get_balance(asset_id: quote_asset_id)
+    result = nil
+    with_api_key do
+      result = exchange.get_balance(asset_id: quote_asset_id)
+    end
     return unless result.success?
 
     quote_balance = result.data
