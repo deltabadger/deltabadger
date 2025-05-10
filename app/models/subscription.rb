@@ -13,19 +13,19 @@ class Subscription < ApplicationRecord
   delegate :legendary?, to: :subscription_plan_variant
   delegate :features, to: :subscription_plan_variant
 
-  scope :active, -> { where('end_time IS NULL OR end_time > ?', Time.current) }
+  scope :active, -> { where('ends_at IS NULL OR ends_at > ?', Time.current) }
   scope :by_plan_name, ->(name) { joins(:subscription_plan_variant).merge(SubscriptionPlanVariant.where(subscription_plan: SubscriptionPlan.send(name))) } # rubocop:disable Layout/LineLength
 
   include Nftable
 
   def initialize(attributes = {})
     super
-    self.end_time ||= subscription_plan_variant&.duration&.from_now
+    self.ends_at ||= subscription_plan_variant&.duration&.from_now
   end
 
   def days_left
-    return if end_time.nil?
+    return if ends_at.nil?
 
-    [0, (end_time.to_date - Date.today).to_i].max
+    [0, (ends_at.to_date - Date.today).to_i].max
   end
 end

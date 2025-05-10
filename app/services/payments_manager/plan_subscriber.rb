@@ -9,13 +9,13 @@ module PaymentsManager
     def call(payment:)
       user = payment.user
       new_subscription_plan_variant = payment.subscription_plan_variant
-      end_time = new_subscription_plan_variant.years.nil? ? nil : Time.current + new_subscription_plan_variant.duration
+      ends_at = new_subscription_plan_variant.years.nil? ? nil : Time.current + new_subscription_plan_variant.duration
 
       begin
         Subscription.create!(
           user_id: user.id,
           subscription_plan_variant: new_subscription_plan_variant,
-          end_time: end_time
+          ends_at: ends_at
         )
       rescue ActiveRecord::RecordInvalid => e
         return Result::Failure.new("Subscription could not be created: #{e.message}")
