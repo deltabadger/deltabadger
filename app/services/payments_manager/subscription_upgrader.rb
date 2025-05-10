@@ -1,7 +1,8 @@
 module PaymentsManager
   class SubscriptionUpgrader < BaseService
     def call(payment)
-      previous_plan_name = payment.user.subscription.name
+      user = payment.user
+      previous_plan_name = user.subscription.name
       new_plan_name = payment.subscription_plan.name
 
       plan_subscriber_result = PaymentsManager::PlanSubscriber.call(payment: payment)
@@ -11,11 +12,9 @@ module PaymentsManager
         pending_wire_transfer: nil,
         pending_plan_variant_id: nil
       }
-      unless payment.user.update(update_params)
-        return Result::Failure.new(payment.user.errors.full_messages.join(', '), data: update_params)
-      end
+      return Result::Failure.new(user.errors.full_messages.join(', '), data: update_params) unless user.update(update_params)
 
-      payment.user.change_sendgrid_plan_list(previous_plan_name, new_plan_name)
+      user.change_sendgrid_plan_list(previous_plan_name, new_plan_name) # TODO: move this to Subscription after_create
 
       Result::Success.new
     end

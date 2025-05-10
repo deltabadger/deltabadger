@@ -22,6 +22,7 @@ class Users::ConfirmationsController < Devise::ConfirmationsController
   def show
     super do
       if params[:new_user] == 'true'
+        Intercom::UpdateUserEmailVerifiedJob.perform_later(resource)
         resource.add_to_sendgrid_list(User::SENDGRID_NEW_USERS_LIST_NAME)
         resource.add_to_sendgrid_list(User::SENDGRID_FREE_USERS_LIST_NAME)
         ZapierMailToList.new.call(resource)

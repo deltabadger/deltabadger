@@ -18,14 +18,22 @@ class Subscription < ApplicationRecord
 
   include Nftable
 
-  def initialize(attributes = {})
-    super
-    self.ends_at ||= subscription_plan_variant&.duration&.from_now
-  end
+  before_create :set_ends_at
+  after_create :update_intercom_subscription
 
   def days_left
     return if ends_at.nil?
 
     [0, (ends_at.to_date - Date.today).to_i].max
+  end
+
+  private
+
+  def set_ends_at
+    self.ends_at ||= subscription_plan_variant&.duration&.from_now
+  end
+
+  def update_intercom_subscription
+    Intercom::UpdateUserSubscriptionJob.perform_later(user)
   end
 end
