@@ -44,12 +44,16 @@ module Bots::Barbell::OrderSetter # rubocop:disable Metrics/ModuleLength
         next
       end
 
-      result = market_buy(
-        base_asset_id: order_data[:base_asset].id,
-        quote_asset_id: order_data[:quote_asset].id,
-        amount: amount_info[:amount],
-        amount_type: amount_info[:amount_type]
-      )
+      result = nil
+      with_api_key do
+        result = market_buy(
+          base_asset_id: order_data[:base_asset].id,
+          quote_asset_id: order_data[:quote_asset].id,
+          amount: amount_info[:amount],
+          amount_type: amount_info[:amount_type]
+        )
+      end
+
       if result.success?
         order_id = result.data[:order_id]
         Bot::FetchAndCreateOrderJob.perform_later(self, order_id)
