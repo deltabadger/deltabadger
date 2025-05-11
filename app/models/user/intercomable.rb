@@ -1,12 +1,16 @@
 module User::Intercomable
   extend ActiveSupport::Concern
 
+  included do
+    after_save_commit -> { Intercom::UpdateUserEmailVerifiedJob.perform_later(self) }, if: :saved_change_to_confirmed_at?
+  end
+
   def update_intercom_subscription
-    intercom_custom_data.self[:subscription] = subscription&.name&.capitalize
-    intercom_custom_data.self[:subscription_ends_at] = subscription&.ends_at
+    # intercom_custom_data.user[:subscription] = subscription&.name&.capitalize
+    # intercom_custom_data.user[:subscription_ends_at] = subscription&.ends_at
   end
 
   def update_intercom_email_verified
-    intercom_custom_data.self[:email_verified] = confirmed_at.present?
+    # intercom_custom_data.user[:email_verified] = confirmed_at.present?
   end
 end

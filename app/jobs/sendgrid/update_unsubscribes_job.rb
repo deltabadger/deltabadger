@@ -1,4 +1,6 @@
-class Sendgrid::UpdateUnsubscribesJob < SendgridJob
+class Sendgrid::UpdateUnsubscribesJob < ApplicationJob
+  queue_as :default
+
   def perform
     result = client.retrieve_all_global_suppressions
     raise StandardError, result.errors if result.failure?
@@ -15,5 +17,11 @@ class Sendgrid::UpdateUnsubscribesJob < SendgridJob
 
       user.update!(sendgrid_unsubscribed: true)
     end
+  end
+
+  private
+
+  def client
+    @client ||= SendgridClient.new
   end
 end

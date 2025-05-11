@@ -19,7 +19,8 @@ class Subscription < ApplicationRecord
   include Nftable
 
   before_create :set_ends_at
-  after_create :update_intercom_subscription
+  after_create_commit -> { Intercom::UpdateUserSubscriptionJob.perform_later(user) }
+  after_create_commit -> { Sendgrid::UpdatePlanListJob.perform_later(user) }
 
   def days_left
     return if ends_at.nil?
@@ -31,9 +32,5 @@ class Subscription < ApplicationRecord
 
   def set_ends_at
     self.ends_at ||= subscription_plan_variant&.duration&.from_now
-  end
-
-  def update_intercom_subscription
-    Intercom::UpdateUserSubscriptionJob.perform_later(user)
   end
 end

@@ -10,10 +10,25 @@ module User::Sendgridable
 
   included do
     # validate :validate_email_with_sendgrid  # Disabled for now
+    after_save_commit -> { Sendgrid::UpdateFirstNameJob.perform_later(self) }, if: :saved_change_to_name?
   end
 
   def add_to_sendgrid_list(list_name)
-    Sendgrid::AddEmailToListJob.perform_later(email, list_name, name)
+    result = get_list_id(list_name)
+    return result unless result.success?
+
+    list_id = result.data || begin
+      result = create_list(list_name)
+      return result unless result.success?
+
+      result.data
+    end
+
+    contact = {
+      email: email,
+      first_name: name&.split&.first&.capitalize
+    }.compact
+    sendgrid_client.add_or_update_contacts(list_ids: [list_id], contacts: [contact])
   end
 
   def add_to_sendgrid_exchange_list(exchange_name)
@@ -22,13 +37,24 @@ module User::Sendgridable
   end
 
   def change_sendgrid_plan_list(from_plan_name, to_plan_name)
-    from_const_name = "SENDGRID_#{from_plan_name&.upcase}_USERS_LIST_NAME"
-    from_list_name = self.class.const_defined?(from_const_name) ? self.class.const_get(from_const_name) : nil
-    remove_from_sendgrid_list(from_list_name)
+    from_const_name = "SENDGRID_#{from_plan_name.upcase}_USERS_LIST_NAME"
+    from_list_name = self.class.const_get(from_const_name)
+    if from_list_name.present?
+      result = remove_from_sendgrid_list(from_list_name)
+      return result unless result.success?
+    end
 
-    to_const_name = "SENDGRID_#{to_plan_name&.upcase}_USERS_LIST_NAME"
-    to_list_name = self.class.const_defined?(to_const_name) ? self.class.const_get(to_const_name) : nil
+    to_const_name = "SENDGRID_#{to_plan_name.upcase}_USERS_LIST_NAME"
+    to_list_name = self.class.const_get(to_const_name)
     add_to_sendgrid_list(to_list_name)
+  end
+
+  def update_sendgrid_first_name
+    contact = {
+      email: email,
+      first_name: name&.split&.first&.capitalize || ''
+    }.compact
+    sendgrid_client.add_or_update_contacts(list_ids: nil, contacts: [contact])
   end
 
   private
@@ -37,8 +63,34 @@ module User::Sendgridable
     @sendgrid_client ||= SendgridClient.new
   end
 
+  def get_list_id(list_name)
+    result = sendgrid_client.get_all_lists
+    return result unless result.success?
+
+    list_id = result.data.fetch('result').select { |list| list['name'] == list_name }.pluck('id').first
+    Result::Success.new(list_id)
+  end
+
+  def create_list(list_name)
+    result = sendgrid_client.create_list(name: list_name)
+    return result unless result.success?
+
+    Result::Success.new(result.data.fetch('id'))
+  end
+
   def remove_from_sendgrid_list(list_name)
-    Sendgrid::RemoveEmailFromListJob.perform_later(email, list_name)
+    result = get_list_id(list_name)
+    return result unless result.success?
+
+    list_id = result.data
+    result = sendgrid_client.get_contacts_by_emails(emails: [email])
+    return result unless result.success?
+
+    contact_id = Utilities::Hash.dig_or_raise(result.data, 'result', email, 'contact', 'id')
+    result = sendgrid_client.remove_contacts_from_list(id: list_id, contact_ids: [contact_id])
+    return result unless result.success?
+
+    Result::Success.new
   end
 
   def validate_email_with_sendgrid
