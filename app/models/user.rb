@@ -38,7 +38,7 @@ class User < ApplicationRecord
   # A user can be both an affiliate (or referrer) and a referral
 
   def subscription
-    @subscription ||= subscriptions.active.order(created_at: :desc).first
+    @subscription ||= subscriptions.active.order(created_at: :asc).last
   end
 
   def eligible_referrer
