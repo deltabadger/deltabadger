@@ -138,10 +138,9 @@ export const ConfigureWithdrawalBot = ({ currentExchange, handleReset, handleSub
 
       <div className="db-bot__form">
         <div className="db-bot__alert text-danger">{ errors }</div>
-        <form>
+        <form className="db-bot__form">
           <div className="conversational flex-justify-center">
-            <div className="form-group mr-2">{splitTranslation(I18n.t('bot.setup.withdrawal_html', {currency: currencyName, address: address}))[0]}</div>
-            <div className="form-group mr-2">
+            <div>{splitTranslation(I18n.t('bot.setup.withdrawal_html', {currency: currencyName, address: address}))[0]}</div>
               <select
                 value={currency}
                 onChange={e => setCurrency(e.target.value)}
@@ -153,11 +152,9 @@ export const ConfigureWithdrawalBot = ({ currentExchange, handleReset, handleSub
                   )
                 }
               </select>
-            </div>
             { existsAddress() &&
               <>
-                <div className="form-group mr-2">{splitTranslation(I18n.t('bot.setup.withdrawal_html', {currency: currencyName, address: address}))[1]}</div>
-                <div className="form-group mr-2">
+                <div>{splitTranslation(I18n.t('bot.setup.withdrawal_html', {currency: currencyName, address: address}))[1]}</div>
                   <select
                     value={address}
                     onChange={e => setAddress(e.target.value)}
@@ -169,17 +166,15 @@ export const ConfigureWithdrawalBot = ({ currentExchange, handleReset, handleSub
                       )
                     }
                   </select>
-                </div>
-                <div className="form-group mr-2">{splitTranslation(I18n.t('bot.setup.withdrawal_html', {currency: currencyName, address: address}))[2]}</div>
+                <div>{splitTranslation(I18n.t('bot.setup.withdrawal_html', {currency: currencyName, address: address}))[2]}</div>
               </>
             }
             { (!existsAddress() && !exchangeWithoutAddressEndpoint()) &&
-              <div className="form-group mr-2">{I18n.t('bot.setup.no_wallet_found', {exchangeName: currentExchange.name})}</div>
+              <div>{I18n.t('bot.setup.no_wallet_found', {exchangeName: currentExchange.name})}</div>
             }
             { currentExchange.name.toLowerCase() === 'kraken' &&
               <>
-                <div className="form-group mr-2">{splitTranslation(I18n.t('bot.setup.withdrawal_html', {currency: currencyName, address: address}))[1]}</div>
-                <div className="form-group mr-2">
+                <div>{splitTranslation(I18n.t('bot.setup.withdrawal_html', {currency: currencyName, address: address}))[1]}</div>
                   <input
                     type="text"
                     size={(address.length > 0) ? address.length : 3 }
@@ -187,8 +182,7 @@ export const ConfigureWithdrawalBot = ({ currentExchange, handleReset, handleSub
                     onChange={e => setAddress(e.target.value)}
                     className="bot-input bot-input--sizable bot-input--paper-bg"
                   />
-                </div>
-                <div className="form-group mr-2">{splitTranslation(I18n.t('bot.setup.withdrawal_html', {currency: currencyName, address: address}))[2]}</div>
+                <div>{splitTranslation(I18n.t('bot.setup.withdrawal_html', {currency: currencyName, address: address}))[2]}</div>
               </>
             }
           </div>
