@@ -241,9 +241,9 @@ const BotTemplate = ({
 
       { apiKeyExists &&
         <div className="db-bot__form">
-          <form>
+          <form className="db-bot__form">
             <div className="conversational flex-justify-center">
-              <div className="form-group mr-2">{I18n.t('bot.setup.withdrawal_html',
+              <div>{I18n.t('bot.setup.withdrawal_html',
                 {currency: currencyName, address: settings.address}).replaceAll(/<\/?split>/g, '')}</div>
             </div>
 
