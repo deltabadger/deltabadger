@@ -10,6 +10,7 @@ module User::Sendgridable
 
   included do
     # validate :validate_email_with_sendgrid  # Disabled for now
+    before_save :initialize_sendgrid_lists, if: :email_confirmed_after_user_created?
     after_save_commit -> { Sendgrid::UpdateFirstNameJob.perform_later(self) }, if: :saved_change_to_name?
   end
 
@@ -36,7 +37,7 @@ module User::Sendgridable
     add_to_sendgrid_list(list_name)
   end
 
-  def change_sendgrid_plan_list(from_plan_name, to_plan_name)
+  def update_sendgrid_plan_list(from_plan_name, to_plan_name)
     from_const_name = "SENDGRID_#{from_plan_name.upcase}_USERS_LIST_NAME"
     from_list_name = self.class.const_get(from_const_name)
     if from_list_name.present?
@@ -122,5 +123,14 @@ module User::Sendgridable
       result = sendgrid_client.validate_email(email: email)
       result.failure? ? nil : result.data
     end
+  end
+
+  def email_confirmed_after_user_created?
+    confirmed_at_was.nil? && confirmed_at.present?
+  end
+
+  def initialize_sendgrid_lists
+    Sendgrid::AddToListJob.perform_later(self, SENDGRID_NEW_USERS_LIST_NAME)
+    Sendgrid::AddToListJob.perform_later(self, SENDGRID_FREE_USERS_LIST_NAME)
   end
 end

@@ -20,7 +20,7 @@ class Subscription < ApplicationRecord
 
   before_create :set_ends_at
   after_create_commit -> { Intercom::UpdateUserSubscriptionJob.perform_later(user) }
-  after_create_commit -> { Sendgrid::UpdatePlanListJob.perform_later(user) }
+  after_create_commit -> { Sendgrid::UpdatePlanListJob.perform_later(user) }, unless: :first_subscription?
 
   def days_left
     return if ends_at.nil?
@@ -32,5 +32,9 @@ class Subscription < ApplicationRecord
 
   def set_ends_at
     self.ends_at ||= subscription_plan_variant&.duration&.from_now
+  end
+
+  def first_subscription?
+    user.subscriptions.count == 1
   end
 end

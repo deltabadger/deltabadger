@@ -21,16 +21,10 @@ class Users::ConfirmationsController < Devise::ConfirmationsController
   # GET /resource/confirmation?confirmation_token=abcdef
   def show
     super do
-      if params[:new_user] == 'true'
-        Sendgrid::AddToListJob.perform_later(resource, User::SENDGRID_NEW_USERS_LIST_NAME)
-        Sendgrid::AddToListJob.perform_later(resource, User::SENDGRID_FREE_USERS_LIST_NAME)
-        ZapierMailToList.new.call(resource)
-      elsif resource.previous_changes.key?('unconfirmed_email')
-        unless resource.sendgrid_unsubscribed?
-          email_was = resource.previous_changes['email'].first
-          email_now = resource.previous_changes['email'].last
-          Sendgrid::UpdateEmailJob.perform_later(email_was, email_now)
-        end
+      if resource.previous_changes.key?('unconfirmed_email') && !resource.sendgrid_unsubscribed?
+        email_was = resource.previous_changes['email'].first
+        email_now = resource.previous_changes['email'].last
+        Sendgrid::UpdateEmailJob.perform_later(email_was, email_now)
       end
     end
   end

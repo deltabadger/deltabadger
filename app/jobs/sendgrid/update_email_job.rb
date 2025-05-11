@@ -3,6 +3,7 @@ class Sendgrid::UpdateEmailJob < ApplicationJob
 
   def perform(email_was, email_now)
     result = client.get_contacts_by_emails(emails: [email_was])
+    raise StandardError, "No contact found for #{email_was}" if result.failure? && result.data[:status] == 404
     raise StandardError, result.errors if result.failure?
 
     contact_name_was = Utilities::Hash.dig_or_raise(result.data, 'result', email_was, 'contact', 'first_name')
