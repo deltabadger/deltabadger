@@ -9,6 +9,11 @@ export const closeAllBots = () => ({
   type: 'CLOSE_ALL_BOTS',
 })
 
+const fetchedBots = (bots) => ({
+  type: 'FETCHED_BOTS',
+  payload: bots
+})
+
 const tryStartBot = (id) => ({
   type: 'TRY_START_BOT',
   payload: id
@@ -32,6 +37,19 @@ const fetchedMinimums = (data) => ({
 const setErrors = ({id, errors}) => ({ type: 'SET_ERRORS', payload: {[id]: errors}})
 
 export const clearErrors = (id) => setErrors({ id, errors: [] })
+
+export const loadBots = (id) => dispatch => {
+  // return API.getBots(page).then(({ data }) => {
+  return API.getBot(id).then(({ data: bot}) => {
+    const data = {
+      bots: [bot],
+      number_of_pages: 1
+    }
+
+    dispatch(fetchedBots(data.bots))
+    dispatch(openBot(data.bots[0].id))
+  })
+}
 
 export const removeBot = id => (dispatch) => {
   return API.removeBot(id).then(_data => {

@@ -275,6 +275,7 @@ export const BotForm = ({
           handleRemove={() => removeInvalidApiKeys(form.exchangeId)}
           status={'add_api_key'}
           type={type === 'withdrawal' ? 'withdrawal' : 'trading'}
+          errors={errors}
         />
       case 'validating_api_key':
         return <AddApiKey
@@ -284,6 +285,7 @@ export const BotForm = ({
           handleRemove={() => removeInvalidApiKeys(form.exchangeId)}
           status={'validating_api_key'}
           type={type === 'withdrawal' ? 'withdrawal' : 'trading'}
+          errors={errors}
         />
       case 'invalid_api_key':
         clearTimeout(apiKeyTimeout)
@@ -294,6 +296,7 @@ export const BotForm = ({
           handleRemove={() => removeInvalidApiKeys(form.exchangeId)}
           status={'invalid_api_key'}
           type={type === 'withdrawal' ? 'withdrawal' : 'trading'}
+          errors={errors}
         />
       case 'configure_trading_bot':
         return <ConfigureTradingBot
