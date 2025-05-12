@@ -1,7 +1,7 @@
 module PortfolioAnalyzerManager
   class SymbolsInfoGetter < BaseService
     def call(source = 'all')
-      expires_in = Utilities::Time.seconds_to_midnight_utc.seconds + 5.minutes
+      expires_in = Utilities::Time.seconds_to_end_of_day_utc.seconds + 5.minutes
 
       # start_time = Time.now
       compressed_symbols_data = Rails.cache.fetch('symbols', expires_in: expires_in) do

@@ -11,7 +11,7 @@ class SubscriptionDashboard < Administrate::BaseDashboard
     subscription_plan_variant: Field::BelongsTo,
     user: Field::BelongsTo,
     id: Field::Number,
-    end_time: Field::DateTime.with_options(format: '%F'),
+    ends_at: Field::DateTime.with_options(format: '%F'),
     created_at: Field::DateTime,
     updated_at: Field::DateTime,
     nft_id: Field::Number
@@ -26,7 +26,7 @@ class SubscriptionDashboard < Administrate::BaseDashboard
     id
     subscription_plan_variant
     user
-    end_time
+    ends_at
     nft_id
   ].freeze
 
@@ -36,7 +36,7 @@ class SubscriptionDashboard < Administrate::BaseDashboard
     subscription_plan_variant
     user
     id
-    end_time
+    ends_at
     created_at
     updated_at
     nft_id
@@ -48,7 +48,7 @@ class SubscriptionDashboard < Administrate::BaseDashboard
   FORM_ATTRIBUTES = %i[
     subscription_plan_variant
     user
-    end_time
+    ends_at
     nft_id
   ].freeze
 
@@ -60,8 +60,8 @@ class SubscriptionDashboard < Administrate::BaseDashboard
   # in the search field:
   #
   COLLECTION_FILTERS = {
-    current: ->(_resources) { where('end_time > ?', Time.now) },
-    old: ->(_resources) { where('end_time < ?', Time.now) }
+    current: ->(_resources) { where('ends_at > ?', Time.now) },
+    old: ->(_resources) { where('ends_at < ?', Time.now) }
   }.freeze
   # COLLECTION_FILTERS = {}.freeze
 

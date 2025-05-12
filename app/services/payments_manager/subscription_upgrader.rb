@@ -1,21 +1,31 @@
 module PaymentsManager
   class SubscriptionUpgrader < BaseService
     def call(payment)
-      previous_plan_name = payment.user.subscription.name
-      new_plan_name = payment.subscription_plan.name
+      user = payment.user
+      subscription_plan_variant = payment.subscription_plan_variant
+      ends_at = subscription_plan_variant.years.nil? ? nil : Time.current + subscription_plan_variant.duration
 
-      plan_subscriber_result = PaymentsManager::PlanSubscriber.call(payment: payment)
-      return plan_subscriber_result if plan_subscriber_result.failure?
+      begin
+        user.subscriptions.create!(
+          subscription_plan_variant: subscription_plan_variant,
+          ends_at: ends_at
+        )
+      rescue ActiveRecord::RecordInvalid => e
+        return Result::Failure.new("Subscription could not be created: #{e.message}")
+      end
+
+      notifications = Notifications::Subscription.new
+      if payment.payment_type == 'wire'
+        notifications.after_wire_transfer(payment: payment)
+      else
+        notifications.subscription_granted(payment: payment)
+      end
 
       update_params = {
         pending_wire_transfer: nil,
         pending_plan_variant_id: nil
       }
-      unless payment.user.update(update_params)
-        return Result::Failure.new(payment.user.errors.full_messages.join(', '), data: update_params)
-      end
-
-      payment.user.change_sendgrid_plan_list(previous_plan_name, new_plan_name)
+      return Result::Failure.new(user.errors.full_messages.join(', '), data: update_params) unless user.update(update_params)
 
       Result::Success.new
     end

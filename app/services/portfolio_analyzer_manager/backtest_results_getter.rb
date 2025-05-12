@@ -1,7 +1,7 @@
 module PortfolioAnalyzerManager
   class BacktestResultsGetter < BaseService
     def call(portfolio, custom_start_date: nil)
-      expires_in = Utilities::Time.seconds_to_midnight_utc.seconds + 5.minutes
+      expires_in = Utilities::Time.seconds_to_end_of_day_utc.seconds + 5.minutes
       start_date = custom_start_date || portfolio.backtest_start_date
       Rails.cache.fetch(portfolio.backtest_cache_key(custom_start_date: start_date), expires_in: expires_in) do
         client = FinancialDataApiClient.new

@@ -30,7 +30,7 @@ class SendgridClient < ApplicationClient
         req.body = {
           list_ids: list_ids,
           contacts: contacts
-        }
+        }.compact
       end
       Result::Success.new(response.body)
     end

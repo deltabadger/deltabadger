@@ -172,7 +172,7 @@ class Portfolio < ApplicationRecord
   def get_risk_free_rate(key)
     return Result::Failure.new(I18n.t('errors.invalid_risk_free_rate_key')) if key.blank? || !RISK_FREE_RATES.key?(key.to_sym)
 
-    expires_in = Utilities::Time.seconds_to_midnight_utc.seconds + 5.minutes
+    expires_in = Utilities::Time.seconds_to_end_of_day_utc.seconds + 5.minutes
     cache_key = "risk_free_rate_#{key}"
     time_series_result = Rails.cache.fetch(cache_key, expires_in: expires_in) do
       client = FinancialDataApiClient.new

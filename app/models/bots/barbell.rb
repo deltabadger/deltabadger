@@ -12,8 +12,6 @@ class Bots::Barbell < Bot
   validate :validate_unchangeable_assets, on: :update
   validate :validate_unchangeable_interval, on: :update
 
-  after_save :unset_exchange_implementation, if: :saved_change_to_exchange_id?
-
   include Schedulable
   include Bots::Barbell::OrderSetter
   include Bots::Barbell::OrderCreator
@@ -21,21 +19,9 @@ class Bots::Barbell < Bot
   include Bots::Barbell::Schedulable
   include Bots::Barbell::Fundable
 
-  def exchange
-    @exchange ||= super
-    if @exchange.present? && !exchange_implementation_set?
-      @exchange.set_exchange_implementation(api_key: api_key)
-      @exchange_implementation_set = true
-    end
-    @exchange
-  end
-
-  def exchange_implementation_set?
-    @exchange_implementation_set || false
-  end
-
-  def unset_exchange_implementation
-    @exchange_implementation_set = false
+  def with_api_key
+    exchange.set_client(api_key: api_key) if exchange.present? && (exchange.api_key.blank? || exchange.api_key != api_key)
+    yield
   end
 
   def api_key
