@@ -1,4 +1,4 @@
-class Sendgrid::UpdateUnsubscribesJob < ApplicationJob
+class Sendgrid::SyncUnsubscribesJob < ApplicationJob
   queue_as :default
 
   def perform

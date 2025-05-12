@@ -37,17 +37,31 @@ module User::Sendgridable
     add_to_sendgrid_list(list_name)
   end
 
-  def change_sendgrid_plan_list(from_plan_name, to_plan_name)
-    from_const_name = "SENDGRID_#{from_plan_name.upcase}_USERS_LIST_NAME"
-    from_list_name = self.class.const_get(from_const_name)
-    if from_list_name.present?
-      result = remove_from_sendgrid_list(from_list_name)
+  def sync_sendgrid_plan_list
+    result = sendgrid_client.get_all_lists
+    return result unless result.success?
+
+    correct_plan_list_name = self.class.const_get("SENDGRID_#{subscription.name.upcase}_USERS_LIST_NAME")
+    plan_list_names = SubscriptionPlan.all.pluck(:name).map do |name|
+      self.class.const_get("SENDGRID_#{name.upcase}_USERS_LIST_NAME")
+    end
+    correct_plan_list_id = result.data.fetch('result').select { |list| list['name'] == correct_plan_list_name }.pluck('id').first
+    wrong_plan_list_ids = result.data.fetch('result').select { |list| plan_list_names.include?(list['name']) }.pluck('id')
+
+    result = sendgrid_client.get_contacts_by_emails(emails: [email])
+    return result unless result.success?
+
+    contact_id = Utilities::Hash.dig_or_raise(result.data, 'result', email, 'contact', 'id')
+    contact_lists = Utilities::Hash.dig_or_raise(result.data, 'result', email, 'contact', 'list_ids')
+    list_ids_to_remove = contact_lists.select { |list_id| wrong_plan_list_ids.include?(list_id) }
+    list_ids_to_remove.each do |list_id|
+      result = sendgrid_client.remove_contacts_from_list(id: list_id, contact_ids: [contact_id])
       return result unless result.success?
     end
 
-    to_const_name = "SENDGRID_#{to_plan_name.upcase}_USERS_LIST_NAME"
-    to_list_name = self.class.const_get(to_const_name)
-    add_to_sendgrid_list(to_list_name)
+    return Result::Success.new if contact_lists.include?(correct_plan_list_id)
+
+    add_to_sendgrid_list(correct_plan_list_name)
   end
 
   def update_sendgrid_first_name
