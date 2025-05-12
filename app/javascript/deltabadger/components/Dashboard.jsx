@@ -6,6 +6,9 @@ import { BotDetails } from './BotDetails'
 import { TradingBot } from './TradingBot'
 import {
   startBot,
+  loadBots,
+  openBot,
+  botReloaded
 } from '../bot_actions'
 import API from "../lib/API";
 import { WithdrawalBot } from "./WithdrawalBot";
@@ -18,15 +21,19 @@ const DashboardTemplate = ({
   isBasic,
   isPro,
   isLegendary,
+  bots = [],
   errors = {},
+  currentBot,
   startBot,
+  loadBots,
+  botReloaded
 }) => {
   const [exchanges, setExchanges] = useState([]);
+  const [page, setPage] = useState(1);
   const [step, setStep] = useState(0);
   const [isLoading, setIsLoading] = useState(false);
   const [selectedBotId, setSelectedBotId] = useState(null);
   const [isCreating, setIsCreating] = useState(false);
-  const [selectedBot, setSelectedBot] = useState(null);
 
   const fetchExchanges = (type) => {
     API.getExchanges(type).then(data => setExchanges(data.data))
@@ -35,6 +42,12 @@ const DashboardTemplate = ({
   useEffect(() => {
     fetchExchanges('trading')
   }, [])
+
+  useEffect(() => {
+    if (bots.length === 0 && page !== 1) {
+      setPage(page-1)
+    }
+  }, [bots])
 
   useEffect(() => {
     const path = window.location.pathname;
@@ -47,35 +60,47 @@ const DashboardTemplate = ({
     } else if (botIdMatch) {
       const botId = parseInt(botIdMatch[1]);
       setSelectedBotId(botId);
+
+      // Load bots if not already loaded
+      if (bots.length === 0) {
+        loadBots(botId);
+      }
     }
   }, []);
 
-  useEffect(() => {
-    if (selectedBotId) {
-      setIsLoading(true);
-      API.getBot(selectedBotId)
-        .then(response => {
-          setSelectedBot(response.data);
-        })
-        .finally(() => {
-          setIsLoading(false);
-        });
-    } else {
-      setSelectedBot(null);
-    }
-  }, [selectedBotId]);
+  // useEffect(() => {
+  //   if (selectedBotId) {
+  //     setIsLoading(true);
+  //     API.getBot(selectedBotId)
+  //       .then(response => {
+  //         setSelectedBot(response.data);
+  //       })
+  //       .finally(() => {
+  //         setIsLoading(false);
+  //       });
+  //   } else {
+  //     setSelectedBot(null);
+  //   }
+  // }, [selectedBotId]);
 
   const handleFinishCreating = (id = null) => {
     if (id) {
-      startBot(id);
-      const url = `/${I18n.locale}/bots/${id}`;
-      window.location.href = url;
+      // startBot(id);
+      // const url = `/${I18n.locale}/bots/${id}`;
+      // window.location.href = url;
+
+      loadBots(id)
+        .then(() => startBot(id))
+        .then(() => window.location.href = `/${I18n.locale}/bots/${id}`);
+
     } else {
       window.location.href = `/${I18n.locale}/bots`;
     }
   };
 
   const renderBotDetail = () => {
+    const selectedBot = bots.find(b => b.id === selectedBotId);
+
     if (!selectedBot) {
       return (
         <div className="db-bots db-bots--main">
@@ -152,11 +177,16 @@ const DashboardTemplate = ({
 };
 
 const mapStateToProps = (state) => ({
+  bots: state.bots,
+  currentBot: state.bots.find(bot => bot.id === state.currentBotId),
   errors: state.errors,
 })
 
 const mapDispatchToProps = ({
+  loadBots: loadBots,
   startBot: startBot,
+  openBot: openBot,
+  botReloaded: botReloaded
 })
 
 export const Dashboard = connect(mapStateToProps, mapDispatchToProps)(DashboardTemplate)
