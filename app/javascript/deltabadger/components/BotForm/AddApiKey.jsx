@@ -29,7 +29,8 @@ export const AddApiKey = ({
   handleRemove,
   status,
   botView,
-  type
+  type,
+  errors
 }) => {
   const [key, setKey] = useState("");
   const [secret, setSecret] = useState("");
@@ -125,6 +126,13 @@ export const AddApiKey = ({
               {I18n.t('bot.setup.error_info')}
             </div>
             {showError && <div className="db-form__info db-form__info--invalid" style={{display: 'block'}}>{I18n.t('bot.setup.api_not_available')}</div>}
+
+            {errors && (
+              <div className="db-form__info db-form__info--invalid" style={{display: 'block'}}>
+                {errors}
+              </div>
+            )}
+
             <label htmlFor="api-key" className="db-form__label">{ key_label }</label>
           </div>
           <div className="db-form__row">

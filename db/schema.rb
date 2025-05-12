@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema.define(version: 2025_05_06_113544) do
+ActiveRecord::Schema.define(version: 2025_05_10_110509) do
 
   # These are extensions that must be enabled in order to support this database
   enable_extension "plpgsql"
@@ -180,7 +180,6 @@ ActiveRecord::Schema.define(version: 2025_05_06_113544) do
     t.string "maker_fee"
     t.string "url"
     t.string "color"
-    t.string "external_id"
   end
 
   create_table "fee_api_keys", force: :cascade do |t|
@@ -279,7 +278,7 @@ ActiveRecord::Schema.define(version: 2025_05_06_113544) do
   create_table "subscriptions", force: :cascade do |t|
     t.bigint "subscription_plan_variant_id"
     t.bigint "user_id"
-    t.datetime "end_time"
+    t.datetime "ends_at"
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
     t.integer "nft_id"

@@ -23,8 +23,6 @@ class BotsController < ApplicationController
       @pnl_hash[bot.id] = metrics_with_current_prices[:pnl] unless metrics_with_current_prices.nil?
       @loading_hash[bot.id] = metrics_with_current_prices.nil?
     end
-    puts "pnl_hash: #{@pnl_hash}"
-    puts "loading_hash: #{@loading_hash}"
   end
 
   def new; end
@@ -37,16 +35,31 @@ class BotsController < ApplicationController
     # but not awaited to finish before rendering the modal.
     # The FIX must address both upgrade_upgrade_instructions_path and barbell_new_step_to_first_asset_bots_path.
     a = Time.current
-    assets = @bot.available_assets_for_current_settings(asset_type: :base_asset, include_exchanges: true)
-    @assets = filter_assets_by_query(assets: assets, query: barbell_bot_params[:query])
+    # TODO: move this block to a better place
+    available_assets = @bot.available_assets_for_current_settings(asset_type: :base_asset)
+    filtered_assets = filter_assets_by_query(assets: available_assets, query: barbell_bot_params[:query])
+                      .pluck(:id, :symbol, :name)
+    exchange_assets = Exchange.all.pluck(:id, :name).each_with_object({}) do |(id, name), hash|
+      hash[name] = Exchange.find(id).assets.pluck(:id).presence
+    end.compact
+    @assets = filtered_assets.map do |id, symbol, name|
+      [id, symbol, name, exchange_assets.map { |exchange_name, assets| assets.include?(id) ? exchange_name : nil }.compact]
+    end
     b = Time.current
     sleep [0.25 - (b - a), 0].max
     render 'bots/barbell/new/step_to_first_asset'
   end
 
   def barbell_new_step_to_second_asset
-    assets = @bot.available_assets_for_current_settings(asset_type: :base_asset, include_exchanges: true)
-    @assets = filter_assets_by_query(assets: assets, query: barbell_bot_params[:query])
+    available_assets = @bot.available_assets_for_current_settings(asset_type: :base_asset)
+    filtered_assets = filter_assets_by_query(assets: available_assets, query: barbell_bot_params[:query])
+                      .pluck(:id, :symbol, :name)
+    exchange_assets = Exchange.all.pluck(:id, :name).each_with_object({}) do |(id, name), hash|
+      hash[name] = Exchange.find(id).assets.pluck(:id).presence
+    end.compact
+    @assets = filtered_assets.map do |id, symbol, name|
+      [id, symbol, name, exchange_assets.map { |exchange_name, assets| assets.include?(id) ? exchange_name : nil }.compact]
+    end
     render 'bots/barbell/new/step_to_second_asset'
   end
 
@@ -93,8 +106,15 @@ class BotsController < ApplicationController
   end
 
   def barbell_new_step_from_asset
-    assets = @bot.available_assets_for_current_settings(asset_type: :quote_asset, include_exchanges: true)
-    @assets = filter_assets_by_query(assets: assets, query: barbell_bot_params[:query])
+    available_assets = @bot.available_assets_for_current_settings(asset_type: :quote_asset)
+    filtered_assets = filter_assets_by_query(assets: available_assets, query: barbell_bot_params[:query])
+                      .pluck(:id, :symbol, :name)
+    exchange_assets = Exchange.all.pluck(:id, :name).each_with_object({}) do |(id, name), hash|
+      hash[name] = Exchange.find(id).assets.pluck(:id).presence
+    end.compact
+    @assets = filtered_assets.map do |id, symbol, name|
+      [id, symbol, name, exchange_assets.map { |exchange_name, assets| assets.include?(id) ? exchange_name : nil }.compact]
+    end
     render 'bots/barbell/new/step_from_asset'
   end
 
