@@ -2,7 +2,10 @@ class Bot::FetchAndCreateOrderJob < BotJob
   def perform(bot, order_id)
     return if Transaction.exists?(external_id: order_id)
 
-    result = bot.exchange.get_order(order_id: order_id)
+    result = nil
+    bot.with_api_key do
+      result = bot.exchange.get_order(order_id: order_id)
+    end
     raise StandardError, "Failed to fetch order #{order_id} result: #{result.errors}" unless result.success?
     raise StandardError, "Order #{order_id} was not successful." if result.data[:status] == :unknown
 
