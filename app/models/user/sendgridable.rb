@@ -37,7 +37,7 @@ module User::Sendgridable
     add_to_sendgrid_list(list_name)
   end
 
-  def update_sendgrid_plan_list(from_plan_name, to_plan_name)
+  def change_sendgrid_plan_list(from_plan_name, to_plan_name)
     from_const_name = "SENDGRID_#{from_plan_name.upcase}_USERS_LIST_NAME"
     from_list_name = self.class.const_get(from_const_name)
     if from_list_name.present?
