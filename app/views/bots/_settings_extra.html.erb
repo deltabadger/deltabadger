@@ -1,5 +1,6 @@
 <%= form_with model: bot, url: bot_path(bot), method: :patch, id: "settings-extra", class: "widget", data: { controller: "form--submit" } do |f| %>
   <div class="bot-extra-settings" data-controller="class-toggle" data-class-toggle-toggle-classes-value='["hidden"]'>
+
     <div class="toggle">
       <%= f.check_box :market_cap_adjusted, data: { action: "change->form--submit#submit" }, disabled: bot.working? || bot.pending? %>
       <div class="toggle__style"></div>

@@ -94,7 +94,7 @@
         <%= f.hidden_field :interval, value: @bot.interval %>
         <%= f.hidden_field :allocation0, value: @bot.allocation0 %>
 
-        <div class="bot-extra-settings" data-controller="class-toggle" data-class-toggle-toggle-classes-value='["hidden"]'>
+        <div class="toggle-group" data-controller="class-toggle" data-class-toggle-toggle-classes-value='["hidden"]'>
           <div class="toggle">
             <%= f.check_box :market_cap_adjusted, data: { action: "change->form--submit#submit" } %>
 

@@ -6,6 +6,20 @@
     color: var(--text)
     @media (min-width: 768px)
         line-height: 4rem
+    &--disabled
+        color: var(--label)
+    &--small
+        flex-wrap: wrap
+        line-height: 3rem
+        .sinput
+            margin-left: 0 !important
+            margin-right: 0 !important
+            height: 3rem
+            line-height: 3rem
+            text-align: center
+            &:disabled
+                color: var(--label)
+
     &--bot-setup
         font-size: 2.25rem
         font-weight: bold
@@ -36,7 +50,6 @@
         margin-right: -.5rem
         padding-left: 1.25rem
         padding-right: 1rem
-        font-weight: 700 !important
         color: var(--link)
         background: var(--sinput-on-paper)
         @media (max-width: 767.9px)
