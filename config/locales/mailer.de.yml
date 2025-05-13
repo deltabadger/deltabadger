@@ -31,16 +31,19 @@ de:
     bot_alerts_mailer:
         successful_webhook_bot_transaction:
             subject: "Transaktion war erfolgreich"
-            template_html: "Transaktion erfolgreich, Basis: %{base}, Quote: %{quote}, Bot-Name: %{bot_name}, Typ: %{type}, Preis: %{price}, Börsenname: %{exchange_name}"
+            template_html: "Transaktion erfolgreich, Basis: %{base}, Quote: %{quote}, Bot-Name: %{bot_name}, Typ: %{type}, Preis: %{price}, Börse: %{exchange_name}"
         end_of_funds:
-            subject: "Deinem Bot gehen bald die Mittel aus"
-            template_html: "<p>Es sieht so aus, als würde deinem Bot <b>%{label}</b> bald das %{quote} ausgehen.</p><p>Tätige eine Überweisung an %{exchange_name}, damit der Bot kontinuierlich weiterarbeiten kann.</p>"
+            subject: "%{label} geht bald das Guthaben aus"
+            template_html: "<p>Es sieht so aus, als würde Ihrem Bot <b>%{label}</b> sehr bald das %{quote} ausgehen.</p><p>Tätigen Sie eine Überweisung an %{exchange_name}, um sicherzustellen, dass der Bot kontinuierlich arbeitet.</p>"
         notify_about_error:
-            subject: "Etwas ist schiefgelaufen"
-            template_html: "<p>Bei der Verarbeitung der letzten Transaktion für den Bot <b>%{label}</b> ist etwas schiefgelaufen.</p><p>Du kannst den Fehler im Bot-Log sehen. Melde dich an, um ihn zu überprüfen.</p><p>Fehler:</p><blockquote> <b>%{exchange_name}:</b> <b>%{errors}</b></blockquote>"
+            subject: "Etwas ist mit %{label} schiefgelaufen"
+            template_html: "<p>Bei der Verarbeitung der letzten Transaktion für Bot <b>%{label}</b> ist etwas schiefgelaufen.</p><p>Sie können den Fehler im Bot-Protokoll sehen. Melden Sie sich an, um es zu überprüfen.</p><p>Fehler:</p><blockquote> <b>%{exchange_name}:</b> <b>%{errors}</b></blockquote>"
         notify_about_restart:
-            subject: "Ups! Nächster Versuch…"
-            template_html: "<p>Der Bot <b>%{label}</b> konnte deine Order nicht ausführen. Es scheint ein Problem mit der Börse zu geben. Wir versuchen es in %{delay} erneut.</p><p>Alle Fehler sind im Bot-Log sichtbar. Melde dich an, um sie zu überprüfen.</p><p>Fehler:</p><blockquote> <b>%{exchange_name}:</b> <b>%{errors}</b> </blockquote>"
+            subject: "Hoppla! Nächster Versuch..."
+            template_html: "<p>Der Bot <b>%{label}</b> konnte Ihren Auftrag nicht ausführen. Es scheint ein Problem mit der Börse zu sein. Wir versuchen es in %{delay} erneut.</p><p>Alle Fehler sind im Bot-Protokoll sichtbar. Melden Sie sich an, um es zu überprüfen.</p><p>Fehler:</p><blockquote> <b>%{exchange_name}:</b> <b>%{errors}</b> </blockquote>"
+        stopped_by_quote_amount_limit:
+            subject: "%{label} hat den vollen Betrag investiert"
+            template_html: "<p>Ihr Bot <b>%{label}</b> hat Ihr Ziel erreicht und den gesamten Betrag von %{amount} %{quote} investiert.</p><p>Er wurde automatisch gestoppt. Schalten Sie das Betragslimit AUS, um das Ziel zurückzusetzen.</p>"
     subscription_mailer:
         invoice:
             subject: 'Quittung'
