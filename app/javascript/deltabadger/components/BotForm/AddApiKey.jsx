@@ -88,7 +88,7 @@ export const AddApiKey = ({
   })
 
   return (
-    <div>
+    <div className="db-bots__item db-bot db-bot--dca">
       <div className="db-bot__header">
         { !botView && <Breadcrumbs step={2} /> }
         { (status == 'add_api_key' || status == 'invalid_api_key') &&
@@ -111,16 +111,47 @@ export const AddApiKey = ({
         </div>
       </div>
       <Progressbar value={33}/>
-        <form onSubmit={_handleSubmit} className="old-bot-api-key-form">
+      <form onSubmit={_handleSubmit} className="old-bot-api-key-form">
+        
+        <div className="db-form__row">
+          <input
+            id={`api-key${uniqueId}`}
+            type="text"
+            value={key}
+            onChange={e => setKey(e.target.value)}
+            className="db-form__input"
+            disabled={disableFormFields}
+            autoComplete="off"
+          />
+          <div className="db-form__info db-form__info--invalid">
+            {I18n.t('bot.setup.error_info')}
+          </div>
+          {showError && <div className="db-form__info db-form__info--invalid" style={{display: 'block'}}>{I18n.t('bot.setup.api_not_available')}</div>}
+          <label htmlFor="api-key" className="db-form__label">{ key_label }</label>
+        </div>
+        <div className="db-form__row">
+          <input
+            id={`api-secret${uniqueId}`}
+            type="text"
+            value={secret}
+            onChange={e => setSecret(e.target.value)}
+            className="db-form__input"
+            disabled={disableFormFields}
+            autoComplete="off"
+          />
+          <div className="db-form__info db-form__info--invalid">
+          </div>
+          <label htmlFor="api-secret" className="db-form__label">{ secret_label }</label>
+        </div>
+        { isPassphraseRequired(pickedExchangeName) &&
           <div className="db-form__row">
             <input
-              id={`api-key${uniqueId}`}
+              id={`api-passphrase${uniqueId}`}
               type="text"
-              value={key}
-              onChange={e => setKey(e.target.value)}
+              value={passphrase}
+              onChange={e => setPassphrase(e.target.value)}
               className="db-form__input"
               disabled={disableFormFields}
-              autoComplete="off"
             />
             <div className="db-form__info db-form__info--invalid">
               {I18n.t('bot.setup.error_info')}
@@ -132,37 +163,11 @@ export const AddApiKey = ({
                 {errors}
               </div>
             )}
-
             <label htmlFor="api-key" className="db-form__label">{ key_label }</label>
+            <label htmlFor="api-passphrase" className="db-form__label">{ phrase_label }</label>
           </div>
-          <div className="db-form__row">
-            <input
-              id={`api-secret${uniqueId}`}
-              type="text"
-              value={secret}
-              onChange={e => setSecret(e.target.value)}
-              className="db-form__input"
-              disabled={disableFormFields}
-              autoComplete="off"
-            />
-            <div className="db-form__info db-form__info--invalid">
-            </div>
-            <label htmlFor="api-secret" className="db-form__label">{ secret_label }</label>
-          </div>
-          { isPassphraseRequired(pickedExchangeName) &&
-            <div className="db-form__row">
-              <input
-                id={`api-passphrase${uniqueId}`}
-                type="text"
-                value={passphrase}
-                onChange={e => setPassphrase(e.target.value)}
-                className="db-form__input"
-                disabled={disableFormFields}
-              />
-              <label htmlFor="api-passphrase" className="db-form__label">{ phrase_label }</label>
-            </div>
-          }
-        </form>
+        }
+      </form>
       { pickedExchangeName == "Kraken" &&
         <div className="alert alert-primary alert-trading-agreement">
           <div className="alert__regular-text">
