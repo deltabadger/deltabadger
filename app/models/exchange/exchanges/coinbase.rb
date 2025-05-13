@@ -255,11 +255,6 @@ module Exchange::Exchanges::Coinbase
     result = client.get_public_product_book(product_id: ticker.ticker, limit: 1)
     return result unless result.success?
 
-    if result.data['pricebooks'][0]['product_id'] != ticker.ticker
-      return Result::Failure.new("No bid or ask price found for #{ticker.ticker}",
-                                 data: result.data)
-    end
-
     Result::Success.new(
       {
         bid: {

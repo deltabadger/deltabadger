@@ -114,7 +114,10 @@ pt:
         banner_html: '<b>Compartilhe seu link de referência com amigos e <a href="/referral-program" alt="Read more">ganhe 20% de comissão recorrente</a> em BTC. A melhor maneira de fazer DCA em Bitcoin é ganhando!</b>'
         copied: Copiado!
     settings:
-        timezone: 'Fuso horário'
+        timezone:
+            title: 'Fuso horário'
+            updated: 'O seu fuso horário foi atualizado.'
+            current_time_is: 'Este fuso horário será usado nos logs do bot. Segundo ele, a hora actual é'
         index:
             api_key_confirmation: 'Tem a certeza?'
             api_keys_section: 'Chaves de API'

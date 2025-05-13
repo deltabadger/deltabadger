@@ -114,7 +114,10 @@ fr:
         banner_html: '<b>Partagez votre lien de parrainage avec vos amis et <a href="/referral-program" alt="Read more">gagnez une commission récurrente de 20%</a> en BTC. La meilleure façon de faire du DCA en Bitcoin est d''en gagner !</b>'
         copied: Copié !
     settings:
-        timezone: 'Fuseau horaire'
+        timezone:
+            title: 'Fuseau horaire'
+            updated: 'Votre fuseau horaire a été mis à jour.'
+            current_time_is: 'Ce fuseau horaire sera utilisé dans les logs du bot. Selon lui, l''heure actuelle est'
         index:
             api_key_confirmation: 'Êtes-vous sûr ?'
             api_keys_section: 'Clés API'
