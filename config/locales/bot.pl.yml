@@ -171,5 +171,5 @@ pl:
         settings:
             extra_amount_limit:
                 dont_spend_more_than: "Nie wydawaj więcej niż"
-                amount_left: "(%{amount} %{symbol} pozostało)"
+                amount_left: "(pozostało %{amount} %{symbol})"
                 amount_spent: "Cała kwota została zainwestowana."
