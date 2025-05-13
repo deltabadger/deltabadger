@@ -83,7 +83,6 @@ module Bots::Barbell::Measurable
 
   def broadcast_metrics_update
     metrics_data = metrics_with_current_prices
-    current_user = user
 
     broadcast_replace_to(
       ["user_#{user_id}", :bot_updates],
@@ -96,7 +95,7 @@ module Bots::Barbell::Measurable
       ["user_#{user_id}", :bot_updates],
       target: 'chart',
       partial: 'bots/chart',
-      locals: { bot: self, metrics: metrics_data, loading: false, current_user: current_user }
+      locals: { bot: self, metrics: metrics_data, loading: false, current_user: user }
     )
   end
 
