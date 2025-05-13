@@ -23,7 +23,7 @@ module Bots::Barbell::QuoteAmountLimitable
 
   def quote_amount_limit_reached?
     # give a 1% buffer to avoid rounding & fees errors
-    quote_amount_limited? && quote_amount_available_before_limit <= quote_amount_limit * 0.01
+    quote_amount_limited? && quote_amount_available_before_limit <= [quote_amount, quote_amount_limit].min * 0.01
   end
 
   def broadcast_quote_amount_available_before_limit_update

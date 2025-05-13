@@ -2,4 +2,4 @@
 <%= turbo_stream.replace 'settings-extra-marketcap', partial: 'bots/settings_extra_marketcap', locals: { bot: @bot } %>
 <%= turbo_stream.replace 'settings-extra-amount-limit', partial: 'bots/settings_extra_amount_limit', locals: { bot: @bot } %>
 <%= turbo_stream.replace 'exchange_select', partial: 'bots/exchange_select', locals: { bot: @bot } %>
-
+<%= turbo_stream.update 'quote_amount_available_before_limit', html: "" %>
