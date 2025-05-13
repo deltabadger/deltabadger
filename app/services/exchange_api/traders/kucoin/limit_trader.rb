@@ -79,7 +79,7 @@ module ExchangeApi
             response.data.merge(rate: order_params[:price], amount: order_params[:size])
           )
         rescue StandardError
-          Result::Failure.new('Could not make KuCoin order', **RECOVERABLE)
+          Result::Failure.new('Could not make KuCoin order', RECOVERABLE.to_s)
         end
 
         def common_order_params(symbol)

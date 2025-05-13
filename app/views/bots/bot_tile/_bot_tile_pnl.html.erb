@@ -1,0 +1,11 @@
+<div id="<%= dom_id(bot, :pnl) %>">
+  <% if (bot.type == 'Bots::Basic' || bot.type == 'Bots::Barbell') && loading %>
+    <div class="loader--small" style="position: unset;"></div>
+  <% else %>
+    <% if pnl.present? %>
+      <div class="bot-tile__pnl <%= pnl.negative? ? 'text-danger' : pnl.positive? ? 'text-success' : '' %>">
+        <span class="widget__pnl__value"><%= format_percent(pnl, precision: 2) %></span>
+      </div>
+    <% end %>
+  <% end %>
+</div>

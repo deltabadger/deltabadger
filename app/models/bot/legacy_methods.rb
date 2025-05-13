@@ -19,6 +19,20 @@ module Bot::LegacyMethods
     settings['quote']
   end
 
+  def base_asset
+    @base_asset ||= exchange.assets.find_by(symbol: base) ||
+                    exchange.tickers.find_by(base: base)&.base_asset ||
+                    exchange.tickers.find_by(quote: base)&.quote_asset ||
+                    Asset.find_by(symbol: base)
+  end
+
+  def quote_asset
+    @quote_asset ||= exchange.assets.find_by(symbol: quote) ||
+                     exchange.tickers.find_by(quote: quote)&.quote_asset ||
+                     exchange.tickers.find_by(base: quote)&.base_asset ||
+                     Asset.find_by(symbol: quote)
+  end
+
   def price
     settings['price']
   end
@@ -159,13 +173,43 @@ module Bot::LegacyMethods
     settings.fetch('selected_subaccount', '')
   end
 
-  def pnl
-    return if transactions.empty? || bot_type == 'withdrawal' || last_successful_transaction.nil?
+  #
+  # Methods for forward compatibility with new bot types
+  #
 
-    stats = Presenters::Api::Stats.call(
-      bot: self,
-      transactions: daily_transaction_aggregates.order(created_at: :desc)
+  def metrics_with_current_prices_from_cache
+    Rails.cache.read(metrics_with_current_prices_cache_key)
+  end
+
+  def metrics_with_current_prices(force: false)
+    Rails.cache.fetch(metrics_with_current_prices_cache_key,
+                      expires_in: Utilities::Time.seconds_to_next_five_minute_cut,
+                      force: force) do
+      puts 'metrics_with_current_prices cache miss for bot_id: ' + id.to_s
+      return { pnl: nil } if daily_transaction_aggregates.empty? || bot_type == 'withdrawal' || last_successful_transaction.nil?
+
+      stats = Presenters::Api::Stats.call(
+        bot: self,
+        transactions: daily_transaction_aggregates.order(created_at: :desc)
+      )
+      { pnl: (stats[:currentValue].to_f - stats[:totalInvested].to_f) / stats[:totalInvested].to_f }
+    end
+  end
+
+  def broadcast_pnl_update
+    metrics_data = metrics_with_current_prices
+
+    broadcast_replace_to(
+      ["user_#{user_id}", :bot_updates],
+      target: dom_id(self, :pnl),
+      partial: 'bots/bot_tile/bot_tile_pnl',
+      locals: { bot: self, pnl: metrics_data[:pnl] || '', loading: false }
     )
-    (stats[:currentValue].to_f - stats[:totalInvested].to_f) / stats[:totalInvested].to_f
+  end
+
+  private
+
+  def metrics_with_current_prices_cache_key
+    "bot_#{id}_metrics_with_current_prices"
   end
 end

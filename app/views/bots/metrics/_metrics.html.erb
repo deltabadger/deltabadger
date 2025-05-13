@@ -1,18 +1,19 @@
-<%= turbo_stream_from "bot_#{bot.id}", :metrics %>
-
-<% metrics = bot.metrics_with_current_prices %>
 <div id="metrics" style="display: flex; flex-direction: column; gap: 1rem;">
   <div class="widget data-grid data-grid--two-columns">
     <%= render partial: "bots/metrics/metrics_item", locals: {
       label: t('data_labels.invested'),
-      value: (bot.transactions.any? && bot.exchange.present?) ? "#{rounded_quote_amount_for(exchange: bot.exchange, base_asset_id: bot.base0_asset_id, quote_asset_id: bot.quote_asset_id, amount: metrics[:total_quote_amount_invested])}".html_safe : nil } %>
+      value: metrics[:total_quote_amount_invested].round(bot.decimals[:quote]),
+      loading: false
+    } %>
     <%= render partial: "bots/metrics/metrics_item", locals: {
       label: t('data_labels.portfolio_value'),
-      value: (bot.transactions.any? && bot.exchange.present?) ? "#{rounded_quote_amount_for(exchange: bot.exchange, base_asset_id: bot.base0_asset_id, quote_asset_id: bot.quote_asset_id, amount: metrics[:current_investment_value_in_quote])}".html_safe : nil } %>
+      value: metrics[:total_amount_value_in_quote].round(bot.decimals[:quote]),
+      loading: loading
+    } %>
   </div>
 
   <%# Check if data is available to display the table %>
-  <% if bot.transactions.any? && bot.exchange.present? %>
+  <% if metrics[:total_quote_amount_invested].positive? %>
     <div id="assets_metrics_table" class="widget widget--table">
       <table class="table">
         <thead>
@@ -27,41 +28,45 @@
         <tbody id="assets_metrics_list">
           <%# Row for base0 asset %>
           <% if bot.base0_asset %>
-            <%
-              amount0 = metrics[:total_base0_amount_acquired]
-              avg_price0 = metrics[:base0_average_buy_rate]
-              price0_result = bot.exchange.get_last_price(base_asset_id: bot.base0_asset_id, quote_asset_id: bot.quote_asset_id)
-              current_price0 = price0_result.success? ? price0_result.data : nil
-              value0 = (amount0 && current_price0) ? amount0 * current_price0 : nil
-              pnl0 = (current_price0 && avg_price0 && avg_price0.positive?) ? (current_price0 - avg_price0) / avg_price0 : nil
-              pnl0_class = pnl0 ? (pnl0.negative? ? 'text-danger' : 'text-success') : ''
-            %>
             <tr>
               <td scope="row"><%= bot.base0_asset.symbol %></td>
-              <td><%= rounded_base_amount_for(exchange: bot.exchange, base_asset_id: bot.base0_asset_id, quote_asset_id: bot.quote_asset_id, amount: amount0) %></td>
-              <td><%= rounded_price_for(exchange: bot.exchange, base_asset_id: bot.base0_asset_id, quote_asset_id: bot.quote_asset_id, price: avg_price0) %></td>
-              <td><%= rounded_quote_amount_for(exchange: bot.exchange, base_asset_id: bot.base0_asset_id, quote_asset_id: bot.quote_asset_id, amount: value0) %></td>
-              <td class="<%= pnl0_class %>"><%= pnl0 ? format_percent(pnl0, precision: 1) : '-' %></td>
+              <td><%= metrics[:base0_total_amount].round(bot.decimals[:base0]) %></td>
+              <td><%= metrics[:base0_average_buy_rate].present? ? metrics[:base0_average_buy_rate].round(bot.decimals[:base0_price]) : '-' %></td>
+              <% if loading %>
+                <td><div class="loader--small" style="position: unset; float:right"></div></td>
+              <% else %>
+                <td><%= metrics[:base0_total_amount_value_in_quote].round(bot.decimals[:quote]) %></td>
+              <% end %>
+              <% if loading %>
+                <td><div class="loader--small" style="position: unset; float:right"></div></td>
+              <% else %>
+                <% pnl0 = metrics[:base0_pnl] %>
+                <td class="<%= pnl0.negative? ? 'text-danger' : pnl0.positive? ? 'text-success' : '' %>">
+                  <%= pnl0 ? format_percent(pnl0, precision: 1) : '-' %>
+                </td>
+              <% end %>
             </tr>
           <% end %>
 
           <%# Row for base1 asset %>
           <% if bot.base1_asset %>
-            <%
-              amount1 = metrics[:total_base1_amount_acquired]
-              avg_price1 = metrics[:base1_average_buy_rate]
-              price1_result = bot.exchange.get_last_price(base_asset_id: bot.base1_asset_id, quote_asset_id: bot.quote_asset_id)
-              current_price1 = price1_result.success? ? price1_result.data : nil
-              value1 = (amount1 && current_price1) ? amount1 * current_price1 : nil
-              pnl1 = (current_price1 && avg_price1 && avg_price1.positive?) ? (current_price1 - avg_price1) / avg_price1 : nil
-              pnl1_class = pnl1 ? (pnl1.negative? ? 'text-danger' : 'text-success') : ''
-            %>
             <tr>
               <td scope="row"><%= bot.base1_asset.symbol %></td>
-              <td><%= rounded_base_amount_for(exchange: bot.exchange, base_asset_id: bot.base1_asset_id, quote_asset_id: bot.quote_asset_id, amount: amount1) %></td>
-              <td><%= rounded_price_for(exchange: bot.exchange, base_asset_id: bot.base1_asset_id, quote_asset_id: bot.quote_asset_id, price: avg_price1) %></td>
-              <td><%= rounded_quote_amount_for(exchange: bot.exchange, base_asset_id: bot.base1_asset_id, quote_asset_id: bot.quote_asset_id, amount: value1) %></td>
-              <td class="<%= pnl1_class %>"><%= pnl1 ? format_percent(pnl1, precision: 1) : '-' %></td>
+              <td><%= metrics[:base1_total_amount].round(bot.decimals[:base1]) %></td>
+              <td><%= metrics[:base1_average_buy_rate].present? ? metrics[:base1_average_buy_rate].round(bot.decimals[:base1_price]) : '-' %></td>
+              <% if loading %>
+                <td><div class="loader--small" style="position: unset; float:right"></div></td>
+              <% else %>
+                <td><%= metrics[:base1_total_amount_value_in_quote].round(bot.decimals[:quote]) %></td>
+              <% end %>
+              <% if loading %>
+                <td><div class="loader--small" style="position: unset; float:right"></div></td>
+              <% else %>
+                <% pnl1 = metrics[:base1_pnl] %>
+                <td class="<%= pnl1.negative? ? 'text-danger' : pnl1.positive? ? 'text-success' : '' %>">
+                  <%= pnl1 ? format_percent(pnl1, precision: 1) : '-' %>
+                </td>
+              <% end %>
             </tr>
           <% end %>
         </tbody>
@@ -82,7 +87,7 @@
         </thead>
         <tbody>
           <tr>
-            <td colspan="5" class="text-center text-muted"><%= t('bots.metrics.no_data') %></td> <%# Assuming this translation key exists %>
+            <td colspan="5" class="text-center text-inactive" style="padding-bottom: 2rem;">. . .</td>
           </tr>
         </tbody>
       </table>

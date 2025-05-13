@@ -79,7 +79,7 @@ module ExchangeApi
             response.data.merge(rate: order_params[:price], amount: order_params[:major])
           )
         rescue StandardError
-          Result::Failure.new('Could not make Bitso order', **RECOVERABLE)
+          Result::Failure.new('Could not make Bitso order', RECOVERABLE.to_s)
         end
 
         def parse_request(request)

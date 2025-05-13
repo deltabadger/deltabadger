@@ -23,6 +23,7 @@ en:
         remove: 'Remove' 
         start: 'Start'
         connect: 'Connect'
+        understand: 'Got it!'
     data_labels:
         invested: "Total Invested"
         portfolio_value: "Portfolio Value"
@@ -140,12 +141,15 @@ en:
         twitter: 'Follow us on 𝕏'
     welcome:
         banner_html: |
-            <p>Welcome, %{name}!</p>
-            <p>Enjoy rebalanced DCA with the brand new <b>Barbell Bot</b>, and leverage the <b>Portfolio Analyzer</b>. Indexing is coming soon.</p>
+            <p>Welcome on board, %{name}!</p>
+            <p>I highly recommend you try the <b>Barbell Strategy</b> bot — it's a completely new experience.</p>
+            <p>Single-coin DCA bot is the older version that will be updated soon, with indexes coming shortly after.</p>
             <p>Best, Jan</p>
     analyzer:
         default_portfolio: "Default portfolio"
-        change_portfolio_name: 'Change name'
+        duplicate_portfolio: 'Duplicate portfolio'
+        do_you_want_to_delete: 'Do you want to delete this portfolio?'
+        portfolio_name: 'Portfolio name'
         compare: 'Compare'
         new_portfolio: 'New portfolio'
         total_value: 'Total value'
@@ -173,6 +177,7 @@ en:
                 adjusted_end_html: "The backtest end date has been adjusted to <strong>%{end_date}</strong> to fit the available history of all assets."
     utils:
         assets: Assets
+        beta: Beta
         cash: Cash
         bonds: Bonds
         gold: Gold
@@ -186,6 +191,15 @@ en:
         search:
             placeholder:
                 asset: 'Search for an asset…'
+        time_periods:
+            ytd: 'YTD'
+            ytd_title: 'Beginning of the year'
+            one_year: '1Y'
+            one_year_title: '1 year ago'
+            three_years: '3Y'
+            three_years_title: '3 years ago'
+            five_years: '5Y'
+            five_years_title: '5 years ago'
         years:
             one: "%{count} year"
             other: "%{count} years"

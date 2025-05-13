@@ -138,12 +138,15 @@ de:
         twitter: 'Folge uns auf 𝕏'
     welcome:
         banner_html: |
-            <p>Willkommen, %{name}!</p>
-            <p>Genieße ausbalanciertes DCA mit dem brandneuen <b>Barbell Bot</b> und nutze den <b>Portfolio Analyzer</b>. Indexierung kommt bald.</p>
+            <p>Willkommen an Bord, %{name}!</p>
+            <p>Ich empfehle dir sehr, den <b>Barbell Strategy</b> Bot auszuprobieren — es ist eine völlig neue Erfahrung.</p>
+            <p>Der Single-Coin DCA Bot ist die ältere Version, die bald aktualisiert wird, mit Indizes, die kurz darauf folgen werden.</p>
             <p>Beste Grüße, Jan</p>
     analyzer:
         default_portfolio: 'Standardportfolio'
-        change_portfolio_name: 'Namen ändern'
+        duplicate_portfolio: 'Portfolio duplizieren'
+        do_you_want_to_delete: 'Möchten Sie dieses Portfolio löschen?'
+        portfolio_name: 'Portfoliowert'
         compare: 'Vergleichen'
         new_portfolio: 'Neues Portfolio'
         total_value: 'Gesamtwert'
@@ -184,6 +187,15 @@ de:
         search:
             placeholder:
                 asset: 'Nach einem Asset suchen…'
+        time_periods:
+            ytd: 'YTD'
+            ytd_title: 'Beginn des Jahres'
+            one_year: '1J'
+            one_year_title: '1 Jahr her'
+            three_years: '3J'
+            three_years_title: '3 Jahre her'
+            five_years: '5J'
+            five_years_title: '5 Jahre her'
         years:
             one: "%{count} Jahr"
             other: "%{count} Jahre"

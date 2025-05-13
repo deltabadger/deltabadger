@@ -6,7 +6,6 @@ import { ConfigureTradingBot } from './BotForm/ConfigureTradingBot';
 import { AddApiKey } from './BotForm/AddApiKey';
 import { Details } from './BotForm/Details';
 import { removeInvalidApiKeys } from "./helpers";
-import { NavigationPanel } from "./BotForm/NavigationPanel";
 import { ConfigureWithdrawalBot } from "./BotForm/ConfigureWithdrawalBot";
 import { ConfigureWebhookBot } from './BotForm/ConfigureWebhookBot';
 import { PickBotType } from "./BotForm/PickBotType";
@@ -30,6 +29,7 @@ const TYPES = [
 ]
 
 export const BotForm = ({
+  isBasic,
   isPro,
   isLegendary,
   open,
@@ -40,9 +40,6 @@ export const BotForm = ({
   exchanges,
   fetchExchanges,
   apiKeyTimeout,
-  page,
-  setPage,
-  numberOfPages,
   step,
   setStep
 }) => {
@@ -130,12 +127,6 @@ export const BotForm = ({
       setFormState({})
     }
   }, [currentBot])
-
-  const closedFormHandler = () => {
-    setPage(1)
-    setStep(1)
-    callbackAfterOpening()
-  }
 
   const pickBotTypeHandler = (type) => {
     setType(type)
@@ -284,6 +275,7 @@ export const BotForm = ({
           handleRemove={() => removeInvalidApiKeys(form.exchangeId)}
           status={'add_api_key'}
           type={type === 'withdrawal' ? 'withdrawal' : 'trading'}
+          errors={errors}
         />
       case 'validating_api_key':
         return <AddApiKey
@@ -293,6 +285,7 @@ export const BotForm = ({
           handleRemove={() => removeInvalidApiKeys(form.exchangeId)}
           status={'validating_api_key'}
           type={type === 'withdrawal' ? 'withdrawal' : 'trading'}
+          errors={errors}
         />
       case 'invalid_api_key':
         clearTimeout(apiKeyTimeout)
@@ -303,10 +296,11 @@ export const BotForm = ({
           handleRemove={() => removeInvalidApiKeys(form.exchangeId)}
           status={'invalid_api_key'}
           type={type === 'withdrawal' ? 'withdrawal' : 'trading'}
+          errors={errors}
         />
       case 'configure_trading_bot':
         return <ConfigureTradingBot
-          showLimitOrders={isPro || isLegendary}
+          showLimitOrders={isBasic || isPro || isLegendary}
           currentExchange={pickedExchange}
           handleReset={resetFormToStep(1)}
           handleSubmit={configureTradingBotHandler}
@@ -326,7 +320,7 @@ export const BotForm = ({
         />
       case 'configure_webhook_bot':
         return <ConfigureWebhookBot
-            showLimitOrders={isPro || isLegendary}
+            showLimitOrders={isBasic || isPro || isLegendary}
             currentExchange={pickedExchange}
             handleReset={resetFormToStep(1)}
             handleSubmit={configureWebhookBotHandler}
@@ -340,14 +334,6 @@ export const BotForm = ({
 
   return (
     <>
-    {/* <NavigationPanel
-      handleCancel={handleCancel}
-      closedFormHandler={closedFormHandler}
-      step={chooseStep(step)}
-      page={page}
-      setPage={setPage}
-      numberOfPages={numberOfPages}
-    /> */}
     { renderForm() }
     { chooseStep(step) > 0 && <Details /> }
     </>

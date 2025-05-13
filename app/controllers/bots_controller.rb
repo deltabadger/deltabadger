@@ -14,32 +14,64 @@ class BotsController < ApplicationController
     return render 'bots/react_dashboard' if params[:create] # TODO: remove this once the legacy dashboard is removed
 
     @bots = current_user.bots.not_deleted.includes(:exchange).order(id: :desc)
+    @pnl_hash = {}
+    @loading_hash = {}
+    @bots.each do |bot|
+      next if bot.withdrawal? || bot.webhook?
+
+      metrics_with_current_prices = bot.metrics_with_current_prices_from_cache
+      @pnl_hash[bot.id] = metrics_with_current_prices[:pnl] unless metrics_with_current_prices.nil?
+      @loading_hash[bot.id] = metrics_with_current_prices.nil?
+    end
   end
 
   def new; end
 
   def barbell_new_step_to_first_asset
-    assets = @bot.available_assets_for_current_settings(asset_type: :base_asset, include_exchanges: true)
-    @assets = filter_assets_by_query(assets: assets, query: barbell_bot_params[:query])
+    # FIXME: we need this sleep because this method will render a modal while being called from another modal.
+    # The problem is that turbo has not yet cleaned up the modal object and it tries to render this modal
+    # into the same modal partial, and crashes.
+    # Seems the issue is actually related to the modal--base#animateOutCloseAndCleanUp action, which is triggered
+    # but not awaited to finish before rendering the modal.
+    # The FIX must address both upgrade_upgrade_instructions_path and barbell_new_step_to_first_asset_bots_path.
+    a = Time.current
+    # TODO: move this block to a better place
+    available_assets = @bot.available_assets_for_current_settings(asset_type: :base_asset)
+    filtered_assets = filter_assets_by_query(assets: available_assets, query: barbell_bot_params[:query])
+                      .pluck(:id, :symbol, :name)
+    exchange_assets = Exchange.all.pluck(:id, :name).each_with_object({}) do |(id, name), hash|
+      hash[name] = Exchange.find(id).assets.pluck(:id).presence
+    end.compact
+    @assets = filtered_assets.map do |id, symbol, name|
+      [id, symbol, name, exchange_assets.map { |exchange_name, assets| assets.include?(id) ? exchange_name : nil }.compact]
+    end
+    b = Time.current
+    sleep [0.25 - (b - a), 0].max
     render 'bots/barbell/new/step_to_first_asset'
   end
 
   def barbell_new_step_to_second_asset
-    assets = @bot.available_assets_for_current_settings(asset_type: :base_asset, include_exchanges: true)
-    @assets = filter_assets_by_query(assets: assets, query: barbell_bot_params[:query])
+    available_assets = @bot.available_assets_for_current_settings(asset_type: :base_asset)
+    filtered_assets = filter_assets_by_query(assets: available_assets, query: barbell_bot_params[:query])
+                      .pluck(:id, :symbol, :name)
+    exchange_assets = Exchange.all.pluck(:id, :name).each_with_object({}) do |(id, name), hash|
+      hash[name] = Exchange.find(id).assets.pluck(:id).presence
+    end.compact
+    @assets = filtered_assets.map do |id, symbol, name|
+      [id, symbol, name, exchange_assets.map { |exchange_name, assets| assets.include?(id) ? exchange_name : nil }.compact]
+    end
     render 'bots/barbell/new/step_to_second_asset'
   end
 
   def barbell_new_step_exchange
     exchanges = @bot.available_exchanges_for_current_settings
     @exchanges = filter_exchanges_by_query(exchanges: exchanges, query: barbell_bot_params[:query])
-    puts "exchanges: #{@exchanges.inspect}"
     render 'bots/barbell/new/step_exchange'
   end
 
   def barbell_new_step_api_key
     @api_key = @bot.api_key
-    if @api_key.correct?
+    if @api_key.correct? && validate_api_key_permissions?
       redirect_to barbell_new_step_from_asset_bots_path(
         bots_barbell: {
           label: @bot.label,
@@ -74,8 +106,15 @@ class BotsController < ApplicationController
   end
 
   def barbell_new_step_from_asset
-    assets = @bot.available_assets_for_current_settings(asset_type: :quote_asset, include_exchanges: true)
-    @assets = filter_assets_by_query(assets: assets, query: barbell_bot_params[:query])
+    available_assets = @bot.available_assets_for_current_settings(asset_type: :quote_asset)
+    filtered_assets = filter_assets_by_query(assets: available_assets, query: barbell_bot_params[:query])
+                      .pluck(:id, :symbol, :name)
+    exchange_assets = Exchange.all.pluck(:id, :name).each_with_object({}) do |(id, name), hash|
+      hash[name] = Exchange.find(id).assets.pluck(:id).presence
+    end.compact
+    @assets = filtered_assets.map do |id, symbol, name|
+      [id, symbol, name, exchange_assets.map { |exchange_name, assets| assets.include?(id) ? exchange_name : nil }.compact]
+    end
     render 'bots/barbell/new/step_from_asset'
   end
 
@@ -88,7 +127,7 @@ class BotsController < ApplicationController
   def create
     params_to_create = barbell_bot_params_as_hash
     @bot = current_user.bots.barbell.new(params_to_create)
-    if @bot.save && @bot.start(ignore_missed_orders: true)
+    if @bot.save && @bot.start(start_fresh: true)
       render turbo_stream: turbo_stream_redirect(bot_path(@bot))
     else
       # FIXME: flash messages are not shown as they are rendered behind the modal
@@ -100,15 +139,30 @@ class BotsController < ApplicationController
   def show
     return redirect_to bots_path if @bot.deleted?
 
-    @other_bots = current_user.bots.not_deleted.order(id: :desc).where.not(id: @bot.id)
-    if @bot.legacy?
-      # TODO: remove this once the legacy dashboard is removed
-      respond_to do |format|
-        format.html { render 'bots/react_dashboard' }
-        format.json { render json: @bot }
+    if request.format.turbo_stream?
+      @pagy, @orders = pagy_countless(@bot.transactions.order(created_at: :desc), items: 10)
+      permitted_params = params.require(:decimals).permit(*Asset.all.pluck(:symbol))
+      @decimals = permitted_params.transform_values(&:to_i)
+    else
+      @other_bots = current_user.bots.not_deleted.order(id: :desc).where.not(id: @bot.id).pluck(:id, :label, :type)
+
+      if @bot.legacy?
+        # TODO: remove this once the legacy dashboard is removed
+        respond_to do |format|
+          format.html { render 'bots/react_dashboard' }
+          format.json { render json: @bot }
+        end
+      else
+        # TODO: When transactions point to real asset ids, we can use the asset ids directly instead of symbols
+        @decimals = {
+          @bot.base0_asset.symbol => @bot.decimals[:base0],
+          @bot.base1_asset.symbol => @bot.decimals[:base1],
+          @bot.quote_asset.symbol => @bot.decimals[:quote]
+        }
+        metrics_with_current_prices = @bot.metrics_with_current_prices_from_cache
+        @loading = metrics_with_current_prices.nil?
+        @metrics = @loading ? @bot.metrics : metrics_with_current_prices
       end
-    elsif request.format.turbo_stream?
-      @pagy, @orders = pagy_countless(@bot.transactions.includes(:exchange).order(created_at: :desc), items: 10)
     end
   end
 
@@ -171,7 +225,7 @@ class BotsController < ApplicationController
   end
 
   def start
-    return if @bot.start(ignore_missed_orders: Utilities::String.to_boolean(params[:ignore_missed_orders]))
+    return if @bot.start(start_fresh: Utilities::String.to_boolean(params[:start_fresh]))
 
     flash.now[:alert] = @bot.errors.messages.values.flatten.to_sentence
     render turbo_stream: turbo_stream_prepend_flash, status: :unprocessable_entity
@@ -191,9 +245,7 @@ class BotsController < ApplicationController
     @asset_field = params[:asset_field]
   end
 
-  def confirm_restart
-    @bot.calculate_pending_quote_amount
-  end
+  def confirm_restart; end
 
   def confirm_restart_legacy; end
 
@@ -270,7 +322,7 @@ class BotsController < ApplicationController
   end
 
   def filter_assets_by_query(assets:, query:)
-    return assets.order(:market_cap_rank) if query.blank?
+    return assets.order(:market_cap_rank, :symbol) if query.blank?
 
     assets
       .map { |asset| [asset, similarities_for_asset(asset, query.downcase)] }
@@ -300,5 +352,10 @@ class BotsController < ApplicationController
     [
       exchange.name.present? ? JaroWinkler.similarity(exchange.name.downcase.to_s, query) : 0
     ].sort.reverse
+  end
+
+  def validate_api_key_permissions?
+    @api_key.validate_key_permissions
+    @api_key.errors.empty?
   end
 end

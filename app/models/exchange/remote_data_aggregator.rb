@@ -97,7 +97,7 @@ module Exchange::RemoteDataAggregator
 
       result.data['tickers'].each do |ticker|
         # FIXME: Find a cleaner way for this: translate DOGE pairs to XDG (Coingecko uses DOGE instead of XDG)
-        if coingecko_id == Exchanges::KrakenExchange::COINGECKO_ID
+        if coingecko_id == Exchange::Exchanges::Kraken::COINGECKO_ID
           ticker['base'] = 'XDG' if ticker['base'] == 'DOGE'
           ticker['target'] = 'XDG' if ticker['target'] == 'DOGE'
         end
@@ -110,7 +110,7 @@ module Exchange::RemoteDataAggregator
         }
 
         # FIXME: Find a cleaner way for this: add the coinbase USDC pairs (not listed by default in Coingecko)
-        if coingecko_id == Exchanges::CoinbaseExchange::COINGECKO_ID
+        if coingecko_id == Exchange::Exchanges::Coinbase::COINGECKO_ID
           usdc_ticker_info = coinbase_usdc_ticker_info(ticker, tickers_info)
           tickers_info << usdc_ticker_info if usdc_ticker_info.present?
         end

@@ -7,6 +7,8 @@ class StopBot < BaseService
 
   def call(bot_id)
     bot = Bot.find(bot_id)
+    return Result::Failure.new('Bot not found') unless bot.present?
+
     @unschedule_transactions.call(bot)
     bot.update(status: 'stopped')
 

@@ -1,0 +1,22 @@
+<div class="widget">
+  <div class="toggle-group">
+    <div class="toggle">
+      <div class="toggle__style"></div>
+    </div>
+    <label class="conversational conversational--small conversational--disabled">
+      <select class="sinput" disabled>
+        <option selected>Buy</option>
+        <!--<option disabled>Start buying</option>-->
+      </select>
+      when 
+      <select class="sinput" disabled>
+        <option selected>price is below</option>    <!-- Pau — below $1000 -->
+        <!--<option disabled>price drops</option> Matti — price drops 20%, etc. -->
+        <!--<option disabled>RSI is below</option> Werner — RSI is below 30 -->
+        <!--<option disabled>price is below MA</option> Werner — price is below MA 200 -->
+        <!--<option>webhook has been triggered</option> Berkay -->
+      </select>
+      <input value="10" class="sinput numeric-input" min="0" step="any" size="3" data-controller="autowidth-input" data-action="change->form--submit#submit input->autowidth-input#resize" style="margin-left: 0.125rem;" type="number" disabled>USDT
+    </label>
+  </div>
+</div>

@@ -45,7 +45,7 @@ module ExchangeApi
           response = JSON.parse(request.body)
           parse_response(response)
         rescue StandardError => e
-          Result::Failure.new("Could not make Binance order. Error: #{e}", **RECOVERABLE)
+          Result::Failure.new("Could not make Binance order. Error: #{e}", RECOVERABLE.to_s)
         end
 
         def common_order_params(symbol)
