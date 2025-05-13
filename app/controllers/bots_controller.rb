@@ -13,6 +13,7 @@ class BotsController < ApplicationController
   def index
     return render 'bots/react_dashboard' if params[:create] # TODO: remove this once the legacy dashboard is removed
 
+    flash[:notice] = 'test'
     @bots = current_user.bots.not_deleted.includes(:exchange).order(id: :desc)
     @pnl_hash = {}
     @loading_hash = {}
@@ -272,6 +273,8 @@ class BotsController < ApplicationController
       :marketcap_allocated,
       :exchange_id,
       :label,
+      :quote_amount_limited,
+      :quote_amount_limit,
       :query
     )
   end
@@ -299,8 +302,10 @@ class BotsController < ApplicationController
       pp[:base1_asset_id] = pp[:base1_asset_id].present? ? pp[:base1_asset_id].to_i : nil
       pp[:quote_asset_id] = pp[:quote_asset_id].present? ? pp[:quote_asset_id].to_i : nil
       pp[:marketcap_allocated] = %w[1 true].include?(pp[:marketcap_allocated]) if pp[:marketcap_allocated].present?
+      pp[:quote_amount_limited] = %w[1 true].include?(pp[:quote_amount_limited]) if pp[:quote_amount_limited].present?
       pp[:quote_amount] = pp[:quote_amount].present? ? pp[:quote_amount].to_f : nil
       pp[:allocation0] = pp[:allocation0].present? ? pp[:allocation0].to_f : nil
+      pp[:quote_amount_limit] = pp[:quote_amount_limit].present? ? pp[:quote_amount_limit].to_f : nil
     end.compact
 
     {

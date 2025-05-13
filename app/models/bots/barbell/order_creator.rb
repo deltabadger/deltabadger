@@ -7,10 +7,18 @@ module Bots::Barbell::OrderCreator
       external_id: order_data[:order_id],
       rate: order_data[:rate],
       amount: order_data[:amount],
+      quote_amount: order_data[:quote_amount],
       base: order_data[:base_asset].symbol,
       quote: order_data[:quote_asset].symbol
     ).compact
     transactions.create!(order_values)
+
+    # TODO: find a better place for this
+    broadcast_quote_amount_available_before_limit_update if quote_amount_limited?
+    return unless quote_amount_limit_reached?
+
+    notify_bot_stopped_by_quote_amount_limit
+    stop
   end
 
   def create_failed_order!(order_data)
@@ -20,6 +28,7 @@ module Bots::Barbell::OrderCreator
       error_messages: order_data[:error_messages],
       rate: order_data[:rate],
       amount: order_data[:amount],
+      quote_amount: order_data[:quote_amount],
       base: order_data[:base_asset].symbol,
       quote: order_data[:quote_asset].symbol
     ).compact
@@ -33,6 +42,7 @@ module Bots::Barbell::OrderCreator
       status: :skipped,
       rate: order_data[:rate],
       amount: order_data[:amount],
+      quote_amount: order_data[:quote_amount],
       base: order_data[:base_asset].symbol,
       quote: order_data[:quote_asset].symbol
     ).compact

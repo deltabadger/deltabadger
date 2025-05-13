@@ -1,9 +1,18 @@
-<div class="widget">
+<%= form_with model: bot, url: bot_path(bot), method: :patch, id: "settings-extra-amount-limit", class: "widget", data: { controller: "form--submit" } do |f| %>
   <div class="toggle-group">
     <div class="toggle">
+      <%= f.check_box :quote_amount_limited, data: { action: "change->form--submit#submit" }, disabled: !bot.stopped? %>
       <div class="toggle__style"></div>
+      <%= f.label :quote_amount_limited, class: "conversational conversational--small conversational--disabled" do %>
+        <%= "Don't spend more than" %>
+        <%= f.number_field :quote_amount_limit, value: bot.quote_amount_limit.to_d.to_s('F').sub(/^(?!0\.0$)([1-9]\d*)\.0$/, '\1'), class: 'sinput numeric-input', min: 0, step: :any, size: 3, data: { controller: "autowidth-input", action: "change->form--submit#submit input->autowidth-input#resize" }, style: "margin-left: 0.125rem;", disabled: !bot.stopped? %>
+        <%= bot.quote_asset.symbol %>
+        <span id="quote_amount_available_before_limit">
+          <% if bot.quote_amount_limited? && !bot.stopped? %>
+            <%= "(#{(bot.quote_amount_available_before_limit).round(2)} #{bot.quote_asset.symbol} left)" %>
+          <% end %>
+        </span>
+      <% end %>
     </div>
-    <label class="conversational conversational--small conversational--disabled">Don't spend more than <input value="10" class="sinput numeric-input" min="0" step="any" size="3" data-controller="autowidth-input" data-action="change->form--submit#submit input->autowidth-input#resize" style="margin-left: 0.125rem;" type="number" disabled>USDT
-    </label>
   </div>
-</div>
+<% end %>

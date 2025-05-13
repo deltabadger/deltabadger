@@ -19,6 +19,7 @@ class Bots::Barbell < Bot
   include Bots::Barbell::Schedulable
   include Bots::Barbell::Fundable
   include Bots::Barbell::MarketcapAllocatable
+  include Bots::Barbell::QuoteAmountLimitable
 
   def with_api_key
     exchange.set_client(api_key: api_key) if exchange.present? && (exchange.api_key.blank? || exchange.api_key != api_key)
