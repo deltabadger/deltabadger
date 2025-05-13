@@ -1,15 +1,16 @@
 it:
     bot:
         add_api_keys: "Aggiungi chiavi API per %{exchange}"
+        bot_name: 'Nome bot'
         new: "Nuovo bot"
         start_new_bot: "Crea nuovo bot"
         types:
             dca:
                 title: "DCA"
-                description: "Dollar-cost averaging a singola moneta"
+                description: "DCA a singolo asset"
             barbell:
                 title: "Strategia Barbell"
-                description: "Ribilanciamento di due asset senza tasse"
+                description: "DCA bilanciato a due asset"
             index_portfolio:
                 title: "Portfolio Indice"
                 description: "Costruisci il tuo ETF crypto personale"
@@ -19,15 +20,20 @@ it:
         status:
             setting_orders: "Impostazione ordini…"
             paused: "In pausa"
-        no_orders_info: "Gli ordini del bot appariranno qui"
+            next_try: "Prossimo tentativo in"
         pick_exchange: "Scegli Exchange"
         barbell:
             invest: "Investi"
             invest_html: "Investi %{input} /mese"
         utils:
             mkt_cap_adjusted: "Aggiustato per capitalizzazione di mercato"
-            mkt_cap_adjusted_info: |
-                L'allocazione è impostata automaticamente in base alla capitalizzazione di mercato delle monete nel tuo portfolio. Maggiore è la capitalizzazione di mercato, maggiore sarà l'allocazione.
+            mkt_cap_adjusted_info_html: |
+                <p><b>Capitalizzazione di mercato</b> è un modo per misurare quanto grande o preziosa sia una criptovaluta. Si calcola moltiplicando il numero totale di monete per il prezzo attuale di una moneta. Nel tuo bot, la criptovaluta con la maggiore capitalizzazione di mercato riceve una quota maggiore del tuo investimento.</p>
+                <p><b>Esempio:</b></p>
+                <p><b>Criptovaluta A:</b> Esistono 2 milioni di monete, ciascuna del valore di 10 $. La capitalizzazione di mercato equivale a 2M × 10 $ = 20M $.</p>
+                <p><b>Criptovaluta B:</b> Esiste 1 milione di monete, ciascuna del valore di 1 $. Capitalizzazione di mercato = 1M × 1 $ = 1M $.</p>
+                <p>Se investi 100 $, il bot li dividerà proporzionalmente alle loro capitalizzazioni di mercato: 95,2 $ alla Criptovaluta A, 4,8 $ alla Criptovaluta B.</p>
+                <p>Ma se il prezzo della Criptovaluta B sale a 3 $, la sua capitalizzazione di mercato diventa 3M $. Ora, i prossimi 100 $ saranno allocati 87 $ alla Criptovaluta A e 13 $ alla Criptovaluta B.</p>
         above: "sopra"
         below: "sotto"
         buttons:
@@ -126,6 +132,7 @@ it:
         limit_buy: 'Acquisto limite'
         limit_sell: 'Vendita limite'
         messages:
+            do_you_want_to_delete: 'Vuoi eliminare questo bot?'
             symbol_not_supported: "%{symbol} non è supportato"
             symbol_not_supported_subscription: "%{symbol} non è supportato nel tuo abbonamento"
             upgrade_plan_more_bots: "Aggiorna il tuo piano per eseguire più bot"
@@ -137,6 +144,8 @@ it:
             subaccounts_not_allowed: "Sottoconti non permessi su questo exchange"
             no_subaccount_name: "Nessun nome di sottoconto fornito"
             wrong_subaccount_name: "Nome del sottoconto errato"
+            failed_tooltip_explanation: "Questo ordine è fallito: %{error_message}"
+            skipped_tooltip_explanation: "Questo ordine è stato saltato perché l'importo era inferiore alla dimensione minima dell'ordine di %{exchange_name}. L'importo saltato è stato messo in buffer e verrà aggiunto al prossimo ordine."
         minimum_withdrawal_disclaimer: 'La dimensione minima di prelievo è %{minimum} %{currency}.'
         minimum_withdrawal_disclaimer_usd: 'La dimensione minima di prelievo è %{minimum} USD.'
         month: Mese
@@ -170,8 +179,6 @@ it:
         week: Settimana
         withdraw_interval_html: 'Preleva ogni <split>2</split> giorni.'
         withdraw_threshold_html: 'Preleva quando almeno <split>0.001</split> %{currency} è disponibile.'
-        bot_name: 'Nome bot'
-        change_bot_name: 'Cambia nome'
         withdrawal_percentage: '%{percentage}%'
         withdrawal: 'Prelievo'
         warning:
@@ -184,4 +191,3 @@ it:
                 one: "L'importo mancante è stato messo in buffer e verrà utilizzato con il prossimo ordine programmato, assicurando che la tua pianificazione e allocazione siano mantenute il più vicino possibile ai minimi dell'exchange."
                 other: "Gli importi mancanti sono stati messi in buffer e verranno utilizzati con i prossimi ordini programmati, assicurando che la tua pianificazione e allocazione siano mantenute il più vicino possibile ai minimi dell'exchange."
             general_note: "I minimi dell'exchange e gli importi di ribilanciamento richiesti possono cambiare. Gli ordini potrebbero a volte sembrare irregolari, ma il bot mira sempre all'allocazione e alla pianificazione desiderate, quindi non è necessario alcun lavoro aggiuntivo."
-            tooltip_explanation: "Questo ordine è stato saltato perché l'importo era inferiore alla dimensione minima dell'ordine di %{exchange_name}. L'importo saltato è stato messo in buffer e verrà aggiunto al prossimo ordine."

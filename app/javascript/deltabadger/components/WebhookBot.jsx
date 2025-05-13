@@ -532,7 +532,8 @@ const BotTemplate = ({
 
       }
       <div className="bot-footer" hidden={working}>
-        <RemoveButton onClick={() => { handleRemove(id).then(() => reloadPage()) }} disabled={working}/>
+        <div></div>
+        {/* <RemoveButton onClick={() => { handleRemove(id).then(() => reloadPage()) }} disabled={working}/> */}
       </div>
 
     </div>

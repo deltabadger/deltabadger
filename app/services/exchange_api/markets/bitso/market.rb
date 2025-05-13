@@ -23,7 +23,7 @@ module ExchangeApi
           end
           Result::Success.new(market_symbols)
         rescue StandardError
-          Result::Failure.new("Couldn't fetch Bitso symbols", **RECOVERABLE)
+          Result::Failure.new("Couldn't fetch Bitso symbols", RECOVERABLE.to_s)
         end
 
         def minimum_order_price(symbol)
@@ -48,7 +48,7 @@ module ExchangeApi
 
           Result::Success.new(result)
         rescue StandardError
-          Result::Failure.new("Couldn't fetch Bitso symbol details", **RECOVERABLE)
+          Result::Failure.new("Couldn't fetch Bitso symbol details", RECOVERABLE.to_s)
         end
 
         def symbol(base, quote)
@@ -78,11 +78,11 @@ module ExchangeApi
         def fetch_books
           request = @caching_client.get('/v3/available_books/')
           response = JSON.parse(request.body)
-          return Result::Failure.new("Couldn't fetch Bitso books", **RECOVERABLE) unless response.fetch('success', false)
+          return Result::Failure.new("Couldn't fetch Bitso books", RECOVERABLE.to_s) unless response.fetch('success', false)
 
           Result::Success.new(response)
         rescue StandardError
-          Result::Failure.new("Couldn't fetch Bitso books", **RECOVERABLE)
+          Result::Failure.new("Couldn't fetch Bitso books", RECOVERABLE.to_s)
         end
 
         def fetch_book(symbol)
@@ -92,7 +92,7 @@ module ExchangeApi
           symbol_details = books.data.fetch('payload').detect { |b| b.fetch('book') == symbol }
           Result::Success.new(symbol_details)
         rescue StandardError
-          Result::Failure.new("Couldn't fetch Bitso book", **RECOVERABLE)
+          Result::Failure.new("Couldn't fetch Bitso book", RECOVERABLE.to_s)
         end
 
         def fetch_symbol(symbol)
@@ -101,7 +101,7 @@ module ExchangeApi
 
           Result::Success.new(response.fetch('payload'))
         rescue StandardError
-          Result::Failure.new("Couldn't fetch chosen symbol from Bitso", **RECOVERABLE)
+          Result::Failure.new("Couldn't fetch chosen symbol from Bitso", RECOVERABLE.to_s)
         end
 
         def current_bid_ask_price(symbol)
@@ -114,7 +114,7 @@ module ExchangeApi
 
           Result::Success.new(BidAskPrice.new(bid, ask))
         rescue StandardError
-          Result::Failure.new("Couldn't fetch bid/ask price from Bitso", **RECOVERABLE)
+          Result::Failure.new("Couldn't fetch bid/ask price from Bitso", RECOVERABLE.to_s)
         end
 
         def get_quote(symbol_info)

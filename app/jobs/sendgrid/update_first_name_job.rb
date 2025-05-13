@@ -1,12 +1,8 @@
-class Sendgrid::UpdateFirstNameJob < SendgridJob
-  def perform(email, new_name)
-    name = new_name.split.first.capitalize if new_name.present?
-    contact = {
-      email: email,
-      first_name: name
-    }.compact
+class Sendgrid::UpdateFirstNameJob < ApplicationJob
+  queue_as :default
 
-    result = client.add_or_update_contacts(contacts: [contact])
+  def perform(user)
+    result = user.update_sendgrid_first_name
     raise StandardError, result.errors if result.failure?
   end
 end

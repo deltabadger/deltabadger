@@ -14,6 +14,9 @@ task populate_sendgrid_plan_lists: :environment do
       first_name: name
     }.compact
     data[subscription_name] << contact
+
+    ends_at = user.subscription.ends_at
+    Sendgrid::SyncPlanListJob.set(wait_until: ends_at).perform_later(user) if ends_at.present? && ends_at > Time.current
   end
 
   data.each do |subscription_name, _contacts|

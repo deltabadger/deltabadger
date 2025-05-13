@@ -96,7 +96,7 @@ module ExchangeApi
             response.data.merge(rate: order_params[:price], amount: order_params[:volume])
           )
         rescue StandardError
-          Result::Failure.new('Could not make Kraken order', **RECOVERABLE)
+          Result::Failure.new('Could not make Kraken order', RECOVERABLE.to_s)
         end
       end
     end

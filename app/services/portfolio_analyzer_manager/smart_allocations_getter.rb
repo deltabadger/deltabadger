@@ -1,7 +1,7 @@
 module PortfolioAnalyzerManager
   class SmartAllocationsGetter < BaseService
     def call(portfolio)
-      expires_in = Utilities::Time.seconds_to_midnight_utc.seconds + 5.minutes
+      expires_in = Utilities::Time.seconds_to_end_of_day_utc.seconds + 5.minutes
       Rails.cache.fetch(portfolio.smart_allocations_cache_key, expires_in: expires_in) do
         client = FinancialDataApiClient.new
         symbols = portfolio.portfolio_assets.map(&:api_id).join(',')

@@ -16,15 +16,15 @@ de:
         automatic_withdrawals:
             title: "Automatische Auszahlungen"
             description_html: "Übertragen Sie Ihre Kryptowährungen automatisch auf Ihre Hardware-Wallet. Funktioniert mit Kraken."
-        rebalanced_dca:
-            title: "Ausbalanciertes DCA"
-            description_html: "Möchten Sie, dass Ihr Portfolio zu 80% aus Bitcoin und zu 20% aus Ethereum besteht? Ausbalanciertes DCA hält Ihre Zielallokation ein."
         barbell_strategy:
             title: "Barbell-Strategie"
-            description_html: "Die klassische Barbell-Strategie balanciert zwischen risikoreichen und sicheren Assets wie BTC und USDC, aber Sie können beliebige zwei verfügbare Assets wählen."
+            description_html: "Möchten Sie, dass Ihr Portfolio zu 80% aus Bitcoin und zu 20% aus Ethereum besteht? Ausbalanciertes DCA hält Ihre Zielallokation ein."
         crypto_index:
             title: "Krypto-Index"
             description_html: "Schützen Sie sich vor Einzelasset-Risiken. Investieren Sie in bis zu 100 Top-Assets nach Marktkapitalisierung. Erstellen Sie Ihren persönlichen Krypto-ETF."
+        crypto_index_advanced:
+            title: "Erweiterte Krypto-Indizes"
+            description_html: "Gehen Sie über den Gesamtmarktindex hinaus mit Indizes, die auf bestimmte Sektoren, Themen und beliebte Portfolios abzielen."
         custom_portfolios:
             title: "Individuelle Portfolios"
             description_html: "Sind Sie auf der Jagd nach der Altcoin-Saison? Schließen Sie Bitcoin von Ihrem Index aus oder erstellen Sie ein beliebiges individuelles Portfolio."

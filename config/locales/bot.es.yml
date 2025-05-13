@@ -1,15 +1,16 @@
 es:
     bot:
         add_api_keys: "Añadir claves API para %{exchange}"
+        bot_name: 'Nombre del bot'
         new: "Nuevo bot"
         start_new_bot: "Crear nuevo bot"
         types:
             dca:
                 title: "DCA"
-                description: "Dollar-Cost-Averaging en una sola moneda"
+                description: "DCA de un solo activo"
             barbell:
                 title: "Estrategia Barbell"
-                description: "Rebalanceo de dos activos sin impuestos"
+                description: "DCA rebalanceado de dos activos"
             index_portfolio:
                 title: "Cartera Índice"
                 description: "Construye tu ETF de criptomonedas personal"
@@ -19,14 +20,19 @@ es:
         status:
             setting_orders: "Configurando órdenes…"
             paused: "Pausado"
-        no_orders_info: "Las órdenes del bot aparecerán aquí"
+            next_try: "Próximo intento en"
         barbell:
             invest: "Invertir"
             invest_html: "Invertir %{input} /mes"
         utils:
             mkt_cap_adjusted: "Ajustado por capitalización de mercado"
-            mkt_cap_adjusted_info: |
-                La asignación se establece automáticamente según la capitalización de mercado de las monedas en tu cartera. Cuanto mayor sea la capitalización de mercado, mayor será la asignación.
+            mkt_cap_adjusted_info_html: |
+                <p><b>Capitalización de mercado</b> es una forma de medir el tamaño o valor de una criptomoneda. Se calcula multiplicando el número total de monedas por el precio actual de una moneda. En tu bot, la moneda con mayor capitalización de mercado recibe una mayor parte de tu inversión.</p>
+                <p><b>Ejemplo:</b></p>
+                <p><b>Moneda A:</b> Existen 2 millones de monedas, cada una con un valor de 10 $. La capitalización de mercado es igual a 2M × 10 $ = 20M $.</p>
+                <p><b>Moneda B:</b> Existe 1 millón de monedas, cada una con un valor de 1 $. Capitalización de mercado = 1M × 1 $ = 1M $.</p>
+                <p>Si inviertes 100 $, el bot lo dividirá proporcionalmente según sus capitalizaciones de mercado: 95,2 $ para la Moneda A y 4,8 $ para la Moneda B.</p>
+                <p>Pero si el precio de la Moneda B sube a 3 $, su capitalización de mercado se convierte en 3M $. Ahora, los siguientes 100 $ se asignarán 87 $ a la Moneda A y 13 $ a la Moneda B.</p>
         above: 'por encima'
         below: 'por debajo'
         buttons:
@@ -118,6 +124,7 @@ es:
         limit_buy: 'Compra limitada'
         limit_sell: 'Venta limitada'
         messages:
+            do_you_want_to_delete: '¿Quieres eliminar este bot?'
             symbol_not_supported: "%{symbol} no es compatible"
             symbol_not_supported_subscription: "%{symbol} no es compatible con tu suscripción"
             upgrade_plan_more_bots: "Actualiza tu plan para ejecutar más bots"
@@ -129,6 +136,8 @@ es:
             subaccounts_not_allowed: "Las subcuentas no están permitidas en este intercambio"
             no_subaccount_name: "No se suministró el nombre de la subcuenta"
             wrong_subaccount_name: "Nombre de subcuenta incorrecto"
+            failed_tooltip_explanation: "Esta orden falló: %{error_message}"
+            skipped_tooltip_explanation: "Esta orden se ha omitido porque la cantidad estaba por debajo del tamaño mínimo de orden de %{exchange_name}. La cantidad omitida se ha almacenado y se añadirá a la siguiente orden."
         minimum_withdrawal_disclaimer: 'El importe mínimo de retirada es de %{minimum} %{currency}.'
         minimum_withdrawal_disclaimer_usd: 'El importe mínimo de retirada es de %{minimum} USD.'
         month: Mes
@@ -160,4 +169,3 @@ es:
                 one: "La cantidad que no se pudo usar se ha guardado y se usará con la próxima orden programada, asegurando que tu programación y asignación se mantengan lo más cerca posible de los mínimos del exchange."
                 other: "Las cantidades que no se pudieron usar se han guardado y se usarán con las próximas órdenes programadas, asegurando que tu programación y asignación se mantengan lo más cerca posible de los mínimos del exchange."
             general_note: "Los mínimos del exchange y las cantidades requeridas para el rebalanceo pueden cambiar. Las transacciones a veces pueden parecer irregulares, pero el bot siempre apunta a tu asignación y programación deseadas, así que no necesitas hacer nada más."
-            tooltip_explanation: "Esta orden se omitió porque la cantidad estaba por debajo del tamaño mínimo de orden de %{exchange_name}. La cantidad omitida se ha almacenado y se añadirá a la siguiente orden."

@@ -1,5 +1,32 @@
-<tr id="order_<%= order.id %>" class="<%= order.skipped? ? 'text-inactive' : order.failure? ? 'text-danger' : '' %>">
+<%= tag.tr id: dom_id(order), class: order.skipped? ? 'text-inactive' : order.failure? ? 'text-danger' : '', data: { hw_animate_in_prepend: "animate-order-in" } do %>
   <td scope="row"><%= order.created_at.strftime("%Y-%m-%d %I:%M %p") %></td>
-  <td><%= rounded_base_amount_for(exchange: order.exchange, base_asset_id: order.base_asset.id, quote_asset_id: order.quote_asset.id, amount: order.amount) %> <%= order.base_asset.symbol %></td>
-  <td><%= rounded_quote_amount_for(exchange: order.exchange, base_asset_id: order.base_asset.id, quote_asset_id: order.quote_asset.id, amount: order.amount * order.rate) %> <%= order.quote_asset.symbol %></td>
-</tr>
+  <td><%= order.amount.nil? ? '-' : decimals[order.base].nil? ? order.amount : order.amount.round(decimals[order.base]) %> <%= order.base %></td>
+  <td><%= order.amount.nil? || order.rate.nil? ? '-' : decimals[order.quote].nil? ? (order.amount * order.rate) : (order.amount * order.rate).round(decimals[order.quote]) %> <%= order.quote %></td>
+  <td>
+    <% if order.failure? %>
+      <div class="tooltip-info-icon" data-controller="tooltip" data-action="click->tooltip#toggle">
+        <div class="tooltip-icon--off">
+          <%= render 'svg/24x24_info' %>
+        </div>
+        <div class="tooltip-icon--on">
+          <%= render 'svg/24x24_info-filled' %>
+        </div>
+        <div class="tooltip tooltip--smart-allocation">
+          <%= t('bot.messages.failed_tooltip_explanation', error_message: order.error_messages.to_sentence) %>
+        </div>
+      </div>
+    <% elsif order.skipped? %>
+      <div class="tooltip-info-icon" data-controller="tooltip" data-action="click->tooltip#toggle">
+        <div class="tooltip-icon--off">
+          <%= render 'svg/24x24_info' %>
+        </div>
+        <div class="tooltip-icon--on">
+          <%= render 'svg/24x24_info-filled' %>
+        </div>
+        <div class="tooltip tooltip--smart-allocation">
+          <%= t('bot.messages.skipped_tooltip_explanation', exchange_name: exchange_name) %>
+        </div>
+      </div>
+    <% end %>
+  </td>
+<% end %>

@@ -137,12 +137,15 @@ nl:
         twitter: 'Volg ons op 𝕏'
     welcome:
         banner_html: |
-            <p>Welkom, %{name}!</p>
-            <p>Geniet van geherbalanceerde DCA met de gloednieuwe <b>Barbell Bot</b>, en maak gebruik van de <b>Portfolio Analyzer</b>. Indexering komt binnenkort.</p>
+            <p>Welkom aan boord, %{name}!</p>
+            <p>Ik raad je ten zeerste aan om de <b>Barbell Strategy</b> bot te proberen — het is een compleet nieuwe ervaring.</p>
+            <p>De Single-coin DCA bot is de oudere versie die binnenkort wordt bijgewerkt, met indices die kort daarna volgen.</p>
             <p>Groeten, Jan</p>
     analyzer:
         default_portfolio: 'Standaardportefeuille'
-        change_portfolio_name: 'Naam wijzigen'
+        duplicate_portfolio: 'Portefeuille dupliceren'
+        do_you_want_to_delete: 'Wil je deze portefeuille verwijderen?'
+        portfolio_name: 'Portefeuille naam'
         compare: 'Vergelijken'
         new_portfolio: 'Nieuwe portefeuille'
         total_value: 'Totale waarde'
@@ -183,6 +186,15 @@ nl:
         search:
             placeholder:
                 asset: 'Zoek naar een asset…'
+        time_periods:
+            ytd: 'YTD'
+            ytd_title: 'Begin van het jaar'
+            one_year: '1J'
+            one_year_title: '1 jaar geleden'
+            three_years: '3J'
+            three_years_title: '3 jaar geleden'
+            five_years: '5J'
+            five_years_title: '5 jaar geleden'
         years:
             one: "%{count} jaar"
             other: "%{count} jaar"

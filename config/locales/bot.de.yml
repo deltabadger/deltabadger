@@ -1,15 +1,16 @@
 de:
     bot:
         add_api_keys: "API-Schlüssel für %{exchange} hinzufügen"
+        bot_name: 'Bot-Name'
         new: "Neuer Bot"
         start_new_bot: "Neuen Bot erstellen"
         types:
             dca:
                 title: "DCA"
-                description: "Dollar-Cost-Averaging für einzelne Coins"
+                description: "Einzel-Asset DCA"
             barbell:
-                title: "Barbell-Strategie"
-                description: "Rebalancing von zwei Assets ohne Steuern"
+                title: "Barbell Strategie"
+                description: "Zwei-Asset ausbalanciertes DCA"
             index_portfolio:
                 title: "Index-Portfolio"
                 description: "Baue deinen persönlichen Krypto-ETF"
@@ -17,16 +18,21 @@ de:
                 title: "Benutzerdefiniertes Portfolio"
                 description: "Rebalancing eines benutzerdefinierten Asset-Mix"
         status:
-            setting_orders: "Bestellungen setzen…"
+            setting_orders: "Orders werden erstellt…"
             paused: "Pausiert"
-        no_orders_info: "Bot-Bestellungen werden hier angezeigt"
+            next_try: "Nächster Versuch in"
         barbell:
             invest: "Investieren"
             invest_html: "%{input} /Monat investieren"
         utils:
             mkt_cap_adjusted: "Marktkapitalisierung angepasst"
-            mkt_cap_adjusted_info: |
-                Die Zuteilung wird automatisch basierend auf der Marktkapitalisierung der Coins in deinem Portfolio festgelegt. Je größer die Marktkapitalisierung, desto größer die Zuteilung.
+            mkt_cap_adjusted_info_html: |
+                <p><b>Marktkapitalisierung</b> ist eine Methode, um zu messen, wie groß oder wertvoll eine Kryptowährung ist. Sie wird berechnet, indem man die Gesamtzahl der Coins mit dem aktuellen Preis eines Coins multipliziert. In deinem Bot erhält die Coin mit der größeren Marktkapitalisierung einen größeren Anteil deiner Investition.</p>
+                <p><b>Beispiel:</b></p>
+                <p><b>Coin A:</b> Es existieren 2 Millionen Coins, jeder im Wert von 10 $. Die Marktkapitalisierung beträgt 2M × 10 $ = 20M $.</p>
+                <p><b>Coin B:</b> Es existiert 1 Million Coins, jeder im Wert von 1 $. Marktkapitalisierung = 1M × 1 $ = 1M $.</p>
+                <p>Wenn du 100 $ investierst, teilt der Bot dies proportional zu ihren Marktkapitalisierungen auf: 95,2 $ für Coin A, 4,8 $ für Coin B.</p>
+                <p>Aber wenn der Preis von Coin B auf 3 $ steigt, wird seine Marktkapitalisierung 3M $. Jetzt werden die nächsten 100 $ mit 87 $ für Coin A und 13 $ für Coin B aufgeteilt.</p>
         above: über
         below: unter
         buttons:
@@ -117,6 +123,7 @@ de:
         limit_buy: 'Limit Kauf'
         limit_sell: 'Limit Verkauf'
         messages:
+            do_you_want_to_delete: 'Möchtest du diesen Bot löschen?'
             symbol_not_supported: "%{symbol} wird nicht unterstützt"
             symbol_not_supported_subscription: "%{symbol} wird von deinem Abonnement nicht unterstützt"
             upgrade_plan_more_bots: "Aktualisiere deinen Plan, um mehr Bots auszuführen"
@@ -128,6 +135,8 @@ de:
             subaccounts_not_allowed: "Unterkonten sind auf diesem Austausch nicht erlaubt"
             no_subaccount_name: "Kein Unterkontoname angegeben"
             wrong_subaccount_name: "Falscher Unterkontoname"
+            failed_tooltip_explanation: "Diese Bestellung ist fehlgeschlagen: %{error_message}"
+            skipped_tooltip_explanation: "Diese Bestellung wurde übersprungen, da der Betrag unter der Mindestbestellgröße von %{exchange_name} lag. Der übersprungene Betrag wurde gepuffert und wird der nächsten Bestellung hinzugefügt."
         minimum_withdrawal_disclaimer: 'Der Mindestauszahlungsbetrag beträgt %{minimum} %{currency}.'
         minimum_withdrawal_disclaimer_usd: 'Der Mindestauszahlungsbetrag beträgt %{minimum} USD.'
         month: Monat
@@ -173,4 +182,3 @@ de:
                 one: "Der verpasste Betrag wurde gepuffert und wird mit der nächsten geplanten Order verwendet, sodass dein Zeitplan und deine Allokation so gut wie möglich entsprechend den Börsen-Mindestgrößen eingehalten werden."
                 other: "Die verpassten Beträge wurden gepuffert und werden mit den nächsten geplanten Orders verwendet, sodass dein Zeitplan und deine Allokation so gut wie möglich entsprechend den Börsen-Mindestgrößen eingehalten werden."
             general_note: "Börsen-Mindestgrößen und erforderliche Rebalancing-Beträge ändern sich. Transaktionen können manchmal unregelmäßig aussehen, aber der Bot hält immer deine gewünschte Allokation und deinen Zeitplan ein, sodass kein zusätzlicher Aufwand nötig ist."
-            tooltip_explanation: "Diese Bestellung wurde übersprungen, da der Betrag unter der Mindestbestellgröße von %{exchange_name} lag. Der übersprungene Betrag wurde gepuffert und wird der nächsten Bestellung hinzugefügt."

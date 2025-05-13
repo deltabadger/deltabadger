@@ -177,6 +177,9 @@ Rails.application.routes.draw do
     end
   end
 
+  post '/broadcast_metrics_update', to: 'broadcasts#broadcast_metrics_update'
+  post '/broadcast_pnl_update', to: 'broadcasts#broadcast_pnl_update'
+
   get '/cryptocurrency-dollar-cost-averaging', to: redirect("/#{I18n.default_locale}/cryptocurrency-dollar-cost-averaging")
   get '/terms-and-conditions', to: redirect("/#{I18n.default_locale}/terms-and-conditions")
   get '/privacy-policy', to: redirect("/#{I18n.default_locale}/privacy-policy")

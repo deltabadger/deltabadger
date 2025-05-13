@@ -32,7 +32,7 @@ module ExchangeApi
           request = Faraday.post(url, nil, headers(@api_key, @api_secret, body))
           response = JSON.parse(request.body)
 
-          return Result::Failure.new('Waiting for Gemini response', **NOT_FETCHED) unless closed?(response)
+          return Result::Failure.new('Waiting for Gemini response', NOT_FETCHED.to_s) unless closed?(response)
 
           amount = response.fetch('executed_amount').to_f
           rate = response.fetch('avg_execution_price').to_f
@@ -43,7 +43,7 @@ module ExchangeApi
           )
         rescue KeyError => e
           Raven.capture_exception(e)
-          Result::Failure.new("Could not fetch Gemini order by id: #{order_id}", **RECOVERABLE)
+          Result::Failure.new("Could not fetch Gemini order by id: #{order_id}", RECOVERABLE.to_s)
         end
 
         private
@@ -57,7 +57,7 @@ module ExchangeApi
           parse_request(request)
         rescue StandardError => e
           Raven.capture_exception(e)
-          Result::Failure.new('Could not make Gemini order', **RECOVERABLE)
+          Result::Failure.new('Could not make Gemini order', RECOVERABLE.to_s)
         end
 
         def smart_volume(symbol, price, rate, force_smart_intervals, smart_intervals_value, price_in_quote)
@@ -84,7 +84,7 @@ module ExchangeApi
 
         def parse_request(request)
           response = JSON.parse(request.body)
-          return Result::Failure.new('Could not make Gemini order', **RECOVERABLE) if was_not_filled?(response)
+          return Result::Failure.new('Could not make Gemini order', RECOVERABLE.to_s) if was_not_filled?(response)
 
           if was_filled?(request)
             order_id = response.fetch('order_id')

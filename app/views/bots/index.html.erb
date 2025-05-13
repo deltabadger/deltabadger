@@ -1,3 +1,5 @@
+<%= turbo_stream_from "user_#{current_user.id}", :bot_updates %>
+
 <% if BlackFriday.week? && !current_user.subscription.legendary? %>
   <%= render partial: 'layouts/banners/black_friday', locals: { show_upgrade_button: true } %>
 <% end %>
@@ -28,7 +30,10 @@
     </div>
   </div>
 
-  <div class="bots-grid">
-    <%= render partial: 'bots/bot_tile', collection: @bots, as: :bot %>
-  </div>
+  <% ids_to_load = @loading_hash.select { |_, loading| loading }.keys %>
+  <%= tag.div class: 'itiles', data: ids_to_load.any? ? { controller: "broadcast-on-connect",
+                                                          broadcast_on_connect_method_value: "broadcast_pnl_update",
+                                                          broadcast_on_connect_method_args_value: {    bot_ids: ids_to_load }.to_json } : {} do %>
+    <%= render partial: 'bots/bot_tile/bot_tile', collection: @bots, as: :bot, locals: { pnl_hash: @pnl_hash, loading_hash: @loading_hash } %>
+  <% end %>
 <% end %>

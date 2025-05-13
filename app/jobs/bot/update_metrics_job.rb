@@ -1,4 +1,4 @@
-class Bot::UpdateMetricsJob < BotJob
+class Bot::UpdateMetricsJob < ApplicationJob
   queue_as :default
 
   # FIXME: ideally calling this job should kill any running Bot::UpdateMetricsJob
@@ -7,6 +7,7 @@ class Bot::UpdateMetricsJob < BotJob
   def perform(bot)
     cancel_other_jobs(bot)
     bot.metrics(force: true)
+    Bot::BroadcastMetricsUpdateJob.perform_later(bot)
   end
 
   private

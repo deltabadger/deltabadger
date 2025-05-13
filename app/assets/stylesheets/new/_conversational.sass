@@ -6,6 +6,20 @@
     color: var(--text)
     @media (min-width: 768px)
         line-height: 4rem
+    &--disabled
+        color: var(--label)
+    &--small
+        flex-wrap: wrap
+        line-height: 3rem
+        .sinput
+            margin-left: 0 !important
+            margin-right: 0 !important
+            height: 3rem
+            line-height: 3rem
+            text-align: center
+            &:disabled
+                color: var(--label)
+
     &--bot-setup
         font-size: 2.25rem
         font-weight: bold
@@ -17,7 +31,7 @@
         border: none
         margin: 0
         background: none
-        color: var(--emphasis) !important
+        color: var(--link) !important
         text-align: left
         max-width: 10rem
         text-transform: uppercase
@@ -32,16 +46,25 @@
     .ticker-input
         background: var(--sinput-on-paper) !important
     .sinput
-        font-weight: 700 !important
-        color: var(--input-text)
+        margin-left: -.5rem
+        margin-right: -.5rem
+        padding-left: 1.25rem
+        padding-right: 1rem
+        color: var(--link)
         background: var(--sinput-on-paper)
         @media (max-width: 767.9px)
             line-height: 3rem
             height: 3rem
     &--big
         font-size: 2.5rem
+        display: inline-block
+        line-height: 4rem
+        text-align: center
+        @media (min-width: 768px)
+            text-align: left
         .sinput
             background: var(--widget-background) !important
+            display: inline-block
 .db-bot
     .conversational
         padding: 3rem 0 4rem

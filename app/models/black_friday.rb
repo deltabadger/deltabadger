@@ -7,7 +7,7 @@ class BlackFriday
     Date.current.between?(START_DATE, END_DATE)
   end
 
-  def self.end_time
+  def self.ends_at
     END_DATE.end_of_day
   end
 end
