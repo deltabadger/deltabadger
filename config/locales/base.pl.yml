@@ -116,6 +116,7 @@ pl:
         banner_html: '<b>Udostępnij swój link polecający znajomym i <a href="/referral-program" alt="Read more">zarabiaj 20% stałej prowizji</a> w BTC. Najlepszym sposobem na DCA w Bitcoinie jest jego zarabianie!</b>'
         copied: Skopiowano!
     settings:
+        timezone: 'Strefa czasowa'
         index:
             api_key_confirmation: 'Jesteś pewny?'
             api_keys_section: 'Klucze API'
