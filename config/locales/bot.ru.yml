@@ -170,5 +170,5 @@ ru:
         settings:
             extra_amount_limit:
                 dont_spend_more_than: "Не тратить больше чем"
-                amount_left: "(%{amount} %{symbol} осталось)"
+                amount_left: "(осталось %{amount} %{symbol})"
                 amount_spent: "Вся сумма была инвестирована."
