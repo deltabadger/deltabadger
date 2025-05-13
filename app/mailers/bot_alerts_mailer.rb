@@ -42,4 +42,13 @@ class BotAlertsMailer < ApplicationMailer
 
     mail(to: @user.email, subject: default_i18n_subject)
   end
+
+  def stopped_by_quote_amount_limit
+    @user = params[:user]
+    @label = params[:label]
+    @amount = params[:amount]
+    @quote = params[:quote]
+
+    mail(to: @user.email, subject: default_i18n_subject)
+  end
 end
