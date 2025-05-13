@@ -116,7 +116,10 @@ en:
         banner_html: '<b>Share your referral link with friends and <a href="/referral-program" alt="Read more">earn 20% recurring commission</a> in BTC. The best way to DCA Bitcoin is to earn it!</b>'
         copied: Copied!
     settings:
-        timezone: Timezone
+        timezone:
+            title: 'Timezone'
+            updated: "Your timezone has been updated."
+            current_time_is: "This timezone will be used in the bot logs. According to it, the current time is"
         name:
             updated: "Your name has been updated."
         two_fa:
