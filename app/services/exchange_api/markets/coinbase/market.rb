@@ -100,7 +100,7 @@ module ExchangeApi
 
         def fetch_symbol(symbol)
           response = Rails.cache.fetch("coinbase_symbol_#{symbol}", expires_in: 5.minutes) do
-            request = authenticated_request("/api/v3/brokerage/market/products/#{symbol}")
+            request = unauthenticated_request("/api/v3/brokerage/market/products/#{symbol}")
             JSON.parse(request.body)
           end
           Result::Success.new(response)
@@ -110,18 +110,11 @@ module ExchangeApi
 
         def current_bid_ask_price(symbol)
           response = Rails.cache.fetch("coinbase_bid_ask_price_#{symbol}", expires_in: 1.seconds) do
-            request = authenticated_request('/api/v3/brokerage/best_bid_ask')
+            request = unauthenticated_request("/api/v3/brokerage/market/product_book?product_id=#{symbol}&limit=1")
             JSON.parse(request.body)
           end
-          bid_price = nil
-          ask_price = nil
-          response['pricebooks'].each do |pricebook|
-            next unless pricebook['product_id'] == symbol
-
-            bid_price = pricebook['bids'][0]['price'].to_f
-            ask_price = pricebook['asks'][0]['price'].to_f
-            break
-          end
+          bid_price = response['pricebook']['bids'][0]['price'].to_f
+          ask_price = response['pricebook']['asks'][0]['price'].to_f
           Result::Success.new(BidAskPrice.new(bid_price, ask_price))
         rescue StandardError => e
           Result::Failure.new("Couldn't fetch bid/ask price from Coinbase. Error: #{e}", RECOVERABLE.to_s)
