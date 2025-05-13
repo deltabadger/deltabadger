@@ -20,7 +20,7 @@ en:
         submit: 'Submit'
         reset: 'Reset'
         add: 'Add'
-        remove: 'Remove' 
+        remove: 'Remove'
         start: 'Start'
         connect: 'Connect'
         understand: 'Got it!'
@@ -116,6 +116,7 @@ en:
         banner_html: '<b>Share your referral link with friends and <a href="/referral-program" alt="Read more">earn 20% recurring commission</a> in BTC. The best way to DCA Bitcoin is to earn it!</b>'
         copied: Copied!
     settings:
+        timezone: Timezone
         name:
             updated: "Your name has been updated."
         two_fa:

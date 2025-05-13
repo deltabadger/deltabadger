@@ -114,6 +114,7 @@ pt:
         banner_html: '<b>Compartilhe seu link de referência com amigos e <a href="/referral-program" alt="Read more">ganhe 20% de comissão recorrente</a> em BTC. A melhor maneira de fazer DCA em Bitcoin é ganhando!</b>'
         copied: Copiado!
     settings:
+        timezone: 'Fuso horário'
         index:
             api_key_confirmation: 'Tem a certeza?'
             api_keys_section: 'Chaves de API'
