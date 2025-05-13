@@ -57,6 +57,13 @@ class SettingsController < ApplicationController
     end
   end
 
+  def update_time_zone
+    return unless current_user.update(update_time_zone_params)
+
+    flash[:notice] = t('settings.time_zone.updated')
+    render turbo_stream: turbo_stream_page_refresh
+  end
+
   def update_password
     if current_user.update_with_password(update_password_params)
       bypass_sign_in(current_user)
@@ -162,6 +169,10 @@ class SettingsController < ApplicationController
 
   def update_email_params
     params.require(:user).permit(:email, :current_password)
+  end
+
+  def update_time_zone_params
+    params.require(:user).permit(:time_zone)
   end
 
   def update_name_params
