@@ -28,6 +28,9 @@ application.register("class-toggle", ClassToggleController)
 import ClipboardController from "./clipboard_controller"
 application.register("clipboard", ClipboardController)
 
+import ClockController from "./clock_controller"
+application.register("clock", ClockController)
+
 import CountdownController from "./countdown_controller"
 application.register("countdown", CountdownController)
 

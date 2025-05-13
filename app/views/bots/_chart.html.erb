@@ -16,7 +16,7 @@
         t('data_labels.value_symbol', symbol: bot.quote_asset.symbol),
         t('data_labels.invested_symbol', symbol: bot.quote_asset.symbol)
       ],
-      bot__chart_labels_value: [metrics[:chart][:labels]],
+      bot__chart_labels_value: [metrics[:chart][:labels].map { |label| label.in_time_zone(current_user.time_zone) }],
       bot__chart_series_value: [
         metrics[:chart][:series].map { |serie| serie.map { |amount| amount.round(bot.decimals[:quote]) } }
       ]

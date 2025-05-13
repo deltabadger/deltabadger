@@ -23,42 +23,42 @@
       <div class="theme-img" style="background-image: url('https://deltabadger.com/images/astronaut-02.jpg')"></div>
       <h3 class="index-title">Bitcoin</h3>
       <div class="itile__value">
-        <%= time_ago_in_words(((Time.current - simulation_results['btc'].to_time) / 1.month).floor.months.ago) %>
+        <%= time_ago_in_words(Time.now - ((Time.now - simulation_results['btc'].to_time) / 1.day).floor.days) %>
       </div>
     </div>
     <div class="itile">
       <div class="theme-img" style="background-image: url('<%= asset_path('bg-qqq.jpg') %>')"></div>
       <h3 class="index-title">QQQ</h3>
       <div class="itile__value">
-        <%= time_ago_in_words(((Time.current - simulation_results['ndx'].to_time) / 1.month).floor.months.ago) %>
+        <%= time_ago_in_words(Time.now - ((Time.now - simulation_results['ndx'].to_time) / 1.day).floor.days) %>
       </div>
     </div>
     <div class="itile">
       <div class="theme-img" style="background-image: url('https://deltabadger.com/blog/fnilx-stock.jpg')"></div>
       <h3 class="index-title">S&P 500</h3>
       <div class="itile__value">
-        <%= time_ago_in_words(((Time.current - simulation_results['gspc'].to_time) / 1.month).floor.months.ago) %>
+        <%= time_ago_in_words(Time.now - ((Time.now - simulation_results['gspc'].to_time) / 1.day).floor.days) %>
       </div>
     </div>
     <div class="itile">
       <div class="theme-img" style="background-image: url('<%= asset_path('bg-gold.jpg') %>')"></div>
       <h3 class="index-title"><%= t('utils.gold') %></h3>
       <div class="itile__value">
-        <%= time_ago_in_words(((Time.current - simulation_results['gld'].to_time) / 1.month).floor.months.ago) %>
+        <%= time_ago_in_words(Time.now - ((Time.now - simulation_results['gld'].to_time) / 1.day).floor.days) %>
       </div>
     </div>
     <div class="itile">
       <div class="theme-img" style="background-image: url('https://deltabadger.com/images/city-01.jpg')"></div>
       <h3 class="index-title">DAX</h3>
       <div class="itile__value">
-        <%= time_ago_in_words(((Time.current - simulation_results['gdaxi'].to_time) / 1.month).floor.months.ago) %>
+        <%= time_ago_in_words(Time.now - ((Time.now - simulation_results['gdaxi'].to_time) / 1.day).floor.days) %>
       </div>
     </div>
     <div class="itile">
       <div class="theme-img" style="background-image: url('<%= asset_path('bg-bonds.jpg') %>')"></div>
       <h3 class="index-title"><%= t('utils.cash') %></h3>
       <div class="itile__value">
-        <%= time_ago_in_words(((Time.current - simulation_results['usd'].to_time) / 1.month).floor.months.ago) %>
+        <%= time_ago_in_words(Time.now - ((Time.now - simulation_results['usd'].to_time) / 1.day).floor.days) %>
       </div>
     </div>
   <% end %>
