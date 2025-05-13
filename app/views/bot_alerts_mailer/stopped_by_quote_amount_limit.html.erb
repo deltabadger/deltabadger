@@ -1,4 +1,4 @@
-<h1><%= t('.subject') %></h1>
+<h1><%= t('.subject', label: @label) %></h1>
 
 <p><%= t('mailer.greeting_name', name: @user.name) %></p>
 <%= t('.template_html', label: @label, amount: @amount, quote: @quote) %>
