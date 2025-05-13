@@ -1,15 +1,16 @@
 pt:
     bot:
         add_api_keys: "Adicionar chaves API para %{exchange}"
+        bot_name: "Nome do bot"
         new: "Novo bot"
         start_new_bot: "Create new bot"
         types:
             dca:
                 title: "DCA"
-                description: "Investimento programado numa única moeda"
+                description: "DCA de ativo único"
             barbell:
                 title: "Estratégia Barbell"
-                description: "Reequilíbrio de dois ativos sem impostos"
+                description: "DCA rebalanceado de dois ativos"
             index_portfolio:
                 title: "Portefólio de Índice"
                 description: "Construa o seu ETF pessoal de criptomoedas"
@@ -19,14 +20,19 @@ pt:
         status:
             setting_orders: "Configurando ordens…"
             paused: "Pausado"
-        no_orders_info: "As ordens do bot aparecerão aqui"
+            next_try: "Próxima tentativa em"
         barbell:
             invest: "Investir"
             invest_html: "Investir %{input} /mês"
         utils:
             mkt_cap_adjusted: "Ajustado por Capitalização de Mercado"
-            mkt_cap_adjusted_info: |
-                A alocação é automaticamente definida com base na capitalização de mercado das moedas em seu portfólio. Quanto maior a capitalização de mercado, maior a alocação.
+            mkt_cap_adjusted_info_html: |
+                <p><b>Capitalização de mercado</b> é uma forma de medir o tamanho ou valor de uma moeda. É calculada multiplicando o número total de moedas pelo preço atual de uma moeda. No seu bot, a moeda com maior capitalização de mercado recebe uma parte maior do seu investimento.</p>
+                <p><b>Exemplo:</b></p>
+                <p><b>Moeda A:</b> Existem 2 milhões de moedas, cada uma no valor de 10 €. A capitalização de mercado é igual a 2M × 10 € = 20M €.</p>
+                <p><b>Moeda B:</b> Existe 1 milhão de moedas, cada uma no valor de 1 €. Capitalização de mercado = 1M × 1 € = 1M €.</p>
+                <p>Se investir 100 €, o bot irá dividi-los proporcionalmente às suas capitalizações de mercado: 95,2 € para a Moeda A e 4,8 € para a Moeda B.</p>
+                <p>Mas se o preço da Moeda B subir para 3 €, a sua capitalização de mercado torna-se 3M €. Agora, os próximos 100 € serão alocados 87 € para a Moeda A e 13 € para a Moeda B.</p>
         above: acima
         below: abaixo
         buttons:
@@ -114,6 +120,7 @@ pt:
         limit_buy: 'Limitar compra'
         limit_sell: 'Limitar venda'
         messages:
+            do_you_want_to_delete: 'Quer eliminar este bot?'
             symbol_not_supported: "%{symbol} não é suportado"
             symbol_not_supported_subscription: "%{symbol} não é suportado pela sua assinatura"
             upgrade_plan_more_bots: "Atualize seu plano para executar mais bots"
@@ -125,6 +132,8 @@ pt:
             subaccounts_not_allowed: "Subcontas não são permitidas nesta troca"
             no_subaccount_name: "Nenhum nome de subconta fornecido"
             wrong_subaccount_name: "Nome de subconta incorreto"
+            failed_tooltip_explanation: "Esta ordem falhou: %{error_message}"
+            skipped_tooltip_explanation: "Esta ordem foi pulada porque a quantidade estava abaixo do tamanho mínimo de ordem da %{exchange_name}. A quantidade pulada foi armazenada e será adicionada à próxima ordem."
         minimum_withdrawal_disclaimer: "O tamanho mínimo de retirada é %{minimum} %{currency}."
         minimum_withdrawal_disclaimer_usd: "O tamanho mínimo de retirada é %{minimum} USD."
         month: Mês
@@ -150,4 +159,3 @@ pt:
                 one: "A quantidade perdida foi armazenada em buffer e será usada com a próxima ordem agendada, garantindo que seu cronograma e alocação sejam mantidos o mais próximo possível dos mínimos da exchange."
                 other: "As quantidades perdidas foram armazenadas em buffer e serão usadas com as próximas ordens agendadas, garantindo que seu cronograma e alocação sejam mantidos o mais próximo possível dos mínimos da exchange."
             general_note: "Os mínimos da exchange e as quantidades de rebalanceamento necessárias podem mudar. As ordens podem parecer irregulares às vezes, mas o bot sempre visa sua alocação e cronograma desejados, portanto, nenhum trabalho extra é necessário."
-            tooltip_explanation: "Esta ordem foi pulada porque a quantidade estava abaixo do tamanho mínimo de ordem da %{exchange_name}. A quantidade pulada foi armazenada e será adicionada à próxima ordem."

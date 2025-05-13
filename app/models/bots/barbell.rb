@@ -12,29 +12,16 @@ class Bots::Barbell < Bot
   validate :validate_unchangeable_assets, on: :update
   validate :validate_unchangeable_interval, on: :update
 
-  after_save :unset_exchange_implementation, if: :saved_change_to_exchange_id?
-
   include Schedulable
   include Bots::Barbell::OrderSetter
   include Bots::Barbell::OrderCreator
   include Bots::Barbell::Measurable
   include Bots::Barbell::Schedulable
+  include Bots::Barbell::Fundable
 
-  def exchange
-    @exchange ||= super
-    if @exchange.present? && !exchange_implementation_set?
-      @exchange.set_exchange_implementation(api_key: api_key)
-      @exchange_implementation_set = true
-    end
-    @exchange
-  end
-
-  def exchange_implementation_set?
-    @exchange_implementation_set || false
-  end
-
-  def unset_exchange_implementation
-    @exchange_implementation_set = false
+  def with_api_key
+    exchange.set_client(api_key: api_key) if exchange.present? && (exchange.api_key.blank? || exchange.api_key != api_key)
+    yield
   end
 
   def api_key
@@ -42,20 +29,19 @@ class Bots::Barbell < Bot
                  user.api_keys.trading.new(exchange_id: exchange_id, status: :pending)
   end
 
-  def start(ignore_missed_orders: true)
+  def start(start_fresh: true)
     update_params = {
       status: 'working',
-      started_at: ignore_missed_orders ? Time.current : nil,
-      transient_data: ignore_missed_orders ? {} : nil
+      started_at: start_fresh ? Time.current : nil,
+      transient_data: start_fresh ? {} : nil
     }.compact
 
     if valid?(:start) && update(update_params)
-      if ignore_missed_orders
+      if start_fresh || pending_quote_amount >= quote_amount
         Bot::SetBarbellOrdersJob.perform_later(self)
       else
         Bot::SetBarbellOrdersJob.set(wait_until: next_interval_checkpoint_at).perform_later(self)
-        #  Schedule the broadcast status bar update to make sure sidekiq has time to schedule the job
-        Bot::BroadcastStatusBarUpdateJob.set(wait: 0.25.seconds).perform_later(self)
+        Bot::BroadcastStatusBarUpdateAfterScheduledOrderJob.perform_later(self)
       end
       true
     else
@@ -131,12 +117,11 @@ class Bots::Barbell < Bot
   end
 
   def restarting?
-    stopped? && last_pending_quote_amount_calculated_at.present?
+    stopped? && last_action_job_at.present?
   end
 
   def restarting_within_interval?
-    restarting? && last_action_job_at_iso8601.present? &&
-      DateTime.parse(last_action_job_at_iso8601) > 1.public_send(interval).ago
+    restarting? && pending_quote_amount < quote_amount
   end
 
   def market_cap_adjusted?
@@ -159,16 +144,42 @@ class Bots::Barbell < Bot
     end
   end
 
+  def assets
+    @assets ||= Asset.where(id: [base0_asset_id, base1_asset_id, quote_asset_id]).presence
+  end
+
   def base0_asset
-    @base0_asset ||= base0_asset_id.present? ? Asset.find(base0_asset_id) : nil
+    @base0_asset ||= assets.select { |asset| asset.id == base0_asset_id }.first if assets.present?
   end
 
   def base1_asset
-    @base1_asset ||= base1_asset_id.present? ? Asset.find(base1_asset_id) : nil
+    @base1_asset ||= assets.select { |asset| asset.id == base1_asset_id }.first if assets.present?
   end
 
   def quote_asset
-    @quote_asset ||= quote_asset_id.present? ? Asset.find(quote_asset_id) : nil
+    @quote_asset ||= assets.select { |asset| asset.id == quote_asset_id }.first if assets.present?
+  end
+
+  def tickers
+    @tickers ||= exchange.tickers.where(base_asset_id: [base0_asset_id, base1_asset_id], quote_asset_id: quote_asset_id).presence
+  end
+
+  def ticker0
+    @ticker0 ||= tickers.select { |ticker| ticker.base_asset_id == base0_asset_id }.first if tickers.present?
+  end
+
+  def ticker1
+    @ticker1 ||= tickers.select { |ticker| ticker.base_asset_id == base1_asset_id }.first if tickers.present?
+  end
+
+  def decimals
+    @decimals ||= {
+      base0: ticker0.base_decimals,
+      base1: ticker1.base_decimals,
+      quote: [ticker0.quote_decimals, ticker1.quote_decimals].max,
+      base0_price: ticker0.price_decimals,
+      base1_price: ticker1.price_decimals
+    }
   end
 
   private

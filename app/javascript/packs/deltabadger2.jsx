@@ -27,12 +27,13 @@ document.addEventListener("turbo:load", () => {
   if (dashboardDiv) {
     const node = document.getElementById("current_user_subscription");
     const data = node ? node.getAttribute("data") : null;
+    const isBasic = data === "basic";
     const isPro = data === "pro";
     const isLegendary = data === "legendary";
     const root = createRoot(dashboardDiv);
     root.render(
       <Provider store={store}>
-        <Dashboard isPro={isPro} isLegendary={isLegendary} />
+        <Dashboard isBasic={isBasic} isPro={isPro} isLegendary={isLegendary} />
       </Provider>
     );
   }
@@ -52,3 +53,13 @@ if (document.getElementById("referral_banner_link")) {
       });
   });
 }
+
+// Update theme color meta tag based on the background color of the body
+document.addEventListener("turbo:load", () => {
+  function updateThemeColor() {
+    const themeColor = getComputedStyle(document.documentElement).getPropertyValue('--background').trim();
+    document.getElementById('theme-color-meta').setAttribute('content', themeColor);
+  }
+  updateThemeColor();
+  window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', updateThemeColor);
+});

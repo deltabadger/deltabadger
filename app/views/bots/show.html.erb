@@ -1,6 +1,8 @@
-<%= turbo_stream_from "bot_#{@bot.id}", :warning_below_minimums %>
+<%= turbo_stream_from "user_#{current_user.id}", :bot_updates %>
 
-<%= turbo_frame_tag "bot" do %>
+<%= turbo_frame_tag "bot", data: @loading ? { controller: "broadcast-on-connect",
+                                              broadcast_on_connect_method_value: "broadcast_metrics_update",
+                                              broadcast_on_connect_method_args_value: { bot_id: @bot.id }.to_json } : {} do %>
   <div class="page-head">
     <%= render "bots/header", bot: @bot, other_bots: @other_bots %>
   </div>
@@ -15,12 +17,15 @@
         <%= render partial: "bots/description", locals: { bot: @bot } %>
         <%= render partial: "bots/settings", locals: { bot: @bot } %>
         <%= render partial: "bots/settings_extra", locals: { bot: @bot } %>
-        <%= render partial: "bots/settings_extra_weekday", locals: { bot: @bot } %>
+        <%# render partial: "bots/settings_extra_weekday", locals: { bot: @bot } %>
+        <%# render partial: "bots/settings_extra_time_limit", locals: { bot: @bot } %>
+        <%# render partial: "bots/settings_extra_price_limit", locals: { bot: @bot } %>
+        <%# render partial: "bots/settings_extra_amount_limit", locals: { bot: @bot } %>
       </div>
       <div class="column gap-1">
-        <%= render partial: "bots/chart", locals: { bot: @bot } %>
-        <%= render partial: "bots/metrics/metrics", locals: { bot: @bot } %>
-        <%= render partial: "bots/orders/orders", locals: { bot: @bot } %>
+        <%= render partial: "bots/chart", locals: { bot: @bot, metrics: @metrics, loading: @loading } %>
+        <%= render partial: "bots/metrics/metrics", locals: { bot: @bot, metrics: @metrics, loading: @loading } %>
+        <%= render partial: "bots/orders/orders", locals: { bot: @bot, decimals: @decimals } %>
       </div>
     </div>
   </div>

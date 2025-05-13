@@ -32,7 +32,7 @@ module ExchangeApi
               side: BASE
             )
           else
-            Result::Failure.new('Something went wrong!', **RECOVERABLE)
+            Result::Failure.new('Something went wrong!', RECOVERABLE.to_s)
           end
         end
 
@@ -43,7 +43,7 @@ module ExchangeApi
             new_prices
             Result::Success.new(BidAskPrice.new(@bid, @ask))
           else
-            Result::Failure.new('Something went wrong!', **RECOVERABLE)
+            Result::Failure.new('Something went wrong!', RECOVERABLE.to_s)
           end
         end
 

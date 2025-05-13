@@ -18,7 +18,7 @@
 
 .sbadge
     background: primary
-    color: #fff
+    color: #fff !important
     padding: 0.25rem 0.75rem
     border-radius: 1rem
     font-size: 1.5rem
@@ -48,6 +48,8 @@
     box-shadow: var(--widget-shadow)
     cursor: pointer
     text-decoration: none !important
+    &[disabled="disabled"],&[disabled]
+        cursor: not-allowed
     .label
         min-width: 2.2rem
     &--calendar
@@ -71,7 +73,7 @@
             border: 0
             text-align: center
             width: 100%
-            color: var(--emphasis)
+            color: var(--link)
             &::-webkit-outer-spin-button, &::-webkit-inner-spin-button
                 -webkit-appearance: none
                 margin: 0
@@ -109,7 +111,6 @@
                     fill: #fcd535 !important
         &--kucoin
             background: #00a1f1 !important
-    cursor: not-allowed
 
 .label--select,.sinput--select
     position: relative
@@ -169,7 +170,7 @@ select
         min-width: 8rem
     &:hover, &:focus, &:active, &[disabled="disabled"],&[disabled]
         outline: none
-    &--primary:hover,&--success:hover,&--danger:hover
+    &--primary:hover:not(.button--outline),&--success:hover:not(.button--outline),&--danger:hover:not(.button--outline)
         color: #fff
     svg
         fill: #fff
@@ -266,3 +267,8 @@ select
 .widget
     .large-button-wrapper
         padding: 1.5rem 0
+
+.nobutton
+    border: none
+    background: none
+    color: var(--link)

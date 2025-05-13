@@ -1,7 +1,7 @@
 class User < ApplicationRecord
   attr_accessor :otp_code_token
 
-  after_create :set_subscription, :set_affiliate
+  after_create :set_free_subscription, :set_affiliate
   devise :database_authenticatable, :registerable,
          :recoverable, :rememberable, :validatable, :confirmable
 
@@ -27,8 +27,9 @@ class User < ApplicationRecord
 
   delegate :unlimited?, to: :subscription
 
-  include Sendgridable
   include Upgradeable
+  include Sendgridable
+  include Intercomable
 
   # User/Affiliate relationship:
   # A user can be an affiliate to refer other users
@@ -38,7 +39,7 @@ class User < ApplicationRecord
   # A user can be both an affiliate (or referrer) and a referral
 
   def subscription
-    @subscription ||= subscriptions.active.order(created_at: :desc).first || set_subscription
+    @subscription ||= subscriptions.active.order(created_at: :asc).last
   end
 
   def eligible_referrer
@@ -59,7 +60,7 @@ class User < ApplicationRecord
 
   private
 
-  def set_subscription
+  def set_free_subscription
     subscription_plan_variant = SubscriptionPlanVariant.find_by(subscription_plan: SubscriptionPlan.free)
     subscriptions.create!(subscription_plan_variant: subscription_plan_variant)
   end

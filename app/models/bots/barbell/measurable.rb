@@ -2,46 +2,128 @@ module Bots::Barbell::Measurable
   extend ActiveSupport::Concern
 
   def metrics(force: false)
-    metrics = Rails.cache.fetch("bot_#{id}_metrics", expires_in: 30.days, force: force) do
-      calculate_metrics
+    cache_key = "bot_#{id}_metrics"
+    Rails.cache.fetch(cache_key, expires_in: 30.days, force: force) do
+      data = initialize_metrics_data
+      transactions_array = transactions.success.order(created_at: :asc).pluck(:created_at, :rate, :amount, :base)
+      return data if transactions_array.empty?
+
+      # TODO: When transactions point to real asset ids, we can use the asset ids directly
+      asset_symbol_to_id = {
+        base0_asset.symbol => base0_asset_id,
+        base1_asset.symbol => base1_asset_id
+      }
+
+      totals = initialize_totals_data
+      transactions_array.each do |created_at, rate, amount, base|
+        next if rate.zero?
+
+        # chart data
+        data[:chart][:labels] << created_at
+        totals[:total_quote_amount_invested][asset_symbol_to_id[base]] += amount * rate
+        totals[:total_base_amount_acquired][asset_symbol_to_id[base]] += amount
+        data[:chart][:series][1] << totals[:total_quote_amount_invested].values.sum
+        totals[:current_value_in_quote][asset_symbol_to_id[base]] =
+          totals[:total_base_amount_acquired][asset_symbol_to_id[base]] * rate
+        data[:chart][:series][0] << totals[:current_value_in_quote].values.sum
+
+        # metrics data
+        totals[:rates][asset_symbol_to_id[base]] << rate
+        totals[:amounts][asset_symbol_to_id[base]] << amount
+      end
+
+      data[:base0_total_amount] = totals[:total_base_amount_acquired][base0_asset_id]
+      data[:base1_total_amount] = totals[:total_base_amount_acquired][base1_asset_id]
+      data[:base0_total_quote_amount_invested] = totals[:total_quote_amount_invested][base0_asset_id]
+      data[:base1_total_quote_amount_invested] = totals[:total_quote_amount_invested][base1_asset_id]
+      data[:total_quote_amount_invested] = data[:base0_total_quote_amount_invested] + data[:base1_total_quote_amount_invested]
+      data[:base0_total_amount_value_in_quote] = totals[:current_value_in_quote][base0_asset_id]
+      data[:base1_total_amount_value_in_quote] = totals[:current_value_in_quote][base1_asset_id]
+      data[:total_amount_value_in_quote] =
+        data[:base0_total_amount_value_in_quote] + data[:base1_total_amount_value_in_quote]
+      data[:base0_pnl] = calculate_pnl(data[:base0_total_quote_amount_invested], data[:base0_total_amount_value_in_quote])
+      data[:base1_pnl] = calculate_pnl(data[:base1_total_quote_amount_invested], data[:base1_total_amount_value_in_quote])
+      data[:pnl] = calculate_pnl(data[:total_quote_amount_invested], data[:total_amount_value_in_quote])
+      data[:base0_average_buy_rate] =
+        Utilities::Math.weighted_average(totals[:rates][base0_asset_id], totals[:amounts][base0_asset_id])
+      data[:base1_average_buy_rate] =
+        Utilities::Math.weighted_average(totals[:rates][base1_asset_id], totals[:amounts][base1_asset_id])
+
+      data
     end
-    broadcast_metrics_update if force
-    metrics
   end
 
-  def metrics_with_current_prices
-    result = get_metrics_with_current_prices
-    return result.data if result.success?
+  def metrics_with_current_prices(force: false)
+    Rails.cache.fetch(metrics_with_current_prices_cache_key,
+                      expires_in: Utilities::Time.seconds_to_next_five_minute_cut,
+                      force: force) do
+      return metrics if metrics[:chart][:labels].empty?
 
-    metrics
+      result0 = get_last_price_from_cache(base0_asset_id, quote_asset_id)
+      result1 = get_last_price_from_cache(base1_asset_id, quote_asset_id)
+      return metrics unless result0.success? && result1.success?
+
+      metrics_data = metrics.deep_dup
+      metrics_data[:base0_total_amount_value_in_quote] = metrics_data[:base0_total_amount] * result0.data
+      metrics_data[:base1_total_amount_value_in_quote] = metrics_data[:base1_total_amount] * result1.data
+      metrics_data[:total_amount_value_in_quote] =
+        metrics_data[:base0_total_amount_value_in_quote] + metrics_data[:base1_total_amount_value_in_quote]
+      metrics_data[:base0_pnl] =
+        calculate_pnl(metrics_data[:base0_total_quote_amount_invested], metrics_data[:base0_total_amount_value_in_quote])
+      metrics_data[:base1_pnl] =
+        calculate_pnl(metrics_data[:base1_total_quote_amount_invested], metrics_data[:base1_total_amount_value_in_quote])
+      metrics_data[:pnl] = calculate_pnl(metrics_data[:total_quote_amount_invested], metrics_data[:total_amount_value_in_quote])
+      metrics_data[:chart][:series][0] << metrics_data[:total_amount_value_in_quote]
+      metrics_data[:chart][:series][1] << metrics_data[:total_quote_amount_invested]
+      metrics_data[:chart][:labels] << Time.current
+
+      metrics_data
+    end
   end
 
-  def get_metrics_with_current_prices(force: false)
-    metrics = metrics(force: force)
-    return Result::Success.new(metrics) if metrics[:chart][:labels].empty?
+  def broadcast_metrics_update
+    metrics_data = metrics_with_current_prices
 
-    result0 = get_current_price(base_asset_id: base0_asset_id, quote_asset_id: quote_asset_id)
-    return result0 unless result0.success?
+    broadcast_replace_to(
+      ["user_#{user_id}", :bot_updates],
+      target: 'metrics',
+      partial: 'bots/metrics/metrics',
+      locals: { bot: self, metrics: metrics_data, loading: false }
+    )
 
-    result1 = get_current_price(base_asset_id: base1_asset_id, quote_asset_id: quote_asset_id)
-    return result1 unless result1.success?
+    broadcast_replace_to(
+      ["user_#{user_id}", :bot_updates],
+      target: 'chart',
+      partial: 'bots/chart',
+      locals: { bot: self, metrics: metrics_data, loading: false }
+    )
+  end
 
-    current_base0_value_in_quote = metrics[:total_base0_amount_acquired] * result0.data
-    current_base1_value_in_quote = metrics[:total_base1_amount_acquired] * result1.data
-    from_quote_value = metrics[:total_quote_amount_invested]
-    to_quote_value = current_base0_value_in_quote + current_base1_value_in_quote
-    metrics[:current_investment_value_in_quote] = to_quote_value
-    metrics[:pnl] = (to_quote_value - from_quote_value) / from_quote_value
-    metrics[:chart][:series][0] << to_quote_value
-    metrics[:chart][:series][1] << from_quote_value
-    metrics[:chart][:labels] << Time.current
-    Result::Success.new(metrics)
+  def broadcast_pnl_update
+    metrics_data = metrics_with_current_prices
+
+    broadcast_replace_to(
+      ["user_#{user_id}", :bot_updates],
+      target: dom_id(self, :pnl),
+      partial: 'bots/bot_tile/bot_tile_pnl',
+      locals: { bot: self, pnl: metrics_data[:pnl] || '', loading: false }
+    )
+  end
+
+  def metrics_with_current_prices_from_cache
+    Rails.cache.read(metrics_with_current_prices_cache_key)
   end
 
   private
 
-  def get_current_price(base_asset_id:, quote_asset_id:)
-    price = Rails.cache.fetch("exchange_#{exchange.id}_last_price_#{base_asset_id}_#{quote_asset_id}", expires_in: 5.minutes) do
+  def metrics_with_current_prices_cache_key
+    "bot_#{id}_metrics_with_current_prices"
+  end
+
+  def get_last_price_from_cache(base_asset_id, quote_asset_id)
+    # we cache the price so many users can use it without hitting the API too much
+    cache_key = "exchange_#{exchange.id}_last_price_for_#{base_asset_id}_#{quote_asset_id}"
+    price = Rails.cache.fetch(cache_key, expires_in: Utilities::Time.seconds_to_next_five_minute_cut) do
       result = exchange.get_last_price(base_asset_id: base_asset_id, quote_asset_id: quote_asset_id)
       return result unless result.success?
 
@@ -50,45 +132,10 @@ module Bots::Barbell::Measurable
     Result::Success.new(price)
   end
 
-  def calculate_metrics
-    data = initialize_metrics_data
-    return data if transactions.empty? || transactions.where(status: :success).last.blank?
+  def calculate_pnl(from, to)
+    return 0.0 if from.zero?
 
-    totals = initialize_totals_data
-
-    transactions.includes(:exchange).order(created_at: :asc).each do |transaction|
-      next if transaction.rate.zero? || transaction.base.nil?
-
-      # chart data
-      base_asset_id = transaction.base_asset.id
-      data[:chart][:labels] << transaction.created_at
-      amount = transaction.success? ? transaction.amount : 0
-      totals[:total_quote_amount_invested][base_asset_id] += amount * transaction.rate
-      totals[:total_base_amount_acquired][base_asset_id] += amount
-      data[:chart][:series][1] << totals[:total_quote_amount_invested].values.sum
-      totals[:current_value_in_quote][base_asset_id] =
-        totals[:total_base_amount_acquired][base_asset_id] * transaction.rate
-      data[:chart][:series][0] << totals[:current_value_in_quote].values.sum
-
-      # metrics data
-      totals[:rates][base_asset_id] << transaction.rate
-      totals[:amounts][base_asset_id] << amount
-    end
-
-    totals[:rates].each_with_index do |(base, rates_array), index|
-      weighted_average = Utilities::Math.weighted_average(rates_array, totals[:amounts][base])
-      data["base#{index}_average_buy_rate".to_sym] = weighted_average
-    end
-
-    data[:total_base0_amount_acquired] = totals[:total_base_amount_acquired][base0_asset_id]
-    data[:total_base1_amount_acquired] = totals[:total_base_amount_acquired][base1_asset_id]
-    from_quote_value = totals[:total_quote_amount_invested].values.sum
-    to_quote_value = totals[:current_value_in_quote].values.sum
-    data[:total_quote_amount_invested] = from_quote_value
-    data[:current_investment_value_in_quote] = to_quote_value
-    data[:pnl] = (to_quote_value - from_quote_value) / from_quote_value
-
-    data
+    (to - from).to_f / from
   end
 
   def initialize_metrics_data
@@ -100,10 +147,16 @@ module Bots::Barbell::Measurable
           []  # invested
         ]
       },
-      total_base0_amount_acquired: 0,
-      total_base1_amount_acquired: 0,
+      base0_total_amount: 0,
+      base1_total_amount: 0,
+      base0_total_quote_amount_invested: 0,
+      base1_total_quote_amount_invested: 0,
       total_quote_amount_invested: 0,
-      current_investment_value_in_quote: 0,
+      base0_total_amount_value_in_quote: 0,
+      base1_total_amount_value_in_quote: 0,
+      total_amount_value_in_quote: 0,
+      base0_pnl: nil,
+      base1_pnl: nil,
       pnl: nil,
       base0_average_buy_rate: nil,
       base1_average_buy_rate: nil
@@ -118,21 +171,5 @@ module Bots::Barbell::Measurable
       rates: { base0_asset_id => [], base1_asset_id => [] },
       amounts: { base0_asset_id => [], base1_asset_id => [] }
     }
-  end
-
-  def broadcast_metrics_update
-    broadcast_replace_to(
-      ["bot_#{id}", :metrics],
-      target: 'metrics',
-      partial: 'bots/metrics/metrics',
-      locals: { bot: self }
-    )
-
-    broadcast_replace_to(
-      ["bot_#{id}", :chart],
-      target: 'chart',
-      partial: 'bots/chart',
-      locals: { bot: self }
-    )
   end
 end

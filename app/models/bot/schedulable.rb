@@ -2,7 +2,12 @@ module Bot::Schedulable
   extend ActiveSupport::Concern
 
   included do
-    store_accessor :transient_data, :last_action_job_at_iso8601
+    store_accessor :transient_data, :last_action_job_at, :last_successful_action_interval_checkpoint_at
+  end
+
+  def last_action_job_at
+    value = super
+    value.present? ? Time.zone.parse(value) : nil
   end
 
   def next_action_job_at
@@ -33,12 +38,13 @@ module Bot::Schedulable
   end
 
   def last_interval_checkpoint_at
+    return legacy_last_interval_checkpoint_at if legacy?
+
     next_interval_checkpoint_at - 1.public_send(interval)
   end
 
   def progress_percentage
-    if last_action_job_at_iso8601.present? && next_action_job_at.present?
-      last_action_job_at = DateTime.parse(last_action_job_at_iso8601)
+    if last_action_job_at.present? && next_action_job_at.present?
       (Time.current - last_action_job_at) / (next_action_job_at - last_action_job_at)
     else
       0
@@ -49,5 +55,16 @@ module Bot::Schedulable
 
   def legacy_next_interval_checkpoint_at
     NextTradingBotTransactionAt.new.call(self) || Time.current
+  end
+
+  def legacy_last_interval_checkpoint_at
+    case type
+    when 'Bots::Basic'
+      next_interval_checkpoint_at - 1.public_send(interval)
+    when 'Bots::Withdrawal'
+      transactions.last&.created_at || Time.current
+    when 'Bots::Webhook'
+      Time.current
+    end
   end
 end

@@ -2,10 +2,10 @@ class ParseInterval < BaseService
   Error = StandardError
 
   def call(bot)
-    return 0.0 if bot.webhook?
+    return 0.seconds if bot.webhook?
 
     last_transaction = set_last_transaction(bot)
-    return 0.0 if last_transaction.nil?
+    return 0.seconds if last_transaction.nil?
 
     user_interval = calculate_user_interval(last_transaction)
 
@@ -28,7 +28,8 @@ class ParseInterval < BaseService
   end
 
   def set_last_transaction(bot)
-    return bot.last_successful_transaction if bot.last_transaction.status == 'failure'
+    return nil unless bot.last_transaction.present?
+    return bot.last_successful_transaction if bot.last_transaction.failure?
 
     bot.last_transaction
   end
