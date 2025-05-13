@@ -30,17 +30,20 @@ nl:
             complete_registration: "Registratie voltooien"
     bot_alerts_mailer:
         successful_webhook_bot_transaction:
-            subject: "Transactie is geslaagd"
-            template_html: "transactie geslaagd, base: %{base}, quote: %{quote}, bot_naam: %{bot_name}, type: %{type}, prijs: %{price}, beurs_naam: %{exchange_name}"
+            subject: "Transactie is succesvol uitgevoerd"
+            template_html: "Transactie succesvol, basis: %{base}, quote: %{quote}, bot-naam: %{bot_name}, type: %{type}, prijs: %{price}, exchange: %{exchange_name}"
         end_of_funds:
-            subject: "Uw bot heeft binnenkort onvoldoende saldo"
-            template_html: "<p>Het lijkt erop dat uw bot <b>%{label}</b> binnenkort geen %{quote} meer heeft.</p><p>Maak een overboeking naar %{exchange_name} om er zeker van te zijn dat de bot continu blijft werken.</p>"
+            subject: "%{label} raakt binnenkort door het saldo heen"
+            template_html: "<p>Het lijkt erop dat uw bot <b>%{label}</b> zeer binnenkort door de %{quote} heen raakt.</p><p>Maak een overschrijving naar %{exchange_name} om ervoor te zorgen dat de bot continu blijft werken.</p>"
         notify_about_error:
-            subject: "Er is iets misgegaan"
-            template_html: "<p>Er is iets misgegaan tijdens het verwerken van de laatste transactie voor de bot <b>%{label}</b>.</p><p>U kunt de fout bekijken in het bot logboek. Log in om het te controleren.</p><p>Fouten:</p><blockquote> <b>%{exchange_name}:</b> <b>%{errors}</b></blockquote>"
+            subject: "Er is iets misgegaan met %{label}"
+            template_html: "<p>Er is iets misgegaan bij het verwerken van de laatste transactie voor bot <b>%{label}</b>.</p><p>U kunt de fout bekijken in het botlogboek. Log in om het te controleren.</p><p>Fouten:</p><blockquote> <b>%{exchange_name}:</b> <b>%{errors}</b></blockquote>"
         notify_about_restart:
-            subject: "Oeps! Volgende poging…"
-            template_html: "<p>De bot <b>%{label}</b> kon uw order niet uitvoeren. Het lijkt op een probleem met de beurs. We proberen het opnieuw over %{delay}.</p><p>Alle fouten zijn zichtbaar in het bot logboek. Log in om het te bekijken.</p><p>Fouten:</p><blockquote> <b>%{exchange_name}:</b> <b>%{errors}</b> </blockquote>"
+            subject: "Oeps! Volgende poging..."
+            template_html: "<p>De bot <b>%{label}</b> kon uw order niet uitvoeren. Het lijkt op een probleem met de exchange. We proberen het opnieuw over %{delay}.</p><p>Alle fouten zijn zichtbaar in het botlogboek. Log in om het te bekijken.</p><p>Fouten:</p><blockquote> <b>%{exchange_name}:</b> <b>%{errors}</b> </blockquote>"
+        stopped_by_quote_amount_limit:
+            subject: "%{label} heeft het volledige bedrag geïnvesteerd"
+            template_html: "<p>Uw bot <b>%{label}</b> heeft uw doel bereikt en het volledige bedrag van %{amount} %{quote} geïnvesteerd.</p><p>De bot is automatisch gestopt. Schakel de bedragslimiet UIT om het doel te resetten.</p>"
     subscription_mailer:
         invoice:
             subject: 'Factuur'
