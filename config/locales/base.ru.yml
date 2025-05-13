@@ -120,7 +120,10 @@ ru:
         banner_html: '<b>Поделитесь своей реферальной ссылкой с друзьями и <a href="/referral-program" alt="Read more">получайте 20% регулярной комиссии</a> в BTC. Лучший способ делать DCA в Bitcoin - это заработать его!</b>'
         copied: Скопировано!
     settings:
-        timezone: 'Часовой пояс'
+        timezone:
+            title: 'Часовой пояс'
+            updated: 'Ваш часовой пояс был обновлен.'
+            current_time_is: 'Этот часовой пояс будет использоваться в журналах бота. Согласно ему, текущее время'
         index:
             api_key_confirmation: 'Вы уверены?'
             api_keys_section: 'Ключи API'
