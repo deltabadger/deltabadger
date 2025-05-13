@@ -26,7 +26,7 @@ module BotsManager::Trading::Validators
 
       attr_reader :interval, :base, :quote, :type, :order_type, :price,
                   :percentage, :allowed_symbols, :free_plan_symbols,
-                  :pro, :legendary, :force_smart_intervals, :smart_intervals_value, :exchange_name,
+                  :pro, :legendary, :paid_plan, :force_smart_intervals, :smart_intervals_value, :exchange_name,
                   :price_range_enabled, :price_range, :use_subaccount, :selected_subaccount
 
       TYPES = %w[buy sell sell_old].freeze
@@ -49,10 +49,10 @@ module BotsManager::Trading::Validators
         smaller_than: 100
       }
       validates :use_subaccount, inclusion: { in: [true, false, nil] }
-      validate :pro_or_legendary_if_limit_order
+      validate :paid_plan_if_limit_order
       validate :percentage_if_limit_order
       validate :smart_intervals_above_minimum
-      validate :pro_or_legendary_if_price_range
+      validate :paid_plan_if_price_range
       validate :validate_price_range
       validate :validate_use_subaccount
       validate :validate_subaccount_name
@@ -104,8 +104,8 @@ module BotsManager::Trading::Validators
         errors.add(:base, I18n.t('bot.messages.upgrade_plan_more_bots'))
       end
 
-      def pro_or_legendary_if_limit_order
-        return if pro || legendary || order_type == 'market'
+      def paid_plan_if_limit_order
+        return if paid_plan || order_type == 'market'
 
         errors.add(:base, I18n.t('bot.messages.upgrade_plan_limit_orders'))
       end
@@ -146,8 +146,8 @@ module BotsManager::Trading::Validators
         order_type == 'limit' && ['coinbase pro', 'kucoin'].include?(exchange_name.downcase)
       end
 
-      def pro_or_legendary_if_price_range
-        return if pro || legendary || !@price_range_enabled
+      def paid_plan_if_price_range
+        return if paid_plan || !@price_range_enabled
 
         errors.add(:base, I18n.t('bot.messages.upgrade_price_range'))
       end
