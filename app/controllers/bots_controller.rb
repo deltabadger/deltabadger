@@ -13,7 +13,6 @@ class BotsController < ApplicationController
   def index
     return render 'bots/react_dashboard' if params[:create] # TODO: remove this once the legacy dashboard is removed
 
-    flash[:notice] = 'test'
     @bots = current_user.bots.not_deleted.includes(:exchange).order(id: :desc)
     @pnl_hash = {}
     @loading_hash = {}
