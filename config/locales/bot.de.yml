@@ -182,3 +182,8 @@ de:
                 one: "Der verpasste Betrag wurde gepuffert und wird mit der nächsten geplanten Order verwendet, sodass dein Zeitplan und deine Allokation so gut wie möglich entsprechend den Börsen-Mindestgrößen eingehalten werden."
                 other: "Die verpassten Beträge wurden gepuffert und werden mit den nächsten geplanten Orders verwendet, sodass dein Zeitplan und deine Allokation so gut wie möglich entsprechend den Börsen-Mindestgrößen eingehalten werden."
             general_note: "Börsen-Mindestgrößen und erforderliche Rebalancing-Beträge ändern sich. Transaktionen können manchmal unregelmäßig aussehen, aber der Bot hält immer deine gewünschte Allokation und deinen Zeitplan ein, sodass kein zusätzlicher Aufwand nötig ist."
+        settings:
+            extra_amount_limit:
+                dont_spend_more_than: "Nicht mehr ausgeben als"
+                amount_left: "(%{amount} %{symbol} übrig)"
+                amount_spent: "Der gesamte Betrag wurde investiert."

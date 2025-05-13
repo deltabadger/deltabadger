@@ -31,19 +31,19 @@ en:
     bot_alerts_mailer:
         successful_webhook_bot_transaction:
             subject: "Transaction has been successful"
-            template_html: "transaction successful, base: %{base}, quote: %{quote}, bot_name: %{bot_name}, type: %{type}, price: %{price}, exchange: %{exchange_name}"
+            template_html: "Transaction successful, base: %{base}, quote: %{quote}, bot_name: %{bot_name}, type: %{type}, price: %{price}, exchange: %{exchange_name}"
         end_of_funds:
-            subject: "Your bot is running out of funds soon"
-            template_html: "<p>It looks like your bot <b>%{label}</b> is running out of %{quote} very soon.</p><p>Make a transfer to %{exchange_name} to be sure the bot is working continuously.</p>"
+            subject: "%{label} is running out of funds soon"
+            template_html: "<p>It looks like your bot <b>%{label}</b> is running out of %{quote} very soon.</p><p>Make a transfer to %{exchange_name} to ensure the bot is working continuously.</p>"
         notify_about_error:
-            subject: "Something went wrong"
+            subject: "Something went wrong with %{label}"
             template_html: "<p>Something went wrong while processing the last transaction for bot <b>%{label}</b>.</p><p>You can see the error in the bot log. Sign in to check it.</p><p>Errors:</p><blockquote> <b>%{exchange_name}:</b> <b>%{errors}</b></blockquote>"
         notify_about_restart:
             subject: "Oops! Next try…"
-            template_html: "<p>The bot <b>%{label}</b> couldn't perform your order. It looks like an exchange issue. We'll try again in %{delay}.</p><p>All error are visible in the bot log. Sign in to check it out.</p><p>Errors:</p><blockquote> <b>%{exchange_name}:</b> <b>%{errors}</b> </blockquote>"
+            template_html: "<p>The bot <b>%{label}</b> couldn't perform your order. It looks like an exchange issue. We'll try again in %{delay}.</p><p>All errors are visible in the bot log. Sign in to check it out.</p><p>Errors:</p><blockquote> <b>%{exchange_name}:</b> <b>%{errors}</b> </blockquote>"
         stopped_by_quote_amount_limit:
-            subject: "Your bot has stopped investing"
-            template_html: "<p>Your barbell bot <b>%{label}</b> has just invested all your defined %{amount} %{quote}.</p><p>The bot has been automatically stopped and will not invest any more funds until you manually restart it.</p>"
+            subject: "%{label} invested full amount"
+            template_html: "<p>Your bot <b>%{label}</b> reached your target and invested the whole %{amount} %{quote}.</p><p>It has been automatically stopped. Turn the amount limit OFF to reset the target.</p>"
     subscription_mailer:
         invoice:
             subject: 'Receipt'
