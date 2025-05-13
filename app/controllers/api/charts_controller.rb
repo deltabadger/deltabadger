@@ -6,7 +6,10 @@ module Api
       result = Charts::PortfolioValueOverTime::Chart.call(bot)
 
       if result.success?
-        render json: { data: result.data }, status: 200
+        data = result.data.map do |date, total_invested, value|
+          [date.in_time_zone(current_user.time_zone), total_invested, value]
+        end
+        render json: { data: data }, status: 200
       else
         render json: { errors: result.errors }, status: 422
       end
