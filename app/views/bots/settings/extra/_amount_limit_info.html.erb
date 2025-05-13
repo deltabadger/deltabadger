@@ -1,0 +1,5 @@
+<span id="quote_amount_available_before_limit">
+  <% if bot.quote_amount_limited? && !bot.stopped? %>
+    <%= "(#{(bot.quote_amount_available_before_limit).round(bot.decimals[:quote])} #{bot.quote_asset.symbol} left)" %>
+  <% end %>
+</span>
