@@ -115,6 +115,7 @@ es:
         banner_html: '<b>Comparte tu enlace de referidos con amigos y <a href="/referral-program" alt="Read more">gana una comisión recurrente del 20%</a> en BTC. ¡La mejor forma de hacer DCA en Bitcoin es ganándolo!</b>'
         copied: ¡Copiado!
     settings:
+        timezone: Zona horaria
         name:
             updated: "Tu nombre ha sido actualizado."
         two_fa:
