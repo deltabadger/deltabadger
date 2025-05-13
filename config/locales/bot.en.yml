@@ -1,15 +1,16 @@
 en:
     bot:
         add_api_keys: "Add API keys for %{exchange}"
+        bot_name: 'Bot name'
         new: "New bot"
         start_new_bot: "Create new bot"
         types:
             dca:
                 title: "DCA"
-                description: "Single-coin dollar-cost averaging"
+                description: "Single-asset DCA"
             barbell:
                 title: "Barbell Strategy"
-                description: "Two-asset rebalancing with no taxes"
+                description: "Two-asset rebalanced DCA"
             index_portfolio:
                 title: "Index Portfolio"
                 description: "Build your personal crypto ETF"
@@ -19,15 +20,20 @@ en:
         status:
             setting_orders: "Setting orders…"
             paused: "Paused"
-        no_orders_info: "Bot orders will appear here"
+            next_try: "Next try in"
         pick_exchange: "Pick Exchange"
         barbell:
             invest: "Invest"
             invest_html: "Invest %{input} /month"
         utils:
             mkt_cap_adjusted: "Market Cap adjusted"
-            mkt_cap_adjusted_info: |
-                The allocation is automatically set based on the market cap of the coins in your portfolio. The larger the market cap, the larger the allocation.
+            mkt_cap_adjusted_info_html: |
+                <p><b>Market cap</b> is a way to measure how big or valuable a coin is. It's calculated by multiplying the total number of coins by the current price of one coin. In your bot, the coin with the bigger market cap gets a larger share of your investment.</p>
+                <p><b>Example:</b></p>
+                <p><b>Coin A:</b> 2 millions coins exist, each worth $10. The market cap equals 2M × $10 = $20M.</p>
+                <p><b>Coin B:</b> 1 million coins exist, each worth $1. Market cap = 1M × $1 = $1M.</p>
+                <p>If you invest $100, the bot will split it proportionally to their market caps: $95.2 to Coin A, $4.8 to Coin B.</p>
+                <p>But if Coin B's price rises to $3, its market cap becomes $3M. Now, the next $100 will allocate $87 to Coin A and $13 to Coin B.</p>
         above: "above"
         below: "below"
         buttons:
@@ -126,6 +132,7 @@ en:
         limit_buy: 'Limit buy'
         limit_sell: 'Limit sell'
         messages:
+            do_you_want_to_delete: 'Do you want to delete this bot?'
             symbol_not_supported: "%{symbol} is not supported"
             symbol_not_supported_subscription: "%{symbol} is not supported in your subscription"
             upgrade_plan_more_bots: "Upgrade your plan to run more bots"
@@ -137,6 +144,8 @@ en:
             subaccounts_not_allowed: "Subaccounts not allowed on this exchange"
             no_subaccount_name: "No subaccount name supplied"
             wrong_subaccount_name: "Wrong subaccount name"
+            failed_tooltip_explanation: "This order failed: %{error_message}"
+            skipped_tooltip_explanation: "This order has been skipped because the amount was below the %{exchange_name} minimum order size. The amount has been buffered and added to the next order."
         minimum_withdrawal_disclaimer: 'The minimum withdrawal size is %{minimum} %{currency}.'
         minimum_withdrawal_disclaimer_usd: 'The minimum withdrawal size is %{minimum} USD.'
         month: Month
@@ -170,8 +179,6 @@ en:
         week: Week
         withdraw_interval_html: 'Withdraw every <split>2</split> days.'
         withdraw_threshold_html: 'Withdraw when at least <split>0.001</split> %{currency} is available.'
-        bot_name: 'Bot name'
-        change_bot_name: 'Change name'
         withdrawal_percentage: '%{percentage}%'
         withdrawal: 'Withdrawal'
         warning:
@@ -184,4 +191,3 @@ en:
                 one: "The missed amount has been buffered and will be used with the next scheduled order, ensuring your schedule and allocation are maintained as closely as exchange minimums allow."
                 other: "The missed amounts have been buffered and will be used with the next scheduled orders, ensuring your schedule and allocation are maintained as closely as exchange minimums allow."
             general_note: "Exchange minimums and required rebalancing amounts change. Transactions might sometimes look irregular, but the bot always targets your desired allocation and schedule, so no extra work is needed."
-            tooltip_explanation: "This order was skipped because the amount was below the %{exchange_name} minimum order size. The amount was buffered and added to the next order."

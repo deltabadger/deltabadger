@@ -1,15 +1,16 @@
 pl:
     bot:
         add_api_keys: "Dodaj klucze API dla %{exchange}"
+        bot_name: "Nazwa bota"
         new: "Nowy bot"
         start_new_bot: "Utwórz nowego bota"
         types:
             dca:
                 title: "DCA"
-                description: "Uśrednianie kosztów dla pojedynczej kryptowaluty"
+                description: "DCA pojedynczego aktywa"
             barbell:
                 title: "Strategia Barbell"
-                description: "Rebalansowanie dwóch aktywów bez podatku"
+                description: "DCA z rebalansowaniem dwóch aktywów"
             index_portfolio:
                 title: "Portfolio Indeksowe"
                 description: "Zbuduj swój osobisty krypto ETF"
@@ -17,16 +18,21 @@ pl:
                 title: "Niestandardowe Portfolio"
                 description: "Rebalansuj niestandardowy zestaw aktywów"
         status:
-            setting_orders: "Inicjowanie zleceń…"
-            paused: "Zatrzymany"
-        no_orders_info: "Zamówienia bota pojawią się tutaj"
+            setting_orders: "Ustawianie zleceń…"
+            paused: "Wstrzymany"
+            next_try: "Następna próba za"
         barbell:
             invest: "Inwestuj"
             invest_html: "Inwestuj %{input} /miesiąc"
         utils:
             mkt_cap_adjusted: "Dostosowane do kapitalizacji rynkowej"
-            mkt_cap_adjusted_info: |
-                Alokacja jest automatycznie ustawiana na podstawie kapitalizacji rynkowej monet w twoim portfelu. Im większa kapitalizacja rynkowa, tym większa alokacja.
+            mkt_cap_adjusted_info_html: |
+                <p><b>Kapitalizacja rynkowa</b> to sposób na zmierzenie, jak duża lub wartościowa jest moneta. Oblicza się ją, mnożąc całkowitą liczbę monet przez aktualną cenę jednej monety. W twoim bocie, moneta o większej kapitalizacji rynkowej otrzymuje większą część twojej inwestycji.</p>
+                <p><b>Przykład:</b></p>
+                <p><b>Moneta A:</b> Istnieje 2 miliony monet, każda warta 10 $. Kapitalizacja rynkowa wynosi 2M × 10 $ = 20M $.</p>
+                <p><b>Moneta B:</b> Istnieje 1 milion monet, każda warta 1 $. Kapitalizacja rynkowa = 1M × 1 $ = 1M $.</p>
+                <p>Jeśli zainwestujesz 100 $, bot podzieli tę kwotę proporcjonalnie do ich kapitalizacji rynkowych: 95,2 $ dla Monety A, 4,8 $ dla Monety B.</p>
+                <p>Ale jeśli cena Monety B wzrośnie do 3 $, jej kapitalizacja rynkowa stanie się równa 3M $. Teraz, kolejne 100 $ zostanie podzielone: 87 $ dla Monety A i 13 $ dla Monety B.</p>
         above: powyżej
         below: poniżej
         buttons:
@@ -117,6 +123,7 @@ pl:
         limit_buy: 'Kup z limitem'
         limit_sell: 'Sprzedaj z limitem'
         messages:
+            do_you_want_to_delete: 'Czy chcesz usunąć tego bota?'
             symbol_not_supported: "%{symbol} nie jest obsługiwany"
             symbol_not_supported_subscription: "%{symbol} nie jest obsługiwany przez twoją subskrypcję"
             upgrade_plan_more_bots: "Zrób upgrade, aby uruchomić więcej botów"
@@ -128,6 +135,8 @@ pl:
             subaccounts_not_allowed: "Subkonta nie są dozwolone na tej giełdzie"
             no_subaccount_name: "Nie podano nazwy subkonta"
             wrong_subaccount_name: "Nieprawidłowa nazwa subkonta"
+            failed_tooltip_explanation: "To zlecenie zakończyło się niepowodzeniem: %{error_message}"
+            skipped_tooltip_explanation: "To zlecenie zostało pominięte, ponieważ kwota była poniżej minimalnego rozmiaru zlecenia %{exchange_name}. Pominięta kwota została zbuforowana i zostanie dodana do następnego zlecenia."
         minimum_withdrawal_disclaimer: 'Minimalna wielkość wypłaty to %{minimum} %{currency}.'
         minimum_withdrawal_disclaimer_usd: 'Minimalna wielkość wypłaty to %{minimum} USD.'
         month: Miesiąc
@@ -159,4 +168,3 @@ pl:
                 one: "Pominięta kwota została zbuforowana i zostanie użyta przy następnym zaplanowanym zleceniu, dzięki czemu Twój harmonogram i alokacja będą utrzymane jak najbliżej giełdowych minimów."
                 other: "Pominięte kwoty zostały zbuforowane i zostaną użyte przy kolejnych zaplanowanych zleceniach, dzięki czemu Twój harmonogram i alokacja będą utrzymane jak najbliżej giełdowych minimów."
             general_note: "Minimalne kwoty na giełdach i wymagane kwoty rebalancingu mogą się zmieniać. Zlecenia mogą czasami wyglądać nieregularnie, ale bot zawsze dąży do Twojej pożądanej alokacji i harmonogramu, więc nie jest wymagana dodatkowa praca."
-            tooltip_explanation: "To zlecenie zostało pominięte, ponieważ kwota była poniżej minimalnego rozmiaru zlecenia %{exchange_name}. Pominięta kwota została zbuforowana i zostanie dodana do następnego zlecenia."

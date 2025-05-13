@@ -19,15 +19,10 @@ class ApiKey < ApplicationRecord
     where(user_id: user_id, exchange_id: exchange_id, key_type: key_type)
   }
 
-  private
-
-  def unique_for_user_exchange_and_key_type
-    return unless ApiKey.exists?(user_id: user_id, exchange_id: exchange_id, key_type: key_type)
-
-    errors.add(:key, I18n.t('errors.api_key_already_exists', exchange_name: exchange.name))
-  end
-
   def validate_key_permissions
+    # TODO: remove this once all exchanges are supported
+    return unless Exchange.available_for_barbell_bots.include?(exchange)
+
     result = exchange.check_valid_api_key?(api_key: self)
     if result.success?
       self.status = result.data ? :correct : :incorrect
@@ -42,5 +37,13 @@ class ApiKey < ApplicationRecord
       errors.add(:key, message)
       errors.add(:secret, message)
     end
+  end
+
+  private
+
+  def unique_for_user_exchange_and_key_type
+    return unless ApiKey.exists?(user_id: user_id, exchange_id: exchange_id, key_type: key_type)
+
+    errors.add(:key, I18n.t('errors.api_key_already_exists', exchange_name: exchange.name))
   end
 end

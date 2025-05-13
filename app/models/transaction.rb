@@ -3,8 +3,9 @@ class Transaction < ApplicationRecord
   belongs_to :exchange
 
   before_create :set_exchange, if: -> { bot.legacy? }
+  before_create :round_numeric_fields
   after_create_commit :set_daily_transaction_aggregate
-  after_create_commit :update_bot_metrics, if: -> { success? && !bot.legacy? }
+  after_create_commit :update_bot_metrics, unless: -> { bot.legacy? }
   after_create_commit :broadcast_to_bot, unless: -> { bot.legacy? }
   after_create_commit :broadcast_below_minimums_warning_to_bot, unless: -> { bot.legacy? }
 
@@ -28,13 +29,15 @@ class Transaction < ApplicationRecord
   def base_asset
     @base_asset ||= exchange.assets.find_by(symbol: base) ||
                     exchange.tickers.find_by(base: base)&.base_asset ||
-                    exchange.tickers.find_by(quote: base)&.quote_asset
+                    exchange.tickers.find_by(quote: base)&.quote_asset ||
+                    Asset.find_by(symbol: base)
   end
 
   def quote_asset
     @quote_asset ||= exchange.assets.find_by(symbol: quote) ||
                      exchange.tickers.find_by(quote: quote)&.quote_asset ||
-                     exchange.tickers.find_by(base: quote)&.base_asset
+                     exchange.tickers.find_by(base: quote)&.base_asset ||
+                     Asset.find_by(symbol: quote)
   end
 
   # def count_by_status_and_exchange(status, exchange)
@@ -64,6 +67,12 @@ class Transaction < ApplicationRecord
     self.exchange ||= bot.exchange
   end
 
+  def round_numeric_fields
+    self.rate = rate&.round(18)
+    self.amount = amount&.round(18)
+    self.bot_price = bot_price&.round(18)
+  end
+
   # rubocop:disable Metrics/CyclomaticComplexity, Metrics/PerceivedComplexity
   def set_daily_transaction_aggregate
     return unless success?
@@ -89,21 +98,26 @@ class Transaction < ApplicationRecord
   end
 
   def broadcast_to_bot
+    # TODO: When transactions point to real asset ids, we can use the asset ids directly instead of symbols
+    ticker = exchange.tickers.find_by(base_asset: base_asset, quote_asset: quote_asset)
+    decimals = {
+      base_asset.symbol => ticker.base_decimals,
+      quote_asset.symbol => ticker.quote_decimals
+    }
+
     if bot.transactions.limit(2).count == 1
-      broadcast_replace_to(
-        ["bot_#{bot_id}", :orders],
-        target: 'orders',
-        partial: 'bots/orders/orders',
-        locals: { bot: bot }
-      )
-    else
-      broadcast_prepend_to(
-        ["bot_#{bot_id}", :orders],
-        target: 'orders_list',
-        partial: 'bots/orders/order',
-        locals: { order: self }
+      broadcast_remove_to(
+        ["user_#{bot.user_id}", :bot_updates],
+        target: 'orders_list_placeholder'
       )
     end
+
+    broadcast_prepend_to(
+      ["user_#{bot.user_id}", :bot_updates],
+      target: 'orders_list',
+      partial: 'bots/orders/order',
+      locals: { order: self, decimals: decimals, exchange_name: exchange.name }
+    )
   end
 
   def broadcast_below_minimums_warning_to_bot
@@ -150,7 +164,7 @@ class Transaction < ApplicationRecord
              end
 
     broadcast_replace_to(
-      ["bot_#{bot_id}", :warning_below_minimums],
+      ["user_#{bot.user_id}", :bot_updates],
       target: 'modal',
       partial: 'bots/barbell/warning_below_minimums',
       locals: locals

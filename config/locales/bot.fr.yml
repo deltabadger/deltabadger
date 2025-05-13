@@ -1,15 +1,16 @@
 fr:
     bot:
         add_api_keys: "Ajouter les clés API pour %{exchange}"
+        bot_name: 'Nom du bot'
         new: "Nouveau bot"
         start_new_bot: "Créer un nouveau bot"
         types:
             dca:
                 title: "DCA"
-                description: "Investissement programmé sur une seule cryptomonnaie"
+                description: "DCA mono-actif"
             barbell:
                 title: "Stratégie Barbell"
-                description: "Rééquilibrage de deux actifs sans impôts"
+                description: "DCA rééquilibré à deux actifs"
             index_portfolio:
                 title: "Portefeuille Indice"
                 description: "Construisez votre ETF crypto personnel"
@@ -19,14 +20,19 @@ fr:
         status:
             setting_orders: "Configuration des commandes…"
             paused: "En pause"
-        no_orders_info: "Les commandes du bot apparaîtront ici"
+            next_try: "Prochain essai dans"
         barbell:
             invest: "Investir"
             invest_html: "Investir %{input} /mois"
         utils:
             mkt_cap_adjusted: "Ajusté à la capitalisation boursière"
-            mkt_cap_adjusted_info: |
-                L'allocation est automatiquement définie en fonction de la capitalisation boursière des cryptomonnaies de votre portefeuille. Plus la capitalisation est importante, plus l'allocation est élevée.
+            mkt_cap_adjusted_info_html: |
+                <p><b>Capitalisation boursière</b> est une façon de mesurer la taille ou la valeur d'une cryptomonnaie. Elle est calculée en multipliant le nombre total de pièces par le prix actuel d'une pièce. Dans votre bot, la cryptomonnaie avec la plus grande capitalisation boursière reçoit une plus grande part de votre investissement.</p>
+                <p><b>Exemple :</b></p>
+                <p><b>Cryptomonnaie A :</b> 2 millions de pièces existent, chacune valant 10 €. La capitalisation boursière équivaut à 2M × 10 € = 20M €.</p>
+                <p><b>Cryptomonnaie B :</b> 1 million de pièces existent, chacune valant 1 €. Capitalisation boursière = 1M × 1 € = 1M €.</p>
+                <p>Si vous investissez 100 €, le bot les répartira proportionnellement à leurs capitalisations boursières : 95,2 € pour la Cryptomonnaie A, 4,8 € pour la Cryptomonnaie B.</p>
+                <p>Mais si le prix de la Cryptomonnaie B monte à 3 €, sa capitalisation boursière devient 3M €. Maintenant, les 100 € suivants alloueront 87 € à la Cryptomonnaie A et 13 € à la Cryptomonnaie B.</p>
         above: 'au dessus'
         below: 'en dessous'
         buttons:
@@ -117,6 +123,7 @@ fr:
         limit_buy: 'Achat limité'
         limit_sell: 'Vente limitée'
         messages:
+            do_you_want_to_delete: 'Voulez-vous vraiment supprimer ce bot ?'
             symbol_not_supported: "%{symbol} n''est pas pris en charge"
             symbol_not_supported_subscription: "%{symbol} n''est pas pris en charge par votre abonnement"
             upgrade_plan_more_bots: "Mettez à jour votre plan pour exécuter plus de bots"
@@ -128,6 +135,8 @@ fr:
             subaccounts_not_allowed: "Les sous-comptes ne sont pas autorisés sur cet échange"
             no_subaccount_name: "Aucun nom de sous-compte fourni"
             wrong_subaccount_name: "Nom de sous-compte incorrect"
+            failed_tooltip_explanation: "Cette commande a échoué: %{error_message}"
+            skipped_tooltip_explanation: "Cette commande a été ignorée car le montant était inférieur à la taille minimale de commande de %{exchange_name}. Le montant ignoré a été mis en mémoire tampon et sera ajouté à la prochaine commande."
         minimum_withdrawal_disclaimer: 'Le montant minimal de retrait est de %{minimum} %{currency}'
         minimum_withdrawal_disclaimer_usd: 'Le montant minimal de retrait est %{minimum} USD.'
         month: 'Mois'
@@ -160,4 +169,3 @@ fr:
                 one: "Le montant manqué a été mis en mémoire tampon et sera utilisé avec la prochaine commande programmée, garantissant que votre calendrier et votre allocation sont maintenus aussi près que possible des minimums de l'échange."
                 other: "Les montants manqués ont été mis en mémoire tampon et seront utilisés avec les prochaines commandes programmées, garantissant que votre calendrier et votre allocation sont maintenus aussi près que possible des minimums de l'échange."
             general_note: "Les minimums d'échange et les montants de rééquilibrage requis peuvent changer. Les commandes peuvent parfois sembler irrégulières, mais le bot cible toujours votre allocation et votre calendrier souhaités, donc aucun travail supplémentaire n'est nécessaire."
-            tooltip_explanation: "Cette commande a été ignorée car le montant était inférieur à la taille minimale de commande de %{exchange_name}. Le montant ignoré a été mis en mémoire tampon et sera ajouté à la prochaine commande."

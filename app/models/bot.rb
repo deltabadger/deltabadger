@@ -59,7 +59,7 @@ class Bot < ApplicationRecord
 
   def broadcast_status_bar_update
     broadcast_replace_to(
-      ["bot_#{id}", :status_bar],
+      ["user_#{user_id}", :bot_updates],
       target: dom_id(self, :status_bar),
       partial: 'bots/status/status_bar',
       locals: { bot: self }
@@ -68,7 +68,7 @@ class Bot < ApplicationRecord
 
   def broadcast_status_button_update
     broadcast_replace_to(
-      ["bot_#{id}", :status_button],
+      ["user_#{user_id}", :bot_updates],
       target: dom_id(self, :status_button),
       partial: legacy? ? 'bots/status/status_button_legacy' : 'bots/status/status_button',
       locals: { bot: self }

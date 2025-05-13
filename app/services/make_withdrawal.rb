@@ -38,12 +38,15 @@ class MakeWithdrawal < BaseService
       @order_flow_helper.stop_bot(bot, true, result.errors)
     end
     result
-  rescue StandardError
+  rescue StandardError => e
     Rails.logger.info '=======================  make_withdrawal RESCUE 2 =============================='
     Rails.logger.info "================= #{e.inspect} ======================="
     Rails.logger.info '====================================================='
-    @unschedule_transactions.call(bot)
-    @order_flow_helper.stop_bot(bot, true)
+    if bot.present?
+      @unschedule_transactions.call(bot)
+      @order_flow_helper.stop_bot(bot, true)
+    end
+
     raise
   end
 
@@ -60,7 +63,7 @@ class MakeWithdrawal < BaseService
     bot.update(account_balance: balance.data)
     Rails.logger.info "withdrawal bot: #{bot.inspect}" # TODO: delete after testing
     Rails.logger.info "withdrawal threshold : #{check_balance_threshold(bot, balance).inspect}" # TODO: delete after testing
-    return Result::Failure.new(**SKIPPED) unless check_balance_threshold(bot, balance)
+    return Result::Failure.new(SKIPPED.to_s) unless check_balance_threshold(bot, balance)
 
     Rails.logger.info "withdrawal params: #{get_withdrawal_params(bot, balance).inspect}" # TODO: delete after testing
     withdrawal_api.make_withdrawal(get_withdrawal_params(bot, balance))

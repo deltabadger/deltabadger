@@ -34,7 +34,7 @@ module ExchangeApi
           response = JSON.parse(Faraday.post(url, body, headers(@api_key, @api_secret, body)).body)
           parse_response(response)
         rescue StandardError
-          Result::Failure.new('Could not make Zonda order', **RECOVERABLE)
+          Result::Failure.new('Could not make Zonda order', RECOVERABLE.to_s)
         end
 
         # rubocop:disable Metrics/CyclomaticComplexity, Metrics/PerceivedComplexity

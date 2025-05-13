@@ -27,13 +27,13 @@ module ExchangeApi
           return error_to_failure(response.fetch('error')) if response.fetch('error').any?
 
           withdrawal_details = response.fetch('result').find { |w| w['refid'] == external_id }
-          return Result::Failure.new("Kraken withdrawal #{external_id} failed", **RECOVERABLE) if failed?(withdrawal_details)
+          return Result::Failure.new("Kraken withdrawal #{external_id} failed", RECOVERABLE.to_s) if failed?(withdrawal_details)
 
           result = parse_withdrawal(withdrawal_details).merge(external_id: external_id)
           Result::Success.new(result)
         rescue StandardError => e
           Raven.capture_exception(e)
-          Result::Failure.new('Could not make Kraken withdrawal', **RECOVERABLE)
+          Result::Failure.new('Could not make Kraken withdrawal', RECOVERABLE.to_s)
         end
 
         private

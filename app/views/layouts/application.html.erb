@@ -5,6 +5,8 @@
     <meta content="width=device-width, initial-scale=1.0" name="viewport">
     <meta content="ie=edge" http-equiv="X-UA-Compatible">
     <meta name="color-scheme" content="dark light">
+    <meta name="theme-color" content="#f5f6f8" id="theme-color-meta">
+
     <%= csrf_meta_tags %>
     <%= csp_meta_tag %>
 
@@ -33,7 +35,7 @@
       // service worker registration for PWA
       if ('serviceWorker' in navigator) {
         navigator.serviceWorker.register("<%= asset_pack_path('service-worker.js') %>").then(function(registration) {
-          console.log('ServiceWorker registration successful with scope: ', registration.scope);
+          // console.log('ServiceWorker registration successful with scope: ', registration.scope);
         }).catch(function(error) {
           console.log('ServiceWorker registration failed: ', error);
         });

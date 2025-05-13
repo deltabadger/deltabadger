@@ -2,11 +2,8 @@
   <div class="sinput sinput--select sinput--exchange sinput--exchange--<%= bot.exchange.name.downcase %> <%= 'sinput--disabled' if bot.working? || bot.pending? %>">
     <%= render "svg/exchange-#{bot.exchange.name.downcase}", title: bot.exchange.name %>
     <%= bot.exchange&.name&.capitalize || t('bot.pick_exchange') %>
-    <% if bot.transactions.any? %>
-      <% exchange_options = bot.available_exchanges_for_current_settings.map { |e| [e.name.capitalize, e.id] } %>
-    <% else %>
-      <% exchange_options = [[t('bot.pick_exchange'), nil]] + bot.available_exchanges_for_current_settings.map { |e| [e.name.capitalize, e.id] } %>
-    <% end %>
+    <% exchange_options = bot.available_exchanges_for_current_settings.pluck(:name, :id).map { |name, id| [name.capitalize, id] } %>
+
     <%= f.select :exchange_id, exchange_options, { selected: bot.exchange_id }, data: { action: "change->form--submit#submit" }, disabled: bot.working? || bot.pending? %>
   </div>
 
