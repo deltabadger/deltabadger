@@ -17,7 +17,7 @@ module Bots::Barbell::OrderCreator
     broadcast_quote_amount_available_before_limit_update if quote_amount_limited?
     return unless quote_amount_limit_reached?
 
-    notify_bot_stopped_by_quote_amount_limit
+    notify_stopped_by_quote_amount_limit
     stop
   end
 
