@@ -2,11 +2,3 @@
 
 <p><%= t('mailer.greeting_name', name: @user.name) %></p>
 <%= t('.template_html', label: @label, amount: @amount, quote: @quote) %>
-
-
-<%# Something like:
-
-Your barbell bot <b>%{label}</b> has just invested all your defined %{amount} %{quote}.
-The bot has been automatically stopped and will not invest any more funds until you manually restart it.
-
-%>
