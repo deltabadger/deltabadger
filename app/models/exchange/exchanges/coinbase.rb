@@ -252,7 +252,7 @@ module Exchange::Exchanges::Coinbase
     ticker = tickers.find_by(base_asset_id: base_asset_id, quote_asset_id: quote_asset_id)
     return Result::Failure.new("No ticker found for #{base_asset_id} and #{quote_asset_id}") unless ticker
 
-    result = client.get_best_bid_ask(product_ids: [ticker.ticker])
+    result = client.get_public_product_book(product_id: ticker.ticker, limit: 1)
     return result unless result.success?
 
     if result.data['pricebooks'][0]['product_id'] != ticker.ticker
@@ -263,12 +263,12 @@ module Exchange::Exchanges::Coinbase
     Result::Success.new(
       {
         bid: {
-          price: result.data['pricebooks'][0]['bids'][0]['price'].to_d,
-          size: result.data['pricebooks'][0]['bids'][0]['size'].to_d
+          price: result.data['pricebook']['bids'][0]['price'].to_d,
+          size: result.data['pricebook']['bids'][0]['size'].to_d
         },
         ask: {
-          price: result.data['pricebooks'][0]['asks'][0]['price'].to_d,
-          size: result.data['pricebooks'][0]['asks'][0]['size'].to_d
+          price: result.data['pricebook']['asks'][0]['price'].to_d,
+          size: result.data['pricebook']['asks'][0]['size'].to_d
         }
       }
     )
