@@ -116,7 +116,7 @@ class Transaction < ApplicationRecord
       ["user_#{bot.user_id}", :bot_updates],
       target: 'orders_list',
       partial: 'bots/orders/order',
-      locals: { order: self, decimals: decimals, exchange_name: exchange.name }
+      locals: { order: self, decimals: decimals, exchange_name: exchange.name, current_user: bot.user }
     )
   end
 
