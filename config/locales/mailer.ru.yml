@@ -31,16 +31,19 @@ ru:
     bot_alerts_mailer:
         successful_webhook_bot_transaction:
             subject: "Транзакция успешно выполнена"
-            template_html: "транзакция успешна, базовая валюта: %{base}, котируемая валюта: %{quote}, имя бота: %{bot_name}, тип: %{type}, цена: %{price}, биржа: %{exchange_name}"
+            template_html: "Транзакция успешна, базовая валюта: %{base}, котируемая валюта: %{quote}, имя бота: %{bot_name}, тип: %{type}, цена: %{price}, биржа: %{exchange_name}"
         end_of_funds:
-            subject: "У вашего бота скоро закончатся средства"
-            template_html: "<p>Похоже, у вашего бота <b>%{label}</b> скоро закончатся %{quote}.</p><p>Сделайте перевод на %{exchange_name}, чтобы бот продолжал работать непрерывно.</p>"
+            subject: "У %{label} скоро закончатся средства"
+            template_html: "<p>Похоже, что у вашего бота <b>%{label}</b> очень скоро закончится %{quote}.</p><p>Сделайте перевод на %{exchange_name}, чтобы обеспечить непрерывную работу бота.</p>"
         notify_about_error:
-            subject: "Что-то пошло не так"
-            template_html: "<p>Что-то пошло не так во время обработки последней транзакции для бота <b>%{label}</b>.</p><p>Вы можете увидеть ошибку в логе бота. Войдите, чтобы проверить.</p><p>Ошибки:</p><blockquote> <b>%{exchange_name}:</b> <b>%{errors}</b></blockquote>"
+            subject: "Что-то пошло не так с %{label}"
+            template_html: "<p>Что-то пошло не так при обработке последней транзакции для бота <b>%{label}</b>.</p><p>Вы можете увидеть ошибку в логе бота. Войдите, чтобы проверить.</p><p>Ошибки:</p><blockquote> <b>%{exchange_name}:</b> <b>%{errors}</b></blockquote>"
         notify_about_restart:
-            subject: "Упс! Следующая попытка…"
+            subject: "Упс! Следующая попытка..."
             template_html: "<p>Бот <b>%{label}</b> не смог выполнить ваш ордер. Похоже на проблему с биржей. Мы попробуем снова через %{delay}.</p><p>Все ошибки видны в логе бота. Войдите, чтобы проверить.</p><p>Ошибки:</p><blockquote> <b>%{exchange_name}:</b> <b>%{errors}</b> </blockquote>"
+        stopped_by_quote_amount_limit:
+            subject: "%{label} инвестировал полную сумму"
+            template_html: "<p>Ваш бот <b>%{label}</b> достиг вашей цели и инвестировал всю сумму %{amount} %{quote}.</p><p>Он был автоматически остановлен. Отключите лимит суммы, чтобы сбросить цель.</p>"
     subscription_mailer:
         invoice:
             subject: 'Квитанция'
