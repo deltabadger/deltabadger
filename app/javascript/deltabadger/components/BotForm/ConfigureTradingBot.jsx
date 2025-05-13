@@ -314,88 +314,79 @@ export const ConfigureTradingBot = ({ showLimitOrders, currentExchange, handleRe
 
       <div className="db-bot__form">
         <div className="db-bot__alert text-danger">{ errors }</div>
-        <form>
+        <form className="db-bot__form">
 
           <div className="conversational flex-justify-center">
-            <div className="form-group mr-2">
-              <select
-                value={type}
-                onChange={e => setType(e.target.value)}
-                className="bot-input bot-input--select bot-input--order-type bot-input--paper-bg"
-              >
-                <option value="market_buy">{I18n.t('bot.buy')}</option>
-                <option value="market_sell">{I18n.t('bot.sell')}</option>
-                <option value="limit_buy" disabled={!showLimitOrders}>{I18n.t('bot.limit_buy')}</option>
-                <option value="limit_sell" disabled={!showLimitOrders}>{I18n.t('bot.limit_sell')}</option>
-              </select>
-            </div>
+            
+            <select
+              value={type}
+              onChange={e => setType(e.target.value)}
+              className="bot-input bot-input--select bot-input--order-type bot-input--paper-bg"
+            >
+              <option value="market_buy">{I18n.t('bot.buy')}</option>
+              <option value="market_sell">{I18n.t('bot.sell')}</option>
+              <option value="limit_buy" disabled={!showLimitOrders}>{I18n.t('bot.limit_buy')}</option>
+              <option value="limit_sell" disabled={!showLimitOrders}>{I18n.t('bot.limit_sell')}</option>
+            </select>
+            
             {isSellOffer()?
                 <>
-                  <div className="form-group mr-2">
-                    <input
-                        type="tel"
-                        min="1"
-                        size={(price.length > 0) ? price.length : 3 }
-                        value={price}
-                        onChange={e => setPrice(e.target.value)}
-                        className="bot-input bot-input--sizable bot-input--paper-bg"
-                    />
-                  </div>
-                  <div className="form-group mr-2">
-                    <select
-                        value={base}
-                        onChange={e => setBase(e.target.value)}
-                        className="bot-input bot-input--select bot-input--ticker bot-input--paper-bg"
-                    >
-                      {
-                        BASES.map(c =>
-                            (<option key={c} value={c}>{renameSymbol(c)}</option>)
-                        )
-                      }
-                      {
-                        OTHER_BASES.map(c =>
-                            (<option key={c} value={c} disabled={true}>{renameSymbol(c)}</option>)
-                        )
-                      }
-                    </select>
-                  </div>
-                  <div className="form-group mr-2">{I18n.t('bot.for')}</div>
+                  <input
+                      type="tel"
+                      min="1"
+                      size={(price.length > 0) ? price.length : 3 }
+                      value={price}
+                      onChange={e => setPrice(e.target.value)}
+                      className="bot-input bot-input--sizable bot-input--paper-bg"
+                  />
+                  <select
+                      value={base}
+                      onChange={e => setBase(e.target.value)}
+                      className="bot-input bot-input--select bot-input--ticker bot-input--paper-bg"
+                  >
+                    {
+                      BASES.map(c =>
+                          (<option key={c} value={c}>{renameSymbol(c)}</option>)
+                      )
+                    }
+                    {
+                      OTHER_BASES.map(c =>
+                          (<option key={c} value={c} disabled={true}>{renameSymbol(c)}</option>)
+                      )
+                    }
+                  </select>
+                  <div>{I18n.t('bot.for')}</div>
                 </>
                 :
                 <>
-                  <div className="form-group mr-2">
-                    <select
-                        value={base}
-                        onChange={e => setBase(e.target.value)}
-                        className="bot-input bot-input--select bot-input--ticker bot-input--paper-bg"
-                    >
-                      {
-                        BASES.map(c =>
-                            (<option key={c} value={c}>{renameSymbol(c)}</option>)
-                        )
-                      }
-                      {
-                        OTHER_BASES.map(c =>
-                            (<option key={c} value={c} disabled={true}>{renameSymbol(c)}</option>)
-                        )
-                      }
-                    </select>
-                  </div>
-                  <div className="form-group mr-2">{I18n.t('bot.for')}</div>
-                  <div className="form-group mr-2">
-                    <input
-                        type="text"
-                        min="1"
-                        size={(price.length > 0) ? price.length : 3 }
-                        value={price}
-                        onChange={e => setPrice(e.target.value)}
-                        className="bot-input bot-input--sizable bot-input--paper-bg"
-                    />
-                  </div>
+                  <select
+                      value={base}
+                      onChange={e => setBase(e.target.value)}
+                      className="bot-input bot-input--select bot-input--ticker bot-input--paper-bg"
+                  >
+                    {
+                      BASES.map(c =>
+                          (<option key={c} value={c}>{renameSymbol(c)}</option>)
+                      )
+                    }
+                    {
+                      OTHER_BASES.map(c =>
+                          (<option key={c} value={c} disabled={true}>{renameSymbol(c)}</option>)
+                      )
+                    }
+                  </select>
+                  <div>{I18n.t('bot.for')}</div>
+                  <input
+                      type="text"
+                      min="1"
+                      size={(price.length > 0) ? price.length : 3 }
+                      value={price}
+                      onChange={e => setPrice(e.target.value)}
+                      className="bot-input bot-input--sizable bot-input--paper-bg"
+                  />
                 </>
 
             }
-            <div className="form-group mr-2">
               <select
                   value={quote}
                   onChange={e => setQuote(e.target.value)}
@@ -407,19 +398,16 @@ export const ConfigureTradingBot = ({ showLimitOrders, currentExchange, handleRe
                   )
                 }
               </select>
-            </div>
-            <div className="form-group mr-2">/</div>
-            <div className="form-group">
-              <select value={interval}
-                      onChange={e => setInterval(e.target.value)}
-                      className="bot-input bot-input--select bot-input--interval bot-input--paper-bg"
-              >
-                <option value="hour">{I18n.t('bot.hour')}</option>
-                <option value="day">{I18n.t('bot.day')}</option>
-                <option value="week">{I18n.t('bot.week')}</option>
-                <option value="month">{I18n.t('bot.month')}</option>
-              </select>
-            </div>
+            <div>/</div>
+            <select value={interval}
+                    onChange={e => setInterval(e.target.value)}
+                    className="bot-input bot-input--select bot-input--interval bot-input--paper-bg"
+            >
+              <option value="hour">{I18n.t('bot.hour')}</option>
+              <option value="day">{I18n.t('bot.day')}</option>
+              <option value="week">{I18n.t('bot.week')}</option>
+              <option value="month">{I18n.t('bot.month')}</option>
+            </select>
           </div>
 
           {showSubaccounts && <label
