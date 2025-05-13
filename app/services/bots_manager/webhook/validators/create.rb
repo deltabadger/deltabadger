@@ -25,7 +25,7 @@ module BotsManager::Webhook::Validators
       include ActiveModel::Validations
 
       attr_reader :base, :quote, :type, :order_type, :price, :allowed_symbols, :free_plan_symbols,
-                  :pro, :legendary, :exchange_name, :name, :trigger_url, :trigger_possibility,
+                  :pro, :legendary, :paid_plan, :exchange_name, :name, :trigger_url, :trigger_possibility,
                   :already_triggered_types, :additional_type, :additional_type_enabled,
                   :additional_trigger_url, :additional_price
 
@@ -91,8 +91,8 @@ module BotsManager::Webhook::Validators
         errors.add(:symbol, "#{symbol} is not supported in your subscription")
       end
 
-      def pro_or_legendary_if_limit_order
-        return if pro || legendary || order_type == 'market'
+      def paid_plan_if_limit_order
+        return if paid_plan || order_type == 'market'
 
         errors.add(:base, 'Limit orders are only available in Pro and Legendary plans')
       end
