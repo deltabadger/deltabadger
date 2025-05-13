@@ -269,7 +269,7 @@ class BotsController < ApplicationController
       :base0_asset_id,
       :base1_asset_id,
       :allocation0,
-      :market_cap_adjusted,
+      :marketcap_allocated,
       :exchange_id,
       :label,
       :query
@@ -298,7 +298,7 @@ class BotsController < ApplicationController
       pp[:base0_asset_id] = pp[:base0_asset_id].present? ? pp[:base0_asset_id].to_i : nil
       pp[:base1_asset_id] = pp[:base1_asset_id].present? ? pp[:base1_asset_id].to_i : nil
       pp[:quote_asset_id] = pp[:quote_asset_id].present? ? pp[:quote_asset_id].to_i : nil
-      pp[:market_cap_adjusted] = %w[1 true].include?(pp[:market_cap_adjusted]) if pp[:market_cap_adjusted].present?
+      pp[:marketcap_allocated] = %w[1 true].include?(pp[:marketcap_allocated]) if pp[:marketcap_allocated].present?
       pp[:quote_amount] = pp[:quote_amount].present? ? pp[:quote_amount].to_f : nil
       pp[:allocation0] = pp[:allocation0].present? ? pp[:allocation0].to_f : nil
     end.compact
