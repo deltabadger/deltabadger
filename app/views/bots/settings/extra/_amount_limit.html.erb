@@ -7,11 +7,7 @@
         <%= "Don't spend more than" %>
         <%= f.number_field :quote_amount_limit, value: bot.quote_amount_limit.to_d.to_s('F').sub(/^(?!0\.0$)([1-9]\d*)\.0$/, '\1'), class: 'sinput numeric-input', min: 0, step: :any, size: 3, data: { controller: "autowidth-input", action: "change->form--submit#submit input->autowidth-input#resize" }, style: "margin-left: 0.125rem;", disabled: !bot.stopped? %>
         <%= bot.quote_asset.symbol %>
-        <span id="quote_amount_available_before_limit">
-          <% if bot.quote_amount_limited? && !bot.stopped? %>
-            <%= "(#{(bot.quote_amount_available_before_limit).round(2)} #{bot.quote_asset.symbol} left)" %>
-          <% end %>
-        </span>
+        <%= render partial: "bots/settings/extra/amount_limit_info", locals: { bot: bot } %>
       <% end %>
     </div>
   </div>
