@@ -27,6 +27,15 @@ module PortfoliosHelper
                          })
   end
 
+  def turbo_stream_replace_insights_button(backtest, portfolio)
+    turbo_stream.replace('openai-insights-button',
+                         partial: 'portfolios/insights_button',
+                         locals: {
+                           backtest: backtest,
+                           portfolio: portfolio
+                         })
+  end
+
   def turbo_stream_update_portfolio_assets(portfolio, last_active_assets_ids, last_idle_assets_ids)
     active_assets = portfolio.active_assets
     idle_assets = portfolio.idle_assets
