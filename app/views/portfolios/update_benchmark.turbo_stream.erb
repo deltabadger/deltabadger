@@ -1,4 +1,4 @@
-<%= turbo_stream.replace "benchmark-select", partial: "benchmark_select", locals: { portfolio: @portfolio } %>
+<%= turbo_stream.replace "benchmark-select", partial: "portfolios/benchmark_select", locals: { portfolio: @portfolio } %>
 <% if @portfolio.allocations_are_normalized? %>
   <%= turbo_stream_replace_backtest_results(@backtest, @portfolio) %>
 <% end %>
@@ -6,4 +6,5 @@
   <%= turbo_stream.replace "smart-allocation-controls", partial: "smart_allocation_controls", locals: { portfolio: @portfolio } %>
   <%= turbo_stream_update_portfolio_assets(@portfolio, @last_active_assets_ids, @last_idle_assets_ids) %>
 <% end %>
+<%= turbo_stream_replace_insights_button(@backtest, @portfolio) %>
 <%= turbo_stream_prepend_flash %>

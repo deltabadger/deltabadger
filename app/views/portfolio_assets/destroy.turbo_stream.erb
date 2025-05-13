@@ -19,4 +19,5 @@
 <% if @portfolio.limited? %>
   <%= turbo_stream.replace "add-asset-button", partial: "portfolios/add_asset_button", locals: { portfolio: @portfolio } %>
 <% end %>
+<%= turbo_stream_replace_insights_button(@backtest, @portfolio) %>
 <%= turbo_stream_prepend_flash %>
