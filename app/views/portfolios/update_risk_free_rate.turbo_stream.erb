@@ -1,4 +1,4 @@
-<%= turbo_stream.replace "risk-free-rate", partial: "risk_free_rate", locals: { portfolio: @portfolio } %>
+<%= turbo_stream.replace "risk-free-rate", partial: "portfolios/risk_free_rate", locals: { portfolio: @portfolio } %>
 <% if @portfolio.allocations_are_normalized? %>
   <%= turbo_stream_replace_backtest_results(@backtest, @portfolio) %>
 <% end %>

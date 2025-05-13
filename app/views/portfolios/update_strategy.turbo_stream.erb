@@ -1,4 +1,4 @@
-<%= turbo_stream.replace "strategy-select", partial: "strategy_select", locals: { portfolio: @portfolio } %>
+<%= turbo_stream.replace "strategy-select", partial: "portfolios/strategy_select", locals: { portfolio: @portfolio } %>
 <% if @portfolio.allocations_are_normalized? %>
   <%= turbo_stream_replace_backtest_results(@backtest, @portfolio) %>
 <% end %>

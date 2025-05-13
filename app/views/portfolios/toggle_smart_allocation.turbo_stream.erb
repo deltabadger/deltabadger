@@ -1,4 +1,4 @@
-<%= turbo_stream.replace "smart-allocation-controls", partial: "smart_allocation_controls", locals: { portfolio: @portfolio } %>
+<%= turbo_stream.replace "smart-allocation-controls", partial: "portfolios/smart_allocation_controls", locals: { portfolio: @portfolio } %>
 <%= turbo_stream.replace "normalize-button", partial: "portfolios/normalize_button", locals: { portfolio: @portfolio } %>
 <%= turbo_stream_replace_backtest_results(@backtest, @portfolio) %>
 <% if !@portfolio.smart_allocation_on? %>

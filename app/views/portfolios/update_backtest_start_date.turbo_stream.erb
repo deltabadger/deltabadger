@@ -1,4 +1,4 @@
-<%= turbo_stream.replace "start-date", partial: "start_date", locals: { portfolio: @portfolio } %>
+<%= turbo_stream.replace "start-date", partial: "portfolios/start_date", locals: { portfolio: @portfolio } %>
 <% if @portfolio.allocations_are_normalized? %>
   <%= turbo_stream_replace_backtest_results(@backtest, @portfolio) %>
 <% end %>
