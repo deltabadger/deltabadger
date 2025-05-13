@@ -58,29 +58,6 @@ class CoinbaseClient < ApplicationClient
     end
   end
 
-  # https://docs.cdp.coinbase.com/coinbase-app/trade/reference/retailbrokerageapi_gettransactionsummary
-  # @param product_type [String] The product type (spot or future)
-  # @param contract_expiry_type [String] The contract expiry type (expiring or perpetual)
-  # @param product_venue [String] The product venue (cbe, fcm, intx)
-  def get_transaction_summary(
-    product_type: nil,
-    contract_expiry_type: nil,
-    product_venue: nil
-  )
-    with_rescue do
-      response = self.class.connection.get do |req|
-        req.url '/api/v3/brokerage/transaction_summary'
-        req.headers = headers(req)
-        req.params = {
-          product_type: product_type,
-          contract_expiry_type: contract_expiry_type,
-          product_venue: product_venue
-        }.compact
-      end
-      Result::Success.new(response.body)
-    end
-  end
-
   # https://docs.cdp.coinbase.com/coinbase-app/trade/reference/retailbrokerageapi_getpublicproducts
   # @param limit [Integer] The number of products to return
   # @param offset [Integer] The offset for pagination
@@ -138,15 +115,23 @@ class CoinbaseClient < ApplicationClient
     end
   end
 
-  # https://docs.cdp.coinbase.com/coinbase-app/trade/reference/retailbrokerageapi_getbestbidask
-  # @param product_ids [Array<String>] The product ids
-  def get_best_bid_ask(product_ids: nil)
+  # https://docs.cdp.coinbase.com/coinbase-app/trade/reference/retailbrokerageapi_getpublicproductbook
+  # @param product_id [String] The product id
+  # @param limit [Integer] The number of bid/asks to be returned
+  # @param aggregation_price_increment [String] The minimum price intervals at which buy and sell orders are grouped or combined in the order book # rubocop:disable Layout/LineLength
+  def get_public_product_book(
+    product_id:,
+    limit: nil,
+    aggregation_price_increment: nil
+  )
     with_rescue do
       response = self.class.connection.get do |req|
-        req.url '/api/v3/brokerage/best_bid_ask'
+        req.url '/api/v3/brokerage/market/product_book'
         req.headers = headers(req)
         req.params = {
-          product_ids: product_ids
+          product_id: product_id,
+          limit: limit,
+          aggregation_price_increment: aggregation_price_increment
         }.compact
         req.options.params_encoder = Faraday::FlatParamsEncoder
       end
