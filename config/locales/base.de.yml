@@ -115,7 +115,10 @@ de:
         banner_html: '<b>Teilen Sie Ihren Empfehlungslink mit Freunden und <a href="/referral-program" alt="Read more">verdienen Sie 20% wiederkehrende Provision</a> in BTC. Der beste Weg zum Bitcoin-DCA ist es, welche zu verdienen!</b>'
         copied: Kopiert!
     settings:
-        timezone: Zeitzone
+        timezone:
+            title: 'Zeitzone'
+            updated: 'Ihre Zeitzone wurde aktualisiert.'
+            current_time_is: 'Diese Zeitzone wird in den Bot-Logs verwendet. Nach ihr ist die aktuelle Uhrzeit'
         name:
             updated: 'Ihr Name wurde aktualisiert.'
         two_fa:
