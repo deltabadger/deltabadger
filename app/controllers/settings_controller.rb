@@ -60,7 +60,7 @@ class SettingsController < ApplicationController
   def update_time_zone
     return unless current_user.update(update_time_zone_params)
 
-    flash[:notice] = t('settings.time_zone.updated')
+    flash[:notice] = t('settings.timezone.updated')
     render turbo_stream: turbo_stream_page_refresh
   end
 
