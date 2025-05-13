@@ -1,5 +1,5 @@
 <%= tag.div id: dom_id(bot, :status_bar), style: "width: 100%; display: flex" do %>
-  <div class="bot-control__status <%= 'active' if bot.working? || bot.pending? %>">
+  <div class="bot-control__status <%= 'active' unless bot.stopped? %>">
     <% if bot.pending? %>
       <%= t('bot.status.setting_orders') %>
     <% elsif bot.stopped? %>

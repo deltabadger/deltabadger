@@ -8,16 +8,16 @@
   <div class="conversational flex-justify-center">
     <%= t('bot.barbell.invest') %>
     <div class="ticker-input ticker-input--autoscale">
-      <%= f.number_field :quote_amount, value: bot.quote_amount.to_d.to_s('F').sub(/^(?!0\.0$)([1-9]\d*)\.0$/, '\1'), class: 'numeric-input', min: 0, step: :any, size: 3, data: { controller: "autowidth-input", action: "change->form--submit#submit input->autowidth-input#resize" }, disabled: bot.working? || bot.pending? %>
+      <%= f.number_field :quote_amount, value: bot.quote_amount.to_d.to_s('F').sub(/^(?!0\.0$)([1-9]\d*)\.0$/, '\1'), class: 'numeric-input', min: 0, step: :any, size: 3, data: { controller: "autowidth-input", action: "change->form--submit#submit input->autowidth-input#resize" }, disabled: !bot.stopped? %>
 
       <div class="ticker" style="background: <%= quote_color %>">
         <%= bot.quote_asset.symbol %>
       </div>
     </div>
     /
-    <div class="sinput sinput--select <%= 'sinput--disabled' if bot.working? || bot.pending? %>">
+    <div class="sinput sinput--select <%= 'sinput--disabled' unless bot.stopped? %>">
       <%= t("bot.#{bot.interval}") %>
-      <%= f.select :interval, bot_intervals, { selected: bot.interval }, data: { action: "change->form--submit#submit" }, disabled: bot.working? || bot.pending? %>
+      <%= f.select :interval, bot_intervals, { selected: bot.interval }, data: { action: "change->form--submit#submit" }, disabled: !bot.stopped? %>
     </div>
   </div>
 
@@ -31,7 +31,7 @@
 
     <div class="barbell__bar">
       <div class="slider">
-        <%= f.range_field :allocation0, in: 0.0..1.0, step: 0.01, value: bot.effective_allocation0, class: "slider__input numeric-input", data: { bot__barbell_allocation_target: "allocation0", action: "input->bot--barbell-allocation#updateAllocation0 change->form--submit#submit" }, disabled: bot.market_cap_adjusted? || bot.working? || bot.pending? %>
+        <%= f.range_field :allocation0, in: 0.0..1.0, step: 0.01, value: bot.effective_allocation0, class: "slider__input numeric-input", data: { bot__barbell_allocation_target: "allocation0", action: "input->bot--barbell-allocation#updateAllocation0 change->form--submit#submit" }, disabled: bot.market_cap_adjusted? || !bot.stopped? %>
         <div class="slider__style">
           <%= tag.div class: "slider__style__track", style: "border-left-color: #{base0_color_transparent};  background: #{base1_color_transparent}", data: { bot__barbell_allocation_target: "allocation0SliderTrack" } do %>
             <%= tag.div class: "slider__style__progress", style: "width: #{bot.effective_allocation0 * 100}%; background: #{base0_color_transparent}", data: { bot__barbell_allocation_target: "allocation0SliderProgress" } do %>

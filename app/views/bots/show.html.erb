@@ -16,11 +16,11 @@
       <div class="column gap-1">
         <%= render partial: "bots/description", locals: { bot: @bot } %>
         <%= render partial: "bots/settings", locals: { bot: @bot } %>
-        <%= render partial: "bots/settings_extra", locals: { bot: @bot } %>
+        <%= render partial: "bots/settings_extra_marketcap", locals: { bot: @bot } %>
         <%# render partial: "bots/settings_extra_weekday", locals: { bot: @bot } %>
         <%# render partial: "bots/settings_extra_time_limit", locals: { bot: @bot } %>
         <%# render partial: "bots/settings_extra_price_limit", locals: { bot: @bot } %>
-        <%# render partial: "bots/settings_extra_amount_limit", locals: { bot: @bot } %>
+        <%= render partial: "bots/settings_extra_amount_limit", locals: { bot: @bot } %>
       </div>
       <div class="column gap-1">
         <%= render partial: "bots/chart", locals: { bot: @bot, metrics: @metrics, loading: @loading } %>
