@@ -41,6 +41,9 @@ en:
         notify_about_restart:
             subject: "Oops! Next try…"
             template_html: "<p>The bot <b>%{label}</b> couldn't perform your order. It looks like an exchange issue. We'll try again in %{delay}.</p><p>All error are visible in the bot log. Sign in to check it out.</p><p>Errors:</p><blockquote> <b>%{exchange_name}:</b> <b>%{errors}</b> </blockquote>"
+        stopped_by_quote_amount_limit:
+            subject: "Your bot has stopped investing"
+            template_html: "<p>Your barbell bot <b>%{label}</b> has just invested all your defined %{amount} %{quote}.</p><p>The bot has been automatically stopped and will not invest any more funds until you manually restart it.</p>"
     subscription_mailer:
         invoice:
             subject: 'Receipt'
