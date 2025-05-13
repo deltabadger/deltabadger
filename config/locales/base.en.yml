@@ -20,7 +20,7 @@ en:
         submit: 'Submit'
         reset: 'Reset'
         add: 'Add'
-        remove: 'Remove' 
+        remove: 'Remove'
         start: 'Start'
         connect: 'Connect'
         understand: 'Got it!'
