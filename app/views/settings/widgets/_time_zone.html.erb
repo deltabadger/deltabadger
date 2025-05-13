@@ -1,0 +1,15 @@
+<div class="widget">
+  <h4 class="modal__title"><%= t('settings.timezone') %></h4>
+  <%= turbo_frame_tag "update_time_zone_form" do %>
+    <%= form_with model: current_user, url: settings_update_time_zone_path, method: :patch, class: "flex-row", data: { controller: "form--submit", turbo_frame: "update_time_zone_form" } do |f| %>
+      <div data-controller="clock" data-clock-time-zone-value="<%= ActiveSupport::TimeZone[current_user.time_zone].tzinfo.identifier %>">
+        <%= t('settings.timezone.current_time_is') %> <span data-clock-target="timestamp"><%= Time.current.in_time_zone(current_user.time_zone).strftime("%Y-%m-%d %I:%M %p") %></span>
+      </div>
+      <div class="sinput sinput--select">
+        <%= time_zone_with_offset(current_user.time_zone) %>
+        <% time_zone_options = ActiveSupport::TimeZone.all.map { |e| [e.name.capitalize, e.name] } %>
+        <%= f.select :time_zone, sorted_time_zone_options, { selected: current_user.time_zone }, data: { action: "change->form--submit#submit" } %>
+      </div>
+    <% end %>
+  <% end %>
+</div>

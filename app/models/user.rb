@@ -23,6 +23,7 @@ class User < ApplicationRecord
   validate :validate_name, if: -> { new_record? || name_changed? }
   validate :validate_email
   validate :password_complexity, if: -> { password.present? }
+  validates :time_zone, inclusion: { in: ActiveSupport::TimeZone.all.map(&:name), allow_nil: true }
 
   delegate :unlimited?, to: :subscription
 
@@ -76,6 +77,10 @@ class User < ApplicationRecord
       user: self,
       affiliate_params: affiliate_params
     )
+  end
+
+  def set_default_time_zone
+    self.time_zone = 'UTC' if time_zone.blank?
   end
 
   def active_referrer
