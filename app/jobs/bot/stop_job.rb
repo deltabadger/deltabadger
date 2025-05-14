@@ -6,13 +6,15 @@ class Bot::StopJob < ApplicationJob
 
     # after stopping outside of the controller, we need to broadcast the streams the same way as
     # app/views/bots/stop.turbo_stream.erb
-    broadcast_replace_to(
-      ["user_#{bot.user_id}", :bot_updates],
-      target: 'settings',
-      partial: 'bots/barbell/settings',
-      locals: { bot: bot }
-    )
-    broadcast_replace_to(
+    if bot.barbell?
+      bot.broadcast_replace_to(
+        ["user_#{bot.user_id}", :bot_updates],
+        target: 'settings',
+        partial: 'bots/barbell/settings',
+        locals: { bot: bot }
+      )
+    end
+    bot.broadcast_replace_to(
       ["user_#{bot.user_id}", :bot_updates],
       target: 'exchange_select',
       partial: 'bots/exchange_select',
