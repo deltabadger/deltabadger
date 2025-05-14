@@ -6,7 +6,8 @@
           value: invest_amount,
           class: "sinput",
           placeholder: "0",
-          data: { controller: "autowidth-input", action: "change->form--submit#submit input->autowidth-input#resize", autowidth_input_min_width_value: 50 }
+          data: { controller: "autowidth-input", action: "change->form--submit#submit input->autowidth-input#resize" },
+          style: "width: 50px;"
         %>
       <% end %>
       <%= t('dca_calculator.title',

@@ -3,12 +3,18 @@
 <% base1_color = ensure_contrast(bot.base1_asset&.color || "#8A9BA8") %>
 <% base0_color_transparent = transparent_color(base0_color, bot.allocation0) %>
 <% base1_color_transparent = transparent_color(base1_color, 1 - bot.allocation0) %>
-<% new_bot_flow = bot.created_at.blank? %>
-<% path = new_bot_flow ? barbell_new_step_confirm_bots_path : bot_path(bot) %>
-<% method = new_bot_flow ? :get : :patch %>
 
-<%= form_with model: bot, url: path, method: method, id: "settings-main", class: "widget", data: { controller: "form--submit form--move-cursor-to-end bot--barbell-allocation form--html5-validations bot--barbell-allocation", bot__barbell_allocation_color0_value: base0_color, bot__barbell_allocation_color1_value: base1_color } do |f| %>
-  <% if new_bot_flow %>
+<%= form_with model: bot,
+              url: bot.new_record? ? barbell_new_step_confirm_bots_path : bot_path(bot),
+              method: bot.new_record? ? :get : :patch,
+              id: "settings-main",
+              class: "widget",
+              data: {
+                controller: "form--submit form--move-cursor-to-end bot--barbell-allocation",
+                bot__barbell_allocation_color0_value: base0_color,
+                bot__barbell_allocation_color1_value: base1_color
+              } do |f| %>
+  <% if bot.new_record? %>
     <%= f.hidden_field :label, value: bot.label %>
     <%= f.hidden_field :base0_asset_id, value: bot.base0_asset_id %>
     <%= f.hidden_field :base1_asset_id, value: bot.base1_asset_id %>
@@ -24,9 +30,9 @@
     <%= t('bot.barbell.invest') %>
     <div class="ticker-input ticker-input--autoscale">
       <% value = bot.quote_amount.present? ? bot.quote_amount.to_d.to_s('F').sub(/^(?!0\.0$)([1-9]\d*)\.0$/, '\1') : nil %>
-      <%= f.number_field :quote_amount, value: value, class: 'numeric-input', min: 0, step: :any, size: 3, data: { controller: "autowidth-input", action: "change->form--submit#submit input->autowidth-input#resize", autowidth_input_min_width_value: 50, form__move_cursor_to_end_target: "input" }, autofocus: new_bot_flow, disabled: bot.working? %>
+      <%= f.number_field :quote_amount, value: value, class: 'numeric-input', min: 0, step: :any, size: 3, data: { controller: "autowidth-input", action: "change->form--submit#submit input->autowidth-input#resize", form__move_cursor_to_end_target: "input" }, style: "width: 50px;", autofocus: bot.new_record?, disabled: bot.working? %>
 
-      <% if new_bot_flow %>
+      <% if bot.new_record? %>
         <%= link_to bot.quote_asset.symbol, barbell_new_step_from_asset_bots_path({
         bots_barbell: {
           label: bot.label,
@@ -49,7 +55,7 @@
 
   <div class="barbell">
     <div class="barbell__plate">
-      <% if new_bot_flow %>
+      <% if bot.new_record? %>
         <%= link_to bot.base0_asset.symbol, barbell_new_step_to_first_asset_bots_path({
         bots_barbell: {
           label: bot.label
@@ -76,7 +82,7 @@
     </div>
 
     <div class="barbell__plate">
-      <% if new_bot_flow %>
+      <% if bot.new_record? %>
         <%= link_to bot.base1_asset.symbol, barbell_new_step_to_second_asset_bots_path({
         bots_barbell: {
           label: bot.label,
