@@ -4,11 +4,16 @@ export default class extends Controller {
   static targets = ["text"]
   
   connect() {
+    // Store original text when connecting
+    this.originalText = this.textTarget.innerHTML
+    
     // Set initial state
     this.checkOverflow()
     
     // Check again when content changes (countdown updates, etc.)
     this.resizeObserver = new ResizeObserver(() => {
+      // Update original text when content changes
+      this.originalText = this.textTarget.innerHTML
       this.checkOverflow()
     })
     
@@ -28,6 +33,9 @@ export default class extends Controller {
     if (this.animation) {
       this.animation.cancel()
     }
+    
+    // Restore original text
+    this.textTarget.innerHTML = this.originalText
   }
   
   checkOverflow() {
@@ -38,6 +46,7 @@ export default class extends Controller {
     if (this.animation) {
       this.animation.cancel()
       text.style.animation = ''
+      text.innerHTML = this.originalText
     }
     
     // First ensure the container doesn't expand
@@ -52,24 +61,32 @@ export default class extends Controller {
       // Calculate animation duration based on text length
       const duration = Math.max(textWidth / 50, 5) // Adjust speed as needed
       
-      // Set up animation
+      // Create a continuous left-moving animation
+      // First clone the text and append it to itself to create a seamless loop
+      text.innerHTML = this.originalText + '<span style="margin-left: 2rem;">' + this.originalText + '</span>'
+      
+      // Set up animation that resets position once the first text is out of view
       this.animation = text.animate(
         [
           { transform: 'translateX(0)' },
-          { transform: `translateX(-${textWidth - containerWidth}px)` }
+          { transform: `translateX(-${textWidth + 32}px)` } // 32px accounts for the 2rem margin
         ],
         {
           duration: duration * 1000,
           iterations: Infinity,
           delay: 1000,
-          easing: 'linear',
-          direction: 'alternate',
-          endDelay: 1000
+          easing: 'linear'
         }
       )
+      
+      // When animation completes one cycle, reset position to create illusion of infinite scroll
+      this.animation.onfinish = () => {
+        text.style.transform = 'translateX(0)'
+      }
     } else {
-      // If not overflowing, ensure text is visible and centered
+      // If not overflowing, ensure text is visible and reset to original
       text.style.transform = 'translateX(0)'
+      text.innerHTML = this.originalText
     }
   }
 } 
