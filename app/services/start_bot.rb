@@ -9,10 +9,10 @@ class StartBot < BaseService
 
   def call(bot_id, continue_params = nil)
     bot = Bot.find(bot_id)
-    return Result::Success.new(bot) if bot.working?
+    return Result::Success.new(bot) if bot.scheduled?
 
     start_params = {
-      status: bot.basic? ? 'pending' : 'working',
+      status: bot.basic? ? 'executing' : 'scheduled',
       restarts: 0,
       delay: 0,
       current_delay: 0

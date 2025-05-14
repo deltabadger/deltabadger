@@ -36,17 +36,17 @@ class MakeTransaction < BaseService
     result = perform_action(get_api(bot), bot, fixing_price) unless continue_schedule || !range_check_result.success?
 
     if continue_schedule
-      bot.update(status: 'working', restarts: 0)
+      bot.update(status: 'scheduled', restarts: 0)
       @schedule_transaction.call(bot)
     elsif result&.success?
-      bot.update(status: 'pending')
+      bot.update(status: 'executing')
       result = @fetch_order_result.call(bot.id, result.data, fixing_price)
       check_allowable_balance(get_api(bot), bot, fixing_price, notify)
       send_user_to_sendgrid(bot)
     elsif restart && (!range_check_result.success? || recoverable?(result))
       result = range_check_result if result.nil?
       Transaction.create!(failed_transaction_params(result, bot, fixing_price))
-      bot.update(status: 'working', restarts: bot.restarts + 1, fetch_restarts: 0)
+      bot.update(status: 'scheduled', restarts: bot.restarts + 1, fetch_restarts: 0)
       @schedule_transaction.call(bot)
       @notifications.restart_occured(bot: bot, errors: result.errors) if notify
       result = Result::Success.new
@@ -142,7 +142,7 @@ class MakeTransaction < BaseService
   end
 
   def make_transaction?(bot)
-    bot.working? || bot.pending?
+    bot.working?
   end
 
   def recoverable?(result)
