@@ -95,22 +95,7 @@ class Transaction < ApplicationRecord
   def stop_bot_and_notify_by_quote_amount_limit
     return unless success? && bot.quote_amount_limited? && bot.quote_amount_limit_reached?
 
-    bot.stop
+    Bot::StopJob.perform_later(bot, stop_message_key: 'bot.settings.extra_amount_limit.amount_spent')
     bot.notify_stopped_by_quote_amount_limit
-
-    # after stopping outside of the controller, we need to broadcast the streams the same way as
-    # app/views/bots/stop.turbo_stream.erb
-    broadcast_replace_to(
-      ["user_#{bot.user_id}", :bot_updates],
-      target: 'settings',
-      partial: 'bots/barbell/settings',
-      locals: { bot: bot }
-    )
-    broadcast_replace_to(
-      ["user_#{bot.user_id}", :bot_updates],
-      target: 'exchange_select',
-      partial: 'bots/exchange_select',
-      locals: { bot: bot }
-    )
   end
 end

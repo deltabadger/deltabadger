@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema.define(version: 2025_05_13_185059) do
+ActiveRecord::Schema.define(version: 2025_05_14_135907) do
 
   # These are extensions that must be enabled in order to support this database
   enable_extension "plpgsql"
@@ -100,6 +100,7 @@ ActiveRecord::Schema.define(version: 2025_05_13_185059) do
     t.datetime "stopped_at"
     t.string "label"
     t.string "type"
+    t.string "stop_message_key"
     t.index ["exchange_id"], name: "index_bots_on_exchange_id"
     t.index ["user_id"], name: "index_bots_on_user_id"
   end
