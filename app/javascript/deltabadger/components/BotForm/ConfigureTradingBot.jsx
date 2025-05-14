@@ -38,7 +38,7 @@ export const ConfigureTradingBot = ({ showLimitOrders, currentExchange, handleRe
   const [base, setBase] = useState(BASES[0]);
   const [quote, setQuote] = useState(QUOTES[0]);
   const [minimumOrderParams, setMinimumOrderParams] = useState({});
-  const [interval, setInterval] = useState("hour");
+  const [interval, setInterval] = useState("day");
   const [percentage, setPercentage] = useState("0.1");
   const [forceSmartIntervals, setForceSmartIntervals] = useState(false);
   const [useSubaccount,setUseSubaccounts] = useState(false)
@@ -317,7 +317,7 @@ export const ConfigureTradingBot = ({ showLimitOrders, currentExchange, handleRe
         <form className="db-bot__form">
 
           <div className="conversational flex-justify-center">
-            
+
             <select
               value={type}
               onChange={e => setType(e.target.value)}
@@ -328,7 +328,7 @@ export const ConfigureTradingBot = ({ showLimitOrders, currentExchange, handleRe
               <option value="limit_buy" disabled={!showLimitOrders}>{I18n.t('bot.limit_buy')}</option>
               <option value="limit_sell" disabled={!showLimitOrders}>{I18n.t('bot.limit_sell')}</option>
             </select>
-            
+
             {isSellOffer()?
                 <>
                   <input
@@ -403,10 +403,11 @@ export const ConfigureTradingBot = ({ showLimitOrders, currentExchange, handleRe
                     onChange={e => setInterval(e.target.value)}
                     className="bot-input bot-input--select bot-input--interval bot-input--paper-bg"
             >
-              <option value="hour">{I18n.t('bot.hour')}</option>
+              {/* using !showLimitOrders to disable the options for the free plan */}
+              <option value="hour" disabled={!showLimitOrders}>{I18n.t('bot.hour')}</option>
               <option value="day">{I18n.t('bot.day')}</option>
-              <option value="week">{I18n.t('bot.week')}</option>
-              <option value="month">{I18n.t('bot.month')}</option>
+              <option value="week" disabled={!showLimitOrders}>{I18n.t('bot.week')}</option>
+              <option value="month" disabled={!showLimitOrders}>{I18n.t('bot.month')}</option>
             </select>
           </div>
 
