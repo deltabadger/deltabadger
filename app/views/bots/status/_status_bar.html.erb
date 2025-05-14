@@ -1,13 +1,17 @@
 <%= tag.div id: dom_id(bot, :status_bar), style: "width: 100%; display: flex" do %>
-  <div class="bot-control__status <%= 'active' unless bot.stopped? %>">
+  <div class="bot-control__status <%= 'active' unless bot.stopped? %>" data-controller="marquee">
     <% if bot.pending? %>
-      <%= t('bot.status.setting_orders') %>
+      <div class="bot-control__status__text" data-marquee-target="text">
+        <%= t('bot.status.setting_orders') %>
+      </div>
     <% elsif bot.stopped? %>
-      <% if bot.stop_message_key.present? %>
-        <%= t('bot.status.paused') + ': ' + t(bot.stop_message_key) %>
-      <% else %>
-        <%= t('bot.status.paused') %>
-      <% end %>
+      <div class="bot-control__status__text" data-marquee-target="text">
+        <% if bot.stop_message_key.present? %>
+          <%= t('bot.status.paused') + ': ' + t(bot.stop_message_key) %>
+        <% else %>
+          <%= t('bot.status.paused') %>
+        <% end %>
+      </div>
     <% elsif bot.working? || bot.retrying? %>
       <% if bot.working? %>
         <%= tag.div class: "bot-control__status__bar", style: "min-width:0.5rem; width: #{bot.progress_percentage * 100}%", data: {
@@ -18,14 +22,15 @@
         } %>
       <% end %>
 
-      <%= tag.div data: {
+      <%= tag.div class: "bot-control__status__text", data: {
         controller: "countdown",
         countdown_end_time_value: bot.next_action_job_at&.iso8601,
         countdown_hide_if_zero_value: true,
         countdown_days_label_value: t('subscriptions.payment.days_short'),
         countdown_hours_label_value: t('subscriptions.payment.hours_short'),
         countdown_minutes_label_value: t('subscriptions.payment.minutes_short'),
-        countdown_seconds_label_value: t('subscriptions.payment.seconds_short')
+        countdown_seconds_label_value: t('subscriptions.payment.seconds_short'),
+        marquee_target: "text"
       } do %>
         <% if bot.retrying? %>
           <%= t('bot.status.next_try') %>

@@ -49,6 +49,6 @@ class BotAlertsMailer < ApplicationMailer
     @amount = params[:amount]
     @quote = params[:quote]
 
-    mail(to: @user.email, subject: default_i18n_subject)
+    mail(to: @user.email, subject: t('.subject', label: @label))
   end
 end

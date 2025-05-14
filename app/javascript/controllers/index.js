@@ -70,6 +70,9 @@ application.register("form--submit", Form__SubmitController)
 import HotwireAnimationsController from "./hotwire_animations_controller"
 application.register("hotwire-animations", HotwireAnimationsController)
 
+import MarqueeController from "./marquee_controller"
+application.register("marquee", MarqueeController)
+
 import Modal__BaseController from "./modal/base_controller"
 application.register("modal--base", Modal__BaseController)
 
