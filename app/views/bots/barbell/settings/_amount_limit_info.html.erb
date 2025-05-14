@@ -1,4 +1,5 @@
-<span id="quote_amount_available_before_limit">
+
+<span id="settings-amount-limit-info">
   <% if bot.quote_amount_limited? && !bot.stopped? %>
     <%= t("bot.settings.extra_amount_limit.amount_left", amount: bot.quote_amount_available_before_limit.round(bot.decimals[:quote]), symbol: bot.quote_asset.symbol) %>
   <% end %>
