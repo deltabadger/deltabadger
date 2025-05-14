@@ -1,7 +1,9 @@
 <%= tag.div id: dom_id(bot, :status_bar), style: "width: 100%; display: flex" do %>
   <div class="bot-control__status <%= 'active' unless bot.stopped? %>" data-controller="marquee">
     <% if bot.pending? %>
-      <div class="bot-control__status__text" data-marquee-target="text"><%= t('bot.status.setting_orders') %></div>
+      <div class="bot-control__status__text" data-marquee-target="text">
+        <%= t('bot.status.setting_orders') %>
+      </div>
     <% elsif bot.stopped? %>
       <div class="bot-control__status__text" data-marquee-target="text"> 
         <% if bot.stop_message_key.present? %>
@@ -33,10 +35,10 @@
         <% if bot.retrying? %>
           <%= t('bot.status.next_try') %>
         <% end %>
-        <span data-countdown-target="days"></span><span data-countdown-target="daysLabel"></span>
-        <span data-countdown-target="hours"></span><span data-countdown-target="hoursLabel"></span>
-        <span data-countdown-target="minutes"></span><span data-countdown-target="minutesLabel"></span>
-        <span data-countdown-target="seconds"></span><span data-countdown-target="secondsLabel"></span>
+          <span data-countdown-target="days"></span><span data-countdown-target="daysLabel"></span>
+          <span data-countdown-target="hours"></span><span data-countdown-target="hoursLabel"></span>
+          <span data-countdown-target="minutes"></span><span data-countdown-target="minutesLabel"></span>
+          <span data-countdown-target="seconds"></span><span data-countdown-target="secondsLabel"></span>
       <% end %>
     <% end %>
   </div>
