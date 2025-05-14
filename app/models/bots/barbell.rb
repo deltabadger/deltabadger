@@ -33,6 +33,7 @@ class Bots::Barbell < Bot
 
   def start(start_fresh: true)
     self.status = 'working'
+    self.stop_message_key = nil
     if start_fresh
       self.started_at = Time.current
       self.last_action_job_at = nil
@@ -55,10 +56,11 @@ class Bots::Barbell < Bot
     end
   end
 
-  def stop
+  def stop(stop_message_key: nil)
     if update(
       status: 'stopped',
-      stopped_at: Time.current
+      stopped_at: Time.current,
+      stop_message_key: stop_message_key
     )
       cancel_scheduled_orders
       true
