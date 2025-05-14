@@ -24,11 +24,11 @@ class MakeWithdrawal < BaseService
     result = perform_action(bot)
     if result&.success?
       Transaction.create!(transaction_params(result, bot))
-      bot.update(status: 'working', restarts: 0, account_balance: 0.0)
+      bot.update(status: 'scheduled', restarts: 0, account_balance: 0.0)
       @schedule_withdrawal.call(bot)
     elsif insufficient_balance?(result)
       Transaction.create!(skipped_transaction_params(bot))
-      bot.update(status: 'working', restarts: 0)
+      bot.update(status: 'scheduled', restarts: 0)
       @schedule_withdrawal.call(bot)
     else
       Transaction.create!(failed_transaction_params(result, bot))
@@ -120,7 +120,7 @@ class MakeWithdrawal < BaseService
   end
 
   def make_transaction?(bot)
-    bot.working? || bot.pending?
+    bot.working?
   end
 
   def recoverable?(result)
