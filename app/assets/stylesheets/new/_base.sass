@@ -24,13 +24,8 @@ ol, ul
 .main
     display: flex
     justify-content: center
-    padding: 4rem 4rem 4rem 16rem
+    padding: 1rem 1rem 1rem 8rem
     min-height: 100vh
-    @media only screen and (min-width: 2480px)
-        padding: 4rem
-    @media only screen and (max-width: 1359px)
-      padding-top: 14rem
-      padding-left: 4rem
     @media only screen and (max-width: 767.9px)
       padding: 8rem 1rem 1rem
 .main-content
@@ -51,13 +46,14 @@ ol, ul
     display: flex
     align-items: center
     gap: 2rem
-    margin-bottom: 4rem
+    padding: 1rem 0
+    margin-bottom: 1rem
     font-weight: bold
     justify-content: space-between
     @media only screen and (max-width: 767.9px)
         justify-content: flex-end
-        margin-bottom: 1rem
-        margin-top: -7rem
+        margin-top: -8rem
+        margin-bottom: 0
     &__controls
         display: flex
         gap: 2rem
@@ -73,18 +69,20 @@ ol, ul
 .infoheader
     display: flex
     flex-direction: column
-    gap: 4rem
-    margin-bottom: 5rem
-    @media (max-width: 767.9px)
-        gap: 3rem
+    gap: 1rem
+    margin-bottom: 1rem
     &__head
         display: flex
         justify-content: space-between
         gap: 2rem
+        padding: 1rem 0
         span
             white-space: nowrap
         .sinput
             background: var(--widget-background) !important
+        @media only screen and (max-width: 767.9px)
+            padding: 0
+            margin-top: -2rem
     &__h
         margin-bottom: 0
         padding-bottom: 0
