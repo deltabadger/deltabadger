@@ -9,7 +9,7 @@ module Bots::Barbell::QuoteAmountLimitable
     before_save :set_quote_amount_limit_enabled_at, if: :will_save_change_to_settings?
 
     validates :quote_amount_limited, inclusion: { in: [true, false] }, if: -> { quote_amount_limited.present? }
-    validates :quote_amount_limit, numericality: { greater_than: 0 }, if: :quote_amount_limited?
+    validates :quote_amount_limit, numericality: { greater_than: 0 }
     validate :validate_quote_amount_limit_not_reached, if: :quote_amount_limited?, on: :start
   end
 
@@ -25,8 +25,6 @@ module Bots::Barbell::QuoteAmountLimitable
   def set_quote_amount_limit_enabled_at
     return unless settings_was['quote_amount_limited'] != quote_amount_limited
 
-    puts "setting quote_amount_limit_enabled_at to #{quote_amount_limited? ? Time.current : nil}"
-    puts "settings was #{settings_was} -> #{settings}"
     self.quote_amount_limit_enabled_at = quote_amount_limited? ? Time.current : nil
   end
 

@@ -37,7 +37,7 @@
       <%= f.hidden_field :marketcap_allocated, value: @bot.marketcap_allocated %>
       <%= f.hidden_field :quote_amount_limited, value: @bot.quote_amount_limited %>
       <%= f.hidden_field :quote_amount_limit, value: @bot.quote_amount_limit %>
-      <%= f.submit t('button.start'), class: 'button button--large button--success', style: "min-width: 30rem", disabled: @bot.quote_amount.blank? || @bot.quote_amount.to_d.zero? %>
+      <%= f.submit t('button.start'), class: 'button button--large button--success', style: "min-width: 30rem", disabled: !@bot.valid? %>
     <% end %>
   </div>
 
