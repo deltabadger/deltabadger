@@ -2,7 +2,7 @@ class Bots::Barbell < Bot
   include ActionCable::Channel::Broadcasting
 
   store_accessor :settings, :base0_asset_id, :base1_asset_id, :quote_asset_id, :quote_amount,
-                 :allocation0, :interval, :market_cap_adjusted
+                 :allocation0, :interval
 
   validates :quote_amount, presence: true, numericality: { greater_than: 0 }
   validates :interval, presence: true, inclusion: { in: INTERVALS }
@@ -18,6 +18,8 @@ class Bots::Barbell < Bot
   include Bots::Barbell::Measurable
   include Bots::Barbell::Schedulable
   include Bots::Barbell::Fundable
+  include Bots::Barbell::MarketcapAllocatable
+  include Bots::Barbell::QuoteAmountLimitable
 
   def with_api_key
     exchange.set_client(api_key: api_key) if exchange.present? && (exchange.api_key.blank? || exchange.api_key != api_key)
@@ -30,13 +32,18 @@ class Bots::Barbell < Bot
   end
 
   def start(start_fresh: true)
-    update_params = {
-      status: 'working',
-      started_at: start_fresh ? Time.current : nil,
-      transient_data: start_fresh ? {} : nil
-    }.compact
+    self.status = 'working'
+    self.stop_message_key = nil
+    if start_fresh
+      self.started_at = Time.current
+      self.last_action_job_at = nil
+      self.last_successful_action_interval_checkpoint_at = nil
+      self.missed_quote_amount = nil
+    else
+      self.started_at = nil
+    end
 
-    if valid?(:start) && update(update_params)
+    if valid?(:start) && save
       if start_fresh || pending_quote_amount >= quote_amount
         Bot::SetBarbellOrdersJob.perform_later(self)
       else
@@ -49,10 +56,11 @@ class Bots::Barbell < Bot
     end
   end
 
-  def stop
+  def stop(stop_message_key: nil)
     if update(
       status: 'stopped',
-      stopped_at: Time.current
+      stopped_at: Time.current,
+      stop_message_key: stop_message_key
     )
       cancel_scheduled_orders
       true
@@ -124,26 +132,6 @@ class Bots::Barbell < Bot
     restarting? && pending_quote_amount < quote_amount
   end
 
-  def market_cap_adjusted?
-    market_cap_adjusted.present? && market_cap_adjusted
-  end
-
-  def effective_allocation0
-    if market_cap_adjusted?
-      result0 = base0_asset.get_market_cap
-      result1 = base1_asset.get_market_cap
-      if result0.success? && result1.success?
-        (result0.data.to_f / (result0.data + result1.data)).round(2)
-      else
-        Rails.logger.error("Failed to get market cap for #{base0_asset.symbol}") if result0.failure?
-        Rails.logger.error("Failed to get market cap for #{base1_asset.symbol}") if result1.failure?
-        raise StandardError, "Failed to get market cap adjusted allocation for barbell bot #{id}"
-      end
-    else
-      allocation0
-    end
-  end
-
   def assets
     @assets ||= Asset.where(id: [base0_asset_id, base1_asset_id, quote_asset_id]).presence
   end
@@ -207,7 +195,7 @@ class Bots::Barbell < Bot
   end
 
   def validate_unchangeable_interval
-    return unless working? || pending?
+    return unless working? || pending? || retrying?
     return unless settings_changed?
     return unless settings_was['interval'] != settings['interval']
 
