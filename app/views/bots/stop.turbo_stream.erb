@@ -1,5 +1,4 @@
-<%= turbo_stream.replace 'settings', partial: 'bots/settings/settings', locals: { bot: @bot } %>
-<%= turbo_stream.replace 'settings-extra-marketcap-allocation', partial: 'bots/settings/extra/marketcap_allocation', locals: { bot: @bot } %>
-<%= turbo_stream.replace 'settings-extra-amount-limit', partial: 'bots/settings/extra/amount_limit', locals: { bot: @bot } %>
+<% if @bot.barbell? %>
+  <%= turbo_stream.replace 'settings', partial: 'bots/barbell/settings', locals: { bot: @bot } %>
+<% end %>
 <%= turbo_stream.replace 'exchange_select', partial: 'bots/exchange_select', locals: { bot: @bot } %>
-<%= turbo_stream.update 'quote_amount_available_before_limit', html: "" %>
