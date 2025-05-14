@@ -169,3 +169,8 @@ es:
                 one: "La cantidad que no se pudo usar se ha guardado y se usará con la próxima orden programada, asegurando que tu programación y asignación se mantengan lo más cerca posible de los mínimos del exchange."
                 other: "Las cantidades que no se pudieron usar se han guardado y se usarán con las próximas órdenes programadas, asegurando que tu programación y asignación se mantengan lo más cerca posible de los mínimos del exchange."
             general_note: "Los mínimos del exchange y las cantidades requeridas para el rebalanceo pueden cambiar. Las transacciones a veces pueden parecer irregulares, pero el bot siempre apunta a tu asignación y programación deseadas, así que no necesitas hacer nada más."
+        settings:
+            extra_amount_limit:
+                dont_spend_more_than: "No gastar más de"
+                amount_left: "(%{amount} %{symbol} restante)"
+                amount_spent: "Se ha invertido la cantidad completa."

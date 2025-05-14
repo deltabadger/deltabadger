@@ -1,0 +1,4 @@
+<h1><%= t('.subject', label: @label) %></h1>
+
+<p><%= t('mailer.greeting_name', name: @user.name) %></p>
+<%= t('.template_html', exchange_name: @exchange_name, errors: @errors.inspect, label: @label) %>
