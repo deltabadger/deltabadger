@@ -4,11 +4,12 @@
 <% base0_color_transparent = transparent_color(base0_color, bot.allocation0) %>
 <% base1_color_transparent = transparent_color(base1_color, 1 - bot.allocation0) %>
 
-<%= form_with model: bot, url: bot_path(bot), method: :patch, id: "settings-main", class: "widget", data: { controller: "form--submit bot--barbell-allocation", bot__barbell_allocation_color0_value: base0_color, bot__barbell_allocation_color1_value: base1_color } do |f| %>
+<%= form_with model: bot, url: bot_path(bot), method: :patch, id: "settings-main", class: "widget", data: { controller: "form--submit form--move-cursor-to-end bot--barbell-allocation form--html5-validations bot--barbell-allocation", bot__barbell_allocation_color0_value: base0_color, bot__barbell_allocation_color1_value: base1_color } do |f| %>
   <div class="conversational flex-justify-center">
     <%= t('bot.barbell.invest') %>
     <div class="ticker-input ticker-input--autoscale">
-      <%= f.number_field :quote_amount, value: bot.quote_amount.to_d.to_s('F').sub(/^(?!0\.0$)([1-9]\d*)\.0$/, '\1'), class: 'numeric-input', min: 0, step: :any, size: 3, data: { controller: "autowidth-input", action: "change->form--submit#submit input->autowidth-input#resize", autowidth_input_min_width_value: 50 }, disabled: !bot.stopped? %>
+      <% value = bot.quote_amount.present? ? bot.quote_amount.to_d.to_s('F').sub(/^(?!0\.0$)([1-9]\d*)\.0$/, '\1') : nil %>
+      <%= f.number_field :quote_amount, value: value, class: 'numeric-input', min: 0, step: :any, size: 3, data: { controller: "autowidth-input", action: "change->form--submit#submit input->autowidth-input#resize", autowidth_input_min_width_value: 50, form__move_cursor_to_end_target: "input" }, autofocus: bot.started_at.blank?, disabled: !bot.stopped? %>
 
       <div class="ticker" style="background: <%= quote_color %>">
         <%= bot.quote_asset.symbol %>
