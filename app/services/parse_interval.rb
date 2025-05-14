@@ -5,16 +5,23 @@ class ParseInterval < BaseService
     return 0.seconds if bot.webhook?
 
     last_transaction = set_last_transaction(bot)
+    puts "last_transaction: #{last_transaction.inspect}"
     return 0.seconds if last_transaction.nil?
 
     user_interval = calculate_user_interval(last_transaction)
+    puts "user_interval: #{user_interval}"
 
     user_price = last_transaction.bot_price.to_f
+    puts "user_price: #{user_price}"
     fixed_amount = if last_transaction.bot.settings['type'] == 'sell'
                      last_transaction.amount.to_f
                    else
-                     (last_transaction.quote_amount || 0.0)
+                     (quote_amount(last_transaction) || 0.0)
                    end
+    puts "fixed_amount: #{fixed_amount}"
+    puts "user_price: #{user_price}"
+    puts "user_interval: #{user_interval}"
+    puts "result: #{(fixed_amount * user_interval) / user_price}"
     (fixed_amount * user_interval) / user_price
   end
 
@@ -32,5 +39,11 @@ class ParseInterval < BaseService
     return bot.last_successful_transaction if bot.last_transaction.failure?
 
     bot.last_transaction
+  end
+
+  def quote_amount(transaction)
+    return nil unless transaction.amount.present? && transaction.rate.present?
+
+    transaction.amount * transaction.rate
   end
 end
