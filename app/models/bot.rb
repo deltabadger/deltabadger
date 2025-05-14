@@ -4,9 +4,9 @@ class Bot < ApplicationRecord
   has_many :transactions, dependent: :destroy
   has_many :daily_transaction_aggregates
 
-  enum status: %i[created working stopped deleted pending retrying]
-  enum metrics_status: %i[unknown pending ready], _prefix: :metrics
+  enum status: %i[created scheduled stopped deleted executing retrying]
 
+  scope :working, -> { where(status: %i[scheduled executing retrying]) }
   scope :legacy, -> { where(type: %w[Bots::Basic Bots::Withdrawal Bots::Webhook]) }
   scope :not_legacy, -> { where.not(type: %w[Bots::Basic Bots::Withdrawal Bots::Webhook]) }
 
@@ -27,6 +27,10 @@ class Bot < ApplicationRecord
 
   def legacy?
     ['Bots::Basic', 'Bots::Withdrawal', 'Bots::Webhook'].include?(type)
+  end
+
+  def working?
+    scheduled? || executing? || retrying?
   end
 
   def last_transaction
