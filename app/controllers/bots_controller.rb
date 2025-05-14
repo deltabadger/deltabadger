@@ -71,6 +71,7 @@ class BotsController < ApplicationController
 
   def barbell_new_step_api_key
     @api_key = @bot.api_key
+    @api_key.validate_key_permissions
     if @api_key.correct?
       redirect_to barbell_new_step_from_asset_bots_path(
         bots_barbell: {
