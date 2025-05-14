@@ -10,6 +10,7 @@
               id: "settings-main",
               class: "widget",
               data: {
+                turbo_stream: true,
                 controller: "form--submit form--move-cursor-to-end bot--barbell-allocation",
                 bot__barbell_allocation_color0_value: base0_color,
                 bot__barbell_allocation_color1_value: base1_color
@@ -30,7 +31,7 @@
     <%= t('bot.barbell.invest') %>
     <div class="ticker-input ticker-input--autoscale">
       <% value = bot.quote_amount.present? ? bot.quote_amount.to_d.to_s('F').sub(/^(?!0\.0$)([1-9]\d*)\.0$/, '\1') : nil %>
-      <%= f.number_field :quote_amount, value: value, class: 'numeric-input', min: 0, step: :any, size: 3, data: { controller: "autowidth-input", action: "change->form--submit#submit input->autowidth-input#resize", form__move_cursor_to_end_target: "input" }, style: "width: 50px;", autofocus: bot.new_record?, disabled: bot.working? %>
+      <%= f.number_field :quote_amount, value: value, class: 'numeric-input', step: :any, size: 3, data: { controller: "autowidth-input", action: "change->form--submit#submit input->autowidth-input#resize", form__move_cursor_to_end_target: "input" }, style: "width: 50px;", autofocus: bot.new_record?, disabled: bot.working? %>
 
       <% if bot.new_record? %>
         <%= link_to bot.quote_asset.symbol, barbell_new_step_from_asset_bots_path({

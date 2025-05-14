@@ -3,7 +3,7 @@
               method: bot.new_record? ? :get : :patch,
               id: "settings-marketcap-allocation",
               class: "widget",
-              data: { controller: "form--submit" } do |f| %>
+              data: { controller: "form--submit", turbo_stream: true } do |f| %>
   <% if bot.new_record? %>
     <%= f.hidden_field :label, value: bot.label %>
     <%= f.hidden_field :base0_asset_id, value: bot.base0_asset_id %>
