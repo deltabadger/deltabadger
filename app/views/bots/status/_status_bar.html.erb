@@ -3,7 +3,11 @@
     <% if bot.pending? %>
       <%= t('bot.status.setting_orders') %>
     <% elsif bot.stopped? %>
-      <%= t('bot.status.paused') %>
+      <% if bot.stop_message_key.present? %>
+        <%= t('bot.status.paused') + ': ' + t(bot.stop_message_key) %>
+      <% else %>
+        <%= t('bot.status.paused') %>
+      <% end %>
     <% elsif bot.working? || bot.retrying? %>
       <% if bot.working? %>
         <%= tag.div class: "bot-control__status__bar", style: "min-width:0.5rem; width: #{bot.progress_percentage * 100}%", data: {
