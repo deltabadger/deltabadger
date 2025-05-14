@@ -32,13 +32,17 @@ class Bots::Barbell < Bot
   end
 
   def start(start_fresh: true)
-    update_params = {
-      status: 'working',
-      started_at: start_fresh ? Time.current : nil,
-      transient_data: start_fresh ? {} : nil
-    }.compact
+    self.status = 'working'
+    if start_fresh
+      self.started_at = Time.current
+      self.last_action_job_at = nil
+      self.last_successful_action_interval_checkpoint_at = nil
+      self.missed_quote_amount = nil
+    else
+      self.started_at = nil
+    end
 
-    if valid?(:start) && update(update_params)
+    if valid?(:start) && save
       if start_fresh || pending_quote_amount >= quote_amount
         Bot::SetBarbellOrdersJob.perform_later(self)
       else
@@ -189,7 +193,7 @@ class Bots::Barbell < Bot
   end
 
   def validate_unchangeable_interval
-    return unless working? || pending?
+    return unless working? || pending? || retrying?
     return unless settings_changed?
     return unless settings_was['interval'] != settings['interval']
 
