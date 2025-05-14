@@ -2,7 +2,9 @@
 <span id="settings-amount-limit-info">
   <% if bot.quote_amount_limited? %>
     <% if bot.quote_amount_limit_reached? %>
-      <%= t("bot.settings.extra_amount_limit.amount_spent") %>
+      <span class="text-success">
+        <%= t("bot.settings.extra_amount_limit.amount_spent") %>
+      </span>
     <% else %>
       <%= t("bot.settings.extra_amount_limit.amount_left", amount: bot.quote_amount_available_before_limit_reached.round(bot.decimals[:quote]), symbol: bot.quote_asset.symbol) %>
     <% end %>
