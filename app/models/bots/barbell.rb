@@ -28,11 +28,11 @@ class Bots::Barbell < Bot
 
   def api_key
     @api_key ||= user.api_keys.trading.find_by(exchange_id: exchange_id) ||
-                 user.api_keys.trading.new(exchange_id: exchange_id, status: :pending)
+                 user.api_keys.trading.new(exchange_id: exchange_id, status: :pending_validation)
   end
 
   def start(start_fresh: true)
-    self.status = 'working'
+    self.status = :scheduled
     self.stop_message_key = nil
     if start_fresh
       self.started_at = Time.current
@@ -58,7 +58,7 @@ class Bots::Barbell < Bot
 
   def stop(stop_message_key: nil)
     if update(
-      status: 'stopped',
+      status: :stopped,
       stopped_at: Time.current,
       stop_message_key: stop_message_key
     )
@@ -195,7 +195,7 @@ class Bots::Barbell < Bot
   end
 
   def validate_unchangeable_interval
-    return unless working? || pending? || retrying?
+    return unless working?
     return unless settings_changed?
     return unless settings_was['interval'] != settings['interval']
 

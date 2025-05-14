@@ -61,8 +61,8 @@ const BotTemplate = ({
   const [apiKeysState, setApiKeysState] = useState(apiKeyStatus["ADD"]);
 
   const isStarting = startingBotIds.includes(id);
-  const working = status === 'working'
-  const pending = status === 'pending'
+  const working = status === 'scheduled'
+  const pending = status === 'executing'
 
   const colorClass = 'success'
   const botOpenClass = open ? 'db-bot--active' : 'db-bot--collapsed'
@@ -95,7 +95,7 @@ const BotTemplate = ({
   )
 
   const keyOwned = (status) => status === 'correct'
-  const keyPending = (status) => status === 'pending'
+  const keyPending = (status) => status === 'pending_validation'
   const keyInvalid = (status) => status === 'incorrect'
 
   const keyExists = () => {
