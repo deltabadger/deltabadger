@@ -3,12 +3,13 @@ import { Controller } from "@hotwired/stimulus"
 // Automatically adjusts the width of an input element based on its content length using a mirror element for precise calculation.
 // Connects to data-controller="autowidth-input"
 export default class extends Controller {
+  static values = { minWidth: Number }
 
   connect() {
     this.resize = this.resize.bind(this)
     this.#createMirrorElement()
     this.#transferStyles()
-    requestAnimationFrame(this.resize)
+    this.resize()
     this.element.addEventListener('input', this.resize)
   }
 
@@ -25,8 +26,8 @@ export default class extends Controller {
     const measuredWidth = this.mirrorElement.offsetWidth;
 
     // Add a small buffer (e.g., 2px) to prevent text clipping or overflow
-    const buffer = 2;
-    const minWidth = 50;
+    const buffer = 10;
+    const minWidth = this.minWidthValue || 0;
     const newWidth = Math.max(measuredWidth + buffer, minWidth);
 
     // Set the input element's width

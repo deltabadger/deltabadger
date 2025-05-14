@@ -7,6 +7,7 @@ module Bots::Barbell::OrderCreator
       external_id: order_data[:order_id],
       rate: order_data[:rate],
       amount: order_data[:amount],
+      quote_amount: order_data[:quote_amount],
       base: order_data[:base_asset].symbol,
       quote: order_data[:quote_asset].symbol
     ).compact
@@ -20,6 +21,7 @@ module Bots::Barbell::OrderCreator
       error_messages: order_data[:error_messages],
       rate: order_data[:rate],
       amount: order_data[:amount],
+      quote_amount: order_data[:quote_amount],
       base: order_data[:base_asset].symbol,
       quote: order_data[:quote_asset].symbol
     ).compact
@@ -33,6 +35,7 @@ module Bots::Barbell::OrderCreator
       status: :skipped,
       rate: order_data[:rate],
       amount: order_data[:amount],
+      quote_amount: order_data[:quote_amount],
       base: order_data[:base_asset].symbol,
       quote: order_data[:quote_asset].symbol
     ).compact

@@ -1,0 +1,4 @@
+<h1><%= t('.subject') %></h1>
+
+<p><%= t('mailer.greeting_name', name: @user.name) %></p>
+<%= t('.template_html', delay: distance_of_time_in_words(Time.current, @restart_at), exchange_name: @exchange_name, errors: @errors.inspect, label: @label) %>
