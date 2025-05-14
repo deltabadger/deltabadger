@@ -31,13 +31,13 @@ class MakeWebhook < BaseService
     if result&.success?
       triggered_types(bot, called_bot) if bot.first_time?
       settings_params = @update_formatter.call(bot, bot.settings.merge(user: bot.user))
-      bot.update(**settings_params.merge({ status: 'pending' }))
+      bot.update(**settings_params.merge({ status: 'executing' }))
       result = @fetch_order_result.call(bot.id, result.data, bot.price.to_f, called_bot: called_bot)
       send_user_to_sendgrid(bot)
     elsif restart && recoverable?(result)
       result = range_check_result if result.nil?
       Transaction.create!(failed_transaction_params(result, bot))
-      bot.update(status: 'working', restarts: bot.restarts + 1, fetch_restarts: 0)
+      bot.update(status: 'scheduled', restarts: bot.restarts + 1, fetch_restarts: 0)
       @schedule_webhook.call(bot, webhook)
       @notifications.restart_occured(bot: bot, errors: result.errors) if notify
       result = Result::Success.new
@@ -153,7 +153,7 @@ class MakeWebhook < BaseService
   end
 
   def make_transaction?(bot)
-    bot.working? || bot.pending?
+    bot.working?
   end
 
   def recoverable?(result)

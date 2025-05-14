@@ -59,7 +59,7 @@ export const BotForm = ({
 
   const pickedExchange = exchanges.find(e => form.exchangeId == e.id) || {}
   const ownedExchangesIds = exchanges.filter(e => getKeyStatus(e) === 'correct').map(e => e.id)
-  const pendingExchangesIds = exchanges.filter(e => getKeyStatus(e) === 'pending').map(e => e.id)
+  const pendingExchangesIds = exchanges.filter(e => getKeyStatus(e) === 'pending_validation').map(e => e.id)
   let invalidExchangesIds = exchanges.filter(e => getKeyStatus(e) === 'incorrect').map(e => e.id)
 
   const keyExists = (exchangeId) => {
@@ -145,9 +145,9 @@ export const BotForm = ({
     }
 
     if (type === 'withdrawal') {
-      exchanges[idx].withdrawal_key_status = 'pending'
+      exchanges[idx].withdrawal_key_status = 'pending_validation'
     } else {
-      exchanges[idx].trading_key_status = 'pending'
+      exchanges[idx].trading_key_status = 'pending_validation'
     }
   }
 

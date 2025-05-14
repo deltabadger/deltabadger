@@ -1,4 +1,4 @@
-class NextWebhookBotTransactionAt < BaseService #TODO need?
+class NextWebhookBotTransactionAt < BaseService # TODO: need?
   def initialize(
     parse_interval: ParseInterval.new,
     calculate_restart_delay: CalculateRestartDelay.new
@@ -24,7 +24,7 @@ class NextWebhookBotTransactionAt < BaseService #TODO need?
   private
 
   def manual_restart_failed_bot?(bot)
-    bot.any_last_transaction.status == 'failure' && !bot.working? && !bot.pending?
+    bot.any_last_transaction.status == 'failure' && !bot.working?
   end
 
   def normal_delay(bot)
