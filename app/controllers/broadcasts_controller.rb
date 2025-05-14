@@ -1,5 +1,5 @@
 class BroadcastsController < ApplicationController
-  def broadcast_metrics_update
+  def metrics_update
     bot = Bot.find(params['bot_id'])
     return if bot.nil?
 
@@ -7,7 +7,7 @@ class BroadcastsController < ApplicationController
     head :ok
   end
 
-  def broadcast_pnl_update
+  def pnl_update
     bots = Bot.where(id: params['bot_ids'])
     bots.each do |bot|
       Bot::BroadcastPnlUpdateJob.perform_later(bot)
