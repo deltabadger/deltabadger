@@ -1,6 +1,6 @@
 <%= tag.div id: dom_id(bot, :status_bar), style: "width: 100%; display: flex" do %>
   <div class="bot-control__status <%= 'active' unless bot.stopped? %>" data-controller="marquee">
-    <% if bot.pending? %>
+    <% if bot.executing? %>
       <div class="bot-control__status__text" data-marquee-target="text">
         <%= t('bot.status.setting_orders') %>
       </div>
@@ -12,8 +12,8 @@
           <%= t('bot.status.paused') %>
         <% end %>
       </div>
-    <% elsif bot.working? || bot.retrying? %>
-      <% if bot.working? %>
+    <% elsif bot.scheduled? || bot.retrying? %>
+      <% if bot.scheduled? %>
         <%= tag.div class: "bot-control__status__bar", style: "min-width:0.5rem; width: #{bot.progress_percentage * 100}%", data: {
           controller: "progress-bar",
           progress_bar_start_time_value: bot.last_interval_checkpoint_at.iso8601,
@@ -22,7 +22,7 @@
         } %>
       <% end %>
 
-      <%= tag.div class: "bot-control__status__text", data: {
+      <%= tag.div class: "bot-control__status__text #{bot.retrying? ? '' : 'text-success'}", data: {
         controller: "countdown",
         countdown_end_time_value: bot.next_action_job_at&.iso8601,
         countdown_hide_if_zero_value: true,
