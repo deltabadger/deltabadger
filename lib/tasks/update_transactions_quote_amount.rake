@@ -6,7 +6,6 @@ task update_transactions_quote_amount: :environment do
   ]
   puts 'getting bot ids'
   bot_ids = Transaction.where(exchange_id: exchanges.map(&:id), quote_amount: nil).where.not(external_id: nil).pluck(:bot_id).uniq
-
   puts 'getting user ids'
   user_ids = Bot.where(id: bot_ids).pluck(:user_id).uniq
   User.where(id: user_ids).find_each do |user|
