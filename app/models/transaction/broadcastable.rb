@@ -1,14 +1,38 @@
-module Transaction::Barbell
+module Transaction::Broadcastable
   extend ActiveSupport::Concern
 
   included do
-    after_create_commit :broadcast_below_minimums_warning_to_bot
-    after_create_commit :broadcast_quote_amount_limit_update, if: -> { success? && bot.quote_amount_limited? }
+    after_create_commit :broadcast_to_bot, unless: -> { bot.legacy? }
+    after_create_commit :broadcast_below_minimums_warning_to_barbell_bot, if: -> { bot.barbell? }
+    after_create_commit :broadcast_quote_amount_limit_update, if: -> { bot.barbell? }
   end
 
   private
 
-  def broadcast_below_minimums_warning_to_bot
+  def broadcast_to_bot
+    # TODO: When transactions point to real asset ids, we can use the asset ids directly instead of symbols
+    ticker = exchange.tickers.find_by(base_asset: base_asset, quote_asset: quote_asset)
+    decimals = {
+      base_asset.symbol => ticker.base_decimals,
+      quote_asset.symbol => ticker.quote_decimals
+    }
+
+    if bot.transactions.limit(2).count == 1
+      broadcast_remove_to(
+        ["user_#{bot.user_id}", :bot_updates],
+        target: 'orders_list_placeholder'
+      )
+    end
+
+    broadcast_prepend_to(
+      ["user_#{bot.user_id}", :bot_updates],
+      target: 'orders_list',
+      partial: 'bots/orders/order',
+      locals: { order: self, decimals: decimals, exchange_name: exchange.name, current_user: bot.user }
+    )
+  end
+
+  def broadcast_below_minimums_warning_to_barbell_bot
     first_transactions = bot.transactions.limit(3)
     return unless first_transactions.count == 2
     return unless [first_transactions.first.skipped?, first_transactions.last.skipped?].any?
@@ -61,30 +85,13 @@ module Transaction::Barbell
     end
   end
 
-  def broadcast_quote_amount_available_before_limit_update
+  def broadcast_quote_amount_limit_update
+    return unless success? && bot.quote_amount_limited?
+
     broadcast_replace_to(
       ["user_#{bot.user_id}", :bot_updates],
       target: 'settings-amount-limit-info',
       partial: 'bots/barbell/settings/amount_limit_info',
-      locals: { bot: bot }
-    )
-    return unless bot.quote_amount_limit_reached?
-
-    bot.stop
-    bot.notify_stopped_by_quote_amount_limit
-
-    # after stopping outside of the controller, we need to broadcast the streams the same way as
-    # app/views/bots/stop.turbo_stream.erb
-    broadcast_replace_to(
-      ["user_#{bot.user_id}", :bot_updates],
-      target: 'settings',
-      partial: 'bots/barbell/settings',
-      locals: { bot: bot }
-    )
-    broadcast_replace_to(
-      ["user_#{bot.user_id}", :bot_updates],
-      target: 'exchange_select',
-      partial: 'bots/exchange_select',
       locals: { bot: bot }
     )
   end

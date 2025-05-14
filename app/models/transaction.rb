@@ -4,10 +4,9 @@ class Transaction < ApplicationRecord
 
   before_create :set_exchange, if: -> { bot.legacy? }
   before_create :round_numeric_fields
-  before_create :include_bot_broadcasts, unless: -> { bot.legacy? }
   after_create_commit :set_daily_transaction_aggregate
   after_create_commit :update_bot_metrics, unless: -> { bot.legacy? }
-  after_create_commit :broadcast_to_bot, unless: -> { bot.legacy? }
+  after_create_commit :stop_bot_and_notify_by_quote_amount_limit, if: -> { bot.barbell? }
 
   scope :for_bot, ->(bot) { where(bot_id: bot.id).order(created_at: :desc) }
   scope :today_for_bot, ->(bot) { for_bot(bot).where('created_at >= ?', Date.today.beginning_of_day) }
@@ -16,6 +15,8 @@ class Transaction < ApplicationRecord
   validates :bot, presence: true
 
   enum status: %i[success failure skipped]
+
+  include Broadcastable
 
   BTC = %w[XXBT XBT BTC].freeze
 
@@ -67,12 +68,6 @@ class Transaction < ApplicationRecord
     self.bot_price = bot_price&.round(18)
   end
 
-  def include_bot_broadcasts
-    return unless bot.barbell?
-
-    singleton_class.include(Barbell)
-  end
-
   # rubocop:disable Metrics/CyclomaticComplexity, Metrics/PerceivedComplexity
   def set_daily_transaction_aggregate
     return unless success?
@@ -97,26 +92,25 @@ class Transaction < ApplicationRecord
     Bot::UpdateMetricsJob.perform_later(bot)
   end
 
-  def broadcast_to_bot
-    # TODO: When transactions point to real asset ids, we can use the asset ids directly instead of symbols
-    ticker = exchange.tickers.find_by(base_asset: base_asset, quote_asset: quote_asset)
-    decimals = {
-      base_asset.symbol => ticker.base_decimals,
-      quote_asset.symbol => ticker.quote_decimals
-    }
+  def stop_bot_and_notify_by_quote_amount_limit
+    return unless success? && bot.quote_amount_limited? && bot.quote_amount_limit_reached?
 
-    if bot.transactions.limit(2).count == 1
-      broadcast_remove_to(
-        ["user_#{bot.user_id}", :bot_updates],
-        target: 'orders_list_placeholder'
-      )
-    end
+    bot.stop
+    bot.notify_stopped_by_quote_amount_limit
 
-    broadcast_prepend_to(
+    # after stopping outside of the controller, we need to broadcast the streams the same way as
+    # app/views/bots/stop.turbo_stream.erb
+    broadcast_replace_to(
       ["user_#{bot.user_id}", :bot_updates],
-      target: 'orders_list',
-      partial: 'bots/orders/order',
-      locals: { order: self, decimals: decimals, exchange_name: exchange.name, current_user: bot.user }
+      target: 'settings',
+      partial: 'bots/barbell/settings',
+      locals: { bot: bot }
+    )
+    broadcast_replace_to(
+      ["user_#{bot.user_id}", :bot_updates],
+      target: 'exchange_select',
+      partial: 'bots/exchange_select',
+      locals: { bot: bot }
     )
   end
 end
