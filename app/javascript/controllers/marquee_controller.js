@@ -4,16 +4,14 @@ export default class extends Controller {
   static targets = ["text"]
   
   connect() {
-    // Store original text when connecting
-    this.originalText = this.textTarget.innerHTML
+    // Cache container width on connect
+    this.containerWidth = this.element.offsetWidth
     
     // Set initial state
     this.checkOverflow()
     
     // Check again when content changes (countdown updates, etc.)
     this.resizeObserver = new ResizeObserver(() => {
-      // Update original text when content changes
-      this.originalText = this.textTarget.innerHTML
       this.checkOverflow()
     })
     
@@ -34,8 +32,13 @@ export default class extends Controller {
       this.animation.cancel()
     }
     
-    // Restore original text
-    this.textTarget.innerHTML = this.originalText
+    // Restore original state
+    if (this.originalHTML) {
+      this.textTarget.innerHTML = this.originalHTML
+    }
+    
+    // Remove fixed width
+    this.element.style.width = ''
   }
   
   checkOverflow() {
@@ -45,48 +48,87 @@ export default class extends Controller {
     // Reset any existing animation
     if (this.animation) {
       this.animation.cancel()
-      text.style.animation = ''
-      text.innerHTML = this.originalText
+      if (this.originalHTML) {
+        text.innerHTML = this.originalHTML
+      }
     }
     
-    // First ensure the container doesn't expand
-    container.style.width = container.offsetWidth + 'px'
+    // Store original content if not already stored
+    if (!this.originalHTML) {
+      this.originalHTML = text.innerHTML
+    }
+    
+    // Important: Ensure container width is fixed based on initial width
+    // Only set it once to avoid growth
+    if (!this.initialWidthSet) {
+      // Force the container to maintain its width
+      container.style.width = `${this.containerWidth}px`
+      this.initialWidthSet = true
+    }
     
     // Check if text is wider than container
     const textWidth = text.scrollWidth
-    const containerWidth = container.clientWidth - parseInt(window.getComputedStyle(container).paddingLeft) - parseInt(window.getComputedStyle(container).paddingRight)
+    const containerWidth = container.clientWidth
     const isOverflowing = textWidth > containerWidth
     
     if (isOverflowing) {
-      // Calculate animation duration based on text length
-      const duration = Math.max(textWidth / 50, 5) // Adjust speed as needed
-      
       // Create a continuous left-moving animation
-      // First clone the text and append it to itself to create a seamless loop
-      text.innerHTML = this.originalText + '<span style="margin-left: 2rem;">' + this.originalText + '</span>'
+      // We'll use a wrapper to handle nested content properly
+      const wrapper = document.createElement('div')
+      wrapper.style.display = 'inline-block'
+      wrapper.style.whiteSpace = 'nowrap'
       
-      // Set up animation that resets position once the first text is out of view
-      this.animation = text.animate(
+      // Clone the original content for a seamless loop
+      // For a smooth loop, we need multiple copies with proper spacing
+      const originalClone = document.createElement('span')
+      originalClone.innerHTML = this.originalHTML
+      originalClone.style.display = 'inline-block'
+      
+      const spacer = document.createElement('span')
+      spacer.style.display = 'inline-block'
+      spacer.style.width = '4rem' // Double the padding on the text element
+      spacer.innerHTML = '&nbsp;'
+      
+      const secondClone = document.createElement('span')
+      secondClone.innerHTML = this.originalHTML
+      secondClone.style.display = 'inline-block'
+      
+      // Add elements to create a smooth loop
+      wrapper.appendChild(originalClone)
+      wrapper.appendChild(spacer)
+      wrapper.appendChild(secondClone)
+      
+      // Replace the content with our wrapper
+      text.innerHTML = ''
+      text.appendChild(wrapper)
+      
+      // Calculate the full width of content with spacer
+      const fullContentWidth = originalClone.offsetWidth + spacer.offsetWidth
+      
+      // Calculate animation duration based on content width
+      const duration = Math.max(fullContentWidth / 50, 5) // Adjust speed as needed
+      
+      // Create a smooth infinite loop animation
+      this.animation = wrapper.animate(
         [
           { transform: 'translateX(0)' },
-          { transform: `translateX(-${textWidth + 32}px)` } // 32px accounts for the 2rem margin
+          { transform: `translateX(-${fullContentWidth}px)` }
         ],
         {
           duration: duration * 1000,
           iterations: Infinity,
-          delay: 1000,
           easing: 'linear'
         }
       )
       
-      // When animation completes one cycle, reset position to create illusion of infinite scroll
+      // Create a seamless loop by using the CSS Animation API's onfinish callback
       this.animation.onfinish = () => {
-        text.style.transform = 'translateX(0)'
+        wrapper.style.transform = 'translateX(0)'
+        this.animation.play()
       }
     } else {
       // If not overflowing, ensure text is visible and reset to original
-      text.style.transform = 'translateX(0)'
-      text.innerHTML = this.originalText
+      text.innerHTML = this.originalHTML
     }
   }
 } 
