@@ -7,7 +7,6 @@ class ApiKey < ApplicationRecord
   attr_encrypted :passphrase, key: ENV.fetch('API_PASSPHRASE_ENCRRYPTION_KEY')
 
   validate :unique_for_user_exchange_and_key_type, on: :create
-  validate :validate_key_permissions, on: :create
 
   STATES = %i[pending correct incorrect].freeze
   TYPES = %i[trading withdrawal].freeze
@@ -20,8 +19,8 @@ class ApiKey < ApplicationRecord
   }
 
   def validate_key_permissions
-    # TODO: remove this once all exchanges are supported
-    return unless Exchange.available_for_barbell_bots.include?(exchange)
+    # Do not do validate :validate_key_permissions on create, because it sends a request to the exchange
+    # and we don't want to block the creation of the API key
 
     result = exchange.check_valid_api_key?(api_key: self)
     if result.success?
