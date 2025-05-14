@@ -8,7 +8,7 @@ export default class extends Controller {
     this.resize = this.resize.bind(this)
     this.#createMirrorElement()
     this.#transferStyles()
-    requestAnimationFrame(this.resize)
+    this.resize()
     this.element.addEventListener('input', this.resize)
   }
 
@@ -26,7 +26,7 @@ export default class extends Controller {
 
     // Add a small buffer (e.g., 2px) to prevent text clipping or overflow
     const buffer = 2;
-    const minWidth = 50;
+    const minWidth = this.element.style.width;
     const newWidth = Math.max(measuredWidth + buffer, minWidth);
 
     // Set the input element's width

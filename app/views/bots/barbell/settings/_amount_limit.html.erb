@@ -5,7 +5,7 @@
       <div class="toggle__style"></div>
       <%= f.label :quote_amount_limited, class: "conversational conversational--small conversational--disabled" do %>
         <%= t("bot.settings.extra_amount_limit.dont_spend_more_than") %>
-        <%= f.number_field :quote_amount_limit, value: bot.quote_amount_limit.to_d.to_s('F').sub(/^(?!0\.0$)([1-9]\d*)\.0$/, '\1'), class: 'sinput numeric-input', min: 0, step: :any, size: 3, data: { controller: "autowidth-input", action: "change->form--submit#submit input->autowidth-input#resize" }, style: "margin-left: 0.125rem;", disabled: !bot.stopped? %>
+        <%= f.number_field :quote_amount_limit, value: bot.quote_amount_limit.to_d.to_s('F').sub(/^(?!0\.0$)([1-9]\d*)\.0$/, '\1'), class: 'sinput numeric-input', min: 0, step: :any, size: 3, data: { controller: "autowidth-input", action: "change->form--submit#submit input->autowidth-input#resize" }, style: "width: 50px; margin-left: 0.125rem;", disabled: !bot.stopped? %>
         <%= bot.quote_asset.symbol %>
         <%= render partial: "bots/barbell/settings/amount_limit_info", locals: { bot: bot } %>
       <% end %>

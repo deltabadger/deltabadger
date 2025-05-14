@@ -8,7 +8,7 @@
   <div class="conversational flex-justify-center">
     <%= t('bot.barbell.invest') %>
     <div class="ticker-input ticker-input--autoscale">
-      <%= f.number_field :quote_amount, value: bot.quote_amount.to_d.to_s('F').sub(/^(?!0\.0$)([1-9]\d*)\.0$/, '\1'), class: 'numeric-input', min: 0, step: :any, size: 3, data: { controller: "autowidth-input", action: "change->form--submit#submit input->autowidth-input#resize" }, disabled: !bot.stopped? %>
+      <%= f.number_field :quote_amount, value: bot.quote_amount.to_d.to_s('F').sub(/^(?!0\.0$)([1-9]\d*)\.0$/, '\1'), class: 'numeric-input', min: 0, step: :any, size: 3, data: { controller: "autowidth-input", action: "change->form--submit#submit input->autowidth-input#resize" }, style: "width: 50px;", disabled: !bot.stopped? %>
 
       <div class="ticker" style="background: <%= quote_color %>">
         <%= bot.quote_asset.symbol %>
