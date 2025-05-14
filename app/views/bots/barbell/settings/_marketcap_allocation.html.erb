@@ -1,9 +1,10 @@
-<% new_bot_flow = bot.created_at.blank? %>
-<% path = new_bot_flow ? barbell_new_step_confirm_bots_path : bot_path(bot) %>
-<% method = new_bot_flow ? :get : :patch %>
-
-<%= form_with model: bot, url: path, method: method, id: "settings-marketcap-allocation", class: "widget", data: { controller: "form--submit" } do |f| %>
-  <% if new_bot_flow %>
+<%= form_with model: bot,
+              url: bot.new_record? ? barbell_new_step_confirm_bots_path : bot_path(bot),
+              method: bot.new_record? ? :get : :patch,
+              id: "settings-marketcap-allocation",
+              class: "widget",
+              data: { controller: "form--submit" } do |f| %>
+  <% if bot.new_record? %>
     <%= f.hidden_field :label, value: bot.label %>
     <%= f.hidden_field :base0_asset_id, value: bot.base0_asset_id %>
     <%= f.hidden_field :base1_asset_id, value: bot.base1_asset_id %>
