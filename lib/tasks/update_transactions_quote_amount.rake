@@ -6,6 +6,7 @@ task update_transactions_quote_amount: :environment do
   ]
   puts 'getting bot ids'
   bot_ids = Transaction.where(exchange_id: exchanges.map(&:id), quote_amount: nil).where.not(external_id: nil).pluck(:bot_id).uniq
+
   puts 'getting user ids'
   user_ids = Bot.where(id: bot_ids).pluck(:user_id).uniq
   User.where(id: user_ids).find_each do |user|
@@ -16,7 +17,7 @@ task update_transactions_quote_amount: :environment do
       puts "setting client for #{exchange.name} for user #{user.id}"
       exchange.set_client(api_key: api_key)
       user_bots_ids = user.bots.barbell.where(exchange: exchange).pluck(:id).uniq
-      puts "getting transactions for #{exchange.name} for user #{user.id}"
+      puts "getting transactions for #{exchange.name} for user #{user.id} for bots #{user_bots_ids}"
       Transaction.where(bot_id: user_bots_ids, exchange: exchange, quote_amount: nil)
                  .where.not(external_id: nil).find_each do |transaction|
         puts "getting order for #{transaction.external_id}"
