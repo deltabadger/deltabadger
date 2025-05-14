@@ -54,13 +54,6 @@ class Exchange < ApplicationRecord
     Result::Success.new(filter_free_plan_symbols(all_symbols.data))
   end
 
-  def include_exchange_implementation
-    case name.downcase
-    when 'coinbase' then singleton_class.include(Exchanges::Coinbase)
-    when 'kraken' then singleton_class.include(Exchanges::Kraken)
-    end
-  end
-
   # @param amount_type [Symbol] :base or :quote
   def adjusted_amount(base_asset_id:, quote_asset_id:, amount:, amount_type:, method: :floor)
     raise "Unsupported amount type #{amount_type}" unless %i[quote base].include?(amount_type)
@@ -81,6 +74,13 @@ class Exchange < ApplicationRecord
   end
 
   private
+
+  def include_exchange_implementation
+    case name.downcase
+    when 'coinbase' then singleton_class.include(Exchanges::Coinbase)
+    when 'kraken' then singleton_class.include(Exchanges::Kraken)
+    end
+  end
 
   def filter_free_plan_symbols(symbols)
     return symbols # disable free plan symbols limitation

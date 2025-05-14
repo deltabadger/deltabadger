@@ -2,8 +2,9 @@
   <%= turbo_stream.replace dom_id(@bot, :label), @bot.label %>
   <%= turbo_stream_prepend_flash %>
 <% else %>
-  <%= turbo_stream.replace 'settings', partial: 'bots/settings', locals: { bot: @bot } %>
-  <%= turbo_stream.replace 'settings-extra', partial: 'bots/settings_extra', locals: { bot: @bot } %>
+  <% if @bot.barbell? %>
+    <%= turbo_stream.replace 'settings', partial: 'bots/barbell/settings', locals: { bot: @bot } %>
+  <% end %>
   <%= turbo_stream.replace 'exchange_select', partial: 'bots/exchange_select', locals: { bot: @bot } %>
   <%= turbo_stream.replace dom_id(@bot, :label), @bot.label %>
   <%= turbo_stream.replace dom_id(@bot, :status_button), partial: 'bots/status/status_button', locals: { bot: @bot } %>

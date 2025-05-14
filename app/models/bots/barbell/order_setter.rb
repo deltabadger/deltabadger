@@ -19,12 +19,15 @@ module Bots::Barbell::OrderSetter # rubocop:disable Metrics/ModuleLength
     value.present? ? value.to_d : 0
   end
 
-  def set_barbell_orders(quote_amount:, update_missed_quote_amount: false)
-    raise StandardError, 'quote_amount is required' if quote_amount.blank?
-    raise StandardError, 'quote_amount must be positive' if quote_amount.negative?
-    return Result::Success.new if quote_amount.zero?
+  def set_barbell_orders(
+    total_orders_amount_in_quote:,
+    update_missed_quote_amount: false
+  )
+    raise StandardError, 'quote_amount is required' if total_orders_amount_in_quote.blank?
+    raise StandardError, 'quote_amount must be positive' if total_orders_amount_in_quote.negative?
+    return Result::Success.new if total_orders_amount_in_quote.zero?
 
-    result = get_barbell_orders(quote_amount)
+    result = get_barbell_orders(total_orders_amount_in_quote)
     unless result.success?
       create_failed_order!({
                              base_asset: base0_asset,
@@ -117,12 +120,12 @@ module Bots::Barbell::OrderSetter # rubocop:disable Metrics/ModuleLength
   end
 
   def calculate_orders_data(balance0:, balance1:, price0:, price1:, total_orders_amount_in_quote:)
-    effective_allocation1 = 1 - effective_allocation0
+    allocation1 = 1 - allocation0
     balance0_in_quote = balance0 * price0
     balance1_in_quote = balance1 * price1
     total_balance_in_quote = balance0_in_quote + balance1_in_quote + total_orders_amount_in_quote
-    target_balance0_in_quote = total_balance_in_quote * effective_allocation0
-    target_balance1_in_quote = total_balance_in_quote * effective_allocation1
+    target_balance0_in_quote = total_balance_in_quote * allocation0
+    target_balance1_in_quote = total_balance_in_quote * allocation1
     base0_offset = [0, target_balance0_in_quote - balance0_in_quote].max
     base1_offset = [0, target_balance1_in_quote - balance1_in_quote].max
     base0_order_size_in_quote = [base0_offset, total_orders_amount_in_quote].min
