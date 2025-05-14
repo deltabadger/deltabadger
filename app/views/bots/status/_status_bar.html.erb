@@ -22,7 +22,7 @@
         } %>
       <% end %>
 
-      <%= tag.div class: "bot-control__status__text", data: {
+      <%= tag.div class: "bot-control__status__text #{bot.retrying? ? '' : 'text-success'}", data: {
         controller: "countdown",
         countdown_end_time_value: bot.next_action_job_at&.iso8601,
         countdown_hide_if_zero_value: true,
