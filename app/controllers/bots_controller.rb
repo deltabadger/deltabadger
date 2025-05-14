@@ -121,10 +121,16 @@ class BotsController < ApplicationController
   end
 
   def barbell_new_step_confirm
-    @bot.interval ||= Bot::INTERVALS.include?('day') ? 'day' : Bot::INTERVALS.first
+    @bot.interval ||= 'day'
     @bot.allocation0 ||= 0.5
-    @bot.quote_amount_limit ||= 10 * @bot.quote_amount if @bot.quote_amount.present?
-    render 'bots/barbell/new/step_confirm'
+    @bot.quote_amount_limit ||= 10 * abs(@bot.quote_amount) if @bot.quote_amount.present?
+    puts "quote_amount: #{@bot.quote_amount.inspect}, quote_amount_limit: #{@bot.quote_amount_limit.inspect}"
+    if @bot.quote_amount.blank? || @bot.valid?
+      render 'bots/barbell/new/step_confirm'
+    else
+      flash.now[:alert] = @bot.errors.messages.values.flatten.to_sentence
+      render 'bots/barbell/new/step_confirm', status: :unprocessable_entity
+    end
   end
 
   def create
@@ -184,7 +190,7 @@ class BotsController < ApplicationController
         # flash.now[:notice] = t('alert.bot.bot_updated')
       else
         flash.now[:alert] = @bot.errors.messages.values.flatten.to_sentence
-        render turbo_stream: turbo_stream_prepend_flash, status: :unprocessable_entity
+        render :update, status: :unprocessable_entity
       end
     elsif @bot.legacy?
       if @bot.update(update_params_legacy)
