@@ -4,35 +4,29 @@ export default class extends Controller {
   static targets = ["text"]
   
   connect() {
-    // Cache container width on connect
-    this.containerWidth = this.element.offsetWidth
-    
-    // Flag to track if we've set up our marquee structure
-    this.marqueeInitialized = false
-    
     // Set up wrapper and clones just once
     this.setupMarqueeStructure()
     
-    // Check for overflow
-    this.checkOverflow()
-    
-    // Track content changes (countdown updates, etc.)
+    // Track when content changes (countdown updates, etc.)
     this.resizeObserver = new ResizeObserver(() => {
-      // Only need to check overflow, DOM structure stays intact
       this.checkOverflow()
     })
     
     this.resizeObserver.observe(this.textTarget)
     
-    // Also check on window resize
-    window.addEventListener('resize', this.checkOverflow.bind(this))
+    // Handle window resize
+    this.windowResizeHandler = this.handleWindowResize.bind(this)
+    window.addEventListener('resize', this.windowResizeHandler)
+    
+    // Initial overflow check (after a short delay to ensure DOM is ready)
+    setTimeout(() => this.checkOverflow(), 50)
   }
   
   disconnect() {
     if (this.resizeObserver) {
       this.resizeObserver.disconnect()
     }
-    window.removeEventListener('resize', this.checkOverflow.bind(this))
+    window.removeEventListener('resize', this.windowResizeHandler)
     
     // Clean up any animation
     if (this.animation) {
@@ -41,9 +35,24 @@ export default class extends Controller {
     
     // Restore original structure
     this.restoreOriginalContent()
+    
+    // Remove fixed width
+    this.element.style.width = ''
+  }
+  
+  handleWindowResize() {
+    // Remove fixed width on window resize
+    this.element.style.width = ''
+    this.initialWidthSet = false
+    
+    // Recalculate
+    this.checkOverflow()
   }
   
   setupMarqueeStructure() {
+    // Flag to track if we've set up our marquee structure
+    this.marqueeInitialized = false
+    
     // Store original content (but don't change DOM yet)
     this.originalHTML = this.textTarget.innerHTML
     
@@ -115,11 +124,14 @@ export default class extends Controller {
     const container = this.element
     const text = this.textTarget
     
-    // Important: Ensure container width is fixed based on initial width
-    // Only set it once to avoid growth
+    // Get current container width (responsive to window size)
+    const currentContainerWidth = container.offsetWidth || container.parentElement.offsetWidth * 0.9
+    
+    // Important: Ensure container width is fixed to prevent expansion from content
+    // Only set it if not already set or if window has resized
     if (!this.initialWidthSet) {
-      // Force the container to maintain its width
-      container.style.width = `${this.containerWidth}px`
+      // Force the container to maintain its current width
+      container.style.width = `${currentContainerWidth}px`
       this.initialWidthSet = true
     }
     
@@ -128,12 +140,10 @@ export default class extends Controller {
     
     // Get current content width
     let contentWidth = text.scrollWidth;
-    let containerWidth = container.clientWidth;
+    let visibleWidth = container.clientWidth;
     
     // Check if text would overflow
-    // Use a temporary clone to measure the width of the original content 
-    // without affecting the current DOM
-    const isOverflowing = contentWidth > containerWidth;
+    const isOverflowing = contentWidth > visibleWidth;
     
     if (isOverflowing) {
       // Activate marquee if not already active
