@@ -123,6 +123,7 @@ class BotsController < ApplicationController
   def barbell_new_step_confirm
     @bot.interval ||= Bot::INTERVALS.include?('day') ? 'day' : Bot::INTERVALS.first
     @bot.allocation0 ||= 0.5
+    @bot.quote_amount_limit ||= 10 * @bot.quote_amount if @bot.quote_amount.present?
     render 'bots/barbell/new/step_confirm'
   end
 

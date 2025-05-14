@@ -6,7 +6,7 @@ class BotAlertsMailer < ApplicationMailer
     @label = @bot.label
     @exchange_name = Exchange.find(@bot.exchange_id).name.upcase
 
-    mail(to: @user.email, subject: default_i18n_subject)
+    mail(to: @user.email, subject: t('.subject', label: @label))
   end
 
   def notify_about_restart
