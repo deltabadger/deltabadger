@@ -4,14 +4,26 @@
     &__status
         overflow: hidden
         line-height: 4rem
+        height: 4rem
         background: var(--widget-background)
         flex: 2
+        max-width: 100%
+        width: 0
+        min-width: 0
         border-radius: 2rem
-        padding: 0 2rem
         color: var(--label)
         position: relative
         box-shadow: var(--widget-shadow)
         font-weight: 600
+        white-space: nowrap
+        text-overflow: ellipsis
+        &__text
+            position: relative
+            display: inline-block
+            max-width: 100%
+            width: 100%
+            overflow: hidden
+            padding: 0 2rem
         &__bar
             position: absolute
             top: 0
