@@ -57,7 +57,7 @@ const BotTemplate = ({
     order_type: 'market',
     price: "",
     percentage: 0.0,
-    interval: "hour",
+    interval: "day",
     force_smart_intervals: false,
     smart_intervals_value: "0",
     quote: "",
