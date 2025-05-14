@@ -5,7 +5,10 @@ class Bot::SetBarbellOrdersJob < BotJob
 
     bot.notify_if_funds_are_low
     bot.update!(status: :pending, last_action_job_at: Time.current)
-    total_orders_amount_in_quote = [bot.pending_quote_amount, bot.quote_amount_available_before_limit].min
+    total_orders_amount_in_quote = [
+      bot.pending_quote_amount,
+      bot.quote_amount_available_before_limit_reached
+    ].min
     result = bot.set_barbell_orders(
       total_orders_amount_in_quote: total_orders_amount_in_quote,
       update_missed_quote_amount: true
