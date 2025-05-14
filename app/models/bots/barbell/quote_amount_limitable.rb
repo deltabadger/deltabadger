@@ -5,7 +5,7 @@ module Bots::Barbell::QuoteAmountLimitable
     store_accessor :settings, :quote_amount_limited, :quote_amount_limit
     store_accessor :transient_data, :quote_amount_limit_enabled_at
 
-    before_save -> { self.quote_amount_limit = 10 * quote_amount }, unless: -> { quote_amount_limit.present? }
+    before_save :set_quote_amount_limit
     before_save :set_quote_amount_limit_enabled_at, if: :will_save_change_to_settings?
 
     validates :quote_amount_limited, inclusion: { in: [true, false] }, if: -> { quote_amount_limited.present? }
@@ -16,6 +16,10 @@ module Bots::Barbell::QuoteAmountLimitable
   def quote_amount_limit_enabled_at
     value = super
     value.present? ? Time.zone.parse(value) : nil
+  end
+
+  def set_quote_amount_limit
+    self.quote_amount_limit ||= 10 * quote_amount
   end
 
   def set_quote_amount_limit_enabled_at
