@@ -4,13 +4,13 @@ import { useInterval } from '../utils/interval';
 
 const ProgressBarLine = React.memo(({colorClass, progress}) => (
   <div className="progress progress--bot-setup">
-    <div 
-      className={`progress-bar bg-${colorClass}`} 
-      role="progressbar" 
-      style={{width: `${progress}%`}} 
-      aria-valuenow={Math.round(progress)} 
-      aria-valuemin="0" 
-      aria-valuemax="100" 
+    <div
+      className={`progress-bar bg-${colorClass}`}
+      role="progressbar"
+      style={{width: `${progress}%`}}
+      aria-valuenow={Math.round(progress)}
+      aria-valuemin="0"
+      aria-valuemax="100"
     />
   </div>
 ));
@@ -22,7 +22,7 @@ const intervalDisabled = (bot, settings) => {
 export const ProgressBar = React.memo(({bot}) => {
   const { settings, status, nextTransactionTimestamp, transactions, skippedTransactions} = bot || {};
   const colorClass = settings?.type === 'buy' ? 'success' : 'danger';
-  const working = status === 'working';
+  const working = status === 'scheduled';
   const isDisabled = !working || intervalDisabled(bot, settings);
 
   const [progress, setProgress] = useState(0);
@@ -39,10 +39,10 @@ export const ProgressBar = React.memo(({bot}) => {
     const now = moment();
     const nowTimestamp = now.unix();
     const lastTransactionTimestamp = getLastTransactionTimestamp();
-    
+
     // Ensure we have valid timestamps
     if (!nextTransactionTimestamp || !lastTransactionTimestamp) return 0;
-    
+
     const prog = 1.0 - parseFloat(nextTransactionTimestamp - nowTimestamp)/(nextTransactionTimestamp - lastTransactionTimestamp);
     return Math.max(0, Math.min(100, prog * 100)); // Clamp between 0 and 100
   }, [isDisabled, nextTransactionTimestamp, getLastTransactionTimestamp]);
