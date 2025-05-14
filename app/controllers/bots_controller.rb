@@ -71,7 +71,7 @@ class BotsController < ApplicationController
 
   def barbell_new_step_api_key
     @api_key = @bot.api_key
-    if @api_key.correct? && @api_key.validate_key_permissions && @api_key.errors.empty?
+    if @api_key.correct?
       redirect_to barbell_new_step_from_asset_bots_path(
         bots_barbell: {
           label: @bot.label,
@@ -90,7 +90,8 @@ class BotsController < ApplicationController
     @api_key = @bot.api_key
     @api_key.key = api_key_params[:key]
     @api_key.secret = api_key_params[:secret]
-    if @api_key.save
+    @api_key.validate_key_permissions
+    if @api_key.correct? && @api_key.save
       redirect_to barbell_new_step_from_asset_bots_path(
         bots_barbell: {
           label: @bot.label,
@@ -215,8 +216,8 @@ class BotsController < ApplicationController
     @api_key = @bot.api_key
     @api_key.key = api_key_params[:key]
     @api_key.secret = api_key_params[:secret]
-
-    if @api_key.save && @api_key.validate_key_permissions && @api_key.errors.empty?
+    @api_key.validate_key_permissions
+    if @api_key.correct? && @api_key.save
       flash[:notice] = t('errors.bots.api_key_success')
       render turbo_stream: turbo_stream_page_refresh
     else
