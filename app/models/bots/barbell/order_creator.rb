@@ -12,13 +12,6 @@ module Bots::Barbell::OrderCreator
       quote: order_data[:quote_asset].symbol
     ).compact
     transactions.create!(order_values)
-
-    # TODO: find a better place for this
-    broadcast_quote_amount_available_before_limit_update if quote_amount_limited?
-    return unless quote_amount_limit_reached?
-
-    notify_stopped_by_quote_amount_limit
-    stop
   end
 
   def create_failed_order!(order_data)

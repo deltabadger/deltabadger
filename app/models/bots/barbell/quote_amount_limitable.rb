@@ -25,14 +25,4 @@ module Bots::Barbell::QuoteAmountLimitable
     # give a 1% buffer to avoid rounding & fees errors
     quote_amount_limited? && quote_amount_available_before_limit <= [quote_amount, quote_amount_limit].min * 0.01
   end
-
-  def broadcast_quote_amount_available_before_limit_update
-    return if quote_amount_available_before_limit == quote_amount_limit
-
-    broadcast_update_to(
-      ["user_#{user.id}", :bot_updates],
-      target: 'quote_amount_available_before_limit',
-      html: "(#{quote_amount_available_before_limit.round(2)} #{quote_asset.symbol} left)"
-    )
-  end
 end
