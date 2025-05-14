@@ -216,7 +216,7 @@ class BotsController < ApplicationController
     @api_key.key = api_key_params[:key]
     @api_key.secret = api_key_params[:secret]
 
-    if @api_key.save
+    if @api_key.save && @api_key.validate_key_permissions && @api_key.errors.empty?
       flash[:notice] = t('errors.bots.api_key_success')
       render turbo_stream: turbo_stream_page_refresh
     else
