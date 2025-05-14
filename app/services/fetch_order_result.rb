@@ -18,7 +18,7 @@ class FetchOrderResult < BaseService
   # rubocop:disable Metrics/CyclomaticComplexity, Metrics/PerceivedComplexity
   def call(bot_id, result_params, fixing_price, notify: true, restart: true, called_bot: nil)
     bot = Bot.find(bot_id)
-    return Result::Failure.new unless bot.pending?
+    return Result::Failure.new unless bot.executing?
 
     Rails.logger.info "Fetching order result for bot: #{bot.id}. result_params: #{result_params.inspect}"
     result = perform_action(get_api(bot), result_params, bot, fixing_price, called_bot)
@@ -37,7 +37,7 @@ class FetchOrderResult < BaseService
       @schedule_result_fetching.call(bot, result_params, fixing_price)
       result = Result::Success.new
     elsif restart && recoverable?(result)
-      bot.update(status: 'working', restarts: bot.restarts + 1, fetch_restarts: 0)
+      bot.update(status: 'scheduled', restarts: bot.restarts + 1, fetch_restarts: 0)
       @schedule_transaction.call(bot)
       @notifications.restart_occured(bot: bot, errors: result.errors) if notify
       result = Result::Success.new
@@ -66,7 +66,7 @@ class FetchOrderResult < BaseService
   private
 
   def success_status(bot)
-    return { status: 'working' } if !bot.webhook? || bot.every_time? || !bot.already_triggered_types.blank?
+    return { status: 'scheduled' } if !bot.webhook? || bot.every_time? || !bot.already_triggered_types.blank?
 
     { status: 'stopped' }
   end

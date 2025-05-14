@@ -8,7 +8,7 @@ class ApiKey < ApplicationRecord
 
   validate :unique_for_user_exchange_and_key_type, on: :create
 
-  enum status: %i[pending correct incorrect]
+  enum status: %i[pending_validation correct incorrect]
   enum key_type: %i[trading withdrawal]
 
   scope :for_bot, lambda { |user_id, exchange_id, key_type = 'trading'|
@@ -28,7 +28,7 @@ class ApiKey < ApplicationRecord
         errors.add(:secret, message)
       end
     else
-      self.status = :pending
+      self.status = :pending_validation
       message = I18n.t('errors.api_key_permission_validation_failed')
       errors.add(:key, message)
       errors.add(:secret, message)

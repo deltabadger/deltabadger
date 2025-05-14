@@ -7,7 +7,7 @@ class AddApiKey < BaseService
   end
 
   def call(params)
-    api_key = ApiKey.create!(params.merge(status: 'pending'))
+    api_key = ApiKey.create!(params.merge(status: 'pending_validation'))
     @validator_worker.sidekiq_options(queue: API_KEYS_VALIDATION_QUEUE)
     @validator_worker.perform_at(
       Time.now,

@@ -34,7 +34,7 @@ module Api
     private
 
     def revalidate_api_key(api_key)
-      api_key.update(status: 'pending')
+      api_key.update(status: 'pending_validation')
 
       ApiKeyValidatorWorker.perform_at(
         Time.now,

@@ -24,7 +24,7 @@ class NextTradingBotTransactionAt < BaseService
   private
 
   def manual_restart_failed_bot?(bot)
-    bot.any_last_transaction.status == 'failure' && !bot.working? && !bot.pending?
+    bot.any_last_transaction.status == 'failure' && !bot.working?
   end
 
   def normal_delay(bot)
