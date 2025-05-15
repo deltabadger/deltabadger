@@ -36,7 +36,7 @@ describe('TradingBot', () => {
         currentValue: 1100,
         totalInvested: 1000
       },
-      status: 'working',
+      status: 'scheduled',
       exchangeName: 'Binance',
       nextTransactionTimestamp: Date.now() + 3600000,
       nowTimestamp: Date.now() // Add this for timer calculation
@@ -152,4 +152,4 @@ describe('TradingBot', () => {
       expect(timerElement).toHaveTextContent(/\d+:\d+:\d+/); // Check for time format
     });
   });
-}); 
+});
