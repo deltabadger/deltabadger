@@ -24,7 +24,7 @@ describe('ProgressBar', () => {
   const defaultProps = {
     bot: {
       settings: { type: 'buy' },
-      status: 'working',
+      status: 'scheduled',
       nextTransactionTimestamp: Date.now() + 3600000,
       transactions: [{ created_at_timestamp: Date.now() - 3600000 }]
     }
@@ -46,4 +46,4 @@ describe('ProgressBar', () => {
     const { container } = render(<ProgressBar {...props} />);
     expect(container.querySelector('.progress-bar').style.width).toBe('0%');
   });
-}); 
+});
