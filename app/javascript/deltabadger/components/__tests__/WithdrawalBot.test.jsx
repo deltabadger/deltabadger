@@ -37,7 +37,7 @@ describe('WithdrawalBot', () => {
       stats: {
         totalWithdrawn: 1.5
       },
-      status: 'working',
+      status: 'scheduled',
       exchangeName: 'Binance',
       nextTransactionTimestamp: Date.now() + 3600000
     },
@@ -159,4 +159,4 @@ describe('WithdrawalBot', () => {
       expect(screen.getByText('Withdrawal progress')).toBeInTheDocument();
     });
   });
-}); 
+});
