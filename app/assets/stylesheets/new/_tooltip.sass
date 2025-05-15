@@ -41,6 +41,17 @@
 .tooltip-info-icon
     cursor: pointer
     position: relative
+    .icon-24--info
+        display: block
+        fill: var(--label)
+    .icon-24--info-filled
+        display: none
+    &.show-tooltip
+        .icon-24--info
+            display: none
+        .icon-24--info-filled
+            display: block
+            fill: #fff
 .tooltip--smart-allocation
     top: calc(100% + 1rem)
     width: 42rem
