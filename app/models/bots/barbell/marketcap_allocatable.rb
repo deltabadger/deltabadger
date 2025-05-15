@@ -4,11 +4,17 @@ module Bots::Barbell::MarketcapAllocatable
   included do
     store_accessor :settings, :marketcap_allocated
 
-    validates :marketcap_allocated, inclusion: { in: [true, false] }, if: -> { marketcap_allocated.present? }
+    after_initialize :set_marketcap_allocated
+
+    validates :marketcap_allocated, inclusion: { in: [true, false] }
+  end
+
+  def set_marketcap_allocated
+    self.marketcap_allocated ||= false
   end
 
   def marketcap_allocated?
-    marketcap_allocated.present? && marketcap_allocated
+    marketcap_allocated == true
   end
 
   def allocation0
