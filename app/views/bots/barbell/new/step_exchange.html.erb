@@ -33,10 +33,10 @@
         <div>Withdrawal (₿)</div>
       </div>
       <div class="selectable-options">
-        <% @exchanges.each do |exchange| %>
-          <%= form_with model: @bot, url: barbell_new_step_api_key_bots_path, method: :get, data: { arrow_keys_navigation_target: "item" }, class: "exchange-picker__items" do |f| %>
-            <%= f.hidden_field :exchange_id, value: exchange.id %>
-            <%= button_tag type: :submit, data: { arrow_keys_navigation_target: "button", turbo_frame: "modal_content" }, class: "exchange-picker__item exchange-picker__item--exchange" do %>
+        <%= form_with model: @bot, url: barbell_new_step_api_key_bots_path, method: :get do |f| %>
+          <% @exchanges.each do |exchange| %>
+            <div class="exchange-picker__items" data-arrow-keys-navigation-target="item">
+              <%= button_tag name: "#{@bot.model_name.param_key}[#{:exchange_id}]", value: exchange.id, type: :submit, class: "exchange-picker__item exchange-picker__item--exchange", data: { arrow_keys_navigation_target: "button", turbo_frame: "modal_content" } do %>
               <div><%= exchange.name.capitalize %></div>
               <div><%= "#{exchange.maker_fee || '-'}%" %></div>
               <div><%= "#{exchange.taker_fee || '-'}%" %></div>

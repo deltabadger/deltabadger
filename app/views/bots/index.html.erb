@@ -31,9 +31,9 @@
   </div>
 
   <% ids_to_load = @loading_hash.select { |_, loading| loading }.keys %>
-  <%= tag.div class: 'itiles', data: ids_to_load.any? ? { controller: "broadcast-on-connect",
-                                                          broadcast_on_connect_method_value: "pnl_update",
-                                                          broadcast_on_connect_method_args_value: {    bot_ids: ids_to_load }.to_json } : {} do %>
+  <%= tag.div class: 'itiles', data: ids_to_load.any? ? { controller: "broadcast--on-connect",
+                                                          broadcast__on_connect_method_value: "pnl_update",
+                                                          broadcast__on_connect_method_args_value: {    bot_ids: ids_to_load }.to_json } : {} do %>
     <%= render partial: 'bots/bot_tile/bot_tile', collection: @bots, as: :bot, locals: { pnl_hash: @pnl_hash, loading_hash: @loading_hash } %>
   <% end %>
 <% end %>
