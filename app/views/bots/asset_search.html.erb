@@ -5,38 +5,14 @@
         <%= render partial: 'svg/24x24_zoom' %>
         <%= f.hidden_field :asset_field, value: @asset_field %>
         <%= f.text_field :query, autofocus: true, autocomplete: "off", placeholder: t('utils.search.placeholder.asset'), data: { action: "input->form--submit-after-delay#submit" }, class: "modal--search__input" %>
-
       <% end %>
+
       <%= turbo_frame_tag "asset-picker", data: { action: "turbo:submit-end->modal--base#submitEnd keydown@window->arrow-keys-navigation#navigate", controller: "arrow-keys-navigation" }, class: "modal--search__assets selectable-options" do %>
-
-        <%# FIXME: test spinner. %>
-        <% if @assets.blank? %>
-          <%# This is just a placeholder to design the style, however it's shown even if no text is input in the form. To solve it I have to enable background tasks, that process the search and broadcast the results once ready. %>
-          <div class="loader"></div>
-        <% end %>
-
         <%= form_with model: @bot, url: bot_path(@bot), method: :patch do |f| %>
           <% assets.each do |id, symbol, name, exchange_names| %>
-            <div class="modal--search__assets__item" data-arrow-keys-navigation-target="item">
-              <%= button_tag name: "#{@bot.model_name.param_key}[#{asset_field}]", value: id, type: :submit, data: { arrow_keys_navigation_target: "button" } do %>
-              <div class="modal--search__cell modal--search__cell--ticker"><%= asset.symbol %></div>
-              <div class="modal--search__cell modal--search__cell--name">
-                <%= asset.name %>
-              </div>
-              <div class="modal--search__cell modal--search__cell--exchanges">
-                <%= asset.exchanges.map do |exchange|
-                  exchange_name = exchange.name.downcase
-                  exchange_name = case exchange_name
-                                  when 'binance.us' then 'binance'
-                                  else exchange_name
-                                  end
-                  render "svg/exchange-#{exchange_name}", title: exchange.name
-                end.join(' ').html_safe %>
-              </div>
-            <% end %>
+            <%= render partial: "bots/asset_search_result", locals: { bot: @bot, asset_field: @asset_field, id: id, symbol: symbol, name: name, exchange_names: exchange_names } %>
           <% end %>
         <% end %>
-
       <% end %>
     </div>
   </div>
