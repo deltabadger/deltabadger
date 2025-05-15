@@ -146,6 +146,7 @@ en:
             wrong_subaccount_name: "Wrong subaccount name"
             failed_tooltip_explanation: "This order failed: %{error_message}"
             skipped_tooltip_explanation: "This order has been skipped because the amount was below the %{exchange_name} minimum order size. The amount has been buffered and added to the next order."
+            failed_status_bar_explanation: "Last order failed: %{error_messages}"
         minimum_withdrawal_disclaimer: 'The minimum withdrawal size is %{minimum} %{currency}.'
         minimum_withdrawal_disclaimer_usd: 'The minimum withdrawal size is %{minimum} USD.'
         month: Month
@@ -196,3 +197,10 @@ en:
                 dont_spend_more_than: "Don't spend more than"
                 amount_left: "(%{amount} %{symbol} left)"
                 amount_spent: "The whole amount has been invested."
+            extra_price_limit:
+                buy_only: "Buy only"
+                while: "while"
+                after: "after"
+                the_price_is: "the price is"
+                above: "above"
+                below: "below"

@@ -4,13 +4,9 @@ module Bots::Barbell::MarketcapAllocatable
   included do
     store_accessor :settings, :marketcap_allocated
 
-    after_initialize :set_marketcap_allocated
+    after_initialize :initialize_marketcap_allocatable_settings
 
     validates :marketcap_allocated, inclusion: { in: [true, false] }
-  end
-
-  def set_marketcap_allocated
-    self.marketcap_allocated ||= false
   end
 
   def marketcap_allocated?
@@ -29,5 +25,11 @@ module Bots::Barbell::MarketcapAllocatable
       Rails.logger.error("Failed to get market cap for #{base1_asset.symbol}") if result1.failure?
       raise StandardError, "Failed to get market cap adjusted allocation for barbell bot #{id}"
     end
+  end
+
+  private
+
+  def initialize_marketcap_allocatable_settings
+    self.marketcap_allocated = false
   end
 end
