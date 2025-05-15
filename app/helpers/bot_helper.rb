@@ -12,4 +12,16 @@ module BotHelper
       'Bots::Webhook' => 'Webhook'
     }[bot.type]
   end
+
+  def price_limit_timing_condition_select_options
+    Bots::Barbell::PriceLimitable::TIMING_CONDITIONS.map do |condition|
+      [t("bot.settings.extra_price_limit.#{condition}"), condition]
+    end
+  end
+
+  def price_limit_price_condition_select_options
+    Bots::Barbell::PriceLimitable::PRICE_CONDITIONS.map do |condition|
+      [t("bot.settings.extra_price_limit.#{condition}"), condition]
+    end
+  end
 end

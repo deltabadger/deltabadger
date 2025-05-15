@@ -1,22 +1,39 @@
-<div class="widget">
+<%= form_with model: bot,
+              url: bot.new_record? ? barbell_new_step_confirm_bots_path : bot_path(bot),
+              method: bot.new_record? ? :get : :patch,
+              class: "widget",
+              data: { controller: "form--submit form--submit-after-delay form--move-cursor-to-end", turbo_stream: true } do |f| %>
   <div class="toggle-group">
     <div class="toggle">
+      <%= f.check_box :price_limited, data: { action: "change->form--submit#submit" }, disabled: bot.working? %>
       <div class="toggle__style"></div>
     </div>
-    <label class="conversational conversational--small conversational--disabled">
-      <select class="sinput" disabled>
-        <option selected>Buy</option>
-        <!--<option disabled>Start buying</option>-->
-      </select>
-      when 
-      <select class="sinput" disabled>
-        <option selected>price is below</option>    <!-- Pau — below $1000 -->
-        <!--<option disabled>price drops</option> Matti — price drops 20%, etc. -->
-        <!--<option disabled>RSI is below</option> Werner — RSI is below 30 -->
-        <!--<option disabled>price is below MA</option> Werner — price is below MA 200 -->
-        <!--<option>webhook has been triggered</option> Berkay -->
-      </select>
-      <input value="10" class="sinput numeric-input" min="0" step="any" size="3" data-controller="autowidth-input" data-action="change->form--submit#submit input->autowidth-input#resize" style="margin-left: 0.125rem;" type="number" disabled>USDT
-    </label>
+    <div class="toggle-group__info">
+      <div class="toggle-group__info__label">
+        <%= f.label :price_limited, class: "conversational conversational--small conversational--disabled" do %>
+          <%= t("bot.settings.extra_price_limit.buy_only") %>
+
+          <div class="sinput sinput--select">
+            <%= t("bot.settings.extra_price_limit.#{bot.price_limit_timing_condition}") %>
+            <%= f.select :price_limit_timing_condition, price_limit_timing_condition_select_options, { selected: bot.price_limit_timing_condition }, data: { action: "change->form--submit#submit" } %>
+          </div>
+
+          <%= t("bot.settings.extra_price_limit.the_price_is") %>
+
+          <div class="sinput sinput--select">
+            <%= t("bot.settings.extra_price_limit.#{bot.price_limit_price_condition}") %>
+            <%= f.select :price_limit_price_condition, price_limit_price_condition_select_options, { selected: bot.price_limit_price_condition }, data: { action: "change->form--submit#submit" } %>
+          </div>
+
+          <div>
+            <% value = bot.price_limit.present? ? bot.price_limit.to_d.to_s('F').sub(/^(?!0\.0$)([1-9]\d*)\.0$/, '\1') : nil %>
+            <%= f.number_field :price_limit, value: value, class: 'sinput numeric-input', step: :any, size: 3, data: { controller: "autowidth-input", action: "input->form--submit-after-delay#submit input->autowidth-input#resize", form__move_cursor_to_end_target: "input" }, style: "margin-left: 0.125rem; width: 50px;", disabled: bot.working? %>
+            <%= bot.quote_asset.symbol %>
+          </div>
+
+          <%= render partial: "bots/barbell/settings/price_limit_info", locals: { bot: bot } %>
+        <% end %>
+      </div>
+    </div>
   </div>
-</div>
+<% end %>

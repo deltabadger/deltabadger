@@ -5,7 +5,7 @@ module Bots::Barbell::QuoteAmountLimitable
     store_accessor :settings, :quote_amount_limited, :quote_amount_limit
     store_accessor :transient_data, :quote_amount_limit_enabled_at
 
-    after_initialize :set_quote_amount_limited, :set_quote_amount_limit
+    after_initialize :initialize_quote_amount_limitable_settings
 
     before_save :set_quote_amount_limit_enabled_at, if: :will_save_change_to_settings?
 
@@ -13,20 +13,6 @@ module Bots::Barbell::QuoteAmountLimitable
     validates :quote_amount_limit, numericality: { greater_than_or_equal_to: 0 }
     validates :quote_amount_limit, numericality: { greater_than: 0 }, if: :quote_amount_limited?
     validate :validate_quote_amount_limit_not_reached, if: :quote_amount_limited?, on: :start
-  end
-
-  def set_quote_amount_limited
-    self.quote_amount_limited ||= false
-  end
-
-  def set_quote_amount_limit
-    self.quote_amount_limit ||= 0
-  end
-
-  def set_quote_amount_limit_enabled_at
-    return unless settings_was['quote_amount_limited'] != quote_amount_limited
-
-    self.quote_amount_limit_enabled_at = quote_amount_limited? ? Time.current : nil
   end
 
   def quote_amount_limit_enabled_at
@@ -57,5 +43,18 @@ module Bots::Barbell::QuoteAmountLimitable
 
   def validate_quote_amount_limit_not_reached
     errors.add(:settings, :quote_amount_limit_reached) if quote_amount_limit_reached?
+  end
+
+  private
+
+  def initialize_quote_amount_limitable_settings
+    self.quote_amount_limited ||= false
+    self.quote_amount_limit ||= 0
+  end
+
+  def set_quote_amount_limit_enabled_at
+    return unless settings_was['quote_amount_limited'] != quote_amount_limited
+
+    self.quote_amount_limit_enabled_at = quote_amount_limited? ? Time.current : nil
   end
 end
