@@ -15,16 +15,16 @@
           <div class="loader"></div>
         <% end %>
 
-        <% @assets.each_with_index do |asset, index| %>
-          <%= form_with model: @bot, url: bot_path(@bot), method: :patch, data: { arrow_keys_navigation_target: "item" }, class: "modal--search__assets__item" do |f| %>
-            <%= f.hidden_field @asset_field, value: asset.id %>
-            <%= button_tag type: :submit, data: { arrow_keys_navigation_target: "button" } do %>
+        <%= form_with model: @bot, url: bot_path(@bot), method: :patch do |f| %>
+          <% assets.each do |id, symbol, name, exchange_names| %>
+            <div class="modal--search__assets__item" data-arrow-keys-navigation-target="item">
+              <%= button_tag name: "#{@bot.model_name.param_key}[#{asset_field}]", value: id, type: :submit, data: { arrow_keys_navigation_target: "button" } do %>
               <div class="modal--search__cell modal--search__cell--ticker"><%= asset.symbol %></div>
               <div class="modal--search__cell modal--search__cell--name">
                 <%= asset.name %>
               </div>
               <div class="modal--search__cell modal--search__cell--exchanges">
-                <%= asset.exchanges.map do |exchange| 
+                <%= asset.exchanges.map do |exchange|
                   exchange_name = exchange.name.downcase
                   exchange_name = case exchange_name
                                   when 'binance.us' then 'binance'

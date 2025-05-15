@@ -40,7 +40,9 @@ class BotsController < ApplicationController
     end
   end
 
-  def new; end
+  def new
+    session[:barbell_bot_params] = {}
+  end
 
   def barbell_new_step_to_first_asset
     # FIXME: we need this sleep because this method will render a modal while being called from another modal.
@@ -249,8 +251,15 @@ class BotsController < ApplicationController
 
   def asset_search
     asset_type = params[:asset_field] == 'quote_asset_id' ? :quote_asset : :base_asset
-    assets = @bot.available_assets_for_current_settings(asset_type: asset_type, include_exchanges: true)
-    @assets = filter_assets_by_query(assets: assets, query: params[:query])
+    available_assets = @bot.available_assets_for_current_settings(asset_type: asset_type)
+    filtered_assets = filter_assets_by_query(assets: available_assets, query: params[:query])
+                      .pluck(:id, :symbol, :name)
+    exchange_assets = Exchange.all.pluck(:id, :name).each_with_object({}) do |(id, name), hash|
+      hash[name] = Exchange.find(id).assets.pluck(:id).presence
+    end.compact
+    @assets = filtered_assets.map do |id, symbol, name|
+      [id, symbol, name, exchange_assets.map { |exchange_name, assets| assets.include?(id) ? exchange_name : nil }.compact]
+    end
     @asset_field = params[:asset_field]
   end
 
