@@ -19,8 +19,8 @@ application.register("bot--barbell-allocation", Bot__BarbellAllocationController
 import Bot__ChartController from "./bot/chart_controller"
 application.register("bot--chart", Bot__ChartController)
 
-import BroadcastOnConnectController from "./broadcast_on_connect_controller"
-application.register("broadcast-on-connect", BroadcastOnConnectController)
+import Broadcast__OnConnectController from "./broadcast/on_connect_controller"
+application.register("broadcast--on-connect", Broadcast__OnConnectController)
 
 import ClassToggleController from "./class_toggle_controller"
 application.register("class-toggle", ClassToggleController)
