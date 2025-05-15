@@ -1,0 +1,8 @@
+<div class="exchange-picker__items" data-arrow-keys-navigation-target="item">
+  <%= button_tag name: "#{bot.model_name.param_key}[#{:exchange_id}]", value: exchange.id, type: :submit, class: "exchange-picker__item exchange-picker__item--exchange", data: { arrow_keys_navigation_target: "button", turbo_frame: "modal_content" } do %>
+    <div><%= exchange.name.capitalize %></div>
+    <div><%= "#{exchange.maker_fee}%".presence || '-' %></div>
+    <div><%= "#{exchange.taker_fee}%".presence || '-' %></div>
+    <div><%= exchange.withdrawal_fee || '-' %></div>
+  <% end %>
+</div>

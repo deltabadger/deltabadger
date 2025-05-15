@@ -19,17 +19,18 @@
         <% end %>
       </div>
       <%= t('bot.setup.sentence.spending') %>
-      <%= render partial: 'bots/barbell/new/asset_search_input', locals: {
-        bot: @bot,
-        search_form_path: barbell_new_step_from_asset_bots_path
-      } %>
+      <%= form_with model: @bot, url: barbell_new_step_from_asset_bots_path, method: :get, data: { controller: "form--submit-after-delay", turbo_frame: "asset-picker" } do |f| %>
+        <%= f.text_field :query, autofocus: true, autocomplete: "off", placeholder: "…", data: { action: "input->form--submit-after-delay#submit" }, class: "conversational__input" %>
+      <% end %>
     </div>
 
-    <%= render partial: 'bots/barbell/new/asset_search_results', locals: {
-      bot: @bot,
-      asset_field: :quote_asset_id,
-      next_step_path: barbell_new_step_confirm_bots_path,
-      assets: @assets
-    } %>
+    <%= turbo_frame_tag "asset-picker", data: { action: "keydown@window->arrow-keys-navigation#navigate", controller: "arrow-keys-navigation" }, class: "modal--search__assets selectable-options" do %>
+      <%= form_with model: @bot, url: barbell_new_step_confirm_bots_path, method: :get do |f| %>
+        <% @assets.each do |id, symbol, name, exchange_names| %>
+          <%= render partial: "bots/asset_search_result", locals: { bot: @bot, asset_field: :quote_asset_id, id: id, symbol: symbol, name: name, exchange_names: exchange_names } %>
+        <% end %>
+      <% end %>
+    <% end %>
+
   </div>
 <% end %>
