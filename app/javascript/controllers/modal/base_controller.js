@@ -16,7 +16,6 @@ export default class extends Controller {
   // hide modal on successful form submission
   // data-action="turbo:submit-end->modal--base#submitEnd"
   submitEnd(e) {
-    this.frameAtSubmitEnd = document.getElementById('modal')
     if (e.detail.success) {
       this.animateOutCloseAndCleanUp()
     }
@@ -54,20 +53,10 @@ export default class extends Controller {
     this.element.close()
     // clean up modal content
     const frame = document.getElementById('modal')
-    if (this.frameAtSubmitEnd === undefined || this.frameAtSubmitEnd.innerHTML === frame.innerHTML) {
-      console.log('fully closing modal')
-      frame.removeAttribute("src")
-      frame.innerHTML = ""
-      document.body.classList.remove('overflow-hidden')
-      this.#dispatchModalOpenEvent(false)
-    } else {
-      console.log('something was rendered in the modal while closing')
-      const exitAnimationClass = this.frameAtSubmitEnd.dataset['hwAnimateOut'];
-      if (exitAnimationClass) {
-        console.log('removing previous exit animation class:', exitAnimationClass)
-        frame.classList.remove(exitAnimationClass)
-      }
-    }
+    frame.removeAttribute("src")
+    frame.innerHTML = ""
+    document.body.classList.remove('overflow-hidden')
+    this.#dispatchModalOpenEvent(false)
   }
 
   #dispatchModalOpenEvent(detail) {
