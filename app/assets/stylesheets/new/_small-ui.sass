@@ -7,9 +7,10 @@
     white-space: nowrap
     overflow: hidden
     text-overflow: ellipsis
-    &__value,&--select
-        color: var(--emphasis)
+    &--select
+        color: var(--link)
     &__value
+        color: var(--emphasis)
         font-weight: bold
     &--select
         svg
@@ -175,7 +176,7 @@ select
     svg
         fill: #fff
     &--large
-        font-size: 2.5rem
+        font-size: 2.25rem
         padding: 2rem 4rem
         height:  7rem
         margin: 0 auto
@@ -188,6 +189,7 @@ select
     &--success
         background: var(--success)
         box-shadow: var(--success-shadow)
+        font-weight: 700
     &--danger
         background: var(--danger)
         box-shadow: var(--danger-shadow)
@@ -272,3 +274,4 @@ select
     border: none
     background: none
     color: var(--link)
+    cursor: pointer

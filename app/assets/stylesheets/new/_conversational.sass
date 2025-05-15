@@ -35,6 +35,7 @@
         text-align: left
         max-width: 10rem
         text-transform: uppercase
+        text-align: center
         &:focus
             outline: none
         &::placeholder
@@ -48,20 +49,23 @@
     .sinput
         margin-left: -.5rem
         margin-right: -.5rem
-        padding-left: 1.5rem
-        padding-right: 1.5rem
+        padding-left: 1rem
+        padding-right: 1rem
         color: var(--link)
         background: var(--sinput-on-paper)
+        text-align: center
+        box-shadow: var(--widget-shadow)
         @media (max-width: 767.9px)
             line-height: 3rem
             height: 3rem
+    .numeric-input
+        text-align: center
     &--big
         font-size: 2.5rem
         display: inline-block
         line-height: 4rem
         text-align: center
-        @media (min-width: 768px)
-            text-align: left
+        width: 100%
         .sinput
             background: var(--widget-background) !important
             display: inline-block
