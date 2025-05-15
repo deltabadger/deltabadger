@@ -35,7 +35,9 @@
         <%= form_with model: payment, url: upgrade_path do |f| %>
           <div class="large-button-wrapper">
             <%= f.button type: "submit", data: { turbo: false, action: "click->zaraz#trackBeginCheckoutEvent", zaraz_target: "button" }, class: "button button--success button--large", disabled: payment.price_with_vat == 0 do %>
-              <%= t('subscriptions.payment.pay_html', amount_html: localized_price(payment.price_with_vat, payment.currency)) %>
+              <span>
+                <%= t('subscriptions.payment.pay_html', amount_html: localized_price(payment.price_with_vat, payment.currency)) %>
+              </span>
             <% end %>
           </div>
         <% end %>

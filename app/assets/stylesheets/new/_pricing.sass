@@ -53,7 +53,7 @@
 
 .widget
     &--pricing
-        gap: 2rem
+        gap: 3rem
         margin-bottom: 0
         padding-top: 3.25rem
         padding-bottom: 3.25rem
@@ -99,7 +99,7 @@
             list-style: none
             padding-left: 0
             li
-                padding-left: 3.5rem
+                padding-left: 3rem
                 position: relative
                 &::before
                     content: ""
@@ -150,9 +150,11 @@
 
 .pricing-period-toggle
     display: flex
-    gap: 1.5rem
-    font-size: 2.2rem
+    gap: 1rem
+    font-size: 2rem
     line-height: 4rem
+    width: 100%
+    justify-content: center
     label
         white-space: nowrap
     :not([checked="checked"]) + span
@@ -162,7 +164,6 @@
         color: var(--text-strong)
         cursor: default
     @media (max-width: 767.9px)
-        width: 100%
         justify-content: flex-end
         position: relative
 // hide radio buttons for the tabs, guillem workaround
