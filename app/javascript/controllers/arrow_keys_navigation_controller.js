@@ -2,6 +2,8 @@ import { Controller } from "@hotwired/stimulus"
 
 // Connects to data-controller="arrow-keys-navigation"
 export default class extends Controller {
+  static targets = ["item", "button"]
+
   connect() {
     this.index = 0
     this.navigationInitialized = false
@@ -17,7 +19,7 @@ export default class extends Controller {
       this.#highlightCurrentItem();
       this.navigationInitialized = true;
     };
-  
+
     switch (event.key) {
       case "ArrowUp":
         event.preventDefault();
@@ -47,12 +49,12 @@ export default class extends Controller {
   }
 
   #updateItems() {
-    const new_items = document.querySelectorAll('[data-arrow-keys-navigation-target="item"]')
+    const new_items = this.itemTargets
     if (this.items && new_items.length !== this.items.length) {
       this.index = 0
       this.navigationInitialized = false
     }
     this.items = new_items
-    this.buttons = document.querySelectorAll('[data-arrow-keys-navigation-target="button"]')
+    this.buttons = this.buttonTargets
   }
 }
