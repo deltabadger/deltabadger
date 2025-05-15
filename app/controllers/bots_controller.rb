@@ -286,6 +286,10 @@ class BotsController < ApplicationController
       :label,
       :quote_amount_limited,
       :quote_amount_limit,
+      :price_limited,
+      :price_limit,
+      :price_limit_timing_condition,
+      :price_limit_price_condition,
       :query
     )
   end
@@ -317,6 +321,10 @@ class BotsController < ApplicationController
       pp[:marketcap_allocated] = pp[:marketcap_allocated].presence&.in?(%w[1 true])
       pp[:quote_amount_limited] = pp[:quote_amount_limited].presence&.in?(%w[1 true])
       pp[:quote_amount_limit] = pp[:quote_amount_limit].presence&.to_f
+      pp[:price_limited] = pp[:price_limited].presence&.in?(%w[1 true])
+      pp[:price_limit] = pp[:price_limit].presence&.to_f
+      pp[:price_limit_timing_condition] = pp[:price_limit_timing_condition].presence
+      pp[:price_limit_price_condition] = pp[:price_limit_price_condition].presence
     end.compact
 
     {
