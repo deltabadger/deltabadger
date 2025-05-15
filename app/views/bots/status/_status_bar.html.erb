@@ -1,47 +1,45 @@
-<%= tag.div id: dom_id(bot, :status_bar), style: "width: 100%; display: flex" do %>
-  <div class="bot-control__status <%= 'active' unless bot.stopped? %>" data-controller="marquee">
-    <% if bot.executing? %>
-      <div class="bot-control__status__text" data-marquee-target="text">
-        <%= t('bot.status.setting_orders') %>
-      </div>
-    <% elsif bot.stopped? %>
-      <div class="bot-control__status__text" data-marquee-target="text">
-        <% if bot.stop_message_key.present? %>
-          <%= t('bot.status.paused') + ': ' + t(bot.stop_message_key) %>
-        <% else %>
-          <%= t('bot.status.paused') %>
-        <% end %>
-      </div>
-    <% elsif bot.scheduled? || bot.retrying? %>
-      <% if bot.scheduled? %>
-        <%= tag.div class: "bot-control__status__bar", style: "min-width:0.5rem; width: #{bot.progress_percentage * 100}%", data: {
-          controller: "progress-bar",
-          progress_bar_start_time_value: bot.last_interval_checkpoint_at.iso8601,
-          progress_bar_end_time_value: bot.next_action_job_at&.iso8601,
-          progress_bar_target: "progressBar",
-        } %>
+<div id="<%= dom_id(bot, :status_bar) %>" class="bot-control__status <%= 'active' unless bot.stopped? %>" data-controller="marquee" style="width: 100%; display: flex;">
+  <% if bot.executing? %>
+    <div class="bot-control__status__text" data-marquee-target="text">
+      <%= t('bot.status.setting_orders') %>
+    </div>
+  <% elsif bot.stopped? %>
+    <div class="bot-control__status__text" data-marquee-target="text">
+      <% if bot.stop_message_key.present? %>
+        <%= t('bot.status.paused') + ': ' + t(bot.stop_message_key) %>
+      <% else %>
+        <%= t('bot.status.paused') %>
       <% end %>
-
-      <%= tag.div class: "bot-control__status__text #{bot.retrying? ? '' : 'text-success'}", data: {
-        controller: "countdown",
-        countdown_end_time_value: bot.next_action_job_at&.iso8601,
-        countdown_hide_if_zero_value: true,
-        countdown_days_label_value: t('subscriptions.payment.days_short'),
-        countdown_hours_label_value: t('subscriptions.payment.hours_short'),
-        countdown_minutes_label_value: t('subscriptions.payment.minutes_short'),
-        countdown_seconds_label_value: t('subscriptions.payment.seconds_short'),
-        marquee_target: "text"
-      } do %>
-        <% if bot.retrying? %>
-          <%= t('bot.status.next_try') %>
-        <% end %>
-        <div style="display: inline-block; min-width: 9em;">
-          <span data-countdown-target="days"></span><span data-countdown-target="daysLabel"></span>
-          <span data-countdown-target="hours"></span><span data-countdown-target="hoursLabel"></span>
-          <span data-countdown-target="minutes"></span><span data-countdown-target="minutesLabel"></span>
-          <span data-countdown-target="seconds"></span><span data-countdown-target="secondsLabel"></span>
-        </div>
-      <% end %>
+    </div>
+  <% elsif bot.scheduled? || bot.retrying? %>
+    <% if bot.scheduled? %>
+      <%= tag.div class: "bot-control__status__bar", style: "min-width:0.5rem; width: #{bot.progress_percentage * 100}%", data: {
+        controller: "progress-bar",
+        progress_bar_start_time_value: bot.last_interval_checkpoint_at.iso8601,
+        progress_bar_end_time_value: bot.next_action_job_at&.iso8601,
+        progress_bar_target: "progressBar",
+      } %>
     <% end %>
-  </div>
-<% end %>
+
+    <%= tag.div class: "bot-control__status__text #{bot.retrying? ? '' : 'text-success'}", data: {
+      controller: "countdown",
+      countdown_end_time_value: bot.next_action_job_at&.iso8601,
+      countdown_hide_if_zero_value: true,
+      countdown_days_label_value: t('subscriptions.payment.days_short'),
+      countdown_hours_label_value: t('subscriptions.payment.hours_short'),
+      countdown_minutes_label_value: t('subscriptions.payment.minutes_short'),
+      countdown_seconds_label_value: t('subscriptions.payment.seconds_short'),
+      marquee_target: "text"
+    } do %>
+      <% if bot.retrying? %>
+        <%= t('bot.status.next_try') %>
+      <% end %>
+      <div style="display: inline-block; min-width: 9em;">
+        <span data-countdown-target="days"></span><span data-countdown-target="daysLabel"></span>
+        <span data-countdown-target="hours"></span><span data-countdown-target="hoursLabel"></span>
+        <span data-countdown-target="minutes"></span><span data-countdown-target="minutesLabel"></span>
+        <span data-countdown-target="seconds"></span><span data-countdown-target="secondsLabel"></span>
+      </div>
+    <% end %>
+  <% end %>
+</div>
