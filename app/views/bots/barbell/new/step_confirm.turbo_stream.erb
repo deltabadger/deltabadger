@@ -1,2 +1,4 @@
-<%= turbo_stream.replace 'settings', partial: 'bots/barbell/settings', locals: { bot: @bot } %>
+
+<%= turbo_stream.replace 'new-settings', partial: 'bots/barbell/settings', locals: { bot: @bot } %>
+<%= turbo_stream.replace 'create-bot-button', partial: 'bots/barbell/new/create_bot_button', locals: { bot: @bot } %>
 <%= turbo_stream_prepend_flash %>
