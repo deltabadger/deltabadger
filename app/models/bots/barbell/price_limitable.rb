@@ -5,7 +5,12 @@ module Bots::Barbell::PriceLimitable
   PRICE_CONDITIONS = %w[below above].freeze
 
   included do
-    store_accessor :settings, :price_limited, :price_limit, :price_limit_timing_condition, :price_limit_price_condition
+    store_accessor :settings,
+                   :price_limited,
+                   :price_limit,
+                   :price_limit_timing_condition,
+                   :price_limit_price_condition,
+                   :price_limit_in_ticker_id
     store_accessor :transient_data, :price_limit_enabled_at
 
     after_initialize :initialize_price_limitable_settings
@@ -17,6 +22,7 @@ module Bots::Barbell::PriceLimitable
     validates :price_limit, numericality: { greater_than: 0 }, if: :price_limited?
     validates :price_limit_timing_condition, inclusion: { in: TIMING_CONDITIONS }
     validates :price_limit_price_condition, inclusion: { in: PRICE_CONDITIONS }
+    validates :price_limit_in_ticker_id, inclusion: { in: ->(b) { [b.ticker0.id, b.ticker1.id].compact } }
   end
 
   def price_limit_enabled_at
@@ -35,6 +41,7 @@ module Bots::Barbell::PriceLimitable
     self.price_limit ||= 0
     self.price_limit_timing_condition ||= TIMING_CONDITIONS.first
     self.price_limit_price_condition ||= PRICE_CONDITIONS.first
+    self.price_limit_in_ticker_id ||= ticker0.id
   end
 
   def set_price_limit_enabled_at

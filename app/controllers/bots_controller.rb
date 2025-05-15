@@ -290,6 +290,7 @@ class BotsController < ApplicationController
       :price_limit,
       :price_limit_timing_condition,
       :price_limit_price_condition,
+      :price_limit_in_ticker_id,
       :query
     )
   end
@@ -325,6 +326,7 @@ class BotsController < ApplicationController
       pp[:price_limit] = pp[:price_limit].presence&.to_f
       pp[:price_limit_timing_condition] = pp[:price_limit_timing_condition].presence
       pp[:price_limit_price_condition] = pp[:price_limit_price_condition].presence
+      pp[:price_limit_in_ticker_id] = pp[:price_limit_in_ticker_id].presence&.to_i
     end.compact
 
     {

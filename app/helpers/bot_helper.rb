@@ -15,13 +15,19 @@ module BotHelper
 
   def price_limit_timing_condition_select_options
     Bots::Barbell::PriceLimitable::TIMING_CONDITIONS.map do |condition|
-      [t("bot.settings.extra_price_limit.#{condition}"), condition]
+      [t("bot.settings.extra_price_limit.timing_condition.#{condition}"), condition]
     end
   end
 
   def price_limit_price_condition_select_options
     Bots::Barbell::PriceLimitable::PRICE_CONDITIONS.map do |condition|
-      [t("bot.settings.extra_price_limit.#{condition}"), condition]
+      [t("bot.settings.extra_price_limit.price_condition.#{condition}"), condition]
+    end
+  end
+
+  def price_limit_in_ticker_select_options(bot)
+    bot.tickers.map do |ticker|
+      [ticker.base, ticker.id]
     end
   end
 end
