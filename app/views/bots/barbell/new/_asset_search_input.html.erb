@@ -1,3 +1,0 @@
-<%= form_with model: bot, url: search_form_path, method: :get, data: { controller: "form--submit-after-delay", turbo_frame: "asset-picker" } do |f| %>
-  <%= f.text_field :query, autofocus: true, autocomplete: "off", placeholder: "…", data: { action: "input->form--submit-after-delay#submit" }, class: "conversational__input" %>
-<% end %>

@@ -1,8 +1,8 @@
 <%= turbo_stream_from "user_#{current_user.id}", :bot_updates %>
 
-<%= turbo_frame_tag "bot", data: @loading ? { controller: "broadcast-on-connect",
-                                              broadcast_on_connect_method_value: "metrics_update",
-                                              broadcast_on_connect_method_args_value: { bot_id: @bot.id }.to_json } : {} do %>
+<%= turbo_frame_tag "bot", data: @loading ? { controller: "broadcast--on-connect",
+                                              broadcast__on_connect_method_value: "metrics_update",
+                                              broadcast__on_connect_method_args_value: { bot_id: @bot.id }.to_json } : {} do %>
   <div class="page-head">
     <%= render "bots/header", bot: @bot, other_bots: @other_bots %>
   </div>
