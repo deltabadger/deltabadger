@@ -6,7 +6,7 @@ class BotAlertsMailer < ApplicationMailer
     @label = @bot.label
     @exchange_name = Exchange.find(@bot.exchange_id).name.upcase
 
-    mail(to: @user.email, subject: default_i18n_subject)
+    mail(to: @user.email, subject: t('.subject', label: @label))
   end
 
   def notify_about_restart
@@ -41,5 +41,14 @@ class BotAlertsMailer < ApplicationMailer
     @exchange_name = @bot.exchange.name
 
     mail(to: @user.email, subject: default_i18n_subject)
+  end
+
+  def stopped_by_quote_amount_limit
+    @user = params[:user]
+    @label = params[:label]
+    @amount = params[:amount]
+    @quote = params[:quote]
+
+    mail(to: @user.email, subject: t('.subject', label: @label))
   end
 end

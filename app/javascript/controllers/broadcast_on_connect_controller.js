@@ -17,7 +17,7 @@ export default class extends Controller {
   }
 
   #triggerBroadcast() {
-    fetch(`/${this.methodValue}`, {
+    fetch(`/broadcasts/${this.methodValue}`, {
       method: "POST",
       headers: {
         "X-CSRF-Token": document.querySelector('[name="csrf-token"]').content,

@@ -31,16 +31,19 @@ es:
     bot_alerts_mailer:
         successful_webhook_bot_transaction:
             subject: "La transacción ha sido exitosa"
-            template_html: "transacción exitosa, base: %{base}, cotización: %{quote}, nombre del bot: %{bot_name}, tipo: %{type}, precio: %{price}, nombre del exchange: %{exchange_name}"
+            template_html: "Transacción exitosa, base: %{base}, cotización: %{quote}, nombre del bot: %{bot_name}, tipo: %{type}, precio: %{price}, exchange: %{exchange_name}"
         end_of_funds:
-            subject: "Tu bot pronto se quedará sin fondos"
-            template_html: "<p>Parece que tu bot <b>%{label}</b> se está quedando sin %{quote} muy pronto.</p><p>Realiza una transferencia a %{exchange_name} para asegurarte de que el bot siga funcionando continuamente.</p>"
+            subject: "A %{label} se le están acabando los fondos pronto"
+            template_html: "<p>Parece que a tu bot <b>%{label}</b> se le está acabando %{quote} muy pronto.</p><p>Realiza una transferencia a %{exchange_name} para asegurar que el bot siga funcionando continuamente.</p>"
         notify_about_error:
-            subject: "Algo salió mal"
-            template_html: "<p>Algo salió mal al procesar la última transacción para el bot <b>%{label}</b>.</p><p>Puedes ver el error en el registro del bot. Inicia sesión para comprobarlo.</p><p>Errores:</p><blockquote> <b>%{exchange_name}:</b> <b>%{errors}</b></blockquote>"
+            subject: "Algo ha salido mal con %{label}"
+            template_html: "<p>Algo ha salido mal al procesar la última transacción para el bot <b>%{label}</b>.</p><p>Puedes ver el error en el registro del bot. Inicia sesión para comprobarlo.</p><p>Errores:</p><blockquote> <b>%{exchange_name}:</b> <b>%{errors}</b></blockquote>"
         notify_about_restart:
-            subject: "¡Ups! Siguiente intento…"
-            template_html: "<p>El bot <b>%{label}</b> no pudo realizar tu orden. Parece un problema del exchange. Lo intentaremos de nuevo en %{delay}.</p><p>Todos los errores son visibles en el registro del bot. Inicia sesión para comprobarlo.</p><p>Errores:</p><blockquote> <b>%{exchange_name}:</b> <b>%{errors}</b> </blockquote>"
+            subject: "¡Ups! Próximo intento..."
+            template_html: "<p>El bot <b>%{label}</b> no ha podido realizar tu orden. Parece un problema con el exchange. Lo intentaremos de nuevo en %{delay}.</p><p>Todos los errores son visibles en el registro del bot. Inicia sesión para comprobarlo.</p><p>Errores:</p><blockquote> <b>%{exchange_name}:</b> <b>%{errors}</b> </blockquote>"
+        stopped_by_quote_amount_limit:
+            subject: "%{label} ha invertido el importe completo"
+            template_html: "<p>Tu bot <b>%{label}</b> ha alcanzado tu objetivo e invertido la totalidad de %{amount} %{quote}.</p><p>Se ha detenido automáticamente. Desactiva el límite de importe para restablecer el objetivo.</p>"
     subscription_mailer:
         invoice:
             subject: 'Recibo'

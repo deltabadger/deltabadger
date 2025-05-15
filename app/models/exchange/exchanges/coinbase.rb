@@ -188,8 +188,8 @@ module Exchange::Exchanges::Coinbase
                           base_asset: base_asset,
                           quote_asset: quote_asset,
                           rate: rate,
-                          amount: amount,
-                          quote_amount: quote_amount,
+                          amount: amount,             # amount the account balance went up or down
+                          quote_amount: quote_amount, # amount the account balance went up or down
                           side: side,
                           error_messages: error_messages,
                           status: status,

@@ -6,9 +6,10 @@ export default class extends Controller {
 
   connect() {
     this.resize = this.resize.bind(this)
+    this.minWidthValue = this.element.style.width || "0px";
     this.#createMirrorElement()
     this.#transferStyles()
-    requestAnimationFrame(this.resize)
+    this.resize()
     this.element.addEventListener('input', this.resize)
   }
 
@@ -25,12 +26,11 @@ export default class extends Controller {
     const measuredWidth = this.mirrorElement.offsetWidth;
 
     // Add a small buffer (e.g., 2px) to prevent text clipping or overflow
-    const buffer = 2;
-    const minWidth = 50;
-    const newWidth = Math.max(measuredWidth + buffer, minWidth);
+    const buffer = 10;
+    const newWidth = Math.max(measuredWidth + buffer);
 
     // Set the input element's width
-    this.element.style.width = `${newWidth}px`;
+    this.element.style.width = `calc(max(${this.minWidthValue}, ${newWidth}px))`;
   }
 
   #createMirrorElement() {
