@@ -12,7 +12,7 @@
       padding-top: 16rem
 
 .menu
-  padding: 4rem
+  padding: 1rem
   top: 0
   left: 0
   bottom: 0
@@ -25,38 +25,24 @@
   align-items: center
   min-height: 77rem
   z-index: 100
-  @media only screen and (max-width: 1359px)
-    height: 6.5rem
-    min-height: 6.5rem
-    position: absolute
-    width: calc(100% - 7rem)
-    border: none
-    bottom: auto
-    flex-direction: row
-    gap: 1rem
-    padding-left: 3.75rem
-    padding-top: 3.15rem
   @media only screen and (max-width: 767.9px)
     display: none
   &__section
     display: flex
     flex-direction: column
-    gap: 2rem
-    @media only screen and (max-width: 1359px)
-      flex-direction: row
-      gap: 1rem
+    gap: 1rem
     &--main-menu
-      @media only screen and (min-width: 1360px)
-        position: fixed
-        top: 12rem
-    &--logo
-      @media only screen and (max-width: 1359px)
-        width: 13rem
+      position: fixed
+      top: 8rem
     &--bottom
       align-items: center
   &__logo
-    width: 5rem
-    height: 3rem
+    width: 6rem
+    height: 6rem
+    padding: 1rem
+    display: flex
+    justify-content: center
+    align-items: center
   &__item
     height: 6rem
     width: 6rem
@@ -72,17 +58,11 @@
       padding: 0.5rem 1.25rem
       &::before
           display: none
-      @media only screen and (max-width: 1359px)
-        left: auto
-        top: 8rem
       &__counter
         opacity: 0.5
     &.show-tooltip
       .tooltip
         left: 7rem
-        @media only screen and (max-width: 1359px)
-          left: auto
-          top: 7rem
     svg
       width: 3rem
       height: 3rem
