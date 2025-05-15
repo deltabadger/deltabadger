@@ -49,7 +49,8 @@
     box-shadow: var(--widget-shadow)
     cursor: pointer
     text-decoration: none !important
-    &[disabled="disabled"],&[disabled]
+    &[disabled="disabled"],&[disabled],&--disabled
+        color: var(--label) !important
         cursor: not-allowed
     .label
         min-width: 2.2rem
