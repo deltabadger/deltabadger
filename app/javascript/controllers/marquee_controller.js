@@ -80,6 +80,10 @@ export default class extends Controller {
 
     this.marqueeInitialized = true
 
+    // Pause on hover
+    this.wrapper.addEventListener("mouseenter", this.#pauseMarquee)
+    this.wrapper.addEventListener("mouseleave", this.#resumeMarquee)
+
     // Start observing mutations (text changes, subtree changes)
     this.contentMutationObserver.observe(this.contentContainer, {
       characterData: true,
@@ -90,10 +94,24 @@ export default class extends Controller {
 
   #restoreOriginalContent() {
     if (!this.marqueeInitialized) return
+    // Remove hover listeners if present
+    if (this.wrapper) {
+      this.wrapper.removeEventListener("mouseenter", this.#pauseMarquee)
+      this.wrapper.removeEventListener("mouseleave", this.#resumeMarquee)
+    }
     this.textTarget.innerHTML = this.originalHTML
     this.marqueeInitialized = false
 
     if (this.contentMutationObserver) this.contentMutationObserver.disconnect()
+  }
+
+  // Pause/resume handlers
+  #pauseMarquee = () => {
+    if (this.animation) this.animation.pause()
+  }
+
+  #resumeMarquee = () => {
+    if (this.animation) this.animation.play()
   }
 
   #updateClonedContent() {
