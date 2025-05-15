@@ -7,40 +7,21 @@
 <%= form_with model: bot,
               url: bot.new_record? ? barbell_new_step_confirm_bots_path : bot_path(bot),
               method: bot.new_record? ? :get : :patch,
-              id: "settings-main",
               class: "widget",
               data: {
                 turbo_stream: true,
-                controller: "form--submit form--move-cursor-to-end bot--barbell-allocation",
+                controller: "form--submit form--submit-after-delay form--move-cursor-to-end bot--barbell-allocation",
                 bot__barbell_allocation_color0_value: base0_color,
                 bot__barbell_allocation_color1_value: base1_color
               } do |f| %>
-  <% if bot.new_record? %>
-    <%= f.hidden_field :label, value: bot.label %>
-    <%= f.hidden_field :base0_asset_id, value: bot.base0_asset_id %>
-    <%= f.hidden_field :base1_asset_id, value: bot.base1_asset_id %>
-    <%= f.hidden_field :quote_asset_id, value: bot.quote_asset_id %>
-    <%= f.hidden_field :exchange_id, value: bot.exchange_id %>
-    <%= f.hidden_field :allocation0, value: bot.allocation0 %>
-    <%= f.hidden_field :marketcap_allocated, value: bot.marketcap_allocated %>
-    <%= f.hidden_field :quote_amount_limited, value: bot.quote_amount_limited %>
-    <%= f.hidden_field :quote_amount_limit, value: bot.quote_amount_limit %>
-  <% end %>
-
   <div class="conversational flex-justify-center">
     <%= t('bot.barbell.invest') %>
     <div class="ticker-input ticker-input--autoscale">
       <% value = bot.quote_amount.present? ? bot.quote_amount.to_d.to_s('F').sub(/^(?!0\.0$)([1-9]\d*)\.0$/, '\1') : nil %>
-      <%= f.number_field :quote_amount, value: value, class: 'numeric-input', step: :any, size: 3, data: { controller: "autowidth-input", action: "change->form--submit#submit input->autowidth-input#resize", form__move_cursor_to_end_target: "input" }, style: "width: 50px;", autofocus: bot.new_record?, disabled: bot.working? %>
+      <%= f.number_field :quote_amount, value: value, class: 'numeric-input', step: :any, size: 3, data: { controller: "autowidth-input", action: "input->form--submit-after-delay#submit input->autowidth-input#resize", form__move_cursor_to_end_target: "input" }, style: "width: 50px;", autofocus: bot.new_record? && bot.quote_amount.blank?, disabled: bot.working? %>
 
       <% if bot.new_record? %>
-        <%= link_to bot.quote_asset.symbol, barbell_new_step_from_asset_bots_path({
-        bots_barbell: {
-          label: bot.label,
-          base0_asset_id: bot.base0_asset_id,
-          base1_asset_id: bot.base1_asset_id,
-          exchange_id: bot.exchange_id
-        }}), data: { turbo_frame: "modal_content" }, class: "ticker", style: "background: #{quote_color}" %>
+        <%= link_to bot.quote_asset.symbol, barbell_new_step_from_asset_bots_path, data: { turbo_frame: "modal_content" }, class: "ticker", style: "background: #{quote_color}" %>
       <% else %>
         <div class="ticker" style="background: <%= quote_color %>">
           <%= bot.quote_asset.symbol %>
@@ -53,14 +34,10 @@
       <%= f.select :interval, bot_intervals, { selected: bot.interval }, data: { action: "change->form--submit#submit" }, disabled: bot.working? %>
     </div>
   </div>
-
   <div class="barbell">
     <div class="barbell__plate">
       <% if bot.new_record? %>
-        <%= link_to bot.base0_asset.symbol, barbell_new_step_to_first_asset_bots_path({
-        bots_barbell: {
-          label: bot.label
-        }}), data: { turbo_frame: "modal_content", bot__barbell_allocation_target: "allocation0BackgroundColor" }, class: "ticker", style: "background: #{base0_color_transparent}" %>
+        <%= link_to bot.base0_asset.symbol, barbell_new_step_to_first_asset_bots_path, data: { turbo_frame: "modal_content", bot__barbell_allocation_target: "allocation0BackgroundColor" }, class: "ticker", style: "background: #{base0_color_transparent}" %>
       <% else %>
         <div class="ticker" style="background: <%= base0_color_transparent %>" data-bot--barbell-allocation-target="allocation0BackgroundColor">
           <%= bot.base0_asset.symbol %>
@@ -84,11 +61,7 @@
 
     <div class="barbell__plate">
       <% if bot.new_record? %>
-        <%= link_to bot.base1_asset.symbol, barbell_new_step_to_second_asset_bots_path({
-        bots_barbell: {
-          label: bot.label,
-          base0_asset_id: bot.base0_asset_id
-        }}), data: { turbo_frame: "modal_content", bot__barbell_allocation_target: "allocation1BackgroundColor" }, class: "ticker", style: "background: #{base1_color_transparent}" %>
+        <%= link_to bot.base1_asset.symbol, barbell_new_step_to_second_asset_bots_path, data: { turbo_frame: "modal_content", bot__barbell_allocation_target: "allocation1BackgroundColor" }, class: "ticker", style: "background: #{base1_color_transparent}" %>
       <% else %>
         <div class="ticker" style="background: <%= base1_color_transparent %>" data-bot--barbell-allocation-target="allocation1BackgroundColor">
           <%= bot.base1_asset.symbol %>

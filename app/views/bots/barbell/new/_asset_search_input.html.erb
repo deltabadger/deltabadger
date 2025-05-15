@@ -1,8 +1,3 @@
 <%= form_with model: bot, url: search_form_path, method: :get, data: { controller: "form--submit-after-delay", turbo_frame: "asset-picker" } do |f| %>
-  <%= f.hidden_field :label, value: bot.label %>
-  <%= f.hidden_field :base0_asset_id, value: bot.base0_asset_id %>
-  <%= f.hidden_field :base1_asset_id, value: bot.base1_asset_id %>
-  <%= f.hidden_field :quote_asset_id, value: bot.quote_asset_id %>
-  <%= f.hidden_field :exchange_id, value: bot.exchange_id %>
   <%= f.text_field :query, autofocus: true, autocomplete: "off", placeholder: "…", data: { action: "input->form--submit-after-delay#submit" }, class: "conversational__input" %>
 <% end %>
