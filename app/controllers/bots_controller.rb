@@ -126,7 +126,6 @@ class BotsController < ApplicationController
   def barbell_new_step_confirm
     @bot.interval ||= 'day'
     @bot.allocation0 ||= 0.5
-    puts "session[:barbell_bot_params]: #{session[:barbell_bot_params].inspect}"
     if @bot.quote_amount.blank? || @bot.valid?
       render 'bots/barbell/new/step_confirm'
     else
