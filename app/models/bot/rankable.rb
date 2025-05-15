@@ -58,13 +58,10 @@ module Bot::Rankable
     end
 
     def most_popular_bots(amount)
-      search_hash = {
-        status: 'working',
-        type: 'Bots::Basic'
-      }
-      all_bots_hash = Bot.group("bots.settings->>'base'")
+      all_bots_hash = Bot.basic
+                         .working
+                         .group("bots.settings->>'base'")
                          .order(count: :desc)
-                         .where(search_hash)
                          .count
       fetched_symbols_bots_hash = all_bots_hash.each do |key, value|
         SYMBOLS_HASH.each do |symbol_key, symbol_value|
