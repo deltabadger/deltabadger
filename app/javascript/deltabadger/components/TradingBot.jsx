@@ -57,7 +57,7 @@ const BotTemplate = ({
     order_type: 'market',
     price: "",
     percentage: 0.0,
-    interval: "hour",
+    interval: "day",
     force_smart_intervals: false,
     smart_intervals_value: "0",
     quote: "",
@@ -90,8 +90,8 @@ const BotTemplate = ({
   const [subaccountsList, setSubaccountsList] = useState(['']);
 
   const isStarting = startingBotIds.includes(id);
-  const working = status === 'working'
-  const pending = status === 'pending'
+  const working = status === 'scheduled'
+  const pending = status === 'executing'
 
   const colorClass = settings.type === 'buy' ? 'success' : 'danger'
   const botOpenClass = open ? 'db-bot--active' : 'db-bot--collapsed'
@@ -278,7 +278,7 @@ const BotTemplate = ({
   }
 
   const keyOwned = (status) => status === 'correct'
-  const keyPending = (status) => status === 'pending'
+  const keyPending = (status) => status === 'pending_validation'
   const keyInvalid = (status) => status === 'incorrect'
 
   const keyExists = () => {

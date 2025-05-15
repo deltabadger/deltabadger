@@ -8,7 +8,7 @@ class SetUpSidekiq
   end
 
   def fill_sidekiq_queue(dry_run: false)
-    Bot.working.each do |bot|
+    Bot.scheduled.each do |bot|
       if bot.basic?
         params = continue_params(bot)
         if params.present? && (params[:price] - bot.settings['price'].to_f).positive?
@@ -29,10 +29,6 @@ class SetUpSidekiq
   end
 
   private
-
-  def working?(bot)
-    bot.status == 'working'
-  end
 
   def missed_withdrawals(bot)
     next_withdrawal_at = NextWithdrawalBotTransactionAt.new.call(bot)

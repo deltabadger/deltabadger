@@ -31,16 +31,19 @@ pl:
     bot_alerts_mailer:
         successful_webhook_bot_transaction:
             subject: "Transakcja zakończona sukcesem"
-            template_html: "transakcja udana, base: %{base}, quote: %{quote}, nazwa bota: %{bot_name}, typ: %{type}, cena: %{price}, giełda: %{exchange_name}"
+            template_html: "Transakcja udana, base: %{base}, quote: %{quote}, nazwa bota: %{bot_name}, typ: %{type}, cena: %{price}, giełda: %{exchange_name}"
         end_of_funds:
-            subject: "Twojemu botowi wkrótce zabraknie środków"
-            template_html: "<p>Wygląda na to, że twojemu botowi <b>%{label}</b> wkrótce zabraknie %{quote}.</p><p>Wykonaj przelew na %{exchange_name}, aby bot mógł działać nieprzerwanie.</p>"
+            subject: "%{label} wkrótce wyczerpie środki"
+            template_html: "<p>Wygląda na to, że Twojemu botowi <b>%{label}</b> bardzo szybko skończą się środki %{quote}.</p><p>Wykonaj przelew na %{exchange_name}, aby zapewnić ciągłą pracę bota.</p>"
         notify_about_error:
-            subject: "Coś poszło nie tak"
-            template_html: "<p>Coś poszło nie tak podczas przetwarzania ostatniej transakcji dla bota <b>%{label}</b>.</p><p>Możesz zobaczyć błąd w logach bota. Zaloguj się, aby to sprawdzić.</p><p>Błędy:</p><blockquote> <b>%{exchange_name}:</b> <b>%{errors}</b></blockquote>"
+            subject: "Coś poszło nie tak z %{label}"
+            template_html: "<p>Coś poszło nie tak podczas przetwarzania ostatniej transakcji dla bota <b>%{label}</b>.</p><p>Możesz zobaczyć błąd w dzienniku bota. Zaloguj się, aby to sprawdzić.</p><p>Błędy:</p><blockquote> <b>%{exchange_name}:</b> <b>%{errors}</b></blockquote>"
         notify_about_restart:
-            subject: "Ups! Następna próba…"
-            template_html: "<p>Bot <b>%{label}</b> nie mógł wykonać twojego zlecenia. Wygląda na problem z giełdą. Spróbujemy ponownie za %{delay}.</p><p>Wszystkie błędy są widoczne w logach bota. Zaloguj się, aby je sprawdzić.</p><p>Błędy:</p><blockquote> <b>%{exchange_name}:</b> <b>%{errors}</b> </blockquote>"
+            subject: "Ups! Następna próba..."
+            template_html: "<p>Bot <b>%{label}</b> nie mógł wykonać Twojego zlecenia. Wygląda na problem z giełdą. Spróbujemy ponownie za %{delay}.</p><p>Wszystkie błędy są widoczne w dzienniku bota. Zaloguj się, aby to sprawdzić.</p><p>Błędy:</p><blockquote> <b>%{exchange_name}:</b> <b>%{errors}</b> </blockquote>"
+        stopped_by_quote_amount_limit:
+            subject: "%{label} zainwestował pełną kwotę"
+            template_html: "<p>Twój bot <b>%{label}</b> osiągnął cel i zainwestował całą kwotę %{amount} %{quote}.</p><p>Został automatycznie zatrzymany. Wyłącz limit kwoty, aby zresetować cel.</p>"
     subscription_mailer:
         invoice:
             subject: 'Rachunek'

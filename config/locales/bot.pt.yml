@@ -159,3 +159,8 @@ pt:
                 one: "A quantidade perdida foi armazenada em buffer e será usada com a próxima ordem agendada, garantindo que seu cronograma e alocação sejam mantidos o mais próximo possível dos mínimos da exchange."
                 other: "As quantidades perdidas foram armazenadas em buffer e serão usadas com as próximas ordens agendadas, garantindo que seu cronograma e alocação sejam mantidos o mais próximo possível dos mínimos da exchange."
             general_note: "Os mínimos da exchange e as quantidades de rebalanceamento necessárias podem mudar. As ordens podem parecer irregulares às vezes, mas o bot sempre visa sua alocação e cronograma desejados, portanto, nenhum trabalho extra é necessário."
+        settings:
+            extra_amount_limit:
+                dont_spend_more_than: "Não gaste mais do que"
+                amount_left: "(%{amount} %{symbol} restante)"
+                amount_spent: "O montante total foi investido."

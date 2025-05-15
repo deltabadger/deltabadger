@@ -3,12 +3,27 @@ class BotsController < ApplicationController
 
   before_action :authenticate_user!
   before_action :set_new_barbell_bot,
-                only: %i[barbell_new_step_to_first_asset barbell_new_step_to_second_asset barbell_new_step_exchange
-                         barbell_new_step_api_key barbell_new_step_api_key_create barbell_new_step_from_asset
-                         barbell_new_step_confirm]
+                only: %i[barbell_new_step_to_first_asset
+                         barbell_new_step_to_second_asset
+                         barbell_new_step_exchange
+                         barbell_new_step_api_key
+                         barbell_new_step_api_key_create
+                         barbell_new_step_from_asset
+                         barbell_new_step_confirm
+                         create]
   before_action :set_bot,
-                only: %i[show edit update destroy confirm_destroy new_api_key create_api_key asset_search start
-                         confirm_restart confirm_restart_legacy stop]
+                only: %i[show
+                         edit
+                         update
+                         destroy
+                         confirm_destroy
+                         new_api_key
+                         create_api_key
+                         asset_search
+                         start
+                         confirm_restart
+                         confirm_restart_legacy
+                         stop]
 
   def index
     return render 'bots/react_dashboard' if params[:create] # TODO: remove this once the legacy dashboard is removed
@@ -36,6 +51,7 @@ class BotsController < ApplicationController
     # The FIX must address both upgrade_upgrade_instructions_path and barbell_new_step_to_first_asset_bots_path.
     a = Time.current
     # TODO: move this block to a better place
+    @bot.base0_asset_id = nil
     available_assets = @bot.available_assets_for_current_settings(asset_type: :base_asset)
     filtered_assets = filter_assets_by_query(assets: available_assets, query: barbell_bot_params[:query])
                       .pluck(:id, :symbol, :name)
@@ -51,6 +67,7 @@ class BotsController < ApplicationController
   end
 
   def barbell_new_step_to_second_asset
+    @bot.base1_asset_id = nil
     available_assets = @bot.available_assets_for_current_settings(asset_type: :base_asset)
     filtered_assets = filter_assets_by_query(assets: available_assets, query: barbell_bot_params[:query])
                       .pluck(:id, :symbol, :name)
@@ -64,6 +81,7 @@ class BotsController < ApplicationController
   end
 
   def barbell_new_step_exchange
+    @bot.exchange_id = nil
     exchanges = @bot.available_exchanges_for_current_settings
     @exchanges = filter_exchanges_by_query(exchanges: exchanges, query: barbell_bot_params[:query])
     render 'bots/barbell/new/step_exchange'
@@ -71,16 +89,9 @@ class BotsController < ApplicationController
 
   def barbell_new_step_api_key
     @api_key = @bot.api_key
-    if @api_key.correct? && validate_api_key_permissions?
-      redirect_to barbell_new_step_from_asset_bots_path(
-        bots_barbell: {
-          label: @bot.label,
-          base0_asset_id: @bot.base0_asset_id,
-          base1_asset_id: @bot.base1_asset_id,
-          quote_asset_id: @bot.quote_asset_id,
-          exchange_id: @bot.exchange_id
-        }
-      )
+    @api_key.validate_key_permissions if @api_key.key.present? && @api_key.secret.present?
+    if @api_key.correct?
+      redirect_to barbell_new_step_from_asset_bots_path
     else
       render 'bots/barbell/new/step_api_key'
     end
@@ -90,22 +101,16 @@ class BotsController < ApplicationController
     @api_key = @bot.api_key
     @api_key.key = api_key_params[:key]
     @api_key.secret = api_key_params[:secret]
-    if @api_key.save
-      redirect_to barbell_new_step_from_asset_bots_path(
-        bots_barbell: {
-          label: @bot.label,
-          base0_asset_id: @bot.base0_asset_id,
-          base1_asset_id: @bot.base1_asset_id,
-          quote_asset_id: @bot.quote_asset_id,
-          exchange_id: @bot.exchange_id
-        }
-      )
+    @api_key.validate_key_permissions
+    if @api_key.correct? && @api_key.save
+      redirect_to barbell_new_step_from_asset_bots_path
     else
       render 'bots/barbell/new/step_api_key', status: :unprocessable_entity
     end
   end
 
   def barbell_new_step_from_asset
+    @bot.quote_asset_id = nil
     available_assets = @bot.available_assets_for_current_settings(asset_type: :quote_asset)
     filtered_assets = filter_assets_by_query(assets: available_assets, query: barbell_bot_params[:query])
                       .pluck(:id, :symbol, :name)
@@ -119,15 +124,20 @@ class BotsController < ApplicationController
   end
 
   def barbell_new_step_confirm
-    @bot.interval ||= Bot::INTERVALS.include?('day') ? 'day' : Bot::INTERVALS.first
+    @bot.interval ||= 'day'
     @bot.allocation0 ||= 0.5
-    render 'bots/barbell/new/step_confirm'
+    puts "session[:barbell_bot_params]: #{session[:barbell_bot_params].inspect}"
+    if @bot.quote_amount.blank? || @bot.valid?
+      render 'bots/barbell/new/step_confirm'
+    else
+      flash.now[:alert] = @bot.errors.messages.values.flatten.to_sentence
+      render 'bots/barbell/new/step_confirm', status: :unprocessable_entity
+    end
   end
 
   def create
-    params_to_create = barbell_bot_params_as_hash
-    @bot = current_user.bots.barbell.new(params_to_create)
     if @bot.save && @bot.start(start_fresh: true)
+      session[:barbell_bot_params] = nil
       render turbo_stream: turbo_stream_redirect(bot_path(@bot))
     else
       # FIXME: flash messages are not shown as they are rendered behind the modal
@@ -181,7 +191,7 @@ class BotsController < ApplicationController
         # flash.now[:notice] = t('alert.bot.bot_updated')
       else
         flash.now[:alert] = @bot.errors.messages.values.flatten.to_sentence
-        render turbo_stream: turbo_stream_prepend_flash, status: :unprocessable_entity
+        render :update, status: :unprocessable_entity
       end
     elsif @bot.legacy?
       if @bot.update(update_params_legacy)
@@ -215,8 +225,8 @@ class BotsController < ApplicationController
     @api_key = @bot.api_key
     @api_key.key = api_key_params[:key]
     @api_key.secret = api_key_params[:secret]
-
-    if @api_key.save
+    @api_key.validate_key_permissions
+    if @api_key.correct? && @api_key.save
       flash[:notice] = t('errors.bots.api_key_success')
       render turbo_stream: turbo_stream_page_refresh
     else
@@ -258,20 +268,25 @@ class BotsController < ApplicationController
   end
 
   def set_new_barbell_bot
-    @bot = current_user.bots.barbell.new(barbell_bot_params_as_hash)
+    session[:barbell_bot_params] ||= {}
+    session[:barbell_bot_params] = session[:barbell_bot_params].deep_merge(barbell_bot_params_as_hash.deep_stringify_keys)
+    @bot = current_user.bots.barbell.new(session[:barbell_bot_params])
+    session[:barbell_bot_params]['label'] = @bot.label
   end
 
   def barbell_bot_params
-    params.require(:bots_barbell).permit(
+    params.fetch(:bots_barbell, {}).permit(
       :quote_amount,
       :quote_asset_id,
       :interval,
       :base0_asset_id,
       :base1_asset_id,
       :allocation0,
-      :market_cap_adjusted,
+      :marketcap_allocated,
       :exchange_id,
       :label,
+      :quote_amount_limited,
+      :quote_amount_limit,
       :query
     )
   end
@@ -295,12 +310,14 @@ class BotsController < ApplicationController
   def barbell_bot_params_as_hash
     permitted_params = barbell_bot_params.to_h
     settings = permitted_params.except(:exchange_id, :label, :query).tap do |pp|
-      pp[:base0_asset_id] = pp[:base0_asset_id].present? ? pp[:base0_asset_id].to_i : nil
-      pp[:base1_asset_id] = pp[:base1_asset_id].present? ? pp[:base1_asset_id].to_i : nil
-      pp[:quote_asset_id] = pp[:quote_asset_id].present? ? pp[:quote_asset_id].to_i : nil
-      pp[:market_cap_adjusted] = %w[1 true].include?(pp[:market_cap_adjusted]) if pp[:market_cap_adjusted].present?
-      pp[:quote_amount] = pp[:quote_amount].present? ? pp[:quote_amount].to_f : nil
-      pp[:allocation0] = pp[:allocation0].present? ? pp[:allocation0].to_f : nil
+      pp[:base0_asset_id] = pp[:base0_asset_id].presence&.to_i
+      pp[:base1_asset_id] = pp[:base1_asset_id].presence&.to_i
+      pp[:quote_asset_id] = pp[:quote_asset_id].presence&.to_i
+      pp[:quote_amount] = pp[:quote_amount].presence&.to_f
+      pp[:allocation0] = pp[:allocation0].presence&.to_f
+      pp[:marketcap_allocated] = pp[:marketcap_allocated].presence&.in?(%w[1 true])
+      pp[:quote_amount_limited] = pp[:quote_amount_limited].presence&.in?(%w[1 true])
+      pp[:quote_amount_limit] = pp[:quote_amount_limit].presence&.to_f
     end.compact
 
     {
@@ -352,10 +369,5 @@ class BotsController < ApplicationController
     [
       exchange.name.present? ? JaroWinkler.similarity(exchange.name.downcase.to_s, query) : 0
     ].sort.reverse
-  end
-
-  def validate_api_key_permissions?
-    @api_key.validate_key_permissions
-    @api_key.errors.empty?
   end
 end
