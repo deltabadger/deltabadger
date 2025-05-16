@@ -41,7 +41,7 @@ nl:
         notify_about_restart:
             subject: "Oeps! Volgende poging..."
             template_html: "<p>De bot <b>%{label}</b> kon uw order niet uitvoeren. Het lijkt op een probleem met de exchange. We proberen het opnieuw over %{delay}.</p><p>Alle fouten zijn zichtbaar in het botlogboek. Log in om het te bekijken.</p><p>Fouten:</p><blockquote> <b>%{exchange_name}:</b> <b>%{errors}</b> </blockquote>"
-        stopped_by_quote_amount_limit:
+        stopped_by_amount_limit:
             subject: "%{label} heeft het volledige bedrag geïnvesteerd"
             template_html: "<p>Uw bot <b>%{label}</b> heeft uw doel bereikt en het volledige bedrag van %{amount} %{quote} geïnvesteerd.</p><p>De bot is automatisch gestopt. Schakel de bedragslimiet UIT om het doel te resetten.</p>"
     subscription_mailer:

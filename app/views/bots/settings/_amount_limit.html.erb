@@ -17,7 +17,7 @@
             <%= f.number_field :quote_amount_limit, value: value, class: 'sinput numeric-input', step: :any, size: 3, data: { controller: "autowidth-input", action: "input->form--submit-after-delay#submit input->autowidth-input#resize", form__move_cursor_to_end_target: "input" }, style: "margin-left: 0.125rem; width: 50px;", disabled: bot.working? %>
             <%= bot.quote_asset.symbol %>
           </div>
-          <%= render partial: "bots/barbell/settings/amount_limit_info", locals: { bot: bot } %>
+          <%= render partial: "bots/settings/amount_limit_info", locals: { bot: bot } %>
         <% end %>
       </div>
     </div>
