@@ -7,26 +7,24 @@ module Exchange::RemoteDataAggregator
     result = get_coingecko_tickers_info
     return result unless result.success?
 
-    coingecko_tickers_info = result.data
-    external_ids = coingecko_tickers_info.map { |t| [t[:base_external_id], t[:quote_external_id]] }.flatten.compact.uniq
-
-    create_missing_coingecko_assets!(external_ids)
-
-    assets_ids = Asset.where(external_id: external_ids).pluck(:id)
-    destroy_delisted_exchange_assets(assets_ids)
-    create_missing_exchange_assets!(assets_ids)
+    coingecko_tickers_hash = result.data.map { |t| [generic_ticker_key(t), t] }.to_h
+    external_ids = coingecko_tickers_hash.map { |_, t| [t[:base_external_id], t[:quote_external_id]] }
+                                         .flatten.compact.uniq
 
     result = get_tickers_info
     return result unless result.success?
 
-    exchange_tickers_info = result.data
-    destroy_delisted_exchange_tickers(coingecko_tickers_info, exchange_tickers_info)
-    create_missing_or_update_existing_exchange_tickers!(coingecko_tickers_info, exchange_tickers_info)
-    Result::Success.new
-  end
+    exchange_tickers_hash = result.data.map { |t| [generic_ticker_key(t), t] }.to_h
 
-  def get_coingecko_tickers_info_public
-    get_coingecko_tickers_info
+    create_missing_assets!(external_ids) # Only create assets that exist in Coingecko!
+    create_missing_exchange_assets!(external_ids)
+    create_missing_or_update_existing_exchange_tickers!(coingecko_tickers_hash, exchange_tickers_hash)
+
+    # Never destroy assets! (exchange_assets is ok)
+    destroy_delisted_exchange_assets
+    destroy_delisted_exchange_tickers(exchange_tickers_hash)
+
+    Result::Success.new
   end
 
   private
@@ -122,7 +120,7 @@ module Exchange::RemoteDataAggregator
     Result::Success.new(tickers_info)
   end
 
-  def create_missing_coingecko_assets!(external_ids)
+  def create_missing_assets!(external_ids)
     all_assets_external_ids = Asset.pluck(:external_id)
 
     external_ids.each do |external_id|
@@ -132,36 +130,23 @@ module Exchange::RemoteDataAggregator
                               external_id: external_id,
                               category: external_id.include?('.FOREX') ? 'Currency' : 'Cryptocurrency'
                             })
-      Asset::FetchDataFromCoingeckoJob.perform_later(asset)
+      Asset::FetchDataFromCoingeckoJob.perform_later(asset) if asset.category == 'Cryptocurrency'
     end
   end
 
-  def destroy_delisted_exchange_assets(assets_ids)
-    exchange_assets.where.not(asset_id: assets_ids).destroy_all
-  end
+  def create_missing_exchange_assets!(external_ids)
+    current_asset_ids = assets.pluck(:asset_id)
 
-  def create_missing_exchange_assets!(assets_ids)
-    exchange_assets_asset_ids = exchange_assets.pluck(:asset_id)
-
-    assets_ids.each do |asset_id|
-      next if exchange_assets_asset_ids.include?(asset_id)
+    Asset.where(external_id: external_ids).pluck(:id).each do |asset_id|
+      next if current_asset_ids.include?(asset_id)
 
       exchange_assets.create!({ asset_id: asset_id })
     end
   end
 
-  def destroy_delisted_exchange_tickers(coingecko_tickers_info, exchange_tickers_info)
-    coingecko_tickers_keys = coingecko_tickers_info.map { |ticker| ticker_key(ticker) }
-    exchange_tickers_keys = exchange_tickers_info.map { |ticker| ticker_key(ticker) }
-    matching = exchange_tickers_keys.select { |item| coingecko_tickers_keys.include?(item) }
-    tickers.where.not(ticker: matching).destroy_all
-  end
-
-  def create_missing_or_update_existing_exchange_tickers!(coingecko_tickers_info, exchange_tickers_info)
-    coingecko_tickers_hash = coingecko_tickers_info.map { |ticker| [ticker_key(ticker), ticker] }.to_h
-
-    exchange_tickers_info.each do |ticker_info|
-      coingecko_ticker_info = coingecko_tickers_hash[ticker_key(ticker_info)]
+  def create_missing_or_update_existing_exchange_tickers!(coingecko_tickers_hash, exchange_tickers_hash)
+    exchange_tickers_hash.each do |ticker_key, ticker_info|
+      coingecko_ticker_info = coingecko_tickers_hash[ticker_key]
       next if coingecko_ticker_info.nil?
 
       exchange_ticker = exchange_tickers.find_by(base: ticker_info[:base], quote: ticker_info[:quote])
@@ -178,7 +163,22 @@ module Exchange::RemoteDataAggregator
     end
   end
 
-  def ticker_key(ticker_info)
+  def destroy_delisted_exchange_assets
+    # Coingecko pagination sometimes lacks data if it's being updated while fetching.
+    # Never desroy one asset that's present in the exchange request but not in Coingecko.
+    asset_ids = assets.pluck(:asset_id) - tickers.pluck(:base_asset_id, :quote_asset_id).flatten.uniq
+    exchange_assets.where(asset_id: asset_ids).destroy_all
+  end
+
+  def destroy_delisted_exchange_tickers(exchange_tickers_hash)
+    # Coingecko pagination sometimes lacks data if it's being updated while fetching.
+    # Never desroy one asset that's present in the exchange request but not in Coingecko.
+    tickers_ids_hash = tickers.map { |ticker| [generic_ticker_key(ticker), ticker.id] }.to_h
+    ticker_ids = (tickers_ids_hash.keys - exchange_tickers_hash.keys).map { |key| tickers_ids_hash[key] }
+    tickers.where(id: ticker_ids).destroy_all
+  end
+
+  def generic_ticker_key(ticker_info)
     "#{ticker_info[:base]}-#{ticker_info[:quote]}"
   end
 

@@ -31,7 +31,8 @@ module Exchange::Exchanges::Kraken
   end
 
   def get_tickers_info
-    tickers_info = Rails.cache.fetch("exchange_#{id}_info", expires_in: 1.hour) do
+    cache_key = "exchange_#{id}_info"
+    tickers_info = Rails.cache.fetch(cache_key, expires_in: 1.hour) do
       result = client.get_tradable_asset_pairs
       return Result::Failure.new("Failed to get #{name} tradable asset pairs") unless result.success?
 

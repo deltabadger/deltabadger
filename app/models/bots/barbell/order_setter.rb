@@ -72,6 +72,7 @@ module Bots::Barbell::OrderSetter # rubocop:disable Metrics/ModuleLength
   end
 
   def pending_quote_amount(before_settings_change: false)
+    puts "pending_quote_amount started_at: #{started_at}"
     return quote_amount if started_at.nil?
 
     quote_amount = before_settings_change ? settings_was['quote_amount'] : self.quote_amount
@@ -87,11 +88,11 @@ module Bots::Barbell::OrderSetter # rubocop:disable Metrics/ModuleLength
     intervals_since_start_at = [0, ((last_interval_checkpoint_at - start_at) / 1.public_send(interval)).floor].max
     intervals_since_start_at += 1 if from_start
 
-    # puts "intervals_since_start_at: #{intervals_since_start_at}"
-    # puts "missed_quote_amount: #{missed_quote_amount}"
-    # puts "total_quote_amount_invested: #{total_quote_amount_invested}"
-    # puts "quote_amount: #{quote_amount}"
-    # puts "result: #{quote_amount * intervals_since_start_at + missed_quote_amount - total_quote_amount_invested}"
+    puts "intervals_since_start_at: #{intervals_since_start_at}"
+    puts "missed_quote_amount: #{missed_quote_amount}"
+    puts "total_quote_amount_invested: #{total_quote_amount_invested}"
+    puts "quote_amount: #{quote_amount}"
+    puts "result: #{quote_amount * intervals_since_start_at + missed_quote_amount - total_quote_amount_invested}"
 
     quote_amount * intervals_since_start_at + missed_quote_amount - total_quote_amount_invested
   end

@@ -11,5 +11,10 @@ module Utilities
       seconds = now.end_of_minute - now
       minutes * 60 + seconds
     end
+
+    def self.seconds_to_end_of_minute
+      now = ::Time.now.utc
+      now.end_of_minute - now
+    end
   end
 end

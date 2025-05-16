@@ -18,10 +18,9 @@ class Bots::Barbell < Bot
   validate :validate_unchangeable_interval, on: :update
 
   include Schedulable
+  include OrderCreator
   include Bots::Barbell::OrderSetter
-  include Bots::Barbell::OrderCreator
   include Bots::Barbell::Measurable
-  include Bots::Barbell::Schedulable
   include Bots::Barbell::Fundable
   include Bots::Barbell::MarketcapAllocatable
   include QuoteAmountLimitable
@@ -38,6 +37,8 @@ class Bots::Barbell < Bot
   end
 
   def start(start_fresh: true)
+    # we must call restarting_within_interval? before setting the status to scheduled
+    set_orders_now = start_fresh || !restarting_within_interval?
     self.status = :scheduled
     self.stop_message_key = nil
     if start_fresh
@@ -45,12 +46,10 @@ class Bots::Barbell < Bot
       self.last_action_job_at = nil
       self.last_successful_action_interval_checkpoint_at = nil
       self.missed_quote_amount = nil
-    else
-      self.started_at = nil
     end
 
     if valid?(:start) && save
-      if start_fresh || pending_quote_amount >= quote_amount
+      if set_orders_now
         Bot::SetBarbellOrdersJob.perform_later(self)
       else
         Bot::SetBarbellOrdersJob.set(wait_until: next_interval_checkpoint_at).perform_later(self)
@@ -131,10 +130,12 @@ class Bots::Barbell < Bot
   end
 
   def restarting?
+    puts "restarting? ==> stopped? && last_action_job_at.present? = #{stopped?} && #{last_action_job_at.present?} = #{stopped? && last_action_job_at.present?}"
     stopped? && last_action_job_at.present?
   end
 
   def restarting_within_interval?
+    puts "restarting_within_interval? ==> restarting? && pending_quote_amount < quote_amount: #{restarting?} && #{pending_quote_amount} < #{quote_amount} = #{restarting? && pending_quote_amount < quote_amount}"
     restarting? && pending_quote_amount < quote_amount
   end
 
@@ -177,6 +178,22 @@ class Bots::Barbell < Bot
       base0_price: ticker0.price_decimals,
       base1_price: ticker1.price_decimals
     }
+  end
+
+  def broadcast_below_minimums_warning
+    first_transactions = transactions.limit(3)
+    return unless first_transactions.count == 2
+    return unless [first_transactions.first.skipped?, first_transactions.last.skipped?].any?
+
+    first_transaction = first_transactions.first
+    second_transaction = first_transactions.last
+
+    broadcast_replace_to(
+      ["user_#{user_id}", :bot_updates],
+      target: 'modal',
+      partial: 'bots/barbell/warning_below_minimums',
+      locals: locals_for_below_minimums_warning(first_transaction, second_transaction)
+    )
   end
 
   private
@@ -233,5 +250,42 @@ class Bots::Barbell < Bot
       class: 'Bot::SetBarbellOrdersJob',
       args: [{ '_aj_globalid' => to_global_id.to_s }]
     }
+  end
+
+  def locals_for_below_minimums_warning(first_transaction, second_transaction)
+    if first_transaction.skipped? && second_transaction.skipped?
+      ticker0 = first_transaction.exchange.tickers.find_by(
+        base_asset_id: first_transaction.base_asset.id,
+        quote_asset_id: first_transaction.quote_asset.id
+      )
+      ticker1 = second_transaction.exchange.tickers.find_by(
+        base_asset_id: second_transaction.base_asset.id,
+        quote_asset_id: second_transaction.quote_asset.id
+      )
+      {
+        base0_symbol: first_transaction.base_asset.symbol,
+        base1_symbol: second_transaction.base_asset.symbol,
+        base0_minimum_base_size: ticker0.minimum_base_size,
+        base0_minimum_quote_size: ticker0.minimum_quote_size,
+        quote_symbol: first_transaction.quote_asset.symbol,
+        base1_minimum_base_size: ticker1.minimum_base_size,
+        base1_minimum_quote_size: ticker1.minimum_quote_size,
+        exchange_name: first_transaction.exchange.name,
+        missed_count: 2
+      }
+    else
+      bought_transaction = first_transaction.skipped? ? second_transaction : first_transaction
+      missed_transaction = first_transaction.skipped? ? first_transaction : second_transaction
+      {
+        bought_quote_amount: bought_transaction.quote_amount,
+        quote_symbol: bought_transaction.quote_asset.symbol,
+        bought_symbol: bought_transaction.base_asset.symbol,
+        missed_symbol: missed_transaction.base_asset.symbol,
+        missed_minimum_base_size: missed_transaction.base_asset.min_base_size,
+        missed_minimum_quote_size: missed_transaction.base_asset.min_quote_size,
+        exchange_name: first_transaction.exchange.name,
+        missed_count: 1
+      }
+    end
   end
 end
