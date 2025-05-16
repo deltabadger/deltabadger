@@ -13,21 +13,24 @@ module BotHelper
     }[bot.type]
   end
 
-  def price_limit_timing_condition_select_options
-    Bots::Barbell::PriceLimitable::TIMING_CONDITIONS.map do |condition|
+  def price_limit_timing_condition_select_options(bot)
+    return [] unless defined?(bot.class::TIMING_CONDITIONS)
+
+    bot.class::TIMING_CONDITIONS.map do |condition|
       [t("bot.settings.extra_price_limit.timing_condition.#{condition}"), condition]
     end
   end
 
-  def price_limit_price_condition_select_options
-    Bots::Barbell::PriceLimitable::PRICE_CONDITIONS.map do |condition|
+  def price_limit_price_condition_select_options(bot)
+    return [] unless defined?(bot.class::PRICE_CONDITIONS)
+
+    bot.class::PRICE_CONDITIONS.map do |condition|
       [t("bot.settings.extra_price_limit.price_condition.#{condition}"), condition]
     end
   end
 
-  def price_limit_in_ticker_select_options(bot)
-    bot.tickers.map do |ticker|
-      [ticker.base, ticker.id]
-    end
+  def base_select_options(bot)
+    puts "calculating base select options for #{bot.class}"
+    bot.tickers.pluck(:base, :id)
   end
 end

@@ -2,7 +2,9 @@ module Bot::Schedulable
   extend ActiveSupport::Concern
 
   included do
-    store_accessor :transient_data, :last_action_job_at, :last_successful_action_interval_checkpoint_at
+    store_accessor :transient_data,
+                   :last_action_job_at,
+                   :last_successful_action_interval_checkpoint_at
   end
 
   def last_action_job_at

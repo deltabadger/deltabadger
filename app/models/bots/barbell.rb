@@ -1,8 +1,13 @@
 class Bots::Barbell < Bot
   include ActionCable::Channel::Broadcasting
 
-  store_accessor :settings, :base0_asset_id, :base1_asset_id, :quote_asset_id, :quote_amount,
-                 :allocation0, :interval
+  store_accessor :settings,
+                 :base0_asset_id,
+                 :base1_asset_id,
+                 :quote_asset_id,
+                 :quote_amount,
+                 :allocation0,
+                 :interval
 
   validates :quote_amount, presence: true, numericality: { greater_than: 0 }
   validates :interval, presence: true, inclusion: { in: INTERVALS }
@@ -19,8 +24,8 @@ class Bots::Barbell < Bot
   include Bots::Barbell::Schedulable
   include Bots::Barbell::Fundable
   include Bots::Barbell::MarketcapAllocatable
-  include Bots::Barbell::QuoteAmountLimitable
-  include Bots::Barbell::PriceLimitable
+  include QuoteAmountLimitable
+  include PriceLimitable
 
   def with_api_key
     exchange.set_client(api_key: api_key) if exchange.present? && (exchange.api_key.blank? || exchange.api_key != api_key)
@@ -138,30 +143,33 @@ class Bots::Barbell < Bot
   end
 
   def base0_asset
-    @base0_asset ||= assets.select { |asset| asset.id == base0_asset_id }.first if assets.present?
+    @base0_asset ||= assets&.select { |asset| asset.id == base0_asset_id }&.first
   end
 
   def base1_asset
-    @base1_asset ||= assets.select { |asset| asset.id == base1_asset_id }.first if assets.present?
+    @base1_asset ||= assets&.select { |asset| asset.id == base1_asset_id }&.first
   end
 
   def quote_asset
-    @quote_asset ||= assets.select { |asset| asset.id == quote_asset_id }.first if assets.present?
+    @quote_asset ||= assets&.select { |asset| asset.id == quote_asset_id }&.first
   end
 
   def tickers
-    @tickers ||= exchange.tickers.where(base_asset_id: [base0_asset_id, base1_asset_id], quote_asset_id: quote_asset_id).presence
+    @tickers ||= exchange&.tickers&.where(base_asset_id: [base0_asset_id, base1_asset_id],
+                                          quote_asset_id: quote_asset_id).presence
   end
 
   def ticker0
-    @ticker0 ||= tickers.select { |ticker| ticker.base_asset_id == base0_asset_id }.first if tickers.present?
+    @ticker0 ||= tickers&.select { |ticker| ticker.base_asset_id == base0_asset_id }&.first
   end
 
   def ticker1
-    @ticker1 ||= tickers.select { |ticker| ticker.base_asset_id == base1_asset_id }.first if tickers.present?
+    @ticker1 ||= tickers&.select { |ticker| ticker.base_asset_id == base1_asset_id }&.first
   end
 
   def decimals
+    return {} unless ticker0.present? && ticker1.present?
+
     @decimals ||= {
       base0: ticker0.base_decimals,
       base1: ticker1.base_decimals,

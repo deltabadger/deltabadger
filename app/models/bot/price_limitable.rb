@@ -1,4 +1,4 @@
-module Bots::Barbell::PriceLimitable
+module Bot::PriceLimitable
   extend ActiveSupport::Concern
 
   TIMING_CONDITIONS = %w[while after].freeze
@@ -22,7 +22,8 @@ module Bots::Barbell::PriceLimitable
     validates :price_limit, numericality: { greater_than: 0 }, if: :price_limited?
     validates :price_limit_timing_condition, inclusion: { in: TIMING_CONDITIONS }
     validates :price_limit_price_condition, inclusion: { in: PRICE_CONDITIONS }
-    validates :price_limit_in_ticker_id, inclusion: { in: ->(b) { [b.ticker0.id, b.ticker1.id].compact } }
+    validates :price_limit_in_ticker_id, inclusion: { in: ->(b) { [b.tickers.pluck(:id)].compact } },
+                                         if: -> { exchange_id.present? }
   end
 
   def price_limit_enabled_at
@@ -41,7 +42,7 @@ module Bots::Barbell::PriceLimitable
     self.price_limit ||= 0
     self.price_limit_timing_condition ||= TIMING_CONDITIONS.first
     self.price_limit_price_condition ||= PRICE_CONDITIONS.first
-    self.price_limit_in_ticker_id ||= ticker0.id
+    self.price_limit_in_ticker_id ||= tickers&.first&.id
   end
 
   def set_price_limit_enabled_at

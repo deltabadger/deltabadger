@@ -2,7 +2,8 @@ module Bots::Barbell::MarketcapAllocatable
   extend ActiveSupport::Concern
 
   included do
-    store_accessor :settings, :marketcap_allocated
+    store_accessor :settings,
+                   :marketcap_allocated
 
     after_initialize :initialize_marketcap_allocatable_settings
 
