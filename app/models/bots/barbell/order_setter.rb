@@ -5,7 +5,8 @@ module Bots::Barbell::OrderSetter # rubocop:disable Metrics/ModuleLength
   include Bot::Schedulable
 
   included do
-    store_accessor :transient_data, :missed_quote_amount
+    store_accessor :transient_data,
+                   :missed_quote_amount
 
     validates :missed_quote_amount,
               numericality: { greater_than_or_equal_to: 0 },
