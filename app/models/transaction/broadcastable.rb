@@ -91,7 +91,7 @@ module Transaction::Broadcastable
     broadcast_replace_to(
       ["user_#{bot.user_id}", :bot_updates],
       target: 'settings-amount-limit-info',
-      partial: 'bots/barbell/settings/amount_limit_info',
+      partial: 'bots/settings/amount_limit_info',
       locals: { bot: bot }
     )
   end
