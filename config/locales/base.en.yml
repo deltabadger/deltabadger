@@ -1,7 +1,7 @@
 en:
     header:
         start_investing: 'Start investing:'
-        subscribe_to_secure_early_access: 'Subscribe for Legendary plan to secure early access to indexes (coming soon):'
+        subscribe_to_secure_early_access: 'Subscribe for Legendary plan to secure early access to indices (coming soon):'
     ads:
         dca_profit_html: |
             <p>If you were dollar-cost averaging into Bitcoin for the last %{years}&nbsp;years, you're now up <b style="color: #00A36C;">%{profit}%</b>.</p>
@@ -147,7 +147,7 @@ en:
         banner_html: |
             <p>Welcome on board, %{name}!</p>
             <p>I highly recommend you try the <b>Barbell Strategy</b> bot — it's a completely new experience.</p>
-            <p>Single-coin DCA bot is the older version that will be updated soon, with indexes coming shortly after.</p>
+            <p>Single-coin DCA bot is the older version that will be updated soon, with indices coming shortly after.</p>
             <p>Best, Jan</p>
     analyzer:
         default_portfolio: "Default portfolio"
