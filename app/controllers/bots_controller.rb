@@ -179,9 +179,6 @@ class BotsController < ApplicationController
     if @bot.barbell?
       barbell_bot_params_to_update = barbell_bot_params_as_hash
       barbell_bot_params_to_update[:settings] = @bot.settings.merge(barbell_bot_params_to_update[:settings].stringify_keys)
-      puts "bot settings: #{@bot.settings.inspect}"
-      puts "ticker_ids: #{@bot.tickers.pluck(:id).inspect}, #{barbell_bot_params_to_update[:settings]['price_limit_in_ticker_id'].inspect}, included? #{barbell_bot_params_to_update[:settings]['price_limit_in_ticker_id'].in?(@bot.tickers.pluck(:id)).inspect}"
-      puts "barbell_bot_params_to_update: #{barbell_bot_params_to_update.inspect}"
       if @bot.update(barbell_bot_params_to_update)
         # flash.now[:notice] = t('alert.bot.bot_updated')
       else
