@@ -1,9 +1,12 @@
-module Bots::Barbell::QuoteAmountLimitable
+module Bot::QuoteAmountLimitable
   extend ActiveSupport::Concern
 
   included do
-    store_accessor :settings, :quote_amount_limited, :quote_amount_limit
-    store_accessor :transient_data, :quote_amount_limit_enabled_at
+    store_accessor :settings,
+                   :quote_amount_limited,
+                   :quote_amount_limit
+    store_accessor :transient_data,
+                   :quote_amount_limit_enabled_at
 
     after_initialize :initialize_quote_amount_limitable_settings
 
@@ -43,6 +46,13 @@ module Bots::Barbell::QuoteAmountLimitable
 
   def validate_quote_amount_limit_not_reached
     errors.add(:settings, :quote_amount_limit_reached) if quote_amount_limit_reached?
+  end
+
+  def stop_and_notify_if_quote_amount_limit_reached
+    return unless quote_amount_limit_reached?
+
+    Bot::StopJob.perform_later(self, stop_message_key: 'bot.settings.extra_amount_limit.amount_spent')
+    notify_stopped_by_quote_amount_limit
   end
 
   private
