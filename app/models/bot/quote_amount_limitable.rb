@@ -13,8 +13,10 @@ module Bot::QuoteAmountLimitable
     before_save :set_quote_amount_limit_enabled_at, if: :will_save_change_to_settings?
 
     validates :quote_amount_limited, inclusion: { in: [true, false] }
-    validates :quote_amount_limit, numericality: { greater_than_or_equal_to: 0 }
-    validates :quote_amount_limit, numericality: { greater_than: 0 }, if: :quote_amount_limited?
+    # validates :quote_amount_limit, numericality: { greater_than_or_equal_to: 0 }
+    validates :quote_amount_limit, numericality: { greater_than_or_equal_to: lambda { |b|
+                                                                               b.minimum_quote_amount_limit
+                                                                             } }, if: :quote_amount_limited?
     validate :validate_quote_amount_limit_not_reached, if: :quote_amount_limited?, on: :start
   end
 
@@ -36,12 +38,8 @@ module Bot::QuoteAmountLimitable
 
   def quote_amount_limit_reached?
     return false unless quote_amount_limited?
-    return true if quote_amount_limit.zero?
 
-    quote_amount_limited? && quote_amount_available_before_limit_reached < [
-      [quote_amount || Float::INFINITY, quote_amount_limit].min * 0.01, # 1% buffer to avoid rounding & fees errors
-      1.0 / (10**decimals[:quote])                   # minimum amount to be shown to the user
-    ].max
+    quote_amount_limited? && quote_amount_available_before_limit_reached < minimum_quote_amount_limit
   end
 
   def validate_quote_amount_limit_not_reached
@@ -55,11 +53,27 @@ module Bot::QuoteAmountLimitable
     notify_stopped_by_amount_limit
   end
 
+  def broadcast_quote_amount_limit_update
+    return unless quote_amount_limited?
+
+    broadcast_replace_to(
+      ["user_#{user_id}", :bot_updates],
+      target: 'settings-amount-limit-info',
+      partial: 'bots/settings/amount_limit_info',
+      locals: { bot: self }
+    )
+  end
+
+  def minimum_quote_amount_limit
+    least_precise_quote_decimals = [ticker0&.quote_decimals, ticker1&.quote_decimals].compact.min
+    @minimum_quote_amount_limit ||= 1.0 / (10**least_precise_quote_decimals)
+  end
+
   private
 
   def initialize_quote_amount_limitable_settings
     self.quote_amount_limited ||= false
-    self.quote_amount_limit ||= 0
+    self.quote_amount_limit ||= nil
   end
 
   def set_quote_amount_limit_enabled_at

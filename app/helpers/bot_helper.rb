@@ -31,6 +31,6 @@ module BotHelper
 
   def base_select_options(bot)
     puts "calculating base select options for #{bot.class}"
-    bot.tickers.pluck(:base, :id)
+    bot.tickers.pluck(:base, :id).sort
   end
 end
