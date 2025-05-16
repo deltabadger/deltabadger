@@ -22,8 +22,7 @@ module Bot::PriceLimitable
     validates :price_limit, numericality: { greater_than: 0 }, if: :price_limited?
     validates :price_limit_timing_condition, inclusion: { in: TIMING_CONDITIONS }
     validates :price_limit_price_condition, inclusion: { in: PRICE_CONDITIONS }
-    validates :price_limit_in_ticker_id, inclusion: { in: ->(b) { [b.tickers.pluck(:id)].compact } },
-                                         if: -> { exchange_id.present? }
+    validates :price_limit_in_ticker_id, inclusion: { in: ->(b) { b.tickers.pluck(:id).compact } }
   end
 
   def price_limit_enabled_at

@@ -41,7 +41,7 @@ it:
         notify_about_restart:
             subject: "Ops! Prossimo tentativo..."
             template_html: "<p>Il bot <b>%{label}</b> non è riuscito a eseguire il tuo ordine. Sembra un problema con l'exchange. Riproveremo tra %{delay}.</p><p>Tutti gli errori sono visibili nel registro del bot. Accedi per controllarlo.</p><p>Errori:</p><blockquote> <b>%{exchange_name}:</b> <b>%{errors}</b> </blockquote>"
-        stopped_by_quote_amount_limit:
+        stopped_by_amount_limit:
             subject: "%{label} ha investito l'importo completo"
             template_html: "<p>Il tuo bot <b>%{label}</b> ha raggiunto il tuo obiettivo e ha investito l'intero importo di %{amount} %{quote}.</p><p>È stato automaticamente fermato. Disattiva il limite di importo per reimpostare l'obiettivo.</p>"
     subscription_mailer:
@@ -60,4 +60,4 @@ it:
                 Reg.No.14781461</p>
                 <p><b>Acquirente:</b></p>
                 <p> %{first_name} %{last_name} <br>
-                %{email}</p> 
+                %{email}</p>

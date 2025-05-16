@@ -52,7 +52,7 @@ module Bot::QuoteAmountLimitable
     return unless quote_amount_limit_reached?
 
     Bot::StopJob.perform_later(self, stop_message_key: 'bot.settings.extra_amount_limit.amount_spent')
-    notify_stopped_by_quote_amount_limit
+    notify_stopped_by_amount_limit
   end
 
   private
