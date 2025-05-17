@@ -29,12 +29,12 @@ module Bot::Notifyable
     ).end_of_funds.deliver_later
   end
 
-  def notify_stopped_by_quote_amount_limit
+  def notify_stopped_by_amount_limit
     BotAlertsMailer.with(
       user: user,
       label: label,
       amount: quote_amount_limit,
       quote: quote_asset.symbol
-    ).stopped_by_quote_amount_limit.deliver_later
+    ).stopped_by_amount_limit.deliver_later
   end
 end

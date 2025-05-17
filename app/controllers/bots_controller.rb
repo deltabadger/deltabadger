@@ -178,7 +178,7 @@ class BotsController < ApplicationController
   def update
     if @bot.barbell?
       barbell_bot_params_to_update = barbell_bot_params_as_hash
-      barbell_bot_params_to_update[:settings] = @bot.settings.merge(barbell_bot_params_to_update[:settings])
+      barbell_bot_params_to_update[:settings] = @bot.settings.merge(barbell_bot_params_to_update[:settings].stringify_keys)
       if @bot.update(barbell_bot_params_to_update)
         # flash.now[:notice] = t('alert.bot.bot_updated')
       else
@@ -286,6 +286,11 @@ class BotsController < ApplicationController
       :label,
       :quote_amount_limited,
       :quote_amount_limit,
+      :price_limited,
+      :price_limit,
+      :price_limit_timing_condition,
+      :price_limit_price_condition,
+      :price_limit_in_ticker_id,
       :query
     )
   end
@@ -317,6 +322,11 @@ class BotsController < ApplicationController
       pp[:marketcap_allocated] = pp[:marketcap_allocated].presence&.in?(%w[1 true])
       pp[:quote_amount_limited] = pp[:quote_amount_limited].presence&.in?(%w[1 true])
       pp[:quote_amount_limit] = pp[:quote_amount_limit].presence&.to_f
+      pp[:price_limited] = pp[:price_limited].presence&.in?(%w[1 true])
+      pp[:price_limit] = pp[:price_limit].presence&.to_f
+      pp[:price_limit_timing_condition] = pp[:price_limit_timing_condition].presence
+      pp[:price_limit_price_condition] = pp[:price_limit_price_condition].presence
+      pp[:price_limit_in_ticker_id] = pp[:price_limit_in_ticker_id].presence&.to_i
     end.compact
 
     {

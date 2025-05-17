@@ -41,7 +41,7 @@ en:
         notify_about_restart:
             subject: "Oops! Next try…"
             template_html: "<p>The bot <b>%{label}</b> couldn't perform your order. It looks like an exchange issue. We'll try again in %{delay}.</p><p>All errors are visible in the bot log. Sign in to check it out.</p><p>Errors:</p><blockquote> <b>%{exchange_name}:</b> <b>%{errors}</b> </blockquote>"
-        stopped_by_quote_amount_limit:
+        stopped_by_amount_limit:
             subject: "%{label} invested full amount"
             template_html: "<p>Your bot <b>%{label}</b> reached your target and invested the whole %{amount} %{quote}.</p><p>It has been automatically stopped. Turn the amount limit OFF to reset the target.</p>"
     subscription_mailer:

@@ -11,6 +11,11 @@
         <%= t('bot.status.paused') %>
       <% end %>
     </div>
+  <% elsif bot.waiting? %>
+    <div class="bot-control__status__text" data-marquee-target="text">
+      <%= t('bot.status.waiting') %>
+      <span data-three-dots-target="dots" data-controller="three-dots"></span>
+    </div>
   <% elsif bot.scheduled? || bot.retrying? %>
     <% if bot.scheduled? %>
       <%= tag.div class: "bot-control__status__bar", style: "min-width:0.5rem; width: #{bot.progress_percentage * 100}%", data: {
@@ -32,7 +37,12 @@
       marquee_target: "text"
     } do %>
       <% if bot.retrying? %>
-        <%= t('bot.status.next_try') %>
+        <% last_transaction = bot.transactions.last %>
+        <% if last_transaction.failure? && last_transaction.error_messages.any? %>
+          <%= t('bot.messages.failed_status_bar_explanation', error_messages: last_transaction.error_messages.to_sentence) + ' - ' + t('bot.status.next_try') %>
+        <% else %>
+          <%= t('bot.status.next_try') %>
+        <% end %>
       <% end %>
       <div style="display: inline-block; min-width: 9em;">
         <span data-countdown-target="days"></span><span data-countdown-target="daysLabel"></span>
