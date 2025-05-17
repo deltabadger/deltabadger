@@ -31,6 +31,6 @@ module Bots::Barbell::MarketcapAllocatable
   private
 
   def initialize_marketcap_allocatable_settings
-    self.marketcap_allocated = false
+    self.marketcap_allocated ||= false
   end
 end
