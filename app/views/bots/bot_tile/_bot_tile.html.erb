@@ -20,12 +20,7 @@
             <span><%= bot.base %></span>
           <% end %>
           <% if bot.exchange.present? %>
-            <% exchange_name = bot.exchange.name.downcase %>
-            <% exchange_name = case exchange_name
-               when 'binance.us' then 'binance'
-               else exchange_name
-               end %>
-            <%= render "svg/exchange-#{exchange_name}", title: bot.exchange.name %>
+            <%= render "svg/exchange-#{bot.exchange.name_id}", title: bot.exchange.name %>
           <% end %>
           <%# bot_type_label(bot) %>
         </div>

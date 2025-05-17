@@ -143,7 +143,7 @@ module Bot::PriceLimitable
   def cancel_scheduled_price_limit_check_jobs
     sidekiq_places = [
       Sidekiq::ScheduledSet.new,
-      Sidekiq::Queue.new(exchange.name.downcase),
+      Sidekiq::Queue.new(exchange.name_id),
       Sidekiq::RetrySet.new
     ]
     sidekiq_places.each do |place|
