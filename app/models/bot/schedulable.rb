@@ -15,7 +15,7 @@ module Bot::Schedulable
   def cancel_scheduled_action_jobs
     sidekiq_places = [
       Sidekiq::ScheduledSet.new,
-      Sidekiq::Queue.new(exchange.name.downcase),
+      Sidekiq::Queue.new(exchange.name_id),
       Sidekiq::RetrySet.new
     ]
     sidekiq_places.each do |place|

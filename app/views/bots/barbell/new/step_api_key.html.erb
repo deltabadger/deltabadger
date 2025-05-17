@@ -12,8 +12,8 @@
       <%= link_to @bot.base1_asset.symbol, barbell_new_step_to_second_asset_bots_path, data: { turbo_frame: "modal_content" }, class: "ticker", style: "background: #{base1_color}" %>
       <div style="display: flex; gap: 1rem">
         <%= t('bot.setup.sentence.at') %>
-        <%= link_to barbell_new_step_exchange_bots_path, data: { turbo_frame: "modal_content" }, class: "sinput sinput--select sinput--exchange sinput--exchange--#{@bot.exchange.name.downcase}" do %>
-          <%= render "svg/exchange-#{@bot.exchange.name.downcase}", title: @bot.exchange.name %>
+        <%= link_to barbell_new_step_exchange_bots_path, data: { turbo_frame: "modal_content" }, class: "sinput sinput--select sinput--exchange sinput--exchange--#{@bot.exchange.name_id}" do %>
+          <%= render "svg/exchange-#{@bot.exchange.name_id}", title: @bot.exchange.name %>
           <%= @bot.exchange.name.capitalize %>
         <% end %>
       </div>
@@ -42,7 +42,7 @@
       <div class="set-api__instructions">
         <h2 class="set-api__header"><%= t('bot.setup.how_to_get_keys', exchange: @bot.exchange.name) %></h2>
         <ol class="set-__list">
-          <% exchange_key = @bot.exchange.name.downcase %>
+          <% exchange_key = @bot.exchange.name_id %>
           <% instructions = t("bot.api.#{exchange_key}") %>
 
           <% # First level keys (instructions_1, etc.) - optionally match _html %>
