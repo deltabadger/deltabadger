@@ -41,7 +41,7 @@ ru:
         notify_about_restart:
             subject: "Упс! Следующая попытка..."
             template_html: "<p>Бот <b>%{label}</b> не смог выполнить ваш ордер. Похоже на проблему с биржей. Мы попробуем снова через %{delay}.</p><p>Все ошибки видны в логе бота. Войдите, чтобы проверить.</p><p>Ошибки:</p><blockquote> <b>%{exchange_name}:</b> <b>%{errors}</b> </blockquote>"
-        stopped_by_quote_amount_limit:
+        stopped_by_amount_limit:
             subject: "%{label} инвестировал полную сумму"
             template_html: "<p>Ваш бот <b>%{label}</b> достиг вашей цели и инвестировал всю сумму %{amount} %{quote}.</p><p>Он был автоматически остановлен. Отключите лимит суммы, чтобы сбросить цель.</p>"
     subscription_mailer:

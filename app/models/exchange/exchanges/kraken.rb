@@ -31,7 +31,8 @@ module Exchange::Exchanges::Kraken
   end
 
   def get_tickers_info
-    tickers_info = Rails.cache.fetch("exchange_#{id}_info", expires_in: 1.hour) do
+    cache_key = "exchange_#{id}_info"
+    tickers_info = Rails.cache.fetch(cache_key, expires_in: 1.hour) do
       result = client.get_tradable_asset_pairs
       return Result::Failure.new("Failed to get #{name} tradable asset pairs") unless result.success?
 
@@ -56,6 +57,35 @@ module Exchange::Exchanges::Kraken
     end
 
     Result::Success.new(tickers_info)
+  end
+
+  def get_tickers_prices(force: false)
+    cache_key = "exchange_#{id}_prices"
+    tickers_prices = Rails.cache.fetch(cache_key, expires_in: 1.minute, force: force) do
+      result = client.get_ticker_information
+      return Result::Failure.new("Failed to get #{name} ticker information") unless result.success?
+
+      prices_hash = {}
+      result.data['result'].each do |data|
+        ticker = data[0]
+        price = Utilities::Hash.dig_or_raise(data[1], 'c')[0].to_d
+        prices_hash[ticker] = price
+      end
+
+      missing_tickers = tickers.pluck(:ticker) - prices_hash.keys
+      missing_tickers.each do |ticker|
+        result = client.get_ticker_information(pair: ticker)
+        return result unless result.success?
+
+        asset_ticker_info = Utilities::Hash.dig_or_raise(result.data, 'result').map { |_, v| v }.first
+        price = Utilities::Hash.dig_or_raise(asset_ticker_info, 'c')[0].to_d
+        prices_hash[ticker] = price
+      end
+
+      prices_hash
+    end
+
+    Result::Success.new(tickers_prices)
   end
 
   def get_balances(asset_ids: nil)
@@ -241,7 +271,8 @@ module Exchange::Exchanges::Kraken
   end
 
   def get_ticker_information(base_asset_id:, quote_asset_id:) # rubocop:disable Metrics/MethodLength
-    Rails.cache.fetch("exchange_#{id}_ticker_information_#{base_asset_id}_#{quote_asset_id}", expires_in: 1.second) do # rubocop:disable Metrics/BlockLength
+    cache_key = "exchange_#{id}_ticker_information_#{base_asset_id}_#{quote_asset_id}"
+    Rails.cache.fetch(cache_key, expires_in: 1.seconds) do # rubocop:disable Metrics/BlockLength
       ticker = tickers.find_by(base_asset_id: base_asset_id, quote_asset_id: quote_asset_id)
       return Result::Failure.new("No ticker found for #{base_asset_id} and #{quote_asset_id}") unless ticker
 
