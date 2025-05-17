@@ -87,37 +87,67 @@ module Exchange::RemoteDataAggregator
   end
 
   def get_coingecko_tickers_info
-    tickers_info = []
+    result = get_exchange_tickers_by_id
+    return result unless result.success?
+
+    tickers_info = case coingecko_id
+                   when Exchange::Exchanges::Kraken::COINGECKO_ID then filter_kraken_tickers(result.data)
+                   when Exchange::Exchanges::Coinbase::COINGECKO_ID then filter_coinbase_tickers(result.data)
+                   else
+                     result.data
+                   end.map do |ticker|
+      {
+        base: ticker['base'],
+        quote: ticker['target'],
+        base_external_id: ticker['coin_id'] || "#{ticker['base'].upcase}.FOREX",
+        quote_external_id: ticker['target_coin_id'] || "#{ticker['target'].upcase}.FOREX"
+      }
+    end
+    Result::Success.new(tickers_info)
+  end
+
+  def get_exchange_tickers_by_id
+    all_tickers = []
     page = 1
+    tickers_per_page = 100
     loop do
       result = coingecko_client.exchange_tickers_by_id(id: coingecko_id, order: 'base_asset', page: page)
       return Result::Failure.new("Failed to get #{name} Coingecko tickers") unless result.success?
 
-      result.data['tickers'].each do |ticker|
-        # FIXME: Find a cleaner way for this: translate DOGE pairs to XDG (Coingecko uses DOGE instead of XDG)
-        if coingecko_id == Exchange::Exchanges::Kraken::COINGECKO_ID
-          ticker['base'] = 'XDG' if ticker['base'] == 'DOGE'
-          ticker['target'] = 'XDG' if ticker['target'] == 'DOGE'
-        end
-
-        tickers_info << {
-          base: ticker['base'],
-          quote: ticker['target'],
-          base_external_id: ticker['coin_id'] || "#{ticker['base'].upcase}.FOREX",
-          quote_external_id: ticker['target_coin_id'] || "#{ticker['target'].upcase}.FOREX"
-        }
-
-        # FIXME: Find a cleaner way for this: add the coinbase USDC pairs (not listed by default in Coingecko)
-        if coingecko_id == Exchange::Exchanges::Coinbase::COINGECKO_ID
-          usdc_ticker_info = coinbase_usdc_ticker_info(ticker, tickers_info)
-          tickers_info << usdc_ticker_info if usdc_ticker_info.present?
-        end
-      end
-      break if result.data['tickers'].count < 100
+      all_tickers.concat(result.data['tickers'])
+      break if result.data['tickers'].count < tickers_per_page
 
       page += 1
     end
-    Result::Success.new(tickers_info)
+    Result::Success.new(all_tickers)
+  end
+
+  def filter_kraken_tickers(exchange_tickers_by_id)
+    exchange_tickers_by_id.map do |ticker|
+      ticker['base'] = 'XDG' if ticker['base'] == 'DOGE'
+      ticker['target'] = 'XDG' if ticker['target'] == 'DOGE'
+      ticker
+    end
+  end
+
+  def filter_coinbase_tickers(exchange_tickers_by_id)
+    exchange_tickers_by_id_keys = exchange_tickers_by_id.map { |t| "#{t['base']}-#{t['target']}" }
+    exchange_tickers_by_id.each_with_object([]) do |ticker, new_exchange_tickers_by_id|
+      new_exchange_tickers_by_id << ticker
+      next if ticker['target'] != 'USD'
+      next if (ticker['base'] == 'USDT' && ticker['target'] == 'USD') ||
+              (ticker['base'] == 'EURC' && ticker['target'] == 'USD')
+
+      if exchange_tickers_by_id_keys.include?("#{ticker['base']}-USDC")
+        raise "Coinbase #{ticker['base']}-USDC already exists in coingecko!"
+      end
+
+      # next if exchange_tickers_by_id_keys.include?("#{ticker['base']}-USDC")
+      new_exchange_tickers_by_id << ticker.deep_dup.tap do |t|
+        t['target'] = 'USDC'
+        t['target_coin_id'] = 'usd-coin'
+      end
+    end
   end
 
   def create_missing_assets!(external_ids)
