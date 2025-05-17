@@ -56,9 +56,9 @@ module Exchange::Exchanges::Coinbase
     Result::Success.new(tickers_info)
   end
 
-  def get_tickers_prices
+  def get_tickers_prices(force: false)
     cache_key = "exchange_#{id}_prices"
-    tickers_prices = Rails.cache.fetch(cache_key, expires_in: Utilities::Time.seconds_to_end_of_minute) do
+    tickers_prices = Rails.cache.fetch(cache_key, expires_in: 1.minute, force: force) do
       result = client.list_products
       return Result::Failure.new("Failed to get #{name} products") unless result.success?
 
