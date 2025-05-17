@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema.define(version: 2025_05_14_135907) do
+ActiveRecord::Schema.define(version: 2025_05_17_224940) do
 
   # These are extensions that must be enabled in order to support this database
   enable_extension "plpgsql"
@@ -182,6 +182,8 @@ ActiveRecord::Schema.define(version: 2025_05_14_135907) do
     t.string "maker_fee"
     t.string "url"
     t.string "color"
+    t.string "name_id"
+    t.index ["name_id"], name: "index_exchanges_on_name_id", unique: true
   end
 
   create_table "fee_api_keys", force: :cascade do |t|
