@@ -40,45 +40,34 @@ VatRate.find_or_create_by!(country: 'Other', vat: 0)
 VatRate.find_or_create_by!(country: 'Poland', vat: 0.23)
 VatRate.find_or_create_by!(country: 'Estonia', vat: 0.2)
 
-User.find_or_create_by(
-  email: "test@test.com"
-) do |user|
+User.find_or_create_by(email: "test@test.com") do |user|
   user.name = "Jan"
   user.password = "Polo@polo1"
   user.confirmed_at = user.confirmed_at || Time.current
 end
 
-User.find_or_create_by(
-  email: "admin@test.com"
-) do |user|
+User.find_or_create_by(email: "admin@test.com") do |user|
   user.name = "Jan"
   user.password = "Polo@polo1"
   user.confirmed_at = user.confirmed_at || Time.current
   user.admin = true
 end
 
-User.find_or_create_by(
-  email: "free@test.com"
-) do |user|
+User.find_or_create_by(email: "free@test.com") do |user|
   user.name = "Jan"
   user.password = "Polo@polo1"
   user.confirmed_at = user.confirmed_at || Time.current
   user.subscriptions << Subscription.new(subscription_plan_variant: free_plan_variant)
 end
 
-User.find_or_create_by(
-  email: "basic@test.com"
-) do |user|
+User.find_or_create_by(email: "basic@test.com") do |user|
   user.name = "Jan"
   user.password = "Polo@polo1"
   user.confirmed_at = user.confirmed_at || Time.current
   user.subscriptions << Subscription.new(subscription_plan_variant: basic_plan_1_year_variant)
 end
 
-
-User.find_or_create_by(
-  email: "pro@test.com"
-) do |user|
+User.find_or_create_by(email: "pro@test.com") do |user|
   user.name = "Jan"
   user.password = "Polo@polo1"
   user.confirmed_at = user.confirmed_at || Time.current
@@ -86,9 +75,7 @@ User.find_or_create_by(
 end
 
 
-User.find_or_create_by(
-  email: "legendary@test.com"
-) do |user|
+User.find_or_create_by(email: "legendary@test.com") do |user|
   user.name = "Jan"
   user.password = "Polo@polo1"
   user.confirmed_at = user.confirmed_at || Time.current

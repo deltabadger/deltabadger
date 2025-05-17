@@ -5,8 +5,8 @@
       <%= name %>
     </div>
     <div class="modal--search__cell modal--search__cell--exchanges">
-      <% exchange_names.each do |exchange_name| %>
-        <%= render "svg/exchange-#{exchange_name.downcase}", title: exchange_name %>
+      <% exchanges.each do |exchange_name_id, exchange_name| %>
+        <%= render "svg/exchange-#{exchange_name_id}", title: exchange_name %>
       <% end %>
     </div>
   <% end %>
