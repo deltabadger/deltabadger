@@ -5,17 +5,8 @@ class Transaction < ApplicationRecord
   before_create :set_exchange, if: -> { bot.legacy? }
   before_create :round_numeric_fields
   after_create_commit :set_daily_transaction_aggregate
-  after_create_commit do
-    unless bot.legacy?
-      bot.broadcast_new_order(self)
-      Bot::UpdateMetricsJob.perform_later(bot)
-    end
-    if success? && bot.class.include?(Bot::QuoteAmountLimitable)
-      bot.stop_and_notify_if_quote_amount_limit_reached
-      bot.broadcast_quote_amount_limit_update
-    end
-    bot.broadcast_below_minimums_warning if bot.barbell?
-  end
+  after_create_commit -> { bot.broadcast_new_order(self) unless bot.legacy? }
+  after_create_commit -> { Bot::UpdateMetricsJob.perform_later(bot) unless bot.legacy? }
 
   scope :for_bot, ->(bot) { where(bot_id: bot.id).order(created_at: :desc) }
   scope :today_for_bot, ->(bot) { for_bot(bot).where('created_at >= ?', Date.today.beginning_of_day) }
