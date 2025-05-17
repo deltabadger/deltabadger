@@ -18,6 +18,20 @@ module Bot::QuoteAmountLimitable
                                                                                b.minimum_quote_amount_limit
                                                                              } }, if: :quote_amount_limited?
     validate :validate_quote_amount_limit_not_reached, if: :quote_amount_limited?, on: :start
+
+    execute_action_decorator = Module.new do
+      def execute_action
+        result = super
+        broadcast_quote_amount_limit_update
+        return result unless quote_amount_limited? && quote_amount_limit_reached?
+
+        Bot::StopJob.perform_later(self, stop_message_key: 'bot.settings.extra_amount_limit.amount_spent')
+        notify_stopped_by_amount_limit
+        Result::Success.new({ break_reschedule: true })
+      end
+    end
+
+    prepend execute_action_decorator
   end
 
   def quote_amount_limit_enabled_at

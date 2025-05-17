@@ -11,6 +11,11 @@
         <%= t('bot.status.paused') %>
       <% end %>
     </div>
+  <% elsif bot.waiting? %>
+    <div class="bot-control__status__text" data-marquee-target="text">
+      <%= t('bot.status.waiting') %>
+      <span data-three-dots-target="dots" data-controller="three-dots"></span>
+    </div>
   <% elsif bot.scheduled? || bot.retrying? %>
     <% if bot.scheduled? %>
       <%= tag.div class: "bot-control__status__bar", style: "min-width:0.5rem; width: #{bot.progress_percentage * 100}%", data: {

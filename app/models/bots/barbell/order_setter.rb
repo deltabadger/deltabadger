@@ -9,8 +9,7 @@ module Bots::Barbell::OrderSetter # rubocop:disable Metrics/ModuleLength
                    :missed_quote_amount
 
     validates :missed_quote_amount,
-              numericality: { greater_than_or_equal_to: 0 },
-              if: -> { missed_quote_amount.present? }
+              numericality: { greater_than_or_equal_to: 0 }
 
     before_save :set_missed_quote_amount, if: :will_save_change_to_settings?
   end
@@ -24,6 +23,8 @@ module Bots::Barbell::OrderSetter # rubocop:disable Metrics/ModuleLength
     total_orders_amount_in_quote:,
     update_missed_quote_amount: false
   )
+    # return Result::Success.new
+
     raise StandardError, 'quote_amount is required' if total_orders_amount_in_quote.blank?
     raise StandardError, 'quote_amount must be positive' if total_orders_amount_in_quote.negative?
     return Result::Success.new if total_orders_amount_in_quote.zero?
@@ -72,7 +73,6 @@ module Bots::Barbell::OrderSetter # rubocop:disable Metrics/ModuleLength
   end
 
   def pending_quote_amount(before_settings_change: false)
-    puts "pending_quote_amount started_at: #{started_at}"
     return quote_amount if started_at.nil?
 
     quote_amount = before_settings_change ? settings_was['quote_amount'] : self.quote_amount
@@ -88,11 +88,11 @@ module Bots::Barbell::OrderSetter # rubocop:disable Metrics/ModuleLength
     intervals_since_start_at = [0, ((last_interval_checkpoint_at - start_at) / 1.public_send(interval)).floor].max
     intervals_since_start_at += 1 if from_start
 
-    puts "intervals_since_start_at: #{intervals_since_start_at}"
-    puts "missed_quote_amount: #{missed_quote_amount}"
-    puts "total_quote_amount_invested: #{total_quote_amount_invested}"
-    puts "quote_amount: #{quote_amount}"
-    puts "result: #{quote_amount * intervals_since_start_at + missed_quote_amount - total_quote_amount_invested}"
+    # puts "intervals_since_start_at: #{intervals_since_start_at}"
+    # puts "missed_quote_amount: #{missed_quote_amount}"
+    # puts "total_quote_amount_invested: #{total_quote_amount_invested}"
+    # puts "quote_amount: #{quote_amount}"
+    # puts "result: #{quote_amount * intervals_since_start_at + missed_quote_amount - total_quote_amount_invested}"
 
     quote_amount * intervals_since_start_at + missed_quote_amount - total_quote_amount_invested
   end
