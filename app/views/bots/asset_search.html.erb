@@ -9,8 +9,8 @@
 
       <%= turbo_frame_tag "asset-picker", data: { action: "turbo:submit-end->modal--base#submitEnd keydown@window->arrow-keys-navigation#navigate", controller: "arrow-keys-navigation" }, class: "modal--search__assets selectable-options" do %>
         <%= form_with model: @bot, url: bot_path(@bot), method: :patch do |f| %>
-          <% assets.each do |id, symbol, name, exchange_names| %>
-            <%= render partial: "bots/asset_search_result", locals: { bot: @bot, asset_field: @asset_field, id: id, symbol: symbol, name: name, exchange_names: exchange_names } %>
+          <% assets.each do |id, symbol, name, exchanges| %>
+            <%= render partial: "bots/asset_search_result", locals: { bot: @bot, asset_field: @asset_field, id: id, symbol: symbol, name: name, exchanges: exchanges } %>
           <% end %>
         <% end %>
       <% end %>

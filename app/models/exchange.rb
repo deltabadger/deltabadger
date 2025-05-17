@@ -21,6 +21,8 @@ class Exchange < ApplicationRecord
 
   after_initialize :include_exchange_implementation
 
+  before_validation :set_name_id
+
   # rubocop:disable Metrics/CyclomaticComplexity
   def symbols
     market = case name.downcase
@@ -76,9 +78,13 @@ class Exchange < ApplicationRecord
   private
 
   def include_exchange_implementation
-    case name.downcase
+    case name_id
     when 'coinbase' then singleton_class.include(Exchanges::Coinbase)
     when 'kraken' then singleton_class.include(Exchanges::Kraken)
     end
+  end
+
+  def set_name_id
+    self.name_id = name&.parameterize&.underscore
   end
 end
