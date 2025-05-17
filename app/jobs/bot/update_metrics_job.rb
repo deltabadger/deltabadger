@@ -5,14 +5,14 @@ class Bot::UpdateMetricsJob < ApplicationJob
   # for the same bot, but by now we are only cancelling other enqueued jobs.
 
   def perform(bot)
-    cancel_other_jobs(bot)
+    cancel_other_update_metrics_jobs(bot)
     bot.metrics(force: true)
     Bot::BroadcastMetricsUpdateJob.perform_later(bot)
   end
 
   private
 
-  def cancel_other_jobs(bot)
+  def cancel_other_update_metrics_jobs(bot)
     sidekiq_places = [
       Sidekiq::RetrySet.new,
       Sidekiq::ScheduledSet.new,

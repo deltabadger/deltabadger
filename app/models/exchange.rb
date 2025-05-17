@@ -51,7 +51,7 @@ class Exchange < ApplicationRecord
     all_symbols = symbols
     return all_symbols unless all_symbols.success?
 
-    Result::Success.new(filter_free_plan_symbols(all_symbols.data))
+    Result::Success.new(all_symbols.data)
   end
 
   # @param amount_type [Symbol] :base or :quote
@@ -80,13 +80,5 @@ class Exchange < ApplicationRecord
     when 'coinbase' then singleton_class.include(Exchanges::Coinbase)
     when 'kraken' then singleton_class.include(Exchanges::Kraken)
     end
-  end
-
-  def filter_free_plan_symbols(symbols)
-    return symbols # disable free plan symbols limitation
-
-    is_kraken = name.downcase == 'kraken'
-    btc_eth = is_kraken ? %w[XBT ETH LTC XMR] : %w[BTC ETH LTC XMR]
-    symbols.select { |s| btc_eth.include?(s.base) }
   end
 end
