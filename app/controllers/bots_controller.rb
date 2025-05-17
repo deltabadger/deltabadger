@@ -50,11 +50,13 @@ class BotsController < ApplicationController
     available_assets = @bot.available_assets_for_current_settings(asset_type: :base_asset)
     filtered_assets = filter_assets_by_query(assets: available_assets, query: barbell_bot_params[:query])
                       .pluck(:id, :symbol, :name)
-    exchange_assets = Exchange.all.pluck(:id, :name).each_with_object({}) do |(id, name), hash|
-      hash[name] = Exchange.find(id).assets.pluck(:id).presence
-    end.compact
+    exchanges_data = Exchange.all.pluck(:id, :name_id, :name).each_with_object([]) do |(id, name_id, name), list|
+      assets = Exchange.find(id).assets.pluck(:id)
+      list << [name_id, name, assets] if assets.any?
+    end
     @assets = filtered_assets.map do |id, symbol, name|
-      [id, symbol, name, exchange_assets.map { |exchange_name, assets| assets.include?(id) ? exchange_name : nil }.compact]
+      exchanges = exchanges_data.select { |_, _, assets| assets.include?(id) }
+      [id, symbol, name, exchanges.map { |e_name_id, e_name, _| [e_name_id, e_name] }]
     end
     render 'bots/barbell/new/step_to_first_asset'
   end
@@ -64,11 +66,13 @@ class BotsController < ApplicationController
     available_assets = @bot.available_assets_for_current_settings(asset_type: :base_asset)
     filtered_assets = filter_assets_by_query(assets: available_assets, query: barbell_bot_params[:query])
                       .pluck(:id, :symbol, :name)
-    exchange_assets = Exchange.all.pluck(:id, :name).each_with_object({}) do |(id, name), hash|
-      hash[name] = Exchange.find(id).assets.pluck(:id).presence
-    end.compact
+    exchanges_data = Exchange.all.pluck(:id, :name_id, :name).each_with_object([]) do |(id, name_id, name), list|
+      assets = Exchange.find(id).assets.pluck(:id)
+      list << [name_id, name, assets] if assets.any?
+    end
     @assets = filtered_assets.map do |id, symbol, name|
-      [id, symbol, name, exchange_assets.map { |exchange_name, assets| assets.include?(id) ? exchange_name : nil }.compact]
+      exchanges = exchanges_data.select { |_, _, assets| assets.include?(id) }
+      [id, symbol, name, exchanges.map { |e_name_id, e_name, _| [e_name_id, e_name] }]
     end
     render 'bots/barbell/new/step_to_second_asset'
   end
@@ -107,11 +111,13 @@ class BotsController < ApplicationController
     available_assets = @bot.available_assets_for_current_settings(asset_type: :quote_asset)
     filtered_assets = filter_assets_by_query(assets: available_assets, query: barbell_bot_params[:query])
                       .pluck(:id, :symbol, :name)
-    exchange_assets = Exchange.all.pluck(:id, :name).each_with_object({}) do |(id, name), hash|
-      hash[name] = Exchange.find(id).assets.pluck(:id).presence
-    end.compact
+    exchanges_data = Exchange.all.pluck(:id, :name_id, :name).each_with_object([]) do |(id, name_id, name), list|
+      assets = Exchange.find(id).assets.pluck(:id)
+      list << [name_id, name, assets] if assets.any?
+    end
     @assets = filtered_assets.map do |id, symbol, name|
-      [id, symbol, name, exchange_assets.map { |exchange_name, assets| assets.include?(id) ? exchange_name : nil }.compact]
+      exchanges = exchanges_data.select { |_, _, assets| assets.include?(id) }
+      [id, symbol, name, exchanges.map { |e_name_id, e_name, _| [e_name_id, e_name] }]
     end
     render 'bots/barbell/new/step_from_asset'
   end
@@ -245,11 +251,14 @@ class BotsController < ApplicationController
     available_assets = @bot.available_assets_for_current_settings(asset_type: asset_type)
     filtered_assets = filter_assets_by_query(assets: available_assets, query: params[:query])
                       .pluck(:id, :symbol, :name)
-    exchange_assets = Exchange.all.pluck(:id, :name).each_with_object({}) do |(id, name), hash|
-      hash[name] = Exchange.find(id).assets.pluck(:id).presence
-    end.compact
+    exchanges_data = Exchange.all.pluck(:id, :name_id,
+                                        :name).each_with_object([]) do |(id, name_id, name), list|
+      assets = Exchange.find(id).assets.pluck(:id)
+      list << [name_id, name, assets] if assets.any?
+    end
     @assets = filtered_assets.map do |id, symbol, name|
-      [id, symbol, name, exchange_assets.map { |exchange_name, assets| assets.include?(id) ? exchange_name : nil }.compact]
+      exchanges = exchanges_data.select { |_, _, assets| assets.include?(id) }
+      [id, symbol, name, exchanges.map { |e_name_id, e_name, _| [e_name_id, e_name] }]
     end
     @asset_field = params[:asset_field]
   end
