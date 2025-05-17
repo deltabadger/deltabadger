@@ -1,6 +1,6 @@
 
 <span id="<%= bot.new_record? ? "new-settings-price-limit-info" : "settings-price-limit-info" %>">
-  <% if bot.price_limited? && bot.price_limit.positive? %>
+  <% if bot.price_limited? && bot.price_limit&.positive? %>
     <%# show either how far is the price from the limit or if the price is in range %>
   <% end %>
 </span>

@@ -21,6 +21,7 @@ en:
             setting_orders: "Setting orders…"
             paused: "Paused"
             next_try: "Next try in"
+            waiting: "Waiting for all conditions to be met"
         pick_exchange: "Pick Exchange"
         barbell:
             invest: "Invest"
@@ -198,9 +199,9 @@ en:
                 amount_left: "(%{amount} %{symbol} left)"
                 amount_spent: "The whole amount has been invested."
             extra_price_limit:
-                sentence_html: "%{timing_condition} only when %{base} price is %{price_condition} %{price} %{quote}"
+                sentence_html: "%{timing_condition} when %{base} price is %{price_condition} %{price} %{quote}"
                 timing_condition:
-                    while: "Buy"
+                    while: "Buy only"
                     after: "Start buying"
                 price_condition:
                     above: "above"

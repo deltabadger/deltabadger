@@ -37,7 +37,7 @@ class Bots::Barbell < Bot
   end
 
   def start(start_fresh: true)
-    # we must call restarting_within_interval? before setting the status to scheduled
+    # call restarting_within_interval? before setting the status to :scheduled
     set_orders_now = start_fresh || !restarting_within_interval?
     self.status = :scheduled
     self.stop_message_key = nil
@@ -50,10 +50,10 @@ class Bots::Barbell < Bot
 
     if valid?(:start) && save
       if set_orders_now
-        Bot::SetBarbellOrdersJob.perform_later(self)
+        Bot::ActionJob.perform_later(self)
       else
-        Bot::SetBarbellOrdersJob.set(wait_until: next_interval_checkpoint_at).perform_later(self)
-        Bot::BroadcastStatusBarUpdateAfterScheduledOrderJob.perform_later(self)
+        Bot::ActionJob.set(wait_until: next_interval_checkpoint_at).perform_later(self)
+        Bot::BroadcastAfterScheduledActionJob.perform_later(self)
       end
       true
     else
@@ -67,7 +67,7 @@ class Bots::Barbell < Bot
       stopped_at: Time.current,
       stop_message_key: stop_message_key
     )
-      cancel_scheduled_orders
+      cancel_scheduled_action_jobs
       true
     else
       false
@@ -79,11 +79,25 @@ class Bots::Barbell < Bot
       status: 'deleted',
       stopped_at: Time.current
     )
-      cancel_scheduled_orders if exchange.present?
+      cancel_scheduled_action_jobs if exchange.present?
       true
     else
       false
     end
+  end
+
+  def execute_action
+    notify_if_funds_are_low
+    update!(status: :executing)
+    result = set_barbell_orders(
+      total_orders_amount_in_quote: [pending_quote_amount, quote_amount_available_before_limit_reached].min,
+      update_missed_quote_amount: true
+    )
+    return result unless result.success?
+
+    update!(status: :waiting)
+    broadcast_below_minimums_warning
+    Result::Success.new
   end
 
   def available_exchanges_for_current_settings
@@ -130,12 +144,10 @@ class Bots::Barbell < Bot
   end
 
   def restarting?
-    puts "restarting? ==> stopped? && last_action_job_at.present? = #{stopped?} && #{last_action_job_at.present?} = #{stopped? && last_action_job_at.present?}"
     stopped? && last_action_job_at.present?
   end
 
   def restarting_within_interval?
-    puts "restarting_within_interval? ==> restarting? && pending_quote_amount < quote_amount: #{restarting?} && #{pending_quote_amount} < #{quote_amount} = #{restarting? && pending_quote_amount < quote_amount}"
     restarting? && pending_quote_amount < quote_amount
   end
 
@@ -229,25 +241,10 @@ class Bots::Barbell < Bot
                message: 'Interval cannot be changed while the bot is running')
   end
 
-  def cancel_scheduled_orders
-    sidekiq_places = [
-      Sidekiq::ScheduledSet.new,
-      Sidekiq::Queue.new(exchange.name.downcase),
-      Sidekiq::RetrySet.new
-    ]
-    sidekiq_places.each do |place|
-      place.each do |job|
-        job.delete if job.queue == action_job_config[:queue] &&
-                      job.display_class == action_job_config[:class] &&
-                      job.display_args.first == action_job_config[:args].first
-      end
-    end
-  end
-
   def action_job_config
     {
       queue: exchange.name.downcase,
-      class: 'Bot::SetBarbellOrdersJob',
+      class: 'Bot::ActionJob',
       args: [{ '_aj_globalid' => to_global_id.to_s }]
     }
   end
