@@ -243,7 +243,7 @@ class Bots::Barbell < Bot
 
   def action_job_config
     {
-      queue: exchange.name.downcase,
+      queue: exchange.name_id,
       class: 'Bot::ActionJob',
       args: [{ '_aj_globalid' => to_global_id.to_s }]
     }
