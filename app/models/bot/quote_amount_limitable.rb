@@ -45,6 +45,7 @@ module Bot::QuoteAmountLimitable
 
   def quote_amount_available_before_limit_reached
     return Float::INFINITY unless quote_amount_limited?
+    return Float::INFINITY if quote_amount_limit.blank?
 
     quote_amount_spent = transactions.success.where('created_at > ?', quote_amount_limit_enabled_at).sum(:quote_amount)
     [quote_amount_limit - quote_amount_spent, 0].max
