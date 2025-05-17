@@ -125,7 +125,7 @@ module Bot::PriceLimitable
     self.price_limit ||= nil
     self.price_limit_timing_condition ||= 'while'
     self.price_limit_price_condition ||= 'below'
-    self.price_limit_in_ticker_id ||= tickers&.first&.id
+    self.price_limit_in_ticker_id ||= ticker0&.id || ticker1&.id
   end
 
   def set_price_limit_enabled_at
