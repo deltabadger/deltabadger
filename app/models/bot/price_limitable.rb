@@ -20,7 +20,7 @@ module Bot::PriceLimitable
     before_save :set_price_limit_enabled_at, if: :will_save_change_to_settings?
 
     validates :price_limited, inclusion: { in: [true, false] }
-    validates :price_limit, numericality: { greater_than: 0 }, if: :price_limited?
+    validates :price_limit, numericality: { greater_than_or_equal_to: 0 }, if: :price_limited?
     validates :price_limit_timing_condition, inclusion: { in: TIMING_CONDITIONS }
     validates :price_limit_price_condition, inclusion: { in: PRICE_CONDITIONS }
     validates :price_limit_in_ticker_id, inclusion: { in: ->(b) { b.tickers.pluck(:id).compact } }
