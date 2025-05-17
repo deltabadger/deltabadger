@@ -1,4 +1,4 @@
-class Bot::BroadcastStatusBarUpdateAfterScheduledOrderJob < ApplicationJob
+class Bot::BroadcastAfterScheduledActionJob < ApplicationJob
   queue_as :default
 
   def perform(bot)
