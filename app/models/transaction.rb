@@ -5,8 +5,8 @@ class Transaction < ApplicationRecord
   before_create :set_exchange, if: -> { bot.legacy? }
   before_create :round_numeric_fields
   after_create_commit :set_daily_transaction_aggregate
-  after_create_commit :update_bot_metrics, unless: -> { bot.legacy? }
-  after_create_commit :stop_bot_and_notify_by_quote_amount_limit, if: -> { bot.barbell? }
+  after_create_commit -> { bot.broadcast_new_order(self) unless bot.legacy? }
+  after_create_commit -> { Bot::UpdateMetricsJob.perform_later(bot) unless bot.legacy? }
 
   scope :for_bot, ->(bot) { where(bot_id: bot.id).order(created_at: :desc) }
   scope :today_for_bot, ->(bot) { for_bot(bot).where('created_at >= ?', Date.today.beginning_of_day) }
@@ -15,8 +15,6 @@ class Transaction < ApplicationRecord
   validates :bot, presence: true
 
   enum status: %i[success failure skipped]
-
-  include Broadcastable
 
   BTC = %w[XXBT XBT BTC].freeze
 
@@ -68,8 +66,7 @@ class Transaction < ApplicationRecord
     self.bot_price = bot_price&.round(18)
   end
 
-  # rubocop:disable Metrics/CyclomaticComplexity, Metrics/PerceivedComplexity
-  def set_daily_transaction_aggregate
+  def set_daily_transaction_aggregate # rubocop:disable Metrics/CyclomaticComplexity,Metrics/PerceivedComplexity
     return unless success?
 
     daily_transaction_aggregate = DailyTransactionAggregate.today_for_bot(bot).first
@@ -85,17 +82,5 @@ class Transaction < ApplicationRecord
       amount: bot_transactions_with_amount.sum(&:amount)
     }
     daily_transaction_aggregate.update(daily_transaction_aggregate_new_data)
-  end
-  # rubocop:enable Metrics/CyclomaticComplexity, Metrics/PerceivedComplexity
-
-  def update_bot_metrics
-    Bot::UpdateMetricsJob.perform_later(bot)
-  end
-
-  def stop_bot_and_notify_by_quote_amount_limit
-    return unless success? && bot.quote_amount_limited? && bot.quote_amount_limit_reached?
-
-    Bot::StopJob.perform_later(bot, stop_message_key: 'bot.settings.extra_amount_limit.amount_spent')
-    bot.notify_stopped_by_quote_amount_limit
   end
 end

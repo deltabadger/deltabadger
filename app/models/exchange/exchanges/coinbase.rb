@@ -26,7 +26,8 @@ module Exchange::Exchanges::Coinbase
   end
 
   def get_tickers_info
-    tickers_info = Rails.cache.fetch("exchange_#{id}_info", expires_in: 1.hour) do
+    cache_key = "exchange_#{id}_info"
+    tickers_info = Rails.cache.fetch(cache_key, expires_in: 1.hour) do
       result = client.list_products
       return Result::Failure.new("Failed to get #{name} products") unless result.success?
 
@@ -53,6 +54,22 @@ module Exchange::Exchanges::Coinbase
     end
 
     Result::Success.new(tickers_info)
+  end
+
+  def get_tickers_prices(force: false)
+    cache_key = "exchange_#{id}_prices"
+    tickers_prices = Rails.cache.fetch(cache_key, expires_in: 1.minute, force: force) do
+      result = client.list_products
+      return Result::Failure.new("Failed to get #{name} products") unless result.success?
+
+      result.data['products'].each_with_object({}) do |product, prices_hash|
+        ticker = Utilities::Hash.dig_or_raise(product, 'product_id')
+        price = Utilities::Hash.dig_or_raise(product, 'price').to_d
+        prices_hash[ticker] = price
+      end
+    end
+
+    Result::Success.new(tickers_prices)
   end
 
   def get_balances(asset_ids: nil)

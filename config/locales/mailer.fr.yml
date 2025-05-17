@@ -41,7 +41,7 @@ fr:
         notify_about_restart:
             subject: "Oups ! Prochain essai..."
             template_html: "<p>Le bot <b>%{label}</b> n'a pas pu exécuter votre ordre. Il semble y avoir un problème avec la plateforme d'échange. Nous réessaierons dans %{delay}.</p><p>Toutes les erreurs sont visibles dans le journal du bot. Connectez-vous pour le consulter.</p><p>Erreurs :</p><blockquote> <b>%{exchange_name} :</b> <b>%{errors}</b> </blockquote>"
-        stopped_by_quote_amount_limit:
+        stopped_by_amount_limit:
             subject: "%{label} a investi le montant complet"
             template_html: "<p>Votre bot <b>%{label}</b> a atteint votre objectif et a investi la totalité des %{amount} %{quote}.</p><p>Il a été automatiquement arrêté. Désactivez la limite de montant pour réinitialiser l'objectif.</p>"
     subscription_mailer:
