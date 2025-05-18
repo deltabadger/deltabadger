@@ -21,6 +21,7 @@ nl:
             setting_orders: "Orders instellen…"
             paused: "Gepauzeerd"
             next_try: "Volgende poging in"
+            waiting: "Wachten tot aan alle voorwaarden is voldaan"
         barbell:
             invest: "Investeren"
             invest_html: "Investeer %{input} /maand"

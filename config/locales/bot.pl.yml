@@ -21,6 +21,7 @@ pl:
             setting_orders: "Ustawianie zleceń…"
             paused: "Wstrzymany"
             next_try: "Następna próba za"
+            waiting: "Oczekiwanie na spełnienie wszystkich warunków"
         barbell:
             invest: "Inwestuj"
             invest_html: "Inwestuj %{input} /miesiąc"
