@@ -21,6 +21,7 @@ it:
             setting_orders: "Impostazione ordini…"
             paused: "In pausa"
             next_try: "Prossimo tentativo in"
+            waiting: "In attesa che tutte le condizioni siano soddisfatte"
         pick_exchange: "Scegli Exchange"
         barbell:
             invest: "Investi"

@@ -21,6 +21,7 @@ fr:
             setting_orders: "Configuration des commandes…"
             paused: "En pause"
             next_try: "Prochain essai dans"
+            waiting: "En attente que toutes les conditions soient remplies"
         barbell:
             invest: "Investir"
             invest_html: "Investir %{input} /mois"
