@@ -174,3 +174,11 @@ nl:
                 dont_spend_more_than: "Besteed niet meer dan"
                 amount_left: "(%{amount} %{symbol} resterend)"
                 amount_spent: "Het volledige bedrag is geïnvesteerd."
+            extra_price_limit:
+                sentence_html: "%{timing_condition} wanneer de %{base} prijs %{price_condition} %{price} %{quote} is"
+                timing_condition:
+                    while: "Koop alleen"
+                    after: "Begin met kopen"
+                price_condition:
+                    above: "boven"
+                    below: "onder"
