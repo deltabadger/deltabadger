@@ -143,9 +143,9 @@ de:
     welcome:
         banner_html: |
             <p>Willkommen an Bord, %{name}!</p>
-            <p>Ich empfehle dir sehr, den <b>Barbell Strategy</b> Bot auszuprobieren — es ist eine völlig neue Erfahrung.</p>
-            <p>Der Single-Coin DCA Bot ist die ältere Version, die bald aktualisiert wird, mit Indizes, die kurz darauf folgen werden.</p>
-            <p>Beste Grüße, Jan</p>
+            <p><b>Überprüfe deine E-Mails</b>, dort habe ich dir eine kurze Anleitung zur Nutzung der Bots geschickt.</p>
+            <p><b>Antworte mit <code>FIRE</code></b> und ich gewähre dir Zugang zu unserer Community.</p>
+            <p>Bis dann, Jan</p>
     analyzer:
         default_portfolio: 'Standardportfolio'
         duplicate_portfolio: 'Portfolio duplizieren'
