@@ -7,7 +7,7 @@ class Bot::ActionJob < BotJob
     result = bot.execute_action
     raise StandardError, result.errors.to_sentence unless result.success?
 
-    unless result.data[:break_reschedule]
+    unless result.data.present? && result.data[:break_reschedule]
       bot.update!(status: :scheduled)
       Bot::ActionJob.set(wait_until: bot.next_interval_checkpoint_at).perform_later(bot)
       Bot::BroadcastAfterScheduledActionJob.perform_later(bot)
