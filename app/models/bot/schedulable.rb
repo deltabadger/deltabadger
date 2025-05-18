@@ -73,7 +73,7 @@ module Bot::Schedulable
 
     checkpoint = started_at || Time.current
     loop do
-      checkpoint += 1.public_send(interval)
+      checkpoint += interval_duration
       return checkpoint if checkpoint > Time.current
     end
   end
@@ -81,7 +81,7 @@ module Bot::Schedulable
   def last_interval_checkpoint_at
     return legacy_last_interval_checkpoint_at if legacy?
 
-    next_interval_checkpoint_at - 1.public_send(interval)
+    next_interval_checkpoint_at - interval_duration
   end
 
   def progress_percentage
@@ -101,7 +101,7 @@ module Bot::Schedulable
   def legacy_last_interval_checkpoint_at
     case type
     when 'Bots::Basic'
-      next_interval_checkpoint_at - 1.public_send(interval)
+      next_interval_checkpoint_at - interval_duration
     when 'Bots::Withdrawal'
       transactions.last&.created_at || Time.current
     when 'Bots::Webhook'

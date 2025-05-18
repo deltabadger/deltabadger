@@ -72,20 +72,16 @@ module Bots::Barbell::OrderSetter # rubocop:disable Metrics/ModuleLength
     Result::Success.new
   end
 
-  def pending_quote_amount(before_settings_change: false)
+  def pending_quote_amount
     return quote_amount if started_at.nil?
-
-    quote_amount = before_settings_change ? settings_was['quote_amount'] : self.quote_amount
-    interval = before_settings_change ? settings_was['interval'] : self.interval
-    settings_changed_at = before_settings_change ? settings_changed_at_was : self.settings_changed_at
 
     from_start = started_at > settings_changed_at
     start_at = from_start ? started_at : settings_changed_at
     total_quote_amount_invested = transactions.success
                                               .where('created_at >= ?', start_at)
-                                              .pluck(:rate, :amount)
-                                              .sum { |rate, amount| rate * amount }
-    intervals_since_start_at = [0, ((last_interval_checkpoint_at - start_at) / 1.public_send(interval)).floor].max
+                                              .pluck(:quote_amount)
+                                              .sum
+    intervals_since_start_at = [0, ((last_interval_checkpoint_at - start_at) / interval_duration).floor].max
     intervals_since_start_at += 1 if from_start
 
     # puts "intervals_since_start_at: #{intervals_since_start_at}"
@@ -100,7 +96,13 @@ module Bots::Barbell::OrderSetter # rubocop:disable Metrics/ModuleLength
   private
 
   def set_missed_quote_amount
-    self.missed_quote_amount = pending_quote_amount(before_settings_change: true)
+    quote_amount_bak = quote_amount
+    interval_bak = interval
+    self.quote_amount = settings_was['quote_amount']
+    self.interval = settings_was['interval']
+    self.missed_quote_amount = pending_quote_amount
+    self.quote_amount = quote_amount_bak
+    self.interval = interval_bak
   end
 
   def get_barbell_orders(total_orders_amount_in_quote)

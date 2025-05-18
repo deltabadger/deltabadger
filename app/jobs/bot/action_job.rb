@@ -30,7 +30,7 @@ class Bot::ActionJob < BotJob
   end
 
   def notify_retry(bot, error)
-    if sidekiq_estimated_retry_delay > 1.public_send(bot.interval)
+    if sidekiq_estimated_retry_delay > bot.interval_duration
       bot.notify_about_restart(errors: [error.message], delay: sidekiq_estimated_retry_delay)
     elsif sidekiq_estimated_retry_delay > 1.minute # 3 failed attempts
       bot.notify_about_error(errors: [error.message])
