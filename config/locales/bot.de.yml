@@ -21,6 +21,7 @@ de:
             setting_orders: "Orders werden erstellt…"
             paused: "Pausiert"
             next_try: "Nächster Versuch in"
+            waiting: "Warten bis alle Bedingungen erfüllt sind"
         barbell:
             invest: "Investieren"
             invest_html: "%{input} /Monat investieren"
