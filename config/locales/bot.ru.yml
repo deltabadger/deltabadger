@@ -173,3 +173,11 @@ ru:
                 dont_spend_more_than: "Не тратить больше чем"
                 amount_left: "(осталось %{amount} %{symbol})"
                 amount_spent: "Вся сумма была инвестирована."
+            extra_price_limit:
+                sentence_html: "%{timing_condition} когда цена %{base} %{price_condition} %{price} %{quote}"
+                timing_condition:
+                    while: "Покупать только"
+                    after: "Начать покупать"
+                price_condition:
+                    above: "выше"
+                    below: "ниже"

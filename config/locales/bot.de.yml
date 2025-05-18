@@ -188,3 +188,11 @@ de:
                 dont_spend_more_than: "Nicht mehr ausgeben als"
                 amount_left: "(%{amount} %{symbol} übrig)"
                 amount_spent: "Der gesamte Betrag wurde investiert."
+            extra_price_limit:
+                sentence_html: "%{timing_condition} wenn der %{base} Preis %{price_condition} %{price} %{quote} ist"
+                timing_condition:
+                    while: "Nur kaufen"
+                    after: "Beginne zu kaufen"
+                price_condition:
+                    above: "über"
+                    below: "unter"
