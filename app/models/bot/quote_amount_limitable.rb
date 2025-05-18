@@ -1,7 +1,7 @@
 module Bot::QuoteAmountLimitable
   extend ActiveSupport::Concern
 
-  included do
+  included do # rubocop:disable Metrics/BlockLength
     store_accessor :settings,
                    :quote_amount_limited,
                    :quote_amount_limit
@@ -13,12 +13,12 @@ module Bot::QuoteAmountLimitable
     before_save :set_quote_amount_limit_enabled_at, if: :will_save_change_to_settings?
 
     validates :quote_amount_limited, inclusion: { in: [true, false] }
-    validates :quote_amount_limit, numericality: { greater_than_or_equal_to: lambda { |b|
-                                                                               b.minimum_quote_amount_limit
-                                                                             } }, if: :quote_amount_limited?
+    validates :quote_amount_limit,
+              numericality: { greater_than_or_equal_to: ->(b) { b.minimum_quote_amount_limit } },
+              if: :quote_amount_limited?
     validate :validate_quote_amount_limit_not_reached, if: :quote_amount_limited?, on: :start
 
-    execute_action_decorator = Module.new do
+    decorators = Module.new do
       def execute_action
         result = super
         broadcast_quote_amount_limit_update
@@ -28,9 +28,15 @@ module Bot::QuoteAmountLimitable
         notify_stopped_by_amount_limit
         Result::Success.new({ break_reschedule: true })
       end
+
+      def pending_quote_amount
+        return super unless quote_amount_limited?
+
+        [super, quote_amount_available_before_limit_reached].min
+      end
     end
 
-    prepend execute_action_decorator
+    prepend decorators
   end
 
   def quote_amount_limit_enabled_at
@@ -56,30 +62,8 @@ module Bot::QuoteAmountLimitable
     quote_amount_limited? && quote_amount_available_before_limit_reached < minimum_quote_amount_limit
   end
 
-  def validate_quote_amount_limit_not_reached
-    errors.add(:settings, :quote_amount_limit_reached) if quote_amount_limit_reached?
-  end
-
-  def stop_and_notify_if_quote_amount_limit_reached
-    return unless quote_amount_limit_reached?
-
-    Bot::StopJob.perform_later(self, stop_message_key: 'bot.settings.extra_amount_limit.amount_spent')
-    notify_stopped_by_amount_limit
-  end
-
-  def broadcast_quote_amount_limit_update
-    return unless quote_amount_limited?
-
-    broadcast_replace_to(
-      ["user_#{user_id}", :bot_updates],
-      target: 'settings-amount-limit-info',
-      partial: 'bots/settings/amount_limit_info',
-      locals: { bot: self }
-    )
-  end
-
   def minimum_quote_amount_limit
-    least_precise_quote_decimals = [ticker0&.quote_decimals, ticker1&.quote_decimals].compact.min
+    least_precise_quote_decimals = tickers.pluck(:quote_decimals).compact.min
     @minimum_quote_amount_limit ||= 1.0 / (10**least_precise_quote_decimals)
   end
 
@@ -94,5 +78,20 @@ module Bot::QuoteAmountLimitable
     return unless settings_was['quote_amount_limited'] != quote_amount_limited
 
     self.quote_amount_limit_enabled_at = quote_amount_limited? ? Time.current : nil
+  end
+
+  def validate_quote_amount_limit_not_reached
+    errors.add(:settings, :quote_amount_limit_reached) if quote_amount_limit_reached?
+  end
+
+  def broadcast_quote_amount_limit_update
+    return unless quote_amount_limited?
+
+    broadcast_replace_to(
+      ["user_#{user_id}", :bot_updates],
+      target: 'settings-amount-limit-info',
+      partial: 'bots/settings/amount_limit_info',
+      locals: { bot: self }
+    )
   end
 end
