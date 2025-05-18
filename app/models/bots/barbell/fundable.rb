@@ -17,6 +17,6 @@ module Bots::Barbell::Fundable
   private
 
   def required_balance_buffer
-    quote_amount * (3.days.to_f / 1.public_send(interval))
+    quote_amount * (3.days.to_f / interval_duration)
   end
 end

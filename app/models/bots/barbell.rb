@@ -23,6 +23,7 @@ class Bots::Barbell < Bot
   include Bots::Barbell::Measurable
   include Bots::Barbell::Fundable
   include Bots::Barbell::MarketcapAllocatable
+  include SmartIntervalable # keep it up in the chain, decorators affect the interval_duration & pending_quote_amount
   include QuoteAmountLimitable
   include PriceLimitable
 
@@ -90,7 +91,7 @@ class Bots::Barbell < Bot
     notify_if_funds_are_low
     update!(status: :executing)
     result = set_barbell_orders(
-      total_orders_amount_in_quote: [pending_quote_amount, quote_amount_available_before_limit_reached].min,
+      total_orders_amount_in_quote: pending_quote_amount,
       update_missed_quote_amount: true
     )
     return result unless result.success?
