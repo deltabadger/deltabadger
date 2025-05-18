@@ -13,7 +13,6 @@ module Bot::QuoteAmountLimitable
     before_save :set_quote_amount_limit_enabled_at, if: :will_save_change_to_settings?
 
     validates :quote_amount_limited, inclusion: { in: [true, false] }
-    # validates :quote_amount_limit, numericality: { greater_than_or_equal_to: 0 }
     validates :quote_amount_limit, numericality: { greater_than_or_equal_to: lambda { |b|
                                                                                b.minimum_quote_amount_limit
                                                                              } }, if: :quote_amount_limited?
