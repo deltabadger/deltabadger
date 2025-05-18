@@ -145,9 +145,9 @@ pl:
     welcome:
         banner_html: |
             <p>Witaj na pokładzie, %{name}!</p>
-            <p>Gorąco polecam wypróbowanie bota <b>Barbell Strategy</b> — to zupełnie nowe doświadczenie.</p>
-            <p>Bot Single-coin DCA to starsza wersja, która wkrótce zostanie zaktualizowana, a indeksy pojawią się niedługo potem.</p>
-            <p>Pozdrawiam, Jan</p>
+            <p><b>Sprawdź swoją skrzynkę email</b>, gdzie wysłałem Ci krótki przewodnik po korzystaniu z botów.</p>
+            <p><b>Odpowiedz kodem <code>FIRE</code></b>, a otrzymasz dostęp do naszej społeczności.</p>
+            <p>Do zobaczenia, Jan</p>
     analyzer:
         default_portfolio: 'Domyślny portfel'
         portfolio_name: 'Nazwa portfela'
