@@ -36,6 +36,11 @@
         background: $pro
     &--legendary
         background: $legendary
+.sinput,.numeric-input
+    &.is-invalid
+        box-shadow: inset 0 0 0 3px var(--danger)
+        background: #f041 !important
+
 .sinput
     font-weight: 600 !important
     background: var(--sinput-background)
@@ -49,7 +54,8 @@
     box-shadow: var(--widget-shadow)
     cursor: pointer
     text-decoration: none !important
-    &[disabled="disabled"],&[disabled]
+    &[disabled="disabled"],&[disabled],&--disabled
+        color: var(--label) !important
         cursor: not-allowed
     .label
         min-width: 2.2rem

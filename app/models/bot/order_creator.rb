@@ -1,4 +1,4 @@
-module Bots::Barbell::OrderCreator
+module Bot::OrderCreator
   extend ActiveSupport::Concern
 
   def create_successful_order!(order_data)

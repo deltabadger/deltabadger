@@ -9,11 +9,11 @@
     <%= form_with model: @api_key, url: create_api_key_bot_path(@bot), method: :post, data: { controller: "form--label-animations form--html5-validations", action: "turbo:submit-end->modal--base#submitEnd" } do |f| %>
       <div class="db-form__row db-form__row--input">
         <%= f.text_field :key, autofocus: true, data: { controller: "autofocus" }, class: "db-form__input", rows: 3 %>
-        <%= f.label :key, t("bot.setup.#{@bot.exchange.name.downcase}.public_key"), class: "db-form__label" %>
+        <%= f.label :key, t("bot.setup.#{@bot.exchange.name_id}.public_key"), class: "db-form__label" %>
       </div>
       <div class="db-form__row db-form__row--input">
         <%= f.text_field :secret, class: "db-form__input", rows: 3 %>
-        <%= f.label :secret, t("bot.setup.#{@bot.exchange.name.downcase}.private_key"), class: "db-form__label" %>
+        <%= f.label :secret, t("bot.setup.#{@bot.exchange.name_id}.private_key"), class: "db-form__label" %>
       </div>
       <div class="large-button-wrapper">
         <%= f.submit t('button.add'), class: "button button--success button--large", data: { turbo_stream: true, turbo_submits_with: t('bot.setup.validating') } %>
@@ -22,7 +22,7 @@
     <div class="set-api__instructions" style="margin-top: 7rem;">
       <h2 class="set-api__header"><%= t('bot.setup.how_to_get_keys', exchange: @bot.exchange.name) %></h2>
       <ol class="set-__list">
-        <% exchange_key = @bot.exchange.name.downcase %>
+        <% exchange_key = @bot.exchange.name_id %>
         <% instructions = t("bot.api.#{exchange_key}") %>
 
         <% # First level keys (instructions_1, etc.) - optionally match _html %>

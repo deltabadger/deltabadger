@@ -14,6 +14,10 @@ sync_all_tickers_and_assets_job:
   cron: "0 * * * *" # every hour at minute 0
   class: "Exchange::SyncAllTickersAndAssetsJob"
 
+fetch_all_prices_job:
+  cron: "* * * * *" # every minute
+  class: "Exchange::FetchAllPricesJob"
+
 fetch_all_assets_data_from_coingecko_job:
   cron: "0 1 * * *" # every day at 01:00 UTC
   class: "Asset::FetchAllAssetsDataFromCoingeckoJob"

@@ -15,8 +15,8 @@
 
     <%= turbo_frame_tag "asset-picker", data: { action: "keydown@window->arrow-keys-navigation#navigate", controller: "arrow-keys-navigation" }, class: "modal--search__assets selectable-options" do %>
       <%= form_with model: @bot, url: barbell_new_step_exchange_bots_path, method: :get do |f| %>
-        <% @assets.each do |id, symbol, name, exchange_names| %>
-          <%= render partial: "bots/asset_search_result", locals: { bot: @bot, asset_field: :base1_asset_id, id: id, symbol: symbol, name: name, exchange_names: exchange_names } %>
+        <% @assets.each do |id, symbol, name, exchanges| %>
+          <%= render partial: "bots/asset_search_result", locals: { bot: @bot, asset_field: :base1_asset_id, id: id, symbol: symbol, name: name, exchanges: exchanges } %>
         <% end %>
       <% end %>
     <% end %>

@@ -41,7 +41,7 @@ de:
         notify_about_restart:
             subject: "Hoppla! Nächster Versuch..."
             template_html: "<p>Der Bot <b>%{label}</b> konnte Ihren Auftrag nicht ausführen. Es scheint ein Problem mit der Börse zu sein. Wir versuchen es in %{delay} erneut.</p><p>Alle Fehler sind im Bot-Protokoll sichtbar. Melden Sie sich an, um es zu überprüfen.</p><p>Fehler:</p><blockquote> <b>%{exchange_name}:</b> <b>%{errors}</b> </blockquote>"
-        stopped_by_quote_amount_limit:
+        stopped_by_amount_limit:
             subject: "%{label} hat den vollen Betrag investiert"
             template_html: "<p>Ihr Bot <b>%{label}</b> hat Ihr Ziel erreicht und den gesamten Betrag von %{amount} %{quote} investiert.</p><p>Er wurde automatisch gestoppt. Schalten Sie das Betragslimit AUS, um das Ziel zurückzusetzen.</p>"
     subscription_mailer:
