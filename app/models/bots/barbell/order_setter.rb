@@ -158,15 +158,14 @@ module Bots::Barbell::OrderSetter # rubocop:disable Metrics/ModuleLength
     ticker = exchange.tickers.find_by!(base_asset: order_data[:base_asset], quote_asset: order_data[:quote_asset])
 
     minimum_quote_size_in_base = ticker.minimum_quote_size / order_data[:rate]
-    minimum_base_size_in_base = ticker.minimum_base_size
-    amount_type = minimum_quote_size_in_base < minimum_base_size_in_base ? :quote : :base
+    amount_type = minimum_quote_size_in_base < ticker.minimum_base_size ? :quote : :base
     amount = amount_type == :base ? order_data[:amount] : order_data[:quote_amount]
-    minimum_amount_in_base = amount_type == :base ? minimum_base_size_in_base : minimum_quote_size_in_base
+    minimum_amount = amount_type == :base ? ticker.minimum_base_size : ticker.minimum_quote_size
 
     {
       amount_type: amount_type,
       amount: amount,
-      below_minimum_amount: amount < minimum_amount_in_base
+      below_minimum_amount: amount < minimum_amount
     }
   end
 end
