@@ -2,12 +2,41 @@ module Bot::Schedulable
   extend ActiveSupport::Concern
 
   included do
-    store_accessor :transient_data, :last_action_job_at, :last_successful_action_interval_checkpoint_at
+    store_accessor :transient_data,
+                   :last_action_job_at,
+                   :last_successful_action_interval_checkpoint_at
   end
 
   def last_action_job_at
     value = super
     value.present? ? Time.zone.parse(value) : nil
+  end
+
+  def cancel_scheduled_action_jobs
+    sidekiq_places = [
+      Sidekiq::ScheduledSet.new,
+      Sidekiq::Queue.new(exchange.name_id),
+      Sidekiq::RetrySet.new
+    ]
+    sidekiq_places.each do |place|
+      place.each do |job|
+        # temporary fix for Bot::SetBarbellOrdersJob -> Bot::ActionJob
+        if action_job_config[:class] == 'Bot::ActionJob'
+          job.delete if job.queue == action_job_config[:queue] &&
+                        ['Bot::ActionJob', 'Bot::SetBarbellOrdersJob'].include?(job.display_class) &&
+                        job.display_args.first == action_job_config[:args].first
+        elsif job.queue == action_job_config[:queue] &&
+              job.display_class == action_job_config[:class] &&
+              job.display_args.first == action_job_config[:args].first
+          job.delete
+        end
+
+        # revert to this once Bot::SetBarbellOrdersJob doesn't exist
+        # job.delete if job.queue == action_job_config[:queue] &&
+        #               job.display_class == action_job_config[:class] &&
+        #               job.display_args.first == action_job_config[:args].first
+      end
+    end
   end
 
   def next_action_job_at
@@ -19,9 +48,21 @@ module Bot::Schedulable
     ]
     sidekiq_places.each do |place|
       place.each do |job|
-        return job.at if job.queue == action_job_config[:queue] &&
-                         job.display_class == action_job_config[:class] &&
-                         job.display_args.first == action_job_config[:args].first
+        # temporary fix for Bot::SetBarbellOrdersJob -> Bot::ActionJob
+        if action_job_config[:class] == 'Bot::ActionJob'
+          return job.at if job.queue == action_job_config[:queue] &&
+                           ['Bot::ActionJob', 'Bot::SetBarbellOrdersJob'].include?(job.display_class) &&
+                           job.display_args.first == action_job_config[:args].first
+        elsif job.queue == action_job_config[:queue] &&
+              job.display_class == action_job_config[:class] &&
+              job.display_args.first == action_job_config[:args].first
+          return job.at
+        end
+
+        # revert to this once Bot::SetBarbellOrdersJob doesn't exist
+        # return job.at if job.queue == action_job_config[:queue] &&
+        #                 job.display_class == action_job_config[:class] &&
+        #                 job.display_args.first == action_job_config[:args].first
       end
     end
     nil

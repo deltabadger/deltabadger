@@ -141,9 +141,9 @@ pt:
     welcome:
         banner_html: |
             <p>Bem-vindo a bordo, %{name}!</p>
-            <p>Recomendo vivamente que experimente o bot <b>Estratégia Barbell</b> — é uma experiência completamente nova.</p>
-            <p>O bot DCA de moeda única é a versão mais antiga que será atualizada em breve, com os índices a chegarem pouco depois.</p>
-            <p>Cumprimentos, Jan</p>
+            <p><b>Verifique seu e-mail</b> onde enviei um guia rápido sobre como usar os bots.</p>
+            <p><b>Responda com <code>FIRE</code></b> e eu lhe darei acesso à nossa comunidade.</p>
+            <p>Até breve, Jan</p>
     analyzer:
         default_portfolio: 'Portfólio padrão'
         duplicate_portfolio: 'Duplicar portfólio'

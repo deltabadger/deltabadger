@@ -5,11 +5,11 @@ module Bots::Barbell::OrderSetter # rubocop:disable Metrics/ModuleLength
   include Bot::Schedulable
 
   included do
-    store_accessor :transient_data, :missed_quote_amount
+    store_accessor :transient_data,
+                   :missed_quote_amount
 
     validates :missed_quote_amount,
-              numericality: { greater_than_or_equal_to: 0 },
-              if: -> { missed_quote_amount.present? }
+              numericality: { greater_than_or_equal_to: 0 }
 
     before_save :set_missed_quote_amount, if: :will_save_change_to_settings?
   end
@@ -23,6 +23,8 @@ module Bots::Barbell::OrderSetter # rubocop:disable Metrics/ModuleLength
     total_orders_amount_in_quote:,
     update_missed_quote_amount: false
   )
+    # return Result::Success.new
+
     raise StandardError, 'quote_amount is required' if total_orders_amount_in_quote.blank?
     raise StandardError, 'quote_amount must be positive' if total_orders_amount_in_quote.negative?
     return Result::Success.new if total_orders_amount_in_quote.zero?

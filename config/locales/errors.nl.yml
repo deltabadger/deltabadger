@@ -14,6 +14,17 @@ nl:
                     attributes:
                         portfolio:
                             max_assets_reached: "Maximum aantal activa bereikt."
+                bot:
+                    attributes:
+                        price_limit:
+                            not_a_number: "U moet een prijs opgeven"
+                            greater_than_or_equal_to: "De prijs moet groter dan of gelijk zijn aan 0"
+                        quote_amount:
+                            not_a_number: "U moet een investeringsbedrag toevoegen"
+                            greater_than: "Het bedrag moet groter zijn dan 0"
+                        quote_amount_limit:
+                            not_a_number: "U moet aangeven welk bedrag niet mag worden overschreden"
+                            greater_than_or_equal_to: "De bedragslimiet moet groter dan of gelijk zijn aan %{count}"
     errors:
         cloudflare_turnstile: 'Cloudflare Turnstile-validatie mislukt'
         bitcoin_address_not_updated: 'Bitcoin-adres kon niet worden bijgewerkt'

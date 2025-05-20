@@ -138,9 +138,9 @@ nl:
     welcome:
         banner_html: |
             <p>Welkom aan boord, %{name}!</p>
-            <p>Ik raad je ten zeerste aan om de <b>Barbell Strategy</b> bot te proberen — het is een compleet nieuwe ervaring.</p>
-            <p>De Single-coin DCA bot is de oudere versie die binnenkort wordt bijgewerkt, met indices die kort daarna volgen.</p>
-            <p>Groeten, Jan</p>
+            <p><b>Controleer je e-mail</b> waar ik je een snelle handleiding voor het gebruik van de bots heb gestuurd.</p>
+            <p><b>Antwoord met <code>FIRE</code></b> en ik geef je toegang tot onze community.</p>
+            <p>Tot daar, Jan</p>
     analyzer:
         default_portfolio: 'Standaardportefeuille'
         duplicate_portfolio: 'Portefeuille dupliceren'
