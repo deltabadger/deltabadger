@@ -1,7 +1,7 @@
 module Bot::QuoteAmountLimitable
   extend ActiveSupport::Concern
 
-  included do # rubocop:disable Metrics/BlockLength
+  included do
     store_accessor :settings,
                    :quote_amount_limited,
                    :quote_amount_limit
@@ -19,16 +19,6 @@ module Bot::QuoteAmountLimitable
     validate :validate_quote_amount_limit_not_reached, if: :quote_amount_limited?, on: :start
 
     decorators = Module.new do
-      def execute_action
-        result = super
-        broadcast_quote_amount_limit_update
-        return result unless quote_amount_limited? && quote_amount_limit_reached?
-
-        Bot::StopJob.perform_later(self, stop_message_key: 'bot.settings.extra_amount_limit.amount_spent')
-        notify_stopped_by_amount_limit
-        Result::Success.new({ break_reschedule: true })
-      end
-
       def pending_quote_amount
         return super unless quote_amount_limited?
 
@@ -65,6 +55,14 @@ module Bot::QuoteAmountLimitable
   def minimum_quote_amount_limit
     least_precise_quote_decimals = tickers.pluck(:quote_decimals).compact.min
     @minimum_quote_amount_limit ||= 1.0 / (10**least_precise_quote_decimals)
+  end
+
+  def handle_quote_amount_limit_update
+    broadcast_quote_amount_limit_update
+    return unless quote_amount_limited? && quote_amount_limit_reached?
+
+    Bot::StopJob.perform_later(self, stop_message_key: 'bot.settings.extra_amount_limit.amount_spent')
+    notify_stopped_by_amount_limit
   end
 
   private
