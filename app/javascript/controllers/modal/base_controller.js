@@ -40,7 +40,7 @@ export default class extends Controller {
   }
 
   #open() {
-    this.element.showModal()
+    this.element.show()
     document.body.classList.add('overflow-hidden')
     this.#dispatchModalOpenEvent(true)
   }
