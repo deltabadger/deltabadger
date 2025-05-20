@@ -17,6 +17,10 @@ class Bots::Barbell < Bot
   validate :validate_unchangeable_assets, on: :update
   validate :validate_unchangeable_interval, on: :update
 
+  before_save :set_tickers, if: :will_save_change_to_exchange_id?
+  # TODO: If bots can change assets, we also need to update the tickers and assets values
+  #       ! also in price_limitable
+
   include Schedulable
   include OrderCreator
   include Bots::Barbell::OrderSetter
@@ -169,8 +173,7 @@ class Bots::Barbell < Bot
   end
 
   def tickers
-    @tickers ||= exchange&.tickers&.where(base_asset_id: [base0_asset_id, base1_asset_id],
-                                          quote_asset_id: quote_asset_id).presence
+    @tickers ||= set_tickers
   end
 
   def ticker0
@@ -240,6 +243,11 @@ class Bots::Barbell < Bot
 
     errors.add(:settings, :unchangeable_interval,
                message: 'Interval cannot be changed while the bot is running')
+  end
+
+  def set_tickers
+    @tickers = exchange&.tickers&.where(base_asset_id: [base0_asset_id, base1_asset_id],
+                                        quote_asset_id: quote_asset_id).presence
   end
 
   def action_job_config
