@@ -50,11 +50,13 @@ class BotsController < ApplicationController
     available_assets = @bot.available_assets_for_current_settings(asset_type: :base_asset)
     filtered_assets = filter_assets_by_query(assets: available_assets, query: barbell_bot_params[:query])
                       .pluck(:id, :symbol, :name)
-    exchange_assets = Exchange.all.pluck(:id, :name).each_with_object({}) do |(id, name), hash|
-      hash[name] = Exchange.find(id).assets.pluck(:id).presence
-    end.compact
+    exchanges_data = Exchange.all.pluck(:id, :name_id, :name).each_with_object([]) do |(id, name_id, name), list|
+      assets = Exchange.find(id).assets.pluck(:id)
+      list << [name_id, name, assets] if assets.any?
+    end
     @assets = filtered_assets.map do |id, symbol, name|
-      [id, symbol, name, exchange_assets.map { |exchange_name, assets| assets.include?(id) ? exchange_name : nil }.compact]
+      exchanges = exchanges_data.select { |_, _, assets| assets.include?(id) }
+      [id, symbol, name, exchanges.map { |e_name_id, e_name, _| [e_name_id, e_name] }]
     end
     render 'bots/barbell/new/step_to_first_asset'
   end
@@ -64,11 +66,13 @@ class BotsController < ApplicationController
     available_assets = @bot.available_assets_for_current_settings(asset_type: :base_asset)
     filtered_assets = filter_assets_by_query(assets: available_assets, query: barbell_bot_params[:query])
                       .pluck(:id, :symbol, :name)
-    exchange_assets = Exchange.all.pluck(:id, :name).each_with_object({}) do |(id, name), hash|
-      hash[name] = Exchange.find(id).assets.pluck(:id).presence
-    end.compact
+    exchanges_data = Exchange.all.pluck(:id, :name_id, :name).each_with_object([]) do |(id, name_id, name), list|
+      assets = Exchange.find(id).assets.pluck(:id)
+      list << [name_id, name, assets] if assets.any?
+    end
     @assets = filtered_assets.map do |id, symbol, name|
-      [id, symbol, name, exchange_assets.map { |exchange_name, assets| assets.include?(id) ? exchange_name : nil }.compact]
+      exchanges = exchanges_data.select { |_, _, assets| assets.include?(id) }
+      [id, symbol, name, exchanges.map { |e_name_id, e_name, _| [e_name_id, e_name] }]
     end
     render 'bots/barbell/new/step_to_second_asset'
   end
@@ -107,11 +111,13 @@ class BotsController < ApplicationController
     available_assets = @bot.available_assets_for_current_settings(asset_type: :quote_asset)
     filtered_assets = filter_assets_by_query(assets: available_assets, query: barbell_bot_params[:query])
                       .pluck(:id, :symbol, :name)
-    exchange_assets = Exchange.all.pluck(:id, :name).each_with_object({}) do |(id, name), hash|
-      hash[name] = Exchange.find(id).assets.pluck(:id).presence
-    end.compact
+    exchanges_data = Exchange.all.pluck(:id, :name_id, :name).each_with_object([]) do |(id, name_id, name), list|
+      assets = Exchange.find(id).assets.pluck(:id)
+      list << [name_id, name, assets] if assets.any?
+    end
     @assets = filtered_assets.map do |id, symbol, name|
-      [id, symbol, name, exchange_assets.map { |exchange_name, assets| assets.include?(id) ? exchange_name : nil }.compact]
+      exchanges = exchanges_data.select { |_, _, assets| assets.include?(id) }
+      [id, symbol, name, exchanges.map { |e_name_id, e_name, _| [e_name_id, e_name] }]
     end
     render 'bots/barbell/new/step_from_asset'
   end
@@ -178,7 +184,7 @@ class BotsController < ApplicationController
   def update
     if @bot.barbell?
       barbell_bot_params_to_update = barbell_bot_params_as_hash
-      barbell_bot_params_to_update[:settings] = @bot.settings.merge(barbell_bot_params_to_update[:settings])
+      barbell_bot_params_to_update[:settings] = @bot.settings.merge(barbell_bot_params_to_update[:settings].stringify_keys)
       if @bot.update(barbell_bot_params_to_update)
         # flash.now[:notice] = t('alert.bot.bot_updated')
       else
@@ -245,11 +251,14 @@ class BotsController < ApplicationController
     available_assets = @bot.available_assets_for_current_settings(asset_type: asset_type)
     filtered_assets = filter_assets_by_query(assets: available_assets, query: params[:query])
                       .pluck(:id, :symbol, :name)
-    exchange_assets = Exchange.all.pluck(:id, :name).each_with_object({}) do |(id, name), hash|
-      hash[name] = Exchange.find(id).assets.pluck(:id).presence
-    end.compact
+    exchanges_data = Exchange.all.pluck(:id, :name_id,
+                                        :name).each_with_object([]) do |(id, name_id, name), list|
+      assets = Exchange.find(id).assets.pluck(:id)
+      list << [name_id, name, assets] if assets.any?
+    end
     @assets = filtered_assets.map do |id, symbol, name|
-      [id, symbol, name, exchange_assets.map { |exchange_name, assets| assets.include?(id) ? exchange_name : nil }.compact]
+      exchanges = exchanges_data.select { |_, _, assets| assets.include?(id) }
+      [id, symbol, name, exchanges.map { |e_name_id, e_name, _| [e_name_id, e_name] }]
     end
     @asset_field = params[:asset_field]
   end
@@ -286,6 +295,11 @@ class BotsController < ApplicationController
       :label,
       :quote_amount_limited,
       :quote_amount_limit,
+      :price_limited,
+      :price_limit,
+      :price_limit_timing_condition,
+      :price_limit_price_condition,
+      :price_limit_in_ticker_id,
       :query
     )
   end
@@ -317,6 +331,11 @@ class BotsController < ApplicationController
       pp[:marketcap_allocated] = pp[:marketcap_allocated].presence&.in?(%w[1 true])
       pp[:quote_amount_limited] = pp[:quote_amount_limited].presence&.in?(%w[1 true])
       pp[:quote_amount_limit] = pp[:quote_amount_limit].presence&.to_f
+      pp[:price_limited] = pp[:price_limited].presence&.in?(%w[1 true])
+      pp[:price_limit] = pp[:price_limit].presence&.to_f
+      pp[:price_limit_timing_condition] = pp[:price_limit_timing_condition].presence
+      pp[:price_limit_price_condition] = pp[:price_limit_price_condition].presence
+      pp[:price_limit_in_ticker_id] = pp[:price_limit_in_ticker_id].presence&.to_i
     end.compact
 
     {

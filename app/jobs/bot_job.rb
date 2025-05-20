@@ -1,6 +1,6 @@
 class BotJob < ApplicationJob
   def queue_name
     bot = arguments.first
-    bot.exchange&.name&.downcase&.to_sym || :default
+    bot.exchange&.name_id&.to_sym || :default
   end
 end

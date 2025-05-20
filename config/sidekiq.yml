@@ -5,7 +5,8 @@
   - [api_keys_validation, 1]
   - [mailers, 1]
   - [binance, 2]
-  - [binance.us, 2]
+  - [binance.us, 2] # TODO: legacy, remove when no bots are in this queue
+  - [binance_us, 2]
   - [zonda, 2]
   - [bitfinex, 2]
   - [bitso, 2]
@@ -14,12 +15,14 @@
   - [gemini, 2]
   - [kraken, 2]
   - [kucoin, 2]
-  - [probit global, 2]
-  - [probit, 2]
+  - [probit global, 2] # TODO: legacy, remove when no bots are in this queue
+  - [probit_global, 2]
+  - [probit, 2] # TODO: legacy, remove when no bots are in this queue
   - [default, 1]
 :limits:
   binance: 1
-  binance.us: 1
+  binance.us: 1 # TODO: legacy, remove when no bots are in this queue
+  binance_us: 1
   zonda: 1
   bitfinex: 1
   bitso: 1
@@ -29,4 +32,5 @@
   kraken: 1
   kucoin: 1
   probit: 1
-  probit global: 1
+  probit global: 1 # TODO: legacy, remove when no bots are in this queue
+  probit_global: 1

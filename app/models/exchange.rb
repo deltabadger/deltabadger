@@ -21,6 +21,8 @@ class Exchange < ApplicationRecord
 
   after_initialize :include_exchange_implementation
 
+  before_validation :set_name_id
+
   # rubocop:disable Metrics/CyclomaticComplexity
   def symbols
     market = case name.downcase
@@ -51,7 +53,7 @@ class Exchange < ApplicationRecord
     all_symbols = symbols
     return all_symbols unless all_symbols.success?
 
-    Result::Success.new(filter_free_plan_symbols(all_symbols.data))
+    Result::Success.new(all_symbols.data)
   end
 
   # @param amount_type [Symbol] :base or :quote
@@ -76,17 +78,13 @@ class Exchange < ApplicationRecord
   private
 
   def include_exchange_implementation
-    case name.downcase
+    case name_id
     when 'coinbase' then singleton_class.include(Exchanges::Coinbase)
     when 'kraken' then singleton_class.include(Exchanges::Kraken)
     end
   end
 
-  def filter_free_plan_symbols(symbols)
-    return symbols # disable free plan symbols limitation
-
-    is_kraken = name.downcase == 'kraken'
-    btc_eth = is_kraken ? %w[XBT ETH LTC XMR] : %w[BTC ETH LTC XMR]
-    symbols.select { |s| btc_eth.include?(s.base) }
+  def set_name_id
+    self.name_id = name&.parameterize&.underscore
   end
 end

@@ -41,7 +41,7 @@ pl:
         notify_about_restart:
             subject: "Ups! Następna próba..."
             template_html: "<p>Bot <b>%{label}</b> nie mógł wykonać Twojego zlecenia. Wygląda na problem z giełdą. Spróbujemy ponownie za %{delay}.</p><p>Wszystkie błędy są widoczne w dzienniku bota. Zaloguj się, aby to sprawdzić.</p><p>Błędy:</p><blockquote> <b>%{exchange_name}:</b> <b>%{errors}</b> </blockquote>"
-        stopped_by_quote_amount_limit:
+        stopped_by_amount_limit:
             subject: "%{label} zainwestował pełną kwotę"
             template_html: "<p>Twój bot <b>%{label}</b> osiągnął cel i zainwestował całą kwotę %{amount} %{quote}.</p><p>Został automatycznie zatrzymany. Wyłącz limit kwoty, aby zresetować cel.</p>"
     subscription_mailer:

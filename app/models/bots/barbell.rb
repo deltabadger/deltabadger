@@ -1,8 +1,13 @@
 class Bots::Barbell < Bot
   include ActionCable::Channel::Broadcasting
 
-  store_accessor :settings, :base0_asset_id, :base1_asset_id, :quote_asset_id, :quote_amount,
-                 :allocation0, :interval
+  store_accessor :settings,
+                 :base0_asset_id,
+                 :base1_asset_id,
+                 :quote_asset_id,
+                 :quote_amount,
+                 :allocation0,
+                 :interval
 
   validates :quote_amount, presence: true, numericality: { greater_than: 0 }
   validates :interval, presence: true, inclusion: { in: INTERVALS }
@@ -13,13 +18,13 @@ class Bots::Barbell < Bot
   validate :validate_unchangeable_interval, on: :update
 
   include Schedulable
+  include OrderCreator
   include Bots::Barbell::OrderSetter
-  include Bots::Barbell::OrderCreator
   include Bots::Barbell::Measurable
-  include Bots::Barbell::Schedulable
   include Bots::Barbell::Fundable
   include Bots::Barbell::MarketcapAllocatable
-  include Bots::Barbell::QuoteAmountLimitable
+  include QuoteAmountLimitable
+  include PriceLimitable
 
   def with_api_key
     exchange.set_client(api_key: api_key) if exchange.present? && (exchange.api_key.blank? || exchange.api_key != api_key)
@@ -32,6 +37,8 @@ class Bots::Barbell < Bot
   end
 
   def start(start_fresh: true)
+    # call restarting_within_interval? before setting the status to :scheduled
+    set_orders_now = start_fresh || !restarting_within_interval?
     self.status = :scheduled
     self.stop_message_key = nil
     if start_fresh
@@ -39,16 +46,14 @@ class Bots::Barbell < Bot
       self.last_action_job_at = nil
       self.last_successful_action_interval_checkpoint_at = nil
       self.missed_quote_amount = nil
-    else
-      self.started_at = nil
     end
 
     if valid?(:start) && save
-      if start_fresh || pending_quote_amount >= quote_amount
-        Bot::SetBarbellOrdersJob.perform_later(self)
+      if set_orders_now
+        Bot::ActionJob.perform_later(self)
       else
-        Bot::SetBarbellOrdersJob.set(wait_until: next_interval_checkpoint_at).perform_later(self)
-        Bot::BroadcastStatusBarUpdateAfterScheduledOrderJob.perform_later(self)
+        Bot::ActionJob.set(wait_until: next_interval_checkpoint_at).perform_later(self)
+        Bot::BroadcastAfterScheduledActionJob.perform_later(self)
       end
       true
     else
@@ -62,7 +67,7 @@ class Bots::Barbell < Bot
       stopped_at: Time.current,
       stop_message_key: stop_message_key
     )
-      cancel_scheduled_orders
+      cancel_scheduled_action_jobs
       true
     else
       false
@@ -74,11 +79,25 @@ class Bots::Barbell < Bot
       status: 'deleted',
       stopped_at: Time.current
     )
-      cancel_scheduled_orders if exchange.present?
+      cancel_scheduled_action_jobs if exchange.present?
       true
     else
       false
     end
+  end
+
+  def execute_action
+    notify_if_funds_are_low
+    update!(status: :executing)
+    result = set_barbell_orders(
+      total_orders_amount_in_quote: [pending_quote_amount, quote_amount_available_before_limit_reached].min,
+      update_missed_quote_amount: true
+    )
+    return result unless result.success?
+
+    update!(status: :waiting)
+    broadcast_below_minimums_warning
+    Result::Success.new
   end
 
   def available_exchanges_for_current_settings
@@ -137,30 +156,33 @@ class Bots::Barbell < Bot
   end
 
   def base0_asset
-    @base0_asset ||= assets.select { |asset| asset.id == base0_asset_id }.first if assets.present?
+    @base0_asset ||= assets&.select { |asset| asset.id == base0_asset_id }&.first
   end
 
   def base1_asset
-    @base1_asset ||= assets.select { |asset| asset.id == base1_asset_id }.first if assets.present?
+    @base1_asset ||= assets&.select { |asset| asset.id == base1_asset_id }&.first
   end
 
   def quote_asset
-    @quote_asset ||= assets.select { |asset| asset.id == quote_asset_id }.first if assets.present?
+    @quote_asset ||= assets&.select { |asset| asset.id == quote_asset_id }&.first
   end
 
   def tickers
-    @tickers ||= exchange.tickers.where(base_asset_id: [base0_asset_id, base1_asset_id], quote_asset_id: quote_asset_id).presence
+    @tickers ||= exchange&.tickers&.where(base_asset_id: [base0_asset_id, base1_asset_id],
+                                          quote_asset_id: quote_asset_id).presence
   end
 
   def ticker0
-    @ticker0 ||= tickers.select { |ticker| ticker.base_asset_id == base0_asset_id }.first if tickers.present?
+    @ticker0 ||= tickers&.select { |ticker| ticker.base_asset_id == base0_asset_id }&.first
   end
 
   def ticker1
-    @ticker1 ||= tickers.select { |ticker| ticker.base_asset_id == base1_asset_id }.first if tickers.present?
+    @ticker1 ||= tickers&.select { |ticker| ticker.base_asset_id == base1_asset_id }&.first
   end
 
   def decimals
+    return {} unless ticker0.present? && ticker1.present?
+
     @decimals ||= {
       base0: ticker0.base_decimals,
       base1: ticker1.base_decimals,
@@ -168,6 +190,22 @@ class Bots::Barbell < Bot
       base0_price: ticker0.price_decimals,
       base1_price: ticker1.price_decimals
     }
+  end
+
+  def broadcast_below_minimums_warning
+    first_transactions = transactions.limit(3)
+    return unless first_transactions.count == 2
+    return unless [first_transactions.first.skipped?, first_transactions.last.skipped?].any?
+
+    first_transaction = first_transactions.first
+    second_transaction = first_transactions.last
+
+    broadcast_replace_to(
+      ["user_#{user_id}", :bot_updates],
+      target: 'modal',
+      partial: 'bots/barbell/warning_below_minimums',
+      locals: locals_for_below_minimums_warning(first_transaction, second_transaction)
+    )
   end
 
   private
@@ -203,26 +241,48 @@ class Bots::Barbell < Bot
                message: 'Interval cannot be changed while the bot is running')
   end
 
-  def cancel_scheduled_orders
-    sidekiq_places = [
-      Sidekiq::ScheduledSet.new,
-      Sidekiq::Queue.new(exchange.name.downcase),
-      Sidekiq::RetrySet.new
-    ]
-    sidekiq_places.each do |place|
-      place.each do |job|
-        job.delete if job.queue == action_job_config[:queue] &&
-                      job.display_class == action_job_config[:class] &&
-                      job.display_args.first == action_job_config[:args].first
-      end
-    end
-  end
-
   def action_job_config
     {
-      queue: exchange.name.downcase,
-      class: 'Bot::SetBarbellOrdersJob',
+      queue: exchange.name_id,
+      class: 'Bot::ActionJob',
       args: [{ '_aj_globalid' => to_global_id.to_s }]
     }
+  end
+
+  def locals_for_below_minimums_warning(first_transaction, second_transaction)
+    if first_transaction.skipped? && second_transaction.skipped?
+      ticker0 = first_transaction.exchange.tickers.find_by(
+        base_asset_id: first_transaction.base_asset.id,
+        quote_asset_id: first_transaction.quote_asset.id
+      )
+      ticker1 = second_transaction.exchange.tickers.find_by(
+        base_asset_id: second_transaction.base_asset.id,
+        quote_asset_id: second_transaction.quote_asset.id
+      )
+      {
+        base0_symbol: first_transaction.base_asset.symbol,
+        base1_symbol: second_transaction.base_asset.symbol,
+        base0_minimum_base_size: ticker0.minimum_base_size,
+        base0_minimum_quote_size: ticker0.minimum_quote_size,
+        quote_symbol: first_transaction.quote_asset.symbol,
+        base1_minimum_base_size: ticker1.minimum_base_size,
+        base1_minimum_quote_size: ticker1.minimum_quote_size,
+        exchange_name: first_transaction.exchange.name,
+        missed_count: 2
+      }
+    else
+      bought_transaction = first_transaction.skipped? ? second_transaction : first_transaction
+      missed_transaction = first_transaction.skipped? ? first_transaction : second_transaction
+      {
+        bought_quote_amount: bought_transaction.quote_amount,
+        quote_symbol: bought_transaction.quote_asset.symbol,
+        bought_symbol: bought_transaction.base_asset.symbol,
+        missed_symbol: missed_transaction.base_asset.symbol,
+        missed_minimum_base_size: missed_transaction.base_asset.min_base_size,
+        missed_minimum_quote_size: missed_transaction.base_asset.min_quote_size,
+        exchange_name: first_transaction.exchange.name,
+        missed_count: 1
+      }
+    end
   end
 end
