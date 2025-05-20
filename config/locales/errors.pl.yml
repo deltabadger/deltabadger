@@ -14,6 +14,17 @@ pl:
                     attributes:
                         portfolio:
                             max_assets_reached: "Maksymalna liczba aktywów osiągnięta."
+                bot:
+                    attributes:
+                        price_limit:
+                            not_a_number: "Musisz podać cenę"
+                            greater_than_or_equal_to: "Cena musi być większa lub równa 0"
+                        quote_amount:
+                            not_a_number: "Musisz dodać kwotę do zainwestowania"
+                            greater_than: "Kwota musi być większa niż 0"
+                        quote_amount_limit:
+                            not_a_number: "Musisz określić kwotę, która nie może zostać przekroczona"
+                            greater_than_or_equal_to: "Limit kwoty musi być większy lub równy %{count}"
     errors:
         cloudflare_turnstile: 'Weryfikacja Cloudflare Turnstile nie powiodła się'
         bitcoin_address_not_updated: 'Adres bitcoinowy nie mógł zostać zaktualizowany'
