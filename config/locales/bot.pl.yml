@@ -21,6 +21,7 @@ pl:
             setting_orders: "Ustawianie zleceń…"
             paused: "Wstrzymany"
             next_try: "Następna próba za"
+            waiting: "Oczekiwanie na spełnienie wszystkich warunków"
         barbell:
             invest: "Inwestuj"
             invest_html: "Inwestuj %{input} /miesiąc"
@@ -173,3 +174,11 @@ pl:
                 dont_spend_more_than: "Nie wydawaj więcej niż"
                 amount_left: "(pozostało %{amount} %{symbol})"
                 amount_spent: "Cała kwota została zainwestowana."
+            extra_price_limit:
+                sentence_html: "%{timing_condition} gdy cena %{base} jest %{price_condition} %{price} %{quote}"
+                timing_condition:
+                    while: "Kupuj tylko"
+                    after: "Zacznij kupować"
+                price_condition:
+                    above: "powyżej"
+                    below: "poniżej"
