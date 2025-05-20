@@ -137,10 +137,10 @@ fr:
         twitter: 'Suivez-nous sur 𝕏'
     welcome:
         banner_html: |
-            <p>Bienvenue à bord, %{name} !</p>
-            <p>Je vous recommande vivement d'essayer le bot <b>Stratégie Barbell</b> — c'est une expérience complètement nouvelle.</p>
-            <p>Le bot DCA à monnaie unique est l'ancienne version qui sera bientôt mise à jour, avec les indices qui suivront peu après.</p>
-            <p>Cordialement, Jan</p>
+            <p>Bienvenue à bord, %{name}!</p>
+            <p><b>Consultez votre e-mail</b> où je vous ai envoyé un guide rapide d'utilisation des bots.</p>
+            <p><b>Répondez avec <code>FIRE</code></b> et je vous donnerai accès à notre communauté.</p>
+            <p>À bientôt, Jan</p>
     analyzer:
         default_portfolio: 'Portefeuille par défaut'
         duplicate_portfolio: 'Dupliquer le portefeuille'
