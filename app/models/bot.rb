@@ -26,7 +26,6 @@ class Bot < ApplicationRecord
   INTERVALS = %w[hour day week month].freeze
 
   def interval_duration
-    puts 'entered interval_duration from bot'
     return nil unless interval.present?
 
     1.public_send(interval)
