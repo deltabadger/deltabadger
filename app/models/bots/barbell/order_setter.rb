@@ -88,7 +88,7 @@ module Bots::Barbell::OrderSetter # rubocop:disable Metrics/ModuleLength
     # puts "quote_amount: #{quote_amount}"
     # puts "result: #{quote_amount * intervals_since_start_at + missed_quote_amount - total_quote_amount_invested}"
 
-    quote_amount * intervals_since_start_at + missed_quote_amount - total_quote_amount_invested
+    [quote_amount * intervals_since_start_at + missed_quote_amount - total_quote_amount_invested, 0].max
   end
 
   private
