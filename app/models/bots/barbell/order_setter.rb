@@ -23,8 +23,6 @@ module Bots::Barbell::OrderSetter # rubocop:disable Metrics/ModuleLength
     total_orders_amount_in_quote:,
     update_missed_quote_amount: false
   )
-    # return Result::Success.new
-
     raise StandardError, 'quote_amount is required' if total_orders_amount_in_quote.blank?
     raise StandardError, 'quote_amount must be positive' if total_orders_amount_in_quote.negative?
     return Result::Success.new if total_orders_amount_in_quote.zero?
@@ -157,10 +155,17 @@ module Bots::Barbell::OrderSetter # rubocop:disable Metrics/ModuleLength
   def calculate_best_amount_info(order_data)
     ticker = exchange.tickers.find_by!(base_asset: order_data[:base_asset], quote_asset: order_data[:quote_asset])
 
-    minimum_quote_size_in_base = ticker.minimum_quote_size / order_data[:rate]
-    amount_type = minimum_quote_size_in_base < ticker.minimum_base_size ? :quote : :base
-    amount = amount_type == :base ? order_data[:amount] : order_data[:quote_amount]
-    minimum_amount = amount_type == :base ? ticker.minimum_base_size : ticker.minimum_quote_size
+    case exchange.minimum_amount_logic
+    when :base_or_quote
+      minimum_quote_size_in_base = ticker.minimum_quote_size / order_data[:rate]
+      amount_type = minimum_quote_size_in_base < ticker.minimum_base_size ? :quote : :base
+      amount = amount_type == :base ? order_data[:amount] : order_data[:quote_amount]
+      minimum_amount = amount_type == :base ? ticker.minimum_base_size : ticker.minimum_quote_size
+    when :base_and_quote
+      minimum_amount = [ticker.minimum_quote_size / order_data[:rate], ticker.minimum_base_size].max
+      amount_type = :base
+      amount = order_data[:amount]
+    end
 
     {
       amount_type: amount_type,
