@@ -30,7 +30,7 @@ class NextTradingBotTransactionAt < BaseService
   def normal_delay(bot)
     interval = parse_interval.call(bot)
 
-    [interval - bot.delay, 0.seconds].max
+    [(interval - bot.delay).to_f, 0].max.seconds
   end
 
   def restart_delay(bot)
