@@ -4,8 +4,8 @@ en:
       step1:
         title: "Which one describes you best?"
         options:
-          buy_the_dip: "I want catch market opportunities when the price is low."
-          retire_early: "I want to build long-term portfolio and retire early."
+          buy_the_dip: "I want to catch market opportunities when the price is low."
+          retire_early: "I want to build a long-term portfolio and retire early."
       step2:
         title: "Which exchanges do you use?"
-        other: "Other" 
+        other: "Other"
