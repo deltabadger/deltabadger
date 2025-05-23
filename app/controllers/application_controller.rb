@@ -5,6 +5,7 @@ class ApplicationController < ActionController::Base
   before_action :set_raven_context
   before_action :set_no_cache, if: :user_signed_in?
   before_action :set_signed_in_cookie
+  before_action :check_onboarding, if: :user_signed_in?
   around_action :switch_locale
 
   def switch_locale(&action)
@@ -21,6 +22,15 @@ class ApplicationController < ActionController::Base
   end
 
   private
+
+  def check_onboarding
+    return if controller_path.start_with?('onboarding') ||
+              controller_path.start_with?('admin') ||
+              controller_path.start_with?('devise') ||
+              controller_path.start_with?('users')
+
+    redirect_to onboarding_step1_path unless current_user.onboarding_complete?
+  end
 
   def set_raven_context
     Raven.user_context(id: session[:current_user_id])
