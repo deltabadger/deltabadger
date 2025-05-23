@@ -1,0 +1,63 @@
+<div class="onboarding-survey__step onboarding-survey__step--2">
+  <h1 class="onboarding-survey__title"><%= t('onboarding.survey.step2.title') %></h1>
+  
+  <%= form_tag onboarding_save_step2_path, method: :post, id: "exchanges-form", class: "onboarding-survey__options" do %>
+  
+    <div class="onboarding-survey__actions">
+      <button type="submit" id="continue-button" class="button button--primary" disabled><%= t('button.start') %></button>
+    </div>
+
+    <div class="onboarding-survey__exchanges">
+      <% exchanges = [
+        { id: "coinbase", name: "Coinbase" },
+        { id: "kraken", name: "Kraken" },
+        { id: "bybit", name: "Bybit" },
+        { id: "binance", name: "Binance" },
+        { id: "okx", name: "OKX" },
+        { id: "kucoin", name: "KuCoin" },
+        { id: "bitpanda", name: "Bitpanda" },
+        { id: "mexc", name: "MEXC" },
+        { id: "gateio", name: "Gate.io" },
+        { id: "bitget", name: "Bitget" },
+        { id: "bitvavo", name: "Bitvavo" }
+      ].shuffle %>
+
+      <% exchanges.each do |exchange| %>
+        <label class="onboarding-survey__exchanges__item">
+          <%= check_box_tag "preferred_exchange[]", exchange[:id], false, class: "onboarding-survey__exchanges__item__checkbox", onchange: "updateSelection()" %>
+          <%= exchange[:name] %>
+        </label>
+      <% end %>
+      
+      <!-- "Other" option always at the end -->
+      <label class="onboarding-survey__exchanges__item">
+        <%= check_box_tag "preferred_exchange[]", "other", false, class: "onboarding-survey__exchanges__item__checkbox", onchange: "updateSelection()" %>
+        <%= t('onboarding.survey.step2.other') %>
+      </label>
+    </div>
+  <% end %>
+</div>
+
+<script>
+  function updateSelection() {
+    const checkboxes = document.querySelectorAll('.onboarding-survey__exchanges__item__checkbox:checked');
+    const continueButton = document.getElementById('continue-button');
+    
+    // Enable button if at least 1 option is selected
+    if (checkboxes.length >= 1) {
+      continueButton.disabled = false;
+    } else {
+      continueButton.disabled = true;
+    }
+    
+    // Toggle active class on parent elements
+    document.querySelectorAll('.onboarding-survey__exchanges__item__checkbox').forEach(checkbox => {
+      const label = checkbox.closest('.onboarding-survey__exchanges__item');
+      if (checkbox.checked) {
+        label.classList.add('active');
+      } else {
+        label.classList.remove('active');
+      }
+    });
+  }
+</script> 

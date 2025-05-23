@@ -1,0 +1,19 @@
+<div class="onboarding-survey__step onboarding-survey__step--1">
+  <h1 class="onboarding-survey__title"><%= t('onboarding.survey.step1.title') %></h1>
+  
+  <div class="onboarding-survey__options">
+    <% investment_goals = [
+      { id: "buy_the_dip", name: t('onboarding.survey.step1.options.buy_the_dip') },
+      { id: "retire_early", name: t('onboarding.survey.step1.options.retire_early') },
+    ].shuffle %>
+    
+    <% investment_goals.each do |goal| %>
+      <%= form_tag onboarding_save_step1_path, method: :post, class: "onboarding-survey__options__item" do %>
+        <%= hidden_field_tag :investment_goal, goal[:id] %>
+        <button type="submit">
+            <%= goal[:name] %>
+        </button>
+      <% end %>
+    <% end %>
+  </div>
+</div>
