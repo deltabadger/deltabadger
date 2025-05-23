@@ -58,6 +58,10 @@ class User < ApplicationRecord
     SubscriptionPlanVariant.find_by(id: pending_plan_variant_id)
   end
 
+  def onboarding_complete?
+    onboarding_completed
+  end
+
   private
 
   def set_free_subscription

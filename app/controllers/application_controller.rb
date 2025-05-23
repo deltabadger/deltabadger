@@ -12,6 +12,14 @@ class ApplicationController < ActionController::Base
     I18n.with_locale(locale, &action)
   end
 
+  def after_sign_in_path_for(resource)
+    if resource.is_a?(User) && !resource.onboarding_complete?
+      onboarding_step1_path
+    else
+      stored_location_for(resource) || bots_path
+    end
+  end
+
   private
 
   def set_raven_context

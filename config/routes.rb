@@ -175,6 +175,12 @@ Rails.application.routes.draw do
       get :compare
       get :confirm_destroy
     end
+
+    # Onboarding routes
+    get 'onboarding/step1', to: 'onboarding#step1', as: 'onboarding_step1'
+    post 'onboarding/save_step1', to: 'onboarding#save_step1', as: 'onboarding_save_step1'
+    get 'onboarding/step2', to: 'onboarding#step2', as: 'onboarding_step2'
+    post 'onboarding/save_step2', to: 'onboarding#save_step2', as: 'onboarding_save_step2'
   end
 
   namespace :broadcasts do
