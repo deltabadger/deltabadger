@@ -23,12 +23,14 @@ module Bots::Barbell::OrderSetter # rubocop:disable Metrics/ModuleLength
     total_orders_amount_in_quote:,
     update_missed_quote_amount: false
   )
+    Rails.logger.info("set_barbell_orders for bot #{id} with total_orders_amount_in_quote: #{total_orders_amount_in_quote}, update_missed_quote_amount: #{update_missed_quote_amount}")
     raise StandardError, 'quote_amount is required' if total_orders_amount_in_quote.blank?
     raise StandardError, 'quote_amount must be positive' if total_orders_amount_in_quote.negative?
-    return Result::Success.new if total_orders_amount_in_quote.zero?
+    return Result::Success.new if total_orders_amount_in_quote.zero? || total_orders_amount_in_quote.negative?
 
     result = get_barbell_orders(total_orders_amount_in_quote)
     unless result.success?
+      Rails.logger.error("set_barbell_orders for bot #{id} failed to get barbell orders: #{result.errors.inspect}")
       create_failed_order!({
                              base_asset: base0_asset,
                              quote_asset: quote_asset,
@@ -38,14 +40,21 @@ module Bots::Barbell::OrderSetter # rubocop:disable Metrics/ModuleLength
     end
 
     orders_data = result.data
+    Rails.logger.info("set_barbell_orders for bot #{id} got orders_data: #{orders_data.inspect}")
     orders_data.each do |order_data|
-      next if order_data[:amount].zero?
+      if order_data[:amount].zero?
+        Rails.logger.info("set_barbell_orders for bot #{id} ignoring order #{order_data.inspect}")
+        next
+      end
 
       amount_info = calculate_best_amount_info(order_data)
       if amount_info[:below_minimum_amount]
+        Rails.logger.info("set_barbell_orders for bot #{id} creating skipped order #{order_data.inspect}")
         create_skipped_order!(order_data)
         next
       end
+
+      Rails.logger.info("set_barbell_orders for bot #{id} creating order #{order_data.inspect} with amount info #{amount_info.inspect}")
 
       result = nil
       with_api_key do
@@ -59,9 +68,11 @@ module Bots::Barbell::OrderSetter # rubocop:disable Metrics/ModuleLength
 
       if result.success?
         order_id = result.data[:order_id]
+        Rails.logger.info("set_barbell_orders for bot #{id} created order #{order_id}")
         Bot::FetchAndCreateOrderJob.perform_later(self, order_id)
         update!(missed_quote_amount: [0, missed_quote_amount - order_data[:quote_amount]].max) if update_missed_quote_amount
       else
+        Rails.logger.error("set_barbell_orders for bot #{id} failed to create order #{order_data.inspect}: #{result.errors.inspect}")
         create_failed_order!(order_data.merge!(error_messages: result.errors))
         return result
       end
