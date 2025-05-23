@@ -2,7 +2,7 @@ it:
   onboarding:
     survey:
       step1:
-        title: "Quale ti descrive meglio?"
+        title: "Cosa ti descrive meglio?"
         options:
           buy_the_dip: "Voglio cogliere opportunità di mercato quando il prezzo è basso."
           retire_early: "Voglio costruire un portafoglio a lungo termine e andare in pensione presto."

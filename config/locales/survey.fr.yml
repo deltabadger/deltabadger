@@ -2,7 +2,7 @@ fr:
   onboarding:
     survey:
       step1:
-        title: "Laquelle vous décrit le mieux ?"
+        title: "Qu'est-ce qui vous décrit le mieux ?"
         options:
           buy_the_dip: "Je veux saisir les opportunités du marché quand le prix est bas."
           retire_early: "Je veux construire un portefeuille à long terme et prendre ma retraite tôt."

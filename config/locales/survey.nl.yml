@@ -2,7 +2,7 @@ nl:
   onboarding:
     survey:
       step1:
-        title: "Welke beschrijft je het beste?"
+        title: "Wat beschrijft je het beste?"
         options:
           buy_the_dip: "Ik wil marktkansen benutten als de prijs laag is."
           retire_early: "Ik wil een portefeuille voor de lange termijn opbouwen en vroeg met pensioen gaan."

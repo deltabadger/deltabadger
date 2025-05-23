@@ -3,10 +3,6 @@
   
   <%= form_tag onboarding_save_step2_path, method: :post, id: "exchanges-form", class: "onboarding-survey__options" do %>
   
-    <div class="onboarding-survey__actions">
-      <button type="submit" id="continue-button" class="button button--success" disabled><%= t('button.start') %></button>
-    </div>
-
     <div class="onboarding-survey__exchanges">
       <% exchanges = [
         { id: "coinbase", name: "Coinbase" },
@@ -35,6 +31,11 @@
         <%= t('onboarding.survey.step2.other') %>
       </label>
     </div>
+
+    <div class="onboarding-survey__actions">
+      <button type="submit" id="continue-button" class="button button--large button--success" disabled><%= t('button.start') %></button>
+    </div>
+
   <% end %>
 </div>
 
