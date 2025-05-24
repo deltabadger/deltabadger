@@ -50,7 +50,7 @@ fr:
             start:
                 changed_missed:
                     continue: 'Oui, acheter et continuer'
-                    info_html: 'Voulez-vous investir <b>%{montant} %{citation}</b> manqués pendant que le robot était en pause ? Le nouveau programme commencera après la fin du compte à rebours en cours.'
+                    info_html: 'Voulez-vous investir <b>%{amount} %{quote}</b> manqués pendant que le robot était en pause ? Le nouveau programme commencera après la fin du compte à rebours en cours.'
                     skip: 'Ignorer la partie manquée'
                 changed_on_schedule:
                     continue: 'J''ai compris'
@@ -58,7 +58,7 @@ fr:
                     skip: 'Ignorer et commencer immédiatement'
                 missed:
                     continue: 'Oui, acheter et continuer'
-                    info_html: 'Voulez-vous investir <b>%{montant} %{citation}</b> manqués pendant que le robot était en pause, et poursuivre le programme initial ?'
+                    info_html: 'Voulez-vous investir <b>%{amount} %{quote}</b> manqués pendant que le robot était en pause, et poursuivre le programme initial ?'
                     skip: 'Ignorer la partie manquée'
                 on_schedule:
                     continue: 'Poursuivre le programme initial'
