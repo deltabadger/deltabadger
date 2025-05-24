@@ -32,7 +32,10 @@ class Asset < ApplicationRecord
   def infer_color_from_image
     return if image_url.blank?
 
-    colors = Utilities::Image.extract_dominant_colors(image_url)
+    # some images have single quotes in the url that ImageMagick doesn't like
+    parsed_image_url = image_url.gsub("'", '%27')
+
+    colors = Utilities::Image.extract_dominant_colors(parsed_image_url)
     update!(color: Utilities::Image.most_vivid_color(colors))
   end
 
