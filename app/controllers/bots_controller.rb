@@ -183,6 +183,7 @@ class BotsController < ApplicationController
 
   def update
     if @bot.barbell?
+      @bot.set_missed_quote_amount
       barbell_bot_params_to_update = barbell_bot_params_as_hash
       barbell_bot_params_to_update[:settings] = @bot.settings.merge(barbell_bot_params_to_update[:settings].stringify_keys)
       if @bot.update(barbell_bot_params_to_update)
@@ -300,6 +301,8 @@ class BotsController < ApplicationController
       :price_limit_timing_condition,
       :price_limit_price_condition,
       :price_limit_in_ticker_id,
+      :smart_intervaled,
+      :smart_interval_quote_amount,
       :query
     )
   end
@@ -336,6 +339,8 @@ class BotsController < ApplicationController
       pp[:price_limit_timing_condition] = pp[:price_limit_timing_condition].presence
       pp[:price_limit_price_condition] = pp[:price_limit_price_condition].presence
       pp[:price_limit_in_ticker_id] = pp[:price_limit_in_ticker_id].presence&.to_i
+      pp[:smart_intervaled] = pp[:smart_intervaled].presence&.in?(%w[1 true])
+      pp[:smart_interval_quote_amount] = pp[:smart_interval_quote_amount].presence&.to_f
     end.compact
 
     {

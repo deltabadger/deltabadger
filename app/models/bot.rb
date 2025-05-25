@@ -25,6 +25,12 @@ class Bot < ApplicationRecord
 
   INTERVALS = %w[hour day week month].freeze
 
+  def interval_duration
+    return nil unless interval.present?
+
+    1.public_send(interval)
+  end
+
   def legacy?
     ['Bots::Basic', 'Bots::Withdrawal', 'Bots::Webhook'].include?(type)
   end
@@ -105,6 +111,10 @@ class Bot < ApplicationRecord
   private
 
   def update_settings_changed_at
+    # FIXME: Required because we are using store_accessor and will_save_change_to_settings?
+    # always returns true, at least in Rails 6.0
+    return if settings_was == settings
+
     self.settings_changed_at = Time.current
   end
 end

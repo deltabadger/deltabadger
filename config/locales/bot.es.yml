@@ -171,6 +171,9 @@ es:
                 other: "Las cantidades que no se pudieron usar se han guardado y se usarán con las próximas órdenes programadas, asegurando que tu programación y asignación se mantengan lo más cerca posible de los mínimos del exchange."
             general_note: "Los mínimos del exchange y las cantidades requeridas para el rebalanceo pueden cambiar. Las transacciones a veces pueden parecer irregulares, pero el bot siempre apunta a tu asignación y programación deseadas, así que no necesitas hacer nada más."
         settings:
+            smart_intervals:
+                split_in_orders_html: '<b>Smart Intervals<sup>®</sup></b> Divide la cantidad en unidades de %{amount} %{quote}.'
+                split_info: "Dividir tus %{quote_amount} %{quote} / %{interval} en unidades más pequeñas de %{amount} %{quote} resultará en una inversión cada %{smart_interval}."
             extra_amount_limit:
                 dont_spend_more_than: "No gastar más de"
                 amount_left: "(%{amount} %{symbol} restante)"

@@ -232,6 +232,10 @@ module Exchange::Exchanges::Coinbase
     Result::Success.new(valid)
   end
 
+  def minimum_amount_logic
+    :base_or_quote
+  end
+
   private
 
   def client
