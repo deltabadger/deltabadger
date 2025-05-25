@@ -19,7 +19,7 @@ class Bot < ApplicationRecord
 
   delegate :market_sell, :market_buy, :limit_sell, :limit_buy, to: :exchange
 
-  before_save :update_settings_changed_at, if: :settings_have_changed?
+  before_save :update_settings_changed_at, if: :will_save_change_to_settings?
   after_update_commit :broadcast_status_bar_update, if: :saved_change_to_status?
   after_update_commit :broadcast_status_button_update, if: :saved_change_to_status?
 
@@ -108,15 +108,13 @@ class Bot < ApplicationRecord
     )
   end
 
-  def settings_have_changed?
-    # FIXME: Required because we are using store_accessor and will_save_change_to_settings?
-    # always returns true, at least in Rails 6.0
-    settings_was != settings
-  end
-
   private
 
   def update_settings_changed_at
+    # FIXME: Required because we are using store_accessor and will_save_change_to_settings?
+    # always returns true, at least in Rails 6.0
+    return if settings_was == settings
+
     self.settings_changed_at = Time.current
   end
 end

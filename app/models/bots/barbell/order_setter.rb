@@ -7,7 +7,7 @@ module Bots::Barbell::OrderSetter # rubocop:disable Metrics/ModuleLength
                    :missed_quote_amount_was_set
 
     validates :missed_quote_amount, numericality: { greater_than_or_equal_to: 0 }
-    validate :validate_missed_quote_amount_was_set, if: :settings_have_changed?
+    validate :validate_missed_quote_amount_was_set, if: :will_save_change_to_settings?
   end
 
   def missed_quote_amount
@@ -118,9 +118,13 @@ module Bots::Barbell::OrderSetter # rubocop:disable Metrics/ModuleLength
   private
 
   def validate_missed_quote_amount_was_set
-    # verifying it this way forces us to manually call set_missed_quote_amount before saving into settings,
-    # but is way more simple than calling set_missed_quote_amount in the before_save callback as we don't
-    # need to call internally all _was methods in all sub methods called within pending_quote_amount.
+    # FIXME: Required because we are using store_accessor and will_save_change_to_settings?
+    # always returns true, at least in Rails 6.0
+    return if settings_was == settings
+
+    # Validating it this way forces us to manually call set_missed_quote_amount before saving into settings.
+    # This involves less mental overhead than calling set_missed_quote_amount in the before_save callback as
+    # we don't need to call internally all _was methods in all sub methods called within pending_quote_amount.
     unless missed_quote_amount_was_set
       errors.add(:missed_quote_amount,
                  'missed_quote_amount was not set, call set_missed_quote_amount before saving into settings')

@@ -10,7 +10,7 @@ module Bot::QuoteAmountLimitable
 
     after_initialize :initialize_quote_amount_limitable_settings
 
-    before_save :set_quote_amount_limit_enabled_at, if: :settings_have_changed?
+    before_save :set_quote_amount_limit_enabled_at, if: :will_save_change_to_settings?
 
     validates :quote_amount_limited, inclusion: { in: [true, false] }
     validates :quote_amount_limit,
@@ -73,7 +73,7 @@ module Bot::QuoteAmountLimitable
   end
 
   def set_quote_amount_limit_enabled_at
-    return unless quote_amount_limited_was != quote_amount_limited
+    return if quote_amount_limited_was == quote_amount_limited
 
     self.quote_amount_limit_enabled_at = quote_amount_limited? ? Time.current : nil
   end
