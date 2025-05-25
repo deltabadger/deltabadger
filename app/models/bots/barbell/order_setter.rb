@@ -1,17 +1,13 @@
 module Bots::Barbell::OrderSetter # rubocop:disable Metrics/ModuleLength
   extend ActiveSupport::Concern
 
-  include Bots::Barbell::Measurable
-  include Bot::Schedulable
-
   included do
     store_accessor :transient_data,
-                   :missed_quote_amount
+                   :missed_quote_amount,
+                   :missed_quote_amount_was_set
 
-    validates :missed_quote_amount,
-              numericality: { greater_than_or_equal_to: 0 }
-
-    before_save :set_missed_quote_amount, if: :will_save_change_to_settings?
+    validates :missed_quote_amount, numericality: { greater_than_or_equal_to: 0 }
+    validate :validate_missed_quote_amount_was_set, if: :settings_have_changed?
   end
 
   def missed_quote_amount
@@ -82,36 +78,55 @@ module Bots::Barbell::OrderSetter # rubocop:disable Metrics/ModuleLength
   end
 
   def pending_quote_amount
-    return quote_amount if started_at.nil?
+    return 0 if started_at.nil? || deleted?
 
-    from_start = started_at > settings_changed_at
-    start_at = from_start ? started_at : settings_changed_at
+    calc_since = [started_at, settings_changed_at].compact.max
     total_quote_amount_invested = transactions.success
-                                              .where('created_at >= ?', start_at)
+                                              .where('created_at >= ?', calc_since)
                                               .pluck(:quote_amount)
                                               .sum
-    intervals_since_start_at = [0, ((last_interval_checkpoint_at - start_at) / interval_duration).floor].max
-    intervals_since_start_at += 1 if from_start
 
-    # puts "intervals_since_start_at: #{intervals_since_start_at}"
+    intervals = [0, ((last_interval_checkpoint_at - calc_since) / interval_duration).floor].max + 1
+
+    # puts "intervals: #{intervals}"
+    # puts "last_interval_checkpoint_at: #{last_interval_checkpoint_at}"
+    # puts "started_at:                  #{started_at}"
+    # puts "settings_changed_at:         #{settings_changed_at}"
+    # puts "calc_since:                  #{calc_since}"
+    # puts "current_time:                #{Time.current}"
+    # puts "intervals since started_at: #{[0, ((last_interval_checkpoint_at - started_at) / interval_duration).floor].max + 1}"
+    # puts "intervals since settings_changed_at: #{[0,
+    #                                               ((last_interval_checkpoint_at - settings_changed_at) / interval_duration).floor].max + 1}"
+    # puts "interval_duration: #{interval_duration}"
     # puts "missed_quote_amount: #{missed_quote_amount}"
     # puts "total_quote_amount_invested: #{total_quote_amount_invested}"
     # puts "quote_amount: #{quote_amount}"
-    # puts "result: #{quote_amount * intervals_since_start_at + missed_quote_amount - total_quote_amount_invested}"
+    # puts "normal_interval_quote_amount: #{normal_interval_quote_amount}"
+    # puts "interval: #{interval}"
+    # puts "interval_duration: #{interval_duration}"
+    # puts "normal_interval_duration: #{normal_interval_duration}"
+    # puts "result: #{quote_amount * intervals + missed_quote_amount - total_quote_amount_invested}"
 
-    [quote_amount * intervals_since_start_at + missed_quote_amount - total_quote_amount_invested, 0].max
+    [quote_amount * intervals + missed_quote_amount - total_quote_amount_invested, 0].max
+  end
+
+  def set_missed_quote_amount
+    self.missed_quote_amount = pending_quote_amount
+    self.missed_quote_amount_was_set = true
   end
 
   private
 
-  def set_missed_quote_amount
-    quote_amount_bak = quote_amount
-    interval_bak = interval
-    self.quote_amount = settings_was['quote_amount']
-    self.interval = settings_was['interval']
-    self.missed_quote_amount = pending_quote_amount
-    self.quote_amount = quote_amount_bak
-    self.interval = interval_bak
+  def validate_missed_quote_amount_was_set
+    # verifying it this way forces us to manually call set_missed_quote_amount before saving into settings,
+    # but is way more simple than calling set_missed_quote_amount in the before_save callback as we don't
+    # need to call internally all _was methods in all sub methods called within pending_quote_amount.
+    unless missed_quote_amount_was_set
+      errors.add(:missed_quote_amount,
+                 'missed_quote_amount was not set, call set_missed_quote_amount before saving into settings')
+    end
+
+    self.missed_quote_amount_was_set = nil
   end
 
   def get_barbell_orders(total_orders_amount_in_quote)
