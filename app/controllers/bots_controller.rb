@@ -134,6 +134,7 @@ class BotsController < ApplicationController
   end
 
   def create
+    @bot.set_missed_quote_amount
     if @bot.save && @bot.start(start_fresh: true)
       session[:barbell_bot_params] = nil
       render turbo_stream: turbo_stream_redirect(bot_path(@bot))
