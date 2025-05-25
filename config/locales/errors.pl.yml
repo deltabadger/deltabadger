@@ -21,7 +21,7 @@ pl:
                             greater_than_or_equal_to: "Cena musi być większa lub równa 0"
                         quote_amount:
                             not_a_number: "Musisz dodać kwotę do zainwestowania"
-                            greater_than: "Kwota musi być większa niż 0"
+                            greater_than: "Inwestowana kwota musi być większa niż 0"
                         quote_amount_limit:
                             not_a_number: "Musisz określić kwotę, która nie może zostać przekroczona"
                             greater_than_or_equal_to: "Limit kwoty musi być większy lub równy %{count}"
