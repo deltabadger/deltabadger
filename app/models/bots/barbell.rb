@@ -21,15 +21,15 @@ class Bots::Barbell < Bot
   # TODO: If bots can change assets, we also need to update the tickers and assets values
   #       ! also in price_limitable
 
+  include SmartIntervalable # decorators affect interval_duration, pending_quote_amount
+  include QuoteAmountLimitable # decorators affect pending_quote_amount
+  include PriceLimitable # decorators affect execute_action, stop, pending_quote_amount
   include Schedulable
   include OrderCreator
   include Bots::Barbell::OrderSetter
   include Bots::Barbell::Measurable
   include Bots::Barbell::Fundable
   include Bots::Barbell::MarketcapAllocatable
-  include SmartIntervalable # keep it up in the chain, decorators affect the interval_duration & pending_quote_amount
-  include QuoteAmountLimitable
-  include PriceLimitable
 
   def with_api_key
     exchange.set_client(api_key: api_key) if exchange.present? && (exchange.api_key.blank? || exchange.api_key != api_key)
@@ -49,7 +49,6 @@ class Bots::Barbell < Bot
     if start_fresh
       self.started_at = Time.current
       self.last_action_job_at = nil
-      self.last_successful_action_interval_checkpoint_at = nil
       self.missed_quote_amount = nil
     end
 
@@ -153,7 +152,7 @@ class Bots::Barbell < Bot
   end
 
   def restarting_within_interval?
-    restarting? && pending_quote_amount < quote_amount
+    restarting? && pending_quote_amount.zero?
   end
 
   def assets
@@ -239,7 +238,7 @@ class Bots::Barbell < Bot
   def validate_unchangeable_interval
     return unless working?
     return unless settings_changed?
-    return unless settings_was['interval'] != settings['interval']
+    return unless interval_was != interval
 
     errors.add(:settings, :unchangeable_interval,
                message: 'Interval cannot be changed while the bot is running')

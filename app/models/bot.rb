@@ -19,7 +19,7 @@ class Bot < ApplicationRecord
 
   delegate :market_sell, :market_buy, :limit_sell, :limit_buy, to: :exchange
 
-  before_save :update_settings_changed_at, if: :will_save_change_to_settings?
+  before_save :update_settings_changed_at, if: :settings_have_changed?
   after_update_commit :broadcast_status_bar_update, if: :saved_change_to_status?
   after_update_commit :broadcast_status_button_update, if: :saved_change_to_status?
 
@@ -106,6 +106,12 @@ class Bot < ApplicationRecord
       partial: 'bots/orders/order',
       locals: { order: order, decimals: decimals, exchange_name: order.exchange.name, current_user: user }
     )
+  end
+
+  def settings_have_changed?
+    # FIXME: Required because we are using store_accessor and will_save_change_to_settings?
+    # always returns true, at least in Rails 6.0
+    settings_was != settings
   end
 
   private
