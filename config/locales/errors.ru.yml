@@ -18,7 +18,7 @@ ru:
                     attributes:
                         smart_interval_quote_amount:
                             not_a_number: "Вы должны указать сумму для Smart Intervals"
-                            greater_than: "Для этого расписания сумма Smart Intervals не может быть меньше %{count}"
+                            greater_than_or_equal_to: "Для этого расписания сумма Smart Intervals не может быть меньше %{count}"
                         price_limit:
                             not_a_number: "Вы должны указать цену"
                             greater_than_or_equal_to: "Цена должна быть больше или равна 0"
