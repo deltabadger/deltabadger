@@ -170,6 +170,9 @@ pl:
                 other: "Pominięte kwoty zostały zbuforowane i zostaną użyte przy kolejnych zaplanowanych zleceniach, dzięki czemu Twój harmonogram i alokacja będą utrzymane jak najbliżej giełdowych minimów."
             general_note: "Minimalne kwoty na giełdach i wymagane kwoty rebalancingu mogą się zmieniać. Zlecenia mogą czasami wyglądać nieregularnie, ale bot zawsze dąży do Twojej pożądanej alokacji i harmonogramu, więc nie jest wymagana dodatkowa praca."
         settings:
+            smart_intervals:
+                split_in_orders_html: '<b>Smart Intervals<sup>®</sup></b> Podziel kwotę na jednostki po %{amount} %{quote}.'
+                split_info: "Podział Twojej kwoty %{quote_amount} %{quote} / %{interval} na mniejsze jednostki po %{amount} %{quote} spowoduje jedną inwestycję co %{smart_interval}."
             extra_amount_limit:
                 dont_spend_more_than: "Nie wydawaj więcej niż"
                 amount_left: "(pozostało %{amount} %{symbol})"
