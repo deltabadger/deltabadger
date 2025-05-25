@@ -21,7 +21,7 @@ de:
                             greater_than_or_equal_to: "Der Preis muss größer oder gleich 0 sein"
                         quote_amount:
                             not_a_number: "Sie müssen einen Investitionsbetrag hinzufügen"
-                            greater_than: "Der Quotenbetrag muss größer als 0 sein"
+                            greater_than: "Der investierte Betrag muss größer als 0 sein"
                         quote_amount_limit:
                             not_a_number: "Sie müssen angeben, welcher Betrag nicht überschritten werden darf"
                             greater_than_or_equal_to: "Das Betragslimit muss größer oder gleich %{count} sein"

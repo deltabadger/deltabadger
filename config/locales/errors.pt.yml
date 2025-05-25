@@ -21,7 +21,7 @@ pt:
                             greater_than_or_equal_to: "O preço tem de ser maior ou igual a 0"
                         quote_amount:
                             not_a_number: "Tem de adicionar um montante para investir"
-                            greater_than: "O montante tem de ser maior que 0"
+                            greater_than: "O montante investido tem de ser maior que 0"
                         quote_amount_limit:
                             not_a_number: "Tem de especificar qual o montante que não pode ser excedido"
                             greater_than_or_equal_to: "O limite do montante tem de ser maior ou igual a %{count}"
