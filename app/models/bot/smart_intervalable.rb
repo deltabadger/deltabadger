@@ -78,6 +78,6 @@ module Bot::SmartIntervalable
 
   def set_normal_interval_backup_values
     self.normal_interval_quote_amount = quote_amount
-    self.normal_interval_duration = 1.public_send(interval)
+    self.normal_interval_duration = 1.public_send(interval) if interval.present?
   end
 end
