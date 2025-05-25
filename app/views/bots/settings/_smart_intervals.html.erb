@@ -1,0 +1,24 @@
+<%= form_with model: bot,
+              url: bot.new_record? ? barbell_new_step_confirm_bots_path : bot_path(bot),
+              method: bot.new_record? ? :get : :patch,
+              class: "widget",
+              data: { controller: "form--submit form--submit-after-delay form--move-cursor-to-end", turbo_stream: true } do |f| %>
+  <div class="toggle-group">
+    <div class="toggle">
+      <%= f.check_box :smart_intervaled, data: { action: "change->form--submit#submit" }, disabled: bot.working? %>
+      <div class="toggle__style"></div>
+    </div>
+    <div class="toggle-group__info">
+      <div class="toggle-group__info__label">
+        <%= f.label :smart_intervaled, class: "conversational conversational--small conversational--disabled" do %>
+          <% amount_html = content_tag(:div) do %>
+            <% value = bot.smart_interval_quote_amount.present? ? bot.smart_interval_quote_amount.to_d.to_s('F').sub(/^(?!0\.0$)([1-9]\d*)\.0$/, '\1') : nil %>
+            <%= f.number_field :smart_interval_quote_amount, value: value, class: 'sinput numeric-input', step: :any, size: 3, data: { controller: "autowidth-input", action: "input->form--submit-after-delay#submit input->autowidth-input#resize", form__move_cursor_to_end_target: "input" }, style: "margin-left: 0.125rem; width: 50px;", disabled: bot.working? %>
+          <% end %>
+          <%= t("bot.settings.smart_intervals.split_in_orders_html", amount: amount_html.html_safe, quote: bot.quote_asset.symbol).html_safe %>
+          <%= render partial: "bots/settings/smart_intervals_info", locals: { bot: bot } %>
+        <% end %>
+      </div>
+    </div>
+  </div>
+<% end %>
