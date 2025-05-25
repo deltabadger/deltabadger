@@ -21,7 +21,7 @@ ru:
                             greater_than_or_equal_to: "Цена должна быть больше или равна 0"
                         quote_amount:
                             not_a_number: "Вы должны добавить сумму для инвестирования"
-                            greater_than: "Сумма должна быть больше 0"
+                            greater_than: "Инвестированная сумма должна быть больше 0"
                         quote_amount_limit:
                             not_a_number: "Вы должны указать сумму, которая не может быть превышена"
                             greater_than_or_equal_to: "Лимит суммы должен быть больше или равен %{count}"

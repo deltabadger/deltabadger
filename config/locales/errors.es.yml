@@ -21,7 +21,7 @@ es:
                             greater_than_or_equal_to: "El precio debe ser mayor o igual a 0"
                         quote_amount:
                             not_a_number: "Debes añadir una cantidad para invertir"
-                            greater_than: "La cantidad debe ser mayor que 0"
+                            greater_than: "La cantidad invertida debe ser mayor que 0"
                         quote_amount_limit:
                             not_a_number: "Debes indicar qué cantidad no se puede exceder"
                             greater_than_or_equal_to: "El límite de cantidad debe ser mayor o igual a %{count}"
