@@ -16,6 +16,9 @@ nl:
                             max_assets_reached: "Maximum aantal activa bereikt."
                 bot:
                     attributes:
+                        smart_interval_quote_amount:
+                            not_a_number: "U moet een bedrag opgeven voor de Smart Intervals"
+                            greater_than: "Voor dit schema kan het Smart Intervals-bedrag niet kleiner zijn dan %{count}"
                         price_limit:
                             not_a_number: "U moet een prijs opgeven"
                             greater_than_or_equal_to: "De prijs moet groter dan of gelijk zijn aan 0"
