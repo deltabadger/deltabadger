@@ -18,7 +18,7 @@ pl:
                     attributes:
                         smart_interval_quote_amount:
                             not_a_number: "Musisz określić kwotę dla Smart Intervals"
-                            greater_than: "Dla tego harmonogramu kwota Smart Intervals nie może być mniejsza niż %{count}"
+                            greater_than_or_equal_to: "Dla tego harmonogramu kwota Smart Intervals nie może być mniejsza niż %{count}"
                         price_limit:
                             not_a_number: "Musisz podać cenę"
                             greater_than_or_equal_to: "Cena musi być większa lub równa 0"
