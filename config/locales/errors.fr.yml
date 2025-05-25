@@ -16,6 +16,9 @@ fr:
                             max_assets_reached: "Nombre maximum d'actifs atteint."
                 bot:
                     attributes:
+                        smart_interval_quote_amount:
+                            not_a_number: "Vous devez spécifier un montant pour les Smart Intervals"
+                            greater_than: "Pour ce calendrier, le montant des Smart Intervals ne peut pas être inférieur à %{count}"
                         price_limit:
                             not_a_number: "Vous devez spécifier un prix"
                             greater_than_or_equal_to: "Le prix doit être supérieur ou égal à 0"
