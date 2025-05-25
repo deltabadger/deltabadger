@@ -52,7 +52,7 @@ module Bot::SmartIntervalable
     return nil unless smart_intervaled?
     return nil if smart_interval_quote_amount.blank? || quote_amount.blank? || interval.blank?
 
-    interval_duration / (quote_amount.to_f / smart_interval_quote_amount.to_f)
+    interval_duration / (quote_amount.to_f / smart_interval_quote_amount)
   end
 
   private
@@ -78,6 +78,6 @@ module Bot::SmartIntervalable
 
   def set_normal_interval_backup_values
     self.normal_interval_quote_amount = quote_amount
-    self.normal_interval_duration = 1.public_send(interval) if interval.present?
+    self.normal_interval_duration = interval.present? ? 1.public_send(interval) : nil
   end
 end
