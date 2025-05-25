@@ -254,6 +254,10 @@ module Exchange::Exchanges::Kraken
     Result::Success.new(valid)
   end
 
+  def minimum_amount_logic
+    :base_and_quote
+  end
+
   private
 
   def client
@@ -332,14 +336,16 @@ module Exchange::Exchanges::Kraken
                                       amount: amount, amount_type: amount_type)
 
     client_order_id = SecureRandom.uuid
-    result = client.add_order(
+    order_settings = {
       cl_ord_id: client_order_id,
       ordertype: 'market',
       type: side.downcase,
       volume: adjusted_amount.to_d.to_s('F'),
       pair: ticker.ticker,
       oflags: amount_type == :quote ? ['viqc'] : []
-    )
+    }
+    Rails.logger.info("Exchange #{id}: Setting market order #{order_settings.inspect}")
+    result = client.add_order(**order_settings)
     return result unless result.success?
 
     return Result::Failure.new(result.data['error'].to_sentence, data: result.data) if result.data['error'].any?

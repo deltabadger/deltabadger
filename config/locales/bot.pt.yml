@@ -161,6 +161,9 @@ pt:
                 other: "As quantidades perdidas foram armazenadas em buffer e serão usadas com as próximas ordens agendadas, garantindo que seu cronograma e alocação sejam mantidos o mais próximo possível dos mínimos da exchange."
             general_note: "Os mínimos da exchange e as quantidades de rebalanceamento necessárias podem mudar. As ordens podem parecer irregulares às vezes, mas o bot sempre visa sua alocação e cronograma desejados, portanto, nenhum trabalho extra é necessário."
         settings:
+            smart_intervals:
+                split_in_orders_html: '<b>Smart Intervals<sup>®</sup></b> Dividir o montante em unidades de %{amount} %{quote}.'
+                split_info: "Dividir o seu %{quote_amount} %{quote} / %{interval} em unidades mais pequenas de %{amount} %{quote} resultará num investimento a cada %{smart_interval}."
             extra_amount_limit:
                 dont_spend_more_than: "Não gaste mais do que"
                 amount_left: "(%{amount} %{symbol} restante)"
