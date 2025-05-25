@@ -1,17 +1,13 @@
 module Bots::Barbell::OrderSetter # rubocop:disable Metrics/ModuleLength
   extend ActiveSupport::Concern
 
-  include Bots::Barbell::Measurable
-  include Bot::Schedulable
-
   included do
     store_accessor :transient_data,
-                   :missed_quote_amount
+                   :missed_quote_amount,
+                   :missed_quote_amount_was_set
 
-    validates :missed_quote_amount,
-              numericality: { greater_than_or_equal_to: 0 }
-
-    before_save :set_missed_quote_amount, if: :will_save_change_to_settings?
+    validates :missed_quote_amount, numericality: { greater_than_or_equal_to: 0 }
+    before_save :check_missed_quote_amount_was_set, if: :will_save_change_to_settings?
   end
 
   def missed_quote_amount
@@ -23,14 +19,14 @@ module Bots::Barbell::OrderSetter # rubocop:disable Metrics/ModuleLength
     total_orders_amount_in_quote:,
     update_missed_quote_amount: false
   )
-    # return Result::Success.new
-
+    Rails.logger.info("set_barbell_orders for bot #{id} with total_orders_amount_in_quote: #{total_orders_amount_in_quote}, update_missed_quote_amount: #{update_missed_quote_amount}")
     raise StandardError, 'quote_amount is required' if total_orders_amount_in_quote.blank?
     raise StandardError, 'quote_amount must be positive' if total_orders_amount_in_quote.negative?
-    return Result::Success.new if total_orders_amount_in_quote.zero?
+    return Result::Success.new if total_orders_amount_in_quote.zero? || total_orders_amount_in_quote.negative?
 
     result = get_barbell_orders(total_orders_amount_in_quote)
     unless result.success?
+      Rails.logger.error("set_barbell_orders for bot #{id} failed to get barbell orders: #{result.errors.inspect}")
       create_failed_order!({
                              base_asset: base0_asset,
                              quote_asset: quote_asset,
@@ -40,14 +36,21 @@ module Bots::Barbell::OrderSetter # rubocop:disable Metrics/ModuleLength
     end
 
     orders_data = result.data
+    Rails.logger.info("set_barbell_orders for bot #{id} got orders_data: #{orders_data.inspect}")
     orders_data.each do |order_data|
-      next if order_data[:amount].zero?
+      if order_data[:amount].zero?
+        Rails.logger.info("set_barbell_orders for bot #{id} ignoring order #{order_data.inspect}")
+        next
+      end
 
       amount_info = calculate_best_amount_info(order_data)
       if amount_info[:below_minimum_amount]
+        Rails.logger.info("set_barbell_orders for bot #{id} creating skipped order #{order_data.inspect}")
         create_skipped_order!(order_data)
         next
       end
+
+      Rails.logger.info("set_barbell_orders for bot #{id} creating order #{order_data.inspect} with amount info #{amount_info.inspect}")
 
       result = nil
       with_api_key do
@@ -61,9 +64,11 @@ module Bots::Barbell::OrderSetter # rubocop:disable Metrics/ModuleLength
 
       if result.success?
         order_id = result.data[:order_id]
+        Rails.logger.info("set_barbell_orders for bot #{id} created order #{order_id}")
         Bot::FetchAndCreateOrderJob.perform_later(self, order_id)
         update!(missed_quote_amount: [0, missed_quote_amount - order_data[:quote_amount]].max) if update_missed_quote_amount
       else
+        Rails.logger.error("set_barbell_orders for bot #{id} failed to create order #{order_data.inspect}: #{result.errors.inspect}")
         create_failed_order!(order_data.merge!(error_messages: result.errors))
         return result
       end
@@ -72,35 +77,62 @@ module Bots::Barbell::OrderSetter # rubocop:disable Metrics/ModuleLength
     Result::Success.new
   end
 
-  def pending_quote_amount(before_settings_change: false)
-    return quote_amount if started_at.nil?
+  def pending_quote_amount
+    return 0 if started_at.nil? || deleted?
 
-    quote_amount = before_settings_change ? settings_was['quote_amount'] : self.quote_amount
-    interval = before_settings_change ? settings_was['interval'] : self.interval
-    settings_changed_at = before_settings_change ? settings_changed_at_was : self.settings_changed_at
-
-    from_start = started_at > settings_changed_at
-    start_at = from_start ? started_at : settings_changed_at
+    calc_since = [started_at, settings_changed_at].compact.max
     total_quote_amount_invested = transactions.success
-                                              .where('created_at >= ?', start_at)
-                                              .pluck(:rate, :amount)
-                                              .sum { |rate, amount| rate * amount }
-    intervals_since_start_at = [0, ((last_interval_checkpoint_at - start_at) / 1.public_send(interval)).floor].max
-    intervals_since_start_at += 1 if from_start
+                                              .where('created_at >= ?', calc_since)
+                                              .pluck(:quote_amount)
+                                              .sum
 
-    # puts "intervals_since_start_at: #{intervals_since_start_at}"
+    intervals = [0, ((last_interval_checkpoint_at - calc_since) / interval_duration).floor].max + 1
+
+    # puts "intervals: #{intervals}"
+    # puts "last_interval_checkpoint_at: #{last_interval_checkpoint_at}"
+    # puts "started_at:                  #{started_at}"
+    # puts "settings_changed_at:         #{settings_changed_at}"
+    # puts "calc_since:                  #{calc_since}"
+    # puts "current_time:                #{Time.current}"
+    # puts "intervals since started_at: #{[0, ((last_interval_checkpoint_at - started_at) / interval_duration).floor].max + 1}"
+    # puts "intervals since settings_changed_at: #{[0,
+    #                                               ((last_interval_checkpoint_at - settings_changed_at) / interval_duration).floor].max + 1}"
+    # puts "interval_duration: #{interval_duration}"
     # puts "missed_quote_amount: #{missed_quote_amount}"
     # puts "total_quote_amount_invested: #{total_quote_amount_invested}"
     # puts "quote_amount: #{quote_amount}"
-    # puts "result: #{quote_amount * intervals_since_start_at + missed_quote_amount - total_quote_amount_invested}"
+    # puts "normal_interval_quote_amount: #{normal_interval_quote_amount}"
+    # puts "interval: #{interval}"
+    # puts "interval_duration: #{interval_duration}"
+    # puts "normal_interval_duration: #{normal_interval_duration}"
+    # puts "result: #{quote_amount * intervals + missed_quote_amount - total_quote_amount_invested}"
 
-    quote_amount * intervals_since_start_at + missed_quote_amount - total_quote_amount_invested
+    [quote_amount * intervals + missed_quote_amount - total_quote_amount_invested, 0].max
+  end
+
+  def set_missed_quote_amount
+    self.missed_quote_amount = pending_quote_amount
+    self.missed_quote_amount_was_set = true
   end
 
   private
 
-  def set_missed_quote_amount
-    self.missed_quote_amount = pending_quote_amount(before_settings_change: true)
+  def check_missed_quote_amount_was_set
+    # FIXME: Required because we are using store_accessor and will_save_change_to_settings?
+    # always returns true, at least in Rails 6.0
+    return if settings_was == settings
+
+    # Validating it this way forces us to manually call set_missed_quote_amount before saving into settings.
+    # This involves less mental overhead than calling set_missed_quote_amount directly in the before_save
+    # callback as we don't need to call internally all _was methods in all sub methods called within
+    # pending_quote_amount.
+    # Raise an error in the before_save instead of validate to avoid having to set_missed_quote_amount before
+    # any .valid? call.
+    unless missed_quote_amount_was_set
+      raise 'Attempting to save settings with missed_quote_amount not set, call set_missed_quote_amount before saving'
+    end
+
+    self.missed_quote_amount_was_set = nil
   end
 
   def get_barbell_orders(total_orders_amount_in_quote)
@@ -155,16 +187,22 @@ module Bots::Barbell::OrderSetter # rubocop:disable Metrics/ModuleLength
   def calculate_best_amount_info(order_data)
     ticker = exchange.tickers.find_by!(base_asset: order_data[:base_asset], quote_asset: order_data[:quote_asset])
 
-    minimum_quote_size_in_base = ticker.minimum_quote_size / order_data[:rate]
-    minimum_base_size_in_base = ticker.minimum_base_size
-    amount_type = minimum_quote_size_in_base < minimum_base_size_in_base ? :quote : :base
-    amount = amount_type == :base ? order_data[:amount] : order_data[:quote_amount]
-    minimum_amount_in_base = amount_type == :base ? minimum_base_size_in_base : minimum_quote_size_in_base
+    case exchange.minimum_amount_logic
+    when :base_or_quote
+      minimum_quote_size_in_base = ticker.minimum_quote_size / order_data[:rate]
+      amount_type = minimum_quote_size_in_base < ticker.minimum_base_size ? :quote : :base
+      amount = amount_type == :base ? order_data[:amount] : order_data[:quote_amount]
+      minimum_amount = amount_type == :base ? ticker.minimum_base_size : ticker.minimum_quote_size
+    when :base_and_quote
+      minimum_amount = [ticker.minimum_quote_size / order_data[:rate], ticker.minimum_base_size].max
+      amount_type = :base
+      amount = order_data[:amount]
+    end
 
     {
       amount_type: amount_type,
       amount: amount,
-      below_minimum_amount: amount < minimum_amount_in_base
+      below_minimum_amount: amount < minimum_amount
     }
   end
 end

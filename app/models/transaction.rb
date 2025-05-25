@@ -7,6 +7,7 @@ class Transaction < ApplicationRecord
   after_create_commit :set_daily_transaction_aggregate
   after_create_commit -> { bot.broadcast_new_order(self) unless bot.legacy? }
   after_create_commit -> { Bot::UpdateMetricsJob.perform_later(bot) unless bot.legacy? }
+  after_create_commit -> { bot.handle_quote_amount_limit_update if success? && bot.class.include?(Bot::QuoteAmountLimitable) }
 
   scope :for_bot, ->(bot) { where(bot_id: bot.id).order(created_at: :desc) }
   scope :today_for_bot, ->(bot) { for_bot(bot).where('created_at >= ?', Date.today.beginning_of_day) }

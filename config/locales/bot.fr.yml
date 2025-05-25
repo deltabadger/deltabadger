@@ -50,7 +50,7 @@ fr:
             start:
                 changed_missed:
                     continue: 'Oui, acheter et continuer'
-                    info_html: 'Voulez-vous investir <b>%{montant} %{citation}</b> manqués pendant que le robot était en pause ? Le nouveau programme commencera après la fin du compte à rebours en cours.'
+                    info_html: 'Voulez-vous investir <b>%{amount} %{quote}</b> manqués pendant que le robot était en pause ? Le nouveau programme commencera après la fin du compte à rebours en cours.'
                     skip: 'Ignorer la partie manquée'
                 changed_on_schedule:
                     continue: 'J''ai compris'
@@ -58,7 +58,7 @@ fr:
                     skip: 'Ignorer et commencer immédiatement'
                 missed:
                     continue: 'Oui, acheter et continuer'
-                    info_html: 'Voulez-vous investir <b>%{montant} %{citation}</b> manqués pendant que le robot était en pause, et poursuivre le programme initial ?'
+                    info_html: 'Voulez-vous investir <b>%{amount} %{quote}</b> manqués pendant que le robot était en pause, et poursuivre le programme initial ?'
                     skip: 'Ignorer la partie manquée'
                 on_schedule:
                     continue: 'Poursuivre le programme initial'
@@ -171,6 +171,9 @@ fr:
                 other: "Les montants manqués ont été mis en mémoire tampon et seront utilisés avec les prochaines commandes programmées, garantissant que votre calendrier et votre allocation sont maintenus aussi près que possible des minimums de l'échange."
             general_note: "Les minimums d'échange et les montants de rééquilibrage requis peuvent changer. Les commandes peuvent parfois sembler irrégulières, mais le bot cible toujours votre allocation et votre calendrier souhaités, donc aucun travail supplémentaire n'est nécessaire."
         settings:
+            smart_intervals:
+                split_in_orders_html: '<b>Smart Intervals<sup>®</sup></b> Divise le montant en unités de %{amount} %{quote}.'
+                split_info: "Diviser votre %{quote_amount} %{quote} / %{interval} en unités plus petites de %{amount} %{quote} entraînera un investissement tous les %{smart_interval}."
             extra_amount_limit:
                 dont_spend_more_than: "Ne pas dépenser plus de"
                 amount_left: "(%{amount} %{symbol} restant)"
