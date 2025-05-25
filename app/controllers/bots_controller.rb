@@ -183,6 +183,7 @@ class BotsController < ApplicationController
 
   def update
     if @bot.barbell?
+      @bot.set_missed_quote_amount
       barbell_bot_params_to_update = barbell_bot_params_as_hash
       barbell_bot_params_to_update[:settings] = @bot.settings.merge(barbell_bot_params_to_update[:settings].stringify_keys)
       if @bot.update(barbell_bot_params_to_update)

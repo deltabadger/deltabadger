@@ -3,8 +3,7 @@ module Bot::Schedulable
 
   included do
     store_accessor :transient_data,
-                   :last_action_job_at,
-                   :last_successful_action_interval_checkpoint_at
+                   :last_action_job_at
   end
 
   def last_action_job_at

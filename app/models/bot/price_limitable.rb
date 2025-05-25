@@ -17,14 +17,13 @@ module Bot::PriceLimitable
 
     after_initialize :initialize_price_limitable_settings
 
-    before_save :set_price_limit_enabled_at, if: :will_save_change_to_settings?
+    before_save :set_price_limit_enabled_at, if: :settings_have_changed?
     before_save :set_price_limit_in_ticker_id, if: :will_save_change_to_exchange_id?
 
     validates :price_limited, inclusion: { in: [true, false] }
     validates :price_limit, numericality: { greater_than_or_equal_to: 0 }, if: :price_limited?
     validates :price_limit_timing_condition, inclusion: { in: TIMING_CONDITIONS }
     validates :price_limit_price_condition, inclusion: { in: PRICE_CONDITIONS }
-    validates :price_limit_in_ticker_id, inclusion: { in: ->(b) { b.tickers.pluck(:id).compact } }
 
     decorators = Module.new do
       def execute_action
@@ -122,13 +121,13 @@ module Bot::PriceLimitable
   end
 
   def set_price_limit_enabled_at
-    return unless settings_was['price_limited'] != price_limited
+    return unless price_limited_was != price_limited
 
     self.price_limit_enabled_at = price_limited? ? Time.current : nil
   end
 
   def set_price_limit_condition_met_at
-    return unless settings_was['price_limited'] != price_limited
+    return unless price_limited_was != price_limited
 
     self.price_limit_condition_met_at = nil
   end
