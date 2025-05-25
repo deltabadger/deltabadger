@@ -193,6 +193,9 @@ it:
                 other: "Gli importi mancanti sono stati messi in buffer e verranno utilizzati con i prossimi ordini programmati, assicurando che la tua pianificazione e allocazione siano mantenute il più vicino possibile ai minimi dell'exchange."
             general_note: "I minimi dell'exchange e gli importi di ribilanciamento richiesti possono cambiare. Gli ordini potrebbero a volte sembrare irregolari, ma il bot mira sempre all'allocazione e alla pianificazione desiderate, quindi non è necessario alcun lavoro aggiuntivo."
         settings:
+            smart_intervals:
+                split_in_orders_html: '<b>Smart Intervals<sup>®</sup></b> Dividi l''importo in unità di %{amount} %{quote}.'
+                split_info: "Dividere il tuo %{quote_amount} %{quote} / %{interval} in unità più piccole di %{amount} %{quote} risulterà in un investimento ogni %{smart_interval}."
             extra_amount_limit:
                 dont_spend_more_than: "Non spendere più di"
                 amount_left: "(%{amount} %{symbol} rimasti)"

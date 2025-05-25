@@ -184,6 +184,9 @@ de:
                 other: "Die verpassten Beträge wurden gepuffert und werden mit den nächsten geplanten Orders verwendet, sodass dein Zeitplan und deine Allokation so gut wie möglich entsprechend den Börsen-Mindestgrößen eingehalten werden."
             general_note: "Börsen-Mindestgrößen und erforderliche Rebalancing-Beträge ändern sich. Transaktionen können manchmal unregelmäßig aussehen, aber der Bot hält immer deine gewünschte Allokation und deinen Zeitplan ein, sodass kein zusätzlicher Aufwand nötig ist."
         settings:
+            smart_intervals:
+                split_in_orders_html: '<b>Smart Intervals<sup>®</sup></b> Teilt den Betrag in %{amount} %{quote} Einheiten auf.'
+                split_info: "Die Aufteilung deiner %{quote_amount} %{quote} / %{interval} in kleinere Einheiten von %{amount} %{quote} führt zu einer Investition alle %{smart_interval}."
             extra_amount_limit:
                 dont_spend_more_than: "Nicht mehr ausgeben als"
                 amount_left: "(%{amount} %{symbol} übrig)"

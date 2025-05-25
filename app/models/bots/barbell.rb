@@ -17,14 +17,19 @@ class Bots::Barbell < Bot
   validate :validate_unchangeable_assets, on: :update
   validate :validate_unchangeable_interval, on: :update
 
+  before_save :set_tickers, if: :will_save_change_to_exchange_id?
+  # TODO: If bots can change assets, we also need to update the tickers and assets values
+  #       ! also in price_limitable
+
+  include SmartIntervalable     # decorators for: pending_quote_amount, interval_duration
+  include QuoteAmountLimitable  # decorators for: pending_quote_amount
+  include PriceLimitable        # decorators for: pending_quote_amount, execute_action, stop
   include Schedulable
   include OrderCreator
   include Bots::Barbell::OrderSetter
   include Bots::Barbell::Measurable
   include Bots::Barbell::Fundable
   include Bots::Barbell::MarketcapAllocatable
-  include QuoteAmountLimitable
-  include PriceLimitable
 
   def with_api_key
     exchange.set_client(api_key: api_key) if exchange.present? && (exchange.api_key.blank? || exchange.api_key != api_key)
@@ -44,7 +49,6 @@ class Bots::Barbell < Bot
     if start_fresh
       self.started_at = Time.current
       self.last_action_job_at = nil
-      self.last_successful_action_interval_checkpoint_at = nil
       self.missed_quote_amount = nil
     end
 
@@ -90,7 +94,7 @@ class Bots::Barbell < Bot
     notify_if_funds_are_low
     update!(status: :executing)
     result = set_barbell_orders(
-      total_orders_amount_in_quote: [pending_quote_amount, quote_amount_available_before_limit_reached].min,
+      total_orders_amount_in_quote: pending_quote_amount,
       update_missed_quote_amount: true
     )
     return result unless result.success?
@@ -148,7 +152,7 @@ class Bots::Barbell < Bot
   end
 
   def restarting_within_interval?
-    restarting? && pending_quote_amount < quote_amount
+    restarting? && pending_quote_amount.zero?
   end
 
   def assets
@@ -168,8 +172,7 @@ class Bots::Barbell < Bot
   end
 
   def tickers
-    @tickers ||= exchange&.tickers&.where(base_asset_id: [base0_asset_id, base1_asset_id],
-                                          quote_asset_id: quote_asset_id).presence
+    @tickers ||= set_tickers
   end
 
   def ticker0
@@ -235,10 +238,15 @@ class Bots::Barbell < Bot
   def validate_unchangeable_interval
     return unless working?
     return unless settings_changed?
-    return unless settings_was['interval'] != settings['interval']
+    return unless interval_was != interval
 
     errors.add(:settings, :unchangeable_interval,
                message: 'Interval cannot be changed while the bot is running')
+  end
+
+  def set_tickers
+    @tickers = exchange&.tickers&.where(base_asset_id: [base0_asset_id, base1_asset_id],
+                                        quote_asset_id: quote_asset_id).presence
   end
 
   def action_job_config

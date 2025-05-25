@@ -1,0 +1,6 @@
+
+<span id="<%= bot.new_record? ? "new-settings-smart-intervals-info" : "settings-smart-intervals-info" %>">
+  <% if bot.smart_intervaled? && bot.smart_interval_quote_amount&.positive? && bot.quote_amount&.positive? %>
+    <%= t("bot.settings.smart_intervals.split_info", quote_amount: bot.quote_amount.round(bot.decimals[:quote]), quote: bot.quote_asset.symbol, interval: bot.interval, amount: bot.smart_interval_quote_amount.round(bot.decimals[:quote]), smart_interval: distance_of_time_in_words(bot.interval_duration)) %>
+  <% end %>
+</span>
