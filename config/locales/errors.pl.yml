@@ -16,12 +16,15 @@ pl:
                             max_assets_reached: "Maksymalna liczba aktywów osiągnięta."
                 bot:
                     attributes:
+                        smart_interval_quote_amount:
+                            not_a_number: "Musisz określić kwotę dla Smart Intervals"
+                            greater_than_or_equal_to: "Dla tego harmonogramu kwota Smart Intervals nie może być mniejsza niż %{count}"
                         price_limit:
                             not_a_number: "Musisz podać cenę"
                             greater_than_or_equal_to: "Cena musi być większa lub równa 0"
                         quote_amount:
                             not_a_number: "Musisz dodać kwotę do zainwestowania"
-                            greater_than: "Kwota musi być większa niż 0"
+                            greater_than: "Inwestowana kwota musi być większa niż 0"
                         quote_amount_limit:
                             not_a_number: "Musisz określić kwotę, która nie może zostać przekroczona"
                             greater_than_or_equal_to: "Limit kwoty musi być większy lub równy %{count}"
