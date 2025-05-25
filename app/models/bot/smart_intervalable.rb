@@ -11,7 +11,7 @@ module Bot::SmartIntervalable
                    :normal_interval_duration
 
     after_initialize :initialize_smart_intervalable_settings
-    before_save :set_normal_interval_backup_values, if: :settings_have_changed?
+    before_save :set_normal_interval_backup_values, if: :will_save_change_to_settings?
 
     validates :smart_intervaled, inclusion: { in: [true, false] }
     validates :smart_interval_quote_amount,
@@ -76,9 +76,9 @@ module Bot::SmartIntervalable
   end
 
   def set_normal_interval_backup_values
-    return unless smart_intervaled_was != smart_intervaled ||
-                  quote_amount_was != quote_amount ||
-                  interval_was != interval
+    return if smart_intervaled_was == smart_intervaled &&
+              quote_amount_was == quote_amount &&
+              interval_was == interval
 
     self.normal_interval_quote_amount = quote_amount
     self.normal_interval_duration = 1.public_send(interval)

@@ -17,7 +17,7 @@ module Bot::PriceLimitable
 
     after_initialize :initialize_price_limitable_settings
 
-    before_save :set_price_limit_enabled_at, if: :settings_have_changed?
+    before_save :set_price_limit_enabled_at, if: :will_save_change_to_settings?
     before_save :set_price_limit_in_ticker_id, if: :will_save_change_to_exchange_id?
 
     validates :price_limited, inclusion: { in: [true, false] }
@@ -121,13 +121,13 @@ module Bot::PriceLimitable
   end
 
   def set_price_limit_enabled_at
-    return unless price_limited_was != price_limited
+    return if price_limited_was == price_limited
 
     self.price_limit_enabled_at = price_limited? ? Time.current : nil
   end
 
   def set_price_limit_condition_met_at
-    return unless price_limited_was != price_limited
+    return if price_limited_was == price_limited
 
     self.price_limit_condition_met_at = nil
   end

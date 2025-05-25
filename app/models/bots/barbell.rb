@@ -21,9 +21,9 @@ class Bots::Barbell < Bot
   # TODO: If bots can change assets, we also need to update the tickers and assets values
   #       ! also in price_limitable
 
-  include SmartIntervalable # decorators affect interval_duration, pending_quote_amount
-  include QuoteAmountLimitable # decorators affect pending_quote_amount
-  include PriceLimitable # decorators affect execute_action, stop, pending_quote_amount
+  include SmartIntervalable     # decorators for: pending_quote_amount, interval_duration
+  include QuoteAmountLimitable  # decorators for: pending_quote_amount
+  include PriceLimitable        # decorators for: pending_quote_amount, execute_action, stop
   include Schedulable
   include OrderCreator
   include Bots::Barbell::OrderSetter
