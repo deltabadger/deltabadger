@@ -86,7 +86,7 @@ module Bots::Barbell::OrderSetter # rubocop:disable Metrics/ModuleLength
                                               .pluck(:quote_amount)
                                               .sum
 
-    intervals = [0, ((last_interval_checkpoint_at - calc_since) / interval_duration).floor].max + 1
+    intervals = ((last_interval_checkpoint_at - calc_since) / interval_duration).floor + 1
 
     # puts "intervals: #{intervals}"
     # puts "last_interval_checkpoint_at: #{last_interval_checkpoint_at}"
