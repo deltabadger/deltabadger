@@ -1,11 +1,9 @@
 class Bot::ActionJob < BotJob
   def perform(bot)
-    start_time = Time.current
-    Rails.logger.info("Action job for bot #{bot.id} started at #{start_time}. Bot status: #{bot.status}." + (bot.next_action_job_at.present? ? "Next action job at: #{bot.next_action_job_at}." : ''))
     return unless bot.scheduled? || bot.retrying?
     raise StandardError, "bot #{bot.id} already has an action job scheduled" if bot.next_action_job_at.present?
 
-    bot.update!(last_action_job_at: start_time)
+    bot.update!(last_action_job_at: Time.current)
     result = bot.execute_action
     raise StandardError, result.errors.to_sentence unless result.success?
 
@@ -18,7 +16,6 @@ class Bot::ActionJob < BotJob
       Bot::ActionJob.set(wait_until: next_interval_checkpoint_at).perform_later(bot)
       Bot::BroadcastAfterScheduledActionJob.perform_later(bot)
     end
-    Rails.logger.info("Action job for bot #{bot.id} finished at #{Time.current}. Took #{Time.current - start_time} seconds.")
   rescue StandardError => e
     Rails.logger.error("Error executing action job for bot #{bot.id}: #{e.message}")
     notify_retry(bot, e)
