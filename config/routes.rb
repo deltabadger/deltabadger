@@ -175,6 +175,11 @@ Rails.application.routes.draw do
       get :compare
       get :confirm_destroy
     end
+
+    resource :surveys_onboarding, only: [:create], path: 'onboarding-survey' do
+      get 'step-one', to: 'surveys_onboardings#new_step_one'
+      get 'step-two', to: 'surveys_onboardings#new_step_two'
+    end
   end
 
   namespace :broadcasts do
