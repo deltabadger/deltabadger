@@ -141,9 +141,12 @@ pt:
     welcome:
         banner_html: |
             <p>Bem-vindo a bordo, %{name}!</p>
-            <p><b>Verifique seu e-mail</b> onde enviei um guia rápido sobre como usar os bots.</p>
-            <p><b>Responda com <code>FIRE</code></b> e eu lhe darei acesso à nossa comunidade.</p>
-            <p>Até breve, Jan</p>
+            <p>Obrigado por preencher a pesquisa. Isso nos ajudará a priorizar qual exchange integrar a seguir.</p>
+            <ul>
+                <li><b>Verifique seu e-mail</b>—enviei um guia rápido sobre como usar os bots.</li>
+                <li><b>Responda com <code>FIRE</code></b> e eu te darei acesso à nossa comunidade.</li>
+            </ul>
+            <p>Vejo você lá,<br>Jan</p>
     analyzer:
         default_portfolio: 'Portfólio padrão'
         duplicate_portfolio: 'Duplicar portfólio'
