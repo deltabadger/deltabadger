@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema.define(version: 2025_05_17_224940) do
+ActiveRecord::Schema.define(version: 2025_05_26_132839) do
 
   # These are extensions that must be enabled in order to support this database
   enable_extension "plpgsql"
@@ -292,6 +292,16 @@ ActiveRecord::Schema.define(version: 2025_05_17_224940) do
     t.index ["user_id"], name: "index_subscriptions_on_user_id"
   end
 
+  create_table "surveys", force: :cascade do |t|
+    t.bigint "user_id", null: false
+    t.string "type", null: false
+    t.jsonb "answers", default: {}, null: false
+    t.datetime "created_at", precision: 6, null: false
+    t.datetime "updated_at", precision: 6, null: false
+    t.index ["user_id", "type"], name: "index_surveys_on_user_id_and_type", unique: true
+    t.index ["user_id"], name: "index_surveys_on_user_id"
+  end
+
   create_table "transactions", force: :cascade do |t|
     t.bigint "bot_id"
     t.string "external_id"
@@ -378,6 +388,7 @@ ActiveRecord::Schema.define(version: 2025_05_17_224940) do
   add_foreign_key "subscription_plan_variants", "subscription_plans"
   add_foreign_key "subscriptions", "subscription_plan_variants"
   add_foreign_key "subscriptions", "users"
+  add_foreign_key "surveys", "users"
   add_foreign_key "transactions", "bots"
   add_foreign_key "transactions", "exchanges"
   add_foreign_key "users", "affiliates", column: "referrer_id"
