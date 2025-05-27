@@ -1,13 +1,10 @@
 <div class="onboarding-survey__step onboarding-survey__step--1">
   <h1 class="onboarding-survey__title"><%= t('onboarding.survey.step1.title') %></h1>
-
-  <div class="onboarding-survey__options">
-    <%= form_with model: @survey, url: step_two_surveys_onboarding_path, method: :get, class: "onboarding-survey__options__item" do |f| %>
-      <% @investment_goals.each do |goal| %>
-        <%= button_tag name: "#{@survey.model_name.param_key}[investment_goal]", value: goal[:id], type: :submit do %>
-          <%= goal[:name] %>
-        <% end %>
+  <%= form_with model: @survey, url: step_two_surveys_onboarding_path, method: :get, class: "onboarding-survey__options" do |f| %>
+    <% @investment_goals.each do |goal| %>
+      <%= button_tag name: "#{@survey.model_name.param_key}[investment_goal]", value: goal[:id], type: :submit, class: "onboarding-survey__options__item" do %>
+        <%= goal[:name] %>
       <% end %>
     <% end %>
-  </div>
+  <% end %>
 </div>

@@ -3,11 +3,13 @@ class SurveysOnboardingsController < ApplicationController
   skip_before_action :check_onboarding_survey
   before_action :check_onboarding_status
 
+  layout 'devise'
+
   def new_step_one
     @survey = current_user.surveys.onboarding.new
     @investment_goals = [
-      { id: "buy_the_dip", name: t('onboarding.survey.step1.options.buy_the_dip') },
-      { id: "retire_early", name: t('onboarding.survey.step1.options.retire_early') },
+      { id: 'buy_the_dip', name: t('onboarding.survey.step1.options.buy_the_dip').html_safe },
+      { id: 'retire_early', name: t('onboarding.survey.step1.options.retire_early').html_safe }
     ].shuffle
   end
 
@@ -16,19 +18,19 @@ class SurveysOnboardingsController < ApplicationController
 
     @survey = current_user.surveys.onboarding.new(answers: { investment_goal: survey_params[:investment_goal] })
     @exchanges = [
-      { id: "coinbase", name: "Coinbase" },
-      { id: "kraken", name: "Kraken" },
-      { id: "bybit", name: "Bybit" },
-      { id: "binance", name: "Binance" },
-      { id: "okx", name: "OKX" },
-      { id: "kucoin", name: "KuCoin" },
-      { id: "bitpanda", name: "Bitpanda" },
-      { id: "mexc", name: "MEXC" },
-      { id: "gateio", name: "Gate.io" },
-      { id: "bitget", name: "Bitget" },
-      { id: "bitvavo", name: "Bitvavo" }
+      { id: 'coinbase', name: 'Coinbase' },
+      { id: 'kraken', name: 'Kraken' },
+      { id: 'bybit', name: 'Bybit' },
+      { id: 'binance', name: 'Binance' },
+      { id: 'okx', name: 'OKX' },
+      { id: 'kucoin', name: 'KuCoin' },
+      { id: 'bitpanda', name: 'Bitpanda' },
+      { id: 'mexc', name: 'MEXC' },
+      { id: 'gateio', name: 'Gate.io' },
+      { id: 'bitget', name: 'Bitget' },
+      { id: 'bitvavo', name: 'Bitvavo' }
     ].shuffle
-    @exchanges << { id: "other", name: t('onboarding.survey.step2.other') }
+    @exchanges << { id: 'other', name: t('onboarding.survey.step2.other') }
   end
 
   def create
