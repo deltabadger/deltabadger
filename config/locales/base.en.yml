@@ -145,10 +145,13 @@ en:
         twitter: 'Follow us on 𝕏'
     welcome:
         banner_html: |
-            <p>Welcome on board, %{name}!</p>
-            <p><b>Check your email</b> where I sent you a quick guide to using the bots.</p>
-            <p><b>Reply with <code>FIRE</code></b> and I will grant you access to our community.</p>
-            <p>See you there, Jan</p>
+            <p>Welcome aboard, %{name}!</p>
+            <p>Thank you for filling out the survey. It will help us prioritize which exchange to integrate next.</p>
+            <ul>
+                <li><b>Check your email</b>—I sent you a quick guide to using the bots.</li>
+                <li><b>Reply with <code>FIRE</code></b> and I'll grant you access to our community.</li>
+            </ul>
+            <p>See you there,<br>Jan</p>
     analyzer:
         default_portfolio: "Default portfolio"
         duplicate_portfolio: 'Duplicate portfolio'
