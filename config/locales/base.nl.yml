@@ -138,9 +138,12 @@ nl:
     welcome:
         banner_html: |
             <p>Welkom aan boord, %{name}!</p>
-            <p><b>Controleer je e-mail</b> waar ik je een snelle handleiding voor het gebruik van de bots heb gestuurd.</p>
-            <p><b>Antwoord met <code>FIRE</code></b> en ik geef je toegang tot onze community.</p>
-            <p>Tot daar, Jan</p>
+            <p>Bedankt voor het invullen van de enquête. Het zal ons helpen om te prioriteren welke exchange als volgende te integreren.</p>
+            <ul>
+                <li><b>Controleer je e-mail</b>—ik heb je een snelle gids gestuurd voor het gebruik van de bots.</li>
+                <li><b>Antwoord met <code>FIRE</code></b> en ik geef je toegang tot onze community.</li>
+            </ul>
+            <p>Tot ziens daar,<br>Jan</p>
     analyzer:
         default_portfolio: 'Standaardportefeuille'
         duplicate_portfolio: 'Portefeuille dupliceren'

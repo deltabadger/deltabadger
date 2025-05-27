@@ -138,9 +138,12 @@ fr:
     welcome:
         banner_html: |
             <p>Bienvenue à bord, %{name}!</p>
-            <p><b>Consultez votre e-mail</b> où je vous ai envoyé un guide rapide d'utilisation des bots.</p>
-            <p><b>Répondez avec <code>FIRE</code></b> et je vous donnerai accès à notre communauté.</p>
-            <p>À bientôt, Jan</p>
+            <p>Merci d'avoir rempli le sondage. Cela nous aidera à prioriser quelle bourse intégrer ensuite.</p>
+            <ul>
+                <li><b>Consultez votre e-mail</b>—je vous ai envoyé un guide rapide d'utilisation des bots.</li>
+                <li><b>Répondez avec <code>FIRE</code></b> et je vous donnerai accès à notre communauté.</li>
+            </ul>
+            <p>À bientôt,<br>Jan</p>
     analyzer:
         default_portfolio: 'Portefeuille par défaut'
         duplicate_portfolio: 'Dupliquer le portefeuille'
