@@ -5,14 +5,11 @@ export default class extends Controller {
   static targets = ["checkbox", "submit"]
 
   connect() {
-    this.toggleSubmitButton()
-  }
-
-  checkboxChanged() {
-    this.toggleSubmitButton()
+    console.log("checkbox-enables connected")
   }
 
   toggleSubmitButton() {
-    this.submitTarget.disabled = !this.checkboxTarget.checked
+    const anyChecked = this.checkboxTargets.some(checkbox => checkbox.checked)
+    this.submitTarget.disabled = !anyChecked
   }
 }

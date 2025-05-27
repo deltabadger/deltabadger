@@ -143,9 +143,12 @@ it:
     welcome:
         banner_html: |
             <p>Benvenuto a bordo, %{name}!</p>
-            <p><b>Controlla la tua email</b> dove ti ho inviato una guida rapida all'uso dei bot.</p>
-            <p><b>Rispondi con <code>FIRE</code></b> e ti darò accesso alla nostra community.</p>
-            <p>A presto, Jan</p>
+            <p>Grazie per aver compilato il sondaggio. Ci aiuterà a dare priorità a quale exchange integrare successivamente.</p>
+            <ul>
+                <li><b>Controlla la tua email</b>—ti ho inviato una guida rapida per usare i bot.</li>
+                <li><b>Rispondi con <code>FIRE</code></b> e ti darò accesso alla nostra community.</li>
+            </ul>
+            <p>Ci vediamo lì,<br>Jan</p>
     analyzer:
         default_portfolio: "Portfolio predefinito"
         duplicate_portfolio: 'Duplica portfolio'
