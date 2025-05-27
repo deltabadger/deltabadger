@@ -1,0 +1,11 @@
+en:
+  onboarding:
+    survey:
+      step1:
+        title: "What describes you better?"
+        options:
+          buy_the_dip: "I want to catch market opportunities when the&nbsp;price&nbsp;is&nbsp;low."
+          retire_early: "I want to build a long-term portfolio and retire early."
+      step2:
+        title: "Which exchanges do you use?"
+        other: "Other"

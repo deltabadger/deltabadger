@@ -145,9 +145,12 @@ pl:
     welcome:
         banner_html: |
             <p>Witaj na pokładzie, %{name}!</p>
-            <p><b>Sprawdź swoją skrzynkę email</b>, gdzie wysłałem Ci krótki przewodnik po korzystaniu z botów.</p>
-            <p><b>Odpowiedz kodem <code>FIRE</code></b>, a otrzymasz dostęp do naszej społeczności.</p>
-            <p>Do zobaczenia, Jan</p>
+            <p>Dziękuję za wypełnienie ankiety. Pomoże nam to ustalić priorytet, którą giełdę zintegrować następnie.</p>
+            <ul>
+                <li><b>Sprawdź swój e-mail</b>—wysłałem ci szybki przewodnik po używaniu botów.</li>
+                <li><b>Odpowiedz <code>FIRE</code></b>, a dam ci dostęp do naszej społeczności.</li>
+            </ul>
+            <p>Do zobaczenia tam,<br>Jan</p>
     analyzer:
         default_portfolio: 'Domyślny portfel'
         portfolio_name: 'Nazwa portfela'

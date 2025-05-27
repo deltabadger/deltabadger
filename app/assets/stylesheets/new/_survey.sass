@@ -1,0 +1,72 @@
+.onboarding-survey
+    display: flex
+    flex-direction: column
+    align-items: center
+    justify-content: center
+    height: 100vh
+    &__step
+        width: calc(100vw - 2rem)
+        height: calc(100vh - 2rem)
+        max-width: 120rem
+        max-height: 70rem
+        text-align: center
+        gap: 1rem
+        @media (min-width: 768px)
+            max-height: 40rem
+        &--1
+            .onboarding-survey__options
+                display: flex
+                flex-direction: column
+                align-items: center
+                justify-content: center
+                gap: 1rem
+                height: 40rem
+                max-height: calc(100vh - 24rem)
+                @media (min-width: 768px)
+                    flex-direction: row !important
+                &__item
+                    width: 100%
+                    height: 100%
+                    flex: 1
+                    font-weight: 600 !important
+                    cursor: pointer
+                    display: block
+                    padding: 4rem
+                    border-radius: 2rem
+                    font-size: 2.2rem
+                    background-color: var(--widget-background)
+                    border: none
+                    color: var(--text)
+                    &:hover
+                        background-color: var(--primary)
+                        color: #fff
+    &__exchanges
+        display: grid
+        grid-template-columns: repeat(3, 1fr)
+        gap: 1rem
+        height: 100%
+        &__item
+            display: flex
+            align-items: center
+            justify-content: center
+            min-height: 8rem
+            background-color: var(--widget-background)
+            border-radius: 2rem
+            cursor: pointer
+            font-weight: 600 !important
+            &__checkbox
+                display: none
+            &.active
+                background-color: var(--primary)
+                color: #fff
+    &__title
+        font-size: 2.5rem !important
+        line-height: 3rem !important
+        padding: 3rem 0
+    &__actions
+        padding-top: 3rem
+        display: flex
+        justify-content: stretch
+        button
+            width: 100%
+            max-width: 44rem

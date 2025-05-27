@@ -145,9 +145,12 @@ es:
     welcome:
         banner_html: |
             <p>¡Bienvenido a bordo, %{name}!</p>
-            <p><b>Revisa tu correo electrónico</b> donde te he enviado una guía rápida para usar los bots.</p>
-            <p><b>Responde con <code>FIRE</code></b> y te daré acceso a nuestra comunidad.</p>
-            <p>Nos vemos allí, Jan</p>
+            <p>Gracias por completar la encuesta. Nos ayudará a priorizar qué exchange integrar a continuación.</p>
+            <ul>
+                <li><b>Revisa tu correo electrónico</b>—te he enviado una guía rápida para usar los bots.</li>
+                <li><b>Responde con <code>FIRE</code></b> y te daré acceso a nuestra comunidad.</li>
+            </ul>
+            <p>Nos vemos allí,<br>Jan</p>
     analyzer:
         default_portfolio: 'Cartera predeterminada'
         duplicate_portfolio: 'Duplicar cartera'
