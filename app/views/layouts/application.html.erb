@@ -22,15 +22,6 @@
     <%= stylesheet_link_tag 'application', media: 'all', "data-turbo-track": "reload" %>
     <%= javascript_pack_tag 'deltabadger2' %>
 
-    <% if user_signed_in? %>
-      <script defer="defer" src="https://static.bonjoro.com/js/v1/bonjoro.js"></script>
-      <script>
-        (()=>{"use strict";(()=>{var o;const n=function(){n.q.push(arguments)};n.q=[],null!==(o=window.bonjoro)&&void 0!==o||(window.bonjoro=n)})()})();
-
-        bonjoro('create', "<%= bonjoro_app_id %>");
-        bonjoro('identify', "<%= current_user.email %>", { userHash: "<%= escape_javascript bonjoro_user_hash(current_user.email) %>" });
-      </script>
-    <% end %>
     <script>
       // service worker registration for PWA
       if ('serviceWorker' in navigator) {
