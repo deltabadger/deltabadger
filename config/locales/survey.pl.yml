@@ -1,0 +1,11 @@
+pl:
+  onboarding:
+    survey:
+      step1:
+        title: "Co lepiej cię opisuje?"
+        options:
+          buy_the_dip: "Chcę wykorzystywać rynkowe okazje, gdy cena jest niska."
+          retire_early: "Chcę zbudować długoterminowy portfel i wcześnie przejść na emeryturę."
+      step2:
+        title: "Z jakich giełd korzystasz?"
+        other: "Inne" 

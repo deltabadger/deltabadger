@@ -24,12 +24,12 @@
         </div>
 
         <div class="db-form__row" style="display: flex; gap: 2rem; align-items: flex-start;">
-          <%= f.check_box :eth_address_confirmation, class: "checkbox", data: { form__checkbox_enables_target: "checkbox", action: "form--checkbox-enables#checkboxChanged" }, required: true %>
+          <%= f.check_box :eth_address_confirmation, class: "checkbox", data: { form__checkbox_enables_target: "checkbox", action: "change->form--checkbox-enables#toggleSubmitButton" }, required: true %>
           <%= f.label :eth_address_confirmation, t('legendary_badger.confirm_info_html') %>
         </div>
 
         <div class="large-button-wrapper">
-          <%= f.submit t(('legendary_badger.claim')), class: "button button--large button--primary", data: { form__checkbox_enables_target: "submit" } %>
+          <%= f.submit t(('legendary_badger.claim')), class: "button button--large button--primary", data: { form__checkbox_enables_target: "submit" }, disabled: true %>
         </div>
       <% end %>
     </div>

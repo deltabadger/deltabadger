@@ -8,7 +8,6 @@ export default class extends Controller {
   };
 
   connect() {
-    console.log("Turbo Frame controller connected");
   }
 
   loadFrame(event) {
