@@ -6,13 +6,13 @@ task onboarding_survey_results: :environment do
   retire_early = answers.count { |answer| answer['investment_goal'] == 'retire_early' }
 
   puts "\nInvestment goal counts:"
-  puts "Buy the dip:  #{buy_the_dip} (#{buy_the_dip / answers.count * 100}%)"
-  puts "Retire early: #{retire_early} (#{retire_early / answers.count * 100}%)"
+  puts "Buy the dip:  #{buy_the_dip} (#{(buy_the_dip.to_f / answers.count * 100).round(2)}%)"
+  puts "Retire early: #{retire_early} (#{(retire_early.to_f / answers.count * 100).round(2)}%)"
 
   exchange_counts = answers.flat_map { |hash| hash["preferred_exchange"] }.tally
 
   puts "\nExchange counts:"
   exchange_counts.sort_by { |_, count| count }.reverse.each do |exchange, count|
-    puts "#{exchange}: #{count} (#{count / exchange_counts.values.sum * 100}%)"
+    puts "#{exchange}: #{count} (#{(count.to_f / exchange_counts.values.sum * 100).round(2)}%)"
   end
 end
