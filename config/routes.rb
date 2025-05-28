@@ -31,7 +31,7 @@ Rails.application.routes.draw do
       resources :basics
       resources :withdrawals
       resources :webhooks
-      resources :barbells
+      resources :dca_dual_assets
     end
     resources :conversion_rates
     resources :exchanges
@@ -123,13 +123,13 @@ Rails.application.routes.draw do
     }
 
     resources :bots do
-      get :barbell_new_step_to_first_asset, on: :collection
-      get :barbell_new_step_to_second_asset, on: :collection
-      get :barbell_new_step_exchange, on: :collection
-      get :barbell_new_step_from_asset, on: :collection
-      get :barbell_new_step_api_key, on: :collection
-      post :barbell_new_step_api_key_create, on: :collection
-      get :barbell_new_step_confirm, on: :collection
+      get :dca_dual_asset_new_step_to_first_asset, on: :collection
+      get :dca_dual_asset_new_step_to_second_asset, on: :collection
+      get :dca_dual_asset_new_step_exchange, on: :collection
+      get :dca_dual_asset_new_step_from_asset, on: :collection
+      get :dca_dual_asset_new_step_api_key, on: :collection
+      post :dca_dual_asset_new_step_api_key_create, on: :collection
+      get :dca_dual_asset_new_step_confirm, on: :collection
       get :show_index_bot, on: :collection # TODO: move to custom :show logic according to bot type
       member do
         get :asset_search
@@ -176,9 +176,11 @@ Rails.application.routes.draw do
       get :confirm_destroy
     end
 
-    resource :surveys_onboarding, only: [:create], path: 'onboarding-survey' do
-      get 'step-one', to: 'surveys_onboardings#new_step_one'
-      get 'step-two', to: 'surveys_onboardings#new_step_two'
+    namespace :surveys do
+      resource :onboarding, only: [:create] do
+        get 'step-one', to: 'onboardings#new_step_one'
+        get 'step-two', to: 'onboardings#new_step_two'
+      end
     end
   end
 

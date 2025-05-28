@@ -8,7 +8,7 @@ fr:
             dca:
                 title: "DCA"
                 description: "DCA mono-actif"
-            barbell:
+            dca_dual_asset:
                 title: "Stratégie Barbell"
                 description: "DCA rééquilibré à deux actifs"
             index_portfolio:
@@ -22,7 +22,7 @@ fr:
             paused: "En pause"
             next_try: "Prochain essai dans"
             waiting: "En attente que toutes les conditions soient remplies"
-        barbell:
+        dca_dual_asset:
             invest: "Investir"
             invest_html: "Investir %{input} /mois"
         utils:

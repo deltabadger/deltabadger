@@ -8,7 +8,7 @@
     <% if other_bots.present? %>
       <div class="dropdown__item dropdown__item--divider"></div>
       <% other_bots.each do |id, label, type| %>
-        <% data = type != 'Bots::Barbell' ? { turbo: false } : { turbo_frame: "bot", turbo_action: "advance" } %>
+        <% data = bot.legacy? ? { turbo: false } : { turbo_frame: "bot", turbo_action: "advance" } %>
         <%= link_to label, bot_path(id), class: "dropdown__item", data: data %>
       <% end %>
     <% end %>

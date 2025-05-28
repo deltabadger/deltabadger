@@ -5,7 +5,7 @@
 <% base1_color_transparent = transparent_color(base1_color, 1 - bot.allocation0) %>
 
 <%= form_with model: bot,
-              url: bot.new_record? ? barbell_new_step_confirm_bots_path : bot_path(bot),
+              url: bot.new_record? ? dca_dual_asset_new_step_confirm_bots_path : bot_path(bot),
               method: bot.new_record? ? :get : :patch,
               class: "widget",
               data: {
@@ -15,13 +15,13 @@
                 bot__barbell_allocation_color1_value: base1_color
               } do |f| %>
   <div class="conversational flex-justify-center">
-    <%= t('bot.barbell.invest') %>
+    <%= t('bot.dca_dual_asset.invest') %>
     <div class="ticker-input ticker-input--autoscale">
       <% value = bot.quote_amount.present? ? bot.quote_amount.to_d.to_s('F').sub(/^(?!0\.0$)([1-9]\d*)\.0$/, '\1') : nil %>
       <%= f.number_field :quote_amount, value: value, class: 'numeric-input', step: :any, size: 3, data: { controller: "autowidth-input", action: "input->form--submit-after-delay#submit input->autowidth-input#resize", form__move_cursor_to_end_target: "input" }, style: "width: 50px;", autofocus: bot.new_record? && bot.quote_amount.blank?, disabled: bot.working? %>
 
       <% if bot.new_record? %>
-        <%= link_to bot.quote_asset.symbol, barbell_new_step_from_asset_bots_path, data: { turbo_frame: "modal_content" }, class: "ticker", style: "background: #{quote_color}" %>
+        <%= link_to bot.quote_asset.symbol, dca_dual_asset_new_step_from_asset_bots_path, data: { turbo_frame: "modal_content" }, class: "ticker", style: "background: #{quote_color}" %>
       <% else %>
         <div class="ticker" style="background: <%= quote_color %>">
           <%= bot.quote_asset.symbol %>
@@ -37,7 +37,7 @@
   <div class="barbell">
     <div class="barbell__plate">
       <% if bot.new_record? %>
-        <%= link_to bot.base0_asset.symbol, barbell_new_step_to_first_asset_bots_path, data: { turbo_frame: "modal_content", bot__barbell_allocation_target: "allocation0BackgroundColor" }, class: "ticker", style: "background: #{base0_color_transparent}" %>
+        <%= link_to bot.base0_asset.symbol, dca_dual_asset_new_step_to_first_asset_bots_path, data: { turbo_frame: "modal_content", bot__barbell_allocation_target: "allocation0BackgroundColor" }, class: "ticker", style: "background: #{base0_color_transparent}" %>
       <% else %>
         <div class="ticker" style="background: <%= base0_color_transparent %>" data-bot--barbell-allocation-target="allocation0BackgroundColor">
           <%= bot.base0_asset.symbol %>
@@ -61,7 +61,7 @@
 
     <div class="barbell__plate">
       <% if bot.new_record? %>
-        <%= link_to bot.base1_asset.symbol, barbell_new_step_to_second_asset_bots_path, data: { turbo_frame: "modal_content", bot__barbell_allocation_target: "allocation1BackgroundColor" }, class: "ticker", style: "background: #{base1_color_transparent}" %>
+        <%= link_to bot.base1_asset.symbol, dca_dual_asset_new_step_to_second_asset_bots_path, data: { turbo_frame: "modal_content", bot__barbell_allocation_target: "allocation1BackgroundColor" }, class: "ticker", style: "background: #{base1_color_transparent}" %>
       <% else %>
         <div class="ticker" style="background: <%= base1_color_transparent %>" data-bot--barbell-allocation-target="allocation1BackgroundColor">
           <%= bot.base1_asset.symbol %>

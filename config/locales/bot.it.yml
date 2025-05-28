@@ -8,7 +8,7 @@ it:
             dca:
                 title: "DCA"
                 description: "DCA a singolo asset"
-            barbell:
+            dca_dual_asset:
                 title: "Strategia Barbell"
                 description: "DCA bilanciato a due asset"
             index_portfolio:
@@ -23,7 +23,7 @@ it:
             next_try: "Prossimo tentativo in"
             waiting: "In attesa che tutte le condizioni siano soddisfatte"
         pick_exchange: "Scegli Exchange"
-        barbell:
+        dca_dual_asset:
             invest: "Investi"
             invest_html: "Investi %{input} /mese"
         utils:
