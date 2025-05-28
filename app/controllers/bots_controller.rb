@@ -2,14 +2,14 @@ class BotsController < ApplicationController
   include Pagy::Backend
 
   before_action :authenticate_user!
-  before_action :set_new_barbell_bot,
-                only: %i[barbell_new_step_to_first_asset
-                         barbell_new_step_to_second_asset
-                         barbell_new_step_exchange
-                         barbell_new_step_api_key
-                         barbell_new_step_api_key_create
-                         barbell_new_step_from_asset
-                         barbell_new_step_confirm
+  before_action :set_new_dca_dual_asset_bot,
+                only: %i[dca_dual_asset_new_step_to_first_asset
+                         dca_dual_asset_new_step_to_second_asset
+                         dca_dual_asset_new_step_exchange
+                         dca_dual_asset_new_step_api_key
+                         dca_dual_asset_new_step_api_key_create
+                         dca_dual_asset_new_step_from_asset
+                         dca_dual_asset_new_step_confirm
                          create]
   before_action :set_bot,
                 only: %i[show
@@ -41,14 +41,14 @@ class BotsController < ApplicationController
   end
 
   def new
-    session[:barbell_bot_params] = {}
+    session[:dca_dual_asset_bot_params] = {}
   end
 
-  def barbell_new_step_to_first_asset
+  def dca_dual_asset_new_step_to_first_asset
     # TODO: move this block to a better place
     @bot.base0_asset_id = nil
     available_assets = @bot.available_assets_for_current_settings(asset_type: :base_asset)
-    filtered_assets = filter_assets_by_query(assets: available_assets, query: barbell_bot_params[:query])
+    filtered_assets = filter_assets_by_query(assets: available_assets, query: dca_dual_asset_bot_params[:query])
                       .pluck(:id, :symbol, :name)
     exchanges_data = Exchange.all.pluck(:id, :name_id, :name).each_with_object([]) do |(id, name_id, name), list|
       assets = Exchange.find(id).assets.pluck(:id)
@@ -58,13 +58,13 @@ class BotsController < ApplicationController
       exchanges = exchanges_data.select { |_, _, assets| assets.include?(id) }
       [id, symbol, name, exchanges.map { |e_name_id, e_name, _| [e_name_id, e_name] }]
     end
-    render 'bots/barbell/new/step_to_first_asset'
+    render 'bots/dca_dual_asset/new/step_to_first_asset'
   end
 
-  def barbell_new_step_to_second_asset
+  def dca_dual_asset_new_step_to_second_asset
     @bot.base1_asset_id = nil
     available_assets = @bot.available_assets_for_current_settings(asset_type: :base_asset)
-    filtered_assets = filter_assets_by_query(assets: available_assets, query: barbell_bot_params[:query])
+    filtered_assets = filter_assets_by_query(assets: available_assets, query: dca_dual_asset_bot_params[:query])
                       .pluck(:id, :symbol, :name)
     exchanges_data = Exchange.all.pluck(:id, :name_id, :name).each_with_object([]) do |(id, name_id, name), list|
       assets = Exchange.find(id).assets.pluck(:id)
@@ -74,42 +74,42 @@ class BotsController < ApplicationController
       exchanges = exchanges_data.select { |_, _, assets| assets.include?(id) }
       [id, symbol, name, exchanges.map { |e_name_id, e_name, _| [e_name_id, e_name] }]
     end
-    render 'bots/barbell/new/step_to_second_asset'
+    render 'bots/dca_dual_asset/new/step_to_second_asset'
   end
 
-  def barbell_new_step_exchange
+  def dca_dual_asset_new_step_exchange
     @bot.exchange_id = nil
     exchanges = @bot.available_exchanges_for_current_settings
-    @exchanges = filter_exchanges_by_query(exchanges: exchanges, query: barbell_bot_params[:query])
-    render 'bots/barbell/new/step_exchange'
+    @exchanges = filter_exchanges_by_query(exchanges: exchanges, query: dca_dual_asset_bot_params[:query])
+    render 'bots/dca_dual_asset/new/step_exchange'
   end
 
-  def barbell_new_step_api_key
+  def dca_dual_asset_new_step_api_key
     @api_key = @bot.api_key
     @api_key.validate_key_permissions if @api_key.key.present? && @api_key.secret.present?
     if @api_key.correct?
-      redirect_to barbell_new_step_from_asset_bots_path
+      redirect_to dca_dual_asset_new_step_from_asset_bots_path
     else
-      render 'bots/barbell/new/step_api_key'
+      render 'bots/dca_dual_asset/new/step_api_key'
     end
   end
 
-  def barbell_new_step_api_key_create
+  def dca_dual_asset_new_step_api_key_create
     @api_key = @bot.api_key
     @api_key.key = api_key_params[:key]
     @api_key.secret = api_key_params[:secret]
     @api_key.validate_key_permissions
     if @api_key.correct? && @api_key.save
-      redirect_to barbell_new_step_from_asset_bots_path
+      redirect_to dca_dual_asset_new_step_from_asset_bots_path
     else
-      render 'bots/barbell/new/step_api_key', status: :unprocessable_entity
+      render 'bots/dca_dual_asset/new/step_api_key', status: :unprocessable_entity
     end
   end
 
-  def barbell_new_step_from_asset
+  def dca_dual_asset_new_step_from_asset
     @bot.quote_asset_id = nil
     available_assets = @bot.available_assets_for_current_settings(asset_type: :quote_asset)
-    filtered_assets = filter_assets_by_query(assets: available_assets, query: barbell_bot_params[:query])
+    filtered_assets = filter_assets_by_query(assets: available_assets, query: dca_dual_asset_bot_params[:query])
                       .pluck(:id, :symbol, :name)
     exchanges_data = Exchange.all.pluck(:id, :name_id, :name).each_with_object([]) do |(id, name_id, name), list|
       assets = Exchange.find(id).assets.pluck(:id)
@@ -119,24 +119,24 @@ class BotsController < ApplicationController
       exchanges = exchanges_data.select { |_, _, assets| assets.include?(id) }
       [id, symbol, name, exchanges.map { |e_name_id, e_name, _| [e_name_id, e_name] }]
     end
-    render 'bots/barbell/new/step_from_asset'
+    render 'bots/dca_dual_asset/new/step_from_asset'
   end
 
-  def barbell_new_step_confirm
+  def dca_dual_asset_new_step_confirm
     @bot.interval ||= 'day'
     @bot.allocation0 ||= 0.5
     if @bot.quote_amount.blank? || @bot.valid?
-      render 'bots/barbell/new/step_confirm'
+      render 'bots/dca_dual_asset/new/step_confirm'
     else
       flash.now[:alert] = @bot.errors.messages.values.flatten.to_sentence
-      render 'bots/barbell/new/step_confirm', status: :unprocessable_entity
+      render 'bots/dca_dual_asset/new/step_confirm', status: :unprocessable_entity
     end
   end
 
   def create
     @bot.set_missed_quote_amount
     if @bot.save && @bot.start(start_fresh: true)
-      session[:barbell_bot_params] = nil
+      session[:dca_dual_asset_bot_params] = nil
       render turbo_stream: turbo_stream_redirect(bot_path(@bot))
     else
       # FIXME: flash messages are not shown as they are rendered behind the modal
@@ -183,11 +183,12 @@ class BotsController < ApplicationController
   def edit; end
 
   def update
-    if @bot.barbell?
+    if @bot.dca_dual_asset?
       @bot.set_missed_quote_amount
-      barbell_bot_params_to_update = barbell_bot_params_as_hash
-      barbell_bot_params_to_update[:settings] = @bot.settings.merge(barbell_bot_params_to_update[:settings].stringify_keys)
-      if @bot.update(barbell_bot_params_to_update)
+      dca_dual_asset_bot_params_to_update = dca_dual_asset_bot_params_as_hash
+      dca_dual_asset_bot_params_to_update[:settings] =
+        @bot.settings.merge(dca_dual_asset_bot_params_to_update[:settings].stringify_keys)
+      if @bot.update(dca_dual_asset_bot_params_to_update)
         # flash.now[:notice] = t('alert.bot.bot_updated')
       else
         flash.now[:alert] = @bot.errors.messages.values.flatten.to_sentence
@@ -277,15 +278,16 @@ class BotsController < ApplicationController
     redirect_to bots_path, alert: t('bot.not_found')
   end
 
-  def set_new_barbell_bot
-    session[:barbell_bot_params] ||= {}
-    session[:barbell_bot_params] = session[:barbell_bot_params].deep_merge(barbell_bot_params_as_hash.deep_stringify_keys)
-    @bot = current_user.bots.barbell.new(session[:barbell_bot_params])
-    session[:barbell_bot_params]['label'] = @bot.label
+  def set_new_dca_dual_asset_bot
+    session[:dca_dual_asset_bot_params] ||= {}
+    session[:dca_dual_asset_bot_params] =
+      session[:dca_dual_asset_bot_params].deep_merge(dca_dual_asset_bot_params_as_hash.deep_stringify_keys)
+    @bot = current_user.bots.dca_dual_asset.new(session[:dca_dual_asset_bot_params])
+    session[:dca_dual_asset_bot_params]['label'] = @bot.label
   end
 
-  def barbell_bot_params
-    params.fetch(:bots_barbell, {}).permit(
+  def dca_dual_asset_bot_params
+    params.fetch(:bots_dca_dual_asset, {}).permit(
       :quote_amount,
       :quote_asset_id,
       :interval,
@@ -324,8 +326,8 @@ class BotsController < ApplicationController
     params.require(:api_key).permit(:key, :secret)
   end
 
-  def barbell_bot_params_as_hash
-    permitted_params = barbell_bot_params.to_h
+  def dca_dual_asset_bot_params_as_hash
+    permitted_params = dca_dual_asset_bot_params.to_h
     settings = permitted_params.except(:exchange_id, :label, :query).tap do |pp|
       pp[:base0_asset_id] = pp[:base0_asset_id].presence&.to_i
       pp[:base1_asset_id] = pp[:base1_asset_id].presence&.to_i

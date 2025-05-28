@@ -15,8 +15,8 @@
     <div class="columns">
       <div class="column gap-1">
         <%= render partial: "bots/description", locals: { bot: @bot } %>
-        <% if @bot.barbell? %>
-          <%= render partial: "bots/barbell/settings", locals: { bot: @bot } %>
+        <% if @bot.dca_dual_asset? %>
+          <%= render partial: "bots/dca_dual_asset/settings", locals: { bot: @bot } %>
         <% end %>
       </div>
       <div class="column gap-1">

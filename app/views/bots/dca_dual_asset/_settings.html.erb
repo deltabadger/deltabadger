@@ -1,6 +1,6 @@
 <div id="<%= bot.new_record? ? "new-settings" : "settings" %>" class="column gap-1">
-  <%= render partial: "bots/barbell/settings/main", locals: { bot: bot } %>
-  <%= render partial: "bots/barbell/settings/marketcap_allocation", locals: { bot: bot } %>
+  <%= render partial: "bots/dca_dual_asset/settings/main", locals: { bot: bot } %>
+  <%= render partial: "bots/dca_dual_asset/settings/marketcap_allocation", locals: { bot: bot } %>
   <%= render partial: "bots/settings/smart_intervals", locals: { bot: bot } %>
   <%#= render partial: "bots/settings/weekday", locals: { bot: bot } %>
   <%#= render partial: "bots/settings/time_limit", locals: { bot: bot } %>

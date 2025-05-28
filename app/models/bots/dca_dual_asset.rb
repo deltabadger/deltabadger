@@ -1,4 +1,4 @@
-class Bots::Barbell < Bot
+class Bots::DcaDualAsset < Bot
   include ActionCable::Channel::Broadcasting
 
   store_accessor :settings,
@@ -12,7 +12,7 @@ class Bots::Barbell < Bot
   validates :quote_amount, presence: true, numericality: { greater_than: 0 }
   validates :interval, presence: true, inclusion: { in: INTERVALS }
   validates :allocation0, presence: true, numericality: { greater_than_or_equal_to: 0, less_than_or_equal_to: 1 }
-  validate :validate_barbell_bot_exchange, if: :exchange_id?, on: :update
+  validate :validate_bot_exchange, if: :exchange_id?, on: :update
   validate :validate_external_ids, on: :update
   validate :validate_unchangeable_assets, on: :update
   validate :validate_unchangeable_interval, on: :update
@@ -26,10 +26,10 @@ class Bots::Barbell < Bot
   include PriceLimitable        # decorators for: pending_quote_amount, execute_action, stop
   include Schedulable
   include OrderCreator
-  include Bots::Barbell::OrderSetter
-  include Bots::Barbell::Measurable
-  include Bots::Barbell::Fundable
-  include Bots::Barbell::MarketcapAllocatable
+  include Bots::DcaDualAsset::OrderSetter
+  include Bots::DcaDualAsset::Measurable
+  include Bots::DcaDualAsset::Fundable
+  include Bots::DcaDualAsset::MarketcapAllocatable
 
   def with_api_key
     exchange.set_client(api_key: api_key) if exchange.present? && (exchange.api_key.blank? || exchange.api_key != api_key)
@@ -93,7 +93,7 @@ class Bots::Barbell < Bot
   def execute_action
     notify_if_funds_are_low
     update!(status: :executing)
-    result = set_barbell_orders(
+    result = set_orders(
       total_orders_amount_in_quote: pending_quote_amount,
       update_missed_quote_amount: true
     )
@@ -106,7 +106,7 @@ class Bots::Barbell < Bot
 
   def available_exchanges_for_current_settings
     base_asset_ids = [base0_asset_id, base1_asset_id].compact
-    scope = ExchangeTicker.where(exchange: Exchange.available_for_barbell_bots)
+    scope = ExchangeTicker.where(exchange: Exchange.available_for_new_bots)
     scope = scope.where(quote_asset_id: quote_asset_id) if quote_asset_id.present?
     scope = scope.where(base_asset_id: base_asset_ids) if base_asset_ids.any?
     exchange_ids = if base_asset_ids.size > 1
@@ -122,7 +122,7 @@ class Bots::Barbell < Bot
 
   # @param asset_type: :base_asset or :quote_asset
   def available_assets_for_current_settings(asset_type:, include_exchanges: false)
-    available_exchanges = exchange.present? ? [exchange] : Exchange.available_for_barbell_bots
+    available_exchanges = exchange.present? ? [exchange] : Exchange.available_for_new_bots
     base_asset_ids = [base0_asset_id, base1_asset_id].compact
 
     case asset_type
@@ -206,7 +206,7 @@ class Bots::Barbell < Bot
     broadcast_replace_to(
       ["user_#{user_id}", :bot_updates],
       target: 'modal',
-      partial: 'bots/barbell/warning_below_minimums',
+      partial: 'bots/dca_dual_asset/warning_below_minimums',
       locals: locals_for_below_minimums_warning(first_transaction, second_transaction)
     )
   end
@@ -219,7 +219,7 @@ class Bots::Barbell < Bot
     errors.add(:quote_asset_id, :invalid) unless Asset.exists?(quote_asset_id)
   end
 
-  def validate_barbell_bot_exchange
+  def validate_bot_exchange
     return if exchange.tickers.exists?(base_asset: base0_asset, quote_asset: quote_asset) &&
               exchange.tickers.exists?(base_asset: base1_asset, quote_asset: quote_asset)
 

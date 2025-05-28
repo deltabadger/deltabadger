@@ -1,6 +1,6 @@
 desc 'rake task to update barbell bots settings'
 task update_barbell_bots_settings: :environment do
-  Bot.where(type: 'Bots::Barbell').find_each do |bot|
+  Bot.dca_dual_asset.find_each do |bot|
     next if bot.settings.blank?
 
     puts "Updating bot #{bot.id}"

@@ -1,4 +1,4 @@
-class SurveysOnboardingsController < ApplicationController
+class Surveys::OnboardingsController < ApplicationController
   before_action :authenticate_user!
   skip_before_action :check_onboarding_survey
   before_action :check_onboarding_status

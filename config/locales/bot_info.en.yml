@@ -2,7 +2,7 @@ en:
     bot_info:
         how_to_use: |
             <p>Here a few examples of how to use it:</p>
-        barbell:
+        dca_dual_asset:
             info: |
                 <p><strong>Rebalanced DCA</strong> into two assets.</p>
                 <p>The bot achieves rebalancing using only BUY orders, so it never creates tax events while still targeting your desired allocation.</p>

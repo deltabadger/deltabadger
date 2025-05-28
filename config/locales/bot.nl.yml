@@ -8,7 +8,7 @@ nl:
             dca:
                 title: "DCA"
                 description: "Enkele-asset DCA"
-            barbell:
+            dca_dual_asset:
                 title: "Barbell Strategie"
                 description: "Twee-asset geherbalanceerde DCA"
             index_portfolio:
@@ -22,7 +22,7 @@ nl:
             paused: "Gepauzeerd"
             next_try: "Volgende poging in"
             waiting: "Wachten tot aan alle voorwaarden is voldaan"
-        barbell:
+        dca_dual_asset:
             invest: "Investeren"
             invest_html: "Investeer %{input} /maand"
         utils:

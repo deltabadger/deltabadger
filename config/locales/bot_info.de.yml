@@ -2,7 +2,7 @@ de:
   bot_info:
     how_to_use: |
       <p>Hier sind einige Beispiele zur Nutzung:</p>
-    barbell:
+    dca_dual_asset:
       info: |
         <p><strong>Ausbalanciertes DCA</strong> in zwei Assets.</p>
         <p>Der Bot erreicht die Neugewichtung ausschließlich durch KAUF-Orders, sodass keine steuerpflichtigen Ereignisse entstehen und dennoch Ihre gewünschte Allokation erreicht wird.</p>

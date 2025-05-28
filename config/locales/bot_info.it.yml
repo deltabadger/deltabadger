@@ -2,7 +2,7 @@ it:
   bot_info:
     how_to_use: |
       <p>Ecco alcuni esempi di come utilizzarlo:</p>
-    barbell:
+    dca_dual_asset:
       info: |
         <p><strong>DCA Ribilanciato</strong> tra due asset.</p>
         <p>Il bot esegue il ribilanciamento utilizzando solo ordini di ACQUISTO, così non genera mai eventi fiscali mentre raggiunge l'allocazione desiderata.</p>

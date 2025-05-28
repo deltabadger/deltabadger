@@ -1,4 +1,4 @@
-module Bots::Barbell::Measurable
+module Bots::DcaDualAsset::Measurable
   extend ActiveSupport::Concern
 
   def metrics(force: false)

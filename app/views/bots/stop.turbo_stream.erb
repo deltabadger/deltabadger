@@ -1,4 +1,4 @@
-<% if @bot.barbell? %>
-  <%= turbo_stream.replace 'settings', partial: 'bots/barbell/settings', locals: { bot: @bot } %>
+<% if @bot.dca_dual_asset? %>
+  <%= turbo_stream.replace 'settings', partial: 'bots/dca_dual_asset/settings', locals: { bot: @bot } %>
 <% end %>
 <%= turbo_stream.replace 'exchange_select', partial: 'bots/exchange_select', locals: { bot: @bot } %>

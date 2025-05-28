@@ -17,12 +17,12 @@
             <p class="index-info"><%= t('bot.types.dca.description') %></p>
         <% end %>
 
-        <% path = current_user.subscription.free? ? upgrade_upgrade_instructions_path : barbell_new_step_to_first_asset_bots_path %>
-        <%= button_to path, method: :get, params: { bots_barbell: {label: nil}}, class: 'itile itile--bot-type', data: { turbo_frame: 'modal', action: 'click->modal--base#animateOutCloseAndCleanUp' } do %>
+        <% path = current_user.subscription.free? ? upgrade_upgrade_instructions_path : dca_dual_asset_new_step_to_first_asset_bots_path %>
+        <%= button_to path, method: :get, params: { bots_dca_dual_asset: {label: nil}}, class: 'itile itile--bot-type', data: { turbo_frame: 'modal', action: 'click->modal--base#animateOutCloseAndCleanUp' } do %>
             <b class="sbadge sbadge--beta"><%= t('utils.beta') %></b>
             <div class="theme-img" style="background-image: url('<%= asset_path('strategy--barbell.webp') %>')"></div>
-            <div class="index-title"><%= t('bot.types.barbell.title') %></div>
-            <p class="index-info"><%= t('bot.types.barbell.description') %></p>
+            <div class="index-title"><%= t('bot.types.dca_dual_asset.title') %></div>
+            <p class="index-info"><%= t('bot.types.dca_dual_asset.description') %></p>
         <% end %>
 
         <!--

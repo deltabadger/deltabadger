@@ -3,16 +3,16 @@
 
 <%= render 'layouts/modal/full_page' do %>
   <div class="bot-creation-layout">
-    <%= render partial: 'bots/barbell/new/progress_bar', locals: { current_step: :exchange } %>
+    <%= render partial: 'bots/dca_dual_asset/new/progress_bar', locals: { current_step: :exchange } %>
 
     <div class="conversational conversational--bot-setup">
       <%= t('bot.setup.sentence.invest_in') %>
-      <%= link_to @bot.base0_asset.symbol, barbell_new_step_to_first_asset_bots_path, data: { turbo_frame: "modal_content" }, class: "ticker", style: "background: #{base0_color}" %>
+      <%= link_to @bot.base0_asset.symbol, dca_dual_asset_new_step_to_first_asset_bots_path, data: { turbo_frame: "modal_content" }, class: "ticker", style: "background: #{base0_color}" %>
       <%= t('bot.setup.sentence.and') %>
-      <%= link_to @bot.base1_asset.symbol, barbell_new_step_to_second_asset_bots_path, data: { turbo_frame: "modal_content" }, class: "ticker", style: "background: #{base1_color}" %>
+      <%= link_to @bot.base1_asset.symbol, dca_dual_asset_new_step_to_second_asset_bots_path, data: { turbo_frame: "modal_content" }, class: "ticker", style: "background: #{base1_color}" %>
       <div style="display: flex; gap: 1rem">
         <%= t('bot.setup.sentence.at') %>
-        <%= form_with model: @bot, url: barbell_new_step_exchange_bots_path, method: :get, data: { controller: "form--submit-after-delay", turbo_frame: "exchange-picker" } do |f| %>
+        <%= form_with model: @bot, url: dca_dual_asset_new_step_exchange_bots_path, method: :get, data: { controller: "form--submit-after-delay", turbo_frame: "exchange-picker" } do |f| %>
           <%= f.text_field :query, autofocus: true, autocomplete: "off", placeholder: "…", data: { action: "input->form--submit-after-delay#submit" }, class: "conversational__input" %>
         <% end %>
       </div>
@@ -26,7 +26,7 @@
         <div>Withdrawal (₿)</div>
       </div>
       <div class="selectable-options">
-        <%= form_with model: @bot, url: barbell_new_step_api_key_bots_path, method: :get do |f| %>
+        <%= form_with model: @bot, url: dca_dual_asset_new_step_api_key_bots_path, method: :get do |f| %>
           <% @exchanges.each do |exchange| %>
             <%= render partial: "bots/exchange_search_result", locals: { bot: @bot, exchange: exchange } %>
           <% end %>

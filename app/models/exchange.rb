@@ -13,9 +13,9 @@ class Exchange < ApplicationRecord
   validates :name, presence: true
 
   scope :available, -> { where.not(name: ['FTX', 'FTX.US', 'Coinbase Pro']) }
-  scope :available_for_barbell_bots, lambda {
-                                       where(name: %w[Coinbase Kraken])
-                                     } # FIXME: Temporary until all exchanges are supported
+  scope :available_for_new_bots, lambda {
+                                   where(name: %w[Coinbase Kraken])
+                                 } # FIXME: Temporary until all exchanges are supported
 
   include RemoteDataAggregator
 

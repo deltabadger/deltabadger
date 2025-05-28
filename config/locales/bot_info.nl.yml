@@ -2,7 +2,7 @@ nl:
   bot_info:
     how_to_use: |
       <p>Hier zijn enkele voorbeelden van hoe je het kunt gebruiken:</p>
-    barbell:
+    dca_dual_asset:
       info: |
         <p><strong>Geherbalanceerde DCA</strong> tussen twee assets.</p>
         <p>De bot bereikt herbalancering door alleen KOOP-orders te gebruiken, waardoor er nooit belastbare gebeurtenissen ontstaan terwijl je gewenste allocatie wordt bereikt.</p>
