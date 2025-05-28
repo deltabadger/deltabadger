@@ -1,4 +1,4 @@
-module Bots::Barbell::MarketcapAllocatable
+module Bots::DcaDualAsset::MarketcapAllocatable
   extend ActiveSupport::Concern
 
   included do
@@ -24,7 +24,7 @@ module Bots::Barbell::MarketcapAllocatable
     else
       Rails.logger.error("Failed to get market cap for #{base0_asset.symbol}") if result0.failure?
       Rails.logger.error("Failed to get market cap for #{base1_asset.symbol}") if result1.failure?
-      raise StandardError, "Failed to get market cap adjusted allocation for barbell bot #{id}"
+      raise StandardError, "Failed to get market cap adjusted allocation for DCA Dual Asset bot #{id}"
     end
   end
 

@@ -1,5 +1,5 @@
 <%= form_with model: bot,
-              url: bot.new_record? ? barbell_new_step_confirm_bots_path : bot_path(bot),
+              url: bot.new_record? ? dca_dual_asset_new_step_confirm_bots_path : bot_path(bot),
               method: bot.new_record? ? :get : :patch,
               class: "widget",
               data: { controller: "form--submit", turbo_stream: true } do |f| %>

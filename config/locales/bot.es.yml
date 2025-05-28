@@ -8,7 +8,7 @@ es:
             dca:
                 title: "DCA"
                 description: "DCA de un solo activo"
-            barbell:
+            dca_dual_asset:
                 title: "Estrategia Barbell"
                 description: "DCA rebalanceado de dos activos"
             index_portfolio:
@@ -22,7 +22,7 @@ es:
             paused: "Pausado"
             next_try: "Próximo intento en"
             waiting: "Esperando a que se cumplan todas las condiciones"
-        barbell:
+        dca_dual_asset:
             invest: "Invertir"
             invest_html: "Invertir %{input} /mes"
         utils:
@@ -182,7 +182,7 @@ es:
                 sentence_html: "%{timing_condition} cuando el precio de %{base} esté %{price_condition} %{price} %{quote}"
                 timing_condition:
                     while: "Comprar solo"
-                    after: "Empezar a comprar" 
+                    after: "Empezar a comprar"
                 price_condition:
                     above: "por encima de"
                     below: "por debajo de"

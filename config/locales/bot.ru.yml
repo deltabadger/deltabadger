@@ -8,7 +8,7 @@ ru:
             dca:
                 title: "DCA"
                 description: "DCA одного актива"
-            barbell:
+            dca_dual_asset:
                 title: "Стратегия Barbell"
                 description: "DCA с ребалансировкой двух активов"
             index_portfolio:
@@ -22,7 +22,7 @@ ru:
             paused: "На паузе"
             next_try: "Следующая попытка через"
             waiting: "Ожидание выполнения всех условий"
-        barbell:
+        dca_dual_asset:
             invest: "Инвестировать"
             invest_html: "Инвестировать %{input} /месяц"
         utils:
