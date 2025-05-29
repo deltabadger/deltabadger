@@ -95,7 +95,6 @@ class BotsController < ApplicationController
   end
 
   def new_api_key
-    puts 'new_api_key!! wtf'
     @api_key = @bot.api_key
   end
 
@@ -150,7 +149,6 @@ class BotsController < ApplicationController
   private
 
   def set_bot
-    puts 'set_bot wtf'
     @bot = current_user.bots.find(params[:id])
   rescue ActiveRecord::RecordNotFound
     redirect_to bots_path, alert: t('bot.not_found')
