@@ -1,0 +1,29 @@
+<%= render 'layouts/modal/base' do %>
+  <div class="modal">
+    <%= button_tag class: 'modal__close', data: { action: 'modal--base#animateOutCloseAndCleanUp' } do %>
+      <%= render partial: 'svg/24x24_close' %>
+    <% end %>
+    <div class="modal__header">
+      <h1 class="modal__title"><%= @bot.label %></h1>
+    </div>
+    <div class="modal__body text-center">
+      <% if @bot.restarting_within_interval? %>
+        <p>
+          <%= t('bot.buttons.start.on_schedule.info_html', time: distance_of_time_in_words(Time.current, @bot.next_interval_checkpoint_at)) %>
+        </p>
+        <div class="buttons buttons--col">
+          <%= button_to t('bot.buttons.start.on_schedule.skip'), bot_start_path(@bot, start_fresh: true), method: :patch, class: 'button button--outline button--large', data: { action: 'click->modal--base#animateOutCloseAndCleanUp' } %>
+          <%= button_to t('bot.buttons.start.on_schedule.continue'), bot_start_path(@bot, start_fresh: false), method: :patch, class: 'button button--success button--large', data: { action: 'click->modal--base#animateOutCloseAndCleanUp' } %>
+        </div>
+      <% else %>
+        <p>
+          <%= t('bot.buttons.start.missed.info_html', amount: @bot.pending_quote_amount.round(@bot.decimals[:quote]), quote: @bot.quote_asset.symbol) %>
+        </p>
+        <div class="buttons buttons--col">
+          <%= button_to t('bot.buttons.start.missed.skip'), bot_start_path(@bot, start_fresh: true), method: :patch, class: 'button button--outline button--large', data: { action: 'click->modal--base#animateOutCloseAndCleanUp' } %>
+          <%= button_to t('bot.buttons.start.missed.continue'), bot_start_path(@bot, start_fresh: false), method: :patch, class: 'button button--success button--large', data: { action: 'click->modal--base#animateOutCloseAndCleanUp' } %>
+        </div>
+      <% end %>
+    </div>
+  </div>
+<% end %>
