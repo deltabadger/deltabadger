@@ -71,7 +71,8 @@ pt:
                 enter_two_fa_code: 'Insira o código 2FA'
                 scan_code_info: 'Digitalize o código QR ou copie o código abaixo:'
             user:
-                current_password: 'Palavra-passe atual'
+                name: Nome
+                current_password: 'Senha atual'
                 email: E-mail
                 new_name: 'Novo nome'
                 new_email: 'Novo e-mail'
