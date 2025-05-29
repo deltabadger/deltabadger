@@ -8,11 +8,11 @@
         width: calc(100vw - 2rem)
         height: calc(100vh - 2rem)
         max-width: 120rem
-        max-height: 70rem
+        max-height: 64rem
         text-align: center
         gap: 1rem
         @media (min-width: 768px)
-            max-height: 40rem
+            max-height: 64rem
         &--1
             .onboarding-survey__options
                 display: flex
@@ -45,15 +45,22 @@
         grid-template-columns: repeat(3, 1fr)
         gap: 1rem
         height: 100%
+        @media (min-width: 768px)
+            grid-template-columns: repeat(4, 1fr)
         &__item
+            font-size: 1.8rem
             display: flex
             align-items: center
             justify-content: center
-            min-height: 8rem
+            min-height: 5rem
             background-color: var(--widget-background)
-            border-radius: 2rem
+            border-radius: 1rem
             cursor: pointer
             font-weight: 600 !important
+            @media (min-width: 768px)
+                border-radius: 2rem
+                font-size: 2rem
+                min-height: 8rem
             &__checkbox
                 display: none
             &.active
@@ -62,11 +69,17 @@
     &__title
         font-size: 2.5rem !important
         line-height: 3rem !important
-        padding: 3rem 0
+        padding: 0 0 3rem
+        @media (min-width: 768px)
+            padding: 3rem 0
+            font-size: 3rem !important
+            line-height: 3.5rem !important
     &__actions
-        padding-top: 3rem
+        
         display: flex
         justify-content: stretch
-        button
+        @media (min-width: 768px)
+            padding-top: 3rem
+        .button
             width: 100%
-            max-width: 44rem
+            max-width: 44rem !important

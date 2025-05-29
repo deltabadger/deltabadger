@@ -71,6 +71,7 @@ it:
                 enter_two_fa_code: 'Inserisci codice 2FA'
                 scan_code_info: 'Scansiona il codice QR o copia il codice qui sotto:'
             user:
+                name: Nome
                 current_password: 'Password attuale'
                 email: Email
                 new_name: 'Nuovo nome'

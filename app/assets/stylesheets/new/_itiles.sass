@@ -2,10 +2,14 @@
     display: grid
     grid-template-columns: 1fr
     gap: 1rem
+    .itile
+        height: 100%
     @media screen and (min-width: 576px)
         grid-template-columns: repeat(auto-fill, minmax(280px, 1fr))
 .itile
-    padding: 20rem 3rem 3rem
+    padding: 10rem 3rem 3rem
+    @media screen and (min-width: 768px)
+        padding: 20rem 3rem 3rem
     &:not(.itile--soon)
         &:hover,&.active
             .theme-img
@@ -149,10 +153,13 @@
     font-size: 1.75rem
     line-height: 2.65rem
     font-weight: 500
-    display: block
+    display: flex
+    flex-direction: column
+    gap: 1rem
     overflow: hidden
     opacity: 0.75
     flex-grow: 2
+
 .index-assets
     padding-top: 1.5rem
     display: flex
