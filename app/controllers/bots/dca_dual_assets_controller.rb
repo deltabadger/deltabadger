@@ -165,7 +165,6 @@ class Bots::DcaDualAssetsController < ApplicationController
   def set_bot
     @bot = current_user.bots.find(params[:id])
   rescue ActiveRecord::RecordNotFound
-    puts 'wtf'
     redirect_to bots_path, alert: t('bot.not_found')
   end
 
