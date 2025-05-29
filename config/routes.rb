@@ -122,31 +122,27 @@ Rails.application.routes.draw do
       "/#{request.params[:locale] || I18n.default_locale}/bots"
     }
 
-    resources :bots do
-      get :show_index_bot, on: :collection # TODO: move to custom :show logic according to bot type
-      member do
-        get :asset_search
-        get :new_api_key
-        post :create_api_key
-        post :start
-        post :stop
-        post :show
-        get :confirm_restart
-        get :confirm_restart_legacy
-        get :confirm_destroy
+    namespace :bots do
+      resources :dca_dual_assets, only: [:create], path: 'barbell'
+      namespace :dca_dual_assets, path: 'barbell' do
+        resource :pick_first_buyable_asset, only: [:new, :create]
+        resource :pick_second_buyable_asset, only: [:new, :create]
+        resource :pick_exchange, only: [:new, :create]
+        resource :add_api_key, only: [:new, :create]
+        resource :pick_spendable_asset, only: [:new, :create]
+        resource :confirm_settings, only: [:new, :create]
       end
     end
 
-    namespace :bots do
-      resources :dca_dual_assets, only: [:new, :create, :show, :update], path: 'barbell' do
-        collection do
-          get :new_step_one       # Pick first asset to buy
-          get :new_step_two       # Pick second asset to buy
-          get :new_step_three     # Pick exchange
-          get :new_step_four      # Add API key
-          post :create_step_four  # Create API key
-          get :new_step_five      # Pick asset to spend
-        end
+    resources :bots do
+      resource :start, only: [:edit, :update], controller: 'bots/starts'
+      resource :stop, only: [:update], controller: 'bots/stops'
+      resource :delete, only: [:edit, :destroy], controller: 'bots/deletes'
+      resource :add_api_key, only: [:new, :create], controller: 'bots/add_api_keys'
+      get :show_index_bot, on: :collection # TODO: move to custom :show logic according to bot type
+      member do
+        get :asset_search
+        post :show
       end
     end
 

@@ -4,7 +4,7 @@
 
     <div class="bot-creation-preview">
       <div class="flex-row">
-        <%= link_to new_step_three_bots_dca_dual_assets_path, data: { turbo_frame: "modal_content" }, class: "sinput sinput--select sinput--exchange sinput--exchange--#{@bot.exchange.name_id}" do %>
+        <%= link_to new_bots_dca_dual_assets_pick_exchange_path, data: { turbo_frame: "modal_content" }, class: "sinput sinput--select sinput--exchange sinput--exchange--#{@bot.exchange.name_id}" do %>
           <%= render "svg/exchange-#{@bot.exchange.name_id}", title: @bot.exchange.name %>
           <%= @bot.exchange.name.capitalize %>
         <% end %>
