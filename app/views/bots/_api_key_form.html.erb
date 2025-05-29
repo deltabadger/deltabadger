@@ -1,30 +1,7 @@
-<% base0_color = ensure_contrast(@bot.base0_asset&.color || "#8A9BA8") %>
-<% base1_color = ensure_contrast(@bot.base1_asset&.color || "#8A9BA8") %>
-
-<%= render 'layouts/modal/full_page' do %>
-  <div class="bot-creation-layout">
-    <%= render partial: 'bots/dca_dual_asset/new/progress_bar', locals: { current_step: :api } %>
-
-    <div class="conversational conversational--bot-setup">
-      <%= t('bot.setup.sentence.invest_in') %>
-      <%= link_to @bot.base0_asset.symbol, dca_dual_asset_new_step_to_first_asset_bots_path, data: { turbo_frame: "modal_content" }, class: "ticker", style: "background: #{base0_color}" %>
-      <%= t('bot.setup.sentence.and') %>
-      <%= link_to @bot.base1_asset.symbol, dca_dual_asset_new_step_to_second_asset_bots_path, data: { turbo_frame: "modal_content" }, class: "ticker", style: "background: #{base1_color}" %>
-      <div style="display: flex; gap: 1rem">
-        <%= t('bot.setup.sentence.at') %>
-        <%= link_to dca_dual_asset_new_step_exchange_bots_path, data: { turbo_frame: "modal_content" }, class: "sinput sinput--select sinput--exchange sinput--exchange--#{@bot.exchange.name_id}" do %>
-          <%= render "svg/exchange-#{@bot.exchange.name_id}", title: @bot.exchange.name %>
-          <%= @bot.exchange.name.capitalize %>
-        <% end %>
-      </div>
-    </div>
-
     <div class="set-api">
       <div class="set-api__form">
-
-        <h2 class="set-api__header"><%= t('bot.add_api_keys', exchange: @bot.exchange.name.capitalize) %></h2>
-
-        <%= form_with model: @api_key, url: dca_dual_asset_new_step_api_key_create_bots_path, method: :post, data: { controller: "form--label-animations form--html5-validations", turbo_frame: 'modal_content' } do |f| %>
+        <h2 class="set-api__header"><%= t('bot.add_api_keys', exchange: bot.exchange.name.capitalize) %></h2>
+        <%= form_with model: api_key, url: path, method: :post, data: form_data do |f| %>
           <div class="db-form__row db-form__row--input">
             <%= f.text_field :key, autofocus: true, data: { controller: "autofocus" }, class: "db-form__input", rows: 3 %>
             <%= f.label :key, "API Key", class: "db-form__label" %>
@@ -38,11 +15,10 @@
           </div>
         <% end %>
       </div>
-
       <div class="set-api__instructions">
-        <h2 class="set-api__header"><%= t('bot.setup.how_to_get_keys', exchange: @bot.exchange.name) %></h2>
+        <h2 class="set-api__header"><%= t('bot.setup.how_to_get_keys', exchange: bot.exchange.name) %></h2>
         <ol class="set-__list">
-          <% exchange_key = @bot.exchange.name_id %>
+          <% exchange_key = bot.exchange.name_id %>
           <% instructions = t("bot.api.#{exchange_key}") %>
 
           <% # First level keys (instructions_1, etc.) - optionally match _html %>
@@ -52,7 +28,7 @@
             <% main_num = main_key.to_s.match(/^instructions_(\d+)/)[1] %>
             <% instruction_text = instructions[main_key] %>
             <% if instruction_text.include?('%{exchange_link}') %>
-              <li><%= instruction_text.gsub('%{exchange_link}', @bot.exchange.name.capitalize).html_safe %></li>
+              <li><%= instruction_text.gsub('%{exchange_link}', bot.exchange.name.capitalize).html_safe %></li>
             <% else %>
               <li><%= instruction_text.html_safe %></li>
             <% end %>
@@ -85,5 +61,3 @@
         </ol>
       </div>
     </div>
-  </div>
-<% end %>

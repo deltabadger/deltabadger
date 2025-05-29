@@ -123,13 +123,6 @@ Rails.application.routes.draw do
     }
 
     resources :bots do
-      get :dca_dual_asset_new_step_to_first_asset, on: :collection
-      get :dca_dual_asset_new_step_to_second_asset, on: :collection
-      get :dca_dual_asset_new_step_exchange, on: :collection
-      get :dca_dual_asset_new_step_from_asset, on: :collection
-      get :dca_dual_asset_new_step_api_key, on: :collection
-      post :dca_dual_asset_new_step_api_key_create, on: :collection
-      get :dca_dual_asset_new_step_confirm, on: :collection
       get :show_index_bot, on: :collection # TODO: move to custom :show logic according to bot type
       member do
         get :asset_search
@@ -141,6 +134,19 @@ Rails.application.routes.draw do
         get :confirm_restart
         get :confirm_restart_legacy
         get :confirm_destroy
+      end
+    end
+
+    namespace :bots do
+      resources :dca_dual_assets, only: [:new, :create, :show, :update], path: 'barbell' do
+        collection do
+          get :new_step_one       # Pick first asset to buy
+          get :new_step_two       # Pick second asset to buy
+          get :new_step_three     # Pick exchange
+          get :new_step_four      # Add API key
+          post :create_step_four  # Create API key
+          get :new_step_five      # Pick asset to spend
+        end
       end
     end
 
