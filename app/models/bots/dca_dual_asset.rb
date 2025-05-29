@@ -206,7 +206,7 @@ class Bots::DcaDualAsset < Bot
     broadcast_replace_to(
       ["user_#{user_id}", :bot_updates],
       target: 'modal',
-      partial: 'bots/dca_dual_asset/warning_below_minimums',
+      partial: 'bots/dca_dual_assets/warning_below_minimums',
       locals: locals_for_below_minimums_warning(first_transaction, second_transaction)
     )
   end
