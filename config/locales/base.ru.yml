@@ -75,8 +75,9 @@ ru:
                 enter_two_fa_code: 'Введите код 2FA'
                 scan_code_info: 'Отсканируйте QR-код или скопируйте код ниже:'
             user:
+                name: Имя
                 current_password: 'Текущий пароль'
-                email: 'Электронная почта'
+                email: 'Email'
                 new_name: 'Новое имя'
                 new_email: 'Новый адрес электронной почты'
                 new_password: 'Новый пароль'
