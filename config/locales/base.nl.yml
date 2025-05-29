@@ -71,6 +71,7 @@ nl:
                 enter_two_fa_code: 'Voer 2FA code in'
                 scan_code_info: 'Scan de QR-code of kopieer de code hieronder:'
             user:
+                name: Naam
                 current_password: 'Huidig wachtwoord'
                 email: Email
                 new_name: 'Nieuwe naam'

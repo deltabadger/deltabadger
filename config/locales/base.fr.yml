@@ -71,6 +71,7 @@ fr:
                 enter_two_fa_code: 'Entrer le code A2F'
                 scan_code_info: 'Scannez le code QR ou copiez le code ci-dessous :'
             user:
+                name: Nom
                 current_password: 'Mot de passe actuel'
                 email: 'E-mail'
                 new_name: 'Nouveau nom'
