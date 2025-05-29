@@ -44,6 +44,6 @@ class ApplicationController < ActionController::Base
   def check_onboarding_survey
     return if current_user.admin?
 
-    redirect_to step_one_surveys_onboarding_path unless current_user.surveys.onboarding.exists?
+    redirect_to step_one_surveys_onboarding_path(locale: params[:locale]) unless current_user.surveys.onboarding.exists?
   end
 end
