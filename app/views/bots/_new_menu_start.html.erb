@@ -14,7 +14,7 @@
         <%= link_to bots_path(create: true), class: 'itile itile--bot-type itile--dca', data: { action: 'click->modal--base#animateOutCloseAndCleanUp', turbo: false } do %>
             <div class="theme-img" style="background-image: url('<%= asset_path('strategy--dca.webp') %>')"></div>
             <div class="index-title"><%= t('bot.types.dca.title') %></div>
-            <p class="index-info"><%= t('bot.types.dca.description') %></p>
+            <div class="index-info"><%= t('bot.types.dca.description').html_safe %></div>
         <% end %>
 
         <% path = current_user.subscription.free? ? upgrade_upgrade_instructions_path : barbell_new_step_to_first_asset_bots_path %>
@@ -22,7 +22,7 @@
             <b class="sbadge sbadge--beta"><%= t('utils.beta') %></b>
             <div class="theme-img" style="background-image: url('<%= asset_path('strategy--barbell.webp') %>')"></div>
             <div class="index-title"><%= t('bot.types.barbell.title') %></div>
-            <p class="index-info"><%= t('bot.types.barbell.description') %></p>
+            <div class="index-info"><%= t('bot.types.barbell.description').html_safe %></div>
         <% end %>
 
         <!--

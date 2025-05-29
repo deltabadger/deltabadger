@@ -7,10 +7,16 @@ pt:
         types:
             dca:
                 title: "DCA"
-                description: "DCA de ativo único"
+                description: |
+                    <p>Invista um valor fixo regularmente.</p>
+                    <p>O DCA faz a média do seu preço de compra ao longo do tempo, reduzindo o impacto da volatilidade do mercado.</p>
+                    <p>Use DCA clássico ou defina várias condições para apanhar o melhor preço.</p>
             barbell:
                 title: "Estratégia Barbell"
-                description: "DCA rebalanceado de dois ativos"
+                description: |
+                    <p>Invista regularmente em dois ativos quaisquer mantendo a sua alocação desejada.</p>
+                    <p>O bot compra automaticamente mais do ativo que cresceu menos, mantendo o seu portfólio equilibrado.</p>
+                    <p>Usando DCA rebalanceado, consegue <b>rebalanceamento sem impostos sobre ganhos de capital</b>.</p>
             index_portfolio:
                 title: "Portefólio de Índice"
                 description: "Construa o seu ETF pessoal de criptomoedas"
