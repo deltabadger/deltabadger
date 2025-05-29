@@ -8,24 +8,24 @@
 
     <div class="conversational conversational--bot-setup">
       <%= t('bot.setup.sentence.invest_in') %>
-      <%= link_to @bot.base0_asset.symbol, new_step_one_bots_dca_dual_assets_path, data: { turbo_frame: "modal_content" }, class: "ticker", style: "background: #{base0_color}" %>
+      <%= link_to @bot.base0_asset.symbol, new_bots_dca_dual_assets_pick_first_buyable_asset_path, data: { turbo_frame: "modal_content" }, class: "ticker", style: "background: #{base0_color}" %>
       <%= t('bot.setup.sentence.and') %>
-      <%= link_to @bot.base1_asset.symbol, new_step_two_bots_dca_dual_assets_path, data: { turbo_frame: "modal_content" }, class: "ticker", style: "background: #{base1_color}" %>
+      <%= link_to @bot.base1_asset.symbol, new_bots_dca_dual_assets_pick_second_buyable_asset_path, data: { turbo_frame: "modal_content" }, class: "ticker", style: "background: #{base1_color}" %>
       <div style="display: flex; gap: 1rem">
         <%= t('bot.setup.sentence.at') %>
-        <%= link_to new_step_three_bots_dca_dual_assets_path, data: { turbo_frame: "modal_content" }, class: "sinput sinput--select sinput--exchange sinput--exchange--#{@bot.exchange.name_id}" do %>
+        <%= link_to new_bots_dca_dual_assets_pick_exchange_path, data: { turbo_frame: "modal_content" }, class: "sinput sinput--select sinput--exchange sinput--exchange--#{@bot.exchange.name_id}" do %>
           <%= render "svg/exchange-#{@bot.exchange.name_id}", title: @bot.exchange.name %>
           <%= @bot.exchange.name.capitalize %>
         <% end %>
       </div>
       <%= t('bot.setup.sentence.spending') %>
-      <%= form_with model: @bot, url: new_step_five_bots_dca_dual_assets_path, method: :get, data: { controller: "form--submit-after-delay", turbo_frame: "asset-picker" } do |f| %>
+      <%= form_with url: new_bots_dca_dual_assets_pick_spendable_asset_path, method: :get, data: { controller: "form--submit-after-delay", turbo_frame: "asset-picker" } do |f| %>
         <%= f.text_field :query, autofocus: true, autocomplete: "off", placeholder: "…", data: { action: "input->form--submit-after-delay#submit" }, class: "conversational__input" %>
       <% end %>
     </div>
 
     <%= turbo_frame_tag "asset-picker", data: { action: "keydown@window->arrow-keys-navigation#navigate", controller: "arrow-keys-navigation" }, class: "modal--search__assets selectable-options" do %>
-      <%= form_with model: @bot, url: new_bots_dca_dual_asset_path, method: :get do |f| %>
+      <%= form_with model: @bot, url: bots_dca_dual_assets_pick_spendable_asset_path, method: :post do |f| %>
         <% @assets.each do |id, symbol, name, exchanges| %>
           <%= render partial: "bots/asset_search_result", locals: { bot: @bot, asset_field: :quote_asset_id, id: id, symbol: symbol, name: name, exchanges: exchanges } %>
         <% end %>
