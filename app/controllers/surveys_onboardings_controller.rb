@@ -18,17 +18,29 @@ class SurveysOnboardingsController < ApplicationController
 
     @survey = current_user.surveys.onboarding.new(answers: { investment_goal: survey_params[:investment_goal] })
     @exchanges = [
-      { id: 'coinbase', name: 'Coinbase' },
-      { id: 'kraken', name: 'Kraken' },
-      { id: 'bybit', name: 'Bybit' },
       { id: 'binance', name: 'Binance' },
-      { id: 'okx', name: 'OKX' },
-      { id: 'kucoin', name: 'KuCoin' },
-      { id: 'bitpanda', name: 'Bitpanda' },
-      { id: 'mexc', name: 'MEXC' },
-      { id: 'gateio', name: 'Gate.io' },
+      { id: 'binance_us', name: 'Binance.US' },
+      { id: 'bingx', name: 'BingX' },
+      { id: 'bitfinex', name: 'Bitfinex' },
       { id: 'bitget', name: 'Bitget' },
-      { id: 'bitvavo', name: 'Bitvavo' }
+      { id: 'bitpanda', name: 'Bitpanda' },
+      { id: 'bitso', name: 'Bitso' },
+      { id: 'bitstamp', name: 'Bitstamp' },
+      { id: 'bitvavo', name: 'Bitvavo' },
+      { id: 'btse', name: 'BTSE' },
+      { id: 'bybit', name: 'Bybit' },
+      { id: 'cexio', name: 'CEX.IO' },
+      { id: 'coinbase', name: 'Coinbase' },
+      { id: 'deribit', name: 'Deribit' },
+      { id: 'gateio', name: 'Gate.io' },
+      { id: 'gemini', name: 'Gemini' },
+      { id: 'kraken', name: 'Kraken' },
+      { id: 'kucoin', name: 'KuCoin' },
+      { id: 'mexc', name: 'MEXC' },
+      { id: 'okx', name: 'OKX' },
+      { id: 'probit', name: 'Probit Global' },
+      { id: 'whitebit', name: 'WhiteBit' },
+      { id: 'zondacrypto', name: 'Zondacrypto' }
     ].shuffle
     @exchanges << { id: 'other', name: t('onboarding.survey.step2.other') }
   end
