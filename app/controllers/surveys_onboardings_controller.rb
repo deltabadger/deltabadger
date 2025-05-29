@@ -14,7 +14,7 @@ class SurveysOnboardingsController < ApplicationController
   end
 
   def new_step_two
-    return redirect_to new_step_one unless survey_params[:investment_goal].present?
+    return redirect_to step_one_surveys_onboarding_path(locale: params[:locale]) unless survey_params[:investment_goal].present?
 
     @survey = current_user.surveys.onboarding.new(answers: { investment_goal: survey_params[:investment_goal] })
     @exchanges = [
@@ -32,7 +32,7 @@ class SurveysOnboardingsController < ApplicationController
       { id: 'cexio', name: 'CEX.IO' },
       { id: 'coinbase', name: 'Coinbase' },
       { id: 'deribit', name: 'Deribit' },
-      { id: 'gateio', name: 'Gate.io' },
+      { id: 'gateio', name: 'Gate' },
       { id: 'gemini', name: 'Gemini' },
       { id: 'kraken', name: 'Kraken' },
       { id: 'kucoin', name: 'KuCoin' },
@@ -48,16 +48,16 @@ class SurveysOnboardingsController < ApplicationController
   def create
     @survey = current_user.surveys.onboarding.new(answers: survey_params)
     if @survey.save
-      redirect_to bots_path
+      redirect_to bots_path(locale: params[:locale])
     else
-      redirect_to step_one_surveys_onboarding_path
+      redirect_to step_one_surveys_onboarding_path(locale: params[:locale])
     end
   end
 
   private
 
   def check_onboarding_status
-    redirect_to bots_path if current_user.surveys.onboarding.exists?
+    redirect_to bots_path(locale: params[:locale]) if current_user.surveys.onboarding.exists?
   end
 
   def survey_params

@@ -9,5 +9,5 @@
 <%= t('devise.mailer.confirm_email.template_html', unconfirmed_email: @resource.unconfirmed_email) %>
 
 <p>
-  <%= link_to t('devise.mailer.confirmation_instructions.confirm_button'), confirmation_url(@resource, confirmation_token: @token) %>
+  <%= link_to t('devise.mailer.confirmation_instructions.confirm_button'), confirmation_url(@resource, confirmation_token: @token, locale: I18n.locale) %>
 </p> 
