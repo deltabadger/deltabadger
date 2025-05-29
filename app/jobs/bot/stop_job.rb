@@ -10,7 +10,7 @@ class Bot::StopJob < ApplicationJob
       bot.broadcast_replace_to(
         ["user_#{bot.user_id}", :bot_updates],
         target: 'settings',
-        partial: 'bots/dca_dual_asset/settings',
+        partial: 'bots/dca_dual_assets/settings',
         locals: { bot: bot }
       )
     end
