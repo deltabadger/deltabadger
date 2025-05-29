@@ -14,21 +14,33 @@ class SurveysOnboardingsController < ApplicationController
   end
 
   def new_step_two
-    return redirect_to new_step_one unless survey_params[:investment_goal].present?
+    return redirect_to step_one_surveys_onboarding_path(locale: params[:locale]) unless survey_params[:investment_goal].present?
 
     @survey = current_user.surveys.onboarding.new(answers: { investment_goal: survey_params[:investment_goal] })
     @exchanges = [
-      { id: 'coinbase', name: 'Coinbase' },
-      { id: 'kraken', name: 'Kraken' },
-      { id: 'bybit', name: 'Bybit' },
       { id: 'binance', name: 'Binance' },
-      { id: 'okx', name: 'OKX' },
-      { id: 'kucoin', name: 'KuCoin' },
-      { id: 'bitpanda', name: 'Bitpanda' },
-      { id: 'mexc', name: 'MEXC' },
-      { id: 'gateio', name: 'Gate.io' },
+      { id: 'binance_us', name: 'Binance.US' },
+      { id: 'bingx', name: 'BingX' },
+      { id: 'bitfinex', name: 'Bitfinex' },
       { id: 'bitget', name: 'Bitget' },
-      { id: 'bitvavo', name: 'Bitvavo' }
+      { id: 'bitpanda', name: 'Bitpanda' },
+      { id: 'bitso', name: 'Bitso' },
+      { id: 'bitstamp', name: 'Bitstamp' },
+      { id: 'bitvavo', name: 'Bitvavo' },
+      { id: 'btse', name: 'BTSE' },
+      { id: 'bybit', name: 'Bybit' },
+      { id: 'cexio', name: 'CEX.IO' },
+      { id: 'coinbase', name: 'Coinbase' },
+      { id: 'deribit', name: 'Deribit' },
+      { id: 'gateio', name: 'Gate' },
+      { id: 'gemini', name: 'Gemini' },
+      { id: 'kraken', name: 'Kraken' },
+      { id: 'kucoin', name: 'KuCoin' },
+      { id: 'mexc', name: 'MEXC' },
+      { id: 'okx', name: 'OKX' },
+      { id: 'probit', name: 'Probit Global' },
+      { id: 'whitebit', name: 'WhiteBit' },
+      { id: 'zondacrypto', name: 'Zondacrypto' }
     ].shuffle
     @exchanges << { id: 'other', name: t('onboarding.survey.step2.other') }
   end
@@ -36,16 +48,16 @@ class SurveysOnboardingsController < ApplicationController
   def create
     @survey = current_user.surveys.onboarding.new(answers: survey_params)
     if @survey.save
-      redirect_to bots_path
+      redirect_to bots_path(locale: params[:locale])
     else
-      redirect_to step_one_surveys_onboarding_path
+      redirect_to step_one_surveys_onboarding_path(locale: params[:locale])
     end
   end
 
   private
 
   def check_onboarding_status
-    redirect_to bots_path if current_user.surveys.onboarding.exists?
+    redirect_to bots_path(locale: params[:locale]) if current_user.surveys.onboarding.exists?
   end
 
   def survey_params
