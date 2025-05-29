@@ -36,7 +36,7 @@ class Surveys::OnboardingsController < ApplicationController
   def create
     @survey = current_user.surveys.onboarding.new(answers: survey_params)
     if @survey.save
-      redirect_to bots_path
+      redirect_to root_path
     else
       redirect_to step_one_surveys_onboarding_path
     end
@@ -45,7 +45,7 @@ class Surveys::OnboardingsController < ApplicationController
   private
 
   def check_onboarding_status
-    redirect_to bots_path if current_user.surveys.onboarding.exists?
+    redirect_to root_path if current_user.surveys.onboarding.exists?
   end
 
   def survey_params

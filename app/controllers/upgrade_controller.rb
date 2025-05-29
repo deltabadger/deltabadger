@@ -105,7 +105,7 @@ class UpgradeController < ApplicationController
     # into the same modal partial, and crashes.
     # Seems the issue is actually related to the modal--base#animateOutCloseAndCleanUp action, which is triggered
     # but not awaited to finish before rendering the modal.
-    # The FIX must address both upgrade_upgrade_instructions_path and dca_dual_asset_new_step_to_first_asset_bots_path.
+    # The FIX must address both upgrade_upgrade_instructions_path and new_step_one_bots_dca_dual_assets_path.
     sleep 0.25
   end
 
