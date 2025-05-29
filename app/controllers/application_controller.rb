@@ -5,8 +5,8 @@ class ApplicationController < ActionController::Base
   before_action :set_raven_context
   before_action :set_no_cache, if: :user_signed_in?
   before_action :set_signed_in_cookie
-  before_action :check_onboarding_survey, if: :user_signed_in?, unless: :user_signing_out?
   around_action :switch_locale
+  before_action :check_onboarding_survey, if: :user_signed_in?, unless: :user_signing_out?
 
   def switch_locale(&action)
     locale = params[:locale] || current_user.try(:locale) || I18n.default_locale
