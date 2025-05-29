@@ -5,8 +5,8 @@ class ApplicationController < ActionController::Base
   before_action :set_raven_context
   before_action :set_no_cache, if: :user_signed_in?
   before_action :set_signed_in_cookie
-  before_action :check_onboarding_survey, if: :user_signed_in?, unless: :user_signing_out?
   around_action :switch_locale
+  before_action :check_onboarding_survey, if: :user_signed_in?, unless: :user_signing_out?
 
   def switch_locale(&action)
     locale = params[:locale] || current_user.try(:locale) || I18n.default_locale
@@ -44,6 +44,6 @@ class ApplicationController < ActionController::Base
   def check_onboarding_survey
     return if current_user.admin?
 
-    redirect_to step_one_surveys_onboarding_path(locale: params[:locale]) unless current_user.surveys.onboarding.exists?
+    redirect_to step_one_surveys_onboarding_path unless current_user.surveys.onboarding.exists?
   end
 end
