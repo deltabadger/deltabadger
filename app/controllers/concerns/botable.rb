@@ -2,7 +2,7 @@ module Botable
   extend ActiveSupport::Concern
 
   included do
-    before_action :set_bot, only: %i[new create show edit update destroy]
+    before_action :set_bot, only: %i[create show edit update destroy]
   end
 
   private
