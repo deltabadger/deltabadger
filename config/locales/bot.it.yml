@@ -16,9 +16,13 @@ it:
                 description: |
                     <p>Investi regolarmente in due asset qualsiasi con DCA ribilanciato.</p>
                     <p>Il bot compra più dell'asset che è cresciuto meno, mantenendo la tua allocazione desiderata <b>senza tasse sulle plusvalenze</b>.</p>
+            legacy:
+                title: "Legacy Bot (DCA)"
+                description: |
+                    <p>Il nostro vecchio bot DCA e prelievi automatici. Dopo aver implementato tutti gli exchange nel nuovo bot, verrà dismesso. Puoi ancora usarlo, tutti i bot verranno migrati alla nuova versione.</p>
             index_portfolio:
                 title: "Portfolio Indice"
-                description: "Costruisci il tuo ETF crypto personale"
+                description: "Costruisci il tuo ETF crypto personale. Segui il mercato generale delle criptovalute o uno degli indici per settori specifici."
             custom_portfolio:
                 title: "Portfolio Personalizzato"
                 description: "Ribilancia mix di asset personalizzato"

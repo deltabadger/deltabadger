@@ -16,9 +16,13 @@ pl:
                 description: |
                     <p>Inwestuj regularnie w dowolne dwa aktywa z rebalansowanym DCA.</p>
                     <p>Bot kupuje więcej tego aktywa, które rosło mniej, utrzymując pożądaną alokację <b>bez podatków od zysków kapitałowych</b>.</p>
+            legacy:
+                title: "Legacy Bot (DCA)"
+                description: |
+                    <p>Nasz stary bot DCA i automatyczne wypłaty. Po wdrożeniu wszystkich giełd w nowym bocie zostanie wycofany. Nadal możesz go używać, wszystkie boty zostaną przeniesione do nowej wersji.</p>
             index_portfolio:
                 title: "Portfolio Indeksowe"
-                description: "Zbuduj swój osobisty krypto ETF"
+                description: "Zbuduj swój osobisty krypto ETF. Śledź szeroki rynek kryptowalut lub jeden z indeksów dla konkretnych sektorów."
             custom_portfolio:
                 title: "Niestandardowe Portfolio"
                 description: "Rebalansuj niestandardowy zestaw aktywów"

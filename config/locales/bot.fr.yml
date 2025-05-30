@@ -16,9 +16,13 @@ fr:
                 description: |
                     <p>Investissez régulièrement dans deux actifs quelconques avec du DCA rééquilibré.</p>
                     <p>Le bot achète plus de l'actif qui a moins progressé, maintenant votre allocation souhaitée <b>sans impôts sur les plus-values</b>.</p>
+            legacy:
+                title: "Legacy Bot (DCA)"
+                description: |
+                    <p>Notre ancien bot DCA et retraits automatiques. Après l'implémentation de toutes les plateformes sur le nouveau bot, il sera retiré. Vous pouvez encore l'utiliser, tous les bots seront migrés vers la nouvelle version.</p>
             index_portfolio:
                 title: "Portefeuille Indice"
-                description: "Construisez votre ETF crypto personnel"
+                description: "Construisez votre ETF crypto personnel. Suivez le marché global des cryptomonnaies ou l'un des indices pour des secteurs spécifiques."
             custom_portfolio:
                 title: "Portefeuille Personnalisé"
                 description: "Rééquilibrer un mix d'actifs personnalisé"
