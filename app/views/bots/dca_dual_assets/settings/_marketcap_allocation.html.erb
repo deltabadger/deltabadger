@@ -1,6 +1,6 @@
 <%= form_with model: bot,
-              url: bot.new_record? ? bots_dca_dual_assets_confirm_settings_path : bot_path(bot),
-              method: bot.new_record? ? :post : :patch,
+              url: path,
+              method: method,
               class: "widget",
               data: { controller: "form--submit", turbo_stream: true } do |f| %>
   <div class="toggle-group" data-controller="class-toggle" data-class-toggle-toggle-classes-value='["hidden"]'>
