@@ -2,7 +2,7 @@ class BotsController < ApplicationController
   before_action :authenticate_user!
 
   include Pagy::Backend
-  include Botable
+  include Bots::Botable
 
   def index
     return render 'bots/react_dashboard' if params[:create] # TODO: remove this once the legacy dashboard is removed
@@ -19,11 +19,12 @@ class BotsController < ApplicationController
     end
   end
 
-  def new; end
+  def new
+    # make every every new bot config start fresh
+    session[:bot_config] = {}
+  end
 
   def show
-    return redirect_to bots_path if @bot.deleted?
-
     if request.format.turbo_stream?
       @pagy, @orders = pagy_countless(@bot.transactions.order(created_at: :desc), items: 10)
       permitted_params = params.require(:decimals).permit(*Asset.all.pluck(:symbol))
@@ -59,44 +60,18 @@ class BotsController < ApplicationController
   def edit; end
 
   def update
-    if @bot.dca_dual_asset?
-      @bot.set_missed_quote_amount
-      bot_params_to_update = bot_params_as_hash
-      bot_params_to_update[:settings] =
-        @bot.settings.merge(bot_params_to_update[:settings].stringify_keys)
-      if @bot.update(bot_params_to_update)
-        # flash.now[:notice] = t('alert.bot.bot_updated')
+    @bot.set_missed_quote_amount if @bot.dca_dual_asset?
+
+    if @bot.update(update_params)
+      # flash.now[:notice] = t('alert.bot.bot_updated')
+    else
+      flash.now[:alert] = @bot.errors.messages.values.flatten.to_sentence
+      if @bot.legacy?
+        render turbo_stream: turbo_stream_prepend_flash, status: :unprocessable_entity
       else
-        flash.now[:alert] = @bot.errors.messages.values.flatten.to_sentence
         render :update, status: :unprocessable_entity
       end
-    elsif @bot.legacy?
-      if @bot.update(update_params_legacy)
-        # flash.now[:notice] = t('alert.bot.bot_updated')
-      else
-        flash.now[:alert] = @bot.errors.messages.values.flatten.to_sentence
-        render turbo_stream: turbo_stream_prepend_flash, status: :unprocessable_entity
-      end
-    else
-      raise "Unknown bot type: #{@bot.type}"
     end
-  end
-
-  def asset_search
-    asset_type = search_params[:asset_field] == 'quote_asset_id' ? :quote_asset : :base_asset
-    available_assets = @bot.available_assets_for_current_settings(asset_type: asset_type)
-    filtered_assets = filter_assets_by_query(assets: available_assets, query: search_params[:query])
-                      .pluck(:id, :symbol, :name)
-    exchanges_data = Exchange.all.pluck(:id, :name_id,
-                                        :name).each_with_object([]) do |(id, name_id, name), list|
-      assets = Exchange.find(id).assets.pluck(:id)
-      list << [name_id, name, assets] if assets.any?
-    end
-    @assets = filtered_assets.map do |id, symbol, name|
-      exchanges = exchanges_data.select { |_, _, assets| assets.include?(id) }
-      [id, symbol, name, exchanges.map { |e_name_id, e_name, _| [e_name_id, e_name] }]
-    end
-    @asset_field = search_params[:asset_field]
   end
 
   private
@@ -113,57 +88,12 @@ class BotsController < ApplicationController
     params.require(:bots_webhook).permit(:label)
   end
 
-  def update_params_legacy
-    case @bot.type
-    when 'Bots::Basic'
-      basic_bot_params
-    when 'Bots::Withdrawal'
-      withdrawal_bot_params
-    when 'Bots::Webhook'
-      webhook_bot_params
-    end
-  end
-
-  def search_params
-    params.permit(:query, :asset_field)
-  end
-
-  def filter_assets_by_query(assets:, query:)
-    return assets.order(:market_cap_rank, :symbol) if query.blank?
-
-    assets
-      .map { |asset| [asset, similarities_for_asset(asset, query.downcase)] }
-      .select { |_, similarities| similarities.first >= 0.7 }
-      .sort_by { |asset, similarities| [similarities.map(&:-@), asset.market_cap_rank || Float::INFINITY] }
-      .map(&:first)
-  end
-
-  def similarities_for_asset(asset, query)
-    [
-      asset.symbol.present? ? JaroWinkler.similarity(asset.symbol.downcase.to_s, query) : 0,
-      asset.name.present? ? JaroWinkler.similarity(asset.name.downcase.to_s, query) : 0
-    ].sort.reverse
-  end
-
-  def filter_exchanges_by_query(exchanges:, query:)
-    return exchanges.order(:name) if query.blank?
-
-    exchanges
-      .map { |exchange| [exchange, similarities_for_exchange(exchange, query.downcase)] }
-      .select { |_, similarities| similarities.first >= 0.7 }
-      .sort_by { |_, similarities| similarities.map(&:-@) }
-      .map(&:first)
-  end
-
-  def similarities_for_exchange(exchange, query)
-    [
-      exchange.name.present? ? JaroWinkler.similarity(exchange.name.downcase.to_s, query) : 0
-    ].sort.reverse
-  end
-
-  def bot_params
+  def dca_dual_asset_bot_params
     params.require(:bots_dca_dual_asset).permit(
       :label,
+      :base0_asset_id,
+      :base1_asset_id,
+      :quote_asset_id,
       :quote_amount,
       :interval,
       :allocation0,
@@ -181,26 +111,23 @@ class BotsController < ApplicationController
     )
   end
 
-  def bot_params_as_hash
-    permitted_params = bot_params.to_h
-    settings = permitted_params.except(:exchange_id, :label, :query).tap do |pp|
-      pp[:quote_amount] = pp[:quote_amount].presence&.to_f
-      pp[:allocation0] = pp[:allocation0].presence&.to_f
-      pp[:marketcap_allocated] = pp[:marketcap_allocated].presence&.in?(%w[1 true])
-      pp[:quote_amount_limited] = pp[:quote_amount_limited].presence&.in?(%w[1 true])
-      pp[:quote_amount_limit] = pp[:quote_amount_limit].presence&.to_f
-      pp[:price_limited] = pp[:price_limited].presence&.in?(%w[1 true])
-      pp[:price_limit] = pp[:price_limit].presence&.to_f
-      pp[:price_limit_timing_condition] = pp[:price_limit_timing_condition].presence
-      pp[:price_limit_price_condition] = pp[:price_limit_price_condition].presence
-      pp[:price_limit_in_ticker_id] = pp[:price_limit_in_ticker_id].presence&.to_i
-      pp[:smart_intervaled] = pp[:smart_intervaled].presence&.in?(%w[1 true])
-      pp[:smart_interval_quote_amount] = pp[:smart_interval_quote_amount].presence&.to_f
-    end.compact
-    {
-      settings: settings,
-      exchange_id: permitted_params[:exchange_id],
-      label: permitted_params[:label].presence
-    }.compact
+  def update_params
+    if @bot.basic?
+      basic_bot_params
+    elsif @bot.withdrawal?
+      withdrawal_bot_params
+    elsif @bot.webhook?
+      webhook_bot_params
+    elsif @bot.dca_dual_asset?
+      {
+        settings: @bot.settings.merge(
+          @bot.parsed_settings(dca_dual_asset_bot_params).stringify_keys
+        ),
+        exchange_id: dca_dual_asset_bot_params[:exchange_id],
+        label: dca_dual_asset_bot_params[:label].presence
+      }.compact
+    else
+      raise "Unknown bot type: #{@bot.type}"
+    end
   end
 end
