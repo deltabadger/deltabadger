@@ -46,6 +46,17 @@ module Bot::SmartIntervalable
         self.quote_amount = quote_amount_bak
         value
       end
+
+      def restarting_within_interval?
+        return super unless smart_intervaled? &&
+                            smart_interval_quote_amount.present?
+
+        quote_amount_bak = quote_amount
+        self.quote_amount = smart_interval_quote_amount
+        value = super
+        self.quote_amount = quote_amount_bak
+        value
+      end
     end
 
     prepend decorators
