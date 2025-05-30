@@ -1,4 +1,4 @@
-module Bots::DcaDualAsset::OrderSetter # rubocop:disable Metrics/ModuleLength
+module Bots::DcaSingleAsset::OrderSetter # rubocop:disable Metrics/ModuleLength
   extend ActiveSupport::Concern
 
   included do
@@ -15,18 +15,18 @@ module Bots::DcaDualAsset::OrderSetter # rubocop:disable Metrics/ModuleLength
     value.present? ? value.to_d : 0
   end
 
-  def set_orders(
-    total_orders_amount_in_quote:,
+  def set_order(
+    order_amount_in_quote:,
     update_missed_quote_amount: false
   )
-    Rails.logger.info("set_orders for bot #{id} with total_orders_amount_in_quote: #{total_orders_amount_in_quote}, update_missed_quote_amount: #{update_missed_quote_amount}")
-    raise StandardError, 'quote_amount is required' if total_orders_amount_in_quote.blank?
-    raise StandardError, 'quote_amount must be positive' if total_orders_amount_in_quote.negative?
-    return Result::Success.new if total_orders_amount_in_quote.zero? || total_orders_amount_in_quote.negative?
+    Rails.logger.info("set_orders for bot #{id} with order_amount_in_quote: #{order_amount_in_quote}, update_missed_quote_amount: #{update_missed_quote_amount}")
+    raise StandardError, 'quote_amount is required' if order_amount_in_quote.blank?
+    raise StandardError, 'quote_amount must be positive' if order_amount_in_quote.negative?
+    return Result::Success.new if order_amount_in_quote.zero? || order_amount_in_quote.negative?
 
-    result = get_orders(total_orders_amount_in_quote)
+    result = get_order(order_amount_in_quote)
     unless result.success?
-      Rails.logger.error("set_orders for bot #{id} failed to get orders: #{result.errors.inspect}")
+      Rails.logger.error("set_order for bot #{id} failed to get order: #{result.errors.inspect}")
       create_failed_order!({
                              base_asset: base0_asset,
                              quote_asset: quote_asset,
@@ -35,43 +35,42 @@ module Bots::DcaDualAsset::OrderSetter # rubocop:disable Metrics/ModuleLength
       return result
     end
 
-    orders_data = result.data
-    Rails.logger.info("set_orders for bot #{id} got orders_data: #{orders_data.inspect}")
-    orders_data.each do |order_data|
-      if order_data[:amount].zero?
-        Rails.logger.info("set_orders for bot #{id} ignoring order #{order_data.inspect}")
-        next
-      end
+    order_data = result.data
+    Rails.logger.info("set_order for bot #{id} got order_data: #{order_data.inspect}")
 
-      amount_info = calculate_best_amount_info(order_data)
-      if amount_info[:below_minimum_amount]
-        Rails.logger.info("set_orders for bot #{id} creating skipped order #{order_data.inspect}")
-        create_skipped_order!(order_data)
-        next
-      end
+    if order_data[:amount].zero?
+      Rails.logger.info("set_order for bot #{id} ignoring order #{order_data.inspect}")
+      return Result::Success.new
+    end
 
-      Rails.logger.info("set_orders for bot #{id} creating order #{order_data.inspect} with amount info #{amount_info.inspect}")
+    amount_info = calculate_best_amount_info(order_data)
+    if amount_info[:below_minimum_amount]
+      Rails.logger.info("set_order for bot #{id} creating skipped order #{order_data.inspect}")
+      create_skipped_order!(order_data)
+      return Result::Success.new
+    end
 
-      result = nil
-      with_api_key do
-        result = market_buy(
-          base_asset_id: order_data[:base_asset].id,
-          quote_asset_id: order_data[:quote_asset].id,
-          amount: amount_info[:amount],
-          amount_type: amount_info[:amount_type]
-        )
-      end
+    Rails.logger.info("set_order for bot #{id} creating order #{order_data.inspect} with amount info #{amount_info.inspect}")
 
-      if result.success?
-        order_id = result.data[:order_id]
-        Rails.logger.info("set_orders for bot #{id} created order #{order_id}")
-        Bot::FetchAndCreateOrderJob.perform_later(self, order_id)
-        update!(missed_quote_amount: [0, missed_quote_amount - order_data[:quote_amount]].max) if update_missed_quote_amount
-      else
-        Rails.logger.error("set_orders for bot #{id} failed to create order #{order_data.inspect}: #{result.errors.inspect}")
-        create_failed_order!(order_data.merge!(error_messages: result.errors))
-        return result
-      end
+    result = nil
+    with_api_key do
+      result = market_buy(
+        base_asset_id: order_data[:base_asset].id,
+        quote_asset_id: order_data[:quote_asset].id,
+        amount: amount_info[:amount],
+        amount_type: amount_info[:amount_type]
+      )
+    end
+
+    if result.success?
+      order_id = result.data[:order_id]
+      Rails.logger.info("set_order for bot #{id} created order #{order_id}")
+      Bot::FetchAndCreateOrderJob.perform_later(self, order_id)
+      update!(missed_quote_amount: [0, missed_quote_amount - order_data[:quote_amount]].max) if update_missed_quote_amount
+    else
+      Rails.logger.error("set_order for bot #{id} failed to create order #{order_data.inspect}: #{result.errors.inspect}")
+      create_failed_order!(order_data.merge!(error_messages: result.errors))
+      return result
     end
 
     Result::Success.new
@@ -135,53 +134,25 @@ module Bots::DcaDualAsset::OrderSetter # rubocop:disable Metrics/ModuleLength
     self.missed_quote_amount_was_set = nil
   end
 
-  def get_orders(total_orders_amount_in_quote)
-    metrics_data = metrics(force: true)
+  def get_order(order_amount_in_quote)
+    result = exchange.get_ask_price(base_asset_id: base_asset_id, quote_asset_id: quote_asset_id)
+    return result unless result.success?
 
-    result0 = exchange.get_ask_price(base_asset_id: base0_asset_id, quote_asset_id: quote_asset_id)
-    return result0 unless result0.success?
-
-    result1 = exchange.get_ask_price(base_asset_id: base1_asset_id, quote_asset_id: quote_asset_id)
-    return result1 unless result1.success?
-
-    Result::Success.new(calculate_orders_data(
-                          balance0: metrics_data[:total_base0_amount],
-                          balance1: metrics_data[:total_base1_amount],
-                          price0: result0.data,
-                          price1: result1.data,
-                          total_orders_amount_in_quote: total_orders_amount_in_quote
+    Result::Success.new(calculate_order_data(
+                          price: result.data,
+                          order_amount_in_quote: order_amount_in_quote
                         ))
   end
 
-  def calculate_orders_data(balance0:, balance1:, price0:, price1:, total_orders_amount_in_quote:)
-    allocation1 = 1 - allocation0
-    balance0_in_quote = balance0 * price0
-    balance1_in_quote = balance1 * price1
-    total_balance_in_quote = balance0_in_quote + balance1_in_quote + total_orders_amount_in_quote
-    target_balance0_in_quote = total_balance_in_quote * allocation0
-    target_balance1_in_quote = total_balance_in_quote * allocation1
-    base0_offset = [0, target_balance0_in_quote - balance0_in_quote].max
-    base1_offset = [0, target_balance1_in_quote - balance1_in_quote].max
-    base0_order_size_in_quote = [base0_offset, total_orders_amount_in_quote].min
-    base1_order_size_in_quote = [base1_offset, total_orders_amount_in_quote - base0_order_size_in_quote].min
-    base0_order_size_in_base = base0_order_size_in_quote / price0
-    base1_order_size_in_base = base1_order_size_in_quote / price1
-    [
-      {
-        base_asset: base0_asset,
-        quote_asset: quote_asset,
-        rate: price0,
-        amount: base0_order_size_in_base,
-        quote_amount: base0_order_size_in_quote
-      },
-      {
-        base_asset: base1_asset,
-        quote_asset: quote_asset,
-        rate: price1,
-        amount: base1_order_size_in_base,
-        quote_amount: base1_order_size_in_quote
-      }
-    ]
+  def calculate_order_data(price:, order_amount_in_quote:)
+    order_size_in_base = order_amount_in_quote / price
+    {
+      base_asset: base0_asset,
+      quote_asset: quote_asset,
+      rate: price,
+      amount: order_size_in_base,
+      quote_amount: order_amount_in_quote
+    }
   end
 
   def calculate_best_amount_info(order_data)

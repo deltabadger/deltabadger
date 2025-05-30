@@ -32,17 +32,17 @@ module Bots::DcaDualAsset::Measurable
         totals[:amounts][asset_symbol_to_id[base]] << amount
       end
 
-      data[:base0_total_amount] = totals[:total_base_amount_acquired][base0_asset_id]
-      data[:base1_total_amount] = totals[:total_base_amount_acquired][base1_asset_id]
+      data[:total_base0_amount] = totals[:total_base_amount_acquired][base0_asset_id]
+      data[:total_base1_amount] = totals[:total_base_amount_acquired][base1_asset_id]
       data[:base0_total_quote_amount_invested] = totals[:total_quote_amount_invested][base0_asset_id]
       data[:base1_total_quote_amount_invested] = totals[:total_quote_amount_invested][base1_asset_id]
       data[:total_quote_amount_invested] = data[:base0_total_quote_amount_invested] + data[:base1_total_quote_amount_invested]
-      data[:base0_total_amount_value_in_quote] = totals[:current_value_in_quote][base0_asset_id]
-      data[:base1_total_amount_value_in_quote] = totals[:current_value_in_quote][base1_asset_id]
+      data[:total_base0_amount_value_in_quote] = totals[:current_value_in_quote][base0_asset_id]
+      data[:total_base1_amount_value_in_quote] = totals[:current_value_in_quote][base1_asset_id]
       data[:total_amount_value_in_quote] =
-        data[:base0_total_amount_value_in_quote] + data[:base1_total_amount_value_in_quote]
-      data[:base0_pnl] = calculate_pnl(data[:base0_total_quote_amount_invested], data[:base0_total_amount_value_in_quote])
-      data[:base1_pnl] = calculate_pnl(data[:base1_total_quote_amount_invested], data[:base1_total_amount_value_in_quote])
+        data[:total_base0_amount_value_in_quote] + data[:total_base1_amount_value_in_quote]
+      data[:base0_pnl] = calculate_pnl(data[:base0_total_quote_amount_invested], data[:total_base0_amount_value_in_quote])
+      data[:base1_pnl] = calculate_pnl(data[:base1_total_quote_amount_invested], data[:total_base1_amount_value_in_quote])
       data[:pnl] = calculate_pnl(data[:total_quote_amount_invested], data[:total_amount_value_in_quote])
       data[:base0_average_buy_rate] =
         Utilities::Math.weighted_average(totals[:rates][base0_asset_id], totals[:amounts][base0_asset_id])
@@ -64,14 +64,14 @@ module Bots::DcaDualAsset::Measurable
       return metrics unless result0.success? && result1.success?
 
       metrics_data = metrics.deep_dup
-      metrics_data[:base0_total_amount_value_in_quote] = metrics_data[:base0_total_amount] * result0.data
-      metrics_data[:base1_total_amount_value_in_quote] = metrics_data[:base1_total_amount] * result1.data
+      metrics_data[:total_base0_amount_value_in_quote] = metrics_data[:total_base0_amount] * result0.data
+      metrics_data[:total_base1_amount_value_in_quote] = metrics_data[:total_base1_amount] * result1.data
       metrics_data[:total_amount_value_in_quote] =
-        metrics_data[:base0_total_amount_value_in_quote] + metrics_data[:base1_total_amount_value_in_quote]
+        metrics_data[:total_base0_amount_value_in_quote] + metrics_data[:total_base1_amount_value_in_quote]
       metrics_data[:base0_pnl] =
-        calculate_pnl(metrics_data[:base0_total_quote_amount_invested], metrics_data[:base0_total_amount_value_in_quote])
+        calculate_pnl(metrics_data[:base0_total_quote_amount_invested], metrics_data[:total_base0_amount_value_in_quote])
       metrics_data[:base1_pnl] =
-        calculate_pnl(metrics_data[:base1_total_quote_amount_invested], metrics_data[:base1_total_amount_value_in_quote])
+        calculate_pnl(metrics_data[:base1_total_quote_amount_invested], metrics_data[:total_base1_amount_value_in_quote])
       metrics_data[:pnl] = calculate_pnl(metrics_data[:total_quote_amount_invested], metrics_data[:total_amount_value_in_quote])
       metrics_data[:chart][:series][0] << metrics_data[:total_amount_value_in_quote]
       metrics_data[:chart][:series][1] << metrics_data[:total_quote_amount_invested]
@@ -147,13 +147,13 @@ module Bots::DcaDualAsset::Measurable
           []  # invested
         ]
       },
-      base0_total_amount: 0,
-      base1_total_amount: 0,
+      total_base0_amount: 0,
+      total_base1_amount: 0,
       base0_total_quote_amount_invested: 0,
       base1_total_quote_amount_invested: 0,
       total_quote_amount_invested: 0,
-      base0_total_amount_value_in_quote: 0,
-      base1_total_amount_value_in_quote: 0,
+      total_base0_amount_value_in_quote: 0,
+      total_base1_amount_value_in_quote: 0,
       total_amount_value_in_quote: 0,
       base0_pnl: nil,
       base1_pnl: nil,
