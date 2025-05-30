@@ -80,7 +80,10 @@ module Bot::SmartIntervalable
     least_precise_quote_decimals = tickers.pluck(:quote_decimals).compact.min
     minimum_for_precision = 1.0 / (10**least_precise_quote_decimals)
 
-    [minimum_for_frequency, minimum_for_precision].max
+    [
+      Utilities::Number.round_up(minimum_for_frequency, precision: least_precise_quote_decimals),
+      minimum_for_precision
+    ].max
   end
 
   def set_normal_interval_backup_values
