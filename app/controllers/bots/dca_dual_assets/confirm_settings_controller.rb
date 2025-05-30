@@ -2,10 +2,10 @@ class Bots::DcaDualAssets::ConfirmSettingsController < ApplicationController
   before_action :authenticate_user!
 
   def new
+    session[:bot_config]['settings']['interval'] ||= 'day'
+    session[:bot_config]['settings']['allocation0'] ||= 0.5
     bot_config = session[:bot_config].deep_symbolize_keys
     @bot = current_user.bots.dca_dual_asset.new(bot_config)
-    @bot.interval ||= 'day'
-    @bot.allocation0 ||= 0.5
   end
 
   def create # rubocop:disable Metrics/CyclomaticComplexity, Metrics/PerceivedComplexity

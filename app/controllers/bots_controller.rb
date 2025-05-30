@@ -83,9 +83,9 @@ class BotsController < ApplicationController
   end
 
   def asset_search
-    asset_type = params[:asset_field] == 'quote_asset_id' ? :quote_asset : :base_asset
+    asset_type = search_params[:asset_field] == 'quote_asset_id' ? :quote_asset : :base_asset
     available_assets = @bot.available_assets_for_current_settings(asset_type: asset_type)
-    filtered_assets = filter_assets_by_query(assets: available_assets, query: params[:query])
+    filtered_assets = filter_assets_by_query(assets: available_assets, query: search_params[:query])
                       .pluck(:id, :symbol, :name)
     exchanges_data = Exchange.all.pluck(:id, :name_id,
                                         :name).each_with_object([]) do |(id, name_id, name), list|
@@ -96,7 +96,7 @@ class BotsController < ApplicationController
       exchanges = exchanges_data.select { |_, _, assets| assets.include?(id) }
       [id, symbol, name, exchanges.map { |e_name_id, e_name, _| [e_name_id, e_name] }]
     end
-    @asset_field = params[:asset_field]
+    @asset_field = search_params[:asset_field]
   end
 
   private
@@ -122,6 +122,10 @@ class BotsController < ApplicationController
     when 'Bots::Webhook'
       webhook_bot_params
     end
+  end
+
+  def search_params
+    params.permit(:query, :asset_field)
   end
 
   def filter_assets_by_query(assets:, query:)
@@ -158,16 +162,13 @@ class BotsController < ApplicationController
   end
 
   def bot_params
-    params.fetch(:bots_dca_dual_asset, {}).permit(
+    params.require(:bots_dca_dual_asset).permit(
+      :label,
       :quote_amount,
-      :quote_asset_id,
       :interval,
-      :base0_asset_id,
-      :base1_asset_id,
       :allocation0,
       :marketcap_allocated,
       :exchange_id,
-      :label,
       :quote_amount_limited,
       :quote_amount_limit,
       :price_limited,
@@ -176,17 +177,13 @@ class BotsController < ApplicationController
       :price_limit_price_condition,
       :price_limit_in_ticker_id,
       :smart_intervaled,
-      :smart_interval_quote_amount,
-      :query
+      :smart_interval_quote_amount
     )
   end
 
   def bot_params_as_hash
     permitted_params = bot_params.to_h
     settings = permitted_params.except(:exchange_id, :label, :query).tap do |pp|
-      pp[:base0_asset_id] = pp[:base0_asset_id].presence&.to_i
-      pp[:base1_asset_id] = pp[:base1_asset_id].presence&.to_i
-      pp[:quote_asset_id] = pp[:quote_asset_id].presence&.to_i
       pp[:quote_amount] = pp[:quote_amount].presence&.to_f
       pp[:allocation0] = pp[:allocation0].presence&.to_f
       pp[:marketcap_allocated] = pp[:marketcap_allocated].presence&.in?(%w[1 true])
