@@ -16,9 +16,13 @@ nl:
                 description: |
                     <p>Investeer regelmatig in twee willekeurige activa met geherbalanceerde DCA.</p>
                     <p>De bot koopt meer van het activum dat minder is gegroeid, waarbij uw gewenste allocatie <b>zonder belasting op kapitaalwinsten</b> behouden blijft.</p>
+            legacy:
+                title: "Legacy Bot (DCA)"
+                description: |
+                    <p>Onze oude DCA-bot en automatische opnames. Na implementatie van alle beurzen op de nieuwe bot wordt deze uitgefaseerd. Je kunt hem nog steeds gebruiken, alle bots worden gemigreerd naar de nieuwe versie.</p>
             index_portfolio:
                 title: "Index Portfolio"
-                description: "Bouw uw persoonlijke crypto ETF"
+                description: "Bouw uw persoonlijke crypto ETF. Volg de brede cryptomarkt of een van de indices voor specifieke sectoren."
             custom_portfolio:
                 title: "Aangepast Portfolio"
                 description: "Herbalanceer aangepaste activamix"
