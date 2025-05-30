@@ -41,6 +41,17 @@ class Bots::DcaDualAsset < Bot
                  user.api_keys.trading.new(exchange_id: exchange_id, status: :pending_validation)
   end
 
+  def parsed_settings(settings_hash)
+    {
+      base0_asset_id: settings_hash[:base0_asset_id].presence&.to_i,
+      base1_asset_id: settings_hash[:base1_asset_id].presence&.to_i,
+      quote_asset_id: settings_hash[:quote_asset_id].presence&.to_i,
+      quote_amount: settings_hash[:quote_amount].presence&.to_f,
+      interval: settings_hash[:interval].presence,
+      allocation0: settings_hash[:allocation0].presence&.to_f
+    }.compact
+  end
+
   def start(start_fresh: true)
     # call restarting_within_interval? before setting the status to :scheduled
     set_orders_now = start_fresh || !restarting_within_interval?

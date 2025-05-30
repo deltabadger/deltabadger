@@ -20,6 +20,13 @@ module Bot::SmartIntervalable
               if: :smart_intervaled
 
     decorators = Module.new do
+      def parsed_settings(settings_hash)
+        super(settings_hash).merge(
+          smart_intervaled: settings_hash[:smart_intervaled].presence&.in?(%w[1 true]),
+          smart_interval_quote_amount: settings_hash[:smart_interval_quote_amount].presence&.to_f
+        ).compact
+      end
+
       def interval_duration
         return super unless smart_intervaled? &&
                             smart_interval_quote_amount.present? &&

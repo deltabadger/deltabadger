@@ -139,11 +139,9 @@ Rails.application.routes.draw do
       resource :stop, only: [:update], controller: 'bots/stops'
       resource :delete, only: [:edit, :destroy], controller: 'bots/deletes'
       resource :add_api_key, only: [:new, :create], controller: 'bots/add_api_keys'
+      resource :asset_search, only: [:edit], controller: 'bots/asset_searches'
+      post :show
       get :show_index_bot, on: :collection # TODO: move to custom :show logic according to bot type
-      member do
-        get :asset_search
-        post :show
-      end
     end
 
     get '/calculator', to: 'calculator#show', as: :calculator

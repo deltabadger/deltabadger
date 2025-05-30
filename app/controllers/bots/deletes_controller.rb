@@ -1,7 +1,7 @@
 class Bots::DeletesController < ApplicationController
   before_action :authenticate_user!
 
-  include Botable
+  include Bots::Botable
 
   def edit; end
 

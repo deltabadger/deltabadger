@@ -1,7 +1,7 @@
 class Bots::AddApiKeysController < ApplicationController
   before_action :authenticate_user!
 
-  include Botable
+  include Bots::Botable
 
   def new
     @api_key = @bot.api_key
