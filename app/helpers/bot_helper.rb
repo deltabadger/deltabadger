@@ -29,6 +29,8 @@ module BotHelper
   end
 
   def base_select_options(bot)
-    bot.tickers.pluck(:base, :id).sort
+    bot.tickers.pluck(:base_asset_id, :id).map do |base_asset_id, id|
+      [Asset.find(base_asset_id).symbol, id]
+    end.sort_by(&:first)
   end
 end

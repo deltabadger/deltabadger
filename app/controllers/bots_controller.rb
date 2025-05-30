@@ -11,7 +11,7 @@ class BotsController < ApplicationController
     @pnl_hash = {}
     @loading_hash = {}
     @bots.each do |bot|
-      next if bot.withdrawal? || bot.webhook?
+      next unless bot.dca_single_asset? || bot.dca_dual_asset? || bot.basic?
 
       metrics_with_current_prices = bot.metrics_with_current_prices_from_cache
       @pnl_hash[bot.id] = metrics_with_current_prices[:pnl] unless metrics_with_current_prices.nil?

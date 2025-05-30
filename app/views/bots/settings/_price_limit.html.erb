@@ -26,7 +26,8 @@
           <% base_select_options = base_select_options(bot) %>
           <% if base_select_options.size > 1 %>
             <% base_html = content_tag(:div, class: "sinput sinput--select") do %>
-              <%= bot.tickers.find_by(id: bot.price_limit_in_ticker_id)&.base %>
+              <% selected_base_asset_id = bot.tickers.find_by(id: bot.price_limit_in_ticker_id)&.base_asset_id %>
+              <%= Asset.find(selected_base_asset_id).symbol if selected_base_asset_id.present? %>
               <%= f.select :price_limit_in_ticker_id, base_select_options, { selected: bot.price_limit_in_ticker_id }, data: { action: "change->form--submit#submit" } %>
             <% end %>
           <% else %>
