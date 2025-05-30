@@ -1,16 +1,21 @@
 nl:
     bot:
-        add_api_keys: "API-sleutels voor %{exchange} toevoegen"
-        bot_name: "Botnaam"
+        add_api_keys: "API-sleutels toevoegen voor %{exchange}"
+        bot_name: 'Bot naam'
         new: "Nieuwe bot"
-        start_new_bot: "Nieuwe bot aanmaken"
+        start_new_bot: "Nieuwe bot maken"
         types:
             dca:
                 title: "DCA"
-                description: "Enkele-asset DCA"
+                description: |
+                    <p>Investeer regelmatig een vast bedrag.</p>
+                    <p>De bot middelt uw aankoopprijs over tijd, waardoor de impact van marktvolatiliteit wordt verminderd.</p>
+                    <p>Gebruik klassieke DCA of stel voorwaarden in om de beste prijs te krijgen.</p>
             dca_dual_asset:
                 title: "Barbell Strategie"
-                description: "Twee-asset geherbalanceerde DCA"
+                description: |
+                    <p>Investeer regelmatig in twee willekeurige activa met geherbalanceerde DCA.</p>
+                    <p>De bot koopt meer van het activum dat minder is gegroeid, waarbij uw gewenste allocatie <b>zonder belasting op kapitaalwinsten</b> behouden blijft.</p>
             index_portfolio:
                 title: "Index Portfolio"
                 description: "Bouw uw persoonlijke crypto ETF"
