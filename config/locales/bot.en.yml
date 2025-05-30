@@ -9,14 +9,13 @@ en:
                 title: "DCA"
                 description: |
                     <p>Invest a fixed amount regularly.</p>
-                    <p>DCA averages out your purchase price over time, reducing the impact of market volatility.</p>
-                    <p>Use classic DCA, or set various conditions to catch the best price.</p>
+                    <p>The bot averages out your purchase price over time, reducing the impact of market volatility.</p>
+                    <p>Use classic DCA, or set conditions to catch the best price.</p>
             dca_dual_asset:
-                title: "Barbell Strategy"
+                title: "Barbell Strategy" 
                 description: |
-                    <p>Invest regularly in any two assets while maintaining your desired allocation.</p>
-                    <p>The bot automatically buys more of whichever asset has grown less, keeping your portfolio balanced.</p>
-                    <p>Using rebalanced DCA, you achieve <b>rebalancing without paying capital gains taxes</b>.</p>
+                    <p>Invest regularly in any two assets with rebalanced DCA.</p>
+                    <p>The bot buys more of whichever asset has grown less, keeping your desired allocation <b>without capital gains taxes</b>.</p>
             index_portfolio:
                 title: "Index Portfolio"
                 description: "Build your personal crypto ETF"

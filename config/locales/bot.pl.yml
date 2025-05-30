@@ -8,15 +8,14 @@ pl:
             dca:
                 title: "DCA"
                 description: |
-                    <p>Inwestuj stałą kwotę regularnie.</p>
-                    <p>DCA uśrednia Twoją cenę zakupu w czasie, zmniejszając wpływ zmienności rynku.</p>
-                    <p>Używaj klasycznego DCA lub ustaw różne warunki, aby złapać najlepszą cenę.</p>
+                    <p>Inwestuj regularnie stałą kwotę.</p>
+                    <p>Bot uśrednia cenę zakupu w czasie, zmniejszając wpływ zmienności rynku.</p>
+                    <p>Używaj klasycznego DCA lub ustaw warunki, aby złapać najlepszą cenę.</p>
             dca_dual_asset:
                 title: "Strategia Barbell"
                 description: |
-                    <p>Inwestuj regularnie w dowolne dwa aktywa, zachowując pożądaną alokację.</p>
-                    <p>Bot automatycznie kupuje więcej aktywa, które mniej wzrosło, utrzymując Twoje portfolio w równowadze.</p>
-                    <p>Używając rebalansowanego DCA, osiągasz <b>rebalansowanie bez podatku od zysków kapitałowych</b>.</p>
+                    <p>Inwestuj regularnie w dowolne dwa aktywa z rebalansowanym DCA.</p>
+                    <p>Bot kupuje więcej tego aktywa, które rosło mniej, utrzymując pożądaną alokację <b>bez podatków od zysków kapitałowych</b>.</p>
             index_portfolio:
                 title: "Portfolio Indeksowe"
                 description: "Zbuduj swój osobisty krypto ETF"
