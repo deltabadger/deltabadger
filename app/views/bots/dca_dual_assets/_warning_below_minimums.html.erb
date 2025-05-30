@@ -9,7 +9,7 @@
 
     <% if missed_count == 2 %>
       <!-- 1a: Both missed -->
-      <p><%= t('bot.warning.both_below.intro',
+      <p><%= t('bot.warning.dca_dual_asset.both_below.intro',
                 base0_symbol: base0_symbol,
                 base1_symbol: base1_symbol,
                 base0_minimum_base_size: base0_minimum_base_size,
@@ -20,7 +20,7 @@
                 exchange_name: exchange_name) %></p>
     <% else %>
       <!-- 1b: One missed -->
-      <p><%= t('bot.warning.one_below.intro',
+      <p><%= t('bot.warning.dca_dual_asset.one_below.intro',
                 bought_quote_amount: bought_quote_amount,
                 quote_symbol: quote_symbol,
                 bought_symbol: bought_symbol,

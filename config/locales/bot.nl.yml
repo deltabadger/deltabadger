@@ -22,6 +22,9 @@ nl:
             paused: "Gepauzeerd"
             next_try: "Volgende poging in"
             waiting: "Wachten tot aan alle voorwaarden is voldaan"
+        dca_single_asset:
+            invest: "Investeren"
+            invest_html: "Investeer %{input} /maand"
         dca_dual_asset:
             invest: "Investeren"
             invest_html: "Investeer %{input} /maand"
@@ -160,14 +163,17 @@ nl:
         withdrawal_percentage: '%{percentage}%'
         withdrawal: 'Opname'
         warning:
-            title: "Gefeliciteerd! Je bot is actief."
-            both_below:
-                intro: "Echter, zowel de orderhoeveelheden van %{base0_symbol} als %{base1_symbol} zijn lager dan de minimale ordergroottes van %{exchange_name} (%{base0_minimum_base_size} %{base0_symbol} of %{base0_minimum_quote_size} %{quote_symbol} voor %{base0_symbol} en %{base1_minimum_base_size} %{base1_symbol} of %{base1_minimum_quote_size} %{quote_symbol} voor %{base1_symbol}). Zo gaat de bot hiermee om:"
-            one_below:
-                intro: "Je bot heeft %{bought_quote_amount} %{quote_symbol} van %{bought_symbol} gekocht, maar de hoeveelheid %{missed_symbol} was lager dan de minimale ordergrootte van %{exchange_name} (%{missed_minimum_base_size} %{missed_symbol} of %{missed_minimum_quote_size} %{quote_symbol} voor %{missed_symbol}). Zo gaat de bot hiermee om:"
+            dca_single_asset:
+                intro: "De %{missed_symbol} hoeveelheid was lager dan de minimale ordergrootte van %{exchange_name} (%{missed_minimum_base_size} %{missed_symbol} of %{missed_minimum_quote_size} %{quote_symbol} voor %{missed_symbol}). Zo gaat de bot hiermee om:"
+            dca_dual_asset:
+                both_below:
+                    intro: "Echter, zowel de orderhoeveelheden van %{base0_symbol} als %{base1_symbol} zijn lager dan de minimale ordergroottes van %{exchange_name} (%{base0_minimum_base_size} %{base0_symbol} of %{base0_minimum_quote_size} %{quote_symbol} voor %{base0_symbol} en %{base1_minimum_base_size} %{base1_symbol} of %{base1_minimum_quote_size} %{quote_symbol} voor %{base1_symbol}). Zo gaat de bot hiermee om:"
+                one_below:
+                    intro: "Je bot heeft %{bought_quote_amount} %{quote_symbol} van %{bought_symbol} gekocht, maar de hoeveelheid %{missed_symbol} was lager dan de minimale ordergrootte van %{exchange_name} (%{missed_minimum_base_size} %{missed_symbol} of %{missed_minimum_quote_size} %{quote_symbol} voor %{missed_symbol}). Zo gaat de bot hiermee om:"
             buffer_explanation:
                 one: "Het gemiste bedrag is gebufferd en zal worden gebruikt bij de volgende geplande order, zodat je schema en allocatie zo goed mogelijk volgens de exchange-minimums worden aangehouden."
                 other: "De gemiste bedragen zijn gebufferd en zullen worden gebruikt bij de volgende geplande orders, zodat je schema en allocatie zo goed mogelijk volgens de exchange-minimums worden aangehouden."
+            title: "Gefeliciteerd! Je bot is actief."
             general_note: "Minimale bedragen van exchanges en vereiste herbalanceringsbedragen kunnen veranderen. Orders kunnen er soms onregelmatig uitzien, maar de bot streeft altijd naar de gewenste toewijzing en schema, dus er is geen extra werk nodig."
         settings:
             smart_intervals:

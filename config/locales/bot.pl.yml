@@ -28,6 +28,9 @@ pl:
             paused: "Wstrzymany"
             next_try: "Następna próba za"
             waiting: "Oczekiwanie na spełnienie wszystkich warunków"
+        dca_single_asset:
+            invest: "Inwestuj"
+            invest_html: "Inwestuj %{input} /miesiąc"
         dca_dual_asset:
             invest: "Inwestuj"
             invest_html: "Inwestuj %{input} /miesiąc"
@@ -166,14 +169,17 @@ pl:
         withdrawal_percentage: '%{percentage}%'
         withdrawal: 'Wypłata'
         warning:
-            title: "Gratulacje! Twój bot działa."
-            both_below:
-                intro: "Jednak zarówno ilości zleceń %{base0_symbol}, jak i %{base1_symbol} są poniżej minimalnych wielkości zleceń na %{exchange_name} (%{base0_minimum_base_size} %{base0_symbol} lub %{base0_minimum_quote_size} %{quote_symbol} dla %{base0_symbol} oraz %{base1_minimum_base_size} %{base1_symbol} lub %{base1_minimum_quote_size} %{quote_symbol} dla %{base1_symbol}). Oto jak bot sobie z tym radzi:"
-            one_below:
-                intro: "Twój bot kupił %{bought_quote_amount} %{quote_symbol} %{bought_symbol}, ale ilość %{missed_symbol} była poniżej minimalnej wielkości zlecenia na %{exchange_name} (%{missed_minimum_base_size} %{missed_symbol} lub %{missed_minimum_quote_size} %{quote_symbol} dla %{missed_symbol}). Oto jak bot sobie z tym radzi:"
+            dca_single_asset:
+                intro: "Kwota %{missed_symbol} była poniżej minimalnej wielkości zlecenia na %{exchange_name} (%{missed_minimum_base_size} %{missed_symbol} lub %{missed_minimum_quote_size} %{quote_symbol} dla %{missed_symbol}). Oto jak bot sobie z tym radzi:"
+            dca_dual_asset:
+                both_below:
+                    intro: "Jednak zarówno ilości zleceń %{base0_symbol}, jak i %{base1_symbol} są poniżej minimalnych wielkości zleceń na %{exchange_name} (%{base0_minimum_base_size} %{base0_symbol} lub %{base0_minimum_quote_size} %{quote_symbol} dla %{base0_symbol} oraz %{base1_minimum_base_size} %{base1_symbol} lub %{base1_minimum_quote_size} %{quote_symbol} dla %{base1_symbol}). Oto jak bot sobie z tym radzi:"
+                one_below:
+                    intro: "Twój bot kupił %{bought_quote_amount} %{quote_symbol} %{bought_symbol}, ale ilość %{missed_symbol} była poniżej minimalnej wielkości zlecenia na %{exchange_name} (%{missed_minimum_base_size} %{missed_symbol} lub %{missed_minimum_quote_size} %{quote_symbol} dla %{missed_symbol}). Oto jak bot sobie z tym radzi:"
             buffer_explanation:
                 one: "Pominięta kwota została zbuforowana i zostanie użyta przy następnym zaplanowanym zleceniu, dzięki czemu Twój harmonogram i alokacja będą utrzymane jak najbliżej giełdowych minimów."
                 other: "Pominięte kwoty zostały zbuforowane i zostaną użyte przy kolejnych zaplanowanych zleceniach, dzięki czemu Twój harmonogram i alokacja będą utrzymane jak najbliżej giełdowych minimów."
+            title: "Gratulacje! Twój bot działa."
             general_note: "Minimalne kwoty na giełdach i wymagane kwoty rebalancingu mogą się zmieniać. Zlecenia mogą czasami wyglądać nieregularnie, ale bot zawsze dąży do Twojej pożądanej alokacji i harmonogramu, więc nie jest wymagana dodatkowa praca."
         settings:
             smart_intervals:

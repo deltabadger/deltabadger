@@ -28,6 +28,9 @@ ru:
             paused: "На паузе"
             next_try: "Следующая попытка через"
             waiting: "Ожидание выполнения всех условий"
+        dca_single_asset:
+            invest: "Инвестировать"
+            invest_html: "Инвестировать %{input} /месяц"
         dca_dual_asset:
             invest: "Инвестировать"
             invest_html: "Инвестировать %{input} /месяц"
@@ -165,14 +168,17 @@ ru:
         withdrawal_percentage: '%{percentage}%'
         withdrawal: 'Вывод'
         warning:
-            title: "Поздравляем! Ваш бот запущен."
-            both_below:
-                intro: "Однако суммы ордеров для %{base0_symbol} и %{base1_symbol} ниже минимального размера ордера на %{exchange_name} (%{base0_minimum_base_size} %{base0_symbol} или %{base0_minimum_quote_size} %{quote_symbol} для %{base0_symbol} и %{base1_minimum_base_size} %{base1_symbol} или %{base1_minimum_quote_size} %{quote_symbol} для %{base1_symbol}). Вот как бот с этим справляется:"
-            one_below:
-                intro: "Ваш бот купил %{bought_quote_amount} %{quote_symbol} %{bought_symbol}, но сумма %{missed_symbol} была ниже минимального размера ордера на %{exchange_name} (%{missed_minimum_base_size} %{missed_symbol} или %{missed_minimum_quote_size} %{quote_symbol} для %{missed_symbol}). Вот как бот с этим справляется:"
+            dca_single_asset:
+                intro: "Сумма %{missed_symbol} была ниже минимального размера ордера на %{exchange_name} (%{missed_minimum_base_size} %{missed_symbol} или %{missed_minimum_quote_size} %{quote_symbol} для %{missed_symbol}). Вот как бот с этим справляется:"
+            dca_dual_asset:
+                both_below:
+                    intro: "Однако суммы ордеров для %{base0_symbol} и %{base1_symbol} ниже минимального размера ордера на %{exchange_name} (%{base0_minimum_base_size} %{base0_symbol} или %{base0_minimum_quote_size} %{quote_symbol} для %{base0_symbol} и %{base1_minimum_base_size} %{base1_symbol} или %{base1_minimum_quote_size} %{quote_symbol} для %{base1_symbol}). Вот как бот с этим справляется:"
+                one_below:
+                    intro: "Ваш бот купил %{bought_quote_amount} %{quote_symbol} %{bought_symbol}, но сумма %{missed_symbol} была ниже минимального размера ордера на %{exchange_name} (%{missed_minimum_base_size} %{missed_symbol} или %{missed_minimum_quote_size} %{quote_symbol} для %{missed_symbol}). Вот как бот с этим справляется:"
             buffer_explanation:
                 one: "Пропущенная сумма была добавлена в буфер и будет использована при следующем запланированном ордере, чтобы ваше расписание и распределение максимально соответствовали биржевым минимумам."
                 other: "Пропущенные суммы были добавлены в буфер и будут использованы при следующих запланированных ордерах, чтобы ваше расписание и распределение максимально соответствовали биржевым минимумам."
+            title: "Поздравляем! Ваш бот запущен."
             general_note: "Минимумы биржи и требуемые суммы ребалансировки могут меняться. Ордера иногда могут выглядеть нерегулярными, но бот всегда нацелен на желаемое распределение и расписание, поэтому дополнительная работа не требуется."
         settings:
             smart_intervals:
