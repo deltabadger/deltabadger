@@ -1,11 +1,11 @@
 <div id="metrics" style="display: flex; flex-direction: column; gap: 1rem;">
   <div class="widget data-grid data-grid--two-columns">
-    <%= render partial: "bots/metrics/metrics_item", locals: {
+    <%= render partial: "bots/dca_dual_assets/metrics_item", locals: {
       label: t('data_labels.invested'),
       value: metrics[:total_quote_amount_invested].round(bot.decimals[:quote]),
       loading: false
     } %>
-    <%= render partial: "bots/metrics/metrics_item", locals: {
+    <%= render partial: "bots/dca_dual_assets/metrics_item", locals: {
       label: t('data_labels.portfolio_value'),
       value: metrics[:total_amount_value_in_quote].round(bot.decimals[:quote]),
       loading: loading

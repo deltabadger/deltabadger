@@ -64,7 +64,7 @@ module Bots::DcaSingleAsset::Measurable
     broadcast_replace_to(
       ["user_#{user_id}", :bot_updates],
       target: 'metrics',
-      partial: 'bots/metrics/metrics',
+      partial: 'bots/dca_single_assets/metrics',
       locals: { bot: self, metrics: metrics_data, loading: false }
     )
 
