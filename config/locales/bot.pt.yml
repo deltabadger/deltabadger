@@ -1,22 +1,21 @@
 pt:
     bot:
-        add_api_keys: "Adicionar chaves API para %{exchange}"
+        add_api_keys: "Adicionar chaves de API para %{exchange}"
         bot_name: "Nome do bot"
         new: "Novo bot"
-        start_new_bot: "Create new bot"
+        start_new_bot: "Criar novo bot"
         types:
             dca:
                 title: "DCA"
                 description: |
                     <p>Invista um valor fixo regularmente.</p>
-                    <p>O DCA faz a média do seu preço de compra ao longo do tempo, reduzindo o impacto da volatilidade do mercado.</p>
-                    <p>Use DCA clássico ou defina várias condições para apanhar o melhor preço.</p>
+                    <p>O bot faz a média do seu preço de compra ao longo do tempo, reduzindo o impacto da volatilidade do mercado.</p>
+                    <p>Use DCA clássico ou defina condições para conseguir o melhor preço.</p>
             dca_dual_asset:
                 title: "Estratégia Barbell"
                 description: |
-                    <p>Invista regularmente em dois ativos quaisquer mantendo a sua alocação desejada.</p>
-                    <p>O bot compra automaticamente mais do ativo que cresceu menos, mantendo o seu portfólio equilibrado.</p>
-                    <p>Usando DCA rebalanceado, consegue <b>rebalanceamento sem impostos sobre ganhos de capital</b>.</p>
+                    <p>Invista regularmente em dois ativos quaisquer com DCA rebalanceado.</p>
+                    <p>O bot compra mais do ativo que cresceu menos, mantendo sua alocação desejada <b>sem impostos sobre ganhos de capital</b>.</p>
             index_portfolio:
                 title: "Portefólio de Índice"
                 description: "Construa o seu ETF pessoal de criptomoedas"
