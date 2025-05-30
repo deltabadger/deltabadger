@@ -1,6 +1,6 @@
 <div class="widget widget--strategy widget--strategy--dca-dual-asset" data-controller="class-toggle" data-action="click->class-toggle#toggle" data-class-toggle-target="togglable" data-class-toggle-toggle-classes-value='["active"]'>
   <b class="sbadge sbadge--beta"><%= t('utils.beta') %></b>
-  <div class="theme-img" style="background-image: url('https://deltabadger.com/blog/fitlx0000.jpg')"></div>
+  <div class="theme-img" style="background-image: url(<%= asset_path('strategy-03.jpg') %>)"></div>
   <div class="index-title"><%= t('bot.types.dca_dual_asset.title') %></div>
   <div class="active-only">
     <%= raw t('bot_info.dca_dual_asset.info') %>
