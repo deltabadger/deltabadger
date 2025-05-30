@@ -26,6 +26,16 @@ module Bot::PriceLimitable
     validates :price_limit_price_condition, inclusion: { in: PRICE_CONDITIONS }
 
     decorators = Module.new do
+      def parsed_settings(settings_hash)
+        super(settings_hash).merge(
+          price_limited: settings_hash[:price_limited].presence&.in?(%w[1 true]),
+          price_limit: settings_hash[:price_limit].presence&.to_f,
+          price_limit_timing_condition: settings_hash[:price_limit_timing_condition].presence,
+          price_limit_price_condition: settings_hash[:price_limit_price_condition].presence,
+          price_limit_in_ticker_id: settings_hash[:price_limit_in_ticker_id].presence&.to_i
+        ).compact
+      end
+
       def execute_action
         return super unless price_limited?
 
