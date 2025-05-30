@@ -45,7 +45,7 @@ export const BotForm = ({
 }) => {
   const [form, setFormState] = useState({});
   const [errors, setErrors] = useState("");
-  const [type, setType] = useState(TYPES[0])
+  const [type, setType] = useState(TYPES[1])
   const [isCreatingBot, setCreatingBot] = useState(false);
 
   const getKeyStatus = (e) => {
