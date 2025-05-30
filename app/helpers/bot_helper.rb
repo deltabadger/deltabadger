@@ -1,7 +1,6 @@
 module BotHelper
   def bot_intervals
-    # FIXME: reenable monthly once smart intervals are back on
-    Bot::INTERVALS[...-1].map { |interval| [t("bot.#{interval}"), interval] }
+    Bot::INTERVALS.map { |interval| [t("bot.#{interval}"), interval] }
   end
 
   def bot_type_label(bot)
