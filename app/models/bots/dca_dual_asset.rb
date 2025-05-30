@@ -21,15 +21,15 @@ class Bots::DcaDualAsset < Bot
   # TODO: If bots can change assets, we also need to update the tickers and assets values
   #       ! also in price_limitable
 
-  include SmartIntervalable     # decorators for: pending_quote_amount, interval_duration
-  include QuoteAmountLimitable  # decorators for: pending_quote_amount
-  include PriceLimitable        # decorators for: pending_quote_amount, execute_action, stop
+  include SmartIntervalable     # decorators for: parsed_settings, pending_quote_amount, interval_duration
+  include QuoteAmountLimitable  # decorators for: parsed_settings, pending_quote_amount
+  include PriceLimitable        # decorators for: parsed_settings, pending_quote_amount, execute_action, stop
+  include Bots::DcaDualAsset::MarketcapAllocatable # decorators for: parsed_settings
+  include Fundable
   include Schedulable
   include OrderCreator
   include Bots::DcaDualAsset::OrderSetter
   include Bots::DcaDualAsset::Measurable
-  include Bots::DcaDualAsset::Fundable
-  include Bots::DcaDualAsset::MarketcapAllocatable
 
   def with_api_key
     exchange.set_client(api_key: api_key) if exchange.present? && (exchange.api_key.blank? || exchange.api_key != api_key)
@@ -139,7 +139,7 @@ class Bots::DcaDualAsset < Bot
     case asset_type
     when :base_asset
       scope = ExchangeTicker.where(exchange: available_exchanges)
-                            .where.not(base_asset_id: base_asset_ids)
+                            .where.not(base_asset_id: base_asset_ids + [quote_asset_id])
       scope = scope.where(quote_asset_id: quote_asset_id) if quote_asset_id.present?
     when :quote_asset
       scope = ExchangeTicker.where(exchange: available_exchanges)
@@ -241,9 +241,9 @@ class Bots::DcaDualAsset < Bot
     return unless transactions.exists?
     return unless settings_changed?
 
-    errors.add(:base0_asset_id, :unchangeable) if settings_was['base0_asset_id'] != settings['base0_asset_id']
-    errors.add(:base1_asset_id, :unchangeable) if settings_was['base1_asset_id'] != settings['base1_asset_id']
-    errors.add(:quote_asset_id, :unchangeable) if settings_was['quote_asset_id'] != settings['quote_asset_id']
+    errors.add(:base0_asset_id, :unchangeable) if base0_asset_id_was != base0_asset_id
+    errors.add(:base1_asset_id, :unchangeable) if base1_asset_id_was != base1_asset_id
+    errors.add(:quote_asset_id, :unchangeable) if quote_asset_id_was != quote_asset_id
   end
 
   def validate_unchangeable_interval
