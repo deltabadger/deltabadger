@@ -123,8 +123,16 @@ Rails.application.routes.draw do
     }
 
     namespace :bots do
-      resources :dca_dual_assets, only: [:create], path: 'barbell'
-      namespace :dca_dual_assets, path: 'barbell' do
+      resources :dca_single_assets, only: [:create]
+      namespace :dca_single_assets do
+        resource :pick_buyable_asset, only: [:new, :create]
+        resource :pick_exchange, only: [:new, :create]
+        resource :add_api_key, only: [:new, :create]
+        resource :pick_spendable_asset, only: [:new, :create]
+        resource :confirm_settings, only: [:new, :create]
+      end
+      resources :dca_dual_assets, only: [:create]
+      namespace :dca_dual_assets do
         resource :pick_first_buyable_asset, only: [:new, :create]
         resource :pick_second_buyable_asset, only: [:new, :create]
         resource :pick_exchange, only: [:new, :create]
