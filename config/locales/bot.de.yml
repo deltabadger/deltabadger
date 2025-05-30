@@ -16,9 +16,13 @@ de:
                 description: |
                     <p>Investieren Sie regelmäßig in zwei beliebige Assets mit rebalanciertem DCA.</p>
                     <p>Der Bot kauft mehr von dem Asset, das weniger gewachsen ist, und behält so Ihre gewünschte Allokation <b>ohne Kapitalertragssteuern</b> bei.</p>
+            legacy:
+                title: "Legacy Bot (DCA)"
+                description: |
+                    <p>Unser alter DCA-Bot und automatische Auszahlungen. Nach der Implementierung aller Börsen im neuen Bot wird er eingestellt. Sie können ihn weiterhin verwenden, alle Bots werden zur neuen Version migriert.</p>
             index_portfolio:
                 title: "Index-Portfolio"
-                description: "Baue deinen persönlichen Krypto-ETF"
+                description: "Bauen Sie Ihren persönlichen Krypto-ETF. Folgen Sie dem breiten Kryptomarkt oder einem der Indizes für spezifische Sektoren."
             custom_portfolio:
                 title: "Benutzerdefiniertes Portfolio"
                 description: "Rebalancing eines benutzerdefinierten Asset-Mix"

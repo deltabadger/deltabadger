@@ -18,17 +18,17 @@
         <% path = current_user.subscription.free? ? upgrade_upgrade_instructions_path : new_bots_dca_dual_assets_pick_first_buyable_asset_path %>
         <%= link_to path, class: 'itile itile--bot-type itile--barbell', data: { action: 'click->modal--base#animateOutCloseAndCleanUp', turbo_frame: "modal" } do %>
             <b class="sbadge sbadge--beta"><%= t('utils.beta') %></b>
-            <div class="theme-img" style="background-image: url('<%= asset_path('strategy--barbell.webp') %>')"></div>
+            <div class="theme-img" style="background-image: url('<%= asset_path('strategy-03.jpg') %>')"></div>
             <div class="index-title"><%= t('bot.types.dca_dual_asset.title') %></div>
-            <p class="index-info"><%= t('bot.types.dca_dual_asset.description').html_safe %></p>
+            <div class="index-info"><%= t('bot.types.dca_dual_asset.description').html_safe %></div>
         <% end %>
 
         <% path = current_user.subscription.free? ? upgrade_upgrade_instructions_path : bots_path(create: true) %>
         <% data = current_user.subscription.free? ? { turbo_frame: "modal" } : { turbo: false } %>
-        <%= link_to path, class: 'itile itile--bot-type itile--classic', data: { action: 'click->modal--base#animateOutCloseAndCleanUp' }.merge(data) do %>
-            <div class="theme-img" style="background-image: url('<%= asset_path('strategy-04.jpg') %>')"></div>
-            <div class="index-title"><%= t('bot.types.withdrawal.title') %></div>
-            <div class="index-info"><%= t('bot.types.withdrawal.description').html_safe %></div>
+        <%= link_to path, class: 'itile itile--bot-type itile--legacy', data: { action: 'click->modal--base#animateOutCloseAndCleanUp' }.merge(data) do %>
+            <div class="theme-img" style="background-image: url('<%= asset_path('strategy-06.jpg') %>')"></div>
+            <div class="index-title"><%= t('bot.types.legacy.title') %></div>
+            <div class="index-info"><%= t('bot.types.legacy.description').html_safe %></div>
         <% end %>
 
         <div class="itile itile--soon">
