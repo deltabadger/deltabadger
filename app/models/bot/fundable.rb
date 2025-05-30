@@ -1,4 +1,4 @@
-module Bots::DcaDualAsset::Fundable
+module Bot::Fundable
   extend ActiveSupport::Concern
 
   def notify_if_funds_are_low
