@@ -19,7 +19,7 @@ module Bots::DcaSingleAsset::OrderSetter # rubocop:disable Metrics/ModuleLength
     order_amount_in_quote:,
     update_missed_quote_amount: false
   )
-    Rails.logger.info("set_orders for bot #{id} with order_amount_in_quote: #{order_amount_in_quote}, update_missed_quote_amount: #{update_missed_quote_amount}")
+    Rails.logger.info("set_order for bot #{id} with order_amount_in_quote: #{order_amount_in_quote}, update_missed_quote_amount: #{update_missed_quote_amount}")
     raise StandardError, 'quote_amount is required' if order_amount_in_quote.blank?
     raise StandardError, 'quote_amount must be positive' if order_amount_in_quote.negative?
     return Result::Success.new if order_amount_in_quote.zero? || order_amount_in_quote.negative?
@@ -28,7 +28,7 @@ module Bots::DcaSingleAsset::OrderSetter # rubocop:disable Metrics/ModuleLength
     unless result.success?
       Rails.logger.error("set_order for bot #{id} failed to get order: #{result.errors.inspect}")
       create_failed_order!({
-                             base_asset: base0_asset,
+                             base_asset: base_asset,
                              quote_asset: quote_asset,
                              error_messages: result.errors
                            })
@@ -85,17 +85,19 @@ module Bots::DcaSingleAsset::OrderSetter # rubocop:disable Metrics/ModuleLength
                                               .pluck(:quote_amount)
                                               .sum
 
-    intervals = ((last_interval_checkpoint_at - calc_since) / interval_duration).floor + 1
+    # Round to 6 decimal places to avoid floating point precision issues!
+    intervals = ((last_interval_checkpoint_at.round(6) - calc_since.round(6)) / interval_duration).floor + 1
 
     # puts "intervals: #{intervals}"
-    # puts "last_interval_checkpoint_at: #{last_interval_checkpoint_at}"
-    # puts "started_at:                  #{started_at}"
-    # puts "settings_changed_at:         #{settings_changed_at}"
-    # puts "calc_since:                  #{calc_since}"
+    # puts "last_interval_checkpoint_at: #{last_interval_checkpoint_at} (#{last_interval_checkpoint_at.to_f})"
+    # puts "started_at:                  #{started_at} (#{started_at.to_f})"
+    # puts "settings_changed_at:         #{settings_changed_at} (#{settings_changed_at.to_f})"
+    # puts "calc_since:                  #{calc_since} (#{calc_since.to_f})"
     # puts "current_time:                #{Time.current}"
-    # puts "intervals since started_at: #{[0, ((last_interval_checkpoint_at - started_at) / interval_duration).floor].max + 1}"
-    # puts "intervals since settings_changed_at: #{[0,
-    #                                               ((last_interval_checkpoint_at - settings_changed_at) / interval_duration).floor].max + 1}"
+    # puts "real intervals since started_at: #{((last_interval_checkpoint_at - started_at) / interval_duration).floor}"
+    # puts "real intervals since settings_changed_at: #{((last_interval_checkpoint_at - settings_changed_at) / interval_duration).floor}"
+    # puts "intervals since started_at: #{((last_interval_checkpoint_at - started_at) / interval_duration).floor + 1}"
+    # puts "intervals since settings_changed_at: #{((last_interval_checkpoint_at - settings_changed_at) / interval_duration).floor + 1}"
     # puts "interval_duration: #{interval_duration}"
     # puts "missed_quote_amount: #{missed_quote_amount}"
     # puts "total_quote_amount_invested: #{total_quote_amount_invested}"
@@ -147,7 +149,7 @@ module Bots::DcaSingleAsset::OrderSetter # rubocop:disable Metrics/ModuleLength
   def calculate_order_data(price:, order_amount_in_quote:)
     order_size_in_base = order_amount_in_quote / price
     {
-      base_asset: base0_asset,
+      base_asset: base_asset,
       quote_asset: quote_asset,
       rate: price,
       amount: order_size_in_base,

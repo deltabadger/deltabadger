@@ -2,7 +2,7 @@
 
 <%= render 'layouts/modal/full_page' do %>
   <div class="bot-creation-layout">
-    <%= render partial: 'bots/dca_dual_assets/new_step_progress_bar', locals: { current_step: :exchange } %>
+    <%= render partial: 'bots/dca_single_assets/new_step_progress_bar', locals: { current_step: :exchange } %>
 
     <div class="conversational conversational--bot-setup">
       <%= t('bot.setup.sentence.invest_in') %>
