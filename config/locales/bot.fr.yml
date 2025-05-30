@@ -28,6 +28,9 @@ fr:
             paused: "En pause"
             next_try: "Prochain essai dans"
             waiting: "En attente que toutes les conditions soient remplies"
+        dca_single_asset:
+            invest: "Investir"
+            invest_html: "Investir %{input} /mois"
         dca_dual_asset:
             invest: "Investir"
             invest_html: "Investir %{input} /mois"
@@ -167,14 +170,17 @@ fr:
         withdrawal_percentage: '%{percentage}%'
         withdrawal: 'Retrait'
         warning:
-            title: "Félicitations ! Votre bot est en cours d'exécution."
-            both_below:
-                intro: "Cependant, les montants des ordres de %{base0_symbol} et %{base1_symbol} sont inférieurs aux tailles minimales d'ordre de %{exchange_name} (%{base0_minimum_base_size} %{base0_symbol} ou %{base0_minimum_quote_size} %{quote_symbol} pour %{base0_symbol} et %{base1_minimum_base_size} %{base1_symbol} ou %{base1_minimum_quote_size} %{quote_symbol} pour %{base1_symbol}). Voici comment le bot gère cela :"
-            one_below:
-                intro: "Votre bot a acheté %{bought_quote_amount} %{quote_symbol} de %{bought_symbol}, mais le montant de %{missed_symbol} était inférieur à la taille minimale d'ordre de %{exchange_name} (%{missed_minimum_base_size} %{missed_symbol} ou %{missed_minimum_quote_size} %{quote_symbol} pour %{missed_symbol}). Voici comment le bot gère cela :"
+            dca_single_asset:
+                intro: "%{missed_symbol} était inférieur à la taille minimale d'ordre de %{exchange_name} (%{missed_minimum_base_size} %{missed_symbol} ou %{missed_minimum_quote_size} %{quote_symbol} pour %{missed_symbol}). Voici comment le bot gère cela :"
+            dca_dual_asset:
+                both_below:
+                    intro: "Cependant, les montants des ordres de %{base0_symbol} et %{base1_symbol} sont inférieurs aux tailles minimales d'ordre de %{exchange_name} (%{base0_minimum_base_size} %{base0_symbol} ou %{base0_minimum_quote_size} %{quote_symbol} pour %{base0_symbol} et %{base1_minimum_base_size} %{base1_symbol} ou %{base1_minimum_quote_size} %{quote_symbol} pour %{base1_symbol}). Voici comment le bot gère cela :"
+                one_below:
+                    intro: "Votre bot a acheté %{bought_quote_amount} %{quote_symbol} de %{bought_symbol}, mais le montant de %{missed_symbol} était inférieur à la taille minimale d'ordre de %{exchange_name} (%{missed_minimum_base_size} %{missed_symbol} ou %{missed_minimum_quote_size} %{quote_symbol} pour %{missed_symbol}). Voici comment le bot gère cela :"
             buffer_explanation:
                 one: "Le montant manqué a été mis en mémoire tampon et sera utilisé avec la prochaine commande programmée, garantissant que votre calendrier et votre allocation sont maintenus aussi près que possible des minimums de l'échange."
                 other: "Les montants manqués ont été mis en mémoire tampon et seront utilisés avec les prochaines commandes programmées, garantissant que votre calendrier et votre allocation sont maintenus aussi près que possible des minimums de l'échange."
+            title: "Félicitations ! Votre bot est en cours d'exécution."
             general_note: "Les minimums d'échange et les montants de rééquilibrage requis peuvent changer. Les commandes peuvent parfois sembler irrégulières, mais le bot cible toujours votre allocation et votre calendrier souhaités, donc aucun travail supplémentaire n'est nécessaire."
         settings:
             smart_intervals:

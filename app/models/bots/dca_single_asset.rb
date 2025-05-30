@@ -236,12 +236,11 @@ class Bots::DcaSingleAsset < Bot
       quote_asset_id: first_transaction.quote_asset.id
     )
     {
-      base_symbol: first_transaction.base_asset.symbol,
-      base_minimum_base_size: ticker.minimum_base_size,
-      base_minimum_quote_size: ticker.minimum_quote_size,
       quote_symbol: first_transaction.quote_asset.symbol,
-      exchange_name: first_transaction.exchange.name,
-      missed_count: 1
+      missed_symbol: first_transaction.base_asset.symbol,
+      missed_minimum_base_size: ticker.minimum_base_size,
+      missed_minimum_quote_size: ticker.minimum_quote_size,
+      exchange_name: first_transaction.exchange.name
     }
   end
 end

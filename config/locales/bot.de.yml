@@ -28,6 +28,9 @@ de:
             paused: "Pausiert"
             next_try: "Nächster Versuch in"
             waiting: "Warten bis alle Bedingungen erfüllt sind"
+        dca_single_asset:
+            invest: "Investieren"
+            invest_html: "%{input} /Monat investieren"
         dca_dual_asset:
             invest: "Investieren"
             invest_html: "%{input} /Monat investieren"
@@ -180,14 +183,17 @@ de:
         withdrawal_percentage: '%{percentage}%'
         withdrawal: 'Auszahlung'
         warning:
-            title: "Glückwunsch! Dein Bot läuft."
-            both_below:
-                intro: "Allerdings liegen sowohl die Ordermengen von %{base0_symbol} als auch %{base1_symbol} unter den Mindestbestellgrößen von %{exchange_name} (%{base0_minimum_base_size} %{base0_symbol} oder %{base0_minimum_quote_size} %{quote_symbol} für %{base0_symbol} und %{base1_minimum_base_size} %{base1_symbol} oder %{base1_minimum_quote_size} %{quote_symbol} für %{base1_symbol}). So geht der Bot damit um:"
-            one_below:
-                intro: "Dein Bot hat %{bought_quote_amount} %{quote_symbol} von %{bought_symbol} gekauft, aber die Menge von %{missed_symbol} lag unter der Mindestbestellgröße von %{exchange_name} (%{missed_minimum_base_size} %{missed_symbol} oder %{missed_minimum_quote_size} %{quote_symbol} für %{missed_symbol}). So geht der Bot damit um:"
+            dca_single_asset:
+                intro: "Der Betrag von %{missed_symbol} lag unter der Mindestbestellgröße von %{exchange_name} (%{missed_minimum_base_size} %{missed_symbol} oder %{missed_minimum_quote_size} %{quote_symbol} für %{missed_symbol}). So geht der Bot damit um:"
+            dca_dual_asset:
+                both_below:
+                    intro: "Allerdings liegen sowohl die Ordermengen von %{base0_symbol} als auch %{base1_symbol} unter den Mindestbestellgrößen von %{exchange_name} (%{base0_minimum_base_size} %{base0_symbol} oder %{base0_minimum_quote_size} %{quote_symbol} für %{base0_symbol} und %{base1_minimum_base_size} %{base1_symbol} oder %{base1_minimum_quote_size} %{quote_symbol} für %{base1_symbol}). So geht der Bot damit um:"
+                one_below:
+                    intro: "Dein Bot hat %{bought_quote_amount} %{quote_symbol} von %{bought_symbol} gekauft, aber die Menge von %{missed_symbol} lag unter der Mindestbestellgröße von %{exchange_name} (%{missed_minimum_base_size} %{missed_symbol} oder %{missed_minimum_quote_size} %{quote_symbol} für %{missed_symbol}). So geht der Bot damit um:"
             buffer_explanation:
                 one: "Der verpasste Betrag wurde gepuffert und wird mit der nächsten geplanten Order verwendet, sodass dein Zeitplan und deine Allokation so gut wie möglich entsprechend den Börsen-Mindestgrößen eingehalten werden."
                 other: "Die verpassten Beträge wurden gepuffert und werden mit den nächsten geplanten Orders verwendet, sodass dein Zeitplan und deine Allokation so gut wie möglich entsprechend den Börsen-Mindestgrößen eingehalten werden."
+            title: "Glückwunsch! Dein Bot läuft."
             general_note: "Börsen-Mindestgrößen und erforderliche Rebalancing-Beträge ändern sich. Transaktionen können manchmal unregelmäßig aussehen, aber der Bot hält immer deine gewünschte Allokation und deinen Zeitplan ein, sodass kein zusätzlicher Aufwand nötig ist."
         settings:
             smart_intervals:
