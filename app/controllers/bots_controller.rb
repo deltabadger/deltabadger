@@ -40,11 +40,19 @@ class BotsController < ApplicationController
         end
       else
         # TODO: When transactions point to real asset ids, we can use the asset ids directly instead of symbols
-        @decimals = {
-          @bot.base0_asset.symbol => @bot.decimals[:base0],
-          @bot.base1_asset.symbol => @bot.decimals[:base1],
-          @bot.quote_asset.symbol => @bot.decimals[:quote]
-        }
+        if @bot.dca_single_asset?
+          @decimals = {
+            @bot.base_asset.symbol => @bot.decimals[:base],
+            @bot.quote_asset.symbol => @bot.decimals[:quote]
+          }
+        elsif @bot.dca_dual_asset?
+          @decimals = {
+            @bot.base0_asset.symbol => @bot.decimals[:base0],
+            @bot.base1_asset.symbol => @bot.decimals[:base1],
+            @bot.quote_asset.symbol => @bot.decimals[:quote]
+          }
+        end
+
         metrics_with_current_prices = @bot.metrics_with_current_prices_from_cache
         @loading = metrics_with_current_prices.nil?
         @metrics = @loading ? @bot.metrics : metrics_with_current_prices
@@ -60,7 +68,7 @@ class BotsController < ApplicationController
   def edit; end
 
   def update
-    @bot.set_missed_quote_amount if @bot.dca_dual_asset?
+    @bot.set_missed_quote_amount if @bot.dca_single_asset? || @bot.dca_dual_asset?
 
     if @bot.update(update_params)
       # flash.now[:notice] = t('alert.bot.bot_updated')
@@ -86,6 +94,26 @@ class BotsController < ApplicationController
 
   def webhook_bot_params
     params.require(:bots_webhook).permit(:label)
+  end
+
+  def dca_single_asset_bot_params
+    params.require(:bots_dca_single_asset).permit(
+      :label,
+      :base_asset_id,
+      :quote_asset_id,
+      :quote_amount,
+      :interval,
+      :exchange_id,
+      :quote_amount_limited,
+      :quote_amount_limit,
+      :price_limited,
+      :price_limit,
+      :price_limit_timing_condition,
+      :price_limit_price_condition,
+      :price_limit_in_ticker_id,
+      :smart_intervaled,
+      :smart_interval_quote_amount
+    )
   end
 
   def dca_dual_asset_bot_params
@@ -118,6 +146,14 @@ class BotsController < ApplicationController
       withdrawal_bot_params
     elsif @bot.webhook?
       webhook_bot_params
+    elsif @bot.dca_single_asset?
+      {
+        settings: @bot.settings.merge(
+          @bot.parsed_settings(dca_single_asset_bot_params).stringify_keys
+        ),
+        exchange_id: dca_single_asset_bot_params[:exchange_id],
+        label: dca_single_asset_bot_params[:label].presence
+      }.compact
     elsif @bot.dca_dual_asset?
       {
         settings: @bot.settings.merge(

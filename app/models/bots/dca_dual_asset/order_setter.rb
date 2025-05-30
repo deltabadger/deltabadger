@@ -86,17 +86,19 @@ module Bots::DcaDualAsset::OrderSetter # rubocop:disable Metrics/ModuleLength
                                               .pluck(:quote_amount)
                                               .sum
 
-    intervals = ((last_interval_checkpoint_at - calc_since) / interval_duration).floor + 1
+    # Round to 6 decimal places to avoid floating point precision issues!
+    intervals = ((last_interval_checkpoint_at.round(6) - calc_since.round(6)) / interval_duration).floor + 1
 
     # puts "intervals: #{intervals}"
-    # puts "last_interval_checkpoint_at: #{last_interval_checkpoint_at}"
-    # puts "started_at:                  #{started_at}"
-    # puts "settings_changed_at:         #{settings_changed_at}"
-    # puts "calc_since:                  #{calc_since}"
+    # puts "last_interval_checkpoint_at: #{last_interval_checkpoint_at} (#{last_interval_checkpoint_at.to_f})"
+    # puts "started_at:                  #{started_at} (#{started_at.to_f})"
+    # puts "settings_changed_at:         #{settings_changed_at} (#{settings_changed_at.to_f})"
+    # puts "calc_since:                  #{calc_since} (#{calc_since.to_f})"
     # puts "current_time:                #{Time.current}"
-    # puts "intervals since started_at: #{[0, ((last_interval_checkpoint_at - started_at) / interval_duration).floor].max + 1}"
-    # puts "intervals since settings_changed_at: #{[0,
-    #                                               ((last_interval_checkpoint_at - settings_changed_at) / interval_duration).floor].max + 1}"
+    # puts "real intervals since started_at: #{((last_interval_checkpoint_at - started_at) / interval_duration).floor}"
+    # puts "real intervals since settings_changed_at: #{((last_interval_checkpoint_at - settings_changed_at) / interval_duration).floor}"
+    # puts "intervals since started_at: #{((last_interval_checkpoint_at - started_at) / interval_duration).floor + 1}"
+    # puts "intervals since settings_changed_at: #{((last_interval_checkpoint_at - settings_changed_at) / interval_duration).floor + 1}"
     # puts "interval_duration: #{interval_duration}"
     # puts "missed_quote_amount: #{missed_quote_amount}"
     # puts "total_quote_amount_invested: #{total_quote_amount_invested}"

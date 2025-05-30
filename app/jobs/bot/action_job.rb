@@ -12,7 +12,6 @@ class Bot::ActionJob < BotJob
     else
       bot.update!(status: :scheduled)
       next_interval_checkpoint_at = bot.next_interval_checkpoint_at
-      Rails.logger.info("Action job for bot #{bot.id} rescheduled at #{next_interval_checkpoint_at}.")
       Bot::ActionJob.set(wait_until: next_interval_checkpoint_at).perform_later(bot)
       Bot::BroadcastAfterScheduledActionJob.perform_later(bot)
     end
