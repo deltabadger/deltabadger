@@ -42,6 +42,7 @@ module Bot::PriceLimitable
       def execute_action
         return super unless price_limited?
 
+        puts "decorator price_limit_condition_met? #{price_limit_condition_met?}"
         if price_limit_condition_met?
           super
         else
@@ -133,7 +134,7 @@ module Bot::PriceLimitable
     self.price_limit ||= nil
     self.price_limit_timing_condition ||= 'while'
     self.price_limit_value_condition ||= 'below'
-    self.price_limit_in_asset_id ||= assets.min_by(&:symbol).id
+    self.price_limit_in_asset_id ||= assets&.min_by(&:symbol)&.id
     self.price_limit_vs_currency ||= Asset::VS_CURRENCIES.first
   end
 
