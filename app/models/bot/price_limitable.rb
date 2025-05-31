@@ -93,10 +93,10 @@ module Bot::PriceLimitable
     return false unless price_limited?
     return true if timing_condition_satisfied?
 
-    ticker = tickers.find_by(id: price_limit_vs_currency)
-    return false unless ticker.present?
+    asset = assets.find_by(id: price_limit_in_asset_id)
+    return false unless asset.present?
 
-    result = ticker.get_price
+    result = asset.get_price(currency: price_limit_vs_currency)
     return false unless result.success?
 
     if price_condition_satisfied?(result.data)
