@@ -11,24 +11,22 @@ module Bot::IndicatorLimitable
                    :indicator_limit,
                    :indicator_limit_timing_condition,
                    :indicator_limit_value_condition,
-                   :indicator_limit_in_indicator,
-                   :indicator_limit_in_asset_id,
-                   :indicator_limit_vs_currency
+                   :indicator_limit_in_ticker_id,
+                   :indicator_limit_in_indicator
     store_accessor :transient_data,
                    :indicator_limit_enabled_at,
                    :indicator_limit_condition_met_at
 
-    after_initialize :initialize_price_limitable_settings
+    after_initialize :initialize_indicator_limitable_settings
 
     before_save :set_indicator_limit_enabled_at, if: :will_save_change_to_settings?
+    before_save :set_indicator_limit_in_ticker_id, if: :will_save_change_to_exchange_id?
 
     validates :indicator_limited, inclusion: { in: [true, false] }
     validates :indicator_limit, numericality: { greater_than_or_equal_to: 0 }, if: :indicator_limited?
     validates :indicator_limit_timing_condition, inclusion: { in: INDICATOR_LIMIT_TIMING_CONDITIONS }
     validates :indicator_limit_value_condition, inclusion: { in: INDICATOR_LIMIT_VALUE_CONDITIONS }
     validates :indicator_limit_in_indicator, inclusion: { in: INDICATOR_LIMIT_INDICATORS }
-    validates :indicator_limit_in_asset_id, inclusion: { in: ->(b) { b.assets.pluck(:id) - [b.quote_asset_id] } }
-    validates :indicator_limit_vs_currency, inclusion: { in: Asset::VS_CURRENCIES }
 
     decorators = Module.new do
       def parsed_settings(settings_hash)
@@ -37,9 +35,8 @@ module Bot::IndicatorLimitable
           indicator_limit: settings_hash[:indicator_limit].presence&.to_f,
           indicator_limit_timing_condition: settings_hash[:indicator_limit_timing_condition].presence,
           indicator_limit_value_condition: settings_hash[:indicator_limit_value_condition].presence,
-          indicator_limit_in_indicator: settings_hash[:indicator_limit_in_indicator].presence,
-          indicator_limit_in_asset_id: settings_hash[:indicator_limit_in_asset_id].presence&.to_i,
-          indicator_limit_vs_currency: settings_hash[:indicator_limit_vs_currency].presence
+          indicator_limit_in_ticker_id: settings_hash[:indicator_limit_in_ticker_id].presence&.to_i,
+          indicator_limit_in_indicator: settings_hash[:indicator_limit_in_indicator].presence
         ).compact
       end
 
@@ -102,11 +99,11 @@ module Bot::IndicatorLimitable
     return false unless indicator_limited?
     return true if timing_condition_satisfied?
 
-    asset = assets.find_by(id: price_limit_in_asset_id)
-    return false unless asset.present?
+    ticker = tickers.find_by(id: price_limit_in_ticker_id)
+    return false unless ticker.present?
 
     # TODO: get historical prices
-    result = asset.get_price(currency: price_limit_vs_currency)
+    result = ticker.get_price
     return false unless result.success?
 
     if indicator_condition_satisfied?(result.data)
@@ -140,9 +137,8 @@ module Bot::IndicatorLimitable
     self.indicator_limit ||= nil
     self.indicator_limit_timing_condition ||= 'while'
     self.indicator_limit_value_condition ||= 'below'
+    self.indicator_limit_in_ticker_id ||= set_indicator_limit_in_ticker_id
     self.indicator_limit_in_indicator ||= 'rsi'
-    self.indicator_limit_in_asset_id ||= assets&.min_by(&:symbol)&.id
-    self.indicator_limit_vs_currency ||= Asset::VS_CURRENCIES.first
   end
 
   def set_indicator_limit_enabled_at
@@ -155,6 +151,10 @@ module Bot::IndicatorLimitable
     return if indicator_limited_was == indicator_limited
 
     self.indicator_limit_condition_met_at = nil
+  end
+
+  def set_indicator_limit_in_ticker_id
+    self.indicator_limit_in_ticker_id = tickers&.sort_by { |t| t[:base] }&.first&.id
   end
 
   def cancel_scheduled_indicator_limit_check_jobs

@@ -193,7 +193,7 @@ nl:
                 amount_left: "(%{amount} %{symbol} resterend)"
                 amount_spent: "Het volledige bedrag is geïnvesteerd."
             extra_price_limit:
-                sentence_html: "%{timing_condition} wanneer de %{base} prijs %{price_condition} %{price} %{vs_currency} is"
+                sentence_html: "%{timing_condition} wanneer de %{base} prijs %{price_condition} %{price} %{quote} is"
                 timing_condition:
                     while: "Koop alleen"
                     after: "Begin met kopen"
