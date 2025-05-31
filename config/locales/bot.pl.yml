@@ -193,7 +193,7 @@ pl:
                 amount_left: "(pozostało %{amount} %{symbol})"
                 amount_spent: "Cała kwota została zainwestowana."
             extra_price_limit:
-                sentence_html: "%{timing_condition} gdy cena %{base} jest %{price_condition} %{price} %{vs_currency}"
+                sentence_html: "%{timing_condition} gdy cena %{base} jest %{price_condition} %{price} %{quote}"
                 timing_condition:
                     while: "Kupuj tylko"
                     after: "Zacznij kupować"

@@ -26,17 +26,14 @@
           <% base_select_options = base_select_options(bot) %>
           <% if base_select_options.size > 1 %>
             <% base_html = content_tag(:div, class: "sinput sinput--select") do %>
-              <%= bot.assets.find_by(id: bot.price_limit_in_asset_id)&.symbol %>
-              <%= f.select :price_limit_in_asset_id, base_select_options, { selected: bot.price_limit_in_asset_id }, data: { action: "change->form--submit#submit" } %>
+              <% selected_base_asset_id = bot.tickers.find_by(id: bot.price_limit_in_ticker_id)&.base_asset_id %>
+              <%= Asset.find(selected_base_asset_id).symbol if selected_base_asset_id.present? %>
+              <%= f.select :price_limit_in_ticker_id, base_select_options, { selected: bot.price_limit_in_ticker_id }, data: { action: "change->form--submit#submit" } %>
             <% end %>
           <% else %>
             <% base_html = base_select_options.first.first %>
           <% end %>
-          <% vs_currency_html = content_tag(:div, class: "sinput sinput--select") do %>
-            <%= bot.price_limit_vs_currency&.upcase %>
-            <%= f.select :price_limit_vs_currency, vs_currencies_select_options, { selected: bot.price_limit_vs_currency }, data: { action: "change->form--submit#submit" } %>
-          <% end %>
-          <%= t("bot.settings.extra_price_limit.sentence_html", timing_condition: timing_condition_html.html_safe, price_condition: price_condition_html.html_safe, price: price_html.html_safe, base: base_html.html_safe, vs_currency: vs_currency_html.html_safe).html_safe %>
+          <%= t("bot.settings.extra_price_limit.sentence_html", timing_condition: timing_condition_html.html_safe, price_condition: price_condition_html.html_safe, price: price_html.html_safe, base: base_html.html_safe, quote: bot.quote_asset.symbol).html_safe %>
         <% end %>
       </div>
     </div>
