@@ -13,6 +13,10 @@ task update_barbell_bots_settings: :environment do
       settings['price_limit_vs_currency'] = vs_currency.in?(Asset::VS_CURRENCIES) ? vs_currency : 'usd'
       settings.delete('price_limit_in_ticker_id')
     end
+    if settings['price_limit_price_condition'].present?
+      settings['price_limit_value_condition'] = settings['price_limit_price_condition']
+      settings.delete('price_limit_price_condition')
+    end
     bot.set_missed_quote_amount
     bot.update!(settings: settings.compact)
   end

@@ -30,7 +30,7 @@ class Bots::DcaDualAssets::ConfirmSettingsController < ApplicationController
       :price_limited,
       :price_limit,
       :price_limit_timing_condition,
-      :price_limit_price_condition,
+      :price_limit_value_condition,
       :price_limit_in_asset_id,
       :price_limit_vs_currency,
       :smart_intervaled,
