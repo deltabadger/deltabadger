@@ -10,7 +10,7 @@ en:
                 description: |
                     <p>Invest a fixed amount regularly. The bot averages out your purchase price over time, reducing the impact of market volatility. Use classic DCA, or set conditions to catch the best price.</p>
             dca_dual_asset:
-                title: "Barbell Strategy" 
+                title: "Barbell Strategy"
                 description: |
                     <p>Invest regularly in any two assets with rebalanced DCA. The bot buys more of whichever asset has grown less, keeping your desired allocation <b>without capital gains taxes</b>.</p>
             legacy:
@@ -215,7 +215,7 @@ en:
                 amount_left: "(%{amount} %{symbol} left)"
                 amount_spent: "The whole amount has been invested."
             extra_price_limit:
-                sentence_html: "%{timing_condition} when %{base} price is %{price_condition} %{price} %{quote}"
+                sentence_html: "%{timing_condition} when %{base} price is %{price_condition} %{price} %{vs_currency}"
                 timing_condition:
                     while: "Buy only"
                     after: "Start buying"
