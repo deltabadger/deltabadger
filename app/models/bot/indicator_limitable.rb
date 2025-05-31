@@ -46,6 +46,7 @@ module Bot::IndicatorLimitable
       def execute_action
         return super unless indicator_limited?
 
+        puts "decoratorindicator_limit_condition_met? #{indicator_limit_condition_met?}"
         if indicator_limit_condition_met?
           super
         else
@@ -140,7 +141,7 @@ module Bot::IndicatorLimitable
     self.indicator_limit_timing_condition ||= 'while'
     self.indicator_limit_value_condition ||= 'below'
     self.indicator_limit_in_indicator ||= 'rsi'
-    self.indicator_limit_in_asset_id ||= assets.min_by(&:symbol).id
+    self.indicator_limit_in_asset_id ||= assets&.min_by(&:symbol)&.id
     self.indicator_limit_vs_currency ||= Asset::VS_CURRENCIES.first
   end
 
