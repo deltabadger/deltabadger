@@ -100,7 +100,7 @@ module Bot::PriceLimitable
     result = ticker.get_price
     return false unless result.success?
 
-    if price_condition_satisfied?(result.data)
+    if value_condition_satisfied?(result.data)
       self.price_limit_condition_met_at ||= Time.current
       true
     else
@@ -115,7 +115,7 @@ module Bot::PriceLimitable
     price_limit_timing_condition == 'after' && price_limit_condition_met_at.present?
   end
 
-  def price_condition_satisfied?(current_price)
+  def value_condition_satisfied?(current_price)
     case price_limit_value_condition
     when 'below'
       current_price < price_limit
