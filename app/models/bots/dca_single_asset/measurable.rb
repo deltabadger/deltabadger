@@ -39,7 +39,7 @@ module Bots::DcaSingleAsset::Measurable
 
   def metrics_with_current_prices(force: false)
     Rails.cache.fetch(metrics_with_current_prices_cache_key,
-                      expires_in: Utilities::Time.seconds_to_next_five_minute_cut,
+                      expires_in: Utilities::Time.seconds_to_end_of_five_minute_cut,
                       force: force) do
       return metrics if metrics[:chart][:labels].empty?
 
@@ -100,7 +100,7 @@ module Bots::DcaSingleAsset::Measurable
   def get_last_price_from_cache(base_asset_id, quote_asset_id)
     # we cache the price so many users can use it without hitting the API too much
     cache_key = "exchange_#{exchange.id}_last_price_for_#{base_asset_id}_#{quote_asset_id}"
-    price = Rails.cache.fetch(cache_key, expires_in: Utilities::Time.seconds_to_next_five_minute_cut) do
+    price = Rails.cache.fetch(cache_key, expires_in: Utilities::Time.seconds_to_end_of_five_minute_cut) do
       result = exchange.get_last_price(base_asset_id: base_asset_id, quote_asset_id: quote_asset_id)
       return result unless result.success?
 

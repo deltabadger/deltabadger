@@ -5,7 +5,7 @@ module Utilities
       now.end_of_day - now
     end
 
-    def self.seconds_to_next_five_minute_cut
+    def self.seconds_to_end_of_five_minute_cut
       now = ::Time.now.utc
       minutes = (now.min % 5 - 5).abs - 1
       seconds = now.end_of_minute - now

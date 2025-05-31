@@ -48,7 +48,7 @@ module Bot::IndicatorLimitable
           super
         else
           update!(status: :waiting)
-          next_check_at = Time.current + Utilities::Time.seconds_to_next_five_minute_cut
+          next_check_at = Time.current + Utilities::Time.seconds_to_end_of_five_minute_cut
           # TODO: verify if this comes before price limit check job
           Bot::IndicatorLimitCheckJob.set(wait_until: next_check_at).perform_later(self)
           Result::Success.new({ break_reschedule: true })
