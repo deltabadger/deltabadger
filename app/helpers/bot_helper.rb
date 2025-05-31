@@ -13,17 +13,17 @@ module BotHelper
   end
 
   def price_limit_timing_condition_select_options(bot)
-    return [] unless defined?(bot.class::TIMING_CONDITIONS)
+    return [] unless defined?(bot.class::PRICE_LIMIT_TIMING_CONDITIONS)
 
-    bot.class::TIMING_CONDITIONS.map do |condition|
+    bot.class::PRICE_LIMIT_TIMING_CONDITIONS.map do |condition|
       [t("bot.settings.extra_price_limit.timing_condition.#{condition}"), condition]
     end
   end
 
-  def price_limit_price_condition_select_options(bot)
-    return [] unless defined?(bot.class::PRICE_CONDITIONS)
+  def price_limit_value_condition_select_options(bot)
+    return [] unless defined?(bot.class::PRICE_LIMIT_VALUE_CONDITIONS)
 
-    bot.class::PRICE_CONDITIONS.map do |condition|
+    bot.class::PRICE_LIMIT_VALUE_CONDITIONS.map do |condition|
       [t("bot.settings.extra_price_limit.price_condition.#{condition}"), condition]
     end
   end
