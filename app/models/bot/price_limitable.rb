@@ -1,15 +1,15 @@
 module Bot::PriceLimitable
   extend ActiveSupport::Concern
 
-  TIMING_CONDITIONS = %w[while after].freeze
-  PRICE_CONDITIONS = %w[above below].freeze
+  PRICE_LIMIT_TIMING_CONDITIONS = %w[while after].freeze
+  PRICE_LIMIT_VALUE_CONDITIONS = %w[above below].freeze
 
   included do # rubocop:disable Metrics/BlockLength
     store_accessor :settings,
                    :price_limited,
                    :price_limit,
                    :price_limit_timing_condition,
-                   :price_limit_price_condition,
+                   :price_limit_value_condition,
                    :price_limit_in_asset_id,
                    :price_limit_vs_currency
     store_accessor :transient_data,
@@ -22,8 +22,8 @@ module Bot::PriceLimitable
 
     validates :price_limited, inclusion: { in: [true, false] }
     validates :price_limit, numericality: { greater_than_or_equal_to: 0 }, if: :price_limited?
-    validates :price_limit_timing_condition, inclusion: { in: TIMING_CONDITIONS }
-    validates :price_limit_price_condition, inclusion: { in: PRICE_CONDITIONS }
+    validates :price_limit_timing_condition, inclusion: { in: PRICE_LIMIT_TIMING_CONDITIONS }
+    validates :price_limit_value_condition, inclusion: { in: PRICE_LIMIT_VALUE_CONDITIONS }
     validates :price_limit_in_asset_id, inclusion: { in: ->(b) { b.assets.pluck(:id) - [b.quote_asset_id] } }
     validates :price_limit_vs_currency, inclusion: { in: Asset::VS_CURRENCIES }
 
@@ -33,7 +33,7 @@ module Bot::PriceLimitable
           price_limited: settings_hash[:price_limited].presence&.in?(%w[1 true]),
           price_limit: settings_hash[:price_limit].presence&.to_f,
           price_limit_timing_condition: settings_hash[:price_limit_timing_condition].presence,
-          price_limit_price_condition: settings_hash[:price_limit_price_condition].presence,
+          price_limit_value_condition: settings_hash[:price_limit_value_condition].presence,
           price_limit_in_asset_id: settings_hash[:price_limit_in_asset_id].presence&.to_i,
           price_limit_vs_currency: settings_hash[:price_limit_vs_currency].presence
         ).compact
@@ -64,7 +64,11 @@ module Bot::PriceLimitable
         return super unless price_limited?
 
         started_at_bak = started_at
-        self.started_at = price_limit_condition_met_at if price_limited?
+        self.started_at = if started_at.nil? || price_limit_condition_met_at.nil?
+                            nil
+                          else
+                            [started_at, price_limit_condition_met_at].max
+                          end
         value = super
         self.started_at = started_at_bak
         value
@@ -114,7 +118,7 @@ module Bot::PriceLimitable
   end
 
   def price_condition_satisfied?(current_price)
-    case price_limit_price_condition
+    case price_limit_value_condition
     when 'below'
       current_price < price_limit
     when 'above'
@@ -128,7 +132,7 @@ module Bot::PriceLimitable
     self.price_limited ||= false
     self.price_limit ||= nil
     self.price_limit_timing_condition ||= 'while'
-    self.price_limit_price_condition ||= 'below'
+    self.price_limit_value_condition ||= 'below'
     self.price_limit_in_asset_id ||= assets.min_by(&:symbol).id
     self.price_limit_vs_currency ||= Asset::VS_CURRENCIES.first
   end

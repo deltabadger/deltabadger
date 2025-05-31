@@ -16,8 +16,8 @@
             <%= f.select :price_limit_timing_condition, price_limit_timing_condition_select_options(bot), { selected: bot.price_limit_timing_condition }, data: { action: "change->form--submit#submit" } %>
           <% end %>
           <% price_condition_html = content_tag(:div, class: "sinput sinput--select") do %>
-            <%= t("bot.settings.extra_price_limit.price_condition.#{bot.price_limit_price_condition}") %>
-            <%= f.select :price_limit_price_condition, price_limit_price_condition_select_options(bot), { selected: bot.price_limit_price_condition }, data: { action: "change->form--submit#submit" } %>
+            <%= t("bot.settings.extra_price_limit.price_condition.#{bot.price_limit_value_condition}") %>
+            <%= f.select :price_limit_value_condition, price_limit_value_condition_select_options(bot), { selected: bot.price_limit_value_condition }, data: { action: "change->form--submit#submit" } %>
           <% end %>
           <% price_html = content_tag(:div) do %>
             <% value = bot.price_limit.present? ? bot.price_limit.to_d.to_s('F').sub(/^(?!0\.0$)([1-9]\d*)\.0$/, '\1') : nil %>
