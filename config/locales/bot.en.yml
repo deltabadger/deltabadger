@@ -215,7 +215,7 @@ en:
                 amount_left: "(%{amount} %{symbol} left)"
                 amount_spent: "The whole amount has been invested."
             extra_price_limit:
-                sentence_html: "%{timing_condition} when %{base} price is %{price_condition} %{price} %{vs_currency}"
+                sentence_html: "%{timing_condition} when %{base} price is %{price_condition} %{price} %{quote}"
                 timing_condition:
                     while: "Buy only"
                     after: "Start buying"
