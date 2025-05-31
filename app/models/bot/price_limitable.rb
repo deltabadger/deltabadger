@@ -10,8 +10,7 @@ module Bot::PriceLimitable
                    :price_limit,
                    :price_limit_timing_condition,
                    :price_limit_value_condition,
-                   :price_limit_in_asset_id,
-                   :price_limit_vs_currency
+                   :price_limit_in_ticker_id
     store_accessor :transient_data,
                    :price_limit_enabled_at,
                    :price_limit_condition_met_at
@@ -19,13 +18,12 @@ module Bot::PriceLimitable
     after_initialize :initialize_price_limitable_settings
 
     before_save :set_price_limit_enabled_at, if: :will_save_change_to_settings?
+    before_save :set_price_limit_in_ticker_id, if: :will_save_change_to_exchange_id?
 
     validates :price_limited, inclusion: { in: [true, false] }
     validates :price_limit, numericality: { greater_than_or_equal_to: 0 }, if: :price_limited?
     validates :price_limit_timing_condition, inclusion: { in: PRICE_LIMIT_TIMING_CONDITIONS }
     validates :price_limit_value_condition, inclusion: { in: PRICE_LIMIT_VALUE_CONDITIONS }
-    validates :price_limit_in_asset_id, inclusion: { in: ->(b) { b.assets.pluck(:id) - [b.quote_asset_id] } }
-    validates :price_limit_vs_currency, inclusion: { in: Asset::VS_CURRENCIES }
 
     decorators = Module.new do
       def parsed_settings(settings_hash)
@@ -34,8 +32,7 @@ module Bot::PriceLimitable
           price_limit: settings_hash[:price_limit].presence&.to_f,
           price_limit_timing_condition: settings_hash[:price_limit_timing_condition].presence,
           price_limit_value_condition: settings_hash[:price_limit_value_condition].presence,
-          price_limit_in_asset_id: settings_hash[:price_limit_in_asset_id].presence&.to_i,
-          price_limit_vs_currency: settings_hash[:price_limit_vs_currency].presence
+          price_limit_in_ticker_id: settings_hash[:price_limit_in_ticker_id].presence&.to_i
         ).compact
       end
 
@@ -47,7 +44,7 @@ module Bot::PriceLimitable
           super
         else
           update!(status: :waiting)
-          next_check_at = Time.current + Utilities::Time.seconds_to_next_five_minute_cut
+          next_check_at = Time.current + Utilities::Time.seconds_to_end_of_minute
           Bot::PriceLimitCheckJob.set(wait_until: next_check_at).perform_later(self)
           Result::Success.new({ break_reschedule: true })
         end
@@ -97,10 +94,10 @@ module Bot::PriceLimitable
     return false unless price_limited?
     return true if timing_condition_satisfied?
 
-    asset = assets.find_by(id: price_limit_in_asset_id)
-    return false unless asset.present?
+    ticker = tickers.find_by(id: price_limit_in_ticker_id)
+    return false unless ticker.present?
 
-    result = asset.get_price(currency: price_limit_vs_currency)
+    result = ticker.get_price
     return false unless result.success?
 
     if price_condition_satisfied?(result.data)
@@ -134,8 +131,7 @@ module Bot::PriceLimitable
     self.price_limit ||= nil
     self.price_limit_timing_condition ||= 'while'
     self.price_limit_value_condition ||= 'below'
-    self.price_limit_in_asset_id ||= assets&.min_by(&:symbol)&.id
-    self.price_limit_vs_currency ||= Asset::VS_CURRENCIES.first
+    self.price_limit_in_ticker_id ||= set_price_limit_in_ticker_id
   end
 
   def set_price_limit_enabled_at
@@ -148,6 +144,10 @@ module Bot::PriceLimitable
     return if price_limited_was == price_limited
 
     self.price_limit_condition_met_at = nil
+  end
+
+  def set_price_limit_in_ticker_id
+    self.price_limit_in_ticker_id = tickers&.sort_by { |t| t[:base] }&.first&.id
   end
 
   def cancel_scheduled_price_limit_check_jobs

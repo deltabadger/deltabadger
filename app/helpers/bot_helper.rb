@@ -29,7 +29,9 @@ module BotHelper
   end
 
   def base_select_options(bot)
-    bot.assets.pluck(:symbol, :id).reject { |_, id| id == bot.quote_asset_id }.sort_by(&:first)
+    bot.tickers.pluck(:base_asset_id, :id).map do |base_asset_id, id|
+      [Asset.find(base_asset_id).symbol, id]
+    end.sort_by(&:first)
   end
 
   def vs_currencies_select_options

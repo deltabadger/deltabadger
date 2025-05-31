@@ -5,18 +5,16 @@ task update_barbell_bots_settings: :environment do
 
     puts "Updating bot #{bot.id}"
     settings = bot.settings
-    if settings['price_limit_in_ticker_id'].present?
-      ticker = ExchangeTicker.find(settings['price_limit_in_ticker_id'])
-      ticker = bot.tickers.first unless bot.tickers.pluck(:id).include?(ticker.id)
-      settings['price_limit_in_asset_id'] = ticker.base_asset_id
-      vs_currency = ticker.quote_asset.symbol.downcase
-      settings['price_limit_vs_currency'] = vs_currency.in?(Asset::VS_CURRENCIES) ? vs_currency : 'usd'
-      settings.delete('price_limit_in_ticker_id')
-    end
-    if settings['price_limit_price_condition'].present?
-      settings['price_limit_value_condition'] = settings['price_limit_price_condition']
-      settings.delete('price_limit_price_condition')
-    end
+
+    settings['price_limit_in_asset_id'] = bot.tickers&.first&.id
+    settings.delete('price_limit_in_asset_id') if settings['price_limit_in_asset_id'].present?
+    settings.delete('price_limit_vs_currency') if settings['price_limit_vs_currency'].present?
+
+    # if settings['price_limit_price_condition'].present?
+    #   settings['price_limit_value_condition'] = settings['price_limit_price_condition']
+    #   settings.delete('price_limit_price_condition')
+    # end
+
     bot.set_missed_quote_amount
     bot.update!(settings: settings.compact)
   end
