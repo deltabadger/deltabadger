@@ -1,8 +1,9 @@
 class BotsController < ApplicationController
-  before_action :authenticate_user!
-
   include Pagy::Backend
   include Bots::Botable
+
+  before_action :authenticate_user!
+  before_action :set_bot, only: %i[show edit update]
 
   def index
     return render 'bots/react_dashboard' if params[:create] # TODO: remove this once the legacy dashboard is removed

@@ -1,8 +1,9 @@
 class Bots::AssetSearchesController < ApplicationController
-  before_action :authenticate_user!
-
   include Bots::Botable
   include Bots::Searchable
+
+  before_action :authenticate_user!
+  before_action :set_bot
 
   def edit
     asset_type = search_params[:asset_field] == 'quote_asset_id' ? :quote_asset : :base_asset
