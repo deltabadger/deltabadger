@@ -136,6 +136,49 @@ module Exchange::Exchanges::Coinbase
     Result::Success.new(price)
   end
 
+  def get_candles(ticker_id:, start_at:, timeframe:)
+    granularities = {
+      1.minute => 'ONE_MINUTE',
+      5.minutes => 'FIVE_MINUTES',
+      15.minutes => 'FIFTEEN_MINUTES',
+      30.minutes => 'THIRTY_MINUTES',
+      1.hour => 'ONE_HOUR',
+      2.hours => 'TWO_HOUR',
+      6.hours => 'SIX_HOURS',
+      1.day => 'ONE_DAY'
+    }
+    granularity = granularities[timeframe]
+
+    candles = []
+    ticker = tickers.find(ticker_id)
+    loop do
+      result = client.get_public_product_candles(
+        product_id: ticker.ticker,
+        start_time: start_at.to_i,
+        end_time: [start_at + 350 * timeframe, Time.now.utc].min.to_i,
+        granularity: granularity
+      )
+      return result unless result.success?
+
+      raw_candles_list = result.data['candles'].sort_by { |candle| candle['start'] }
+      raw_candles_list.each do |candle|
+        candles << [
+          Time.at(candle['start'].to_i).utc,
+          candle['open'].to_d,
+          candle['high'].to_d,
+          candle['low'].to_d,
+          candle['close'].to_d,
+          candle['volume'].to_d
+        ]
+      end
+      break if raw_candles_list.size < 350
+
+      start_at = candles.last[0] + 1.second
+    end
+
+    Result::Success.new(candles)
+  end
+
   # @param amount_type [Symbol] :base or :quote
   def market_buy(base_asset_id:, quote_asset_id:, amount:, amount_type:)
     set_market_order(
