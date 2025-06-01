@@ -14,10 +14,11 @@
     </div>
     <div class="columns">
       <div class="column gap-1">
-        <%= render partial: "bots/description", locals: { bot: @bot } %>
         <% if @bot.dca_single_asset? %>
+          <%= render partial: "bots/description_dca", locals: { bot: @bot } %>
           <%= render partial: "bots/dca_single_assets/settings", locals: { bot: @bot } %>
         <% elsif @bot.dca_dual_asset? %>
+          <%= render partial: "bots/description_rebalanced_dca", locals: { bot: @bot } %>
           <%= render partial: "bots/dca_dual_assets/settings", locals: { bot: @bot } %>
         <% end %>
       </div>

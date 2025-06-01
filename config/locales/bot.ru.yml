@@ -12,7 +12,7 @@ ru:
                     <p>Бот усредняет вашу цену покупки со временем, снижая влияние волатильности рынка.</p>
                     <p>Используйте классический DCA или установите условия, чтобы поймать лучшую цену.</p>
             dca_dual_asset:
-                title: "Стратегия Barbell"
+                title: "Ребалансированный DCA"
                 description: |
                     <p>Инвестируйте регулярно в любые два актива с ребалансированным DCA.</p>
                     <p>Бот покупает больше того актива, который вырос меньше, сохраняя вашу желаемую аллокацию <b>без налогов на прирост капитала</b>.</p>
@@ -27,12 +27,9 @@ ru:
             paused: "На паузе"
             next_try: "Следующая попытка через"
             waiting: "Ожидание выполнения всех условий"
-        dca_single_asset:
+        conversational:
             invest: "Инвестировать"
-            invest_html: "Инвестировать %{input} /месяц"
-        dca_dual_asset:
-            invest: "Инвестировать"
-            invest_html: "Инвестировать %{input} /месяц"
+            into: "в"
         utils:
             mkt_cap_adjusted: "С учетом рыночной капитализации"
             mkt_cap_adjusted_info_html: |
@@ -144,6 +141,7 @@ ru:
             wrong_subaccount_name: "Неправильное имя субаккаунта"
             failed_tooltip_explanation: "Этот ордер не выполнен: %{error_message}"
             skipped_tooltip_explanation: "Этот ордер был пропущен, так как сумма была ниже минимального размера ордера на %{exchange_name}. Пропущенная сумма была буферизована и будет добавлена к следующему ордеру."
+            failed_status_bar_explanation: "Последний ордер не выполнен: %{error_messages}"
         minimum_withdrawal_disclaimer: "Минимальный размер вывода составляет %{minimum} %{currency}."
         minimum_withdrawal_disclaimer_usd: "Минимальный размер вывода составляет %{minimum} USD."
         month: Месяц
@@ -181,14 +179,22 @@ ru:
             general_note: "Минимумы биржи и требуемые суммы ребалансировки могут меняться. Ордера иногда могут выглядеть нерегулярными, но бот всегда нацелен на желаемое распределение и расписание, поэтому дополнительная работа не требуется."
         settings:
             smart_intervals:
-                split_in_orders_html: '<b>Smart Intervals<sup>®</sup></b> Разделить сумму на единицы по %{amount} %{quote}.'
-                split_info: "Разделение ваших %{quote_amount} %{quote} / %{interval} на меньшие единицы по %{amount} %{quote} приведет к одной инвестиции каждые %{smart_interval}."
+                split_in_orders_html: '<b>Smart Intervals<sup>®</sup></b> Разделить сумму на единицы по <span>%{amount} %{quote}</span>'
+                split_info: "Разделение ваших %{quote_amount} %{quote} / %{interval} на меньшие единицы по %{amount} %{quote} приведет к одной инвестиции каждые %{smart_interval}"
             extra_amount_limit:
                 dont_spend_more_than: "Не тратить больше чем"
                 amount_left: "(осталось %{amount} %{symbol})"
-                amount_spent: "Вся сумма была инвестирована."
+                amount_spent: "Вся сумма была инвестирована"
             extra_price_limit:
-                sentence_html: "%{timing_condition} когда цена %{base} %{value_condition} %{value} %{quote}"
+                sentence_html: "%{timing_condition} когда цена %{base} <span>%{value_condition} %{value} %{quote}</span>"
+                timing_condition:
+                    while: "Покупать только"
+                    after: "Начать покупать"
+                value_condition:
+                    above: "выше"
+                    below: "ниже"
+            extra_indicator_limit:
+                sentence_html: "%{timing_condition} когда %{ticker} %{indicator} на дневных свечах <span>%{value_condition} %{value}</span>"
                 timing_condition:
                     while: "Покупать только"
                     after: "Начать покупать"
