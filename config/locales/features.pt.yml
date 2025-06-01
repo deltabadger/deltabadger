@@ -4,7 +4,7 @@ pt:
         short:
             dca: "DCA"
             withdrawals: "Levantamentos automáticos"
-            barbell: "Estratégia Barbell"
+            rebalanced_dca: "DCA Rebalanceado"
             indexing: "Rebalanceamento de carteira"
             analyzer: "Analisador de carteira"
         dca:
@@ -16,8 +16,8 @@ pt:
         automatic_withdrawals:
             title: "Levantamentos Automáticos"
             description_html: "Transfere automaticamente as tuas criptomoedas para a tua carteira hardware. Funciona com Kraken."
-        barbell_strategy:
-            title: "Estratégia Barbell"
+        rebalanced_dca:
+            title: "DCA Rebalanceado"
             description_html: "Queres que a tua carteira mantenha 80% em Bitcoin e 20% em Ethereum? O DCA rebalanceado manterá a tua alocação alvo."
         crypto_index:
             title: "Índice Cripto"

@@ -7,7 +7,7 @@ module SubscriptionPlan::PlanFeatures
         dca
         fee_cutter
         automatic_withdrawals
-        barbell_strategy
+        rebalanced_dca
         crypto_index
         crypto_index_advanced
         custom_portfolios
@@ -30,7 +30,7 @@ module SubscriptionPlan::PlanFeatures
         dca
         fee_cutter
         automatic_withdrawals
-        barbell_strategy
+        rebalanced_dca
         crypto_index
         custom_portfolios
         portfolio_rebalancing
@@ -78,7 +78,7 @@ module SubscriptionPlan::PlanFeatures
       free_features + %w[
         fee_cutter
         automatic_withdrawals
-        barbell_strategy
+        rebalanced_dca
       ]
     end
 

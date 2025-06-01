@@ -12,7 +12,7 @@ nl:
                     <p>De bot middelt uw aankoopprijs over tijd, waardoor de impact van marktvolatiliteit wordt verminderd.</p>
                     <p>Gebruik klassieke DCA of stel voorwaarden in om de beste prijs te krijgen.</p>
             dca_dual_asset:
-                title: "Barbell Strategie"
+                title: "Geherbalanceerde DCA"
                 description: |
                     <p>Investeer regelmatig in twee willekeurige activa met geherbalanceerde DCA.</p>
                     <p>De bot koopt meer van het activum dat minder is gegroeid, waarbij uw gewenste allocatie <b>zonder belasting op kapitaalwinsten</b> behouden blijft.</p>
@@ -31,12 +31,9 @@ nl:
             paused: "Gepauzeerd"
             next_try: "Volgende poging in"
             waiting: "Wachten tot aan alle voorwaarden is voldaan"
-        dca_single_asset:
+        conversational:
             invest: "Investeren"
-            invest_html: "Investeer %{input} /maand"
-        dca_dual_asset:
-            invest: "Investeren"
-            invest_html: "Investeer %{input} /maand"
+            into: "naar"
         utils:
             mkt_cap_adjusted: "Marktkapitalisatie aangepast"
             mkt_cap_adjusted_info_html: |
@@ -150,6 +147,7 @@ nl:
             wrong_subaccount_name: "Verkeerde subaccountnaam"
             failed_tooltip_explanation: "Deze bestelling is mislukt: %{error_message}"
             skipped_tooltip_explanation: "Deze bestelling is overgeslagen omdat het bedrag onder de minimale ordergrootte van %{exchange_name} lag. Het overgeslagen bedrag is gebufferd en wordt toegevoegd aan de volgende bestelling."
+            failed_status_bar_explanation: "De laatste bestelling is mislukt: %{error_messages}"
         minimum_withdrawal_disclaimer: 'De minimale opnamegrootte is %{minimum} %{currency}.'
         minimum_withdrawal_disclaimer_usd: 'De minimale opname bedraagt %{minimum} USD.'
         month: Maand
@@ -186,16 +184,24 @@ nl:
             general_note: "Minimale bedragen van exchanges en vereiste herbalanceringsbedragen kunnen veranderen. Orders kunnen er soms onregelmatig uitzien, maar de bot streeft altijd naar de gewenste toewijzing en schema, dus er is geen extra werk nodig."
         settings:
             smart_intervals:
-                split_in_orders_html: '<b>Smart Intervals<sup>®</sup></b> Splits het bedrag in eenheden van %{amount} %{quote}.'
-                split_info: "Het splitsen van je %{quote_amount} %{quote} / %{interval} in kleinere eenheden van %{amount} %{quote} resulteert in één investering per %{smart_interval}."
+                split_in_orders_html: '<b>Smart Intervals<sup>®</sup></b> Splits het bedrag in eenheden van <span>%{amount} %{quote}</span>'
+                split_info: "Het splitsen van je %{quote_amount} %{quote} / %{interval} in kleinere eenheden van %{amount} %{quote} resulteert in één investering per %{smart_interval}"
             extra_amount_limit:
                 dont_spend_more_than: "Besteed niet meer dan"
                 amount_left: "(%{amount} %{symbol} resterend)"
-                amount_spent: "Het volledige bedrag is geïnvesteerd."
+                amount_spent: "Het volledige bedrag is geïnvesteerd"
             extra_price_limit:
                 sentence_html: "%{timing_condition} wanneer de %{base} prijs %{value_condition} %{value} %{quote} is"
                 timing_condition:
                     while: "Koop alleen"
+                    after: "Begin met kopen"
+                value_condition:
+                    above: "boven"
+                    below: "onder"
+            extra_indicator_limit:
+                sentence_html: "%{timing_condition} wanneer de %{ticker} %{indicator} op dagelijkse kaarsen <span>%{value_condition} %{value}</span> is"
+                timing_condition:
+                    while: "Alleen kopen"
                     after: "Begin met kopen"
                 value_condition:
                     above: "boven"

@@ -2,9 +2,16 @@ pl:
   bot_info:
     how_to_use: |
       <p>Oto kilka przykładów jak z tego korzystać:</p>
+    dca:
+      info: |
+          <p>Dollar-cost averaging dla dowolnego aktywa cyfrowego. Zautomatyzuj cykliczne zakupy według ustalonego harmonogramu i nie martw się już o wyczuwanie rynku.</p>
+      examples: |
+          <p><strong>Inteligentne Interwały</strong> — Realizuj swój harmonogram w mniejszych, równomiernie rozłożonych zleceniach.</p>
+          <p><strong>Kup na dołku!</strong> — Wykorzystaj poziom ceny lub RSI, aby złapać dno.</p>
+          <p><strong>Limit wydatków</strong> — Ustaw maksymalną kwotę do wydania.</p>
     dca_dual_asset:
       info: |
-        <p><strong>Rebalansowane DCA</strong> pomiędzy dwoma aktywami.</p>
+        <p>Rebalansowane dollar-cost averaging pomiędzy dwoma aktywami.</p>
         <p>Bot dokonuje rebalancingu używając wyłącznie zleceń KUPNA, dzięki czemu nigdy nie tworzy zdarzeń podatkowych, jednocześnie osiągając pożądaną alokację.</p>
       examples: |
         <p><strong>BTC-ETH</strong> — "Cyfrowe złoto" spotyka Web3. Pokryj 74% rynku krypto prostym, bezproblemowym portfelem, który automatycznie się równoważy.</p>

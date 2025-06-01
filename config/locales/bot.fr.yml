@@ -12,7 +12,7 @@ fr:
                     <p>Le bot fait la moyenne de votre prix d'achat au fil du temps, réduisant l'impact de la volatilité du marché.</p>
                     <p>Utilisez le DCA classique ou définissez des conditions pour obtenir le meilleur prix.</p>
             dca_dual_asset:
-                title: "Stratégie Barbell"
+                title: "DCA Rééquilibré"
                 description: |
                     <p>Investissez régulièrement dans deux actifs quelconques avec du DCA rééquilibré.</p>
                     <p>Le bot achète plus de l'actif qui a moins progressé, maintenant votre allocation souhaitée <b>sans impôts sur les plus-values</b>.</p>
@@ -31,12 +31,9 @@ fr:
             paused: "En pause"
             next_try: "Prochain essai dans"
             waiting: "En attente que toutes les conditions soient remplies"
-        dca_single_asset:
+        conversational:
             invest: "Investir"
-            invest_html: "Investir %{input} /mois"
-        dca_dual_asset:
-            invest: "Investir"
-            invest_html: "Investir %{input} /mois"
+            into: "dans"
         utils:
             mkt_cap_adjusted: "Ajusté à la capitalisation boursière"
             mkt_cap_adjusted_info_html: |
@@ -150,6 +147,7 @@ fr:
             wrong_subaccount_name: "Nom de sous-compte incorrect"
             failed_tooltip_explanation: "Cette commande a échoué: %{error_message}"
             skipped_tooltip_explanation: "Cette commande a été ignorée car le montant était inférieur à la taille minimale de commande de %{exchange_name}. Le montant ignoré a été mis en mémoire tampon et sera ajouté à la prochaine commande."
+            failed_status_bar_explanation: "La dernière commande a échoué: %{error_messages}"
         minimum_withdrawal_disclaimer: 'Le montant minimal de retrait est de %{minimum} %{currency}'
         minimum_withdrawal_disclaimer_usd: 'Le montant minimal de retrait est %{minimum} USD.'
         month: 'Mois'
@@ -187,16 +185,24 @@ fr:
             general_note: "Les minimums d'échange et les montants de rééquilibrage requis peuvent changer. Les commandes peuvent parfois sembler irrégulières, mais le bot cible toujours votre allocation et votre calendrier souhaités, donc aucun travail supplémentaire n'est nécessaire."
         settings:
             smart_intervals:
-                split_in_orders_html: '<b>Smart Intervals<sup>®</sup></b> Divise le montant en unités de %{amount} %{quote}.'
-                split_info: "Diviser votre %{quote_amount} %{quote} / %{interval} en unités plus petites de %{amount} %{quote} entraînera un investissement tous les %{smart_interval}."
+                split_in_orders_html: '<b>Smart Intervals<sup>®</sup></b> Divise le montant en unités de <span>%{amount} %{quote}</span>'
+                split_info: "Diviser votre %{quote_amount} %{quote} / %{interval} en unités plus petites de %{amount} %{quote} entraînera un investissement tous les %{smart_interval}"
             extra_amount_limit:
                 dont_spend_more_than: "Ne pas dépenser plus de"
                 amount_left: "(%{amount} %{symbol} restant)"
-                amount_spent: "Le montant total a été investi."
+                amount_spent: "Le montant total a été investi"
             extra_price_limit:
-                sentence_html: "%{timing_condition} lorsque le prix de %{base} est %{value_condition} %{value} %{quote}"
+                sentence_html: "%{timing_condition} lorsque le prix de %{base} est <span>%{value_condition} %{value} %{quote}</span>"
                 timing_condition:
                     while: "Acheter uniquement"
+                    after: "Commencer à acheter"
+                value_condition:
+                    above: "au-dessus de"
+                    below: "en dessous de"
+            extra_indicator_limit:
+                sentence_html: "%{timing_condition} quand le %{ticker} %{indicator} sur bougies journalières est <span>%{value_condition} %{value}</span>"
+                timing_condition:
+                    while: "Acheter seulement"
                     after: "Commencer à acheter"
                 value_condition:
                     above: "au-dessus de"
