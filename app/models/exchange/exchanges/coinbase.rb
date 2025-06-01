@@ -151,6 +151,7 @@ module Exchange::Exchanges::Coinbase
 
     candles = []
     ticker = tickers.find(ticker_id)
+    start_at -= 1.second
     loop do
       result = client.get_public_product_candles(
         product_id: ticker.ticker,
