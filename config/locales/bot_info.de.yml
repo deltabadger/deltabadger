@@ -2,6 +2,13 @@ de:
   bot_info:
     how_to_use: |
       <p>Hier sind einige Beispiele zur Nutzung:</p>
+    dca:
+      info: |
+          <p>Dollar-Cost-Averaging in jedes digitale Asset. Automatisieren Sie wiederkehrende Käufe nach einem festen Zeitplan und machen Sie sich keine Gedanken mehr über das Market Timing.</p>
+      examples: |
+          <p><strong>Smart Intervals</strong> — Führen Sie Ihren gewünschten Zeitplan in kleineren, gleichmäßig verteilten Orders aus.</p>
+          <p><strong>Kaufen Sie den Dip!</strong> — Nutzen Sie Preisniveau oder RSI, um den Tiefpunkt zu erwischen.</p>
+          <p><strong>Ausgabenlimit</strong> — Legen Sie einen maximalen Ausgabenbetrag fest.</p>
     dca_dual_asset:
       info: |
         <p>Ausbalanciertes Dollar-Cost-Averaging in zwei Assets.</p>

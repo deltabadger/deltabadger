@@ -2,6 +2,13 @@ pt:
   bot_info:
     how_to_use: |
       <p>Aqui estão alguns exemplos de como utilizar:</p>
+    dca:
+      info: |
+          <p>Dollar-cost averaging para qualquer ativo digital. Automatize compras recorrentes num calendário fixo e nunca se preocupe com o timing do mercado.</p>
+      examples: |
+          <p><strong>Intervalos Inteligentes</strong> — Execute o seu calendário desejado em ordens menores distribuídas uniformemente.</p>
+          <p><strong>Compre na baixa!</strong> — Use o nível de preço ou RSI para apanhar o fundo.</p>
+          <p><strong>Limite de gastos</strong> — Defina um valor máximo para gastar.</p>
     dca_dual_asset:
       info: |
         <p>Dollar-cost averaging rebalanceado entre dois ativos.</p>
