@@ -1,7 +1,8 @@
 class Bots::StopsController < ApplicationController
-  before_action :authenticate_user!
-
   include Bots::Botable
+
+  before_action :authenticate_user!
+  before_action :set_bot
 
   def update
     return if @bot.stop

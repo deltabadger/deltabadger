@@ -1,7 +1,8 @@
 class Bots::StartsController < ApplicationController
-  before_action :authenticate_user!
-
   include Bots::Botable
+
+  before_action :authenticate_user!
+  before_action :set_bot
 
   def edit
     render :edit_legacy if @bot.legacy?
