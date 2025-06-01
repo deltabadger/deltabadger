@@ -167,6 +167,7 @@ module Exchange::Exchanges::Kraken
 
     candles = []
     ticker = tickers.find(ticker_id)
+    start_at -= 1.second
     result = client.get_ohlc_data(
       pair: ticker.ticker,
       interval: interval,
