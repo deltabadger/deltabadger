@@ -10,7 +10,7 @@ en:
                 description: |
                     <p>Invest a fixed amount regularly. The bot averages out your purchase price over time, reducing the impact of market volatility. Use classic DCA, or set conditions to catch the best price.</p>
             dca_dual_asset:
-                title: "Barbell Strategy"
+                title: "Rebalanced DCA"
                 description: |
                     <p>Invest regularly in any two assets with rebalanced DCA. The bot buys more of whichever asset has grown less, keeping your desired allocation <b>without capital gains taxes</b>.</p>
             legacy:
@@ -29,13 +29,9 @@ en:
             next_try: "Next try in"
             waiting: "Waiting for all conditions to be met"
         pick_exchange: "Pick Exchange"
-        dca_single_asset:
+        conversational:
             invest: "Invest"
-            invest_html: "Invest %{input} /month"
             into: "into"
-        dca_dual_asset:
-            invest: "Invest"
-            invest_html: "Invest %{input} /month"
         utils:
             mkt_cap_adjusted: "Market Cap adjusted"
             mkt_cap_adjusted_info_html: |
@@ -208,14 +204,14 @@ en:
             general_note: "Exchange minimums and required rebalancing amounts change. Transactions might sometimes look irregular, but the bot always targets your desired allocation and schedule, so no extra work is needed."
         settings:
             smart_intervals:
-                split_in_orders_html: '<b>Smart Intervals<sup>®</sup></b> Split the amount into %{amount} %{quote} units.'
-                split_info: "Splitting your %{quote_amount} %{quote} / %{interval} into smaller units of %{amount} %{quote} will result in one investment every %{smart_interval}."
+                split_in_orders_html: '<b>Smart Intervals<sup>®</sup></b> Split the amount into <span>%{amount} %{quote}</span> units'
+                split_info: "Splitting your %{quote_amount} %{quote} / %{interval} into smaller units of %{amount} %{quote} will result in one investment every %{smart_interval}"
             extra_amount_limit:
                 dont_spend_more_than: "Don't spend more than"
                 amount_left: "(%{amount} %{symbol} left)"
-                amount_spent: "The whole amount has been invested."
+                amount_spent: "The whole amount has been invested"
             extra_price_limit:
-                sentence_html: "%{timing_condition} when %{base} price is %{value_condition} %{value} %{quote}"
+                sentence_html: "%{timing_condition} when %{base} price is <span>%{value_condition} %{value} %{quote}</span>"
                 timing_condition:
                     while: "Buy only"
                     after: "Start buying"
@@ -223,7 +219,7 @@ en:
                     above: "above"
                     below: "below"
             extra_indicator_limit:
-                sentence_html: "%{timing_condition} when the %{ticker} %{indicator} on daily candles is %{value_condition} %{value}"
+                sentence_html: "%{timing_condition} when the %{ticker} %{indicator} on daily candles is <span>%{value_condition} %{value}</span>"
                 timing_condition:
                     while: "Buy only"
                     after: "Start buying"

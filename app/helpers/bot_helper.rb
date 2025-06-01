@@ -5,7 +5,7 @@ module BotHelper
 
   def bot_type_label(bot)
     {
-      'Bots::DcaDualAsset' => 'Barbell DCA',
+      'Bots::DcaDualAsset' => 'Rebalanced DCA',
       'Bots::Basic' => 'Basic DCA',
       'Bots::Withdrawal' => 'Withdrawal',
       'Bots::Webhook' => 'Webhook'
