@@ -19,10 +19,9 @@
 
         <% path = current_user.subscription.free? ? upgrade_upgrade_instructions_path : new_bots_dca_dual_assets_pick_first_buyable_asset_path %>
         <%= link_to path, class: 'itile itile--bot-type', data: { action: 'click->modal--base#animateOutCloseAndCleanUp', turbo_frame: 'modal' } do %>
-            <b class="sbadge sbadge--beta"><%= t('utils.beta') %></b>
             <div class="theme-img" style="background-image: url('<%= asset_path('strategy--barbell.webp') %>')"></div>
             <div class="index-title"><%= t('bot.types.dca_dual_asset.title') %></div>
-            <p class="index-info"><%= t('bot.types.dca_dual_asset.description').html_safe %></p>
+            <div class="index-info"><%= t('bot.types.dca_dual_asset.description').html_safe %></div>
         <% end %>
 
         <!--
