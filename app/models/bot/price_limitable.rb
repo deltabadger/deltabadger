@@ -104,6 +104,7 @@ module Bot::PriceLimitable
       self.price_limit_condition_met_at ||= Time.current
       true
     else
+      set_missed_quote_amount
       self.price_limit_condition_met_at = nil
       false
     end
