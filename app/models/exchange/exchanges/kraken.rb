@@ -148,6 +148,50 @@ module Exchange::Exchanges::Kraken
     Result::Success.new(price)
   end
 
+  def get_candles(ticker_id:, start_at:, timeframe:)
+    # Notes:
+    # - Returns up to 720 of the most recent entries (older data cannot be retrieved, regardless of the value of start_at)
+    # - 1.week and 15.days timeframes don't follow TradingView start timestamp
+    intervals = {
+      1.minute => 1,
+      5.minutes => 5,
+      15.minutes => 15,
+      30.minutes => 30,
+      1.hour => 60,
+      4.hours => 240,
+      1.day => 1440,
+      1.week => 10_080,
+      15.days => 21_600
+    }
+    interval = intervals[timeframe]
+
+    candles = []
+    ticker = tickers.find(ticker_id)
+    result = client.get_ohlc_data(
+      pair: ticker.ticker,
+      interval: interval,
+      since: start_at.to_i
+    )
+    return result unless result.success?
+
+    raw_candles_list = result.data['result'][(result.data['result'].keys - ['last'])[0]]
+    raw_candles_list.each do |candle|
+      new_candle = [
+        Time.at(candle[0]).utc, # start
+        candle[1].to_d, # open
+        candle[2].to_d, # high
+        candle[3].to_d, # low
+        candle[4].to_d, # close
+        # candle[5].to_d, # vwap
+        candle[6].to_d # volume
+        # candle[7].to_d  # count
+      ]
+      candles << new_candle if new_candle[0] >= start_at
+    end
+
+    Result::Success.new(candles)
+  end
+
   # @param amount_type [Symbol] :base or :quote
   def market_buy(base_asset_id:, quote_asset_id:, amount:, amount_type:)
     set_market_order(
