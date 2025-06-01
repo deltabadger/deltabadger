@@ -4,7 +4,7 @@ fr:
       <p>Voici quelques exemples d'utilisation :</p>
     dca_dual_asset:
       info: |
-        <p><strong>DCA Rééquilibré</strong> entre deux actifs.</p>
+        <p>Dollar-Cost-Averaging rééquilibré entre deux actifs.</p>
         <p>Le bot effectue le rééquilibrage uniquement avec des ordres d'ACHAT, évitant ainsi tout événement fiscal tout en atteignant votre allocation souhaitée.</p>
       examples: |
         <p><strong>BTC-ETH</strong> — "L'or numérique" rencontre le Web3. Couvrez 74% du marché crypto avec un portefeuille simple et sans tracas qui se rééquilibre automatiquement.</p>

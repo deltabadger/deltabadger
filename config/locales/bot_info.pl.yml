@@ -4,7 +4,7 @@ pl:
       <p>Oto kilka przykładów jak z tego korzystać:</p>
     dca_dual_asset:
       info: |
-        <p><strong>Rebalansowane DCA</strong> pomiędzy dwoma aktywami.</p>
+        <p>Rebalansowane dollar-cost averaging pomiędzy dwoma aktywami.</p>
         <p>Bot dokonuje rebalancingu używając wyłącznie zleceń KUPNA, dzięki czemu nigdy nie tworzy zdarzeń podatkowych, jednocześnie osiągając pożądaną alokację.</p>
       examples: |
         <p><strong>BTC-ETH</strong> — "Cyfrowe złoto" spotyka Web3. Pokryj 74% rynku krypto prostym, bezproblemowym portfelem, który automatycznie się równoważy.</p>

@@ -12,7 +12,7 @@ pt:
                     <p>O bot faz a média do seu preço de compra ao longo do tempo, reduzindo o impacto da volatilidade do mercado.</p>
                     <p>Use DCA clássico ou defina condições para conseguir o melhor preço.</p>
             dca_dual_asset:
-                title: "Estratégia Barbell"
+                title: "DCA Rebalanceado"
                 description: |
                     <p>Invista regularmente em dois ativos quaisquer com DCA rebalanceado.</p>
                     <p>O bot compra mais do ativo que cresceu menos, mantendo sua alocação desejada <b>sem impostos sobre ganhos de capital</b>.</p>
@@ -31,12 +31,9 @@ pt:
             paused: "Pausado"
             next_try: "Próxima tentativa em"
             waiting: "À espera que todas as condições sejam cumpridas"
-        dca_single_asset:
+        conversational:
             invest: "Investir"
-            invest_html: "Investir %{input} /mês"
-        dca_dual_asset:
-            invest: "Investir"
-            invest_html: "Investir %{input} /mês"
+            into: "em"
         utils:
             mkt_cap_adjusted: "Ajustado por Capitalização de Mercado"
             mkt_cap_adjusted_info_html: |
@@ -147,6 +144,7 @@ pt:
             wrong_subaccount_name: "Nome de subconta incorreto"
             failed_tooltip_explanation: "Esta ordem falhou: %{error_message}"
             skipped_tooltip_explanation: "Esta ordem foi pulada porque a quantidade estava abaixo do tamanho mínimo de ordem da %{exchange_name}. A quantidade pulada foi armazenada e será adicionada à próxima ordem."
+            failed_status_bar_explanation: "A última ordem falhou: %{error_messages}"
         minimum_withdrawal_disclaimer: "O tamanho mínimo de retirada é %{minimum} %{currency}."
         minimum_withdrawal_disclaimer_usd: "O tamanho mínimo de retirada é %{minimum} USD."
         month: Mês
@@ -177,12 +175,12 @@ pt:
             general_note: "Os mínimos da exchange e as quantidades de rebalanceamento necessárias podem mudar. As ordens podem parecer irregulares às vezes, mas o bot sempre visa sua alocação e cronograma desejados, portanto, nenhum trabalho extra é necessário."
         settings:
             smart_intervals:
-                split_in_orders_html: '<b>Smart Intervals<sup>®</sup></b> Dividir o montante em unidades de %{amount} %{quote}.'
-                split_info: "Dividir o seu %{quote_amount} %{quote} / %{interval} em unidades mais pequenas de %{amount} %{quote} resultará num investimento a cada %{smart_interval}."
+                split_in_orders_html: '<b>Smart Intervals<sup>®</sup></b> Dividir o montante em unidades de <span>%{amount} %{quote}</span>'
+                split_info: "Dividir o seu %{quote_amount} %{quote} / %{interval} em unidades mais pequenas de %{amount} %{quote} resultará num investimento a cada %{smart_interval}"
             extra_amount_limit:
                 dont_spend_more_than: "Não gaste mais do que"
                 amount_left: "(%{amount} %{symbol} restante)"
-                amount_spent: "O montante total foi investido."
+                amount_spent: "O montante total foi investido"
             extra_price_limit:
                 sentence_html: "%{timing_condition} quando o preço de %{base} estiver %{value_condition} %{value} %{quote}"
                 timing_condition:
@@ -191,3 +189,11 @@ pt:
                 value_condition:
                     above: "superior a"
                     below: "inferior a"
+            extra_indicator_limit:
+                sentence_html: "%{timing_condition} quando o %{ticker} %{indicator} em velas diárias está <span>%{value_condition} %{value}</span>"
+                timing_condition:
+                    while: "Comprar apenas"
+                    after: "Começar a comprar"
+                value_condition:
+                    above: "acima de"
+                    below: "abaixo de"

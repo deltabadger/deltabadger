@@ -4,7 +4,7 @@ it:
       <p>Ecco alcuni esempi di come utilizzarlo:</p>
     dca_dual_asset:
       info: |
-        <p><strong>DCA Ribilanciato</strong> tra due asset.</p>
+        <p>Dollar-cost averaging ribilanciato in due asset.</p>
         <p>Il bot esegue il ribilanciamento utilizzando solo ordini di ACQUISTO, così non genera mai eventi fiscali mentre raggiunge l'allocazione desiderata.</p>
       examples: |
         <p><strong>BTC-ETH</strong> — "L'oro digitale" incontra il Web3. Copri il 74% del mercato crypto con un portafoglio semplice e senza problemi che si ribilancia automaticamente.</p>

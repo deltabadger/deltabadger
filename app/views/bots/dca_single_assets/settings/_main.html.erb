@@ -10,7 +10,7 @@
                 controller: "form--submit form--submit-after-delay form--move-cursor-to-end"
               } do |f| %>
   <div class="conversational flex-justify-center">
-    <%= t('bot.dca_single_asset.invest') %>
+    <%= t('bot.conversational.invest') %>
     <div class="ticker-input ticker-input--autoscale">
       <% value = bot.quote_amount.present? ? bot.quote_amount.to_d.to_s('F').sub(/^(?!0\.0$)([1-9]\d*)\.0$/, '\1') : nil %>
       <%= f.number_field :quote_amount, value: value, class: 'numeric-input', step: :any, size: 3, data: { controller: "autowidth-input", action: "input->form--submit-after-delay#submit input->autowidth-input#resize", form__move_cursor_to_end_target: "input" }, style: "width: 50px;", autofocus: bot.new_record? && bot.quote_amount.blank?, disabled: bot.working? %>
@@ -29,7 +29,7 @@
       <%= f.select :interval, bot_intervals, { selected: bot.interval }, data: { action: "change->form--submit#submit" }, disabled: bot.working? %>
     </div>
 
-    <%= t('bot.dca_single_asset.into') %>
+    <%= t('bot.conversational.into') %>
 
     <% if bot.new_record? %>
       <%= link_to bot.base_asset.symbol, new_bots_dca_single_assets_pick_buyable_asset_path, data: { turbo_frame: "modal_content" }, class: "ticker", style: "background: #{base_color}" %>

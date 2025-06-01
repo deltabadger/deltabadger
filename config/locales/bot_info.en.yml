@@ -2,9 +2,17 @@ en:
     bot_info:
         how_to_use: |
             <p>Here a few examples of how to use it:</p>
+        dca:
+            info: |
+                <p>Dollar-cost averaging into a single asset.</p>
+                <p>The bot achieves rebalancing using only BUY orders, so it never creates tax events while still targeting your desired allocation.</p>
+            examples: |
+                <p><strong>BTC</strong> — "Digital gold" meets Web3. Cover 74% of the crypto market with a simple, no-hassle portfolio that rebalances on autopilot.</p>
+                <p><strong>ETH</strong> — Which Web3 platform will win? Invest in both and let the market decide. Rebalancing ensures you end up on the winning side.</p>
+                <p><strong>PAXG</strong> — Cross-asset diversification. Pax Gold is a unique stablecoin that is not correlated with crypto but still offers attractive upside.</p>
         dca_dual_asset:
             info: |
-                <p><strong>Rebalanced DCA</strong> into two assets.</p>
+                <p>Rebalanced dollar-cost averaging into two assets.</p>
                 <p>The bot achieves rebalancing using only BUY orders, so it never creates tax events while still targeting your desired allocation.</p>
             examples: |
                 <p><strong>BTC-ETH</strong> — "Digital gold" meets Web3. Cover 74% of the crypto market with a simple, no-hassle portfolio that rebalances on autopilot.</p>

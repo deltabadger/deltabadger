@@ -4,7 +4,7 @@ de:
       <p>Hier sind einige Beispiele zur Nutzung:</p>
     dca_dual_asset:
       info: |
-        <p><strong>Ausbalanciertes DCA</strong> in zwei Assets.</p>
+        <p>Ausbalanciertes Dollar-Cost-Averaging in zwei Assets.</p>
         <p>Der Bot erreicht die Neugewichtung ausschließlich durch KAUF-Orders, sodass keine steuerpflichtigen Ereignisse entstehen und dennoch Ihre gewünschte Allokation erreicht wird.</p>
       examples: |
         <p><strong>BTC-ETH</strong> — "Digitales Gold" trifft auf Web3. Decken Sie 74% des Kryptomarktes mit einem einfachen, problemlosen Portfolio ab, das sich automatisch ausgleicht.</p>

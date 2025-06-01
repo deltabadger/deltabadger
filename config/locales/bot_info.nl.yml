@@ -4,7 +4,7 @@ nl:
       <p>Hier zijn enkele voorbeelden van hoe je het kunt gebruiken:</p>
     dca_dual_asset:
       info: |
-        <p><strong>Geherbalanceerde DCA</strong> tussen twee assets.</p>
+        <p>Geherbalanceerde dollar-cost averaging tussen twee assets.</p>
         <p>De bot bereikt herbalancering door alleen KOOP-orders te gebruiken, waardoor er nooit belastbare gebeurtenissen ontstaan terwijl je gewenste allocatie wordt bereikt.</p>
       examples: |
         <p><strong>BTC-ETH</strong> — "Digitaal goud" ontmoet Web3. Dek 74% van de cryptomarkt met een eenvoudige, probleemloze portefeuille die automatisch herbalanceert.</p>
