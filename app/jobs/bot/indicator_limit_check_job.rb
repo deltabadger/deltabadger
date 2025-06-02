@@ -4,11 +4,16 @@ class Bot::IndicatorLimitCheckJob < ApplicationJob
   def perform(bot)
     return unless bot.waiting?
 
-    if bot.indicator_limit_condition_met?
+    result = bot.get_indicator_limit_condition_met?
+    unless result.success?
+      raise "Failed to check indicator limit condition for bot #{bot.id}. Errors: #{result.errors.to_sentence}"
+    end
+
+    if result.data
       bot.update!(started_at: Time.current)
       Bot::ActionJob.perform_later(bot)
     else
-      next_check_at = Time.now.utc.end_of_day + 30.seconds # give 30s of buffer to avoid checking before the previous candle was closed
+      next_check_at = Time.now.utc + Utilities::Time.seconds_to_next_candle_open(indicator_limit_in_timeframe)
       Bot::IndicatorLimitCheckJob.set(wait_until: next_check_at).perform_later(bot)
     end
   end

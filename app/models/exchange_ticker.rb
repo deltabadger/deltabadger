@@ -6,16 +6,18 @@ class ExchangeTicker < ApplicationRecord
   validates :exchange_id, uniqueness: { scope: %i[base_asset_id quote_asset_id] }
   validate :exchange_matches_assets
 
-  def get_last_price
-    exchange.get_last_price(ticker: self)
+  include TechnicalAnalyzable
+
+  def get_last_price(force: false)
+    exchange.get_last_price(ticker: self, force: force)
   end
 
-  def get_bid_price
-    exchange.get_bid_price(ticker: self)
+  def get_bid_price(force: false)
+    exchange.get_bid_price(ticker: self, force: force)
   end
 
-  def get_ask_price
-    exchange.get_ask_price(ticker: self)
+  def get_ask_price(force: false)
+    exchange.get_ask_price(ticker: self, force: force)
   end
 
   def get_candles(start_at:, timeframe:)

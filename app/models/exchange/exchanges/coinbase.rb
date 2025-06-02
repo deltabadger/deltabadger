@@ -106,32 +106,47 @@ module Exchange::Exchanges::Coinbase
     Result::Success.new(result.data[asset_id])
   end
 
-  def get_last_price(ticker:)
-    result = get_product(ticker: ticker)
-    return result unless result.success?
+  def get_last_price(ticker:, force: false)
+    cache_key = "exchange_#{id}_last_price_#{ticker.id}"
+    price = Rails.cache.fetch(cache_key, expires_in: 5.seconds, force: force) do
+      result = get_product(ticker: ticker)
+      return result unless result.success?
 
-    price = Utilities::Hash.dig_or_raise(result.data, 'price').to_d
-    raise "Wrong last price for #{ticker.ticker}: #{price}" if price.zero?
+      price = Utilities::Hash.dig_or_raise(result.data, 'price').to_d
+      raise "Wrong last price for #{ticker.ticker}: #{price}" if price.zero?
 
-    Result::Success.new(price)
-  end
-
-  def get_bid_price(ticker:)
-    result = get_bid_ask_price(ticker: ticker)
-    return result unless result.success?
-
-    price = result.data[:bid][:price]
-    raise "Wrong bid price for #{ticker.ticker}: #{price}" if price.zero?
+      price
+    end
 
     Result::Success.new(price)
   end
 
-  def get_ask_price(ticker:)
-    result = get_bid_ask_price(ticker: ticker)
-    return result unless result.success?
+  def get_bid_price(ticker:, force: false)
+    cache_key = "exchange_#{id}_bid_price_#{ticker.id}"
+    price = Rails.cache.fetch(cache_key, expires_in: 5.seconds, force: force) do
+      result = get_bid_ask_price(ticker: ticker)
+      return result unless result.success?
 
-    price = result.data[:ask][:price]
-    raise "Wrong ask price for #{ticker.ticker}: #{price}" if price.zero?
+      price = result.data[:bid][:price]
+      raise "Wrong bid price for #{ticker.ticker}: #{price}" if price.zero?
+
+      price
+    end
+
+    Result::Success.new(price)
+  end
+
+  def get_ask_price(ticker:, force: false)
+    cache_key = "exchange_#{id}_ask_price_#{ticker.id}"
+    price = Rails.cache.fetch(cache_key, expires_in: 5.seconds, force: force) do
+      result = get_bid_ask_price(ticker: ticker)
+      return result unless result.success?
+
+      price = result.data[:ask][:price]
+      raise "Wrong ask price for #{ticker.ticker}: #{price}" if price.zero?
+
+      price
+    end
 
     Result::Success.new(price)
   end
