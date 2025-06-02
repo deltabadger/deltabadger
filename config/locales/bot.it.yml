@@ -222,7 +222,7 @@ it:
                     above: "sopra"
                     below: "sotto"
             extra_indicator_limit:
-                sentence_html: "%{timing_condition} quando il %{ticker} %{indicator} su candele giornaliere è <span>%{value_condition} %{value}</span>"
+                sentence_html: "%{timing_condition} quando il %{indicator} su candele giornaliere di %{ticker} è <span>%{value_condition} %{value}</span>"
                 timing_condition:
                     while: "Compra solo"
                     after: "Inizia a comprare"

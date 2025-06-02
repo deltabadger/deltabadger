@@ -194,7 +194,7 @@ ru:
                     above: "выше"
                     below: "ниже"
             extra_indicator_limit:
-                sentence_html: "%{timing_condition} когда %{ticker} %{indicator} на дневных свечах <span>%{value_condition} %{value}</span>"
+                sentence_html: "%{timing_condition} когда %{indicator} на дневных свечах %{ticker} <span>%{value_condition} %{value}</span>"
                 timing_condition:
                     while: "Покупать только"
                     after: "Начать покупать"
