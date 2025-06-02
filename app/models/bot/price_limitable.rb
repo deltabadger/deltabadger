@@ -18,6 +18,7 @@ module Bot::PriceLimitable
     after_initialize :initialize_price_limitable_settings
 
     before_save :set_price_limit_enabled_at, if: :will_save_change_to_settings?
+    before_save :set_price_limit_condition_met_at, if: :will_save_change_to_settings?
     before_save :set_price_limit_in_ticker_id, if: :will_save_change_to_exchange_id?
 
     validates :price_limited, inclusion: { in: [true, false] }
@@ -39,7 +40,6 @@ module Bot::PriceLimitable
       def execute_action
         return super unless price_limited?
 
-        puts "decorator price_limit_condition_met? #{price_limit_condition_met?}"
         if price_limit_condition_met?
           super
         else

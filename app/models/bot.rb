@@ -17,8 +17,6 @@ class Bot < ApplicationRecord
   include Notifyable
   include DomIdable
 
-  delegate :market_sell, :market_buy, :limit_sell, :limit_buy, to: :exchange
-
   before_save :update_settings_changed_at, if: :will_save_change_to_settings?
   after_update_commit :broadcast_status_bar_update, if: :saved_change_to_status?
   after_update_commit :broadcast_status_button_update, if: :saved_change_to_status?

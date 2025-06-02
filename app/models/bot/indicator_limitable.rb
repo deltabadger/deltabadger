@@ -20,6 +20,7 @@ module Bot::IndicatorLimitable
     after_initialize :initialize_indicator_limitable_settings
 
     before_save :set_indicator_limit_enabled_at, if: :will_save_change_to_settings?
+    before_save :set_indicator_limit_condition_met_at, if: :will_save_change_to_settings?
     before_save :set_indicator_limit_in_ticker_id, if: :will_save_change_to_exchange_id?
 
     validates :indicator_limited, inclusion: { in: [true, false] }
@@ -43,12 +44,11 @@ module Bot::IndicatorLimitable
       def execute_action
         return super unless indicator_limited?
 
-        puts "decoratorindicator_limit_condition_met? #{indicator_limit_condition_met?}"
         if indicator_limit_condition_met?
           super
         else
           update!(status: :waiting)
-          next_check_at = Time.current + Utilities::Time.seconds_to_end_of_five_minute_cut
+          next_check_at = Time.now.utc.end_of_day + 30.seconds # give 30s of buffer to avoid checking before the previous candle was closed
           Bot::IndicatorLimitCheckJob.set(wait_until: next_check_at).perform_later(self)
           Result::Success.new({ break_reschedule: true })
         end
@@ -95,18 +95,24 @@ module Bot::IndicatorLimitable
   end
 
   def indicator_limit_condition_met?
-    return false # TODO: delete after condition check is implemented
     return false unless indicator_limited?
     return true if timing_condition_satisfied?
 
-    ticker = tickers.find_by(id: price_limit_in_ticker_id)
+    ticker = tickers.find_by(id: indicator_limit_in_ticker_id)
     return false unless ticker.present?
 
-    # TODO: get historical prices
-    result = ticker.get_price
+    # TODO: adjust for other indicators than RSI
+    period = 14
+    timeframe = 1.day
+
+    # Although RSI only "needs" 14 candles the calculation actually accounts for previous gains/losses.
+    # A slice of 10 * period candles gives a good ratio between accuracy and performance.
+    result = ticker.get_candles(start_at: (10 * period * timeframe).ago, timeframe: timeframe)
     return false unless result.success?
 
-    if indicator_condition_satisfied?(result.data)
+    # RubyTechnicalAnalysis doesn't play well with small token prices, so we scale them up.
+    series = result.data[...-1].map { |candle| candle[4] * 10**ticker.price_decimals }
+    if indicator_condition_satisfied?(series, period)
       self.indicator_limit_condition_met_at ||= Time.current
       true
     else
@@ -122,12 +128,19 @@ module Bot::IndicatorLimitable
     indicator_limit_timing_condition == 'after' && indicator_limit_condition_met_at.present?
   end
 
-  def indicator_condition_satisfied?(current_price)
+  def indicator_condition_satisfied?(series, period)
+    rsi = RubyTechnicalAnalysis::RelativeStrengthIndex.new(
+      series: series,
+      period: period
+    )
+    return false unless rsi.valid?
+
+    rsi_value = rsi.call
     case indicator_limit_value_condition
     when 'below'
-      current_price < indicator_limit
+      rsi_value < indicator_limit
     when 'above'
-      current_price > indicator_limit
+      rsi_value > indicator_limit
     else
       false
     end
