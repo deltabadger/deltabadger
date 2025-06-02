@@ -25,7 +25,12 @@ module Bot::IndicatorLimitable
     before_save :set_indicator_limit_in_ticker_id, if: :will_save_change_to_exchange_id?
 
     validates :indicator_limited, inclusion: { in: [true, false] }
-    validates :indicator_limit, numericality: { greater_than_or_equal_to: 0 }, if: :indicator_limited?
+    validates :indicator_limit, numericality: {
+      message: lambda { |b, _|
+                 I18n.t('activerecord.errors.models.bot.attributes.indicator_limit.not_a_number',
+                        indicator: b.indicator_limit_in_indicator.upcase)
+               }
+    }, if: :indicator_limited?
     validates :indicator_limit_timing_condition, inclusion: { in: INDICATOR_LIMIT_TIMING_CONDITIONS }
     validates :indicator_limit_value_condition, inclusion: { in: INDICATOR_LIMIT_VALUE_CONDITIONS }
     validates :indicator_limit_in_indicator, inclusion: { in: INDICATOR_LIMIT_INDICATORS }
