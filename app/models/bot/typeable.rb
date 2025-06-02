@@ -8,7 +8,8 @@ module Bot::Typeable
     scope :basic, -> { where(type: 'Bots::Basic') }
     scope :withdrawal, -> { where(type: 'Bots::Withdrawal') }
     scope :webhook, -> { where(type: 'Bots::Webhook') }
-    scope :barbell, -> { where(type: 'Bots::Barbell') }
+    scope :dca_single_asset, -> { where(type: 'Bots::DcaSingleAsset') }
+    scope :dca_dual_asset, -> { where(type: 'Bots::DcaDualAsset') }
   end
 
   def basic?
@@ -23,7 +24,11 @@ module Bot::Typeable
     type == 'Bots::Webhook'
   end
 
-  def barbell?
-    type == 'Bots::Barbell'
+  def dca_single_asset?
+    type == 'Bots::DcaSingleAsset'
+  end
+
+  def dca_dual_asset?
+    type == 'Bots::DcaDualAsset'
   end
 end

@@ -4,7 +4,7 @@ fr:
         short:
             dca: "DCA"
             withdrawals: "Retraits automatiques"
-            barbell: "Stratégie Barbell"
+            rebalanced_dca: "DCA Rééquilibré"
             indexing: "Rééquilibrage de portefeuille"
             analyzer: "Analyseur de portefeuille"
         dca:
@@ -16,8 +16,8 @@ fr:
         automatic_withdrawals:
             title: "Retraits Automatiques"
             description_html: "Transférez automatiquement vos cryptos vers votre portefeuille hardware. Fonctionne avec Kraken."
-        barbell_strategy:
-            title: "Stratégie Barbell"
+        rebalanced_dca:
+            title: "DCA Rééquilibré"
             description_html: "Vous voulez que votre portefeuille reste à 80% Bitcoin et 20% Ethereum ? Le DCA rééquilibré maintiendra votre allocation cible."
         crypto_index:
             title: "Index Crypto"

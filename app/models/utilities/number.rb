@@ -14,5 +14,10 @@ module Utilities
       # Count digits after decimal point
       str.split('.').last.length
     end
+
+    def self.round_up(num, precision: 2)
+      multiplier = 10**precision
+      (num * multiplier).ceil / multiplier.to_f
+    end
   end
 end

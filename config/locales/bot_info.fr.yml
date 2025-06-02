@@ -2,9 +2,16 @@ fr:
   bot_info:
     how_to_use: |
       <p>Voici quelques exemples d'utilisation :</p>
-    barbell:
+    dca:
       info: |
-        <p><strong>DCA Rééquilibré</strong> entre deux actifs.</p>
+          <p>Dollar-cost averaging pour tout actif numérique. Automatisez les achats récurrents selon un calendrier fixe, et ne vous souciez plus du timing du marché.</p>
+      examples: |
+          <p><strong>Intervalles Intelligents</strong> — Exécutez votre calendrier souhaité en petits ordres répartis uniformément.</p>
+          <p><strong>Achetez la baisse !</strong> — Utilisez le niveau de prix ou le RSI pour attraper le fond.</p>
+          <p><strong>Limite de dépense</strong> — Définissez un montant maximum à dépenser.</p>
+    dca_dual_asset:
+      info: |
+        <p>Dollar-Cost-Averaging rééquilibré entre deux actifs.</p>
         <p>Le bot effectue le rééquilibrage uniquement avec des ordres d'ACHAT, évitant ainsi tout événement fiscal tout en atteignant votre allocation souhaitée.</p>
       examples: |
         <p><strong>BTC-ETH</strong> — "L'or numérique" rencontre le Web3. Couvrez 74% du marché crypto avec un portefeuille simple et sans tracas qui se rééquilibre automatiquement.</p>

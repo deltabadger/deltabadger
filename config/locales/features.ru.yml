@@ -4,7 +4,7 @@ ru:
         short:
             dca: "DCA"
             withdrawals: "Автовывод"
-            barbell: "Стратегия Barbell"
+            rebalanced_dca: "Ребалансированный DCA"
             indexing: "Ребалансировка портфеля"
             analyzer: "Анализатор портфеля"
         dca:
@@ -16,8 +16,8 @@ ru:
         automatic_withdrawals:
             title: "Автоматический Вывод"
             description_html: "Автоматически переводите свою криптовалюту на аппаратный кошелек. Работает с Kraken."
-        barbell_strategy:
-            title: "Стратегия Barbell"
+        rebalanced_dca:
+            title: "Ребалансированный DCA"
             description_html: "Хотите, чтобы ваш портфель оставался на уровне 80% Bitcoin и 20% Ethereum? Ребалансированный DCA поддержит вашу целевую аллокацию."
         crypto_index:
             title: "Крипто Индекс"

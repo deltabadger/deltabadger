@@ -234,6 +234,25 @@ class KrakenClient < ApplicationClient
     end
   end
 
+  # https://docs.kraken.com/api/docs/rest-api/get-ohlc-data
+  # @param pair [String] Asset pair to get data for
+  # @param interval [Integer] Time frame interval in minutes
+  # @param since [Integer] Return OHLC entries since the given timestamp (intended for incremental updates)
+  def get_ohlc_data(pair:, interval: nil, since: nil)
+    with_rescue do
+      response = self.class.connection.get do |req|
+        req.url '/0/public/OHLC'
+        req.headers = headers(req)
+        req.params = {
+          pair: pair,
+          interval: interval,
+          since: since
+        }.compact
+      end
+      Result::Success.new(response.body)
+    end
+  end
+
   private
 
   def generate_nonce

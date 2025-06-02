@@ -1,6 +1,6 @@
 <%= form_with model: bot,
-              url: bot.new_record? ? barbell_new_step_confirm_bots_path : bot_path(bot),
-              method: bot.new_record? ? :get : :patch,
+              url: path,
+              method: method,
               class: "widget",
               data: { controller: "form--submit form--submit-after-delay form--move-cursor-to-end", turbo_stream: true } do |f| %>
   <div class="toggle-group">

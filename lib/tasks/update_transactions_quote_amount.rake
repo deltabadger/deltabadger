@@ -19,7 +19,7 @@ task update_transactions_quote_amount: :environment do
       puts "setting client for #{exchange.name} for user #{user.id}"
       exchange.set_client(api_key: api_key)
 
-      user_bots_ids = user.bots.barbell.where(exchange: exchange).pluck(:id).uniq
+      user_bots_ids = user.bots.dca_dual_asset.where(exchange: exchange).pluck(:id).uniq
       puts "getting transactions for #{exchange.name} for user #{user.id} for bots #{user_bots_ids}"
       Transaction.where(bot_id: user_bots_ids, exchange: exchange, quote_amount: nil)
                  .where.not(external_id: nil).find_each do |transaction|

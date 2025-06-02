@@ -2,9 +2,16 @@ nl:
   bot_info:
     how_to_use: |
       <p>Hier zijn enkele voorbeelden van hoe je het kunt gebruiken:</p>
-    barbell:
+    dca:
       info: |
-        <p><strong>Geherbalanceerde DCA</strong> tussen twee assets.</p>
+          <p>Dollar-cost averaging voor elk digitaal asset. Automatiseer terugkerende aankopen volgens een vast schema en maak je geen zorgen meer over markttiming.</p>
+      examples: |
+          <p><strong>Slimme Intervallen</strong> — Voer je gewenste schema uit in kleinere, gelijkmatig verdeelde orders.</p>
+          <p><strong>Koop de dip!</strong> — Gebruik prijsniveau of RSI om de bodem te vangen.</p>
+          <p><strong>Bestedingslimiet</strong> — Stel een maximaal te besteden bedrag in.</p>
+    dca_dual_asset:
+      info: |
+        <p>Geherbalanceerde dollar-cost averaging tussen twee assets.</p>
         <p>De bot bereikt herbalancering door alleen KOOP-orders te gebruiken, waardoor er nooit belastbare gebeurtenissen ontstaan terwijl je gewenste allocatie wordt bereikt.</p>
       examples: |
         <p><strong>BTC-ETH</strong> — "Digitaal goud" ontmoet Web3. Dek 74% van de cryptomarkt met een eenvoudige, probleemloze portefeuille die automatisch herbalanceert.</p>

@@ -1,0 +1,24 @@
+<%= render 'layouts/modal/full_page' do %>
+  <div class="bot-creation-layout">
+
+    <%= render partial: 'bots/dca_dual_assets/new_step_progress_bar', locals: {
+      current_step: :currencies
+    } %>
+
+    <div class="conversational conversational--bot-setup">
+      <%= t('bot.setup.sentence.invest_in') %>
+      <%= form_with url: new_bots_dca_dual_assets_pick_first_buyable_asset_path, method: :get, data: { controller: "form--submit-after-delay", turbo_frame: "asset-picker" } do |f| %>
+        <%= f.text_field :query, autofocus: true, autocomplete: "off", placeholder: "…", data: { action: "input->form--submit-after-delay#submit" }, class: "conversational__input" %>
+      <% end %>
+    </div>
+
+    <%= turbo_frame_tag "asset-picker", data: { action: "keydown@window->arrow-keys-navigation#navigate", controller: "arrow-keys-navigation" }, class: "modal--search__assets selectable-options" do %>
+      <%= form_with model: @bot, url: bots_dca_dual_assets_pick_first_buyable_asset_path, method: :post do |f| %>
+        <% @assets.each do |id, symbol, name, exchanges| %>
+          <%= render partial: "bots/asset_search_result", locals: { bot: @bot, asset_field: :base0_asset_id, id: id, symbol: symbol, name: name, exchanges: exchanges } %>
+        <% end %>
+      <% end %>
+    <% end %>
+
+  </div>
+<% end %>
