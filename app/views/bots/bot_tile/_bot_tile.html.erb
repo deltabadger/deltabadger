@@ -3,7 +3,11 @@
     <div class="bot-tile__header">
       <div class="bot-tile__hgroup">
         <div class="bot-tile__title">
-          <% if bot.barbell? && bot.quote_asset_id.present? && bot.base0_asset_id.present? && bot.base1_asset_id.present? %>
+          <% if bot.dca_single_asset? && bot.quote_asset_id.present? && bot.base_asset_id.present? %>
+            <span><%= bot.quote_asset.symbol %></span>
+            <span class="bot-tile__operator">&rarr;</span>
+            <span><%= bot.base_asset.symbol %></span>
+          <% elsif bot.dca_dual_asset? && bot.quote_asset_id.present? && bot.base0_asset_id.present? && bot.base1_asset_id.present? %>
             <span><%= bot.quote_asset.symbol %></span>
             <span class="bot-tile__operator">&rarr;</span>
             <span>
@@ -28,7 +32,7 @@
           <%= bot.label %>
         </div>
       </div>
-      <% if bot.barbell? || bot.basic? %>
+      <% if bot.dca_single_asset? || bot.dca_dual_asset? || bot.basic? %>
         <%= render "bots/bot_tile/bot_tile_pnl", bot: bot, loading: loading_hash[bot.id], pnl: pnl_hash[bot.id] || '' %>
       <% end %>
     </div>

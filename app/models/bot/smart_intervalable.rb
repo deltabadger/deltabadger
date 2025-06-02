@@ -20,6 +20,13 @@ module Bot::SmartIntervalable
               if: :smart_intervaled
 
     decorators = Module.new do
+      def parsed_settings(settings_hash)
+        super(settings_hash).merge(
+          smart_intervaled: settings_hash[:smart_intervaled].presence&.in?(%w[1 true]),
+          smart_interval_quote_amount: settings_hash[:smart_interval_quote_amount].presence&.to_f
+        ).compact
+      end
+
       def interval_duration
         return super unless smart_intervaled? &&
                             smart_interval_quote_amount.present? &&
@@ -32,6 +39,17 @@ module Bot::SmartIntervalable
         return super unless smart_intervaled? &&
                             smart_interval_quote_amount.present? &&
                             normal_interval_quote_amount.present?
+
+        quote_amount_bak = quote_amount
+        self.quote_amount = smart_interval_quote_amount
+        value = super
+        self.quote_amount = quote_amount_bak
+        value
+      end
+
+      def restarting_within_interval?
+        return super unless smart_intervaled? &&
+                            smart_interval_quote_amount.present?
 
         quote_amount_bak = quote_amount
         self.quote_amount = smart_interval_quote_amount
@@ -73,7 +91,10 @@ module Bot::SmartIntervalable
     least_precise_quote_decimals = tickers.pluck(:quote_decimals).compact.min
     minimum_for_precision = 1.0 / (10**least_precise_quote_decimals)
 
-    [minimum_for_frequency, minimum_for_precision].max
+    [
+      Utilities::Number.round_up(minimum_for_frequency, precision: least_precise_quote_decimals),
+      minimum_for_precision
+    ].max
   end
 
   def set_normal_interval_backup_values

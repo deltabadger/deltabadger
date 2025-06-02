@@ -1,0 +1,24 @@
+<% base_color = ensure_contrast(@bot.base_asset&.color || "#8A9BA8") %>
+
+<%= render 'layouts/modal/full_page' do %>
+  <div class="bot-creation-layout">
+    <%= render partial: 'bots/dca_single_assets/new_step_progress_bar', locals: { current_step: :api } %>
+    <div class="conversational conversational--bot-setup">
+      <%= t('bot.setup.sentence.invest_in') %>
+      <%= link_to @bot.base_asset.symbol, new_bots_dca_single_assets_pick_buyable_asset_path, data: { turbo_frame: "modal_content" }, class: "ticker", style: "background: #{base_color}" %>
+      <div style="display: flex; gap: 1rem">
+        <%= t('bot.setup.sentence.at') %>
+        <%= link_to new_bots_dca_single_assets_pick_exchange_path, data: { turbo_frame: "modal_content" }, class: "sinput sinput--select sinput--exchange sinput--exchange--#{@bot.exchange.name_id}" do %>
+          <%= render "svg/exchange-#{@bot.exchange.name_id}", title: @bot.exchange.name %>
+          <%= @bot.exchange.name.capitalize %>
+        <% end %>
+      </div>
+    </div>
+    <%= render partial: 'bots/api_key_form', locals: {
+      bot: @bot,
+      api_key: @api_key,
+      path: bots_dca_single_assets_add_api_key_path,
+      form_data: { controller: "form--label-animations form--html5-validations", turbo_frame: 'modal_content' }
+    } %>
+  </div>
+<% end %>

@@ -1,0 +1,73 @@
+<% quote_color = ensure_contrast(bot.quote_asset&.color || "#8A9BA8") %>
+<% base0_color = ensure_contrast(bot.base0_asset&.color || "#8A9BA8") %>
+<% base1_color = ensure_contrast(bot.base1_asset&.color || "#8A9BA8") %>
+<% base0_color_transparent = transparent_color(base0_color, bot.allocation0) %>
+<% base1_color_transparent = transparent_color(base1_color, 1 - bot.allocation0) %>
+
+<%= form_with model: bot,
+              url: path,
+              method: method,
+              class: "widget",
+              data: {
+                turbo_stream: true,
+                controller: "form--submit form--submit-after-delay form--move-cursor-to-end bot--barbell-allocation",
+                bot__barbell_allocation_color0_value: base0_color,
+                bot__barbell_allocation_color1_value: base1_color
+              } do |f| %>
+  <div class="conversational flex-justify-center">
+    <%= t('bot.conversational.invest') %>
+    <div class="ticker-input ticker-input--autoscale">
+      <% value = bot.quote_amount.present? ? bot.quote_amount.to_d.to_s('F').sub(/^(?!0\.0$)([1-9]\d*)\.0$/, '\1') : nil %>
+      <%= f.number_field :quote_amount, value: value, class: 'numeric-input', step: :any, size: 3, data: { controller: "autowidth-input", action: "input->form--submit-after-delay#submit input->autowidth-input#resize", form__move_cursor_to_end_target: "input" }, style: "width: 50px;", autofocus: bot.new_record? && bot.quote_amount.blank?, disabled: bot.working? %>
+
+      <% if bot.new_record? %>
+        <%= link_to bot.quote_asset.symbol, new_bots_dca_dual_assets_pick_spendable_asset_path, data: { turbo_frame: "modal_content" }, class: "ticker", style: "background: #{quote_color}" %>
+      <% else %>
+        <div class="ticker" style="background: <%= quote_color %>">
+          <%= bot.quote_asset.symbol %>
+        </div>
+      <% end %>
+    </div>
+    /
+    <div class="sinput sinput--select <%= 'sinput--disabled' if bot.working? %>">
+      <%= t("bot.#{bot.interval}") %>
+      <%= f.select :interval, bot_intervals, { selected: bot.interval }, data: { action: "change->form--submit#submit" }, disabled: bot.working? %>
+    </div>
+  </div>
+  <div class="barbell">
+    <div class="barbell__plate">
+      <% if bot.new_record? %>
+        <%= link_to bot.base0_asset.symbol, new_bots_dca_dual_assets_pick_first_buyable_asset_path, data: { turbo_frame: "modal_content", bot__barbell_allocation_target: "allocation0BackgroundColor" }, class: "ticker", style: "background: #{base0_color_transparent}" %>
+      <% else %>
+        <div class="ticker" style="background: <%= base0_color_transparent %>" data-bot--barbell-allocation-target="allocation0BackgroundColor">
+          <%= bot.base0_asset.symbol %>
+        </div>
+      <% end %>
+      <b style="color: <%= base0_color_transparent %>" data-bot--barbell-allocation-target="allocation0Color"><span data-bot--barbell-allocation-target="allocation0Text"><%= (bot.allocation0 * 100).to_i %></span>%</b>
+    </div>
+
+    <div class="barbell__bar">
+      <div class="slider">
+        <%= f.range_field :allocation0, in: 0.0..1.0, step: 0.01, value: bot.allocation0, class: "slider__input numeric-input", data: { bot__barbell_allocation_target: "allocation0", action: "input->bot--barbell-allocation#updateAllocation0 change->form--submit#submit" }, disabled: bot.marketcap_allocated? || bot.working? %>
+        <div class="slider__style">
+          <%= tag.div class: "slider__style__track", style: "border-left-color: #{base0_color_transparent};  background: #{base1_color_transparent}", data: { bot__barbell_allocation_target: "allocation0SliderTrack" } do %>
+            <%= tag.div class: "slider__style__progress", style: "width: #{bot.allocation0 * 100}%; background: #{base0_color_transparent}", data: { bot__barbell_allocation_target: "allocation0SliderProgress" } do %>
+              <div class="slider__style__thumb"></div>
+            <% end %>
+          <% end %>
+        </div>
+      </div>
+    </div>
+
+    <div class="barbell__plate">
+      <% if bot.new_record? %>
+        <%= link_to bot.base1_asset.symbol, new_bots_dca_dual_assets_pick_second_buyable_asset_path, data: { turbo_frame: "modal_content", bot__barbell_allocation_target: "allocation1BackgroundColor" }, class: "ticker", style: "background: #{base1_color_transparent}" %>
+      <% else %>
+        <div class="ticker" style="background: <%= base1_color_transparent %>" data-bot--barbell-allocation-target="allocation1BackgroundColor">
+          <%= bot.base1_asset.symbol %>
+        </div>
+      <% end %>
+      <b style="color: <%= base1_color_transparent %>" data-bot--barbell-allocation-target="allocation1Color"><span data-bot--barbell-allocation-target="allocation1Text"><%= ((1 - bot.allocation0).round(2) * 100).to_i %></span>%</b>
+    </div>
+  </div>
+<% end %>
