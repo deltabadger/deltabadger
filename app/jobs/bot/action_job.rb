@@ -1,11 +1,11 @@
 class Bot::ActionJob < BotJob
   def perform(bot)
     return unless bot.scheduled? || bot.retrying?
-    raise StandardError, "bot #{bot.id} already has an action job scheduled" if bot.next_action_job_at.present?
+    raise "Bot #{bot.id} already has an action job scheduled" if bot.next_action_job_at.present?
 
     bot.update!(last_action_job_at: Time.current)
     result = bot.execute_action
-    raise StandardError, result.errors.to_sentence unless result.success?
+    raise "Failed to execute action for bot #{bot.id}. Errors: #{result.errors.to_sentence}" unless result.success?
 
     if result.data.present? && result.data[:break_reschedule]
       Rails.logger.info("Action job for bot #{bot.id} reschedule disabled.")
