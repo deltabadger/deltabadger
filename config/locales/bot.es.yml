@@ -200,7 +200,7 @@ es:
                     above: "por encima de"
                     below: "por debajo de"
             extra_indicator_limit:
-                sentence_html: "%{timing_condition} cuando el %{ticker} %{indicator} en velas diarias es <span>%{value_condition} %{value}</span>"
+                sentence_html: "%{timing_condition} cuando el %{indicator} en velas diarias de %{ticker} esté <span>%{value_condition} %{value}</span>"
                 timing_condition:
                     while: "Comprar solo"
                     after: "Empezar a comprar"

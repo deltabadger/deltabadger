@@ -219,7 +219,7 @@ en:
                     above: "above"
                     below: "below"
             extra_indicator_limit:
-                sentence_html: "%{timing_condition} when the %{ticker} %{indicator} on daily candles is <span>%{value_condition} %{value}</span>"
+                sentence_html: "%{timing_condition} when the %{indicator} on daily %{ticker} candles is <span>%{value_condition} %{value}</span>"
                 timing_condition:
                     while: "Buy only"
                     after: "Start buying"
