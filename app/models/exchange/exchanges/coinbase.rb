@@ -150,7 +150,6 @@ module Exchange::Exchanges::Coinbase
     granularity = granularities[timeframe]
 
     candles = []
-    start_at -= 1.second
     loop do
       result = client.get_public_product_candles(
         product_id: ticker.ticker,
@@ -171,7 +170,7 @@ module Exchange::Exchanges::Coinbase
           candle['volume'].to_d
         ]
       end
-      break if raw_candles_list.size < 350
+      break if raw_candles_list.size.zero?
 
       start_at = candles.last[0] + 1.second
     end
