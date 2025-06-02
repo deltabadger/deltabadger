@@ -8,8 +8,8 @@ module Bot::OrderCreator
       rate: order_data[:rate],
       amount: order_data[:amount],
       quote_amount: order_data[:quote_amount],
-      base: order_data[:base_asset].symbol,
-      quote: order_data[:quote_asset].symbol
+      base: order_data[:ticker].base_asset.symbol,
+      quote: order_data[:ticker].quote_asset.symbol
     ).compact
     transactions.create!(order_values)
   end
@@ -22,8 +22,8 @@ module Bot::OrderCreator
       rate: order_data[:rate],
       amount: order_data[:amount],
       quote_amount: order_data[:quote_amount],
-      base: order_data[:base_asset].symbol,
-      quote: order_data[:quote_asset].symbol
+      base: order_data[:ticker].base_asset.symbol,
+      quote: order_data[:ticker].quote_asset.symbol
     ).compact
     transactions.create!(order_values)
   end
@@ -36,8 +36,8 @@ module Bot::OrderCreator
       rate: order_data[:rate],
       amount: order_data[:amount],
       quote_amount: order_data[:quote_amount],
-      base: order_data[:base_asset].symbol,
-      quote: order_data[:quote_asset].symbol
+      base: order_data[:ticker].base_asset.symbol,
+      quote: order_data[:ticker].quote_asset.symbol
     ).compact
     transactions.create!(order_values)
   end

@@ -28,8 +28,7 @@ module Bots::DcaDualAsset::OrderSetter # rubocop:disable Metrics/ModuleLength
     unless result.success?
       Rails.logger.error("set_orders for bot #{id} failed to get orders: #{result.errors.inspect}")
       create_failed_order!({
-                             base_asset: base0_asset,
-                             quote_asset: quote_asset,
+                             ticker: ticker0,
                              error_messages: result.errors
                            })
       return result
@@ -54,9 +53,7 @@ module Bots::DcaDualAsset::OrderSetter # rubocop:disable Metrics/ModuleLength
 
       result = nil
       with_api_key do
-        result = market_buy(
-          base_asset_id: order_data[:base_asset].id,
-          quote_asset_id: order_data[:quote_asset].id,
+        result = order_data[:ticker].market_buy(
           amount: amount_info[:amount],
           amount_type: amount_info[:amount_type]
         )
@@ -65,7 +62,7 @@ module Bots::DcaDualAsset::OrderSetter # rubocop:disable Metrics/ModuleLength
       if result.success?
         order_id = result.data[:order_id]
         Rails.logger.info("set_orders for bot #{id} created order #{order_id}")
-        Bot::FetchAndCreateOrderJob.perform_later(self, order_id)
+        Bot::FetchAndCreateOrderJob.set(wait: 1.second).perform_later(self, order_id)
         update!(missed_quote_amount: [0, missed_quote_amount - order_data[:quote_amount]].max) if update_missed_quote_amount
       else
         Rails.logger.error("set_orders for bot #{id} failed to create order #{order_data.inspect}: #{result.errors.inspect}")
@@ -140,10 +137,10 @@ module Bots::DcaDualAsset::OrderSetter # rubocop:disable Metrics/ModuleLength
   def get_orders(total_orders_amount_in_quote)
     metrics_data = metrics(force: true)
 
-    result0 = exchange.get_ask_price(base_asset_id: base0_asset_id, quote_asset_id: quote_asset_id)
+    result0 = ticker0.get_ask_price
     return result0 unless result0.success?
 
-    result1 = exchange.get_ask_price(base_asset_id: base1_asset_id, quote_asset_id: quote_asset_id)
+    result1 = ticker1.get_ask_price
     return result1 unless result1.success?
 
     Result::Success.new(calculate_orders_data(
@@ -170,15 +167,13 @@ module Bots::DcaDualAsset::OrderSetter # rubocop:disable Metrics/ModuleLength
     base1_order_size_in_base = base1_order_size_in_quote / price1
     [
       {
-        base_asset: base0_asset,
-        quote_asset: quote_asset,
+        ticker: ticker0,
         rate: price0,
         amount: base0_order_size_in_base,
         quote_amount: base0_order_size_in_quote
       },
       {
-        base_asset: base1_asset,
-        quote_asset: quote_asset,
+        ticker: ticker1,
         rate: price1,
         amount: base1_order_size_in_base,
         quote_amount: base1_order_size_in_quote
@@ -187,8 +182,7 @@ module Bots::DcaDualAsset::OrderSetter # rubocop:disable Metrics/ModuleLength
   end
 
   def calculate_best_amount_info(order_data)
-    ticker = exchange.tickers.find_by!(base_asset: order_data[:base_asset], quote_asset: order_data[:quote_asset])
-
+    ticker = order_data[:ticker]
     case exchange.minimum_amount_logic
     when :base_or_quote
       minimum_quote_size_in_base = ticker.minimum_quote_size / order_data[:rate]
