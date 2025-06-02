@@ -90,23 +90,23 @@ module Bot::PriceLimitable
     price_limited == true
   end
 
-  def price_limit_condition_met?
-    return false unless price_limited?
-    return true if timing_condition_satisfied?
+  def get_price_limit_condition_met?
+    return Result::Success.new(false) unless price_limited?
+    return Result::Success.new(true) if timing_condition_satisfied?
 
     ticker = tickers.find_by(id: price_limit_in_ticker_id)
-    return false unless ticker.present?
+    return Result::Success.new(false) unless ticker.present?
 
     result = ticker.get_last_price
-    return false unless result.success?
+    return result unless result.success?
 
     if value_condition_satisfied?(result.data)
       self.price_limit_condition_met_at ||= Time.current
-      true
+      Result::Success.new(true)
     else
       set_missed_quote_amount
       self.price_limit_condition_met_at = nil
-      false
+      Result::Success.new(false)
     end
   end
 

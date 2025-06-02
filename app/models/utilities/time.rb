@@ -16,5 +16,11 @@ module Utilities
       now = ::Time.now.utc
       now.end_of_minute - now
     end
+
+    def self.seconds_to_next_candle_open(timeframe)
+      raise "Missing implementation for #{timeframe.inspect}" unless timeframe <= 1.day
+
+      timeframe.seconds - (::Time.now.utc.to_f % timeframe.to_f)
+    end
   end
 end

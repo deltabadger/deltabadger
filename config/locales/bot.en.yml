@@ -212,6 +212,7 @@ en:
                 amount_spent: "The whole amount has been invested"
             extra_price_limit:
                 sentence_html: "%{timing_condition} when %{base} price is <span>%{value_condition} %{value} %{quote}</span>"
+                price_info: "Current %{base} price is %{current_price} %{quote}"
                 timing_condition:
                     while: "Buy only"
                     after: "Start buying"
@@ -220,6 +221,7 @@ en:
                     below: "below"
             extra_indicator_limit:
                 sentence_html: "%{timing_condition} when the %{indicator} on daily %{ticker} candles is <span>%{value_condition} %{value}</span>"
+                indicator_info: "Current %{indicator} on daily %{ticker} candles is %{value}"
                 timing_condition:
                     while: "Buy only"
                     after: "Start buying"

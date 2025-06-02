@@ -4,7 +4,10 @@ class Bot::PriceLimitCheckJob < ApplicationJob
   def perform(bot)
     return unless bot.waiting?
 
-    if bot.price_limit_condition_met?
+    result = bot.get_price_limit_condition_met?
+    raise "Failed to check price limit condition for bot #{bot.id}. Errors: #{result.errors.to_sentence}" unless result.success?
+
+    if result.data
       bot.update!(started_at: Time.current)
       Bot::ActionJob.perform_later(bot)
     else

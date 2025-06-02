@@ -12,7 +12,8 @@ module Bot::IndicatorLimitable
                    :indicator_limit_timing_condition,
                    :indicator_limit_value_condition,
                    :indicator_limit_in_ticker_id,
-                   :indicator_limit_in_indicator
+                   :indicator_limit_in_indicator,
+                   :indicator_limit_in_timeframe
     store_accessor :transient_data,
                    :indicator_limit_enabled_at,
                    :indicator_limit_condition_met_at
@@ -28,6 +29,7 @@ module Bot::IndicatorLimitable
     validates :indicator_limit_timing_condition, inclusion: { in: INDICATOR_LIMIT_TIMING_CONDITIONS }
     validates :indicator_limit_value_condition, inclusion: { in: INDICATOR_LIMIT_VALUE_CONDITIONS }
     validates :indicator_limit_in_indicator, inclusion: { in: INDICATOR_LIMIT_INDICATORS }
+    validates :indicator_limit_in_timeframe, inclusion: { in: [1.day] }
 
     decorators = Module.new do
       def parsed_settings(settings_hash)
@@ -48,7 +50,7 @@ module Bot::IndicatorLimitable
           super
         else
           update!(status: :waiting)
-          next_check_at = Time.now.utc.end_of_day + 30.seconds # give 30s of buffer to avoid checking before the previous candle was closed
+          next_check_at = Time.now.utc + Utilities::Time.seconds_to_next_candle_open(indicator_limit_in_timeframe)
           Bot::IndicatorLimitCheckJob.set(wait_until: next_check_at).perform_later(self)
           Result::Success.new({ break_reschedule: true })
         end
@@ -90,38 +92,32 @@ module Bot::IndicatorLimitable
     value.present? ? Time.zone.parse(value) : nil
   end
 
+  def indicator_limit_in_timeframe
+    value = super
+    value.present? ? value.seconds : nil
+  end
+
   def indicator_limited?
     indicator_limited == true
   end
 
-  def indicator_limit_condition_met?
-    return false unless indicator_limited?
-    return true if timing_condition_satisfied?
+  def get_indicator_limit_condition_met?
+    return Result::Success.new(false) unless indicator_limited?
+    return Result::Success.new(true) if timing_condition_satisfied?
 
     ticker = tickers.find_by(id: indicator_limit_in_ticker_id)
-    return false unless ticker.present?
+    return Result::Success.new(false) unless ticker.present?
 
-    # TODO: adjust for other indicators than RSI
-    period = 14
-    timeframe = 1.day
+    result = get_indicator_value(ticker)
+    return result unless result.success?
 
-    # Although RSI only "needs" 14 candles the calculation actually accounts for previous gains/losses.
-    # A slice of 10 * period candles gives a good ratio between accuracy and performance.
-    result = ticker.get_candles(
-      start_at: Time.now.utc.beginning_of_day - (10 * period * timeframe),
-      timeframe: timeframe
-    )
-    return false unless result.success?
-
-    # RubyTechnicalAnalysis doesn't play well with small token prices, so we scale them up.
-    series = result.data[...-1].map { |candle| candle[4] * 10**ticker.price_decimals }
-    if indicator_condition_satisfied?(series, period)
+    if indicator_condition_satisfied?(result.data)
       self.indicator_limit_condition_met_at ||= Time.current
-      true
+      Result::Success.new(true)
     else
       set_missed_quote_amount
       self.indicator_limit_condition_met_at = nil
-      false
+      Result::Success.new(false)
     end
   end
 
@@ -131,31 +127,34 @@ module Bot::IndicatorLimitable
     indicator_limit_timing_condition == 'after' && indicator_limit_condition_met_at.present?
   end
 
-  def indicator_condition_satisfied?(series, period)
-    rsi = RubyTechnicalAnalysis::RelativeStrengthIndex.new(
-      series: series,
-      period: period
-    )
-    return false unless rsi.valid?
-
-    rsi_value = rsi.call
+  def indicator_condition_satisfied?(value)
     case indicator_limit_value_condition
     when 'below'
-      rsi_value < indicator_limit
+      value < indicator_limit
     when 'above'
-      rsi_value > indicator_limit
+      value > indicator_limit
     else
       false
     end
   end
 
-  def initialize_indicator_limitable_settings
+  def get_indicator_value(ticker)
+    case indicator_limit_in_indicator
+    when 'rsi'
+      ticker.get_rsi_value(timeframe: indicator_limit_in_timeframe, period: 14)
+    else
+      raise "Unknown indicator: #{indicator_limit_in_indicator}"
+    end
+  end
+
+  def initialize_indicator_limitable_settings # rubocop:disable Metrics/CyclomaticComplexity
     self.indicator_limited ||= false
     self.indicator_limit ||= nil
     self.indicator_limit_timing_condition ||= 'while'
     self.indicator_limit_value_condition ||= 'below'
     self.indicator_limit_in_ticker_id ||= set_indicator_limit_in_ticker_id
     self.indicator_limit_in_indicator ||= 'rsi'
+    self.indicator_limit_in_timeframe ||= 1.day
   end
 
   def set_indicator_limit_enabled_at
