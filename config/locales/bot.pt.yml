@@ -190,7 +190,7 @@ pt:
                     above: "superior a"
                     below: "inferior a"
             extra_indicator_limit:
-                sentence_html: "%{timing_condition} quando o %{ticker} %{indicator} em velas diárias está <span>%{value_condition} %{value}</span>"
+                sentence_html: "%{timing_condition} quando o %{indicator} em velas diárias de %{ticker} estiver <span>%{value_condition} %{value}</span>"
                 timing_condition:
                     while: "Comprar apenas"
                     after: "Começar a comprar"

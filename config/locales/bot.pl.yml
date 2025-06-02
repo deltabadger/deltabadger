@@ -199,7 +199,7 @@ pl:
                     above: "powyżej"
                     below: "poniżej"
             extra_indicator_limit:
-                sentence_html: "%{timing_condition} gdy %{ticker} %{indicator} na świecach dziennych jest <span>%{value_condition} %{value}</span>"
+                sentence_html: "%{timing_condition} gdy %{indicator} na świecach dziennych z %{ticker} jest <span>%{value_condition} %{value}</span>"
                 timing_condition:
                     while: "Kupuj tylko"
                     after: "Zacznij kupować"

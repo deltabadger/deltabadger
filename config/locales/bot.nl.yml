@@ -199,7 +199,7 @@ nl:
                     above: "boven"
                     below: "onder"
             extra_indicator_limit:
-                sentence_html: "%{timing_condition} wanneer de %{ticker} %{indicator} op dagelijkse kaarsen <span>%{value_condition} %{value}</span> is"
+                sentence_html: "%{timing_condition} wanneer de %{indicator} op dagelijkse %{ticker} kaarsen <span>%{value_condition} %{value}</span> is"
                 timing_condition:
                     while: "Alleen kopen"
                     after: "Begin met kopen"
