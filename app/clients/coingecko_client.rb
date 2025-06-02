@@ -148,6 +148,33 @@ class CoingeckoClient < ApplicationClient
     end
   end
 
+  # https://docs.coingecko.com/reference/coins-id-market-chart
+  # @param coin_id [String] The coin id
+  # @param vs_currency [String] The target currency of market chart
+  # @param days [Int] Data up to number of days ago, can be integer or 'max'
+  # @param interval [String] can be one of these values: nil, '5m', 'hourly', 'daily'
+  # @param precision [Int] or 'full' for full data
+  def coin_historical_chart_data_by_id(
+    coin_id:,
+    vs_currency:,
+    days:,
+    interval: nil,
+    precision: 'full'
+  )
+    with_rescue do
+      response = self.class.connection.get do |req|
+        req.url "coins/#{coin_id}/market_chart"
+        req.params = {
+          vs_currency: vs_currency,
+          days: days,
+          interval: interval,
+          precision: precision
+        }.compact
+      end
+      Result::Success.new(response.body)
+    end
+  end
+
   # https://docs.coingecko.com/reference/coins-id-market-chart-range
   # @param coin_id [String] The coin id
   # @param vs_currency [String] The target currency of market chart

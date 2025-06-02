@@ -21,12 +21,15 @@
         background-position: center !important
         &::after
             height: 22rem
-            background-image: linear-gradient(to bottom, #0000 40%, var(--pick-bot-item-bg) 22rem) 
+            background-image: linear-gradient(to bottom, #0000 40%, var(--pick-bot-item-bg) 22rem)
     p
         margin-bottom: 0
+
+
 .widget--strategy
     transition: all 0.5s ease !important
     padding: 1rem 3rem
+    color: #fff !important
     .active-only
         padding-top: 2rem
     &:not(.itile--soon)
@@ -34,7 +37,7 @@
             .theme-img
                 &::after
                     transition: all 0.5s ease !important
-                    background-image: linear-gradient(to bottom, #0000 30%, var(--pick-bot-item-bg) 40rem) 
+                    background-image: linear-gradient(to bottom, #0000 30%, var(--pick-bot-item-bg) 40rem)
         &.active
             padding: 24rem 3rem 3rem
             .theme-img
@@ -48,12 +51,12 @@
         &::after
             height: 40rem
             background-image: linear-gradient(to bottom, #0000 30%, var(--widget-background) 40rem)
-    &--barbell
-        &:not(.itile--soon)
-            &:hover,&.active
-                .theme-img
-                    &::after
-                        background-image: linear-gradient(to bottom, #0000 30%, var(--pick-bot-item-bg) 40rem) 
+            top: -20rem !important
+            transition: all 4s ease
+    &:hover, &.active
+        .theme-img
+            &::after
+                top: 0 !important
     p
         color: #fffc !important
     strong
@@ -100,16 +103,26 @@
             .theme-img
                 transform: scale(1.1) !important
                 opacity: 1 !important
-    &--barbell
-        color: #fff !important
+    &--dca
+        &:hover, &.active
+            background: color(display-p3 0 0.31 0.34) !important
+    &--dca-dual-asset
         &:hover, &.active
             background: #00a !important
+            .theme-img
+                &::after
+                    top: 0 !important
         .theme-img
             &::after
-                background-image: linear-gradient(to bottom, #0000 0%, #00a 100%) !important
+                top: -20rem !important
+                transition: all 4s ease
+                background-image: linear-gradient(to bottom, #00a0 0%, #00a 100%) !important
     &--dca
         .theme-img::after
             background-image: linear-gradient(to bottom, #0000 0%, color(display-p3 0 0.31 0.34) 100%) !important
+    &--legacy
+        .theme-img::after
+            background-image: linear-gradient(to bottom, #0000 0%, color(display-p3 0 0.18 0.34) 100%) !important
     .sbadge
         position: absolute
         top: 1rem
