@@ -1,0 +1,16 @@
+<%= render 'layouts/modal/full_page' do %>
+  <div class="bot-creation-layout">
+    <%= render partial: 'bots/dca_dual_assets/new_step_progress_bar', locals: { current_step: :api } %>
+
+    <div class="bot-creation-preview">
+      <div class="flex-row">
+        <%= link_to new_bots_dca_dual_assets_pick_exchange_path, data: { turbo_frame: "modal_content" }, class: "sinput sinput--select sinput--exchange sinput--exchange--#{@bot.exchange.name_id}" do %>
+          <%= render "svg/exchange-#{@bot.exchange.name_id}", title: @bot.exchange.name %>
+          <%= @bot.exchange.name.capitalize %>
+        <% end %>
+      </div>
+      <%= render partial: "bots/dca_dual_assets/settings", locals: { bot: @bot } %>
+    </div>
+    <%= render partial: "bots/dca_dual_assets/create_bot_button", locals: { bot: @bot } %>
+  </div>
+<% end %>

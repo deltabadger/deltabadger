@@ -1,6 +1,6 @@
 ru:
     bot:
-        add_api_keys: "Добавить API-ключи для %{exchange}"
+        add_api_keys: "Добавить API ключи для %{exchange}"
         bot_name: "Имя бота"
         new: "Новый бот"
         start_new_bot: "Создать нового бота"
@@ -9,14 +9,13 @@ ru:
                 title: "DCA"
                 description: |
                     <p>Инвестируйте фиксированную сумму регулярно.</p>
-                    <p>DCA усредняет вашу цену покупки во времени, снижая влияние волатильности рынка.</p>
-                    <p>Используйте классический DCA или установите различные условия для поиска лучшей цены.</p>
-            barbell:
-                title: "Стратегия Barbell"
+                    <p>Бот усредняет вашу цену покупки со временем, снижая влияние волатильности рынка.</p>
+                    <p>Используйте классический DCA или установите условия, чтобы поймать лучшую цену.</p>
+            dca_dual_asset:
+                title: "Ребалансированный DCA"
                 description: |
-                    <p>Инвестируйте регулярно в любые два актива, сохраняя желаемое распределение.</p>
-                    <p>Бот автоматически покупает больше актива, который меньше вырос, поддерживая баланс вашего портфеля.</p>
-                    <p>Используя сбалансированный DCA, вы достигаете <b>ребалансировки без налога на прирост капитала</b>.</p>
+                    <p>Инвестируйте регулярно в любые два актива с ребалансированным DCA.</p>
+                    <p>Бот покупает больше того актива, который вырос меньше, сохраняя вашу желаемую аллокацию <b>без налогов на прирост капитала</b>.</p>
             index_portfolio:
                 title: "Индексный портфель"
                 description: "Создайте свой личный крипто-ETF"
@@ -28,9 +27,9 @@ ru:
             paused: "На паузе"
             next_try: "Следующая попытка через"
             waiting: "Ожидание выполнения всех условий"
-        barbell:
+        conversational:
             invest: "Инвестировать"
-            invest_html: "Инвестировать %{input} /месяц"
+            into: "в"
         utils:
             mkt_cap_adjusted: "С учетом рыночной капитализации"
             mkt_cap_adjusted_info_html: |
@@ -142,6 +141,7 @@ ru:
             wrong_subaccount_name: "Неправильное имя субаккаунта"
             failed_tooltip_explanation: "Этот ордер не выполнен: %{error_message}"
             skipped_tooltip_explanation: "Этот ордер был пропущен, так как сумма была ниже минимального размера ордера на %{exchange_name}. Пропущенная сумма была буферизована и будет добавлена к следующему ордеру."
+            failed_status_bar_explanation: "Последний ордер не выполнен: %{error_messages}"
         minimum_withdrawal_disclaimer: "Минимальный размер вывода составляет %{minimum} %{currency}."
         minimum_withdrawal_disclaimer_usd: "Минимальный размер вывода составляет %{minimum} USD."
         month: Месяц
@@ -165,28 +165,39 @@ ru:
         withdrawal_percentage: '%{percentage}%'
         withdrawal: 'Вывод'
         warning:
-            title: "Поздравляем! Ваш бот запущен."
-            both_below:
-                intro: "Однако суммы ордеров для %{base0_symbol} и %{base1_symbol} ниже минимального размера ордера на %{exchange_name} (%{base0_minimum_base_size} %{base0_symbol} или %{base0_minimum_quote_size} %{quote_symbol} для %{base0_symbol} и %{base1_minimum_base_size} %{base1_symbol} или %{base1_minimum_quote_size} %{quote_symbol} для %{base1_symbol}). Вот как бот с этим справляется:"
-            one_below:
-                intro: "Ваш бот купил %{bought_quote_amount} %{quote_symbol} %{bought_symbol}, но сумма %{missed_symbol} была ниже минимального размера ордера на %{exchange_name} (%{missed_minimum_base_size} %{missed_symbol} или %{missed_minimum_quote_size} %{quote_symbol} для %{missed_symbol}). Вот как бот с этим справляется:"
+            dca_single_asset:
+                intro: "Сумма %{missed_symbol} была ниже минимального размера ордера на %{exchange_name} (%{missed_minimum_base_size} %{missed_symbol} или %{missed_minimum_quote_size} %{quote_symbol} для %{missed_symbol}). Вот как бот с этим справляется:"
+            dca_dual_asset:
+                both_below:
+                    intro: "Однако суммы ордеров для %{base0_symbol} и %{base1_symbol} ниже минимального размера ордера на %{exchange_name} (%{base0_minimum_base_size} %{base0_symbol} или %{base0_minimum_quote_size} %{quote_symbol} для %{base0_symbol} и %{base1_minimum_base_size} %{base1_symbol} или %{base1_minimum_quote_size} %{quote_symbol} для %{base1_symbol}). Вот как бот с этим справляется:"
+                one_below:
+                    intro: "Ваш бот купил %{bought_quote_amount} %{quote_symbol} %{bought_symbol}, но сумма %{missed_symbol} была ниже минимального размера ордера на %{exchange_name} (%{missed_minimum_base_size} %{missed_symbol} или %{missed_minimum_quote_size} %{quote_symbol} для %{missed_symbol}). Вот как бот с этим справляется:"
             buffer_explanation:
                 one: "Пропущенная сумма была добавлена в буфер и будет использована при следующем запланированном ордере, чтобы ваше расписание и распределение максимально соответствовали биржевым минимумам."
                 other: "Пропущенные суммы были добавлены в буфер и будут использованы при следующих запланированных ордерах, чтобы ваше расписание и распределение максимально соответствовали биржевым минимумам."
+            title: "Поздравляем! Ваш бот запущен."
             general_note: "Минимумы биржи и требуемые суммы ребалансировки могут меняться. Ордера иногда могут выглядеть нерегулярными, но бот всегда нацелен на желаемое распределение и расписание, поэтому дополнительная работа не требуется."
         settings:
             smart_intervals:
-                split_in_orders_html: '<b>Smart Intervals<sup>®</sup></b> Разделить сумму на единицы по %{amount} %{quote}.'
-                split_info: "Разделение ваших %{quote_amount} %{quote} / %{interval} на меньшие единицы по %{amount} %{quote} приведет к одной инвестиции каждые %{smart_interval}."
+                split_in_orders_html: '<b>Smart Intervals<sup>®</sup></b> Разделить сумму на единицы по <span>%{amount} %{quote}</span>'
+                split_info: "Разделение ваших %{quote_amount} %{quote} / %{interval} на меньшие единицы по %{amount} %{quote} приведет к одной инвестиции каждые %{smart_interval}"
             extra_amount_limit:
                 dont_spend_more_than: "Не тратить больше чем"
                 amount_left: "(осталось %{amount} %{symbol})"
-                amount_spent: "Вся сумма была инвестирована."
+                amount_spent: "Вся сумма была инвестирована"
             extra_price_limit:
-                sentence_html: "%{timing_condition} когда цена %{base} %{price_condition} %{price} %{quote}"
+                sentence_html: "%{timing_condition} когда цена %{base} <span>%{value_condition} %{value} %{quote}</span>"
                 timing_condition:
                     while: "Покупать только"
                     after: "Начать покупать"
-                price_condition:
+                value_condition:
+                    above: "выше"
+                    below: "ниже"
+            extra_indicator_limit:
+                sentence_html: "%{timing_condition} когда %{indicator} на дневных свечах %{ticker} <span>%{value_condition} %{value}</span>"
+                timing_condition:
+                    while: "Покупать только"
+                    after: "Начать покупать"
+                value_condition:
                     above: "выше"
                     below: "ниже"

@@ -1,0 +1,12 @@
+<% path = bot.new_record? ? bots_dca_single_assets_confirm_settings_path : bot_path(bot) %>
+<% method = bot.new_record? ? :post : :patch %>
+
+<div id="<%= bot.new_record? ? "new-settings" : "settings" %>" class="column gap-1">
+  <%= render partial: "bots/dca_single_assets/settings/main", locals: { bot: bot, method: method, path: path } %>
+  <%= render partial: "bots/settings/smart_intervals", locals: { bot: bot, method: method, path: path } %>
+  <%#= render partial: "bots/settings/weekday", locals: { bot: bot, method: method, path: path } %>
+  <%#= render partial: "bots/settings/time_limit", locals: { bot: bot, method: method, path: path } %>
+  <%= render partial: "bots/settings/price_limit", locals: { bot: bot, method: method, path: path } %>
+  <%= render partial: "bots/settings/indicator_limit", locals: { bot: bot, method: method, path: path } %>
+  <%= render partial: "bots/settings/amount_limit", locals: { bot: bot, method: method, path: path } %>
+</div>

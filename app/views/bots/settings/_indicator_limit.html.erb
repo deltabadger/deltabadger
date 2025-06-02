@@ -1,0 +1,51 @@
+<%= form_with model: bot,
+              url: path,
+              method: method,
+              class: "widget",
+              data: { controller: "form--submit form--submit-after-delay form--move-cursor-to-end", turbo_stream: true } do |f| %>
+  <div class="toggle-group">
+    <div class="toggle">
+      <%= f.check_box :indicator_limited, data: { action: "change->form--submit#submit" }, disabled: bot.working? %>
+      <div class="toggle__style"></div>
+    </div>
+    <div class="toggle-group__info">
+      <div class="toggle-group__info__label">
+        <%= f.label :indicator_limited, class: "conversational conversational--small conversational--disabled" do %>
+          <% timing_condition_html = content_tag(:div, class: "sinput sinput--select") do %>
+            <%= t("bot.settings.extra_indicator_limit.timing_condition.#{bot.indicator_limit_timing_condition}") %>
+            <%= f.select :indicator_limit_timing_condition, indicator_limit_timing_condition_select_options(bot), { selected: bot.indicator_limit_timing_condition }, data: { action: "change->form--submit#submit" } %>
+          <% end %>
+          <% ticker_select_options = ticker_select_options(bot) %>
+          <% if ticker_select_options.size > 1 %>
+            <% ticker_html = content_tag(:div, class: "sinput sinput--select") do %>
+              <% selected_ticker_id = bot.tickers.find_by(id: bot.indicator_limit_in_ticker_id)&.id %>
+              <%= ticker_select_options.find { |_, id| id == selected_ticker_id }&.first %>
+              <%= f.select :indicator_limit_in_ticker_id, ticker_select_options, { selected: bot.indicator_limit_in_ticker_id }, data: { action: "change->form--submit#submit" } %>
+            <% end %>
+          <% else %>
+            <% ticker_html = ticker_select_options.first.first %>
+          <% end %>
+          <% if indicator_select_options.size > 1 %>
+            <% indicator_html = content_tag(:div, class: "sinput sinput--select") do %>
+              <%= bot.indicator_limit_in_indicator&.upcase %>
+              <%= f.select :indicator_limit_in_indicator, indicator_select_options, { selected: bot.indicator_limit_in_indicator }, data: { action: "change->form--submit#submit" } %>
+            <% end %>
+          <% else %>
+            <% indicator_html = indicator_select_options.first.first %>
+          <% end %>
+          <% value_condition_html = content_tag(:div, class: "sinput sinput--select") do %>
+            <%= t("bot.settings.extra_indicator_limit.value_condition.#{bot.indicator_limit_value_condition}") %>
+            <%= f.select :indicator_limit_value_condition, indicator_limit_value_condition_select_options(bot), { selected: bot.indicator_limit_value_condition }, data: { action: "change->form--submit#submit" } %>
+          <% end %>
+          <% value_html = content_tag(:div) do %>
+            <% value = bot.indicator_limit.present? ? bot.indicator_limit.to_d.to_s('F').sub(/^(?!0\.0$)([1-9]\d*)\.0$/, '\1') : nil %>
+            <%= f.number_field :indicator_limit, value: value, class: 'sinput numeric-input', step: :any, size: 3, data: { controller: "autowidth-input", action: "input->form--submit-after-delay#submit input->autowidth-input#resize", form__move_cursor_to_end_target: "input" }, style: "margin-left: 0.125rem; width: 50px;", disabled: bot.working? %>
+          <% end %>
+          <%= t("bot.settings.extra_indicator_limit.sentence_html", timing_condition: timing_condition_html.html_safe, value_condition: value_condition_html.html_safe, value: value_html.html_safe, ticker: ticker_html.html_safe, indicator: indicator_html.html_safe) %>
+          <%= render partial: "bots/settings/indicator_limit_info", locals: { bot: bot } %>
+        <% end %>
+      </div>
+    </div>
+  </div>
+<% end %>
+
