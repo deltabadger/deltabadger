@@ -107,7 +107,10 @@ module Bot::IndicatorLimitable
 
     # Although RSI only "needs" 14 candles the calculation actually accounts for previous gains/losses.
     # A slice of 10 * period candles gives a good ratio between accuracy and performance.
-    result = ticker.get_candles(start_at: (10 * period * timeframe).ago, timeframe: timeframe)
+    result = ticker.get_candles(
+      start_at: Time.now.utc.beginning_of_day - (10 * period * timeframe),
+      timeframe: timeframe
+    )
     return false unless result.success?
 
     # RubyTechnicalAnalysis doesn't play well with small token prices, so we scale them up.
