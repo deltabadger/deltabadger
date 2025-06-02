@@ -59,13 +59,16 @@ module Bots::DcaDualAsset::Measurable
                       force: force) do
       return metrics if metrics[:chart][:labels].empty?
 
-      result0 = get_last_price_from_cache(base0_asset_id, quote_asset_id)
-      result1 = get_last_price_from_cache(base1_asset_id, quote_asset_id)
-      return metrics unless result0.success? && result1.success?
+      result = exchange.get_tickers_prices
+      return metrics unless result.success?
+
+      price0 = result.data[ticker0.ticker]
+      price1 = result.data[ticker1.ticker]
+      return metrics unless price0.present? && price1.present?
 
       metrics_data = metrics.deep_dup
-      metrics_data[:total_base0_amount_value_in_quote] = metrics_data[:total_base0_amount] * result0.data
-      metrics_data[:total_base1_amount_value_in_quote] = metrics_data[:total_base1_amount] * result1.data
+      metrics_data[:total_base0_amount_value_in_quote] = metrics_data[:total_base0_amount] * price0
+      metrics_data[:total_base1_amount_value_in_quote] = metrics_data[:total_base1_amount] * price1
       metrics_data[:total_amount_value_in_quote] =
         metrics_data[:total_base0_amount_value_in_quote] + metrics_data[:total_base1_amount_value_in_quote]
       metrics_data[:base0_pnl] =
@@ -118,18 +121,6 @@ module Bots::DcaDualAsset::Measurable
 
   def metrics_with_current_prices_cache_key
     "bot_#{id}_metrics_with_current_prices"
-  end
-
-  def get_last_price_from_cache(base_asset_id, quote_asset_id)
-    # we cache the price so many users can use it without hitting the API too much
-    cache_key = "exchange_#{exchange.id}_last_price_for_#{base_asset_id}_#{quote_asset_id}"
-    price = Rails.cache.fetch(cache_key, expires_in: Utilities::Time.seconds_to_end_of_five_minute_cut) do
-      result = exchange.get_last_price(base_asset_id: base_asset_id, quote_asset_id: quote_asset_id)
-      return result unless result.success?
-
-      result.data
-    end
-    Result::Success.new(price)
   end
 
   def calculate_pnl(from, to)

@@ -56,25 +56,6 @@ class Exchange < ApplicationRecord
     Result::Success.new(all_symbols.data)
   end
 
-  # @param amount_type [Symbol] :base or :quote
-  def adjusted_amount(base_asset_id:, quote_asset_id:, amount:, amount_type:, method: :floor)
-    raise "Unsupported amount type #{amount_type}" unless %i[quote base].include?(amount_type)
-
-    ticker = exchange_tickers.find_by(base_asset_id: base_asset_id, quote_asset_id: quote_asset_id)
-    return amount unless ticker.present?
-
-    decimals = amount_type == :quote ? ticker.quote_decimals : ticker.base_decimals
-    amount.send(method, decimals)
-  end
-
-  def adjusted_price(base_asset_id:, quote_asset_id:, price:, method: :floor)
-    ticker = exchange_tickers.find_by(base_asset_id: base_asset_id, quote_asset_id: quote_asset_id)
-    return price unless ticker.present?
-
-    decimals = ticker.price_decimals
-    price.send(method, decimals)
-  end
-
   private
 
   def include_exchange_implementation
