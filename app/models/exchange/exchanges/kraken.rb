@@ -118,37 +118,37 @@ module Exchange::Exchanges::Kraken
     Result::Success.new(result.data[asset_id])
   end
 
-  def get_last_price(base_asset_id:, quote_asset_id:)
-    result = get_ticker_information(base_asset_id: base_asset_id, quote_asset_id: quote_asset_id)
+  def get_last_price(ticker:)
+    result = get_ticker_information(ticker: ticker)
     return result unless result.success?
 
     price = result.data[:last_trade_closed][:price]
-    raise "Wrong last price for #{base_asset_id}-#{quote_asset_id}: #{price}" if price.zero?
+    raise "Wrong last price for #{ticker.ticker}: #{price}" if price.zero?
 
     Result::Success.new(price)
   end
 
-  def get_bid_price(base_asset_id:, quote_asset_id:)
-    result = get_ticker_information(base_asset_id: base_asset_id, quote_asset_id: quote_asset_id)
+  def get_bid_price(ticker:)
+    result = get_ticker_information(ticker: ticker)
     return result unless result.success?
 
     price = result.data[:bid][:price]
-    raise "Wrong bid price for #{base_asset_id}-#{quote_asset_id}: #{price}" if price.zero?
+    raise "Wrong bid price for #{ticker.ticker}: #{price}" if price.zero?
 
     Result::Success.new(price)
   end
 
-  def get_ask_price(base_asset_id:, quote_asset_id:)
-    result = get_ticker_information(base_asset_id: base_asset_id, quote_asset_id: quote_asset_id)
+  def get_ask_price(ticker:)
+    result = get_ticker_information(ticker: ticker)
     return result unless result.success?
 
     price = result.data[:ask][:price]
-    raise "Wrong ask price for #{base_asset_id}-#{quote_asset_id}: #{price}" if price.zero?
+    raise "Wrong ask price for #{ticker.ticker}: #{price}" if price.zero?
 
     Result::Success.new(price)
   end
 
-  def get_candles(ticker_id:, start_at:, timeframe:)
+  def get_candles(ticker:, start_at:, timeframe:)
     # Notes:
     # - Returns up to 720 of the most recent entries (older data cannot be retrieved, regardless of the value of start_at)
     # - 1.week and 15.days timeframes don't follow TradingView start timestamp
@@ -166,7 +166,6 @@ module Exchange::Exchanges::Kraken
     interval = intervals[timeframe]
 
     candles = []
-    ticker = tickers.find(ticker_id)
     start_at -= 1.second
     result = client.get_ohlc_data(
       pair: ticker.ticker,
@@ -194,10 +193,9 @@ module Exchange::Exchanges::Kraken
   end
 
   # @param amount_type [Symbol] :base or :quote
-  def market_buy(base_asset_id:, quote_asset_id:, amount:, amount_type:)
+  def market_buy(ticker:, amount:, amount_type:)
     set_market_order(
-      base_asset_id: base_asset_id,
-      quote_asset_id: quote_asset_id,
+      ticker: ticker,
       amount: amount,
       amount_type: amount_type,
       side: 'buy'
@@ -205,10 +203,9 @@ module Exchange::Exchanges::Kraken
   end
 
   # @param amount_type [Symbol] :base or :quote
-  def market_sell(base_asset_id:, quote_asset_id:, amount:, amount_type:)
+  def market_sell(ticker:, amount:, amount_type:)
     set_market_order(
-      base_asset_id: base_asset_id,
-      quote_asset_id: quote_asset_id,
+      ticker: ticker,
       amount: amount,
       amount_type: amount_type,
       side: 'sell'
@@ -216,10 +213,9 @@ module Exchange::Exchanges::Kraken
   end
 
   # @param amount_type [Symbol] :base or :quote
-  def limit_buy(base_asset_id:, quote_asset_id:, amount:, amount_type:, price:)
+  def limit_buy(ticker:, amount:, amount_type:, price:)
     set_limit_order(
-      base_asset_id: base_asset_id,
-      quote_asset_id: quote_asset_id,
+      ticker: ticker,
       amount: amount,
       amount_type: amount_type,
       side: 'buy',
@@ -228,10 +224,9 @@ module Exchange::Exchanges::Kraken
   end
 
   # @param amount_type [Symbol] :base or :quote
-  def limit_sell(base_asset_id:, quote_asset_id:, amount:, amount_type:, price:)
+  def limit_sell(ticker:, amount:, amount_type:, price:)
     set_limit_order(
-      base_asset_id: base_asset_id,
-      quote_asset_id: quote_asset_id,
+      ticker: ticker,
       amount: amount,
       amount_type: amount_type,
       side: 'sell',
@@ -246,10 +241,6 @@ module Exchange::Exchanges::Kraken
     order_data = Utilities::Hash.dig_or_raise(result.data, 'result').map { |_, v| v }.first
 
     pair = Utilities::Hash.dig_or_raise(order_data, 'descr', 'pair')
-    ticker = tickers.find_by(ticker: pair)
-    base_asset = ticker.base_asset
-    quote_asset = ticker.quote_asset
-
     rate = Utilities::Hash.dig_or_raise(order_data, 'price').to_d
     amount = Utilities::Hash.dig_or_raise(order_data, 'vol_exec').to_d
     quote_amount = Utilities::Hash.dig_or_raise(order_data, 'cost').to_d
@@ -259,11 +250,11 @@ module Exchange::Exchanges::Kraken
       order_data['misc'].presence
     ].compact
     status = parse_order_status(Utilities::Hash.dig_or_raise(order_data, 'status'))
+    ticker = tickers.find_by(ticker: pair)
 
     Result::Success.new({
                           order_id: order_id,
-                          base_asset: base_asset,
-                          quote_asset: quote_asset,
+                          ticker: ticker,
                           rate: rate,
                           amount: amount,             # amount the account balance went up or down
                           quote_amount: quote_amount, # amount the account balance went up or down
@@ -319,12 +310,9 @@ module Exchange::Exchanges::Kraken
     @asset_from_symbol[symbol]
   end
 
-  def get_ticker_information(base_asset_id:, quote_asset_id:) # rubocop:disable Metrics/MethodLength
-    cache_key = "exchange_#{id}_ticker_information_#{base_asset_id}_#{quote_asset_id}"
+  def get_ticker_information(ticker:) # rubocop:disable Metrics/MethodLength
+    cache_key = "exchange_#{id}_ticker_information_#{ticker.ticker}"
     Rails.cache.fetch(cache_key, expires_in: 1.seconds) do # rubocop:disable Metrics/BlockLength
-      ticker = tickers.find_by(base_asset_id: base_asset_id, quote_asset_id: quote_asset_id)
-      return Result::Failure.new("No ticker found for #{base_asset_id} and #{quote_asset_id}") unless ticker
-
       result = client.get_ticker_information(pair: ticker.ticker)
       return result unless result.success?
 
@@ -373,19 +361,15 @@ module Exchange::Exchanges::Kraken
   # @param amount: Float must be a positive number
   # @param amount_type [Symbol] :base or :quote
   # @param side: String must be either 'buy' or 'sell'
-  def set_market_order(base_asset_id:, quote_asset_id:, amount:, amount_type:, side:)
-    ticker = tickers.find_by(base_asset_id: base_asset_id, quote_asset_id: quote_asset_id)
-    return Result::Failure.new("No ticker found for #{base_asset_id} and #{quote_asset_id}") unless ticker
-
-    adjusted_amount = adjusted_amount(base_asset_id: base_asset_id, quote_asset_id: quote_asset_id,
-                                      amount: amount, amount_type: amount_type)
+  def set_market_order(ticker:, amount:, amount_type:, side:)
+    amount = ticker.adjusted_amount(amount: amount, amount_type: amount_type)
 
     client_order_id = SecureRandom.uuid
     order_settings = {
       cl_ord_id: client_order_id,
       ordertype: 'market',
       type: side.downcase,
-      volume: adjusted_amount.to_d.to_s('F'),
+      volume: amount.to_d.to_s('F'),
       pair: ticker.ticker,
       oflags: amount_type == :quote ? ['viqc'] : []
     }
@@ -406,23 +390,18 @@ module Exchange::Exchanges::Kraken
   # @param amount_type [Symbol] :base or :quote
   # @param side: String must be either 'buy' or 'sell'
   # @param price: Float must be a positive number
-  def set_limit_order(base_asset_id:, quote_asset_id:, amount:, amount_type:, side:, price:)
-    ticker = tickers.find_by(base_asset_id: base_asset_id, quote_asset_id: quote_asset_id)
-    return Result::Failure.new("No ticker found for #{base_asset_id} and #{quote_asset_id}") unless ticker
-
-    adjusted_amount = adjusted_amount(base_asset_id: base_asset_id, quote_asset_id: quote_asset_id,
-                                      amount: amount, amount_type: amount_type)
-    adjusted_price = adjusted_price(base_asset_id: base_asset_id, quote_asset_id: quote_asset_id,
-                                    price: price)
+  def set_limit_order(ticker:, amount:, amount_type:, side:, price:)
+    amount = ticker.adjusted_amount(amount: amount, amount_type: amount_type)
+    price = ticker.adjusted_price(price: price)
 
     client_order_id = SecureRandom.uuid
     result = client.add_order(
       cl_ord_id: client_order_id,
       ordertype: 'limit',
       type: side.downcase,
-      volume: adjusted_amount.to_d.to_s('F'),
+      volume: amount.to_d.to_s('F'),
       pair: ticker.ticker,
-      price: adjusted_price.to_d.to_s('F'),
+      price: price.to_d.to_s('F'),
       oflags: amount_type == :quote ? ['viqc'] : []
     )
     return result unless result.success?

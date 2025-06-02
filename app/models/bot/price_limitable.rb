@@ -97,7 +97,7 @@ module Bot::PriceLimitable
     ticker = tickers.find_by(id: price_limit_in_ticker_id)
     return false unless ticker.present?
 
-    result = ticker.get_price
+    result = ticker.get_last_price
     return false unless result.success?
 
     if value_condition_satisfied?(result.data)
