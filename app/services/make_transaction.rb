@@ -28,15 +28,17 @@ class MakeTransaction < BaseService
     fixing_price = continue_params['price']
     range_check_result = @check_price_range.call(bot)
 
+    out_of_range = false
     if range_check_result.success? && !range_check_result.data[:valid]
       continue_schedule = true
-      skip_if_not_in_range(bot, range_check_result.data)
+      out_of_range = true
+      # skip_if_not_in_range(bot, range_check_result.data) # Avoid having too many skipped transactions
     end
 
     result = perform_action(get_api(bot), bot, fixing_price) unless continue_schedule || !range_check_result.success?
 
     if continue_schedule
-      bot.update(status: 'scheduled', restarts: 0)
+      bot.update(status: 'scheduled', restarts: 0, transient_data: { 'out_of_range': out_of_range })
       @schedule_transaction.call(bot)
     elsif result&.success?
       bot.update(status: 'executing')
