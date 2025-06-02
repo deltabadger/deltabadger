@@ -89,3 +89,5 @@ gem "pagy", "~> 6.5"
 gem "haikunator", "~> 1.1"
 gem "sqids" # for obfuscating IDs
 gem "mini_magick", "~> 5.2"
+
+gem "ruby-technical-analysis", "~> 1.0"
