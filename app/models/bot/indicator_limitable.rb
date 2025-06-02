@@ -46,7 +46,8 @@ module Bot::IndicatorLimitable
       def execute_action
         return super unless indicator_limited?
 
-        if indicator_limit_condition_met?
+        result = get_indicator_limit_condition_met?
+        if result.success? && result.data
           super
         else
           update!(status: :waiting)

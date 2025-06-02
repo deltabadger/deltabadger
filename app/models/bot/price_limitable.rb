@@ -40,7 +40,8 @@ module Bot::PriceLimitable
       def execute_action
         return super unless price_limited?
 
-        if price_limit_condition_met?
+        result = get_price_limit_condition_met?
+        if result.success? && result.data
           super
         else
           update!(status: :waiting)
