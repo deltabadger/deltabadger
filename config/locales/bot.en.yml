@@ -204,7 +204,7 @@ en:
             general_note: "Exchange minimums and required rebalancing amounts change. Transactions might sometimes look irregular, but the bot always targets your desired allocation and schedule, so no extra work is needed."
         settings:
             smart_intervals:
-                split_in_orders_html: '<b>Smart Intervals<sup>®</sup></b> Split <span>the amount</span> into <span>%{amount} %{quote}</span> units'
+                split_in_orders_html: '<b>Smart Intervals<sup>®</sup></b> Split <span>the</span> amount <span>into</span> <span>%{amount} %{quote}</span> units'
                 split_info: "Splitting your %{quote_amount} %{quote} / %{interval} into smaller units of %{amount} %{quote} will result in one investment every %{smart_interval}"
             extra_amount_limit:
                 dont_spend_more_than: "Don't spend more than"
@@ -220,7 +220,7 @@ en:
                     above: "above"
                     below: "below"
             extra_indicator_limit:
-                sentence_html: "<span>%{timing_condition}</span> when the <span>%{indicator}</span> on daily <span>%{ticker}</span> candles is <span>%{value_condition} %{value}</span>"
+                sentence_html: "<span>%{timing_condition}</span> when the <span>%{indicator}</span> on <span>daily</span> %{ticker} <span>candles</span> is <span>%{value_condition} %{value}</span>"
                 indicator_info: "Current %{indicator} on daily %{ticker} candles is %{value}"
                 timing_condition:
                     while: "Buy only"
