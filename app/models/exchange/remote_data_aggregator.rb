@@ -111,6 +111,8 @@ module Exchange::RemoteDataAggregator
     page = 1
     tickers_per_page = 100
     loop do
+      raise "Failed to get #{name} Coingecko tickers, page #{page} is out of bounds" if page > 100
+
       result = coingecko_client.exchange_tickers_by_id(id: coingecko_id, order: 'base_asset', page: page)
       return Result::Failure.new("Failed to get #{name} Coingecko tickers") if result.failure?
 

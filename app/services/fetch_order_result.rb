@@ -124,7 +124,7 @@ class FetchOrderResult < BaseService
 
   # rubocop:disable Metrics/CyclomaticComplexity, Metrics/PerceivedComplexity
   def transaction_params(result, bot, price = nil, called_bot = nil)
-    if result.success?
+    if result.success? && result.data[:amount].to_f.positive?
       result.data.slice(:external_id, :rate, :amount).merge(
         bot_id: bot.id,
         status: :success,

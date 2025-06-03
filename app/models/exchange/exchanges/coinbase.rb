@@ -185,7 +185,7 @@ module Exchange::Exchanges::Coinbase
           candle['volume'].to_d
         ]
       end
-      break if raw_candles_list.size.zero?
+      break if raw_candles_list.empty?
 
       start_at = candles.last[0] + 1.second
     end
