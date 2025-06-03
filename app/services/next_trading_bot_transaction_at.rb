@@ -8,7 +8,6 @@ class NextTradingBotTransactionAt < BaseService
   end
 
   def call(bot, first_transaction: false)
-    return Time.now.utc.end_of_minute if bot.transient_data['out_of_range']
     return DateTime.now if first_transaction
     return nil unless bot.transactions.exists?
     return bot.last_transaction.created_at if manual_restart_failed_bot?(bot)

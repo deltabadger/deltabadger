@@ -25,6 +25,7 @@ class ScheduleTransaction < BaseService
       bot.id,
       continue_params.to_h
     )
+    Bot::BroadcastAfterScheduledActionJob.perform_later(bot)
   end
 
   private
