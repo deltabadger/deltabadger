@@ -1,4 +1,9 @@
 <%= turbo_frame_tag "backtest-results" do %>
+  <div class="widget widget--thin flex-row">
+    <span class="label"><%= t('utils.since') %></span>
+    <%= render "portfolios/start_date", portfolio: portfolio %>
+  </div>
+
   <% if backtest.present? %>
 
     <% chart_names = [fill_default_portfolio_label(portfolio.label)] %>
@@ -14,11 +19,6 @@
 
     <%= render 'portfolios/backtest_time_adjust_warning', backtest: backtest, portfolio: portfolio %>
 
-    <div class="widget widget--thin flex-row">
-      <span class="label"><%= t('utils.since') %></span>
-      <%= render "portfolios/start_date", portfolio: portfolio %>
-    </div>
-
     <div class="widget widget--chart">
       <div class="data-grid__item" data-controller="tooltip" data-action="mouseenter->tooltip#showTooltip mouseleave->tooltip#hideTooltip">
         <div class="label"><%= t('analyzer.pnl') %></div>
@@ -32,8 +32,8 @@
         portfolio_analyzer__chart_colors_value: chart_colors,
         portfolio_analyzer__chart_labels_value: chart_labels,
         portfolio_analyzer__chart_series_value: chart_series,
-      } do %>
-        <canvas data-portfolio-analyzer--chart-target="analyzerChart" width="200" height="60"></canvas>
+      }, style: "width: 100%; aspect-ratio: 10 / 3;" do %>
+        <canvas data-portfolio-analyzer--chart-target="analyzerChart" width="10" height="3"></canvas>
       <% end %>
 
       <%= render "portfolios/compare_to_select", portfolio: portfolio %>
@@ -79,22 +79,51 @@
 
     </div>
   <% elsif portfolio.portfolio_assets.empty? || !portfolio.allocations_are_normalized? %>
-    <div class="widget">
-      <%= render 'svg/landscape_empty' %>
+    <div class="widget widget--chart">
+      <div class="data-grid__item">
+        <div class="label">&nbsp;</div>
+        <div class="data-grid__item__value">&nbsp;</div>
+      </div>
+      <div style="width: 100%; aspect-ratio: 10 / 3;">
+        <%= render 'svg/landscape_empty' %>
+      </div>
+      <div class="multiselect mt-5">
+        <div class="button button--link dropdown-wrapper">&nbsp;</div>
+      </div>
     </div>
   <% elsif portfolio.backtest_api_error == "No history available for the given parameters" %>
     <div class="insight insight--warning" style="margin-bottom: 2px">
       <%= t('analyzer.assets_dont_coexist', backtest_start_date: portfolio.backtest_start_date) %>
     </div>
-    <div class="widget">
-      <%= render 'svg/landscape_empty_no_connection' %>
+
+    <div class="widget widget--chart">
+      <div class="data-grid__item">
+        <div class="label">&nbsp;</div>
+        <div class="data-grid__item__value">&nbsp;</div>
+      </div>
+      <div style="width: 100%; aspect-ratio: 10 / 3;">
+        <%= render 'svg/landscape_empty_no_connection' %>
+      </div>
+      <div class="multiselect mt-5">
+        <div class="button button--link dropdown-wrapper">&nbsp;</div>
+      </div>
     </div>
   <% else %>
     <div class="insight insight--warning" style="margin-bottom: 2px">
       <%= t('analyzer.api_unreachable') %>
     </div>
-    <div class="widget">
-      <%= render 'svg/landscape_empty_no_connection' %>
+
+    <div class="widget widget--chart">
+      <div class="data-grid__item">
+        <div class="label">&nbsp;</div>
+        <div class="data-grid__item__value">&nbsp;</div>
+      </div>
+      <div style="width: 100%; aspect-ratio: 10 / 3;">
+        <%= render 'svg/landscape_empty_no_connection' %>
+      </div>
+      <div class="multiselect mt-5">
+        <div class="button button--link dropdown-wrapper">&nbsp;</div>
+      </div>
     </div>
   <% end %>
 <% end %>
