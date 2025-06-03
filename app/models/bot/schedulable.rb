@@ -45,6 +45,7 @@ module Bot::Schedulable
 
   def next_interval_checkpoint_at
     return legacy_next_interval_checkpoint_at if legacy?
+    return Time.current if interval_duration.zero?
 
     checkpoint = started_at || Time.current
     loop do
