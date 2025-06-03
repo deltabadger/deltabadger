@@ -60,7 +60,7 @@ module Bots::DcaDualAsset::Measurable
       return metrics if metrics[:chart][:labels].empty?
 
       result = exchange.get_tickers_prices
-      return metrics unless result.success?
+      return metrics if result.failure?
 
       price0 = result.data[ticker0.ticker]
       price1 = result.data[ticker1.ticker]

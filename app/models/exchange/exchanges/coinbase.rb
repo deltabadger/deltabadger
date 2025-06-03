@@ -29,7 +29,7 @@ module Exchange::Exchanges::Coinbase
     cache_key = "exchange_#{id}_info"
     tickers_info = Rails.cache.fetch(cache_key, expires_in: 1.hour) do
       result = client.list_products
-      return Result::Failure.new("Failed to get #{name} products") unless result.success?
+      return Result::Failure.new("Failed to get #{name} products") if result.failure?
 
       result.data['products'].map do |product|
         ticker = Utilities::Hash.dig_or_raise(product, 'product_id')
@@ -60,7 +60,7 @@ module Exchange::Exchanges::Coinbase
     cache_key = "exchange_#{id}_prices"
     tickers_prices = Rails.cache.fetch(cache_key, expires_in: 1.minute, force: force) do
       result = client.list_products
-      return Result::Failure.new("Failed to get #{name} products") unless result.success?
+      return Result::Failure.new("Failed to get #{name} products") if result.failure?
 
       result.data['products'].each_with_object({}) do |product, prices_hash|
         ticker = Utilities::Hash.dig_or_raise(product, 'product_id')
@@ -74,11 +74,11 @@ module Exchange::Exchanges::Coinbase
 
   def get_balances(asset_ids: nil)
     result = get_portfolio_uuid
-    return result unless result.success?
+    return result if result.failure?
 
     portfolio_uuid = result.data
     result = client.get_portfolio_breakdown(portfolio_uuid: portfolio_uuid)
-    return result unless result.success?
+    return result if result.failure?
 
     asset_ids ||= assets.pluck(:id)
     balances = asset_ids.each_with_object({}) do |asset_id, balances_hash|
@@ -101,7 +101,7 @@ module Exchange::Exchanges::Coinbase
 
   def get_balance(asset_id:)
     result = get_balances(asset_ids: [asset_id])
-    return result unless result.success?
+    return result if result.failure?
 
     Result::Success.new(result.data[asset_id])
   end
@@ -110,7 +110,7 @@ module Exchange::Exchanges::Coinbase
     cache_key = "exchange_#{id}_last_price_#{ticker.id}"
     price = Rails.cache.fetch(cache_key, expires_in: 5.seconds, force: force) do
       result = get_product(ticker: ticker)
-      return result unless result.success?
+      return result if result.failure?
 
       price = Utilities::Hash.dig_or_raise(result.data, 'price').to_d
       raise "Wrong last price for #{ticker.ticker}: #{price}" if price.zero?
@@ -125,7 +125,7 @@ module Exchange::Exchanges::Coinbase
     cache_key = "exchange_#{id}_bid_price_#{ticker.id}"
     price = Rails.cache.fetch(cache_key, expires_in: 5.seconds, force: force) do
       result = get_bid_ask_price(ticker: ticker)
-      return result unless result.success?
+      return result if result.failure?
 
       price = result.data[:bid][:price]
       raise "Wrong bid price for #{ticker.ticker}: #{price}" if price.zero?
@@ -140,7 +140,7 @@ module Exchange::Exchanges::Coinbase
     cache_key = "exchange_#{id}_ask_price_#{ticker.id}"
     price = Rails.cache.fetch(cache_key, expires_in: 5.seconds, force: force) do
       result = get_bid_ask_price(ticker: ticker)
-      return result unless result.success?
+      return result if result.failure?
 
       price = result.data[:ask][:price]
       raise "Wrong ask price for #{ticker.ticker}: #{price}" if price.zero?
@@ -172,7 +172,7 @@ module Exchange::Exchanges::Coinbase
         end_time: [start_at + 350 * timeframe, Time.now.utc].min.to_i,
         granularity: granularity
       )
-      return result unless result.success?
+      return result if result.failure?
 
       raw_candles_list = result.data['candles'].sort_by { |candle| candle['start'] }
       raw_candles_list.each do |candle|
@@ -237,7 +237,7 @@ module Exchange::Exchanges::Coinbase
 
   def get_order(order_id:)
     result = client.get_order(order_id: order_id)
-    return result unless result.success?
+    return result if result.failure?
 
     product_id = Utilities::Hash.dig_or_raise(result.data, 'order', 'product_id')
     rate = Utilities::Hash.dig_or_raise(result.data, 'order', 'average_filled_price').to_d
@@ -270,7 +270,7 @@ module Exchange::Exchanges::Coinbase
       api_key: api_key.key,
       api_secret: api_key.secret
     ).get_api_key_permissions
-    return result unless result.success?
+    return result if result.failure?
 
     valid = if api_key.trading?
               result.data['can_trade'] == true && result.data['can_transfer'] == false
@@ -304,7 +304,7 @@ module Exchange::Exchanges::Coinbase
   def get_portfolio_uuid
     @get_portfolio_uuid ||= begin
       result = client.get_api_key_permissions
-      return result unless result.success?
+      return result if result.failure?
 
       Result::Success.new(result.data['portfolio_uuid'])
     end
@@ -312,14 +312,14 @@ module Exchange::Exchanges::Coinbase
 
   def get_product(ticker:)
     result = client.get_product(product_id: ticker.ticker)
-    return result unless result.success?
+    return result if result.failure?
 
     Result::Success.new(result.data)
   end
 
   def get_bid_ask_price(ticker:)
     result = client.get_public_product_book(product_id: ticker.ticker, limit: 1)
-    return result unless result.success?
+    return result if result.failure?
 
     Result::Success.new(
       {
@@ -353,7 +353,7 @@ module Exchange::Exchanges::Coinbase
         }.compact
       }
     )
-    return result unless result.success?
+    return result if result.failure?
 
     return Result::Failure.new(result.data.dig('error_response', 'message'), data: result.data) if result.data['success'] == false
 
@@ -385,7 +385,7 @@ module Exchange::Exchanges::Coinbase
         }.compact
       }
     )
-    return result unless result.success?
+    return result if result.failure?
 
     return Result::Failure.new(result.data.dig('error_response', 'message'), data: result.data) if result.data['success'] == false
 

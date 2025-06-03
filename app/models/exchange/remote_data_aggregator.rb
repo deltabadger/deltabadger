@@ -5,14 +5,14 @@ module Exchange::RemoteDataAggregator
     create_missing_eodhd_assets!
 
     result = get_coingecko_tickers_info
-    return result unless result.success?
+    return result if result.failure?
 
     coingecko_tickers_hash = result.data.map { |t| [generic_ticker_key(t), t] }.to_h
     external_ids = coingecko_tickers_hash.map { |_, t| [t[:base_external_id], t[:quote_external_id]] }
                                          .flatten.compact.uniq
 
     result = get_tickers_info
-    return result unless result.success?
+    return result if result.failure?
 
     exchange_tickers_hash = result.data.map { |t| [generic_ticker_key(t), t] }.to_h
 
@@ -88,7 +88,7 @@ module Exchange::RemoteDataAggregator
 
   def get_coingecko_tickers_info
     result = get_exchange_tickers_by_id
-    return result unless result.success?
+    return result if result.failure?
 
     tickers_info = case coingecko_id
                    when Exchange::Exchanges::Kraken::COINGECKO_ID then filter_kraken_tickers(result.data)
@@ -112,7 +112,7 @@ module Exchange::RemoteDataAggregator
     tickers_per_page = 100
     loop do
       result = coingecko_client.exchange_tickers_by_id(id: coingecko_id, order: 'base_asset', page: page)
-      return Result::Failure.new("Failed to get #{name} Coingecko tickers") unless result.success?
+      return Result::Failure.new("Failed to get #{name} Coingecko tickers") if result.failure?
 
       all_tickers.concat(result.data['tickers'])
       break if result.data['tickers'].count < tickers_per_page

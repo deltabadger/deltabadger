@@ -12,7 +12,7 @@ module ExchangeTicker::TechnicallyAnalyzable
         start_at: since,
         timeframe: timeframe
       )
-      return result unless result.success?
+      return result if result.failure?
       if result.data.last[0] < timeframe.ago
         return Result::Failure.new("Failed to get #{timeframe.inspect} candles since #{since} for #{ticker}")
       end
@@ -23,7 +23,7 @@ module ExchangeTicker::TechnicallyAnalyzable
         series: series,
         period: period
       )
-      return result unless result.success?
+      return result if result.failure?
       unless rsi.valid?
         return Result::Failure.new("Failed to calculate #{timeframe.inspect} RSI for #{ticker} (period: #{period})")
       end

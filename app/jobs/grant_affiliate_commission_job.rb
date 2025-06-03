@@ -28,7 +28,7 @@ class GrantAffiliateCommissionJob < ApplicationJob
     quote = quote.downcase
     Rails.cache.fetch("btc_price_#{quote}", expires_in: 1.minute) do
       result = client.coin_price_by_ids(coin_ids: ['bitcoin'], vs_currencies: [quote])
-      raise StandardError, result.errors if result.failure?
+      raise result.errors.to_sentence if result.failure?
 
       Utilities::Hash.dig_or_raise(result.data, 'bitcoin', quote)
     end

@@ -115,7 +115,7 @@ module Bot::IndicatorLimitable
     return Result::Success.new(false) unless ticker.present?
 
     result = get_indicator_value(ticker)
-    return result unless result.success?
+    return result if result.failure?
 
     if indicator_condition_satisfied?(result.data)
       self.indicator_limit_condition_met_at ||= Time.current

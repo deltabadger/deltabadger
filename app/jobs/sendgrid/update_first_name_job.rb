@@ -3,6 +3,6 @@ class Sendgrid::UpdateFirstNameJob < ApplicationJob
 
   def perform(user)
     result = user.update_sendgrid_first_name
-    raise StandardError, result.errors if result.failure?
+    raise result.errors.to_sentence if result.failure?
   end
 end

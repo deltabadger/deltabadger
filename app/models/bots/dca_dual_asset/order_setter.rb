@@ -5,23 +5,18 @@ module Bots::DcaDualAsset::OrderSetter # rubocop:disable Metrics/ModuleLength
     total_orders_amount_in_quote:,
     update_missed_quote_amount: false
   )
-    Rails.logger.info("set_orders for bot #{id} with total_orders_amount_in_quote: #{total_orders_amount_in_quote}, update_missed_quote_amount: #{update_missed_quote_amount}")
-    raise StandardError, 'quote_amount is required' if total_orders_amount_in_quote.blank?
-    raise StandardError, 'quote_amount must be positive' if total_orders_amount_in_quote.negative?
-    return Result::Success.new if total_orders_amount_in_quote.zero? || total_orders_amount_in_quote.negative?
+    Rails.logger.info(
+      "set_orders for bot #{id} " \
+      "with total_orders_amount_in_quote: #{total_orders_amount_in_quote}, " \
+      "update_missed_quote_amount: #{update_missed_quote_amount}"
+    )
+    validate_orders_amount!(total_orders_amount_in_quote)
+    return Result::Success.new if total_orders_amount_in_quote.zero?
 
     result = get_orders(total_orders_amount_in_quote)
-    unless result.success?
-      Rails.logger.error("set_orders for bot #{id} failed to get orders: #{result.errors.inspect}")
-      create_failed_order!({
-                             ticker: ticker0,
-                             error_messages: result.errors
-                           })
-      return result
-    end
+    return result if result.failure?
 
     orders_data = result.data
-    Rails.logger.info("set_orders for bot #{id} got orders_data: #{orders_data.inspect}")
     orders_data.each do |order_data|
       if order_data[:amount].zero?
         Rails.logger.info("set_orders for bot #{id} ignoring order #{order_data.inspect}")
@@ -35,25 +30,22 @@ module Bots::DcaDualAsset::OrderSetter # rubocop:disable Metrics/ModuleLength
         next
       end
 
-      Rails.logger.info("set_orders for bot #{id} creating order #{order_data.inspect} with amount info #{amount_info.inspect}")
-
-      result = nil
-      with_api_key do
-        result = order_data[:ticker].market_buy(
-          amount: amount_info[:amount],
-          amount_type: amount_info[:amount_type]
+      result = create_order(order_data, amount_info)
+      if result.failure?
+        Rails.logger.error(
+          "set_orders for bot #{id} failed to create order #{order_data.inspect}. " \
+          "Errors: #{result.errors.to_sentence}"
         )
-      end
-
-      if result.success?
-        order_id = result.data[:order_id]
-        Rails.logger.info("set_orders for bot #{id} created order #{order_id}")
-        Bot::FetchAndCreateOrderJob.set(wait: 1.second).perform_later(self, order_id)
-        update!(missed_quote_amount: [0, missed_quote_amount - order_data[:quote_amount]].max) if update_missed_quote_amount
-      else
-        Rails.logger.error("set_orders for bot #{id} failed to create order #{order_data.inspect}: #{result.errors.inspect}")
         create_failed_order!(order_data.merge!(error_messages: result.errors))
         return result
+      else
+        order_id = result.data[:order_id]
+        Rails.logger.info("set_orders for bot #{id} created order #{order_id}")
+        Bot::FetchAndCreateOrderJob.perform_later(
+          self,
+          order_id,
+          update_missed_quote_amount: update_missed_quote_amount
+        )
       end
     end
 
@@ -62,22 +54,36 @@ module Bots::DcaDualAsset::OrderSetter # rubocop:disable Metrics/ModuleLength
 
   private
 
+  def validate_orders_amount!(total_orders_amount_in_quote)
+    raise 'Orders quote_amount is required' if total_orders_amount_in_quote.blank?
+    raise 'Orders quote_amount must be positive' if total_orders_amount_in_quote.negative?
+  end
+
   def get_orders(total_orders_amount_in_quote)
     metrics_data = metrics(force: true)
 
     result0 = ticker0.get_ask_price
-    return result0 unless result0.success?
+    if result0.failure?
+      Rails.logger.error("set_orders for bot #{id} failed to get order0. Errors: #{result0.errors.to_sentence}")
+      create_failed_order!(ticker: ticker0, error_messages: result0.errors)
+      return result0
+    end
 
     result1 = ticker1.get_ask_price
-    return result1 unless result1.success?
+    if result1.failure?
+      Rails.logger.error("set_orders for bot #{id} failed to get order1. Errors: #{result1.errors.to_sentence}")
+      create_failed_order!(ticker: ticker1, error_messages: result1.errors)
+      return result1
+    end
 
-    Result::Success.new(calculate_orders_data(
-                          balance0: metrics_data[:total_base0_amount],
-                          balance1: metrics_data[:total_base1_amount],
-                          price0: result0.data,
-                          price1: result1.data,
-                          total_orders_amount_in_quote: total_orders_amount_in_quote
-                        ))
+    orders_data = calculate_orders_data(
+      balance0: metrics_data[:total_base0_amount],
+      balance1: metrics_data[:total_base1_amount],
+      price0: result0.data,
+      price1: result1.data,
+      total_orders_amount_in_quote: total_orders_amount_in_quote
+    )
+    Result::Success.new(orders_data)
   end
 
   def calculate_orders_data(balance0:, balance1:, price0:, price1:, total_orders_amount_in_quote:)
@@ -128,5 +134,18 @@ module Bots::DcaDualAsset::OrderSetter # rubocop:disable Metrics/ModuleLength
       amount: amount,
       below_minimum_amount: amount < minimum_amount
     }
+  end
+
+  def create_order(order_data, amount_info)
+    Rails.logger.info(
+      "set_orders for bot #{id} creating order #{order_data.inspect} " \
+      "with amount info #{amount_info.inspect}"
+    )
+    with_api_key do
+      order_data[:ticker].market_buy(
+        amount: amount_info[:amount],
+        amount_type: amount_info[:amount_type]
+      )
+    end
   end
 end

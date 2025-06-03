@@ -7,7 +7,7 @@ module ExchangeApi
 
       def current_price(symbol)
         result = current_bid_ask_price(symbol)
-        return result unless result.success?
+        return result if result.failure?
 
         price = result.data
         Result::Success.new((price.bid + price.ask) / 2)
@@ -17,14 +17,14 @@ module ExchangeApi
 
       def current_bid_price(symbol)
         result = current_bid_ask_price(symbol)
-        return result unless result.success?
+        return result if result.failure?
 
         Result::Success.new(result.data.bid)
       end
 
       def current_ask_price(symbol)
         result = current_bid_ask_price(symbol)
-        return result unless result.success?
+        return result if result.failure?
 
         Result::Success.new(result.data.ask)
       end

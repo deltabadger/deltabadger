@@ -44,7 +44,7 @@ module Bots::DcaSingleAsset::Measurable
       return metrics if metrics[:chart][:labels].empty?
 
       result = exchange.get_tickers_prices
-      return metrics unless result.success?
+      return metrics if result.failure?
 
       price = result.data[ticker.ticker]
       return metrics unless price.present?
