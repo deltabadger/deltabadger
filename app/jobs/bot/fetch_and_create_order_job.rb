@@ -2,19 +2,33 @@ class Bot::FetchAndCreateOrderJob < BotJob
   def perform(bot, order_id, update_missed_quote_amount: false)
     return if Transaction.exists?(external_id: order_id)
 
-    result = nil
-    bot.with_api_key do
-      result = bot.exchange.get_order(order_id: order_id)
-    end
-    order_data = result.data
+    result = fetch_order(bot, order_id)
     raise "Failed to fetch order #{order_id} result: #{result.errors}" if result.failure?
-    raise "Order #{order_id} was not successful." if order_data[:status] == :unknown
 
-    if order_data[:status] == :success
+    order_data = result.data
+    case order_data[:status]
+    when :success
       bot.create_successful_order!(order_data)
       bot.update!(missed_quote_amount: [0, bot.missed_quote_amount - order_data[:quote_amount]].max) if update_missed_quote_amount
-    elsif order_data[:status] == :failure
+    when :failure
       bot.create_failed_order!(order_data)
+    when :unknown
+      raise "Order #{order_id} status is unknown."
+    end
+  end
+
+  private
+
+  def fetch_order(bot, order_id, retries: 10, sleep_time: 0.5)
+    bot.with_api_key do
+      retries.times do |i|
+        result = bot.exchange.get_order(order_id: order_id)
+        return result if result.success?
+
+        Rails.logger.info "Order #{order_id} not fetched, retrying #{i + 1} of #{retries}..."
+        sleep sleep_time
+      end
+      result
     end
   end
 end
