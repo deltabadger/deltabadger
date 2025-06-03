@@ -8,24 +8,21 @@ fr:
             dca:
                 title: "DCA"
                 description: |
-                    <p>Investissez un montant fixe régulièrement.</p>
-                    <p>Le bot fait la moyenne de votre prix d'achat au fil du temps, réduisant l'impact de la volatilité du marché.</p>
-                    <p>Utilisez le DCA classique ou définissez des conditions pour obtenir le meilleur prix.</p>
+                    <p><b>Investissez régulièrement un montant fixe.</b> Le bot moyenne votre prix d'achat au fil du temps, réduisant l'impact de la volatilité du marché. Utilisez le DCA classique ou définissez des conditions pour obtenir le meilleur prix.</p>
             dca_dual_asset:
                 title: "DCA Rééquilibré"
                 description: |
-                    <p>Investissez régulièrement dans deux actifs quelconques avec du DCA rééquilibré.</p>
-                    <p>Le bot achète plus de l'actif qui a moins progressé, maintenant votre allocation souhaitée <b>sans impôts sur les plus-values</b>.</p>
+                    <p><b>Investissez régulièrement dans deux actifs</b> avec un DCA rééquilibré. Le bot achète davantage l'actif qui a le moins progressé, maintenant votre allocation souhaitée sans impôts sur les plus-values.</p>
             legacy:
-                title: "Legacy Bot (DCA)"
+                title: "Bot Hérité (DCA)"
                 description: |
-                    <p>Notre ancien bot DCA et retraits automatiques. Après l'implémentation de toutes les plateformes sur le nouveau bot, il sera retiré. Vous pouvez encore l'utiliser, tous les bots seront migrés vers la nouvelle version.</p>
+                    <p>Notre ancien bot DCA et Retraits Automatiques. Après l'implémentation de tous les échanges sur le nouveau bot, il sera progressivement abandonné. Vous pouvez toujours l'utiliser, tous les bots seront migrés vers la nouvelle version.</p>
             index_portfolio:
-                title: "Portefeuille Indice"
-                description: "Construisez votre ETF crypto personnel. Suivez le marché global des cryptomonnaies ou l'un des indices pour des secteurs spécifiques."
+                title: "Portefeuille Indiciel"
+                description: "Construisez votre ETF crypto personnel. Suivez le marché général des cryptos ou l'un des indices pour des secteurs spécifiques."
             custom_portfolio:
                 title: "Portefeuille Personnalisé"
-                description: "Rééquilibrer un mix d'actifs personnalisé"
+                description: "Rééquilibrez un mix d'actifs personnalisé"
         status:
             setting_orders: "Configuration des commandes…"
             paused: "En pause"
@@ -185,14 +182,15 @@ fr:
             general_note: "Les minimums d'échange et les montants de rééquilibrage requis peuvent changer. Les commandes peuvent parfois sembler irrégulières, mais le bot cible toujours votre allocation et votre calendrier souhaités, donc aucun travail supplémentaire n'est nécessaire."
         settings:
             smart_intervals:
-                split_in_orders_html: '<b>Smart Intervals<sup>®</sup></b> Divise le montant en unités de <span>%{amount} %{quote}</span>'
+                split_in_orders_html: '<b>Smart Intervals<sup>®</sup></b> Divise <span>le montant</span> en unités de <span>%{amount} %{quote}</span>'
                 split_info: "Diviser votre %{quote_amount} %{quote} / %{interval} en unités plus petites de %{amount} %{quote} entraînera un investissement tous les %{smart_interval}"
             extra_amount_limit:
                 dont_spend_more_than: "Ne pas dépenser plus de"
                 amount_left: "(%{amount} %{symbol} restant)"
                 amount_spent: "Le montant total a été investi"
             extra_price_limit:
-                sentence_html: "%{timing_condition} lorsque le prix de %{base} est <span>%{value_condition} %{value} %{quote}</span>"
+                sentence_html: "<span>%{timing_condition}</span> lorsque le <span>prix</span> de %{base} est <span>%{value_condition} %{value} %{quote}</span>"
+                price_info: "Le prix actuel de %{base} est %{current_price} %{quote}"
                 timing_condition:
                     while: "Acheter uniquement"
                     after: "Commencer à acheter"
@@ -200,7 +198,8 @@ fr:
                     above: "au-dessus de"
                     below: "en dessous de"
             extra_indicator_limit:
-                sentence_html: "%{timing_condition} quand le %{indicator} sur bougies journalières de %{ticker} est <span>%{value_condition} %{value}</span>"
+                sentence_html: "<span>%{timing_condition}</span> quand le <span>%{indicator}</span> sur bougies journalières de <span>%{ticker}</span> est <span>%{value_condition} %{value}</span>"
+                indicator_info: "Le %{indicator} actuel sur bougies journalières de %{ticker} est %{value}"
                 timing_condition:
                     while: "Acheter seulement"
                     after: "Commencer à acheter"

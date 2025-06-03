@@ -8,21 +8,18 @@ es:
             dca:
                 title: "DCA"
                 description: |
-                    <p>Invierte una cantidad fija de forma regular.</p>
-                    <p>El bot promedia tu precio de compra a lo largo del tiempo, reduciendo el impacto de la volatilidad del mercado.</p>
-                    <p>Usa DCA clásico o establece condiciones para conseguir el mejor precio.</p>
+                    <p><b>Invierte una cantidad fija regularmente.</b> El bot promedia tu precio de compra a lo largo del tiempo, reduciendo el impacto de la volatilidad del mercado. Usa DCA clásico o establece condiciones para conseguir el mejor precio.</p>
             dca_dual_asset:
                 title: "DCA Rebalanceado"
                 description: |
-                    <p>Invierte regularmente en dos activos cualesquiera con DCA rebalanceado.</p>
-                    <p>El bot compra más del activo que ha crecido menos, manteniendo tu asignación deseada <b>sin impuestos sobre ganancias de capital</b>.</p>
+                    <p><b>Invierte regularmente en dos activos</b> con DCA rebalanceado. El bot compra más del activo que menos ha crecido, manteniendo tu asignación deseada sin generar impuestos sobre las ganancias de capital.</p>
             legacy:
-                title: "Legacy Bot (DCA)"
+                title: "Bot Heredado (DCA)"
                 description: |
-                    <p>Nuestro antiguo bot DCA y retiros automáticos. Después de implementar todos los exchanges en el nuevo bot, será descontinuado. Aún puedes usarlo, todos los bots serán migrados a la nueva versión.</p>
+                    <p>Nuestro antiguo bot DCA y Retiradas Automáticas. Después de implementar todos los exchanges en el nuevo bot, este será descontinuado. Puedes seguir usándolo, todos los bots serán migrados a la nueva versión.</p>
             index_portfolio:
-                title: "Cartera Índice"
-                description: "Construye tu ETF de criptomonedas personal. Sigue el mercado general de criptomonedas o uno de los índices para sectores específicos."
+                title: "Cartera Indexada"
+                description: "Construye tu ETF personal de criptomonedas. Sigue el mercado general de criptomonedas o uno de los índices para sectores específicos."
             custom_portfolio:
                 title: "Cartera Personalizada"
                 description: "Rebalancea una mezcla personalizada de activos"
@@ -185,14 +182,15 @@ es:
             general_note: "Los mínimos del exchange y las cantidades requeridas para el rebalanceo pueden cambiar. Las transacciones a veces pueden parecer irregulares, pero el bot siempre apunta a tu asignación y programación deseadas, así que no necesitas hacer nada más."
         settings:
             smart_intervals:
-                split_in_orders_html: '<b>Smart Intervals<sup>®</sup></b> Divide la cantidad en unidades de <span>%{amount} %{quote}</span>'
+                split_in_orders_html: '<b>Smart Intervals<sup>®</sup></b> Divide <span>la cantidad</span> en unidades de <span>%{amount} %{quote}</span>'
                 split_info: "Dividir tus %{quote_amount} %{quote} / %{interval} en unidades más pequeñas de %{amount} %{quote} resultará en una inversión cada %{smart_interval}"
             extra_amount_limit:
                 dont_spend_more_than: "No gastar más de"
                 amount_left: "(%{amount} %{symbol} restante)"
                 amount_spent: "Se ha invertido la cantidad completa"
             extra_price_limit:
-                sentence_html: "%{timing_condition} cuando el precio de %{base} esté <span>%{value_condition} %{value} %{quote}</span>"
+                sentence_html: "<span>%{timing_condition}</span> cuando el <span>precio</span> de %{base} esté <span>%{value_condition} %{value} %{quote}</span>"
+                price_info: "El precio actual de %{base} es %{current_price} %{quote}"
                 timing_condition:
                     while: "Comprar solo"
                     after: "Empezar a comprar"
@@ -200,7 +198,8 @@ es:
                     above: "por encima de"
                     below: "por debajo de"
             extra_indicator_limit:
-                sentence_html: "%{timing_condition} cuando el %{indicator} en velas diarias de %{ticker} esté <span>%{value_condition} %{value}</span>"
+                sentence_html: "<span>%{timing_condition}</span> cuando el <span>%{indicator}</span> en velas diarias de <span>%{ticker}</span> esté <span>%{value_condition} %{value}</span>"
+                indicator_info: "El %{indicator} actual en velas diarias de %{ticker} es %{value}"
                 timing_condition:
                     while: "Comprar solo"
                     after: "Empezar a comprar"
