@@ -37,8 +37,7 @@ module Bot::SmartIntervalable
 
       def pending_quote_amount
         return super unless smart_intervaled? &&
-                            smart_interval_quote_amount.present? &&
-                            normal_interval_quote_amount.present?
+                            smart_interval_quote_amount.present?
 
         quote_amount_bak = quote_amount
         self.quote_amount = smart_interval_quote_amount
