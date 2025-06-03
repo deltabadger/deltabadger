@@ -99,7 +99,7 @@ module Bot::PriceLimitable
     return Result::Success.new(false) unless ticker.present?
 
     result = ticker.get_last_price
-    return result unless result.success?
+    return result if result.failure?
 
     if value_condition_satisfied?(result.data)
       self.price_limit_condition_met_at ||= Time.current
