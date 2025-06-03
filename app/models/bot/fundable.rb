@@ -6,7 +6,7 @@ module Bot::Fundable
     with_api_key do
       result = exchange.get_balance(asset_id: quote_asset_id)
     end
-    return unless result.success?
+    return if result.failure?
 
     quote_balance = result.data
     return unless quote_balance[:free] >= quote_amount && quote_balance[:free] < quote_amount + required_balance_buffer

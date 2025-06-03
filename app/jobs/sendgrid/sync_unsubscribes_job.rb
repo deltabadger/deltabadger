@@ -3,7 +3,7 @@ class Sendgrid::SyncUnsubscribesJob < ApplicationJob
 
   def perform
     result = client.retrieve_all_global_suppressions
-    raise StandardError, result.errors if result.failure?
+    raise result.errors.to_sentence if result.failure?
 
     result.data.each do |suppression|
       email = suppression['email']
@@ -13,7 +13,7 @@ class Sendgrid::SyncUnsubscribesJob < ApplicationJob
       result = client.get_contacts_by_emails(emails: [email])
       contact_id = Utilities::Hash.dig_or_raise(result.data, 'result', email, 'contact', 'id')
       result = client.delete_contacts(ids: [contact_id])
-      raise StandardError, result.errors if result.failure?
+      raise result.errors.to_sentence if result.failure?
 
       user.update!(sendgrid_unsubscribed: true)
     end

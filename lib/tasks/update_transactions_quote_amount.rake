@@ -30,7 +30,7 @@ task update_transactions_quote_amount: :environment do
           puts "error getting order for #{transaction.external_id} (#{transaction.created_at}): #{e.message}"
           next
         end
-        next unless result.success?
+        next if result.failure?
 
         puts "updating transaction #{transaction.id} with quote amount #{result.data[:quote_amount]}"
         transaction.update!(quote_amount: result.data[:quote_amount])

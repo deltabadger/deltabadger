@@ -6,7 +6,7 @@ class ExchangeTicker < ApplicationRecord
   validates :exchange_id, uniqueness: { scope: %i[base_asset_id quote_asset_id] }
   validate :exchange_matches_assets
 
-  include TechnicalAnalyzable
+  include TechnicallyAnalyzable
 
   def get_last_price(force: false)
     exchange.get_last_price(ticker: self, force: force)

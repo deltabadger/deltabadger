@@ -29,6 +29,7 @@ class Bots::DcaDualAsset < Bot
   include Fundable
   include Schedulable
   include OrderCreator
+  include Accountable
   include Bots::DcaDualAsset::OrderSetter
   include Bots::DcaDualAsset::Measurable
 
@@ -109,7 +110,7 @@ class Bots::DcaDualAsset < Bot
       total_orders_amount_in_quote: pending_quote_amount,
       update_missed_quote_amount: true
     )
-    return result unless result.success?
+    return result if result.failure?
 
     update!(status: :waiting)
     broadcast_below_minimums_warning

@@ -34,7 +34,7 @@ module Exchange::Exchanges::Kraken
     cache_key = "exchange_#{id}_info"
     tickers_info = Rails.cache.fetch(cache_key, expires_in: 1.hour) do
       result = client.get_tradable_asset_pairs
-      return Result::Failure.new("Failed to get #{name} tradable asset pairs") unless result.success?
+      return Result::Failure.new("Failed to get #{name} tradable asset pairs") if result.failure?
 
       result.data['result'].map do |_, info|
         ticker = Utilities::Hash.dig_or_raise(info, 'altname')
@@ -63,7 +63,7 @@ module Exchange::Exchanges::Kraken
     cache_key = "exchange_#{id}_prices"
     tickers_prices = Rails.cache.fetch(cache_key, expires_in: 1.minute, force: force) do
       result = client.get_ticker_information
-      return Result::Failure.new("Failed to get #{name} ticker information") unless result.success?
+      return Result::Failure.new("Failed to get #{name} ticker information") if result.failure?
 
       prices_hash = {}
       result.data['result'].each do |data|
@@ -75,7 +75,7 @@ module Exchange::Exchanges::Kraken
       missing_tickers = tickers.pluck(:ticker) - prices_hash.keys
       missing_tickers.each do |ticker|
         result = client.get_ticker_information(pair: ticker)
-        return result unless result.success?
+        return result if result.failure?
 
         asset_ticker_info = Utilities::Hash.dig_or_raise(result.data, 'result').map { |_, v| v }.first
         price = Utilities::Hash.dig_or_raise(asset_ticker_info, 'c')[0].to_d
@@ -90,7 +90,7 @@ module Exchange::Exchanges::Kraken
 
   def get_balances(asset_ids: nil)
     result = client.get_extended_balance
-    return result unless result.success?
+    return result if result.failure?
 
     asset_ids ||= assets.pluck(:id)
     balances = asset_ids.each_with_object({}) do |asset_id, balances_hash|
@@ -113,7 +113,7 @@ module Exchange::Exchanges::Kraken
 
   def get_balance(asset_id:)
     result = get_balances(asset_ids: [asset_id])
-    return result unless result.success?
+    return result if result.failure?
 
     Result::Success.new(result.data[asset_id])
   end
@@ -122,7 +122,7 @@ module Exchange::Exchanges::Kraken
     cache_key = "exchange_#{id}_last_price_#{ticker.id}"
     price = Rails.cache.fetch(cache_key, expires_in: 5.seconds, force: force) do
       result = get_ticker_information(ticker: ticker)
-      return result unless result.success?
+      return result if result.failure?
 
       price = result.data[:last_trade_closed][:price]
       raise "Wrong last price for #{ticker.ticker}: #{price}" if price.zero?
@@ -137,7 +137,7 @@ module Exchange::Exchanges::Kraken
     cache_key = "exchange_#{id}_bid_price_#{ticker.id}"
     price = Rails.cache.fetch(cache_key, expires_in: 5.seconds, force: force) do
       result = get_ticker_information(ticker: ticker)
-      return result unless result.success?
+      return result if result.failure?
 
       price = result.data[:bid][:price]
       raise "Wrong bid price for #{ticker.ticker}: #{price}" if price.zero?
@@ -152,7 +152,7 @@ module Exchange::Exchanges::Kraken
     cache_key = "exchange_#{id}_ask_price_#{ticker.id}"
     price = Rails.cache.fetch(cache_key, expires_in: 5.seconds, force: force) do
       result = get_ticker_information(ticker: ticker)
-      return result unless result.success?
+      return result if result.failure?
 
       price = result.data[:ask][:price]
       raise "Wrong ask price for #{ticker.ticker}: #{price}" if price.zero?
@@ -187,7 +187,7 @@ module Exchange::Exchanges::Kraken
       interval: interval,
       since: start_at.to_i
     )
-    return result unless result.success?
+    return result if result.failure?
 
     raw_candles_list = result.data['result'][(result.data['result'].keys - ['last'])[0]]
     raw_candles_list.each do |candle|
@@ -251,7 +251,7 @@ module Exchange::Exchanges::Kraken
 
   def get_order(order_id:)
     result = client.query_orders_info(txid: order_id)
-    return result unless result.success?
+    return result if result.failure?
 
     order_data = Utilities::Hash.dig_or_raise(result.data, 'result').map { |_, v| v }.first
 
@@ -299,7 +299,7 @@ module Exchange::Exchanges::Kraken
              else
                raise StandardError, 'Invalid API key'
              end
-    return result unless result.success?
+    return result if result.failure?
 
     valid = Utilities::Hash.dig_or_raise(result.data, 'error').empty?
     Result::Success.new(valid)
@@ -329,7 +329,7 @@ module Exchange::Exchanges::Kraken
     cache_key = "exchange_#{id}_ticker_information_#{ticker.ticker}"
     Rails.cache.fetch(cache_key, expires_in: 1.seconds) do # rubocop:disable Metrics/BlockLength
       result = client.get_ticker_information(pair: ticker.ticker)
-      return result unless result.success?
+      return result if result.failure?
 
       asset_ticker_info = Utilities::Hash.dig_or_raise(result.data, 'result').map { |_, v| v }.first
       formatted_asset_ticker_info = {
@@ -390,7 +390,7 @@ module Exchange::Exchanges::Kraken
     }
     Rails.logger.info("Exchange #{id}: Setting market order #{order_settings.inspect}")
     result = client.add_order(**order_settings)
-    return result unless result.success?
+    return result if result.failure?
 
     return Result::Failure.new(result.data['error'].to_sentence, data: result.data) if result.data['error'].any?
 
@@ -419,7 +419,7 @@ module Exchange::Exchanges::Kraken
       price: price.to_d.to_s('F'),
       oflags: amount_type == :quote ? ['viqc'] : []
     )
-    return result unless result.success?
+    return result if result.failure?
 
     return Result::Failure.new(result.data['error'].to_sentence, data: result.data) if result.data['error'].any?
 
