@@ -22,9 +22,6 @@ application.register("bot--chart", Bot__ChartController)
 import Broadcast__OnConnectController from "./broadcast/on_connect_controller"
 application.register("broadcast--on-connect", Broadcast__OnConnectController)
 
-import BroadcastOnConnectController from "./broadcast_on_connect_controller"
-application.register("broadcast-on-connect", BroadcastOnConnectController)
-
 import ClassToggleController from "./class_toggle_controller"
 application.register("class-toggle", ClassToggleController)
 
