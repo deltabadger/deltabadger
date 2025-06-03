@@ -8,29 +8,29 @@ pl:
             dca:
                 title: "DCA"
                 description: |
-                    <p>Inwestuj stałą kwotę regularnie.</p>
-                    <p>DCA uśrednia Twoją cenę zakupu w czasie, zmniejszając wpływ zmienności rynku.</p>
-                    <p>Używaj klasycznego DCA lub ustaw różne warunki, aby złapać najlepszą cenę.</p>
-            barbell:
-                title: "Strategia Barbell"
+                    <p><b>Inwestuj regularnie stałą kwotę.</b> Bot uśrednia twoją cenę zakupu w czasie, zmniejszając wpływ zmienności rynku. Używaj klasycznego DCA lub ustaw warunki, aby złapać najlepszą cenę.</p>
+            dca_dual_asset:
+                title: "Zbalansowane DCA"
                 description: |
-                    <p>Inwestuj regularnie w dowolne dwa aktywa, zachowując pożądaną alokację.</p>
-                    <p>Bot automatycznie kupuje więcej aktywa, które mniej wzrosło, utrzymując Twoje portfolio w równowadze.</p>
-                    <p>Używając rebalansowanego DCA, osiągasz <b>rebalansowanie bez podatku od zysków kapitałowych</b>.</p>
+                    <p><b>Inwestuj regularnie w dwa aktywa</b> ze zbalansowanym DCA. Bot kupuje więcej tego aktywa, które wzrosło mniej, utrzymując pożądaną alokację bez podatku od zysków kapitałowych.</p>
+            legacy:
+                title: "Bot Legacy (DCA)"
+                description: |
+                    <p>Nasz stary bot DCA i Automatyczne Wypłaty. Po wdrożeniu wszystkich giełd w nowym bocie, ten zostanie wycofany. Nadal możesz go używać, wszystkie boty zostaną przeniesione do nowej wersji.</p>
             index_portfolio:
-                title: "Portfolio Indeksowe"
-                description: "Zbuduj swój osobisty krypto ETF"
+                title: "Portfel Indeksowy"
+                description: "Zbuduj swój osobisty ETF kryptowalutowy. Śledź szeroki rynek kryptowalut lub jeden z indeksów dla konkretnych sektorów."
             custom_portfolio:
-                title: "Niestandardowe Portfolio"
-                description: "Rebalansuj niestandardowy zestaw aktywów"
+                title: "Portfel Niestandardowy"
+                description: "Zbalansuj niestandardowy zestaw aktywów"
         status:
             setting_orders: "Ustawianie zleceń…"
             paused: "Wstrzymany"
             next_try: "Następna próba za"
             waiting: "Oczekiwanie na spełnienie wszystkich warunków"
-        barbell:
+        conversational:
             invest: "Inwestuj"
-            invest_html: "Inwestuj %{input} /miesiąc"
+            into: "w"
         utils:
             mkt_cap_adjusted: "Dostosowane do kapitalizacji rynkowej"
             mkt_cap_adjusted_info_html: |
@@ -72,7 +72,7 @@ pl:
                     skip: Omiń
         buy: Kup
         counter: '%{countdown}'
-        day: Dzień
+        day: dzień
         details:
             info:
                 title: Info
@@ -126,7 +126,7 @@ pl:
         for: za
         force_smart_intervals_html: '<b>Inteligentne Interwały<sup>®</sup></b> · Kupuj za pomocą zleceń o wartości <split>100$</split> %{currency} każde.'
         feecutter_html: '<b>FeeCutter<sup>®</sup></b> · Zmniejsz opłaty za pomocą zleceń z limitem'
-        hour: Godzina
+        hour: godzinę
         limit_buy: 'Kup z limitem'
         limit_sell: 'Sprzedaj z limitem'
         messages:
@@ -144,9 +144,10 @@ pl:
             wrong_subaccount_name: "Nieprawidłowa nazwa subkonta"
             failed_tooltip_explanation: "To zlecenie zakończyło się niepowodzeniem: %{error_message}"
             skipped_tooltip_explanation: "To zlecenie zostało pominięte, ponieważ kwota była poniżej minimalnego rozmiaru zlecenia %{exchange_name}. Pominięta kwota została zbuforowana i zostanie dodana do następnego zlecenia."
+            failed_status_bar_explanation: "Ostatnie zlecenie zakończyło się niepowodzeniem: %{error_messages}"
         minimum_withdrawal_disclaimer: 'Minimalna wielkość wypłaty to %{minimum} %{currency}.'
         minimum_withdrawal_disclaimer_usd: 'Minimalna wielkość wypłaty to %{minimum} USD.'
-        month: Miesiąc
+        month: miesiąc
         next_buy: 'Kolejna za %{countdown}'
         next_sell: 'Kolejna za %{countdown}'
         next_withdrawal: 'Kolejna za %{countdown}'
@@ -160,34 +161,47 @@ pl:
         smart_intervals_disclaimer_quote: 'Minimalna wielkość zlecenia to%{minimum}%{currency}.'
         starting: Uruchamianie
         subaccounts_info: 'Użyj subkonta'
-        week: Tydzień
+        week: tydzień
         withdraw_interval_html: 'Wypłacaj co <split>2</split> dni.'
         withdraw_threshold_html: 'Wypłać, gdy dostępne jest co najmniej <split>0,001</split> %{currency}.'
         withdrawal_percentage: '%{percentage}%'
         withdrawal: 'Wypłata'
         warning:
-            title: "Gratulacje! Twój bot działa."
-            both_below:
-                intro: "Jednak zarówno ilości zleceń %{base0_symbol}, jak i %{base1_symbol} są poniżej minimalnych wielkości zleceń na %{exchange_name} (%{base0_minimum_base_size} %{base0_symbol} lub %{base0_minimum_quote_size} %{quote_symbol} dla %{base0_symbol} oraz %{base1_minimum_base_size} %{base1_symbol} lub %{base1_minimum_quote_size} %{quote_symbol} dla %{base1_symbol}). Oto jak bot sobie z tym radzi:"
-            one_below:
-                intro: "Twój bot kupił %{bought_quote_amount} %{quote_symbol} %{bought_symbol}, ale ilość %{missed_symbol} była poniżej minimalnej wielkości zlecenia na %{exchange_name} (%{missed_minimum_base_size} %{missed_symbol} lub %{missed_minimum_quote_size} %{quote_symbol} dla %{missed_symbol}). Oto jak bot sobie z tym radzi:"
+            dca_single_asset:
+                intro: "Kwota %{missed_symbol} była poniżej minimalnej wielkości zlecenia na %{exchange_name} (%{missed_minimum_base_size} %{missed_symbol} lub %{missed_minimum_quote_size} %{quote_symbol} dla %{missed_symbol}). Oto jak bot sobie z tym radzi:"
+            dca_dual_asset:
+                both_below:
+                    intro: "Jednak zarówno ilości zleceń %{base0_symbol}, jak i %{base1_symbol} są poniżej minimalnych wielkości zleceń na %{exchange_name} (%{base0_minimum_base_size} %{base0_symbol} lub %{base0_minimum_quote_size} %{quote_symbol} dla %{base0_symbol} oraz %{base1_minimum_base_size} %{base1_symbol} lub %{base1_minimum_quote_size} %{quote_symbol} dla %{base1_symbol}). Oto jak bot sobie z tym radzi:"
+                one_below:
+                    intro: "Twój bot kupił %{bought_quote_amount} %{quote_symbol} %{bought_symbol}, ale ilość %{missed_symbol} była poniżej minimalnej wielkości zlecenia na %{exchange_name} (%{missed_minimum_base_size} %{missed_symbol} lub %{missed_minimum_quote_size} %{quote_symbol} dla %{missed_symbol}). Oto jak bot sobie z tym radzi:"
             buffer_explanation:
                 one: "Pominięta kwota została zbuforowana i zostanie użyta przy następnym zaplanowanym zleceniu, dzięki czemu Twój harmonogram i alokacja będą utrzymane jak najbliżej giełdowych minimów."
                 other: "Pominięte kwoty zostały zbuforowane i zostaną użyte przy kolejnych zaplanowanych zleceniach, dzięki czemu Twój harmonogram i alokacja będą utrzymane jak najbliżej giełdowych minimów."
+            title: "Gratulacje! Twój bot działa."
             general_note: "Minimalne kwoty na giełdach i wymagane kwoty rebalancingu mogą się zmieniać. Zlecenia mogą czasami wyglądać nieregularnie, ale bot zawsze dąży do Twojej pożądanej alokacji i harmonogramu, więc nie jest wymagana dodatkowa praca."
         settings:
             smart_intervals:
-                split_in_orders_html: '<b>Smart Intervals<sup>®</sup></b> Podziel kwotę na jednostki po %{amount} %{quote}.'
-                split_info: "Podział Twojej kwoty %{quote_amount} %{quote} / %{interval} na mniejsze jednostki po %{amount} %{quote} spowoduje jedną inwestycję co %{smart_interval}."
+                split_in_orders_html: '<b>Smart Intervals<sup>®</sup></b> Podziel <span>kwotę</span> na jednostki po <span>%{amount} %{quote}</span>'
+                split_info: "Podział twojej kwoty %{quote_amount} %{quote} / %{interval} na mniejsze jednostki po %{amount} %{quote} spowoduje jedną inwestycję co %{smart_interval}"
             extra_amount_limit:
                 dont_spend_more_than: "Nie wydawaj więcej niż"
                 amount_left: "(pozostało %{amount} %{symbol})"
                 amount_spent: "Cała kwota została zainwestowana."
             extra_price_limit:
-                sentence_html: "%{timing_condition} gdy cena %{base} jest %{price_condition} %{price} %{quote}"
+                sentence_html: "<span>%{timing_condition}</span> gdy <span>cena</span> %{base} jest <span>%{value_condition} %{value} %{quote}</span>"
+                price_info: "Aktualna cena %{base} to %{current_price} %{quote}"
                 timing_condition:
                     while: "Kupuj tylko"
                     after: "Zacznij kupować"
-                price_condition:
+                value_condition:
+                    above: "powyżej"
+                    below: "poniżej"
+            extra_indicator_limit:
+                sentence_html: "<span>%{timing_condition}</span> gdy <span>%{indicator}</span> na świecach dziennych z <span>%{ticker}</span> jest <span>%{value_condition} %{value}</span>"
+                indicator_info: "Aktualny %{indicator} na świecach dziennych z %{ticker} wynosi %{value}"
+                timing_condition:
+                    while: "Kupuj tylko"
+                    after: "Zacznij kupować"
+                value_condition:
                     above: "powyżej"
                     below: "poniżej"

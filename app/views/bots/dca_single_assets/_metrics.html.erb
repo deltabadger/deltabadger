@@ -1,0 +1,73 @@
+<div id="metrics" style="display: flex; flex-direction: column; gap: 1rem;">
+  <div class="widget data-grid data-grid--two-columns">
+    <%= render partial: "bots/dca_single_assets/metrics_item", locals: {
+      label: t('data_labels.invested'),
+      value: metrics[:total_quote_amount_invested].round(bot.decimals[:quote]),
+      loading: false
+    } %>
+    <%= render partial: "bots/dca_single_assets/metrics_item", locals: {
+      label: t('data_labels.portfolio_value'),
+      value: metrics[:total_amount_value_in_quote].round(bot.decimals[:quote]),
+      loading: loading
+    } %>
+  </div>
+
+  <%# Check if data is available to display the table %>
+  <% if metrics[:total_quote_amount_invested].positive? %>
+    <div id="assets_metrics_table" class="widget widget--table">
+      <table class="table">
+        <thead>
+          <tr>
+            <th scope="col"><%= t('data_labels.asset') %></th>
+            <th scope="col"><%= t('data_labels.amount') %></th>
+            <th scope="col"><%= t('data_labels.avg_price') %></th>
+            <th scope="col"><%= t('data_labels.value') %></th>
+            <th scope="col"><%= t('data_labels.pnl') %></th>
+          </tr>
+        </thead>
+        <tbody id="assets_metrics_list">
+          <% if bot.base_asset %>
+            <tr>
+              <td scope="row"><%= bot.base_asset.symbol %></td>
+              <td><%= metrics[:total_base_amount].round(bot.decimals[:base]) %></td>
+              <td><%= metrics[:average_buy_rate].present? ? metrics[:average_buy_rate].round(bot.decimals[:base_price]) : '-' %></td>
+              <% if loading %>
+                <td><div class="loader--small" style="position: unset; float:right"></div></td>
+              <% else %>
+                <td><%= metrics[:total_amount_value_in_quote].round(bot.decimals[:quote]) %></td>
+              <% end %>
+              <% if loading %>
+                <td><div class="loader--small" style="position: unset; float:right"></div></td>
+              <% else %>
+                <% pnl = metrics[:pnl] %>
+                <td class="<%= pnl.negative? ? 'text-danger' : pnl.positive? ? 'text-success' : '' %>">
+                  <%= pnl ? format_percent(pnl, precision: 1) : '-' %>
+                </td>
+              <% end %>
+            </tr>
+          <% end %>
+        </tbody>
+      </table>
+    </div>
+  <% else %>
+    <%# Optionally, render a placeholder if no data is available %>
+    <div class="widget widget--table">
+      <table class="table">
+        <thead>
+          <tr>
+            <th scope="col"><%= t('data_labels.asset') %></th>
+            <th scope="col"><%= t('data_labels.amount') %></th>
+            <th scope="col"><%= t('data_labels.avg_price') %></th>
+            <th scope="col"><%= t('data_labels.value') %></th>
+            <th scope="col"><%= t('data_labels.pnl') %></th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td colspan="5" class="text-center text-inactive" style="padding-bottom: 2rem;">. . .</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  <% end %>
+</div>

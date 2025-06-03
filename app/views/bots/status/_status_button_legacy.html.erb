@@ -8,7 +8,7 @@
     <% end %>
   <% else %>
     <% if bot.restarting? %>
-      <%= button_to confirm_restart_legacy_bot_path(bot), method: :get, class: "button button--success", data: { hw_animate_out: "animate-button-to-stop-shape", turbo_frame: "modal" } do %>
+      <%= button_to edit_bot_start_path(bot), method: :get, class: "button button--success", data: { hw_animate_out: "animate-button-to-stop-shape", turbo_frame: "modal" } do %>
         <div class="animicon animicon--start">
           <div class="animicon__a"></div>
           <div class="animicon__b"></div>

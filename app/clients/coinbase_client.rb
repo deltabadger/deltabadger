@@ -139,6 +139,34 @@ class CoinbaseClient < ApplicationClient
     end
   end
 
+  # https://docs.cdp.coinbase.com/coinbase-app/trade/reference/retailbrokerageapi_getpubliccandles
+  # @param product_id [String] The trading pair (e.g. 'BTC-USD')
+  # @param start_time [String] The UNIX timestamp indicating the start of the time interval
+  # @param end_time [String] The UNIX timestamp indicating the end of the time interval
+  # @param granularity [String] The timeframe each candle represents. Can be: 'ONE_MINUTE', 'FIVE_MINUTES', 'FIFTEEN_MINUTES', 'THIRTY_MINUTES', 'ONE_HOUR', 'TWO_HOUR', 'SIX_HOURS', 'ONE_DAY'
+  # @param limit [Integer] The number of candle buckets to be returned. By default, returns 350 (max 350)
+  def get_public_product_candles(
+    product_id:,
+    start_time:,
+    end_time:,
+    granularity:,
+    limit: nil
+  )
+    with_rescue do
+      response = self.class.connection.get do |req|
+        req.url "/api/v3/brokerage/market/products/#{product_id}/candles"
+        req.headers = headers(req)
+        req.params = {
+          start: start_time,
+          end: end_time,
+          granularity: granularity,
+          limit: limit
+        }.compact
+      end
+      Result::Success.new(response.body)
+    end
+  end
+
   # https://docs.cdp.coinbase.com/coinbase-app/trade/reference/retailbrokerageapi_getapikeypermissions
   def get_api_key_permissions
     with_rescue do

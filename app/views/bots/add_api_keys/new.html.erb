@@ -1,0 +1,13 @@
+<%= render 'layouts/modal/base' do %>
+  <div class="modal">
+    <%= button_tag class: 'modal__close', data: { action: 'modal--base#animateOutCloseAndCleanUp' } do %>
+      <%= render partial: 'svg/24x24_close' %>
+    <% end %>
+    <%= render partial: 'bots/api_key_form', locals: {
+      bot: @bot,
+      api_key: @api_key,
+      path: bot_add_api_key_path(@bot),
+      form_data: { controller: "form--label-animations form--html5-validations", action: "turbo:submit-end->modal--base#submitEnd" }
+    } %>
+  </div>
+<% end %>

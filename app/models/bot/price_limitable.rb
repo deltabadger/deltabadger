@@ -1,15 +1,15 @@
 module Bot::PriceLimitable
   extend ActiveSupport::Concern
 
-  TIMING_CONDITIONS = %w[while after].freeze
-  PRICE_CONDITIONS = %w[above below].freeze
+  PRICE_LIMIT_TIMING_CONDITIONS = %w[while after].freeze
+  PRICE_LIMIT_VALUE_CONDITIONS = %w[above below].freeze
 
   included do # rubocop:disable Metrics/BlockLength
     store_accessor :settings,
                    :price_limited,
                    :price_limit,
                    :price_limit_timing_condition,
-                   :price_limit_price_condition,
+                   :price_limit_value_condition,
                    :price_limit_in_ticker_id
     store_accessor :transient_data,
                    :price_limit_enabled_at,
@@ -18,23 +18,34 @@ module Bot::PriceLimitable
     after_initialize :initialize_price_limitable_settings
 
     before_save :set_price_limit_enabled_at, if: :will_save_change_to_settings?
+    before_save :set_price_limit_condition_met_at, if: :will_save_change_to_settings?
     before_save :set_price_limit_in_ticker_id, if: :will_save_change_to_exchange_id?
 
     validates :price_limited, inclusion: { in: [true, false] }
     validates :price_limit, numericality: { greater_than_or_equal_to: 0 }, if: :price_limited?
-    validates :price_limit_timing_condition, inclusion: { in: TIMING_CONDITIONS }
-    validates :price_limit_price_condition, inclusion: { in: PRICE_CONDITIONS }
+    validates :price_limit_timing_condition, inclusion: { in: PRICE_LIMIT_TIMING_CONDITIONS }
+    validates :price_limit_value_condition, inclusion: { in: PRICE_LIMIT_VALUE_CONDITIONS }
 
     decorators = Module.new do
+      def parsed_settings(settings_hash)
+        super(settings_hash).merge(
+          price_limited: settings_hash[:price_limited].presence&.in?(%w[1 true]),
+          price_limit: settings_hash[:price_limit].presence&.to_f,
+          price_limit_timing_condition: settings_hash[:price_limit_timing_condition].presence,
+          price_limit_value_condition: settings_hash[:price_limit_value_condition].presence,
+          price_limit_in_ticker_id: settings_hash[:price_limit_in_ticker_id].presence&.to_i
+        ).compact
+      end
+
       def execute_action
         return super unless price_limited?
 
-        if price_limit_condition_met?
+        result = get_price_limit_condition_met?
+        if result.success? && result.data
           super
         else
           update!(status: :waiting)
-          # Add 10 seconds to the next check to let Exchange::FetchAllPricesJob cron job feed the cache
-          next_check_at = Time.current + Utilities::Time.seconds_to_end_of_minute + 10.seconds
+          next_check_at = Time.now.utc.end_of_minute
           Bot::PriceLimitCheckJob.set(wait_until: next_check_at).perform_later(self)
           Result::Success.new({ break_reschedule: true })
         end
@@ -52,7 +63,11 @@ module Bot::PriceLimitable
         return super unless price_limited?
 
         started_at_bak = started_at
-        self.started_at = price_limit_condition_met_at if price_limited?
+        self.started_at = if started_at.nil? || price_limit_condition_met_at.nil?
+                            nil
+                          else
+                            [started_at, price_limit_condition_met_at].max
+                          end
         value = super
         self.started_at = started_at_bak
         value
@@ -76,22 +91,23 @@ module Bot::PriceLimitable
     price_limited == true
   end
 
-  def price_limit_condition_met?
-    return false unless price_limited?
-    return true if timing_condition_satisfied?
+  def get_price_limit_condition_met?
+    return Result::Success.new(false) unless price_limited?
+    return Result::Success.new(true) if timing_condition_satisfied?
 
     ticker = tickers.find_by(id: price_limit_in_ticker_id)
-    return false unless ticker.present?
+    return Result::Success.new(false) unless ticker.present?
 
-    result = ticker.get_price
-    return false unless result.success?
+    result = ticker.get_last_price
+    return result if result.failure?
 
-    if price_condition_satisfied?(result.data)
+    if value_condition_satisfied?(result.data)
       self.price_limit_condition_met_at ||= Time.current
-      true
+      Result::Success.new(true)
     else
+      set_missed_quote_amount
       self.price_limit_condition_met_at = nil
-      false
+      Result::Success.new(false)
     end
   end
 
@@ -101,8 +117,8 @@ module Bot::PriceLimitable
     price_limit_timing_condition == 'after' && price_limit_condition_met_at.present?
   end
 
-  def price_condition_satisfied?(current_price)
-    case price_limit_price_condition
+  def value_condition_satisfied?(current_price)
+    case price_limit_value_condition
     when 'below'
       current_price < price_limit
     when 'above'
@@ -116,7 +132,7 @@ module Bot::PriceLimitable
     self.price_limited ||= false
     self.price_limit ||= nil
     self.price_limit_timing_condition ||= 'while'
-    self.price_limit_price_condition ||= 'below'
+    self.price_limit_value_condition ||= 'below'
     self.price_limit_in_ticker_id ||= set_price_limit_in_ticker_id
   end
 
