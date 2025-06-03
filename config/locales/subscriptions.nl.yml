@@ -14,6 +14,7 @@ nl:
         days_left:
             one: '1 dag over'
             other: '%{count} dagen over'
+        legendary_plan_left_html: "%{for_sale_count} <span class='hide-on-mobile'>van %{total_supply}</span> over"
         payment:
             price_usd_html: '<span class=price-ticker>%{symbol}</span><span class=price-amount>%{price}</span>'
             price_eur_html: '<span class=price-ticker>%{symbol}</span><span class=price-amount>%{price}</span>'

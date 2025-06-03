@@ -10,9 +10,9 @@ module Bot::Webhookable
     end
 
     def generate_new_webhook_url
-      loop do
+      1000.times do
         webhook = Array.new(8) { ('a'..'z').to_a.sample }.join
-        break webhook unless find_by_webhook(webhook).present?
+        return webhook unless find_by_webhook(webhook).present?
       end
     end
   end
