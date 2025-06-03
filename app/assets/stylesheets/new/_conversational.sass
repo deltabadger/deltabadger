@@ -6,6 +6,9 @@
     color: var(--text)
     @media (min-width: 768px)
         line-height: 4rem
+    span
+        display: flex
+        gap: 0.5rem
     &--disabled
         color: var(--label)
     &--small
@@ -42,6 +45,10 @@
             color: var(--label)
     .ticker-input
         background: var(--sinput-on-paper) !important
+    .ticker-input,.sinput
+        box-shadow: inset 1px 1px 2px #0001
+    .ticker
+        box-shadow: 1px 1px 2px #0002
     .sinput
         margin-left: -.5rem
         margin-right: -.5rem
@@ -50,7 +57,7 @@
         color: var(--link)
         background: var(--sinput-on-paper)
         text-align: center
-        box-shadow: var(--widget-shadow)
+        
         @media (max-width: 767.9px)
             line-height: 3rem
             height: 3rem

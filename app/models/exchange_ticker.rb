@@ -6,19 +6,44 @@ class ExchangeTicker < ApplicationRecord
   validates :exchange_id, uniqueness: { scope: %i[base_asset_id quote_asset_id] }
   validate :exchange_matches_assets
 
-  def get_price
-    result = exchange.get_tickers_prices
-    return result unless result.success?
-    return Result::Failure.new("Price not found for #{ticker} on #{exchange.name}") unless result.data.key?(ticker)
+  include TechnicallyAnalyzable
 
-    Result::Success.new(result.data[ticker])
+  def get_last_price(force: false)
+    exchange.get_last_price(ticker: self, force: force)
   end
 
-  def get_minimum_base_size_in_quote
-    result = get_price
-    return result unless result.success?
+  def get_bid_price(force: false)
+    exchange.get_bid_price(ticker: self, force: force)
+  end
 
-    Result::Success.new(minimum_base_size * result.data)
+  def get_ask_price(force: false)
+    exchange.get_ask_price(ticker: self, force: force)
+  end
+
+  def get_candles(start_at:, timeframe:)
+    exchange.get_candles(ticker: self, start_at: start_at, timeframe: timeframe)
+  end
+
+  def market_buy(amount:, amount_type:)
+    exchange.market_buy(ticker: self, amount: amount, amount_type: amount_type)
+  end
+
+  def market_sell(amount:, amount_type:)
+    exchange.market_sell(ticker: self, amount: amount, amount_type: amount_type)
+  end
+
+  def limit_buy(amount:, amount_type:, price:)
+    exchange.limit_buy(ticker: self, amount: amount, amount_type: amount_type, price: price)
+  end
+
+  # @param amount_type [Symbol] :base or :quote
+  def adjusted_amount(amount:, amount_type:, method: :floor)
+    decimals = amount_type == :quote ? quote_decimals : base_decimals
+    amount.send(method, decimals)
+  end
+
+  def adjusted_price(price:, method: :floor)
+    price.send(method, price_decimals)
   end
 
   private

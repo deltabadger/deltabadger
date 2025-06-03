@@ -8,18 +8,18 @@ en:
             dca:
                 title: "DCA"
                 description: |
-                    <p>Invest a fixed amount regularly.</p>
-                    <p>DCA averages out your purchase price over time, reducing the impact of market volatility.</p>
-                    <p>Use classic DCA, or set various conditions to catch the best price.</p>
-            barbell:
-                title: "Barbell Strategy"
+                    <p><b>Invest a fixed amount regularly.</b> The bot averages out your purchase price over time, reducing the impact of market volatility. Use classic DCA, or set conditions to catch the best price.</p>
+            dca_dual_asset:
+                title: "Rebalanced DCA"
                 description: |
-                    <p>Invest regularly in any two assets while maintaining your desired allocation.</p>
-                    <p>The bot automatically buys more of whichever asset has grown less, keeping your portfolio balanced.</p>
-                    <p>Using rebalanced DCA, you achieve <b>rebalancing without paying capital gains taxes</b>.</p>
+                    <p><b>Invest regularly in two assets</b> with rebalanced DCA. The bot buys more of whichever asset has grown less, keeping your desired allocation without capital gains taxes.</p>
+            legacy:
+                title: "Legacy Bot (DCA)"
+                description: |
+                    <p>Our old DCA bot and Automatic Withdrawals. After implementing all exchanges on the new bot, it will be sunsetted. You can still use it, all bots will be migrated to the new version.</p>
             index_portfolio:
                 title: "Index Portfolio"
-                description: "Build your personal crypto ETF"
+                description: "Build your personal crypto ETF. Follow the broad market of crypto or one of the indices for specific sectors."
             custom_portfolio:
                 title: "Custom Portfolio"
                 description: "Rebalance custom asset mix"
@@ -29,9 +29,9 @@ en:
             next_try: "Next try in"
             waiting: "Waiting for all conditions to be met"
         pick_exchange: "Pick Exchange"
-        barbell:
+        conversational:
             invest: "Invest"
-            invest_html: "Invest %{input} /month"
+            into: "into"
         utils:
             mkt_cap_adjusted: "Market Cap adjusted"
             mkt_cap_adjusted_info_html: |
@@ -190,28 +190,41 @@ en:
         withdrawal_percentage: '%{percentage}%'
         withdrawal: 'Withdrawal'
         warning:
-            title: "Congratulations! Your bot is running."
-            both_below:
-                intro: "However, both %{base0_symbol} and %{base1_symbol} order amounts are below the %{exchange_name} minimum order sizes (%{base0_minimum_base_size} %{base0_symbol} or %{base0_minimum_quote_size} %{quote_symbol} for %{base0_symbol} and %{base1_minimum_base_size} %{base1_symbol} or %{base1_minimum_quote_size} %{quote_symbol} for %{base1_symbol}). Here's how the bot handles it:"
-            one_below:
-                intro: "Your bot bought %{bought_quote_amount} %{quote_symbol} of %{bought_symbol}, but the %{missed_symbol} amount was below the %{exchange_name} minimum order size (%{missed_minimum_base_size} %{missed_symbol} or %{missed_minimum_quote_size} %{quote_symbol} for %{missed_symbol}). Here's how the bot handles it:"
+            dca_single_asset:
+                intro: "The %{missed_symbol} amount was below the %{exchange_name} minimum order size (%{missed_minimum_base_size} %{missed_symbol} or %{missed_minimum_quote_size} %{quote_symbol} for %{missed_symbol}). Here's how the bot handles it:"
+            dca_dual_asset:
+                both_below:
+                    intro: "However, both %{base0_symbol} and %{base1_symbol} order amounts are below the %{exchange_name} minimum order sizes (%{base0_minimum_base_size} %{base0_symbol} or %{base0_minimum_quote_size} %{quote_symbol} for %{base0_symbol} and %{base1_minimum_base_size} %{base1_symbol} or %{base1_minimum_quote_size} %{quote_symbol} for %{base1_symbol}). Here's how the bot handles it:"
+                one_below:
+                    intro: "Your bot bought %{bought_quote_amount} %{quote_symbol} of %{bought_symbol}, but the %{missed_symbol} amount was below the %{exchange_name} minimum order size (%{missed_minimum_base_size} %{missed_symbol} or %{missed_minimum_quote_size} %{quote_symbol} for %{missed_symbol}). Here's how the bot handles it:"
             buffer_explanation:
                 one: "The missed amount has been buffered and will be used with the next scheduled order, ensuring your schedule and allocation are maintained as closely as exchange minimums allow."
                 other: "The missed amounts have been buffered and will be used with the next scheduled orders, ensuring your schedule and allocation are maintained as closely as exchange minimums allow."
+            title: "Congratulations! Your bot is running."
             general_note: "Exchange minimums and required rebalancing amounts change. Transactions might sometimes look irregular, but the bot always targets your desired allocation and schedule, so no extra work is needed."
         settings:
             smart_intervals:
-                split_in_orders_html: '<b>Smart Intervals<sup>®</sup></b> Split the amount into %{amount} %{quote} units.'
-                split_info: "Splitting your %{quote_amount} %{quote} / %{interval} into smaller units of %{amount} %{quote} will result in one investment every %{smart_interval}."
+                split_in_orders_html: '<b>Smart Intervals<sup>®</sup></b> Split <span>the</span> amount <span>into</span> <span>%{amount} %{quote}</span> units'
+                split_info: "Splitting your %{quote_amount} %{quote} / %{interval} into smaller units of %{amount} %{quote} will result in one investment every %{smart_interval}"
             extra_amount_limit:
                 dont_spend_more_than: "Don't spend more than"
                 amount_left: "(%{amount} %{symbol} left)"
-                amount_spent: "The whole amount has been invested."
+                amount_spent: "The whole amount has been invested"
             extra_price_limit:
-                sentence_html: "%{timing_condition} when %{base} price is %{price_condition} %{price} %{quote}"
+                sentence_html: "%{timing_condition} when %{base} <span>price</span> is <span>%{value_condition} %{value} %{quote}</span>"
+                price_info: "Current %{base} price is %{current_price} %{quote}"
                 timing_condition:
                     while: "Buy only"
                     after: "Start buying"
-                price_condition:
+                value_condition:
+                    above: "above"
+                    below: "below"
+            extra_indicator_limit:
+                sentence_html: "<span>%{timing_condition}</span> when the <span>%{indicator}</span> on <span>daily</span> %{ticker} <span>candles</span> is <span>%{value_condition} %{value}</span>"
+                indicator_info: "Current %{indicator} on daily %{ticker} candles is %{value}"
+                timing_condition:
+                    while: "Buy only"
+                    after: "Start buying"
+                value_condition:
                     above: "above"
                     below: "below"

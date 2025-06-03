@@ -30,7 +30,13 @@ const DashboardTemplate = ({
 }) => {
   const [exchanges, setExchanges] = useState([]);
   const [page, setPage] = useState(1);
+
+  // start with closed form
   const [step, setStep] = useState(0);
+
+  // start with selected withdrawal bot
+  // const [step, setStep] = useState(2);
+
   const [isLoading, setIsLoading] = useState(false);
   const [selectedBotId, setSelectedBotId] = useState(null);
   const [isCreating, setIsCreating] = useState(false);

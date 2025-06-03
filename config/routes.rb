@@ -31,7 +31,7 @@ Rails.application.routes.draw do
       resources :basics
       resources :withdrawals
       resources :webhooks
-      resources :barbells
+      resources :dca_dual_assets
     end
     resources :conversion_rates
     resources :exchanges
@@ -122,26 +122,34 @@ Rails.application.routes.draw do
       "/#{request.params[:locale] || I18n.default_locale}/bots"
     }
 
-    resources :bots do
-      get :barbell_new_step_to_first_asset, on: :collection
-      get :barbell_new_step_to_second_asset, on: :collection
-      get :barbell_new_step_exchange, on: :collection
-      get :barbell_new_step_from_asset, on: :collection
-      get :barbell_new_step_api_key, on: :collection
-      post :barbell_new_step_api_key_create, on: :collection
-      get :barbell_new_step_confirm, on: :collection
-      get :show_index_bot, on: :collection # TODO: move to custom :show logic according to bot type
-      member do
-        get :asset_search
-        get :new_api_key
-        post :create_api_key
-        post :start
-        post :stop
-        post :show
-        get :confirm_restart
-        get :confirm_restart_legacy
-        get :confirm_destroy
+    namespace :bots do
+      resources :dca_single_assets, only: [:create]
+      namespace :dca_single_assets do
+        resource :pick_buyable_asset, only: [:new, :create]
+        resource :pick_exchange, only: [:new, :create]
+        resource :add_api_key, only: [:new, :create]
+        resource :pick_spendable_asset, only: [:new, :create]
+        resource :confirm_settings, only: [:new, :create]
       end
+      resources :dca_dual_assets, only: [:create]
+      namespace :dca_dual_assets do
+        resource :pick_first_buyable_asset, only: [:new, :create]
+        resource :pick_second_buyable_asset, only: [:new, :create]
+        resource :pick_exchange, only: [:new, :create]
+        resource :add_api_key, only: [:new, :create]
+        resource :pick_spendable_asset, only: [:new, :create]
+        resource :confirm_settings, only: [:new, :create]
+      end
+    end
+
+    resources :bots do
+      resource :start, only: [:edit, :update], controller: 'bots/starts'
+      resource :stop, only: [:update], controller: 'bots/stops'
+      resource :delete, only: [:edit, :destroy], controller: 'bots/deletes'
+      resource :add_api_key, only: [:new, :create], controller: 'bots/add_api_keys'
+      resource :asset_search, only: [:edit], controller: 'bots/asset_searches'
+      post :show
+      get :show_index_bot, on: :collection # TODO: move to custom :show logic according to bot type
     end
 
     get '/calculator', to: 'calculator#show', as: :calculator
@@ -176,15 +184,17 @@ Rails.application.routes.draw do
       get :confirm_destroy
     end
 
-    resource :surveys_onboarding, only: [:create], path: 'onboarding-survey' do
-      get 'step-one', to: 'surveys_onboardings#new_step_one'
-      get 'step-two', to: 'surveys_onboardings#new_step_two'
+    namespace :surveys do
+      resource :onboarding, only: [:create] do
+        get 'step-one', to: 'onboardings#new_step_one'
+        get 'step-two', to: 'onboardings#new_step_two'
+      end
     end
-  end
 
-  namespace :broadcasts do
-    post :metrics_update
-    post :pnl_update
+    namespace :broadcasts do
+      post :metrics_update
+      post :pnl_update
+    end
   end
 
   get '/cryptocurrency-dollar-cost-averaging', to: redirect("/#{I18n.default_locale}/cryptocurrency-dollar-cost-averaging")

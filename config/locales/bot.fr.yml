@@ -8,29 +8,29 @@ fr:
             dca:
                 title: "DCA"
                 description: |
-                    <p>Investissez un montant fixe régulièrement.</p>
-                    <p>Le DCA lisse votre prix d'achat au fil du temps, réduisant l'impact de la volatilité du marché.</p>
-                    <p>Utilisez le DCA classique ou définissez diverses conditions pour attraper le meilleur prix.</p>
-            barbell:
-                title: "Stratégie Barbell"
+                    <p><b>Investissez régulièrement un montant fixe.</b> Le bot moyenne votre prix d'achat au fil du temps, réduisant l'impact de la volatilité du marché. Utilisez le DCA classique ou définissez des conditions pour obtenir le meilleur prix.</p>
+            dca_dual_asset:
+                title: "DCA Rééquilibré"
                 description: |
-                    <p>Investissez régulièrement dans deux actifs tout en maintenant votre allocation souhaitée.</p>
-                    <p>Le bot achète automatiquement plus de l'actif qui a moins progressé, gardant votre portefeuille équilibré.</p>
-                    <p>En utilisant le DCA rééquilibré, vous obtenez un <b>rééquilibrage sans impôts sur les plus-values</b>.</p>
+                    <p><b>Investissez régulièrement dans deux actifs</b> avec un DCA rééquilibré. Le bot achète davantage l'actif qui a le moins progressé, maintenant votre allocation souhaitée sans impôts sur les plus-values.</p>
+            legacy:
+                title: "Bot Hérité (DCA)"
+                description: |
+                    <p>Notre ancien bot DCA et Retraits Automatiques. Après l'implémentation de tous les échanges sur le nouveau bot, il sera progressivement abandonné. Vous pouvez toujours l'utiliser, tous les bots seront migrés vers la nouvelle version.</p>
             index_portfolio:
-                title: "Portefeuille Indice"
-                description: "Construisez votre ETF crypto personnel"
+                title: "Portefeuille Indiciel"
+                description: "Construisez votre ETF crypto personnel. Suivez le marché général des cryptos ou l'un des indices pour des secteurs spécifiques."
             custom_portfolio:
                 title: "Portefeuille Personnalisé"
-                description: "Rééquilibrer un mix d'actifs personnalisé"
+                description: "Rééquilibrez un mix d'actifs personnalisé"
         status:
             setting_orders: "Configuration des commandes…"
             paused: "En pause"
             next_try: "Prochain essai dans"
             waiting: "En attente que toutes les conditions soient remplies"
-        barbell:
+        conversational:
             invest: "Investir"
-            invest_html: "Investir %{input} /mois"
+            into: "dans"
         utils:
             mkt_cap_adjusted: "Ajusté à la capitalisation boursière"
             mkt_cap_adjusted_info_html: |
@@ -144,6 +144,7 @@ fr:
             wrong_subaccount_name: "Nom de sous-compte incorrect"
             failed_tooltip_explanation: "Cette commande a échoué: %{error_message}"
             skipped_tooltip_explanation: "Cette commande a été ignorée car le montant était inférieur à la taille minimale de commande de %{exchange_name}. Le montant ignoré a été mis en mémoire tampon et sera ajouté à la prochaine commande."
+            failed_status_bar_explanation: "La dernière commande a échoué: %{error_messages}"
         minimum_withdrawal_disclaimer: 'Le montant minimal de retrait est de %{minimum} %{currency}'
         minimum_withdrawal_disclaimer_usd: 'Le montant minimal de retrait est %{minimum} USD.'
         month: 'Mois'
@@ -167,28 +168,41 @@ fr:
         withdrawal_percentage: '%{percentage}%'
         withdrawal: 'Retrait'
         warning:
-            title: "Félicitations ! Votre bot est en cours d'exécution."
-            both_below:
-                intro: "Cependant, les montants des ordres de %{base0_symbol} et %{base1_symbol} sont inférieurs aux tailles minimales d'ordre de %{exchange_name} (%{base0_minimum_base_size} %{base0_symbol} ou %{base0_minimum_quote_size} %{quote_symbol} pour %{base0_symbol} et %{base1_minimum_base_size} %{base1_symbol} ou %{base1_minimum_quote_size} %{quote_symbol} pour %{base1_symbol}). Voici comment le bot gère cela :"
-            one_below:
-                intro: "Votre bot a acheté %{bought_quote_amount} %{quote_symbol} de %{bought_symbol}, mais le montant de %{missed_symbol} était inférieur à la taille minimale d'ordre de %{exchange_name} (%{missed_minimum_base_size} %{missed_symbol} ou %{missed_minimum_quote_size} %{quote_symbol} pour %{missed_symbol}). Voici comment le bot gère cela :"
+            dca_single_asset:
+                intro: "%{missed_symbol} était inférieur à la taille minimale d'ordre de %{exchange_name} (%{missed_minimum_base_size} %{missed_symbol} ou %{missed_minimum_quote_size} %{quote_symbol} pour %{missed_symbol}). Voici comment le bot gère cela :"
+            dca_dual_asset:
+                both_below:
+                    intro: "Cependant, les montants des ordres de %{base0_symbol} et %{base1_symbol} sont inférieurs aux tailles minimales d'ordre de %{exchange_name} (%{base0_minimum_base_size} %{base0_symbol} ou %{base0_minimum_quote_size} %{quote_symbol} pour %{base0_symbol} et %{base1_minimum_base_size} %{base1_symbol} ou %{base1_minimum_quote_size} %{quote_symbol} pour %{base1_symbol}). Voici comment le bot gère cela :"
+                one_below:
+                    intro: "Votre bot a acheté %{bought_quote_amount} %{quote_symbol} de %{bought_symbol}, mais le montant de %{missed_symbol} était inférieur à la taille minimale d'ordre de %{exchange_name} (%{missed_minimum_base_size} %{missed_symbol} ou %{missed_minimum_quote_size} %{quote_symbol} pour %{missed_symbol}). Voici comment le bot gère cela :"
             buffer_explanation:
                 one: "Le montant manqué a été mis en mémoire tampon et sera utilisé avec la prochaine commande programmée, garantissant que votre calendrier et votre allocation sont maintenus aussi près que possible des minimums de l'échange."
                 other: "Les montants manqués ont été mis en mémoire tampon et seront utilisés avec les prochaines commandes programmées, garantissant que votre calendrier et votre allocation sont maintenus aussi près que possible des minimums de l'échange."
+            title: "Félicitations ! Votre bot est en cours d'exécution."
             general_note: "Les minimums d'échange et les montants de rééquilibrage requis peuvent changer. Les commandes peuvent parfois sembler irrégulières, mais le bot cible toujours votre allocation et votre calendrier souhaités, donc aucun travail supplémentaire n'est nécessaire."
         settings:
             smart_intervals:
-                split_in_orders_html: '<b>Smart Intervals<sup>®</sup></b> Divise le montant en unités de %{amount} %{quote}.'
-                split_info: "Diviser votre %{quote_amount} %{quote} / %{interval} en unités plus petites de %{amount} %{quote} entraînera un investissement tous les %{smart_interval}."
+                split_in_orders_html: '<b>Smart Intervals<sup>®</sup></b> Divise <span>le montant</span> en unités de <span>%{amount} %{quote}</span>'
+                split_info: "Diviser votre %{quote_amount} %{quote} / %{interval} en unités plus petites de %{amount} %{quote} entraînera un investissement tous les %{smart_interval}"
             extra_amount_limit:
                 dont_spend_more_than: "Ne pas dépenser plus de"
                 amount_left: "(%{amount} %{symbol} restant)"
-                amount_spent: "Le montant total a été investi."
+                amount_spent: "Le montant total a été investi"
             extra_price_limit:
-                sentence_html: "%{timing_condition} lorsque le prix de %{base} est %{price_condition} %{price} %{quote}"
+                sentence_html: "<span>%{timing_condition}</span> lorsque le <span>prix</span> de %{base} est <span>%{value_condition} %{value} %{quote}</span>"
+                price_info: "Le prix actuel de %{base} est %{current_price} %{quote}"
                 timing_condition:
                     while: "Acheter uniquement"
                     after: "Commencer à acheter"
-                price_condition:
+                value_condition:
+                    above: "au-dessus de"
+                    below: "en dessous de"
+            extra_indicator_limit:
+                sentence_html: "<span>%{timing_condition}</span> quand le <span>%{indicator}</span> sur bougies journalières de <span>%{ticker}</span> est <span>%{value_condition} %{value}</span>"
+                indicator_info: "Le %{indicator} actuel sur bougies journalières de %{ticker} est %{value}"
+                timing_condition:
+                    while: "Acheter seulement"
+                    after: "Commencer à acheter"
+                value_condition:
                     above: "au-dessus de"
                     below: "en dessous de"

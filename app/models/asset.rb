@@ -7,7 +7,15 @@ class Asset < ApplicationRecord
 
   include Undeletable
 
+  # https://docs.coingecko.com/reference/simple-supported-currencies
+  VS_CURRENCIES = %w[usd eur jpy gbp cad aud chf btc].freeze
+  COINGECKO_BLACKLISTED_IDS = [
+    'covalent' # TODO: remove this once covalent is supported in coingecko
+  ].freeze
+
   def sync_data_with_coingecko
+    return Result::Success.new(self) if COINGECKO_BLACKLISTED_IDS.include?(external_id)
+
     result = coingecko_client.coin_data_by_id(
       id: external_id,
       localization: false,
@@ -17,7 +25,7 @@ class Asset < ApplicationRecord
       developer_data: false,
       sparkline: false
     )
-    return Result::Failure.new("Failed to get #{external_id} data from coingecko") unless result.success?
+    return Result::Failure.new("Failed to get #{external_id} data from coingecko") if result.failure?
 
     update!(
       symbol: Utilities::Hash.dig_or_raise(result.data, 'symbol').upcase,
@@ -39,14 +47,28 @@ class Asset < ApplicationRecord
     update!(color: Utilities::Image.most_vivid_color(colors))
   end
 
+  def get_price(currency: 'usd')
+    return Result::Failure.new('Asset is not a cryptocurrency') if category != 'Cryptocurrency'
+
+    currency = currency.downcase
+    price = Rails.cache.fetch("asset_price_#{external_id}_#{currency}", expires_in: 20.seconds) do
+      result = coingecko_client.coin_price_by_ids(coin_ids: [external_id], vs_currencies: [currency])
+      return result if result.failure?
+
+      Utilities::Hash.dig_or_raise(result.data, external_id, currency)
+    end
+    Result::Success.new(price)
+  end
+
   def get_market_cap(currency: 'usd')
     return Result::Failure.new('Asset is not a cryptocurrency') if category != 'Cryptocurrency'
 
+    currency = currency.downcase
     market_cap = Rails.cache.fetch("asset_market_cap_#{external_id}_#{currency}", expires_in: 6.hours) do
-      result = coingecko_client.coins_list_with_market_data(vs_currency: currency, ids: [external_id])
-      return result unless result.success?
+      result = coingecko_client.coin_price_by_ids(coin_ids: [external_id], vs_currencies: [currency], include_market_cap: true)
+      return result if result.failure?
 
-      Utilities::Hash.dig_or_raise(result.data, 0, 'market_cap').to_i
+      Utilities::Hash.dig_or_raise(result.data, external_id, "#{currency}_market_cap").to_i
     end
     Result::Success.new(market_cap)
   end
