@@ -1,4 +1,4 @@
-module ExchangeTicker::TechnicalAnalyzable
+module ExchangeTicker::TechnicallyAnalyzable
   extend ActiveSupport::Concern
 
   def get_rsi_value(timeframe:, period: 14)
