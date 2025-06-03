@@ -190,11 +190,11 @@ Rails.application.routes.draw do
         get 'step-two', to: 'onboardings#new_step_two'
       end
     end
-  end
 
-  namespace :broadcasts do
-    post :metrics_update
-    post :pnl_update
+    namespace :broadcasts do
+      post :metrics_update
+      post :pnl_update
+    end
   end
 
   get '/cryptocurrency-dollar-cost-averaging', to: redirect("/#{I18n.default_locale}/cryptocurrency-dollar-cost-averaging")
