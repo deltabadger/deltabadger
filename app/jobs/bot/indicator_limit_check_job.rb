@@ -5,8 +5,9 @@ class Bot::IndicatorLimitCheckJob < ApplicationJob
     return unless bot.waiting?
 
     result = bot.get_indicator_limit_condition_met?
-    unless result.success?
-      raise "Failed to check indicator limit condition for bot #{bot.id}. Errors: #{result.errors.to_sentence}"
+    if result.failure?
+      raise "Failed to check indicator limit condition for bot #{bot.id}. " \
+            "Errors: #{result.errors.to_sentence}"
     end
 
     if result.data
