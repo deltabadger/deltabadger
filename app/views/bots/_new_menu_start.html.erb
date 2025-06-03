@@ -11,21 +11,28 @@
     <div class="big-header big-header--2"><%= t('header.start_investing') %></div>
     <div class="itiles">
 
-        <%= link_to bots_path(create: true), class: 'itile itile--bot-type itile--dca', data: { action: 'click->modal--base#animateOutCloseAndCleanUp', turbo: false } do %>
+        <%= link_to new_bots_dca_single_assets_pick_buyable_asset_path, class: 'itile itile--bot-type itile--dca', data: { action: 'click->modal--base#animateOutCloseAndCleanUp', turbo_frame: "modal" } do %>
             <div class="theme-img" style="background-image: url('<%= asset_path('strategy--dca.webp') %>')"></div>
             <div class="index-title"><%= t('bot.types.dca.title') %></div>
             <div class="index-info"><%= t('bot.types.dca.description').html_safe %></div>
         <% end %>
 
-        <% path = current_user.subscription.free? ? upgrade_upgrade_instructions_path : barbell_new_step_to_first_asset_bots_path %>
-        <%= button_to path, method: :get, params: { bots_barbell: {label: nil}}, class: 'itile itile--bot-type', data: { turbo_frame: 'modal', action: 'click->modal--base#animateOutCloseAndCleanUp' } do %>
-            <b class="sbadge sbadge--beta"><%= t('utils.beta') %></b>
+        <% path = current_user.subscription.free? ? upgrade_upgrade_instructions_path : new_bots_dca_dual_assets_pick_first_buyable_asset_path %>
+        <%= link_to path, class: 'itile itile--bot-type', data: { action: 'click->modal--base#animateOutCloseAndCleanUp', turbo_frame: 'modal' } do %>
             <div class="theme-img" style="background-image: url('<%= asset_path('strategy--barbell.webp') %>')"></div>
-            <div class="index-title"><%= t('bot.types.barbell.title') %></div>
-            <div class="index-info"><%= t('bot.types.barbell.description').html_safe %></div>
+            <div class="index-title"><%= t('bot.types.dca_dual_asset.title') %></div>
+            <div class="index-info"><%= t('bot.types.dca_dual_asset.description').html_safe %></div>
         <% end %>
 
-        <!--
+        <% path = current_user.subscription.free? ? upgrade_upgrade_instructions_path : bots_path(create: true) %>
+        <% data = current_user.subscription.free? ? { turbo_frame: "modal" } : { turbo: false } %>
+        <%= link_to path, class: 'itile itile--bot-type itile--legacy', data: { action: 'click->modal--base#animateOutCloseAndCleanUp' }.merge(data) do %>
+            <div class="theme-img" style="background-image: url('<%= asset_path('strategy-06.jpg') %>')"></div>
+            <div class="index-title"><%= t('bot.types.legacy.title') %></div>
+            <div class="index-info"><%= t('bot.types.legacy.description').html_safe %></div>
+        <% end %>
+
+        <!--c 
             <div class="itile">
                 <div class="theme-img" style="background-image: url('https://deltabadger.com/images/astronaut-02.jpg')"></div>
                 <div class="index-title"><%= t('index.bitcoin.title') %></div>

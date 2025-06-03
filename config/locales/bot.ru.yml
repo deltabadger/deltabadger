@@ -1,6 +1,6 @@
 ru:
     bot:
-        add_api_keys: "Добавить API-ключи для %{exchange}"
+        add_api_keys: "Добавить API ключи для %{exchange}"
         bot_name: "Имя бота"
         new: "Новый бот"
         start_new_bot: "Создать нового бота"
@@ -8,18 +8,18 @@ ru:
             dca:
                 title: "DCA"
                 description: |
-                    <p>Инвестируйте фиксированную сумму регулярно.</p>
-                    <p>DCA усредняет вашу цену покупки во времени, снижая влияние волатильности рынка.</p>
-                    <p>Используйте классический DCA или установите различные условия для поиска лучшей цены.</p>
-            barbell:
-                title: "Стратегия Barbell"
+                    <p><b>Регулярно инвестируйте фиксированную сумму.</b> Бот усредняет вашу цену покупки с течением времени, снижая влияние волатильности рынка. Используйте классический DCA или установите условия для получения лучшей цены.</p>
+            dca_dual_asset:
+                title: "Ребалансированный DCA"
                 description: |
-                    <p>Инвестируйте регулярно в любые два актива, сохраняя желаемое распределение.</p>
-                    <p>Бот автоматически покупает больше актива, который меньше вырос, поддерживая баланс вашего портфеля.</p>
-                    <p>Используя сбалансированный DCA, вы достигаете <b>ребалансировки без налога на прирост капитала</b>.</p>
+                    <p><b>Регулярно инвестируйте в два актива</b> с ребалансированным DCA. Бот покупает больше того актива, который вырос меньше, сохраняя желаемое распределение без налога на прирост капитала.</p>
+            legacy:
+                title: "Устаревший бот (DCA)"
+                description: |
+                    <p>Наш старый бот DCA и автоматического вывода средств. После внедрения всех бирж в новом боте он будет постепенно выведен из эксплуатации. Вы все еще можете использовать его, все боты будут перенесены в новую версию.</p>
             index_portfolio:
                 title: "Индексный портфель"
-                description: "Создайте свой личный крипто-ETF"
+                description: "Создайте свой персональный крипто-ETF. Следите за широким рынком криптовалют или одним из индексов для конкретных секторов."
             custom_portfolio:
                 title: "Пользовательский портфель"
                 description: "Ребалансировка пользовательского набора активов"
@@ -28,9 +28,9 @@ ru:
             paused: "На паузе"
             next_try: "Следующая попытка через"
             waiting: "Ожидание выполнения всех условий"
-        barbell:
+        conversational:
             invest: "Инвестировать"
-            invest_html: "Инвестировать %{input} /месяц"
+            into: "в"
         utils:
             mkt_cap_adjusted: "С учетом рыночной капитализации"
             mkt_cap_adjusted_info_html: |
@@ -142,6 +142,7 @@ ru:
             wrong_subaccount_name: "Неправильное имя субаккаунта"
             failed_tooltip_explanation: "Этот ордер не выполнен: %{error_message}"
             skipped_tooltip_explanation: "Этот ордер был пропущен, так как сумма была ниже минимального размера ордера на %{exchange_name}. Пропущенная сумма была буферизована и будет добавлена к следующему ордеру."
+            failed_status_bar_explanation: "Последний ордер не выполнен: %{error_messages}"
         minimum_withdrawal_disclaimer: "Минимальный размер вывода составляет %{minimum} %{currency}."
         minimum_withdrawal_disclaimer_usd: "Минимальный размер вывода составляет %{minimum} USD."
         month: Месяц
@@ -165,28 +166,41 @@ ru:
         withdrawal_percentage: '%{percentage}%'
         withdrawal: 'Вывод'
         warning:
-            title: "Поздравляем! Ваш бот запущен."
-            both_below:
-                intro: "Однако суммы ордеров для %{base0_symbol} и %{base1_symbol} ниже минимального размера ордера на %{exchange_name} (%{base0_minimum_base_size} %{base0_symbol} или %{base0_minimum_quote_size} %{quote_symbol} для %{base0_symbol} и %{base1_minimum_base_size} %{base1_symbol} или %{base1_minimum_quote_size} %{quote_symbol} для %{base1_symbol}). Вот как бот с этим справляется:"
-            one_below:
-                intro: "Ваш бот купил %{bought_quote_amount} %{quote_symbol} %{bought_symbol}, но сумма %{missed_symbol} была ниже минимального размера ордера на %{exchange_name} (%{missed_minimum_base_size} %{missed_symbol} или %{missed_minimum_quote_size} %{quote_symbol} для %{missed_symbol}). Вот как бот с этим справляется:"
+            dca_single_asset:
+                intro: "Сумма %{missed_symbol} была ниже минимального размера ордера на %{exchange_name} (%{missed_minimum_base_size} %{missed_symbol} или %{missed_minimum_quote_size} %{quote_symbol} для %{missed_symbol}). Вот как бот с этим справляется:"
+            dca_dual_asset:
+                both_below:
+                    intro: "Однако суммы ордеров для %{base0_symbol} и %{base1_symbol} ниже минимального размера ордера на %{exchange_name} (%{base0_minimum_base_size} %{base0_symbol} или %{base0_minimum_quote_size} %{quote_symbol} для %{base0_symbol} и %{base1_minimum_base_size} %{base1_symbol} или %{base1_minimum_quote_size} %{quote_symbol} для %{base1_symbol}). Вот как бот с этим справляется:"
+                one_below:
+                    intro: "Ваш бот купил %{bought_quote_amount} %{quote_symbol} %{bought_symbol}, но сумма %{missed_symbol} была ниже минимального размера ордера на %{exchange_name} (%{missed_minimum_base_size} %{missed_symbol} или %{missed_minimum_quote_size} %{quote_symbol} для %{missed_symbol}). Вот как бот с этим справляется:"
             buffer_explanation:
                 one: "Пропущенная сумма была добавлена в буфер и будет использована при следующем запланированном ордере, чтобы ваше расписание и распределение максимально соответствовали биржевым минимумам."
                 other: "Пропущенные суммы были добавлены в буфер и будут использованы при следующих запланированных ордерах, чтобы ваше расписание и распределение максимально соответствовали биржевым минимумам."
+            title: "Поздравляем! Ваш бот запущен."
             general_note: "Минимумы биржи и требуемые суммы ребалансировки могут меняться. Ордера иногда могут выглядеть нерегулярными, но бот всегда нацелен на желаемое распределение и расписание, поэтому дополнительная работа не требуется."
         settings:
             smart_intervals:
-                split_in_orders_html: '<b>Smart Intervals<sup>®</sup></b> Разделить сумму на единицы по %{amount} %{quote}.'
-                split_info: "Разделение ваших %{quote_amount} %{quote} / %{interval} на меньшие единицы по %{amount} %{quote} приведет к одной инвестиции каждые %{smart_interval}."
+                split_in_orders_html: '<b>Smart Intervals<sup>®</sup></b> Разделить <span>сумму</span> на единицы по <span>%{amount} %{quote}</span>'
+                split_info: "Разделение ваших %{quote_amount} %{quote} / %{interval} на меньшие единицы по %{amount} %{quote} приведет к одной инвестиции каждые %{smart_interval}"
             extra_amount_limit:
                 dont_spend_more_than: "Не тратить больше чем"
                 amount_left: "(осталось %{amount} %{symbol})"
-                amount_spent: "Вся сумма была инвестирована."
+                amount_spent: "Вся сумма была инвестирована"
             extra_price_limit:
-                sentence_html: "%{timing_condition} когда цена %{base} %{price_condition} %{price} %{quote}"
+                sentence_html: "<span>%{timing_condition}</span> когда <span>цена</span> %{base} <span>%{value_condition} %{value} %{quote}</span>"
+                price_info: "Текущая цена %{base} составляет %{current_price} %{quote}"
                 timing_condition:
                     while: "Покупать только"
                     after: "Начать покупать"
-                price_condition:
+                value_condition:
+                    above: "выше"
+                    below: "ниже"
+            extra_indicator_limit:
+                sentence_html: "<span>%{timing_condition}</span> когда <span>%{indicator}</span> на дневных свечах <span>%{ticker}</span> <span>%{value_condition} %{value}</span>"
+                indicator_info: "Текущий %{indicator} на дневных свечах %{ticker} составляет %{value}"
+                timing_condition:
+                    while: "Покупать только"
+                    after: "Начать покупать"
+                value_condition:
                     above: "выше"
                     below: "ниже"

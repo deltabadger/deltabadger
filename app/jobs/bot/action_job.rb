@@ -1,23 +1,22 @@
 class Bot::ActionJob < BotJob
   def perform(bot)
     return unless bot.scheduled? || bot.retrying?
-    raise StandardError, "bot #{bot.id} already has an action job scheduled" if bot.next_action_job_at.present?
+    raise "ActionJob for bot #{bot.id} already has an action job scheduled" if bot.next_action_job_at.present?
 
     bot.update!(last_action_job_at: Time.current)
     result = bot.execute_action
-    raise StandardError, result.errors.to_sentence unless result.success?
+    raise "ActionJob for bot #{bot.id} failed to execute action. Errors: #{result.errors.to_sentence}" if result.failure?
 
     if result.data.present? && result.data[:break_reschedule]
-      Rails.logger.info("Action job for bot #{bot.id} reschedule disabled.")
+      Rails.logger.info("ActionJob for bot #{bot.id} reschedule disabled.")
     else
       bot.update!(status: :scheduled)
       next_interval_checkpoint_at = bot.next_interval_checkpoint_at
-      Rails.logger.info("Action job for bot #{bot.id} rescheduled at #{next_interval_checkpoint_at}.")
       Bot::ActionJob.set(wait_until: next_interval_checkpoint_at).perform_later(bot)
       Bot::BroadcastAfterScheduledActionJob.perform_later(bot)
     end
   rescue StandardError => e
-    Rails.logger.error("Error executing action job for bot #{bot.id}: #{e.message}")
+    Rails.logger.error("ActionJob for bot #{bot.id} failed to perform. Errors: #{e.message}")
     notify_retry(bot, e)
     bot.update!(status: :retrying)
     Bot::BroadcastAfterScheduledActionJob.perform_later(bot)

@@ -6,6 +6,8 @@ Rails.application.configure do
     Bullet.console       = true
     Bullet.rails_logger  = true
     Bullet.add_footer    = true
+
+    Rack::MiniProfiler.config.start_hidden = true
   end
 
   # Settings specified here will take precedence over those in config/application.rb.

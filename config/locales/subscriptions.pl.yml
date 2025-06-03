@@ -16,6 +16,7 @@ pl:
             few: 'Pozostały %{count} dni'
             many: 'Pozostało %{count} dni'
             other: 'Pozostało %{count} dni'
+        legendary_plan_left_html: "pozostało %{for_sale_count} <span class='hide-on-mobile'>z %{total_supply}</span>"
         payment:
             price_usd_html: '<span class=price-ticker>%{symbol}</span><span class=price-amount>%{price}</span>'
             price_eur_html: '<span class=price-ticker>%{symbol}</span><span class=price-amount>%{price}</span>'
@@ -32,7 +33,7 @@ pl:
                 few: "Rekompensata za <b>%{count}</b> niewykorzystane dni planu %{plan}."
                 many: "Rekompensata za <b>%{count}</b> niewykorzystanych dni planu %{plan}."
                 other: "Rekompensata za <b>%{count}</b> niewykorzystanych dni planu %{plan}."
-            legendary_plan_discount_html: 'Cena wzrasta o %{amount} przy każdej sprzedaży'
+            legendary_plan_discount_html: 'Cena rośnie %{amount} z każdą sprzedażą'
             eu_bank_country: Belgia
             invalid_vat_number: 'Nieprawidłowy numer VAT UE'
             paid_with_wire_transfer: 'Zrobiłem przelew'

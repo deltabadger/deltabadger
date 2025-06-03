@@ -1,0 +1,24 @@
+<%= form_with model: bot,
+              url: path,
+              method: method,
+              class: "widget",
+              data: { controller: "form--submit", turbo_stream: true } do |f| %>
+  <div class="toggle-group" data-controller="class-toggle" data-class-toggle-toggle-classes-value='["hidden"]'>
+    <div class="toggle">
+      <%= f.check_box :marketcap_allocated, data: { action: "change->form--submit#submit" }, disabled: bot.working? %>
+      <div class="toggle__style"></div>
+    </div>
+    <div class="toggle-group__info">
+      <div class="toggle-group__info__label">
+        <%= f.label :marketcap_allocated, t('bot.utils.mkt_cap_adjusted'), class: "label" %>
+        <div class="tooltip-info-icon" data-controller="tooltip" data-action="click->tooltip#toggle click->class-toggle#toggle">
+          <%= render 'svg/24x24_info' %>
+          <%= render 'svg/24x24_info-filled' %>
+        </div>
+      </div>
+      <div class="bot-option-info hidden" data-class-toggle-target="togglable">
+        <%= t('bot.utils.mkt_cap_adjusted_info_html').html_safe %>
+      </div>
+    </div>
+  </div>
+<% end %>

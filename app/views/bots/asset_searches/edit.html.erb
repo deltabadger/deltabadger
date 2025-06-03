@@ -1,0 +1,19 @@
+<%= render 'layouts/modal/base' do %>
+  <div class="min-height: 64rem">
+    <div class="modal--search">
+      <%= form_with url: edit_bot_asset_search_path(@bot, asset_field: @asset_field), method: :get, data: { controller: "form--submit-after-delay", turbo_frame: "asset-picker" }, html: { style: "position:relative" } do |f| %>
+        <%= render partial: 'svg/24x24_zoom' %>
+        <%= f.hidden_field :asset_field, value: @asset_field %>
+        <%= f.text_field :query, autofocus: true, autocomplete: "off", placeholder: t('utils.search.placeholder.asset'), data: { action: "input->form--submit-after-delay#submit" }, class: "modal--search__input" %>
+      <% end %>
+
+      <%= turbo_frame_tag "asset-picker", data: { action: "turbo:submit-end->modal--base#submitEnd keydown@window->arrow-keys-navigation#navigate", controller: "arrow-keys-navigation" }, class: "modal--search__assets selectable-options" do %>
+        <%= form_with model: @bot, url: bot_path(@bot), method: :patch do |f| %>
+          <% @assets.each do |id, symbol, name, exchanges| %>
+            <%= render partial: "bots/asset_search_result", locals: { bot: @bot, asset_field: @asset_field, id: id, symbol: symbol, name: name, exchanges: exchanges } %>
+          <% end %>
+        <% end %>
+      <% end %>
+    </div>
+  </div>
+<% end %>

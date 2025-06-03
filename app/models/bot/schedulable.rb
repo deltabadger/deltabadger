@@ -19,21 +19,9 @@ module Bot::Schedulable
     ]
     sidekiq_places.each do |place|
       place.each do |job|
-        # temporary fix for Bot::SetBarbellOrdersJob -> Bot::ActionJob
-        if action_job_config[:class] == 'Bot::ActionJob'
-          job.delete if job.queue == action_job_config[:queue] &&
-                        ['Bot::ActionJob', 'Bot::SetBarbellOrdersJob'].include?(job.display_class) &&
-                        job.display_args.first == action_job_config[:args].first
-        elsif job.queue == action_job_config[:queue] &&
-              job.display_class == action_job_config[:class] &&
-              job.display_args.first == action_job_config[:args].first
-          job.delete
-        end
-
-        # revert to this once Bot::SetBarbellOrdersJob doesn't exist
-        # job.delete if job.queue == action_job_config[:queue] &&
-        #               job.display_class == action_job_config[:class] &&
-        #               job.display_args.first == action_job_config[:args].first
+        job.delete if job.queue == action_job_config[:queue] &&
+                      job.display_class == action_job_config[:class] &&
+                      job.display_args.first == action_job_config[:args].first
       end
     end
   end
@@ -47,21 +35,9 @@ module Bot::Schedulable
     ]
     sidekiq_places.each do |place|
       place.each do |job|
-        # temporary fix for Bot::SetBarbellOrdersJob -> Bot::ActionJob
-        if action_job_config[:class] == 'Bot::ActionJob'
-          return job.at.in_time_zone if job.queue == action_job_config[:queue] &&
-                                        ['Bot::ActionJob', 'Bot::SetBarbellOrdersJob'].include?(job.display_class) &&
-                                        job.display_args.first == action_job_config[:args].first
-        elsif job.queue == action_job_config[:queue] &&
-              job.display_class == action_job_config[:class] &&
-              job.display_args.first == action_job_config[:args].first
-          return job.at.in_time_zone
-        end
-
-        # revert to this once Bot::SetBarbellOrdersJob doesn't exist
-        # return job.at.in_time_zone if job.queue == action_job_config[:queue] &&
-        #                               job.display_class == action_job_config[:class] &&
-        #                               job.display_args.first == action_job_config[:args].first
+        return job.at.in_time_zone if job.queue == action_job_config[:queue] &&
+                                      job.display_class == action_job_config[:class] &&
+                                      job.display_args.first == action_job_config[:args].first
       end
     end
     nil
@@ -69,6 +45,7 @@ module Bot::Schedulable
 
   def next_interval_checkpoint_at
     return legacy_next_interval_checkpoint_at if legacy?
+    return Time.current if interval_duration.zero?
 
     checkpoint = started_at || Time.current
     loop do

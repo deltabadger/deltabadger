@@ -4,12 +4,17 @@ class Bot::PriceLimitCheckJob < ApplicationJob
   def perform(bot)
     return unless bot.waiting?
 
-    if bot.price_limit_condition_met?
+    result = bot.get_price_limit_condition_met?
+    if result.failure?
+      raise "Failed to check price limit condition for bot #{bot.id}. " \
+            "Errors: #{result.errors.to_sentence}"
+    end
+
+    if result.data
       bot.update!(started_at: Time.current)
       Bot::ActionJob.perform_later(bot)
     else
-      # Add 10 seconds to the next check to let Exchange::FetchAllPricesJob cron job feed the cache
-      next_check_at = Time.current + Utilities::Time.seconds_to_end_of_minute + 10.seconds
+      next_check_at = Time.now.utc.end_of_minute
       Bot::PriceLimitCheckJob.set(wait_until: next_check_at).perform_later(bot)
     end
   end

@@ -45,7 +45,13 @@ export const BotForm = ({
 }) => {
   const [form, setFormState] = useState({});
   const [errors, setErrors] = useState("");
+
+  // start with closed form
   const [type, setType] = useState(TYPES[0])
+
+  // start with selected withdrawal bot
+  // const [type, setType] = useState(TYPES[1])
+
   const [isCreatingBot, setCreatingBot] = useState(false);
 
   const getKeyStatus = (e) => {

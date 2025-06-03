@@ -1,10 +1,17 @@
 en:
     bot_info:
         how_to_use: |
-            <p>Here a few examples of how to use it:</p>
-        barbell:
+            <p>Here are a few examples of how to use it:</p>
+        dca:
             info: |
-                <p><strong>Rebalanced DCA</strong> into two assets.</p>
+                <p>Dollar-cost averaging into any digital asset. Automate recurring purchases on a fixed schedule, and never worry about timing the market.</p>
+            examples: |
+                <p><strong>Smart Intervals</strong> — Execute your desired schedule in smaller orders spread evenly.</p>
+                <p><strong>Buy the dip!</strong> — Use price level or RSI to catch the bottom.</p>
+                <p><strong>Spending limit</strong> — Set a maximum amount to spend.</p>
+        dca_dual_asset:
+            info: |
+                <p>Rebalanced dollar-cost averaging into two assets.</p>
                 <p>The bot achieves rebalancing using only BUY orders, so it never creates tax events while still targeting your desired allocation.</p>
             examples: |
                 <p><strong>BTC-ETH</strong> — "Digital gold" meets Web3. Cover 74% of the crypto market with a simple, no-hassle portfolio that rebalances on autopilot.</p>

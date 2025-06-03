@@ -1,14 +1,21 @@
 desc 'rake task to update barbell bots settings'
 task update_barbell_bots_settings: :environment do
-  Bot.where(type: 'Bots::Barbell').find_each do |bot|
+  Bot.not_legacy.find_each do |bot|
     next if bot.settings.blank?
 
     puts "Updating bot #{bot.id}"
     settings = bot.settings
-    if settings['market_cap_adjusted'].present?
-      settings['marketcap_allocated'] = settings['market_cap_adjusted'].presence || false
-      settings.delete('market_cap_adjusted')
+
+    # settings['price_limit_in_asset_id'] = bot.tickers&.first&.id
+    # settings.delete('price_limit_in_asset_id') if settings['price_limit_in_asset_id'].present?
+    # settings.delete('price_limit_vs_currency') if settings['price_limit_vs_currency'].present?
+
+    if settings['price_limit_price_condition'].present?
+      settings['price_limit_value_condition'] = settings['price_limit_price_condition']
+      settings.delete('price_limit_price_condition')
     end
+
+    bot.set_missed_quote_amount
     bot.update!(settings: settings.compact)
   end
 end

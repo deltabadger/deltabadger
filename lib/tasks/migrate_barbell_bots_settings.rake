@@ -1,6 +1,6 @@
 desc 'rake task to migrate barbell bots settings to new asset ids'
 task migrate_barbell_bots_settings: :environment do
-  Bot.barbell.find_each do |bot|
+  Bot.dca_dual_asset.find_each do |bot|
     ticker0 = bot.exchange&.tickers&.find_by(base: bot.base0, quote: bot.quote)
     ticker1 = bot.exchange&.tickers&.find_by(base: bot.base1, quote: bot.quote)
     next if ticker0.blank? || ticker1.blank?

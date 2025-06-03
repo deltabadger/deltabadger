@@ -1,5 +1,5 @@
 <div id="<%= dom_id(bot, :pnl) %>">
-  <% if (bot.type == 'Bots::Basic' || bot.type == 'Bots::Barbell') && loading %>
+  <% if loading %>
     <div class="loader--small" style="position: unset;"></div>
   <% else %>
     <% if pnl.present? %>

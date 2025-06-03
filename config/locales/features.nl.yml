@@ -4,7 +4,7 @@ nl:
         short:
             dca: "DCA"
             withdrawals: "Automatische opnames"
-            barbell: "Barbell Strategie"
+            rebalanced_dca: "Geherbalanceerde DCA"
             indexing: "Portfolio herbalancering"
             analyzer: "Portfolio analysator"
         dca:
@@ -16,8 +16,8 @@ nl:
         automatic_withdrawals:
             title: "Automatische Opnames"
             description_html: "Verplaats je crypto automatisch naar je hardware wallet. Werkt met Kraken."
-        barbell_strategy:
-            title: "Barbell Strategie"
+        rebalanced_dca:
+            title: "Geherbalanceerde DCA"
             description_html: "Wil je dat je portfolio 80% Bitcoin en 20% Ethereum blijft? Geherbalanceerde DCA houdt je doelallocatie aan."
         crypto_index:
             title: "Crypto Index"

@@ -4,7 +4,7 @@ it:
         short:
             dca: "DCA"
             withdrawals: "Prelievi automatici"
-            barbell: "Strategia Barbell"
+            rebalanced_dca: "DCA Ribilanciato"
             indexing: "Ribilanciamento Portfolio"
             analyzer: "Analizzatore Portfolio"
         dca:
@@ -16,8 +16,8 @@ it:
         automatic_withdrawals:
             title: "Prelievi Automatici"
             description_html: "Trasferisci automaticamente le tue crypto nel tuo hardware wallet. Funziona con Kraken."
-        barbell_strategy:
-            title: "Strategia Barbell"
+        rebalanced_dca:
+            title: "DCA Ribilanciato"
             description_html: "Vuoi che il tuo portfolio rimanga all'80% Bitcoin e 20% Ethereum? Il DCA ribilanciato manterrà la tua allocazione target."
         crypto_index:
             title: "Indice Crypto"

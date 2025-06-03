@@ -16,11 +16,11 @@ module User::Sendgridable
 
   def add_to_sendgrid_list(list_name)
     result = get_list_id(list_name)
-    return result unless result.success?
+    return result if result.failure?
 
     list_id = result.data || begin
       result = create_list(list_name)
-      return result unless result.success?
+      return result if result.failure?
 
       result.data
     end
@@ -39,7 +39,7 @@ module User::Sendgridable
 
   def sync_sendgrid_plan_list
     result = sendgrid_client.get_all_lists
-    return result unless result.success?
+    return result if result.failure?
 
     correct_plan_list_name = self.class.const_get("SENDGRID_#{subscription.name.upcase}_USERS_LIST_NAME")
     plan_list_names = SubscriptionPlan.all.pluck(:name).map do |name|
@@ -49,14 +49,14 @@ module User::Sendgridable
     wrong_plan_list_ids = result.data.fetch('result').select { |list| plan_list_names.include?(list['name']) }.pluck('id')
 
     result = sendgrid_client.get_contacts_by_emails(emails: [email])
-    return result unless result.success?
+    return result if result.failure?
 
     contact_id = Utilities::Hash.dig_or_raise(result.data, 'result', email, 'contact', 'id')
     contact_lists = Utilities::Hash.dig_or_raise(result.data, 'result', email, 'contact', 'list_ids')
     list_ids_to_remove = contact_lists.select { |list_id| wrong_plan_list_ids.include?(list_id) }
     list_ids_to_remove.each do |list_id|
       result = sendgrid_client.remove_contacts_from_list(id: list_id, contact_ids: [contact_id])
-      return result unless result.success?
+      return result if result.failure?
     end
 
     return Result::Success.new if contact_lists.include?(correct_plan_list_id)
@@ -80,7 +80,7 @@ module User::Sendgridable
 
   def get_list_id(list_name)
     result = sendgrid_client.get_all_lists
-    return result unless result.success?
+    return result if result.failure?
 
     list_id = result.data.fetch('result').select { |list| list['name'] == list_name }.pluck('id').first
     Result::Success.new(list_id)
@@ -88,22 +88,22 @@ module User::Sendgridable
 
   def create_list(list_name)
     result = sendgrid_client.create_list(name: list_name)
-    return result unless result.success?
+    return result if result.failure?
 
     Result::Success.new(result.data.fetch('id'))
   end
 
   def remove_from_sendgrid_list(list_name)
     result = get_list_id(list_name)
-    return result unless result.success?
+    return result if result.failure?
 
     list_id = result.data
     result = sendgrid_client.get_contacts_by_emails(emails: [email])
-    return result unless result.success?
+    return result if result.failure?
 
     contact_id = Utilities::Hash.dig_or_raise(result.data, 'result', email, 'contact', 'id')
     result = sendgrid_client.remove_contacts_from_list(id: list_id, contact_ids: [contact_id])
-    return result unless result.success?
+    return result if result.failure?
 
     Result::Success.new
   end

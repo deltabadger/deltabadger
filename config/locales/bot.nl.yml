@@ -1,30 +1,36 @@
 nl:
     bot:
-        add_api_keys: "API-sleutels voor %{exchange} toevoegen"
-        bot_name: "Botnaam"
+        add_api_keys: "API-sleutels toevoegen voor %{exchange}"
+        bot_name: 'Bot naam'
         new: "Nieuwe bot"
-        start_new_bot: "Nieuwe bot aanmaken"
+        start_new_bot: "Nieuwe bot maken"
         types:
             dca:
                 title: "DCA"
-                description: "Enkele-asset DCA"
-            barbell:
-                title: "Barbell Strategie"
-                description: "Twee-asset geherbalanceerde DCA"
+                description: |
+                    <p><b>Investeer regelmatig een vast bedrag.</b> De bot middelt uw aankoopprijs over tijd, waardoor de impact van marktvolatiliteit wordt verminderd. Gebruik klassieke DCA, of stel voorwaarden in om de beste prijs te vangen.</p>
+            dca_dual_asset:
+                title: "Geherbalanceerde DCA"
+                description: |
+                    <p><b>Investeer regelmatig in twee assets</b> met geherbalanceerde DCA. De bot koopt meer van het asset dat het minst is gegroeid, waardoor uw gewenste allocatie behouden blijft zonder vermogenswinstbelasting.</p>
+            legacy:
+                title: "Legacy Bot (DCA)"
+                description: |
+                    <p>Onze oude DCA-bot en Automatische Opnames. Na implementatie van alle beurzen op de nieuwe bot, zal deze worden uitgefaseerd. U kunt hem nog steeds gebruiken, alle bots zullen worden gemigreerd naar de nieuwe versie.</p>
             index_portfolio:
-                title: "Index Portfolio"
-                description: "Bouw uw persoonlijke crypto ETF"
+                title: "Index Portefeuille"
+                description: "Bouw uw persoonlijke crypto ETF. Volg de brede cryptomarkt of een van de indices voor specifieke sectoren."
             custom_portfolio:
-                title: "Aangepast Portfolio"
-                description: "Herbalanceer aangepaste activamix"
+                title: "Aangepaste Portefeuille"
+                description: "Herbalanceer aangepaste asset mix"
         status:
             setting_orders: "Orders instellen…"
             paused: "Gepauzeerd"
             next_try: "Volgende poging in"
             waiting: "Wachten tot aan alle voorwaarden is voldaan"
-        barbell:
+        conversational:
             invest: "Investeren"
-            invest_html: "Investeer %{input} /maand"
+            into: "naar"
         utils:
             mkt_cap_adjusted: "Marktkapitalisatie aangepast"
             mkt_cap_adjusted_info_html: |
@@ -138,6 +144,7 @@ nl:
             wrong_subaccount_name: "Verkeerde subaccountnaam"
             failed_tooltip_explanation: "Deze bestelling is mislukt: %{error_message}"
             skipped_tooltip_explanation: "Deze bestelling is overgeslagen omdat het bedrag onder de minimale ordergrootte van %{exchange_name} lag. Het overgeslagen bedrag is gebufferd en wordt toegevoegd aan de volgende bestelling."
+            failed_status_bar_explanation: "De laatste bestelling is mislukt: %{error_messages}"
         minimum_withdrawal_disclaimer: 'De minimale opnamegrootte is %{minimum} %{currency}.'
         minimum_withdrawal_disclaimer_usd: 'De minimale opname bedraagt %{minimum} USD.'
         month: Maand
@@ -160,28 +167,41 @@ nl:
         withdrawal_percentage: '%{percentage}%'
         withdrawal: 'Opname'
         warning:
-            title: "Gefeliciteerd! Je bot is actief."
-            both_below:
-                intro: "Echter, zowel de orderhoeveelheden van %{base0_symbol} als %{base1_symbol} zijn lager dan de minimale ordergroottes van %{exchange_name} (%{base0_minimum_base_size} %{base0_symbol} of %{base0_minimum_quote_size} %{quote_symbol} voor %{base0_symbol} en %{base1_minimum_base_size} %{base1_symbol} of %{base1_minimum_quote_size} %{quote_symbol} voor %{base1_symbol}). Zo gaat de bot hiermee om:"
-            one_below:
-                intro: "Je bot heeft %{bought_quote_amount} %{quote_symbol} van %{bought_symbol} gekocht, maar de hoeveelheid %{missed_symbol} was lager dan de minimale ordergrootte van %{exchange_name} (%{missed_minimum_base_size} %{missed_symbol} of %{missed_minimum_quote_size} %{quote_symbol} voor %{missed_symbol}). Zo gaat de bot hiermee om:"
+            dca_single_asset:
+                intro: "De %{missed_symbol} hoeveelheid was lager dan de minimale ordergrootte van %{exchange_name} (%{missed_minimum_base_size} %{missed_symbol} of %{missed_minimum_quote_size} %{quote_symbol} voor %{missed_symbol}). Zo gaat de bot hiermee om:"
+            dca_dual_asset:
+                both_below:
+                    intro: "Echter, zowel de orderhoeveelheden van %{base0_symbol} als %{base1_symbol} zijn lager dan de minimale ordergroottes van %{exchange_name} (%{base0_minimum_base_size} %{base0_symbol} of %{base0_minimum_quote_size} %{quote_symbol} voor %{base0_symbol} en %{base1_minimum_base_size} %{base1_symbol} of %{base1_minimum_quote_size} %{quote_symbol} voor %{base1_symbol}). Zo gaat de bot hiermee om:"
+                one_below:
+                    intro: "Je bot heeft %{bought_quote_amount} %{quote_symbol} van %{bought_symbol} gekocht, maar de hoeveelheid %{missed_symbol} was lager dan de minimale ordergrootte van %{exchange_name} (%{missed_minimum_base_size} %{missed_symbol} of %{missed_minimum_quote_size} %{quote_symbol} voor %{missed_symbol}). Zo gaat de bot hiermee om:"
             buffer_explanation:
                 one: "Het gemiste bedrag is gebufferd en zal worden gebruikt bij de volgende geplande order, zodat je schema en allocatie zo goed mogelijk volgens de exchange-minimums worden aangehouden."
                 other: "De gemiste bedragen zijn gebufferd en zullen worden gebruikt bij de volgende geplande orders, zodat je schema en allocatie zo goed mogelijk volgens de exchange-minimums worden aangehouden."
+            title: "Gefeliciteerd! Je bot is actief."
             general_note: "Minimale bedragen van exchanges en vereiste herbalanceringsbedragen kunnen veranderen. Orders kunnen er soms onregelmatig uitzien, maar de bot streeft altijd naar de gewenste toewijzing en schema, dus er is geen extra werk nodig."
         settings:
             smart_intervals:
-                split_in_orders_html: '<b>Smart Intervals<sup>®</sup></b> Splits het bedrag in eenheden van %{amount} %{quote}.'
-                split_info: "Het splitsen van je %{quote_amount} %{quote} / %{interval} in kleinere eenheden van %{amount} %{quote} resulteert in één investering per %{smart_interval}."
+                split_in_orders_html: '<b>Smart Intervals<sup>®</sup></b> Splits <span>het bedrag</span> in eenheden van <span>%{amount} %{quote}</span>'
+                split_info: "Het splitsen van je %{quote_amount} %{quote} / %{interval} in kleinere eenheden van %{amount} %{quote} resulteert in één investering per %{smart_interval}"
             extra_amount_limit:
                 dont_spend_more_than: "Besteed niet meer dan"
                 amount_left: "(%{amount} %{symbol} resterend)"
-                amount_spent: "Het volledige bedrag is geïnvesteerd."
+                amount_spent: "Het volledige bedrag is geïnvesteerd"
             extra_price_limit:
-                sentence_html: "%{timing_condition} wanneer de %{base} prijs %{price_condition} %{price} %{quote} is"
+                sentence_html: "<span>%{timing_condition}</span> wanneer de %{base} <span>prijs</span> <span>%{value_condition} %{value} %{quote}</span> is"
+                price_info: "De huidige %{base} prijs is %{current_price} %{quote}"
                 timing_condition:
                     while: "Koop alleen"
                     after: "Begin met kopen"
-                price_condition:
+                value_condition:
+                    above: "boven"
+                    below: "onder"
+            extra_indicator_limit:
+                sentence_html: "<span>%{timing_condition}</span> wanneer de <span>%{indicator}</span> op dagelijkse <span>%{ticker}</span> kaarsen <span>%{value_condition} %{value}</span> is"
+                indicator_info: "Huidige %{indicator} op dagelijkse %{ticker} kaarsen is %{value}"
+                timing_condition:
+                    while: "Alleen kopen"
+                    after: "Begin met kopen"
+                value_condition:
                     above: "boven"
                     below: "onder"

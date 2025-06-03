@@ -8,18 +8,18 @@ es:
             dca:
                 title: "DCA"
                 description: |
-                    <p>Invierte una cantidad fija de forma regular.</p>
-                    <p>El DCA promedia tu precio de compra a lo largo del tiempo, reduciendo el impacto de la volatilidad del mercado.</p>
-                    <p>Usa DCA clásico o establece varias condiciones para atrapar el mejor precio.</p>
-            barbell:
-                title: "Estrategia Barbell"
+                    <p><b>Invierte una cantidad fija regularmente.</b> El bot promedia tu precio de compra a lo largo del tiempo, reduciendo el impacto de la volatilidad del mercado. Usa DCA clásico o establece condiciones para conseguir el mejor precio.</p>
+            dca_dual_asset:
+                title: "DCA Rebalanceado"
                 description: |
-                    <p>Invierte regularmente en dos activos cualesquiera manteniendo tu asignación deseada.</p>
-                    <p>El bot compra automáticamente más del activo que ha crecido menos, manteniendo tu cartera equilibrada.</p>
-                    <p>Usando DCA rebalanceado, logras <b>rebalanceo sin impuestos sobre ganancias de capital</b>.</p>
+                    <p><b>Invierte regularmente en dos activos</b> con DCA rebalanceado. El bot compra más del activo que menos ha crecido, manteniendo tu asignación deseada sin generar impuestos sobre las ganancias de capital.</p>
+            legacy:
+                title: "Bot Heredado (DCA)"
+                description: |
+                    <p>Nuestro antiguo bot DCA y Retiradas Automáticas. Después de implementar todos los exchanges en el nuevo bot, este será descontinuado. Puedes seguir usándolo, todos los bots serán migrados a la nueva versión.</p>
             index_portfolio:
-                title: "Cartera Índice"
-                description: "Construye tu ETF de criptomonedas personal"
+                title: "Cartera Indexada"
+                description: "Construye tu ETF personal de criptomonedas. Sigue el mercado general de criptomonedas o uno de los índices para sectores específicos."
             custom_portfolio:
                 title: "Cartera Personalizada"
                 description: "Rebalancea una mezcla personalizada de activos"
@@ -28,9 +28,9 @@ es:
             paused: "Pausado"
             next_try: "Próximo intento en"
             waiting: "Esperando a que se cumplan todas las condiciones"
-        barbell:
+        conversational:
             invest: "Invertir"
-            invest_html: "Invertir %{input} /mes"
+            into: "en"
         utils:
             mkt_cap_adjusted: "Ajustado por capitalización de mercado"
             mkt_cap_adjusted_info_html: |
@@ -145,6 +145,7 @@ es:
             wrong_subaccount_name: "Nombre de subcuenta incorrecto"
             failed_tooltip_explanation: "Esta orden falló: %{error_message}"
             skipped_tooltip_explanation: "Esta orden se ha omitido porque la cantidad estaba por debajo del tamaño mínimo de orden de %{exchange_name}. La cantidad omitida se ha almacenado y se añadirá a la siguiente orden."
+            failed_status_bar_explanation: "La última orden falló: %{error_messages}"
         minimum_withdrawal_disclaimer: 'El importe mínimo de retirada es de %{minimum} %{currency}.'
         minimum_withdrawal_disclaimer_usd: 'El importe mínimo de retirada es de %{minimum} USD.'
         month: Mes
@@ -167,28 +168,41 @@ es:
         withdrawal_percentage: '%{percentage}%'
         withdrawal: 'Retirada'
         warning:
-            title: "¡Enhorabuena! Tu bot está en marcha."
-            both_below:
-                intro: "Sin embargo, tanto la cantidad de la orden de %{base0_symbol} como la de %{base1_symbol} están por debajo de los tamaños mínimos de orden de %{exchange_name} (%{base0_minimum_base_size} %{base0_symbol} o %{base0_minimum_quote_size} %{quote_symbol} para %{base0_symbol} y %{base1_minimum_base_size} %{base1_symbol} o %{base1_minimum_quote_size} %{quote_symbol} para %{base1_symbol}). Así es como el bot lo gestiona:"
-            one_below:
-                intro: "Tu bot ha comprado %{bought_quote_amount} %{quote_symbol} de %{bought_symbol}, pero la cantidad de %{missed_symbol} estaba por debajo del tamaño mínimo de orden de %{exchange_name} (%{missed_minimum_base_size} %{missed_symbol} o %{missed_minimum_quote_size} %{quote_symbol} para %{missed_symbol}). Así es como el bot lo gestiona:"
+            dca_single_asset:
+                intro: "El importe de %{missed_symbol} estaba por debajo del tamaño mínimo de orden de %{exchange_name} (%{missed_minimum_base_size} %{missed_symbol} o %{missed_minimum_quote_size} %{quote_symbol} para %{missed_symbol}). Así es como el bot lo gestiona:"
+            dca_dual_asset:
+                both_below:
+                    intro: "Sin embargo, tanto la cantidad de la orden de %{base0_symbol} como la de %{base1_symbol} están por debajo de los tamaños mínimos de orden de %{exchange_name} (%{base0_minimum_base_size} %{base0_symbol} o %{base0_minimum_quote_size} %{quote_symbol} para %{base0_symbol} y %{base1_minimum_base_size} %{base1_symbol} o %{base1_minimum_quote_size} %{quote_symbol} para %{base1_symbol}). Así es como el bot lo gestiona:"
+                one_below:
+                    intro: "Tu bot ha comprado %{bought_quote_amount} %{quote_symbol} de %{bought_symbol}, pero la cantidad de %{missed_symbol} estaba por debajo del tamaño mínimo de orden de %{exchange_name} (%{missed_minimum_base_size} %{missed_symbol} o %{missed_minimum_quote_size} %{quote_symbol} para %{missed_symbol}). Así es como el bot lo gestiona:"
             buffer_explanation:
                 one: "La cantidad que no se pudo usar se ha guardado y se usará con la próxima orden programada, asegurando que tu programación y asignación se mantengan lo más cerca posible de los mínimos del exchange."
                 other: "Las cantidades que no se pudieron usar se han guardado y se usarán con las próximas órdenes programadas, asegurando que tu programación y asignación se mantengan lo más cerca posible de los mínimos del exchange."
+            title: "¡Enhorabuena! Tu bot está en marcha."
             general_note: "Los mínimos del exchange y las cantidades requeridas para el rebalanceo pueden cambiar. Las transacciones a veces pueden parecer irregulares, pero el bot siempre apunta a tu asignación y programación deseadas, así que no necesitas hacer nada más."
         settings:
             smart_intervals:
-                split_in_orders_html: '<b>Smart Intervals<sup>®</sup></b> Divide la cantidad en unidades de %{amount} %{quote}.'
-                split_info: "Dividir tus %{quote_amount} %{quote} / %{interval} en unidades más pequeñas de %{amount} %{quote} resultará en una inversión cada %{smart_interval}."
+                split_in_orders_html: '<b>Smart Intervals<sup>®</sup></b> Divide <span>la cantidad</span> en unidades de <span>%{amount} %{quote}</span>'
+                split_info: "Dividir tus %{quote_amount} %{quote} / %{interval} en unidades más pequeñas de %{amount} %{quote} resultará en una inversión cada %{smart_interval}"
             extra_amount_limit:
                 dont_spend_more_than: "No gastar más de"
                 amount_left: "(%{amount} %{symbol} restante)"
-                amount_spent: "Se ha invertido la cantidad completa."
+                amount_spent: "Se ha invertido la cantidad completa"
             extra_price_limit:
-                sentence_html: "%{timing_condition} cuando el precio de %{base} esté %{price_condition} %{price} %{quote}"
+                sentence_html: "<span>%{timing_condition}</span> cuando el <span>precio</span> de %{base} esté <span>%{value_condition} %{value} %{quote}</span>"
+                price_info: "El precio actual de %{base} es %{current_price} %{quote}"
                 timing_condition:
                     while: "Comprar solo"
-                    after: "Empezar a comprar" 
-                price_condition:
+                    after: "Empezar a comprar"
+                value_condition:
+                    above: "por encima de"
+                    below: "por debajo de"
+            extra_indicator_limit:
+                sentence_html: "<span>%{timing_condition}</span> cuando el <span>%{indicator}</span> en velas diarias de <span>%{ticker}</span> esté <span>%{value_condition} %{value}</span>"
+                indicator_info: "El %{indicator} actual en velas diarias de %{ticker} es %{value}"
+                timing_condition:
+                    while: "Comprar solo"
+                    after: "Empezar a comprar"
+                value_condition:
                     above: "por encima de"
                     below: "por debajo de"
