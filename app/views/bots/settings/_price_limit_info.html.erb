@@ -3,10 +3,10 @@
   <% price = ticker&.get_last_price&.data&.round(bot.decimals[:quote]) %>
   <% result = bot.get_price_limit_condition_met? %>
   <% condition_met = result.success? && result.data %>
-  <span id="<%= bot.new_record? ? "new-settings-price-limit-info" : "settings-price-limit-info" %>" class="<%= condition_met ? "text-success" : "" %>">
+  <small id="<%= bot.new_record? ? "new-settings-price-limit-info" : "settings-price-limit-info" %>" class="small-info <%= condition_met ? "text-success" : "" %>">
     <%= t("bot.settings.extra_price_limit.price_info",
           current_price: price,
           base: ticker&.base_asset&.symbol,
           quote: bot.quote_asset.symbol) if price.present? %>
-  </span>
+  </small>
 <% end %>

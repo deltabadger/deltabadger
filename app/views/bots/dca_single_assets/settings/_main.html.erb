@@ -28,15 +28,16 @@
       <%= t("bot.#{bot.interval}") %>
       <%= f.select :interval, bot_intervals, { selected: bot.interval }, data: { action: "change->form--submit#submit" }, disabled: bot.working? %>
     </div>
+    <div style="display: flex; gap: 1rem;">
+      <%= t('bot.conversational.into') %>
 
-    <%= t('bot.conversational.into') %>
-
-    <% if bot.new_record? %>
-      <%= link_to bot.base_asset.symbol, new_bots_dca_single_assets_pick_buyable_asset_path, data: { turbo_frame: "modal_content" }, class: "ticker", style: "background: #{base_color}" %>
-    <% else %>
-      <div class="ticker" style="background: <%= base_color %>">
-        <%= bot.base_asset.symbol %>
-      </div>
-    <% end %>
+      <% if bot.new_record? %>
+        <%= link_to bot.base_asset.symbol, new_bots_dca_single_assets_pick_buyable_asset_path, data: { turbo_frame: "modal_content" }, class: "ticker", style: "background: #{base_color}" %>
+      <% else %>
+        <div class="ticker" style="background: <%= base_color %>">
+          <%= bot.base_asset.symbol %>
+        </div>
+      <% end %>
+    </div>
   </div>
 <% end %>
