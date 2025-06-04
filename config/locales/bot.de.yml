@@ -32,7 +32,7 @@ de:
             invest: "Investieren"
             into: "in"
         utils:
-            mkt_cap_adjusted: "Marktkapitalisierung angepasst"
+            mkt_cap_adjusted_html: "Nach Marktkapital"
             mkt_cap_adjusted_info_html: |
                 <p><b>Marktkapitalisierung</b> ist eine Methode, um zu messen, wie groß oder wertvoll eine Kryptowährung ist. Sie wird berechnet, indem man die Gesamtzahl der Coins mit dem aktuellen Preis eines Coins multipliziert. In deinem Bot erhält die Coin mit der größeren Marktkapitalisierung einen größeren Anteil deiner Investition.</p>
                 <p><b>Beispiel:</b></p>

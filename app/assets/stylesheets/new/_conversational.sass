@@ -1,9 +1,10 @@
 .conversational
     display: flex
     line-height: 3rem
-    gap: 1rem
+    gap: 0.75rem
     font-weight: 600
     color: var(--text)
+    flex-wrap: wrap
     @media (min-width: 768px)
         line-height: 4rem
     span
@@ -135,11 +136,22 @@
             background: var(--modal-search-highlight-background)
 
 .bot-creation-layout
+    position: relative
     display: flex
     flex-direction: column
-    gap: 6rem
+    gap: 4rem
     @media (min-width: 768px)
         gap: 12rem
+    #create-bot-button
+        position: absolute
+        top: 7rem
+        right: 1rem
+        @media (min-width: 768px)
+            top: 15rem
+        .button
+            min-width: 15rem
+            width: 100%
+
 .bot-creation-preview
     display: flex
     flex-direction: column

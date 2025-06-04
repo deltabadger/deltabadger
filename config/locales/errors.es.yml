@@ -22,6 +22,8 @@ es:
                         price_limit:
                             not_a_number: "Debes especificar un precio"
                             greater_than_or_equal_to: "El precio debe ser mayor o igual a 0"
+                        indicator_limit:
+                            not_a_number: "Debes especificar el valor de %{indicator}"
                         quote_amount:
                             not_a_number: "Debes añadir una cantidad para invertir"
                             greater_than: "La cantidad invertida debe ser mayor que 0"
