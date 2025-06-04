@@ -22,6 +22,8 @@ pl:
                         price_limit:
                             not_a_number: "Musisz podać cenę"
                             greater_than_or_equal_to: "Cena musi być większa lub równa 0"
+                        indicator_limit:
+                            not_a_number: "Musisz określić wartość %{indicator}"
                         quote_amount:
                             not_a_number: "Musisz dodać kwotę do zainwestowania"
                             greater_than: "Inwestowana kwota musi być większa niż 0"
