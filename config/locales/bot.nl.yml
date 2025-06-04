@@ -183,14 +183,14 @@ nl:
             general_note: "Minimale bedragen van exchanges en vereiste herbalanceringsbedragen kunnen veranderen. Orders kunnen er soms onregelmatig uitzien, maar de bot streeft altijd naar de gewenste toewijzing en schema, dus er is geen extra werk nodig."
         settings:
             smart_intervals:
-                split_in_orders_html: '<b>Smart Intervals<sup>®</sup></b> Splits <span>het bedrag</span> in eenheden van <span>%{amount} %{quote}</span>'
+                split_in_orders_html: '<b>Smart Intervals<sup>®</sup></b> Splits <span>het bedrag</span> in eenheden van <span>%{amount_html} %{quote}</span>'
                 split_info: "Het splitsen van je %{quote_amount} %{quote} / %{interval} in kleinere eenheden van %{amount} %{quote} resulteert in één investering per %{smart_interval}"
             extra_amount_limit:
                 dont_spend_more_than: "Besteed niet meer dan"
                 amount_left: "(%{amount} %{symbol} resterend)"
                 amount_spent: "Het volledige bedrag is geïnvesteerd"
             extra_price_limit:
-                sentence_html: "<span>%{timing_condition}</span> wanneer de %{base} <span>prijs</span> <span>%{value_condition} %{value} %{quote}</span> is"
+                sentence_html: "<span>%{timing_condition_html}</span> wanneer de %{base_html} <span>prijs</span> <span>%{value_condition_html} %{value_html} %{quote}</span> is"
                 price_info: "De huidige %{base} prijs is %{current_price} %{quote}"
                 timing_condition:
                     while: "Koop alleen"
@@ -199,7 +199,7 @@ nl:
                     above: "boven"
                     below: "onder"
             extra_indicator_limit:
-                sentence_html: "<span>%{timing_condition}</span> wanneer de <span>%{indicator}</span> op dagelijkse <span>%{ticker}</span> kaarsen <span>%{value_condition} %{value}</span> is"
+                sentence_html: "<span>%{timing_condition_html}</span> wanneer de <span>%{indicator_html}</span> op dagelijkse <span>%{ticker_html}</span> kaarsen <span>%{value_condition_html} %{value_html}</span> is"
                 indicator_info: "Huidige %{indicator} op dagelijkse %{ticker} kaarsen is %{value}"
                 timing_condition:
                     while: "Alleen kopen"

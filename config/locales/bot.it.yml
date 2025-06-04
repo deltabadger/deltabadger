@@ -23,7 +23,7 @@ it:
                 title: "Portafoglio Indice"
                 description: "Costruisci il tuo ETF crypto personale"
             custom_portfolio:
-                title: "Portafoglio Personalizzato" 
+                title: "Portafoglio Personalizzato"
                 description: "Bilancia un mix personalizzato di asset"
         status:
             setting_orders: "Impostazione ordini…"
@@ -206,14 +206,14 @@ it:
             general_note: "I minimi dell'exchange e gli importi di ribilanciamento richiesti possono cambiare. Gli ordini potrebbero a volte sembrare irregolari, ma il bot mira sempre all'allocazione e alla pianificazione desiderate, quindi non è necessario alcun lavoro aggiuntivo."
         settings:
             smart_intervals:
-                split_in_orders_html: '<b>Smart Intervals<sup>®</sup></b> Dividi <span>l''importo</span> in unità di <span>%{amount} %{quote}</span>'
+                split_in_orders_html: '<b>Smart Intervals<sup>®</sup></b> Dividi <span>l''importo</span> in unità di <span>%{amount_html} %{quote}</span>'
                 split_info: "Dividere il tuo %{quote_amount} %{quote} / %{interval} in unità più piccole di %{amount} %{quote} risulterà in un investimento ogni %{smart_interval}"
             extra_amount_limit:
                 dont_spend_more_than: "Non spendere più di"
                 amount_left: "(%{amount} %{symbol} rimasti)"
                 amount_spent: "L'intero importo è stato investito."
             extra_price_limit:
-                sentence_html: "<span>%{timing_condition}</span> quando il <span>prezzo</span> di %{base} è <span>%{value_condition} %{value} %{quote}</span>"
+                sentence_html: "<span>%{timing_condition_html}</span> quando il <span>prezzo</span> di %{base_html} è <span>%{value_condition_html} %{value_html} %{quote}</span>"
                 price_info: "Il prezzo attuale di %{base} è %{current_price} %{quote}"
                 timing_condition:
                     while: "Compra solo"
@@ -222,7 +222,7 @@ it:
                     above: "sopra"
                     below: "sotto"
             extra_indicator_limit:
-                sentence_html: "<span>%{timing_condition}</span> quando il <span>%{indicator}</span> su candele giornaliere di <span>%{ticker}</span> è <span>%{value_condition} %{value}</span>"
+                sentence_html: "<span>%{timing_condition_html}</span> quando il <span>%{indicator_html}</span> su candele giornaliere di <span>%{ticker_html}</span> è <span>%{value_condition_html} %{value_html}</span>"
                 indicator_info: "Il %{indicator} attuale su candele giornaliere di %{ticker} è %{value}"
                 timing_condition:
                     while: "Compra solo"
