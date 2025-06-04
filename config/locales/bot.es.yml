@@ -32,7 +32,7 @@ es:
             invest: "Invertir"
             into: "en"
         utils:
-            mkt_cap_adjusted: "Ajustado por capitalización de mercado"
+            mkt_cap_adjusted_html: "Ajustado por cap. de mercado"
             mkt_cap_adjusted_info_html: |
                 <p><b>Capitalización de mercado</b> es una forma de medir el tamaño o valor de una criptomoneda. Se calcula multiplicando el número total de monedas por el precio actual de una moneda. En tu bot, la moneda con mayor capitalización de mercado recibe una mayor parte de tu inversión.</p>
                 <p><b>Ejemplo:</b></p>
@@ -182,7 +182,7 @@ es:
             general_note: "Los mínimos del exchange y las cantidades requeridas para el rebalanceo pueden cambiar. Las transacciones a veces pueden parecer irregulares, pero el bot siempre apunta a tu asignación y programación deseadas, así que no necesitas hacer nada más."
         settings:
             smart_intervals:
-                split_in_orders_html: '<b>Smart Intervals<sup>®</sup></b> Divide <span>la cantidad</span> en unidades de <span>%{amount} %{quote}</span>'
+                split_in_orders_html: '<b>Smart Intervals<sup>®</sup></b> Divide <span>la</span> cantidad <span>en</span> unidades <span>de</span> <span>%{amount} %{quote}</span>'
                 split_info: "Dividir tus %{quote_amount} %{quote} / %{interval} en unidades más pequeñas de %{amount} %{quote} resultará en una inversión cada %{smart_interval}"
             extra_amount_limit:
                 dont_spend_more_than: "No gastar más de"
@@ -195,14 +195,14 @@ es:
                     while: "Comprar solo"
                     after: "Empezar a comprar"
                 value_condition:
-                    above: "por encima de"
-                    below: "por debajo de"
+                    above: "sobre"
+                    below: "bajo"
             extra_indicator_limit:
-                sentence_html: "<span>%{timing_condition}</span> cuando el <span>%{indicator}</span> en velas diarias de <span>%{ticker}</span> esté <span>%{value_condition} %{value}</span>"
+                sentence_html: "<span>%{timing_condition}</span> cuando el <span>%{indicator}</span> en <span>velas</span> diarias <span>de</span> <span>%{ticker}</span> esté <span>%{value_condition} %{value}</span>"
                 indicator_info: "El %{indicator} actual en velas diarias de %{ticker} es %{value}"
                 timing_condition:
                     while: "Comprar solo"
                     after: "Empezar a comprar"
                 value_condition:
-                    above: "por encima de"
-                    below: "por debajo de"
+                    above: "sobre"
+                    below: "bajo"
