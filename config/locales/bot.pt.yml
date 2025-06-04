@@ -8,18 +8,20 @@ pt:
             dca:
                 title: "DCA"
                 description: |
-                    <p><b>Invista um valor fixo regularmente.</b> O bot calcula a média do seu preço de compra ao longo do tempo, reduzindo o impacto da volatilidade do mercado. Use o DCA clássico ou defina condições para obter o melhor preço.</p>
+                    <p><b>Investimento programado em qualquer cripto</b></p>
+                    <p>Defina condições para obter o melhor preço.</p>
             dca_dual_asset:
                 title: "DCA Reequilibrado"
                 description: |
-                    <p><b>Invista regularmente em dois ativos</b> com DCA reequilibrado. O bot compra mais do ativo que cresceu menos, mantendo a alocação desejada sem impostos sobre mais-valias.</p>
+                    <p><b>DCA em dois ativos mantendo a alocação</b></p>
+                    <p>Reequilíbrio sem impostos sobre mais-valias.</p>
             legacy:
-                title: "Bot Antigo (DCA)"
+                title: "Bot Legacy"
                 description: |
-                    <p>O nosso antigo bot DCA e Levantamentos Automáticos. Após a implementação de todas as trocas no novo bot, este será descontinuado. Pode continuar a utilizá-lo, todos os bots serão migrados para a nova versão.</p>
+                    <p><b>DCA e levantamentos automáticos</b></p>
             index_portfolio:
-                title: "Carteira Indexada"
-                description: "Construa o seu ETF cripto pessoal. Siga o mercado geral de criptomoedas ou um dos índices para setores específicos."
+                title: "Carteira Índice"
+                description: "Construa o seu ETF cripto pessoal"
             custom_portfolio:
                 title: "Carteira Personalizada"
                 description: "Reequilibre uma combinação personalizada de ativos"
