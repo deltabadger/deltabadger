@@ -8,21 +8,23 @@ nl:
             dca:
                 title: "DCA"
                 description: |
-                    <p><b>Investeer regelmatig een vast bedrag.</b> De bot middelt uw aankoopprijs over tijd, waardoor de impact van marktvolatiliteit wordt verminderd. Gebruik klassieke DCA, of stel voorwaarden in om de beste prijs te vangen.</p>
+                    <p><b>Dollar-cost averaging in elke crypto</b></p>
+                    <p>Stel voorwaarden in om de beste prijs te krijgen.</p>
             dca_dual_asset:
-                title: "Geherbalanceerde DCA"
+                title: "Gebalanceerde DCA"
                 description: |
-                    <p><b>Investeer regelmatig in twee assets</b> met geherbalanceerde DCA. De bot koopt meer van het asset dat het minst is gegroeid, waardoor uw gewenste allocatie behouden blijft zonder vermogenswinstbelasting.</p>
+                    <p><b>DCA in twee assets met behoud van allocatie</b></p>
+                    <p>Herbalanceren zonder vermogenswinstbelasting.</p>
             legacy:
-                title: "Legacy Bot (DCA)"
+                title: "Legacy Bot"
                 description: |
-                    <p>Onze oude DCA-bot en Automatische Opnames. Na implementatie van alle beurzen op de nieuwe bot, zal deze worden uitgefaseerd. U kunt hem nog steeds gebruiken, alle bots zullen worden gemigreerd naar de nieuwe versie.</p>
+                    <p><b>DCA en automatische opnames</b></p>
             index_portfolio:
                 title: "Index Portefeuille"
-                description: "Bouw uw persoonlijke crypto ETF. Volg de brede cryptomarkt of een van de indices voor specifieke sectoren."
+                description: "Bouw je persoonlijke crypto ETF"
             custom_portfolio:
                 title: "Aangepaste Portefeuille"
-                description: "Herbalanceer aangepaste asset mix"
+                description: "Herbalanceer een aangepaste mix van assets"
         status:
             setting_orders: "Orders instellen…"
             paused: "Gepauzeerd"
