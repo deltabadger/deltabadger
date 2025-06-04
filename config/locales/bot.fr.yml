@@ -32,7 +32,7 @@ fr:
             invest: "Investir"
             into: "dans"
         utils:
-            mkt_cap_adjusted: "Ajusté à la capitalisation boursière"
+            mkt_cap_adjusted_html: "Ajusté à la cap. boursière"
             mkt_cap_adjusted_info_html: |
                 <p><b>Capitalisation boursière</b> est une façon de mesurer la taille ou la valeur d'une cryptomonnaie. Elle est calculée en multipliant le nombre total de pièces par le prix actuel d'une pièce. Dans votre bot, la cryptomonnaie avec la plus grande capitalisation boursière reçoit une plus grande part de votre investissement.</p>
                 <p><b>Exemple :</b></p>
@@ -182,7 +182,7 @@ fr:
             general_note: "Les minimums d'échange et les montants de rééquilibrage requis peuvent changer. Les commandes peuvent parfois sembler irrégulières, mais le bot cible toujours votre allocation et votre calendrier souhaités, donc aucun travail supplémentaire n'est nécessaire."
         settings:
             smart_intervals:
-                split_in_orders_html: '<b>Smart Intervals<sup>®</sup></b> Divise <span>le montant</span> en unités de <span>%{amount} %{quote}</span>'
+                split_in_orders_html: '<b>Smart Intervals<sup>®</sup></b> Divise <span>le</span> montant <span>en</span> unités <span>de</span> <span>%{amount} %{quote}</span>'
                 split_info: "Diviser votre %{quote_amount} %{quote} / %{interval} en unités plus petites de %{amount} %{quote} entraînera un investissement tous les %{smart_interval}"
             extra_amount_limit:
                 dont_spend_more_than: "Ne pas dépenser plus de"
@@ -198,7 +198,7 @@ fr:
                     above: "au-dessus de"
                     below: "en dessous de"
             extra_indicator_limit:
-                sentence_html: "<span>%{timing_condition}</span> quand le <span>%{indicator}</span> sur bougies journalières de <span>%{ticker}</span> est <span>%{value_condition} %{value}</span>"
+                sentence_html: "<span>%{timing_condition}</span> quand le <span>%{indicator}</span> sur <span>bougies</span> journalières <span>de</span> %{ticker} <span>est</span> <span>%{value_condition} %{value}</span>"
                 indicator_info: "Le %{indicator} actuel sur bougies journalières de %{ticker} est %{value}"
                 timing_condition:
                     while: "Acheter seulement"

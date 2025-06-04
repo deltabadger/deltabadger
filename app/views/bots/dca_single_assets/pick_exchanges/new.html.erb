@@ -7,7 +7,7 @@
     <div class="conversational conversational--bot-setup">
       <%= t('bot.setup.sentence.invest_in') %>
       <%= link_to @bot.base_asset.symbol, new_bots_dca_single_assets_pick_buyable_asset_path, data: { turbo_frame: "modal_content" }, class: "ticker", style: "background: #{base_color}" %>
-      <div style="display: flex; gap: 1rem">
+      <div style="display: flex; gap: 1rem; padding-right: 0.5rem">
         <%= t('bot.setup.sentence.at') %>
         <%= form_with url: new_bots_dca_single_assets_pick_exchange_path, method: :get, data: { controller: "form--submit-after-delay", turbo_frame: "exchange-picker" } do |f| %>
           <%= f.text_field :query, autofocus: true, autocomplete: "off", placeholder: "…", data: { action: "input->form--submit-after-delay#submit" }, class: "conversational__input" %>

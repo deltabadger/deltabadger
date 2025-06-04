@@ -33,7 +33,7 @@ it:
             invest: "Investi"
             into: "a"
         utils:
-            mkt_cap_adjusted: "Aggiustato per capitalizzazione di mercato"
+            mkt_cap_adjusted_html: "Per cap. di mercato"
             mkt_cap_adjusted_info_html: |
                 <p><b>Capitalizzazione di mercato</b> è un modo per misurare quanto grande o preziosa sia una criptovaluta. Si calcola moltiplicando il numero totale di monete per il prezzo attuale di una moneta. Nel tuo bot, la criptovaluta con la maggiore capitalizzazione di mercato riceve una quota maggiore del tuo investimento.</p>
                 <p><b>Esempio:</b></p>
