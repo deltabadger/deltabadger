@@ -15,7 +15,6 @@
     &--on
         &::before
             background: rgba(0, 0, 0, 0.03)
-            pointer-events: auto
         .dropdown
             display: block
     &--right
@@ -41,6 +40,10 @@
     overflow: hidden
     left: 0
     min-width: 24rem
+    &--bots
+        @media (max-width: 768px)
+            left: auto
+            right: -5rem
     &--portfolio
         @media (max-width: 767.9px)
             left: auto
