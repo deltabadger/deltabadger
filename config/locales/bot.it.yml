@@ -8,21 +8,23 @@ it:
             dca:
                 title: "DCA"
                 description: |
-                    <p><b>Investi regolarmente una somma fissa.</b> Il bot calcola la media del tuo prezzo di acquisto nel tempo, riducendo l'impatto della volatilità del mercato. Usa il DCA classico o imposta condizioni per ottenere il miglior prezzo.</p>
+                    <p><b>Dollar-cost averaging in qualsiasi crypto</b></p>
+                    <p>Imposta condizioni per ottenere il miglior prezzo.</p>
             dca_dual_asset:
-                title: "DCA Ribilanciato"
+                title: "DCA Bilanciato"
                 description: |
-                    <p><b>Investi regolarmente in due asset</b> con DCA ribilanciato. Il bot acquista di più l'asset che è cresciuto di meno, mantenendo l'allocazione desiderata senza tasse sulle plusvalenze.</p>
+                    <p><b>DCA in due asset mantenendo l'allocazione</b></p>
+                    <p>Bilanciamento senza tasse sulle plusvalenze.</p>
             legacy:
-                title: "Bot Legacy (DCA)"
+                title: "Bot Legacy"
                 description: |
-                    <p>Il nostro vecchio bot DCA e Prelievi Automatici. Dopo l'implementazione di tutti gli exchange sul nuovo bot, verrà dismesso. Puoi ancora utilizzarlo, tutti i bot verranno migrati alla nuova versione.</p>
+                    <p><b>DCA e prelievi automatici</b></p>
             index_portfolio:
-                title: "Portafoglio Indicizzato"
-                description: "Costruisci il tuo ETF crypto personale. Segui il mercato generale delle crypto o uno degli indici per settori specifici."
+                title: "Portafoglio Indice"
+                description: "Costruisci il tuo ETF crypto personale"
             custom_portfolio:
-                title: "Portafoglio Personalizzato"
-                description: "Ribilancia un mix personalizzato di asset"
+                title: "Portafoglio Personalizzato" 
+                description: "Bilancia un mix personalizzato di asset"
         status:
             setting_orders: "Impostazione ordini…"
             paused: "In pausa"

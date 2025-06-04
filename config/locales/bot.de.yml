@@ -8,21 +8,23 @@ de:
             dca:
                 title: "DCA"
                 description: |
-                    <p><b>Investiere regelmäßig einen festen Betrag.</b> Der Bot mittelt deinen Kaufpreis über die Zeit und reduziert so die Auswirkungen der Marktvolatilität. Nutze klassisches DCA oder setze Bedingungen, um den besten Preis zu erzielen.</p>
+                    <p><b>Dollar-Cost-Averaging in jede Kryptowährung</b></p>
+                    <p>Setze Bedingungen, um den besten Preis zu erhalten.</p>
             dca_dual_asset:
                 title: "Ausbalanciertes DCA"
                 description: |
-                    <p><b>Investiere regelmäßig in zwei Assets</b> mit ausbalanciertem DCA. Der Bot kauft mehr von dem Asset, das weniger gewachsen ist, und behält so deine gewünschte Allokation bei, ohne Kapitalertragssteuern zu verursachen.</p>
+                    <p><b>DCA in zwei Assets mit beibehaltener Verteilung</b></p>
+                    <p>Rebalancing ohne Kapitalertragssteuern.</p>
             legacy:
-                title: "Legacy Bot (DCA)"
+                title: "Legacy Bot"
                 description: |
-                    <p>Unser alter DCA-Bot und automatische Auszahlungen. Nach der Implementierung aller Börsen im neuen Bot wird dieser eingestellt. Du kannst ihn weiterhin nutzen, alle Bots werden zur neuen Version migriert.</p>
+                    <p><b>DCA und automatische Auszahlungen</b></p>
             index_portfolio:
                 title: "Index Portfolio"
-                description: "Erstelle deinen persönlichen Krypto-ETF. Folge dem breiten Kryptomarkt oder einem der Indizes für spezifische Sektoren."
+                description: "Erstelle deinen persönlichen Krypto-ETF"
             custom_portfolio:
                 title: "Individuelles Portfolio" 
-                description: "Rebalanciere eine individuelle Asset-Mischung"
+                description: "Ausbalancieren einer individuellen Asset-Mischung"
         status:
             setting_orders: "Orders werden erstellt…"
             paused: "Pausiert"
