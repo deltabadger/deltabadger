@@ -22,8 +22,10 @@
             <div class="index-info"><%= t('bot.types.dca_dual_asset.description').html_safe %></div>
         <% end %>
 
-        <% path = current_user.subscription.free? ? upgrade_upgrade_instructions_path : bots_path(create: true) %>
-        <% data = current_user.subscription.free? ? { turbo_frame: "modal" } : { turbo: false } %>
+        <%# path = current_user.subscription.free? ? upgrade_upgrade_instructions_path : bots_path(create: true) %>
+        <%# data = current_user.subscription.free? ? { turbo_frame: "modal" } : { turbo: false } %>
+        <% path = bots_path(create: true) %>
+        <% data = { turbo: false } %>
         <%= link_to path, class: 'itile itile--bot-type itile--legacy', data: { action: 'click->modal--base#animateOutCloseAndCleanUp' }.merge(data) do %>
             <div class="theme-img" style="background-image: url('<%= asset_path('strategy-06.jpg') %>')"></div>
             <div class="index-title"><%= t('bot.types.legacy.title') %></div>
