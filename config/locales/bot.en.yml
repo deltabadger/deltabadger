@@ -8,18 +8,20 @@ en:
             dca:
                 title: "DCA"
                 description: |
-                    <p><b>Invest a fixed amount regularly.</b> The bot averages out your purchase price over time, reducing the impact of market volatility. Use classic DCA, or set conditions to catch the best price.</p>
+                    <p><b>Dollar-cost averaging into any crypto</b></p>
+                    <p>Set conditions to catch the best price.</p>
             dca_dual_asset:
                 title: "Rebalanced DCA"
                 description: |
-                    <p><b>Invest regularly in two assets</b> with rebalanced DCA. The bot buys more of whichever asset has grown less, keeping your desired allocation without capital gains taxes.</p>
+                    <p><b>DCA into two assets keeping allocation</b></p>
+                    <p>Rebalancing without capital gains taxes.</p>
             legacy:
-                title: "Legacy Bot (DCA)"
+                title: "Legacy Bot"
                 description: |
-                    <p>Our old DCA bot and Automatic Withdrawals. After implementing all exchanges on the new bot, it will be sunsetted. You can still use it, all bots will be migrated to the new version.</p>
+                    <p><b>DCA and automatic withdrawals</b></p>
             index_portfolio:
                 title: "Index Portfolio"
-                description: "Build your personal crypto ETF. Follow the broad market of crypto or one of the indices for specific sectors."
+                description: "Build your personal crypto ETF"
             custom_portfolio:
                 title: "Custom Portfolio"
                 description: "Rebalance custom asset mix"
