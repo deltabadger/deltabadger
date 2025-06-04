@@ -3,8 +3,10 @@ input[type=checkbox]
 .toggle-group
     display: flex
     align-items: flex-start
-    gap: 1.5rem
+    gap: 1rem
     justify-content: flex-start
+    @media (min-width: 768px)
+        gap: 1.5rem
     &__info
         display: flex
         flex-direction: column
@@ -22,13 +24,16 @@ input[type=checkbox]
     &__style
         position: relative
         content: ""
-        width: 5rem
-        min-width: 5rem
+        width: 4.25rem
+        min-width: 4.25rem
         height: 3rem
         background-color: var(--toggle-background)
         border-radius: 1.5rem
         transition: background-color 0.3s
         pointer-events: none
+        @media (min-width: 768px)
+            width: 5rem
+            min-width: 5rem
         &::after
             content: ""
             position: absolute
@@ -60,7 +65,9 @@ input[type=checkbox]
             margin: 0
     input[type="checkbox"]
         position: absolute
-        width: 5rem
+        width: 4.25rem
+        @media (min-width: 768px)
+            width: 5rem
         height: 3rem
         opacity: 0
         &~  *
@@ -70,7 +77,9 @@ input[type=checkbox]
             &~ .toggle__style
                 background-color: var(--toggle-background-active)
                 &::after
-                    transform: translateX(2rem)
+                    transform: translateX(1.25rem)
+                    @media (min-width: 768px)
+                        transform: translateX(2rem)
             &~ .label
                 color: var(--toggle-background-active)
             &~  *
