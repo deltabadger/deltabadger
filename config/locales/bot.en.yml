@@ -221,6 +221,12 @@ en:
                 value_condition:
                     above: "above"
                     below: "below"
+            extra_price_drop_limit:
+                sentence_html: "Start buying when the %{base_html} price drops %{value_html}% from its %{time_window_condition_html}"
+                price_drop_info: "Current %{base} %{time_window_condition} is %{condition_high} %{quote}."
+                time_window_condition:
+                    ath: "all-time high"
+                    twenty_four_hours: "24h high"
             extra_indicator_limit:
                 sentence_html: "<span>%{timing_condition_html}</span> when the <span>%{indicator_html}</span> on <span>daily</span> %{ticker_html} <span>candles</span> is <span>%{value_condition_html} %{value_html}</span>"
                 indicator_info: "Current %{indicator} on daily %{ticker} candles is %{value}"

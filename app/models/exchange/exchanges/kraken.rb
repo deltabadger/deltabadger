@@ -175,10 +175,10 @@ module Exchange::Exchanges::Kraken
       15.minutes => 15,
       30.minutes => 30,
       1.hour => 60,
-      4.hours => 240,
+      4.hours => 240, # unique to kraken
       1.day => 1440,
-      1.week => 10_080,
-      15.days => 21_600
+      1.week => 10_080, # unique to kraken
+      15.days => 21_600 # unique to kraken
     }
     interval = intervals[timeframe]
 
