@@ -32,7 +32,7 @@ nl:
             invest: "Investeren"
             into: "naar"
         utils:
-            mkt_cap_adjusted: "Marktkapitalisatie aangepast"
+            mkt_cap_adjusted_html: "Op marktwaarde"
             mkt_cap_adjusted_info_html: |
                 <p><b>Marktkapitalisatie</b> is een manier om te meten hoe groot of waardevol een munt is. Het wordt berekend door het totale aantal munten te vermenigvuldigen met de huidige prijs van één munt. In uw bot krijgt de munt met de grotere marktkapitalisatie een groter deel van uw investering.</p>
                 <p><b>Voorbeeld:</b></p>

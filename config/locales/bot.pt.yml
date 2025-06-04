@@ -32,7 +32,7 @@ pt:
             invest: "Investir"
             into: "em"
         utils:
-            mkt_cap_adjusted: "Ajustado por Capitalização de Mercado"
+            mkt_cap_adjusted_html: "Por Cap. de Mercado"
             mkt_cap_adjusted_info_html: |
                 <p><b>Capitalização de mercado</b> é uma forma de medir o tamanho ou valor de uma moeda. É calculada multiplicando o número total de moedas pelo preço atual de uma moeda. No seu bot, a moeda com maior capitalização de mercado recebe uma parte maior do seu investimento.</p>
                 <p><b>Exemplo:</b></p>
