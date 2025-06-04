@@ -32,7 +32,7 @@ pl:
             invest: "Inwestuj"
             into: "w"
         utils:
-            mkt_cap_adjusted: "Dostosowane do kapitalizacji rynkowej"
+            mkt_cap_adjusted_html: "Według kapitalizacji rynkowej"
             mkt_cap_adjusted_info_html: |
                 <p><b>Kapitalizacja rynkowa</b> to sposób na zmierzenie, jak duża lub wartościowa jest moneta. Oblicza się ją, mnożąc całkowitą liczbę monet przez aktualną cenę jednej monety. W twoim bocie, moneta o większej kapitalizacji rynkowej otrzymuje większą część twojej inwestycji.</p>
                 <p><b>Przykład:</b></p>
@@ -197,7 +197,7 @@ pl:
                     above: "powyżej"
                     below: "poniżej"
             extra_indicator_limit:
-                sentence_html: "<span>%{timing_condition}</span> gdy <span>%{indicator}</span> na świecach dziennych z <span>%{ticker}</span> jest <span>%{value_condition} %{value}</span>"
+                sentence_html: "<span>%{timing_condition}</span> gdy <span>%{indicator}</span> na <span>świecach</span> dziennych <span>z</span> %{ticker} <span>jest</span> <span>%{value_condition} %{value}</span>"
                 indicator_info: "Aktualny %{indicator} na świecach dziennych z %{ticker} wynosi %{value}"
                 timing_condition:
                     while: "Kupuj tylko"

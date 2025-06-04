@@ -6,7 +6,7 @@
       <div class="flex-row">
         <%= link_to new_bots_dca_single_assets_pick_exchange_path, data: { turbo_frame: "modal_content" }, class: "sinput sinput--select sinput--exchange sinput--exchange--#{@bot.exchange.name_id}" do %>
           <%= render "svg/exchange-#{@bot.exchange.name_id}", title: @bot.exchange.name %>
-          <%= @bot.exchange.name.capitalize %>
+          <span class="hide-on-mobile"><%= @bot.exchange.name.capitalize %></span>
         <% end %>
       </div>
       <%= render partial: "bots/dca_single_assets/settings", locals: { bot: @bot } %>
