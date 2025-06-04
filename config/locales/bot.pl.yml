@@ -8,21 +8,23 @@ pl:
             dca:
                 title: "DCA"
                 description: |
-                    <p><b>Inwestuj regularnie stałą kwotę.</b> Bot uśrednia twoją cenę zakupu w czasie, zmniejszając wpływ zmienności rynku. Używaj klasycznego DCA lub ustaw warunki, aby złapać najlepszą cenę.</p>
+                    <p><b>Uśrednianie ceny w dowolnej kryptowalucie</b></p>
+                    <p>Ustaw warunki, aby złapać najlepszą cenę.</p>
             dca_dual_asset:
                 title: "Zbalansowane DCA"
                 description: |
-                    <p><b>Inwestuj regularnie w dwa aktywa</b> ze zbalansowanym DCA. Bot kupuje więcej tego aktywa, które wzrosło mniej, utrzymując pożądaną alokację bez podatku od zysków kapitałowych.</p>
+                    <p><b>DCA w dwóch aktywach z zachowaniem alokacji</b></p>
+                    <p>Rebalansowanie bez podatku od zysków kapitałowych.</p>
             legacy:
-                title: "Bot Legacy (DCA)"
+                title: "Bot Legacy"
                 description: |
-                    <p>Nasz stary bot DCA i Automatyczne Wypłaty. Po wdrożeniu wszystkich giełd w nowym bocie, ten zostanie wycofany. Nadal możesz go używać, wszystkie boty zostaną przeniesione do nowej wersji.</p>
+                    <p><b>DCA i automatyczne wypłaty</b></p>
             index_portfolio:
                 title: "Portfel Indeksowy"
-                description: "Zbuduj swój osobisty ETF kryptowalutowy. Śledź szeroki rynek kryptowalut lub jeden z indeksów dla konkretnych sektorów."
+                description: "Zbuduj swój osobisty ETF kryptowalutowy"
             custom_portfolio:
                 title: "Portfel Niestandardowy"
-                description: "Zbalansuj niestandardowy zestaw aktywów"
+                description: "Rebalansuj niestandardowy zestaw aktywów"
         status:
             setting_orders: "Ustawianie zleceń…"
             paused: "Wstrzymany"
