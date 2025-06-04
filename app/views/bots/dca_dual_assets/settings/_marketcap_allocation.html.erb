@@ -1,11 +1,16 @@
 <%= form_with model: bot,
               url: path,
               method: method,
-              class: "widget",
-              data: { controller: "form--submit", turbo_stream: true } do |f| %>
+              class: "widget #{bot.marketcap_allocated? ? "bot-settings--active" : "bot-settings--inactive"}",
+              data: {
+                controller: "class-toggle form--submit",
+                class_toggle_target: "togglable",
+                class_toggle_toggle_classes_value: ["bot-settings--active bot-settings--inactive"],
+                turbo_stream: true
+              } do |f| %>
   <div class="toggle-group" data-controller="class-toggle" data-class-toggle-toggle-classes-value='["hidden"]'>
     <div class="toggle">
-      <%= f.check_box :marketcap_allocated, data: { action: "change->form--submit#submit" }, disabled: bot.working? %>
+      <%= f.check_box :marketcap_allocated, data: { action: "change->form--submit#submit change->class-toggle#toggle" }, disabled: bot.working? %>
       <div class="toggle__style"></div>
     </div>
     <div class="toggle-group__info">
