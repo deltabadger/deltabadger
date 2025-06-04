@@ -33,7 +33,7 @@ en:
             invest: "Invest"
             into: "into"
         utils:
-            mkt_cap_adjusted: "Market Cap adjusted"
+            mkt_cap_adjusted_html: "Market Cap adjusted"
             mkt_cap_adjusted_info_html: |
                 <p><b>Market cap</b> is a way to measure how big or valuable a coin is. It's calculated by multiplying the total number of coins by the current price of one coin. In your bot, the coin with the bigger market cap gets a larger share of your investment.</p>
                 <p><b>Example:</b></p>
