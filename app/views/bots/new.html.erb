@@ -15,8 +15,7 @@
             <div class="index-info"><%= t('bot.types.dca.description').html_safe %></div>
         <% end %>
 
-        <% path = current_user.subscription.free? ? upgrade_upgrade_instructions_path : new_bots_dca_dual_assets_pick_first_buyable_asset_path %>
-        <%= link_to path, class: 'itile itile--bot-type itile--barbell', data: { action: 'click->modal--base#animateOutCloseAndCleanUp', turbo_frame: "modal" } do %>
+        <%= link_to new_bots_dca_dual_assets_pick_first_buyable_asset_path, class: 'itile itile--bot-type itile--barbell', data: { action: 'click->modal--base#animateOutCloseAndCleanUp', turbo_frame: "modal" } do %>
             <div class="theme-img" style="background-image: url('<%= asset_path('strategy-03.jpg') %>')"></div>
             <div class="index-title"><%= t('bot.types.dca_dual_asset.title') %></div>
             <div class="index-info"><%= t('bot.types.dca_dual_asset.description').html_safe %></div>
