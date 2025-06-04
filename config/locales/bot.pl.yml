@@ -183,14 +183,14 @@ pl:
             general_note: "Minimalne kwoty na giełdach i wymagane kwoty rebalancingu mogą się zmieniać. Zlecenia mogą czasami wyglądać nieregularnie, ale bot zawsze dąży do Twojej pożądanej alokacji i harmonogramu, więc nie jest wymagana dodatkowa praca."
         settings:
             smart_intervals:
-                split_in_orders_html: '<b>Smart Intervals<sup>®</sup></b> Podziel <span>kwotę</span> na jednostki po <span>%{amount} %{quote}</span>'
+                split_in_orders_html: '<b>Smart Intervals<sup>®</sup></b> Podziel <span>kwotę</span> na jednostki po <span>%{amount_html} %{quote}</span>'
                 split_info: "Podział twojej kwoty %{quote_amount} %{quote} / %{interval} na mniejsze jednostki po %{amount} %{quote} spowoduje jedną inwestycję co %{smart_interval}"
             extra_amount_limit:
                 dont_spend_more_than: "Nie wydawaj więcej niż"
                 amount_left: "(pozostało %{amount} %{symbol})"
                 amount_spent: "Cała kwota została zainwestowana."
             extra_price_limit:
-                sentence_html: "<span>%{timing_condition}</span> gdy <span>cena</span> %{base} jest <span>%{value_condition} %{value} %{quote}</span>"
+                sentence_html: "<span>%{timing_condition_html}</span> gdy <span>cena</span> %{base_html} jest <span>%{value_condition_html} %{value_html} %{quote}</span>"
                 price_info: "Aktualna cena %{base} to %{current_price} %{quote}"
                 timing_condition:
                     while: "Kupuj tylko"
@@ -199,7 +199,7 @@ pl:
                     above: "powyżej"
                     below: "poniżej"
             extra_indicator_limit:
-                sentence_html: "<span>%{timing_condition}</span> gdy <span>%{indicator}</span> na <span>świecach</span> dziennych <span>z</span> %{ticker} <span>jest</span> <span>%{value_condition} %{value}</span>"
+                sentence_html: "<span>%{timing_condition_html}</span> gdy <span>%{indicator_html}</span> na <span>świecach</span> dziennych <span>z</span> %{ticker_html} <span>jest</span> <span>%{value_condition_html} %{value_html}</span>"
                 indicator_info: "Aktualny %{indicator} na świecach dziennych z %{ticker} wynosi %{value}"
                 timing_condition:
                     while: "Kupuj tylko"

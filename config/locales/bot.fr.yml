@@ -184,14 +184,14 @@ fr:
             general_note: "Les minimums d'échange et les montants de rééquilibrage requis peuvent changer. Les commandes peuvent parfois sembler irrégulières, mais le bot cible toujours votre allocation et votre calendrier souhaités, donc aucun travail supplémentaire n'est nécessaire."
         settings:
             smart_intervals:
-                split_in_orders_html: '<b>Smart Intervals<sup>®</sup></b> Divise <span>le</span> montant <span>en</span> unités <span>de</span> <span>%{amount} %{quote}</span>'
+                split_in_orders_html: '<b>Smart Intervals<sup>®</sup></b> Divise <span>le</span> montant <span>en</span> unités <span>de</span> <span>%{amount_html} %{quote}</span>'
                 split_info: "Diviser votre %{quote_amount} %{quote} / %{interval} en unités plus petites de %{amount} %{quote} entraînera un investissement tous les %{smart_interval}"
             extra_amount_limit:
                 dont_spend_more_than: "Ne pas dépenser plus de"
                 amount_left: "(%{amount} %{symbol} restant)"
                 amount_spent: "Le montant total a été investi"
             extra_price_limit:
-                sentence_html: "<span>%{timing_condition}</span> lorsque le <span>prix</span> de %{base} est <span>%{value_condition} %{value} %{quote}</span>"
+                sentence_html: "<span>%{timing_condition_html}</span> lorsque le <span>prix</span> de %{base_html} est <span>%{value_condition_html} %{value_html} %{quote}</span>"
                 price_info: "Le prix actuel de %{base} est %{current_price} %{quote}"
                 timing_condition:
                     while: "Acheter uniquement"
@@ -200,7 +200,7 @@ fr:
                     above: "au-dessus de"
                     below: "en dessous de"
             extra_indicator_limit:
-                sentence_html: "<span>%{timing_condition}</span> quand le <span>%{indicator}</span> sur <span>bougies</span> journalières <span>de</span> %{ticker} <span>est</span> <span>%{value_condition} %{value}</span>"
+                sentence_html: "<span>%{timing_condition_html}</span> quand le <span>%{indicator_html}</span> sur <span>bougies</span> journalières <span>de</span> %{ticker_html} <span>est</span> <span>%{value_condition_html} %{value_html}</span>"
                 indicator_info: "Le %{indicator} actuel sur bougies journalières de %{ticker} est %{value}"
                 timing_condition:
                     while: "Acheter seulement"
