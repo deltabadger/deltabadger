@@ -10,10 +10,10 @@
               else
                 nil
               end %>
-  <span id="<%= bot.new_record? ? "new-settings-indicator-limit-info" : "settings-indicator-limit-info" %>" class="<%= condition_met ? "text-success" : "" %>">
+  <small id="<%= bot.new_record? ? "new-settings-indicator-limit-info" : "settings-indicator-limit-info" %>" class="small-info <%= condition_met ? "text-success" : "" %>">
     <%= t("bot.settings.extra_indicator_limit.indicator_info",
           indicator: bot.indicator_limit_in_indicator.upcase,
           ticker: ticker_select_options.find { |_, id| id == selected_ticker_id }&.first,
           value: value) if value.present? %>
-  </span>
+  </small>
 <% end %>

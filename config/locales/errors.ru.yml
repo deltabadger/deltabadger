@@ -22,6 +22,8 @@ ru:
                         price_limit:
                             not_a_number: "Вы должны указать цену"
                             greater_than_or_equal_to: "Цена должна быть больше или равна 0"
+                        indicator_limit:
+                            not_a_number: "Вы должны указать значение %{indicator}"
                         quote_amount:
                             not_a_number: "Вы должны добавить сумму для инвестирования"
                             greater_than: "Инвестированная сумма должна быть больше 0"
