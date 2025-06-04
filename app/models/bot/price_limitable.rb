@@ -128,12 +128,12 @@ module Bot::PriceLimitable
     end
   end
 
-  def initialize_price_limitable_settings
+  def initialize_price_limitable_settings # rubocop:disable Metrics/CyclomaticComplexity,Metrics/PerceivedComplexity
     self.price_limited ||= false
     self.price_limit ||= nil
     self.price_limit_timing_condition ||= 'while'
     self.price_limit_value_condition ||= 'below'
-    self.price_limit_in_ticker_id ||= set_price_limit_in_ticker_id
+    self.price_limit_in_ticker_id ||= tickers&.sort_by { |t| t[:base] }&.first&.id
   end
 
   def set_price_limit_enabled_at
@@ -148,8 +148,16 @@ module Bot::PriceLimitable
     self.price_limit_condition_met_at = nil
   end
 
-  def set_price_limit_in_ticker_id
-    self.price_limit_in_ticker_id = tickers&.sort_by { |t| t[:base] }&.first&.id
+  def set_price_limit_in_ticker_id # rubocop:disable Metrics/CyclomaticComplexity,Metrics/PerceivedComplexity
+    if price_limit_in_ticker_id_was.present? && exchange_id_was.present? && exchange_id_was != exchange_id
+      ticker_was = ExchangeTicker.find_by(id: price_limit_in_ticker_id_was)
+      self.price_limit_in_ticker_id = tickers&.find_by(
+        base_asset_id: ticker_was.base_asset_id,
+        quote_asset_id: ticker_was.quote_asset_id
+      )&.id
+    else
+      self.price_limit_in_ticker_id = tickers&.sort_by { |t| t[:base] }&.first&.id
+    end
   end
 
   def cancel_scheduled_price_limit_check_jobs

@@ -153,12 +153,12 @@ module Bot::IndicatorLimitable
     end
   end
 
-  def initialize_indicator_limitable_settings # rubocop:disable Metrics/CyclomaticComplexity
+  def initialize_indicator_limitable_settings # rubocop:disable Metrics/CyclomaticComplexity,Metrics/PerceivedComplexity
     self.indicator_limited ||= false
     self.indicator_limit ||= nil
     self.indicator_limit_timing_condition ||= 'while'
     self.indicator_limit_value_condition ||= 'below'
-    self.indicator_limit_in_ticker_id ||= set_indicator_limit_in_ticker_id
+    self.indicator_limit_in_ticker_id ||= tickers&.sort_by { |t| t[:base] }&.first&.id
     self.indicator_limit_in_indicator ||= 'rsi'
     self.indicator_limit_in_timeframe ||= 1.day
   end
@@ -175,8 +175,16 @@ module Bot::IndicatorLimitable
     self.indicator_limit_condition_met_at = nil
   end
 
-  def set_indicator_limit_in_ticker_id
-    self.indicator_limit_in_ticker_id = tickers&.sort_by { |t| t[:base] }&.first&.id
+  def set_indicator_limit_in_ticker_id # rubocop:disable Metrics/CyclomaticComplexity,Metrics/PerceivedComplexity
+    if indicator_limit_in_ticker_id_was.present? && exchange_id_was.present? && exchange_id_was != exchange_id
+      ticker_was = ExchangeTicker.find_by(id: indicator_limit_in_ticker_id_was)
+      self.indicator_limit_in_ticker_id = tickers&.find_by(
+        base_asset_id: ticker_was.base_asset_id,
+        quote_asset_id: ticker_was.quote_asset_id
+      )&.id
+    else
+      self.indicator_limit_in_ticker_id = tickers&.sort_by { |t| t[:base] }&.first&.id
+    end
   end
 
   def cancel_scheduled_indicator_limit_check_jobs
