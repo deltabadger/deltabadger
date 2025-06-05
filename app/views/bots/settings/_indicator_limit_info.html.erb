@@ -1,19 +1,20 @@
 <% if bot.indicator_limited? && bot.indicator_limit.present? %>
-  <% ticker = bot.tickers.find_by(id: bot.indicator_limit_in_ticker_id) %>
-  <% ticker_select_options = ticker_select_options(bot) %>
-  <% selected_ticker_id = bot.tickers.find_by(id: bot.indicator_limit_in_ticker_id)&.id %>
-  <% result = bot.get_indicator_limit_condition_met? %>
-  <% condition_met = result.success? && result.data %>
-  <% value = case bot.indicator_limit_in_indicator
-              when 'rsi'
-                ticker&.get_rsi_value(timeframe: bot.indicator_limit_in_timeframe, period: 14)&.data&.round(2)
-              else
-                nil
-              end %>
-  <small id="<%= bot.new_record? ? "new-settings-indicator-limit-info" : "settings-indicator-limit-info" %>" class="small-info <%= condition_met ? "text-success" : "" %>">
-    <%= t("bot.settings.extra_indicator_limit.indicator_info",
-          indicator: bot.indicator_limit_in_indicator.upcase,
-          ticker: ticker_select_options.find { |_, id| id == selected_ticker_id }&.first,
-          value: value) if value.present? %>
+  <small id="<%= bot.new_record? ? "new-settings-indicator-limit-info" : "settings-indicator-limit-info" %>" class="small-info">
+    <% if info.nil? %>
+      <%= tag.div data: {
+        controller: "broadcast--on-connect",
+        broadcast__on_connect_method_value: "indicator_limit_info_update",
+        broadcast__on_connect_method_args_value: { bot_id: bot.id }.to_json
+      }, class: "loader--small", style: "position: unset; float: left; margin-top: 8px;" %>
+    <% else %>
+      <% ticker_select_options = ticker_select_options(bot) %>
+      <% selected_ticker_id = bot.tickers.find_by(id: bot.indicator_limit_in_ticker_id)&.id %>
+      <div class="<%= info[:condition_met] ? "text-success" : "" %>">
+        <%= t("bot.settings.extra_indicator_limit.indicator_info",
+              indicator: bot.indicator_limit_in_indicator.upcase,
+              ticker: ticker_select_options.find { |_, id| id == selected_ticker_id }&.first,
+              value: info[:value]) %>
+      </div>
+    <% end %>
   </small>
 <% end %>

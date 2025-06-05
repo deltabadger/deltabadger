@@ -17,6 +17,7 @@ export default class extends Controller {
   }
 
   #triggerBroadcast() {
+    // console.log("triggerBroadcast", this.methodValue);
     fetch(`/${this.#getLocaleFromUrl()}/broadcasts/${this.methodValue}`, {
       method: "POST",
       headers: {

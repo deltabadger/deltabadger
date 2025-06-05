@@ -4,7 +4,7 @@
               class: "widget #{bot.quote_amount_limited? ? "bot-settings--active" : "bot-settings--inactive"}",
               data: { controller: "class-toggle form--submit form--submit-after-delay form--move-cursor-to-end",
                       class_toggle_target: "togglable",
-                      class_toggle_toggle_classes_value: ["bot-settings--active bot-settings--inactive"],
+                      class_toggle_toggle_classes_value: ["bot-settings--active", "bot-settings--inactive"],
                       turbo_stream: true } do |f| %>
   <div class="toggle-group">
     <div class="toggle">
