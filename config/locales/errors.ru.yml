@@ -22,6 +22,10 @@ ru:
                         price_limit:
                             not_a_number: "Вы должны указать цену"
                             greater_than_or_equal_to: "Цена должна быть больше или равна 0"
+                        price_drop_limit:
+                            not_a_number: "Вы должны указать значение падения цены"
+                            greater_than_or_equal_to: "Значение падения цены должно быть больше или равно 0"
+                            less_than_or_equal_to: "Значение падения цены должно быть меньше или равно 100"
                         indicator_limit:
                             not_a_number: "Вы должны указать значение %{indicator}"
                         quote_amount:
