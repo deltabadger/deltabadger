@@ -243,7 +243,13 @@ class CoinbaseClient < ApplicationClient
       exp: timestamp + 120,
       uri: "#{method} #{request_host}#{request_path}"
     }
-    private_key = OpenSSL::PKey::EC.new(@api_secret)
+
+    begin
+      private_key = OpenSSL::PKey::EC.new(@api_secret)
+    rescue OpenSSL::PKey::ECError
+      return unauthenticated_headers
+    end
+
     jwt = JWT.encode(jwt_payload, private_key, 'ES256', { kid: @api_key, nonce: SecureRandom.hex })
     {
       'Authorization': "Bearer #{jwt}",
