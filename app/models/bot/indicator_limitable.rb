@@ -23,6 +23,7 @@ module Bot::IndicatorLimitable
     before_save :set_indicator_limit_enabled_at, if: :will_save_change_to_settings?
     before_save :set_indicator_limit_condition_met_at, if: :will_save_change_to_settings?
     before_save :set_indicator_limit_in_ticker_id, if: :will_save_change_to_exchange_id?
+    before_save :reset_indicator_limit_info_cache, if: :will_save_change_to_settings?
 
     validates :indicator_limited, inclusion: { in: [true, false] }
     validates :indicator_limit, numericality: {
@@ -118,16 +119,74 @@ module Bot::IndicatorLimitable
     return result if result.failure?
 
     if indicator_condition_satisfied?(result.data)
-      self.indicator_limit_condition_met_at ||= Time.current
+      if indicator_limit_condition_met_at.nil?
+        update!(indicator_limit_condition_met_at: Time.current)
+        broadcast_indicator_limit_info_update
+      end
       Result::Success.new(true)
     else
-      set_missed_quote_amount
-      self.indicator_limit_condition_met_at = nil
+      if indicator_limit_condition_met_at.present?
+        set_missed_quote_amount
+        update!(indicator_limit_condition_met_at: nil)
+        broadcast_indicator_limit_info_update
+      end
       Result::Success.new(false)
     end
   end
 
+  def broadcast_indicator_limit_info_update
+    ticker = tickers.find_by(id: indicator_limit_in_ticker_id)
+    return if ticker.nil?
+
+    indicator_value_result = get_indicator_value(ticker)
+    return if indicator_value_result.failure?
+    return unless indicator_value_result.data.present?
+
+    condition_met_result = get_indicator_limit_condition_met?
+    return if condition_met_result.failure?
+
+    info = Rails.cache.fetch(indicator_limit_info_cache_key, expires_in: 20.seconds) do
+      {
+        base: ticker.base_asset.symbol,
+        quote: ticker.quote_asset.symbol,
+        value: indicator_value_result.data.round(2),
+        condition_met: condition_met_result.data
+      }
+    end
+
+    broadcast_replace_to(
+      ["user_#{user_id}", :bot_updates],
+      target: new_record? ? 'new-settings-indicator-limit-info' : 'settings-indicator-limit-info',
+      partial: 'bots/settings/indicator_limit_info',
+      locals: { bot: self, info: info }
+    )
+  end
+
+  def indicator_limit_info_from_cache
+    Rails.cache.read(indicator_limit_info_cache_key)
+  end
+
   private
+
+  def indicator_limit_info_cache_key
+    "bot_#{id}_indicator_limit_info"
+  end
+
+  def reset_indicator_limit_info_cache
+    return if indicator_limit_was == indicator_limit &&
+              indicator_limit_value_condition_was == indicator_limit_value_condition &&
+              indicator_limit_in_ticker_id_was == indicator_limit_in_ticker_id &&
+              indicator_limit_in_indicator_was == indicator_limit_in_indicator &&
+              indicator_limit_in_timeframe_was == indicator_limit_in_timeframe
+
+    puts "indicator_limit: #{indicator_limit_was} -> #{indicator_limit}"
+    puts "indicator_limit_value_condition: #{indicator_limit_value_condition_was} -> #{indicator_limit_value_condition}"
+    puts "indicator_limit_in_ticker_id: #{indicator_limit_in_ticker_id_was} -> #{indicator_limit_in_ticker_id}"
+    puts "indicator_limit_in_indicator: #{indicator_limit_in_indicator_was} -> #{indicator_limit_in_indicator}"
+    puts "indicator_limit_in_timeframe: #{indicator_limit_in_timeframe_was} -> #{indicator_limit_in_timeframe}"
+
+    Rails.cache.delete(indicator_limit_info_cache_key)
+  end
 
   def timing_condition_satisfied?
     indicator_limit_timing_condition == 'after' && indicator_limit_condition_met_at.present?
@@ -153,12 +212,12 @@ module Bot::IndicatorLimitable
     end
   end
 
-  def initialize_indicator_limitable_settings # rubocop:disable Metrics/CyclomaticComplexity
+  def initialize_indicator_limitable_settings # rubocop:disable Metrics/CyclomaticComplexity,Metrics/PerceivedComplexity
     self.indicator_limited ||= false
     self.indicator_limit ||= nil
     self.indicator_limit_timing_condition ||= 'while'
     self.indicator_limit_value_condition ||= 'below'
-    self.indicator_limit_in_ticker_id ||= set_indicator_limit_in_ticker_id
+    self.indicator_limit_in_ticker_id ||= tickers&.sort_by { |t| t[:base] }&.first&.id
     self.indicator_limit_in_indicator ||= 'rsi'
     self.indicator_limit_in_timeframe ||= 1.day
   end
@@ -175,8 +234,16 @@ module Bot::IndicatorLimitable
     self.indicator_limit_condition_met_at = nil
   end
 
-  def set_indicator_limit_in_ticker_id
-    self.indicator_limit_in_ticker_id = tickers&.sort_by { |t| t[:base] }&.first&.id
+  def set_indicator_limit_in_ticker_id # rubocop:disable Metrics/CyclomaticComplexity,Metrics/PerceivedComplexity
+    if indicator_limit_in_ticker_id_was.present? && exchange_id_was.present? && exchange_id_was != exchange_id
+      ticker_was = ExchangeTicker.find_by(id: indicator_limit_in_ticker_id_was)
+      self.indicator_limit_in_ticker_id = tickers&.find_by(
+        base_asset_id: ticker_was.base_asset_id,
+        quote_asset_id: ticker_was.quote_asset_id
+      )&.id
+    else
+      self.indicator_limit_in_ticker_id = tickers&.sort_by { |t| t[:base] }&.first&.id
+    end
   end
 
   def cancel_scheduled_indicator_limit_check_jobs

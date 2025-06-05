@@ -22,6 +22,10 @@ nl:
                         price_limit:
                             not_a_number: "U moet een prijs opgeven"
                             greater_than_or_equal_to: "De prijs moet groter dan of gelijk zijn aan 0"
+                        price_drop_limit:
+                            not_a_number: "U moet een prijsdalingswaarde opgeven"
+                            greater_than_or_equal_to: "De prijsdalingswaarde moet groter dan of gelijk zijn aan 0"
+                            less_than_or_equal_to: "De prijsdalingswaarde moet kleiner dan of gelijk zijn aan 100"
                         indicator_limit:
                             not_a_number: "U moet de %{indicator} waarde opgeven"
                         quote_amount:

@@ -74,7 +74,7 @@ class MakeWithdrawal < BaseService
   end
 
   def insufficient_balance?(result)
-    result.data&.dig(:skipped)
+    result.errors.first == SKIPPED.to_s
   end
 
   def get_withdrawal_params(bot, balance)

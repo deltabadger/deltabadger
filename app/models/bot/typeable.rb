@@ -10,6 +10,9 @@ module Bot::Typeable
     scope :webhook, -> { where(type: 'Bots::Webhook') }
     scope :dca_single_asset, -> { where(type: 'Bots::DcaSingleAsset') }
     scope :dca_dual_asset, -> { where(type: 'Bots::DcaDualAsset') }
+
+    scope :legacy, -> { where(type: %w[Bots::Basic Bots::Withdrawal Bots::Webhook]) }
+    scope :not_legacy, -> { where.not(type: %w[Bots::Basic Bots::Withdrawal Bots::Webhook]) }
   end
 
   def basic?
@@ -30,5 +33,9 @@ module Bot::Typeable
 
   def dca_dual_asset?
     type == 'Bots::DcaDualAsset'
+  end
+
+  def legacy?
+    basic? || withdrawal? || webhook?
   end
 end
