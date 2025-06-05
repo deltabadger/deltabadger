@@ -1,0 +1,19 @@
+<% if bot.price_drop_limited? && bot.price_drop_limit.present? %>
+  <small id="<%= bot.new_record? ? "new-settings-price-drop-limit-info" : "settings-price-drop-limit-info" %>" class="small-info">
+    <% if info.nil? %>
+      <%= tag.div data: {
+        controller: "broadcast--on-connect",
+        broadcast__on_connect_method_value: "price_drop_limit_info_update",
+        broadcast__on_connect_method_args_value: { bot_id: bot.id }.to_json
+      }, class: "loader--small", style: "position: unset; float: left; margin-top: 8px;" %>
+    <% else %>
+      <div class="<%= info[:condition_met] ? "text-success" : "" %>">
+        <%= t("bot.settings.extra_price_drop_limit.price_drop_info",
+              base: info[:base],
+              time_window_condition: t("bot.settings.extra_price_drop_limit.time_window_condition.#{bot.price_drop_limit_time_window_condition}"),
+              condition_high: info[:high],
+              quote: info[:quote]) %>
+      </div>
+    <% end %>
+  </small>
+<% end %>

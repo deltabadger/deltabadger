@@ -1,0 +1,44 @@
+<%= form_with model: bot,
+              url: path,
+              method: method,
+              class: "widget #{bot.price_drop_limited? ? "bot-settings--active" : "bot-settings--inactive"}",
+              data: {
+                controller: "class-toggle form--submit form--submit-after-delay form--move-cursor-to-end",
+                class_toggle_target: "togglable",
+                class_toggle_toggle_classes_value: ["bot-settings--active", "bot-settings--inactive"],
+                controller: "form--submit form--submit-after-delay form--move-cursor-to-end",
+                turbo_stream: true
+              } do |f| %>
+  <div class="toggle-group">
+    <div class="toggle">
+      <%= f.check_box :price_drop_limited, data: { action: "change->form--submit#submit change->class-toggle#toggle" }, disabled: bot.working? %>
+      <div class="toggle__style"></div>
+    </div>
+    <div class="toggle-group__info">
+      <div class="toggle-group__info__label">
+        <%= f.label :price_drop_limited, class: "conversational conversational--small conversational--disabled" do %>
+          <% base_select_options = base_select_options(bot) %>
+          <% if base_select_options.size > 1 %>
+            <% base_html = content_tag(:div, class: "sinput sinput--select") do %>
+              <%= base_select_options.find { |_, id| id == bot.price_drop_limit_in_ticker_id }&.first %>
+              <%= f.select :price_drop_limit_in_ticker_id, base_select_options, { selected: bot.price_drop_limit_in_ticker_id }, data: { action: "change->form--submit#submit" } %>
+            <% end %>
+          <% else %>
+            <% base_html = base_select_options.first.first %>
+          <% end %>
+          <% value_html = content_tag(:div) do %>
+            <% value = bot.price_drop_limit.present? ? (bot.price_drop_limit.to_d * 100).to_s('F').sub(/^(?!0\.0$)([1-9]\d*)\.0$/, '\1') : nil %>
+            <%= f.number_field :price_drop_limit, value: value, class: 'sinput numeric-input', step: :any, size: 3, data: { controller: "autowidth-input", action: "input->form--submit-after-delay#submit input->autowidth-input#resize", form__move_cursor_to_end_target: "input" }, style: "margin-left: 0.125rem; width: 50px;", disabled: bot.working? %>
+          <% end %>
+          <% time_window_condition_html = content_tag(:div, class: "sinput sinput--select") do %>
+            <%= t("bot.settings.extra_price_drop_limit.time_window_condition.#{bot.price_drop_limit_time_window_condition}") %>
+            <%= f.select :price_drop_limit_time_window_condition, price_drop_limit_time_window_condition_select_options(bot), { selected: bot.price_drop_limit_time_window_condition }, data: { action: "change->form--submit#submit" } %>
+          <% end %>
+          <%= t("bot.settings.extra_price_drop_limit.sentence_html", base_html: base_html.html_safe, value_html: value_html.html_safe, time_window_condition_html: time_window_condition_html.html_safe).html_safe %>
+          <%= render partial: "bots/settings/price_drop_limit_info", locals: { bot: bot, info: bot.price_drop_limit_info_from_cache } %>
+        <% end %>
+      </div>
+    </div>
+  </div>
+<% end %>
+
