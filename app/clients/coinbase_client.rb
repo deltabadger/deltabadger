@@ -219,10 +219,8 @@ class CoinbaseClient < ApplicationClient
   def headers(req)
     if unauthenticated?
       unauthenticated_headers
-    elsif cdp_keys?
-      cdp_headers(req)
     else
-      legacy_headers(req)
+      authenticated_headers(req)
     end
   end
 
@@ -233,23 +231,7 @@ class CoinbaseClient < ApplicationClient
     }
   end
 
-  def legacy_headers(req)
-    timestamp = Time.now.utc.to_i
-    method = req.http_method.to_s.upcase
-    request_path = req.path
-    body = req.body.present? ? req.body : ''
-    payload = "#{timestamp}#{method}#{request_path}#{body}"
-    signature = OpenSSL::HMAC.hexdigest('sha256', @api_secret, payload)
-    {
-      'CB-ACCESS-KEY': @api_key,
-      'CB-ACCESS-TIMESTAMP': timestamp,
-      'CB-ACCESS-SIGN': signature,
-      'Accept': 'application/json',
-      'Content-Type': 'application/json'
-    }
-  end
-
-  def cdp_headers(req)
+  def authenticated_headers(req)
     timestamp = Time.now.utc.to_i
     method = req.http_method.to_s.upcase
     request_host = URI(URL).host
@@ -268,10 +250,6 @@ class CoinbaseClient < ApplicationClient
       'Accept': 'application/json',
       'Content-Type': 'application/json'
     }
-  end
-
-  def cdp_keys?
-    @api_secret.start_with?('-----BEGIN EC PRIVATE KEY-----')
   end
 
   def unauthenticated?
