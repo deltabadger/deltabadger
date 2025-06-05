@@ -26,7 +26,8 @@
               <%= f.select :indicator_limit_in_ticker_id, ticker_select_options, { selected: bot.indicator_limit_in_ticker_id }, data: { action: "change->form--submit#submit" } %>
             <% end %>
           <% else %>
-            <% ticker_html = ticker_select_options.first.first %>
+            <%# ticker_html = ticker_select_options.first.first %>
+            <% ticker_html = "" %>
           <% end %>
           <% if indicator_select_options.size > 1 %>
             <% indicator_html = content_tag(:div, class: "sinput sinput--select") do %>

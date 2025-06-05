@@ -24,7 +24,8 @@
               <%= f.select :price_drop_limit_in_ticker_id, base_select_options, { selected: bot.price_drop_limit_in_ticker_id }, data: { action: "change->form--submit#submit" } %>
             <% end %>
           <% else %>
-            <% base_html = base_select_options.first.first %>
+            <%# base_html = base_select_options.first.first %>
+            <% base_html = "" %>
           <% end %>
           <% value_html = content_tag(:div) do %>
             <% value = bot.price_drop_limit.present? ? (bot.price_drop_limit.to_d * 100).to_s('F').sub(/^(?!0\.0$)([1-9]\d*)\.0$/, '\1') : nil %>
