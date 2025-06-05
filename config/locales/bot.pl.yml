@@ -199,11 +199,11 @@ pl:
                     above: "powyżej"
                     below: "poniżej"
             extra_price_drop_limit:
-                sentence_html: "Zacznij kupować, gdy cena %{base_html} spadnie o %{value_html}% od swojego %{time_window_condition_html}"
+                sentence_html: "Zacznij kupować, gdy cena %{base_html} spadnie o %{value_html}% od swojej %{time_window_condition_html}"
                 price_drop_info: "Aktualny %{time_window_condition} dla %{base} wynosi %{condition_high} %{quote}."
                 time_window_condition:
-                    ath: "najwyższego historycznego poziomu"
-                    twenty_four_hours: "najwyższego poziomu z ostatnich 24h"
+                    ath: "najwyższej historcznej ceny"
+                    twenty_four_hours: "najwyższej ceny z ostatnich 24h"
             extra_indicator_limit:
                 sentence_html: "<span>%{timing_condition_html}</span> gdy <span>%{indicator_html}</span> na <span>świecach</span> dziennych <span>z</span> %{ticker_html} <span>jest</span> <span>%{value_condition_html} %{value_html}</span>"
                 indicator_info: "Aktualny %{indicator} na świecach dziennych z %{ticker} wynosi %{value}"
