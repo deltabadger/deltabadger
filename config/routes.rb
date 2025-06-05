@@ -194,6 +194,9 @@ Rails.application.routes.draw do
     namespace :broadcasts do
       post :metrics_update
       post :pnl_update
+      post :price_limit_info_update
+      post :price_drop_limit_info_update
+      post :indicator_limit_info_update
     end
   end
 

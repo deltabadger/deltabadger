@@ -1,12 +1,18 @@
 <% if bot.price_limited? && bot.price_limit.present? %>
-  <% ticker = bot.tickers.find_by(id: bot.price_limit_in_ticker_id) %>
-  <% price = ticker&.get_last_price&.data&.round(bot.decimals[:quote]) %>
-  <% result = bot.get_price_limit_condition_met? %>
-  <% condition_met = result.success? && result.data %>
-  <small id="<%= bot.new_record? ? "new-settings-price-limit-info" : "settings-price-limit-info" %>" class="small-info <%= condition_met ? "text-success" : "" %>">
-    <%= t("bot.settings.extra_price_limit.price_info",
-          current_price: price,
-          base: ticker&.base_asset&.symbol,
-          quote: bot.quote_asset.symbol) if price.present? %>
+  <small id="<%= bot.new_record? ? "new-settings-price-limit-info" : "settings-price-limit-info" %>" class="small-info">
+    <% if info.nil? %>
+      <%= tag.div data: {
+        controller: "broadcast--on-connect",
+        broadcast__on_connect_method_value: "price_limit_info_update",
+        broadcast__on_connect_method_args_value: { bot_id: bot.id }.to_json
+      }, class: "loader--small", style: "position: unset; float: left; margin-top: 8px;" %>
+    <% else %>
+      <div class="<%= info[:condition_met] ? "text-success" : "" %>">
+        <%= t("bot.settings.extra_price_limit.price_info",
+              current_price: info[:price],
+              base: info[:base],
+              quote: info[:quote]) %>
+      </div>
+    <% end %>
   </small>
 <% end %>
