@@ -168,10 +168,20 @@ module Exchange::Exchanges::Coinbase
     }
     granularity = granularities[timeframe]
 
+    duration = {
+      'ONE_MINUTE' => 1.minute,
+      'FIVE_MINUTE' => 5.minutes,
+      'FIFTEEN_MINUTE' => 15.minutes,
+      'THIRTY_MINUTE' => 30.minutes,
+      'ONE_HOUR' => 1.hour,
+      'TWO_HOUR' => 2.hours,
+      'ONE_DAY' => 1.day
+    }
+
     candles = []
     loop do
       now = Time.now.utc
-      end_time = [start_at + 350 * timeframe, now].min
+      end_time = [start_at + 350 * duration[granularity], now].min
       result = client.get_public_product_candles(
         product_id: ticker.ticker,
         start_time: start_at.to_i,
