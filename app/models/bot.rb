@@ -7,8 +7,6 @@ class Bot < ApplicationRecord
   enum status: %i[created scheduled stopped deleted executing retrying waiting]
 
   scope :working, -> { where(status: %i[scheduled executing retrying waiting]) }
-  scope :legacy, -> { where(type: %w[Bots::Basic Bots::Withdrawal Bots::Webhook]) }
-  scope :not_legacy, -> { where.not(type: %w[Bots::Basic Bots::Withdrawal Bots::Webhook]) }
 
   include Typeable
   include Labelable
@@ -27,10 +25,6 @@ class Bot < ApplicationRecord
     return nil unless interval.present?
 
     1.public_send(interval)
-  end
-
-  def legacy?
-    ['Bots::Basic', 'Bots::Withdrawal', 'Bots::Webhook'].include?(type)
   end
 
   def working?

@@ -1,11 +1,16 @@
 <%= form_with model: bot,
               url: path,
               method: method,
-              class: "widget",
-              data: { controller: "form--submit form--submit-after-delay form--move-cursor-to-end", turbo_stream: true } do |f| %>
+              class: "widget #{bot.price_limited? ? "bot-settings--active" : "bot-settings--inactive"}",
+              data: {
+                controller: "class-toggle form--submit form--submit-after-delay form--move-cursor-to-end",
+                class_toggle_target: "togglable",
+                class_toggle_toggle_classes_value: ["bot-settings--active", "bot-settings--inactive"],
+                turbo_stream: true
+              } do |f| %>
   <div class="toggle-group">
     <div class="toggle">
-      <%= f.check_box :price_limited, data: { action: "change->form--submit#submit" }, disabled: bot.working? %>
+      <%= f.check_box :price_limited, data: { action: "change->form--submit#submit change->class-toggle#toggle" }, disabled: bot.working? %>
       <div class="toggle__style"></div>
     </div>
     <div class="toggle-group__info">
@@ -32,8 +37,8 @@
             <% value = bot.price_limit.present? ? bot.price_limit.to_d.to_s('F').sub(/^(?!0\.0$)([1-9]\d*)\.0$/, '\1') : nil %>
             <%= f.number_field :price_limit, value: value, class: 'sinput numeric-input', step: :any, size: 3, data: { controller: "autowidth-input", action: "input->form--submit-after-delay#submit input->autowidth-input#resize", form__move_cursor_to_end_target: "input" }, style: "margin-left: 0.125rem; width: 50px;", disabled: bot.working? %>
           <% end %>
-          <%= t("bot.settings.extra_price_limit.sentence_html", timing_condition: timing_condition_html.html_safe, value_condition: value_condition_html.html_safe, value: value_html.html_safe, base: base_html.html_safe, quote: bot.quote_asset.symbol).html_safe %>
-          <%= render partial: "bots/settings/price_limit_info", locals: { bot: bot } %>
+          <%= t("bot.settings.extra_price_limit.sentence_html", timing_condition_html: timing_condition_html.html_safe, value_condition_html: value_condition_html.html_safe, value_html: value_html.html_safe, base_html: base_html.html_safe, quote: bot.quote_asset.symbol).html_safe %>
+          <%= render partial: "bots/settings/price_limit_info", locals: { bot: bot, info: bot.price_limit_info_from_cache } %>
         <% end %>
       </div>
     </div>

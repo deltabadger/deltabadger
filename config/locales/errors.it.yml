@@ -22,6 +22,10 @@ it:
                         price_limit:
                             not_a_number: "Devi specificare un prezzo"
                             greater_than_or_equal_to: "Il prezzo deve essere maggiore o uguale a 0"
+                        price_drop_limit:
+                            not_a_number: "Devi specificare un valore di calo del prezzo"
+                            greater_than_or_equal_to: "Il valore di calo del prezzo deve essere maggiore o uguale a 0"
+                            less_than_or_equal_to: "Il valore di calo del prezzo deve essere minore o uguale a 100"
                         indicator_limit:
                             not_a_number: "Devi specificare il valore di %{indicator}"
                         quote_amount:
