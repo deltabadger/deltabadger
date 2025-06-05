@@ -197,6 +197,12 @@ ru:
                 value_condition:
                     above: "выше"
                     below: "ниже"
+            extra_price_drop_limit:
+                sentence_html: "Начать покупать, когда цена %{base_html} упадет на %{value_html}% от своего %{time_window_condition_html}"
+                price_drop_info: "Текущий %{time_window_condition} %{base} составляет %{condition_high} %{quote}."
+                time_window_condition:
+                    ath: "исторического максимума"
+                    twenty_four_hours: "24-часового максимума"
             extra_indicator_limit:
                 sentence_html: "<span>%{timing_condition_html}</span> когда <span>%{indicator_html}</span> на дневных свечах <span>%{ticker_html}</span> <span>%{value_condition_html} %{value_html}</span>"
                 indicator_info: "Текущий %{indicator} на дневных свечах %{ticker} составляет %{value}"
