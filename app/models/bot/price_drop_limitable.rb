@@ -21,6 +21,7 @@ module Bot::PriceDropLimitable
     before_save :set_price_drop_limit_enabled_at, if: :will_save_change_to_settings?
     before_save :set_price_drop_limit_condition_met_at, if: :will_save_change_to_settings?
     before_save :set_price_drop_limit_in_ticker_id, if: :will_save_change_to_exchange_id?
+    before_save :reset_price_drop_limit_info_cache, if: :will_save_change_to_settings?
 
     validates :price_drop_limited, inclusion: { in: [true, false] }
     validates :price_drop_limit,
@@ -115,11 +116,17 @@ module Bot::PriceDropLimitable
     return high_result if high_result.failure?
 
     if price_drop_limit_time_window_condition_satisfied?(price_result.data, high_result.data)
-      self.price_drop_limit_condition_met_at ||= Time.current
+      if price_drop_limit_condition_met_at.nil?
+        update!(price_drop_limit_condition_met_at: Time.current)
+        broadcast_price_drop_limit_info_update
+      end
       Result::Success.new(true)
     else
-      set_missed_quote_amount
-      self.price_drop_limit_condition_met_at = nil
+      if price_drop_limit_condition_met_at.present?
+        set_missed_quote_amount
+        update!(price_drop_limit_condition_met_at: nil)
+        broadcast_price_drop_limit_info_update
+      end
       Result::Success.new(false)
     end
   end
@@ -160,6 +167,14 @@ module Bot::PriceDropLimitable
 
   def price_drop_limit_info_cache_key
     "bot_#{id}_price_drop_limit_info"
+  end
+
+  def reset_price_drop_limit_info_cache
+    return if price_drop_limit_was == price_drop_limit &&
+              price_drop_limit_time_window_condition_was == price_drop_limit_time_window_condition &&
+              price_drop_limit_in_ticker_id_was == price_drop_limit_in_ticker_id
+
+    Rails.cache.delete(price_drop_limit_info_cache_key)
   end
 
   def timing_condition_satisfied?
