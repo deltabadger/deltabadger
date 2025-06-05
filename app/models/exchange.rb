@@ -18,6 +18,7 @@ class Exchange < ApplicationRecord
                                  } # FIXME: Temporary until all exchanges are supported
 
   include RemoteDataAggregator
+  include CandleBuilder
 
   after_initialize :include_exchange_implementation
 

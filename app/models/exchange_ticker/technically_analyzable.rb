@@ -7,7 +7,7 @@ module ExchangeTicker::TechnicallyAnalyzable
     rsi_value = Rails.cache.fetch(cache_key, expires_in: expires_in) do
       # Although RSI only "needs" 14 candles the calculation actually accounts for previous gains/losses.
       # A slice of 10 * period candles gives a good ratio between accuracy and performance.
-      since = Time.now.utc.beginning_of_day - (10 * period * timeframe)
+      since = Time.now.utc - (10 * period * timeframe)
       result = get_candles(
         start_at: since,
         timeframe: timeframe
