@@ -127,7 +127,43 @@ module Bot::IndicatorLimitable
     end
   end
 
+  def broadcast_indicator_limit_info_update
+    ticker = tickers.find_by(id: indicator_limit_in_ticker_id)
+    return if ticker.nil?
+
+    indicator_value_result = get_indicator_value(ticker)
+    return if indicator_value_result.failure?
+    return unless indicator_value_result.data.present?
+
+    condition_met_result = get_indicator_limit_condition_met?
+    return if condition_met_result.failure?
+
+    info = Rails.cache.fetch(indicator_limit_info_cache_key, expires_in: 20.seconds) do
+      {
+        base: ticker.base_asset.symbol,
+        quote: ticker.quote_asset.symbol,
+        value: indicator_value_result.data.round(2),
+        condition_met: condition_met_result.data
+      }
+    end
+
+    broadcast_replace_to(
+      ["user_#{user_id}", :bot_updates],
+      target: new_record? ? 'new-settings-indicator-limit-info' : 'settings-indicator-limit-info',
+      partial: 'bots/settings/indicator_limit_info',
+      locals: { bot: self, info: info }
+    )
+  end
+
+  def indicator_limit_info_from_cache
+    Rails.cache.read(indicator_limit_info_cache_key)
+  end
+
   private
+
+  def indicator_limit_info_cache_key
+    "bot_#{id}_indicator_limit_info"
+  end
 
   def timing_condition_satisfied?
     indicator_limit_timing_condition == 'after' && indicator_limit_condition_met_at.present?
