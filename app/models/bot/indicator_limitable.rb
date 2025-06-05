@@ -23,6 +23,7 @@ module Bot::IndicatorLimitable
     before_save :set_indicator_limit_enabled_at, if: :will_save_change_to_settings?
     before_save :set_indicator_limit_condition_met_at, if: :will_save_change_to_settings?
     before_save :set_indicator_limit_in_ticker_id, if: :will_save_change_to_exchange_id?
+    before_save :reset_indicator_limit_info_cache, if: :will_save_change_to_settings?
 
     validates :indicator_limited, inclusion: { in: [true, false] }
     validates :indicator_limit, numericality: {
@@ -118,11 +119,17 @@ module Bot::IndicatorLimitable
     return result if result.failure?
 
     if indicator_condition_satisfied?(result.data)
-      self.indicator_limit_condition_met_at ||= Time.current
+      if indicator_limit_condition_met_at.nil?
+        update!(indicator_limit_condition_met_at: Time.current)
+        broadcast_indicator_limit_info_update
+      end
       Result::Success.new(true)
     else
-      set_missed_quote_amount
-      self.indicator_limit_condition_met_at = nil
+      if indicator_limit_condition_met_at.present?
+        set_missed_quote_amount
+        update!(indicator_limit_condition_met_at: nil)
+        broadcast_indicator_limit_info_update
+      end
       Result::Success.new(false)
     end
   end
@@ -163,6 +170,22 @@ module Bot::IndicatorLimitable
 
   def indicator_limit_info_cache_key
     "bot_#{id}_indicator_limit_info"
+  end
+
+  def reset_indicator_limit_info_cache
+    return if indicator_limit_was == indicator_limit &&
+              indicator_limit_value_condition_was == indicator_limit_value_condition &&
+              indicator_limit_in_ticker_id_was == indicator_limit_in_ticker_id &&
+              indicator_limit_in_indicator_was == indicator_limit_in_indicator &&
+              indicator_limit_in_timeframe_was == indicator_limit_in_timeframe
+
+    puts "indicator_limit: #{indicator_limit_was} -> #{indicator_limit}"
+    puts "indicator_limit_value_condition: #{indicator_limit_value_condition_was} -> #{indicator_limit_value_condition}"
+    puts "indicator_limit_in_ticker_id: #{indicator_limit_in_ticker_id_was} -> #{indicator_limit_in_ticker_id}"
+    puts "indicator_limit_in_indicator: #{indicator_limit_in_indicator_was} -> #{indicator_limit_in_indicator}"
+    puts "indicator_limit_in_timeframe: #{indicator_limit_in_timeframe_was} -> #{indicator_limit_in_timeframe}"
+
+    Rails.cache.delete(indicator_limit_info_cache_key)
   end
 
   def timing_condition_satisfied?
