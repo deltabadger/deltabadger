@@ -42,6 +42,12 @@ module BotHelper
     end.sort_by(&:first)
   end
 
+  def indicator_limit_timeframe_select_options
+    Bot::IndicatorLimitable::INDICATOR_LIMIT_TIMEFRAMES
+      .sort_by { |_, duration| duration }
+      .map { |locale_key, _| [t("bot.settings.extra_indicator_limit.timeframe.#{locale_key}"), locale_key] }
+  end
+
   def indicator_limit_timing_condition_select_options(bot)
     return [] unless defined?(bot.class::INDICATOR_LIMIT_TIMING_CONDITIONS)
 
