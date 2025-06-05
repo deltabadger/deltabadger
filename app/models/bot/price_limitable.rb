@@ -20,6 +20,7 @@ module Bot::PriceLimitable
     before_save :set_price_limit_enabled_at, if: :will_save_change_to_settings?
     before_save :set_price_limit_condition_met_at, if: :will_save_change_to_settings?
     before_save :set_price_limit_in_ticker_id, if: :will_save_change_to_exchange_id?
+    before_save :reset_price_limit_info_cache, if: :will_save_change_to_settings?
 
     validates :price_limited, inclusion: { in: [true, false] }
     validates :price_limit, numericality: { greater_than_or_equal_to: 0 }, if: :price_limited?
@@ -102,16 +103,66 @@ module Bot::PriceLimitable
     return result if result.failure?
 
     if value_condition_satisfied?(result.data)
-      self.price_limit_condition_met_at ||= Time.current
+      if price_limit_condition_met_at.nil?
+        update!(price_limit_condition_met_at: Time.current)
+        broadcast_price_limit_info_update
+      end
       Result::Success.new(true)
     else
-      set_missed_quote_amount
-      self.price_limit_condition_met_at = nil
+      if price_limit_condition_met_at.present?
+        set_missed_quote_amount
+        update!(price_limit_condition_met_at: nil)
+        broadcast_price_limit_info_update
+      end
       Result::Success.new(false)
     end
   end
 
+  def broadcast_price_limit_info_update
+    ticker = tickers.find_by(id: price_limit_in_ticker_id)
+    return if ticker.nil?
+
+    price_result = ticker.get_last_price
+    return if price_result.failure?
+    return unless price_result.data.present?
+
+    condition_met_result = get_price_limit_condition_met?
+    return if condition_met_result.failure?
+
+    info = Rails.cache.fetch(price_limit_info_cache_key, expires_in: 20.seconds) do
+      {
+        base: ticker.base_asset.symbol,
+        quote: ticker.quote_asset.symbol,
+        price: price_result.data.round(decimals[:quote]),
+        condition_met: condition_met_result.data
+      }
+    end
+
+    broadcast_replace_to(
+      ["user_#{user_id}", :bot_updates],
+      target: new_record? ? 'new-settings-price-limit-info' : 'settings-price-limit-info',
+      partial: 'bots/settings/price_limit_info',
+      locals: { bot: self, info: info }
+    )
+  end
+
+  def price_limit_info_from_cache
+    Rails.cache.read(price_limit_info_cache_key)
+  end
+
   private
+
+  def price_limit_info_cache_key
+    "bot_#{id}_price_limit_info"
+  end
+
+  def reset_price_limit_info_cache
+    return if price_limit_was == price_limit &&
+              price_limit_value_condition_was == price_limit_value_condition &&
+              price_limit_in_ticker_id_was == price_limit_in_ticker_id
+
+    Rails.cache.delete(price_limit_info_cache_key)
+  end
 
   def timing_condition_satisfied?
     price_limit_timing_condition == 'after' && price_limit_condition_met_at.present?
@@ -128,12 +179,12 @@ module Bot::PriceLimitable
     end
   end
 
-  def initialize_price_limitable_settings
+  def initialize_price_limitable_settings # rubocop:disable Metrics/CyclomaticComplexity,Metrics/PerceivedComplexity
     self.price_limited ||= false
     self.price_limit ||= nil
     self.price_limit_timing_condition ||= 'while'
     self.price_limit_value_condition ||= 'below'
-    self.price_limit_in_ticker_id ||= set_price_limit_in_ticker_id
+    self.price_limit_in_ticker_id ||= tickers&.sort_by { |t| t[:base] }&.first&.id
   end
 
   def set_price_limit_enabled_at
@@ -148,8 +199,16 @@ module Bot::PriceLimitable
     self.price_limit_condition_met_at = nil
   end
 
-  def set_price_limit_in_ticker_id
-    self.price_limit_in_ticker_id = tickers&.sort_by { |t| t[:base] }&.first&.id
+  def set_price_limit_in_ticker_id # rubocop:disable Metrics/CyclomaticComplexity,Metrics/PerceivedComplexity
+    if price_limit_in_ticker_id_was.present? && exchange_id_was.present? && exchange_id_was != exchange_id
+      ticker_was = ExchangeTicker.find_by(id: price_limit_in_ticker_id_was)
+      self.price_limit_in_ticker_id = tickers&.find_by(
+        base_asset_id: ticker_was.base_asset_id,
+        quote_asset_id: ticker_was.quote_asset_id
+      )&.id
+    else
+      self.price_limit_in_ticker_id = tickers&.sort_by { |t| t[:base] }&.first&.id
+    end
   end
 
   def cancel_scheduled_price_limit_check_jobs

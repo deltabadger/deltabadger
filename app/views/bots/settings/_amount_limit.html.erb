@@ -1,11 +1,14 @@
 <%= form_with model: bot,
               url: path,
               method: method,
-              class: "widget",
-              data: { controller: "form--submit form--submit-after-delay form--move-cursor-to-end", turbo_stream: true } do |f| %>
+              class: "widget #{bot.quote_amount_limited? ? "bot-settings--active" : "bot-settings--inactive"}",
+              data: { controller: "class-toggle form--submit form--submit-after-delay form--move-cursor-to-end",
+                      class_toggle_target: "togglable",
+                      class_toggle_toggle_classes_value: ["bot-settings--active", "bot-settings--inactive"],
+                      turbo_stream: true } do |f| %>
   <div class="toggle-group">
     <div class="toggle">
-      <%= f.check_box :quote_amount_limited, data: { action: "change->form--submit#submit" }, disabled: bot.working? %>
+      <%= f.check_box :quote_amount_limited, data: { action: "change->form--submit#submit change->class-toggle#toggle" }, disabled: bot.working? %>
       <div class="toggle__style"></div>
     </div>
     <div class="toggle-group__info">

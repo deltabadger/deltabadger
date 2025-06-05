@@ -28,6 +28,14 @@ module BotHelper
     end
   end
 
+  def price_drop_limit_time_window_condition_select_options(bot)
+    return [] unless defined?(bot.class::PRICE_DROP_LIMIT_TIME_WINDOW_CONDITIONS)
+
+    bot.class::PRICE_DROP_LIMIT_TIME_WINDOW_CONDITIONS.keys.map do |condition|
+      [t("bot.settings.extra_price_drop_limit.time_window_condition.#{condition}"), condition]
+    end
+  end
+
   def base_select_options(bot)
     bot.tickers.pluck(:base_asset_id, :id).map do |base_asset_id, id|
       [Asset.find(base_asset_id).symbol, id]
