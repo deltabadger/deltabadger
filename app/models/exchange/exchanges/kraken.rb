@@ -175,10 +175,13 @@ module Exchange::Exchanges::Kraken
       15.minutes => 15,
       30.minutes => 30,
       1.hour => 60,
-      4.hours => 240, # unique to kraken
+      4.hours => 240,
       1.day => 1440,
-      1.week => 10_080, # unique to kraken
-      15.days => 21_600 # unique to kraken
+      3.days => 1440,
+      1.week => 1440,
+      1.month => 1440
+      # 1.week => 10_080,
+      # 15.days => 21_600
     }
     interval = intervals[timeframe]
 
@@ -205,6 +208,10 @@ module Exchange::Exchanges::Kraken
       ]
       candles << new_candle if new_candle[0] >= start_at
     end
+
+    candles = build_candles_from_candles(candles: candles, timeframe: timeframe) if timeframe.in?([3.days,
+                                                                                                   1.week,
+                                                                                                   1.month])
 
     Result::Success.new(candles)
   end

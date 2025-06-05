@@ -43,7 +43,8 @@ class Bots::DcaDualAssets::ConfirmSettingsController < ApplicationController
       :indicator_limit_timing_condition,
       :indicator_limit_value_condition,
       :indicator_limit_in_ticker_id,
-      :indicator_limit_in_indicator
+      :indicator_limit_in_indicator,
+      :indicator_limit_in_timeframe
     )
   end
 end
