@@ -27,7 +27,8 @@
               <%= f.select :price_limit_in_ticker_id, base_select_options, { selected: bot.price_limit_in_ticker_id }, data: { action: "change->form--submit#submit" } %>
             <% end %>
           <% else %>
-            <% base_html = base_select_options.first.first %>
+            <%# base_html = base_select_options.first.first %>
+            <% base_html = "" %>
           <% end %>
           <% value_condition_html = content_tag(:div, class: "sinput sinput--select") do %>
             <%= t("bot.settings.extra_price_limit.value_condition.#{bot.price_limit_value_condition}") %>
