@@ -16,7 +16,7 @@ class BroadcastsController < ApplicationController
   end
 
   def price_limit_info_update
-    bot = Bot.find(params['bot_id'])
+    bot = Bot.find_by(id: params['bot_id'])
     return if bot.nil?
 
     Bot::BroadcastPriceLimitInfoUpdateJob.perform_later(bot)
@@ -24,7 +24,7 @@ class BroadcastsController < ApplicationController
   end
 
   def price_drop_limit_info_update
-    bot = Bot.find(params['bot_id'])
+    bot = Bot.find_by(id: params['bot_id'])
     return if bot.nil?
 
     Bot::BroadcastPriceDropLimitInfoUpdateJob.perform_later(bot)
@@ -32,7 +32,7 @@ class BroadcastsController < ApplicationController
   end
 
   def indicator_limit_info_update
-    bot = Bot.find(params['bot_id'])
+    bot = Bot.find_by(id: params['bot_id'])
     return if bot.nil?
 
     Bot::BroadcastIndicatorLimitInfoUpdateJob.perform_later(bot)

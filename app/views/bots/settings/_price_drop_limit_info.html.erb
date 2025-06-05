@@ -1,4 +1,4 @@
-<% if bot.price_drop_limited? && bot.price_drop_limit.present? %>
+<% if bot.id.present? && bot.price_drop_limited? && bot.price_drop_limit.present? %>
   <small id="<%= bot.new_record? ? "new-settings-price-drop-limit-info" : "settings-price-drop-limit-info" %>" class="small-info">
     <% if info.nil? %>
       <%= tag.div data: {
