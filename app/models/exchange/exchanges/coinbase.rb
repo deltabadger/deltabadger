@@ -158,9 +158,13 @@ module Exchange::Exchanges::Coinbase
       15.minutes => 'FIFTEEN_MINUTE',
       30.minutes => 'THIRTY_MINUTE',
       1.hour => 'ONE_HOUR',
-      2.hours => 'TWO_HOUR', # unique to coinbase
-      6.hours => 'SIX_HOUR', # unique to coinbas
-      1.day => 'ONE_DAY'
+      4.hours => 'TWO_HOUR',
+      1.day => 'ONE_DAY',
+      3.days => 'ONE_DAY',
+      1.week => 'ONE_DAY',
+      1.month => 'ONE_DAY'
+      # 2.hours => 'TWO_HOUR',
+      # 6.hours => 'SIX_HOUR',
     }
     granularity = granularities[timeframe]
 
@@ -191,6 +195,11 @@ module Exchange::Exchanges::Coinbase
 
       start_at = candles.empty? ? end_time : candles.last[0] + 1.second
     end
+
+    candles = build_candles_from_candles(candles: candles, timeframe: timeframe) if timeframe.in?(4.hours,
+                                                                                                  3.days,
+                                                                                                  1.week,
+                                                                                                  1.month)
 
     Result::Success.new(candles)
   end
