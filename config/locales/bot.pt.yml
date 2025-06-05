@@ -189,6 +189,12 @@ pt:
                 value_condition:
                     above: "superior a"
                     below: "inferior a"
+            extra_price_drop_limit:
+                sentence_html: "Começar a comprar quando o preço de %{base_html} cair %{value_html}% do seu %{time_window_condition_html}"
+                price_drop_info: "O %{time_window_condition} atual de %{base} é %{condition_high} %{quote}."
+                time_window_condition:
+                    ath: "máximo histórico"
+                    twenty_four_hours: "máximo de 24h"
             extra_indicator_limit:
                 sentence_html: "<span>%{timing_condition_html}</span> quando o <span>%{indicator_html}</span> em velas diárias de <span>%{ticker_html}</span> estiver <span>%{value_condition_html} %{value_html}</span>"
                 indicator_info: "O %{indicator} atual em velas diárias de %{ticker} é %{value}"

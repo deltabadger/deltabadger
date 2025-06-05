@@ -199,6 +199,12 @@ fr:
                 value_condition:
                     above: "au-dessus de"
                     below: "en dessous de"
+            extra_price_drop_limit:
+                sentence_html: "Commencer à acheter lorsque le prix de %{base_html} chute de %{value_html}% depuis son %{time_window_condition_html}"
+                price_drop_info: "Le %{time_window_condition} actuel de %{base} est %{condition_high} %{quote}."
+                time_window_condition:
+                    ath: "plus haut historique"
+                    twenty_four_hours: "plus haut sur 24h"
             extra_indicator_limit:
                 sentence_html: "<span>%{timing_condition_html}</span> quand le <span>%{indicator_html}</span> sur <span>bougies</span> journalières <span>de</span> %{ticker_html} <span>est</span> <span>%{value_condition_html} %{value_html}</span>"
                 indicator_info: "Le %{indicator} actuel sur bougies journalières de %{ticker} est %{value}"
