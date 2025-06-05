@@ -21,14 +21,13 @@ module Exchange::CandleBuilder
   private
 
   def grouped_candles(candles, timeframe)
-    timeframe_seconds = timeframe.to_i
-
     candles.group_by do |candle|
-      if timeframe_seconds == 1.week.to_i
+      if timeframe == 1.week
         candle[0].beginning_of_week
-      elsif timeframe_seconds == 1.month.to_i
+      elsif timeframe == 1.month
         candle[0].beginning_of_month
       else
+        timeframe_seconds = timeframe.to_i
         timestamp = candle[0].to_i
         period_start = (timestamp / timeframe_seconds) * timeframe_seconds
         Time.at(period_start).utc
