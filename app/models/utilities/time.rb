@@ -18,9 +18,17 @@ module Utilities
     end
 
     def self.seconds_to_next_candle_open(timeframe)
-      raise "Missing implementation for #{timeframe.inspect}" unless timeframe <= 1.day
-
-      timeframe.seconds - (::Time.now.utc.to_f % timeframe.to_f)
+      if timeframe == 1.month
+        ::Time.now.utc.end_of_month - ::Time.now.utc
+      elsif timeframe == 1.week
+        ::Time.now.utc.end_of_week - ::Time.now.utc
+      else
+        timeframe_seconds = timeframe.to_i
+        timestamp = ::Time.now.utc.to_i
+        period_start = (timestamp / timeframe_seconds) * timeframe_seconds
+        period_end = period_start + timeframe_seconds
+        ::Time.at(period_end).utc - ::Time.now.utc
+      end
     end
   end
 end

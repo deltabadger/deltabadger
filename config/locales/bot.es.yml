@@ -185,7 +185,7 @@ es:
         settings:
             smart_intervals:
                 split_in_orders_html: '<b>Smart Intervals<sup>®</sup></b> Divide <span>la</span> cantidad <span>en</span> unidades <span>de</span> <span>%{amount_html} %{quote}</span>'
-                split_info: "Dividir tus %{quote_amount} %{quote} / %{interval} en unidades más pequeñas de %{amount} %{quote} resultará en una inversión cada %{smart_interval}"
+                split_info: "Dividir tus %{quote_amount} %{quote} / %{interval} en unidades de %{amount} %{quote} resultará en una inversión cada %{smart_interval}"
             extra_amount_limit:
                 dont_spend_more_than: "No gastar más de"
                 amount_left: "(%{amount} %{symbol} restante)"
@@ -206,11 +206,18 @@ es:
                     ath: "máximo histórico"
                     twenty_four_hours: "máximo de 24h"
             extra_indicator_limit:
-                sentence_html: "<span>%{timing_condition_html}</span> cuando el <span>%{indicator_html}</span> en <span>velas</span> diarias <span>de</span> <span>%{ticker_html}</span> esté <span>%{value_condition_html} %{value_html}</span>"
+                sentence_html: "<span>%{timing_condition_html}</span> cuando el <span>%{indicator_html}</span> de <span>%{ticker_html}</span> en <span>velas</span> <span>de</span> <span>%{timeframe_html}</span> esté <span>%{value_condition_html} de %{value_html}</span>"
                 indicator_info: "El %{indicator} actual en velas diarias de %{ticker} es %{value}"
                 timing_condition:
                     while: "Comprar solo"
                     after: "Empezar a comprar"
                 value_condition:
-                    above: "sobre"
-                    below: "bajo"
+                    above: "por encima"
+                    below: "por debajo"
+                timeframe:
+                    one_hour: "1 Hora"
+                    four_hours: "4 Horas"
+                    one_day: "1 Día"
+                    three_days: "3 Días"
+                    one_week: "1 Semana"
+                    one_month: "1 Mes"
