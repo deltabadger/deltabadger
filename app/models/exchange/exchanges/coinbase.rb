@@ -196,10 +196,10 @@ module Exchange::Exchanges::Coinbase
       start_at = candles.empty? ? end_time : candles.last[0] + 1.second
     end
 
-    candles = build_candles_from_candles(candles: candles, timeframe: timeframe) if timeframe.in?(4.hours,
-                                                                                                  3.days,
-                                                                                                  1.week,
-                                                                                                  1.month)
+    candles = build_candles_from_candles(candles: candles, timeframe: timeframe) if timeframe.in?([4.hours,
+                                                                                                   3.days,
+                                                                                                   1.week,
+                                                                                                   1.month])
 
     Result::Success.new(candles)
   end

@@ -4,6 +4,14 @@ module Bot::IndicatorLimitable
   INDICATOR_LIMIT_TIMING_CONDITIONS = %w[while after].freeze
   INDICATOR_LIMIT_VALUE_CONDITIONS = %w[above below].freeze
   INDICATOR_LIMIT_INDICATORS = %w[rsi].freeze
+  INDICATOR_LIMIT_TIMEFRAMES = {
+    'one_hour' => 1.hour,
+    'four_hours' => 4.hours,
+    'one_day' => 1.day,
+    'three_days' => 3.days,
+    'one_week' => 1.week,
+    'one_month' => 1.month
+  }.freeze
 
   included do # rubocop:disable Metrics/BlockLength
     store_accessor :settings,
@@ -35,7 +43,7 @@ module Bot::IndicatorLimitable
     validates :indicator_limit_timing_condition, inclusion: { in: INDICATOR_LIMIT_TIMING_CONDITIONS }
     validates :indicator_limit_value_condition, inclusion: { in: INDICATOR_LIMIT_VALUE_CONDITIONS }
     validates :indicator_limit_in_indicator, inclusion: { in: INDICATOR_LIMIT_INDICATORS }
-    validates :indicator_limit_in_timeframe, inclusion: { in: [1.day] }
+    validates :indicator_limit_in_timeframe, inclusion: { in: INDICATOR_LIMIT_TIMEFRAMES.keys }
 
     decorators = Module.new do
       def parsed_settings(settings_hash)
@@ -45,7 +53,8 @@ module Bot::IndicatorLimitable
           indicator_limit_timing_condition: settings_hash[:indicator_limit_timing_condition].presence,
           indicator_limit_value_condition: settings_hash[:indicator_limit_value_condition].presence,
           indicator_limit_in_ticker_id: settings_hash[:indicator_limit_in_ticker_id].presence&.to_i,
-          indicator_limit_in_indicator: settings_hash[:indicator_limit_in_indicator].presence
+          indicator_limit_in_indicator: settings_hash[:indicator_limit_in_indicator].presence,
+          indicator_limit_in_timeframe: settings_hash[:indicator_limit_in_timeframe].presence
         ).compact
       end
 
@@ -57,7 +66,7 @@ module Bot::IndicatorLimitable
           super
         else
           update!(status: :waiting)
-          next_check_at = Time.now.utc + Utilities::Time.seconds_to_next_candle_open(indicator_limit_in_timeframe)
+          next_check_at = Time.now.utc + Utilities::Time.seconds_to_next_candle_open(indicator_limit_in_timeframe_duration)
           Bot::IndicatorLimitCheckJob.set(wait_until: next_check_at).perform_later(self)
           Result::Success.new({ break_reschedule: true })
         end
@@ -99,9 +108,8 @@ module Bot::IndicatorLimitable
     value.present? ? Time.zone.parse(value) : nil
   end
 
-  def indicator_limit_in_timeframe
-    value = super
-    value.present? ? value.seconds : nil
+  def indicator_limit_in_timeframe_duration
+    INDICATOR_LIMIT_TIMEFRAMES[indicator_limit_in_timeframe]
   end
 
   def indicator_limited?
@@ -179,12 +187,6 @@ module Bot::IndicatorLimitable
               indicator_limit_in_indicator_was == indicator_limit_in_indicator &&
               indicator_limit_in_timeframe_was == indicator_limit_in_timeframe
 
-    puts "indicator_limit: #{indicator_limit_was} -> #{indicator_limit}"
-    puts "indicator_limit_value_condition: #{indicator_limit_value_condition_was} -> #{indicator_limit_value_condition}"
-    puts "indicator_limit_in_ticker_id: #{indicator_limit_in_ticker_id_was} -> #{indicator_limit_in_ticker_id}"
-    puts "indicator_limit_in_indicator: #{indicator_limit_in_indicator_was} -> #{indicator_limit_in_indicator}"
-    puts "indicator_limit_in_timeframe: #{indicator_limit_in_timeframe_was} -> #{indicator_limit_in_timeframe}"
-
     Rails.cache.delete(indicator_limit_info_cache_key)
   end
 
@@ -206,7 +208,10 @@ module Bot::IndicatorLimitable
   def get_indicator_value(ticker)
     case indicator_limit_in_indicator
     when 'rsi'
-      ticker.get_rsi_value(timeframe: indicator_limit_in_timeframe, period: 14)
+      ticker.get_rsi_value(
+        timeframe: INDICATOR_LIMIT_TIMEFRAMES[indicator_limit_in_timeframe],
+        period: 14
+      )
     else
       raise "Unknown indicator: #{indicator_limit_in_indicator}"
     end
@@ -219,7 +224,7 @@ module Bot::IndicatorLimitable
     self.indicator_limit_value_condition ||= 'below'
     self.indicator_limit_in_ticker_id ||= tickers&.sort_by { |t| t[:base] }&.first&.id
     self.indicator_limit_in_indicator ||= 'rsi'
-    self.indicator_limit_in_timeframe ||= 1.day
+    self.indicator_limit_in_timeframe ||= 'one_day'
   end
 
   def set_indicator_limit_enabled_at
