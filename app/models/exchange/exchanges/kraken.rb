@@ -209,9 +209,9 @@ module Exchange::Exchanges::Kraken
       candles << new_candle if new_candle[0] >= start_at
     end
 
-    candles = build_candles_from_candles(candles: candles, timeframe: timeframe) if timeframe.in?(3.days,
-                                                                                                  1.week,
-                                                                                                  1.month)
+    candles = build_candles_from_candles(candles: candles, timeframe: timeframe) if timeframe.in?([3.days,
+                                                                                                   1.week,
+                                                                                                   1.month])
 
     Result::Success.new(candles)
   end

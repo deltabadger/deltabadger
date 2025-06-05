@@ -10,9 +10,9 @@ task update_barbell_bots_settings: :environment do
     # settings.delete('price_limit_in_asset_id') if settings['price_limit_in_asset_id'].present?
     # settings.delete('price_limit_vs_currency') if settings['price_limit_vs_currency'].present?
 
-    if settings['price_limit_price_condition'].present?
-      settings['price_limit_value_condition'] = settings['price_limit_price_condition']
-      settings.delete('price_limit_price_condition')
+    if settings['indicator_limit_in_timeframe'].present?
+      settings['indicator_limit_in_timeframe'] = 'one_day'
+      # settings.delete('indicator_limit_in_timeframe')
     end
 
     bot.set_missed_quote_amount
