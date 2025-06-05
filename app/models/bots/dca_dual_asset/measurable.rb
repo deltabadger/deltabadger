@@ -44,10 +44,16 @@ module Bots::DcaDualAsset::Measurable
       data[:base0_pnl] = calculate_pnl(data[:base0_total_quote_amount_invested], data[:total_base0_amount_value_in_quote])
       data[:base1_pnl] = calculate_pnl(data[:base1_total_quote_amount_invested], data[:total_base1_amount_value_in_quote])
       data[:pnl] = calculate_pnl(data[:total_quote_amount_invested], data[:total_amount_value_in_quote])
-      data[:base0_average_buy_rate] =
-        Utilities::Math.weighted_average(totals[:rates][base0_asset_id], totals[:amounts][base0_asset_id])
-      data[:base1_average_buy_rate] =
-        Utilities::Math.weighted_average(totals[:rates][base1_asset_id], totals[:amounts][base1_asset_id])
+      if totals[:amounts][base0_asset_id].sum.positive?
+        data[:base0_average_buy_rate] =
+          Utilities::Math.weighted_average(totals[:rates][base0_asset_id],
+                                           totals[:amounts][base0_asset_id])
+      end
+      if totals[:amounts][base1_asset_id].sum.positive?
+        data[:base1_average_buy_rate] =
+          Utilities::Math.weighted_average(totals[:rates][base1_asset_id],
+                                           totals[:amounts][base1_asset_id])
+      end
 
       data
     end
