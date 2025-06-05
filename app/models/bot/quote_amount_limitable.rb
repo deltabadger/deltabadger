@@ -1,7 +1,7 @@
 module Bot::QuoteAmountLimitable
   extend ActiveSupport::Concern
 
-  included do
+  included do # rubocop:disable Metrics/BlockLength
     store_accessor :settings,
                    :quote_amount_limited,
                    :quote_amount_limit
@@ -16,6 +16,7 @@ module Bot::QuoteAmountLimitable
     validates :quote_amount_limit,
               numericality: { greater_than_or_equal_to: ->(b) { b.minimum_quote_amount_limit } },
               if: :quote_amount_limited?
+    validate :validate_quote_amount_limitable_included_in_subscription_plan, on: :start
     validate :validate_quote_amount_limit_not_reached, if: :quote_amount_limited?, on: :start
 
     decorators = Module.new do
@@ -73,6 +74,13 @@ module Bot::QuoteAmountLimitable
   end
 
   private
+
+  def validate_quote_amount_limitable_included_in_subscription_plan
+    return unless quote_amount_limited?
+    return if user.subscription.paid?
+
+    errors.add(:user, :upgrade)
+  end
 
   def initialize_quote_amount_limitable_settings
     self.quote_amount_limited ||= false
