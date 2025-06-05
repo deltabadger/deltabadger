@@ -154,22 +154,24 @@ module Exchange::Exchanges::Coinbase
   def get_candles(ticker:, start_at:, timeframe:)
     granularities = {
       1.minute => 'ONE_MINUTE',
-      5.minutes => 'FIVE_MINUTES',
-      15.minutes => 'FIFTEEN_MINUTES',
-      30.minutes => 'THIRTY_MINUTES',
+      5.minutes => 'FIVE_MINUTE',
+      15.minutes => 'FIFTEEN_MINUTE',
+      30.minutes => 'THIRTY_MINUTE',
       1.hour => 'ONE_HOUR',
-      2.hours => 'TWO_HOUR',
-      6.hours => 'SIX_HOURS',
+      2.hours => 'TWO_HOUR', # unique to coinbase
+      6.hours => 'SIX_HOUR', # unique to coinbas
       1.day => 'ONE_DAY'
     }
     granularity = granularities[timeframe]
 
     candles = []
     loop do
+      now = Time.now.utc
+      end_time = [start_at + 350 * timeframe, now].min
       result = client.get_public_product_candles(
         product_id: ticker.ticker,
         start_time: start_at.to_i,
-        end_time: [start_at + 350 * timeframe, Time.now.utc].min.to_i,
+        end_time: end_time.to_i,
         granularity: granularity
       )
       return result if result.failure?
@@ -185,9 +187,9 @@ module Exchange::Exchanges::Coinbase
           candle['volume'].to_d
         ]
       end
-      break if raw_candles_list.empty?
+      break if end_time == now
 
-      start_at = candles.last[0] + 1.second
+      start_at = candles.empty? ? end_time : candles.last[0] + 1.second
     end
 
     Result::Success.new(candles)
