@@ -7,15 +7,17 @@
       </div>
     <% end %>
   <% else %>
-    <% if bot.restarting? %>
-      <%= button_to edit_bot_start_path(bot), method: :get, class: "button button--success", data: { hw_animate_out: "animate-button-to-stop-shape", turbo_frame: "modal" }, disabled: !bot.valid?(:start) || !bot.api_key.correct? do %>
+    <% if bot.invalid?(:start) && bot.errors.details.values.flatten.any? { |e| e[:error] == :upgrade } %>
+      <%= button_to t('subscriptions.upgrade'), upgrade_path, method: :get, class: 'button button--success', data: { action: 'click->modal--base#animateOutCloseAndCleanUp', turbo: false } %>
+    <% elsif bot.restarting? %>
+      <%= button_to edit_bot_start_path(bot), method: :get, class: "button button--success", data: { hw_animate_out: "animate-button-to-stop-shape", turbo_frame: "modal" }, disabled: bot.invalid?(:start) || !bot.api_key.correct? do %>
         <div class="animicon animicon--start">
           <div class="animicon__a"></div>
           <div class="animicon__b"></div>
         </div>
       <% end %>
     <% else %>
-      <%= button_to bot_start_path(bot, start_fresh: true), method: :patch, class: "button button--success", data: { hw_animate_out: "animate-button-to-stop-shape" }, disabled: !bot.valid?(:start) || !bot.api_key.correct? do %>
+      <%= button_to bot_start_path(bot, start_fresh: true), method: :patch, class: "button button--success", data: { hw_animate_out: "animate-button-to-stop-shape" }, disabled: bot.invalid?(:start) || !bot.api_key.correct? do %>
         <div class="animicon animicon--start">
           <div class="animicon__a"></div>
           <div class="animicon__b"></div>
