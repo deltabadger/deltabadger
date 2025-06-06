@@ -207,7 +207,7 @@ es:
                     twenty_four_hours: "máximo de 24h"
             extra_indicator_limit:
                 sentence_html: "<span>%{timing_condition_html}</span> cuando el <span>%{indicator_html}</span> en velas %{timeframe_html} de %{ticker_html} esté <span>%{value_condition_html} %{value_html}</span>"
-                indicator_info: "El %{indicator} en velas %{timeframe} de %{ticker} ahora es %{value}"
+                indicator_info: "El %{indicator} en el cierre de la última vela %{timeframe} de %{ticker} es %{value}"
                 timing_condition:
                     while: "Comprar solo"
                     after: "Empezar a comprar"
