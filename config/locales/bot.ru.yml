@@ -205,7 +205,7 @@ ru:
                     twenty_four_hours: "24-часового максимума"
             extra_indicator_limit:
                 sentence_html: "<span>%{timing_condition_html}</span> когда <span>%{indicator_html}</span> на %{timeframe_html} свечах %{ticker_html} <span>%{value_condition_html} %{value_html}</span>"
-                indicator_info: "Текущий %{indicator} на %{timeframe_html} свечах %{ticker} составляет %{value}"
+                indicator_info: "Текущий %{indicator} на %{timeframe} свечах %{ticker} составляет %{value}"
                 timing_condition:
                     while: "Покупать только"
                     after: "Начать покупать"
