@@ -190,7 +190,7 @@ module Bots::DcaSingleAsset::Measurable
     since = metrics[:chart][:labels].first + 1.second
     timeframe = optimal_candles_timeframe_for_duration(Time.now.utc - since)
     candles_cache_key = "#{ticker.id}_candles_#{since}_#{timeframe}"
-    expires_in = Utilities::Time.seconds_to_next_candle_open(timeframe)
+    expires_in = Utilities::Time.seconds_to_current_candle_close(timeframe)
     candles = Rails.cache.fetch(candles_cache_key, expires_in: expires_in) do
       result = ticker.get_candles(
         start_at: since,

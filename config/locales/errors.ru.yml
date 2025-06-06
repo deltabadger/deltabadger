@@ -28,6 +28,9 @@ ru:
                             less_than_or_equal_to: "Значение падения цены должно быть меньше или равно 100"
                         indicator_limit:
                             not_a_number: "Вы должны указать значение %{indicator}"
+                        moving_average_limit_in_period:
+                            not_a_number: "Вы должны указать период Скользящей Средней"
+                            greater_than: "Период Скользящей Средней должен быть больше 0"
                         quote_amount:
                             not_a_number: "Вы должны добавить сумму для инвестирования"
                             greater_than: "Инвестированная сумма должна быть больше 0"

@@ -205,7 +205,23 @@ ru:
                     twenty_four_hours: "24-часового максимума"
             extra_indicator_limit:
                 sentence_html: "<span>%{timing_condition_html}</span> когда <span>%{indicator_html}</span> на %{timeframe_html} свечах %{ticker_html} <span>%{value_condition_html} %{value_html}</span>"
-                indicator_info: "Текущий %{indicator} на %{timeframe} свечах %{ticker} составляет %{value}"
+                indicator_info: "%{indicator} на последнем закрытии %{timeframe} свечи %{ticker} составляет %{value}"
+                timing_condition:
+                    while: "Покупать только"
+                    after: "Начать покупать"
+                value_condition:
+                    above: "выше"
+                    below: "ниже"
+                timeframe:
+                    one_hour: "часовых"
+                    four_hours: "4-часовых"
+                    one_day: "дневных"
+                    three_days: "3-дневных"
+                    one_week: "недельных"
+                    one_month: "месячных"
+            extra_moving_average_limit:
+                sentence_html: "<span>%{timing_condition_html}</span> когда цена %{base} %{value_condition_html} <span>%{ma_html} %{ma_period_html}</span> на %{ticker_html} %{timeframe_html} <span>свечах</span>"
+                ma_info: "%{ma_type} %{ma_period} на последнем закрытии %{timeframe} свечи %{ticker} составляет %{value} %{quote}"
                 timing_condition:
                     while: "Покупать только"
                     after: "Начать покупать"

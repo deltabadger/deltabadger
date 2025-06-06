@@ -38,4 +38,12 @@ class BroadcastsController < ApplicationController
     Bot::BroadcastIndicatorLimitInfoUpdateJob.perform_later(bot)
     head :ok
   end
+
+  def moving_average_limit_info_update
+    bot = Bot.find_by(id: params['bot_id'])
+    return if bot.nil?
+
+    Bot::BroadcastMovingAverageLimitInfoUpdateJob.perform_later(bot)
+    head :ok
+  end
 end

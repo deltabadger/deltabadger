@@ -28,6 +28,9 @@ en:
                             less_than_or_equal_to: "The price drop value must be less than or equal to 100"
                         indicator_limit:
                             not_a_number: "You must specify the %{indicator} value"
+                        moving_average_limit_in_period:
+                            not_a_number: "You must specify the Moving Average period"
+                            greater_than: "The Moving Average period must be greater than 0"
                         quote_amount:
                             not_a_number: "You must add an amount to invest"
                             greater_than: "The invested amount must be greater than 0"
