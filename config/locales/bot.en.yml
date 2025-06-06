@@ -229,7 +229,23 @@ en:
                     twenty_four_hours: "24h high"
             extra_indicator_limit:
                 sentence_html: "<span>%{timing_condition_html}</span> when the <span>%{indicator_html}</span> on %{ticker_html} %{timeframe_html} <span>candles</span> is <span>%{value_condition_html} %{value_html}</span>"
-                indicator_info: "Current %{indicator} on %{timeframe} %{ticker} candles is %{value}"
+                indicator_info: "The %{indicator} on the last %{timeframe} %{ticker} candle's close is %{value}"
+                timing_condition:
+                    while: "Buy only"
+                    after: "Start buying"
+                value_condition:
+                    above: "above"
+                    below: "below"
+                timeframe:
+                    one_hour: "hourly"
+                    four_hours: "4-hour"
+                    one_day: "daily"
+                    three_days: "3-day"
+                    one_week: "weekly"
+                    one_month: "monthly"
+            extra_moving_average_limit:
+                sentence_html: "<span>%{timing_condition_html}</span> when the %{base} price is %{value_condition_html} the <span>%{ma_html} %{ma_period_html}</span> on %{ticker_html} %{timeframe_html} <span>candles</span>"
+                ma_info: "The %{ma_type} %{ma_period} on the last %{timeframe} %{ticker} candle's close is %{value} %{quote}"
                 timing_condition:
                     while: "Buy only"
                     after: "Start buying"

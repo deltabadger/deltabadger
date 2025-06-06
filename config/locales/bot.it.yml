@@ -229,7 +229,7 @@ it:
                     twenty_four_hours: "massimo delle 24h"
             extra_indicator_limit:
                 sentence_html: "<span>%{timing_condition_html}</span> quando il <span>%{indicator_html}</span> sulle candele %{timeframe_html} di %{ticker_html} è <span>%{value_condition_html} %{value_html}</span>"
-                indicator_info: "L'attuale %{indicator} sulle candele %{timeframe} di %{ticker} è %{value}"
+                indicator_info: "Il %{indicator} sull'ultima chiusura della candela %{timeframe} di %{ticker} è %{value}"
                 timing_condition:
                     while: "Compra solo"
                     after: "Inizia a comprare"
@@ -240,6 +240,22 @@ it:
                     one_hour: "orarie"
                     four_hours: "4 ore"
                     one_day: "giornaliere"
+                    three_days: "3 giorni"
+                    one_week: "settimanali"
+                    one_month: "mensili"
+            extra_moving_average_limit:
+                sentence_html: "<span>%{timing_condition_html}</span> quando il prezzo di %{base} è %{value_condition_html} la <span>%{ma_html} %{ma_period_html}</span> sulle candele %{timeframe_html} di %{ticker_html}"
+                ma_info: "La %{ma_type} %{ma_period} sull'ultima chiusura della candela %{timeframe} di %{ticker} è %{value} %{quote}"
+                timing_condition:
+                    while: "Compra solo"
+                    after: "Inizia a comprare"
+                value_condition:
+                    above: "sopra"
+                    below: "sotto"
+                timeframe:
+                    one_hour: "orarie"
+                    four_hours: "4 ore"
+                    one_day: "giornaliere" 
                     three_days: "3 giorni"
                     one_week: "settimanali"
                     one_month: "mensili"
