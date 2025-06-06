@@ -175,7 +175,7 @@ pt:
         settings:
             smart_intervals:
                 split_in_orders_html: '<b>Smart Intervals<sup>®</sup></b> Dividir <span>o montante</span> em unidades de <span>%{amount_html} %{quote}</span>'
-                split_info: "Dividir o seu %{quote_amount} %{quote} / %{interval} em unidades mais pequenas de %{amount} %{quote} resultará num investimento a cada %{smart_interval}"
+                split_info: "Dividir o seu %{quote_amount} %{quote} / %{interval} em unidades de %{amount} %{quote} resultará num investimento a cada %{smart_interval}"
             extra_amount_limit:
                 dont_spend_more_than: "Não gaste mais do que"
                 amount_left: "(%{amount} %{symbol} restante)"
@@ -190,17 +190,24 @@ pt:
                     above: "superior a"
                     below: "inferior a"
             extra_price_drop_limit:
-                sentence_html: "Começar a comprar quando o preço de %{base_html} cair %{value_html}% do seu %{time_window_condition_html}"
+                sentence_html: "Começar a comprar quando o preço de %{base_html} cair <span>%{value_html}%</span> do seu %{time_window_condition_html}"
                 price_drop_info: "O %{time_window_condition} atual de %{base} é %{condition_high} %{quote}."
                 time_window_condition:
                     ath: "máximo histórico"
                     twenty_four_hours: "máximo de 24h"
             extra_indicator_limit:
-                sentence_html: "<span>%{timing_condition_html}</span> quando o <span>%{indicator_html}</span> em velas diárias de <span>%{ticker_html}</span> estiver <span>%{value_condition_html} %{value_html}</span>"
-                indicator_info: "O %{indicator} atual em velas diárias de %{ticker} é %{value}"
+                sentence_html: "<span>%{timing_condition_html}</span> quando o <span>%{indicator_html}</span> nas velas %{timeframe_html} de %{ticker_html} estiver <span>%{value_condition_html} %{value_html}</span>"
+                indicator_info: "O %{indicator} atual nas velas %{timeframe_html} de %{ticker} é %{value}"
                 timing_condition:
-                    while: "Comprar apenas"
+                    while: "Comprar somente"
                     after: "Começar a comprar"
                 value_condition:
                     above: "acima de"
                     below: "abaixo de"
+                timeframe:
+                    one_hour: "por hora"
+                    four_hours: "4 horas"
+                    one_day: "diário"
+                    three_days: "3 dias"
+                    one_week: "semanal"
+                    one_month: "mensal"
