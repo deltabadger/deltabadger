@@ -229,7 +229,7 @@ it:
                     twenty_four_hours: "massimo delle 24h"
             extra_indicator_limit:
                 sentence_html: "<span>%{timing_condition_html}</span> quando il <span>%{indicator_html}</span> sulle candele %{timeframe_html} di %{ticker_html} è <span>%{value_condition_html} %{value_html}</span>"
-                indicator_info: "L'attuale %{indicator} sulle candele %{timeframe_html} di %{ticker} è %{value}"
+                indicator_info: "L'attuale %{indicator} sulle candele %{timeframe} di %{ticker} è %{value}"
                 timing_condition:
                     while: "Compra solo"
                     after: "Inizia a comprare"

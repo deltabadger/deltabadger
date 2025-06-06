@@ -13,6 +13,7 @@
         <%= t("bot.settings.extra_indicator_limit.indicator_info",
               indicator: bot.indicator_limit_in_indicator.upcase,
               ticker: ticker_select_options.find { |_, id| id == selected_ticker_id }&.first,
+              timeframe: t("bot.settings.extra_indicator_limit.timeframe.#{bot.indicator_limit_in_timeframe}"),
               value: info[:value]) %>
       </div>
     <% end %>
