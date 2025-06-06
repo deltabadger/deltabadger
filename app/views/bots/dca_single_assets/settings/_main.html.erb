@@ -7,12 +7,12 @@
               class: "widget widget--main-bot-settings",
               data: {
                 turbo_stream: true,
-                controller: "form--submit form--submit-after-delay form--move-cursor-to-end"
+                controller: "form--submit form--submit-after-delay form--move-cursor-to-end form--html5-validations"
               } do |f| %>
   <div class="conversational flex-justify-center">
     <%= t('bot.conversational.invest') %>
     <div class="ticker-input ticker-input--autoscale">
-      <% value = bot.quote_amount.present? ? bot.quote_amount.to_d.to_s('F').sub(/^(?!0\.0$)([1-9]\d*)\.0$/, '\1') : nil %>
+      <% value = bot.quote_amount.present? ? bot.quote_amount.to_d.to_s('F').sub(/([0-9]\d*)\.0$/, '\1') : nil %>
       <%= f.number_field :quote_amount, value: value, class: 'numeric-input', step: :any, size: 3, data: { controller: "autowidth-input", action: "input->form--submit-after-delay#submit input->autowidth-input#resize", form__move_cursor_to_end_target: "input" }, style: "width: 50px;", autofocus: bot.new_record? && bot.quote_amount.blank?, disabled: bot.working? %>
 
       <% if bot.new_record? %>
