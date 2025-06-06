@@ -229,7 +229,7 @@ en:
                     twenty_four_hours: "24h high"
             extra_indicator_limit:
                 sentence_html: "<span>%{timing_condition_html}</span> when the <span>%{indicator_html}</span> on %{ticker_html} %{timeframe_html} <span>candles</span> is <span>%{value_condition_html} %{value_html}</span>"
-                indicator_info: "Current %{indicator} on %{timeframe_html} %{ticker} candles is %{value}"
+                indicator_info: "Current %{indicator} on %{timeframe} %{ticker} candles is %{value}"
                 timing_condition:
                     while: "Buy only"
                     after: "Start buying"
