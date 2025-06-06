@@ -10,6 +10,7 @@
 
   <%= render partial: "bots/settings/price_limit", locals: { bot: bot, method: method, path: path } %>
   <%= render partial: "bots/settings/price_drop_limit", locals: { bot: bot, method: method, path: path } %>
+  <%= render partial: "bots/settings/moving_average_limit", locals: { bot: bot, method: method, path: path } %>
   <%= render partial: "bots/settings/indicator_limit", locals: { bot: bot, method: method, path: path } %>
   <%= render partial: "bots/settings/amount_limit", locals: { bot: bot, method: method, path: path } %>
   <%#= render partial: "bots/settings/time_limit", locals: { bot: bot, method: method, path: path } %>

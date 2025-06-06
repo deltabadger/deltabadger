@@ -28,6 +28,9 @@ pl:
                             less_than_or_equal_to: "Wartość spadku ceny musi być mniejsza lub równa 100"
                         indicator_limit:
                             not_a_number: "Musisz określić wartość %{indicator}"
+                        moving_average_limit_in_period:
+                            not_a_number: "Musisz określić okres Średniej Kroczącej"
+                            greater_than: "Okres Średniej Ruchomej musi być większy niż 0"
                         quote_amount:
                             not_a_number: "Musisz dodać kwotę do zainwestowania"
                             greater_than: "Inwestowana kwota musi być większa niż 0"

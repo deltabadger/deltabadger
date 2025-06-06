@@ -28,6 +28,9 @@ pt:
                             less_than_or_equal_to: "O valor de queda de preço tem de ser menor ou igual a 100"
                         indicator_limit:
                             not_a_number: "Tem de especificar o valor de %{indicator}"
+                        moving_average_limit_in_period:
+                            not_a_number: "Tem de especificar o período da Média Móvel"
+                            greater_than: "O período da Média Móvel tem de ser maior que 0"
                         quote_amount:
                             not_a_number: "Tem de adicionar um montante para investir"
                             greater_than: "O montante investido tem de ser maior que 0"
