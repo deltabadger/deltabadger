@@ -12,6 +12,7 @@ module Bot::SmartIntervalable
 
     after_initialize :initialize_smart_intervalable_settings
     after_initialize :set_normal_interval_backup_values
+    before_save :readjust_smart_interval_quote_amount, if: :will_save_change_to_settings?
     before_save :set_normal_interval_backup_values, if: :will_save_change_to_settings?
 
     validates :smart_intervaled, inclusion: { in: [true, false] }
@@ -84,13 +85,20 @@ module Bot::SmartIntervalable
 
   def initialize_smart_intervalable_settings
     self.smart_intervaled ||= false
-    self.smart_interval_quote_amount ||= nil
+    self.smart_interval_quote_amount ||= if quote_amount.present? && tickers.present?
+                                           least_precise_quote_decimals = tickers.pluck(:quote_decimals).compact.min
+                                           [
+                                             quote_amount / 10,
+                                             minimum_smart_interval_quote_amount * 10
+                                           ].max.round(least_precise_quote_decimals)
+                                         end
   end
 
   def minimum_smart_interval_quote_amount
     # the minimum amount would set one order every 1 minute
+    maximum_frequency = 300 # seconds
     minimum_for_frequency = if quote_amount.present?
-                              quote_amount / 1.public_send(interval) * 60
+                              quote_amount / 1.public_send(interval) * maximum_frequency
                             else
                               0
                             end
@@ -107,5 +115,17 @@ module Bot::SmartIntervalable
   def set_normal_interval_backup_values
     self.normal_interval_quote_amount = quote_amount
     self.normal_interval_duration = interval.present? ? 1.public_send(interval) : nil
+  end
+
+  def readjust_smart_interval_quote_amount
+    return unless smart_intervaled?
+    return unless quote_amount_was.present? && quote_amount.present? && quote_amount_was != quote_amount
+
+    previous_ratio = quote_amount_was.to_f / smart_interval_quote_amount_was
+    least_precise_quote_decimals = tickers.pluck(:quote_decimals).compact.min
+    self.smart_interval_quote_amount = [
+      quote_amount.to_f / previous_ratio,
+      minimum_smart_interval_quote_amount
+    ].max.round(least_precise_quote_decimals)
   end
 end

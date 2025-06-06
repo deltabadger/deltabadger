@@ -195,7 +195,7 @@ module Bot::PriceDropLimitable
 
   def initialize_price_drop_limitable_settings # rubocop:disable Metrics/CyclomaticComplexity,Metrics/PerceivedComplexity
     self.price_drop_limited ||= false
-    self.price_drop_limit ||= nil
+    self.price_drop_limit ||= 0.2
     self.price_drop_limit_time_window_condition ||= 'ath'
     self.price_drop_limit_in_ticker_id ||= tickers&.sort_by { |t| t[:base] }&.first&.id
   end

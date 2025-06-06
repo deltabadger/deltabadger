@@ -227,7 +227,7 @@ module Bot::IndicatorLimitable
 
   def initialize_indicator_limitable_settings # rubocop:disable Metrics/CyclomaticComplexity,Metrics/PerceivedComplexity
     self.indicator_limited ||= false
-    self.indicator_limit ||= nil
+    self.indicator_limit ||= 30
     self.indicator_limit_timing_condition ||= 'while'
     self.indicator_limit_value_condition ||= 'below'
     self.indicator_limit_in_ticker_id ||= tickers&.sort_by { |t| t[:base] }&.first&.id
