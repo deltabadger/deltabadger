@@ -98,7 +98,7 @@ module Bot::SmartIntervalable
     # the minimum amount would set one order every 1 minute
     maximum_frequency = 300 # seconds
     minimum_for_frequency = if quote_amount.present?
-                              quote_amount / 1.public_send(interval) * maximum_frequency
+                              quote_amount / Bot::INTERVALS[interval] * maximum_frequency
                             else
                               0
                             end
@@ -114,7 +114,7 @@ module Bot::SmartIntervalable
 
   def set_normal_interval_backup_values
     self.normal_interval_quote_amount = quote_amount
-    self.normal_interval_duration = interval.present? ? 1.public_send(interval) : nil
+    self.normal_interval_duration = interval.present? ? Bot::INTERVALS[interval] : nil
   end
 
   def readjust_smart_interval_quote_amount

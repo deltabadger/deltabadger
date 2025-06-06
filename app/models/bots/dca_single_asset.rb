@@ -8,7 +8,7 @@ class Bots::DcaSingleAsset < Bot
                  :interval
 
   validates :quote_amount, presence: true, numericality: { greater_than: 0 }
-  validates :interval, presence: true, inclusion: { in: INTERVALS }
+  validates :interval, presence: true, inclusion: { in: INTERVALS.keys }
   validate :validate_bot_exchange, if: :exchange_id?, on: :update
   validate :validate_external_ids, on: :update
   validate :validate_unchangeable_assets, on: :update
