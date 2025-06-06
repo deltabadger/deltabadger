@@ -55,7 +55,13 @@
             <% value = bot.indicator_limit.present? ? bot.indicator_limit.to_d.to_s('F').sub(/([0-9]\d*)\.0$/, '\1') : nil %>
             <%= f.number_field :indicator_limit, value: value, class: 'sinput numeric-input', step: :any, size: 3, data: { controller: "autowidth-input", action: "input->form--submit-after-delay#submit input->autowidth-input#resize", form__move_cursor_to_end_target: "input" }, style: "margin-left: 0.125rem; width: 50px;", disabled: bot.working? %>
           <% end %>
-          <%= t("bot.settings.extra_indicator_limit.sentence_html", timing_condition_html: timing_condition_html.html_safe, value_condition_html: value_condition_html.html_safe, value_html: value_html.html_safe, ticker_html: ticker_html.html_safe, indicator_html: indicator_html.html_safe, timeframe_html: timeframe_html.html_safe) %>
+          <%= t("bot.settings.extra_indicator_limit.sentence_html",
+                timing_condition_html: timing_condition_html.html_safe,
+                value_condition_html: value_condition_html.html_safe,
+                value_html: value_html.html_safe,
+                ticker_html: ticker_html.html_safe,
+                indicator_html: indicator_html.html_safe,
+                timeframe_html: timeframe_html.html_safe) %>
           <%= render partial: "bots/settings/indicator_limit_info", locals: { bot: bot, info: bot.indicator_limit_info_from_cache } %>
         <% end %>
       </div>
