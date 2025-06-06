@@ -234,3 +234,19 @@ de:
                     three_days: "3-täglichen"
                     one_week: "wöchentlichen"
                     one_month: "monatlichen"
+            extra_moving_average_limit:
+                sentence_html: "<span>%{timing_condition_html}</span> wenn der %{base} Preis %{value_condition_html} dem <span>%{ma_html} %{ma_period_html}</span> auf %{ticker_html} %{timeframe_html} <span>Kerzen</span> ist"
+                ma_info: "Der %{ma_type} %{ma_period} beim Schlusskurs der letzten %{timeframe} %{ticker} Kerze ist %{value} %{quote}"
+                timing_condition:
+                    while: "Nur kaufen"
+                    after: "Beginne zu kaufen"
+                value_condition:
+                    above: "über"
+                    below: "unter"
+                timeframe:
+                    one_hour: "1-Stunden"
+                    four_hours: "4-Stunden"
+                    one_day: "täglichen"
+                    three_days: "3-täglichen"
+                    one_week: "wöchentlichen"
+                    one_month: "monatlichen"

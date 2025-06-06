@@ -28,6 +28,9 @@ fr:
                             less_than_or_equal_to: "La valeur de baisse de prix doit être inférieure ou égale à 100"
                         indicator_limit:
                             not_a_number: "Vous devez spécifier la valeur de %{indicator}"
+                        moving_average_limit_in_period:
+                            not_a_number: "Vous devez spécifier la période de la Moyenne Mobile"
+                            greater_than: "La période de la Moyenne Mobile doit être supérieure à 0"
                         quote_amount:
                             not_a_number: "Vous devez ajouter un montant à investir"
                             greater_than: "Le montant investi doit être supérieur à 0"
