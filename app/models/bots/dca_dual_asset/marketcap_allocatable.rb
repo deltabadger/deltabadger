@@ -10,9 +10,9 @@ module Bots::DcaDualAsset::MarketcapAllocatable
     validates :marketcap_allocated, inclusion: { in: [true, false] }
 
     decorators = Module.new do
-      def parsed_settings(settings_hash)
-        super(settings_hash).merge(
-          marketcap_allocated: settings_hash[:marketcap_allocated].presence&.in?(%w[1 true])
+      def parse_params(params)
+        super(params).merge(
+          marketcap_allocated: params[:marketcap_allocated].presence&.in?(%w[1 true])
         ).compact
       end
     end

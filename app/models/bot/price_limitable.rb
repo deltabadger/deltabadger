@@ -29,13 +29,13 @@ module Bot::PriceLimitable
     validate :validate_price_limitable_included_in_subscription_plan, on: :start
 
     decorators = Module.new do
-      def parsed_settings(settings_hash)
-        super(settings_hash).merge(
-          price_limited: settings_hash[:price_limited].presence&.in?(%w[1 true]),
-          price_limit: settings_hash[:price_limit].presence&.to_f,
-          price_limit_timing_condition: settings_hash[:price_limit_timing_condition].presence,
-          price_limit_value_condition: settings_hash[:price_limit_value_condition].presence,
-          price_limit_in_ticker_id: settings_hash[:price_limit_in_ticker_id].presence&.to_i
+      def parse_params(params)
+        super(params).merge(
+          price_limited: params[:price_limited].presence&.in?(%w[1 true]),
+          price_limit: params[:price_limit].presence&.to_f,
+          price_limit_timing_condition: params[:price_limit_timing_condition].presence,
+          price_limit_value_condition: params[:price_limit_value_condition].presence,
+          price_limit_in_ticker_id: params[:price_limit_in_ticker_id].presence&.to_i
         ).compact
       end
 
