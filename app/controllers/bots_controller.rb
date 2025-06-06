@@ -54,9 +54,9 @@ class BotsController < ApplicationController
           }
         end
 
-        metrics_with_current_prices = @bot.metrics_with_current_prices_from_cache
-        @loading = metrics_with_current_prices.nil?
-        @metrics = @loading ? @bot.metrics : metrics_with_current_prices
+        metrics_with_current_prices_and_candles = @bot.metrics_with_current_prices_and_candles_from_cache
+        @loading = metrics_with_current_prices_and_candles.nil?
+        @metrics = @loading ? @bot.metrics : metrics_with_current_prices_and_candles
       end
     end
   end
