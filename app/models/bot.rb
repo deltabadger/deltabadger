@@ -19,12 +19,15 @@ class Bot < ApplicationRecord
   after_update_commit :broadcast_status_bar_update, if: :saved_change_to_status?
   after_update_commit :broadcast_status_button_update, if: :saved_change_to_status?
 
-  INTERVALS = %w[hour day week month].freeze
+  INTERVALS = {
+    'hour' => 1.hour,
+    'day' => 1.day,
+    'week' => 1.week,
+    'month' => 1.month
+  }.freeze
 
   def interval_duration
-    return nil unless interval.present?
-
-    1.public_send(interval)
+    INTERVALS[interval]
   end
 
   def working?
