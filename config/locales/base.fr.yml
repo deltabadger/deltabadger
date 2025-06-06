@@ -2,6 +2,7 @@ fr:
     header:
         start_investing: 'Commencer à investir:'
         subscribe_to_secure_early_access: 'S''abonner au plan Legendary pour obtenir un accès anticipé aux indices (prochainement disponible):'
+        trading_options: 'Options pour les traders:'
     ads:
         dca_profit_html: |
             <p>Si vous aviez fait du dollar-cost averaging sur Bitcoin ces %{years}&nbsp;dernières années, vous seriez maintenant en hausse de <b style="color: #00A36C;">%{profit}%</b>.</p>
