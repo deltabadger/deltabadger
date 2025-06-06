@@ -44,6 +44,7 @@ module Bot::IndicatorLimitable
     validates :indicator_limit_value_condition, inclusion: { in: INDICATOR_LIMIT_VALUE_CONDITIONS }
     validates :indicator_limit_in_indicator, inclusion: { in: INDICATOR_LIMIT_INDICATORS }
     validates :indicator_limit_in_timeframe, inclusion: { in: INDICATOR_LIMIT_TIMEFRAMES.keys }
+    validate :validate_indicator_limitable_included_in_subscription_plan, on: :start
 
     decorators = Module.new do
       def parsed_settings(settings_hash)
@@ -175,6 +176,13 @@ module Bot::IndicatorLimitable
   end
 
   private
+
+  def validate_indicator_limitable_included_in_subscription_plan
+    return unless indicator_limited?
+    return if user.subscription.pro? || user.subscription.legendary?
+
+    errors.add(:user, :upgrade)
+  end
 
   def indicator_limit_info_cache_key
     "bot_#{id}_indicator_limit_info"
