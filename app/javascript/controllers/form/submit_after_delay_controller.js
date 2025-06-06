@@ -10,6 +10,20 @@ export default class extends Controller {
   }
 
   submit() {
-    this.element.requestSubmit();
+    const inputElements = this.element.querySelectorAll("input");
+    let someNumericInputHasToBeFilledBeforeSubmit = false;
+
+    inputElements.forEach((inputElement) => {
+      const value = inputElement.value;
+
+      if (inputElement.type === "number") {
+        // Check if the value ends with a comma, period, or zero after a comma or period
+        someNumericInputHasToBeFilledBeforeSubmit = /^\d+[,.](0*|\d*0)$/.test(value);
+      }
+    });
+
+    if (!someNumericInputHasToBeFilledBeforeSubmit) {
+      this.element.requestSubmit();
+    }
   }
 }
