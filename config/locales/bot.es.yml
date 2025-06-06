@@ -221,3 +221,19 @@ es:
                     three_days: "de 3 días"
                     one_week: "semanales"
                     one_month: "mensuales"
+            extra_moving_average_limit:
+                sentence_html: "<span>%{timing_condition_html}</span> cuando el precio de %{base} esté %{value_condition_html} la <span>%{ma_html} %{ma_period_html}</span> en velas %{timeframe_html} de %{ticker_html}"
+                ma_info: "La %{ma_type} %{ma_period} en el cierre de la última vela %{timeframe} de %{ticker} es %{value} %{quote}"
+                timing_condition:
+                    while: "Comprar solo"
+                    after: "Empezar a comprar"
+                value_condition:
+                    above: "por encima de"
+                    below: "por debajo de"
+                timeframe:
+                    one_hour: "de 1 hora"
+                    four_hours: "de 4 horas" 
+                    one_day: "diarias"
+                    three_days: "de 3 días"
+                    one_week: "semanales"
+                    one_month: "mensuales"

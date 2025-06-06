@@ -219,3 +219,19 @@ ru:
                     three_days: "3-дневных"
                     one_week: "недельных"
                     one_month: "месячных"
+            extra_moving_average_limit:
+                sentence_html: "<span>%{timing_condition_html}</span> когда цена %{base} %{value_condition_html} <span>%{ma_html} %{ma_period_html}</span> на %{ticker_html} %{timeframe_html} <span>свечах</span>"
+                ma_info: "%{ma_type} %{ma_period} на последнем закрытии %{timeframe} свечи %{ticker} составляет %{value} %{quote}"
+                timing_condition:
+                    while: "Покупать только"
+                    after: "Начать покупать"
+                value_condition:
+                    above: "выше"
+                    below: "ниже"
+                timeframe:
+                    one_hour: "часовых"
+                    four_hours: "4-часовых"
+                    one_day: "дневных"
+                    three_days: "3-дневных"
+                    one_week: "недельных"
+                    one_month: "месячных"

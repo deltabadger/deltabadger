@@ -221,3 +221,19 @@ fr:
                     three_days: "3 jours"
                     one_week: "hebdomadaires"
                     one_month: "mensuelles"
+            extra_moving_average_limit:
+                sentence_html: "<span>%{timing_condition_html}</span> lorsque le prix de %{base} est %{value_condition_html} la <span>%{ma_html} %{ma_period_html}</span> sur les bougies %{timeframe_html} de %{ticker_html}"
+                ma_info: "La %{ma_type} %{ma_period} à la dernière clôture de la bougie %{timeframe} de %{ticker} est %{value} %{quote}"
+                timing_condition:
+                    while: "Acheter uniquement"
+                    after: "Commencer à acheter"
+                value_condition:
+                    above: "au-dessus de"
+                    below: "en dessous de"
+                timeframe:
+                    one_hour: "horaires"
+                    four_hours: "4 heures"
+                    one_day: "journalières"
+                    three_days: "3 jours"
+                    one_week: "hebdomadaires"
+                    one_month: "mensuelles"
