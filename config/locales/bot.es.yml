@@ -200,24 +200,24 @@ es:
                     above: "sobre"
                     below: "bajo"
             extra_price_drop_limit:
-                sentence_html: "Empezar a comprar cuando el precio de %{base_html} caiga un %{value_html}% desde su %{time_window_condition_html}"
+                sentence_html: "Empezar a comprar cuando el precio de %{base_html} caiga un <span>%{value_html}%</span> desde su %{time_window_condition_html}"
                 price_drop_info: "El %{time_window_condition} actual de %{base} es %{condition_high} %{quote}."
                 time_window_condition:
                     ath: "máximo histórico"
                     twenty_four_hours: "máximo de 24h"
             extra_indicator_limit:
-                sentence_html: "<span>%{timing_condition_html}</span> cuando el <span>%{indicator_html}</span> de <span>%{ticker_html}</span> en <span>velas</span> <span>de</span> <span>%{timeframe_html}</span> esté <span>%{value_condition_html} de %{value_html}</span>"
-                indicator_info: "El %{indicator} actual en velas diarias de %{ticker} es %{value}"
+                sentence_html: "<span>%{timing_condition_html}</span> cuando el <span>%{indicator_html}</span> en las velas %{timeframe_html} de %{ticker_html} esté <span>%{value_condition_html} %{value_html}</span>"
+                indicator_info: "El %{indicator} actual en las velas %{timeframe_html} de %{ticker} es %{value}"
                 timing_condition:
                     while: "Comprar solo"
                     after: "Empezar a comprar"
                 value_condition:
-                    above: "por encima"
-                    below: "por debajo"
+                    above: "por encima de"
+                    below: "por debajo de"
                 timeframe:
-                    one_hour: "1 Hora"
-                    four_hours: "4 Horas"
-                    one_day: "1 Día"
-                    three_days: "3 Días"
-                    one_week: "1 Semana"
-                    one_month: "1 Mes"
+                    one_hour: "por hora"
+                    four_hours: "de 4 horas"
+                    one_day: "diarias"
+                    three_days: "de 3 días"
+                    one_week: "semanales"
+                    one_month: "mensuales"
