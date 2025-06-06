@@ -2,6 +2,7 @@ de:
     header:
         start_investing: 'Beginnen Sie zu investieren:'
         subscribe_to_secure_early_access: 'Abonnieren Sie den Legendary-Plan, um sich frühzeitigen Zugang zu Indizes zu sichern (demnächst verfügbar):'
+        trading_options: 'Optionen für Trader:'
     ads:
         dca_profit_html: |
             <p>Wenn Sie in den letzten %{years}&nbsp;Jahren regelmäßig in Bitcoin investiert hätten, lägen Sie jetzt <b style="color: #00A36C;">%{profit}%</b> im Plus.</p>
