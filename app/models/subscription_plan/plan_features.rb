@@ -78,12 +78,12 @@ module SubscriptionPlan::PlanFeatures
       free_features + %w[
         fee_cutter
         automatic_withdrawals
-        rebalanced_dca
       ]
     end
 
     def pro_features
       basic_features + %w[
+        rebalanced_dca
         crypto_index
         custom_portfolios
         portfolio_rebalancing
