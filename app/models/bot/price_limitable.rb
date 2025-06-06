@@ -189,7 +189,7 @@ module Bot::PriceLimitable
 
   def initialize_price_limitable_settings # rubocop:disable Metrics/CyclomaticComplexity,Metrics/PerceivedComplexity
     self.price_limited ||= false
-    self.price_limit ||= nil
+    self.price_limit ||= 1_000_000 # 1 million meme
     self.price_limit_timing_condition ||= 'while'
     self.price_limit_value_condition ||= 'below'
     self.price_limit_in_ticker_id ||= tickers&.sort_by { |t| t[:base] }&.first&.id
