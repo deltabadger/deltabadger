@@ -14,7 +14,7 @@ class Bot::IndicatorLimitCheckJob < ApplicationJob
       bot.update!(started_at: Time.current)
       Bot::ActionJob.perform_later(bot)
     else
-      next_check_at = Time.now.utc + Utilities::Time.seconds_to_next_candle_open(bot.indicator_limit_in_timeframe_duration)
+      next_check_at = Time.now.utc + Utilities::Time.seconds_to_current_candle_close(bot.indicator_limit_in_timeframe_duration)
       Bot::IndicatorLimitCheckJob.set(wait_until: next_check_at).perform_later(bot)
     end
   end

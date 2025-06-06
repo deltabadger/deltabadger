@@ -28,6 +28,9 @@ nl:
                             less_than_or_equal_to: "De prijsdalingswaarde moet kleiner dan of gelijk zijn aan 100"
                         indicator_limit:
                             not_a_number: "U moet de %{indicator} waarde opgeven"
+                        moving_average_limit_in_period:
+                            not_a_number: "U moet de periode van het Voortschrijdend Gemiddelde opgeven"
+                            greater_than: "De periode van het Voortschrijdend Gemiddelde moet groter zijn dan 0"
                         quote_amount:
                             not_a_number: "U moet een investeringsbedrag toevoegen"
                             greater_than: "Het geïnvesteerde bedrag moet groter zijn dan 0"

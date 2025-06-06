@@ -206,7 +206,7 @@ nl:
                     twenty_four_hours: "24-uurs hoogste punt"
             extra_indicator_limit:
                 sentence_html: "<span>%{timing_condition_html}</span> wanneer de <span>%{indicator_html}</span> op %{ticker_html} %{timeframe_html} <span>candles</span> <span>%{value_condition_html} %{value_html}</span> is"
-                indicator_info: "Huidige %{indicator} op %{timeframe} %{ticker} candles is %{value}"
+                indicator_info: "De %{indicator} op de laatste %{timeframe} %{ticker} candle sluiting is %{value}"
                 timing_condition:
                     while: "Koop alleen"
                     after: "Begin met kopen"
@@ -217,6 +217,22 @@ nl:
                     one_hour: "per uur"
                     four_hours: "4-uurs"
                     one_day: "dagelijks"
+                    three_days: "3-daags"
+                    one_week: "wekelijks"
+                    one_month: "maandelijks"
+            extra_moving_average_limit:
+                sentence_html: "<span>%{timing_condition_html}</span> wanneer de %{base} prijs %{value_condition_html} de <span>%{ma_html} %{ma_period_html}</span> op %{ticker_html} %{timeframe_html} <span>candles</span> is"
+                ma_info: "De %{ma_type} %{ma_period} op de laatste %{timeframe} %{ticker} candle sluiting is %{value} %{quote}"
+                timing_condition:
+                    while: "Koop alleen"
+                    after: "Begin met kopen"
+                value_condition:
+                    above: "boven"
+                    below: "onder"
+                timeframe:
+                    one_hour: "per uur"
+                    four_hours: "4-uurs"
+                    one_day: "dagelijks" 
                     three_days: "3-daags"
                     one_week: "wekelijks"
                     one_month: "maandelijks"

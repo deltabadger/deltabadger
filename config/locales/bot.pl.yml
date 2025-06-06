@@ -206,7 +206,23 @@ pl:
                     twenty_four_hours: "najwyższej ceny z ostatnich 24h"
             extra_indicator_limit:
                 sentence_html: "<span>%{timing_condition_html}</span> gdy <span>%{indicator_html}</span> na świecach %{ticker_html} %{timeframe_html} jest <span>%{value_condition_html} %{value_html}</span>"
-                indicator_info: "Aktualny %{indicator} na świecach %{timeframe} %{ticker} wynosi %{value}"
+                indicator_info: "%{indicator} na ostatnim zamknięciu świecy %{timeframe} dla %{ticker} wynosi %{value}"
+                timing_condition:
+                    while: "Kupuj tylko"
+                    after: "Zacznij kupować"
+                value_condition:
+                    above: "powyżej"
+                    below: "poniżej"
+                timeframe:
+                    one_hour: "godzinowych"
+                    four_hours: "4-godzinnych"
+                    one_day: "dziennych"
+                    three_days: "3-dniowych"
+                    one_week: "tygodniowych"
+                    one_month: "miesięcznych"
+            extra_moving_average_limit:
+                sentence_html: "<span>%{timing_condition_html}</span> gdy cena %{base} jest %{value_condition_html} <span>%{ma_html} %{ma_period_html}</span> na świecach %{timeframe_html} %{ticker_html}"
+                ma_info: "%{ma_type} %{ma_period} na ostatnim zamknięciu świecy %{timeframe} dla %{ticker} wynosi %{value} %{quote}"
                 timing_condition:
                     while: "Kupuj tylko"
                     after: "Zacznij kupować"

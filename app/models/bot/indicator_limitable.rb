@@ -47,15 +47,15 @@ module Bot::IndicatorLimitable
     validate :validate_indicator_limitable_included_in_subscription_plan, on: :start
 
     decorators = Module.new do
-      def parsed_settings(settings_hash)
-        super(settings_hash).merge(
-          indicator_limited: settings_hash[:indicator_limited].presence&.in?(%w[1 true]),
-          indicator_limit: settings_hash[:indicator_limit].presence&.to_f,
-          indicator_limit_timing_condition: settings_hash[:indicator_limit_timing_condition].presence,
-          indicator_limit_value_condition: settings_hash[:indicator_limit_value_condition].presence,
-          indicator_limit_in_ticker_id: settings_hash[:indicator_limit_in_ticker_id].presence&.to_i,
-          indicator_limit_in_indicator: settings_hash[:indicator_limit_in_indicator].presence,
-          indicator_limit_in_timeframe: settings_hash[:indicator_limit_in_timeframe].presence
+      def parse_params(params)
+        super(params).merge(
+          indicator_limited: params[:indicator_limited].presence&.in?(%w[1 true]),
+          indicator_limit: params[:indicator_limit].presence&.to_f,
+          indicator_limit_timing_condition: params[:indicator_limit_timing_condition].presence,
+          indicator_limit_value_condition: params[:indicator_limit_value_condition].presence,
+          indicator_limit_in_ticker_id: params[:indicator_limit_in_ticker_id].presence&.to_i,
+          indicator_limit_in_indicator: params[:indicator_limit_in_indicator].presence,
+          indicator_limit_in_timeframe: params[:indicator_limit_in_timeframe].presence
         ).compact
       end
 
@@ -67,7 +67,7 @@ module Bot::IndicatorLimitable
           super
         else
           update!(status: :waiting)
-          next_check_at = Time.now.utc + Utilities::Time.seconds_to_next_candle_open(indicator_limit_in_timeframe_duration)
+          next_check_at = Time.now.utc + Utilities::Time.seconds_to_current_candle_close(indicator_limit_in_timeframe_duration)
           Bot::IndicatorLimitCheckJob.set(wait_until: next_check_at).perform_later(self)
           Result::Success.new({ break_reschedule: true })
         end
@@ -156,9 +156,7 @@ module Bot::IndicatorLimitable
 
     info = Rails.cache.fetch(indicator_limit_info_cache_key, expires_in: 20.seconds) do
       {
-        base: ticker.base_asset.symbol,
-        quote: ticker.quote_asset.symbol,
-        value: indicator_value_result.data.round(2),
+        value: indicator_value_result.data,
         condition_met: condition_met_result.data
       }
     end
@@ -227,7 +225,7 @@ module Bot::IndicatorLimitable
 
   def initialize_indicator_limitable_settings # rubocop:disable Metrics/CyclomaticComplexity,Metrics/PerceivedComplexity
     self.indicator_limited ||= false
-    self.indicator_limit ||= nil
+    self.indicator_limit ||= 30
     self.indicator_limit_timing_condition ||= 'while'
     self.indicator_limit_value_condition ||= 'below'
     self.indicator_limit_in_ticker_id ||= tickers&.sort_by { |t| t[:base] }&.first&.id
