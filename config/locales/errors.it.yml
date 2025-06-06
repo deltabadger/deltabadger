@@ -28,6 +28,9 @@ it:
                             less_than_or_equal_to: "Il valore di calo del prezzo deve essere minore o uguale a 100"
                         indicator_limit:
                             not_a_number: "Devi specificare il valore di %{indicator}"
+                        moving_average_limit_in_period:
+                            not_a_number: "Devi specificare il periodo della Media Mobile"
+                            greater_than: "Il periodo della Media Mobile deve essere maggiore di 0"
                         quote_amount:
                             not_a_number: "Devi aggiungere un importo da investire"
                             greater_than: "L'importo investito deve essere maggiore di 0"
