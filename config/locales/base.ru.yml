@@ -2,6 +2,7 @@ ru:
     header:
         start_investing: 'Начните инвестировать:'
         subscribe_to_secure_early_access: 'Подпишитесь на план Legendary, чтобы получить доступ к индексам (скоро доступно):'
+        trading_options: 'Опции для трейдеров:'
     ads:
         dca_profit_html: |
             <p>Если бы вы использовали стратегию усреднения стоимости в Bitcoin последние %{years}&nbsp;года, сейчас вы были бы в плюсе на <b style="color: #00A36C;">%{profit}%</b>.</p>

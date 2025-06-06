@@ -31,6 +31,7 @@ module Bot::PriceDropLimitable
               },
               if: :price_drop_limited?
     validates :price_drop_limit_time_window_condition, inclusion: { in: PRICE_DROP_LIMIT_TIME_WINDOW_CONDITIONS.keys }
+    validate :validate_price_drop_limitable_included_in_subscription_plan, on: :start
 
     decorators = Module.new do
       def parsed_settings(settings_hash)
@@ -164,6 +165,13 @@ module Bot::PriceDropLimitable
   end
 
   private
+
+  def validate_price_drop_limitable_included_in_subscription_plan
+    return unless price_drop_limited?
+    return if user.subscription.pro? || user.subscription.legendary?
+
+    errors.add(:user, :upgrade)
+  end
 
   def price_drop_limit_info_cache_key
     "bot_#{id}_price_drop_limit_info"

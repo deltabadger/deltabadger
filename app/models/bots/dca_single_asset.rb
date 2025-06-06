@@ -13,6 +13,7 @@ class Bots::DcaSingleAsset < Bot
   validate :validate_external_ids, on: :update
   validate :validate_unchangeable_assets, on: :update
   validate :validate_unchangeable_interval, on: :update
+  validate :validate_dca_single_asset_included_in_subscription_plan, on: :start
 
   before_save :set_tickers, if: :will_save_change_to_exchange_id?
   # TODO: If bots can change assets, we also need to update the tickers and assets values
@@ -220,6 +221,8 @@ class Bots::DcaSingleAsset < Bot
     errors.add(:settings, :unchangeable_interval,
                message: 'Interval cannot be changed while the bot is running')
   end
+
+  def validate_dca_single_asset_included_in_subscription_plan; end
 
   def set_tickers
     @tickers = exchange&.tickers&.where(base_asset_id: base_asset_id, quote_asset_id: quote_asset_id).presence
