@@ -100,65 +100,16 @@ class BotsController < ApplicationController
   def dca_single_asset_bot_params
     params.require(:bots_dca_single_asset).permit(
       :label,
-      :base_asset_id,
-      :quote_asset_id,
-      :quote_amount,
-      :interval,
       :exchange_id,
-      :quote_amount_limited,
-      :quote_amount_limit,
-      :price_limited,
-      :price_limit,
-      :price_limit_timing_condition,
-      :price_limit_value_condition,
-      :price_limit_in_ticker_id,
-      :price_drop_limited,
-      :price_drop_limit,
-      :price_drop_limit_time_window_condition,
-      :price_drop_limit_in_ticker_id,
-      :smart_intervaled,
-      :smart_interval_quote_amount,
-      :indicator_limited,
-      :indicator_limit,
-      :indicator_limit_timing_condition,
-      :indicator_limit_value_condition,
-      :indicator_limit_in_ticker_id,
-      :indicator_limit_in_indicator,
-      :indicator_limit_in_timeframe
+      *Bots::DcaSingleAsset.stored_attributes[:settings]
     )
   end
 
   def dca_dual_asset_bot_params
     params.require(:bots_dca_dual_asset).permit(
       :label,
-      :base0_asset_id,
-      :base1_asset_id,
-      :quote_asset_id,
-      :quote_amount,
-      :interval,
-      :allocation0,
-      :marketcap_allocated,
       :exchange_id,
-      :quote_amount_limited,
-      :quote_amount_limit,
-      :price_limited,
-      :price_limit,
-      :price_limit_timing_condition,
-      :price_limit_value_condition,
-      :price_limit_in_ticker_id,
-      :price_drop_limited,
-      :price_drop_limit,
-      :price_drop_limit_time_window_condition,
-      :price_drop_limit_in_ticker_id,
-      :smart_intervaled,
-      :smart_interval_quote_amount,
-      :indicator_limited,
-      :indicator_limit,
-      :indicator_limit_timing_condition,
-      :indicator_limit_value_condition,
-      :indicator_limit_in_ticker_id,
-      :indicator_limit_in_indicator,
-      :indicator_limit_in_timeframe
+      *Bots::DcaDualAsset.stored_attributes[:settings]
     )
   end
 
@@ -172,7 +123,7 @@ class BotsController < ApplicationController
     elsif @bot.dca_single_asset?
       {
         settings: @bot.settings.merge(
-          @bot.parsed_settings(dca_single_asset_bot_params).stringify_keys
+          @bot.parse_params(dca_single_asset_bot_params).stringify_keys
         ),
         exchange_id: dca_single_asset_bot_params[:exchange_id],
         label: dca_single_asset_bot_params[:label].presence
@@ -180,7 +131,7 @@ class BotsController < ApplicationController
     elsif @bot.dca_dual_asset?
       {
         settings: @bot.settings.merge(
-          @bot.parsed_settings(dca_dual_asset_bot_params).stringify_keys
+          @bot.parse_params(dca_dual_asset_bot_params).stringify_keys
         ),
         exchange_id: dca_dual_asset_bot_params[:exchange_id],
         label: dca_dual_asset_bot_params[:label].presence

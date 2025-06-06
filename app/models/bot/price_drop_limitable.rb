@@ -34,14 +34,14 @@ module Bot::PriceDropLimitable
     validate :validate_price_drop_limitable_included_in_subscription_plan, on: :start
 
     decorators = Module.new do
-      def parsed_settings(settings_hash)
-        parsed_price_drop_limit = settings_hash[:price_drop_limit].presence&.to_f
+      def parse_params(params)
+        parsed_price_drop_limit = params[:price_drop_limit].presence&.to_f
         parsed_price_drop_limit = parsed_price_drop_limit.present? ? (parsed_price_drop_limit / 100).round(4) : nil
-        super(settings_hash).merge(
-          price_drop_limited: settings_hash[:price_drop_limited].presence&.in?(%w[1 true]),
+        super(params).merge(
+          price_drop_limited: params[:price_drop_limited].presence&.in?(%w[1 true]),
           price_drop_limit: parsed_price_drop_limit,
-          price_drop_limit_time_window_condition: settings_hash[:price_drop_limit_time_window_condition].presence,
-          price_drop_limit_in_ticker_id: settings_hash[:price_drop_limit_in_ticker_id].presence&.to_i
+          price_drop_limit_time_window_condition: params[:price_drop_limit_time_window_condition].presence,
+          price_drop_limit_in_ticker_id: params[:price_drop_limit_in_ticker_id].presence&.to_i
         ).compact
       end
 
@@ -195,7 +195,7 @@ module Bot::PriceDropLimitable
 
   def initialize_price_drop_limitable_settings # rubocop:disable Metrics/CyclomaticComplexity,Metrics/PerceivedComplexity
     self.price_drop_limited ||= false
-    self.price_drop_limit ||= nil
+    self.price_drop_limit ||= 0.2
     self.price_drop_limit_time_window_condition ||= 'ath'
     self.price_drop_limit_in_ticker_id ||= tickers&.sort_by { |t| t[:base] }&.first&.id
   end

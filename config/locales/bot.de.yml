@@ -220,7 +220,23 @@ de:
                     twenty_four_hours: "24h-Hoch"
             extra_indicator_limit:
                 sentence_html: "<span>%{timing_condition_html}</span> wenn der <span>%{indicator_html}</span> auf %{timeframe_html} <span>%{ticker_html}</span> Kerzen <span>%{value_condition_html} %{value_html}</span> ist"
-                indicator_info: "Aktueller %{indicator} auf %{timeframe} %{ticker} Kerzen ist %{value}"
+                indicator_info: "Der %{indicator} beim Schlusskurs der letzten %{timeframe} %{ticker} Kerze ist %{value}"
+                timing_condition:
+                    while: "Nur kaufen"
+                    after: "Beginne zu kaufen"
+                value_condition:
+                    above: "über"
+                    below: "unter"
+                timeframe:
+                    one_hour: "1-Stunden"
+                    four_hours: "4-Stunden"
+                    one_day: "täglichen"
+                    three_days: "3-täglichen"
+                    one_week: "wöchentlichen"
+                    one_month: "monatlichen"
+            extra_moving_average_limit:
+                sentence_html: "<span>%{timing_condition_html}</span> wenn der %{base} Preis %{value_condition_html} dem <span>%{ma_html} %{ma_period_html}</span> auf %{ticker_html} %{timeframe_html} <span>Kerzen</span> ist"
+                ma_info: "Der %{ma_type} %{ma_period} beim Schlusskurs der letzten %{timeframe} %{ticker} Kerze ist %{value} %{quote}"
                 timing_condition:
                     while: "Nur kaufen"
                     after: "Beginne zu kaufen"

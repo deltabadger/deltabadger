@@ -2,10 +2,12 @@
               url: path,
               method: method,
               class: "widget #{bot.quote_amount_limited? ? "bot-settings--active" : "bot-settings--inactive"}",
-              data: { controller: "class-toggle form--submit form--submit-after-delay form--move-cursor-to-end",
-                      class_toggle_target: "togglable",
-                      class_toggle_toggle_classes_value: ["bot-settings--active", "bot-settings--inactive"],
-                      turbo_stream: true } do |f| %>
+              data: {
+                controller: "class-toggle form--submit form--submit-after-delay form--move-cursor-to-end form--html5-validations",
+                class_toggle_target: "togglable",
+                class_toggle_toggle_classes_value: ["bot-settings--active", "bot-settings--inactive"],
+                turbo_stream: true
+              } do |f| %>
   <div class="toggle-group">
     <div class="toggle">
       <%= f.check_box :quote_amount_limited, data: { action: "change->form--submit#submit change->class-toggle#toggle" }, disabled: bot.working? %>
@@ -16,7 +18,7 @@
         <%= f.label :quote_amount_limited, class: "conversational conversational--small conversational--disabled" do %>
           <%= t("bot.settings.extra_amount_limit.dont_spend_more_than") %>
           <div>
-            <% value = bot.quote_amount_limit.present? ? bot.quote_amount_limit.to_d.to_s('F').sub(/^(?!0\.0$)([1-9]\d*)\.0$/, '\1') : nil %>
+            <% value = bot.quote_amount_limit.present? ? bot.quote_amount_limit.to_d.to_s('F').sub(/([0-9]\d*)\.0$/, '\1') : nil %>
             <%= f.number_field :quote_amount_limit, value: value, class: 'sinput numeric-input', step: :any, size: 3, data: { controller: "autowidth-input", action: "input->form--submit-after-delay#submit input->autowidth-input#resize", form__move_cursor_to_end_target: "input" }, style: "margin-left: 0.125rem; width: 50px;", disabled: bot.working? %>
             <%= bot.quote_asset.symbol %>
           </div>
