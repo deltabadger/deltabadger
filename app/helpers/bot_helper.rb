@@ -1,6 +1,6 @@
 module BotHelper
   def bot_intervals
-    Bot::INTERVALS.map { |interval| [t("bot.#{interval}"), interval] }
+    Bot::INTERVALS.keys.map { |interval| [t("bot.#{interval}"), interval] }
   end
 
   def bot_type_label(bot)
@@ -64,6 +64,28 @@ module BotHelper
     end
   end
 
+  def moving_average_limit_timeframe_select_options
+    Bot::MovingAverageLimitable::MOVING_AVERAGE_LIMIT_TIMEFRAMES
+      .sort_by { |_, duration| duration }
+      .map { |locale_key, _| [t("bot.settings.extra_moving_average_limit.timeframe.#{locale_key}"), locale_key] }
+  end
+
+  def moving_average_limit_timing_condition_select_options(bot)
+    return [] unless defined?(bot.class::MOVING_AVERAGE_LIMIT_TIMING_CONDITIONS)
+
+    bot.class::MOVING_AVERAGE_LIMIT_TIMING_CONDITIONS.map do |condition|
+      [t("bot.settings.extra_moving_average_limit.timing_condition.#{condition}"), condition]
+    end
+  end
+
+  def moving_average_limit_value_condition_select_options(bot)
+    return [] unless defined?(bot.class::MOVING_AVERAGE_LIMIT_VALUE_CONDITIONS)
+
+    bot.class::MOVING_AVERAGE_LIMIT_VALUE_CONDITIONS.map do |condition|
+      [t("bot.settings.extra_indicator_limit.value_condition.#{condition}"), condition]
+    end
+  end
+
   def ticker_select_options(bot)
     bot.tickers.pluck(:id, :base_asset_id, :quote_asset_id).map do |id, base_asset_id, quote_asset_id|
       ["#{Asset.find(base_asset_id).symbol}#{Asset.find(quote_asset_id).symbol}", id]
@@ -73,6 +95,12 @@ module BotHelper
   def indicator_select_options
     Bot::IndicatorLimitable::INDICATOR_LIMIT_INDICATORS.map do |indicator|
       [indicator.upcase, indicator]
+    end
+  end
+
+  def moving_average_select_options
+    Bot::MovingAverageLimitable::MOVING_AVERAGE_LIMIT_MA_TYPES.map do |ma_type|
+      [ma_type.upcase, ma_type]
     end
   end
 
