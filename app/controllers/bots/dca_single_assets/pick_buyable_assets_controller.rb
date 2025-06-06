@@ -14,7 +14,7 @@ class Bots::DcaSingleAssets::PickBuyableAssetsController < ApplicationController
   def create
     if bot_params[:base_asset_id].present?
       bot = current_user.bots.dca_single_asset.new(session[:bot_config])
-      session[:bot_config].deep_merge!({ settings: bot.parsed_settings(bot_params) }.deep_stringify_keys)
+      session[:bot_config].deep_merge!({ settings: bot.parse_params(bot_params) }.deep_stringify_keys)
       redirect_to new_bots_dca_single_assets_pick_exchange_path
     else
       render :new, status: :unprocessable_entity

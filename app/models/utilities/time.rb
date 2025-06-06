@@ -17,7 +17,7 @@ module Utilities
       now.end_of_minute - now
     end
 
-    def self.seconds_to_next_candle_open(timeframe)
+    def self.seconds_to_current_candle_close(timeframe)
       if timeframe == 1.month
         ::Time.now.utc.end_of_month - ::Time.now.utc
       elsif timeframe == 1.week

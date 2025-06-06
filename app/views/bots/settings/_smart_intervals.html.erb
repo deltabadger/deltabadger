@@ -20,7 +20,9 @@
             <% value = bot.smart_interval_quote_amount.present? ? bot.smart_interval_quote_amount.to_d.to_s('F').sub(/([0-9]\d*)\.0$/, '\1') : nil %>
             <%= f.number_field :smart_interval_quote_amount, value: value, class: 'sinput numeric-input', step: :any, size: 3, data: { controller: "autowidth-input", action: "input->form--submit-after-delay#submit input->autowidth-input#resize", form__move_cursor_to_end_target: "input" }, style: "margin-left: 0.125rem; width: 50px;", disabled: bot.working? %>
           <% end %>
-          <%= t("bot.settings.smart_intervals.split_in_orders_html", amount_html: amount_html.html_safe, quote: bot.quote_asset.symbol).html_safe %>
+          <%= t("bot.settings.smart_intervals.split_in_orders_html",
+                amount_html: amount_html.html_safe,
+                quote: bot.quote_asset.symbol).html_safe %>
           <%= render partial: "bots/settings/smart_intervals_info", locals: { bot: bot } %>
         <% end %>
       </div>

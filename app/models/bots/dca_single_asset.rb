@@ -19,11 +19,12 @@ class Bots::DcaSingleAsset < Bot
   # TODO: If bots can change assets, we also need to update the tickers and assets values
   #       ! also in price_limitable
 
-  include SmartIntervalable     # decorators for: parsed_settings, pending_quote_amount, interval_duration, restarting_within_interval?
-  include QuoteAmountLimitable  # decorators for: parsed_settings, pending_quote_amount
-  include PriceLimitable        # decorators for: parsed_settings, pending_quote_amount, execute_action, stop
-  include PriceDropLimitable    # decorators for: parsed_settings, pending_quote_amount, execute_action, stop
-  include IndicatorLimitable    # decorators for: parsed_settings, pending_quote_amount, execute_action, stop
+  include SmartIntervalable      # decorators for: parse_params, pending_quote_amount, interval_duration, restarting_within_interval?
+  include QuoteAmountLimitable   # decorators for: parse_params, pending_quote_amount
+  include PriceLimitable         # decorators for: parse_params, pending_quote_amount, execute_action, stop
+  include PriceDropLimitable     # decorators for: parse_params, pending_quote_amount, execute_action, stop
+  include MovingAverageLimitable # decorators for: parse_params, pending_quote_amount, execute_action, stop
+  include IndicatorLimitable # decorators for: parse_params, pending_quote_amount, execute_action, stop
   include Fundable
   include Schedulable
   include OrderCreator
@@ -41,12 +42,12 @@ class Bots::DcaSingleAsset < Bot
                  user.api_keys.trading.new(exchange_id: exchange_id, status: :pending_validation)
   end
 
-  def parsed_settings(settings_hash)
+  def parse_params(params)
     {
-      base_asset_id: settings_hash[:base_asset_id].presence&.to_i,
-      quote_asset_id: settings_hash[:quote_asset_id].presence&.to_i,
-      quote_amount: settings_hash[:quote_amount].presence&.to_f,
-      interval: settings_hash[:interval].presence
+      base_asset_id: params[:base_asset_id].presence&.to_i,
+      quote_asset_id: params[:quote_asset_id].presence&.to_i,
+      quote_amount: params[:quote_amount].presence&.to_f,
+      interval: params[:interval].presence
     }.compact
   end
 

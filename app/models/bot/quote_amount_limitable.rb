@@ -20,10 +20,10 @@ module Bot::QuoteAmountLimitable
     validate :validate_quote_amount_limit_not_reached, if: :quote_amount_limited?, on: :start
 
     decorators = Module.new do
-      def parsed_settings(settings_hash)
-        super(settings_hash).merge(
-          quote_amount_limited: settings_hash[:quote_amount_limited].presence&.in?(%w[1 true]),
-          quote_amount_limit: settings_hash[:quote_amount_limit].presence&.to_f
+      def parse_params(params)
+        super(params).merge(
+          quote_amount_limited: params[:quote_amount_limited].presence&.in?(%w[1 true]),
+          quote_amount_limit: params[:quote_amount_limit].presence&.to_f
         ).compact
       end
 

@@ -22,10 +22,10 @@ module Bot::SmartIntervalable
     validate :validate_smart_intervalable_included_in_subscription_plan, on: :start
 
     decorators = Module.new do
-      def parsed_settings(settings_hash)
-        super(settings_hash).merge(
-          smart_intervaled: settings_hash[:smart_intervaled].presence&.in?(%w[1 true]),
-          smart_interval_quote_amount: settings_hash[:smart_interval_quote_amount].presence&.to_f
+      def parse_params(params)
+        super(params).merge(
+          smart_intervaled: params[:smart_intervaled].presence&.in?(%w[1 true]),
+          smart_interval_quote_amount: params[:smart_interval_quote_amount].presence&.to_f
         ).compact
       end
 

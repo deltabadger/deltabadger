@@ -35,7 +35,10 @@
             <%= t("bot.settings.extra_price_drop_limit.time_window_condition.#{bot.price_drop_limit_time_window_condition}") %>
             <%= f.select :price_drop_limit_time_window_condition, price_drop_limit_time_window_condition_select_options(bot), { selected: bot.price_drop_limit_time_window_condition }, data: { action: "change->form--submit#submit" } %>
           <% end %>
-          <%= t("bot.settings.extra_price_drop_limit.sentence_html", base_html: base_html.html_safe, value_html: value_html.html_safe, time_window_condition_html: time_window_condition_html.html_safe).html_safe %>
+          <%= t("bot.settings.extra_price_drop_limit.sentence_html",
+                base_html: base_html.html_safe,
+                value_html: value_html.html_safe,
+                time_window_condition_html: time_window_condition_html.html_safe).html_safe %>
           <%= render partial: "bots/settings/price_drop_limit_info", locals: { bot: bot, info: bot.price_drop_limit_info_from_cache } %>
         <% end %>
       </div>
