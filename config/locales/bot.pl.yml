@@ -206,7 +206,7 @@ pl:
                     twenty_four_hours: "najwyższej ceny z ostatnich 24h"
             extra_indicator_limit:
                 sentence_html: "<span>%{timing_condition_html}</span> gdy <span>%{indicator_html}</span> na świecach %{ticker_html} %{timeframe_html} jest <span>%{value_condition_html} %{value_html}</span>"
-                indicator_info: "Aktualny %{indicator} na świecach %{timeframe_html} %{ticker} wynosi %{value}"
+                indicator_info: "Aktualny %{indicator} na świecach %{timeframe} %{ticker} wynosi %{value}"
                 timing_condition:
                     while: "Kupuj tylko"
                     after: "Zacznij kupować"
