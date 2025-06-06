@@ -220,3 +220,19 @@ pl:
                     three_days: "3-dniowych"
                     one_week: "tygodniowych"
                     one_month: "miesięcznych"
+            extra_moving_average_limit:
+                sentence_html: "<span>%{timing_condition_html}</span> gdy cena %{base} jest %{value_condition_html} <span>%{ma_html} %{ma_period_html}</span> na świecach %{timeframe_html} %{ticker_html}"
+                ma_info: "%{ma_type} %{ma_period} na ostatnim zamknięciu świecy %{timeframe} dla %{ticker} wynosi %{value} %{quote}"
+                timing_condition:
+                    while: "Kupuj tylko"
+                    after: "Zacznij kupować"
+                value_condition:
+                    above: "powyżej"
+                    below: "poniżej"
+                timeframe:
+                    one_hour: "godzinowych"
+                    four_hours: "4-godzinnych"
+                    one_day: "dziennych"
+                    three_days: "3-dniowych"
+                    one_week: "tygodniowych"
+                    one_month: "miesięcznych"

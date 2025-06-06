@@ -28,6 +28,9 @@ de:
                             less_than_or_equal_to: "Der Preisrückgang muss kleiner oder gleich 100 sein"
                         indicator_limit:
                             not_a_number: "Sie müssen den %{indicator} Wert angeben"
+                        moving_average_limit_in_period:
+                            not_a_number: "Sie müssen die Gleitende-Durchschnitts-Periode angeben"
+                            greater_than: "Die Gleitende-Durchschnitts-Periode muss größer als 0 sein"
                         quote_amount:
                             not_a_number: "Sie müssen einen Investitionsbetrag hinzufügen"
                             greater_than: "Der investierte Betrag muss größer als 0 sein"
