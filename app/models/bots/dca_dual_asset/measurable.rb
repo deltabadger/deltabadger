@@ -26,6 +26,8 @@ module Bots::DcaDualAsset::Measurable
         totals[:current_value_in_quote][asset_symbol_to_id[base]] =
           totals[:total_base_amount_acquired][asset_symbol_to_id[base]] * rate
         data[:chart][:series][0] << totals[:current_value_in_quote].values.sum
+        data[:chart][:extra_series][0] << totals[:total_base_amount_acquired][base0_asset_id]
+        data[:chart][:extra_series][1] << totals[:total_base_amount_acquired][base1_asset_id]
 
         # metrics data
         totals[:rates][asset_symbol_to_id[base]] << rate
@@ -90,8 +92,34 @@ module Bots::DcaDualAsset::Measurable
     end
   end
 
+  def metrics_with_current_prices_and_candles(force: false)
+    puts 'getting metrics with current prices and candles'
+    Rails.cache.fetch(metrics_with_current_prices_and_candles_cache_key,
+                      expires_in: 5.seconds, # Utilities::Time.seconds_to_end_of_five_minute_cut,
+                      force: force) do
+      metrics_with_current_prices = metrics_with_current_prices(force: force)
+      return metrics_with_current_prices if metrics_with_current_prices[:chart][:labels].empty?
+
+      result = get_extended_chart_data_with_candles_data
+      return metrics_with_current_prices if result.failure?
+
+      metrics_data = metrics_with_current_prices.deep_dup
+      extended_chart_data = result.data
+      sorted_series = Utilities::Array.sort_arrays_by_first_array(
+        metrics_data[:chart][:labels].concat(extended_chart_data[:labels]),
+        metrics_data[:chart][:series][0].concat(extended_chart_data[:series][0]),
+        metrics_data[:chart][:series][1].concat(extended_chart_data[:series][1])
+      )
+      metrics_data[:chart][:labels] = sorted_series[0]
+      metrics_data[:chart][:series][0] = sorted_series[1]
+      metrics_data[:chart][:series][1] = sorted_series[2]
+
+      metrics_data
+    end
+  end
+
   def broadcast_metrics_update
-    metrics_data = metrics_with_current_prices
+    metrics_data = metrics_with_current_prices_and_candles
 
     broadcast_replace_to(
       ["user_#{user_id}", :bot_updates],
@@ -123,10 +151,18 @@ module Bots::DcaDualAsset::Measurable
     Rails.cache.read(metrics_with_current_prices_cache_key)
   end
 
+  def metrics_with_current_prices_and_candles_from_cache
+    Rails.cache.read(metrics_with_current_prices_and_candles_cache_key)
+  end
+
   private
 
   def metrics_with_current_prices_cache_key
     "bot_#{id}_metrics_with_current_prices"
+  end
+
+  def metrics_with_current_prices_and_candles_cache_key
+    "bot_#{id}_metrics_with_current_prices_and_candles"
   end
 
   def calculate_pnl(from, to)
@@ -142,6 +178,10 @@ module Bots::DcaDualAsset::Measurable
         series: [
           [], # value
           []  # invested
+        ],
+        extra_series: [
+          [], # base0 amount acquired
+          []  # base1 amount acquired
         ]
       },
       total_base0_amount: 0,
@@ -168,5 +208,74 @@ module Bots::DcaDualAsset::Measurable
       rates: { base0_asset_id => [], base1_asset_id => [] },
       amounts: { base0_asset_id => [], base1_asset_id => [] }
     }
+  end
+
+  def optimal_candles_timeframe_for_duration(duration)
+    # We want to show a chart of ~300 points when possible
+    if duration < (1 * 300).minutes
+      1.minute
+    elsif duration < (5 * 300).minutes
+      5.minutes
+    elsif duration < (15 * 300).minutes
+      15.minutes
+    elsif duration < (30 * 300).minutes
+      30.minutes
+    elsif duration < (1 * 300).hours
+      1.hour
+    else
+      1.day
+    end
+  end
+
+  def get_extended_chart_data_with_candles_data
+    puts 'getting extended chart data with candles data'
+    since = metrics[:chart][:labels].first + 1.second
+    timeframe = optimal_candles_timeframe_for_duration(Time.now.utc - since)
+    expires_in = Utilities::Time.seconds_to_next_candle_open(timeframe)
+    candles_cache_key = "#{ticker0.id}_candles_#{since}_#{timeframe}"
+    candles0 = Rails.cache.fetch(candles_cache_key, expires_in: expires_in) do
+      result = ticker0.get_candles(
+        start_at: since,
+        timeframe: timeframe
+      )
+      return result if result.failure?
+
+      result.data[...-1]
+    end
+
+    candles_cache_key = "#{ticker1.id}_candles_#{since}_#{timeframe}"
+    candles1 = Rails.cache.fetch(candles_cache_key, expires_in: expires_in) do
+      result = ticker1.get_candles(
+        start_at: since,
+        timeframe: timeframe
+      )
+      return result if result.failure?
+
+      result.data[...-1]
+    end
+
+    candles0_timestamps = candles0.map { |sublist| sublist[0] }
+    candles1_timestamps = candles1.map { |sublist| sublist[0] }
+    common_timestamps = candles0_timestamps & candles1_timestamps
+    candles0.select! { |timestamp, _| common_timestamps.include?(timestamp) }
+    candles1.select! { |timestamp, _| common_timestamps.include?(timestamp) }
+
+    i = 0
+    extended_chart_data = { labels: [], series: [[], []] }
+    candles0.each_with_index do |candle, j|
+      i += 1 while i < metrics[:chart][:labels].length - 1 && metrics[:chart][:labels][i + 1] <= candle[0]
+
+      base0_amount_acquired = metrics[:chart][:extra_series][0][i]
+      base1_amount_acquired = metrics[:chart][:extra_series][1][i]
+      quote_amount_invested = metrics[:chart][:series][1][i]
+      extended_chart_data[:labels] << candle[0]
+      extended_chart_data[:series][0] << [
+        base0_amount_acquired * candles0[j][1],
+        base1_amount_acquired * candles1[j][1]
+      ].sum
+      extended_chart_data[:series][1] << quote_amount_invested
+    end
+
+    Result::Success.new(extended_chart_data)
   end
 end
