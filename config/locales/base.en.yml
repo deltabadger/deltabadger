@@ -2,6 +2,7 @@ en:
     header:
         start_investing: 'Start investing:'
         subscribe_to_secure_early_access: 'Subscribe for Legendary plan to secure early access to indices (coming soon):'
+        trading_options: 'Options for traders:'
     ads:
         dca_profit_html: |
             <p>If you were dollar-cost averaging into Bitcoin for the last %{years}&nbsp;years, you're now up <b style="color: #00A36C;">%{profit}%</b>.</p>
