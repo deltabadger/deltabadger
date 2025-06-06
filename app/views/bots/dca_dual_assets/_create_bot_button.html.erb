@@ -1,8 +1,9 @@
-<% if current_user.subscription.free? %>
-  <%= button_to t('subscriptions.upgrade'), upgrade_path, method: :get, class: 'button button--success', data: { action: 'click->modal--base#animateOutCloseAndCleanUp', turbo: false } %>
-  Rebalanced DCA bots are only available to paid users
-<% else %>
-  <%= form_with model: @bot, url: bots_dca_dual_assets_path(@bot), method: :post, data: { action: "turbo:submit-end->modal--base#submitEnd" }, id: "create-bot-button" do |f| %>
-    <%= f.submit t('button.start'), class: 'button button--success', disabled: !@bot.valid? %>
+<div id="create-bot-button">
+  <% if bot.invalid?(:start) && bot.errors.details.values.flatten.any? { |e| e[:error] == :upgrade } %>
+    <%= button_to t('subscriptions.upgrade'), upgrade_path, method: :get, class: 'button button--success', data: { action: 'click->modal--base#animateOutCloseAndCleanUp', turbo: false } %>
+  <% else %>
+    <%= form_with model: bot, url: bots_dca_dual_assets_path(bot), method: :post, data: { action: "turbo:submit-end->modal--base#submitEnd" } do |f| %>
+      <%= f.submit t('button.start'), class: 'button button--success', disabled: bot.invalid? %>
+    <% end %>
   <% end %>
-<% end %>
+</div>

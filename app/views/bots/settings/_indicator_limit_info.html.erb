@@ -1,4 +1,4 @@
-<% if bot.indicator_limited? && bot.indicator_limit.present? %>
+<% if bot.id.present? && bot.indicator_limited? && bot.indicator_limit.present? %>
   <small id="<%= bot.new_record? ? "new-settings-indicator-limit-info" : "settings-indicator-limit-info" %>" class="small-info">
     <% if info.nil? %>
       <%= tag.div data: {

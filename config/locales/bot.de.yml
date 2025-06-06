@@ -198,7 +198,7 @@ de:
         settings:
             smart_intervals:
                 split_in_orders_html: '<b>Smart Intervals<sup>®</sup></b> Teilt <span>den Betrag</span> in <span>%{amount_html} %{quote}</span> Einheiten auf'
-                split_info: "Die Aufteilung deiner %{quote_amount} %{quote} / %{interval} in kleinere Einheiten von %{amount} %{quote} führt zu einer Investition alle %{smart_interval}"
+                split_info: "Die Aufteilung deiner %{quote_amount} %{quote} / %{interval} in Einheiten von %{amount} %{quote} führt zu einer Investition alle %{smart_interval}"
             extra_amount_limit:
                 dont_spend_more_than: "Nicht mehr ausgeben als"
                 amount_left: "(%{amount} %{symbol} übrig)"
@@ -213,7 +213,7 @@ de:
                     above: "über"
                     below: "unter"
             extra_price_drop_limit:
-                sentence_html: "Beginne zu kaufen, wenn der %{base_html} Preis um %{value_html}% vom %{time_window_condition_html} fällt"
+                sentence_html: "Beginne zu kaufen, wenn der %{base_html} Preis um <span>%{value_html}%</span> vom %{time_window_condition_html} fällt"
                 price_drop_info: "Aktueller %{base} %{time_window_condition} ist %{condition_high} %{quote}."
                 time_window_condition:
                     ath: "Allzeithoch"
@@ -227,3 +227,10 @@ de:
                 value_condition:
                     above: "über"
                     below: "unter"
+                timeframe:
+                    one_hour: "1-Stunden"
+                    four_hours: "4-Stunden"
+                    one_day: "täglichen"
+                    three_days: "3-täglichen"
+                    one_week: "wöchentlichen"
+                    one_month: "monatlichen"
