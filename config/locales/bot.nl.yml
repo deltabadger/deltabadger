@@ -206,7 +206,7 @@ nl:
                     twenty_four_hours: "24-uurs hoogste punt"
             extra_indicator_limit:
                 sentence_html: "<span>%{timing_condition_html}</span> wanneer de <span>%{indicator_html}</span> op %{ticker_html} %{timeframe_html} <span>candles</span> <span>%{value_condition_html} %{value_html}</span> is"
-                indicator_info: "Huidige %{indicator} op %{timeframe_html} %{ticker} candles is %{value}"
+                indicator_info: "Huidige %{indicator} op %{timeframe} %{ticker} candles is %{value}"
                 timing_condition:
                     while: "Koop alleen"
                     after: "Begin met kopen"

@@ -219,8 +219,8 @@ de:
                     ath: "Allzeithoch"
                     twenty_four_hours: "24h-Hoch"
             extra_indicator_limit:
-                sentence_html: "<span>%{timing_condition_html}</span> wenn der <span>%{indicator_html}</span> auf Tages-<span>%{ticker_html}</span> Kerzen <span>%{value_condition_html} %{value_html}</span> ist"
-                indicator_info: "Aktueller %{indicator} auf Tages-%{ticker} Kerzen ist %{value}"
+                sentence_html: "<span>%{timing_condition_html}</span> wenn der <span>%{indicator_html}</span> auf %{timeframe_html} <span>%{ticker_html}</span> Kerzen <span>%{value_condition_html} %{value_html}</span> ist"
+                indicator_info: "Aktueller %{indicator} auf %{timeframe} %{ticker} Kerzen ist %{value}"
                 timing_condition:
                     while: "Nur kaufen"
                     after: "Beginne zu kaufen"
