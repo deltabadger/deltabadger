@@ -184,7 +184,7 @@ nl:
         settings:
             smart_intervals:
                 split_in_orders_html: '<b>Smart Intervals<sup>®</sup></b> Splits <span>het bedrag</span> in eenheden van <span>%{amount_html} %{quote}</span>'
-                split_info: "Het splitsen van je %{quote_amount} %{quote} / %{interval} in kleinere eenheden van %{amount} %{quote} resulteert in één investering per %{smart_interval}"
+                split_info: "Het splitsen van je %{quote_amount} %{quote} / %{interval} in eenheden van %{amount} %{quote} resulteert in één investering per %{smart_interval}"
             extra_amount_limit:
                 dont_spend_more_than: "Besteed niet meer dan"
                 amount_left: "(%{amount} %{symbol} resterend)"
@@ -199,17 +199,24 @@ nl:
                     above: "boven"
                     below: "onder"
             extra_price_drop_limit:
-                sentence_html: "Begin met kopen wanneer de %{base_html} prijs %{value_html}% daalt vanaf zijn %{time_window_condition_html}"
+                sentence_html: "Begin met kopen wanneer de %{base_html} prijs <span>%{value_html}%</span> daalt vanaf zijn %{time_window_condition_html}"
                 price_drop_info: "De huidige %{base} %{time_window_condition} is %{condition_high} %{quote}."
                 time_window_condition:
                     ath: "hoogste punt ooit"
                     twenty_four_hours: "24-uurs hoogste punt"
             extra_indicator_limit:
-                sentence_html: "<span>%{timing_condition_html}</span> wanneer de <span>%{indicator_html}</span> op dagelijkse <span>%{ticker_html}</span> kaarsen <span>%{value_condition_html} %{value_html}</span> is"
-                indicator_info: "Huidige %{indicator} op dagelijkse %{ticker} kaarsen is %{value}"
+                sentence_html: "<span>%{timing_condition_html}</span> wanneer de <span>%{indicator_html}</span> op %{ticker_html} %{timeframe_html} <span>candles</span> <span>%{value_condition_html} %{value_html}</span> is"
+                indicator_info: "Huidige %{indicator} op %{timeframe_html} %{ticker} candles is %{value}"
                 timing_condition:
-                    while: "Alleen kopen"
+                    while: "Koop alleen"
                     after: "Begin met kopen"
                 value_condition:
                     above: "boven"
                     below: "onder"
+                timeframe:
+                    one_hour: "per uur"
+                    four_hours: "4-uurs"
+                    one_day: "dagelijks"
+                    three_days: "3-daags"
+                    one_week: "wekelijks"
+                    one_month: "maandelijks"
