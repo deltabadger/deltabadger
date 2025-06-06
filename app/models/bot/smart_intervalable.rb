@@ -18,6 +18,7 @@ module Bot::SmartIntervalable
     validates :smart_interval_quote_amount,
               numericality: { greater_than_or_equal_to: :minimum_smart_interval_quote_amount },
               if: :smart_intervaled
+    validate :validate_smart_intervalable_included_in_subscription_plan, on: :start
 
     decorators = Module.new do
       def parsed_settings(settings_hash)
@@ -73,6 +74,13 @@ module Bot::SmartIntervalable
   end
 
   private
+
+  def validate_smart_intervalable_included_in_subscription_plan
+    return unless smart_intervaled?
+    return if user.subscription.paid?
+
+    errors.add(:user, :upgrade)
+  end
 
   def initialize_smart_intervalable_settings
     self.smart_intervaled ||= false

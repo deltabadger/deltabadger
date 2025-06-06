@@ -1,7 +1,15 @@
 .big-header
     font-weight: 600
-    color: var(--big-header) !important
+    color: var(--big-header)
     margin: 0
+    text-align: center
+    @media (min-width: 768px)
+        text-align: left
+    &--traders
+        color: var(--label) !important
+        padding-top: 4rem !important
+        @media (min-width: 768px)
+            padding-top: 6rem !important
     &--1
         font-size: 3rem
         line-height: 4rem
@@ -9,6 +17,7 @@
         font-size: 2.5rem
         line-height: 3.25rem
         padding: 1.5rem 0
+    
     &--desktop-only
         @media (max-width: 575.9px)
             display: none

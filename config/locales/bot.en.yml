@@ -222,14 +222,14 @@ en:
                     above: "above"
                     below: "below"
             extra_price_drop_limit:
-                sentence_html: "Start buying when %{base_html} price drops %{value_html}% from its %{time_window_condition_html}"
+                sentence_html: "Start buying when %{base_html} price drops <span>%{value_html}%</span> from its %{time_window_condition_html}"
                 price_drop_info: "Current %{base} %{time_window_condition} is %{condition_high} %{quote}."
                 time_window_condition:
                     ath: "all-time high"
                     twenty_four_hours: "24h high"
             extra_indicator_limit:
                 sentence_html: "<span>%{timing_condition_html}</span> when the <span>%{indicator_html}</span> on %{ticker_html} %{timeframe_html} <span>candles</span> is <span>%{value_condition_html} %{value_html}</span>"
-                indicator_info: "Current %{indicator} on daily %{ticker} candles is %{value}"
+                indicator_info: "Current %{indicator} on %{timeframe_html} %{ticker} candles is %{value}"
                 timing_condition:
                     while: "Buy only"
                     after: "Start buying"
@@ -237,9 +237,9 @@ en:
                     above: "above"
                     below: "below"
                 timeframe:
-                    one_hour: "1 Hour"
-                    four_hours: "4 Hour"
-                    one_day: "1 Day"
-                    three_days: "3 Day"
-                    one_week: "1 Week"
-                    one_month: "1 Month"
+                    one_hour: "hourly"
+                    four_hours: "4-hour"
+                    one_day: "daily"
+                    three_days: "3-day"
+                    one_week: "weekly"
+                    one_month: "monthly"

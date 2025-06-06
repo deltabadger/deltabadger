@@ -2,6 +2,7 @@ es:
     header:
         start_investing: 'Empieza a invertir:'
         subscribe_to_secure_early_access: 'Suscríbete al plan Legendary para obtener acceso anticipado a los índices (próximamente):'
+        trading_options: 'Opciones para traders:'
     ads:
         dca_profit_html: |
             <p>Si hubieras hecho DCA en Bitcoin durante los últimos %{years}&nbsp;años, ahora tendrías unos beneficios de <b style="color: #00A36C;">%{profit}%</b>.</p>
