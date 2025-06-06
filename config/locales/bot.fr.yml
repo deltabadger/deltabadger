@@ -207,7 +207,7 @@ fr:
                     twenty_four_hours: "plus haut sur 24h"
             extra_indicator_limit:
                 sentence_html: "<span>%{timing_condition_html}</span> lorsque le <span>%{indicator_html}</span> sur les bougies %{timeframe_html} de %{ticker_html} est <span>%{value_condition_html} %{value_html}</span>"
-                indicator_info: "Le %{indicator} actuel sur les bougies %{timeframe_html} de %{ticker} est %{value}"
+                indicator_info: "Le %{indicator} actuel sur les bougies %{timeframe} de %{ticker} est %{value}"
                 timing_condition:
                     while: "Acheter uniquement"
                     after: "Commencer à acheter"
