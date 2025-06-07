@@ -153,7 +153,7 @@ class MakeTransaction < BaseService
     {
       bot_id: bot.id,
       status: :failure,
-      error_messages: result.errors,
+      errors: result.errors,
       bot_interval: bot.interval,
       bot_quote_amount: fixing_transaction?(price) ? price : bot.price,
       transaction_type: fixing_transaction?(price) ? 'FIXING' : 'REGULAR',

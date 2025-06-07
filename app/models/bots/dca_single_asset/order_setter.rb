@@ -35,7 +35,7 @@ module Bots::DcaSingleAsset::OrderSetter
         "set_order for bot #{id} failed to create order #{order_data.inspect}. " \
         "Errors: #{result.errors.to_sentence}"
       )
-      create_failed_order!(order_data.merge!(error_messages: result.errors))
+      create_failed_order!(order_data.merge!(errors: result.errors))
       return result
     else
       order_id = result.data[:order_id]
@@ -61,7 +61,7 @@ module Bots::DcaSingleAsset::OrderSetter
     result = ticker.get_ask_price
     if result.failure?
       Rails.logger.error("set_order for bot #{id} failed to get order. Errors: #{result.errors.to_sentence}")
-      create_failed_order!(ticker: ticker, error_messages: result.errors)
+      create_failed_order!(ticker: ticker, errors: result.errors)
       return result
     end
 

@@ -38,8 +38,8 @@
     } do %>
       <% if bot.retrying? %>
         <% last_transaction = bot.transactions.last %>
-        <% if last_transaction.present? && last_transaction.failure? && last_transaction.error_messages.any? %>
-          <%= t('bot.messages.failed_status_bar_explanation', error_messages: last_transaction.error_messages.to_sentence) + ' - ' + t('bot.status.next_try') %>
+        <% if last_transaction.present? && last_transaction.failure? && last_transaction.errors.any? %>
+          <%= t('bot.messages.failed_status_bar_explanation', error_message: last_transaction.errors.to_sentence) + ' - ' + t('bot.status.next_try') %>
         <% else %>
           <%= t('bot.status.next_try') %>
         <% end %>

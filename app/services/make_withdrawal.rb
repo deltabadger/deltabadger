@@ -104,7 +104,7 @@ class MakeWithdrawal < BaseService
     {
       bot_id: bot.id,
       status: :failure,
-      error_messages: result.errors,
+      errors: result.errors,
       transaction_type: 'WITHDRAWAL',
       exchange: bot.exchange
     }
