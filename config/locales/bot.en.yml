@@ -155,7 +155,7 @@ en:
             wrong_subaccount_name: "Wrong subaccount name"
             failed_tooltip_explanation: "This order failed: %{error_message}"
             skipped_tooltip_explanation: "This order has been skipped because the amount was below the %{exchange_name} minimum order size. The amount has been buffered and added to the next order."
-            failed_status_bar_explanation: "Last order failed: %{error_messages}"
+            failed_status_bar_explanation: "Last order failed: %{error_message}"
         minimum_withdrawal_disclaimer: 'The minimum withdrawal size is %{minimum} %{currency}.'
         minimum_withdrawal_disclaimer_usd: 'The minimum withdrawal size is %{minimum} USD.'
         month: Month

@@ -164,7 +164,7 @@ class MakeWebhook < BaseService
     {
       bot_id: bot.id,
       status: :failure,
-      error_messages: result.errors,
+      errors: result.errors,
       bot_quote_amount: bot.price,
       transaction_type: 'REGULAR',
       exchange: bot.exchange

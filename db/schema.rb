@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema.define(version: 2025_06_04_164405) do
+ActiveRecord::Schema.define(version: 2025_06_07_115222) do
 
   # These are extensions that must be enabled in order to support this database
   enable_extension "plpgsql"
@@ -119,7 +119,7 @@ ActiveRecord::Schema.define(version: 2025_06_04_164405) do
     t.decimal "rate"
     t.decimal "amount"
     t.integer "status"
-    t.decimal "bot_price", default: "0.0", null: false
+    t.decimal "bot_quote_amount", default: "0.0", null: false
     t.string "bot_interval", default: "", null: false
     t.string "transaction_type", default: "REGULAR", null: false
     t.string "called_bot_type"
@@ -130,7 +130,7 @@ ActiveRecord::Schema.define(version: 2025_06_04_164405) do
     t.decimal "total_invested", default: "0.0", null: false
     t.string "base"
     t.string "quote"
-    t.jsonb "error_messages", default: [], null: false
+    t.jsonb "errors", default: [], null: false
     t.decimal "quote_amount"
     t.index ["bot_id", "created_at"], name: "index_daily_transaction_aggregates_on_bot_id_and_created_at"
     t.index ["bot_id", "status", "created_at"], name: "dailies_index_status_created_at"
@@ -312,14 +312,14 @@ ActiveRecord::Schema.define(version: 2025_06_04_164405) do
     t.integer "status"
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
-    t.decimal "bot_price", default: "0.0", null: false
+    t.decimal "bot_quote_amount", default: "0.0", null: false
     t.string "bot_interval", default: "", null: false
     t.string "transaction_type", default: "REGULAR", null: false
     t.string "called_bot_type"
     t.string "base"
     t.string "quote"
     t.bigint "exchange_id", null: false
-    t.jsonb "error_messages", default: [], null: false
+    t.jsonb "errors", default: [], null: false
     t.decimal "quote_amount"
     t.index ["bot_id", "created_at"], name: "index_transactions_on_bot_id_and_created_at"
     t.index ["bot_id", "status", "created_at"], name: "index_transactions_on_bot_id_and_status_and_created_at"

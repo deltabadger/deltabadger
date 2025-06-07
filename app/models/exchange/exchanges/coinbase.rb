@@ -265,7 +265,7 @@ module Exchange::Exchanges::Coinbase
     amount = Utilities::Hash.dig_or_raise(result.data, 'order', 'filled_size').to_d
     quote_amount = Utilities::Hash.dig_or_raise(result.data, 'order', 'total_value_after_fees').to_d
     side = Utilities::Hash.dig_or_raise(result.data, 'order', 'side').downcase.to_sym
-    error_messages = [
+    errors = [
       result.data.dig('order', 'reject_reason').presence,
       result.data.dig('order', 'reject_message').presence,
       result.data.dig('order', 'cancel_message').presence
@@ -280,7 +280,7 @@ module Exchange::Exchanges::Coinbase
                           amount: amount,             # amount the account balance went up or down
                           quote_amount: quote_amount, # amount the account balance went up or down
                           side: side,
-                          error_messages: error_messages,
+                          errors: errors,
                           status: status,
                           exchange_response: result.data
                         })
