@@ -16,7 +16,7 @@ task remove_duplicated_transactions: :environment do
          transaction.price == duplicated_transactions[transaction.external_id].price &&
          transaction.amount == duplicated_transactions[transaction.external_id].amount &&
          transaction.status == duplicated_transactions[transaction.external_id].status &&
-         transaction.errors == duplicated_transactions[transaction.external_id].errors &&
+         transaction.error_messages == duplicated_transactions[transaction.external_id].error_messages &&
          transaction.bot_quote_amount == duplicated_transactions[transaction.external_id].bot_quote_amount &&
          transaction.bot_interval == duplicated_transactions[transaction.external_id].bot_interval &&
          transaction.transaction_type == duplicated_transactions[transaction.external_id].transaction_type &&
