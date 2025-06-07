@@ -15,6 +15,11 @@ module Exchange::Exchanges::Kraken
     'XETH' => 'ETH',
     'XXDG' => 'XDG'
   }.freeze # matches how assets are shown in the balances response with how they are shown in the tickers
+  INVALID_KEY_ERRORS = [
+    'EGeneral:Permission denied',
+    'EAPI:Invalid key',
+    'EAPI:Invalid signature'
+  ].freeze
 
   attr_reader :api_key
 
@@ -34,7 +39,9 @@ module Exchange::Exchanges::Kraken
     cache_key = "exchange_#{id}_info"
     tickers_info = Rails.cache.fetch(cache_key, expires_in: 1.hour) do
       result = client.get_tradable_asset_pairs
-      return Result::Failure.new("Failed to get #{name} tradable asset pairs") if result.failure?
+      return result if result.failure?
+      error = Utilities::Hash.dig_or_raise(result.data, 'error')
+      return Result::Failure.new(*error) if error.any?
 
       result.data['result'].map do |_, info|
         ticker = Utilities::Hash.dig_or_raise(info, 'altname')
@@ -63,7 +70,9 @@ module Exchange::Exchanges::Kraken
     cache_key = "exchange_#{id}_prices"
     tickers_prices = Rails.cache.fetch(cache_key, expires_in: 1.minute, force: force) do
       result = client.get_ticker_information
-      return Result::Failure.new("Failed to get #{name} tickers prices") if result.failure?
+      return result if result.failure?
+      error = Utilities::Hash.dig_or_raise(result.data, 'error')
+      return Result::Failure.new(*error) if error.any?
 
       prices_hash = {}
       result.data['result'].each do |data|
@@ -76,6 +85,8 @@ module Exchange::Exchanges::Kraken
       missing_tickers.each do |ticker|
         result = client.get_ticker_information(pair: ticker)
         return result if result.failure?
+        error = Utilities::Hash.dig_or_raise(result.data, 'error')
+        return Result::Failure.new(*error) if error.any?
 
         asset_ticker_info = Utilities::Hash.dig_or_raise(result.data, 'result').map { |_, v| v }.first
         return Result::Failure.new("Failed to get #{name} tickers prices (ticker: #{ticker})") if asset_ticker_info.nil?
@@ -93,6 +104,8 @@ module Exchange::Exchanges::Kraken
   def get_balances(asset_ids: nil)
     result = client.get_extended_balance
     return result if result.failure?
+    error = Utilities::Hash.dig_or_raise(result.data, 'error')
+    return Result::Failure.new(*error) if error.any?
 
     asset_ids ||= assets.pluck(:id)
     balances = asset_ids.each_with_object({}) do |asset_id, balances_hash|
@@ -193,6 +206,8 @@ module Exchange::Exchanges::Kraken
       since: start_at.to_i
     )
     return result if result.failure?
+    error = Utilities::Hash.dig_or_raise(result.data, 'error')
+    return Result::Failure.new(*error) if error.any?
 
     raw_candles_list = result.data['result'][(result.data['result'].keys - ['last'])[0]]
     raw_candles_list.each do |candle|
@@ -261,9 +276,11 @@ module Exchange::Exchanges::Kraken
   def get_order(order_id:)
     result = client.query_orders_info(txid: order_id)
     return result if result.failure?
+    error = Utilities::Hash.dig_or_raise(result.data, 'error')
+    return Result::Failure.new(*error) if error.any?
 
     order_data = Utilities::Hash.dig_or_raise(result.data, 'result').map { |_, v| v }.first
-    return Result::Failure.new("Failed to get #{name} order (order_id: #{order_id})") if order_data.nil?
+    return Result::Failure.new("Failed to get #{name} order (order_id: #{order_id}). Order data is nil") if order_data.nil?
 
     pair = Utilities::Hash.dig_or_raise(order_data, 'descr', 'pair')
     rate = Utilities::Hash.dig_or_raise(order_data, 'price').to_d
@@ -307,11 +324,13 @@ module Exchange::Exchanges::Kraken
              elsif api_key.withdrawal?
                temp_client.get_withdrawal_methods
              else
-               raise StandardError, 'Invalid API key'
+               raise StandardError, 'Invalid API key type'
              end
     return result if result.failure?
+    error = Utilities::Hash.dig_or_raise(result.data, 'error')
+    return Result::Failure.new(*error) if error.any? && !error.first.in?(INVALID_KEY_ERRORS)
 
-    valid = Utilities::Hash.dig_or_raise(result.data, 'error').empty?
+    valid = error.empty?
     Result::Success.new(valid)
   end
 
@@ -340,6 +359,8 @@ module Exchange::Exchanges::Kraken
     Rails.cache.fetch(cache_key, expires_in: 1.seconds) do # rubocop:disable Metrics/BlockLength
       result = client.get_ticker_information(pair: ticker.ticker)
       return result if result.failure?
+      error = Utilities::Hash.dig_or_raise(result.data, 'error')
+      return Result::Failure.new(*error) if error.any?
 
       asset_ticker_info = Utilities::Hash.dig_or_raise(result.data, 'result').map { |_, v| v }.first
       return Result::Failure.new("Failed to get #{name} #{ticker.ticker} ticker information") if asset_ticker_info.nil?
@@ -403,7 +424,8 @@ module Exchange::Exchanges::Kraken
     Rails.logger.info("Exchange #{id}: Setting market order #{order_settings.inspect}")
     result = client.add_order(**order_settings)
     return result if result.failure?
-    return Result::Failure.new(result.data['error'].to_sentence, data: result.data) if result.data['error'].any?
+    error = Utilities::Hash.dig_or_raise(result.data, 'error')
+    return Result::Failure.new(*error) if error.any?
 
     order_id = Utilities::Hash.dig_or_raise(result.data, 'result', 'txid').first
     return Result::Failure.new("Failed to set #{name} market order (order_id is nil)") if order_id.nil?
@@ -434,7 +456,8 @@ module Exchange::Exchanges::Kraken
       oflags: amount_type == :quote ? ['viqc'] : []
     )
     return result if result.failure?
-    return Result::Failure.new(result.data['error'].to_sentence, data: result.data) if result.data['error'].any?
+    error = Utilities::Hash.dig_or_raise(result.data, 'error')
+    return Result::Failure.new(*error) if error.any?
 
     order_id = Utilities::Hash.dig_or_raise(result.data, 'result', 'txid').first
     return Result::Failure.new("Failed to set #{name} limit order (order_id is nil)") if order_id.nil?
