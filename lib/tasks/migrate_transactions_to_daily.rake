@@ -28,11 +28,11 @@ task migrate_transactions_to_daily: :environment do
 end
 
 def process_daily_transactions(date, daily_transactions)
-  daily_rate = daily_transactions.map(&:rate).compact.sum / daily_transactions.count # comapct for handlin nil values
+  daily_price = daily_transactions.map(&:price).compact.sum / daily_transactions.count # comapct for handlin nil values
   daily_amount = daily_transactions.map(&:amount).compact.sum
 
   attributes = daily_transactions.last.attributes.except('id')
-  daily_transaction_aggregate_data = attributes.merge('rate' => daily_rate, 'amount' => daily_amount, 'created_at' => date)
+  daily_transaction_aggregate_data = attributes.merge('price' => daily_price, 'amount' => daily_amount, 'created_at' => date)
 
   DailyTransactionAggregate.create(daily_transaction_aggregate_data)
   puts "Bot #{daily_transactions.last.bot_id} - Adds value to existing entry"

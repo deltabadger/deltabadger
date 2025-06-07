@@ -261,7 +261,7 @@ module Exchange::Exchanges::Coinbase
     return result if result.failure?
 
     product_id = Utilities::Hash.dig_or_raise(result.data, 'order', 'product_id')
-    rate = Utilities::Hash.dig_or_raise(result.data, 'order', 'average_filled_price').to_d
+    price = Utilities::Hash.dig_or_raise(result.data, 'order', 'average_filled_price').to_d
     amount = Utilities::Hash.dig_or_raise(result.data, 'order', 'filled_size').to_d
     quote_amount = Utilities::Hash.dig_or_raise(result.data, 'order', 'total_value_after_fees').to_d
     side = Utilities::Hash.dig_or_raise(result.data, 'order', 'side').downcase.to_sym
@@ -276,7 +276,7 @@ module Exchange::Exchanges::Coinbase
     Result::Success.new({
                           order_id: order_id,
                           ticker: ticker,
-                          rate: rate,
+                          price: price,
                           amount: amount,             # amount the account balance went up or down
                           quote_amount: quote_amount, # amount the account balance went up or down
                           side: side,

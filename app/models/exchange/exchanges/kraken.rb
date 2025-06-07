@@ -283,7 +283,7 @@ module Exchange::Exchanges::Kraken
     return Result::Failure.new("Failed to get #{name} order (order_id: #{order_id}). Order data is nil") if order_data.nil?
 
     pair = Utilities::Hash.dig_or_raise(order_data, 'descr', 'pair')
-    rate = Utilities::Hash.dig_or_raise(order_data, 'price').to_d
+    price = Utilities::Hash.dig_or_raise(order_data, 'price').to_d
     amount = Utilities::Hash.dig_or_raise(order_data, 'vol_exec').to_d
     quote_amount = Utilities::Hash.dig_or_raise(order_data, 'cost').to_d
     side = Utilities::Hash.dig_or_raise(order_data, 'descr', 'type').downcase.to_sym
@@ -297,7 +297,7 @@ module Exchange::Exchanges::Kraken
     Result::Success.new({
                           order_id: order_id,
                           ticker: ticker,
-                          rate: rate,
+                          price: price,
                           amount: amount,             # amount the account balance went up or down
                           quote_amount: quote_amount, # amount the account balance went up or down
                           side: side,

@@ -5,24 +5,24 @@ module Bots::DcaSingleAsset::Measurable
     cache_key = "bot_#{id}_metrics"
     Rails.cache.fetch(cache_key, expires_in: 30.days, force: force) do
       data = initialize_metrics_data
-      transactions_array = transactions.success.order(created_at: :asc).pluck(:created_at, :rate, :amount, :quote_amount, :base)
+      transactions_array = transactions.success.order(created_at: :asc).pluck(:created_at, :price, :amount, :quote_amount, :base)
       return data if transactions_array.empty?
 
       totals = initialize_totals_data
-      transactions_array.each do |created_at, rate, amount, quote_amount, _base|
-        next if rate.zero?
+      transactions_array.each do |created_at, price, amount, quote_amount, _base|
+        next if price.zero?
 
         # chart data
         data[:chart][:labels] << created_at
         totals[:total_quote_amount_invested] += quote_amount
         totals[:total_base_amount_acquired] += amount
         data[:chart][:series][1] << totals[:total_quote_amount_invested]
-        totals[:current_value_in_quote] = totals[:total_base_amount_acquired] * rate
+        totals[:current_value_in_quote] = totals[:total_base_amount_acquired] * price
         data[:chart][:series][0] << totals[:current_value_in_quote]
         data[:chart][:extra_series][0] << totals[:total_base_amount_acquired]
 
         # metrics data
-        totals[:rates] << rate
+        totals[:prices] << price
         totals[:amounts] << amount
       end
 
@@ -30,8 +30,8 @@ module Bots::DcaSingleAsset::Measurable
       data[:total_quote_amount_invested] = totals[:total_quote_amount_invested]
       data[:total_amount_value_in_quote] = totals[:current_value_in_quote]
       data[:pnl] = calculate_pnl(data[:total_quote_amount_invested], data[:total_amount_value_in_quote])
-      data[:average_buy_rate] =
-        Utilities::Math.weighted_average(totals[:rates], totals[:amounts])
+      data[:average_buy_price] =
+        Utilities::Math.weighted_average(totals[:prices], totals[:amounts])
 
       data
     end
@@ -155,7 +155,7 @@ module Bots::DcaSingleAsset::Measurable
       total_quote_amount_invested: 0,
       total_amount_value_in_quote: 0,
       pnl: nil,
-      average_buy_rate: nil
+      average_buy_price: nil
     }
   end
 
@@ -164,7 +164,7 @@ module Bots::DcaSingleAsset::Measurable
       total_quote_amount_invested: 0,
       total_base_amount_acquired: 0,
       current_value_in_quote: 0,
-      rates: [],
+      prices: [],
       amounts: []
     }
   end

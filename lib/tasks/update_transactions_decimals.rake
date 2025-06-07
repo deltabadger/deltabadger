@@ -5,7 +5,7 @@ task update_transactions_decimals: :environment do
     ActiveRecord::Base.transaction do
       previous_bot_quote_amount = daily_transaction_aggregate.bot_quote_amount
       daily_transaction_aggregate.update!(
-        rate: daily_transaction_aggregate.rate&.round(18),
+        price: daily_transaction_aggregate.price&.round(18),
         amount: daily_transaction_aggregate.amount.round(18),
         bot_quote_amount: 0,
         total_amount: daily_transaction_aggregate.total_amount.round(18),
@@ -21,7 +21,7 @@ task update_transactions_decimals: :environment do
     ActiveRecord::Base.transaction do
       previous_bot_quote_amount = transaction.bot_quote_amount
       transaction.update!(
-        rate: transaction.rate&.round(18),
+        price: transaction.price&.round(18),
         amount: transaction.amount&.round(18),
         bot_quote_amount: 0
       )

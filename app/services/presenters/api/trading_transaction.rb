@@ -4,9 +4,9 @@ module Presenters
       def call(transaction)
         {
           id: transaction.id,
-          rate: transaction.rate,
+          price: transaction.price,
           amount: transaction.amount,
-          price: price(transaction.rate, transaction.amount),
+          quote_amount: transaction.quote_amount || quote_amount(transaction.price, transaction.amount),
           created_at: transaction.created_at.in_time_zone(transaction.bot.user.time_zone).strftime('%F %I:%M %p'),
           created_at_timestamp: transaction.created_at.to_i
         }
@@ -14,7 +14,7 @@ module Presenters
 
       private
 
-      def price(rate, amount)
+      def quote_amount(rate, amount)
         return nil unless rate && amount
 
         rate * amount

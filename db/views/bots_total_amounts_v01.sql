@@ -1,5 +1,5 @@
 SELECT  bot_id,
-        sum (amount * rate) as total_cost,
+        sum (amount * price) as total_cost,
         sum (amount) as total_amount,
         exchange_id,
         settings,

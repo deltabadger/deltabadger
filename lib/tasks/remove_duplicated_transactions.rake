@@ -13,7 +13,7 @@ task remove_duplicated_transactions: :environment do
     puts "Processing transaction #{transaction.id} with external id #{transaction.external_id}"
     if duplicated_transactions[transaction.external_id].present?
       if transaction.bot_id == duplicated_transactions[transaction.external_id].bot_id &&
-         transaction.rate == duplicated_transactions[transaction.external_id].rate &&
+         transaction.price == duplicated_transactions[transaction.external_id].price &&
          transaction.amount == duplicated_transactions[transaction.external_id].amount &&
          transaction.status == duplicated_transactions[transaction.external_id].status &&
          transaction.errors == duplicated_transactions[transaction.external_id].errors &&

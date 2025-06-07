@@ -5,7 +5,7 @@ module Bot::OrderCreator
     order_values = base_order_values.merge(
       status: :success,
       external_id: order_data[:order_id],
-      rate: order_data[:rate],
+      price: order_data[:price],
       amount: order_data[:amount],
       quote_amount: order_data[:quote_amount],
       base: order_data[:ticker].base_asset.symbol,
@@ -19,7 +19,7 @@ module Bot::OrderCreator
       status: :failure,
       external_id: order_data[:order_id],
       errors: order_data[:errors],
-      rate: order_data[:rate],
+      price: order_data[:price],
       amount: order_data[:amount],
       quote_amount: order_data[:quote_amount],
       base: order_data[:ticker].base_asset.symbol,
@@ -33,7 +33,7 @@ module Bot::OrderCreator
   def create_skipped_order!(order_data)
     order_values = base_order_values.merge(
       status: :skipped,
-      rate: order_data[:rate],
+      price: order_data[:price],
       amount: order_data[:amount],
       quote_amount: order_data[:quote_amount],
       base: order_data[:ticker].base_asset.symbol,

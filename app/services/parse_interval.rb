@@ -37,8 +37,8 @@ class ParseInterval < BaseService
   end
 
   def quote_amount(transaction)
-    return nil unless transaction.amount.present? && transaction.rate.present?
+    return nil unless transaction.amount.present? && transaction.price.present?
 
-    transaction.amount * transaction.rate
+    transaction.amount * transaction.price
   end
 end
