@@ -116,7 +116,7 @@ ActiveRecord::Schema.define(version: 2025_06_07_115222) do
   create_table "daily_transaction_aggregates", force: :cascade do |t|
     t.bigint "bot_id"
     t.string "external_id"
-    t.decimal "rate"
+    t.decimal "price"
     t.decimal "amount"
     t.integer "status"
     t.decimal "bot_quote_amount", default: "0.0", null: false
@@ -307,7 +307,7 @@ ActiveRecord::Schema.define(version: 2025_06_07_115222) do
   create_table "transactions", force: :cascade do |t|
     t.bigint "bot_id"
     t.string "external_id"
-    t.decimal "rate"
+    t.decimal "price"
     t.decimal "amount"
     t.integer "status"
     t.datetime "created_at", null: false
@@ -398,7 +398,7 @@ ActiveRecord::Schema.define(version: 2025_06_07_115222) do
 
   create_view "bots_total_amounts", materialized: true, sql_definition: <<-SQL
       SELECT transactions.bot_id,
-      sum((transactions.amount * transactions.rate)) AS total_cost,
+      sum((transactions.amount * transactions.price)) AS total_cost,
       sum(transactions.amount) AS total_amount,
       bots.exchange_id,
       bots.settings,

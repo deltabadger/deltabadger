@@ -13,7 +13,7 @@ class DailyTransactionAggregate < ApplicationRecord
   private
 
   def round_numeric_fields
-    self.rate = rate&.round(18)
+    self.price = price&.round(18)
     self.amount = amount&.round(18)
     self.bot_quote_amount = bot_quote_amount&.round(18)
     self.total_amount = total_amount&.round(18)

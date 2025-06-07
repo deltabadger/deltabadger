@@ -14,9 +14,9 @@ module Charts::PortfolioValueOverTime
           select distinct on (date_trunc('day', created_at))
             date_trunc('day', created_at) as day,
             created_at,
-            rate * amount as invested,
+            price * amount as invested,
             amount,
-            rate
+            price
           from daily_transaction_aggregates
           where bot_id = ? and status = 0
           order by date_trunc('day', created_at), created_at desc
@@ -26,14 +26,14 @@ module Charts::PortfolioValueOverTime
             day as created_at,
             sum(invested) over (order by day asc) as total_invested,
             sum(amount) over (order by day asc) as total_accumulated,
-            rate
+            price
           from daily_data
         )
 
         select
           created_at,
           total_invested,
-          rate * total_accumulated as current_value,
+          price * total_accumulated as current_value,
           total_accumulated
         from windowed_data
         order by created_at asc
