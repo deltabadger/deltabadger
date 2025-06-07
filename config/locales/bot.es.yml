@@ -121,7 +121,7 @@ es:
                 exchange_unavailable_html: 'La API de intercambio no responde en este momento.<br>Los cálculos se basan en los últimos datos disponibles.'
                 order: Orden
                 profit_loss: Beneficios/pérdidas
-                rate: 'Tasa(%{quote})'
+                price: 'Tasa(%{quote})'
                 sold: Vendido
                 title: Estadísticas
                 total_invested: 'Total invertido'

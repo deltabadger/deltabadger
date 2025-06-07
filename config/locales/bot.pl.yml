@@ -121,7 +121,7 @@ pl:
                 exchange_unavailable_html: 'API giełdy nie odpowiada w tej chwili.<br>Obliczenia są oparte na ostatnich dostępnych danych.'
                 order: Zlecenie
                 profit_loss: Zysk/Strata
-                rate: 'Kurs (%{quote})'
+                price: 'Kurs (%{quote})'
                 sold: Sprzedane
                 title: Statystyki
                 total_invested: 'Zainwestowana suma'

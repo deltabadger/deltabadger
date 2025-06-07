@@ -34,7 +34,7 @@ module ExchangeApi
 
           Result::Success.new(
             external_id: response['orderId'],
-            rate: response['price'],
+            price: response['price'],
             amount: response['origQty'] # We treat the order as fully completed
           )
         end

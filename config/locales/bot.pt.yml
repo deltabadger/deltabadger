@@ -118,7 +118,7 @@ pt:
                 exchange_unavailable_html: 'A API do câmbio não responde atualmente<br>Os cálculos baseiam-se nos últimos dados disponíveis.'
                 order: Pedido
                 profit_loss: Lucro/perda
-                rate: 'Taxa (%{quote})'
+                price: 'Taxa (%{quote})'
                 sold: Vendido
                 title: Estatísticas
                 total_invested: 'Total investido'
