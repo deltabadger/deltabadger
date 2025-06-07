@@ -57,7 +57,7 @@ module ExchangeApi
         end
 
         def common_order_params
-          super.merge(rate: nil, amount: nil, mode: 'market')
+          super.merge(price: nil, amount: nil, mode: 'market')
         end
       end
     end
