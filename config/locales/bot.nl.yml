@@ -146,7 +146,7 @@ nl:
             wrong_subaccount_name: "Verkeerde subaccountnaam"
             failed_tooltip_explanation: "Deze bestelling is mislukt: %{error_message}"
             skipped_tooltip_explanation: "Deze bestelling is overgeslagen omdat het bedrag onder de minimale ordergrootte van %{exchange_name} lag. Het overgeslagen bedrag is gebufferd en wordt toegevoegd aan de volgende bestelling."
-            failed_status_bar_explanation: "De laatste bestelling is mislukt: %{error_messages}"
+            failed_status_bar_explanation: "De laatste bestelling is mislukt: %{error_message}"
         minimum_withdrawal_disclaimer: 'De minimale opnamegrootte is %{minimum} %{currency}.'
         minimum_withdrawal_disclaimer_usd: 'De minimale opname bedraagt %{minimum} USD.'
         month: Maand
@@ -232,7 +232,7 @@ nl:
                 timeframe:
                     one_hour: "per uur"
                     four_hours: "4-uurs"
-                    one_day: "dagelijks" 
+                    one_day: "dagelijks"
                     three_days: "3-daags"
                     one_week: "wekelijks"
                     one_month: "maandelijks"

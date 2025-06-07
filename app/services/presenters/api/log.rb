@@ -28,7 +28,7 @@ module Presenters
       def errors(transaction)
         return [get_skipped_message(transaction)] if transaction.skipped?
 
-        transaction.error_messages
+        transaction.errors
       end
 
       def get_skipped_message(transaction)
