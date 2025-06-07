@@ -130,7 +130,7 @@ ActiveRecord::Schema.define(version: 2025_06_07_115222) do
     t.decimal "total_invested", default: "0.0", null: false
     t.string "base"
     t.string "quote"
-    t.jsonb "errors", default: [], null: false
+    t.jsonb "error_messages", default: [], null: false
     t.decimal "quote_amount"
     t.index ["bot_id", "created_at"], name: "index_daily_transaction_aggregates_on_bot_id_and_created_at"
     t.index ["bot_id", "status", "created_at"], name: "dailies_index_status_created_at"
@@ -319,7 +319,7 @@ ActiveRecord::Schema.define(version: 2025_06_07_115222) do
     t.string "base"
     t.string "quote"
     t.bigint "exchange_id", null: false
-    t.jsonb "errors", default: [], null: false
+    t.jsonb "error_messages", default: [], null: false
     t.decimal "quote_amount"
     t.index ["bot_id", "created_at"], name: "index_transactions_on_bot_id_and_created_at"
     t.index ["bot_id", "status", "created_at"], name: "index_transactions_on_bot_id_and_status_and_created_at"

@@ -12,7 +12,7 @@
           <%= render 'svg/24x24_info-filled' %>
         </div>
         <div class="tooltip tooltip--smart-allocation">
-          <%= t('bot.messages.failed_tooltip_explanation', error_message: order.errors.to_sentence) %>
+          <%= t('bot.messages.failed_tooltip_explanation', error_message: order.error_messages.to_sentence) %>
         </div>
       </div>
     <% elsif order.skipped? %>
