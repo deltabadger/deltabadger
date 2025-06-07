@@ -33,7 +33,7 @@ module ExchangeApi
           Result::Success.new(
             external_id: order_id,
             amount: amount,
-            rate: rate
+            price: rate
           )
         rescue StandardError => e
           Raven.capture_exception(e)

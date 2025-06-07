@@ -76,7 +76,7 @@ module ExchangeApi
           return response unless response.success?
 
           Result::Success.new(
-            response.data.merge(rate: order_params[:price], amount: order_params[:size])
+            response.data.merge(price: order_params[:price], amount: order_params[:size])
           )
         rescue StandardError
           Result::Failure.new('Could not make KuCoin order', RECOVERABLE.to_s)

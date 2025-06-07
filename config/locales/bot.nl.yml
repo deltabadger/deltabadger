@@ -121,7 +121,7 @@ nl:
                 exchange_unavailable_html: 'De exchange API reageert momenteel niet.<br>De berekeningen zijn gebaseerd op de laatst beschikbare gegevens.'
                 order: Order
                 profit_loss: Winst/verlies
-                rate: 'Tarief(%{quote})'
+                price: 'Tarief(%{quote})'
                 sold: Verkocht
                 title: Statistieken
                 total_invested: 'Totaal geïnvesteerd'
