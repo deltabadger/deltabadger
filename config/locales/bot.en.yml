@@ -130,7 +130,7 @@ en:
                 exchange_unavailable_html: 'The exchange API does not respond at the moment.<br>Calculations are based on the last data available.'
                 order: Order
                 profit_loss: Profit/Loss
-                rate: 'Rate(%{quote})'
+                price: 'Rate(%{quote})'
                 sold: Sold
                 title: Statistics
                 total_invested: 'Total invested'

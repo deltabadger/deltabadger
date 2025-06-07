@@ -126,7 +126,7 @@ class MakeTransaction < BaseService
     transaction_params = {
       bot_id: bot.id,
       status: :skipped,
-      price: result[:rate],
+      price: result[:price],
       amount: result[:amount],
       bot_interval: bot.interval,
       bot_quote_amount: bot.price,

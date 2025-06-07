@@ -120,7 +120,7 @@ de:
                 exchange_unavailable_html: 'Die Börsen-API reagiert derzeit nicht.<br>Berechnungen basieren auf den letzten verfügbaren Daten.'
                 order: 'Order Art'
                 profit_loss: Gewinn/Verlust
-                rate: 'Rate(%{quote})'
+                price: 'Rate(%{quote})'
                 sold: Verkauft
                 title: Statistiken
                 total_invested: 'Insgesamt investiert'
