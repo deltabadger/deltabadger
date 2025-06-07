@@ -9,7 +9,7 @@ class ParseInterval < BaseService
 
     user_interval = calculate_user_interval(last_transaction)
 
-    user_price = last_transaction.bot_price.to_f
+    user_price = last_transaction.bot_quote_amount.to_f
     return 0.seconds if user_price.zero?
 
     fixed_amount = if last_transaction.bot.settings['type'] == 'sell'

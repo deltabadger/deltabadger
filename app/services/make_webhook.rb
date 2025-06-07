@@ -140,7 +140,7 @@ class MakeWebhook < BaseService
       rate: result[:rate],
       amount: result[:amount],
       bot_interval: bot.interval,
-      bot_price: bot.price,
+      bot_quote_amount: bot.price,
       transaction_type: 'REGULAR',
       exchange: bot.exchange
     }
@@ -165,7 +165,7 @@ class MakeWebhook < BaseService
       bot_id: bot.id,
       status: :failure,
       error_messages: result.errors,
-      bot_price: bot.price,
+      bot_quote_amount: bot.price,
       transaction_type: 'REGULAR',
       exchange: bot.exchange
     }
