@@ -45,7 +45,7 @@ module Bot::OrderCreator
   def base_order_values
     {
       bot_interval: interval,
-      bot_price: quote_amount,
+      bot_quote_amount: quote_amount,
       transaction_type: 'REGULAR',
       exchange: exchange
     }

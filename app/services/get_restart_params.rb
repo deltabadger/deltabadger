@@ -60,7 +60,7 @@ class GetRestartParams < BaseService
     end
 
     number_of_transactions * (quote_amount(last_transaction) || 0.0) *
-      (bot.price.to_f / last_transaction.bot_price)
+      (bot.price.to_f / last_transaction.bot_quote_amount)
   end
 
   def quote_amount(transaction)
