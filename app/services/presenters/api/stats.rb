@@ -11,12 +11,12 @@ module Presenters
         market = @get_exchange_market.call(bot.exchange_id)
         market_symbol = market.symbol(bot.base, bot.quote)
         current_price_result = market.current_price(market_symbol)
-        current_price = current_price_result.or(transactions.last.rate)
+        current_price = current_price_result.or(transactions.last.price)
 
         daily_aggregates = bot.daily_transaction_aggregates
 
         transactions_amount_sum = daily_aggregates.sum(:amount)
-        total_invested = daily_aggregates.sum { |agg| agg.amount * agg.rate }
+        total_invested = daily_aggregates.sum { |agg| agg.amount * agg.price }
 
         average_price = total_invested / transactions_amount_sum
         current_value = current_price * transactions_amount_sum

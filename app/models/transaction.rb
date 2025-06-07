@@ -62,7 +62,7 @@ class Transaction < ApplicationRecord
   end
 
   def round_numeric_fields
-    self.rate = rate&.round(18)
+    self.price = price&.round(18)
     self.amount = amount&.round(18)
     self.bot_quote_amount = bot_quote_amount&.round(18)
   end
@@ -74,12 +74,12 @@ class Transaction < ApplicationRecord
     return DailyTransactionAggregate.create(attributes.except('id', 'exchange_id')) unless daily_transaction_aggregate
 
     bot_transactions = Transaction.today_for_bot(bot)
-    bot_transactions_with_rate = bot_transactions.reject { |t| t.rate.nil? }
+    bot_transactions_with_price = bot_transactions.reject { |t| t.price.nil? }
     bot_transactions_with_amount = bot_transactions.reject { |t| t.amount.nil? }
-    return if bot_transactions_with_rate.count.zero? || bot_transactions_with_amount.count.zero?
+    return if bot_transactions_with_price.count.zero? || bot_transactions_with_amount.count.zero?
 
     daily_transaction_aggregate_new_data = {
-      rate: bot_transactions_with_rate.sum(&:rate) / bot_transactions_with_rate.count.to_f,
+      price: bot_transactions_with_price.sum(&:price) / bot_transactions_with_price.count.to_f,
       amount: bot_transactions_with_amount.sum(&:amount)
     }
     daily_transaction_aggregate.update(daily_transaction_aggregate_new_data)
