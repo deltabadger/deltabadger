@@ -14,7 +14,7 @@ class TransactionDashboard < Administrate::BaseDashboard
     rate: Field::String.with_options(searchable: false),
     amount: Field::String.with_options(searchable: false),
     status: Field::String.with_options(searchable: false),
-    bot_price: Field::String.with_options(searchable: false),
+    bot_quote_amount: Field::String.with_options(searchable: false),
     bot_interval: Field::String.with_options(searchable: false),
     created_at: Field::DateTime,
     updated_at: Field::DateTime,
@@ -48,7 +48,7 @@ class TransactionDashboard < Administrate::BaseDashboard
     rate
     amount
     status
-    bot_price
+    bot_quote_amount
     bot_interval
     error_messages
     base

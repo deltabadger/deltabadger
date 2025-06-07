@@ -129,7 +129,7 @@ class MakeTransaction < BaseService
       rate: result[:rate],
       amount: result[:amount],
       bot_interval: bot.interval,
-      bot_price: bot.price,
+      bot_quote_amount: bot.price,
       transaction_type: 'REGULAR',
       exchange: bot.exchange
     }
@@ -155,7 +155,7 @@ class MakeTransaction < BaseService
       status: :failure,
       error_messages: result.errors,
       bot_interval: bot.interval,
-      bot_price: fixing_transaction?(price) ? price : bot.price,
+      bot_quote_amount: fixing_transaction?(price) ? price : bot.price,
       transaction_type: fixing_transaction?(price) ? 'FIXING' : 'REGULAR',
       exchange: bot.exchange
     }

@@ -129,7 +129,7 @@ class FetchOrderResult < BaseService
         bot_id: bot.id,
         status: :success,
         bot_interval: bot.webhook? ? '' : bot.interval,
-        bot_price: fixing_transaction?(price) ? price : bot.price,
+        bot_quote_amount: fixing_transaction?(price) ? price : bot.price,
         transaction_type: fixing_transaction?(price) ? 'FIXING' : 'REGULAR',
         called_bot_type: bot.webhook? ? called_bot_type(bot, called_bot) : nil,
         exchange: bot.exchange
@@ -140,7 +140,7 @@ class FetchOrderResult < BaseService
         status: :failure,
         error_messages: result.errors,
         bot_interval: bot.webhook? ? '' : bot.interval,
-        bot_price: fixing_transaction?(price) ? price : bot.price,
+        bot_quote_amount: fixing_transaction?(price) ? price : bot.price,
         transaction_type: fixing_transaction?(price) ? 'FIXING' : 'REGULAR',
         called_bot_type: bot.webhook? ? called_bot_type(bot, called_bot) : nil,
         exchange: bot.exchange
