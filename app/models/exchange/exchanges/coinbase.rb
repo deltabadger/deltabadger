@@ -280,7 +280,7 @@ module Exchange::Exchanges::Coinbase
                           amount: amount,             # amount the account balance went up or down
                           quote_amount: quote_amount, # amount the account balance went up or down
                           side: side,
-                          errors: errors,
+                          error_messages: errors,
                           status: status,
                           exchange_response: result.data
                         })

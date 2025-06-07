@@ -18,7 +18,7 @@ module Bot::OrderCreator
     order_values = base_order_values.merge(
       status: :failure,
       external_id: order_data[:order_id],
-      errors: order_data[:errors],
+      error_messages: order_data[:error_messages],
       price: order_data[:price],
       amount: order_data[:amount],
       quote_amount: order_data[:quote_amount],

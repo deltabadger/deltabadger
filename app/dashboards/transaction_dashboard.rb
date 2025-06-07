@@ -18,7 +18,7 @@ class TransactionDashboard < Administrate::BaseDashboard
     bot_interval: Field::String.with_options(searchable: false),
     created_at: Field::DateTime,
     updated_at: Field::DateTime,
-    errors: Field::String.with_options(searchable: false),
+    error_messages: Field::String.with_options(searchable: false),
     base: Field::String.with_options(searchable: false),
     quote: Field::String.with_options(searchable: false),
     exchange: Field::BelongsTo
@@ -50,7 +50,7 @@ class TransactionDashboard < Administrate::BaseDashboard
     status
     bot_quote_amount
     bot_interval
-    errors
+    error_messages
     base
     quote
     created_at
@@ -68,7 +68,7 @@ class TransactionDashboard < Administrate::BaseDashboard
     market
     status
     currency
-    errors
+    error_messages
     base
     quote
     exchange

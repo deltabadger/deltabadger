@@ -36,7 +36,7 @@ module Bots::DcaDualAsset::OrderSetter # rubocop:disable Metrics/ModuleLength
           "set_orders for bot #{id} failed to create order #{order_data.inspect}. " \
           "Errors: #{result.errors.to_sentence}"
         )
-        create_failed_order!(order_data.merge!(errors: result.errors))
+        create_failed_order!(order_data.merge!(error_messages: result.errors))
         return result
       else
         order_id = result.data[:order_id]
@@ -65,14 +65,14 @@ module Bots::DcaDualAsset::OrderSetter # rubocop:disable Metrics/ModuleLength
     result0 = ticker0.get_ask_price
     if result0.failure?
       Rails.logger.error("set_orders for bot #{id} failed to get order0. Errors: #{result0.errors.to_sentence}")
-      create_failed_order!(ticker: ticker0, errors: result0.errors)
+      create_failed_order!(ticker: ticker0, error_messages: result0.errors)
       return result0
     end
 
     result1 = ticker1.get_ask_price
     if result1.failure?
       Rails.logger.error("set_orders for bot #{id} failed to get order1. Errors: #{result1.errors.to_sentence}")
-      create_failed_order!(ticker: ticker1, errors: result1.errors)
+      create_failed_order!(ticker: ticker1, error_messages: result1.errors)
       return result1
     end
 
