@@ -130,7 +130,7 @@ it:
                 exchange_unavailable_html: 'L''API dell''exchange non risponde al momento.<br>I calcoli sono basati sugli ultimi dati disponibili.'
                 order: Ordine
                 profit_loss: Profitto/Perdita
-                rate: 'Tasso(%{quote})'
+                price: 'Tasso(%{quote})'
                 sold: Venduto
                 title: Statistiche
                 total_invested: 'Totale investito'

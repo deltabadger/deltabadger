@@ -49,7 +49,7 @@ module ExchangeApi
             Result::Success.new(
               external_id: order_id,
               amount: amount,
-              rate: rate
+              price: rate
             )
           elsif response.status == 404 && retry_attempts < 10
             Rails.logger.info 'Coinbase order not found (yet). Retrying...'

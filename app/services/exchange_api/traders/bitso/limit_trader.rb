@@ -76,7 +76,7 @@ module ExchangeApi
           return response unless response.success?
 
           Result::Success.new(
-            response.data.merge(rate: order_params[:price], amount: order_params[:major])
+            response.data.merge(price: order_params[:price], amount: order_params[:major])
           )
         rescue StandardError
           Result::Failure.new('Could not make Bitso order', RECOVERABLE.to_s)
