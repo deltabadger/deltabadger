@@ -1,0 +1,20 @@
+nl:
+    six_reasons:
+        tracking:
+            title: "Tracking"
+            description: "<b>Volg je investering</b> met een grafiek en CSV-export. Als je exchange de kosten heeft gewijzigd, verplaats je bot naar een andere exchange zonder je geschiedenis te verliezen."
+        lower_fees:
+            title: "Lagere kosten"
+            description: "Veel DCA-automatiseringen brengen hogere kosten en prijzen met zich mee. FeeCutter stelt je in staat om te profiteren van lagere <i>maker</i>-kosten en <b>kosten effectief tot nul te reduceren</b>."
+        buy_the_dip:
+            title: "Koop de dip!"
+            description: "<b>Vang de beste prijzen</b> met populaire indicatoren zoals RSI en voortschrijdende gemiddelden, of detecteer eenvoudig plotselinge prijsdalingen met onze unieke opties voor traders."
+        avoid_taxes:
+            title: "Vermijd belastingen"
+            description: "<b>Geherbalanceerde DCA</b> is ons <i>geheime recept</i>. DCA in meerdere assets, herbalanceren naar je gewenste allocatie zonder kapitaalbelasting te veroorzaken."
+        backtest_with_ai:
+            title: "Backtest met AI"
+            description: "Onze <b>Portfolio Analyzer</b> stelt je in staat om elke portfolio te backtesten, van DeFi tot Vanguard ETF's, optimale allocaties te vinden en AI-inzichten te krijgen."
+        invest_in_index:
+            title: "Investeer in de index"
+            description: "Top 10 of Top 500? Bouw je persoonlijke <b>crypto S&P 500</b>. De bot verkoopt automatisch underperformers en alloceert je kapitaal naar winnende projecten." 
