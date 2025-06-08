@@ -7,24 +7,19 @@ nl:
         types:
             dca:
                 title: "DCA"
-                description: |
-                    <p><b>Dollar-cost averaging in elke crypto</b></p>
-                    <p>Stel voorwaarden in om de beste prijs te krijgen.</p>
+                description: "Investeer in één asset"
             dca_dual_asset:
-                title: "Gebalanceerde DCA"
-                description: |
-                    <p><b>DCA in twee assets met behoud van allocatie</b></p>
-                    <p>Herbalanceren zonder vermogenswinstbelasting.</p>
+                title: "Geherbalanceerde DCA"
+                description: "Herbalanceer tussen twee assets"
             legacy:
                 title: "Legacy Bot"
-                description: |
-                    <p><b>DCA en automatische opnames</b></p>
+                description: "DCA + Opnames"
             index_portfolio:
                 title: "Index Portefeuille"
                 description: "Bouw je persoonlijke crypto ETF"
             custom_portfolio:
                 title: "Aangepaste Portefeuille"
-                description: "Herbalanceer een aangepaste mix van assets"
+                description: "Herbalanceer aangepaste asset mix"
         status:
             setting_orders: "Orders instellen…"
             paused: "Gepauzeerd"

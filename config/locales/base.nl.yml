@@ -1,8 +1,7 @@
 nl:
     header:
         start_investing: 'Start investeren:'
-        subscribe_to_secure_early_access: 'Abonneer u op de Legendary-plan om zich voorafgaand toegang tot indices te verkrijgen (bijna klaar):'
-        trading_options: 'Opties voor traders:'
+        six_reasons: '6 redenen om te investeren met Deltabadger:'
     ads:
         dca_profit_html: |
             <p>Als u de afgelopen %{years}&nbsp;jaar aan dollar-cost averaging had gedaan met Bitcoin, zou u nu <b style="color: #00A36C;">%{profit}%</b> in de plus staan.</p>
