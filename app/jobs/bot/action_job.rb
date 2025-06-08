@@ -7,7 +7,7 @@ class Bot::ActionJob < BotJob
     result = bot.execute_action
     if result.failure?
       Rails.logger.error("ActionJob for bot #{bot.id} failed to execute action. Errors: #{result.errors.to_sentence}")
-      raise "#{result.errors.to_sentence}"
+      raise result.errors.to_sentence.to_s
     end
 
     if result.data.present? && result.data[:break_reschedule]
