@@ -36,6 +36,18 @@ module ExchangeTicker::TechnicallyAnalyzable
     Result::Success.new(rsi_value)
   end
 
+  def get_sma_value(timeframe:, period: 9)
+    get_moving_average_value(timeframe: timeframe, period: period, type: 'sma')
+  end
+
+  def get_ema_value(timeframe:, period: 9)
+    get_moving_average_value(timeframe: timeframe, period: period, type: 'ema')
+  end
+
+  def get_wma_value(timeframe:, period: 9)
+    get_moving_average_value(timeframe: timeframe, period: period, type: 'wma')
+  end
+
   def get_moving_average_value(timeframe:, period: 9, type: 'sma')
     cache_key = "exchange_ticker_#{id}_moving_averages_values_#{period}_#{timeframe}"
     expires_in = Utilities::Time.seconds_to_current_candle_close(timeframe)

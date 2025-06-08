@@ -7,17 +7,29 @@ class Transaction < ApplicationRecord
   after_create_commit :set_daily_transaction_aggregate
   after_create_commit -> { bot.broadcast_new_order(self) unless bot.legacy? }
   after_create_commit -> { Bot::UpdateMetricsJob.perform_later(bot) unless bot.legacy? }
-  after_create_commit -> { bot.handle_quote_amount_limit_update if success? && bot.class.include?(Bot::QuoteAmountLimitable) }
+  after_create_commit -> { bot.handle_quote_amount_limit_update if submitted? && bot.class.include?(Bot::QuoteAmountLimitable) }
 
   scope :for_bot, ->(bot) { where(bot_id: bot.id).order(created_at: :desc) }
   scope :today_for_bot, ->(bot) { for_bot(bot).where('created_at >= ?', Date.today.beginning_of_day) }
-  scope :for_bot_by_status, ->(bot, status: :success) { where(bot_id: bot.id).where(status: status).order(created_at: :desc) }
+  scope :for_bot_by_status, ->(bot, status: :submitted) { where(bot_id: bot.id).where(status: status).order(created_at: :desc) }
 
   validates :bot, presence: true
+  validates :filled_percentage, numericality: { greater_than_or_equal_to: 0, less_than_or_equal_to: 1 }, allow_nil: true
 
-  enum status: %i[success failure skipped]
+  enum status: [
+    :submitted, # Successfully sent and accepted by the exchange
+    :failed,    # Attempted but failed (internal error or exchange rejection)
+    :skipped    # Not even attempted (e.g., filtered, blocked, etc.)
+  ]
+  enum side: %i[buy sell]
+  enum order_type: %i[market_order limit_order]
+  enum external_status: %i[unknown open closed]
 
   BTC = %w[XXBT XBT BTC].freeze
+
+  def filled?
+    filled_percentage == 1
+  end
 
   # TODO: Migrate Transaction & DailyTransactionAggregate to directly refference assets instead of symbols
   def base_asset
@@ -68,7 +80,7 @@ class Transaction < ApplicationRecord
   end
 
   def set_daily_transaction_aggregate # rubocop:disable Metrics/CyclomaticComplexity,Metrics/PerceivedComplexity
-    return unless success?
+    return unless submitted?
 
     daily_transaction_aggregate = DailyTransactionAggregate.today_for_bot(bot).first
     return DailyTransactionAggregate.create(attributes.except('id', 'exchange_id')) unless daily_transaction_aggregate
