@@ -7,24 +7,19 @@ pt:
         types:
             dca:
                 title: "DCA"
-                description: |
-                    <p><b>Investimento programado em qualquer cripto</b></p>
-                    <p>Defina condições para obter o melhor preço.</p>
+                description: "Investir num ativo"
             dca_dual_asset:
                 title: "DCA Reequilibrado"
-                description: |
-                    <p><b>DCA em dois ativos mantendo a alocação</b></p>
-                    <p>Reequilíbrio sem impostos sobre mais-valias.</p>
+                description: "Reequilibrar entre dois ativos"
             legacy:
                 title: "Bot Legacy"
-                description: |
-                    <p><b>DCA e levantamentos automáticos</b></p>
+                description: "DCA + Levantamentos"
             index_portfolio:
-                title: "Carteira Índice"
+                title: "Portfólio Índice"
                 description: "Construa o seu ETF cripto pessoal"
             custom_portfolio:
-                title: "Carteira Personalizada"
-                description: "Reequilibre uma combinação personalizada de ativos"
+                title: "Custom Portfolio"
+                description: "Rebalance custom asset mix"
         status:
             setting_orders: "Configurando ordens…"
             paused: "Pausado"

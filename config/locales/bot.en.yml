@@ -7,18 +7,13 @@ en:
         types:
             dca:
                 title: "DCA"
-                description: |
-                    <p><b>Dollar-cost averaging into any crypto</b></p>
-                    <p>Set conditions to catch the best price.</p>
+                description: "Invest in one asset"
             dca_dual_asset:
                 title: "Rebalanced DCA"
-                description: |
-                    <p><b>DCA into two assets keeping allocation</b></p>
-                    <p>Rebalancing without capital gains taxes.</p>
+                description: "Rebalance between two assets"
             legacy:
                 title: "Legacy Bot"
-                description: |
-                    <p><b>DCA and automatic withdrawals</b></p>
+                description: "DCA + Withdrawals"
             index_portfolio:
                 title: "Index Portfolio"
                 description: "Build your personal crypto ETF"

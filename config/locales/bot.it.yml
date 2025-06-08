@@ -7,24 +7,19 @@ it:
         types:
             dca:
                 title: "DCA"
-                description: |
-                    <p><b>Dollar-cost averaging in qualsiasi crypto</b></p>
-                    <p>Imposta condizioni per ottenere il miglior prezzo.</p>
+                description: "Investi in un asset"
             dca_dual_asset:
-                title: "DCA Bilanciato"
-                description: |
-                    <p><b>DCA in due asset mantenendo l'allocazione</b></p>
-                    <p>Bilanciamento senza tasse sulle plusvalenze.</p>
+                title: "DCA Ribilanciato"
+                description: "Ribilancia tra due asset"
             legacy:
                 title: "Bot Legacy"
-                description: |
-                    <p><b>DCA e prelievi automatici</b></p>
+                description: "DCA + Prelievi"
             index_portfolio:
                 title: "Portafoglio Indice"
                 description: "Costruisci il tuo ETF crypto personale"
             custom_portfolio:
                 title: "Portafoglio Personalizzato"
-                description: "Bilancia un mix personalizzato di asset"
+                description: "Ribilancia mix personalizzato di asset"
         status:
             setting_orders: "Impostazione ordini…"
             paused: "In pausa"
