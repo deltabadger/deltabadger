@@ -118,7 +118,7 @@ pt:
                 exchange_unavailable_html: 'A API do câmbio não responde atualmente<br>Os cálculos baseiam-se nos últimos dados disponíveis.'
                 order: Pedido
                 profit_loss: Lucro/perda
-                rate: 'Taxa (%{quote})'
+                price: 'Taxa (%{quote})'
                 sold: Vendido
                 title: Estatísticas
                 total_invested: 'Total investido'
@@ -143,7 +143,7 @@ pt:
             wrong_subaccount_name: "Nome de subconta incorreto"
             failed_tooltip_explanation: "Esta ordem falhou: %{error_message}"
             skipped_tooltip_explanation: "Esta ordem foi pulada porque a quantidade estava abaixo do tamanho mínimo de ordem da %{exchange_name}. A quantidade pulada foi armazenada e será adicionada à próxima ordem."
-            failed_status_bar_explanation: "A última ordem falhou: %{error_messages}"
+            failed_status_bar_explanation: "A última ordem falhou: %{error_message}"
         minimum_withdrawal_disclaimer: "O tamanho mínimo de retirada é %{minimum} %{currency}."
         minimum_withdrawal_disclaimer_usd: "O tamanho mínimo de retirada é %{minimum} USD."
         month: Mês
@@ -223,7 +223,7 @@ pt:
                 timeframe:
                     one_hour: "por hora"
                     four_hours: "4 horas"
-                    one_day: "diário" 
+                    one_day: "diário"
                     three_days: "3 dias"
                     one_week: "semanal"
                     one_month: "mensal"

@@ -7,9 +7,9 @@ module Presenters
       def call(transaction)
         {
           id: transaction.id,
-          rate: transaction.rate,
+          price: transaction.price,
           amount: transaction.amount,
-          price: price(transaction.rate, transaction.amount),
+          quote_amount: transaction.amount || quote_amount(transaction.price, transaction.amount),
           created_at: transaction.created_at.strftime('%F %I:%M:%S %p'),
           status: transaction.status,
           external_id: transaction.external_id,
@@ -19,7 +19,7 @@ module Presenters
 
       private
 
-      def price(rate, amount)
+      def quote_amount(rate, amount)
         return nil if !(rate && amount)
 
         rate * amount

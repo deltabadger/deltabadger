@@ -130,7 +130,7 @@ it:
                 exchange_unavailable_html: 'L''API dell''exchange non risponde al momento.<br>I calcoli sono basati sugli ultimi dati disponibili.'
                 order: Ordine
                 profit_loss: Profitto/Perdita
-                rate: 'Tasso(%{quote})'
+                price: 'Tasso(%{quote})'
                 sold: Venduto
                 title: Statistiche
                 total_invested: 'Totale investito'
@@ -155,7 +155,7 @@ it:
             wrong_subaccount_name: "Nome del sottoconto errato"
             failed_tooltip_explanation: "Questo ordine è fallito: %{error_message}"
             skipped_tooltip_explanation: "Questo ordine è stato saltato perché l'importo era inferiore alla dimensione minima dell'ordine di %{exchange_name}. L'importo saltato è stato messo in buffer e verrà aggiunto al prossimo ordine."
-            failed_status_bar_explanation: "L'ultimo ordine è fallito: %{error_messages}"
+            failed_status_bar_explanation: "L'ultimo ordine è fallito: %{error_message}"
         minimum_withdrawal_disclaimer: 'La dimensione minima di prelievo è %{minimum} %{currency}.'
         minimum_withdrawal_disclaimer_usd: 'La dimensione minima di prelievo è %{minimum} USD.'
         month: Mese
@@ -255,7 +255,7 @@ it:
                 timeframe:
                     one_hour: "orarie"
                     four_hours: "4 ore"
-                    one_day: "giornaliere" 
+                    one_day: "giornaliere"
                     three_days: "3 giorni"
                     one_week: "settimanali"
                     one_month: "mensili"
