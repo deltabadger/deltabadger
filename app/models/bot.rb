@@ -39,11 +39,11 @@ class Bot < ApplicationRecord
   end
 
   def last_successful_transaction
-    transactions.where(status: %i[success skipped]).order(created_at: :desc).limit(1).last
+    transactions.where(status: %i[submitted skipped]).order(created_at: :desc).limit(1).last
   end
 
   def successful_transaction_count
-    transactions.where(status: %i[success skipped]).order(created_at: :desc).count
+    transactions.where(status: %i[submitted skipped]).order(created_at: :desc).count
   end
 
   def any_last_transaction

@@ -19,7 +19,7 @@ module Bot::Accountable
     return 0 if started_at.nil? || deleted?
 
     calc_since = [started_at, settings_changed_at].compact.max
-    total_quote_amount_invested = transactions.success
+    total_quote_amount_invested = transactions.submitted
                                               .where('created_at >= ?', calc_since)
                                               .pluck(:quote_amount)
                                               .sum

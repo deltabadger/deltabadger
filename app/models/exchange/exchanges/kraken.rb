@@ -284,9 +284,12 @@ module Exchange::Exchanges::Kraken
 
     pair = Utilities::Hash.dig_or_raise(order_data, 'descr', 'pair')
     price = Utilities::Hash.dig_or_raise(order_data, 'price').to_d
+    target_amount = Utilities::Hash.dig_or_raise(order_data, 'vol').to_d
     amount = Utilities::Hash.dig_or_raise(order_data, 'vol_exec').to_d
     quote_amount = Utilities::Hash.dig_or_raise(order_data, 'cost').to_d
     side = Utilities::Hash.dig_or_raise(order_data, 'descr', 'type').downcase.to_sym
+    order_type = parse_order_type(Utilities::Hash.dig_or_raise(order_data, 'descr', 'ordertype'))
+    filled_percentage = amount / target_amount
     errors = [
       order_data['reason'].presence,
       order_data['misc'].presence
@@ -301,6 +304,8 @@ module Exchange::Exchanges::Kraken
                           amount: amount,             # amount the account balance went up or down
                           quote_amount: quote_amount, # amount the account balance went up or down
                           side: side,
+                          order_type: order_type,
+                          filled_percentage: filled_percentage,
                           error_messages: errors,
                           status: status,
                           exchange_response: result.data
@@ -469,15 +474,28 @@ module Exchange::Exchanges::Kraken
     Result::Success.new(data)
   end
 
+  def parse_order_type(order_type)
+    case order_type
+    when 'market'
+      :market_order
+    when 'limit'
+      :limit_order
+    else
+      raise "Unknown #{name} order type: #{order_type}"
+    end
+  end
+
   def parse_order_status(status)
     # pending, open, closed, canceled, expired
     case status
-    when 'closed'
-      :success
-    when 'canceled', 'expired'
-      :failure
-    else
+    when 'pending'
       :unknown
+    when 'open'
+      :open
+    when 'closed', 'canceled', 'expired'
+      :closed
+    else
+      raise "Unknown #{name} order status: #{status}"
     end
   end
 end
