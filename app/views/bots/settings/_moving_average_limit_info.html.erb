@@ -10,12 +10,17 @@
       <% ticker_select_options = ticker_select_options(bot) %>
       <% selected_ticker = bot.tickers.find_by(id: bot.moving_average_limit_in_ticker_id) %>
       <% selected_ticker_id = selected_ticker&.id %>
+      <% if ticker_select_options.size > 1 %>
+        <% ticker = ticker_select_options.find { |_, id| id == selected_ticker_id }&.first %>
+      <% else %>
+        <% ticker = "" %>
+      <% end %>
       <div class="<%= info[:condition_met] ? "text-success" : "" %>">
         <%= t("bot.settings.extra_moving_average_limit.ma_info",
               ma_type: bot.moving_average_limit_in_ma_type.upcase,
               ma_period: bot.moving_average_limit_in_period,
               timeframe: t("bot.settings.extra_moving_average_limit.timeframe.#{bot.moving_average_limit_in_timeframe}"),
-              ticker: ticker_select_options.find { |_, id| id == selected_ticker_id }&.first,
+              ticker: ticker,
               value: info[:value],
               quote: selected_ticker.quote_asset.symbol) %>
       </div>
