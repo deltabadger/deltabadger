@@ -7,24 +7,19 @@ de:
         types:
             dca:
                 title: "DCA"
-                description: |
-                    <p><b>Dollar-Cost-Averaging in jede Kryptowährung</b></p>
-                    <p>Setze Bedingungen, um den besten Preis zu erhalten.</p>
+                description: "In einen Vermögenswert investieren"
             dca_dual_asset:
-                title: "Ausbalanciertes DCA"
-                description: |
-                    <p><b>DCA in zwei Assets mit beibehaltener Verteilung</b></p>
-                    <p>Rebalancing ohne Kapitalertragssteuern.</p>
+                title: "Rebalanciertes DCA"
+                description: "Zwischen zwei Vermögenswerten rebalancieren"
             legacy:
                 title: "Legacy Bot"
-                description: |
-                    <p><b>DCA und automatische Auszahlungen</b></p>
+                description: "DCA + Auszahlungen"
             index_portfolio:
                 title: "Index Portfolio"
-                description: "Erstelle deinen persönlichen Krypto-ETF"
+                description: "Baue deinen persönlichen Krypto-ETF"
             custom_portfolio:
                 title: "Individuelles Portfolio"
-                description: "Ausbalancieren einer individuellen Asset-Mischung"
+                description: "Rebalanciere individuelle Vermögensmischung"
         status:
             setting_orders: "Orders werden erstellt…"
             paused: "Pausiert"
