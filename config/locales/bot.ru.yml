@@ -119,7 +119,7 @@ ru:
                 exchange_unavailable_html: 'API биржи в данный момент не отвечает.<br>Расчеты основаны на последних доступных данных.'
                 order: Ордер
                 profit_loss: Прибыль/Убытки
-                rate: 'Цена(%{quote})'
+                price: 'Цена(%{quote})'
                 sold: Продано
                 title: Статистика
                 total_invested: 'Всего инвестировано'
@@ -144,7 +144,7 @@ ru:
             wrong_subaccount_name: "Неправильное имя субаккаунта"
             failed_tooltip_explanation: "Этот ордер не выполнен: %{error_message}"
             skipped_tooltip_explanation: "Этот ордер был пропущен, так как сумма была ниже минимального размера ордера на %{exchange_name}. Пропущенная сумма была буферизована и будет добавлена к следующему ордеру."
-            failed_status_bar_explanation: "Последний ордер не выполнен: %{error_messages}"
+            failed_status_bar_explanation: "Последний ордер не выполнен: %{error_message}"
         minimum_withdrawal_disclaimer: "Минимальный размер вывода составляет %{minimum} %{currency}."
         minimum_withdrawal_disclaimer_usd: "Минимальный размер вывода составляет %{minimum} USD."
         month: Месяц

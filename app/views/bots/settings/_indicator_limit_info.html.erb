@@ -9,10 +9,15 @@
     <% else %>
       <% ticker_select_options = ticker_select_options(bot) %>
       <% selected_ticker_id = bot.tickers.find_by(id: bot.indicator_limit_in_ticker_id)&.id %>
+      <% if ticker_select_options.size > 1 %>
+        <% ticker = ticker_select_options.find { |_, id| id == selected_ticker_id }&.first %>
+      <% else %>
+        <% ticker = "" %>
+      <% end %>
       <div class="<%= info[:condition_met] ? "text-success" : "" %>">
         <%= t("bot.settings.extra_indicator_limit.indicator_info",
               indicator: bot.indicator_limit_in_indicator.upcase,
-              ticker: ticker_select_options.find { |_, id| id == selected_ticker_id }&.first,
+              ticker: ticker,
               timeframe: t("bot.settings.extra_indicator_limit.timeframe.#{bot.indicator_limit_in_timeframe}"),
               value: info[:value]) %>
       </div>

@@ -27,7 +27,7 @@ module ExchangeApi
           Result::Success.new(
             external_id: order_id,
             amount: response_data['filled_quantity'].to_s,
-            rate: rate
+            price: rate
           )
         end
 

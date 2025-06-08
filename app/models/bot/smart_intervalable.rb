@@ -34,7 +34,10 @@ module Bot::SmartIntervalable
                             smart_interval_quote_amount.present? &&
                             normal_interval_quote_amount.present?
 
-        super / (normal_interval_quote_amount.to_f / smart_interval_quote_amount)
+        # interval_duration is an ActiveSupport::Duration. However, for some durations, after this
+        # division, addition in other methods (e.g. Time.current + interval_duration) stops working.
+        # Re-converting it to seconds makes the addition work. Do NOT remove the .seconds !
+        (super / (normal_interval_quote_amount.to_f / smart_interval_quote_amount)).seconds
       end
 
       def pending_quote_amount

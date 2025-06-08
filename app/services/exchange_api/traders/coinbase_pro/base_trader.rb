@@ -38,7 +38,7 @@ module ExchangeApi
           Result::Success.new(
             external_id: order_id,
             amount: amount,
-            rate: (response.fetch('executed_value').to_f / amount)
+            price: (response.fetch('executed_value').to_f / amount)
           )
         rescue StandardError => e
           Raven.capture_exception(e)

@@ -10,11 +10,18 @@ module Exchange::Exchanges::Coinbase
     'WAXL-USD', # same as AXL-USD. Remove it when Coinbase delists WAXL-USD
     'WAXL-USDC'
   ].freeze
+  ERRORS = {
+    insufficient_funds: 'Insufficient balance in source account'
+  }.freeze
 
   attr_reader :api_key
 
   def coingecko_id
     COINGECKO_ID
+  end
+
+  def known_errors
+    ERRORS
   end
 
   def set_client(api_key: nil)
@@ -261,11 +268,13 @@ module Exchange::Exchanges::Coinbase
     return result if result.failure?
 
     product_id = Utilities::Hash.dig_or_raise(result.data, 'order', 'product_id')
-    rate = Utilities::Hash.dig_or_raise(result.data, 'order', 'average_filled_price').to_d
+    price = Utilities::Hash.dig_or_raise(result.data, 'order', 'average_filled_price').to_d
     amount = Utilities::Hash.dig_or_raise(result.data, 'order', 'filled_size').to_d
     quote_amount = Utilities::Hash.dig_or_raise(result.data, 'order', 'total_value_after_fees').to_d
     side = Utilities::Hash.dig_or_raise(result.data, 'order', 'side').downcase.to_sym
-    error_messages = [
+    order_type = parse_order_type(Utilities::Hash.dig_or_raise(result.data, 'order', 'order_type'))
+    filled_percentage = Utilities::Hash.dig_or_raise(result.data, 'order', 'completion_percentage').to_d / 100
+    errors = [
       result.data.dig('order', 'reject_reason').presence,
       result.data.dig('order', 'reject_message').presence,
       result.data.dig('order', 'cancel_message').presence
@@ -276,11 +285,13 @@ module Exchange::Exchanges::Coinbase
     Result::Success.new({
                           order_id: order_id,
                           ticker: ticker,
-                          rate: rate,
+                          price: price,
                           amount: amount,             # amount the account balance went up or down
                           quote_amount: quote_amount, # amount the account balance went up or down
                           side: side,
-                          error_messages: error_messages,
+                          order_type: order_type,
+                          filled_percentage: filled_percentage,
+                          error_messages: errors,
                           status: status,
                           exchange_response: result.data
                         })
@@ -417,15 +428,30 @@ module Exchange::Exchanges::Coinbase
     Result::Success.new(data)
   end
 
-  def parse_order_status(status)
-    # PENDING, OPEN, FILLED, CANCELLED, EXPIRED, FAILED, UNKNOWN_ORDER_STATUS, QUEUED, CANCEL_QUEUED
-    case status
-    when 'FILLED'
-      :success
-    when 'CANCELLED', 'EXPIRED', 'FAILED', 'CANCEL_QUEUED'
-      :failure
+  def parse_order_type(order_type)
+    case order_type
+    when 'MARKET'
+      :market_order
+    when 'LIMIT'
+      :limit_order
     else
+      raise "Unknown #{name} order type: #{order_type}"
+    end
+  end
+
+  def parse_order_status(status)
+    # UNKNOWN_ORDER_STATUS, OPEN, FILLED, CANCELLED, EXPIRED, FAILED, PENDING
+    case status
+    when 'PENDING', 'UNKNOWN_ORDER_STATUS'
       :unknown
+    when 'OPEN'
+      :open
+    when 'FILLED', 'CANCELLED', 'EXPIRED'
+      :closed
+    when 'FAILED'
+      :failed # Warning! This is not a valid external_status.
+    else
+      raise "Unknown #{name} order status: #{status}"
     end
   end
 end

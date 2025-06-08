@@ -76,21 +76,23 @@ module Bots::DcaSingleAsset::OrderSetter
     order_size_in_base = order_amount_in_quote / price
     {
       ticker: ticker,
-      rate: price,
+      price: price,
       amount: order_size_in_base,
-      quote_amount: order_amount_in_quote
+      quote_amount: order_amount_in_quote,
+      side: :buy,
+      order_type: :market_order
     }
   end
 
   def calculate_best_amount_info(order_data)
     case exchange.minimum_amount_logic
     when :base_or_quote
-      minimum_quote_size_in_base = ticker.minimum_quote_size / order_data[:rate]
+      minimum_quote_size_in_base = ticker.minimum_quote_size / order_data[:price]
       amount_type = minimum_quote_size_in_base < ticker.minimum_base_size ? :quote : :base
       amount = amount_type == :base ? order_data[:amount] : order_data[:quote_amount]
       minimum_amount = amount_type == :base ? ticker.minimum_base_size : ticker.minimum_quote_size
     when :base_and_quote
-      minimum_amount = [ticker.minimum_quote_size / order_data[:rate], ticker.minimum_base_size].max
+      minimum_amount = [ticker.minimum_quote_size / order_data[:price], ticker.minimum_base_size].max
       amount_type = :base
       amount = order_data[:amount]
     end
