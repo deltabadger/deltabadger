@@ -104,13 +104,17 @@ module Bots::DcaDualAsset::OrderSetter # rubocop:disable Metrics/ModuleLength
         ticker: ticker0,
         price: price0,
         amount: base0_order_size_in_base,
-        quote_amount: base0_order_size_in_quote
+        quote_amount: base0_order_size_in_quote,
+        side: :buy,
+        order_type: :market_order
       },
       {
         ticker: ticker1,
         price: price1,
         amount: base1_order_size_in_base,
-        quote_amount: base1_order_size_in_quote
+        quote_amount: base1_order_size_in_quote,
+        side: :buy,
+        order_type: :market_order
       }
     ]
   end

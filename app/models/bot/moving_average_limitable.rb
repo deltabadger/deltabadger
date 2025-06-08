@@ -210,11 +210,14 @@ module Bot::MovingAverageLimitable
   end
 
   def get_moving_average_value(ticker)
-    ticker.get_moving_average_value(
-      timeframe: MOVING_AVERAGE_LIMIT_TIMEFRAMES[moving_average_limit_in_timeframe],
-      period: moving_average_limit_in_period,
-      type: moving_average_limit_in_ma_type
-    )
+    case moving_average_limit_in_ma_type
+    when 'sma'
+      ticker.get_sma_value(timeframe: MOVING_AVERAGE_LIMIT_TIMEFRAMES[moving_average_limit_in_timeframe], period: moving_average_limit_in_period)
+    when 'ema'
+      ticker.get_ema_value(timeframe: MOVING_AVERAGE_LIMIT_TIMEFRAMES[moving_average_limit_in_timeframe], period: moving_average_limit_in_period)
+    else
+      raise "Invalid moving average type: #{moving_average_limit_in_ma_type}"
+    end
   end
 
   def initialize_moving_average_limitable_settings # rubocop:disable Metrics/CyclomaticComplexity,Metrics/PerceivedComplexity

@@ -127,7 +127,7 @@ class FetchOrderResult < BaseService
     if result.success? && result.data[:amount].to_f.positive?
       result.data.slice(:external_id, :price, :amount).merge(
         bot_id: bot.id,
-        status: :success,
+        status: :submitted,
         bot_interval: bot.webhook? ? '' : bot.interval,
         bot_quote_amount: fixing_transaction?(price) ? price : bot.price,
         transaction_type: fixing_transaction?(price) ? 'FIXING' : 'REGULAR',
@@ -137,7 +137,7 @@ class FetchOrderResult < BaseService
     else
       {
         bot_id: bot.id,
-        status: :failure,
+        status: :failed,
         error_messages: result.errors,
         bot_interval: bot.webhook? ? '' : bot.interval,
         bot_quote_amount: fixing_transaction?(price) ? price : bot.price,

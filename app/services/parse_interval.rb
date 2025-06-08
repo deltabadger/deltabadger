@@ -31,7 +31,7 @@ class ParseInterval < BaseService
 
   def set_last_transaction(bot)
     return nil unless bot.last_transaction.present?
-    return bot.last_successful_transaction if bot.last_transaction.failure?
+    return bot.last_successful_transaction if bot.last_transaction.failed?
 
     bot.last_transaction
   end

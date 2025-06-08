@@ -104,6 +104,6 @@ class GetRestartParams < BaseService
   end
 
   def failed?(transaction)
-    transaction.status == 'failure'
+    transaction.status == 'failed'
   end
 end

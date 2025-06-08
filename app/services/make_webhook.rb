@@ -163,7 +163,7 @@ class MakeWebhook < BaseService
   def failed_transaction_params(result, bot)
     {
       bot_id: bot.id,
-      status: :failure,
+      status: :failed,
       error_messages: result.errors,
       bot_quote_amount: bot.price,
       transaction_type: 'REGULAR',

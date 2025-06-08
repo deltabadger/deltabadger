@@ -78,7 +78,9 @@ module Bots::DcaSingleAsset::OrderSetter
       ticker: ticker,
       price: price,
       amount: order_size_in_base,
-      quote_amount: order_amount_in_quote
+      quote_amount: order_amount_in_quote,
+      side: :buy,
+      order_type: :market_order
     }
   end
 

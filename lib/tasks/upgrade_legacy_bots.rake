@@ -78,7 +78,7 @@ task upgrade_legacy_bots: :environment do
       next
     end
 
-    bot.transactions.success.find_each do |transaction|
+    bot.transactions.submitted.find_each do |transaction|
       puts "Updating transaction #{transaction.id} quote amount for bot #{bot.id}"
       bot.with_api_key do
         result = bot.exchange.get_order(order_id: transaction.external_id)
