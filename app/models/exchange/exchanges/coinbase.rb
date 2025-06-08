@@ -10,11 +10,18 @@ module Exchange::Exchanges::Coinbase
     'WAXL-USD', # same as AXL-USD. Remove it when Coinbase delists WAXL-USD
     'WAXL-USDC'
   ].freeze
+  ERRORS = {
+    insufficient_funds: 'Insufficient balance in source account'
+  }.freeze
 
   attr_reader :api_key
 
   def coingecko_id
     COINGECKO_ID
+  end
+
+  def known_errors
+    ERRORS
   end
 
   def set_client(api_key: nil)
