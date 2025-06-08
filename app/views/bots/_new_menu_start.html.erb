@@ -8,8 +8,8 @@
 </div>-->
 
 <div class="menu-start">
-    <div class="big-header big-header--2"><%= t('header.start_investing') %></div>
-    <div class="itiles">
+    <div class="big-header big-header--2 text-center"><%= t('header.start_investing') %></div>
+    <div class="introtiles">
 
         <%= link_to new_bots_dca_single_assets_pick_buyable_asset_path, class: 'itile itile--bot-type itile--dca', data: { action: 'click->modal--base#animateOutCloseAndCleanUp', turbo_frame: "modal" } do %>
             <div class="theme-img" style="background-image: url('<%= asset_path('strategy--dca.webp') %>')"></div>
@@ -239,8 +239,43 @@
                 </div>
             </div>
         -->
+</div>
 
+<div class="big-header big-header--2 text-center" style="margin: 9rem 0 0"><%= t('header.six_reasons') %></div>
+<div class="introtiles">
+    <div class="introtile">
+        <h2 class="header header--3"><%= t('six_reasons.tracking.title') %></h2>
+        <p><%= t('six_reasons.tracking.description').html_safe %></p>
+        <%= render partial: 'svg/why01' %>
     </div>
+    <div class="introtile">
+        <h2 class="header header--3"><%= t('six_reasons.lower_fees.title') %></h2>
+        <p><%= t('six_reasons.lower_fees.description').html_safe %></p>
+        <%= render partial: 'svg/why02' %>
+    </div>
+    <div class="introtile">
+        <h2 class="header header--3"><%= t('six_reasons.buy_the_dip.title') %></h2>
+        <p><%= t('six_reasons.buy_the_dip.description').html_safe %></p>
+        <%= render partial: 'svg/why03' %>
+    </div>
+    <div class="introtile">
+        <h2 class="header header--3"><%= t('six_reasons.avoid_taxes.title') %></h2>
+        <p><%= t('six_reasons.avoid_taxes.description').html_safe %></p>
+        <%= render partial: 'svg/why04' %>
+    </div>
+    <div class="introtile">
+        <h2 class="header header--3"><%= t('six_reasons.backtest_with_ai.title') %></h2>
+        <p><%= t('six_reasons.backtest_with_ai.description').html_safe %></p>
+        <%= render partial: 'svg/why05' %>
+    </div>
+    <div class="introtile">
+        <h2 class="header header--3"><%= t('six_reasons.invest_in_index.title') %> <span class="sbadge sbadge--soon"><%= t('utils.soon') %></span></h2>
+        <p><%= t('six_reasons.invest_in_index.description').html_safe %></p>
+        <%= render partial: 'svg/why06' %>
+    </div>
+</div>
+
+<!--
     <div class="big-header big-header--2"><%= t('header.subscribe_to_secure_early_access') %></div>
     <div class="itiles">
         <div class="itile itile--pro itile--soon itile--faded">
@@ -1279,7 +1314,7 @@
                     </div>
                 </div>
             </div>
-        </div>
+        </div>-->
         <!--
         <div class="itile itile--legendary itile--soon itile--faded">
             <div class="theme-img" style="background-image: url('https://deltabadger.com/images/index-ai.webp')"></div>
@@ -1429,6 +1464,7 @@
             </div>
         </div>
         -->
+        <!--
         <div class="itile itile--legendary itile--soon itile--faded">
             <div class="theme-img" style="background-image: url('<%= asset_path('strategy--layer-2.webp') %>')"></div>
             <b class="sbadge sbadge--legendary"><%= t('utils.legendary') %></b>
@@ -2141,4 +2177,4 @@
             </div>
         </div>
     </div>
-</div>
+</div>-->

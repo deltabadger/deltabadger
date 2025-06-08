@@ -7,24 +7,19 @@ es:
         types:
             dca:
                 title: "DCA"
-                description: |
-                    <p><b>Promedia el coste en cualquier cripto</b></p>
-                    <p>Establece condiciones para conseguir el mejor precio.</p>
+                description: "Investeer in één asset"
             dca_dual_asset:
-                title: "DCA Rebalanceado"
-                description: |
-                    <p><b>DCA en dos activos manteniendo la asignación</b></p>
-                    <p>Rebalanceo sin impuestos sobre ganancias de capital.</p>
+                title: "Geherbalanceerde DCA"
+                description: "Herbalanceer tussen twee assets"
             legacy:
-                title: "Bot Legacy"
-                description: |
-                    <p><b>DCA y retiradas automáticas</b></p>
+                title: "Legacy Bot"
+                description: "DCA + Opnames"
             index_portfolio:
-                title: "Cartera Índice"
-                description: "Construye tu ETF personal de criptomonedas"
+                title: "Index Portefeuille"
+                description: "Bouw je persoonlijke crypto ETF"
             custom_portfolio:
-                title: "Cartera Personalizada"
-                description: "Rebalancea una mezcla personalizada de activos"
+                title: "Aangepaste Portefeuille"
+                description: "Herbalanceer aangepaste asset mix"
         status:
             setting_orders: "Configurando órdenes…"
             paused: "Pausado"
