@@ -24,7 +24,7 @@ class NextWebhookBotTransactionAt < BaseService # TODO: need?
   private
 
   def manual_restart_failed_bot?(bot)
-    bot.any_last_transaction.status == 'failure' && !bot.working?
+    bot.any_last_transaction.failed? && !bot.working?
   end
 
   def normal_delay(bot)

@@ -30,7 +30,7 @@ module ExchangeApi
           volume = smart_volume(symbol, price, limit_rate, force_smart_intervals, smart_intervals_value)
           return volume unless volume.success?
 
-          Result::Success.new(common_order_params.merge(amount: volume.data, rate: limit_rate))
+          Result::Success.new(common_order_params.merge(amount: volume.data, price: limit_rate))
         end
 
         def get_sell_params(symbol, price, percentage, force_smart_intervals, smart_intervals_value)
@@ -41,7 +41,7 @@ module ExchangeApi
           volume = smart_volume(symbol, price, limit_rate, force_smart_intervals, smart_intervals_value, true)
           return volume unless volume.success?
 
-          Result::Success.new(common_order_params.merge(amount: volume.data, rate: limit_rate))
+          Result::Success.new(common_order_params.merge(amount: volume.data, price: limit_rate))
         end
       end
     end

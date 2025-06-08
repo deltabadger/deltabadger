@@ -30,7 +30,7 @@ module ExchangeApi
           Result::Success.new(
             external_id: order_id,
             amount: response_data['quantity'],
-            rate: response_data['limit_price'].to_s
+            price: response_data['limit_price'].to_s
           )
         end
 
@@ -63,7 +63,7 @@ module ExchangeApi
           response = super
           return response unless response.success?
 
-          Result::Success.new(response.data.merge(rate: order_params[:limit_price], amount: order_params[:quantity]))
+          Result::Success.new(response.data.merge(price: order_params[:limit_price], amount: order_params[:quantity]))
         rescue StandardError
           Result::Failure.new('Could not make Probit order', RECOVERABLE.to_s)
         end

@@ -73,7 +73,7 @@ module ExchangeApi
           return response unless response.success?
 
           Result::Success.new(
-            response.data.merge(rate: order_params[:price], amount: order_params[:amount].abs)
+            response.data.merge(price: order_params[:price], amount: order_params[:amount].abs)
           )
         rescue StandardError
           Result::Failure.new('Could not make Bitfinex order', RECOVERABLE.to_s)

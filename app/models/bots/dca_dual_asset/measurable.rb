@@ -5,7 +5,7 @@ module Bots::DcaDualAsset::Measurable
     cache_key = "bot_#{id}_metrics"
     Rails.cache.fetch(cache_key, expires_in: 30.days, force: force) do
       data = initialize_metrics_data
-      transactions_array = transactions.success.order(created_at: :asc).pluck(:created_at, :rate, :amount, :quote_amount, :base)
+      transactions_array = transactions.submitted.order(created_at: :asc).pluck(:created_at, :price, :amount, :quote_amount, :base)
       return data if transactions_array.empty?
 
       # TODO: When transactions point to real asset ids, we can use the asset ids directly
@@ -15,8 +15,8 @@ module Bots::DcaDualAsset::Measurable
       }
 
       totals = initialize_totals_data
-      transactions_array.each do |created_at, rate, amount, quote_amount, base|
-        next if rate.zero?
+      transactions_array.each do |created_at, price, amount, quote_amount, base|
+        next if price.zero?
 
         # chart data
         data[:chart][:labels] << created_at
@@ -24,13 +24,13 @@ module Bots::DcaDualAsset::Measurable
         totals[:total_base_amount_acquired][asset_symbol_to_id[base]] += amount
         data[:chart][:series][1] << totals[:total_quote_amount_invested].values.sum
         totals[:current_value_in_quote][asset_symbol_to_id[base]] =
-          totals[:total_base_amount_acquired][asset_symbol_to_id[base]] * rate
+          totals[:total_base_amount_acquired][asset_symbol_to_id[base]] * price
         data[:chart][:series][0] << totals[:current_value_in_quote].values.sum
         data[:chart][:extra_series][0] << totals[:total_base_amount_acquired][base0_asset_id]
         data[:chart][:extra_series][1] << totals[:total_base_amount_acquired][base1_asset_id]
 
         # metrics data
-        totals[:rates][asset_symbol_to_id[base]] << rate
+        totals[:prices][asset_symbol_to_id[base]] << price
         totals[:amounts][asset_symbol_to_id[base]] << amount
       end
 
@@ -47,13 +47,13 @@ module Bots::DcaDualAsset::Measurable
       data[:base1_pnl] = calculate_pnl(data[:base1_total_quote_amount_invested], data[:total_base1_amount_value_in_quote])
       data[:pnl] = calculate_pnl(data[:total_quote_amount_invested], data[:total_amount_value_in_quote])
       if totals[:amounts][base0_asset_id].sum.positive?
-        data[:base0_average_buy_rate] =
-          Utilities::Math.weighted_average(totals[:rates][base0_asset_id],
+        data[:base0_average_buy_price] =
+          Utilities::Math.weighted_average(totals[:prices][base0_asset_id],
                                            totals[:amounts][base0_asset_id])
       end
       if totals[:amounts][base1_asset_id].sum.positive?
-        data[:base1_average_buy_rate] =
-          Utilities::Math.weighted_average(totals[:rates][base1_asset_id],
+        data[:base1_average_buy_price] =
+          Utilities::Math.weighted_average(totals[:prices][base1_asset_id],
                                            totals[:amounts][base1_asset_id])
       end
 
@@ -195,8 +195,8 @@ module Bots::DcaDualAsset::Measurable
       base0_pnl: nil,
       base1_pnl: nil,
       pnl: nil,
-      base0_average_buy_rate: nil,
-      base1_average_buy_rate: nil
+      base0_average_buy_price: nil,
+      base1_average_buy_price: nil
     }
   end
 
@@ -205,7 +205,7 @@ module Bots::DcaDualAsset::Measurable
       total_quote_amount_invested: { base0_asset_id => 0, base1_asset_id => 0 },
       total_base_amount_acquired: { base0_asset_id => 0, base1_asset_id => 0 },
       current_value_in_quote: { base0_asset_id => 0, base1_asset_id => 0 },
-      rates: { base0_asset_id => [], base1_asset_id => [] },
+      prices: { base0_asset_id => [], base1_asset_id => [] },
       amounts: { base0_asset_id => [], base1_asset_id => [] }
     }
   end

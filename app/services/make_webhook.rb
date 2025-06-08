@@ -137,10 +137,10 @@ class MakeWebhook < BaseService
     transaction_params = {
       bot_id: bot.id,
       status: :skipped,
-      rate: result[:rate],
+      price: result[:price],
       amount: result[:amount],
       bot_interval: bot.interval,
-      bot_price: bot.price,
+      bot_quote_amount: bot.price,
       transaction_type: 'REGULAR',
       exchange: bot.exchange
     }
@@ -163,9 +163,9 @@ class MakeWebhook < BaseService
   def failed_transaction_params(result, bot)
     {
       bot_id: bot.id,
-      status: :failure,
+      status: :failed,
       error_messages: result.errors,
-      bot_price: bot.price,
+      bot_quote_amount: bot.price,
       transaction_type: 'REGULAR',
       exchange: bot.exchange
     }

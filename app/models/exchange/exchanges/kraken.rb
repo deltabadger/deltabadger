@@ -15,11 +15,21 @@ module Exchange::Exchanges::Kraken
     'XETH' => 'ETH',
     'XXDG' => 'XDG'
   }.freeze # matches how assets are shown in the balances response with how they are shown in the tickers
+  ERRORS = {
+    insufficient_funds: 'EAPI:Insufficient funds',
+    permission_denied: 'EGeneral:Permission denied',
+    invalid_key: 'EAPI:Invalid key',
+    invalid_signature: 'EAPI:Invalid signature'
+  }.freeze
 
   attr_reader :api_key
 
   def coingecko_id
     COINGECKO_ID
+  end
+
+  def known_errors
+    ERRORS
   end
 
   def set_client(api_key: nil)
@@ -34,7 +44,10 @@ module Exchange::Exchanges::Kraken
     cache_key = "exchange_#{id}_info"
     tickers_info = Rails.cache.fetch(cache_key, expires_in: 1.hour) do
       result = client.get_tradable_asset_pairs
-      return Result::Failure.new("Failed to get #{name} tradable asset pairs") if result.failure?
+      return result if result.failure?
+
+      error = Utilities::Hash.dig_or_raise(result.data, 'error')
+      return Result::Failure.new(*error) if error.any?
 
       result.data['result'].map do |_, info|
         ticker = Utilities::Hash.dig_or_raise(info, 'altname')
@@ -63,7 +76,10 @@ module Exchange::Exchanges::Kraken
     cache_key = "exchange_#{id}_prices"
     tickers_prices = Rails.cache.fetch(cache_key, expires_in: 1.minute, force: force) do
       result = client.get_ticker_information
-      return Result::Failure.new("Failed to get #{name} tickers prices") if result.failure?
+      return result if result.failure?
+
+      error = Utilities::Hash.dig_or_raise(result.data, 'error')
+      return Result::Failure.new(*error) if error.any?
 
       prices_hash = {}
       result.data['result'].each do |data|
@@ -76,6 +92,9 @@ module Exchange::Exchanges::Kraken
       missing_tickers.each do |ticker|
         result = client.get_ticker_information(pair: ticker)
         return result if result.failure?
+
+        error = Utilities::Hash.dig_or_raise(result.data, 'error')
+        return Result::Failure.new(*error) if error.any?
 
         asset_ticker_info = Utilities::Hash.dig_or_raise(result.data, 'result').map { |_, v| v }.first
         return Result::Failure.new("Failed to get #{name} tickers prices (ticker: #{ticker})") if asset_ticker_info.nil?
@@ -93,6 +112,9 @@ module Exchange::Exchanges::Kraken
   def get_balances(asset_ids: nil)
     result = client.get_extended_balance
     return result if result.failure?
+
+    error = Utilities::Hash.dig_or_raise(result.data, 'error')
+    return Result::Failure.new(*error) if error.any?
 
     asset_ids ||= assets.pluck(:id)
     balances = asset_ids.each_with_object({}) do |asset_id, balances_hash|
@@ -194,6 +216,9 @@ module Exchange::Exchanges::Kraken
     )
     return result if result.failure?
 
+    error = Utilities::Hash.dig_or_raise(result.data, 'error')
+    return Result::Failure.new(*error) if error.any?
+
     raw_candles_list = result.data['result'][(result.data['result'].keys - ['last'])[0]]
     raw_candles_list.each do |candle|
       new_candle = [
@@ -262,15 +287,21 @@ module Exchange::Exchanges::Kraken
     result = client.query_orders_info(txid: order_id)
     return result if result.failure?
 
+    error = Utilities::Hash.dig_or_raise(result.data, 'error')
+    return Result::Failure.new(*error) if error.any?
+
     order_data = Utilities::Hash.dig_or_raise(result.data, 'result').map { |_, v| v }.first
-    return Result::Failure.new("Failed to get #{name} order (order_id: #{order_id})") if order_data.nil?
+    return Result::Failure.new("Failed to get #{name} order (order_id: #{order_id}). Order data is nil") if order_data.nil?
 
     pair = Utilities::Hash.dig_or_raise(order_data, 'descr', 'pair')
-    rate = Utilities::Hash.dig_or_raise(order_data, 'price').to_d
+    price = Utilities::Hash.dig_or_raise(order_data, 'price').to_d
+    target_amount = Utilities::Hash.dig_or_raise(order_data, 'vol').to_d
     amount = Utilities::Hash.dig_or_raise(order_data, 'vol_exec').to_d
     quote_amount = Utilities::Hash.dig_or_raise(order_data, 'cost').to_d
     side = Utilities::Hash.dig_or_raise(order_data, 'descr', 'type').downcase.to_sym
-    error_messages = [
+    order_type = parse_order_type(Utilities::Hash.dig_or_raise(order_data, 'descr', 'ordertype'))
+    filled_percentage = amount / target_amount
+    errors = [
       order_data['reason'].presence,
       order_data['misc'].presence
     ].compact
@@ -280,11 +311,13 @@ module Exchange::Exchanges::Kraken
     Result::Success.new({
                           order_id: order_id,
                           ticker: ticker,
-                          rate: rate,
+                          price: price,
                           amount: amount,             # amount the account balance went up or down
                           quote_amount: quote_amount, # amount the account balance went up or down
                           side: side,
-                          error_messages: error_messages,
+                          order_type: order_type,
+                          filled_percentage: filled_percentage,
+                          error_messages: errors,
                           status: status,
                           exchange_response: result.data
                         })
@@ -307,11 +340,15 @@ module Exchange::Exchanges::Kraken
              elsif api_key.withdrawal?
                temp_client.get_withdrawal_methods
              else
-               raise StandardError, 'Invalid API key'
+               raise StandardError, 'Invalid API key type'
              end
     return result if result.failure?
 
-    valid = Utilities::Hash.dig_or_raise(result.data, 'error').empty?
+    error = Utilities::Hash.dig_or_raise(result.data, 'error')
+    invalid_key_errors = [ERRORS[:permission_denied], ERRORS[:invalid_key], ERRORS[:invalid_signature]]
+    return Result::Failure.new(*error) if error.any? && !error.first.in?(invalid_key_errors)
+
+    valid = error.empty?
     Result::Success.new(valid)
   end
 
@@ -340,6 +377,9 @@ module Exchange::Exchanges::Kraken
     Rails.cache.fetch(cache_key, expires_in: 1.seconds) do # rubocop:disable Metrics/BlockLength
       result = client.get_ticker_information(pair: ticker.ticker)
       return result if result.failure?
+
+      error = Utilities::Hash.dig_or_raise(result.data, 'error')
+      return Result::Failure.new(*error) if error.any?
 
       asset_ticker_info = Utilities::Hash.dig_or_raise(result.data, 'result').map { |_, v| v }.first
       return Result::Failure.new("Failed to get #{name} #{ticker.ticker} ticker information") if asset_ticker_info.nil?
@@ -403,7 +443,9 @@ module Exchange::Exchanges::Kraken
     Rails.logger.info("Exchange #{id}: Setting market order #{order_settings.inspect}")
     result = client.add_order(**order_settings)
     return result if result.failure?
-    return Result::Failure.new(result.data['error'].to_sentence, data: result.data) if result.data['error'].any?
+
+    error = Utilities::Hash.dig_or_raise(result.data, 'error')
+    return Result::Failure.new(*error) if error.any?
 
     order_id = Utilities::Hash.dig_or_raise(result.data, 'result', 'txid').first
     return Result::Failure.new("Failed to set #{name} market order (order_id is nil)") if order_id.nil?
@@ -434,7 +476,9 @@ module Exchange::Exchanges::Kraken
       oflags: amount_type == :quote ? ['viqc'] : []
     )
     return result if result.failure?
-    return Result::Failure.new(result.data['error'].to_sentence, data: result.data) if result.data['error'].any?
+
+    error = Utilities::Hash.dig_or_raise(result.data, 'error')
+    return Result::Failure.new(*error) if error.any?
 
     order_id = Utilities::Hash.dig_or_raise(result.data, 'result', 'txid').first
     return Result::Failure.new("Failed to set #{name} limit order (order_id is nil)") if order_id.nil?
@@ -446,15 +490,28 @@ module Exchange::Exchanges::Kraken
     Result::Success.new(data)
   end
 
+  def parse_order_type(order_type)
+    case order_type
+    when 'market'
+      :market_order
+    when 'limit'
+      :limit_order
+    else
+      raise "Unknown #{name} order type: #{order_type}"
+    end
+  end
+
   def parse_order_status(status)
     # pending, open, closed, canceled, expired
     case status
-    when 'closed'
-      :success
-    when 'canceled', 'expired'
-      :failure
-    else
+    when 'pending'
       :unknown
+    when 'open'
+      :open
+    when 'closed', 'canceled', 'expired'
+      :closed
+    else
+      raise "Unknown #{name} order status: #{status}"
     end
   end
 end

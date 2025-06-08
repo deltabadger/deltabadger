@@ -124,7 +124,7 @@ class Metrics
   def total_btc_bought
     ActiveRecord::Base.connection.execute("select sum(total_amount) from bots_total_amounts where settings->>'base' in ('XXBT','XBT','BTC')")[0]['sum'].to_f # rubocop:disable Layout/LineLength
 
-    # Transaction.where(status: :success).where('created_at >= ?', 1.days.ago).where(bot: { settings: { 'base' => 'XXBT' } }).sum(:amount).ceil(8) # cursor suggestion
+    # Transaction.where(status: :submitted).where('created_at >= ?', 1.days.ago).where(bot: { settings: { 'base' => 'XXBT' } }).sum(:amount).ceil(8) # cursor suggestion
   end
 
   def top_coins_data(count:)

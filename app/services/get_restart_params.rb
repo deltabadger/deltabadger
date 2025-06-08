@@ -60,13 +60,13 @@ class GetRestartParams < BaseService
     end
 
     number_of_transactions * (quote_amount(last_transaction) || 0.0) *
-      (bot.price.to_f / last_transaction.bot_price)
+      (bot.price.to_f / last_transaction.bot_quote_amount)
   end
 
   def quote_amount(transaction)
-    return nil unless transaction.amount.present? && transaction.rate.present?
+    return nil unless transaction.amount.present? && transaction.price.present?
 
-    transaction.amount * transaction.rate
+    transaction.amount * transaction.price
   end
 
   def calculate_timeout(next_transaction, now, bot)
@@ -104,6 +104,6 @@ class GetRestartParams < BaseService
   end
 
   def failed?(transaction)
-    transaction.status == 'failure'
+    transaction.status == 'failed'
   end
 end

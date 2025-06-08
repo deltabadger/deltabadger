@@ -94,7 +94,7 @@ class MakeWithdrawal < BaseService
   def transaction_params(result, bot)
     result.data.slice(:external_id, :amount).merge(
       bot_id: bot.id,
-      status: :success,
+      status: :submitted,
       transaction_type: 'WITHDRAWAL',
       exchange: bot.exchange
     )
@@ -103,7 +103,7 @@ class MakeWithdrawal < BaseService
   def failed_transaction_params(result, bot)
     {
       bot_id: bot.id,
-      status: :failure,
+      status: :failed,
       error_messages: result.errors,
       transaction_type: 'WITHDRAWAL',
       exchange: bot.exchange

@@ -27,7 +27,7 @@ module ExchangeApi
           return response unless response.success?
 
           Result::Success.new(
-            response.data.merge(rate: params[:rate], amount: params[:amount])
+            response.data.merge(price: params[:price], amount: params[:amount])
           )
         rescue StandardError
           Result::Failure.new('Could not make Zonda order', RECOVERABLE.to_s)
@@ -59,7 +59,7 @@ module ExchangeApi
           Result::Success.new(common_order_params.merge(
                                 offerType: 'buy',
                                 amount: amount.data,
-                                rate: limit_rate.data
+                                price: limit_rate.data
                               ))
         end
 
@@ -79,7 +79,7 @@ module ExchangeApi
           Result::Success.new(common_order_params.merge(
                                 offerType: 'sell',
                                 amount: price_above_minimums.data,
-                                rate: limit_rate.data
+                                price: limit_rate.data
                               ))
         end
 
