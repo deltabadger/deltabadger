@@ -10,9 +10,6 @@ class Bot::FetchAndCreateOrderJob < BotJob
     when :open, :closed
       bot.create_submitted_order!(order_data)
       bot.update!(missed_quote_amount: [0, bot.missed_quote_amount - order_data[:quote_amount]].max) if update_missed_quote_amount
-    when :failed
-      puts "Wtffff"
-      bot.create_failed_order!(order_data)
     when :unknown
       raise "Order #{order_id} external status is unknown."
     end
