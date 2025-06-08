@@ -6,19 +6,20 @@ end
 
 def update_transactions_side
   puts 'updating transactions side'
-  buy_bot_ids = Bot.basic.where("settings @> ?", {type: "buy"}.to_json).pluck(:id)
+  buy_bot_ids = Bot.basic.where('settings @> ?', { type: 'buy' }.to_json).pluck(:id)
                    .concat(Bot.not_legacy.pluck(:id))
-  sell_bot_ids = Bot.basic.where("settings @> ?", {type: "sell"}.to_json).pluck(:id)
+  sell_bot_ids = Bot.basic.where('settings @> ?', { type: 'sell' }.to_json).pluck(:id)
   Transaction.where(bot_id: buy_bot_ids).where(side: nil).update_all(side: :buy)
   Transaction.where(bot_id: sell_bot_ids).where(side: nil).update_all(side: :sell)
 end
 
 def update_transactions_remote_data
   puts 'updating transactions remote data'
-  exchanges = Exchange.where(name_id: ["coinbase", "kraken"])
+  exchanges = Exchange.where(name_id: %w[coinbase kraken])
   exchange_ids = exchanges.pluck(:id)
   puts 'getting bot ids'
-  bot_ids = Transaction.submitted.where(exchange_id: exchange_ids, external_status: nil).where.not(external_id: nil).pluck(:bot_id).uniq
+  bot_ids = Transaction.submitted.where(exchange_id: exchange_ids,
+                                        external_status: nil).where.not(external_id: nil).pluck(:bot_id).uniq
   puts 'getting user ids'
   user_ids = Bot.where(id: bot_ids).pluck(:user_id).uniq
   user_ids.sort.reverse.each do |user_id|
@@ -68,7 +69,8 @@ def update_transactions_remote_data
         external_status = result.data[:status]
         puts "updating transaction #{transaction.id} with quote amount #{quote_amount}, side #{side}, filled percentage #{filled_percentage}, external status #{external_status}"
 
-        transaction.update!(quote_amount: quote_amount, side: side, filled_percentage: filled_percentage, external_status: external_status)
+        transaction.update!(quote_amount: quote_amount, side: side, filled_percentage: filled_percentage,
+                            external_status: external_status)
       end
     end
   end
