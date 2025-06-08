@@ -85,7 +85,7 @@ module ExchangeApi
           if response.fetch('status') == 'Ok'
             Result::Success.new(
               external_id: response.fetch('offerId'),
-              rate: response.fetch('transactions').first.fetch('rate'),
+              price: response.fetch('transactions').first.fetch('rate'),
               amount: response.fetch('transactions').first.fetch('amount')
             )
           else

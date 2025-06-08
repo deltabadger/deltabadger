@@ -7,23 +7,18 @@ ru:
         types:
             dca:
                 title: "DCA"
-                description: |
-                    <p><b>Усреднение стоимости в любую криптовалюту</b></p>
-                    <p>Установите условия для получения лучшей цены.</p>
+                description: "Инвестировать в один актив"
             dca_dual_asset:
-                title: "Сбалансированный DCA"
-                description: |
-                    <p><b>DCA в два актива с сохранением распределения</b></p>
-                    <p>Ребалансировка без налога на прирост капитала.</p>
+                title: "Ребалансированный DCA"
+                description: "Ребалансировка между двумя активами"
             legacy:
-                title: "Устаревший бот"
-                description: |
-                    <p><b>DCA и автоматический вывод средств</b></p>
+                title: "Legacy Bot"
+                description: "DCA + Вывод средств"
             index_portfolio:
-                title: "Индексный портфель"
-                description: "Создайте свой персональный крипто-ETF"
+                title: "Индексный Портфель"
+                description: "Создайте свой персональный крипто ETF"
             custom_portfolio:
-                title: "Пользовательский портфель"
+                title: "Пользовательский Портфель"
                 description: "Ребалансировка пользовательского набора активов"
         status:
             setting_orders: "Настройка ордеров…"
@@ -119,7 +114,7 @@ ru:
                 exchange_unavailable_html: 'API биржи в данный момент не отвечает.<br>Расчеты основаны на последних доступных данных.'
                 order: Ордер
                 profit_loss: Прибыль/Убытки
-                rate: 'Цена(%{quote})'
+                price: 'Цена(%{quote})'
                 sold: Продано
                 title: Статистика
                 total_invested: 'Всего инвестировано'
@@ -144,7 +139,7 @@ ru:
             wrong_subaccount_name: "Неправильное имя субаккаунта"
             failed_tooltip_explanation: "Этот ордер не выполнен: %{error_message}"
             skipped_tooltip_explanation: "Этот ордер был пропущен, так как сумма была ниже минимального размера ордера на %{exchange_name}. Пропущенная сумма была буферизована и будет добавлена к следующему ордеру."
-            failed_status_bar_explanation: "Последний ордер не выполнен: %{error_messages}"
+            failed_status_bar_explanation: "Последний ордер не выполнен: %{error_message}"
         minimum_withdrawal_disclaimer: "Минимальный размер вывода составляет %{minimum} %{currency}."
         minimum_withdrawal_disclaimer_usd: "Минимальный размер вывода составляет %{minimum} USD."
         month: Месяц

@@ -29,7 +29,7 @@ class GenerateTransactionsCsv < BaseService
                     Presenters::Api::WebhookTransaction.new
                   end
 
-    transactions = Transaction.for_bot_by_status(bot, status: :success)
+    transactions = Transaction.for_bot_by_status(bot, status: :submitted)
     formatted_data = transactions.map { |t| format_data.call(t) }
     @generate_csv.call(formatted_data)
   end

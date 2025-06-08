@@ -11,10 +11,10 @@ class TransactionDashboard < Administrate::BaseDashboard
     bot: Field::BelongsTo,
     id: Field::Number,
     external_id: Field::String.with_options(searchable: false),
-    rate: Field::String.with_options(searchable: false),
+    price: Field::String.with_options(searchable: false),
     amount: Field::String.with_options(searchable: false),
     status: Field::String.with_options(searchable: false),
-    bot_price: Field::String.with_options(searchable: false),
+    bot_quote_amount: Field::String.with_options(searchable: false),
     bot_interval: Field::String.with_options(searchable: false),
     created_at: Field::DateTime,
     updated_at: Field::DateTime,
@@ -33,7 +33,7 @@ class TransactionDashboard < Administrate::BaseDashboard
     bot
     id
     external_id
-    rate
+    price
     amount
     exchange
   ].freeze
@@ -45,10 +45,10 @@ class TransactionDashboard < Administrate::BaseDashboard
     external_id
     bot
     exchange
-    rate
+    price
     amount
     status
-    bot_price
+    bot_quote_amount
     bot_interval
     error_messages
     base
@@ -63,7 +63,7 @@ class TransactionDashboard < Administrate::BaseDashboard
   FORM_ATTRIBUTES = %i[
     bot
     external_id
-    rate
+    price
     amount
     market
     status
