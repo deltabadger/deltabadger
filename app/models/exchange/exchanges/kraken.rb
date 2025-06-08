@@ -15,16 +15,21 @@ module Exchange::Exchanges::Kraken
     'XETH' => 'ETH',
     'XXDG' => 'XDG'
   }.freeze # matches how assets are shown in the balances response with how they are shown in the tickers
-  INVALID_KEY_ERRORS = [
-    'EGeneral:Permission denied',
-    'EAPI:Invalid key',
-    'EAPI:Invalid signature'
-  ].freeze
+  ERRORS = {
+    insufficient_funds: 'EAPI:Insufficient funds',
+    permission_denied: 'EGeneral:Permission denied',
+    invalid_key: 'EAPI:Invalid key',
+    invalid_signature: 'EAPI:Invalid signature'
+  }.freeze
 
   attr_reader :api_key
 
   def coingecko_id
     COINGECKO_ID
+  end
+
+  def known_errors
+    ERRORS
   end
 
   def set_client(api_key: nil)
@@ -40,6 +45,7 @@ module Exchange::Exchanges::Kraken
     tickers_info = Rails.cache.fetch(cache_key, expires_in: 1.hour) do
       result = client.get_tradable_asset_pairs
       return result if result.failure?
+
       error = Utilities::Hash.dig_or_raise(result.data, 'error')
       return Result::Failure.new(*error) if error.any?
 
@@ -71,6 +77,7 @@ module Exchange::Exchanges::Kraken
     tickers_prices = Rails.cache.fetch(cache_key, expires_in: 1.minute, force: force) do
       result = client.get_ticker_information
       return result if result.failure?
+
       error = Utilities::Hash.dig_or_raise(result.data, 'error')
       return Result::Failure.new(*error) if error.any?
 
@@ -85,6 +92,7 @@ module Exchange::Exchanges::Kraken
       missing_tickers.each do |ticker|
         result = client.get_ticker_information(pair: ticker)
         return result if result.failure?
+
         error = Utilities::Hash.dig_or_raise(result.data, 'error')
         return Result::Failure.new(*error) if error.any?
 
@@ -104,6 +112,7 @@ module Exchange::Exchanges::Kraken
   def get_balances(asset_ids: nil)
     result = client.get_extended_balance
     return result if result.failure?
+
     error = Utilities::Hash.dig_or_raise(result.data, 'error')
     return Result::Failure.new(*error) if error.any?
 
@@ -206,6 +215,7 @@ module Exchange::Exchanges::Kraken
       since: start_at.to_i
     )
     return result if result.failure?
+
     error = Utilities::Hash.dig_or_raise(result.data, 'error')
     return Result::Failure.new(*error) if error.any?
 
@@ -276,6 +286,7 @@ module Exchange::Exchanges::Kraken
   def get_order(order_id:)
     result = client.query_orders_info(txid: order_id)
     return result if result.failure?
+
     error = Utilities::Hash.dig_or_raise(result.data, 'error')
     return Result::Failure.new(*error) if error.any?
 
@@ -332,8 +343,10 @@ module Exchange::Exchanges::Kraken
                raise StandardError, 'Invalid API key type'
              end
     return result if result.failure?
+
     error = Utilities::Hash.dig_or_raise(result.data, 'error')
-    return Result::Failure.new(*error) if error.any? && !error.first.in?(INVALID_KEY_ERRORS)
+    invalid_key_errors = [ERRORS[:permission_denied], ERRORS[:invalid_key], ERRORS[:invalid_signature]]
+    return Result::Failure.new(*error) if error.any? && !error.first.in?(invalid_key_errors)
 
     valid = error.empty?
     Result::Success.new(valid)
@@ -364,6 +377,7 @@ module Exchange::Exchanges::Kraken
     Rails.cache.fetch(cache_key, expires_in: 1.seconds) do # rubocop:disable Metrics/BlockLength
       result = client.get_ticker_information(pair: ticker.ticker)
       return result if result.failure?
+
       error = Utilities::Hash.dig_or_raise(result.data, 'error')
       return Result::Failure.new(*error) if error.any?
 
@@ -429,6 +443,7 @@ module Exchange::Exchanges::Kraken
     Rails.logger.info("Exchange #{id}: Setting market order #{order_settings.inspect}")
     result = client.add_order(**order_settings)
     return result if result.failure?
+
     error = Utilities::Hash.dig_or_raise(result.data, 'error')
     return Result::Failure.new(*error) if error.any?
 
@@ -461,6 +476,7 @@ module Exchange::Exchanges::Kraken
       oflags: amount_type == :quote ? ['viqc'] : []
     )
     return result if result.failure?
+
     error = Utilities::Hash.dig_or_raise(result.data, 'error')
     return Result::Failure.new(*error) if error.any?
 
