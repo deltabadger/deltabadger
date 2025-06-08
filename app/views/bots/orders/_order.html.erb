@@ -1,9 +1,18 @@
-<%= tag.tr id: dom_id(order), class: order.skipped? ? 'text-inactive' : order.failure? ? 'text-danger' : '', data: { hw_animate_in_prepend: "animate-order-in" } do %>
+<%= tag.tr id: dom_id(order), class: order.skipped? ? 'text-inactive' : order.failed? ? 'text-danger' : '', data: { hw_animate_in_prepend: "animate-order-in" } do %>
   <td scope="row"><%= order.created_at.in_time_zone(current_user.time_zone).strftime("%Y-%m-%d %I:%M %p") %></td>
+
   <td><%= order.amount.nil? ? '-' : decimals[order.base].nil? ? order.amount : order.amount.round(decimals[order.base]) %> <%= order.base %></td>
-  <td><%= order.amount.nil? || order.rate.nil? ? '-' : decimals[order.quote].nil? ? (order.amount * order.rate) : (order.amount * order.rate).round(decimals[order.quote]) %> <%= order.quote %></td>
+
+  <% if order.quote_amount.present? %>
+    <td><%= order.quote_amount.round(decimals[order.quote] || 18) %> <%= order.quote %></td>
+  <% elsif order.price.present? && order.amount.present? %>
+    <td><%= (order.price * order.amount).round(decimals[order.quote] || 18) %> <%= order.quote %></td>
+  <% else %>
+    <td>-</td>
+  <% end %>
+
   <td>
-    <% if order.failure? %>
+    <% if order.failed? %>
       <div class="tooltip-info-icon" data-controller="tooltip" data-action="click->tooltip#toggle">
         <div class="tooltip-icon--off">
           <%= render 'svg/24x24_info' %>

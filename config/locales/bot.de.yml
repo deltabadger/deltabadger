@@ -120,7 +120,7 @@ de:
                 exchange_unavailable_html: 'Die Börsen-API reagiert derzeit nicht.<br>Berechnungen basieren auf den letzten verfügbaren Daten.'
                 order: 'Order Art'
                 profit_loss: Gewinn/Verlust
-                rate: 'Rate(%{quote})'
+                price: 'Rate(%{quote})'
                 sold: Verkauft
                 title: Statistiken
                 total_invested: 'Insgesamt investiert'
@@ -146,7 +146,7 @@ de:
             wrong_subaccount_name: "Falscher Unterkontoname"
             failed_tooltip_explanation: "Diese Bestellung ist fehlgeschlagen: %{error_message}"
             skipped_tooltip_explanation: "Diese Bestellung wurde übersprungen, da der Betrag unter der Mindestbestellgröße von %{exchange_name} lag. Der übersprungene Betrag wurde gepuffert und wird der nächsten Bestellung hinzugefügt."
-            failed_status_bar_explanation: "Letzte Bestellung fehlgeschlagen: %{error_messages}"
+            failed_status_bar_explanation: "Letzte Bestellung fehlgeschlagen: %{error_message}"
         minimum_withdrawal_disclaimer: 'Der Mindestauszahlungsbetrag beträgt %{minimum} %{currency}.'
         minimum_withdrawal_disclaimer_usd: 'Der Mindestauszahlungsbetrag beträgt %{minimum} USD.'
         month: Monat

@@ -111,7 +111,7 @@ module ExchangeApi
           rate = BigDecimal(response['cummulativeQuoteQty']) / BigDecimal(response['executedQty'])
           Result::Success.new(
             external_id: response['orderId'],
-            rate: rate,
+            price: rate,
             amount: response['executedQty']
           )
         end

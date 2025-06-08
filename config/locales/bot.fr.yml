@@ -121,7 +121,7 @@ fr:
                 exchange_unavailable_html: 'L''API de l''exchangé ne répond pas pour le moment. <br> Les calculs sont basés sur les dernières données disponibles.'
                 order: 'Ordre'
                 profit_loss: 'Gains/pertes'
-                rate: 'Taux (%{quote})'
+                price: 'Taux (%{quote})'
                 sold: 'Vendu'
                 title: 'Statistiques'
                 total_invested: 'Total investi'
@@ -146,7 +146,7 @@ fr:
             wrong_subaccount_name: "Nom de sous-compte incorrect"
             failed_tooltip_explanation: "Cette commande a échoué: %{error_message}"
             skipped_tooltip_explanation: "Cette commande a été ignorée car le montant était inférieur à la taille minimale de commande de %{exchange_name}. Le montant ignoré a été mis en mémoire tampon et sera ajouté à la prochaine commande."
-            failed_status_bar_explanation: "La dernière commande a échoué: %{error_messages}"
+            failed_status_bar_explanation: "La dernière commande a échoué: %{error_message}"
         minimum_withdrawal_disclaimer: 'Le montant minimal de retrait est de %{minimum} %{currency}'
         minimum_withdrawal_disclaimer_usd: 'Le montant minimal de retrait est %{minimum} USD.'
         month: 'Mois'

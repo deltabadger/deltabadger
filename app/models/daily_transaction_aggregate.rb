@@ -1,7 +1,7 @@
 class DailyTransactionAggregate < ApplicationRecord
   belongs_to :bot
   enum currency: %i[USD EUR PLN]
-  enum status: %i[success failure skipped]
+  enum status: %i[submitted failed skipped]
 
   before_create :round_numeric_fields
 
@@ -13,9 +13,9 @@ class DailyTransactionAggregate < ApplicationRecord
   private
 
   def round_numeric_fields
-    self.rate = rate&.round(18)
+    self.price = price&.round(18)
     self.amount = amount&.round(18)
-    self.bot_price = bot_price&.round(18)
+    self.bot_quote_amount = bot_quote_amount&.round(18)
     self.total_amount = total_amount&.round(18)
     self.total_value = total_value&.round(18)
     self.total_invested = total_invested&.round(18)
