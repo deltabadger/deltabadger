@@ -37,7 +37,6 @@ module Bot::Accountable
     # puts "real intervals since settings_changed_at: #{((last_interval_checkpoint_at - settings_changed_at) / interval_duration).floor}"
     # puts "intervals since started_at: #{((last_interval_checkpoint_at - started_at) / interval_duration).floor + 1}"
     # puts "intervals since settings_changed_at: #{((last_interval_checkpoint_at - settings_changed_at) / interval_duration).floor + 1}"
-    # puts "interval_duration: #{interval_duration}"
     # puts "missed_quote_amount: #{missed_quote_amount}"
     # puts "total_quote_amount_invested: #{total_quote_amount_invested}"
     # puts "quote_amount: #{quote_amount}"
