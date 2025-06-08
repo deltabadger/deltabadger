@@ -18,7 +18,7 @@ class CheckPriceRange < BaseService
 
     Result::Success.new(
       valid: price_within_range?(current_rate.data, bot),
-      rate: current_rate.data,
+      price: current_rate.data,
       amount: amount.data
     )
   end

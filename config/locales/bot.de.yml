@@ -7,24 +7,19 @@ de:
         types:
             dca:
                 title: "DCA"
-                description: |
-                    <p><b>Dollar-Cost-Averaging in jede Kryptowährung</b></p>
-                    <p>Setze Bedingungen, um den besten Preis zu erhalten.</p>
+                description: "In einen Vermögenswert investieren"
             dca_dual_asset:
-                title: "Ausbalanciertes DCA"
-                description: |
-                    <p><b>DCA in zwei Assets mit beibehaltener Verteilung</b></p>
-                    <p>Rebalancing ohne Kapitalertragssteuern.</p>
+                title: "Rebalanciertes DCA"
+                description: "Zwischen zwei Vermögenswerten rebalancieren"
             legacy:
                 title: "Legacy Bot"
-                description: |
-                    <p><b>DCA und automatische Auszahlungen</b></p>
+                description: "DCA + Auszahlungen"
             index_portfolio:
                 title: "Index Portfolio"
-                description: "Erstelle deinen persönlichen Krypto-ETF"
+                description: "Baue deinen persönlichen Krypto-ETF"
             custom_portfolio:
                 title: "Individuelles Portfolio"
-                description: "Ausbalancieren einer individuellen Asset-Mischung"
+                description: "Rebalanciere individuelle Vermögensmischung"
         status:
             setting_orders: "Orders werden erstellt…"
             paused: "Pausiert"
@@ -120,7 +115,7 @@ de:
                 exchange_unavailable_html: 'Die Börsen-API reagiert derzeit nicht.<br>Berechnungen basieren auf den letzten verfügbaren Daten.'
                 order: 'Order Art'
                 profit_loss: Gewinn/Verlust
-                rate: 'Rate(%{quote})'
+                price: 'Rate(%{quote})'
                 sold: Verkauft
                 title: Statistiken
                 total_invested: 'Insgesamt investiert'
@@ -146,7 +141,7 @@ de:
             wrong_subaccount_name: "Falscher Unterkontoname"
             failed_tooltip_explanation: "Diese Bestellung ist fehlgeschlagen: %{error_message}"
             skipped_tooltip_explanation: "Diese Bestellung wurde übersprungen, da der Betrag unter der Mindestbestellgröße von %{exchange_name} lag. Der übersprungene Betrag wurde gepuffert und wird der nächsten Bestellung hinzugefügt."
-            failed_status_bar_explanation: "Letzte Bestellung fehlgeschlagen: %{error_messages}"
+            failed_status_bar_explanation: "Letzte Bestellung fehlgeschlagen: %{error_message}"
         minimum_withdrawal_disclaimer: 'Der Mindestauszahlungsbetrag beträgt %{minimum} %{currency}.'
         minimum_withdrawal_disclaimer_usd: 'Der Mindestauszahlungsbetrag beträgt %{minimum} USD.'
         month: Monat

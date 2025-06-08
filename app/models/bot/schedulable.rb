@@ -49,10 +49,7 @@ module Bot::Schedulable
 
     checkpoint = started_at || Time.current
     loop do
-      # HACK: interval_duration is an ActiveSupport::Duration,
-      # however, for some reason, if it's not converted to seconds
-      # the addition is not working in some cases
-      checkpoint += interval_duration.seconds
+      checkpoint += interval_duration
       return checkpoint if checkpoint > Time.current
     end
   end

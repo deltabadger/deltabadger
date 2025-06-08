@@ -72,7 +72,7 @@ export const TradingTransactions = ({ bot, active }) => {
           <th scope="col">{ I18n.t('bot.details.stats.date') }</th>
           <th scope="col">{ I18n.t('bot.details.stats.order') }</th>
           <th scope="col">{ I18n.t('bot.details.stats.amount', { base }) }</th>
-          <th scope="col">{ I18n.t('bot.details.stats.rate', { quote }) }</th>
+          <th scope="col">{ I18n.t('bot.details.stats.price', { quote }) }</th>
         </tr>
       </thead>
       <tbody>
@@ -81,7 +81,7 @@ export const TradingTransactions = ({ bot, active }) => {
             <td scope="row">{t.created_at}</td>
             <td>{translateBuyOrSell(bot.settings.type).toLowerCase()}</td>
             <td>{toFixedWithoutZeros(t.amount) || "N/A"}</td>
-            <td>{toFixedWithoutZeros(t.rate) || "N/A"}</td>
+            <td>{toFixedWithoutZeros(t.price) || "N/A"}</td>
           </tr>
         ))}
       </tbody>

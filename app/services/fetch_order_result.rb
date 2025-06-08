@@ -125,11 +125,11 @@ class FetchOrderResult < BaseService
   # rubocop:disable Metrics/CyclomaticComplexity, Metrics/PerceivedComplexity
   def transaction_params(result, bot, price = nil, called_bot = nil)
     if result.success? && result.data[:amount].to_f.positive?
-      result.data.slice(:external_id, :rate, :amount).merge(
+      result.data.slice(:external_id, :price, :amount).merge(
         bot_id: bot.id,
-        status: :success,
+        status: :submitted,
         bot_interval: bot.webhook? ? '' : bot.interval,
-        bot_price: fixing_transaction?(price) ? price : bot.price,
+        bot_quote_amount: fixing_transaction?(price) ? price : bot.price,
         transaction_type: fixing_transaction?(price) ? 'FIXING' : 'REGULAR',
         called_bot_type: bot.webhook? ? called_bot_type(bot, called_bot) : nil,
         exchange: bot.exchange
@@ -137,13 +137,13 @@ class FetchOrderResult < BaseService
     else
       {
         bot_id: bot.id,
-        status: :failure,
+        status: :failed,
         error_messages: result.errors,
         bot_interval: bot.webhook? ? '' : bot.interval,
-        bot_price: fixing_transaction?(price) ? price : bot.price,
+        bot_quote_amount: fixing_transaction?(price) ? price : bot.price,
         transaction_type: fixing_transaction?(price) ? 'FIXING' : 'REGULAR',
         called_bot_type: bot.webhook? ? called_bot_type(bot, called_bot) : nil,
-        exchange: bot.exchange
+        exchange: bot.exchange,
       }
     end
   end

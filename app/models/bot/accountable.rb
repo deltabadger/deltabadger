@@ -19,7 +19,7 @@ module Bot::Accountable
     return 0 if started_at.nil? || deleted?
 
     calc_since = [started_at, settings_changed_at].compact.max
-    total_quote_amount_invested = transactions.success
+    total_quote_amount_invested = transactions.submitted
                                               .where('created_at >= ?', calc_since)
                                               .pluck(:quote_amount)
                                               .sum
@@ -37,7 +37,6 @@ module Bot::Accountable
     # puts "real intervals since settings_changed_at: #{((last_interval_checkpoint_at - settings_changed_at) / interval_duration).floor}"
     # puts "intervals since started_at: #{((last_interval_checkpoint_at - started_at) / interval_duration).floor + 1}"
     # puts "intervals since settings_changed_at: #{((last_interval_checkpoint_at - settings_changed_at) / interval_duration).floor + 1}"
-    # puts "interval_duration: #{interval_duration}"
     # puts "missed_quote_amount: #{missed_quote_amount}"
     # puts "total_quote_amount_invested: #{total_quote_amount_invested}"
     # puts "quote_amount: #{quote_amount}"
