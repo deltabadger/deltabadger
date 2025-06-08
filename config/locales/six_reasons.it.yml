@@ -1,0 +1,20 @@
+it:
+    six_reasons:
+        tracking:
+            title: "Tracciamento"
+            description: "<b>Traccia il tuo investimento</b> con un grafico e l'esportazione CSV. Se il tuo exchange ha modificato le commissioni, sposta il tuo bot su un altro exchange senza perdere la cronologia."
+        lower_fees:
+            title: "Commissioni più basse"
+            description: "Molte automazioni DCA comportano commissioni e prezzi più elevati. FeeCutter ti permette di beneficiare di commissioni <i>maker</i> più basse e di <b>ridurre efficacemente le commissioni a zero</b>."
+        buy_the_dip:
+            title: "Compra il ribasso!"
+            description: "<b>Cattura i prezzi migliori</b> utilizzando indicatori popolari come RSI e medie mobili, o semplicemente rileva improvvisi cali di prezzo con le nostre opzioni uniche per i trader."
+        avoid_taxes:
+            title: "Evita le tasse"
+            description: "<b>DCA riequilibrato</b> è la nostra <i>salsa segreta</i>. DCA in più asset, riequilibrando verso la tua allocazione desiderata senza incorrere in tasse sulle plusvalenze."
+        backtest_with_ai:
+            title: "Backtest con AI"
+            description: "Il nostro <b>Analizzatore Portfolio</b> ti permette di testare qualsiasi portfolio, da DeFi agli ETF Vanguard, trovare allocazioni ottimali e ottenere insights AI."
+        invest_in_index:
+            title: "Investi nell'indice"
+            description: "Top 10 o Top 500? Costruisci il tuo <b>S&P 500 crypto</b> personale. Il bot vende automaticamente gli asset sottoperformanti e alloca il tuo capitale ai progetti vincenti." 
