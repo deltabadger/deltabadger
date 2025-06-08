@@ -17,16 +17,17 @@ class Bot::ActionJob < BotJob
     if result.data.present? && result.data[:break_reschedule]
       Rails.logger.info("ActionJob for bot #{bot.id} reschedule disabled.")
     else
+      bot.update!(status: :scheduled)
       schedule_next_action_job(bot)
     end
   rescue StandardError => e
     Rails.logger.error("ActionJob for bot #{bot.id} failed to perform. Errors: #{e.message}")
+    bot.update!(status: :retrying)
     if ignorable_error?(bot, e)
       bot.notify_about_error(errors: [e.message])
       schedule_next_action_job(bot)
     else
       notify_retry(bot, e)
-      bot.update!(status: :retrying)
       Bot::BroadcastAfterScheduledActionJob.perform_later(bot)
       raise e
     end
@@ -60,7 +61,6 @@ class Bot::ActionJob < BotJob
 
   def schedule_next_action_job(bot)
     Bot::ActionJob.set(wait_until: bot.next_interval_checkpoint_at).perform_later(bot)
-    bot.update!(status: :scheduled)
     Bot::BroadcastAfterScheduledActionJob.perform_later(bot)
   end
 end
