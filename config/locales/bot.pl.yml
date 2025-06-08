@@ -121,7 +121,7 @@ pl:
                 exchange_unavailable_html: 'API giełdy nie odpowiada w tej chwili.<br>Obliczenia są oparte na ostatnich dostępnych danych.'
                 order: Zlecenie
                 profit_loss: Zysk/Strata
-                rate: 'Kurs (%{quote})'
+                price: 'Kurs (%{quote})'
                 sold: Sprzedane
                 title: Statystyki
                 total_invested: 'Zainwestowana suma'
@@ -146,7 +146,7 @@ pl:
             wrong_subaccount_name: "Nieprawidłowa nazwa subkonta"
             failed_tooltip_explanation: "To zlecenie zakończyło się niepowodzeniem: %{error_message}"
             skipped_tooltip_explanation: "To zlecenie zostało pominięte, ponieważ kwota była poniżej minimalnego rozmiaru zlecenia %{exchange_name}. Pominięta kwota została zbuforowana i zostanie dodana do następnego zlecenia."
-            failed_status_bar_explanation: "Ostatnie zlecenie zakończyło się niepowodzeniem: %{error_messages}"
+            failed_status_bar_explanation: "Ostatnie zlecenie zakończyło się niepowodzeniem: %{error_message}"
         minimum_withdrawal_disclaimer: 'Minimalna wielkość wypłaty to %{minimum} %{currency}.'
         minimum_withdrawal_disclaimer_usd: 'Minimalna wielkość wypłaty to %{minimum} USD.'
         month: miesiąc

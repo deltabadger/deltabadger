@@ -126,10 +126,10 @@ class MakeTransaction < BaseService
     transaction_params = {
       bot_id: bot.id,
       status: :skipped,
-      rate: result[:rate],
+      price: result[:price],
       amount: result[:amount],
       bot_interval: bot.interval,
-      bot_price: bot.price,
+      bot_quote_amount: bot.price,
       transaction_type: 'REGULAR',
       exchange: bot.exchange
     }
@@ -152,10 +152,10 @@ class MakeTransaction < BaseService
   def failed_transaction_params(result, bot, price = nil)
     {
       bot_id: bot.id,
-      status: :failure,
+      status: :failed,
       error_messages: result.errors,
       bot_interval: bot.interval,
-      bot_price: fixing_transaction?(price) ? price : bot.price,
+      bot_quote_amount: fixing_transaction?(price) ? price : bot.price,
       transaction_type: fixing_transaction?(price) ? 'FIXING' : 'REGULAR',
       exchange: bot.exchange
     }

@@ -130,7 +130,7 @@ en:
                 exchange_unavailable_html: 'The exchange API does not respond at the moment.<br>Calculations are based on the last data available.'
                 order: Order
                 profit_loss: Profit/Loss
-                rate: 'Rate(%{quote})'
+                price: 'Rate(%{quote})'
                 sold: Sold
                 title: Statistics
                 total_invested: 'Total invested'
@@ -155,7 +155,7 @@ en:
             wrong_subaccount_name: "Wrong subaccount name"
             failed_tooltip_explanation: "This order failed: %{error_message}"
             skipped_tooltip_explanation: "This order has been skipped because the amount was below the %{exchange_name} minimum order size. The amount has been buffered and added to the next order."
-            failed_status_bar_explanation: "Last order failed: %{error_messages}"
+            failed_status_bar_explanation: "Last order failed: %{error_message}"
         minimum_withdrawal_disclaimer: 'The minimum withdrawal size is %{minimum} %{currency}.'
         minimum_withdrawal_disclaimer_usd: 'The minimum withdrawal size is %{minimum} USD.'
         month: Month
@@ -229,7 +229,7 @@ en:
                     twenty_four_hours: "24h high"
             extra_indicator_limit:
                 sentence_html: "<span>%{timing_condition_html}</span> when the <span>%{indicator_html}</span> on %{ticker_html} %{timeframe_html} <span>candles</span> is <span>%{value_condition_html} %{value_html}</span>"
-                indicator_info: "The %{indicator} on the last %{timeframe} %{ticker} candle's close is %{value}"
+                indicator_info: "The %{indicator} on the last %{timeframe} %{ticker} candle close is %{value}"
                 timing_condition:
                     while: "Buy only"
                     after: "Start buying"
@@ -245,7 +245,7 @@ en:
                     one_month: "monthly"
             extra_moving_average_limit:
                 sentence_html: "<span>%{timing_condition_html}</span> when the %{base} price is %{value_condition_html} the <span>%{ma_html} %{ma_period_html}</span> on %{ticker_html} %{timeframe_html} <span>candles</span>"
-                ma_info: "The %{ma_type} %{ma_period} on the last %{timeframe} %{ticker} candle's close is %{value} %{quote}"
+                ma_info: "The %{ma_type} %{ma_period} on the last %{timeframe} %{ticker} candle close is %{value} %{quote}"
                 timing_condition:
                     while: "Buy only"
                     after: "Start buying"
