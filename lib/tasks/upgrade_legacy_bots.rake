@@ -30,8 +30,7 @@ task upgrade_legacy_bots: :environment do
     puts "Updating bot #{bot.id} with settings #{bot.settings.inspect}"
 
     unless bot.settings.keys.all? { |key| known_settings.include?(key) }
-      puts "Bot #{bot.id} has unknown settings: #{bot.settings.keys.reject { |key| known_settings.include?(key) }}"
-      next
+      raise "Bot #{bot.id} has unknown settings: #{bot.settings.keys.reject { |key| known_settings.include?(key) }}"
     end
 
     ticker = ExchangeTicker.find_by(exchange: bot.exchange, base: bot.settings['base'], quote: bot.settings['quote'])
