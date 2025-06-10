@@ -20,7 +20,7 @@
     <meta content="<%= yield(:meta_robots_content) || '' %>" name="robots">
     <meta name="theme-color" content="#f5f6f8" id="theme-color-meta">
 
-    <title><%= t('meta.title') %></title>
+    <title><%= content_for?(:title) ? yield(:title) : t('meta.title') %></title>
 
     <link rel="canonical" href="<%= request.original_url %>">
 

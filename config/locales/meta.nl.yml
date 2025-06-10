@@ -1,6 +1,5 @@
 nl:
     meta:
-        desc: "Begin gratis met de meest bewezen strategie die werkt met Binance, Coinbase, Kraken, Kucoin en andere exchanges. Geen KYC."
         title: "Deltabadger • Automatiseer Dollar-Cost Averaging voor elke crypto"
         title_short: "Deltabadger • Geautomatiseerde DCA voor Bitcoin en andere activa"
         twitter_image_alt: "Geautomatiseerde dollar-cost averaging voor Bitcoin, Ethereum, Polkadot, Cardano, Solana en andere digitale activa."
@@ -8,6 +7,24 @@ nl:
             default: "Begin gratis met de meest bewezen strategie die werkt met Binance, Coinbase, Kraken, Kucoin en andere exchanges. Geen KYC."
             privacy_policy: "Lees hoe Deltabadger uw privacy beschermt en uw gegevens verwerkt bij het gebruik van ons geautomatiseerd crypto DCA-platform."
             terms_and_conditions: "Lees onze gebruiksvoorwaarden om uw rechten en verantwoordelijkheden te begrijpen bij het gebruik van Deltabadgers geautomatiseerde crypto DCA-platform."
+            cookies_policy: "Begrijp hoe Deltabadger cookies gebruikt om uw ervaring op ons geautomatiseerd crypto dollar-cost averaging platform te verbeteren."
+            contact: "Neem contact op met het Deltabadger-team voor ondersteuning, vragen of feedback over ons geautomatiseerd crypto DCA-platform."
+            about: "Leer over Jan Kłosowskis reis bij het creëren van Deltabadger en hoe geautomatiseerd dollar-cost averaging kan helpen bij het opbouwen van uw crypto-portfolio."
+            # Devise pagina's
+            sign_up: "Maak uw gratis Deltabadger-account aan om te beginnen met geautomatiseerd dollar-cost averaging voor Bitcoin en andere cryptocurrencies."
+            sign_in: "Log in op uw Deltabadger-account om uw geautomatiseerde crypto DCA-strategieën en portfolio te beheren."
+            forgot_password: "Reset uw Deltabadger-accountwachtwoord om weer toegang te krijgen tot uw geautomatiseerd crypto DCA-platform."
+            reset_password: "Wijzig uw Deltabadger-accountwachtwoord om uw geautomatiseerde crypto-investering veilig te houden."
+            confirm_email: "Bevestig uw e-mailadres om uw Deltabadger-account te activeren en geautomatiseerd crypto dollar-cost averaging te starten."
         titles:
             privacy_policy: "Privacybeleid • Deltabadger"
-            terms_and_conditions: "Algemene voorwaarden • Deltabadger" 
+            terms_and_conditions: "Algemene voorwaarden • Deltabadger"
+            cookies_policy: "Cookiebeleid • Deltabadger"
+            contact: "Contact • Deltabadger"
+            about: "Over ons • Deltabadger"
+            # Devise pagina's
+            sign_up: "Aanmelden • Deltabadger"
+            sign_in: "Inloggen • Deltabadger"
+            forgot_password: "Wachtwoord resetten • Deltabadger"
+            reset_password: "Wachtwoord wijzigen • Deltabadger"
+            confirm_email: "E-mail bevestigen • Deltabadger"
