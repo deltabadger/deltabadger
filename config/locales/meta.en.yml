@@ -1,6 +1,5 @@
 en:
     meta:
-        desc: "Start for free the most proven strategy that works with Binance, Coinbase, Kraken, Kucoin, and other exchanges. No KYC."
         title: "Deltabadger • Automate Dollar-Cost Averaging for any Crypto"
         title_short: "Deltabadger • Automated DCA for Bitcoin and Other Assets"
         twitter_image_alt: "Automated dollar-cost averaging for Bitcoin, Ethereum, Polkadot, Cardano, Solana, and other digital assets."
@@ -8,6 +7,24 @@ en:
             default: "Start for free the most proven strategy that works with Binance, Coinbase, Kraken, Kucoin, and other exchanges. No KYC."
             privacy_policy: "Learn how Deltabadger protects your privacy and handles your data when using our automated crypto DCA platform."
             terms_and_conditions: "Read our terms of service to understand your rights and responsibilities when using Deltabadger's automated crypto DCA platform."
+            cookies_policy: "Understand how Deltabadger uses cookies to improve your experience on our automated crypto dollar-cost averaging platform."
+            contact: "Get in touch with the Deltabadger team for support, questions, or feedback about our automated crypto DCA platform."
+            about: "Learn about Jan Klosowski's journey creating Deltabadger and how automated dollar-cost averaging can help build your crypto portfolio."
+            # Devise pages
+            sign_up: "Create your free Deltabadger account to start automated dollar-cost averaging for Bitcoin and other cryptocurrencies."
+            sign_in: "Sign in to your Deltabadger account to manage your automated crypto DCA strategies and portfolio."
+            forgot_password: "Reset your Deltabadger account password to regain access to your automated crypto DCA platform."
+            reset_password: "Change your Deltabadger account password to keep your automated crypto investing secure."
+            confirm_email: "Confirm your email address to activate your Deltabadger account and start automated crypto dollar-cost averaging."
         titles:
             privacy_policy: "Privacy Policy • Deltabadger"
             terms_and_conditions: "Terms and Conditions • Deltabadger"
+            cookies_policy: "Cookies Policy • Deltabadger"
+            contact: "Contact Us • Deltabadger"
+            about: "About • Deltabadger"
+            # Devise pages
+            sign_up: "Sign Up • Deltabadger"
+            sign_in: "Sign In • Deltabadger" 
+            forgot_password: "Reset Password • Deltabadger"
+            reset_password: "Change Password • Deltabadger"
+            confirm_email: "Confirm Email • Deltabadger"

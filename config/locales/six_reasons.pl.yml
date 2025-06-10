@@ -13,7 +13,7 @@ pl:
             title: "Unikaj podatków"
             description: "<b>Rebalansowane DCA</b> to nasz <i>as w rękawie</i>. DCA w wiele aktywów, rebalansowanie do pożądanej alokacji bez wpadania w podatek od zysków kapitałowych."
         backtest_with_ai:
-            title: "Backtest z AI"
+            title: "Backtestuj z AI"
             description: "Nasz <b>Analizator Portfolio</b> pozwala ci przetestować każde portfolio, od DeFi po ETF-y Vanguard, znaleźć optymalne alokacje i uzyskać wgląd AI."
         invest_in_index:
             title: "Inwestuj w indeks"
