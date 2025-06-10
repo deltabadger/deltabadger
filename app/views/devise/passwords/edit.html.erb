@@ -1,3 +1,6 @@
+<% content_for :title, page_title_for_static_page('reset_password') %>
+<% content_for :meta_description, meta_description_for_static_page('reset_password') %>
+
 <h3><%= t('.title') %></h3>
 
 <%= form_with model: resource, url: password_path(resource_name), method: :patch, data: {
