@@ -44,8 +44,9 @@ task upgrade_legacy_bots: :environment do
     quote_asset = ticker.quote_asset
     quote_amount = bot.settings['price'].to_f
     interval = bot.settings['interval']
+    smart_intervaled = bot.settings['force_smart_intervals']
     smart_interval_quote_amount = bot.settings['smart_intervals_value'].to_f
-    price_limit = bot.settings['price_range'][0].zero? ? nil : bot.settings['price_range'][0].to_f
+    price_limit = bot.settings['price_range'][0].to_f.zero? ? nil : bot.settings['price_range'][0].to_f
 
     new_settings = {
       base_asset_id: base_asset.id,
@@ -53,6 +54,7 @@ task upgrade_legacy_bots: :environment do
       quote_amount: quote_amount,
       interval: interval,
       price_limit: price_limit,
+      smart_intervaled: smart_intervaled,
       smart_interval_quote_amount: smart_interval_quote_amount
     }.compact
 
@@ -66,12 +68,13 @@ task upgrade_legacy_bots: :environment do
     stopped_at = nil
     if is_working
       puts "Stopping bot #{bot.id}"
-      started_at = NextTradingBotTransactionAt.new.call(bot) - 1.public_send(bot.interval)
+      next_transaction_at = NextTradingBotTransactionAt.new.call(bot)
+      started_at = next_transaction_at - 1.public_send(bot.interval) if next_transaction_at.present?
       StopBot.call(bot.id)
       stopped_at = Time.current
       bot.reload
     else
-      started_at = bot.last_submitted_transaction&.created_at
+      started_at = bot.last_successful_transaction&.created_at
     end
 
     bot.settings = dummy_bot.settings
@@ -79,17 +82,7 @@ task upgrade_legacy_bots: :environment do
     bot.save!
 
     bot = Bot.find(bot_id)
-
-    if is_working
-      bot.update!(stopped_at: stopped_at, started_at: started_at)
-      amount_to_buy = bot.pending_quote_amount
-      if amount_to_buy > bot.settings['quote_amount']
-        raise "Amount to buy for bot #{bot.id} would be #{amount_to_buy} but quote amount is #{bot.settings['quote_amount']}"
-      end
-
-      puts "Starting bot #{bot.id}"
-      bot.start(start_fresh: false)
-    end
+    bot.update!(stopped_at: stopped_at, started_at: started_at)
 
     # then update all transactions
     puts "Updating transactions base and quote for bot #{bot.id}"
@@ -151,5 +144,15 @@ task upgrade_legacy_bots: :environment do
         end
       end
     end
+
+    next unless is_working
+
+    amount_to_buy = bot.pending_quote_amount
+    if amount_to_buy > bot.settings['quote_amount']
+      raise "Amount to buy for bot #{bot.id} would be #{amount_to_buy} but quote amount is #{bot.settings['quote_amount']}"
+    end
+
+    puts "Starting bot #{bot.id}"
+    raise "Could not start bot #{bot.id}" unless bot.start(start_fresh: false)
   end
 end
