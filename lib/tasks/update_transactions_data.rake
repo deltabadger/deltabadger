@@ -54,7 +54,7 @@ def update_transactions_remote_data
       puts "setting client for #{exchange.name} for user #{user.id}"
       exchange.set_client(api_key: api_key)
 
-      user_bots_ids = user.bots.basic.not_deleted.where(exchange: exchange).pluck(:id).uniq
+      user_bots_ids = user.bots.basic.where(exchange: exchange).pluck(:id).uniq
       puts "getting transactions for #{exchange.name} for user #{user.id} for bots #{user_bots_ids}"
       Transaction.submitted
                  .where(bot_id: user_bots_ids, exchange: exchange, external_status: nil)
