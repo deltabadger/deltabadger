@@ -344,12 +344,14 @@ module Exchange::Exchanges::Kraken
              end
     return result if result.failure?
 
-    error = Utilities::Hash.dig_or_raise(result.data, 'error')
-    invalid_key_errors = [ERRORS[:permission_denied], ERRORS[:invalid_key], ERRORS[:invalid_signature]]
-    return Result::Failure.new(*error) if error.any? && !error.first.in?(invalid_key_errors)
-
-    valid = error.empty?
-    Result::Success.new(valid)
+    errors = Utilities::Hash.dig_or_raise(result.data, 'error')
+    if errors.empty?
+      Result::Success.new(true)
+    elsif errors.first.in?([ERRORS[:permission_denied], ERRORS[:invalid_key], ERRORS[:invalid_signature]])
+      Result::Success.new(false)
+    else
+      Result::Failure.new(*errors)
+    end
   end
 
   def minimum_amount_logic
