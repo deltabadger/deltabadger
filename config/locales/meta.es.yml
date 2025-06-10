@@ -1,6 +1,5 @@
 es:
     meta:
-        desc: "Comienza gratis la estrategia más probada que funciona con Binance, Coinbase, Kraken, Kucoin y otros exchanges. Sin KYC."
         title: "Deltabadger • Automatiza el Dollar-Cost Averaging para cualquier criptomoneda"
         title_short: "Deltabadger • DCA automatizado para Bitcoin y otros activos"
         twitter_image_alt: "Dollar-cost averaging automatizado para Bitcoin, Ethereum, Polkadot, Cardano, Solana y otros activos digitales."
@@ -8,6 +7,24 @@ es:
             default: "Comienza gratis la estrategia más probada que funciona con Binance, Coinbase, Kraken, Kucoin y otros exchanges. Sin KYC."
             privacy_policy: "Aprende cómo Deltabadger protege tu privacidad y gestiona tus datos al utilizar nuestra plataforma automatizada de DCA de criptomonedas."
             terms_and_conditions: "Lee nuestros términos de servicio para entender tus derechos y responsabilidades al utilizar la plataforma automatizada de DCA de criptomonedas de Deltabadger."
+            cookies_policy: "Entiende cómo Deltabadger usa cookies para mejorar tu experiencia en nuestra plataforma automatizada de dollar-cost averaging de criptomonedas."
+            contact: "Ponte en contacto con el equipo de Deltabadger para soporte, preguntas o comentarios sobre nuestra plataforma automatizada de DCA de criptomonedas."
+            about: "Conoce el viaje de Jan Kłosowski creando Deltabadger y cómo el dollar-cost averaging automatizado puede ayudar a construir tu cartera de criptomonedas."
+            # Páginas Devise
+            sign_up: "Crea tu cuenta gratuita de Deltabadger para comenzar el dollar-cost averaging automatizado para Bitcoin y otras criptomonedas."
+            sign_in: "Inicia sesión en tu cuenta de Deltabadger para gestionar tus estrategias automatizadas de DCA de criptomonedas y cartera."
+            forgot_password: "Restablece la contraseña de tu cuenta de Deltabadger para recuperar el acceso a tu plataforma automatizada de DCA de criptomonedas."
+            reset_password: "Cambia la contraseña de tu cuenta de Deltabadger para mantener segura tu inversión automatizada en criptomonedas."
+            confirm_email: "Confirma tu dirección de email para activar tu cuenta de Deltabadger y comenzar el dollar-cost averaging automatizado de criptomonedas."
         titles:
             privacy_policy: "Política de Privacidad • Deltabadger"
-            terms_and_conditions: "Términos y Condiciones • Deltabadger" 
+            terms_and_conditions: "Términos y Condiciones • Deltabadger"
+            cookies_policy: "Política de Cookies • Deltabadger"
+            contact: "Contacto • Deltabadger"
+            about: "Acerca de • Deltabadger"
+            # Páginas Devise
+            sign_up: "Registrarse • Deltabadger"
+            sign_in: "Iniciar Sesión • Deltabadger"
+            forgot_password: "Restablecer Contraseña • Deltabadger"
+            reset_password: "Cambiar Contraseña • Deltabadger"
+            confirm_email: "Confirmar Email • Deltabadger"
