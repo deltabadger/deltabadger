@@ -8,7 +8,7 @@ class BotsController < ApplicationController
   def index
     return render 'bots/react_dashboard' if params[:create] # TODO: remove this once the legacy dashboard is removed
 
-    @bots = current_user.bots.not_deleted.includes(:exchange).order(id: :desc)
+    @bots = current_user.bots.not_deleted.includes(:exchange).order(label: :asc)
     @pnl_hash = {}
     @loading_hash = {}
     @bots.each do |bot|
@@ -31,7 +31,7 @@ class BotsController < ApplicationController
       permitted_params = params.require(:decimals).permit(*Asset.all.pluck(:symbol))
       @decimals = permitted_params.transform_values(&:to_i)
     else
-      @other_bots = current_user.bots.not_deleted.order(id: :desc).where.not(id: @bot.id).pluck(:id, :label, :type)
+      @other_bots = current_user.bots.not_deleted.order(label: :asc).where.not(id: @bot.id).pluck(:id, :label, :type)
 
       if @bot.legacy?
         # TODO: remove this once the legacy dashboard is removed
