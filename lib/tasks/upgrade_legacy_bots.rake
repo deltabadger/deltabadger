@@ -1,11 +1,13 @@
 desc 'rake task to upgrade legacy bots'
 task upgrade_legacy_bots: :environment do
-
-  exchange_ids = Exchange.where(name_id: ["coinbase", "kraken"]).pluck(:id)
-  bots = Bot.basic.not_deleted.where(exchange_id: exchange_ids)
-                              .where("settings @> ?", {type: "buy"}.to_json)
-                              .where("settings @> ?", {order_type: "market"}.to_json)
-                              .where("settings @> ?", {price_range_enabled: false}.to_json)
+  exchange_ids = Exchange.where(name_id: %w[coinbase kraken]).pluck(:id)
+  bot_ids = Bot.basic
+               .not_deleted
+               .where(exchange_id: exchange_ids)
+               .where('settings @> ?', { type: 'buy' }.to_json)
+               .where('settings @> ?', { order_type: 'market' }.to_json)
+               .where('settings @> ?', { price_range_enabled: false }.to_json)
+               .pluck(:id)
 
   known_settings = %w[
     base
@@ -23,11 +25,12 @@ task upgrade_legacy_bots: :environment do
     smart_intervals_value
   ]
 
-  bots.find_each do |bot|
-    puts "Updating bot #{bot.id}"
+  bot_ids.sort.each do |bot_id|
+    bot = Bot.find(bot_id)
+    puts "Updating bot #{bot.id} with settings #{bot.settings.inspect}"
 
-    if bot.settings.keys.all? { |key| known_settings.include?(key) }
-      puts "Bot #{bot.id} has unknown settings: #{bot.settings.keys.join(', ')}"
+    unless bot.settings.keys.all? { |key| known_settings.include?(key) }
+      puts "Bot #{bot.id} has unknown settings: #{bot.settings.keys.reject { |key| known_settings.include?(key) }}"
       next
     end
 
@@ -39,10 +42,10 @@ task upgrade_legacy_bots: :environment do
 
     base_asset = ticker.base_asset
     quote_asset = ticker.quote_asset
-    quote_amount = bot.settings['price'].to_d
+    quote_amount = bot.settings['price'].to_f
     interval = bot.settings['interval']
-    smart_interval_quote_amount = bot.settings['smart_intervals_value'].to_d
-    price_limit = bot.settings['price_range'][0].zero? ? nil : bot.settings['price_range'][0].to_d
+    smart_interval_quote_amount = bot.settings['smart_intervals_value'].to_f
+    price_limit = bot.settings['price_range'][0].zero? ? nil : bot.settings['price_range'][0].to_f
 
     new_settings = {
       base_asset_id: base_asset.id,
@@ -50,7 +53,7 @@ task upgrade_legacy_bots: :environment do
       quote_amount: quote_amount,
       interval: interval,
       price_limit: price_limit,
-      smart_interval_quote_amount: smart_interval_quote_amount,
+      smart_interval_quote_amount: smart_interval_quote_amount
     }.compact
 
     # use the dummy bot to initialize all other settings
@@ -59,31 +62,66 @@ task upgrade_legacy_bots: :environment do
       settings: new_settings
     )
 
+    is_working = bot.working?
+    if is_working
+      puts "Stopping bot #{bot.id}"
+      StopBot.call(bot.id)
+      bot.reload
+    end
+
     bot.settings = dummy_bot.settings
-    bot.set_missed_quote_amount
+    bot.type = 'Bots::DcaSingleAsset'
     bot.save!
+
+    bot = Bot.find(bot_id)
+
+    if is_working
+      puts "Starting bot #{bot.id}"
+      bot.start(start_fresh: false)
+    end
 
     # then update all transactions
     puts "Updating transactions base and quote for bot #{bot.id}"
     bot.transactions.find_each do |transaction|
       transaction.update!(
         base: ticker.base_asset.symbol,
-        quote: ticker.quote_asset.symbol,
+        quote: ticker.quote_asset.symbol
       )
     end
 
-    api_key = bot.user.api_keys.find_by(exchange: bot.exchange)
+    api_key = bot.user.api_keys.trading.find_by(exchange: bot.exchange)
     if api_key.blank?
       puts "No api key found for bot #{bot.id}. Could not update transactions quote amount"
       next
     end
 
-    bot.transactions.submitted.find_each do |transaction|
+    bot.transactions.submitted.where(quote_amount: nil).find_each do |transaction|
       puts "Updating transaction #{transaction.id} quote amount for bot #{bot.id}"
       bot.with_api_key do
         result = bot.exchange.get_order(order_id: transaction.external_id)
         if result.success?
-          transaction.update!(quote_amount: result.data[:quote_amount])
+
+          quote_amount = result.data[:quote_amount] || (result.data[:price] * result.data[:amount]).to_d
+          side = result.data[:side]
+          order_type = result.data[:order_type]
+          filled_percentage = result.data[:filled_percentage]
+          external_status = result.data[:status]
+          base = result.data[:ticker]&.base_asset&.symbol
+          quote = result.data[:ticker]&.quote_asset&.symbol
+          puts "updating transaction #{transaction.id}: #{base}#{quote} #{order_type} #{side}" \
+               " #{quote_amount} - #{(filled_percentage * 100).round(2)}% filled [#{external_status}]"
+
+          transaction.update!(
+            price: result.data[:price],
+            amount: result.data[:amount],
+            base: base,
+            quote: quote,
+            quote_amount: quote_amount,
+            side: side,
+            order_type: order_type,
+            filled_percentage: filled_percentage,
+            external_status: external_status
+          )
         else
           puts "Error updating transaction #{transaction.id} quote amount for bot #{bot.id}: #{result.error}"
         end
