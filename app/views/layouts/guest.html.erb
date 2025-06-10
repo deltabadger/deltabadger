@@ -5,7 +5,7 @@
     <meta content="ie=edge" http-equiv="X-UA-Compatible">
     <meta name="theme-color" content="#f5f6f8" id="theme-color-meta">
 
-    <title><%= t('meta.title') %></title>
+    <title><%= content_for?(:title) ? yield(:title) : t('meta.title') %></title>
 
     <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
 

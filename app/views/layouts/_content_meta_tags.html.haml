@@ -1,9 +1,9 @@
 / Essential META Tags
-%meta{:content => t('meta.title_short'), :property => "og:title"}
-%meta{:content => t('meta.title_short'), :name => "twitter:title"}
-%meta{:content => t('meta.desc'), :name => "description"}
-%meta{:content => t('meta.desc'), :property => "og:description"}
-%meta{:content => t('meta.desc'), :name => "twitter:description"}
+%meta{:content => content_for?(:title) ? yield(:title) : t('meta.title_short'), :property => "og:title"}
+%meta{:content => content_for?(:title) ? yield(:title) : t('meta.title_short'), :name => "twitter:title"}
+%meta{:content => content_for?(:meta_description) ? yield(:meta_description) : t('meta.descriptions.default'), :name => "description"}
+%meta{:content => content_for?(:meta_description) ? yield(:meta_description) : t('meta.descriptions.default'), :property => "og:description"}
+%meta{:content => content_for?(:meta_description) ? yield(:meta_description) : t('meta.descriptions.default'), :name => "twitter:description"}
 
 %meta{:content => "https://deltabadger.com/images/thumbnail_#{I18n.locale}.jpg?14092022", :property => "og:image"}
 %meta{:content => "https://deltabadger.com/images/thumbnail_#{I18n.locale}.jpg?14092022", :property => "twitter:image"}

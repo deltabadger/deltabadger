@@ -2,6 +2,7 @@ es:
     header:
         start_investing: 'Empieza a invertir:'
         six_reasons: '6 razones para invertir con Deltabadger:'
+        trading_options: 'Opciones para traders:'
     ads:
         dca_profit_html: |
             <p>Si hubieras hecho DCA en Bitcoin durante los últimos %{years}&nbsp;años, ahora tendrías unos beneficios de <b style="color: #00A36C;">%{profit}%</b>.</p>
