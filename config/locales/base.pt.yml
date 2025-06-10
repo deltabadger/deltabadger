@@ -2,6 +2,7 @@ pt:
     header:
         start_investing: 'Comece a investir:'
         six_reasons: '6 razões para investir com Deltabadger:'
+        trading_options: 'Opções para traders:'
     ads:
         dca_profit_html: |
             <p>Se tivesse feito dollar-cost averaging em Bitcoin nos últimos %{years}&nbsp;anos, agora estaria com um lucro de <b style="color: #00A36C;">%{profit}%</b>.</p>
