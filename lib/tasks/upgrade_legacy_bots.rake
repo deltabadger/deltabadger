@@ -46,7 +46,7 @@ task upgrade_legacy_bots: :environment do
     interval = bot.settings['interval']
     smart_intervaled = bot.settings['force_smart_intervals']
     smart_interval_quote_amount = bot.settings['smart_intervals_value'].to_f
-    price_limit = bot.settings['price_range'][0].zero? ? nil : bot.settings['price_range'][0].to_f
+    price_limit = bot.settings['price_range'][0].to_f.zero? ? nil : bot.settings['price_range'][0].to_f
 
     new_settings = {
       base_asset_id: base_asset.id,
@@ -68,12 +68,13 @@ task upgrade_legacy_bots: :environment do
     stopped_at = nil
     if is_working
       puts "Stopping bot #{bot.id}"
-      started_at = NextTradingBotTransactionAt.new.call(bot) - 1.public_send(bot.interval)
+      next_transaction_at = NextTradingBotTransactionAt.new.call(bot)
+      started_at = next_transaction_at - 1.public_send(bot.interval) if next_transaction_at.present?
       StopBot.call(bot.id)
       stopped_at = Time.current
       bot.reload
     else
-      started_at = bot.last_submitted_transaction&.created_at
+      started_at = bot.last_successful_transaction&.created_at
     end
 
     bot.settings = dummy_bot.settings
