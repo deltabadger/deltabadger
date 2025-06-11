@@ -192,6 +192,7 @@ ru:
                 value_condition:
                     above: "выше"
                     below: "ниже"
+                    between: "между"
             extra_price_drop_limit:
                 sentence_html: "Начать покупать, когда цена %{base_html} упадет на <span>%{value_html}%</span> от своего %{time_window_condition_html}"
                 price_drop_info: "Текущий %{time_window_condition} %{base} составляет %{condition_high} %{quote}."
