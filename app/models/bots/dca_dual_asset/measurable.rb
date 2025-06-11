@@ -5,7 +5,10 @@ module Bots::DcaDualAsset::Measurable
     cache_key = "bot_#{id}_metrics"
     Rails.cache.fetch(cache_key, expires_in: 30.days, force: force) do
       data = initialize_metrics_data
-      transactions_array = transactions.submitted.order(created_at: :asc).pluck(:created_at, :price, :amount, :quote_amount,
+      transactions_array = transactions.submitted.order(created_at: :asc).pluck(:created_at,
+                                                                                :price,
+                                                                                :amount,
+                                                                                :quote_amount,
                                                                                 :base)
       return data if transactions_array.empty?
 
