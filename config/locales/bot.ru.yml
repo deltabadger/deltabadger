@@ -184,22 +184,31 @@ ru:
                 amount_left: "(осталось %{amount} %{symbol})"
                 amount_spent: "Вся сумма была инвестирована"
             extra_price_limit:
-                sentence_html: "<span>%{timing_condition_html}</span> когда <span>цена</span> %{base_html} <span>%{value_condition_html} %{value_html} %{quote}</span>"
+                sentence_html:
+                    one: "<span>%{timing_condition_html}</span> когда <span>цена</span> <span>%{value_condition_html}</span> <span>%{price_input_html}</span>"
+                    other: "<span>%{timing_condition_html}</span> когда <span>цена</span> %{base_html} <span>%{value_condition_html}</span> <span>%{price_input_html}</span>"
                 price_info: "Текущая цена %{base} составляет %{current_price} %{quote}"
+                price_limit_input_html: "%{value_html} %{quote}"
+                price_limit_range_input_html: "%{lower_bound_value_html} %{quote} и %{upper_bound_value_html} %{quote}"
                 timing_condition:
                     while: "Покупать только"
                     after: "Начать покупать"
                 value_condition:
                     above: "выше"
                     below: "ниже"
+                    between: "между"
             extra_price_drop_limit:
-                sentence_html: "Начать покупать, когда цена %{base_html} упадет на <span>%{value_html}%</span> от своего %{time_window_condition_html}"
+                sentence_html:
+                    one: "Начать покупать, когда цена упадет на <span>%{value_html}%</span> от своего %{time_window_condition_html}"
+                    other: "Начать покупать, когда цена %{base_html} упадет на <span>%{value_html}%</span> от своего %{time_window_condition_html}"
                 price_drop_info: "Текущий %{time_window_condition} %{base} составляет %{condition_high} %{quote}."
                 time_window_condition:
                     ath: "исторического максимума"
                     twenty_four_hours: "24-часового максимума"
             extra_indicator_limit:
-                sentence_html: "<span>%{timing_condition_html}</span> когда <span>%{indicator_html}</span> на %{timeframe_html} свечах %{ticker_html} <span>%{value_condition_html} %{value_html}</span>"
+                sentence_html:
+                    one: "<span>%{timing_condition_html}</span> когда <span>%{indicator_html}</span> на %{timeframe_html} свечах <span>%{value_condition_html} %{value_html}</span>"
+                    other: "<span>%{timing_condition_html}</span> когда <span>%{indicator_html}</span> на %{timeframe_html} свечах %{ticker_html} <span>%{value_condition_html} %{value_html}</span>"
                 indicator_info: "%{indicator} на последнем закрытии %{timeframe} свечи %{ticker} составляет %{value}"
                 timing_condition:
                     while: "Покупать только"
@@ -215,7 +224,9 @@ ru:
                     one_week: "недельных"
                     one_month: "месячных"
             extra_moving_average_limit:
-                sentence_html: "<span>%{timing_condition_html}</span> когда цена %{base} %{value_condition_html} <span>%{ma_html} %{ma_period_html}</span> на %{ticker_html} %{timeframe_html} <span>свечах</span>"
+                sentence_html:
+                    one: "<span>%{timing_condition_html}</span> когда цена %{base} %{value_condition_html} <span>%{ma_html} %{ma_period_html}</span> на %{timeframe_html} <span>свечах</span>"
+                    other: "<span>%{timing_condition_html}</span> когда цена %{base} %{value_condition_html} <span>%{ma_html} %{ma_period_html}</span> на %{ticker_html} %{timeframe_html} <span>свечах</span>"
                 ma_info: "%{ma_type} %{ma_period} на последнем закрытии %{timeframe} свечи %{ticker} составляет %{value} %{quote}"
                 timing_condition:
                     while: "Покупать только"
