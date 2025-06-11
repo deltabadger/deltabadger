@@ -196,6 +196,7 @@ es:
                 value_condition:
                     above: "sobre"
                     below: "bajo"
+                    between: "entre"
             extra_price_drop_limit:
                 sentence_html: "Empezar a comprar cuando el precio de %{base_html} caiga un <span>%{value_html}%</span> desde su %{time_window_condition_html}"
                 price_drop_info: "El %{time_window_condition} actual de %{base} es %{condition_high} %{quote}."

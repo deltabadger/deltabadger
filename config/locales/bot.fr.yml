@@ -18,7 +18,7 @@ fr:
                 title: "Portefeuille Indice"
                 description: "Construisez votre ETF crypto personnel"
             custom_portfolio:
-                title: "Portefeuille Personnalisé" 
+                title: "Portefeuille Personnalisé"
                 description: "Rééquilibrer un mix d'actifs personnalisé"
         status:
             setting_orders: "Configuration des commandes…"
@@ -196,6 +196,7 @@ fr:
                 value_condition:
                     above: "au-dessus de"
                     below: "en dessous de"
+                    between: "entre"
             extra_price_drop_limit:
                 sentence_html: "Commencer à acheter lorsque le prix de %{base_html} chute de <span>%{value_html}%</span> depuis son %{time_window_condition_html}"
                 price_drop_info: "Le %{time_window_condition} actuel de %{base} est %{condition_high} %{quote}."
