@@ -57,9 +57,9 @@ pt:
             wire_transfer_fill_form: 'Preencha o formulário acima para continuar…'
             wire_transfer_pending: 'Obrigado! Ativaremos a tua conta em breve e entraremos em contacto contigo por e-mail.'
             you_pay: 'Tu pagas'
-        prolong_upgrade: 'Atualizar plano'
-        upgrade: Atualizar
-        upgrade_plan: 'Atualizar plano'
+        prolong_upgrade: 'Fazer upgrade do plano'
+        upgrade: Fazer upgrade
+        upgrade_plan: 'Fazer upgrade'
     legendary_badger:
         will_be_sent: 'O NFT Legendary Badger será enviado para:'
         ethereum_address: 'Endereço Ethereum'
