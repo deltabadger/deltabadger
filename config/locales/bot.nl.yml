@@ -195,6 +195,7 @@ nl:
                 value_condition:
                     above: "boven"
                     below: "onder"
+                    between: "tussen"
             extra_price_drop_limit:
                 sentence_html: "Begin met kopen wanneer de %{base_html} prijs <span>%{value_html}%</span> daalt vanaf zijn %{time_window_condition_html}"
                 price_drop_info: "De huidige %{base} %{time_window_condition} is %{condition_high} %{quote}."
