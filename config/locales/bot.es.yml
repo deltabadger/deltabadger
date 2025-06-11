@@ -186,8 +186,10 @@ es:
                 amount_left: "(%{amount} %{symbol} restante)"
                 amount_spent: "Se ha invertido la cantidad completa"
             extra_price_limit:
-                sentence_html: "<span>%{timing_condition_html}</span> cuando el <span>precio</span> de %{base_html} esté <span>%{value_condition_html} %{value_html} %{quote}</span>"
+                sentence_html: "%{timing_condition_html} cuando el <span>precio</span> de %{base_html} esté <span>%{value_condition_html} %{price_input_html}</span>"
                 price_info: "El precio actual de %{base} es %{current_price} %{quote}"
+                price_limit_input_html: "%{value_html} %{quote}"
+                price_limit_range_input_html: "%{lower_bound_value_html} %{quote} y %{upper_bound_value_html} %{quote}"
                 timing_condition:
                     while: "Comprar solo"
                     after: "Empezar a comprar"

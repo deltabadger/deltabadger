@@ -185,8 +185,10 @@ nl:
                 amount_left: "(%{amount} %{symbol} resterend)"
                 amount_spent: "Het volledige bedrag is geïnvesteerd"
             extra_price_limit:
-                sentence_html: "<span>%{timing_condition_html}</span> wanneer de %{base_html} <span>prijs</span> <span>%{value_condition_html} %{value_html} %{quote}</span> is"
+                sentence_html: "%{timing_condition_html} wanneer de %{base_html} <span>prijs</span> <span>%{value_condition_html} %{price_input_html}</span> is"
                 price_info: "De huidige %{base} prijs is %{current_price} %{quote}"
+                price_limit_input_html: "%{value_html} %{quote}"
+                price_limit_range_input_html: "%{lower_bound_value_html} %{quote} en %{upper_bound_value_html} %{quote}"
                 timing_condition:
                     while: "Koop alleen"
                     after: "Begin met kopen"
