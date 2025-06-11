@@ -185,22 +185,31 @@ pl:
                 amount_left: "(pozostało %{amount} %{symbol})"
                 amount_spent: "Cała kwota została zainwestowana."
             extra_price_limit:
-                sentence_html: "<span>%{timing_condition_html}</span> gdy <span>cena</span> %{base_html} jest <span>%{value_condition_html} %{value_html} %{quote}</span>"
+                sentence_html:
+                    one: "%{timing_condition_html} gdy <span>cena</span> jest <span>%{value_condition_html}</span> <span>%{price_input_html}</span>"
+                    other: "%{timing_condition_html} gdy <span>cena</span> %{base_html} jest <span>%{value_condition_html}</span> <span>%{price_input_html}</span>"
                 price_info: "Aktualna cena %{base} to %{current_price} %{quote}"
+                price_limit_input_html: "%{value_html} %{quote}"
+                price_limit_range_input_html: "%{lower_bound_value_html} %{quote} i %{upper_bound_value_html} %{quote}"
                 timing_condition:
                     while: "Kupuj tylko"
                     after: "Zacznij kupować"
                 value_condition:
                     above: "powyżej"
                     below: "poniżej"
+                    between: "między"
             extra_price_drop_limit:
-                sentence_html: "Zacznij kupować, gdy cena %{base_html} spadnie o <span>%{value_html}%</span> od swojej %{time_window_condition_html}"
+                sentence_html:
+                    one: "Zacznij kupować, gdy cena spadnie o <span>%{value_html}%</span> od swojej %{time_window_condition_html}"
+                    other: "Zacznij kupować, gdy cena %{base_html} spadnie o <span>%{value_html}%</span> od swojej %{time_window_condition_html}"
                 price_drop_info: "Aktualny %{time_window_condition} dla %{base} wynosi %{condition_high} %{quote}."
                 time_window_condition:
                     ath: "najwyższej historcznej ceny"
                     twenty_four_hours: "najwyższej ceny z ostatnich 24h"
             extra_indicator_limit:
-                sentence_html: "<span>%{timing_condition_html}</span> gdy <span>%{indicator_html}</span> na świecach %{ticker_html} %{timeframe_html} jest <span>%{value_condition_html} %{value_html}</span>"
+                sentence_html:
+                    one: "<span>%{timing_condition_html}</span> gdy <span>%{indicator_html}</span> na świecach %{timeframe_html} jest <span>%{value_condition_html} %{value_html}</span>"
+                    other: "<span>%{timing_condition_html}</span> gdy <span>%{indicator_html}</span> na świecach %{ticker_html} %{timeframe_html} jest <span>%{value_condition_html} %{value_html}</span>"
                 indicator_info: "%{indicator} na ostatnim zamknięciu świecy %{timeframe} dla %{ticker} wynosi %{value}"
                 timing_condition:
                     while: "Kupuj tylko"
@@ -216,7 +225,9 @@ pl:
                     one_week: "tygodniowych"
                     one_month: "miesięcznych"
             extra_moving_average_limit:
-                sentence_html: "<span>%{timing_condition_html}</span> gdy cena %{base} jest %{value_condition_html} <span>%{ma_html} %{ma_period_html}</span> na świecach %{timeframe_html} %{ticker_html}"
+                sentence_html:
+                    one: "<span>%{timing_condition_html}</span> gdy cena %{base_html} jest %{value_condition_html} <span>%{ma_html} %{ma_period_html}</span> na świecach %{timeframe_html}"
+                    other: "<span>%{timing_condition_html}</span> gdy cena %{base} jest %{value_condition_html} <span>%{ma_html} %{ma_period_html}</span> na świecach %{timeframe_html} %{ticker_html}"
                 ma_info: "%{ma_type} %{ma_period} na ostatnim zamknięciu świecy %{timeframe} dla %{ticker} wynosi %{value} %{quote}"
                 timing_condition:
                     while: "Kupuj tylko"

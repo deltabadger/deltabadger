@@ -24,8 +24,10 @@ module BotHelper
     return [] unless defined?(bot.class::PRICE_LIMIT_VALUE_CONDITIONS)
 
     bot.class::PRICE_LIMIT_VALUE_CONDITIONS.map do |condition|
+      next if condition == 'between' && bot.price_limit_timing_condition != 'while'
+
       [t("bot.settings.extra_price_limit.value_condition.#{condition}"), condition]
-    end
+    end.compact
   end
 
   def price_drop_limit_time_window_condition_select_options(bot)

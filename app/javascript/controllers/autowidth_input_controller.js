@@ -26,7 +26,7 @@ export default class extends Controller {
     const measuredWidth = this.mirrorElement.offsetWidth;
 
     // Add a small buffer (e.g., 2px) to prevent text clipping or overflow
-    const buffer = 10;
+    const buffer = 2;
     const newWidth = Math.max(measuredWidth + buffer);
 
     // Set the input element's width
