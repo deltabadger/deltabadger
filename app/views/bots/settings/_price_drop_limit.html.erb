@@ -28,7 +28,7 @@
           <% end %>
           <% value_html = content_tag(:div) do %>
             <% value = bot.price_drop_limit.present? ? (bot.price_drop_limit.to_d * 100).to_s('F').sub(/([0-9]\d*)\.0$/, '\1') : nil %>
-            <%= f.number_field :price_drop_limit, value: value, class: 'sinput numeric-input', step: :any, size: 3, data: { controller: "autowidth-input", action: "input->form--submit-after-delay#submit input->autowidth-input#resize", form__move_cursor_to_end_target: "input" }, style: "margin-left: 0.125rem; width: 50px;", disabled: bot.working? %>
+            <%= f.number_field :price_drop_limit, value: value, class: 'sinput numeric-input', step: :any, size: 2, data: { controller: "autowidth-input", action: "input->form--submit-after-delay#submit input->autowidth-input#resize", form__move_cursor_to_end_target: "input" }, style: "margin-left: 0.125rem; width: 50px;", disabled: bot.working? %>
           <% end %>
           <% time_window_condition_html = content_tag(:div, class: "sinput sinput--select") do %>
             <%= t("bot.settings.extra_price_drop_limit.time_window_condition.#{bot.price_drop_limit_time_window_condition}") %>
