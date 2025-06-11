@@ -18,7 +18,12 @@ module Bots::DcaSingleAsset::Measurable
 
         # chart data
         data[:chart][:labels] << created_at
-        totals[:total_quote_amount_invested] += quote_amount
+        totals[:total_quote_amount_invested] += if quote_amount.present?
+                                                  quote_amount
+                                                else
+                                                  # TODO: Remove this once we have quote_amount in all transactions
+                                                  price * amount
+                                                end
         totals[:total_base_amount_acquired] += amount
         data[:chart][:series][1] << totals[:total_quote_amount_invested]
         totals[:current_value_in_quote] = totals[:total_base_amount_acquired] * price
