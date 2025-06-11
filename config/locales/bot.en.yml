@@ -230,7 +230,9 @@ en:
                     ath: "all-time high"
                     twenty_four_hours: "24h high"
             extra_indicator_limit:
-                sentence_html: "<span>%{timing_condition_html}</span> when the <span>%{indicator_html}</span> on %{ticker_html} %{timeframe_html} <span>candles</span> is <span>%{value_condition_html} %{value_html}</span>"
+                sentence_html:
+                    one: "<span>%{timing_condition_html}</span> when the <span>%{indicator_html}</span> on %{timeframe_html} <span>candles</span> is <span>%{value_condition_html} %{value_html}</span>"
+                    other: "<span>%{timing_condition_html}</span> when the <span>%{indicator_html}</span> on %{ticker_html} %{timeframe_html} <span>candles</span> is <span>%{value_condition_html} %{value_html}</span>"
                 indicator_info: "The %{indicator} on the last %{timeframe} %{ticker} candle close is %{value}"
                 timing_condition:
                     while: "Buy only"

@@ -208,7 +208,9 @@ fr:
                     ath: "plus haut historique"
                     twenty_four_hours: "plus haut sur 24h"
             extra_indicator_limit:
-                sentence_html: "<span>%{timing_condition_html}</span> lorsque le <span>%{indicator_html}</span> sur les bougies %{timeframe_html} de %{ticker_html} est <span>%{value_condition_html} %{value_html}</span>"
+                sentence_html:
+                    one: "<span>%{timing_condition_html}</span> lorsque le <span>%{indicator_html}</span> sur les bougies %{timeframe_html} est <span>%{value_condition_html} %{value_html}</span>"
+                    other: "<span>%{timing_condition_html}</span> lorsque le <span>%{indicator_html}</span> sur les bougies %{timeframe_html} de %{ticker_html} est <span>%{value_condition_html} %{value_html}</span>"
                 indicator_info: "Le %{indicator} à la dernière clôture de la bougie %{timeframe} de %{ticker} est %{value}"
                 timing_condition:
                     while: "Acheter uniquement"

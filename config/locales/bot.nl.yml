@@ -207,7 +207,9 @@ nl:
                     ath: "hoogste punt ooit"
                     twenty_four_hours: "24-uurs hoogste punt"
             extra_indicator_limit:
-                sentence_html: "<span>%{timing_condition_html}</span> wanneer de <span>%{indicator_html}</span> op %{ticker_html} %{timeframe_html} <span>candles</span> <span>%{value_condition_html} %{value_html}</span> is"
+                sentence_html:
+                    one: "<span>%{timing_condition_html}</span> wanneer de <span>%{indicator_html}</span> op %{timeframe_html} <span>candles</span> <span>%{value_condition_html} %{value_html}</span> is"
+                    other: "<span>%{timing_condition_html}</span> wanneer de <span>%{indicator_html}</span> op %{ticker_html} %{timeframe_html} <span>candles</span> <span>%{value_condition_html} %{value_html}</span> is"
                 indicator_info: "De %{indicator} op de laatste %{timeframe} %{ticker} candle sluiting is %{value}"
                 timing_condition:
                     while: "Koop alleen"

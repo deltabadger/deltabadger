@@ -206,7 +206,9 @@ ru:
                     ath: "исторического максимума"
                     twenty_four_hours: "24-часового максимума"
             extra_indicator_limit:
-                sentence_html: "<span>%{timing_condition_html}</span> когда <span>%{indicator_html}</span> на %{timeframe_html} свечах %{ticker_html} <span>%{value_condition_html} %{value_html}</span>"
+                sentence_html:
+                    one: "<span>%{timing_condition_html}</span> когда <span>%{indicator_html}</span> на %{timeframe_html} свечах <span>%{value_condition_html} %{value_html}</span>"
+                    other: "<span>%{timing_condition_html}</span> когда <span>%{indicator_html}</span> на %{timeframe_html} свечах %{ticker_html} <span>%{value_condition_html} %{value_html}</span>"
                 indicator_info: "%{indicator} на последнем закрытии %{timeframe} свечи %{ticker} составляет %{value}"
                 timing_condition:
                     while: "Покупать только"
