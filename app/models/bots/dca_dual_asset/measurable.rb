@@ -5,7 +5,8 @@ module Bots::DcaDualAsset::Measurable
     cache_key = "bot_#{id}_metrics"
     Rails.cache.fetch(cache_key, expires_in: 30.days, force: force) do
       data = initialize_metrics_data
-      transactions_array = transactions.submitted.order(created_at: :asc).pluck(:created_at, :price, :amount, :quote_amount, :base)
+      transactions_array = transactions.submitted.order(created_at: :asc).pluck(:created_at, :price, :amount, :quote_amount,
+                                                                                :base)
       return data if transactions_array.empty?
 
       # TODO: When transactions point to real asset ids, we can use the asset ids directly
@@ -65,16 +66,16 @@ module Bots::DcaDualAsset::Measurable
     Rails.cache.fetch(metrics_with_current_prices_cache_key,
                       expires_in: Utilities::Time.seconds_to_end_of_five_minute_cut,
                       force: force) do
-      return metrics if metrics[:chart][:labels].empty?
+      metrics_data = metrics.deep_dup
+      return metrics_data if metrics_data[:chart][:labels].empty?
 
       result = exchange.get_tickers_prices
-      return metrics if result.failure?
+      return metrics_data if result.failure?
 
       price0 = result.data[ticker0.ticker]
       price1 = result.data[ticker1.ticker]
-      return metrics unless price0.present? && price1.present?
+      return metrics_data unless price0.present? && price1.present?
 
-      metrics_data = metrics.deep_dup
       metrics_data[:total_base0_amount_value_in_quote] = metrics_data[:total_base0_amount] * price0
       metrics_data[:total_base1_amount_value_in_quote] = metrics_data[:total_base1_amount] * price1
       metrics_data[:total_amount_value_in_quote] =
@@ -228,8 +229,8 @@ module Bots::DcaDualAsset::Measurable
   end
 
   def get_extended_chart_data_with_candles_data
-    puts 'getting extended chart data with candles data'
-    since = metrics[:chart][:labels].first + 1.second
+    metrics_data = metrics.deep_dup
+    since = metrics_data[:chart][:labels].first + 1.second
     timeframe = optimal_candles_timeframe_for_duration(Time.now.utc - since)
     expires_in = Utilities::Time.seconds_to_current_candle_close(timeframe)
     candles_cache_key = "#{ticker0.id}_candles_#{since}_#{timeframe}"
@@ -263,11 +264,11 @@ module Bots::DcaDualAsset::Measurable
     i = 0
     extended_chart_data = { labels: [], series: [[], []] }
     candles0.each_with_index do |candle, j|
-      i += 1 while i < metrics[:chart][:labels].length - 1 && metrics[:chart][:labels][i + 1] <= candle[0]
+      i += 1 while i < metrics_data[:chart][:labels].length - 1 && metrics_data[:chart][:labels][i + 1] <= candle[0]
 
-      base0_amount_acquired = metrics[:chart][:extra_series][0][i]
-      base1_amount_acquired = metrics[:chart][:extra_series][1][i]
-      quote_amount_invested = metrics[:chart][:series][1][i]
+      base0_amount_acquired = metrics_data[:chart][:extra_series][0][i]
+      base1_amount_acquired = metrics_data[:chart][:extra_series][1][i]
+      quote_amount_invested = metrics_data[:chart][:series][1][i]
       extended_chart_data[:labels] << candle[0]
       extended_chart_data[:series][0] << [
         base0_amount_acquired * candles0[j][1],
