@@ -222,7 +222,9 @@ it:
                     below: "sotto"
                     between: "tra"
             extra_price_drop_limit:
-                sentence_html: "Inizia a comprare quando il prezzo di %{base_html} scende del <span>%{value_html}%</span> dal suo %{time_window_condition_html}"
+                sentence_html:
+                    one: "Inizia a comprare quando il prezzo scende del <span>%{value_html}%</span> dal suo %{time_window_condition_html}"
+                    other: "Inizia a comprare quando il prezzo di %{base_html} scende del <span>%{value_html}%</span> dal suo %{time_window_condition_html}"
                 price_drop_info: "L'attuale %{time_window_condition} di %{base} è %{condition_high} %{quote}."
                 time_window_condition:
                     ath: "massimo storico"
