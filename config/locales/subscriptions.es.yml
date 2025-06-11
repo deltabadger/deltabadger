@@ -60,9 +60,9 @@ es:
             wire_transfer_fill_form: 'Rellena el formulario de arriba para continuar...'
             wire_transfer_pending: '¡Gracias! Pronto activaremos tu cuenta y nos pondremos en contacto contigo por correo electrónico.'
             you_pay: 'Total'
-        prolong_upgrade: 'Actualiza tu plan'
-        upgrade: Actualizar
-        upgrade_plan: 'Actualizar plan'
+        prolong_upgrade: 'Mejora tu plan'
+        upgrade: Mejorar
+        upgrade_plan: 'Mejorar plan'
     legendary_badger:
         will_be_sent: 'Legendary Badger NFT será enviado a:'
         ethereum_address: 'Dirección de Ethereum'
