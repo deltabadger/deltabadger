@@ -36,11 +36,11 @@
           <% if bot.price_limit_value_condition == 'between' %>
             <% lower_bound_value_html = content_tag(:div) do %>
               <% value = bot.price_limit_range_lower_bound.present? ? bot.price_limit_range_lower_bound.to_d.to_s('F').sub(/([0-9]\d*)\.0$/, '\1') : nil %>
-              <%= f.number_field :price_limit_range_lower_bound, value: value, class: 'sinput numeric-input', step: :any, size: 3, data: { controller: "autowidth-input", action: "input->form--submit-after-delay#submit input->autowidth-input#resize", form__move_cursor_to_end_target: "input" }, style: "margin-left: 0.125rem; width: 50px;", disabled: bot.working? %>
+              <%= f.number_field :price_limit_range_lower_bound, value: value, class: 'sinput numeric-input', step: :any, size: 2, data: { controller: "autowidth-input", action: "input->form--submit-after-delay#submit input->autowidth-input#resize", form__move_cursor_to_end_target: "input" }, style: "margin-left: 0.125rem; width: 50px;", disabled: bot.working? %>
             <% end %>
             <% upper_bound_value_html = content_tag(:div) do %>
               <% value = bot.price_limit_range_upper_bound.present? ? bot.price_limit_range_upper_bound.to_d.to_s('F').sub(/([0-9]\d*)\.0$/, '\1') : nil %>
-              <%= f.number_field :price_limit_range_upper_bound, value: value, class: 'sinput numeric-input', step: :any, size: 3, data: { controller: "autowidth-input", action: "input->form--submit-after-delay#submit input->autowidth-input#resize", form__move_cursor_to_end_target: "input" }, style: "margin-left: 0.125rem; width: 50px;", disabled: bot.working? %>
+              <%= f.number_field :price_limit_range_upper_bound, value: value, class: 'sinput numeric-input', step: :any, size: 2, data: { controller: "autowidth-input", action: "input->form--submit-after-delay#submit input->autowidth-input#resize", form__move_cursor_to_end_target: "input" }, style: "margin-left: 0.125rem; width: 50px;", disabled: bot.working? %>
             <% end %>
             <% price_input_html = t("bot.settings.extra_price_limit.price_limit_range_input_html",
                                     lower_bound_value_html: lower_bound_value_html.html_safe,
@@ -49,7 +49,7 @@
           <% else %>
             <% value_html = content_tag(:div) do %>
               <% value = bot.price_limit.present? ? bot.price_limit.to_d.to_s('F').sub(/([0-9]\d*)\.0$/, '\1') : nil %>
-              <%= f.number_field :price_limit, value: value, class: 'sinput numeric-input', step: :any, size: 3, data: { controller: "autowidth-input", action: "input->form--submit-after-delay#submit input->autowidth-input#resize", form__move_cursor_to_end_target: "input" }, style: "margin-left: 0.125rem; width: 50px;", disabled: bot.working? %>
+              <%= f.number_field :price_limit, value: value, class: 'sinput numeric-input', step: :any, size: 2, data: { controller: "autowidth-input", action: "input->form--submit-after-delay#submit input->autowidth-input#resize", form__move_cursor_to_end_target: "input" }, style: "margin-left: 0.125rem; width: 50px;", disabled: bot.working? %>
             <% end %>
             <% price_input_html = t("bot.settings.extra_price_limit.price_limit_input_html",
                                     value_html: value_html.html_safe,
