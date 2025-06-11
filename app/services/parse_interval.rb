@@ -40,7 +40,8 @@ class ParseInterval < BaseService
     return nil unless transaction.amount.present? && transaction.price.present?
 
     # workaround for unfilled limit orders in legacy bots
-    return transaction.bot_quote_amount if transaction.bot.settings['order_type'] == 'limit'
+    return transaction.bot_quote_amount if transaction.bot.settings['order_type'] == 'limit' &&
+                                           (transaction.amount.zero? || transaction.price.zero?)
 
     transaction.amount * transaction.price
   end
