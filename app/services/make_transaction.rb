@@ -33,7 +33,8 @@ class MakeTransaction < BaseService
       skip_if_not_in_range(bot, range_check_result.data)
     end
 
-    result = perform_action(get_api(bot), bot, fixing_price) unless continue_schedule || !range_check_result.success?
+    api = get_api(bot)
+    result = perform_action(api, bot, fixing_price) unless continue_schedule || !range_check_result.success?
 
     if continue_schedule
       bot.update(status: 'scheduled', restarts: 0)
@@ -41,7 +42,7 @@ class MakeTransaction < BaseService
     elsif result&.success?
       bot.update(status: 'executing')
       result = @fetch_order_result.call(bot.id, result.data, fixing_price)
-      check_allowable_balance(get_api(bot), bot, fixing_price, notify)
+      check_allowable_balance(api, bot, fixing_price, notify)
       send_user_to_sendgrid(bot)
     elsif restart && (!range_check_result.success? || recoverable?(result))
       result = range_check_result if result.nil?
@@ -89,10 +90,14 @@ class MakeTransaction < BaseService
 
   def get_api(bot)
     api_key = ApiKey.for_bot(bot.user_id, bot.exchange_id).first
+    return nil if api_key.nil?
+
     @get_exchange_trader.call(api_key, bot.order_type)
   end
 
   def perform_action(api, bot, price = nil)
+    return Result::Failure.new('No API key found') if api.nil?
+
     settings = {
       base: bot.base,
       quote: bot.quote,
