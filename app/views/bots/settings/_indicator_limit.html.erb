@@ -28,8 +28,7 @@
               <%= f.select :indicator_limit_in_ticker_id, ticker_select_options, { selected: bot.indicator_limit_in_ticker_id }, data: { action: "change->form--submit#submit" } %>
             <% end %>
           <% else %>
-            <%# ticker_html = ticker_select_options.first.first %>
-            <% ticker_html = "" %>
+            <% ticker_html = ticker_select_options.first.first %>
           <% end %>
           <% if indicator_select_options.size > 1 %>
             <% indicator_html = content_tag(:div, class: "sinput sinput--select") do %>
@@ -61,7 +60,8 @@
                 value_html: value_html.html_safe,
                 ticker_html: ticker_html.html_safe,
                 indicator_html: indicator_html.html_safe,
-                timeframe_html: timeframe_html.html_safe) %>
+                timeframe_html: timeframe_html.html_safe,
+                count: ticker_select_options.size).html_safe %>
           <%= render partial: "bots/settings/indicator_limit_info", locals: { bot: bot, info: bot.indicator_limit_info_from_cache } %>
         <% end %>
       </div>
