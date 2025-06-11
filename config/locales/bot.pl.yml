@@ -185,7 +185,9 @@ pl:
                 amount_left: "(pozostało %{amount} %{symbol})"
                 amount_spent: "Cała kwota została zainwestowana."
             extra_price_limit:
-                sentence_html: "%{timing_condition_html} gdy %{base_html} <span>cena</span> jest <span>%{value_condition_html} %{price_input_html}</span>"
+                sentence_html:
+                    one: "%{timing_condition_html} gdy <span>cena</span> jest <span>%{value_condition_html}</span> <span>%{price_input_html}</span>"
+                    other: "%{timing_condition_html} gdy %{base_html} <span>cena</span> jest <span>%{value_condition_html}</span> <span>%{price_input_html}</span>"
                 price_info: "Aktualna cena %{base} to %{current_price} %{quote}"
                 price_limit_input_html: "%{value_html} %{quote}"
                 price_limit_range_input_html: "%{lower_bound_value_html} %{quote} i %{upper_bound_value_html} %{quote}"

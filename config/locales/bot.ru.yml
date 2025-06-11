@@ -184,8 +184,12 @@ ru:
                 amount_left: "(осталось %{amount} %{symbol})"
                 amount_spent: "Вся сумма была инвестирована"
             extra_price_limit:
-                sentence_html: "<span>%{timing_condition_html}</span> когда <span>цена</span> %{base_html} <span>%{value_condition_html} %{value_html} %{quote}</span>"
+                sentence_html:
+                    one: "<span>%{timing_condition_html}</span> когда <span>цена</span> <span>%{value_condition_html}</span> <span>%{price_input_html}</span>"
+                    other: "<span>%{timing_condition_html}</span> когда <span>цена</span> %{base_html} <span>%{value_condition_html}</span> <span>%{price_input_html}</span>"
                 price_info: "Текущая цена %{base} составляет %{current_price} %{quote}"
+                price_limit_input_html: "%{value_html} %{quote}"
+                price_limit_range_input_html: "%{lower_bound_value_html} %{quote} и %{upper_bound_value_html} %{quote}"
                 timing_condition:
                     while: "Покупать только"
                     after: "Начать покупать"
