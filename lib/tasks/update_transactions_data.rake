@@ -30,8 +30,8 @@ def update_transactions_remote_data
   user_ids.sort.reverse.each do |user_id|
     user = User.find(user_id)
     exchanges.each do |exchange|
-      api_key = user.api_keys.trading.find_by(exchange: exchange)
-      next if api_key.blank? || api_key.incorrect?
+      api_key = user.api_keys.trading.correct.find_by(exchange: exchange)
+      next if api_key.blank?
 
       puts "checking valid api key for #{exchange.name} for user #{user.id}"
       result = exchange.check_valid_api_key?(api_key: api_key)
@@ -54,7 +54,7 @@ def update_transactions_remote_data
       puts "setting client for #{exchange.name} for user #{user.id}"
       exchange.set_client(api_key: api_key)
 
-      user_bots_ids = user.bots.basic.where(exchange: exchange).pluck(:id).uniq
+      user_bots_ids = user.bots.where.not(type: 'Bots::Withdrawal').where(exchange: exchange).pluck(:id).uniq
       puts "getting transactions for #{exchange.name} for user #{user.id} for bots #{user_bots_ids}"
       Transaction.submitted
                  .where(bot_id: user_bots_ids, exchange: exchange, external_status: nil)

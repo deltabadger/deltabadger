@@ -44,7 +44,12 @@ task upgrade_legacy_bots: :environment do
     quote_amount = bot.settings['price'].to_f
     interval = bot.settings['interval']
     smart_intervaled = bot.settings['force_smart_intervals']
-    smart_interval_quote_amount = bot.settings['smart_intervals_value'].to_f
+    minimum_smart_interval_quote_amount = minimum_smart_interval_quote_amount(quote_amount, interval, ticker)
+    smart_interval_quote_amount = if quote_asset.symbol.in?(%w[USDT USDC USD EUR])
+                                    [bot.settings['smart_intervals_value'].to_f, minimum_smart_interval_quote_amount, 1].max
+                                  else
+                                    [bot.settings['smart_intervals_value'].to_f, minimum_smart_interval_quote_amount].max
+                                  end
     price_limit = bot.settings['price_range'][0].to_f.zero? ? nil : bot.settings['price_range'][0].to_f
 
     new_settings = {
@@ -85,14 +90,10 @@ task upgrade_legacy_bots: :environment do
 
     # then update all transactions
     puts "Updating transactions base and quote for bot #{bot.id}"
-    bot.transactions.find_each do |transaction|
-      transaction.update!(
-        base: ticker.base_asset.symbol,
-        quote: ticker.quote_asset.symbol
-      )
-    end
+    bot.transactions.where(base: nil).update_all(base: ticker.base_asset.symbol)
+    bot.transactions.where(quote: nil).update_all(quote: ticker.quote_asset.symbol)
 
-    api_key = bot.user.api_keys.trading.find_by(exchange: bot.exchange)
+    api_key = bot.user.api_keys.correct.trading.find_by(exchange: bot.exchange)
     if api_key.blank?
       puts "No api key found for bot #{bot.id}. Could not update transactions quote amount"
       next
@@ -139,7 +140,7 @@ task upgrade_legacy_bots: :environment do
             external_status: external_status
           )
         else
-          puts "Error updating transaction #{transaction.id} quote amount for bot #{bot.id}: #{result.error}"
+          puts "Error updating transaction #{transaction.id} quote amount for bot #{bot.id}: #{result.errors.to_sentence}"
         end
       end
     end
@@ -154,4 +155,22 @@ task upgrade_legacy_bots: :environment do
     puts "Starting bot #{bot.id}"
     raise "Could not start bot #{bot.id}" unless bot.start(start_fresh: false)
   end
+end
+
+def minimum_smart_interval_quote_amount(quote_amount, interval, ticker)
+  # the minimum amount would set one order every 1 minute
+  maximum_frequency = 300 # seconds
+  minimum_for_frequency = if quote_amount.present?
+                            quote_amount / Bot::INTERVALS[interval] * maximum_frequency
+                          else
+                            0
+                          end
+
+  least_precise_quote_decimals = ticker.quote_decimals
+  minimum_for_precision = 1.0 / (10**least_precise_quote_decimals)
+
+  [
+    Utilities::Number.round_up(minimum_for_frequency, precision: least_precise_quote_decimals),
+    minimum_for_precision
+  ].max
 end
