@@ -18,7 +18,7 @@ fr:
                 title: "Portefeuille Indice"
                 description: "Construisez votre ETF crypto personnel"
             custom_portfolio:
-                title: "Portefeuille Personnalisé" 
+                title: "Portefeuille Personnalisé"
                 description: "Rééquilibrer un mix d'actifs personnalisé"
         status:
             setting_orders: "Configuration des commandes…"
@@ -186,22 +186,31 @@ fr:
                 amount_left: "(%{amount} %{symbol} restant)"
                 amount_spent: "Le montant total a été investi"
             extra_price_limit:
-                sentence_html: "<span>%{timing_condition_html}</span> lorsque le <span>prix</span> de %{base_html} est <span>%{value_condition_html} %{value_html} %{quote}</span>"
+                sentence_html:
+                    one: "%{timing_condition_html} lorsque le <span>prix</span> est <span>%{value_condition_html}</span> <span>%{price_input_html}</span>"
+                    other: "%{timing_condition_html} lorsque le <span>prix</span> de %{base_html} est <span>%{value_condition_html}</span> <span>%{price_input_html}</span>"
                 price_info: "Le prix actuel de %{base} est %{current_price} %{quote}"
+                price_limit_input_html: "%{value_html} %{quote}"
+                price_limit_range_input_html: "%{lower_bound_value_html} %{quote} et %{upper_bound_value_html} %{quote}"
                 timing_condition:
                     while: "Acheter uniquement"
                     after: "Commencer à acheter"
                 value_condition:
                     above: "au-dessus de"
                     below: "en dessous de"
+                    between: "entre"
             extra_price_drop_limit:
-                sentence_html: "Commencer à acheter lorsque le prix de %{base_html} chute de <span>%{value_html}%</span> depuis son %{time_window_condition_html}"
+                sentence_html:
+                    one: "Commencer à acheter lorsque le prix chute de <span>%{value_html}%</span> depuis son %{time_window_condition_html}"
+                    other: "Commencer à acheter lorsque le prix de %{base_html} chute de <span>%{value_html}%</span> depuis son %{time_window_condition_html}"
                 price_drop_info: "Le %{time_window_condition} actuel de %{base} est %{condition_high} %{quote}."
                 time_window_condition:
                     ath: "plus haut historique"
                     twenty_four_hours: "plus haut sur 24h"
             extra_indicator_limit:
-                sentence_html: "<span>%{timing_condition_html}</span> lorsque le <span>%{indicator_html}</span> sur les bougies %{timeframe_html} de %{ticker_html} est <span>%{value_condition_html} %{value_html}</span>"
+                sentence_html:
+                    one: "<span>%{timing_condition_html}</span> lorsque le <span>%{indicator_html}</span> sur les bougies %{timeframe_html} est <span>%{value_condition_html} %{value_html}</span>"
+                    other: "<span>%{timing_condition_html}</span> lorsque le <span>%{indicator_html}</span> sur les bougies %{timeframe_html} de %{ticker_html} est <span>%{value_condition_html} %{value_html}</span>"
                 indicator_info: "Le %{indicator} à la dernière clôture de la bougie %{timeframe} de %{ticker} est %{value}"
                 timing_condition:
                     while: "Acheter uniquement"
@@ -217,7 +226,9 @@ fr:
                     one_week: "hebdomadaires"
                     one_month: "mensuelles"
             extra_moving_average_limit:
-                sentence_html: "<span>%{timing_condition_html}</span> lorsque le prix de %{base} est %{value_condition_html} la <span>%{ma_html} %{ma_period_html}</span> sur les bougies %{timeframe_html} de %{ticker_html}"
+                sentence_html:
+                    one: "<span>%{timing_condition_html}</span> lorsque le prix de %{base} est %{value_condition_html} la <span>%{ma_html} %{ma_period_html}</span> sur les bougies %{timeframe_html}"
+                    other: "<span>%{timing_condition_html}</span> lorsque le prix de %{base} est %{value_condition_html} la <span>%{ma_html} %{ma_period_html}</span> sur les bougies %{timeframe_html} de %{ticker_html}"
                 ma_info: "La %{ma_type} %{ma_period} à la dernière clôture de la bougie %{timeframe} de %{ticker} est %{value} %{quote}"
                 timing_condition:
                     while: "Acheter uniquement"

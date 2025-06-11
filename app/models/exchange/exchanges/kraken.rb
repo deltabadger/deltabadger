@@ -300,7 +300,8 @@ module Exchange::Exchanges::Kraken
     quote_amount = Utilities::Hash.dig_or_raise(order_data, 'cost').to_d
     side = Utilities::Hash.dig_or_raise(order_data, 'descr', 'type').downcase.to_sym
     order_type = parse_order_type(Utilities::Hash.dig_or_raise(order_data, 'descr', 'ordertype'))
-    filled_percentage = amount / target_amount
+    order_flags = Utilities::Hash.dig_or_raise(order_data, 'oflags').split(',')
+    filled_percentage = (order_flags.include?('viqc') ? quote_amount : amount) / target_amount
     errors = [
       order_data['reason'].presence,
       order_data['misc'].presence
