@@ -208,8 +208,10 @@ it:
                 amount_left: "(%{amount} %{symbol} rimasti)"
                 amount_spent: "L'intero importo è stato investito."
             extra_price_limit:
-                sentence_html: "<span>%{timing_condition_html}</span> quando il <span>prezzo</span> di %{base_html} è <span>%{value_condition_html} %{value_html} %{quote}</span>"
+                sentence_html: "%{timing_condition_html} quando il <span>prezzo</span> di %{base_html} è <span>%{value_condition_html} %{price_input_html}</span>"
                 price_info: "Il prezzo attuale di %{base} è %{current_price} %{quote}"
+                price_limit_input_html: "%{value_html} %{quote}"
+                price_limit_range_input_html: "%{lower_bound_value_html} %{quote} e %{upper_bound_value_html} %{quote}"
                 timing_condition:
                     while: "Compra solo"
                     after: "Inizia a comprare"
