@@ -233,6 +233,7 @@ it:
                 value_condition:
                     above: "sopra"
                     below: "sotto"
+                    between: "tra"
                 timeframe:
                     one_hour: "orarie"
                     four_hours: "4 ore"
