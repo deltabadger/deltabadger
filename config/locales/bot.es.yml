@@ -226,7 +226,9 @@ es:
                     one_week: "semanales"
                     one_month: "mensuales"
             extra_moving_average_limit:
-                sentence_html: "<span>%{timing_condition_html}</span> cuando el precio de %{base} esté %{value_condition_html} de la <span>%{ma_html} %{ma_period_html}</span> en velas %{timeframe_html} de %{ticker_html}"
+                sentence_html:
+                    one: "<span>%{timing_condition_html}</span> cuando el precio de %{base} esté %{value_condition_html} de la <span>%{ma_html} %{ma_period_html}</span> en velas %{timeframe_html}"
+                    other: "<span>%{timing_condition_html}</span> cuando el precio de %{base} esté %{value_condition_html} de la <span>%{ma_html} %{ma_period_html}</span> en velas %{timeframe_html} de %{ticker_html}"
                 ma_info: "La %{ma_type} %{ma_period} en el cierre de la última vela %{timeframe} de %{ticker} es %{value} %{quote}"
                 timing_condition:
                     while: "Comprar solo"
