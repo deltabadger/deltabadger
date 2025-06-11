@@ -6,7 +6,6 @@ task upgrade_legacy_bots: :environment do
                .where(exchange_id: exchange_ids)
                .where('settings @> ?', { type: 'buy' }.to_json)
                .where('settings @> ?', { order_type: 'market' }.to_json)
-               .where('settings @> ?', { price_range_enabled: false }.to_json)
                .pluck(:id)
 
   known_settings = %w[
@@ -44,20 +43,33 @@ task upgrade_legacy_bots: :environment do
     quote_amount = bot.settings['price'].to_f
     interval = bot.settings['interval']
     smart_intervaled = bot.settings['force_smart_intervals']
-    minimum_smart_interval_quote_amount = minimum_smart_interval_quote_amount(quote_amount, interval, ticker)
-    smart_interval_quote_amount = if quote_asset.symbol.in?(%w[USDT USDC USD EUR])
-                                    [bot.settings['smart_intervals_value'].to_f, minimum_smart_interval_quote_amount, 1].max
-                                  else
-                                    [bot.settings['smart_intervals_value'].to_f, minimum_smart_interval_quote_amount].max
-                                  end
-    price_limit = bot.settings['price_range'][0].to_f.zero? ? nil : bot.settings['price_range'][0].to_f
+
+    if bot.exchange.name_id == 'kraken'
+      result = ticker.get_last_price
+      raise "Error getting last price for bot #{bot.id}: #{result.errors.to_sentence}" unless result.success?
+
+      price = result.data
+      smart_interval_quote_amount = (bot.settings['smart_intervals_value'].to_f * price).ceil(ticker.quote_decimals)
+    else
+      smart_interval_quote_amount = bot.settings['smart_intervals_value'].to_f
+    end
+
+    price_limit_range_lower_bound = bot.settings['price_range'].map(&:to_f).min
+    price_limit_range_upper_bound = bot.settings['price_range'].map(&:to_f).max
+    price_limit = price_limit_range_upper_bound
+    price_limited = bot.settings['price_range_enabled']
+    price_limit_value_condition = 'between'
 
     new_settings = {
       base_asset_id: base_asset.id,
       quote_asset_id: quote_asset.id,
       quote_amount: quote_amount,
       interval: interval,
+      price_limited: price_limited,
       price_limit: price_limit,
+      price_limit_range_lower_bound: price_limit_range_lower_bound,
+      price_limit_range_upper_bound: price_limit_range_upper_bound,
+      price_limit_value_condition: price_limit_value_condition,
       smart_intervaled: smart_intervaled,
       smart_interval_quote_amount: smart_interval_quote_amount
     }.compact
