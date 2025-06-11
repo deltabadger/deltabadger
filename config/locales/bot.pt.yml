@@ -198,7 +198,9 @@ pt:
                     ath: "máximo histórico"
                     twenty_four_hours: "máximo de 24h"
             extra_indicator_limit:
-                sentence_html: "<span>%{timing_condition_html}</span> quando o <span>%{indicator_html}</span> nas velas %{timeframe_html} de %{ticker_html} estiver <span>%{value_condition_html} %{value_html}</span>"
+                sentence_html:
+                    one: "<span>%{timing_condition_html}</span> quando o <span>%{indicator_html}</span> nas velas %{timeframe_html} estiver <span>%{value_condition_html} %{value_html}</span>"
+                    other: "<span>%{timing_condition_html}</span> quando o <span>%{indicator_html}</span> nas velas %{timeframe_html} de %{ticker_html} estiver <span>%{value_condition_html} %{value_html}</span>"
                 indicator_info: "O %{indicator} no último fechamento da vela %{timeframe} de %{ticker} é %{value}"
                 timing_condition:
                     while: "Comprar somente"
