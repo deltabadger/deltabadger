@@ -208,7 +208,9 @@ it:
                 amount_left: "(%{amount} %{symbol} rimasti)"
                 amount_spent: "L'intero importo è stato investito."
             extra_price_limit:
-                sentence_html: "%{timing_condition_html} quando il <span>prezzo</span> di %{base_html} è <span>%{value_condition_html} %{price_input_html}</span>"
+                sentence_html:
+                    one: "%{timing_condition_html} quando il <span>prezzo</span> è <span>%{value_condition_html}</span> <span>%{price_input_html}</span>"
+                    other: "%{timing_condition_html} quando il <span>prezzo</span> di %{base_html} è <span>%{value_condition_html}</span> <span>%{price_input_html}</span>"
                 price_info: "Il prezzo attuale di %{base} è %{current_price} %{quote}"
                 price_limit_input_html: "%{value_html} %{quote}"
                 price_limit_range_input_html: "%{lower_bound_value_html} %{quote} e %{upper_bound_value_html} %{quote}"
@@ -218,6 +220,7 @@ it:
                 value_condition:
                     above: "sopra"
                     below: "sotto"
+                    between: "tra"
             extra_price_drop_limit:
                 sentence_html: "Inizia a comprare quando il prezzo di %{base_html} scende del <span>%{value_html}%</span> dal suo %{time_window_condition_html}"
                 price_drop_info: "L'attuale %{time_window_condition} di %{base} è %{condition_high} %{quote}."
@@ -233,7 +236,6 @@ it:
                 value_condition:
                     above: "sopra"
                     below: "sotto"
-                    between: "tra"
                 timeframe:
                     one_hour: "orarie"
                     four_hours: "4 ore"
