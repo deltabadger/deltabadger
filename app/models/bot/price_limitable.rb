@@ -2,12 +2,14 @@ module Bot::PriceLimitable
   extend ActiveSupport::Concern
 
   PRICE_LIMIT_TIMING_CONDITIONS = %w[while after].freeze
-  PRICE_LIMIT_VALUE_CONDITIONS = %w[above below].freeze
+  PRICE_LIMIT_VALUE_CONDITIONS = %w[above below between].freeze
 
   included do # rubocop:disable Metrics/BlockLength
     store_accessor :settings,
                    :price_limited,
                    :price_limit,
+                   :price_limit_range_lower_bound,
+                   :price_limit_range_upper_bound,
                    :price_limit_timing_condition,
                    :price_limit_value_condition,
                    :price_limit_in_ticker_id
@@ -21,9 +23,12 @@ module Bot::PriceLimitable
     before_save :set_price_limit_condition_met_at, if: :will_save_change_to_settings?
     before_save :set_price_limit_in_ticker_id, if: :will_save_change_to_exchange_id?
     before_save :reset_price_limit_info_cache, if: :will_save_change_to_settings?
+    before_save :set_price_limit_value_condition, if: :will_save_change_to_settings?
 
     validates :price_limited, inclusion: { in: [true, false] }
     validates :price_limit, numericality: { greater_than_or_equal_to: 0 }, if: :price_limited?
+    validates :price_limit_range_lower_bound, numericality: { greater_than_or_equal_to: 0 }, if: :price_limited?
+    validates :price_limit_range_upper_bound, numericality: { greater_than_or_equal_to: 0 }, if: :price_limited?
     validates :price_limit_timing_condition, inclusion: { in: PRICE_LIMIT_TIMING_CONDITIONS }
     validates :price_limit_value_condition, inclusion: { in: PRICE_LIMIT_VALUE_CONDITIONS }
     validate :validate_price_limitable_included_in_subscription_plan, on: :start
@@ -33,6 +38,8 @@ module Bot::PriceLimitable
         super(params).merge(
           price_limited: params[:price_limited].presence&.in?(%w[1 true]),
           price_limit: params[:price_limit].presence&.to_f,
+          price_limit_range_lower_bound: params[:price_limit_range_lower_bound].presence&.to_f,
+          price_limit_range_upper_bound: params[:price_limit_range_upper_bound].presence&.to_f,
           price_limit_timing_condition: params[:price_limit_timing_condition].presence,
           price_limit_value_condition: params[:price_limit_value_condition].presence,
           price_limit_in_ticker_id: params[:price_limit_in_ticker_id].presence&.to_i
@@ -167,7 +174,9 @@ module Bot::PriceLimitable
   def reset_price_limit_info_cache
     return if price_limit_was == price_limit &&
               price_limit_value_condition_was == price_limit_value_condition &&
-              price_limit_in_ticker_id_was == price_limit_in_ticker_id
+              price_limit_in_ticker_id_was == price_limit_in_ticker_id &&
+              price_limit_range_lower_bound_was == price_limit_range_lower_bound &&
+              price_limit_range_upper_bound_was == price_limit_range_upper_bound
 
     Rails.cache.delete(price_limit_info_cache_key)
   end
@@ -182,6 +191,10 @@ module Bot::PriceLimitable
       current_price < price_limit
     when 'above'
       current_price > price_limit
+    when 'between'
+      real_lower_bound = [price_limit_range_lower_bound, price_limit_range_upper_bound].min
+      real_upper_bound = [price_limit_range_lower_bound, price_limit_range_upper_bound].max
+      current_price >= real_lower_bound && current_price <= real_upper_bound
     else
       false
     end
@@ -190,6 +203,8 @@ module Bot::PriceLimitable
   def initialize_price_limitable_settings # rubocop:disable Metrics/CyclomaticComplexity,Metrics/PerceivedComplexity
     self.price_limited ||= false
     self.price_limit ||= 1_000_000 # 1 million meme
+    self.price_limit_range_lower_bound ||= 0
+    self.price_limit_range_upper_bound ||= 1_000_000 # 1 million meme
     self.price_limit_timing_condition ||= 'while'
     self.price_limit_value_condition ||= 'below'
     self.price_limit_in_ticker_id ||= tickers&.sort_by { |t| t[:base] }&.first&.id
@@ -217,6 +232,13 @@ module Bot::PriceLimitable
     else
       self.price_limit_in_ticker_id = tickers&.sort_by { |t| t[:base] }&.first&.id
     end
+  end
+
+  def set_price_limit_value_condition
+    return if price_limit_timing_condition_was == price_limit_timing_condition
+    return if price_limit_timing_condition == 'while'
+
+    self.price_limit_value_condition = 'above' if price_limit_value_condition == 'between'
   end
 
   def cancel_scheduled_price_limit_check_jobs
