@@ -76,18 +76,14 @@ module Bot::MovingAverageLimitable
         is_stopped
       end
 
-      def pending_quote_amount
+      def started_at
         return super unless moving_average_limited?
 
-        started_at_bak = started_at
-        self.started_at = if started_at.nil? || moving_average_limit_condition_met_at.nil?
-                            nil
-                          else
-                            [started_at, moving_average_limit_condition_met_at].max
-                          end
-        value = super
-        self.started_at = started_at_bak
-        value
+        if super.nil? || moving_average_limit_condition_met_at.nil?
+          nil
+        else
+          [super, moving_average_limit_condition_met_at].max
+        end
       end
     end
 
@@ -212,9 +208,11 @@ module Bot::MovingAverageLimitable
   def get_moving_average_value(ticker)
     case moving_average_limit_in_ma_type
     when 'sma'
-      ticker.get_sma_value(timeframe: MOVING_AVERAGE_LIMIT_TIMEFRAMES[moving_average_limit_in_timeframe], period: moving_average_limit_in_period)
+      ticker.get_sma_value(timeframe: MOVING_AVERAGE_LIMIT_TIMEFRAMES[moving_average_limit_in_timeframe],
+                           period: moving_average_limit_in_period)
     when 'ema'
-      ticker.get_ema_value(timeframe: MOVING_AVERAGE_LIMIT_TIMEFRAMES[moving_average_limit_in_timeframe], period: moving_average_limit_in_period)
+      ticker.get_ema_value(timeframe: MOVING_AVERAGE_LIMIT_TIMEFRAMES[moving_average_limit_in_timeframe],
+                           period: moving_average_limit_in_period)
     else
       raise "Invalid moving average type: #{moving_average_limit_in_ma_type}"
     end
