@@ -11,7 +11,7 @@ module Exchange::Exchanges::Coinbase
     'WAXL-USDC'
   ].freeze
   ERRORS = {
-    insufficient_funds: 'Insufficient balance in source account'
+    insufficient_funds: ['Insufficient balance in source account']
   }.freeze
 
   attr_reader :api_key
