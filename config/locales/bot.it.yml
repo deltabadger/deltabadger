@@ -206,8 +206,8 @@ it:
             extra_amount_limit:
                 sentence_html: "Non spendere più di <span>%{value_html} %{quote}</span>"
                 info:
-                    true: "L'intero importo è stato investito."
-                    false: "(%{amount} %{quote} rimasti)"
+                    spent: "L'intero importo è stato investito."
+                    left: "(%{amount} %{quote} rimasti)"
             extra_price_limit:
                 sentence_html:
                     one: "%{timing_condition_html} quando il <span>prezzo</span> è <span>%{value_condition_html}</span> <span>%{price_input_html}</span>"
