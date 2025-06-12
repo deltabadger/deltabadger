@@ -11,7 +11,7 @@ module Exchange::Exchanges::Coinbase
     'WAXL-USDC'
   ].freeze
   ERRORS = {
-    insufficient_funds: 'Insufficient balance in source account'
+    insufficient_funds: ['Insufficient balance in source account']
   }.freeze
 
   attr_reader :api_key
@@ -302,17 +302,21 @@ module Exchange::Exchanges::Coinbase
       api_key: api_key.key,
       api_secret: api_key.secret
     ).get_api_key_permissions
-    return result if result.failure?
 
-    valid = if api_key.trading?
-              result.data['can_trade'] == true && result.data['can_transfer'] == false
-            elsif api_key.withdrawal?
-              result.data['can_transfer'] == true
-            else
-              raise StandardError, 'Invalid API key'
-            end
-
-    Result::Success.new(valid)
+    if result.success?
+      valid = if api_key.trading?
+                result.data['can_trade'] == true && result.data['can_transfer'] == false
+              elsif api_key.withdrawal?
+                result.data['can_transfer'] == true
+              else
+                raise StandardError, 'Invalid API key'
+              end
+      Result::Success.new(valid)
+    elsif result.data[:status] == 401 # invalid key
+      Result::Success.new(false)
+    else
+      result
+    end
   end
 
   def minimum_amount_logic

@@ -49,7 +49,7 @@ task upgrade_legacy_bots: :environment do
       raise "Error getting last price for bot #{bot.id}: #{result.errors.to_sentence}" unless result.success?
 
       price = result.data
-      smart_interval_quote_amount = (bot.settings['smart_intervals_value'].to_f * price).ceil(ticker.quote_decimals)
+      smart_interval_quote_amount = (bot.settings['smart_intervals_value'].to_f * price).ceil(ticker.quote_decimals).to_f
     else
       smart_interval_quote_amount = bot.settings['smart_intervals_value'].to_f
     end
@@ -71,7 +71,10 @@ task upgrade_legacy_bots: :environment do
       price_limit_range_upper_bound: price_limit_range_upper_bound,
       price_limit_value_condition: price_limit_value_condition,
       smart_intervaled: smart_intervaled,
-      smart_interval_quote_amount: smart_interval_quote_amount
+      smart_interval_quote_amount: [
+        smart_interval_quote_amount,
+        minimum_smart_interval_quote_amount(quote_amount, interval, ticker)
+      ].max
     }.compact
 
     # use the dummy bot to initialize all other settings

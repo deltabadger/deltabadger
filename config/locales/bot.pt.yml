@@ -217,7 +217,7 @@ pt:
                     one_month: "mensal"
             extra_moving_average_limit:
                 sentence_html:
-                    one: "<span>%{timing_condition_html}</span> quando o preço de %{base_html} estiver %{value_condition_html} a <span>%{ma_html} %{ma_period_html}</span> nas velas %{timeframe_html}"
+                    one: "<span>%{timing_condition_html}</span> quando o preço de %{base} estiver %{value_condition_html} a <span>%{ma_html} %{ma_period_html}</span> nas velas %{timeframe_html}"
                     other: "<span>%{timing_condition_html}</span> quando o preço de %{base} estiver %{value_condition_html} a <span>%{ma_html} %{ma_period_html}</span> nas velas %{timeframe_html} de %{ticker_html}"
                 ma_info: "A %{ma_type} %{ma_period} no último fechamento da vela %{timeframe} de %{ticker} é %{value} %{quote}"
                 timing_condition:

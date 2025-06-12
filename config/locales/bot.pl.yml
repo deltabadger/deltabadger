@@ -226,7 +226,7 @@ pl:
                     one_month: "miesięcznych"
             extra_moving_average_limit:
                 sentence_html:
-                    one: "<span>%{timing_condition_html}</span> gdy cena %{base_html} jest %{value_condition_html} <span>%{ma_html} %{ma_period_html}</span> na świecach %{timeframe_html}"
+                    one: "<span>%{timing_condition_html}</span> gdy cena %{base} jest %{value_condition_html} <span>%{ma_html} %{ma_period_html}</span> na świecach %{timeframe_html}"
                     other: "<span>%{timing_condition_html}</span> gdy cena %{base} jest %{value_condition_html} <span>%{ma_html} %{ma_period_html}</span> na świecach %{timeframe_html} %{ticker_html}"
                 ma_info: "%{ma_type} %{ma_period} na ostatnim zamknięciu świecy %{timeframe} dla %{ticker} wynosi %{value} %{quote}"
                 timing_condition:
