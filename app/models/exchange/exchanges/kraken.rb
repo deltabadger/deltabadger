@@ -16,10 +16,8 @@ module Exchange::Exchanges::Kraken
     'XXDG' => 'XDG'
   }.freeze # matches how assets are shown in the balances response with how they are shown in the tickers
   ERRORS = {
-    insufficient_funds: 'EAPI:Insufficient funds',
-    permission_denied: 'EGeneral:Permission denied',
-    invalid_key: 'EAPI:Invalid key',
-    invalid_signature: 'EAPI:Invalid signature'
+    insufficient_funds: ['EAPI:Insufficient funds', 'EOrder:Insufficient funds'],
+    invalid_key: ['EGeneral:Permission denied', 'EAPI:Invalid key', 'EAPI:Invalid signature']
   }.freeze
 
   attr_reader :api_key
@@ -348,7 +346,7 @@ module Exchange::Exchanges::Kraken
     errors = Utilities::Hash.dig_or_raise(result.data, 'error')
     if errors.empty?
       Result::Success.new(true)
-    elsif errors.first.in?([ERRORS[:permission_denied], ERRORS[:invalid_key], ERRORS[:invalid_signature]])
+    elsif errors.first.in?(ERRORS[:invalid_key])
       Result::Success.new(false)
     else
       Result::Failure.new(*errors)

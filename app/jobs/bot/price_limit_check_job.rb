@@ -11,7 +11,7 @@ class Bot::PriceLimitCheckJob < ApplicationJob
     end
 
     if result.data
-      bot.update!(started_at: Time.current)
+      bot.update!(status: :scheduled)
       Bot::ActionJob.perform_later(bot)
     else
       next_check_at = Time.now.utc.end_of_minute

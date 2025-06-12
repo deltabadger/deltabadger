@@ -68,18 +68,14 @@ module Bot::PriceLimitable
         is_stopped
       end
 
-      def pending_quote_amount
+      def started_at
         return super unless price_limited?
 
-        started_at_bak = started_at
-        self.started_at = if started_at.nil? || price_limit_condition_met_at.nil?
-                            nil
-                          else
-                            [started_at, price_limit_condition_met_at].max
-                          end
-        value = super
-        self.started_at = started_at_bak
-        value
+        if super.nil? || price_limit_condition_met_at.nil?
+          nil
+        else
+          [super, price_limit_condition_met_at].max
+        end
       end
     end
 
