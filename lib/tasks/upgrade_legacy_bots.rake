@@ -176,7 +176,7 @@ def minimum_smart_interval_quote_amount(quote_amount, interval, ticker)
   # the minimum amount would set one order every 1 minute
   maximum_frequency = 300 # seconds
   minimum_for_frequency = if quote_amount.present?
-                            quote_amount / Bot::INTERVALS[interval] * maximum_frequency
+                            quote_amount / Bot::Schedulable::INTERVALS[interval] * maximum_frequency
                           else
                             0
                           end
