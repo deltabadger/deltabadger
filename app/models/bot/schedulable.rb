@@ -48,9 +48,15 @@ module Bot::Schedulable
     return Time.current if interval_duration.zero?
 
     checkpoint = started_at || Time.current
-    loop do
-      checkpoint += interval_duration
-      return checkpoint if checkpoint > Time.current
+    if interval_duration == 1.month
+      # handle the month interval independently so Rails can target the next same day of the month
+      loop do
+        checkpoint += interval_duration
+        return checkpoint if checkpoint > Time.current
+      end
+    else
+      intervals_since_checkpoint = ((Time.current - checkpoint) / interval_duration.seconds).ceil
+      checkpoint + (intervals_since_checkpoint * interval_duration)
     end
   end
 
