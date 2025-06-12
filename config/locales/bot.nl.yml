@@ -183,8 +183,8 @@ nl:
             extra_amount_limit:
                 sentence_html: "Besteed niet meer dan <span>%{value_html} %{quote}</span>"
                 info:
-                    true: "Het volledige bedrag is geïnvesteerd"
-                    false: "(%{amount} %{quote} resterend)"
+                    spent: "Het volledige bedrag is geïnvesteerd"
+                    left: "(%{amount} %{quote} resterend)"
             extra_price_limit:
                 sentence_html:
                     one: "%{timing_condition_html} wanneer de <span>prijs</span> <span>%{value_condition_html}</span> <span>%{price_input_html}</span> is"
