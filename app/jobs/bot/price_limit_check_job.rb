@@ -12,7 +12,10 @@ class Bot::PriceLimitCheckJob < ApplicationJob
 
     if result.data
       bot.update!(started_at: Time.current)
-      Bot::ActionJob.perform_later(bot)
+      case bot.price_limit_timing_condition
+      when 'after' then Bot::ActionJob.perform_later(bot)
+      when 'while' then Bot::ActionJob.set(wait_until: bot.next_interval_checkpoint_at).perform_later(bot)
+      end
     else
       next_check_at = Time.now.utc.end_of_minute
       Bot::PriceLimitCheckJob.set(wait_until: next_check_at).perform_later(bot)
