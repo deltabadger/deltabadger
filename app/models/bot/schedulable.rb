@@ -2,7 +2,6 @@ module Bot::Schedulable
   extend ActiveSupport::Concern
 
   INTERVALS = {
-    'minute' => 1.minute,
     'hour' => 1.hour,
     'day' => 1.day,
     'week' => 1.week,
