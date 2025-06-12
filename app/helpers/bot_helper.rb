@@ -1,6 +1,6 @@
 module BotHelper
-  def bot_intervals
-    Bot::INTERVALS.keys.map { |interval| [t("bot.#{interval}"), interval] }
+  def bot_intervals_select_options
+    Bot::Schedulable::INTERVALS.keys.map { |interval| [t("bot.#{interval}"), interval] }
   end
 
   def bot_type_label(bot)

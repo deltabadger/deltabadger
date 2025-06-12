@@ -1,9 +1,24 @@
 module Bot::Schedulable
   extend ActiveSupport::Concern
 
+  INTERVALS = {
+    'minute' => 1.minute,
+    'hour' => 1.hour,
+    'day' => 1.day,
+    'week' => 1.week,
+    'month' => 1.month
+  }.freeze
+
+  def interval_duration
+    INTERVALS[interval]
+  end
+
   included do
     store_accessor :transient_data,
                    :last_action_job_at
+
+    validates :interval, presence: true, inclusion: { in: INTERVALS.keys }
+    validate :validate_interval_included_in_subscription_plan, on: :start
   end
 
   def last_action_job_at
@@ -75,6 +90,12 @@ module Bot::Schedulable
   end
 
   private
+
+  def validate_interval_included_in_subscription_plan
+    return if user.subscription.paid?
+
+    errors.add(:user, :upgrade) if interval != 'day'
+  end
 
   def legacy_next_interval_checkpoint_at
     NextTradingBotTransactionAt.new.call(self) || Time.current
