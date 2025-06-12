@@ -226,7 +226,7 @@ nl:
                     one_month: "maandelijks"
             extra_moving_average_limit:
                 sentence_html:
-                    one: "<span>%{timing_condition_html}</span> wanneer de %{base_html} prijs %{value_condition_html} de <span>%{ma_html} %{ma_period_html}</span> op %{timeframe_html} <span>candles</span> is"
+                    one: "<span>%{timing_condition_html}</span> wanneer de %{base} prijs %{value_condition_html} de <span>%{ma_html} %{ma_period_html}</span> op %{timeframe_html} <span>candles</span> is"
                     other: "<span>%{timing_condition_html}</span> wanneer de %{base} prijs %{value_condition_html} de <span>%{ma_html} %{ma_period_html}</span> op %{ticker_html} %{timeframe_html} <span>candles</span> is"
                 ma_info: "De %{ma_type} %{ma_period} op de laatste %{timeframe} %{ticker} candle sluiting is %{value} %{quote}"
                 timing_condition:

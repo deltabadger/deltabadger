@@ -36,7 +36,8 @@ class Bot::ActionJob < BotJob
   private
 
   def ignorable_error?(bot, error)
-    error.message.in?(bot.exchange.known_errors.select { |k, _| k.in?(DO_NOT_RETRY_ERRORS) }.values)
+    errors = bot.exchange.known_errors.values_at(*DO_NOT_RETRY_ERRORS).flatten.compact
+    error.message.in?(errors)
   end
 
   def sidekiq_estimated_retry_delay

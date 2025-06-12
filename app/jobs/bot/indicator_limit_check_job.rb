@@ -11,7 +11,7 @@ class Bot::IndicatorLimitCheckJob < ApplicationJob
     end
 
     if result.data
-      bot.update!(started_at: Time.current)
+      bot.update!(status: :scheduled)
       Bot::ActionJob.perform_later(bot)
     else
       next_check_at = Time.now.utc + Utilities::Time.seconds_to_current_candle_close(bot.indicator_limit_in_timeframe_duration)
