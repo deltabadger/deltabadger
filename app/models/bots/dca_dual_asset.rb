@@ -24,10 +24,10 @@ class Bots::DcaDualAsset < Bot
 
   include SmartIntervalable      # decorators for: parse_params, pending_quote_amount, interval_duration, restarting_within_interval?
   include QuoteAmountLimitable   # decorators for: parse_params, pending_quote_amount
-  include PriceLimitable         # decorators for: parse_params, pending_quote_amount, execute_action, stop
-  include PriceDropLimitable     # decorators for: parse_params, pending_quote_amount, execute_action, stop
-  include MovingAverageLimitable # decorators for: parse_params, pending_quote_amount, execute_action, stop
-  include IndicatorLimitable     # decorators for: parse_params, pending_quote_amount, execute_action, stop
+  include PriceLimitable         # decorators for: parse_params, started_at, execute_action, stop
+  include PriceDropLimitable     # decorators for: parse_params, started_at, execute_action, stop
+  include MovingAverageLimitable # decorators for: parse_params, started_at, execute_action, stop
+  include IndicatorLimitable     # decorators for: parse_params, started_at, execute_action, stop
   include Bots::DcaDualAsset::MarketcapAllocatable # decorators for: parse_params
   include Fundable
   include Schedulable
