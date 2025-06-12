@@ -182,8 +182,8 @@ ru:
             extra_amount_limit:
                 sentence_html: "Не тратить больше чем <span>%{value_html} %{quote}</span>"
                 info:
-                    true: "Вся сумма была инвестирована"
-                    false: "(осталось %{amount} %{quote})"
+                    spent: "Вся сумма была инвестирована"
+                    left: "(осталось %{amount} %{quote})"
             extra_price_limit:
                 sentence_html:
                     one: "<span>%{timing_condition_html}</span> когда <span>цена</span> <span>%{value_condition_html}</span> <span>%{price_input_html}</span>"
