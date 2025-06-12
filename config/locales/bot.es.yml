@@ -184,8 +184,8 @@ es:
             extra_amount_limit:
                 sentence_html: "No gastar más de <span>%{value_html} %{quote}</span>"
                 info:
-                    true: "Toda la cantidad ha sido invertida"
-                    false: "(%{amount} %{quote} restante)"
+                    spent: "Toda la cantidad ha sido invertida"
+                    left: "(%{amount} %{quote} restante)"
             extra_price_limit:
                 sentence_html:
                     one: "%{timing_condition_html} cuando el <span>precio</span> esté <span>%{value_condition_html}</span> <span>%{price_input_html}</span>"
