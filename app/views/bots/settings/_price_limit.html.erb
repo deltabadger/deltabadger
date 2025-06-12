@@ -16,22 +16,22 @@
     <div class="toggle-group__info">
       <div class="toggle-group__info__label">
         <%= f.label :price_limited, class: "conversational conversational--small conversational--disabled" do %>
-          <% timing_condition_html = content_tag(:div, class: "sinput sinput--select") do %>
+          <% timing_condition_html = content_tag(:div, class: "sinput sinput--select #{'sinput--disabled' if bot.working?}") do %>
             <%= t("bot.settings.extra_price_limit.timing_condition.#{bot.price_limit_timing_condition}") %>
-            <%= f.select :price_limit_timing_condition, price_limit_timing_condition_select_options(bot), { selected: bot.price_limit_timing_condition }, data: { action: "change->form--submit#submit" } %>
+            <%= f.select :price_limit_timing_condition, price_limit_timing_condition_select_options(bot), { selected: bot.price_limit_timing_condition }, data: { action: "change->form--submit#submit" }, disabled: bot.working? %>
           <% end %>
           <% base_select_options = base_select_options(bot) %>
           <% if base_select_options.size > 1 %>
-            <% base_html = content_tag(:div, class: "sinput sinput--select") do %>
+            <% base_html = content_tag(:div, class: "sinput sinput--select #{'sinput--disabled' if bot.working?}") do %>
               <%= base_select_options.find { |_, id| id == bot.price_limit_in_ticker_id }&.first %>
-              <%= f.select :price_limit_in_ticker_id, base_select_options, { selected: bot.price_limit_in_ticker_id }, data: { action: "change->form--submit#submit" } %>
+              <%= f.select :price_limit_in_ticker_id, base_select_options, { selected: bot.price_limit_in_ticker_id }, data: { action: "change->form--submit#submit" }, disabled: bot.working? %>
             <% end %>
           <% else %>
             <% base_html = base_select_options.first.first %>
           <% end %>
-          <% value_condition_html = content_tag(:div, class: "sinput sinput--select") do %>
+          <% value_condition_html = content_tag(:div, class: "sinput sinput--select #{'sinput--disabled' if bot.working?}") do %>
             <%= t("bot.settings.extra_price_limit.value_condition.#{bot.price_limit_value_condition}") %>
-            <%= f.select :price_limit_value_condition, price_limit_value_condition_select_options(bot), { selected: bot.price_limit_value_condition }, data: { action: "change->form--submit#submit" } %>
+            <%= f.select :price_limit_value_condition, price_limit_value_condition_select_options(bot), { selected: bot.price_limit_value_condition }, data: { action: "change->form--submit#submit" }, disabled: bot.working? %>
           <% end %>
           <% if bot.price_limit_value_condition == 'between' %>
             <% lower_bound_value_html = content_tag(:div) do %>
