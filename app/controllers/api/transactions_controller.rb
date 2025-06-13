@@ -6,7 +6,7 @@ module Api
       filename =
         "bot-#{bot.id}-transactions-#{Time.now.strftime('%F')}.csv"
 
-      send_data(file, filename: filename)
+      send_data(file, filename: filename, type: 'text/csv')
     end
   end
 end
