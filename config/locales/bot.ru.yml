@@ -177,17 +177,18 @@ ru:
             general_note: "Минимумы биржи и требуемые суммы ребалансировки могут меняться. Ордера иногда могут выглядеть нерегулярными, но бот всегда нацелен на желаемое распределение и расписание, поэтому дополнительная работа не требуется."
         settings:
             smart_intervals:
-                split_in_orders_html: '<b>Smart Intervals<sup>®</sup></b> Разделить <span>сумму</span> на единицы по <span>%{amount_html} %{quote}</span>'
-                split_info: "Разделение ваших %{quote_amount} %{quote} / %{interval} на единицы по %{amount} %{quote} приведет к одной инвестиции каждые %{smart_interval}"
+                sentence_html: '<b>Smart Intervals<sup>®</sup></b> Разделить <span>сумму</span> на единицы по <span>%{amount_html} %{quote}</span>'
+                info: "Разделение ваших %{quote_amount} %{quote} / %{interval} на единицы по %{amount} %{quote} приведет к одной инвестиции каждые %{smart_interval}"
             extra_amount_limit:
-                dont_spend_more_than: "Не тратить больше чем"
-                amount_left: "(осталось %{amount} %{symbol})"
-                amount_spent: "Вся сумма была инвестирована"
+                sentence_html: "Не тратить больше чем <span>%{value_html} %{quote}</span>"
+                info:
+                    spent: "Вся сумма была инвестирована"
+                    left: "(осталось %{amount} %{quote})"
             extra_price_limit:
                 sentence_html:
                     one: "<span>%{timing_condition_html}</span> когда <span>цена</span> <span>%{value_condition_html}</span> <span>%{price_input_html}</span>"
                     other: "<span>%{timing_condition_html}</span> когда <span>цена</span> %{base_html} <span>%{value_condition_html}</span> <span>%{price_input_html}</span>"
-                price_info: "Текущая цена %{base} составляет %{current_price} %{quote}"
+                info: "Текущая цена %{base} составляет %{current_price} %{quote}"
                 price_limit_input_html: "%{value_html} %{quote}"
                 price_limit_range_input_html: "%{lower_bound_value_html} %{quote} и %{upper_bound_value_html} %{quote}"
                 timing_condition:
@@ -201,7 +202,7 @@ ru:
                 sentence_html:
                     one: "Начать покупать, когда цена упадет на <span>%{value_html}%</span> от своего %{time_window_condition_html}"
                     other: "Начать покупать, когда цена %{base_html} упадет на <span>%{value_html}%</span> от своего %{time_window_condition_html}"
-                price_drop_info: "Текущий %{time_window_condition} %{base} составляет %{condition_high} %{quote}."
+                info: "Текущий %{time_window_condition} %{base} составляет %{condition_high} %{quote}."
                 time_window_condition:
                     ath: "исторического максимума"
                     twenty_four_hours: "24-часового максимума"
@@ -209,7 +210,7 @@ ru:
                 sentence_html:
                     one: "<span>%{timing_condition_html}</span> когда <span>%{indicator_html}</span> на %{timeframe_html} свечах <span>%{value_condition_html} %{value_html}</span>"
                     other: "<span>%{timing_condition_html}</span> когда <span>%{indicator_html}</span> на %{timeframe_html} свечах %{ticker_html} <span>%{value_condition_html} %{value_html}</span>"
-                indicator_info: "%{indicator} на последнем закрытии %{timeframe} свечи %{ticker} составляет %{value}"
+                info: "%{indicator} на последнем закрытии %{timeframe} свечи %{ticker} составляет %{value}"
                 timing_condition:
                     while: "Покупать только"
                     after: "Начать покупать"
@@ -227,7 +228,7 @@ ru:
                 sentence_html:
                     one: "<span>%{timing_condition_html}</span> когда цена %{base} %{value_condition_html} <span>%{ma_html} %{ma_period_html}</span> на %{timeframe_html} <span>свечах</span>"
                     other: "<span>%{timing_condition_html}</span> когда цена %{base} %{value_condition_html} <span>%{ma_html} %{ma_period_html}</span> на %{ticker_html} %{timeframe_html} <span>свечах</span>"
-                ma_info: "%{ma_type} %{ma_period} на последнем закрытии %{timeframe} свечи %{ticker} составляет %{value} %{quote}"
+                info: "%{ma_type} %{ma_period} на последнем закрытии %{timeframe} свечи %{ticker} составляет %{value} %{quote}"
                 timing_condition:
                     while: "Покупать только"
                     after: "Начать покупать"

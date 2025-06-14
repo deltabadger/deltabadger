@@ -31,7 +31,7 @@
     /
     <div class="sinput sinput--select <%= 'sinput--disabled' if bot.working? %>">
       <%= t("bot.#{bot.interval}") %>
-      <%= f.select :interval, bot_intervals, { selected: bot.interval }, data: { action: "change->form--submit#submit" }, disabled: bot.working? %>
+      <%= f.select :interval, bot_intervals_select_options, { selected: bot.interval }, data: { action: "change->form--submit#submit" }, disabled: bot.working? %>
     </div>
   </div>
   <div class="barbell">
