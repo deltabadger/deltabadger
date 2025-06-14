@@ -8,7 +8,6 @@ class Bots::DcaSingleAsset < Bot
                  :interval
 
   validates :quote_amount, presence: true, numericality: { greater_than: 0 }
-  validates :interval, presence: true, inclusion: { in: INTERVALS.keys }
   validate :validate_bot_exchange, if: :exchange_id?, on: :update
   validate :validate_external_ids, on: :update
   validate :validate_unchangeable_assets, on: :update
@@ -20,6 +19,7 @@ class Bots::DcaSingleAsset < Bot
   #       ! also in price_limitable
 
   include SmartIntervalable      # decorators for: parse_params, pending_quote_amount, interval_duration, restarting_within_interval?
+  include LimitOrderable         # decorators for: parse_params
   include QuoteAmountLimitable   # decorators for: parse_params, pending_quote_amount
   include PriceLimitable         # decorators for: parse_params, started_at, execute_action, stop
   include PriceDropLimitable     # decorators for: parse_params, started_at, execute_action, stop

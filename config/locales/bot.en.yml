@@ -201,17 +201,21 @@ en:
             general_note: "Exchange minimums and required rebalancing amounts change. Transactions might sometimes look irregular, but the bot always targets your desired allocation and schedule, so no extra work is needed."
         settings:
             smart_intervals:
-                split_in_orders_html: '<b>Smart Intervals<sup>®</sup></b> Split <span>the</span> amount <span>into</span> <span>%{amount_html} %{quote}</span> units'
-                split_info: "Splitting your %{quote_amount} %{quote} / %{interval} into units of %{amount} %{quote} will result in one investment every %{smart_interval}"
+                sentence_html: '<b>Smart Intervals<sup>®</sup></b> Split <span>the</span> amount <span>into</span> <span>%{amount_html} %{quote}</span> units'
+                info: "Splitting your %{quote_amount} %{quote} / %{interval} into units of %{amount} %{quote} will result in one investment every %{smart_interval}"
+            limit_orders:
+                sentence_html: '<b>FeeCutter<sup>®</sup></b> Cut fees using limit orders <span>%{amount_html}%</span> below the price'
+                info: "Set the same value as %{exchange}'s maker fee to effectively cut fees"
             extra_amount_limit:
-                dont_spend_more_than: "Don't spend more than"
-                amount_left: "(%{amount} %{symbol} left)"
-                amount_spent: "The whole amount has been invested"
+                sentence_html: "Don't spend more than <span>%{value_html} %{quote}</span>"
+                info:
+                    spent: "The whole amount has been invested"
+                    left: "(%{amount} %{quote} left)"
             extra_price_limit:
                 sentence_html:
                     one: "%{timing_condition_html} when <span>price</span> is <span>%{value_condition_html}</span> <span>%{price_input_html}</span>"
                     other: "%{timing_condition_html} when %{base_html} <span>price</span> is <span>%{value_condition_html}</span> <span>%{price_input_html}</span>"
-                price_info: "Current %{base} price is %{current_price} %{quote}"
+                info: "Current %{base} price is %{current_price} %{quote}"
                 price_limit_input_html: "%{value_html} %{quote}"
                 price_limit_range_input_html: "%{lower_bound_value_html} %{quote} and %{upper_bound_value_html} %{quote}"
                 timing_condition:
@@ -225,7 +229,7 @@ en:
                 sentence_html:
                     one: "Start buying when price drops <span>%{value_html}%</span> from its %{time_window_condition_html}"
                     other: "Start buying when %{base_html} price drops <span>%{value_html}%</span> from its %{time_window_condition_html}"
-                price_drop_info: "Current %{base} %{time_window_condition} is %{condition_high} %{quote}."
+                info: "Current %{base} %{time_window_condition} is %{condition_high} %{quote}."
                 time_window_condition:
                     ath: "all-time high"
                     twenty_four_hours: "24h high"
@@ -233,7 +237,7 @@ en:
                 sentence_html:
                     one: "<span>%{timing_condition_html}</span> when the <span>%{indicator_html}</span> on %{timeframe_html} <span>candles</span> is <span>%{value_condition_html} %{value_html}</span>"
                     other: "<span>%{timing_condition_html}</span> when the <span>%{indicator_html}</span> on %{ticker_html} %{timeframe_html} <span>candles</span> is <span>%{value_condition_html} %{value_html}</span>"
-                indicator_info: "The %{indicator} on the last %{timeframe} %{ticker} candle close is %{value}"
+                info: "The %{indicator} on the last %{timeframe} %{ticker} candle close is %{value}"
                 timing_condition:
                     while: "Buy only"
                     after: "Start buying"
@@ -251,7 +255,7 @@ en:
                 sentence_html:
                     one: "<span>%{timing_condition_html}</span> when the %{base} price is %{value_condition_html} the <span>%{ma_html} %{ma_period_html}</span> on %{timeframe_html} <span>candles</span>"
                     other: "<span>%{timing_condition_html}</span> when the %{base} price is %{value_condition_html} the <span>%{ma_html} %{ma_period_html}</span> on %{ticker_html} %{timeframe_html} <span>candles</span>"
-                ma_info: "The %{ma_type} %{ma_period} on the last %{timeframe} %{ticker} candle close is %{value} %{quote}"
+                info: "The %{ma_type} %{ma_period} on the last %{timeframe} %{ticker} candle close is %{value} %{quote}"
                 timing_condition:
                     while: "Buy only"
                     after: "Start buying"
