@@ -26,7 +26,8 @@ module ExchangeApi
         def fetch_order_by_id(order_id)
           path = "/orders/#{order_id}".freeze
           url = API_URL + path
-          request = Faraday.get(url, nil, headers(@api_key, @api_secret, @passphrase, '', path, 'GET'))
+          conn = Faraday.new(proxy: ENV['US_HTTPS_PROXY'].present? ? "https://#{ENV['US_HTTPS_PROXY']}" : nil)
+          request = conn.get(url, nil, headers(@api_key, @api_secret, @passphrase, '', path, 'GET'))
           response = JSON.parse(request.body)
 
           return Result::Failure.new('Waiting for Coinbase Pro response', NOT_FETCHED.to_s) unless order_done?(request, response)
@@ -51,7 +52,8 @@ module ExchangeApi
           path = '/orders'.freeze
           url = API_URL + path
           body = order_params.to_json
-          request = Faraday.post(url, body, headers(@api_key, @api_secret, @passphrase, body, path, 'POST'))
+          conn = Faraday.new(proxy: ENV['US_HTTPS_PROXY'].present? ? "https://#{ENV['US_HTTPS_PROXY']}" : nil)
+          request = conn.post(url, body, headers(@api_key, @api_secret, @passphrase, body, path, 'POST'))
           parse_request(request)
         rescue StandardError => e
           Raven.capture_exception(e)

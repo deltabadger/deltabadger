@@ -16,12 +16,13 @@
     <div class="toggle-group__info">
       <div class="toggle-group__info__label">
         <%= f.label :quote_amount_limited, class: "conversational conversational--small conversational--disabled" do %>
-          <%= t("bot.settings.extra_amount_limit.dont_spend_more_than") %>
-          <div>
+          <% value_html = content_tag(:div) do %>
             <% value = bot.quote_amount_limit.present? ? bot.quote_amount_limit.to_d.to_s('F').sub(/([0-9]\d*)\.0$/, '\1') : nil %>
             <%= f.number_field :quote_amount_limit, value: value, class: 'sinput numeric-input', step: :any, size: 2, data: { controller: "autowidth-input", action: "input->form--submit-after-delay#submit input->autowidth-input#resize", form__move_cursor_to_end_target: "input" }, style: "margin-left: 0.125rem; width: 50px;", disabled: bot.working? %>
-            <%= bot.quote_asset.symbol %>
-          </div>
+          <% end %>
+          <%= t("bot.settings.extra_amount_limit.sentence_html",
+                value_html: value_html.html_safe,
+                quote: bot.quote_asset.symbol).html_safe %>
           <%= render partial: "bots/settings/amount_limit_info", locals: { bot: bot } %>
         <% end %>
       </div>
