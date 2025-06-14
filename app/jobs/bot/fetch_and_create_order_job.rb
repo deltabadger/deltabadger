@@ -19,6 +19,7 @@ class Bot::FetchAndCreateOrderJob < BotJob
 
   def fetch_order(bot, order_id, retries: 10, sleep_time: 0.5)
     bot.with_api_key do
+      result = nil
       retries.times do |i|
         result = bot.exchange.get_order(order_id: order_id)
         return result if result.success?
@@ -26,7 +27,7 @@ class Bot::FetchAndCreateOrderJob < BotJob
         Rails.logger.info "Order #{order_id} not fetched, retrying #{i + 1} of #{retries}..."
         sleep sleep_time
       end
-      result
+      result || Result::Failure.new("Failed to fetch order #{order_id} after #{retries} attempts")
     end
   end
 end

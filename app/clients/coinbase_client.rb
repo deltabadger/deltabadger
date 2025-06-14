@@ -10,6 +10,7 @@ class CoinbaseClient < ApplicationClient
 
   def self.connection
     @connection ||= Faraday.new(url: URL, **OPTIONS) do |config|
+      config.proxy = "https://#{ENV['US_HTTPS_PROXY']}" if ENV['US_HTTPS_PROXY'].present?
       config.request :json
       config.response :json
       config.response :raise_error

@@ -17,7 +17,7 @@ module Bots::DcaDualAsset::OrderSetter # rubocop:disable Metrics/ModuleLength
     return result if result.failure?
 
     orders_data = result.data
-    orders_data.each do |order_data|
+    orders_data.each do |order_data| # rubocop:disable Metrics/BlockLength
       if order_data[:amount].zero?
         Rails.logger.info("set_orders for bot #{id} ignoring order #{order_data.inspect}")
         next
@@ -62,25 +62,45 @@ module Bots::DcaDualAsset::OrderSetter # rubocop:disable Metrics/ModuleLength
   def get_orders(total_orders_amount_in_quote)
     metrics_data = metrics(force: true)
 
-    result0 = ticker0.get_ask_price
+    result0 = if limit_ordered?
+                ticker0.get_last_price
+              else
+                ticker0.get_ask_price
+              end
     if result0.failure?
       Rails.logger.error("set_orders for bot #{id} failed to get order0. Errors: #{result0.errors.to_sentence}")
       create_failed_order!(ticker: ticker0, error_messages: result0.errors)
       return result0
     end
 
-    result1 = ticker1.get_ask_price
+    price0 = if limit_ordered?
+               ticker0.adjusted_price(price: result0.data * (1 - limit_order_pcnt_distance))
+             else
+               result0.data
+             end
+
+    result1 = if limit_ordered?
+                ticker1.get_last_price
+              else
+                ticker1.get_ask_price
+              end
     if result1.failure?
       Rails.logger.error("set_orders for bot #{id} failed to get order1. Errors: #{result1.errors.to_sentence}")
       create_failed_order!(ticker: ticker1, error_messages: result1.errors)
       return result1
     end
 
+    price1 = if limit_ordered?
+               ticker1.adjusted_price(price: result1.data * (1 + limit_order_pcnt_distance))
+             else
+               result1.data
+             end
+
     orders_data = calculate_orders_data(
       balance0: metrics_data[:total_base0_amount],
       balance1: metrics_data[:total_base1_amount],
-      price0: result0.data,
-      price1: result1.data,
+      price0: price0,
+      price1: price1,
       total_orders_amount_in_quote: total_orders_amount_in_quote
     )
     Result::Success.new(orders_data)
@@ -146,10 +166,18 @@ module Bots::DcaDualAsset::OrderSetter # rubocop:disable Metrics/ModuleLength
       "with amount info #{amount_info.inspect}"
     )
     with_api_key do
-      order_data[:ticker].market_buy(
-        amount: amount_info[:amount],
-        amount_type: amount_info[:amount_type]
-      )
+      if limit_ordered?
+        order_data[:ticker].limit_buy(
+          amount: amount_info[:amount],
+          amount_type: amount_info[:amount_type],
+          price: order_data[:price]
+        )
+      else
+        order_data[:ticker].market_buy(
+          amount: amount_info[:amount],
+          amount_type: amount_info[:amount_type]
+        )
+      end
     end
   end
 end
