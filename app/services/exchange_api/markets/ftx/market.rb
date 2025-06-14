@@ -89,8 +89,10 @@ module ExchangeApi
           path = '/api/account'.freeze
           url = url_base[0...-1] + path
           headers = get_headers(url, fee_api_keys.key, fee_api_keys.secret, '', path, 'GET', false, nil)
-          response = Faraday.get(url, nil, headers).body
-          JSON.parse(response)['result']['makerFee'].to_f * 100
+          response = Faraday.get(url, nil, headers) do |conn|
+            conn.proxy = ENV['US_HTTPS_PROXY'].present? ? "https://#{ENV['US_HTTPS_PROXY']}" : nil
+          end
+          JSON.parse(response.body)['result']['makerFee'].to_f * 100
         end
 
         def subaccounts(api_keys)
@@ -98,12 +100,14 @@ module ExchangeApi
           path = '/api/subaccounts'.freeze
           url = url_base[0...-1] + path
           headers = get_headers(url, api_keys.key, api_keys.secret, '', path, 'GET', false, nil)
-          response = Faraday.get(url, nil, headers).body
-          unless JSON.parse(response)['success']
+          response = Faraday.get(url, nil, headers) do |conn|
+            conn.proxy = ENV['US_HTTPS_PROXY'].present? ? "https://#{ENV['US_HTTPS_PROXY']}" : nil
+          end
+          unless JSON.parse(response.body)['success']
             return Result::Failure.new("Couldn't fetch subaccounts from FTX", RECOVERABLE.to_s)
           end
 
-          Result::Success.new(JSON.parse(response)['result'].map { |x| x['nickname'] })
+          Result::Success.new(JSON.parse(response.body)['result'].map { |x| x['nickname'] })
         rescue StandardError
           Result::Failure.new("Couldn't fetch subaccounts from FTX", RECOVERABLE.to_s)
         end
