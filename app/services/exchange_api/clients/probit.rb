@@ -6,9 +6,8 @@ module ExchangeApi
       AUTH_API_URL = 'https://accounts.probit.com/token'.freeze
 
       def get_token(api_key, api_secret)
-        response = Faraday.post(AUTH_API_URL, token_body, token_headers(api_key, api_secret)) do |conn|
-          conn.proxy = ENV['US_HTTPS_PROXY'].present? ? "https://#{ENV['US_HTTPS_PROXY']}" : nil
-        end
+        conn = Faraday.new(proxy: ENV['US_HTTPS_PROXY'].present? ? "https://#{ENV['US_HTTPS_PROXY']}" : nil)
+        response = conn.post(AUTH_API_URL, token_body, token_headers(api_key, api_secret))
         {
           status: response.status,
           access_token: JSON.parse(response.body)['access_token']
