@@ -15,23 +15,15 @@ class ApiKey < ApplicationRecord
     where(user_id: user_id, exchange_id: exchange_id, key_type: key_type)
   }
 
-  def validate_key_permissions
-    # Do not do validate :validate_key_permissions on create, because it sends a request to the exchange
-    # and we don't want to block the creation of the API key
+  def get_validity
+    exchange.get_api_key_validity(api_key: self)
+  end
 
-    result = exchange.check_valid_api_key?(api_key: self)
+  def update_status!(result)
     if result.success?
-      self.status = result.data ? :correct : :incorrect
-      if result.data == false
-        message = I18n.t('errors.incorrect_api_key_permissions')
-        errors.add(:key, message)
-        errors.add(:secret, message)
-      end
+      update!(status: result.data ? :correct : :incorrect)
     else
-      self.status = :pending_validation
-      message = I18n.t('errors.api_key_permission_validation_failed')
-      errors.add(:key, message)
-      errors.add(:secret, message)
+      update!(status: :pending_validation)
     end
   end
 
