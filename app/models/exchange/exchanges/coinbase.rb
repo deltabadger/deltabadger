@@ -297,7 +297,7 @@ module Exchange::Exchanges::Coinbase
                         })
   end
 
-  def check_valid_api_key?(api_key:)
+  def get_api_key_validity(api_key:)
     result = CoinbaseClient.new(
       api_key: api_key.key,
       api_secret: api_key.secret
