@@ -8,7 +8,8 @@ class Bots::DcaDualAssets::AddApiKeysController < ApplicationController
       redirect_to new_bots_dca_dual_assets_pick_exchange_path
     else
       @api_key = @bot.api_key
-      @api_key.validate_key_permissions if @api_key.key.present? && @api_key.secret.present?
+      result = @api_key.get_validity
+      @api_key.update_status!(result) if @api_key.key.present? && @api_key.secret.present?
       redirect_to new_bots_dca_dual_assets_pick_spendable_asset_path if @api_key.correct?
     end
   end
@@ -19,12 +20,16 @@ class Bots::DcaDualAssets::AddApiKeysController < ApplicationController
     @api_key = @bot.api_key
     @api_key.key = api_key_params[:key]
     @api_key.secret = api_key_params[:secret]
-    @api_key.validate_key_permissions
-    if @api_key.correct? && @api_key.save
-      flash.now[:notice] = t('errors.bots.api_key_success')
+    result = @api_key.get_validity
+    @api_key.update_status!(result)
+    if @api_key.correct?
       redirect_to new_bots_dca_dual_assets_pick_spendable_asset_path
+    elsif @api_key.incorrect?
+      flash.now[:alert] = t('errors.incorrect_api_key_permissions')
+      render turbo_stream: turbo_stream_prepend_flash, status: :unprocessable_entity
     else
-      render :new, status: :unprocessable_entity
+      flash.now[:alert] = t('errors.api_key_permission_validation_failed')
+      render turbo_stream: turbo_stream_prepend_flash, status: :unprocessable_entity
     end
   end
 
