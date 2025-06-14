@@ -12,12 +12,17 @@ class Bots::AddApiKeysController < ApplicationController
     @api_key = @bot.api_key
     @api_key.key = api_key_params[:key]
     @api_key.secret = api_key_params[:secret]
-    @api_key.validate_key_permissions
-    if @api_key.correct? && @api_key.save
+    result = @api_key.get_validity
+    @api_key.update_status!(result)
+    if @api_key.correct?
       flash[:notice] = t('errors.bots.api_key_success')
       render turbo_stream: turbo_stream_page_refresh
+    elsif @api_key.incorrect?
+      flash.now[:alert] = t('errors.incorrect_api_key_permissions')
+      render turbo_stream: turbo_stream_prepend_flash, status: :unprocessable_entity
     else
-      render :new, status: :unprocessable_entity
+      flash.now[:alert] = t('errors.api_key_permission_validation_failed')
+      render turbo_stream: turbo_stream_prepend_flash, status: :unprocessable_entity
     end
   end
 

@@ -322,7 +322,7 @@ module Exchange::Exchanges::Kraken
                         })
   end
 
-  def check_valid_api_key?(api_key:)
+  def get_api_key_validity(api_key:)
     temp_client = KrakenClient.new(
       api_key: api_key.key,
       api_secret: api_key.secret
