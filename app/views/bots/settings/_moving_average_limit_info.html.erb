@@ -16,7 +16,7 @@
         <% ticker = "" %>
       <% end %>
       <div class="<%= info[:condition_met] ? "text-success" : "" %>">
-        <%= t("bot.settings.extra_moving_average_limit.ma_info",
+        <%= t("bot.settings.extra_moving_average_limit.info",
               ma_type: bot.moving_average_limit_in_ma_type.upcase,
               ma_period: bot.moving_average_limit_in_period,
               timeframe: t("bot.settings.extra_moving_average_limit.timeframe.#{bot.moving_average_limit_in_timeframe}"),

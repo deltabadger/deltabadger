@@ -116,7 +116,12 @@ module ExchangeApi
         end
 
         def faraday_connector
-          return Faraday.new(url: @url_base, proxy: ENV.fetch('EU_PROXY_IP', nil)) if @url_base == FtxEnum::FTX_EU_URL_BASE
+          if @url_base == FtxEnum::FTX_EU_URL_BASE
+            return Faraday.new(
+              url: @url_base,
+              proxy: ENV['EU_HTTPS_PROXY'].present? ? "https://#{ENV['EU_HTTPS_PROXY']}" : nil
+            )
+          end
 
           Faraday.new(url: @url_base)
         end

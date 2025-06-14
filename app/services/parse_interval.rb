@@ -26,7 +26,7 @@ class ParseInterval < BaseService
 
   def calculate_user_interval(last_transaction)
     interval = last_transaction.bot_interval
-    raise Error, 'Invalid interval' if !Bot::INTERVALS.keys.include?(interval)
+    raise Error, 'Invalid interval' if !Bot::Schedulable::INTERVALS.keys.include?(interval)
 
     1.public_send(interval).seconds
   end
