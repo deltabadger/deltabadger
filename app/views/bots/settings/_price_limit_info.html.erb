@@ -8,7 +8,7 @@
       }, class: "loader--small", style: "position: unset; float: left; margin-top: 8px;" %>
     <% else %>
       <div class="<%= info[:condition_met] ? "text-success" : "" %>">
-        <%= t("bot.settings.extra_price_limit.price_info",
+        <%= t("bot.settings.extra_price_limit.info",
               current_price: info[:price],
               base: info[:base],
               quote: info[:quote]) %>

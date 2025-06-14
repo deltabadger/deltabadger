@@ -31,7 +31,8 @@ module ExchangeApi
           path = get_path(type, side, symbol)
           url = API_URL + path
           body = order_params.to_query
-          request = Faraday.post(url, body, headers(@api_key, @api_secret, body, path, 'POST'))
+          conn = Faraday.new(proxy: ENV['US_HTTPS_PROXY'].present? ? "https://#{ENV['US_HTTPS_PROXY']}" : nil)
+          request = conn.post(url, body, headers(@api_key, @api_secret, body, path, 'POST'))
           response = JSON.parse(request.body)
 
           parse_response(response)
