@@ -74,7 +74,7 @@ task upgrade_legacy_bots: :environment do
       smart_interval_quote_amount: [
         smart_interval_quote_amount,
         minimum_smart_interval_quote_amount(quote_amount, interval, ticker)
-      ].max
+      ].max.to_f
     }.compact
 
     # use the dummy bot to initialize all other settings
@@ -102,6 +102,16 @@ task upgrade_legacy_bots: :environment do
 
     bot = Bot.find(bot_id)
     bot.update!(stopped_at: stopped_at, started_at: started_at)
+
+    if is_working
+      amount_to_buy = bot.pending_quote_amount
+      if amount_to_buy > bot.settings['quote_amount']
+        raise "Amount to buy for bot #{bot.id} would be #{amount_to_buy} but quote amount is #{bot.settings['quote_amount']}"
+      end
+
+      puts "Starting bot #{bot.id}"
+      raise "Could not start bot #{bot.id}" unless bot.start(start_fresh: false)
+    end
 
     # then update all transactions
     puts "Updating transactions base and quote for bot #{bot.id}"
@@ -159,16 +169,6 @@ task upgrade_legacy_bots: :environment do
         end
       end
     end
-
-    next unless is_working
-
-    amount_to_buy = bot.pending_quote_amount
-    if amount_to_buy > bot.settings['quote_amount']
-      raise "Amount to buy for bot #{bot.id} would be #{amount_to_buy} but quote amount is #{bot.settings['quote_amount']}"
-    end
-
-    puts "Starting bot #{bot.id}"
-    raise "Could not start bot #{bot.id}" unless bot.start(start_fresh: false)
   end
 end
 
