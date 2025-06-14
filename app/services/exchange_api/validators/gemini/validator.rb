@@ -13,9 +13,8 @@ module ExchangeApi
           }
 
           body = body.to_json
-          request = Faraday.post(URL, nil, headers(api_key, api_secret, body)) do |conn|
-            conn.proxy = ENV['US_HTTPS_PROXY'].present? ? "https://#{ENV['US_HTTPS_PROXY']}" : nil
-          end
+          conn = Faraday.new(proxy: ENV['US_HTTPS_PROXY'].present? ? "https://#{ENV['US_HTTPS_PROXY']}" : nil)
+          request = conn.post(URL, nil, headers(api_key, api_secret, body))
           return false if request.status != 200
 
           request.reason_phrase == 'OK'

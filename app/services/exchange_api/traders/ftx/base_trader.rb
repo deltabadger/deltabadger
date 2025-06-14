@@ -24,9 +24,8 @@ module ExchangeApi
           path = "/api/orders/#{order_id}".freeze
           url = @url_base + path
           headers = get_headers(url, @api_key, @api_secret, '', path, 'GET', use_subaccout, selected_subaccount)
-          request = Faraday.get(url, nil, headers) do |conn|
-            conn.proxy = ENV['US_HTTPS_PROXY'].present? ? "https://#{ENV['US_HTTPS_PROXY']}" : nil
-          end
+          conn = Faraday.new(proxy: ENV['US_HTTPS_PROXY'].present? ? "https://#{ENV['US_HTTPS_PROXY']}" : nil)
+          request = conn.get(url, nil, headers)
           return Result::Failure.new('Waiting for FTX response', NOT_FETCHED.to_s) unless success?(request)
 
           response = JSON.parse(request.body).fetch('result')
