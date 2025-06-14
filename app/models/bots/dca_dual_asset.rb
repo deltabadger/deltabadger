@@ -10,7 +10,6 @@ class Bots::DcaDualAsset < Bot
                  :interval
 
   validates :quote_amount, presence: true, numericality: { greater_than: 0 }
-  validates :interval, presence: true, inclusion: { in: INTERVALS.keys }
   validates :allocation0, presence: true, numericality: { greater_than_or_equal_to: 0, less_than_or_equal_to: 1 }
   validate :validate_bot_exchange, if: :exchange_id?, on: :update
   validate :validate_external_ids, on: :update
@@ -23,6 +22,7 @@ class Bots::DcaDualAsset < Bot
   #       ! also in price_limitable
 
   include SmartIntervalable      # decorators for: parse_params, pending_quote_amount, interval_duration, restarting_within_interval?
+  include LimitOrderable         # decorators for: parse_params
   include QuoteAmountLimitable   # decorators for: parse_params, pending_quote_amount
   include PriceLimitable         # decorators for: parse_params, started_at, execute_action, stop
   include PriceDropLimitable     # decorators for: parse_params, started_at, execute_action, stop

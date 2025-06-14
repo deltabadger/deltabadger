@@ -23,7 +23,10 @@ module ExchangeApi
 
         def fetch_order_by_id(order_id)
           path = "/api/v1/orders/#{order_id}".freeze
-          conn = Faraday.new(url: API_URL, proxy: ENV.fetch('EU_PROXY_IP', nil))
+          conn = Faraday.new(
+            url: API_URL,
+            proxy: ENV['EU_HTTPS_PROXY'].present? ? "https://#{ENV['EU_HTTPS_PROXY']}" : nil
+          )
           request = conn.get(path, nil, headers(@api_key, @api_secret, @passphrase, '', path, 'GET'))
           response = JSON.parse(request.body)
 
@@ -46,7 +49,10 @@ module ExchangeApi
         def place_order(order_params)
           path = '/api/v1/orders'.freeze
           body = order_params.to_json
-          conn = Faraday.new(url: API_URL, proxy: ENV.fetch('EU_PROXY_IP', nil))
+          conn = Faraday.new(
+            url: API_URL,
+            proxy: ENV['EU_HTTPS_PROXY'].present? ? "https://#{ENV['EU_HTTPS_PROXY']}" : nil
+          )
           request = conn.post(path, body, headers(@api_key, @api_secret, @passphrase, body, path, 'POST'))
 
           parse_request(request)
