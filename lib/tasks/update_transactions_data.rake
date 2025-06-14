@@ -34,7 +34,7 @@ def update_transactions_remote_data
       next if api_key.blank?
 
       puts "checking valid api key for #{exchange.name} for user #{user.id}"
-      result = exchange.check_valid_api_key?(api_key: api_key)
+      result = exchange.get_api_key_validity(api_key: api_key)
       if result.failure?
         puts "failed to check valid api key for #{exchange.name} for user #{user.id}: #{result.errors.to_sentence}"
         if result.errors.include?('EGeneral:Temporary lockout')

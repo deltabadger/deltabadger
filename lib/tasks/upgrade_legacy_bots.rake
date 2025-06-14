@@ -125,7 +125,7 @@ task upgrade_legacy_bots: :environment do
     end
 
     puts "checking valid api key for #{bot.exchange.name} for user #{bot.user.id}"
-    result = bot.exchange.check_valid_api_key?(api_key: api_key)
+    result = bot.exchange.get_api_key_validity(api_key: api_key)
     if result.failure?
       puts "failed to check valid api key for #{bot.exchange.name} for user #{bot.user.id}: #{result.errors.to_sentence}"
       next
