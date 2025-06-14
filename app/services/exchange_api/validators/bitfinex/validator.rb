@@ -11,7 +11,9 @@ module ExchangeApi
           url = "#{PRIVATE_API_URL}#{path}"
           body = { id: FAKE_ORDER_ID }
 
-          request = Faraday.post(url, body.to_json, headers(api_key, api_secret, body, path))
+          request = Faraday.post(url, body.to_json, headers(api_key, api_secret, body, path)) do |conn|
+            conn.proxy = ENV['US_HTTPS_PROXY'].present? ? "https://#{ENV['US_HTTPS_PROXY']}" : nil
+          end
           response = JSON.parse(request.body)
 
           response[2] == ORDER_NOT_FOUND_MESSAGE
