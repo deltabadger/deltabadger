@@ -23,9 +23,8 @@ module ExchangeApi
           path = '/auth/r/orders/hist'.freeze
           url = PRIVATE_API_URL + path
           body = { id: [order_id] }.to_json
-          request = Faraday.post(url, body, headers(@api_key, @api_secret, body, path)) do |conn|
-            conn.proxy = ENV['US_HTTPS_PROXY'].present? ? "https://#{ENV['US_HTTPS_PROXY']}" : nil
-          end
+          conn = Faraday.new(proxy: ENV['US_HTTPS_PROXY'].present? ? "https://#{ENV['US_HTTPS_PROXY']}" : nil)
+          request = conn.post(url, body, headers(@api_key, @api_secret, body, path))
           response = JSON.parse(request.body)
 
           status = response[0][13]
@@ -51,9 +50,8 @@ module ExchangeApi
           path = '/auth/w/order/submit'.freeze
           url = PRIVATE_API_URL + path
           body = order_params.to_json
-          request = Faraday.post(url, body, headers(@api_key, @api_secret, body, path)) do |conn|
-            conn.proxy = ENV['US_HTTPS_PROXY'].present? ? "https://#{ENV['US_HTTPS_PROXY']}" : nil
-          end
+          conn = Faraday.new(proxy: ENV['US_HTTPS_PROXY'].present? ? "https://#{ENV['US_HTTPS_PROXY']}" : nil)
+          request = conn.post(url, body, headers(@api_key, @api_secret, body, path))
 
           parse_request(request)
         rescue StandardError => e

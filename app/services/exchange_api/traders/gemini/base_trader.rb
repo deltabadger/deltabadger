@@ -29,9 +29,8 @@ module ExchangeApi
             order_id: order_id
           }
           body = request_params.to_json
-          request = Faraday.post(url, nil, headers(@api_key, @api_secret, body)) do |conn|
-            conn.proxy = ENV['US_HTTPS_PROXY'].present? ? "https://#{ENV['US_HTTPS_PROXY']}" : nil
-          end
+          conn = Faraday.new(proxy: ENV['US_HTTPS_PROXY'].present? ? "https://#{ENV['US_HTTPS_PROXY']}" : nil)
+          request = conn.post(url, nil, headers(@api_key, @api_secret, body))
           response = JSON.parse(request.body)
 
           return Result::Failure.new('Waiting for Gemini response', NOT_FETCHED.to_s) unless closed?(response)
@@ -55,9 +54,8 @@ module ExchangeApi
           url = API_URL + path
           order_params = order_params.merge(request: path, nonce: Time.now.strftime('%s%L'))
           body = order_params.to_json
-          request = Faraday.post(url, nil, headers(@api_key, @api_secret, body)) do |conn|
-            conn.proxy = ENV['US_HTTPS_PROXY'].present? ? "https://#{ENV['US_HTTPS_PROXY']}" : nil
-          end
+          conn = Faraday.new(proxy: ENV['US_HTTPS_PROXY'].present? ? "https://#{ENV['US_HTTPS_PROXY']}" : nil)
+          request = conn.post(url, nil, headers(@api_key, @api_secret, body))
           parse_request(request)
         rescue StandardError => e
           Raven.capture_exception(e)
