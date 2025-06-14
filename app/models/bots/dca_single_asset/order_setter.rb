@@ -58,15 +58,25 @@ module Bots::DcaSingleAsset::OrderSetter
   end
 
   def get_order(order_amount_in_quote)
-    result = ticker.get_ask_price
+    result = if limit_ordered?
+               ticker.get_last_price
+             else
+               ticker.get_ask_price
+             end
     if result.failure?
       Rails.logger.error("set_order for bot #{id} failed to get order. Errors: #{result.errors.to_sentence}")
       create_failed_order!(ticker: ticker, error_messages: result.errors)
       return result
     end
 
+    price = if limit_ordered?
+              ticker.adjusted_price(price: result.data * (1 - limit_order_pcnt_distance))
+            else
+              result.data
+            end
+
     order_data = calculate_order_data(
-      price: result.data,
+      price: price,
       order_amount_in_quote: order_amount_in_quote
     )
     Result::Success.new(order_data)
@@ -110,10 +120,18 @@ module Bots::DcaSingleAsset::OrderSetter
       "with amount info #{amount_info.inspect}"
     )
     with_api_key do
-      order_data[:ticker].market_buy(
-        amount: amount_info[:amount],
-        amount_type: amount_info[:amount_type]
-      )
+      if limit_ordered?
+        order_data[:ticker].limit_buy(
+          amount: amount_info[:amount],
+          amount_type: amount_info[:amount_type],
+          price: order_data[:price]
+        )
+      else
+        order_data[:ticker].market_buy(
+          amount: amount_info[:amount],
+          amount_type: amount_info[:amount_type]
+        )
+      end
     end
   end
 end

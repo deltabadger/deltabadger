@@ -179,7 +179,7 @@ pl:
         settings:
             smart_intervals:
                 sentence_html: '<b>Smart Intervals<sup>®</sup></b> Podziel <span>kwotę</span> na porcje po <span>%{amount_html} %{quote}</span>'
-                split_info: "Podział twojej kwoty %{quote_amount} %{quote} / %{interval} w porcjach po %{amount} %{quote} spowoduje jedną inwestycję co %{smart_interval}"
+                info: "Podział twojej kwoty %{quote_amount} %{quote} / %{interval} w porcjach po %{amount} %{quote} spowoduje jedną inwestycję co %{smart_interval}"
             extra_amount_limit:
                 sentence_html: "Nie wydawaj więcej niż <span>%{value_html} %{quote}</span>"
                 info:

@@ -1,0 +1,30 @@
+<%= form_with model: bot,
+              url: path,
+              method: method,
+              class: "widget #{bot.limit_ordered? ? "bot-settings--active" : "bot-settings--inactive"}",
+              data: {
+                controller: "class-toggle form--submit form--submit-after-delay form--move-cursor-to-end form--html5-validations",
+                class_toggle_target: "togglable",
+                class_toggle_toggle_classes_value: ["bot-settings--active", "bot-settings--inactive"],
+                turbo_stream: true
+              } do |f| %>
+  <div class="toggle-group">
+    <div class="toggle">
+      <%= f.check_box :limit_ordered, data: { action: "change->form--submit#submit change->class-toggle#toggle" }, disabled: bot.working? %>
+      <div class="toggle__style"></div>
+    </div>
+    <div class="toggle-group__info">
+      <div class="toggle-group__info__label">
+        <%= f.label :limit_ordered, class: "conversational conversational--small conversational--disabled" do %>
+          <% amount_html = content_tag(:div) do %>
+            <% value = bot.limit_order_pcnt_distance.present? ? (bot.limit_order_pcnt_distance.to_d * 100).to_s('F').sub(/([0-9]\d*)\.0$/, '\1') : nil %>
+            <%= f.number_field :limit_order_pcnt_distance, value: value, class: 'sinput numeric-input', step: :any, size: 2, data: { controller: "autowidth-input", action: "input->form--submit-after-delay#submit input->autowidth-input#resize", form__move_cursor_to_end_target: "input" }, style: "margin-left: 0.125rem; width: 50px;", disabled: bot.working? %>
+          <% end %>
+          <%= t("bot.settings.limit_orders.sentence_html",
+                amount_html: amount_html.html_safe).html_safe %>
+          <%= render partial: "bots/settings/limit_orders_info", locals: { bot: bot } %>
+        <% end %>
+      </div>
+    </div>
+  </div>
+<% end %>

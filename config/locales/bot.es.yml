@@ -180,7 +180,7 @@ es:
         settings:
             smart_intervals:
                 sentence_html: '<b>Smart Intervals<sup>®</sup></b> Divide <span>la</span> cantidad <span>en</span> unidades <span>de</span> <span>%{amount_html} %{quote}</span>'
-                split_info: "Dividir tus %{quote_amount} %{quote} / %{interval} en unidades de %{amount} %{quote} resultará en una inversión cada %{smart_interval}"
+                info: "Dividir tus %{quote_amount} %{quote} / %{interval} en unidades de %{amount} %{quote} resultará en una inversión cada %{smart_interval}"
             extra_amount_limit:
                 sentence_html: "No gastar más de <span>%{value_html} %{quote}</span>"
                 info:

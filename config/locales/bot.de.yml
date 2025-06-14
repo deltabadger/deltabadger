@@ -193,7 +193,7 @@ de:
         settings:
             smart_intervals:
                 sentence_html: '<b>Smart Intervals<sup>®</sup></b> Teilt <span>den Betrag</span> in <span>%{amount_html} %{quote}</span> Einheiten auf'
-                split_info: "Die Aufteilung deiner %{quote_amount} %{quote} / %{interval} in Einheiten von %{amount} %{quote} führt zu einer Investition alle %{smart_interval}"
+                info: "Die Aufteilung deiner %{quote_amount} %{quote} / %{interval} in Einheiten von %{amount} %{quote} führt zu einer Investition alle %{smart_interval}"
             extra_amount_limit:
                 sentence_html: "Nicht mehr ausgeben als <span>%{value_html} %{quote}</span>"
                 info:

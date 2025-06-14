@@ -179,7 +179,7 @@ nl:
         settings:
             smart_intervals:
                 sentence_html: '<b>Smart Intervals<sup>®</sup></b> Splits <span>het bedrag</span> in eenheden van <span>%{amount_html} %{quote}</span>'
-                split_info: "Het splitsen van je %{quote_amount} %{quote} / %{interval} in eenheden van %{amount} %{quote} resulteert in één investering per %{smart_interval}"
+                info: "Het splitsen van je %{quote_amount} %{quote} / %{interval} in eenheden van %{amount} %{quote} resulteert in één investering per %{smart_interval}"
             extra_amount_limit:
                 sentence_html: "Besteed niet meer dan <span>%{value_html} %{quote}</span>"
                 info:

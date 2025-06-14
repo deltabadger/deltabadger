@@ -202,7 +202,10 @@ en:
         settings:
             smart_intervals:
                 sentence_html: '<b>Smart Intervals<sup>®</sup></b> Split <span>the</span> amount <span>into</span> <span>%{amount_html} %{quote}</span> units'
-                split_info: "Splitting your %{quote_amount} %{quote} / %{interval} into units of %{amount} %{quote} will result in one investment every %{smart_interval}"
+                info: "Splitting your %{quote_amount} %{quote} / %{interval} into units of %{amount} %{quote} will result in one investment every %{smart_interval}"
+            limit_orders:
+                sentence_html: '<b>FeeCutter<sup>®</sup></b> Cut fees using limit orders <span>%{amount_html}%</span> below the price'
+                info: "Set the same value as %{exchange}'s maker fee to effectively cut fees"
             extra_amount_limit:
                 sentence_html: "Don't spend more than <span>%{value_html} %{quote}</span>"
                 info:
