@@ -21,7 +21,9 @@ module ExchangeApi
         def fetch_order_by_id(order_id)
           path = "/v3/order_trades/#{order_id}".freeze
           url = API_URL + path
-          request = Faraday.get(url, nil, headers(@api_key, @api_secret, nil, path, 'GET'))
+          request = Faraday.get(url, nil, headers(@api_key, @api_secret, nil, path, 'GET')) do |conn|
+            conn.proxy = ENV['US_HTTPS_PROXY'].present? ? "https://#{ENV['US_HTTPS_PROXY']}" : nil
+          end
           return Result::Failure.new('Waiting for Bitso response', NOT_FETCHED.to_s) unless success?(request)
 
           response = JSON.parse(request.body).fetch('payload')
@@ -46,7 +48,9 @@ module ExchangeApi
           path = '/v3/orders/'.freeze
           url = API_URL + path
           body = order_params.to_json
-          request = Faraday.post(url, body, headers(@api_key, @api_secret, body, path, 'POST'))
+          request = Faraday.post(url, body, headers(@api_key, @api_secret, body, path, 'POST')) do |conn|
+            conn.proxy = ENV['US_HTTPS_PROXY'].present? ? "https://#{ENV['US_HTTPS_PROXY']}" : nil
+          end
           parse_request(request)
         rescue StandardError => e
           Raven.capture_exception(e)

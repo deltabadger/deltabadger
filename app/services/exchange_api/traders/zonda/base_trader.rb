@@ -31,7 +31,10 @@ module ExchangeApi
         def place_order(symbol, params)
           url = "https://api.zondacrypto.exchange/rest/trading/offer/#{symbol}"
           body = params.to_json
-          response = JSON.parse(Faraday.post(url, body, headers(@api_key, @api_secret, body)).body)
+          request = Faraday.post(url, body, headers(@api_key, @api_secret, body)) do |conn|
+            conn.proxy = ENV['US_HTTPS_PROXY'].present? ? "https://#{ENV['US_HTTPS_PROXY']}" : nil
+          end
+          response = JSON.parse(request.body)
           parse_response(response)
         rescue StandardError
           Result::Failure.new('Could not make Zonda order', RECOVERABLE.to_s)

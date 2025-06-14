@@ -10,7 +10,9 @@ module ExchangeApi
 
         def validate_credentials(api_key:, api_secret:)
           headers = get_headers(@url, api_key, api_secret, nil, '/api/account')
-          request = Faraday.get(@url, nil, headers)
+          request = Faraday.get(@url, nil, headers) do |conn|
+            conn.proxy = ENV['US_HTTPS_PROXY'].present? ? "https://#{ENV['US_HTTPS_PROXY']}" : nil
+          end
           return false if request.status != 200
 
           request.reason_phrase == 'OK'
