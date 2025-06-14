@@ -40,11 +40,17 @@ module ExchangeApi
       end
 
       def base_client(url_base)
-        Faraday.new(url: url_base, proxy: ENV.fetch('EU_PROXY_IP', nil))
+        Faraday.new(
+          url: url_base,
+          proxy: ENV['EU_HTTPS_PROXY'].present? ? "https://#{ENV['EU_HTTPS_PROXY']}" : nil
+        )
       end
 
       def caching_client(url_base, expire_time = ENV['DEFAULT_MARKET_CACHING_TIME'])
-        Faraday.new(url: url_base, proxy: ENV.fetch('EU_PROXY_IP', nil)) do |builder|
+        Faraday.new(
+          url: url_base,
+          proxy: ENV['EU_HTTPS_PROXY'].present? ? "https://#{ENV['EU_HTTPS_PROXY']}" : nil
+        ) do |builder|
           builder.use :manual_cache,
                       expires_in: expire_time
           builder.adapter Faraday.default_adapter
