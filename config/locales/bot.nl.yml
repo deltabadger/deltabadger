@@ -178,17 +178,18 @@ nl:
             general_note: "Minimale bedragen van exchanges en vereiste herbalanceringsbedragen kunnen veranderen. Orders kunnen er soms onregelmatig uitzien, maar de bot streeft altijd naar de gewenste toewijzing en schema, dus er is geen extra werk nodig."
         settings:
             smart_intervals:
-                split_in_orders_html: '<b>Smart Intervals<sup>®</sup></b> Splits <span>het bedrag</span> in eenheden van <span>%{amount_html} %{quote}</span>'
-                split_info: "Het splitsen van je %{quote_amount} %{quote} / %{interval} in eenheden van %{amount} %{quote} resulteert in één investering per %{smart_interval}"
+                sentence_html: '<b>Smart Intervals<sup>®</sup></b> Splits <span>het bedrag</span> in eenheden van <span>%{amount_html} %{quote}</span>'
+                info: "Het splitsen van je %{quote_amount} %{quote} / %{interval} in eenheden van %{amount} %{quote} resulteert in één investering per %{smart_interval}"
             extra_amount_limit:
-                dont_spend_more_than: "Besteed niet meer dan"
-                amount_left: "(%{amount} %{symbol} resterend)"
-                amount_spent: "Het volledige bedrag is geïnvesteerd"
+                sentence_html: "Besteed niet meer dan <span>%{value_html} %{quote}</span>"
+                info:
+                    spent: "Het volledige bedrag is geïnvesteerd"
+                    left: "(%{amount} %{quote} resterend)"
             extra_price_limit:
                 sentence_html:
                     one: "%{timing_condition_html} wanneer de <span>prijs</span> <span>%{value_condition_html}</span> <span>%{price_input_html}</span> is"
                     other: "%{timing_condition_html} wanneer de %{base_html} <span>prijs</span> <span>%{value_condition_html}</span> <span>%{price_input_html}</span> is"
-                price_info: "De huidige %{base} prijs is %{current_price} %{quote}"
+                info: "De huidige %{base} prijs is %{current_price} %{quote}"
                 price_limit_input_html: "%{value_html} %{quote}"
                 price_limit_range_input_html: "%{lower_bound_value_html} %{quote} en %{upper_bound_value_html} %{quote}"
                 timing_condition:
@@ -202,7 +203,7 @@ nl:
                 sentence_html:
                     one: "Begin met kopen wanneer de prijs <span>%{value_html}%</span> daalt vanaf zijn %{time_window_condition_html}"
                     other: "Begin met kopen wanneer de %{base_html} prijs <span>%{value_html}%</span> daalt vanaf zijn %{time_window_condition_html}"
-                price_drop_info: "De huidige %{base} %{time_window_condition} is %{condition_high} %{quote}."
+                info: "De huidige %{base} %{time_window_condition} is %{condition_high} %{quote}."
                 time_window_condition:
                     ath: "hoogste punt ooit"
                     twenty_four_hours: "24-uurs hoogste punt"
@@ -210,7 +211,7 @@ nl:
                 sentence_html:
                     one: "<span>%{timing_condition_html}</span> wanneer de <span>%{indicator_html}</span> op %{timeframe_html} <span>candles</span> <span>%{value_condition_html} %{value_html}</span> is"
                     other: "<span>%{timing_condition_html}</span> wanneer de <span>%{indicator_html}</span> op %{ticker_html} %{timeframe_html} <span>candles</span> <span>%{value_condition_html} %{value_html}</span> is"
-                indicator_info: "De %{indicator} op de laatste %{timeframe} %{ticker} candle sluiting is %{value}"
+                info: "De %{indicator} op de laatste %{timeframe} %{ticker} candle sluiting is %{value}"
                 timing_condition:
                     while: "Koop alleen"
                     after: "Begin met kopen"
@@ -228,7 +229,7 @@ nl:
                 sentence_html:
                     one: "<span>%{timing_condition_html}</span> wanneer de %{base} prijs %{value_condition_html} de <span>%{ma_html} %{ma_period_html}</span> op %{timeframe_html} <span>candles</span> is"
                     other: "<span>%{timing_condition_html}</span> wanneer de %{base} prijs %{value_condition_html} de <span>%{ma_html} %{ma_period_html}</span> op %{ticker_html} %{timeframe_html} <span>candles</span> is"
-                ma_info: "De %{ma_type} %{ma_period} op de laatste %{timeframe} %{ticker} candle sluiting is %{value} %{quote}"
+                info: "De %{ma_type} %{ma_period} op de laatste %{timeframe} %{ticker} candle sluiting is %{value} %{quote}"
                 timing_condition:
                     while: "Koop alleen"
                     after: "Begin met kopen"

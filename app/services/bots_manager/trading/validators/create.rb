@@ -36,7 +36,7 @@ module BotsManager::Trading::Validators
       validate :allowed_symbol
       validate :plan_allowed_symbol
       validate :plan_allowed_bot
-      validates :interval, inclusion: { in: Bot::INTERVALS.keys }
+      validates :interval, inclusion: { in: Bot::Schedulable::INTERVALS.keys }
       validates :type, inclusion: { in: TYPES }
       validates :order_type, inclusion: { in: ORDER_TYPES }
       validates :price, numericality: { only_float: true, greater_than: 0 }

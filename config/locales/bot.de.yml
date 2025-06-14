@@ -192,17 +192,18 @@ de:
             general_note: "Börsen-Mindestgrößen und erforderliche Rebalancing-Beträge ändern sich. Transaktionen können manchmal unregelmäßig aussehen, aber der Bot hält immer deine gewünschte Allokation und deinen Zeitplan ein, sodass kein zusätzlicher Aufwand nötig ist."
         settings:
             smart_intervals:
-                split_in_orders_html: '<b>Smart Intervals<sup>®</sup></b> Teilt <span>den Betrag</span> in <span>%{amount_html} %{quote}</span> Einheiten auf'
-                split_info: "Die Aufteilung deiner %{quote_amount} %{quote} / %{interval} in Einheiten von %{amount} %{quote} führt zu einer Investition alle %{smart_interval}"
+                sentence_html: '<b>Smart Intervals<sup>®</sup></b> Teilt <span>den Betrag</span> in <span>%{amount_html} %{quote}</span> Einheiten auf'
+                info: "Die Aufteilung deiner %{quote_amount} %{quote} / %{interval} in Einheiten von %{amount} %{quote} führt zu einer Investition alle %{smart_interval}"
             extra_amount_limit:
-                dont_spend_more_than: "Nicht mehr ausgeben als"
-                amount_left: "(%{amount} %{symbol} übrig)"
-                amount_spent: "Der gesamte Betrag wurde investiert"
+                sentence_html: "Nicht mehr ausgeben als <span>%{value_html} %{quote}</span>"
+                info:
+                    spent: "Der gesamte Betrag wurde investiert"
+                    left: "(%{amount} %{quote} übrig)"
             extra_price_limit:
                 sentence_html:
                     one: "%{timing_condition_html} wenn der <span>Preis</span> <span>%{value_condition_html}</span> <span>%{price_input_html}</span> ist"
                     other: "%{timing_condition_html} wenn der %{base_html} <span>Preis</span> <span>%{value_condition_html}</span> <span>%{price_input_html}</span> ist"
-                price_info: "Aktueller %{base} Preis ist %{current_price} %{quote}"
+                info: "Aktueller %{base} Preis ist %{current_price} %{quote}"
                 price_limit_input_html: "%{value_html} %{quote}"
                 price_limit_range_input_html: "%{lower_bound_value_html} %{quote} und %{upper_bound_value_html} %{quote}"
                 timing_condition:
@@ -216,7 +217,7 @@ de:
                 sentence_html:
                     one: "Beginne zu kaufen, wenn der Preis um <span>%{value_html}%</span> vom %{time_window_condition_html} fällt"
                     other: "Beginne zu kaufen, wenn der %{base_html} Preis um <span>%{value_html}%</span> vom %{time_window_condition_html} fällt"
-                price_drop_info: "Aktueller %{base} %{time_window_condition} ist %{condition_high} %{quote}."
+                info: "Aktueller %{base} %{time_window_condition} ist %{condition_high} %{quote}."
                 time_window_condition:
                     ath: "Allzeithoch"
                     twenty_four_hours: "24h-Hoch"
@@ -224,7 +225,7 @@ de:
                 sentence_html:
                     one: "<span>%{timing_condition_html}</span> wenn der <span>%{indicator_html}</span> auf %{timeframe_html} Kerzen <span>%{value_condition_html} %{value_html}</span> ist"
                     other: "<span>%{timing_condition_html}</span> wenn der <span>%{indicator_html}</span> auf %{timeframe_html} <span>%{ticker_html}</span> Kerzen <span>%{value_condition_html} %{value_html}</span> ist"
-                indicator_info: "Der %{indicator} beim Schlusskurs der letzten %{timeframe} %{ticker} Kerze ist %{value}"
+                info: "Der %{indicator} beim Schlusskurs der letzten %{timeframe} %{ticker} Kerze ist %{value}"
                 timing_condition:
                     while: "Nur kaufen"
                     after: "Beginne zu kaufen"
@@ -242,7 +243,7 @@ de:
                 sentence_html:
                     one: "<span>%{timing_condition_html}</span> wenn der %{base} Preis %{value_condition_html} dem <span>%{ma_html} %{ma_period_html}</span> auf %{timeframe_html} <span>Kerzen</span> ist"
                     other: "<span>%{timing_condition_html}</span> wenn der %{base} Preis %{value_condition_html} dem <span>%{ma_html} %{ma_period_html}</span> auf %{ticker_html} %{timeframe_html} <span>Kerzen</span> ist"
-                ma_info: "Der %{ma_type} %{ma_period} beim Schlusskurs der letzten %{timeframe} %{ticker} Kerze ist %{value} %{quote}"
+                info: "Der %{ma_type} %{ma_period} beim Schlusskurs der letzten %{timeframe} %{ticker} Kerze ist %{value} %{quote}"
                 timing_condition:
                     while: "Nur kaufen"
                     after: "Beginne zu kaufen"
