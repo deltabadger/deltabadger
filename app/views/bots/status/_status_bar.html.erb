@@ -1,4 +1,4 @@
-<div id="<%= dom_id(bot, :status_bar) %>" class="bot-control__status <%= 'active' unless bot.stopped? %>" data-controller="marquee" style="display: flex;">
+<div id="<%= dom_id(bot, :status_bar) %>" class="bot-control__status <%= 'active' if bot.scheduled? %>" data-controller="marquee" style="display: flex;">
   <% if bot.executing? %>
     <div class="bot-control__status__text" data-marquee-target="text">
       <%= t('bot.status.setting_orders') %>
