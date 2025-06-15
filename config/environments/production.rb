@@ -112,4 +112,6 @@ Rails.application.configure do
 
   config.action_cable.allowed_request_origins = ["https://app.deltabadger.com", "https://test.deltabadger.com"]
   config.action_cable.worker_pool_size = ENV.fetch('MAX_DB_CONNECTIONS', 4)
+
+  config.dry_run = false
 end
