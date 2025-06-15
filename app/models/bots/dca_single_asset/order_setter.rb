@@ -77,12 +77,13 @@ module Bots::DcaSingleAsset::OrderSetter
 
     order_data = calculate_order_data(
       price: price,
-      order_amount_in_quote: order_amount_in_quote
+      order_amount_in_quote: order_amount_in_quote,
+      order_type: limit_ordered? ? :limit_order : :market_order
     )
     Result::Success.new(order_data)
   end
 
-  def calculate_order_data(price:, order_amount_in_quote:)
+  def calculate_order_data(price:, order_amount_in_quote:, order_type:)
     order_size_in_base = order_amount_in_quote / price
     {
       ticker: ticker,
@@ -90,7 +91,7 @@ module Bots::DcaSingleAsset::OrderSetter
       amount: order_size_in_base,
       quote_amount: order_amount_in_quote,
       side: :buy,
-      order_type: :market_order
+      order_type: order_type
     }
   end
 
@@ -115,23 +116,55 @@ module Bots::DcaSingleAsset::OrderSetter
   end
 
   def create_order(order_data, amount_info)
+    return create_dry_order(order_data) if Rails.configuration.dry_run
+
     Rails.logger.info(
       "set_order for bot #{id} creating order #{order_data.inspect} " \
       "with amount info #{amount_info.inspect}"
     )
     with_api_key do
-      if limit_ordered?
+      case order_data[:order_type]
+      when :limit_order
         order_data[:ticker].limit_buy(
           amount: amount_info[:amount],
           amount_type: amount_info[:amount_type],
           price: order_data[:price]
         )
-      else
+      when :market_order
         order_data[:ticker].market_buy(
           amount: amount_info[:amount],
           amount_type: amount_info[:amount_type]
         )
       end
     end
+  end
+
+  def create_dry_order(order_data)
+    Rails.logger.info(
+      "set_orders for bot #{id} creating DRY order #{order_data.inspect}"
+    )
+    dry_order_id = "dry-#{SecureRandom.uuid[4...]}"
+
+    # mocks get_order response
+    dry_order_data = {
+      order_id: dry_order_id,
+      ticker: order_data[:ticker],
+      price: order_data[:price],
+      amount: order_data[:amount],
+      quote_amount: order_data[:quote_amount],
+      side: order_data[:side],
+      order_type: order_data[:order_type],
+      filled_percentage: 1,
+      error_messages: [],
+      status: :closed,
+      exchange_response: {}
+    }
+    Rails.cache.write(dry_order_id, dry_order_data)
+
+    # mocks set_market_order/set_limit_order response
+    set_dry_order_data = {
+      order_id: dry_order_id
+    }
+    Result::Success.new(set_dry_order_data)
   end
 end
