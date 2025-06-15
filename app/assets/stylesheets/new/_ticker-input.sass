@@ -7,6 +7,7 @@
     justify-content:    space-between
     line-height:        4rem
     .numeric-input
+        min-width:      5rem
         background:     none
         &:focus
             outline: none
@@ -33,6 +34,9 @@
     border: none
     padding: 0 1rem
     text-align: right
+    -webkit-appearance: none // For Chrome, Safari, Edge
+    -moz-appearance: textfield //For Firefox
+    appearance: none
     &::placeholder
         color: var(--input-text-inactive)
     &:focus
