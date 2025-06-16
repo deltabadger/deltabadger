@@ -166,7 +166,6 @@ nl:
         withdrawal_percentage: '%{percentage}%'
         withdrawal: 'Opname'
         cancel_order: 'Annuleren'
-        cancelling_order: 'Order wordt geannuleerd…'
         warning:
             dca_single_asset:
                 intro: "De %{missed_symbol} hoeveelheid was lager dan de minimale ordergrootte van %{exchange_name} (%{missed_minimum_base_size} %{missed_symbol} of %{missed_minimum_quote_size} %{quote_symbol} voor %{missed_symbol}). Zo gaat de bot hiermee om:"
