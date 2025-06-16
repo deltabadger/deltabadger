@@ -30,7 +30,7 @@
             <tr>
               <td scope="row"><%= bot.base_asset.symbol %></td>
               <td><%= metrics[:total_base_amount].round(bot.decimals[:base]) %></td>
-              <td><%= metrics[:average_buy_rate].present? ? metrics[:average_buy_rate].round(bot.decimals[:base_price]) : '-' %></td>
+              <td><%= metrics[:average_buy_price].present? ? metrics[:average_buy_price].round(bot.decimals[:base_price]) : '-' %></td>
               <% if loading %>
                 <td><div class="loader--small" style="position: unset; float:right"></div></td>
               <% else %>

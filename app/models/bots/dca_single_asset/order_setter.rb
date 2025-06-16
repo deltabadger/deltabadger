@@ -154,7 +154,8 @@ module Bots::DcaSingleAsset::OrderSetter
       quote_amount: order_data[:quote_amount],
       side: order_data[:side],
       order_type: order_data[:order_type],
-      filled_percentage: 1,
+      amount_exec: order_data[:amount],
+      quote_amount_exec: order_data[:quote_amount],
       error_messages: [],
       status: :closed,
       exchange_response: {}

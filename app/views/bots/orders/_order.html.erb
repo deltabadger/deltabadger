@@ -1,18 +1,18 @@
 <%= tag.tr id: dom_id(order), class: order.skipped? ? 'text-inactive' : order.failed? ? 'text-danger' : '', data: { hw_animate_in_prepend: "animate-order-in" } do %>
   <td scope="row"><%= order.created_at.in_time_zone(current_user.time_zone).strftime("%Y-%m-%d %I:%M %p") %></td>
 
-  <td><%= order.amount.nil? ? '-' : decimals[order.base].nil? ? order.amount : order.amount.round(decimals[order.base]) %> <%= order.base %></td>
+  <% amount = order.open? ? order.amount : (order.amount_exec || order.amount) %>
+  <td><%= amount.nil? ? '-' : decimals[order.base].nil? ? amount : amount.round(decimals[order.base]) %> <%= order.base %></td>
 
-  <% if order.quote_amount.present? %>
-    <td><%= order.quote_amount.round(decimals[order.quote] || 18) %> <%= order.quote %></td>
-  <% elsif order.price.present? && order.amount.present? %>
-    <td><%= (order.price * order.amount).round(decimals[order.quote] || 18) %> <%= order.quote %></td>
-  <% else %>
-    <td>-</td>
-  <% end %>
+  <% quote_amount = order.open? ? order.quote_amount : (order.quote_amount_exec || order.quote_amount) %>
+  <% quote_amount = order.price * amount if quote_amount.nil? && order.price.present? && amount.present? %>
+  <td><%= quote_amount.nil? ? '-' : decimals[order.quote].nil? ? quote_amount : quote_amount.round(decimals[order.quote]) %> <%= order.quote %></td>
+
 
   <td>
-    <% if order.failed? %>
+    <% if order.open? %>
+      <%= button_to t('bot.cancel_order'), bot_transaction_path(order.bot, order), method: :delete, data: { turbo_submits_with: t('bot.cancelling_order') } %>
+    <% elsif order.failed? %>
       <div class="tooltip-info-icon" data-controller="tooltip" data-action="click->tooltip#toggle">
         <div class="tooltip-icon--off">
           <%= render 'svg/24x24_info' %>
