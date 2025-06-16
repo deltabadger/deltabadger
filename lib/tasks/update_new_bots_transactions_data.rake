@@ -13,7 +13,10 @@ def update_new_bots_transactions_remote_data
     next if api_key.blank?
 
     bot.exchange.set_client(api_key: api_key)
-    bot.transactions.submitted.where.not(external_id: nil).order(created_at: :desc).each do |transaction|
+    bot.transactions.submitted
+       .where.not(external_id: nil)
+       .where(quote_amount_exec: nil)
+       .order(created_at: :desc).each do |transaction|
       puts "getting order #{transaction.external_id} (#{transaction.created_at})"
       begin
         result = bot.exchange.get_order(order_id: transaction.external_id)
