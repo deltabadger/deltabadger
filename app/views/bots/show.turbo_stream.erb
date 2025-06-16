@@ -1,5 +1,7 @@
 <%= turbo_stream.append 'orders_list' do %>
-  <%= render partial: "bots/orders/order", collection: @orders, locals: { decimals: @decimals, exchange_name: @bot.exchange.name } %>
+  <% @orders.each do |order| %>
+    <%= render partial: "bots/orders/order", locals: { order: order, decimals: @decimals, exchange_name: @bot.exchange.name, fetch: order.open? } %>
+  <% end %>
 <% end %>
 
 <% if @pagy.next.present? %>
