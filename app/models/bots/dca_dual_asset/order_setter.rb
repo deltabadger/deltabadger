@@ -91,7 +91,7 @@ module Bots::DcaDualAsset::OrderSetter # rubocop:disable Metrics/ModuleLength
     end
 
     price1 = if limit_ordered?
-               ticker1.adjusted_price(price: result1.data * (1 + limit_order_pcnt_distance))
+               ticker1.adjusted_price(price: result1.data * (1 - limit_order_pcnt_distance))
              else
                result1.data
              end
@@ -200,7 +200,8 @@ module Bots::DcaDualAsset::OrderSetter # rubocop:disable Metrics/ModuleLength
       quote_amount: order_data[:quote_amount],
       side: order_data[:side],
       order_type: order_data[:order_type],
-      filled_percentage: 1,
+      amount_exec: order_data[:amount],
+      quote_amount_exec: order_data[:quote_amount],
       error_messages: [],
       status: :closed,
       exchange_response: {}
