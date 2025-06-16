@@ -59,6 +59,21 @@ class CoinbaseClient < ApplicationClient
     end
   end
 
+  # https://docs.cdp.coinbase.com/coinbase-app/trade/reference/retailbrokerageapi_cancelorders
+  # @param order_ids [Array<String>] The order IDs that cancel requests should be initiated for
+  def cancel_orders(order_ids:)
+    with_rescue do
+      response = self.class.connection.post do |req|
+        req.url '/api/v3/brokerage/orders/batch_cancel'
+        req.headers = headers(req)
+        req.body = {
+          order_ids: order_ids
+        }
+      end
+      Result::Success.new(response.body)
+    end
+  end
+
   # https://docs.cdp.coinbase.com/coinbase-app/trade/reference/retailbrokerageapi_getpublicproducts
   # @param limit [Integer] The number of products to return
   # @param offset [Integer] The offset for pagination
