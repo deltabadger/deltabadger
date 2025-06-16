@@ -21,7 +21,7 @@ module Bot::Accountable
     calc_since = [started_at, settings_changed_at].compact.max
     total_quote_amount_invested = transactions.submitted
                                               .where('created_at >= ?', calc_since)
-                                              .pluck(:quote_amount)
+                                              .pluck(:quote_amount_exec)
                                               .sum
 
     # Round to 6 decimal places to avoid floating point precision issues!

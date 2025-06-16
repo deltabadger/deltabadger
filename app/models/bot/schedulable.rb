@@ -16,8 +16,8 @@ module Bot::Schedulable
     store_accessor :transient_data,
                    :last_action_job_at
 
-    validates :interval, presence: true, inclusion: { in: INTERVALS.keys }
-    validate :validate_interval_included_in_subscription_plan, on: :start
+    validates :interval, presence: true, inclusion: { in: INTERVALS.keys }, unless: :legacy?
+    validate :validate_interval_included_in_subscription_plan, on: :start, unless: :legacy?
   end
 
   def last_action_job_at
