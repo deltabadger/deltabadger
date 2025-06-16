@@ -120,12 +120,19 @@
     &.bot-settings
         &--active
             .conversational
-                // color: var(--text) !important
+                color: var(--label) !important
+            .sinput
+                color: var(--link) !important 
+                font-weight: 600 !important    // color: var(--text) !important
+                &:disabled,&[disabled],&--disabled
+                    color: var(--label) !important
         &--inactive
             box-shadow: none
             background: none
-            .sinput
-                color: var(--label) !important
+            .conversational,.sinput,.label
+                color: var(--label-select-inactive) !important
+            .icon-24 path
+                fill: var(--label-select-inactive) !important
 
 .backtests--warning
     .widget--chart, .data-grid__item

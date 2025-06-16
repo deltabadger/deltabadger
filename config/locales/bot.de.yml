@@ -142,6 +142,8 @@ de:
             failed_tooltip_explanation: "Diese Bestellung ist fehlgeschlagen: %{error_message}"
             skipped_tooltip_explanation: "Diese Bestellung wurde übersprungen, da der Betrag unter der Mindestbestellgröße von %{exchange_name} lag. Der übersprungene Betrag wurde gepuffert und wird der nächsten Bestellung hinzugefügt."
             failed_status_bar_explanation: "Letzte Bestellung fehlgeschlagen: %{error_message}"
+            order_cancelled: 'Bestellung storniert'
+            failed_to_cancel_order: 'Stornierung der Bestellung fehlgeschlagen'
         minimum_withdrawal_disclaimer: 'Der Mindestauszahlungsbetrag beträgt %{minimum} %{currency}.'
         minimum_withdrawal_disclaimer_usd: 'Der Mindestauszahlungsbetrag beträgt %{minimum} USD.'
         month: Monat
@@ -177,6 +179,7 @@ de:
         withdraw_threshold_html: 'Auszahlen, wenn mindestens <split>0,001</split> %{currency} verfügbar ist.'
         withdrawal_percentage: '%{percentage}%'
         withdrawal: 'Auszahlung'
+        cancel_order: 'Abbrechen'
         warning:
             dca_single_asset:
                 intro: "Der Betrag von %{missed_symbol} lag unter der Mindestbestellgröße von %{exchange_name} (%{missed_minimum_base_size} %{missed_symbol} oder %{missed_minimum_quote_size} %{quote_symbol} für %{missed_symbol}). So geht der Bot damit um:"
@@ -194,6 +197,9 @@ de:
             smart_intervals:
                 sentence_html: '<b>Smart Intervals<sup>®</sup></b> Teilt <span>den Betrag</span> in <span>%{amount_html} %{quote}</span> Einheiten auf'
                 info: "Die Aufteilung deiner %{quote_amount} %{quote} / %{interval} in Einheiten von %{amount} %{quote} führt zu einer Investition alle %{smart_interval}"
+            limit_orders:
+                sentence_html: '<b>FeeCutter<sup>®</sup></b> Reduziere Gebühren mit Limit-Orders <span>%{amount_html}%</span> unter dem Preis'
+                info: "Um die Gebühren auf Null zu reduzieren, stelle es auf %{maker_fee}% ein, was der Maker-Gebühr von %{exchange} entspricht. Stelle es niedriger ein für schnellere Ausführung oder höher für potenziell bessere Kurse. Verfolge deine Orderausführung in der Ordertabelle."
             extra_amount_limit:
                 sentence_html: "Nicht mehr ausgeben als <span>%{value_html} %{quote}</span>"
                 info:

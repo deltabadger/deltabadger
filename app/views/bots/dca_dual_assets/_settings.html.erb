@@ -5,7 +5,7 @@
   <%= render partial: "bots/dca_dual_assets/settings/main", locals: { bot: bot, method: method, path: path } %>
   <%= render partial: "bots/dca_dual_assets/settings/marketcap_allocation", locals: { bot: bot, method: method, path: path } %>
   <%= render partial: "bots/settings/smart_intervals", locals: { bot: bot, method: method, path: path } %>
-  <%#= render partial: "bots/settings/limit_orders", locals: { bot: bot, method: method, path: path } %>
+  <%= render partial: "bots/settings/limit_orders", locals: { bot: bot, method: method, path: path } %>
   <%#= render partial: "bots/settings/weekday", locals: { bot: bot, method: method, path: path } %>
 
   <div class="big-header big-header--2 big-header--traders"><%= t('header.trading_options') %></div>

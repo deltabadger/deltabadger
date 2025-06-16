@@ -142,6 +142,8 @@ fr:
             failed_tooltip_explanation: "Cette commande a échoué: %{error_message}"
             skipped_tooltip_explanation: "Cette commande a été ignorée car le montant était inférieur à la taille minimale de commande de %{exchange_name}. Le montant ignoré a été mis en mémoire tampon et sera ajouté à la prochaine commande."
             failed_status_bar_explanation: "La dernière commande a échoué: %{error_message}"
+            order_cancelled: 'Ordre annulé'
+            failed_to_cancel_order: 'Échec de l''annulation de l''ordre'
         minimum_withdrawal_disclaimer: 'Le montant minimal de retrait est de %{minimum} %{currency}'
         minimum_withdrawal_disclaimer_usd: 'Le montant minimal de retrait est %{minimum} USD.'
         month: 'Mois'
@@ -164,6 +166,7 @@ fr:
         minimum_transaction_size_warning: "%{amount} %{quote_currency} est inférieur à la taille de transaction minimale de %{exchange_name} (%{min_transaction_size} %{base_currency}). Le tampon est prêt à %{buffer_percentage}% et sera utilisé lorsque 100% des fonds seront accumulés."
         withdrawal_percentage: '%{percentage}%'
         withdrawal: 'Retrait'
+        cancel_order: 'Annuler'
         warning:
             dca_single_asset:
                 intro: "%{missed_symbol} était inférieur à la taille minimale d'ordre de %{exchange_name} (%{missed_minimum_base_size} %{missed_symbol} ou %{missed_minimum_quote_size} %{quote_symbol} pour %{missed_symbol}). Voici comment le bot gère cela :"
@@ -181,6 +184,9 @@ fr:
             smart_intervals:
                 sentence_html: '<b>Smart Intervals<sup>®</sup></b> Divise <span>le</span> montant <span>en</span> unités <span>de</span> <span>%{amount_html} %{quote}</span>'
                 info: "Diviser votre %{quote_amount} %{quote} / %{interval} en unités de %{amount} %{quote} entraînera un investissement tous les %{smart_interval}"
+            limit_orders:
+                sentence_html: '<b>FeeCutter<sup>®</sup></b> Réduisez les frais en utilisant des ordres limites <span>%{amount_html}%</span> en dessous du prix'
+                info: "Pour réduire les frais à zéro, réglez-le à %{maker_fee}% qui correspond aux frais maker de %{exchange}. Réglez-le plus bas pour une exécution plus rapide, ou plus haut pour obtenir potentiellement un meilleur prix. Suivez l'exécution de vos ordres dans le tableau des ordres."
             extra_amount_limit:
                 sentence_html: "Ne pas dépenser plus de <span>%{value_html} %{quote}</span>"
                 info:

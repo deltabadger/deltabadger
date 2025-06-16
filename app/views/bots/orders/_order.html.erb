@@ -1,18 +1,30 @@
 <%= tag.tr id: dom_id(order), class: order.skipped? ? 'text-inactive' : order.failed? ? 'text-danger' : '', data: { hw_animate_in_prepend: "animate-order-in" } do %>
   <td scope="row"><%= order.created_at.in_time_zone(current_user.time_zone).strftime("%Y-%m-%d %I:%M %p") %></td>
 
-  <td><%= order.amount.nil? ? '-' : decimals[order.base].nil? ? order.amount : order.amount.round(decimals[order.base]) %> <%= order.base %></td>
+  <% show_executed_amounts = order.submitted? && !order.open? %>
+  <% executed_amount = order.amount_exec || order.amount %>
+  <% executed_quote_amount = order.quote_amount_exec || order.quote_amount %>
 
-  <% if order.quote_amount.present? %>
-    <td><%= order.quote_amount.round(decimals[order.quote] || 18) %> <%= order.quote %></td>
-  <% elsif order.price.present? && order.amount.present? %>
-    <td><%= (order.price * order.amount).round(decimals[order.quote] || 18) %> <%= order.quote %></td>
-  <% else %>
-    <td>-</td>
-  <% end %>
+  <% amount = show_executed_amounts ? executed_amount : order.amount %>
+  <td><%= amount.nil? ? '-' : decimals[order.base].nil? ? amount : amount.round(decimals[order.base]) %> <%= order.base %></td>
+
+  <% quote_amount = show_executed_amounts ? executed_quote_amount : order.quote_amount %>
+  <% quote_amount = order.price * amount if quote_amount.nil? && order.price.present? && amount.present? %>
+  <td><%= quote_amount.nil? ? '-' : decimals[order.quote].nil? ? quote_amount : quote_amount.round(decimals[order.quote]) %> <%= order.quote %></td>
 
   <td>
-    <% if order.failed? %>
+    <% if fetch %>
+      <%= tag.div data: {
+        controller: "broadcast--on-connect",
+        broadcast__on_connect_method_value: "fetch_order",
+        broadcast__on_connect_method_args_value: { order_id: order.id }.to_json
+      }, class: "loader--small", style: "position: unset; float: right; margin-right: 0.5rem;" %>
+    <% elsif order.open? %>
+      <div data-controller="class-toggle" data-class-toggle-toggle-classes-value='["hidden"]'>
+        <%= button_to t('bot.cancel_order'), bot_transaction_path(order.bot, order), method: :delete, class: 'sinput sinput--small sinput--hover-warning', data: { class_toggle_target: "togglable", action: "click->class-toggle#toggle" } %>
+        <div class="loader--small hidden" style="position: unset; float: right; margin-right: 0.5rem;" data-class-toggle-target="togglable" ></div>
+      </div>
+    <% elsif order.failed? %>
       <div class="tooltip-info-icon" data-controller="tooltip" data-action="click->tooltip#toggle">
         <div class="tooltip-icon--off">
           <%= render 'svg/24x24_info' %>

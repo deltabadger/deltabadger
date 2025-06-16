@@ -148,6 +148,7 @@ Rails.application.routes.draw do
       resource :delete, only: [:edit, :destroy], controller: 'bots/deletes'
       resource :add_api_key, only: [:new, :create], controller: 'bots/add_api_keys'
       resource :asset_search, only: [:edit], controller: 'bots/asset_searches'
+      resources :transactions, only: [:destroy], controller: 'bots/cancel_orders'
       post :show
       get :show_index_bot, on: :collection # TODO: move to custom :show logic according to bot type
     end
@@ -198,6 +199,7 @@ Rails.application.routes.draw do
       post :price_drop_limit_info_update
       post :indicator_limit_info_update
       post :moving_average_limit_info_update
+      post :fetch_order
     end
   end
 

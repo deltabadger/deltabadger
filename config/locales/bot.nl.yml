@@ -142,6 +142,8 @@ nl:
             failed_tooltip_explanation: "Deze bestelling is mislukt: %{error_message}"
             skipped_tooltip_explanation: "Deze bestelling is overgeslagen omdat het bedrag onder de minimale ordergrootte van %{exchange_name} lag. Het overgeslagen bedrag is gebufferd en wordt toegevoegd aan de volgende bestelling."
             failed_status_bar_explanation: "De laatste bestelling is mislukt: %{error_message}"
+            order_cancelled: 'Order geannuleerd'
+            failed_to_cancel_order: 'Annuleren van order mislukt'
         minimum_withdrawal_disclaimer: 'De minimale opnamegrootte is %{minimum} %{currency}.'
         minimum_withdrawal_disclaimer_usd: 'De minimale opname bedraagt %{minimum} USD.'
         month: Maand
@@ -163,6 +165,7 @@ nl:
         withdraw_threshold_html: 'Fondsen opnamen zodra er minimum <split>0.001</split> %{currency} beschikbaar is.'
         withdrawal_percentage: '%{percentage}%'
         withdrawal: 'Opname'
+        cancel_order: 'Annuleren'
         warning:
             dca_single_asset:
                 intro: "De %{missed_symbol} hoeveelheid was lager dan de minimale ordergrootte van %{exchange_name} (%{missed_minimum_base_size} %{missed_symbol} of %{missed_minimum_quote_size} %{quote_symbol} voor %{missed_symbol}). Zo gaat de bot hiermee om:"
@@ -180,6 +183,9 @@ nl:
             smart_intervals:
                 sentence_html: '<b>Smart Intervals<sup>®</sup></b> Splits <span>het bedrag</span> in eenheden van <span>%{amount_html} %{quote}</span>'
                 info: "Het splitsen van je %{quote_amount} %{quote} / %{interval} in eenheden van %{amount} %{quote} resulteert in één investering per %{smart_interval}"
+            limit_orders:
+                sentence_html: '<b>FeeCutter<sup>®</sup></b> Verlaag kosten met limietorders <span>%{amount_html}%</span> onder de prijs'
+                info: "Om de kosten tot nul te verlagen, stel het in op %{maker_fee}% wat de maker fee van %{exchange} is. Stel het lager in voor snellere uitvoering, of hoger voor mogelijk een betere prijs. Volg de uitvoering van je orders in de ordertabel."
             extra_amount_limit:
                 sentence_html: "Besteed niet meer dan <span>%{value_html} %{quote}</span>"
                 info:

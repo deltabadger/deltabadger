@@ -34,20 +34,19 @@ def update_transactions_remote_data
       next if api_key.blank?
 
       puts "checking valid api key for #{exchange.name} for user #{user.id}"
-      result = exchange.get_api_key_validity(api_key: api_key)
+      result = api_key.get_validity
       if result.failure?
         puts "failed to check valid api key for #{exchange.name} for user #{user.id}: #{result.errors.to_sentence}"
         if result.errors.include?('EGeneral:Temporary lockout')
-          puts 'sleeping for 4 minutes'
+          puts "#{Time.current} - sleeping for 4 minutes"
           sleep 60 * 4
         end
         next
       end
 
-      valid = result.data
-      if !valid
+      api_key.update_status!(result)
+      if api_key.incorrect?
         puts "invalid api key for #{exchange.name} for user #{user.id}"
-        api_key.update!(status: :incorrect)
         next
       end
 
@@ -56,10 +55,12 @@ def update_transactions_remote_data
 
       user_bots_ids = user.bots.where.not(type: 'Bots::Withdrawal').where(exchange: exchange).pluck(:id).uniq
       puts "getting transactions for #{exchange.name} for user #{user.id} for bots #{user_bots_ids}"
-      Transaction.submitted
-                 .where(bot_id: user_bots_ids, exchange: exchange, external_status: nil)
-                 .where.not(external_id: nil)
-                 .find_each do |transaction|
+      transaction_ids = Transaction.submitted
+                                   .where(bot_id: user_bots_ids, exchange: exchange, external_status: nil)
+                                   .where.not(external_id: nil)
+                                   .pluck(:id)
+      transaction_ids.sort.reverse.each do |transaction_id|
+        transaction = Transaction.find(transaction_id)
         puts "getting order for #{transaction.external_id}"
         begin
           result = exchange.get_order(order_id: transaction.external_id)
@@ -70,10 +71,10 @@ def update_transactions_remote_data
           next
         end
         if result.failure?
-          puts "error getting order for #{transaction.external_id} (#{transaction.created_at}): #{result.errors.to_sentence}"
+          puts "failure getting order for #{transaction.external_id} (#{transaction.created_at}): #{result.errors.to_sentence}"
           break unless result.errors.include?('EGeneral:Temporary lockout')
 
-          puts 'sleeping for 4 minutes'
+          puts "#{Time.current} - sleeping for 4 minutes"
           sleep 60 * 4
           next
         end

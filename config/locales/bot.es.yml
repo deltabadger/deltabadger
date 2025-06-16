@@ -143,6 +143,8 @@ es:
             failed_tooltip_explanation: "Esta orden falló: %{error_message}"
             skipped_tooltip_explanation: "Esta orden se ha omitido porque la cantidad estaba por debajo del tamaño mínimo de orden de %{exchange_name}. La cantidad omitida se ha almacenado y se añadirá a la siguiente orden."
             failed_status_bar_explanation: "La última orden falló: %{error_message}"
+            order_cancelled: 'Orden cancelada'
+            failed_to_cancel_order: 'Error al cancelar la orden'
         minimum_withdrawal_disclaimer: 'El importe mínimo de retirada es de %{minimum} %{currency}.'
         minimum_withdrawal_disclaimer_usd: 'El importe mínimo de retirada es de %{minimum} USD.'
         month: Mes
@@ -164,6 +166,7 @@ es:
         withdraw_threshold_html: 'Retirar cuando haya al menos <split>0,001</split> %{currency} disponible.'
         withdrawal_percentage: '%{percentage}%'
         withdrawal: 'Retirada'
+        cancel_order: 'Cancelar'
         warning:
             dca_single_asset:
                 intro: "El importe de %{missed_symbol} estaba por debajo del tamaño mínimo de orden de %{exchange_name} (%{missed_minimum_base_size} %{missed_symbol} o %{missed_minimum_quote_size} %{quote_symbol} para %{missed_symbol}). Así es como el bot lo gestiona:"
@@ -181,6 +184,9 @@ es:
             smart_intervals:
                 sentence_html: '<b>Smart Intervals<sup>®</sup></b> Divide <span>la</span> cantidad <span>en</span> unidades <span>de</span> <span>%{amount_html} %{quote}</span>'
                 info: "Dividir tus %{quote_amount} %{quote} / %{interval} en unidades de %{amount} %{quote} resultará en una inversión cada %{smart_interval}"
+            limit_orders:
+                sentence_html: '<b>FeeCutter<sup>®</sup></b> Reduce las comisiones usando órdenes limitadas <span>%{amount_html}%</span> por debajo del precio'
+                info: "Para eliminar las comisiones, configúralo al %{maker_fee}%, que es la comisión maker de %{exchange}. Configúralo más bajo para una ejecución más rápida, o más alto para obtener potencialmente un mejor precio. Haz seguimiento de la ejecución de tus órdenes en la tabla de órdenes."
             extra_amount_limit:
                 sentence_html: "No gastar más de <span>%{value_html} %{quote}</span>"
                 info:

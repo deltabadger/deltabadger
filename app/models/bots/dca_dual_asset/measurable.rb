@@ -7,8 +7,8 @@ module Bots::DcaDualAsset::Measurable
       data = initialize_metrics_data
       transactions_array = transactions.submitted.order(created_at: :asc).pluck(:created_at,
                                                                                 :price,
-                                                                                :amount,
-                                                                                :quote_amount,
+                                                                                :amount_exec,
+                                                                                :quote_amount_exec,
                                                                                 :base)
       return data if transactions_array.empty?
 
@@ -19,13 +19,13 @@ module Bots::DcaDualAsset::Measurable
       }
 
       totals = initialize_totals_data
-      transactions_array.each do |created_at, price, amount, quote_amount, base|
-        next if price.zero?
+      transactions_array.each do |created_at, price, amount_exec, quote_amount_exec, base|
+        next if price.zero? || quote_amount_exec.blank? || quote_amount_exec.zero?
 
         # chart data
         data[:chart][:labels] << created_at
-        totals[:total_quote_amount_invested][asset_symbol_to_id[base]] += quote_amount
-        totals[:total_base_amount_acquired][asset_symbol_to_id[base]] += amount
+        totals[:total_quote_amount_invested][asset_symbol_to_id[base]] += quote_amount_exec
+        totals[:total_base_amount_acquired][asset_symbol_to_id[base]] += amount_exec
         data[:chart][:series][1] << totals[:total_quote_amount_invested].values.sum
         totals[:current_value_in_quote][asset_symbol_to_id[base]] =
           totals[:total_base_amount_acquired][asset_symbol_to_id[base]] * price
@@ -35,7 +35,7 @@ module Bots::DcaDualAsset::Measurable
 
         # metrics data
         totals[:prices][asset_symbol_to_id[base]] << price
-        totals[:amounts][asset_symbol_to_id[base]] << amount
+        totals[:amounts][asset_symbol_to_id[base]] << amount_exec
       end
 
       data[:total_base0_amount] = totals[:total_base_amount_acquired][base0_asset_id]

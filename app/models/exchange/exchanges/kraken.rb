@@ -292,14 +292,30 @@ module Exchange::Exchanges::Kraken
     return Result::Failure.new("Failed to get #{name} order (order_id: #{order_id}). Order data is nil") if order_data.nil?
 
     pair = Utilities::Hash.dig_or_raise(order_data, 'descr', 'pair')
-    price = Utilities::Hash.dig_or_raise(order_data, 'price').to_d
-    target_amount = Utilities::Hash.dig_or_raise(order_data, 'vol').to_d
-    amount = Utilities::Hash.dig_or_raise(order_data, 'vol_exec').to_d
-    quote_amount = Utilities::Hash.dig_or_raise(order_data, 'cost').to_d
-    side = Utilities::Hash.dig_or_raise(order_data, 'descr', 'type').downcase.to_sym
     order_type = parse_order_type(Utilities::Hash.dig_or_raise(order_data, 'descr', 'ordertype'))
+    price = Utilities::Hash.dig_or_raise(order_data, 'price').to_d
+    price = Utilities::Hash.dig_or_raise(order_data, 'descr', 'price').to_d if price.zero? && order_type == :limit_order
+    quote_amount_exec = Utilities::Hash.dig_or_raise(order_data, 'cost').to_d
+
     order_flags = Utilities::Hash.dig_or_raise(order_data, 'oflags').split(',')
-    filled_percentage = (order_flags.include?('viqc') ? quote_amount : amount) / target_amount
+    if order_flags.include?('viqc')
+      amount = nil
+      quote_amount = Utilities::Hash.dig_or_raise(order_data, 'vol').to_d
+      fee = Utilities::Hash.dig_or_raise(order_data, 'fee').to_d
+      amount_exec = if order_flags.include?('fciq')
+                      (quote_amount_exec - fee) / price
+                    elsif order_flags.include?('fcib')
+                      (quote_amount_exec / price) - fee
+                    else
+                      raise "Unknown order flags: #{order_flags.inspect}"
+                    end
+    else
+      amount = Utilities::Hash.dig_or_raise(order_data, 'vol').to_d
+      quote_amount = nil
+      amount_exec = Utilities::Hash.dig_or_raise(order_data, 'vol_exec').to_d
+    end
+
+    side = Utilities::Hash.dig_or_raise(order_data, 'descr', 'type').downcase.to_sym
     errors = [
       order_data['reason'].presence,
       order_data['misc'].presence
@@ -311,15 +327,26 @@ module Exchange::Exchanges::Kraken
                           order_id: order_id,
                           ticker: ticker,
                           price: price,
-                          amount: amount,             # amount the account balance went up or down
-                          quote_amount: quote_amount, # amount the account balance went up or down
+                          amount: amount,             # amount in the order config
+                          quote_amount: quote_amount, # amount in the order config
+                          amount_exec: amount_exec,             # amount the account balance went up or down
+                          quote_amount_exec: quote_amount_exec, # amount the account balance went up or down
                           side: side,
                           order_type: order_type,
-                          filled_percentage: filled_percentage,
                           error_messages: errors,
                           status: status,
                           exchange_response: result.data
                         })
+  end
+
+  def cancel_order(order_id:)
+    result = client.cancel_order(txid: order_id)
+    return result if result.failure?
+
+    error = Utilities::Hash.dig_or_raise(result.data, 'error')
+    return Result::Failure.new(*error) if error.any?
+
+    Result::Success.new(order_id)
   end
 
   def get_api_key_validity(api_key:)
