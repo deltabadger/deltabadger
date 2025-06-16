@@ -2,8 +2,8 @@ module Bot::Rankable
   extend ActiveSupport::Concern
 
   SYMBOLS_HASH = {
-    'XDG': 'DOGE',
-    'XBT': 'BTC'
+    'XDG' => 'DOGE',
+    'XBT' => 'BTC'
   }.freeze
   TOP_BOTS_KEY = 'TOP_BOTS_CACHE_KEY'.freeze
 
@@ -58,20 +58,49 @@ module Bot::Rankable
     end
 
     def most_popular_bots(amount)
+      all_bots_hash = combine_hashes(legacy_bots_hash, dca_single_asset_bots_hash, dca_dual_asset_bots_hash)
+      all_bots_hash.sort_by { |_, v| -v }[0...amount]
+    end
+
+    def legacy_bots_hash
       all_bots_hash = Bot.basic
                          .working
                          .group("bots.settings->>'base'")
-                         .order(count: :desc)
                          .count
-      fetched_symbols_bots_hash = all_bots_hash.each do |key, value|
-        SYMBOLS_HASH.each do |symbol_key, symbol_value|
-          if key == symbol_key.to_s
-            all_bots_hash[symbol_value.to_s] += value
-            all_bots_hash.delete(symbol_key.to_s)
-          end
-        end
+      all_bots_hash.delete(nil)
+      SYMBOLS_HASH.each do |symbol_key, symbol_value|
+        all_bots_hash[symbol_value] ||= 0
+        all_bots_hash[symbol_value] += all_bots_hash[symbol_key] || 0
+        all_bots_hash.delete(symbol_key)
       end
-      fetched_symbols_bots_hash.sort_by { |_key, value| -value }[0..amount - 1]
+      all_bots_hash
+    end
+
+    def dca_single_asset_bots_hash
+      all_bots_hash = Bot.dca_single_asset
+                         .working
+                         .group("bots.settings->>'base_asset_id'")
+                         .count
+      all_bots_hash.transform_keys { |key| Asset.find(key).symbol }
+    end
+
+    def dca_dual_asset_bots_hash
+      all_bots_hash0 = Bot.dca_dual_asset
+                          .working
+                          .group("bots.settings->>'base0_asset_id'")
+                          .count
+      all_bots_hash1 = Bot.dca_dual_asset
+                          .working
+                          .group("bots.settings->>'base1_asset_id'")
+                          .count
+      all_bots_hash = combine_hashes(all_bots_hash0, all_bots_hash1)
+      all_bots_hash.transform_keys { |key| Asset.find(key).symbol }
+    end
+
+    def combine_hashes(*hashes)
+      hashes.each_with_object(Hash.new(0)) do |h, result|
+        h.each { |k, v| result[k] += v }
+      end
     end
   end
 end
