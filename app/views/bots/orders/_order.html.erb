@@ -20,7 +20,10 @@
         broadcast__on_connect_method_args_value: { order_id: order.id }.to_json
       }, class: "loader--small", style: "position: unset; float: right; margin-right: 0.5rem;" %>
     <% elsif order.open? %>
-      <%= button_to t('bot.cancel_order'), bot_transaction_path(order.bot, order), method: :delete, class: 'sinput sinput--small sinput--hover-warning', data: { turbo_submits_with: t('bot.cancelling_order') } %>
+      <div data-controller="class-toggle" data-class-toggle-toggle-classes-value='["hidden"]'>
+        <%= button_to t('bot.cancel_order'), bot_transaction_path(order.bot, order), method: :delete, class: 'sinput sinput--small sinput--hover-warning', data: { class_toggle_target: "togglable", action: "click->class-toggle#toggle" } %>
+        <div class="loader--small hidden" style="position: unset; float: right; margin-right: 0.5rem;" data-class-toggle-target="togglable" ></div>
+      </div>
     <% elsif order.failed? %>
       <div class="tooltip-info-icon" data-controller="tooltip" data-action="click->tooltip#toggle">
         <div class="tooltip-icon--off">

@@ -189,7 +189,6 @@ it:
         withdrawal_percentage: '%{percentage}%'
         withdrawal: 'Prelievo'
         cancel_order: 'Annulla'
-        cancelling_order: 'Annullamento ordine in corso…'
         warning:
             dca_single_asset:
                 intro: "L'importo di %{missed_symbol} era inferiore alla dimensione minima dell'ordine di %{exchange_name} (%{missed_minimum_base_size} %{missed_symbol} o %{missed_minimum_quote_size} %{quote_symbol} per %{missed_symbol}). Ecco come il bot gestisce la situazione:"
