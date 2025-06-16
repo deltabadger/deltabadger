@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema.define(version: 2025_06_07_115222) do
+ActiveRecord::Schema.define(version: 2025_06_16_010635) do
 
   # These are extensions that must be enabled in order to support this database
   enable_extension "plpgsql"
@@ -134,8 +134,9 @@ ActiveRecord::Schema.define(version: 2025_06_07_115222) do
     t.decimal "quote_amount"
     t.integer "side"
     t.integer "order_type"
-    t.decimal "filled_percentage", precision: 5, scale: 4
     t.integer "external_status"
+    t.decimal "amount_exec"
+    t.decimal "quote_amount_exec"
     t.index ["bot_id", "created_at"], name: "index_daily_transaction_aggregates_on_bot_id_and_created_at"
     t.index ["bot_id", "status", "created_at"], name: "dailies_index_status_created_at"
     t.index ["bot_id", "transaction_type", "created_at"], name: "dailies_index_bot_type_created_at"
@@ -327,8 +328,9 @@ ActiveRecord::Schema.define(version: 2025_06_07_115222) do
     t.decimal "quote_amount"
     t.integer "side"
     t.integer "order_type"
-    t.decimal "filled_percentage", precision: 5, scale: 4
     t.integer "external_status"
+    t.decimal "amount_exec"
+    t.decimal "quote_amount_exec"
     t.index ["bot_id", "created_at"], name: "index_transactions_on_bot_id_and_created_at"
     t.index ["bot_id", "status", "created_at"], name: "index_transactions_on_bot_id_and_status_and_created_at"
     t.index ["bot_id", "transaction_type", "created_at"], name: "index_bot_type_created_at"

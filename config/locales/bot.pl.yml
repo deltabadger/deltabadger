@@ -142,6 +142,8 @@ pl:
             failed_tooltip_explanation: "To zlecenie zakończyło się niepowodzeniem: %{error_message}"
             skipped_tooltip_explanation: "To zlecenie zostało pominięte, ponieważ kwota była poniżej minimalnego rozmiaru zlecenia %{exchange_name}. Pominięta kwota została zbuforowana i zostanie dodana do następnego zlecenia."
             failed_status_bar_explanation: "Ostatnie zlecenie zakończyło się niepowodzeniem: %{error_message}"
+            order_cancelled: 'Zlecenie anulowane'
+            failed_to_cancel_order: 'Nie udało się anulować zlecenia'
         minimum_withdrawal_disclaimer: 'Minimalna wielkość wypłaty to %{minimum} %{currency}.'
         minimum_withdrawal_disclaimer_usd: 'Minimalna wielkość wypłaty to %{minimum} USD.'
         month: miesiąc
@@ -163,6 +165,7 @@ pl:
         withdraw_threshold_html: 'Wypłać, gdy dostępne jest co najmniej <split>0,001</split> %{currency}.'
         withdrawal_percentage: '%{percentage}%'
         withdrawal: 'Wypłata'
+        cancel_order: 'Anuluj'
         warning:
             dca_single_asset:
                 intro: "Kwota %{missed_symbol} była poniżej minimalnej wielkości zlecenia na %{exchange_name} (%{missed_minimum_base_size} %{missed_symbol} lub %{missed_minimum_quote_size} %{quote_symbol} dla %{missed_symbol}). Oto jak bot sobie z tym radzi:"
@@ -180,6 +183,9 @@ pl:
             smart_intervals:
                 sentence_html: '<b>Smart Intervals<sup>®</sup></b> Podziel <span>kwotę</span> na porcje po <span>%{amount_html} %{quote}</span>'
                 info: "Podział twojej kwoty %{quote_amount} %{quote} / %{interval} w porcjach po %{amount} %{quote} spowoduje jedną inwestycję co %{smart_interval}"
+            limit_orders:
+                sentence_html: '<b>FeeCutter<sup>®</sup></b> Zmniejsz opłaty używając zleceń limit <span>%{amount_html}%</span> poniżej ceny'
+                info: "Aby zredukować opłaty do zera, ustaw je na %{maker_fee}%, czyli opłatę maker na %{exchange}. Ustaw niżej, aby uzyskać szybszą realizację, lub wyżej, aby potencjalnie uzyskać lepszą cenę. Śledź realizację swoich zleceń w tabeli zleceń."
             extra_amount_limit:
                 sentence_html: "Nie wydawaj więcej niż <span>%{value_html} %{quote}</span>"
                 info:
