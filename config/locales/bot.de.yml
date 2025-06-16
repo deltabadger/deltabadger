@@ -180,7 +180,6 @@ de:
         withdrawal_percentage: '%{percentage}%'
         withdrawal: 'Auszahlung'
         cancel_order: 'Abbrechen'
-        cancelling_order: 'Bestellung wird abgebrochen…'
         warning:
             dca_single_asset:
                 intro: "Der Betrag von %{missed_symbol} lag unter der Mindestbestellgröße von %{exchange_name} (%{missed_minimum_base_size} %{missed_symbol} oder %{missed_minimum_quote_size} %{quote_symbol} für %{missed_symbol}). So geht der Bot damit um:"
