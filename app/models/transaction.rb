@@ -9,12 +9,13 @@ class Transaction < ApplicationRecord
   after_create_commit -> { Bot::UpdateMetricsJob.perform_later(bot) unless bot.legacy? }
   after_create_commit -> { bot.handle_quote_amount_limit_update if submitted? && bot.class.include?(Bot::QuoteAmountLimitable) }
 
+  after_update_commit -> { bot.broadcast_updated_order(self) unless bot.legacy? }
+
   scope :for_bot, ->(bot) { where(bot_id: bot.id).order(created_at: :desc) }
   scope :today_for_bot, ->(bot) { for_bot(bot).where('created_at >= ?', Date.today.beginning_of_day) }
   scope :for_bot_by_status, ->(bot, status: :submitted) { where(bot_id: bot.id).where(status: status).order(created_at: :desc) }
 
   validates :bot, presence: true
-  validates :filled_percentage, numericality: { greater_than_or_equal_to: 0, less_than_or_equal_to: 1 }, allow_nil: true
 
   enum status: [
     :submitted, # Successfully sent and accepted by the exchange
@@ -26,10 +27,6 @@ class Transaction < ApplicationRecord
   enum external_status: %i[unknown open closed]
 
   BTC = %w[XXBT XBT BTC].freeze
-
-  def filled?
-    filled_percentage == 1
-  end
 
   # TODO: Migrate Transaction & DailyTransactionAggregate to directly refference assets instead of symbols
   def base_asset
@@ -60,6 +57,16 @@ class Transaction < ApplicationRecord
   #            BTC, 1.days.ago)
   #     .sum(:amount).ceil(8)
   # end
+
+  def cancel
+    result = bot.with_api_key do
+      bot.exchange.cancel_order(order_id: external_id)
+    end
+    return result if result.failure?
+
+    Bot::FetchAndUpdateOrderJob.perform_later(self, update_missed_quote_amount: true)
+    Result::Success.new(self)
+  end
 
   private
 

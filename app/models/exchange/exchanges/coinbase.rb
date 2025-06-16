@@ -268,12 +268,24 @@ module Exchange::Exchanges::Coinbase
     return result if result.failure?
 
     product_id = Utilities::Hash.dig_or_raise(result.data, 'order', 'product_id')
-    price = Utilities::Hash.dig_or_raise(result.data, 'order', 'average_filled_price').to_d
-    amount = Utilities::Hash.dig_or_raise(result.data, 'order', 'filled_size').to_d
-    quote_amount = Utilities::Hash.dig_or_raise(result.data, 'order', 'total_value_after_fees').to_d
-    side = Utilities::Hash.dig_or_raise(result.data, 'order', 'side').downcase.to_sym
     order_type = parse_order_type(Utilities::Hash.dig_or_raise(result.data, 'order', 'order_type'))
-    filled_percentage = Utilities::Hash.dig_or_raise(result.data, 'order', 'completion_percentage').to_d / 100
+    price = Utilities::Hash.dig_or_raise(result.data, 'order', 'average_filled_price').to_d
+    case order_type
+    when :limit_order
+      order_config = Utilities::Hash.dig_or_raise(result.data, 'order', 'order_configuration', 'limit_limit_gtc')
+      amount = order_config['base_size']&.to_d
+      quote_amount = order_config['quote_size']&.to_d
+      price = order_config['limit_price'].to_d if price.zero?
+    when :market_order
+      order_config = Utilities::Hash.dig_or_raise(result.data, 'order', 'order_configuration', 'market_market_ioc')
+      amount = order_config['base_size']&.to_d
+      quote_amount = order_config['quote_size']&.to_d
+    end
+    side = Utilities::Hash.dig_or_raise(result.data, 'order', 'side').downcase.to_sym
+    amount_exec = Utilities::Hash.dig_or_raise(result.data, 'order', 'filled_size').to_d
+    total_value = Utilities::Hash.dig_or_raise(result.data, 'order', 'total_value_after_fees').to_d
+    outstanding = Utilities::Hash.dig_or_raise(result.data, 'order', 'outstanding_hold_amount').to_d
+    quote_amount_exec = total_value - outstanding
     errors = [
       result.data.dig('order', 'reject_reason').presence,
       result.data.dig('order', 'reject_message').presence,
@@ -286,15 +298,28 @@ module Exchange::Exchanges::Coinbase
                           order_id: order_id,
                           ticker: ticker,
                           price: price,
-                          amount: amount,             # amount the account balance went up or down
-                          quote_amount: quote_amount, # amount the account balance went up or down
+                          amount: amount,             # amount in the order config
+                          quote_amount: quote_amount, # amount in the order config
+                          amount_exec: amount_exec,             # amount the account balance went up or down
+                          quote_amount_exec: quote_amount_exec, # amount the account balance went up or down
                           side: side,
                           order_type: order_type,
-                          filled_percentage: filled_percentage,
                           error_messages: errors,
                           status: status,
                           exchange_response: result.data
                         })
+  end
+
+  def cancel_order(order_id:)
+    result = client.cancel_orders(order_ids: [order_id])
+    return result if result.failure?
+
+    results = Utilities::Hash.dig_or_raise(result.data, 'results')
+    success = Utilities::Hash.dig_or_raise(results[0], 'success')
+    error = Utilities::Hash.dig_or_raise(results[0], 'failure_reason')
+    return Result::Failure.new(error) unless success
+
+    Result::Success.new(order_id)
   end
 
   def get_api_key_validity(api_key:)

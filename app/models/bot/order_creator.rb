@@ -13,7 +13,8 @@ module Bot::OrderCreator
       quote: order_data[:ticker].quote_asset.symbol,
       side: order_data[:side],
       order_type: order_data[:order_type],
-      filled_percentage: order_data[:filled_percentage]
+      amount_exec: order_data[:amount_exec],
+      quote_amount_exec: order_data[:quote_amount_exec]
     ).compact
     transactions.create!(order_values)
   end
@@ -31,7 +32,8 @@ module Bot::OrderCreator
       quote: order_data[:ticker].quote_asset.symbol,
       side: order_data[:side],
       order_type: order_data[:order_type],
-      filled_percentage: 0
+      amount_exec: 0,
+      quote_amount_exec: 0
     ).compact
     transactions.create!(order_values)
   end
@@ -48,7 +50,8 @@ module Bot::OrderCreator
       quote: order_data[:ticker].quote_asset.symbol,
       side: order_data[:side],
       order_type: order_data[:order_type],
-      filled_percentage: 0
+      amount_exec: 0,
+      quote_amount_exec: 0
     ).compact
     transactions.create!(order_values)
   end
