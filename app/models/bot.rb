@@ -88,7 +88,7 @@ class Bot < ApplicationRecord
       ["user_#{user_id}", :bot_updates],
       target: 'orders_list',
       partial: 'bots/orders/order',
-      locals: { order: order, decimals: decimals, exchange_name: order.exchange.name, current_user: user }
+      locals: { order: order, decimals: decimals, exchange_name: order.exchange.name, current_user: user, fetch: false }
     )
   end
 
@@ -104,7 +104,7 @@ class Bot < ApplicationRecord
       ["user_#{user_id}", :bot_updates],
       target: dom_id(order),
       partial: 'bots/orders/order',
-      locals: { order: order, decimals: decimals, exchange_name: order.exchange.name, current_user: user }
+      locals: { order: order, decimals: decimals, exchange_name: order.exchange.name, current_user: user, fetch: false }
     )
   end
 

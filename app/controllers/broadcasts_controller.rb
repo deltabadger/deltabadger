@@ -46,4 +46,12 @@ class BroadcastsController < ApplicationController
     Bot::BroadcastMovingAverageLimitInfoUpdateJob.perform_later(bot)
     head :ok
   end
+
+  def fetch_order
+    order = Transaction.find(params['order_id'])
+    return if order.nil?
+
+    Bot::FetchAndUpdateOrderJob.perform_later(order)
+    head :ok
+  end
 end
