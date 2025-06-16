@@ -189,7 +189,6 @@ en:
         withdrawal_percentage: '%{percentage}%'
         withdrawal: 'Withdrawal'
         cancel_order: 'Cancel'
-        cancelling_order: 'Cancelling order…'
         warning:
             dca_single_asset:
                 intro: "The %{missed_symbol} amount was below the %{exchange_name} minimum order size (%{missed_minimum_base_size} %{missed_symbol} or %{missed_minimum_quote_size} %{quote_symbol} for %{missed_symbol}). Here's how the bot handles it:"

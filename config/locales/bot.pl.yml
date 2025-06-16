@@ -166,7 +166,6 @@ pl:
         withdrawal_percentage: '%{percentage}%'
         withdrawal: 'Wypłata'
         cancel_order: 'Anuluj'
-        cancelling_order: 'Anulowanie zlecenia…'
         warning:
             dca_single_asset:
                 intro: "Kwota %{missed_symbol} była poniżej minimalnej wielkości zlecenia na %{exchange_name} (%{missed_minimum_base_size} %{missed_symbol} lub %{missed_minimum_quote_size} %{quote_symbol} dla %{missed_symbol}). Oto jak bot sobie z tym radzi:"
