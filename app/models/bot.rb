@@ -92,6 +92,22 @@ class Bot < ApplicationRecord
     )
   end
 
+  def broadcast_updated_order(order)
+    # TODO: When transactions point to real asset ids, we can use the asset ids directly instead of symbols
+    ticker = order.exchange.tickers.find_by(base_asset: order.base_asset, quote_asset: order.quote_asset)
+    decimals = {
+      order.base_asset.symbol => ticker.base_decimals,
+      order.quote_asset.symbol => ticker.quote_decimals
+    }
+
+    broadcast_replace_to(
+      ["user_#{user_id}", :bot_updates],
+      target: dom_id(order),
+      partial: 'bots/orders/order',
+      locals: { order: order, decimals: decimals, exchange_name: order.exchange.name, current_user: user }
+    )
+  end
+
   private
 
   def update_settings_changed_at
