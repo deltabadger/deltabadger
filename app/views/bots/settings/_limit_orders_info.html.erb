@@ -1,6 +1,7 @@
 <% if bot.limit_ordered? && bot.limit_order_pcnt_distance&.positive? && bot.quote_amount&.positive? %>
   <small id="<%= bot.new_record? ? "new-settings-limit-orders-info" : "settings-limit-orders-info" %>" class="small-info">
     <%= t("bot.settings.limit_orders.info",
-          exchange: bot.exchange.name) %>
+          exchange: bot.exchange.name,
+          maker_fee: bot.exchange.maker_fee) %>
   </small>
 <% end %>

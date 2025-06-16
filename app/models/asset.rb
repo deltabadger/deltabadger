@@ -10,7 +10,8 @@ class Asset < ApplicationRecord
   # https://docs.coingecko.com/reference/simple-supported-currencies
   VS_CURRENCIES = %w[usd eur jpy gbp cad aud chf btc].freeze
   COINGECKO_BLACKLISTED_IDS = [
-    'covalent' # TODO: remove this once covalent is supported in coingecko
+    'covalent', # TODO: remove this once covalent is supported in coingecko
+    'assister-ai' # TODO: remove this once assister-ai is supported in coingecko
   ].freeze
 
   def sync_data_with_coingecko

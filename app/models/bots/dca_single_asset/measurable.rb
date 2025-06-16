@@ -7,24 +7,24 @@ module Bots::DcaSingleAsset::Measurable
       data = initialize_metrics_data
       transactions_array = transactions.submitted.order(created_at: :asc).pluck(:created_at,
                                                                                 :price,
-                                                                                :amount,
-                                                                                :quote_amount,
-                                                                                :base)
+                                                                                :amount_exec,
+                                                                                :quote_amount_exec,
+                                                                                :amount)
       return data if transactions_array.empty?
 
       totals = initialize_totals_data
-      transactions_array.each do |created_at, price, amount, quote_amount, _base|
-        next if price.zero?
+      transactions_array.each do |created_at, price, amount_exec, quote_amount_exec, amount|
+        next if price.zero? || quote_amount_exec.blank? || quote_amount_exec.zero?
 
         # chart data
         data[:chart][:labels] << created_at
-        totals[:total_quote_amount_invested] += if quote_amount.present?
-                                                  quote_amount
+        totals[:total_quote_amount_invested] += if quote_amount_exec.present?
+                                                  quote_amount_exec
                                                 else
-                                                  # TODO: Remove this once we have quote_amount in all transactions
+                                                  # TODO: Remove this once we have quote_amount_exec in all transactions
                                                   price * amount
                                                 end
-        totals[:total_base_amount_acquired] += amount
+        totals[:total_base_amount_acquired] += amount_exec || amount # TODO: Use amount_exec once we have it in all transactions
         data[:chart][:series][1] << totals[:total_quote_amount_invested]
         totals[:current_value_in_quote] = totals[:total_base_amount_acquired] * price
         data[:chart][:series][0] << totals[:current_value_in_quote]
@@ -32,7 +32,7 @@ module Bots::DcaSingleAsset::Measurable
 
         # metrics data
         totals[:prices] << price
-        totals[:amounts] << amount
+        totals[:amounts] << amount_exec || amount # TODO: Use amount_exec once we have it in all transactions
       end
 
       data[:total_base_amount] = totals[:total_base_amount_acquired]
