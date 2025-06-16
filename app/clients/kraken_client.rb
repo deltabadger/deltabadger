@@ -267,7 +267,8 @@ class KrakenClient < ApplicationClient
     nonce = URI.decode_www_form(body).to_h['nonce']
     data = "#{nonce}#{body}"
     message = req.path + Digest::SHA256.digest(data)
-    hmac = OpenSSL::HMAC.digest('sha512', Base64.decode64(@api_secret), message)
+    decoded_key = Base64.decode64(@api_secret)
+    hmac = OpenSSL::HMAC.digest('sha512', decoded_key, message)
     signature = Base64.strict_encode64(hmac)
 
     {

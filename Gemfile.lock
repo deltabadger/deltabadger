@@ -391,6 +391,8 @@ GEM
     rb-fsevent (0.11.2)
     rb-inotify (0.10.1)
       ffi (~> 1.0)
+    rbnacl (7.1.2)
+      ffi (~> 1)
     rdoc (6.7.0)
       psych (>= 4.0.0)
     redis (4.8.1)
@@ -579,7 +581,7 @@ DEPENDENCIES
   intercom-rails
   jaro_winkler (~> 1.6)
   jbuilder (~> 2.5)
-  jwt (~> 2.9.3)
+  jwt
   kaminari
   kraken_ruby_client!
   letter_opener
@@ -597,6 +599,7 @@ DEPENDENCIES
   rack-mini-profiler (~> 3.3)
   rails (~> 6.0.4, >= 6.0.4.1)
   rails_cloudflare_turnstile!
+  rbnacl
   redis (~> 4.8.1)
   rqrcode
   rspec-rails
