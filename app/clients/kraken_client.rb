@@ -139,6 +139,24 @@ class KrakenClient < ApplicationClient
     end
   end
 
+  # https://docs.kraken.com/api/docs/rest-api/cancel-order
+  # @param txid [String] The Kraken order identifier.
+  # @param cl_ord_id [String] An alphanumeric client order identifier which uniquely identifies an open order for each client.
+  def cancel_order(txid: nil, cl_ord_id: nil)
+    with_rescue do
+      response = self.class.connection.post do |req|
+        req.url '/0/private/CancelOrder'
+        req.body = {
+          nonce: generate_nonce,
+          txid: txid,
+          cl_ord_id: cl_ord_id
+        }.compact.to_query
+        req.headers = headers(req)
+      end
+      Result::Success.new(response.body)
+    end
+  end
+
   # https://docs.kraken.com/api/docs/rest-api/get-tradable-asset-pairs
   # @param pairs [Array<String>] Asset pairs to get data for
   # @param info [String] Possible values: [info, leverage, fees, margin]
