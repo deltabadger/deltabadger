@@ -165,7 +165,6 @@ ru:
         withdrawal_percentage: '%{percentage}%'
         withdrawal: 'Вывод'
         cancel_order: 'Отменить'
-        cancelling_order: 'Отмена ордера…'
         warning:
             dca_single_asset:
                 intro: "Сумма %{missed_symbol} была ниже минимального размера ордера на %{exchange_name} (%{missed_minimum_base_size} %{missed_symbol} или %{missed_minimum_quote_size} %{quote_symbol} для %{missed_symbol}). Вот как бот с этим справляется:"
