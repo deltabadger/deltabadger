@@ -225,6 +225,10 @@ class CoinbaseClient < ApplicationClient
     end
   end
 
+  def unauthenticated?
+    @api_key.blank? || @api_secret.blank?
+  end
+
   def unauthenticated_headers
     {
       'Accept': 'application/json',
@@ -237,6 +241,7 @@ class CoinbaseClient < ApplicationClient
     method = req.http_method.to_s.upcase
     request_host = URI(URL).host
     request_path = req.path
+
     jwt_payload = {
       sub: @api_key,
       iss: 'coinbase-cloud',
@@ -245,13 +250,12 @@ class CoinbaseClient < ApplicationClient
       uri: "#{method} #{request_host}#{request_path}"
     }
 
-    begin
-      private_key = OpenSSL::PKey::EC.new(@api_secret)
-    rescue OpenSSL::PKey::ECError
-      return unauthenticated_headers
-    end
+    signing_key = ecdsa_key? ? ecdsa_signing_key : ed25519_signing_key
+    return unauthenticated_headers if signing_key.nil?
 
-    jwt = JWT.encode(jwt_payload, private_key, 'ES256', { kid: @api_key, nonce: SecureRandom.hex })
+    algorithm = ecdsa_key? ? 'ES256' : 'EdDSA'
+    jwt = JWT.encode(jwt_payload, signing_key, algorithm, { kid: @api_key, nonce: SecureRandom.hex })
+
     {
       'Authorization': "Bearer #{jwt}",
       'Accept': 'application/json',
@@ -259,7 +263,21 @@ class CoinbaseClient < ApplicationClient
     }
   end
 
-  def unauthenticated?
-    @api_key.blank? || @api_secret.blank?
+  def ecdsa_key?
+    @api_secret.start_with?('-----BEGIN EC PRIVATE KEY-----')
+  end
+
+  def ecdsa_signing_key
+    OpenSSL::PKey::EC.new(@api_secret)
+  rescue OpenSSL::PKey::ECError
+    nil
+  end
+
+  def ed25519_signing_key
+    decoded_key = Base64.decode64(@api_secret)
+    seed = decoded_key[0...32]
+    RbNaCl::Signatures::Ed25519::SigningKey.new(seed)
+  rescue RbNaCl::LengthError
+    nil
   end
 end
