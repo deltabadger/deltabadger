@@ -162,6 +162,8 @@ ru:
         withdraw_threshold_html: ''
         withdrawal_percentage: '%{percentage}%'
         withdrawal: 'Вывод'
+        cancel_order: 'Отменить'
+        cancelling_order: 'Отмена ордера…'
         warning:
             dca_single_asset:
                 intro: "Сумма %{missed_symbol} была ниже минимального размера ордера на %{exchange_name} (%{missed_minimum_base_size} %{missed_symbol} или %{missed_minimum_quote_size} %{quote_symbol} для %{missed_symbol}). Вот как бот с этим справляется:"
@@ -179,6 +181,9 @@ ru:
             smart_intervals:
                 sentence_html: '<b>Smart Intervals<sup>®</sup></b> Разделить <span>сумму</span> на единицы по <span>%{amount_html} %{quote}</span>'
                 info: "Разделение ваших %{quote_amount} %{quote} / %{interval} на единицы по %{amount} %{quote} приведет к одной инвестиции каждые %{smart_interval}"
+            limit_orders:
+                sentence_html: '<b>FeeCutter<sup>®</sup></b> Снизить комиссии, используя лимитные ордера <span>%{amount_html}%</span> ниже цены'
+                info: "Чтобы снизить комиссии до нуля, установите значение %{maker_fee}%, что соответствует комиссии мейкера на %{exchange}. Установите ниже для более быстрого исполнения или выше для потенциально лучшей цены. Отслеживайте исполнение ваших ордеров в таблице ордеров."
             extra_amount_limit:
                 sentence_html: "Не тратить больше чем <span>%{value_html} %{quote}</span>"
                 info:
