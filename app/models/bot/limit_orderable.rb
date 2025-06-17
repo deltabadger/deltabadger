@@ -1,7 +1,7 @@
 module Bot::LimitOrderable
   extend ActiveSupport::Concern
 
-  included do
+  included do # rubocop:disable Metrics/BlockLength
     store_accessor :settings,
                    :limit_ordered,
                    :limit_order_pcnt_distance
@@ -24,6 +24,14 @@ module Bot::LimitOrderable
           limit_ordered: params[:limit_ordered].presence&.in?(%w[1 true]),
           limit_order_pcnt_distance: parsed_limit_order_pcnt_distance
         ).compact
+      end
+
+      def execute_action
+        transactions.submitted.where(external_status: 'open').each do |transaction|
+          Bot::FetchAndUpdateOrderJob.perform_now(transaction, update_missed_quote_amount: true)
+        end
+
+        super
       end
     end
 
