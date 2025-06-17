@@ -113,6 +113,7 @@ nl:
                 current_value_sold: 'Huidige waarde van de verkochte %{base}'
                 date: Datum
                 download_csv: 'Download .csv'
+                generating_csv: 'Genereer bestand...'
                 exchange_unavailable_html: 'De exchange API reageert momenteel niet.<br>De berekeningen zijn gebaseerd op de laatst beschikbare gegevens.'
                 order: Order
                 profit_loss: Winst/verlies

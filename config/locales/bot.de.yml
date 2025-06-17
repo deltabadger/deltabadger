@@ -112,6 +112,7 @@ de:
                 current_value_sold: 'Aktuellen Wert des %{base} verkauft'
                 date: Datum
                 download_csv: 'Download .csv'
+                generating_csv: 'Generiere Datei...'
                 exchange_unavailable_html: 'Die Börsen-API reagiert derzeit nicht.<br>Berechnungen basieren auf den letzten verfügbaren Daten.'
                 order: 'Order Art'
                 profit_loss: Gewinn/Verlust
