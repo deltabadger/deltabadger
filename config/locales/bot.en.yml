@@ -122,6 +122,7 @@ en:
                 current_value_sold: 'Current value of the %{base} sold'
                 date: Date
                 download_csv: 'Download .csv'
+                generating_csv: 'Generating file...'
                 exchange_unavailable_html: 'The exchange API does not respond at the moment.<br>Calculations are based on the last data available.'
                 order: Order
                 profit_loss: Profit/Loss

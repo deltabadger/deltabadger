@@ -19,7 +19,7 @@ class Bots::DcaSingleAsset < Bot
   #       ! also in price_limitable
 
   include SmartIntervalable      # decorators for: parse_params, pending_quote_amount, interval_duration, restarting_within_interval?
-  include LimitOrderable         # decorators for: parse_params
+  include LimitOrderable         # decorators for: parse_params, execute_action
   include QuoteAmountLimitable   # decorators for: parse_params, pending_quote_amount
   include PriceLimitable         # decorators for: parse_params, started_at, execute_action, stop
   include PriceDropLimitable     # decorators for: parse_params, started_at, execute_action, stop
@@ -29,6 +29,7 @@ class Bots::DcaSingleAsset < Bot
   include Schedulable
   include OrderCreator
   include Accountable
+  include Exportable
   include Bots::DcaSingleAsset::OrderSetter
   include Bots::DcaSingleAsset::Measurable
 
