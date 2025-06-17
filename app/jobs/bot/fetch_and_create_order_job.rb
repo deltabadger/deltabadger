@@ -1,6 +1,6 @@
 class Bot::FetchAndCreateOrderJob < BotJob
   def perform(bot, order_id, update_missed_quote_amount: false)
-    return if Transaction.exists?(external_id: order_id)
+    raise "Order #{order_id} already exists" if Transaction.exists?(external_id: order_id)
 
     result = fetch_order(bot, order_id)
     raise "Failed to fetch order #{order_id} result: #{result.errors}" if result.failure?
@@ -10,7 +10,10 @@ class Bot::FetchAndCreateOrderJob < BotJob
     when :open, :closed
       ActiveRecord::Base.transaction do
         bot.create_submitted_order!(order_data)
-        bot.update!(missed_quote_amount: [0, bot.missed_quote_amount - order_data[:quote_amount_exec]].max) if update_missed_quote_amount
+        if update_missed_quote_amount
+          missed_quote_amount = [0, bot.missed_quote_amount - order_data[:quote_amount_exec]].max
+          bot.update!(missed_quote_amount: missed_quote_amount)
+        end
       end
     when :unknown
       raise "Order #{order_id} status is unknown."
