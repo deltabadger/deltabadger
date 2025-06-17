@@ -51,7 +51,7 @@ class BroadcastsController < ApplicationController
     order = Transaction.find(params['order_id'])
     return if order.nil?
 
-    Bot::FetchAndUpdateOrderJob.perform_later(order, update_missed_quote_amount: true)
+    Bot::FetchAndUpdateOrderJob.perform_later(order, update_missed_quote_amount: true, success_or_kill: true)
     head :ok
   end
 end
