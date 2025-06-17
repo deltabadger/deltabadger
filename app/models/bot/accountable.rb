@@ -19,10 +19,20 @@ module Bot::Accountable
     return 0 if started_at.nil? || deleted?
 
     calc_since = [started_at, settings_changed_at].compact.max
-    total_quote_amount_invested = transactions.submitted
-                                              .where('created_at >= ?', calc_since)
-                                              .pluck(:quote_amount_exec)
-                                              .sum
+    closed_quote_amount = transactions.submitted
+                                      .where('created_at >= ?', calc_since)
+                                      .closed
+                                      .pluck(:quote_amount_exec)
+                                      .sum
+
+    open_quote_amount = transactions.submitted
+                                    .where('created_at >= ?', calc_since)
+                                    .open
+                                    .pluck(:quote_amount, :amount, :price)
+                                    .map { |quote_amount, amount, price| quote_amount || (amount * price) }
+                                    .sum
+
+    total_quote_amount_invested = closed_quote_amount + open_quote_amount
 
     # Round to 6 decimal places to avoid floating point precision issues!
     intervals = ((last_interval_checkpoint_at.round(6) - calc_since.round(6)) / interval_duration).floor + 1
