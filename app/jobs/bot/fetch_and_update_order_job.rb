@@ -9,7 +9,10 @@ class Bot::FetchAndUpdateOrderJob < BotJob
     when :open, :closed
       ActiveRecord::Base.transaction do
         order.update!(update_params(order_data))
-        order.bot.update!(missed_quote_amount: [0, order.bot.missed_quote_amount - quote_amount_diff].max) if update_missed_quote_amount
+        if update_missed_quote_amount
+          missed_quote_amount = [0, order.bot.missed_quote_amount - quote_amount_diff].max
+          order.bot.update!(missed_quote_amount: missed_quote_amount)
+        end
       end
     when :unknown
       raise "Order #{order.external_id} status is unknown."
