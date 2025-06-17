@@ -1,3 +1,5 @@
+require 'csv'
+
 module Bot::Exportable
   extend ActiveSupport::Concern
 

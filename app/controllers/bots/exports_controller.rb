@@ -1,5 +1,3 @@
-require 'csv'
-
 class Bots::ExportsController < ApplicationController
   include Bots::Botable
 

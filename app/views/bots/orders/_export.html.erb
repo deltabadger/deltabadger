@@ -4,7 +4,7 @@
               class: 'sinput',
               method: :post,
               data: { turbo: false, class_toggle_target: "togglable", action: "click->class-toggle#toggle" } %>
-  <div class="hidden" data-class-toggle-target="togglable">
+  <div class="hidden" data-class-toggle-target="togglable" style="padding: 0.5rem;">
     <div class="loader--small" style="position: unset; float: left; margin: 0.25rem 1rem;"></div>
     <%= t('bot.details.stats.generating_csv') %>
   </div>
