@@ -10,15 +10,21 @@ def update_new_bots_transactions_remote_data
   bot_ids = Bot.not_legacy.pluck(:id).sort.reverse
   bot_ids.each do |bot_id|
     bot = Bot.find(bot_id)
-    puts "updating transactions for bot #{bot.id}"
     api_key = bot.user.api_keys.trading.correct.find_by(exchange: bot.exchange)
     next if api_key.blank?
 
     bot.exchange.set_client(api_key: api_key)
-    bot.transactions.submitted
-       .where.not(external_id: nil)
-       .where(quote_amount_exec: nil)
-       .order(created_at: :desc).each do |transaction|
+    transaction_ids = bot.transactions.submitted
+                         .where.not(external_id: nil)
+                         .where(quote_amount_exec: nil)
+                         .order(created_at: :desc)
+                         .pluck(:id)
+    next if transaction_ids.blank?
+
+    puts "updating transactions for bot #{bot.id}"
+
+    transaction_ids.each do |transaction_id|
+      transaction = bot.transactions.find(transaction_id)
       next if transaction.quote_amount_exec.present? # Doublecheck if multiple processes are running
 
       puts "getting order #{transaction.external_id} (#{transaction.created_at})"
