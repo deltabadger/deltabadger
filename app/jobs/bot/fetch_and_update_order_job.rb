@@ -1,6 +1,6 @@
 class Bot::FetchAndUpdateOrderJob < BotJob
-  def perform(order, update_missed_quote_amount: false)
-    result = fetch_order(order)
+  def perform(order, update_missed_quote_amount: false, success_or_kill: false)
+    result = fetch_order(order, retries: success_or_kill ? 1 : 10)
     raise "Failed to fetch order #{order.external_id} result: #{result.errors}" if result.failure?
 
     order_data = result.data
@@ -17,6 +17,10 @@ class Bot::FetchAndUpdateOrderJob < BotJob
     when :unknown
       raise "Order #{order.external_id} status is unknown."
     end
+  rescue StandardError => e
+    return if success_or_kill
+
+    raise e
   end
 
   private
