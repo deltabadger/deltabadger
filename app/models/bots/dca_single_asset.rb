@@ -29,6 +29,7 @@ class Bots::DcaSingleAsset < Bot
   include Schedulable
   include OrderCreator
   include Accountable
+  include Exportable
   include Bots::DcaSingleAsset::OrderSetter
   include Bots::DcaSingleAsset::Measurable
 
