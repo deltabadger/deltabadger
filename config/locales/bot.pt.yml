@@ -110,6 +110,7 @@ pt:
                 current_value_sold: 'Valor atual de %{base} vendido'
                 date: Data
                 download_csv: 'Transferir .csv'
+                generating_csv: 'Gerando arquivo...'
                 exchange_unavailable_html: 'A API do câmbio não responde atualmente<br>Os cálculos baseiam-se nos últimos dados disponíveis.'
                 order: Pedido
                 profit_loss: Lucro/perda

@@ -18,6 +18,4 @@
   </table>
   <%= turbo_frame_tag 'orders_pagination', src: bot_path(bot, format: :turbo_stream, params: { decimals: decimals }), loading: :lazy %>
 </div>
-<a href="/api/bots/<%= bot.id %>/transactions_csv" class="sinput" download target="_blank">
-  <%= t('bot.details.stats.download_csv') %>
-</a>
+<%= render 'bots/orders/export', bot: bot %>
