@@ -1,6 +1,6 @@
 class Bot::FetchAndUpdateOrderJob < BotJob
-  def perform(order, update_missed_quote_amount: false)
-    result = fetch_order(order)
+  def perform(order, update_missed_quote_amount: false, success_or_kill: false)
+    result = fetch_order(order, retries: success_or_kill ? 1 : 10)
     raise "Failed to fetch order #{order.external_id} result: #{result.errors}" if result.failure?
 
     order_data = result.data
@@ -9,11 +9,18 @@ class Bot::FetchAndUpdateOrderJob < BotJob
     when :open, :closed
       ActiveRecord::Base.transaction do
         order.update!(update_params(order_data))
-        order.bot.update!(missed_quote_amount: [0, order.bot.missed_quote_amount - quote_amount_diff].max) if update_missed_quote_amount
+        if update_missed_quote_amount
+          missed_quote_amount = [0, order.bot.missed_quote_amount - quote_amount_diff].max
+          order.bot.update!(missed_quote_amount: missed_quote_amount)
+        end
       end
     when :unknown
       raise "Order #{order.external_id} status is unknown."
     end
+  rescue StandardError => e
+    return if success_or_kill
+
+    raise e
   end
 
   private
