@@ -6,10 +6,19 @@ module Bot::Typeable
 
   included do
     scope :basic, -> { where(type: 'Bots::Basic') }
+    scope :not_basic, -> { where.not(type: 'Bots::Basic') }
+
     scope :withdrawal, -> { where(type: 'Bots::Withdrawal') }
+    scope :not_withdrawal, -> { where.not(type: 'Bots::Withdrawal') }
+
     scope :webhook, -> { where(type: 'Bots::Webhook') }
+    scope :not_webhook, -> { where.not(type: 'Bots::Webhook') }
+
     scope :dca_single_asset, -> { where(type: 'Bots::DcaSingleAsset') }
+    scope :not_dca_single_asset, -> { where.not(type: 'Bots::DcaSingleAsset') }
+
     scope :dca_dual_asset, -> { where(type: 'Bots::DcaDualAsset') }
+    scope :not_dca_dual_asset, -> { where.not(type: 'Bots::DcaDualAsset') }
 
     scope :legacy, -> { where(type: %w[Bots::Basic Bots::Withdrawal Bots::Webhook]) }
     scope :not_legacy, -> { where.not(type: %w[Bots::Basic Bots::Withdrawal Bots::Webhook]) }
