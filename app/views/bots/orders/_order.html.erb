@@ -14,11 +14,7 @@
 
   <td>
     <% if fetch %>
-      <%= tag.div data: {
-        controller: "broadcast--on-connect",
-        broadcast__on_connect_method_value: "fetch_order",
-        broadcast__on_connect_method_args_value: { order_id: order.id }.to_json
-      }, class: "loader--small", style: "position: unset; float: right; margin-right: 0.5rem;" %>
+      <div class="loader--small" style="position: unset; float: right; margin-right: 0.5rem;"></div>
     <% elsif order.open? %>
       <div data-controller="class-toggle" data-class-toggle-toggle-classes-value='["hidden"]'>
         <%= button_to t('bot.cancel_order'), bot_transaction_path(order.bot, order), method: :delete, class: 'sinput sinput--small sinput--hover-warning', data: { class_toggle_target: "togglable", action: "click->class-toggle#toggle" } %>

@@ -27,9 +27,7 @@ module Bot::LimitOrderable
       end
 
       def execute_action
-        transactions.submitted.where(external_status: 'open').each do |transaction|
-          Bot::FetchAndUpdateOrderJob.perform_now(transaction, update_missed_quote_amount: true)
-        end
+        Bot::FetchAndUpdateOpenOrdersJob.perform_now(self, update_missed_quote_amount: true)
 
         super
       end
