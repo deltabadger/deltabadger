@@ -38,4 +38,8 @@ module Bot::Typeable
   def legacy?
     basic? || withdrawal? || webhook?
   end
+
+  def not_legacy?
+    !legacy?
+  end
 end
