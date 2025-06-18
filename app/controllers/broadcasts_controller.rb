@@ -47,11 +47,11 @@ class BroadcastsController < ApplicationController
     head :ok
   end
 
-  def fetch_order
-    order = Transaction.find(params['order_id'])
-    return if order.nil?
+  def fetch_open_orders
+    bot = Bot.find_by(id: params['bot_id'])
+    return if bot.nil?
 
-    Bot::FetchAndUpdateOrderJob.perform_later(order, update_missed_quote_amount: true, success_or_kill: true)
+    Bot::FetchAndUpdateOpenOrdersJob.perform_later(bot, update_missed_quote_amount: true, success_or_kill: true)
     head :ok
   end
 end
