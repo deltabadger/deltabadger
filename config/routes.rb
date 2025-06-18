@@ -200,7 +200,7 @@ Rails.application.routes.draw do
       post :price_drop_limit_info_update
       post :indicator_limit_info_update
       post :moving_average_limit_info_update
-      post :fetch_order
+      post :fetch_open_orders
     end
   end
 
