@@ -4,14 +4,23 @@ class Transaction < ApplicationRecord
 
   before_create :set_exchange, if: -> { bot.legacy? }
   before_save :round_numeric_fields
+  before_save :store_previous_quote_amount_exec
   after_create_commit :set_daily_transaction_aggregate
-  after_create_commit -> { bot.broadcast_new_order(self) unless bot.legacy? }
-  after_create_commit -> { Bot::UpdateMetricsJob.perform_later(bot) unless bot.legacy? }
-  after_create_commit -> { bot.handle_quote_amount_limit_update if submitted? && bot.class.include?(Bot::QuoteAmountLimitable) }
+  after_create_commit -> { bot.broadcast_new_order(self) if bot.not_legacy? }
+  after_create_commit -> { Bot::UpdateMetricsJob.perform_later(bot) if bot.not_legacy? && quote_amount_exec_changed? }
+  after_create_commit lambda {
+                        if submitted? && bot.class.include?(Bot::QuoteAmountLimitable) && quote_amount_exec_changed?
+                          bot.handle_quote_amount_limit_update
+                        end
+                      }
 
-  after_update_commit -> { bot.broadcast_updated_order(self) unless bot.legacy? }
-  after_update_commit -> { Bot::UpdateMetricsJob.perform_later(bot) unless bot.legacy? }
-  after_update_commit -> { bot.handle_quote_amount_limit_update if submitted? && bot.class.include?(Bot::QuoteAmountLimitable) }
+  after_update_commit -> { bot.broadcast_updated_order(self) if bot.not_legacy? }
+  after_update_commit -> { Bot::UpdateMetricsJob.perform_later(bot) if bot.not_legacy? && quote_amount_exec_changed? }
+  after_update_commit lambda {
+                        if submitted? && bot.class.include?(Bot::QuoteAmountLimitable) && quote_amount_exec_changed?
+                          bot.handle_quote_amount_limit_update
+                        end
+                      }
 
   scope :for_bot, ->(bot) { where(bot_id: bot.id).order(created_at: :desc) }
   scope :today_for_bot, ->(bot) { for_bot(bot).where('created_at >= ?', Date.today.beginning_of_day) }
@@ -105,6 +114,14 @@ class Transaction < ApplicationRecord
     self.bot_quote_amount = bot_quote_amount&.round(18)
     self.quote_amount = quote_amount&.round(18)
     self.quote_amount_exec = quote_amount_exec&.round(18)
+  end
+
+  def store_previous_quote_amount_exec
+    @previous_quote_amount_exec = quote_amount_exec
+  end
+
+  def quote_amount_exec_changed?
+    quote_amount_exec != @previous_quote_amount_exec && quote_amount_exec.present? && quote_amount_exec.positive?
   end
 
   def set_daily_transaction_aggregate # rubocop:disable Metrics/CyclomaticComplexity,Metrics/PerceivedComplexity
