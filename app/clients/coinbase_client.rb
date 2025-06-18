@@ -33,6 +33,75 @@ class CoinbaseClient < ApplicationClient
     end
   end
 
+  # https://docs.cdp.coinbase.com/coinbase-app/trade/reference/retailbrokerageapi_gethistoricalorders
+  # @param order_ids [Array<String>] ID(s) of order(s)
+  # @param product_ids [Array<String>] Optional string of the product ID(s). Defaults to null, or fetch for all products.
+  # @param product_type [String] Returns orders matching this product type. By default, returns all product types.
+  # @param order_status [Array<String>] Only returns orders matching the specified order statuses.
+  # @param time_in_forces [Array<String>] Only orders matching this time in force(s) are returned.
+  #                                       Default is to return all time in forces.
+  # @param order_types [Array<String>] Only returns orders matching the specified order types (e.g. MARKET).
+  #                                    By default, returns all order types.
+  # @param order_side [Array<String>] Only returns the orders matching the specified side (e.g. 'BUY', 'SELL').
+  #                                   By default, returns all sides.
+  # @param start_date [String] The start date to fetch orders from (inclusive).
+  #                            If provided, only orders created after this date will be returned.
+  # @param end_date [String] The end date to fetch orders from (exclusive).
+  #                          If provided, only orders with creation time before this date will be returned.
+  # @param order_placement_source [String] Only returns the orders matching this placement source.
+  #                                    By default, returns RETAIL_ADVANCED placement source.
+  # @param contract_expiry_type [String] Only returns the orders matching the contract expiry type.
+  #                                      Only applicable if product_type is set to FUTURE.
+  # @param asset_filters [Array<String>] Only returns the orders where the quote, base or underlying asset matches
+  # the provided asset filter(s) (e.g. 'BTC').
+  # @param limit [Integer] The number of orders to display per page (no default amount). If has_next is true, additional
+  #                        pages of orders are available to be fetched. Use the cursor parameter to start on a specified page.
+  # @param cursor [String] For paginated responses, returns all responses that come after this value.
+  # @param sort_by [String] Sort results by a field, results use unstable pagination. Default is to sort by creation time.
+  def list_orders(
+    order_ids: nil,
+    product_ids: nil,
+    product_type: nil,
+    order_status: nil,
+    time_in_forces: nil,
+    order_types: nil,
+    order_side: nil,
+    start_date: nil,
+    end_date: nil,
+    order_placement_source: nil,
+    contract_expiry_type: nil,
+    asset_filters: nil,
+    limit: nil,
+    cursor: nil,
+    sort_by: nil
+  )
+    with_rescue do
+      response = self.class.connection.get do |req|
+        req.url '/api/v3/brokerage/orders/historical/batch'
+        req.headers = headers(req)
+        req.params = {
+          order_ids: order_ids,
+          product_ids: product_ids,
+          product_type: product_type,
+          order_status: order_status,
+          time_in_forces: time_in_forces,
+          order_types: order_types,
+          order_side: order_side,
+          start_date: start_date,
+          end_date: end_date,
+          order_placement_source: order_placement_source,
+          contract_expiry_type: contract_expiry_type,
+          asset_filters: asset_filters,
+          limit: limit,
+          cursor: cursor,
+          sort_by: sort_by
+        }.compact
+        req.options.params_encoder = Faraday::FlatParamsEncoder
+      end
+      Result::Success.new(response.body)
+    end
+  end
+
   # https://docs.cdp.coinbase.com/coinbase-app/trade/reference/retailbrokerageapi_postorder
   # @param client_order_id [String] The client order id
   # @param product_id [String] The product id (BTC-USD)

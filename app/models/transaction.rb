@@ -60,13 +60,29 @@ class Transaction < ApplicationRecord
   #     .sum(:amount).ceil(8)
   # end
 
+  def update_from_order_data(order_data)
+    update({
+      status: :submitted,
+      external_status: order_data[:status],
+      price: order_data[:price],
+      amount: order_data[:amount],
+      quote_amount: order_data[:quote_amount],
+      base: order_data[:ticker]&.base_asset&.symbol || base,
+      quote: order_data[:ticker]&.quote_asset&.symbol || quote,
+      side: order_data[:side],
+      order_type: order_data[:order_type],
+      amount_exec: order_data[:amount_exec],
+      quote_amount_exec: order_data[:quote_amount_exec]
+    }.compact)
+  end
+
   def cancel
     result = bot.with_api_key do
       bot.exchange.cancel_order(order_id: external_id)
     end
+    Bot::FetchAndUpdateOrderJob.perform_later(self, update_missed_quote_amount: true)
     return result if result.failure?
 
-    Bot::FetchAndUpdateOrderJob.perform_later(self, update_missed_quote_amount: true)
     Result::Success.new(self)
   end
 
@@ -85,7 +101,10 @@ class Transaction < ApplicationRecord
   def round_numeric_fields
     self.price = price&.round(18)
     self.amount = amount&.round(18)
+    self.amount_exec = amount_exec&.round(18)
     self.bot_quote_amount = bot_quote_amount&.round(18)
+    self.quote_amount = quote_amount&.round(18)
+    self.quote_amount_exec = quote_amount_exec&.round(18)
   end
 
   def set_daily_transaction_aggregate # rubocop:disable Metrics/CyclomaticComplexity,Metrics/PerceivedComplexity
