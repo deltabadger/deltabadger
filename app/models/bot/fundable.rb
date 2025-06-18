@@ -4,9 +4,8 @@ module Bot::Fundable
   def notify_if_funds_are_low
     return if Rails.configuration.dry_run
 
-    result = nil
-    with_api_key do
-      result = exchange.get_balance(asset_id: quote_asset_id)
+    result = with_api_key do
+      exchange.get_balance(asset_id: quote_asset_id)
     end
     return if result.failure?
 
