@@ -13,9 +13,7 @@
   <td><%= quote_amount.nil? ? '-' : decimals[order.quote].nil? ? quote_amount : quote_amount.round(decimals[order.quote]) %> <%= order.quote %></td>
 
   <td>
-    <% if fetch %>
-      <div class="loader--small" style="position: unset; float: right; margin-right: 0.5rem;"></div>
-    <% elsif order.open? %>
+    <% if order.open? %>
       <div data-controller="class-toggle" data-class-toggle-toggle-classes-value='["hidden"]'>
         <%= button_to t('bot.cancel_order'), bot_transaction_path(order.bot, order), method: :delete, class: 'sinput sinput--small sinput--hover-warning', data: { class_toggle_target: "togglable", action: "click->class-toggle#toggle" } %>
         <div class="loader--small hidden" style="position: unset; float: right; margin-right: 0.5rem;" data-class-toggle-target="togglable" ></div>
