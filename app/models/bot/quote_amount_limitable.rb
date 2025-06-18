@@ -66,8 +66,10 @@ module Bot::QuoteAmountLimitable
   end
 
   def handle_quote_amount_limit_update
+    return unless quote_amount_limited?
+
     broadcast_quote_amount_limit_update
-    return unless quote_amount_limited? && quote_amount_limit_reached?
+    return unless quote_amount_limit_reached?
 
     Bot::StopJob.perform_later(self, stop_message_key: 'bot.settings.extra_amount_limit.amount_spent')
     notify_stopped_by_amount_limit
@@ -98,8 +100,6 @@ module Bot::QuoteAmountLimitable
   end
 
   def broadcast_quote_amount_limit_update
-    return unless quote_amount_limited?
-
     broadcast_replace_to(
       ["user_#{user_id}", :bot_updates],
       target: 'settings-amount-limit-info',
