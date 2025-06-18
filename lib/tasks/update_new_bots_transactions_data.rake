@@ -18,13 +18,14 @@ def update_new_bots_transactions_remote_data
                          .where.not(external_id: nil)
                          .where(quote_amount_exec: nil)
                          .order(created_at: :desc)
-                         .pluck(:id)
+                         .pluck(:external_id)
     next if transaction_ids.blank?
 
     puts "updating transactions for bot #{bot.id}"
 
     transaction_ids.each_slice(1000) do |transaction_ids_slice|
       begin
+        puts "getting orders for #{transaction_ids_slice.first}..#{transaction_ids_slice.last} (#{transaction_ids_slice.size})"
         result = bot.exchange.get_orders(order_ids: transaction_ids_slice)
       rescue KeyError => e
         puts "error getting orders for #{transaction_ids_slice.first}..#{transaction_ids_slice.last} (#{transaction_ids_slice.size}): #{e.message}"
@@ -37,6 +38,7 @@ def update_new_bots_transactions_remote_data
 
       puts "updating transactions #{transaction_ids_slice.first}..#{transaction_ids_slice.last} (#{transaction_ids_slice.size})"
       orders = result.data
+      break if orders.empty?
 
       orders.each do |order_id, order_data|
         transaction = bot.transactions.find_by(external_id: order_id)

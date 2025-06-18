@@ -538,7 +538,7 @@ module Exchange::Exchanges::Kraken
       order_type: order_type,
       error_messages: errors,
       status: status,
-      exchange_response: result.data
+      exchange_response: order_data
     }
   end
 
