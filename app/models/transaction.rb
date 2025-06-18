@@ -6,18 +6,18 @@ class Transaction < ApplicationRecord
   before_save :round_numeric_fields
   before_save :store_previous_quote_amount_exec
   after_create_commit :set_daily_transaction_aggregate
-  after_create_commit -> { bot.broadcast_new_order(self) if bot.not_legacy? }
-  after_create_commit -> { Bot::UpdateMetricsJob.perform_later(bot) if bot.not_legacy? && quote_amount_exec_changed? }
+  after_create_commit -> { bot.broadcast_new_order(self) if !bot.legacy? }
+  after_create_commit -> { Bot::UpdateMetricsJob.perform_later(bot) if !bot.legacy? && quote_amount_exec_changed? }
   after_create_commit lambda {
-                        if submitted? && bot.class.include?(Bot::QuoteAmountLimitable) && quote_amount_exec_changed?
+                        if bot.class.include?(Bot::QuoteAmountLimitable) && quote_amount_exec_changed?
                           bot.handle_quote_amount_limit_update
                         end
                       }
 
-  after_update_commit -> { bot.broadcast_updated_order(self) if bot.not_legacy? }
-  after_update_commit -> { Bot::UpdateMetricsJob.perform_later(bot) if bot.not_legacy? && quote_amount_exec_changed? }
+  after_update_commit -> { bot.broadcast_updated_order(self) if !bot.legacy? }
+  after_update_commit -> { Bot::UpdateMetricsJob.perform_later(bot) if !bot.legacy? && quote_amount_exec_changed? }
   after_update_commit lambda {
-                        if submitted? && bot.class.include?(Bot::QuoteAmountLimitable) && quote_amount_exec_changed?
+                        if bot.class.include?(Bot::QuoteAmountLimitable) && quote_amount_exec_changed?
                           bot.handle_quote_amount_limit_update
                         end
                       }
