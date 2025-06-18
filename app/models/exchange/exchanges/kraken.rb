@@ -288,55 +288,30 @@ module Exchange::Exchanges::Kraken
     error = Utilities::Hash.dig_or_raise(result.data, 'error')
     return Result::Failure.new(*error) if error.any?
 
-    order_data = Utilities::Hash.dig_or_raise(result.data, 'result').map { |_, v| v }.first
+    order_data = Utilities::Hash.dig_or_raise(result.data, 'result')[order_id]
     return Result::Failure.new("Failed to get #{name} order (order_id: #{order_id}). Order data is nil") if order_data.nil?
 
-    pair = Utilities::Hash.dig_or_raise(order_data, 'descr', 'pair')
-    order_type = parse_order_type(Utilities::Hash.dig_or_raise(order_data, 'descr', 'ordertype'))
-    price = Utilities::Hash.dig_or_raise(order_data, 'price').to_d
-    price = Utilities::Hash.dig_or_raise(order_data, 'descr', 'price').to_d if price.zero? && order_type == :limit_order
-    quote_amount_exec = Utilities::Hash.dig_or_raise(order_data, 'cost').to_d
+    normalized_order_data = parse_order_data(order_id, order_data)
 
-    order_flags = Utilities::Hash.dig_or_raise(order_data, 'oflags').split(',')
-    if order_flags.include?('viqc')
-      amount = nil
-      quote_amount = Utilities::Hash.dig_or_raise(order_data, 'vol').to_d
-      fee = Utilities::Hash.dig_or_raise(order_data, 'fee').to_d
-      amount_exec = if order_flags.include?('fciq')
-                      (quote_amount_exec - fee) / price
-                    elsif order_flags.include?('fcib')
-                      (quote_amount_exec / price) - fee
-                    else
-                      raise "Unknown order flags: #{order_flags.inspect}"
-                    end
-    else
-      amount = Utilities::Hash.dig_or_raise(order_data, 'vol').to_d
-      quote_amount = nil
-      amount_exec = Utilities::Hash.dig_or_raise(order_data, 'vol_exec').to_d
+    Result::Success.new(normalized_order_data)
+  end
+
+  def get_orders(order_ids:)
+    orders = {}
+    order_ids.each_slice(50) do |order_ids_slice|
+      result = client.query_orders_info(txid: order_ids_slice.join(','))
+      return result if result.failure?
+
+      error = Utilities::Hash.dig_or_raise(result.data, 'error')
+      return Result::Failure.new(*error) if error.any?
+
+      order_datas = Utilities::Hash.dig_or_raise(result.data, 'result')
+      order_datas.each do |order_id, order_data|
+        orders[order_id] = parse_order_data(order_id, order_data)
+      end
     end
 
-    side = Utilities::Hash.dig_or_raise(order_data, 'descr', 'type').downcase.to_sym
-    errors = [
-      order_data['reason'].presence,
-      order_data['misc'].presence
-    ].compact
-    status = parse_order_status(Utilities::Hash.dig_or_raise(order_data, 'status'))
-    ticker = tickers.find_by(ticker: pair)
-
-    Result::Success.new({
-                          order_id: order_id,
-                          ticker: ticker,
-                          price: price,
-                          amount: amount,             # amount in the order config
-                          quote_amount: quote_amount, # amount in the order config
-                          amount_exec: amount_exec,             # amount the account balance went up or down
-                          quote_amount_exec: quote_amount_exec, # amount the account balance went up or down
-                          side: side,
-                          order_type: order_type,
-                          error_messages: errors,
-                          status: status,
-                          exchange_response: result.data
-                        })
+    Result::Success.new(orders)
   end
 
   def cancel_order(order_id:)
@@ -516,6 +491,55 @@ module Exchange::Exchanges::Kraken
     }
 
     Result::Success.new(data)
+  end
+
+  def parse_order_data(order_id, order_data)
+    pair = Utilities::Hash.dig_or_raise(order_data, 'descr', 'pair')
+    order_type = parse_order_type(Utilities::Hash.dig_or_raise(order_data, 'descr', 'ordertype'))
+    price = Utilities::Hash.dig_or_raise(order_data, 'price').to_d
+    price = Utilities::Hash.dig_or_raise(order_data, 'descr', 'price').to_d if price.zero? && order_type == :limit_order
+    quote_amount_exec = Utilities::Hash.dig_or_raise(order_data, 'cost').to_d
+
+    order_flags = Utilities::Hash.dig_or_raise(order_data, 'oflags').split(',')
+    if order_flags.include?('viqc')
+      amount = nil
+      quote_amount = Utilities::Hash.dig_or_raise(order_data, 'vol').to_d
+      fee = Utilities::Hash.dig_or_raise(order_data, 'fee').to_d
+      amount_exec = if order_flags.include?('fciq')
+                      (quote_amount_exec - fee) / price
+                    elsif order_flags.include?('fcib')
+                      (quote_amount_exec / price) - fee
+                    else
+                      raise "Unknown order flags: #{order_flags.inspect}"
+                    end
+    else
+      amount = Utilities::Hash.dig_or_raise(order_data, 'vol').to_d
+      quote_amount = nil
+      amount_exec = Utilities::Hash.dig_or_raise(order_data, 'vol_exec').to_d
+    end
+
+    side = Utilities::Hash.dig_or_raise(order_data, 'descr', 'type').downcase.to_sym
+    errors = [
+      order_data['reason'].presence,
+      order_data['misc'].presence
+    ].compact
+    status = parse_order_status(Utilities::Hash.dig_or_raise(order_data, 'status'))
+    ticker = tickers.find_by(ticker: pair)
+
+    {
+      order_id: order_id,
+      ticker: ticker,
+      price: price,
+      amount: amount,                       # amount in the order config
+      quote_amount: quote_amount,           # amount in the order config
+      amount_exec: amount_exec,             # amount the account balance went up or down
+      quote_amount_exec: quote_amount_exec, # amount the account balance went up or down
+      side: side,
+      order_type: order_type,
+      error_messages: errors,
+      status: status,
+      exchange_response: result.data
+    }
   end
 
   def parse_order_type(order_type)

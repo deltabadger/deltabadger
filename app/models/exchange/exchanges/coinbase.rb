@@ -267,47 +267,26 @@ module Exchange::Exchanges::Coinbase
     result = client.get_order(order_id: order_id)
     return result if result.failure?
 
-    product_id = Utilities::Hash.dig_or_raise(result.data, 'order', 'product_id')
-    order_type = parse_order_type(Utilities::Hash.dig_or_raise(result.data, 'order', 'order_type'))
-    price = Utilities::Hash.dig_or_raise(result.data, 'order', 'average_filled_price').to_d
-    case order_type
-    when :limit_order
-      order_config = Utilities::Hash.dig_or_raise(result.data, 'order', 'order_configuration', 'limit_limit_gtc')
-      amount = order_config['base_size']&.to_d
-      quote_amount = order_config['quote_size']&.to_d
-      price = order_config['limit_price'].to_d if price.zero?
-    when :market_order
-      order_config = Utilities::Hash.dig_or_raise(result.data, 'order', 'order_configuration', 'market_market_ioc')
-      amount = order_config['base_size']&.to_d
-      quote_amount = order_config['quote_size']&.to_d
-    end
-    side = Utilities::Hash.dig_or_raise(result.data, 'order', 'side').downcase.to_sym
-    amount_exec = Utilities::Hash.dig_or_raise(result.data, 'order', 'filled_size').to_d
-    total_value = Utilities::Hash.dig_or_raise(result.data, 'order', 'total_value_after_fees').to_d
-    outstanding = Utilities::Hash.dig_or_raise(result.data, 'order', 'outstanding_hold_amount').to_d
-    quote_amount_exec = total_value - outstanding
-    errors = [
-      result.data.dig('order', 'reject_reason').presence,
-      result.data.dig('order', 'reject_message').presence,
-      result.data.dig('order', 'cancel_message').presence
-    ].compact
-    status = parse_order_status(Utilities::Hash.dig_or_raise(result.data, 'order', 'status'))
-    ticker = tickers.find_by(ticker: product_id)
+    order_data = Utilities::Hash.dig_or_raise(result.data, 'order')
+    normalized_order_data = parse_order_data(order_id, order_data)
 
-    Result::Success.new({
-                          order_id: order_id,
-                          ticker: ticker,
-                          price: price,
-                          amount: amount,             # amount in the order config
-                          quote_amount: quote_amount, # amount in the order config
-                          amount_exec: amount_exec,             # amount the account balance went up or down
-                          quote_amount_exec: quote_amount_exec, # amount the account balance went up or down
-                          side: side,
-                          order_type: order_type,
-                          error_messages: errors,
-                          status: status,
-                          exchange_response: result.data
-                        })
+    Result::Success.new(normalized_order_data)
+  end
+
+  def get_orders(order_ids:)
+    orders = {}
+    order_ids.each_slice(50) do |order_ids_slice|
+      result = client.list_orders(order_ids: order_ids_slice)
+      return result if result.failure?
+
+      order_datas = Utilities::Hash.dig_or_raise(result.data, 'orders')
+      order_datas.each do |order_data|
+        order_id = Utilities::Hash.dig_or_raise(order_data, 'order_id')
+        orders[order_id] = parse_order_data(order_id, order_data)
+      end
+    end
+
+    Result::Success.new(orders)
   end
 
   def cancel_order(order_id:)
@@ -455,6 +434,50 @@ module Exchange::Exchanges::Coinbase
     }
 
     Result::Success.new(data)
+  end
+
+  def parse_order_data(order_id, order_data)
+    product_id = Utilities::Hash.dig_or_raise(order_data, 'product_id')
+    order_type = parse_order_type(Utilities::Hash.dig_or_raise(order_data, 'order_type'))
+    price = Utilities::Hash.dig_or_raise(order_data, 'average_filled_price').to_d
+    case order_type
+    when :limit_order
+      order_config = Utilities::Hash.dig_or_raise(order_data, 'order_configuration', 'limit_limit_gtc')
+      amount = order_config['base_size']&.to_d
+      quote_amount = order_config['quote_size']&.to_d
+      price = order_config['limit_price'].to_d if price.zero?
+    when :market_order
+      order_config = Utilities::Hash.dig_or_raise(order_data, 'order_configuration', 'market_market_ioc')
+      amount = order_config['base_size']&.to_d
+      quote_amount = order_config['quote_size']&.to_d
+    end
+    side = Utilities::Hash.dig_or_raise(order_data, 'side').downcase.to_sym
+    amount_exec = Utilities::Hash.dig_or_raise(order_data, 'filled_size').to_d
+    total_value = Utilities::Hash.dig_or_raise(order_data, 'total_value_after_fees').to_d
+    outstanding = Utilities::Hash.dig_or_raise(order_data, 'outstanding_hold_amount').to_d
+    quote_amount_exec = total_value - outstanding
+    errors = [
+      order_data.dig('order', 'reject_reason').presence,
+      order_data.dig('order', 'reject_message').presence,
+      order_data.dig('order', 'cancel_message').presence
+    ].compact
+    status = parse_order_status(Utilities::Hash.dig_or_raise(order_data, 'status'))
+    ticker = tickers.find_by(ticker: product_id)
+
+    {
+      order_id: order_id,
+      ticker: ticker,
+      price: price,
+      amount: amount,                       # amount in the order config
+      quote_amount: quote_amount,           # amount in the order config
+      amount_exec: amount_exec,             # amount the account balance went up or down
+      quote_amount_exec: quote_amount_exec, # amount the account balance went up or down
+      side: side,
+      order_type: order_type,
+      error_messages: errors,
+      status: status,
+      exchange_response: order_data
+    }
   end
 
   def parse_order_type(order_type)
