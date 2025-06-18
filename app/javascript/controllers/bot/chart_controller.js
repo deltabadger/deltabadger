@@ -43,7 +43,9 @@ export default class extends Controller {
 
     let minValue;
     let maxValue;
-    const profitable = all_series[0][0][all_series[0][0].length - 1] > all_series[0][0][0];
+    const last_portfolio_value = Number(all_series[0][0][all_series[0][0].length - 1]);
+    const last_invested_value = Number(all_series[0][1][all_series[0][1].length - 1]);
+    const profitable = last_portfolio_value >= last_invested_value;
     const success_color = this.#safeColor(this.#getCssVariableValue("--success"));
     const danger_color = this.#safeColor(this.#getCssVariableValue("--danger"));
     const portfolio_color = profitable ? success_color : danger_color;
