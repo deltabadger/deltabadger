@@ -9,9 +9,7 @@ class Bots::ExportsController < ApplicationController
     #       then update the app/views/bots/orders/_export.html.erb partial to show a green download button.
     #       This will also allow us to hide the loading spinner once the file is ready, and avoid users
     #       generating multiple files at once.
-    @bot.transactions.submitted.where(external_status: 'open').each do |transaction|
-      Bot::FetchAndUpdateOrderJob.perform_now(transaction, update_missed_quote_amount: true)
-    end
+    Bot::FetchAndUpdateOpenOrdersJob.perform_now(@bot, update_missed_quote_amount: true)
 
     send_data(@bot.orders_csv, filename: 'orders.csv', type: 'text/csv')
   end

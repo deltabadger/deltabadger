@@ -1,4 +1,8 @@
-<div class="widget widget--table">
+<%= tag.div class: "widget widget--table", data: bot.transactions.submitted.open.any? ? {
+  controller: "broadcast--on-connect",
+  broadcast__on_connect_method_value: "fetch_open_orders",
+  broadcast__on_connect_method_args_value: { bot_id: bot.id }.to_json
+} : {} do %>
   <table class="table">
     <thead>
       <tr>
@@ -17,5 +21,5 @@
     </tbody>
   </table>
   <%= turbo_frame_tag 'orders_pagination', src: bot_path(bot, format: :turbo_stream, params: { decimals: decimals }), loading: :lazy %>
-</div>
+<% end %>
 <%= render 'bots/orders/export', bot: bot %>
