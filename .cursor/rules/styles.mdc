@@ -1,0 +1,34 @@
+---
+description: Task involves CSS styles
+globs: 
+alwaysApply: false
+---
+---
+description: CSS styles and styling rules
+globs: 
+  - "**/*.css"
+  - "**/*.scss" 
+  - "**/*.sass"
+  - "app/assets/stylesheets/**/*"
+alwaysApply: true
+---
+
+## CSS/Styling Rules
+
+**CRITICAL**: When creating or modifying ANY CSS/styling:
+
+1. **Location**: ALL CSS files MUST be placed in `app/assets/stylesheets/` directory
+2. **Format**: ALWAYS use `.sass` format (indented syntax), NEVER use `.scss` or `.css`
+3. **No exceptions**: Do not create CSS files in any other location (not in `app/javascript/`, not in `public/`, not anywhere else)
+
+## Examples:
+- ✅ `app/assets/stylesheets/components/_new_feature.sass`
+- ✅ `app/assets/stylesheets/_new_styles.sass`
+- ❌ `app/javascript/styles/component.css`
+- ❌ `public/stylesheets/style.css`
+- ❌ `app/assets/stylesheets/style.scss`
+
+## When creating new features:
+- If the feature needs styling, create a new `.sass` file in `app/assets/stylesheets/new/` and reference it in `app/assets/stylesheets/application.scss`
+- Follow Rails asset pipeline conventions
+- Use Sass indented syntax (no braces or semicolons)
