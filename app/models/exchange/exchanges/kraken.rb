@@ -20,7 +20,7 @@ module Exchange::Exchanges::Kraken
     invalid_key: ['EGeneral:Permission denied', 'EAPI:Invalid key', 'EAPI:Invalid signature']
   }.freeze
 
-  include Exchange::Dryable # decorators for: get_order, get_orders, set_market_order, set_limit_order
+  include Exchange::Dryable # decorators for: get_order, get_orders, cancel_order, get_api_key_validity, set_market_order, set_limit_order
 
   attr_reader :api_key
 
@@ -133,13 +133,6 @@ module Exchange::Exchanges::Kraken
     end
 
     Result::Success.new(balances)
-  end
-
-  def get_balance(asset_id:)
-    result = get_balances(asset_ids: [asset_id])
-    return result if result.failure?
-
-    Result::Success.new(result.data[asset_id])
   end
 
   def get_last_price(ticker:, force: false)
