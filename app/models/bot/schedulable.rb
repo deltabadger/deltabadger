@@ -8,16 +8,20 @@ module Bot::Schedulable
     'month' => 1.month
   }.freeze
 
-  def interval_duration
-    INTERVALS[interval]
-  end
-
   included do
     store_accessor :transient_data,
                    :last_action_job_at
 
     validates :interval, presence: true, inclusion: { in: INTERVALS.keys }, unless: :legacy?
     validate :validate_interval_included_in_subscription_plan, on: :start, unless: :legacy?
+  end
+
+  def interval_duration
+    INTERVALS[interval]
+  end
+
+  def effective_interval_duration
+    interval_duration
   end
 
   def last_action_job_at
@@ -59,25 +63,25 @@ module Bot::Schedulable
 
   def next_interval_checkpoint_at
     return legacy_next_interval_checkpoint_at if legacy?
-    return Time.current if interval_duration.zero?
+    return Time.current if effective_interval_duration.zero?
 
     checkpoint = started_at || Time.current
-    if interval_duration == 1.month
+    if effective_interval_duration == 1.month
       # handle the month interval independently so Rails can target the next same day of the month
       loop do
-        checkpoint += interval_duration
+        checkpoint += effective_interval_duration
         return checkpoint if checkpoint > Time.current
       end
     else
-      intervals_since_checkpoint = ((Time.current - checkpoint) / interval_duration.seconds).ceil
-      checkpoint + (intervals_since_checkpoint * interval_duration)
+      intervals_since_checkpoint = ((Time.current - checkpoint) / effective_interval_duration.seconds).ceil
+      checkpoint + (intervals_since_checkpoint * effective_interval_duration)
     end
   end
 
   def last_interval_checkpoint_at
     return legacy_last_interval_checkpoint_at if legacy?
 
-    next_interval_checkpoint_at - interval_duration
+    next_interval_checkpoint_at - effective_interval_duration
   end
 
   def progress_percentage

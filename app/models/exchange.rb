@@ -57,6 +57,89 @@ class Exchange < ApplicationRecord
     Result::Success.new(all_symbols.data)
   end
 
+  def coingecko_id
+    raise NotImplementedError, "#{self.class.name} must implement coingecko_id"
+  end
+
+  def known_errors
+    raise NotImplementedError, "#{self.class.name} must implement known_errors"
+  end
+
+  def set_client(api_key: nil)
+    raise NotImplementedError, "#{self.class.name} must implement set_client"
+  end
+
+  def get_tickers_info(force: false)
+    raise NotImplementedError, "#{self.class.name} must implement get_tickers_info"
+  end
+
+  def get_tickers_prices(force: false)
+    raise NotImplementedError, "#{self.class.name} must implement get_tickers_prices"
+  end
+
+  def get_balances(asset_ids: nil)
+    raise NotImplementedError, "#{self.class.name} must implement get_balances"
+  end
+
+  def get_balance(asset_id:)
+    result = get_balances(asset_ids: [asset_id])
+    return result if result.failure?
+
+    Result::Success.new(result.data[asset_id])
+  end
+
+  def get_last_price(ticker:, force: false)
+    raise NotImplementedError, "#{self.class.name} must implement get_last_price"
+  end
+
+  def get_bid_price(ticker:, force: false)
+    raise NotImplementedError, "#{self.class.name} must implement get_bid_price"
+  end
+
+  def get_ask_price(ticker:, force: false)
+    raise NotImplementedError, "#{self.class.name} must implement get_ask_price"
+  end
+
+  def get_candles(ticker:, start_at:, timeframe:)
+    raise NotImplementedError, "#{self.class.name} must implement get_candles"
+  end
+
+  def market_buy(ticker:, amount:, amount_type:)
+    raise NotImplementedError, "#{self.class.name} must implement market_buy"
+  end
+
+  def market_sell(ticker:, amount:, amount_type:)
+    raise NotImplementedError, "#{self.class.name} must implement market_sell"
+  end
+
+  def limit_buy(ticker:, amount:, amount_type:, price:)
+    raise NotImplementedError, "#{self.class.name} must implement limit_buy"
+  end
+
+  def limit_sell(ticker:, amount:, amount_type:, price:)
+    raise NotImplementedError, "#{self.class.name} must implement limit_sell"
+  end
+
+  def get_order(order_id:)
+    raise NotImplementedError, "#{self.class.name} must implement get_order"
+  end
+
+  def get_orders(order_ids:)
+    raise NotImplementedError, "#{self.class.name} must implement get_orders"
+  end
+
+  def cancel_order(order_id:)
+    raise NotImplementedError, "#{self.class.name} must implement cancel_order"
+  end
+
+  def get_api_key_validity(api_key:)
+    raise NotImplementedError, "#{self.class.name} must implement get_api_key_validity"
+  end
+
+  def minimum_amount_logic
+    raise NotImplementedError, "#{self.class.name} must implement minimum_amount_logic"
+  end
+
   private
 
   def include_exchange_implementation

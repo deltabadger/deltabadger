@@ -52,6 +52,7 @@ ru:
         invalid_allocation_value: 'Недопустимое значение распределения'
         bots:
             exchange_asset_mismatch: "Не все активы котируются на %{exchange_name}"
+            exchange_change_while_open_orders: "Пожалуйста, отмените все открытые ордера этого бота на %{exchange_name} перед изменением биржи"
             destroy_success: "Бот %{bot_label} успешно удален"
             api_key_success: "Ключи API успешно сохранены"
         messages:
