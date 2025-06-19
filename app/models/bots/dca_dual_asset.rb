@@ -22,7 +22,7 @@ class Bots::DcaDualAsset < Bot
   # TODO: If bots can change assets, we also need to update the tickers and assets values
   #       ! also in price_limitable
 
-  include SmartIntervalable      # decorators for: parse_params, pending_quote_amount, interval_duration, restarting_within_interval?
+  include SmartIntervalable      # decorators for: parse_params, effective_quote_amount, effective_interval_duration
   include LimitOrderable         # decorators for: parse_params, execute_action
   include QuoteAmountLimitable   # decorators for: parse_params, pending_quote_amount
   include PriceLimitable         # decorators for: parse_params, started_at, execute_action, stop
@@ -163,7 +163,11 @@ class Bots::DcaDualAsset < Bot
   end
 
   def restarting_within_interval?
-    restarting? && pending_quote_amount < quote_amount
+    restarting? && pending_quote_amount < effective_quote_amount
+  end
+
+  def effective_quote_amount
+    quote_amount
   end
 
   def assets
