@@ -27,7 +27,7 @@ module Bot::LimitOrderable
       end
 
       def execute_action
-        Bot::FetchAndUpdateOpenOrdersJob.perform_now(self, update_missed_quote_amount: true)
+        Bot::FetchAndUpdateOpenOrdersJob.perform_now(self, update_missed_quote_amount: true) if transactions.open.any?
 
         super
       end

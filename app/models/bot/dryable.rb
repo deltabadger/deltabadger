@@ -10,6 +10,12 @@ module Bot::Dryable
           super
         end
       end
+
+      def notify_if_funds_are_low
+        return if Rails.configuration.dry_run
+
+        super
+      end
     end
 
     prepend decorators
