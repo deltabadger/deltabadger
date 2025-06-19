@@ -35,6 +35,6 @@ module Bot::Fundable
   end
 
   def required_balance_buffer
-    quote_amount / interval_duration * 3.days.to_f
+    quote_amount / interval_duration.to_f * 3.days.to_f
   end
 end

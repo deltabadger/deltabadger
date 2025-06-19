@@ -35,7 +35,7 @@ module Bot::Accountable
     total_quote_amount_invested = closed_quote_amount + open_quote_amount
 
     # Round to 6 decimal places to avoid floating point precision issues!
-    intervals = ((last_interval_checkpoint_at.round(6) - calc_since.round(6)) / interval_duration).floor + 1
+    intervals = ((last_interval_checkpoint_at.round(6) - calc_since.round(6)) / effective_interval_duration).floor + 1
 
     # puts "intervals: #{intervals}"
     # puts "last_interval_checkpoint_at: #{last_interval_checkpoint_at} (#{last_interval_checkpoint_at.to_f})"
@@ -43,20 +43,20 @@ module Bot::Accountable
     # puts "settings_changed_at:         #{settings_changed_at} (#{settings_changed_at.to_f})"
     # puts "calc_since:                  #{calc_since} (#{calc_since.to_f})"
     # puts "current_time:                #{Time.current}"
-    # puts "real intervals since started_at: #{((last_interval_checkpoint_at - started_at) / interval_duration).floor}"
-    # puts "real intervals since settings_changed_at: #{((last_interval_checkpoint_at - settings_changed_at) / interval_duration).floor}"
-    # puts "intervals since started_at: #{((last_interval_checkpoint_at - started_at) / interval_duration).floor + 1}"
-    # puts "intervals since settings_changed_at: #{((last_interval_checkpoint_at - settings_changed_at) / interval_duration).floor + 1}"
+    # puts "real intervals since started_at: #{((last_interval_checkpoint_at - started_at) / effective_interval_duration).floor}"
+    # puts "real intervals since settings_changed_at: #{((last_interval_checkpoint_at - settings_changed_at) / effective_interval_duration).floor}"
+    # puts "intervals since started_at: #{((last_interval_checkpoint_at - started_at) / effective_interval_duration).floor + 1}"
+    # puts "intervals since settings_changed_at: #{((last_interval_checkpoint_at - settings_changed_at) / effective_interval_duration).floor + 1}"
     # puts "missed_quote_amount: #{missed_quote_amount}"
     # puts "total_quote_amount_invested: #{total_quote_amount_invested}"
     # puts "quote_amount: #{quote_amount}"
-    # puts "normal_interval_quote_amount: #{normal_interval_quote_amount}"
+    # puts "effective_quote_amount: #{effective_quote_amount}"
     # puts "interval: #{interval}"
     # puts "interval_duration: #{interval_duration}"
-    # puts "normal_interval_duration: #{normal_interval_duration}"
-    # puts "result: #{quote_amount * intervals + missed_quote_amount - total_quote_amount_invested}"
+    # puts "effective_interval_duration: #{effective_interval_duration}"
+    # puts "result: #{effective_quote_amount * intervals + missed_quote_amount - total_quote_amount_invested}"
 
-    [quote_amount * intervals + missed_quote_amount - total_quote_amount_invested, 0].max
+    [effective_quote_amount * intervals + missed_quote_amount - total_quote_amount_invested, 0].max
   end
 
   def set_missed_quote_amount

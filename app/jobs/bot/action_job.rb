@@ -48,7 +48,7 @@ class Bot::ActionJob < BotJob
   end
 
   def notify_retry(bot, error)
-    if sidekiq_estimated_retry_delay > bot.interval_duration
+    if sidekiq_estimated_retry_delay > bot.effective_interval_duration
 
       # the email message doesn't really make sense here, so we use notify_about_error instead
       # bot.notify_about_restart(errors: [error.message], delay: sidekiq_estimated_retry_delay)

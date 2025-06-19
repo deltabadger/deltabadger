@@ -5,6 +5,6 @@
           quote: bot.quote_asset.symbol,
           interval: t("bot.#{bot.interval}"),
           amount: bot.smart_interval_quote_amount.round(bot.decimals[:quote]),
-          smart_interval: distance_of_time_in_words(bot.interval_duration)) %>
+          smart_interval: distance_of_time_in_words(bot.effective_interval_duration)) %>
   </small>
 <% end %>
