@@ -36,8 +36,8 @@ ru:
                                     -   text_html: '<b>%{ip}</b>'
                     -   text_html: 'Нажмите <b>Create & download</b> и завершите двухэтапную проверку.'
                     -   text_html: 'Скопируйте и вставьте ваши новые ключи API в форму выше.'
-                private_key: 'Секрет'
-                public_key: 'Ключ API'
+                private_key: 'Secret'
+                public_key: 'API key ID'
             kraken:
                 instructions:
                     -   text_html: 'Войдите в свою учетную запись %{exchange_link}.'
@@ -59,7 +59,7 @@ ru:
                                     -   text_html: '<b>Вкл.</b>, IP: <b>%{ip}</b>'
                     -   text_html: 'Нажмите <b>Сгенерировать ключ</b>.'
                     -   text_html: 'Скопируйте и вставьте ваши новые ключи API в форму выше.'
-                private_key: 'Приватный ключ'
+                private_key: 'Закрытый ключ'
                 public_key: 'Ключ API'
             kucoin:
                 instructions:

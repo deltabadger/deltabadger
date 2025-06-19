@@ -37,7 +37,7 @@ en:
                     -   text_html: 'Click <b>Create & download</b> and complete the 2-step verification.'
                     -   text_html: 'Copy and paste your new API keys into the form above.'
                 private_key: 'Secret'
-                public_key: 'API key'
+                public_key: 'API key ID'
             kraken:
                 instructions:
                     -   text_html: 'Log into your %{exchange_link} account.'

@@ -36,8 +36,8 @@ nl:
                                     -   text_html: '<b>%{ip}</b>'
                     -   text_html: 'Klik op <b>Create & download</b> en voltooi de 2-stapsverificatie.'
                     -   text_html: 'Kopieer en plak je nieuwe API-sleutels in het bovenstaande formulier.'
-                private_key: 'Geheim'
-                public_key: 'API-sleutel'
+                private_key: 'Secret'
+                public_key: 'API key ID'
             kraken:
                 instructions:
                     -   text_html: 'Log in op je %{exchange_link}-account.'
