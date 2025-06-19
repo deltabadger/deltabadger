@@ -36,8 +36,8 @@ de:
                                     -   text_html: '<b>%{ip}</b>'
                     -   text_html: 'Klicken Sie auf <b>Erstellen und herunterladen</b> und schließen Sie die 2-Schritt-Verifizierung ab.'
                     -   text_html: 'Kopieren und fügen Sie Ihre neuen API-Schlüssel in das obige Formular ein.'
-                private_key: 'Geheimnis'
-                public_key: 'API-Schlüssel'
+                private_key: 'Privater Schlüssel'
+                public_key: 'Name des API-Schlüssels'
             kraken:
                 instructions:
                     -   text_html: 'Melden Sie sich bei Ihrem %{exchange_link}-Konto an.'
