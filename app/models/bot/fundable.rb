@@ -2,8 +2,6 @@ module Bot::Fundable
   extend ActiveSupport::Concern
 
   def notify_if_funds_are_low
-    return if Rails.configuration.dry_run
-
     result = with_api_key do
       exchange.get_balance(asset_id: quote_asset_id)
     end
