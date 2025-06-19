@@ -62,7 +62,7 @@ module Bot::SmartIntervalable
         value
       end
 
-      def notify_if_funds_are_low
+      def funds_are_low?
         return super unless smart_intervaled? &&
                             smart_interval_quote_amount.present?
 

@@ -14,7 +14,7 @@ class Bot < ApplicationRecord
   include Rankable
   include Notifyable
   include DomIdable
-  include Dryable # decorators for: api_key, notify_if_funds_are_low
+  include Dryable # decorators for: api_key, funds_are_low?
 
   before_save :update_settings_changed_at, if: :will_save_change_to_settings?
   before_save :store_previous_exchange_id

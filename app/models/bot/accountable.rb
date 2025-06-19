@@ -75,6 +75,7 @@ module Bot::Accountable
     # This involves less mental overhead than calling set_missed_quote_amount directly in the before_save
     # callback as we don't need to call internally all _was methods in all sub methods called within
     # pending_quote_amount.
+    # This is also a safety measure to raise an error if we attempt to save unwanted changes to settings.
     # Raise an error in the before_save instead of validate to avoid having to set_missed_quote_amount before
     # any .valid? call.
     unless missed_quote_amount_was_set
