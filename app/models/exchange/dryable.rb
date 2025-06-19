@@ -4,15 +4,7 @@ module Exchange::Dryable
   included do # rubocop:disable Metrics/BlockLength
     decorators = Module.new do
       def get_balances(asset_ids: nil)
-        if dry_run?
-          asset_ids ||= assets.pluck(:id)
-          balances = asset_ids.each_with_object({}) do |asset_id, balances_hash|
-            balances_hash[asset_id] = { free: Float::INFINITY, locked: 0 }
-          end
-          Result::Success.new(balances)
-        else
-          super
-        end
+        dry_run? ? get_dry_balances(asset_ids: asset_ids) : super
       end
 
       def get_order(order_id:)
@@ -24,9 +16,7 @@ module Exchange::Dryable
       end
 
       def cancel_order(order_id:)
-        raise StandardError, 'Dry run mode does not support cancel_order' if dry_run?
-
-        super
+        dry_run? ? dry_cancel_order(order_id: order_id) : super
       end
 
       def get_api_key_validity(api_key:)
@@ -61,6 +51,14 @@ module Exchange::Dryable
     Rails.configuration.dry_run
   end
 
+  def get_dry_balances(asset_ids: nil)
+    asset_ids ||= assets.pluck(:id)
+    balances = asset_ids.each_with_object({}) do |asset_id, balances_hash|
+      balances_hash[asset_id] = { free: Float::INFINITY, locked: 0 }
+    end
+    Result::Success.new(balances)
+  end
+
   def get_dry_order(order_id:)
     order_data = Rails.cache.read(order_id)
     return Result::Failure.new("Dry order #{order_id} not found") if order_data.blank?
@@ -82,6 +80,10 @@ module Exchange::Dryable
     end
 
     Result::Success.new(orders)
+  end
+
+  def dry_cancel_order(order_id:) # rubocop:disable Lint/UnusedMethodArgument
+    raise StandardError, 'Dry run mode does not support cancel_order'
   end
 
   def set_dry_market_order(ticker:, amount:, amount_type:, side:)
