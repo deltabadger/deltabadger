@@ -1,18 +1,40 @@
 module Exchange::Dryable
   extend ActiveSupport::Concern
 
-  included do
+  included do # rubocop:disable Metrics/BlockLength
     decorators = Module.new do
+      def get_balances(asset_ids: nil)
+        if dry_run?
+          asset_ids ||= assets.pluck(:id)
+          balances = asset_ids.each_with_object({}) do |asset_id, balances_hash|
+            balances_hash[asset_id] = { free: Float::INFINITY, locked: 0 }
+          end
+          Result::Success.new(balances)
+        else
+          super
+        end
+      end
+
       def get_order(order_id:)
-        Rails.configuration.dry_run ? get_dry_order(order_id: order_id) : super
+        dry_run? ? get_dry_order(order_id: order_id) : super
       end
 
       def get_orders(order_ids:)
-        Rails.configuration.dry_run ? get_dry_orders(order_ids: order_ids) : super
+        dry_run? ? get_dry_orders(order_ids: order_ids) : super
+      end
+
+      def cancel_order(order_id:)
+        raise StandardError, 'Dry run mode does not support cancel_order' if dry_run?
+
+        super
+      end
+
+      def get_api_key_validity(api_key:)
+        dry_run? ? Result::Success.new(true) : super
       end
 
       def set_market_order(ticker:, amount:, amount_type:, side:)
-        if Rails.configuration.dry_run
+        if dry_run?
           set_dry_market_order(ticker: ticker, amount: amount, amount_type: amount_type,
                                side: side)
         else
@@ -21,7 +43,7 @@ module Exchange::Dryable
       end
 
       def set_limit_order(ticker:, amount:, amount_type:, side:, price:)
-        if Rails.configuration.dry_run
+        if dry_run?
           set_dry_limit_order(ticker: ticker, amount: amount, amount_type: amount_type,
                               side: side, price: price)
         else
@@ -31,6 +53,12 @@ module Exchange::Dryable
     end
 
     prepend decorators
+  end
+
+  private
+
+  def dry_run?
+    Rails.configuration.dry_run
   end
 
   def get_dry_order(order_id:)
