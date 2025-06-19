@@ -15,6 +15,7 @@ class Bot < ApplicationRecord
   include Rankable
   include Notifyable
   include DomIdable
+  include ExchangeUser
 
   before_save :update_settings_changed_at, if: :will_save_change_to_settings?
   before_save :store_previous_exchange_id
@@ -24,11 +25,6 @@ class Bot < ApplicationRecord
 
   def working?
     scheduled? || executing? || retrying? || waiting?
-  end
-
-  def with_api_key
-    exchange.set_client(api_key: api_key) if exchange.present? && (exchange.api_key.blank? || exchange.api_key != api_key)
-    yield
   end
 
   def api_key_type

@@ -228,7 +228,7 @@ module Exchange::Exchanges::Coinbase
       ticker: ticker,
       amount: amount,
       amount_type: amount_type,
-      side: 'buy'
+      side: :buy
     )
   end
 
@@ -238,7 +238,7 @@ module Exchange::Exchanges::Coinbase
       ticker: ticker,
       amount: amount,
       amount_type: amount_type,
-      side: 'sell'
+      side: :sell
     )
   end
 
@@ -248,7 +248,7 @@ module Exchange::Exchanges::Coinbase
       ticker: ticker,
       amount: amount,
       amount_type: amount_type,
-      side: 'buy',
+      side: :buy,
       price: price
     )
   end
@@ -259,7 +259,7 @@ module Exchange::Exchanges::Coinbase
       ticker: ticker,
       amount: amount,
       amount_type: amount_type,
-      side: 'sell',
+      side: :sell,
       price: price
     )
   end
@@ -325,7 +325,7 @@ module Exchange::Exchanges::Coinbase
     end
   end
 
-  def minimum_amount_logic
+  def minimum_amount_logic(*)
     :base_or_quote
   end
 
@@ -377,9 +377,9 @@ module Exchange::Exchanges::Coinbase
     )
   end
 
-  # @param amount: Float must be a positive number
+  # @param amount [Float] must be a positive number
   # @param amount_type [Symbol] :base or :quote
-  # @param side: String must be either 'buy' or 'sell'
+  # @param side [Symbol] must be either :buy or :sell
   def set_market_order(ticker:, amount:, amount_type:, side:)
     amount = ticker.adjusted_amount(amount: amount, amount_type: amount_type)
 
@@ -387,7 +387,7 @@ module Exchange::Exchanges::Coinbase
     result = client.create_order(
       client_order_id: client_order_id,
       product_id: ticker.ticker,
-      side: side.upcase,
+      side: side.to_s.upcase,
       order_configuration: {
         market_market_ioc: {
           quote_size: amount_type == :quote ? amount.to_d.to_s('F') : nil,
@@ -406,10 +406,10 @@ module Exchange::Exchanges::Coinbase
     Result::Success.new(data)
   end
 
-  # @param amount: Float must be a positive number
+  # @param amount [Float] must be a positive number
   # @param amount_type [Symbol] :base or :quote
-  # @param side: String must be either 'buy' or 'sell'
-  # @param price: Float must be a positive number
+  # @param side [Symbol] must be either :buy or :sell
+  # @param price [Float] must be a positive number
   def set_limit_order(ticker:, amount:, amount_type:, side:, price:)
     amount = ticker.adjusted_amount(amount: amount, amount_type: amount_type)
     price = ticker.adjusted_price(price: price)
@@ -418,7 +418,7 @@ module Exchange::Exchanges::Coinbase
     result = client.create_order(
       client_order_id: client_order_id,
       product_id: ticker.ticker,
-      side: side.upcase,
+      side: side.to_s.upcase,
       order_configuration: {
         limit_limit_gtc: {
           quote_size: amount_type == :quote ? amount.to_d.to_s('F') : nil,

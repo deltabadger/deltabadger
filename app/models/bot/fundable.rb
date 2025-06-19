@@ -19,9 +19,7 @@ module Bot::Fundable
   end
 
   def funds_are_low?
-    result = with_api_key do
-      exchange.get_balance(asset_id: quote_asset_id)
-    end
+    result = get_balance(asset_id: quote_asset_id)
     return false if result.failure?
 
     quote_balance = result.data
