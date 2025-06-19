@@ -5,6 +5,7 @@ class Bot::UpdateMetricsJob < ApplicationJob
   # for the same bot, but by now we are only cancelling other enqueued jobs.
 
   def perform(bot)
+    puts "Bot::UpdateMetricsJob.perform_later(#{bot.inspect})"
     cancel_other_update_metrics_jobs(bot)
     bot.metrics(force: true)
     Bot::BroadcastMetricsUpdateJob.perform_later(bot)

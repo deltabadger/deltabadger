@@ -7,20 +7,15 @@ class Transaction < ApplicationRecord
   before_save :store_previous_quote_amount_exec
   after_create_commit :set_daily_transaction_aggregate
   after_create_commit -> { bot.broadcast_new_order(self) if !bot.legacy? }
-  after_create_commit -> { Bot::UpdateMetricsJob.perform_later(bot) if !bot.legacy? && quote_amount_exec_changed? }
-  after_create_commit lambda {
-                        if bot.class.include?(Bot::QuoteAmountLimitable) && quote_amount_exec_changed?
-                          bot.handle_quote_amount_limit_update
-                        end
-                      }
-
   after_update_commit -> { bot.broadcast_updated_order(self) if !bot.legacy? }
-  after_update_commit -> { Bot::UpdateMetricsJob.perform_later(bot) if !bot.legacy? && quote_amount_exec_changed? }
-  after_update_commit lambda {
-                        if bot.class.include?(Bot::QuoteAmountLimitable) && quote_amount_exec_changed?
-                          bot.handle_quote_amount_limit_update
-                        end
-                      }
+  after_commit lambda {
+                 Bot::UpdateMetricsJob.perform_later(bot) if !bot.legacy? && custom_quote_amount_exec_changed?
+               }, on: %i[create update]
+  after_commit lambda {
+                 if bot.class.include?(Bot::QuoteAmountLimitable) && custom_quote_amount_exec_changed?
+                   bot.handle_quote_amount_limit_update
+                 end
+               }, on: %i[create update]
 
   scope :for_bot, ->(bot) { where(bot_id: bot.id).order(created_at: :desc) }
   scope :today_for_bot, ->(bot) { for_bot(bot).where('created_at >= ?', Date.today.beginning_of_day) }
@@ -117,10 +112,10 @@ class Transaction < ApplicationRecord
   end
 
   def store_previous_quote_amount_exec
-    @previous_quote_amount_exec = quote_amount_exec
+    @previous_quote_amount_exec = quote_amount_exec_was
   end
 
-  def quote_amount_exec_changed?
+  def custom_quote_amount_exec_changed?
     quote_amount_exec != @previous_quote_amount_exec && quote_amount_exec.present? && quote_amount_exec.positive?
   end
 

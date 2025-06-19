@@ -52,6 +52,7 @@ en:
         invalid_allocation_value: 'Invalid allocation value'
         bots:
             exchange_asset_mismatch: "Not all the assets are listed on %{exchange_name}"
+            exchange_change_while_open_orders: "Cancel all open orders this bot has on %{exchange_name} before changing the exchange"
             destroy_success: "Bot %{bot_label} deleted successfully"
             api_key_success: "API keys saved successfully"
         messages:
