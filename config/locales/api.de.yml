@@ -4,15 +4,24 @@ de:
             binance:
                 instructions:
                     -   text_html: 'Melden Sie sich bei Ihrem %{exchange_link}-Konto an.'
-                    -   text_html: 'Gehen Sie im Benutzermenü (rundes Symbol in der oberen rechten Ecke) zu <b>API-Verwaltung</b>.'
-                    -   text_html: 'Benennen Sie den neuen API-Schlüssel, indem Sie auf <b>Erstellen</b> klicken.'
-                    -   text_html: 'Bestätigen Sie die Erstellung mit einem Einmalcode(s).'
-                    -   text_html: 'Stellen Sie sicher, dass <b>Spot- und Margin-Handel aktivieren</b> aktiviert ist.'
-                    -   text_html: 'Wenn Sie den Zugriff auf den Schlüssel nur für Deltabadger beschränken möchten, klicken Sie auf <b>Beschränkungen bearbeiten</b>, aktivieren Sie <b>Zugriff nur auf vertrauenswürdige IPs beschränken (Empfohlen)</b> und fügen Sie diese IP im nächsten Schritt hinzu: <b>%{ip}</b>'
-                    -   text_html: 'Klicken Sie auf <b>Speichern</b> und bestätigen Sie bei Bedarf mit einem weiteren Einmalcode.'
-                    -   text_html: 'Denken Sie daran, dass der Geheime Schlüssel nur während der Erstellung sichtbar ist. Kopieren Sie daher beide Schlüssel, bevor Sie die Ansicht verlassen.'
+                    -   text_html: 'Gehen Sie im Benutzermenü (rundes Symbol in der oberen rechten Ecke) zu <b>Konto</b> → <b>API-Verwaltung</b>. Wenn Sie es nicht finden können, gehen Sie direkt von <a href="https://www.binance.com/de/my/settings/api-management">hier</a> aus.'
+                    -   text_html: 'Klicken Sie auf <b>API erstellen</b>.'
+                    -   text_html: 'Im Popup-Dialogfeld wählen Sie <b>Vom System generiert</b>.'
+                    -   text_html: 'Im Popup-Dialogfeld geben Sie einen Namen für den API-Schlüssel an und bestätigen Sie die Sicherheitsverifizierung, falls erforderlich. <b>Deltabadger</b> ist gut, um ihn später wiederzuerkennen.'
+                    -   text_html: 'Klicken Sie auf den Schaltfläche oben rechts <b>Einschränkungen bearbeiten</b>:'
+                        sub_instructions:
+                            -   text_html: "IP-Zugriffsbeschränkungen"
+                                sub_instructions:
+                                    -   text_html: "Zugriff auf vertrauenswürdige IPs beschränken"
+                                        sub_instructions:
+                                            -   text_html: "Füllen Sie die IP-Adresse aus: <b>%{ip}</b>, und klicken Sie auf <b>Bestätigen</b>."
+                            -   text_html: "API-Einschränkungen"
+                                sub_instructions:
+                                    -   text_html: "Leseberechtigung aktivieren"
+                                    -   text_html: "Spot- und Margin-Handel aktivieren"
+                    -   text_html: 'Klicken Sie auf <b>Speichern</b> und bestätigen Sie die Sicherheitsverifizierung, falls erforderlich.'
                     -   text_html: 'Kopieren und fügen Sie Ihre neuen API-Schlüssel in das obige Formular ein.'
-                private_key: 'Geheimer Schlüssel'
+                private_key: 'Geheimschlüssel'
                 public_key: 'API-Schlüssel'
             coinbase:
                 instructions:
