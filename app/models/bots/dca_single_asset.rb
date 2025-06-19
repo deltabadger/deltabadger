@@ -26,7 +26,7 @@ class Bots::DcaSingleAsset < Bot
   include PriceDropLimitable     # decorators for: parse_params, started_at, execute_action, stop
   include MovingAverageLimitable # decorators for: parse_params, started_at, execute_action, stop
   include IndicatorLimitable     # decorators for: parse_params, started_at, execute_action, stop
-  include Fundable
+  include Fundable               # decorators for: execute_action
   include Schedulable
   include OrderCreator
   include Accountable
