@@ -82,7 +82,10 @@ class Exchange < ApplicationRecord
   end
 
   def get_balance(asset_id:)
-    raise NotImplementedError, "#{self.class.name} must implement get_balance"
+    result = get_balances(asset_ids: [asset_id])
+    return result if result.failure?
+
+    Result::Success.new(result.data[asset_id])
   end
 
   def get_last_price(ticker:, force: false)
