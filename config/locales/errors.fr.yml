@@ -40,6 +40,7 @@ fr:
     errors:
         bots:
             exchange_asset_mismatch: "Tous les actifs ne sont pas répertoriés sur %{exchange_name}"
+            exchange_change_while_open_orders: "Veuillez annuler toutes les commandes ouvertes de ce bot sur %{exchange_name} avant de changer l''exchange"
             destroy_success: "Bot %{bot_label} supprimé avec succès"
             api_key_success: "Clés API enregistrées avec succès"
         cloudflare_turnstile: 'La vérification de Cloudflare Turnstile a échoué'
