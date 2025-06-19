@@ -19,9 +19,6 @@ module Bot::Notifyable
   end
 
   def notify_end_of_funds
-    return if last_end_of_funds_notification.present? && last_end_of_funds_notification > 1.day.ago
-
-    update!(last_end_of_funds_notification: Time.current)
     BotAlertsMailer.with(
       user: user,
       bot: self,
