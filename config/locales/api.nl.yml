@@ -4,13 +4,22 @@ nl:
             binance:
                 instructions:
                     -   text_html: 'Log in op je %{exchange_link}-account.'
-                    -   text_html: 'Ga in het gebruikersmenu (rond pictogram in de rechterbovenhoek) naar <b>API-beheer</b>.'
-                    -   text_html: 'Geef de nieuwe API-sleutel een naam door op <b>Aanmaken</b> te drukken.'
-                    -   text_html: 'Bevestig het aanmaken met eenmalige code(s).'
-                    -   text_html: 'Zorg ervoor dat <b>Spot & Margin Trading inschakelen</b> is aangevinkt.'
-                    -   text_html: 'Als je de toegang tot de sleutel alleen voor Deltabadger wilt beperken, klik dan op <b>Beperkingen bewerken</b>, vink <b>Toegang beperken tot alleen vertrouwde IP''s (Aanbevolen)</b> aan en voeg dit IP-adres toe in de volgende stap: <b>%{ip}</b>'
-                    -   text_html: 'Druk op <b>Opslaan</b> en bevestig indien nodig met een andere eenmalige code.'
-                    -   text_html: 'Onthoud dat de Geheime Sleutel alleen zichtbaar is tijdens het aanmaken, dus zorg ervoor dat je beide sleutels kopieert voordat je de weergave verlaat.'
+                    -   text_html: 'Ga in het gebruikersmenu (rond pictogram in de rechterbovenhoek) naar <b>Account</b> → <b>API Management</b>. Als je het niet kunt vinden, ga dan rechtstreeks via <a href="https://www.binance.com/en/my/settings/api-management">hier</a>.'
+                    -   text_html: 'Klik op <b>Create API</b>.'
+                    -   text_html: 'In het pop-upvenster, selecteer <b>System generated</b>.'
+                    -   text_html: 'In het pop-upvenster, geef een label aan de API-sleutel en pas de beveiligingsverificatie indien nodig. <b>Deltabadger</b> is goed om deze later te herkennen.'
+                    -   text_html: 'Klik op de knop in de rechterbovenhoek <b>Edit restrictions</b>:'
+                        sub_instructions:
+                            -   text_html: "IP access restrictions"
+                                sub_instructions:
+                                    -   text_html: "Restrict access to trusted IPs only"
+                                        sub_instructions:
+                                            -   text_html: "Vul het IP-adres in: <b>%{ip}</b>, en klik op <b>Confirm</b>."
+                            -   text_html: "API restrictions"
+                                sub_instructions:
+                                    -   text_html: "Enable Trading"
+                                    -   text_html: "Enable Spot & Margin Trading"
+                    -   text_html: 'Klik op <b>Save</b> en pas de beveiligingsverificatie indien nodig.'
                     -   text_html: 'Kopieer en plak je nieuwe API-sleutels in het bovenstaande formulier.'
                 private_key: 'Geheime Sleutel'
                 public_key: 'API-sleutel'

@@ -4,13 +4,22 @@ pl:
             binance:
                 instructions:
                     -   text_html: 'Zaloguj się na swoje konto %{exchange_link}.'
-                    -   text_html: 'W menu użytkownika (okrągła ikona w prawym górnym rogu) przejdź do <b>Zarządzanie API</b>.'
-                    -   text_html: 'Nadaj nazwę nowemu kluczowi API, naciskając <b>Utwórz</b>.'
-                    -   text_html: 'Potwierdź utworzenie za pomocą kodu/kodów jednorazowych.'
-                    -   text_html: 'Upewnij się, że zaznaczono <b>Włącz handel Spot i Marżowy</b>.'
-                    -   text_html: 'Jeśli chcesz ograniczyć dostęp do klucza tylko dla Deltabadger, kliknij <b>Edytuj ograniczenia</b>, zaznacz <b>Ogranicz dostęp tylko do zaufanych adresów IP (Zalecane)</b> i dodaj ten adres IP w następnym kroku: <b>%{ip}</b>'
-                    -   text_html: 'Naciśnij <b>Zapisz</b> i w razie potrzeby potwierdź kolejnym kodem jednorazowym.'
-                    -   text_html: 'Pamiętaj, że Klucz Tajny jest widoczny tylko podczas tworzenia, więc upewnij się, że skopiujesz oba klucze przed opuszczeniem widoku.'
+                    -   text_html: 'W menu użytkownika (okrągła ikona w prawym górnym rogu) przejdź do <b>Konto</b> → <b>Ustawienia API</b>. Jeśli nie możesz go znaleźć, przejdź bezpośrednio <a href="https://www.binance.com/pl/my/settings/api-management">tutaj</a>.'
+                    -   text_html: 'Kliknij <b>Utworzenie klucza API</b>.'
+                    -   text_html: 'W oknie dialogowym kliknij <b>System wygenerował</b>.'
+                    -   text_html: 'W oknie dialogowym nadaj nazwę kluczowi API i przekaż weryfikację bezpieczeństwa, jeśli to konieczne. <b>Deltabadger</b> jest dobry, aby go później rozpoznać.'
+                    -   text_html: 'Kliknij przycisk w prawym górnym rogu <b>Zmień uprawnienia</b>:'
+                        sub_instructions:
+                            -   text_html: "Ograniczenia dostępu do sieci IP"
+                                sub_instructions:
+                                    -   text_html: "Ogranicz dostęp tylko dla zaufanych adresów IP"
+                                        sub_instructions:
+                                            -   text_html: "Wpisz adres IP: <b>%{ip}</b>, i kliknij <b>Potwierdź</b>."
+                            -   text_html: "Uprawnienia API"
+                                sub_instructions:
+                                    -   text_html: "Włącz Odczyt"
+                                    -   text_html: "Włącz Handel Spot i Margin"
+                    -   text_html: 'Kliknij <b>Zapisz</b> i przekaż weryfikację bezpieczeństwa, jeśli to konieczne.'
                     -   text_html: 'Skopiuj i wklej swoje nowe klucze API do powyższego formularza.'
                 private_key: 'Klucz Tajny'
                 public_key: 'Klucz API'
