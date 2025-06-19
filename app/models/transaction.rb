@@ -81,9 +81,7 @@ class Transaction < ApplicationRecord
   end
 
   def cancel
-    result = bot.with_api_key do
-      bot.exchange.cancel_order(order_id: external_id)
-    end
+    result = bot.cancel_order(order_id: external_id)
     Bot::FetchAndUpdateOrderJob.perform_later(self, update_missed_quote_amount: true)
     return result if result.failure?
 
