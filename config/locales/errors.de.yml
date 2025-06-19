@@ -52,6 +52,7 @@ de:
         invalid_allocation_value: 'Ungültiger Zuweisungswert'
         bots:
             exchange_asset_mismatch: "Nicht alle Vermögenswerte sind auf %{exchange_name} gelistet"
+            exchange_change_while_open_orders: "Alle offenen Bestellungen dieses Bots auf %{exchange_name} stornieren, bevor Sie den Exchange ändern"
             destroy_success: "Bot %{bot_label} erfolgreich gelöscht"
             api_key_success: "API-Schlüssel erfolgreich gespeichert"
         messages:

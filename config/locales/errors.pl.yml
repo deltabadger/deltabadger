@@ -52,6 +52,7 @@ pl:
         invalid_allocation_value: 'Nieprawidłowa wartość alokacji'
         bots:
             exchange_asset_mismatch: "Nie wszystkie aktywa są notowane na %{exchange_name}"
+            exchange_change_while_open_orders: "Anuluj wszystkie otwarte zlecenia tego bot na %{exchange_name} przed zmianą exchange"
             destroy_success: "Bot %{bot_label} został pomyślnie usunięty"
             api_key_success: "Klucze API zostały pomyślnie zapisane"
         messages:

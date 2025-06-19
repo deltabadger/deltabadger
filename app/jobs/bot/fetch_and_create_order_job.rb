@@ -23,8 +23,6 @@ class Bot::FetchAndCreateOrderJob < BotJob
   private
 
   def fetch_order(bot, order_id, retries: 10, sleep_time: 0.5)
-    return fetch_dry_order(order_id) if Rails.configuration.dry_run
-
     bot.with_api_key do
       retries.times do |i|
         result = bot.exchange.get_order(order_id: order_id)
@@ -35,13 +33,5 @@ class Bot::FetchAndCreateOrderJob < BotJob
       end
       Result::Failure.new("Failed to fetch order #{order_id} after #{retries} attempts")
     end
-  end
-
-  def fetch_dry_order(order_id)
-    order_data = Rails.cache.read(order_id)
-    return Result::Failure.new("Dry order #{order_id} not found") if order_data.blank?
-
-    Rails.cache.delete(order_id)
-    Result::Success.new(order_data)
   end
 end

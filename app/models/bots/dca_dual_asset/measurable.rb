@@ -97,7 +97,6 @@ module Bots::DcaDualAsset::Measurable
   end
 
   def metrics_with_current_prices_and_candles(force: false)
-    puts 'getting metrics with current prices and candles'
     Rails.cache.fetch(metrics_with_current_prices_and_candles_cache_key,
                       expires_in: 5.seconds, # Utilities::Time.seconds_to_end_of_five_minute_cut,
                       force: force) do

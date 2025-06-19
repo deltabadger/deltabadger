@@ -50,8 +50,22 @@ module Bot::QuoteAmountLimitable
     return Float::INFINITY unless quote_amount_limited?
     return Float::INFINITY if quote_amount_limit.blank?
 
-    quote_amount_spent = transactions.submitted.where('created_at > ?', quote_amount_limit_enabled_at).sum(:quote_amount)
-    [quote_amount_limit - quote_amount_spent, 0].max
+    closed_quote_amount = transactions.submitted
+                                      .where('created_at >= ?', quote_amount_limit_enabled_at)
+                                      .closed
+                                      .pluck(:quote_amount_exec)
+                                      .sum
+
+    open_quote_amount = transactions.submitted
+                                    .where('created_at >= ?', quote_amount_limit_enabled_at)
+                                    .open
+                                    .pluck(:quote_amount, :amount, :price)
+                                    .map { |quote_amount, amount, price| quote_amount || (amount * price) }
+                                    .sum
+
+    total_quote_amount_invested = closed_quote_amount + open_quote_amount
+
+    [quote_amount_limit - total_quote_amount_invested, 0].max
   end
 
   def quote_amount_limit_reached?
