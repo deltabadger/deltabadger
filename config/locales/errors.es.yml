@@ -52,6 +52,7 @@ es:
         invalid_allocation_value: 'Valor de asignación no válido'
         bots:
             exchange_asset_mismatch: "No todos los activos están listados en %{exchange_name}"
+            exchange_change_while_open_orders: "Cancela todas las órdenes abiertas de este bot en %{exchange_name} antes de cambiar el exchange"
             destroy_success: "Bot %{bot_label} eliminado con éxito"
             api_key_success: "claves API guardadas con éxito"
         messages:

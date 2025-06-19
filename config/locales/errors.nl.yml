@@ -52,6 +52,7 @@ nl:
         invalid_allocation_value: 'Ongeldige toewijzingswaarde'
         bots:
             exchange_asset_mismatch: "Niet alle activa staan genoteerd op %{exchange_name}"
+            exchange_change_while_open_orders: "Annuleer alle openstaande bestellingen van deze bot op %{exchange_name} voordat u de exchange wijzigt"
             destroy_success: "Bot %{bot_label} succesvol verwijderd"
             api_key_success: "API-sleutels succesvol opgeslagen"
         messages:

@@ -14,10 +14,13 @@ class Bot < ApplicationRecord
   include Rankable
   include Notifyable
   include DomIdable
+  include Dryable # decorators for: api_key, notify_if_funds_are_low
 
   before_save :update_settings_changed_at, if: :will_save_change_to_settings?
+  before_save :store_previous_exchange_id
   after_update_commit :broadcast_status_bar_update, if: :saved_change_to_status?
   after_update_commit :broadcast_status_button_update, if: :saved_change_to_status?
+  after_update_commit -> { Bot::UpdateMetricsJob.perform_later(self) if custom_exchange_id_changed? }
 
   def working?
     scheduled? || executing? || retrying? || waiting?
@@ -123,6 +126,14 @@ class Bot < ApplicationRecord
   end
 
   private
+
+  def store_previous_exchange_id
+    @previous_exchange_id = exchange_id_was
+  end
+
+  def custom_exchange_id_changed?
+    exchange_id != @previous_exchange_id
+  end
 
   def update_settings_changed_at
     # FIXME: Required because we are using store_accessor and will_save_change_to_settings?
