@@ -5,7 +5,7 @@ module Bot::Dryable
     decorators = Module.new do
       def api_key
         if Rails.configuration.dry_run
-          user.api_keys.trading.new(exchange_id: exchange_id, status: :correct)
+          user.api_keys.new(exchange_id: exchange_id, key_type: api_key_type, status: :correct)
         else
           super
         end

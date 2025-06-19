@@ -23,6 +23,20 @@ class Bot < ApplicationRecord
     scheduled? || executing? || retrying? || waiting?
   end
 
+  def with_api_key
+    exchange.set_client(api_key: api_key) if exchange.present? && (exchange.api_key.blank? || exchange.api_key != api_key)
+    yield
+  end
+
+  def api_key_type
+    raise NotImplementedError, 'Subclass must implement api_key_type'
+  end
+
+  def api_key
+    @api_key ||= user.api_keys.find_by(exchange_id: exchange_id, key_type: api_key_type) ||
+                 user.api_keys.new(exchange_id: exchange_id, key_type: api_key_type, status: :pending_validation)
+  end
+
   def last_transaction
     transactions.where(transaction_type: 'REGULAR').order(created_at: :desc).limit(1).last
   end

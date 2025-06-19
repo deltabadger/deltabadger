@@ -34,14 +34,8 @@ class Bots::DcaSingleAsset < Bot
   include Bots::DcaSingleAsset::OrderSetter
   include Bots::DcaSingleAsset::Measurable
 
-  def with_api_key
-    exchange.set_client(api_key: api_key) if exchange.present? && (exchange.api_key.blank? || exchange.api_key != api_key)
-    yield
-  end
-
-  def api_key
-    @api_key ||= user.api_keys.trading.find_by(exchange_id: exchange_id) ||
-                 user.api_keys.trading.new(exchange_id: exchange_id, status: :pending_validation)
+  def api_key_type
+    :trading
   end
 
   def parse_params(params)
