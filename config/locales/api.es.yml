@@ -2,16 +2,25 @@ es:
     bot:
         api:
             binance:
-                sub_instructions:
+                instructions:
                     -   text_html: 'Inicia sesión en tu cuenta de %{exchange_link}.'
-                    -   text_html: 'En el menú de usuario (icono redondo en la esquina superior derecha), ve a <b>Gestión de API</b>.'
-                    -   text_html: 'Nombra la nueva clave de API presionando <b>Crear</b>.'
-                    -   text_html: 'Confirma la creación con código(s) de un solo uso.'
-                    -   text_html: 'Asegúrate de que <b>Habilitar Trading Spot y Margen</b> esté marcado.'
-                    -   text_html: 'Si quieres restringir el acceso a la clave solo para Deltabadger, haz clic en <b>Editar restricciones</b>, marca <b>Restringir el acceso solo a IPs de confianza (Recomendado)</b> y añade esta IP en el siguiente paso: <b>%{ip}</b>'
-                    -   text_html: 'Presiona <b>Guardar</b> y confirma con otro código de un solo uso si es necesario.'
-                    -   text_html: 'Recuerda que la Clave Secreta solo es visible durante la creación, así que asegúrate de copiar ambas claves antes de salir de la vista.'
-                    -   text_html: 'Copia y pega tus nuevas claves API en el formulario de arriba.'
+                    -   text_html: 'En el menú de usuario (icono redondo en la esquina superior derecha), ve a <b>Cuenta</b> → <b>Gestión de API</b>. Si no puedes encontrarlo, ve directamente desde <a href="https://www.binance.com/es/my/settings/api-management">aquí</a>.'
+                    -   text_html: 'Haz clic en <b>Crear API</b>.'
+                    -   text_html: 'En el cuadro de diálogo emergente, selecciona <b>Generada por el sistema</b>.'
+                    -   text_html: 'En el cuadro de diálogo emergente, da un nombre a la clave de API y pasa la verificación de seguridad si es necesario. <b>Deltabadger</b> es bueno para reconocerla en el futuro.'
+                    -   text_html: 'Haz clic en el botón superior derecho <b>Editar restricciones</b>:'
+                        sub_instructions:
+                            -   text_html: "Restricciones de acceso por IP"
+                                sub_instructions:
+                                    -   text_html: "Restringir el acceso a direcciones IP fiables"
+                                        sub_instructions:
+                                            -   text_html: "Rellena la dirección IP: <b>%{ip}</b>, y haz clic en <b>Confirmar</b>."
+                            -   text_html: "Restricciones de API"
+                                sub_instructions:
+                                    -   text_html: "Habilitar lectura"
+                                    -   text_html: "Habilitar trading spot y margen"
+                    -   text_html: 'Haz clic en <b>Guardar</b> y pasa la verificación de seguridad si es necesario.'
+                    -   text_html: 'Copia y pega tus nuevas claves API en el formulario.'
                 private_key: 'Clave Secreta'
                 public_key: 'Clave API'
             coinbase:

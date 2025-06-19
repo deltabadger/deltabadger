@@ -4,13 +4,22 @@ pt:
             binance:
                 instructions:
                     -   text_html: 'Faça login na sua conta %{exchange_link}.'
-                    -   text_html: 'No menu do utilizador (ícone redondo no canto superior direito), vá para <b>Gestão de API</b>.'
-                    -   text_html: 'Nomeie a nova chave de API pressionando <b>Criar</b>.'
-                    -   text_html: 'Confirme a criação com código(s) único(s).'
-                    -   text_html: 'Certifique-se de que <b>Ativar Negociação à Vista e de Margem</b> está selecionado.'
-                    -   text_html: 'Se quiser restringir o acesso à chave apenas para o Deltabadger, clique em <b>Editar restrições</b>, marque <b>Restringir acesso apenas a IPs confiáveis (Recomendado)</b> e adicione este IP no próximo passo: <b>%{ip}</b>'
-                    -   text_html: 'Pressione <b>Guardar</b> e confirme com outro código único, se necessário.'
-                    -   text_html: 'Lembre-se que a Chave Secreta só é visível durante a criação, portanto, certifique-se de copiar ambas as chaves antes de sair da vista.'
+                    -   text_html: 'No menu do utilizador (ícone redondo no canto superior direito), vá para <b>Conta</b> → <b>Gestão de API</b>. Se não conseguir encontrá-la, vá diretamente <a href="https://www.binance.com/pt/my/settings/api-management">aqui</a>.'
+                    -   text_html: 'Clique em <b>Criar API</b>.'
+                    -   text_html: 'Na caixa de diálogo pop-up, selecione <b>Gerada pelo sistema</b>.'
+                    -   text_html: 'Na caixa de diálogo pop-up, atribua um rótulo à chave de API e passe a verificação de segurança, se necessário. <b>Deltabadger</b> é bom para reconhecê-la mais tarde.'
+                    -   text_html: 'Clique no botão no canto superior direito <b>Editar restrições</b>:'
+                        sub_instructions:
+                            -   text_html: "Restrições de acesso de IP"
+                                sub_instructions:
+                                    -   text_html: "Restringir o acesso apenas a IPs de confiança"
+                                        sub_instructions:
+                                            -   text_html: "Preencha o endereço IP: <b>%{ip}</b>, e clique em <b>Confirmar</b>."
+                            -   text_html: "Restrições de API"
+                                sub_instructions:
+                                    -   text_html: "Ativar Leitura"
+                                    -   text_html: "Ativar Trading À Vista e de Margem"
+                    -   text_html: 'Clique em <b>Guardar</b> e passe a verificação de segurança, se necessário.'
                     -   text_html: 'Copie e cole as suas novas chaves de API no formulário acima.'
                 private_key: 'Chave Secreta'
                 public_key: 'Chave de API'
