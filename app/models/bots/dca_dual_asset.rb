@@ -15,40 +15,31 @@ class Bots::DcaDualAsset < Bot
   validate :validate_external_ids, on: :update
   validate :validate_unchangeable_assets, on: :update
   validate :validate_unchangeable_interval, on: :update
+  validate :validate_unchangeable_exchange, on: :update
   validate :validate_dca_dual_asset_included_in_subscription_plan, on: :start
 
   before_save :set_tickers, if: :will_save_change_to_exchange_id?
   # TODO: If bots can change assets, we also need to update the tickers and assets values
   #       ! also in price_limitable
 
-  include SmartIntervalable      # decorators for: parse_params, pending_quote_amount, interval_duration, restarting_within_interval?
+  include SmartIntervalable      # decorators for: parse_params, effective_quote_amount, effective_interval_duration
   include LimitOrderable         # decorators for: parse_params, execute_action
   include QuoteAmountLimitable   # decorators for: parse_params, pending_quote_amount
   include PriceLimitable         # decorators for: parse_params, started_at, execute_action, stop
   include PriceDropLimitable     # decorators for: parse_params, started_at, execute_action, stop
   include MovingAverageLimitable # decorators for: parse_params, started_at, execute_action, stop
   include IndicatorLimitable     # decorators for: parse_params, started_at, execute_action, stop
-  include Bots::DcaDualAsset::MarketcapAllocatable # decorators for: parse_params
-  include Fundable
+  include Fundable               # decorators for: execute_action
   include Schedulable
   include OrderCreator
   include Accountable
   include Exportable
+  include Bots::DcaDualAsset::MarketcapAllocatable # decorators for: parse_params
   include Bots::DcaDualAsset::OrderSetter
   include Bots::DcaDualAsset::Measurable
 
-  def with_api_key
-    exchange.set_client(api_key: api_key) if exchange.present? && (exchange.api_key.blank? || exchange.api_key != api_key)
-    yield
-  end
-
-  def api_key
-    @api_key ||= if Rails.configuration.dry_run
-                   user.api_keys.trading.new(exchange_id: exchange_id, status: :correct)
-                 else
-                   user.api_keys.trading.find_by(exchange_id: exchange_id) ||
-                     user.api_keys.trading.new(exchange_id: exchange_id, status: :pending_validation)
-                 end
+  def api_key_type
+    :trading
   end
 
   def parse_params(params)
@@ -112,7 +103,6 @@ class Bots::DcaDualAsset < Bot
   end
 
   def execute_action
-    notify_if_funds_are_low
     update!(status: :executing)
     result = set_orders(
       total_orders_amount_in_quote: pending_quote_amount,
@@ -173,7 +163,11 @@ class Bots::DcaDualAsset < Bot
   end
 
   def restarting_within_interval?
-    restarting? && pending_quote_amount < quote_amount
+    restarting? && pending_quote_amount < effective_quote_amount
+  end
+
+  def effective_quote_amount
+    quote_amount
   end
 
   def assets
@@ -248,8 +242,8 @@ class Bots::DcaDualAsset < Bot
   end
 
   def validate_unchangeable_assets
-    return unless transactions.exists?
     return unless settings_changed?
+    return unless transactions.any?
 
     errors.add(:base0_asset_id, :unchangeable) if base0_asset_id_was != base0_asset_id
     errors.add(:base1_asset_id, :unchangeable) if base1_asset_id_was != base1_asset_id
@@ -257,12 +251,20 @@ class Bots::DcaDualAsset < Bot
   end
 
   def validate_unchangeable_interval
-    return unless working?
     return unless settings_changed?
+    return unless working?
     return unless interval_was != interval
 
     errors.add(:settings, :unchangeable_interval,
                message: 'Interval cannot be changed while the bot is running')
+  end
+
+  def validate_unchangeable_exchange
+    return unless exchange_id_changed?
+    return unless transactions.open.any?
+
+    errors.add(:exchange, :unchangeable,
+               message: I18n.t('errors.bots.exchange_change_while_open_orders', exchange_name: exchange.name))
   end
 
   def validate_dca_dual_asset_included_in_subscription_plan

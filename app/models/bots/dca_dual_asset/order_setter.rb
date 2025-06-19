@@ -162,8 +162,6 @@ module Bots::DcaDualAsset::OrderSetter # rubocop:disable Metrics/ModuleLength
   end
 
   def create_order(order_data, amount_info)
-    return create_dry_order(order_data) if Rails.configuration.dry_run
-
     Rails.logger.info(
       "set_orders for bot #{id} creating order #{order_data.inspect} " \
       "with amount info #{amount_info.inspect}"
@@ -183,35 +181,5 @@ module Bots::DcaDualAsset::OrderSetter # rubocop:disable Metrics/ModuleLength
         )
       end
     end
-  end
-
-  def create_dry_order(order_data)
-    Rails.logger.info(
-      "set_orders for bot #{id} creating DRY order #{order_data.inspect}"
-    )
-    dry_order_id = "dry-#{SecureRandom.uuid[4...]}"
-
-    # mocks get_order response
-    dry_order_data = {
-      order_id: dry_order_id,
-      ticker: order_data[:ticker],
-      price: order_data[:price],
-      amount: order_data[:amount],
-      quote_amount: order_data[:quote_amount],
-      side: order_data[:side],
-      order_type: order_data[:order_type],
-      amount_exec: order_data[:amount],
-      quote_amount_exec: order_data[:quote_amount],
-      error_messages: [],
-      status: :closed,
-      exchange_response: {}
-    }
-    Rails.cache.write(dry_order_id, dry_order_data)
-
-    # mocks set_market_order/set_limit_order response
-    set_dry_order_data = {
-      order_id: dry_order_id
-    }
-    Result::Success.new(set_dry_order_data)
   end
 end

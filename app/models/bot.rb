@@ -8,6 +8,7 @@ class Bot < ApplicationRecord
 
   scope :working, -> { where(status: %i[scheduled executing retrying waiting]) }
 
+  include Dryable # decorators for: api_key
   include Typeable
   include Labelable
   include Webhookable
@@ -16,11 +17,43 @@ class Bot < ApplicationRecord
   include DomIdable
 
   before_save :update_settings_changed_at, if: :will_save_change_to_settings?
+  before_save :store_previous_exchange_id
   after_update_commit :broadcast_status_bar_update, if: :saved_change_to_status?
   after_update_commit :broadcast_status_button_update, if: :saved_change_to_status?
+  after_update_commit -> { Bot::UpdateMetricsJob.perform_later(self) if custom_exchange_id_changed? }
 
   def working?
     scheduled? || executing? || retrying? || waiting?
+  end
+
+  def with_api_key
+    exchange.set_client(api_key: api_key) if exchange.present? && (exchange.api_key.blank? || exchange.api_key != api_key)
+    yield
+  end
+
+  def api_key_type
+    raise NotImplementedError, "#{self.class} must implement api_key_type"
+  end
+
+  def parse_params(params)
+    raise NotImplementedError, "#{self.class.name} must implement parse_params"
+  end
+
+  def start(start_fresh: true)
+    raise NotImplementedError, "#{self.class.name} must implement start"
+  end
+
+  def stop(stop_message_key: nil)
+    raise NotImplementedError, "#{self.class.name} must implement stop"
+  end
+
+  def delete
+    raise NotImplementedError, "#{self.class.name} must implement delete"
+  end
+
+  def api_key
+    @api_key ||= user.api_keys.find_by(exchange_id: exchange_id, key_type: api_key_type) ||
+                 user.api_keys.new(exchange_id: exchange_id, key_type: api_key_type, status: :pending_validation)
   end
 
   def last_transaction
@@ -109,6 +142,14 @@ class Bot < ApplicationRecord
   end
 
   private
+
+  def store_previous_exchange_id
+    @previous_exchange_id = exchange_id_was
+  end
+
+  def custom_exchange_id_changed?
+    exchange_id != @previous_exchange_id
+  end
 
   def update_settings_changed_at
     # FIXME: Required because we are using store_accessor and will_save_change_to_settings?
