@@ -36,8 +36,8 @@ fr:
                                     -   text_html: '<b>%{ip}</b>'
                     -   text_html: 'Cliquez sur <b>Créer et télécharger</b> et terminez la vérification en 2 étapes.'
                     -   text_html: 'Copiez et collez vos nouvelles clés API dans le formulaire ci-dessus.'
-                private_key: 'Secret'
-                public_key: 'Clé API'
+                private_key: 'Clé privée'
+                public_key: 'Nom de la clé API'
             kraken:
                 instructions:
                     -   text_html: 'Connectez-vous à votre compte %{exchange_link}.'
@@ -59,7 +59,7 @@ fr:
                                     -   text_html: '<b>Activé</b>, IP : <b>%{ip}</b>'
                     -   text_html: 'Appuyez sur <b>Générer la Clé</b>.'
                     -   text_html: 'Copiez et collez vos nouvelles clés API dans le formulaire ci-dessus.'
-                private_key: 'Clé Privée'
+                private_key: 'Clé privée'
                 public_key: 'Clé API'
             kucoin:
                 instructions:

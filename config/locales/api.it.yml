@@ -33,8 +33,8 @@ it:
                                     -   text_html: '<b>Trade</b> (execute trades on your behalf)'
                     -   text_html: 'Fai clic su <b>Crea e scarica</b> e completa la verifica in 2 passaggi.'
                     -   text_html: 'Copia e incolla le tue nuove chiavi API nel modulo sopra.'
-                private_key: 'Segreto'
-                public_key: 'Chiave API'
+                private_key: 'Chiave privata'
+                public_key: 'Nome della chiave API'
             kraken:
                 instructions:
                     -   text_html: 'Accedi al tuo account %{exchange_link}.'
@@ -56,8 +56,8 @@ it:
                                     -   text_html: '<b>On</b>, IP: <b>%{ip}</b>'
                     -   text_html: 'Premi <b>Genera chiave</b>.'
                     -   text_html: 'Copia e incolla le tue nuove chiavi API nel modulo sopra.'
-                private_key: 'Chiave Privata'
-                public_key: 'Chiave API'
+                private_key: 'Chiave privata'
+                public_key: 'API key'
             kucoin:
                 instructions:
                     -   text_html: 'Accedi al tuo account %{exchange_link}.'
