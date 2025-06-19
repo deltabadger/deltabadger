@@ -11,10 +11,8 @@ module Bot::Dryable
         end
       end
 
-      def notify_if_funds_are_low
-        return if Rails.configuration.dry_run
-
-        super
+      def funds_are_low?
+        Rails.configuration.dry_run ? false : super
       end
     end
 

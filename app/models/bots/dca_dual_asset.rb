@@ -103,7 +103,6 @@ class Bots::DcaDualAsset < Bot
   end
 
   def execute_action
-    notify_if_funds_are_low
     update!(status: :executing)
     result = set_orders(
       total_orders_amount_in_quote: pending_quote_amount,
