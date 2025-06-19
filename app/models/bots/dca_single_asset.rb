@@ -30,6 +30,7 @@ class Bots::DcaSingleAsset < Bot
   include OrderCreator
   include Accountable
   include Exportable
+  include Dryable # decorators for: api_key
   include Bots::DcaSingleAsset::OrderSetter
   include Bots::DcaSingleAsset::Measurable
 
@@ -39,12 +40,8 @@ class Bots::DcaSingleAsset < Bot
   end
 
   def api_key
-    @api_key ||= if Rails.configuration.dry_run
-                   user.api_keys.trading.new(exchange_id: exchange_id, status: :correct)
-                 else
-                   user.api_keys.trading.find_by(exchange_id: exchange_id) ||
-                     user.api_keys.trading.new(exchange_id: exchange_id, status: :pending_validation)
-                 end
+    @api_key ||= user.api_keys.trading.find_by(exchange_id: exchange_id) ||
+                 user.api_keys.trading.new(exchange_id: exchange_id, status: :pending_validation)
   end
 
   def parse_params(params)

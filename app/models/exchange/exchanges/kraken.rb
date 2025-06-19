@@ -20,6 +20,8 @@ module Exchange::Exchanges::Kraken
     invalid_key: ['EGeneral:Permission denied', 'EAPI:Invalid key', 'EAPI:Invalid signature']
   }.freeze
 
+  include Exchange::Dryable # decorators for: get_order, get_orders, set_market_order, set_limit_order
+
   attr_reader :api_key
 
   def coingecko_id
