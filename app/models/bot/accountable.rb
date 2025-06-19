@@ -78,6 +78,10 @@ module Bot::Accountable
     # Raise an error in the before_save instead of validate to avoid having to set_missed_quote_amount before
     # any .valid? call.
     unless missed_quote_amount_was_set
+      Rails.logger.error(
+        'Attempting to save settings with missed_quote_amount not set, call ' \
+        "set_missed_quote_amount before saving: #{settings_was.inspect} != #{settings.inspect}"
+      )
       raise 'Attempting to save settings with missed_quote_amount not set, call set_missed_quote_amount before saving'
     end
 

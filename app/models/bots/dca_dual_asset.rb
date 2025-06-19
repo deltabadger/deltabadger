@@ -15,6 +15,7 @@ class Bots::DcaDualAsset < Bot
   validate :validate_external_ids, on: :update
   validate :validate_unchangeable_assets, on: :update
   validate :validate_unchangeable_interval, on: :update
+  validate :validate_unchangeable_exchange, on: :update
   validate :validate_dca_dual_asset_included_in_subscription_plan, on: :start
 
   before_save :set_tickers, if: :will_save_change_to_exchange_id?
@@ -34,7 +35,6 @@ class Bots::DcaDualAsset < Bot
   include OrderCreator
   include Accountable
   include Exportable
-  include Dryable # decorators for: api_key
   include Bots::DcaDualAsset::OrderSetter
   include Bots::DcaDualAsset::Measurable
 
@@ -239,8 +239,8 @@ class Bots::DcaDualAsset < Bot
   end
 
   def validate_unchangeable_assets
-    return unless transactions.exists?
     return unless settings_changed?
+    return unless transactions.any?
 
     errors.add(:base0_asset_id, :unchangeable) if base0_asset_id_was != base0_asset_id
     errors.add(:base1_asset_id, :unchangeable) if base1_asset_id_was != base1_asset_id
@@ -248,12 +248,20 @@ class Bots::DcaDualAsset < Bot
   end
 
   def validate_unchangeable_interval
-    return unless working?
     return unless settings_changed?
+    return unless working?
     return unless interval_was != interval
 
     errors.add(:settings, :unchangeable_interval,
                message: 'Interval cannot be changed while the bot is running')
+  end
+
+  def validate_unchangeable_exchange
+    return unless exchange_id_changed?
+    return unless transactions.open.any?
+
+    errors.add(:exchange, :unchangeable,
+               message: I18n.t('errors.bots.exchange_change_while_open_orders', exchange_name: exchange.name))
   end
 
   def validate_dca_dual_asset_included_in_subscription_plan
