@@ -6,14 +6,8 @@ module Bot::SmartIntervalable
                    :smart_intervaled,
                    :smart_interval_quote_amount
 
-    store_accessor :transient_data,
-                   :normal_interval_quote_amount,
-                   :normal_interval_duration
-
     after_initialize :initialize_smart_intervalable_settings
-    after_initialize :set_normal_interval_backup_values
     before_save :readjust_smart_interval_quote_amount, if: :will_save_change_to_settings?
-    before_save :set_normal_interval_backup_values, if: :will_save_change_to_settings?
 
     validates :smart_intervaled, inclusion: { in: [true, false] }
     validates :smart_interval_quote_amount,
@@ -29,48 +23,22 @@ module Bot::SmartIntervalable
         ).compact
       end
 
-      def interval_duration
+      def effective_quote_amount
+        return super unless smart_intervaled? &&
+                            smart_interval_quote_amount.present?
+
+        smart_interval_quote_amount
+      end
+
+      def effective_interval_duration
         return super unless smart_intervaled? &&
                             smart_interval_quote_amount.present? &&
-                            normal_interval_quote_amount.present?
+                            quote_amount.present?
 
-        # interval_duration is an ActiveSupport::Duration. However, for some durations, after this
-        # division, addition in other methods (e.g. Time.current + interval_duration) stops working.
+        # effective_interval_duration is an ActiveSupport::Duration. However, for some durations, after this
+        # division, addition in other methods (e.g. Time.current + effective_interval_duration) stops working.
         # Re-converting it to seconds makes the addition work. Do NOT remove the .seconds !
-        (super / (normal_interval_quote_amount.to_f / smart_interval_quote_amount)).seconds
-      end
-
-      def pending_quote_amount
-        return super unless smart_intervaled? &&
-                            smart_interval_quote_amount.present?
-
-        quote_amount_bak = quote_amount
-        self.quote_amount = smart_interval_quote_amount
-        value = super
-        self.quote_amount = quote_amount_bak
-        value
-      end
-
-      def restarting_within_interval?
-        return super unless smart_intervaled? &&
-                            smart_interval_quote_amount.present?
-
-        quote_amount_bak = quote_amount
-        self.quote_amount = smart_interval_quote_amount
-        value = super
-        self.quote_amount = quote_amount_bak
-        value
-      end
-
-      def funds_are_low?
-        return super unless smart_intervaled? &&
-                            smart_interval_quote_amount.present?
-
-        quote_amount_bak = quote_amount
-        self.quote_amount = smart_interval_quote_amount
-        value = super
-        self.quote_amount = quote_amount_bak
-        value
+        (super / (quote_amount.to_f / smart_interval_quote_amount)).seconds
       end
     end
 
@@ -79,13 +47,6 @@ module Bot::SmartIntervalable
 
   def smart_intervaled?
     smart_intervaled == true
-  end
-
-  def smart_interval
-    return nil unless smart_intervaled?
-    return nil if smart_interval_quote_amount.blank? || quote_amount.blank? || interval.blank?
-
-    interval_duration / (quote_amount.to_f / smart_interval_quote_amount)
   end
 
   private
@@ -112,7 +73,7 @@ module Bot::SmartIntervalable
     # the minimum amount would set one order every 1 minute
     maximum_frequency = 300 # seconds
     minimum_for_frequency = if quote_amount.present?
-                              quote_amount / Bot::Schedulable::INTERVALS[interval] * maximum_frequency
+                              quote_amount / interval_duration.to_f * maximum_frequency
                             else
                               0
                             end
@@ -124,11 +85,6 @@ module Bot::SmartIntervalable
       Utilities::Number.round_up(minimum_for_frequency, precision: least_precise_quote_decimals),
       minimum_for_precision
     ].max
-  end
-
-  def set_normal_interval_backup_values
-    self.normal_interval_quote_amount = quote_amount
-    self.normal_interval_duration = interval.present? ? Bot::Schedulable::INTERVALS[interval] : nil
   end
 
   def readjust_smart_interval_quote_amount
