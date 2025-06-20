@@ -1,0 +1,137 @@
+---
+description:
+globs:
+alwaysApply: true
+---
+## Rails Code Style - Jorge Manrubia Guidelines
+
+**CRITICAL**: Follow these Rails conventions and principles strictly:
+
+### 1. File Structure & Architecture
+
+**Core Principle**: Only vanilla Rails file structure. No creation of random 'service' objects.
+
+#### Models & Concerns:
+- **Common model concerns**: Place in `app/models/concerns/`
+- **Model-specific concerns**: Place in `app/models/<model_name>/` folder
+  - This removes the need to repeat the namespace when including the concern
+- **POROs**: You can have Plain Old Ruby Objects all over the models folder
+- **New functionality**: Create new models and concerns for them when needed, NOT service objects
+
+#### Controllers & Concerns:
+- **Most controller concerns**: Place in `app/controllers/concerns/`
+- **Subsystem-specific concerns**: Place in `app/controllers/concerns/<subsystem>/`
+
+#### Concerns Design Principles:
+- Each concern should be a **cohesive unit** that captures a trait of the host model
+- Only contain things that belong together
+- **DO NOT** treat concerns as arbitrary containers to split large models
+- Must feature genuine "has trait" or "acts as" semantics
+- Should work like class inheritance needs "is a" relationship
+- Will cause more harm than good if used incorrectly
+
+### 2. Dependencies Management
+
+#### Ruby Dependencies:
+- **Fight hard before adding Ruby dependencies**
+- Keep the Gemfile as close to the original Rails-generated one as possible
+- Prefer Rails built-in solutions over external gems
+- Only add gems when absolutely necessary
+
+#### JavaScript Dependencies:
+- **Fight even harder before adding JavaScript dependencies**
+- **NO React or other front-end frameworks**
+- **NO JSON API to feed front-end frameworks**
+- Use vanilla JavaScript when needed
+- Prefer server-side rendering
+
+### 3. Front-end Technology
+
+#### Hotwire (Turbo + Stimulus):
+- **Hotwire is fantastic, pragmatic, and ridiculously productive**
+- **USE IT** for front-end interactions
+- Embrace Turbo for navigation and form handling
+- Use Stimulus for JavaScript behavior
+- Leverage Turbo Streams for real-time updates
+
+#### Server-Side Rendering:
+- **Embrace and celebrate rendering things on the server**
+- ERB templates and view helpers will take you as far as you need
+- Prefer server-side rendering over client-side JavaScript
+- Use view helpers for complex presentation logic
+
+### 4. Object-Oriented Design
+
+#### Principles:
+- Be big on good old object-oriented design
+- Use inheritance and composition appropriately
+- Follow design and implementation patterns
+- Concerns play great with this approach
+- Focus on cohesive, well-designed objects
+
+#### Model Organization:
+- Use concerns for shared behavior across models
+- Use model-specific concerns for organizing code within a single model
+- Create POROs when you need simple objects without persistence
+- Keep models focused and single-purpose
+
+### 5. Implementation Examples
+
+#### ✅ Good Practices:
+```ruby
+# app/models/user.rb
+class User < ApplicationRecord
+  include Email
+  include Name
+  include Authenticatable
+end
+
+# app/models/user/email.rb
+module User::Email
+  extend ActiveSupport::Concern
+  # Email-related behavior
+end
+
+# app/models/concerns/authenticatable.rb
+module Authenticatable
+  extend ActiveSupport::Concern
+  # Shared authentication behavior
+end
+```
+
+#### ❌ Avoid:
+```ruby
+# Don't create random service objects
+class UserService
+  def create_user(params)
+    # ...
+  end
+end
+
+# Don't use concerns as arbitrary containers
+module User::RandomStuff
+  # Mixed unrelated behaviors
+end
+```
+
+### 6. File Organization Examples
+
+#### ✅ Correct Structure:
+- `app/models/concerns/authenticatable.rb` (shared across models)
+- `app/models/user/email.rb` (specific to User model)
+- `app/models/user/name.rb` (specific to User model)
+- `app/controllers/concerns/authentication.rb` (shared across controllers)
+- `app/controllers/concerns/admin/authorization.rb` (admin subsystem)
+
+#### ❌ Avoid:
+- `app/services/` directory
+- `app/models/user_service.rb`
+- Concerns with mixed, unrelated behaviors
+
+### 7. When Adding New Features:
+1. **First**: Try to use existing Rails patterns and conventions
+2. **Second**: Create new models and concerns if needed
+3. **Third**: Use POROs for simple business logic
+4. **Last resort**: Only then consider external dependencies
+
+Remember: Rails conventions are your friend. Embrace them, don't fight them.
