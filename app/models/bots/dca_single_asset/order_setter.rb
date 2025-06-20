@@ -13,7 +13,7 @@ module Bots::DcaSingleAsset::OrderSetter
     validate_order_amount!(order_amount_in_quote)
     return Result::Success.new if order_amount_in_quote.zero?
 
-    result = get_order(order_amount_in_quote)
+    result = get_order_data(order_amount_in_quote)
     return result if result.failure?
 
     order_data = result.data
@@ -57,7 +57,7 @@ module Bots::DcaSingleAsset::OrderSetter
     raise 'Order quote_amount must be positive' if order_amount_in_quote.negative?
   end
 
-  def get_order(order_amount_in_quote)
+  def get_order_data(order_amount_in_quote)
     result = if limit_ordered?
                ticker.get_last_price
              else
@@ -96,7 +96,7 @@ module Bots::DcaSingleAsset::OrderSetter
   end
 
   def calculate_best_amount_info(order_data)
-    case exchange.minimum_amount_logic(side: order_data[:side])
+    case exchange.minimum_amount_logic(side: order_data[:side], order_type: order_data[:order_type])
     when :base_or_quote
       minimum_quote_size_in_base = ticker.minimum_quote_size / order_data[:price]
       amount_type = minimum_quote_size_in_base < ticker.minimum_base_size ? :quote : :base

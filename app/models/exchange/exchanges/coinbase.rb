@@ -2,7 +2,6 @@ module Exchange::Exchanges::Coinbase
   extend ActiveSupport::Concern
 
   COINGECKO_ID = 'gdax'.freeze # https://docs.coingecko.com/reference/exchanges-list
-  PROXY = ENV['US_HTTPS_PROXY'].present? ? "https://#{ENV['US_HTTPS_PROXY']}".freeze : nil
   TICKER_BLACKLIST = [
     'RENDER-USD', # same as RNDR-USD. Remove it when Coinbase delists RENDER-USD
     'RENDER-USDC',
@@ -28,15 +27,14 @@ module Exchange::Exchanges::Coinbase
   end
 
   def proxy_ip
-    @proxy_ip ||= PROXY.split('://').last.split(':').first if PROXY.present?
+    @proxy_ip ||= CoinbaseClient::PROXY.split('://').last.split(':').first if CoinbaseClient::PROXY.present?
   end
 
   def set_client(api_key: nil)
     @api_key = api_key
     @client = CoinbaseClient.new(
       api_key: api_key&.key,
-      api_secret: api_key&.secret,
-      proxy: PROXY
+      api_secret: api_key&.secret
     )
   end
 
@@ -305,8 +303,7 @@ module Exchange::Exchanges::Coinbase
   def get_api_key_validity(api_key:)
     result = CoinbaseClient.new(
       api_key: api_key.key,
-      api_secret: api_key.secret,
-      proxy: PROXY
+      api_secret: api_key.secret
     ).get_api_key_permissions
 
     if result.success?
