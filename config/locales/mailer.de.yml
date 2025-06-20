@@ -33,8 +33,8 @@ de:
             subject: "Transaktion war erfolgreich"
             template_html: "Transaktion erfolgreich, Basis: %{base}, Quote: %{quote}, Bot-Name: %{bot_name}, Typ: %{type}, Preis: %{price}, Börse: %{exchange_name}"
         end_of_funds:
-            subject: "%{label} geht bald das Guthaben aus"
-            template_html: "<p>Es sieht so aus, als würde Ihrem Bot <b>%{label}</b> sehr bald das %{quote} ausgehen.</p><p>Tätigen Sie eine Überweisung an %{exchange_name}, um sicherzustellen, dass der Bot kontinuierlich arbeitet.</p>"
+            subject: "Ihrem %{exchange_name}-Konto geht das %{quote} aus"
+            template_html: "<p>Ihrem %{exchange_name}-Konto geht das %{quote} aus.</p><p>Tätigen Sie eine Überweisung an %{exchange_name}, um sicherzustellen, dass Ihre Bots kontinuierlich arbeiten.</p>"
         notify_about_error:
             subject: "Etwas ist mit %{label} schiefgelaufen"
             template_html: "<p>Bei der Verarbeitung der letzten Transaktion für Bot <b>%{label}</b> ist etwas schiefgelaufen.</p><p>Sie können den Fehler im Bot-Protokoll sehen. Melden Sie sich an, um es zu überprüfen.</p><p>Fehler:</p><blockquote> <b>%{exchange_name}:</b> <b>%{errors}</b></blockquote>"
