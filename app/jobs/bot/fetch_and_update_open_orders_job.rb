@@ -3,7 +3,7 @@ class Bot::FetchAndUpdateOpenOrdersJob < BotJob
     orders = bot.transactions.submitted.open
     return if orders.empty?
 
-    result = fetch_orders(bot, orders)
+    result = bot.get_orders(order_ids: orders.pluck(:external_id))
     raise "Failed to fetch orders #{orders.pluck(:id).to_sentence}. Result: #{result.errors}" if result.failure?
 
     calc_since = [bot.started_at, bot.settings_changed_at].compact.max
@@ -28,13 +28,5 @@ class Bot::FetchAndUpdateOpenOrdersJob < BotJob
     return if success_or_kill
 
     raise e
-  end
-
-  private
-
-  def fetch_orders(bot, orders)
-    bot.with_api_key do
-      bot.exchange.get_orders(order_ids: orders.map(&:external_id))
-    end
   end
 end

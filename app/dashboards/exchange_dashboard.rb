@@ -56,6 +56,6 @@ class ExchangeDashboard < Administrate::BaseDashboard
   # across all pages of the admin dashboard.
   #
   def display_resource(exchange)
-    exchange.name.capitalize.to_s
+    exchange.name
   end
 end
