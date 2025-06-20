@@ -1,17 +1,18 @@
 class CoinbaseClient < ApplicationClient
   # https://docs.cdp.coinbase.com/coinbase-app/trade/docs/api-overview
-  URL = 'https://api.coinbase.com'.freeze
 
-  def initialize(api_key: nil, api_secret: nil, proxy: nil)
+  URL = 'https://api.coinbase.com'.freeze
+  PROXY = ENV['US_HTTPS_PROXY'].present? ? "https://#{ENV['US_HTTPS_PROXY']}".freeze : nil
+
+  def initialize(api_key: nil, api_secret: nil)
     super()
     @api_key = api_key
     @api_secret = api_secret&.gsub('\n', "\n")
-    @proxy = proxy
   end
 
   def self.connection
     @connection ||= Faraday.new(url: URL, **OPTIONS) do |config|
-      config.proxy = @proxy
+      config.proxy = PROXY if PROXY.present?
       config.request :json
       config.response :json
       config.response :raise_error
