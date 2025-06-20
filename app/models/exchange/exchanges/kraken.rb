@@ -15,6 +15,24 @@ module Exchange::Exchanges::Kraken
     'XETH' => 'ETH',
     'XXDG' => 'XDG'
   }.freeze # matches how assets are shown in the balances response with how they are shown in the tickers
+  REAL_COSTMIN = {
+    'AUD' => 10,     # instead of 1
+    'CAD' => 5,      # instead of 1
+    'CHF' => 5,      # instead of 1
+    'DAI' => 5,      # instead of 0.5
+    'ETH' => 0.002,  # instead of 0.0002
+    'EUR' => 0.5,    # instead of 0.45
+    'GBP' => 5,      # instead of 0.43
+    'JPY' => 500,    # instead of 50
+    'PYUSD' => 5,    # instead of 0.5
+    'RLUSD' => 5,    # instead of 0.5
+    'USD' => 5,      # instead of 0.5
+    'USDC' => 5,     # instead of 0.5
+    'USDQ' => 5,     # instead of 0.5
+    'USDR' => 5,     # instead of 0.5
+    'USDT' => 5,     # instead of 0.5
+    'XBT' => 0.00005 # instead of 0.00002
+  }.freeze # the real costmin values that Kraken respects. Found by trial and error using test orders.
   ERRORS = {
     insufficient_funds: ['EAPI:Insufficient funds', 'EOrder:Insufficient funds'],
     invalid_key: ['EGeneral:Permission denied', 'EAPI:Invalid key', 'EAPI:Invalid signature']
@@ -58,12 +76,15 @@ module Exchange::Exchanges::Kraken
         next if TICKER_BLACKLIST.include?(ticker)
 
         wsname = Utilities::Hash.dig_or_raise(info, 'wsname')
+        base, quote = wsname.split('/')
+        minimum_base_size = Utilities::Hash.dig_or_raise(info, 'ordermin').to_d
+        minimum_quote_size = (REAL_COSTMIN[quote] || Utilities::Hash.dig_or_raise(info, 'costmin')).to_d
         {
           ticker: ticker,
-          base: wsname.split('/')[0],
-          quote: wsname.split('/')[1],
-          minimum_base_size: Utilities::Hash.dig_or_raise(info, 'ordermin').to_d,
-          minimum_quote_size: Utilities::Hash.dig_or_raise(info, 'costmin').to_d,
+          base: base,
+          quote: quote,
+          minimum_base_size: minimum_base_size,
+          minimum_quote_size: minimum_quote_size,
           maximum_base_size: nil,
           maximum_quote_size: nil,
           base_decimals: Utilities::Hash.dig_or_raise(info, 'lot_decimals'),

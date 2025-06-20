@@ -32,14 +32,14 @@ module Bots::DcaSingleAsset::OrderSetter
     result = create_order(order_data, amount_info)
     if result.failure?
       Rails.logger.error(
-        "set_order for bot #{id} failed to create order #{order_data.inspect}. " \
+        "set_order for bot #{id} failed to create order #{order_data.inspect} with amount info #{amount_info.inspect}. " \
         "Errors: #{result.errors.to_sentence}"
       )
       create_failed_order!(order_data.merge!(error_messages: result.errors))
       return result
     else
       order_id = result.data[:order_id]
-      Rails.logger.info("set_order for bot #{id} created order #{order_id}")
+      Rails.logger.info("set_order for bot #{id} created order #{order_id} with amount info #{amount_info.inspect}")
       Bot::FetchAndCreateOrderJob.perform_later(
         self,
         order_id,
