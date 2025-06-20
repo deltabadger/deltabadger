@@ -2,6 +2,7 @@ module Exchange::Exchanges::Kraken
   extend ActiveSupport::Concern
 
   COINGECKO_ID = 'kraken'.freeze # https://docs.coingecko.com/reference/exchanges-list
+  PROXY = ENV['US_HTTPS_PROXY'].present? ? "https://#{ENV['US_HTTPS_PROXY']}".freeze : nil
   TICKER_BLACKLIST = [].freeze
   ASSET_MAP = {
     'ZUSD' => 'USD',
@@ -32,11 +33,16 @@ module Exchange::Exchanges::Kraken
     ERRORS
   end
 
+  def proxy_ip
+    @proxy_ip ||= PROXY.split('://').last.split(':').first if PROXY.present?
+  end
+
   def set_client(api_key: nil)
     @api_key = api_key
     @client = KrakenClient.new(
       api_key: api_key&.key,
-      api_secret: api_key&.secret
+      api_secret: api_key&.secret,
+      proxy: PROXY
     )
   end
 
@@ -181,9 +187,8 @@ module Exchange::Exchanges::Kraken
   end
 
   def get_candles(ticker:, start_at:, timeframe:)
-    # Notes:
-    # - Returns up to 720 of the most recent entries (older data cannot be retrieved, regardless of the value of start_at)
-    # - 1.week and 15.days timeframes don't follow TradingView start timestamp
+    # Kraken only returns up to 720 of the most recent entries
+    # (older data cannot be retrieved, regardless of the value of start_at)
     intervals = {
       1.minute => 1,
       5.minutes => 5,
@@ -195,8 +200,8 @@ module Exchange::Exchanges::Kraken
       3.days => 1440,
       1.week => 1440,
       1.month => 1440
-      # 1.week => 10_080,
-      # 15.days => 21_600
+      # 1.week => 10_080,  # doesn't follow TradingView start timestamp
+      # 15.days => 21_600  # doesn't follow TradingView start timestamp
     }
     interval = intervals[timeframe]
 
@@ -240,7 +245,7 @@ module Exchange::Exchanges::Kraken
       ticker: ticker,
       amount: amount,
       amount_type: amount_type,
-      side: 'buy'
+      side: :buy
     )
   end
 
@@ -250,7 +255,7 @@ module Exchange::Exchanges::Kraken
       ticker: ticker,
       amount: amount,
       amount_type: amount_type,
-      side: 'sell'
+      side: :sell
     )
   end
 
@@ -260,7 +265,7 @@ module Exchange::Exchanges::Kraken
       ticker: ticker,
       amount: amount,
       amount_type: amount_type,
-      side: 'buy',
+      side: :buy,
       price: price
     )
   end
@@ -271,7 +276,7 @@ module Exchange::Exchanges::Kraken
       ticker: ticker,
       amount: amount,
       amount_type: amount_type,
-      side: 'sell',
+      side: :sell,
       price: price
     )
   end
@@ -322,7 +327,8 @@ module Exchange::Exchanges::Kraken
   def get_api_key_validity(api_key:)
     temp_client = KrakenClient.new(
       api_key: api_key.key,
-      api_secret: api_key.secret
+      api_secret: api_key.secret,
+      proxy: PROXY
     )
     result = if api_key.trading?
                temp_client.add_order(
@@ -350,8 +356,13 @@ module Exchange::Exchanges::Kraken
     end
   end
 
-  def minimum_amount_logic
-    :base_and_quote
+  def minimum_amount_logic(side:)
+    case side
+    when :buy
+      :base_or_quote
+    when :sell
+      :base
+    end
   end
 
   private
@@ -423,17 +434,19 @@ module Exchange::Exchanges::Kraken
     end
   end
 
-  # @param amount: Float must be a positive number
+  # @param amount [Float] must be a positive number
   # @param amount_type [Symbol] :base or :quote
-  # @param side: String must be either 'buy' or 'sell'
+  # @param side [Symbol] must be either :buy or :sell
   def set_market_order(ticker:, amount:, amount_type:, side:)
+    raise 'Kraken does not support market sell orders in quote currency' if side == :sell && amount_type == :quote
+
     amount = ticker.adjusted_amount(amount: amount, amount_type: amount_type)
 
     client_order_id = SecureRandom.uuid
     order_settings = {
       cl_ord_id: client_order_id,
       ordertype: 'market',
-      type: side.downcase,
+      type: side.to_s.downcase,
       volume: amount.to_d.to_s('F'),
       pair: ticker.ticker,
       oflags: amount_type == :quote ? ['viqc'] : []
@@ -455,10 +468,10 @@ module Exchange::Exchanges::Kraken
     Result::Success.new(data)
   end
 
-  # @param amount: Float must be a positive number
+  # @param amount [Float] must be a positive number
   # @param amount_type [Symbol] :base or :quote
-  # @param side: String must be either 'buy' or 'sell'
-  # @param price: Float must be a positive number
+  # @param side [Symbol] must be either :buy or :sell
+  # @param price [Float] must be a positive number
   def set_limit_order(ticker:, amount:, amount_type:, side:, price:)
     amount = ticker.adjusted_amount(amount: amount, amount_type: amount_type)
     price = ticker.adjusted_price(price: price)
@@ -467,7 +480,7 @@ module Exchange::Exchanges::Kraken
     result = client.add_order(
       cl_ord_id: client_order_id,
       ordertype: 'limit',
-      type: side.downcase,
+      type: side.to_s.downcase,
       volume: amount.to_d.to_s('F'),
       pair: ticker.ticker,
       price: price.to_d.to_s('F'),
@@ -494,23 +507,15 @@ module Exchange::Exchanges::Kraken
     price = Utilities::Hash.dig_or_raise(order_data, 'price').to_d
     price = Utilities::Hash.dig_or_raise(order_data, 'descr', 'price').to_d if price.zero? && order_type == :limit_order
     quote_amount_exec = Utilities::Hash.dig_or_raise(order_data, 'cost').to_d
+    amount_exec = Utilities::Hash.dig_or_raise(order_data, 'vol_exec').to_d
 
     order_flags = Utilities::Hash.dig_or_raise(order_data, 'oflags').split(',')
     if order_flags.include?('viqc')
       amount = nil
       quote_amount = Utilities::Hash.dig_or_raise(order_data, 'vol').to_d
-      fee = Utilities::Hash.dig_or_raise(order_data, 'fee').to_d
-      amount_exec = if order_flags.include?('fciq')
-                      (quote_amount_exec - fee) / price
-                    elsif order_flags.include?('fcib')
-                      (quote_amount_exec / price) - fee
-                    else
-                      raise "Unknown order flags: #{order_flags.inspect}"
-                    end
     else
       amount = Utilities::Hash.dig_or_raise(order_data, 'vol').to_d
       quote_amount = nil
-      amount_exec = Utilities::Hash.dig_or_raise(order_data, 'vol_exec').to_d
     end
 
     side = Utilities::Hash.dig_or_raise(order_data, 'descr', 'type').downcase.to_sym
