@@ -1,7 +1,7 @@
 class Bot::FetchAndUpdateOrderJob < BotJob
   def perform(order, update_missed_quote_amount: false, success_or_kill: false)
     bot = order.bot
-    result = fetch_order(bot, order)
+    result = bot.get_order(order_id: order.external_id)
     raise "Failed to fetch order #{order.id}. Result: #{result.errors}" if result.failure?
 
     calc_since = [bot.started_at, bot.settings_changed_at].compact.max
@@ -22,13 +22,5 @@ class Bot::FetchAndUpdateOrderJob < BotJob
     return if success_or_kill
 
     raise e
-  end
-
-  private
-
-  def fetch_order(bot, order)
-    bot.with_api_key do
-      bot.exchange.get_order(order_id: order.external_id)
-    end
   end
 end

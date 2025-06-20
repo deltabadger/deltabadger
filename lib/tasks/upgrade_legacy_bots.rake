@@ -107,7 +107,7 @@ task upgrade_legacy_bots: :environment do
     bot = Bot.find(bot_id)
     bot.update!(stopped_at: stopped_at, started_at: started_at)
 
-    if is_working # rubocop:disable Style/Next
+    if is_working
       amount_to_buy = bot.pending_quote_amount
       if amount_to_buy > bot.settings['quote_amount']
         raise "Amount to buy for bot #{bot.id} would be #{amount_to_buy} but quote amount is #{bot.settings['quote_amount']}"
@@ -143,34 +143,32 @@ task upgrade_legacy_bots: :environment do
 
     # bot.transactions.submitted.where(quote_amount: nil).find_each do |transaction|
     #   puts "Updating transaction #{transaction.id} quote amount for bot #{bot.id}"
-    #   bot.with_api_key do
-    #     result = bot.exchange.get_order(order_id: transaction.external_id)
-    #     if result.success?
+    #   result = bot.get_order(order_id: transaction.external_id)
+    #   if result.success?
 
-    #       quote_amount = result.data[:quote_amount] || (result.data[:price] * result.data[:amount]).to_d
-    #       side = result.data[:side]
-    #       order_type = result.data[:order_type]
-    #       filled_percentage = result.data[:filled_percentage]
-    #       external_status = result.data[:status]
-    #       base = result.data[:ticker]&.base_asset&.symbol
-    #       quote = result.data[:ticker]&.quote_asset&.symbol
-    #       puts "updating transaction #{transaction.id}: #{base}#{quote} #{order_type} #{side}" \
-    #            " #{quote_amount} - #{(filled_percentage * 100).round(2)}% filled [#{external_status}]"
+    #     quote_amount = result.data[:quote_amount] || (result.data[:price] * result.data[:amount]).to_d
+    #     side = result.data[:side]
+    #     order_type = result.data[:order_type]
+    #     filled_percentage = result.data[:filled_percentage]
+    #     external_status = result.data[:status]
+    #     base = result.data[:ticker]&.base_asset&.symbol
+    #     quote = result.data[:ticker]&.quote_asset&.symbol
+    #     puts "updating transaction #{transaction.id}: #{base}#{quote} #{order_type} #{side}" \
+    #          " #{quote_amount} - #{(filled_percentage * 100).round(2)}% filled [#{external_status}]"
 
-    #       transaction.update!(
-    #         price: result.data[:price],
-    #         amount: result.data[:amount],
-    #         base: base,
-    #         quote: quote,
-    #         quote_amount: quote_amount,
-    #         side: side,
-    #         order_type: order_type,
-    #         filled_percentage: filled_percentage,
-    #         external_status: external_status
-    #       )
-    #     else
-    #       puts "Error updating transaction #{transaction.id} quote amount for bot #{bot.id}: #{result.errors.to_sentence}"
-    #     end
+    #     transaction.update!(
+    #       price: result.data[:price],
+    #       amount: result.data[:amount],
+    #       base: base,
+    #       quote: quote,
+    #       quote_amount: quote_amount,
+    #       side: side,
+    #       order_type: order_type,
+    #       filled_percentage: filled_percentage,
+    #       external_status: external_status
+    #     )
+    #   else
+    #     puts "Error updating transaction #{transaction.id} quote amount for bot #{bot.id}: #{result.errors.to_sentence}"
     #   end
     # end
   end
