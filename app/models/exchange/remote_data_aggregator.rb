@@ -11,7 +11,7 @@ module Exchange::RemoteDataAggregator
     external_ids = coingecko_tickers_hash.map { |_, t| [t[:base_external_id], t[:quote_external_id]] }
                                          .flatten.compact.uniq
 
-    result = get_tickers_info
+    result = get_tickers_info(force: true)
     return result if result.failure?
 
     exchange_tickers_hash = result.data.map { |t| [generic_ticker_key(t), t] }.to_h
@@ -179,12 +179,11 @@ module Exchange::RemoteDataAggregator
   def create_missing_or_update_existing_exchange_tickers!(coingecko_tickers_hash, exchange_tickers_hash)
     exchange_tickers_hash.each do |ticker_key, ticker_info|
       coingecko_ticker_info = coingecko_tickers_hash[ticker_key]
-      next if coingecko_ticker_info.nil?
-
       exchange_ticker = exchange_tickers.find_by(base: ticker_info[:base], quote: ticker_info[:quote])
+
       if exchange_ticker.present?
         exchange_ticker.update!(ticker_info)
-      else
+      elsif coingecko_ticker_info.present?
         base_asset_external_id = coingecko_ticker_info[:base_external_id] || external_id_eodhd(ticker_info[:base])
         quote_asset_external_id = coingecko_ticker_info[:quote_external_id] || external_id_eodhd(ticker_info[:quote])
         exchange_tickers.create!({
