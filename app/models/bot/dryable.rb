@@ -13,11 +13,11 @@ module Bot::Dryable
     end
 
     prepend decorators
+  end
 
-    private
+  private
 
-    def dry_run?
-      Rails.configuration.dry_run
-    end
+  def dry_run?
+    Rails.configuration.dry_run
   end
 end
