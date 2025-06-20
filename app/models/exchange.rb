@@ -146,6 +146,8 @@ class Exchange < ApplicationRecord
     case name_id
     when 'coinbase' then singleton_class.include(Exchanges::Coinbase)
     when 'kraken' then singleton_class.include(Exchanges::Kraken)
+    when 'binance' then singleton_class.include(Exchanges::Binance)
+    when 'binance_us' then singleton_class.include(Exchanges::BinanceUs)
     end
   end
 

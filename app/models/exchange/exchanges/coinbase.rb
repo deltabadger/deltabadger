@@ -39,7 +39,7 @@ module Exchange::Exchanges::Coinbase
   end
 
   def get_tickers_info(force: false)
-    cache_key = "exchange_#{id}_info"
+    cache_key = "exchange_#{id}_tickers_info"
     tickers_info = Rails.cache.fetch(cache_key, expires_in: 1.hour, force: force) do
       result = client.list_products
       return Result::Failure.new("Failed to get #{name} products") if result.failure?
