@@ -2,7 +2,6 @@ module Exchange::Exchanges::Kraken
   extend ActiveSupport::Concern
 
   COINGECKO_ID = 'kraken'.freeze # https://docs.coingecko.com/reference/exchanges-list
-  PROXY = ENV['US_HTTPS_PROXY'].present? ? "https://#{ENV['US_HTTPS_PROXY']}".freeze : nil
   TICKER_BLACKLIST = [].freeze
   ASSET_MAP = {
     'ZUSD' => 'USD',
@@ -34,15 +33,14 @@ module Exchange::Exchanges::Kraken
   end
 
   def proxy_ip
-    @proxy_ip ||= PROXY.split('://').last.split(':').first if PROXY.present?
+    @proxy_ip ||= KrakenClient::PROXY.split('://').last.split(':').first if KrakenClient::PROXY.present?
   end
 
   def set_client(api_key: nil)
     @api_key = api_key
     @client = KrakenClient.new(
       api_key: api_key&.key,
-      api_secret: api_key&.secret,
-      proxy: PROXY
+      api_secret: api_key&.secret
     )
   end
 
@@ -327,8 +325,7 @@ module Exchange::Exchanges::Kraken
   def get_api_key_validity(api_key:)
     temp_client = KrakenClient.new(
       api_key: api_key.key,
-      api_secret: api_key.secret,
-      proxy: PROXY
+      api_secret: api_key.secret
     )
     result = if api_key.trading?
                temp_client.add_order(
@@ -356,11 +353,10 @@ module Exchange::Exchanges::Kraken
     end
   end
 
-  def minimum_amount_logic(side:)
-    case side
-    when :buy
+  def minimum_amount_logic(side:, order_type:)
+    if side == :buy && order_type == :market_order
       :base_or_quote
-    when :sell
+    else
       :base
     end
   end
