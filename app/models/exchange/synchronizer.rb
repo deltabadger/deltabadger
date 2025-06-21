@@ -1,7 +1,7 @@
-module Exchange::RemoteDataAggregator
+module Exchange::Synchronizer
   extend ActiveSupport::Concern
 
-  def sync_tickers_and_assets_with_remote_data
+  def sync_tickers_and_assets_with_external_data
     result = get_symbol_to_external_id_hash
     return result if result.failure?
 

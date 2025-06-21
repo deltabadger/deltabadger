@@ -17,7 +17,7 @@ class Exchange < ApplicationRecord
                                    where(name: %w[Coinbase Kraken])
                                  } # FIXME: Temporary until all exchanges are supported
 
-  include RemoteDataAggregator
+  include Synchronizer
   include CandleBuilder
 
   after_initialize :include_exchange_implementation
