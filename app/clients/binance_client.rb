@@ -90,6 +90,31 @@ class BinanceClient < ApplicationClient
     end
   end
 
+  # https://developers.binance.com/docs/binance-spot-api-docs/rest-api/market-data-endpoints#klinecandlestick-data
+  # @param symbol [String]
+  # @param interval [String]
+  # @param start_time [Integer]
+  # @param end_time [Integer]
+  # @param time_zone [Integer] Hours and minutes (e.g. -1:00, 05:45) OR only hours (e.g. 0, 8, 4). Accepted range is strictly [-12:00 to +14:00] inclusive
+  # @param limit [Integer]
+  def candlestick_data(symbol:, interval:, start_time: nil, end_time: nil, time_zone: 0, limit: 1000)
+    with_rescue do
+      response = self.class.connection.get do |req|
+        req.url '/api/v3/klines'
+        req.headers = headers
+        req.params = {
+          symbol: symbol,
+          interval: interval,
+          startTime: start_time,
+          endTime: end_time,
+          timeZone: time_zone,
+          limit: limit
+        }.compact
+      end
+      Result::Success.new(response.body)
+    end
+  end
+
   private
 
   def headers
