@@ -113,7 +113,7 @@ module Exchange::Exchanges::Coinbase
   def get_last_price(ticker:, force: false)
     cache_key = "exchange_#{id}_last_price_#{ticker.id}"
     price = Rails.cache.fetch(cache_key, expires_in: 5.seconds, force: force) do
-      result = get_product(ticker: ticker)
+      result = client.get_product(product_id: ticker.ticker)
       return result if result.failure?
 
       price = Utilities::Hash.dig_or_raise(result.data, 'price').to_d
@@ -345,13 +345,6 @@ module Exchange::Exchanges::Coinbase
 
       Result::Success.new(result.data['portfolio_uuid'])
     end
-  end
-
-  def get_product(ticker:)
-    result = client.get_product(product_id: ticker.ticker)
-    return result if result.failure?
-
-    Result::Success.new(result.data)
   end
 
   def get_bid_ask_price(ticker:)
