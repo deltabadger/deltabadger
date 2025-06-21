@@ -2,7 +2,6 @@ module Exchange::Exchanges::Kraken
   extend ActiveSupport::Concern
 
   COINGECKO_ID = 'kraken'.freeze # https://docs.coingecko.com/reference/exchanges-list
-  TICKER_BLACKLIST = [].freeze
   ASSET_MAP = {
     'ZUSD' => 'USD',
     'ZEUR' => 'EUR',
@@ -73,7 +72,6 @@ module Exchange::Exchanges::Kraken
 
       result.data['result'].map do |_, info|
         ticker = Utilities::Hash.dig_or_raise(info, 'altname')
-        next if TICKER_BLACKLIST.include?(ticker)
 
         wsname = Utilities::Hash.dig_or_raise(info, 'wsname')
         base, quote = wsname.split('/')
