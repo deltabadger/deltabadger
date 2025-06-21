@@ -10,6 +10,8 @@ gem "attr_encrypted", "~> 3.1.0"
 gem 'bootsnap', '>= 1.4.2', require: false
 gem 'date', "= 3.3.3"
 gem 'devise'
+gem 'omniauth-google-oauth2'
+gem 'omniauth-rails_csrf_protection'
 gem 'discourse_api'
 gem 'dotenv-rails'
 gem 'dotiw'
@@ -39,6 +41,8 @@ gem 'whenever', require: false
 gem 'sidekiq-prometheus-exporter', '~> 0.1'
 gem 'bundler', '~> 2.5.23'
 gem 'lol_dba'
+gem 'autoprefixer-rails'
+gem 'aws-sdk-s3', '~> 1.14'
 
 group :development, :test do
   gem 'debug'

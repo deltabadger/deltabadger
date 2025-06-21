@@ -11,7 +11,8 @@ it:
                 submit: 'Reinvia'
                 title: 'Reinvia istruzioni'
             send_instructions: 'Riceverai un''email con le istruzioni per confermare il tuo indirizzo email tra pochi minuti.'
-            send_paranoid_instructions: 'Se il tuo indirizzo email esiste nel nostro database, riceverai un''email con le istruzioni per confermare il tuo indirizzo email tra pochi minuti.'
+            send_paranoid_instructions: 'Se il tuo account esiste, riceverai tra qualche minuto un''email con le istruzioni per sbloccarlo.'
+            unlocked: 'Il tuo account è stato sbloccato con successo. Esegui l''accesso per continuare.'
         passwords:
             edit:
                 submit: 'Cambia password'
@@ -103,4 +104,12 @@ it:
                 reset_password_button: 'Reimposta password'
         omniauth_callbacks:
             failure: 'Non è stato possibile autenticarti da %{kind} perché "%{reason}".'
-            success: 'Autenticazione riuscita dall''account %{kind}.' 
+            success: 'Autenticazione riuscita dall''account %{kind}.'
+    shared:
+        links:
+            log_in_with_google: "Accedi con Google"
+            signup_with_google: "Registrati con Google"
+            or: "o"
+            sign_in: "Accedi"
+            sign_up: "Registrati"
+            forgot_your_password: "Password dimenticata?" 

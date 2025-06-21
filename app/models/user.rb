@@ -3,7 +3,8 @@ class User < ApplicationRecord
 
   after_create :set_free_subscription, :set_affiliate
   devise :database_authenticatable, :registerable,
-         :recoverable, :rememberable, :validatable, :confirmable
+         :recoverable, :rememberable, :validatable, :confirmable,
+         :omniauthable, omniauth_providers: %i[google_oauth2]
 
   has_one_time_password
   enum otp_module: %i[disabled enabled], _prefix: true
@@ -41,6 +42,34 @@ class User < ApplicationRecord
 
   def subscription
     @subscription ||= subscriptions.active.order(created_at: :asc).last
+  end
+
+  def self.from_omniauth(auth)
+    # Case 1: User already logged in with Google before
+    user = User.where(provider: auth.provider, uid: auth.uid).first
+    return user if user
+
+    # Case 2: User has an account but is logging in with Google for the first time
+    user = User.where(email: auth.info.email).first
+    if user
+      user.update(provider: auth.provider, uid: auth.uid)
+      return user
+    end
+
+    # Case 3: A new user is signing up with Google
+    # Generate a complex password that meets validation requirements
+    password = "#{SecureRandom.alphanumeric(8)}A1!#{SecureRandom.alphanumeric(4)}"
+
+    user = User.new(
+      provider: auth.provider,
+      uid: auth.uid,
+      email: auth.info.email,
+      name: auth.info.name,
+      password: password
+    )
+    user.skip_confirmation!
+    user.save
+    user
   end
 
   def eligible_referrer

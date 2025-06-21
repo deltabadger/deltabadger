@@ -11,7 +11,8 @@ pt:
                 submit: 'Reenviar'
                 title: 'Reenviar instruções'
             send_instructions: 'Você receberá um e-mail com instruções para confirmar seu endereço de e-mail em alguns minutos.'
-            send_paranoid_instructions: 'Se seu endereço de e-mail existir em nosso banco de dados, você receberá um e-mail com instruções para confirmar seu endereço de e-mail em alguns minutos.'
+            send_paranoid_instructions: 'Se a sua conta existir, receberá um e-mail com instruções sobre como a desbloquear em poucos minutos.'
+            unlocked: 'A sua conta foi desbloqueada com sucesso. Por favor, inicie sessão para continuar.'
         passwords:
             edit:
                 submit: 'Alterar senha'
@@ -104,3 +105,11 @@ pt:
         omniauth_callbacks:
             failure: 'Não foi possível autenticá-lo do %{kind} porque "%{reason}".'
             success: 'Autenticado com sucesso da conta %{kind}.'
+    shared:
+        links:
+            log_in_with_google: "Iniciar sessão com o Google"
+            signup_with_google: "Registar-se com o Google"
+            or: "ou"
+            sign_in: "Iniciar sessão"
+            sign_up: "Registar-se"
+            forgot_your_password: "Esqueceu-se da sua palavra-passe?"
