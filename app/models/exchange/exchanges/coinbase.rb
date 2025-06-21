@@ -2,13 +2,10 @@ module Exchange::Exchanges::Coinbase
   extend ActiveSupport::Concern
 
   COINGECKO_ID = 'gdax'.freeze # https://docs.coingecko.com/reference/exchanges-list
-  TICKER_BLACKLIST = [
-    'RENDER-USD', # same as RNDR-USD. Remove it when Coinbase delists RENDER-USD
-    'RENDER-USDC',
-    'ZETACHAIN-USD', # same as ZETA-USD. Remove it when Coinbase delists ZETACHAIN-USD
-    'ZETACHAIN-USDC',
-    'WAXL-USD', # same as AXL-USD. Remove it when Coinbase delists WAXL-USD
-    'WAXL-USDC'
+  ASSET_BLACKLIST = [
+    'RENDER', # has the same external_id as RNDR. Remove it when Coinbase delists RENDER pairs
+    'ZETACHAIN', # has the same external_id as ZETA. Remove it when Coinbase delists ZETACHAIN pairs
+    'WAXL' # has the same external_id as AXL. Remove it when Coinbase delists WAXL pairs
   ].freeze
   ERRORS = {
     insufficient_funds: ['Insufficient balance in source account']
@@ -46,15 +43,16 @@ module Exchange::Exchanges::Coinbase
 
       result.data['products'].map do |product|
         ticker = Utilities::Hash.dig_or_raise(product, 'product_id')
-        next if TICKER_BLACKLIST.include?(ticker)
+        base, quote = ticker.split('-')
+        next if base.in?(ASSET_BLACKLIST)
 
         base_increment = Utilities::Hash.dig_or_raise(product, 'base_increment')
         quote_increment = Utilities::Hash.dig_or_raise(product, 'quote_increment')
         price_increment = Utilities::Hash.dig_or_raise(product, 'price_increment')
         {
           ticker: ticker,
-          base: ticker.split('-')[0],
-          quote: ticker.split('-')[1],
+          base: base,
+          quote: quote,
           minimum_base_size: Utilities::Hash.dig_or_raise(product, 'base_min_size').to_d,
           minimum_quote_size: Utilities::Hash.dig_or_raise(product, 'quote_min_size').to_d,
           maximum_base_size: Utilities::Hash.dig_or_raise(product, 'base_max_size').to_d,
