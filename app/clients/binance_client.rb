@@ -52,6 +52,44 @@ class BinanceClient < ApplicationClient
     end
   end
 
+  # https://developers.binance.com/docs/binance-spot-api-docs/rest-api/market-data-endpoints#symbol-price-ticker
+  # @param symbol [String]
+  # @param symbols [Array<String>]
+  # Parameter symbol and symbols cannot be used in combination.
+  # If neither parameter is sent, prices for all symbols will be returned in an array.
+  def symbol_price_ticker(symbol: nil, symbols: nil)
+    with_rescue do
+      response = self.class.connection.get do |req|
+        req.url '/api/v3/ticker/price'
+        req.headers = headers
+        req.params = {
+          symbol: symbol,
+          symbols: symbols.presence&.to_json
+        }.compact
+      end
+      Result::Success.new(response.body)
+    end
+  end
+
+  # https://developers.binance.com/docs/binance-spot-api-docs/rest-api/market-data-endpoints#symbol-order-book-ticker
+  # @param symbol [String]
+  # @param symbols [Array<String>]
+  # Parameter symbol and symbols cannot be used in combination.
+  # If neither parameter is sent, prices for all symbols will be returned in an array.
+  def symbol_order_book_ticker(symbol: nil, symbols: nil)
+    with_rescue do
+      response = self.class.connection.get do |req|
+        req.url '/api/v3/ticker/bookTicker'
+        req.headers = headers
+        req.params = {
+          symbol: symbol,
+          symbols: symbols.presence&.to_json
+        }.compact
+      end
+      Result::Success.new(response.body)
+    end
+  end
+
   private
 
   def headers
