@@ -2,7 +2,6 @@ module Exchange::Exchanges::Binance
   extend ActiveSupport::Concern
 
   COINGECKO_ID = 'binance'.freeze # https://docs.coingecko.com/reference/exchanges-list
-  TICKER_BLACKLIST = [].freeze
   ERRORS = {
     insufficient_funds: ['Account has insufficient balance for requested action.']
   }.freeze
@@ -39,17 +38,11 @@ module Exchange::Exchanges::Binance
 
       result.data['symbols'].map do |product|
         ticker = Utilities::Hash.dig_or_raise(product, 'symbol')
-        next if TICKER_BLACKLIST.include?(ticker)
 
         filters = Utilities::Hash.dig_or_raise(product, 'filters')
-        tick_size = filters.find { |filter| filter['filterType'] == 'PRICE_FILTER' }['tickSize'].to_d
-        min_qty = filters.find { |filter| filter['filterType'] == 'LOT_SIZE' }['minQty'].to_d
-        max_qty = filters.find { |filter| filter['filterType'] == 'LOT_SIZE' }['maxQty'].to_d
-        step_size = filters.find { |filter| filter['filterType'] == 'LOT_SIZE' }['stepSize'].to_d
-        notional_filter = filters.find { |filter| filter['filterType'] == 'NOTIONAL' } ||
-                          filters.find { |filter| filter['filterType'] == 'MIN_NOTIONAL' }
-        min_notional = notional_filter['minNotional'].to_d
-        max_notional = notional_filter['maxNotional'].to_d
+        price_filter = filters.find { |filter| filter['filterType'] == 'PRICE_FILTER' }
+        lot_size_filter = filters.find { |filter| filter['filterType'] == 'LOT_SIZE' }
+        notional_filter = filters.find { |filter| filter['filterType'].in?(%w[NOTIONAL MIN_NOTIONAL]) }
 
         # we use real amount decimals, although Binance allows more precision
         # base_asset_precision = Utilities::Hash.dig_or_raise(product, 'baseAssetPrecision')
@@ -60,13 +53,13 @@ module Exchange::Exchanges::Binance
           ticker: ticker,
           base: Utilities::Hash.dig_or_raise(product, 'baseAsset'),
           quote: Utilities::Hash.dig_or_raise(product, 'quoteAsset'),
-          minimum_base_size: min_qty,
-          minimum_quote_size: min_notional,
-          maximum_base_size: max_qty,
-          maximum_quote_size: max_notional,
-          base_decimals: Utilities::Number.decimals(step_size),
-          quote_decimals: Utilities::Number.decimals(min_notional),
-          price_decimals: Utilities::Number.decimals(tick_size)
+          minimum_base_size: lot_size_filter['minQty'].to_d,
+          minimum_quote_size: notional_filter['minNotional'].to_d,
+          maximum_base_size: lot_size_filter['maxQty'].to_d,
+          maximum_quote_size: notional_filter['maxNotional'].to_d,
+          base_decimals: Utilities::Number.decimals(lot_size_filter['stepSize']),
+          quote_decimals: Utilities::Number.decimals(notional_filter['minNotional']),
+          price_decimals: Utilities::Number.decimals(price_filter['tickSize'])
         }
       end.compact
     end
@@ -74,10 +67,90 @@ module Exchange::Exchanges::Binance
     Result::Success.new(tickers_info)
   end
 
+  def get_tickers_prices(force: false)
+    cache_key = "exchange_#{id}_prices"
+    tickers_prices = Rails.cache.fetch(cache_key, expires_in: 1.minute, force: force) do
+      result = client.symbol_price_ticker
+      return Result::Failure.new("Failed to get #{name} products") if result.failure?
+
+      result.data.each_with_object({}) do |symbol_price, prices_hash|
+        ticker = Utilities::Hash.dig_or_raise(symbol_price, 'symbol')
+        price = Utilities::Hash.dig_or_raise(symbol_price, 'price').to_d
+        prices_hash[ticker] = price
+      end
+    end
+
+    Result::Success.new(tickers_prices)
+  end
+
+  def get_last_price(ticker:, force: false)
+    cache_key = "exchange_#{id}_last_price_#{ticker.id}"
+    price = Rails.cache.fetch(cache_key, expires_in: 5.seconds, force: force) do
+      result = client.symbol_price_ticker(symbol: ticker.ticker)
+      return result if result.failure?
+
+      price = Utilities::Hash.dig_or_raise(result.data, 'price').to_d
+      raise "Wrong last price for #{ticker.ticker}: #{price}" if price.zero?
+
+      price
+    end
+
+    Result::Success.new(price)
+  end
+
+  def get_bid_price(ticker:, force: false)
+    cache_key = "exchange_#{id}_bid_price_#{ticker.id}"
+    price = Rails.cache.fetch(cache_key, expires_in: 5.seconds, force: force) do
+      result = get_bid_ask_price(ticker: ticker)
+      return result if result.failure?
+
+      price = result.data[:bid][:price]
+      raise "Wrong bid price for #{ticker.ticker}: #{price}" if price.zero?
+
+      price
+    end
+
+    Result::Success.new(price)
+  end
+
+  def get_ask_price(ticker:, force: false)
+    cache_key = "exchange_#{id}_ask_price_#{ticker.id}"
+    price = Rails.cache.fetch(cache_key, expires_in: 5.seconds, force: force) do
+      result = get_bid_ask_price(ticker: ticker)
+      return result if result.failure?
+
+      price = result.data[:ask][:price]
+      raise "Wrong ask price for #{ticker.ticker}: #{price}" if price.zero?
+
+      price
+    end
+
+    Result::Success.new(price)
+  end
+
   private
 
   def client
     @client ||= set_client
+  end
+
+
+  def get_bid_ask_price(ticker:)
+    result = client.symbol_order_book_ticker(symbol: ticker.ticker)
+    return result if result.failure?
+
+    Result::Success.new(
+      {
+        bid: {
+          price: Utilities::Hash.dig_or_raise(result.data, 'bidPrice').to_d,
+          size: Utilities::Hash.dig_or_raise(result.data, 'bidQty').to_d
+        },
+        ask: {
+          price: Utilities::Hash.dig_or_raise(result.data, 'askPrice').to_d,
+          size: Utilities::Hash.dig_or_raise(result.data, 'askQty').to_d
+        }
+      }
+    )
   end
 
   def parse_order_status(status)
