@@ -457,16 +457,13 @@ module Exchange::Exchanges::Kraken
 
     amount = ticker.adjusted_amount(amount: amount, amount_type: amount_type)
 
-    client_order_id = SecureRandom.uuid
     order_settings = {
-      cl_ord_id: client_order_id,
       ordertype: 'market',
       type: side.to_s.downcase,
       volume: amount.to_d.to_s('F'),
       pair: ticker.ticker,
       oflags: amount_type == :quote ? ['viqc'] : []
     }
-    Rails.logger.info("Exchange #{id}: Setting market order #{order_settings.inspect}")
     result = client.add_order(**order_settings)
     return result if result.failure?
 
@@ -491,16 +488,15 @@ module Exchange::Exchanges::Kraken
     amount = ticker.adjusted_amount(amount: amount, amount_type: amount_type)
     price = ticker.adjusted_price(price: price)
 
-    client_order_id = SecureRandom.uuid
-    result = client.add_order(
-      cl_ord_id: client_order_id,
+    order_settings = {
       ordertype: 'limit',
       type: side.to_s.downcase,
       volume: amount.to_d.to_s('F'),
       pair: ticker.ticker,
       price: price.to_d.to_s('F'),
       oflags: amount_type == :quote ? ['viqc'] : []
-    )
+    }
+    result = client.add_order(**order_settings)
     return result if result.failure?
 
     error = Utilities::Hash.dig_or_raise(result.data, 'error')

@@ -4,6 +4,9 @@ module Exchange::Exchanges::Binance
   COINGECKO_ID = 'binance'.freeze # https://docs.coingecko.com/reference/exchanges-list
   ERRORS = {
     insufficient_funds: ['Account has insufficient balance for requested action.'],
+    invalid_key: ['API-key format invalid.', 'Invalid API-key, IP, or permissions for action.']
+  }.freeze # https://developers.binance.com/docs/binance-spot-api-docs/errors
+  ERROR_CODES = {
     invalid_key: [-2014, -2015]
   }.freeze # https://developers.binance.com/docs/binance-spot-api-docs/errors
 
@@ -35,10 +38,10 @@ module Exchange::Exchanges::Binance
     cache_key = "exchange_#{id}_tickers_info"
     tickers_info = Rails.cache.fetch(cache_key, expires_in: 1.hour, force: force) do
       result = client.exchange_information(permissions: ['SPOT'])
-      return Result::Failure.new("Failed to get #{name} products") if result.failure?
-
-      error = parse_error_message(result)
-      return Result::Failure.new(error) if error.present?
+      if result.failure?
+        error = parse_error_message(result)
+        return error.present? ? Result::Failure.new(error) : result
+      end
 
       result.data['symbols'].map do |product|
         ticker = Utilities::Hash.dig_or_raise(product, 'symbol')
@@ -75,10 +78,10 @@ module Exchange::Exchanges::Binance
     cache_key = "exchange_#{id}_prices"
     tickers_prices = Rails.cache.fetch(cache_key, expires_in: 1.minute, force: force) do
       result = client.symbol_price_ticker
-      return Result::Failure.new("Failed to get #{name} products") if result.failure?
-
-      error = parse_error_message(result)
-      return Result::Failure.new(error) if error.present?
+      if result.failure?
+        error = parse_error_message(result)
+        return error.present? ? Result::Failure.new(error) : result
+      end
 
       result.data.each_with_object({}) do |symbol_price, prices_hash|
         ticker = Utilities::Hash.dig_or_raise(symbol_price, 'symbol')
@@ -92,10 +95,10 @@ module Exchange::Exchanges::Binance
 
   def get_balances(asset_ids: nil)
     result = client.account_information(omit_zero_balances: true)
-    return result if result.failure?
-
-    error = parse_error_message(result)
-    return Result::Failure.new(error) if error.present?
+    if result.failure?
+      error = parse_error_message(result)
+      return error.present? ? Result::Failure.new(error) : result
+    end
 
     asset_ids ||= assets.pluck(:id)
     balances = asset_ids.each_with_object({}) do |asset_id, balances_hash|
@@ -120,10 +123,10 @@ module Exchange::Exchanges::Binance
     cache_key = "exchange_#{id}_last_price_#{ticker.id}"
     price = Rails.cache.fetch(cache_key, expires_in: 5.seconds, force: force) do
       result = client.symbol_price_ticker(symbol: ticker.ticker)
-      return result if result.failure?
-
-      error = parse_error_message(result)
-      return Result::Failure.new(error) if error.present?
+      if result.failure?
+        error = parse_error_message(result)
+        return error.present? ? Result::Failure.new(error) : result
+      end
 
       price = Utilities::Hash.dig_or_raise(result.data, 'price').to_d
       raise "Wrong last price for #{ticker.ticker}: #{price}" if price.zero?
@@ -138,10 +141,10 @@ module Exchange::Exchanges::Binance
     cache_key = "exchange_#{id}_bid_price_#{ticker.id}"
     price = Rails.cache.fetch(cache_key, expires_in: 5.seconds, force: force) do
       result = get_bid_ask_price(ticker: ticker)
-      return result if result.failure?
-
-      error = parse_error_message(result)
-      return Result::Failure.new(error) if error.present?
+      if result.failure?
+        error = parse_error_message(result)
+        return error.present? ? Result::Failure.new(error) : result
+      end
 
       price = result.data[:bid][:price]
       raise "Wrong bid price for #{ticker.ticker}: #{price}" if price.zero?
@@ -198,10 +201,10 @@ module Exchange::Exchanges::Binance
         interval: interval,
         limit: limit
       )
-      return result if result.failure?
-
-      error = parse_error_message(result)
-      return Result::Failure.new(error) if error.present?
+      if result.failure?
+        error = parse_error_message(result)
+        return error.present? ? Result::Failure.new(error) : result
+      end
 
       result.data.each do |candle|
         candles << [
@@ -221,6 +224,104 @@ module Exchange::Exchanges::Binance
     Result::Success.new(candles)
   end
 
+  # @param amount_type [Symbol] :base or :quote
+  def market_buy(ticker:, amount:, amount_type:)
+    set_market_order(
+      ticker: ticker,
+      amount: amount,
+      amount_type: amount_type,
+      side: :buy
+    )
+  end
+
+  # @param amount_type [Symbol] :base or :quote
+  def market_sell(ticker:, amount:, amount_type:)
+    set_market_order(
+      ticker: ticker,
+      amount: amount,
+      amount_type: amount_type,
+      side: :sell
+    )
+  end
+
+  # @param amount_type [Symbol] :base or :quote
+  def limit_buy(ticker:, amount:, amount_type:, price:)
+    set_limit_order(
+      ticker: ticker,
+      amount: amount,
+      amount_type: amount_type,
+      side: :buy,
+      price: price
+    )
+  end
+
+  # @param amount_type [Symbol] :base or :quote
+  def limit_sell(ticker:, amount:, amount_type:, price:)
+    set_limit_order(
+      ticker: ticker,
+      amount: amount,
+      amount_type: amount_type,
+      side: :sell,
+      price: price
+    )
+  end
+
+  def get_order(order_id:)
+    # Binance can assign same order id to different symbols
+    symbol, ext_order_id = order_id.split('-')
+    result = client.query_order(symbol: symbol, order_id: ext_order_id)
+    if result.failure?
+      error = parse_error_message(result)
+      return error.present? ? Result::Failure.new(error) : result
+    end
+
+    normalized_order_data = parse_order_data(order_id, result.data)
+
+    Result::Success.new(normalized_order_data)
+  end
+
+  def get_orders(order_ids:)
+    orders = {}
+    order_ids.group_by { |order_id| order_id.split('-').first }
+             .each do |symbol, symbol_order_ids|
+      ext_order_ids = symbol_order_ids.map { |order_id| order_id.split('-').last }
+      100.times do |i|
+        raise "Too many attempts to get #{name} orders. Adjust the number of iterations in the loop if needed." if i == 100
+
+        lowest_order_id = ext_order_ids.map(&:to_i).min.to_s
+        result = client.all_orders(symbol: symbol, order_id: lowest_order_id, limit: 1000)
+        if result.failure?
+          error = parse_error_message(result)
+          return error.present? ? Result::Failure.new(error) : result
+        end
+
+        result.data.each do |order_data|
+          ext_order_id = Utilities::Hash.dig_or_raise(order_data, 'orderId')
+          next unless ext_order_id.in?(ext_order_ids)
+
+          order_id = "#{symbol}-#{ext_order_id}"
+          orders[order_id] = parse_order_data(order_id, order_data)
+          ext_order_ids.delete(ext_order_id)
+        end
+
+        break if ext_order_ids.empty?
+      end
+    end
+
+    Result::Success.new(orders)
+  end
+
+  def cancel_order(order_id:)
+    # Binance can assign same order id to different symbols
+    symbol, ext_order_id = order_id.split('-')
+    result = client.cancel_order(symbol: symbol, order_id: ext_order_id)
+    if result.failure?
+      error = parse_error_message(result)
+      return error.present? ? Result::Failure.new(error) : result
+    end
+
+    Result::Success.new(order_id)
+  end
 
   def get_api_key_validity(api_key:) # rubocop:disable Metrics/PerceivedComplexity,Metrics/CyclomaticComplexity
     result = BinanceClient.new(
@@ -259,10 +360,18 @@ module Exchange::Exchanges::Binance
                 raise StandardError, 'Invalid API key type'
               end
       Result::Success.new(valid)
-    elsif parse_error_code(result).in?(known_errors[:invalid_key])
+    elsif parse_error_code(result).in?(ERROR_CODES[:invalid_key])
       Result::Success.new(false)
     else
       result
+    end
+  end
+
+  def minimum_amount_logic(order_type:, **)
+    if order_type == :market_order
+      :base_or_quote
+    else
+      :base
     end
   end
 
@@ -302,10 +411,10 @@ module Exchange::Exchanges::Binance
 
   def get_bid_ask_price(ticker:)
     result = client.symbol_order_book_ticker(symbol: ticker.ticker)
-    return result if result.failure?
-
-    error = parse_error_message(result)
-    return Result::Failure.new(error) if error.present?
+    if result.failure?
+      error = parse_error_message(result)
+      return error.present? ? Result::Failure.new(error) : result
+    end
 
     Result::Success.new(
       {
@@ -319,6 +428,107 @@ module Exchange::Exchanges::Binance
         }
       }
     )
+  end
+
+  # @param amount: Float must be a positive number
+  # @param amount_type [Symbol] :base or :quote
+  # @param side: String must be either 'buy' or 'sell'
+  def set_market_order(ticker:, amount:, amount_type:, side:)
+    amount = ticker.adjusted_amount(amount: amount, amount_type: amount_type)
+
+    order_settings = {
+      symbol: ticker.ticker,
+      side: side.to_s.upcase,
+      type: 'MARKET',
+      quote_order_qty: amount_type == :quote ? amount.to_d.to_s('F') : nil,
+      quantity: amount_type == :base ? amount.to_d.to_s('F') : nil
+    }
+    result = client.new_order(**order_settings)
+    if result.failure?
+      error = parse_error_message(result)
+      return error.present? ? Result::Failure.new(error) : result
+    end
+
+    # Binance can assign same order id to different symbols
+    ext_order_id = Utilities::Hash.dig_or_raise(result.data, 'orderId')
+    data = {
+      order_id: "#{ticker.ticker}-#{ext_order_id}"
+    }
+
+    Result::Success.new(data)
+  end
+
+  # @param amount: Float must be a positive number
+  # @param amount_type [Symbol] :base or :quote
+  # @param side: String must be either 'buy' or 'sell'
+  # @param price: Float must be a positive number
+  def set_limit_order(ticker:, amount:, amount_type:, side:, price:)
+    amount = ticker.adjusted_amount(amount: amount, amount_type: amount_type)
+    price = ticker.adjusted_price(price: price)
+
+    order_settings = {
+      symbol: ticker.ticker,
+      side: side.to_s.upcase,
+      type: 'LIMIT',
+      time_in_force: 'GTC',
+      price: price.to_d.to_s('F'),
+      quantity: amount_type == :base ? amount.to_d.to_s('F') : nil
+    }
+    result = client.new_order(**order_settings)
+    if result.failure?
+      error = parse_error_message(result)
+      return error.present? ? Result::Failure.new(error) : result
+    end
+
+    # Binance can assign same order id to different symbols
+    ext_order_id = Utilities::Hash.dig_or_raise(result.data, 'orderId')
+    data = {
+      order_id: "#{ticker.ticker}-#{ext_order_id}"
+    }
+
+    Result::Success.new(data)
+  end
+
+  def parse_order_data(order_id, order_data)
+    symbol = Utilities::Hash.dig_or_raise(order_data, 'symbol')
+    ticker = tickers.find_by(ticker: symbol)
+    order_type = parse_order_type(Utilities::Hash.dig_or_raise(order_data, 'type'))
+    price = Utilities::Hash.dig_or_raise(order_data, 'price').to_d
+    amount = Utilities::Hash.dig_or_raise(order_data, 'origQty').to_d
+    amount = amount.zero? ? nil : amount
+    quote_amount = Utilities::Hash.dig_or_raise(order_data, 'origQuoteOrderQty').to_d
+    quote_amount = quote_amount.zero? ? nil : quote_amount
+    side = Utilities::Hash.dig_or_raise(order_data, 'side').downcase.to_sym
+    amount_exec = Utilities::Hash.dig_or_raise(order_data, 'executedQty').to_d
+    quote_amount_exec = Utilities::Hash.dig_or_raise(order_data, 'cummulativeQuoteQty').to_d
+    quote_amount_exec = quote_amount_exec.negative? ? nil : quote_amount_exec # for some historical orders
+    status = parse_order_status(Utilities::Hash.dig_or_raise(order_data, 'status'))
+
+    {
+      order_id: order_id,
+      ticker: ticker,
+      price: price,
+      amount: amount,                       # amount in the order config
+      quote_amount: quote_amount,           # amount in the order config
+      amount_exec: amount_exec,             # amount the account balance went up or down
+      quote_amount_exec: quote_amount_exec, # amount the account balance went up or down
+      side: side,
+      order_type: order_type,
+      error_messages: [],
+      status: status,
+      exchange_response: order_data
+    }
+  end
+
+  def parse_order_type(order_type)
+    case order_type
+    when 'MARKET'
+      :market_order
+    when 'LIMIT'
+      :limit_order
+    else
+      raise "Unknown #{name} order type: #{order_type}"
+    end
   end
 
   def parse_order_status(status)
