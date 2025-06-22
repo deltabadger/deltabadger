@@ -131,8 +131,8 @@ module Exchange::Synchronizer
 
         base_asset = Asset.find_by(external_id: base_asset_external_id)
         quote_asset = Asset.find_by(external_id: quote_asset_external_id)
-        assets.find_by(asset_id: base_asset.id) || assets.create!(asset_id: base_asset.id)
-        assets.find_by(asset_id: quote_asset.id) || assets.create!(asset_id: quote_asset.id)
+        exchange_assets.find_by(asset_id: base_asset.id) || exchange_assets.create!(asset_id: base_asset.id)
+        exchange_assets.find_by(asset_id: quote_asset.id) || exchange_assets.create!(asset_id: quote_asset.id)
 
         ticker_data = {
           base_asset: base_asset,
