@@ -58,7 +58,7 @@ module Exchange::Synchronizer
       return Result::Success.new(all_tickers) if result.data['tickers'].count < tickers_per_page
     end
 
-    raise "Failed to get #{name} Coingecko tickers. Adjust the number of pages in the loop if needed."
+    raise "Too many attempts to get #{name} Coingecko tickers. Adjust the number of pages in the loop if needed."
   end
 
   def coingecko_client
