@@ -324,7 +324,7 @@ module Exchange::Exchanges::Coinbase
     end
   end
 
-  def minimum_amount_logic(*)
+  def minimum_amount_logic(**)
     :base_or_quote
   end
 
@@ -375,9 +375,8 @@ module Exchange::Exchanges::Coinbase
   def set_market_order(ticker:, amount:, amount_type:, side:)
     amount = ticker.adjusted_amount(amount: amount, amount_type: amount_type)
 
-    client_order_id = SecureRandom.uuid
-    result = client.create_order(
-      client_order_id: client_order_id,
+    order_settings = {
+      client_order_id: SecureRandom.uuid,
       product_id: ticker.ticker,
       side: side.to_s.upcase,
       order_configuration: {
@@ -386,7 +385,8 @@ module Exchange::Exchanges::Coinbase
           base_size: amount_type == :base ? amount.to_d.to_s('F') : nil
         }.compact
       }
-    )
+    }
+    result = client.create_order(**order_settings)
     return result if result.failure?
 
     return Result::Failure.new(result.data.dig('error_response', 'message'), data: result.data) if result.data['success'] == false
@@ -406,9 +406,8 @@ module Exchange::Exchanges::Coinbase
     amount = ticker.adjusted_amount(amount: amount, amount_type: amount_type)
     price = ticker.adjusted_price(price: price)
 
-    client_order_id = SecureRandom.uuid
-    result = client.create_order(
-      client_order_id: client_order_id,
+    order_settings = {
+      client_order_id: SecureRandom.uuid,
       product_id: ticker.ticker,
       side: side.to_s.upcase,
       order_configuration: {
@@ -418,7 +417,8 @@ module Exchange::Exchanges::Coinbase
           limit_price: price.to_d.to_s('F')
         }.compact
       }
-    )
+    }
+    result = client.create_order(**order_settings)
     return result if result.failure?
 
     return Result::Failure.new(result.data.dig('error_response', 'message'), data: result.data) if result.data['success'] == false
@@ -432,6 +432,7 @@ module Exchange::Exchanges::Coinbase
 
   def parse_order_data(order_id, order_data)
     product_id = Utilities::Hash.dig_or_raise(order_data, 'product_id')
+    ticker = tickers.find_by(ticker: product_id)
     order_type = parse_order_type(Utilities::Hash.dig_or_raise(order_data, 'order_type'))
     price = Utilities::Hash.dig_or_raise(order_data, 'average_filled_price').to_d
     case order_type
@@ -456,7 +457,6 @@ module Exchange::Exchanges::Coinbase
       order_data.dig('order', 'cancel_message').presence
     ].compact
     status = parse_order_status(Utilities::Hash.dig_or_raise(order_data, 'status'))
-    ticker = tickers.find_by(ticker: product_id)
 
     {
       order_id: order_id,
