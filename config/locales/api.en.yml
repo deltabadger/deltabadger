@@ -4,23 +4,16 @@ en:
             binance:
                 instructions:
                     -   text_html: 'Log into your %{exchange_link} account.'
-                    -   text_html: 'In user menu (round icon in the top right corner) go to <b>Account</b> → <b>API Management</b>. If you cannot find it, go directly from <a href="https://www.binance.com/en/my/settings/api-management">here</a>.'
-                    -   text_html: 'Click <b>Create API</b>.'
-                    -   text_html: 'In the popup dialog, select <b>System generated</b>.'
-                    -   text_html: 'In the popup dialog, give a label to the API key and pass the security verification if necessary. <b>Deltabadger</b> is good to recognize it later.'
-                    -   text_html: 'Click on the top-right button <b>Edit restrictions</b>:'
+                    -   text_html: 'Go to <a href="https://www.binance.com/en/my/settings/api-management"><b>Account</b> → <b>API Management</b></a>.'
+                    -   text_html: 'Click <b class="pbutton">Create API</b>.'
+                    -   text_html: 'Select <b class="pbutton">System generated</b>.'
+                    -   text_html: 'Label your keys (e.g. "deltabadger") and pass the security verification if necessary.'
+                    -   text_html: 'Click <b class="pbutton">Edit restrictions</b> in the top-right corner of the keys tile.'
                         sub_instructions:
-                            -   text_html: "IP access restrictions"
-                                sub_instructions:
-                                    -   text_html: "Restrict access to trusted IPs only"
-                                        sub_instructions:
-                                            -   text_html: "Fill in the IP address: <b>%{ip}</b>, and click <b>Confirm</b>."
-                            -   text_html: "API restrictions"
-                                sub_instructions:
-                                    -   text_html: "Enable Trading"
-                                    -   text_html: "Enable Spot & Margin Trading"
+                            -   text_html: "Restrict access to trusted IPs only: <b>%{ip}</b>.<br><strong>Important:</strong> Do this first to enable the next step."
+                            -   text_html: "Check <b>Spot & Margin Trading</b>.<br><strong>Important:</strong> The keys will not work if you add more permissions."
                     -   text_html: 'Click <b>Save</b> and pass the security verification if necessary.'
-                    -   text_html: 'Copy and paste your new API keys into the form above.'
+                    -   text_html: 'Copy and paste your new API keys above.'
                 private_key: 'Secret Key'
                 public_key: 'API Key'
             coinbase:
