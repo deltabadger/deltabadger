@@ -118,6 +118,7 @@ module Exchange::Synchronizer
 
   def sync_existing_exchange_assets_and_tickers!(tickers_info)
     current_tickers = tickers.pluck(:ticker)
+    updated_tickers = []
     tickers_info.each do |ticker_info|
       base = ticker_info[:base]
       quote = ticker_info[:quote]
@@ -138,12 +139,12 @@ module Exchange::Synchronizer
           base_asset: base_asset,
           quote_asset: quote_asset
         }.merge(ticker_info)
-        tickers.create!(ticker_data)
+        ticker = tickers.create!(ticker_data)
       end
-      current_tickers.delete(ticker.ticker)
+      updated_tickers << ticker.ticker
     end
 
-    tickers.where(ticker: current_tickers).destroy_all
+    tickers.where(ticker: current_tickers - updated_tickers).destroy_all
     asset_ids = assets.pluck(:asset_id) - tickers.pluck(:base_asset_id, :quote_asset_id).flatten.uniq
     exchange_assets.where(asset_id: asset_ids).destroy_all
   end
