@@ -14,8 +14,22 @@ module Bots::Searchable
     end
     filtered_assets.map do |id, symbol, name|
       exchanges = exchanges_data.select { |_, _, assets| assets.include?(id) }
-      [id, symbol, name, exchanges.map { |e_name_id, e_name, _| [e_name_id, e_name] }]
+      [id, symbol, name, parse_exchanges(exchanges)]
     end
+  end
+
+  def parse_exchanges(exchanges)
+    # normal exchanges are sorted by name_id
+    # exchanges.map { |name_id, name, _| [name_id, name] }.sort
+
+    # flattening binance and binance_us to binance
+    binance_name_id = 'binance'
+    binance_us_name_id = 'binance_us'
+    binance_name = Exchange.find_by(name_id: binance_name_id).name
+
+    exchanges.map { |name_id, name, _| [name_id, name] }
+             .map { |name_id, name| name_id == binance_us_name_id ? [binance_name_id, binance_name] : [name_id, name] }
+             .uniq.sort
   end
 
   def exchange_search_results(bot, query)
