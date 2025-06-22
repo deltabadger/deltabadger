@@ -1,7 +1,7 @@
 desc 'rake task with exchange implementation helpers'
 task exchange_implementation_helpers: :environment do
-  e = Exchange.find_by(name_id: 'coinbase')
-  coingecko_symbols = e.get_symbol_to_external_id_hash.data.keys.sort
+  e = Exchange.find_by(name_id: 'binance')
+  coingecko_symbols = e.coingecko_symbols
   exchange_symbols = e.get_tickers_info(force: true).data.map { |t| [t[:base], t[:quote]] }.flatten.uniq.sort
 
   # File.write('coingecko.json', coingecko_symbols.to_json)

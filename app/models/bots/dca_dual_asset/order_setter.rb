@@ -148,6 +148,10 @@ module Bots::DcaDualAsset::OrderSetter # rubocop:disable Metrics/ModuleLength
       amount_type = minimum_quote_size_in_base < ticker.minimum_base_size ? :quote : :base
       amount = amount_type == :base ? order_data[:amount] : order_data[:quote_amount]
       minimum_amount = amount_type == :base ? ticker.minimum_base_size : ticker.minimum_quote_size
+    when :base_and_quote
+      minimum_amount = [ticker.minimum_quote_size / order_data[:price], ticker.minimum_base_size].max
+      amount_type = :base
+      amount = order_data[:amount]
     when :base
       minimum_amount = ticker.minimum_base_size
       amount_type = :base

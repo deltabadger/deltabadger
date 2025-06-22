@@ -65,7 +65,7 @@ module Exchange::Exchanges::Binance
           maximum_base_size: lot_size_filter['maxQty'].to_d,
           maximum_quote_size: notional_filter['maxNotional'].to_d,
           base_decimals: Utilities::Number.decimals(lot_size_filter['stepSize']),
-          quote_decimals: Utilities::Number.decimals(notional_filter['minNotional']),
+          quote_decimals: Utilities::Hash.dig_or_raise(product, 'quoteAssetPrecision'),
           price_decimals: Utilities::Number.decimals(price_filter['tickSize'])
         }
       end.compact
@@ -106,7 +106,7 @@ module Exchange::Exchanges::Binance
     end
     raw_balances = Utilities::Hash.dig_or_raise(result.data, 'balances')
     raw_balances.each do |balance|
-      asset = asset_from_symbol(symbol: balance['asset'])
+      asset = asset_from_symbol(balance['asset'])
       next unless asset.present?
       next unless asset_ids.include?(asset.id)
 
@@ -140,7 +140,7 @@ module Exchange::Exchanges::Binance
   def get_bid_price(ticker:, force: false)
     cache_key = "exchange_#{id}_bid_price_#{ticker.id}"
     price = Rails.cache.fetch(cache_key, expires_in: 5.seconds, force: force) do
-      result = get_bid_ask_price(ticker: ticker)
+      result = get_bid_ask_price(ticker)
       if result.failure?
         error = parse_error_message(result)
         return error.present? ? Result::Failure.new(error) : result
@@ -158,7 +158,7 @@ module Exchange::Exchanges::Binance
   def get_ask_price(ticker:, force: false)
     cache_key = "exchange_#{id}_ask_price_#{ticker.id}"
     price = Rails.cache.fetch(cache_key, expires_in: 5.seconds, force: force) do
-      result = get_bid_ask_price(ticker: ticker)
+      result = get_bid_ask_price(ticker)
       return result if result.failure?
 
       price = result.data[:ask][:price]
@@ -367,12 +367,8 @@ module Exchange::Exchanges::Binance
     end
   end
 
-  def minimum_amount_logic(order_type:, **)
-    if order_type == :market_order
-      :base_or_quote
-    else
-      :base
-    end
+  def minimum_amount_logic(**)
+    :base_and_quote
   end
 
   private
@@ -401,7 +397,7 @@ module Exchange::Exchanges::Binance
     end
   end
 
-  def asset_from_symbol(symbol:)
+  def asset_from_symbol(symbol)
     @asset_from_symbol ||= tickers.includes(:base_asset, :quote_asset).each_with_object({}) do |t, map|
       map[t.base] ||= t.base_asset
       map[t.quote] ||= t.quote_asset
@@ -409,15 +405,16 @@ module Exchange::Exchanges::Binance
     @asset_from_symbol[symbol]
   end
 
-  def get_bid_ask_price(ticker:)
-    result = client.symbol_order_book_ticker(symbol: ticker.ticker)
-    if result.failure?
-      error = parse_error_message(result)
-      return error.present? ? Result::Failure.new(error) : result
-    end
+  def get_bid_ask_price(ticker)
+    cache_key = "exchange_#{id}_bid_ask_price_#{ticker.id}"
+    Rails.cache.fetch(cache_key, expires_in: 1.seconds) do
+      result = client.symbol_order_book_ticker(symbol: ticker.ticker)
+      if result.failure?
+        error = parse_error_message(result)
+        return error.present? ? Result::Failure.new(error) : result
+      end
 
-    Result::Success.new(
-      {
+      formatted_symbol_order_book_ticker = {
         bid: {
           price: Utilities::Hash.dig_or_raise(result.data, 'bidPrice').to_d,
           size: Utilities::Hash.dig_or_raise(result.data, 'bidQty').to_d
@@ -427,7 +424,8 @@ module Exchange::Exchanges::Binance
           size: Utilities::Hash.dig_or_raise(result.data, 'askQty').to_d
         }
       }
-    )
+      Result::Success.new(formatted_symbol_order_book_ticker)
+    end
   end
 
   # @param amount: Float must be a positive number
