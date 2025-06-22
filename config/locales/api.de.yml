@@ -4,23 +4,16 @@ de:
             binance:
                 instructions:
                     -   text_html: 'Melden Sie sich bei Ihrem %{exchange_link}-Konto an.'
-                    -   text_html: 'Gehen Sie im Benutzermenü (rundes Symbol in der oberen rechten Ecke) zu <b>Konto</b> → <b>API-Verwaltung</b>. Wenn Sie es nicht finden können, gehen Sie direkt von <a href="https://www.binance.com/de/my/settings/api-management">hier</a> aus.'
-                    -   text_html: 'Klicken Sie auf <b>API erstellen</b>.'
-                    -   text_html: 'Im Popup-Dialogfeld wählen Sie <b>Vom System generiert</b>.'
-                    -   text_html: 'Im Popup-Dialogfeld geben Sie einen Namen für den API-Schlüssel an und bestätigen Sie die Sicherheitsverifizierung, falls erforderlich. <b>Deltabadger</b> ist gut, um ihn später wiederzuerkennen.'
-                    -   text_html: 'Klicken Sie auf den Schaltfläche oben rechts <b>Einschränkungen bearbeiten</b>:'
+                    -   text_html: 'Gehen Sie zu <a href="https://www.binance.com/de/my/settings/api-management"><b>Konto</b> → <b>API-Verwaltung</b></a>.'
+                    -   text_html: 'Klicken Sie auf <b class="pbutton">API erstellen</b>.'
+                    -   text_html: 'Wählen Sie <b class="pbutton">Vom System generiert</b>.'
+                    -   text_html: 'Beschriften Sie Ihre Schlüssel (z.B. "deltabadger") und führen Sie bei Bedarf die Sicherheitsüberprüfung durch.'
+                    -   text_html: 'Klicken Sie auf <b class="pbutton">Einschränkungen bearbeiten</b> in der oberen rechten Ecke der Schlüsselkachel.'
                         sub_instructions:
-                            -   text_html: "IP-Zugriffsbeschränkungen"
-                                sub_instructions:
-                                    -   text_html: "Zugriff auf vertrauenswürdige IPs beschränken"
-                                        sub_instructions:
-                                            -   text_html: "Füllen Sie die IP-Adresse aus: <b>%{ip}</b>, und klicken Sie auf <b>Bestätigen</b>."
-                            -   text_html: "API-Einschränkungen"
-                                sub_instructions:
-                                    -   text_html: "Leseberechtigung aktivieren"
-                                    -   text_html: "Spot- und Margin-Handel aktivieren"
-                    -   text_html: 'Klicken Sie auf <b>Speichern</b> und bestätigen Sie die Sicherheitsverifizierung, falls erforderlich.'
-                    -   text_html: 'Kopieren und fügen Sie Ihre neuen API-Schlüssel in das obige Formular ein.'
+                            -   text_html: "Zugriff auf vertrauenswürdige IPs beschränken: <b>%{ip}</b>.<br><strong>Wichtig:</strong> Führen Sie diesen Schritt zuerst aus, um den nächsten Schritt zu ermöglichen."
+                            -   text_html: "Aktivieren Sie <b>Spot- und Margin-Handel aktivieren</b>.<br><strong>Wichtig:</strong> Die Schlüssel funktionieren nicht, wenn Sie weitere Berechtigungen hinzufügen."
+                    -   text_html: 'Klicken Sie auf <b>Speichern</b> und führen Sie bei Bedarf die Sicherheitsüberprüfung durch.'
+                    -   text_html: 'Kopieren und fügen Sie Ihre neuen API-Schlüssel oben ein.'
                 private_key: 'Geheimschlüssel'
                 public_key: 'API-Schlüssel'
             coinbase:

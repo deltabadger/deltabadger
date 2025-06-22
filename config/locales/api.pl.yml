@@ -4,23 +4,16 @@ pl:
             binance:
                 instructions:
                     -   text_html: 'Zaloguj się na swoje konto %{exchange_link}.'
-                    -   text_html: 'W menu użytkownika (okrągła ikona w prawym górnym rogu) przejdź do <b>Konto</b> → <b>Ustawienia API</b>. Jeśli nie możesz go znaleźć, przejdź bezpośrednio <a href="https://www.binance.com/pl/my/settings/api-management">tutaj</a>.'
-                    -   text_html: 'Kliknij <b>Utworzenie klucza API</b>.'
-                    -   text_html: 'W oknie dialogowym kliknij <b>System wygenerował</b>.'
-                    -   text_html: 'W oknie dialogowym nadaj nazwę kluczowi API i przekaż weryfikację bezpieczeństwa, jeśli to konieczne. <b>Deltabadger</b> jest dobry, aby go później rozpoznać.'
-                    -   text_html: 'Kliknij przycisk w prawym górnym rogu <b>Zmień uprawnienia</b>:'
+                    -   text_html: 'Przejdź do <a href="https://www.binance.com/pl/my/settings/api-management"><b>Konto</b> → <b>Ustawienia API</b></a>.'
+                    -   text_html: 'Kliknij <b class="pbutton">Utworzenie klucza API</b>.'
+                    -   text_html: 'Wybierz <b class="pbutton">System wygenerował</b>.'
+                    -   text_html: 'Oznacz swoje klucze (np. "deltabadger") i w razie potrzeby przejdź weryfikację bezpieczeństwa.'
+                    -   text_html: 'Kliknij <b class="pbutton">Zmień uprawnienia</b> w prawym górnym rogu kafelka kluczy.'
                         sub_instructions:
-                            -   text_html: "Ograniczenia dostępu do sieci IP"
-                                sub_instructions:
-                                    -   text_html: "Ogranicz dostęp tylko dla zaufanych adresów IP"
-                                        sub_instructions:
-                                            -   text_html: "Wpisz adres IP: <b>%{ip}</b>, i kliknij <b>Potwierdź</b>."
-                            -   text_html: "Uprawnienia API"
-                                sub_instructions:
-                                    -   text_html: "Włącz Odczyt"
-                                    -   text_html: "Włącz Handel Spot i Margin"
-                    -   text_html: 'Kliknij <b>Zapisz</b> i przekaż weryfikację bezpieczeństwa, jeśli to konieczne.'
-                    -   text_html: 'Skopiuj i wklej swoje nowe klucze API do powyższego formularza.'
+                            -   text_html: "Ogranicz dostęp tylko do zaufanych adresów IP: <b>%{ip}</b>.<br><strong>Ważne:</strong> Zrób to najpierw, aby umożliwić następny krok."
+                            -   text_html: "Zaznacz <b>Włącz Handel Spot i Margin</b>.<br><strong>Ważne:</strong> Klucze nie będą działać, jeśli dodasz więcej uprawnień."
+                    -   text_html: 'Kliknij <b>Zapisz</b> i w razie potrzeby przejdź weryfikację bezpieczeństwa.'
+                    -   text_html: 'Skopiuj i wklej swoje nowe klucze API powyżej.'
                 private_key: 'Klucz Tajny'
                 public_key: 'Klucz API'
             coinbase:
