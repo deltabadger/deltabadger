@@ -3,8 +3,9 @@ module Exchange::Exchanges::Binance
 
   COINGECKO_ID = 'binance'.freeze # https://docs.coingecko.com/reference/exchanges-list
   ERRORS = {
-    insufficient_funds: ['Account has insufficient balance for requested action.']
-  }.freeze
+    insufficient_funds: ['Account has insufficient balance for requested action.'],
+    invalid_key: [-2014, -2015]
+  }.freeze # https://developers.binance.com/docs/binance-spot-api-docs/errors
 
   include Exchange::Dryable # decorators for: get_order, get_orders, cancel_order, get_api_key_validity, set_market_order, set_limit_order
 
@@ -35,6 +36,9 @@ module Exchange::Exchanges::Binance
     tickers_info = Rails.cache.fetch(cache_key, expires_in: 1.hour, force: force) do
       result = client.exchange_information(permissions: ['SPOT'])
       return Result::Failure.new("Failed to get #{name} products") if result.failure?
+
+      error = parse_error_message(result)
+      return Result::Failure.new(error) if error.present?
 
       result.data['symbols'].map do |product|
         ticker = Utilities::Hash.dig_or_raise(product, 'symbol')
@@ -73,6 +77,9 @@ module Exchange::Exchanges::Binance
       result = client.symbol_price_ticker
       return Result::Failure.new("Failed to get #{name} products") if result.failure?
 
+      error = parse_error_message(result)
+      return Result::Failure.new(error) if error.present?
+
       result.data.each_with_object({}) do |symbol_price, prices_hash|
         ticker = Utilities::Hash.dig_or_raise(symbol_price, 'symbol')
         price = Utilities::Hash.dig_or_raise(symbol_price, 'price').to_d
@@ -83,11 +90,40 @@ module Exchange::Exchanges::Binance
     Result::Success.new(tickers_prices)
   end
 
+  def get_balances(asset_ids: nil)
+    result = client.account_information(omit_zero_balances: true)
+    return result if result.failure?
+
+    error = parse_error_message(result)
+    return Result::Failure.new(error) if error.present?
+
+    asset_ids ||= assets.pluck(:id)
+    balances = asset_ids.each_with_object({}) do |asset_id, balances_hash|
+      balances_hash[asset_id] = { free: 0, locked: 0 }
+    end
+    raw_balances = Utilities::Hash.dig_or_raise(result.data, 'balances')
+    raw_balances.each do |balance|
+      asset = asset_from_symbol(symbol: balance['asset'])
+      next unless asset.present?
+      next unless asset_ids.include?(asset.id)
+
+      free = Utilities::Hash.dig_or_raise(balance, 'free').to_d
+      locked = Utilities::Hash.dig_or_raise(balance, 'locked').to_d
+
+      balances[asset.id] = { free: free, locked: locked }
+    end
+
+    Result::Success.new(balances)
+  end
+
   def get_last_price(ticker:, force: false)
     cache_key = "exchange_#{id}_last_price_#{ticker.id}"
     price = Rails.cache.fetch(cache_key, expires_in: 5.seconds, force: force) do
       result = client.symbol_price_ticker(symbol: ticker.ticker)
       return result if result.failure?
+
+      error = parse_error_message(result)
+      return Result::Failure.new(error) if error.present?
 
       price = Utilities::Hash.dig_or_raise(result.data, 'price').to_d
       raise "Wrong last price for #{ticker.ticker}: #{price}" if price.zero?
@@ -103,6 +139,9 @@ module Exchange::Exchanges::Binance
     price = Rails.cache.fetch(cache_key, expires_in: 5.seconds, force: force) do
       result = get_bid_ask_price(ticker: ticker)
       return result if result.failure?
+
+      error = parse_error_message(result)
+      return Result::Failure.new(error) if error.present?
 
       price = result.data[:bid][:price]
       raise "Wrong bid price for #{ticker.ticker}: #{price}" if price.zero?
@@ -161,6 +200,9 @@ module Exchange::Exchanges::Binance
       )
       return result if result.failure?
 
+      error = parse_error_message(result)
+      return Result::Failure.new(error) if error.present?
+
       result.data.each do |candle|
         candles << [
           Time.at(candle[0] / 1000).utc,
@@ -179,16 +221,91 @@ module Exchange::Exchanges::Binance
     Result::Success.new(candles)
   end
 
+
+  def get_api_key_validity(api_key:) # rubocop:disable Metrics/PerceivedComplexity,Metrics/CyclomaticComplexity
+    result = BinanceClient.new(
+      api_key: api_key.key,
+      api_secret: api_key.secret
+    ).api_description
+
+    if result.success?
+      valid = if api_key.trading?
+                result.data['ipRestrict'] == true &&
+                  result.data['enableFixApiTrade'] == false &&
+                  result.data['enableFixReadOnly'] == false &&
+                  result.data['enableFutures'] == false &&
+                  result.data['enableInternalTransfer'] == false &&
+                  result.data['enableMargin'] == false &&
+                  result.data['enablePortfolioMarginTrading'] == false &&
+                  result.data['enableReading'] == true &&
+                  result.data['enableSpotAndMarginTrading'] == true &&
+                  result.data['enableVanillaOptions'] == false &&
+                  result.data['enableWithdrawals'] == false &&
+                  result.data['permitsUniversalTransfer'] == false
+              elsif api_key.withdrawal?
+                result.data['ipRestrict'] == true &&
+                  result.data['enableFixApiTrade'] == false &&
+                  result.data['enableFixReadOnly'] == false &&
+                  result.data['enableFutures'] == false &&
+                  result.data['enableInternalTransfer'] == false &&
+                  result.data['enableMargin'] == false &&
+                  result.data['enablePortfolioMarginTrading'] == false &&
+                  result.data['enableReading'] == true &&
+                  result.data['enableSpotAndMarginTrading'] == false &&
+                  result.data['enableVanillaOptions'] == false &&
+                  result.data['enableWithdrawals'] == true &&
+                  result.data['permitsUniversalTransfer'] == false
+              else
+                raise StandardError, 'Invalid API key type'
+              end
+      Result::Success.new(valid)
+    elsif parse_error_code(result).in?(known_errors[:invalid_key])
+      Result::Success.new(false)
+    else
+      result
+    end
+  end
+
   private
 
   def client
     @client ||= set_client
   end
 
+  def parse_error_code(result)
+    return unless result.errors.first.present?
+
+    begin
+      JSON.parse(result.errors.first)['code']
+    rescue StandardError
+      nil
+    end
+  end
+
+  def parse_error_message(result)
+    return unless result.errors.first.present?
+
+    begin
+      JSON.parse(result.errors.first)['msg']
+    rescue StandardError
+      nil
+    end
+  end
+
+  def asset_from_symbol(symbol:)
+    @asset_from_symbol ||= tickers.includes(:base_asset, :quote_asset).each_with_object({}) do |t, map|
+      map[t.base] ||= t.base_asset
+      map[t.quote] ||= t.quote_asset
+    end
+    @asset_from_symbol[symbol]
+  end
 
   def get_bid_ask_price(ticker:)
     result = client.symbol_order_book_ticker(symbol: ticker.ticker)
     return result if result.failure?
+
+    error = parse_error_message(result)
+    return Result::Failure.new(error) if error.present?
 
     Result::Success.new(
       {

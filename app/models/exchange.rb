@@ -14,7 +14,7 @@ class Exchange < ApplicationRecord
 
   scope :available, -> { where.not(name: ['FTX', 'FTX.US', 'Coinbase Pro']) }
   scope :available_for_new_bots, lambda {
-                                   where(name: %w[Coinbase Kraken])
+                                   where(name_id: %w[coinbase kraken binance binance_us])
                                  } # FIXME: Temporary until all exchanges are supported
 
   include Synchronizer

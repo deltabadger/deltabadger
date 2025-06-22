@@ -34,7 +34,7 @@ class KrakenClient < ApplicationClient
       response = self.class.connection.post do |req|
         req.url '/0/private/QueryOrders'
         req.body = {
-          nonce: generate_nonce,
+          nonce: nonce,
           trades: trades,
           userref: userref,
           txid: txid,
@@ -111,7 +111,7 @@ class KrakenClient < ApplicationClient
       response = self.class.connection.post do |req| # rubocop:disable Metrics/BlockLength
         req.url '/0/private/AddOrder'
         req.body = {
-          'nonce' => generate_nonce,
+          'nonce' => nonce,
           'ordertype' => ordertype,
           'type' => type,
           'volume' => volume,
@@ -149,7 +149,7 @@ class KrakenClient < ApplicationClient
       response = self.class.connection.post do |req|
         req.url '/0/private/CancelOrder'
         req.body = {
-          nonce: generate_nonce,
+          nonce: nonce,
           txid: txid,
           cl_ord_id: cl_ord_id
         }.compact.to_query
@@ -223,7 +223,7 @@ class KrakenClient < ApplicationClient
       response = self.class.connection.post do |req|
         req.url '/0/private/BalanceEx'
         req.body = {
-          nonce: generate_nonce
+          nonce: nonce
         }.to_query
         req.headers = headers(req.path, req.body)
       end
@@ -244,7 +244,7 @@ class KrakenClient < ApplicationClient
       response = self.class.connection.post do |req|
         req.url '/0/private/WithdrawMethods'
         req.body = {
-          nonce: generate_nonce,
+          nonce: nonce,
           asset: asset,
           aclass: aclass,
           network: network
@@ -276,18 +276,22 @@ class KrakenClient < ApplicationClient
 
   private
 
-  def generate_nonce
+  def nonce
     (Time.now.utc.to_f * 1_000_000).to_i
   end
 
   def headers(path, body)
     return unauthenticated_headers if unauthenticated? || path.include?('/public/')
 
-    nonce = URI.decode_www_form(body).to_h['nonce']
-    data = "#{nonce}#{body}"
+    request_nonce = URI.decode_www_form(body).to_h['nonce']
+    data = "#{request_nonce}#{body}"
     message = path + Digest::SHA256.digest(data)
     decoded_key = Base64.decode64(@api_secret)
-    hmac = OpenSSL::HMAC.digest('sha512', decoded_key, message)
+    begin
+      hmac = OpenSSL::HMAC.digest('sha512', decoded_key, message)
+    rescue OpenSSL::HMACError
+      return unauthenticated_headers
+    end
     signature = Base64.strict_encode64(hmac)
 
     {

@@ -298,7 +298,7 @@ module Exchange::Exchanges::Coinbase
     Result::Success.new(order_id)
   end
 
-  def get_api_key_validity(api_key:)
+  def get_api_key_validity(api_key:) # rubocop:disable Metrics/CyclomaticComplexity,Metrics/PerceivedComplexity
     result = CoinbaseClient.new(
       api_key: api_key.key,
       api_secret: api_key.secret
@@ -306,14 +306,18 @@ module Exchange::Exchanges::Coinbase
 
     if result.success?
       valid = if api_key.trading?
-                result.data['can_trade'] == true && result.data['can_transfer'] == false
+                result.data['can_view'] == true &&
+                  result.data['can_trade'] == true &&
+                  result.data['can_transfer'] == false
               elsif api_key.withdrawal?
-                result.data['can_transfer'] == true
+                result.data['can_view'] == true &&
+                  result.data['can_trade'] == false &&
+                  result.data['can_transfer'] == true
               else
-                raise StandardError, 'Invalid API key'
+                raise StandardError, 'Invalid API key type'
               end
       Result::Success.new(valid)
-    elsif result.data[:status] == 401 # invalid key
+    elsif result.data[:status] == 401 # unauthorized (due to invalid key)
       Result::Success.new(false)
     else
       result
