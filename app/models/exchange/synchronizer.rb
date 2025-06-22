@@ -2,49 +2,62 @@ module Exchange::Synchronizer
   extend ActiveSupport::Concern
 
   def sync_tickers_and_assets_with_external_data
-    result = get_symbol_to_external_id_hash
+    result = get_coingecko_exchange_tickers_by_id
     return result if result.failure?
 
-    symbol_to_external_id_hash = result.data
+    set_symbol_to_external_id_hash(result.data)
 
     result = get_tickers_info(force: true)
     return result if result.failure?
 
-    tickers_info = result.data
+    # Only create assets that exist in Coingecko or Eodhd!
+    # Never destroy an Asset! (ExchangeAsset is ok)
+    create_missing_assets!(external_ids)
 
-    create_missing_assets!(symbol_to_external_id_hash.values) # Only create assets that exist in Coingecko or Eodhd!
-    # Important: Never destroy an Asset! (ExchangeAsset is ok)
-
-    create_missing_or_update_existing_exchange_tickers!(symbol_to_external_id_hash, tickers_info)
-    destroy_delisted_exchange_tickers(tickers_info)
-
-    create_missing_exchange_assets!
-    destroy_delisted_exchange_assets
+    sync_existing_exchange_assets_and_tickers!(result.data)
 
     Result::Success.new
   end
 
-  private
-
-  def get_symbol_to_external_id_hash
+  def coingecko_symbols
     result = get_coingecko_exchange_tickers_by_id
     return result if result.failure?
 
-    symbol_to_external_id_hash = result.data.each_with_object({}) do |ticker, hash|
-      [%w[base coin_id], %w[target target_coin_id]].each do |symbol_key, external_id_key|
-        symbol = ticker[symbol_key]
-        external_id = ticker[external_id_key] || eodhd_external_id_for_symbol(symbol)
-        if hash[symbol].present? && hash[symbol] != external_id
-          raise "Multiple external ids for #{symbol} on #{coingecko_id}: #{hash[symbol]} and #{external_id}"
+    set_symbol_to_external_id_hash(result.data)
+    @symbol_to_external_id_hash.keys
+  end
+
+  private
+
+  def external_id_from_symbol(symbol)
+    raise 'Call set_symbol_to_external_id_hash first' unless @symbol_to_external_id_hash.present?
+
+    @symbol_to_external_id_hash[symbol]
+  end
+
+  def external_ids
+    raise 'Call set_symbol_to_external_id_hash first' unless @symbol_to_external_id_hash.present?
+
+    @symbol_to_external_id_hash.values
+  end
+
+  def set_symbol_to_external_id_hash(coingecko_tickers)
+    @symbol_to_external_id_hash = begin
+      hash = {}
+      coingecko_tickers.each do |ticker|
+        [%w[base coin_id], %w[target target_coin_id]].each do |symbol_key, external_id_key|
+          symbol = ticker[symbol_key]
+          external_id = ticker[external_id_key] || eodhd_external_id_for_symbol(symbol)
+          if hash[symbol].present? && hash[symbol] != external_id
+            raise "Multiple external ids for #{symbol} on #{coingecko_id}: #{hash[symbol]} and #{external_id}"
+          end
+
+          hash[symbol] = external_id
         end
-
-        hash[symbol] = external_id
       end
+
+      translate_coingecko_symbols_to_exchange_symbols(hash)
     end
-
-    symbol_to_external_id_hash = translate_coingecko_symbols_to_exchange_symbols(symbol_to_external_id_hash)
-
-    Result::Success.new(symbol_to_external_id_hash)
   end
 
   def get_coingecko_exchange_tickers_by_id
@@ -82,7 +95,7 @@ module Exchange::Synchronizer
 
     hash.each do |symbol, external_id|
       if external_id.in?(hash.values) && symbol != hash.key(external_id)
-        raise "Duplicate external id #{external_id} on #{coingecko_id}: #{symbol} and #{hash.key(external_id)}. " \
+        raise "Duplicated external id #{external_id} on #{coingecko_id}: #{symbol} and #{hash.key(external_id)}. " \
               'Blacklist one of the symbols in the exchange implementation'
       end
     end
@@ -103,44 +116,34 @@ module Exchange::Synchronizer
     end
   end
 
-  def create_missing_or_update_existing_exchange_tickers!(symbol_to_external_id_hash, tickers_info)
+  def sync_existing_exchange_assets_and_tickers!(tickers_info)
+    current_tickers = tickers.pluck(:ticker)
     tickers_info.each do |ticker_info|
-      exchange_ticker = exchange_tickers.find_by(base: ticker_info[:base], quote: ticker_info[:quote])
-      if exchange_ticker.present?
-        exchange_ticker.update!(ticker_info)
+      base = ticker_info[:base]
+      quote = ticker_info[:quote]
+      ticker = tickers.find_by(base: base, quote: quote)
+      if ticker.present?
+        ticker.update!(ticker_info)
       else
-        base_asset_external_id = symbol_to_external_id_hash[ticker_info[:base]]
-        quote_asset_external_id = symbol_to_external_id_hash[ticker_info[:quote]]
+        base_asset_external_id = external_id_from_symbol(base)
+        quote_asset_external_id = external_id_from_symbol(quote)
         next if base_asset_external_id.blank? || quote_asset_external_id.blank?
 
-        exchange_ticker_params = {
-          base_asset: Asset.find_by(external_id: base_asset_external_id),
-          quote_asset: Asset.find_by(external_id: quote_asset_external_id)
+        base_asset = Asset.find_by(external_id: base_asset_external_id)
+        quote_asset = Asset.find_by(external_id: quote_asset_external_id)
+        assets.find_by(asset_id: base_asset.id) || assets.create!(asset_id: base_asset.id)
+        assets.find_by(asset_id: quote_asset.id) || assets.create!(asset_id: quote_asset.id)
+
+        ticker_data = {
+          base_asset: base_asset,
+          quote_asset: quote_asset
         }.merge(ticker_info)
-        exchange_tickers.create!(exchange_ticker_params)
+        tickers.create!(ticker_data)
       end
+      current_tickers.delete(ticker.ticker)
     end
-  end
 
-  def destroy_delisted_exchange_tickers(tickers_info)
-    # Coingecko pagination sometimes lacks data if it's being updated while fetching.
-    # Never destroy one asset that's present in the exchange request but not in Coingecko.
-    tickers_info_keys = tickers_info.map { |t| "#{t[:base]}-#{t[:quote]}" }
-    tickers_keys_to_ids_hash = tickers.pluck(:base, :quote, :id).map { |base, quote, id| ["#{base}-#{quote}", id] }.to_h
-    ticker_ids = (tickers_keys_to_ids_hash.keys - tickers_info_keys).map { |key| tickers_keys_to_ids_hash[key] }
-    tickers.where(id: ticker_ids).destroy_all
-  end
-
-  def create_missing_exchange_assets!
-    asset_ids = tickers.pluck(:base_asset_id, :quote_asset_id).flatten.uniq - assets.pluck(:asset_id)
-    asset_ids.each do |asset_id|
-      exchange_assets.create!({ asset_id: asset_id })
-    end
-  end
-
-  def destroy_delisted_exchange_assets
-    # Coingecko pagination sometimes lacks data if it's being updated while fetching.
-    # Never destroy one ExchangeAsset that's present in the exchange request but not in Coingecko.
+    tickers.where(ticker: current_tickers).destroy_all
     asset_ids = assets.pluck(:asset_id) - tickers.pluck(:base_asset_id, :quote_asset_id).flatten.uniq
     exchange_assets.where(asset_id: asset_ids).destroy_all
   end

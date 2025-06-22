@@ -97,7 +97,7 @@ module Exchange::Exchanges::Coinbase
     end
     breakdown = Utilities::Hash.dig_or_raise(result.data, 'breakdown', 'spot_positions')
     breakdown.each do |position|
-      asset = asset_from_symbol(symbol: position['asset'])
+      asset = asset_from_symbol(position['asset'])
       next unless asset.present?
       next unless asset_ids.include?(asset.id)
 
@@ -128,7 +128,7 @@ module Exchange::Exchanges::Coinbase
   def get_bid_price(ticker:, force: false)
     cache_key = "exchange_#{id}_bid_price_#{ticker.id}"
     price = Rails.cache.fetch(cache_key, expires_in: 5.seconds, force: force) do
-      result = get_bid_ask_price(ticker: ticker)
+      result = get_bid_ask_price(ticker)
       return result if result.failure?
 
       price = result.data[:bid][:price]
@@ -143,7 +143,7 @@ module Exchange::Exchanges::Coinbase
   def get_ask_price(ticker:, force: false)
     cache_key = "exchange_#{id}_ask_price_#{ticker.id}"
     price = Rails.cache.fetch(cache_key, expires_in: 5.seconds, force: force) do
-      result = get_bid_ask_price(ticker: ticker)
+      result = get_bid_ask_price(ticker)
       return result if result.failure?
 
       price = result.data[:ask][:price]
@@ -334,7 +334,7 @@ module Exchange::Exchanges::Coinbase
     @client ||= set_client
   end
 
-  def asset_from_symbol(symbol:)
+  def asset_from_symbol(symbol)
     @asset_from_symbol ||= tickers.includes(:base_asset, :quote_asset).each_with_object({}) do |t, map|
       map[t.base] ||= t.base_asset
       map[t.quote] ||= t.quote_asset
@@ -351,22 +351,25 @@ module Exchange::Exchanges::Coinbase
     end
   end
 
-  def get_bid_ask_price(ticker:)
-    result = client.get_public_product_book(product_id: ticker.ticker, limit: 1)
-    return result if result.failure?
+  def get_bid_ask_price(ticker)
+    cache_key = "exchange_#{id}_bid_ask_price_#{ticker.id}"
+    Rails.cache.fetch(cache_key, expires_in: 1.seconds) do
+      result = client.get_public_product_book(product_id: ticker.ticker, limit: 1)
+      return result if result.failure?
 
-    Result::Success.new(
-      {
-        bid: {
-          price: result.data['pricebook']['bids'][0]['price'].to_d,
-          size: result.data['pricebook']['bids'][0]['size'].to_d
-        },
-        ask: {
-          price: result.data['pricebook']['asks'][0]['price'].to_d,
-          size: result.data['pricebook']['asks'][0]['size'].to_d
+      Result::Success.new(
+        {
+          bid: {
+            price: result.data['pricebook']['bids'][0]['price'].to_d,
+            size: result.data['pricebook']['bids'][0]['size'].to_d
+          },
+          ask: {
+            price: result.data['pricebook']['asks'][0]['price'].to_d,
+            size: result.data['pricebook']['asks'][0]['size'].to_d
+          }
         }
-      }
-    )
+      )
+    end
   end
 
   # @param amount [Float] must be a positive number

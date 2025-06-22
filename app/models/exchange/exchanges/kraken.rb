@@ -145,7 +145,7 @@ module Exchange::Exchanges::Kraken
     end
     balances_data = Utilities::Hash.dig_or_raise(result.data, 'result')
     balances_data.each do |asset, balance|
-      asset = asset_from_symbol(symbol: asset)
+      asset = asset_from_symbol(asset)
       next unless asset.present?
       next unless asset_ids.include?(asset.id)
 
@@ -161,7 +161,7 @@ module Exchange::Exchanges::Kraken
   def get_last_price(ticker:, force: false)
     cache_key = "exchange_#{id}_last_price_#{ticker.id}"
     price = Rails.cache.fetch(cache_key, expires_in: 5.seconds, force: force) do
-      result = get_ticker_information(ticker: ticker)
+      result = get_ticker_information(ticker)
       return result if result.failure?
 
       price = result.data[:last_trade_closed][:price]
@@ -176,7 +176,7 @@ module Exchange::Exchanges::Kraken
   def get_bid_price(ticker:, force: false)
     cache_key = "exchange_#{id}_bid_price_#{ticker.id}"
     price = Rails.cache.fetch(cache_key, expires_in: 5.seconds, force: force) do
-      result = get_ticker_information(ticker: ticker)
+      result = get_ticker_information(ticker)
       return result if result.failure?
 
       price = result.data[:bid][:price]
@@ -191,7 +191,7 @@ module Exchange::Exchanges::Kraken
   def get_ask_price(ticker:, force: false)
     cache_key = "exchange_#{id}_ask_price_#{ticker.id}"
     price = Rails.cache.fetch(cache_key, expires_in: 5.seconds, force: force) do
-      result = get_ticker_information(ticker: ticker)
+      result = get_ticker_information(ticker)
       return result if result.failure?
 
       price = result.data[:ask][:price]
@@ -386,7 +386,7 @@ module Exchange::Exchanges::Kraken
     @client ||= set_client
   end
 
-  def asset_from_symbol(symbol:)
+  def asset_from_symbol(symbol)
     @asset_from_symbol ||= tickers.includes(:base_asset, :quote_asset).each_with_object({}) do |t, map|
       map[t.base] ||= t.base_asset
       map[t.quote] ||= t.quote_asset
@@ -396,7 +396,7 @@ module Exchange::Exchanges::Kraken
     @asset_from_symbol[symbol]
   end
 
-  def get_ticker_information(ticker:) # rubocop:disable Metrics/MethodLength
+  def get_ticker_information(ticker) # rubocop:disable Metrics/MethodLength
     cache_key = "exchange_#{id}_ticker_information_#{ticker.ticker}"
     Rails.cache.fetch(cache_key, expires_in: 1.seconds) do # rubocop:disable Metrics/BlockLength
       result = client.get_ticker_information(pair: ticker.ticker)
@@ -408,7 +408,7 @@ module Exchange::Exchanges::Kraken
       asset_ticker_info = Utilities::Hash.dig_or_raise(result.data, 'result').map { |_, v| v }.first
       return Result::Failure.new("Failed to get #{name} #{ticker.ticker} ticker information") if asset_ticker_info.nil?
 
-      formatted_asset_ticker_info = {
+      formatted_get_ticker_information = {
         ask: {
           price: Utilities::Hash.dig_or_raise(asset_ticker_info, 'a')[0].to_d,
           whole_lot_volume: Utilities::Hash.dig_or_raise(asset_ticker_info, 'a')[1].to_d,
@@ -445,7 +445,7 @@ module Exchange::Exchanges::Kraken
         },
         todays_opening_price: Utilities::Hash.dig_or_raise(asset_ticker_info, 'o').to_d
       }
-      Result::Success.new(formatted_asset_ticker_info)
+      Result::Success.new(formatted_get_ticker_information)
     end
   end
 
