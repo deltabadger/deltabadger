@@ -1,28 +1,22 @@
 nl:
     bot:
         api:
-            binance:
+            binance: &binance_config
                 instructions:
                     -   text_html: 'Log in op je %{exchange_link}-account.'
-                    -   text_html: 'Ga in het gebruikersmenu (rond pictogram in de rechterbovenhoek) naar <b>Account</b> → <b>API Management</b>. Als je het niet kunt vinden, ga dan rechtstreeks via <a href="https://www.binance.com/en/my/settings/api-management">hier</a>.'
-                    -   text_html: 'Klik op <b>Create API</b>.'
-                    -   text_html: 'In het pop-upvenster, selecteer <b>System generated</b>.'
-                    -   text_html: 'In het pop-upvenster, geef een label aan de API-sleutel en pas de beveiligingsverificatie indien nodig. <b>Deltabadger</b> is goed om deze later te herkennen.'
-                    -   text_html: 'Klik op de knop in de rechterbovenhoek <b>Edit restrictions</b>:'
+                    -   text_html: 'Ga naar <a href="https://www.binance.com/en/my/settings/api-management"><b>Account</b> → <b>API Management</b></a>.'
+                    -   text_html: 'Klik op <b class="pbutton">Create API</b>.'
+                    -   text_html: 'Selecteer <b class="pbutton">System generated</b>.'
+                    -   text_html: 'Label je sleutels (bijv. "deltabadger") en doorloop indien nodig de beveiligingsverificatie.'
+                    -   text_html: 'Klik op <b class="pbutton">Edit restrictions</b> in de rechterbovenhoek van het sleutelvak.'
                         sub_instructions:
-                            -   text_html: "IP access restrictions"
-                                sub_instructions:
-                                    -   text_html: "Restrict access to trusted IPs only"
-                                        sub_instructions:
-                                            -   text_html: "Vul het IP-adres in: <b>%{ip}</b>, en klik op <b>Confirm</b>."
-                            -   text_html: "API restrictions"
-                                sub_instructions:
-                                    -   text_html: "Enable Trading"
-                                    -   text_html: "Enable Spot & Margin Trading"
-                    -   text_html: 'Klik op <b>Save</b> en pas de beveiligingsverificatie indien nodig.'
-                    -   text_html: 'Kopieer en plak je nieuwe API-sleutels in het bovenstaande formulier.'
+                            -   text_html: "🔘 Beperk toegang tot alleen vertrouwde IP's: <b>%{ip}</b>.<br><strong>⚠️ Belangrijk:</strong> Doe dit eerst om de volgende stap mogelijk te maken."
+                            -   text_html: "Vink:<br>☑️ <b>Enable Reading</b><br>☑️ <b>Enable Spot & Margin Trading</b> aan.<br><strong>⚠️ Belangrijk:</strong> De sleutels werken niet als je meer rechten toevoegt."
+                    -   text_html: 'Klik op <b>Save</b> en doorloop indien nodig de beveiligingsverificatie.'
+                    -   text_html: 'Kopieer en plak je nieuwe API-sleutels hierboven.'
                 private_key: 'Geheime Sleutel'
                 public_key: 'API-sleutel'
+            binance_us: *binance_config
             coinbase:
                 instructions:
                     -   text_html: 'Log in op je %{exchange_link}-account.'
@@ -39,7 +33,7 @@ nl:
                                 sub_instructions:
                                     -   text_html: '<b>Default</b>, of de portefeuille waartoe Deltabadger toegang moet hebben als je geen Coinbase Portefeuilles gebruikt.'
                                     -   text_html: '<b>View</b> (read-only)'
-                                    -   text_html: '<b>Trade</b> (execute trades on your behalf)'
+                                    -   text_html: '<b>Trade</b> (execute trades on your behalf)<br><strong>⚠️ Belangrijk:</strong> De sleutels werken niet als je meer rechten toevoegt.'
                             -   text_html: 'IP whitelist'
                                 sub_instructions:
                                     -   text_html: '<b>%{ip}</b>'
@@ -62,7 +56,7 @@ nl:
                                     -   text_html: '<b>Openstaande orders en transacties opvragen</b>'
                                     -   text_html: '<b>Gesloten orders en transacties opvragen</b>'
                                     -   text_html: '<b>Orders aanmaken en wijzigen</b>'
-                                    -   text_html: '<b>Orders annuleren en sluiten</b>'
+                                    -   text_html: '<b>Orders annuleren en sluiten</b><br><strong>⚠️ Belangrijk:</strong> De sleutels werken niet als je meer rechten toevoegt.'
                             -   text_html: 'Beperking IP-adres:'
                                 sub_instructions:
                                     -   text_html: '<b>Aan</b>, IP: <b>%{ip}</b>'

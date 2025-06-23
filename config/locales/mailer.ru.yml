@@ -33,8 +33,8 @@ ru:
             subject: "Транзакция успешно выполнена"
             template_html: "Транзакция успешна, базовая валюта: %{base}, котируемая валюта: %{quote}, имя бота: %{bot_name}, тип: %{type}, цена: %{price}, биржа: %{exchange_name}"
         end_of_funds:
-            subject: "У %{label} скоро закончатся средства"
-            template_html: "<p>Похоже, что у вашего бота <b>%{label}</b> очень скоро закончится %{quote}.</p><p>Сделайте перевод на %{exchange_name}, чтобы обеспечить непрерывную работу бота.</p>"
+            subject: "На вашем счету %{exchange_name} скоро закончится %{quote}"
+            template_html: "<p>На вашем счету %{exchange_name} скоро закончится %{quote}.</p><p>Сделайте перевод на %{exchange_name}, чтобы обеспечить непрерывную работу ваших ботов.</p>"
         notify_about_error:
             subject: "Что-то пошло не так с %{label}"
             template_html: "<p>Что-то пошло не так при обработке последней транзакции для бота <b>%{label}</b>.</p><p>Вы можете увидеть ошибку в логе бота. Войдите, чтобы проверить.</p><p>Ошибки:</p><blockquote> <b>%{exchange_name}:</b> <b>%{errors}</b></blockquote>"

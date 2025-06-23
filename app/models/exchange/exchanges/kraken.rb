@@ -2,8 +2,6 @@ module Exchange::Exchanges::Kraken
   extend ActiveSupport::Concern
 
   COINGECKO_ID = 'kraken'.freeze # https://docs.coingecko.com/reference/exchanges-list
-  PROXY = ENV['US_HTTPS_PROXY'].present? ? "https://#{ENV['US_HTTPS_PROXY']}".freeze : nil
-  TICKER_BLACKLIST = [].freeze
   ASSET_MAP = {
     'ZUSD' => 'USD',
     'ZEUR' => 'EUR',
@@ -16,6 +14,24 @@ module Exchange::Exchanges::Kraken
     'XETH' => 'ETH',
     'XXDG' => 'XDG'
   }.freeze # matches how assets are shown in the balances response with how they are shown in the tickers
+  REAL_COSTMIN = {
+    'AUD' => 10,     # instead of 1
+    'CAD' => 5,      # instead of 1
+    'CHF' => 5,      # instead of 1
+    'DAI' => 5,      # instead of 0.5
+    'ETH' => 0.002,  # instead of 0.0002
+    'EUR' => 0.5,    # instead of 0.45
+    'GBP' => 5,      # instead of 0.43
+    'JPY' => 500,    # instead of 50
+    'PYUSD' => 5,    # instead of 0.5
+    'RLUSD' => 5,    # instead of 0.5
+    'USD' => 5,      # instead of 0.5
+    'USDC' => 5,     # instead of 0.5
+    'USDQ' => 5,     # instead of 0.5
+    'USDR' => 5,     # instead of 0.5
+    'USDT' => 5,     # instead of 0.5
+    'XBT' => 0.00005 # instead of 0.00002
+  }.freeze # the real costmin values that Kraken respects. Found by trial and error using test orders.
   ERRORS = {
     insufficient_funds: ['EAPI:Insufficient funds', 'EOrder:Insufficient funds'],
     invalid_key: ['EGeneral:Permission denied', 'EAPI:Invalid key', 'EAPI:Invalid signature']
@@ -34,20 +50,19 @@ module Exchange::Exchanges::Kraken
   end
 
   def proxy_ip
-    @proxy_ip ||= PROXY.split('://').last.split(':').first if PROXY.present?
+    @proxy_ip ||= KrakenClient::PROXY.split('://').last.split(':').first if KrakenClient::PROXY.present?
   end
 
   def set_client(api_key: nil)
     @api_key = api_key
     @client = KrakenClient.new(
       api_key: api_key&.key,
-      api_secret: api_key&.secret,
-      proxy: PROXY
+      api_secret: api_key&.secret
     )
   end
 
   def get_tickers_info(force: false)
-    cache_key = "exchange_#{id}_info"
+    cache_key = "exchange_#{id}_tickers_info"
     tickers_info = Rails.cache.fetch(cache_key, expires_in: 1.hour, force: force) do
       result = client.get_tradable_asset_pairs
       return result if result.failure?
@@ -57,15 +72,17 @@ module Exchange::Exchanges::Kraken
 
       result.data['result'].map do |_, info|
         ticker = Utilities::Hash.dig_or_raise(info, 'altname')
-        next if TICKER_BLACKLIST.include?(ticker)
 
         wsname = Utilities::Hash.dig_or_raise(info, 'wsname')
+        base, quote = wsname.split('/')
+        minimum_base_size = Utilities::Hash.dig_or_raise(info, 'ordermin').to_d
+        minimum_quote_size = (REAL_COSTMIN[quote] || Utilities::Hash.dig_or_raise(info, 'costmin')).to_d
         {
           ticker: ticker,
-          base: wsname.split('/')[0],
-          quote: wsname.split('/')[1],
-          minimum_base_size: Utilities::Hash.dig_or_raise(info, 'ordermin').to_d,
-          minimum_quote_size: Utilities::Hash.dig_or_raise(info, 'costmin').to_d,
+          base: base,
+          quote: quote,
+          minimum_base_size: minimum_base_size,
+          minimum_quote_size: minimum_quote_size,
           maximum_base_size: nil,
           maximum_quote_size: nil,
           base_decimals: Utilities::Hash.dig_or_raise(info, 'lot_decimals'),
@@ -128,7 +145,7 @@ module Exchange::Exchanges::Kraken
     end
     balances_data = Utilities::Hash.dig_or_raise(result.data, 'result')
     balances_data.each do |asset, balance|
-      asset = asset_from_symbol(symbol: asset)
+      asset = asset_from_symbol(asset)
       next unless asset.present?
       next unless asset_ids.include?(asset.id)
 
@@ -144,7 +161,7 @@ module Exchange::Exchanges::Kraken
   def get_last_price(ticker:, force: false)
     cache_key = "exchange_#{id}_last_price_#{ticker.id}"
     price = Rails.cache.fetch(cache_key, expires_in: 5.seconds, force: force) do
-      result = get_ticker_information(ticker: ticker)
+      result = get_ticker_information(ticker)
       return result if result.failure?
 
       price = result.data[:last_trade_closed][:price]
@@ -159,7 +176,7 @@ module Exchange::Exchanges::Kraken
   def get_bid_price(ticker:, force: false)
     cache_key = "exchange_#{id}_bid_price_#{ticker.id}"
     price = Rails.cache.fetch(cache_key, expires_in: 5.seconds, force: force) do
-      result = get_ticker_information(ticker: ticker)
+      result = get_ticker_information(ticker)
       return result if result.failure?
 
       price = result.data[:bid][:price]
@@ -174,7 +191,7 @@ module Exchange::Exchanges::Kraken
   def get_ask_price(ticker:, force: false)
     cache_key = "exchange_#{id}_ask_price_#{ticker.id}"
     price = Rails.cache.fetch(cache_key, expires_in: 5.seconds, force: force) do
-      result = get_ticker_information(ticker: ticker)
+      result = get_ticker_information(ticker)
       return result if result.failure?
 
       price = result.data[:ask][:price]
@@ -327,8 +344,7 @@ module Exchange::Exchanges::Kraken
   def get_api_key_validity(api_key:)
     temp_client = KrakenClient.new(
       api_key: api_key.key,
-      api_secret: api_key.secret,
-      proxy: PROXY
+      api_secret: api_key.secret
     )
     result = if api_key.trading?
                temp_client.add_order(
@@ -356,11 +372,10 @@ module Exchange::Exchanges::Kraken
     end
   end
 
-  def minimum_amount_logic(side:)
-    case side
-    when :buy
+  def minimum_amount_logic(side:, order_type:)
+    if side == :buy && order_type == :market_order
       :base_or_quote
-    when :sell
+    else
       :base
     end
   end
@@ -371,7 +386,7 @@ module Exchange::Exchanges::Kraken
     @client ||= set_client
   end
 
-  def asset_from_symbol(symbol:)
+  def asset_from_symbol(symbol)
     @asset_from_symbol ||= tickers.includes(:base_asset, :quote_asset).each_with_object({}) do |t, map|
       map[t.base] ||= t.base_asset
       map[t.quote] ||= t.quote_asset
@@ -381,7 +396,7 @@ module Exchange::Exchanges::Kraken
     @asset_from_symbol[symbol]
   end
 
-  def get_ticker_information(ticker:) # rubocop:disable Metrics/MethodLength
+  def get_ticker_information(ticker) # rubocop:disable Metrics/MethodLength
     cache_key = "exchange_#{id}_ticker_information_#{ticker.ticker}"
     Rails.cache.fetch(cache_key, expires_in: 1.seconds) do # rubocop:disable Metrics/BlockLength
       result = client.get_ticker_information(pair: ticker.ticker)
@@ -393,7 +408,7 @@ module Exchange::Exchanges::Kraken
       asset_ticker_info = Utilities::Hash.dig_or_raise(result.data, 'result').map { |_, v| v }.first
       return Result::Failure.new("Failed to get #{name} #{ticker.ticker} ticker information") if asset_ticker_info.nil?
 
-      formatted_asset_ticker_info = {
+      formatted_get_ticker_information = {
         ask: {
           price: Utilities::Hash.dig_or_raise(asset_ticker_info, 'a')[0].to_d,
           whole_lot_volume: Utilities::Hash.dig_or_raise(asset_ticker_info, 'a')[1].to_d,
@@ -430,7 +445,7 @@ module Exchange::Exchanges::Kraken
         },
         todays_opening_price: Utilities::Hash.dig_or_raise(asset_ticker_info, 'o').to_d
       }
-      Result::Success.new(formatted_asset_ticker_info)
+      Result::Success.new(formatted_get_ticker_information)
     end
   end
 
@@ -442,16 +457,13 @@ module Exchange::Exchanges::Kraken
 
     amount = ticker.adjusted_amount(amount: amount, amount_type: amount_type)
 
-    client_order_id = SecureRandom.uuid
     order_settings = {
-      cl_ord_id: client_order_id,
       ordertype: 'market',
       type: side.to_s.downcase,
       volume: amount.to_d.to_s('F'),
       pair: ticker.ticker,
       oflags: amount_type == :quote ? ['viqc'] : []
     }
-    Rails.logger.info("Exchange #{id}: Setting market order #{order_settings.inspect}")
     result = client.add_order(**order_settings)
     return result if result.failure?
 
@@ -476,16 +488,15 @@ module Exchange::Exchanges::Kraken
     amount = ticker.adjusted_amount(amount: amount, amount_type: amount_type)
     price = ticker.adjusted_price(price: price)
 
-    client_order_id = SecureRandom.uuid
-    result = client.add_order(
-      cl_ord_id: client_order_id,
+    order_settings = {
       ordertype: 'limit',
       type: side.to_s.downcase,
       volume: amount.to_d.to_s('F'),
       pair: ticker.ticker,
       price: price.to_d.to_s('F'),
       oflags: amount_type == :quote ? ['viqc'] : []
-    )
+    }
+    result = client.add_order(**order_settings)
     return result if result.failure?
 
     error = Utilities::Hash.dig_or_raise(result.data, 'error')
@@ -506,6 +517,7 @@ module Exchange::Exchanges::Kraken
     order_type = parse_order_type(Utilities::Hash.dig_or_raise(order_data, 'descr', 'ordertype'))
     price = Utilities::Hash.dig_or_raise(order_data, 'price').to_d
     price = Utilities::Hash.dig_or_raise(order_data, 'descr', 'price').to_d if price.zero? && order_type == :limit_order
+    price = nil if price.zero?
     quote_amount_exec = Utilities::Hash.dig_or_raise(order_data, 'cost').to_d
     amount_exec = Utilities::Hash.dig_or_raise(order_data, 'vol_exec').to_d
 
