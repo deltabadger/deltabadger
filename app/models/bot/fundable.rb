@@ -45,7 +45,7 @@ module Bot::Fundable
                            .pluck(:last_end_of_funds_notification)
     new_bots = user.bots
                    .not_legacy
-                   .where(quote_asset_id: quote_asset_id)
+                   .where('settings @> ?', { quote_asset_id: quote_asset_id }.to_json)
                    .pluck(:last_end_of_funds_notification)
     (legacy_buy_bots + legacy_sell_bots + new_bots).compact.any? { |t| t > 1.day.ago }
   end
