@@ -1,7 +1,7 @@
 nl:
     bot:
         api:
-            binance:
+            binance: &binance_config
                 instructions:
                     -   text_html: 'Log in op je %{exchange_link}-account.'
                     -   text_html: 'Ga naar <a href="https://www.binance.com/en/my/settings/api-management"><b>Account</b> → <b>API Management</b></a>.'
@@ -16,6 +16,7 @@ nl:
                     -   text_html: 'Kopieer en plak je nieuwe API-sleutels hierboven.'
                 private_key: 'Geheime Sleutel'
                 public_key: 'API-sleutel'
+            binance_us: *binance_config
             coinbase:
                 instructions:
                     -   text_html: 'Log in op je %{exchange_link}-account.'

@@ -1,7 +1,7 @@
 ru:
     bot:
         api:
-            binance:
+            binance: &binance_config
                 instructions:
                     -   text_html: 'Войдите в свою учетную запись %{exchange_link}.'
                     -   text_html: 'Перейдите в <a href="https://www.binance.com/ru/my/settings/api-management"><b>Аккаунт</b> → <b>Управление API</b></a>.'
@@ -16,6 +16,7 @@ ru:
                     -   text_html: 'Скопируйте и вставьте ваши новые ключи API выше.'
                 private_key: 'Секретный ключ'
                 public_key: 'Ключ API'
+            binance_us: *binance_config
             coinbase:
                 instructions:
                     -   text_html: 'Войдите в свою учетную запись %{exchange_link}.'

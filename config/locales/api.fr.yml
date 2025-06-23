@@ -1,7 +1,7 @@
 fr:
     bot:
         api:
-            binance:
+            binance: &binance_config
                 instructions:
                     -   text_html: 'Connectez-vous à votre compte %{exchange_link}.'
                     -   text_html: 'Allez dans <a href="https://www.binance.com/fr/my/settings/api-management"><b>Compte</b> → <b>Gestion des API</b></a>.'
@@ -16,6 +16,7 @@ fr:
                     -   text_html: 'Copiez et collez vos nouvelles clés API ci-dessus.'
                 private_key: 'Clé Secrète'
                 public_key: 'Clé API'
+            binance_us: *binance_config
             coinbase:
                 instructions:
                     -   text_html: 'Connectez-vous à votre compte %{exchange_link}.'
