@@ -10,8 +10,8 @@ fr:
                     -   text_html: 'Étiquetez vos clés (par exemple "deltabadger") et passez la vérification de sécurité si nécessaire.'
                     -   text_html: 'Cliquez sur <b class="pbutton">Modifier les restrictions</b> dans le coin supérieur droit de la tuile des clés.'
                         sub_instructions:
-                            -   text_html: "Restreindre l’accès aux adresses IP de confiance uniquement : <b>%{ip}</b>.<br><strong>⚠️ Important :</strong> Faites ceci en premier pour activer l'étape suivante."
-                            -   text_html: "Cochez:<br>✅ <b>Permettre la lecture</b><br>✅ <b>Activer le trading Spot et sur marge</b>.<br><strong>⚠️ Important :</strong> Les clés ne fonctionneront pas si vous ajoutez plus d'autorisations."
+                            -   text_html: "🔘 Restreindre l’accès aux adresses IP de confiance uniquement : <b>%{ip}</b>.<br><strong>⚠️ Important :</strong> Faites ceci en premier pour activer l'étape suivante."
+                            -   text_html: "Cochez:<br>☑️ <b>Permettre la lecture</b><br>☑️ <b>Activer le trading Spot et sur marge</b>.<br><strong>⚠️ Important :</strong> Les clés ne fonctionneront pas si vous ajoutez plus d'autorisations."
                     -   text_html: 'Cliquez sur <b>Enregistrer</b> et passez la vérification de sécurité si nécessaire.'
                     -   text_html: 'Copiez et collez vos nouvelles clés API ci-dessus.'
                 private_key: 'Clé Secrète'
