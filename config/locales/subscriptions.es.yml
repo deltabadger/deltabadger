@@ -60,7 +60,7 @@ es:
             wire_transfer_fill_form: 'Rellena el formulario de arriba para continuar...'
             wire_transfer_pending: '¡Gracias! Pronto activaremos tu cuenta y nos pondremos en contacto contigo por correo electrónico.'
             you_pay: 'Total'
-            moneyback_guarantee_html: "30-día garantía de devolución de dinero. Sin&nbsp;preguntas."
+            moneyback_guarantee_html: "Garantía de devolución de 30 días. Sin&nbsp;preguntas."
         prolong_upgrade: 'Mejora tu plan'
         upgrade: Mejorar
         upgrade_plan: 'Mejorar plan'
