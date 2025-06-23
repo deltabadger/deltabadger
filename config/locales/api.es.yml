@@ -6,12 +6,12 @@ es:
                     -   text_html: 'Inicia sesión en tu cuenta de %{exchange_link}.'
                     -   text_html: 'Ve a <a href="https://www.binance.com/es/my/settings/api-management"><b>Cuenta</b> → <b>Gestión de API</b></a>.'
                     -   text_html: 'Haz clic en <b class="pbutton">Crear API</b>.'
-                    -   text_html: 'Selecciona <b class="pbutton">Generado por el sistema</b>.'
-                    -   text_html: 'Etiqueta tus claves (por ejemplo, "deltabadger") y pasa la verificación de seguridad si es necesario.'
+                    -   text_html: 'Selecciona <b class="pbutton">Generada por el sistema</b>.'
+                    -   text_html: 'Etiqueta tu clave API (por ejemplo, "deltabadger") y pasa la verificación de seguridad si es necesario.'
                     -   text_html: 'Haz clic en <b class="pbutton">Editar restricciones</b> en la esquina superior derecha del recuadro de claves.'
                         sub_instructions:
-                            -   text_html: "Restricciones de acceso por IP: <b>%{ip}</b>.<br><strong>⚠️ Importante:</strong> Haz esto primero para habilitar el siguiente paso."
-                            -   text_html: "Marca:<br>✅ <b>Habilitar lectura</b><br>✅ <b>Habilitar trading de márgenes y spot</b>.<br><strong>⚠️ Importante:</strong> Las claves no funcionarán si añades más permisos."
+                            -   text_html: "🔘 Restringir el acceso a direcciones IP fiables: <b>%{ip}</b>.<br><strong>⚠️ Importante:</strong> Haz esto primero para habilitar el siguiente paso."
+                            -   text_html: "Marca:<br>☑️ <b>Habilitar lectura</b><br>☑️ <b>Habilitar trading de márgenes y spot</b>.<br><strong>⚠️ Importante:</strong> Las claves no funcionarán si añades más permisos."
                     -   text_html: 'Haz clic en <b>Guardar</b> y pasa la verificación de seguridad si es necesario.'
                     -   text_html: 'Copia y pega tus nuevas claves API arriba.'
                 private_key: 'Clave Secreta'

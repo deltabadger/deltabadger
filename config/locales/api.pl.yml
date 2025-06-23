@@ -10,8 +10,8 @@ pl:
                     -   text_html: 'Oznacz swoje klucze (np. "deltabadger") i w razie potrzeby przejdź weryfikację bezpieczeństwa.'
                     -   text_html: 'Kliknij <b class="pbutton">Zmień uprawnienia</b> w prawym górnym rogu kafelka kluczy.'
                         sub_instructions:
-                            -   text_html: "Ogranicz dostęp tylko do zaufanych adresów IP: <b>%{ip}</b>.<br><strong>⚠️ Ważne:</strong> Zrób to najpierw, aby umożliwić następny krok."
-                            -   text_html: "Zaznacz:<br>✅ <b>Włącz Odczyt</b><br>✅ <b>Włącz Handel Spot i Margin</b>.<br><strong>⚠️ Ważne:</strong> Klucze nie będą działać, jeśli dodasz więcej uprawnień."
+                            -   text_html: "🔘 Ogranicz dostęp tylko do zaufanych adresów IP: <b>%{ip}</b>.<br><strong>⚠️ Ważne:</strong> Zrób to najpierw, aby umożliwić następny krok."
+                            -   text_html: "Zaznacz:<br>☑️ <b>Włącz Odczyt</b><br>☑️ <b>Włącz Handel Spot i Margin</b>.<br><strong>⚠️ Ważne:</strong> Klucze nie będą działać, jeśli dodasz więcej uprawnień."
                     -   text_html: 'Kliknij <b>Zapisz</b> i w razie potrzeby przejdź weryfikację bezpieczeństwa.'
                     -   text_html: 'Skopiuj i wklej swoje nowe klucze API powyżej.'
                 private_key: 'Klucz Tajny'
