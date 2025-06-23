@@ -65,6 +65,7 @@ it:
             wire_transfer_fill_form: "Per favore, compila il modulo sopra per procedere…"
             wire_transfer_pending: "Grazie! Attiveremo il tuo account presto e ti contatteremo via email."
             you_pay: "Paghi"
+            moneyback_guarantee_html: "30-giorno garanzia di rimborso. Nessuna&nbsp;domanda."
         prolong_upgrade: 'Aggiorna il tuo piano'
         upgrade: Aggiorna
         upgrade_plan: 'Aggiorna'
