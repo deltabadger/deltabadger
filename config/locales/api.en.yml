@@ -32,7 +32,7 @@ en:
                                 sub_instructions:
                                     -   text_html: '<b>Default</b>, or the portfolio you want Deltabadger to have access to if not using Coinbase Portfolios.'
                                     -   text_html: '<b>View</b> (read-only)'
-                                    -   text_html: '<b>Trade</b> (execute trades on your behalf)'
+                                    -   text_html: '<b>Trade</b> (execute trades on your behalf)<br><strong>Important:</strong> The keys will not work if you add more permissions.'
                             -   text_html: 'IP whitelist'
                                 sub_instructions:
                                     -   text_html: '<b>%{ip}</b>'
@@ -55,7 +55,7 @@ en:
                                     -   text_html: '<b>Query open orders & trades</b>'
                                     -   text_html: '<b>Query closed orders & trades</b>'
                                     -   text_html: '<b>Create & modify orders</b>'
-                                    -   text_html: '<b>Cancel & close orders</b>'
+                                    -   text_html: '<b>Cancel & close orders</b><br><strong>Important:</strong> The keys will not work if you add more permissions.'
                             -   text_html: 'IP address restriction:'
                                 sub_instructions:
                                     -   text_html: '<b>On</b>, IP: <b>%{ip}</b>'

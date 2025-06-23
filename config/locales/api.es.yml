@@ -4,23 +4,16 @@ es:
             binance:
                 instructions:
                     -   text_html: 'Inicia sesión en tu cuenta de %{exchange_link}.'
-                    -   text_html: 'En el menú de usuario (icono redondo en la esquina superior derecha), ve a <b>Cuenta</b> → <b>Gestión de API</b>. Si no puedes encontrarlo, ve directamente desde <a href="https://www.binance.com/es/my/settings/api-management">aquí</a>.'
-                    -   text_html: 'Haz clic en <b>Crear API</b>.'
-                    -   text_html: 'En el cuadro de diálogo emergente, selecciona <b>Generada por el sistema</b>.'
-                    -   text_html: 'En el cuadro de diálogo emergente, da un nombre a la clave de API y pasa la verificación de seguridad si es necesario. <b>Deltabadger</b> es bueno para reconocerla en el futuro.'
-                    -   text_html: 'Haz clic en el botón superior derecho <b>Editar restricciones</b>:'
+                    -   text_html: 'Ve a <a href="https://www.binance.com/es/my/settings/api-management"><b>Cuenta</b> → <b>Gestión de API</b></a>.'
+                    -   text_html: 'Haz clic en <b class="pbutton">Crear API</b>.'
+                    -   text_html: 'Selecciona <b class="pbutton">Generado por el sistema</b>.'
+                    -   text_html: 'Etiqueta tus claves (por ejemplo, "deltabadger") y pasa la verificación de seguridad si es necesario.'
+                    -   text_html: 'Haz clic en <b class="pbutton">Editar restricciones</b> en la esquina superior derecha del recuadro de claves.'
                         sub_instructions:
-                            -   text_html: "Restricciones de acceso por IP"
-                                sub_instructions:
-                                    -   text_html: "Restringir el acceso a direcciones IP fiables"
-                                        sub_instructions:
-                                            -   text_html: "Rellena la dirección IP: <b>%{ip}</b>, y haz clic en <b>Confirmar</b>."
-                            -   text_html: "Restricciones de API"
-                                sub_instructions:
-                                    -   text_html: "Habilitar lectura"
-                                    -   text_html: "Habilitar trading spot y margen"
+                            -   text_html: "Restricciones de acceso por IP: <b>%{ip}</b>.<br><strong>Importante:</strong> Haz esto primero para habilitar el siguiente paso."
+                            -   text_html: "Marca <b>Habilitar trading de márgenes y spot</b>.<br><strong>Importante:</strong> Las claves no funcionarán si añades más permisos."
                     -   text_html: 'Haz clic en <b>Guardar</b> y pasa la verificación de seguridad si es necesario.'
-                    -   text_html: 'Copia y pega tus nuevas claves API en el formulario.'
+                    -   text_html: 'Copia y pega tus nuevas claves API arriba.'
                 private_key: 'Clave Secreta'
                 public_key: 'Clave API'
             coinbase:
@@ -39,7 +32,7 @@ es:
                                 sub_instructions:
                                     -   text_html: '<b>Predeterminado</b>, o el portfolio al que quieres que Deltabadger tenga acceso si usas Portfolios de Coinbase.'
                                     -   text_html: '<b>Ver</b> (read-only)'
-                                    -   text_html: '<b>Trade</b> (execute trades on your behalf)'
+                                    -   text_html: '<b>Trade</b> (execute trades on your behalf)<br><strong>Importante:</strong> Las claves no funcionarán si añades más permisos.'
                             -   text_html: 'Lista blanca de IP'
                                 sub_instructions:
                                     -   text_html: '<b>%{ip}</b>.'
@@ -62,7 +55,7 @@ es:
                                     -   text_html: '<b>Consultar Órdenes Abiertas y Operaciones</b>'
                                     -   text_html: '<b>Consultar Órdenes Cerradas y Operaciones</b>'
                                     -   text_html: '<b>Crear y modificar órdenes</b>'
-                                    -   text_html: '<b>Cancelar y cerrar órdenes</b>'
+                                    -   text_html: '<b>Cancelar y cerrar órdenes</b><br><strong>Importante:</strong> Las claves no funcionarán si añades más permisos.'
                             -   text_html: 'Restricción de dirección IP:'
                                 sub_instructions:
                                     -   text_html: '<b>Encendido</b>: <b>%{ip}</b>'
