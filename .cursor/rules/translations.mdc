@@ -1,0 +1,30 @@
+---
+description: 
+globs: config/locales/**/*.yml
+alwaysApply: false
+---
+---
+description: Translation and localization rules for supported languages
+globs: 
+  - "config/locales/**/*.yml"
+alwaysApply: true
+---
+
+## Supported Languages
+- **German (DE)** Berlin/Germany variant only
+- **English (EN)** NYC/US variant only
+- **French (FR)** - Paris/France variant only
+- **Italian (IT)** - Rome/Italy variant only
+- **Spanish (ES)** - Madrid/Spain variant only
+- **Portuguese (PT)** - Lisbon/Portugal variant only
+- **Dutch (NL)** - Amsterdam/Netherlands variant only
+- **Polish (PL)** - Warsaw/Poland variant only
+- **Russian (RU)** - Moscow/Russian variant only
+
+**Note**: NEVER use non-European variants of Spanish, French, and Portugese.
+
+## Translation Files
+- Location: `config/locales/`
+- Pattern: `[component].[language_code].yml`
+- Language codes: DE, EN, FR, IT, ES, PT, NL, PL, RU
+- Default fallback: English (EN)

@@ -33,8 +33,8 @@ nl:
             subject: "Transactie is succesvol uitgevoerd"
             template_html: "Transactie succesvol, basis: %{base}, quote: %{quote}, bot-naam: %{bot_name}, type: %{type}, prijs: %{price}, exchange: %{exchange_name}"
         end_of_funds:
-            subject: "%{label} raakt binnenkort door het saldo heen"
-            template_html: "<p>Het lijkt erop dat uw bot <b>%{label}</b> zeer binnenkort door de %{quote} heen raakt.</p><p>Maak een overschrijving naar %{exchange_name} om ervoor te zorgen dat de bot continu blijft werken.</p>"
+            subject: "Uw %{exchange_name} account raakt door de %{quote} heen"
+            template_html: "<p>Uw %{exchange_name} account raakt door de %{quote} heen.</p><p>Maak een overschrijving naar %{exchange_name} om ervoor te zorgen dat uw bots continu blijven werken.</p>"
         notify_about_error:
             subject: "Er is iets misgegaan met %{label}"
             template_html: "<p>Er is iets misgegaan bij het verwerken van de laatste transactie voor bot <b>%{label}</b>.</p><p>U kunt de fout bekijken in het botlogboek. Log in om het te controleren.</p><p>Fouten:</p><blockquote> <b>%{exchange_name}:</b> <b>%{errors}</b></blockquote>"
