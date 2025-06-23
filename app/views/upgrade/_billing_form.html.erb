@@ -41,6 +41,11 @@
             <% end %>
           </div>
         <% end %>
+        <% if payment.price_with_vat > 0 %>
+          <div class="moneyback-guarantee">
+            <%= t('subscriptions.payment.moneyback_guarantee_html').html_safe %>
+          </div>
+        <% end %>
       </div>
 
       <div id="payBitcoin" class="tab <%= 'active' if payment.by_bitcoin? %>" aria-labelledby="log-tab" role="tabpanel">

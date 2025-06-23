@@ -13,7 +13,7 @@ module Bots::DcaDualAsset::OrderSetter # rubocop:disable Metrics/ModuleLength
     validate_orders_amount!(total_orders_amount_in_quote)
     return Result::Success.new if total_orders_amount_in_quote.zero?
 
-    result = get_orders(total_orders_amount_in_quote)
+    result = get_orders_data(total_orders_amount_in_quote)
     return result if result.failure?
 
     orders_data = result.data
@@ -33,14 +33,14 @@ module Bots::DcaDualAsset::OrderSetter # rubocop:disable Metrics/ModuleLength
       result = create_order(order_data, amount_info)
       if result.failure?
         Rails.logger.error(
-          "set_orders for bot #{id} failed to create order #{order_data.inspect}. " \
+          "set_orders for bot #{id} failed to create order #{order_data.inspect} with amount info #{amount_info.inspect}. " \
           "Errors: #{result.errors.to_sentence}"
         )
         create_failed_order!(order_data.merge!(error_messages: result.errors))
         return result
       else
         order_id = result.data[:order_id]
-        Rails.logger.info("set_orders for bot #{id} created order #{order_id}")
+        Rails.logger.info("set_orders for bot #{id} created order #{order_id} with amount info #{amount_info.inspect}")
         Bot::FetchAndCreateOrderJob.perform_later(
           self,
           order_id,
@@ -59,7 +59,7 @@ module Bots::DcaDualAsset::OrderSetter # rubocop:disable Metrics/ModuleLength
     raise 'Orders quote_amount must be positive' if total_orders_amount_in_quote.negative?
   end
 
-  def get_orders(total_orders_amount_in_quote)
+  def get_orders_data(total_orders_amount_in_quote)
     metrics_data = metrics(force: true)
 
     result0 = if limit_ordered?
@@ -142,12 +142,16 @@ module Bots::DcaDualAsset::OrderSetter # rubocop:disable Metrics/ModuleLength
 
   def calculate_best_amount_info(order_data)
     ticker = order_data[:ticker]
-    case exchange.minimum_amount_logic(side: order_data[:side])
+    case exchange.minimum_amount_logic(side: order_data[:side], order_type: order_data[:order_type])
     when :base_or_quote
       minimum_quote_size_in_base = ticker.minimum_quote_size / order_data[:price]
       amount_type = minimum_quote_size_in_base < ticker.minimum_base_size ? :quote : :base
       amount = amount_type == :base ? order_data[:amount] : order_data[:quote_amount]
       minimum_amount = amount_type == :base ? ticker.minimum_base_size : ticker.minimum_quote_size
+    when :base_and_quote
+      minimum_amount = [ticker.minimum_quote_size / order_data[:price], ticker.minimum_base_size].max
+      amount_type = :base
+      amount = order_data[:amount]
     when :base
       minimum_amount = ticker.minimum_base_size
       amount_type = :base

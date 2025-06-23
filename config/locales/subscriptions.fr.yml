@@ -61,6 +61,7 @@ fr:
             wire_transfer_fill_form: 'Veuillez remplir le formulaire ci-dessus pour continuer'
             wire_transfer_pending: 'Merci ! Nous allons bientôt activer votre compte et vous contacter par e-mail'
             you_pay: 'Vous payez'
+            moneyback_guarantee_html: "30-jour garantie de remboursement. Pas&nbsp;de&nbsp;questions."
         prolong_upgrade: 'Mettre à niveau le forfait'
         upgrade: 'Mettre à niveau'
         upgrade_plan: 'Mettre à niveau le forfait'

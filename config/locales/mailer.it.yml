@@ -33,8 +33,8 @@ it:
             subject: "La transazione è stata completata con successo"
             template_html: "Transazione riuscita, base: %{base}, quota: %{quote}, nome bot: %{bot_name}, tipo: %{type}, prezzo: %{price}, exchange: %{exchange_name}"
         end_of_funds:
-            subject: "A %{label} stanno per finire i fondi"
-            template_html: "<p>Sembra che al tuo bot <b>%{label}</b> stia per finire %{quote} molto presto.</p><p>Effettua un trasferimento a %{exchange_name} per garantire che il bot continui a funzionare.</p>"
+            subject: "Il tuo account %{exchange_name} sta finendo %{quote}"
+            template_html: "<p>Il tuo account %{exchange_name} sta finendo %{quote}.</p><p>Effettua un trasferimento a %{exchange_name} per garantire che i tuoi bot continuino a funzionare.</p>"
         notify_about_error:
             subject: "Qualcosa è andato storto con %{label}"
             template_html: "<p>Qualcosa è andato storto durante l'elaborazione dell'ultima transazione per il bot <b>%{label}</b>.</p><p>Puoi vedere l'errore nel registro del bot. Accedi per controllarlo.</p><p>Errori:</p><blockquote> <b>%{exchange_name}:</b> <b>%{errors}</b></blockquote>"
