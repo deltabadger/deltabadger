@@ -32,7 +32,7 @@ nl:
                                 sub_instructions:
                                     -   text_html: '<b>Default</b>, of de portefeuille waartoe Deltabadger toegang moet hebben als je geen Coinbase Portefeuilles gebruikt.'
                                     -   text_html: '<b>View</b> (read-only)'
-                                    -   text_html: '<b>Trade</b> (execute trades on your behalf)'
+                                    -   text_html: '<b>Trade</b> (execute trades on your behalf)<br><strong>Belangrijk:</strong> De sleutels werken niet als je meer rechten toevoegt.'
                             -   text_html: 'IP whitelist'
                                 sub_instructions:
                                     -   text_html: '<b>%{ip}</b>'
@@ -55,7 +55,7 @@ nl:
                                     -   text_html: '<b>Openstaande orders en transacties opvragen</b>'
                                     -   text_html: '<b>Gesloten orders en transacties opvragen</b>'
                                     -   text_html: '<b>Orders aanmaken en wijzigen</b>'
-                                    -   text_html: '<b>Orders annuleren en sluiten</b>'
+                                    -   text_html: '<b>Orders annuleren en sluiten</b><br><strong>Belangrijk:</strong> De sleutels werken niet als je meer rechten toevoegt.'
                             -   text_html: 'Beperking IP-adres:'
                                 sub_instructions:
                                     -   text_html: '<b>Aan</b>, IP: <b>%{ip}</b>'

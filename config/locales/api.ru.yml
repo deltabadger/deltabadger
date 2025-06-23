@@ -32,7 +32,7 @@ ru:
                                 sub_instructions:
                                     -   text_html: '<b>Default</b>, или портфель, к которому вы хотите предоставить доступ Deltabadger, если не используете портфели Coinbase.'
                                     -   text_html: '<b>View</b> (read-only)'
-                                    -   text_html: '<b>Trade</b> (execute trades on your behalf)'
+                                    -   text_html: '<b>Trade</b> (execute trades on your behalf)<br><strong>Важно:</strong> Ключи не будут работать, если вы добавите больше разрешений.'
                             -   text_html: 'IP whitelist'
                                 sub_instructions:
                                     -   text_html: '<b>%{ip}</b>'
@@ -55,7 +55,7 @@ ru:
                                     -   text_html: '<b>Запросить открытые ордера и сделки</b>'
                                     -   text_html: '<b>Запросить закрытые ордера и сделки</b>'
                                     -   text_html: '<b>Создать и изменить ордера</b>'
-                                    -   text_html: '<b>Отменить и закрыть ордера</b>'
+                                    -   text_html: '<b>Отменить и закрыть ордера</b><br><strong>Важно:</strong> Ключи не будут работать, если вы добавите больше разрешений.'
                             -   text_html: 'Ограничение IP-адреса:'
                                 sub_instructions:
                                     -   text_html: '<b>Вкл.</b>, IP: <b>%{ip}</b>'
