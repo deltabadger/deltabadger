@@ -27,7 +27,7 @@ class BotAlertsMailer < ApplicationMailer
     @label = @bot.label
     @exchange_name = Exchange.find(@bot.exchange_id).name
 
-    mail(to: @user.email, subject: t('.subject', label: @label))
+    mail(to: @user.email, subject: t('.subject', exchange_name: @exchange_name, quote: @quote))
   end
 
   def successful_webhook_bot_transaction

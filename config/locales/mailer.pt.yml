@@ -33,8 +33,8 @@ pt:
             subject: "A transação foi bem-sucedida"
             template_html: "Transação bem-sucedida, base: %{base}, cotação: %{quote}, nome do bot: %{bot_name}, tipo: %{type}, preço: %{price}, exchange: %{exchange_name}"
         end_of_funds:
-            subject: "%{label} está a ficar sem fundos em breve"
-            template_html: "<p>Parece que o seu bot <b>%{label}</b> está a ficar sem %{quote} muito em breve.</p><p>Faça uma transferência para %{exchange_name} para garantir que o bot continua a funcionar sem interrupções.</p>"
+            subject: "A sua conta %{exchange_name} está a ficar sem %{quote}"
+            template_html: "<p>A sua conta %{exchange_name} está a ficar sem %{quote}.</p><p>Faça uma transferência para %{exchange_name} para garantir que os seus bots continuam a funcionar sem interrupções.</p>"
         notify_about_error:
             subject: "Algo correu mal com %{label}"
             template_html: "<p>Algo correu mal durante o processamento da última transação para o bot <b>%{label}</b>.</p><p>Pode ver o erro no registo do bot. Inicie sessão para verificar.</p><p>Erros:</p><blockquote> <b>%{exchange_name}:</b> <b>%{errors}</b></blockquote>"

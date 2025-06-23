@@ -57,6 +57,7 @@ pt:
             wire_transfer_fill_form: 'Preencha o formulário acima para continuar…'
             wire_transfer_pending: 'Obrigado! Ativaremos a tua conta em breve e entraremos em contacto contigo por e-mail.'
             you_pay: 'Tu pagas'
+            moneyback_guarantee_html: "30-dia garantia de devolução de dinheiro. Sem&nbsp;perguntas."
         prolong_upgrade: 'Fazer upgrade do plano'
         upgrade: Fazer upgrade
         upgrade_plan: 'Fazer upgrade'

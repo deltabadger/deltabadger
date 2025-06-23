@@ -2,14 +2,10 @@ module Exchange::Exchanges::Coinbase
   extend ActiveSupport::Concern
 
   COINGECKO_ID = 'gdax'.freeze # https://docs.coingecko.com/reference/exchanges-list
-  PROXY = ENV['US_HTTPS_PROXY'].present? ? "https://#{ENV['US_HTTPS_PROXY']}".freeze : nil
-  TICKER_BLACKLIST = [
-    'RENDER-USD', # same as RNDR-USD. Remove it when Coinbase delists RENDER-USD
-    'RENDER-USDC',
-    'ZETACHAIN-USD', # same as ZETA-USD. Remove it when Coinbase delists ZETACHAIN-USD
-    'ZETACHAIN-USDC',
-    'WAXL-USD', # same as AXL-USD. Remove it when Coinbase delists WAXL-USD
-    'WAXL-USDC'
+  ASSET_BLACKLIST = [
+    'RENDER', # has the same external_id as RNDR. Remove it when Coinbase delists RENDER pairs
+    'ZETACHAIN', # has the same external_id as ZETA. Remove it when Coinbase delists ZETACHAIN pairs
+    'WAXL' # has the same external_id as AXL. Remove it when Coinbase delists WAXL pairs
   ].freeze
   ERRORS = {
     insufficient_funds: ['Insufficient balance in source account']
@@ -28,35 +24,35 @@ module Exchange::Exchanges::Coinbase
   end
 
   def proxy_ip
-    @proxy_ip ||= PROXY.split('://').last.split(':').first if PROXY.present?
+    @proxy_ip ||= CoinbaseClient::PROXY.split('://').last.split(':').first if CoinbaseClient::PROXY.present?
   end
 
   def set_client(api_key: nil)
     @api_key = api_key
     @client = CoinbaseClient.new(
       api_key: api_key&.key,
-      api_secret: api_key&.secret,
-      proxy: PROXY
+      api_secret: api_key&.secret
     )
   end
 
   def get_tickers_info(force: false)
-    cache_key = "exchange_#{id}_info"
+    cache_key = "exchange_#{id}_tickers_info"
     tickers_info = Rails.cache.fetch(cache_key, expires_in: 1.hour, force: force) do
       result = client.list_products
       return Result::Failure.new("Failed to get #{name} products") if result.failure?
 
       result.data['products'].map do |product|
         ticker = Utilities::Hash.dig_or_raise(product, 'product_id')
-        next if TICKER_BLACKLIST.include?(ticker)
+        base, quote = ticker.split('-')
+        next if base.in?(ASSET_BLACKLIST)
 
         base_increment = Utilities::Hash.dig_or_raise(product, 'base_increment')
         quote_increment = Utilities::Hash.dig_or_raise(product, 'quote_increment')
         price_increment = Utilities::Hash.dig_or_raise(product, 'price_increment')
         {
           ticker: ticker,
-          base: ticker.split('-')[0],
-          quote: ticker.split('-')[1],
+          base: base,
+          quote: quote,
           minimum_base_size: Utilities::Hash.dig_or_raise(product, 'base_min_size').to_d,
           minimum_quote_size: Utilities::Hash.dig_or_raise(product, 'quote_min_size').to_d,
           maximum_base_size: Utilities::Hash.dig_or_raise(product, 'base_max_size').to_d,
@@ -101,7 +97,7 @@ module Exchange::Exchanges::Coinbase
     end
     breakdown = Utilities::Hash.dig_or_raise(result.data, 'breakdown', 'spot_positions')
     breakdown.each do |position|
-      asset = asset_from_symbol(symbol: position['asset'])
+      asset = asset_from_symbol(position['asset'])
       next unless asset.present?
       next unless asset_ids.include?(asset.id)
 
@@ -117,7 +113,7 @@ module Exchange::Exchanges::Coinbase
   def get_last_price(ticker:, force: false)
     cache_key = "exchange_#{id}_last_price_#{ticker.id}"
     price = Rails.cache.fetch(cache_key, expires_in: 5.seconds, force: force) do
-      result = get_product(ticker: ticker)
+      result = client.get_product(product_id: ticker.ticker)
       return result if result.failure?
 
       price = Utilities::Hash.dig_or_raise(result.data, 'price').to_d
@@ -132,7 +128,7 @@ module Exchange::Exchanges::Coinbase
   def get_bid_price(ticker:, force: false)
     cache_key = "exchange_#{id}_bid_price_#{ticker.id}"
     price = Rails.cache.fetch(cache_key, expires_in: 5.seconds, force: force) do
-      result = get_bid_ask_price(ticker: ticker)
+      result = get_bid_ask_price(ticker)
       return result if result.failure?
 
       price = result.data[:bid][:price]
@@ -147,7 +143,7 @@ module Exchange::Exchanges::Coinbase
   def get_ask_price(ticker:, force: false)
     cache_key = "exchange_#{id}_ask_price_#{ticker.id}"
     price = Rails.cache.fetch(cache_key, expires_in: 5.seconds, force: force) do
-      result = get_bid_ask_price(ticker: ticker)
+      result = get_bid_ask_price(ticker)
       return result if result.failure?
 
       price = result.data[:ask][:price]
@@ -302,30 +298,33 @@ module Exchange::Exchanges::Coinbase
     Result::Success.new(order_id)
   end
 
-  def get_api_key_validity(api_key:)
+  def get_api_key_validity(api_key:) # rubocop:disable Metrics/CyclomaticComplexity,Metrics/PerceivedComplexity
     result = CoinbaseClient.new(
       api_key: api_key.key,
-      api_secret: api_key.secret,
-      proxy: PROXY
+      api_secret: api_key.secret
     ).get_api_key_permissions
 
     if result.success?
       valid = if api_key.trading?
-                result.data['can_trade'] == true && result.data['can_transfer'] == false
+                result.data['can_view'] == true &&
+                  result.data['can_trade'] == true &&
+                  result.data['can_transfer'] == false
               elsif api_key.withdrawal?
-                result.data['can_transfer'] == true
+                result.data['can_view'] == true &&
+                  result.data['can_trade'] == false &&
+                  result.data['can_transfer'] == true
               else
-                raise StandardError, 'Invalid API key'
+                raise StandardError, 'Invalid API key type'
               end
       Result::Success.new(valid)
-    elsif result.data[:status] == 401 # invalid key
+    elsif result.data[:status] == 401 # unauthorized (due to invalid key)
       Result::Success.new(false)
     else
       result
     end
   end
 
-  def minimum_amount_logic(*)
+  def minimum_amount_logic(**)
     :base_or_quote
   end
 
@@ -335,7 +334,7 @@ module Exchange::Exchanges::Coinbase
     @client ||= set_client
   end
 
-  def asset_from_symbol(symbol:)
+  def asset_from_symbol(symbol)
     @asset_from_symbol ||= tickers.includes(:base_asset, :quote_asset).each_with_object({}) do |t, map|
       map[t.base] ||= t.base_asset
       map[t.quote] ||= t.quote_asset
@@ -352,29 +351,25 @@ module Exchange::Exchanges::Coinbase
     end
   end
 
-  def get_product(ticker:)
-    result = client.get_product(product_id: ticker.ticker)
-    return result if result.failure?
+  def get_bid_ask_price(ticker)
+    cache_key = "exchange_#{id}_bid_ask_price_#{ticker.id}"
+    Rails.cache.fetch(cache_key, expires_in: 1.seconds) do
+      result = client.get_public_product_book(product_id: ticker.ticker, limit: 1)
+      return result if result.failure?
 
-    Result::Success.new(result.data)
-  end
-
-  def get_bid_ask_price(ticker:)
-    result = client.get_public_product_book(product_id: ticker.ticker, limit: 1)
-    return result if result.failure?
-
-    Result::Success.new(
-      {
-        bid: {
-          price: result.data['pricebook']['bids'][0]['price'].to_d,
-          size: result.data['pricebook']['bids'][0]['size'].to_d
-        },
-        ask: {
-          price: result.data['pricebook']['asks'][0]['price'].to_d,
-          size: result.data['pricebook']['asks'][0]['size'].to_d
+      Result::Success.new(
+        {
+          bid: {
+            price: result.data['pricebook']['bids'][0]['price'].to_d,
+            size: result.data['pricebook']['bids'][0]['size'].to_d
+          },
+          ask: {
+            price: result.data['pricebook']['asks'][0]['price'].to_d,
+            size: result.data['pricebook']['asks'][0]['size'].to_d
+          }
         }
-      }
-    )
+      )
+    end
   end
 
   # @param amount [Float] must be a positive number
@@ -383,9 +378,8 @@ module Exchange::Exchanges::Coinbase
   def set_market_order(ticker:, amount:, amount_type:, side:)
     amount = ticker.adjusted_amount(amount: amount, amount_type: amount_type)
 
-    client_order_id = SecureRandom.uuid
-    result = client.create_order(
-      client_order_id: client_order_id,
+    order_settings = {
+      client_order_id: SecureRandom.uuid,
       product_id: ticker.ticker,
       side: side.to_s.upcase,
       order_configuration: {
@@ -394,7 +388,8 @@ module Exchange::Exchanges::Coinbase
           base_size: amount_type == :base ? amount.to_d.to_s('F') : nil
         }.compact
       }
-    )
+    }
+    result = client.create_order(**order_settings)
     return result if result.failure?
 
     return Result::Failure.new(result.data.dig('error_response', 'message'), data: result.data) if result.data['success'] == false
@@ -414,9 +409,8 @@ module Exchange::Exchanges::Coinbase
     amount = ticker.adjusted_amount(amount: amount, amount_type: amount_type)
     price = ticker.adjusted_price(price: price)
 
-    client_order_id = SecureRandom.uuid
-    result = client.create_order(
-      client_order_id: client_order_id,
+    order_settings = {
+      client_order_id: SecureRandom.uuid,
       product_id: ticker.ticker,
       side: side.to_s.upcase,
       order_configuration: {
@@ -426,7 +420,8 @@ module Exchange::Exchanges::Coinbase
           limit_price: price.to_d.to_s('F')
         }.compact
       }
-    )
+    }
+    result = client.create_order(**order_settings)
     return result if result.failure?
 
     return Result::Failure.new(result.data.dig('error_response', 'message'), data: result.data) if result.data['success'] == false
@@ -440,8 +435,10 @@ module Exchange::Exchanges::Coinbase
 
   def parse_order_data(order_id, order_data)
     product_id = Utilities::Hash.dig_or_raise(order_data, 'product_id')
+    ticker = tickers.find_by(ticker: product_id)
     order_type = parse_order_type(Utilities::Hash.dig_or_raise(order_data, 'order_type'))
     price = Utilities::Hash.dig_or_raise(order_data, 'average_filled_price').to_d
+    price = nil if price.zero?
     case order_type
     when :limit_order
       order_config = Utilities::Hash.dig_or_raise(order_data, 'order_configuration', 'limit_limit_gtc')
@@ -464,7 +461,6 @@ module Exchange::Exchanges::Coinbase
       order_data.dig('order', 'cancel_message').presence
     ].compact
     status = parse_order_status(Utilities::Hash.dig_or_raise(order_data, 'status'))
-    ticker = tickers.find_by(ticker: product_id)
 
     {
       order_id: order_id,

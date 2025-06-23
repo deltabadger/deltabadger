@@ -1,28 +1,22 @@
 pt:
     bot:
         api:
-            binance:
+            binance: &binance_config
                 instructions:
                     -   text_html: 'Faça login na sua conta %{exchange_link}.'
-                    -   text_html: 'No menu do utilizador (ícone redondo no canto superior direito), vá para <b>Conta</b> → <b>Gestão de API</b>. Se não conseguir encontrá-la, vá diretamente <a href="https://www.binance.com/pt/my/settings/api-management">aqui</a>.'
-                    -   text_html: 'Clique em <b>Criar API</b>.'
-                    -   text_html: 'Na caixa de diálogo pop-up, selecione <b>Gerada pelo sistema</b>.'
-                    -   text_html: 'Na caixa de diálogo pop-up, atribua um rótulo à chave de API e passe a verificação de segurança, se necessário. <b>Deltabadger</b> é bom para reconhecê-la mais tarde.'
-                    -   text_html: 'Clique no botão no canto superior direito <b>Editar restrições</b>:'
+                    -   text_html: 'Vá para <a href="https://www.binance.com/pt/my/settings/api-management"><b>Conta</b> → <b>Gestão de API</b></a>.'
+                    -   text_html: 'Clique em <b class="pbutton">Criar API</b>.'
+                    -   text_html: 'Selecione <b class="pbutton">Gerado pelo sistema</b>.'
+                    -   text_html: 'Rotule suas chaves (por exemplo, "deltabadger") e passe pela verificação de segurança se necessário.'
+                    -   text_html: 'Clique em <b class="pbutton">Editar restrições</b> no canto superior direito do quadro de chaves.'
                         sub_instructions:
-                            -   text_html: "Restrições de acesso de IP"
-                                sub_instructions:
-                                    -   text_html: "Restringir o acesso apenas a IPs de confiança"
-                                        sub_instructions:
-                                            -   text_html: "Preencha o endereço IP: <b>%{ip}</b>, e clique em <b>Confirmar</b>."
-                            -   text_html: "Restrições de API"
-                                sub_instructions:
-                                    -   text_html: "Ativar Leitura"
-                                    -   text_html: "Ativar Trading À Vista e de Margem"
-                    -   text_html: 'Clique em <b>Guardar</b> e passe a verificação de segurança, se necessário.'
-                    -   text_html: 'Copie e cole as suas novas chaves de API no formulário acima.'
+                            -   text_html: "🔘 Restringir o acesso apenas a IPs de confiança: <b>%{ip}</b>.<br><strong>⚠️ Importante:</strong> Faça isto primeiro para habilitar o próximo passo."
+                            -   text_html: "Marque:<br>☑️ <b>Ativar Leitura</b><br>☑️ <b>Ativar Trading À Vista e de Margem</b>.<br><strong>⚠️ Importante:</strong> As chaves não funcionarão se você adicionar mais permissões."
+                    -   text_html: 'Clique em <b>Guardar</b> e passe pela verificação de segurança se necessário.'
+                    -   text_html: 'Copie e cole suas novas chaves API acima.'
                 private_key: 'Chave Secreta'
                 public_key: 'Chave de API'
+            binance_us: *binance_config
             coinbase:
                 instructions:
                     -   text_html: 'Faça login na sua conta %{exchange_link}.'
@@ -38,7 +32,7 @@ pt:
                                 sub_instructions:
                                     -   text_html: '<b>Default</b>, or the portfolio you want Deltabadger to have access to if not using Coinbase Portfolios.'
                                     -   text_html: '<b>View</b> (read-only)'
-                                    -   text_html: '<b>Trade</b> (execute trades on your behalf)'
+                                    -   text_html: '<b>Trade</b> (execute trades on your behalf)<br><strong>⚠️ Importante:</strong> As chaves não funcionarão se você adicionar mais permissões.'
                             -   text_html: 'IP whitelist'
                                 sub_instructions:
                                     -   text_html: '<b>%{ip}</b>'
@@ -61,7 +55,7 @@ pt:
                                     -   text_html: '<b>Negociações e ordens em aberto da consulta</b>'
                                     -   text_html: '<b>Ordens e negociações encerradas da consulta</b>'
                                     -   text_html: '<b>Criar e modificar ordens</b>'
-                                    -   text_html: '<b>Cancelar e encerrar ordens</b>'
+                                    -   text_html: '<b>Cancelar e encerrar ordens</b><br><strong>⚠️ Importante:</strong> As chaves não funcionarão se você adicionar mais permissões.'
                             -   text_html: 'Restrição de endereço IP:'
                                 sub_instructions:
                                     -   text_html: '<b>Ligado</b>, IP: <b>%{ip}</b>'

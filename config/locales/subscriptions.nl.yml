@@ -60,6 +60,7 @@ nl:
             wire_transfer_fill_form: 'Vul het bovenstaande formulier in om verder te gaan...'
             wire_transfer_pending: 'Bedankt! We activeren uw account spoedig en nemen per email contact met u op.'
             you_pay: 'U betaalt'
+            moneyback_guarantee_html: "30-dagen geld-terug-garantie. Geen&nbsp;vragen."
         prolong_upgrade: 'Upgrade je abonnement'
         upgrade: Upgrade
         upgrade_plan: 'Upgrade abonnement'

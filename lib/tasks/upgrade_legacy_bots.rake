@@ -1,6 +1,6 @@
 desc 'rake task to upgrade legacy bots'
 task upgrade_legacy_bots: :environment do
-  exchange_ids = Exchange.where(name_id: %w[coinbase kraken]).pluck(:id)
+  exchange_ids = Exchange.where(name_id: %w[coinbase kraken binance binance_us]).pluck(:id)
   bot_ids = Bot.basic
                .not_deleted
                .where(exchange_id: exchange_ids)

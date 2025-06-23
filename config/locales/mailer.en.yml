@@ -33,8 +33,8 @@ en:
             subject: "Transaction has been successful"
             template_html: "Transaction successful, base: %{base}, quote: %{quote}, bot_name: %{bot_name}, type: %{type}, price: %{price}, exchange: %{exchange_name}"
         end_of_funds:
-            subject: "%{label} is running out of funds soon"
-            template_html: "<p>It looks like your bot <b>%{label}</b> is running out of %{quote} very soon.</p><p>Make a transfer to %{exchange_name} to ensure the bot is working continuously.</p>"
+            subject: "Your %{exchange_name} account is running out of %{quote}"
+            template_html: "<p>Your %{exchange_name} account is running out of %{quote}.</p><p>Make a transfer to %{exchange_name} to ensure your bots are working continuously.</p>"
         notify_about_error:
             subject: "Something went wrong with %{label}"
             template_html: "<p>Something went wrong while processing the last transaction for bot <b>%{label}</b>.</p><p>You can see the error in the bot log. Sign in to check it.</p><p>Errors:</p><blockquote> <b>%{exchange_name}:</b> <b>%{errors}</b></blockquote>"
