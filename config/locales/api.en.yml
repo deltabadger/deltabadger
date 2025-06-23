@@ -10,8 +10,8 @@ en:
                     -   text_html: 'Label your keys (e.g. "deltabadger") and pass the security verification if necessary.'
                     -   text_html: 'Click <b class="pbutton">Edit restrictions</b> in the top-right corner of the keys tile.'
                         sub_instructions:
-                            -   text_html: "Restrict access to trusted IPs only: <b>%{ip}</b>.<br><strong>Important:</strong> Do this first to enable the next step."
-                            -   text_html: "Check <b>Spot & Margin Trading</b>.<br><strong>Important:</strong> The keys will not work if you add more permissions."
+                            -   text_html: "Restrict access to trusted IPs only: <b>%{ip}</b>.<br><strong>⚠️ Important:</strong> Do this first to enable the next step."
+                            -   text_html: "Check:<br>✅ <b>Enable Reading</b><br>✅ <b>Enable Spot & Margin Trading</b>.<br><strong>⚠️ Important:</strong> The keys will not work if you add more permissions."
                     -   text_html: 'Click <b>Save</b> and pass the security verification if necessary.'
                     -   text_html: 'Copy and paste your new API keys above.'
                 private_key: 'Secret Key'
@@ -32,7 +32,7 @@ en:
                                 sub_instructions:
                                     -   text_html: '<b>Default</b>, or the portfolio you want Deltabadger to have access to if not using Coinbase Portfolios.'
                                     -   text_html: '<b>View</b> (read-only)'
-                                    -   text_html: '<b>Trade</b> (execute trades on your behalf)<br><strong>Important:</strong> The keys will not work if you add more permissions.'
+                                    -   text_html: '<b>Trade</b> (execute trades on your behalf)<br><strong>⚠️ Important:</strong> The keys will not work if you add more permissions.'
                             -   text_html: 'IP whitelist'
                                 sub_instructions:
                                     -   text_html: '<b>%{ip}</b>'
@@ -55,7 +55,7 @@ en:
                                     -   text_html: '<b>Query open orders & trades</b>'
                                     -   text_html: '<b>Query closed orders & trades</b>'
                                     -   text_html: '<b>Create & modify orders</b>'
-                                    -   text_html: '<b>Cancel & close orders</b><br><strong>Important:</strong> The keys will not work if you add more permissions.'
+                                    -   text_html: '<b>Cancel & close orders</b><br><strong>⚠️ Important:</strong> The keys will not work if you add more permissions.'
                             -   text_html: 'IP address restriction:'
                                 sub_instructions:
                                     -   text_html: '<b>On</b>, IP: <b>%{ip}</b>'
