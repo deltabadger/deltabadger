@@ -4,23 +4,16 @@ it:
             binance:
                 instructions:
                     -   text_html: 'Accedi al tuo account %{exchange_link}.'
-                    -   text_html: 'Nel menu utente (icona rotonda nell''angolo in alto a destra) vai a <b>Account</b> → <b>Gestione API</b>. Se non riesci a trovarla, vai direttamente da <a href="https://www.binance.com/it/my/settings/api-management">qui</a>.'
-                    -   text_html: 'Clicca su <b>Chiave API creata</b>.'
-                    -   text_html: 'Nella finestra di dialogo popup, seleziona <b>Generata dal sistema</b>.'
-                    -   text_html: 'Nella finestra di dialogo popup, assegna un nome alla chiave API e passa la verifica di sicurezza se necessario. <b>Deltabadger</b> è buono per riconoscerla in seguito.'
-                    -   text_html: 'Clicca sul pulsante in alto a destra <b>Modifica le restrizioni</b>:'
+                    -   text_html: 'Vai a <a href="https://www.binance.com/it/my/settings/api-management"><b>Account</b> → <b>Gestione API</b></a>.'
+                    -   text_html: 'Fai clic su <b class="pbutton">Chiave API creata</b>.'
+                    -   text_html: 'Seleziona <b class="pbutton">Generato dal sistema</b>.'
+                    -   text_html: 'Etichetta le tue chiavi (es. "deltabadger") e supera la verifica di sicurezza se necessario.'
+                    -   text_html: 'Fai clic su <b class="pbutton">Modifica restrizioni</b> nell''angolo in alto a destra del riquadro delle chiavi.'
                         sub_instructions:
-                            -   text_html: "Restrizioni di accesso IP"
-                                sub_instructions:
-                                    -   text_html: "Limita l''accesso solo a IP attendibili"
-                                        sub_instructions:
-                                            -   text_html: "Compila l''indirizzo IP: <b>%{ip}</b>, e clicca su <b>Conferma</b>."
-                            -   text_html: "Restrizioni API"
-                                sub_instructions:
-                                    -   text_html: "Abilita lettura"
-                                    -   text_html: "Abilita il trading spot e a margine"
-                    -   text_html: 'Clicca su <b>Salva</b> e passa la verifica di sicurezza se necessario.'
-                    -   text_html: 'Copia e incolla le tue nuove chiavi API nel modulo sopra.'
+                            -   text_html: "Limita l'accesso solo a IP affidabili: <b>%{ip}</b>.<br><strong>Importante:</strong> Fai questo per primo per abilitare il passaggio successivo."
+                            -   text_html: "Seleziona <b>Abilita il trading spot e a margine</b>.<br><strong>Importante:</strong> Le chiavi non funzioneranno se aggiungi più permessi."
+                    -   text_html: 'Fai clic su <b>Salva</b> e supera la verifica di sicurezza se necessario.'
+                    -   text_html: 'Copia e incolla le tue nuove chiavi API sopra.'
                 private_key: 'Chiave segreta'
                 public_key: 'API Key'
             coinbase:

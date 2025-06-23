@@ -32,7 +32,7 @@ de:
                                 sub_instructions:
                                     -   text_html: '<b>Standard</b>, oder das Portfolio, auf das Deltabadger zugreifen soll, wenn Sie keine Coinbase-Portfolios verwenden.'
                                     -   text_html: '<b>View</b> (read-only)'
-                                    -   text_html: '<b>Trade</b> (execute trades on your behalf)'
+                                    -   text_html: '<b>Trade</b> (execute trades on your behalf)<br><strong>Wichtig:</strong> Die Schlüssel funktionieren nicht, wenn Sie weitere Berechtigungen hinzufügen.'
                             -   text_html: 'IP-Positivliste'
                                 sub_instructions:
                                     -   text_html: '<b>%{ip}</b>'
@@ -55,7 +55,7 @@ de:
                                     -   text_html: '<b>Offene Order und Trades abfragen</b>'
                                     -   text_html: '<b>Abfrage geschlossener Order & Trades</b>'
                                     -   text_html: '<b>Orders erstellen und ändern</b>'
-                                    -   text_html: '<b>Orders stornieren und schließen</b>'
+                                    -   text_html: '<b>Orders stornieren und schließen</b><br><strong>Wichtig:</strong> Die Schlüssel funktionieren nicht, wenn Sie weitere Berechtigungen hinzufügen.'
                             -   text_html: 'Einschränkung der IP-Adresse:'
                                 sub_instructions:
                                     -   text_html: '<b>Aus</b>, IP: <b>%{ip}</b>'

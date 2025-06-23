@@ -4,23 +4,16 @@ fr:
             binance:
                 instructions:
                     -   text_html: 'Connectez-vous à votre compte %{exchange_link}.'
-                    -   text_html: 'Dans le menu utilisateur (icône ronde en haut à droite), allez dans <b>Compte</b> → <b>Gestion des API</b>. Si vous ne la trouvez pas, allez directement <a href="https://www.binance.com/fr/my/settings/api-management">ici</a>.'
-                    -   text_html: 'Cliquez sur <b>Créer une API</b>.'
-                    -   text_html: 'Dans la boîte de dialogue contextuelle, sélectionnez <b>Généré par le système</b>.'
-                    -   text_html: 'Dans la boîte de dialogue contextuelle, donnez un nom à la clé API et passez la vérification de sécurité si nécessaire. <b>Deltabadger</b> est bon pour la reconnaître plus tard.'
-                    -   text_html: 'Cliquez sur le bouton en haut à droite <b>Modifier les restrictions</b>:'
+                    -   text_html: 'Allez dans <a href="https://www.binance.com/fr/my/settings/api-management"><b>Compte</b> → <b>Gestion des API</b></a>.'
+                    -   text_html: 'Cliquez sur <b class="pbutton">Créer une API</b>.'
+                    -   text_html: 'Sélectionnez <b class="pbutton">Généré par le système</b>.'
+                    -   text_html: 'Étiquetez vos clés (par exemple "deltabadger") et passez la vérification de sécurité si nécessaire.'
+                    -   text_html: 'Cliquez sur <b class="pbutton">Modifier les restrictions</b> dans le coin supérieur droit de la tuile des clés.'
                         sub_instructions:
-                            -   text_html: "Restrictions d'accès IP"
-                                sub_instructions:
-                                    -   text_html: "Restreindre l'accès aux adresses IP de confiance uniquement"
-                                        sub_instructions:
-                                            -   text_html: "Remplissez l'adresse IP : <b>%{ip}</b>, et cliquez sur <b>Confirmer</b>."
-                            -   text_html: "Restrictions API"
-                                sub_instructions:
-                                    -   text_html: "Permettre la lecture"
-                                    -   text_html: "Activer le trading Spot et sur marge"
+                            -   text_html: "Restreindre l’accès aux adresses IP de confiance uniquement : <b>%{ip}</b>.<br><strong>Important :</strong> Faites ceci en premier pour activer l'étape suivante."
+                            -   text_html: "Cochez <b>Activer le trading Spot et sur marge</b>.<br><strong>Important :</strong> Les clés ne fonctionneront pas si vous ajoutez plus d'autorisations."
                     -   text_html: 'Cliquez sur <b>Enregistrer</b> et passez la vérification de sécurité si nécessaire.'
-                    -   text_html: 'Copiez et collez vos nouvelles clés API dans le formulaire ci-dessus.'
+                    -   text_html: 'Copiez et collez vos nouvelles clés API ci-dessus.'
                 private_key: 'Clé Secrète'
                 public_key: 'Clé API'
             coinbase:
