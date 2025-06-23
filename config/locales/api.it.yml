@@ -10,8 +10,8 @@ it:
                     -   text_html: 'Etichetta le tue chiavi (es. "deltabadger") e supera la verifica di sicurezza se necessario.'
                     -   text_html: 'Fai clic su <b class="pbutton">Modifica restrizioni</b> nell''angolo in alto a destra del riquadro delle chiavi.'
                         sub_instructions:
-                            -   text_html: "Limita l'accesso solo a IP affidabili: <b>%{ip}</b>.<br><strong>Importante:</strong> Fai questo per primo per abilitare il passaggio successivo."
-                            -   text_html: "Seleziona <b>Abilita il trading spot e a margine</b>.<br><strong>Importante:</strong> Le chiavi non funzioneranno se aggiungi più permessi."
+                            -   text_html: "Limita l'accesso solo a IP affidabili: <b>%{ip}</b>.<br><strong>⚠️ Importante:</strong> Fai questo per primo per abilitare il passaggio successivo."
+                            -   text_html: "Seleziona:<br>✅ <b>Abilita lettura</b><br>✅ <b>Abilita il trading spot e a margine</b>.<br><strong>⚠️ Importante:</strong> Le chiavi non funzioneranno se aggiungi più permessi."
                     -   text_html: 'Fai clic su <b>Salva</b> e supera la verifica di sicurezza se necessario.'
                     -   text_html: 'Copia e incolla le tue nuove chiavi API sopra.'
                 private_key: 'Chiave segreta'
@@ -32,7 +32,7 @@ it:
                                 sub_instructions:
                                     -   text_html: '<b>Opzione predefinita</b>, o il portafoglio a cui desideri che Deltabadger abbia accesso se non utilizzi Portafogli Coinbase.'
                                     -   text_html: '<b>View</b> (read-only)'
-                                    -   text_html: '<b>Trade</b> (execute trades on your behalf)<br><strong>Importante:</strong> Le chiavi non funzioneranno se aggiungi più permessi.'
+                                    -   text_html: '<b>Trade</b> (execute trades on your behalf)<br><strong>⚠️ Importante:</strong> Le chiavi non funzioneranno se aggiungi più permessi.'
                     -   text_html: 'Fai clic su <b>Crea e scarica</b> e completa la verifica in 2 passaggi.'
                     -   text_html: 'Copia e incolla le tue nuove chiavi API nel modulo sopra.'
                 private_key: 'Chiave privata'
@@ -52,7 +52,7 @@ it:
                                     -   text_html: '<b>Esegui query su ordini e trade aperti</b>'
                                     -   text_html: '<b>Esegui query su ordini e trade chiusi</b>'
                                     -   text_html: '<b>Crea e modifica ordini</b>'
-                                    -   text_html: '<b>Annulla e chiudi ordini</b><br><strong>Importante:</strong> Le chiavi non funzioneranno se aggiungi più permessi.'
+                                    -   text_html: '<b>Annulla e chiudi ordini</b><br><strong>⚠️ Importante:</strong> Le chiavi non funzioneranno se aggiungi più permessi.'
                             -   text_html: 'Restrizione dell''indirizzo IP:'
                                 sub_instructions:
                                     -   text_html: '<b>On</b>, IP: <b>%{ip}</b>'
