@@ -10,8 +10,8 @@ de:
                     -   text_html: 'Beschriften Sie Ihre Schlüssel (z.B. "deltabadger") und führen Sie bei Bedarf die Sicherheitsüberprüfung durch.'
                     -   text_html: 'Klicken Sie auf <b class="pbutton">Einschränkungen bearbeiten</b> in der oberen rechten Ecke der Schlüsselkachel.'
                         sub_instructions:
-                            -   text_html: "Zugriff auf vertrauenswürdige IPs beschränken: <b>%{ip}</b>.<br><strong>⚠️ Wichtig:</strong> Führen Sie diesen Schritt zuerst aus, um den nächsten Schritt zu ermöglichen."
-                            -   text_html: "Aktivieren Sie:<br>✅ <b>Leseberechtigung aktivieren</b><br>✅ <b>Spot- und Margin-Handel aktivieren</b>.<br><strong>⚠️ Wichtig:</strong> Die Schlüssel funktionieren nicht, wenn Sie weitere Berechtigungen hinzufügen."
+                            -   text_html: "🔘 Zugriff auf vertrauenswürdige IPs beschränken: <b>%{ip}</b>.<br><strong>⚠️ Wichtig:</strong> Führen Sie diesen Schritt zuerst aus, um den nächsten Schritt zu ermöglichen."
+                            -   text_html: "Aktivieren Sie:<br>☑️ <b>Leseberechtigung aktivieren</b><br>☑️ <b>Spot- und Margin-Handel aktivieren</b>.<br><strong>⚠️ Wichtig:</strong> Die Schlüssel funktionieren nicht, wenn Sie weitere Berechtigungen hinzufügen."
                     -   text_html: 'Klicken Sie auf <b>Speichern</b> und führen Sie bei Bedarf die Sicherheitsüberprüfung durch.'
                     -   text_html: 'Kopieren und fügen Sie Ihre neuen API-Schlüssel oben ein.'
                 private_key: 'Geheimschlüssel'
