@@ -1,7 +1,7 @@
 en:
     bot:
         api:
-            binance:
+            binance: &binance_config
                 instructions:
                     -   text_html: 'Log into your %{exchange_link} account.'
                     -   text_html: 'Go to <a href="https://www.binance.com/en/my/settings/api-management"><b>Account</b> → <b>API Management</b></a>.'
@@ -16,6 +16,7 @@ en:
                     -   text_html: 'Copy and paste your new API keys above.'
                 private_key: 'Secret Key'
                 public_key: 'API Key'
+            binance_us: *binance_config
             coinbase:
                 instructions:
                     -   text_html: 'Log into your %{exchange_link} account.'
