@@ -33,8 +33,8 @@ pl:
             subject: "Transakcja zakończona sukcesem"
             template_html: "Transakcja udana, base: %{base}, quote: %{quote}, nazwa bota: %{bot_name}, typ: %{type}, cena: %{price}, giełda: %{exchange_name}"
         end_of_funds:
-            subject: "%{label} wkrótce wyczerpie środki"
-            template_html: "<p>Wygląda na to, że Twojemu botowi <b>%{label}</b> bardzo szybko skończą się środki %{quote}.</p><p>Wykonaj przelew na %{exchange_name}, aby zapewnić ciągłą pracę bota.</p>"
+            subject: "Twoje konto %{exchange_name} wkrótce wyczerpie %{quote}"
+            template_html: "<p>Twoje konto %{exchange_name} wkrótce wyczerpie %{quote}.</p><p>Wykonaj przelew na %{exchange_name}, aby zapewnić ciągłą pracę twoich botów.</p>"
         notify_about_error:
             subject: "Coś poszło nie tak z %{label}"
             template_html: "<p>Coś poszło nie tak podczas przetwarzania ostatniej transakcji dla bota <b>%{label}</b>.</p><p>Możesz zobaczyć błąd w dzienniku bota. Zaloguj się, aby to sprawdzić.</p><p>Błędy:</p><blockquote> <b>%{exchange_name}:</b> <b>%{errors}</b></blockquote>"

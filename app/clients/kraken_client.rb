@@ -1,18 +1,19 @@
 class KrakenClient < ApplicationClient
   # https://docs.kraken.com/api/docs/rest-api/add-order
   # https://docs.kraken.com/api/docs/guides/spot-rest-auth#authentication
-  URL = 'https://api.kraken.com'.freeze
 
-  def initialize(api_key: nil, api_secret: nil, proxy: nil)
+  URL = 'https://api.kraken.com'.freeze
+  PROXY = ENV['US_HTTPS_PROXY'].present? ? "https://#{ENV['US_HTTPS_PROXY']}".freeze : nil
+
+  def initialize(api_key: nil, api_secret: nil)
     super()
     @api_key = api_key
     @api_secret = api_secret
-    @proxy = proxy
   end
 
   def self.connection
     @connection ||= Faraday.new(url: URL, **OPTIONS) do |config|
-      config.proxy = @proxy
+      config.proxy = PROXY if PROXY.present?
       config.request :json
       config.response :json
       config.response :raise_error
@@ -33,13 +34,13 @@ class KrakenClient < ApplicationClient
       response = self.class.connection.post do |req|
         req.url '/0/private/QueryOrders'
         req.body = {
-          nonce: generate_nonce,
+          nonce: nonce,
           trades: trades,
           userref: userref,
           txid: txid,
           consolidate_taker: consolidate_taker
         }.compact.to_query
-        req.headers = headers(req)
+        req.headers = headers(req.path, req.body)
       end
       Result::Success.new(response.body)
     end
@@ -110,7 +111,7 @@ class KrakenClient < ApplicationClient
       response = self.class.connection.post do |req| # rubocop:disable Metrics/BlockLength
         req.url '/0/private/AddOrder'
         req.body = {
-          'nonce' => generate_nonce,
+          'nonce' => nonce,
           'ordertype' => ordertype,
           'type' => type,
           'volume' => volume,
@@ -134,7 +135,7 @@ class KrakenClient < ApplicationClient
           'deadline' => deadline,
           'validate' => validate
         }.compact.to_query
-        req.headers = headers(req)
+        req.headers = headers(req.path, req.body)
       end
       Result::Success.new(response.body)
     end
@@ -148,11 +149,11 @@ class KrakenClient < ApplicationClient
       response = self.class.connection.post do |req|
         req.url '/0/private/CancelOrder'
         req.body = {
-          nonce: generate_nonce,
+          nonce: nonce,
           txid: txid,
           cl_ord_id: cl_ord_id
         }.compact.to_query
-        req.headers = headers(req)
+        req.headers = headers(req.path, req.body)
       end
       Result::Success.new(response.body)
     end
@@ -170,7 +171,7 @@ class KrakenClient < ApplicationClient
     with_rescue do
       response = self.class.connection.get do |req|
         req.url '/0/public/AssetPairs'
-        req.headers = headers(req)
+        req.headers = headers(req.path, req.body)
         req.params = {
           pair: pairs.present? ? pairs.join(',') : nil,
           info: info,
@@ -191,7 +192,7 @@ class KrakenClient < ApplicationClient
     with_rescue do
       response = self.class.connection.get do |req|
         req.url '/0/public/Assets'
-        req.headers = headers(req)
+        req.headers = headers(req.path, req.body)
         req.params = {
           asset: assets.present? ? assets.join(',') : nil,
           aclass: aclass
@@ -207,7 +208,7 @@ class KrakenClient < ApplicationClient
     with_rescue do
       response = self.class.connection.get do |req|
         req.url '/0/public/Ticker'
-        req.headers = headers(req)
+        req.headers = headers(req.path, req.body)
         req.params = {
           pair: pair
         }.compact
@@ -222,9 +223,9 @@ class KrakenClient < ApplicationClient
       response = self.class.connection.post do |req|
         req.url '/0/private/BalanceEx'
         req.body = {
-          nonce: generate_nonce
+          nonce: nonce
         }.to_query
-        req.headers = headers(req)
+        req.headers = headers(req.path, req.body)
       end
       Result::Success.new(response.body)
     end
@@ -243,12 +244,12 @@ class KrakenClient < ApplicationClient
       response = self.class.connection.post do |req|
         req.url '/0/private/WithdrawMethods'
         req.body = {
-          nonce: generate_nonce,
+          nonce: nonce,
           asset: asset,
           aclass: aclass,
           network: network
         }.compact.to_query
-        req.headers = headers(req)
+        req.headers = headers(req.path, req.body)
       end
       Result::Success.new(response.body)
     end
@@ -262,7 +263,7 @@ class KrakenClient < ApplicationClient
     with_rescue do
       response = self.class.connection.get do |req|
         req.url '/0/public/OHLC'
-        req.headers = headers(req)
+        req.headers = headers(req.path, req.body)
         req.params = {
           pair: pair,
           interval: interval,
@@ -275,19 +276,22 @@ class KrakenClient < ApplicationClient
 
   private
 
-  def generate_nonce
+  def nonce
     (Time.now.utc.to_f * 1_000_000).to_i
   end
 
-  def headers(req)
-    body = req.body
-    return unauthenticated_headers if unauthenticated? || req.path.include?('/public/')
+  def headers(path, body)
+    return unauthenticated_headers if unauthenticated? || path.include?('/public/')
 
-    nonce = URI.decode_www_form(body).to_h['nonce']
-    data = "#{nonce}#{body}"
-    message = req.path + Digest::SHA256.digest(data)
+    request_nonce = URI.decode_www_form(body).to_h['nonce']
+    data = "#{request_nonce}#{body}"
+    message = path + Digest::SHA256.digest(data)
     decoded_key = Base64.decode64(@api_secret)
-    hmac = OpenSSL::HMAC.digest('sha512', decoded_key, message)
+    begin
+      hmac = OpenSSL::HMAC.digest('sha512', decoded_key, message)
+    rescue OpenSSL::HMACError
+      return unauthenticated_headers
+    end
     signature = Base64.strict_encode64(hmac)
 
     {
