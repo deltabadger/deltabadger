@@ -438,6 +438,7 @@ module Exchange::Exchanges::Coinbase
     ticker = tickers.find_by(ticker: product_id)
     order_type = parse_order_type(Utilities::Hash.dig_or_raise(order_data, 'order_type'))
     price = Utilities::Hash.dig_or_raise(order_data, 'average_filled_price').to_d
+    price = nil if price.zero?
     case order_type
     when :limit_order
       order_config = Utilities::Hash.dig_or_raise(order_data, 'order_configuration', 'limit_limit_gtc')

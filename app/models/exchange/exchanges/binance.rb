@@ -284,12 +284,11 @@ module Exchange::Exchanges::Binance
     orders = {}
     order_ids.group_by { |order_id| order_id.split('-').first }
              .each do |symbol, symbol_order_ids|
-      ext_order_ids = symbol_order_ids.map { |order_id| order_id.split('-').last }
+      ext_order_ids = symbol_order_ids.map { |order_id| order_id.split('-').last.to_i }
       100.times do |i|
         raise "Too many attempts to get #{name} orders. Adjust the number of iterations in the loop if needed." if i == 100
 
-        lowest_order_id = ext_order_ids.map(&:to_i).min.to_s
-        result = client.all_orders(symbol: symbol, order_id: lowest_order_id, limit: 1000)
+        result = client.all_orders(symbol: symbol, order_id: ext_order_ids.min, limit: 1000)
         if result.failure?
           error = parse_error_message(result)
           return error.present? ? Result::Failure.new(error) : result
@@ -491,7 +490,6 @@ module Exchange::Exchanges::Binance
     symbol = Utilities::Hash.dig_or_raise(order_data, 'symbol')
     ticker = tickers.find_by(ticker: symbol)
     order_type = parse_order_type(Utilities::Hash.dig_or_raise(order_data, 'type'))
-    price = Utilities::Hash.dig_or_raise(order_data, 'price').to_d
     amount = Utilities::Hash.dig_or_raise(order_data, 'origQty').to_d
     amount = amount.zero? ? nil : amount
     quote_amount = Utilities::Hash.dig_or_raise(order_data, 'origQuoteOrderQty').to_d
@@ -501,6 +499,13 @@ module Exchange::Exchanges::Binance
     quote_amount_exec = Utilities::Hash.dig_or_raise(order_data, 'cummulativeQuoteQty').to_d
     quote_amount_exec = quote_amount_exec.negative? ? nil : quote_amount_exec # for some historical orders
     status = parse_order_status(Utilities::Hash.dig_or_raise(order_data, 'status'))
+    price = Utilities::Hash.dig_or_raise(order_data, 'price').to_d
+    price = ticker.adjusted_price(price: quote_amount_exec / amount_exec, method: :round) if price.zero? &&
+                                                                                             quote_amount_exec.present? &&
+                                                                                             quote_amount_exec.positive? &&
+                                                                                             amount_exec.present? &&
+                                                                                             amount_exec.positive?
+    price = nil if price.zero?
 
     {
       order_id: order_id,
