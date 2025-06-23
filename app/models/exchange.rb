@@ -14,10 +14,10 @@ class Exchange < ApplicationRecord
 
   scope :available, -> { where.not(name: ['FTX', 'FTX.US', 'Coinbase Pro']) }
   scope :available_for_new_bots, lambda {
-                                   where(name: %w[Coinbase Kraken])
+                                   where(name_id: %w[coinbase kraken binance binance_us])
                                  } # FIXME: Temporary until all exchanges are supported
 
-  include RemoteDataAggregator
+  include Synchronizer
   include CandleBuilder
 
   after_initialize :include_exchange_implementation
@@ -146,6 +146,8 @@ class Exchange < ApplicationRecord
     case name_id
     when 'coinbase' then singleton_class.include(Exchanges::Coinbase)
     when 'kraken' then singleton_class.include(Exchanges::Kraken)
+    when 'binance' then singleton_class.include(Exchanges::Binance)
+    when 'binance_us' then singleton_class.include(Exchanges::BinanceUs)
     end
   end
 

@@ -29,7 +29,25 @@ module Bot::Fundable
   private
 
   def notified_in_last_day?
-    last_end_of_funds_notification.present? && last_end_of_funds_notification > 1.day.ago
+    # # notified_in_last_day? per bot
+    # last_end_of_funds_notification.present? && last_end_of_funds_notification > 1.day.ago
+
+    # notified_in_last_day? per currency
+    legacy_buy_bots = user.bots
+                          .basic
+                          .where('settings @> ?', { type: 'buy' }.to_json)
+                          .where('settings @> ?', { quote: quote_asset.symbol }.to_json)
+                          .pluck(:last_end_of_funds_notification)
+    legacy_sell_bots = user.bots
+                           .basic
+                           .where('settings @> ?', { type: 'sell' }.to_json)
+                           .where('settings @> ?', { base: quote_asset.symbol }.to_json)
+                           .pluck(:last_end_of_funds_notification)
+    new_bots = user.bots
+                   .not_legacy
+                   .where(quote_asset_id: quote_asset_id)
+                   .pluck(:last_end_of_funds_notification)
+    (legacy_buy_bots + legacy_sell_bots + new_bots).compact.any? { |t| t > 1.day.ago }
   end
 
   def required_balance_buffer
