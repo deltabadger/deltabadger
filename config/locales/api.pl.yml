@@ -32,7 +32,7 @@ pl:
                                 sub_instructions:
                                     -   text_html: '<b>Default</b>, or the portfolio you want Deltabadger to have access to if not using Coinbase Portfolios.'
                                     -   text_html: '<b>View</b> (read-only)'
-                                    -   text_html: '<b>Trade</b> (execute trades on your behalf)'
+                                    -   text_html: '<b>Trade</b> (execute trades on your behalf)<br><strong>Ważne:</strong> Klucze nie będą działać, jeśli dodasz więcej uprawnień.'
                             -   text_html: 'IP whitelist'
                                 sub_instructions:
                                     -   text_html: '<b>%{ip}</b>'
@@ -55,7 +55,7 @@ pl:
                                     -   text_html: '<b>Zapytanie o otwarte zlecenia i transakcje</b>'
                                     -   text_html: '<b>Zapytanie o zamknięte zlecenia i transakcje</b>'
                                     -   text_html: '<b>Twórz i modyfikuj zlecenia</b>'
-                                    -   text_html: '<b>Anuluj i zamknij zlecenia</b>'
+                                    -   text_html: '<b>Anuluj i zamknij zlecenia</b><br><strong>Ważne:</strong> Klucze nie będą działać, jeśli dodasz więcej uprawnień.'
                             -   text_html: 'Ograniczenie adresu IP:'
                                 sub_instructions:
                                     -   text_html: '<b>Wł.</b>, IP: <b>%{ip}</b>'
