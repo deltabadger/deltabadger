@@ -10,6 +10,8 @@ def update_new_bots_transactions_remote_data
   bot_ids = Bot.not_legacy.pluck(:id).sort.reverse
   bot_ids.each do |bot_id|
     bot = Bot.find(bot_id)
+    bot.transactions.where(price: 0).update_all(price: nil)
+    update_binance_external_ids(bot) if bot.exchange.name_id == 'binance'
     api_key = bot.user.api_keys.trading.correct.find_by(exchange: bot.exchange)
     next if api_key.blank?
 
@@ -66,5 +68,17 @@ def update_new_bots_transactions_remote_data
         transaction.update!(order_values)
       end
     end
+  end
+end
+
+def update_binance_external_ids(bot)
+  bot.transactions.submitted.where.not(external_id: nil).find_each do |transaction|
+    next if transaction.external_id.include?('-')
+
+    puts "updating binance external id for transaction #{transaction.id}"
+    ticker = bot.tickers.find_by(base: transaction.base, quote: transaction.quote)
+    raise "ticker not found for #{transaction.id}" if ticker.nil?
+
+    transaction.update!(external_id: "#{ticker.ticker}-#{transaction.external_id}")
   end
 end

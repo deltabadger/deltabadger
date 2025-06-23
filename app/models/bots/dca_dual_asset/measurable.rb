@@ -20,7 +20,7 @@ module Bots::DcaDualAsset::Measurable
 
       totals = initialize_totals_data
       transactions_array.each do |created_at, price, amount_exec, quote_amount_exec, base|
-        next if quote_amount_exec.zero? || amount_exec.zero?
+        next if price.blank? || quote_amount_exec.zero? || amount_exec.zero?
 
         # chart data
         data[:chart][:labels] << created_at
