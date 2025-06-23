@@ -32,7 +32,7 @@ fr:
                                 sub_instructions:
                                     -   text_html: '<b>Défaut</b>, ou le portefeuille auquel vous souhaitez que Deltabadger ait accès si vous n''utilisez pas les Portefeuilles Coinbase.'
                                     -   text_html: '<b>View</b> (read-only)'
-                                    -   text_html: '<b>Trade</b> (execute trades on your behalf)<br><strong>Important :</strong> Les clés ne fonctionneront pas si vous ajoutez plus d'autorisations.'
+                                    -   text_html: '<b>Trade</b> (execute trades on your behalf)<br><strong>Important :</strong> Les clés ne fonctionneront pas si vous ajoutez plus d''autorisations.'
                             -   text_html: 'Liste blanche d''adresses IP'
                                 sub_instructions:
                                     -   text_html: '<b>%{ip}</b>'
@@ -55,7 +55,7 @@ fr:
                                     -   text_html: '<b>Consulter les ordres et transactions ouverts</b>'
                                     -   text_html: '<b>Consulter les ordres et les transactions fermés</b>'
                                     -   text_html: '<b>Créer et modifier des ordres</b>'
-                                    -   text_html: '<b>Annuler et clôturer les ordres</b><br><strong>Important :</strong> Les clés ne fonctionneront pas si vous ajoutez plus d'autorisations.'
+                                    -   text_html: '<b>Annuler et clôturer les ordres</b><br><strong>Important :</strong> Les clés ne fonctionneront pas si vous ajoutez plus d''autorisations.'
                             -   text_html: 'Restriction d''adresse IP'
                                 sub_instructions:
                                     -   text_html: '<b>Activé</b>, IP : <b>%{ip}</b>'
