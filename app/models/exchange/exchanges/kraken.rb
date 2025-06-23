@@ -517,6 +517,7 @@ module Exchange::Exchanges::Kraken
     order_type = parse_order_type(Utilities::Hash.dig_or_raise(order_data, 'descr', 'ordertype'))
     price = Utilities::Hash.dig_or_raise(order_data, 'price').to_d
     price = Utilities::Hash.dig_or_raise(order_data, 'descr', 'price').to_d if price.zero? && order_type == :limit_order
+    price = nil if price.zero?
     quote_amount_exec = Utilities::Hash.dig_or_raise(order_data, 'cost').to_d
     amount_exec = Utilities::Hash.dig_or_raise(order_data, 'vol_exec').to_d
 
