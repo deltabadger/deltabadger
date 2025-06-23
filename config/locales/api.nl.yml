@@ -10,8 +10,8 @@ nl:
                     -   text_html: 'Label je sleutels (bijv. "deltabadger") en doorloop indien nodig de beveiligingsverificatie.'
                     -   text_html: 'Klik op <b class="pbutton">Edit restrictions</b> in de rechterbovenhoek van het sleutelvak.'
                         sub_instructions:
-                            -   text_html: "Beperk toegang tot alleen vertrouwde IP's: <b>%{ip}</b>.<br><strong>⚠️ Belangrijk:</strong> Doe dit eerst om de volgende stap mogelijk te maken."
-                            -   text_html: "Vink:<br>✅ <b>Enable Reading</b><br>✅ <b>Enable Spot & Margin Trading</b> aan.<br><strong>⚠️ Belangrijk:</strong> De sleutels werken niet als je meer rechten toevoegt."
+                            -   text_html: "🔘 Beperk toegang tot alleen vertrouwde IP's: <b>%{ip}</b>.<br><strong>⚠️ Belangrijk:</strong> Doe dit eerst om de volgende stap mogelijk te maken."
+                            -   text_html: "Vink:<br>☑️ <b>Enable Reading</b><br>☑️ <b>Enable Spot & Margin Trading</b> aan.<br><strong>⚠️ Belangrijk:</strong> De sleutels werken niet als je meer rechten toevoegt."
                     -   text_html: 'Klik op <b>Save</b> en doorloop indien nodig de beveiligingsverificatie.'
                     -   text_html: 'Kopieer en plak je nieuwe API-sleutels hierboven.'
                 private_key: 'Geheime Sleutel'
