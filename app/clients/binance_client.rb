@@ -96,7 +96,7 @@ class BinanceClient < ApplicationClient
   # @param start_time [Integer]
   # @param end_time [Integer]
   # @param time_zone [Integer] Hours and minutes (e.g. -1:00, 05:45) OR only hours (e.g. 0, 8, 4). Accepted range is strictly [-12:00 to +14:00] inclusive
-  # @param limit [Integer]
+  # @param limit [Integer] The value cannot be greater than 1000
   def candlestick_data(symbol:, interval:, start_time: nil, end_time: nil, time_zone: 0, limit: 500)
     with_rescue do
       response = self.class.connection.get do |req|
@@ -134,6 +134,35 @@ class BinanceClient < ApplicationClient
     end
   end
 
+  # https://developers.binance.com/docs/binance-spot-api-docs/rest-api/account-endpoints#account-trade-list-user_data
+  # @param symbol [String]
+  # @param order_id [Integer]
+  # @param start_time [Integer]
+  # @param end_time [Integer]
+  # @param from_id [Integer]
+  # @param limit [Integer] The value cannot be greater than 1000
+  # @param recv_window [Integer] The value cannot be greater than 60000
+  def account_trade_list(symbol:, order_id: nil, start_time: nil, end_time: nil, from_id: nil, limit: 500, recv_window: 5000)
+    with_rescue do
+      response = self.class.connection.get do |req|
+        req.url '/api/v3/myTrades'
+        req.headers = headers
+        req.params = {
+          symbol: symbol,
+          orderId: order_id,
+          startTime: start_time,
+          endTime: end_time,
+          fromId: from_id,
+          limit: limit,
+          recvWindow: recv_window,
+          timestamp: timestamp
+        }.compact
+        req.params[:signature] = hmac_signature(req.params)
+      end
+      Result::Success.new(response.body)
+    end
+  end
+
   # https://developers.binance.com/docs/binance-spot-api-docs/rest-api/account-endpoints#query-order-user_data
   # @param symbol [String]
   # @param order_id [Integer]
@@ -162,7 +191,7 @@ class BinanceClient < ApplicationClient
   # @param order_id [Integer]
   # @param start_time [Integer]
   # @param end_time [Integer]
-  # @param limit [Integer] The value cannot be greater than 500
+  # @param limit [Integer] The value cannot be greater than 1000
   # @param recv_window [Integer] The value cannot be greater than 60000
   def all_orders(symbol:, order_id: nil, start_time: nil, end_time: nil, limit: 500, recv_window: 5000)
     with_rescue do

@@ -276,14 +276,30 @@ module Exchange::Exchanges::Binance
     end
 
     normalized_order_data = parse_order_data(order_id, result.data)
+    if normalized_order_data[:amount_exec_excl_commission].zero?
+      normalized_order_data[:amount_exec] = normalized_order_data.delete(:amount_exec_excl_commission)
+      normalized_order_data[:quote_amount_exec] = normalized_order_data.delete(:quote_amount_exec_excl_commission)
+    else
+      # gather real amount_exec, quote_amount_exec, price from trades (which includes commission)
+      result = get_aggregated_trades_for_orders([normalized_order_data])
+      return result if result.failure?
+
+      aggregated_trades_data = result.data[normalized_order_data[:order_id]]
+      normalized_order_data[:price] = aggregated_trades_data[:price]
+      normalized_order_data[:amount_exec] = aggregated_trades_data[:amount_exec]
+      normalized_order_data[:quote_amount_exec] = aggregated_trades_data[:quote_amount_exec]
+      normalized_order_data.delete(:amount_exec_excl_commission)
+      normalized_order_data.delete(:quote_amount_exec_excl_commission)
+    end
 
     Result::Success.new(normalized_order_data)
   end
 
   def get_orders(order_ids:)
     orders = {}
-    order_ids.group_by { |order_id| order_id.split('-').first }
-             .each do |symbol, symbol_order_ids|
+    orders_with_trades = []
+    order_ids_by_symbol = order_ids.group_by { |order_id| order_id.split('-').first }
+    order_ids_by_symbol.each do |symbol, symbol_order_ids|
       ext_order_ids = symbol_order_ids.map { |order_id| order_id.split('-').last.to_i }
       100.times do |i|
         raise "Too many attempts to get #{name} orders. Adjust the number of iterations in the loop if needed." if i == 100
@@ -299,7 +315,16 @@ module Exchange::Exchanges::Binance
           next unless ext_order_id.in?(ext_order_ids)
 
           order_id = "#{symbol}-#{ext_order_id}"
-          orders[order_id] = parse_order_data(order_id, order_data)
+
+          normalized_order_data = parse_order_data(order_id, order_data)
+          if normalized_order_data[:amount_exec_excl_commission].zero?
+            normalized_order_data[:amount_exec] = normalized_order_data.delete(:amount_exec_excl_commission)
+            normalized_order_data[:quote_amount_exec] = normalized_order_data.delete(:quote_amount_exec_excl_commission)
+          else
+            orders_with_trades << normalized_order_data
+          end
+
+          orders[order_id] = normalized_order_data
           ext_order_ids.delete(ext_order_id)
         end
 
@@ -307,7 +332,71 @@ module Exchange::Exchanges::Binance
       end
     end
 
+    if orders_with_trades.any?
+      result = get_aggregated_trades_for_orders(orders_with_trades)
+      return result if result.failure?
+
+      aggregated_trades_datas = result.data
+      aggregated_trades_datas.each do |order_id, aggregated_trades_data|
+        orders[order_id][:price] = aggregated_trades_data[:price]
+        orders[order_id][:amount_exec] = aggregated_trades_data[:amount_exec]
+        orders[order_id][:quote_amount_exec] = aggregated_trades_data[:quote_amount_exec]
+        orders[order_id].delete(:amount_exec_excl_commission)
+        orders[order_id].delete(:quote_amount_exec_excl_commission)
+      end
+    end
+
     Result::Success.new(orders)
+  end
+
+  def get_aggregated_trades_for_orders(orders)
+    aggregated_trades_by_order_id = {}
+    symbols = orders.group_by { |order| order[:ticker].ticker }
+    limit = 1000
+    symbols.each do |symbol, symbol_orders|
+      ext_order_ids = symbol_orders.map { |order| order[:order_id].split('-').last.to_i }
+      if ext_order_ids.count < 5 # request weight is 5 when passing one order id
+        ext_order_ids.each do |ext_order_id|
+          # we assume one order will never have more than 1000 trades
+          result = client.account_trade_list(symbol: symbol, order_id: ext_order_id, limit: limit)
+          if result.failure?
+            error = parse_error_message(result)
+            return error.present? ? Result::Failure.new(error) : result
+          end
+
+          trade_datas = result.data.map { |trade_data| parse_trade_data(trade_data) }
+          aggregated_trades = aggregate_trades(trade_datas)
+          aggregated_trades_by_order_id[aggregated_trades[:order_id]] = aggregated_trades
+        end
+      else # request weight is 20 when passing no order id
+        end_time = Time.current.to_i * 1000
+        100.times do |i|
+          if i == 100
+            raise "Too many attempts to get #{name} #{symbol} trades. Adjust the number of iterations in the loop if needed."
+          end
+
+          result = client.account_trade_list(symbol: symbol, end_time: end_time, limit: limit)
+          if result.failure?
+            error = parse_error_message(result)
+            return error.present? ? Result::Failure.new(error) : result
+          end
+
+          trade_datas = result.data.map { |raw_trade| parse_trade_data(raw_trade) if raw_trade['orderId'].in?(ext_order_ids) }
+          trade_datas.each do |trade_data|
+            order_id = trade_data[:order_id]
+            aggregated_trades_by_order_id[order_id] = aggregate_trades(
+              [aggregated_trades_by_order_id[order_id], trade_data].compact
+            )
+          end
+          break if result.data.count < limit
+          break if symbol_orders.map { |o| o[:amount] == aggregated_trades_by_order_id[o[:order_id]][:amount] }.all?
+
+          end_time = result.data.map { |raw_trade| raw_trade['time'] }.min
+        end
+      end
+    end
+
+    Result::Success.new(aggregated_trades_by_order_id)
   end
 
   def cancel_order(order_id:)
@@ -438,7 +527,8 @@ module Exchange::Exchanges::Binance
       side: side.to_s.upcase,
       type: 'MARKET',
       quote_order_qty: amount_type == :quote ? amount.to_d.to_s('F') : nil,
-      quantity: amount_type == :base ? amount.to_d.to_s('F') : nil
+      quantity: amount_type == :base ? amount.to_d.to_s('F') : nil,
+      self_trade_prevention_mode: 'EXPIRE_MAKER'
     }
     result = client.new_order(**order_settings)
     if result.failure?
@@ -495,16 +585,17 @@ module Exchange::Exchanges::Binance
     quote_amount = Utilities::Hash.dig_or_raise(order_data, 'origQuoteOrderQty').to_d
     quote_amount = quote_amount.zero? ? nil : quote_amount
     side = Utilities::Hash.dig_or_raise(order_data, 'side').downcase.to_sym
-    amount_exec = Utilities::Hash.dig_or_raise(order_data, 'executedQty').to_d
-    quote_amount_exec = Utilities::Hash.dig_or_raise(order_data, 'cummulativeQuoteQty').to_d
-    quote_amount_exec = quote_amount_exec.negative? ? nil : quote_amount_exec # for some historical orders
+    amount_exec_excl_commission = Utilities::Hash.dig_or_raise(order_data, 'executedQty').to_d
+    quote_amount_exec_excl_commission = Utilities::Hash.dig_or_raise(order_data, 'cummulativeQuoteQty').to_d
+    quote_amount_exec_excl_commission = quote_amount_exec_excl_commission.negative? ? nil : quote_amount_exec_excl_commission # for some historical orders
     status = parse_order_status(Utilities::Hash.dig_or_raise(order_data, 'status'))
     price = Utilities::Hash.dig_or_raise(order_data, 'price').to_d
-    price = ticker.adjusted_price(price: quote_amount_exec / amount_exec, method: :round) if price.zero? &&
-                                                                                             quote_amount_exec.present? &&
-                                                                                             quote_amount_exec.positive? &&
-                                                                                             amount_exec.present? &&
-                                                                                             amount_exec.positive?
+    if price.zero? &&
+       quote_amount_exec_excl_commission.present? &&
+       quote_amount_exec_excl_commission.positive? &&
+       amount_exec_excl_commission.positive?
+      price = ticker.adjusted_price(price: quote_amount_exec_excl_commission / amount_exec_excl_commission, method: :round)
+    end
     price = nil if price.zero?
 
     {
@@ -513,13 +604,77 @@ module Exchange::Exchanges::Binance
       price: price,
       amount: amount,                       # amount in the order config
       quote_amount: quote_amount,           # amount in the order config
-      amount_exec: amount_exec,             # amount the account balance went up or down
-      quote_amount_exec: quote_amount_exec, # amount the account balance went up or down
+      amount_exec_excl_commission: amount_exec_excl_commission,
+      quote_amount_exec_excl_commission: quote_amount_exec_excl_commission,
       side: side,
       order_type: order_type,
       error_messages: [],
       status: status,
       exchange_response: order_data
+    }
+  end
+
+  def parse_trade_data(trade_data)
+    symbol = Utilities::Hash.dig_or_raise(trade_data, 'symbol')
+    order_id = "#{symbol}-#{Utilities::Hash.dig_or_raise(trade_data, 'orderId')}"
+    ticker = tickers.find_by(ticker: symbol)
+    price = Utilities::Hash.dig_or_raise(trade_data, 'price').to_d
+    amount = Utilities::Hash.dig_or_raise(trade_data, 'qty').to_d
+    quote_amount = Utilities::Hash.dig_or_raise(trade_data, 'quoteQty').to_d
+    commission = Utilities::Hash.dig_or_raise(trade_data, 'commission').to_d
+    commission_asset = Utilities::Hash.dig_or_raise(trade_data, 'commissionAsset')
+    side = Utilities::Hash.dig_or_raise(trade_data, 'isBuyer') == true ? :buy : :sell
+    amount_exec = if commission_asset == ticker.base
+                    side == :buy ? (amount - commission) : (amount + commission)
+                  else
+                    amount
+                  end
+    quote_amount_exec = if commission_asset == ticker.quote
+                          side == :buy ? (quote_amount + commission) : (quote_amount - commission)
+                        else
+                          quote_amount
+                        end
+    order_type = Utilities::Hash.dig_or_raise(trade_data, 'isMaker') == true ? :market_order : :limit_order
+
+    {
+      order_id: order_id,
+      ticker: ticker,
+      price: price,
+      amount: amount,
+      quote_amount: quote_amount,
+      amount_exec: amount_exec,             # amount the account balance went up or down
+      quote_amount_exec: quote_amount_exec, # amount the account balance went up or down
+      side: side,
+      order_type: order_type,
+      exchange_response: trade_data
+    }
+  end
+
+  def aggregate_trades(trade_datas)
+    prices = []
+    amounts = []
+    quote_amounts = []
+    amount_execs = []
+    quote_amount_execs = []
+    trade_datas.each do |trade_data|
+      prices << trade_data[:price]
+      amounts << trade_data[:amount]
+      quote_amounts << trade_data[:quote_amount]
+      amount_execs << trade_data[:amount_exec]
+      quote_amount_execs << trade_data[:quote_amount_exec]
+    end
+    price = Utilities::Math.weighted_average(prices, amounts)
+    {
+      order_id: trade_datas.first[:order_id],
+      ticker: trade_datas.first[:ticker],
+      price: price,
+      amount: amounts.sum,
+      quote_amount: quote_amounts.sum,
+      amount_exec: amount_execs.sum,             # amount the account balance went up or down
+      quote_amount_exec: quote_amount_execs.sum, # amount the account balance went up or down
+      side: trade_datas.first[:side],
+      order_type: trade_datas.first[:order_type],
+      exchange_response: nil
     }
   end
 
