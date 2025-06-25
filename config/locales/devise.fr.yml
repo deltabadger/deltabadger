@@ -11,7 +11,8 @@ fr:
                 submit: 'Renvoyer'
                 title: 'Renvoyer les instructions'
             send_instructions: 'Vous allez recevoir un e-mail avec les instructions pour confirmer votre adresse e-mail dans quelques minutes.'
-            send_paranoid_instructions: 'Si votre adresse e-mail existe dans notre base de données, vous recevrez un e-mail avec les instructions pour confirmer votre adresse e-mail dans quelques minutes.'
+            send_paranoid_instructions: 'Si votre compte existe, vous recevrez un e-mail contenant des instructions pour le déverrouiller dans quelques minutes.'
+            unlocked: 'Votre compte a été déverrouillé avec succès. Veuillez vous connecter pour continuer.'
         passwords:
             edit:
                 submit: 'Changer le mot de passe'
@@ -104,3 +105,11 @@ fr:
         omniauth_callbacks:
             failure: 'Nous n''avons pas pu vous authentifier via %{kind} pour la raison suivante : "%{reason}".'
             success: 'Authentification réussie avec le compte %{kind}.'
+    shared:
+        links:
+            log_in_with_google: "Se connecter avec Google"
+            signup_with_google: "S'inscrire avec Google"
+            or: "ou"
+            sign_in: "Se connecter"
+            sign_up: "S'inscrire"
+            forgot_your_password: "Mot de passe oublié ?"
