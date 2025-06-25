@@ -11,7 +11,8 @@ de:
                 submit: 'Erneut senden'
                 title: 'Anweisungen erneut senden'
             send_instructions: 'Sie erhalten in wenigen Minuten eine E-Mail mit Anweisungen, wie Sie Ihre E-Mail-Adresse bestätigen können.'
-            send_paranoid_instructions: 'Falls Ihre E-Mail-Adresse in unserer Datenbank existiert, erhalten Sie in wenigen Minuten eine E-Mail mit Anweisungen zur Bestätigung Ihrer E-Mail-Adresse.'
+            send_paranoid_instructions: 'Wenn Ihr Konto vorhanden ist, erhalten Sie in wenigen Minuten eine E-Mail mit Anweisungen, wie Sie es entsperren können.'
+            unlocked: 'Ihr Konto wurde erfolgreich entsperrt. Bitte melden Sie sich an, um fortzufahren.'
         passwords:
             edit:
                 submit: 'Passwort ändern'
@@ -104,3 +105,11 @@ de:
         omniauth_callbacks:
             failure: 'Sie konnten nicht über %{kind} authentifiziert werden, weil "%{reason}".'
             success: 'Erfolgreich über %{kind}-Konto authentifiziert.'
+    shared:
+        links:
+            log_in_with_google: "Mit Google anmelden"
+            signup_with_google: "Mit Google registrieren"
+            or: "oder"
+            sign_in: "Anmelden"
+            sign_up: "Registrieren"
+            forgot_your_password: "Passwort vergessen?"

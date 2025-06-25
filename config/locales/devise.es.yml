@@ -2,7 +2,7 @@ es:
     devise:
         layout:
             title: "Carteras automatizadas para quienes buscan libertad financiera"
-            features_html: "DCA &middot; Carteras indexadas &middot; Rebalanceo &middot; Analizador de carteras &middot; Acciones y Cripto &middot; Comunidad" 
+            features_html: "DCA &middot; Carteras indexadas &middot; Rebalanceo &middot; Analizador de carteras &middot; Acciones y Cripto &middot; Comunidad"
             review:
                 content: "¡Estoy súper contenta con mi plan vitalicio de Deltabadger, que compra cada hora las criptos que quiero, así que tengo tiempo para las cosas importantes! ¡Gracias por esta herramienta tan chula!"
         confirmations:
@@ -21,7 +21,8 @@ es:
                 title: '¿Olvidaste tu contraseña?'
             no_token: 'No puedes acceder a esta página sin venir desde un correo de restablecimiento de contraseña. Si vienes desde un correo de restablecimiento de contraseña, asegúrate de usar la URL completa proporcionada.'
             send_instructions: 'Recibirás un correo electrónico con instrucciones sobre cómo restablecer tu contraseña en unos minutos.'
-            send_paranoid_instructions: 'Si tu dirección de correo electrónico existe en nuestra base de datos, recibirás un enlace de recuperación de contraseña en tu dirección de correo electrónico en unos minutos.'
+            send_paranoid_instructions: 'Si tu cuenta existe, recibirás un correo electrónico con instrucciones sobre cómo desbloquearla en unos minutos.'
+            unlocked: 'Tu cuenta ha sido desbloqueada con éxito. Por favor, inicia sesión para continuar.'
             updated: 'Tu contraseña ha sido cambiada exitosamente. Has iniciado sesión.'
             updated_not_active: 'Tu contraseña ha sido cambiada exitosamente.'
             token_expired: 'Tu enlace de restablecimiento de contraseña ha expirado. Por favor, solicita un nuevo enlace.'
@@ -104,3 +105,11 @@ es:
         omniauth_callbacks:
             failure: 'No pudimos autenticarte desde %{kind} porque "%{reason}".'
             success: 'Autenticado exitosamente desde la cuenta %{kind}.'
+    shared:
+        links:
+            log_in_with_google: "Iniciar sesión con Google"
+            signup_with_google: "Registrarse con Google"
+            or: "o"
+            sign_in: "Iniciar sesión"
+            sign_up: "Registrarse"
+            forgot_your_password: "¿Olvidó su contraseña?"
