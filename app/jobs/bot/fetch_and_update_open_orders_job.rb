@@ -4,7 +4,7 @@ class Bot::FetchAndUpdateOpenOrdersJob < BotJob
     return if external_order_ids.empty?
 
     result = bot.get_orders(order_ids: external_order_ids)
-    raise "Failed to fetch orders #{orders.pluck(:id).to_sentence}. Result: #{result.errors}" if result.failure?
+    raise "Failed to fetch orders #{external_order_ids.to_sentence}. Result: #{result.errors}" if result.failure?
 
     calc_since = [bot.started_at, bot.settings_changed_at].compact.max
     result.data.each do |order_id, order_data|
