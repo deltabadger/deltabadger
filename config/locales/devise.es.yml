@@ -105,11 +105,11 @@ es:
         omniauth_callbacks:
             failure: 'No pudimos autenticarte desde %{kind} porque "%{reason}".'
             success: 'Autenticado exitosamente desde la cuenta %{kind}.'
-        shared:
-            links:
-                log_in_with_google: "Iniciar sesión con Google"
-                signup_with_google: "Registrarse con Google"
-                or: "o"
-                sign_in: "Iniciar sesión"
-                sign_up: "Registrarse"
-                forgot_your_password: "¿Olvidó su contraseña?"
+    shared:
+        links:
+            log_in_with_google: "Iniciar sesión con Google"
+            signup_with_google: "Registrarse con Google"
+            or: "o"
+            sign_in: "Iniciar sesión"
+            sign_up: "Registrarse"
+            forgot_your_password: "¿Olvidó su contraseña?"
