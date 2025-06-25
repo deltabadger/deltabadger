@@ -27,7 +27,8 @@ class Users::RegistrationsController < Devise::RegistrationsController
           # if the email is taken, it's actually a valid email (validated with html5), so remove the :taken error
           resource.errors.delete(:email)
           if resource.errors.empty?
-            CustomDeviseMailer.email_already_taken(resource.email).deliver_later
+            email = User::Email.real_email(resource.email)
+            CustomDeviseMailer.email_already_taken(email).deliver_later
             redirect_to confirm_registration_url
             return
           end

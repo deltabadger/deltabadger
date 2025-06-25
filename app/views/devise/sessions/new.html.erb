@@ -38,4 +38,9 @@
   </div>
 <% end %>
 
+<%= button_to omniauth_authorize_path(resource_name, :google_oauth2), method: :post, data: { turbo: false }, class: "button button--google button--large w-100" do %>
+    <%= render "svg/google" %>
+    <%= t('shared.links.log_in_with_google') %>
+<% end %>
+
 <%= render "devise/shared/links" %>

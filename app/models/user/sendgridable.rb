@@ -10,7 +10,7 @@ module User::Sendgridable
 
   included do
     # validate :validate_email_with_sendgrid  # Disabled for now
-    before_save :initialize_sendgrid_lists, if: :email_confirmed_after_user_created?
+    after_save :initialize_sendgrid_lists, if: :email_confirmed_after_user_created?
     after_save_commit -> { Sendgrid::UpdateFirstNameJob.perform_later(self) }, if: :saved_change_to_name?
   end
 
