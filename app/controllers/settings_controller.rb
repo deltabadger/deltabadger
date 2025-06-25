@@ -46,6 +46,7 @@ class SettingsController < ApplicationController
         current_user.errors.delete(:email)
         if current_user.errors.empty?
           # refresh the whole page for password managers to update the password
+          current_user.update(email: current_user.email_was, unconfirmed_email: update_email_params[:email])
           flash[:notice] = t('devise.registrations.update_needs_confirmation')
           render turbo_stream: turbo_stream_page_refresh
           return
