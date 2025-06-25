@@ -21,7 +21,8 @@ pl:
                 title: 'Zapomniałeś hasła?'
             no_token: 'Nie możesz uzyskać dostępu do tej strony bez przejścia z emaila resetującego hasło. Jeśli przechodzisz z emaila resetującego hasło, upewnij się, że użyłeś pełnego adresu URL.'
             send_instructions: 'W ciągu kilku minut otrzymasz email z instrukcjami dotyczącymi resetowania hasła.'
-            send_paranoid_instructions: 'Jeśli Twój adres email istnieje w naszej bazie danych, otrzymasz link do odzyskiwania hasła na swój adres email w ciągu kilku minut.'
+            send_paranoid_instructions: 'Jeśli Twoje konto istnieje, za kilka minut otrzymasz wiadomość e-mail z instrukcjami, jak je odblokować.'
+            unlocked: 'Twoje konto zostało pomyślnie odblokowane. Zaloguj się, aby kontynuować.'
             updated: 'Twoje hasło zostało pomyślnie zmienione. Jesteś teraz zalogowany.'
             updated_not_active: 'Twoje hasło zostało pomyślnie zmienione.'
             token_expired: 'Link do resetowania hasła wygasł. Poproś o nowy link.'
@@ -104,3 +105,11 @@ pl:
         omniauth_callbacks:
             failure: 'Nie można było uwierzytelnić Cię z %{kind} z powodu "%{reason}".'
             success: 'Pomyślnie uwierzytelniono z konta %{kind}.'
+    shared:
+        links:
+            log_in_with_google: "Zaloguj się z Google"
+            signup_with_google: "Zarejestruj się z Google"
+            or: "lub"
+            sign_in: "Zaloguj się"
+            sign_up: "Zarejestruj się"
+            forgot_your_password: "Nie pamiętasz hasła?"
