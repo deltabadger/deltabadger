@@ -104,3 +104,11 @@ nl:
         omniauth_callbacks:
             failure: 'Kon je niet authenticeren via %{kind} omdat "%{reason}".'
             success: 'Succesvol geauthenticeerd via %{kind} account.'
+    shared:
+        links:
+            log_in_with_google: "Inloggen met Google"
+            signup_with_google: "Aanmelden met Google"
+            or: "of"
+            sign_in: "Inloggen"
+            sign_up: "Aanmelden"
+            forgot_your_password: "Wachtwoord vergeten?"

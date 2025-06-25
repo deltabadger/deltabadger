@@ -3,7 +3,8 @@ class User < ApplicationRecord
 
   after_create :set_free_subscription, :set_affiliate
   devise :database_authenticatable, :registerable,
-         :recoverable, :rememberable, :validatable, :confirmable
+         :recoverable, :rememberable, :validatable, :confirmable,
+         :omniauthable, omniauth_providers: [:google_oauth2]
 
   has_one_time_password
   enum otp_module: %i[disabled enabled], _prefix: true
@@ -22,9 +23,11 @@ class User < ApplicationRecord
   validate :active_referrer, on: :create
   validates :name, presence: true, if: -> { new_record? }
   validate :validate_name, if: -> { new_record? || name_changed? }
-  validate :validate_email
+  validate :validate_email, if: -> { new_record? || email_changed? }
   validate :password_complexity, if: -> { password.present? }
   validates :time_zone, inclusion: { in: ActiveSupport::TimeZone.all.map(&:name), allow_nil: true }
+
+  after_update_commit :reset_oauth_credentials, if: :saved_change_to_email?
 
   delegate :unlimited?, to: :subscription
 
@@ -38,6 +41,29 @@ class User < ApplicationRecord
   # From the affiliate's perspective, the user is a referral
   # From the referral's perspective, the affiliate is the referrer
   # A user can be both an affiliate (or referrer) and a referral
+
+  def self.from_omniauth(auth)
+    user = User.find_by(oauth_provider: auth.provider, oauth_uid: auth.uid)
+    return user if user.present?
+
+    email = User::Email.real_email(auth.info.email)
+    user = User.find_by(email: email)
+    if user.present?
+      user.update(oauth_provider: auth.provider, oauth_uid: auth.uid)
+      return user
+    end
+
+    user = User.new(
+      oauth_provider: auth.provider,
+      oauth_uid: auth.uid,
+      email: auth.info.email,
+      name: auth.info.name,
+      password: Devise.friendly_token[0, 20]
+    )
+    user.skip_confirmation!
+    user.save
+    user
+  end
 
   def subscription
     @subscription ||= subscriptions.active.order(created_at: :asc).last
@@ -84,6 +110,10 @@ class User < ApplicationRecord
     self.time_zone = 'UTC' if time_zone.blank?
   end
 
+  def reset_oauth_credentials
+    update(oauth_provider: nil, oauth_uid: nil)
+  end
+
   def active_referrer
     return if referrer_id.nil? || Affiliate.find(referrer_id).active?
 
@@ -102,6 +132,7 @@ class User < ApplicationRecord
   def validate_email
     valid_email = email =~ Regexp.new(Email::ADDRESS_PATTERN)
     errors.add(:email, I18n.t('devise.registrations.new.email_invalid')) unless valid_email
+    errors.add(:email, :taken) if Email.google_email_exists?(email, exclude_emails: [email_was].compact)
   end
 
   def password_complexity
