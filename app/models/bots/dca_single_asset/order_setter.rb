@@ -96,6 +96,7 @@ module Bots::DcaSingleAsset::OrderSetter
   end
 
   def calculate_best_amount_info(order_data)
+    ticker = order_data[:ticker]
     case exchange.minimum_amount_logic(side: order_data[:side], order_type: order_data[:order_type])
     when :base_or_quote
       minimum_quote_size_in_base = ticker.minimum_quote_size / order_data[:price]
