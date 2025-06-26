@@ -25,22 +25,44 @@ module Exchange::Exchanges::BinanceUs
     )
   end
 
-  def get_api_key_validity(api_key:)
+  def get_api_key_validity(api_key:) # rubocop:disable Metrics/PerceivedComplexity,Metrics/CyclomaticComplexity
     result = BinanceUsClient.new(
       api_key: api_key.key,
       api_secret: api_key.secret
-    ).get_api_key_permissions
+    ).api_description
 
     if result.success?
       valid = if api_key.trading?
-                result.data['can_trade'] == true && result.data['can_transfer'] == false
+                result.data['ipRestrict'] == true &&
+                  result.data['enableFixApiTrade'] == false &&
+                  result.data['enableFixReadOnly'] == false &&
+                  result.data['enableFutures'] == false &&
+                  result.data['enableInternalTransfer'] == false &&
+                  result.data['enableMargin'] == false &&
+                  result.data['enablePortfolioMarginTrading'] == false &&
+                  result.data['enableReading'] == true &&
+                  result.data['enableSpotAndMarginTrading'] == true &&
+                  result.data['enableVanillaOptions'] == false &&
+                  result.data['enableWithdrawals'] == false &&
+                  result.data['permitsUniversalTransfer'] == false
               elsif api_key.withdrawal?
-                result.data['can_transfer'] == true
+                result.data['ipRestrict'] == true &&
+                  result.data['enableFixApiTrade'] == false &&
+                  result.data['enableFixReadOnly'] == false &&
+                  result.data['enableFutures'] == false &&
+                  result.data['enableInternalTransfer'] == false &&
+                  result.data['enableMargin'] == false &&
+                  result.data['enablePortfolioMarginTrading'] == false &&
+                  result.data['enableReading'] == true &&
+                  result.data['enableSpotAndMarginTrading'] == false &&
+                  result.data['enableVanillaOptions'] == false &&
+                  result.data['enableWithdrawals'] == true &&
+                  result.data['permitsUniversalTransfer'] == false
               else
-                raise StandardError, 'Invalid API key'
+                raise StandardError, 'Invalid API key type'
               end
       Result::Success.new(valid)
-    elsif result.data[:status] == 401 # invalid key
+    elsif parse_error_code(result).in?(ERROR_CODES[:invalid_key])
       Result::Success.new(false)
     else
       result
