@@ -189,11 +189,11 @@ module Bot::PriceDropLimitable
     current_price < (1 - price_drop_limit) * high_price
   end
 
-  def initialize_price_drop_limitable_settings # rubocop:disable Metrics/CyclomaticComplexity,Metrics/PerceivedComplexity
+  def initialize_price_drop_limitable_settings
     self.price_drop_limited ||= false
     self.price_drop_limit ||= 0.2
     self.price_drop_limit_time_window_condition ||= 'ath'
-    self.price_drop_limit_in_ticker_id ||= tickers&.sort_by { |t| t[:base] }&.first&.id
+    self.price_drop_limit_in_ticker_id ||= tickers.min_by { |t| t[:base] }&.id
   end
 
   def set_price_drop_limit_enabled_at
@@ -208,15 +208,15 @@ module Bot::PriceDropLimitable
     self.price_drop_limit_condition_met_at = nil
   end
 
-  def set_price_drop_limit_in_ticker_id # rubocop:disable Metrics/CyclomaticComplexity,Metrics/PerceivedComplexity
+  def set_price_drop_limit_in_ticker_id
     if price_drop_limit_in_ticker_id_was.present? && exchange_id_was.present? && exchange_id_was != exchange_id
       ticker_was = ExchangeTicker.find_by(id: price_drop_limit_in_ticker_id_was)
-      self.price_drop_limit_in_ticker_id = tickers&.find_by(
+      self.price_drop_limit_in_ticker_id = tickers.find_by(
         base_asset_id: ticker_was.base_asset_id,
         quote_asset_id: ticker_was.quote_asset_id
       )&.id
     else
-      self.price_drop_limit_in_ticker_id = tickers&.sort_by { |t| t[:base] }&.first&.id
+      self.price_drop_limit_in_ticker_id = tickers.min_by { |t| t[:base] }&.id
     end
   end
 
