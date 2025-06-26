@@ -381,7 +381,9 @@ module Exchange::Exchanges::Binance
             return error.present? ? Result::Failure.new(error) : result
           end
 
-          trade_datas = result.data.map { |raw_trade| parse_trade_data(raw_trade) if raw_trade['orderId'].in?(ext_order_ids) }
+          trade_datas = result.data.map do |raw_trade|
+            parse_trade_data(raw_trade) if raw_trade['orderId'].in?(ext_order_ids)
+          end.compact
           trade_datas.each do |trade_data|
             order_id = trade_data[:order_id]
             aggregated_trades_by_order_id[order_id] = aggregate_trades(
@@ -389,7 +391,7 @@ module Exchange::Exchanges::Binance
             )
           end
           break if result.data.count < limit
-          break if symbol_orders.map { |o| o[:amount] == aggregated_trades_by_order_id[o[:order_id]][:amount] }.all?
+          break if symbol_orders.map { |o| o[:amount] == aggregated_trades_by_order_id[o[:order_id]]&.[](:amount) }.all?
 
           end_time = result.data.map { |raw_trade| raw_trade['time'] }.min
         end
@@ -455,8 +457,12 @@ module Exchange::Exchanges::Binance
     end
   end
 
-  def minimum_amount_logic(**)
-    :base_and_quote
+  def minimum_amount_logic(order_type:, **)
+    if order_type == :market_order
+      :base_and_quote
+    else
+      :base_and_quote_in_base
+    end
   end
 
   private
