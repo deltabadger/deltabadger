@@ -148,15 +148,15 @@ class Bots::DcaSingleAsset < Bot
   end
 
   def assets
-    @assets ||= Asset.where(id: [base_asset_id, quote_asset_id]).presence
+    @assets ||= Asset.where(id: [base_asset_id, quote_asset_id])
   end
 
   def base_asset
-    @base_asset ||= assets&.select { |asset| asset.id == base_asset_id }&.first
+    @base_asset ||= assets.select { |asset| asset.id == base_asset_id }.first
   end
 
   def quote_asset
-    @quote_asset ||= assets&.select { |asset| asset.id == quote_asset_id }&.first
+    @quote_asset ||= assets.select { |asset| asset.id == quote_asset_id }.first
   end
 
   def tickers
@@ -164,7 +164,7 @@ class Bots::DcaSingleAsset < Bot
   end
 
   def ticker
-    @ticker ||= tickers&.first
+    @ticker ||= tickers.first
   end
 
   def decimals
@@ -233,7 +233,8 @@ class Bots::DcaSingleAsset < Bot
   def validate_dca_single_asset_included_in_subscription_plan; end
 
   def set_tickers
-    @tickers = exchange&.tickers&.where(base_asset_id: base_asset_id, quote_asset_id: quote_asset_id).presence
+    @tickers = exchange&.tickers&.where(base_asset_id: base_asset_id, quote_asset_id: quote_asset_id) ||
+               ExchangeTicker.none
   end
 
   def action_job_config

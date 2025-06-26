@@ -47,7 +47,13 @@ def update_new_bots_transactions_remote_data
         transaction = bot.transactions.find_by(external_id: order_id)
         raise "transaction not found for #{order_id}" if transaction.nil?
 
-        if order_data[:ticker].nil?
+        ticker = if bot.dca_single_asset?
+                   order_data[:ticker] || bot.ticker
+                 else
+                   order_data[:ticker]
+                 end
+
+        if ticker.nil?
           puts "ticker is nil for #{transaction.external_id} (#{transaction.created_at})"
           # next
         end
@@ -59,8 +65,8 @@ def update_new_bots_transactions_remote_data
           price: order_data[:price],
           amount: order_data[:amount],
           quote_amount: order_data[:quote_amount],
-          base: order_data[:ticker]&.base_asset&.symbol || transaction.base,
-          quote: order_data[:ticker]&.quote_asset&.symbol || transaction.quote,
+          base: ticker&.base_asset&.symbol || transaction.base,
+          quote: ticker&.quote_asset&.symbol || transaction.quote,
           side: order_data[:side],
           order_type: order_data[:order_type],
           amount_exec: order_data[:amount_exec],
@@ -86,14 +92,18 @@ def update_binance_external_ids(bot)
   bot.transactions.submitted.where.not(external_id: nil).find_each do |transaction|
     next if transaction.external_id.include?('-')
 
-    ticker = if bot.dca_single_asset?
-               bot.ticker
-             else
-               bot.tickers.find_by(base_asset: transaction.base, quote_asset: transaction.quote)
-             end
-    raise "ticker not found for #{bot.id}" if ticker.nil?
+    if transaction.base.present? && transaction.quote.present?
+      transaction.update!(external_id: "#{transaction.base}#{transaction.quote}-#{transaction.external_id}")
+    else
+      ticker = if bot.dca_single_asset?
+                 bot.ticker
+               else
+                 bot.tickers.find_by(base_asset: transaction.base, quote_asset: transaction.quote)
+               end
+      raise "ticker not found for #{bot.id}" if ticker.nil?
 
-    puts "updating binance external id for transaction #{transaction.id}"
-    transaction.update!(external_id: "#{ticker.ticker}-#{transaction.external_id}")
+      puts "updating binance external id for transaction #{transaction.id}"
+      transaction.update!(external_id: "#{ticker.ticker}-#{transaction.external_id}")
+    end
   end
 end

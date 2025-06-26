@@ -6,7 +6,7 @@ task update_new_bots_settings: :environment do
     puts "Updating bot #{bot.id}"
     settings = bot.settings
 
-    # # settings['price_limit_in_asset_id'] = bot.tickers&.first&.id
+    # # settings['price_limit_in_asset_id'] = bot.tickers.first&.id
     # # settings.delete('price_limit_in_asset_id') if settings['price_limit_in_asset_id'].present?
     # # settings.delete('price_limit_vs_currency') if settings['price_limit_vs_currency'].present?
 

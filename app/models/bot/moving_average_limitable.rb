@@ -222,7 +222,7 @@ module Bot::MovingAverageLimitable
     self.moving_average_limited ||= false
     self.moving_average_limit_timing_condition ||= 'while'
     self.moving_average_limit_value_condition ||= 'below'
-    self.moving_average_limit_in_ticker_id ||= tickers&.sort_by { |t| t[:base] }&.first&.id
+    self.moving_average_limit_in_ticker_id ||= tickers.min_by { |t| t[:base] }&.id
     self.moving_average_limit_in_ma_type ||= 'sma'
     self.moving_average_limit_in_timeframe ||= 'one_day'
     self.moving_average_limit_in_period ||= 9
@@ -240,15 +240,15 @@ module Bot::MovingAverageLimitable
     self.moving_average_limit_condition_met_at = nil
   end
 
-  def set_moving_average_limit_in_ticker_id # rubocop:disable Metrics/CyclomaticComplexity,Metrics/PerceivedComplexity
+  def set_moving_average_limit_in_ticker_id
     if moving_average_limit_in_ticker_id_was.present? && exchange_id_was.present? && exchange_id_was != exchange_id
       ticker_was = ExchangeTicker.find_by(id: moving_average_limit_in_ticker_id_was)
-      self.moving_average_limit_in_ticker_id = tickers&.find_by(
+      self.moving_average_limit_in_ticker_id = tickers.find_by(
         base_asset_id: ticker_was.base_asset_id,
         quote_asset_id: ticker_was.quote_asset_id
       )&.id
     else
-      self.moving_average_limit_in_ticker_id = tickers&.sort_by { |t| t[:base] }&.first&.id
+      self.moving_average_limit_in_ticker_id = tickers.min_by { |t| t[:base] }&.id
     end
   end
 
