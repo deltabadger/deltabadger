@@ -16,6 +16,7 @@ class Bots::DcaDualAsset < Bot
   validate :validate_unchangeable_assets, on: :update
   validate :validate_unchangeable_interval, on: :update
   validate :validate_unchangeable_exchange, on: :update
+  validate :validate_tickers_exist, on: :start
   validate :validate_dca_dual_asset_included_in_subscription_plan, on: :start
 
   before_save :set_tickers, if: :will_save_change_to_exchange_id?
@@ -171,19 +172,19 @@ class Bots::DcaDualAsset < Bot
   end
 
   def assets
-    @assets ||= Asset.where(id: [base0_asset_id, base1_asset_id, quote_asset_id]).presence
+    @assets ||= Asset.where(id: [base0_asset_id, base1_asset_id, quote_asset_id])
   end
 
   def base0_asset
-    @base0_asset ||= assets&.select { |asset| asset.id == base0_asset_id }&.first
+    @base0_asset ||= assets.select { |asset| asset.id == base0_asset_id }.first
   end
 
   def base1_asset
-    @base1_asset ||= assets&.select { |asset| asset.id == base1_asset_id }&.first
+    @base1_asset ||= assets.select { |asset| asset.id == base1_asset_id }.first
   end
 
   def quote_asset
-    @quote_asset ||= assets&.select { |asset| asset.id == quote_asset_id }&.first
+    @quote_asset ||= assets.select { |asset| asset.id == quote_asset_id }.first
   end
 
   def tickers
@@ -191,22 +192,22 @@ class Bots::DcaDualAsset < Bot
   end
 
   def ticker0
-    @ticker0 ||= tickers&.select { |ticker| ticker.base_asset_id == base0_asset_id }&.first
+    @ticker0 ||= tickers.select { |ticker| ticker.base_asset_id == base0_asset_id }.first
   end
 
   def ticker1
-    @ticker1 ||= tickers&.select { |ticker| ticker.base_asset_id == base1_asset_id }&.first
+    @ticker1 ||= tickers.select { |ticker| ticker.base_asset_id == base1_asset_id }.first
   end
 
   def decimals
     return {} unless ticker0.present? && ticker1.present?
 
     @decimals ||= {
-      base0: ticker0.base_decimals,
-      base1: ticker1.base_decimals,
-      quote: [ticker0.quote_decimals, ticker1.quote_decimals].max,
-      base0_price: ticker0.price_decimals,
-      base1_price: ticker1.price_decimals
+      base0: ticker0&.base_decimals,
+      base1: ticker1&.base_decimals,
+      quote: [ticker0&.quote_decimals, ticker1&.quote_decimals].compact.max,
+      base0_price: ticker0&.price_decimals,
+      base1_price: ticker1&.price_decimals
     }
   end
 
@@ -273,9 +274,18 @@ class Bots::DcaDualAsset < Bot
     errors.add(:user, :upgrade)
   end
 
+  def validate_tickers_exist
+    return if ticker0.present? && ticker1.present?
+
+    errors.add(:base0_asset_id, :invalid) unless ticker0.present?
+    errors.add(:base1_asset_id, :invalid) unless ticker1.present?
+    errors.add(:quote_asset_id, :invalid)
+  end
+
   def set_tickers
     @tickers = exchange&.tickers&.where(base_asset_id: [base0_asset_id, base1_asset_id],
-                                        quote_asset_id: quote_asset_id).presence
+                                        quote_asset_id: quote_asset_id) ||
+               ExchangeTicker.none
   end
 
   def action_job_config
