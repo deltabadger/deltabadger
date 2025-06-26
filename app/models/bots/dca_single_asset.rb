@@ -13,6 +13,7 @@ class Bots::DcaSingleAsset < Bot
   validate :validate_unchangeable_assets, on: :update
   validate :validate_unchangeable_interval, on: :update
   validate :validate_unchangeable_exchange, on: :update
+  validate :validate_tickers_exist, on: :start
   validate :validate_dca_single_asset_included_in_subscription_plan, on: :start
 
   before_save :set_tickers, if: :will_save_change_to_exchange_id?
@@ -148,15 +149,15 @@ class Bots::DcaSingleAsset < Bot
   end
 
   def assets
-    @assets ||= Asset.where(id: [base_asset_id, quote_asset_id]).presence
+    @assets ||= Asset.where(id: [base_asset_id, quote_asset_id])
   end
 
   def base_asset
-    @base_asset ||= assets&.select { |asset| asset.id == base_asset_id }&.first
+    @base_asset ||= assets.select { |asset| asset.id == base_asset_id }.first
   end
 
   def quote_asset
-    @quote_asset ||= assets&.select { |asset| asset.id == quote_asset_id }&.first
+    @quote_asset ||= assets.select { |asset| asset.id == quote_asset_id }.first
   end
 
   def tickers
@@ -164,16 +165,16 @@ class Bots::DcaSingleAsset < Bot
   end
 
   def ticker
-    @ticker ||= tickers&.first
+    @ticker ||= tickers.first
   end
 
   def decimals
     return {} unless ticker.present?
 
     @decimals ||= {
-      base: ticker.base_decimals,
-      quote: ticker.quote_decimals,
-      base_price: ticker.price_decimals
+      base: ticker&.base_decimals,
+      quote: ticker&.quote_decimals,
+      base_price: ticker&.price_decimals
     }
   end
 
@@ -232,8 +233,16 @@ class Bots::DcaSingleAsset < Bot
 
   def validate_dca_single_asset_included_in_subscription_plan; end
 
+  def validate_tickers_exist
+    return if ticker.present?
+
+    errors.add(:base_asset_id, :invalid)
+    errors.add(:quote_asset_id, :invalid)
+  end
+
   def set_tickers
-    @tickers = exchange&.tickers&.where(base_asset_id: base_asset_id, quote_asset_id: quote_asset_id).presence
+    @tickers = exchange&.tickers&.where(base_asset_id: base_asset_id, quote_asset_id: quote_asset_id) ||
+               ExchangeTicker.none
   end
 
   def action_job_config

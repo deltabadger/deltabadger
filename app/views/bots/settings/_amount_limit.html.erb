@@ -1,3 +1,6 @@
+<%# &. because some migrated legacy bots point to unknown assets %>
+<% quote = bot.quote_asset&.symbol || bot.transactions.last&.quote %>
+
 <%= form_with model: bot,
               url: path,
               method: method,
@@ -22,7 +25,7 @@
           <% end %>
           <%= t("bot.settings.extra_amount_limit.sentence_html",
                 value_html: value_html.html_safe,
-                quote: bot.quote_asset.symbol).html_safe %>
+                quote: quote).html_safe %>
           <%= render partial: "bots/settings/amount_limit_info", locals: { bot: bot } %>
         <% end %>
       </div>

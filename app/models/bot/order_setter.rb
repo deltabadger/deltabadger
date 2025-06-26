@@ -12,6 +12,23 @@ module Bot::OrderSetter
       amount = amount_type == :base ? order_data[:amount] : order_data[:quote_amount]
       minimum_amount = amount_type == :base ? ticker.minimum_base_size : ticker.minimum_quote_size
     when :base_and_quote
+      minimum_base_size_in_quote = ticker.adjusted_amount(
+        amount: ticker.minimum_base_size * order_data[:price],
+        amount_type: :quote,
+        method: :ceil
+      )
+      minimum_quote_amount = [minimum_base_size_in_quote, ticker.minimum_quote_size].max
+      minimum_quote_amount_in_base = minimum_quote_amount / order_data[:price]
+      minimum_quote_size_in_base = ticker.adjusted_amount(
+        amount: ticker.minimum_quote_size / order_data[:price],
+        amount_type: :base,
+        method: :ceil
+      )
+      minimum_base_amount = [minimum_quote_size_in_base, ticker.minimum_base_size].max
+      amount_type = minimum_quote_amount_in_base < minimum_base_amount ? :quote : :base
+      amount = amount_type == :base ? order_data[:amount] : order_data[:quote_amount]
+      minimum_amount = amount_type == :base ? minimum_base_amount : minimum_quote_amount
+    when :base_and_quote_in_base
       minimum_quote_size_in_base = ticker.adjusted_amount(
         amount: ticker.minimum_quote_size / order_data[:price],
         amount_type: :base,
