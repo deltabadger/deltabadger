@@ -224,7 +224,7 @@ module Bot::IndicatorLimitable
     self.indicator_limit ||= 30
     self.indicator_limit_timing_condition ||= 'while'
     self.indicator_limit_value_condition ||= 'below'
-    self.indicator_limit_in_ticker_id ||= tickers&.sort_by { |t| t[:base] }&.first&.id
+    self.indicator_limit_in_ticker_id ||= tickers.sort_by { |t| t[:base] }&.first&.id
     self.indicator_limit_in_indicator ||= 'rsi'
     self.indicator_limit_in_timeframe ||= 'one_day'
   end
@@ -241,15 +241,15 @@ module Bot::IndicatorLimitable
     self.indicator_limit_condition_met_at = nil
   end
 
-  def set_indicator_limit_in_ticker_id # rubocop:disable Metrics/CyclomaticComplexity,Metrics/PerceivedComplexity
+  def set_indicator_limit_in_ticker_id
     if indicator_limit_in_ticker_id_was.present? && exchange_id_was.present? && exchange_id_was != exchange_id
       ticker_was = ExchangeTicker.find_by(id: indicator_limit_in_ticker_id_was)
-      self.indicator_limit_in_ticker_id = tickers&.find_by(
+      self.indicator_limit_in_ticker_id = tickers.find_by(
         base_asset_id: ticker_was.base_asset_id,
         quote_asset_id: ticker_was.quote_asset_id
       )&.id
     else
-      self.indicator_limit_in_ticker_id = tickers&.sort_by { |t| t[:base] }&.first&.id
+      self.indicator_limit_in_ticker_id = tickers.min_by { |t| t[:base] }&.id
     end
   end
 
