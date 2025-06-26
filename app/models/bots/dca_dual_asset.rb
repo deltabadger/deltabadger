@@ -16,6 +16,7 @@ class Bots::DcaDualAsset < Bot
   validate :validate_unchangeable_assets, on: :update
   validate :validate_unchangeable_interval, on: :update
   validate :validate_unchangeable_exchange, on: :update
+  validate :validate_tickers_exist, on: :start
   validate :validate_dca_dual_asset_included_in_subscription_plan, on: :start
 
   before_save :set_tickers, if: :will_save_change_to_exchange_id?
@@ -202,11 +203,11 @@ class Bots::DcaDualAsset < Bot
     return {} unless ticker0.present? && ticker1.present?
 
     @decimals ||= {
-      base0: ticker0.base_decimals,
-      base1: ticker1.base_decimals,
-      quote: [ticker0.quote_decimals, ticker1.quote_decimals].max,
-      base0_price: ticker0.price_decimals,
-      base1_price: ticker1.price_decimals
+      base0: ticker0&.base_decimals,
+      base1: ticker1&.base_decimals,
+      quote: [ticker0&.quote_decimals, ticker1&.quote_decimals].compact.max,
+      base0_price: ticker0&.price_decimals,
+      base1_price: ticker1&.price_decimals
     }
   end
 
@@ -271,6 +272,14 @@ class Bots::DcaDualAsset < Bot
     return if user.subscription.pro? || user.subscription.legendary?
 
     errors.add(:user, :upgrade)
+  end
+
+  def validate_tickers_exist
+    return if ticker0.present? && ticker1.present?
+
+    errors.add(:base0_asset_id, :invalid) unless ticker0.present?
+    errors.add(:base1_asset_id, :invalid) unless ticker1.present?
+    errors.add(:quote_asset_id, :invalid)
   end
 
   def set_tickers
