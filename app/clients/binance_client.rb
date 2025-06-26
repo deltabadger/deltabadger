@@ -424,6 +424,8 @@ class BinanceClient < ApplicationClient
   end
 
   def hmac_signature(params)
+    return if @api_secret.blank?
+
     query = Faraday::Utils.build_query(params)
     OpenSSL::HMAC.hexdigest('sha256', @api_secret, query)
   end
