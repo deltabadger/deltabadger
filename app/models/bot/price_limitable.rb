@@ -203,7 +203,7 @@ module Bot::PriceLimitable
     self.price_limit_range_upper_bound ||= 1_000_000 # 1 million meme
     self.price_limit_timing_condition ||= 'while'
     self.price_limit_value_condition ||= 'below'
-    self.price_limit_in_ticker_id ||= tickers&.sort_by { |t| t[:base] }&.first&.id
+    self.price_limit_in_ticker_id ||= tickers.min_by { |t| t[:base] }&.id
   end
 
   def set_price_limit_enabled_at
@@ -218,15 +218,15 @@ module Bot::PriceLimitable
     self.price_limit_condition_met_at = nil
   end
 
-  def set_price_limit_in_ticker_id # rubocop:disable Metrics/CyclomaticComplexity,Metrics/PerceivedComplexity
+  def set_price_limit_in_ticker_id
     if price_limit_in_ticker_id_was.present? && exchange_id_was.present? && exchange_id_was != exchange_id
       ticker_was = ExchangeTicker.find_by(id: price_limit_in_ticker_id_was)
-      self.price_limit_in_ticker_id = tickers&.find_by(
+      self.price_limit_in_ticker_id = tickers.find_by(
         base_asset_id: ticker_was.base_asset_id,
         quote_asset_id: ticker_was.quote_asset_id
       )&.id
     else
-      self.price_limit_in_ticker_id = tickers&.sort_by { |t| t[:base] }&.first&.id
+      self.price_limit_in_ticker_id = tickers.min_by { |t| t[:base] }&.id
     end
   end
 

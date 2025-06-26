@@ -171,19 +171,19 @@ class Bots::DcaDualAsset < Bot
   end
 
   def assets
-    @assets ||= Asset.where(id: [base0_asset_id, base1_asset_id, quote_asset_id]).presence
+    @assets ||= Asset.where(id: [base0_asset_id, base1_asset_id, quote_asset_id])
   end
 
   def base0_asset
-    @base0_asset ||= assets&.select { |asset| asset.id == base0_asset_id }&.first
+    @base0_asset ||= assets.select { |asset| asset.id == base0_asset_id }.first
   end
 
   def base1_asset
-    @base1_asset ||= assets&.select { |asset| asset.id == base1_asset_id }&.first
+    @base1_asset ||= assets.select { |asset| asset.id == base1_asset_id }.first
   end
 
   def quote_asset
-    @quote_asset ||= assets&.select { |asset| asset.id == quote_asset_id }&.first
+    @quote_asset ||= assets.select { |asset| asset.id == quote_asset_id }.first
   end
 
   def tickers
@@ -191,11 +191,11 @@ class Bots::DcaDualAsset < Bot
   end
 
   def ticker0
-    @ticker0 ||= tickers&.select { |ticker| ticker.base_asset_id == base0_asset_id }&.first
+    @ticker0 ||= tickers.select { |ticker| ticker.base_asset_id == base0_asset_id }.first
   end
 
   def ticker1
-    @ticker1 ||= tickers&.select { |ticker| ticker.base_asset_id == base1_asset_id }&.first
+    @ticker1 ||= tickers.select { |ticker| ticker.base_asset_id == base1_asset_id }.first
   end
 
   def decimals
@@ -275,7 +275,8 @@ class Bots::DcaDualAsset < Bot
 
   def set_tickers
     @tickers = exchange&.tickers&.where(base_asset_id: [base0_asset_id, base1_asset_id],
-                                        quote_asset_id: quote_asset_id).presence
+                                        quote_asset_id: quote_asset_id) ||
+               ExchangeTicker.none
   end
 
   def action_job_config
