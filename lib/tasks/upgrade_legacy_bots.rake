@@ -25,17 +25,21 @@ task upgrade_legacy_bots: :environment do
 
   bot_ids.sort.each do |bot_id|
     bot = Bot.find(bot_id)
-    puts "Updating bot #{bot.id} with settings #{bot.settings.inspect}"
 
     unless bot.settings.keys.all? { |key| known_settings.include?(key) }
       raise "Bot #{bot.id} has unknown settings: #{bot.settings.keys.reject { |key| known_settings.include?(key) }}"
     end
 
+    bot.settings['base'] = 'POL' if bot.settings['base'] == 'MATIC' && bot.exchange.name_id.in?(%w[kraken binance binance_us])
+    bot.settings['quote'] = 'FDUSD' if bot.settings['quote'] == 'BUSD' && bot.exchange.name_id.in?(%w[binance binance_us])
+
     ticker = ExchangeTicker.find_by(exchange: bot.exchange, base: bot.settings['base'], quote: bot.settings['quote'])
     if ticker.blank?
-      puts "Ticker not found for bot #{bot.id}"
+      puts "Ticker not found for bot #{bot.id} (exchange: #{bot.exchange.name_id}, base: #{bot.settings['base']}, quote: #{bot.settings['quote']})"
       next
     end
+
+    puts "Updating bot #{bot.id} with settings #{bot.settings.inspect}"
 
     base_asset = ticker.base_asset
     quote_asset = ticker.quote_asset
@@ -107,7 +111,7 @@ task upgrade_legacy_bots: :environment do
     bot = Bot.find(bot_id)
     bot.update!(stopped_at: stopped_at, started_at: started_at)
 
-    if is_working
+    if is_working # rubocop:disable Style/Next
       amount_to_buy = bot.pending_quote_amount
       if amount_to_buy > bot.settings['quote_amount']
         raise "Amount to buy for bot #{bot.id} would be #{amount_to_buy} but quote amount is #{bot.settings['quote_amount']}"

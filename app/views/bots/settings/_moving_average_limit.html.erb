@@ -44,7 +44,7 @@
               <%= f.select :moving_average_limit_in_ticker_id, ticker_select_options, { selected: bot.moving_average_limit_in_ticker_id }, data: { action: "change->form--submit#submit" }, disabled: bot.working? %>
             <% end %>
           <% else %>
-            <% ticker_html = ticker_select_options.first.first %>
+            <% ticker_html = ticker_select_options.first&.first || "" %>
           <% end %>
           <% if moving_average_limit_timeframe_select_options.size > 1 %>
             <% timeframe_html = content_tag(:div, class: "sinput sinput--select #{'sinput--disabled' if bot.working?}") do %>

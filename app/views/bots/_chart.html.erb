@@ -1,3 +1,6 @@
+<%# &. because some migrated legacy bots point to unknown assets %>
+<% quote = bot.quote_asset&.symbol || bot.transactions.last&.quote %>
+
 <div id="chart" class="widget widget--chart">
   <% if loading %>
     <div class="data-grid__item">
@@ -25,12 +28,12 @@
     <%= tag.div data: {
       controller: "bot--chart",
       bot__chart_names_value: [
-        t('data_labels.value_symbol', symbol: bot.quote_asset.symbol),
-        t('data_labels.invested_symbol', symbol: bot.quote_asset.symbol)
+        t('data_labels.value_symbol', symbol: quote),
+        t('data_labels.invested_symbol', symbol: quote)
       ],
       bot__chart_labels_value: [metrics[:chart][:labels].map { |label| label.in_time_zone(current_user.time_zone) }],
       bot__chart_series_value: [
-        metrics[:chart][:series].map { |serie| serie.map { |amount| amount.round(bot.decimals[:quote]) } }
+        metrics[:chart][:series].map { |serie| serie.map { |amount| amount.round(bot.decimals[:quote] || 8) } }
       ]
     }, style: "width: 100%; aspect-ratio: 10 / 3;" do %>
       <canvas data-bot--chart-target="analyzerChart" width="10" height="3"></canvas>
