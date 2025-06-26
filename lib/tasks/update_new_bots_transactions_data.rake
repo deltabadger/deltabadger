@@ -11,7 +11,8 @@ def update_new_bots_transactions_remote_data
   bot_ids.each do |bot_id|
     bot = Bot.find(bot_id)
     bot.transactions.where(price: 0).update_all(price: nil)
-    update_binance_external_ids(bot) if bot.exchange.name_id == 'binance'
+    update_transactions_assets(bot) if bot.dca_single_asset?
+    update_binance_external_ids(bot) if bot.exchange.name_id.in?(%w[binance binance_us])
     api_key = bot.user.api_keys.trading.correct.find_by(exchange: bot.exchange)
     next if api_key.blank?
 
@@ -71,14 +72,28 @@ def update_new_bots_transactions_remote_data
   end
 end
 
+def update_transactions_assets(bot)
+  return unless bot.dca_single_asset?
+
+  ticker = bot.ticker
+  bot.transactions.where(base: nil).update_all(base: ticker.base_asset.symbol, quote: ticker.quote_asset.symbol)
+  bot.transactions.where(quote: nil).update_all(base: ticker.base_asset.symbol, quote: ticker.quote_asset.symbol)
+end
+
 def update_binance_external_ids(bot)
+  return unless bot.exchange.name_id.in?(%w[binance binance_us])
+
   bot.transactions.submitted.where.not(external_id: nil).find_each do |transaction|
     next if transaction.external_id.include?('-')
 
-    puts "updating binance external id for transaction #{transaction.id}"
-    ticker = bot.tickers.find_by(base: transaction.base, quote: transaction.quote)
-    raise "ticker not found for #{transaction.id}" if ticker.nil?
+    ticker = if bot.dca_single_asset?
+               bot.ticker
+             else
+               bot.tickers.find_by(base_asset: transaction.base, quote_asset: transaction.quote)
+             end
+    raise "ticker not found for #{bot.id}" if ticker.nil?
 
+    puts "updating binance external id for transaction #{transaction.id}"
     transaction.update!(external_id: "#{ticker.ticker}-#{transaction.external_id}")
   end
 end
