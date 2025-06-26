@@ -31,6 +31,7 @@ task upgrade_legacy_bots: :environment do
     end
 
     bot.settings['base'] = 'POL' if bot.settings['base'] == 'MATIC' && bot.exchange.name_id.in?(%w[kraken binance binance_us])
+    bot.settings['quote'] = 'FDUSD' if bot.settings['quote'] == 'BUSD' && bot.exchange.name_id.in?(%w[binance binance_us])
 
     ticker = ExchangeTicker.find_by(exchange: bot.exchange, base: bot.settings['base'], quote: bot.settings['quote'])
     if ticker.blank?
@@ -110,15 +111,15 @@ task upgrade_legacy_bots: :environment do
     bot = Bot.find(bot_id)
     bot.update!(stopped_at: stopped_at, started_at: started_at)
 
-    next unless is_working
+    if is_working # rubocop:disable Style/Next
+      amount_to_buy = bot.pending_quote_amount
+      if amount_to_buy > bot.settings['quote_amount']
+        raise "Amount to buy for bot #{bot.id} would be #{amount_to_buy} but quote amount is #{bot.settings['quote_amount']}"
+      end
 
-    amount_to_buy = bot.pending_quote_amount
-    if amount_to_buy > bot.settings['quote_amount']
-      raise "Amount to buy for bot #{bot.id} would be #{amount_to_buy} but quote amount is #{bot.settings['quote_amount']}"
+      puts "Starting bot #{bot.id}"
+      raise "Could not start bot #{bot.id}" unless bot.start(start_fresh: false)
     end
-
-    puts "Starting bot #{bot.id}"
-    raise "Could not start bot #{bot.id}" unless bot.start(start_fresh: false)
 
     # # then update all transactions
     # puts "Updating transactions base and quote for bot #{bot.id}"

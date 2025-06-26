@@ -72,6 +72,12 @@ def update_new_bots_transactions_remote_data
           amount_exec: order_data[:amount_exec],
           quote_amount_exec: order_data[:quote_amount_exec]
         }
+
+        # do not convert the asset of transactions of bots migrated from BUSD to FDUSD
+        if bot.exchange.name_id.in?(%w[binance binance_us]) && transaction.quote == 'BUSD'
+          order_values[:quote] = transaction.quote
+        end
+
         transaction.update!(order_values)
       end
     end
