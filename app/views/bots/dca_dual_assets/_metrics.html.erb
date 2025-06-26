@@ -2,12 +2,12 @@
   <div class="widget data-grid data-grid--two-columns">
     <%= render partial: "bots/dca_dual_assets/metrics_item", locals: {
       label: t('data_labels.invested'),
-      value: metrics[:total_quote_amount_invested].round(bot.decimals[:quote]),
+      value: metrics[:total_quote_amount_invested].round(bot.decimals[:quote] || 8),
       loading: false
     } %>
     <%= render partial: "bots/dca_dual_assets/metrics_item", locals: {
       label: t('data_labels.portfolio_value'),
-      value: metrics[:total_amount_value_in_quote].round(bot.decimals[:quote]),
+      value: metrics[:total_amount_value_in_quote].round(bot.decimals[:quote] || 8),
       loading: loading
     } %>
   </div>
@@ -30,12 +30,12 @@
           <% if bot.base0_asset %>
             <tr>
               <td scope="row"><%= bot.base0_asset.symbol %></td>
-              <td><%= metrics[:total_base0_amount].round(bot.decimals[:base0]) %></td>
-              <td><%= metrics[:base0_average_buy_price].present? ? metrics[:base0_average_buy_price].round(bot.decimals[:base0_price]) : '-' %></td>
+              <td><%= metrics[:total_base0_amount].round(bot.decimals[:base0] || 8) %></td>
+              <td><%= metrics[:base0_average_buy_price].present? ? metrics[:base0_average_buy_price].round(bot.decimals[:base0_price] || 8) : '-' %></td>
               <% if loading %>
                 <td><div class="loader--small" style="position: unset; float:right"></div></td>
               <% else %>
-                <td><%= metrics[:total_base0_amount_value_in_quote].round(bot.decimals[:quote]) %></td>
+                <td><%= metrics[:total_base0_amount_value_in_quote].round(bot.decimals[:quote] || 8) %></td>
               <% end %>
               <% if loading %>
                 <td><div class="loader--small" style="position: unset; float:right"></div></td>
@@ -52,12 +52,12 @@
           <% if bot.base1_asset %>
             <tr>
               <td scope="row"><%= bot.base1_asset.symbol %></td>
-              <td><%= metrics[:total_base1_amount].round(bot.decimals[:base1]) %></td>
-              <td><%= metrics[:base1_average_buy_price].present? ? metrics[:base1_average_buy_price].round(bot.decimals[:base1_price]) : '-' %></td>
+              <td><%= metrics[:total_base1_amount].round(bot.decimals[:base1] || 8) %></td>
+              <td><%= metrics[:base1_average_buy_price].present? ? metrics[:base1_average_buy_price].round(bot.decimals[:base1_price] || 8) : '-' %></td>
               <% if loading %>
                 <td><div class="loader--small" style="position: unset; float:right"></div></td>
               <% else %>
-                <td><%= metrics[:total_base1_amount_value_in_quote].round(bot.decimals[:quote]) %></td>
+                <td><%= metrics[:total_base1_amount_value_in_quote].round(bot.decimals[:quote] || 8) %></td>
               <% end %>
               <% if loading %>
                 <td><div class="loader--small" style="position: unset; float:right"></div></td>

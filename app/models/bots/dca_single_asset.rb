@@ -13,6 +13,7 @@ class Bots::DcaSingleAsset < Bot
   validate :validate_unchangeable_assets, on: :update
   validate :validate_unchangeable_interval, on: :update
   validate :validate_unchangeable_exchange, on: :update
+  validate :validate_tickers_exist, on: :start
   validate :validate_dca_single_asset_included_in_subscription_plan, on: :start
 
   before_save :set_tickers, if: :will_save_change_to_exchange_id?
@@ -171,9 +172,9 @@ class Bots::DcaSingleAsset < Bot
     return {} unless ticker.present?
 
     @decimals ||= {
-      base: ticker.base_decimals,
-      quote: ticker.quote_decimals,
-      base_price: ticker.price_decimals
+      base: ticker&.base_decimals,
+      quote: ticker&.quote_decimals,
+      base_price: ticker&.price_decimals
     }
   end
 
@@ -231,6 +232,13 @@ class Bots::DcaSingleAsset < Bot
   end
 
   def validate_dca_single_asset_included_in_subscription_plan; end
+
+  def validate_tickers_exist
+    return if ticker.present?
+
+    errors.add(:base_asset_id, :invalid)
+    errors.add(:quote_asset_id, :invalid)
+  end
 
   def set_tickers
     @tickers = exchange&.tickers&.where(base_asset_id: base_asset_id, quote_asset_id: quote_asset_id) ||
