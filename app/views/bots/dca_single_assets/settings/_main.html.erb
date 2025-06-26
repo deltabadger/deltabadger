@@ -19,7 +19,8 @@
         <%= link_to bot.quote_asset.symbol, new_bots_dca_single_assets_pick_spendable_asset_path, data: { turbo_frame: "modal_content" }, class: "ticker", style: "background: #{quote_color}" %>
       <% else %>
         <div class="ticker" style="background: <%= quote_color %>">
-          <%= bot.quote_asset.symbol %>
+          <%# &. because some migrated legacy bots point to unknown assets %>
+          <%= bot.quote_asset&.symbol || bot.transactions.last&.quote %>
         </div>
       <% end %>
     </div>
@@ -35,7 +36,8 @@
         <%= link_to bot.base_asset.symbol, new_bots_dca_single_assets_pick_buyable_asset_path, data: { turbo_frame: "modal_content" }, class: "ticker", style: "background: #{base_color}" %>
       <% else %>
         <div class="ticker" style="background: <%= base_color %>">
-          <%= bot.base_asset.symbol %>
+          <%# &. because some migrated legacy bots point to unknown assets %>
+          <%= bot.base_asset&.symbol || bot.transactions.last&.base %>
         </div>
       <% end %>
     </div>

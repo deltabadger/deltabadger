@@ -51,7 +51,7 @@ module Bots::DcaSingleAsset::Measurable
                       expires_in: Utilities::Time.seconds_to_end_of_five_minute_cut,
                       force: force) do
       metrics_data = metrics.deep_dup
-      return metrics_data if metrics_data[:chart][:labels].empty?
+      return metrics_data if metrics_data[:chart][:labels].empty? || ticker.nil?
 
       result = exchange.get_tickers_prices
       return metrics_data if result.failure?
@@ -196,6 +196,9 @@ module Bots::DcaSingleAsset::Measurable
   end
 
   def get_extended_chart_data_with_candles_data
+    extended_chart_data = { labels: [], series: [[], []] }
+    return Result::Success.new(extended_chart_data) if ticker.nil?
+
     metrics_data = metrics.deep_dup
     since = metrics_data[:chart][:labels].first + 1.second
     timeframe = optimal_candles_timeframe_for_duration(Time.now.utc - since)
@@ -212,7 +215,6 @@ module Bots::DcaSingleAsset::Measurable
     end
 
     i = 0
-    extended_chart_data = { labels: [], series: [[], []] }
     candles.each do |candle|
       i += 1 while i < metrics_data[:chart][:labels].length - 1 && metrics_data[:chart][:labels][i + 1] <= candle[0]
 
