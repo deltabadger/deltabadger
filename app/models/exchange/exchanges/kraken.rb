@@ -76,7 +76,8 @@ module Exchange::Exchanges::Kraken
         wsname = Utilities::Hash.dig_or_raise(info, 'wsname')
         base, quote = wsname.split('/')
         minimum_base_size = Utilities::Hash.dig_or_raise(info, 'ordermin').to_d
-        minimum_quote_size = (REAL_COSTMIN[quote] || Utilities::Hash.dig_or_raise(info, 'costmin')).to_d
+        # minimum_quote_size = (REAL_COSTMIN[quote] || Utilities::Hash.dig_or_raise(info, 'costmin')).to_d
+        minimum_quote_size = (REAL_COSTMIN[quote] || info['costmin'] || 0).to_d # some assets have no costmin
         {
           ticker: ticker,
           base: base,

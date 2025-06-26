@@ -1,3 +1,6 @@
+<%# &. because some migrated legacy bots point to unknown assets %>
+<% quote = bot.quote_asset&.symbol || bot.transactions.last&.quote %>
+
 <%= form_with model: bot,
               url: path,
               method: method,
@@ -27,7 +30,7 @@
               <%= f.select :price_limit_in_ticker_id, base_select_options, { selected: bot.price_limit_in_ticker_id }, data: { action: "change->form--submit#submit" }, disabled: bot.working? %>
             <% end %>
           <% else %>
-            <% base_html = base_select_options.first.first %>
+            <% base_html = base_select_options.first&.first || "" %>
           <% end %>
           <% value_condition_html = content_tag(:div, class: "sinput sinput--select #{'sinput--disabled' if bot.working?}") do %>
             <%= t("bot.settings.extra_price_limit.value_condition.#{bot.price_limit_value_condition}") %>
@@ -45,7 +48,7 @@
             <% price_input_html = t("bot.settings.extra_price_limit.price_limit_range_input_html",
                                     lower_bound_value_html: lower_bound_value_html.html_safe,
                                     upper_bound_value_html: upper_bound_value_html.html_safe,
-                                    quote: bot.quote_asset.symbol).html_safe %>
+                                    quote: quote).html_safe %>
           <% else %>
             <% value_html = content_tag(:div) do %>
               <% value = bot.price_limit.present? ? bot.price_limit.to_d.to_s('F').sub(/([0-9]\d*)\.0$/, '\1') : nil %>
@@ -53,14 +56,14 @@
             <% end %>
             <% price_input_html = t("bot.settings.extra_price_limit.price_limit_input_html",
                                     value_html: value_html.html_safe,
-                                    quote: bot.quote_asset.symbol).html_safe %>
+                                    quote: quote).html_safe %>
           <% end %>
           <%= t("bot.settings.extra_price_limit.sentence_html",
                 timing_condition_html: timing_condition_html.html_safe,
                 value_condition_html: value_condition_html.html_safe,
                 price_input_html: price_input_html.html_safe,
                 base_html: base_html.html_safe,
-                quote: bot.quote_asset.symbol,
+                quote: quote,
                 count: base_select_options.size).html_safe %>
           <%= render partial: "bots/settings/price_limit_info", locals: { bot: bot, info: bot.price_limit_info_from_cache } %>
         <% end %>
