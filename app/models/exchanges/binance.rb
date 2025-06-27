@@ -21,12 +21,12 @@ class Exchanges::Binance < Exchange
   end
 
   def proxy_ip
-    @proxy_ip ||= BinanceClient::PROXY.split('://').last.split(':').first if BinanceClient::PROXY.present?
+    @proxy_ip ||= Clients::Binance::PROXY.split('://').last.split(':').first if Clients::Binance::PROXY.present?
   end
 
   def set_client(api_key: nil)
     @api_key = api_key
-    @client = BinanceClient.new(
+    @client = Clients::Binance.new(
       api_key: api_key&.key,
       api_secret: api_key&.secret
     )
@@ -412,7 +412,7 @@ class Exchanges::Binance < Exchange
   end
 
   def get_api_key_validity(api_key:) # rubocop:disable Metrics/PerceivedComplexity,Metrics/CyclomaticComplexity
-    result = BinanceClient.new(
+    result = Clients::Binance.new(
       api_key: api_key.key,
       api_secret: api_key.secret
     ).api_description

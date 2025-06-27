@@ -22,12 +22,12 @@ class Exchanges::Coinbase < Exchange
   end
 
   def proxy_ip
-    @proxy_ip ||= CoinbaseClient::PROXY.split('://').last.split(':').first if CoinbaseClient::PROXY.present?
+    @proxy_ip ||= Clients::Coinbase::PROXY.split('://').last.split(':').first if Clients::Coinbase::PROXY.present?
   end
 
   def set_client(api_key: nil)
     @api_key = api_key
-    @client = CoinbaseClient.new(
+    @client = Clients::Coinbase.new(
       api_key: api_key&.key,
       api_secret: api_key&.secret
     )
@@ -297,7 +297,7 @@ class Exchanges::Coinbase < Exchange
   end
 
   def get_api_key_validity(api_key:) # rubocop:disable Metrics/CyclomaticComplexity,Metrics/PerceivedComplexity
-    result = CoinbaseClient.new(
+    result = Clients::Coinbase.new(
       api_key: api_key.key,
       api_secret: api_key.secret
     ).get_api_key_permissions
