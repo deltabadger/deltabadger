@@ -87,9 +87,9 @@ module Exchange::Synchronizer
 
   def translate_coingecko_symbols_to_exchange_symbols(hash)
     case coingecko_id
-    when Exchange::Exchanges::Coinbase::COINGECKO_ID
-      Exchange::Exchanges::Coinbase::ASSET_BLACKLIST.each { |symbol| hash.delete(symbol) }
-    when Exchange::Exchanges::Kraken::COINGECKO_ID
+    when Exchanges::Coinbase::COINGECKO_ID
+      Exchanges::Coinbase::ASSET_BLACKLIST.each { |symbol| hash.delete(symbol) }
+    when Exchanges::Kraken::COINGECKO_ID
       hash['XDG'] = hash.delete('DOGE')
     end
 
