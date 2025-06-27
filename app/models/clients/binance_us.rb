@@ -1,4 +1,4 @@
-class BinanceUsClient < BinanceClient
+class Clients::BinanceUs < Clients::Binance
   URL = 'https://api.binance.us'.freeze
   PROXY = ENV['US_HTTPS_PROXY'].present? ? "https://#{ENV['US_HTTPS_PROXY']}".freeze : nil
 
