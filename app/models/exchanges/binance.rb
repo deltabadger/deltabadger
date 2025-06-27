@@ -1,6 +1,4 @@
-module Exchange::Exchanges::Binance
-  extend ActiveSupport::Concern
-
+class Exchanges::Binance < Exchange
   COINGECKO_ID = 'binance'.freeze # https://docs.coingecko.com/reference/exchanges-list
   ERRORS = {
     insufficient_funds: ['Account has insufficient balance for requested action.'],
