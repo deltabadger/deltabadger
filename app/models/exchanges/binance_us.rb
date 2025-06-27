@@ -1,8 +1,4 @@
-module Exchange::Exchanges::BinanceUs
-  extend ActiveSupport::Concern
-
-  include Exchange::Exchanges::Binance
-
+class Exchanges::BinanceUs < Exchanges::Binance
   COINGECKO_ID = 'binance_us'.freeze # https://docs.coingecko.com/reference/exchanges-list
 
   def coingecko_id

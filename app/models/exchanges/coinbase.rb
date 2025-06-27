@@ -1,6 +1,4 @@
-module Exchange::Exchanges::Coinbase
-  extend ActiveSupport::Concern
-
+class Exchanges::Coinbase < Exchange
   COINGECKO_ID = 'gdax'.freeze # https://docs.coingecko.com/reference/exchanges-list
   ASSET_BLACKLIST = [
     'RENDER', # has the same external_id as RNDR. Remove it when Coinbase delists RENDER pairs
