@@ -48,12 +48,12 @@ class Exchanges::Kraken < Exchange
   end
 
   def proxy_ip
-    @proxy_ip ||= KrakenClient::PROXY.split('://').last.split(':').first if KrakenClient::PROXY.present?
+    @proxy_ip ||= Clients::Kraken::PROXY.split('://').last.split(':').first if Clients::Kraken::PROXY.present?
   end
 
   def set_client(api_key: nil)
     @api_key = api_key
-    @client = KrakenClient.new(
+    @client = Clients::Kraken.new(
       api_key: api_key&.key,
       api_secret: api_key&.secret
     )
@@ -341,7 +341,7 @@ class Exchanges::Kraken < Exchange
   end
 
   def get_api_key_validity(api_key:)
-    temp_client = KrakenClient.new(
+    temp_client = Clients::Kraken.new(
       api_key: api_key.key,
       api_secret: api_key.secret
     )

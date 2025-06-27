@@ -1,4 +1,4 @@
-class SendgridClient < ApplicationClient
+class Clients::Sendgrid < Client
   URL = 'https://api.sendgrid.com'.freeze
   API_KEY = ENV.fetch('SENDGRID_API_KEY').freeze
 

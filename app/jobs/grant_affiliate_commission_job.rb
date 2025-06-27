@@ -21,7 +21,7 @@ class GrantAffiliateCommissionJob < ApplicationJob
   private
 
   def client
-    @client ||= CoingeckoClient.new
+    @client ||= Clients::Coingecko.new
   end
 
   def get_btc_price(quote)

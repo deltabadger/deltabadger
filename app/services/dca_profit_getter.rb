@@ -22,7 +22,7 @@ class DcaProfitGetter < BaseService
   }.freeze
 
   def initialize
-    @client = FinancialDataApiClient.new
+    @client = Clients::FinancialDataApi.new
   end
 
   def call(asset = 'btc', start_date = 4.years.ago)

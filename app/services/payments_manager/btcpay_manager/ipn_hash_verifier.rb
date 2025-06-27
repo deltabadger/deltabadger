@@ -2,7 +2,7 @@ module PaymentsManager
   module BtcpayManager
     class IpnHashVerifier < BaseService
       def initialize
-        @client = BtcpayClient.new
+        @client = Clients::Btcpay.new
       end
 
       def call(params)

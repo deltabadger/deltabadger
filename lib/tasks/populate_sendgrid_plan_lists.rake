@@ -36,7 +36,7 @@ end
 # same as SendgridJob:
 
 def client
-  @client ||= SendgridClient.new
+  @client ||= Clients::Sendgrid.new
 end
 
 def get_list_id(list_name)

@@ -1,7 +1,7 @@
 module Admin
   class BitcoinPriceGetter < BaseService
     def initialize
-      @client = CoingeckoClient.new
+      @client = Clients::Coingecko.new
     end
 
     def call(quote:)

@@ -1,4 +1,4 @@
-class BtcpayClient < ApplicationClient
+class Clients::Btcpay < Client
   URL                   = ENV.fetch('BTCPAY_SERVER_URL').freeze
   API_KEY               = ENV.fetch('BTCPAY_API_KEY').freeze
   AUTHORIZATION_HEADER  = ENV.fetch('BTCPAY_AUTHORIZATION_HEADER').freeze
