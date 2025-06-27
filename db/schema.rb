@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema.define(version: 2025_06_23_145907) do
+ActiveRecord::Schema.define(version: 2025_06_26_172953) do
 
   # These are extensions that must be enabled in order to support this database
   enable_extension "plpgsql"
@@ -187,10 +187,9 @@ ActiveRecord::Schema.define(version: 2025_06_23_145907) do
     t.string "taker_fee"
     t.string "withdrawal_fee"
     t.string "maker_fee"
-    t.string "url"
-    t.string "color"
-    t.string "name_id"
-    t.index ["name_id"], name: "index_exchanges_on_name_id", unique: true
+    t.string "type"
+    t.boolean "available", default: false
+    t.index ["type"], name: "index_exchanges_on_type", unique: true
   end
 
   create_table "fee_api_keys", force: :cascade do |t|

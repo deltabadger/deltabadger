@@ -1,6 +1,6 @@
 desc 'rake task with exchange implementation helpers'
 task exchange_implementation_helpers: :environment do
-  e = Exchange.find_by(name_id: 'binance')
+  e = Exchange.find_by(type: 'Exchanges::Binance')
   coingecko_symbols = e.coingecko_symbols
   exchange_symbols = e.get_tickers_info(force: true).data.map { |t| [t[:base], t[:quote]] }.flatten.uniq.sort
 

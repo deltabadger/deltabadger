@@ -1,6 +1,4 @@
-module Exchange::Exchanges::Kraken
-  extend ActiveSupport::Concern
-
+class Exchanges::Kraken < Exchange
   COINGECKO_ID = 'kraken'.freeze # https://docs.coingecko.com/reference/exchanges-list
   ASSET_MAP = {
     'ZUSD' => 'USD',

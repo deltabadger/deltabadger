@@ -18,7 +18,7 @@ end
 
 def update_transactions_remote_data
   puts 'updating transactions remote data'
-  exchanges = Exchange.where(name_id: %w[coinbase kraken])
+  exchanges = Exchange.where(type: %w[Exchanges::Coinbase Exchanges::Kraken])
   exchange_ids = exchanges.pluck(:id)
   puts 'getting bot ids'
   bot_ids = Transaction.submitted
