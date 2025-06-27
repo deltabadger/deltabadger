@@ -513,6 +513,7 @@ class Exchanges::Kraken < Exchange
 
   def parse_order_data(order_id, order_data)
     pair = Utilities::Hash.dig_or_raise(order_data, 'descr', 'pair')
+    ticker = tickers.find_by(ticker: pair)
     order_type = parse_order_type(Utilities::Hash.dig_or_raise(order_data, 'descr', 'ordertype'))
     price = Utilities::Hash.dig_or_raise(order_data, 'price').to_d
     price = Utilities::Hash.dig_or_raise(order_data, 'descr', 'price').to_d if price.zero? && order_type == :limit_order
@@ -535,7 +536,6 @@ class Exchanges::Kraken < Exchange
       order_data['misc'].presence
     ].compact
     status = parse_order_status(Utilities::Hash.dig_or_raise(order_data, 'status'))
-    ticker = tickers.find_by(ticker: pair)
 
     {
       order_id: order_id,
