@@ -598,7 +598,8 @@ class Exchanges::Binance < Exchange
        quote_amount_exec_excl_commission.present? &&
        quote_amount_exec_excl_commission.positive? &&
        amount_exec_excl_commission.positive?
-      price = ticker.adjusted_price(price: quote_amount_exec_excl_commission / amount_exec_excl_commission, method: :round)
+      price = quote_amount_exec_excl_commission / amount_exec_excl_commission
+      price = ticker.adjusted_price(price: price, method: :round)
     end
     price = nil if price.zero?
 
@@ -667,10 +668,12 @@ class Exchanges::Binance < Exchange
       amount_execs << trade_data[:amount_exec]
       quote_amount_execs << trade_data[:quote_amount_exec]
     end
+    ticker = trade_datas.first[:ticker]
     price = Utilities::Math.weighted_average(prices, amounts)
+    price = ticker.adjusted_price(price: price, method: :round)
     {
       order_id: trade_datas.first[:order_id],
-      ticker: trade_datas.first[:ticker],
+      ticker: ticker,
       price: price,
       amount: amounts.sum,
       quote_amount: quote_amounts.sum,

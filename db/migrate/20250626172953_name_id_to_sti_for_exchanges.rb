@@ -4,7 +4,7 @@ class NameIdToStiForExchanges < ActiveRecord::Migration[6.0]
     remove_column :exchanges, :url, :string
     remove_column :exchanges, :color, :string
     add_column :exchanges, :type, :string
-    add_column :exchanges, :available, :boolean, default: false
+    add_column :exchanges, :available, :boolean, default: true
     add_index :exchanges, :type, unique: true
 
     Exchange.find_each do |exchange|
