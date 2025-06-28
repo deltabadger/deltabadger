@@ -1,5 +1,4 @@
-<%# &. because some migrated legacy bots point to unknown assets %>
-<% quote = bot.quote_asset&.symbol || bot.transactions.last&.quote %>
+<% quote = bot.quote_asset.symbol %>
 
 <%= form_with model: bot,
               url: path,

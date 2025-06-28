@@ -63,7 +63,7 @@ module Exchange::Dryable
     order_data = Rails.cache.read(order_id)
     return Result::Failure.new("Dry order #{order_id} not found") if order_data.blank?
 
-    order_data[:ticker] = ExchangeTicker.find(order_data[:ticker_id])
+    order_data[:ticker] = Ticker.find(order_data[:ticker_id])
     order_data.delete(:ticker_id)
 
     Rails.cache.delete(order_id)
