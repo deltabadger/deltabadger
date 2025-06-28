@@ -1,6 +1,6 @@
 desc 'rake task to upgrade legacy bots'
 task upgrade_legacy_bots: :environment do
-  exchange_ids = Exchange.where(name_id: %w[coinbase kraken binance binance_us]).pluck(:id)
+  exchange_ids = Exchange.available_for_new_bots.pluck(:id)
   bot_ids = Bot.basic
                .not_deleted
                .where(exchange_id: exchange_ids)
@@ -30,12 +30,16 @@ task upgrade_legacy_bots: :environment do
       raise "Bot #{bot.id} has unknown settings: #{bot.settings.keys.reject { |key| known_settings.include?(key) }}"
     end
 
-    bot.settings['base'] = 'POL' if bot.settings['base'] == 'MATIC' && bot.exchange.name_id.in?(%w[kraken binance binance_us])
-    bot.settings['quote'] = 'FDUSD' if bot.settings['quote'] == 'BUSD' && bot.exchange.name_id.in?(%w[binance binance_us])
+    bot.settings['base'] = 'POL' if bot.settings['base'] == 'MATIC' &&
+                                    bot.exchange.type.in?(%w[Exchanges::Kraken Exchanges::Binance Exchanges::BinanceUs])
+    bot.settings['base'] = 'NANO' if bot.settings['base'] == 'XNO' &&
+                                     bot.exchange.type.in?(%w[Exchanges::Binance Exchanges::BinanceUs])
+    # bot.settings['quote'] = 'FDUSD' if bot.settings['quote'] == 'BUSD' &&
+    #                                    bot.exchange.type.in?(%w[Exchanges::Binance Exchanges::BinanceUs])
 
-    ticker = ExchangeTicker.find_by(exchange: bot.exchange, base: bot.settings['base'], quote: bot.settings['quote'])
+    ticker = Ticker.find_by(exchange: bot.exchange, base: bot.settings['base'], quote: bot.settings['quote'])
     if ticker.blank?
-      puts "Ticker not found for bot #{bot.id} (exchange: #{bot.exchange.name_id}, base: #{bot.settings['base']}, quote: #{bot.settings['quote']})"
+      puts "Ticker not found for bot #{bot.id} (exchange: #{bot.exchange.name}, base: #{bot.settings['base']}, quote: #{bot.settings['quote']})"
       next
     end
 
@@ -47,7 +51,7 @@ task upgrade_legacy_bots: :environment do
     interval = bot.settings['interval']
     smart_intervaled = bot.settings['force_smart_intervals']
 
-    if bot.exchange.name_id == 'kraken'
+    if bot.exchange.type == 'Exchanges::Kraken' && ticker.present?
       result = ticker.get_last_price
       raise "Error getting last price for bot #{bot.id}: #{result.errors.to_sentence}" unless result.success?
 
@@ -79,7 +83,7 @@ task upgrade_legacy_bots: :environment do
       smart_intervaled: smart_intervaled,
       smart_interval_quote_amount: [
         smart_interval_quote_amount,
-        minimum_smart_interval_quote_amount(quote_amount, interval, ticker)
+        ticker.present? ? minimum_smart_interval_quote_amount(quote_amount, interval, ticker) : 0
       ].max.to_f,
       limit_ordered: limit_ordered,
       limit_order_pcnt_distance: limit_order_pcnt_distance

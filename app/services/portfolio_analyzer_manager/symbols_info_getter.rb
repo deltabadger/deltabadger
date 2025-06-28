@@ -6,7 +6,7 @@ module PortfolioAnalyzerManager
       # start_time = Time.now
       compressed_symbols_data = Rails.cache.fetch('symbols', expires_in: expires_in) do
         Rails.logger.info('Fetching symbols from API')
-        client = FinancialDataApiClient.new
+        client = Clients::FinancialDataApi.new
         symbols_result = client.symbols(source)
         return symbols_result if symbols_result.failure?
 

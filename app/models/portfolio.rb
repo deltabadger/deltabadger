@@ -175,7 +175,7 @@ class Portfolio < ApplicationRecord
     expires_in = Utilities::Time.seconds_to_end_of_day_utc.seconds + 5.minutes
     cache_key = "risk_free_rate_#{key}"
     time_series_result = Rails.cache.fetch(cache_key, expires_in: expires_in) do
-      client = FinancialDataApiClient.new
+      client = Clients::FinancialDataApi.new
       time_series_result = client.time_series(
         symbol: key,
         timeframe: '1d',

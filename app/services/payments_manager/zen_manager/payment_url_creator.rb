@@ -7,7 +7,7 @@ module PaymentsManager
       ZEN_TERMINAL_UUID   = ENV.fetch('ZEN_TERMINAL_UUID').freeze
 
       def initialize
-        @client = ZenClient.new
+        @client = Clients::Zen.new
       end
 
       def call(payment, user)

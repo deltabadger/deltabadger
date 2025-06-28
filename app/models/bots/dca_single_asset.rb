@@ -13,12 +13,10 @@ class Bots::DcaSingleAsset < Bot
   validate :validate_unchangeable_assets, on: :update
   validate :validate_unchangeable_interval, on: :update
   validate :validate_unchangeable_exchange, on: :update
-  validate :validate_tickers_exist, on: :start
+  validate :validate_tickers_available, on: :start
   validate :validate_dca_single_asset_included_in_subscription_plan, on: :start
 
   before_save :set_tickers, if: :will_save_change_to_exchange_id?
-  # TODO: If bots can change assets, we also need to update the tickers and assets values
-  #       ! also in price_limitable
 
   include SmartIntervalable      # decorators for: parse_params, effective_quote_amount, effective_interval_duration
   include LimitOrderable         # decorators for: parse_params, execute_action
@@ -111,7 +109,7 @@ class Bots::DcaSingleAsset < Bot
   end
 
   def available_exchanges_for_current_settings
-    scope = ExchangeTicker.where(exchange: Exchange.available_for_new_bots)
+    scope = Ticker.available.where(exchange: Exchange.available_for_new_bots)
     scope = scope.where(quote_asset_id: quote_asset_id) if quote_asset_id.present?
     scope = scope.where(base_asset_id: base_asset_id) if base_asset_id.present?
     exchange_ids = scope.pluck(:exchange_id).uniq
@@ -124,12 +122,14 @@ class Bots::DcaSingleAsset < Bot
 
     case asset_type
     when :base_asset
-      scope = ExchangeTicker.where(exchange: available_exchanges)
-                            .where.not(base_asset_id: [base_asset_id, quote_asset_id])
+      scope = Ticker.available
+                    .where(exchange: available_exchanges)
+                    .where.not(base_asset_id: [base_asset_id, quote_asset_id])
       scope = scope.where(quote_asset_id: quote_asset_id) if quote_asset_id.present?
     when :quote_asset
-      scope = ExchangeTicker.where(exchange: available_exchanges)
-                            .where.not(quote_asset_id: [base_asset_id, quote_asset_id])
+      scope = Ticker.available
+                    .where(exchange: available_exchanges)
+                    .where.not(quote_asset_id: [base_asset_id, quote_asset_id])
       scope = scope.where(base_asset_id: base_asset_id) if base_asset_id.present?
     end
     asset_ids = scope.pluck("#{asset_type}_id").uniq
@@ -201,7 +201,7 @@ class Bots::DcaSingleAsset < Bot
   end
 
   def validate_bot_exchange
-    return if exchange.tickers.exists?(base_asset: base_asset, quote_asset: quote_asset)
+    return if exchange.tickers.available.exists?(base_asset: base_asset, quote_asset: quote_asset)
 
     errors.add(:exchange, :unsupported, message: I18n.t('errors.bots.exchange_asset_mismatch', exchange_name: exchange.name))
   end
@@ -233,8 +233,8 @@ class Bots::DcaSingleAsset < Bot
 
   def validate_dca_single_asset_included_in_subscription_plan; end
 
-  def validate_tickers_exist
-    return if ticker.present?
+  def validate_tickers_available
+    return if ticker.present? && ticker.available?
 
     errors.add(:base_asset_id, :invalid)
     errors.add(:quote_asset_id, :invalid)
@@ -242,7 +242,7 @@ class Bots::DcaSingleAsset < Bot
 
   def set_tickers
     @tickers = exchange&.tickers&.where(base_asset_id: base_asset_id, quote_asset_id: quote_asset_id) ||
-               ExchangeTicker.none
+               Ticker.none
   end
 
   def action_job_config

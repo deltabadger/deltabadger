@@ -75,7 +75,7 @@ module User::Sendgridable
   private
 
   def sendgrid_client
-    @sendgrid_client ||= SendgridClient.new
+    @sendgrid_client ||= Clients::Sendgrid.new
   end
 
   def get_list_id(list_name)

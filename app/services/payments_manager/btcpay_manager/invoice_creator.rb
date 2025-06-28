@@ -6,7 +6,7 @@ module PaymentsManager
       HOST = ENV.fetch('APP_ROOT_URL').freeze
 
       def initialize
-        @client = BtcpayClient.new
+        @client = Clients::Btcpay.new
       end
 
       def call(payment)

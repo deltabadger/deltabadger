@@ -11,9 +11,9 @@ module Exchange::Synchronizer
     return result if result.failure?
 
     # Only create assets that exist in Coingecko or Eodhd!
-    # Never destroy an Asset! (ExchangeAsset is ok)
     create_missing_assets!(external_ids)
 
+    # Never destroy an Asset, ExchangeAsset or Ticker!
     sync_existing_exchange_assets_and_tickers!(result.data)
 
     Result::Success.new
@@ -75,7 +75,7 @@ module Exchange::Synchronizer
   end
 
   def coingecko_client
-    @coingecko_client ||= CoingeckoClient.new
+    @coingecko_client ||= Clients::Coingecko.new
   end
 
   def eodhd_external_id_for_symbol(symbol)
@@ -87,9 +87,9 @@ module Exchange::Synchronizer
 
   def translate_coingecko_symbols_to_exchange_symbols(hash)
     case coingecko_id
-    when Exchange::Exchanges::Coinbase::COINGECKO_ID
-      Exchange::Exchanges::Coinbase::ASSET_BLACKLIST.each { |symbol| hash.delete(symbol) }
-    when Exchange::Exchanges::Kraken::COINGECKO_ID
+    when Exchanges::Coinbase::COINGECKO_ID
+      Exchanges::Coinbase::ASSET_BLACKLIST.each { |symbol| hash.delete(symbol) }
+    when Exchanges::Kraken::COINGECKO_ID
       hash['XDG'] = hash.delete('DOGE')
     end
 
@@ -117,7 +117,7 @@ module Exchange::Synchronizer
   end
 
   def sync_existing_exchange_assets_and_tickers!(tickers_info)
-    current_tickers = tickers.pluck(:ticker)
+    current_tickers = tickers.available.pluck(:ticker)
     updated_tickers = []
     tickers_info.each do |ticker_info|
       base = ticker_info[:base]
@@ -132,8 +132,10 @@ module Exchange::Synchronizer
 
         base_asset = Asset.find_by(external_id: base_asset_external_id)
         quote_asset = Asset.find_by(external_id: quote_asset_external_id)
-        exchange_assets.find_by(asset_id: base_asset.id) || exchange_assets.create!(asset_id: base_asset.id)
-        exchange_assets.find_by(asset_id: quote_asset.id) || exchange_assets.create!(asset_id: quote_asset.id)
+        [base_asset, quote_asset].each do |asset|
+          exchange_asset = exchange_assets.find_by(asset_id: asset.id)
+          exchange_asset.present? ? exchange_asset.update!(available: true) : exchange_assets.create!(asset_id: asset.id)
+        end
 
         ticker_data = {
           base_asset: base_asset,
@@ -144,8 +146,9 @@ module Exchange::Synchronizer
       updated_tickers << ticker.ticker
     end
 
-    tickers.where(ticker: current_tickers - updated_tickers).destroy_all
-    asset_ids = assets.pluck(:asset_id) - tickers.pluck(:base_asset_id, :quote_asset_id).flatten.uniq
-    exchange_assets.where(asset_id: asset_ids).destroy_all
+    tickers.where(ticker: current_tickers - updated_tickers).update_all(available: false)
+    current_exchange_asset_ids = exchange_assets.available.pluck(:asset_id)
+    updated_exchange_asset_ids = tickers.available.pluck(:base_asset_id, :quote_asset_id).flatten.uniq
+    exchange_assets.where(asset_id: current_exchange_asset_ids - updated_exchange_asset_ids).update_all(available: false)
   end
 end

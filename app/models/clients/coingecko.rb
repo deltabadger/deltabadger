@@ -1,4 +1,4 @@
-class CoingeckoClient < ApplicationClient
+class Clients::Coingecko < Client
   URL = 'https://pro-api.coingecko.com/api/v3'.freeze
   KEY = ENV.fetch('COINGECKO_API_KEY').freeze
 
