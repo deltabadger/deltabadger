@@ -77,6 +77,6 @@ class Asset < ApplicationRecord
   private
 
   def coingecko_client
-    @coingecko_client ||= CoingeckoClient.new
+    @coingecko_client ||= Clients::Coingecko.new
   end
 end
