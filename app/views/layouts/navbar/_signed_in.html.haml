@@ -27,7 +27,7 @@
       = t('subscriptions.upgrade_plan')
   .menu-mobile__divider
   - if current_user.has_community_access? || ["basic", "legendary", "pro"].include?(current_user.subscription.name)
-    = link_to 'https://skool.com/fire', class: "menu-mobile__item menu-mobile__item--community", data: { controller: 'tooltip', action: 'mouseenter->tooltip#showTooltip mouseleave->tooltip#hideTooltip' }, target: "_blank", rel: "noopener" do
+    = link_to 'https://t.me/+V-TV99Y6suYATK8F', class: "menu-mobile__item menu-mobile__item--community", data: { controller: 'tooltip', action: 'mouseenter->tooltip#showTooltip mouseleave->tooltip#hideTooltip' }, target: "_blank", rel: "noopener" do
       = t('links.community')
       = render "svg/16x16_link"
   - else
@@ -99,7 +99,7 @@
         = t('links.settings')
 
     - if current_user.has_community_access? || ["basic", "legendary", "pro"].include?(current_user.subscription.name)
-      = link_to 'https://skool.com/fire', class: "menu__item menu__item--community", data: { controller: 'tooltip', action: 'mouseenter->tooltip#showTooltip mouseleave->tooltip#hideTooltip' }, target: "_blank", rel: "noopener" do
+      = link_to 'https://t.me/+V-TV99Y6suYATK8F', class: "menu__item menu__item--community", data: { controller: 'tooltip', action: 'mouseenter->tooltip#showTooltip mouseleave->tooltip#hideTooltip' }, target: "_blank", rel: "noopener" do
         = render 'svg/24x24_fire'
         //.xsbadge= t('utils.new')
         .tooltip
