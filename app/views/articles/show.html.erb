@@ -1,0 +1,65 @@
+<% content_for :title, @page_title %>
+<% content_for :meta_description, @meta_description %>
+
+<article class="article">
+  <header class="article__header">
+    <hgroup>
+    <h1 class="article__header__title"><%= @article.title %></h1>
+    <% if @article.subtitle.present? %>
+      <div class="article__header__subtitle"><%= @article.subtitle %></div>
+    <% end %>
+    </hgroup>
+    <div class="article__header__meta">
+      <% if @article.author_name.present? %>
+        <span class="article__header__meta__author">
+          <%= t('articles.by_author', author: @article.author_name) %>
+        </span>
+      <% end %>
+      
+      <% if @article.published_at.present? %>
+        &middot;
+        <time class="article__header__meta__date" datetime="<%= @article.published_at.iso8601 %>">
+          <%= l(@article.published_at.to_date, format: :long) %>
+        </time>
+      <% end %>
+      
+      <% if @article.reading_time_minutes.present? %>
+        &middot;
+        <span class="article__header__meta__reading-time">
+          <%= t('articles.reading_time', minutes: @article.reading_time_minutes) %>
+        </span>
+      <% end %>
+      
+      <% if @article.has_paywall? %>
+        &middot;
+        <span class="article__header__meta__premium">
+          <%= t('articles.premium_content') %>
+        </span>
+      <% end %>
+      
+    </div>
+  </header>
+  
+  <div class="article-body">
+    <%= raw @content %>
+  </div>
+  
+  <% if @has_paywall && !@user_has_access %>
+    <div class="paywall">
+      <h3><%= t('articles.paywall.title') %></h3>
+      <p><%= t('articles.paywall.description') %></p>
+      <div class="paywall__actions">
+        <% if user_signed_in? %>
+          <%= link_to t('articles.paywall.upgrade_button'), upgrade_path, class: "button button--primary button--large" %>
+        <% else %>
+          <%= button_to omniauth_authorize_path(:user, :google_oauth2), method: :post, data: { turbo: false }, class: "button button--google button--large" do %>
+            <%= render "svg/google" %>
+            <%= t('shared.links.signup_with_google') %>
+          <% end %>
+          <%# link_to t('links.log_in'), new_user_session_path, class: "button button--link button--large" %>
+        <% end %>
+      </div>
+    </div>
+  <% end %>
+
+</article>

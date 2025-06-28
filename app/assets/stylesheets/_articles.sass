@@ -1,0 +1,173 @@
+.view--articles-show,.view--articles-index
+  --link: var(--navbarLink)
+  @media (prefers-color-scheme: dark)
+    --text: #cde
+  @media (prefers-color-scheme: light)
+    --text: #024
+  .main
+    margin: 0 auto
+    padding: 8rem 1.5rem
+    max-width: 144rem
+    @media (min-width: 768px)
+      padding: 8rem 14rem
+    @media (min-width: 1024px)
+      padding: 12rem 16rem
+    @media (min-width: 1280px)
+      padding: 16rem
+  .button
+    max-width: 30rem
+.article
+  display: flex
+  flex-direction: column
+  gap: 8rem
+  @media (min-width: 768px)
+    gap: 12rem
+  h2
+    margin: 12rem 0 6rem 0
+    font-size: 2.5rem
+    font-weight: 700
+    line-height: 1.5
+    text-align: left
+    @media (min-width: 768px)
+      font-size: 3rem
+      line-height: 1.2
+    @media (min-width: 1024px)
+      font-size: 4rem
+      line-height: 1.1
+  h3
+    margin: 4rem 0
+    font-size: 2rem
+    font-weight: 700
+    line-height: 1.5
+    text-align: left
+    @media (min-width: 768px)
+      font-size: 2.25rem
+      line-height: 1.2
+    @media (min-width: 1024px)
+      font-size: 3rem
+      line-height: 1.1
+  p, ol, ul
+    margin-bottom: 2rem
+  .twitter-tweet
+    padding: 4rem 0
+    margin: 0 auto
+    max-width: 100%
+    iframe
+      border-radius: 1.5rem
+  &__header
+    display: flex
+    flex-direction: column
+    text-align: left
+    gap: 2rem
+    @media (min-width: 768px)
+      gap: 5rem
+    @media (min-width: 1024px)
+      gap: 6rem
+    
+    hgroup
+      display: flex
+      flex-direction: column
+      gap: 1rem
+    &__title
+      font-size: 4rem
+      font-weight: 700
+      line-height: 1.5
+      @media (min-width: 768px)
+        font-size: 5rem
+        line-height: 1.2
+      @media (min-width: 1024px)
+        font-size: 6rem
+        line-height: 1.1
+    &__subtitle
+      text-align: left
+      font-size: 2rem
+      font-weight: 500
+      padding: 0
+      @media (min-width: 768px)
+        font-size: 2.5rem
+      @media (min-width: 1024px)
+        font-size: 3rem
+    &__meta
+      &__premium
+        color: var(--link)
+        font-weight: 500
+        text-transform: uppercase
+        font-size: 0.75em
+        display: inline-block
+        padding: 0 0.75em
+        border-radius: 1em
+        border: 1px solid var(--link)
+.paywall
+  background: linear-gradient(to bottom, #fff0 0%, var(--background) 33%)
+  position: relative
+  z-index: 1
+  margin-top: -40rem
+  margin-left: -4rem
+  margin-right: -4rem
+  padding: 24rem 3rem 3rem 3rem
+  text-align: center
+  display: flex
+  flex-direction: column
+  align-items: center
+  justify-content: center
+  gap: 3rem
+  &__actions
+    display: flex
+    flex-direction: column
+    gap: 0rem
+  .button
+    width: 40rem
+    min-width: 40rem
+    
+
+.monetary-aggregates
+  margin: 4rem 0
+  border: 1px solid var(--label)
+  @media (min-width: 768px)
+    display: flex
+    flex-direction: row
+  .col
+    padding: 2rem 2rem 0.5rem
+    flex: 1
+    background-color: #00ffae40
+    display: flex
+    flex-direction: column
+    gap: 2rem
+    h3
+      padding: 0
+      font-size: 4rem
+      font-weight: 400
+    &+.col
+      border-top: 1px solid var(--label)
+      background-color: #00ddff40
+      @media (min-width: 768px)
+        border-top: none
+        border-left: 1px solid var(--label)
+      &+.col
+        background-color: #001aff40
+
+
+.article
+  table
+    width: 100%
+    
+    border-spacing: 0
+    border-collapse: collapse
+    margin: 4rem 0
+    tbody
+      background-color: var(--widget-background)
+      box-shadow: var(--widget-shadow)
+      tr:nth-child(even)
+        background-color: var(--widget-background-odd)
+    th,td
+      text-align: left
+      padding: 1rem 2rem
+    tr
+      font-family: Arial, "Helvetica Neue", Helvetica, sans
+  &__key-part
+    background: var(--widget-background)
+    border: 1px solid var(--text)
+    padding: 4rem
+    margin: 12rem 0
+    h2
+      margin-top: 0

@@ -1,0 +1,14 @@
+en:
+  articles:
+    index:
+      title: "Articles"
+      meta_description: "Read our latest articles about cryptocurrency trading, DCA strategies, and platform updates."
+      no_articles: "No articles available at the moment."
+    by_author: "by %{author}"
+    reading_time: "%{minutes} min read"
+    read_more: "Read More"
+    premium_content: "Premium"
+    back_to_articles: "← Back to Articles"
+    paywall:
+      title: "Subscribe to continue reading."
+      description: "Get access to monthly articles, portfolio analyzer, and cryptocurrency market automations."

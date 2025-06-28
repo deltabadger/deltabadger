@@ -90,6 +90,8 @@ gem "pagy", "~> 6.5"
 gem "haikunator", "~> 1.1"
 gem "sqids" # for obfuscating IDs
 gem "mini_magick", "~> 5.2"
+gem "kramdown", "~> 2.4"
+gem "kramdown-parser-gfm", "~> 1.1" # GitHub Flavored Markdown support
 gem 'ruby-technical-analysis', git: 'https://github.com/guillemap/ruby-technical-analysis' # TODO: use the official gem once https://github.com/johnnypaper/ruby-technical-analysis/pull/32 is merged
 gem 'omniauth-google-oauth2'
 gem "omniauth-rails_csrf_protection"

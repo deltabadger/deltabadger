@@ -1,0 +1,14 @@
+it:
+  articles:
+    index:
+      title: "Articoli"
+      meta_description: "Leggi i nostri ultimi articoli sul trading di criptovalute, strategie DCA e aggiornamenti della piattaforma."
+      no_articles: "Nessun articolo disponibile al momento."
+    by_author: "di %{author}"
+    reading_time: "%{minutes} min di lettura"
+    read_more: "Leggi di più"
+    premium_content: "Premium"
+    back_to_articles: "← Torna agli Articoli"
+    paywall:
+      title: "Abbonati per continuare a leggere."
+      description: "Accedi a articoli mensili, analizzatore di portafoglio e automazioni di mercato."
