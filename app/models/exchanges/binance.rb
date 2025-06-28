@@ -43,6 +43,7 @@ class Exchanges::Binance < Exchange
 
       result.data['symbols'].map do |product|
         ticker = Utilities::Hash.dig_or_raise(product, 'symbol')
+        status = Utilities::Hash.dig_or_raise(product, 'status')
 
         filters = Utilities::Hash.dig_or_raise(product, 'filters')
         price_filter = filters.find { |filter| filter['filterType'] == 'PRICE_FILTER' }
@@ -64,7 +65,8 @@ class Exchanges::Binance < Exchange
           maximum_quote_size: notional_filter['maxNotional'].to_d,
           base_decimals: Utilities::Number.decimals(lot_size_filter['stepSize']),
           quote_decimals: Utilities::Hash.dig_or_raise(product, 'quoteAssetPrecision'),
-          price_decimals: Utilities::Number.decimals(price_filter['tickSize'])
+          price_decimals: Utilities::Number.decimals(price_filter['tickSize']),
+          available: status == 'TRADING'
         }
       end.compact
     end
@@ -490,9 +492,9 @@ class Exchanges::Binance < Exchange
   end
 
   def asset_from_symbol(symbol)
-    @asset_from_symbol ||= tickers.includes(:base_asset, :quote_asset).each_with_object({}) do |t, map|
-      map[t.base] ||= t.base_asset
-      map[t.quote] ||= t.quote_asset
+    @asset_from_symbol ||= tickers.available.includes(:base_asset, :quote_asset).each_with_object({}) do |t, h|
+      h[t.base] ||= t.base_asset
+      h[t.quote] ||= t.quote_asset
     end
     @asset_from_symbol[symbol]
   end
