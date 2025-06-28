@@ -1,4 +1,4 @@
-class ZenClient < ApplicationClient
+class Clients::Zen < Client
   URL                 = ENV.fetch('ZEN_CHECKOUT_URL').freeze
   ZEN_PAYWALL_SECRET  = ENV.fetch('ZEN_PAYWALL_SECRET').freeze
 

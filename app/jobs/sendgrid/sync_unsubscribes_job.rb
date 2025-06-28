@@ -22,6 +22,6 @@ class Sendgrid::SyncUnsubscribesJob < ApplicationJob
   private
 
   def client
-    @client ||= SendgridClient.new
+    @client ||= Clients::Sendgrid.new
   end
 end

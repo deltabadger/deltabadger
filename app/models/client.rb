@@ -1,4 +1,4 @@
-class ApplicationClient
+class Client
   OPTIONS = {
     request: {
       open_timeout: 1,  # seconds to wait for the connection to open

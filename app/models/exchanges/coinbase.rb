@@ -1,6 +1,4 @@
-module Exchange::Exchanges::Coinbase
-  extend ActiveSupport::Concern
-
+class Exchanges::Coinbase < Exchange
   COINGECKO_ID = 'gdax'.freeze # https://docs.coingecko.com/reference/exchanges-list
   ASSET_BLACKLIST = [
     'RENDER', # has the same external_id as RNDR. Remove it when Coinbase delists RENDER pairs
@@ -24,12 +22,12 @@ module Exchange::Exchanges::Coinbase
   end
 
   def proxy_ip
-    @proxy_ip ||= CoinbaseClient::PROXY.split('://').last.split(':').first if CoinbaseClient::PROXY.present?
+    @proxy_ip ||= Clients::Coinbase::PROXY.split('://').last.split(':').first if Clients::Coinbase::PROXY.present?
   end
 
   def set_client(api_key: nil)
     @api_key = api_key
-    @client = CoinbaseClient.new(
+    @client = Clients::Coinbase.new(
       api_key: api_key&.key,
       api_secret: api_key&.secret
     )
@@ -59,7 +57,8 @@ module Exchange::Exchanges::Coinbase
           maximum_quote_size: Utilities::Hash.dig_or_raise(product, 'quote_max_size').to_d,
           base_decimals: Utilities::Number.decimals(base_increment),
           quote_decimals: Utilities::Number.decimals(quote_increment),
-          price_decimals: Utilities::Number.decimals(price_increment)
+          price_decimals: Utilities::Number.decimals(price_increment),
+          available: true
         }
       end.compact
     end
@@ -299,7 +298,7 @@ module Exchange::Exchanges::Coinbase
   end
 
   def get_api_key_validity(api_key:) # rubocop:disable Metrics/CyclomaticComplexity,Metrics/PerceivedComplexity
-    result = CoinbaseClient.new(
+    result = Clients::Coinbase.new(
       api_key: api_key.key,
       api_secret: api_key.secret
     ).get_api_key_permissions
@@ -335,9 +334,9 @@ module Exchange::Exchanges::Coinbase
   end
 
   def asset_from_symbol(symbol)
-    @asset_from_symbol ||= tickers.includes(:base_asset, :quote_asset).each_with_object({}) do |t, map|
-      map[t.base] ||= t.base_asset
-      map[t.quote] ||= t.quote_asset
+    @asset_from_symbol ||= tickers.available.includes(:base_asset, :quote_asset).each_with_object({}) do |t, h|
+      h[t.base] ||= t.base_asset
+      h[t.quote] ||= t.quote_asset
     end
     @asset_from_symbol[symbol]
   end

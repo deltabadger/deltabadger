@@ -12,7 +12,7 @@ def update_new_bots_transactions_remote_data
     bot = Bot.find(bot_id)
     bot.transactions.where(price: 0).update_all(price: nil)
     update_transactions_assets(bot) if bot.dca_single_asset?
-    update_binance_external_ids(bot) if bot.exchange.name_id.in?(%w[binance binance_us])
+    update_binance_external_ids(bot) if bot.exchange.type.in?(%w[Exchanges::Binance Exchanges::BinanceUs])
     api_key = bot.user.api_keys.trading.correct.find_by(exchange: bot.exchange)
     next if api_key.blank?
 
@@ -74,7 +74,7 @@ def update_new_bots_transactions_remote_data
         }
 
         # do not convert the asset of transactions of bots migrated from BUSD to FDUSD
-        if bot.exchange.name_id.in?(%w[binance binance_us]) && transaction.quote == 'BUSD'
+        if bot.exchange.type.in?(%w[Exchanges::Binance Exchanges::BinanceUs]) && transaction.quote == 'BUSD'
           order_values[:quote] = transaction.quote
         end
 
@@ -93,7 +93,7 @@ def update_transactions_assets(bot)
 end
 
 def update_binance_external_ids(bot)
-  return unless bot.exchange.name_id.in?(%w[binance binance_us])
+  return unless bot.exchange.type.in?(%w[Exchanges::Binance Exchanges::BinanceUs])
 
   bot.transactions.submitted.where.not(external_id: nil).find_each do |transaction|
     next if transaction.external_id.include?('-')

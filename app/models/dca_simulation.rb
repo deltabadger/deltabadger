@@ -14,7 +14,7 @@ class DcaSimulation
     @interval = interval
     @amount = amount
     @target_profit = target_profit
-    @client = FinancialDataApiClient.new
+    @client = Clients::FinancialDataApi.new
   end
 
   def perform
