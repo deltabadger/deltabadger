@@ -48,7 +48,7 @@
       </div>
     </div>
 
-    <div id="current_user_subscription" data="<%= current_user.subscription.name %>"></div>
+    <div id="current_user_subscription" data="<%= current_user&.subscription&.name || 'free' %>"></div>
 
     <%= turbo_frame_tag 'modal' %>
   </body>
