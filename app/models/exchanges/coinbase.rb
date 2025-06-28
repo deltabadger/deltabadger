@@ -57,7 +57,8 @@ class Exchanges::Coinbase < Exchange
           maximum_quote_size: Utilities::Hash.dig_or_raise(product, 'quote_max_size').to_d,
           base_decimals: Utilities::Number.decimals(base_increment),
           quote_decimals: Utilities::Number.decimals(quote_increment),
-          price_decimals: Utilities::Number.decimals(price_increment)
+          price_decimals: Utilities::Number.decimals(price_increment),
+          available: true
         }
       end.compact
     end
@@ -333,9 +334,9 @@ class Exchanges::Coinbase < Exchange
   end
 
   def asset_from_symbol(symbol)
-    @asset_from_symbol ||= tickers.includes(:base_asset, :quote_asset).each_with_object({}) do |t, map|
-      map[t.base] ||= t.base_asset
-      map[t.quote] ||= t.quote_asset
+    @asset_from_symbol ||= tickers.available.includes(:base_asset, :quote_asset).each_with_object({}) do |t, h|
+      h[t.base] ||= t.base_asset
+      h[t.quote] ||= t.quote_asset
     end
     @asset_from_symbol[symbol]
   end

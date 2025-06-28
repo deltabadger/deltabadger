@@ -6,8 +6,7 @@ class Exchange < ApplicationRecord
   has_many :api_keys
   has_many :exchange_assets
   has_many :assets, through: :exchange_assets
-  has_many :exchange_tickers
-  has_many :tickers, class_name: 'ExchangeTicker' # alias for exchange_tickers
+  has_many :tickers
   has_many :transactions
 
   validates :name, presence: true
