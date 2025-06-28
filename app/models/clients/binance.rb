@@ -1,4 +1,4 @@
-class BinanceClient < ApplicationClient
+class Clients::Binance < Client
   # https://developers.binance.com/docs/binance-spot-api-docs/rest-api
 
   URL = 'https://api.binance.com'.freeze

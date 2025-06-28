@@ -1,4 +1,4 @@
-class KrakenIapiClient < ApplicationClient
+class Clients::KrakenIapi < Client
   URL = 'https://iapi.kraken.com/api/internal'.freeze
 
   def self.connection

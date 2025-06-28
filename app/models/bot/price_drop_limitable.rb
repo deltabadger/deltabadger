@@ -103,7 +103,7 @@ module Bot::PriceDropLimitable
     return Result::Success.new(false) unless price_drop_limited?
     return Result::Success.new(true) if timing_condition_satisfied?
 
-    ticker = tickers.find_by(id: price_drop_limit_in_ticker_id)
+    ticker = tickers.available.find_by(id: price_drop_limit_in_ticker_id)
     return Result::Success.new(false) unless ticker.present?
 
     price_result = ticker.get_last_price
@@ -129,8 +129,8 @@ module Bot::PriceDropLimitable
   end
 
   def broadcast_price_drop_limit_info_update
-    ticker = tickers.find_by(id: price_drop_limit_in_ticker_id)
-    return if ticker.nil?
+    ticker = tickers.available.find_by(id: price_drop_limit_in_ticker_id)
+    return unless ticker.present?
 
     high_result = ticker.get_high_of_last(duration: price_drop_limit_time_window_duration)
     return if high_result.failure?
@@ -210,7 +210,7 @@ module Bot::PriceDropLimitable
 
   def set_price_drop_limit_in_ticker_id
     if price_drop_limit_in_ticker_id_was.present? && exchange_id_was.present? && exchange_id_was != exchange_id
-      ticker_was = ExchangeTicker.find_by(id: price_drop_limit_in_ticker_id_was)
+      ticker_was = Ticker.find_by(id: price_drop_limit_in_ticker_id_was)
       self.price_drop_limit_in_ticker_id = tickers.find_by(
         base_asset_id: ticker_was.base_asset_id,
         quote_asset_id: ticker_was.quote_asset_id

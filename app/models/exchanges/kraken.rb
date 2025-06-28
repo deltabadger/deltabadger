@@ -1,6 +1,4 @@
-module Exchange::Exchanges::Kraken
-  extend ActiveSupport::Concern
-
+class Exchanges::Kraken < Exchange
   COINGECKO_ID = 'kraken'.freeze # https://docs.coingecko.com/reference/exchanges-list
   ASSET_MAP = {
     'ZUSD' => 'USD',
@@ -50,12 +48,12 @@ module Exchange::Exchanges::Kraken
   end
 
   def proxy_ip
-    @proxy_ip ||= KrakenClient::PROXY.split('://').last.split(':').first if KrakenClient::PROXY.present?
+    @proxy_ip ||= Clients::Kraken::PROXY.split('://').last.split(':').first if Clients::Kraken::PROXY.present?
   end
 
   def set_client(api_key: nil)
     @api_key = api_key
-    @client = KrakenClient.new(
+    @client = Clients::Kraken.new(
       api_key: api_key&.key,
       api_secret: api_key&.secret
     )
@@ -88,7 +86,8 @@ module Exchange::Exchanges::Kraken
           maximum_quote_size: nil,
           base_decimals: Utilities::Hash.dig_or_raise(info, 'lot_decimals'),
           quote_decimals: Utilities::Hash.dig_or_raise(info, 'cost_decimals'),
-          price_decimals: Utilities::Hash.dig_or_raise(info, 'pair_decimals')
+          price_decimals: Utilities::Hash.dig_or_raise(info, 'pair_decimals'),
+          available: true
         }
       end.compact
     end
@@ -112,7 +111,7 @@ module Exchange::Exchanges::Kraken
         prices_hash[ticker] = price
       end
 
-      missing_tickers = tickers.pluck(:ticker) - prices_hash.keys
+      missing_tickers = tickers.available.pluck(:ticker) - prices_hash.keys
       missing_tickers.each do |ticker|
         result = client.get_ticker_information(pair: ticker)
         return result if result.failure?
@@ -343,7 +342,7 @@ module Exchange::Exchanges::Kraken
   end
 
   def get_api_key_validity(api_key:)
-    temp_client = KrakenClient.new(
+    temp_client = Clients::Kraken.new(
       api_key: api_key.key,
       api_secret: api_key.secret
     )
@@ -388,9 +387,9 @@ module Exchange::Exchanges::Kraken
   end
 
   def asset_from_symbol(symbol)
-    @asset_from_symbol ||= tickers.includes(:base_asset, :quote_asset).each_with_object({}) do |t, map|
-      map[t.base] ||= t.base_asset
-      map[t.quote] ||= t.quote_asset
+    @asset_from_symbol ||= tickers.available.includes(:base_asset, :quote_asset).each_with_object({}) do |t, h|
+      h[t.base] ||= t.base_asset
+      h[t.quote] ||= t.quote_asset
     end
     symbol = symbol.split('.').first
     symbol = ASSET_MAP[symbol] || symbol
@@ -515,6 +514,7 @@ module Exchange::Exchanges::Kraken
 
   def parse_order_data(order_id, order_data)
     pair = Utilities::Hash.dig_or_raise(order_data, 'descr', 'pair')
+    ticker = tickers.find_by(ticker: pair)
     order_type = parse_order_type(Utilities::Hash.dig_or_raise(order_data, 'descr', 'ordertype'))
     price = Utilities::Hash.dig_or_raise(order_data, 'price').to_d
     price = Utilities::Hash.dig_or_raise(order_data, 'descr', 'price').to_d if price.zero? && order_type == :limit_order
@@ -537,7 +537,6 @@ module Exchange::Exchanges::Kraken
       order_data['misc'].presence
     ].compact
     status = parse_order_status(Utilities::Hash.dig_or_raise(order_data, 'status'))
-    ticker = tickers.find_by(ticker: pair)
 
     {
       order_id: order_id,

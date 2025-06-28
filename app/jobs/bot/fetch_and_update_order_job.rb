@@ -9,7 +9,7 @@ class Bot::FetchAndUpdateOrderJob < BotJob
     quote_amount_diff = order_data[:quote_amount_exec] - (order.quote_amount_exec || 0)
     case order_data[:status]
     when :open, :closed
-      raise "Failed to update order #{order.external_id}" unless order.update_from_order_data(order_data)
+      raise "Failed to update order #{order.external_id}" unless order.update_with_order_data(order_data)
 
       if update_missed_quote_amount && order.created_at >= calc_since
         missed_quote_amount = [0, order.bot.missed_quote_amount - quote_amount_diff].max

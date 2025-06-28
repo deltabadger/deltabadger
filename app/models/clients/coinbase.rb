@@ -1,4 +1,4 @@
-class CoinbaseClient < ApplicationClient
+class Clients::Coinbase < Client
   # https://docs.cdp.coinbase.com/coinbase-app/trade/docs/api-overview
 
   URL = 'https://api.coinbase.com'.freeze

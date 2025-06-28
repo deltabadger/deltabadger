@@ -43,9 +43,8 @@ class BotsController < ApplicationController
         # TODO: When transactions point to real asset ids, we can use the asset ids directly instead of symbols
         if @bot.dca_single_asset?
           @decimals = {
-            # &. because some migrated legacy bots point to unknown assets
-            @bot.base_asset&.symbol || @bot.transactions.last&.base => @bot.decimals[:base],
-            @bot.quote_asset&.symbol || @bot.transactions.last&.quote => @bot.decimals[:quote]
+            @bot.base_asset.symbol => @bot.decimals[:base],
+            @bot.quote_asset.symbol => @bot.decimals[:quote]
           }
         elsif @bot.dca_dual_asset?
           @decimals = {

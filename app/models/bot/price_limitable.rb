@@ -100,7 +100,7 @@ module Bot::PriceLimitable
     return Result::Success.new(false) unless price_limited?
     return Result::Success.new(true) if timing_condition_satisfied?
 
-    ticker = tickers.find_by(id: price_limit_in_ticker_id)
+    ticker = tickers.available.find_by(id: price_limit_in_ticker_id)
     return Result::Success.new(false) unless ticker.present?
 
     result = ticker.get_last_price
@@ -123,8 +123,8 @@ module Bot::PriceLimitable
   end
 
   def broadcast_price_limit_info_update
-    ticker = tickers.find_by(id: price_limit_in_ticker_id)
-    return if ticker.nil?
+    ticker = tickers.available.find_by(id: price_limit_in_ticker_id)
+    return unless ticker.present?
 
     price_result = ticker.get_last_price
     return if price_result.failure?
@@ -220,7 +220,7 @@ module Bot::PriceLimitable
 
   def set_price_limit_in_ticker_id
     if price_limit_in_ticker_id_was.present? && exchange_id_was.present? && exchange_id_was != exchange_id
-      ticker_was = ExchangeTicker.find_by(id: price_limit_in_ticker_id_was)
+      ticker_was = Ticker.find_by(id: price_limit_in_ticker_id_was)
       self.price_limit_in_ticker_id = tickers.find_by(
         base_asset_id: ticker_was.base_asset_id,
         quote_asset_id: ticker_was.quote_asset_id
