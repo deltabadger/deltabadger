@@ -86,7 +86,8 @@ class Exchanges::Kraken < Exchange
           maximum_quote_size: nil,
           base_decimals: Utilities::Hash.dig_or_raise(info, 'lot_decimals'),
           quote_decimals: Utilities::Hash.dig_or_raise(info, 'cost_decimals'),
-          price_decimals: Utilities::Hash.dig_or_raise(info, 'pair_decimals')
+          price_decimals: Utilities::Hash.dig_or_raise(info, 'pair_decimals'),
+          available: true
         }
       end.compact
     end
@@ -110,7 +111,7 @@ class Exchanges::Kraken < Exchange
         prices_hash[ticker] = price
       end
 
-      missing_tickers = tickers.pluck(:ticker) - prices_hash.keys
+      missing_tickers = tickers.available.pluck(:ticker) - prices_hash.keys
       missing_tickers.each do |ticker|
         result = client.get_ticker_information(pair: ticker)
         return result if result.failure?
@@ -386,9 +387,9 @@ class Exchanges::Kraken < Exchange
   end
 
   def asset_from_symbol(symbol)
-    @asset_from_symbol ||= tickers.includes(:base_asset, :quote_asset).each_with_object({}) do |t, map|
-      map[t.base] ||= t.base_asset
-      map[t.quote] ||= t.quote_asset
+    @asset_from_symbol ||= tickers.available.includes(:base_asset, :quote_asset).each_with_object({}) do |t, h|
+      h[t.base] ||= t.base_asset
+      h[t.quote] ||= t.quote_asset
     end
     symbol = symbol.split('.').first
     symbol = ASSET_MAP[symbol] || symbol

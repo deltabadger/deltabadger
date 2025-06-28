@@ -1,4 +1,4 @@
-class ExchangeTicker < ApplicationRecord
+class Ticker < ApplicationRecord
   belongs_to :exchange
   belongs_to :base_asset, class_name: 'Asset'
   belongs_to :quote_asset, class_name: 'Asset'
@@ -6,6 +6,9 @@ class ExchangeTicker < ApplicationRecord
   validates :exchange_id, uniqueness: { scope: %i[base_asset_id quote_asset_id] }
   validate :exchange_matches_assets
 
+  scope :available, -> { where(available: true) }
+
+  include Undeletable
   include TechnicallyAnalyzable
 
   def get_last_price(force: false)

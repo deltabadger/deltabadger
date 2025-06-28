@@ -35,7 +35,7 @@ task upgrade_legacy_bots: :environment do
     # bot.settings['quote'] = 'FDUSD' if bot.settings['quote'] == 'BUSD' &&
     #                                    bot.exchange.type.in?(%w[Exchanges::Binance Exchanges::BinanceUs])
 
-    ticker = ExchangeTicker.find_by(exchange: bot.exchange, base: bot.settings['base'], quote: bot.settings['quote'])
+    ticker = Ticker.find_by(exchange: bot.exchange, base: bot.settings['base'], quote: bot.settings['quote'])
     if ticker.blank?
       puts "Ticker not found for bot #{bot.id} (exchange: #{bot.exchange.name}, base: #{bot.settings['base']}, quote: #{bot.settings['quote']})"
       next
