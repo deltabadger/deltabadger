@@ -64,7 +64,7 @@ class Transaction < ApplicationRecord
   #     .sum(:amount).ceil(8)
   # end
 
-  def update_from_order_data(order_data)
+  def update_with_order_data(order_data)
     update({
       status: :submitted,
       external_status: order_data[:status],

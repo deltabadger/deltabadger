@@ -117,7 +117,7 @@ module Bot::IndicatorLimitable
     return Result::Success.new(false) unless indicator_limited?
     return Result::Success.new(true) if timing_condition_satisfied?
 
-    ticker = tickers.find_by(id: indicator_limit_in_ticker_id)
+    ticker = tickers.available.find_by(id: indicator_limit_in_ticker_id)
     return Result::Success.new(false) unless ticker.present?
 
     result = get_indicator_value(ticker)
@@ -140,8 +140,8 @@ module Bot::IndicatorLimitable
   end
 
   def broadcast_indicator_limit_info_update
-    ticker = tickers.find_by(id: indicator_limit_in_ticker_id)
-    return if ticker.nil?
+    ticker = tickers.available.find_by(id: indicator_limit_in_ticker_id)
+    return unless ticker.present?
 
     indicator_value_result = get_indicator_value(ticker)
     return if indicator_value_result.failure?
@@ -243,7 +243,7 @@ module Bot::IndicatorLimitable
 
   def set_indicator_limit_in_ticker_id
     if indicator_limit_in_ticker_id_was.present? && exchange_id_was.present? && exchange_id_was != exchange_id
-      ticker_was = ExchangeTicker.find_by(id: indicator_limit_in_ticker_id_was)
+      ticker_was = Ticker.find_by(id: indicator_limit_in_ticker_id_was)
       self.indicator_limit_in_ticker_id = tickers.find_by(
         base_asset_id: ticker_was.base_asset_id,
         quote_asset_id: ticker_was.quote_asset_id
