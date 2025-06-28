@@ -9,7 +9,7 @@ module Bots::Searchable
                       .pluck(:id, :symbol, :name)
                       .reject { |_, symbol, _| symbol.blank? }
     exchanges_data = Exchange.available_for_new_bots.each_with_object([]) do |exchange, list|
-      assets = exchange.assets.pluck(:id)
+      assets = exchange.exchange_assets.available.pluck(:asset_id)
       list << [exchange.name_id, exchange.name, assets] if assets.any?
     end
     filtered_assets.map do |id, symbol, name|
@@ -19,7 +19,7 @@ module Bots::Searchable
   end
 
   def parse_exchanges(exchanges)
-    # normal exchanges are sorted by name_id
+    # exchanges sorted by name_id
     # exchanges.map { |name_id, name, _| [name_id, name] }.sort
 
     # flattening binance and binance_us to binance

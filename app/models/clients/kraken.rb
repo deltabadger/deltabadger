@@ -1,4 +1,4 @@
-class KrakenClient < ApplicationClient
+class Clients::Kraken < Client
   # https://docs.kraken.com/api/docs/rest-api/add-order
   # https://docs.kraken.com/api/docs/guides/spot-rest-auth#authentication
 

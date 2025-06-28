@@ -105,6 +105,13 @@ class Fiat
         name: 'Czech Koruna',
         category: 'Currency',
         color: '#D36C6C'
+      },
+      {
+        external_id: 'RUB.FOREX', # eodhd ID
+        symbol: 'RUB',
+        name: 'Russian Ruble',
+        category: 'Currency',
+        color: '#9C9CDE'
       }
     ]
   end

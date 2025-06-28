@@ -1,6 +1,4 @@
-module Exchange::Exchanges::Binance
-  extend ActiveSupport::Concern
-
+class Exchanges::Binance < Exchange
   COINGECKO_ID = 'binance'.freeze # https://docs.coingecko.com/reference/exchanges-list
   ERRORS = {
     insufficient_funds: ['Account has insufficient balance for requested action.'],
@@ -23,12 +21,12 @@ module Exchange::Exchanges::Binance
   end
 
   def proxy_ip
-    @proxy_ip ||= BinanceClient::PROXY.split('://').last.split(':').first if BinanceClient::PROXY.present?
+    @proxy_ip ||= Clients::Binance::PROXY.split('://').last.split(':').first if Clients::Binance::PROXY.present?
   end
 
   def set_client(api_key: nil)
     @api_key = api_key
-    @client = BinanceClient.new(
+    @client = Clients::Binance.new(
       api_key: api_key&.key,
       api_secret: api_key&.secret
     )
@@ -45,6 +43,7 @@ module Exchange::Exchanges::Binance
 
       result.data['symbols'].map do |product|
         ticker = Utilities::Hash.dig_or_raise(product, 'symbol')
+        status = Utilities::Hash.dig_or_raise(product, 'status')
 
         filters = Utilities::Hash.dig_or_raise(product, 'filters')
         price_filter = filters.find { |filter| filter['filterType'] == 'PRICE_FILTER' }
@@ -66,7 +65,8 @@ module Exchange::Exchanges::Binance
           maximum_quote_size: notional_filter['maxNotional'].to_d,
           base_decimals: Utilities::Number.decimals(lot_size_filter['stepSize']),
           quote_decimals: Utilities::Hash.dig_or_raise(product, 'quoteAssetPrecision'),
-          price_decimals: Utilities::Number.decimals(price_filter['tickSize'])
+          price_decimals: Utilities::Number.decimals(price_filter['tickSize']),
+          available: status == 'TRADING'
         }
       end.compact
     end
@@ -414,7 +414,7 @@ module Exchange::Exchanges::Binance
   end
 
   def get_api_key_validity(api_key:) # rubocop:disable Metrics/PerceivedComplexity,Metrics/CyclomaticComplexity
-    result = BinanceClient.new(
+    result = Clients::Binance.new(
       api_key: api_key.key,
       api_secret: api_key.secret
     ).api_description
@@ -492,9 +492,9 @@ module Exchange::Exchanges::Binance
   end
 
   def asset_from_symbol(symbol)
-    @asset_from_symbol ||= tickers.includes(:base_asset, :quote_asset).each_with_object({}) do |t, map|
-      map[t.base] ||= t.base_asset
-      map[t.quote] ||= t.quote_asset
+    @asset_from_symbol ||= tickers.available.includes(:base_asset, :quote_asset).each_with_object({}) do |t, h|
+      h[t.base] ||= t.base_asset
+      h[t.quote] ||= t.quote_asset
     end
     @asset_from_symbol[symbol]
   end
@@ -600,7 +600,8 @@ module Exchange::Exchanges::Binance
        quote_amount_exec_excl_commission.present? &&
        quote_amount_exec_excl_commission.positive? &&
        amount_exec_excl_commission.positive?
-      price = ticker.adjusted_price(price: quote_amount_exec_excl_commission / amount_exec_excl_commission, method: :round)
+      price = quote_amount_exec_excl_commission / amount_exec_excl_commission
+      price = ticker.adjusted_price(price: price, method: :round)
     end
     price = nil if price.zero?
 
@@ -669,10 +670,12 @@ module Exchange::Exchanges::Binance
       amount_execs << trade_data[:amount_exec]
       quote_amount_execs << trade_data[:quote_amount_exec]
     end
+    ticker = trade_datas.first[:ticker]
     price = Utilities::Math.weighted_average(prices, amounts)
+    price = ticker.adjusted_price(price: price, method: :round)
     {
       order_id: trade_datas.first[:order_id],
-      ticker: trade_datas.first[:ticker],
+      ticker: ticker,
       price: price,
       amount: amounts.sum,
       quote_amount: quote_amounts.sum,
