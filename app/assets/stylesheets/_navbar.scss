@@ -34,9 +34,6 @@
   @include media-breakpoint-down(md) {
       padding: 2.5rem 0;
   }
-  a {
-    color: var(--navbarLink) !important
-  }
   .db-hi-welcome {
     path {
       fill: transparent !important;
