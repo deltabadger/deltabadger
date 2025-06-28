@@ -32,6 +32,8 @@ task upgrade_legacy_bots: :environment do
 
     bot.settings['base'] = 'POL' if bot.settings['base'] == 'MATIC' &&
                                     bot.exchange.type.in?(%w[Exchanges::Kraken Exchanges::Binance Exchanges::BinanceUs])
+    bot.settings['base'] = 'NANO' if bot.settings['base'] == 'XNO' &&
+                                     bot.exchange.type.in?(%w[Exchanges::Binance Exchanges::BinanceUs])
     # bot.settings['quote'] = 'FDUSD' if bot.settings['quote'] == 'BUSD' &&
     #                                    bot.exchange.type.in?(%w[Exchanges::Binance Exchanges::BinanceUs])
 
