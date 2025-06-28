@@ -61,7 +61,6 @@ module Bot::SmartIntervalable
   def initialize_smart_intervalable_settings
     self.smart_intervaled ||= false
     self.smart_interval_quote_amount ||= if quote_amount.present? && tickers.present?
-                                           least_precise_quote_decimals = tickers.pluck(:quote_decimals).compact.min
                                            [
                                              quote_amount / 10,
                                              minimum_smart_interval_quote_amount * 10
@@ -78,7 +77,6 @@ module Bot::SmartIntervalable
                               0
                             end
 
-    least_precise_quote_decimals = tickers.pluck(:quote_decimals).compact.min
     minimum_for_precision = 1.0 / (10**least_precise_quote_decimals)
 
     [
@@ -92,10 +90,13 @@ module Bot::SmartIntervalable
     return unless quote_amount_was.present? && quote_amount.present? && quote_amount_was != quote_amount
 
     previous_ratio = quote_amount_was.to_f / smart_interval_quote_amount_was
-    least_precise_quote_decimals = tickers.pluck(:quote_decimals).compact.min
     self.smart_interval_quote_amount = [
       quote_amount.to_f / previous_ratio,
       minimum_smart_interval_quote_amount
     ].max.round(least_precise_quote_decimals)
+  end
+
+  def least_precise_quote_decimals
+    @least_precise_quote_decimals ||= tickers.pluck(:quote_decimals).compact.min
   end
 end

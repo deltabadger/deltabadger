@@ -6,23 +6,24 @@ class Exchange < ApplicationRecord
   has_many :api_keys
   has_many :exchange_assets
   has_many :assets, through: :exchange_assets
-  has_many :exchange_tickers
-  has_many :tickers, class_name: 'ExchangeTicker' # alias for exchange_tickers
+  has_many :tickers
   has_many :transactions
 
   validates :name, presence: true
+  validates :type, uniqueness: true
 
-  scope :available, -> { where.not(name: ['FTX', 'FTX.US', 'Coinbase Pro']) }
+  scope :available, -> { where(available: true) }
   scope :available_for_new_bots, lambda {
-                                   where(name_id: %w[coinbase kraken binance binance_us])
+                                   where(type: %w[
+                                           Exchanges::Coinbase
+                                           Exchanges::Kraken
+                                           Exchanges::Binance
+                                           Exchanges::BinanceUs
+                                         ])
                                  } # FIXME: Temporary until all exchanges are supported
 
   include Synchronizer
   include CandleBuilder
-
-  after_initialize :include_exchange_implementation
-
-  before_validation :set_name_id
 
   # rubocop:disable Metrics/CyclomaticComplexity
   def symbols
@@ -55,6 +56,10 @@ class Exchange < ApplicationRecord
     return all_symbols unless all_symbols.success?
 
     Result::Success.new(all_symbols.data)
+  end
+
+  def name_id
+    self.class.name.demodulize.underscore
   end
 
   def coingecko_id
@@ -138,20 +143,5 @@ class Exchange < ApplicationRecord
 
   def minimum_amount_logic
     raise NotImplementedError, "#{self.class.name} must implement minimum_amount_logic"
-  end
-
-  private
-
-  def include_exchange_implementation
-    case name_id
-    when 'coinbase' then singleton_class.include(Exchanges::Coinbase)
-    when 'kraken' then singleton_class.include(Exchanges::Kraken)
-    when 'binance' then singleton_class.include(Exchanges::Binance)
-    when 'binance_us' then singleton_class.include(Exchanges::BinanceUs)
-    end
-  end
-
-  def set_name_id
-    self.name_id = name&.parameterize&.underscore
   end
 end

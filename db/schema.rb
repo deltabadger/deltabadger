@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema.define(version: 2025_06_23_145907) do
+ActiveRecord::Schema.define(version: 2025_06_27_185632) do
 
   # These are extensions that must be enabled in order to support this database
   enable_extension "plpgsql"
@@ -149,35 +149,10 @@ ActiveRecord::Schema.define(version: 2025_06_23_145907) do
     t.bigint "exchange_id", null: false
     t.datetime "created_at", precision: 6, null: false
     t.datetime "updated_at", precision: 6, null: false
+    t.boolean "available", default: true
     t.index ["asset_id", "exchange_id"], name: "index_exchange_assets_on_asset_id_and_exchange_id", unique: true
     t.index ["asset_id"], name: "index_exchange_assets_on_asset_id"
     t.index ["exchange_id"], name: "index_exchange_assets_on_exchange_id"
-  end
-
-  create_table "exchange_tickers", force: :cascade do |t|
-    t.bigint "exchange_id", null: false
-    t.bigint "base_asset_id", null: false
-    t.bigint "quote_asset_id", null: false
-    t.string "ticker", null: false
-    t.string "base", null: false
-    t.string "quote", null: false
-    t.decimal "minimum_base_size", null: false
-    t.decimal "minimum_quote_size", null: false
-    t.decimal "maximum_base_size"
-    t.decimal "maximum_quote_size"
-    t.integer "base_decimals", null: false
-    t.integer "quote_decimals", null: false
-    t.integer "price_decimals", null: false
-    t.datetime "created_at", precision: 6, null: false
-    t.datetime "updated_at", precision: 6, null: false
-    t.decimal "ath"
-    t.datetime "ath_updated_at"
-    t.index ["base_asset_id"], name: "index_exchange_tickers_on_base_asset_id"
-    t.index ["exchange_id", "base", "quote"], name: "index_exchange_tickers_on_unique_base_and_quote", unique: true
-    t.index ["exchange_id", "base_asset_id", "quote_asset_id"], name: "index_exchange_tickers_on_unique_base_asset_and_quote_asset", unique: true
-    t.index ["exchange_id", "ticker"], name: "index_exchange_tickers_on_unique_ticker", unique: true
-    t.index ["exchange_id"], name: "index_exchange_tickers_on_exchange_id"
-    t.index ["quote_asset_id"], name: "index_exchange_tickers_on_quote_asset_id"
   end
 
   create_table "exchanges", force: :cascade do |t|
@@ -187,10 +162,9 @@ ActiveRecord::Schema.define(version: 2025_06_23_145907) do
     t.string "taker_fee"
     t.string "withdrawal_fee"
     t.string "maker_fee"
-    t.string "url"
-    t.string "color"
-    t.string "name_id"
-    t.index ["name_id"], name: "index_exchanges_on_name_id", unique: true
+    t.string "type"
+    t.boolean "available", default: true
+    t.index ["type"], name: "index_exchanges_on_type", unique: true
   end
 
   create_table "fee_api_keys", force: :cascade do |t|
@@ -309,6 +283,33 @@ ActiveRecord::Schema.define(version: 2025_06_23_145907) do
     t.index ["user_id"], name: "index_surveys_on_user_id"
   end
 
+  create_table "tickers", force: :cascade do |t|
+    t.bigint "exchange_id", null: false
+    t.bigint "base_asset_id", null: false
+    t.bigint "quote_asset_id", null: false
+    t.string "ticker", null: false
+    t.string "base", null: false
+    t.string "quote", null: false
+    t.decimal "minimum_base_size", null: false
+    t.decimal "minimum_quote_size", null: false
+    t.decimal "maximum_base_size"
+    t.decimal "maximum_quote_size"
+    t.integer "base_decimals", null: false
+    t.integer "quote_decimals", null: false
+    t.integer "price_decimals", null: false
+    t.datetime "created_at", precision: 6, null: false
+    t.datetime "updated_at", precision: 6, null: false
+    t.decimal "ath"
+    t.datetime "ath_updated_at"
+    t.boolean "available", default: true
+    t.index ["base_asset_id"], name: "index_tickers_on_base_asset_id"
+    t.index ["exchange_id", "base", "quote"], name: "index_exchange_tickers_on_unique_base_and_quote", unique: true
+    t.index ["exchange_id", "base_asset_id", "quote_asset_id"], name: "index_exchange_tickers_on_unique_base_asset_and_quote_asset", unique: true
+    t.index ["exchange_id", "ticker"], name: "index_exchange_tickers_on_unique_ticker", unique: true
+    t.index ["exchange_id"], name: "index_tickers_on_exchange_id"
+    t.index ["quote_asset_id"], name: "index_tickers_on_quote_asset_id"
+  end
+
   create_table "transactions", force: :cascade do |t|
     t.bigint "bot_id"
     t.string "external_id"
@@ -391,9 +392,6 @@ ActiveRecord::Schema.define(version: 2025_06_23_145907) do
   add_foreign_key "daily_transaction_aggregates", "bots"
   add_foreign_key "exchange_assets", "assets"
   add_foreign_key "exchange_assets", "exchanges"
-  add_foreign_key "exchange_tickers", "assets", column: "base_asset_id"
-  add_foreign_key "exchange_tickers", "assets", column: "quote_asset_id"
-  add_foreign_key "exchange_tickers", "exchanges"
   add_foreign_key "fee_api_keys", "exchanges"
   add_foreign_key "payments", "subscription_plan_variants"
   add_foreign_key "payments", "users"
@@ -403,6 +401,9 @@ ActiveRecord::Schema.define(version: 2025_06_23_145907) do
   add_foreign_key "subscriptions", "subscription_plan_variants"
   add_foreign_key "subscriptions", "users"
   add_foreign_key "surveys", "users"
+  add_foreign_key "tickers", "assets", column: "base_asset_id"
+  add_foreign_key "tickers", "assets", column: "quote_asset_id"
+  add_foreign_key "tickers", "exchanges"
   add_foreign_key "transactions", "bots"
   add_foreign_key "transactions", "exchanges"
   add_foreign_key "users", "affiliates", column: "referrer_id"
