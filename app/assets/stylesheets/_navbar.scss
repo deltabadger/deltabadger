@@ -30,9 +30,9 @@
 
 .navbar {
   position: relative;
-  padding: 4rem 0;
-  @include media-breakpoint-down(md) {
-      padding: 2.5rem 0;
+  padding: 3rem 0;
+  @include media-breakpoint-down(sm) {
+      padding: 1rem 0;
   }
   .db-hi-welcome {
     path {
