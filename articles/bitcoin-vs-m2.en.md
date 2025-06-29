@@ -237,6 +237,8 @@ Looking at your charts:
 - Any reversal in global liquidity trends
 - Idiosyncratic crypto market events
 
+—
+
 **Summary: Based on favorable liquidity conditions and moderate MVRV Z-score levels, Bitcoin price could reach $150k-200k+ in the next 6-12 months.**
 
 </div>

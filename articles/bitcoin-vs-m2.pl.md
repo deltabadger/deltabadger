@@ -237,6 +237,8 @@ Patrząc na Twoje wykresy:
 - Jakiekolwiek odwrócenie globalnych trendów płynnościowych
 - Idiosynkratyczne wydarzenia na rynku kryptowalut
 
+—
+
 **Podsumowanie: Na podstawie sprzyjających warunków płynnościowych i umiarkowanych poziomów wskaźnika MVRV Z-score, cena Bitcoina może osiągnąć 150-200 tys. $+ w ciągu najbliższych 6-12 miesięcy.**
 
 </div>

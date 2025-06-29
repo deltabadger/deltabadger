@@ -237,6 +237,8 @@ Kijkend naar uw grafieken:
 - Elke omkering in wereldwijde liquiditeitstrends
 - Idiosyncratische cryptomarktgebeurtenissen
 
+—
+
 **Samenvatting: Op basis van gunstige liquiditeitsvoorwaarden en gematigde MVRV Z-score niveaus, zou de Bitcoin-prijs de komende 6-12 maanden $150k-200k+ kunnen bereiken.**
 
 </div>
