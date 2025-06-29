@@ -10,11 +10,11 @@
   <p class="articles-header__subtitle"><%= t('articles.index.meta_description') %></p>
   <% if current_user && !current_user.subscription&.pro? && !current_user.subscription&.legendary? %>
     <%= link_to upgrade_path, class: "premium-subscribers-button" do %>
-      <%= render 'articles/premium_subscribers' %> →
+      <%= render partial: 'articles/premium_subscribers', locals: { count: @premium_subscribers_count } %> →
     <% end %>
   <% elsif current_user.nil? %>
     <%= link_to new_user_registration_path, class: "premium-subscribers-button" do %>
-      <%= render 'articles/premium_subscribers' %> →
+      <%= render partial: 'articles/premium_subscribers', locals: { count: @premium_subscribers_count } %> →
     <% end %>
   <% end %>
 </hgroup>
@@ -26,12 +26,12 @@
         <% if article.thumbnail_path.present? %>
           <%= image_tag article.thumbnail_path, alt: article.title, class: "article-card__thumbnail" %>
         <% end %>
-        
+
         <div class="article-card__content">
           <h2 class="article-card__title">
             <span class="article-title-link"><%= article.title %></span>
           </h2>
-          
+
           <div class="article-card__meta">
             <% if article.author.present? %>
               <span class="article-card__meta__author"><%= article.author.name %></span>
@@ -43,7 +43,7 @@
                 <%= l(article.published_at.to_date, format: :long) %>
               </time>
             <% end %>
-            
+
             <% if article.reading_time_minutes.present? %>
               &middot;
               <span class="article-card__meta__reading-time">
@@ -59,7 +59,7 @@
             <% end %>
 
           </div>
-          
+
           <div class="article-excerpt">
             <%= raw article.render_excerpt %>
           </div>
@@ -67,7 +67,7 @@
       <% end %>
     <% end %>
   </div>
-  
+
   <%= paginate @articles if respond_to?(:paginate) %>
 <% else %>
   <div class="no-articles">

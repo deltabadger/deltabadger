@@ -118,35 +118,35 @@
           <%= l(@article.published_at.to_date, format: :long) %>
         </time>
       <% end %>
-      
+
       <% if @article.reading_time_minutes.present? %>
         &middot;
         <span class="article__header__meta__reading-time">
           <%= t('articles.reading_time', minutes: @article.reading_time_minutes) %>
         </span>
       <% end %>
-      
+
       <% if @article.has_paywall? %>
         &middot;
         <span class="article__header__meta__premium">
           <%= t('articles.premium_content') %>
         </span>
       <% end %>
-      
+
     </div>
   </header>
 
   <div class="article-body">
     <%= raw @content %>
   </div>
-  
+
   <% if @has_paywall && !@user_has_access %>
     <div class="paywall">
       <h2 style="margin-bottom: 0"><%= t('articles.paywall.title') %></h3>
       <div><%= t('articles.paywall.description').html_safe %></div>
-      
+
       <div class="paywall__actions">
-        <%= render 'articles/premium_subscribers' %>
+        <%= render partial: 'articles/premium_subscribers', locals: { count: @premium_subscribers_count } %>
         <% if user_signed_in? %>
           <%= link_to t('subscriptions.upgrade'), upgrade_path, class: "button button--success button--large" %>
         <% else %>

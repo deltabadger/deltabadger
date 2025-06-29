@@ -1,6 +1,6 @@
 class ArticlesController < ApplicationController
+  before_action :set_premium_subscribers_count, only: %i[index show]
   before_action :set_article, only: [:show]
-
   def index
     @articles = Article.published
                        .by_locale(I18n.locale)
@@ -10,8 +10,6 @@ class ArticlesController < ApplicationController
 
     @page_title = t('articles.index.title')
     @meta_description = t('articles.index.meta_description')
-    @premium_subscribers_count = SubscriptionPlan.pro.active_subscriptions_count +
-                                 SubscriptionPlan.legendary.active_subscriptions_count
   end
 
   def show
@@ -39,5 +37,10 @@ class ArticlesController < ApplicationController
     else
       redirect_to articles_path
     end
+  end
+
+  def set_premium_subscribers_count
+    @premium_subscribers_count = SubscriptionPlan.pro.active_subscriptions_count +
+                                 SubscriptionPlan.legendary.active_subscriptions_count
   end
 end
