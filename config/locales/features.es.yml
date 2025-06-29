@@ -5,7 +5,7 @@ es:
             dca: "DCA"
             withdrawals: "Retiros automáticos"
             rebalanced_dca: "DCA Rebalanceado"
-            indexing: "Rebalanceo de cartera"
+            newsletter: "Artículos Premium"
             analyzer: "Analizador de cartera"
         dca:
             title: "DCA"
@@ -28,9 +28,9 @@ es:
         custom_portfolios:
             title: "Carteras Personalizadas"
             description_html: "¿Estás buscando la temporada de Altcoins? Excluye Bitcoin de tu índice o crea cualquier cartera personalizada."
-        portfolio_rebalancing:
-            title: "Rebalanceo de Cartera"
-            description_html: "Mantén la asignación objetivo rebalanceando tu cartera periódicamente. Aprovecha las primas del aprovechamiento de la volatilidad o simplemente mantén el perfil de riesgo de tu cartera."
+        newsletter:
+            title: "Artículos Premium"
+            description_html: "Artículos quincenales para inversores a largo plazo en activos digitales."
         portfolio_backtesting:
             title: "Backtesting de Cartera"
             description_html: "Realiza backtesting de cualquier cartera de acciones y criptomonedas, desde ETFs de Vanguard hasta tokens DeFi."

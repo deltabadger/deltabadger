@@ -120,7 +120,7 @@
       <div class="paywall__actions">
         <%= render 'articles/premium_subscribers' %>
         <% if user_signed_in? %>
-          <%= link_to t('articles.paywall.upgrade_button'), upgrade_path, class: "button button--primary button--large" %>
+          <%= link_to t('subscriptions.upgrade'), upgrade_path, class: "button button--success button--large" %>
         <% else %>
           <%= button_to omniauth_authorize_path(:user, :google_oauth2), method: :post, data: { turbo: false }, class: "button button--google button--large" do %>
             <%= render "svg/google" %>
