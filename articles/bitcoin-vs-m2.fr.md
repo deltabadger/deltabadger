@@ -237,9 +237,9 @@ En regardant vos graphiques :
 - Tout renversement des tendances de la liquidité mondiale
 - Événements idiosyncratiques du marché de la crypto
 
-</div>
-
 **Résumé : Sur la base de conditions de liquidité favorables et de niveaux modérés de MVRV Z-score, le prix du Bitcoin pourrait atteindre 150k-200k $+ dans les 6-12 prochains mois.**
+
+</div>
 
 ## L'essentiel
 
