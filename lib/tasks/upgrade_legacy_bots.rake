@@ -32,8 +32,12 @@ task upgrade_legacy_bots: :environment do
 
     bot.settings['base'] = 'POL' if bot.settings['base'] == 'MATIC' &&
                                     bot.exchange.type.in?(%w[Exchanges::Kraken Exchanges::Binance Exchanges::BinanceUs])
-    bot.settings['base'] = 'NANO' if bot.settings['base'] == 'XNO' &&
-                                     bot.exchange.type.in?(%w[Exchanges::Binance Exchanges::BinanceUs])
+    bot.settings['base'] = 'XNO' if bot.settings['base'] == 'NANO' &&
+                                    bot.exchange.type.in?(%w[Exchanges::Binance Exchanges::BinanceUs])
+    bot.settings['base'] = 'RENDER' if bot.settings['base'] == 'RNDR' &&
+                                       bot.exchange.type.in?(%w[Exchanges::Binance Exchanges::BinanceUs])
+    bot.settings['quote'] = 'USDP' if bot.settings['quote'] == 'PAX' &&
+                                      bot.exchange.type.in?(%w[Exchanges::Binance Exchanges::BinanceUs])
     # bot.settings['quote'] = 'FDUSD' if bot.settings['quote'] == 'BUSD' &&
     #                                    bot.exchange.type.in?(%w[Exchanges::Binance Exchanges::BinanceUs])
 
@@ -52,11 +56,15 @@ task upgrade_legacy_bots: :environment do
     smart_intervaled = bot.settings['force_smart_intervals']
 
     if bot.exchange.type == 'Exchanges::Kraken' && ticker.present?
-      result = ticker.get_last_price
-      raise "Error getting last price for bot #{bot.id}: #{result.errors.to_sentence}" unless result.success?
+      if ticker.available?
+        result = ticker.get_last_price
+        raise "Error getting last price for bot #{bot.id}: #{result.errors.to_sentence}" unless result.success?
 
-      price = result.data
-      smart_interval_quote_amount = (bot.settings['smart_intervals_value'].to_f * price).ceil(ticker.quote_decimals).to_f
+        price = result.data
+        smart_interval_quote_amount = (bot.settings['smart_intervals_value'].to_f * price).ceil(ticker.quote_decimals).to_f
+      else
+        smart_interval_quote_amount = 1
+      end
     else
       smart_interval_quote_amount = bot.settings['smart_intervals_value'].to_f
     end
