@@ -5,7 +5,7 @@ de:
             dca: "DCA"
             withdrawals: "Auto-Auszahlungen"
             rebalanced_dca: "Rebalanciertes DCA"
-            newsletter: "Premium-Artikel"
+            newsletter: "Premium-Newsletter"
             analyzer: "Portfolio-Analyzer"
         dca:
             title: "DCA"
@@ -29,8 +29,8 @@ de:
             title: "Individuelle Portfolios"
             description_html: "Sind Sie auf der Jagd nach der Altcoin-Saison? Schließen Sie Bitcoin von Ihrem Index aus oder erstellen Sie ein beliebiges individuelles Portfolio."
         newsletter:
-            title: "Premium-Artikel"
-            description_html: "Zweiwöchentliche Artikel für langfristige Investoren in digitale Vermögenswerte."
+            title: "Premium-Newsletter"
+            description_html: "Zweiwöchentlicher Premium-Newsletter für langfristige Investoren in digitale Vermögenswerte."
         portfolio_backtesting:
             title: "Portfolio-Backtesting"
             description_html: "Testen Sie jedes Portfolio von Aktien und Krypto von Vanguard ETFs bis hin zu DeFi-Token."

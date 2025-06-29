@@ -5,7 +5,7 @@ pt:
             dca: "DCA"
             withdrawals: "Levantamentos automáticos"
             rebalanced_dca: "DCA reequilibrado"
-            newsletter: "Artigos Premium"
+            newsletter: "Newsletter Premium"
             analyzer: "Analisador de carteiras"
         dca:
             title: "DCA"
@@ -29,8 +29,8 @@ pt:
             title: "Carteiras personalizadas"
             description_html: "Está à caça da Altcoin Season? Exclua o Bitcoin do seu índice ou crie qualquer carteira personalizada."
         newsletter:
-            title: "Artigos Premium"
-            description_html: "Artigos quinzenais para investidores de longo prazo em ativos digitais."
+            title: "Newsletter Premium"
+            description_html: "Newsletter premium quinzenal para investidores de longo prazo em ativos digitais."
         portfolio_backtesting:
             title: "Backtesting de carteiras"
             description_html: "Faz backtesting de qualquer carteira de ações e criptomoedas, desde ETFs da Vanguard até tokens DeFi."

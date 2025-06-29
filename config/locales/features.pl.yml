@@ -5,7 +5,7 @@ pl:
             dca: "DCA"
             withdrawals: "Automatyczne wypłaty"
             rebalanced_dca: "Rebalansowane DCA"
-            newsletter: "Artykuły Premium"
+            newsletter: "Newsletter Premium"
             analyzer: "Analizator portfela"
         dca:
             title: "DCA"
@@ -29,8 +29,8 @@ pl:
             title: "Niestandardowe Portfele"
             description_html: "Polujesz na Altcoin Season? Wyklucz Bitcoin ze swojego indeksu lub stwórz dowolne niestandardowe portfolio."
         newsletter:
-            title: "Artykuły Premium"
-            description_html: "Dwutygodniowe artykuły dla długoterminowych inwestorów w cyfrowe aktywa."
+            title: "Newsletter Premium"
+            description_html: "Dwutygodniowy newsletter premium dla długoterminowych inwestorów w cyfrowe aktywa."
         portfolio_backtesting:
             title: "Backtesting Portfela"
             description_html: "Testuj dowolne portfolio akcji i kryptowalut, od ETF-ów Vanguard po tokeny DeFi."

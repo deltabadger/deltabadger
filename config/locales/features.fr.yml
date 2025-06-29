@@ -5,7 +5,7 @@ fr:
             dca: "DCA"
             withdrawals: "Retraits automatiques"
             rebalanced_dca: "DCA rééquilibré"
-            newsletter: "Articles Premium"
+            newsletter: "Newsletter Premium"
             analyzer: "Analyseur de portefeuille"
         dca:
             title: "DCA"
@@ -29,8 +29,8 @@ fr:
             title: "Portefeuilles personnalisés"
             description_html: "Vous chassez la saison des Altcoins ? Excluez Bitcoin de votre indice, ou créez n'importe quel portefeuille personnalisé."
         newsletter:
-            title: "Articles Premium"
-            description_html: "Articles bi-hebdomadaires pour les investisseurs à long terme en actifs numériques."
+            title: "Newsletter Premium"
+            description_html: "Newsletter premium bi-hebdomadaire pour les investisseurs à long terme en actifs numériques."
         portfolio_backtesting:
             title: "Backtesting de portefeuille"
             description_html: "Testez n'importe quel portefeuille d'actions et de crypto, des ETFs Vanguard aux tokens DeFi."

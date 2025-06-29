@@ -5,7 +5,7 @@ nl:
             dca: "DCA"
             withdrawals: "Automatische opnames"
             rebalanced_dca: "Geherbalanceerde DCA"
-            newsletter: "Premium Artikelen"
+            newsletter: "Premium Nieuwsbrief"
             analyzer: "Portfolioanalyse"
         dca:
             title: "DCA"
@@ -29,8 +29,8 @@ nl:
             title: "Aangepaste portfolio's"
             description_html: "Jaag je op het Altcoin Seizoen? Sluit Bitcoin uit van je index, of creëer een aangepast portfolio."
         newsletter:
-            title: "Premium Artikelen"
-            description_html: "Tweewekelijkse artikelen voor langetermijnbeleggers in digitale activa."
+            title: "Premium Nieuwsbrief"
+            description_html: "Tweewekelijkse premium nieuwsbrief voor langetermijnbeleggers in digitale activa."
         portfolio_backtesting:
             title: "Portfolio backtesting"
             description_html: "Test elke portfolio van aandelen en crypto, van Vanguard ETFs tot DeFi tokens."
