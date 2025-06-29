@@ -1,8 +1,10 @@
 module Article::Paywall
   extend ActiveSupport::Concern
 
+  PAYWALL_MARKER = '<!-- PAYWALL -->'
+
   def has_paywall?
-    content.include?(paywall_marker)
+    content.include?(PAYWALL_MARKER)
   end
 
   def free_content
@@ -33,7 +35,7 @@ module Article::Paywall
   private
 
   def split_content_at_paywall(content)
-    parts = content.split(paywall_marker, 2)
+    parts = content.split(PAYWALL_MARKER, 2)
 
     {
       free: parts[0]&.strip || '',

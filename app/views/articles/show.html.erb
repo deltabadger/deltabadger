@@ -1,6 +1,17 @@
 <% content_for :title, @page_title %>
 <% content_for :meta_description, @meta_description %>
 
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,100..900;1,14..32,100..900&family=Lexend:wght@100..900&family=Playfair+Display:ital,wght@0,400..900;1,400..900&display=swap" rel="stylesheet">
+
+<% if @article.thumbnail_path.present? %>
+  <div class="article-bg-top">
+    <%= image_tag @article.thumbnail_path, alt: @article.title, class: "article-bg-top__image" %>
+  </div>
+<% end %>
+
+
 <article class="article">
   <header class="article__header">
     <hgroup>
@@ -10,12 +21,13 @@
     <% end %>
     </hgroup>
     <div class="article__header__meta">
-      <% if @article.author_name.present? %>
-        <span class="article__header__meta__author">
-          <%= t('articles.by_author', author: @article.author_name) %>
-        </span>
+      <% if @article.author.present? %>
+        <% if @article.author.url.present? %>
+          <a href="<%= @article.author.url %>" class="article__header__meta__author" target="_blank" rel="noopener"><%= @article.author.name %></a>
+        <% else %>
+          <span class="article__header__meta__author"><%= @article.author.name %></span>
+        <% end %>
       <% end %>
-      
       <% if @article.published_at.present? %>
         &middot;
         <time class="article__header__meta__date" datetime="<%= @article.published_at.iso8601 %>">
@@ -39,7 +51,7 @@
       
     </div>
   </header>
-  
+
   <div class="article-body">
     <%= raw @content %>
   </div>

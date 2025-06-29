@@ -1,18 +1,19 @@
 ---
 title: "Bitcoin vs. M2"
 subtitle: "Decoding the Money Supply Correlation"
-author: "Jan Klosowski"
-meta_description: "The relationship between Bitcoin and global money supply has become one of the most hotly debated topics in cryptocurrency circles. As we navigate through 2025, with renewed Bitcoin strength coinciding with expanding global M2 money supply, it's time to examine what the data really tells us about this correlation—and why it matters for investors."
+author_id: 1
+thumbnail: bitcoin-vs-m2.avif
+excerpt: "The relationship between Bitcoin and global money supply. Lyn Alden's research. The 12-week lead idea. AI Bitcoin price prediction based on the M2 model."
 published: true
 ---
 
-The relationship between Bitcoin and global money supply has become one of the most hotly debated topics in cryptocurrency circles. As we move through 2025, Bitcoin is getting stronger while global money printing increases.
+The relationship between Bitcoin and global money supply has become one of the most hotly debated topics. As we move through 2025, Bitcoin is getting stronger while global money printing increases.
 
-In this article: 
+In this article:
 
-* we'll take closer look at Lyn Alden research on the topic,
+* we'll take a closer look at Lyn Alden's research on the topic,
 * evaluate the hot *12-week lead* idea,
-* use AI and public data to make a Bitcoin prediction based on the finding.
+* use AI and public data to make a 12-month Bitcoin price prediction.
 
 ## Understanding the M2 Connection
 
@@ -46,11 +47,11 @@ M1 plus **savings accounts**, **money market accounts**, and **small time deposi
 
 <!-- PAYWALL -->
 
-As you go from M0 to M2, you get a bigger and bigger picture of available money. **M2 shows the most complete view of money in the system**. 
+As you go from M0 to M2, you get a bigger and bigger picture of available money. **M2 shows the most complete view of money in the system**.
 
 When looking at Bitcoin's connection to money policy, M2 matters because it shows all the money that could potentially flow into investments like Bitcoin. Global M2 is measured in U.S. dollars, which tells us both how strong the dollar is and how fast money is being created worldwide.
 
-The core thesis is simple: 
+The core thesis is simple:
 
 **When more money gets printed (M2 grows), Bitcoin tends to go up as investors look for alternatives to traditional investments. When money printing slows down or stops, Bitcoin tends to underperform.**
 
@@ -58,7 +59,7 @@ The core thesis is simple:
 
 ### Bitcoin as the Superior Liquidity Barometer
 
-A recent study by [Lyn Alden and Sam Callahan](https://www.lynalden.com/bitcoin-a-global-liquidity-barometer/) looked at data from May 2013 to July 2024. They found that indeed Bitcoin reacts strongly to changes in global money supply. 
+A recent study by [Lyn Alden and Sam Callahan](https://www.lynalden.com/bitcoin-a-global-liquidity-barometer/) looked at data from May 2013 to July 2024. They found that indeed Bitcoin reacts strongly to changes in global money supply.
 
 Here's what the numbers show:
 
@@ -86,7 +87,7 @@ While Lyn Alden's research established the strong correlation and directional al
 
 [Sarson Funds' study](https://sarsonfunds.com/the-correlation-between-bitcoin-and-m2-money-supply-growth-a-deep-dive/) published in June 2025 identified a **10-week forward lead** as optimal, while other analysts report from 8-14 weeks.
 
-So, did we found a Bitcoin's crystal ball?
+So, did we find a Bitcoin crystal ball?
 
 Sina, a Bitcoin researcher, MIT professor, and cofounder of 21stCapital, offers a different opinion:
 
@@ -94,11 +95,11 @@ Sina, a Bitcoin researcher, MIT professor, and cofounder of 21stCapital, offers 
 <p lang="en" dir="ltr">Everyone is talking about the chart that predicts Bitcoin using global M2 and they are using terrible analytics. <br><br>I explain why. <br><br>00:00 M2 Astrology<br>02:15 Measurement Problems<br>04:08 Illiteracy 1 <br>05:14  Illiteracy 2 <br>07:01  Illiteracy 3 <br>08:15  Illiteracy 4 <br>09:29 What is… <a href="https://t.co/AOW4lBj8Fl">pic.twitter.com/AOW4lBj8Fl</a></p>&mdash; Sina 🗝️⚡ 21st Capital (@Sina_21st) <a href="https://twitter.com/Sina_21st/status/1937606916756152633?ref_src=twsrc%5Etfw">June 24, 2025</a>
 </blockquote><script async src="https://platform.twitter.com/widgets.js" charset="utf-8"></script>
 
-I agree with Sina, so let's get back to the Lyn Alden's research, which holds actual statistical relevance.
+I agree with Sina, so let's get back to Lyn Alden's research, which holds actual statistical relevance.
 
 ## 83% Directional Correlation
 
-The most important finding is that, while the 12-month average correlation was lower (0.51) due to high Bitcoin volatility, when it comes just the direction, Bitcoin moves **in the same direction** as global money supply more often than any other asset.
+The most important finding is that, while the 12-month average correlation was lower (0.51) due to high Bitcoin volatility, when it comes to just the direction, Bitcoin moves **in the same direction** as global money supply more often than any other asset.
 
 74% of the time over 6-month periods, and a staggering **83% of the time** over 12-month periods, beating all other major investments in consistency.
 
@@ -112,16 +113,15 @@ The most important finding is that, while the 12-month average correlation was l
 | Long-Term Treasury Bonds | 44.8% |
 | Regular Bonds | 44.6% |
 
-The main point: 
+The main point:
 
 **By watching global money supply trends, you can predict Bitcoin's general direction over 12-month periods with 83% accuracy.**
 
+## Making the Model More Accurate
 
-## Making Model More Accurate
+Moving forward, the Alden study reveals that while money supply strongly influences Bitcoin's price, supply-side factors can sometimes override liquidity conditions.
 
-Moving forward, the Alden's study reveals that while money supply strongly influences Bitcoin's price, supply-side factors can sometimes override liquidity conditions.
-
-This adds more precission to the model.
+This adds more precision to the model.
 
 ### Using MVRV Z-Score
 
@@ -184,15 +184,15 @@ Combining liquidity analysis with supply-side metrics provides superior timing:
 - **Strategy Action**: Take profits despite favorable liquidity conditions
 - **Result**: This would have helped avoid the crash from $69,000 to $15,500
 
-Now, treat the following as an entertainment part. Let's let AI use the finding to predict the Bitcoin price direction for the coming 12 month.
+Now, treat the following as an entertainment part. Let's let AI use the findings to predict the Bitcoin price direction for the coming 12 months.
 
 <div class="article__key-part" style="margin-top: 8rem; margin-bottom: 0">
 
-## Bitcoin Price Predition 
+## Bitcoin Price Prediction
 
 Date: **29 June 2025**<br>Model: **Claude Sonnet 4**
 
-Prompt: "Make Bitcoin price prediction base on the provided data. [Lyn Alden's article] + [M2 chart] + [MVRV Z-Score chart] + [HODL Waves chart]"
+Prompt: "Make Bitcoin price prediction based on the provided data. [Lyn Alden's article] + [M2 chart] + [MVRV Z-Score chart] + [HODL Waves chart]"
 
 [Link to original](https://claude.ai/share/61937e60-63d0-46ca-bd2f-98eec0f74e04)
 

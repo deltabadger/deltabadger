@@ -21,7 +21,7 @@ class ArticlesController < ApplicationController
     @available_locales = @article.available_locales
 
     @page_title = @article.title
-    @meta_description = @article.meta_description || @article.render_excerpt
+    @meta_description = @article.render_excerpt
   end
 
   private

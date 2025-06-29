@@ -3,7 +3,6 @@ class Article < ApplicationRecord
   validates :locale, presence: true, inclusion: { in: I18n.available_locales.map(&:to_s) }
   validates :title, presence: true
   validates :content, presence: true
-  validates :paywall_marker, presence: true
 
   scope :published, -> { where(published: true) }
   scope :by_locale, ->(locale) { where(locale: locale.to_s) }
@@ -12,6 +11,8 @@ class Article < ApplicationRecord
   before_save :set_published_at, if: :will_save_change_to_published?
   before_save :calculate_reading_time
   before_save :set_excerpt_if_blank
+
+  belongs_to :author, optional: true
 
   include Article::Renderable
   include Article::Paywall
@@ -32,6 +33,18 @@ class Article < ApplicationRecord
     published && published_at.present? && published_at <= Time.current
   end
 
+  def thumbnail_path
+    return nil unless thumbnail.present?
+
+    asset_path = "articles/thumbnails/#{thumbnail}"
+
+    # Check if asset exists in pipeline or filesystem
+    if Rails.application.assets&.find_asset(asset_path) ||
+       File.exist?(Rails.root.join("app/assets/images/#{asset_path}"))
+      asset_path
+    end
+  end
+
   private
 
   def set_published_at
@@ -46,7 +59,7 @@ class Article < ApplicationRecord
     return unless content.present?
 
     # Average reading speed: 200-250 words per minute
-    words_per_minute = 225
+    words_per_minute = 200
     word_count = content.split.size
     self.reading_time_minutes = (word_count.to_f / words_per_minute).ceil
   end

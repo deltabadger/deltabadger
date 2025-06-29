@@ -1,53 +1,58 @@
 <% content_for :title, @page_title %>
 <% content_for :meta_description, @meta_description %>
 
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,100..900;1,14..32,100..900&family=Lexend:wght@100..900&family=Playfair+Display:ital,wght@0,400..900;1,400..900&display=swap" rel="stylesheet">
+
 <h1 class="articles-title"><%= t('articles.index.title') %></h1>
 
 <% if @articles.any? %>
   <div class="articles">
     <% @articles.each do |article| %>
-      <article class="article">
-        <h2 class="article__title">
-          <%= link_to article.title, article_path(article), class: "article-title-link" %>
-        </h2>
+      <%= link_to article_path(article), class: "article-card" do %>
+        <% if article.thumbnail_path.present? %>
+          <%= image_tag article.thumbnail_path, alt: article.title, class: "article-card__thumbnail" %>
+        <% end %>
         
-        <div class="article__meta">
-          <% if article.author_name.present? %>
-            <span class="article__meta__author"><%= t('articles.by_author', author: article.author_name) %></span>
-          <% end %>
-
-          <% if article.published_at.present? %>
-            &middot;
-            <time class="article__meta__date" datetime="<%= article.published_at.iso8601 %>">
-              <%= l(article.published_at.to_date, format: :long) %>
-            </time>
-          <% end %>
+        <div class="article-card__content">
+          <h2 class="article-card__title">
+            <span class="article-title-link"><%= article.title %></span>
+          </h2>
           
-          <% if article.reading_time_minutes.present? %>
-            &middot;
-            <span class="article__meta__reading-time">
-              <%= t('articles.reading_time', minutes: article.reading_time_minutes) %>
-            </span>
-          <% end %>
+          <div class="article-card__meta">
+            <% if article.author.present? %>
+              <span class="article-card__meta__author"><%= article.author.name %></span>
+            <% end %>
 
-          <% if article.has_paywall? %>
-            &middot;
-            <span class="article-premium-badge">
-              <%= t('articles.premium_content') %>
-            </span>
-          <% end %>
+            <% if article.published_at.present? %>
+              &middot;
+              <time class="article-card__meta__date" datetime="<%= article.published_at.iso8601 %>">
+                <%= l(article.published_at.to_date, format: :long) %>
+              </time>
+            <% end %>
+            
+            <% if article.reading_time_minutes.present? %>
+              &middot;
+              <span class="article-card__meta__reading-time">
+                <%= t('articles.reading_time', minutes: article.reading_time_minutes) %>
+              </span>
+            <% end %>
 
-        </div>
-        
-        <div class="article-excerpt">
-          <%= raw article.render_excerpt %>
-        </div>
-        
-        <div class="article__actions">
-          <%= link_to t('articles.read_more'), article_path(article), class: "button button--outline" %>
-        </div>
-      </article>
+            <% if article.has_paywall? %>
+              &middot;
+              <span class="article-premium-badge">
+                <%= t('articles.premium_content') %>
+              </span>
+            <% end %>
 
+          </div>
+          
+          <div class="article-excerpt">
+            <%= raw article.render_excerpt %>
+          </div>
+        </div>
+      <% end %>
     <% end %>
   </div>
   

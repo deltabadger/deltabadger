@@ -7,7 +7,6 @@ namespace :articles do
       puts "Creating articles directory: #{articles_path}"
       FileUtils.mkdir_p(articles_path)
       puts 'Add your markdown files to the articles/ directory'
-      puts 'Example filename: my-article.en.md'
       next
     end
 
@@ -15,7 +14,6 @@ namespace :articles do
 
     if markdown_files.empty?
       puts "No markdown files found in #{articles_path}"
-      puts 'Add your markdown files with the pattern: article-slug.locale.md'
       next
     end
 
@@ -24,6 +22,7 @@ namespace :articles do
 
     markdown_files.each do |file_path|
       filename = File.basename(file_path, '.md')
+      source_file = File.basename(file_path)
       parts = filename.split('.')
 
       # Expected format: article-slug.locale.md
@@ -46,19 +45,29 @@ namespace :articles do
       article = Article.find_or_initialize_by(slug: slug, locale: locale)
       was_new_record = article.new_record?
 
-      # Set attributes from metadata and content
+      # Set attributes
       article.title = metadata['title'] || slug.humanize
       article.subtitle = metadata['subtitle']
       article.content = article_content
       article.excerpt = metadata['excerpt']
-      article.author_name = metadata['author']
-      article.author_email = metadata['author_email']
-      article.meta_description = metadata['meta_description']
-      article.meta_keywords = metadata['meta_keywords']
-      article.published = metadata.fetch('published', true)
-      article.paywall_marker = metadata.fetch('paywall_marker', '<!-- PAYWALL -->')
+      article.thumbnail = metadata['thumbnail']
 
-      article.published_at = Time.parse(metadata['published_at']) if metadata['published_at'].present?
+      # Handle author by ID
+      if metadata['author_id'].present?
+        author = Author.find_by(id: metadata['author_id'].to_i)
+        if author
+          article.author = author
+        else
+          puts "Warning: Author with ID #{metadata['author_id']} not found for #{filename}"
+        end
+      end
+      article.published = metadata.fetch('published', true)
+
+      if metadata['published_at'].present?
+        article.published_at = Time.parse(metadata['published_at'])
+      elsif article.published
+        article.published_at = Time.current
+      end
 
       if article.save
         if was_new_record
@@ -80,26 +89,22 @@ namespace :articles do
 
   desc 'List all articles'
   task list: :environment do
-    articles = Article.all
-
-    if articles.empty?
-      puts 'No articles found.'
-      next
-    end
+    articles = Article.all.order(:slug, :locale)
 
     puts 'Articles:'
     puts '-' * 80
 
-    articles.group_by(&:slug).each do |slug, article_versions|
-      first_article = article_versions.first
-      locales = article_versions.map(&:locale).sort
-
-      puts "#{slug}"
-      puts "  Title: #{first_article.title}"
-      puts "  Locales: #{locales.join(', ')}"
-      puts "  Published: #{first_article.published? ? 'Yes' : 'No'}"
-      puts "  Paywall: #{first_article.has_paywall? ? 'Yes' : 'No'}"
-      puts
+    if articles.empty?
+      puts 'No articles found.'
+    else
+      articles.each do |article|
+        puts "#{article.slug}.#{article.locale}"
+        puts "  Title: #{article.title}"
+        puts "  Author: #{article.author&.name || 'No author'}"
+        puts "  Published: #{article.published? ? 'Yes' : 'No'}"
+        puts "  Paywall: #{article.has_paywall? ? 'Yes' : 'No'}"
+        puts
+      end
     end
   end
 
@@ -112,8 +117,10 @@ namespace :articles do
     en_content = <<~CONTENT
       ---
       title: "Getting Started with DeltaBadger"
-      author: "John Doe"
-      meta_description: "Learn how to get started with DeltaBadger's automated trading features"
+      subtitle: "A comprehensive guide for beginners"
+      author_id: 1
+      excerpt: "Learn how to get started with DeltaBadger's automated trading features"
+      thumbnail: "https://deltabadger.com/images/getting-started-thumbnail.jpg"
       published: true
       ---
 
@@ -157,60 +164,69 @@ namespace :articles do
 
     File.write(File.join(articles_path, 'getting-started.en.md'), en_content)
 
-    # Create example article in German
-    de_content = <<~CONTENT
-      ---
-      title: "Erste Schritte mit DeltaBadger"
-      author: "John Doe"
-      meta_description: "Erfahren Sie, wie Sie mit den automatisierten Handelsfunktionen von DeltaBadger beginnen"
-      published: true
-      ---
-
-      # Erste Schritte mit DeltaBadger
-
-      Willkommen bei DeltaBadger! Diese Anleitung hilft Ihnen beim Einstieg in unsere automatisierte Handelsplattform.
-
-      ## Was ist DeltaBadger?
-
-      DeltaBadger ist eine leistungsstarke automatisierte Handelsplattform, die Ihnen bei der Umsetzung von **Dollar Cost Averaging (DCA)** Strategien für Kryptowährungsinvestitionen hilft.
-
-      ## Hauptmerkmale
-
-      - Automatisierte DCA-Strategien
-      - Unterstützung mehrerer Börsen
-      - Portfolio-Neugewichtung
-      - Echtzeitanalysen
-
-      <!-- PAYWALL -->
-
-      ## Premium-Funktionen
-
-      Als Premium-Abonnent erhalten Sie Zugang zu:
-
-      - Erweiterte Portfolio-Analysen
-      - Benutzerdefinierte Handelsstrategien
-      - Prioritäts-Kundensupport
-      - API-Zugang für Entwickler
-
-      ### Einrichtung Ihres ersten Bots
-
-      So richten Sie Ihren ersten Handelsbot ein:
-
-      1. Verbinden Sie Ihre Börsen-API-Schlüssel
-      2. Wählen Sie Ihr Handelspaar
-      3. Legen Sie Ihre DCA-Parameter fest
-      4. Starten Sie Ihren Bot
-
-      **Profi-Tipp**: Beginnen Sie mit kleinen Beträgen, während Sie die Plattform kennenlernen.
-    CONTENT
-
-    File.write(File.join(articles_path, 'getting-started.de.md'), de_content)
-
     puts 'Example articles created in articles/ directory:'
     puts '- getting-started.en.md'
-    puts '- getting-started.de.md'
     puts ''
     puts "Run 'rake articles:import' to import them into the database."
+  end
+
+  desc 'Manage authors'
+  task :authors, [:action] => :environment do |_task, args|
+    action = args[:action] || 'list'
+
+    case action
+    when 'list'
+      authors = Author.all.order(:id)
+      if authors.empty?
+        puts 'No authors found.'
+      else
+        puts 'Authors:'
+        puts '-' * 60
+        authors.each do |author|
+          puts "ID: #{author.id}"
+          puts "Name: #{author.name}"
+          puts "URL: #{author.url}" if author.url.present?
+          puts "Avatar: #{author.avatar}" if author.avatar.present?
+          puts "Bio: #{author.bio}" if author.bio.present?
+          puts "Articles: #{author.articles.count}"
+          puts
+        end
+      end
+    when 'create'
+      puts 'Creating a new author...'
+      print 'Name (required): '
+      name = STDIN.gets.chomp
+
+      if name.blank?
+        puts 'Name is required!'
+        exit 1
+      end
+
+      print 'URL (optional): '
+      url = STDIN.gets.chomp
+      url = nil if url.blank?
+
+      print 'Avatar URL (optional): '
+      avatar = STDIN.gets.chomp
+      avatar = nil if avatar.blank?
+
+      print 'Bio (optional): '
+      bio = STDIN.gets.chomp
+      bio = nil if bio.blank?
+
+      author = Author.create!(
+        name: name,
+        url: url,
+        avatar: avatar,
+        bio: bio
+      )
+
+      puts "✓ Author created with ID: #{author.id}"
+    else
+      puts 'Usage:'
+      puts '  rake articles:authors[list]   - List all authors'
+      puts '  rake articles:authors[create] - Create a new author'
+    end
   end
 
   private
@@ -218,7 +234,6 @@ namespace :articles do
   def extract_metadata(content)
     # Look for YAML frontmatter at the beginning of the file
     if content.start_with?("---\n")
-      # Find the second occurrence of \n---\n (closing frontmatter)
       lines = content.lines
       closing_line_index = nil
 
@@ -243,7 +258,6 @@ namespace :articles do
           metadata = YAML.safe_load(yaml_content) || {}
         rescue Psych::SyntaxError => e
           puts "Warning: Failed to parse YAML frontmatter: #{e.message}"
-          puts "YAML content was: #{yaml_content[0..200]}..."
           metadata = {}
         end
 
