@@ -6,7 +6,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,100..900;1,14..32,100..900&display=swap" rel="stylesheet">
 
 <hgroup class="articles-header">
-  <h1 class="articles-header__title">Deltabadger's Research Lab</h1>
+  <h1 class="articles-header__title"><%= t('articles.index.title') %></h1>
   <p class="articles-header__subtitle"><%= t('articles.index.meta_description') %></p>
   <% if current_user && !current_user.subscription&.pro? && !current_user.subscription&.legendary? %>
     <%= link_to upgrade_path, class: "premium-subscribers-button" do %>
