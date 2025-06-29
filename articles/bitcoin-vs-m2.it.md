@@ -81,7 +81,7 @@ Le connessioni a breve termine sono più deboli perché Bitcoin è volatile e in
 Mentre la ricerca di Lyn Alden ha stabilito la forte correlazione e l'allineamento direzionale tra Bitcoin e l'M2 globale, ciò che ha catturato l'attenzione delle persone è stato il modello di **anticipo di 12 settimane**, condiviso da Julien Bittel, CFA e Head of Macro Research presso Global Macro Investor:
 
 <blockquote class="twitter-tweet">
-<p lang="en" dir="ltr">Eccolo... il grafico di Bitcoin più copiato del pianeta, aggiornato.<br><br>Niente di insolito, ma ricordate: non si tratta di eguagliare il Global M2 tick per tick...<br><br>Si tratta della tendenza al rialzo - e quella è ancora saldamente intatta. Rialzista. <a href="https://t.co/lkdgObGWo3">pic.twitter.com/lkdgObGWo3</a></p>&mdash; Julien Bittel, CFA (@BittelJulien) <a href="https://twitter.com/BittelJulien/status/1937823412514402569?ref_src=twsrc%5Etfw">25 giugno 2025</a>
+<p lang="en" dir="ltr">Here it is… the most copied Bitcoin chart on the planet, updated.<br><br>Nothing unusual going on, but remember: it’s not about matching Global M2 tick for tick…<br><br>It’s all about the trend moving higher – and that’s still firmly intact. Bullish. <a href="https://t.co/lkdgObGWo3">pic.twitter.com/lkdgObGWo3</a></p>&mdash; Julien Bittel, CFA (@BittelJulien) <a href="https://twitter.com/BittelJulien/status/1937823412514402569?ref_src=twsrc%5Etfw">June 25, 2025</a>
 </blockquote><script async src="https://platform.twitter.com/widgets.js" charset="utf-8"></script>
 
 [Lo studio di Sarson Funds](https://sarsonfunds.com/the-correlation-between-bitcoin-and-m2-money-supply-growth-a-deep-dive/) pubblicato a giugno 2025 ha identificato un **anticipo di 10 settimane** come ottimale, mentre altri analisti riportano da 8 a 14 settimane.
@@ -91,10 +91,14 @@ Quindi, abbiamo trovato una sfera di cristallo per Bitcoin?
 Sina, un ricercatore di Bitcoin, professore del MIT e co-fondatore di 21stCapital, offre un'opinione diversa:
 
 <blockquote class="twitter-tweet">
-<p lang="en" dir="ltr">Tutti parlano del grafico che predice Bitcoin usando l'M2 globale e usano analisi terribili. <br><br>Spiego perché. <br><br>00:00 Astrologia M2<br>02:15 Problemi di misurazione<br>04:08 Analfabetismo 1 <br>05:14 Analfabetismo 2 <br>07:01 Analfabetismo 3 <br>08:15 Analfabetismo 4 <br>09:29 Cos'è... <a href="https://t.co/AOW4lBj8Fl">pic.twitter.com/AOW4lBj8Fl</a></p>&mdash; Sina 🗝️⚡ 21st Capital (@Sina_21st) <a href="https://twitter.com/Sina_21st/status/1937606916756152633?ref_src=twsrc%5Etfw">24 giugno 2025</a>
+<p lang="en" dir="ltr">Everyone is talking about the chart that predicts Bitcoin using global M2 and they are using terrible analytics. <br><br>I explain why. <br><br>00:00 M2 Astrology<br>02:15 Measurement Problems<br>04:08 Illiteracy 1 <br>05:14  Illiteracy 2 <br>07:01  Illiteracy 3 <br>08:15  Illiteracy 4 <br>09:29 What is… <a href="https://t.co/AOW4lBj8Fl">pic.twitter.com/AOW4lBj8Fl</a></p>&mdash; Sina 🗝️⚡ 21st Capital (@Sina_21st) <a href="https://twitter.com/Sina_21st/status/1937606916756152633?ref_src=twsrc%5Etfw">June 24, 2025</a>
 </blockquote><script async src="https://platform.twitter.com/widgets.js" charset="utf-8"></script>
 
 Sono pienamente d'accordo con Sina, quindi lasciamo perdere l'"astrologia" e torniamo alla ricerca di Lyn Alden, che ha una reale rilevanza statistica.
+
+<blockquote class="twitter-tweet">
+<p lang="en" dir="ltr">Bitcoin and global M2 have solid correlation, and importantly the mechanism behind it makes sense, but I don&#39;t agree with people who put the two together on a chart and say &quot;look M2 went up, therefore bitcoin&#39;s going up over the next few months too.&quot;<br><br>It&#39;s not assured like that.</p>&mdash; Lyn Alden (@LynAldenContact) <a href="https://twitter.com/LynAldenContact/status/1939317315012640830?ref_src=twsrc%5Etfw">June 29, 2025</a>
+</blockquote><script async src="https://platform.twitter.com/widgets.js" charset="utf-8"></script>
 
 ## Correlazione direzionale dell'83%
 

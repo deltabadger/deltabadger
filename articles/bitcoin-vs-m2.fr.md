@@ -81,7 +81,7 @@ Les connexions à plus court terme sont plus faibles car le Bitcoin est volatile
 Alors que les recherches de Lyn Alden ont établi la forte corrélation et l'alignement directionnel entre le Bitcoin et la M2 mondiale, ce qui a attiré l'attention des gens, c'est le modèle de **l'avance de 12 semaines**, partagé par Julien Bittel, CFA et responsable de la recherche macro chez Global Macro Investor :
 
 <blockquote class="twitter-tweet">
-<p lang="en" dir="ltr">Le voici… le graphique Bitcoin le plus copié de la planète, mis à jour.<br><br>Rien d'inhabituel, mais rappelez-vous : il ne s'agit pas de correspondre à la M2 mondiale à la lettre…<br><br>Il s'agit de la tendance à la hausse – et elle est toujours bien intacte. Haussier. <a href="https://t.co/lkdgObGWo3">pic.twitter.com/lkdgObGWo3</a></p>&mdash; Julien Bittel, CFA (@BittelJulien) <a href="https://twitter.com/BittelJulien/status/1937823412514402569?ref_src=twsrc%5Etfw">25 juin 2025</a>
+<p lang="en" dir="ltr">Here it is… the most copied Bitcoin chart on the planet, updated.<br><br>Nothing unusual going on, but remember: it’s not about matching Global M2 tick for tick…<br><br>It’s all about the trend moving higher – and that’s still firmly intact. Bullish. <a href="https://t.co/lkdgObGWo3">pic.twitter.com/lkdgObGWo3</a></p>&mdash; Julien Bittel, CFA (@BittelJulien) <a href="https://twitter.com/BittelJulien/status/1937823412514402569?ref_src=twsrc%5Etfw">June 25, 2025</a>
 </blockquote><script async src="https://platform.twitter.com/widgets.js" charset="utf-8"></script>
 
 [L'étude de Sarson Funds](https://sarsonfunds.com/the-correlation-between-bitcoin-and-m2-money-supply-growth-a-deep-dive/) publiée en juin 2025 a identifié une **avance de 10 semaines** comme optimale, tandis que d'autres analystes rapportent de 8 à 14 semaines.
@@ -91,10 +91,14 @@ Alors, avons-nous trouvé une boule de cristal pour le Bitcoin ?
 Sina, chercheur sur le Bitcoin, professeur au MIT et co-fondateur de 21stCapital, a une opinion différente :
 
 <blockquote class="twitter-tweet">
-<p lang="en" dir="ltr">Tout le monde parle du graphique qui prédit le Bitcoin en utilisant la M2 mondiale et ils utilisent des analyses terribles. <br><br>J'explique pourquoi. <br><br>00:00 Astrologie M2<br>02:15 Problèmes de mesure<br>04:08 Analphabétisme 1 <br>05:14 Analphabétisme 2 <br>07:01 Analphabétisme 3 <br>08:15 Analphabétisme 4 <br>09:29 Qu'est-ce que… <a href="https://t.co/AOW4lBj8Fl">pic.twitter.com/AOW4lBj8Fl</a></p>&mdash; Sina 🗝️⚡ 21st Capital (@Sina_21st) <a href="https://twitter.com/Sina_21st/status/1937606916756152633?ref_src=twsrc%5Etfw">24 juin 2025</a>
+<p lang="en" dir="ltr">Everyone is talking about the chart that predicts Bitcoin using global M2 and they are using terrible analytics. <br><br>I explain why. <br><br>00:00 M2 Astrology<br>02:15 Measurement Problems<br>04:08 Illiteracy 1 <br>05:14  Illiteracy 2 <br>07:01  Illiteracy 3 <br>08:15  Illiteracy 4 <br>09:29 What is… <a href="https://t.co/AOW4lBj8Fl">pic.twitter.com/AOW4lBj8Fl</a></p>&mdash; Sina 🗝️⚡ 21st Capital (@Sina_21st) <a href="https://twitter.com/Sina_21st/status/1937606916756152633?ref_src=twsrc%5Etfw">June 24, 2025</a>
 </blockquote><script async src="https://platform.twitter.com/widgets.js" charset="utf-8"></script>
 
 Je suis tout à fait d'accord avec Sina, alors laissons de côté l'"astrologie" et revenons aux recherches de Lyn Alden, qui ont une réelle pertinence statistique.
+
+<blockquote class="twitter-tweet">
+<p lang="en" dir="ltr">Bitcoin and global M2 have solid correlation, and importantly the mechanism behind it makes sense, but I don&#39;t agree with people who put the two together on a chart and say &quot;look M2 went up, therefore bitcoin&#39;s going up over the next few months too.&quot;<br><br>It&#39;s not assured like that.</p>&mdash; Lyn Alden (@LynAldenContact) <a href="https://twitter.com/LynAldenContact/status/1939317315012640830?ref_src=twsrc%5Etfw">June 29, 2025</a>
+</blockquote><script async src="https://platform.twitter.com/widgets.js" charset="utf-8"></script>
 
 ## Corrélation directionnelle de 83 %
 

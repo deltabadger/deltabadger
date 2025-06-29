@@ -94,7 +94,11 @@ Sina, a Bitcoin researcher, MIT professor, and cofounder of 21stCapital, offers 
 <p lang="en" dir="ltr">Everyone is talking about the chart that predicts Bitcoin using global M2 and they are using terrible analytics. <br><br>I explain why. <br><br>00:00 M2 Astrology<br>02:15 Measurement Problems<br>04:08 Illiteracy 1 <br>05:14  Illiteracy 2 <br>07:01  Illiteracy 3 <br>08:15  Illiteracy 4 <br>09:29 What is… <a href="https://t.co/AOW4lBj8Fl">pic.twitter.com/AOW4lBj8Fl</a></p>&mdash; Sina 🗝️⚡ 21st Capital (@Sina_21st) <a href="https://twitter.com/Sina_21st/status/1937606916756152633?ref_src=twsrc%5Etfw">June 24, 2025</a>
 </blockquote><script async src="https://platform.twitter.com/widgets.js" charset="utf-8"></script>
 
-I fully agree with Sina, so let's leave the "astrology" and get back to the Lyn Alden's research, which holds actual statistical relevance.
+I agree with Sina, so let's leave the "astrology" and get back to the Lyn Alden's research, which holds actual statistical relevance.
+
+<blockquote class="twitter-tweet">
+<p lang="en" dir="ltr">Bitcoin and global M2 have solid correlation, and importantly the mechanism behind it makes sense, but I don&#39;t agree with people who put the two together on a chart and say &quot;look M2 went up, therefore bitcoin&#39;s going up over the next few months too.&quot;<br><br>It&#39;s not assured like that.</p>&mdash; Lyn Alden (@LynAldenContact) <a href="https://twitter.com/LynAldenContact/status/1939317315012640830?ref_src=twsrc%5Etfw">June 29, 2025</a>
+</blockquote><script async src="https://platform.twitter.com/widgets.js" charset="utf-8"></script>
 
 ## 83% Directional Correlation
 
