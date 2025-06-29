@@ -1,9 +1,10 @@
 nl:
   articles:
     index:
+      title: "Deltabadger's Research Lab"
       meta_description: "Tweewekelijkse artikelen voor langetermijninvesteerders in digitale assets."
       no_articles: "Geen artikelen beschikbaar op dit moment."
-      join_subscribers: "Word lid van %{count} Premium-abonnees"
+      join_subscribers: "Word lid van %{count} abonnees <span class='desktop-only'>Premium</span>"
     reading_time: "%{minutes} min leestijd"
     premium_content: "Premium"
     back_to_articles: "← Terug naar artikelen"

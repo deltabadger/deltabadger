@@ -1,6 +1,7 @@
 en:
   articles:
     index:
+      title: "Deltabadger's Research Lab"
       meta_description: "Bi-weekly articles for long-term investors in digital assets."
       no_articles: "No articles available at the moment."
       join_subscribers: "Join %{count} Premium subscribers"

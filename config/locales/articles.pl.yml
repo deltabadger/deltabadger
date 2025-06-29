@@ -1,9 +1,10 @@
 pl:
   articles:
     index:
+      title: "Deltabadger's Research Lab"
       meta_description: "Dwutygodniowe artykuły dla długoterminowych inwestorów w aktywa cyfrowe."
       no_articles: "Brak dostępnych artykułów w tym momencie."
-      join_subscribers: "Dołącz do %{count} subskrybentów Premium"
+      join_subscribers: "Dołącz do %{count} subskrybentów <span class='desktop-only'>Premium</span>"
     reading_time: "%{minutes} min czytania"
     premium_content: "Premium"
     back_to_articles: "← Powrót do artykułów"
