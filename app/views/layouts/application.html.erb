@@ -22,6 +22,8 @@
     <%= stylesheet_link_tag 'application', media: 'all', "data-turbo-track": "reload" %>
     <%= javascript_pack_tag 'deltabadger2' %>
 
+    <%= yield :head if content_for?(:head) %>
+
     <script>
       // service worker registration for PWA
       if ('serviceWorker' in navigator) {

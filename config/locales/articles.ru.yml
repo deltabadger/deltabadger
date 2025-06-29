@@ -1,14 +1,12 @@
 ru:
   articles:
     index:
-      title: "Статьи"
-      meta_description: "Читайте наши последние статьи о торговле криптовалютами, DCA стратегиях и обновлениях платформы."
+      title: "Deltabadger's Research Lab"
+      meta_description: "Двухнедельные статьи для долгосрочных инвесторов в цифровые активы."
       no_articles: "На данный момент статьи недоступны."
-    by_author: "автор %{author}"
     reading_time: "%{minutes} мин чтения"
-    read_more: "Читать далее"
     premium_content: "Премиум"
-    back_to_articles: "← Назад к Статьям"
+    back_to_articles: "← Назад к cтатьям"
     paywall:
       title: "Подпишитесь, чтобы продолжить чтение."
       description: "Получите доступ к ежемесячным статьям, анализатору портфеля и автоматизации рынка."

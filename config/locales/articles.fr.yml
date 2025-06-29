@@ -1,12 +1,10 @@
 fr:
   articles:
     index:
-      title: "Articles"
-      meta_description: "Lisez nos derniers articles sur le trading de cryptomonnaies, les stratégies DCA et les mises à jour de la plateforme."
+      title: "Deltabadger's Research Lab"
+      meta_description: "Articles bimensuels pour les investisseurs à long terme en actifs numériques."
       no_articles: "Aucun article disponible pour le moment."
-    by_author: "par %{author}"
     reading_time: "%{minutes} min de lecture"
-    read_more: "Lire la suite"
     premium_content: "Premium"
     back_to_articles: "← Retour aux articles"
     paywall:

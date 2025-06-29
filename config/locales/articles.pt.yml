@@ -1,14 +1,12 @@
 pt:
   articles:
     index:
-      title: "Artigos"
-      meta_description: "Leia os nossos artigos mais recentes sobre trading de criptomoedas, estratégias DCA e atualizações da plataforma."
+      title: "Deltabadger's Research Lab"
+      meta_description: "Artigos quinzenais para investidores de longo prazo em ativos digitais."
       no_articles: "Nenhum artigo disponível no momento."
-    by_author: "por %{author}"
     reading_time: "%{minutes} min de leitura"
-    read_more: "Ler mais"
     premium_content: "Premium"
-    back_to_articles: "← Voltar aos Artigos"
+    back_to_articles: "← Voltar aos artigos"
     paywall:
       title: "Subscreva para continuar a ler."
       description: "Obtenha acesso a artigos mensais, analisador de portfólio e automações de mercado."

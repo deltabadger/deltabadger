@@ -1,14 +1,12 @@
 nl:
   articles:
     index:
-      title: "Artikelen"
-      meta_description: "Lees onze nieuwste artikelen over cryptocurrency trading, DCA strategieën en platform updates."
+      title: "Deltabadger's Research Lab"
+      meta_description: "Tweewekelijkse artikelen voor langetermijninvesteerders in digitale assets."
       no_articles: "Geen artikelen beschikbaar op dit moment."
-    by_author: "door %{author}"
     reading_time: "%{minutes} min leestijd"
-    read_more: "Lees meer"
     premium_content: "Premium"
-    back_to_articles: "← Terug naar Artikelen"
+    back_to_articles: "← Terug naar artikelen"
     paywall:
       title: "Abonneer om verder te lezen."
       description: "Krijg toegang tot maandelijkse artikelen, portfolioanalyse en marktautomatisering."

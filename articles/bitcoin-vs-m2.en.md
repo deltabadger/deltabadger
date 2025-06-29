@@ -16,10 +16,9 @@ In this article:
 * use AI and public data to make a 12-month Bitcoin price prediction.
 
 ## Understanding the M2 Connection
+M2 money supply measures the total amount of money available in the economy. It includes cash, checking accounts, savings accounts, and other readily accessible funds. When aggregating M2 from the eight largest economies (US, China, Europe, UK, Japan, Canada, Russia, and Australia), we get a comprehensive view of global money supply.
 
-M2 money supply is basically a fancy way of measuring how much money is available in the economy. It includes cash, checking accounts, savings accounts, and other money you can easily access. When you add up M2 from the eight biggest economies (US, China, Europe, UK, Japan, Canada, Russia, and Australia), you get a good picture of how much money is floating around the world.
-
-To understand why M2 matters, let's break down the different types of money measurements (**monetary aggregates**):
+To understand why M2 matters, let's put it in the context of other **monetary aggregates**:
 
 <div class="monetary-aggregates">
 <div class="col">
@@ -45,8 +44,6 @@ M1 plus **savings accounts**, **money market accounts**, and **small time deposi
 </div>
 </div>
 
-<!-- PAYWALL -->
-
 As you go from M0 to M2, you get a bigger and bigger picture of available money. **M2 shows the most complete view of money in the system**.
 
 When looking at Bitcoin's connection to money policy, M2 matters because it shows all the money that could potentially flow into investments like Bitcoin. Global M2 is measured in U.S. dollars, which tells us both how strong the dollar is and how fast money is being created worldwide.
@@ -54,6 +51,8 @@ When looking at Bitcoin's connection to money policy, M2 matters because it show
 The core thesis is simple:
 
 **When more money gets printed (M2 grows), Bitcoin tends to go up as investors look for alternatives to traditional investments. When money printing slows down or stops, Bitcoin tends to underperform.**
+
+<!-- PAYWALL -->
 
 ## The Quantitative Evidence
 
@@ -95,7 +94,7 @@ Sina, a Bitcoin researcher, MIT professor, and cofounder of 21stCapital, offers 
 <p lang="en" dir="ltr">Everyone is talking about the chart that predicts Bitcoin using global M2 and they are using terrible analytics. <br><br>I explain why. <br><br>00:00 M2 Astrology<br>02:15 Measurement Problems<br>04:08 Illiteracy 1 <br>05:14  Illiteracy 2 <br>07:01  Illiteracy 3 <br>08:15  Illiteracy 4 <br>09:29 What is… <a href="https://t.co/AOW4lBj8Fl">pic.twitter.com/AOW4lBj8Fl</a></p>&mdash; Sina 🗝️⚡ 21st Capital (@Sina_21st) <a href="https://twitter.com/Sina_21st/status/1937606916756152633?ref_src=twsrc%5Etfw">June 24, 2025</a>
 </blockquote><script async src="https://platform.twitter.com/widgets.js" charset="utf-8"></script>
 
-I agree with Sina, so let's get back to Lyn Alden's research, which holds actual statistical relevance.
+I fully agree with Sina, so let's leave the "astrology" and get back to the Lyn Alden's research, which holds actual statistical relevance.
 
 ## 83% Directional Correlation
 
