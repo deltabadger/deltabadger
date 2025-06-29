@@ -7,7 +7,6 @@ class ApplicationController < ActionController::Base
   before_action :set_signed_in_cookie
   around_action :switch_locale
   before_action :check_onboarding_survey, if: :user_signed_in?, unless: :user_signing_out?
-  before_action :load_premium_subscribers_count, if: :devise_controller?
 
   def switch_locale(&action)
     locale = params[:locale] || current_user.try(:locale) || I18n.default_locale
@@ -46,11 +45,5 @@ class ApplicationController < ActionController::Base
     return if current_user.admin?
 
     redirect_to step_one_surveys_onboarding_path unless current_user.surveys.onboarding.exists?
-  end
-
-  def load_premium_subscribers_count
-    @premium_subscribers_count = Rails.cache.fetch('premium_subscribers_count', expires_in: 1.hour) do
-      SubscriptionPlan.pro.active_subscriptions_count + SubscriptionPlan.legendary.active_subscriptions_count
-    end
   end
 end
