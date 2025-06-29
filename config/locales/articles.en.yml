@@ -1,12 +1,13 @@
 en:
   articles:
     index:
-      title: "Deltabadger's Research Lab"
       meta_description: "Bi-weekly articles for long-term investors in digital assets."
       no_articles: "No articles available at the moment."
+      join_subscribers: "Join %{count} Premium subscribers"
     reading_time: "%{minutes} min read"
     premium_content: "Premium"
     back_to_articles: "← Back to articles"
     paywall:
       title: "Subscribe to continue reading."
-      description: "Get access to monthly articles, portfolio analyzer, and cryptocurrency market automations."
+      description: |
+        We are a community of long-term investors in digital assets. Gain access to:<br><b>bi-weekly articles &middot; portfolio analyzer &middot; cryptocurrency market automations</b>

@@ -114,9 +114,11 @@
   
   <% if @has_paywall && !@user_has_access %>
     <div class="paywall">
-      <h3><%= t('articles.paywall.title') %></h3>
-      <p><%= t('articles.paywall.description') %></p>
+      <h2 style="margin-bottom: 0"><%= t('articles.paywall.title') %></h3>
+      <div><%= t('articles.paywall.description').html_safe %></div>
+      
       <div class="paywall__actions">
+        <%= render 'articles/premium_subscribers' %>
         <% if user_signed_in? %>
           <%= link_to t('articles.paywall.upgrade_button'), upgrade_path, class: "button button--primary button--large" %>
         <% else %>
@@ -124,7 +126,7 @@
             <%= render "svg/google" %>
             <%= t('shared.links.signup_with_google') %>
           <% end %>
-          <%# link_to t('links.log_in'), new_user_session_path, class: "button button--link button--large" %>
+          <%= link_to t('shared.links.signup_with_email'), new_user_registration_path, class: "button button--link button--large" %>
         <% end %>
       </div>
     </div>

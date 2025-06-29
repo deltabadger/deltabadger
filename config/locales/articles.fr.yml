@@ -1,12 +1,13 @@
 fr:
   articles:
     index:
-      title: "Deltabadger's Research Lab"
       meta_description: "Articles bimensuels pour les investisseurs à long terme en actifs numériques."
       no_articles: "Aucun article disponible pour le moment."
+      join_subscribers: "Rejoignez %{count} abonnés Premium"
     reading_time: "%{minutes} min de lecture"
     premium_content: "Premium"
     back_to_articles: "← Retour aux articles"
     paywall:
       title: "Abonnez-vous pour continuer à lire."
-      description: "Accédez à des articles mensuels, un analyseur de portefeuille et des automatisations de marché."
+      description: |
+        Nous sommes une communauté d'investisseurs à long terme en actifs numériques. Accédez à :<br><b>articles bimensuels &middot; analyseur de portefeuille &middot; automatisations pour le marché des cryptomonnaies</b>

@@ -1,12 +1,13 @@
 de:
   articles:
     index:
-      title: "Deltabadger's Research Lab"
       meta_description: "Zweiwöchentliche Artikel für langfristige Investoren in digitale Vermögenswerte."
       no_articles: "Derzeit sind keine Artikel verfügbar."
+      join_subscribers: "Werde einer von %{count} Premium-Abonnenten"
     reading_time: "%{minutes} Min. Lesezeit"
     premium_content: "Premium"
     back_to_articles: "← Zurück zu artikeln"
     paywall:
       title: "Abonniere, um weiterzulesen."
-      description: "Erhalte Zugang zu monatlichen Artikeln, Portfolio-Analyzer und Marktautomatisierungen."
+      description: |
+        Wir sind eine Gemeinschaft von langfristigen Investoren in digitale Vermögenswerte. Erhalte Zugang zu:<br><b>zweiwöchentliche Artikel &middot; Portfolio-Analyzer &middot; Automatisierungen für den Kryptowährungsmarkt</b>

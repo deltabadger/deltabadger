@@ -4,7 +4,7 @@
       <%= render partial: 'svg/24x24_close' %>
     <% end %>
     <div class="alertbox__text-column">
-      <%= t('welcome.banner_html', name: current_user.name).html_safe %>
+      <%= t('welcome.banner_html', name: current_user.name.split.first).html_safe %>
       <img src="https://deltabadger.com/images/signature-white.webp" alt="signature" style="width: 15rem" %>
     </div>
   </div>

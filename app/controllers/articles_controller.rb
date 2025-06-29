@@ -10,6 +10,8 @@ class ArticlesController < ApplicationController
 
     @page_title = t('articles.index.title')
     @meta_description = t('articles.index.meta_description')
+    @premium_subscribers_count = SubscriptionPlan.pro.active_subscriptions_count +
+                                 SubscriptionPlan.legendary.active_subscriptions_count
   end
 
   def show

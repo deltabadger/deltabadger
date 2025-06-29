@@ -1,0 +1,8 @@
+<div class="premium-subscribers">
+  <div class="premium-subscribers__avatars">
+    <% (1..7).each do |i| %>
+      <%= image_tag "avatars/avatar#{i.to_s.rjust(2, '0')}.avif", alt: "Subscriber", class: "premium-subscribers__avatar" %>
+    <% end %>
+  </div>
+  <span class="premium-subscribers__count"><%= t('articles.index.join_subscribers', count: SubscriptionPlan.pro.active_subscriptions_count + SubscriptionPlan.legendary.active_subscriptions_count) %></span>
+</div> 

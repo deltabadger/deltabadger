@@ -76,14 +76,16 @@
   p,ul,ol,li,blockquote
     font-family: "Inter", sans-serif
   h2
-    margin: 12rem 0 6rem 0
-    font-size: 2.5rem
+    margin: 8rem 0 4rem 0
+    font-size: 2.8rem
     font-weight: 700
     line-height: 1.5
     text-align: left
+    padding: 0
     @media (min-width: 768px)
-      font-size: 3rem
+      font-size: 3.2rem
       line-height: 1.2
+      margin: 12rem 0 6rem 0
     @media (min-width: 1024px)
       font-size: 4rem
       line-height: 1.1
@@ -93,6 +95,7 @@
     font-weight: 700
     line-height: 1.5
     text-align: left
+    padding: 0
     @media (min-width: 768px)
       font-size: 2.25rem
       line-height: 1.2
@@ -121,6 +124,7 @@
       display: flex
       flex-direction: column
       gap: 1rem
+      padding-bottom: 0.5rem
     &__back
       font-size: 1.75rem
       text-decoration: none
@@ -144,6 +148,9 @@
       @media (min-width: 1024px)
         font-size: 3rem
     &__meta
+      font-size: 1.5rem
+      @media (min-width: 768px)
+        font-size: 1.75rem
       &__premium
         color: var(--link)
         font-weight: 500
@@ -154,27 +161,30 @@
         border-radius: 1em
         border: 1px solid var(--link)
 .paywall
-  background: linear-gradient(to bottom, #fff0 0%, var(--background) 33%)
+  background: linear-gradient(to bottom, #fff0 0%, var(--background) 30%)
   position: relative
   z-index: 1
-  margin-top: -40rem
-  margin-left: -4rem
-  margin-right: -4rem
-  padding: 24rem 3rem 3rem 3rem
+  margin-top: -48rem
+  padding: 32rem 3rem
   text-align: center
   display: flex
   flex-direction: column
   align-items: center
   justify-content: center
-  gap: 3rem
+  gap: 7rem
+  text-align: center !important
+  h3, h2
+    width: 100%
+    text-align: center !important
   &__actions
     display: flex
     flex-direction: column
-    gap: 0rem
+    gap: 2rem
+    .premium-subscribers
+      margin-bottom: 2rem
   .button
     width: 40rem
     min-width: 40rem
-    
 
 .monetary-aggregates
   margin: 4rem 0
@@ -235,17 +245,57 @@
   left: 0
   width: 100vw
   height: auto
-  max-height: 300px
+  max-height: 250px
   overflow: hidden
   z-index: -1
   mask-image: linear-gradient(to bottom, rgba(0,0,0,1) 0%, rgba(0,0,0,0) 100%)
   -webkit-mask-image: linear-gradient(to bottom, rgba(0,0,0,1) 0%, rgba(0,0,0,0) 100%)
   @media (prefers-color-scheme: dark)
-    display: block
+    display: flex
+    justify-content: center
+    align-items: center
     mask-image: linear-gradient(to bottom, rgba(0,0,0,1) 0%, rgba(0,0,0,0) 100%)
   -webkit-mask-image: linear-gradient(to bottom, rgba(0,0,0,1) 0%, rgba(0,0,0,0) 100%)
+  @media (min-width: 768px)
+    max-height: 350px
+  @media (min-width: 1024px)
+    max-height: 400px
+  @media (min-width: 1280px)
+    max-height: 450px
   &__image
     width: 100%
     height: 100%
     object-fit: cover
       
+.premium-subscribers-button
+  text-decoration: none
+  padding: 1px
+  background-color: var(--widget-background)
+  box-shadow: var(--widget-shadow)
+  border-radius: 4rem
+  display: inline-flex
+  align-items: center
+  padding: 1rem 2rem 1rem 1rem
+  gap: 1rem
+.premium-subscribers
+  display: flex
+  align-items: center
+  gap: 1rem
+  font-weight: 500
+  width: fit-content
+  flex-wrap: wrap
+  justify-content: center
+  flex-direction: column
+  width: 100%
+  @media (min-width: 768px)
+    gap: 2.5rem
+    flex-direction: row
+  &__avatars
+    display: flex
+    img
+      margin-right: -1.5rem
+      width: 24px
+      height: 24px
+      border-radius: 50%
+      object-fit: cover
+      box-shadow: 0 0 1rem var(--background)
