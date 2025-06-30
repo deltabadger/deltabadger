@@ -2,86 +2,41 @@
 <% content_for :meta_description, @article.excerpt %>
 
 <% content_for :head do %>
-<!-- Open Graph / Facebook -->
-<meta property="og:type" content="article">
-<meta property="og:title" content="<%= @article.title %>">
-<meta property="og:description" content="<%= @article.excerpt %>">
-<meta property="og:url" content="<%= article_url(@article, locale: @article.locale) %>">
-<meta property="og:site_name" content="Deltabadger">
-<% if @article.thumbnail_path.present? %>
-  <% social_thumbnail = @article.thumbnail_path.gsub(/\.[^.]+$/, '.jpg') %>
-  <meta property="og:image" content="<%= asset_url(social_thumbnail) %>">
-  <meta property="og:image:alt" content="<%= @article.title %>">
-<% end %>
-<% if @article.published_at.present? %>
-  <meta property="article:published_time" content="<%= @article.published_at.iso8601 %>">
-  <meta property="article:modified_time" content="<%= @article.updated_at.iso8601 %>">
-<% end %>
-<% if @article.author.present? %>
-  <meta property="article:author" content="<%= @article.author.name %>">
-<% end %>
-
-<!-- Twitter Card -->
-<meta name="twitter:card" content="summary_large_image">
-<meta name="twitter:title" content="<%= @article.title %>">
-<meta name="twitter:description" content="<%= @article.excerpt %>">
-<% if @article.thumbnail_path.present? %>
-  <meta name="twitter:image" content="<%= asset_url(social_thumbnail) %>">
-  <meta name="twitter:image:alt" content="<%= @article.title %>">
-<% end %>
-
-<script type="application/ld+json">
-{
-  "@context": "https://schema.org",
-  "@type": "Article",
-  "headline": "<%= j @article.title %>",
-  <% if @article.subtitle.present? %>
-  "alternativeHeadline": "<%= j @article.subtitle %>",
+  <!-- Open Graph / Facebook -->
+  <meta property="og:type" content="article">
+  <meta property="og:title" content="<%= @article.title %>">
+  <meta property="og:description" content="<%= @article.excerpt %>">
+  <meta property="og:url" content="<%= article_url(@article, locale: @article.locale) %>">
+  <meta property="og:site_name" content="Deltabadger">
+  <% if @article.thumbnail_path.present? %>
+    <% social_thumbnail = @article.thumbnail_path.gsub(/\.[^.]+$/, '.jpg') %>
+    <meta property="og:image" content="<%= asset_url(social_thumbnail) %>">
+    <meta property="og:image:alt" content="<%= @article.title %>">
   <% end %>
-  "description": "<%= j(@article.excerpt) %>",
   <% if @article.published_at.present? %>
-  "datePublished": "<%= @article.published_at.iso8601 %>",
-  "dateModified": "<%= @article.updated_at.iso8601 %>",
+    <meta property="article:published_time" content="<%= @article.published_at.iso8601 %>">
+    <meta property="article:modified_time" content="<%= @article.updated_at.iso8601 %>">
   <% end %>
   <% if @article.author.present? %>
-  "author": {
-    "@type": "Person",
-    "name": "<%= j @article.author.name %>"<% if @article.author.url.present? %>,
-    "url": "<%= @article.author.url %>"<% end %>
-  },
+    <meta property="article:author" content="<%= @article.author.name %>">
   <% end %>
-  "publisher": {
-    "@type": "Organization",
-    "name": "Deltabadger",
-    "logo": {
-      "@type": "ImageObject",
-      "url": "<%= asset_url('app-day.png') %>"
-    }
-  },
+
+  <!-- Twitter Card -->
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="<%= @article.title %>">
+  <meta name="twitter:description" content="<%= @article.excerpt %>">
   <% if @article.thumbnail_path.present? %>
-  "image": {
-    "@type": "ImageObject",
-    "url": "<%= asset_url(@article.thumbnail_path) %>"
-  },
+    <meta name="twitter:image" content="<%= asset_url(social_thumbnail) %>">
+    <meta name="twitter:image:alt" content="<%= @article.title %>">
   <% end %>
-  <% if @article.reading_time_minutes.present? %>
-  "timeRequired": "PT<%= @article.reading_time_minutes %>M",
-  <% end %>
-  "inLanguage": "<%= @article.locale %>",
-  "url": "<%= article_url(@article, locale: @article.locale) %>",
-  "isAccessibleForFree": <%= @article.paywalled? ? 'false' : 'true' %><% if @article.paywalled? %>,
-  "hasPart": [
-    {
-      "@type": "WebPageElement",
-      "isAccessibleForFree": true,
-      "cssSelector": ".article-body"
-    }
-  ]<% end %>
-}
-</script>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,100..900;1,14..32,100..900&display=swap" rel="stylesheet">
+
+  <script type="application/ld+json">
+    <%= raw article_json_ld(@article) %>
+  </script>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,100..900;1,14..32,100..900&display=swap" rel="stylesheet">
 <% end %>
 
 <% if @article.thumbnail_path.present? %>
