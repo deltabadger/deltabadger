@@ -3,22 +3,16 @@ class ArticlesController < ApplicationController
 
   before_action :set_premium_subscribers_count, only: %i[index show]
   before_action :set_article, only: [:show]
+
   def index
     @pagy, @articles = pagy(Article.published.by_locale(I18n.locale).recent, limit: 10)
-
-    @page_title = t('articles.index.title')
-    @meta_description = t('articles.index.meta_description')
   end
 
   def show
     return redirect_to articles_path unless @article&.published?
 
     @content = @article.render_content(user: current_user)
-    @has_paywall = @article.has_paywall?
     @user_has_access = @article.user_has_access?(current_user)
-    @available_locales = @article.available_locales
-
-    @page_title = @article.title
     @meta_description = @article.render_excerpt
   end
 

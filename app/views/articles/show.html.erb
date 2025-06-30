@@ -1,11 +1,11 @@
-<% content_for :title, @page_title %>
+<% content_for :title, @article.title %>
 <% content_for :meta_description, @meta_description %>
 
 <% content_for :head do %>
 <!-- Open Graph / Facebook -->
 <meta property="og:type" content="article">
 <meta property="og:title" content="<%= @article.title %>">
-<meta property="og:description" content="<%= @article.excerpt.present? ? @article.excerpt : @article.render_excerpt %>">
+<meta property="og:description" content="<%= @meta_description %>">
 <meta property="og:url" content="<%= article_url(@article, locale: @article.locale) %>">
 <meta property="og:site_name" content="Deltabadger">
 <% if @article.thumbnail_path.present? %>
@@ -24,7 +24,7 @@
 <!-- Twitter Card -->
 <meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:title" content="<%= @article.title %>">
-<meta name="twitter:description" content="<%= @article.excerpt.present? ? @article.excerpt : @article.render_excerpt %>">
+<meta name="twitter:description" content="<%= @meta_description %>">
 <% if @article.thumbnail_path.present? %>
   <meta name="twitter:image" content="<%= asset_url(social_thumbnail) %>">
   <meta name="twitter:image:alt" content="<%= @article.title %>">
@@ -38,7 +38,7 @@
   <% if @article.subtitle.present? %>
   "alternativeHeadline": "<%= j @article.subtitle %>",
   <% end %>
-  "description": "<%= j(@article.excerpt.present? ? @article.excerpt : @article.render_excerpt) %>",
+  "description": "<%= j(@meta_description) %>",
   <% if @article.published_at.present? %>
   "datePublished": "<%= @article.published_at.iso8601 %>",
   "dateModified": "<%= @article.updated_at.iso8601 %>",
@@ -140,7 +140,7 @@
     <%= raw @content %>
   </div>
 
-  <% if @has_paywall && !@user_has_access %>
+  <% if @article.has_paywall? && !@user_has_access %>
     <div class="paywall">
       <h2 style="margin-bottom: 0"><%= t('articles.paywall.title') %></h3>
       <div><%= t('articles.paywall.description').html_safe %></div>
