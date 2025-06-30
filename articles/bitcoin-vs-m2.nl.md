@@ -82,7 +82,7 @@ Terwijl het onderzoek van Lyn Alden de sterke correlatie en directionele afstemm
 
 <blockquote class="twitter-tweet">
 <p lang="en" dir="ltr">Here it is… the most copied Bitcoin chart on the planet, updated.<br><br>Nothing unusual going on, but remember: it’s not about matching Global M2 tick for tick…<br><br>It’s all about the trend moving higher – and that’s still firmly intact. Bullish. <a href="https://t.co/lkdgObGWo3">pic.twitter.com/lkdgObGWo3</a></p>&mdash; Julien Bittel, CFA (@BittelJulien) <a href="https://twitter.com/BittelJulien/status/1937823412514402569?ref_src=twsrc%5Etfw">June 25, 2025</a>
-</blockquote><script async src="https://platform.twitter.com/widgets.js" charset="utf-8"></script>
+</blockquote>
 
 [De studie van Sarson Funds](https://sarsonfunds.com/the-correlation-between-bitcoin-and-m2-money-supply-growth-a-deep-dive/) gepubliceerd in juni 2025 identificeerde een **10-weken voorwaartse voorsprong** als optimaal, terwijl andere analisten rapporteren van 8-14 weken.
 
@@ -92,13 +92,13 @@ Sina, een Bitcoin-onderzoeker, MIT-professor en mede-oprichter van 21stCapital, 
 
 <blockquote class="twitter-tweet">
 <p lang="en" dir="ltr">Everyone is talking about the chart that predicts Bitcoin using global M2 and they are using terrible analytics. <br><br>I explain why. <br><br>00:00 M2 Astrology<br>02:15 Measurement Problems<br>04:08 Illiteracy 1 <br>05:14  Illiteracy 2 <br>07:01  Illiteracy 3 <br>08:15  Illiteracy 4 <br>09:29 What is… <a href="https://t.co/AOW4lBj8Fl">pic.twitter.com/AOW4lBj8Fl</a></p>&mdash; Sina 🗝️⚡ 21st Capital (@Sina_21st) <a href="https://twitter.com/Sina_21st/status/1937606916756152633?ref_src=twsrc%5Etfw">June 24, 2025</a>
-</blockquote><script async src="https://platform.twitter.com/widgets.js" charset="utf-8"></script>
+</blockquote>
 
 Ik ben het volledig eens met Sina, dus laten we de "astrologie" achter ons laten en terugkeren naar het onderzoek van Lyn Alden, dat daadwerkelijk statistische relevantie heeft.
 
 <blockquote class="twitter-tweet">
 <p lang="en" dir="ltr">Bitcoin and global M2 have solid correlation, and importantly the mechanism behind it makes sense, but I don&#39;t agree with people who put the two together on a chart and say &quot;look M2 went up, therefore bitcoin&#39;s going up over the next few months too.&quot;<br><br>It&#39;s not assured like that.</p>&mdash; Lyn Alden (@LynAldenContact) <a href="https://twitter.com/LynAldenContact/status/1939317315012640830?ref_src=twsrc%5Etfw">June 29, 2025</a>
-</blockquote><script async src="https://platform.twitter.com/widgets.js" charset="utf-8"></script>
+</blockquote>
 
 ## 83% directionele correlatie
 
