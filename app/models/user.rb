@@ -29,7 +29,7 @@ class User < ApplicationRecord
 
   after_update_commit :reset_oauth_credentials, if: :saved_change_to_email?
 
-  delegate :unlimited?, to: :subscription
+  delegate :paid?, to: :subscription
 
   include Upgradeable
   include Sendgridable
