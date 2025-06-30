@@ -24,10 +24,10 @@ FeeApiKey.find_or_create_by!(exchange: Exchange.find_or_create_by!(name: 'Coinba
 FeeApiKey.update(key: COINBASE_API_KEY)
 FeeApiKey.update(secret: COINBASE_API_SECRET)
 
-free_plan = SubscriptionPlan.find_or_create_by!(name: 'free', unlimited: false)
-basic_plan = SubscriptionPlan.find_or_create_by!(name: 'basic', unlimited: true)
-pro_plan = SubscriptionPlan.find_or_create_by!(name: 'pro', unlimited: true)
-legendary_plan = SubscriptionPlan.find_or_create_by!(name: 'legendary', unlimited: true)
+free_plan = SubscriptionPlan.find_or_create_by!(name: 'free')
+basic_plan = SubscriptionPlan.find_or_create_by!(name: 'basic')
+pro_plan = SubscriptionPlan.find_or_create_by!(name: 'pro')
+legendary_plan = SubscriptionPlan.find_or_create_by!(name: 'legendary')
 
 free_plan_variant = SubscriptionPlanVariant.find_or_create_by!(subscription_plan: free_plan, cost_eur: 0, cost_usd: 0)
 basic_plan_1_year_variant = SubscriptionPlanVariant.find_or_create_by!(subscription_plan: basic_plan, years: 1, cost_eur: 87, cost_usd: 97)
