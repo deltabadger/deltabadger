@@ -1,12 +1,10 @@
 class ArticlesController < ApplicationController
+  include Pagy::Backend
+
   before_action :set_premium_subscribers_count, only: %i[index show]
   before_action :set_article, only: [:show]
   def index
-    @articles = Article.published
-                       .by_locale(I18n.locale)
-                       .recent
-                       .page(params[:page])
-                       .per(10)
+    @pagy, @articles = pagy(Article.published.by_locale(I18n.locale).recent, limit: 10)
 
     @page_title = t('articles.index.title')
     @meta_description = t('articles.index.meta_description')

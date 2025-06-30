@@ -68,7 +68,7 @@
     <% end %>
   </div>
 
-  <%= paginate @articles if respond_to?(:paginate) %>
+  <%== pagy_nav(@pagy) if @pagy.pages > 1 %>
 <% else %>
   <div class="no-articles">
     <p><%= t('articles.index.no_articles') %></p>
