@@ -36,8 +36,7 @@ class Article < ApplicationRecord
   def thumbnail_path
     return nil unless thumbnail.present?
 
-    asset_path = "articles/thumbnails/#{thumbnail}"
-    Rails.application.assets&.find_asset(asset_path) ? asset_path : nil
+    "articles/thumbnails/#{thumbnail}"
   end
 
   private
