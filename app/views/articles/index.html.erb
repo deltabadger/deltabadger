@@ -21,7 +21,8 @@
     <% @articles.each do |article| %>
       <%= link_to article_path(article), class: "article-card" do %>
         <% if article.thumbnail_path.present? %>
-          <%= image_tag article.thumbnail_path, alt: article.title, class: "article-card__thumbnail" %>
+          <% jpg_thumbnail = article.thumbnail_path.gsub(/\.[^.]+$/, '.jpg') %>
+          <%= image_tag jpg_thumbnail, alt: article.title, class: "article-card__thumbnail" %>
         <% end %>
 
         <div class="article-card__content">
