@@ -13,6 +13,9 @@
   = link_to portfolios_path, class: 'menu-mobile__item menu-mobile__item--analyzer', data: { controller: 'tooltip', action: 'mouseenter->tooltip#showTooltip mouseleave->tooltip#hideTooltip' } do
     = t('links.analyzer')
 
+  = link_to articles_path, class: 'menu-mobile__item menu-mobile__item--articles', data: { controller: 'tooltip', action: 'mouseenter->tooltip#showTooltip mouseleave->tooltip#hideTooltip' } do
+    = t('links.articles')
+
   = link_to affiliate_path, class: "menu-mobile__item menu-mobile__item--referral-program", data: { controller: 'tooltip', action: 'mouseenter->tooltip#showTooltip mouseleave->tooltip#hideTooltip' } do
     = t('links.referral_program')
 
@@ -54,8 +57,6 @@
     = link_to "Italiano", url_for(request.params.merge(locale: 'it')), class: "menu-mobile__item"
   - unless locale == 'pl'
     = link_to "Polski", url_for(request.params.merge(locale: 'pl')), class: "menu-mobile__item"
-  - unless locale == 'ru'
-    = link_to "Русский", url_for(request.params.merge(locale: 'ru')), class: "menu-mobile__item"
   .menu-mobile__divider
   = button_to destroy_user_session_path, method: :delete, class: "menu-mobile__item menu-mobile__button", data: { turbo: false } do
     = t('links.logout')
