@@ -1,8 +1,7 @@
 nl:
     devise:
         layout:
-            title: "Geautomatiseerde portefeuilles voor mensen die financiële vrijheid zoeken"
-            features_html: "Dollar-Cost Averaging &middot; Indexportefeuilles &middot; Herbalancering &middot; Portefeuille-analyse &middot; Aandelen & Crypto &middot; Community"
+            title: "Tools, nieuwsbrief en gemeenschap voor investeerders in digitale activa"
             review:
                 content: "Ik ben super blij met mijn Deltabadger lifetime plan, dat elk uur de crypto koopt die ik wil, zodat ik tijd heb voor belangrijke dingen! Bedankt voor deze geweldige tool."
         confirmations:
@@ -106,8 +105,9 @@ nl:
             success: 'Succesvol geauthenticeerd via %{kind} account.'
     shared:
         links:
-            log_in_with_google: "Inloggen met Google"
+            log_in_with_google: "Aanmelden met Google"
             signup_with_google: "Aanmelden met Google"
+            signup_with_email: "Aanmelden met e-mail"
             or: "of"
             sign_in: "Inloggen"
             sign_up: "Aanmelden"
