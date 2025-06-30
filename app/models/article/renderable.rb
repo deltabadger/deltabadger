@@ -38,6 +38,6 @@ module Article::Renderable
     }
 
     document = Kramdown::Document.new(text, kramdown_options)
-    document.to_html
+    document.to_html.html_safe
   end
 end
