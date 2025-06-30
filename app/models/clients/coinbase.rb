@@ -23,7 +23,7 @@ class Clients::Coinbase < Client
     end
   end
 
-  # https://docs.cdp.coinbase.com/coinbase-app/trade/reference/retailbrokerageapi_gethistoricalorder
+  # https://docs.cdp.coinbase.com/api-reference/advanced-trade-api/rest-api/orders/get-order
   # @param order_id [String] The order id
   def get_order(order_id:)
     with_rescue do
@@ -35,7 +35,7 @@ class Clients::Coinbase < Client
     end
   end
 
-  # https://docs.cdp.coinbase.com/coinbase-app/trade/reference/retailbrokerageapi_gethistoricalorders
+  # https://docs.cdp.coinbase.com/api-reference/advanced-trade-api/rest-api/orders/list-orders
   # @param order_ids [Array<String>] ID(s) of order(s)
   # @param product_ids [Array<String>] Optional string of the product ID(s). Defaults to null, or fetch for all products.
   # @param product_type [String] Returns orders matching this product type. By default, returns all product types.
@@ -104,7 +104,7 @@ class Clients::Coinbase < Client
     end
   end
 
-  # https://docs.cdp.coinbase.com/coinbase-app/trade/reference/retailbrokerageapi_postorder
+  # https://docs.cdp.coinbase.com/api-reference/advanced-trade-api/rest-api/orders/create-order
   # @param client_order_id [String] The client order id
   # @param product_id [String] The product id (BTC-USD)
   # @param side [String] The side of the order (buy or sell)
@@ -130,7 +130,7 @@ class Clients::Coinbase < Client
     end
   end
 
-  # https://docs.cdp.coinbase.com/coinbase-app/trade/reference/retailbrokerageapi_cancelorders
+  # https://docs.cdp.coinbase.com/api-reference/advanced-trade-api/rest-api/orders/cancel-order
   # @param order_ids [Array<String>] The order IDs that cancel requests should be initiated for
   def cancel_orders(order_ids:)
     with_rescue do
@@ -145,7 +145,7 @@ class Clients::Coinbase < Client
     end
   end
 
-  # https://docs.cdp.coinbase.com/coinbase-app/trade/reference/retailbrokerageapi_getpublicproducts
+  # https://docs.cdp.coinbase.com/api-reference/advanced-trade-api/rest-api/public/list-public-products
   # @param limit [Integer] The number of products to return
   # @param offset [Integer] The offset for pagination
   # @param product_type [String] The product type (spot or future)
@@ -154,7 +154,7 @@ class Clients::Coinbase < Client
   # @param expiring_contract_status [String] The expiring contract status (status_unexpired, status_expired, status_all)
   # @param get_tradability_status [Boolean] Whether to get the tradability status
   # @param get_all_products [Boolean] Whether to get all products
-  def list_products(
+  def list_public_products(
     limit: nil,
     offset: nil,
     product_type: nil,
@@ -183,10 +183,10 @@ class Clients::Coinbase < Client
     end
   end
 
-  # https://docs.cdp.coinbase.com/coinbase-app/trade/reference/retailbrokerageapi_getpublicproduct
+  # https://docs.cdp.coinbase.com/api-reference/advanced-trade-api/rest-api/public/get-public-product
   # @param product_id [String] The product id
   # @param get_tradability_status [Boolean] Whether or not to populate view_only with the tradability status of the product. This is only enabled for SPOT products. # rubocop:disable Layout/LineLength
-  def get_product(
+  def get_public_product(
     product_id:,
     get_tradability_status: nil
   )
@@ -202,7 +202,7 @@ class Clients::Coinbase < Client
     end
   end
 
-  # https://docs.cdp.coinbase.com/coinbase-app/trade/reference/retailbrokerageapi_getpublicproductbook
+  # https://docs.cdp.coinbase.com/api-reference/advanced-trade-api/rest-api/public/get-public-product-book
   # @param product_id [String] The product id
   # @param limit [Integer] The number of bid/asks to be returned
   # @param aggregation_price_increment [String] The minimum price intervals at which buy and sell orders are grouped or combined in the order book # rubocop:disable Layout/LineLength
@@ -226,7 +226,7 @@ class Clients::Coinbase < Client
     end
   end
 
-  # https://docs.cdp.coinbase.com/coinbase-app/trade/reference/retailbrokerageapi_getpubliccandles
+  # https://docs.cdp.coinbase.com/api-reference/advanced-trade-api/rest-api/public/get-public-product-candles
   # @param product_id [String] The trading pair (e.g. 'BTC-USD')
   # @param start_time [String] The UNIX timestamp indicating the start of the time interval
   # @param end_time [String] The UNIX timestamp indicating the end of the time interval
@@ -254,7 +254,7 @@ class Clients::Coinbase < Client
     end
   end
 
-  # https://docs.cdp.coinbase.com/coinbase-app/trade/reference/retailbrokerageapi_getapikeypermissions
+  # https://docs.cdp.coinbase.com/api-reference/advanced-trade-api/rest-api/data-api/get-api-key-permissions
   def get_api_key_permissions
     with_rescue do
       response = self.class.connection.get do |req|
@@ -265,6 +265,7 @@ class Clients::Coinbase < Client
     end
   end
 
+  # https://docs.cdp.coinbase.com/api-reference/advanced-trade-api/rest-api/accounts/list-accounts
   def list_accounts
     with_rescue do
       response = self.class.connection.get do |req|
@@ -275,6 +276,7 @@ class Clients::Coinbase < Client
     end
   end
 
+  # https://docs.cdp.coinbase.com/api-reference/advanced-trade-api/rest-api/portfolios/list-portfolios
   def list_portfolios
     with_rescue do
       response = self.class.connection.get do |req|
@@ -285,6 +287,7 @@ class Clients::Coinbase < Client
     end
   end
 
+  # https://docs.cdp.coinbase.com/api-reference/advanced-trade-api/rest-api/portfolios/get-portfolio-breakdown
   def get_portfolio_breakdown(
     portfolio_uuid:,
     currency: nil

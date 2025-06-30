@@ -184,9 +184,9 @@ task create_delisted_assets_and_tickers: :environment do
 
   new_ticker(
     'fantom',
-    'RUB.FOREX',
+    'tether',
     'Exchanges::Binance',
-    'FTMRUB', 'FTM', 'RUB', 8, 8, 2
+    'FTMUSDT', 'FTM', 'USDT', 8, 8, 2
   )
 
   new_ticker(
@@ -533,6 +533,13 @@ task create_delisted_assets_and_tickers: :environment do
   )
 
   new_ticker(
+    'polygon-ecosystem-token',
+    'tether',
+    'Exchanges::BinanceUs',
+    'POLUSDT', 'POL', 'USDT', 8, 8, 2
+  )
+
+  new_ticker(
     'enjincoin',
     'USD.FOREX',
     'Exchanges::Coinbase',
@@ -622,6 +629,29 @@ task create_delisted_assets_and_tickers: :environment do
     'Exchanges::Kraken',
     'XTZGBP', 'XTZ', 'GBP', 8, 8, 2
   )
+
+  new_ticker(
+    'aragon',
+    'EUR.FOREX',
+    'Exchanges::Kraken',
+    'ANTEUR', 'ANT', 'EUR', 8, 8, 2
+  )
+
+  new_ticker(
+    'aragon',
+    'USD.FOREX',
+    'Exchanges::Kraken',
+    'ANTUSD', 'ANT', 'USD', 8, 8, 2
+  )
+
+  new_ticker(
+    'fantom',
+    'USD.FOREX',
+    'Exchanges::Kraken',
+    'FTMUSD', 'FTM', 'USD', 8, 8, 2
+  )
+
+  Exchange::SyncAllTickersAndAssetsJob.perform_later
 end
 
 def new_ticker(
@@ -637,42 +667,57 @@ def new_ticker(
 )
   fiat_currency = Fiat.currencies.find { |c| c[:external_id] == base_asset_external_id }
   if fiat_currency.present?
-    Asset.create!(fiat_currency) unless base_asset_external_id.in?(Asset.pluck(:external_id))
+    base_asset = if base_asset_external_id.in?(Asset.pluck(:external_id))
+                   Asset.find_by(external_id: base_asset_external_id)
+                 else
+                   Asset.create!(fiat_currency)
+                 end
   else
     base_asset = Asset.find_or_create_by!(external_id: base_asset_external_id, category: 'Cryptocurrency')
     Asset::FetchDataFromCoingeckoJob.perform_later(base_asset)
   end
   ExchangeAsset.find_or_create_by!(
     asset_id: base_asset.id,
-    exchange_id: Exchange.find_by(type: exchange_type).id,
-    available: false
+    exchange_id: Exchange.find_by(type: exchange_type).id
   )
   fiat_currency = Fiat.currencies.find { |c| c[:external_id] == quote_asset_external_id }
   if fiat_currency.present?
-    Asset.create!(fiat_currency) unless quote_asset_external_id.in?(Asset.pluck(:external_id))
+    quote_asset = if quote_asset_external_id.in?(Asset.pluck(:external_id))
+                    Asset.find_by(external_id: quote_asset_external_id)
+                  else
+                    Asset.create!(fiat_currency)
+                  end
   else
     quote_asset = Asset.find_or_create_by!(external_id: quote_asset_external_id, category: 'Cryptocurrency')
     Asset::FetchDataFromCoingeckoJob.perform_later(quote_asset)
   end
   ExchangeAsset.find_or_create_by!(
     asset_id: quote_asset.id,
-    exchange_id: Exchange.find_by(type: exchange_type).id,
-    available: false
+    exchange_id: Exchange.find_by(type: exchange_type).id
   )
-  ticker = Ticker.find_or_create_by!(
-    base_asset: base_asset,
-    quote_asset: quote_asset,
-    exchange: Exchange.find_by(type: exchange_type)
-  )
-  ticker.update!(
-    ticker: ticker.ticker || ticker_name,
-    base: ticker.base || base,
-    quote: ticker.quote || quote,
-    base_decimals: ticker.base_decimals || base_decimals,
-    quote_decimals: ticker.quote_decimals || quote_decimals,
-    price_decimals: ticker.price_decimals || price_decimals,
-    minimum_base_size: ticker.minimum_base_size || 0,
-    minimum_quote_size: ticker.minimum_quote_size || 0,
-    available: ticker.available || false
-  )
+  ticker = Ticker.find_by(base_asset: base_asset, quote_asset: quote_asset, exchange: Exchange.find_by(type: exchange_type))
+  if ticker.present?
+    ticker.update!(
+      base_decimals: ticker.base_decimals || base_decimals,
+      quote_decimals: ticker.quote_decimals || quote_decimals,
+      price_decimals: ticker.price_decimals || price_decimals,
+      minimum_base_size: ticker.minimum_base_size || 0,
+      minimum_quote_size: ticker.minimum_quote_size || 0
+    )
+  else
+    puts "Creating ticker #{ticker_name} for #{base_asset_external_id} and #{quote_asset_external_id} on #{exchange_type}"
+    Ticker.create!(
+      base_asset: base_asset,
+      quote_asset: quote_asset,
+      exchange: Exchange.find_by(type: exchange_type),
+      ticker: ticker_name,
+      base: base,
+      quote: quote,
+      base_decimals: base_decimals,
+      quote_decimals: quote_decimals,
+      price_decimals: price_decimals,
+      minimum_base_size: 0,
+      minimum_quote_size: 0
+    )
+  end
 end

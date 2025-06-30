@@ -1,6 +1,6 @@
 class Clients::Zen < Client
-  URL                 = ENV.fetch('ZEN_CHECKOUT_URL').freeze
-  ZEN_PAYWALL_SECRET  = ENV.fetch('ZEN_PAYWALL_SECRET').freeze
+  URL = 'https://secure.zen.com'.freeze
+  ZEN_PAYWALL_SECRET = ENV.fetch('ZEN_PAYWALL_SECRET').freeze
 
   def self.connection
     @connection ||= Faraday.new(url: URL, **OPTIONS) do |config|
@@ -40,8 +40,7 @@ class Clients::Zen < Client
     "#{hashed_string};sha256"
   end
 
-  # rubocop:disable Metrics/PerceivedComplexity
-  def get_array_of_strings_from_hash(hash, parent_key = '', strings = [])
+  def get_array_of_strings_from_hash(hash, parent_key = '', strings = []) # rubocop:disable Metrics/PerceivedComplexity
     hash.each do |key, value|
       current_key = parent_key.empty? ? key.to_s : "#{parent_key}.#{key}"
 
@@ -62,5 +61,4 @@ class Clients::Zen < Client
 
     strings
   end
-  # rubocop:enable Metrics/PerceivedComplexity
 end
