@@ -37,12 +37,7 @@ class Article < ApplicationRecord
     return nil unless thumbnail.present?
 
     asset_path = "articles/thumbnails/#{thumbnail}"
-
-    # Check if asset exists in pipeline or filesystem
-    if Rails.application.assets&.find_asset(asset_path) ||
-       File.exist?(Rails.root.join("app/assets/images/#{asset_path}"))
-      asset_path
-    end
+    Rails.application.assets&.find_asset(asset_path) ? asset_path : nil
   end
 
   private
