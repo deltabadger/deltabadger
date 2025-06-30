@@ -25,7 +25,7 @@ module Bots::Searchable
     # flattening binance and binance_us to binance
     binance_name_id = 'binance'
     binance_us_name_id = 'binance_us'
-    binance_name = Exchange.find_by(name_id: binance_name_id).name
+    binance_name = Exchange.find_by(type: 'Exchanges::Binance').name
 
     exchanges.map { |name_id, name, _| [name_id, name] }
              .map { |name_id, name| name_id == binance_us_name_id ? [binance_name_id, binance_name] : [name_id, name] }
