@@ -7,7 +7,7 @@ excerpt: "Związek między Bitcoinem a globalną podażą pieniądza. Badania Ly
 published: true
 ---
 
-Związek między Bitcoinem a globalną podażą pieniądza stał się jednym z najgoręcej dyskutowanych tematów. W miarę jak przechodzimy przez 2025 rok, Bitcoin staje się silniejszy, podczas gdy dodruk pieniędzy wzrasta.
+Związek między Bitcoinem a globalną podażą pieniądza stał się jednym z najgoręcej dyskutowanych tematów. W miarę jak przechodzimy przez 2025 rok, Bitcoin staje się silniejszy, podczas gdy dodruk pieniądza wzrasta.
 
 W tym artykule:
 
@@ -16,7 +16,7 @@ W tym artykule:
 * użyjemy AI i danych publicznych, aby stworzyć 12-miesięczną prognozę ceny Bitcoina.
 
 ## Zrozumienie połączenia M2
-Podaż pieniądza M2 mierzy całkowitą ilość pieniędzy dostępnych w gospodarce. Obejmuje gotówkę, rachunki bieżące, rachunki oszczędnościowe i inne łatwo dostępne fundusze. Agregując M2 z ośmiu największych gospodarek (USA, Chiny, Europa, Wielka Brytania, Japonia, Kanada, Rosja i Australia), otrzymujemy kompleksowy obraz globalnej podaży pieniądza.
+Podaż pieniądza M2 mierzy całkowitą ilość pieniądza dostępnego w gospodarce. Obejmuje gotówkę, rachunki bieżące, rachunki oszczędnościowe i inne łatwo dostępne fundusze. Agregując M2 z ośmiu największych gospodarek (USA, Chiny, Europa, Wielka Brytania, Japonia, Kanada, Rosja i Australia), otrzymujemy kompleksowy obraz globalnej podaży pieniądza.
 
 Aby zrozumieć, dlaczego M2 jest ważne, umieśćmy je w kontekście innych **agregatów monetarnych**:
 
@@ -39,18 +39,18 @@ M0 plus **rachunki bieżące** i inne **wysoce płynne depozyty**, które można
 
 ### M2
 
-M1 plus **rachunki oszczędnościowe**, **rachunki rynku pieniężnego** i **małe depozyty terminowe**. To lepiej odzwierciedla całkowitą ilość pieniędzy dostępnych na wydatki i inwestycje w gospodarce.
+M1 plus **rachunki oszczędnościowe**, **rachunki rynku pieniężnego** i **małe depozyty terminowe**. To lepiej odzwierciedla całkowitą ilość pieniądza dostępnego na wydatki i inwestycje w gospodarce.
 
 </div>
 </div>
 
-Przechodząc od M0 do M2, otrzymujemy coraz szerszy obraz dostępnych pieniędzy. **M2 pokazuje najpełniejszy obraz pieniędzy w systemie**.
+Przechodząc od M0 do M2, otrzymujemy coraz szerszy obraz dostępnego pieniądza. **M2 pokazuje najpełniejszy obraz pieniądza w systemie**.
 
-Patrząc na związek Bitcoina z polityką pieniężną, M2 jest ważne, ponieważ pokazuje wszystkie pieniądze, które potencjalnie mogłyby wpłynąć na inwestycje takie jak Bitcoin. Globalne M2 jest mierzone w dolarach amerykańskich, co mówi nam zarówno o sile dolara, jak i o tym, jak szybko tworzone są pieniądze na całym świecie.
+Patrząc na związek Bitcoina z polityką pieniężną, M2 jest ważne, ponieważ pokazuje wszystkie pieniądze, które potencjalnie mogłyby wpłynąć na inwestycje takie jak Bitcoin. Globalne M2 jest mierzone w dolarach amerykańskich, co mówi nam zarówno o sile dolara, jak i o tym, jak szybko tworzony jest pieniądz na całym świecie.
 
 Główna teza jest prosta:
 
-**Gdy drukuje się więcej pieniędzy (M2 rośnie), Bitcoin ma tendencję do wzrostu, ponieważ inwestorzy szukają alternatyw dla tradycyjnych inwestycji. Gdy drukowanie pieniędzy zwalnia lub zatrzymuje się, Bitcoin ma tendencję do osiągania gorszych wyników.**
+**Gdy drukuje się więcej pieniądza (M2 rośnie), Bitcoin ma tendencję do wzrostu, ponieważ inwestorzy szukają alternatyw dla tradycyjnych inwestycji. Gdy drukowanie pieniądza zwalnia lub zatrzymuje się, Bitcoin ma tendencję do osiągania gorszych wyników.**
 
 <!-- PAYWALL -->
 
@@ -181,7 +181,7 @@ Połączenie analizy płynności z wskaźnikami po stronie podaży zapewnia leps
 - **Wynik**: To poprawnie zidentyfikowało dno na poziomie 15 500 $ w listopadzie 2022
 
 **Scenariusz 2 - Koniec 2021 (Sygnały ostrzegawcze)**
-- **Stan M2**: Środowisko wysokiej płynności, w którym Fed wciąż drukował pieniądze
+- **Stan M2**: Środowisko wysokiej płynności, w którym Fed wciąż drukował pieniądz
 - **Wskaźnik MVRV Z-Score**: Bardzo wysoki (powyżej 7), wskazujący na skrajne przewartościowanie
 - **Fala HODL**: Szybko spadająca, gdy długoterminowi posiadacze dystrybuowali nowicjuszom
 - **Działanie strategiczne**: Realizuj zyski pomimo sprzyjających warunków płynnościowych
