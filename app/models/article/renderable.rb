@@ -34,6 +34,13 @@ module Article::Renderable
         ndash: '--',
         laquo: '<<',
         raquo: '>>'
+      },
+      coderay_css: :class,
+      coderay_bold_every: 1,
+
+      # Allow script tags for Twitter embeds, etc.
+      html_to_native_attributes: {
+        'script' => %w[src async charset]
       }
     }
 
