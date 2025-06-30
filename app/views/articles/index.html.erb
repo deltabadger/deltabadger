@@ -8,12 +8,9 @@
 <hgroup class="articles-header">
   <h1 class="articles-header__title"><%= t('articles.index.title') %></h1>
   <p class="articles-header__subtitle"><%= t('articles.index.meta_description') %></p>
-  <% if current_user && !current_user.subscription&.pro? && !current_user.subscription&.legendary? %>
-    <%= link_to upgrade_path, class: "premium-subscribers-button" do %>
-      <%= render partial: 'articles/premium_subscribers', locals: { count: @premium_subscribers_count } %> →
-    <% end %>
-  <% elsif current_user.nil? %>
-    <%= link_to new_user_registration_path, class: "premium-subscribers-button" do %>
+  <% unless current_user&.subscription&.pro? || current_user&.subscription&.legendary? %>
+    <% path = current_user.present? ? upgrade_path : new_user_registration_path %>
+    <%= link_to path, class: "premium-subscribers-button" do %>
       <%= render partial: 'articles/premium_subscribers', locals: { count: @premium_subscribers_count } %> →
     <% end %>
   <% end %>
