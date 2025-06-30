@@ -533,6 +533,13 @@ task create_delisted_assets_and_tickers: :environment do
   )
 
   new_ticker(
+    'polygon-ecosystem-token',
+    'tether',
+    'Exchanges::BinanceUs',
+    'POLUSDT', 'POL', 'USDT', 8, 8, 2
+  )
+
+  new_ticker(
     'enjincoin',
     'USD.FOREX',
     'Exchanges::Coinbase',
