@@ -69,6 +69,10 @@ class User < ApplicationRecord
     @subscription ||= subscriptions.active.order(created_at: :asc).last
   end
 
+  def can_access_full_articles?
+    subscription.pro? || subscription.legendary?
+  end
+
   def eligible_referrer
     referrer if eligible_for_discount?
   end

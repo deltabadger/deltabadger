@@ -12,8 +12,7 @@ class ArticlesController < ApplicationController
     return redirect_to articles_path unless @article&.published?
 
     @content = @article.render_content(user: current_user)
-    @user_has_access = @article.user_has_access?(current_user)
-    @meta_description = @article.render_excerpt
+    @content_unlocked = current_user&.can_access_full_articles?
   end
 
   private

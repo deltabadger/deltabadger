@@ -48,7 +48,7 @@
               </span>
             <% end %>
 
-            <% if article.has_paywall? %>
+            <% if article.paywalled? %>
               &middot;
               <span class="article__header__meta__premium">
                 <%= t('articles.premium_content') %>
@@ -58,7 +58,7 @@
           </div>
 
           <div class="article-excerpt">
-            <%= raw article.render_excerpt %>
+            <%= article.excerpt %>
           </div>
         </div>
       <% end %>

@@ -5,25 +5,11 @@ module Article::Renderable
   extend ActiveSupport::Concern
 
   def render_content(user: nil)
-    rendered_content = markdown_to_html(content)
-
-    if has_paywall? && !user_has_access?(user)
-      split_content_at_paywall(rendered_content)[:free]
+    if user&.can_access_full_articles?
+      markdown_to_html(content)
     else
-      rendered_content
+      markdown_to_html(free_content)
     end
-  end
-
-  def render_full_content
-    markdown_to_html(content)
-  end
-
-  def render_excerpt
-    return excerpt if excerpt.present?
-
-    # Extract excerpt from content
-    first_paragraph = content.split("\n\n").first
-    markdown_to_html(first_paragraph) if first_paragraph.present?
   end
 
   private

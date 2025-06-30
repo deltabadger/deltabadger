@@ -14,8 +14,8 @@ class Article < ApplicationRecord
 
   belongs_to :author, optional: true
 
-  include Article::Renderable
-  include Article::Paywall
+  include Renderable
+  include Paywallable
 
   def to_param
     slug

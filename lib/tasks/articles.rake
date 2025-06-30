@@ -102,7 +102,7 @@ namespace :articles do
         puts "  Title: #{article.title}"
         puts "  Author: #{article.author&.name || 'No author'}"
         puts "  Published: #{article.published? ? 'Yes' : 'No'}"
-        puts "  Paywall: #{article.has_paywall? ? 'Yes' : 'No'}"
+        puts "  Paywall: #{article.paywalled? ? 'Yes' : 'No'}"
         puts
       end
     end
