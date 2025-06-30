@@ -7,6 +7,7 @@ alwaysApply: false
 description: Translation and localization rules for supported languages
 globs: 
   - "config/locales/**/*.yml"
+  - "articles/**/*.md"
 alwaysApply: true
 ---
 
@@ -19,12 +20,17 @@ alwaysApply: true
 - **Portuguese (PT)** - Lisbon/Portugal variant only
 - **Dutch (NL)** - Amsterdam/Netherlands variant only
 - **Polish (PL)** - Warsaw/Poland variant only
-- **Russian (RU)** - Moscow/Russian variant only
 
 **Note**: NEVER use non-European variants of Spanish, French, and Portugese.
 
 ## Translation Files
 - Location: `config/locales/`
 - Pattern: `[component].[language_code].yml`
-- Language codes: DE, EN, FR, IT, ES, PT, NL, PL, RU
+- Language codes: DE, EN, FR, IT, ES, PT, NL, PL
 - Default fallback: English (EN)
+
+## Translating Articles
+- Location: `/articles`
+- When translating an article, create a copy of the markdown file with the appropriate language slug, e.g., `…de.md`, `…es.md`, etc.
+- **Do not** add translations to `*.yml` files.
+- **never** translate twitter/x embeds

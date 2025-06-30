@@ -7,11 +7,11 @@ module SubscriptionPlan::PlanFeatures
         dca
         fee_cutter
         automatic_withdrawals
+        newsletter
         rebalanced_dca
         crypto_index
         crypto_index_advanced
         custom_portfolios
-        portfolio_rebalancing
         portfolio_backtesting
         smart_allocation
         ai_insights
@@ -30,10 +30,11 @@ module SubscriptionPlan::PlanFeatures
         dca
         fee_cutter
         automatic_withdrawals
+        newsletter
         rebalanced_dca
         crypto_index
         custom_portfolios
-        portfolio_rebalancing
+
       ]
     end
 
@@ -50,7 +51,6 @@ module SubscriptionPlan::PlanFeatures
         crypto_index
         crypto_index_advanced
         custom_portfolios
-        portfolio_rebalancing
       ]
     end
 
@@ -83,10 +83,10 @@ module SubscriptionPlan::PlanFeatures
 
     def pro_features
       basic_features + %w[
+        newsletter
         rebalanced_dca
         crypto_index
         custom_portfolios
-        portfolio_rebalancing
         portfolio_backtesting
         smart_allocation
         ai_insights

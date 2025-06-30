@@ -1,8 +1,7 @@
 en:
     devise:
         layout:
-            title: "Automated portfolios for financial freedom seekers"
-            features_html: "Dollar-Cost Averaging &middot; Index Portfolios &middot; Rebalancing &middot; Portfolio Analyzer &middot; Stocks & Crypto &middot; Community"
+            title: "Tools, newsletter and community for investors in digital assets"
             review:
                 content: "I am super happy with my Deltabedger lifetime plan, that buys every hour the crypto I want, so I have time for important things! Thank you for that wonderful tool."
         confirmations:
@@ -112,6 +111,7 @@ en:
         links:
             log_in_with_google: "Log in with Google"
             signup_with_google: "Sign up with Google"
+            signup_with_email: "Sign up with email"
             or: "or"
             sign_in: "Log in"
             sign_up: "Sign up"

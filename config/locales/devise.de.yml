@@ -1,8 +1,7 @@
 de:
     devise:
         layout:
-            title: "Automatisierte Portfolios für Menschen, die finanzielle Freiheit suchen"
-            features_html: "DCA &middot; Index-Portfolios &middot; Rebalancing &middot; Portfolio-Analyse &middot; Aktien & Krypto &middot; Community"
+            title: "Tools, Newsletter und Community für Investoren in digitale Vermögenswerte"
             review:
                 content: "Ich bin super glücklich mit meinem Deltabadger Lifetime-Plan, der stündlich die Kryptowährungen kauft, die ich möchte. So habe ich Zeit für die wichtigen Dinge! Danke für dieses wunderbare Tool."
         confirmations:
@@ -107,9 +106,10 @@ de:
             success: 'Erfolgreich über %{kind}-Konto authentifiziert.'
     shared:
         links:
-            log_in_with_google: "Mit Google anmelden"
+            log_in_with_google: "Mit Google einloggen"
             signup_with_google: "Mit Google registrieren"
+            signup_with_email: "Mit E-Mail registrieren"
             or: "oder"
-            sign_in: "Anmelden"
+            sign_in: "Einloggen"
             sign_up: "Registrieren"
             forgot_your_password: "Passwort vergessen?"

@@ -17,6 +17,8 @@
   justify-content: space-between
   path
     fill: var(--navbarLink)
+  .menu__logo
+    margin-top: 0
 .menu-light
   display: flex
   .dropdown-wrapper
@@ -36,6 +38,8 @@
   align-items: center
   min-height: 67rem
   z-index: 100
+  @media (min-width: 768px)
+    min-height: 74rem
   @media only screen and (max-width: 767.9px)
     display: none
   &__section
@@ -48,9 +52,9 @@
     &--bottom
       align-items: center
   &__logo
-    width: 6rem
-    height: 6rem
-    padding: 1rem
+    margin-top: 1rem
+    width: 4rem
+    height: 4rem
     display: flex
     justify-content: center
     align-items: center
@@ -98,7 +102,7 @@
     fill: var(--success)
 
 .view
-  &--bots-index .menu__item--dashboard, &--calculator-show .menu__item--calculator, &--portfolios-show .menu__item--analyzer, &--affiliates-new .menu__item--referral-program, &--affiliates-show .menu__item--referral-program, &--settings-index .menu__item--settings, &--upgrade-index .menu__item--upgrade, &--legendaries-show .menu__item--legendary-plan
+  &--bots-index .menu__item--dashboard, &--calculator-show .menu__item--calculator, &--portfolios-show .menu__item--analyzer, &--affiliates-new .menu__item--referral-program, &--affiliates-show .menu__item--referral-program, &--settings-index .menu__item--settings, &--upgrade-index .menu__item--upgrade, &--legendaries-show .menu__item--legendary-plan, &--articles-index .menu__item--articles, &--articles-show .menu__item--articles
     background: var(--menuicon-active-background)
     box-shadow: var(--widget-shadow)
     .fill--icon

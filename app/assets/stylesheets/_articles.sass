@@ -1,0 +1,306 @@
+.articles
+  display: flex
+  flex-direction: column
+  gap: 2rem
+.articles-header
+  margin-bottom: 6rem
+  &__title
+    font-size: 3rem
+    font-weight: 300
+    line-height: 1.2
+    margin-bottom: 1rem
+    @media (min-width: 768px)
+      font-size: 4rem
+  &__subtitle
+    font-size: 1.75rem
+    line-height: 1.5
+.article-card
+  text-decoration: none
+  color: var(--text) !important
+  display: flex
+  flex-direction: column
+  gap: 1.75rem
+  max-width: 144rem
+  padding: 1.75rem 0
+  border-bottom: 1px solid var(--menulink)
+  &:hover
+    background: linear-gradient(to right, #fff0, var(--widget-background),#fff0)
+    cursor: pointer
+  &:first-child
+    border-top: 1px solid var(--menulink)
+  @media (min-width: 768px)
+    padding: 3rem 0
+    gap: 2rem
+  @media (min-width: 1024px)
+    flex-direction: row
+    gap: 3rem
+  &__thumbnail
+    width: 100%
+    height: 200px
+    object-fit: cover
+  &__content
+    display: flex
+    flex-direction: column
+    gap: 1rem
+    h2
+      margin: 0
+      font-size: 3rem
+      padding: 0
+      text-align: left
+  &__meta
+    font-size: 1.75rem
+
+  
+.view--articles-show,.view--articles-index
+  --link: var(--navbarLink)
+  @media (prefers-color-scheme: dark)
+    --text: #cde
+  @media (prefers-color-scheme: light)
+    --text: #024
+  .main
+    margin: 0 auto
+    padding: 8rem 1.5rem
+    max-width: 144rem
+    @media (min-width: 768px)
+      padding: 8rem 14rem
+    @media (min-width: 1024px)
+      padding: 12rem 16rem
+    @media (min-width: 1280px)
+      padding: 16rem
+  .button
+    max-width: 30rem
+
+.article
+  display: flex
+  flex-direction: column
+  gap: 8rem
+  @media (min-width: 768px)
+    gap: 12rem
+  p,ul,ol,li,blockquote
+    font-family: "Inter", sans-serif
+  h2
+    margin: 8rem 0 4rem 0
+    font-size: 2.8rem
+    font-weight: 700
+    line-height: 1.5
+    text-align: left
+    padding: 0
+    @media (min-width: 768px)
+      font-size: 3.2rem
+      line-height: 1.2
+      margin: 12rem 0 6rem 0
+    @media (min-width: 1024px)
+      font-size: 4rem
+      line-height: 1.1
+  h3
+    margin: 4rem 0
+    font-size: 2rem
+    font-weight: 700
+    line-height: 1.5
+    text-align: left
+    padding: 0
+    @media (min-width: 768px)
+      font-size: 2.25rem
+      line-height: 1.2
+    @media (min-width: 1024px)
+      font-size: 3rem
+      line-height: 1.1
+  p, ol, ul
+    margin-bottom: 2rem
+  .twitter-tweet
+    padding: 4rem 0
+    margin: 0 auto
+    max-width: 100%
+    iframe
+      border-radius: 1.5rem
+  &__header
+    display: flex
+    flex-direction: column
+    text-align: left
+    gap: 2rem
+    @media (min-width: 768px)
+      gap: 5rem
+    @media (min-width: 1024px)
+      gap: 6rem
+    
+    hgroup
+      display: flex
+      flex-direction: column
+      gap: 1rem
+      padding-bottom: 0.5rem
+    &__back
+      font-size: 1.75rem
+      text-decoration: none
+    &__title
+      font-size: 4rem
+      font-weight: 700
+      line-height: 1.5
+      @media (min-width: 768px)
+        font-size: 5rem
+        line-height: 1.2
+      @media (min-width: 1024px)
+        font-size: 6rem
+        line-height: 1.1
+    &__subtitle
+      text-align: left
+      font-size: 2rem
+      font-weight: 500
+      padding: 0
+      @media (min-width: 768px)
+        font-size: 2.5rem
+      @media (min-width: 1024px)
+        font-size: 3rem
+    &__meta
+      font-size: 1.5rem
+      @media (min-width: 768px)
+        font-size: 1.75rem
+      &__premium
+        color: var(--link)
+        font-weight: 500
+        text-transform: uppercase
+        font-size: 0.75em
+        display: inline-block
+        padding: 0 0.75em
+        border-radius: 1em
+        border: 1px solid var(--link)
+.paywall
+  background: linear-gradient(to bottom, #fff0 0%, var(--background) 30%)
+  position: relative
+  z-index: 1
+  margin-top: -48rem
+  padding: 32rem 3rem
+  text-align: center
+  display: flex
+  flex-direction: column
+  align-items: center
+  justify-content: center
+  gap: 7rem
+  text-align: center !important
+  h3, h2
+    width: 100%
+    text-align: center !important
+  &__actions
+    display: flex
+    flex-direction: column
+    gap: 2rem
+    .premium-subscribers
+      margin-bottom: 2rem
+  .button
+    width: 40rem
+    min-width: 40rem
+
+.monetary-aggregates
+  margin: 4rem 0
+  border: 1px solid var(--label)
+  @media (min-width: 768px)
+    display: flex
+    flex-direction: row
+  .col
+    padding: 2rem 2rem 0.5rem
+    flex: 1
+    background-color: #00ffae40
+    display: flex
+    flex-direction: column
+    gap: 2rem
+    h3
+      padding: 0
+      margin: 0
+      font-size: 4rem
+      font-weight: 400
+    &+.col
+      border-top: 1px solid var(--label)
+      background-color: #00ddff40
+      @media (min-width: 768px)
+        border-top: none
+        border-left: 1px solid var(--label)
+      &+.col
+        background-color: #001aff40
+
+.article
+  table
+    width: 100%
+    border-spacing: 0
+    border-collapse: collapse
+    margin: 4rem 0
+    tbody
+      background-color: var(--widget-background)
+      box-shadow: var(--widget-shadow)
+      tr:nth-child(even)
+        background-color: var(--widget-background-odd)
+    th,td
+      text-align: left
+      padding: 1rem 2rem
+    tr
+      font-family: Arial, "Helvetica Neue", Helvetica, sans
+  &__key-part
+    background: var(--widget-background)
+    border: 1px solid var(--text)
+    padding: 4rem
+    margin: 12rem 0
+    h2
+      margin-top: 0
+
+.article-bg-top
+  display: none
+  position: absolute
+  top: 0
+  left: 0
+  width: 100vw
+  height: auto
+  max-height: 250px
+  overflow: hidden
+  z-index: -1
+  mask-image: linear-gradient(to bottom, rgba(0,0,0,1) 0%, rgba(0,0,0,0) 100%)
+  -webkit-mask-image: linear-gradient(to bottom, rgba(0,0,0,1) 0%, rgba(0,0,0,0) 100%)
+  @media (prefers-color-scheme: dark)
+    display: flex
+    justify-content: center
+    align-items: center
+    mask-image: linear-gradient(to bottom, rgba(0,0,0,1) 0%, rgba(0,0,0,0) 100%)
+  -webkit-mask-image: linear-gradient(to bottom, rgba(0,0,0,1) 0%, rgba(0,0,0,0) 100%)
+  @media (min-width: 768px)
+    max-height: 350px
+  @media (min-width: 1024px)
+    max-height: 400px
+  @media (min-width: 1280px)
+    max-height: 450px
+  &__image
+    width: 100%
+    height: 100%
+    object-fit: cover
+      
+.premium-subscribers-button
+  text-decoration: none
+  padding: 1px
+  background-color: var(--widget-background)
+  box-shadow: var(--widget-shadow)
+  border-radius: 4rem
+  display: inline-flex
+  align-items: center
+  padding: 1rem
+  gap: 1rem
+.premium-subscribers
+  display: flex
+  align-items: center
+  gap: 2.5rem
+  font-weight: 500
+  width: fit-content
+  flex-wrap: wrap
+  justify-content: center
+  width: 100%
+  font-size: 1.75rem
+  @media (min-width: 768px)
+    font-size: 2rem
+  &__avatars
+    display: flex
+    img
+      margin-right: -1.5rem
+      width: 24px
+      height: 24px
+      border-radius: 50%
+      object-fit: cover
+      box-shadow: 0 0 1rem var(--background)
+      @media (max-width: 767.9px)
+        &+img+img+img
+          display: none
+    
