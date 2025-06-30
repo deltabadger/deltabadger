@@ -1,0 +1,14 @@
+pt:
+  articles:
+    index:
+      title: "Deltabadger's Research Lab"
+      meta_description: "Artigos quinzenais para investidores de longo prazo em ativos digitais."
+      no_articles: "Nenhum artigo disponível no momento."
+      join_subscribers: "Junte-se a %{count} subscritores <span class='desktop-only'>Premium</span>"
+    reading_time: "%{minutes} min de leitura"
+    premium_content: "Premium"
+    back_to_articles: "← Voltar aos artigos"
+    paywall:
+      title: "Subscreva para continuar a ler."
+      description: |
+        Somos uma comunidade de investidores de longo prazo em ativos digitais. Obtenha acesso a:<br><b>artigos quinzenais &middot; analisador de portfólio &middot; automações do mercado de criptomoedas</b>

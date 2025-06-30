@@ -1,8 +1,7 @@
 es:
     devise:
         layout:
-            title: "Carteras automatizadas para quienes buscan libertad financiera"
-            features_html: "DCA &middot; Carteras indexadas &middot; Rebalanceo &middot; Analizador de carteras &middot; Acciones y Cripto &middot; Comunidad"
+            title: "Herramientas, boletín y comunidad para inversores en activos digitales"
             review:
                 content: "¡Estoy súper contenta con mi plan vitalicio de Deltabadger, que compra cada hora las criptos que quiero, así que tengo tiempo para las cosas importantes! ¡Gracias por esta herramienta tan chula!"
         confirmations:
@@ -109,6 +108,7 @@ es:
         links:
             log_in_with_google: "Iniciar sesión con Google"
             signup_with_google: "Registrarse con Google"
+            signup_with_email: "Registrarse con correo electrónico"
             or: "o"
             sign_in: "Iniciar sesión"
             sign_up: "Registrarse"

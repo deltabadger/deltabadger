@@ -195,6 +195,8 @@ Rails.application.routes.draw do
       end
     end
 
+    resources :articles, only: [:index, :show]
+
     namespace :broadcasts do
       post :metrics_update
       post :pnl_update

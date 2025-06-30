@@ -4,8 +4,8 @@ fr:
         short:
             dca: "DCA"
             withdrawals: "Retraits automatiques"
-            rebalanced_dca: "DCA Rééquilibré"
-            indexing: "Rééquilibrage de portefeuille"
+            rebalanced_dca: "DCA rééquilibré"
+            newsletter: "Newsletter Premium"
             analyzer: "Analyseur de portefeuille"
         dca:
             title: "DCA"
@@ -26,13 +26,13 @@ fr:
             title: "Index Crypto Avancés"
             description_html: "Allez au-delà de l'index du marché total avec des index ciblant des secteurs spécifiques, des thèmes et des portefeuilles populaires."
         custom_portfolios:
-            title: "Portefeuilles Personnalisés"
-            description_html: "Vous cherchez la saison des Altcoins ? Excluez Bitcoin de votre index ou créez n'importe quel portefeuille personnalisé."
-        portfolio_rebalancing:
-            title: "Rééquilibrage de Portefeuille"
-            description_html: "Maintenez l'allocation cible en rééquilibrant périodiquement votre portefeuille. Profitez des primes de la récolte de volatilité ou maintenez simplement le profil de risque de votre portefeuille."
+            title: "Portefeuilles personnalisés"
+            description_html: "Vous chassez la saison des Altcoins ? Excluez Bitcoin de votre indice, ou créez n'importe quel portefeuille personnalisé."
+        newsletter:
+            title: "Newsletter Premium"
+            description_html: "Newsletter premium bi-hebdomadaire pour les investisseurs à long terme en actifs numériques."
         portfolio_backtesting:
-            title: "Backtesting de Portefeuille"
+            title: "Backtesting de portefeuille"
             description_html: "Testez n'importe quel portefeuille d'actions et de crypto, des ETFs Vanguard aux tokens DeFi."
         smart_allocation:
             title: "Allocation Intelligente"

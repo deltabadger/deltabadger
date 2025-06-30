@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema.define(version: 2025_06_27_185632) do
+ActiveRecord::Schema.define(version: 2025_06_30_014913) do
 
   # These are extensions that must be enabled in order to support this database
   enable_extension "plpgsql"
@@ -61,6 +61,26 @@ ActiveRecord::Schema.define(version: 2025_06_27_185632) do
     t.index ["user_id"], name: "index_api_keys_on_user_id"
   end
 
+  create_table "articles", force: :cascade do |t|
+    t.string "slug", null: false
+    t.string "locale", limit: 2, null: false
+    t.string "title", null: false
+    t.string "subtitle"
+    t.text "excerpt"
+    t.text "content", null: false
+    t.string "thumbnail"
+    t.bigint "author_id"
+    t.integer "reading_time_minutes"
+    t.boolean "published", default: false, null: false
+    t.datetime "published_at"
+    t.datetime "created_at", precision: 6, null: false
+    t.datetime "updated_at", precision: 6, null: false
+    t.index ["author_id"], name: "index_articles_on_author_id"
+    t.index ["locale"], name: "index_articles_on_locale"
+    t.index ["published", "published_at"], name: "index_articles_on_published_and_published_at"
+    t.index ["slug", "locale"], name: "index_articles_on_slug_and_locale", unique: true
+  end
+
   create_table "assets", force: :cascade do |t|
     t.string "external_id", null: false
     t.string "symbol"
@@ -79,6 +99,16 @@ ActiveRecord::Schema.define(version: 2025_06_27_185632) do
     t.index ["isin"], name: "index_assets_on_isin"
     t.index ["name"], name: "index_assets_on_name"
     t.index ["symbol"], name: "index_assets_on_symbol"
+  end
+
+  create_table "authors", force: :cascade do |t|
+    t.string "name", null: false
+    t.string "url"
+    t.string "avatar"
+    t.text "bio"
+    t.datetime "created_at", precision: 6, null: false
+    t.datetime "updated_at", precision: 6, null: false
+    t.index ["name"], name: "index_authors_on_name"
   end
 
   create_table "bots", force: :cascade do |t|
@@ -257,7 +287,6 @@ ActiveRecord::Schema.define(version: 2025_06_27_185632) do
     t.string "name"
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
-    t.boolean "unlimited", default: false, null: false
   end
 
   create_table "subscriptions", force: :cascade do |t|
@@ -387,6 +416,7 @@ ActiveRecord::Schema.define(version: 2025_06_27_185632) do
   add_foreign_key "affiliates", "users"
   add_foreign_key "api_keys", "exchanges"
   add_foreign_key "api_keys", "users"
+  add_foreign_key "articles", "authors"
   add_foreign_key "bots", "exchanges"
   add_foreign_key "bots", "users"
   add_foreign_key "daily_transaction_aggregates", "bots"

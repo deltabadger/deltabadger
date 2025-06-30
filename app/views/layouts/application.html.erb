@@ -22,6 +22,8 @@
     <%= stylesheet_link_tag 'application', media: 'all', "data-turbo-track": "reload" %>
     <%= javascript_pack_tag 'deltabadger2' %>
 
+    <%= yield :head if content_for?(:head) %>
+
     <script>
       // service worker registration for PWA
       if ('serviceWorker' in navigator) {
@@ -34,7 +36,7 @@
     </script>
   </head>
 
-  <%# data-locale & current_user_subscription are only needed for the react dashboard %>
+  <%# data-locale is only needed for the react dashboard %>
   <body data-controller="hotwire-animations" data-locale="<%= I18n.locale %>" class="<%= yield(:body_class) %> <%= main_body_classes %>">
     <div id="flash">
       <%= render 'layouts/flash' %>
@@ -47,8 +49,6 @@
         <%= yield %>
       </div>
     </div>
-
-    <div id="current_user_subscription" data="<%= current_user.subscription.name %>"></div>
 
     <%= turbo_frame_tag 'modal' %>
   </body>

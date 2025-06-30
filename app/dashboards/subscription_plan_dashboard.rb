@@ -10,7 +10,6 @@ class SubscriptionPlanDashboard < Administrate::BaseDashboard
   ATTRIBUTE_TYPES = {
     id: Field::Number,
     name: Field::String,
-    unlimited: Field::Boolean,
     created_at: Field::DateTime,
     updated_at: Field::DateTime
   }.freeze
@@ -23,7 +22,6 @@ class SubscriptionPlanDashboard < Administrate::BaseDashboard
   COLLECTION_ATTRIBUTES = %i[
     id
     name
-    unlimited
   ].freeze
 
   # SHOW_PAGE_ATTRIBUTES
@@ -31,7 +29,6 @@ class SubscriptionPlanDashboard < Administrate::BaseDashboard
   SHOW_PAGE_ATTRIBUTES = %i[
     id
     name
-    unlimited
   ].freeze
 
   # FORM_ATTRIBUTES

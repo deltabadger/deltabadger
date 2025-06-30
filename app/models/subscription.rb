@@ -5,7 +5,6 @@ class Subscription < ApplicationRecord
   validates :user, :subscription_plan_variant, presence: true
 
   delegate :name, to: :subscription_plan_variant
-  delegate :unlimited?, to: :subscription_plan_variant
   delegate :paid?, to: :subscription_plan_variant
   delegate :free?, to: :subscription_plan_variant
   delegate :basic?, to: :subscription_plan_variant
