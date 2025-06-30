@@ -5,8 +5,8 @@ nl:
             dca: "DCA"
             withdrawals: "Automatische opnames"
             rebalanced_dca: "Geherbalanceerde DCA"
-            indexing: "Portfolio herbalancering"
-            analyzer: "Portfolio analysator"
+            newsletter: "Premium Nieuwsbrief"
+            analyzer: "Portfolioanalyse"
         dca:
             title: "DCA"
             description_html: "Onze klassieke dollar-cost averaging bot voor crypto exchanges. De eerste bot is gratis."
@@ -26,13 +26,13 @@ nl:
             title: "Geavanceerde Crypto Indexen"
             description_html: "Ga verder dan de totale marktindex met indexen gericht op specifieke sectoren, thema's en populaire portfolio's."
         custom_portfolios:
-            title: "Aangepaste Portfolio's"
-            description_html: "Ben je op zoek naar het Altcoin Seizoen? Sluit Bitcoin uit van je index of maak een aangepaste portfolio."
-        portfolio_rebalancing:
-            title: "Portfolio Herbalancering"
-            description_html: "Behoud je doelallocatie door je portfolio periodiek te herbalanceren. Profiteer van premies door volatiliteit harvesting of behoud simpelweg het risicoprofiel van je portfolio."
+            title: "Aangepaste portfolio's"
+            description_html: "Jaag je op het Altcoin Seizoen? Sluit Bitcoin uit van je index, of creëer een aangepast portfolio."
+        newsletter:
+            title: "Premium Nieuwsbrief"
+            description_html: "Tweewekelijkse premium nieuwsbrief voor langetermijnbeleggers in digitale activa."
         portfolio_backtesting:
-            title: "Portfolio Backtesting"
+            title: "Portfolio backtesting"
             description_html: "Test elke portfolio van aandelen en crypto, van Vanguard ETFs tot DeFi tokens."
         smart_allocation:
             title: "Slimme Allocatie"

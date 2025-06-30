@@ -6,7 +6,6 @@ class SubscriptionPlanVariant < ApplicationRecord
   validates :cost_usd, numericality: { greater_than_or_equal_to: 0 }
 
   delegate :name, to: :subscription_plan
-  delegate :unlimited?, to: :subscription_plan
   delegate :paid?, to: :subscription_plan
   delegate :free?, to: :subscription_plan
   delegate :basic?, to: :subscription_plan

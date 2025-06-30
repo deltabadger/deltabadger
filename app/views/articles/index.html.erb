@@ -1,0 +1,74 @@
+<% content_for :title, t('articles.index.title') %>
+<% content_for :meta_description, t('articles.index.meta_description') %>
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,100..900;1,14..32,100..900&display=swap" rel="stylesheet">
+
+<hgroup class="articles-header">
+  <h1 class="articles-header__title"><%= t('articles.index.title') %></h1>
+  <p class="articles-header__subtitle"><%= t('articles.index.meta_description') %></p>
+  <% unless current_user&.subscription&.pro? || current_user&.subscription&.legendary? %>
+    <% path = current_user.present? ? upgrade_path : new_user_registration_path %>
+    <%= link_to path, class: "premium-subscribers-button" do %>
+      <%= render partial: 'articles/premium_subscribers', locals: { count: @premium_subscribers_count } %> →
+    <% end %>
+  <% end %>
+</hgroup>
+
+<% if @articles.any? %>
+  <div class="articles">
+    <% @articles.each do |article| %>
+      <%= link_to article_path(article), class: "article-card" do %>
+        <% if article.thumbnail_path.present? %>
+          <% jpg_thumbnail = article.thumbnail_path.gsub(/\.[^.]+$/, '.jpg') %>
+          <%= image_tag jpg_thumbnail, alt: article.title, class: "article-card__thumbnail" %>
+        <% end %>
+
+        <div class="article-card__content">
+          <h2 class="article-card__title">
+            <span class="article-title-link"><%= article.title %></span>
+          </h2>
+
+          <div class="article-card__meta">
+            <% if article.author.present? %>
+              <span class="article-card__meta__author"><%= article.author.name %></span>
+            <% end %>
+
+            <% if article.published_at.present? %>
+              &middot;
+              <time class="article-card__meta__date" datetime="<%= article.published_at.iso8601 %>">
+                <%= l(article.published_at.to_date, format: :long) %>
+              </time>
+            <% end %>
+
+            <% if article.reading_time_minutes.present? %>
+              &middot;
+              <span class="article-card__meta__reading-time">
+                <%= t('articles.reading_time', minutes: article.reading_time_minutes) %>
+              </span>
+            <% end %>
+
+            <% if article.paywalled? %>
+              &middot;
+              <span class="article__header__meta__premium">
+                <%= t('articles.premium_content') %>
+              </span>
+            <% end %>
+
+          </div>
+
+          <div class="article-excerpt">
+            <%= article.excerpt %>
+          </div>
+        </div>
+      <% end %>
+    <% end %>
+  </div>
+
+  <%== pagy_nav(@pagy) if @pagy.pages > 1 %>
+<% else %>
+  <div class="no-articles">
+    <p><%= t('articles.index.no_articles') %></p>
+  </div>
+<% end %>

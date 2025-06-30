@@ -4,9 +4,9 @@ pt:
         short:
             dca: "DCA"
             withdrawals: "Levantamentos automáticos"
-            rebalanced_dca: "DCA Rebalanceado"
-            indexing: "Rebalanceamento de carteira"
-            analyzer: "Analisador de carteira"
+            rebalanced_dca: "DCA reequilibrado"
+            newsletter: "Newsletter Premium"
+            analyzer: "Analisador de carteiras"
         dca:
             title: "DCA"
             description_html: "O nosso clássico bot de média de custo em dólares para exchanges de criptomoedas. O primeiro bot é gratuito."
@@ -26,13 +26,13 @@ pt:
             title: "Índices Cripto Avançados"
             description_html: "Vai além do índice total de mercado com índices direcionados a setores específicos, temas e carteiras populares."
         custom_portfolios:
-            title: "Carteiras Personalizadas"
-            description_html: "Estás à procura da temporada das Altcoins? Exclui Bitcoin do teu índice ou cria qualquer carteira personalizada."
-        portfolio_rebalancing:
-            title: "Rebalanceamento de Carteira"
-            description_html: "Mantém a alocação alvo rebalanceando a tua carteira periodicamente. Aproveita os prémios do aproveitamento da volatilidade ou simplesmente mantém o perfil de risco da tua carteira."
+            title: "Carteiras personalizadas"
+            description_html: "Está à caça da Altcoin Season? Exclua o Bitcoin do seu índice ou crie qualquer carteira personalizada."
+        newsletter:
+            title: "Newsletter Premium"
+            description_html: "Newsletter premium quinzenal para investidores de longo prazo em ativos digitais."
         portfolio_backtesting:
-            title: "Backtesting de Carteira"
+            title: "Backtesting de carteiras"
             description_html: "Faz backtesting de qualquer carteira de ações e criptomoedas, desde ETFs da Vanguard até tokens DeFi."
         smart_allocation:
             title: "Alocação Inteligente"
