@@ -22,7 +22,6 @@ namespace :articles do
 
     markdown_files.each do |file_path|
       filename = File.basename(file_path, '.md')
-      source_file = File.basename(file_path)
       parts = filename.split('.')
 
       # Expected format: article-slug.locale.md
