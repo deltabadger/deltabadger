@@ -29,7 +29,7 @@ class User < ApplicationRecord
 
   after_update_commit :reset_oauth_credentials, if: :saved_change_to_email?
 
-  delegate :unlimited?, to: :subscription
+  delegate :paid?, to: :subscription
 
   include Upgradeable
   include Sendgridable
@@ -67,6 +67,10 @@ class User < ApplicationRecord
 
   def subscription
     @subscription ||= subscriptions.active.order(created_at: :asc).last
+  end
+
+  def can_access_full_articles?
+    subscription.pro? || subscription.legendary?
   end
 
   def eligible_referrer

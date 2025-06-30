@@ -26,8 +26,5 @@
     <% unless locale == 'pl' %>
       <%= link_to "🇵🇱 Polski", url_for(request.params.merge(locale: 'pl')), class: "dropdown__item" %>
     <% end %>
-    <% unless locale == 'ru' %>
-      <%= link_to "🇷🇺 Русский", url_for(request.params.merge(locale: 'ru')), class: "dropdown__item" %>
-    <% end %>
   </div>
 </div>
