@@ -1,8 +1,7 @@
 it:
     devise:
         layout:
-            title: "Portfolio automatizzati per chi cerca la libertà finanziaria"
-            features_html: "Dollar-Cost Averaging &middot; Portfolio Indice &middot; Ribilanciamento &middot; Analizzatore Portfolio &middot; Azioni & Crypto &middot; Community"
+            title: "Strumenti, newsletter e comunità per investitori in asset digitali"
             review:
                 content: "Sono super felice del mio piano a vita Deltabadger, che compra ogni ora le crypto che voglio, così ho tempo per le cose importanti! Grazie per questo strumento meraviglioso."
         confirmations:
@@ -109,6 +108,7 @@ it:
         links:
             log_in_with_google: "Accedi con Google"
             signup_with_google: "Registrati con Google"
+            signup_with_email: "Registrati con l'email"
             or: "o"
             sign_in: "Accedi"
             sign_up: "Registrati"
