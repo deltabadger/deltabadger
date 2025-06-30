@@ -36,7 +36,7 @@ class Exchanges::Coinbase < Exchange
   def get_tickers_info(force: false)
     cache_key = "exchange_#{id}_tickers_info"
     tickers_info = Rails.cache.fetch(cache_key, expires_in: 1.hour, force: force) do
-      result = client.list_products
+      result = client.list_public_products
       return Result::Failure.new("Failed to get #{name} products") if result.failure?
 
       result.data['products'].map do |product|
@@ -69,7 +69,7 @@ class Exchanges::Coinbase < Exchange
   def get_tickers_prices(force: false)
     cache_key = "exchange_#{id}_prices"
     tickers_prices = Rails.cache.fetch(cache_key, expires_in: 1.minute, force: force) do
-      result = client.list_products
+      result = client.list_public_products
       return Result::Failure.new("Failed to get #{name} products") if result.failure?
 
       result.data['products'].each_with_object({}) do |product, prices_hash|
@@ -112,7 +112,7 @@ class Exchanges::Coinbase < Exchange
   def get_last_price(ticker:, force: false)
     cache_key = "exchange_#{id}_last_price_#{ticker.id}"
     price = Rails.cache.fetch(cache_key, expires_in: 5.seconds, force: force) do
-      result = client.get_product(product_id: ticker.ticker)
+      result = client.get_public_product(product_id: ticker.ticker)
       return result if result.failure?
 
       price = Utilities::Hash.dig_or_raise(result.data, 'price').to_d
