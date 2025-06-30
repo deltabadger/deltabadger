@@ -9,7 +9,7 @@ class ArticlesController < ApplicationController
   end
 
   def show
-    return redirect_to articles_path unless @article&.published?
+    return redirect_to articles_path unless @article&.published_and_released?
 
     @content = @article.render_content(user: current_user)
     @content_unlocked = current_user&.can_access_full_articles?

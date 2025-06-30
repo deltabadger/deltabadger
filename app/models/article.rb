@@ -29,7 +29,7 @@ class Article < ApplicationRecord
     Article.where(slug: slug).where.not(locale: locale)
   end
 
-  def published?
+  def published_and_released?
     published && published_at.present? && published_at <= Time.current
   end
 
