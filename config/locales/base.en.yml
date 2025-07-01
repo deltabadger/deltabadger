@@ -114,6 +114,7 @@ en:
         sign_up: 'Sign up'
         terms_and_conditions: 'Terms & Conditions'
         legendary_badger: 'Legendary Badger'
+        articles: 'Articles'
     referral:
         banner_html: '<b>Share your referral link with friends and <a href="/referral-program" alt="Read more">earn 20% recurring commission</a> in BTC. The best way to DCA Bitcoin is to earn it!</b>'
         copied: Copied!
