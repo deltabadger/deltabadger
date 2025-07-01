@@ -9,6 +9,7 @@ import { Italian } from "flatpickr/dist/l10n/it.js";
 import { Catalan } from "flatpickr/dist/l10n/cat.js";
 import { Portuguese } from "flatpickr/dist/l10n/pt.js";
 import { Polish } from "flatpickr/dist/l10n/pl.js";
+import { Russian } from "flatpickr/dist/l10n/ru.js";
 import { Indonesian } from "flatpickr/dist/l10n/id.js";
 import { Vietnamese } from "flatpickr/dist/l10n/vn.js";
 import { Mandarin } from "flatpickr/dist/l10n/zh.js";
@@ -29,6 +30,7 @@ export default class extends Controller {
     ca: Catalan,
     pt: Portuguese,
     pl: Polish,
+    ru: Russian,
   };
 
   connect() {
