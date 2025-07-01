@@ -7,6 +7,7 @@ alwaysApply: false
 description: Translation and localization rules for supported languages
 globs: 
   - "config/locales/**/*.yml"
+  - "articles/**/*.md"
 alwaysApply: true
 ---
 
