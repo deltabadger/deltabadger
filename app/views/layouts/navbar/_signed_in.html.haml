@@ -57,6 +57,8 @@
     = link_to "Italiano", url_for(request.params.merge(locale: 'it')), class: "menu-mobile__item"
   - unless locale == 'pl'
     = link_to "Polski", url_for(request.params.merge(locale: 'pl')), class: "menu-mobile__item"
+  - unless locale == 'ru'
+    = link_to "Русский", url_for(request.params.merge(locale: 'ru')), class: "menu-mobile__item"
   .menu-mobile__divider
   = button_to destroy_user_session_path, method: :delete, class: "menu-mobile__item menu-mobile__button", data: { turbo: false } do
     = t('links.logout')

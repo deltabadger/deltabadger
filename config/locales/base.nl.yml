@@ -112,6 +112,8 @@ nl:
         settings: Instellingen
         sign_up: Registreren
         terms_and_conditions: 'Algemene voorwaarden'
+        legendary_badger: 'Legendary Badger'
+        articles: Artikelen
     referral:
         banner_html: '<b>Deel uw verwijzingslink met vrienden en <a href="/referral-program" alt="Read more">verdien 20% terugkerende commissie</a> in BTC. De beste manier om aan Bitcoin-DCA te doen is door ze te verdienen!</b>'
         copied: Gekopieerd!
