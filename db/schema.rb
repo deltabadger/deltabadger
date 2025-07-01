@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema.define(version: 2025_06_30_014913) do
+ActiveRecord::Schema.define(version: 2025_07_01_012412) do
 
   # These are extensions that must be enabled in order to support this database
   enable_extension "plpgsql"
@@ -220,7 +220,6 @@ ActiveRecord::Schema.define(version: 2025_06_30_014913) do
     t.string "last_name"
     t.date "birth_date"
     t.datetime "paid_at"
-    t.string "external_statuses", default: "", null: false
     t.decimal "btc_total", precision: 16, scale: 8, default: "0.0", null: false
     t.decimal "btc_paid", precision: 16, scale: 8, default: "0.0", null: false
     t.decimal "commission", precision: 10, scale: 2, null: false
@@ -228,13 +227,14 @@ ActiveRecord::Schema.define(version: 2025_06_30_014913) do
     t.boolean "discounted", null: false
     t.bigint "subscription_plan_variant_id", null: false
     t.string "country", null: false
-    t.integer "payment_type", null: false
     t.boolean "gads_tracked", default: false
     t.boolean "commission_granted", default: false
+    t.string "type"
+    t.jsonb "external_statuses", default: []
     t.index ["currency"], name: "index_payments_on_currency"
-    t.index ["payment_type"], name: "index_payments_on_payment_type"
     t.index ["status"], name: "index_payments_on_status"
     t.index ["subscription_plan_variant_id"], name: "index_payments_on_subscription_plan_variant_id"
+    t.index ["type"], name: "index_payments_on_type"
     t.index ["user_id"], name: "index_payments_on_user_id"
   end
 
