@@ -35,7 +35,7 @@ class GrantAffiliateCommissionJob < ApplicationJob
   end
 
   def btc_commission(payment)
-    if payment.by_bitcoin?
+    if payment.bitcoin?
       commission_multiplier = payment.commission / payment.total
       (payment.btc_paid * commission_multiplier).floor(8)
     else

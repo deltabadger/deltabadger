@@ -46,10 +46,9 @@ class SubscriptionMailerPreview < ActionMailer::Preview
       years: 1
     )
 
-    Payment.new(
+    Payments::Wire.new(
       user: user,
       subscription_plan_variant: subscription_plan_variant,
-      payment_type: 'wire',
       status: 'unpaid',
       total: 999.99,
       currency: 'USD',

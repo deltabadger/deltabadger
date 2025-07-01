@@ -27,9 +27,9 @@ class UpgradeController < ApplicationController
                                })
     if @payment.save
       case session[:payment_type]
-      when 'zen' then handle_zen_payment
-      when 'bitcoin' then handle_btcpay_payment
-      when 'wire' then handle_wire_transfer_payment
+      when 'Payments::Zen' then handle_zen_payment
+      when 'Payments::Bitcoin' then handle_btcpay_payment
+      when 'Payments::Wire' then handle_wire_transfer_payment
       end
     else
       set_index_instance_variables
@@ -42,28 +42,34 @@ class UpgradeController < ApplicationController
     @paid_payment.update!(gads_tracked: true) if @paid_payment.present?
     set_index_instance_variables
     @payment = @payment_options[@paid_payment&.subscription_plan&.name || available_plan_names.last]
-    flash[:notice] = t('subscriptions.payment.payment_ordered') if @paid_payment&.payment_type == 'bitcoin'
+    flash[:notice] = t('subscriptions.payment.payment_ordered') if @paid_payment&.bitcoin?
     render :index
   end
 
   def handle_zen_payment
-    initiator_result = PaymentsManager::ZenManager::PaymentInitiator.call(@payment)
-    if initiator_result.success?
-      redirect_to initiator_result.data[:payment_url]
+    result = @payment.get_new_payment_data(locale: I18n.locale)
+    if result.success?
+      if @payment.update(payment_id: result.data[:payment_id])
+        redirect_to result.data[:url]
+      else
+        flash[:alert] = @payment.errors.messages.values.flatten.to_sentence
+        redirect_to :index
+      end
     else
-      handle_server_error(initiator_result)
+      handle_server_error(result)
     end
   end
 
   def zen_payment_failure
     Rails.logger.error("Zen payment failure: #{params}")
-    finalizer_result = Result::Failure.new('Zen payment server error', data: params)
-    handle_server_error(finalizer_result)
+    result = Result::Failure.new('Zen payment server error', data: params)
+    handle_server_error(result)
   end
 
   def zen_payment_ipn
-    if PaymentsManager::ZenManager::IpnHashVerifier.call(params).success?
-      PaymentsManager::ZenManager::PaymentFinalizer.call(params)
+    if Payments::Zen.valid_ipn_params?(params)
+      payment = Payment.find(params[:merchantTransactionId])
+      payment.handle_ipn(params)
       render json: { "status": 'ok' }
     else
       render json: { error: 'Unauthorized' }, status: :unauthorized
@@ -71,18 +77,27 @@ class UpgradeController < ApplicationController
   end
 
   def handle_btcpay_payment
-    initiator_result = PaymentsManager::BtcpayManager::PaymentInitiator.call(@payment)
-    if initiator_result.success?
-      redirect_to initiator_result.data[:payment_url]
+    result = @payment.get_new_payment_data
+    if result.success?
+      if @payment.update(
+        payment_id: result.data[:payment_id],
+        external_statuses: result.data[:external_statuses],
+        btc_total: result.data[:btc_total]
+      )
+        redirect_to result.data[:url]
+      else
+        flash[:alert] = @payment.errors.messages.values.flatten.to_sentence
+        redirect_to :index
+      end
     else
-      handle_server_error(initiator_result)
+      handle_server_error(result)
     end
   end
 
   def btcpay_payment_ipn
-    validation_result = PaymentsManager::BtcpayManager::IpnHashVerifier.call(params)
-    if validation_result.success?
-      PaymentsManager::BtcpayManager::PaymentFinalizer.call(validation_result.data[:invoice])
+    if Payments::Btcpay.valid_ipn_params?(params)
+      payment = Payment.btcpay.find_by(payment_id: params['data']['id'])
+      payment.handle_ipn(params)
       render json: {}
     else
       render json: { error: 'Unauthorized' }, status: :unauthorized
@@ -90,12 +105,16 @@ class UpgradeController < ApplicationController
   end
 
   def handle_wire_transfer_payment
-    finalizer_result = PaymentsManager::WireManager::PaymentFinalizer.call(@payment)
-    if finalizer_result.success?
-      redirect_to action: :index
+    if @payment.user.update(
+      pending_wire_transfer: @payment.country,
+      pending_plan_variant_id: @payment.subscription_plan_variant_id
+    )
+      @payment.send_wire_transfer_summary
+      UpgradeSubscriptionJob.set(wait: 15.minutes).perform_later(@payment)
     else
-      handle_server_error(finalizer_result)
+      flash[:alert] = @payment.errors.messages.values.flatten.to_sentence
     end
+    redirect_to :index
   end
 
   def upgrade_instructions
@@ -112,11 +131,12 @@ class UpgradeController < ApplicationController
   private
 
   def set_navigation_session # rubocop:disable Metrics/CyclomaticComplexity,Metrics/PerceivedComplexity
-    params.permit(:plan_name, :payment_type, :country, :years)
+    params.permit(:plan_name, :type, :country, :years)
+    # session[:payment_type] = nil
     session[:plan_name] = params[:plan_name] || session[:plan_name] || available_plan_names.last
     session[:years] = params[:years]&.to_i || session[:years]&.to_i || available_variant_years.first
     session[:country] = params[:country] || session[:country] || VatRate::NOT_EU
-    session[:payment_type] = params[:payment_type] || session[:payment_type] || default_payment_type
+    session[:payment_type] = params[:type] || session[:payment_type] || default_payment_type
   end
 
   def draft_payment
@@ -133,11 +153,11 @@ class UpgradeController < ApplicationController
     )
     Payment.new(
       user: current_user,
-      status: 'unpaid',
-      payment_type: session[:payment_type],
+      status: :unpaid,
+      type: session[:payment_type],
       subscription_plan_variant: variant,
       country: session[:country],
-      currency: session[:country] != VatRate::NOT_EU ? 'EUR' : 'USD'
+      currency: session[:country] != VatRate::NOT_EU ? :EUR : :USD
     )
   end
 
@@ -151,13 +171,15 @@ class UpgradeController < ApplicationController
 
   def payment_params
     case session[:payment_type]
-    when 'zen'
-      {}
-    when 'bitcoin'
+    when 'Payments::Zen'
+      params
+        .require(:payment)
+        .permit(:first_name, :last_name)
+    when 'Payments::Bitcoin'
       params
         .require(:payment)
         .permit(:first_name, :last_name, :birth_date)
-    when 'wire'
+    when 'Payments::Wire'
       params
         .require(:payment)
         .permit(:first_name, :last_name)
@@ -167,7 +189,7 @@ class UpgradeController < ApplicationController
   def handle_server_error(service_result)
     Raven.capture_exception(Exception.new(service_result.errors[0]))
     flash[:alert] = t('subscriptions.payment.server_error')
-    redirect_to action: 'index'
+    redirect_to :index
   end
 
   def available_variant_years
@@ -180,11 +202,11 @@ class UpgradeController < ApplicationController
 
   def default_payment_type
     if SettingFlag.show_zen_payment?
-      'zen'
+      'Payments::Zen'
     elsif SettingFlag.show_bitcoin_payment?
-      'bitcoin'
+      'Payments::Bitcoin'
     elsif SettingFlag.show_wire_payment?
-      'wire'
+      'Payments::Wire'
     end
   end
 end

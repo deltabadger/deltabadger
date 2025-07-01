@@ -4,19 +4,17 @@ class Payment < ApplicationRecord
 
   enum currency: %i[USD EUR]
   enum status: { draft: 1, unpaid: 0, paid: 2, cancelled: 5 }
-  enum payment_type: %i[bitcoin wire stripe zen], _prefix: 'by'
-  validates :first_name, :last_name, presence: true, if: :requires_full_name?
-  validate :requires_minimum_age, if: :by_bitcoin?
+
+  include Typeable
+  include Notifyable
 
   delegate :subscription_plan, to: :subscription_plan_variant
-
-  scope :by_fiat, -> { where(payment_type: %w[stripe zen wire]) }
 
   def self.paid_between(from:, to:, fiat:)
     # Returns payments paid between from and to (UTC, inclusive)
     from = from.blank? ? Date.new(0) : Date.parse(from)
     to = to.blank? ? Date.tomorrow : Date.parse(to) + 1.day
-    fiat ? paid.by_fiat.where(paid_at: from..to) : paid.by_bitcoin.where(paid_at: from..to)
+    fiat ? paid.fiat.where(paid_at: from..to) : paid.bitcoin.where(paid_at: from..to)
   end
 
   def from_eu?
@@ -89,16 +87,6 @@ class Payment < ApplicationRecord
   end
 
   private
-
-  def requires_minimum_age
-    return unless birth_date.nil? || birth_date > 18.years.ago.to_date
-
-    errors.add(:birth_date, 'You must be at least 18 years old.')
-  end
-
-  def requires_full_name?
-    by_bitcoin? || by_wire?
-  end
 
   def amount_paid_for_current_plan
     # Warning: if the user paid for a plan renewal, this amount will be smaller

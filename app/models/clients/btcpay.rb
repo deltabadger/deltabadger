@@ -1,7 +1,7 @@
 class Clients::Btcpay < Client
-  URL                   = ENV.fetch('BTCPAY_SERVER_URL').freeze
-  API_KEY               = ENV.fetch('BTCPAY_API_KEY').freeze
-  AUTHORIZATION_HEADER  = ENV.fetch('BTCPAY_AUTHORIZATION_HEADER').freeze
+  URL                  = ENV.fetch('BTCPAY_SERVER_URL').freeze
+  API_KEY              = ENV.fetch('BTCPAY_API_KEY').freeze
+  AUTHORIZATION_HEADER = ENV.fetch('BTCPAY_AUTHORIZATION_HEADER').freeze
 
   def self.connection
     @connection ||= Faraday.new(url: URL, **OPTIONS) do |config|
@@ -107,11 +107,38 @@ class Clients::Btcpay < Client
   #             "phone"=>"0001-01-01",
   #             "email"=>"test@test.com"},
   #           "checkoutType"=>nil}}
-  def create_invoice(hash = {})
+  def create_invoice(
+    price:,
+    currency:,
+    order_id:,
+    buyer_email:,
+    buyer_name:,
+    buyer_phone:,
+    buyer_country:,
+    item_desc:,
+    redirect_url:,
+    notification_url:,
+    extended_notifications:
+  )
     with_rescue do
       response = self.class.connection.post do |req|
         req.url '/invoices'
-        req.body = hash.merge(token: API_KEY)
+        req.body = {
+          price: price,
+          currency: currency,
+          orderId: order_id,
+          buyer: {
+            email: buyer_email,
+            name: buyer_name,
+            phone: buyer_phone,
+            country: buyer_country
+          },
+          itemDesc: item_desc,
+          redirectUrl: redirect_url,
+          notificationUrl: notification_url,
+          extendedNotifications: extended_notifications,
+          token: API_KEY
+        }
       end
       Result::Success.new(response.body)
     end
