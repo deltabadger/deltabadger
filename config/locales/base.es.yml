@@ -113,6 +113,7 @@ es:
         sign_up: Registrarse
         terms_and_conditions: 'Términos y condiciones'
         legendary_badger: 'Legendary Badger'
+        articles: Artículos
     referral:
         banner_html: '<b>Comparte tu enlace de referidos con amigos y <a href="/referral-program" alt="Read more">gana una comisión recurrente del 20%</a> en BTC. ¡La mejor forma de hacer DCA en Bitcoin es ganándolo!</b>'
         copied: ¡Copiado!
