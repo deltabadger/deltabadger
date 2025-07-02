@@ -8,6 +8,8 @@ class Payment < ApplicationRecord
   include Typeable
   include Notifyable
 
+  after_save_commit -> { Payment::GrantAffiliateCommissionJob.perform_later(self) }, if: :saved_change_to_status?
+
   delegate :subscription_plan, to: :subscription_plan_variant
 
   def self.paid_between(from:, to:, fiat:)
@@ -86,6 +88,27 @@ class Payment < ApplicationRecord
     adjusted_base_price - referral_discount_amount - black_friday_discount_amount
   end
 
+  def grant_affiliate_commission
+    puts "grant_affiliate_commission: #{paid?}, #{commission_granted?}, #{commission.zero?}"
+    return unless paid?
+    return if commission_granted? || commission.zero?
+
+    affiliate = user.referrer
+    return unless affiliate.active?
+
+    previous_unexported_btc_commission = affiliate.unexported_btc_commission
+    btc_commission_amount = btc_commission
+    return if btc_commission_amount.zero?
+
+    affiliate.send_registration_reminder(btc_commission_amount) if affiliate.btc_address.blank?
+
+    ActiveRecord::Base.transaction do
+      update!(btc_commission: btc_commission_amount, commission_granted: true)
+      affiliate.update!(unexported_btc_commission: previous_unexported_btc_commission + btc_commission_amount)
+    end
+    Rails.logger.info("Commission granted: #{btc_commission_amount} BTC to Affiliate #{affiliate.id} (User #{affiliate.user.id})")
+  end
+
   private
 
   def amount_paid_for_current_plan
@@ -126,5 +149,22 @@ class Payment < ApplicationRecord
     else
       legendary_plan.for_sale_count * (subscription_plan_variant.cost_usd / legendary_plan.total_supply)
     end
+  end
+
+  def btc_commission
+    if bitcoin?
+      commission_multiplier = commission / total
+      (btc_paid * commission_multiplier).floor(8)
+    else
+      result = coingecko.get_price(coin_id: 'bitcoin', currency: currency)
+      raise result.errors.to_sentence if result.failure?
+
+      btc_price = result.data
+      (commission / btc_price).floor(8)
+    end
+  end
+
+  def coingecko
+    @coingecko ||= Coingecko.new
   end
 end

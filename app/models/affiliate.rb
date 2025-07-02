@@ -32,6 +32,8 @@ class Affiliate < ApplicationRecord
 
   validates_acceptance_of :check, message: 'that everything is correct'
 
+  include Notifyable
+
   attr_reader :check
 
   def self.find_active_by_code(code)

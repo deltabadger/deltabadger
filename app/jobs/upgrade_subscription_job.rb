@@ -4,7 +4,7 @@ class UpgradeSubscriptionJob < ApplicationJob
   def perform(payment)
     raise 'Only used for wire payments' unless payment.wire?
 
-    ApplicationRecord.transaction do
+    ActiveRecord::Base.transaction do
       payment.user.subscriptions.create!(
         subscription_plan_variant: payment.subscription_plan_variant,
         ends_at: payment.subscription_plan_variant.years.nil? ? nil : payment.paid_at + payment.subscription_plan_variant.duration

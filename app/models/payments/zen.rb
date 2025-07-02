@@ -65,7 +65,6 @@ class Payments::Zen < Payment
     )
     send_invoice
     notify_subscription_granted
-    GrantAffiliateCommissionJob.perform_later(self)
   end
 
   private
