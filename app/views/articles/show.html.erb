@@ -104,8 +104,9 @@
       <% end %>
       
       <% if @article.telegram_url.present? %>
-        <%= link_to @article.telegram_url, class: "button button--telegram button--large", target: "_blank", rel: "noopener" do %>
-          <%= t('articles.join_telegram_discussion') %>
+        <%= link_to @article.telegram_url, class: "button button--primary button--telegram button--large", target: "_blank", rel: "noopener" do %>
+          <%= t('articles.join_discussion') %>
+          <%= render partial: 'svg/24x24_telegram' %>
         <% end %>
       <% end %>
     </div>

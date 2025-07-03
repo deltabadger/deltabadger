@@ -1,6 +1,6 @@
 ---
 title: "Decoding Grayscale's <span class=nobreak>Multi-Crypto ETF</span>"
-subtitle: "From Index Universe to CD5 — How CoinDesk Indices Stealthily Shape The Market"
+subtitle: "Index Universe, CD20, CD5—How CoinDesk Indices Stealthily Shape The Market"
 author_id: 1
 thumbnail: grayscale-etf.avif
 excerpt: "Why does Grayscale's new ETF allocate 80% to Bitcoin when pure market cap would suggest 73%? The answer lies in CoinDesk's sophisticated three-tier indexing methodology—and what it means for crypto investing."
@@ -38,17 +38,19 @@ The Index Universe starts with the **top 250 cryptocurrencies by market capitali
 <!-- PAYWALL -->
 
 **What gets eliminated immediately:**
-- **Stablecoins** (USDT, USDC) - they're meant to stay flat, not grow
-- **Memecoins** (yes, even if they're worth billions) - too volatile and speculative  
-- **Wrapped or staked tokens** - these are derivatives, not the underlying assets
-- **Privacy coins** - regulatory concerns make them institutional no-gos
-- **Securities** - anything that might be classified as a security under US law
+
+❌ **Stablecoins** (USDT, USDC) - they're meant to stay flat, not grow
+❌ **Memecoins** (yes, even if they're worth billions) - too volatile and speculative  
+❌ **Wrapped or staked tokens** - these are derivatives, not the underlying assets
+❌ **Privacy coins** - regulatory concerns make them institutional no-gos
+❌ **Securities** - anything that might be classified as a security under US law
 
 **What survives must prove liquidity:**
-- Listed on at least 3 major exchanges with USD/USDC pairs
-- At least one listing must be 90+ days old (no brand-new tokens)
-- Active trading in the past 30 days across multiple exchanges
-- Available to US customers on at least one exchange
+
+✅ Listed on at least 3 major exchanges with USD/USDC pairs
+✅ At least one listing must be 90+ days old (no brand-new tokens)
+✅ Active trading in the past 30 days across multiple exchanges
+✅ Available to US customers on at least one exchange
 
 This filtering process creates the Index Universe—a curated list of cryptocurrencies that meet institutional investment standards. While CoinDesk doesn't publicly share the exact number of cryptocurrencies that make it through these filters, it's likely around 50 coins—we only know for sure it's more than 20 but less than 250. 
 
@@ -163,6 +165,7 @@ Second, we're building a powerful indexing engine (launching later this year) th
 This automated approach eliminates the need for manual management and arbitrary decisions. Just as index investing through ETFs and mutual funds has become the standard in traditional markets, we believe automated indexing will become the default for long-term crypto investing.
 
 Indices' biggest advantage is that they provide natural risk management - failed projects drop out automatically, similar to how bankrupt companies exit the S&P 500. And unlike CoinDesk's quarterly rebalancing, custom indices can adapt more quickly as market conditions change.
---
 
-What's your take on these developments? Would you invest in CD5, CD20, or just stick to Bitcoin? ETF or self-custodied custom index portfolio?
+-
+
+*What's your take on these developments? Would you invest in CD5, CD20, or just stick to Bitcoin? ETF or self-custodied custom index portfolio?*

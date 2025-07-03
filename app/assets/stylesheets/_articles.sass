@@ -1,11 +1,11 @@
 .articles
   display: flex
   flex-direction: column
-  gap: 2rem
 .articles-header
   margin-bottom: 6rem
   &__title
     font-family: "Domine", serif
+    color: var(--emphasis)
     font-size: 3rem
     font-weight: 400
     line-height: 1.2
@@ -38,6 +38,7 @@
   h2,h3
     font-family: "Domine", serif
     font-weight: 700
+    color: var(--emphasis)
   &__thumbnail
     width: 100%
     height: 200px
@@ -71,8 +72,6 @@
       padding: 12rem 16rem
     @media (min-width: 1280px)
       padding: 16rem
-  .button
-    max-width: 30rem
 
 .article
   display: flex
@@ -83,6 +82,7 @@
   p,ul,ol,li,blockquote
     font-family: "Inter", sans-serif
   h1,h2,h3
+    color: var(--emphasis)
     font-family: "Domine", serif
   h2
     margin: 8rem 0 4rem 0
@@ -128,7 +128,6 @@
       gap: 5rem
     @media (min-width: 1024px)
       gap: 6rem
-    
     hgroup
       display: flex
       flex-direction: column
@@ -143,7 +142,6 @@
       font-size: 4rem
       font-weight: 700
       line-height: 1.5
-      color: var(--emphasis)
       @media (min-width: 768px)
         font-size: 5rem
         line-height: 1.2
@@ -277,7 +275,6 @@
     width: 100%
     height: 100%
     object-fit: cover
-      
 .premium-subscribers-button
   text-decoration: none
   padding: 1px
@@ -313,3 +310,10 @@
         &+img+img+img
           display: none
     
+.article-social-buttons
+  display: flex
+  flex-wrap: wrap
+  justify-content: center
+  gap: 1rem
+  .button--large
+    margin: 0
