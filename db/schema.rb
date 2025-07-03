@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema.define(version: 2025_06_30_014913) do
+ActiveRecord::Schema.define(version: 2025_07_03_154543) do
 
   # These are extensions that must be enabled in order to support this database
   enable_extension "plpgsql"
@@ -75,6 +75,8 @@ ActiveRecord::Schema.define(version: 2025_06_30_014913) do
     t.datetime "published_at"
     t.datetime "created_at", precision: 6, null: false
     t.datetime "updated_at", precision: 6, null: false
+    t.string "x_url"
+    t.string "telegram_url"
     t.index ["author_id"], name: "index_articles_on_author_id"
     t.index ["locale"], name: "index_articles_on_locale"
     t.index ["published", "published_at"], name: "index_articles_on_published_and_published_at"
