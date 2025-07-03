@@ -95,7 +95,7 @@
     <%= raw @content %>
   </div>
 
-  <% if @article.x_url.present? || @article.telegram_url.present? %>
+  <% if @content_unlocked && (@article.x_url.present? || @article.telegram_url.present?) %>
     <div class="article-social-buttons">
       <% if @article.x_url.present? %>
         <%= link_to @article.x_url, class: "button button--x button--large", target: "_blank", rel: "noopener" do %>
