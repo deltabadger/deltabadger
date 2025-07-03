@@ -1,6 +1,6 @@
 ---
 title: "Bitcoin vs. M2"
-subtitle: "Decodificare la correlazione dell'offerta di moneta"
+subtitle: "83% di correlazione direzionale con l'offerta di moneta globale"
 author_id: 1
 thumbnail: bitcoin-vs-m2.avif
 excerpt: "La relazione tra Bitcoin e l'offerta di moneta globale. La ricerca di Lyn Alden. L'idea dell'anticipo di 12 settimane. Previsione del prezzo di Bitcoin tramite IA basata sul modello M2."

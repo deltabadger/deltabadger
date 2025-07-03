@@ -50,6 +50,8 @@ namespace :articles do
       article.content = article_content
       article.excerpt = metadata['excerpt']
       article.thumbnail = metadata['thumbnail']
+      article.x_url = metadata['x_url']
+      article.telegram_url = metadata['telegram_url']
 
       # Handle author by ID
       if metadata['author_id'].present?
@@ -102,6 +104,8 @@ namespace :articles do
         puts "  Author: #{article.author&.name || 'No author'}"
         puts "  Published: #{article.published? ? 'Yes' : 'No'}"
         puts "  Paywall: #{article.paywalled? ? 'Yes' : 'No'}"
+        puts "  X URL: #{article.x_url || 'None'}"
+        puts "  Telegram URL: #{article.telegram_url || 'None'}"
         puts
       end
     end
@@ -121,6 +125,8 @@ namespace :articles do
       excerpt: "Learn how to get started with DeltaBadger's automated trading features"
       thumbnail: "https://deltabadger.com/images/getting-started-thumbnail.jpg"
       published: true
+      x_url: "https://twitter.com/deltabadger/status/example"
+      telegram_url: "https://t.me/deltabadger/example"
       ---
 
       # Getting Started with DeltaBadger
@@ -225,6 +231,66 @@ namespace :articles do
       puts 'Usage:'
       puts '  rake articles:authors[list]   - List all authors'
       puts '  rake articles:authors[create] - Create a new author'
+    end
+  end
+
+  desc 'Remove articles from database'
+  task :remove, %i[slug locale] => :environment do |_task, args|
+    slug = args[:slug]
+    locale = args[:locale]
+
+    if slug.blank?
+      puts 'Usage:'
+      puts '  rake articles:remove[article-slug]           - Remove all translations of an article'
+      puts '  rake articles:remove[article-slug,en]        - Remove specific locale version'
+      puts '  rake articles:remove[article-slug,all]       - Remove all translations (explicit)'
+      puts ''
+      puts 'Available articles:'
+      Article.distinct.pluck(:slug).sort.each { |s| puts "  #{s}" }
+      exit 1
+    end
+
+    if locale.blank? || locale == 'all'
+      # Remove all translations of this article
+      articles = Article.where(slug: slug)
+      if articles.empty?
+        puts "No articles found with slug: #{slug}"
+        exit 1
+      end
+
+      puts "Found #{articles.count} article(s) with slug '#{slug}':"
+      articles.each { |article| puts "  #{article.slug}.#{article.locale} - #{article.title}" }
+      puts ''
+      print 'Are you sure you want to remove ALL translations? (y/N): '
+      confirmation = STDIN.gets.chomp.downcase
+
+      if %w[y yes].include?(confirmation)
+        count = articles.count
+        articles.destroy_all
+        puts "✓ Removed #{count} article(s) with slug '#{slug}'"
+      else
+        puts 'Operation cancelled.'
+      end
+    else
+      # Remove specific locale version
+      article = Article.find_by(slug: slug, locale: locale)
+      if article.nil?
+        puts "No article found with slug: #{slug} and locale: #{locale}"
+        available_locales = Article.where(slug: slug).pluck(:locale)
+        puts "Available locales for '#{slug}': #{available_locales.join(', ')}" if available_locales.any?
+        exit 1
+      end
+
+      puts "Found article: #{article.slug}.#{article.locale} - #{article.title}"
+      print 'Are you sure you want to remove this article? (y/N): '
+      confirmation = STDIN.gets.chomp.downcase
+
+      if %w[y yes].include?(confirmation)
+        article.destroy
+        puts "✓ Removed article: #{article.slug}.#{article.locale}"
+      else
+        puts 'Operation cancelled.'
+      end
     end
   end
 

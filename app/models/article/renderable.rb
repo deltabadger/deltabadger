@@ -21,7 +21,7 @@ module Article::Renderable
     # including tables, syntax highlighting, strikethrough, etc.
     kramdown_options = {
       input: 'GFM',                    # GitHub Flavored Markdown
-      hard_wrap: false,                # Don't convert single line breaks to <br>
+      hard_wrap: true,                 # Convert single line breaks to <br>
       auto_ids: true,                  # Generate IDs for headers
       syntax_highlighter: nil,         # Disable syntax highlighting for now
       parse_block_html: true,          # Parse markdown inside HTML block elements

@@ -72,5 +72,6 @@ it:
     legendary_badger:
         will_be_sent: "L'NFT Legendary Badger sarà inviato a:"
         ethereum_address: "Indirizzo Ethereum"
-        confirm_info_html: "Confermo che l'indirizzo è corretto e comprendo che l'NFT sarà inviato a questo indirizzo. Una volta che clicco su <b>Richiedi NFT</b>, se l'indirizzo è sbagliato, nessuno potrà recuperare l'NFT."
+        confirm_info_html: "Confermo che questo indirizzo ETH è corretto e comprendo che i trasferimenti blockchain sono irreversibili e non possono essere recuperati se inviati a un indirizzo errato."
+        confirm_info_early_html: "Confermo che questo indirizzo ETH è corretto e scelgo di accelerare la consegna del mio NFT, rinunciando alla garanzia standard di rimborso di 30 giorni. Comprendo che una volta reclamato, il trasferimento dell'NFT è una transazione permanente sulla blockchain che non può essere annullata."
         claim: "Richiedi NFT"

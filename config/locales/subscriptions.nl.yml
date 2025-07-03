@@ -65,7 +65,8 @@ nl:
         upgrade: Upgrade
         upgrade_plan: 'Upgrade abonnement'
     legendary_badger:
-        will_be_sent: 'Le NFT Legendary Badger sera envoyé à :'
-        ethereum_address: 'Adresse Ethereum'
-        confirm_info_html: 'Ik bevestig dat het adres correct is en begrijp dat de NFT naar dit adres zal worden verzonden. Zodra ik op <b>Claim NFT</b> klik, kan niemand de NFT herstellen als het adres onjuist is.'
+        will_be_sent: 'Legendary Badger NFT zal worden verzonden naar:'
+        ethereum_address: 'Ethereum adres'
+        confirm_info_early_html: "Ik bevestig dat dit ETH-adres correct is en kies ervoor om mijn NFT-levering te versnellen, waarbij ik afzie van de standaard 30-dagen geld-terug-garantie. Ik begrijp dat zodra geclaimd, de NFT-overdracht een permanente blockchain-transactie is die niet ongedaan kan worden gemaakt."
+        confirm_info_html: "Ik bevestig dat dit ETH-adres correct is en begrijp dat blockchain-overdrachten onomkeerbaar zijn en niet kunnen worden hersteld als ze naar een onjuist adres worden verzonden."
         claim: 'Claim NFT'
