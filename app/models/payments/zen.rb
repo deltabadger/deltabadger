@@ -24,8 +24,8 @@ class Payments::Zen < Payment
       amount: price,
       currency: currency,
       merchant_transaction_id: id.to_s,
-      # customer_first_name: first_name,
-      # customer_last_name: last_name,
+      customer_first_name: first_name,
+      customer_last_name: last_name,
       customer_email: user.email,
       item_name: item_description,
       item_price: price,
@@ -36,8 +36,8 @@ class Payments::Zen < Payment
       # specified_payment_channel: 'PCL_CARD',
       url_success: payments_zen_success_url(host: HOST, locale: locale || I18n.locale),
       url_failure: payments_zen_failure_url(host: HOST, locale: locale || I18n.locale),
-      custom_ipn_url: payments_zen_ipn_url(host: HOST, locale: locale || I18n.locale)
-      # language: locale
+      custom_ipn_url: payments_zen_ipn_url(host: HOST, locale: locale || I18n.locale),
+      language: locale
     )
     return result if result.failure?
 

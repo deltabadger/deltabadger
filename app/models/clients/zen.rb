@@ -122,7 +122,7 @@ class Clients::Zen < Client
             lastName: customer_last_name,
             email: customer_email,
             phone: customer_phone
-          }.compact,
+          }.compact.presence,
           items: [
             {
               code: item_code,
@@ -147,7 +147,7 @@ class Clients::Zen < Client
             postcode: shipping_address_postcode,
             companyName: shipping_address_company_name,
             phone: shipping_address_phone
-          }.compact,
+          }.compact.presence,
           billingAddress: {
             id: billing_address_id,
             firstName: billing_address_first_name,
@@ -163,7 +163,7 @@ class Clients::Zen < Client
             companyName: billing_address_company_name,
             phone: billing_address_phone,
             taxId: billing_address_tax_id
-          }.compact,
+          }.compact.presence,
           urlRedirect: url_redirect,
           urlSuccess: url_success,
           urlFailure: url_failure,
@@ -171,9 +171,9 @@ class Clients::Zen < Client
           specifiedPaymentMethod: specified_payment_method,
           specifiedPaymentChannel: specified_payment_channel,
           language: language
-        }
+        }.compact
+        req.body[:signature] = sha256_signature(req.body)
       end
-      req.body[:signature] = sha256_signature(req.body)
       Result::Success.new(response.body)
     end
   end
