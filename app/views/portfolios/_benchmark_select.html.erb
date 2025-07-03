@@ -2,7 +2,7 @@
   <%= form_with model: portfolio, url: portfolio_update_benchmark_path(portfolio), method: :patch, class: "flex-row", data: { controller: "form--submit" } do |form| %>
     <% data = portfolio.limited? ? {
       controller: "turbo-frame-trigger",
-      turbo_frame_trigger_url_value: upgrade_upgrade_instructions_path,
+      turbo_frame_trigger_url_value: upgrades_instructions_path,
       turbo_frame_trigger_frame_value: "modal",
       action: "click->turbo-frame-trigger#loadFrame"
     } : {

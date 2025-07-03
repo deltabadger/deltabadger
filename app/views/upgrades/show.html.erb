@@ -26,8 +26,8 @@
         <% selected = @payment.subscription_plan.name == available_plan_name %>
         <%= tag.label class: "hide_radio_buttons widget widget--pricing widget--pricing--#{available_plan_name} widget--pricing--#{selected ? 'selected' : 'other'}" do %>
           <%= f.radio_button :plan_name, available_plan_name, checked: selected, data: { action: "change->form--submit#submit" } %>
-          <%= render partial: "upgrade/plan_cards/#{available_plan_name}", locals: {
-            payment_option_1y: @payment_options_1y[available_plan_name],
+          <%= render partial: "upgrades/plan_cards/#{available_plan_name}", locals: {
+            reference_payment_option: @reference_payment_options[available_plan_name],
             payment_option: payment_option,
             legendary_plan: @legendary_plan, # only used in legendary plan card
           } %>
@@ -56,7 +56,7 @@
 
   <div class="features-grid">
     <% SubscriptionPlan.feature_list.each do |feature| %>
-      <%= render partial: "upgrade/tile", locals: { feature: feature, selected_plan: @payment.subscription_plan } %>
+      <%= render partial: "upgrades/tile", locals: { feature: feature, selected_plan: @payment.subscription_plan } %>
     <% end %>
   </div>
 <% end %>

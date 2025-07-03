@@ -3,7 +3,7 @@
   <%= form_with url: upgrade_path, method: :get, data: { controller: "form--submit", turbo_frame: "billing-form-frame" }, class: "pricing__payment-methods" do |f| %>
       <% if SettingFlag.show_zen_payment? %>
         <%= tag.label class: "hide_radio_buttons pricing__payment-method" do %>
-          <%= f.radio_button :type, 'Paymments::Zen', checked: payment.zen?, data: { action: "change->form--submit#submit" } %>
+          <%= f.radio_button :type, 'Payments::Zen', checked: payment.zen?, data: { action: "change->form--submit#submit" } %>
           <div class="pricing__payment-method__tab">
             <%= image_tag "mastercard.svg", alt: "", class: "db-card-providers__item db-card-providers__item--mastercard" %>
             <%= image_tag "visa.svg", alt: "", class: "db-card-providers__item db-card-providers__item--visa" %>
@@ -12,7 +12,7 @@
       <% end %>
       <% if SettingFlag.show_bitcoin_payment? %>
         <%= tag.label class: "hide_radio_buttons pricing__payment-method" do %>
-          <%= f.radio_button :type, 'Paymments::Bitcoin', checked: payment.bitcoin?, data: { action: "change->form--submit#submit" } %>
+          <%= f.radio_button :type, 'Payments::Btcpay', checked: payment.btcpay?, data: { action: "change->form--submit#submit" } %>
           <div class="pricing__payment-method__tab">
             <%= image_tag "bitcoin.svg", alt: "Bitcoin", class: "db-card-providers__item db-card-providers__item--lightning" %>
           </div>
@@ -20,7 +20,7 @@
       <% end %>
       <% if SettingFlag.show_wire_payment? %>
         <%= tag.label class: "hide_radio_buttons pricing__payment-method" do %>
-          <%= f.radio_button :type, 'Paymments::Wire', checked: payment.wire?, data: { action: "change->form--submit#submit" } %>
+          <%= f.radio_button :type, 'Payments::Wire', checked: payment.wire?, data: { action: "change->form--submit#submit" } %>
           <div class="pricing__payment-method__tab">
             <%= t('subscriptions.payment.wire_transfer') %>
           </div>
@@ -30,9 +30,17 @@
 
   <div class="widget widget--checkout">
     <div id="payTabContent" class="tab-content">
-      <div id="payZen" class="tab <%= 'active' if payment.zen? %>" aria-labelledby="log-tab" role="tabpanel">
+      <div class="tab <%= 'active' if payment.zen? %>" aria-labelledby="log-tab" role="tabpanel">
         <%= render partial: "country_form", locals: { payment: payment } %>
-        <%= form_with model: payment, url: upgrade_path do |f| %>
+        <%= form_with model: payment, url: payments_zen_path, data: { controller: "form--html5-validations form--label-animations" } do |f| %>
+          <div class="db-form__row">
+            <%= f.text_field :first_name, class: 'db-form__input', autocomplete: "given-name", required: true %>
+            <%= f.label :first_name, class: 'db-form__label' %>
+          </div>
+          <div class="db-form__row">
+            <%= f.text_field :last_name, class: 'db-form__input', autocomplete: "family-name", required: true %>
+            <%= f.label :last_name, class: 'db-form__label' %>
+          </div>
           <div class="large-button-wrapper">
             <%= f.button type: "submit", data: { turbo: false, action: "click->zaraz#trackBeginCheckoutEvent", zaraz_target: "button" }, class: "button button--success button--large", disabled: payment.price_with_vat == 0 do %>
               <span>
@@ -48,9 +56,9 @@
         <% end %>
       </div>
 
-      <div id="payBitcoin" class="tab <%= 'active' if payment.bitcoin? %>" aria-labelledby="log-tab" role="tabpanel">
+      <div class="tab <%= 'active' if payment.btcpay? %>" aria-labelledby="log-tab" role="tabpanel">
         <%= render partial: "country_form", locals: { payment: payment } %>
-        <%= form_with model: payment, url: upgrade_path, data: { controller: "form--html5-validations form--label-animations" } do |f| %>
+        <%= form_with model: payment, url: payments_btcpay_path, data: { controller: "form--html5-validations form--label-animations" } do |f| %>
           <div class="db-form__row">
             <%= f.text_field :first_name, class: 'db-form__input', autocomplete: "given-name", required: true %>
             <%= f.label :first_name, class: 'db-form__label' %>
@@ -73,9 +81,9 @@
         <% end %>
       </div>
 
-      <div id="payWire" class="tab <%= 'active' if payment.wire? %>" aria-labelledby="log-tab" role="tabpanel">
+      <div class="tab <%= 'active' if payment.wire? %>" aria-labelledby="log-tab" role="tabpanel">
         <%= render partial: "country_form", locals: { payment: payment } %>
-        <%= form_with model: payment, url: upgrade_path, data: { controller: "form--html5-validations form--label-animations" } do |f| %>
+        <%= form_with model: payment, url: payments_wire_path, data: { controller: "form--html5-validations form--label-animations" } do |f| %>
           <div class="db-form__row">
             <%= f.text_field :first_name, class: 'db-form__input', autocomplete: "given-name", required: true %>
             <%= f.label :first_name, class: 'db-form__label' %>

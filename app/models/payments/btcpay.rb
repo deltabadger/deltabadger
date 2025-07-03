@@ -14,7 +14,7 @@ class Payments::Btcpay < Payment
     payment_id.present? && payment_id.in?(Payment.btcpay.pluck(:payment_id))
   end
 
-  def get_new_payment_data
+  def get_new_payment_data(locale: nil)
     result = client.create_invoice(
       price: total.to_s,
       currency: currency,
@@ -24,8 +24,8 @@ class Payments::Btcpay < Payment
       buyer_phone: birth_date,
       buyer_country: country,
       item_desc: item_description,
-      redirect_url: upgrade_success_url(host: HOST, locale: I18n.locale),
-      notification_url: upgrade_btcpay_payment_ipn_url(host: HOST, locale: I18n.locale),
+      redirect_url: payments_btcpay_success_url(host: HOST, locale: locale || I18n.locale),
+      notification_url: payments_btcpay_ipn_url(host: HOST, locale: locale || I18n.locale),
       extended_notifications: true
     )
     return result if result.failure?

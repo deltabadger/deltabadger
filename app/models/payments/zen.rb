@@ -20,12 +20,12 @@ class Payments::Zen < Payment
 
   def get_new_payment_data(locale: nil)
     price = format('%0.02f', total)
-    result = @client.checkout(
+    result = client.checkout(
       amount: price,
-      currency: payment.currency,
-      merchantTransactionId: payment.id.to_s,
-      customer_first_name: first_name,
-      customer_last_name: last_name,
+      currency: currency,
+      merchant_transaction_id: id.to_s,
+      # customer_first_name: first_name,
+      # customer_last_name: last_name,
       customer_email: user.email,
       item_name: item_description,
       item_price: price,
@@ -34,10 +34,10 @@ class Payments::Zen < Payment
       billing_address_country_state: country,
       # specified_payment_method: 'PME_CARD',
       # specified_payment_channel: 'PCL_CARD',
-      url_success: upgrade_success_url(host: HOST, locale: I18n.locale),
-      url_failure: upgrade_zen_payment_failure_url(host: HOST, locale: I18n.locale),
-      custom_ipn_url: upgrade_zen_payment_ipn_url(host: HOST, locale: I18n.locale),
-      language: locale
+      url_success: payments_zen_success_url(host: HOST, locale: locale || I18n.locale),
+      url_failure: payments_zen_failure_url(host: HOST, locale: locale || I18n.locale),
+      custom_ipn_url: payments_zen_ipn_url(host: HOST, locale: locale || I18n.locale)
+      # language: locale
     )
     return result if result.failure?
 

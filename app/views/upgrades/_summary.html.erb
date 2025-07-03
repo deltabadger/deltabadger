@@ -7,7 +7,7 @@
       <% if payment.subscription_plan_variant.years.present? && payment.subscription_plan_variant.years != 1 %>
         <div class="checkout-line__info">
           <%= payment.subscription_plan_variant.years %>x
-          <%= localized_price(payment.virtual_price('base_price', 1.year), payment.currency, true) %>
+          <%= localized_price(payment.virtual_price('base_price', 1.month), payment.currency, true) %>
         </div>
       <% end %>
     </div>

@@ -1,7 +1,7 @@
 class SubscriptionPlanVariant < ApplicationRecord
   belongs_to :subscription_plan
 
-  validates :years, numericality: { only_integer: true, greater_than: 0 }, allow_nil: true
+  validates :years, numericality: { only_integer: true, greater_than_or_equal_to: 0 }, allow_nil: true
   validates :cost_eur, numericality: { greater_than_or_equal_to: 0 }
   validates :cost_usd, numericality: { greater_than_or_equal_to: 0 }
 
@@ -20,6 +20,13 @@ class SubscriptionPlanVariant < ApplicationRecord
   end
 
   def duration
-    years&.years
+    case years
+    when 0
+      1.month
+    when nil
+      Float::INFINITY
+    else
+      years.years
+    end
   end
 end

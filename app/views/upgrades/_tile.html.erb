@@ -4,7 +4,7 @@
   <%= 'feature--bots' if feature.in?(selected_plan.bots_features) %>
   <%= 'feature--analyzer' if feature.in?(selected_plan.analyzer_features) %>
   <%= 'feature--legendary' if feature.in?(selected_plan.nft_features) %>">
-  <%= render "upgrade/features/#{feature}" rescue nil %>
+  <%= render "upgrades/features/#{feature}" rescue nil %>
   <h2><%= t("features.#{feature}.title") %> <%= tag.span(t('utils.soon'), class: 'sbadge sbadge--soon') if feature.in?(selected_plan.coming_features) %></h2>
   <p><%= t("features.#{feature}.description_html") %></p>
 </div>
