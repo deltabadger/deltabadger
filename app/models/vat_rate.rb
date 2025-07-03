@@ -4,6 +4,7 @@ class VatRate < ApplicationRecord
   after_commit :reset_all_in_display_order_cache
 
   validates :vat, numericality: { greater_than_or_equal_to: 0, less_than: 1 }
+  validates :country, presence: true, uniqueness: true
 
   scope :eu_countries, -> { where.not(country: NOT_EU) }
   scope :non_eu_countries, -> { where(country: NOT_EU) }

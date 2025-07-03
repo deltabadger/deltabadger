@@ -15,6 +15,35 @@ class Payment < ApplicationRecord
 
   delegate :subscription_plan, to: :subscription_plan_variant
 
+  def self.last_month_gross_sales(currency)
+    # Sales are calculated on a 30-day rollback window to exclude potential refunds.
+    # eg: June sales are calculated after June close and include the sales during May
+    from = 2.month.ago.beginning_of_month
+    to = 2.month.ago.end_of_month
+    paid.where(currency: currency).where(paid_at: from..to).sum(:total)
+  end
+
+  def self.last_month_affiliate_commissions(currency)
+    # Sales are calculated on a 30-day rollback window to exclude potential refunds.
+    # eg: June sales are calculated after June close and include the sales during May
+    from = 2.month.ago.beginning_of_month
+    to = 2.month.ago.end_of_month
+    commission_granted.where(currency: currency).where(paid_at: from..to).sum(:commission)
+  end
+
+  def self.last_month_vat_collected
+    # Sales are calculated on a 30-day rollback window to exclude potential refunds.
+    # eg: June sales are calculated after June close and include the sales during May
+    from = 2.month.ago.beginning_of_month
+    to = 2.month.ago.end_of_month
+    vat_collected = 0
+    paid.eur.where(paid_at: from..to).find_each do |payment|
+      vat_rate = VatRate.find_by!(country: payment.country).vat
+      vat_collected += payment.total - payment.total / (1 + vat_rate)
+    end
+    vat_collected
+  end
+
   def self.paid_between(from:, to:, fiat:)
     # Returns payments paid between from and to (UTC, inclusive)
     from = from.blank? ? Date.new(0) : Date.parse(from)
