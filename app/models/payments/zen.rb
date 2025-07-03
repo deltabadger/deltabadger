@@ -22,7 +22,7 @@ class Payments::Zen < Payment
     price = format('%0.02f', total)
     result = client.checkout(
       amount: price,
-      currency: currency,
+      currency: currency.upcase,
       merchant_transaction_id: id.to_s,
       customer_first_name: first_name,
       customer_last_name: last_name,

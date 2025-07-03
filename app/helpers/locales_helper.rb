@@ -8,7 +8,7 @@ module LocalesHelper
                       end
 
     # Format based on the currency
-    if currency == 'EUR'
+    if currency == 'eur'
       t('subscriptions.payment.price_eur_html', symbol: '€', price: formatted_price)
     else
       t('subscriptions.payment.price_usd_html', symbol: '$', price: formatted_price)

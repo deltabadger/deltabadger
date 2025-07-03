@@ -2,7 +2,7 @@ class Payment < ApplicationRecord
   belongs_to :user
   belongs_to :subscription_plan_variant
 
-  enum currency: %i[USD EUR]
+  enum currency: %i[usd eur]
   enum status: { draft: 1, unpaid: 0, paid: 2, cancelled: 5, refunded: 6 }
 
   scope :commission_granted, -> { where(commission_granted: true) }
@@ -174,20 +174,18 @@ class Payment < ApplicationRecord
     # Warning: if the user paid for a plan renewal, this amount will be smaller
     #          than the current plan base_price at the time of renewal
     current_subscription_plan_variant = user.subscription.subscription_plan_variant
-    current_subscription_paid_payment = user.payments.paid.where(
+    payment = user.payments.paid.where(
       subscription_plan_variant: current_subscription_plan_variant
     ).last
-    return 0 unless current_subscription_paid_payment
+    return 0 unless payment.present?
 
     eur_usd_rate = current_subscription_plan_variant.cost_usd / current_subscription_plan_variant.cost_eur
-    paid_currency = current_subscription_paid_payment.currency
-    paid_total = current_subscription_paid_payment.total
     amount_paid_with_vat = if from_eu?
-                             paid_currency == 'EUR' ? paid_total : paid_total / eur_usd_rate
+                             payment.eur? ? payment.total : payment.total / eur_usd_rate
                            else
-                             paid_currency == 'USD' ? paid_total : paid_total * eur_usd_rate
+                             payment.usd? ? payment.total : payment.total * eur_usd_rate
                            end
-    vat_rate = VatRate.find_by!(country: current_subscription_paid_payment.country).vat
+    vat_rate = VatRate.find_by!(country: payment.country).vat
     amount_paid_with_vat / (1 + vat_rate)
   end
 

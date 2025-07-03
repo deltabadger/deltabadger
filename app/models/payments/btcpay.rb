@@ -17,7 +17,7 @@ class Payments::Btcpay < Payment
   def get_new_payment_data(locale: nil)
     result = client.create_invoice(
       price: total.to_s,
-      currency: currency,
+      currency: currency.upcase,
       order_id: id,
       buyer_email: user.email,
       buyer_name: "#{first_name} #{last_name}",

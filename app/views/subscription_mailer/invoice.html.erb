@@ -10,4 +10,4 @@
       plan_name: localized_plan_name(@payment.subscription_plan_variant.name),
       years: @payment.subscription_plan_variant.years,
       total_paid: @payment.total,
-      currency: @payment.currency) %>
+      currency: @payment.currency.upcase) %>

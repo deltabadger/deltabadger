@@ -17,7 +17,7 @@ module Payments::Payable
       type: type,
       subscription_plan_variant: variant,
       country: country,
-      currency: country != VatRate::NOT_EU ? :EUR : :USD
+      currency: country != VatRate::NOT_EU ? :eur : :usd
     )
   end
 end
