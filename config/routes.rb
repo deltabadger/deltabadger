@@ -94,14 +94,24 @@ Rails.application.routes.draw do
       patch :create, to: 'affiliates#create'
     end
 
-    namespace :upgrade do
-      get '/', action: :index
-      post '/', action: :create_payment
-      post :btcpay_payment_ipn
-      get :zen_payment_failure
-      post :zen_payment_ipn
-      get :success
-      get :upgrade_instructions
+    resource :upgrade, only: [:show]
+    namespace :upgrades do
+      resource :instructions, only: [:show]
+    end
+
+    namespace :payments do
+      resource :btcpay, only: [:create]
+      namespace :btcpay do
+        resource :ipn, only: [:create]
+        resource :success, only: [:show]
+      end
+      resource :wire, only: [:create]
+      resource :zen, only: [:create]
+      namespace :zen do
+        resource :ipn, only: [:create]
+        resource :success, only: [:show]
+        resource :failure, only: [:show]
+      end
     end
 
     namespace :settings do
@@ -158,9 +168,7 @@ Rails.application.routes.draw do
 
     get '/calculator', to: 'calculator#show', as: :calculator
 
-    resource :legendary, only: [:show, :update], path: '/legendary-badger' do
-      get :show, on: :collection
-    end
+    resource :legendary, only: [:show, :update], path: '/legendary-badger'
 
     get '/terms-and-conditions', to: 'home#terms_and_conditions', as: :terms_and_conditions
     get '/privacy-policy', to: 'home#privacy_policy', as: :privacy_policy
