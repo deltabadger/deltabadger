@@ -3,12 +3,15 @@ class Payment < ApplicationRecord
   belongs_to :subscription_plan_variant
 
   enum currency: %i[USD EUR]
-  enum status: { draft: 1, unpaid: 0, paid: 2, cancelled: 5 }
+  enum status: { draft: 1, unpaid: 0, paid: 2, cancelled: 5, refunded: 6 }
+
+  scope :commission_granted, -> { where(commission_granted: true) }
 
   include Typeable
   include Notifyable
 
   after_save_commit -> { Payment::GrantAffiliateCommissionJob.perform_later(self) }, if: :saved_change_to_status?
+  after_save_commit :ungrant_commission, if: :saved_change_to_status?
 
   delegate :subscription_plan, to: :subscription_plan_variant
 
@@ -100,27 +103,43 @@ class Payment < ApplicationRecord
   end
 
   def grant_affiliate_commission
-    puts "grant_affiliate_commission: #{paid?}, #{commission_granted?}, #{commission.zero?}"
     return unless paid?
     return if commission_granted? || commission.zero?
 
     affiliate = user.referrer
     return unless affiliate.active?
 
+    result = get_btc_commission
+    raise result.errors.to_sentence if result.failure?
+
+    btc_commission = result.data
+    return if btc_commission.zero?
+
+    affiliate.send_registration_reminder(btc_commission) if affiliate.btc_address.blank?
     previous_unexported_btc_commission = affiliate.unexported_btc_commission
-    btc_commission_amount = btc_commission
-    return if btc_commission_amount.zero?
-
-    affiliate.send_registration_reminder(btc_commission_amount) if affiliate.btc_address.blank?
-
     ActiveRecord::Base.transaction do
-      update!(btc_commission: btc_commission_amount, commission_granted: true)
-      affiliate.update!(unexported_btc_commission: previous_unexported_btc_commission + btc_commission_amount)
+      update!(btc_commission: btc_commission, commission_granted: true)
+      affiliate.update!(unexported_btc_commission: previous_unexported_btc_commission + btc_commission)
     end
-    Rails.logger.info("Commission granted: #{btc_commission_amount} BTC to Affiliate #{affiliate.id} (User #{affiliate.user.id})")
+    Rails.logger.info("Commission granted: #{btc_commission} BTC to Affiliate #{affiliate.id} (User #{affiliate.user.id})")
   end
 
   private
+
+  def ungrant_commission
+    return unless refunded? && commission_granted?
+    return if commission.zero?
+
+    affiliate = user.referrer
+    return unless affiliate.active?
+
+    previous_unexported_btc_commission = affiliate.unexported_btc_commission
+    ActiveRecord::Base.transaction do
+      update!(commission_granted: false)
+      affiliate.update!(unexported_btc_commission: previous_unexported_btc_commission - btc_commission)
+    end
+    Rails.logger.info("Commission granted: #{btc_commission_amount} BTC to Affiliate #{affiliate.id} (User #{affiliate.user.id})")
+  end
 
   def amount_paid_for_current_plan
     # Warning: if the user paid for a plan renewal, this amount will be smaller
@@ -162,17 +181,18 @@ class Payment < ApplicationRecord
     end
   end
 
-  def btc_commission
-    if bitcoin?
-      commission_multiplier = commission / total
-      (btc_paid * commission_multiplier).floor(8)
-    else
-      result = coingecko.get_price(coin_id: 'bitcoin', currency: currency)
-      raise result.errors.to_sentence if result.failure?
+  def get_btc_commission
+    amount = if bitcoin?
+               commission_multiplier = commission / total
+               (btc_paid * commission_multiplier).floor(8)
+             else
+               result = coingecko.get_price(coin_id: 'bitcoin', currency: currency)
+               return result if result.failure?
 
-      btc_price = result.data
-      (commission / btc_price).floor(8)
-    end
+               btc_price = result.data
+               (commission / btc_price).floor(8)
+             end
+    Result::Success.new(amount)
   end
 
   def coingecko
