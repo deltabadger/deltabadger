@@ -21,6 +21,5 @@ class AddTypeToPayment < ActiveRecord::Migration[6.0]
     Payment.where(type: 'Payments::Zen').update_all(payment_type: 3)
 
     remove_column :payments, :type
-    remove_index :payments, :type
   end
 end
