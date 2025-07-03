@@ -1,7 +1,7 @@
 es:
   articles:
     index:
-      title: "Deltabadger's Research Lab"
+      title: "Deltabadger's Research"
       meta_description: "Artículos quincenales para inversores a largo plazo en activos digitales."
       no_articles: "No hay artículos disponibles en este momento."
       join_subscribers: "Únete a %{count} suscriptores <span class='desktop-only'>Premium</span>"
@@ -12,3 +12,5 @@ es:
       title: "Suscribirse para continuar leyendo."
       description: |
         Somos una comunidad de inversores a largo plazo en activos digitales. Accede a:<br><b>artículos quincenales &middot; analizador de carteras &middot; automatizaciones del mercado de criptomonedas</b>
+    like_on_x: "Dale me gusta en X"
+    join_discussion: "Unirse a la discusión"

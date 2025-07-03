@@ -1,9 +1,11 @@
 ---
 title: "Bitcoin vs. M2"
-subtitle: "Decoding the Money Supply Correlation"
+subtitle: "83% Directional Correlation with Global Money Supply"
 author_id: 1
 thumbnail: bitcoin-vs-m2.avif
 excerpt: "The relationship between Bitcoin and global money supply. Lyn Alden's research. The 12-week lead idea. AI Bitcoin price prediction based on the M2 model."
+x_url: https://x.com/deltabadgerapp/status/1939622461768892684
+telegram_url: https://t.me/deltabadger/91
 published: true
 ---
 

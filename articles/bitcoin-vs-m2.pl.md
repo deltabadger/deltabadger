@@ -1,6 +1,6 @@
 ---
 title: "Bitcoin vs. M2"
-subtitle: "Dekodowanie korelacji podaży pieniądza"
+subtitle: "83% korelacja kierunkowa z globalną podażą pieniądza"
 author_id: 1
 thumbnail: bitcoin-vs-m2.avif
 excerpt: "Związek między Bitcoinem a globalną podażą pieniądza. Badania Lyn Alden. Pomysł 12-tygodniowego wyprzedzenia. Prognoza ceny Bitcoina przez AI oparta na modelu M2."

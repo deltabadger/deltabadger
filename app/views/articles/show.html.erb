@@ -36,7 +36,7 @@
 
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,100..900;1,14..32,100..900&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Domine:wght@400..700&family=Inter+Tight:ital,wght@0,100..900;1,100..900&family=Inter:ital,opsz,wght@0,14..32,100..900;1,14..32,100..900&family=Playfair+Display:ital,wght@0,400..900;1,400..900&display=swap" rel="stylesheet">
 <% end %>
 
 <% if @article.thumbnail_path.present? %>
@@ -45,7 +45,6 @@
   </div>
 <% end %>
 
-
 <article class="article" data-controller="twitter">
   <header class="article__header">
     <%= link_to articles_path, class: "article__header__back" do %>
@@ -53,12 +52,12 @@
     <% end %>
 
     <hgroup>
-
-    <h1 class="article__header__title"><%= @article.title %></h1>
-    <% if @article.subtitle.present? %>
-      <div class="article__header__subtitle"><%= @article.subtitle %></div>
-    <% end %>
+      <h1 class="article__header__title"><%= @article.title.html_safe %></h1>
+      <% if @article.subtitle.present? %>
+        <div class="article__header__subtitle"><%= @article.subtitle %></div>
+      <% end %>
     </hgroup>
+
     <div class="article__header__meta">
       <% if @article.author.present? %>
         <% if @article.author.url.present? %>
@@ -67,6 +66,7 @@
           <span class="article__header__meta__author"><%= @article.author.name %></span>
         <% end %>
       <% end %>
+
       <% if @article.published_at.present? %>
         &middot;
         <time class="article__header__meta__date" datetime="<%= @article.published_at.iso8601 %>">
@@ -94,6 +94,23 @@
   <div class="article-body">
     <%= raw @content %>
   </div>
+
+  <% if @content_unlocked && (@article.x_url.present? || @article.telegram_url.present?) %>
+    <div class="article-social-buttons">
+      <% if @article.x_url.present? %>
+        <%= link_to @article.x_url, class: "button button--x button--large", target: "_blank", rel: "noopener" do %>
+          <%= t('articles.like_on_x') %>
+        <% end %>
+      <% end %>
+      
+      <% if @article.telegram_url.present? %>
+        <%= link_to @article.telegram_url, class: "button button--primary button--telegram button--large", target: "_blank", rel: "noopener" do %>
+          <%= t('articles.join_discussion') %>
+          <%= render partial: 'svg/24x24_telegram' %>
+        <% end %>
+      <% end %>
+    </div>
+  <% end %>
 
   <% unless @content_unlocked %>
     <div class="paywall">

@@ -1,6 +1,6 @@
 ---
 title: "Bitcoin vs. M2"
-subtitle: "De correlatie van de geldhoeveelheid ontcijferen"
+subtitle: "83% directionele correlatie met de wereldwijde geldhoeveelheid"
 author_id: 1
 thumbnail: bitcoin-vs-m2.avif
 excerpt: "De relatie tussen Bitcoin en de wereldwijde geldhoeveelheid. Het onderzoek van Lyn Alden. Het idee van de 12 weken voorsprong. AI Bitcoin-prijsvoorspelling op basis van het M2-model."
