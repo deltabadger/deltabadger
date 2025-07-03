@@ -1,9 +1,11 @@
 ---
 title: "Bitcoin vs. M2"
-subtitle: "Décoder la corrélation de la masse monétaire"
+subtitle: "83% de corrélation directionnelle avec la masse monétaire mondiale"
 author_id: 1
 thumbnail: bitcoin-vs-m2.avif
 excerpt: "La relation entre le Bitcoin et la masse monétaire mondiale. Les recherches de Lyn Alden. L'idée de l'avance de 12 semaines. Prédiction du prix du Bitcoin par l'IA basée sur le modèle M2."
+x_url: https://x.com/deltabadgerapp/status/1939622461768892684
+telegram_url: https://t.me/deltabadger/91
 published: true
 ---
 

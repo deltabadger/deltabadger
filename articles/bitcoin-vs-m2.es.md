@@ -1,9 +1,11 @@
 ---
 title: "Bitcoin vs. M2"
-subtitle: "Descifrando la correlación de la oferta monetaria"
+subtitle: "83% de correlación direccional con la oferta monetaria global"
 author_id: 1
 thumbnail: bitcoin-vs-m2.avif
 excerpt: "La relación entre Bitcoin y la oferta monetaria global. La investigación de Lyn Alden. La idea de la ventaja de 12 semanas. Predicción del precio de Bitcoin por IA basada en el modelo M2."
+x_url: https://x.com/deltabadgerapp/status/1939622461768892684
+telegram_url: https://t.me/deltabadger/91
 published: true
 ---
 

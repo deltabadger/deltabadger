@@ -1,7 +1,7 @@
 it:
   articles:
     index:
-      title: "Deltabadger's Research Lab"
+      title: "Deltabadger's Research"
       meta_description: "Articoli quindicinali per investitori a lungo termine in asset digitali."
       no_articles: "Nessun articolo disponibile al momento."
       join_subscribers: "Unisciti a %{count} abbonati <span class='desktop-only'>Premium</span>"
@@ -12,3 +12,5 @@ it:
       title: "Abbonati per continuare a leggere."
       description: |
         Siamo una comunità di investitori a lungo termine in asset digitali. Accedi a:<br><b>articoli quindicinali &middot; analizzatore di portafoglio &middot; automazioni del mercato delle criptovalute</b>
+    like_on_x: "Metti mi piace su X"
+    join_telegram_discussion: "Unisciti alla discussione su Telegram"

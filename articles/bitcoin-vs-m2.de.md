@@ -1,9 +1,11 @@
 ---
 title: "Bitcoin vs. M2"
-subtitle: "Die Korrelation der Geldmenge entschlüsselt"
+subtitle: "83% direktionale Korrelation mit der globalen Geldmenge"
 author_id: 1
 thumbnail: bitcoin-vs-m2.avif
 excerpt: "Die Beziehung zwischen Bitcoin und der globalen Geldmenge. Die Forschung von Lyn Alden. Die 12-Wochen-Vorlauf-Idee. KI-Bitcoin-Preisvorhersage basierend auf dem M2-Modell."
+x_url: https://x.com/deltabadgerapp/status/1939622461768892684
+telegram_url: https://t.me/deltabadger/91
 published: true
 ---
 

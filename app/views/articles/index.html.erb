@@ -4,7 +4,7 @@
 <% content_for :head do %>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,100..900;1,14..32,100..900&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Domine:wght@400..700&family=Inter+Tight:ital,wght@0,100..900;1,100..900&family=Inter:ital,opsz,wght@0,14..32,100..900;1,14..32,100..900&family=Playfair+Display:ital,wght@0,400..900;1,400..900&display=swap" rel="stylesheet">
 <% end %>
 
 <hgroup class="articles-header">
@@ -29,7 +29,7 @@
 
         <div class="article-card__content">
           <h2 class="article-card__title">
-            <span class="article-title-link"><%= article.title %></span>
+            <%= article.title.html_safe %>
           </h2>
 
           <div class="article-card__meta">
