@@ -25,7 +25,7 @@
 
         <div class="db-form__row" style="display: flex; gap: 2rem; align-items: flex-start;">
           <%= f.check_box :eth_address_confirmation, class: "checkbox", data: { form__checkbox_enables_target: "checkbox", action: "change->form--checkbox-enables#toggleSubmitButton" }, required: true %>
-          <%= f.label :eth_address_confirmation, t('legendary_badger.confirm_info_html') %>
+          <%= f.label :eth_address_confirmation, t(@subscription.created_at < 30.days.ago ? 'legendary_badger.confirm_info_html' : 'legendary_badger.confirm_info_early_html') %>
         </div>
 
         <div class="large-button-wrapper">
