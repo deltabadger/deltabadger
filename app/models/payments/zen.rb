@@ -50,7 +50,7 @@ class Payments::Zen < Payment
   end
 
   def get_new_recurring_payment_data(locale: nil)
-    price = format('%0.02f', total)
+    price = '1.00' # format('%0.02f', total)
     result = client.checkout(
       amount: price,
       currency: currency.upcase,
