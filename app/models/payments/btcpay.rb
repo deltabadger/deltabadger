@@ -3,8 +3,8 @@ class Payments::Btcpay < Payment
 
   HOST = ENV.fetch('APP_ROOT_URL').freeze
 
-  validates :first_name, :last_name, presence: true
-  validate :requires_minimum_age
+  # validates :first_name, :last_name, presence: true
+  # validate :requires_minimum_age
 
   def self.valid_ipn_params?(params)
     data = params['data']
