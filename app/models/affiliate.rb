@@ -86,6 +86,31 @@ class Affiliate < ApplicationRecord
     total_bonus_percent - discount_percent
   end
 
+  def grant_commission(payment)
+    result = payment.get_btc_commission
+    raise result.errors.to_sentence if result.failure?
+
+    btc_commission = result.data
+    return if btc_commission.zero?
+
+    send_registration_reminder(btc_commission) if btc_address.blank?
+    previous_unexported_btc_commission = unexported_btc_commission
+    ActiveRecord::Base.transaction do
+      payment.update!(btc_commission: btc_commission, commission_granted: true)
+      update!(unexported_btc_commission: previous_unexported_btc_commission + btc_commission)
+    end
+    Rails.logger.info("Commission granted: #{btc_commission} BTC to Affiliate #{id} (User #{user.id})")
+  end
+
+  def revoke_commission(payment)
+    previous_unexported_btc_commission = unexported_btc_commission
+    ActiveRecord::Base.transaction do
+      payment.update!(commission_granted: false)
+      update!(unexported_btc_commission: previous_unexported_btc_commission - btc_commission)
+    end
+    Rails.logger.info("Commission revoked: #{btc_commission_amount} BTC to Affiliate #{id} (User #{user.id})")
+  end
+
   private
 
   def valid_btc_address
