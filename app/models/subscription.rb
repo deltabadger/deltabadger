@@ -37,7 +37,11 @@ class Subscription < ApplicationRecord
   private
 
   def set_ends_at
-    self.ends_at ||= subscription_plan_variant&.duration&.from_now
+    self.ends_at ||= if subscription_plan_variant.duration == Float::INFINITY
+                       nil
+                     else
+                       subscription_plan_variant.duration.from_now
+                     end
   end
 
   def first_subscription?
