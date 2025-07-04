@@ -88,6 +88,7 @@ class Payments::Zen < Payment
     status = parse_payment_status(params[:status])
     return unless status == :paid
 
+    sync_card_info!(params[:cardToken], params[:transactionId])
     update!(
       status: status,
       paid_at: Time.current,
@@ -119,5 +120,22 @@ class Payments::Zen < Payment
     else
       :unpaid
     end
+  end
+
+  def sync_card_info!(card_token, transaction_id)
+    return if card_token.blank?
+
+    card = user.cards.first
+    if card.present?
+      if card.token == card_token
+        return if card.first_transaction_id.present?
+
+        card.update!(first_transaction_id: transaction_id)
+      else
+        card.destroy!
+      end
+    end
+
+    user.cards.create!(token: card_token, first_transaction_id: transaction_id)
   end
 end
