@@ -21,7 +21,7 @@
             <div class="index-info"><%= t('bot.types.dca_dual_asset.description').html_safe %></div>
         <% end %>
 
-        <%# path = current_user.subscription.free? ? upgrades_instructions_path : bots_path(create: true) %>
+        <%# path = current_user.subscription.free? ? upgrade_instructions_path : bots_path(create: true) %>
         <%# data = current_user.subscription.free? ? { turbo_frame: "modal" } : { turbo: false } %>
         <% path = bots_path(create: true) %>
         <% data = { turbo: false } %>
