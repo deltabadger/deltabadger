@@ -34,16 +34,51 @@ class Payments::Zen < Payment
       billing_address_country_state: country,
       # specified_payment_method: 'PME_CARD',
       # specified_payment_channel: 'PCL_CARD',
-      url_success: payments_zen_success_url(host: HOST, locale: locale || I18n.locale),
-      url_failure: payments_zen_failure_url(host: HOST, locale: locale || I18n.locale),
-      custom_ipn_url: payments_zen_ipn_url(host: HOST, locale: locale || I18n.locale),
+      url_success: upgrade_zen_payment_success_url(host: HOST, locale: locale || I18n.locale),
+      url_failure: upgrade_zen_payment_failure_url(host: HOST, locale: locale || I18n.locale),
+      custom_ipn_url: upgrade_zen_payment_ipn_url(host: HOST, locale: locale || I18n.locale),
       language: locale
     )
     return result if result.failure?
 
     url = Utilities::Hash.dig_or_raise(result.data, 'redirectUrl')
     data = {
-      payment_id: url.split('/').last,
+      payment_id: url.split('/').last.split('?').first,
+      url: url
+    }
+    Result::Success.new(data)
+  end
+
+  def get_new_recurring_payment_data(locale: nil)
+    price = format('%0.02f', total)
+    result = client.checkout(
+      amount: price,
+      currency: currency.upcase,
+      merchant_transaction_id: id.to_s,
+      customer_first_name: first_name,
+      customer_last_name: last_name,
+      customer_email: user.email,
+      item_name: item_description,
+      item_price: price,
+      item_quantity: 1,
+      item_line_amount_total: price,
+      billing_address_country_state: country,
+      # specified_payment_method: 'PME_CARD',
+      # specified_payment_channel: 'PCL_CARD',
+      # recurring_data_payment_type: 'recurring',
+      # recurring_data_expiry_date: '99991212',
+      # recurring_data_frequency: '1',
+      recurring_data_payment_type: 'unscheduled',
+      url_success: upgrade_zen_payment_success_url(host: HOST, locale: locale || I18n.locale),
+      url_failure: upgrade_zen_payment_failure_url(host: HOST, locale: locale || I18n.locale),
+      custom_ipn_url: upgrade_zen_payment_ipn_url(host: HOST, locale: locale || I18n.locale),
+      language: locale
+    )
+    return result if result.failure?
+
+    url = Utilities::Hash.dig_or_raise(result.data, 'redirectUrl')
+    data = {
+      payment_id: url.split('/').last.split('?').first,
       url: url
     }
     Result::Success.new(data)

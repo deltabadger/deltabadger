@@ -16,6 +16,8 @@ es:
             other: '%{count} días disponibles'
         legendary_plan_left_html: "%{for_sale_count} <span class='hide-on-mobile'>de %{total_supply}</span> restantes"
         payment:
+            cardholder_name: 'Nombre del titular de la tarjeta'
+            checkout: 'Pagar'
             price_usd_html: '<span class=price-ticker>%{symbol}</span><span class=price-amount>%{price}</span>'
             price_eur_html: '<span class=price-ticker>%{symbol}</span><span class=price-amount>%{price}</span>'
             account_holder: 'Titular de la cuenta'
@@ -67,6 +69,6 @@ es:
     legendary_badger:
         will_be_sent: 'Legendary Badger NFT será enviado a:'
         ethereum_address: 'Dirección de Ethereum'
-        confirm_info_early_html: "Confirmo que esta dirección ETH es correcta y elijo acelerar la entrega de mi NFT, renunciando a la garantía estándar de devolución de dinero de 30 días. Entiendo que una vez reclamado, la transferencia del NFT es una transacción permanente en la blockchain que no se puede deshacer."
+        confirm_info_early_html: "Confirmo que esta dirección ETH es correcta y elijo acelerar la entrega de mi NFT, renunciando a la garantía estándar de devolución de 30 días. Entiendo que una vez reclamado, la transferencia del NFT es una transacción permanente en la blockchain que no se puede deshacer."
         confirm_info_html: "Confirmo que esta dirección ETH es correcta y entiendo que las transferencias en blockchain son irreversibles y no se pueden recuperar si se envían a una dirección incorrecta."
         claim: 'Reclamar NFT'

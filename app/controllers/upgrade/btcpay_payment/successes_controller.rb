@@ -1,4 +1,4 @@
-class Payments::Btcpay::SuccessesController < ApplicationController
+class Upgrade::BtcpayPayment::SuccessesController < ApplicationController
   before_action :authenticate_user!
 
   def show

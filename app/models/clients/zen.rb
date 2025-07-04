@@ -1,7 +1,7 @@
 class Clients::Zen < Client
-  URL = 'https://secure.zen.com'.freeze
-  ZEN_PAYWALL_SECRET = ENV.fetch('ZEN_PAYWALL_SECRET').freeze
-  ZEN_TERMINAL_UUID = ENV.fetch('ZEN_TERMINAL_UUID').freeze
+  URL = ENV.fetch('ZEN_CHECKOUT_URL').freeze
+  PAYWALL_SECRET = ENV.fetch('ZEN_PAYWALL_SECRET').freeze
+  TERMINAL_UUID = ENV.fetch('ZEN_TERMINAL_UUID').freeze
 
   def self.connection
     @connection ||= Faraday.new(url: URL, **OPTIONS) do |config|
@@ -48,6 +48,11 @@ class Clients::Zen < Client
   # @param billing_address_company_name [String] The customer's billing address company name
   # @param billing_address_phone [String] The customer's billing address phone
   # @param billing_address_tax_id [String] The customer's billing address tax ID
+  # @param recurring_data_payment_type [String] The type of recurring payment (recurring or unscheduled)
+  # @param recurring_data_expiry_date [String] The expiry date of the recurring payment (YYYYMMDD)
+  #        With no expiration date plans recommendation is to use "99991212"
+  # @param recurring_data_frequency [Integer] Indicates minimum number of days between authorization,
+  #        limited to 4 characters. Recommendation is to use "1"
   # @param url_redirect [String] The URL to redirect to after the transaction
   #        (used if url_success and url_failure were not specified)
   # @param url_success [String] The URL to redirect to after a successful transaction
@@ -100,6 +105,9 @@ class Clients::Zen < Client
     billing_address_company_name: nil,
     billing_address_phone: nil,
     billing_address_tax_id: nil,
+    recurring_data_payment_type: nil,
+    recurring_data_expiry_date: nil,
+    recurring_data_frequency: nil,
     url_redirect: nil,
     url_success: nil,
     url_failure: nil,
@@ -112,7 +120,7 @@ class Clients::Zen < Client
       response = self.class.connection.post do |req|
         req.url '/api/checkouts'
         req.body = {
-          terminalUuid: ZEN_TERMINAL_UUID,
+          terminalUuid: TERMINAL_UUID,
           amount: amount,
           currency: currency,
           merchantTransactionId: merchant_transaction_id,
@@ -164,6 +172,11 @@ class Clients::Zen < Client
             phone: billing_address_phone,
             taxId: billing_address_tax_id
           }.compact.presence,
+          recurringData: {
+            paymentType: recurring_data_payment_type,
+            expiryDate: recurring_data_expiry_date,
+            frequency: recurring_data_frequency
+          }.compact.presence,
           urlRedirect: url_redirect,
           urlSuccess: url_success,
           urlFailure: url_failure,
@@ -173,6 +186,7 @@ class Clients::Zen < Client
           language: language
         }.compact
         req.body[:signature] = sha256_signature(req.body)
+        # puts req.body.to_json
       end
       Result::Success.new(response.body)
     end
@@ -181,7 +195,7 @@ class Clients::Zen < Client
   private
 
   def sha256_signature(body)
-    string_to_hash = hash_to_strings(body).sort.join('&') + ZEN_PAYWALL_SECRET
+    string_to_hash = hash_to_strings(body).sort.join('&') + PAYWALL_SECRET
     hashed_string = Digest::SHA256.hexdigest(string_to_hash)
     "#{hashed_string};sha256"
   end

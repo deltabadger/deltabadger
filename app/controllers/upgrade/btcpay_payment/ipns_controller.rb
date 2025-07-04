@@ -1,4 +1,4 @@
-class Payments::Btcpay::IpnsController < ApplicationController
+class Upgrade::BtcpayPayment::IpnsController < ApplicationController
   skip_before_action :verify_authenticity_token, only: %i[create]
 
   def create

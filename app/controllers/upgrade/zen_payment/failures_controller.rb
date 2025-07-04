@@ -1,4 +1,4 @@
-class Payments::Zen::FailuresController < ApplicationController
+class Upgrade::ZenPayment::FailuresController < ApplicationController
   before_action :authenticate_user!
 
   def show

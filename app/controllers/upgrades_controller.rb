@@ -1,5 +1,6 @@
 class UpgradesController < ApplicationController
-  include Payments::Payable
+  include Upgrades::Payable
+  include Upgrades::Showable
 
   before_action :authenticate_user!
 
@@ -8,11 +9,7 @@ class UpgradesController < ApplicationController
   before_action :update_session, only: %i[show]
 
   def show
-    @selected_years = session[:payment_config]['years']
-    @reference_payment_options = payment_options(0)
-    @payment_options = payment_options(@selected_years)
-    @available_variant_years = available_variant_years
-    @legendary_plan = SubscriptionPlan.legendary
+    set_show_instance_variables
     @payment = @payment_options[session[:payment_config]['plan_name']]
     return unless payment_params[:paid_payment_id].present?
 
@@ -42,25 +39,6 @@ class UpgradesController < ApplicationController
       }.compact.stringify_keys
       session[:payment_config].merge!(parsed_params)
     end
-  end
-
-  def payment_options(years)
-    @payment_options ||= {}
-    @payment_options[years] ||= available_plan_names.map do |plan_name|
-      [
-        plan_name,
-        new_payment_for(plan_name, years, session[:payment_config]['type'], session[:payment_config]['country'])
-      ]
-    end.to_h
-  end
-
-  def available_variant_years
-    # @available_variant_years ||= SubscriptionPlanVariant.all_variant_years
-    @available_variant_years ||= SubscriptionPlanVariant.all_variant_years - [4] # exclude 4 years variant
-  end
-
-  def available_plan_names
-    @available_plan_names ||= current_user.available_plan_names
   end
 
   def default_payment_type

@@ -1,4 +1,4 @@
-class Payments::Zen::SuccessesController < ApplicationController
+class Upgrade::ZenPayment::SuccessesController < ApplicationController
   before_action :authenticate_user!
 
   def show

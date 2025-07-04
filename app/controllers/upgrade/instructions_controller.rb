@@ -1,4 +1,4 @@
-class Upgrades::InstructionsController < ApplicationController
+class Upgrade::InstructionsController < ApplicationController
   before_action :authenticate_user!
 
   def show
@@ -8,7 +8,7 @@ class Upgrades::InstructionsController < ApplicationController
     # into the same modal partial, and crashes.
     # Seems the issue is actually related to the modal--base#animateOutCloseAndCleanUp action, which is triggered
     # but not awaited to finish before rendering the modal.
-    # The FIX must address both upgrades_instructions_path and new_bots_dca_dual_assets_pick_first_buyable_asset_path.
+    # The FIX must address both upgrade_instructions_path and new_bots_dca_dual_assets_pick_first_buyable_asset_path.
     sleep 0.25
   end
 end

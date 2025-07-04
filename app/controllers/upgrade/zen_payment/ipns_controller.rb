@@ -1,9 +1,11 @@
-class Payments::Zen::IpnsController < ApplicationController
+class Upgrade::ZenPayment::IpnsController < ApplicationController
   skip_before_action :verify_authenticity_token, only: %i[create]
 
   def create
     if Payments::Zen.valid_ipn_params?(params)
-      payment = Payment.find(params[:merchantTransactionId])
+      puts "ipn params: #{params.inspect}"
+      puts "ipn params: #{params.to_json}"
+      payment = Payment.zen.find(params[:merchantTransactionId])
       payment.handle_ipn(params)
       render json: { "status": 'ok' }
     else

@@ -95,23 +95,20 @@ Rails.application.routes.draw do
     end
 
     resource :upgrade, only: [:show]
-    namespace :upgrades do
-      resource :instructions, only: [:show]
-    end
-
-    namespace :payments do
-      resource :btcpay, only: [:create]
-      namespace :btcpay do
+    namespace :upgrade do
+      resource :btcpay_payment, only: [:create]
+      namespace :btcpay_payment do
         resource :ipn, only: [:create]
         resource :success, only: [:show]
       end
-      resource :wire, only: [:create]
-      resource :zen, only: [:create]
-      namespace :zen do
+      resource :wire_payment, only: [:create]
+      resource :zen_payment, only: [:create]
+      namespace :zen_payment do
         resource :ipn, only: [:create]
         resource :success, only: [:show]
         resource :failure, only: [:show]
       end
+      resource :instructions, only: [:show]
     end
 
     namespace :settings do
