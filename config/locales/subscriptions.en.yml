@@ -20,6 +20,10 @@ en:
             one: "1 day left"
             other: "%{count} days left"
         legendary_plan_left_html: "%{for_sale_count} <span class='hide-on-mobile'>of %{total_supply}</span> left"
+        cancel_subscription: "Cancel subscription"
+        canceled: "Your subscription has been canceled"
+        confirm_cancel_title: "Cancel %{plan} plan"
+        confirm_cancel: "Are you sure you want to cancel your subscription? Any bots with %{plan} features enabled will stop working after %{date}."
         payment:
             cardholder_name: "Cardholder name"
             checkout: "Checkout"

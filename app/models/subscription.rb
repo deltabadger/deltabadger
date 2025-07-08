@@ -34,6 +34,18 @@ class Subscription < ApplicationRecord
     [0, (ends_at.to_date - Date.today).to_i].max
   end
 
+  def renews_at
+    return ends_at if ends_at.present?
+    return nil if subscription_plan_variant.duration.infinite?
+    raise 'Subscription duration is zero' if subscription_plan_variant.duration.zero?
+
+    checkpoint = created_at
+    loop do
+      checkpoint += subscription_plan_variant.duration
+      return checkpoint if checkpoint > Time.current
+    end
+  end
+
   private
 
   def set_ends_at

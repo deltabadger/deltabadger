@@ -1,0 +1,20 @@
+<%= render 'layouts/modal/base' do %>
+  <div class="modal">
+    <%= button_tag class: 'modal__close', data: { action: 'modal--base#animateOutCloseAndCleanUp' } do %>
+      <%= render partial: 'svg/24x24_close' %>
+    <% end %>
+    <div class="modal__header">
+      <h1 class="modal__title"><%= t('subscriptions.confirm_cancel_title', plan: @subscription.name.titleize) %></h1>
+    </div>
+    <div class="modal__body text-center">
+    <p>
+      <%= t('subscriptions.confirm_cancel', plan: @subscription.name.titleize, date: l(@subscription.renews_at, format: :long)) %>
+    </p>
+    <div class="buttons buttons--row--2">
+      <%= button_tag class: 'button button--outline button--large', data: { action: 'modal--base#animateOutCloseAndCleanUp' } do %>
+        <%= t('button.cancel') %>
+      <% end %>
+      <%= button_to t('button.delete'), settings_cancel_subscription_path, method: :patch, class: 'button button--danger button--large', data: { turbo_frame: "api_keys", action: 'modal--base#animateOutCloseAndCleanUp' } %>
+    </div>
+  </div>
+<% end %>
