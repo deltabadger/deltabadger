@@ -1,6 +1,16 @@
 module BotHelper
-  def bot_intervals_select_options
-    Bot::Schedulable::INTERVALS.keys.map { |interval| [t("bot.#{interval}"), interval] }
+  def bot_intervals_select_options(subscription)
+    if subscription.paid?
+      Bot::Schedulable::INTERVALS.keys.map { |interval| [t("bot.#{interval}"), interval] }
+    else
+      Bot::Schedulable::INTERVALS.keys.map do |interval|
+        if interval == 'day'
+          [t("bot.#{interval}"), interval]
+        else
+          [t("bot.#{interval}") + " (#{t('subscriptions.upgrade')})", interval, { disabled: true }]
+        end
+      end
+    end
   end
 
   def bot_type_label(bot)
