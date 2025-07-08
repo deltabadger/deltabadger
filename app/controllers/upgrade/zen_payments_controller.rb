@@ -23,7 +23,7 @@ class Upgrade::ZenPaymentsController < ApplicationController
     if @payment.save
       result = @payment.get_new_recurring_payment_data(locale: I18n.locale)
       if result.success?
-        if @payment.update(payment_id: result.data[:payment_id])
+        if @payment.update(payment_id: result.data[:payment_id], recurring: true)
           redirect_to result.data[:url]
         else
           flash[:alert] = @payment.errors.messages.values.flatten.to_sentence

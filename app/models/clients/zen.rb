@@ -53,6 +53,12 @@ class Clients::Zen < Client
   #        With no expiration date plans recommendation is to use "99991212"
   # @param recurring_data_frequency [Integer] Indicates minimum number of days between authorization,
   #        limited to 4 characters. Recommendation is to use "1"
+  # @param payment_specific_data_payment_type [String] The type of payment (recurring or unscheduled)
+  # @param payment_specific_data_first_transaction_id [String] The ID of the first transaction
+  # @param payment_specific_data_descriptor [String] Text that will appear on Customer Bank Statement.
+  #        Can be used only for credit card Payments.
+  # @param payment_specific_data_card_token [String] Card token created in the process of saving credit card
+  # @param payment_specific_data_sca_exemptions [String] Indicates recurring or unscheduled (RECURRING or OTHER_MIT)
   # @param url_redirect [String] The URL to redirect to after the transaction
   #        (used if url_success and url_failure were not specified)
   # @param url_success [String] The URL to redirect to after a successful transaction
@@ -108,6 +114,11 @@ class Clients::Zen < Client
     recurring_data_payment_type: nil,
     recurring_data_expiry_date: nil,
     recurring_data_frequency: nil,
+    payment_specific_data_payment_type: nil,
+    payment_specific_data_first_transaction_id: nil,
+    payment_specific_data_descriptor: nil,
+    payment_specific_data_card_token: nil,
+    payment_specific_data_sca_exemptions: nil,
     url_redirect: nil,
     url_success: nil,
     url_failure: nil,
@@ -176,6 +187,13 @@ class Clients::Zen < Client
             paymentType: recurring_data_payment_type,
             expiryDate: recurring_data_expiry_date,
             frequency: recurring_data_frequency
+          }.compact.presence,
+          paymentSpecificData: {
+            type: payment_specific_data_payment_type,
+            firstTransactionId: payment_specific_data_first_transaction_id,
+            descriptor: payment_specific_data_descriptor,
+            cardToken: payment_specific_data_card_token,
+            scaExempitons: payment_specific_data_sca_exemptions
           }.compact.presence,
           urlRedirect: url_redirect,
           urlSuccess: url_success,

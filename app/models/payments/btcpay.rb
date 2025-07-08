@@ -50,10 +50,7 @@ class Payments::Btcpay < Payment
       status: paid? ? :paid : status,
       paid_at: !paid? && status == :paid ? Time.at(data.fetch('currentTime') / 1000) : nil
     )
-    user.subscriptions.create!(
-      subscription_plan_variant: subscription_plan_variant,
-      ends_at: subscription_plan_variant.years.nil? ? nil : paid_at + subscription_plan_variant.duration
-    )
+    grant_subscription
     send_invoice
     notify_subscription_granted
   end

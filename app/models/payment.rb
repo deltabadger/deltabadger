@@ -6,6 +6,7 @@ class Payment < ApplicationRecord
   enum status: { draft: 1, unpaid: 0, paid: 2, cancelled: 5, refunded: 6 }
 
   scope :commission_granted, -> { where(commission_granted: true) }
+  scope :recurring, -> { where(recurring: true) }
 
   include Typeable
   include Notifyable
@@ -146,6 +147,21 @@ class Payment < ApplicationRecord
   end
 
   private
+
+  def grant_subscription
+    if recurring?
+      if user.subscription.name == subscription_plan.name && user.subscription.ends_at.nil?
+        # all good, we are just renewing the current subscription
+      else
+        user.subscriptions.create!(subscription_plan_variant: subscription_plan_variant)
+      end
+    else
+      user.subscriptions.create!(
+        subscription_plan_variant: subscription_plan_variant,
+        ends_at: subscription_plan_variant.years.nil? ? nil : paid_at + subscription_plan_variant.duration
+      )
+    end
+  end
 
   def grant_commission_to_affiliate
     return unless paid?

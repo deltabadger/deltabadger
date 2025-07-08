@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema.define(version: 2025_07_03_154543) do
+ActiveRecord::Schema.define(version: 2025_07_07_183212) do
 
   # These are extensions that must be enabled in order to support this database
   enable_extension "plpgsql"
@@ -137,6 +137,13 @@ ActiveRecord::Schema.define(version: 2025_07_03_154543) do
     t.index ["user_id"], name: "index_bots_on_user_id"
   end
 
+  create_table "cards", force: :cascade do |t|
+    t.bigint "user_id", null: false
+    t.string "token", null: false
+    t.string "first_transaction_id", null: false
+    t.index ["user_id"], name: "index_cards_on_user_id"
+  end
+
   create_table "conversion_rates", force: :cascade do |t|
     t.string "currency", null: false
     t.decimal "rate", null: false
@@ -233,6 +240,7 @@ ActiveRecord::Schema.define(version: 2025_07_03_154543) do
     t.boolean "commission_granted", default: false
     t.string "type"
     t.jsonb "external_statuses", default: []
+    t.boolean "recurring", default: false, null: false
     t.index ["currency"], name: "index_payments_on_currency"
     t.index ["status"], name: "index_payments_on_status"
     t.index ["subscription_plan_variant_id"], name: "index_payments_on_subscription_plan_variant_id"
@@ -421,6 +429,7 @@ ActiveRecord::Schema.define(version: 2025_07_03_154543) do
   add_foreign_key "articles", "authors"
   add_foreign_key "bots", "exchanges"
   add_foreign_key "bots", "users"
+  add_foreign_key "cards", "users"
   add_foreign_key "daily_transaction_aggregates", "bots"
   add_foreign_key "exchange_assets", "assets"
   add_foreign_key "exchange_assets", "exchanges"

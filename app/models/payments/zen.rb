@@ -36,7 +36,7 @@ class Payments::Zen < Payment
       # specified_payment_channel: 'PCL_CARD',
       url_success: upgrade_zen_payment_success_url(host: HOST, locale: locale || I18n.locale),
       url_failure: upgrade_zen_payment_failure_url(host: HOST, locale: locale || I18n.locale),
-      custom_ipn_url: upgrade_zen_payment_ipn_url(host: HOST, locale: locale || I18n.locale),
+      custom_ipn_url: upgrade_zen_payment_ipn_url(host: HOST),
       language: locale
     )
     return result if result.failure?
@@ -63,15 +63,13 @@ class Payments::Zen < Payment
       item_quantity: 1,
       item_line_amount_total: price,
       billing_address_country_state: country,
-      # specified_payment_method: 'PME_CARD',
-      # specified_payment_channel: 'PCL_CARD',
       # recurring_data_payment_type: 'recurring',
       # recurring_data_expiry_date: '99991212',
       # recurring_data_frequency: '1',
       recurring_data_payment_type: 'unscheduled',
       url_success: upgrade_zen_payment_success_url(host: HOST, locale: locale || I18n.locale),
       url_failure: upgrade_zen_payment_failure_url(host: HOST, locale: locale || I18n.locale),
-      custom_ipn_url: upgrade_zen_payment_ipn_url(host: HOST, locale: locale || I18n.locale),
+      custom_ipn_url: upgrade_zen_payment_ipn_url(host: HOST),
       language: locale
     )
     return result if result.failure?
@@ -88,19 +86,16 @@ class Payments::Zen < Payment
     status = parse_payment_status(params[:status])
     return unless status == :paid
 
-    sync_card_info!(params[:cardToken], params[:transactionId])
+    sync_card_info!(params[:cardToken], params[:transactionId]) if recurring?
     update!(
       status: status,
       paid_at: Time.current,
       first_name: params[:customer][:firstName],
       last_name: params[:customer][:lastName]
     )
-    user.subscriptions.create!(
-      subscription_plan_variant: subscription_plan_variant,
-      ends_at: subscription_plan_variant.years.nil? ? nil : paid_at + subscription_plan_variant.duration
-    )
+    grant_subscription
     send_invoice
-    notify_subscription_granted
+    notify_subscription_granted if subscription_plan.name != user.subscription.name
   end
 
   private
