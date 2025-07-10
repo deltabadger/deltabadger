@@ -1,0 +1,54 @@
+.pie-chart-wrapper
+  margin-top: 4rem
+  display: flex
+  align-items: center
+  justify-content: center
+  gap: 2rem
+  flex-wrap: wrap
+
+.pie-slice
+  cursor: pointer
+  opacity: 0.9
+  transition: opacity 0.3s ease
+
+.pie-legend
+  display: flex
+  flex-direction: column
+  font-size: 1.5rem
+  font-weight: bold
+
+  &.legend-two-columns
+    flex-direction: row
+    gap: 3rem
+
+.legend-column
+  display: flex
+  flex-direction: column
+
+.legend-item
+  display: flex
+  align-items: center
+  gap: 1rem
+  border-radius: 1rem
+  padding: 0 1rem
+  transition: background-color 0.2s ease
+  cursor: pointer
+  
+  &:hover, &.highlighted
+    background-color: var(--widget-background)
+    box-shadow: var(--widget-shadow)
+
+.legend-color
+  width: 1.5rem
+  height: 1.5rem
+  border-radius: 1rem
+  flex-shrink: 0
+
+.legend-label
+  font-weight: 500
+  color: var(--text, var(--label))
+
+.legend-value
+  font-weight: 600
+  color: var(--text-muted, var(--label))
+  margin-left: auto
