@@ -1,7 +1,7 @@
 nl:
   articles:
     index:
-      title: "Deltabadger's Research"
+      title: "Deltabadger Research"
       meta_description: "Tweewekelijkse artikelen voor langetermijninvesteerders in digitale assets."
       no_articles: "Geen artikelen beschikbaar op dit moment."
       join_subscribers: "Word lid van %{count} abonnees <span class='desktop-only'>Premium</span>"
@@ -11,6 +11,6 @@ nl:
     paywall:
       title: "Abonneer om verder te lezen."
       description: |
-        Wij zijn een gemeenschap van langetermijninvesteerders in digitale activa. Krijg toegang tot:<br><b>tweewekelijkse artikelen &middot; portfolioanalyse &middot; automatiseringen voor de cryptomarkt</b>
+        Wij zijn een gemeenschap van langetermijninvesteerders in digitale activa. Krijg toegang tot:<br><b>tweewekelijkse artikelen &middot; portfolioanalyse &middot; smart DCA bots</b>
     like_on_x: "Leuk vinden op X"
     join_discussion: "Deelnemen aan discussie"
