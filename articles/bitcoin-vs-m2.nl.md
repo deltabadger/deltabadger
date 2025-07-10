@@ -5,6 +5,7 @@ author_id: 1
 thumbnail: bitcoin-vs-m2.avif
 excerpt: "De relatie tussen Bitcoin en de wereldwijde geldhoeveelheid. Het onderzoek van Lyn Alden. Het idee van de 12 weken voorsprong. AI Bitcoin-prijsvoorspelling op basis van het M2-model."
 published: true
+published_at: "2025-07-01"
 ---
 
 De relatie tussen Bitcoin en de wereldwijde geldhoeveelheid is een van de meest besproken onderwerpen geworden. Terwijl we 2025 doorkomen, wordt Bitcoin sterker terwijl het wereldwijde geld drukken toeneemt.

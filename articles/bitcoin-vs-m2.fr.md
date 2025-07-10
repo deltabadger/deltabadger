@@ -7,6 +7,7 @@ excerpt: "La relation entre le Bitcoin et la masse monétaire mondiale. Les rech
 x_url: https://x.com/deltabadgerapp/status/1939622461768892684
 telegram_url: https://t.me/deltabadger/91
 published: true
+published_at: "2025-07-01"
 ---
 
 La relation entre le Bitcoin et la masse monétaire mondiale est devenue l'un des sujets les plus débattus. Alors que nous avançons en 2025, le Bitcoin se renforce tandis que l'impression monétaire mondiale augmente.

@@ -5,6 +5,7 @@ author_id: 1
 thumbnail: bitcoin-vs-m2.avif
 excerpt: "La relazione tra Bitcoin e l'offerta di moneta globale. La ricerca di Lyn Alden. L'idea dell'anticipo di 12 settimane. Previsione del prezzo di Bitcoin tramite IA basata sul modello M2."
 published: true
+published_at: "2025-07-01"
 ---
 
 La relazione tra Bitcoin e l'offerta di moneta globale è diventata uno degli argomenti più dibattuti. Mentre ci muoviamo nel 2025, Bitcoin si sta rafforzando mentre la stampa di moneta globale aumenta.

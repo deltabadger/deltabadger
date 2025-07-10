@@ -39,6 +39,13 @@ class Article < ApplicationRecord
     "articles/thumbnails/#{thumbnail}"
   end
 
+  def plain_title
+    return title unless title.present?
+
+    # Strip HTML tags from the title for use in page titles and meta tags
+    ActionController::Base.helpers.strip_tags(title)
+  end
+
   private
 
   def set_published_at
