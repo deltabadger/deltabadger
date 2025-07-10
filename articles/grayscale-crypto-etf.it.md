@@ -35,7 +35,7 @@ CD5 si trova al vertice di una **metodologia a quattro livelli** sviluppata da [
 </figure>
 {:/nomarkdown}
 
-### The Index Universe
+### Index Universe
 
 Tutto inizia con l'**Index Universe**, la metodologia fondamentale di CoinDesk per determinare quali criptovalute meritano di essere prese in considerazione per gli investimenti istituzionali.
 

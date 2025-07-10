@@ -35,7 +35,7 @@ CD5 staat aan de top van een **vierlaagse methodologie** ontwikkeld door [CoinDe
 </figure>
 {:/nomarkdown}
 
-### The Index Universe
+### Index Universe
 
 Alles begint met het **Index Universe**—de fundamentele methodologie van CoinDesk om te bepalen welke cryptocurrencies überhaupt het overwegen waard zijn voor institutionele beleggingen.
 
