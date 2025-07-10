@@ -1,5 +1,7 @@
 import { Controller } from "@hotwired/stimulus"
 
+// TODO: Use chartjs lib instead. https://www.chartjs.org/docs/latest/samples/other-charts/pie.html
+
 export default class extends Controller {
   static targets = ["svg", "legend"]
   static values = { data: String }
