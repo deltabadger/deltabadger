@@ -3,7 +3,7 @@ module ArticlesHelper
     {
       "@context": 'https://schema.org',
       "@type": 'Article',
-      "headline": j(article.title),
+      "headline": j(article.plain_title),
       "alternativeHeadline": j(article.subtitle.presence),
       "description": j(article.excerpt),
       "datePublished": article.published_at&.iso8601,

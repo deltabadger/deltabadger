@@ -66,7 +66,7 @@ namespace :articles do
 
       if metadata['published_at'].present?
         article.published_at = Time.parse(metadata['published_at'])
-      elsif article.published
+      elsif article.published && article.published_at.blank?
         article.published_at = Time.current
       end
 

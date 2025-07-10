@@ -5,6 +5,7 @@ author_id: 1
 thumbnail: bitcoin-vs-m2.avif
 excerpt: "A relação entre o Bitcoin e a oferta monetária global. A pesquisa de Lyn Alden. A ideia da liderança de 12 semanas. Previsão de preço do Bitcoin por IA com base no modelo M2."
 published: true
+published_at: "2025-07-01"
 ---
 
 A relação entre o Bitcoin e a oferta monetária global tornou-se um dos tópicos mais debatidos. À medida que avançamos por 2025, o Bitcoin está a ficar mais forte enquanto a impressão de dinheiro global aumenta.
