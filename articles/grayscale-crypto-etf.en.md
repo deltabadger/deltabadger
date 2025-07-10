@@ -3,7 +3,7 @@ title: "Decoding Grayscale's <span class=nobreak>Multi-Crypto ETF</span>"
 subtitle: "Index Universe, CD20, CD5—CoinDesk Indices Stealthily Shape the Market"
 author_id: 1
 thumbnail: grayscale-etf.avif
-excerpt: "Why does Grayscale's new ETF allocate 80% to Bitcoin when pure market cap would suggest 73%? The answer lies in CoinDesk's sophisticated four-layer indexing methodology—and what it means for crypto investing."
+excerpt: "Grayscale's new ETF tracks the CoinDesk 5 Index—not just the top 5 cryptos by market cap, but a complex institutional filter. From Index Universe to CD5, this four-tier methodology reveals where institutional money will flow next."
 x_url: https://x.com/deltabadgerapp/status/1939622461768892684
 telegram_url: https://t.me/deltabadger/91
 published: true
