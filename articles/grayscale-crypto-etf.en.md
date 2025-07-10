@@ -7,6 +7,7 @@ excerpt: "Why does Grayscale's new ETF allocate 80% to Bitcoin when pure market 
 x_url: https://x.com/deltabadgerapp/status/1939622461768892684
 telegram_url: https://t.me/deltabadger/91
 published: true
+published_at: "2025-07-10"
 ---
 
 ## The Era of Crypto Indices Begins

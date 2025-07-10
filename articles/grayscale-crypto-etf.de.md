@@ -7,6 +7,7 @@ excerpt: "Warum allokiert der neue ETF von Grayscale 80 % in Bitcoin, obwohl die
 x_url: https://x.com/deltabadgerapp/status/1939622461768892684
 telegram_url: https://t.me/deltabadger/91
 published: true
+published_at: "2025-07-10"
 ---
 
 ## Die Ära der Krypto-Indizes beginnt

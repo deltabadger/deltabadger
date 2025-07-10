@@ -7,6 +7,7 @@ excerpt: "Почему новый ETF от Grayscale выделяет 80% на �
 x_url: https://x.com/deltabadgerapp/status/1939622461768892684
 telegram_url: https://t.me/deltabadger/91
 published: true
+published_at: "2025-07-10"
 ---
 
 ## Начинается эра криптоиндексов
