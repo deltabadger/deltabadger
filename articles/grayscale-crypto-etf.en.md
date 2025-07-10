@@ -30,7 +30,7 @@ CD5 sits at the top of a **four-tier methodology** developed by [CoinDesk Indice
 
 {::nomarkdown}
 <figure class="article__figure">
-<img src="/assets/articles/coindesk-methodology.svg" alt="The four layers of CoinDesk Methodology">
+<img src="https://deltabadger.com/images/articles/coindesk-methodology.svg" alt="The four layers of CoinDesk Methodology">
 <figcaption class="article__figure__caption">The four tiers of CoinDesk Methodology</figcaption>
 </figure>
 {:/nomarkdown}
