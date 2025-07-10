@@ -1,6 +1,6 @@
 ---
-title: "Decodificando el ETF <span class=nobreak>Multi-Cripto</span> de Grayscale"
-subtitle: "Universo de Índices, CD20, CD5—Los Índices de CoinDesk Moldean Sigilosamente el Mercado"
+title: "Descifrando el ETF <span class=nobreak>multicripto</span> de Grayscale"
+subtitle: "Index Universe, CD20, CD5—Los índices de CoinDesk moldean sigilosamente el mercado"
 author_id: 1
 thumbnail: grayscale-etf.avif
 excerpt: "¿Por qué el nuevo ETF de Grayscale asigna el 80% a Bitcoin cuando la capitalización de mercado pura sugeriría el 73%? La respuesta se encuentra en la sofisticada metodología de indexación de cuatro capas de CoinDesk—y lo que significa para la inversión en criptomonedas."
@@ -17,9 +17,9 @@ Para Grayscale, esto marca un cambio significativo desde la estructura de fondo 
 
 Desafortunadamente, al igual que con otros ETF estadounidenses, los inversores de la UE tendrán un acceso limitado, requiriendo generalmente la condición de inversor profesional o el uso de un bróker fuera de la zona de la UE.
 
-Lo que capta la atención no es solo el tamaño, sino la composición:
+Lo que llama la atención no es solo el tamaño, sino la composición:
 
-## Del Universo de Índices al CoinDesk 5
+## Del Index Universe a CoinDesk 5
 
 El ETF ofrece una exposición diversificada a las principales criptomonedas, con **Bitcoin dominando con ~80%** del portafolio, complementado por **Ethereum, XRP, Solana y Cardano**.
 
@@ -34,11 +34,11 @@ CD5 se encuentra en la cima de una **metodología de cuatro niveles** desarrolla
 </figure>
 {:/nomarkdown}
 
-### El Universo de Índices
+### The Index Universe
 
-Todo comienza con el **Universo de Índices**, la metodología fundamental de CoinDesk para determinar qué criptomonedas merecen ser consideradas para la inversión institucional.
+Todo comienza con el **Index Universe**, la metodología fundamental de CoinDesk para determinar qué criptomonedas merecen ser consideradas para la inversión institucional.
 
-El Universo de Índices comienza con las **250 principales criptomonedas por capitalización de mercado**, y luego aplica un conjunto de estrictos filtros de calidad:
+El Index Universe comienza con las **250 principales criptomonedas por capitalización de mercado** y luego aplica un conjunto de estrictos filtros de calidad:
 
 <!-- PAYWALL -->
 
@@ -56,11 +56,11 @@ El Universo de Índices comienza con las **250 principales criptomonedas por cap
 ✅ Al menos una cotización debe tener más de 90 días (no tokens nuevos)  
 ✅ Negociación activa en los últimos 30 días en múltiples exchanges  
 ✅ Disponible para clientes de EE. UU. en al menos un exchange  
-✅ Volumen de negociación diario medio suficiente (el punto medio de la actividad de negociación diaria durante 90 días)  
+✅ Volumen de negociación diario mediano suficiente (el punto medio de la actividad de negociación diaria durante 90 días)  
 
-Este proceso de filtrado crea el Universo de Índices, una lista curada de criptomonedas que cumplen con los estándares de inversión institucional. Aunque CoinDesk no comparte públicamente el número exacto de criptomonedas que superan estos filtros, es probable que sean alrededor de 50 monedas; solo sabemos con certeza que son más de 20 pero menos de 250.
+Este proceso de filtrado crea el **Index Universe**, una lista curada de criptomonedas que cumplen con los estándares de inversión institucional. Aunque CoinDesk no comparte públicamente el número exacto de criptomonedas que superan estos filtros, es probable que sean alrededor de 50 monedas; solo sabemos con certeza que son más de 20 pero menos de 250.
 
-Esta falta de transparencia sobre el tamaño real del Universo de Índices es una de las limitaciones actuales, junto con la documentación aún en desarrollo de CD5. Una mayor claridad sobre estos números ayudaría a los inversores a comprender mejor la naturaleza del índice.
+Esta falta de transparencia en torno al tamaño real del **Index Universe** es una de las limitaciones actuales, junto con la documentación aún en desarrollo de CD5. Una mayor claridad sobre estas cifras ayudaría a los inversores a comprender mejor la naturaleza del índice.
 
 ### CoinDesk 20
 
@@ -144,15 +144,15 @@ Al igual que CD20, CD5 sigue el mismo calendario de reequilibrio trimestral pero
 </figure>
 {:/nomarkdown}
 
-### Resumen de la Estructura del Índice
+### Resumen de la estructura del índice
 
 Para resumir la metodología:
 
-**Universo de Índices** - establece criterios de elegibilidad de base, filtra alrededor de 50 activos (?).  
-**CD20** - aplica principios de gestión de cartera que incluyen ponderación por capitalización de mercado con límites, cribado por volumen de negociación y reequilibrio trimestral con reglas de búfer.  
-**CD5** - selecciona los 5 principales activos de CD20 por capitalización de mercado, elimina los límites y utiliza reglas de búfer simplificadas optimizadas para la inversión institucional.
+**Index Universe**: establece los criterios de elegibilidad de referencia y filtra alrededor de 50 activos (?).  
+**CD20**: aplica principios de gestión de cartera, incluida la ponderación por capitalización de mercado con límites, el cribado por volumen de negociación y el reequilibrio trimestral con reglas de búfer.  
+**CD5**: selecciona los 5 activos principales de CD20 por capitalización de mercado, elimina los límites y utiliza reglas de búfer simplificadas y optimizadas para la inversión institucional.
 
-## La Profecía Autocumplida
+## La profecía autocumplida
 
 Si bien está claro que los inversores institucionales están interesados en el mercado de criptomonedas en general, hasta ahora solo unos pocos activos digitales cumplen con los estrictos criterios de liquidez y regulatorios necesarios para su inclusión en un ETF.
 

@@ -1,6 +1,6 @@
 ---
-title: "Het decoderen van Grayscale's <span class=nobreak>Multi-Crypto ETF</span>"
-subtitle: "Indexuniversum, CD20, CD5—CoinDesk Indices vormen stiekem de markt"
+title: "Grayscale's <span class=nobreak>multi-crypto ETF</span> ontcijferen"
+subtitle: "Index Universe, CD20, CD5 — CoinDesk-indexen vormen stiekem de markt"
 author_id: 1
 thumbnail: grayscale-etf.avif
 excerpt: "Waarom wijst Grayscale's nieuwe ETF 80% toe aan Bitcoin terwijl de pure marktkapitalisatie 73% zou suggereren? Het antwoord ligt in CoinDesk's geavanceerde vierlaagse indexeringsmethodologie—en wat dat betekent voor crypto-investeringen."
@@ -17,11 +17,11 @@ Voor Grayscale markeert dit een belangrijke verschuiving van de closed-end fonds
 
 Helaas, net als bij andere Amerikaanse ETF's, zullen beleggers uit de EU beperkte toegang hebben, waarbij doorgaans de status van professionele belegger of het gebruik van een makelaar buiten de EU-zone vereist is.
 
-Wat de aandacht trekt is niet alleen de omvang, maar de samenstelling:
+Wat de aandacht trekt, is niet alleen de omvang, maar de samenstelling:
 
-## Van Indexuniversum tot CoinDesk 5
+## Van Index Universe tot CoinDesk 5
 
-De ETF biedt gediversifieerde blootstelling aan belangrijke cryptocurrencies, waarbij **Bitcoin domineert met ~80%** van de portefeuille, aangevuld met **Ethereum, XRP, Solana en Cardano**.
+De ETF biedt gediversifieerde blootstelling aan de belangrijkste cryptocurrencies, waarbij **Bitcoin domineert met ~80%** van de portefeuille, aangevuld met **Ethereum, XRP, Solana en Cardano**.
 
 Hoewel de meesten aannemen dat de ETF simpelweg de top 5 cryptocurrencies op basis van marktkapitalisatie volgt, volgt het in feite de **CoinDesk 5 Index (CD5)**—een complexe methodologie ontworpen voor institutionele beleggers, die subtiele hints geeft over waar institutioneel geld vervolgens naartoe zou kunnen stromen, wat het de moeite waard maakt om nader te bekijken.
 
@@ -30,15 +30,15 @@ CD5 staat aan de top van een **vierlaagse methodologie** ontwikkeld door [CoinDe
 {::nomarkdown}
 <figure class="article__figure">
 <img src="/assets/articles/coindesk-methodology.svg" alt="De vier lagen van de CoinDesk-methodologie">
-<figcaption class="article__figure__caption">De vier niveaus van de CoinDesk-methodologie</figcaption>
+<figcaption class="article__figure__caption">De vier lagen van de CoinDesk-methodologie</figcaption>
 </figure>
 {:/nomarkdown}
 
-### Het Indexuniversum
+### The Index Universe
 
-Alles begint met het **Indexuniversum**—de fundamentele methodologie van CoinDesk om te bepalen welke cryptocurrencies überhaupt het overwegen waard zijn voor institutionele investeringen.
+Alles begint met het **Index Universe**—de fundamentele methodologie van CoinDesk om te bepalen welke cryptocurrencies überhaupt het overwegen waard zijn voor institutionele beleggingen.
 
-Het Indexuniversum begint met de **top 250 cryptocurrencies op basis van marktkapitalisatie**, en past vervolgens een reeks strikte kwaliteitsfilters toe:
+Het Index Universe begint met de **top 250 cryptocurrencies op basis van marktkapitalisatie** en past vervolgens een reeks strikte kwaliteitsfilters toe:
 
 <!-- PAYWALL -->
 
@@ -58,9 +58,9 @@ Het Indexuniversum begint met de **top 250 cryptocurrencies op basis van marktka
 ✅ Beschikbaar voor Amerikaanse klanten op ten minste één beurs  
 ✅ Voldoende mediaan dagelijks handelsvolume (het middelpunt van de dagelijkse handelsactiviteit over 90 dagen)  
 
-Dit filterproces creëert het Indexuniversum—een samengestelde lijst van cryptocurrencies die voldoen aan institutionele investeringsnormen. Hoewel CoinDesk het exacte aantal cryptocurrencies dat door deze filters komt niet openbaar deelt, zijn het er waarschijnlijk ongeveer 50—we weten alleen zeker dat het er meer dan 20 maar minder dan 250 zijn.
+Dit filterproces creëert het **Index Universe**—een samengestelde lijst van cryptocurrencies die voldoen aan de institutionele beleggingsnormen. Hoewel CoinDesk het exacte aantal cryptocurrencies dat door deze filters komt niet openbaar maakt, zijn het er waarschijnlijk rond de 50—we weten alleen zeker dat het er meer dan 20 zijn, maar minder dan 250.
 
-Dit gebrek aan transparantie rond de werkelijke omvang van het Indexuniversum is een van de huidige beperkingen, samen met de nog in ontwikkeling zijnde documentatie van CD5. Meer duidelijkheid over deze cijfers zou beleggers helpen de aard van de index beter te begrijpen.
+Dit gebrek aan transparantie over de werkelijke omvang van het **Index Universe** is een van de huidige beperkingen, samen met de nog in ontwikkeling zijnde documentatie van CD5. Meer duidelijkheid over deze cijfers zou beleggers helpen de aard van de index beter te begrijpen.
 
 ### CoinDesk 20
 
@@ -148,11 +148,11 @@ Net als CD20 volgt CD5 hetzelfde kwartaalherbalanceringsschema, maar gebruikt he
 
 Om de methodologie samen te vatten:
 
-**Indexuniversum** - stelt basisgeschiktheidscriteria vast, filtert ongeveer 50 activa (?).  
-**CD20** - past portefeuillebeheerprincipes toe, waaronder marktkapitalisatiegewogen weging met limieten, screening op handelsvolume en kwartaalherbalancering met bufferregels.  
-**CD5** - selecteert de top 5 activa van CD20 op basis van marktkapitalisatie, verwijdert limieten en gebruikt vereenvoudigde bufferregels die zijn geoptimaliseerd for institutionele beleggingen.
+**Index Universe** - stelt basiscriteria voor geschiktheid vast, filtert ongeveer 50 activa (?).  
+**CD20** - past portefeuillebeheerprincipes toe, waaronder weging op basis van marktkapitalisatie met limieten, screening op handelsvolume en driemaandelijkse herbalancering met bufferregels.  
+**CD5** - selecteert de top 5 activa uit CD20 op basis van marktkapitalisatie, verwijdert de limieten en gebruikt vereenvoudigde bufferregels die zijn geoptimaliseerd voor institutionele beleggingen.
 
-## De zelfvervullende profetie
+## De zelfvervullende voorspelling
 
 Hoewel het duidelijk is dat institutionele beleggers geïnteresseerd zijn in de bredere cryptomarkt, voldoen tot nu toe slechts enkele digitale activa aan de strikte liquiditeits- en regelgevingscriteria die vereist zijn voor opname in een ETF.
 

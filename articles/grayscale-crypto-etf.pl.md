@@ -1,6 +1,6 @@
 ---
 title: "Odszyfrowanie <span class=nobreak>wielokryptowalutowego ETF-u</span> Grayscale"
-subtitle: "Uniwersum indeksów, CD20, CD5 — Indeksy CoinDesk po cichu kształtują rynek"
+subtitle: "Index Universe, CD20, CD5 — Indeksy CoinDesk po cichu kształtują rynek"
 author_id: 1
 thumbnail: grayscale-etf.avif
 excerpt: "Dlaczego nowy ETF Grayscale przeznacza 80% na Bitcoina, podczas gdy czysta kapitalizacja rynkowa sugerowałaby 73%? Odpowiedź leży w zaawansowanej czterowarstwowej metodologii indeksowania CoinDesk — i co to oznacza dla inwestycji w kryptowaluty."
@@ -19,7 +19,7 @@ Niestety, podobnie jak w przypadku innych amerykańskich ETF-ów, inwestorzy z U
 
 Uwagę przyciąga nie tylko wielkość, ale i skład:
 
-## Od uniwersum indeksów do CoinDesk 5
+## Od Index Universe do CoinDesk 5
 
 ETF oferuje zdywersyfikowaną ekspozycję na główne kryptowaluty, z **Bitcoinem dominującym na poziomie ~80%** portfela, uzupełnionym o **Ethereum, XRP, Solanę i Cardano**.
 
@@ -34,11 +34,11 @@ CD5 znajduje się na szczycie **czteropoziomowej metodologii** opracowanej przez
 </figure>
 {:/nomarkdown}
 
-### Uniwersum indeksów
+### The Index Universe
 
-Wszystko zaczyna się od **Uniwersum Indeksów** — fundamentalnej metodologii CoinDesk do określania, które kryptowaluty w ogóle warto rozważać pod kątem inwestycji instytucjonalnych.
+Wszystko zaczyna się od **Index Universe** — fundamentalnej metodologii CoinDesk do określania, które kryptowaluty w ogóle warto rozważać pod kątem inwestycji instytucjonalnych.
 
-Uniwersum Indeksów zaczyna się od **250 największych kryptowalut pod względem kapitalizacji rynkowej**, a następnie stosuje zestaw rygorystycznych filtrów jakościowych:
+Index Universe zaczyna się od **250 największych kryptowalut pod względem kapitalizacji rynkowej**, a następnie stosuje zestaw rygorystycznych filtrów jakościowych:
 
 <!-- PAYWALL -->
 
@@ -58,9 +58,9 @@ Uniwersum Indeksów zaczyna się od **250 największych kryptowalut pod względe
 ✅ Dostępne dla klientów z USA na co najmniej jednej giełdzie  
 ✅ Wystarczający medianowy dzienny wolumen obrotu (środkowy punkt dziennej aktywności handlowej w ciągu 90 dni)  
 
-Ten proces filtrowania tworzy Uniwersum Indeksów — wyselekcjonowaną listę kryptowalut, które spełniają instytucjonalne standardy inwestycyjne. Chociaż CoinDesk nie udostępnia publicznie dokładnej liczby kryptowalut, które przechodzą przez te filtry, prawdopodobnie jest to około 50 monet — wiemy tylko na pewno, że jest to więcej niż 20, ale mniej niż 250.
+Ten proces filtrowania tworzy **Index Universe** — wyselekcjonowaną listę kryptowalut, które spełniają instytucjonalne standardy inwestycyjne. Chociaż CoinDesk nie udostępnia publicznie dokładnej liczby kryptowalut, które przechodzą przez te filtry, prawdopodobnie jest to około 50 monet — wiemy tylko na pewno, że jest to więcej niż 20, ale mniej niż 250.
 
-Ten brak przejrzystości co do faktycznej wielkości Uniwersum Indeksów jest jednym z obecnych ograniczeń, wraz z wciąż rozwijającą się dokumentacją CD5. Większa jasność co do tych liczb pomogłaby inwestorom lepiej zrozumieć naturę indeksu.
+Ten brak przejrzystości co do faktycznej wielkości **Index Universe** jest jednym z obecnych ograniczeń, wraz z wciąż rozwijającą się dokumentacją CD5. Większa jasność co do tych liczb pomogłaby inwestorom lepiej zrozumieć naturę indeksu.
 
 ### CoinDesk 20
 
@@ -148,7 +148,7 @@ Podobnie jak CD20, CD5 stosuje ten sam kwartalny harmonogram rebalancingu, ale u
 
 Podsumowując metodologię:
 
-**Uniwersum Indeksów** - ustala podstawowe kryteria kwalifikowalności, filtruje około 50 aktywów (?).  
+**Index Universe** - ustala podstawowe kryteria kwalifikowalności, filtruje około 50 aktywów (?).  
 **CD20** - stosuje zasady zarządzania portfelem, w tym ważenie kapitalizacją rynkową z limitami, screening wolumenu obrotu i kwartalny rebalancing z zasadami buforowymi.  
 **CD5** - wybiera 5 największych aktywów z CD20 według kapitalizacji rynkowej, usuwa limity i stosuje uproszczone zasady buforowe zoptymalizowane pod kątem inwestycji instytucjonalnych.
 

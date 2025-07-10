@@ -1,6 +1,6 @@
 ---
 title: "Grayscale's <span class=nobreak>Multi-Krypto-ETF</span> entschlüsselt"
-subtitle: "Index-Universum, CD20, CD5 – CoinDesk-Indizes formen unauffällig den Markt"
+subtitle: "Index Universe, CD20, CD5 – CoinDesk-Indizes formen unauffällig den Markt"
 author_id: 1
 thumbnail: grayscale-etf.avif
 excerpt: "Warum allokiert der neue ETF von Grayscale 80 % in Bitcoin, obwohl die reine Marktkapitalisierung 73 % nahelegen würde? Die Antwort liegt in der ausgeklügelten vierstufigen Indexmethodik von CoinDesk – und was sie für Krypto-Investitionen bedeutet."
@@ -19,7 +19,7 @@ Leider haben Anleger aus der EU, wie bei anderen amerikanischen ETFs, nur begren
 
 Was die Aufmerksamkeit auf sich zieht, ist nicht nur die Größe, sondern die Zusammensetzung:
 
-## Vom Index-Universum zum CoinDesk 5
+## Vom Index Universe zum CoinDesk 5
 
 Der ETF bietet ein diversifiziertes Engagement in den wichtigsten Kryptowährungen, wobei **Bitcoin mit ~80 %** des Portfolios dominiert, ergänzt durch **Ethereum, XRP, Solana und Cardano**.
 
@@ -34,11 +34,11 @@ CD5 steht an der Spitze einer **vierstufigen Methodik**, die von [CoinDesk Indic
 </figure>
 {:/nomarkdown}
 
-### Das Index-Universum
+### The Index Universe
 
-Alles beginnt mit dem **Index-Universum** – der grundlegenden Methodik von CoinDesk, um zu bestimmen, welche Kryptowährungen für institutionelle Investitionen überhaupt in Betracht gezogen werden sollten.
+Alles beginnt mit dem **Index Universe** – der grundlegenden Methodik von CoinDesk, um zu bestimmen, welche Kryptowährungen für institutionelle Investitionen überhaupt in Betracht gezogen werden sollten.
 
-Das Index-Universum beginnt mit den **Top-250-Kryptowährungen nach Marktkapitalisierung** und wendet dann eine Reihe strenger Qualitätsfilter an:
+Das Index Universe beginnt mit den **Top-250-Kryptowährungen nach Marktkapitalisierung** und wendet dann eine Reihe strenger Qualitätsfilter an:
 
 <!-- PAYWALL -->
 
@@ -58,9 +58,9 @@ Das Index-Universum beginnt mit den **Top-250-Kryptowährungen nach Marktkapital
 ✅ Für US-Kunden an mindestens einer Börse verfügbar  
 ✅ Ausreichendes medianes tägliches Handelsvolumen (der Mittelwert der täglichen Handelsaktivität über 90 Tage)  
 
-Dieser Filterprozess schafft das Index-Universum – eine kuratierte Liste von Kryptowährungen, die den institutionellen Anlagestandards entsprechen. Obwohl CoinDesk die genaue Anzahl der Kryptowährungen, die diese Filter bestehen, nicht öffentlich bekannt gibt, sind es wahrscheinlich etwa 50 Coins – wir wissen nur sicher, dass es mehr als 20, aber weniger als 250 sind.
+Dieser Filterprozess schafft das Index Universe – eine kuratierte Liste von Kryptowährungen, die den institutionellen Anlagestandards entsprechen. Obwohl CoinDesk die genaue Anzahl der Kryptowährungen, die diese Filter bestehen, nicht öffentlich bekannt gibt, sind es wahrscheinlich etwa 50 Coins – wir wissen nur sicher, dass es mehr als 20, aber weniger als 250 sind.
 
-Diese mangelnde Transparenz hinsichtlich der tatsächlichen Größe des Index-Universums ist eine der aktuellen Einschränkungen, zusammen mit der noch in Entwicklung befindlichen Dokumentation von CD5. Mehr Klarheit bei diesen Zahlen würde den Anlegern helfen, die Natur des Index besser zu verstehen.
+Diese mangelnde Transparenz hinsichtlich der tatsächlichen Größe des Index Universe ist eine der aktuellen Einschränkungen, zusammen mit der noch in Entwicklung befindlichen Dokumentation von CD5. Mehr Klarheit bei diesen Zahlen würde den Anlegern helfen, die Natur des Index besser zu verstehen.
 
 ### CoinDesk 20
 
@@ -148,7 +148,7 @@ Wie CD20 folgt auch CD5 demselben vierteljährlichen Rebalancing-Zeitplan, verwe
 
 Zusammenfassend die Methodik:
 
-**Index-Universum** - legt grundlegende Zulassungskriterien fest, filtert etwa 50 Vermögenswerte (?).  
+**Index Universe** - legt grundlegende Zulassungskriterien fest, filtert etwa 50 Vermögenswerte (?).  
 **CD20** - wendet Portfoliomanagement-Prinzipien an, einschließlich Marktkapitalisierungsgewichtung mit Obergrenzen, Handelsvolumen-Screening und vierteljährlichem Rebalancing mit Pufferregeln.  
 **CD5** - wählt die Top 5 Vermögenswerte aus CD20 nach Marktkapitalisierung aus, entfernt die Obergrenzen und verwendet vereinfachte Pufferregeln, die für institutionelle Investitionen optimiert sind.
 

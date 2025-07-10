@@ -1,6 +1,6 @@
 ---
-title: "Décryptage de l'ETF <span class=nobreak>Multi-Crypto</span> de Grayscale"
-subtitle: "Univers d'indices, CD20, CD5 — Les indices CoinDesk façonnent discrètement le marché"
+title: "Décryptage de l'ETF <span class=nobreak>multi-crypto</span> de Grayscale"
+subtitle: "Index Universe, CD20, CD5 — Les indices de CoinDesk façonnent discrètement le marché"
 author_id: 1
 thumbnail: grayscale-etf.avif
 excerpt: "Pourquoi le nouvel ETF de Grayscale alloue-t-il 80 % au Bitcoin alors que la capitalisation boursière pure suggérerait 73 % ? La réponse réside dans la méthodologie sophistiquée d'indexation à quatre niveaux de CoinDesk — et ce que cela signifie pour l'investissement crypto."
@@ -17,11 +17,11 @@ Pour Grayscale, cela marque un changement significatif par rapport à la structu
 
 Malheureusement, comme pour les autres ETF américains, les investisseurs de l'UE auront un accès limité, nécessitant généralement le statut d'investisseur professionnel ou l'utilisation d'un courtier en dehors de la zone UE.
 
-Ce qui retient l'attention n'est pas seulement la taille, mais la composition :
+Ce qui retient l'attention, ce n'est pas seulement la taille, mais la composition :
 
-## De l'univers des indices au CoinDesk 5
+## De l'Index Universe à CoinDesk 5
 
-L'ETF offre une exposition diversifiée aux principales cryptomonnaies, avec le **Bitcoin dominant à ~80 %** du portefeuille, complété par **l'Ethereum, le XRP, le Solana et le Cardano**.
+L'ETF offre une exposition diversifiée aux principales cryptomonnaies, avec le **Bitcoin dominant à ~80%** du portefeuille, complété par l'**Ethereum, le XRP, le Solana et le Cardano**.
 
 Alors que la plupart supposent que l'ETF suit simplement les 5 premières cryptomonnaies par capitalisation boursière, il suit en réalité l'indice **CoinDesk 5 (CD5)** — une méthodologie complexe conçue pour les investisseurs institutionnels, fournissant des indices subtils sur la direction que pourraient prendre les capitaux institutionnels, ce qui mérite un examen plus approfondi.
 
@@ -34,11 +34,11 @@ Le CD5 se situe au sommet d'une **méthodologie à quatre niveaux** développée
 </figure>
 {:/nomarkdown}
 
-### L'univers des indices
+### The Index Universe
 
-Tout commence avec l'**Univers des indices** — la méthodologie fondamentale de CoinDesk pour déterminer quelles cryptomonnaies méritent même d'être considérées pour un investissement institutionnel.
+Tout commence avec l'**Index Universe** — la méthodologie fondamentale de CoinDesk pour déterminer quelles cryptomonnaies méritent d'être prises en compte pour un investissement institutionnel.
 
-L'Univers des indices commence avec les **250 premières cryptomonnaies par capitalisation boursière**, puis applique un ensemble de filtres de qualité stricts :
+L'Index Universe part des **250 premières cryptomonnaies par capitalisation boursière**, puis applique un ensemble de filtres de qualité stricts :
 
 <!-- PAYWALL -->
 
@@ -56,11 +56,11 @@ L'Univers des indices commence avec les **250 premières cryptomonnaies par capi
 ✅ Au moins une cotation doit avoir plus de 90 jours (pas de nouveaux jetons)  
 ✅ Négociation active au cours des 30 derniers jours sur plusieurs bourses  
 ✅ Disponible pour les clients américains sur au moins une bourse  
-✅ Volume de négociation quotidien médian suffisant (le point médian de l'activité de négociation quotidienne sur 90 jours)  
+✅ Volume de transactions quotidien médian suffisant (le point médian de l'activité de transaction quotidienne sur 90 jours)  
 
-Ce processus de filtrage crée l'Univers des indices — une liste de cryptomonnaies sélectionnées qui répondent aux normes d'investissement institutionnel. Bien que CoinDesk ne partage pas publiquement le nombre exact de cryptomonnaies qui passent ces filtres, il est probable qu'il s'agisse d'environ 50 monnaies — nous savons seulement avec certitude que c'est plus de 20 mais moins de 250.
+Ce processus de filtrage crée l'**Index Universe** — une liste de cryptomonnaies sélectionnées qui répondent aux normes d'investissement institutionnel. Bien que CoinDesk ne partage pas publiquement le nombre exact de cryptomonnaies qui passent ces filtres, il est probable qu'il s'agisse d'environ 50 monnaies — nous savons seulement avec certitude qu'il y en a plus de 20 mais moins de 250.
 
-Ce manque de transparence sur la taille réelle de l'Univers des indices est l'une des limites actuelles, avec la documentation encore en développement du CD5. Une plus grande clarté sur ces chiffres aiderait les investisseurs à mieux comprendre la nature de l'indice.
+Ce manque de transparence concernant la taille réelle de l'**Index Universe** est l'une des limites actuelles, ainsi que la documentation encore en cours de développement du CD5. Une plus grande clarté sur ces chiffres aiderait les investisseurs à mieux comprendre la nature de l'indice.
 
 ### CoinDesk 20
 
@@ -148,9 +148,9 @@ Comme le CD20, le CD5 suit le même calendrier de rééquilibrage trimestriel ma
 
 Pour résumer la méthodologie :
 
-**Univers des indices** - établit les critères d'éligibilité de base, filtre environ 50 actifs (?).  
-**CD20** - applique des principes de gestion de portefeuille, y compris la pondération par la capitalisation boursière avec des plafonds, la sélection par volume de transactions et le rééquilibrage trimestriel avec des règles tampons.  
-**CD5** - sélectionne les 5 premiers actifs du CD20 par capitalisation boursière, supprime les plafonds et utilise des règles tampons simplifiées optimisées pour l'investissement institutionnel.
+**Index Universe** - établit les critères d'éligibilité de base, filtre environ 50 actifs (?).  
+**CD20** - applique des principes de gestion de portefeuille, y compris la pondération par capitalisation boursière avec des plafonds, le filtrage par volume de transactions et un rééquilibrage trimestriel avec des règles de tampon.  
+**CD5** - sélectionne les 5 principaux actifs de CD20 par capitalisation boursière, supprime les plafonds et utilise des règles de tampon simplifiées optimisées pour l'investissement institutionnel.
 
 ## La prophétie auto-réalisatrice
 

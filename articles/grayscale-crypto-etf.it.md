@@ -1,6 +1,6 @@
 ---
-title: "Decodifica dell'ETF <span class=nobreak>Multi-Crypto</span> di Grayscale"
-subtitle: "Universo degli Indici, CD20, CD5—Gli Indici CoinDesk Plasmano Furtivamente il Mercato"
+title: "Decodificare l'ETF <span class=nobreak>multi-crypto</span> di Grayscale"
+subtitle: "Index Universe, CD20, CD5 — Gli indici di CoinDesk modellano furtivamente il mercato"
 author_id: 1
 thumbnail: grayscale-etf.avif
 excerpt: "Perché il nuovo ETF di Grayscale assegna l'80% a Bitcoin quando la pura capitalizzazione di mercato suggerirebbe il 73%? La risposta risiede nella sofisticata metodologia di indicizzazione a quattro livelli di CoinDesk—e cosa significa per gli investimenti in criptovalute."
@@ -19,7 +19,7 @@ Sfortunatamente, come per altri ETF americani, gli investitori dell'UE avranno u
 
 Ciò che cattura l'attenzione non è solo la dimensione, ma la composizione:
 
-## Dall'universo degli indici al CoinDesk 5
+## Dall'Index Universe al CoinDesk 5
 
 L'ETF offre un'esposizione diversificata alle principali criptovalute, con **Bitcoin che domina con circa l'80%** del portafoglio, integrato da **Ethereum, XRP, Solana e Cardano**.
 
@@ -34,11 +34,11 @@ CD5 si trova al vertice di una **metodologia a quattro livelli** sviluppata da [
 </figure>
 {:/nomarkdown}
 
-### L'universo degli indici
+### The Index Universe
 
-Tutto inizia con l'**Universo degli Indici**, la metodologia fondamentale di CoinDesk per determinare quali criptovalute valga la pena considerare per gli investimenti istituzionali.
+Tutto inizia con l'**Index Universe**, la metodologia fondamentale di CoinDesk per determinare quali criptovalute meritano di essere prese in considerazione per gli investimenti istituzionali.
 
-L'Universo degli Indici parte dalle **prime 250 criptovalute per capitalizzazione di mercato**, quindi applica una serie di rigidi filtri di qualità:
+L'Index Universe parte dalle **prime 250 criptovalute per capitalizzazione di mercato**, quindi applica una serie di rigorosi filtri di qualità:
 
 <!-- PAYWALL -->
 
@@ -56,11 +56,11 @@ L'Universo degli Indici parte dalle **prime 250 criptovalute per capitalizzazion
 ✅ Almeno una quotazione deve avere più di 90 giorni (niente token nuovi di zecca)  
 ✅ Trading attivo negli ultimi 30 giorni su più exchange  
 ✅ Disponibile per i clienti statunitensi su almeno un exchange  
-✅ Volume di scambi giornaliero mediano sufficiente (il punto medio dell'attività di trading giornaliera su 90 giorni)  
+✅ Volume di scambi giornaliero mediano sufficiente (il punto intermedio dell'attività di scambio giornaliera su 90 giorni)  
 
-Questo processo di filtraggio crea l'Universo degli Indici, un elenco curato di criptovalute che soddisfano gli standard di investimento istituzionale. Sebbene CoinDesk non condivida pubblicamente il numero esatto di criptovalute che superano questi filtri, è probabile che si tratti di circa 50 monete: sappiamo solo per certo che sono più di 20 ma meno di 250.
+Questo processo di filtraggio crea l'**Index Universe**, un elenco curato di criptovalute che soddisfano gli standard di investimento istituzionale. Sebbene CoinDesk non condivida pubblicamente il numero esatto di criptovalute che superano questi filtri, è probabile che si tratti di circa 50 monete: sappiamo solo per certo che sono più di 20 ma meno di 250.
 
-Questa mancanza di trasparenza sulla dimensione effettiva dell'Universo degli Indici è una delle attuali limitazioni, insieme alla documentazione ancora in fase di sviluppo di CD5. Una maggiore chiarezza su questi numeri aiuterebbe gli investitori a comprendere meglio la natura dell'indice.
+Questa mancanza di trasparenza sulla dimensione effettiva dell'**Index Universe** è una delle attuali limitazioni, insieme alla documentazione ancora in fase di sviluppo di CD5. Una maggiore chiarezza su questi numeri aiuterebbe gli investitori a comprendere meglio la natura dell'indice.
 
 ### CoinDesk 20
 
@@ -148,9 +148,9 @@ Come CD20, anche CD5 segue lo stesso programma di ribilanciamento trimestrale ma
 
 Per riassumere la metodologia:
 
-**Universo degli Indici** - stabilisce criteri di idoneità di base, filtra circa 50 asset (?).  
-**CD20** - applica principi di gestione del portafoglio tra cui ponderazione per capitalizzazione di mercato con limiti, screening del volume di scambi e ribilanciamento trimestrale con regole cuscinetto.  
-**CD5** - seleziona i primi 5 asset da CD20 per capitalizzazione di mercato, rimuove i limiti e utilizza regole cuscinetto semplificate ottimizzate per gli investimenti istituzionali.
+**Index Universe**: stabilisce i criteri di idoneità di base, filtra circa 50 asset (?).  
+**CD20**: applica i principi di gestione del portafoglio, inclusa la ponderazione per capitalizzazione di mercato con limiti, lo screening del volume di scambi e il ribilanciamento trimestrale con regole di buffer.  
+**CD5**: seleziona i primi 5 asset da CD20 per capitalizzazione di mercato, rimuove i limiti e utilizza regole di buffer semplificate ottimizzate per gli investimenti istituzionali.
 
 ## La profezia che si autoavvera
 

@@ -1,6 +1,6 @@
 ---
 title: "Descodificando o ETF <span class=nobreak>Multi-Cripto</span> da Grayscale"
-subtitle: "Universo de Índices, CD20, CD5—Os Índices da CoinDesk Moldam Furtivamente o Mercado"
+subtitle: "Index Universe, CD20, CD5—Os Índices da CoinDesk Moldam Furtivamente o Mercado"
 author_id: 1
 thumbnail: grayscale-etf.avif
 excerpt: "Porque é que o novo ETF da Grayscale aloca 80% ao Bitcoin quando a pura capitalização de mercado sugeriria 73%? A resposta reside na sofisticada metodologia de indexação de quatro camadas da CoinDesk—e o que isso significa para o investimento em cripto."
@@ -19,7 +19,7 @@ Infelizmente, tal como com outros ETFs americanos, os investidores da UE terão 
 
 O que chama a atenção não é apenas o tamanho, mas a composição:
 
-## Do Universo de Índices ao CoinDesk 5
+## Do Index Universe ao CoinDesk 5
 
 O ETF oferece uma exposição diversificada às principais criptomoedas, com o **Bitcoin a dominar com ~80%** do portfólio, complementado por **Ethereum, XRP, Solana e Cardano**.
 
@@ -34,11 +34,11 @@ O CD5 está no topo de uma **metodologia de quatro camadas** desenvolvida pela [
 </figure>
 {:/nomarkdown}
 
-### O Universo de Índices
+### The Index Universe
 
-Tudo começa com o **Universo de Índices**—a metodologia fundamental da CoinDesk para determinar que criptomoedas valem a pena considerar para investimento institucional.
+Tudo começa com o **Index Universe**—a metodologia fundamental da CoinDesk para determinar que criptomoedas valem a pena considerar para investimento institucional.
 
-O Universo de Índices começa com as **250 principais criptomoedas por capitalização de mercado**, e depois aplica um conjunto de filtros de qualidade rigorosos:
+O Index Universe começa com as **250 principais criptomoedas por capitalização de mercado**, e depois aplica um conjunto de filtros de qualidade rigorosos:
 
 <!-- PAYWALL -->
 
@@ -58,9 +58,9 @@ O Universo de Índices começa com as **250 principais criptomoedas por capitali
 ✅ Disponível para clientes dos EUA em pelo menos uma bolsa  
 ✅ Volume de negociação diário mediano suficiente (o ponto intermédio da atividade de negociação diária ao longo de 90 dias)  
 
-Este processo de filtragem cria o Universo de Índices—uma lista curada de criptomoedas que cumprem os padrões de investimento institucional. Embora a CoinDesk não partilhe publicamente o número exato de criptomoedas que passam por estes filtros, é provável que sejam cerca de 50 moedas—só sabemos com certeza que são mais de 20 mas menos de 250.
+Este processo de filtragem cria o **Index Universe**—uma lista curada de criptomoedas que cumprem os padrões de investimento institucional. Embora a CoinDesk não partilhe publicamente o número exato de criptomoedas que passam por estes filtros, é provável que sejam cerca de 50 moedas—só sabemos com certeza que são mais de 20 mas menos de 250.
 
-Esta falta de transparência em torno do tamanho real do Universo de Índices é uma das limitações atuais, juntamente com a documentação ainda em desenvolvimento do CD5. Maior clareza sobre estes números ajudaria os investidores a compreender melhor a natureza do índice.
+Esta falta de transparência em torno do tamanho real do **Index Universe** é uma das limitações atuais, juntamente com a documentação ainda em desenvolvimento do CD5. Maior clareza sobre estes números ajudaria os investidores a compreender melhor a natureza do índice.
 
 ### CoinDesk 20
 
@@ -148,7 +148,7 @@ Tal como o CD20, o CD5 segue o mesmo cronograma de rebalanceamento trimestral, m
 
 Para resumir a metodologia:
 
-**Universo de Índices** - estabelece critérios de elegibilidade de base, filtra cerca de 50 ativos (?).  
+**Index Universe** - estabelece critérios de elegibilidade de base, filtra cerca de 50 ativos (?).  
 **CD20** - aplica princípios de gestão de portfólio, incluindo ponderação por capitalização de mercado com limites, triagem de volume de negociação e rebalanceamento trimestral com regras de buffer.  
 **CD5** - seleciona os 5 principais ativos do CD20 por capitalização de mercado, remove os limites e usa regras de buffer simplificadas otimizadas para o investimento institucional.
 
