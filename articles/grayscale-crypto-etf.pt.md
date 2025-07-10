@@ -4,8 +4,8 @@ subtitle: "Index Universe, CD20, CD5—Os Índices da CoinDesk Moldam Furtivamen
 author_id: 1
 thumbnail: grayscale-etf.avif
 excerpt: "O novo ETF da Grayscale segue o Índice CoinDesk 5—não apenas as 5 principais criptomoedas por capitalização de mercado, mas um filtro institucional complexo. Do Index Universe ao CD5, esta metodologia de quatro camadas revela onde o dinheiro institucional fluirá."
-x_url: https://x.com/deltabadgerapp/status/1939622461768892684
-telegram_url: https://t.me/deltabadger/91
+x_url: https://x.com/deltabadgerapp/status/1943337030869471342
+telegram_url: https://t.me/deltabadger/97
 published: true
 published_at: "2025-07-10"
 ---
