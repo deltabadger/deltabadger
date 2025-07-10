@@ -30,7 +30,7 @@ CD5 se encuentra en la cima de una **metodología de cuatro niveles** desarrolla
 
 {::nomarkdown}
 <figure class="article__figure">
-<img src="/assets/articles/coindesk-methodology.svg" alt="Las cuatro capas de la Metodología CoinDesk">
+<img src="https://deltabadger.com/images/articles/coindesk-methodology.svg" alt="Las cuatro capas de la Metodología CoinDesk">
 <figcaption class="article__figure__caption">Los cuatro niveles de la Metodología CoinDesk</figcaption>
 </figure>
 {:/nomarkdown}

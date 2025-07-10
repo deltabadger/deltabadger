@@ -30,7 +30,7 @@ CD5 steht an der Spitze einer **vierstufigen Methodik**, die von [CoinDesk Indic
 
 {::nomarkdown}
 <figure class="article__figure">
-<img src="/assets/articles/coindesk-methodology.svg" alt="Die vier Schichten der CoinDesk-Methodik">
+<img src="https://deltabadger.com/images/articles/coindesk-methodology.svg" alt="Die vier Schichten der CoinDesk-Methodik">
 <figcaption class="article__figure__caption">Die vier Stufen der CoinDesk-Methodik</figcaption>
 </figure>
 {:/nomarkdown}

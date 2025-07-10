@@ -30,7 +30,7 @@ CD5 staat aan de top van een **vierlaagse methodologie** ontwikkeld door [CoinDe
 
 {::nomarkdown}
 <figure class="article__figure">
-<img src="/assets/articles/coindesk-methodology.svg" alt="De vier lagen van de CoinDesk-methodologie">
+<img src="https://deltabadger.com/images/articles/coindesk-methodology.svg" alt="De vier lagen van de CoinDesk-methodologie">
 <figcaption class="article__figure__caption">De vier lagen van de CoinDesk-methodologie</figcaption>
 </figure>
 {:/nomarkdown}

@@ -30,7 +30,7 @@ CD5 находится на вершине **четырехуровневой м
 
 {::nomarkdown}
 <figure class="article__figure">
-<img src="/assets/articles/coindesk-methodology.svg" alt="Четыре уровня методологии CoinDesk">
+<img src="https://deltabadger.com/images/articles/coindesk-methodology.svg" alt="Четыре уровня методологии CoinDesk">
 <figcaption class="article__figure__caption">Четыре уровня методологии CoinDesk</figcaption>
 </figure>
 {:/nomarkdown}
