@@ -34,8 +34,7 @@ CD5 sits at the top of a **four-tier methodology** developed by [CoinDesk Indice
 <figcaption class="article__figure__caption">The four tiers of CoinDesk Methodology</figcaption>
 </figure>
 {:/nomarkdown}
-
-### The Index Universe
+### Index Universe
 
 Everything begins with the **Index Universe**—CoinDesk's foundational methodology for determining which cryptocurrencies are even worth considering for institutional investment.
 

@@ -35,7 +35,7 @@ CD5 steht an der Spitze einer **vierstufigen Methodik**, die von [CoinDesk Indic
 </figure>
 {:/nomarkdown}
 
-### The Index Universe
+### Index Universe
 
 Alles beginnt mit dem **Index Universe** – der grundlegenden Methodik von CoinDesk, um zu bestimmen, welche Kryptowährungen für institutionelle Investitionen überhaupt in Betracht gezogen werden sollten.
 
