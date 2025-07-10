@@ -3,7 +3,7 @@ title: "Decodificare l'ETF <span class=nobreak>multi-crypto</span> di Grayscale"
 subtitle: "Index Universe, CD20, CD5 — Gli indici di CoinDesk modellano furtivamente il mercato"
 author_id: 1
 thumbnail: grayscale-etf.avif
-excerpt: "Perché il nuovo ETF di Grayscale assegna l'80% a Bitcoin quando la pura capitalizzazione di mercato suggerirebbe il 73%? La risposta risiede nella sofisticata metodologia di indicizzazione a quattro livelli di CoinDesk—e cosa significa per gli investimenti in criptovalute."
+excerpt: "Il nuovo ETF di Grayscale segue l'Indice CoinDesk 5—non solo le top 5 criptovalute per capitalizzazione di mercato, ma un complesso filtro istituzionale. Dall'Index Universe al CD5, questa metodologia a quattro livelli rivela dove affluirà il denaro istituzionale."
 x_url: https://x.com/deltabadgerapp/status/1939622461768892684
 telegram_url: https://t.me/deltabadger/91
 published: true
