@@ -1,5 +1,5 @@
 ---
-title: "Odszyfrowanie <span class=nobreak>wielokryptowalutowego ETF-u</span> Grayscale"
+title: "Odszyfrowanie kryptowalutowego <span class=nobreak>ETF-u Grayscale</span>"
 subtitle: "Index Universe, CD20, CD5 — Indeksy CoinDesk po cichu kształtują rynek"
 author_id: 1
 thumbnail: grayscale-etf.avif

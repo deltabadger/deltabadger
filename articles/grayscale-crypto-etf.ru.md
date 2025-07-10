@@ -1,5 +1,5 @@
 ---
-title: "Расшифровка <span class=nobreak>мультивалютного ETF</span> от Grayscale"
+title: "Расшифровка мультивалютного <span class=nobreak>ETF от Grayscale</span>"
 subtitle: "Index Universe, CD20, CD5 — Индексы CoinDesk незаметно формируют рынок"
 author_id: 1
 thumbnail: grayscale-etf.avif

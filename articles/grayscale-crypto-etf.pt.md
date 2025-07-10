@@ -1,5 +1,5 @@
 ---
-title: "Descodificando o ETF <span class=nobreak>Multi-Cripto</span> da Grayscale"
+title: "Descodificando o ETF <span class=nobreak>Multi-Cripto da Grayscale</span>"
 subtitle: "Index Universe, CD20, CD5—Os Índices da CoinDesk Moldam Furtivamente o Mercado"
 author_id: 1
 thumbnail: grayscale-etf.avif
