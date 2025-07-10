@@ -4,8 +4,8 @@ subtitle: "Index Universe, CD20, CD5—CoinDesk Indices Stealthily Shape the Mar
 author_id: 1
 thumbnail: grayscale-etf.avif
 excerpt: "Grayscale's new ETF tracks the CoinDesk 5 Index—not just the top 5 cryptos by market cap, but a complex institutional filter. From Index Universe to CD5, this four-tier methodology reveals where institutional money will flow next."
-x_url: https://x.com/deltabadgerapp/status/1939622461768892684
-telegram_url: https://t.me/deltabadger/91
+x_url: https://x.com/deltabadgerapp/status/1943337030869471342
+telegram_url: https://t.me/deltabadger/97
 published: true
 published_at: "2025-07-10"
 ---
