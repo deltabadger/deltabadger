@@ -244,3 +244,7 @@ es:
             <p>Envía un correo electrónico a <strong>%{email}</strong> con <strong>"FIRE"</strong> en la línea de asunto.</p>
             <p>Tu acceso de por vida llegará poco después.</p>
             <p>Nos vemos allí, Jan</p>
+    bot_filters:
+        all: 'Todos'
+        active: 'Activos'
+        inactive: 'Inactivos'
