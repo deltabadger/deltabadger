@@ -97,7 +97,7 @@ module Bot::Schedulable
   def validate_interval_included_in_subscription_plan
     return if user.subscription.paid?
 
-    errors.add(:user, :upgrade) if interval != 'day'
+    errors.add(:user, :upgrade) if interval == 'hour'
   end
 
   def legacy_next_interval_checkpoint_at
