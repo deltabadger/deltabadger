@@ -239,3 +239,7 @@ fr:
             <p>Envoyez un email à <strong>%{email}</strong> avec <strong>"FIRE"</strong> dans l'objet.</p>
             <p>Votre accès à vie arrivera peu après.</p>
             <p>À bientôt, Jan</p>
+    bot_filters:
+        all: 'Tous'
+        active: 'Actifs'
+        inactive: 'Inactifs'
