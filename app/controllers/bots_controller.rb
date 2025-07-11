@@ -8,7 +8,21 @@ class BotsController < ApplicationController
   def index
     return render 'bots/react_dashboard' if params[:create] # TODO: remove this once the legacy dashboard is removed
 
-    @bots = current_user.bots.not_deleted.includes(:exchange).order(label: :asc)
+    @filter = params[:filter] || 'all'
+    @bots = current_user.bots.not_deleted.includes(:exchange)
+    case @filter
+    when 'active'
+      @bots = @bots.working
+    when 'inactive'
+      @bots = @bots.where(status: %i[created stopped])
+    end
+    @bots = @bots.order(label: :asc)
+
+    @total_bots = current_user.bots.not_deleted.size
+    @has_active = current_user.bots.not_deleted.working.exists?
+    @has_inactive = current_user.bots.not_deleted.where(status: %i[created stopped]).exists?
+    @show_filters = @total_bots > 1 && @has_active && @has_inactive
+
     @pnl_hash = {}
     @loading_hash = {}
     @bots.each do |bot|
