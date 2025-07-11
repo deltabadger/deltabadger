@@ -4,10 +4,10 @@ module BotHelper
       Bot::Schedulable::INTERVALS.keys.map { |interval| [t("bot.#{interval}"), interval] }
     else
       Bot::Schedulable::INTERVALS.keys.map do |interval|
-        if interval == 'day'
-          [t("bot.#{interval}"), interval]
-        else
+        if interval == 'hour'
           [t("bot.#{interval}") + " (#{t('subscriptions.upgrade')})", interval, { disabled: true }]
+        else
+          [t("bot.#{interval}"), interval]
         end
       end
     end
