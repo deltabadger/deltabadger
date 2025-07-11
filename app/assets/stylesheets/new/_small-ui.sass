@@ -276,6 +276,14 @@ select
                 fill: var(--label) !important
             &.button--ai
                 color: var(--label) !important
+    &--multi
+        color: var(--label-select-inactive)
+        min-width: 0 !important
+        &--active
+            cursor: default
+            color: var(--link)
+            background: var(--widget-background)
+            box-shadow: var(--widget-shadow)
     &--add-asset
         width: 20rem
     &--icon-and-text
@@ -285,7 +293,10 @@ select
 .widget
     .sinput
         background: var(--background)
-
+.bot-filters
+    display: flex
+    .button
+        margin-right: -1rem
 .large-button-wrapper
     display: flex
     justify-content: center
