@@ -7,6 +7,7 @@ excerpt: "The relationship between Bitcoin and global money supply. Lyn Alden's 
 x_url: https://x.com/deltabadgerapp/status/1939622461768892684
 telegram_url: https://t.me/deltabadger/91
 published: true
+published_at: "2025-07-01"
 ---
 
 The relationship between Bitcoin and global money supply has become one of the most hotly debated topics. As we move through 2025, Bitcoin is getting stronger while global money printing increases.

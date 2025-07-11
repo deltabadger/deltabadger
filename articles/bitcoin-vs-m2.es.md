@@ -7,6 +7,7 @@ excerpt: "La relación entre Bitcoin y la oferta monetaria global. La investigac
 x_url: https://x.com/deltabadgerapp/status/1939622461768892684
 telegram_url: https://t.me/deltabadger/91
 published: true
+published_at: "2025-07-01"
 ---
 
 La relación entre Bitcoin y la oferta monetaria global se ha convertido en uno de los temas más debatidos. A medida que avanzamos en 2025, Bitcoin se fortalece mientras aumenta la impresión de dinero a nivel mundial.

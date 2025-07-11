@@ -7,6 +7,7 @@ excerpt: "Die Beziehung zwischen Bitcoin und der globalen Geldmenge. Die Forschu
 x_url: https://x.com/deltabadgerapp/status/1939622461768892684
 telegram_url: https://t.me/deltabadger/91
 published: true
+published_at: "2025-07-01"
 ---
 
 Die Beziehung zwischen Bitcoin und der globalen Geldmenge hat sich zu einem der am heißesten diskutierten Themen entwickelt. Während wir uns durch das Jahr 2025 bewegen, wird Bitcoin stärker, während das weltweite Gelddrucken zunimmt.

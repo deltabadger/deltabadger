@@ -55,6 +55,10 @@
   &__meta
     font-size: 1.75rem
 
+[lang="ru"]
+  .article-card,.article
+    h1,h2,h3,h4
+      font-family: "Montserrat", sans-serif
   
 .view--articles-show,.view--articles-index
   --link: var(--navbarLink)
@@ -82,8 +86,12 @@
   p,ul,ol,li,blockquote
     font-family: "Inter", sans-serif
   h1,h2,h3
-    color: var(--emphasis)
     font-family: "Domine", serif
+  h1
+    color: var(--emphasis)
+  h2
+    &:first-child
+      margin-top: 0
   h2
     margin: 8rem 0 4rem 0
     font-size: 2.8rem
@@ -99,7 +107,7 @@
       font-size: 4rem
       line-height: 1.1
   h3
-    margin: 4rem 0
+    margin: 8rem 0 4rem 0
     font-size: 2rem
     font-weight: 600
     line-height: 1.5
@@ -170,6 +178,24 @@
         padding: 0 0.75em
         border-radius: 1em
         border: 1px solid var(--link)
+  &__figure 
+    margin-top: 6rem
+    margin-bottom: 6rem
+    display: flex
+    flex-direction: column
+    align-items: center
+    justify-content: center
+    p
+      text-align: center
+    img
+      max-width: 100%
+      height: auto
+    &__caption
+      text-align: center
+      margin: 3rem 0 0
+      font-size: 1.75rem
+      color: var(--label)
+      font-style: italic
 .paywall
   background: linear-gradient(to bottom, #fff0 0%, var(--background) 30%)
   position: relative

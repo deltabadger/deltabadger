@@ -5,6 +5,7 @@ author_id: 1
 thumbnail: bitcoin-vs-m2.avif
 excerpt: "Związek między Bitcoinem a globalną podażą pieniądza. Badania Lyn Alden. Pomysł 12-tygodniowego wyprzedzenia. Prognoza ceny Bitcoina przez AI oparta na modelu M2."
 published: true
+published_at: "2025-07-01"
 ---
 
 Związek między Bitcoinem a globalną podażą pieniądza stał się jednym z najgoręcej dyskutowanych tematów. W miarę jak przechodzimy przez 2025 rok, Bitcoin staje się silniejszy, podczas gdy dodruk pieniądza wzrasta.
