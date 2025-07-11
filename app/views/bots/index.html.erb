@@ -21,7 +21,11 @@
   <%= render partial: 'bots/new_menu_start' %>
 <% else %>
   <div class="page-head page-head--dashboard">
-    <div></div>
+    <div class="bot-filters">
+      <%= link_to t('bot_filters.all'), bots_path(filter: 'all'), class: ["button button--multi", ("button--multi--active" if @filter == 'all')] %>
+      <%= link_to t('bot_filters.active'), bots_path(filter: 'active'), class: ["button button--multi", ("button--multi--active" if @filter == 'active')] %>
+      <%= link_to t('bot_filters.inactive'), bots_path(filter: 'inactive'), class: ["button button--multi", ("button--multi--active" if @filter == 'inactive')] %>
+    </div>
     <div>
       <%= button_to new_bot_path, method: :get, class: "button button--primary", data: { turbo_frame: "modal" } do %>
         <span class="d-none d-sm-inline"><%= t('bot.new') %></span>
