@@ -26,7 +26,7 @@ module ArticlesHelper
       "image": if article.thumbnail_path.present?
                  {
                    "@type": 'ImageObject',
-                   "url": asset_url(article.thumbnail_path)
+                   "url": asset_url(article.social_thumbnail_path)
                  }
                end,
       "timeRequired": article.reading_time_minutes.present? ? "PT#{article.reading_time_minutes}M" : nil,

@@ -39,6 +39,18 @@ class Article < ApplicationRecord
     "articles/thumbnails/#{thumbnail}"
   end
 
+  def social_thumbnail_path
+    return nil unless thumbnail.present?
+
+    base = thumbnail.sub(/\.[^.]+$/, '')
+    extension = File.extname(thumbnail)
+    if ['.avif', '.jpg'].include?(extension) && !base.end_with?('-thumbnail')
+      "articles/thumbnails/#{base}-thumbnail.jpg"
+    else
+      thumbnail_path.gsub(/\.[^.]+$/, '.jpg')
+    end
+  end
+
   def plain_title
     return title unless title.present?
 

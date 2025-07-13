@@ -9,7 +9,7 @@
   <meta property="og:url" content="<%= article_url(@article, locale: @article.locale) %>">
   <meta property="og:site_name" content="Deltabadger">
   <% if @article.thumbnail_path.present? %>
-    <% social_thumbnail = @article.thumbnail_path.gsub(/\.[^.]+$/, '.jpg') %>
+    <% social_thumbnail = @article.social_thumbnail_path %>
     <meta property="og:image" content="<%= asset_url(social_thumbnail) %>">
     <meta property="og:image:alt" content="<%= @article.plain_title %>">
   <% end %>
