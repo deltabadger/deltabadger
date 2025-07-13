@@ -16,7 +16,7 @@ You've heard it countless times – from skeptical friends at dinner parties, tr
 
 But every now and then, something breaks through the noise.
 
-Polymarket – the crypto-based prediction platform has quietly become the most successful prediction market in human history. In 2024 alone, it generated over $9 billion in trading volume – more than many established financial markets. 
+[Polymarket](https://polymarket.com/) – the crypto-based prediction platform has quietly become the most successful prediction market in human history. In 2024 alone, it generated over $9 billion in trading volume – more than many established financial markets. 
 
 When traditional polls showed a neck-and-neck race for the U.S. presidency, Polymarket users were confidently betting on Trump's victory weeks before election day. They were right, and legacy forecasters were wrong.
 
@@ -34,32 +34,32 @@ The concept isn't new.
 
 <section class="timeline">
 <div class="timeline__event">
-<div class="timeline__even__mark"></div>
+<div class="timeline__event__mark"></div>
 <div class="timeline__event__info">
-<h3>1600</h3>
+<p><b>1600</b></p>
 <p>The first organized prediction markets we'd recognize emerged in 16th-century Italy, where people placed bets on papal elections—wagering on which cardinal would emerge from the Sistine Chapel as the next Pope. These weren't just idle gambles; they aggregated insider knowledge from Vatican officials, political observers, and anyone with skin in the game.</p>
 </div>
 </div>
 <div class="timeline__event">
-<div class="timeline__even__mark"></div>
+<div class="timeline__event__mark"></div>
 <div class="timeline__event__info">
-<h3>1884</h3>
-<p>Wall Street betting pools were accurately predicting U.S. presidential elections. What these early traders had stumbled upon was what Francis Galton would formally identify in 1907 through his famous ox-weight guessing experiment: the "wisdom of crowds." When a group of country fair visitors collectively guessed an ox's weight, their average was nearly perfect—more accurate than any individual expert.</p>
+<p><b>1884</b></p>
+<p>Wall Street betting pools were accurately predicting U.S. presidential elections. What these early traders had stumbled upon was what Francis Galton would formally identify in 1907 through his famous [ox-weight guessing experiment](https://www.santafe.edu/news-center/news/new-study-improves-crowd-wisdom-estimates): the "wisdom of crowds." When a group of country fair visitors collectively guessed an ox's weight, their average was nearly perfect—more accurate than any individual expert.</p>
 <p>The magic happens through what economists call "information aggregation." When thousands of people risk their own money on an outcome, they collectively process information more efficiently than any individual expert. The trader who knows something others don't can profit by betting accordingly, moving the odds toward the truth.</p>
 </div>
 </div>
 <div class="timeline__event">
-<div class="timeline__even__mark"></div>
+<div class="timeline__event__mark"></div>
 <div class="timeline__event__info">
-<h3>1988</h3>
-<p>This principle carried into the modern era. The Iowa Electronic Markets, became the first electronic prediction market and consistently outperformed polls in forecasting election results.</p>
+<p><b>1988</b></p>
+<p>This principle carried into the modern era. The [Iowa Electronic Markets](https://iemweb.biz.uiowa.edu/), became the first electronic prediction market and consistently outperformed polls in forecasting election results.</p>
 </div>
 </div>
 <div class="timeline__event">
-<div class="timeline__even__mark"></div>
+<div class="timeline__event__mark"></div>
 <div class="timeline__event__info">
-<h3>2001</h3>
-<p>Intrade, which operated from 2001 to 2013, gained mainstream attention for accurately calling everything from Oscar winners to presidential races. When Intrade shut down under regulatory pressure, platforms like PredictIt—the most successful predecessor to Polymarket—emerged to fill the void, though with strict betting limits that constrained their impact.</p>
+<p><b>2001-</b></p>
+<p>[Intrade](https://intrade.com/), which operated from 2001 to 2013, gained mainstream attention for accurately calling everything from Oscar winners to presidential races. When Intrade shut down under regulatory pressure, platforms like [PredictIt](https://www.predictit.org/)—the most successful predecessor to Polymarket—emerged to fill the void, though with strict betting limits that constrained their impact.</p>
 </div>
 </div>
 </section>
@@ -86,13 +86,13 @@ The promise of blockchain technology—that removes centralized authorities whil
 
 ### Hivemind
 
-The first serious attempt came from Paul Sztorc in 2014 with Hivemind (originally called Truthcoin). Sztorc's vision was a Bitcoin sidechain that would use "vote coins" to resolve market outcomes. Token holders would vote on whether events actually occurred, with economic incentives designed to reward honest reporting. Similar to how the Bitcoin network incentivizes consensus, if you voted with the majority, you earned fees; vote dishonestly, and you'd lose money.
+The first serious attempt came from Paul Sztorc in 2014 with [Hivemind](https://bitcoinhivemind.com/) (originally called Truthcoin). Sztorc's vision was a Bitcoin sidechain that would use "vote coins" to resolve market outcomes. Token holders would vote on whether events actually occurred, with economic incentives designed to reward honest reporting. Similar to how the Bitcoin network incentivizes consensus, if you voted with the majority, you earned fees; vote dishonestly, and you'd lose money.
 
 Sztorc had thought through the game theory, the economics, even the governance mechanisms. But Hivemind never launched due to Bitcoin's limited scripting capabilities and the technical complexity of bootstrapping a two-way peg sidechain.
 
 ### Augur
 
-Ethereum's smart contracts seemed to offer an easier path. In 2015, Augur raised ~$5 million in an ICO with the promise of becoming the world's first decentralized prediction market. It launched on Ethereum mainnet in 2018.
+Ethereum's smart contracts seemed to offer an easier path. In 2015, [Augur](www.augur.net/) raised ~$5 million in an ICO with the promise of becoming the world's first decentralized prediction market. It launched on Ethereum mainnet in 2018.
 
 Users could create markets on literally anything—from election outcomes to cryptocurrency prices to whether aliens would be discovered. But Augur quickly ran into real-world problems. The user experience was terrible, requiring technical knowledge, while Ethereum's high gas fees made small bets economically unviable.
 
@@ -134,46 +134,112 @@ Kalshi launched in 2021 as Polymarket's most serious competitor – the first fu
 
 ## Polymarket: Iconic Moments
 
-**2022: The Regulatory Reckoning**  
-The CFTC came knocking with a $1.4 million fine and a cease-and-desist order, forcing Polymarket to block all U.S. users. The platform was deemed an unregistered derivatives exchange – bureaucratic speak for "you're letting Americans gamble without our permission." But here's the kicker: former CFTC Commissioner Chris Giancarlo, the same guy who helped craft these regulations, joined Polymarket's advisory board shortly after. Nothing says "regulatory clarity" like the poacher turning gamekeeper. ([theblock.co](https://www.theblock.co/linked/147946/polymarket-appoints-former-cftc-chief-giancarlo-as-chair-of-advisory-board))
+<section class="timeline timeline--illustrated">
 
-**2023: The Titan Submersible Tragedy**  
-When the Titan submersible went missing during its voyage to the Titanic wreckage, Polymarket created a market on whether the vessel would be found. As rescue efforts intensified and the world watched in horror, people were literally betting on life and death. The platform faced intense criticism for commodifying tragedy, sparking debates about the ethical boundaries of prediction markets. It was a stark reminder that not all information discovery is morally neutral. ([polymarket.com](https://polymarket.com/event/will-the-missing-submarine-be-found-by-june-23))
+<div class="timeline__event">
+<div class="timeline__event__mark">
+<img class="timeline__event__mark__thumb" src="https://deltabadger.com/images/articles/polymarket/cftc.avif" alt="CFTC">
+</div>
+<div class="timeline__event__info">
+<p><b>2022: The Regulatory Reckoning</b></p>
+<p>The CFTC came knocking with a $1.4 million fine and a cease-and-desist order, forcing Polymarket to block all U.S. users. The platform was deemed an unregistered derivatives exchange – bureaucratic speak for "you're letting Americans gamble without our permission." But here's the kicker: former CFTC Commissioner Chris Giancarlo, the same guy who helped craft these regulations, joined Polymarket's advisory board shortly after. Nothing says "regulatory clarity" like the poacher turning gamekeeper. <a class="link-source-tile" href="https://www.theblock.co/linked/147946/polymarket-appoints-former-cftc-chief-giancarlo-as-chair-of-advisory-board">theblock.co</a></p>
+</div>
+</div>
 
-**2024: Silicon Valley Validation**  
-Polymarket raised $70 million in a funding round that read like a crypto who's who: Ethereum founder Vitalik Buterin, Peter Thiel's Founders Fund, and other A-list investors pushed the platform's valuation above $1 billion. Suddenly, prediction markets weren't just gambling – they were venture-scale infrastructure for the information economy. ([proactiveinvestors.com](https://www.proactiveinvestors.com/companies/news/1073533/polymarket-to-raise-200m-at-1b-valuation-report-1073533.html))
+<div class="timeline__event">
+<div class="timeline__event__mark">
+<img class="timeline__event__mark__thumb" src="https://deltabadger.com/images/articles/polymarket/titan.avif" alt="CFTC">
+</div>
+<div class="timeline__event__info">
+<p><b>2023: The Titan Submersible Tragedy</b></p>
+<p>When the Titan submersible went missing during its voyage to the Titanic wreckage, Polymarket created a market on whether the vessel would be found. As rescue efforts intensified and the world watched in horror, people were literally betting on life and death. The platform faced intense criticism for commodifying tragedy, sparking debates about the ethical boundaries of prediction markets. It was a stark reminder that not all information discovery is morally neutral. <a class="link-source-tile" href="https://polymarket.com/event/will-the-missing-submarine-be-found-by-june-23">polymarket.com</a></p>
+</div>
+</div>
 
-**July 2024: The Biden Withdrawal Call**  
-While mainstream media debated Biden's debate performance and polls showed a tight race, Polymarket odds told a different story. The platform's "Biden to withdraw" market surged from 20% to 70% in the days following his disastrous debate performance. When Biden actually dropped out weeks later, Polymarket had once again proven more prescient than traditional forecasting. It wasn't just luck – it was crowds processing information faster than institutions. ([axios.com](https://www.axios.com/2024/07/22/prediction-markets-biden-drop-out))
+<div class="timeline__event">
+<div class="timeline__event__mark">
+<img class="timeline__event__mark__thumb" src="https://deltabadger.com/images/articles/polymarket/vitalik.avif" alt="CFTC">
+</div>
+<div class="timeline__event__info">
+<p><b>2024: Silicon Valley Validation</b></p>
+<p>Polymarket raised $70 million in a funding round that read like a crypto who's who: Ethereum founder Vitalik Buterin, Peter Thiel's Founders Fund, and other A-list investors pushed the platform's valuation above $1 billion. Suddenly, prediction markets weren't just gambling – they were venture-scale infrastructure for the information economy. <a class="link-source-tile" href="https://www.proactiveinvestors.com/companies/news/1073533/polymarket-to-raise-200m-at-1b-valuation-report-1073533.html">proactiveinvestors.com</a></p>
+</div>
+</div>
 
-**November 2024: The Election That Changed Everything**  
-The 2024 presidential election became Polymarket's defining moment. While legacy polls showed a statistical dead heat between Trump and Harris, Polymarket consistently favored Trump – and the platform was right. Over $3.3 billion in volume flowed through election-related markets, with users making over $1.5 billion in bets on Trump's victory alone.
+<div class="timeline__event">
+<div class="timeline__event__mark">
+<img class="timeline__event__mark__thumb" src="https://deltabadger.com/images/articles/polymarket/biden.avif" alt="CFTC">
+</div>
+<div class="timeline__event__info">
+<p><b>July 2024: The Biden Withdrawal Call</b></p>
+<p>While mainstream media debated Biden's debate performance and polls showed a tight race, Polymarket odds told a different story. The platform's "Biden to withdraw" market surged from 20% to 70% in the days following his disastrous debate performance. When Biden actually dropped out weeks later, Polymarket had once again proven more prescient than traditional forecasting. It wasn't just luck – it was crowds processing information faster than institutions. <a class="link-source-tile" href="https://www.axios.com/2024/07/22/prediction-markets-biden-drop-out">axios.com</a></p>
+</div>
+</div>
 
-The star of the show? A mysterious French trader who bet between $30-45 million on Trump across multiple accounts, ultimately walking away with $85 million in winnings. The "French whale" became an internet legend, though it sparked investigations into potential market manipulation and raised questions about whether a single large bettor could skew odds.([thefp.com](https://www.thefp.com/p/french-whale-makes-85-million-on-polymarket-trump-win))
+<div class="timeline__event">
+<div class="timeline__event__mark">
+<img class="timeline__event__mark__thumb" src="https://deltabadger.com/images/articles/polymarket/trump.avif" alt="CFTC">
+</div>
+<div class="timeline__event__info">
+<p><b>November 2024: The Election That Changed Everything</b></p>
+<p>The 2024 presidential election became Polymarket's defining moment. While legacy polls showed a statistical dead heat between Trump and Harris, Polymarket consistently favored Trump – and the platform was right. Over $3.3 billion in volume flowed through election-related markets, with users making over $1.5 billion in bets on Trump's victory alone.</p>
+<p>The star of the show? A mysterious French trader who bet between $30-45 million on Trump across multiple accounts, ultimately walking away with $85 million in winnings. The "French whale" became an internet legend, though it sparked investigations into potential market manipulation and raised questions about whether a single large bettor could skew odds. <a class="link-source-tile" href="https://www.thefp.com/p/french-whale-makes-85-million-on-polymarket-trump-win">thefp.com</a></p>
+</div>
+</div>
 
-**November 2024: The FBI Raid**  
-Just days after Trump's victory, FBI agents raided CEO Shayne Coplan's New York apartment as part of a DOJ investigation into whether Polymarket was allowing U.S. users to circumvent geographical restrictions. The timing raised eyebrows – was this about regulatory compliance or political retaliation for embarrassing the polling establishment?
+<div class="timeline__event">
+<div class="timeline__event__mark">
+<img class="timeline__event__mark__thumb" src="https://deltabadger.com/images/articles/polymarket/fbi.avif" alt="CFTC">
+</div>
+<div class="timeline__event__info">
+<p><b>November 2024: The FBI Raid</b></p>
+<p>Just days after Trump's victory, FBI agents raided CEO Shayne Coplan's New York apartment as part of a DOJ investigation into whether Polymarket was allowing U.S. users to circumvent geographical restrictions. The timing raised eyebrows – was this about regulatory compliance or political retaliation for embarrassing the polling establishment? <a class="link-source-tile" href="https://www.theguardian.com/technology/2024/nov/13/fbi-raid-polymarket-founder-trump-election">theguardian.com</a></p>
+</div>
+</div>
 
-**June 2025: TIME's Recognition**  
-Polymarket landed on TIME Magazine's list of the 100 Most Influential Companies, cementing its transition from crypto curiosity to mainstream cultural force. CEO Shayne Coplan celebrated the recognition as validation that people wanted "the truth" – a not-so-subtle dig at traditional media and polling.
+<div class="timeline__event">
+<div class="timeline__event__mark">
+<img class="timeline__event__mark__thumb" src="https://deltabadger.com/images/articles/polymarket/time.avif" alt="CFTC">
+</div>
+<div class="timeline__event__info">
+<p><b>June 2025: TIME's Recognition</b></p>
+<p>Polymarket landed on TIME Magazine's list of the 100 Most Influential Companies, cementing its transition from crypto curiosity to mainstream cultural force. CEO Shayne Coplan celebrated the recognition as validation that people wanted "the truth" – a not-so-subtle dig at traditional media and polling. <a class="link-source-tile" href="https://time.com/collections/time100-companies-2025/7289591/polymarket/">time.com</a></p>
+</div>
+</div>
 
-**June 2025: The X Partnership**  
-The ultimate validation came when X (formerly Twitter) named Polymarket its official prediction market partner. The integration would combine real-time betting odds with Grok AI analysis and live social media feeds, creating a new hybrid of prediction and social discovery. Elon Musk, who had repeatedly endorsed Polymarket's accuracy during the election, was reportedly instrumental in the partnership.
+<div class="timeline__event">
+<div class="timeline__event__mark">
+<img class="timeline__event__mark__thumb" src="https://deltabadger.com/images/articles/polymarket/x_logo.avif" alt="CFTC">
+</div>
+<div class="timeline__event__info">
+<p><b>June 2025: The X Partnership</b></p>
+<p>The ultimate validation came when X (formerly Twitter) named Polymarket its official prediction market partner. The integration would combine real-time betting odds with Grok AI analysis and live social media feeds, creating a new hybrid of prediction and social discovery. Elon Musk, who had repeatedly endorsed Polymarket's accuracy during the election, was reportedly instrumental in the partnership. <a class="link-source-tile" href="https://observer.com/2025/06/elon-musk-x-prediction-market-polymarket/">observer.com</a></p>
+</div>
+</div>
 
-**July 2025: The Zelensky Suit Controversy**  
-Most recently, Polymarket found itself embroiled in its biggest controversy since the Titan submersible. A market on whether Ukrainian President Zelensky would wear a suit to a specific event generated $237 million in volume – the largest non-election market in the platform's history. When the market resolved as "No," ruling that Zelensky didn't wear a suit, accusations of manipulation erupted. Critics alleged that whales had manipulated the outcome and that bots had gamed the oracle system, generating over 24,000 angry comments and exposing potential flaws in decentralized consensus mechanisms.
+<div class="timeline__event">
+<div class="timeline__event__mark">
+<img class="timeline__event__mark__thumb" src="https://deltabadger.com/images/articles/polymarket/zelensky.avif" alt="CFTC">
+</div>
+<div class="timeline__event__info">
+<p><b>July 2025: The Zelensky Suit Controversy</b></p>
+<p>Most recently, Polymarket found itself embroiled in its biggest controversy since the Titan submersible. A market on whether Ukrainian President Zelensky would wear a suit to a specific event generated $237 million in volume – the largest non-election market in the platform's history. When the market resolved as "No," ruling that Zelensky didn't wear a suit, accusations of manipulation erupted. Critics alleged that whales had manipulated the outcome and that bots had gamed the oracle system, generating over 24,000 angry comments and exposing potential flaws in decentralized consensus mechanisms. <a class="link-source-tile" href="https://www.wired.com/story/volodymyr-zelensky-suit-polymarket-rebellion/">wired.com</a></p>
+</div>
+</div>
+
+</section>
 
 Deltabadger users may now ask: As Polymarket continues to grow – with partnerships like X, endorsements from tech titans like Elon Musk, and projected 100x growth by 2028 – how might that impact the underlying infrastructure powering it all?
 
 ## Investing Analysis
 
-What does it mean to the Polygon network, and POL token?
+What does it mean to the Polygon network and its token POL?
 
 <!-- PAYWALL -->
 
-The answer requires looking at the fundamental economics of blockchain networks. Polymarket has quietly become one of the most significant demand drivers for the Polygon network. During peak trading periods – particularly around major events like the 2024 election – Polymarket consumes up to 25% of Polygon's total gas, driving sustained spikes in daily transactions.
+The answer requires looking at the fundamental economics of blockchain networks. Polymarket has quietly become one of the most significant demand drivers for the Polygon network. During peak trading periods – particularly around major events like the 2024 election – Polymarket consumed up to 25% of Polygon's total gas, driving sustained spikes in daily transactions. <a class="link-source-tile" href="https://coinmetrics.substack.com/p/state-of-the-network-issue-283">coinmetrics.substack.com</a>
 
-At the time of the last presidential election on November 5, 2024, Polymarket held over $500 million in TVL (Total Value Locked) – representing almost 40% of the TVL of the whole Polygon network.
+At the time of the last presidential election on November 5, 2024, Polymarket held over $500 million in TVL (Total Value Locked) – representing almost 40% of the TVL of the whole Polygon network. <a class="link-source-tile" href="https://thedefiant.io/news/blockchains/fidelity-frames-eth-as-money-and-ethereum-as-a-digital-economy-in-new-report">thedefiant.com</a>
 
 Polymarket has also become a massive driver of USDC demand on Polygon. The platform's $14 billion in cumulative volume represents real stablecoin flow – not synthetic yield farming or circular trading, but genuine economic activity where users deposit USDC to make bets and withdraw winnings.
 
@@ -197,7 +263,7 @@ Despite Polymarket's success and impact on Polygon's network metrics, its direct
 
 Let's start with the hard numbers.  
 
-Polymarket generates approximately $27,000 in annual gas fees paid in POL. For a platform that handles billions in volume and consumes 25% of network gas during peaks, this might seem impossibly low, but it makes sense when you understand Polygon's economics. The network was designed for ultra-low fees, with transactions costing fractions of a penny.  
+Polymarket generates approximately $27,000 in annual gas fees paid in POL. For a platform that handles billions in volume and consumes 25% of network gas during peaks, this might seem impossibly low, but it makes sense when you understand Polygon's economics. The network was designed for ultra-low fees, with transactions costing fractions of a penny. <a class="link-source-tile" href="https://www.coindesk.com/tech/2024/10/25/polymarket-is-huge-success-for-polygon-blockchain-everywhere-but-the-bottom-line">coindesk.com</a> 
 
 This $27,000 represents roughly 6% of Polygon's total fee revenue – meaningful as a percentage, negligible in absolute terms when compared to POL's multi-billion dollar market cap.
 
