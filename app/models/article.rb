@@ -44,8 +44,8 @@ class Article < ApplicationRecord
 
     base = thumbnail.sub(/\.[^.]+$/, '')
     extension = File.extname(thumbnail)
-    if ['.avif', '.jpg'].include?(extension) && !base.end_with?('-thumbnail')
-      "articles/thumbnails/#{base}-thumbnail.jpg"
+    if ['.avif', '.jpg'].include?(extension) && !base.end_with?('_thumbnail')
+      "articles/thumbnails/#{base}_thumbnail.jpg"
     else
       thumbnail_path.gsub(/\.[^.]+$/, '.jpg')
     end
