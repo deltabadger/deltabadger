@@ -126,6 +126,8 @@
     max-width: 100%
     iframe
       border-radius: 1.5rem
+  &__back-link
+    text-decoration: none
   &__header
     display: flex
     flex-direction: column
@@ -192,19 +194,19 @@
       max-width: 100%
       height: auto
       border-radius: 1.5rem
-      box-shadow: var(--widget-shadow)
+      &.has-shadow
+        box-shadow: var(--widget-shadow)
     &__caption
       text-align: center
       margin: 1rem 0 0
       font-size: 1.75rem
       color: var(--label)
       font-style: italic
-
 .paywall
-  background: linear-gradient(to bottom, #fff0 0%, var(--background) 30%)
+  background: linear-gradient(to bottom, #fff0 0%, var(--background) 25%)
   position: relative
   z-index: 1
-  margin-top: -48rem
+  margin-top: -40rem
   padding: 32rem 3rem
   text-align: center
   display: flex
@@ -213,6 +215,25 @@
   justify-content: center
   gap: 7rem
   text-align: center !important
+  ul
+    margin: 0
+    padding: 0
+  li
+    text-align: left
+    list-style: none
+    position: relative
+    padding-left: 3.5rem
+    margin-bottom: 1rem
+    &:before
+      content: ""
+      position: absolute
+      left: 0
+      top: 0
+      width: 3rem
+      height: 3rem
+      background-image: url("check.svg")
+      background-size: contain
+      background-repeat: no-repeat
   h3, h2
     width: 100%
     text-align: center !important

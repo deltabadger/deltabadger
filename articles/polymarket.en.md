@@ -5,11 +5,10 @@ author_id: 1
 thumbnail: polymarket.avif
 excerpt: "With $9 billion in trading volume in 2024 alone, Polymarket has become the world's largest prediction market. From presidential elections to global events, this deep dive explores how crypto-powered betting is revolutionizing how we process information."
 paywall_hook: |
-    <p>Only for subscribers:</p>
     <ul>
         <li>Will Polymarket drive POL token appreciation?</li>
-        <li>Is a Polymarket token launch imminent?</li>
-        <li>How to qualify for potential airdrops?</li>
+        <li>How to qualify for potential Polymarket airdrops?</li>
+        <li>Long-term case for Polygon infrastructure</li>
     </ul>
 x_url: https://x.com/deltabadgerapp/status/1943337030869471342
 telegram_url: https://t.me/deltabadger/97
@@ -27,7 +26,7 @@ But every now and then, something breaks through the noise.
 
 {::nomarkdown}
 <figure class="article__figure">
-<img src="https://deltabadger.com/images/articles/polymarket/polymarket.avif" alt="Polymarket">
+<img class="has-shadow" src="https://deltabadger.com/images/articles/polymarket/polymarket.avif" alt="Polymarket">
 <figcaption class="article__figure__caption"><a href="https://polymarket.com/">polymarket.com</a></figcaption>
 </figure>
 {:/nomarkdown}
@@ -172,7 +171,7 @@ Polymarket operates as a simple binary prediction market. Users buy shares in "Y
 
 {::nomarkdown}
 <figure class="article__figure">
-<img src="https://deltabadger.com/images/articles/polymarket/polymarket-bet.avif" alt="Polymarket">
+<img class="has-shadow" src="https://deltabadger.com/images/articles/polymarket/polymarket-bet.avif" alt="Polymarket">
 <figcaption class="article__figure__caption">Would you make a bet?</figcaption>
 </figure>
 {:/nomarkdown}
@@ -183,7 +182,7 @@ The platform runs on Polygon (migrated from Ethereum to avoid high gas fees), en
 
 It's a hybrid system. Polymarket Inc. controls the platform, user interface, and market creation, plus maintains a Market Integrity Committee that can override outcomes in extreme cases. However, all trades occur on the Polygon blockchain, and market resolution depends on the UMA Optimistic Oracle – a decentralized system where outcomes are voted on by token holders rather than company employees. <a class="link-source-tile" href="https://www.kucoin.com/learn/crypto/what-is-polymarket-and-how-does-it-work">kucoin.com</a>
 
-This creates interesting tensions. The controversial Zelensky suit market resolved as "No" despite photographic evidence, leading to accusations that large UMA token holders manipulated the outcome. Yet when Polymarket's committee previously overruled a similar disputed case, critics accused the platform of undermining decentralized principles. <a class="link-source-tile" href="https://www.coindesk.com/markets/2025/07/09/this-isnt-decentralized-says-polymarket-power-user-as-zelenskyys-suit-controversy-unfolds">coindesk.com</a>
+Oracles remain a weak spot in many decentralized systems. The controversial Zelenskyy suit market resolved as "No" despite photographic evidence, leading to accusations that large UMA token holders manipulated the outcome. Yet when Polymarket's committee previously overruled a similar disputed case, critics accused the platform of undermining decentralized principles. <a class="link-source-tile" href="https://www.coindesk.com/markets/2025/07/09/this-isnt-decentralized-says-polymarket-power-user-as-zelenskyys-suit-controversy-unfolds">coindesk.com</a>
 
 ### How Polymarket resolves what is true?
 
@@ -289,11 +288,11 @@ The platform uses the decentralized UMA Optimistic Oracle for resolutions, where
 
 Deltabadger users may now ask: As Polymarket continues to grow – with partnerships like X, endorsements from tech titans like Elon Musk, and projected 100x growth by 2028 – how might that impact the underlying infrastructure powering it all?
 
+<!-- PAYWALL -->
+
 ## From Polymarket to Polygon: Investing Analysis
 
 Polymarket has quietly become one of the most significant demand drivers for the Polygon network. During peak trading periods – particularly around major events like the 2024 election – Polymarket consumed up to 25% of Polygon's total gas, driving sustained spikes in daily transactions. <a class="link-source-tile" href="https://coinmetrics.substack.com/p/state-of-the-network-issue-283">coinmetrics.substack.com</a>
-
-<!-- PAYWALL -->
 
 At the time of the last presidential election on November 5, 2024, Polymarket held over $500 million in TVL (Total Value Locked) – representing almost 40% of the TVL of the whole Polygon network. <a class="link-source-tile" href="https://thedefiant.io/news/blockchains/fidelity-frames-eth-as-money-and-ethereum-as-a-digital-economy-in-new-report">thedefiant.com</a>
 
@@ -323,19 +322,21 @@ Polymarket generates approximately $27,000 in annual gas fees paid in POL. For a
 
 This $27,000 represents roughly 6% of Polygon's total fee revenue – meaningful as a percentage, negligible in absolute terms when compared to POL's multi-billion dollar market cap.
 
-Following Ethereum's EIP-1559 model, Polygon burns a portion of these base fees, creating a deflationary mechanism. Polymarket's activity contributes to this burn, but again, we're talking about burning tokens worth thousands of dollars annually on a network with billions in circulation. 
+Following Ethereum's EIP-1559 model, Polygon burns the base fee portion of these transaction fees, creating a deflationary mechanism. The percentage burned varies based on network congestion: during low activity, base fees can be 0 Gwei (0% burned); during high congestion, it can exceed 50%. Polymarket's activity often occurs during peaks, suggesting a higher burn proportion for its fees.
+
+Polymarket's activity contributes to this burn, but again, we're talking about burning tokens worth thousands of dollars annually on a network with billions in circulation. Historical network-wide burn rates have been around 0.08% annually, with current low fees suggesting 0.02-0.1%. Using a conservative 20% average burn rate for estimation, Polymarket's $27,000 in fees would result in about $5,400 worth of POL burned annually at current prices.
 
 Then there's governance. POL holders vote on network upgrades, parameter changes, and ecosystem fund allocations. As Polygon becomes more valuable infrastructure – partly thanks to applications like Polymarket – having a voice in its governance becomes more valuable. This could theoretically drive demand from institutional users who want influence over a network they depend on.  
 
 ### The Price Disconnect  
 
-Despite all this activity, POL trades around $0.226-0.23 – down 85% from its all-time high. The disconnect stems from Polygon's monetary policy: the network issues 2% of total supply annually as validator rewards, while fee burns only destroy about 0.27% of supply per year. This creates net inflation that outpaces demand growth, regardless of Polymarket's success. The September 2024 migration from MATIC to POL also created market confusion and selling pressure.
+Despite all this activity, POL trades around $0.226-0.23 – down 85% from its all-time high. The disconnect stems from Polygon's monetary policy: the network issues 2% of total supply annually (1% for validator rewards, 1% for Community Treasury), while fee burns have historically destroyed about 0.08-0.27% of supply per year (with recent rates closer to the lower end). This creates net inflation that outpaces demand growth, regardless of Polymarket's success. The September 2024 migration from MATIC to POL also created market confusion and selling pressure.
 
 ### Scale Requirements: 10x  
 
-For Polymarket's success to meaningfully impact POL's tokenomics, the platform would need to scale dramatically. Current burn rates of 0.27% annually would need to exceed the 2% emission rate to create net deflation.  
+For Polymarket's success to meaningfully impact POL's tokenomics, the platform would need to scale dramatically. To create net deflation, burn rates would need to exceed the 2% emission rate.
 
-The math is stark: achieving exactly 2% annual burns would require roughly 7.4x growth in fee generation. To meaningfully exceed emissions and create strong deflationary pressure, Polymarket (and other Polygon applications) would need to scale about 10x from current levels. 
+The math is stark: achieving exactly 2% annual burns would require roughly 7.4x growth in fee generation assuming current burn percentages. To meaningfully exceed emissions and create strong deflationary pressure, Polymarket (and other Polygon applications) would need to scale about 10x from current levels, potentially burning around $54,000 annually at 20% burn rate.
 
 That means instead of $27,000 in annual fees, Polymarket would need to generate around $270,000+ annually. While this sounds modest, remember that Polygon's fees are intentionally tiny. A 10x increase in fee revenue would require either massive volume growth or fundamental changes to the fee structure.  
 
@@ -345,7 +346,7 @@ Since Deltabadger Community is long-term oriented, here's where it gets interest
 
 If Polymarket continues growing at its current trajectory – some speculative projections estimate not 10 but 100x growth by 2028, though this remains highly uncertain. It’s simply impossible for that type of usage to not influence the fundamentals for the underlying token.   
 
-For example, the 100x higher burn rate would mean staggering 27%. That would likely require adjustment in the emission policy, but the price of the token would react much faster.  
+For example, at 100x current fees ($2.7M annually) and 20% burn rate, Polymarket alone would burn about $540,000 worth of POL yearly. If this represents 6% of network fees (as current), total network fees would be $45M, burning ~$9M at 20% (0.09% of 10B supply at $0.23 price). While still below 2% emission, combined with other growth, it could meaningfully offset inflation.
 
 The 100x may sound too optimistic. However, if prediction markets become standard infrastructure for information discovery, if the X partnership drives mainstream adoption, if regulatory clarity allows U.S. re-entry, if a native Polymarket token creates additional utility... These developments could easily multiply platform usage well beyond the 10x threshold needed.  
 
