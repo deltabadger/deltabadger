@@ -10,13 +10,20 @@ published: true
 published_at: "2025-07-12"
 ---
 
-*"Crypto has no usecase."*
+*Crypto has no usecase.*
 
 You've heard it countless times – from skeptical friends at dinner parties, traditional finance veterans on CNBC, and that one colleague who still thinks Bitcoin is just "fake internet money." And honestly? There's more than a grain of truth to this critique. Most crypto projects struggle to demonstrate real-world utility.
 
 But every now and then, something breaks through the noise.
 
 [Polymarket](https://polymarket.com/) – the crypto-based prediction platform has quietly become the most successful prediction market in human history. In 2024 alone, it generated over $9 billion in trading volume – more than many established financial markets. 
+
+{::nomarkdown}
+<figure class="article__figure">
+<img src="https://deltabadger.com/images/articles/polymarket/polymarket.avif" alt="Polymarket">
+<figcaption><a href="https://polymarket.com/">polymarket.com</a></figcaption>
+</figure>
+{:/nomarkdown}
 
 When traditional polls showed a neck-and-neck race for the U.S. presidency, Polymarket users were confidently betting on Trump's victory weeks before election day. They were right, and legacy forecasters were wrong.
 
@@ -32,33 +39,43 @@ Prediction markets often see what traditional forecasting misses. While polls ca
 
 The concept isn't new.
 
-<section class="timeline">
+### A Brief History
+
+<section class="timeline timeline--illustrated timeline--bw">
 <div class="timeline__event">
-<div class="timeline__event__mark"></div>
+<div class="timeline__event__mark">
+<img class="timeline__event__mark__thumb" src="https://deltabadger.com/images/articles/polymarket/pope.avif" alt="16th Century">
+</div>
 <div class="timeline__event__info">
-<p><b>1600</b></p>
+<p><b>1600: Habemus Papam</b></p>
 <p>The first organized prediction markets we'd recognize emerged in 16th-century Italy, where people placed bets on papal elections—wagering on which cardinal would emerge from the Sistine Chapel as the next Pope. These weren't just idle gambles; they aggregated insider knowledge from Vatican officials, political observers, and anyone with skin in the game.</p>
 </div>
 </div>
 <div class="timeline__event">
-<div class="timeline__event__mark"></div>
+<div class="timeline__event__mark">
+<img class="timeline__event__mark__thumb" src="https://deltabadger.com/images/articles/polymarket/wallstreet.avif" alt="19th Century">
+</div>
 <div class="timeline__event__info">
-<p><b>1884</b></p>
+<p><b>1884: Wisdom of Crowds</b></p>
 <p>Wall Street betting pools were accurately predicting U.S. presidential elections. What these early traders had stumbled upon was what Francis Galton would formally identify in 1907 through his famous [ox-weight guessing experiment](https://www.santafe.edu/news-center/news/new-study-improves-crowd-wisdom-estimates): the "wisdom of crowds." When a group of country fair visitors collectively guessed an ox's weight, their average was nearly perfect—more accurate than any individual expert.</p>
 <p>The magic happens through what economists call "information aggregation." When thousands of people risk their own money on an outcome, they collectively process information more efficiently than any individual expert. The trader who knows something others don't can profit by betting accordingly, moving the odds toward the truth.</p>
 </div>
 </div>
 <div class="timeline__event">
-<div class="timeline__event__mark"></div>
+<div class="timeline__event__mark">
+<img class="timeline__event__mark__thumb" src="https://deltabadger.com/images/articles/polymarket/computer.avif" alt="20th Century">
+</div>
 <div class="timeline__event__info">
-<p><b>1988</b></p>
+<p><b>1988: Modern Era</b></p>
 <p>This principle carried into the modern era. The [Iowa Electronic Markets](https://iemweb.biz.uiowa.edu/), became the first electronic prediction market and consistently outperformed polls in forecasting election results.</p>
 </div>
 </div>
 <div class="timeline__event">
-<div class="timeline__event__mark"></div>
+<div class="timeline__event__mark">
+<img class="timeline__event__mark__thumb" src="https://deltabadger.com/images/articles/polymarket/predictit.avif" alt="21st Century">
+</div>
 <div class="timeline__event__info">
-<p><b>2001-</b></p>
+<p><b>2001: Before Crypto</b></p>
 <p>[Intrade](https://intrade.com/), which operated from 2001 to 2013, gained mainstream attention for accurately calling everything from Oscar winners to presidential races. When Intrade shut down under regulatory pressure, platforms like [PredictIt](https://www.predictit.org/)—the most successful predecessor to Polymarket—emerged to fill the void, though with strict betting limits that constrained their impact.</p>
 </div>
 </div>
@@ -68,7 +85,7 @@ The concept isn't new.
 
 This power comes with ethical baggage. There's something unsettling about commodifying uncertainty—betting on natural disasters or political upheavals can feel like profiting from misery.
 
-In 1995, a crypto-anarchist named Jim Bell published an essay called "Assassination Politics." Bell's proposal was as brilliant as it was disturbing: create an anonymous, encrypted prediction market where people could bet on the death dates of public figures—particularly corrupt politicians and officials.
+In 1995, a crypto-anarchist named Jim Bell published an essay called "[Assassination Politics](https://www.academia.edu/4146743/Assassination_Politics_by_Jim_Bell)." Bell's proposal was as brilliant as it was disturbing: create an anonymous, encrypted prediction market where people could bet on the death dates of public figures—particularly corrupt politicians and officials.
 
 Participants would place encrypted bets predicting when someone would die. The person who guessed correctly would win the entire pool. But here's the dark genius: the most accurate predictor would likely be the assassin themselves, since they'd know exactly when they planned to strike. The market would essentially crowdfund political assassination while maintaining complete anonymity through cryptography.
 
@@ -114,23 +131,96 @@ Instead of Augur's complex market creation tools and confusing interfaces, Polym
 
 While other platforms used obscure governance tokens or synthetic assets, Polymarket dealt in USDC—a stablecoin that regular people could understand. Shares were priced between $0.00 and $1.00, with winners redeeming for exactly $1.00 USDC. The math was dead simple.
 
-Finally, real events that people actually cared about. Instead of letting users create markets on anything (which led to Augur's ethical nightmares), Polymarket curated high-quality markets around politics, sports, economics, and current events. They focused on questions people were already debating on social media.
-
-Initially built on Ethereum, Polymarket quickly migrated to Polygon as gas fees soared.
-
 The results speak for themselves. Polymarket has generated over $14 billion in cumulative trading volume since launch, with $9 billion in 2024 alone. Compare that to Augur's lifetime volume of perhaps $50 million, or Intrade's peak annual volume of around $50 million. Polymarket brought the prediction market idea to the masses and achieved mainstream cultural relevance.
 
 The platform now boasts 1.6 million registered users and routinely handles $50+ million in daily volume. During major events like the 2024 U.S. election, trading volume exceeded that of many traditional financial markets. When major news breaks, traders now look to Polymarket odds alongside traditional indicators.
 
-| Platform | Volume | Users | Highlights |
-|----------|-------------------------------------|---------------------------|-----------------------------|
-| **Polymarket** | $14+ billion (cumulative by mid-2025) | 200,000–500,000 monthly active traders (2024–2025); 1.6+ million total users | TIME's 100 Most Influential Companies (2025); accurate 2024 U.S. election forecast; partnerships with X; mainstream media coverage (CNN, Bloomberg); endorsed by Elon Musk. |
-| **Intrade** | $200–500 million | ~50,000–100,000 users (estimated peak) | Pioneered real-money political betting; accurately predicted U.S. elections (2008, 2012); media reference for odds; shut down due to U.S. regulatory pressures (CFTC actions). |
-| **PredictIt** | $300–500 million | ~150,000+ users (by 2024) | Academic roots; frequent media citations for election odds; outperformed polls in accuracy; constrained by $850 bet caps and regulations. |
-| **Kalshi** | ~$5–10 billion (by mid-2025, with rapid growth) | Hundreds of thousands (50x growth in 2024; exact figures not public) | First CFTC-regulated U.S. prediction market; $2B valuation (2025); focuses on sports (79% volume), economy; 100x volume growth in 2024. |
-| **Augur** | ~$50 million (lifetime) | Low thousands (limited adoption) | First decentralized crypto prediction market; influenced later platforms but plagued by UX issues, low liquidity, and controversial markets.  |
+<div class="prediction-markets">
+<div class="prediction-markets__item">
+<div class="prediction-markets__item__logo">
+<img src="https://deltabadger.com/images/articles/polymarket/logo-polymarket.svg" alt="Polymarket">
+</div>
+<p><b>Volume:</b> $14B</p>
+<p><b>Users:</b> 200-500k monthly active</p>
+<p><b>Highlights:</b> TIME's 100 Most Influential Companies (2025); accurate 2024 U.S. election forecast; partnerships with X; mainstream media coverage (CNN, Bloomberg); endorsed by Elon Musk.</p>
+</div>
+<div class="prediction-markets__item">
+<div class="prediction-markets__item__logo">
+<img style="transform: scale(0.5)" src="https://deltabadger.com/images/articles/polymarket/logo-kalshi.svg" alt="Kalshi">
+</div>
+<p><b>Volume:</b> $5-10B</p>
+<p><b>Users: </b>2M</p>
+<p><b>Highlights:</b> First CFTC-regulated U.S. prediction market; $2B valuation (2025); focuses on sports (79% volume), economy; 100x volume growth in 2024.</p>
+</div>
+<div class="prediction-markets__item">
+<div class="prediction-markets__item__logo">
+<img src="https://deltabadger.com/images/articles/polymarket/logo-augur.svg" alt="Augur">
+</div>
+<p><b>Volume:</b> $50M</p>
+<p><b>Users:</b> Low thousands</p>
+<p><b>Highlights:</b> First decentralized crypto prediction market; influenced later platforms but plagued by UX issues, low liquidity, and controversial markets.</p>
+</div>
+<div class="prediction-markets__item">
+<div class="prediction-markets__item__logo">
+<img style="transform: scale(0.65)" src="https://deltabadger.com/images/articles/polymarket/logo-predictit.png" alt="PredictIt">
+</div>
+<p><b>Volume:</b> $300-500M</p>
+<p><b>Users:</b> 150k+</p>
+<p><b>Highlights:</b> Academic roots; frequent media citations for election odds; outperformed polls in accuracy; constrained by $850 bet caps and regulations.</p>
+</div>
+<div class="prediction-markets__item">
+<div class="prediction-markets__item__logo">
+<img style="transform: scale(0.7)" src="https://deltabadger.com/images/articles/polymarket/logo-intrade.svg" alt="Intrade">
+</div>
+<p><b>Volume:</b> $200-500M</p>
+<p><b>Users:</b> 50-100k peak</p>
+<p><b>Highlights:</b> Pioneered real-money political betting; accurately predicted U.S. elections (2008, 2012); media reference for odds; shut down due to U.S. regulatory pressures.</p>
+</div>
+<div class="prediction-markets__item">
+<div class="prediction-markets__item__logo">
+<img style="transform: scale(0.6)" src="https://deltabadger.com/images/articles/polymarket/logo-iem.png" alt="Iowa Electronic Markets">
+</div>
+<p><b>Volume:</b> $5M</p>
+<p><b>Users:</b> Thousands</p>
+<p><b>Highlights:</b> First electronic prediction market (1988); consistently outperforms traditional polls in election forecasts; operated for research and teaching by University of Iowa; received CFTC no-action relief.</p>
+</div>
+</div>
 
-Kalshi launched in 2021 as Polymarket's most serious competitor – the first fully CFTC-regulated prediction market operating legally in the U.S. While Polymarket pioneered the crypto-native approach, Kalshi took the opposite bet: work within the traditional regulatory framework using fiat currency. The strategy has paid off handsomely, with volumes surging to $5-10 billion annually by 2025, driven by legal U.S. access and broker integrations like Robinhood. Kalshi focuses heavily on sports betting (which accounts for roughly 70% of volume) alongside political and economic events, creating a direct rivalry with Polymarket for prediction market dominance.
+[Kalshi](https://kalshi.com) launched in 2021 as Polymarket's most serious competitor – the first fully CFTC-regulated prediction market operating legally in the U.S. While Polymarket pioneered the crypto-native approach, Kalshi took the opposite bet: work within the traditional regulatory framework. The strategy has paid off in terms of user numbers, with Kalshi reaching 2 million users. However, Polymarket remains the more culturally significant platform, driving major narratives around elections, global events, and emerging trends that capture public imagination.
+
+## How does it work?
+
+Polymarket operates as a simple binary prediction market. Users buy shares in "Yes" or "No" outcomes for future events, with shares priced between $0.00 and $1.00. Winners receive exactly $1.00 USDC per share. An automated market maker adjusts prices based on trading activity – when more people buy "Yes" shares, the price rises, reflecting increased confidence in that outcome.
+
+{::nomarkdown}
+<figure class="article__figure">
+<img src="https://deltabadger.com/images/articles/polymarket/polymarket-bet.avif" alt="Polymarket">Would you make a bet?</figcaption>
+</figure>
+{:/nomarkdown}
+
+The platform runs on Polygon (migrated from Ethereum to avoid high gas fees), enabling the micro-transactions that make small-stakes betting economically viable.
+
+### Is Polymarket decentralized?
+
+It's a hybrid system. Polymarket Inc. controls the platform, user interface, and market creation, plus maintains a Market Integrity Committee that can override outcomes in extreme cases. However, all trades occur on the Polygon blockchain, and market resolution depends on the UMA Optimistic Oracle – a decentralized system where outcomes are voted on by token holders rather than company employees.
+
+This creates interesting tensions. The controversial Zelensky suit market resolved as "No" despite photographic evidence, leading to accusations that large UMA token holders manipulated the outcome. Yet when Polymarket's committee previously overruled a similar disputed case, critics accused the platform of undermining decentralized principles.
+
+### How Polymarket resolves what is true?
+
+The platform uses the **UMA Optimistic Oracle** to determine truth:
+
+1. **Market Resolution Rules:** Every market has specific, verifiable criteria for determining outcomes
+2. **Outcome Proposal:** Anyone can propose results by posting a $750 USDC bond
+3. **Challenge Period:** Two-hour window for disputes (matching bond required)
+4. **Dispute Process:** UMA token holders vote over 48 hours if challenged
+5. **Market Integrity Committee:** Can intervene in ambiguous cases as a safety valve
+
+The system claims 90.4% accuracy a month out, 89.1% a week out, and 88.6% a day out. Economic incentives drive honest reporting – proposers earn rewards for accuracy but forfeit bonds for errors.
+
+While generally effective, high-stakes markets can potentially be gamed by participants with sufficient capital and voting power, as the Zelensky suit controversy demonstrated.
+
+
 
 ## Polymarket: Iconic Moments
 
@@ -138,17 +228,17 @@ Kalshi launched in 2021 as Polymarket's most serious competitor – the first fu
 
 <div class="timeline__event">
 <div class="timeline__event__mark">
-<img class="timeline__event__mark__thumb" src="https://deltabadger.com/images/articles/polymarket/cftc.avif" alt="CFTC">
+<img class="timeline__event__mark__thumb" src="https://deltabadger.com/images/articles/polymarket/cftc.avif" alt="The Regulatory Reckoning">
 </div>
 <div class="timeline__event__info">
 <p><b>2022: The Regulatory Reckoning</b></p>
-<p>The CFTC came knocking with a $1.4 million fine and a cease-and-desist order, forcing Polymarket to block all U.S. users. The platform was deemed an unregistered derivatives exchange – bureaucratic speak for "you're letting Americans gamble without our permission." But here's the kicker: former CFTC Commissioner Chris Giancarlo, the same guy who helped craft these regulations, joined Polymarket's advisory board shortly after. Nothing says "regulatory clarity" like the poacher turning gamekeeper. <a class="link-source-tile" href="https://www.theblock.co/linked/147946/polymarket-appoints-former-cftc-chief-giancarlo-as-chair-of-advisory-board">theblock.co</a></p>
+<p>The CFTC came knocking with a $1.4 million fine and a cease-and-desist order, forcing Polymarket to block all U.S. users. The platform was deemed an unregistered derivatives exchange – bureaucratic speak for "you're letting Americans gamble without our permission." But here's the kicker: former CFTC Commissioner Chris Giancarlo, the same guy who helped craft these regulations, joined Polymarket's advisory board shortly after. <a class="link-source-tile" href="https://www.theblock.co/linked/147946/polymarket-appoints-former-cftc-chief-giancarlo-as-chair-of-advisory-board">theblock.co</a></p>
 </div>
 </div>
 
 <div class="timeline__event">
 <div class="timeline__event__mark">
-<img class="timeline__event__mark__thumb" src="https://deltabadger.com/images/articles/polymarket/titan.avif" alt="CFTC">
+<img class="timeline__event__mark__thumb" src="https://deltabadger.com/images/articles/polymarket/titan.avif" alt="The Titan Submersible Tragedy">
 </div>
 <div class="timeline__event__info">
 <p><b>2023: The Titan Submersible Tragedy</b></p>
@@ -158,7 +248,7 @@ Kalshi launched in 2021 as Polymarket's most serious competitor – the first fu
 
 <div class="timeline__event">
 <div class="timeline__event__mark">
-<img class="timeline__event__mark__thumb" src="https://deltabadger.com/images/articles/polymarket/vitalik.avif" alt="CFTC">
+<img class="timeline__event__mark__thumb" src="https://deltabadger.com/images/articles/polymarket/vitalik.avif" alt="Silicon Valley Validation">
 </div>
 <div class="timeline__event__info">
 <p><b>2024: Silicon Valley Validation</b></p>
@@ -168,7 +258,7 @@ Kalshi launched in 2021 as Polymarket's most serious competitor – the first fu
 
 <div class="timeline__event">
 <div class="timeline__event__mark">
-<img class="timeline__event__mark__thumb" src="https://deltabadger.com/images/articles/polymarket/biden.avif" alt="CFTC">
+<img class="timeline__event__mark__thumb" src="https://deltabadger.com/images/articles/polymarket/biden.avif" alt="The Biden Withdrawal Call">
 </div>
 <div class="timeline__event__info">
 <p><b>July 2024: The Biden Withdrawal Call</b></p>
@@ -178,7 +268,7 @@ Kalshi launched in 2021 as Polymarket's most serious competitor – the first fu
 
 <div class="timeline__event">
 <div class="timeline__event__mark">
-<img class="timeline__event__mark__thumb" src="https://deltabadger.com/images/articles/polymarket/trump.avif" alt="CFTC">
+<img class="timeline__event__mark__thumb" src="https://deltabadger.com/images/articles/polymarket/trump.avif" alt="The Election That Changed Everything">
 </div>
 <div class="timeline__event__info">
 <p><b>November 2024: The Election That Changed Everything</b></p>
@@ -189,7 +279,7 @@ Kalshi launched in 2021 as Polymarket's most serious competitor – the first fu
 
 <div class="timeline__event">
 <div class="timeline__event__mark">
-<img class="timeline__event__mark__thumb" src="https://deltabadger.com/images/articles/polymarket/fbi.avif" alt="CFTC">
+<img class="timeline__event__mark__thumb" src="https://deltabadger.com/images/articles/polymarket/fbi.avif" alt="The FBI Raid">
 </div>
 <div class="timeline__event__info">
 <p><b>November 2024: The FBI Raid</b></p>
@@ -199,7 +289,7 @@ Kalshi launched in 2021 as Polymarket's most serious competitor – the first fu
 
 <div class="timeline__event">
 <div class="timeline__event__mark">
-<img class="timeline__event__mark__thumb" src="https://deltabadger.com/images/articles/polymarket/time.avif" alt="CFTC">
+<img class="timeline__event__mark__thumb" src="https://deltabadger.com/images/articles/polymarket/time.avif" alt="TIME's Recognition">
 </div>
 <div class="timeline__event__info">
 <p><b>June 2025: TIME's Recognition</b></p>
@@ -209,7 +299,7 @@ Kalshi launched in 2021 as Polymarket's most serious competitor – the first fu
 
 <div class="timeline__event">
 <div class="timeline__event__mark">
-<img class="timeline__event__mark__thumb" src="https://deltabadger.com/images/articles/polymarket/x_logo.avif" alt="CFTC">
+<img class="timeline__event__mark__thumb" src="https://deltabadger.com/images/articles/polymarket/x_logo.avif" alt="The X Partnership">
 </div>
 <div class="timeline__event__info">
 <p><b>June 2025: The X Partnership</b></p>
@@ -219,11 +309,12 @@ Kalshi launched in 2021 as Polymarket's most serious competitor – the first fu
 
 <div class="timeline__event">
 <div class="timeline__event__mark">
-<img class="timeline__event__mark__thumb" src="https://deltabadger.com/images/articles/polymarket/zelensky.avif" alt="CFTC">
+<img class="timeline__event__mark__thumb" src="https://deltabadger.com/images/articles/polymarket/zelensky.avif" alt="The Zelensky Suit Controversy">
 </div>
 <div class="timeline__event__info">
 <p><b>July 2025: The Zelensky Suit Controversy</b></p>
-<p>Most recently, Polymarket found itself embroiled in its biggest controversy since the Titan submersible. A market on whether Ukrainian President Zelensky would wear a suit to a specific event generated $237 million in volume – the largest non-election market in the platform's history. When the market resolved as "No," ruling that Zelensky didn't wear a suit, accusations of manipulation erupted. Critics alleged that whales had manipulated the outcome and that bots had gamed the oracle system, generating over 24,000 angry comments and exposing potential flaws in decentralized consensus mechanisms. <a class="link-source-tile" href="https://www.wired.com/story/volodymyr-zelensky-suit-polymarket-rebellion/">wired.com</a></p>
+<p>Most recently, Polymarket found itself embroiled in its biggest controversy since the Titan submersible. A market on whether Ukrainian President Zelensky would wear a suit to a specific event generated $237 million in volume – the largest non-election market in the platform's history.</p>
+<p>When the market resolved as "No," ruling that Zelensky didn't wear a suit, accusations of manipulation erupted. Critics alleged that whales had manipulated the outcome and that bots had gamed the oracle system, generating over 24,000 angry comments and exposing potential flaws in decentralized consensus mechanisms. <a class="link-source-tile" href="https://www.wired.com/story/volodymyr-zelensky-suit-polymarket-rebellion/">wired.com</a></p>
 </div>
 </div>
 
@@ -320,7 +411,7 @@ The elephant in the room is the question of whether it will launch one. For a �
 
 ### The Evidence is Mounting
 
-The breadcrumbs are everywhere if you know where to look. Polymarket recently registered the polymarket.foundation domain. Foundation domains have become the standard playbook for DeFi protocols preparing to decentralize through token launches.
+The breadcrumbs are everywhere if you know where to look. Polymarket recently registered the polymarket.foundation domain. Foundation domains have become the standard playbook for DeFi protocols preparing to decentralize through token launches. <a class="link-source-tile" href="https://x.com/ArtDreamdim/status/1943318454183813142">x.com</a> 
 
 Then there are the funding rounds themselves. When Vitalik Buterin and Founders Fund write checks, they're not expecting traditional equity returns. These investors understand tokenomics, and they've likely structured their investments with future token distributions in mind.
 
@@ -328,9 +419,9 @@ Recent reports suggest Polymarket is nearing a $200 million funding round at a $
 
 ### Can you qualify for the airdrop?
 
-X is already buzzing about potential Polymarket airdrops, with crypto communities actively discussing "airdrop farming" strategies. The platform has hundreds of thousands of active users and detailed transaction histories going back to 2020 – perfect data for targeted token distributions. Early users, high-volume traders, and accurate predictors could all receive allocations based on their platform contributions.
+X is already buzzing about potential Polymarket airdrops, with crypto communities actively discussing "airdrop farming" strategies. The platform has hundreds of thousands of active users and detailed transaction histories going back to 2020 – perfect data for targeted token distributions. Early users, high-volume traders, and accurate predictors could all receive allocations based on their platform contributions. <a class="link-source-tile" href="https://coincodex.com/article/67098/polymarket-airdrop/">coincodex.com</a> 
 
-Opening an account and placing bets on Polymarket could potentially qualify you for a future airdrop, based on widespread community speculation and strategies shared across crypto Twitter and Discord channels.
+Opening an account and placing bets on Polymarket could potentially qualify you for a future airdrop, based on widespread community speculation and strategies shared across crypto Twitter and Discord channels. <a class="link-source-tile" href="https://airdrops.io/polymarket/">airdrops.io</a> 
 
 Many prediction market platforms and DeFi projects have rewarded early adopters with token airdrops, and Polymarket users are actively "farming" the platform by increasing trading volume in hopes of eligibility if a token is ever launched.
 
