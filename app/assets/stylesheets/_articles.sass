@@ -4,14 +4,13 @@
 .articles-header
   margin-bottom: 6rem
   &__title
-    font-family: "Domine", serif
-    color: var(--emphasis)
-    font-size: 3rem
-    font-weight: 400
-    line-height: 1.2
-    margin-bottom: 1rem
-    @media (min-width: 768px)
-      font-size: 4rem
+    margin-bottom: 6rem
+    height: 5rem
+    svg
+      height: 5rem
+      display: block
+    .fill--icon-active
+      fill: var(--research-logo)
   &__subtitle
     font-size: 1.75rem
     line-height: 1.5
@@ -143,9 +142,10 @@
       padding-bottom: 0.5rem
       @media (min-width: 768px)
         gap: 3rem
-    &__back
-      font-size: 1.75rem
-      text-decoration: none
+    svg
+      height: 4rem
+    .fill--icon-active
+      fill: var(--research-logo)
     &__title
       font-size: 4rem
       font-weight: 700

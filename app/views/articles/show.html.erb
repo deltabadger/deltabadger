@@ -47,10 +47,7 @@
 
 <article class="article" data-controller="twitter">
   <header class="article__header">
-    <%= link_to articles_path, class: "article__header__back" do %>
-      <%= t('articles.back_to_articles') %>
-    <% end %>
-
+    <%= link_to render(partial: 'svg/40x159_research'), articles_path, title: t('articles.back_to_articles') %>
     <hgroup>
       <h1 class="article__header__title"><%= @article.title.html_safe %></h1>
       <% if @article.subtitle.present? %>
