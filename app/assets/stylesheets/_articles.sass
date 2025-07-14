@@ -195,10 +195,11 @@
       box-shadow: var(--widget-shadow)
     &__caption
       text-align: center
-      margin: 3rem 0 0
+      margin: 1rem 0 0
       font-size: 1.75rem
       color: var(--label)
       font-style: italic
+
 .paywall
   background: linear-gradient(to bottom, #fff0 0%, var(--background) 30%)
   position: relative
@@ -390,6 +391,11 @@
       padding-bottom: 8rem
       b, span
         display: block
+    &--prehistory
+      .timeline__event__mark
+        &::after
+          width: 0
+          border-left: 0.25rem dashedvar(--label)
   &--illustrated
     padding-top: 5rem
     .timeline__event__mark

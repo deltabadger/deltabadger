@@ -21,7 +21,7 @@ But every now and then, something breaks through the noise.
 {::nomarkdown}
 <figure class="article__figure">
 <img src="https://deltabadger.com/images/articles/polymarket/polymarket.avif" alt="Polymarket">
-<figcaption><a href="https://polymarket.com/">polymarket.com</a></figcaption>
+<figcaption class="article__figure__caption"><a href="https://polymarket.com/">polymarket.com</a></figcaption>
 </figure>
 {:/nomarkdown}
 
@@ -42,13 +42,13 @@ The concept isn't new.
 ### A Brief History
 
 <section class="timeline timeline--illustrated timeline--bw">
-<div class="timeline__event">
+<div class="timeline__event timeline__event--prehistory">
 <div class="timeline__event__mark">
-<img class="timeline__event__mark__thumb" src="https://deltabadger.com/images/articles/polymarket/pope.avif" alt="16th Century">
+<img class="timeline__event__mark__thumb" src="https://deltabadger.com/images/articles/polymarket/pope.avif" alt="Ancient Times">
 </div>
 <div class="timeline__event__info">
-<p><b>1600: Habemus Papam</b></p>
-<p>The first organized prediction markets we'd recognize emerged in 16th-century Italy, where people placed bets on papal elections—wagering on which cardinal would emerge from the Sistine Chapel as the next Pope. These weren't just idle gambles; they aggregated insider knowledge from Vatican officials, political observers, and anyone with skin in the game.</p>
+<p><b>1600: Hebemas Papam</b></p>
+<p>Humans have been betting on future events for millennia. One notable example emerged in 16th-century Italy, where people placed bets on papal elections—wagering on which cardinal would emerge from the Sistine Chapel as the next Pope.</p>
 </div>
 </div>
 <div class="timeline__event">
@@ -79,47 +79,27 @@ The concept isn't new.
 <p>[Intrade](https://intrade.com/), which operated from 2001 to 2013, gained mainstream attention for accurately calling everything from Oscar winners to presidential races. When Intrade shut down under regulatory pressure, platforms like [PredictIt](https://www.predictit.org/)—the most successful predecessor to Polymarket—emerged to fill the void, though with strict betting limits that constrained their impact.</p>
 </div>
 </div>
+<div class="timeline__event">
+<div class="timeline__event__mark">
+<img class="timeline__event__mark__thumb" src="https://deltabadger.com/images/articles/polymarket/paul-sztorc.avif" alt="Blockchain Era">
+</div>
+<div class="timeline__event__info">
+<p><b>2014: Hivemind</b></p>
+<p>Paul Sztorc proposed [Hivemind](https://bitcoinhivemind.com/) (originally Truthcoin), a Bitcoin sidechain using "vote coins" to resolve market outcomes. Token holders would vote on whether events occurred, with economic incentives rewarding honest reporting. Despite thoughtful game theory and economics, Hivemind never launched due to Bitcoin's limited scripting capabilities and the technical complexity of bootstrapping a two-way peg sidechain.</p>
+</div>
+</div>
+<div class="timeline__event">
+<div class="timeline__event__mark">
+<img class="timeline__event__mark__thumb" src="https://deltabadger.com/images/articles/polymarket/augur.avif" alt="Ethereum Era">
+</div>
+<div class="timeline__event__info">
+<p><b>2015: Augur</b></p>
+<p>[Augur](www.augur.net/) raised ~$5 million in an ICO to become the world's first decentralized prediction market, launching on Ethereum in 2018. Users could create markets on anything, but the platform suffered from terrible user experience, high gas fees making small bets unviable, and disturbing markets on assassinations and terrorist attacks that it couldn't stop without abandoning its censorship-resistant principles. Despite years of development, it never achieved the liquidity needed for accurate price discovery.</p>
+</div>
+</div>
 </section>
 
-### Assasination Markets
-
-This power comes with ethical baggage. There's something unsettling about commodifying uncertainty—betting on natural disasters or political upheavals can feel like profiting from misery.
-
-In 1995, a crypto-anarchist named Jim Bell published an essay called "[Assassination Politics](https://www.academia.edu/4146743/Assassination_Politics_by_Jim_Bell)." Bell's proposal was as brilliant as it was disturbing: create an anonymous, encrypted prediction market where people could bet on the death dates of public figures—particularly corrupt politicians and officials.
-
-Participants would place encrypted bets predicting when someone would die. The person who guessed correctly would win the entire pool. But here's the dark genius: the most accurate predictor would likely be the assassin themselves, since they'd know exactly when they planned to strike. The market would essentially crowdfund political assassination while maintaining complete anonymity through cryptography.
-
-Bell argued this system could topple corrupt governments without traditional revolution. Why wage war when you could simply make it financially impossible for bad actors to survive in power? The market would naturally incentivize the removal of the most despised leaders while protecting the anonymity of those carrying out the "predictions."
-
-It was a cypherpunk fever dream that took the libertarian ideals of decentralized, censorship-resistant markets to their logical extreme. Bell genuinely believed this could create a more just world by making corruption literally deadly—a free-market solution to political oppression.
-
-Unsurprisingly, Bell was eventually imprisoned on unrelated charges. While his ideas were never fully realized, they directly influenced the design principles behind many crypto projects. The concept casts a shadow over the prediction market space, which has since had to grapple with the question: where exactly do we draw the ethical line?
-
-Modern platforms like Polymarket have learned from these ethical dilemmas. Rather than allowing unrestricted market creation, they employ curation policies that focus on legitimate political, economic, and cultural events while explicitly avoiding markets that could incentivize harm or profit from tragedy.
-
-## Crypto's Early Attempts
-
-The promise of blockchain technology—that removes centralized authorities while enabling anonymity and censorship resistance—seemed tailor-made for prediction markets.
-
-### Hivemind
-
-The first serious attempt came from Paul Sztorc in 2014 with [Hivemind](https://bitcoinhivemind.com/) (originally called Truthcoin). Sztorc's vision was a Bitcoin sidechain that would use "vote coins" to resolve market outcomes. Token holders would vote on whether events actually occurred, with economic incentives designed to reward honest reporting. Similar to how the Bitcoin network incentivizes consensus, if you voted with the majority, you earned fees; vote dishonestly, and you'd lose money.
-
-Sztorc had thought through the game theory, the economics, even the governance mechanisms. But Hivemind never launched due to Bitcoin's limited scripting capabilities and the technical complexity of bootstrapping a two-way peg sidechain.
-
-### Augur
-
-Ethereum's smart contracts seemed to offer an easier path. In 2015, [Augur](www.augur.net/) raised ~$5 million in an ICO with the promise of becoming the world's first decentralized prediction market. It launched on Ethereum mainnet in 2018.
-
-Users could create markets on literally anything—from election outcomes to cryptocurrency prices to whether aliens would be discovered. But Augur quickly ran into real-world problems. The user experience was terrible, requiring technical knowledge, while Ethereum's high gas fees made small bets economically unviable.
-
-More troubling, because Augur was truly decentralized and censorship-resistant, users started creating markets on assassination attempts, terrorist attacks, and other disturbing events. The platform couldn't stop these without abandoning its core principles.
-
-Augur's trading volumes remained anemic. Despite years of development and millions in funding, it never achieved the liquidity needed for accurate price discovery.
-
-Both Hivemind and Augur were crucial proof-of-concepts that demonstrated blockchain-based prediction markets were possible—but also revealed the enormous challenges involved.
-
-The stage was set for someone to get it right.
+Both Hivemind and Augur were crucial proof-of-concepts that demonstrated blockchain-based prediction markets were possible—but also revealed the enormous challenges involved. The stage was set for someone to get it right.
 
 ## Polymarket's Rise
 
@@ -188,13 +168,14 @@ The platform now boasts 1.6 million registered users and routinely handles $50+ 
 
 [Kalshi](https://kalshi.com) launched in 2021 as Polymarket's most serious competitor – the first fully CFTC-regulated prediction market operating legally in the U.S. While Polymarket pioneered the crypto-native approach, Kalshi took the opposite bet: work within the traditional regulatory framework. The strategy has paid off in terms of user numbers, with Kalshi reaching 2 million users. However, Polymarket remains the more culturally significant platform, driving major narratives around elections, global events, and emerging trends that capture public imagination.
 
-## How does it work?
+### How does Polymarket work?
 
 Polymarket operates as a simple binary prediction market. Users buy shares in "Yes" or "No" outcomes for future events, with shares priced between $0.00 and $1.00. Winners receive exactly $1.00 USDC per share. An automated market maker adjusts prices based on trading activity – when more people buy "Yes" shares, the price rises, reflecting increased confidence in that outcome.
 
 {::nomarkdown}
 <figure class="article__figure">
-<img src="https://deltabadger.com/images/articles/polymarket/polymarket-bet.avif" alt="Polymarket">Would you make a bet?</figcaption>
+<img src="https://deltabadger.com/images/articles/polymarket/polymarket-bet.avif" alt="Polymarket">
+<figcaption class="article__figure__caption">Would you make a bet?</figcaption>
 </figure>
 {:/nomarkdown}
 
@@ -208,19 +189,7 @@ This creates interesting tensions. The controversial Zelensky suit market resolv
 
 ### How Polymarket resolves what is true?
 
-The platform uses the **UMA Optimistic Oracle** to determine truth:
-
-1. **Market Resolution Rules:** Every market has specific, verifiable criteria for determining outcomes
-2. **Outcome Proposal:** Anyone can propose results by posting a $750 USDC bond
-3. **Challenge Period:** Two-hour window for disputes (matching bond required)
-4. **Dispute Process:** UMA token holders vote over 48 hours if challenged
-5. **Market Integrity Committee:** Can intervene in ambiguous cases as a safety valve
-
-The system claims 90.4% accuracy a month out, 89.1% a week out, and 88.6% a day out. Economic incentives drive honest reporting – proposers earn rewards for accuracy but forfeit bonds for errors.
-
-While generally effective, high-stakes markets can potentially be gamed by participants with sufficient capital and voting power, as the Zelensky suit controversy demonstrated.
-
-
+The platform uses the decentralized UMA Optimistic Oracle for resolutions, where anyone can propose outcomes with a bond, challenges are voted on by token holders over 48 hours, and economic incentives ensure honest reporting (claiming 90.4% accuracy a month out).
 
 ## Polymarket: Iconic Moments
 
@@ -231,8 +200,8 @@ While generally effective, high-stakes markets can potentially be gamed by parti
 <img class="timeline__event__mark__thumb" src="https://deltabadger.com/images/articles/polymarket/cftc.avif" alt="The Regulatory Reckoning">
 </div>
 <div class="timeline__event__info">
-<p><b>2022: The Regulatory Reckoning</b></p>
-<p>The CFTC came knocking with a $1.4 million fine and a cease-and-desist order, forcing Polymarket to block all U.S. users. The platform was deemed an unregistered derivatives exchange – bureaucratic speak for "you're letting Americans gamble without our permission." But here's the kicker: former CFTC Commissioner Chris Giancarlo, the same guy who helped craft these regulations, joined Polymarket's advisory board shortly after. <a class="link-source-tile" href="https://www.theblock.co/linked/147946/polymarket-appoints-former-cftc-chief-giancarlo-as-chair-of-advisory-board">theblock.co</a></p>
+<p><b>2022: U.S. Regulatory Shutdown</b></p>
+<p>The CFTC fined Polymarket $1.4 million and forced the platform to block all U.S. users, deeming it an unregistered derivatives exchange. This regulatory action pushed Polymarket into international markets only, limiting its growth potential despite American users representing a significant portion of prediction market interest.</p>
 </div>
 </div>
 
@@ -360,24 +329,11 @@ This $27,000 represents roughly 6% of Polygon's total fee revenue – meaningful
 
 Following Ethereum's EIP-1559 model, Polygon burns a portion of these base fees, creating a deflationary mechanism. Polymarket's activity contributes to this burn, but again, we're talking about burning tokens worth thousands of dollars annually on a network with billions in circulation. 
 
-There's surely something economists call "sentiment correlation." When Polymarket makes headlines for accurately predicting elections or securing major partnerships, it reflects positively on Polygon's capabilities. This can influence trader sentiment and capital allocation decisions, even if the fundamental tokenomics haven't changed.  
-
-On the staking angle, as Polygon's network activity grows, validator rewards become more attractive, potentially increasing demand for POL staking. Polymarket's consistent transaction volume provides a baseline of network activity that makes running validators more economically viable. More validators means more POL locked in staking, reducing circulating supply. 
-
 Then there's governance. POL holders vote on network upgrades, parameter changes, and ecosystem fund allocations. As Polygon becomes more valuable infrastructure – partly thanks to applications like Polymarket – having a voice in its governance becomes more valuable. This could theoretically drive demand from institutional users who want influence over a network they depend on.  
 
 ### The Price Disconnect  
 
-Despite all this activity, POL trades around $0.226-0.23 – down a crushing 85% from its $2.92 all-time high and 63% year-to-date.  
-How is this possible when one of crypto's most successful applications is driving so much network activity?
-
-The answer lies in POL's monetary policy and market dynamics.  
-
-The network currently issues 2% of total supply annually (about 200 million tokens) as rewards to validators and the community treasury. Meanwhile, fee burns only destroy about 0.27% of supply per year – roughly 27 million tokens.  
-
-Simple math: 2% inflation minus 0.27% deflation equals 1.73% net inflation annually. No matter how successful Polymarket becomes, POL supply keeps growing faster than demand, creating downward pressure on price.  
-
-The token also suffered from the September 2024 migration from MATIC to POL, which created confusion, disrupted market cap calculations, and triggered selling from holders who didn't understand the transition. The rebrand essentially reset price discovery, and the new POL hasn't recovered the psychological momentum that MATIC once had.  
+Despite all this activity, POL trades around $0.226-0.23 – down 85% from its all-time high. The disconnect stems from Polygon's monetary policy: the network issues 2% of total supply annually as validator rewards, while fee burns only destroy about 0.27% of supply per year. This creates net inflation that outpaces demand growth, regardless of Polymarket's success. The September 2024 migration from MATIC to POL also created market confusion and selling pressure.
 
 ### Scale Requirements: 10x  
 
