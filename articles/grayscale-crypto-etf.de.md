@@ -4,6 +4,12 @@ subtitle: "Index Universe, CD20, CD5 – CoinDesk-Indizes formen unauffällig de
 author_id: 1
 thumbnail: grayscale-etf.avif
 excerpt: "Grayscales neuer ETF folgt dem CoinDesk 5 Index – nicht nur den Top 5 Kryptos nach Marktkapitalisierung, sondern einem komplexen institutionellen Filter. Von Index Universe zu CD5 zeigt diese vierstufige Methodik, wohin institutionelles Geld als nächstes fließen wird."
+paywall_hook: |
+    <ul>
+        <li>Wohin fließt als Nächstes das institutionelle Geld?</li>
+        <li>ETF-basierte Handelsidee (kein ETF-Zugang erforderlich)</li>
+        <li>Welche Coins sind die nächsten für individuelle Spot-ETFs?</li>
+    </ul>
 x_url: https://x.com/deltabadgerapp/status/1943337030869471342
 telegram_url: https://t.me/deltabadger/97
 published: true
@@ -197,4 +203,4 @@ Der größte Vorteil von Indizes besteht darin, dass sie ein natürliches Risiko
 
 -
 
-*Was ist Ihre Meinung zu diesen Entwicklungen? Würden Sie in CD5, CD20 investieren oder einfach bei Bitcoin bleiben? ETF oder selbstverwaltetes benutzerdefiniertes Indexportfolio?* 
+*Was ist Ihre Meinung zu diesen Entwicklungen? Würden Sie in CD5, CD20 investieren oder einfach bei Bitcoin bleiben? ETF oder selbstverwaltetes benutzerdefiniertes Indexportfolio?*
