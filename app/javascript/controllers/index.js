@@ -109,11 +109,5 @@ application.register("tooltip", TooltipController)
 import TurboFrameTriggerController from "./turbo_frame_trigger_controller"
 application.register("turbo-frame-trigger", TurboFrameTriggerController)
 
-import TradingviewController from "./tradingview_controller"
-application.register("tradingview", TradingviewController)
-
-import TwitterController from "./twitter_controller"
-application.register("twitter", TwitterController)
-
 import ZarazController from "./zaraz_controller"
 application.register("zaraz", ZarazController)
