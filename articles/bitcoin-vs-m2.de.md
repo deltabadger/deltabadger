@@ -6,6 +6,12 @@ thumbnail: bitcoin-vs-m2.avif
 excerpt: "Die Beziehung zwischen Bitcoin und der globalen Geldmenge. Die Forschung von Lyn Alden. Die 12-Wochen-Vorlauf-Idee. KI-Bitcoin-Preisvorhersage basierend auf dem M2-Modell."
 x_url: https://x.com/deltabadgerapp/status/1939622461768892684
 telegram_url: https://t.me/deltabadger/91
+paywall_hook: |
+    <ul>
+        <li>Das Modell, das die Richtung von Bitcoin mit 83 % Genauigkeit vorhersagt</li>
+        <li>Wie man es mit On-Chain-Daten verbessert</li>
+        <li>KI-Preisvorhersage für die nächsten 12 Monate</li>
+    </ul>
 published: true
 published_at: "2025-07-01"
 ---

@@ -39,6 +39,13 @@ class Article < ApplicationRecord
     "articles/thumbnails/#{thumbnail}"
   end
 
+  def social_thumbnail_path
+    return nil unless thumbnail.present?
+
+    base = thumbnail.sub(/\.[^.]+$/, '')
+    "articles/thumbnails/#{base}_thumbnail.jpg"
+  end
+
   def plain_title
     return title unless title.present?
 

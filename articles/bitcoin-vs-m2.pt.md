@@ -4,6 +4,12 @@ subtitle: "83% de correlação direcional com a oferta monetária global"
 author_id: 1
 thumbnail: bitcoin-vs-m2.avif
 excerpt: "A relação entre o Bitcoin e a oferta monetária global. A pesquisa de Lyn Alden. A ideia da liderança de 12 semanas. Previsão de preço do Bitcoin por IA com base no modelo M2."
+paywall_hook: |
+    <ul>
+        <li>O modelo que prevê a direção do Bitcoin com 83% de precisão</li>
+        <li>Como melhorá-lo com dados on-chain</li>
+        <li>Previsão de preços da IA para os próximos 12 meses</li>
+    </ul>
 published: true
 published_at: "2025-07-01"
 ---

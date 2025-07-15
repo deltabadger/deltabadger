@@ -8,7 +8,7 @@
 <% end %>
 
 <hgroup class="articles-header">
-  <h1 class="articles-header__title"><%= t('articles.index.title') %></h1>
+  <h1 class="articles-header__title"><%= render partial: 'svg/40x159_research', locals: { title: t('articles.index.title') } %></h1>
   <p class="articles-header__subtitle"><%= t('articles.index.meta_description') %></p>
   <% unless current_user&.subscription&.pro? || current_user&.subscription&.legendary? %>
     <% path = current_user.present? ? upgrade_path : new_user_registration_path %>

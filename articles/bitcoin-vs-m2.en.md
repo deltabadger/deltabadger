@@ -6,6 +6,12 @@ thumbnail: bitcoin-vs-m2.avif
 excerpt: "The relationship between Bitcoin and global money supply. Lyn Alden's research. The 12-week lead idea. AI Bitcoin price prediction based on the M2 model."
 x_url: https://x.com/deltabadgerapp/status/1939622461768892684
 telegram_url: https://t.me/deltabadger/91
+paywall_hook: |
+    <ul>
+        <li>The model that predicts Bitcoin's direction with 83% accuracy</li>
+        <li>How to improve it with on-chain data</li>
+        <li>AI price prediction for the next 12 months</li>
+    </ul>
 published: true
 published_at: "2025-07-01"
 ---

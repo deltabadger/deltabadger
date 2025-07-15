@@ -9,7 +9,7 @@
   <meta property="og:url" content="<%= article_url(@article, locale: @article.locale) %>">
   <meta property="og:site_name" content="Deltabadger">
   <% if @article.thumbnail_path.present? %>
-    <% social_thumbnail = @article.thumbnail_path.gsub(/\.[^.]+$/, '.jpg') %>
+    <% social_thumbnail = @article.social_thumbnail_path %>
     <meta property="og:image" content="<%= asset_url(social_thumbnail) %>">
     <meta property="og:image:alt" content="<%= @article.plain_title %>">
   <% end %>
@@ -47,10 +47,7 @@
 
 <article class="article" data-controller="twitter">
   <header class="article__header">
-    <%= link_to articles_path, class: "article__header__back" do %>
-      <%= t('articles.back_to_articles') %>
-    <% end %>
-
+    <%= link_to t('articles.back_to_articles'), articles_path, class: "article__back-link" %>
     <hgroup>
       <h1 class="article__header__title"><%= @article.title.html_safe %></h1>
       <% if @article.subtitle.present? %>
@@ -115,7 +112,7 @@
   <% unless @content_unlocked %>
     <div class="paywall">
       <h2 style="margin-bottom: 0"><%= t('articles.paywall.title') %></h3>
-      <div><%= t('articles.paywall.description').html_safe %></div>
+      <div><%= @article.paywall_hook.present? ? raw(@article.paywall_hook) : t('articles.paywall.description').html_safe %></div>
 
       <div class="paywall__actions">
         <%= render partial: 'articles/premium_subscribers', locals: { count: @premium_subscribers_count } %>

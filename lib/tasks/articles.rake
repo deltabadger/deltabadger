@@ -52,6 +52,7 @@ namespace :articles do
       article.thumbnail = metadata['thumbnail']
       article.x_url = metadata['x_url']
       article.telegram_url = metadata['telegram_url']
+      article.paywall_hook = metadata['paywall_hook']
 
       # Handle author by ID
       if metadata['author_id'].present?
