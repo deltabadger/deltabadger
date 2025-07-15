@@ -42,7 +42,8 @@ class Article < ApplicationRecord
   def social_thumbnail_path
     return nil unless thumbnail.present?
 
-    base = thumbnail.sub(/\.[^.]+$/, '')
+    extension = File.extname(thumbnail)
+    base = File.basename(thumbnail, extension)
     "articles/thumbnails/#{base}_thumbnail.jpg"
   end
 
