@@ -1,6 +1,6 @@
 ---
-title: "Polymarket: um mergulho profundo"
-subtitle: "Da sabedoria das multidões ao futuro da Polygon"
+title: "Polymarket: Máquina da Verdade"
+subtitle: "Da Sabedoria das Multidões ao Futuro da Polygon"
 author_id: 1
 thumbnail: polymarket.avif
 excerpt: "Com um volume de negociação de 9 mil milhões de dólares só em 2024, a Polymarket tornou-se o maior mercado de previsão do mundo. Das eleições presidenciais aos eventos globais, este mergulho profundo explora como as apostas baseadas em criptomoedas estão a revolucionar a forma como processamos a informação."
