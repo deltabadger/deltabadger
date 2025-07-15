@@ -10,8 +10,8 @@ paywall_hook: |
         <li>¿Cómo calificar para posibles airdrops de Polymarket?</li>
         <li>Argumentos a largo plazo para la infraestructura de Polygon</li>
     </ul>
-x_url: https://x.com/deltabadgerapp/status/1943337030869471342
-telegram_url: https://t.me/deltabadger/97
+x_url: https://x.com/deltabadgerapp/status/1945100471317766527
+telegram_url: https://t.me/deltabadger/100
 published: true
 published_at: "2025-07-14"
 ---
