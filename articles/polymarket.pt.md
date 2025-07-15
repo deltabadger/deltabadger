@@ -108,9 +108,15 @@ Em vez das complexas ferramentas de criação de mercado e das interfaces confus
 
 Enquanto outras plataformas usavam tokens de governação obscuros ou ativos sintéticos, a Polymarket negociava em USDC – uma stablecoin que as pessoas comuns conseguiam entender. As ações tinham um preço entre 0,00 e 1,00 dólares, com os vencedores a resgatar por exatamente 1,00 dólar USDC. A matemática era muito simples.
 
-Os resultados falam por si. A Polymarket gerou mais de 14 mil milhões de dólares em volume de negociação acumulado desde o lançamento, com 9 mil milhões de dólares só em 2024. Compare-se isso com o volume vitalício da Augur de talvez 50 milhões de dólares, ou o volume anual máximo da Intrade de cerca de 50 milhões de dólares. A Polymarket levou a ideia do mercado de previsão às massas e alcançou relevância cultural generalizada.
+Os resultados falam por si. A Polymarket gerou mais de 14 mil milhões de dólares em volume de negociação acumulado desde o seu lançamento, com 9 mil milhões de dólares apenas em 2024. Compare-se isso com o volume vitalício da Augur, de talvez 50 milhões de dólares, ou com o volume máximo anual da Intrade, de cerca de 50 milhões de dólares. A Polymarket levou a ideia do mercado de previsão às massas e alcançou relevância cultural mainstream.
 
-A plataforma conta agora com 1,6 milhões de utilizadores registados e processa rotineiramente mais de 50 milhões de dólares em volume diário. Durante grandes eventos como as eleições dos EUA de 2024, o volume de negociação excedeu o de muitos mercados financeiros tradicionais. Quando surgem notícias importantes, os negociadores agora olham para as probabilidades da Polymarket juntamente com os indicadores tradicionais.
+{::nomarkdown}
+<figure class="article__figure">
+<iframe width="100%" height="420" frameborder="0" src="https://www.theblock.co/data/decentralized-finance/prediction-markets-and-betting/polymarket-volume-monthly/embed" title="Polymarket Volume (Monthly)"></iframe>
+</figure>
+{:/nomarkdown}
+
+A plataforma conta agora com 1,6 milhões de utilizadores registados e processa rotineiramente mais de 50 milhões de dólares em volume diário. Durante grandes eventos como as eleições nos EUA em 2024, o volume de negociação excedeu o de muitos mercados financeiros tradicionais. Quando surgem notícias importantes, os negociadores olham agora para as probabilidades da Polymarket juntamente com os indicadores tradicionais.
 
 <div class="prediction-markets">
 <div class="prediction-markets__item">
@@ -290,15 +296,21 @@ Os utilizadores da Deltabadger podem agora perguntar: À medida que a Polymarket
 
 <!-- PAYWALL -->
 
-## Da Polymarket à Polygon: Análise de investimento
+## Da Polymarket à Polygon: Análise de Investimento
 
-A Polymarket tornou-se silenciosamente um dos mais significativos impulsionadores de procura para a rede Polygon. Durante os períodos de pico de negociação – particularmente em torno de grandes eventos como as eleições de 2024 – a Polymarket consumiu até 25% do gás total da Polygon, impulsionando picos sustentados nas transações diárias. <a class="link-source-tile" href="https://coinmetrics.substack.com/p/state-of-the-network-issue-283">coinmetrics.substack.com</a>
+A Polymarket tornou-se discretamente um dos mais significativos impulsionadores de procura para a rede Polygon. Durante os períodos de pico de negociação – particularmente em torno de grandes eventos como as eleições de 2024 – a Polymarket consumiu até 25% do gás total da Polygon, provocando picos sustentados nas transações diárias. <a class="link-source-tile" href="https://coinmetrics.substack.com/p/state-of-the-network-issue-283">coinmetrics.substack.com</a>
 
-Na altura das últimas eleições presidenciais, a 5 de novembro de 2024, a Polymarket detinha mais de 500 milhões de dólares em TVL (Total Value Locked) – representando quase 40% do TVL de toda a rede Polygon. <a class="link-source-tile" href="https://thedefiant.io/news/blockchains/fidelity-frames-eth-as-money-and-ethereum-as-a-digital-economy-in-new-report">thedefiant.com</a>
+À data da última eleição presidencial, a 5 de novembro de 2024, a Polymarket detinha mais de 500 milhões de dólares em TVL (Total Value Locked) – representando quase 40% do TVL de toda a rede Polygon. <a class="link-source-tile" href="https://thedefiant.io/news/blockchains/fidelity-frames-eth-as-money-and-ethereum-as-a-digital-economy-in-new-report">thedefiant.com</a>
 
-A Polymarket também se tornou um enorme impulsionador da procura de USDC na Polygon. Os 14 mil milhões de dólares de volume acumulado da plataforma representam um fluxo real de stablecoins – não "yield farming" sintético ou negociação circular, mas atividade económica genuína onde os utilizadores depositam USDC para fazer apostas e retiram os ganhos.
+{::nomarkdown}
+<figure class="article__figure">
+<iframe width="100%" height="420" frameborder="0" src="https://www.theblock.co/data/decentralized-finance/prediction-markets-and-betting/polymarket-open-interest-per-market-daily/embed" title="Polymarket Open Interest per Market (Daily)"></iframe>
+</figure>
+{:/nomarkdown}
 
-Isto é mais importante do que pode parecer inicialmente. À medida que a adoção de stablecoins cresce globalmente, as redes que conseguem demonstrar uma utilidade real de USDC posicionam-se como infraestrutura essencial. Os milhares de milhões em volume de USDC da Polymarket fornecem provas credíveis de que a Polygon consegue lidar com a atividade financeira generalista.
+A Polymarket tornou-se também um motor maciço da procura de USDC na Polygon. O volume acumulado de 14 mil milhões de dólares da plataforma representa um fluxo real de stablecoin – não yield farming sintético ou negociação circular, mas uma atividade económica genuína em que os utilizadores depositam USDC para fazer apostas e levantam os ganhos.
+
+Isto é mais importante do que possa parecer à primeira vista. À medida que a adoção de stablecoins cresce globalmente, as redes que conseguem demonstrar uma utilidade real de USDC posicionam-se como infraestruturas essenciais. Os milhares de milhões em volume de USDC da Polymarket fornecem provas credíveis de que a Polygon consegue lidar com a atividade financeira do dia a dia.
 
 Quando meios de comunicação tradicionais como a CNN e a Bloomberg escrevem sobre mercados de previsão, estão implicitamente a validar a rede Polygon que torna tudo isso possível.
 
@@ -330,11 +342,70 @@ Depois há a governação. Os detentores de POL votam em atualizações da rede,
 
 ### A desconexão de preços
 
-Apesar de toda esta atividade, o POL negoceia em torno de 0,226-0,23 dólares – uma queda de 85% em relação ao seu máximo histórico. A desconexão resulta da política monetária da Polygon: a rede emite 2% da oferta total anualmente (1% para recompensas de validadores, 1% para o Tesouro da Comunidade), enquanto as queimas de taxas destruíram historicamente cerca de 0,08-0,27% da oferta por ano (com taxas recentes mais próximas do limite inferior). Isto cria uma inflação líquida que ultrapassa o crescimento da procura, independentemente do sucesso da Polymarket. A migração de setembro de 2024 de MATIC para POL também criou confusão no mercado e pressão de venda.
+Apesar de toda esta atividade, o POL negoceia em torno de $0,226-0,23 – uma queda de 85% em relação ao seu máximo histórico. A desconexão resulta da política monetária da Polygon: a rede emite 2% da oferta total anualmente (1% para recompensas de validadores, 1% para o Tesouro da Comunidade), enquanto as queimas de taxas destruíram historicamente cerca de 0,08-0,27% da oferta por ano (com taxas recentes mais próximas do limite inferior). Isto cria uma inflação líquida que ultrapassa o crescimento da procura, independentemente do sucesso da Polymarket. A migração de MATIC para POL em setembro de 2024 também criou confusão no mercado e pressão de venda.
 
-### Requisitos de escala: 10x
+{::nomarkdown}
+<figure class="article__figure">
+<!-- TradingView Widget BEGIN -->
+<div class="tradingview-widget-container">
+  <div class="tradingview-widget-container__widget"></div>
+  <div class="tradingview-widget-copyright"><a href="https://www.tradingview.com/" rel="noopener nofollow" target="_blank"><span class="blue-text">Track all markets on TradingView</span></a></div>
+  <script type="text/javascript" src="https://s3.tradingview.com/external-embedding/embed-widget-symbol-overview.js" async>
+  {
+  "lineWidth": 2,
+  "lineType": 0,
+  "chartType": "area",
+  "fontColor": "rgb(106, 109, 120)",
+  "gridLineColor": "rgba(46, 46, 46, 0.06)",
+  "volumeUpColor": "rgba(34, 171, 148, 0.5)",
+  "volumeDownColor": "rgba(247, 82, 95, 0.5)",
+  "backgroundColor": "#ffffff",
+  "widgetFontColor": "#0F0F0F",
+  "upColor": "#22ab94",
+  "downColor": "#f7525f",
+  "borderUpColor": "#22ab94",
+  "borderDownColor": "#f7525f",
+  "wickUpColor": "#22ab94",
+  "wickDownColor": "#f7525f",
+  "colorTheme": "light",
+  "isTransparent": false,
+  "locale": "pt",
+  "chartOnly": false,
+  "scalePosition": "right",
+  "scaleMode": "Normal",
+  "fontFamily": "-apple-system, BlinkMacSystemFont, Trebuchet MS, Roboto, Ubuntu, sans-serif",
+  "valuesTracking": "1",
+  "changeMode": "price-and-percent",
+  "symbols": [
+    [
+      "COINBASE:MATICUSD|ALL"
+    ]
+  ],
+  "dateRanges": [
+    "all|1M"
+  ],
+  "fontSize": "10",
+  "headerFontSize": "medium",
+  "autosize": false,
+  "lineColor": "rgba(156, 39, 176, 1)",
+  "topColor": "rgba(225, 190, 231, 1)",
+  "bottomColor": "rgba(225, 190, 231, 0)",
+  "width": "100%",
+  "height": "420",
+  "noTimeScale": false,
+  "hideDateRanges": false,
+  "hideMarketStatus": false,
+  "hideSymbolLogo": false
+}
+  </script>
+</div>
+<!-- TradingView Widget END -->
+</figure>
+{:/nomarkdown}
 
-Para que o sucesso da Polymarket tenha um impacto significativo na tokenomia do POL, a plataforma precisaria de escalar drasticamente. Para criar uma deflação líquida, as taxas de queima teriam de exceder a taxa de emissão de 2%.
+### Requisitos de Escala: 10x  
+
+Para que o sucesso da Polymarket tenha um impacto significativo na tokenomics da POL, a plataforma teria de crescer drasticamente. Para criar uma deflação líquida, as taxas de queima teriam de exceder a taxa de emissão de 2%.
 
 A matemática é clara: alcançar exatamente 2% de queimas anuais exigiria um crescimento de cerca de 7,4x na geração de taxas, assumindo as percentagens de queima atuais. Para exceder significativamente as emissões e criar uma forte pressão deflacionária, a Polymarket (e outras aplicações da Polygon) precisariam de escalar cerca de 10x em relação aos níveis atuais, queimando potencialmente cerca de 54.000 dólares anualmente a uma taxa de queima de 20%.
 

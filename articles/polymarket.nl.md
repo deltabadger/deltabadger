@@ -110,6 +110,12 @@ Terwijl andere platforms obscure governance-tokens of synthetische activa gebrui
 
 De resultaten spreken voor zich. Polymarket heeft sinds de lancering meer dan 14 miljard dollar aan cumulatief handelsvolume gegenereerd, waarvan 9 miljard dollar alleen al in 2024. Vergelijk dat met het levenslange volume van Augur van misschien 50 miljoen dollar, of het piekjaarlijkse volume van Intrade van ongeveer 50 miljoen dollar. Polymarket bracht het idee van de voorspellingsmarkt naar de massa en bereikte een mainstream culturele relevantie.
 
+{::nomarkdown}
+<figure class="article__figure">
+<iframe width="100%" height="420" frameborder="0" src="https://www.theblock.co/data/decentralized-finance/prediction-markets-and-betting/polymarket-volume-monthly/embed" title="Polymarket Volume (Monthly)"></iframe>
+</figure>
+{:/nomarkdown}
+
 Het platform heeft nu 1,6 miljoen geregistreerde gebruikers en verwerkt routinematig meer dan 50 miljoen dollar aan dagelijks volume. Tijdens grote evenementen zoals de Amerikaanse verkiezingen van 2024 overtrof het handelsvolume dat van veel traditionele financiële markten. Wanneer er groot nieuws is, kijken handelaren nu naast traditionele indicatoren ook naar de kansen op Polymarket.
 
 <div class="prediction-markets">
@@ -296,6 +302,12 @@ Polymarket is stilletjes een van de belangrijkste vraagstimulatoren voor het Pol
 
 Ten tijde van de laatste presidentsverkiezingen op 5 november 2024 had Polymarket meer dan 500 miljoen dollar aan TVL (Total Value Locked) – wat neerkomt op bijna 40% van de TVL van het hele Polygon-netwerk. <a class="link-source-tile" href="https://thedefiant.io/news/blockchains/fidelity-frames-eth-as-money-and-ethereum-as-a-digital-economy-in-new-report">thedefiant.com</a>
 
+{::nomarkdown}
+<figure class="article__figure">
+<iframe width="100%" height="420" frameborder="0" src="https://www.theblock.co/data/decentralized-finance/prediction-markets-and-betting/polymarket-open-interest-per-market-daily/embed" title="Polymarket Open Interest per Market (Daily)"></iframe>
+</figure>
+{:/nomarkdown}
+
 Polymarket is ook een enorme aanjager geworden van de vraag naar USDC op Polygon. Het cumulatieve volume van 14 miljard dollar van het platform vertegenwoordigt een reële stablecoin-stroom – geen synthetische yield-farming of circulaire handel, maar echte economische activiteit waarbij gebruikers USDC storten om te wedden en winsten op te nemen.
 
 Dit is belangrijker dan het op het eerste gezicht lijkt. Naarmate de adoptie van stablecoins wereldwijd groeit, positioneren netwerken die echte USDC-utiliteit kunnen aantonen zich als essentiële infrastructuur. Het miljardenvolume aan USDC van Polymarket levert geloofwaardig bewijs dat Polygon reguliere financiële activiteiten aankan.
@@ -331,6 +343,65 @@ Dan is er de governance. POL-houders stemmen over netwerkupgrades, parameterwijz
 ### De prijsontkoppeling
 
 Ondanks al deze activiteit handelt POL rond de $0,226-0,23 – 85% lager dan zijn hoogste punt ooit. De ontkoppeling komt voort uit het monetaire beleid van Polygon: het netwerk geeft jaarlijks 2% van de totale voorraad uit (1% voor validatorbeloningen, 1% voor de Community Treasury), terwijl het verbranden van vergoedingen historisch gezien ongeveer 0,08-0,27% van de voorraad per jaar heeft vernietigd (met recente percentages dichter bij de onderkant). Dit creëert een netto-inflatie die de vraagtoename overtreft, ongeacht het succes van Polymarket. De migratie van september 2024 van MATIC naar POL creëerde ook marktverwarring en verkoopdruk.
+
+{::nomarkdown}
+<figure class="article__figure">
+<!-- TradingView Widget BEGIN -->
+<div class="tradingview-widget-container">
+  <div class="tradingview-widget-container__widget"></div>
+  <div class="tradingview-widget-copyright"><a href="https://www.tradingview.com/" rel="noopener nofollow" target="_blank"><span class="blue-text">Track all markets on TradingView</span></a></div>
+  <script type="text/javascript" src="https://s3.tradingview.com/external-embedding/embed-widget-symbol-overview.js" async>
+  {
+  "lineWidth": 2,
+  "lineType": 0,
+  "chartType": "area",
+  "fontColor": "rgb(106, 109, 120)",
+  "gridLineColor": "rgba(46, 46, 46, 0.06)",
+  "volumeUpColor": "rgba(34, 171, 148, 0.5)",
+  "volumeDownColor": "rgba(247, 82, 95, 0.5)",
+  "backgroundColor": "#ffffff",
+  "widgetFontColor": "#0F0F0F",
+  "upColor": "#22ab94",
+  "downColor": "#f7525f",
+  "borderUpColor": "#22ab94",
+  "borderDownColor": "#f7525f",
+  "wickUpColor": "#22ab94",
+  "wickDownColor": "#f7525f",
+  "colorTheme": "light",
+  "isTransparent": false,
+  "locale": "en",
+  "chartOnly": false,
+  "scalePosition": "right",
+  "scaleMode": "Normal",
+  "fontFamily": "-apple-system, BlinkMacSystemFont, Trebuchet MS, Roboto, Ubuntu, sans-serif",
+  "valuesTracking": "1",
+  "changeMode": "price-and-percent",
+  "symbols": [
+    [
+      "COINBASE:MATICUSD|ALL"
+    ]
+  ],
+  "dateRanges": [
+    "all|1M"
+  ],
+  "fontSize": "10",
+  "headerFontSize": "medium",
+  "autosize": false,
+  "lineColor": "rgba(156, 39, 176, 1)",
+  "topColor": "rgba(225, 190, 231, 1)",
+  "bottomColor": "rgba(225, 190, 231, 0)",
+  "width": "100%",
+  "height": "420",
+  "noTimeScale": false,
+  "hideDateRanges": false,
+  "hideMarketStatus": false,
+  "hideSymbolLogo": false
+}
+  </script>
+</div>
+<!-- TradingView Widget END -->
+</figure>
+{:/nomarkdown}
 
 ### Schaalvereisten: 10x
 

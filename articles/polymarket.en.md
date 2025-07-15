@@ -110,6 +110,12 @@ While other platforms used obscure governance tokens or synthetic assets, Polyma
 
 The results speak for themselves. Polymarket has generated over $14 billion in cumulative trading volume since launch, with $9 billion in 2024 alone. Compare that to Augur's lifetime volume of perhaps $50 million, or Intrade's peak annual volume of around $50 million. Polymarket brought the prediction market idea to the masses and achieved mainstream cultural relevance.
 
+{::nomarkdown}
+<figure class="article__figure">
+<iframe width="100%" height="420" frameborder="0" src="https://www.theblock.co/data/decentralized-finance/prediction-markets-and-betting/polymarket-volume-monthly/embed" title="Polymarket Volume (Monthly)"></iframe>
+</figure>
+{:/nomarkdown}
+
 The platform now boasts 1.6 million registered users and routinely handles $50+ million in daily volume. During major events like the 2024 U.S. election, trading volume exceeded that of many traditional financial markets. When major news breaks, traders now look to Polymarket odds alongside traditional indicators.
 
 <div class="prediction-markets">
@@ -296,6 +302,12 @@ Polymarket has quietly become one of the most significant demand drivers for the
 
 At the time of the last presidential election on November 5, 2024, Polymarket held over $500 million in TVL (Total Value Locked) – representing almost 40% of the TVL of the whole Polygon network. <a class="link-source-tile" href="https://thedefiant.io/news/blockchains/fidelity-frames-eth-as-money-and-ethereum-as-a-digital-economy-in-new-report">thedefiant.com</a>
 
+{::nomarkdown}
+<figure class="article__figure">
+<iframe width="100%" height="420" frameborder="0" src="https://www.theblock.co/data/decentralized-finance/prediction-markets-and-betting/polymarket-open-interest-per-market-daily/embed" title="Polymarket Open Interest per Market (Daily)"></iframe>
+</figure>
+{:/nomarkdown}
+
 Polymarket has also become a massive driver of USDC demand on Polygon. The platform's $14 billion in cumulative volume represents real stablecoin flow – not synthetic yield farming or circular trading, but genuine economic activity where users deposit USDC to make bets and withdraw winnings.
 
 This matters more than it might initially appear. As stablecoin adoption grows globally, networks that can demonstrate real USDC utility position themselves as essential infrastructure. Polymarket's billions in USDC volume provides credible evidence that Polygon can handle mainstream financial activity.
@@ -331,6 +343,65 @@ Then there's governance. POL holders vote on network upgrades, parameter changes
 ### The Price Disconnect  
 
 Despite all this activity, POL trades around $0.226-0.23 – down 85% from its all-time high. The disconnect stems from Polygon's monetary policy: the network issues 2% of total supply annually (1% for validator rewards, 1% for Community Treasury), while fee burns have historically destroyed about 0.08-0.27% of supply per year (with recent rates closer to the lower end). This creates net inflation that outpaces demand growth, regardless of Polymarket's success. The September 2024 migration from MATIC to POL also created market confusion and selling pressure.
+
+{::nomarkdown}
+<figure class="article__figure">
+<!-- TradingView Widget BEGIN -->
+<div class="tradingview-widget-container">
+  <div class="tradingview-widget-container__widget"></div>
+  <div class="tradingview-widget-copyright"><a href="https://www.tradingview.com/" rel="noopener nofollow" target="_blank"><span class="blue-text">Track all markets on TradingView</span></a></div>
+  <script type="text/javascript" src="https://s3.tradingview.com/external-embedding/embed-widget-symbol-overview.js" async>
+  {
+  "lineWidth": 2,
+  "lineType": 0,
+  "chartType": "area",
+  "fontColor": "rgb(106, 109, 120)",
+  "gridLineColor": "rgba(46, 46, 46, 0.06)",
+  "volumeUpColor": "rgba(34, 171, 148, 0.5)",
+  "volumeDownColor": "rgba(247, 82, 95, 0.5)",
+  "backgroundColor": "#ffffff",
+  "widgetFontColor": "#0F0F0F",
+  "upColor": "#22ab94",
+  "downColor": "#f7525f",
+  "borderUpColor": "#22ab94",
+  "borderDownColor": "#f7525f",
+  "wickUpColor": "#22ab94",
+  "wickDownColor": "#f7525f",
+  "colorTheme": "light",
+  "isTransparent": false,
+  "locale": "en",
+  "chartOnly": false,
+  "scalePosition": "right",
+  "scaleMode": "Normal",
+  "fontFamily": "-apple-system, BlinkMacSystemFont, Trebuchet MS, Roboto, Ubuntu, sans-serif",
+  "valuesTracking": "1",
+  "changeMode": "price-and-percent",
+  "symbols": [
+    [
+      "COINBASE:MATICUSD|ALL"
+    ]
+  ],
+  "dateRanges": [
+    "all|1M"
+  ],
+  "fontSize": "10",
+  "headerFontSize": "medium",
+  "autosize": false,
+  "lineColor": "rgba(156, 39, 176, 1)",
+  "topColor": "rgba(225, 190, 231, 1)",
+  "bottomColor": "rgba(225, 190, 231, 0)",
+  "width": "100%",
+  "height": "420",
+  "noTimeScale": false,
+  "hideDateRanges": false,
+  "hideMarketStatus": false,
+  "hideSymbolLogo": false
+}
+  </script>
+</div>
+<!-- TradingView Widget END -->
+</figure>
+{:/nomarkdown}
 
 ### Scale Requirements: 10x  
 
