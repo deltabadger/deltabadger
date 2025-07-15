@@ -39,11 +39,11 @@ So how did we get here?
 
 ## What are prediction markets?
 
-At their core, prediction markets are simple: people bet money on the outcomes of future events. As a side effect, those collective bets reveal what crowds truly believe will happen.
+At their core, prediction markets are simple: people bet money on the outcomes of future events. As a side effect, those collective bets reveal what the crowd truly believes will happen.
 
 Prediction markets often see what traditional forecasting misses. While polls capture what people say they'll do, prediction markets reveal what informed observers think will actually happen. During major events like Brexit or Trump's 2016 victory, betting markets demonstrated an uncanny ability to cut through noise to reveal uncomfortable truths. In an age of information overload and "alternative facts," that's a superpower.
 
-While betting on future events is ancient, from wagering on gladiatorial matches in Rome to betting on papal elections in 16th century Italy, understanding these markets as forecasting tools would come much later.
+While betting on future events has long history, from wagering on gladiatorial matches in Rome to betting on papal elections in 16th century Italy, understanding these markets as forecasting tools would come much later.
 
 ### A Brief History
 
