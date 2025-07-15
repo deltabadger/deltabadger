@@ -1,5 +1,5 @@
 ---
-title: "Polymarket: подробный разбор"
+title: "Polymarket: Машина Правды"
 subtitle: "От мудрости толпы к будущему Polygon"
 author_id: 1
 thumbnail: polymarket.avif

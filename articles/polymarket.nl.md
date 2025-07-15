@@ -1,6 +1,6 @@
 ---
-title: "Polymarket: een diepgaande analyse"
-subtitle: "Van de wijsheid van de massa tot de toekomst van Polygon"
+title: "Polymarket: Waarheidsmachine"
+subtitle: "Van de wijsheid van de massa naar de toekomst van Polygon"
 author_id: 1
 thumbnail: polymarket.avif
 excerpt: "Met een handelsvolume van 9 miljard dollar in 2024 alleen al, is Polymarket 's werelds grootste voorspellingsmarkt geworden. Van presidentsverkiezingen tot wereldwijde evenementen, deze diepgaande analyse onderzoekt hoe crypto-aangedreven weddenschappen de manier waarop we informatie verwerken revolutioneren."

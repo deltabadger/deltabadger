@@ -1,6 +1,6 @@
 ---
-title: "Polymarket: Eine eingehende Analyse"
-subtitle: "Von der Weisheit der Vielen zur Zukunft auf Polygon"
+title: "Polymarket: Wahrheitsmaschine"
+subtitle: "Von der Weisheit der Vielen zur Zukunft von Polygon"
 author_id: 1
 thumbnail: polymarket.avif
 excerpt: "Mit einem Handelsvolumen von 9 Milliarden US-Dollar allein im Jahr 2024 hat sich Polymarket zum weltweit größten Prognosemarkt entwickelt. Von Präsidentschaftswahlen bis hin zu globalen Ereignissen untersucht diese eingehende Analyse, wie krypto-gestützte Wetten die Art und Weise, wie wir Informationen verarbeiten, revolutionieren."

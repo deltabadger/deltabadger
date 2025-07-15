@@ -1,6 +1,6 @@
 ---
-title: "Polymarket : Analyse Approfondie"
-subtitle: "De la Sagesse des Foules à l'Avenir sur Polygon"
+title: "Polymarket: Machine à Vérité"
+subtitle: "De la sagesse des foules à l'avenir de Polygon"
 author_id: 1
 thumbnail: polymarket.avif
 excerpt: "Avec un volume de transactions de 9 milliards de dollars rien qu'en 2024, Polymarket est devenu le plus grand marché de prédiction au monde. Des élections présidentielles aux événements mondiaux, cette analyse approfondie explore comment les paris basés sur la crypto révolutionnent notre façon de traiter l'information."

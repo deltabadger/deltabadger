@@ -1,5 +1,5 @@
 ---
-title: "Polymarket: un'analisi approfondita"
+title: "Polymarket: Macchina della Verità"
 subtitle: "Dalla saggezza della folla al futuro di Polygon"
 author_id: 1
 thumbnail: polymarket.avif

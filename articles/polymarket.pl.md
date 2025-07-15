@@ -1,5 +1,5 @@
 ---
-title: "Polymarket: Analiza"
+title: "Polymarket: Maszyna Prawdy"
 subtitle: "Od mądrości tłumu do przyszłości Polygon"
 author_id: 1
 thumbnail: polymarket.avif
