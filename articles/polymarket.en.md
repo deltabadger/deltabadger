@@ -1,5 +1,5 @@
 ---
-title: "Polymarket: Deep Dive"
+title: "Polymarket: Truth Machine"
 subtitle: "From Wisdom of Crowds to Polygon Future"
 author_id: 1
 thumbnail: polymarket.avif
