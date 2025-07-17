@@ -112,8 +112,8 @@ class Payment < ApplicationRecord
     current_subscription = user.subscription
     return 0 if current_subscription.days_left.nil?
 
-    plan_years_left = current_subscription.days_left.to_f / 365
-    discount_multiplier = [1, plan_years_left / current_subscription.subscription_plan_variant.years].min
+    plan_seconds_left = current_subscription.days_left * 1.day.to_f
+    discount_multiplier = [1, plan_seconds_left / current_subscription.subscription_plan_variant.duration.to_f].min
     current_subscription_base_price * discount_multiplier
   end
 
