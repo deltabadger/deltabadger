@@ -74,6 +74,7 @@ en:
             wire_transfer_pending: "Thanks! We'll activate your account soon and contact you by email."
             you_pay: "You pay"
             moneyback_guarantee_html: "30-day money-back guarantee. No&nbsp;questions&nbsp;asked."
+            country: "Country"
         prolong_upgrade: 'Upgrade your plan'
         upgrade: Upgrade
         upgrade_plan: 'Upgrade'
