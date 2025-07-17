@@ -252,3 +252,7 @@ en:
             <p>Send an email to <strong>%{email}</strong> with <strong>"FIRE"</strong> in the subject line.</p>
             <p>Your lifetime access will arrive shortly after.</p>
             <p>See you there, Jan</p>
+    bot_filters:
+        all: 'All'
+        active: 'Active'
+        inactive: 'Inactive'
