@@ -5,10 +5,22 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Domine:wght@400..700&family=Inter+Tight:ital,wght@0,100..900;1,100..900&family=Inter:ital,opsz,wght@0,14..32,100..900;1,14..32,100..900&family=Playfair+Display:ital,wght@0,400..900;1,400..900&display=swap" rel="stylesheet">
+
+  <!-- Open Graph / Facebook -->
+  <meta property="og:type" content="website">
+  <meta property="og:title" content="<%= t('articles.index.title') %>">
+  <meta property="og:description" content="<%= t('articles.index.meta_description') %>">
+  <meta property="og:url" content="<%= articles_url %>">
+  <meta property="og:site_name" content="Deltabadger Research">
+
+  <!-- Twitter Card -->
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="<%= t('articles.index.title') %>">
+  <meta name="twitter:description" content="<%= t('articles.index.meta_description') %>">
 <% end %>
 
 <hgroup class="articles-header">
-  <h1 class="articles-header__title"><%= t('articles.index.title') %></h1>
+  <h1 class="articles-header__title"><%= render partial: 'svg/40x159_research', locals: { title: t('articles.index.title') } %></h1>
   <p class="articles-header__subtitle"><%= t('articles.index.meta_description') %></p>
   <% unless current_user&.subscription&.pro? || current_user&.subscription&.legendary? %>
     <% path = current_user.present? ? upgrade_path : new_user_registration_path %>
@@ -24,7 +36,7 @@
       <%= link_to article_path(article), class: "article-card" do %>
         <% if article.thumbnail_path.present? %>
           <% jpg_thumbnail = article.thumbnail_path.gsub(/\.[^.]+$/, '.jpg') %>
-          <%= image_tag jpg_thumbnail, alt: article.title, class: "article-card__thumbnail" %>
+          <%= image_tag jpg_thumbnail, alt: article.plain_title, class: "article-card__thumbnail" %>
         <% end %>
 
         <div class="article-card__content">

@@ -6,7 +6,14 @@ thumbnail: bitcoin-vs-m2.avif
 excerpt: "La relation entre le Bitcoin et la masse monétaire mondiale. Les recherches de Lyn Alden. L'idée de l'avance de 12 semaines. Prédiction du prix du Bitcoin par l'IA basée sur le modèle M2."
 x_url: https://x.com/deltabadgerapp/status/1939622461768892684
 telegram_url: https://t.me/deltabadger/91
+paywall_hook: |
+    <ul>
+        <li>Le modèle qui prédit la direction de Bitcoin avec une précision de 83 %</li>
+        <li>Comment l'améliorer avec les données on-chain</li>
+        <li>Prédiction de prix par l'IA pour les 12 prochains mois</li>
+    </ul>
 published: true
+published_at: "2025-07-01"
 ---
 
 La relation entre le Bitcoin et la masse monétaire mondiale est devenue l'un des sujets les plus débattus. Alors que nous avançons en 2025, le Bitcoin se renforce tandis que l'impression monétaire mondiale augmente.

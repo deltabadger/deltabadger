@@ -4,7 +4,14 @@ subtitle: "83% korelacja kierunkowa z globalną podażą pieniądza"
 author_id: 1
 thumbnail: bitcoin-vs-m2.avif
 excerpt: "Związek między Bitcoinem a globalną podażą pieniądza. Badania Lyn Alden. Pomysł 12-tygodniowego wyprzedzenia. Prognoza ceny Bitcoina przez AI oparta na modelu M2."
+paywall_hook: |
+    <ul>
+        <li>Model, który przewiduje kierunek Bitcoina z 83% dokładnością</li>
+        <li>Jak ulepszyć go za pomocą danych on-chain</li>
+        <li>Prognoza cen AI na następne 12 miesięcy</li>
+    </ul>
 published: true
+published_at: "2025-07-01"
 ---
 
 Związek między Bitcoinem a globalną podażą pieniądza stał się jednym z najgoręcej dyskutowanych tematów. W miarę jak przechodzimy przez 2025 rok, Bitcoin staje się silniejszy, podczas gdy dodruk pieniądza wzrasta.

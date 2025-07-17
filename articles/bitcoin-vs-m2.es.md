@@ -6,7 +6,14 @@ thumbnail: bitcoin-vs-m2.avif
 excerpt: "La relación entre Bitcoin y la oferta monetaria global. La investigación de Lyn Alden. La idea de la ventaja de 12 semanas. Predicción del precio de Bitcoin por IA basada en el modelo M2."
 x_url: https://x.com/deltabadgerapp/status/1939622461768892684
 telegram_url: https://t.me/deltabadger/91
+paywall_hook: |
+    <ul>
+        <li>El modelo que predice la dirección de Bitcoin con un 83% de precisión</li>
+        <li>Cómo mejorarlo con datos on-chain</li>
+        <li>Predicción de precios de la IA para los próximos 12 meses</li>
+    </ul>
 published: true
+published_at: "2025-07-01"
 ---
 
 La relación entre Bitcoin y la oferta monetaria global se ha convertido en uno de los temas más debatidos. A medida que avanzamos en 2025, Bitcoin se fortalece mientras aumenta la impresión de dinero a nivel mundial.
