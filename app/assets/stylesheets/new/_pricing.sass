@@ -47,13 +47,15 @@
     @media (prefers-color-scheme: dark)
         mix-blend-mode: plus-lighter
         filter: brightness(10)
-.price-ticker
-    font-size: 75%
-    margin: 0 .1em
+.widget--pricing__amount__t
+    .price-ticker
+        font-size: 50%
+        line-height: 1.55
+        align-self: flex-start
 
 .widget
     &--pricing
-        gap: 3rem
+        gap: 2rem
         margin-bottom: 0
         padding-top: 3.25rem
         padding-bottom: 3.25rem
@@ -84,7 +86,7 @@
         &__opt-triggers
             min-height: 20rem
         &__opt-research
-            min-height: 9rem
+            min-height: 8rem
             &.inactive
                 color: var(--text-faded)
         &__badge
@@ -106,11 +108,13 @@
                 font-size: 4rem
                 line-height: 4rem
                 font-weight: 600
-                display: block
+                display: flex
+                align-items: flex-end
+                gap: 0.5rem
                 &--main
                     .price-period
                         font-size: 2rem
-                        margin-left: .5rem
+                        line-height: 3rem
                         color: var(--text-faded)
                 &--previous
                     color: var(--text-faded)
