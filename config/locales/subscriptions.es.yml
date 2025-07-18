@@ -2,12 +2,16 @@ es:
     subscriptions:
         per_month_html: "/mes"
         per_year_html: "/año"
-        plan_1_year: "1 año"
-        plan_4_year: "4 años"
-        plan_life_time: "De por vida"
-        variant1: "1 año"
-        variant4: "4 años, uno gratis"
-        free: Gratis
+        plan_life_time: "Lifetime"
+        variant0: "Mensual"
+        variant1: "Anual (20% ahorro)"
+        free: "Gratis"
+        mini: "Mini"
+        basic: "Basic"
+        pro: "Pro"
+        pro_plus: "Pro+"
+        research: "Research"
+        legendary: "Legendary"
         upgrade_modal:
             title: "Actualizar a Pro"
             description: "Accede a todas las funciones avanzadas."

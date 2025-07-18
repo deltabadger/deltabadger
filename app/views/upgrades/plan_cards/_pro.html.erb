@@ -3,10 +3,6 @@
   <% if current_user.subscription.pro? %>
     <span class="widget--pricing__badge"><%= t('subscriptions.active') %></span>
   <% end %>
-  <div class="widget--pricing__name__period">
-    <%= t("subscriptions.plan_#{payment_option.subscription_plan_variant.years}_year") %>
-    <%# t("subscriptions.until", end_date: Date.today + payment_option.subscription_plan_variant.duration) %>
-  </div>
 </div>
 
 <% if payment_option.present? %>
@@ -26,10 +22,34 @@
   </div>
 <% end %>
 
-<ul>
-  <li><%= t('features.short.dca') %></li>
-  <li><%= t('features.short.withdrawals') %></li>
-  <li><%= t('features.short.newsletter') %></li>
-  <li><%= t('features.short.rebalanced_dca') %></li>
-  <li><%= t('features.short.analyzer') %></li>
+<ul class="widget--pricing__opt-bots">
+  <li>50 bots</li>
+</ul>
+<small></small>
+<ul class="widget--pricing__opt-strategies">
+  <li>DCA</li>
+  <li>Rebalanced DCA</li>
+</ul>
+<small></small>
+<ul class="widget--pricing__opt-execution">
+  <li>Smart Intervals</li>
+  <li>FeeCutter</li>
+</ul>
+<small></small>
+<ul class="widget--pricing__opt-triggers">
+  <li>Buy the dip</li>
+  <li>SMA/EMA</li>
+  <li>RSI</li>
+  <li>Price limit</li>
+  <li>Amount limit</li>
+</ul>
+<small></small>
+<ul class="widget--pricing__opt-community">
+  <li>Telegram</li>
+  <li>Discord</li>
+</ul>
+<small></small>
+<ul class="widget--pricing__opt-research">
+  <li>Premium Newsletter</li>
+  <li>Portfolio Analyzer</li>
 </ul>

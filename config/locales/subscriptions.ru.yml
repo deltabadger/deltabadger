@@ -2,12 +2,16 @@ ru:
     subscriptions:
         per_month_html: "/мес"
         per_year_html: "/год"
-        plan_1_year: "1 год"
-        plan_4_year: "4 года"
-        plan_life_time: "Пожизненный"
-        variant1: "1 год"
-        variant4: "4 года, один бесплатно"
-        free: Вкладчик
+        plan_life_time: "Пожизненно"
+        variant0: "Ежемесячно"
+        variant1: "Ежегодно (экономия 20%)"
+        free: "Бесплатно"
+        mini: "Mini"
+        basic: "Basic"
+        pro: "Pro"
+        pro_plus: "Pro+"
+        research: "Research"
+        legendary: "Legendary"
         upgrade_modal:
             title: "Перейти на Pro"
             description: "Получите доступ ко всем расширенным функциям."

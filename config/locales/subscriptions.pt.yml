@@ -2,12 +2,16 @@ pt:
     subscriptions:
         per_month_html: "/mês"
         per_year_html: "/ano"
-        plan_1_year: "1 ano"
-        plan_4_year: "4 anos"
         plan_life_time: "Vitalício"
-        variant1: "1 ano"
-        variant4: "4 anos, um grátis"
-        free: Free
+        variant0: "Mensal"
+        variant1: "Anual (poupe 20%)"
+        free: "Grátis"
+        mini: "Mini"
+        basic: "Basic"
+        pro: "Pro"
+        pro_plus: "Pro+"
+        research: "Research"
+        legendary: "Legendary"
         upgrade_modal:
             title: "Atualizar para Pro"
             description: "Acesse todas as funcionalidades avançadas."

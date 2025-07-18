@@ -1,13 +1,17 @@
 pl:
     subscriptions:
-        free: Oszczędny
-        per_month_html: "/miesiąc"
+        per_month_html: "/mies"
         per_year_html: "/rok"
-        plan_1_year: "1 rok"
-        plan_4_year: "4 lata"
         plan_life_time: "Dożywotni"
-        variant1: "1 rok"
-        variant4: "4 lata, jeden za darmo"
+        variant0: "Miesięcznie"
+        variant1: "Rocznie (oszczędź 20%)"
+        free: "Darmowy"
+        mini: "Mini"
+        basic: "Basic"
+        pro: "Pro"
+        pro_plus: "Pro+"
+        research: "Research"
+        legendary: "Legendary"
         upgrade_modal:
             title: "Przejdź na Pro"
             description: "Uzyskaj dostęp do wszystkich zaawansowanych funkcji."
