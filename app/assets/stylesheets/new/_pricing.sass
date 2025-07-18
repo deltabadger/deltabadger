@@ -10,12 +10,6 @@
         flex: 1
         .widget
             padding: 2.25rem 2rem
-            &:first-child
-                border-top-left-radius: 2rem
-                border-bottom-left-radius: 2rem
-            &:last-child
-                border-top-right-radius: 2rem
-                border-bottom-right-radius: 2rem
     &__checkout
         width: calc(25% - 0.75rem)
         gap: 1rem
@@ -59,8 +53,6 @@
         margin-bottom: 0
         padding-top: 3.25rem
         padding-bottom: 3.25rem
-        @media (max-width: 767.9px)
-            gap: 2rem
         small
             min-height: 3rem
             display: flex
@@ -121,6 +113,8 @@
                     font-size: 3rem
                     .price-amount
                         text-decoration: line-through
+                    .price-ticker
+                        line-height: 3rem
         ul
             list-style: none
             padding-left: 0
@@ -226,11 +220,6 @@
     .pricing
         &__plans
             grid-template-columns: 1fr 1fr 1fr
-    .widget
-        &--pricing
-            padding: 1.25rem !important
-            &__amount
-                display: none
     .legendary-counter
         padding: 1rem 2rem
         &__discount
