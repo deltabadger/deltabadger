@@ -33,7 +33,7 @@
 <% if @articles.any? %>
   <div class="articles">
     <% @articles.each do |article| %>
-      <%= link_to article_path(article), class: "article-card" do %>
+      <%= link_to article_path(article), class: "article-card", data: { turbo: false } do %>
         <% if article.thumbnail_path.present? %>
           <% jpg_thumbnail = article.thumbnail_path.gsub(/\.[^.]+$/, '.jpg') %>
           <%= image_tag jpg_thumbnail, alt: article.plain_title, class: "article-card__thumbnail" %>

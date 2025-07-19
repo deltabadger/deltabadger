@@ -45,7 +45,7 @@
   </div>
 <% end %>
 
-<article class="article" data-controller="twitter">
+<article class="article">
   <header class="article__header">
     <%= link_to t('articles.back_to_articles'), articles_path, class: "article__back-link" %>
     <hgroup>
@@ -99,7 +99,7 @@
           <%= t('articles.like_on_x') %>
         <% end %>
       <% end %>
-      
+
       <% if @article.telegram_url.present? %>
         <%= link_to @article.telegram_url, class: "button button--primary button--telegram button--large", target: "_blank", rel: "noopener" do %>
           <%= t('articles.join_discussion') %>
