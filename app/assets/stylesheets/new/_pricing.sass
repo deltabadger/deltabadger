@@ -136,12 +136,36 @@
             margin-bottom: 0
         &--legendary, &--research
             grid-column: 1 / -1
+            position: relative !important
+            overflow: hidden
             ul
                 flex: 2
+            &:before
+                content: ""
+                display: block
+                position: absolute
+                height: 100%
+                width: 62%
+                position: absolute
+                z-index: 0
+                top: 0
+                right: 0
+                background-size: cover
+                background-position: center bottom
+                mask: linear-gradient(to right, transparent 0%, rgba(0,0,0,1) 50%)
+                -webkit-mask: linear-gradient(to right, transparent 0%, rgba(0,0,0,1) 50%)
         &--legendary
             --text-strong: #fff
             background: linear-gradient(to left, #024, #012)
             color: #bcd !important
+            &::before
+                background-image: url("legendary02.avif")
+        &--research
+            &::before
+                width: 100%
+                mask: linear-gradient(to right, transparent 0%, rgba(0,0,0,1) 100%)
+                background-position: center
+                background-image: url("research04.avif")
         &__legendary-plans-left
             font-weight: 600
             color: var(--success) !important
@@ -172,7 +196,7 @@
                     &::before
                         opacity: 0.4
     &--checkout
-        border-radius: 0 0 2rem 2rem
+        border-radius: 2rem
         .tab
             display: none
             &.active
