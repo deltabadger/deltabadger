@@ -347,7 +347,7 @@ Ondanks al deze activiteit handelt POL rond de $0,226-0,23 – 85% lager dan zij
 {::nomarkdown}
 <figure class="article__figure">
 <!-- TradingView Widget BEGIN -->
-<div class="tradingview-widget-container" data-controller="tradingview">
+<div class="tradingview-widget-container">
   <div class="tradingview-widget-container__widget"></div>
   <div class="tradingview-widget-copyright"><a href="https://www.tradingview.com/" rel="noopener nofollow" target="_blank"><span class="blue-text">Track all markets on TradingView</span></a></div>
   <script type="text/javascript" src="https://s3.tradingview.com/external-embedding/embed-widget-symbol-overview.js" async>
@@ -467,4 +467,4 @@ Dit maakt **een overtuigende case voor het Polygon-netwerk** – naarmate Polyma
 
 **Het openen van een account op Polymarket kan u mogelijk in aanmerking brengen voor een aanstaande airdrop**, gebaseerd op wijdverbreide speculatie in de gemeenschap en historische patronen van vergelijkbare platforms.
 
-Belangrijke ontwikkelingen om in de gaten te houden: wijzigingen in de regelgeving die een terugkeer naar de VS mogelijk kunnen maken, de nauwere integratie met X en Grok AI, en mogelijke aankondigingen van tokenlanceringen. Voorspellingsmarkten worden onderdeel van de mainstream informatie-ontdekkingsinfrastructuur, en Polymarket is gepositioneerd om deze transformatie te leiden. 
+Belangrijke ontwikkelingen om in de gaten te houden: wijzigingen in de regelgeving die een terugkeer naar de VS mogelijk kunnen maken, de nauwere integratie met X en Grok AI, en mogelijke aankondigingen van tokenlanceringen. Voorspellingsmarkten worden onderdeel van de mainstream informatie-ontdekkingsinfrastructuur, en Polymarket is gepositioneerd om deze transformatie te leiden.
