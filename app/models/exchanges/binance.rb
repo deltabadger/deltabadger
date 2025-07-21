@@ -216,7 +216,7 @@ class Exchanges::Binance < Exchange
           candle[5].to_d
         ]
       end
-      break if result.data.empty? || result.data.last[0] > timeframe.ago.to_i * 1000
+      break if result.data.last.nil? || result.data.empty? || result.data.last[0] > timeframe.ago.to_i * 1000
 
       start_at = candles.empty? ? start_at + limit * interval.to_i * 1000 : candles.last[0] + 1
     end
