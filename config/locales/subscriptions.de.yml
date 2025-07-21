@@ -7,9 +7,8 @@ de:
         variant1: "Jährlich (20% sparen)"
         free: "Kostenlos"
         mini: "Mini"
-        basic: "Basic"
+        standard: "Standard"
         pro: "Pro"
-        pro_plus: "Pro+"
         research: "Research"
         legendary: "Legendary"
         upgrade_modal:
@@ -70,6 +69,24 @@ de:
         prolong_upgrade: 'Upgrade deinen Plan'
         upgrade: Upgrade
         upgrade_plan: 'Plan upgraden'
+        features:
+            bots_count: "%{count} Bots"
+            unlimited_bots: "Unbegrenzte Bots"
+            everything_from_pro: "Alles aus dem Pro-Plan für die Lebensdauer"
+            nft: "NFT"
+            strategies: "Strategien"
+            rebalanced_dca: "Neu ausbalanciertes DCA"
+            optimisations: "Optimierungen"
+            smart_intervals: "Intelligente Intervalle"
+            feecutter: "FeeCutter"
+            triggers: "Auslöser"
+            buy_the_dip: "Den Dip kaufen"
+            sma_ema: "SMA/EMA"
+            rsi: "RSI"
+            price_limit: "Preislimit"
+            amount_limit: "Mengenlimit"
+            premium_newsletter: "Premium-Newsletter"
+            portfolio_analyzer: "Portfolio-Analysator"
     legendary_badger:
         will_be_sent: 'Das Legendary Badger NFT wird gesendet an:'
         ethereum_address: Ethereum-Adresse

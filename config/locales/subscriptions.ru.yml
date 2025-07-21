@@ -7,9 +7,8 @@ ru:
         variant1: "Ежегодно (экономия 20%)"
         free: "Бесплатно"
         mini: "Mini"
-        basic: "Basic"
+        standard: "Standard"
         pro: "Pro"
-        pro_plus: "Pro+"
         research: "Research"
         legendary: "Legendary"
         upgrade_modal:
@@ -72,6 +71,25 @@ ru:
         prolong_upgrade: 'Обновить план'
         upgrade: Обновить
         upgrade_plan: 'Обновить план'
+        features:
+            bots_count: "%{count} ботов"
+            unlimited_bots: "Неограниченное количество ботов"
+            everything_from_pro: "Все из плана Pro на всю жизнь"
+            nft: "NFT"
+            strategies: "Стратегии"
+            dca: "DCA"
+            rebalanced_dca: "Ребалансированный DCA"
+            optimisations: "Оптимизации"
+            smart_intervals: "Умные интервалы"
+            feecutter: "FeeCutter"
+            triggers: "Триггеры"
+            buy_the_dip: "Покупай на падении"
+            sma_ema: "SMA/EMA"
+            rsi: "RSI"
+            price_limit: "Ценовой лимит"
+            amount_limit: "Лимит по количеству"
+            premium_newsletter: "Премиум-рассылка"
+            portfolio_analyzer: "Анализатор портфеля"
     legendary_badger:
         will_be_sent: 'NFT Legendary Badger будет отправлен на:'
         ethereum_address: 'Адрес Ethereum'

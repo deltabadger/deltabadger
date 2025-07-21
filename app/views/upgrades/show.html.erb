@@ -25,7 +25,7 @@
       <label class="hide_radio_buttons widget widget--pricing widget--pricing--mini widget--pricing--other">
         <input data-action="change-&gt;form--submit#submit" type="radio" value="basic" name="plan_name" id="plan_name_basic">
           <div class="widget--pricing__name">
-          Mini
+          <%= t('subscriptions.mini') %>
         </div>
         <div class="widget--pricing__amount">
           <span class="widget--pricing__amount__t widget--pricing__amount__t--main">
@@ -35,19 +35,19 @@
           </span>
         </div>
         <ul class="widget--pricing__opt-bots">
-          <li>5 bots</li>
+          <li><%= t('subscriptions.features.bots_count', count: 5) %></li>
         </ul>
-        <small>Strategies</small>
+        <small><%= t('subscriptions.features.strategies') %></small>
         <ul class="widget--pricing__opt-strategies">
-          <li>DCA</li>
-          <li>Rebalanced DCA</li>
+          <li><%= t('subscriptions.features.dca') %></li>
+          <li><%= t('subscriptions.features.rebalanced_dca') %></li>
         </ul>
-        <small>Optimisations</small>
+        <small><%= t('subscriptions.features.optimisations') %></small>
         <ul class="widget--pricing__opt-execution">
-          <li>Smart Intervals</li>
-          <li>FeeCutter</li>
+          <li><%= t('subscriptions.features.smart_intervals') %></li>
+          <li><%= t('subscriptions.features.feecutter') %></li>
         </ul>
-        <small>Triggers</small>
+        <small><%= t('subscriptions.features.triggers') %></small>
         <ul class="widget--pricing__opt-triggers">
         </ul>
         <small>
@@ -57,8 +57,8 @@
           </div>
         </small>
         <ul class="widget--pricing__opt-research inactive">
-          <li>Premium Newsletter</li>
-          <li>Portfolio Analyzer</li>
+          <li><%= t('subscriptions.features.premium_newsletter') %></li>
+          <li><%= t('subscriptions.features.portfolio_analyzer') %></li>
         </ul>
         </label>
 
@@ -78,7 +78,7 @@
       <label class="hide_radio_buttons widget widget--pricing widget--pricing--research widget--pricing--other">
         <input data-action="change-&gt;form--submit#submit" type="radio" value="basic" name="plan_name" id="plan_name_basic">
           <div class="widget--pricing__name">
-          Research
+          <%= t('subscriptions.research') %>
         </div>
         <div class="widget--pricing__amount">
           <span class="widget--pricing__amount__t widget--pricing__amount__t--main">
@@ -88,8 +88,8 @@
           </span>
         </div>
         <ul>
-          <li>Premium Newsletter</li>
-          <li>Portfolio Analyzer</li>
+          <li><%= t('subscriptions.features.premium_newsletter') %></li>
+          <li><%= t('subscriptions.features.portfolio_analyzer') %></li>
         </ul>
       </label>
     <% end %>

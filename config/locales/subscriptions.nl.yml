@@ -7,9 +7,8 @@ nl:
         variant1: "Jaarlijks (20% korting)"
         free: "Gratis"
         mini: "Mini"
-        basic: "Basic"
+        standard: "Standard"
         pro: "Pro"
-        pro_plus: "Pro+"
         research: "Research"
         legendary: "Legendary"
         upgrade_modal:
@@ -68,6 +67,25 @@ nl:
         prolong_upgrade: 'Upgrade je abonnement'
         upgrade: Upgrade
         upgrade_plan: 'Upgrade abonnement'
+        features:
+            bots_count: "%{count} bots"
+            unlimited_bots: "Onbeperkt aantal bots"
+            everything_from_pro: "Alles van het Pro-plan voor het leven"
+            nft: "NFT"
+            strategies: "Strategieën"
+            dca: "DCA"
+            rebalanced_dca: "Geherbalanceerde DCA"
+            optimisations: "Optimalisaties"
+            smart_intervals: "Slimme intervallen"
+            feecutter: "FeeCutter"
+            triggers: "Triggers"
+            buy_the_dip: "Koop de dip"
+            sma_ema: "SMA/EMA"
+            rsi: "RSI"
+            price_limit: "Prijslimiet"
+            amount_limit: "Bedraglimiet"
+            premium_newsletter: "Premium Nieuwsbrief"
+            portfolio_analyzer: "Portfolio Analysator"
     legendary_badger:
         will_be_sent: 'Legendary Badger NFT zal worden verzonden naar:'
         ethereum_address: 'Ethereum adres'
