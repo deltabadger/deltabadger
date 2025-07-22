@@ -269,7 +269,7 @@ class Bots::DcaDualAsset < Bot
   end
 
   def validate_dca_dual_asset_included_in_subscription_plan
-    return if user.subscription.pro? || user.subscription.legendary?
+    return if user.subscription.mini? || user.subscription.standard? || user.subscription.pro? || user.subscription.legendary?
 
     errors.add(:user, :upgrade)
   end
