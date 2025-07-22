@@ -71,7 +71,7 @@ class User < ApplicationRecord
   end
 
   def can_access_full_articles?
-    subscription.pro? || subscription.legendary?
+    subscription.research? || subscription.pro? || subscription.legendary?
   end
 
   def eligible_referrer

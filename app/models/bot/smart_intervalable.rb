@@ -53,7 +53,7 @@ module Bot::SmartIntervalable
 
   def validate_smart_intervalable_included_in_subscription_plan
     return unless smart_intervaled?
-    return if user.subscription.paid?
+    return unless subscription.free? || subscription.research_only?
 
     errors.add(:user, :upgrade)
   end
