@@ -127,6 +127,7 @@ pl:
         index:
             api_key_confirmation: 'Jesteś pewny?'
             api_keys_section: 'Klucze API'
+            subscription_section: 'Subskrypcja'
             trading_keys_section: 'Klucze handlowe'
             withdrawal_keys_section: 'Klucze wypłat'
             email_section: E-mail
@@ -140,7 +141,11 @@ pl:
         two_fa:
             disabled: 'Uwierzytelnianie dwuskładnikowe zostało wyłączone.'
             enabled: 'Uwierzytelnianie dwuskładnikowe zostało włączone.'
-
+        subscription:
+            next_payment_html: 'Następna płatność: %{cost_html}'
+            requires_manual_payment: 'Wymaga płatności ręcznej'
+            enable_recurring: 'Włącz płatności cykliczne'
+            cancel_subscription: 'Anuluj subskrypcję'
     social:
         blog: 'Czytaj nasz blog'
         knowledge_base: 'Baza wiedzy'
