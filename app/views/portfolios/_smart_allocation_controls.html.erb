@@ -1,15 +1,7 @@
 <div id="smart-allocation-controls" class="smart-allocation widget">
   <%= form_with model: portfolio, url: portfolio_toggle_smart_allocation_path(portfolio), method: :patch, data: { controller: "form--submit" } do |form| %>
     <div class="toggle" style="gap:1.5rem">
-      <% data = portfolio.limited? ? {
-        controller: "turbo-frame-trigger",
-        turbo_frame_trigger_url_value: upgrade_instructions_path,
-        turbo_frame_trigger_frame_value: "modal",
-        action: "click->turbo-frame-trigger#loadFrame"
-      } : {
-        action: "change->form--submit#submit"
-      } %>
-      <%= form.check_box :smart_allocation_on, data: data %>
+      <%= form.check_box :smart_allocation_on, data: { action: "change->form--submit#submit" } %>
       <div class="toggle__style"></div>
       <%= form.label :smart_allocation_on, t('analyzer.smart_allocation.name'), class: "label" %>
 

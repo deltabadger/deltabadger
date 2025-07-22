@@ -7,9 +7,14 @@ class Subscription < ApplicationRecord
   delegate :name, to: :subscription_plan_variant
   delegate :paid?, to: :subscription_plan_variant
   delegate :free?, to: :subscription_plan_variant
-  delegate :basic?, to: :subscription_plan_variant
+  delegate :mini?, to: :subscription_plan_variant
+  delegate :mini_research?, to: :subscription_plan_variant
+  delegate :standard?, to: :subscription_plan_variant
+  delegate :standard_research?, to: :subscription_plan_variant
   delegate :pro?, to: :subscription_plan_variant
   delegate :legendary?, to: :subscription_plan_variant
+  delegate :research?, to: :subscription_plan_variant
+  delegate :research_only?, to: :subscription_plan_variant
   delegate :features, to: :subscription_plan_variant
 
   scope :active, -> { where('ends_at IS NULL OR ends_at > ?', Time.current) }
@@ -27,6 +32,14 @@ class Subscription < ApplicationRecord
   # - downgrade: modify ends_at to a date in the past
   # - extend duration: modify ends_at to a date in the future
   attr_readonly :user, :subscription_plan_variant
+
+  def active?
+    ends_at.nil? || ends_at > Time.current
+  end
+
+  def recurring?
+    active? && auto_renew?
+  end
 
   def days_left
     return if ends_at.nil?

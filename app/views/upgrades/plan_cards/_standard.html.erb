@@ -1,6 +1,6 @@
 <div class="widget--pricing__name">
-  <%= t('subscriptions.basic') %>
-  <% if current_user.subscription.basic? %>
+  <%= t('subscriptions.standard') %>
+  <% if current_user.subscription.standard? %>
     <span class="widget--pricing__badge"><%= t('subscriptions.active') %></span>
   <% end %>
 </div>
@@ -10,7 +10,7 @@
       <span class="widget--pricing__amount__t widget--pricing__amount__t--main">
         <%= localized_price(payment_option.virtual_price('base_price', 1.month), payment_option.currency) %><span class="price-period"><%= t('subscriptions.per_month_html') %></span>
       </span>
-      
+
       <span class="widget--pricing__amount__t widget--pricing__amount__t--main widget--pricing__amount__t--previous">
         <%= localized_price(reference_payment_option.virtual_price('base_price', 1.month), payment_option.currency) %><span class="price-period"><%= t('subscriptions.per_month_html') %></span>
       </span>

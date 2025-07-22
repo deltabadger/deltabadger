@@ -56,7 +56,7 @@ en:
             one_bot_only: "Only 1 bot allowed"
             daily_weekly_monthly_only: "No hourly scheduling (daily, weekly, monthly only)"
             limited_trading_pairs: "Limited to free trading pairs only"
-            basic_features_only: "Basic DCA features only"
+            mini_features_only: "Basic DCA features only"
             bots_will_stop_count:
                 one: "1 bot will be automatically stopped:"
                 other: "%{count} bots will be automatically stopped:"
@@ -71,7 +71,7 @@ en:
             understand_bots_shutdown_html: "I understand that <strong>%{count} of my bots will be automatically stopped</strong> on %{date} and I will need to upgrade again to restart them."
             understand_no_bots_affected_html: "I understand my subscription benefits will end on %{date} and I will be limited to free plan features."
             understand_feature_loss_html: "I understand I will lose access to all <strong>%{plan} plan features</strong> and my account will be downgraded to the free plan."
-            understand_limitations_html: "I understand I will be limited to <strong>1 bot only</strong> with <strong>basic features</strong> and <strong>restricted trading pairs</strong>."
+            understand_limitations_html: "I understand I will be limited to <strong>1 bot only</strong> with <strong>basic features</strong>."
             keep_subscription: "Keep My Subscription"
             confirm_cancellation: "Yes, Cancel My Subscription"
         payment:

@@ -7,7 +7,7 @@
       <h1 class="modal__title">⚠️ <%= t('subscriptions.confirm_cancel_title', plan: @subscription.name.titleize) %></h1>
     </div>
     <div class="modal__body">
-      
+
       <!-- Subscription will continue until renewal date -->
       <div class="cancellation-warning">
         <h3><%= t('subscriptions.cancellation.timeline_title') %></h3>
@@ -25,22 +25,21 @@
       <div class="features-lost">
         <h3><%= t('subscriptions.cancellation.features_lost_title') %></h3>
         <div class="features-grid">
-          <% if @subscription.basic? || @subscription.pro? %>
+          <% if @subscription.mini? || @subscription.standard? || @subscription.pro? %>
             <ul class="lost-features-list">
               <li>📊 <%= t('subscriptions.features.rebalanced_dca') %></li>
               <li>💰 <%= t('subscriptions.features.feecutter') %></li>
               <li>📈 <%= t('subscriptions.features.smart_intervals') %></li>
             </ul>
           <% end %>
-          
-          <% if @subscription.pro? %>
+
+          <% if @subscription.standard? || @subscription.pro? %>
             <ul class="lost-features-list">
               <li>📊 <%= t('subscriptions.features.rebalanced_dca') %></li>
               <li>📰 <%= t('subscriptions.features.premium_newsletter') %></li>
               <li>🔍 <%= t('subscriptions.features.portfolio_analyzer') %></li>
               <li>🎯 <%= t('subscriptions.features.price_limit') %></li>
               <li>📈 <%= t('subscriptions.features.triggers') %> (<%= t('subscriptions.features.rsi') %>, <%= t('subscriptions.features.sma_ema') %>)</li>
-              <li>💎 Premium trading pairs</li>
             </ul>
           <% end %>
         </div>
@@ -58,7 +57,7 @@
              (bot.try(:indicator_limited?) && bot.indicator_limited?) ||
              (bot.try(:quote_amount_limited?) && bot.quote_amount_limited?)
            end %>
-        
+
         <% if affected_bots.any? %>
           <div class="alert alert-danger">
             <strong><%= t('subscriptions.cancellation.bots_will_stop_count', count: affected_bots.size) %></strong>
@@ -96,7 +95,9 @@
           <div class="current-limits">
             <h4><%= t('subscriptions.cancellation.current_plan', plan: @subscription.name.titleize) %></h4>
             <ul>
-              <% if @subscription.basic? %>
+              <% if @subscription.mini? %>
+                <li><%= t('subscriptions.features.bots_count', count: 5) %></li>
+              <% elsif @subscription.standard? %>
                 <li><%= t('subscriptions.features.bots_count', count: 20) %></li>
               <% elsif @subscription.pro? %>
                 <li><%= t('subscriptions.features.bots_count', count: 100) %></li>
@@ -111,7 +112,7 @@
               <li><strong><%= t('subscriptions.cancellation.one_bot_only') %></strong></li>
               <li><strong><%= t('subscriptions.cancellation.daily_weekly_monthly_only') %></strong></li>
               <li><strong><%= t('subscriptions.cancellation.limited_trading_pairs') %></strong></li>
-              <li><strong><%= t('subscriptions.cancellation.basic_features_only') %></strong></li>
+              <li><strong><%= t('subscriptions.cancellation.mini_features_only') %></strong></li>
             </ul>
           </div>
         </div>
@@ -123,13 +124,13 @@
       <%= form_with url: settings_cancel_subscription_path, method: :patch, local: false, data: { turbo_frame: "api_keys" } do |f| %>
         <div class="confirmation-section">
           <h3><%= t('subscriptions.cancellation.confirmation_required') %></h3>
-          
+
           <div class="checkbox-group">
             <%= f.check_box :understand_bot_shutdown, { id: 'understand_bot_shutdown', class: 'confirmation-checkbox' }, "1", "" %>
             <%= f.label :understand_bot_shutdown, class: 'confirmation-label' do %>
               <% if affected_bots.any? %>
-                <%= t('subscriptions.cancellation.understand_bots_shutdown_html', 
-                      count: affected_bots.size, 
+                <%= t('subscriptions.cancellation.understand_bots_shutdown_html',
+                      count: affected_bots.size,
                       date: "<strong>#{l(@subscription.renews_at, format: :long)}</strong>".html_safe) %>
               <% else %>
                 <%= t('subscriptions.cancellation.understand_no_bots_affected_html',
@@ -158,8 +159,8 @@
           <%= button_tag class: 'button button--outline button--large', data: { action: 'modal--base#animateOutCloseAndCleanUp' } do %>
             <%= t('subscriptions.cancellation.keep_subscription') %>
           <% end %>
-          <%= f.submit t('subscriptions.cancellation.confirm_cancellation'), 
-                class: 'button button--danger button--large', 
+          <%= f.submit t('subscriptions.cancellation.confirm_cancellation'),
+                class: 'button button--danger button--large',
                 id: 'cancel-subscription-btn',
                 disabled: true %>
         </div>

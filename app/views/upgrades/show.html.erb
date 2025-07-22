@@ -21,9 +21,9 @@
 
   <div class="pricing">
     <%= form_with url: upgrade_path, method: :get, data: { controller: "form--submit", turbo_frame: "upgrade-frame" }, html: { class: "pricing__plans" } do |f| %>
-      
+
       <label class="hide_radio_buttons widget widget--pricing widget--pricing--mini widget--pricing--other">
-        <input data-action="change-&gt;form--submit#submit" type="radio" value="basic" name="plan_name" id="plan_name_basic">
+        <input data-action="change-&gt;form--submit#submit" type="radio" value="mini" name="plan_name" id="plan_name_mini">
           <div class="widget--pricing__name">
           <%= t('subscriptions.mini') %>
         </div>
@@ -76,7 +76,7 @@
       <% end %>
 
       <label class="hide_radio_buttons widget widget--pricing widget--pricing--research widget--pricing--other">
-        <input data-action="change-&gt;form--submit#submit" type="radio" value="basic" name="plan_name" id="plan_name_basic">
+        <input data-action="change-&gt;form--submit#submit" type="radio" value="mini" name="plan_name" id="plan_name_mini">
           <div class="widget--pricing__name">
           <%= t('subscriptions.research') %>
         </div>

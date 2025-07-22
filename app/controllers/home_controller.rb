@@ -14,7 +14,11 @@ class HomeController < ApplicationController
   layout 'guest', only: PUBLIC_PAGES
 
   def index
-    return redirect_to bots_path if user_signed_in?
+    if user_signed_in?
+      return redirect_to articles_path if current_user.subscription.research_only?
+
+      return redirect_to bots_path
+    end
 
     redirect_to new_user_session_path
   end

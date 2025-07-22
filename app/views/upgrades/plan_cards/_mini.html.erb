@@ -1,0 +1,55 @@
+<div class="widget--pricing__name">
+  <%= t('subscriptions.mini') %>
+  <% if current_user.subscription.mini? %>
+    <span class="widget--pricing__badge"><%= t('subscriptions.active') %></span>
+  <% end %>
+</div>
+<% if payment_option.present? %>
+  <div class="widget--pricing__amount">
+    <% if reference_payment_option.base_price != payment_option.base_price %>
+      <span class="widget--pricing__amount__t widget--pricing__amount__t--main">
+        <%= localized_price(payment_option.virtual_price('base_price', 1.month), payment_option.currency) %><span class="price-period"><%= t('subscriptions.per_month_html') %></span>
+      </span>
+
+      <span class="widget--pricing__amount__t widget--pricing__amount__t--main widget--pricing__amount__t--previous">
+        <%= localized_price(reference_payment_option.virtual_price('base_price', 1.month), payment_option.currency) %><span class="price-period"><%= t('subscriptions.per_month_html') %></span>
+      </span>
+    <% else %>
+      <span class="widget--pricing__amount__t widget--pricing__amount__t--main">
+        <%= localized_price(payment_option.virtual_price('base_price', 1.month), payment_option.currency) %><span class="price-period"><%= t('subscriptions.per_month_html') %></span>
+      </span>
+    <% end %>
+  </div>
+<% end %>
+
+<ul class="widget--pricing__opt-bots">
+  <li><%= t('subscriptions.features.bots_count', count: 20) %></li>
+</ul>
+<small></small>
+<ul class="widget--pricing__opt-strategies">
+  <li><%= t('subscriptions.features.dca') %></li>
+  <li><%= t('subscriptions.features.rebalanced_dca') %></li>
+</ul>
+<small></small>
+<ul class="widget--pricing__opt-execution">
+  <li><%= t('subscriptions.features.smart_intervals') %></li>
+  <li><%= t('subscriptions.features.feecutter') %></li>
+</ul>
+<small></small>
+<ul class="widget--pricing__opt-triggers">
+  <li><%= t('subscriptions.features.buy_the_dip') %></li>
+  <li><%= t('subscriptions.features.sma_ema') %></li>
+  <li><%= t('subscriptions.features.rsi') %></li>
+  <li><%= t('subscriptions.features.price_limit') %></li>
+  <li><%= t('subscriptions.features.amount_limit') %></li>
+</ul>
+<small>
+  <div class="toggle">
+    <input name="bots_dca_dual_asset[limit_ordered]" disabled="disabled" type="hidden" value="0"><input data-action="change->form--submit#submit change->class-toggle#toggle" disabled="disabled" type="checkbox" value="1" name="bots_dca_dual_asset[limit_ordered]" id="bots_dca_dual_asset_limit_ordered">
+    <div class="toggle__style"></div>
+  </div>
+</small>
+<ul class="widget--pricing__opt-research inactive">
+  <li><%= t('subscriptions.features.premium_newsletter') %></li>
+  <li><%= t('subscriptions.features.portfolio_analyzer') %></li>
+</ul>

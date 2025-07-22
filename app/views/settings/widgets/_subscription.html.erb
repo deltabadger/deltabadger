@@ -10,12 +10,12 @@
           <%= t("subscriptions.plan_#{current_user.subscription.subscription_plan_variant.years}_year") %>
         <% end %>
 
-        <% if current_user.subscription.basic? %>
+        <% if current_user.subscription.mini? %>
           <ul>
             <li><%= t('features.short.dca') %></li>
             <li><%= t('features.short.withdrawals') %></li>
           </ul>
-        <% elsif current_user.subscription.pro? %>
+        <% elsif current_user.subscription.standard? || current_user.subscription.pro? %>
           <ul>
             <li><%= t('features.short.dca') %></li>
             <li><%= t('features.short.withdrawals') %></li>

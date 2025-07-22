@@ -57,12 +57,16 @@ module SubscriptionPlan::PlanFeatures
     def features
       if free?
         free_features
-      elsif basic?
-        basic_features
+      elsif mini?
+        mini_features
+      elsif standard?
+        standard_features
       elsif pro?
         pro_features
       elsif legendary?
         legendary_features
+      elsif research?
+        research_features
       end
     end
 
@@ -74,15 +78,27 @@ module SubscriptionPlan::PlanFeatures
       ]
     end
 
-    def basic_features
+    def mini_features
       free_features + %w[
         fee_cutter
         automatic_withdrawals
       ]
     end
 
+    def standard_features
+      mini_features + %w[
+        newsletter
+        rebalanced_dca
+        crypto_index
+        custom_portfolios
+        portfolio_backtesting
+        smart_allocation
+        ai_insights
+      ]
+    end
+
     def pro_features
-      basic_features + %w[
+      standard_features + %w[
         newsletter
         rebalanced_dca
         crypto_index
@@ -97,6 +113,13 @@ module SubscriptionPlan::PlanFeatures
       pro_features + %w[
         crypto_index_advanced
         legendary_badger_nft
+      ]
+    end
+
+    def research_features
+      %w[
+        newsletter
+        ai_insights
       ]
     end
   end

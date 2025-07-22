@@ -10,10 +10,6 @@ class Portfolio < ApplicationRecord
 
   # include Labelable
 
-  MAX_ASSETS = {
-    limited: 4,
-    unlimited: 100
-  }.freeze
   BENCHMARK_NAMES = {
     '65951': { name: 'S&P 500 Index' },
     '1713': { name: 'Bitcoin' },
@@ -40,12 +36,8 @@ class Portfolio < ApplicationRecord
     benchmarks.keys.map { |key| [BENCHMARK_NAMES[key.to_sym][:name], key] }
   end
 
-  def limited?
-    user.subscription.free? || user.subscription.basic?
-  end
-
   def max_assets
-    limited? ? MAX_ASSETS[:limited] : MAX_ASSETS[:unlimited]
+    100
   end
 
   def compare_to_select_options
@@ -156,11 +148,7 @@ class Portfolio < ApplicationRecord
   end
 
   def max_assets_reached?
-    portfolio_assets.size >= if user.subscription.pro? || user.subscription.legendary?
-                               100
-                             else
-                               4
-                             end
+    portfolio_assets.size >= max_assets
   end
 
   def reset_memoized_assets

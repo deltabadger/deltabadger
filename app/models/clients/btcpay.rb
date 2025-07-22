@@ -57,7 +57,7 @@ class Clients::Btcpay < Client
   #           "currency"=>"USD",
   #           "exRates"=>{"USD"=>0.0},
   #           "buyerTotalBtcAmount"=>nil,
-  #           "itemDesc"=>"Basic Plan Upgrade",
+  #           "itemDesc"=>"Pro Plan Upgrade",
   #           "itemCode"=>nil,
   #           "orderId"=>"379",
   #           "guid"=>"c7ba3fe6-d8ee-463d-85cd-0a6557ae3b4a",
