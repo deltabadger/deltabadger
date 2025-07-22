@@ -127,9 +127,17 @@ it:
         two_fa:
             disabled: 'L''autenticazione a due fattori è stata disabilitata.'
             enabled: 'L''autenticazione a due fattori è stata abilitata.'
+        api_keys:
+            confirm_delete: "Vuoi eliminare questa chiave API?"
+        subscription:
+            next_payment_html: 'Prossimo pagamento: %{cost_html}'
+            requires_manual_payment: 'Richiede pagamento manuale'
+            enable_recurring: 'Rendilo ricorrente'
+            cancel_subscription: "Annulla l'abbonamento"
         index:
             api_key_confirmation: 'Sei sicuro?'
             api_keys_section: 'Chiavi API'
+            subscription_section: 'Abbonamento'
             trading_keys_section: 'Chiavi Trading'
             withdrawal_keys_section: 'Chiavi Prelievo'
             email_section: Email
