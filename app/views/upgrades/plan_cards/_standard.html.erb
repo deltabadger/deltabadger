@@ -23,7 +23,7 @@
 <% end %>
 
 <ul class="widget--pricing__opt-bots">
-  <li><%= t('subscriptions.features.bots_count', count: 20) %></li>
+  <li><%= t('subscriptions.features.bots_count', count: payment_option.subscription_plan_variant.max_bots) %></li>
 </ul>
 <small></small>
 <ul class="widget--pricing__opt-strategies">

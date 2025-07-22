@@ -97,6 +97,22 @@ class SubscriptionPlan < ApplicationRecord
     name == RESEARCH_PLAN
   end
 
+  def max_bots
+    if free? || research_only?
+      1
+    elsif mini? || mini_research?
+      5
+    elsif standard? || standard_research?
+      20
+    elsif pro?
+      100
+    elsif legendary?
+      nil
+    else
+      raise "Unknown subscription plan: #{name}"
+    end
+  end
+
   private
 
   def reset_all_subscription_plans_cache

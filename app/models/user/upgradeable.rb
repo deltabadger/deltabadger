@@ -6,6 +6,12 @@ module User::Upgradeable
 
     available_plans = base_plans[subscription.name] || []
     available_plans << SubscriptionPlan::LEGENDARY_PLAN if legendary_plan_available?
+    if subscription.research_only?
+      available_plans << SubscriptionPlan::RESEARCH_PLAN unless subscription.recurring?
+    elsif subscription.free? || subscription.mini? || subscription.standard?
+      available_plans << SubscriptionPlan::RESEARCH_PLAN
+    end
+
     available_plans
   end
 
@@ -20,19 +26,16 @@ module User::Upgradeable
       SubscriptionPlan::FREE_PLAN => [
         SubscriptionPlan::MINI_PLAN,
         SubscriptionPlan::STANDARD_PLAN,
-        SubscriptionPlan::PRO_PLAN,
-        SubscriptionPlan::RESEARCH_PLAN
+        SubscriptionPlan::PRO_PLAN
       ],
       SubscriptionPlan::MINI_PLAN => [
         subscription.recurring? ? nil : SubscriptionPlan::MINI_PLAN,
         SubscriptionPlan::STANDARD_PLAN,
-        SubscriptionPlan::PRO_PLAN,
-        SubscriptionPlan::RESEARCH_PLAN
+        SubscriptionPlan::PRO_PLAN
       ].compact,
       SubscriptionPlan::STANDARD_PLAN => [
         subscription.recurring? ? nil : SubscriptionPlan::STANDARD_PLAN,
-        SubscriptionPlan::PRO_PLAN,
-        SubscriptionPlan::RESEARCH_PLAN
+        SubscriptionPlan::PRO_PLAN
       ].compact,
       SubscriptionPlan::PRO_PLAN => [
         subscription.recurring? ? nil : SubscriptionPlan::PRO_PLAN
@@ -40,8 +43,7 @@ module User::Upgradeable
       SubscriptionPlan::RESEARCH_PLAN => [
         SubscriptionPlan::MINI_PLAN,
         SubscriptionPlan::STANDARD_PLAN,
-        SubscriptionPlan::PRO_PLAN,
-        subscription.recurring? ? nil : SubscriptionPlan::RESEARCH_PLAN
+        SubscriptionPlan::PRO_PLAN
       ]
     }
   end

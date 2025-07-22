@@ -22,47 +22,6 @@
   <div class="pricing">
     <%= form_with url: upgrade_path, method: :get, data: { controller: "form--submit", turbo_frame: "upgrade-frame" }, html: { class: "pricing__plans" } do |f| %>
 
-      <label class="hide_radio_buttons widget widget--pricing widget--pricing--mini widget--pricing--other">
-        <input data-action="change-&gt;form--submit#submit" type="radio" value="mini" name="plan_name" id="plan_name_mini">
-          <div class="widget--pricing__name">
-          <%= t('subscriptions.mini') %>
-        </div>
-        <div class="widget--pricing__amount">
-          <span class="widget--pricing__amount__t widget--pricing__amount__t--main">
-            <span class="price-ticker">$</span>
-            <span class="price-amount">9</span>
-            <span class="price-period">/mo</span>
-          </span>
-        </div>
-        <ul class="widget--pricing__opt-bots">
-          <li><%= t('subscriptions.features.bots_count', count: 5) %></li>
-        </ul>
-        <small><%= t('subscriptions.features.strategies') %></small>
-        <ul class="widget--pricing__opt-strategies">
-          <li><%= t('subscriptions.features.dca') %></li>
-          <li><%= t('subscriptions.features.rebalanced_dca') %></li>
-        </ul>
-        <small><%= t('subscriptions.features.optimisations') %></small>
-        <ul class="widget--pricing__opt-execution">
-          <li><%= t('subscriptions.features.smart_intervals') %></li>
-          <li><%= t('subscriptions.features.feecutter') %></li>
-        </ul>
-        <small><%= t('subscriptions.features.triggers') %></small>
-        <ul class="widget--pricing__opt-triggers">
-        </ul>
-        <small>
-          <div class="toggle">
-            <input name="bots_dca_dual_asset[limit_ordered]" disabled="disabled" type="hidden" value="0"><input data-action="change->form--submit#submit change->class-toggle#toggle" disabled="disabled" type="checkbox" value="1" name="bots_dca_dual_asset[limit_ordered]" id="bots_dca_dual_asset_limit_ordered">
-            <div class="toggle__style"></div>
-          </div>
-        </small>
-        <ul class="widget--pricing__opt-research inactive">
-          <li><%= t('subscriptions.features.premium_newsletter') %></li>
-          <li><%= t('subscriptions.features.portfolio_analyzer') %></li>
-        </ul>
-        </label>
-
-
       <% @payment_options.each do |available_plan_name, payment_option| %>
         <% selected = @payment.subscription_plan.name == available_plan_name %>
         <%= tag.label class: "hide_radio_buttons widget widget--pricing widget--pricing--#{available_plan_name} widget--pricing--#{selected ? 'selected' : 'other'}" do %>
@@ -75,23 +34,6 @@
         <% end %>
       <% end %>
 
-      <label class="hide_radio_buttons widget widget--pricing widget--pricing--research widget--pricing--other">
-        <input data-action="change-&gt;form--submit#submit" type="radio" value="mini" name="plan_name" id="plan_name_mini">
-          <div class="widget--pricing__name">
-          <%= t('subscriptions.research') %>
-        </div>
-        <div class="widget--pricing__amount">
-          <span class="widget--pricing__amount__t widget--pricing__amount__t--main">
-            <span class="price-ticker">$</span>
-            <span class="price-amount">14</span>
-            <span class="price-period">/mo</span>
-          </span>
-        </div>
-        <ul>
-          <li><%= t('subscriptions.features.premium_newsletter') %></li>
-          <li><%= t('subscriptions.features.portfolio_analyzer') %></li>
-        </ul>
-      </label>
     <% end %>
 
     <%= tag.div class: "pricing__checkout", data: {

@@ -16,6 +16,7 @@ class Subscription < ApplicationRecord
   delegate :research?, to: :subscription_plan_variant
   delegate :research_only?, to: :subscription_plan_variant
   delegate :features, to: :subscription_plan_variant
+  delegate :max_bots, to: :subscription_plan_variant
 
   scope :active, -> { where('ends_at IS NULL OR ends_at > ?', Time.current) }
   scope :by_plan_name, ->(name) { joins(:subscription_plan_variant).merge(SubscriptionPlanVariant.where(subscription_plan: SubscriptionPlan.send(name))) } # rubocop:disable Layout/LineLength

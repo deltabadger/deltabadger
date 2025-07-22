@@ -17,6 +17,7 @@ class SubscriptionPlanVariant < ApplicationRecord
   delegate :research?, to: :subscription_plan
   delegate :research_only?, to: :subscription_plan
   delegate :features, to: :subscription_plan
+  delegate :max_bots, to: :subscription_plan
 
   scope :years, ->(years) { where(years: years) }
 

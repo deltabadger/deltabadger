@@ -23,7 +23,7 @@
 <% end %>
 
 <ul class="widget--pricing__opt-bots">
-  <li><%= t('subscriptions.features.bots_count', count: 20) %></li>
+  <li><%= t('subscriptions.features.bots_count', count: payment_option.subscription_plan_variant.max_bots) %></li>
 </ul>
 <small></small>
 <ul class="widget--pricing__opt-strategies">
@@ -37,11 +37,6 @@
 </ul>
 <small></small>
 <ul class="widget--pricing__opt-triggers">
-  <li><%= t('subscriptions.features.buy_the_dip') %></li>
-  <li><%= t('subscriptions.features.sma_ema') %></li>
-  <li><%= t('subscriptions.features.rsi') %></li>
-  <li><%= t('subscriptions.features.price_limit') %></li>
-  <li><%= t('subscriptions.features.amount_limit') %></li>
 </ul>
 <small>
   <div class="toggle">
