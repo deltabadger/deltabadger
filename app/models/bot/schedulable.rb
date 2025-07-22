@@ -95,7 +95,7 @@ module Bot::Schedulable
   private
 
   def validate_interval_included_in_subscription_plan
-    return if user.subscription.paid?
+    return unless subscription.free? || subscription.research_only?
 
     errors.add(:user, :upgrade) if interval == 'hour'
   end

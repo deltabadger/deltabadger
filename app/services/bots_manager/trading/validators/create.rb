@@ -74,7 +74,7 @@ module BotsManager::Trading::Validators
         @exchange_name = exchange_name
         @pro = user.subscription.pro?
         @legendary = user.subscription.legendary?
-        @paid_plan = user.subscription.paid?
+        @paid_plan = user.subscription.paid? && !user.subscription.research_only?
         @minimums = GetSmartIntervalsInfo.new.call(params.merge(exchange_name: exchange_name), user).data
         @use_subaccount = params['use_subaccount']
         @selected_subaccount = params['selected_subaccount']
