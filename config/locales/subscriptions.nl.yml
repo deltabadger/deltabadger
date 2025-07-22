@@ -18,6 +18,10 @@ nl:
             one: '1 dag over'
             other: '%{count} dagen over'
         legendary_plan_left_html: "%{for_sale_count} <span class='hide-on-mobile'>van %{total_supply}</span> over"
+        cancel_subscription: "Abonnement opzeggen"
+        canceled: "Uw abonnement is opgezegd"
+        confirm_cancel_title: "%{plan}-abonnement opzeggen"
+        confirm_cancel: "Weet u zeker dat u uw abonnement wilt opzeggen? Alle bots met %{plan}-functies ingeschakeld, werken niet meer na %{date}."
         payment:
             price_usd_html: '<span class=price-ticker>%{symbol}</span><span class=price-amount>%{price}</span>'
             price_eur_html: '<span class=price-ticker>%{symbol}</span><span class=price-amount>%{price}</span>'
@@ -64,6 +68,7 @@ nl:
             wire_transfer_pending: 'Bedankt! We activeren uw account spoedig en nemen per email contact met u op.'
             you_pay: 'U betaalt'
             moneyback_guarantee_html: "30-dagen geld-terug-garantie. Geen&nbsp;vragen."
+            country: "Land"
         prolong_upgrade: 'Upgrade je abonnement'
         upgrade: Upgrade
         upgrade_plan: 'Upgrade abonnement'

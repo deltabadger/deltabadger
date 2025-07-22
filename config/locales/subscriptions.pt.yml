@@ -18,6 +18,10 @@ pt:
             one: '1 dia restante'
             other: '%{count} dias restantes'
         legendary_plan_left_html: "%{for_sale_count} <span class='hide-on-mobile'>de %{total_supply}</span>"
+        cancel_subscription: "Cancelar subscrição"
+        canceled: "A sua subscrição foi cancelada"
+        confirm_cancel_title: "Cancelar plano %{plan}"
+        confirm_cancel: "Tem a certeza que quer cancelar a sua subscrição? Todos os bots com funcionalidades do plano %{plan} ativadas deixarão de funcionar após %{date}."
         payment:
             price_usd_html: '<span class=price-ticker>%{symbol}</span><span class=price-amount>%{price}</span>'
             price_eur_html: '<span class=price-ticker>%{symbol}</span><span class=price-amount>%{price}</span>'
@@ -61,6 +65,7 @@ pt:
             wire_transfer_pending: 'Obrigado! Ativaremos a tua conta em breve e entraremos em contacto contigo por e-mail.'
             you_pay: 'Tu pagas'
             moneyback_guarantee_html: "30-dia garantia de devolução de dinheiro. Sem&nbsp;perguntas."
+            country: "País"
         prolong_upgrade: 'Fazer upgrade do plano'
         upgrade: Fazer upgrade
         upgrade_plan: 'Fazer upgrade'

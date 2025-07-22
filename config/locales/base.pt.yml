@@ -125,6 +125,7 @@ pt:
         index:
             api_key_confirmation: 'Tem a certeza?'
             api_keys_section: 'Chaves de API'
+            subscription_section: 'Subscrição'
             trading_keys_section: 'Chaves de trading'
             withdrawal_keys_section: 'Chaves de retirada'
             email_section: E-mail
@@ -137,6 +138,13 @@ pt:
         two_fa:
             disabled: 'A autenticação de dois fatores foi desativada.'
             enabled: 'A autenticação de dois fatores foi ativada.'
+        api_keys:
+            confirm_delete: "Pretende apagar esta chave de API?"
+        subscription:
+            next_payment_html: 'Próximo pagamento: %{cost_html}'
+            requires_manual_payment: 'Requer pagamento manual'
+            enable_recurring: 'Tornar recorrente'
+            cancel_subscription: 'Cancelar subscrição'
     social:
         blog: 'Leia o nosso blog'
         knowledge_base: 'Base de conhecimento'

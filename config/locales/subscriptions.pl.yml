@@ -20,7 +20,13 @@ pl:
             many: 'Pozostało %{count} dni'
             other: 'Pozostało %{count} dni'
         legendary_plan_left_html: "pozostało %{for_sale_count} <span class='hide-on-mobile'>z %{total_supply}</span>"
+        cancel_subscription: "Anuluj subskrypcję"
+        canceled: "Twoja subskrypcja została anulowana"
+        confirm_cancel_title: "Anuluj plan %{plan}"
+        confirm_cancel: "Czy na pewno chcesz anulować subskrypcję? Wszystkie boty z włączonymi funkcjami %{plan} przestaną działać po %{date}."
         payment:
+            cardholder_name: "Posiadacz karty"
+            checkout: "Do kasy"
             price_usd_html: '<span class=price-ticker>%{symbol}</span><span class=price-amount>%{price}</span>'
             price_eur_html: '<span class=price-ticker>%{symbol}</span><span class=price-amount>%{price}</span>'
             account_holder: Odbiorca
@@ -68,6 +74,7 @@ pl:
             wire_transfer_pending: 'Dziękujemy! Twoje konto zostanie wkrótce aktywowane. Skontaktujemy się z Tobą drogą mailową.'
             you_pay: Do zapłaty
             moneyback_guarantee_html: "30-dniowa gwarancja zwrotu pieniędzy. Bez&nbsp;pytań."
+            country: "Kraj"
         prolong_upgrade: 'Zrób upgrade'
         upgrade: Zrób upgrade
         upgrade_plan: 'Zrób upgrade'

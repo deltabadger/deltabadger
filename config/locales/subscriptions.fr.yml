@@ -18,6 +18,10 @@ fr:
             one: "1 jour restant"
             other: "%{count} jours restants"
         legendary_plan_left_html: "Il reste %{for_sale_count} <span class='hide-on-mobile'>sur %{total_supply}</span>"
+        cancel_subscription: "Annuler l'abonnement"
+        canceled: "Votre abonnement a été annulé"
+        confirm_cancel_title: "Annuler le plan %{plan}"
+        confirm_cancel: "Êtes-vous sûr de vouloir annuler votre abonnement ? Tous les bots avec les fonctionnalités %{plan} activées cesseront de fonctionner après le %{date}."
         payment:
             price_usd_html: '<span class=price-ticker>%{symbol}</span><span class=price-amount>%{price}</span>'
             price_eur_html: '<span class=price-ticker>%{symbol}</span><span class=price-amount>%{price}</span>'
@@ -65,6 +69,7 @@ fr:
             wire_transfer_pending: 'Merci ! Nous allons bientôt activer votre compte et vous contacter par e-mail'
             you_pay: 'Vous payez'
             moneyback_guarantee_html: "30-jour garantie de remboursement. Pas&nbsp;de&nbsp;questions."
+            country: "Pays"
         prolong_upgrade: 'Mettre à niveau le forfait'
         upgrade: 'Mettre à niveau'
         upgrade_plan: 'Mettre à niveau le forfait'

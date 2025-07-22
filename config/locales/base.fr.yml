@@ -122,9 +122,22 @@ fr:
             title: 'Fuseau horaire'
             updated: 'Votre fuseau horaire a été mis à jour.'
             current_time_is: 'Ce fuseau horaire sera utilisé dans les logs du bot. Selon lui, l''heure actuelle est'
+        name:
+            updated: "Votre nom a été mis à jour."
+        two_fa:
+            disabled: "L'authentification à deux facteurs a été désactivée."
+            enabled: "L'authentification à deux facteurs a été activée."
+        api_keys:
+            confirm_delete: "Voulez-vous supprimer cette clé d'API ?"
+        subscription:
+            next_payment_html: 'Prochain paiement: %{cost_html}'
+            requires_manual_payment: 'Paiement manuel requis'
+            enable_recurring: 'Rendre récurrent'
+            cancel_subscription: "Annuler l'abonnement"
         index:
             api_key_confirmation: 'Êtes-vous sûr ?'
             api_keys_section: 'Clés API'
+            subscription_section: 'Abonnement'
             trading_keys_section: 'Clés de trading'
             withdrawal_keys_section: 'Clés de retrait'
             current_password: 'Mot de passe actuel (pour confirmation)'

@@ -20,6 +20,10 @@ ru:
             many: 'Осталось %{count} дней'
             other: 'Осталось %{count} дней'
         legendary_plan_left_html: "%{for_sale_count} <span class='hide-on-mobile'>из %{total_supply}</span>"
+        cancel_subscription: "Отменить подписку"
+        canceled: "Ваша подписка была отменена"
+        confirm_cancel_title: "Отменить план %{plan}"
+        confirm_cancel: "Вы уверены, что хотите отменить подписку? Все боты с включенными функциями %{plan} перестанут работать после %{date}."
         payment:
             price_usd_html: '<span class=price-ticker>%{symbol}</span><span class=price-amount>%{price}</span>'
             price_eur_html: '<span class=price-ticker>%{symbol}</span><span class=price-amount>%{price}</span>'
@@ -68,6 +72,7 @@ ru:
             wire_transfer_pending: 'Спасибо! Мы скоро активируем ваш аккаунт и свяжемся с вами по электронной почте.'
             you_pay: 'Вы платите'
             moneyback_guarantee_html: "30-дневный гарантийный срок возврата денег. Без&nbsp;вопросов."
+            country: "Страна"
         prolong_upgrade: 'Обновить план'
         upgrade: Обновить
         upgrade_plan: 'Обновить план'

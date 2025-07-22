@@ -18,6 +18,10 @@ es:
             one: '1 día menos'
             other: '%{count} días disponibles'
         legendary_plan_left_html: "%{for_sale_count} <span class='hide-on-mobile'>de %{total_supply}</span> restantes"
+        cancel_subscription: "Cancelar suscripción"
+        canceled: "Tu suscripción ha sido cancelada"
+        confirm_cancel_title: "Cancelar plan %{plan}"
+        confirm_cancel: "¿Estás seguro de que quieres cancelar tu suscripción? Todos los bots con funciones del plan %{plan} activadas dejarán de funcionar después del %{date}."
         payment:
             cardholder_name: 'Nombre del titular de la tarjeta'
             checkout: 'Pagar'
@@ -66,6 +70,7 @@ es:
             wire_transfer_pending: '¡Gracias! Pronto activaremos tu cuenta y nos pondremos en contacto contigo por correo electrónico.'
             you_pay: 'Total'
             moneyback_guarantee_html: "Garantía de devolución de 30 días. Sin&nbsp;preguntas."
+            country: "País"
         prolong_upgrade: 'Mejora tu plan'
         upgrade: Mejorar
         upgrade_plan: 'Mejorar plan'

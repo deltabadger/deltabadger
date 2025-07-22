@@ -129,9 +129,15 @@ es:
             enabled: 'La autenticación de dos factores ha sido activada.'
         api_keys:
             confirm_delete: '¿Quieres eliminar esta clave API?'
+        subscription:
+            next_payment_html: 'Próximo pago: %{cost_html}'
+            requires_manual_payment: 'Requiere pago manual'
+            enable_recurring: 'Hacerlo recurrente'
+            cancel_subscription: 'Cancelar suscripción'
         index:
             api_key_confirmation: '¿Estás seguro?'
             api_keys_section: 'Claves API'
+            subscription_section: 'Suscripción'
             trading_keys_section: 'Claves API de trading'
             withdrawal_keys_section: 'Claves API de retiro'
             email_section: 'Correo electrónico'
