@@ -129,9 +129,17 @@ de:
             enabled: 'Die Zwei-Faktor-Authentifizierung wurde aktiviert.'
         api_keys:
             confirm_delete: 'Möchten Sie diesen API-Schlüssel löschen?'
+        subscription:
+            next_payment_html: 'Nächste Zahlung: %{cost_html}'
+            requires_manual_payment: 'Manuelle Zahlung erforderlich'
+            enable_recurring: 'Wiederkehrend machen'
+            cancel_subscription: 'Abonnement kündigen'
         index:
             api_key_confirmation: 'Bist du sicher?'
             api_keys_section: API-Schlüssel
+            subscription_section: 'Abonnement'
+            trading_keys_section: 'Handelsschlüssel'
+            withdrawal_keys_section: 'Auszahlungsschlüssel'
             email_section: E-Mail
             name_section: Name
             password_section: Passwort
