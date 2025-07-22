@@ -128,9 +128,22 @@ ru:
             title: 'Часовой пояс'
             updated: 'Ваш часовой пояс был обновлен.'
             current_time_is: 'Этот часовой пояс будет использоваться в журналах бота. Согласно ему, текущее время'
+        name:
+            updated: 'Ваше имя было обновлено.'
+        two_fa:
+            disabled: 'Двухфакторная аутентификация была отключена.'
+            enabled: 'Двухфакторная аутентификация была включена.'
+        api_keys:
+            confirm_delete: "Вы уверены, что хотите удалить этот ключ API?"
+        subscription:
+            next_payment_html: 'Следующий платеж: %{cost_html}'
+            requires_manual_payment: 'Требуется ручная оплата'
+            enable_recurring: 'Сделать повторяющимся'
+            cancel_subscription: 'Отменить подписку'
         index:
             api_key_confirmation: 'Вы уверены?'
             api_keys_section: 'Ключи API'
+            subscription_section: 'Подписка'
             trading_keys_section: 'Ключи торговли'
             withdrawal_keys_section: 'Ключи вывода'
             email_section: 'Электронная почта'
@@ -138,11 +151,6 @@ ru:
             password_section: Пароль
             title: Настройки
             two_factor_section: 'Аутентификация по второму фактору'
-        name:
-            updated: 'Ваше имя было обновлено.'
-        two_fa:
-            disabled: 'Двухфакторная аутентификация была отключена.'
-            enabled: 'Двухфакторная аутентификация была включена.'
     social:
         blog: 'Читайте наш блог'
         knowledge_base: 'База знаний'
