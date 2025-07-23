@@ -8,7 +8,7 @@ de:
             <p>Wenn Sie in den letzten %{years}&nbsp;Jahren regelmäßig in Bitcoin investiert hätten, lägen Sie jetzt <b style="color: #00A36C;">%{profit}%</b> im Plus.</p>
             <p>Das sind <b style="color: #00A36C;">%{sp500_diff}%</b> mehr als der S&P 500 im gleichen Zeitraum.</p>
     button:
-        connect: "Verbinden"
+        get_started: Loslegen
         ok: 'OK'
         update: 'Aktualisieren'
         save: 'Speichern'
@@ -24,6 +24,7 @@ de:
         add: 'Hinzufügen'
         remove: 'Entfernen'
         start: 'Starten'
+        connect: "Verbinden"
     data_labels:
         invested: "Gesamtinvestition"
         portfolio_value: "Portfoliowert"
