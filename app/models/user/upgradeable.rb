@@ -5,12 +5,12 @@ module User::Upgradeable
     return [] if subscription.legendary?
 
     available_plans = base_plans[subscription.name] || []
-    available_plans << SubscriptionPlan::LEGENDARY_PLAN if legendary_plan_available?
     if subscription.research_only?
       available_plans << SubscriptionPlan::RESEARCH_PLAN unless subscription.recurring?
     elsif subscription.free? || subscription.mini? || subscription.standard?
       available_plans << SubscriptionPlan::RESEARCH_PLAN
     end
+    available_plans << SubscriptionPlan::LEGENDARY_PLAN if legendary_plan_available?
 
     available_plans
   end

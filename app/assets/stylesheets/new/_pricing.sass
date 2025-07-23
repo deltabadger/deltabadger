@@ -47,7 +47,7 @@
 .widget--pricing__amount__t
     .price-ticker
         font-size: 50%
-        line-height: 1.55
+        line-height: 1.36
         align-self: flex-start
 
 .widget
@@ -57,7 +57,7 @@
         padding-top: 3.25rem
         padding-bottom: 3.25rem
         .button--upgrade
-            margin: 2rem 0
+            margin: 0 0 2rem
             max-width: 20rem
         small
             min-height: 3rem
@@ -101,25 +101,27 @@
             color: var(--text-strong)
         &__amount
             color: var(--text-strong)
+            min-height: 8rem
             &__t
-                font-size: 4rem
-                line-height: 4rem
+                font-size: 5rem
+                line-height: 5rem
                 font-weight: 600
                 display: flex
                 align-items: flex-end
-                gap: 0.5rem
+                gap: 0.75rem
                 &--main
                     .price-period
                         font-size: 2rem
                         line-height: 3rem
                         color: var(--text-faded)
-                &--previous
-                    color: var(--text-faded)
-                    font-size: 3rem
-                    .price-amount
+                &__previous
+                    position: relative
+                    top: 0.75rem
+                    s
+                        color: var(--text-faded)
                         text-decoration: line-through
-                    .price-ticker
-                        line-height: 3rem
+                    .price-period,.price-ticker
+                        margin-left: 0.5rem
         ul
             list-style: none
             padding-left: 0
@@ -182,7 +184,7 @@
             .slider
                 margin-top: 0.75rem
             .slider__style
-                background: var(--success-semitransparent)
+                background: #0ff2
                 &__track
                     border-left-color: var(--success) !important
                 &__progress

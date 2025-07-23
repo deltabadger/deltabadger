@@ -12,7 +12,6 @@
         <%= f.radio_button :days, days, checked: selected, data: { action: "change->form--submit#submit" } %>
         <span><%= t("subscriptions.variant_#{days}_days") %></span>
       <% end %>
-      <%#= " / " unless days == @available_variant_days.last %>
     <% end %>
   <% end %>
 </div>
