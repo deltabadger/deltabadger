@@ -2,6 +2,9 @@
     display: flex
     flex-direction: row
     gap: 1rem
+    justify-self: center
+    width: 100%
+    max-width: 155rem
     &__plans
         display: grid
         grid-template-columns: repeat(3, 1fr)
@@ -53,6 +56,9 @@
         margin-bottom: 0
         padding-top: 3.25rem
         padding-bottom: 3.25rem
+        .button--upgrade
+            margin: 2rem 0
+            max-width: 20rem
         small
             min-height: 3rem
             display: flex
@@ -94,7 +100,6 @@
             line-height: 2rem
             color: var(--text-strong)
         &__amount
-            min-height: 9rem
             color: var(--text-strong)
             &__t
                 font-size: 4rem
