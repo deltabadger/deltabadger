@@ -1,7 +1,7 @@
 module LocalesHelper
   def localized_price(price, currency, show_zero_decimals = false) # rubocop:disable Style/OptionalBooleanParameter
     # Check if the price is an integer (no decimals needed)
-    formatted_price = if price.round(2).to_s.end_with?('.0') && !show_zero_decimals
+    formatted_price = if (price.round(2).to_s.end_with?('.0') || price == price.to_i) && !show_zero_decimals
                         price.round(2).to_i.to_s # Remove decimal part if it's .00
                       else
                         format('%0.02f', price) # Format normally
@@ -17,15 +17,6 @@ module LocalesHelper
 
   def localized_plan_name(name)
     t("subscriptions.#{name}")
-  end
-
-  def localized_plan_variant_name(subscription_plan_variant)
-    years = subscription_plan_variant.years
-    if years.nil?
-      t(subscription_plan_variant.name)
-    else
-      "#{t(subscription_plan_variant.name)} (#{t('utils.years', count: years)})"
-    end
   end
 
   def localized_payment_country_options
