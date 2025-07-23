@@ -19,7 +19,8 @@ class UpgradesController < ApplicationController
   private
 
   def payment_params
-    params.permit(:plan_name, :type, :country, :days, :paid_payment_id)
+    # params.permit(:plan_name, :type, :country, :days, :paid_payment_id)
+    params.permit(:days, :mini_research_enabled, :standard_research_enabled, :paid_payment_id)
   end
 
   def update_session

@@ -20,9 +20,12 @@
 <%= turbo_frame_tag "upgrade-frame" do %>
 
   <div class="pricing">
-    <div class="pricing__plans">
+    <%= form_with url: upgrade_path, method: :get, data: { controller: "form--submit", turbo_frame: "upgrade-frame" }, html: { class: "pricing__plans" } do |f| %>
+
       <% @payment_options.each do |available_plan_name, payment_option| %>
-        <%= tag.div class: "widget widget--pricing widget--pricing--#{available_plan_name} widget--pricing--other" do %>
+        <% selected = @payment.subscription_plan.name == available_plan_name %>
+        <%= tag.label class: "hide_radio_buttons widget widget--pricing widget--pricing--#{available_plan_name} widget--pricing--#{selected ? 'selected' : 'other'}" do %>
+          <%= f.radio_button :plan_name, available_plan_name, checked: selected, data: { action: "change->form--submit#submit" } %>
           <%= render partial: "upgrades/plan_cards/#{available_plan_name}", locals: {
             reference_payment_option: @reference_payment_options[available_plan_name],
             reference_duration: @reference_duration,
@@ -31,7 +34,8 @@
           } %>
         <% end %>
       <% end %>
-    </div>
+
+    <% end %>
 
     <%= tag.div class: "pricing__checkout", data: {
       controller: "zaraz",
