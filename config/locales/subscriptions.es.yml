@@ -2,7 +2,7 @@ es:
     subscriptions:
         per_month_html: "/mes"
         per_year_html: "/año"
-        plan__days: "Lifetime"
+        variant_lifetime: "Lifetime"
         variant_30_days: "Mensual"
         variant_365_days: "Anual (20% ahorro)"
         free: "Gratis"

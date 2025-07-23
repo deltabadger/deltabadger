@@ -2,7 +2,7 @@ pt:
     subscriptions:
         per_month_html: "/mês"
         per_year_html: "/ano"
-        plan__days: "Vitalício"
+        variant_lifetime: "Vitalício"
         variant_30_days: "Mensal"
         variant_365_days: "Anual (poupe 20%)"
         free: "Grátis"

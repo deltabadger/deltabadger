@@ -2,7 +2,7 @@ ru:
     subscriptions:
         per_month_html: "/мес"
         per_year_html: "/год"
-        plan__days: "Пожизненно"
+        variant_lifetime: "Пожизненно"
         variant_30_days: "Ежемесячно"
         variant_365_days: "Ежегодно (экономия 20%)"
         free: "Бесплатно"

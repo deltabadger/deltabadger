@@ -7,7 +7,7 @@
         <% if current_user.subscription.subscription_plan_variant.cost_eur.positive? %>
           <% currency = current_user.payments.last.currency %>
           <%= localized_price(current_user.subscription.subscription_plan_variant.send("cost_#{currency}"), currency) %><span class="price-period"><%= t("subscriptions.#{payment_frequency_translation_key(reference_duration)}") %></span>
-          <%= t("subscriptions.plan_#{current_user.subscription.subscription_plan_variant.days}_days") %>
+          <%= t("subscriptions.variant_#{current_user.subscription.subscription_plan_variant.days}_days") %>
         <% end %>
 
         <% if current_user.subscription.mini? %>
