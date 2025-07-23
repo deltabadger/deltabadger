@@ -228,20 +228,18 @@
     justify-content: center
     label
         white-space: nowrap
-    :not([checked="checked"]) + span
+    :not(:checked) + span
         cursor: pointer
         color: var(--text-faded)
-    [checked="checked"] + span
+    :checked + span
         color: var(--text-strong)
         cursor: default
     @media (max-width: 767.9px)
         justify-content: flex-end
         position: relative
-// hide radio buttons for the tabs, guillem workaround
 .hide_radio_buttons > input
   visibility: hidden
   position: absolute
-// hide radio buttons for the tabs, guillem workaround
 .legendary-counter
     &__discount
         display: block

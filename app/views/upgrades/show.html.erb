@@ -4,8 +4,6 @@
   <%= render partial: 'layouts/banners/black_friday', locals: { show_upgrade_button: false } %>
 <% end %>
 
-<%= turbo_frame_tag "upgrade-frame" do %>
-
   <div class="page-head">
     <%= form_with url: upgrade_path, method: :get, data: { controller: "form--submit", turbo_frame: "upgrade-frame" }, class: "pricing-period-toggle" do |f| %>
       <% @available_variant_years.each do |years| %>
@@ -18,6 +16,10 @@
       <% end %>
     <% end %>
   </div>
+
+<%= turbo_frame_tag "upgrade-frame" do %>
+
+<%= @selected_years %>
 
   <div class="pricing">
     <%= form_with url: upgrade_path, method: :get, data: { controller: "form--submit", turbo_frame: "upgrade-frame" }, html: { class: "pricing__plans" } do |f| %>

@@ -23,7 +23,7 @@ class UpgradesController < ApplicationController
   end
 
   def update_session
-    session[:payment_config] = nil
+    # session[:payment_config] = nil
     if session[:payment_config].blank?
       session[:payment_config] = {
         plan_name: available_plan_names.last,
