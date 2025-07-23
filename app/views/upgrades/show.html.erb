@@ -14,7 +14,6 @@
           <%= f.radio_button :years, years, checked: selected, data: { action: "change->form--submit#submit" } %>
           <span><%= t("subscriptions.variant#{years}") %></span>
         <% end %>
-        <%= " / " unless years == @available_variant_years.last %>
       <% end %>
     <% end %>
   </div>
