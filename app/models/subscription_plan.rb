@@ -21,7 +21,7 @@ class SubscriptionPlan < ApplicationRecord
   end
 
   def self.mini
-    all_subscription_plans[MINI_PLAN].concat(all_subscription_plans[MINI_RESEARCH_PLAN])
+    all_subscription_plans[MINI_PLAN]
   end
 
   def self.mini_research
@@ -29,7 +29,7 @@ class SubscriptionPlan < ApplicationRecord
   end
 
   def self.standard
-    all_subscription_plans[STANDARD_PLAN].concat(all_subscription_plans[STANDARD_RESEARCH_PLAN])
+    all_subscription_plans[STANDARD_PLAN]
   end
 
   def self.standard_research
@@ -45,8 +45,7 @@ class SubscriptionPlan < ApplicationRecord
   end
 
   def self.research
-    all_subscription_plans[RESEARCH_PLAN].concat(all_subscription_plans[MINI_RESEARCH_PLAN])
-                                         .concat(all_subscription_plans[STANDARD_RESEARCH_PLAN])
+    all_subscription_plans[RESEARCH_PLAN]
   end
 
   def self.all_subscription_plans
