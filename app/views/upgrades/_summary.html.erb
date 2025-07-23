@@ -4,10 +4,10 @@
     <div class="checkout-line__col">
       <div class="checkout-line__name"><%= t(
             "subscriptions.payment.base_price") %></div>
-      <% if payment.subscription_plan_variant.years.present? && payment.subscription_plan_variant.years != 1 %>
+      <% if payment.subscription_plan_variant.days.present? && payment.subscription_plan_variant.days != 30 %>
         <div class="checkout-line__info">
-          <%= payment.subscription_plan_variant.years %>x
-          <%= localized_price(payment.virtual_price('base_price', 1.month), payment.currency, true) %>
+          <%= payment.subscription_plan_variant.duration / reference_duration %>x
+          <%= localized_price(payment.virtual_price('base_price', reference_duration), payment.currency, true) %>
         </div>
       <% end %>
     </div>

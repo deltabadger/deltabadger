@@ -2,9 +2,9 @@ de:
     subscriptions:
         per_month_html: "/Monat"
         per_year_html: "/Jahr"
-        plan_life_time: "Lebenslang"
-        variant0: "Monatlich"
-        variant1: "Jährlich (20% sparen)"
+        plan__days: "Lebenslang"
+        variant_30_days: "Monatlich"
+        variant_365_days: "Jährlich (20% sparen)"
         free: "Kostenlos"
         mini: "Mini"
         standard: "Standard"

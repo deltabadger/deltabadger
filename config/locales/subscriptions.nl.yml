@@ -2,9 +2,9 @@ nl:
     subscriptions:
         per_month_html: "/mnd"
         per_year_html: "/jr"
-        plan_life_time: "Levenslang"
-        variant0: "Maandelijks"
-        variant1: "Jaarlijks (20% korting)"
+        plan__days: "Levenslang"
+        variant_30_days: "Maandelijks"
+        variant_365_days: "Jaarlijks (20% korting)"
         free: "Gratis"
         mini: "Mini"
         standard: "Standard"

@@ -124,7 +124,7 @@
         = render 'svg/24x24_legendary'
         .tooltip
           = t('links.legendary')
-          = t('subscriptions.plan_life_time')
+          = t('subscriptions.plan__days')
     - else
       = link_to upgrade_path, class: 'menu__item menu__item--upgrade', data: { controller: 'tooltip', action: 'mouseenter->tooltip#showTooltip mouseleave->tooltip#hideTooltip' } do
         = render 'svg/24x24_upgrade'

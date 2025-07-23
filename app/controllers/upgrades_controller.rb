@@ -19,27 +19,33 @@ class UpgradesController < ApplicationController
   private
 
   def payment_params
-    params.permit(:plan_name, :type, :country, :years, :paid_payment_id)
+    params.permit(:plan_name, :type, :country, :days, :paid_payment_id)
   end
 
   def update_session
-    # session[:payment_config] = nil
-    if session[:payment_config].blank?
+    if session[:payment_config].blank? || invalid_session_payment_config?
       session[:payment_config] = {
         plan_name: available_plan_names.last,
         type: default_payment_type,
         country: VatRate::NOT_EU,
-        years: available_variant_years.min
+        days: available_variant_days.min
       }.stringify_keys
     else
       parsed_params = {
         plan_name: payment_params[:plan_name],
         type: payment_params[:type],
         country: payment_params[:country],
-        years: payment_params[:years]&.to_i
+        days: payment_params[:days]&.to_i
       }.compact.stringify_keys
       session[:payment_config].merge!(parsed_params)
     end
+  end
+
+  def invalid_session_payment_config?
+    session[:payment_config]['plan_name'].blank? ||
+      session[:payment_config]['type'].blank? ||
+      session[:payment_config]['country'].blank? ||
+      session[:payment_config]['days'].blank?
   end
 
   def default_payment_type

@@ -10,7 +10,7 @@
   <% end %>
 
   <%= button_to t('utils.time_periods.ytd'), portfolio_update_backtest_start_date_path(portfolio, { portfolio: { backtest_start_date: Date.today.beginning_of_year.to_date } }), method: :patch, title: t('utils.time_periods.ytd_title'), class: "button button--link" %>
-  <%= button_to t('utils.time_periods.one_year'), portfolio_update_backtest_start_date_path(portfolio, { portfolio: { backtest_start_date: 1.years.ago.to_date } }), method: :patch, title: t('utils.time_periods.one_year_title'), class: "button button--link" %>
+  <%= button_to t('utils.time_periods.one_year'), portfolio_update_backtest_start_date_path(portfolio, { portfolio: { backtest_start_date: 1.year.ago.to_date } }), method: :patch, title: t('utils.time_periods.one_year_title'), class: "button button--link" %>
   <%= button_to t('utils.time_periods.three_years'), portfolio_update_backtest_start_date_path(portfolio, { portfolio: { backtest_start_date: 3.years.ago.to_date } }), method: :patch, title: t('utils.time_periods.three_years_title'), class: "button button--link" %>
-  <%= button_to t('utils.time_periods.five_years'), portfolio_update_backtest_start_date_path(portfolio, { portfolio: { backtest_start_date: 5.year.ago.to_date } }), method: :patch, title: t('utils.time_periods.five_years_title'), class: "button button--link" %>
+  <%= button_to t('utils.time_periods.five_years'), portfolio_update_backtest_start_date_path(portfolio, { portfolio: { backtest_start_date: 5.years.ago.to_date } }), method: :patch, title: t('utils.time_periods.five_years_title'), class: "button button--link" %>
 </div>

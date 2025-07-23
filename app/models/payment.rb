@@ -77,19 +77,14 @@ class Payment < ApplicationRecord
   end
 
   def virtual_price(method, split_time)
-    subscription_plan_variant_seconds = case subscription_plan_variant.years
-                                        when 0
-                                          1.month.to_i
+    subscription_plan_variant_seconds = case subscription_plan_variant.days
                                         when nil
                                           Float::INFINITY
                                         else
-                                          subscription_plan_variant.years.years.to_i
+                                          subscription_plan_variant.duration.to_i
                                         end
-    price_per_second = send(method) / subscription_plan_variant_seconds
+    price_per_second = send(method) / subscription_plan_variant_seconds.seconds
     price_per_second * split_time.to_f
-
-    # annualized_price = send(method) / subscription_plan_variant.years
-    # annualized_price * (split_time.to_f / 1.year)
   end
 
   def referral_discount_percent
@@ -158,7 +153,7 @@ class Payment < ApplicationRecord
     else
       user.subscriptions.create!(
         subscription_plan_variant: subscription_plan_variant,
-        ends_at: subscription_plan_variant.years.nil? ? nil : paid_at + subscription_plan_variant.duration
+        ends_at: subscription_plan_variant.days.nil? ? nil : paid_at + subscription_plan_variant.duration
       )
     end
   end

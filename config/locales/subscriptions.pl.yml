@@ -2,9 +2,9 @@ pl:
     subscriptions:
         per_month_html: "/mies"
         per_year_html: "/rok"
-        plan_life_time: "Dożywotni"
-        variant0: "Miesięcznie"
-        variant1: "Rocznie (oszczędź 20%)"
+        plan__days: "Dożywotni"
+        variant_30_days: "Miesięcznie"
+        variant_365_days: "Rocznie (oszczędź 20%)"
         free: "Darmowy"
         mini: "Mini"
         standard: "Standard"

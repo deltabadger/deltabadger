@@ -2,9 +2,9 @@ fr:
     subscriptions:
         per_month_html: "/mois"
         per_year_html: "/an"
-        plan_life_time: "À vie"
-        variant0: "Mensuel"
-        variant1: "Annuel (20% économisé)"
+        plan__days: "À vie"
+        variant_30_days: "Mensuel"
+        variant_365_days: "Annuel (20% économisé)"
         free: "Gratuit"
         mini: "Mini"
         standard: "Standard"

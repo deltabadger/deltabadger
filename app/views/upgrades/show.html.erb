@@ -4,21 +4,20 @@
   <%= render partial: 'layouts/banners/black_friday', locals: { show_upgrade_button: false } %>
 <% end %>
 
-  <div class="page-head">
-    <%= form_with url: upgrade_path, method: :get, data: { controller: "form--submit", turbo_frame: "upgrade-frame" }, class: "pricing-period-toggle" do |f| %>
-      <% @available_variant_years.each do |years| %>
-        <% selected = years == @selected_years %>
-        <%= tag.label class: "hide_radio_buttons" do %>
-          <%= f.radio_button :years, years, checked: selected, data: { action: "change->form--submit#submit" } %>
-          <span><%= t("subscriptions.variant#{years}") %></span>
-        <% end %>
+<div class="page-head">
+  <%= form_with url: upgrade_path, method: :get, data: { controller: "form--submit", turbo_frame: "upgrade-frame" }, class: "pricing-period-toggle" do |f| %>
+    <% @available_variant_days.each do |days| %>
+      <% selected = days == @selected_days %>
+      <%= tag.label class: "hide_radio_buttons" do %>
+        <%= f.radio_button :days, days, checked: selected, data: { action: "change->form--submit#submit" } %>
+        <span><%= t("subscriptions.variant_#{days}_days") %></span>
       <% end %>
+      <%= " / " unless days == @available_variant_days.last %>
     <% end %>
-  </div>
+  <% end %>
+</div>
 
 <%= turbo_frame_tag "upgrade-frame" do %>
-
-<%= @selected_years %>
 
   <div class="pricing">
     <%= form_with url: upgrade_path, method: :get, data: { controller: "form--submit", turbo_frame: "upgrade-frame" }, html: { class: "pricing__plans" } do |f| %>
@@ -29,6 +28,7 @@
           <%= f.radio_button :plan_name, available_plan_name, checked: selected, data: { action: "change->form--submit#submit" } %>
           <%= render partial: "upgrades/plan_cards/#{available_plan_name}", locals: {
             reference_payment_option: @reference_payment_options[available_plan_name],
+            reference_duration: @reference_duration,
             payment_option: payment_option,
             legendary_plan: @legendary_plan, # only used in legendary plan card
           } %>
@@ -47,7 +47,8 @@
       <%= render partial: "upgrades/summary", locals: {
         payment: @payment,
         payment_options: @payment_options,
-        legendary_plan: @legendary_plan
+        legendary_plan: @legendary_plan,
+        reference_duration: @reference_duration
       } %>
       <%= render partial: "upgrades/billing_form", locals: { payment: @payment, name_pattern: @name_pattern } %>
     <% end %>

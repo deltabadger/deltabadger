@@ -2,9 +2,9 @@ it:
     subscriptions:
         per_month_html: "/mese"
         per_year_html: "/anno"
-        plan_life_time: "A vita"
-        variant0: "Mensile"
-        variant1: "Annuale (20% risparmiato)"
+        plan__days: "A vita"
+        variant_30_days: "Mensile"
+        variant_365_days: "Annuale (20% risparmiato)"
         free: "Gratuito"
         mini: "Mini"
         standard: "Standard"

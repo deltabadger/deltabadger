@@ -8,7 +8,7 @@ class Upgrade::ZenPaymentsController < ApplicationController
   def create
     @payment = new_payment_for(
       plan_name: session[:payment_config]['plan_name'],
-      years: session[:payment_config]['years'],
+      days: session[:payment_config]['days'],
       type: session[:payment_config]['type'],
       country: session[:payment_config]['country'],
       first_name: session[:payment_config]['first_name'],

@@ -2,9 +2,9 @@ ru:
     subscriptions:
         per_month_html: "/мес"
         per_year_html: "/год"
-        plan_life_time: "Пожизненно"
-        variant0: "Ежемесячно"
-        variant1: "Ежегодно (экономия 20%)"
+        plan__days: "Пожизненно"
+        variant_30_days: "Ежемесячно"
+        variant_365_days: "Ежегодно (экономия 20%)"
         free: "Бесплатно"
         mini: "Mini"
         standard: "Standard"

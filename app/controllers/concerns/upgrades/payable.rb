@@ -3,14 +3,14 @@ module Upgrades::Payable
 
   private
 
-  def new_payment_for(plan_name:, years:, type:, country:, first_name: nil, last_name: nil, birth_date: nil)
+  def new_payment_for(plan_name:, days:, type:, country:, first_name: nil, last_name: nil, birth_date: nil)
     subscription_plan = SubscriptionPlan.find_by(name: plan_name)
     variant = SubscriptionPlanVariant.includes(:subscription_plan).find_by(
       subscription_plan: subscription_plan,
-      years: years
+      days: days
     ) || SubscriptionPlanVariant.includes(:subscription_plan).find_by(
       subscription_plan: subscription_plan,
-      years: nil
+      days: nil
     )
     current_user.payments.new(
       status: :unpaid,

@@ -5,21 +5,22 @@ module Upgrades::Showable
 
   def set_show_instance_variables
     @name_pattern = User::Name::PATTERN
-    @selected_years = session[:payment_config]['years']
-    @reference_payment_options = payment_options_for(0)
-    @payment_options = payment_options_for(@selected_years)
-    @available_variant_years = available_variant_years
+    @selected_days = session[:payment_config]['days']
+    @reference_payment_options = payment_options_for(available_variant_days.min)
+    @reference_duration = SubscriptionPlanVariant.find_by(days: available_variant_days.min).duration
+    @payment_options = payment_options_for(@selected_days)
+    @available_variant_days = available_variant_days
     @legendary_plan = SubscriptionPlan.legendary
   end
 
-  def payment_options_for(years)
+  def payment_options_for(days)
     @payment_options_for ||= {}
-    @payment_options_for[years] ||= available_plan_names.map do |plan_name|
+    @payment_options_for[days] ||= available_plan_names.map do |plan_name|
       [
         plan_name,
         new_payment_for(
           plan_name: plan_name,
-          years: years,
+          days: days,
           type: session[:payment_config]['type'],
           country: session[:payment_config]['country'],
           first_name: session[:payment_config]['first_name'],
@@ -34,8 +35,8 @@ module Upgrades::Showable
     @available_plan_names ||= current_user.available_plan_names
   end
 
-  def available_variant_years
-    # @available_variant_years ||= SubscriptionPlanVariant.all_variant_years
-    @available_variant_years ||= SubscriptionPlanVariant.all_variant_years - [4] # exclude 4 years variant
+  def available_variant_days
+    # @available_variant_days ||= SubscriptionPlanVariant.all_variant_days
+    @available_variant_days ||= SubscriptionPlanVariant.all_variant_days - [1460] # exclude 4 years variant
   end
 end
