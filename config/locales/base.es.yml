@@ -8,7 +8,8 @@ es:
             <p>Si hubieras hecho DCA en Bitcoin durante los últimos %{years}&nbsp;años, ahora tendrías unos beneficios de <b style="color: #00A36C;">%{profit}%</b>.</p>
             <p>Eso es un <b style="color: #00A36C;">%{sp500_diff}%</b> más que el S&P 500 en el mismo período.</p>
     button:
-        ok: 'Aceptar'
+        get_started: Empezar
+        ok: 'OK'
         update: 'Actualizar'
         save: 'Guardar'
         cancel: 'Cancelar'

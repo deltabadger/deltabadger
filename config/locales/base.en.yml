@@ -25,6 +25,7 @@ en:
         start: 'Start'
         connect: 'Connect'
         understand: 'Got it!'
+        get_started: 'Get Started'
     data_labels:
         invested: "Total Invested"
         portfolio_value: "Portfolio Value"
