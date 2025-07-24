@@ -11,6 +11,8 @@ module Upgrades::Showable
     @payment_options = payment_options_for(@selected_days)
     @available_variant_days = available_variant_days
     @legendary_plan = SubscriptionPlan.legendary
+    @mini_research_enabled = session[:payment_config]['mini_research_enabled']
+    @standard_research_enabled = session[:payment_config]['standard_research_enabled']
   end
 
   def payment_options_for(days)

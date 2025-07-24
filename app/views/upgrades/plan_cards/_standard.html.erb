@@ -46,12 +46,15 @@
   <li><%= t('subscriptions.features.amount_limit') %></li>
 </ul>
 <small>
-  <div class="toggle">
-    <input name="bots_dca_dual_asset[limit_ordered]" disabled="disabled" type="hidden" value="0"><input data-action="change->form--submit#submit change->class-toggle#toggle" disabled="disabled" type="checkbox" value="1" name="bots_dca_dual_asset[limit_ordered]" id="bots_dca_dual_asset_limit_ordered">
+  <%= form_with url: path,
+                class: "toggle",
+                method: :get,
+                data: { controller: "form--submit", turbo_frame: "upgrade-frame" } do |f| %>
+    <%= f.check_box :standard_research_enabled, data: { action: "change->form--submit#submit" }, checked: standard_research_enabled %>
     <div class="toggle__style"></div>
-  </div>
+  <% end %>
 </small>
-<ul class="widget--pricing__opt-research inactive">
+<ul class="widget--pricing__opt-research <%= standard_research_enabled ? 'active' : 'inactive' %>">
   <li><%= t('subscriptions.features.premium_newsletter') %></li>
   <li><%= t('subscriptions.features.portfolio_analyzer') %></li>
 </ul>

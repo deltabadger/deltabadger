@@ -25,16 +25,33 @@ module User::Upgradeable
     {
       SubscriptionPlan::FREE_PLAN => [
         SubscriptionPlan::MINI_PLAN,
+        SubscriptionPlan::MINI_RESEARCH_PLAN,
         SubscriptionPlan::STANDARD_PLAN,
+        SubscriptionPlan::STANDARD_RESEARCH_PLAN,
         SubscriptionPlan::PRO_PLAN
       ],
       SubscriptionPlan::MINI_PLAN => [
         subscription.recurring? ? nil : SubscriptionPlan::MINI_PLAN,
+        subscription.recurring? ? nil : SubscriptionPlan::MINI_RESEARCH_PLAN,
         SubscriptionPlan::STANDARD_PLAN,
+        SubscriptionPlan::STANDARD_RESEARCH_PLAN,
+        SubscriptionPlan::PRO_PLAN
+      ].compact,
+      SubscriptionPlan::MINI_RESEARCH_PLAN => [
+        subscription.recurring? ? nil : SubscriptionPlan::MINI_PLAN,
+        subscription.recurring? ? nil : SubscriptionPlan::MINI_RESEARCH_PLAN,
+        SubscriptionPlan::STANDARD_PLAN,
+        SubscriptionPlan::STANDARD_RESEARCH_PLAN,
         SubscriptionPlan::PRO_PLAN
       ].compact,
       SubscriptionPlan::STANDARD_PLAN => [
         subscription.recurring? ? nil : SubscriptionPlan::STANDARD_PLAN,
+        subscription.recurring? ? nil : SubscriptionPlan::STANDARD_RESEARCH_PLAN,
+        SubscriptionPlan::PRO_PLAN
+      ].compact,
+      SubscriptionPlan::STANDARD_RESEARCH_PLAN => [
+        subscription.recurring? ? nil : SubscriptionPlan::STANDARD_PLAN,
+        subscription.recurring? ? nil : SubscriptionPlan::STANDARD_RESEARCH_PLAN,
         SubscriptionPlan::PRO_PLAN
       ].compact,
       SubscriptionPlan::PRO_PLAN => [

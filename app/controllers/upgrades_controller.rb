@@ -26,6 +26,8 @@ class UpgradesController < ApplicationController
   def update_session
     if session[:payment_config].blank? || invalid_session_payment_config?
       session[:payment_config] = {
+        mini_research_enabled: false,
+        standard_research_enabled: false,
         plan_name: available_plan_names.last,
         type: default_payment_type,
         country: VatRate::NOT_EU,
@@ -33,6 +35,8 @@ class UpgradesController < ApplicationController
       }.stringify_keys
     else
       parsed_params = {
+        mini_research_enabled: payment_params[:mini_research_enabled].presence&.in?(%w[1 true]),
+        standard_research_enabled: payment_params[:standard_research_enabled].presence&.in?(%w[1 true]),
         plan_name: payment_params[:plan_name],
         type: payment_params[:type],
         country: payment_params[:country],
