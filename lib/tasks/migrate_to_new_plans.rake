@@ -27,7 +27,7 @@ task migrate_to_new_plans: :environment do
   SubscriptionPlanVariant.find_or_create_by!(subscription_plan: research_plan, days: 30).update!(cost_eur: 14, cost_usd: 14)
   SubscriptionPlanVariant.find_or_create_by!(subscription_plan: research_plan, days: 365).update!(cost_eur: 140, cost_usd: 140)
   SubscriptionPlanVariant.find_or_create_by!(subscription_plan: research_plan, days: 1460).update!(cost_eur: 420, cost_usd: 420)
-  SubscriptionPlanVariant.find_or_create_by!(subscription_plan: pro_plan, days: 7).update!(cost_eur: 15, cost_usd: 15)
+  SubscriptionPlanVariant.find_or_create_by!(subscription_plan: pro_plan, days: 7).update!(cost_eur: 17, cost_usd: 17)
   SubscriptionPlanVariant.find_or_create_by!(subscription_plan: pro_plan, days: 30).update!(cost_eur: 49, cost_usd: 49)
   SubscriptionPlanVariant.find_or_create_by!(subscription_plan: pro_plan, days: 365).update!(cost_eur: 490, cost_usd: 490)
   SubscriptionPlanVariant.find_or_create_by!(subscription_plan: pro_plan, days: 1460).update!(cost_eur: 1470, cost_usd: 1470)
