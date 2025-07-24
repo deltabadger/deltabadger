@@ -378,10 +378,12 @@
     gap: 2rem
     &__mark
       top: 1rem
-      width: 1rem
       min-width: 1rem
+      min-height: 1rem
       position: relative
       justify-items: center
+      display: flex
+      flex-direction: column
       &::before
         content: ""
         display: block
@@ -401,6 +403,7 @@
         background-color: var(--label)
         position: absolute
         opacity: 0.25
+        align-self: center
     &:last-child
       .timeline__event__mark::after
         display: none
