@@ -24,7 +24,9 @@
     <% end %>
   </div>
 <% end %>
-<%= render 'upgrades/plan_cards/upgrade_button' %>
+<% unless checkout %>
+  <%= link_to t('button.select_plan'), upgrade_checkout_path(plan_name: 'pro'), class: "button button--success button--large button--upgrade" %>
+<% end %>
 <ul class="widget--pricing__opt-bots">
   <li><%= t('subscriptions.features.bots_count', count: payment_option.subscription_plan_variant.max_bots) %></li>
 </ul>

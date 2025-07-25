@@ -109,6 +109,7 @@ Rails.application.routes.draw do
         resource :failure, only: [:show]
       end
       resource :instructions, only: [:show]
+      resource :checkout, only: [:show]
     end
 
     namespace :settings do

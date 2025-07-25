@@ -8,7 +8,6 @@ ru:
             <p>Если бы вы использовали стратегию усреднения стоимости в Bitcoin последние %{years}&nbsp;года, сейчас вы были бы в плюсе на <b style="color: #00A36C;">%{profit}%</b>.</p>
             <p>Это на <b style="color: #00A36C;">%{sp500_diff}%</b> больше, чем S&P 500 за тот же период.</p>
     button:
-        get_started: Начать
         ok: 'OK'
         update: 'Обновить'
         save: 'Сохранить'
@@ -25,6 +24,8 @@ ru:
         remove: 'Удалить'
         start: 'Начать'
         connect: 'Подключить'
+        get_started: Начать
+        select_plan: 'Выбрать план'
     data_labels:
         invested: "Всего вложено"
         portfolio_value: "Стоимость портфеля"

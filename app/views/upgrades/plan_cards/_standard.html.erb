@@ -23,7 +23,9 @@
     <% end %>
   </div>
 <% end %>
-<%= render 'upgrades/plan_cards/upgrade_button' %>
+<% unless checkout %>
+  <%= link_to t('button.select_plan'), upgrade_checkout_path(plan_name: standard_research_enabled ? 'standard_research' : 'standard'), class: "button button--success button--large button--upgrade" %>
+<% end %>
 <ul class="widget--pricing__opt-bots">
   <li><%= t('subscriptions.features.bots_count', count: payment_option.subscription_plan_variant.max_bots) %></li>
 </ul>
@@ -50,6 +52,9 @@
                 class: "toggle",
                 method: :get,
                 data: { controller: "form--submit", turbo_frame: "upgrade-frame" } do |f| %>
+    <% if checkout %>
+      <%= f.hidden_field :plan_name, value: standard_research_enabled ? 'standard' : 'standard_research' %>
+    <% end %>
     <%= f.check_box :standard_research_enabled, data: { action: "change->form--submit#submit" }, checked: standard_research_enabled %>
     <div class="toggle__style"></div>
   <% end %>

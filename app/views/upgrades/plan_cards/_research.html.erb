@@ -21,7 +21,9 @@
     <% end %>
   </div>
 <% end %>
-<%= render 'upgrades/plan_cards/upgrade_button' %>
+<% unless checkout %>
+  <%= link_to t('button.select_plan'), upgrade_checkout_path(plan_name: 'research'), class: "button button--success button--large button--upgrade" %>
+<% end %>
 <ul>
   <li><%= t('subscriptions.features.premium_newsletter') %></li>
   <li><%= t('subscriptions.features.portfolio_analyzer') %></li>

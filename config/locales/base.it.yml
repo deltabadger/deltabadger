@@ -6,9 +6,8 @@ it:
     ads:
         dca_profit_html: |
             <p>Se avessi fatto dollar-cost averaging in Bitcoin negli ultimi %{years}&nbsp;anni, ora saresti in attivo del <b style="color: #00A36C;">%{profit}%</b>.</p>
-            <p>Questo è <b style="color: #00A36C;">%{sp500_diff}%</b> in più rispetto all'S&P 500 nello stesso periodo.</p>        
+            <p>Questo è <b style="color: #00A36C;">%{sp500_diff}%</b> in più rispetto all'S&P 500 nello stesso periodo.</p>
     button:
-        get_started: Inizia
         ok: 'OK'
         update: 'Aggiorna'
         save: 'Salva'
@@ -25,6 +24,8 @@ it:
         remove: 'Rimuovi'
         start: 'Inizia'
         connect: 'Connetti'
+        get_started: Inizia
+        select_plan: 'Seleziona Piano'
     data_labels:
         invested: "Totale Investito"
         portfolio_value: "Valore del Portafoglio"

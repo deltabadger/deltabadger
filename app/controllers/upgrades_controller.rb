@@ -3,14 +3,12 @@ class UpgradesController < ApplicationController
   include Upgrades::Showable
 
   before_action :authenticate_user!
-
   before_action :redirect_legendary_users, only: %i[show]
   before_action :render_pending_wire_transfer, only: %i[show]
   before_action :update_session, only: %i[show]
 
   def show
     set_show_instance_variables
-    @payment = @payment_options[session[:payment_config]['plan_name']]
     return unless payment_params[:paid_payment_id].present?
 
     @paid_payment = Payment.find(payment_params[:paid_payment_id])
@@ -19,7 +17,6 @@ class UpgradesController < ApplicationController
   private
 
   def payment_params
-    # params.permit(:plan_name, :type, :country, :days, :paid_payment_id)
     params.permit(:days, :mini_research_enabled, :standard_research_enabled, :paid_payment_id)
   end
 
@@ -28,7 +25,6 @@ class UpgradesController < ApplicationController
       session[:payment_config] = {
         mini_research_enabled: false,
         standard_research_enabled: false,
-        plan_name: available_plan_names.last,
         type: default_payment_type,
         country: VatRate::NOT_EU,
         days: available_variant_days.min
@@ -37,7 +33,6 @@ class UpgradesController < ApplicationController
       parsed_params = {
         mini_research_enabled: payment_params[:mini_research_enabled].presence&.in?(%w[1 true]),
         standard_research_enabled: payment_params[:standard_research_enabled].presence&.in?(%w[1 true]),
-        plan_name: payment_params[:plan_name],
         type: payment_params[:type],
         country: payment_params[:country],
         days: payment_params[:days]&.to_i
@@ -47,10 +42,11 @@ class UpgradesController < ApplicationController
   end
 
   def invalid_session_payment_config?
-    session[:payment_config]['plan_name'].blank? ||
-      session[:payment_config]['type'].blank? ||
-      session[:payment_config]['country'].blank? ||
-      session[:payment_config]['days'].blank?
+    session[:payment_config]['mini_research_enabled'].nil? ||
+      session[:payment_config]['standard_research_enabled'].nil? ||
+      session[:payment_config]['type'].nil? ||
+      session[:payment_config]['country'].nil? ||
+      session[:payment_config]['days'].nil?
   end
 
   def default_payment_type
