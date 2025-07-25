@@ -8,7 +8,6 @@ pt:
             <p>Se tivesse feito dollar-cost averaging em Bitcoin nos últimos %{years}&nbsp;anos, agora estaria com um lucro de <b style="color: #00A36C;">%{profit}%</b>.</p>
             <p>Isso é <b style="color: #00A36C;">%{sp500_diff}%</b> mais do que o S&P 500 no mesmo período.</p>
     button:
-        get_started: Começar
         ok: 'OK'
         update: 'Atualizar'
         save: 'Guardar'
@@ -25,6 +24,8 @@ pt:
         remove: 'Remover'
         start: 'Iniciar'
         connect: 'Conectar'
+        get_started: Começar
+        select_plan: 'Selecionar Plano'
     data_labels:
         invested: "Total Investido"
         portfolio_value: "Valor da Carteira"
