@@ -82,6 +82,38 @@ class Payments::Zen < Payment
     Result::Success.new(data)
   end
 
+  def charge_next_recurring_payment
+    price = format('%0.02f', total)
+    item_description = 'Test Renewal'
+    result = client.checkout(
+      amount: price,
+      currency: currency.upcase,
+      merchant_transaction_id: id.to_s,
+      customer_first_name: 'Jan', # first_name,
+      customer_last_name: 'Klosowski', # last_name,
+      customer_email: 'emporis-05.escletxes@icloud.com', # user.email,
+      item_name: item_description,
+      item_price: price,
+      item_quantity: 1,
+      item_line_amount_total: price,
+      billing_address_country_state: country,
+      payment_specific_data_payment_type: 'unscheduled_token', # 'recurring_token'
+      payment_specific_data_card_token: 'b9441b40-a127-4f17-9d2d-4d9ae8a8e497', # user.cards.first.token,
+      payment_specific_data_first_transaction_id: '3af437c5-9cb4-49af-bcb4-60be997276a4', # user.cards.first.first_transaction_id,
+      payment_specific_data_descriptor: item_description.upcase.gsub(/\s+/, '_'),
+      payment_specific_data_sca_exemptions: 'OTHER_MIT',
+      custom_ipn_url: 'https://test.deltabadger.com/upgrade/zen_payment/ipn' #  upgrade_zen_payment_ipn_url(host: HOST)
+    )
+    return result if result.failure?
+
+    url = Utilities::Hash.dig_or_raise(result.data, 'redirectUrl')
+    data = {
+      payment_id: url.split('/').last.split('?').first,
+      url: url
+    }
+    Result::Success.new(data)
+  end
+
   def handle_ipn(params)
     status = parse_payment_status(params[:status])
     return unless status == :paid
