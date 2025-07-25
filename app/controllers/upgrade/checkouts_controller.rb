@@ -15,7 +15,18 @@ class Upgrade::CheckoutsController < ApplicationController
   private
 
   def payment_params
-    params.permit(:plan_name, :days, :mini_research_enabled, :standard_research_enabled, :type, :country)
+    params.permit(
+      :plan_name,
+      :days,
+      :mini_research_enabled,
+      :standard_research_enabled,
+      :type,
+      :country,
+      :cardholder_name,
+      :first_name,
+      :last_name,
+      :birth_date
+    )
   end
 
   def update_session
@@ -25,6 +36,9 @@ class Upgrade::CheckoutsController < ApplicationController
       plan_name: payment_params[:plan_name],
       type: payment_params[:type],
       country: payment_params[:country],
+      first_name: first_name(payment_params[:cardholder_name]) || payment_params[:first_name],
+      last_name: last_name(payment_params[:cardholder_name]) || payment_params[:last_name],
+      birth_date: payment_params[:birth_date],
       days: payment_params[:days]&.to_i
     }.compact.stringify_keys
     session[:payment_config].merge!(parsed_params)
@@ -43,5 +57,17 @@ class Upgrade::CheckoutsController < ApplicationController
 
   def redirect_legendary_users
     redirect_to legendary_path and return if current_user.subscription.legendary?
+  end
+
+  def first_name(cardholder_name)
+    return nil if cardholder_name.blank?
+
+    cardholder_name.split.first
+  end
+
+  def last_name(cardholder_name)
+    return nil if cardholder_name.blank?
+
+    cardholder_name.split[1..].join(' ').presence
   end
 end
