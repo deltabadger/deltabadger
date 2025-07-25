@@ -5,6 +5,7 @@ nl:
         variant_lifetime: "Levenslang"
         variant_30_days: "Maandelijks"
         variant_365_days: "Jaarlijks (20% korting)"
+        variant_7_days: "Wekelijks"
         free: "Gratis"
         mini: "Mini"
         standard: "Standard"

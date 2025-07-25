@@ -5,6 +5,7 @@ pl:
         variant_lifetime: "Dożywotni"
         variant_30_days: "Miesięcznie"
         variant_365_days: "Rocznie (oszczędź 20%)"
+        variant_7_days: "Tygodniowo"
         free: "Darmowy"
         mini: "Mini"
         standard: "Standard"

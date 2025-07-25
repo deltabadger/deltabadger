@@ -5,6 +5,7 @@ ru:
         variant_lifetime: "Пожизненно"
         variant_30_days: "Ежемесячно"
         variant_365_days: "Ежегодно (экономия 20%)"
+        variant_7_days: "Еженедельно"
         free: "Бесплатно"
         mini: "Mini"
         standard: "Standard"

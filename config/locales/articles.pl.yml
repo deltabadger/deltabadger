@@ -2,7 +2,7 @@ pl:
   articles:
     index:
       title: "Deltabadger Research"
-      meta_description: "Dwutygodniowe artykuły dla długoterminowych inwestorów w aktywa cyfrowe."
+      meta_description: "Cotygodniowe artykuły dla długoterminowych inwestorów w aktywa cyfrowe."
       no_articles: "Brak dostępnych artykułów w tym momencie."
       join_subscribers: "Dołącz do %{count} subskrybentów <span class='desktop-only'>Premium</span>"
     reading_time: "%{minutes} min czytania"
@@ -11,6 +11,6 @@ pl:
     paywall:
       title: "Subskrybuj, aby kontynuować czytanie."
       description: |
-        Jesteśmy społecznością długoterminowych inwestorów w aktywa cyfrowe. Uzyskaj dostęp do:<br><b>dwutygodniowe artykuły &middot; analizator portfela &middot; smart boty DCA</b>
+        Jesteśmy społecznością długoterminowych inwestorów w aktywa cyfrowe. Uzyskaj dostęp do:<br><b>cotygodniowe artykuły &middot; analizator portfela &middot; smart boty DCA</b>
     like_on_x: "Polub na X"
     join_discussion: "Dołącz do dyskusji w Społeczności"

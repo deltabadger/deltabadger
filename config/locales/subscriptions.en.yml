@@ -6,7 +6,6 @@ en:
         variant_7_days: "Weekly"
         variant_30_days: "Monthly"
         variant_365_days: "Yearly"
-        variant_1460_days: "Halvingly (4 Years)"
         variant_lifetime: "Lifetime"
         free: "Free"
         mini: "Mini"

@@ -5,6 +5,7 @@ pt:
         variant_lifetime: "Vitalício"
         variant_30_days: "Mensal"
         variant_365_days: "Anual (poupe 20%)"
+        variant_7_days: "Semanal"
         free: "Grátis"
         mini: "Mini"
         standard: "Standard"

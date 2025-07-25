@@ -5,6 +5,7 @@ es:
         variant_lifetime: "Lifetime"
         variant_30_days: "Mensual"
         variant_365_days: "Anual (20% ahorro)"
+        variant_7_days: "Semanal"
         free: "Gratis"
         mini: "Mini"
         standard: "Standard"
