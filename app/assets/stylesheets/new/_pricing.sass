@@ -1,10 +1,14 @@
 .pricing
-    display: flex
-    flex-direction: row
-    gap: 1rem
-    justify-self: center
-    width: 100%
-    max-width: 155rem
+    overflow: scroll
+    &--checkout
+        display: flex
+        flex-direction: row
+        gap: 1rem
+        justify-self: center
+        width: 100%
+        max-width: 155rem
+        .hide-on-checkout
+            display: none
     &__plans
         display: grid
         grid-template-columns: repeat(3, 1fr)
@@ -153,6 +157,8 @@
             overflow: hidden
             ul
                 flex: 2
+            @media (max-width: 767.9px)
+                // max-width: calc(100vw - 2rem)
             &:before
                 content: ""
                 display: block
@@ -167,6 +173,10 @@
                 background-position: center bottom
                 mask: linear-gradient(to right, transparent 0%, rgba(0,0,0,1) 50%)
                 -webkit-mask: linear-gradient(to right, transparent 0%, rgba(0,0,0,1) 50%)
+                @media (max-width: 767.9px)
+                    width: 100%
+                    mask: linear-gradient(to right, transparent 0%, rgba(0,0,0,1) 100%)
+                    -webkit-mask: linear-gradient(to right, transparent 0%, rgba(0,0,0,1) 100%)
         &--legendary
             --text-strong: #fff
             background: linear-gradient(to left, #024, #012)

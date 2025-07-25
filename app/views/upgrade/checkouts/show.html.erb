@@ -12,7 +12,7 @@
     <% end %>
   </div>
 
-  <div class="pricing">
+  <div class="pricing pricing--checkout">
     <div class="checkout-selected-plan">
       <% @payment_options.each do |available_plan_name, payment_option| %>
         <% next unless available_plan_name == @plan_name %>
