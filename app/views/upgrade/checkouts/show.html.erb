@@ -13,7 +13,7 @@
   </div>
 
   <div class="pricing">
-    <div class="pricing__plans">
+    <div class="checkout-selected-plan">
       <% @payment_options.each do |available_plan_name, payment_option| %>
         <% next unless available_plan_name == @plan_name %>
         <%= tag.div class: "widget widget--pricing widget--pricing--#{available_plan_name.gsub('_research', '')} widget--pricing--other" do %>
@@ -30,6 +30,7 @@
         <% end %>
       <% end %>
     </div>
+    <div class="pricing__checkout">
 
       <%= render partial: "upgrades/summary", locals: {
         payment: @payment,
@@ -38,6 +39,7 @@
         reference_duration: @reference_duration
       } %>
       <%= render partial: "upgrades/billing_form", locals: { payment: @payment, name_pattern: @name_pattern } %>
+    </div>
   </div>
 
 <% end %>
