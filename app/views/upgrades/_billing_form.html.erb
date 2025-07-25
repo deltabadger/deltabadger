@@ -1,6 +1,6 @@
 <%= turbo_frame_tag "billing-form-frame", class: "pricing__checkout__pay" do %>
   <!--
-  <%= form_with url: upgrade_path, method: :get, data: { controller: "form--submit", turbo_frame: "billing-form-frame" }, class: "pricing__payment-methods" do |f| %>
+  <%= form_with url: upgrade_checkout_path, method: :get, data: { controller: "form--submit", turbo_frame: "billing-form-frame" }, class: "pricing__payment-methods" do |f| %>
       <% if SettingFlag.show_zen_payment? %>
         <%= tag.label class: "hide_radio_buttons pricing__payment-method" do %>
           <%= f.radio_button :type, 'Payments::Zen', checked: payment.zen?, data: { action: "change->form--submit#submit" } %>
