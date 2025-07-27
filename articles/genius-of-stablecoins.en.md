@@ -8,9 +8,9 @@ x_url: https://x.com/deltabadgerapp/status/1939622461768892684
 telegram_url: https://t.me/deltabadger/91
 paywall_hook: |
    <ul>
-       <li>Why TRON is responsible for</li>
-       <li>The biggest fundamental trade on smart contract infrastructure</li>
-       <li>The GENIUS Portfolio playbook</li>
+       <li>Is TRON under- or overvalued?</li>
+       <li>Which tokens benefit from stablecoin legitimization?</li>
+       <li>Three different allocations for GENIUS Portfolio</li>
    </ul>
 published: true
 published_at: "2025-07-27"
@@ -152,18 +152,18 @@ DeFiLlama provides stablecoin supply data for each blockchain. Taking the top 10
 | **Avalanche** | $10.49b | $1.658b | 1.5% | 0.6% | <span class="text-danger">-0.8%</span> |
 | **Aptos** | $3.00b | $1.351b | 0.4% | 0.5% | <span class="text-success">+0.1%</span> |
 
-USDT dominates TRON with 98.5% of stablecoins ($62.76 billion of $64 billion total). **TRON has officially overtaken Ethereum as the largest network for USDT supply, with $75.8 billion in circulation.** <a class="link-source-tile" href="https://cryptobriefing.com/usdt-on-tron-stablecoin-leader/">cryptobriefing.com</a>
+TRON has become the largest network for USDT specifically, hosting $82 billion in circulation—while Ethereum leads total stablecoin supply at $132 billion across multiple stablecoins (USDT, USDC, DAI, etc.). USDT represents 98.5% of TRON's activity, making it a dedicated USDT infrastructure. <a class="link-source-tile" href="https://cryptobriefing.com/usdt-on-tron-stablecoin-leader/">cryptobriefing.com</a>
 
 This dominance stems from TRON's combination of ultra-low fees (under $0.10), fast 3-second settlements, and Justin Sun's strategic 2019 partnership with Tether, creating powerful network effects that attracted both emerging market retail users and large institutional transfers.
 
-**If you're looking for a reason why TRON's market cap is low relative to its network usage, there's actually a good explanation for this discount:**
+However, if you're looking for a reason why TRON's market cap is low relative to its network usage, there's actually a good explanation for this discount:
 
-Among all major networks, TRON is the most centralized, fully controlled by controversial founder Justin Sun, which certainly adds risk to the underlying asset.
+Among all major networks, **TRON is the most centralized**, fully controlled by controversial founder Justin Sun, which certainly adds risk to the underlying asset.
 
 **This gives us portfolio weighting options:**
-1. Follow stablecoin issuance metrics
-2. Use market capitalization (to reduce TRON exposure)
-3. Exclude TRON entirely
+1. Follow stablecoin issuance metrics.
+2. Use market capitalization (to reduce TRON exposure).
+3. Exclude TRON entirely.
 
 {::nomarkdown}
 <figure class="article__figure" data-controller="pie-chart" data-pie-chart-data-value="#627EEA,ETH,Ethereum,51.7
