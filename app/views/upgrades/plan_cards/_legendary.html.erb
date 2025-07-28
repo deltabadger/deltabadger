@@ -1,42 +1,39 @@
-<div class="widget--pricing__name">
-  <%= t('subscriptions.legendary') %>
-</div>
+<%= tag.div class: "widget widget--pricing widget--pricing--#{plan_name.gsub('_research', '')} widget--pricing--other" do %>
+  <div class="widget--pricing__name">
+    <%= t('subscriptions.legendary') %>
+  </div>
 
-<div class="widget--pricing__amount">
-  <% if reference_payment_option.base_price != payment_option.base_price %>
-    <span class="widget--pricing__amount__t widget--pricing__amount__t--main">
-      <%= localized_price(payment_option.base_price, payment_option.currency) %>
-    </span>
-    <span class="widget--pricing__amount__t__previous">
-      <%= localized_price(reference_payment_option.base_price, payment_option.currency) %>
-    </span>
-  <% else %>
-    <span class="widget--pricing__amount__t widget--pricing__amount__t--main">
-      <%= localized_price(payment_option.base_price, payment_option.currency) %>
-    </span>
+  <div id="plan-card-amount-<%= plan_name.gsub('_research', '') %>" class="widget--pricing__amount">
+    <%= render partial: "upgrades/plan_cards/elements/price", locals: {
+      payment_option: payment_option,
+      reference_duration: reference_duration,
+      reference_payment_option: reference_payment_option,
+    } %>
+  </div>
+
+  <% unless checkout %>
+    <%= link_to t('button.select_plan'), upgrade_checkout_path(plan_name: 'legendary'), class: "button button--success button--large button--upgrade" %>
   <% end %>
-</div>
-<% unless checkout %>
-  <%= link_to t('button.select_plan'), upgrade_checkout_path(plan_name: 'legendary'), class: "button button--success button--large button--upgrade" %>
-<% end %>
-<ul>
-  <li><%= t('subscriptions.features.everything_from_pro') %></li>
-  <li><%= t('subscriptions.features.unlimited_bots') %></li>
-  <li><%= t('subscriptions.features.nft') %></li>
-</ul>
 
-<div class="legendary-counter">
-  <span class="legendary-counter__discount">
-    <%= t('subscriptions.payment.legendary_plan_discount_html', amount: localized_price(10, payment_option.currency)) %>
-  </span>
-  <div class="widget--pricing__legendary-plans-left">
-    <span><%= t('subscriptions.legendary_plan_left_html', for_sale_count: legendary_plan.for_sale_count, total_supply: legendary_plan.total_supply) %></span>
-    <div class="slider">
-      <div class="slider__style">
-        <div class="slider__style__track">
-          <div class="slider__style__progress" role="progressbar" style="width: <%= legendary_plan.sold_percent %>%" aria-valuenow="<%= legendary_plan.sold_percent %>" aria-valuemin="0" aria-valuemax="100"></div>
+  <ul>
+    <li><%= t('subscriptions.features.everything_from_pro') %></li>
+    <li><%= t('subscriptions.features.unlimited_bots') %></li>
+    <li><%= t('subscriptions.features.nft') %></li>
+  </ul>
+
+  <div class="legendary-counter">
+    <span class="legendary-counter__discount">
+      <%= t('subscriptions.payment.legendary_plan_discount_html', amount: localized_price(10, payment_option.currency)) %>
+    </span>
+    <div class="widget--pricing__legendary-plans-left">
+      <span><%= t('subscriptions.legendary_plan_left_html', for_sale_count: legendary_plan.for_sale_count, total_supply: legendary_plan.total_supply) %></span>
+      <div class="slider">
+        <div class="slider__style">
+          <div class="slider__style__track">
+            <div class="slider__style__progress" role="progressbar" style="width: <%= legendary_plan.sold_percent %>%" aria-valuenow="<%= legendary_plan.sold_percent %>" aria-valuemin="0" aria-valuemax="100"></div>
+          </div>
         </div>
       </div>
     </div>
   </div>
-</div>
+<% end %>

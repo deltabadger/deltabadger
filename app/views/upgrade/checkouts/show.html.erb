@@ -1,7 +1,6 @@
-<%= turbo_frame_tag "upgrade-frame" do %>
-
+<%= turbo_frame_tag "upgrade" do %>
   <div class="page-head">
-    <%= form_with url: upgrade_checkout_path, method: :get, data: { controller: "form--submit", turbo_frame: "upgrade-frame" }, class: "pricing-period-toggle" do |f| %>
+    <%= form_with url: upgrade_checkout_path, method: :get, data: { controller: "form--submit", turbo_stream: true }, class: "pricing-period-toggle" do |f| %>
       <% @available_variant_days.each do |days| %>
         <% selected = days == @selected_days %>
         <%= tag.label class: "hide_radio_buttons" do %>
@@ -14,32 +13,24 @@
 
   <div class="pricing pricing--checkout">
     <div class="checkout-selected-plan">
-      <% @payment_options.each do |available_plan_name, payment_option| %>
-        <% next unless available_plan_name == @plan_name %>
-        <%= tag.div class: "widget widget--pricing widget--pricing--#{available_plan_name.gsub('_research', '')} widget--pricing--other" do %>
-          <%= render partial: "upgrades/plan_cards/#{available_plan_name.gsub('_research', '')}", locals: {
-            reference_payment_option: @reference_payment_options[available_plan_name],
-            reference_duration: @reference_duration,
-            payment_option: payment_option,
-            path: upgrade_checkout_path, # only used in mini & standard plan cards
-            mini_research_enabled: @mini_research_enabled, # only used in mini plan card
-            standard_research_enabled: @standard_research_enabled, # only used in standard plan card
-            legendary_plan: @legendary_plan, # only used in legendary plan card
-            checkout: true,
-          } %>
-        <% end %>
-      <% end %>
+      <%= render partial: "upgrades/plan_cards/#{@plan_name.gsub('_research', '')}", locals: {
+        plan_name: @plan_name,
+        reference_payment_option: @reference_payment_option,
+        reference_duration: @reference_duration,
+        payment_option: @payment,
+        path: upgrade_checkout_path, # only used in mini & standard plan cards
+        mini_research_enabled: @mini_research_enabled, # only used in mini plan card
+        standard_research_enabled: @standard_research_enabled, # only used in standard plan card
+        legendary_plan: @legendary_plan, # only used in legendary plan card
+        checkout: true,
+      } %>
     </div>
     <div class="pricing__checkout">
-
-      <%= render partial: "upgrades/summary", locals: {
+      <%= render partial: "upgrade/checkouts/summary", locals: {
         payment: @payment,
-        payment_options: @payment_options,
-        legendary_plan: @legendary_plan,
         reference_duration: @reference_duration
       } %>
-      <%= render partial: "upgrades/billing_form", locals: { payment: @payment, name_pattern: @name_pattern } %>
+      <%= render partial: "upgrade/checkouts/billing_form", locals: { payment: @payment, name_pattern: @name_pattern } %>
     </div>
   </div>
-
 <% end %>

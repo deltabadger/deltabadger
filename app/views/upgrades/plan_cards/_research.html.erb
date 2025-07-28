@@ -1,30 +1,25 @@
-<div class="widget--pricing__name">
-  <%= t('subscriptions.research') %>
-</div>
-
-<% if payment_option.present? %>
-  <div class="widget--pricing__amount">
-    <% selected_duration = payment_option.subscription_plan_variant.duration %>
-    <% if selected_duration != reference_duration %>
-      <span class="widget--pricing__amount__t widget--pricing__amount__t--main">
-        <%= localized_price(payment_option.virtual_price('base_price', reference_duration), payment_option.currency) %><span class="price-period"><%= t("subscriptions.#{payment_frequency_translation_key(reference_duration)}") %></span>
-      </span>
-
-      <span class="widget--pricing__amount__t__previous">
-        <s><%= localized_price(reference_payment_option.virtual_price('base_price', selected_duration), payment_option.currency) %></s>
-        <%= localized_price(payment_option.base_price, payment_option.currency) %><span class="price-period"><%= t("subscriptions.#{payment_frequency_translation_key(selected_duration)}") %></span>
-      </span>
-    <% else %>
-      <span class="widget--pricing__amount__t widget--pricing__amount__t--main">
-        <%= localized_price(payment_option.virtual_price('base_price', reference_duration), payment_option.currency) %><span class="price-period"><%= t("subscriptions.#{payment_frequency_translation_key(reference_duration)}") %></span>
-      </span>
-    <% end %>
+<%= tag.div class: "widget widget--pricing widget--pricing--#{plan_name.gsub('_research', '')} widget--pricing--other" do %>
+  <div class="widget--pricing__name">
+    <%= t('subscriptions.research') %>
   </div>
+
+
+
+
+  <div id="plan-card-amount-<%= plan_name.gsub('_research', '') %>" class="widget--pricing__amount">
+    <%= render partial: "upgrades/plan_cards/elements/price", locals: {
+      payment_option: payment_option,
+      reference_duration: reference_duration,
+      reference_payment_option: reference_payment_option,
+    } %>
+  </div>
+
+  <% unless checkout %>
+    <%= link_to t('button.select_plan'), upgrade_checkout_path(plan_name: 'research'), class: "button button--success button--large button--upgrade" %>
+  <% end %>
+
+  <ul>
+    <li><%= t('subscriptions.features.premium_newsletter') %></li>
+    <li><%= t('subscriptions.features.portfolio_analyzer') %></li>
+  </ul>
 <% end %>
-<% unless checkout %>
-  <%= link_to t('button.select_plan'), upgrade_checkout_path(plan_name: 'research'), class: "button button--success button--large button--upgrade" %>
-<% end %>
-<ul>
-  <li><%= t('subscriptions.features.premium_newsletter') %></li>
-  <li><%= t('subscriptions.features.portfolio_analyzer') %></li>
-</ul>

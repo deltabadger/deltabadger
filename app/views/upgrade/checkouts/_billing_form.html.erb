@@ -1,5 +1,4 @@
-<%= turbo_frame_tag "billing-form-frame", class: "pricing__checkout__pay" do %>
-  <!--
+<div class="pricing__checkout__pay">
   <%= form_with url: upgrade_checkout_path, method: :get, data: { controller: "form--submit", turbo_frame: "billing-form-frame" }, class: "pricing__payment-methods" do |f| %>
       <% if SettingFlag.show_zen_payment? %>
         <%= tag.label class: "hide_radio_buttons pricing__payment-method" do %>
@@ -27,29 +26,18 @@
         <% end %>
       <% end %>
   <% end %>
-  -->
 
-  <div class="widget widget--checkout">
-    <div id="payTabContent" class="tab-content">
+  <%= turbo_frame_tag "billing-form-frame", class: "widget widget--checkout" do %>
+    <div class="tab-content">
       <div class="tab <%= 'active' if payment.zen? %>" aria-labelledby="log-tab" role="tabpanel">
-        <%= form_with url: upgrade_checkout_path, method: :get, data: { controller: "form--html5-validations form--label-animations form--submit form--submit-after-delay", turbo_frame: "upgrade-frame" } do |f| %>
+        <%= form_with model: payment, url: upgrade_zen_payment_path, method: :post, data: { controller: "form--html5-validations form--label-animations", turbo: false } do |f| %>
           <div class="db-form__row">
-            <%= f.text_field :cardholder_name, value: "#{payment.first_name} #{payment.last_name}".presence, class: 'db-form__input', autocomplete: "name", pattern: name_pattern, required: true, data: { action: "input->form--submit-after-delay#submit" } %>
+            <%= f.text_field :cardholder_name, value: "#{payment.first_name} #{payment.last_name}".presence, class: 'db-form__input', autocomplete: "name", pattern: name_pattern, required: true %>
             <%= f.label :cardholder_name, t('subscriptions.payment.cardholder_name'), class: 'db-form__label' %>
           </div>
-          <div class="db-form__row">
-            <%= f.select :country, options_for_select(localized_payment_country_options, payment.country), {}, {
-              autocomplete: "country-name",
-              class: "db-form__input db-form__input--select",
-              data: { action: "change->form--submit#submit" }
-            } %>
-            <%= f.label t('subscriptions.payment.country'), class: 'db-form__label' %>
+          <div id="zen-payment-button" class="large-button-wrapper">
+            <%= render partial: "upgrade/checkouts/payment_button/zen", locals: { payment: payment } %>
           </div>
-        <% end %>
-        <%= button_to upgrade_zen_payment_path, method: :post, class: "button button--success button--large", disabled: payment.price_with_vat == 0 || payment.first_name.blank? || payment.last_name.blank? || payment.country.blank? do %>
-          <span>
-            <%= t('subscriptions.payment.pay_html', amount_html: localized_price(payment.price_with_vat, payment.currency)) %>
-          </span>
         <% end %>
         <div class="moneyback-guarantee">
           <%= t('subscriptions.payment.moneyback_guarantee_html').html_safe %>
@@ -57,8 +45,7 @@
       </div>
 
       <div class="tab <%= 'active' if payment.btcpay? %>" aria-labelledby="log-tab" role="tabpanel">
-        <%= render partial: "upgrades/country_form", locals: { payment: payment } %>
-        <%= form_with model: payment, url: upgrade_btcpay_payment_path, data: { controller: "form--html5-validations form--label-animations" } do |f| %>
+        <%= form_with model: payment, url: upgrade_btcpay_payment_path, data: { controller: "form--html5-validations form--label-animations", turbo: false } do |f| %>
           <div class="db-form__row">
             <%= f.text_field :first_name, class: 'db-form__input', autocomplete: "given-name", pattern: name_pattern, required: true %>
             <%= f.label :first_name, class: 'db-form__label' %>
@@ -71,13 +58,9 @@
             <%= f.date_field :birth_date, autocomplete: "bday", max: 18.years.ago, class: 'db-form__input db-form__input--date', required: true %>
             <%= f.label :birth_date, class: 'db-form__label' %>
           </div>
-
-          <div class="large-button-wrapper">
-            <%= f.button type: "submit", data: { turbo: false, action: "click->zaraz#trackBeginCheckoutEvent", zaraz_target: "button" }, class: "button button--success button--large", disabled: payment.price_with_vat == 0 do %>
-              <%= t('subscriptions.payment.pay_with_bitcoin') %>
-            <% end %>
+          <div id="btcpay-payment-button" class="large-button-wrapper">
+            <%= render partial: "upgrade/checkouts/payment_button/btcpay", locals: { payment: payment } %>
           </div>
-
         <% end %>
         <div class="moneyback-guarantee">
           <%= t('subscriptions.payment.moneyback_guarantee_html').html_safe %>
@@ -85,7 +68,6 @@
       </div>
 
       <div class="tab <%= 'active' if payment.wire? %>" aria-labelledby="log-tab" role="tabpanel">
-        <%= render partial: "upgrades/country_form", locals: { payment: payment } %>
         <%= form_with model: payment, url: upgrade_wire_payment_path, data: { controller: "form--html5-validations form--label-animations" } do |f| %>
           <div class="db-form__row">
             <%= f.text_field :first_name, class: 'db-form__input', autocomplete: "given-name", pattern: name_pattern, required: true %>
@@ -98,15 +80,11 @@
           <div id="wire_costs" class="db-form__row--hidden">
             <%= t('subscriptions.payment.wire_cost_html', price: localized_price(payment.price_with_vat, payment.currency)) %>
           </div>
-          <%= render partial: "upgrades/wire_info", locals: { payment: payment } %>
-
-          <div class="large-button-wrapper">
-            <%= f.button type: "submit", data: { turbo: false, action: "click->zaraz#trackBeginCheckoutEvent", zaraz_target: "button" }, class: "button button--success button--large", disabled: payment.price_with_vat == 0 do %>
-              <%= payment.from_eu? ?
-                t('subscriptions.payment.paid_with_wire_transfer') :
-                t('subscriptions.payment.paid_with_wire_transfer_other')
-              %>
-            <% end %>
+          <div id="wire-info">
+            <%= render partial: "upgrade/checkouts/wire_info", locals: { payment: payment } %>
+          </div>
+          <div id="wire-payment-button" class="large-button-wrapper">
+            <%= render partial: "upgrade/checkouts/payment_button/wire", locals: { payment: payment } %>
           </div>
         <% end %>
         <div class="moneyback-guarantee">
@@ -114,5 +92,5 @@
         </div>
       </div>
     </div>
-  </div>
-<% end %>
+  <% end %>
+</div>

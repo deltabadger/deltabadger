@@ -9,7 +9,8 @@ class Upgrade::CheckoutsController < ApplicationController
   def show
     set_show_instance_variables
     @plan_name = session[:payment_config]['plan_name']
-    @payment = @payment_options[session[:payment_config]['plan_name']]
+    @reference_payment_option = @reference_payment_options[@plan_name]
+    @payment = @payment_options[@plan_name]
   end
 
   private
@@ -42,8 +43,19 @@ class Upgrade::CheckoutsController < ApplicationController
       days: payment_params[:days]&.to_i
     }.compact.stringify_keys
     session[:payment_config].merge!(parsed_params)
+    update_session_plan_name
 
     redirect_to upgrade_path and return if invalid_session_payment_config?
+  end
+
+  def update_session_plan_name
+    session[:payment_config]['plan_name'] = if session[:payment_config]['plan_name'].start_with?('mini')
+                                              session[:payment_config]['mini_research_enabled'] ? 'mini_research' : 'mini'
+                                            elsif session[:payment_config]['plan_name'].start_with?('standard')
+                                              session[:payment_config]['standard_research_enabled'] ? 'standard_research' : 'standard'
+                                            else
+                                              session[:payment_config]['plan_name']
+                                            end
   end
 
   def invalid_session_payment_config?

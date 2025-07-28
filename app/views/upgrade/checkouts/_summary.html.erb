@@ -1,4 +1,15 @@
-<div class="pricing__checkout__calculations widget">
+<div id="summary" class="pricing__checkout__calculations widget">
+
+  <%= form_with url: upgrade_checkout_path, method: :get, data: { controller: "form--submit form--label-animations", turbo_stream: true } do |f| %>
+    <div class="db-form__row">
+      <%= f.select :country, options_for_select(localized_payment_country_options, payment.country), {}, {
+        autocomplete: "country-name",
+        class: "db-form__input db-form__input--select",
+        data: { action: "change->form--submit#submit" }
+      } %>
+      <%= f.label t('subscriptions.payment.country'), class: 'db-form__label' %>
+    </div>
+  <% end %>
 
   <div class="checkout-line checkout-line--base-price">
     <div class="checkout-line__col">

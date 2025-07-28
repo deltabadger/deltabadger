@@ -1,60 +1,52 @@
-<div class="widget--pricing__name">
-  <%= t('subscriptions.mini') %>
-  <% if current_user.subscription.mini? %>
-    <span class="widget--pricing__badge"><%= t('subscriptions.active') %></span>
-  <% end %>
-</div>
-<% if payment_option.present? %>
-  <div class="widget--pricing__amount">
-    <% selected_duration = payment_option.subscription_plan_variant.duration %>
-    <% if selected_duration != reference_duration %>
-      <span class="widget--pricing__amount__t widget--pricing__amount__t--main">
-        <%= localized_price(payment_option.virtual_price('base_price', reference_duration), payment_option.currency) %><span class="price-period"><%= t("subscriptions.#{payment_frequency_translation_key(reference_duration)}") %></span>
-      </span>
-
-      <span class="widget--pricing__amount__t__previous">
-        <s><%= localized_price(reference_payment_option.virtual_price('base_price', selected_duration), payment_option.currency) %></s>
-        <%= localized_price(payment_option.base_price, payment_option.currency) %><span class="price-period"><%= t("subscriptions.#{payment_frequency_translation_key(selected_duration)}") %></span>
-      </span>
-    <% else %>
-      <span class="widget--pricing__amount__t widget--pricing__amount__t--main">
-        <%= localized_price(payment_option.virtual_price('base_price', reference_duration), payment_option.currency) %><span class="price-period"><%= t("subscriptions.#{payment_frequency_translation_key(reference_duration)}") %></span>
-      </span>
+<%= tag.div class: "widget widget--pricing widget--pricing--#{plan_name.gsub('_research', '')} widget--pricing--other", data: { controller: "class-toggle", class_toggle_toggle_classes_value: ["active", "inactive"] } do %>
+  <div class="widget--pricing__name">
+    <%= t('subscriptions.mini') %>
+    <% if current_user.subscription.mini? %>
+      <span class="widget--pricing__badge"><%= t('subscriptions.active') %></span>
     <% end %>
   </div>
-<% end %>
-<% unless checkout %>
-  <%= link_to t('button.select_plan'), upgrade_checkout_path(plan_name: mini_research_enabled ? 'mini_research' : 'mini'), class: "button button--success button--large button--upgrade" %>
-<% end %>
-<ul class="widget--pricing__opt-bots">
-  <li><%= t('subscriptions.features.bots_count', count: payment_option.subscription_plan_variant.max_bots) %></li>
-</ul>
-<small></small>
-<ul class="widget--pricing__opt-strategies">
-  <li><%= t('subscriptions.features.dca') %></li>
-  <li><%= t('subscriptions.features.rebalanced_dca') %></li>
-</ul>
-<small></small>
-<ul class="widget--pricing__opt-execution">
-  <li><%= t('subscriptions.features.smart_intervals') %></li>
-  <li><%= t('subscriptions.features.feecutter') %></li>
-</ul>
-<small class="hide-on-checkout"></small>
-<ul class="hide-on-checkout widget--pricing__opt-triggers">
-</ul>
-<small>
-  <%= form_with url: path,
-                class: "toggle",
-                method: :get,
-                data: { controller: "form--submit", turbo_frame: "upgrade-frame" } do |f| %>
-    <% if checkout %>
-      <%= f.hidden_field :plan_name, value: mini_research_enabled ? 'mini' : 'mini_research' %>
-    <% end %>
-    <%= f.check_box :mini_research_enabled, data: { action: "change->form--submit#submit" }, checked: mini_research_enabled %>
-    <div class="toggle__style"></div>
+
+  <div id="plan-card-amount-<%= plan_name.gsub('_research', '') %>" class="widget--pricing__amount">
+    <%= render partial: "upgrades/plan_cards/elements/price", locals: {
+      payment_option: payment_option,
+      reference_duration: reference_duration,
+      reference_payment_option: reference_payment_option,
+    } %>
+  </div>
+
+  <% unless checkout %>
+    <%= render partial: "upgrades/plan_cards/elements/button", locals: { plan_name: plan_name } %>
   <% end %>
-</small>
-<ul class="widget--pricing__opt-research <%= mini_research_enabled ? 'active' : 'inactive' %>">
-  <li><%= t('subscriptions.features.premium_newsletter') %></li>
-  <li><%= t('subscriptions.features.portfolio_analyzer') %></li>
-</ul>
+
+  <ul class="widget--pricing__opt-bots">
+    <li><%= t('subscriptions.features.bots_count', count: payment_option.subscription_plan_variant.max_bots) %></li>
+  </ul>
+  <small></small>
+  <ul class="widget--pricing__opt-strategies">
+    <li><%= t('subscriptions.features.dca') %></li>
+    <li><%= t('subscriptions.features.rebalanced_dca') %></li>
+  </ul>
+  <small></small>
+  <ul class="widget--pricing__opt-execution">
+    <li><%= t('subscriptions.features.smart_intervals') %></li>
+    <li><%= t('subscriptions.features.feecutter') %></li>
+  </ul>
+  <small class="hide-on-checkout"></small>
+  <ul class="hide-on-checkout widget--pricing__opt-triggers">
+  </ul>
+
+  <small>
+    <%= form_with url: path,
+                  class: "toggle",
+                  method: :get,
+                  data: { controller: "form--submit", turbo_stream: true } do |f| %>
+      <%= f.check_box :mini_research_enabled, data: { action: "change->form--submit#submit change->class-toggle#toggle" }, checked: mini_research_enabled %>
+      <div class="toggle__style"></div>
+    <% end %>
+  </small>
+
+  <ul class="widget--pricing__opt-research <%= mini_research_enabled ? 'active' : 'inactive' %>" data-class-toggle-target="togglable">
+    <li><%= t('subscriptions.features.premium_newsletter') %></li>
+    <li><%= t('subscriptions.features.portfolio_analyzer') %></li>
+  </ul>
+<% end %>

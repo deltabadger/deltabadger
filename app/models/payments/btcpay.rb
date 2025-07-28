@@ -24,8 +24,8 @@ class Payments::Btcpay < Payment
       buyer_phone: birth_date,
       buyer_country: country,
       item_desc: item_description,
-      redirect_url: payments_btcpay_success_url(host: HOST, locale: locale || I18n.locale),
-      notification_url: payments_btcpay_ipn_url(host: HOST, locale: locale || I18n.locale),
+      redirect_url: upgrade_btcpay_payment_success_path(host: HOST, locale: locale || I18n.locale),
+      notification_url: upgrade_btcpay_payment_ipn_url(host: HOST, locale: locale || I18n.locale),
       extended_notifications: true
     )
     return result if result.failure?
