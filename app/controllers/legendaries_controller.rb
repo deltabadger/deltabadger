@@ -1,7 +1,7 @@
 class LegendariesController < ApplicationController
   before_action :authenticate_user!
   before_action :redirect_to_upgratde_if_not_legendary
-  before_action :set_show_instance_variables
+  before_action :set_show_instance_variables, only: %i[show update]
 
   def show; end
 
