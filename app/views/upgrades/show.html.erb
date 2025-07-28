@@ -25,7 +25,7 @@
         <% next if @standard_research_enabled && available_plan_name == 'standard' %>
         <% next if !@standard_research_enabled && available_plan_name == 'standard_research' %>
         <%= render partial: "upgrades/plan_cards/#{available_plan_name.gsub('_research', '')}", locals: {
-          plan_name: available_plan_name,
+          generic_plan_name: available_plan_name.gsub('_research', ''),
           reference_payment_option: @reference_payment_options[available_plan_name],
           reference_duration: @reference_duration,
           payment_option: payment_option,

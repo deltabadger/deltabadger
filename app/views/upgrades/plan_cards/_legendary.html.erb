@@ -1,9 +1,9 @@
-<%= tag.div class: "widget widget--pricing widget--pricing--#{plan_name.gsub('_research', '')} widget--pricing--other" do %>
+<%= tag.div class: "widget widget--pricing widget--pricing--#{generic_plan_name} widget--pricing--other" do %>
   <div class="widget--pricing__name">
     <%= t('subscriptions.legendary') %>
   </div>
 
-  <div id="plan-card-amount-<%= plan_name.gsub('_research', '') %>" class="widget--pricing__amount">
+  <div id="plan-card-amount-<%= generic_plan_name %>" class="widget--pricing__amount">
     <%= render partial: "upgrades/plan_cards/elements/price", locals: {
       payment_option: payment_option,
       reference_duration: reference_duration,
@@ -12,7 +12,7 @@
   </div>
 
   <% unless checkout %>
-    <%= link_to t('button.select_plan'), upgrade_checkout_path(plan_name: 'legendary'), class: "button button--success button--large button--upgrade" %>
+    <%= render partial: "upgrades/plan_cards/elements/button", locals: { generic_plan_name: generic_plan_name } %>
   <% end %>
 
   <ul>

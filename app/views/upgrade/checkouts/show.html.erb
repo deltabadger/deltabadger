@@ -13,8 +13,8 @@
 
   <div class="pricing pricing--checkout">
     <div class="checkout-selected-plan">
-      <%= render partial: "upgrades/plan_cards/#{@plan_name.gsub('_research', '')}", locals: {
-        plan_name: @plan_name,
+      <%= render partial: "upgrades/plan_cards/#{@generic_plan_name}", locals: {
+        generic_plan_name: @generic_plan_name,
         reference_payment_option: @reference_payment_option,
         reference_duration: @reference_duration,
         payment_option: @payment,

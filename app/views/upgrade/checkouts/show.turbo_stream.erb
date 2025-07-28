@@ -1,4 +1,4 @@
-<%= turbo_stream.update "plan-card-amount-#{@plan_name.gsub('_research', '')}", partial: "upgrades/plan_cards/elements/price", locals: {
+<%= turbo_stream.update "plan-card-amount-#{@generic_plan_name}", partial: "upgrades/plan_cards/elements/price", locals: {
   payment_option: @payment,
   reference_duration: @reference_duration,
   reference_payment_option: @reference_payment_option,

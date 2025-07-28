@@ -1,1 +1,1 @@
-<%= link_to t('button.select_plan'), upgrade_checkout_path(plan_name: plan_name), id: "plan-card-button-#{plan_name.gsub('_research', '')}", class: "button button--success button--large button--upgrade", data: { turbo_frame: "upgrade" } %>
+<%= link_to t('button.select_plan'), upgrade_checkout_path(plan: generic_plan_name), id: "plan-card-button-#{generic_plan_name}", class: "button button--success button--large button--upgrade", data: { turbo_frame: "upgrade", turbo_action: "advance" } %>

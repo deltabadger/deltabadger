@@ -3,10 +3,6 @@ class Upgrade::ZenPayment::IpnsController < ApplicationController
 
   def create
     if Payments::Zen.valid_ipn_params?(params)
-      puts "ipn params: #{params.inspect}"
-      Rails.logger.info "ipn params: #{params.inspect}"
-      puts "ipn params: #{params.to_json}"
-      Rails.logger.info "ipn params: #{params.to_json}"
       payment = Payment.zen.find(params[:merchantTransactionId])
       payment.handle_ipn(params)
       render json: { "status": 'ok' }

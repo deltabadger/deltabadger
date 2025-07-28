@@ -1,4 +1,4 @@
-<%= tag.div class: "widget widget--pricing widget--pricing--#{plan_name.gsub('_research', '')} widget--pricing--other", data: { controller: "class-toggle", class_toggle_toggle_classes_value: ["active", "inactive"] } do %>
+<%= tag.div class: "widget widget--pricing widget--pricing--#{generic_plan_name} widget--pricing--other", data: { controller: "class-toggle", class_toggle_toggle_classes_value: ["active", "inactive"] } do %>
   <div class="widget--pricing__name">
     <%= t('subscriptions.mini') %>
     <% if current_user.subscription.mini? %>
@@ -6,7 +6,7 @@
     <% end %>
   </div>
 
-  <div id="plan-card-amount-<%= plan_name.gsub('_research', '') %>" class="widget--pricing__amount">
+  <div id="plan-card-amount-<%= generic_plan_name %>" class="widget--pricing__amount">
     <%= render partial: "upgrades/plan_cards/elements/price", locals: {
       payment_option: payment_option,
       reference_duration: reference_duration,
@@ -15,7 +15,7 @@
   </div>
 
   <% unless checkout %>
-    <%= render partial: "upgrades/plan_cards/elements/button", locals: { plan_name: plan_name } %>
+    <%= render partial: "upgrades/plan_cards/elements/button", locals: { generic_plan_name: generic_plan_name } %>
   <% end %>
 
   <ul class="widget--pricing__opt-bots">

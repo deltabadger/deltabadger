@@ -9,6 +9,6 @@
     reference_payment_option: @reference_payment_options[available_plan_name],
   } %>
   <%= turbo_stream.replace "plan-card-button-#{available_plan_name.gsub('_research', '')}", partial: "upgrades/plan_cards/elements/button", locals: {
-    plan_name: available_plan_name
+    generic_plan_name: available_plan_name.gsub('_research', '')
   } %>
 <% end %>

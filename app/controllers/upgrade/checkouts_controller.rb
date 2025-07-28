@@ -8,16 +8,16 @@ class Upgrade::CheckoutsController < ApplicationController
 
   def show
     set_show_instance_variables
-    @plan_name = session[:payment_config]['plan_name']
-    @reference_payment_option = @reference_payment_options[@plan_name]
-    @payment = @payment_options[@plan_name]
+    @generic_plan_name = session[:payment_config]['plan_name'].gsub('_research', '')
+    @reference_payment_option = @reference_payment_options[session[:payment_config]['plan_name']]
+    @payment = @payment_options[session[:payment_config]['plan_name']]
   end
 
   private
 
   def payment_params
     params.permit(
-      :plan_name,
+      :plan,
       :days,
       :mini_research_enabled,
       :standard_research_enabled,
@@ -34,7 +34,6 @@ class Upgrade::CheckoutsController < ApplicationController
     parsed_params = {
       mini_research_enabled: payment_params[:mini_research_enabled].presence&.in?(%w[1 true]),
       standard_research_enabled: payment_params[:standard_research_enabled].presence&.in?(%w[1 true]),
-      plan_name: payment_params[:plan_name],
       type: payment_params[:type],
       country: payment_params[:country],
       first_name: first_name(payment_params[:cardholder_name]) || payment_params[:first_name],
@@ -49,13 +48,18 @@ class Upgrade::CheckoutsController < ApplicationController
   end
 
   def update_session_plan_name
-    session[:payment_config]['plan_name'] = if session[:payment_config]['plan_name'].start_with?('mini')
-                                              session[:payment_config]['mini_research_enabled'] ? 'mini_research' : 'mini'
-                                            elsif session[:payment_config]['plan_name'].start_with?('standard')
-                                              session[:payment_config]['standard_research_enabled'] ? 'standard_research' : 'standard'
+    plan_name = payment_params[:plan] || session[:payment_config]['plan_name']
+    mini_research_enabled = session[:payment_config]['mini_research_enabled']
+    standard_research_enabled = session[:payment_config]['standard_research_enabled']
+    session[:payment_config]['plan_name'] = if plan_name.start_with?('mini')
+                                              mini_research_enabled ? 'mini_research' : 'mini'
+                                            elsif plan_name.start_with?('standard')
+                                              standard_research_enabled ? 'standard_research' : 'standard'
                                             else
-                                              session[:payment_config]['plan_name']
+                                              plan_name
                                             end
+    puts "payment_params[:plan]: #{payment_params[:plan]}"
+    puts "session[:payment_config]['plan_name']: #{session[:payment_config]['plan_name']}"
   end
 
   def invalid_session_payment_config?
@@ -64,7 +68,8 @@ class Upgrade::CheckoutsController < ApplicationController
       session[:payment_config]['type'].nil? ||
       session[:payment_config]['country'].nil? ||
       session[:payment_config]['days'].nil? ||
-      session[:payment_config]['plan_name'].nil?
+      session[:payment_config]['plan_name'].nil? ||
+      !session[:payment_config]['plan_name'].in?(available_plan_names)
   end
 
   def redirect_legendary_users

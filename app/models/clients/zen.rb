@@ -204,7 +204,6 @@ class Clients::Zen < Client
           language: language
         }.compact
         req.body[:signature] = sha256_signature(req.body)
-        # puts req.body.to_json
       end
       Result::Success.new(response.body)
     end
