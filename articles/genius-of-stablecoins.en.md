@@ -3,12 +3,11 @@ title: "The GENIUS of stablecoins"
 subtitle: "From smart contract killer app to GENIUS Portfolio"
 author_id: 1
 thumbnail: genius.avif
-excerpt: "Stablecoins grew 45x in 6 years to $270B. Tether and Circle now hold $120B in US Treasury securities, making them the 18th largest holder of American government debt. The GENIUS Act makes stablecoins a national strategic asset."
+excerpt: "The GENIUS Act has cemented stablecoins as crypto's killer app and a US strategic asset. This article presents the GENIUS Portfolio, a thesis for investing in the underlying blockchain infrastructure. Discover which tokens benefit from the digital dollar revolution."
 x_url: https://x.com/deltabadgerapp/status/1939622461768892684
 telegram_url: https://t.me/deltabadger/91
 paywall_hook: |
    <ul>
-       <li>Is TRON under- or overvalued?</li>
        <li>Which tokens benefit from stablecoin legitimization?</li>
        <li>Three different allocations for GENIUS Portfolio</li>
    </ul>
@@ -19,7 +18,7 @@ When Ethereum launched, many questioned whether blockchains had any use beyond B
 
 But there was one use case that came early, and many missed it as the actual *killer app*: **stablecoins**.
 
-The GENIUS Act confirms their status as effectively the "digital dollar" already actively replacing weak currencies in emerging markets, banking the unbanked, and solving remittance market inefficiencies.
+The GENIUS Act confirms stablecoins' status as the de facto "digital dollar" - already actively replacing weak currencies in emerging markets, banking the unbanked, and solving remittance inefficiencies.
 
 The numbers are insane:
 
@@ -35,8 +34,6 @@ The numbers are insane:
 <figcaption class="article__figure__caption">Global supply of stablecoins</figcaption>
 </figure>
 {:/nomarkdown}
-
-
 
 With 30 million active users, adoption is accelerating, not slowing. Monthly volumes hit $4.6 trillion in H1 2025 (43% month-over-month growth in some segments), suggesting we're still in the early adoption phase of what could become the dominant global payment infrastructure within a decade. <a class="link-source-tile" href="https://www.coindesk.com/markets/2024/12/11/stablecoin-market-cap-hits-200-b-milestone-could-double-in-2025-as-adoption-accelerates">coindesk.com</a>
 
@@ -116,7 +113,7 @@ While Europe builds the financial equivalent of the Maginot Line, the battle has
 
 > *Every financial revolution creates millionaires—but they're usually selling picks and shovels.*
 
-<!-- PAYWALL -->
+<!--PAYWALL -->
 
 Can you invest in this booming sector? Absolutely.
 
@@ -154,7 +151,7 @@ Among these, stablecoins are both the largest and most directly connected to the
 
 Is portfolio allocation based on stablecoin usage—the primary smart contract use case—a viable strategy?
 
-I believe so.
+We believe so.
 
 **Stablecoin volume drives demand for underlying tokens:**
 * Every transfer, mint, or redemption requires gas fees in native tokens (ETH, SOL, etc.)
@@ -182,8 +179,7 @@ TRON has become the largest network for USDT specifically, hosting $82 billion i
 This dominance stems from TRON's combination of ultra-low fees (under $0.10), fast 3-second settlements, and Justin Sun's strategic 2019 partnership with Tether, creating powerful network effects that attracted both emerging market retail users and large institutional transfers.
 
 However, if you're looking for a reason why TRON's market cap is low relative to its network usage, there's actually a good explanation for this discount:
-
-Among all major networks, **TRON is the most centralized**, fully controlled by controversial founder Justin Sun, which certainly adds risk to the underlying asset.
+Among all major networks, **TRON is the most centralized**, fully controlled by controversial founder Justin Sun, which adds significant risk to the underlying asset. While Tether may not be a threat anymore, TRON represents either a potential next systemic risk to the cryptocurrency market or an underappreciated investment opportunity.
 
 **This gives us portfolio weighting options:**
 1. Follow stablecoin issuance metrics.
