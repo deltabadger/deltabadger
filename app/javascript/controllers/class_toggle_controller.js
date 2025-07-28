@@ -13,6 +13,10 @@ export default class extends Controller {
   static targets = ["togglable"]
   static values = { toggleClasses: Array }
 
+  // connect() {
+  //   console.log("ClassToggleController connected");
+  // }
+
   toggle() {
     if (!this.hasToggleClassesValue) {
       console.error("Missing data-class-toggle-toggle-classes-value attribute on controller element.");
