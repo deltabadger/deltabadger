@@ -38,14 +38,4 @@
       <% end %>
     </div>
   </div>
-
-  <% if @paid_payment.present? %>
-    <%= tag.div class: "pricing__checkout", data: {
-          controller: "zaraz",
-          zaraz_is_purchase_value: true,
-          zaraz_currency_value: @paid_payment.currency.upcase,
-          zaraz_name_value: plan_variant_name(@paid_payment.subscription_plan_variant),
-          zaraz_price_value: @paid_payment.price_with_vat
-        } %>
-  <% end %>
 <% end %>

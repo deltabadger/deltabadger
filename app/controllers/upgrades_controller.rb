@@ -6,18 +6,14 @@ class UpgradesController < ApplicationController
   before_action :redirect_legendary_users, only: %i[show]
   before_action :render_pending_wire_transfer, only: %i[show]
   before_action :update_session, only: %i[show]
+  before_action :set_show_instance_variables, only: %i[show]
 
-  def show
-    set_show_instance_variables
-    return unless payment_params[:paid_payment_id].present?
-
-    @paid_payment = Payment.find(payment_params[:paid_payment_id])
-  end
+  def show; end
 
   private
 
   def payment_params
-    params.permit(:days, :mini_research_enabled, :standard_research_enabled, :paid_payment_id)
+    params.permit(:days, :mini_research_enabled, :standard_research_enabled)
   end
 
   def update_session

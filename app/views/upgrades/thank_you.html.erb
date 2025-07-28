@@ -1,0 +1,13 @@
+<h1></h1>You have just been upgraded to <%= @payment.subscription_plan_variant.name %>!</h1>
+
+<p>Now you have access to XYZ!</p>
+
+<%= link_to 'Go to dashboard', dashboard_path %>
+
+<%= tag.div data: {
+      controller: "zaraz",
+      zaraz_is_purchase_value: true,
+      zaraz_currency_value: @payment.currency.upcase,
+      zaraz_name_value: plan_variant_name(@payment.subscription_plan_variant),
+      zaraz_price_value: @payment.price_with_vat
+    } %>

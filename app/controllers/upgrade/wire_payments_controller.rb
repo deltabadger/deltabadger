@@ -27,7 +27,8 @@ class Upgrade::WirePaymentsController < ApplicationController
       )
         @payment.send_wire_transfer_summary
         UpgradeSubscriptionJob.set(wait: 15.minutes).perform_later(@payment)
-        redirect_to upgrade_path
+        session[:payment_config] = nil
+        render 'upgrade/thank_you'
       else
         flash[:alert] = @payment.errors.messages.values.flatten.to_sentence
         set_show_instance_variables
