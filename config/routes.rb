@@ -110,6 +110,7 @@ Rails.application.routes.draw do
       end
       resource :instructions, only: [:show]
       resource :checkout, only: [:show]
+      resource :thank_you, only: [:show] # only used to preview the thank you page
     end
 
     namespace :settings do
