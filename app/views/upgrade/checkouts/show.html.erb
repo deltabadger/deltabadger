@@ -1,5 +1,8 @@
 <%= turbo_frame_tag "upgrade" do %>
   <div class="page-head">
+
+    <%= link_to t('button.back'), upgrade_path, data: { turbo_frame: "upgrade", turbo_action: "advance" } %>
+
     <%= form_with url: upgrade_checkout_path, method: :get, data: { controller: "form--submit", turbo_stream: true }, class: "pricing-period-toggle" do |f| %>
       <% @available_variant_days.each do |days| %>
         <% selected = days == @selected_days %>
