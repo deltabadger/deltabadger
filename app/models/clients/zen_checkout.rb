@@ -1,6 +1,7 @@
-class Clients::Zen < Client
-  URL = ENV.fetch('ZEN_API_URL').freeze
-  TERMINAL_API_KEY = ENV.fetch('ZEN_TERMINAL_API_KEY').freeze
+class Clients::ZenCheckout < Client
+  URL = ENV.fetch('ZEN_CHECKOUT_URL').freeze
+  PAYWALL_SECRET = ENV.fetch('ZEN_PAYWALL_SECRET').freeze
+  TERMINAL_UUID = ENV.fetch('ZEN_TERMINAL_UUID').freeze
 
   def self.connection
     @connection ||= Faraday.new(url: URL, **OPTIONS) do |config|
@@ -14,7 +15,8 @@ class Clients::Zen < Client
     end
   end
 
-  # https://docs.zen.com/payments/api-reference/create-purchase-transaction
+  # https://docs.zen.com/payments/checkout-integration/communication-parameters
+  # @param terminal_uuid [String] The terminal UUID
   # @param amount [String] The amount of the transaction
   # @param currency [String] Currency in ISO 4217 alphabetic code of the transaction
   #        (it will determine payment methods displayed on the paywall).
@@ -46,21 +48,25 @@ class Clients::Zen < Client
   # @param billing_address_company_name [String] The customer's billing address company name
   # @param billing_address_phone [String] The customer's billing address phone
   # @param billing_address_tax_id [String] The customer's billing address tax ID
-  # @param payment_specific_data_payment_type [String] The type of payment (recurring or unscheduled)
-  # @param payment_specific_data_first_transaction_id [String] The ID of the first transaction
-  # @param payment_specific_data_descriptor [String] Text that will appear on Customer Bank Statement.
-  #        Can be used only for credit card Payments.
-  # @param payment_specific_data_card_token [String] Card token created in the process of saving credit card
-  # @param payment_specific_data_sca_exemptions [String] Indicates recurring or unscheduled (RECURRING or OTHER_MIT)
+  # @param recurring_data_payment_type [String] The type of recurring payment (recurring or unscheduled)
+  # @param recurring_data_expiry_date [String] The expiry date of the recurring payment (YYYYMMDD)
+  #        With no expiration date plans recommendation is to use "99991212"
+  # @param recurring_data_frequency [Integer] Indicates minimum number of days between authorization,
+  #        limited to 4 characters. Recommendation is to use "1"
+  # @param url_redirect [String] The URL to redirect to after the transaction
+  #        (used if url_success and url_failure were not specified)
+  # @param url_success [String] The URL to redirect to after a successful transaction
+  # @param url_failure [String] The URL to redirect to after a failed transaction
   # @param custom_ipn_url [String] The URL to send IPN to
+  # @param specified_payment_method [String] The code to limit checkout to one payment method
+  # @param specified_payment_channel [String] The code to limit checkout to one payment channel
   #
   # @returns
   #   #=> {"redirectUrl"=>"https://secure.zen.com/4312a1c3-1a54-4e1f-b37c-0e2242986ce1"}
-  def create_purchase_transaction(
+  def checkout(
     amount:,
     currency:,
     merchant_transaction_id:,
-    payment_channel:,
     item_name:,
     item_price:,
     item_quantity:,
@@ -70,7 +76,6 @@ class Clients::Zen < Client
     customer_last_name: nil, # Providing this data increases the approval rate for card payments
     customer_email: nil, # Providing this data increases the approval rate for card payments
     customer_phone: nil,
-    customer_ip: nil,
     item_code: nil,
     item_category: nil,
     shipping_address_id: nil,
@@ -100,22 +105,32 @@ class Clients::Zen < Client
     billing_address_company_name: nil,
     billing_address_phone: nil,
     billing_address_tax_id: nil,
-    payment_specific_data_payment_type: nil,
-    payment_specific_data_first_transaction_id: nil,
-    payment_specific_data_descriptor: nil,
-    payment_specific_data_card_token: nil,
-    payment_specific_data_sca_exemptions: nil,
-    custom_ipn_url: nil
+    recurring_data_payment_type: nil,
+    recurring_data_expiry_date: nil,
+    recurring_data_frequency: nil,
+    url_redirect: nil,
+    url_success: nil,
+    url_failure: nil,
+    custom_ipn_url: nil,
+    specified_payment_method: nil,
+    specified_payment_channel: nil,
+    language: nil
   )
     with_rescue do
       response = self.class.connection.post do |req|
-        req.url '/v1/transactions'
-        req.headers = headers
+        req.url '/api/checkouts'
         req.body = {
-          merchantTransactionId: merchant_transaction_id,
-          paymentChannel: payment_channel,
+          terminalUuid: TERMINAL_UUID,
           amount: amount,
           currency: currency,
+          merchantTransactionId: merchant_transaction_id,
+          customer: {
+            id: customer_id,
+            firstName: customer_first_name,
+            lastName: customer_last_name,
+            email: customer_email,
+            phone: customer_phone
+          }.compact.presence,
           items: [
             {
               code: item_code,
@@ -126,14 +141,6 @@ class Clients::Zen < Client
               lineAmountTotal: item_line_amount_total
             }.compact
           ],
-          customer: {
-            id: customer_id,
-            firstName: customer_first_name,
-            lastName: customer_last_name,
-            email: customer_email,
-            phone: customer_phone,
-            ip: customer_ip
-          }.compact.presence,
           shippingAddress: {
             id: shipping_address_id,
             firstName: shipping_address_first_name,
@@ -165,15 +172,20 @@ class Clients::Zen < Client
             phone: billing_address_phone,
             taxId: billing_address_tax_id
           }.compact.presence,
-          paymentSpecificData: {
-            type: payment_specific_data_payment_type,
-            firstTransactionId: payment_specific_data_first_transaction_id,
-            descriptor: payment_specific_data_descriptor,
-            cardToken: payment_specific_data_card_token,
-            scaExemptions: payment_specific_data_sca_exemptions
+          recurringData: {
+            paymentType: recurring_data_payment_type,
+            expiryDate: recurring_data_expiry_date,
+            frequency: recurring_data_frequency
           }.compact.presence,
-          customIpnUrl: custom_ipn_url
+          urlRedirect: url_redirect,
+          urlSuccess: url_success,
+          urlFailure: url_failure,
+          customIpnUrl: custom_ipn_url,
+          specifiedPaymentMethod: specified_payment_method,
+          specifiedPaymentChannel: specified_payment_channel,
+          language: language
         }.compact
+        req.body[:signature] = sha256_signature(req.body)
       end
       Result::Success.new(response.body)
     end
@@ -181,11 +193,31 @@ class Clients::Zen < Client
 
   private
 
-  def headers
-    {
-      'Content-Type' => 'application/json',
-      'Authorization' => TERMINAL_API_KEY,
-      'request-id' => SecureRandom.uuid
-    }
+  def sha256_signature(body)
+    string_to_hash = hash_to_strings(body).sort.join('&') + PAYWALL_SECRET
+    hashed_string = Digest::SHA256.hexdigest(string_to_hash)
+    "#{hashed_string};sha256"
+  end
+
+  def hash_to_strings(hash, parent_key = '', strings = []) # rubocop:disable Metrics/PerceivedComplexity
+    hash.each do |key, value|
+      current_key = parent_key.empty? ? key.to_s : "#{parent_key}.#{key}"
+
+      if value.is_a?(Hash)
+        hash_to_strings(value, current_key, strings)
+      elsif value.is_a?(Array)
+        value.each_with_index do |item, index|
+          if item.is_a?(Hash)
+            hash_to_strings(item, "#{current_key}[#{index}]", strings)
+          else
+            strings << "#{current_key}[#{index}]=#{item}".downcase
+          end
+        end
+      else
+        strings << "#{current_key}=#{value}".downcase
+      end
+    end
+
+    strings
   end
 end

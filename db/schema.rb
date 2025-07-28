@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema.define(version: 2025_07_23_154403) do
+ActiveRecord::Schema.define(version: 2025_07_28_221625) do
 
   # These are extensions that must be enabled in order to support this database
   enable_extension "plpgsql"
@@ -141,7 +141,8 @@ ActiveRecord::Schema.define(version: 2025_07_23_154403) do
   create_table "cards", force: :cascade do |t|
     t.bigint "user_id", null: false
     t.string "token", null: false
-    t.string "first_transaction_id", null: false
+    t.string "first_transaction_id"
+    t.string "ip"
     t.index ["user_id"], name: "index_cards_on_user_id"
   end
 
