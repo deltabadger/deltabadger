@@ -31,6 +31,8 @@ class Upgrade::CheckoutsController < ApplicationController
   end
 
   def update_session
+    redirect_to upgrade_path and return unless session[:payment_config].present?
+
     parsed_params = {
       mini_research_enabled: payment_params[:mini_research_enabled].presence&.in?(%w[1 true]),
       standard_research_enabled: payment_params[:standard_research_enabled].presence&.in?(%w[1 true]),
