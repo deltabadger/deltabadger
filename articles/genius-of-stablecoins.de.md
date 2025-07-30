@@ -46,9 +46,9 @@ Wie immer konzentrieren wir uns auf Erkenntnisse, die für Anleger in digitale V
 
 Der GENIUS Act, der im Juni 2025 vom Senat mit 68 zu 30 Stimmen verabschiedet und im Juli unterzeichnet wurde, ist das erste Mal, dass die US-Regierung private digitale Währungen ausdrücklich als Instrumente der Wirtschaftspolitik anerkennt. <a class="link-source-tile" href="https://www.cnbc.com/2025/06/17/genius-stablecoin-bill-crypto.html">cnbc.com</a>
 
->*Wir werden Stablecoins verwenden, um die USA als dominante Reservewährung zu erhalten.*
+>*Wir werden Stablecoins nutzen, um den US-Dollar als dominante Reservewährung zu erhalten.*
 >
->– Finanzminister Scott Bessent
+>– Finanzminister Scott Bessent <a class="link-source-tile" href="https://www.atlanticcouncil.org/blogs/new-atlanticist/dollar-backed-stablecoins-international-standards/">atlanticcouncil.org</a>
 
 **Dies stellt einen dramatischen Wandel von der Regulierung zur Bewaffnung dar.**
 

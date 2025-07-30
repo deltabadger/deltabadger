@@ -48,9 +48,9 @@ Como sempre, vamos nos concentrar em insights que são consequentes e acionávei
 
 A Lei GENIUS, aprovada pelo Senado por 68 a 30 em junho de 2025 e sancionada em julho, marca a primeira vez que o governo dos EUA abraçou explicitamente as moedas digitais privadas como ferramentas de estadismo econômico. <a class="link-source-tile" href="https://www.cnbc.com/2025/06/17/genius-stablecoin-bill-crypto.html">cnbc.com</a>
 
->*Usaremos stablecoins para manter os EUA como a moeda de reserva dominante.*
+>*Usaremos stablecoins para manter o dólar americano como a moeda de reserva dominante.*
 >
->—Secretário do Tesouro Scott Bessent
+>—Secretário do Tesouro Scott Bessent <a class="link-source-tile" href="https://www.atlanticcouncil.org/blogs/new-atlanticist/dollar-backed-stablecoins-international-standards/">atlanticcouncil.org</a>
 
 **Isso representa uma mudança dramática da regulamentação para a armamentização.**
 

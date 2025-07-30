@@ -46,9 +46,9 @@ Zoals altijd zullen we ons richten op inzichten die gevolgen hebben en bruikbaar
 
 De GENIUS Act, die in juni 2025 door de Senaat werd aangenomen met 68-30 en in juli werd ondertekend, is de eerste keer dat de Amerikaanse regering private digitale valuta's expliciet heeft omarmd als instrumenten van economische staatskunst. <a class="link-source-tile" href="https://www.cnbc.com/2025/06/17/genius-stablecoin-bill-crypto.html">cnbc.com</a>
 
->*We zullen stablecoins gebruiken om de VS de dominante reservevaluta te houden.*
+>*We zullen stablecoins gebruiken om de Amerikaanse dollar de dominante reservevaluta te houden.*
 >
->—Minister van Financiën Scott Bessent
+>—Minister van Financiën Scott Bessent <a class="link-source-tile" href="https://www.atlanticcouncil.org/blogs/new-atlanticist/dollar-backed-stablecoins-international-standards/">atlanticcouncil.org</a>
 
 **Dit vertegenwoordigt een dramatische verschuiving van regulering naar bewapening.**
 

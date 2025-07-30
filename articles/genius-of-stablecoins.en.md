@@ -9,7 +9,7 @@ telegram_url: https://t.me/deltabadger/91
 paywall_hook: |
    <ul>
        <li>Which tokens benefit from stablecoin legitimization?</li>
-       <li>Is TRON the new systemic risk for crypto?
+       <li>Is TRON the new systemic risk for crypto?</li>
        <li>Three different allocations for GENIUS Portfolio</li>
    </ul>
 published: true
@@ -46,9 +46,9 @@ As always, we'll focus on insights that are consequential and actionable for dig
 
 The GENIUS Act, passed by the Senate 68-30 in June 2025 and signed in July, marks the first time the US government has explicitly embraced private digital currencies as tools of economic statecraft. <a class="link-source-tile" href="https://www.cnbc.com/2025/06/17/genius-stablecoin-bill-crypto.html">cnbc.com</a>
 
->*We will use stablecoins to keep the US the dominant reserve currency.*  
+>*We will use stablecoins to keep the US Dollar the dominant reserve currency.*  
 >
->—Treasury Secretary Scott Bessent
+>—Treasury Secretary Scott Bessent <a class="link-source-tile" href="https://www.atlanticcouncil.org/blogs/new-atlanticist/dollar-backed-stablecoins-international-standards/">atlanticcouncil.org</a>
 
 **This represents a dramatic shift from regulation to weaponization.**
 
