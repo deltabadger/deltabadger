@@ -1,14 +1,15 @@
 ---
 title: "Het GENIE van stablecoins"
-subtitle: "Van killer app voor slimme contracten tot GENIUS Portfolio"
+subtitle: 'Van "killer app" voor smart contracts tot GENIUS Portfolio'
 author_id: 1
 thumbnail: genius.avif
-excerpt: "De GENIUS Act heeft stablecoins gecementeerd als de killer app van crypto en een strategische troef van de VS. Dit artikel presenteert de GENIUS Portfolio, een these voor het investeren in de onderliggende blockchain-infrastructuur. Ontdek welke tokens profiteren van de digitale dollarrevolutie."
+excerpt: 'De GENIUS Act verstevigt de positie van stablecoins als de killer app van Web3 en de nieuwe "digitale dollar". We onderzoeken de geografie van stablecoins en de GENIUS Portfolio, een these voor investeringen in de onderliggende blockchain-infrastructuur.'
 x_url: https://x.com/deltabadgerapp/status/1939622461768892684
 telegram_url: https://t.me/deltabadger/91
 paywall_hook: |
    <ul>
        <li>Welke tokens profiteren van de legitimatie van stablecoins?</li>
+       <li>Is TRON het nieuwe systemische risico voor crypto?</li>
        <li>Drie verschillende toewijzingen for GENIUS Portfolio</li>
    </ul>
 published: true
@@ -149,7 +150,7 @@ Na verloop van tijd ontstonden er succesvolle use cases:
 
 Hiervan zijn stablecoins zowel de grootste als de meest direct verbonden met de bredere economie, en lossen ze alledaagse problemen op die geen verband houden met crypto.
 
-Is portefeuille-allocatie op basis van stablecoin-gebruik – de primaire use case voor slimme contracten – een haalbare strategie?
+Is portefeuille-allocatie op basis van stablecoin-gebruik – de primaire use case voor smart contracts – een haalbare strategie?
 
 Ik geloof van wel.
 
@@ -242,6 +243,6 @@ Van alle grote netwerken is **TRON het meest gecentraliseerd**, volledig gecontr
 
 Op aanbod gebaseerde toewijzing is een handel op basis van fundamentals – die mogelijk een nauwkeuriger verhaal vertelt dan de kapitalisaties van de activa. Conservatievere beleggers kunnen marktkapitalisatie beschouwen als een bron van informatie die completere informatie bevat. Er is hier geen eenduidig antwoord, aangezien beide ideeën hun verdiensten hebben.
 
-Hoewel TRON voor velen misschien in twijfel wordt getrokken, blijft Ethereum – het eerste smart contract-platform – de leider van de gedecentraliseerde financiën. Als dit echter verandert, stelt het volgen van openbaar beschikbare statistieken en het elke 3 maanden herbalanceren van de portefeuille ons in staat om de toewijzing relevant te houden.
+Hoewel TRON voor velen misschien in twijfel wordt getrokken, blijft Ethereum – het eerste smart contract platform – de leider van de gedecentraliseerde financiën. Als dit echter verandert, stelt het volgen van openbaar beschikbare statistieken en het elke 3 maanden herbalanceren van de portefeuille ons in staat om de toewijzing relevant te houden.
 
 **Welke toewijzing is jouw favoriet? Neem deel aan de discussie op Telegram.** 

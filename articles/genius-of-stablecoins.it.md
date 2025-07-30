@@ -1,14 +1,15 @@
 ---
 title: "Il GENIO delle stablecoin"
-subtitle: "Dalla killer app degli smart contract al portafoglio GENIUS"
+subtitle: 'Dalla "killer app" degli smart contract al portafoglio GENIUS'
 author_id: 1
 thumbnail: genius.avif
-excerpt: "Il GENIUS Act ha consacrato le stablecoin come la killer app delle criptovalute e un asset strategico degli Stati Uniti. Questo articolo presenta il portafoglio GENIUS, una tesi per investire nell'infrastruttura blockchain sottostante. Scopri quali token beneficiano della rivoluzione del dollaro digitale."
+excerpt: 'La legge GENIUS consacra le stablecoin come la killer app del Web3 e il nuovo "dollaro digitale". Esploriamo la geografia delle stablecoin e il Portafoglio GENIUS, una tesi per investire nell''infrastruttura blockchain sottostante.'
 x_url: https://x.com/deltabadgerapp/status/1939622461768892684
 telegram_url: https://t.me/deltabadger/91
 paywall_hook: |
    <ul>
        <li>Quali token beneficiano della legittimazione delle stablecoin?</li>
+       <li>TRON è il nuovo rischio sistemico per le criptovalute?</li>
        <li>Tre diverse allocazioni per il portafoglio GENIUS</li>
    </ul>
 published: true

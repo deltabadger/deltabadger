@@ -1,14 +1,15 @@
 ---
 title: "The GENIUS of stablecoins"
-subtitle: "From smart contract killer app to GENIUS Portfolio"
+subtitle: 'From smart contract "killer app" to GENIUS Portfolio'
 author_id: 1
 thumbnail: genius.avif
-excerpt: "The GENIUS Act has cemented stablecoins as crypto's killer app and a US strategic asset. This article presents the GENIUS Portfolio, a thesis for investing in the underlying blockchain infrastructure. Discover which tokens benefit from the digital dollar revolution."
+excerpt: 'The GENIUS Act cements stablecoins as Web3''s killer app and the new "digital dollar". We explore the geography of stablecoins and the GENIUS Portfolio, a thesis for investing in the underlying blockchain infrastructure.'
 x_url: https://x.com/deltabadgerapp/status/1939622461768892684
 telegram_url: https://t.me/deltabadger/91
 paywall_hook: |
    <ul>
        <li>Which tokens benefit from stablecoin legitimization?</li>
+       <li>Is TRON the new systemic risk for crypto?
        <li>Three different allocations for GENIUS Portfolio</li>
    </ul>
 published: true

@@ -1,14 +1,15 @@
 ---
 title: "O GÊNIO das stablecoins"
-subtitle: "Do aplicativo matador de contratos inteligentes à Carteira GENIUS"
+subtitle: 'Da "killer app" de smart contracts à Carteira GENIUS'
 author_id: 1
 thumbnail: genius.avif
-excerpt: "A Lei GENIUS cimentou as stablecoins como o aplicativo matador da criptografia e um ativo estratégico dos EUA. Este artigo apresenta a Carteira GENIUS, uma tese para investir na infraestrutura de blockchain subjacente. Descubra quais tokens se beneficiam da revolução do dólar digital."
+excerpt: 'A Lei GENIUS consolida as stablecoins como a killer app da Web3 e o novo "dólar digital". Exploramos a geografia das stablecoins e a Carteira GENIUS, uma tese para investir na infraestrutura de blockchain subjacente.'
 x_url: https://x.com/deltabadgerapp/status/1939622461768892684
 telegram_url: https://t.me/deltabadger/91
 paywall_hook: |
    <ul>
        <li>Quais tokens se beneficiam da legitimação das stablecoins?</li>
+       <li>O TRON é o novo risco sistêmico para criptomoedas?</li>
        <li>Três alocações diferentes para a Carteira GENIUS</li>
    </ul>
 published: true
@@ -16,7 +17,7 @@ published_at: "2025-07-27"
 ---
 Quando o Ethereum foi lançado, muitos questionaram se as blockchains tinham alguma utilidade além do Bitcoin. A maioria dos primeiros casos de uso – ICOs, NFTs, DAOs – eram relacionados a cripto e difíceis para o público em geral entender.
 
-Mas houve um caso de uso que surgiu cedo, e muitos o perderam como o verdadeiro *aplicativo matador*: as **stablecoins**.
+Mas houve um caso de uso que surgiu cedo, e muitos o perderam como o verdadeiro *killer app*: as **stablecoins**.
 
 A Lei GENIUS confirma o status das stablecoins como o "dólar digital" de fato - já substituindo ativamente moedas fracas em mercados emergentes, bancarizando os não bancarizados e resolvendo ineficiências de remessas.
 
@@ -139,7 +140,7 @@ Mas novas blockchains se somam ao volume total em vez de roubar do uso do Ethere
 </figure>
 {:/nomarkdown}
 
-### Stablecoins: o "aplicativo matador" da Web3
+### Stablecoins: a "killer app" da Web3
 
 Quando o Ethereum foi lançado, muitos questionaram se a blockchain tinha alguma utilidade além do Bitcoin. A onda de ICOs não ajudou – a maioria dos projetos queimou o capital dos investidores sem entregar valor.
 
@@ -151,7 +152,7 @@ Com o tempo, surgiram casos de uso bem-sucedidos:
 
 Entre eles, as stablecoins são as maiores e as mais diretamente conectadas à economia em geral, resolvendo problemas do dia a dia não relacionados a cripto.
 
-A alocação de portfólio baseada no uso de stablecoins – o principal caso de uso de contratos inteligentes – é uma estratégia viável?
+A alocação de portfólio baseada no uso de stablecoins – o principal caso de uso de smart contracts – é uma estratégia viável?
 
 Eu acredito que sim.
 
@@ -244,6 +245,6 @@ Entre todas as principais redes, **a TRON é a mais centralizada**, totalmente c
 
 A alocação baseada no fornecimento é uma negociação baseada em fundamentos – potencialmente contando uma história mais precisa do que as capitalizações dos ativos. Investidores mais conservadores podem considerar a capitalização de mercado como uma fonte de informação que inclui informações mais completas. Não há uma resposta óbvia aqui, já que ambas as ideias têm seus méritos.
 
-Embora a TRON possa estar em questão para muitos, o Ethereum – a primeira plataforma de contrato inteligente – permanece o líder das finanças descentralizadas. No entanto, se isso mudar, seguir as métricas disponíveis publicamente e reequilibrar a carteira a cada 3 meses nos permite manter a alocação relevante.
+Embora a TRON possa estar em questão para muitos, o Ethereum – a primeira plataforma de smart contract – permanece o líder das finanças descentralizadas. No entanto, se isso mudar, seguir as métricas disponíveis publicamente e reequilibrar a carteira a cada 3 meses nos permite manter a alocação relevante.
 
 **Qual alocação é a sua favorita? Participe da discussão no Telegram.** 
