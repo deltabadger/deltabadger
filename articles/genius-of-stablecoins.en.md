@@ -1,25 +1,40 @@
 ---
 title: "The GENIUS of stablecoins"
-subtitle: "From smart contract killer app to GENIUS Portfolio"
+subtitle: 'From smart contract "killer app" to GENIUS Portfolio'
 author_id: 1
 thumbnail: genius.avif
-excerpt: "Stablecoins grew 45x in 6 years to $270B. Tether and Circle now hold $120B in US Treasury securities, making them the 18th largest holder of American government debt. The GENIUS Act makes stablecoins a national strategic asset."
-x_url: https://x.com/deltabadgerapp/status/1939622461768892684
-telegram_url: https://t.me/deltabadger/91
+excerpt: 'The GENIUS Act cements stablecoins as Web3''s killer app and the new "digital dollar". We explore the geography of stablecoins and the GENIUS Portfolio, a thesis for investing in the underlying blockchain infrastructure.'
+x_url: https://x.com/deltabadgerapp/status/1950462030970016075
+telegram_url: https://t.me/deltabadger/101
 paywall_hook: |
    <ul>
-       <li>Is TRON under- or overvalued?</li>
        <li>Which tokens benefit from stablecoin legitimization?</li>
+       <li>Is TRON the new systemic risk for crypto?</li>
        <li>Three different allocations for GENIUS Portfolio</li>
    </ul>
 published: true
 published_at: "2025-07-27"
 ---
-In 6 years, stablecoins grew **from $6 billion to $270 billion—a 45x increase**. The entire stablecoin market is now larger than the GDP of Finland, while two private companies control more US debt than entire countries:
+When Ethereum launched, many questioned whether blockchains had any use beyond Bitcoin. Most early use cases—ICOs, NFTs, DAOs—were crypto-related and hard for mainstream audiences to understand.
 
-Tether ($98 billion) and Circle ($22 billion) combined hold $120 billion in US Treasury securities, making them the 18th largest holder of American government debt—ahead of Belgium, Taiwan, and most sovereign nations. <a class="link-source-tile" href="https://tether.io/news/tether-hits-13-billion-profits-for-2024-and-all-time-highs-in-u-s-treasury-holdings-usdt-circulation-and-reserve-buffer-in-q4-2024-attestation/">tether.io</a>
+But there was one use case that came early, and many missed it as the actual *killer app*: **stablecoins**.
 
-Tether processes over $100 billion in daily transfers on some days, while **the entire stablecoin ecosystem moves $27.6 trillion annually—more than Visa and Mastercard combined**. <a class="link-source-tile" href="https://cryptoslate.com/stablecoins-surpass-visa-and-mastercard-with-27-6-trillion-transfer-volume-in-2024/">cryptoslate.com</a>
+The GENIUS Act confirms stablecoins' status as the de facto "digital dollar" - already actively replacing weak currencies in emerging markets, banking the unbanked, and solving remittance inefficiencies.
+
+The numbers are insane:
+
+* In 6 years, stablecoins grew **from $6 billion to $270 billion—a 45x increase**. The entire stablecoin market is now larger than the GDP of Finland.
+
+* Tether ($98 billion) and Circle ($22 billion) combined hold $120 billion in US Treasury securities, making them the 18th largest holder of American government debt—ahead of Belgium, Taiwan, and most sovereign nations. <a class="link-source-tile" href="https://tether.io/news/tether-hits-13-billion-profits-for-2024-and-all-time-highs-in-u-s-treasury-holdings-usdt-circulation-and-reserve-buffer-in-q4-2024-attestation/">tether.io</a>
+
+* Tether processes over $100 billion in daily transfers on some days, while **the entire stablecoin ecosystem moves $27.6 trillion annually—more than Visa and Mastercard combined**. <a class="link-source-tile" href="https://cryptoslate.com/stablecoins-surpass-visa-and-mastercard-with-27-6-trillion-transfer-volume-in-2024/">cryptoslate.com</a>
+
+{::nomarkdown}
+<figure class="article__figure">
+<iframe width="100%" height="420" frameborder="0" src="https://www.theblock.co/data/stablecoins/usd-pegged/total-stablecoin-supply/embed" title="Total Stablecoin Supply"></iframe>
+<figcaption class="article__figure__caption">Global supply of stablecoins</figcaption>
+</figure>
+{:/nomarkdown}
 
 With 30 million active users, adoption is accelerating, not slowing. Monthly volumes hit $4.6 trillion in H1 2025 (43% month-over-month growth in some segments), suggesting we're still in the early adoption phase of what could become the dominant global payment infrastructure within a decade. <a class="link-source-tile" href="https://www.coindesk.com/markets/2024/12/11/stablecoin-market-cap-hits-200-b-milestone-could-double-in-2025-as-adoption-accelerates">coindesk.com</a>
 
@@ -31,9 +46,9 @@ As always, we'll focus on insights that are consequential and actionable for dig
 
 The GENIUS Act, passed by the Senate 68-30 in June 2025 and signed in July, marks the first time the US government has explicitly embraced private digital currencies as tools of economic statecraft. <a class="link-source-tile" href="https://www.cnbc.com/2025/06/17/genius-stablecoin-bill-crypto.html">cnbc.com</a>
 
->*We will use stablecoins to keep the US the dominant reserve currency.*  
+>*We will use stablecoins to keep the US Dollar the dominant reserve currency.*  
 >
->—Treasury Secretary Scott Bessent
+>—Treasury Secretary Scott Bessent <a class="link-source-tile" href="https://www.atlanticcouncil.org/blogs/new-atlanticist/dollar-backed-stablecoins-international-standards/">atlanticcouncil.org</a>
 
 **This represents a dramatic shift from regulation to weaponization.**
 
@@ -45,17 +60,21 @@ The true genius of the act isn't just domestic regulation—it's about extending
 
 **The most important insight for understanding the stablecoin rise is geography.** North America accounts for only 20-25% of transaction volume, while Europe contributes merely 10-15%. **The true drivers are emerging markets.**
 
-### Stablecoin Market by Region
-
-| | Share of Global Volume (%) | Adoption Rate (%) | Key Drivers |
-|--------|---------------------------------------|----------------------------|-------------------|
-| **Latin America** | 25-30% | 8-12% | Currency instability, remittances |
-| **Asia** | 30-35% | 6-9% | Cross-border trade, payments |
-| **Africa** | 15-20% | 9-12% | Financial inclusion, remittances |
-| **North America** | 20-25% | 3-5% | Institutional use, DeFi |
-| **Europe** | 10-15% | 1-2% | Trading, regulatory compliance |
-| **Asia-Pacific** | 8-12% | 4-6% | Emerging adoption |
-| **Middle East** | 3-5% | 2-4% | Oil trade, sanctions avoidance |
+{::nomarkdown}
+<figure class="article__figure">
+<table>
+<tr><th></th><th>Share of Global Volume (%)</th><th>Adoption Rate (%)</th><th>Key Drivers</th></tr>
+<tr><td><b>Latin America</b></td><td>25-30%</td><td>8-12%</td><td>Currency instability, remittances</td></tr>
+<tr><td><b>Asia</b></td><td>30-35%</td><td>6-9%</td><td>Cross-border trade, payments</td></tr>
+<tr><td><b>Africa</b></td><td>15-20%</td><td>9-12%</td><td>Financial inclusion, remittances</td></tr>
+<tr><td><b>North America</b></td><td>20-25%</td><td>3-5%</td><td>Institutional use, DeFi</td></tr>
+<tr><td><b>Europe</b></td><td>10-15%</td><td>1-2%</td><td>Trading, regulatory compliance</td></tr>
+<tr><td><b>Asia-Pacific</b></td><td>8-12%</td><td>4-6%</td><td>Emerging adoption</td></tr>
+<tr><td><b>Middle East</b></td><td>3-5%</td><td>2-4%</td><td>Oil trade, sanctions avoidance</td></tr>
+</table>
+<figcaption class="article__figure__caption">Stablecoin Market by Region</figcaption>
+</figure>
+{:/nomarkdown}
 
 **Note:** Percentages are estimates based on available data. Some regional overlap exists between Asia and Asia-Pacific classifications.
 
@@ -74,7 +93,7 @@ In Argentina, 61.8% of all transactions now involve stablecoins, directly correl
 
 **Europe is spectacularly missing this revolution.** Despite representing 48% of global cryptocurrency volume, **only 0.2% of stablecoin supply is held by Europeans**, suggesting their 10-15% participation in transaction volume is primarily trading, not adoption. <a class="link-source-tile" href="https://www.chainalysis.com/blog/2024-western-europe-crypto-adoption/">chainalysis.com</a>
 
-## The Dollar Dominance Paradox
+### The Stealthy Digital Dollar
 
 Stablecoins deserve a narrative shift. The story of stablecoins competing with or endangering government currencies is dead—or is it?
 
@@ -82,20 +101,24 @@ The reality: 98% of stablecoins are USD-backed, with issuers already the 18th la
 
 **Stablecoins are extending American financial hegemony in ways the Pentagon never imagined.**
 
-## The Europe Problem
+### The Europe Problem
 
-The EU's bureaucratic failure in snapshots:
+Meanwhile, the EU continues to be a bureaucratic failure:
 * MiCA regulation prioritizes CBDCs over private innovation  
 * Major exchanges delisting Tether for EU users by March 2025  
 * Digital euro development crawling while stablecoin adoption accelerates
 
-While Europe builds the financial equivalent of the Maginot Line, the battle has already moved to mobile phones.
+While Europe builds the financial equivalent of the Maginot Line, spending over $1.1 billion on the CBDC project, the battle has already moved to mobile phones, where the US weaponizes stablecoins to efficiently dollarize emerging markets—all financed by the private sector. <a class="link-source-tile" href="https://www.ledgerinsights.com/ecb-updates-status-of-digital-euro-work/">ledgerinsights.com</a>
 
-## The Infrastructure Play
+## The GENIUS Portfolio
 
-Every financial revolution creates millionaires—but they're usually selling picks and shovels.
+> *Every financial revolution creates millionaires—but they're usually selling picks and shovels.*
 
 <!-- PAYWALL -->
+
+Can you invest in this booming sector? Absolutely.
+
+Stablecoins are not growth assets, but the underlying infrastructure is built on networks supported by native tokens. Let's take a closer look at blockchians in play.
 
 When examining stablecoin transactions over time, Ethereum might appear to be losing market share:
 
@@ -115,7 +138,7 @@ But new blockchains add to total volume rather than stealing from Ethereum usage
 </figure>
 {:/nomarkdown}
 
-### Stablecoins: The "Killer App" of Smart Contract Platforms
+### Stablecoins: The "Killer App" of Web3
 
 When Ethereum launched, many questioned whether blockchain had any use beyond Bitcoin. The ICO wave didn't help—most projects burned investor capital without delivering value.
 
@@ -129,7 +152,7 @@ Among these, stablecoins are both the largest and most directly connected to the
 
 Is portfolio allocation based on stablecoin usage—the primary smart contract use case—a viable strategy?
 
-I believe so.
+We believe so.
 
 **Stablecoin volume drives demand for underlying tokens:**
 * Every transfer, mint, or redemption requires gas fees in native tokens (ETH, SOL, etc.)
@@ -157,8 +180,7 @@ TRON has become the largest network for USDT specifically, hosting $82 billion i
 This dominance stems from TRON's combination of ultra-low fees (under $0.10), fast 3-second settlements, and Justin Sun's strategic 2019 partnership with Tether, creating powerful network effects that attracted both emerging market retail users and large institutional transfers.
 
 However, if you're looking for a reason why TRON's market cap is low relative to its network usage, there's actually a good explanation for this discount:
-
-Among all major networks, **TRON is the most centralized**, fully controlled by controversial founder Justin Sun, which certainly adds risk to the underlying asset.
+Among all major networks, **TRON is the most centralized**, fully controlled by controversial founder Justin Sun, which adds significant risk to the underlying asset. While Tether may not be a threat anymore, TRON represents either a potential next systemic risk to the cryptocurrency market or an underappreciated investment opportunity.
 
 **This gives us portfolio weighting options:**
 1. Follow stablecoin issuance metrics.
