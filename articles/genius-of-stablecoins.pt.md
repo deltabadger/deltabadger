@@ -4,8 +4,8 @@ subtitle: 'Da "killer app" de smart contracts à Carteira GENIUS'
 author_id: 1
 thumbnail: genius.avif
 excerpt: 'A Lei GENIUS consolida as stablecoins como a killer app da Web3 e o novo "dólar digital". Exploramos a geografia das stablecoins e a Carteira GENIUS, uma tese para investir na infraestrutura de blockchain subjacente.'
-x_url: https://x.com/deltabadgerapp/status/1939622461768892684
-telegram_url: https://t.me/deltabadger/91
+x_url: https://x.com/deltabadgerapp/status/1950462030970016075
+telegram_url: https://t.me/deltabadger/101
 paywall_hook: |
    <ul>
        <li>Quais tokens se beneficiam da legitimação das stablecoins?</li>

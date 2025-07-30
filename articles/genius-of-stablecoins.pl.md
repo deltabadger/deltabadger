@@ -4,8 +4,8 @@ subtitle: 'Od "killer app" smart kontraktów do Portfela GENIUS'
 author_id: 1
 thumbnail: genius.avif
 excerpt: 'Ustawa GENIUS cementuje stablecoiny jako killer app Web3 i nowy "cyfrowy dolar". Badamy geografię stablecoinów i Portfel GENIUS, tezę inwestycyjną w podstawową infrastrukturę blockchain.'
-x_url: https://x.com/deltabadgerapp/status/1939622461768892684
-telegram_url: https://t.me/deltabadger/91
+x_url: https://x.com/deltabadgerapp/status/1950462030970016075
+telegram_url: https://t.me/deltabadger/101
 paywall_hook: |
    <ul>
        <li>Które tokeny korzystają z legitymizacji stablecoinów?</li>
