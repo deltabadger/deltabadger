@@ -4,8 +4,8 @@ subtitle: 'Van "killer app" voor smart contracts tot GENIUS Portfolio'
 author_id: 1
 thumbnail: genius.avif
 excerpt: 'De GENIUS Act verstevigt de positie van stablecoins als de killer app van Web3 en de nieuwe "digitale dollar". We onderzoeken de geografie van stablecoins en de GENIUS Portfolio, een these voor investeringen in de onderliggende blockchain-infrastructuur.'
-x_url: https://x.com/deltabadgerapp/status/1939622461768892684
-telegram_url: https://t.me/deltabadger/91
+x_url: https://x.com/deltabadgerapp/status/1950462030970016075
+telegram_url: https://t.me/deltabadger/101
 paywall_hook: |
    <ul>
        <li>Welke tokens profiteren van de legitimatie van stablecoins?</li>
