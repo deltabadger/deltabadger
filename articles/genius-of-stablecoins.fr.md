@@ -4,8 +4,8 @@ subtitle: 'De la "killer app" des smart contracts au portefeuille GENIUS'
 author_id: 1
 thumbnail: genius.avif
 excerpt: "La loi GENIUS consacre les stablecoins comme la killer app du Web3 et le nouveau « dollar numérique ». Nous explorons la géographie des stablecoins et le portefeuille GENIUS, une thèse d'investissement dans l'infrastructure blockchain sous-jacente."
-x_url: https://x.com/deltabadgerapp/status/1939622461768892684
-telegram_url: https://t.me/deltabadger/91
+x_url: https://x.com/deltabadgerapp/status/1950462030970016075
+telegram_url: https://t.me/deltabadger/101
 paywall_hook: |
    <ul>
        <li>Quels jetons bénéficient de la légitimation des stablecoins ?</li>

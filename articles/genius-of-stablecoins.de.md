@@ -4,8 +4,8 @@ subtitle: 'Von der "Killer-App" für Smart Contracts zum GENIUS-Portfolio'
 author_id: 1
 thumbnail: genius.avif
 excerpt: 'Das GENIUS-Gesetz zementiert Stablecoins als die Killer-App von Web3 und den neuen "digitalen Dollar". Wir untersuchen die Geografie von Stablecoins und das GENIUS-Portfolio, eine These für Investitionen in die zugrunde liegende Blockchain-Infrastruktur.'
-x_url: https://x.com/deltabadgerapp/status/1939622461768892684
-telegram_url: https://t.me/deltabadger/91
+x_url: https://x.com/deltabadgerapp/status/1950462030970016075
+telegram_url: https://t.me/deltabadger/101
 paywall_hook: |
    <ul>
        <li>Welche Token profitieren von der Legitimierung von Stablecoins?</li>
