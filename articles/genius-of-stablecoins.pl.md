@@ -46,9 +46,9 @@ Jak zawsze, skupimy się na spostrzeżeniach, które są istotne i przydatne dla
 
 Ustawa GENIUS, przyjęta przez Senat 68-30 w czerwcu 2025 r. i podpisana w lipcu, jest pierwszym przypadkiem, w którym rząd USA wyraźnie przyjął prywatne waluty cyfrowe jako narzędzia sztuki rządzenia gospodarczego. <a class="link-source-tile" href="https://www.cnbc.com/2025/06/17/genius-stablecoin-bill-crypto.html">cnbc.com</a>
 
->*Będziemy używać stablecoinów, aby utrzymać Stany Zjednoczone jako dominującą walutę rezerwową.*
+>*Będziemy używać stablecoinów, aby utrzymać dolara amerykańskiego jako dominującą walutę rezerwową.*
 >
->—Sekretarz Skarbu Scott Bessent
+>—Sekretarz Skarbu Scott Bessen <a class="link-source-tile" href="https://www.atlanticcouncil.org/blogs/new-atlanticist/dollar-backed-stablecoins-international-standards/">atlanticcouncil.org</a>
 
 **To stanowi dramatyczną zmianę z regulacji na uzbrojenie.**
 
