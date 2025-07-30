@@ -1,14 +1,15 @@
 ---
 title: "Le GÉNIE des stablecoins"
-subtitle: "De l'application phare des contrats intelligents au portefeuille GENIUS"
+subtitle: 'De la "killer app" des smart contracts au portefeuille GENIUS'
 author_id: 1
 thumbnail: genius.avif
-excerpt: "La loi GENIUS a consacré les stablecoins comme l'application phare de la crypto et un atout stratégique américain. Cet article présente le portefeuille GENIUS, une thèse d'investissement dans l'infrastructure blockchain sous-jacente. Découvrez quels jetons profitent de la révolution du dollar numérique."
+excerpt: "La loi GENIUS consacre les stablecoins comme la killer app du Web3 et le nouveau « dollar numérique ». Nous explorons la géographie des stablecoins et le portefeuille GENIUS, une thèse d'investissement dans l'infrastructure blockchain sous-jacente."
 x_url: https://x.com/deltabadgerapp/status/1939622461768892684
 telegram_url: https://t.me/deltabadger/91
 paywall_hook: |
    <ul>
        <li>Quels jetons bénéficient de la légitimation des stablecoins ?</li>
+       <li>TRON est-il le nouveau risque systémique pour la crypto ?</li>
        <li>Trois allocations différentes pour le portefeuille GENIUS</li>
    </ul>
 published: true
@@ -16,7 +17,7 @@ published_at: "2025-07-27"
 ---
 Lors du lancement d'Ethereum, beaucoup se demandaient si les blockchains avaient une utilité au-delà de Bitcoin. La plupart des premiers cas d'utilisation – ICO, NFT, DAO – étaient liés à la crypto et difficiles à comprendre pour le grand public.
 
-Mais il y a eu un cas d'utilisation qui est apparu très tôt, et que beaucoup ont manqué comme étant la véritable *application phare* : les **stablecoins**.
+Mais il y a eu un cas d'utilisation qui est apparu très tôt, et que beaucoup ont manqué comme étant la véritable *killer app* : les **stablecoins**.
 
 La loi GENIUS confirme le statut des stablecoins en tant que "dollar numérique" de facto - remplaçant déjà activement les monnaies faibles sur les marchés émergents, bancarisant les non-bancarisés et résolvant les inefficacités des transferts de fonds.
 
@@ -45,9 +46,9 @@ Comme toujours, nous nous concentrerons sur des informations pertinentes et expl
 
 La loi GENIUS, adoptée par le Sénat par 68 voix contre 30 en juin 2025 et promulguée en juillet, marque la première fois que le gouvernement américain a explicitement adopté les monnaies numériques privées comme outils de politique économique. <a class="link-source-tile" href="https://www.cnbc.com/2025/06/17/genius-stablecoin-bill-crypto.html">cnbc.com</a>
 
->*Nous utiliserons les stablecoins pour que les États-Unis restent la monnaie de réserve dominante.*
+>*Nous utiliserons les stablecoins pour maintenir le dollar américain comme monnaie de réserve dominante.*
 >
->—Le secrétaire au Trésor, Scott Bessent
+>—Le secrétaire au Trésor, Scott Bessent <a class="link-source-tile" href="https://www.atlanticcouncil.org/blogs/new-atlanticist/dollar-backed-stablecoins-international-standards/">atlanticcouncil.org</a>
 
 **Cela représente un changement radical, passant de la réglementation à l'armement.**
 
@@ -92,7 +93,7 @@ En Argentine, 61,8 % de toutes les transactions impliquent désormais des stable
 
 **L'Europe passe de manière spectaculaire à côté de cette révolution.** Bien qu'elle représente 48 % du volume mondial des cryptomonnaies, **seuls 0,2 % de l'offre de stablecoins sont détenus par des Européens**, ce qui suggère que leur participation de 10 à 15 % au volume des transactions est principalement due au trading, et non à l'adoption. <a class="link-source-tile" href="https://www.chainalysis.com/blog/2024-western-europe-crypto-adoption/">chainalysis.com</a>
 
-## Le dollar numérique furtif
+### Le dollar numérique furtif
 
 Les stablecoins méritent un changement de discours. L'histoire des stablecoins qui concurrencent ou mettent en danger les monnaies gouvernementales est morte, ou l'est-elle ?
 
@@ -107,13 +108,13 @@ Pendant ce temps, l'UE continue d'être un échec bureaucratique :
 * Les principales bourses retirent le Tether pour les utilisateurs de l'UE d'ici mars 2025
 * Le développement de l'euro numérique progresse à pas de tortue tandis que l'adoption des stablecoins s'accélère
 
-Pendant que l'Europe construit l'équivalent financier de la ligne Maginot, la bataille s'est déjà déplacée vers les téléphones portables.
+Pendant que l'Europe construit l'équivalent financier de la ligne Maginot, en dépensant plus de 1,1 milliard de dollars pour le projet de CBDC, la bataille s'est déjà déplacée vers les téléphones portables, où les États-Unis arment les stablecoins pour dollariser efficacement les marchés émergents, le tout financé par le secteur privé. <a class="link-source-tile" href="https://www.ledgerinsights.com/ecb-updates-status-of-digital-euro-work/">ledgerinsights.com</a>
 
-## Le portefeuille GENIUS : un jeu d'infrastructure
+## Le portefeuille GENIUS
 
 > *Chaque révolution financière crée des millionnaires, mais ils vendent généralement des pelles et des pioches.*
 
-<!--PAYWALL-->
+<!-- PAYWALL -->
 
 Pouvez-vous investir dans ce secteur en plein essor ? Absolument.
 
@@ -137,7 +138,7 @@ Mais les nouvelles blockchains ajoutent au volume total plutôt que de voler l'u
 </figure>
 {:/nomarkdown}
 
-### Stablecoins : l'« application phare » des plateformes de contrats intelligents
+### Stablecoins : la "killer app" du Web3
 
 Lors du lancement d'Ethereum, beaucoup se demandaient si la blockchain avait une utilité au-delà de Bitcoin. La vague des ICO n'a pas aidé : la plupart des projets ont brûlé le capital des investisseurs sans apporter de valeur.
 
@@ -149,7 +150,7 @@ Au fil du temps, des cas d'utilisation réussis ont émergé :
 
 Parmi ceux-ci, les stablecoins sont à la fois les plus importants et les plus directement liés à l'économie au sens large, résolvant des problèmes quotidiens sans rapport avec la crypto.
 
-L'allocation de portefeuille basée sur l'utilisation de stablecoins – le principal cas d'utilisation des contrats intelligents – est-elle une stratégie viable ?
+L'allocation de portefeuille basée sur l'utilisation de stablecoins – le principal cas d'utilisation des smart contracts – est-elle une stratégie viable ?
 
 Je le crois.
 
@@ -242,6 +243,6 @@ Parmi tous les principaux réseaux, **TRON est le plus centralisé**, entièreme
 
 L'allocation basée sur l'offre est une transaction basée sur les fondamentaux, qui raconte potentiellement une histoire plus précise que les capitalisations des actifs. Les investisseurs plus conservateurs peuvent considérer la capitalisation boursière comme une source d'informations plus complètes. Il n'y a pas de réponse évidente ici, car les deux idées ont leurs mérites.
 
-Alors que TRON peut être remis en question pour beaucoup, Ethereum – la première plateforme de contrats intelligents – reste le leader de la finance décentralisée. Cependant, si cela change, le suivi des mesures publiquement disponibles et le rééquilibrage du portefeuille tous les 3 mois nous permettent de maintenir l'allocation pertinente.
+Alors que TRON peut être remis en question pour beaucoup, Ethereum – la première plateforme de smart contracts – reste le leader de la finance décentralisée. Cependant, si cela change, le suivi des mesures publiquement disponibles et le rééquilibrage du portefeuille tous les 3 mois nous permettent de maintenir l'allocation pertinente.
 
 **Quelle allocation est votre préférée ? Rejoignez la discussion sur Telegram.** 

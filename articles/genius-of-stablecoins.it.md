@@ -1,14 +1,15 @@
 ---
 title: "Il GENIO delle stablecoin"
-subtitle: "Dalla killer app degli smart contract al portafoglio GENIUS"
+subtitle: 'Dalla "killer app" degli smart contract al portafoglio GENIUS'
 author_id: 1
 thumbnail: genius.avif
-excerpt: "Il GENIUS Act ha consacrato le stablecoin come la killer app delle criptovalute e un asset strategico degli Stati Uniti. Questo articolo presenta il portafoglio GENIUS, una tesi per investire nell'infrastruttura blockchain sottostante. Scopri quali token beneficiano della rivoluzione del dollaro digitale."
+excerpt: 'La legge GENIUS consacra le stablecoin come la killer app del Web3 e il nuovo "dollaro digitale". Esploriamo la geografia delle stablecoin e il Portafoglio GENIUS, una tesi per investire nell''infrastruttura blockchain sottostante.'
 x_url: https://x.com/deltabadgerapp/status/1939622461768892684
 telegram_url: https://t.me/deltabadger/91
 paywall_hook: |
    <ul>
        <li>Quali token beneficiano della legittimazione delle stablecoin?</li>
+       <li>TRON è il nuovo rischio sistemico per le criptovalute?</li>
        <li>Tre diverse allocazioni per il portafoglio GENIUS</li>
    </ul>
 published: true
@@ -45,9 +46,9 @@ Come sempre, ci concentreremo su approfondimenti che siano consequenziali e attu
 
 Il GENIUS Act, approvato dal Senato con 68 voti a favore e 30 contrari nel giugno 2025 e firmato a luglio, segna la prima volta che il governo degli Stati Uniti ha abbracciato esplicitamente le valute digitali private come strumenti di politica economica. <a class="link-source-tile" href="https://www.cnbc.com/2025/06/17/genius-stablecoin-bill-crypto.html">cnbc.com</a>
 
->*Useremo le stablecoin per mantenere gli Stati Uniti la valuta di riserva dominante.*
+>*Useremo le stablecoin per mantenere il dollaro USA la valuta di riserva dominante.*
 >
->—Segretario al Tesoro Scott Bessent
+>—Segretario al Tesoro Scott Bessent <a class="link-source-tile" href="https://www.atlanticcouncil.org/blogs/new-atlanticist/dollar-backed-stablecoins-international-standards/">atlanticcouncil.org</a>
 
 **Questo rappresenta un cambiamento radicale dalla regolamentazione all'armamento.**
 
@@ -92,7 +93,7 @@ In Argentina, il 61,8% di tutte le transazioni ora coinvolge stablecoin, diretta
 
 **L'Europa sta clamorosamente perdendo questa rivoluzione.** Nonostante rappresenti il 48% del volume globale di criptovalute, **solo lo 0,2% dell'offerta di stablecoin è detenuto da europei**, suggerendo che la loro partecipazione del 10-15% al volume delle transazioni è principalmente trading, non adozione. <a class="link-source-tile" href="https://www.chainalysis.com/blog/2024-western-europe-crypto-adoption/">chainalysis.com</a>
 
-## Il dollaro digitale furtivo
+### Il dollaro digitale furtivo
 
 Le stablecoin meritano un cambio di narrazione. La storia delle stablecoin che competono o mettono in pericolo le valute governative è morta, o no?
 
@@ -100,20 +101,20 @@ La realtà: il 98% delle stablecoin è sostenuto dal dollaro USA, con gli emitte
 
 **Le stablecoin stanno estendendo l'egemonia finanziaria americana in modi che il Pentagono non avrebbe mai immaginato.**
 
-## Il problema dell'Europa
+### Il problema dell'Europa
 
 Nel frattempo, l'UE continua a essere un fallimento burocratico:
 * La regolamentazione MiCA dà la priorità alle CBDC rispetto all'innovazione privata
 * I principali scambi stanno delistando Tether per gli utenti dell'UE entro marzo 2025
 * Lo sviluppo dell'euro digitale procede a rilento mentre l'adozione delle stablecoin accelera
 
-Mentre l'Europa costruisce l'equivalente finanziario della Linea Maginot, la battaglia si è già spostata sui telefoni cellulari.
+Mentre l'Europa costruisce l'equivalente finanziario della Linea Maginot, spendendo oltre 1,1 miliardi di dollari per il progetto CBDC, la battaglia si è già spostata sui telefoni cellulari, dove gli Stati Uniti utilizzano le stablecoin come arma per dollarizzare in modo efficiente i mercati emergenti, il tutto finanziato dal settore privato. <a class="link-source-tile" href="https://www.ledgerinsights.com/ecb-updates-status-of-digital-euro-work/">ledgerinsights.com</a>
 
-## Il portafoglio GENIUS: un gioco infrastrutturale
+## Il portafoglio GENIUS
 
 > *Ogni rivoluzione finanziaria crea milionari, ma di solito vendono pale e picconi.*
 
-<!--PAYWALL-->
+<!-- PAYWALL -->
 
 Puoi investire in questo settore in forte espansione? Assolutamente.
 
@@ -137,7 +138,7 @@ Ma le nuove blockchain si aggiungono al volume totale anziché rubare dall'utili
 </figure>
 {:/nomarkdown}
 
-### Stablecoin: la "killer app" delle piattaforme di smart contract
+### Stablecoin: la "killer app" del Web3
 
 Quando Ethereum è stato lanciato, molti si sono chiesti se la blockchain avesse un'utilità oltre a Bitcoin. L'ondata di ICO non ha aiutato: la maggior parte dei progetti ha bruciato il capitale degli investitori senza fornire valore.
 

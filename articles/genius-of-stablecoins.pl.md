@@ -1,14 +1,15 @@
 ---
 title: "GENIUSZ stablecoinów"
-subtitle: "Od zabójczej aplikacji smart kontraktów do Portfela GENIUS"
+subtitle: 'Od "killer app" smart kontraktów do Portfela GENIUS'
 author_id: 1
 thumbnail: genius.avif
-excerpt: "Ustawa GENIUS ugruntowała pozycję stablecoinów jako zabójczej aplikacji kryptowalut i strategicznego aktywa USA. W tym artykule przedstawiono Portfel GENIUS, tezę dotyczącą inwestowania w podstawową infrastrukturę blockchain. Dowiedz się, które tokeny korzystają z rewolucji cyfrowego dolara."
+excerpt: 'Ustawa GENIUS cementuje stablecoiny jako killer app Web3 i nowy "cyfrowy dolar". Badamy geografię stablecoinów i Portfel GENIUS, tezę inwestycyjną w podstawową infrastrukturę blockchain.'
 x_url: https://x.com/deltabadgerapp/status/1939622461768892684
 telegram_url: https://t.me/deltabadger/91
 paywall_hook: |
    <ul>
        <li>Które tokeny korzystają z legitymizacji stablecoinów?</li>
+       <li>Czy TRON to nowe ryzyko systemowe dla kryptowalut?</li>
        <li>Trzy różne alokacje dla Portfela GENIUS</li>
    </ul>
 published: true
@@ -16,7 +17,7 @@ published_at: "2025-07-27"
 ---
 Kiedy uruchomiono Ethereum, wielu zastanawiało się, czy blockchainy mają jakiekolwiek zastosowanie poza Bitcoinem. Większość wczesnych przypadków użycia – ICO, NFT, DAO – była związana z kryptowalutami i trudna do zrozumienia dla szerokiej publiczności.
 
-Ale był jeden przypadek użycia, który pojawił się wcześnie, a wielu go przeoczyło jako prawdziwą *zabójczą aplikację*: **stablecoiny**.
+Ale był jeden przypadek użycia, który pojawił się wcześnie, a wielu go przeoczyło jako prawdziwy *killer app*: **stablecoiny**.
 
 Ustawa GENIUS potwierdza status stablecoinów jako de facto "cyfrowego dolara" - już aktywnie zastępującego słabe waluty na rynkach wschodzących, bankującego osoby nieposiadające konta bankowego i rozwiązującego nieefektywności w przekazach pieniężnych.
 
@@ -45,9 +46,9 @@ Jak zawsze, skupimy się na spostrzeżeniach, które są istotne i przydatne dla
 
 Ustawa GENIUS, przyjęta przez Senat 68-30 w czerwcu 2025 r. i podpisana w lipcu, jest pierwszym przypadkiem, w którym rząd USA wyraźnie przyjął prywatne waluty cyfrowe jako narzędzia sztuki rządzenia gospodarczego. <a class="link-source-tile" href="https://www.cnbc.com/2025/06/17/genius-stablecoin-bill-crypto.html">cnbc.com</a>
 
->*Będziemy używać stablecoinów, aby utrzymać Stany Zjednoczone jako dominującą walutę rezerwową.*
+>*Będziemy używać stablecoinów, aby utrzymać dolara amerykańskiego jako dominującą walutę rezerwową.*
 >
->—Sekretarz Skarbu Scott Bessent
+>—Sekretarz Skarbu Scott Bessen <a class="link-source-tile" href="https://www.atlanticcouncil.org/blogs/new-atlanticist/dollar-backed-stablecoins-international-standards/">atlanticcouncil.org</a>
 
 **To stanowi dramatyczną zmianę z regulacji na uzbrojenie.**
 
@@ -92,7 +93,7 @@ W Argentynie 61,8% wszystkich transakcji obejmuje obecnie stablecoiny, co jest b
 
 **Europa spektakularnie omija tę rewolucję.** Pomimo reprezentowania 48% światowego wolumenu kryptowalut, **tylko 0,2% podaży stablecoinów jest w posiadaniu Europejczyków**, co sugeruje, że ich 10-15% udział w wolumenie transakcji to głównie handel, a nie adopcja. <a class="link-source-tile" href="https://www.chainalysis.com/blog/2024-western-europe-crypto-adoption/">chainalysis.com</a>
 
-## Ukryty cyfrowy dolar
+### Ukryty cyfrowy dolar
 
 Stablecoiny zasługują na zmianę narracji. Historia stablecoinów konkurujących z walutami rządowymi lub zagrażających im jest martwa – a może nie?
 
@@ -100,20 +101,20 @@ Rzeczywistość: 98% stablecoinów jest wspieranych przez dolara amerykańskiego
 
 **Stablecoiny rozszerzają amerykańską hegemonię finansową w sposób, jakiego Pentagon nigdy sobie nie wyobrażał.**
 
-## Problem Europy
+### Problem Europy
 
 Tymczasem UE nadal jest biurokratyczną porażką:
 * Regulacja MiCA priorytetowo traktuje CBDC nad prywatną innowacją
 * Główne giełdy wycofują Tethera dla użytkowników z UE do marca 2025 r.
 * Rozwój cyfrowego euro pełznie, podczas gdy adopcja stablecoinów przyspiesza
 
-Podczas gdy Europa buduje finansowy odpowiednik Linii Maginota, bitwa przeniosła się już na telefony komórkowe.
+Podczas gdy Europa buduje finansowy odpowiednik Linii Maginota, wydając ponad 1,1 miliarda dolarów na projekt CBDC, bitwa przeniosła się już na telefony komórkowe, gdzie USA uzbrajają stablecoiny w celu skutecznej dolaryzacji rynków wschodzących – wszystko finansowane przez sektor prywatny. <a class="link-source-tile" href="https://www.ledgerinsights.com/ecb-updates-status-of-digital-euro-work/">ledgerinsights.com</a>
 
-## Portfel GENIUS: Gra w infrastrukturę
+## Portfel GENIUS
 
 > *Każda rewolucja finansowa tworzy milionerów – ale zazwyczaj sprzedają oni kilofy i łopaty.*
 
-<!--PAYWALL-->
+<!-- PAYWALL -->
 
 Czy można inwestować w ten dynamicznie rozwijający się sektor? Oczywiście.
 
@@ -137,7 +138,7 @@ Ale nowe blockchainy dodają do całkowitego wolumenu, zamiast kraść z wykorzy
 </figure>
 {:/nomarkdown}
 
-### Stablecoiny: "zabójcza aplikacja" platform smart kontraktów
+### Stablecoiny: "killer app" Web3
 
 Kiedy uruchomiono Ethereum, wielu zastanawiało się, czy blockchain ma jakiekolwiek zastosowanie poza Bitcoinem. Fala ICO nie pomogła – większość projektów spaliła kapitał inwestorów, nie dostarczając wartości.
 

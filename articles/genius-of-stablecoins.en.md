@@ -1,14 +1,15 @@
 ---
 title: "The GENIUS of stablecoins"
-subtitle: "From smart contract killer app to GENIUS Portfolio"
+subtitle: 'From smart contract "killer app" to GENIUS Portfolio'
 author_id: 1
 thumbnail: genius.avif
-excerpt: "The GENIUS Act has cemented stablecoins as crypto's killer app and a US strategic asset. This article presents the GENIUS Portfolio, a thesis for investing in the underlying blockchain infrastructure. Discover which tokens benefit from the digital dollar revolution."
+excerpt: 'The GENIUS Act cements stablecoins as Web3''s killer app and the new "digital dollar". We explore the geography of stablecoins and the GENIUS Portfolio, a thesis for investing in the underlying blockchain infrastructure.'
 x_url: https://x.com/deltabadgerapp/status/1939622461768892684
 telegram_url: https://t.me/deltabadger/91
 paywall_hook: |
    <ul>
        <li>Which tokens benefit from stablecoin legitimization?</li>
+       <li>Is TRON the new systemic risk for crypto?</li>
        <li>Three different allocations for GENIUS Portfolio</li>
    </ul>
 published: true
@@ -45,9 +46,9 @@ As always, we'll focus on insights that are consequential and actionable for dig
 
 The GENIUS Act, passed by the Senate 68-30 in June 2025 and signed in July, marks the first time the US government has explicitly embraced private digital currencies as tools of economic statecraft. <a class="link-source-tile" href="https://www.cnbc.com/2025/06/17/genius-stablecoin-bill-crypto.html">cnbc.com</a>
 
->*We will use stablecoins to keep the US the dominant reserve currency.*  
+>*We will use stablecoins to keep the US Dollar the dominant reserve currency.*  
 >
->—Treasury Secretary Scott Bessent
+>—Treasury Secretary Scott Bessent <a class="link-source-tile" href="https://www.atlanticcouncil.org/blogs/new-atlanticist/dollar-backed-stablecoins-international-standards/">atlanticcouncil.org</a>
 
 **This represents a dramatic shift from regulation to weaponization.**
 
@@ -92,7 +93,7 @@ In Argentina, 61.8% of all transactions now involve stablecoins, directly correl
 
 **Europe is spectacularly missing this revolution.** Despite representing 48% of global cryptocurrency volume, **only 0.2% of stablecoin supply is held by Europeans**, suggesting their 10-15% participation in transaction volume is primarily trading, not adoption. <a class="link-source-tile" href="https://www.chainalysis.com/blog/2024-western-europe-crypto-adoption/">chainalysis.com</a>
 
-## The Stealthy Digital Dollar
+### The Stealthy Digital Dollar
 
 Stablecoins deserve a narrative shift. The story of stablecoins competing with or endangering government currencies is dead—or is it?
 
@@ -100,20 +101,20 @@ The reality: 98% of stablecoins are USD-backed, with issuers already the 18th la
 
 **Stablecoins are extending American financial hegemony in ways the Pentagon never imagined.**
 
-## The Europe Problem
+### The Europe Problem
 
 Meanwhile, the EU continues to be a bureaucratic failure:
 * MiCA regulation prioritizes CBDCs over private innovation  
 * Major exchanges delisting Tether for EU users by March 2025  
 * Digital euro development crawling while stablecoin adoption accelerates
 
-While Europe builds the financial equivalent of the Maginot Line, the battle has already moved to mobile phones.
+While Europe builds the financial equivalent of the Maginot Line, spending over $1.1 billion on the CBDC project, the battle has already moved to mobile phones, where the US weaponizes stablecoins to efficiently dollarize emerging markets—all financed by the private sector. <a class="link-source-tile" href="https://www.ledgerinsights.com/ecb-updates-status-of-digital-euro-work/">ledgerinsights.com</a>
 
-## The GENIUS Portfolio: An Infrastructure Play
+## The GENIUS Portfolio
 
 > *Every financial revolution creates millionaires—but they're usually selling picks and shovels.*
 
-<!--PAYWALL -->
+<!-- PAYWALL -->
 
 Can you invest in this booming sector? Absolutely.
 
@@ -137,7 +138,7 @@ But new blockchains add to total volume rather than stealing from Ethereum usage
 </figure>
 {:/nomarkdown}
 
-### Stablecoins: The "Killer App" of Smart Contract Platforms
+### Stablecoins: The "Killer App" of Web3
 
 When Ethereum launched, many questioned whether blockchain had any use beyond Bitcoin. The ICO wave didn't help—most projects burned investor capital without delivering value.
 
