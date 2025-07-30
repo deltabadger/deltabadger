@@ -1,14 +1,15 @@
 ---
 title: "Het GENIE van stablecoins"
-subtitle: "Van killer app voor slimme contracten tot GENIUS Portfolio"
+subtitle: 'Van "killer app" voor smart contracts tot GENIUS Portfolio'
 author_id: 1
 thumbnail: genius.avif
-excerpt: "De GENIUS Act heeft stablecoins gecementeerd als de killer app van crypto en een strategische troef van de VS. Dit artikel presenteert de GENIUS Portfolio, een these voor het investeren in de onderliggende blockchain-infrastructuur. Ontdek welke tokens profiteren van de digitale dollarrevolutie."
+excerpt: 'De GENIUS Act verstevigt de positie van stablecoins als de killer app van Web3 en de nieuwe "digitale dollar". We onderzoeken de geografie van stablecoins en de GENIUS Portfolio, een these voor investeringen in de onderliggende blockchain-infrastructuur.'
 x_url: https://x.com/deltabadgerapp/status/1939622461768892684
 telegram_url: https://t.me/deltabadger/91
 paywall_hook: |
    <ul>
        <li>Welke tokens profiteren van de legitimatie van stablecoins?</li>
+       <li>Is TRON het nieuwe systemische risico voor crypto?</li>
        <li>Drie verschillende toewijzingen for GENIUS Portfolio</li>
    </ul>
 published: true
@@ -92,7 +93,7 @@ In Argentinië omvat 61,8% van alle transacties nu stablecoins, wat direct verba
 
 **Europa mist deze revolutie op spectaculaire wijze.** Ondanks dat het 48% van het wereldwijde cryptocurrency-volume vertegenwoordigt, **wordt slechts 0,2% van het stablecoin-aanbod door Europeanen aangehouden**, wat suggereert dat hun deelname van 10-15% aan het transactievolume voornamelijk handel is, en geen adoptie. <a class="link-source-tile" href="https://www.chainalysis.com/blog/2024-western-europe-crypto-adoption/">chainalysis.com</a>
 
-## De sluipende digitale dollar
+### De sluipende digitale dollar
 
 Stablecoins verdienen een ander verhaal. Het verhaal dat stablecoins concurreren met of een gevaar vormen voor overheidsvaluta's is dood – of toch niet?
 
@@ -100,20 +101,20 @@ De realiteit: 98% van de stablecoins wordt gedekt door de Amerikaanse dollar, wa
 
 **Stablecoins breiden de Amerikaanse financiële hegemonie uit op manieren die het Pentagon nooit had gedacht.**
 
-## Het Europa-probleem
+### Het Europa-probleem
 
 Ondertussen blijft de EU een bureaucratische mislukking:
 * De MiCA-verordening geeft prioriteit aan CBDC's boven particuliere innovatie
 * Grote beurzen schrappen Tether voor EU-gebruikers tegen maart 2025
 * De ontwikkeling van de digitale euro kruipt voort terwijl de adoptie van stablecoins versnelt
 
-Terwijl Europa het financiële equivalent van de Maginotlinie bouwt, is de strijd al verplaatst naar mobiele telefoons.
+Terwijl Europa het financiële equivalent van de Maginotlinie bouwt, en meer dan $1,1 miljard uitgeeft aan het CBDC-project, is de strijd al verplaatst naar mobiele telefoons, waar de VS stablecoins bewapent om opkomende markten efficiënt te dollariseren - allemaal gefinancierd door de particuliere sector. <a class="link-source-tile" href="https://www.ledgerinsights.com/ecb-updates-status-of-digital-euro-work/">ledgerinsights.com</a>
 
-## Het GENIUS-portfolio: een infrastructuurspel
+## Het GENIUS-portfolio
 
 > *Elke financiële revolutie creëert miljonairs – maar ze verkopen meestal pikhouwelen en schoppen.*
 
-<!--PAYWALL-->
+<!-- PAYWALL -->
 
 Kun je investeren in deze bloeiende sector? Absoluut.
 
@@ -137,7 +138,7 @@ Maar nieuwe blockchains dragen bij aan het totale volume in plaats van het gebru
 </figure>
 {:/nomarkdown}
 
-### Stablecoins: de "killer-app" van platforms voor slimme contracten
+### Stablecoins: de "killer-app" van Web3
 
 Toen Ethereum werd gelanceerd, vroegen velen zich af of blockchain enig nut had buiten Bitcoin. De ICO-golf hielp niet – de meeste projecten verbrandden het kapitaal van investeerders zonder waarde te leveren.
 
@@ -149,7 +150,7 @@ Na verloop van tijd ontstonden er succesvolle use cases:
 
 Hiervan zijn stablecoins zowel de grootste als de meest direct verbonden met de bredere economie, en lossen ze alledaagse problemen op die geen verband houden met crypto.
 
-Is portefeuille-allocatie op basis van stablecoin-gebruik – de primaire use case voor slimme contracten – een haalbare strategie?
+Is portefeuille-allocatie op basis van stablecoin-gebruik – de primaire use case voor smart contracts – een haalbare strategie?
 
 Ik geloof van wel.
 
@@ -242,6 +243,6 @@ Van alle grote netwerken is **TRON het meest gecentraliseerd**, volledig gecontr
 
 Op aanbod gebaseerde toewijzing is een handel op basis van fundamentals – die mogelijk een nauwkeuriger verhaal vertelt dan de kapitalisaties van de activa. Conservatievere beleggers kunnen marktkapitalisatie beschouwen als een bron van informatie die completere informatie bevat. Er is hier geen eenduidig antwoord, aangezien beide ideeën hun verdiensten hebben.
 
-Hoewel TRON voor velen misschien in twijfel wordt getrokken, blijft Ethereum – het eerste smart contract-platform – de leider van de gedecentraliseerde financiën. Als dit echter verandert, stelt het volgen van openbaar beschikbare statistieken en het elke 3 maanden herbalanceren van de portefeuille ons in staat om de toewijzing relevant te houden.
+Hoewel TRON voor velen misschien in twijfel wordt getrokken, blijft Ethereum – het eerste smart contract platform – de leider van de gedecentraliseerde financiën. Als dit echter verandert, stelt het volgen van openbaar beschikbare statistieken en het elke 3 maanden herbalanceren van de portefeuille ons in staat om de toewijzing relevant te houden.
 
 **Welke toewijzing is jouw favoriet? Neem deel aan de discussie op Telegram.** 
