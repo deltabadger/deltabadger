@@ -94,7 +94,7 @@ Na Argentina, 61,8% de todas as transações agora envolvem stablecoins, diretam
 
 **A Europa está espetacularmente perdendo esta revolução.** Apesar de representar 48% do volume global de criptomoedas, **apenas 0,2% do fornecimento de stablecoins é detido por europeus**, sugerindo que sua participação de 10-15% no volume de transações é principalmente negociação, não adoção. <a class="link-source-tile" href="https://www.chainalysis.com/blog/2024-western-europe-crypto-adoption/">chainalysis.com</a>
 
-## O Dólar Digital Furtivo
+### O Dólar Digital Furtivo
 
 As stablecoins merecem uma mudança de narrativa. A história de stablecoins competindo ou colocando em risco moedas governamentais está morta – ou não?
 
@@ -102,20 +102,20 @@ A realidade: 98% das stablecoins são lastreadas em dólares americanos, com os 
 
 **As stablecoins estão estendendo a hegemonia financeira americana de maneiras que o Pentágono nunca imaginou.**
 
-## O Problema da Europa
+### O Problema da Europa
 
 Enquanto isso, a UE continua a ser um fracasso burocrático:
 * A regulamentação MiCA prioriza CBDCs em detrimento da inovação privada
 * Grandes exchanges retirando o Tether para usuários da UE até março de 2025
 * O desenvolvimento do euro digital está engatinhando enquanto a adoção de stablecoins acelera
 
-Enquanto a Europa constrói o equivalente financeiro da Linha Maginot, a batalha já se mudou para os telefones celulares.
+Enquanto a Europa constrói o equivalente financeiro da Linha Maginot, gastando mais de US$ 1,1 bilhão no projeto CBDC, a batalha já se mudou para os telefones celulares, onde os EUA transformam as stablecoins em armas para dolarizar eficientemente os mercados emergentes – tudo financiado pelo setor privado. <a class="link-source-tile" href="https://www.ledgerinsights.com/ecb-updates-status-of-digital-euro-work/">ledgerinsights.com</a>
 
-## A Carteira GENIUS: Uma Aposta em Infraestrutura
+## A Carteira GENIUS
 
 > *Toda revolução financeira cria milionários – mas eles geralmente estão vendendo pás e picaretas.*
 
-<!--PAYWALL-->
+<!-- PAYWALL -->
 
 Você pode investir neste setor em expansão? Com certeza.
 
@@ -139,7 +139,7 @@ Mas novas blockchains se somam ao volume total em vez de roubar do uso do Ethere
 </figure>
 {:/nomarkdown}
 
-### Stablecoins: O "Aplicativo Matador" das Plataformas de Contratos Inteligentes
+### Stablecoins: o "aplicativo matador" da Web3
 
 Quando o Ethereum foi lançado, muitos questionaram se a blockchain tinha alguma utilidade além do Bitcoin. A onda de ICOs não ajudou – a maioria dos projetos queimou o capital dos investidores sem entregar valor.
 

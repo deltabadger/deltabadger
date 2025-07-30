@@ -92,7 +92,7 @@ In Argentinië omvat 61,8% van alle transacties nu stablecoins, wat direct verba
 
 **Europa mist deze revolutie op spectaculaire wijze.** Ondanks dat het 48% van het wereldwijde cryptocurrency-volume vertegenwoordigt, **wordt slechts 0,2% van het stablecoin-aanbod door Europeanen aangehouden**, wat suggereert dat hun deelname van 10-15% aan het transactievolume voornamelijk handel is, en geen adoptie. <a class="link-source-tile" href="https://www.chainalysis.com/blog/2024-western-europe-crypto-adoption/">chainalysis.com</a>
 
-## De sluipende digitale dollar
+### De sluipende digitale dollar
 
 Stablecoins verdienen een ander verhaal. Het verhaal dat stablecoins concurreren met of een gevaar vormen voor overheidsvaluta's is dood – of toch niet?
 
@@ -100,20 +100,20 @@ De realiteit: 98% van de stablecoins wordt gedekt door de Amerikaanse dollar, wa
 
 **Stablecoins breiden de Amerikaanse financiële hegemonie uit op manieren die het Pentagon nooit had gedacht.**
 
-## Het Europa-probleem
+### Het Europa-probleem
 
 Ondertussen blijft de EU een bureaucratische mislukking:
 * De MiCA-verordening geeft prioriteit aan CBDC's boven particuliere innovatie
 * Grote beurzen schrappen Tether voor EU-gebruikers tegen maart 2025
 * De ontwikkeling van de digitale euro kruipt voort terwijl de adoptie van stablecoins versnelt
 
-Terwijl Europa het financiële equivalent van de Maginotlinie bouwt, is de strijd al verplaatst naar mobiele telefoons.
+Terwijl Europa het financiële equivalent van de Maginotlinie bouwt, en meer dan $1,1 miljard uitgeeft aan het CBDC-project, is de strijd al verplaatst naar mobiele telefoons, waar de VS stablecoins bewapent om opkomende markten efficiënt te dollariseren - allemaal gefinancierd door de particuliere sector. <a class="link-source-tile" href="https://www.ledgerinsights.com/ecb-updates-status-of-digital-euro-work/">ledgerinsights.com</a>
 
-## Het GENIUS-portfolio: een infrastructuurspel
+## Het GENIUS-portfolio
 
 > *Elke financiële revolutie creëert miljonairs – maar ze verkopen meestal pikhouwelen en schoppen.*
 
-<!--PAYWALL-->
+<!-- PAYWALL -->
 
 Kun je investeren in deze bloeiende sector? Absoluut.
 
@@ -137,7 +137,7 @@ Maar nieuwe blockchains dragen bij aan het totale volume in plaats van het gebru
 </figure>
 {:/nomarkdown}
 
-### Stablecoins: de "killer-app" van platforms voor slimme contracten
+### Stablecoins: de "killer-app" van Web3
 
 Toen Ethereum werd gelanceerd, vroegen velen zich af of blockchain enig nut had buiten Bitcoin. De ICO-golf hielp niet – de meeste projecten verbrandden het kapitaal van investeerders zonder waarde te leveren.
 

@@ -92,7 +92,7 @@ En Argentina, el 61,8 % de todas las transacciones ahora involucran stablecoins,
 
 **Europa se está perdiendo espectacularmente esta revolución.** A pesar de representar el 48 % del volumen mundial de criptomonedas, **solo el 0,2 % del suministro de stablecoins está en manos de europeos**, lo que sugiere que su participación del 10-15 % en el volumen de transacciones es principalmente comercio, no adopción. <a class="link-source-tile" href="https://www.chainalysis.com/blog/2024-western-europe-crypto-adoption/">chainalysis.com</a>
 
-## El dólar digital sigiloso
+### El dólar digital sigiloso
 
 Las stablecoins merecen un cambio de narrativa. La historia de las stablecoins que compiten o ponen en peligro las monedas gubernamentales está muerta, ¿o no?
 
@@ -100,20 +100,20 @@ La realidad: el 98 % de las stablecoins están respaldadas por el dólar estadou
 
 **Las stablecoins están extendiendo la hegemonía financiera estadounidense de formas que el Pentágono nunca imaginó.**
 
-## El problema de Europa
+### El problema de Europa
 
 Mientras tanto, la UE sigue siendo un fracaso burocrático:
 * La regulación MiCA prioriza las CBDC sobre la innovación privada
 * Los principales intercambios están eliminando a Tether de la lista para los usuarios de la UE en marzo de 2025
 * El desarrollo del euro digital avanza a paso de tortuga mientras la adopción de las stablecoins se acelera
 
-Mientras Europa construye el equivalente financiero de la Línea Maginot, la batalla ya se ha trasladado a los teléfonos móviles.
+Mientras Europa construye el equivalente financiero de la Línea Maginot, gastando más de 1.100 millones de dólares en el proyecto CBDC, la batalla ya se ha trasladado a los teléfonos móviles, donde Estados Unidos utiliza las stablecoins como arma para dolarizar eficientemente los mercados emergentes, todo ello financiado por el sector privado. <a class="link-source-tile" href="https://www.ledgerinsights.com/ecb-updates-status-of-digital-euro-work/">ledgerinsights.com</a>
 
 ## La cartera GENIUS: una jugada de infraestructura
 
 > *Toda revolución financiera crea millonarios, pero generalmente venden picos y palas.*
 
-<!--PAYWALL-->
+<!-- PAYWALL -->
 
 ¿Se puede invertir en este sector en auge? Absolutamente.
 
@@ -137,7 +137,7 @@ Pero las nuevas cadenas de bloques se suman al volumen total en lugar de robarle
 </figure>
 {:/nomarkdown}
 
-### Stablecoins: la "aplicación estrella" de las plataformas de contratos inteligentes
+### Stablecoins: la "aplicación estrella" de Web3
 
 Cuando se lanzó Ethereum, muchos se preguntaron si la cadena de bloques tenía alguna utilidad más allá de Bitcoin. La ola de ICO no ayudó: la mayoría de los proyectos quemaron el capital de los inversores sin aportar valor.
 

@@ -92,7 +92,7 @@ En Argentine, 61,8 % de toutes les transactions impliquent désormais des stable
 
 **L'Europe passe de manière spectaculaire à côté de cette révolution.** Bien qu'elle représente 48 % du volume mondial des cryptomonnaies, **seuls 0,2 % de l'offre de stablecoins sont détenus par des Européens**, ce qui suggère que leur participation de 10 à 15 % au volume des transactions est principalement due au trading, et non à l'adoption. <a class="link-source-tile" href="https://www.chainalysis.com/blog/2024-western-europe-crypto-adoption/">chainalysis.com</a>
 
-## Le dollar numérique furtif
+### Le dollar numérique furtif
 
 Les stablecoins méritent un changement de discours. L'histoire des stablecoins qui concurrencent ou mettent en danger les monnaies gouvernementales est morte, ou l'est-elle ?
 
@@ -107,13 +107,13 @@ Pendant ce temps, l'UE continue d'être un échec bureaucratique :
 * Les principales bourses retirent le Tether pour les utilisateurs de l'UE d'ici mars 2025
 * Le développement de l'euro numérique progresse à pas de tortue tandis que l'adoption des stablecoins s'accélère
 
-Pendant que l'Europe construit l'équivalent financier de la ligne Maginot, la bataille s'est déjà déplacée vers les téléphones portables.
+Pendant que l'Europe construit l'équivalent financier de la ligne Maginot, en dépensant plus de 1,1 milliard de dollars pour le projet de CBDC, la bataille s'est déjà déplacée vers les téléphones portables, où les États-Unis arment les stablecoins pour dollariser efficacement les marchés émergents, le tout financé par le secteur privé. <a class="link-source-tile" href="https://www.ledgerinsights.com/ecb-updates-status-of-digital-euro-work/">ledgerinsights.com</a>
 
-## Le portefeuille GENIUS : un jeu d'infrastructure
+## Le portefeuille GENIUS
 
 > *Chaque révolution financière crée des millionnaires, mais ils vendent généralement des pelles et des pioches.*
 
-<!--PAYWALL-->
+<!-- PAYWALL -->
 
 Pouvez-vous investir dans ce secteur en plein essor ? Absolument.
 
@@ -137,7 +137,7 @@ Mais les nouvelles blockchains ajoutent au volume total plutôt que de voler l'u
 </figure>
 {:/nomarkdown}
 
-### Stablecoins : l'« application phare » des plateformes de contrats intelligents
+### Stablecoins : l'« application phare » de Web3
 
 Lors du lancement d'Ethereum, beaucoup se demandaient si la blockchain avait une utilité au-delà de Bitcoin. La vague des ICO n'a pas aidé : la plupart des projets ont brûlé le capital des investisseurs sans apporter de valeur.
 

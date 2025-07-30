@@ -109,9 +109,9 @@
     </div>
   <% end %>
 
-  <% unless @content_unlocked || !@article.paywalled? %>
+  <% if @article.paywalled? && !@content_unlocked %>
     <div class="paywall">
-      <h2 style="margin-bottom: 0"><%= t('articles.paywall.title') %></h3>
+      <h2 style="margin-bottom: 0"><%= t('articles.paywall.title') %></h2>
       <div><%= @article.paywall_hook.present? ? raw(@article.paywall_hook) : t('articles.paywall.description').html_safe %></div>
 
       <div class="paywall__actions">

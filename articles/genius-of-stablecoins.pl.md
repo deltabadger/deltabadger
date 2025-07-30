@@ -92,7 +92,7 @@ W Argentynie 61,8% wszystkich transakcji obejmuje obecnie stablecoiny, co jest b
 
 **Europa spektakularnie omija tę rewolucję.** Pomimo reprezentowania 48% światowego wolumenu kryptowalut, **tylko 0,2% podaży stablecoinów jest w posiadaniu Europejczyków**, co sugeruje, że ich 10-15% udział w wolumenie transakcji to głównie handel, a nie adopcja. <a class="link-source-tile" href="https://www.chainalysis.com/blog/2024-western-europe-crypto-adoption/">chainalysis.com</a>
 
-## Ukryty cyfrowy dolar
+### Ukryty cyfrowy dolar
 
 Stablecoiny zasługują na zmianę narracji. Historia stablecoinów konkurujących z walutami rządowymi lub zagrażających im jest martwa – a może nie?
 
@@ -100,20 +100,20 @@ Rzeczywistość: 98% stablecoinów jest wspieranych przez dolara amerykańskiego
 
 **Stablecoiny rozszerzają amerykańską hegemonię finansową w sposób, jakiego Pentagon nigdy sobie nie wyobrażał.**
 
-## Problem Europy
+### Problem Europy
 
 Tymczasem UE nadal jest biurokratyczną porażką:
 * Regulacja MiCA priorytetowo traktuje CBDC nad prywatną innowacją
 * Główne giełdy wycofują Tethera dla użytkowników z UE do marca 2025 r.
 * Rozwój cyfrowego euro pełznie, podczas gdy adopcja stablecoinów przyspiesza
 
-Podczas gdy Europa buduje finansowy odpowiednik Linii Maginota, bitwa przeniosła się już na telefony komórkowe.
+Podczas gdy Europa buduje finansowy odpowiednik Linii Maginota, wydając ponad 1,1 miliarda dolarów na projekt CBDC, bitwa przeniosła się już na telefony komórkowe, gdzie USA uzbrajają stablecoiny w celu skutecznej dolaryzacji rynków wschodzących – wszystko finansowane przez sektor prywatny. <a class="link-source-tile" href="https://www.ledgerinsights.com/ecb-updates-status-of-digital-euro-work/">ledgerinsights.com</a>
 
-## Portfel GENIUS: Gra w infrastrukturę
+## Portfel GENIUS
 
 > *Każda rewolucja finansowa tworzy milionerów – ale zazwyczaj sprzedają oni kilofy i łopaty.*
 
-<!--PAYWALL-->
+<!-- PAYWALL -->
 
 Czy można inwestować w ten dynamicznie rozwijający się sektor? Oczywiście.
 
@@ -137,7 +137,7 @@ Ale nowe blockchainy dodają do całkowitego wolumenu, zamiast kraść z wykorzy
 </figure>
 {:/nomarkdown}
 
-### Stablecoiny: "zabójcza aplikacja" platform smart kontraktów
+### Stablecoiny: "zabójcza aplikacja" Web3
 
 Kiedy uruchomiono Ethereum, wielu zastanawiało się, czy blockchain ma jakiekolwiek zastosowanie poza Bitcoinem. Fala ICO nie pomogła – większość projektów spaliła kapitał inwestorów, nie dostarczając wartości.
 
