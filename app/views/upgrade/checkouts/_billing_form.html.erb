@@ -1,4 +1,5 @@
 <div class="pricing__checkout__pay">
+  <!--
   <%= form_with url: upgrade_checkout_path, method: :get, data: { controller: "form--submit", turbo_frame: "billing-form-frame" }, class: "pricing__payment-methods" do |f| %>
       <% if SettingFlag.show_zen_payment? %>
         <%= tag.label class: "hide_radio_buttons pricing__payment-method" do %>
@@ -26,6 +27,7 @@
         <% end %>
       <% end %>
   <% end %>
+  -->
 
   <%= turbo_frame_tag "billing-form-frame", class: "widget widget--checkout" do %>
     <div class="tab-content">
