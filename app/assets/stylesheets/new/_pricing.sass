@@ -29,7 +29,7 @@
         .large-button-wrapper
             padding: 0
     &__payment-methods
-        display: flex
+        display: none
         background: var(--pickExchangeItemBg)
         border-radius: 2rem 2rem 0 0
     &__payment-method
@@ -75,7 +75,6 @@
             align-items: center
             gap: 1rem
             position: relative
-            text-wrap: nowrap
             color: var(--text-faded)
             &:before
                 content: ""
@@ -91,7 +90,7 @@
         &__opt-triggers
             min-height: 20rem
         &__opt-research
-            min-height: 8rem
+            min-height: 7rem
             &.inactive
                 color: var(--text-faded)
         &__badge
@@ -154,7 +153,6 @@
         p, ul
             margin-bottom: 0
         &--legendary, &--research
-            grid-column: 1 / -1
             position: relative !important
             overflow: hidden
             ul
@@ -166,31 +164,53 @@
                 display: block
                 position: absolute
                 height: 100%
-                width: 75%
+                width: 100%
                 position: absolute
                 z-index: 0
-                top: 0
+                top: 0%
                 right: 0
                 background-size: cover
-                background-position: center bottom
-                mask: linear-gradient(to right, transparent 0%, rgba(0,0,0,1) 50%)
-                -webkit-mask: linear-gradient(to right, transparent 0%, rgba(0,0,0,1) 50%)
+                background-position: right bottom
+                mask: linear-gradient(to bottom, transparent 0%, rgba(0,0,0,1) 100%)
+                -webkit-mask: linear-gradient(to bottom, transparent 0%, rgba(0,0,0,1) 100%)
                 @media (max-width: 767.9px)
                     width: 100%
-                    mask: linear-gradient(to right, transparent 0%, rgba(0,0,0,1) 100%)
-                    -webkit-mask: linear-gradient(to right, transparent 0%, rgba(0,0,0,1) 100%)
+                    mask: linear-gradient(to bottom, transparent 0%, rgba(0,0,0,1) 100%)
+                    -webkit-mask: linear-gradient(to bottom, transparent 0%, rgba(0,0,0,1) 100%)
+            &:nth-child(4),&:nth-child(5)
+                flex: 3
+                width: 100%
+                grid-column: 1 / -1
+                &:before
+                    width: 75%
+                    height: 100%
+                    top: 0
+                    right: 0
+                    background-size: cover
+                    background-position: center bottom
+                    mask: linear-gradient(to right, transparent 0%, rgba(0,0,0,1) 50%) !important
+                    -webkit-mask: linear-gradient(to right, transparent 0%, rgba(0,0,0,1) 50%) !important
+                    @media (max-width: 767.9px)
+                        width: 100%
+                        mask: linear-gradient(to right, transparent 0%, rgba(0,0,0,1) 100%) !important
+                        -webkit-mask: linear-gradient(to right, transparent 0%, rgba(0,0,0,1) 100%) !important
         &--legendary
             --text-strong: #fff
             background: linear-gradient(to left, #024, #012)
             color: #bcd !important
+            &:nth-child(2)
+                grid-column: 2 / 4
             &::before
                 background-image: url("legendary01.avif")
         &--research
+            ul
+                justify-content: flex-end
             &::before
                 width: 100%
-                mask: linear-gradient(to right, transparent 0%, rgba(0,0,0,1) 70%)
                 background-position: center bottom
-                background-image: url("research.avif")
+            &:nth-child(4)
+                &::before
+                    background-image: url("research.avif")
         &__legendary-plans-left
             font-weight: 600
             color: var(--success) !important
@@ -258,6 +278,7 @@
   visibility: hidden
   position: absolute
 .legendary-counter
+    z-index: 10
     &__discount
         display: block
         margin-bottom: 3rem
