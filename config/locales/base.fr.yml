@@ -26,6 +26,7 @@ fr:
         connect: 'Connecter'
         get_started: Commencer
         select_plan: 'Sélectionner'
+        back_to_dashboard: 'Aller au tableau de bord'
     data_labels:
         invested: "Total Investi"
         portfolio_value: "Valeur du Portefeuille"

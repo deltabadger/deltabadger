@@ -26,6 +26,7 @@ de:
         connect: "Verbinden"
         get_started: Loslegen
         select_plan: 'Plan auswählen'
+        back_to_dashboard: 'Zum Dashboard'
     data_labels:
         invested: "Gesamtinvestition"
         portfolio_value: "Portfoliowert"
