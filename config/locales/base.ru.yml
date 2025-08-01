@@ -26,6 +26,7 @@ ru:
         connect: 'Подключить'
         get_started: Начать
         select_plan: 'Выбрать план'
+        back_to_dashboard: 'Перейти к панели'
     data_labels:
         invested: "Всего вложено"
         portfolio_value: "Стоимость портфеля"

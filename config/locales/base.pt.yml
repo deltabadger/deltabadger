@@ -26,6 +26,7 @@ pt:
         connect: 'Conectar'
         get_started: Começar
         select_plan: 'Selecionar Plano'
+        back_to_dashboard: 'Ir para o painel'
     data_labels:
         invested: "Total Investido"
         portfolio_value: "Valor da Carteira"
