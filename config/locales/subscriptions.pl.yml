@@ -4,7 +4,7 @@ pl:
         per_year_html: "/rok"
         variant_lifetime: "Dożywotni"
         variant_30_days: "Miesięcznie"
-        variant_365_days: "Rocznie (oszczędź 20%)"
+        variant_365_days: "Rocznie"
         variant_7_days: "Tygodniowo"
         free: "Darmowy"
         mini: "Mini"
@@ -12,6 +12,9 @@ pl:
         pro: "Pro"
         research: "Research"
         legendary: "Legendary"
+        thank_you:
+            title: "Dziękuję!"
+            description: "Twój plan %{plan_name} jest aktywny."
         upgrade_modal:
             title: "Przejdź na Pro"
             description: "Uzyskaj dostęp do wszystkich zaawansowanych funkcji."

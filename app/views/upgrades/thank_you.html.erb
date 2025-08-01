@@ -1,9 +1,13 @@
-<h1></h1>You have just been upgraded to <%= @payment.subscription_plan_variant.name %>!</h1>
 
-<p>Now you have access to XYZ!</p>
+<div style="display: flex; flex-direction: column; justify-content: center; align-items: center; height: 100%">
+  <div class="feature-icon feature-icon--thank-you">
+    <img src="<%= asset_path('legendary_badgers/888.svg') %>" alt="Legendary Badger NFT">
+  </div> 
+  <h1 style="margin-top: 3rem"><%= t('subscriptions.thank_you.title') %></h1>
+  <p style="margin-bottom: 4rem"><%= t('subscriptions.thank_you.description', plan_name: "<b>#{@payment.subscription_plan_variant.name.capitalize}</b>").html_safe %></p>
 
-<%= link_to 'Go to dashboard', dashboard_path %>
-
+  <%= link_to t('button.back_to_dashboard'), dashboard_path, class: 'button button--large button--primary' %>
+</div>
 <%= tag.div data: {
       controller: "zaraz",
       zaraz_is_purchase_value: true,

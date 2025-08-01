@@ -4,7 +4,7 @@ ru:
         per_year_html: "/год"
         variant_lifetime: "Пожизненно"
         variant_30_days: "Ежемесячно"
-        variant_365_days: "Ежегодно (экономия 20%)"
+        variant_365_days: "Ежегодно"
         variant_7_days: "Еженедельно"
         free: "Бесплатно"
         mini: "Mini"
@@ -12,6 +12,9 @@ ru:
         pro: "Pro"
         research: "Research"
         legendary: "Legendary"
+        thank_you:
+            title: "Спасибо!"
+            description: "Ваш план %{plan_name} активен."
         upgrade_modal:
             title: "Перейти на Pro"
             description: "Получите доступ ко всем расширенным функциям."

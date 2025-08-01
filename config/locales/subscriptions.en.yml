@@ -13,6 +13,9 @@ en:
         pro: "Pro"
         research: "Research"
         legendary: "Legendary"
+        thank_you:
+            title: "Thank you!"
+            description: "Your %{plan_name} plan is active."
         features:
             bots_count: "%{count} bots"
             unlimited_bots: "Unlimited bots"

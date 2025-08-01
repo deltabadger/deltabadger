@@ -4,7 +4,7 @@ nl:
         per_year_html: "/jr"
         variant_lifetime: "Levenslang"
         variant_30_days: "Maandelijks"
-        variant_365_days: "Jaarlijks (20% korting)"
+        variant_365_days: "Jaarlijks"
         variant_7_days: "Wekelijks"
         free: "Gratis"
         mini: "Mini"
@@ -12,6 +12,9 @@ nl:
         pro: "Pro"
         research: "Research"
         legendary: "Legendary"
+        thank_you:
+            title: "Dank je wel!"
+            description: "Je %{plan_name}-abonnement is actief."
         upgrade_modal:
             title: "Upgraden naar Pro"
             description: "Toegang tot alle geavanceerde functies."

@@ -12,7 +12,7 @@
                 left: 5rem
                 z-index: 10000
 .pricing
-    overflow: scroll
+    overflow-x: scroll
     max-width: 108rem
     margin: 0 auto
     &--checkout
@@ -119,6 +119,7 @@
         &__amount
             color: var(--text-strong)
             min-height: 8rem
+            margin-bottom: 2.25rem
             &__t
                 font-size: 5rem
                 line-height: 5rem
@@ -369,3 +370,10 @@
     font-weight: 700
 .checkout-selected-plan,.pricing__checkout
     flex: 1
+
+.feature-icon--thank-you
+    width: 100%
+    max-width: 30rem
+    max-height: 30rem
+    height: auto
+    aspect-ratio: 1 / 1

@@ -4,7 +4,7 @@ de:
         per_year_html: "/Jahr"
         variant_lifetime: "Lebenslang"
         variant_30_days: "Monatlich"
-        variant_365_days: "Jährlich (20% sparen)"
+        variant_365_days: "Jährlich"
         variant_7_days: "Wöchentlich"
         free: "Kostenlos"
         mini: "Mini"
@@ -12,6 +12,9 @@ de:
         pro: "Pro"
         research: "Research"
         legendary: "Legendary"
+        thank_you:
+            title: "Danke!"
+            description: "Dein %{plan_name}-Plan ist aktiv."
         features:
             bots_count: "%{count} Bots"
             unlimited_bots: "Unbegrenzte Bots"
