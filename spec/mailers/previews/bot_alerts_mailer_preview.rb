@@ -16,7 +16,7 @@ class BotAlertsMailerPreview < ActionMailer::Preview
     BotAlertsMailer.with(
       user: user,
       bot: bot,
-      delay: 5.minutes,
+      restart_at: Time.current + 5.minutes,
       errors: ['API error']
     ).notify_about_restart
   end
