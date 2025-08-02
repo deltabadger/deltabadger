@@ -8,6 +8,6 @@
       last_name: @payment.last_name,
       email: @payment.user.email,
       plan_name: localized_plan_name(@payment.subscription_plan_variant.name),
-      days: @payment.subscription_plan_variant.days,
+      years: @payment.subscription_plan_variant.days / 365,
       total_paid: @payment.total,
       currency: @payment.currency.upcase) %>

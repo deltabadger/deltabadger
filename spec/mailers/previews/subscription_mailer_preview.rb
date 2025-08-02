@@ -43,7 +43,7 @@ class SubscriptionMailerPreview < ActionMailer::Preview
 
     subscription_plan_variant = SubscriptionPlanVariant.new(
       subscription_plan: subscription_plan,
-      years: 1
+      days: 365
     )
 
     Payments::Wire.new(
@@ -51,7 +51,7 @@ class SubscriptionMailerPreview < ActionMailer::Preview
       subscription_plan_variant: subscription_plan_variant,
       status: 'unpaid',
       total: 999.99,
-      currency: 'USD',
+      currency: :usd,
       first_name: 'Mathias',
       last_name: 'User',
       country: 'US',
