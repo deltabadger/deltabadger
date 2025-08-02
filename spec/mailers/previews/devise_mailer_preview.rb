@@ -27,7 +27,15 @@ class DeviseMailerPreview < ActionMailer::Preview
   end
 
   def email_already_taken
-    test_email = 'test@example.com'
-    CustomDeviseMailer.email_already_taken(test_email)
+    # Find or create a user for preview purposes
+    email = 'preview@example.com'
+    User.find_by(email: email) || User.create!(
+      email: email,
+      name: 'Preview User',
+      password: 'password123',
+      confirmed_at: Time.current
+    )
+
+    CustomDeviseMailer.email_already_taken(email)
   end
 end
