@@ -6,7 +6,7 @@
         <%= current_user.subscription.name.titleize %>
         <% if current_user.subscription.subscription_plan_variant.cost_eur.positive? %>
           <% currency = current_user.payments.last.currency %>
-          <%= localized_price(current_user.subscription.subscription_plan_variant.send("cost_#{currency}"), currency) %><span class="price-period"><%= t("subscriptions.#{payment_frequency_translation_key(reference_duration)}") %></span>
+          <%= localized_price(current_user.subscription.subscription_plan_variant.send("cost_#{currency}"), currency) %><span class="price-period"><%= t("subscriptions.#{payment_frequency_translation_key(current_user.subscription.subscription_plan_variant.duration)}") %></span>
           <%= t("subscriptions.variant_#{current_user.subscription.subscription_plan_variant.days}_days") %>
         <% end %>
 
@@ -44,7 +44,7 @@
 
       <% end %>
     </div>
-    <% if current_user.subscription.ends_at.present? %>
+    <% if false # current_user.subscription.ends_at.present? %>
       <div>
         <%= l(current_user.subscription.ends_at, format: :long) %>
         <% currency = current_user.payments.last.currency %>
@@ -52,12 +52,12 @@
         <%= t('settings.subscription.requires_manual_payment') %>
         <%#= link_to t('settings.subscription.enable_recurring'), settings_path, class: 'button button--large button--success' %>
       </div>
-    <% elsif current_user.subscription.renews_at.present? %>
+    <% elsif true # current_user.subscription.renews_at.present? %>
       <div>
         <%= l(current_user.subscription.renews_at, format: :long) %>
         <% currency = current_user.payments.last.currency %>
         <%= t('settings.subscription.next_payment_html', cost_html: localized_price(current_user.subscription.subscription_plan_variant.send("cost_#{currency}"), currency)) %>
-        <%= link_to t('settings.subscription.cancel_subscription'), settings_confirm_cancel_subscription_path, class: 'button button--large button--danger', data: { turbo_frame: "modal" } %>
+        <%= link_to t('settings.subscription.cancel_subscription'), settings_confirm_cancel_subscription_path, data: { turbo_frame: "modal" } %>
       </div>
     <% end %>
   <% end %>
