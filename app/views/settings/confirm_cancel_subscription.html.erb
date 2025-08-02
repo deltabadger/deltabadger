@@ -121,12 +121,12 @@
       <hr>
 
       <!-- Confirmation checkbox -->
-      <%= form_with url: settings_cancel_subscription_path, method: :patch, local: false, data: { turbo_frame: "api_keys" } do |f| %>
+      <%= form_with url: settings_cancel_subscription_path, method: :patch, data: { controller: "form--checkbox-enables", form__checkbox_enables_mode_value: "all" } do |f| %>
         <div class="confirmation-section">
           <h3><%= t('subscriptions.cancellation.confirmation_required') %></h3>
 
           <div class="checkbox-group">
-            <%= f.check_box :understand_bot_shutdown, { id: 'understand_bot_shutdown', class: 'confirmation-checkbox' }, "1", "" %>
+            <%= f.check_box :understand_bot_shutdown, class: 'checkbox', data: { form__checkbox_enables_target: "checkbox", action: "change->form--checkbox-enables#toggleSubmitButton" }, required: true %>
             <%= f.label :understand_bot_shutdown, class: 'confirmation-label' do %>
               <% if affected_bots.any? %>
                 <%= t('subscriptions.cancellation.understand_bots_shutdown_html',
@@ -140,7 +140,7 @@
           </div>
 
           <div class="checkbox-group">
-            <%= f.check_box :understand_feature_loss, { id: 'understand_feature_loss', class: 'confirmation-checkbox' }, "1", "" %>
+            <%= f.check_box :understand_feature_loss, class: 'checkbox', data: { form__checkbox_enables_target: "checkbox", action: "change->form--checkbox-enables#toggleSubmitButton" }, required: true %>
             <%= f.label :understand_feature_loss, class: 'confirmation-label' do %>
               <%= t('subscriptions.cancellation.understand_feature_loss_html',
                     plan: "<strong>#{@subscription.name.titleize}</strong>".html_safe) %>
@@ -148,7 +148,7 @@
           </div>
 
           <div class="checkbox-group">
-            <%= f.check_box :understand_limitations, { id: 'understand_limitations', class: 'confirmation-checkbox' }, "1", "" %>
+            <%= f.check_box :understand_limitations, class: 'checkbox', data: { form__checkbox_enables_target: "checkbox", action: "change->form--checkbox-enables#toggleSubmitButton" }, required: true %>
             <%= f.label :understand_limitations, class: 'confirmation-label' do %>
               <%= t('subscriptions.cancellation.understand_limitations_html') %>
             <% end %>
@@ -156,13 +156,10 @@
         </div>
 
         <div class="buttons buttons--row--2">
-          <%= button_tag class: 'button button--outline button--large', data: { action: 'modal--base#animateOutCloseAndCleanUp' } do %>
+          <%= link_to '#', class: 'button button--outline button--large', data: { action: 'modal--base#animateOutCloseAndCleanUp' } do %>
             <%= t('subscriptions.cancellation.keep_subscription') %>
           <% end %>
-          <%= f.submit t('subscriptions.cancellation.confirm_cancellation'),
-                class: 'button button--danger button--large',
-                id: 'cancel-subscription-btn',
-                disabled: true %>
+          <%= f.submit t('subscriptions.cancellation.confirm_cancellation'), class: 'button button--danger button--large', id: 'cancel-subscription-btn', data: { form__checkbox_enables_target: "submit" }, disabled: true %>
         </div>
       <% end %>
     </div>
