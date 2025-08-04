@@ -67,6 +67,9 @@ application.register("form--submit-after-delay", Form__SubmitAfterDelayControlle
 import Form__SubmitController from "./form/submit_controller"
 application.register("form--submit", Form__SubmitController)
 
+import Form__ZenFingerPrintController from "./form/zen_finger_print_controller"
+application.register("form--zen-finger-print", Form__ZenFingerPrintController)
+
 import HotwireAnimationsController from "./hotwire_animations_controller"
 application.register("hotwire-animations", HotwireAnimationsController)
 
