@@ -9,6 +9,9 @@ class StartBot < BaseService
 
   def call(bot_id, continue_params = nil)
     bot = Bot.find(bot_id)
+    if bot.invalid?(:start) && bot.errors.details.values.flatten.any? { |e| e[:error] == :upgrade }
+      return Result::Failure.new('Requires upgrade')
+    end
     return Result::Success.new(bot) if bot.scheduled?
 
     start_params = {
