@@ -3,7 +3,7 @@ title: "The Magic of Market Cap Weighting"
 subtitle: 'How to Change Any Portfolio Into a Personal Index Fund'
 author_id: 1
 thumbnail: market-cap-weighting.avif
-excerpt: 'Market cap weighting revolutionized retail investing by making indexing accessible to everyone. We explore how this simple but powerful concept can help you build your own index fund and why it became the dominant investment strategy.'
+excerpt: '45% of the funds AUM are managed with market cap weighting, but this strategy works even better in crypto. We explore how to change any portfolio into a personal ETF.'
 x_url: https://x.com/deltabadgerapp/status/1950462030970016075
 telegram_url: https://t.me/deltabadger/101
 paywall_hook: |
@@ -46,8 +46,6 @@ In a **market cap-weighted index**, each asset's influence is proportional to it
 </figure>
 {:/nomarkdown}
 
-
-
 ### Indexing
 
 You can use market cap to weight any assets, but to keep your portfolio relevant, you can let market cap determine not only how much of each asset to hold, but also which assets belong in your basket. This idea is even more important. If you follow the S&P 500 index over time, its composition is constantly changing. So periodically, some assets fall out of your portfolio, replaced by better-performing ones. This is the only time when an index portfolio requires rebalancing and selling some assets.
@@ -77,6 +75,8 @@ Larger assets typically have better liquidity, and market cap weighting naturall
 ## Market Cap Weighting in Crypto
 
 Does market cap weighting work in crypto? Not only does it work, but you could argue it works even better. Here's why:
+
+<!-- PAYWALL -->
 
 ### Cryptocurrency Market Is More Concentrated
 
