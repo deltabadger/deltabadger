@@ -89,9 +89,11 @@ M1 плюс **сберегательные счета**, **счета денеж
 
 Хотя исследование Лин Олден установило сильную корреляцию и направленное соответствие между Биткоином и глобальным M2, внимание людей привлек паттерн **12-недельного опережения**, о котором рассказал Жюльен Биттель, CFA и руководитель отдела макроэкономических исследований в Global Macro Investor:
 
+{::nomarkdown}
 <blockquote class="twitter-tweet">
 <p lang="en" dir="ltr">Here it is… the most copied Bitcoin chart on the planet, updated.<br><br>Nothing unusual going on, but remember: it's not about matching Global M2 tick for tick…<br><br>It's all about the trend moving higher – and that's still firmly intact. Bullish. <a href="https://t.co/lkdgObGWo3">pic.twitter.com/lkdgObGWo3</a></p>&mdash; Julien Bittel, CFA (@BittelJulien) <a href="https://twitter.com/BittelJulien/status/1937823412514402569?ref_src=twsrc%5Etfw">June 25, 2025</a>
-</blockquote>
+</blockquote><script async src="https://platform.twitter.com/widgets.js" charset="utf-8"></script>
+{:/nomarkdown}
 
 [Исследование Sarson Funds](https://sarsonfunds.com/the-correlation-between-bitcoin-and-m2-money-supply-growth-a-deep-dive/), опубликованное в июне 2025 года, определило **10-недельное опережение** как оптимальное, в то время как другие аналитики сообщают о периоде от 8 до 14 недель.
 
@@ -99,15 +101,19 @@ M1 плюс **сберегательные счета**, **счета денеж
 
 Сина, исследователь Биткоина, профессор Массачусетского технологического института и соучредитель 21stCapital, придерживается иного мнения:
 
+{::nomarkdown}
 <blockquote class="twitter-tweet">
 <p lang="en" dir="ltr">Everyone is talking about the chart that predicts Bitcoin using global M2 and they are using terrible analytics. <br><br>I explain why. <br><br>00:00 M2 Astrology<br>02:15 Measurement Problems<br>04:08 Illiteracy 1 <br>05:14  Illiteracy 2 <br>07:01  Illiteracy 3 <br>08:15  Illiteracy 4 <br>09:29 What is… <a href="https://t.co/AOW4lBj8Fl">pic.twitter.com/AOW4lBj8Fl</a></p>&mdash; Sina 🗝️⚡ 21st Capital (@Sina_21st) <a href="https://twitter.com/Sina_21st/status/1937606916756152633?ref_src=twsrc%5Etfw">June 24, 2025</a>
-</blockquote>
+</blockquote><script async src="https://platform.twitter.com/widgets.js" charset="utf-8"></script>
+{:/nomarkdown}
 
 Я согласен с Синой, поэтому давайте оставим "астрологию" и вернемся к исследованию Лин Олден, которое имеет реальную статистическую значимость.
 
+{::nomarkdown}
 <blockquote class="twitter-tweet">
 <p lang="en" dir="ltr">Bitcoin and global M2 have solid correlation, and importantly the mechanism behind it makes sense, but I don't agree with people who put the two together on a chart and say "look M2 went up, therefore bitcoin's going up over the next few months too."<br><br>It's not assured like that.</p>&mdash; Lyn Alden (@LynAldenContact) <a href="https://twitter.com/LynAldenContact/status/1939317315012640830?ref_src=twsrc%5Etfw">June 29, 2025</a>
-</blockquote>
+</blockquote><script async src="https://platform.twitter.com/widgets.js" charset="utf-8"></script>
+{:/nomarkdown}
 
 ## 83% направленная корреляция
 
