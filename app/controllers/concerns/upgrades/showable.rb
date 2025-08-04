@@ -40,6 +40,7 @@ module Upgrades::Showable
 
   def available_variant_days
     # @available_variant_days ||= SubscriptionPlanVariant.all_variant_days
-    @available_variant_days ||= SubscriptionPlanVariant.all_variant_days - [1460] # exclude 4 years variant
+    # @available_variant_days ||= SubscriptionPlanVariant.all_variant_days - [1460] # exclude 4 years variant
+    @available_variant_days ||= SubscriptionPlanVariant.all_variant_days - [7, 30] # exclude 4 years variant
   end
 end

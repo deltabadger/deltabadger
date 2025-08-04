@@ -69,8 +69,7 @@ class Payments::Zen < Payment
       url_success: upgrade_zen_payment_success_url(host: HOST, locale: locale || I18n.locale),
       url_failure: upgrade_zen_payment_failure_url(host: HOST, locale: locale || I18n.locale),
       custom_ipn_url: upgrade_zen_payment_ipn_url(host: HOST),
-      language: locale,
-      fraud_fields_finger_print_id: finger_print_id
+      language: locale
     )
     return result if result.failure?
 

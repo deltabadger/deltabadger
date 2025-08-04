@@ -114,8 +114,7 @@ class Clients::ZenCheckout < Client
     custom_ipn_url: nil,
     specified_payment_method: nil,
     specified_payment_channel: nil,
-    language: nil,
-    fraud_fields_finger_print_id: nil
+    language: nil
   )
     with_rescue do
       response = self.class.connection.post do |req|
@@ -184,10 +183,7 @@ class Clients::ZenCheckout < Client
           customIpnUrl: custom_ipn_url,
           specifiedPaymentMethod: specified_payment_method,
           specifiedPaymentChannel: specified_payment_channel,
-          language: language,
-          fraudFields: {
-            fingerPrintId: fraud_fields_finger_print_id
-          }.compact.presence
+          language: language
         }.compact
         req.body[:signature] = sha256_signature(req.body)
       end

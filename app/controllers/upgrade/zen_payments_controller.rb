@@ -23,11 +23,11 @@ class Upgrade::ZenPaymentsController < ApplicationController
                                  finger_print_id: payment_params[:finger_print_id]
                                })
     if @payment.save
-      result = @payment.get_new_recurring_payment_data(locale: I18n.locale)
-      # result = @payment.get_new_payment_data(locale: I18n.locale)
-      if result.success?
-        if @payment.update(url: result.data[:url], recurring: true)
-          # if @payment.update(url: result.data[:url])
+      # result = @payment.get_new_recurring_payment_data(locale: I18n.locale)
+      result = @payment.get_new_payment_data(locale: I18n.locale)
+      if result.success? && result.data[:url].present?
+        # if @payment.update(url: result.data[:url], recurring: true)
+        if @payment.update(url: result.data[:url])
           redirect_to result.data[:url]
         else
           flash[:alert] = @payment.errors.messages.values.flatten.to_sentence
