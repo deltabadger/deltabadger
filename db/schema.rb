@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema.define(version: 2025_07_28_221625) do
+ActiveRecord::Schema.define(version: 2025_08_04_100046) do
 
   # These are extensions that must be enabled in order to support this database
   enable_extension "plpgsql"
@@ -243,6 +243,8 @@ ActiveRecord::Schema.define(version: 2025_07_28_221625) do
     t.string "type"
     t.jsonb "external_statuses", default: []
     t.boolean "recurring", default: false, null: false
+    t.string "url"
+    t.string "finger_print_id"
     t.index ["currency"], name: "index_payments_on_currency"
     t.index ["status"], name: "index_payments_on_status"
     t.index ["subscription_plan_variant_id"], name: "index_payments_on_subscription_plan_variant_id"
