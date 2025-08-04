@@ -60,8 +60,6 @@ class Upgrade::CheckoutsController < ApplicationController
                                             else
                                               plan_name
                                             end
-    puts "payment_params[:plan]: #{payment_params[:plan]}"
-    puts "session[:payment_config]['plan_name']: #{session[:payment_config]['plan_name']}"
   end
 
   def invalid_session_payment_config?

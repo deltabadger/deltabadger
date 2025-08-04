@@ -12,8 +12,7 @@ class Upgrade::WirePaymentsController < ApplicationController
       type: session[:payment_config]['type'],
       country: session[:payment_config]['country'],
       first_name: session[:payment_config]['first_name'],
-      last_name: session[:payment_config]['last_name'],
-      birth_date: session[:payment_config]['birth_date']
+      last_name: session[:payment_config]['last_name']
     )
     @payment.assign_attributes({
                                  total: @payment.price_with_vat,

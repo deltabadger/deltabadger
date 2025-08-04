@@ -13,19 +13,21 @@ class Upgrade::ZenPaymentsController < ApplicationController
       country: session[:payment_config]['country'],
       first_name: session[:payment_config]['first_name'],
       last_name: session[:payment_config]['last_name'],
-      birth_date: session[:payment_config]['birth_date']
+      payment_id: payment_params[:payment_id]
     )
+    puts "assigning attributes #{payment_params[:finger_print_id]}"
     @payment.assign_attributes({
                                  total: @payment.price_with_vat,
                                  commission: @payment.referrer_commission_amount,
-                                 discounted: @payment.referral_discount_percent.positive?
+                                 discounted: @payment.referral_discount_percent.positive?,
+                                 finger_print_id: payment_params[:finger_print_id]
                                })
     if @payment.save
-      # result = @payment.get_new_recurring_payment_data(locale: I18n.locale)
-      result = @payment.get_new_payment_data(locale: I18n.locale)
+      result = @payment.get_new_recurring_payment_data(locale: I18n.locale)
+      # result = @payment.get_new_payment_data(locale: I18n.locale)
       if result.success?
-        # if @payment.update(payment_id: result.data[:payment_id], recurring: true)
-        if @payment.update(payment_id: result.data[:payment_id])
+        if @payment.update(url: result.data[:url], recurring: true)
+          # if @payment.update(url: result.data[:url])
           redirect_to result.data[:url]
         else
           flash[:alert] = @payment.errors.messages.values.flatten.to_sentence
@@ -48,7 +50,7 @@ class Upgrade::ZenPaymentsController < ApplicationController
   private
 
   def payment_params
-    params.require(:payments_zen).permit(:cardholder_name)
+    params.require(:payments_zen).permit(:cardholder_name, :payment_id, :finger_print_id)
   end
 
   def first_name(cardholder_name)

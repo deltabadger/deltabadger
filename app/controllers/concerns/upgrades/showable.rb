@@ -27,7 +27,8 @@ module Upgrades::Showable
           country: session[:payment_config]['country'],
           first_name: session[:payment_config]['first_name'],
           last_name: session[:payment_config]['last_name'],
-          birth_date: session[:payment_config]['birth_date']
+          birth_date: session[:payment_config]['birth_date'],
+          payment_id: SecureRandom.uuid
         )
       ]
     end.to_h

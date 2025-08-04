@@ -105,7 +105,8 @@ class Clients::Zen < Client
     payment_specific_data_descriptor: nil,
     payment_specific_data_card_token: nil,
     payment_specific_data_sca_exemptions: nil,
-    custom_ipn_url: nil
+    custom_ipn_url: nil,
+    fraud_fields_finger_print_id: nil
   )
     with_rescue do
       response = self.class.connection.post do |req|
@@ -172,7 +173,10 @@ class Clients::Zen < Client
             cardToken: payment_specific_data_card_token,
             scaExemptions: payment_specific_data_sca_exemptions
           }.compact.presence,
-          customIpnUrl: custom_ipn_url
+          customIpnUrl: custom_ipn_url,
+          fraudFields: {
+            fingerPrintId: fraud_fields_finger_print_id
+          }.compact.presence
         }.compact
       end
       Result::Success.new(response.body)

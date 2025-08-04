@@ -3,7 +3,7 @@ module Upgrades::Payable
 
   private
 
-  def new_payment_for(plan_name:, days:, type:, country:, first_name: nil, last_name: nil, birth_date: nil)
+  def new_payment_for(plan_name:, days:, type:, country:, first_name: nil, last_name: nil, birth_date: nil, payment_id: nil)
     subscription_plan = SubscriptionPlan.find_by(name: plan_name)
     variant = SubscriptionPlanVariant.find_by(
       subscription_plan: subscription_plan,
@@ -15,6 +15,7 @@ module Upgrades::Payable
     current_user.payments.new(
       status: :unpaid,
       type: type,
+      payment_id: payment_id,
       subscription_plan_variant: variant,
       country: country,
       currency: country != VatRate::NOT_EU ? :eur : :usd,

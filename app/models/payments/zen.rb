@@ -23,7 +23,7 @@ class Payments::Zen < Payment
     result = checkout_client.checkout(
       amount: price,
       currency: currency.upcase,
-      merchant_transaction_id: id.to_s,
+      merchant_transaction_id: payment_id,
       customer_first_name: first_name,
       customer_last_name: last_name,
       customer_email: user.email,
@@ -43,7 +43,6 @@ class Payments::Zen < Payment
 
     url = Utilities::Hash.dig_or_raise(result.data, 'redirectUrl')
     data = {
-      payment_id: url.split('/').last.split('?').first,
       url: url
     }
     Result::Success.new(data)
@@ -54,7 +53,7 @@ class Payments::Zen < Payment
     result = checkout_client.checkout(
       amount: price,
       currency: currency.upcase,
-      merchant_transaction_id: id.to_s,
+      merchant_transaction_id: payment_id,
       customer_first_name: first_name,
       customer_last_name: last_name,
       customer_email: user.email,
@@ -85,15 +84,16 @@ class Payments::Zen < Payment
   def charge_next_recurring_payment
     price = format('%0.02f', total)
     item_description = 'Test Renewal'
+    finger_print_id = user.payments.zen.where.not(finger_print_id: nil).last.finger_print_id
     result = api_client.create_purchase_transaction(
       amount: price,
       currency: currency.upcase,
-      merchant_transaction_id: (id + 1).to_s,
+      merchant_transaction_id: payment_id,
       payment_channel: 'PCL_CARD',
-      customer_first_name: 'Jan', # first_name,
-      customer_last_name: 'Klosowski', # last_name,
-      customer_email: 'guillemavila+6@gmail.com', # user.email,
-      customer_ip: '194.127.167.81',
+      customer_first_name: first_name,
+      customer_last_name: last_name,
+      customer_email: user.email,
+      customer_ip: user.cards.first.ip,
       item_name: item_description,
       item_price: price,
       item_quantity: 1,
@@ -101,10 +101,11 @@ class Payments::Zen < Payment
       # billing_address_country_state: country,
       # payment_specific_data_payment_type: 'recurring_token',
       payment_specific_data_payment_type: 'unscheduled_token',
-      payment_specific_data_card_token: 'b9441b40-a127-4f17-9d2d-4d9ae8a8e497', # user.cards.first.token,
-      payment_specific_data_first_transaction_id: '4aa1e8b5-f1fd-4019-8a02-f48c15dd7767', # user.cards.first.first_transaction_id,
+      payment_specific_data_card_token: user.cards.first.token,
+      payment_specific_data_first_transaction_id: user.cards.first.first_transaction_id,
       payment_specific_data_descriptor: item_description.upcase.gsub(/\s+/, '_'),
-      custom_ipn_url: 'https://test.deltabadger.com/upgrade/zen_payment/ipn' #  upgrade_zen_payment_ipn_url(host: HOST)
+      custom_ipn_url: upgrade_zen_payment_ipn_url(host: HOST),
+      fraud_fields_finger_print_id: finger_print_id
     )
     return result if result.failure?
 

@@ -26,7 +26,8 @@ class Upgrade::BtcpayPaymentsController < ApplicationController
         if @payment.update(
           payment_id: result.data[:payment_id],
           external_statuses: result.data[:external_statuses],
-          btc_total: result.data[:btc_total]
+          btc_total: result.data[:btc_total],
+          url: result.data[:url]
         )
           redirect_to result.data[:url]
         else

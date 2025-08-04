@@ -1,7 +1,14 @@
-<%= turbo_frame_tag "upgrade" do %>
+<% if @payment.zen? %>
+  <% content_for :head do %>
+    <script src="https://cdn-secure.zen.com/zen-web-collector.latest.js"></script>
+  <% end %>
+<% end %>
+
+<%#= turbo_frame_tag "upgrade" do %>
   <div class="page-head">
-    
-    <%= link_to upgrade_path, data: { turbo_frame: "upgrade", turbo_action: "advance" } do %>
+
+    <%#= link_to upgrade_path, data: { turbo_frame: "upgrade", turbo_action: "advance" } do %>
+    <%= link_to upgrade_path do %>
       <%= render "svg/24x24_back" %>
     <% end %>
 
@@ -38,4 +45,4 @@
       <%= render partial: "upgrade/checkouts/billing_form", locals: { payment: @payment, name_pattern: @name_pattern } %>
     </div>
   </div>
-<% end %>
+<%# end %>

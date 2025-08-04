@@ -3,7 +3,7 @@ class Upgrade::ZenPayment::IpnsController < ApplicationController
 
   def create
     if Payments::Zen.valid_ipn_params?(params)
-      payment = Payment.zen.find(params[:merchantTransactionId])
+      payment = Payment.zen.find_by(payment_id: params[:merchantTransactionId])
       payment.handle_ipn(params)
       render json: { "status": 'ok' }
     else
