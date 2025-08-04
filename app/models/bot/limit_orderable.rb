@@ -44,7 +44,7 @@ module Bot::LimitOrderable
 
   def validate_limit_orderable_included_in_subscription_plan
     return unless limit_ordered?
-    return if user.subscription.standard? || user.subscription.pro? || user.subscription.legendary?
+    return if user.subscription.mini? || user.subscription.standard? || user.subscription.pro? || user.subscription.legendary?
 
     errors.add(:user, :upgrade)
   end
