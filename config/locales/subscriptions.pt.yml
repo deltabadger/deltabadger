@@ -2,9 +2,11 @@ pt:
     subscriptions:
         per_month_html: "/mês"
         per_year_html: "/ano"
+        per_4_years_html: "/4 anos"
         variant_lifetime: "Vitalício"
         variant_30_days: "Mensal"
         variant_365_days: "Anual"
+        variant_1460_days: "4 Anos"
         variant_7_days: "Semanal"
         free: "Grátis"
         mini: "Mini"

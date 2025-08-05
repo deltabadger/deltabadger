@@ -2,9 +2,11 @@ de:
     subscriptions:
         per_month_html: "/Monat"
         per_year_html: "/Jahr"
+        per_4_years_html: "/4 Jahre"
         variant_lifetime: "Lebenslang"
         variant_30_days: "Monatlich"
         variant_365_days: "Jährlich"
+        variant_1460_days: "4 Jahre"
         variant_7_days: "Wöchentlich"
         free: "Kostenlos"
         mini: "Mini"

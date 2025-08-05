@@ -2,9 +2,11 @@ es:
     subscriptions:
         per_month_html: "/mes"
         per_year_html: "/año"
+        per_4_years_html: "/4 años"
         variant_lifetime: "Lifetime"
         variant_30_days: "Mensual"
         variant_365_days: "Anual"
+        variant_1460_days: "4 Años"
         variant_7_days: "Semanal"
         free: "Gratis"
         mini: "Mini"

@@ -2,9 +2,11 @@ fr:
     subscriptions:
         per_month_html: "/mois"
         per_year_html: "/an"
+        per_4_years_html: "/4 ans"
         variant_lifetime: "À vie"
         variant_30_days: "Mensuel"
         variant_365_days: "Annuel"
+        variant_1460_days: "4 Ans"
         variant_7_days: "Hebdomadaire"
         free: "Gratuit"
         mini: "Mini"

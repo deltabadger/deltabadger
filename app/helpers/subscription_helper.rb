@@ -8,7 +8,7 @@ module SubscriptionHelper
     when 1.year
       'per_year_html'
     when 4.years
-      'per_halving_html'
+      'per_4_years_html'
     else
       raise "Unknown duration: #{duration}. Please update SubscriptionHelper#payment_frequency."
     end

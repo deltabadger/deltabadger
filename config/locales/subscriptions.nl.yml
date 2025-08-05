@@ -2,9 +2,11 @@ nl:
     subscriptions:
         per_month_html: "/mnd"
         per_year_html: "/jr"
+        per_4_years_html: "/4 jaar"
         variant_lifetime: "Levenslang"
         variant_30_days: "Maandelijks"
         variant_365_days: "Jaarlijks"
+        variant_1460_days: "4 Jaar"
         variant_7_days: "Wekelijks"
         free: "Gratis"
         mini: "Mini"

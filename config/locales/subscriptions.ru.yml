@@ -2,9 +2,11 @@ ru:
     subscriptions:
         per_month_html: "/мес"
         per_year_html: "/год"
+        per_4_years_html: "/4 года"
         variant_lifetime: "Пожизненно"
         variant_30_days: "Ежемесячно"
         variant_365_days: "Ежегодно"
+        variant_1460_days: "4 Года"
         variant_7_days: "Еженедельно"
         free: "Бесплатно"
         mini: "Mini"
