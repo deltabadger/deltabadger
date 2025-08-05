@@ -2,7 +2,7 @@ module Exchange::Synchronizer
   extend ActiveSupport::Concern
 
   def sync_tickers_and_assets_with_external_data
-    result = get_coingecko_exchange_tickers_by_id
+    result = coingecko.get_exchange_tickers_by_id(exchange_id: coingecko_id)
     return result if result.failure?
 
     set_symbol_to_external_id_hash(result.data)
@@ -19,8 +19,9 @@ module Exchange::Synchronizer
     Result::Success.new
   end
 
+  # only used in exchange_implementation_helpers.rake
   def coingecko_symbols
-    result = get_coingecko_exchange_tickers_by_id
+    result = coingecko.get_exchange_tickers_by_id(exchange_id: coingecko_id)
     return result if result.failure?
 
     set_symbol_to_external_id_hash(result.data)
@@ -28,6 +29,10 @@ module Exchange::Synchronizer
   end
 
   private
+
+  def coingecko
+    @coingecko ||= Coingecko.new
+  end
 
   def external_id_from_symbol(symbol)
     raise 'Call set_symbol_to_external_id_hash first' unless @symbol_to_external_id_hash.present?
@@ -58,24 +63,6 @@ module Exchange::Synchronizer
 
       translate_coingecko_symbols_to_exchange_symbols(hash)
     end
-  end
-
-  def get_coingecko_exchange_tickers_by_id
-    all_tickers = []
-    tickers_per_page = 100
-    25.times do |i|
-      result = coingecko_client.exchange_tickers_by_id(id: coingecko_id, order: 'base_asset', page: i + 1)
-      return Result::Failure.new("Failed to get #{name} Coingecko tickers") if result.failure?
-
-      all_tickers.concat(result.data['tickers'])
-      return Result::Success.new(all_tickers) if result.data['tickers'].count < tickers_per_page
-    end
-
-    raise "Too many attempts to get #{name} Coingecko tickers. Adjust the number of pages in the loop if needed."
-  end
-
-  def coingecko_client
-    @coingecko_client ||= Clients::Coingecko.new
   end
 
   def eodhd_external_id_for_symbol(symbol)

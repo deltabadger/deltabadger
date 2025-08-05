@@ -2,15 +2,40 @@ de:
     subscriptions:
         per_month_html: "/Monat"
         per_year_html: "/Jahr"
-        plan_1_year: "1 Jahr"
-        plan_4_year: "4 Jahre"
-        plan_life_time: "Lebenslang"
-        variant1: "1 Jahr"
-        variant4: "4 Jahre, ein Jahr gratis"
-        free: "Free"
-        basic: "Basic"
+        per_4_years_html: "/4 Jahre"
+        variant_lifetime: "Lebenslang"
+        variant_30_days: "Monatlich"
+        variant_365_days: "Jährlich"
+        variant_1460_days: "4 Jahre"
+        variant_7_days: "Wöchentlich"
+        free: "Kostenlos"
+        mini: "Mini"
+        standard: "Standard"
         pro: "Pro"
-        Legendary: "Legendary"
+        research: "Research"
+        legendary: "Legendary"
+        thank_you:
+            title: "Danke!"
+            description: "Dein %{plan_name}-Plan ist aktiv."
+        features:
+            bots_count: "%{count} Bots"
+            unlimited_bots: "Unbegrenzte Bots"
+            everything_from_pro: "Alles aus dem Pro-Plan für die Lebensdauer"
+            nft: "NFT"
+            strategies: "Strategien"
+            dca: "DCA"
+            rebalanced_dca: "Neu ausbalanciertes DCA"
+            optimisations: "Optimierungen"
+            smart_intervals: "Intelligente Intervalle"
+            feecutter: "FeeCutter"
+            triggers: "Auslöser"
+            buy_the_dip: "Den Dip kaufen"
+            sma_ema: "SMA/EMA"
+            rsi: "RSI"
+            price_limit: "Preislimit"
+            amount_limit: "Mengenlimit"
+            premium_newsletter: "Premium-Newsletter"
+            portfolio_analyzer: "Portfolio-Analysator"
         upgrade_modal:
             title: "Auf Pro upgraden"
             description: "Zugang zu allen erweiterten Funktionen."
@@ -18,7 +43,13 @@ de:
             one: '1 Tag übrig'
             other: '%{count} Tage übrig'
         legendary_plan_left_html: "%{for_sale_count} <span class='hide-on-mobile'>von %{total_supply}</span> übrig"
+        cancel_subscription: "Abonnement kündigen"
+        canceled: "Ihr Abonnement wurde gekündigt"
+        confirm_cancel_title: "%{plan}-Plan kündigen"
+        confirm_cancel: "Sind Sie sicher, dass Sie Ihr Abonnement kündigen möchten? Alle Bots mit aktivierten %{plan}-Funktionen funktionieren nach dem %{date} nicht mehr."
         payment:
+            cardholder_name: "Karteninhaber"
+            checkout: "Zur Kasse"
             price_usd_html: '<span class=price-ticker>%{symbol}</span><span class=price-amount>%{price}</span>'
             price_eur_html: '<span class=price-ticker>%{symbol}</span><span class=price-amount>%{price}</span>'
             card: 'Karte'
@@ -66,6 +97,7 @@ de:
             wire_transfer_pending: 'Danke! Wir werden dein Konto bald aktivieren und dich per E-Mail kontaktieren.'
             you_pay: 'Du zahlst'
             moneyback_guarantee_html: "30-Tage Geld-zurück-Garantie. Keine&nbsp;Fragen."
+            country: "Land"
         prolong_upgrade: 'Upgrade deinen Plan'
         upgrade: Upgrade
         upgrade_plan: 'Plan upgraden'

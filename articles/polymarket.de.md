@@ -330,7 +330,7 @@ Trotz des Erfolgs von Polymarket und seines Einflusses auf die Netzwerkmetriken 
 
 Beginnen wir mit den harten Zahlen.
 
-Polymarket generiert jährlich etwa 27.000 US-Dollar an Gasgebühren, die in POL bezahlt werden. Für eine Plattform, die Milliarden an Volumen abwickelt und in Spitzenzeiten 25 % des Netzwerkgases verbraucht, mag dies unmöglich niedrig erscheinen, aber es macht Sinn, wenn man die Ökonomie von Polygon versteht. Das Netzwerk wurde für extrem niedrige Gebühren konzipiert, wobei Transaktionen Bruchteile eines Cents kosten. <a class="link-source-tile" href="https://www.coindesk.com/tech/2024/10/25/polymarket-is-huge-success-for-polygon-blockchain-everywhere-but-the-bottom-line">coindesk.com</a> 
+Polymarket generiert jährlich etwa 27.000 US-Dollar an Gasgebühren, die in POL bezahlt werden. Für eine Plattform, die Milliarden an Volumen abwickelt und in Spitzenzeiten 25 % des Netzwerkgases verbraucht, mag dies unmöglich niedrig erscheinen, aber es macht Sinn, wenn man die Ökonomie von Polygon versteht. Das Netzwerk wurde für extrem niedrige Gebühren konzipiert, wobei Transaktionen Bruchteile eines Cents kosten. <a class="link-source-tile" href="https://www.coindesk.com/tech/2024/10/25/polymarket-is-huge-success-for-polygon-blockchain-everywhere-but-the-bottom-line">coindesk.com</a>
 
 Diese 27.000 US-Dollar entsprechen etwa 6 % der gesamten Gebühreneinnahmen von Polygon – prozentual bedeutsam, aber in absoluten Zahlen vernachlässigbar im Vergleich zur Multi-Milliarden-Dollar-Marktkapitalisierung von POL.
 
@@ -340,14 +340,14 @@ Die Aktivität von Polymarket trägt zu dieser Verbrennung bei, aber auch hier s
 
 Dann gibt es die Governance. POL-Inhaber stimmen über Netzwerk-Upgrades, Parameteränderungen und die Zuweisung von Ökosystemfonds ab. Da Polygon zu einer wertvolleren Infrastruktur wird – teilweise dank Anwendungen wie Polymarket – wird eine Stimme in seiner Governance wertvoller. Dies könnte theoretisch die Nachfrage von institutionellen Nutzern steigern, die Einfluss auf ein Netzwerk haben wollen, von dem sie abhängig sind.
 
-### Die Preisentkopplung  
+### Die Preisentkopplung
 
 Trotz all dieser Aktivitäten wird POL bei etwa 0,226 bis 0,23 US-Dollar gehandelt – 85 % unter seinem Allzeithoch. Die Diskrepanz beruht auf der Geldpolitik von Polygon: Das Netzwerk gibt jährlich 2 % des Gesamtangebots aus (1 % für Validator-Belohnungen, 1 % für die Community-Schatzkammer), während durch Gebührenverbrennungen historisch etwa 0,08-0,27 % des Angebots pro Jahr vernichtet wurden (mit jüngsten Raten, die eher am unteren Ende liegen). Dies führt zu einer Nettoinflation, die das Nachfragewachstum übersteigt, unabhängig vom Erfolg von Polymarket. Die Migration von MATIC zu POL im September 2024 führte ebenfalls zu Marktverwirrung und Verkaufsdruck.
 
 {::nomarkdown}
 <figure class="article__figure">
 <!-- TradingView Widget BEGIN -->
-<div class="tradingview-widget-container" data-controller="tradingview">
+<div class="tradingview-widget-container">
   <div class="tradingview-widget-container__widget"></div>
   <div class="tradingview-widget-copyright"><a href="https://www.tradingview.com/" rel="noopener nofollow" target="_blank"><span class="blue-text">Track all markets on TradingView</span></a></div>
   <script type="text/javascript" src="https://s3.tradingview.com/external-embedding/embed-widget-symbol-overview.js" async>
@@ -403,7 +403,7 @@ Trotz all dieser Aktivitäten wird POL bei etwa 0,226 bis 0,23 US-Dollar gehande
 </figure>
 {:/nomarkdown}
 
-### Skalierungsanforderungen: 10x  
+### Skalierungsanforderungen: 10x
 
 Damit der Erfolg von Polymarket die Tokenomics von POL maßgeblich beeinflussen kann, müsste die Plattform drastisch skalieren. Um eine Netto-Deflation zu erzeugen, müssten die Verbrennungsraten die Emissionsrate von 2 % übersteigen.
 
@@ -435,7 +435,7 @@ Der Elefant im Raum ist die Frage, ob es einen einführen wird. Für eine "Krypt
 
 ### Die Beweise häufen sich
 
-Die Brotkrumen sind überall, wenn man weiß, wo man suchen muss. Polymarket hat kürzlich die Domain polymarket.foundation registriert. Foundation-Domains sind zum Standard-Playbook für DeFi-Protokolle geworden, die sich auf die Dezentralisierung durch Token-Einführungen vorbereiten. <a class="link-source-tile" href="https://x.com/ArtDreamdim/status/1943318454183813142">x.com</a> 
+Die Brotkrumen sind überall, wenn man weiß, wo man suchen muss. Polymarket hat kürzlich die Domain polymarket.foundation registriert. Foundation-Domains sind zum Standard-Playbook für DeFi-Protokolle geworden, die sich auf die Dezentralisierung durch Token-Einführungen vorbereiten. <a class="link-source-tile" href="https://x.com/ArtDreamdim/status/1943318454183813142">x.com</a>
 
 Dann gibt es die Finanzierungsrunden selbst. Wenn Vitalik Buterin und Founders Fund Schecks ausstellen, erwarten sie keine traditionellen Eigenkapitalrenditen. Diese Investoren verstehen Tokenomics und haben ihre Investitionen wahrscheinlich mit zukünftigen Token-Verteilungen im Hinterkopf strukturiert.
 
@@ -443,9 +443,9 @@ Jüngste Berichte deuten darauf hin, dass Polymarket sich einer Finanzierungsrun
 
 ### Kann man sich für den Airdrop qualifizieren?
 
-Auf X wird bereits über mögliche Polymarket-Airdrops gesprochen, wobei Krypto-Communitys aktiv "Airdrop-Farming"-Strategien diskutieren. Die Plattform hat Hunderttausende von aktiven Nutzern und detaillierte Transaktionshistorien, die bis ins Jahr 2020 zurückreichen – perfekte Daten für gezielte Token-Verteilungen. Frühe Benutzer, Händler mit hohem Volumen und genaue Prognostiker könnten alle Zuweisungen basierend auf ihren Plattformbeiträgen erhalten. <a class="link-source-tile" href="https://coincodex.com/article/67098/polymarket-airdrop/">coincodex.com</a> 
+Auf X wird bereits über mögliche Polymarket-Airdrops gesprochen, wobei Krypto-Communitys aktiv "Airdrop-Farming"-Strategien diskutieren. Die Plattform hat Hunderttausende von aktiven Nutzern und detaillierte Transaktionshistorien, die bis ins Jahr 2020 zurückreichen – perfekte Daten für gezielte Token-Verteilungen. Frühe Benutzer, Händler mit hohem Volumen und genaue Prognostiker könnten alle Zuweisungen basierend auf ihren Plattformbeiträgen erhalten. <a class="link-source-tile" href="https://coincodex.com/article/67098/polymarket-airdrop/">coincodex.com</a>
 
-Die Eröffnung eines Kontos und das Platzieren von Wetten auf Polymarket könnten Sie möglicherweise für einen zukünftigen Airdrop qualifizieren, basierend auf weit verbreiteten Community-Spekulationen und Strategien, die auf Krypto-Twitter und Discord-Kanälen geteilt werden. <a class="link-source-tile" href="https://airdrops.io/polymarket/">airdrops.io</a> 
+Die Eröffnung eines Kontos und das Platzieren von Wetten auf Polymarket könnten Sie möglicherweise für einen zukünftigen Airdrop qualifizieren, basierend auf weit verbreiteten Community-Spekulationen und Strategien, die auf Krypto-Twitter und Discord-Kanälen geteilt werden. <a class="link-source-tile" href="https://airdrops.io/polymarket/">airdrops.io</a>
 
 Viele Prognosemarkt-Plattformen und DeFi-Projekte haben frühe Anwender mit Token-Airdrops belohnt, und Polymarket-Benutzer "farmen" die Plattform aktiv, indem sie das Handelsvolumen erhöhen, in der Hoffnung auf eine Berechtigung, falls jemals ein Token eingeführt wird.
 
@@ -467,4 +467,4 @@ Dies macht **ein überzeugendes Argument für das Polygon-Netzwerk** – währen
 
 **Die Eröffnung eines Kontos bei Polymarket kann Sie potenziell für einen bevorstehenden Airdrop qualifizieren**, basierend auf weit verbreiteten Community-Spekulationen und historischen Mustern ähnlicher Plattformen.
 
-Wichtige Entwicklungen, die zu beobachten sind: regulatorische Änderungen, die einen Wiedereintritt in die USA ermöglichen könnten, die engere Integration mit X und Grok AI sowie mögliche Ankündigungen zur Token-Einführung. Prognosemärkte werden Teil der Mainstream-Infrastruktur zur Informationsfindung, und Polymarket ist positioniert, um diese Transformation anzuführen. 
+Wichtige Entwicklungen, die zu beobachten sind: regulatorische Änderungen, die einen Wiedereintritt in die USA ermöglichen könnten, die engere Integration mit X und Grok AI sowie mögliche Ankündigungen zur Token-Einführung. Prognosemärkte werden Teil der Mainstream-Infrastruktur zur Informationsfindung, und Polymarket ist positioniert, um diese Transformation anzuführen.

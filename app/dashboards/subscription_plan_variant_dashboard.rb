@@ -10,7 +10,7 @@ class SubscriptionPlanVariantDashboard < Administrate::BaseDashboard
   ATTRIBUTE_TYPES = {
     id: Field::Number,
     subscription_plan: Field::BelongsTo,
-    years: Field::Number,
+    days: Field::Number,
     cost_eur: Field::Number,
     cost_usd: Field::Number,
     created_at: Field::DateTime,
@@ -27,7 +27,7 @@ class SubscriptionPlanVariantDashboard < Administrate::BaseDashboard
     subscription_plan
     cost_eur
     cost_usd
-    years
+    days
   ].freeze
 
   # SHOW_PAGE_ATTRIBUTES
@@ -37,7 +37,7 @@ class SubscriptionPlanVariantDashboard < Administrate::BaseDashboard
     subscription_plan
     cost_eur
     cost_usd
-    years
+    days
   ].freeze
 
   # FORM_ATTRIBUTES
@@ -47,7 +47,7 @@ class SubscriptionPlanVariantDashboard < Administrate::BaseDashboard
     subscription_plan
     cost_eur
     cost_usd
-    years
+    days
   ].freeze
 
   # COLLECTION_FILTERS
@@ -66,10 +66,10 @@ class SubscriptionPlanVariantDashboard < Administrate::BaseDashboard
   # across all pages of the admin dashboard.
   #
   def display_resource(subscription_plan_variant)
-    if subscription_plan_variant.years.nil?
+    if subscription_plan_variant.days.nil?
       subscription_plan_variant.name.to_s
     else
-      "#{subscription_plan_variant.name} #{subscription_plan_variant.years} years"
+      "#{subscription_plan_variant.name} #{subscription_plan_variant.days} days"
     end
   end
 end

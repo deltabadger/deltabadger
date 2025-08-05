@@ -24,21 +24,9 @@ module Admin
 
     # See https://administrate-prototype.herokuapp.com/customizing_controller_actions
     # for more information
-    PAID_STATUSES = %w[paid confirmed complete].freeze
 
     def model_name
       :payment
-    end
-
-    def update
-      payment = Payment.find(params[:id])
-      status_before_update = payment.status
-      super
-
-      payment.reload
-      return unless grant_commission?(status_before_update, payment.status)
-
-      GrantAffiliateCommissionJob.perform_later(payment)
     end
 
     def csv
@@ -66,10 +54,6 @@ module Admin
 
     def format_date(rel, date)
       date.blank? ? '' : "-#{rel}-#{Date.parse(date)}"
-    end
-
-    def grant_commission?(old_status, new_status)
-      old_status != new_status && new_status.in?(PAID_STATUSES)
     end
   end
 end

@@ -2,7 +2,7 @@ require 'administrate/field/base'
 
 class SubscriptionField < Administrate::Field::Base
   def to_s
-    return unless data.paid?
+    return if data.free?
 
     if data.ends_at.nil?
       "#{data.name} (lifetime)"

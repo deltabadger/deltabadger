@@ -42,6 +42,33 @@ class SubscriptionMailer < ApplicationMailer
     )
   end
 
+  def subscription_expiry_warning
+    @user = params[:user]
+    @days_until_expiry = params[:days_until_expiry]
+    @expiry_date = params[:expiry_date]
+    @affected_bots = params[:affected_bots] || []
+    @current_plan = params[:current_plan]
+    @has_research_features = params[:has_research_features] || false
+
+    mail(to: @user.email, subject: default_i18n_subject)
+  end
+
+  def bots_stopped_notification
+    @user = params[:user]
+    @stopped_bots = params[:stopped_bots] || []
+    @expired_plan = params[:expired_plan]
+
+    mail(to: @user.email, subject: default_i18n_subject)
+  end
+
+  def checkout_abandonment
+    @user = params[:user]
+    @subscription_plan = params[:subscription_plan]
+    @has_research_features = params[:has_research_features] || false
+
+    mail(to: @user.email, subject: default_i18n_subject)
+  end
+
   private
 
   helper_method def user_first_name

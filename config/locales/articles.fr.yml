@@ -2,7 +2,7 @@ fr:
   articles:
     index:
       title: "Deltabadger Research"
-      meta_description: "Articles bimensuels pour les investisseurs à long terme en actifs numériques."
+      meta_description: "Articles hebdomadaires pour les investisseurs à long terme en actifs numériques."
       no_articles: "Aucun article disponible pour le moment."
       join_subscribers: "Rejoignez %{count} abonnés <span class=\"desktop-only\">Premium</span>"
     reading_time: "%{minutes} min de lecture"
@@ -11,6 +11,6 @@ fr:
     paywall:
       title: "Abonnez-vous pour continuer à lire."
       description: |
-        Nous sommes une communauté d'investisseurs à long terme en actifs numériques. Accédez à :<br><b>articles bimensuels &middot; analyseur de portefeuille &middot; smart DCA bots</b>
+        Nous sommes une communauté d'investisseurs à long terme en actifs numériques. Accédez à :<br><b>articles hebdomadaires &middot; analyseur de portefeuille &middot; smart DCA bots</b>
     like_on_x: "Aimer sur X"
     join_discussion: "Rejoindre la discussion"

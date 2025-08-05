@@ -1,0 +1,29 @@
+<% if payment_option.subscription_plan_variant.days.present? %>
+  <% selected_duration = payment_option.subscription_plan_variant.duration %>
+  <% if selected_duration != reference_duration %>
+    <span class="widget--pricing__amount__t widget--pricing__amount__t--main">
+      <%= localized_price(payment_option.virtual_price('base_price', reference_duration), payment_option.currency) %><span class="price-period"><%= t("subscriptions.#{payment_frequency_translation_key(reference_duration)}") %></span>
+    </span>
+    <span class="widget--pricing__amount__t__previous">
+      <s><%= localized_price(reference_payment_option.virtual_price('base_price', selected_duration), payment_option.currency) %></s>
+      <%= localized_price(payment_option.base_price, payment_option.currency) %><span class="price-period"><%= t("subscriptions.#{payment_frequency_translation_key(selected_duration)}") %></span>
+    </span>
+  <% else %>
+    <span class="widget--pricing__amount__t widget--pricing__amount__t--main">
+      <%= localized_price(payment_option.virtual_price('base_price', reference_duration), payment_option.currency) %><span class="price-period"><%= t("subscriptions.#{payment_frequency_translation_key(reference_duration)}") %></span>
+    </span>
+  <% end %>
+<% else %>
+  <% if reference_payment_option.base_price != payment_option.base_price %>
+    <span class="widget--pricing__amount__t widget--pricing__amount__t--main">
+      <%= localized_price(payment_option.base_price, payment_option.currency) %>
+    </span>
+    <span class="widget--pricing__amount__t__previous">
+      <%= localized_price(reference_payment_option.base_price, payment_option.currency) %>
+    </span>
+  <% else %>
+    <span class="widget--pricing__amount__t widget--pricing__amount__t--main">
+      <%= localized_price(payment_option.base_price, payment_option.currency) %>
+    </span>
+  <% end %>
+<% end %>

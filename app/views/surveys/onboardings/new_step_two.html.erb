@@ -1,7 +1,7 @@
 <div class="onboarding-survey__step onboarding-survey__step--2">
   <h1 class="onboarding-survey__title"><%= t('onboarding.survey.step2.title') %></h1>
 
-  <%= form_with model: @survey, url: surveys_onboarding_path, method: :post, class: "onboarding-survey__options", data: { controller: "form--checkbox-enables" } do |f| %>
+  <%= form_with model: @survey, url: surveys_onboarding_path, method: :post, class: "onboarding-survey__options", data: { controller: "form--checkbox-enables", form__checkbox_enables_mode_value: "some" } do |f| %>
     <%= f.hidden_field :investment_goal, value: @survey.answers['investment_goal'] %>
 
     <div class="onboarding-survey__exchanges">

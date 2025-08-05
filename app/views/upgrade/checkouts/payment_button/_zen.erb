@@ -1,0 +1,5 @@
+<button type="submit" class="button button--success button--large" data-action="click->zaraz#trackBeginCheckoutEvent" data-zaraz-target="button" <% if payment.price_with_vat == 0 %>disabled<% end %>>
+  <span>
+    <%= t('subscriptions.payment.pay_html', amount_html: localized_price(payment.price_with_vat, payment.currency)) %>
+  </span>
+</button>

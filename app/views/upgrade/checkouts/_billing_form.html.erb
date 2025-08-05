@@ -1,0 +1,100 @@
+<div class="pricing__checkout__pay">
+  <!--
+  <%= form_with url: upgrade_checkout_path, method: :get, data: { controller: "form--submit", turbo_frame: "billing-form-frame" }, class: "pricing__payment-methods" do |f| %>
+      <% if SettingFlag.show_zen_payment? %>
+        <%= tag.label class: "hide_radio_buttons pricing__payment-method" do %>
+          <%= f.radio_button :type, 'Payments::Zen', checked: payment.zen?, data: { action: "change->form--submit#submit" } %>
+          <div class="pricing__payment-method__tab">
+            <%= image_tag "mastercard.svg", alt: "", class: "db-card-providers__item db-card-providers__item--mastercard" %>
+            <%= image_tag "visa.svg", alt: "", class: "db-card-providers__item db-card-providers__item--visa" %>
+          </div>
+        <% end %>
+      <% end %>
+      <% if SettingFlag.show_bitcoin_payment? %>
+        <%= tag.label class: "hide_radio_buttons pricing__payment-method" do %>
+          <%= f.radio_button :type, 'Payments::Btcpay', checked: payment.btcpay?, data: { action: "change->form--submit#submit" } %>
+          <div class="pricing__payment-method__tab">
+            <%= image_tag "bitcoin.svg", alt: "Bitcoin", class: "db-card-providers__item db-card-providers__item--lightning" %>
+          </div>
+        <% end %>
+      <% end %>
+      <% if SettingFlag.show_wire_payment? %>
+        <%= tag.label class: "hide_radio_buttons pricing__payment-method" do %>
+          <%= f.radio_button :type, 'Payments::Wire', checked: payment.wire?, data: { action: "change->form--submit#submit" } %>
+          <div class="pricing__payment-method__tab">
+            <%= t('subscriptions.payment.wire_transfer') %>
+          </div>
+        <% end %>
+      <% end %>
+  <% end %>
+  -->
+
+  <%= turbo_frame_tag "billing-form-frame", class: "widget widget--checkout" do %>
+    <div class="tab-content">
+      <div class="tab <%= 'active' if payment.zen? %>" aria-labelledby="log-tab" role="tabpanel">
+        <%= form_with model: payment, url: upgrade_zen_payment_path, method: :post, data: { controller: "form--html5-validations form--label-animations form--zen-finger-print", form__zen_finger_print_merchant_transaction_id_value: payment.payment_id, action: "submit->form--zen-finger-print#submitWithFingerPrintId", turbo: false } do |f| %>
+          <%= f.hidden_field :payment_id, value: payment.payment_id %>
+          <%= f.hidden_field :finger_print_id, value: '', data: { form__zen_finger_print_target: "fingerPrintId" } %>
+          <div class="db-form__row">
+            <%= f.text_field :cardholder_name, value: "#{payment.first_name} #{payment.last_name}".presence, class: 'db-form__input', autocomplete: "name", pattern: name_pattern, required: true %>
+            <%= f.label :cardholder_name, t('subscriptions.payment.cardholder_name'), class: 'db-form__label' %>
+          </div>
+          <div id="zen-payment-button" class="large-button-wrapper">
+            <%= render partial: "upgrade/checkouts/payment_button/zen", locals: { payment: payment } %>
+          </div>
+        <% end %>
+        <div class="moneyback-guarantee">
+          <%= t('subscriptions.payment.moneyback_guarantee_html').html_safe %>
+        </div>
+      </div>
+
+      <div class="tab <%= 'active' if payment.btcpay? %>" aria-labelledby="log-tab" role="tabpanel">
+        <%= form_with model: payment, url: upgrade_btcpay_payment_path, data: { controller: "form--html5-validations form--label-animations", turbo: false } do |f| %>
+          <div class="db-form__row">
+            <%= f.text_field :first_name, class: 'db-form__input', autocomplete: "given-name", pattern: name_pattern, required: true %>
+            <%= f.label :first_name, class: 'db-form__label' %>
+          </div>
+          <div class="db-form__row">
+            <%= f.text_field :last_name, class: 'db-form__input', autocomplete: "family-name", pattern: name_pattern, required: true %>
+            <%= f.label :last_name, class: 'db-form__label' %>
+          </div>
+          <div class="db-form__row">
+            <%= f.date_field :birth_date, autocomplete: "bday", max: 18.years.ago, class: 'db-form__input db-form__input--date', required: true %>
+            <%= f.label :birth_date, class: 'db-form__label' %>
+          </div>
+          <div id="btcpay-payment-button" class="large-button-wrapper">
+            <%= render partial: "upgrade/checkouts/payment_button/btcpay", locals: { payment: payment } %>
+          </div>
+        <% end %>
+        <div class="moneyback-guarantee">
+          <%= t('subscriptions.payment.moneyback_guarantee_html').html_safe %>
+        </div>
+      </div>
+
+      <div class="tab <%= 'active' if payment.wire? %>" aria-labelledby="log-tab" role="tabpanel">
+        <%= form_with model: payment, url: upgrade_wire_payment_path, data: { controller: "form--html5-validations form--label-animations" } do |f| %>
+          <div class="db-form__row">
+            <%= f.text_field :first_name, class: 'db-form__input', autocomplete: "given-name", pattern: name_pattern, required: true %>
+            <%= f.label :first_name, class: 'db-form__label' %>
+          </div>
+          <div class="db-form__row">
+            <%= f.text_field :last_name, class: 'db-form__input', autocomplete: "family-name", pattern: name_pattern, required: true %>
+            <%= f.label :last_name, class: 'db-form__label' %>
+          </div>
+          <div id="wire_costs" class="db-form__row--hidden">
+            <%= t('subscriptions.payment.wire_cost_html', price: localized_price(payment.price_with_vat, payment.currency)) %>
+          </div>
+          <div id="wire-info">
+            <%= render partial: "upgrade/checkouts/wire_info", locals: { payment: payment } %>
+          </div>
+          <div id="wire-payment-button" class="large-button-wrapper">
+            <%= render partial: "upgrade/checkouts/payment_button/wire", locals: { payment: payment } %>
+          </div>
+        <% end %>
+        <div class="moneyback-guarantee">
+          <%= t('subscriptions.payment.moneyback_guarantee_html').html_safe %>
+        </div>
+      </div>
+    </div>
+  <% end %>
+</div>

@@ -2,12 +2,21 @@ fr:
     subscriptions:
         per_month_html: "/mois"
         per_year_html: "/an"
-        plan_1_year: "1 an"
-        plan_4_year: "4 ans"
-        plan_life_time: "À vie"
-        variant1: "1 an"
-        variant4: "4 ans, un gratuit"
-        free: 'Gratuit'
+        per_4_years_html: "/4 ans"
+        variant_lifetime: "À vie"
+        variant_30_days: "Mensuel"
+        variant_365_days: "Annuel"
+        variant_1460_days: "4 Ans"
+        variant_7_days: "Hebdomadaire"
+        free: "Gratuit"
+        mini: "Mini"
+        standard: "Standard"
+        pro: "Pro"
+        research: "Research"
+        legendary: "Legendary"
+        thank_you:
+            title: "Merci !"
+            description: "Votre plan %{plan_name} est actif."
         upgrade_modal:
             title: "Passer à Pro"
             description: "Accédez à toutes les fonctionnalités avancées."
@@ -15,6 +24,10 @@ fr:
             one: "1 jour restant"
             other: "%{count} jours restants"
         legendary_plan_left_html: "Il reste %{for_sale_count} <span class='hide-on-mobile'>sur %{total_supply}</span>"
+        cancel_subscription: "Annuler l'abonnement"
+        canceled: "Votre abonnement a été annulé"
+        confirm_cancel_title: "Annuler le plan %{plan}"
+        confirm_cancel: "Êtes-vous sûr de vouloir annuler votre abonnement ? Tous les bots avec les fonctionnalités %{plan} activées cesseront de fonctionner après le %{date}."
         payment:
             price_usd_html: '<span class=price-ticker>%{symbol}</span><span class=price-amount>%{price}</span>'
             price_eur_html: '<span class=price-ticker>%{symbol}</span><span class=price-amount>%{price}</span>'
@@ -62,9 +75,29 @@ fr:
             wire_transfer_pending: 'Merci ! Nous allons bientôt activer votre compte et vous contacter par e-mail'
             you_pay: 'Vous payez'
             moneyback_guarantee_html: "30-jour garantie de remboursement. Pas&nbsp;de&nbsp;questions."
+            country: "Pays"
         prolong_upgrade: 'Mettre à niveau le forfait'
         upgrade: 'Mettre à niveau'
         upgrade_plan: 'Mettre à niveau le forfait'
+        features:
+            bots_count: "%{count} bots"
+            unlimited_bots: "Bots illimités"
+            everything_from_pro: "Tout du plan Pro à vie"
+            nft: "NFT"
+            strategies: "Stratégies"
+            dca: "DCA"
+            rebalanced_dca: "DCA rééquilibré"
+            optimisations: "Optimisations"
+            smart_intervals: "Intervalles intelligents"
+            feecutter: "FeeCutter"
+            triggers: "Déclencheurs"
+            buy_the_dip: "Acheter la baisse"
+            sma_ema: "SMA/EMA"
+            rsi: "RSI"
+            price_limit: "Limite de prix"
+            amount_limit: "Limite de montant"
+            premium_newsletter: "Newsletter Premium"
+            portfolio_analyzer: "Analyseur de portefeuille"
     legendary_badger:
         will_be_sent: 'Le NFT Legendary Badger sera envoyé à :'
         ethereum_address: 'Adresse Ethereum'

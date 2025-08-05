@@ -2,7 +2,7 @@ it:
   articles:
     index:
       title: "Deltabadger Research"
-      meta_description: "Articoli quindicinali per investitori a lungo termine in asset digitali."
+      meta_description: "Articoli settimanali per investitori a lungo termine in asset digitali."
       no_articles: "Nessun articolo disponibile al momento."
       join_subscribers: "Unisciti a %{count} abbonati <span class='desktop-only'>Premium</span>"
     reading_time: "%{minutes} min di lettura"
@@ -11,6 +11,6 @@ it:
     paywall:
       title: "Abbonati per continuare a leggere."
       description: |
-        Siamo una comunità di investitori a lungo termine in asset digitali. Accedi a:<br><b>articoli quindicinali &middot; analizzatore di portafoglio &middot; smart DCA bots</b>
+        Siamo una comunità di investitori a lungo termine in asset digitali. Accedi a:<br><b>articoli settimanali &middot; analizzatore di portafoglio &middot; smart DCA bots</b>
     like_on_x: "Metti mi piace su X"
     join_discussion: "Partecipa alla Community"

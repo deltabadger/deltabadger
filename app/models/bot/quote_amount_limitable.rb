@@ -93,7 +93,7 @@ module Bot::QuoteAmountLimitable
 
   def validate_quote_amount_limitable_included_in_subscription_plan
     return unless quote_amount_limited?
-    return if user.subscription.pro? || user.subscription.legendary?
+    return if user.subscription.standard? || user.subscription.pro? || user.subscription.legendary?
 
     errors.add(:user, :upgrade)
   end

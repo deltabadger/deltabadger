@@ -7,7 +7,9 @@
       </div>
     <% end %>
   <% else %>
-    <% if bot.restarting? %>
+    <% if bot.invalid?(:start) && bot.errors.details.values.flatten.any? { |e| e[:error] == :upgrade } %>
+      <%= button_to t('subscriptions.upgrade'), upgrade_path, method: :get, class: 'button button--success', data: { action: 'click->modal--base#animateOutCloseAndCleanUp', turbo: false } %>
+    <% elsif bot.restarting? %>
       <%= button_to edit_bot_start_path(bot), method: :get, class: "button button--success", data: { hw_animate_out: "animate-button-to-stop-shape", turbo_frame: "modal" } do %>
         <div class="animicon animicon--start">
           <div class="animicon__a"></div>

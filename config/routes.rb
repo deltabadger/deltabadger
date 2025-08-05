@@ -94,14 +94,23 @@ Rails.application.routes.draw do
       patch :create, to: 'affiliates#create'
     end
 
+    resource :upgrade, only: [:show]
     namespace :upgrade do
-      get '/', action: :index
-      post '/', action: :create_payment
-      post :btcpay_payment_ipn
-      get :zen_payment_failure
-      post :zen_payment_ipn
-      get :success
-      get :upgrade_instructions
+      resource :btcpay_payment, only: [:create]
+      namespace :btcpay_payment do
+        resource :ipn, only: [:create]
+        resource :success, only: [:show]
+      end
+      resource :wire_payment, only: [:create]
+      resource :zen_payment, only: [:create]
+      namespace :zen_payment do
+        resource :ipn, only: [:create]
+        resource :success, only: [:show]
+        resource :failure, only: [:show]
+      end
+      resource :instructions, only: [:show]
+      resource :checkout, only: [:show]
+      resource :thank_you, only: [:show] # only used to preview the thank you page
     end
 
     namespace :settings do
@@ -117,6 +126,8 @@ Rails.application.routes.draw do
       patch :update_two_fa
       get 'confirm_destroy_api_key/:id', action: :confirm_destroy_api_key, as: :confirm_destroy_api_key
       delete 'destroy_api_key/:id', action: :destroy_api_key, as: :destroy_api_key
+      get :confirm_cancel_subscription
+      patch :cancel_subscription
       get :community_access_instructions
     end
 
@@ -158,9 +169,7 @@ Rails.application.routes.draw do
 
     get '/calculator', to: 'calculator#show', as: :calculator
 
-    resource :legendary, only: [:show, :update], path: '/legendary-badger' do
-      get :show, on: :collection
-    end
+    resource :legendary, only: [:show, :update], path: '/legendary-badger'
 
     get '/terms-and-conditions', to: 'home#terms_and_conditions', as: :terms_and_conditions
     get '/privacy-policy', to: 'home#privacy_policy', as: :privacy_policy

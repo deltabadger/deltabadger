@@ -1,21 +1,37 @@
+.view--upgrades-show, .view--checkouts-show
+    .page-head
+        max-width: 108rem
+        margin-left: auto
+        margin-right: auto
+        position: relative
+        gap: 0
+        .icon-24
+            position: absolute
+            top: 1.65rem
+            @media (max-width: 767.9px)
+                left: 5rem
+                z-index: 10000
 .pricing
-    display: flex
-    flex-direction: row
-    gap: 1rem
+    overflow-x: scroll
+    max-width: 108rem
+    margin: 0 auto
+    &--checkout
+        display: flex
+        flex-direction: row
+        gap: 1rem
+        justify-self: center
+        width: 100%
+        max-width: 108rem
+        .hide-on-checkout
+            display: none
     &__plans
         display: grid
-        grid-template-columns: #{repeat(auto-fit, minmax(10px, 1fr))}
+        grid-template-columns: repeat(3, 1fr)
         grid-template-rows: 1fr
         gap: 1rem
         flex: 1
         .widget
-            padding: 2.25rem 2rem
-            &:first-child
-                border-top-left-radius: 2rem
-                border-bottom-left-radius: 2rem
-            &:last-child
-                border-top-right-radius: 2rem
-                border-bottom-right-radius: 2rem
+            min-width: 25rem
     &__checkout
         width: calc(25% - 0.75rem)
         gap: 1rem
@@ -26,7 +42,7 @@
         .large-button-wrapper
             padding: 0
     &__payment-methods
-        display: flex
+        // display: none
         background: var(--pickExchangeItemBg)
         border-radius: 2rem 2rem 0 0
     &__payment-method
@@ -34,7 +50,7 @@
         flex: 2
         img
             height: 4rem
-        [checked="checked"] + .pricing__payment-method__tab
+        :checked + .pricing__payment-method__tab
             background: var(--widget-background)
         &__tab
             height: 6rem
@@ -47,18 +63,47 @@
     @media (prefers-color-scheme: dark)
         mix-blend-mode: plus-lighter
         filter: brightness(10)
-.price-ticker
-    font-size: 75%
-    margin: 0 .1em
+.widget--pricing__amount__t
+    .price-ticker
+        font-size: 50%
+        line-height: 1.36
+        align-self: flex-start
 
 .widget
     &--pricing
-        gap: 3rem
+        gap: 1rem
         margin-bottom: 0
-        padding-top: 3.25rem
-        padding-bottom: 3.25rem
-        @media (max-width: 767.9px)
+        .button--upgrade
+            margin: 0 0 2rem
+            max-width: 20rem
+            z-index: 1
+        small
+            min-height: 3rem
+            display: flex
+            opacity: 1
+            display: flex
+            flex-direction: row-reverse
+            align-items: center
             gap: 1rem
+            position: relative
+            color: var(--text-faded)
+            &:before
+                content: ""
+                display: block
+                width: 100%
+                height: 1px
+                opacity: 0.5
+                background: var(--text-faded)
+        &__opt-execution,&__opt-research
+            min-height: 7rem
+        &__opt-strategies
+            min-height: 7rem
+        &__opt-triggers
+            min-height: 20rem
+        &__opt-research
+            min-height: 7rem
+            &.inactive
+                color: var(--text-faded)
         &__badge
             background: var(--success)
             padding: 0 1rem
@@ -67,69 +112,138 @@
             border-radius: 2rem
             font-size: 2rem
         &__name
-            font-size: 2.5rem
+            font-size: 2.25rem
             font-weight: 700
             line-height: 2rem
             color: var(--text-strong)
-            &__period
-                height: 3rem
-                line-height: 3rem
-                font-weight: 400
-                font-size:  2rem
-                margin-top: 1rem
         &__amount
-            min-height: 9rem
             color: var(--text-strong)
+            min-height: 8rem
+            margin-bottom: 2.25rem
             &__t
-                font-size: 4rem
-                line-height: 4rem
+                font-size: 5rem
+                line-height: 5rem
                 font-weight: 600
-                display: block
+                display: flex
+                align-items: flex-end
+                gap: 0.75rem
                 &--main
                     .price-period
                         font-size: 2rem
-                        margin-left: .5rem
+                        line-height: 3rem
                         color: var(--text-faded)
-                &--previous
-                    color: var(--text-faded)
-                    font-size: 3rem
-                    .price-amount
+                &__previous
+                    position: relative
+                    top: 0.75rem
+                    s
+                        color: var(--text-faded)
                         text-decoration: line-through
+                    .price-period,.price-ticker
+                        margin-left: 0.5rem
         ul
             list-style: none
             padding-left: 0
+            font-weight: 600
             li
-                padding-left: 3rem
+                padding-left: 2.75rem
                 position: relative
                 &::before
-                    content: ""
+                    content: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%233d4d64' stroke-width='4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='20 6 9 17 4 12'%3E%3C/polyline%3E%3C/svg%3E")
                     display: block
-                    width: 2rem
-                    height: 2rem
-                    background: url("check.svg")
                     position: absolute
                     left: 0
-                    top: .25rem
+                    top: 0.2rem
+                    @media (prefers-color-scheme: dark)
+                        content: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%23abc' stroke-width='4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='20 6 9 17 4 12'%3E%3C/polyline%3E%3C/svg%3E")
+            &.inactive
+                li::before
+                    content: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%238b92a7' stroke-width='4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='20 6 9 17 4 12'%3E%3C/polyline%3E%3C/svg%3E")
+                    @media (prefers-color-scheme: dark)
+                        content: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%23345176' stroke-width='4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='20 6 9 17 4 12'%3E%3C/polyline%3E%3C/svg%3E")
+
         p, ul
             margin-bottom: 0
-        &--legendary
+        &--legendary, &--research
+            position: relative !important
+            overflow: hidden
             ul
                 flex: 2
+            @media (max-width: 767.9px)
+                // max-width: calc(100vw - 2rem)
+            &:before
+                content: ""
+                display: block
+                position: absolute
+                height: 100%
+                width: 100%
+                position: absolute
+                z-index: 0
+                top: 0%
+                right: 0
+                background-size: cover
+                background-position: right bottom
+                mask: linear-gradient(to bottom, transparent 0%, rgba(0,0,0,1) 100%)
+                -webkit-mask: linear-gradient(to bottom, transparent 0%, rgba(0,0,0,1) 100%)
+                @media (max-width: 767.9px)
+                    width: 100%
+                    mask: linear-gradient(to bottom, transparent 0%, rgba(0,0,0,1) 100%)
+                    -webkit-mask: linear-gradient(to bottom, transparent 0%, rgba(0,0,0,1) 100%)
+            &:nth-child(4),&:nth-child(5)
+                flex: 3
+                width: 100%
+                grid-column: 1 / -1
+                &:before
+                    width: 75%
+                    height: 100%
+                    top: 0
+                    right: 0
+                    background-size: cover
+                    background-position: center bottom
+                    mask: linear-gradient(to right, transparent 0%, rgba(0,0,0,1) 50%) !important
+                    -webkit-mask: linear-gradient(to right, transparent 0%, rgba(0,0,0,1) 50%) !important
+                    @media (max-width: 767.9px)
+                        width: 100%
+                        mask: linear-gradient(to right, transparent 0%, rgba(0,0,0,1) 100%) !important
+                        -webkit-mask: linear-gradient(to right, transparent 0%, rgba(0,0,0,1) 100%) !important
+        &--legendary
+            --text-strong: #fff
+            background: linear-gradient(to left, #024, #012)
+            color: #bcd !important
+            &:nth-child(2)
+                grid-column: 2 / 4
+            &::before
+                background-image: url("legendary01.avif")
+        &--research
+            ul
+                justify-content: flex-end
+            &:nth-child(2),&:nth-child(3)
+                ul
+                    &::before
+                        content: ""
+                        display: block
+                        width: 100%
+                        height: 1px
+                        opacity: .5
+                        background: var(--text-faded)
+                        margin-bottom: 1.5rem
+            &::before
+                width: 100%
+                background-position: center bottom
+            &:nth-child(4)
+                &::before
+                    background-image: url("research.avif")
         &__legendary-plans-left
-            font-weight: 600
+            font-weight: 700
             color: var(--success) !important
             .slider
                 margin-top: 0.75rem
             .slider__style
-                background: var(--success-semitransparent)
+                background: #fff4 !important
+                border-radius: 2rem
                 &__track
                     border-left-color: var(--success) !important
                 &__progress
                     background: var(--success) !important
-        &--selected,&--other
-            cursor: pointer
-        &--other
-            background: var(--pickExchangeItemBg)
         &--selected
             background: var(--primary-button)
             color: #fffc
@@ -137,10 +251,22 @@
             --text-faded: #8195cf
             a
                 color: #fff
-            li::before
-                filter: brightness(2.75) saturate(0.5)
+        &--selected
+            li
+                &::before
+                    content: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%23fff' stroke-width='4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='20 6 9 17 4 12'%3E%3C/polyline%3E%3C/svg%3E") !important
+        &--legendary
+            li
+                &::before
+                    content: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%23abc' stroke-width='4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='20 6 9 17 4 12'%3E%3C/polyline%3E%3C/svg%3E") !important
+        &--selected,&--legendary
+            .inactive
+                li
+                    font-weight: 400
+                    &::before
+                        content: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%238195cf' stroke-width='4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='20 6 9 17 4 12'%3E%3C/polyline%3E%3C/svg%3E") !important
     &--checkout
-        border-radius: 0 0 2rem 2rem
+        border-radius: 2rem
         .tab
             display: none
             &.active
@@ -150,27 +276,36 @@
 
 .pricing-period-toggle
     display: flex
-    gap: 1rem
+    margin: 0 auto
     font-size: 2rem
     line-height: 4rem
-    width: 100%
     justify-content: center
-    label
-        white-space: nowrap
-    :not([checked="checked"]) + span
-        cursor: pointer
-        color: var(--text-faded)
-    [checked="checked"] + span
-        color: var(--text-strong)
-        cursor: default
+    background: #0241
+    border-radius: 2rem
     @media (max-width: 767.9px)
-        justify-content: flex-end
-        position: relative
-// hide radio buttons for the tabs, guillem workaround
+        margin-right: 0
+    label
+        span
+            display: flex
+            white-space: nowrap
+            padding: 0 1.5rem
+            border-radius: 2rem
+            opacity: 0.75
+            cursor: pointer
+        :checked + span
+            background: var(--widget-background) !important
+            box-shadow: var(--widget-shadow),inset 0 0 0 1px rgba(0,0,0,.3)
+            opacity: 1
+            cursor: default
+            color: var(--text-strong)
 .hide_radio_buttons > input
   visibility: hidden
   position: absolute
-// hide radio buttons for the tabs, guillem workaround
+.legendary-counter
+    z-index: 10
+    &__discount
+        display: block
+        margin-bottom: 3rem
 @media only screen and (max-width: 959.9px)
     .pricing
         flex-direction: column
@@ -180,22 +315,11 @@
         &--pricing
             padding-top: 2.5rem
             padding-bottom: 2.5rem
-            ul
-                display: none
 @media only screen and (max-width: 767.9px)
     .pricing
         &__plans
             grid-template-columns: 1fr 1fr 1fr
-    .widget
-        &--pricing
-            padding: 1.75rem 0 1rem 0 !important
-            text-align: center
-            &__name
-                font-size: 2.25rem
-            &__amount
-                display: none
     .legendary-counter
-        padding: 1rem 2rem
         &__discount
             display: none
 @media only screen and (max-width: 500px)
@@ -244,3 +368,12 @@
     color: var(--text-faded)
     margin-top: 2rem
     font-weight: 700
+.checkout-selected-plan,.pricing__checkout
+    flex: 1
+
+.feature-icon--thank-you
+    width: 100%
+    max-width: 30rem
+    max-height: 30rem
+    height: auto
+    aspect-ratio: 1 / 1

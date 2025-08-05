@@ -1,0 +1,6 @@
+<button type="submit" class="button button--success button--large" data-action="click->zaraz#trackBeginCheckoutEvent" data-zaraz-target="button" <% if payment.price_with_vat == 0 %>disabled<% end %>>
+  <%= payment.from_eu? ?
+    t('subscriptions.payment.paid_with_wire_transfer') :
+    t('subscriptions.payment.paid_with_wire_transfer_other')
+  %>
+</button>

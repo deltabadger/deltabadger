@@ -1,0 +1,52 @@
+<%= tag.div class: "widget widget--pricing widget--pricing--#{generic_plan_name} widget--pricing--other", data: { controller: "class-toggle", class_toggle_toggle_classes_value: ["active", "inactive"] } do %>
+  <div class="widget--pricing__name">
+    <%= t('subscriptions.mini') %>
+    <% if current_user.subscription.mini? %>
+      <span class="widget--pricing__badge"><%= t('subscriptions.active') %></span>
+    <% end %>
+  </div>
+
+  <div id="plan-card-amount-<%= generic_plan_name %>" class="widget--pricing__amount">
+    <%= render partial: "upgrades/plan_cards/elements/price", locals: {
+      payment_option: payment_option,
+      reference_duration: reference_duration,
+      reference_payment_option: reference_payment_option,
+    } %>
+  </div>
+
+  <% unless checkout %>
+    <%= render partial: "upgrades/plan_cards/elements/button", locals: { generic_plan_name: generic_plan_name } %>
+  <% end %>
+
+  <ul class="widget--pricing__opt-bots">
+    <li><%= t('subscriptions.features.bots_count', count: payment_option.subscription_plan_variant.max_bots) %></li>
+  </ul>
+  <small></small>
+  <ul class="widget--pricing__opt-strategies">
+    <li><%= t('subscriptions.features.dca') %></li>
+    <li><%= t('subscriptions.features.rebalanced_dca') %></li>
+  </ul>
+  <small></small>
+  <ul class="widget--pricing__opt-execution">
+    <li><%= t('subscriptions.features.smart_intervals') %></li>
+    <li><%= t('subscriptions.features.feecutter') %></li>
+  </ul>
+  <small class="hide-on-checkout"></small>
+  <ul class="hide-on-checkout widget--pricing__opt-triggers">
+  </ul>
+
+  <small>
+    <%= form_with url: path,
+                  class: "toggle",
+                  method: :get,
+                  data: { controller: "form--submit", turbo_stream: true } do |f| %>
+      <%= f.check_box :mini_research_enabled, data: { action: "change->form--submit#submit change->class-toggle#toggle" }, checked: mini_research_enabled %>
+      <div class="toggle__style"></div>
+    <% end %>
+  </small>
+
+  <ul class="widget--pricing__opt-research <%= mini_research_enabled ? 'active' : 'inactive' %>" data-class-toggle-target="togglable">
+    <li><%= t('subscriptions.features.premium_newsletter') %></li>
+    <li><%= t('subscriptions.features.portfolio_analyzer') %></li>
+  </ul>
+<% end %>

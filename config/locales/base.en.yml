@@ -25,6 +25,9 @@ en:
         start: 'Start'
         connect: 'Connect'
         understand: 'Got it!'
+        get_started: 'Get Started'
+        select_plan: 'Select plan'
+        back_to_dashboard: 'Go to dashboard'
     data_labels:
         invested: "Total Invested"
         portfolio_value: "Portfolio Value"
@@ -130,9 +133,15 @@ en:
             enabled: 'Two-factor authentication has been enabled.'
         api_keys:
             confirm_delete: 'Do you want to delete this API key?'
+        subscription:
+            next_payment_html: 'Next payment: %{cost_html}'
+            requires_manual_payment: 'Requires manual payment'
+            enable_recurring: 'Make it recurring'
+            cancel_subscription: 'Cancel subscription'
         index:
             api_key_confirmation: 'Are you sure?'
             api_keys_section: 'API keys'
+            subscription_section: 'Subscription'
             trading_keys_section: 'Trading keys'
             withdrawal_keys_section: 'Withdrawal keys'
             email_section: Email

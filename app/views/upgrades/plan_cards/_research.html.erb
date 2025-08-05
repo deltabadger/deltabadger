@@ -1,0 +1,25 @@
+<%= tag.div class: "widget widget--pricing widget--pricing--#{generic_plan_name} widget--pricing--other" do %>
+  <div class="widget--pricing__name">
+    <%= t('subscriptions.research') %>
+  </div>
+
+
+
+
+  <div id="plan-card-amount-<%= generic_plan_name %>" class="widget--pricing__amount">
+    <%= render partial: "upgrades/plan_cards/elements/price", locals: {
+      payment_option: payment_option,
+      reference_duration: reference_duration,
+      reference_payment_option: reference_payment_option,
+    } %>
+  </div>
+
+  <% unless checkout %>
+    <%= render partial: "upgrades/plan_cards/elements/button", locals: { generic_plan_name: generic_plan_name } %>
+  <% end %>
+
+  <ul>
+    <li><%= t('subscriptions.features.premium_newsletter') %></li>
+    <li><%= t('subscriptions.features.portfolio_analyzer') %></li>
+  </ul>
+<% end %>

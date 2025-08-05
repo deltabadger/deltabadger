@@ -89,7 +89,7 @@ to display a collection of resources in an HTML table.
             data: { turbo_confirm: t("administrate.actions.confirm") }
           ) if show_action? :destroy, resource %></td>
         <% end %>
-        <% if resource['payment_type'] == 'wire' && resource['status'] != 'paid'%>
+        <% if resource.wire? && resource.paid? %>
           <td><%= button_to(
             'Confirm',
             confirm_admin_payments_path(resource),

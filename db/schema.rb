@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema.define(version: 2025_07_14_125504) do
+ActiveRecord::Schema.define(version: 2025_08_04_100046) do
 
   # These are extensions that must be enabled in order to support this database
   enable_extension "plpgsql"
@@ -138,6 +138,14 @@ ActiveRecord::Schema.define(version: 2025_07_14_125504) do
     t.index ["user_id"], name: "index_bots_on_user_id"
   end
 
+  create_table "cards", force: :cascade do |t|
+    t.bigint "user_id", null: false
+    t.string "token", null: false
+    t.string "first_transaction_id"
+    t.string "ip"
+    t.index ["user_id"], name: "index_cards_on_user_id"
+  end
+
   create_table "conversion_rates", force: :cascade do |t|
     t.string "currency", null: false
     t.decimal "rate", null: false
@@ -223,7 +231,6 @@ ActiveRecord::Schema.define(version: 2025_07_14_125504) do
     t.string "last_name"
     t.date "birth_date"
     t.datetime "paid_at"
-    t.string "external_statuses", default: "", null: false
     t.decimal "btc_total", precision: 16, scale: 8, default: "0.0", null: false
     t.decimal "btc_paid", precision: 16, scale: 8, default: "0.0", null: false
     t.decimal "commission", precision: 10, scale: 2, null: false
@@ -231,13 +238,17 @@ ActiveRecord::Schema.define(version: 2025_07_14_125504) do
     t.boolean "discounted", null: false
     t.bigint "subscription_plan_variant_id", null: false
     t.string "country", null: false
-    t.integer "payment_type", null: false
     t.boolean "gads_tracked", default: false
     t.boolean "commission_granted", default: false
+    t.string "type"
+    t.jsonb "external_statuses", default: []
+    t.boolean "recurring", default: false, null: false
+    t.string "url"
+    t.string "finger_print_id"
     t.index ["currency"], name: "index_payments_on_currency"
-    t.index ["payment_type"], name: "index_payments_on_payment_type"
     t.index ["status"], name: "index_payments_on_status"
     t.index ["subscription_plan_variant_id"], name: "index_payments_on_subscription_plan_variant_id"
+    t.index ["type"], name: "index_payments_on_type"
     t.index ["user_id"], name: "index_payments_on_user_id"
   end
 
@@ -279,7 +290,7 @@ ActiveRecord::Schema.define(version: 2025_07_14_125504) do
 
   create_table "subscription_plan_variants", force: :cascade do |t|
     t.integer "subscription_plan_id", null: false
-    t.integer "years"
+    t.integer "days"
     t.decimal "cost_eur", precision: 10, scale: 2
     t.decimal "cost_usd", precision: 10, scale: 2
     t.datetime "created_at", precision: 6, null: false
@@ -300,6 +311,7 @@ ActiveRecord::Schema.define(version: 2025_07_14_125504) do
     t.datetime "updated_at", null: false
     t.integer "nft_id"
     t.string "eth_address"
+    t.boolean "auto_renew", default: false
     t.index ["nft_id"], name: "index_subscriptions_on_nft_id", unique: true, where: "(nft_id IS NOT NULL)"
     t.index ["subscription_plan_variant_id"], name: "index_subscriptions_on_subscription_plan_variant_id"
     t.index ["user_id"], name: "index_subscriptions_on_user_id"
@@ -400,10 +412,10 @@ ActiveRecord::Schema.define(version: 2025_07_14_125504) do
     t.string "name"
     t.boolean "news_banner_dismissed", default: false
     t.boolean "sendgrid_unsubscribed", default: false
-    t.boolean "has_community_access", default: false, null: false
     t.string "time_zone", default: "UTC", null: false
     t.string "oauth_provider"
     t.string "oauth_uid"
+    t.boolean "has_community_access", default: false
     t.index ["confirmation_token"], name: "index_users_on_confirmation_token", unique: true
     t.index ["email"], name: "index_users_on_email", unique: true
     t.index ["reset_password_token"], name: "index_users_on_reset_password_token", unique: true
@@ -422,6 +434,7 @@ ActiveRecord::Schema.define(version: 2025_07_14_125504) do
   add_foreign_key "articles", "authors"
   add_foreign_key "bots", "exchanges"
   add_foreign_key "bots", "users"
+  add_foreign_key "cards", "users"
   add_foreign_key "daily_transaction_aggregates", "bots"
   add_foreign_key "exchange_assets", "assets"
   add_foreign_key "exchange_assets", "exchanges"
