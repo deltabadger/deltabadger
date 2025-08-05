@@ -171,7 +171,7 @@ module Bot::MovingAverageLimitable
 
   def validate_moving_average_limitable_included_in_subscription_plan
     return unless moving_average_limited?
-    return if user.subscription.pro? || user.subscription.legendary?
+    return if user.subscription.standard? || user.subscription.pro? || user.subscription.legendary?
 
     errors.add(:user, :upgrade)
   end

@@ -330,7 +330,7 @@ Malgré le succès de Polymarket et son impact sur les métriques du réseau de 
 
 Commençons par les chiffres bruts.
 
-Polymarket génère environ 27 000 $ de frais de gaz annuels payés en POL. Pour une plateforme qui gère des milliards de volume et consomme 25 % du gaz du réseau pendant les pics, cela peut sembler incroyablement bas, mais cela a du sens lorsque vous comprenez l'économie de Polygon. Le réseau a été conçu pour des frais ultra-bas, avec des transactions coûtant des fractions de centime. <a class="link-source-tile" href="https://www.coindesk.com/tech/2024/10/25/polymarket-is-huge-success-for-polygon-blockchain-everywhere-but-the-bottom-line">coindesk.com</a> 
+Polymarket génère environ 27 000 $ de frais de gaz annuels payés en POL. Pour une plateforme qui gère des milliards de volume et consomme 25 % du gaz du réseau pendant les pics, cela peut sembler incroyablement bas, mais cela a du sens lorsque vous comprenez l'économie de Polygon. Le réseau a été conçu pour des frais ultra-bas, avec des transactions coûtant des fractions de centime. <a class="link-source-tile" href="https://www.coindesk.com/tech/2024/10/25/polymarket-is-huge-success-for-polygon-blockchain-everywhere-but-the-bottom-line">coindesk.com</a>
 
 Ces 27 000 $ représentent environ 6 % des revenus totaux des frais de Polygon – significatifs en pourcentage, négligeables en termes absolus par rapport à la capitalisation boursière de plusieurs milliards de dollars de POL.
 
@@ -347,7 +347,7 @@ Malgré toute cette activité, le POL se négocie autour de 0,226-0,23 $ – en 
 {::nomarkdown}
 <figure class="article__figure">
 <!-- TradingView Widget BEGIN -->
-<div class="tradingview-widget-container" data-controller="tradingview">
+<div class="tradingview-widget-container">
   <div class="tradingview-widget-container__widget"></div>
   <div class="tradingview-widget-copyright"><a href="https://www.tradingview.com/" rel="noopener nofollow" target="_blank"><span class="blue-text">Track all markets on TradingView</span></a></div>
   <script type="text/javascript" src="https://s3.tradingview.com/external-embedding/embed-widget-symbol-overview.js" async>
@@ -403,7 +403,7 @@ Malgré toute cette activité, le POL se négocie autour de 0,226-0,23 $ – en 
 </figure>
 {:/nomarkdown}
 
-### Exigences d'échelle : 10x  
+### Exigences d'échelle : 10x
 
 Pour que le succès de Polymarket ait un impact significatif sur la tokénomique de POL, la plateforme devrait connaître une croissance spectaculaire. Pour créer une déflation nette, les taux de combustion devraient dépasser le taux d'émission de 2 %.
 
@@ -435,7 +435,7 @@ L'éléphant dans la pièce est la question de savoir s'il en lancera un. Pour u
 
 ### Les Preuves s'accumulent
 
-Les miettes de pain sont partout si vous savez où chercher. Polymarket a récemment enregistré le domaine polymarket.foundation. Les domaines de fondation sont devenus le manuel standard pour les protocoles DeFi se préparant à se décentraliser par le biais de lancements de jetons. <a class="link-source-tile" href="https://x.com/ArtDreamdim/status/1943318454183813142">x.com</a> 
+Les miettes de pain sont partout si vous savez où chercher. Polymarket a récemment enregistré le domaine polymarket.foundation. Les domaines de fondation sont devenus le manuel standard pour les protocoles DeFi se préparant à se décentraliser par le biais de lancements de jetons. <a class="link-source-tile" href="https://x.com/ArtDreamdim/status/1943318454183813142">x.com</a>
 
 Ensuite, il y a les tours de financement eux-mêmes. Lorsque Vitalik Buterin et Founders Fund signent des chèques, ils ne s'attendent pas à des rendements sur capitaux propres traditionnels. Ces investisseurs comprennent la tokenomie et ont probablement structuré leurs investissements en pensant aux futures distributions de jetons.
 
@@ -443,9 +443,9 @@ Des rapports récents suggèrent que Polymarket approche d'un tour de financemen
 
 ### Pouvez-vous vous qualifier pour l'airdrop ?
 
-X bourdonne déjà de potentiels airdrops de Polymarket, les communautés crypto discutant activement des stratégies de "farming d'airdrop". La plateforme compte des centaines de milliers d'utilisateurs actifs et des historiques de transactions détaillés remontant à 2020 – des données parfaites pour des distributions de jetons ciblées. Les premiers utilisateurs, les traders à fort volume et les prévisionnistes précis pourraient tous recevoir des allocations en fonction de leurs contributions à la plateforme. <a class="link-source-tile" href="https://coincodex.com/article/67098/polymarket-airdrop/">coincodex.com</a> 
+X bourdonne déjà de potentiels airdrops de Polymarket, les communautés crypto discutant activement des stratégies de "farming d'airdrop". La plateforme compte des centaines de milliers d'utilisateurs actifs et des historiques de transactions détaillés remontant à 2020 – des données parfaites pour des distributions de jetons ciblées. Les premiers utilisateurs, les traders à fort volume et les prévisionnistes précis pourraient tous recevoir des allocations en fonction de leurs contributions à la plateforme. <a class="link-source-tile" href="https://coincodex.com/article/67098/polymarket-airdrop/">coincodex.com</a>
 
-Ouvrir un compte et placer des paris sur Polymarket pourrait potentiellement vous qualifier pour un futur airdrop, sur la base de spéculations communautaires répandues et de stratégies partagées sur Crypto Twitter et les canaux Discord. <a class="link-source-tile" href="https://airdrops.io/polymarket/">airdrops.io</a> 
+Ouvrir un compte et placer des paris sur Polymarket pourrait potentiellement vous qualifier pour un futur airdrop, sur la base de spéculations communautaires répandues et de stratégies partagées sur Crypto Twitter et les canaux Discord. <a class="link-source-tile" href="https://airdrops.io/polymarket/">airdrops.io</a>
 
 De nombreuses plateformes de marchés de prédiction et projets DeFi ont récompensé les premiers adoptants avec des airdrops de jetons, et les utilisateurs de Polymarket "farment" activement la plateforme en augmentant leur volume de transactions dans l'espoir d'être éligibles si un jeton est un jour lancé.
 
@@ -467,4 +467,4 @@ Cela constitue **un argument convaincant pour le réseau Polygon** – à mesure
 
 **Ouvrir un compte sur Polymarket peut potentiellement vous qualifier pour un airdrop à venir**, sur la base de spéculations communautaires répandues et de modèles historiques de plateformes similaires.
 
-Les développements clés à surveiller : les changements réglementaires qui pourraient permettre une réentrée aux États-Unis, l'intégration plus étroite avec X et Grok AI, et les annonces potentielles de lancement de jetons. Les marchés de prédiction deviennent une partie de l'infrastructure de découverte d'informations grand public, et Polymarket est positionné pour diriger cette transformation. 
+Les développements clés à surveiller : les changements réglementaires qui pourraient permettre une réentrée aux États-Unis, l'intégration plus étroite avec X et Grok AI, et les annonces potentielles de lancement de jetons. Les marchés de prédiction deviennent une partie de l'infrastructure de découverte d'informations grand public, et Polymarket est positionné pour diriger cette transformation.

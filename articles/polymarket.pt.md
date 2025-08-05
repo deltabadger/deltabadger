@@ -347,7 +347,7 @@ Apesar de toda esta atividade, o POL negoceia em torno de $0,226-0,23 – uma qu
 {::nomarkdown}
 <figure class="article__figure">
 <!-- TradingView Widget BEGIN -->
-<div class="tradingview-widget-container" data-controller="tradingview">
+<div class="tradingview-widget-container">
   <div class="tradingview-widget-container__widget"></div>
   <div class="tradingview-widget-copyright"><a href="https://www.tradingview.com/" rel="noopener nofollow" target="_blank"><span class="blue-text">Track all markets on TradingView</span></a></div>
   <script type="text/javascript" src="https://s3.tradingview.com/external-embedding/embed-widget-symbol-overview.js" async>
@@ -403,7 +403,7 @@ Apesar de toda esta atividade, o POL negoceia em torno de $0,226-0,23 – uma qu
 </figure>
 {:/nomarkdown}
 
-### Requisitos de Escala: 10x  
+### Requisitos de Escala: 10x
 
 Para que o sucesso da Polymarket tenha um impacto significativo na tokenomics da POL, a plataforma teria de crescer drasticamente. Para criar uma deflação líquida, as taxas de queima teriam de exceder a taxa de emissão de 2%.
 
@@ -467,4 +467,4 @@ Isto torna **um caso convincente para a rede Polygon** – à medida que a Polym
 
 **Abrir uma conta na Polymarket pode potencialmente qualificá-lo para um próximo airdrop**, com base na especulação generalizada da comunidade e nos padrões históricos de plataformas semelhantes.
 
-Desenvolvimentos chave a observar: alterações regulamentares que poderiam permitir a reentrada nos EUA, a integração mais estreita com o X e a Grok AI, e potenciais anúncios de lançamento de tokens. Os mercados de previsão estão a tornar-se parte da infraestrutura de descoberta de informação generalista, e a Polymarket está posicionada para liderar esta transformação. 
+Desenvolvimentos chave a observar: alterações regulamentares que poderiam permitir a reentrada nos EUA, a integração mais estreita com o X e a Grok AI, e potenciais anúncios de lançamento de tokens. Os mercados de previsão estão a tornar-se parte da infraestrutura de descoberta de informação generalista, e a Polymarket está posicionada para liderar esta transformação.

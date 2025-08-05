@@ -158,7 +158,7 @@ module Bot::PriceLimitable
 
   def validate_price_limitable_included_in_subscription_plan
     return unless price_limited?
-    return if user.subscription.pro? || user.subscription.legendary?
+    return if user.subscription.standard? || user.subscription.pro? || user.subscription.legendary?
 
     errors.add(:user, :upgrade)
   end

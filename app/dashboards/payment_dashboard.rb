@@ -16,10 +16,10 @@ class PaymentDashboard < Administrate::BaseDashboard
       searchable_field: 'email'
     ),
     payment_id: Field::String,
-    payment_type: Field::String.with_options(searchable: false),
+    type: Field::String.with_options(searchable: false),
     subscription_plan_variant: Field::BelongsTo,
     status: Field::String.with_options(searchable: false),
-    external_statuses: Field::String,
+    external_statuses: Field::String.with_options(searchable: false),
     total: Field::String.with_options(searchable: false),
     currency: Field::String.with_options(searchable: false),
     btc_total: Field::String.with_options(searchable: false),
@@ -43,7 +43,7 @@ class PaymentDashboard < Administrate::BaseDashboard
   COLLECTION_ATTRIBUTES = %i[
     id
     subscription_plan_variant
-    payment_type
+    type
     status
     total
     currency
@@ -62,7 +62,7 @@ class PaymentDashboard < Administrate::BaseDashboard
   SHOW_PAGE_ATTRIBUTES = %i[
     id
     subscription_plan_variant
-    payment_type
+    type
     status
     total
     currency
@@ -88,7 +88,7 @@ class PaymentDashboard < Administrate::BaseDashboard
   FORM_ATTRIBUTES = %i[
     subscription_plan_variant
     status
-    payment_type
+    type
     total
     currency
     first_name
@@ -112,8 +112,8 @@ class PaymentDashboard < Administrate::BaseDashboard
   COLLECTION_FILTERS = {
     paid: ->(resources) { resources.where(status: :paid) },
     unpaid: ->(resources) { resources.where.not(status: :paid) },
-    wire: ->(resources) { resources.where(payment_type: WIRE_TYPE) },
-    zen: ->(resources) { resources.where(payment_type: ZEN_TYPE) }
+    wire: ->(resources) { resources.wire },
+    zen: ->(resources) { resources.zen }
   }.freeze
   # COLLECTION_FILTERS = {}.freeze
 

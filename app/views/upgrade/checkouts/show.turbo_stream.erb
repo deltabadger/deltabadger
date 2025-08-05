@@ -1,0 +1,17 @@
+<%= turbo_stream.update "plan-card-amount-#{@generic_plan_name}", partial: "upgrades/plan_cards/elements/price", locals: {
+  payment_option: @payment,
+  reference_duration: @reference_duration,
+  reference_payment_option: @reference_payment_option,
+} %>
+<%= turbo_stream.replace "summary", partial: "upgrade/checkouts/summary", locals: {
+  payment: @payment,
+  reference_duration: @reference_duration
+} %>
+<% if @payment.zen? %>
+  <%= turbo_stream.update "zen-payment-button", partial: "upgrade/checkouts/payment_button/zen", locals: { payment: @payment } %>
+<% elsif @payment.btcpay? %>
+  <%= turbo_stream.update "btcpay-payment-button", partial: "upgrade/checkouts/payment_button/btcpay", locals: { payment: @payment } %>
+<% elsif @payment.wire? %>
+  <%= turbo_stream.update "wire-payment-button", partial: "upgrade/checkouts/payment_button/wire", locals: { payment: @payment } %>
+  <%= turbo_stream.update "wire-info", partial: "upgrade/checkouts/wire_info", locals: { payment: @payment } %>
+<% end %>

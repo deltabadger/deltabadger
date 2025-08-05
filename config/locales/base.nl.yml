@@ -24,6 +24,9 @@ nl:
         remove: 'Verwijderen'
         start: 'Starten'
         connect: 'Verbinden'
+        get_started: Beginnen
+        select_plan: 'Selecteer plan'
+        back_to_dashboard: 'Ga naar dashboard'
     data_labels:
         invested: "Totaal geïnvesteerd"
         portfolio_value: "Portfoliowaarde"
@@ -121,6 +124,7 @@ nl:
         index:
             api_key_confirmation: 'Weet je het zeker?'
             api_keys_section: 'API keys'
+            subscription_section: 'Abonnement'
             trading_keys_section: 'Trading keys'
             withdrawal_keys_section: 'Withdrawal keys'
             email_section: Email
@@ -134,6 +138,13 @@ nl:
         two_fa:
             disabled: 'Twee-factor-authenticatie is uitgeschakeld.'
             enabled: 'Twee-factor-authenticatie is ingeschakeld.'
+        api_keys:
+            confirm_delete: "Wilt u deze API-sleutel verwijderen?"
+        subscription:
+            next_payment_html: 'Volgende betaling: %{cost_html}'
+            requires_manual_payment: 'Handmatige betaling vereist'
+            enable_recurring: 'Maak het terugkerend'
+            cancel_subscription: 'Abonnement opzeggen'
     social:
         blog: 'Lees onze blog'
         knowledge_base: Kennisbank

@@ -2,16 +2,16 @@ module User::Upgradeable
   extend ActiveSupport::Concern
 
   def available_plan_names
-    return [] unless subscription&.name.present?
-
-    base_plans = {
-      SubscriptionPlan::FREE_PLAN => [SubscriptionPlan::BASIC_PLAN, SubscriptionPlan::PRO_PLAN],
-      SubscriptionPlan::BASIC_PLAN => [SubscriptionPlan::BASIC_PLAN, SubscriptionPlan::PRO_PLAN],
-      SubscriptionPlan::PRO_PLAN => [SubscriptionPlan::PRO_PLAN]
-    }
+    return [] if subscription.legendary?
 
     available_plans = base_plans[subscription.name] || []
+    if subscription.research_only?
+      available_plans << SubscriptionPlan::RESEARCH_PLAN unless subscription.recurring?
+    elsif subscription.free? || subscription.mini? || subscription.standard?
+      available_plans << SubscriptionPlan::RESEARCH_PLAN
+    end
     available_plans << SubscriptionPlan::LEGENDARY_PLAN if legendary_plan_available?
+
     available_plans
   end
 
@@ -19,5 +19,49 @@ module User::Upgradeable
 
   def legendary_plan_available?
     @legendary_plan_available ||= SubscriptionPlan.legendary.available?
+  end
+
+  def base_plans
+    {
+      SubscriptionPlan::FREE_PLAN => [
+        SubscriptionPlan::MINI_PLAN,
+        SubscriptionPlan::MINI_RESEARCH_PLAN,
+        SubscriptionPlan::STANDARD_PLAN,
+        SubscriptionPlan::STANDARD_RESEARCH_PLAN,
+        SubscriptionPlan::PRO_PLAN
+      ],
+      SubscriptionPlan::MINI_PLAN => [
+        subscription.recurring? ? nil : SubscriptionPlan::MINI_PLAN,
+        subscription.recurring? ? nil : SubscriptionPlan::MINI_RESEARCH_PLAN,
+        SubscriptionPlan::STANDARD_PLAN,
+        SubscriptionPlan::STANDARD_RESEARCH_PLAN,
+        SubscriptionPlan::PRO_PLAN
+      ].compact,
+      SubscriptionPlan::MINI_RESEARCH_PLAN => [
+        subscription.recurring? ? nil : SubscriptionPlan::MINI_PLAN,
+        subscription.recurring? ? nil : SubscriptionPlan::MINI_RESEARCH_PLAN,
+        SubscriptionPlan::STANDARD_PLAN,
+        SubscriptionPlan::STANDARD_RESEARCH_PLAN,
+        SubscriptionPlan::PRO_PLAN
+      ].compact,
+      SubscriptionPlan::STANDARD_PLAN => [
+        subscription.recurring? ? nil : SubscriptionPlan::STANDARD_PLAN,
+        subscription.recurring? ? nil : SubscriptionPlan::STANDARD_RESEARCH_PLAN,
+        SubscriptionPlan::PRO_PLAN
+      ].compact,
+      SubscriptionPlan::STANDARD_RESEARCH_PLAN => [
+        subscription.recurring? ? nil : SubscriptionPlan::STANDARD_PLAN,
+        subscription.recurring? ? nil : SubscriptionPlan::STANDARD_RESEARCH_PLAN,
+        SubscriptionPlan::PRO_PLAN
+      ].compact,
+      SubscriptionPlan::PRO_PLAN => [
+        subscription.recurring? ? nil : SubscriptionPlan::PRO_PLAN
+      ],
+      SubscriptionPlan::RESEARCH_PLAN => [
+        SubscriptionPlan::MINI_PLAN,
+        SubscriptionPlan::STANDARD_PLAN,
+        SubscriptionPlan::PRO_PLAN
+      ]
+    }
   end
 end

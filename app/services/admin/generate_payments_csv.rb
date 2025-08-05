@@ -34,7 +34,7 @@ module Admin
       {
         id: payment.id,
         total: payment.total,
-        currency: payment.currency,
+        currency: payment.currency.upcase,
         first_name: payment.first_name,
         last_name: payment.last_name,
         birth_date: payment.birth_date&.strftime('%F'),

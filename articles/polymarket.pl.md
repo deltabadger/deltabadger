@@ -22,7 +22,7 @@ Słyszałeś to niezliczoną ilość razy – od sceptycznych przyjaciół na ko
 
 Ale od czasu do czasu, coś przebija się przez ten szum.
 
-[Polymarket](https://polymarket.com/) – platforma predykcyjna oparta na krypto, po cichu stała się najbardziej udanym rynkiem predykcyjnym w historii ludzkości. Tylko w 2024 roku wygenerowała ponad 9 miliardów dolarów wolumenu obrotu – więcej niż wiele uznanych rynków finansowych. 
+[Polymarket](https://polymarket.com/) – platforma predykcyjna oparta na krypto, po cichu stała się najbardziej udanym rynkiem predykcyjnym w historii ludzkości. Tylko w 2024 roku wygenerowała ponad 9 miliardów dolarów wolumenu obrotu – więcej niż wiele uznanych rynków finansowych.
 
 {::nomarkdown}
 <figure class="article__figure">
@@ -330,7 +330,7 @@ Pomimo sukcesu Polymarket i jego wpływu na wskaźniki sieci Polygon, jego bezpo
 
 Zacznijmy od twardych liczb.
 
-Polymarket generuje około 27 000 USD rocznych opłat za gaz płaconych w POL. Dla platformy, która obsługuje miliardy wolumenu i zużywa 25% gazu sieciowego w szczytowych momentach, może się to wydawać niemożliwie niskie, ale ma to sens, gdy zrozumie się ekonomię Polygon. Sieć została zaprojektowana z myślą o ultra-niskich opłatach, a transakcje kosztują ułamki centa. <a class="link-source-tile" href="https://www.coindesk.com/tech/2024/10/25/polymarket-is-huge-success-for-polygon-blockchain-everywhere-but-the-bottom-line">coindesk.com</a> 
+Polymarket generuje około 27 000 USD rocznych opłat za gaz płaconych w POL. Dla platformy, która obsługuje miliardy wolumenu i zużywa 25% gazu sieciowego w szczytowych momentach, może się to wydawać niemożliwie niskie, ale ma to sens, gdy zrozumie się ekonomię Polygon. Sieć została zaprojektowana z myślą o ultra-niskich opłatach, a transakcje kosztują ułamki centa. <a class="link-source-tile" href="https://www.coindesk.com/tech/2024/10/25/polymarket-is-huge-success-for-polygon-blockchain-everywhere-but-the-bottom-line">coindesk.com</a>
 
 Te 27 000 USD stanowi około 6% całkowitych przychodów z opłat Polygon – znaczące jako procent, ale znikome w wartościach bezwzględnych w porównaniu z wielomiliardową kapitalizacją rynkową POL.
 
@@ -340,14 +340,14 @@ Aktywność Polymarket przyczynia się do tego spalania, ale znowu, mówimy o sp
 
 Następnie jest zarządzanie. Posiadacze POL głosują nad aktualizacjami sieci, zmianami parametrów i alokacją funduszy ekosystemu. W miarę jak Polygon staje się cenniejszą infrastrukturą – częściowo dzięki aplikacjom takim jak Polymarket – posiadanie głosu w jego zarządzaniu staje się cenniejsze. Teoretycznie mogłoby to napędzać popyt ze strony użytkowników instytucjonalnych, którzy chcą mieć wpływ na sieć, od której zależą.
 
-### Rozbieżność cenowa  
+### Rozbieżność cenowa
 
 Mimo całej tej aktywności, POL jest notowany w okolicach 0,226-0,23 USD – co oznacza spadek o 85% w stosunku do historycznego maksimum. Rozbieżność wynika z polityki pieniężnej Polygon: sieć emituje 2% całkowitej podaży rocznie (1% na nagrody dla walidatorów, 1% na Skarb Społeczności), podczas gdy spalanie opłat historycznie niszczyło około 0,08-0,27% podaży rocznie (przy czym ostatnie wskaźniki zbliżają się do dolnej granicy). Powoduje to inflację netto, która przewyższa wzrost popytu, niezależnie od sukcesu Polymarket. Migracja z MATIC na POL we wrześniu 2024 roku również spowodowała zamieszanie na rynku i presję sprzedażową.
 
 {::nomarkdown}
 <figure class="article__figure">
 <!-- TradingView Widget BEGIN -->
-<div class="tradingview-widget-container" data-controller="tradingview">
+<div class="tradingview-widget-container">
   <div class="tradingview-widget-container__widget"></div>
   <div class="tradingview-widget-copyright"><a href="https://www.tradingview.com/" rel="noopener nofollow" target="_blank"><span class="blue-text">Track all markets on TradingView</span></a></div>
   <script type="text/javascript" src="https://s3.tradingview.com/external-embedding/embed-widget-symbol-overview.js" async>
@@ -403,7 +403,7 @@ Mimo całej tej aktywności, POL jest notowany w okolicach 0,226-0,23 USD – co
 </figure>
 {:/nomarkdown}
 
-### Wymagania dotyczące skali: 10x  
+### Wymagania dotyczące skali: 10x
 
 Aby sukces Polymarket mógł znacząco wpłynąć na tokenomikę POL, platforma musiałaby się radykalnie przeskalować. Aby stworzyć deflację netto, stopy spalania musiałyby przekroczyć 2% stopę emisji.
 
@@ -467,4 +467,4 @@ To stanowi **przekonujący argument za siecią Polygon** – w miarę skalowania
 
 **Otwarcie konta na Polymarket może potencjalnie zakwalifikować Cię do nadchodzącego airdropu**, w oparciu o powszechne spekulacje społeczności i historyczne wzorce z podobnych platform.
 
-Kluczowe wydarzenia do obserwacji: zmiany regulacyjne, które mogłyby pozwolić na ponowne wejście na rynek amerykański, zacieśniająca się integracja z X i Grok AI oraz potencjalne ogłoszenia o wprowadzeniu tokena. Rynki predykcyjne stają się częścią infrastruktury odkrywania informacji głównego nurtu, a Polymarket jest pozycjonowany, aby przewodzić tej transformacji. 
+Kluczowe wydarzenia do obserwacji: zmiany regulacyjne, które mogłyby pozwolić na ponowne wejście na rynek amerykański, zacieśniająca się integracja z X i Grok AI oraz potencjalne ogłoszenia o wprowadzeniu tokena. Rynki predykcyjne stają się częścią infrastruktury odkrywania informacji głównego nurtu, a Polymarket jest pozycjonowany, aby przewodzić tej transformacji.

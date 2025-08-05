@@ -347,7 +347,7 @@ A pesar de toda esta actividad, POL cotiza en torno a 0,226-0,23 dólares, un 85
 {::nomarkdown}
 <figure class="article__figure">
 <!-- TradingView Widget BEGIN -->
-<div class="tradingview-widget-container" data-controller="tradingview">
+<div class="tradingview-widget-container">
   <div class="tradingview-widget-container__widget"></div>
   <div class="tradingview-widget-copyright"><a href="https://www.tradingview.com/" rel="noopener nofollow" target="_blank"><span class="blue-text">Track all markets on TradingView</span></a></div>
   <script type="text/javascript" src="https://s3.tradingview.com/external-embedding/embed-widget-symbol-overview.js" async>
@@ -467,4 +467,4 @@ Esto presenta **un caso convincente para la red Polygon**: a medida que Polymark
 
 **Abrir una cuenta en Polymarket puede calificarlo potencialmente para un próximo airdrop**, según la especulación generalizada de la comunidad y los patrones históricos de plataformas similares.
 
-Desarrollos clave a seguir: cambios regulatorios que podrían permitir el reingreso en EE. UU., la integración cada vez más estrecha con X y Grok AI, y posibles anuncios de lanzamiento de tokens. Los mercados de predicción se están convirtiendo en parte de la infraestructura de descubrimiento de información convencional, y Polymarket está posicionada para liderar esta transformación. 
+Desarrollos clave a seguir: cambios regulatorios que podrían permitir el reingreso en EE. UU., la integración cada vez más estrecha con X y Grok AI, y posibles anuncios de lanzamiento de tokens. Los mercados de predicción se están convirtiendo en parte de la infraestructura de descubrimiento de información convencional, y Polymarket está posicionada para liderar esta transformación.
