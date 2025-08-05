@@ -61,3 +61,47 @@ en:
                 <p><b>Buyer:</b></p>
                 <p> %{first_name} %{last_name} <br>
                 %{email}</p>
+        subscription_expiry_warning:
+            subject: "Your subscription expires in %{days_until_expiry} days"
+            template_html: |
+                <p>Your <strong>%{plan_name}</strong> subscription will expire on <strong>%{expiry_date}</strong> (in %{days_until_expiry} days).</p>
+                <p>To keep all your features active, please renew your subscription before the expiry date.</p>
+            bots_will_stop:
+                zero: ""
+                one: "Otherwise, your bot <b>%{label}</b> will be automatically stopped."
+                other: "Otherwise, your %{count} bots will be automatically stopped:"
+            research_access_lost: "You'll also lose access to the Premium newsletter and Analyzer."
+            research_only_warning: "Otherwise, you'll lose access to the newsletter and analyzer if your subscription expires."
+            renew_subscription: "Renew Subscription Now"
+        bots_stopped_notification:
+            subject: "Your subscription has expired"
+            template_html: |
+                <p>Your <strong>%{expired_plan}</strong> subscription has expired.</p>
+                <p>Don't worry - your account and data are safe!</p>
+            stopped_bots_list:
+                zero: ""
+                one: "The bot <b>%{label}</b> has been automatically stopped."
+                other: "These %{count} bots have been automatically stopped:"
+            restart_action:
+                zero: ""
+                one: "You can restart it anytime after renewing."
+                other: "You can restart them anytime after renewing."
+            settings_preserved: "All your settings and configurations will remain exactly as you left them."
+            no_bots_affected: "You can still access your account, but Premium newsletter and Analyzer will be waiting until you renew your subscription."
+            renew_subscription: "Renew Subscription Now"
+        checkout_abandonment:
+            subject: "Complete your upgrade, and start DCA today!"
+            template_html: |
+                <p>We noticed you started upgrading to the <strong>%{plan_name}</strong> plan but didn't complete the payment.</p>
+                <p>You're just one step away from unlocking the magic of dollar-cost averaging.</p>
+            missing_features_title: "Here's what you're missing:"
+            features:
+                dca_bots: "DCA Bots"
+                fee_cutter: "FeeCutter"
+                smart_intervals: "Smart Intervals"
+                triggers: "Triggers (RSI, SMA/EMA, etc.)"
+                newsletter: "Premium Newsletter"
+                analyzer: "Portfolio Analyzer"
+            limited_time_offer: "Complete your upgrade and start dollar-cost averaging today."
+            complete_upgrade: "Upgrade"
+            no_payment_taken: "No payment has been processed yet. You can complete your upgrade at any time."

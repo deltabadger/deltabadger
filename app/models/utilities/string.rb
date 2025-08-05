@@ -10,5 +10,12 @@ module Utilities
 
       raise ArgumentError, "Invalid boolean value: #{string}"
     end
+
+    def self.to_duration(string)
+      return nil if string.blank?
+
+      number, unit = string.split('.')
+      number.to_i.send(unit)
+    end
   end
 end

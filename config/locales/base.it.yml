@@ -6,7 +6,7 @@ it:
     ads:
         dca_profit_html: |
             <p>Se avessi fatto dollar-cost averaging in Bitcoin negli ultimi %{years}&nbsp;anni, ora saresti in attivo del <b style="color: #00A36C;">%{profit}%</b>.</p>
-            <p>Questo è <b style="color: #00A36C;">%{sp500_diff}%</b> in più rispetto all'S&P 500 nello stesso periodo.</p>        
+            <p>Questo è <b style="color: #00A36C;">%{sp500_diff}%</b> in più rispetto all'S&P 500 nello stesso periodo.</p>
     button:
         ok: 'OK'
         update: 'Aggiorna'
@@ -24,6 +24,9 @@ it:
         remove: 'Rimuovi'
         start: 'Inizia'
         connect: 'Connetti'
+        get_started: Inizia
+        select_plan: 'Seleziona Piano'
+        back_to_dashboard: 'Vai alla dashboard'
     data_labels:
         invested: "Totale Investito"
         portfolio_value: "Valore del Portafoglio"
@@ -127,9 +130,17 @@ it:
         two_fa:
             disabled: 'L''autenticazione a due fattori è stata disabilitata.'
             enabled: 'L''autenticazione a due fattori è stata abilitata.'
+        api_keys:
+            confirm_delete: "Vuoi eliminare questa chiave API?"
+        subscription:
+            next_payment_html: 'Prossimo pagamento: %{cost_html}'
+            requires_manual_payment: 'Richiede pagamento manuale'
+            enable_recurring: 'Rendilo ricorrente'
+            cancel_subscription: "Annulla l'abbonamento"
         index:
             api_key_confirmation: 'Sei sicuro?'
             api_keys_section: 'Chiavi API'
+            subscription_section: 'Abbonamento'
             trading_keys_section: 'Chiavi Trading'
             withdrawal_keys_section: 'Chiavi Prelievo'
             email_section: Email

@@ -32,7 +32,7 @@ module Bot::Fundable
     # # notified_in_last_day? per bot
     # last_end_of_funds_notification.present? && last_end_of_funds_notification > 1.day.ago
 
-    # notified_in_last_day? per currency
+    # notified_in_last_day? per asset
     legacy_buy_bots = user.bots
                           .basic
                           .where('settings @> ?', { type: 'buy' }.to_json)
