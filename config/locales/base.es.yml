@@ -8,7 +8,7 @@ es:
             <p>Si hubieras hecho DCA en Bitcoin durante los últimos %{years}&nbsp;años, ahora tendrías unos beneficios de <b style="color: #00A36C;">%{profit}%</b>.</p>
             <p>Eso es un <b style="color: #00A36C;">%{sp500_diff}%</b> más que el S&P 500 en el mismo período.</p>
     button:
-        ok: 'Aceptar'
+        ok: 'OK'
         update: 'Actualizar'
         save: 'Guardar'
         cancel: 'Cancelar'
@@ -24,6 +24,9 @@ es:
         remove: 'Quitar'
         start: 'Empezar'
         connect: 'Conectar'
+        get_started: Empezar
+        select_plan: 'Seleccionar Plan'
+        back_to_dashboard: 'Ir al panel'
     data_labels:
         invested: "Total invertido"
         portfolio_value: "Valor de la cartera"
@@ -129,9 +132,15 @@ es:
             enabled: 'La autenticación de dos factores ha sido activada.'
         api_keys:
             confirm_delete: '¿Quieres eliminar esta clave API?'
+        subscription:
+            next_payment_html: 'Próximo pago: %{cost_html}'
+            requires_manual_payment: 'Requiere pago manual'
+            enable_recurring: 'Hacerlo recurrente'
+            cancel_subscription: 'Cancelar suscripción'
         index:
             api_key_confirmation: '¿Estás seguro?'
             api_keys_section: 'Claves API'
+            subscription_section: 'Suscripción'
             trading_keys_section: 'Claves API de trading'
             withdrawal_keys_section: 'Claves API de retiro'
             email_section: 'Correo electrónico'

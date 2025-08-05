@@ -23,6 +23,12 @@ class Bot < ApplicationRecord
   after_update_commit :broadcast_status_button_update, if: :saved_change_to_status?
   after_update_commit -> { Bot::UpdateMetricsJob.perform_later(self) if custom_exchange_id_changed? }
 
+  validate :validate_bot_count_in_subscription_plan, on: :start
+
+  def start
+    raise NotImplementedError, "#{self.class.name} must implement start"
+  end
+
   def working?
     scheduled? || executing? || retrying? || waiting?
   end
@@ -138,6 +144,14 @@ class Bot < ApplicationRecord
   end
 
   private
+
+  def validate_bot_count_in_subscription_plan
+    max_bots = user.subscription.max_bots
+    return unless max_bots.present?
+    return if user.bots.working.count < max_bots
+
+    errors.add(:user, :upgrade)
+  end
 
   def store_previous_exchange_id
     @previous_exchange_id = exchange_id_was

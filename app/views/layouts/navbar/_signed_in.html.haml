@@ -10,11 +10,19 @@
   = link_to calculator_path, class: 'menu-mobile__item menu-mobile__item--calculator', data: { controller: 'tooltip', action: 'mouseenter->tooltip#showTooltip mouseleave->tooltip#hideTooltip' } do
     = t('links.calculator')
 
-  = link_to portfolios_path, class: 'menu-mobile__item menu-mobile__item--analyzer', data: { controller: 'tooltip', action: 'mouseenter->tooltip#showTooltip mouseleave->tooltip#hideTooltip' } do
-    = t('links.analyzer')
+  - if current_user.subscription.research?
+    = link_to portfolios_path, class: 'menu-mobile__item menu-mobile__item--analyzer', data: { controller: 'tooltip', action: 'mouseenter->tooltip#showTooltip mouseleave->tooltip#hideTooltip' } do
+      = t('links.analyzer')
+  - else
+    = link_to upgrade_instructions_path, class: 'menu-mobile__item menu-mobile__item--upgrade', data: { controller: 'tooltip', action: 'mouseenter->tooltip#showTooltip mouseleave->tooltip#hideTooltip', turbo_frame: "modal" } do
+      = t('subscriptions.upgrade_plan')
 
   = link_to articles_path, class: 'menu-mobile__item menu-mobile__item--articles', data: { controller: 'tooltip', action: 'mouseenter->tooltip#showTooltip mouseleave->tooltip#hideTooltip' } do
     = t('links.articles')
+
+  = link_to 'https://t.me/+V-TV99Y6suYATK8F', class: "menu-mobile__item menu-mobile__item--community", data: { controller: 'tooltip', action: 'mouseenter->tooltip#showTooltip mouseleave->tooltip#hideTooltip' }, target: "_blank", rel: "noopener" do
+    = t('links.community')
+    = render "svg/16x16_link"
 
   = link_to affiliate_path, class: "menu-mobile__item menu-mobile__item--referral-program", data: { controller: 'tooltip', action: 'mouseenter->tooltip#showTooltip mouseleave->tooltip#hideTooltip' } do
     = t('links.referral_program')
@@ -29,13 +37,6 @@
     = link_to upgrade_path, class: 'menu-mobile__item menu-mobile__item--upgrade', data: { controller: 'tooltip', action: 'mouseenter->tooltip#showTooltip mouseleave->tooltip#hideTooltip' } do
       = t('subscriptions.upgrade_plan')
   .menu-mobile__divider
-  - if current_user.has_community_access? || ["basic", "legendary", "pro"].include?(current_user.subscription.name)
-    = link_to 'https://t.me/+V-TV99Y6suYATK8F', class: "menu-mobile__item menu-mobile__item--community", data: { controller: 'tooltip', action: 'mouseenter->tooltip#showTooltip mouseleave->tooltip#hideTooltip' }, target: "_blank", rel: "noopener" do
-      = t('links.community')
-      = render "svg/16x16_link"
-  - else
-    = link_to settings_community_access_instructions_path, class: "menu-mobile__item menu-mobile__item--community", data: { controller: 'tooltip', action: 'mouseenter->tooltip#showTooltip mouseleave->tooltip#hideTooltip', turbo_frame: "modal" } do
-      = t('links.community')
 
   .menu-mobile__divider
   .menu-mobile__item
@@ -86,27 +87,27 @@
       .tooltip
         = t('links.calculator')
 
-    = link_to portfolios_path, class: 'menu__item menu__item--analyzer', data: { controller: 'tooltip', action: 'mouseenter->tooltip#showTooltip mouseleave->tooltip#hideTooltip' } do
-      = render 'svg/24x24_prism_c'
-      .tooltip
-        = t('links.analyzer')
+    - if current_user.subscription.research?
+      = link_to portfolios_path, class: 'menu__item menu__item--analyzer', data: { controller: 'tooltip', action: 'mouseenter->tooltip#showTooltip mouseleave->tooltip#hideTooltip' } do
+        = render 'svg/24x24_prism_c'
+        .tooltip
+          = t('links.analyzer')
+    - else
+      = link_to upgrade_instructions_path, class: 'menu__item menu__item--upgrade', data: { controller: 'tooltip', action: 'mouseenter->tooltip#showTooltip mouseleave->tooltip#hideTooltip', turbo_frame: "modal" } do
+        = render 'svg/24x24_prism_c'
+        .tooltip
+          = t('links.analyzer')
 
     = link_to articles_path, class: 'menu__item menu__item--articles', data: { controller: 'tooltip', action: 'mouseenter->tooltip#showTooltip mouseleave->tooltip#hideTooltip' } do
       = render 'svg/24x24_a'
       .tooltip
         = t('links.articles')
 
-    - if current_user.has_community_access? || ["basic", "legendary", "pro"].include?(current_user.subscription.name)
-      = link_to 'https://t.me/+V-TV99Y6suYATK8F', class: "menu__item menu__item--community", data: { controller: 'tooltip', action: 'mouseenter->tooltip#showTooltip mouseleave->tooltip#hideTooltip' }, target: "_blank", rel: "noopener" do
-        = render 'svg/24x24_community'
-        //.xsbadge= t('utils.new')
-        .tooltip
-          = t('links.community')
-    - else
-      = link_to settings_community_access_instructions_path, class: "menu__item menu__item--community", data: { controller: 'tooltip', action: 'mouseenter->tooltip#showTooltip mouseleave->tooltip#hideTooltip', turbo_frame: "modal" } do
-        = render 'svg/24x24_community'
-        .tooltip
-          = t('links.community')
+    = link_to 'https://t.me/+V-TV99Y6suYATK8F', class: "menu__item menu__item--community", data: { controller: 'tooltip', action: 'mouseenter->tooltip#showTooltip mouseleave->tooltip#hideTooltip' }, target: "_blank", rel: "noopener" do
+      = render 'svg/24x24_community'
+      //.xsbadge= t('utils.new')
+      .tooltip
+        = t('links.community')
 
     = link_to affiliate_path, class: "menu__item menu__item--referral-program", data: { controller: 'tooltip', action: 'mouseenter->tooltip#showTooltip mouseleave->tooltip#hideTooltip' } do
       = render 'svg/24x24_bitcoin'
@@ -123,7 +124,7 @@
         = render 'svg/24x24_legendary'
         .tooltip
           = t('links.legendary')
-          = t('subscriptions.plan_life_time')
+          = t('subscriptions.variant_lifetime')
     - else
       = link_to upgrade_path, class: 'menu__item menu__item--upgrade', data: { controller: 'tooltip', action: 'mouseenter->tooltip#showTooltip mouseleave->tooltip#hideTooltip' } do
         = render 'svg/24x24_upgrade'

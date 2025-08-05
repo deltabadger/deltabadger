@@ -8,7 +8,6 @@ de:
             <p>Wenn Sie in den letzten %{years}&nbsp;Jahren regelmäßig in Bitcoin investiert hätten, lägen Sie jetzt <b style="color: #00A36C;">%{profit}%</b> im Plus.</p>
             <p>Das sind <b style="color: #00A36C;">%{sp500_diff}%</b> mehr als der S&P 500 im gleichen Zeitraum.</p>
     button:
-        connect: "Verbinden"
         ok: 'OK'
         update: 'Aktualisieren'
         save: 'Speichern'
@@ -24,6 +23,10 @@ de:
         add: 'Hinzufügen'
         remove: 'Entfernen'
         start: 'Starten'
+        connect: "Verbinden"
+        get_started: Loslegen
+        select_plan: 'Plan auswählen'
+        back_to_dashboard: 'Zum Dashboard'
     data_labels:
         invested: "Gesamtinvestition"
         portfolio_value: "Portfoliowert"
@@ -129,9 +132,17 @@ de:
             enabled: 'Die Zwei-Faktor-Authentifizierung wurde aktiviert.'
         api_keys:
             confirm_delete: 'Möchten Sie diesen API-Schlüssel löschen?'
+        subscription:
+            next_payment_html: 'Nächste Zahlung: %{cost_html}'
+            requires_manual_payment: 'Manuelle Zahlung erforderlich'
+            enable_recurring: 'Wiederkehrend machen'
+            cancel_subscription: 'Abonnement kündigen'
         index:
             api_key_confirmation: 'Bist du sicher?'
             api_keys_section: API-Schlüssel
+            subscription_section: 'Abonnement'
+            trading_keys_section: 'Handelsschlüssel'
+            withdrawal_keys_section: 'Auszahlungsschlüssel'
             email_section: E-Mail
             name_section: Name
             password_section: Passwort

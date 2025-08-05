@@ -216,7 +216,7 @@ class Exchanges::Binance < Exchange
           candle[5].to_d
         ]
       end
-      break if result.data.last.empty? || result.data.last[0] > timeframe.ago.to_i * 1000
+      break if result.data.last.nil? || result.data.empty? || result.data.last[0] > timeframe.ago.to_i * 1000
 
       start_at = candles.empty? ? start_at + limit * interval.to_i * 1000 : candles.last[0] + 1
     end
@@ -351,7 +351,7 @@ class Exchanges::Binance < Exchange
 
   def get_aggregated_trades_for_orders(orders)
     aggregated_trades_by_order_id = {}
-    symbols = orders.group_by { |order| order[:ticker].ticker }
+    symbols = orders.group_by { |order| order[:order_id].split('-').first }
     limit = 1000
     symbols.each do |symbol, symbol_orders|
       ext_order_ids = symbol_orders.map { |order| order[:order_id].split('-').last.to_i }
@@ -631,12 +631,15 @@ class Exchanges::Binance < Exchange
     commission = Utilities::Hash.dig_or_raise(trade_data, 'commission').to_d
     commission_asset = Utilities::Hash.dig_or_raise(trade_data, 'commissionAsset')
     side = Utilities::Hash.dig_or_raise(trade_data, 'isBuyer') == true ? :buy : :sell
-    amount_exec = if commission_asset == ticker.base
+    # Fallback to symbol if ticker is not found, only used for renamed tickers like RNDRUSDT -> RENDERUSDC
+    commission_in_base = ticker.present? ? commission_asset == ticker.base : symbol.start_with?(commission_asset)
+    commission_in_quote = ticker.present? ? commission_asset == ticker.quote : symbol.end_with?(commission_asset)
+    amount_exec = if commission_in_base
                     side == :buy ? (amount - commission) : (amount + commission)
                   else
                     amount
                   end
-    quote_amount_exec = if commission_asset == ticker.quote
+    quote_amount_exec = if commission_in_quote
                           side == :buy ? (quote_amount + commission) : (quote_amount - commission)
                         else
                           quote_amount
