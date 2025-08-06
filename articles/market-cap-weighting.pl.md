@@ -4,7 +4,7 @@ subtitle: 'Jak przekształcić dowolny portfel w osobisty fundusz indeksowy'
 author_id: 1
 thumbnail: market-cap-weighting.avif
 excerpt: '45% AUM funduszy jest zarządzane z ważeniem kapitalizacją rynkową, ale ta strategia działa jeszcze lepiej w krypto. Odkrywamy, jak przekształcić dowolny portfel w osobisty ETF.'
-x_url: https://x.com/deltabadgerapp/status/1950462030970016075
+x_url: https://x.com/deltabadgerapp/status/1952974526746448114
 telegram_url: https://t.me/deltabadger/103
 paywall_hook: |
    <ul>
@@ -76,7 +76,7 @@ Większe aktywa zazwyczaj mają lepszą płynność, a ważenie kapitalizacją r
 
 Czy ważenie kapitalizacją rynkową działa w krypto? Nie tylko działa, ale można argumentować, że działa nawet lepiej. Oto dlaczego:
 
-<!--PAYWALL -->
+<!-- PAYWALL -->
 
 ### Rynek kryptowalut jest bardziej skoncentrowany
 
