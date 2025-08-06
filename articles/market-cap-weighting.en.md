@@ -5,15 +5,15 @@ author_id: 1
 thumbnail: market-cap-weighting.avif
 excerpt: '45% of the funds AUM are managed with market cap weighting, but this strategy works even better in crypto. We explore how to change any portfolio into a personal ETF.'
 x_url: https://x.com/deltabadgerapp/status/1950462030970016075
-telegram_url: https://t.me/deltabadger/101
+telegram_url: https://t.me/deltabadger/103
 paywall_hook: |
    <ul>
        <li>Why market cap weighting works even better in crypto?</li>
        <li>The best cryptocurrency index to follow</li>
-       <li>The best strategy for Altcoin Season</li>
+       <li>A strategy for Altcoin Season</li>
    </ul>
 published: true
-published_at: "2025-08-02"
+published_at: "2025-08-05"
 ---
 
 In 1923, Standard Statistics Company set out to accomplish what seemed like an abstract goal: capture the entire U.S. market in a single number. Their weekly index of 233 stocks would eventually evolve into the S&P 500 in 1957, laying the groundwork for the market cap weighting revolution that transformed retail investing forever starting in the mid-seventies. <a class="link-source-tile" href="https://en.wikipedia.org/wiki/S&P_500">wikipedia.org</a>
@@ -22,7 +22,7 @@ The first index funds were often equally weighted. Jack Bogle's groundbreaking c
 
 Critics initially saw its meager growth as proof that Americans would never settle for "average" returns. But then the 1982 bull market arrived, and something remarkable happened. As stocks soared, Bogle's simple index fund suddenly wasn't looking foolish anymore—it was keeping pace with the market's climb while active managers stumbled trying to beat it.
 
->*Don’t look for the needle in the haystack. Just buy the haystack!*
+>*Don't look for the needle in the haystack. Just buy the haystack!*
 >
 >— John C. Bogle
 
@@ -48,7 +48,7 @@ In a **market cap-weighted index**, each asset's influence is proportional to it
 
 ### Indexing
 
-You can use market cap to weight any assets, but to keep your portfolio relevant, you can let market cap determine not only how much of each asset to hold, but also which assets belong in your basket. This idea is even more important. If you follow the S&P 500 index over time, its composition is constantly changing. So periodically, some assets fall out of your portfolio, replaced by better-performing ones. This is the only time when an index portfolio requires rebalancing and selling some assets.
+You can use market cap to weight any assets, but to keep your portfolio relevant, you can let market cap determine not only how much of each asset to hold but also which assets belong in your basket. This idea is even more important. If you follow the S&P 500 index over time, its composition is constantly changing. So periodically, some assets fall out of your portfolio, replaced by better-performing ones. This is the only time when an index portfolio requires rebalancing and selling some assets.
 
 ## Five Reasons Why Market Cap Weighting Won
 
@@ -76,7 +76,7 @@ Larger assets typically have better liquidity, and market cap weighting naturall
 
 Does market cap weighting work in crypto? Not only does it work, but you could argue it works even better. Here's why:
 
-<!-- PAYWALL -->
+<!--PAYWALL -->
 
 ### Cryptocurrency Market Is More Concentrated
 
@@ -107,6 +107,10 @@ While stock investors can pick among a wide variety of ETFs, for digital asset i
 ### Cryptocurrencies Are Divisible
 
 Finally, contrary to stocks, **cryptocurrencies are very divisible**, allowing investors to accurately apply market cap weighting to even relatively small portfolios.
+
+### Pay attention!
+
+An important difference in the cryptocurrency market is that **not all market caps are created equal**. Many projects hold a large portion of their coins in reserve, creating artificial scarcity. When prices rise, project founders can dump these reserved coins on the market, diluting value for other holders. This is why you need to look at "circulating supply" rather than total supply when evaluating market caps.
 
 ## Building Your Personal Crypto ETF
 
@@ -150,9 +154,9 @@ One thing is sure: if you're after an Altcoin Season, there is no better way to 
 
 ### How to Start
 
-While we build our first true index bot, you can start the adventure with market cap weighting today. Create a rebalanced DCA bot of Bitcoin and Ethereum, and remember to use market cap weighting. Historically, such a bot outperformed Bitcoin, and the strategy is fully automated.
+While we build our first true index bot, you can start the adventure with market cap weighting today. Create a [rebalanced DCA bot](https://deltabadger.com/academy/rebalanced-dca/) of Bitcoin and Ethereum, and remember to use market cap weighting. Historically, such a bot outperformed Bitcoin, and the strategy is fully automated.
 
----
+![Rebalanced DCA bot](https://deltabadger.com/images/articles/mcap/rebalanced-dca.avif)
 
 ## Be Legendary
 
@@ -160,4 +164,4 @@ At Deltabadger, our mission is to bring indexing to digital asset investors and 
 
 Index investing is a path for a lifetime.
 
-If you're long-term oriented and that vision sounds exciting, cement your lifetime access to all the tools with no extra costs by becoming one of the 1000 Legendary Badgers.
+If you're long-term oriented and that vision sounds exciting, cement your [lifetime access to all the tools with no extra costs by becoming one of the 1,000 Legendary Badgers](../../upgrade).
