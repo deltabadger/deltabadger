@@ -1,10 +1,13 @@
 module Upgrades::Showable
   extend ActiveSupport::Concern
 
+  included do
+    include Upgrades::Payable
+  end
+
   private
 
   def set_show_instance_variables
-    @name_pattern = User::Name::PATTERN
     @selected_days = session[:payment_config]['days']
     @reference_payment_options = payment_options_for(available_variant_days.min)
     @reference_duration = SubscriptionPlanVariant.find_by(days: available_variant_days.min).duration
@@ -35,7 +38,7 @@ module Upgrades::Showable
   end
 
   def available_plan_names
-    @available_plan_names ||= current_user.available_plan_names
+    @available_plan_names ||= (current_user || mock_current_user).available_plan_names
   end
 
   def available_variant_days
