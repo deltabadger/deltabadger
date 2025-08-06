@@ -4,7 +4,7 @@ subtitle: 'Como Transformar Qualquer Carteira num Fundo de Índice Pessoal'
 author_id: 1
 thumbnail: market-cap-weighting.avif
 excerpt: '45% dos AUM dos fundos são geridos com ponderação por capitalização de mercado, mas esta estratégia funciona ainda melhor em cripto. Exploramos como transformar qualquer carteira num ETF pessoal.'
-x_url: https://x.com/deltabadgerapp/status/1950462030970016075
+x_url: https://x.com/deltabadgerapp/status/1952974526746448114
 telegram_url: https://t.me/deltabadger/103
 paywall_hook: |
    <ul>
@@ -76,7 +76,7 @@ Os ativos maiores têm normalmente melhor liquidez, e a ponderação por capital
 
 A ponderação por capitalização de mercado funciona em cripto? Não só funciona, como se poderia argumentar que funciona ainda melhor. Eis o porquê:
 
-<!--PAYWALL -->
+<!-- PAYWALL -->
 
 ### O Mercado de Criptomoedas é Mais Concentrado
 
