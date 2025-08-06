@@ -4,7 +4,7 @@ subtitle: "Comment transformer n'importe quel portefeuille en un fonds indiciel 
 author_id: 1
 thumbnail: market-cap-weighting.avif
 excerpt: "45 % des actifs sous gestion des fonds sont gérés avec une pondération par la capitalisation boursière, mais cette stratégie fonctionne encore mieux dans le domaine des cryptomonnaies. Nous explorons comment transformer n'importe quel portefeuille en un ETF personnel."
-x_url: https://x.com/deltabadgerapp/status/1950462030970016075
+x_url: https://x.com/deltabadgerapp/status/1952974526746448114
 telegram_url: https://t.me/deltabadger/103
 paywall_hook: |
    <ul>
@@ -76,7 +76,7 @@ Les actifs plus importants ont généralement une meilleure liquidité, et la po
 
 La pondération par la capitalisation boursière fonctionne-t-elle dans les cryptomonnaies ? Non seulement elle fonctionne, mais on pourrait soutenir qu'elle fonctionne encore mieux. Voici pourquoi :
 
-<!--PAYWALL -->
+<!-- PAYWALL -->
 
 ### Le marché des cryptomonnaies est plus concentré
 

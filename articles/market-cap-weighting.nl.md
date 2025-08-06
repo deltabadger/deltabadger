@@ -4,7 +4,7 @@ subtitle: 'Hoe je elke portefeuille kunt veranderen in een persoonlijk indexfond
 author_id: 1
 thumbnail: market-cap-weighting.avif
 excerpt: '45% van het AUM van fondsen wordt beheerd met market cap weighting, maar deze strategie werkt nog beter in crypto. We onderzoeken hoe je elke portefeuille kunt veranderen in een persoonlijke ETF.'
-x_url: https://x.com/deltabadgerapp/status/1950462030970016075
+x_url: https://x.com/deltabadgerapp/status/1952974526746448114
 telegram_url: https://t.me/deltabadger/103
 paywall_hook: |
    <ul>
@@ -76,7 +76,7 @@ Grotere activa hebben doorgaans een betere liquiditeit, en market cap weighting 
 
 Werkt market cap weighting in crypto? Het werkt niet alleen, je zou kunnen stellen dat het zelfs beter werkt. Hier is waarom:
 
-<!--PAYWALL -->
+<!-- PAYWALL -->
 
 ### De cryptomarkt is meer geconcentreerd
 

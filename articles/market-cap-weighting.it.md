@@ -4,7 +4,7 @@ subtitle: 'Come Trasformare Qualsiasi Portafoglio in un Fondo Indice Personale'
 author_id: 1
 thumbnail: market-cap-weighting.avif
 excerpt: 'Il 45% degli AUM dei fondi è gestito con la ponderazione per capitalizzazione di mercato, ma questa strategia funziona ancora meglio nelle criptovalute. Esploriamo come trasformare qualsiasi portafoglio in un ETF personale.'
-x_url: https://x.com/deltabadgerapp/status/1950462030970016075
+x_url: https://x.com/deltabadgerapp/status/1952974526746448114
 telegram_url: https://t.me/deltabadger/103
 paywall_hook: |
    <ul>
@@ -76,7 +76,7 @@ Gli asset più grandi hanno in genere una liquidità migliore e la ponderazione 
 
 La ponderazione per capitalizzazione di mercato funziona nelle criptovalute? Non solo funziona, ma si potrebbe sostenere che funzioni anche meglio. Ecco perché:
 
-<!--PAYWALL -->
+<!-- PAYWALL -->
 
 ### Il Mercato delle Criptovalute è Più Concentrato
 
