@@ -1,1 +1,1 @@
-= render partial: (current_user.nil? ? 'layouts/navbar/guest': 'layouts/navbar/signed_in')
+= render partial: (user_signed_in? ? 'layouts/navbar/signed_in': 'layouts/navbar/guest')
