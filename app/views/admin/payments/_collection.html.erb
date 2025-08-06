@@ -45,8 +45,8 @@ to display a collection of resources in an HTML table.
           <% end %>
         </th>
       <% end %>
-      <% [valid_action?(:edit, collection_presenter.resource_name),
-          valid_action?(:destroy, collection_presenter.resource_name)].count(true).times do %>
+      <% [accessible_action?(:edit, collection_presenter.resource_name),
+          accessible_action?(:destroy, collection_presenter.resource_name)].count(true).times do %>
         <th scope="col"></th>
       <% end %>
     </tr>
@@ -56,7 +56,7 @@ to display a collection of resources in an HTML table.
     <% resources.each do |resource| %>
       <tr class="js-table-row"
           tabindex="0"
-          <% if valid_action? :show, collection_presenter.resource_name %>
+          <% if accessible_action?(:show, collection_presenter.resource_name) %>
             <%= %(role=link data-url=#{polymorphic_path([namespace, resource])}) %>
           <% end %>
           >
@@ -72,7 +72,7 @@ to display a collection of resources in an HTML table.
           </td>
         <% end %>
 
-        <% if valid_action? :edit, collection_presenter.resource_name %>
+        <% if accessible_action?(:edit, collection_presenter.resource_name) %>
           <td><%= link_to(
             t("administrate.actions.edit"),
             [:edit, namespace, resource],
@@ -80,7 +80,7 @@ to display a collection of resources in an HTML table.
           ) if show_action? :edit, resource%></td>
         <% end %>
 
-        <% if valid_action? :destroy, collection_presenter.resource_name %>
+        <% if accessible_action?(:destroy, collection_presenter.resource_name) %>
           <td><%= button_to(
             t("administrate.actions.destroy"),
             [namespace, resource],
@@ -92,7 +92,7 @@ to display a collection of resources in an HTML table.
         <% if resource.wire? && resource.paid? %>
           <td><%= button_to(
             'Confirm',
-            confirm_admin_payments_path(resource),
+            confirm_admin_payments_path(id: resource.id),
             style: "color: green",
             method: :put,
             data: { turbo_confirm: t("administrate.actions.confirm") }
