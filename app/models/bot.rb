@@ -25,10 +25,6 @@ class Bot < ApplicationRecord
 
   validate :validate_bot_count_in_subscription_plan, on: :start
 
-  def start
-    raise NotImplementedError, "#{self.class.name} must implement start"
-  end
-
   def working?
     scheduled? || executing? || retrying? || waiting?
   end
