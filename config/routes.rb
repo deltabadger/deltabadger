@@ -44,9 +44,8 @@ Rails.application.routes.draw do
       resources :btcpays
       resources :wires
     end
-    resources :payments do
+    resources :payments, only: [:index] do
       get :csv, on: :collection
-      get :csv_wire, on: :collection
       put '/confirm/:id', action: :confirm, as: :confirm, on: :collection
     end
     put '/change_setting_flag', to: 'settings#change_setting_flag'
