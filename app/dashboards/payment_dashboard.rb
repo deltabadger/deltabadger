@@ -113,7 +113,8 @@ class PaymentDashboard < Administrate::BaseDashboard
     paid: ->(resources) { resources.where(status: :paid) },
     unpaid: ->(resources) { resources.where.not(status: :paid) },
     wire: ->(resources) { resources.wire },
-    zen: ->(resources) { resources.zen }
+    zen: ->(resources) { resources.zen },
+    btcpay: ->(resources) { resources.btcpay }
   }.freeze
   # COLLECTION_FILTERS = {}.freeze
 
