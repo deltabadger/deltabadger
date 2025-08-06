@@ -14,13 +14,9 @@ module Admin
     # Override this if you have certain roles that require a subset
     # this will be used to set the records shown on the `index` action.
     #
-    # def scoped_resource
-    #  if current_user.super_admin?
-    #    resource_class
-    #  else
-    #    resource_class.with_less_stuff
-    #  end
-    # end
+    def scoped_resource
+      super.includes(subscription_plan_variant: :subscription_plan)
+    end
 
     # See https://administrate-prototype.herokuapp.com/customizing_controller_actions
     # for more information

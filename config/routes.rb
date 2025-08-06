@@ -39,9 +39,13 @@ Rails.application.routes.draw do
     resources :subscriptions
     resources :subscription_plans
     resources :subscription_plan_variants
-    resources :payments do
+    namespace :payments do
+      resources :zens
+      resources :btcpays
+      resources :wires
+    end
+    resources :payments, only: [:index] do
       get :csv, on: :collection
-      get :csv_wire, on: :collection
       put '/confirm/:id', action: :confirm, as: :confirm, on: :collection
     end
     put '/change_setting_flag', to: 'settings#change_setting_flag'

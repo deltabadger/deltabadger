@@ -1,5 +1,5 @@
 module Admin
-  class SubscriptionPlanVariantsController < Admin::ApplicationController
+  class Payments::BtcpaysController < Admin::PaymentsController
     # Overwrite any of the RESTful controller actions to implement custom behavior
     # For example, you may want to send an email after a foo is updated.
     #
@@ -31,19 +31,7 @@ module Admin
     # See https://administrate-prototype.herokuapp.com/customizing_controller_actions
     # for more information
     def model_name
-      :subscription_plan_variant
-    end
-
-    def show_action?(action, _)
-      !action.in?(%i[destroy new])
-    end
-
-    def scoped_resource
-      resource_class.includes(:subscription_plan)
-    end
-
-    def find_resource(param)
-      resource_class.includes(:subscription_plan).find_by!(id: param)
+      :payment
     end
   end
 end
