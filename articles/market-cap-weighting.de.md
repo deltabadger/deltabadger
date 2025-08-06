@@ -5,7 +5,7 @@ author_id: 1
 thumbnail: market-cap-weighting.avif
 excerpt: '45 % des verwalteten Vermögens (AUM) von Fonds werden nach Marktkapitalisierung gewichtet, aber diese Strategie funktioniert bei Kryptowährungen noch besser. Wir untersuchen, wie man jedes Portfolio in einen persönlichen ETF verwandeln kann.'
 x_url: https://x.com/deltabadgerapp/status/1952974526746448114
-telegram_url: https://t.me/deltabadger/103
+telegram_url: https://t.me/deltabadger/105
 paywall_hook: |
    <ul>
        <li>Warum funktioniert die Gewichtung nach Marktkapitalisierung bei Krypto noch besser?</li>

@@ -5,7 +5,7 @@ author_id: 1
 thumbnail: market-cap-weighting.avif
 excerpt: '45% AUM фондов управляются с использованием взвешивания по рыночной капитализации, но эта стратегия работает еще лучше в крипто. Мы исследуем, как превратить любой портфель в персональный ETF.'
 x_url: https://x.com/deltabadgerapp/status/1952974526746448114
-telegram_url: https://t.me/deltabadger/103
+telegram_url: https://t.me/deltabadger/105
 paywall_hook: |
    <ul>
        <li>Почему взвешивание по рыночной капитализации работает еще лучше в крипто?</li>

@@ -5,7 +5,7 @@ author_id: 1
 thumbnail: market-cap-weighting.avif
 excerpt: '45% AUM funduszy jest zarządzane z ważeniem kapitalizacją rynkową, ale ta strategia działa jeszcze lepiej w krypto. Odkrywamy, jak przekształcić dowolny portfel w osobisty ETF.'
 x_url: https://x.com/deltabadgerapp/status/1952974526746448114
-telegram_url: https://t.me/deltabadger/103
+telegram_url: https://t.me/deltabadger/105
 paywall_hook: |
    <ul>
        <li>Dlaczego ważenie kapitalizacją rynkową działa jeszcze lepiej w krypto?</li>

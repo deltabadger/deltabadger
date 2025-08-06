@@ -5,7 +5,7 @@ author_id: 1
 thumbnail: market-cap-weighting.avif
 excerpt: '45% of the funds AUM are managed with market cap weighting, but this strategy works even better in crypto. We explore how to change any portfolio into a personal ETF.'
 x_url: https://x.com/deltabadgerapp/status/1952974526746448114
-telegram_url: https://t.me/deltabadger/103
+telegram_url: https://t.me/deltabadger/105
 paywall_hook: |
    <ul>
        <li>Why market cap weighting works even better in crypto?</li>

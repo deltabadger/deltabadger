@@ -5,7 +5,7 @@ author_id: 1
 thumbnail: market-cap-weighting.avif
 excerpt: '45% van het AUM van fondsen wordt beheerd met market cap weighting, maar deze strategie werkt nog beter in crypto. We onderzoeken hoe je elke portefeuille kunt veranderen in een persoonlijke ETF.'
 x_url: https://x.com/deltabadgerapp/status/1952974526746448114
-telegram_url: https://t.me/deltabadger/103
+telegram_url: https://t.me/deltabadger/105
 paywall_hook: |
    <ul>
        <li>Waarom werkt market cap weighting nog beter in crypto?</li>

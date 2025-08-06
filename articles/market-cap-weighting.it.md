@@ -5,7 +5,7 @@ author_id: 1
 thumbnail: market-cap-weighting.avif
 excerpt: 'Il 45% degli AUM dei fondi è gestito con la ponderazione per capitalizzazione di mercato, ma questa strategia funziona ancora meglio nelle criptovalute. Esploriamo come trasformare qualsiasi portafoglio in un ETF personale.'
 x_url: https://x.com/deltabadgerapp/status/1952974526746448114
-telegram_url: https://t.me/deltabadger/103
+telegram_url: https://t.me/deltabadger/105
 paywall_hook: |
    <ul>
        <li>Perché la ponderazione per capitalizzazione di mercato funziona ancora meglio nelle criptovalute?</li>
