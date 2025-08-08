@@ -1,9 +1,5 @@
 en:
     devise:
-        layout:
-            title: "Tools, newsletter and community for investors in digital assets"
-            review:
-                content: "I am super happy with my Deltabedger lifetime plan, that buys every hour the crypto I want, so I have time for important things! Thank you for that wonderful tool."
         confirmations:
             confirmed: 'Your email address has been successfully confirmed.'
             new:

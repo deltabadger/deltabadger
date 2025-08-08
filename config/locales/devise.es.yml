@@ -1,9 +1,5 @@
 es:
     devise:
-        layout:
-            title: "Herramientas, boletín y comunidad para inversores en activos digitales"
-            review:
-                content: "¡Estoy súper contenta con mi plan vitalicio de Deltabadger, que compra cada hora las criptos que quiero, así que tengo tiempo para las cosas importantes! ¡Gracias por esta herramienta tan chula!"
         confirmations:
             confirmed: 'Tu dirección de correo electrónico ha sido confirmada exitosamente.'
             new:
