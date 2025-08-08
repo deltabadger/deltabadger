@@ -14,18 +14,23 @@ class Asset < ApplicationRecord
     'assister-ai' # TODO: remove this once assister-ai is supported in coingecko
   ].freeze
 
-  def sync_data_with_coingecko
+  def sync_data_with_coingecko(prefetched_data: nil)
     return Result::Success.new(self) if COINGECKO_BLACKLISTED_IDS.include?(external_id)
 
-    result = coingecko.get_coin_data_by_id(coin_id: external_id)
-    return result if result.failure?
+    data = prefetched_data || begin
+      result = coingecko.get_coin_data_by_id(coin_id: external_id)
+      return result if result.failure?
+
+      result.data
+    end
 
     update!(
-      symbol: Utilities::Hash.dig_or_raise(result.data, 'symbol').upcase,
-      name: Utilities::Hash.dig_or_raise(result.data, 'name'),
-      url: "https://www.coingecko.com/coins/#{Utilities::Hash.dig_or_raise(result.data, 'web_slug')}",
-      image_url: Utilities::Hash.dig_or_raise(result.data, 'image', 'large'),
-      market_cap_rank: result.data['market_cap_rank']
+      symbol: Utilities::Hash.dig_or_raise(data, 'symbol').upcase,
+      name: Utilities::Hash.dig_or_raise(data, 'name'),
+      url: "https://www.coingecko.com/coins/#{data['web_slug'] || external_id}",
+      image_url: Utilities::Hash.safe_dig(data, 'image', 'large') || data['image'],
+      market_cap_rank: data['market_cap_rank'],
+      market_cap: Utilities::Hash.safe_dig(data, 'market_data', 'market_cap', 'usd') || data['market_cap']
     )
     Result::Success.new(self)
   end
