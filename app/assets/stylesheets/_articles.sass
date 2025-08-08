@@ -1,9 +1,15 @@
+.view--articles-index,.view--articles-show
+  &.view--logged-in
+    .main
+      @media (max-width: 767.9px)
+        margin-top: 5rem !important
 .view--articles-index
-  .menu__logo svg
-    display: flex
-  @media (min-width: 768px)
+  &:not(.view--logged-in)
     .menu__logo svg
-      display: none !important
+      display: flex
+    @media (min-width: 768px)
+      .menu__logo svg
+        display: none !important
 
 .db_nav__brand
   display: none
