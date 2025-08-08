@@ -18,7 +18,7 @@ pl:
             title: "Dziękuję!"
             description: "Twój plan %{plan_name} jest aktywny."
         upgrade_modal:
-            title: "Przejdź na Pro"
+            title: "Upgrade"
             description: "Uzyskaj dostęp do wszystkich zaawansowanych funkcji."
         days_left:
             one: 'Pozostał 1 dzień'
