@@ -1,6 +1,7 @@
 ---
 :concurrency: 2
 :queues:
+  - [low_priority, 1]
   - [starting_bots, 1]
   - [api_keys_validation, 1]
   - [mailers, 1]
@@ -20,6 +21,7 @@
   - [probit, 2] # TODO: legacy, remove when no bots are in this queue
   - [default, 1]
 :limits:
+  low_priority: 1
   binance: 1
   binance.us: 1 # TODO: legacy, remove when no bots are in this queue
   binance_us: 1
