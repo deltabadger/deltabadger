@@ -2,7 +2,8 @@ nl:
   articles:
     index:
       title: "Deltabadger Research"
-      meta_description: "Wekelijkse artikelen voor langetermijninvesteerders in digitale assets."
+      description_html: "Wekelijkse kennis voor<br>beleggers in digitale activa."
+      meta_description: "Wekelijkse kennis voor beleggers in digitale activa."
       no_articles: "Geen artikelen beschikbaar op dit moment."
       join_subscribers: "Word lid van %{count} abonnees <span class='desktop-only'>Premium</span>"
     reading_time: "%{minutes} min leestijd"
