@@ -18,7 +18,7 @@ ru:
             title: "Спасибо!"
             description: "Ваш план %{plan_name} активен."
         upgrade_modal:
-            title: "Перейти на Pro"
+            title: "Улучшить"
             description: "Получите доступ ко всем расширенным функциям."
         days_left:
             one: 'Остался 1 день'
