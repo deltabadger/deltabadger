@@ -28,6 +28,7 @@ en:
         get_started: 'Get Started'
         select_plan: 'Select plan'
         back_to_dashboard: 'Go to dashboard'
+        subscribe: 'Subscribe'
     data_labels:
         invested: "Total Invested"
         portfolio_value: "Portfolio Value"

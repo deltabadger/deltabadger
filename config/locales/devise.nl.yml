@@ -1,9 +1,5 @@
 nl:
     devise:
-        layout:
-            title: "Tools, nieuwsbrief en gemeenschap voor investeerders in digitale activa"
-            review:
-                content: "Ik ben super blij met mijn Deltabadger lifetime plan, dat elk uur de crypto koopt die ik wil, zodat ik tijd heb voor belangrijke dingen! Bedankt voor deze geweldige tool."
         confirmations:
             confirmed: 'Je e-mailadres is succesvol bevestigd.'
             new:

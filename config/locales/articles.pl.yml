@@ -2,7 +2,8 @@ pl:
   articles:
     index:
       title: "Deltabadger Research"
-      meta_description: "Cotygodniowe artykuły dla długoterminowych inwestorów w aktywa cyfrowe."
+      description_html: "Cotygodniowa porcja wiedzy<br>dla inwestorów w aktywa cyfrowe."
+      meta_description: "Cotygodniowa porcja wiedzy dla inwestorów w aktywa cyfrowe."
       no_articles: "Brak dostępnych artykułów w tym momencie."
       join_subscribers: "Dołącz do %{count} subskrybentów <span class='desktop-only'>Premium</span>"
     reading_time: "%{minutes} min czytania"
