@@ -27,6 +27,7 @@ es:
         get_started: Empezar
         select_plan: 'Seleccionar Plan'
         back_to_dashboard: 'Ir al panel'
+        subscribe: 'Suscribirse'
     data_labels:
         invested: "Total invertido"
         portfolio_value: "Valor de la cartera"
