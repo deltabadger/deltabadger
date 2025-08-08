@@ -27,6 +27,7 @@ fr:
         get_started: Commencer
         select_plan: 'Sélectionner'
         back_to_dashboard: 'Aller au tableau de bord'
+        subscribe: 'S''abonner'
     data_labels:
         invested: "Total Investi"
         portfolio_value: "Valeur du Portefeuille"
