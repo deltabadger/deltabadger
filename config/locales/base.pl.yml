@@ -27,6 +27,7 @@ pl:
         get_started: Zacznij
         select_plan: 'Wybierz plan'
         back_to_dashboard: 'Przejdź do panelu'
+        subscribe: 'Subskrybuj'
     data_labels:
         invested: "Łącznie zainwestowano"
         portfolio_value: "Wartość portfela"

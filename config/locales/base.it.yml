@@ -27,6 +27,7 @@ it:
         get_started: Inizia
         select_plan: 'Seleziona Piano'
         back_to_dashboard: 'Vai alla dashboard'
+        subscribe: 'Abbonati'
     data_labels:
         invested: "Totale Investito"
         portfolio_value: "Valore del Portafoglio"
