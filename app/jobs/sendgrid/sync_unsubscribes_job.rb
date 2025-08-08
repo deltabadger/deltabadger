@@ -1,5 +1,5 @@
 class Sendgrid::SyncUnsubscribesJob < ApplicationJob
-  queue_as :default
+  queue_as :low_priority
 
   def perform
     result = client.retrieve_all_global_suppressions
