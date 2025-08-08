@@ -27,6 +27,7 @@ de:
         get_started: Loslegen
         select_plan: 'Plan auswählen'
         back_to_dashboard: 'Zum Dashboard'
+        subscribe: 'Abonnieren'
     data_labels:
         invested: "Gesamtinvestition"
         portfolio_value: "Portfoliowert"
