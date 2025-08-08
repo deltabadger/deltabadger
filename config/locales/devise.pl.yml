@@ -1,9 +1,5 @@
 pl:
     devise:
-        layout:
-            title: "Narzędzia, newsletter i społeczność dla inwestorów w aktywa cyfrowe"
-            review:
-                content: "Jestem super zadowolona z mojego dożywotniego planu Deltabadger, który co godzinę kupuje kryptowaluty, które chcę, dzięki czemu mam czas na ważne rzeczy! Dziękuję za to wspaniałe narzędzie."
         confirmations:
             confirmed: 'Twój adres email został pomyślnie potwierdzony.'
             new:
