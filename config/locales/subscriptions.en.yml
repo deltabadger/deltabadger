@@ -38,7 +38,7 @@ en:
             premium_newsletter: "Premium Newsletter"
             portfolio_analyzer: "Portfolio Analyzer"
         upgrade_modal:
-            title: "Upgrade to Pro"
+            title: "Upgrade"
             description: "Access all the advanced features."
         days_left:
             one: "1 day left"
