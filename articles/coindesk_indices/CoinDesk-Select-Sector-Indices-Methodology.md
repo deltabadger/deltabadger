@@ -72,7 +72,7 @@ SCPXC, SCPXX, CCYX and CMIS are variations of the Select Sector Indices. See App
 To be included in an Index Universe, a digital asset must meet the following criteria as of the Reconstitution Reference Date:
 1. The digital asset must be included in the most recently published DACS report and assigned to the appropriate DACS Sector as defined in Table 2.
 2. Custodian services for the digital asset must be available from Coinbase Custody, a division of Coinbase Global Inc. and the digital asset must be accessible by U.S. investors.
-3. The digital asset must not be categorized as a meme coin as determined by CDI.
+3. The digital asset must not be categorized as a memecoin as determined by CDI.
 4. The digital asset must have traded on at least one Eligible Exchange within the last 30 days up to and including the Reconstitution Reference Date. For details on Eligible Exchanges, refer to the CoinDesk Digital Asset Indices Policy Methodology.
 
 The Index Committee reserves the right to relax the eligibility criteria if an insufficient number of digital assets qualify.
