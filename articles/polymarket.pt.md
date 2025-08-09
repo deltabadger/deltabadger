@@ -171,6 +171,12 @@ A plataforma conta agora com 1,6 milhões de utilizadores registados e processa 
 
 A [Kalshi](https://kalshi.com) foi lançada em 2021 como a concorrente mais séria da Polymarket – o primeiro mercado de previsão totalmente regulado pela CFTC a operar legalmente nos EUA. Enquanto a Polymarket foi pioneira na abordagem nativa de criptomoedas, a Kalshi fez a aposta oposta: trabalhar dentro do quadro regulamentar tradicional. A estratégia valeu a pena em termos de número de utilizadores, com a Kalshi a atingir 2 milhões de utilizadores. No entanto, a Polymarket continua a ser a plataforma culturalmente mais significativa, impulsionando grandes narrativas em torno de eleições, eventos globais e tendências emergentes que captam a imaginação do público.
 
+**ATUALIZAÇÃO**: Nas semanas após a publicação, descobri muitos mais projetos novos de mercados de previsão. Reuni-os aqui:
+
+{::nomarkdown}
+<blockquote class="twitter-tweet"><p lang="zxx" dir="ltr"><a href="https://t.co/rJ3TE2uTmZ">https://t.co/rJ3TE2uTmZ</a></p>&mdash; klos (@klos) <a href="https://twitter.com/klos/status/1954094865991500104?ref_src=twsrc%5Etfw">August 9, 2025</a></blockquote> <script async src="https://platform.twitter.com/widgets.js" charset="utf-8"></script>
+{:/nomarkdown}
+
 ### Como funciona a Polymarket?
 
 A Polymarket funciona como um simples mercado de previsão binário. Os utilizadores compram ações em resultados "Sim" ou "Não" para eventos futuros, com ações com um preço entre 0,00 e 1,00 dólares. Os vencedores recebem exatamente 1,00 dólar USDC por ação. Um formador de mercado automatizado ajusta os preços com base na atividade de negociação – quando mais pessoas compram ações "Sim", o preço sobe, refletindo uma maior confiança nesse resultado. <a class="link-source-tile" href="https://docs.polymarket.com/polymarket-learn/get-started/what-is-polymarket">polymarket.com</a>
