@@ -171,6 +171,12 @@ La plateforme compte désormais 1,6 million d'utilisateurs enregistrés et gère
 
 [Kalshi](https://kalshi.com) a été lancé en 2021 en tant que concurrent le plus sérieux de Polymarket – le premier marché de prédiction entièrement réglementé par la CFTC opérant légalement aux États-Unis. Alors que Polymarket a été le pionnier de l'approche crypto-native, Kalshi a pris le pari inverse : travailler dans le cadre réglementaire traditionnel. La stratégie a porté ses fruits en termes de nombre d'utilisateurs, Kalshi atteignant 2 millions d'utilisateurs. Cependant, Polymarket reste la plateforme la plus culturellement significative, stimulant des récits majeurs autour des élections, des événements mondiaux et des tendances émergentes qui captivent l'imagination du public.
 
+**MISE À JOUR** : Dans les semaines qui ont suivi la publication, j'ai découvert de nombreux autres nouveaux projets de marchés de prédiction. Je les ai rassemblés ici :
+
+{::nomarkdown}
+<blockquote class="twitter-tweet"><p lang="zxx" dir="ltr"><a href="https://t.co/rJ3TE2uTmZ">https://t.co/rJ3TE2uTmZ</a></p>&mdash; klos (@klos) <a href="https://twitter.com/klos/status/1954094865991500104?ref_src=twsrc%5Etfw">August 9, 2025</a></blockquote> <script async src="https://platform.twitter.com/widgets.js" charset="utf-8"></script>
+{:/nomarkdown}
+
 ### Comment fonctionne Polymarket ?
 
 Polymarket fonctionne comme un simple marché de prédiction binaire. Les utilisateurs achètent des parts dans des résultats "Oui" ou "Non" pour des événements futurs, avec des parts évaluées entre 0,00 $ et 1,00 $. Les gagnants reçoivent exactement 1,00 $ USDC par part. Un teneur de marché automatisé ajuste les prix en fonction de l'activité de trading – lorsque plus de gens achètent des parts "Oui", le prix augmente, reflétant une confiance accrue dans ce résultat. <a class="link-source-tile" href="https://docs.polymarket.com/polymarket-learn/get-started/what-is-polymarket">polymarket.com</a>

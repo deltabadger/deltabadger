@@ -171,6 +171,12 @@ Het platform heeft nu 1,6 miljoen geregistreerde gebruikers en verwerkt routinem
 
 [Kalshi](https://kalshi.com) werd in 2021 gelanceerd als de meest serieuze concurrent van Polymarket – de eerste volledig door de CFTC gereguleerde voorspellingsmarkt die legaal in de VS opereert. Terwijl Polymarket de crypto-native aanpak pionierde, deed Kalshi de tegenovergestelde gok: werken binnen het traditionele regelgevingskader. De strategie heeft zijn vruchten afgeworpen in termen van gebruikersaantallen, waarbij Kalshi 2 miljoen gebruikers bereikte. Polymarket blijft echter het cultureel meest significante platform, dat grote verhalen aanstuurt rond verkiezingen, wereldwijde evenementen en opkomende trends die de publieke verbeelding vangen.
 
+**UPDATE**: In de weken na publicatie kwam ik veel meer nieuwe voorspellingsmarktprojecten tegen. Ik heb ze hier verzameld:
+
+{::nomarkdown}
+<blockquote class="twitter-tweet"><p lang="zxx" dir="ltr"><a href="https://t.co/rJ3TE2uTmZ">https://t.co/rJ3TE2uTmZ</a></p>&mdash; klos (@klos) <a href="https://twitter.com/klos/status/1954094865991500104?ref_src=twsrc%5Etfw">August 9, 2025</a></blockquote> <script async src="https://platform.twitter.com/widgets.js" charset="utf-8"></script>
+{:/nomarkdown}
+
 ### Hoe werkt Polymarket?
 
 Polymarket werkt als een eenvoudige binaire voorspellingsmarkt. Gebruikers kopen aandelen in "Ja" of "Nee" uitkomsten voor toekomstige gebeurtenissen, met aandelen die tussen $ 0,00 en $ 1,00 geprijsd zijn. Winnaars ontvangen precies $ 1,00 USDC per aandeel. Een geautomatiseerde market maker past de prijzen aan op basis van handelsactiviteit – wanneer meer mensen "Ja"-aandelen kopen, stijgt de prijs, wat een toegenomen vertrouwen in die uitkomst weerspiegelt. <a class="link-source-tile" href="https://docs.polymarket.com/polymarket-learn/get-started/what-is-polymarket">polymarket.com</a>
