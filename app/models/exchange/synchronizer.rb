@@ -92,14 +92,22 @@ module Exchange::Synchronizer
 
   def create_missing_assets!(new_external_ids)
     current_external_ids = Asset.pluck(:external_id)
+    new_crypto_assets = []
     (new_external_ids - current_external_ids).each do |external_id|
       fiat_currency = Fiat.currencies.find { |c| c[:external_id] == external_id }
       if fiat_currency.present?
         Asset.create!(fiat_currency)
       else
         asset = Asset.create!(external_id: external_id, category: 'Cryptocurrency')
-        Asset::FetchDataFromCoingeckoJob.perform_later(asset)
+        new_crypto_assets << asset
       end
+    end
+    return if new_crypto_assets.empty?
+
+    if new_crypto_assets.count == 1
+      Asset::FetchDataFromCoingeckoJob.perform_later(new_crypto_assets.first)
+    else
+      Asset::FetchAllAssetsDataFromCoingeckoJob.perform_later
     end
   end
 
