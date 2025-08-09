@@ -171,6 +171,12 @@ Die Plattform hat jetzt 1,6 Millionen registrierte Benutzer und wickelt routinem
 
 [Kalshi](https://kalshi.com) startete 2021 als ernsthaftester Konkurrent von Polymarket – der erste vollständig von der CFTC regulierte Prognosemarkt, der legal in den USA tätig ist. Während Polymarket den krypto-nativen Ansatz vorantrieb, setzte Kalshi auf das Gegenteil: die Arbeit innerhalb des traditionellen regulatorischen Rahmens. Die Strategie hat sich in Bezug auf die Nutzerzahlen ausgezahlt, wobei Kalshi 2 Millionen Nutzer erreichte. Polymarket bleibt jedoch die kulturell bedeutendere Plattform, die wichtige Narrative rund um Wahlen, globale Ereignisse und aufkommende Trends vorantreibt, die die öffentliche Vorstellungskraft fesseln.
 
+**UPDATE**: In den Wochen nach der Veröffentlichung habe ich von vielen weiteren neuen Prognosemarkt-Projekten erfahren. Ich habe sie hier gesammelt:
+
+{::nomarkdown}
+<blockquote class="twitter-tweet"><p lang="zxx" dir="ltr"><a href="https://t.co/rJ3TE2uTmZ">https://t.co/rJ3TE2uTmZ</a></p>&mdash; klos (@klos) <a href="https://twitter.com/klos/status/1954094865991500104?ref_src=twsrc%5Etfw">August 9, 2025</a></blockquote> <script async src="https://platform.twitter.com/widgets.js" charset="utf-8"></script>
+{:/nomarkdown}
+
 ### Wie funktioniert Polymarket?
 
 Polymarket fungiert als einfacher binärer Prognosemarkt. Benutzer kaufen Anteile an "Ja"- oder "Nein"-Ergebnissen für zukünftige Ereignisse, wobei die Anteile zwischen 0,00 und 1,00 US-Dollar bewertet werden. Gewinner erhalten genau 1,00 USDC pro Anteil. Ein automatisierter Market Maker passt die Preise basierend auf der Handelsaktivität an – wenn mehr Leute "Ja"-Anteile kaufen, steigt der Preis, was ein erhöhtes Vertrauen in dieses Ergebnis widerspiegelt. <a class="link-source-tile" href="https://docs.polymarket.com/polymarket-learn/get-started/what-is-polymarket">polymarket.com</a>
