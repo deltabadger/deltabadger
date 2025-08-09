@@ -38,13 +38,37 @@ class Coingecko
 
   def get_coins_list_with_market_data(
     currency: 'usd',
-    per_page: 100,
-    category: nil
+    ids: nil,
+    category: nil,
+    limit: nil
   )
-    result = client.coins_list_with_market_data(vs_currency: currency, per_page: per_page, category: category)
-    return result if result.failure?
 
-    Result::Success.new(result.data)
+    all_coins = []
+    per_page = 250
+    id_batches = ids.each_slice(per_page).to_a if ids.present?
+    100.times do |i|
+      result = client.coins_list_with_market_data(
+        ids: ids.present? ? id_batches[i] : nil,
+        vs_currency: currency,
+        per_page: per_page,
+        category: category,
+        page: ids.present? ? 1 : i + 1
+      )
+      return result if result.failure?
+
+      all_coins.concat(result.data).uniq! { |coin| coin['id'] }
+      if limit.present?
+        all_coins = all_coins[...limit]
+        return Result::Success.new(all_coins) if all_coins.count >= limit
+      elsif ids.present?
+        return Result::Success.new(all_coins) if id_batches.count == i + 1
+      elsif result.data.count < per_page
+        return Result::Success.new(all_coins)
+      end
+    end
+
+    raise 'Too many attempts to get coins with market data from Coingecko. ' \
+          'Adjust the number of pages in the loop if needed.'
   end
 
   def get_coin_data_by_id(
