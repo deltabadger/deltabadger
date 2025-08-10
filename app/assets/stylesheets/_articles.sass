@@ -72,7 +72,6 @@
   display: flex
   flex-direction: column
   gap: 2rem
-  max-width: 144rem
   &:hover
     background: linear-gradient(to right, #fff0, var(--widget-background),#fff0)
     cursor: pointer
@@ -114,10 +113,9 @@
   .main
     margin: 0 auto
     padding: 2rem 1.5rem
-    max-width: 166rem
+    max-width: 150rem
     @media (min-width: 768px)
       padding: 10rem 12rem
-    
 
 .article
   display: flex
@@ -220,8 +218,26 @@
         font-size: 2.4rem
     &__meta
       font-size: 1.5rem
+      display: flex
+      align-items: center
+      gap: 1rem
       @media (min-width: 768px)
         font-size: 1.75rem
+      &__author
+        display: flex
+        align-items: center
+        gap: 1.5rem
+        font-weight: 600
+        text-decoration: none
+        color: var(--text)
+        &__avatar
+          width: 5rem
+          height: 5rem
+          border-radius: 50%
+          background-size: 150%
+          filter: grayscale(100%) contrast(1.25)
+          background-position: center -1rem
+          box-shadow: var(--widget-shadow)
       &__premium
         color: var(--link)
         font-weight: 500
@@ -250,6 +266,9 @@
       box-shadow: var(--widget-shadow)
     table
       margin: 0 auto !important
+      &.text-center
+        td, th
+          text-align: center
     &__caption
       text-align: center
       margin: 1rem 0 0
