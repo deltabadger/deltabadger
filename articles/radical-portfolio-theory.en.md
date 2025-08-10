@@ -21,7 +21,7 @@ In [The Radical Portfolio Theory](https://dgt10011.substack.com/p/the-radical-po
 
 The underlying technical assumption is that through mechanics of interest rates, they're negatively correlated which leads to probably the most traditional portfolio design: **60% equities / 40% bonds**—the classic "60/40 portfolio."
 
-This is no longer true.
+This is no longer true. 
 
 In the post-COVID market this correlation reversed from negative to positive:
 
