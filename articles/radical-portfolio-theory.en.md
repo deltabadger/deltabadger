@@ -15,13 +15,13 @@ telegram_url: https://t.me/deltabadger/100
 published: true
 published_at: "2025-08-10"
 ---
-In [The Radical Portfolio Theory](https://dgt10011.substack.com/p/the-radical-portfolio-theory), Jeff Park with striking clarity explains the death of one of the most fundamental assumptions in investing:
+In [The Radical Portfolio Theory](https://dgt10011.substack.com/p/the-radical-portfolio-theory), Jeff Park with great clarity explains the death of one of the most fundamental assumptions in investing:
 
 *Equities represent risk and growth, while treasuries represent safety.*
 
 The underlying technical assumption is that through mechanics of interest rates, they're negatively correlated which leads to probably the most traditional portfolio design: **60% equities / 40% bonds**—the classic "60/40 portfolio."
 
-This is no longer true:
+This is no longer true.
 
 In the post-COVID market this correlation reversed from negative to positive:
 
