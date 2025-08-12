@@ -6,16 +6,16 @@ thumbnail: radical-portfolio-theory.avif
 excerpt: "Jeff Park's radical framework shows why traditional stock-bond portfolios no longer work and proposes a new 60/40 split: compliance vs. resistance assets for the modern financial landscape."
 paywall_hook: |
    <ul>
-       <li>How prediction markets can serve as conservative portfolio insurance</li>
-       <li>The specific tickers Jeff recommends for implementing radical diversification</li>
-       <li>Why self-custody Bitcoin and Bitcoin ETFs belong on opposite sides of your portfolio</li>
+       <li>Gold as the traditional resilience asset</li>
+       <li>Permanent Portfolio 2.0</li>
+       <li>The case for Bitcoin</li>
    </ul>
 x_url: https://x.com/deltabadgerapp/status/1945100471317766527
-telegram_url: https://t.me/deltabadger/100
+telegram_url: https://t.me/deltabadger/106
 published: true
-published_at: "2025-08-10"
+published_at: "2025-08-12"
 ---
-In [The Radical Portfolio Theory](https://dgt10011.substack.com/p/the-radical-portfolio-theory), Jeff Park with great clarity explains the death of one of the most fundamental assumptions in investing:
+In [The Radical Portfolio Theory](https://dgt10011.substack.com/p/the-radical-portfolio-theory), Jeff Park, Head of Alpha Strategies and Portfolio Manager at Bitwise Asset Management, explains the death of one of the most fundamental assumptions in investing:
 
 *Equities represent risk and growth, while treasuries represent safety.*
 
@@ -32,7 +32,7 @@ In the post-COVID market this correlation reversed from negative to positive:
 </figure>
 {:/nomarkdown}
 
-If correlation between stocks, and bonds remains positive the whole setup loses its meaning.
+If correlation between stocks and bonds remains positive the whole setup loses its meaning.
 
 ### Bonds Are Volatile
 
@@ -47,7 +47,7 @@ The [MOVE index](https://www.tradingview.com/symbols/TVC-MOVE/?timeframe=ALL) sh
 
 The 79 on the chart means annual volatility of 7.9% of Treasury bond prices, which in the moment when you may need them the most, can spike significantly.
 
-While long-term holders may stay unaffected, if you planned to sell some bonds or bond ETFs and rebalance your portfolio buying cheap stocks during the 2008 crisis, or the COVID turmoil—you faced the unfavorable mark-to-market prices.
+While long-term holders may stay unaffected, if you planned to sell bonds or bond ETFs to rebalance your portfolio by buying cheap stocks during the 2008 crisis, or the COVID turmoil—you faced the unfavorable mark-to-market prices.
 
 ### Everything Is a *Global Carry Trade*
 
@@ -78,7 +78,7 @@ On the other side, there are assets backed by energy spent now: human workforce,
 
 ### Fundamental Investing No Longer Drives The Market
 
-Finally, the essay points out that people generally don't invest fundamentally anymore, and index investing becomes simply an inflation hedge, while many traditional metrics like GDP are engineered to support the mainstream narrative, but not necessarily reveal the reality of the situation anymore, and the real risks that may be worth diversifying against.
+Finally, the essay points out that fundamental investing has become rare, and index investing becomes simply an inflation hedge, while many traditional metrics like GDP are engineered to support the mainstream narrative, but not necessarily reveal the reality of the situation anymore, and the real risks that may be worth diversifying against.
 
 ## The new 60/40: The Radical Portfolio
 
@@ -99,7 +99,7 @@ The other 40% are **resilient** assets that provide insurance. Here are some exa
 * Offshore real estate
 * Prediction market bets
 
-You may now understand where the "radical" comes from—definitely not the playbook a traditional financial advisor will, or is even allowed, to recommend.
+You may now understand where the "radical" comes from—definitely not the playbook that a traditional financial advisor would (or is even allowed to) recommend.
 
 While even including [prediction markets](./polymarket/) in a general purpose investing framework seems truly radical, the great observation here is that rather than just exotic assets or gambling, they can be used as a classic conservative insurance. Buying a small bet on an unlikely, but tragic scenario can be a valid strategy for increasing the safety of your portfolio.
 
@@ -111,7 +111,7 @@ Even excluding some catastrophic scenarios, simple rebalancing during a market c
 
 While there are many benefits of Bitcoin or gold ETFs, they're still compliant assets. In the radical 60/40 you can have both, but in a way, they stay on opposite sides of the split.
 
-The low liquidity that makes alternative assets harder to move is actually part of their strength. The more liquid an asset is, the more it becomes part of the system subjected to the same forces, and eventually correlates with it.
+The low liquidity that makes alternative assets harder to move is actually part of their strength. The more liquid an asset is, the more it becomes part of the system and becomes subject to the same forces, and eventually correlates with it.
 
  
 {::nomarkdown}
@@ -151,7 +151,9 @@ In the [Unchained interview](https://youtu.be/eq5KGH68EH4?si=l2WVeAb3T2gSNOhB&t=
 </figure>
 {:/nomarkdown}
 
-For a more traditional long-term focused portfolio, it seems more reasonable to replace fixed income STRK with a broad market ETF, which in the long run potentially offers much better and more diversified returns. 
+For a more traditional long-term focused portfolio, it seems more reasonable to replace fixed income STRK with a broad market ETF, which in the long run potentially offers much better and more diversified returns.
+
+<!-- PAYWALL -->
 
 ### Gold: The OG Resilience
 
@@ -177,7 +179,7 @@ When you run portfolio containing Invesco QQQ ETF and gold through Modern Portfo
 </figure>
 {:/nomarkdown}
 
-That's right, the idea that *resilience* assets can actually do better long-term is not new at all. For some reason, it's common knowledge, but since 2000, gold has significantly outperformed the index.
+That's right, the idea that *resilience* assets can actually do better long-term is not new at all. Despite this being well known, since 2000, gold has significantly outperformed the index.
 
 ### Permanent Portfolio 2.0
 
