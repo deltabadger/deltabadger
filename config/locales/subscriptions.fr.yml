@@ -18,7 +18,7 @@ fr:
             title: "Merci !"
             description: "Votre plan %{plan_name} est actif."
         upgrade_modal:
-            title: "Mettre à niveau"
+            title: "Mise à niveau"
             description: "Accédez à toutes les fonctionnalités avancées."
         days_left:
             one: "1 jour restant"

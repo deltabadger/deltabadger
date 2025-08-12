@@ -58,7 +58,9 @@
     <div class="article__header__meta">
       <% if @article.author.present? %>
         <% if @article.author.url.present? %>
-          <a href="<%= @article.author.url %>" class="article__header__meta__author" target="_blank" rel="noopener"><%= @article.author.name %></a>
+          <a href="<%= @article.author.url %>" class="article__header__meta__author" target="_blank" rel="noopener">
+            <div class="article__header__meta__author__avatar" style="background-image: url(<%= @article.author.avatar %>)"></div>
+            <%= @article.author.name %></a>
         <% else %>
           <span class="article__header__meta__author"><%= @article.author.name %></span>
         <% end %>

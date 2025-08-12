@@ -3,110 +3,8 @@
 host: Laura Shin
 guest: Jeff Park
 
-**Laura:** Hi everyone, welcome to Unchained, your no-hype resource for all things crypto. I'm your host Laura Shin. Every episode we're featuring quotes from listeners on the show. Today we have one from John H on X responding to our recent episode on crypto treasury companies with Panta Capital's Cosmo Gian. John says crypto treasury companies are not everywhere. There are lots of sizable Bitcoin treasury companies and more coming, tapping debt/equity markets to buy nonsense crypto tokens not named Bitcoin will not catch on in any meaningful way.
-
-If you want your comment featured, write a review of the podcast overall or leave a comment on our video on YouTube or X. This is the June 3rd, 2025 episode of Unchained.
-
-One early Bitcoiner sold 30,000 BTC too soon, missing out on over a billion dollars. Don't want to make the same mistake with Zapo Bank? Eligible members can get instant cash without selling their Bitcoin. Check out zapo.com/unchained for more.
-
-Crypto moves fast. It's why Bitwise launched the weekly CIO memo, a jargon-free summary of what's moving crypto markets written by one of the best in the business, CIO Matt Hogan. Get up to speed in 5 minutes or less. Check it out at bitwiseinvestments.com/cio memo.
-
-Carefully consider the extreme risks associated with crypto before investing. Today's guest is Jeff Park, head of alpha strategies at Bitwise. Welcome Jeff.
-
-**Jeff:** Hello Laura, how's it going?
-
-**Laura:** Really good, super excited to have you. Your posts on crypto Twitter reflect a background that makes you very much the man of the moment. Your insights from your experience both in the traditional and crypto markets blend together in a unique way that I think generates a lot of interest in your social media posts. But before we get into crypto, I want to take everybody all the way back. You started your career at the height of the 2008 financial crisis. Tell me about that. What did you experience? What did you learn? How does it shape your investment and trading mindset today?
-
-## How entering the workforce in 2008 pushed Jeff to question everything, even the dollar
-
-**Jeff:** Yeah, so I think it shapes everything Laura that I've ever known in the industry as I've grown alongside both Wall Street and crypto. I think for me the number one thing I took away is truly that nothing you ever thought you knew can always be something you can build foundations on, because the world is ever so dynamic. 
-
-You know, I graduate from Stanford with a lot of enthusiasm, a lot of optimism, a lot of hope for all the great things that you're told at school you're going to accomplish some amazing things. And you know, training on the trading floor itself can be a little bit brutal as people who have experienced it. It's an apprenticeship model - people come in, they get hazed, you go through the ringer of trying to prove yourself and get your own book eventually and start generating P&L and become a market maker eventually to then have your own principal book, etc.
-
-But for me the journey was fairly abrupt because, as you've called out, two months into the start, the financial crisis started unfolding. And so for me it was probably the best thing that ever happened to me in hindsight because I learned so much. And people do say you don't really learn anything until you experience chaos and volatility when everything breaks apart, because that's when you know things get real. And I do think that is true.
-
-So there are a few things I took away. Which is one, the world is extremely unstable. The financial foundation that we're told on, which is the basic foundation of what the risk-free rate in itself could mean to me, was fundamentally challenged when I started my career with a global financial crisis. So that always has anchored a little bit of a bias for me to imagine what the other parallel universe of a financial system could look like if that ever were to emerge.
-
-And so there was a part of me that I think saw the birth of Bitcoin as an optionality, perhaps a little bit before other people, just because I had experienced the pain of the system in otherwise that Bitcoin could represent an opt-out for.
-
-And then the second thing I would say I learned is the world is actually not that black and white. It's actually very path dependent. So when you see the bailout, the TARP programs, Paulson emerging into solving the crisis at the moment, you realize that there's no textbook on how to navigate financial crisis. It's actually a very human endeavor. There's a lot of technocrats that get involved and they try to fix human problems with human solutions. And in that world, everything is probabilistic. There's actually a range and a full spectrum of outcome that needs to be analyzed, digested and understood for you to make an optimal bet on where you think your investment portfolio should be, because it's actually not deterministic at all that something should be X and something should be Y. It really depends on the path dependency as to these events realizing.
-
-And so that's the other thing that I really feel like I took away. I was always a bit of a probabilistic thinker just because of my quantitative leanings and wanting to understand probability models. But I think having lived through the financial crisis, you really get to appreciate that even more than ever. And I think actually nowadays it's more relevant because of the way that the financial markets has become so hyper-financialized for even retail investors to be mindful of what the machine of our capital market has become that frankly it wasn't when I started even my own career two decades ago.
-
-**Laura:** Yeah, I think what's interesting is like you said that because you started at that time, that you know, it kind of made you more open to Bitcoin. But you know, the fact of the matter is that Bitcoin got started right around then. And so a lot of other financial professionals should have either maybe had the same realization or, you know, the ones who lived through that experience like they, you know, could have used that also to inform their views. But as we all know, there are some very experienced and in fact esteemed people in TradFi who just did not see Bitcoin for a long time until very recently. But how did you first hear about it? When was that? And you know, what were your thoughts when you first came across it?
-
-**Jeff:** Yep, so I learned about it pretty early on the trading floor. It was probably around 2010 or so. And the reason was, and you'll find this commonality, is that there were a lot of traders who also play poker. And back in the early 2010s, using Bitcoin as a way to settle your winnings amongst your peers and friends under the guise of otherwise what could sometimes be perceived as unscrupulous behavior, that is the world of betting, Bitcoin was prominent. It was fairly prominent. So I have a lot of friends who actually use Bitcoin as a way to just transfer money in ways to of course sell it back to dollars, not actually store value in Bitcoin, but it was a conduit for payment.
-
-**Laura:** Wait, for like whoever lost would have to pay the winner in Bitcoin?
-
-**Jeff:** Yeah, yeah, exactly. And so it was actually kind of - you know, a lot of things in crypto starts with a little bit of this grayness as to its use cases. You know, this is one in which I think there was some purpose for wanting to transfer winnings and losses.
-
-**Laura:** And wait, I just need to understand. In 2010, like what were you using? Wallets? Like what was the interface for sending the money and receiving it?
-
-**Jeff:** Yeah, I mean it was basically all the things that you would have found to be problematic, like the ability to leverage Mount Gox and the world. And actually that's why the alpha at the time was really just holding on to your Bitcoin. No one really held on to it, right? It was actually you go on exchanges and try to get dollars out of it and try to make sure you don't have counterparty risk and actually custody risk.
-
-So what I'm trying to hint here is actually my discovery of it wasn't really a store of value story. It was first actually a conduit of a payment story. And then it was only in 2013 for me personally that I started to really imagine the possibility of its store of value story. And that's also when Coinbase finally came online in the United States where you actually had a reputable Y Combinator-backed startup that you presumably thought was most trustworthy and you could imagine therefore storing value without the risks that you're highlighting, that I first then imagined Bitcoin as a store of value construct in 2013.
-
-**Laura:** And wait, and just to understand, to use Mount Gox, were you doing that, like, wire transfer to Mount Gox? Was that how you got the money over there? Or like, do you remember?
-
-**Jeff:** So I did not participate in... yeah, all I'm saying is that I have friends who were participating in using that, that helped me discover it. And it wasn't until years later that I would take it a little bit more seriously.
-
-**Laura:** And then in 2013 when you took it more seriously, was it that fall period when it passed $1,000 for the first time or was it even before then?
-
-**Jeff:** No, it was probably around then. It was probably late summer, early fall, kind of on its way to the peaks into the winter.
-
-**Laura:** Yeah, okay. Oh, so interesting. So then you obviously were following it for a while, and then at a certain point you came to this moment where you decided to work in Bitcoin and crypto. So tell us like what brought you there and then why at that point you decided to choose Bitwise as your entry point?
-
-**Jeff:** Yeah, sure. So Laura, I think you're absolutely right. There's a little bit of what I would call like a lost generation almost of my cohort of professionals who were caught in between - caught in between growing their career in the way that they've known in the traditional rails of Wall Street. You know, before I joined Bitwise, I had a career in the hedge fund industry for over 10 years where I was a partner there. And things can get comfortable and you know what you know, and life is at a stage where you're looking for security, you're building your family, and you know what you know, right?
-
-But if you actually start your career earlier, if you're like a Gen Z, then you don't have those comfort and you don't have those handcuffs if you will, and you can accelerate your journey into crypto right away. So I think that's why at some level there is a little bit of a dearth of my cohort in this industry because they're caught between and they're paying attention because they know it's interesting, they know it's real, but many don't have the conviction to really go all in.
-
-I think now with the regulatory clarity and the political climate having improved to a level where it is being sponsored, you might see more of this traction. But I'm proud to say that I've been able to make that jump at Bitwise about almost four years ago now, because to me it was very clear at that moment in time that this would be the case in the future - that we will be actually upon this journey with folks like you and I.
-
-And I think what I came to realize is that this is all I was thinking about even at my prior job. So you know, I invested in multi-strat equities and credit special situations event-driven investing. I love that business. I've learned everything I can ever learn about that business. And you start to realize the itch is crypto. So 2017 is when I first professionally began this journey and I contacted my friend through my alma mater network. Hey, I want to invest in crypto professionally for my firm. Who should I talk to to level up? And I was very fortunate at the time to be then introduced to a gentleman you would know, Avichal Garg, who is also a Stanford alma mater, and he was actually my first mentor almost, if you will, in kind of...
-
-**Laura:** Yeah, he's from Electric Capital, by the way, for people.
-
-**Jeff:** That's right, yeah, that's right. And maybe perhaps as you might then connect, Avichal Garg and Electric Capital is a seed investor of Bitwise and has been supportive of our journey ever since with our founding team. And so I think at the time, even though I had followed the crypto journey vicariously, I've known the Bitwise name and brand, it wouldn't be until later that I felt that the opportunity for my human capital to actually be useful and contribute, because there was a period in time where crypto was so novel and so technology-driven in ways that the financialization would yet still have to wait.
-
-And that's why you saw the birth of DeFi and you had to see the birth of things like Aave and Compound and almost imagine that coming to Wall Street. But it wouldn't be so obvious when that would happen. And I think a part of me was waiting on the sideline to see for the moment of that inflection. And you know, maybe I jumped ahead a little bit too early, but you know, at some point the reality is you got to start committing, building the relationships, spread your human capital. In the end, that's what all industry is about. And you got to be early.
-
-And so I think for Bitwise, for me, it represented to me the best franchise in crypto asset management at the time that is singularly focused on bringing the ethos of crypto in a very professional way with a fiduciary mindset at the top and being singularly focused on asset management. You know, there are a lot of companies that were doing asset management as a side thing while they're running an exchange and running a merchant banking business or investing on their balance sheet and doing whatever. And that's okay. But I really love the idea that Bitwise was singularly focused on serving clients to get access to crypto in ways that it felt was still early at that time when you didn't even have the Bitcoin ETF. And Bitwise, of course, was the filer who would win that by having filed not just one, not just two, but three applications in its journey to get to that point.
-
-**Laura:** Yeah, yeah, I remember kind of like the very early days of Bitwise. Naval Ravikant reached out to me and said, "Hey, you know, I'm investing in this company," and I met Hunter at that time. And it's just so funny because, you know, he and Hong, they were so young at the time. Hopefully Hunter won't be offended by me saying that. And I was kind of like, "Okay, this is interesting. Like fresh out of college and they're launching this." But you know, they clearly have found this niche that they're the leaders in, you know, this kind of intersection of TradFi and crypto. So, you know, good choice. Explain what it is that you do at Bitwise.
-
-## Jeff's role as head of alpha strategies at Bitwise
-
-**Jeff:** Yeah, so I lead all the investment leadership in alpha-centric and alpha-focused strategies on the Bitwise platform. So the goal and vision at the firm is to build a broad range and suite of capabilities to offer investors that are seeking different types of opportunities. So as you know, we have an index fund, we have indexed strategies to bring different factors in the crypto world to give investors exposure to like the Bitcoin Standard Corporations ETF that launched recently this year. Very thematic and popular with Bitcoin treasuries being at the forefront of a lot of narratives today.
-
-**Laura:** Hot on the trend.
-
-**Jeff:** Hot on the trend, indeed. And I think here to stay. You of course know we have spot ETFs that we're trying to bring to market in addition to Bitcoin and Ethereum as we have it today. And that's all great. The things that I focus on is really more towards, well, on top of that, what other kinds of opportunities are there that is more geared towards alpha?
-
-So we have a variety of strategies. We offer one is a multi-strategy format franchise where we think about market-neutral opportunities to long bias liquid venture opportunities, actually some strategies that deal with just Bitcoin-centric securities like corporate bonds and equities and preferred that has now proliferated across the universe as trading strategies. And then I also help manage Bitcoin investors' access to yield.
-
-So there are some Bitcoin investors that are out there who are sitting on it kind of like gold under the mattress, and they don't realize that actually if you put just a little bit of your Bitcoin to some work, you can in fact earn a pretty decent yield on it. And depending on of course your own risk tolerance, that could be as low as 2% or as high as double digits. And so we have an advisory business in which I help as an investment manager to help investors access Bitcoin yield, which I think has also become extremely thematic.
-
-And then of course, lastly, you may have seen we launched several options trading ETFs where we are volatility harvesting what I think are the most volatile stocks today in the stock market - MicroStrategy, Coinbase, Marathon Digital - more to come. And this is actually to offer a different kind of income stream for investors who want to bet on not just the price of these crypto securities, but the opportunity to earn yield off of the volatility that you can harvest along the journey. So those ETFs have been also really popular and very well-received. We're about a month and a half into the journey of the launch, and the reception has been great. So there's a lot going on at Bitwise.
-
-**Laura:** And out of curiosity, for the yield on Bitcoin itself, what are some of the top strategies you're using there?
-
-**Jeff:** Sure, so we basically look at the world in three segments. One is on the very conservative side, the lending model. So if you're able to lend your Bitcoin to trusted counterparties in ways that are operationally rigorously tested, there are opportunities to pick up some incremental yield. And this is going back to a little bit of the comp being if you were to then have the Bitcoin ETF and participated, for instance, in the borrow market. So that is one version.
-
-**Laura:** And wait, I'm sorry, so you're saying that people are borrowing against their Bitcoin ETFs or Bitcoin itself?
-
-**Jeff:** So if you're able to lend your Bitcoin to certain counterparties, they're willing to pay a yield for those borrow relationships. That's sort of like a lending type of thing.
-
-**Laura:** Yeah, exactly.
-
-**Jeff:** Yeah, and your traditional prime brokerages and market makers will have capacity for wanting to have inventory for different times of the market environment where they're willing to pay a certain floating rate for it.
-
-**Laura:** Okay, and I wasn't aware people could borrow against their Bitcoin ETFs, but that's also happening?
-
-**Jeff:** That is in the works in the ways that we're constantly in dialogue to provide some capital efficiency for the Bitcoin ETFs. But the ETFs, because it participates in your regular margin model, depending on the brokers you're willing to work with, there are people who are able to access it.
-
-**Laura:** Huh, okay, that's that's interesting. All right, well, we've spent a long time on your background, which I did want to get on the show. But let's now talk about your radical portfolio theory, which is why I wanted to have you. This is the theory in which you state that the traditional 60/40 portfolio model of investing is dead. So explain why you think that.
-
+**Laura:** Let's now talk about your radical portfolio theory, which is why I wanted to have you. This is the theory in which you state that the traditional 60/40 portfolio model of investing is dead. So ex  plain why you think that.
+ 
 ## Why the classic 60/40 portfolio may be dead
 
 **Jeff:** Yeah, so I think man, it's actually now become I think conventional for people to pick on 60/40 as being dead. So maybe it's not so novel anymore. But I think the reality is that a lot of the foundational understandings of the benefits of equities and bonds being diversifiers are being challenged today. And I would say one key moment of that reflection was actually just watching the US sovereign debt get downgraded a few weeks ago as to imagining what that means when the entirety of the financial foundation built off this notion that treasuries are risk-free rates are being challenged and rewritten.
@@ -133,15 +31,15 @@ And that's the journey that I wanted my friends and my colleagues and my investo
 
 But the problem is that there are moments when it underperforms exactly when it's supposed to perform. And that's usually the kind of wake-up call as to trying to understand why this actually then might be fundamentally challenged. You know, even this year, 60/40 is probably up like single digit, so it's actually going to still probably outpace inflation. But the problem you're seeing is that they're behaving in ways where they're correlated. That's the problem.
 
-The correlation - if equities and bonds, if they sustain themselves for too long, defies the entire point of 60/40, which is actually I think why a lot of people are now just saying forget 60/40, just go long equities, because actually equities is the most capital-efficient way to play the same trade. And the same trade here being that there's way too much liquidity and this capital flow that is affecting these price movements are not really fundamentally driven, but they're driven by macro factors, corporate flows, sovereign flows.
+The correlation - ***if equities and bonds sustain themselves for too long, defies the entire point of 60/40, which is actually I think why a lot of people are now just saying forget 60/40, just go long equities, because actually equities is the most capital-efficient way to play the same trade.*** And the same trade here being that there's way too much liquidity and this capital flow that is affecting these price movements are not really fundamentally driven, but they're driven by macro factors, corporate flows, sovereign flows.
 
-These central banks have gotten so big and now central banks own equities. So how are they trading their equities versus their credit? The whole system has seems to be getting aligned and whereas the flows don't look that different, right? And that is the problem, because once the investor bases are not differentiated enough, well, you're basically in the same trade pretending it's not the same trade.
+These central banks have gotten so big and now central banks own equities. So how are they trading their equities versus their credit? The whole system has seems to be getting aligned and whereas the flows don't look that different, right? And that is the problem, because once the investor bases are not differentiated enough, well, ***you're basically in the same trade pretending it's not the same trade***.
 
 For instance, when Japan is long US equities as part of their funding model that they're funding through their own debt, it's the same circular trade. It's the same global carry that exists as a leveraged system in which the unwind of that flows will basically correlate. And I think that's what you're seeing when these moments where US Treasury rates blow out and then you see equities underperform. It is not because one represents security and safety and one represents growth. No, it's because maybe China actually just has to dump all their US treasuries to basically sustain their own growth model, which in fact impacts the US's growth model. And the whole thing is circular.
 
 And so the thing we have to understand is the financial system is a lot more integrated than people think. And I think there maybe was a moment when it wasn't like that, when globalization wasn't so dominating as a force where it's hard to know if the market causes the economy's recession or the economy causes a market's recession. But there's something here where that aspect becomes really hard to read.
 
-And so even when we talk about, hey, is there a need for a recession today that President Trump needs to create such that we could get Powell to cut rates such that we could actually bring abundance of liquidity to then bring markets up? That's a conversation no one would have had these conversations 20 years ago, where you think about purposely creating recessionary dynamics to actually engage in financial warfare. But that's now become normalized, right? This is actually normalized since GFC, since the European bailout. And this is what the capitalist system of modern financial warfare kind of now looks like. And that's why I think 60/40 has to be challenged, because it's actually 100% of the same thing, which is you're long global carry.
+And so even when we talk about, hey, is there a need for a recession today that President Trump needs to create such that we could get Powell to cut rates such that we could actually bring abundance of liquidity to then bring markets up? That's a conversation no one would have had these conversations 20 years ago, where you think about purposely creating recessionary dynamics to actually engage in financial warfare. But that's now become normalized, right? This is actually normalized since GFC, since the European bailout. And this is what the capitalist system of modern financial warfare kind of now looks like. And that's why I think 60/40 has to be challenged, because it's actually 100% of the same thing, which is ***you're long  global carry***.
 
 And if you understand that, you need to then think about assets that are actually outside of global carry - things that are actually directly uncorrelated, maybe even reciprocal to the global carry theme that helps you bring true diversification to your portfolio and gives you a fighting chance to actually preserve wealth when the sovereign flows may be so overwhelming.
 
@@ -153,17 +51,11 @@ And you know, the whole idea of leverage ultimately worked because people though
 
 The way of Benjamin Graham's intelligent investing is literally not how people invest anymore because it's not the thing that drives markets. People buy index exposure to the S&P not because they care about the underlying 500 companies, but because the indexed flows of equities represents inflation hedging in ways that are serving a purpose that almost you would imagine was not the purpose of equities. But actually equities is becoming correlated to Bitcoin, I think in my opinion, not because Bitcoin is being correlated to equities, but because equities is also trying to become an inflation hedge for the system, for people to find growth - the fastest horse to outpace inflation when the world doesn't have any ability to do so. So Bitcoin represents one version of it, and I think equities is becoming a representation of that belief system.
 
-**Laura:** All right, so in a moment we're going to talk more about that and the Triffin dilemma which Jeff raised earlier, but first a quick word from the sponsors who make the show possible.
-
-[Sponsor segments]
-
-**Laura:** We have more comments from you responding to our recent episode on crypto treasury companies. On X, biscuit Web3 writes: "This whole SPAC/reverse merger wave feels like the new institutional hype cycle." And Martin Krung says: "This has little value for the industry. Prices go up, yes, but it's close to worthless. I think it'll blow up at some point." Let us know what's on your mind, because we read every comment. You might hear it in a future episode. Write a review or leave a comment on an episode on YouTube or X.
-
-Back to my conversation with Jeff. So you briefly alluded to the Triffin dilemma, which plays a role in your theory about this kind of being an inflection point for the US and the global economy. So explain what the Triffin dilemma is and how this also plays into your radical portfolio theory.
+**Laura:** So you briefly alluded to the Triffin dilemma, which plays a role in your theory about this kind of being an inflection point for the US and the global economy. So explain what the Triffin dilemma is and how this also plays into your radical portfolio theory.
 
 ## How crypto fits into the new financial world
 
-**Jeff:** Sure, so the Triffin dilemma ultimately centers on the uncomfortable duality of the role of the dollar, which is that the dollar serves both as the medium of exchange and savings and consumption for its nationals - us Americans who live on it and therefore have our own economy that is managed by the Federal Reserve as to promoting growth and inflation and employment in the ways that is one part of the system. But the other thing the dollar does is actually the US's greatest financial export. I might even say it's the greatest export period.
+**Jeff:** Sure, so the Triffin dilemma ultimately centers on the uncomfortable duality of the role of the dollar, which is that the dollar serves both as the medium of exchange and savings and consumption for its nationals - us Americans who live on it and therefore have our own economy that is managed by the Federal Reserve as to promoting growth and inflation and employment in the ways that is one part of the system. But ***the other thing the dollar does is actually the US's greatest financial export. I might even say it's the greatest export period***.
 
 And so because of that, there's other people that are non-Americans who really need dollars for their own purposes. And their purposes may look different than our purposes as Americans who are thinking about our own cost of capital in our economy of a closed-end system. And so what you're seeing is because the dollar is used by foreigners as much as our domestics, there's a little bit of a competing tension as to serving one constituent might actually undermine the other constituent.
 
@@ -187,7 +79,7 @@ So I think the end solution here being is that if we do want to decouple with Ch
 
 **Laura:** Okay, I know we haven't even gotten to the actual new radical 60/40 portfolio. But I did want to ask you because you said that you wanted to also chat about the US yield curve changing. So do you want to go into that and then we can talk about what actually makes up your proposed radical 60/40 portfolio?
 
-## Why "time is liquid energy" and Bitcoin captures it best
+## Why ***time is liquid energy*** and Bitcoin captures it best
 
 **Jeff:** Yeah, I think the greatest myth that we've been told that for a whole generation is that somehow the money today represents this incredible abstract monetization that results from the manipulation of time. The entire point of a yield curve exists because there's this notion that spending today will help you grow into something in the future that you otherwise need to pull forward, which is really a manipulation of time.
 

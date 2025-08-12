@@ -56,7 +56,7 @@ There's actually a whole section that endowments and pensions are already thinki
 
 There are mandates to do whatever you need to do in the finance realm through financial institutions. In other words, they're protected, and their customer base is guaranteed. Someone said being in finance is like being at the tight part of an hourglass where there's a lot of money going through, and you just pick a little bit of it every time.
 
-This whole alternative assets thing—even Trump's meme coin, which sounded outrageous to me—has another side that shows we are disintermediating these institutions. There's no barrier anymore. Anyone can go online, and if they have an audience, they can make themselves tradable 24/7 across the world.
+This whole alternative assets thing—even Trump's memecoin, which sounded outrageous to me—has another side that shows we are disintermediating these institutions. There's no barrier anymore. Anyone can go online, and if they have an audience, they can make themselves tradable 24/7 across the world.
 
 I don't know how banks will deal with this. They probably thought about stopping it in the past few years, but that's not possible. One of my key concerns when learning about Bitcoin was: "Is this thing killable?" After months of studying, I realized it's a resounding no. That's where I actually went all-in on Bitcoin.
 
@@ -142,25 +142,25 @@ The things that are not affected by these cross-capital flows that are driven by
 
 Everything in the compliance assets is what we know: public equities, bonds, even venture capital. I would put all of those in compliance assets—they play nicely within financial models that we can model and know.
 
-The 40% is actually about esoteric alternative assets that haven't been institutionalized yet to be participating in that giant global carry trade. Bitcoin is one of them, but there are also a lot of other things that crypto as an ethos brings upon that display the power of those strengths.
+***The 40% is actually about esoteric alternative assets that haven't been institutionalized yet to be participating in that giant global carry trade. Bitcoin is one of them,*** but there are also a lot of other things that crypto as an ethos brings upon that display the power of those strengths.
 
 ## Polymarket: Is Gambling a Basic Freedom?
 
 Another example I often cite is advancements like Polymarket. If you think about what Polymarket is—essentially a decentralized market to show you different kinds of odds that people want to bet on—it's a testament to the fact that gambling at some level is, in many ways, a productive endeavor for those who have the information and capabilities.
 
-The thing about meme coin trading and Bitcoin—even though they feel sometimes adversarial (you'll find bitcoiners saying, "Oh, meme coin trading and shitcoins are bad for Bitcoin's energy," and vice versa)—there's actually more alignment than people think. They believe in the same underlying philosophy: that individual freedom should triumph, and everyone should do what they want to do.
+The thing about memecoin trading and Bitcoin—even though they feel sometimes adversarial (you'll find bitcoiners saying, "Oh, memecoin trading and shitcoins are bad for Bitcoin's energy," and vice versa)—there's actually more alignment than people think. They believe in the same underlying philosophy: that individual freedom should triumph, and everyone should do what they want to do.
 
 In a way, gambling is a fundamental human right because what I want to do with my assets and how I engage someone else to do it with is a private right. You'll see the full spectrum of gambling—those who believe everything is good about it and those who believe everything's bad about it, that we must ban Las Vegas, ban gambling period.
 
-The truth is probably somewhere in the middle, and meme coin trading is almost an expression of a new class of investors coming out trying to emphasize the profit opportunity that could be possible for those able to navigate this new meta.
+The truth is probably somewhere in the middle, and memecoin trading is almost an expression of a new class of investors coming out trying to emphasize the profit opportunity that could be possible for those able to navigate this new meta.
 
 ## Trump Coin and Meme Coins: Trading Strategies
 
-**Host:** I put out a tweet—I was surprised after this Trump coin and Melania coin stuff. I've been thinking about what's happening for a few days, and I reached the conclusion that this is not going to stop anytime soon. This has shown the world that everyone can come up with a meme coin.
+**Host:** I put out a tweet—I was surprised after this Trump coin and Melania coin stuff. I've been thinking about what's happening for a few days, and I reached the conclusion that this is not going to stop anytime soon. This has shown the world that everyone can come up with a memecoin.
 
 Previously, Ethereum and other chains were trying to say they were inventing sophisticated technology, something better than Bitcoin, which they've been promising for many years. The focus was on technological advancement and innovation.
 
-But a meme coin is absolutely honest—it markets itself as nothing other than a name and a community. It strips away all that complexity and shows us there's demand for good old gambling. This kind of gambling has a different taste—you're gambling on someone you like, so if you're a Trump fan, you probably like his coin a lot more.
+But a memecoin is absolutely honest—it markets itself as nothing other than a name and a community. It strips away all that complexity and shows us there's demand for good old gambling. This kind of gambling has a different taste—you're gambling on someone you like, so if you're a Trump fan, you probably like his coin a lot more.
 
 It showed me there's a new business model in town. Anyone who reaches fame previously had to go through many other channels to monetize that fame—get advertisements, partner with brand companies. But now everyone can spin up their own coin and multiply their net worth over hours.
 
@@ -168,15 +168,15 @@ Of course, this is going to be very volatile, and many of these coins will end u
 
 You can get yourself to corners of a small village back in Malaysia, and people there could begin funding you. There might be good things that come out of it in terms of having access to financial resources if people are interested in a cause, being able to open it up for the whole world to fund.
 
-**Jeff:** There are a few things people misunderstand about meme coin trading. First, they think it's pure gambling like playing slot machines—truly the kinds of gambling that's mindless, where it's an addiction and negative expected value, and you really shouldn't do it. There's a spectrum of games casinos offer, and slot machines are probably one of the worst kinds of gambling because you can't apply skill.
+**Jeff:** There are a few things people misunderstand about memecoin trading. First, they think it's pure gambling like playing slot machines—truly the kinds of gambling that's mindless, where it's an addiction and negative expected value, and you really shouldn't do it. There's a spectrum of games casinos offer, and slot machines are probably one of the worst kinds of gambling because you can't apply skill.
 
 On the other hand, you have games like poker, which is entirely about skill. It's fun, and there's something that emerges out of the social capital of certain players. Maybe they even find happiness with their friends playing games, and there's something useful about that.
 
-Meme coin trading is actually both—it's very social, so people get utility out of this, and there's a price for that. It's almost like a consumption good—you pay money to have fun meme coin trading, just like you pay money to have fun.
+Meme coin trading is actually both—it's very social, so people get utility out of this, and there's a price for that. It's almost like a consumption good—you pay money to have fun memecoin trading, just like you pay money to have fun.
 
 Second is this idea that it's gambling without any notion of skills, and you could be so far from the truth with that statement. Meme coin trading is actually one of the most skilled things that exist at every level possible.
 
-If you're a very good meme coin trader, you're probably a very good programmer with great technical capabilities because you need to know how to navigate blockchain latency. You need to set up bots that can trade effectively, monitor multiple pools, find liquidity in a multi-pooled way that's developing in front of you that no one's going to give you guidelines for.
+If you're a very good memecoin trader, you're probably a very good programmer with great technical capabilities because you need to know how to navigate blockchain latency. You need to set up bots that can trade effectively, monitor multiple pools, find liquidity in a multi-pooled way that's developing in front of you that no one's going to give you guidelines for.
 
 These are technically super capable people—they're engineers. Of course, they're going to outcompete somebody who's sitting at their couch buying a coin because they like Donald Trump. There are levels to people's expertise, just like expertise and levels in any financial capital markets.
 
@@ -184,9 +184,9 @@ The third thing people bring up is information asymmetry—some people are being
 
 If you think about SPACs and how obscure the SPAC market is, the economics that come out of the original promoters of the SPAC vehicle, and how they don't even disclose it—this is an SEC-approved listing. Those things already show you that information asymmetry is, in some way, a way of life.
 
-The beautiful thing is with meme coins, you can see it. You can literally go check the wallets and see, "Wow, this looks horribly set up—these insiders are sketchy as hell." You can't even do that with SPACs. You can't do that with closed-end fund equity issuances. You have no idea what's happening behind the scenes about the monetization of that exact information asymmetry, and yet we permit billions of dollars to trade in regulated markets with this.
+The beautiful thing is with memecoins, you can see it. You can literally go check the wallets and see, "Wow, this looks horribly set up—these insiders are sketchy as hell." You can't even do that with SPACs. You can't do that with closed-end fund equity issuances. You have no idea what's happening behind the scenes about the monetization of that exact information asymmetry, and yet we permit billions of dollars to trade in regulated markets with this.
 
-I look back at all those people and tell them you can't be so harsh on meme coin trading without first realizing how bad it is out there in the regulated market for information asymmetry.
+I look back at all those people and tell them ***you can't be so harsh on memecoin trading without first realizing how bad it is out there in the regulated market for information asymmetry***.
 
 Securities law insists on inside information and material nonpublic information, but let's step out of securities—what about the commodity market, the FX market? Those aren't securities, but there's inside information in all these markets too. There are ways that the oil market moves based on things you might know about certain happenings, and that could be an edge.
 
@@ -234,13 +234,13 @@ The third thing is I see the biggest abuse of the 60/40 model being that you're 
 
 You need to find things where they cannot do that to you as an owner of an asset—where they can't play the game of yield curve manipulation to pull forward the spending that's rightfully yours between the old and the new.
 
-That's another lens to appreciate radical assets. Part of why meme coin trading is so incredible is that eventually, many of these meme coins go to zero, but many stocks also go to zero—something like 25% of US-listed stocks eventually go to zero.
+That's another lens to appreciate radical assets. Part of why memecoin trading is so incredible is that eventually, many of these memecoins go to zero, but many stocks also go to zero—something like 25% of US-listed stocks eventually go to zero.
 
-The difference is meme coins happen so fast—they're making things happen so quickly that you can't play the arbitrage of passing the hot potato to the next generation game. I think there's a subtle but philosophically acute point that young folks are making: "We're not going to play in the game of locking up my money for 10 years because I know what happens to my money when I lock it up for 10 years—you're gonna steal it."
+The difference is memecoins happen so fast—they're making things happen so quickly that you can't play the arbitrage of passing the hot potato to the next generation game. I think there's a subtle but philosophically acute point that young folks are making: "We're not going to play in the game of locking up my money for 10 years because I know what happens to my money when I lock it up for 10 years—you're gonna steal it."
 
 So they're going to play in their little box where things are so fast and volatility is 500,000% because that's the part they know older people cannot play in. You actually can't come into this market at all.
 
-The world is funny, but there's some reason why things happen the way they do. If you squint hard enough, you'll see meme coin trading is actually a wealth transfer from the old to the new, and I think there's something beautiful and poetic about that.
+The world is funny, but there's some reason why things happen the way they do. If you squint hard enough, you'll see memecoin trading is actually a wealth transfer from the old to the new, and I think there's something beautiful and poetic about that.
 
 **Host:** You brought up a bunch of fantastic points. This idea of young generation intentionally moving to a place where there's no competition from older people might actually have a lot of wisdom behind it. You remind me of social media choices—I've heard from young people, "Oh, this social media is for old people, we don't want it." Just the fact that there are old people there is negative to them, so they want to move somewhere that's purely for their generation.
 
@@ -267,21 +267,3 @@ We also have **options income strategies** coming live in March, taking advantag
 These products are essential because they're giving investors more financial toolkits to access the kinds of ways to build your own portfolio as you see it. The options income strategies will focus on MicroStrategy, Coinbase, and Marathon—each individual products but all representing something important to the crypto arena, accompanied by very high levels of volatility.
 
 This will help investors own their favorite long crypto equities but with income and a lower cost basis. Over a long period of time, that should be very valuable for somebody who wants to compound capital and take advantage of some path dependencies that can exist with highly volatile stocks.
-
-**Host:** This is fantastic. I've been trying to hack together my own options income strategy. I'll definitely look forward to what you guys do. What's next for your book? Do you have a timeline? Are you going to add more ideas, more chapters? When can people access it?
-
-## What's Next? A Sneak Peek at Jeff's Upcoming Book
-
-**Jeff:** Still a work in progress. There are multiple parts I want to keep adding substance to. We talked about having to first understand why 60/40 is broken, and there's a lot of history that needs to be imbued into that concept and the role of Bitcoin that eventually could serve in appending that model.
-
-The other part is there's going to be more features with quantitative output that shows you exactly empirically how much better off you are by owning these assets. You can see the numbers, the Sharpe ratios, and all the things that will help investors understand why it's actually so significant.
-
-For now, I have a little community set up called **The Radical Portfolio Revolution**. It's a great group of 1,200-plus people that talk about these concepts. We explore it together, challenge each other's mental models, and try to bring new examples of resistance assets into the dialogue. If you're interested, please join us, and you'll be up to speed with a lot of the smartest thinkers about how they're helping rethink that revolution too.
-
-**Host:** Fantastic! Well, you're doing amazing work. I feel that I got a much better understanding of where your head's at and what you're thinking, so I'll definitely be following your work with much more depth and anticipation. Thanks a lot for joining. I know you have some work after this, so I'll let you go.
-
-But let me get this promise: whenever you have time, we get another discussion about that ETF. I don't want to miss it—it's fantastic, it's gonna be a game changer. Let's talk about that.
-
-**Jeff:** Sounds convenient. Perfect! Thanks a lot. You have a fantastic rest of your day.
-
-**Host:** Sounds great. Thanks for having me, Cena. See you soon.
