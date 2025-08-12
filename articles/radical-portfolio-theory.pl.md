@@ -137,7 +137,7 @@ Portfel radykalny może brzmieć skomplikowanie, ale może pozostać naprawdę p
 
 ### Odporny maksymalista
 
-W [wywiadzie Unchained](https://youtu.be/eq5KGH68EH4?si=l2WVeAb3T2gSNOhB&t=4192), Jeff zauważa, że wielu Bitcoinerów kupuje zarówno Bitcoin, jak i akcje MSTR, przy czym oba aktywa są całkowicie skorelowane. Lepszą konfiguracją, którą maksymaliści Bitcoin mogliby nadal docenić, byłoby uzupełnienie Bitcoina o ticker STRK—akcje uprzywilejowane Strategy z ich **8% kuponem dywidendowym**. Oba aktywa opierają się na wierze we wzrost Bitcoina, ale stały dochód 8% zapewnia znaczącą dywersyfikację dla zmienności Bitcoina.
+W [wywiadzie Unchained](https://youtu.be/eq5KGH68EH4?si=l2WVeAb3T2gSNOhB&t=4192), Jeff zauważa, że wielu "bitkojniarzy" kupuje zarówno Bitcoin, jak i akcje MSTR, przy czym oba aktywa są całkowicie skorelowane. Lepszą konfiguracją, którą maksymaliści Bitcoin mogliby nadal docenić, byłoby uzupełnienie Bitcoina o ticker STRK—akcje uprzywilejowane Strategy z ich **8% kuponem dywidendowym**. Oba aktywa opierają się na wierze we wzrost Bitcoina, ale stały dochód 8% zapewnia znaczącą dywersyfikację dla zmienności Bitcoina.
 
 {::nomarkdown}
 <figure class="article__figure" data-controller="pie-chart" data-pie-chart-data-value="#FA660F,STRK,Strategy Preferred Stock,60
