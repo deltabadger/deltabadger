@@ -39,8 +39,8 @@ _February 2025_
 CoinDesk Indices (“CDI”) is an independent index provider that maintains a series of indices designed to measure the performance of various segments of the digital asset market as described in each Index Methodology. Factors that are critical to the administration of each CoinDesk Index (the “Indices”) include maintaining a robust index design and calculation platform, appropriate monitoring and quality control tools, strong oversight, and transparent documentation.
 This document is designed to provide general policies that apply across indices and should be used in conjunction with the applicable Index Methodology. This document will be updated as necessary and reviewed on an annual basis. As there may be exceptions to these policies for a specific index, the rules and procedures described in the Index Methodology supersede this document.
 A digital asset is a non-tangible asset that is created, traded, and stored in a digital format using distributed ledger or blockchain technology. Digital assets are often referred to as crypto assets, cryptocurrencies, or digital tokens, among other terminologies.
-A meme coin is a digital asset that is associated with a meme or viral online joke.
-Typically, meme coins have no stated economic or financial purpose.
+A memecoin is a digital asset that is associated with a meme or viral online joke.
+Typically, memecoins have no stated economic or financial purpose.
 
 ## Security Designation 
 

@@ -2,11 +2,7 @@
 
 ## Introduction
 
-**Will Ward:** Welcome to the Oracle by Polymarket, where we bring you news and analysis from the world's largest prediction market. My name is Will Ward and I'm the editor of the Oracle. Before we begin, I have to remind you that nothing in the Oracle is financial, investment, legal, or any other type of professional advice. Anything provided is for informational purposes only and not meant to be an endorsement of any type of activity or particular market or product. 
-
-Terms of service on polymarket.com prohibit US persons and persons from certain other jurisdictions from using Polymarket to trade, although data and information is viewable globally.
-
-Welcome to the Oracle by Polymarket! I'm talking today with Jeff Park, who's the head of alpha strategies at Bitwise Investments, which is a crypto-focused investment advisory.
+**Will Ward:** I'm talking today with Jeff Park, who's the head of alpha strategies at Bitwise Investments, which is a crypto-focused investment advisory.
 
 Jeff, the first thing that caught my eye was your post in November where you talked about something that you call the "radical portfolio theory" - which is basically like a completely new interpretation of the traditional 60/40 stock-bond portfolio. In there, in addition to stuff like crypto, you have this 10% basket which is like betting, professional gambling, sports betting, and prediction market trading. Then I started to get into your deep cuts and found you have a ton of experience on the crypto options market and looking at the MicroStrategy trade, which we cover quite heavily on Polymarket, and a bunch of other areas in our finance markets.
 
@@ -66,7 +62,7 @@ So why is that happening? At the very underpinning root of the radical portfolio
 
 **First:** We have to accept that there's really no such thing as an absolute truth in social sciences. So things like economics, where we talk about GDP as a certain measure, is not an absolute truth - that is a social science way to conceive of people to have an ability to converse intelligently and make intelligent decisions.
 
-So at the core of this is that the opposite of misinformation is actually not truth, but it might rather be state-controlled information. And this is related to the political energy that I think is now emerging, which is that there is a sense of rejection for what the media is controlling as state-controlled information, and people seeking other things that may deviate from that course - that fattens the wings on the information market.
+So at the core of this is that ***the opposite of misinformation is actually not truth, but it might rather be state-controlled information***. And this is related to the political energy that I think is now emerging, which is that there is a sense of rejection for what the media is controlling as state-controlled information, and people seeking other things that may deviate from that course - that fattens the wings on the information market.
 
 **Second:** The other thing that's been happening is that it is absolutely true that the world is becoming more centrally managed than before. There's such growing unease, I would say, with the interconnectedness of the entire global economy, in addition to things we're seeing in financialization. The fact that the Mag 7 commands the financial markets in ways that indexing now forces participation in certain stocks in ways that historically did not means that everything is becoming more centrally managed.
 
@@ -124,7 +120,7 @@ You don't need a lot of leverage actually in the betting market to have the abil
 
 So if you have art on your wall in your house in the US or whatever, that's compliance. If you have art in a bunker in New Zealand, that's resistance. How does Bitcoin fit into that? Like, would you say if you have Bitcoin etched into a piece of metal somewhere, that's resistance, but if you are sitting on Coinbase, that's compliance? Or how do you see crypto in that?
 
-**Jeff Park:** Yeah, there are two parameters in defining whether an asset is compliant or resistant. One is the investment characteristic, but the second thing is actually the operational custody, which is the point that you're alluding to. We haven't spoken about it yet, but I consider that as another way to imagine compliance versus resistance outside of the investment characteristics of the asset.
+**Jeff Park:** Yeah, ***there are two parameters in defining whether an asset is compliant or resistant. One is the investment characteristic, but the second thing is actually the operational custody***, which is the point that you're alluding to. We haven't spoken about it yet, but I consider that as another way to imagine compliance versus resistance outside of the investment characteristics of the asset.
 
 Here I think the point that I'm alluding to really is that in a world of state maximalism - which was kind of what I felt the energy was for the last four years here in the US - you need to remove yourself from that system somehow, right?
 
@@ -214,7 +210,7 @@ So that's what I mean by also playing the long end to the terminal value. And I 
 
 **Will Ward:** One criticism of prediction markets that you hear a lot is that they overprice - you know, something that may have a 2% chance is going to be priced at 10%, or people tend to overvalue these long-shot bets. Does that create any problems when you're trying to get these huge returns on the wings?
 
-**Jeff Park:** I think most prediction markets - it's an options market in general - overprice likelihood of events because that's actually the way insurance models work, right? People are betting usually to hedge for an outcome if the market's developed and people are willing to pay a premium for insurance.
+**Jeff Park:** I think ***most prediction markets - it's an options market in general - overprice likelihood of events because that's actually the way insurance models work, right? People are betting usually to hedge for an outcome if the market's developed and people are willing to pay a premium for insurance***.
 
 Now, I don't know how that would apply to Polymarket today in the sense that - are people hedging their investment account using Polymarket as a hedge to an outcome? So for example, if you thought your equities portfolio is going to benefit tremendously by having exposure to Trump-favored stocks, might you then use Polymarket to hedge for an outcome on a beta-adjusted basis that Harris would win? That's insurance, right? You're actually no longer betting on whether Harris is winning - you just want insurance in your portfolio.
 
@@ -358,9 +354,9 @@ So there's actually a lot of capital efficiency that comes out of MicroStrategy 
 
 So structurally, I think the capital efficiency is very different.
 
-And then the investor base is diversified in crypto - sorry, in MicroStrategy - than it is in crypto generally with meme coins, right? Meme coins are trading on trend and momentum, and those things can be heavily autocorrelated in its price action, where when things are good, it's really good, and when things are bad, it's really bad. And that's actually the kind of thing you don't want that much leverage in.
+And then the investor base is diversified in crypto - sorry, in MicroStrategy - than it is in crypto generally with memecoins, right? Meme coins are trading on trend and momentum, and those things can be heavily autocorrelated in its price action, where when things are good, it's really good, and when things are bad, it's really bad. And that's actually the kind of thing you don't want that much leverage in.
 
-The beautiful thing about Bitcoin is actually you have a very diverse group of investors playing with very different risk-reward outcomes and timelines in which they're betting, whereas meme coin trading tends to be very low-latency, short-term trading, which actually makes it difficult to put leverage into the system.
+The beautiful thing about Bitcoin is actually you have a very diverse group of investors playing with very different risk-reward outcomes and timelines in which they're betting, whereas memecoin trading tends to be very low-latency, short-term trading, which actually makes it difficult to put leverage into the system.
 
 **Will Ward:** So what I'm hearing is we need to expect an FCoin IPO at some point in the near future?
 
