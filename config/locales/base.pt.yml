@@ -94,7 +94,7 @@ pt:
             title: Obrigado!
         contact:
             general_questions_html: 'Para questões gerais, experimente o nosso <a class="db-social-link" href="https://t.me/deltabadgerchat" target="_blank" rel="nofollow">canal no Telegram</a>. Esta é, normalmente, a forma mais rápida de obter uma resposta. Adicionalmente, todos os comentários, ideias de produtos e pedidos de câmbio são bem-vindos.'
-            specific_questions_html: 'Para questões mais específicas, envie-nos um e-mail para %{email} ou uma mensagem direta no Telegram ou no <a class="db-social-link" href="https://x.com/deltabadgerapp" target="_blank" rel="nofollow">𝕏</a>.'
+            specific_questions_html: 'Para questões mais específicas, envie-nos um e-mail para %{email} ou uma mensagem direta no Telegram ou no <a class="db-social-link" href="https://x.com/intent/follow?screen_name=deltabadgerapp" target="_blank" rel="nofollow">𝕏</a>.'
             title: Contacto
     links:
         about: 'Sobre'
