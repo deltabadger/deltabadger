@@ -8,7 +8,7 @@ paywall_hook: |
    <ul>
        <li>Złoto jako tradycyjny aktyw odporności</li>
        <li>Portfel Permanentny 2.0</li>
-       <li>Przypadek Bitcoina</li>
+       <li>Argument za Bitcoinem</li>
    </ul>
 x_url: https://x.com/deltabadgerapp/status/1945100471317766527
 telegram_url: https://t.me/deltabadger/106
