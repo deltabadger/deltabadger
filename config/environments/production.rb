@@ -99,8 +99,8 @@ Rails.application.configure do
     domain: ENV['MAILER_SMTP_DOMAIN'],
     port: ENV["MAILER_SMTP_PORT"],
     enable_starttsl_auto: true,
-    user_name: 'apikey',
-    password: ENV['SENDGRID_SMTP_API_KEY']
+    user_name: ENV["MAILER_SMTP_USER_NAME"],
+    password: ENV["MAILER_SMTP_PASSWORD"]
   }
   routes.default_url_options = {host: ENV['APP_ROOT_URL'], protocol: 'https'}
 
