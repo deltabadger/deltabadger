@@ -1,13 +1,13 @@
 en:
     subscriptions:
-        per_week_html: "/week"
-        per_month_html: "/mo"
-        per_year_html: "/yr"
-        per_4_years_html: "/4 yrs"
+        per_week_html: "/ week"
+        per_month_html: "/ mo"
+        per_year_html: "/ yr"
+        per_4_years_html: "/ 4 yrs"
         variant_7_days: "Weekly"
         variant_30_days: "Monthly"
-        variant_365_days: "Yearly"
-        variant_1460_days: "4 Years"
+        variant_365_days: "1 year"
+        variant_1460_days: "4 years, save 25%"
         variant_lifetime: "Lifetime"
         free: "Free"
         mini: "Mini"
@@ -15,6 +15,7 @@ en:
         pro: "Pro"
         research: "Research"
         legendary: "Legendary"
+        active: "Active"
         thank_you:
             title: "Thank you!"
             description: "Your %{plan_name} plan is active."
@@ -82,7 +83,8 @@ en:
             keep_subscription: "Keep My Subscription"
             confirm_cancellation: "Yes, Cancel My Subscription"
         payment:
-            cardholder_name: "Cardholder name"
+            cardholder_first_name: "Cardholder first name"
+            cardholder_last_name: "Cardholder last name"
             checkout: "Checkout"
             price_usd_html: "<span class=price-ticker>%{symbol}</span><span class=price-amount>%{price}</span>"
             price_eur_html: "<span class=price-ticker>%{symbol}</span><span class=price-amount>%{price}</span>"

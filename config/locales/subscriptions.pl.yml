@@ -1,12 +1,13 @@
 pl:
     subscriptions:
-        per_month_html: "/mies"
-        per_year_html: "/rok"
-        per_4_years_html: "/4 lata"
+        per_week_html: "/ tydzień"
+        per_month_html: "/ miesiąc"
+        per_year_html: "/ rok"
+        per_4_years_html: "/ 4 lata"
         variant_lifetime: "Dożywotni"
         variant_30_days: "Miesięcznie"
-        variant_365_days: "Rocznie"
-        variant_1460_days: "4 Lata"
+        variant_365_days: "1 rok"
+        variant_1460_days: "4 lata, 25% zniżki"
         variant_7_days: "Tygodniowo"
         free: "Darmowy"
         mini: "Mini"
@@ -14,6 +15,7 @@ pl:
         pro: "Pro"
         research: "Research"
         legendary: "Legendary"
+        active: "Aktywny"
         thank_you:
             title: "Dziękuję!"
             description: "Twój plan %{plan_name} jest aktywny."
@@ -31,7 +33,8 @@ pl:
         confirm_cancel_title: "Anuluj plan %{plan}"
         confirm_cancel: "Czy na pewno chcesz anulować subskrypcję? Wszystkie boty z włączonymi funkcjami %{plan} przestaną działać po %{date}."
         payment:
-            cardholder_name: "Posiadacz karty"
+            cardholder_first_name: "Imię posiadacza karty"
+            cardholder_last_name: "Nazwisko posiadacza karty"
             checkout: "Do kasy"
             price_usd_html: '<span class=price-ticker>%{symbol}</span><span class=price-amount>%{price}</span>'
             price_eur_html: '<span class=price-ticker>%{symbol}</span><span class=price-amount>%{price}</span>'

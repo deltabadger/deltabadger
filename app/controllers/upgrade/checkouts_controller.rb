@@ -23,7 +23,6 @@ class Upgrade::CheckoutsController < ApplicationController
       :standard_research_enabled,
       :type,
       :country,
-      :cardholder_name,
       :first_name,
       :last_name,
       :birth_date
@@ -38,8 +37,8 @@ class Upgrade::CheckoutsController < ApplicationController
       standard_research_enabled: payment_params[:standard_research_enabled].presence&.in?(%w[1 true]),
       type: payment_params[:type],
       country: payment_params[:country],
-      first_name: first_name(payment_params[:cardholder_name]) || payment_params[:first_name],
-      last_name: last_name(payment_params[:cardholder_name]) || payment_params[:last_name],
+      first_name: payment_params[:first_name],
+      last_name: payment_params[:last_name],
       birth_date: payment_params[:birth_date],
       days: payment_params[:days]&.to_i
     }.compact.stringify_keys
@@ -65,26 +64,14 @@ class Upgrade::CheckoutsController < ApplicationController
   def invalid_session_payment_config?
     session[:payment_config]['mini_research_enabled'].nil? ||
       session[:payment_config]['standard_research_enabled'].nil? ||
-      session[:payment_config]['type'].nil? ||
-      session[:payment_config]['country'].nil? ||
-      session[:payment_config]['days'].nil? ||
-      session[:payment_config]['plan_name'].nil? ||
+      session[:payment_config]['type'].blank? ||
+      session[:payment_config]['country'].blank? ||
+      session[:payment_config]['days'].blank? ||
+      session[:payment_config]['plan_name'].blank? ||
       !session[:payment_config]['plan_name'].in?(available_plan_names)
   end
 
   def redirect_legendary_users
     redirect_to legendary_path and return if current_user.subscription.legendary?
-  end
-
-  def first_name(cardholder_name)
-    return nil if cardholder_name.blank?
-
-    cardholder_name.split.first
-  end
-
-  def last_name(cardholder_name)
-    return nil if cardholder_name.blank?
-
-    cardholder_name.split[1..].join(' ').presence
   end
 end

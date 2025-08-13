@@ -6,8 +6,10 @@ module Upgrades::Showable
   def set_show_instance_variables
     @name_pattern = User::Name::PATTERN
     @selected_days = session[:payment_config]['days']
-    @reference_payment_options = payment_options_for(available_variant_days.min)
-    @reference_duration = SubscriptionPlanVariant.find_by(days: available_variant_days.min).duration
+    # @reference_payment_options = payment_options_for(available_variant_days.min)
+    # @reference_duration = SubscriptionPlanVariant.find_by(days: available_variant_days.min).duration
+    @reference_payment_options = payment_options_for(30)
+    @reference_duration = SubscriptionPlanVariant.find_by(days: 30).duration
     @payment_options = payment_options_for(@selected_days)
     @available_variant_days = available_variant_days
     @legendary_plan = SubscriptionPlan.legendary
