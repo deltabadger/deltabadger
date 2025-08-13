@@ -5,7 +5,9 @@
       <%= localized_price(payment_option.virtual_price('base_price', reference_duration), payment_option.currency) %><span class="price-period"><%= t("subscriptions.#{payment_frequency_translation_key(reference_duration)}") %></span>
     </span>
     <span class="widget--pricing__amount__t__previous">
-      <s><%= localized_price(reference_payment_option.virtual_price('base_price', selected_duration), payment_option.currency) %></s>
+      <% if localized_price(reference_payment_option.virtual_price('base_price', selected_duration), payment_option.currency) != localized_price(payment_option.base_price, payment_option.currency) %>
+        <s><%= localized_price(reference_payment_option.virtual_price('base_price', selected_duration), payment_option.currency) %></s>
+      <% end %>
       <%= localized_price(payment_option.base_price, payment_option.currency) %><span class="price-period"><%= t("subscriptions.#{payment_frequency_translation_key(selected_duration)}") %></span>
     </span>
   <% else %>
