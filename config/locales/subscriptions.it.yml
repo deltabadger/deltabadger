@@ -7,7 +7,7 @@ it:
         variant_lifetime: "A vita"
         variant_30_days: "Mensile"
         variant_365_days: "1 anno"
-        variant_1460_days: "4 anni, 25% di sconto"
+        variant_1460_days: "4 anni, risparmia 25%"
         variant_7_days: "Settimanale"
         free: "Gratuito"
         mini: "Mini"
