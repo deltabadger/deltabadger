@@ -40,9 +40,9 @@ class UpgradesController < ApplicationController
   def invalid_session_payment_config?
     session[:payment_config]['mini_research_enabled'].nil? ||
       session[:payment_config]['standard_research_enabled'].nil? ||
-      session[:payment_config]['type'].nil? ||
-      session[:payment_config]['country'].nil? ||
-      session[:payment_config]['days'].nil?
+      session[:payment_config]['type'].blank? ||
+      session[:payment_config]['country'].blank? ||
+      session[:payment_config]['days'].blank?
   end
 
   def default_payment_type
