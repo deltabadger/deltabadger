@@ -10,7 +10,7 @@ paywall_hook: |
        <li>Permanent Portfolio 2.0</li>
        <li>De casus voor Bitcoin</li>
    </ul>
-x_url: https://x.com/deltabadgerapp/status/1945100471317766527
+x_url: https://x.com/deltabadgerapp/status/1955506609607831798
 telegram_url: https://t.me/deltabadger/106
 published: true
 published_at: "2025-08-12"
