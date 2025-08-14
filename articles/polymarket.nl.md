@@ -22,12 +22,12 @@ Je hebt het talloze keren gehoord – van sceptische vrienden op etentjes, van v
 
 Maar zo nu en dan breekt er iets door het lawaai heen.
 
-[Polymarket](https://polymarket.com/) – het op crypto gebaseerde voorspellingsplatform is stilletjes de meest succesvolle voorspellingsmarkt in de menselijke geschiedenis geworden. Alleen al in 2024 genereerde het meer dan 9 miljard dollar aan handelsvolume – meer dan veel gevestigde financiële markten.
+[Polymarket](https://polymarket.com) – het op crypto gebaseerde voorspellingsplatform is stilletjes de meest succesvolle voorspellingsmarkt in de menselijke geschiedenis geworden. Alleen al in 2024 genereerde het meer dan 9 miljard dollar aan handelsvolume – meer dan veel gevestigde financiële markten.
 
 {::nomarkdown}
 <figure class="article__figure">
 <img class="has-shadow" src="https://deltabadger.com/images/articles/polymarket/polymarket.avif" alt="Polymarket">
-<figcaption class="article__figure__caption"><a href="https://polymarket.com/">polymarket.com</a></figcaption>
+<figcaption class="article__figure__caption"><a href="https://polymarket.com">polymarket.com</a></figcaption>
 </figure>
 {:/nomarkdown}
 
@@ -64,7 +64,7 @@ Hoewel wedden op toekomstige gebeurtenissen een lange geschiedenis heeft, van we
 </div>
 <div class="timeline__event__info">
 <p><b>1988: Moderne tijd</b></p>
-<p>Dit principe werd voortgezet in de moderne tijd. De [Iowa Electronic Markets](https://iemweb.biz.uiowa.edu/) werden de eerste elektronische voorspellingsmarkt en presteerden consequent beter dan peilingen bij het voorspellen van verkiezingsuitslagen.</p>
+<p>Dit principe werd voortgezet in de moderne tijd. De [Iowa Electronic Markets](https://iemweb.biz.uiowa.edu) werden de eerste elektronische voorspellingsmarkt en presteerden consequent beter dan peilingen bij het voorspellen van verkiezingsuitslagen.</p>
 </div>
 </div>
 <div class="timeline__event">
@@ -73,7 +73,7 @@ Hoewel wedden op toekomstige gebeurtenissen een lange geschiedenis heeft, van we
 </div>
 <div class="timeline__event__info">
 <p><b>2001: Vóór crypto</b></p>
-<p>[Intrade](https://intrade.com/), dat van 2001 tot 2013 actief was, kreeg de aandacht van het grote publiek door alles correct te voorspellen, van Oscarwinnaars tot presidentsverkiezingen. Toen Intrade onder druk van de regelgeving werd gesloten, ontstonden platforms zoals [PredictIt](https://www.predictit.org/) – de meest succesvolle voorganger van Polymarket – om de leegte op te vullen, zij het met strikte inzetlimieten die hun impact beperkten.</p>
+<p>[Intrade](https://intrade.com), dat van 2001 tot 2013 actief was, kreeg de aandacht van het grote publiek door alles correct te voorspellen, van Oscarwinnaars tot presidentsverkiezingen. Toen Intrade onder druk van de regelgeving werd gesloten, ontstonden platforms zoals [PredictIt](https://www.predictit.org) – de meest succesvolle voorganger van Polymarket – om de leegte op te vullen, zij het met strikte inzetlimieten die hun impact beperkten.</p>
 </div>
 </div>
 <div class="timeline__event">
@@ -82,7 +82,7 @@ Hoewel wedden op toekomstige gebeurtenissen een lange geschiedenis heeft, van we
 </div>
 <div class="timeline__event__info">
 <p><b>2014: Hivemind</b></p>
-<p>Paul Sztorc stelde [Hivemind](https://bitcoinhivemind.com/) (oorspronkelijk Truthcoin) voor, een Bitcoin-sidechain die "stemmunten" gebruikte om marktuitkomsten te bepalen. Tokenhouders zouden stemmen of gebeurtenissen plaatsvonden, met economische prikkels die eerlijke rapportage beloonden. Ondanks doordachte speltheorie en economie, werd Hivemind nooit gelanceerd vanwege de beperkte scriptmogelijkheden van Bitcoin en de technische complexiteit van het opstarten van een tweeweg-gekoppelde sidechain.</p>
+<p>Paul Sztorc stelde [Hivemind](https://bitcoinhivemind.com) (oorspronkelijk Truthcoin) voor, een Bitcoin-sidechain die "stemmunten" gebruikte om marktuitkomsten te bepalen. Tokenhouders zouden stemmen of gebeurtenissen plaatsvonden, met economische prikkels die eerlijke rapportage beloonden. Ondanks doordachte speltheorie en economie, werd Hivemind nooit gelanceerd vanwege de beperkte scriptmogelijkheden van Bitcoin en de technische complexiteit van het opstarten van een tweeweg-gekoppelde sidechain.</p>
 </div>
 </div>
 <div class="timeline__event">
@@ -91,7 +91,7 @@ Hoewel wedden op toekomstige gebeurtenissen een lange geschiedenis heeft, van we
 </div>
 <div class="timeline__event__info">
 <p><b>2015: Augur</b></p>
-<p>[Augur](www.augur.net/) haalde ~$5 miljoen op in een ICO om 's werelds eerste gedecentraliseerde voorspellingsmarkt te worden, die in 2018 op Ethereum werd gelanceerd. Gebruikers konden markten creëren over alles, maar het platform leed onder een vreselijke gebruikerservaring, hoge gaskosten die kleine weddenschappen onrendabel maakten, en verontrustende markten over moorden en terroristische aanslagen die het niet kon stoppen zonder zijn censuurbestendige principes op te geven. Ondanks jarenlange ontwikkeling bereikte het nooit de liquiditeit die nodig was voor een nauwkeurige prijsbepaling.</p>
+<p>[Augur](www.augur.net) haalde ~$5 miljoen op in een ICO om 's werelds eerste gedecentraliseerde voorspellingsmarkt te worden, die in 2018 op Ethereum werd gelanceerd. Gebruikers konden markten creëren over alles, maar het platform leed onder een vreselijke gebruikerservaring, hoge gaskosten die kleine weddenschappen onrendabel maakten, en verontrustende markten over moorden en terroristische aanslagen die het niet kon stoppen zonder zijn censuurbestendige principes op te geven. Ondanks jarenlange ontwikkeling bereikte het nooit de liquiditeit die nodig was voor een nauwkeurige prijsbepaling.</p>
 </div>
 </div>
 </section>
@@ -271,7 +271,7 @@ Het platform gebruikt de gedecentraliseerde UMA Optimistic Oracle voor resolutie
 </div>
 <div class="timeline__event__info">
 <p><b>Juni 2025: TIME's erkenning</b></p>
-<p>Polymarket belandde op de lijst van de 100 meest invloedrijke bedrijven van TIME Magazine, waarmee de overgang van crypto-nieuwsgierigheid naar mainstream culturele kracht werd bezegeld. CEO Shayne Coplan vierde de erkenning als een bevestiging dat mensen "de waarheid" wilden – een niet zo subtiele sneer naar traditionele media en peilingen. <a class="link-source-tile" href="https://time.com/collections/time100-companies-2025/7289591/polymarket/">time.com</a></p>
+<p>Polymarket belandde op de lijst van de 100 meest invloedrijke bedrijven van TIME Magazine, waarmee de overgang van crypto-nieuwsgierigheid naar mainstream culturele kracht werd bezegeld. CEO Shayne Coplan vierde de erkenning als een bevestiging dat mensen "de waarheid" wilden – een niet zo subtiele sneer naar traditionele media en peilingen. <a class="link-source-tile" href="https://time.com/collections/time100-companies-2025/7289591/polymarket">time.com</a></p>
 </div>
 </div>
 
@@ -281,7 +281,7 @@ Het platform gebruikt de gedecentraliseerde UMA Optimistic Oracle voor resolutie
 </div>
 <div class="timeline__event__info">
 <p><b>Juni 2025: Het X-partnerschap</b></p>
-<p>De ultieme validatie kwam toen X (voorheen Twitter) Polymarket tot zijn officiële partner voor voorspellingsmarkten benoemde. De integratie zou real-time wedkansen combineren met Grok AI-analyse en live social media-feeds, waardoor een nieuwe hybride van voorspelling en sociale ontdekking ontstond. Elon Musk, die tijdens de verkiezingen herhaaldelijk de nauwkeurigheid van Polymarket had onderschreven, was naar verluidt instrumenteel in het partnerschap. <a class="link-source-tile" href="https://observer.com/2025/06/elon-musk-x-prediction-market-polymarket/">observer.com</a></p>
+<p>De ultieme validatie kwam toen X (voorheen Twitter) Polymarket tot zijn officiële partner voor voorspellingsmarkten benoemde. De integratie zou real-time wedkansen combineren met Grok AI-analyse en live social media-feeds, waardoor een nieuwe hybride van voorspelling en sociale ontdekking ontstond. Elon Musk, die tijdens de verkiezingen herhaaldelijk de nauwkeurigheid van Polymarket had onderschreven, was naar verluidt instrumenteel in het partnerschap. <a class="link-source-tile" href="https://observer.com/2025/06/elon-musk-x-prediction-market-polymarket">observer.com</a></p>
 </div>
 </div>
 
@@ -292,7 +292,7 @@ Het platform gebruikt de gedecentraliseerde UMA Optimistic Oracle voor resolutie
 <div class="timeline__event__info">
 <p><b>Juli 2025: De controverse rond het pak van Zelensky</b></p>
 <p>Meest recentelijk raakte Polymarket verwikkeld in zijn grootste controverse sinds de Titan-onderzeeër. Een markt over de vraag of de Oekraïense president Zelensky een pak zou dragen naar een specifiek evenement genereerde 237 miljoen dollar aan volume – de grootste niet-verkiezingsmarkt in de geschiedenis van het platform.</p>
-<p>Toen de markt op "Nee" werd beslist, oordelend dat Zelensky geen pak droeg, barstten beschuldigingen van manipulatie los. Critici beweerden dat walvissen de uitkomst hadden gemanipuleerd en dat bots het orakelsysteem hadden misleid, wat meer dan 24.000 boze reacties genereerde en potentiële gebreken in gedecentraliseerde consensusmechanismen blootlegde. <a class="link-source-tile" href="https://www.wired.com/story/volodymyr-zelensky-suit-polymarket-rebellion/">wired.com</a></p>
+<p>Toen de markt op "Nee" werd beslist, oordelend dat Zelensky geen pak droeg, barstten beschuldigingen van manipulatie los. Critici beweerden dat walvissen de uitkomst hadden gemanipuleerd en dat bots het orakelsysteem hadden misleid, wat meer dan 24.000 boze reacties genereerde en potentiële gebreken in gedecentraliseerde consensusmechanismen blootlegde. <a class="link-source-tile" href="https://www.wired.com/story/volodymyr-zelensky-suit-polymarket-rebellion">wired.com</a></p>
 </div>
 </div>
 
@@ -355,7 +355,7 @@ Ondanks al deze activiteit handelt POL rond de $0,226-0,23 – 85% lager dan zij
 <!-- TradingView Widget BEGIN -->
 <div class="tradingview-widget-container">
   <div class="tradingview-widget-container__widget"></div>
-  <div class="tradingview-widget-copyright"><a href="https://www.tradingview.com/" rel="noopener nofollow" target="_blank"><span class="blue-text">Track all markets on TradingView</span></a></div>
+  <div class="tradingview-widget-copyright"><a href="https://www.tradingview.com" rel="noopener nofollow" target="_blank"><span class="blue-text">Track all markets on TradingView</span></a></div>
   <script type="text/javascript" src="https://s3.tradingview.com/external-embedding/embed-widget-symbol-overview.js" async>
   {
   "lineWidth": 2,
@@ -449,9 +449,9 @@ Recente rapporten suggereren dat Polymarket een financieringsronde van $200 milj
 
 ### Kun je in aanmerking komen voor de airdrop?
 
-Op X wordt al druk gespeculeerd over mogelijke Polymarket-airdrops, waarbij cryptogemeenschappen actief "airdrop-farming"-strategieën bespreken. Het platform heeft honderdduizenden actieve gebruikers en gedetailleerde transactiegeschiedenissen die teruggaan tot 2020 – perfecte gegevens voor gerichte tokendistributies. Vroege gebruikers, high-volume handelaren en nauwkeurige voorspellers zouden allemaal toewijzingen kunnen ontvangen op basis van hun bijdragen aan het platform. <a class="link-source-tile" href="https://coincodex.com/article/67098/polymarket-airdrop/">coincodex.com</a>
+Op X wordt al druk gespeculeerd over mogelijke Polymarket-airdrops, waarbij cryptogemeenschappen actief "airdrop-farming"-strategieën bespreken. Het platform heeft honderdduizenden actieve gebruikers en gedetailleerde transactiegeschiedenissen die teruggaan tot 2020 – perfecte gegevens voor gerichte tokendistributies. Vroege gebruikers, high-volume handelaren en nauwkeurige voorspellers zouden allemaal toewijzingen kunnen ontvangen op basis van hun bijdragen aan het platform. <a class="link-source-tile" href="https://coincodex.com/article/67098/polymarket-airdrop">coincodex.com</a>
 
-Het openen van een account en het plaatsen van weddenschappen op Polymarket zou u mogelijk in aanmerking kunnen brengen voor een toekomstige airdrop, gebaseerd op wijdverbreide speculatie in de gemeenschap en strategieën die worden gedeeld op crypto Twitter- en Discord-kanalen. <a class="link-source-tile" href="https://airdrops.io/polymarket/">airdrops.io</a>
+Het openen van een account en het plaatsen van weddenschappen op Polymarket zou u mogelijk in aanmerking kunnen brengen voor een toekomstige airdrop, gebaseerd op wijdverbreide speculatie in de gemeenschap en strategieën die worden gedeeld op crypto Twitter- en Discord-kanalen. <a class="link-source-tile" href="https://airdrops.io/polymarket">airdrops.io</a>
 
 Veel voorspellingsmarktplatforms en DeFi-projecten hebben vroege gebruikers beloond met token-airdrops, en Polymarket-gebruikers zijn actief bezig met het "farmen" van het platform door het handelsvolume te verhogen in de hoop in aanmerking te komen als er ooit een token wordt gelanceerd.
 

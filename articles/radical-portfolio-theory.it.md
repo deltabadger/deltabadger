@@ -101,7 +101,7 @@ L'altro 40% sono asset **resilienti** (resilient) che forniscono assicurazione. 
 
 Ora potresti capire da dove viene il "radicale"—sicuramente non il manuale che un consulente finanziario tradizionale raccomanderebbe (o sarebbe autorizzato a raccomandare).
 
-Mentre anche includere i [mercati predittivi](./polymarket/) in un framework di investimento generale sembra davvero radicale, la grande osservazione qui è che invece di essere solo asset esotici o gioco d'azzardo, possono essere usati come una classica assicurazione conservativa. Fare una piccola scommessa su uno scenario improbabile ma tragico può essere una strategia valida per aumentare la sicurezza del tuo portafoglio.
+Mentre anche includere i [mercati predittivi](./polymarket) in un framework di investimento generale sembra davvero radicale, la grande osservazione qui è che invece di essere solo asset esotici o gioco d'azzardo, possono essere usati come una classica assicurazione conservativa. Fare una piccola scommessa su uno scenario improbabile ma tragico può essere una strategia valida per aumentare la sicurezza del tuo portafoglio.
 
 ### Custodia personale (Self-custody)
 
@@ -174,7 +174,7 @@ Quando fai passare un portafoglio contenente l'ETF Invesco QQQ e oro attraverso 
 {::nomarkdown}
 <figure class="article__figure">
 <img style="width: 100rem" src="https://deltabadger.com/images/articles/radical-portfolio-theory/qqq-gold.avif" alt="QQQ vs Oro">
-<figcaption class="article__figure__caption">L'allocazione VOL più bassa per QQQ e oro. Testato con <a href="https://deltabadger.com/portfolio-analyzer/" title="Analizzatore di portafoglio per azioni e crypto">Portfolio Analyzer</a></figcaption>
+<figcaption class="article__figure__caption">L'allocazione VOL più bassa per QQQ e oro. Testato con <a href="https://deltabadger.com/portfolio-analyzer" title="Analizzatore di portafoglio per azioni e crypto">Portfolio Analyzer</a></figcaption>
 </figure>
 {:/nomarkdown}
 
@@ -202,6 +202,6 @@ Il che ci porta al mio framework preferito di miscelazione di tutte e quattro qu
 
 Mentre il saggio originale non si concentra su Bitcoin, per qualsiasi investitore in asset digitali la connessione e l'attrattiva saranno ovvie ed evidenti. Bitcoin è il naturale asset di resilienza perfetto che spunta tutte le caselle e merita di essere parte di ogni portafoglio. Mentre un tipico consiglio "non ortodosso" di solito suggeriva 1-5%, dalla prospettiva della "teoria del portafoglio radicale" un'allocazione del 20-40% non suona così folle.
 
-Detto questo, il framework "radicale" fornisce sia ottime spiegazioni che strategie applicabili, portando chiarezza per gli investitori che guardano a molte nuove opportunità provenienti dalla finanza tradizionale come MSTR, STRK, o il [prossimo ETF multi-crypto di Grayscale](./grayscale-crypto-etf/).
+Detto questo, il framework "radicale" fornisce sia ottime spiegazioni che strategie applicabili, portando chiarezza per gli investitori che guardano a molte nuove opportunità provenienti dalla finanza tradizionale come MSTR, STRK, o il [prossimo ETF multi-crypto di Grayscale](./grayscale-crypto-etf).
 
 Per quanto convenienti siano, sono parte dello status quo contro cui potresti voler diversificare.

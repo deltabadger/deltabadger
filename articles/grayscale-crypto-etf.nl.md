@@ -32,7 +32,7 @@ De ETF biedt gediversifieerde blootstelling aan de belangrijkste cryptocurrencie
 
 Hoewel de meesten aannemen dat de ETF simpelweg de top 5 cryptocurrencies op basis van marktkapitalisatie volgt, volgt het in feite de **CoinDesk 5 Index (CD5)**—een complexe methodologie ontworpen voor institutionele beleggers, die subtiele hints geeft over waar institutioneel geld vervolgens naartoe zou kunnen stromen, wat het de moeite waard maakt om nader te bekijken.
 
-CD5 staat aan de top van een **vierlaagse methodologie** ontwikkeld door [CoinDesk Indices](https://indices.coindesk.com/). In tegenstelling tot populaire marktkapitalisatieranglijsten op sites als CoinGecko of CoinPaprika, is CD5 speciaal gebouwd voor institutionele beleggers. Dit betekent dat de complexe methodologie crypto-enthousiastelingen kan verrassen—het is veel selectiever dan simpelweg de grootste munten op basis van marktkapitalisatie te kiezen.
+CD5 staat aan de top van een **vierlaagse methodologie** ontwikkeld door [CoinDesk Indices](https://indices.coindesk.com). In tegenstelling tot populaire marktkapitalisatieranglijsten op sites als CoinGecko of CoinPaprika, is CD5 speciaal gebouwd voor institutionele beleggers. Dit betekent dat de complexe methodologie crypto-enthousiastelingen kan verrassen—het is veel selectiever dan simpelweg de grootste munten op basis van marktkapitalisatie te kiezen.
 
 {::nomarkdown}
 <figure class="article__figure">
@@ -73,7 +73,7 @@ Dit gebrek aan transparantie over de werkelijke omvang van het **Index Universe*
 
 De [CoinDesk 20 Index (CD20)](https://indices.coindesk.com/coindesk20) neemt dit doorgelichte universum en voegt een verdere portefeuillebeheerlaag toe. Het is ook het best gedocumenteerde online deel van het aanbod.
 
-**Marktkapitalisatiegewogen met vangrails**: De marktkapitalisatiegewogen weging van de index, die Deltabadger-gebruikers kennen van de [geherbalanceerde DCA-bot](https://deltabadger.com/academy/rebalanced-dca/), wordt aangepast door limieten toe te voegen (maximaal 30% voor de grootste, 20% voor andere). Het is niet echt duidelijk waarom de limiet is toegevoegd, en de officiële CoinDesk-documentatie legt het niet uit.
+**Marktkapitalisatiegewogen met vangrails**: De marktkapitalisatiegewogen weging van de index, die Deltabadger-gebruikers kennen van de [geherbalanceerde DCA-bot](https://deltabadger.com/academy/rebalanced-dca), wordt aangepast door limieten toe te voegen (maximaal 30% voor de grootste, 20% voor andere). Het is niet echt duidelijk waarom de limiet is toegevoegd, en de officiële CoinDesk-documentatie legt het niet uit.
 
 {::nomarkdown}
 <figure class="article__figure" data-controller="pie-chart" data-pie-chart-data-value="#F7931A,BTC,Bitcoin,30.53

@@ -33,7 +33,7 @@ The ETF offers diversified exposure across major cryptocurrencies, with **Bitcoi
 
 While most assume the ETF simply tracks the top 5 cryptocurrencies by market cap, it actually follows the **CoinDesk 5 Index (CD5)**—a complex methodology designed for institutional investors, providing subtle hints about where institutional money might flow next, making it worth a closer look.
 
-CD5 sits at the top of a **four-tier methodology** developed by [CoinDesk Indices](https://indices.coindesk.com/). Unlike popular market cap rankings on sites like CoinGecko or CoinPaprika, CD5 was built specifically for institutional investors. This means its complex methodology may surprise crypto enthusiasts—it's far more selective than simply picking the largest coins by market cap.
+CD5 sits at the top of a **four-tier methodology** developed by [CoinDesk Indices](https://indices.coindesk.com). Unlike popular market cap rankings on sites like CoinGecko or CoinPaprika, CD5 was built specifically for institutional investors. This means its complex methodology may surprise crypto enthusiasts—it's far more selective than simply picking the largest coins by market cap.
 
 {::nomarkdown}
 <figure class="article__figure">
@@ -74,7 +74,7 @@ This lack of transparency around the actual Index Universe size is one of the cu
 
 The [CoinDesk 20 Index (CD20)](https://indices.coindesk.com/coindesk20) takes this vetted universe and adds a further portfolio management layer. It's also the best documented online part of the offering.
 
-**Market cap weighting with guardrails**: The market cap weighting of the index, which Deltabadger users know from the [rebalanced DCA bot](https://deltabadger.com/academy/rebalanced-dca/), is adjusted by adding caps (30% max for the largest, 20% for others). It's not really clear why the cap has been added, and the official CoinDesk documentation doesn't explain it.
+**Market cap weighting with guardrails**: The market cap weighting of the index, which Deltabadger users know from the [rebalanced DCA bot](https://deltabadger.com/academy/rebalanced-dca), is adjusted by adding caps (30% max for the largest, 20% for others). It's not really clear why the cap has been added, and the official CoinDesk documentation doesn't explain it.
 
 {::nomarkdown}
 <figure class="article__figure" data-controller="pie-chart" data-pie-chart-data-value="#F7931A,BTC,Bitcoin,30.53

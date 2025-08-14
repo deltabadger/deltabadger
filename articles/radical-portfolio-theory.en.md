@@ -101,7 +101,7 @@ The other 40% are **resilient** assets that provide insurance. Here are some exa
 
 You may now understand where the "radical" comes from—definitely not the playbook that a traditional financial advisor would (or is even allowed to) recommend.
 
-While even including [prediction markets](./polymarket/) in a general purpose investing framework seems truly radical, the great observation here is that rather than just exotic assets or gambling, they can be used as a classic conservative insurance. Buying a small bet on an unlikely, but tragic scenario can be a valid strategy for increasing the safety of your portfolio.
+While even including [prediction markets](./polymarket) in a general purpose investing framework seems truly radical, the great observation here is that rather than just exotic assets or gambling, they can be used as a classic conservative insurance. Buying a small bet on an unlikely, but tragic scenario can be a valid strategy for increasing the safety of your portfolio.
 
 ### Self-custody
 
@@ -175,7 +175,7 @@ When you run portfolio containing Invesco QQQ ETF and gold through Modern Portfo
 {::nomarkdown}
 <figure class="article__figure">
 <img style="width: 100rem" src="https://deltabadger.com/images/articles/radical-portfolio-theory/qqq-gold.avif" alt="QQQ vs Gold">
-<figcaption class="article__figure__caption">The lowest VOL allocation for QQQ and gold. Backtested with <a href="https://deltabadger.com/portfolio-analyzer/" title="Portfolio Analyzer for stocks and crypto">Portfolio Analyzer</a></figcaption>
+<figcaption class="article__figure__caption">The lowest VOL allocation for QQQ and gold. Backtested with <a href="https://deltabadger.com/portfolio-analyzer" title="Portfolio Analyzer for stocks and crypto">Portfolio Analyzer</a></figcaption>
 </figure>
 {:/nomarkdown}
 
@@ -203,6 +203,6 @@ Which leads us to my favorite framework of mixing all four of those asset classe
 
 While the original essay doesn't focus on Bitcoin, for any investor in digital assets the connection, and appeal will be obvious and self-evident. Bitcoin is the natural perfect resilience asset checking all the boxes, and deserving to be part of every portfolio. While a typical "non-orthodox" advice usually suggested 1-5%, from the "radical portfolio theory" perspective 20-40% allocation doesn't sound that crazy.
 
-That said, the "radical" framework provides both great explanations, and applicable strategies, bringing clarity for investors looking into many new opportunities coming from traditional finance like MSTR, STRK, or the [upcoming multi-crypto ETF from Grayscale](./grayscale-crypto-etf/).
+That said, the "radical" framework provides both great explanations, and applicable strategies, bringing clarity for investors looking into many new opportunities coming from traditional finance like MSTR, STRK, or the [upcoming multi-crypto ETF from Grayscale](./grayscale-crypto-etf).
 
 As convenient as they are, they're part of the status quo you may want to diversify against.

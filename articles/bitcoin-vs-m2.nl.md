@@ -65,7 +65,7 @@ De kernthese is eenvoudig:
 
 ### Bitcoin als de superieure liquiditeitsbarometer
 
-Een recente studie van [Lyn Alden en Sam Callahan](https://www.lynalden.com/bitcoin-a-global-liquidity-barometer/) keek naar gegevens van mei 2013 tot juli 2024. Ze ontdekten dat Bitcoin inderdaad sterk reageert op veranderingen in de wereldwijde geldhoeveelheid.
+Een recente studie van [Lyn Alden en Sam Callahan](https://www.lynalden.com/bitcoin-a-global-liquidity-barometer) keek naar gegevens van mei 2013 tot juli 2024. Ze ontdekten dat Bitcoin inderdaad sterk reageert op veranderingen in de wereldwijde geldhoeveelheid.
 
 Dit is wat de cijfers laten zien:
 
@@ -93,7 +93,7 @@ Terwijl het onderzoek van Lyn Alden de sterke correlatie en directionele afstemm
 </blockquote><script async src="https://platform.twitter.com/widgets.js" charset="utf-8"></script>
 {:/nomarkdown}
 
-[De studie van Sarson Funds](https://sarsonfunds.com/the-correlation-between-bitcoin-and-m2-money-supply-growth-a-deep-dive/) gepubliceerd in juni 2025 identificeerde een **10-weken voorwaartse voorsprong** als optimaal, terwijl andere analisten rapporteren van 8-14 weken.
+[De studie van Sarson Funds](https://sarsonfunds.com/the-correlation-between-bitcoin-and-m2-money-supply-growth-a-deep-dive) gepubliceerd in juni 2025 identificeerde een **10-weken voorwaartse voorsprong** als optimaal, terwijl andere analisten rapporteren van 8-14 weken.
 
 Dus, hebben we een Bitcoin kristallen bol gevonden?
 
@@ -141,7 +141,7 @@ Dit voegt meer precisie toe aan het model.
 
 ### Gebruik van de MVRV Z-Score
 
-De [MVRV Z-Score](https://www.bitcoinmagazinepro.com/charts/mvrv-zscore/) is een technische indicator die helpt bepalen of Bitcoin overgewaardeerd of ondergewaardeerd is door de huidige marktprijs te vergelijken met wat investeerders gemiddeld hebben betaald. Wanneer de Z-Score hoog is, kunnen veel houders verkopen ondanks de groeiende geldhoeveelheid. Wanneer deze laag is, kan Bitcoin oververkocht zijn en klaar om te stijgen, zelfs zonder groei van de geldhoeveelheid.
+De [MVRV Z-Score](https://www.bitcoinmagazinepro.com/charts/mvrv-zscore) is een technische indicator die helpt bepalen of Bitcoin overgewaardeerd of ondergewaardeerd is door de huidige marktprijs te vergelijken met wat investeerders gemiddeld hebben betaald. Wanneer de Z-Score hoog is, kunnen veel houders verkopen ondanks de groeiende geldhoeveelheid. Wanneer deze laag is, kan Bitcoin oververkocht zijn en klaar om te stijgen, zelfs zonder groei van de geldhoeveelheid.
 
 ### Het HODL Wave-patroon
 

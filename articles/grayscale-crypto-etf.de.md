@@ -32,7 +32,7 @@ Der ETF bietet ein diversifiziertes Engagement in den wichtigsten Kryptowährung
 
 Während die meisten davon ausgehen, dass der ETF einfach die Top-5-Kryptowährungen nach Marktkapitalisierung abbildet, folgt er tatsächlich dem **CoinDesk 5 Index (CD5)** – einer komplexen Methodik, die für institutionelle Anleger entwickelt wurde und subtile Hinweise darauf gibt, wohin institutionelles Geld als Nächstes fließen könnte, was eine genauere Betrachtung wert ist.
 
-CD5 steht an der Spitze einer **vierstufigen Methodik**, die von [CoinDesk Indices](https://indices.coindesk.com/) entwickelt wurde. Im Gegensatz zu populären Marktkapitalisierungs-Rankings auf Seiten wie CoinGecko oder CoinPaprika wurde CD5 speziell für institutionelle Anleger entwickelt. Das bedeutet, dass seine komplexe Methodik Krypto-Enthusiasten überraschen könnte – sie ist weitaus selektiver, als nur die größten Coins nach Marktkapitalisierung auszuwählen.
+CD5 steht an der Spitze einer **vierstufigen Methodik**, die von [CoinDesk Indices](https://indices.coindesk.com) entwickelt wurde. Im Gegensatz zu populären Marktkapitalisierungs-Rankings auf Seiten wie CoinGecko oder CoinPaprika wurde CD5 speziell für institutionelle Anleger entwickelt. Das bedeutet, dass seine komplexe Methodik Krypto-Enthusiasten überraschen könnte – sie ist weitaus selektiver, als nur die größten Coins nach Marktkapitalisierung auszuwählen.
 
 {::nomarkdown}
 <figure class="article__figure">
@@ -73,7 +73,7 @@ Diese mangelnde Transparenz hinsichtlich der tatsächlichen Größe des Index Un
 
 Der [CoinDesk 20 Index (CD20)](https://indices.coindesk.com/coindesk20) nimmt dieses geprüfte Universum und fügt eine weitere Portfoliomanagement-Ebene hinzu. Es ist auch der am besten dokumentierte Online-Teil des Angebots.
 
-**Marktkapitalisierungsgewichtung mit Leitplanken**: Die Marktkapitalisierungsgewichtung des Index, die Deltabadger-Benutzer vom [rebalancierten DCA-Bot](https://deltabadger.com/academy/rebalanced-dca/) kennen, wird durch das Hinzufügen von Obergrenzen (maximal 30 % für den größten, 20 % für andere) angepasst. Es ist nicht ganz klar, warum die Obergrenze hinzugefügt wurde, und die offizielle CoinDesk-Dokumentation erklärt es nicht.
+**Marktkapitalisierungsgewichtung mit Leitplanken**: Die Marktkapitalisierungsgewichtung des Index, die Deltabadger-Benutzer vom [rebalancierten DCA-Bot](https://deltabadger.com/academy/rebalanced-dca) kennen, wird durch das Hinzufügen von Obergrenzen (maximal 30 % für den größten, 20 % für andere) angepasst. Es ist nicht ganz klar, warum die Obergrenze hinzugefügt wurde, und die offizielle CoinDesk-Dokumentation erklärt es nicht.
 
 {::nomarkdown}
 <figure class="article__figure" data-controller="pie-chart" data-pie-chart-data-value="#F7931A,BTC,Bitcoin,30.53

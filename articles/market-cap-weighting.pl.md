@@ -38,7 +38,7 @@ Przenieśmy się do 2025 roku: **fundusze indeksowe ważone kapitalizacją rynko
 
 ### Jak działa ważenie kapitalizacją rynkową
 
-W **indeksie ważonym kapitalizacją rynkową** wpływ każdego aktywa jest proporcjonalny do jego kapitalizacji rynkowej. Jeśli S&P 500 ma łączną kapitalizację rynkową 40 bilionów dolarów, a Apple stanowi 3 biliony dolarów z tej kwoty, to Apple stanowi 7,5% indeksu. Ta sama zasada dotyczy indeksów kryptowalut - jeśli Bitcoin stanowi 50% całkowitej kapitalizacji rynkowej kryptowalut, miałby 50% wagę w indeksie kryptowalut ważonym kapitalizacją rynkową. Ta koncepcja znajduje również odzwierciedlenie w [indeksie dominacji Bitcoina](https://coinmarketcap.com/charts/bitcoin-dominance/).
+W **indeksie ważonym kapitalizacją rynkową** wpływ każdego aktywa jest proporcjonalny do jego kapitalizacji rynkowej. Jeśli S&P 500 ma łączną kapitalizację rynkową 40 bilionów dolarów, a Apple stanowi 3 biliony dolarów z tej kwoty, to Apple stanowi 7,5% indeksu. Ta sama zasada dotyczy indeksów kryptowalut - jeśli Bitcoin stanowi 50% całkowitej kapitalizacji rynkowej kryptowalut, miałby 50% wagę w indeksie kryptowalut ważonym kapitalizacją rynkową. Ta koncepcja znajduje również odzwierciedlenie w [indeksie dominacji Bitcoina](https://coinmarketcap.com/charts/bitcoin-dominance).
 
 {::nomarkdown}
 <figure class="article__figure">
@@ -80,7 +80,7 @@ Czy ważenie kapitalizacją rynkową działa w krypto? Nie tylko działa, ale mo
 
 ### Rynek kryptowalut jest bardziej skoncentrowany
 
-Bitcoin stanowi prawie 67% całego rynku, podczas gdy 10 największych kryptowalut reprezentuje ponad 93% całej kapitalizacji rynkowej. Oznacza to, że **kryptowaluty o małej kapitalizacji ("small-cap") niosą ze sobą znacznie wyższe ryzyko** dla inwestorów. Dlatego [jedyny dotychczas zaakceptowany ETF z wieloma kryptowalutami inwestuje tylko w 5 największych aktywów](./grayscale-crypto-etf/).
+Bitcoin stanowi prawie 67% całego rynku, podczas gdy 10 największych kryptowalut reprezentuje ponad 93% całej kapitalizacji rynkowej. Oznacza to, że **kryptowaluty o małej kapitalizacji ("small-cap") niosą ze sobą znacznie wyższe ryzyko** dla inwestorów. Dlatego [jedyny dotychczas zaakceptowany ETF z wieloma kryptowalutami inwestuje tylko w 5 największych aktywów](./grayscale-crypto-etf).
 
 {::nomarkdown}
 <figure class="article__figure" data-controller="pie-chart" data-pie-chart-data-value="#F7931A,BTC,Bitcoin,79.35
@@ -120,7 +120,7 @@ Teraz, gdy wiemy co i dlaczego, nadszedł czas, aby zastosować tę wiedzę w pr
 
 Popularne indeksy rynku kryptowalut, takie jak CoinMarketCap, obejmują różne rodzaje aktywów: blockchainy warstwy 1 i 2, tokeny giełdowe, memecoiny, stablecoiny i inne.
 
-[Stablecoiny](./genius-of-stablecoins/) nie są aktywami wzrostowymi, więc muszą być wykluczone z części portfela ważonej kapitalizacją rynkową. Jeśli szukasz publicznie dostępnego indeksu, który to robi, [Indeks CoinMarketCap 100](https://coinmarketcap.com/charts/cmc100/) jest właściwym wyborem.
+[Stablecoiny](./genius-of-stablecoins) nie są aktywami wzrostowymi, więc muszą być wykluczone z części portfela ważonej kapitalizacją rynkową. Jeśli szukasz publicznie dostępnego indeksu, który to robi, [Indeks CoinMarketCap 100](https://coinmarketcap.com/charts/cmc100) jest właściwym wyborem.
 
 {::nomarkdown}
 <figure class="article__figure" data-controller="pie-chart" data-pie-chart-data-value="#F7931A,BTC,Bitcoin,66.97
@@ -144,7 +144,7 @@ Popularne indeksy rynku kryptowalut, takie jak CoinMarketCap, obejmują różne 
 
 Dla inwestorów detalicznych CMC100 jest znacznie lepszą alternatywą niż indeksy CoinDesk, takie jak CD5 czy CD20. Po pierwsze, jest w pełni publiczny, a nawet oferuje publicznie dostępny punkt końcowy API. Po drugie, nie stosuje filtrów instytucjonalnych, które wykluczają aktywa, które wielu inwestorów chce uwzględnić: monety prywatności, tokeny giełdowe czy memecoiny.
 
-Nie możesz się pomylić, wybierając tylko 10 największych kryptowalut z CMC100, ale to tylko zaproszenie do wszechświata indeksów kryptowalut. Coingecko wymienia ich ponad 500, a można sobie łatwo wyobrazić więcej. Zaledwie tydzień temu omówiliśmy indeks blockchainów używanych do transferu stablecoinów jako interesującą tezę inwestycyjną. Możliwości są nieograniczone. <a class="link-source-tile" href="https://www.coingecko.com/">coingecko.com</a>
+Nie możesz się pomylić, wybierając tylko 10 największych kryptowalut z CMC100, ale to tylko zaproszenie do wszechświata indeksów kryptowalut. Coingecko wymienia ich ponad 500, a można sobie łatwo wyobrazić więcej. Zaledwie tydzień temu omówiliśmy indeks blockchainów używanych do transferu stablecoinów jako interesującą tezę inwestycyjną. Możliwości są nieograniczone. <a class="link-source-tile" href="https://www.coingecko.com">coingecko.com</a>
 
 ### Indeks Sezonu Altcoinów
 
@@ -154,7 +154,7 @@ Jedno jest pewne: jeśli polujesz na Sezon Altcoinów, nie ma lepszego sposobu n
 
 ### Jak zacząć
 
-Podczas gdy budujemy naszego pierwszego prawdziwego bota indeksowego, możesz rozpocząć przygodę z ważeniem kapitalizacją rynkową już dziś. Stwórz [rebalansowanego bota DCA](https://deltabadger.com/pl/academy/rebalanced-dca/) Bitcoina i Ethereum, i pamiętaj, aby używać ważenia kapitalizacją rynkową. Historycznie taki bot osiągał lepsze wyniki niż Bitcoin, a strategia jest w pełni zautomatyzowana.
+Podczas gdy budujemy naszego pierwszego prawdziwego bota indeksowego, możesz rozpocząć przygodę z ważeniem kapitalizacją rynkową już dziś. Stwórz [rebalansowanego bota DCA](https://deltabadger.com/pl/academy/rebalanced-dca) Bitcoina i Ethereum, i pamiętaj, aby używać ważenia kapitalizacją rynkową. Historycznie taki bot osiągał lepsze wyniki niż Bitcoin, a strategia jest w pełni zautomatyzowana.
 
 ![Rebalansowany bot DCA](https://deltabadger.com/images/articles/mcap/rebalanced-dca.avif)
 
