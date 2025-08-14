@@ -33,4 +33,5 @@ class TrailingSlashRedirect
 end
 
 # Add the middleware to the Rails application
-Rails.application.config.middleware.insert_before ActionDispatch::Static, TrailingSlashRedirect
+# Use 'use' to add it to the middleware stack - this is the most reliable approach
+Rails.application.config.middleware.use TrailingSlashRedirect
