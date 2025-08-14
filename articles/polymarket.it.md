@@ -22,12 +22,12 @@ L'hai sentito innumerevoli volte: da amici scettici a cene, da veterani della fi
 
 Ma ogni tanto, qualcosa riesce a farsi strada.
 
-[Polymarket](https://polymarket.com/) – la piattaforma di previsione basata su criptovalute è diventata silenziosamente il mercato di previsione di maggior successo nella storia umana. Solo nel 2024, ha generato oltre 9 miliardi di dollari di volume di scambi, più di molti mercati finanziari consolidati.
+[Polymarket](https://polymarket.com) – la piattaforma di previsione basata su criptovalute è diventata silenziosamente il mercato di previsione di maggior successo nella storia umana. Solo nel 2024, ha generato oltre 9 miliardi di dollari di volume di scambi, più di molti mercati finanziari consolidati.
 
 {::nomarkdown}
 <figure class="article__figure">
 <img class="has-shadow" src="https://deltabadger.com/images/articles/polymarket/polymarket.avif" alt="Polymarket">
-<figcaption class="article__figure__caption"><a href="https://polymarket.com/">polymarket.com</a></figcaption>
+<figcaption class="article__figure__caption"><a href="https://polymarket.com">polymarket.com</a></figcaption>
 </figure>
 {:/nomarkdown}
 
@@ -64,7 +64,7 @@ Mentre scommettere su eventi futuri ha una lunga storia, dal puntare su incontri
 </div>
 <div class="timeline__event__info">
 <p><b>1988: Era moderna</b></p>
-<p>Questo principio è stato portato nell'era moderna. Gli [Iowa Electronic Markets](https://iemweb.biz.uiowa.edu/) sono diventati il primo mercato di previsione elettronico e hanno costantemente superato i sondaggi nel prevedere i risultati elettorali.</p>
+<p>Questo principio è stato portato nell'era moderna. Gli [Iowa Electronic Markets](https://iemweb.biz.uiowa.edu) sono diventati il primo mercato di previsione elettronico e hanno costantemente superato i sondaggi nel prevedere i risultati elettorali.</p>
 </div>
 </div>
 <div class="timeline__event">
@@ -73,7 +73,7 @@ Mentre scommettere su eventi futuri ha una lunga storia, dal puntare su incontri
 </div>
 <div class="timeline__event__info">
 <p><b>2001: Prima delle criptovalute</b></p>
-<p>[Intrade](https://intrade.com/), che ha operato dal 2001 al 2013, ha guadagnato l'attenzione del grande pubblico per aver previsto correttamente tutto, dai vincitori degli Oscar alle corse presidenziali. Quando Intrade ha chiuso a causa della pressione normativa, piattaforme come [PredictIt](https://www.predictit.org/), il predecessore di maggior successo di Polymarket, sono emerse per colmare il vuoto, sebbene con limiti di scommessa rigorosi che ne hanno limitato l'impatto.</p>
+<p>[Intrade](https://intrade.com), che ha operato dal 2001 al 2013, ha guadagnato l'attenzione del grande pubblico per aver previsto correttamente tutto, dai vincitori degli Oscar alle corse presidenziali. Quando Intrade ha chiuso a causa della pressione normativa, piattaforme come [PredictIt](https://www.predictit.org), il predecessore di maggior successo di Polymarket, sono emerse per colmare il vuoto, sebbene con limiti di scommessa rigorosi che ne hanno limitato l'impatto.</p>
 </div>
 </div>
 <div class="timeline__event">
@@ -82,7 +82,7 @@ Mentre scommettere su eventi futuri ha una lunga storia, dal puntare su incontri
 </div>
 <div class="timeline__event__info">
 <p><b>2014: Hivemind</b></p>
-<p>Paul Sztorc propose [Hivemind](https://bitcoinhivemind.com/) (originariamente Truthcoin), una sidechain di Bitcoin che utilizzava "vote coins" per risolvere i risultati del mercato. I possessori di token avrebbero votato se gli eventi si fossero verificati, con incentivi economici che premiavano la segnalazione onesta. Nonostante la teoria dei giochi e l'economia ponderate, Hivemind non è mai stato lanciato a causa delle limitate capacità di scripting di Bitcoin e della complessità tecnica dell'avvio di una sidechain two-way peg.</p>
+<p>Paul Sztorc propose [Hivemind](https://bitcoinhivemind.com) (originariamente Truthcoin), una sidechain di Bitcoin che utilizzava "vote coins" per risolvere i risultati del mercato. I possessori di token avrebbero votato se gli eventi si fossero verificati, con incentivi economici che premiavano la segnalazione onesta. Nonostante la teoria dei giochi e l'economia ponderate, Hivemind non è mai stato lanciato a causa delle limitate capacità di scripting di Bitcoin e della complessità tecnica dell'avvio di una sidechain two-way peg.</p>
 </div>
 </div>
 <div class="timeline__event">
@@ -91,7 +91,7 @@ Mentre scommettere su eventi futuri ha una lunga storia, dal puntare su incontri
 </div>
 <div class="timeline__event__info">
 <p><b>2015: Augur</b></p>
-<p>[Augur](www.augur.net/) ha raccolto circa 5 milioni di dollari in un'ICO per diventare il primo mercato di previsione decentralizzato al mondo, lanciato su Ethereum nel 2018. Gli utenti potevano creare mercati su qualsiasi cosa, ma la piattaforma soffriva di una pessima esperienza utente, commissioni sul gas elevate che rendevano non redditizie le piccole scommesse e mercati inquietanti su omicidi e attacchi terroristici che non poteva fermare senza abbandonare i suoi principi di resistenza alla censura. Nonostante anni di sviluppo, non ha mai raggiunto la liquidità necessaria per una scoperta accurata dei prezzi.</p>
+<p>[Augur](www.augur.net) ha raccolto circa 5 milioni di dollari in un'ICO per diventare il primo mercato di previsione decentralizzato al mondo, lanciato su Ethereum nel 2018. Gli utenti potevano creare mercati su qualsiasi cosa, ma la piattaforma soffriva di una pessima esperienza utente, commissioni sul gas elevate che rendevano non redditizie le piccole scommesse e mercati inquietanti su omicidi e attacchi terroristici che non poteva fermare senza abbandonare i suoi principi di resistenza alla censura. Nonostante anni di sviluppo, non ha mai raggiunto la liquidità necessaria per una scoperta accurata dei prezzi.</p>
 </div>
 </div>
 </section>
@@ -271,7 +271,7 @@ La piattaforma utilizza l'oracolo decentralizzato UMA Optimistic Oracle per le r
 </div>
 <div class="timeline__event__info">
 <p><b>Giugno 2025: Il riconoscimento del TIME</b></p>
-<p>Polymarket è entrato nella lista delle 100 aziende più influenti della rivista TIME, consolidando la sua transizione da curiosità crittografica a forza culturale mainstream. Il CEO Shayne Coplan ha celebrato il riconoscimento come una conferma che le persone volevano "la verità", una frecciatina non così sottile ai media e ai sondaggi tradizionali. <a class="link-source-tile" href="https://time.com/collections/time100-companies-2025/7289591/polymarket/">time.com</a></p>
+<p>Polymarket è entrato nella lista delle 100 aziende più influenti della rivista TIME, consolidando la sua transizione da curiosità crittografica a forza culturale mainstream. Il CEO Shayne Coplan ha celebrato il riconoscimento come una conferma che le persone volevano "la verità", una frecciatina non così sottile ai media e ai sondaggi tradizionali. <a class="link-source-tile" href="https://time.com/collections/time100-companies-2025/7289591/polymarket">time.com</a></p>
 </div>
 </div>
 
@@ -281,7 +281,7 @@ La piattaforma utilizza l'oracolo decentralizzato UMA Optimistic Oracle per le r
 </div>
 <div class="timeline__event__info">
 <p><b>Giugno 2025: La partnership con X</b></p>
-<p>La convalida definitiva è arrivata quando X (ex Twitter) ha nominato Polymarket suo partner ufficiale per i mercati di previsione. L'integrazione combinerà le quote delle scommesse in tempo reale con l'analisi dell'IA di Grok e i feed dei social media in diretta, creando un nuovo ibrido di previsione e scoperta sociale. Elon Musk, che aveva ripetutamente appoggiato l'accuratezza di Polymarket durante le elezioni, sarebbe stato determinante nella partnership. <a class="link-source-tile" href="https://observer.com/2025/06/elon-musk-x-prediction-market-polymarket/">observer.com</a></p>
+<p>La convalida definitiva è arrivata quando X (ex Twitter) ha nominato Polymarket suo partner ufficiale per i mercati di previsione. L'integrazione combinerà le quote delle scommesse in tempo reale con l'analisi dell'IA di Grok e i feed dei social media in diretta, creando un nuovo ibrido di previsione e scoperta sociale. Elon Musk, che aveva ripetutamente appoggiato l'accuratezza di Polymarket durante le elezioni, sarebbe stato determinante nella partnership. <a class="link-source-tile" href="https://observer.com/2025/06/elon-musk-x-prediction-market-polymarket">observer.com</a></p>
 </div>
 </div>
 
@@ -292,7 +292,7 @@ La piattaforma utilizza l'oracolo decentralizzato UMA Optimistic Oracle per le r
 <div class="timeline__event__info">
 <p><b>Luglio 2025: La controversia sull'abito di Zelensky</b></p>
 <p>Più di recente, Polymarket si è trovato invischiato nella sua più grande controversia dal sommergibile Titan. Un mercato sulla possibilità che il presidente ucraino Zelensky indossasse un abito per un evento specifico ha generato 237 milioni di dollari di volume, il più grande mercato non elettorale nella storia della piattaforma.</p>
-<p>Quando il mercato si è risolto con un "No", stabilendo che Zelensky non indossava un abito, sono esplose le accuse di manipolazione. I critici hanno sostenuto che le balene avevano manipolato il risultato e che i bot avevano ingannato il sistema dell'oracolo, generando oltre 24.000 commenti di rabbia e mettendo in luce potenziali difetti nei meccanismi di consenso decentralizzati. <a class="link-source-tile" href="https://www.wired.com/story/volodymyr-zelensky-suit-polymarket-rebellion/">wired.com</a></p>
+<p>Quando il mercato si è risolto con un "No", stabilendo che Zelensky non indossava un abito, sono esplose le accuse di manipolazione. I critici hanno sostenuto che le balene avevano manipolato il risultato e che i bot avevano ingannato il sistema dell'oracolo, generando oltre 24.000 commenti di rabbia e mettendo in luce potenziali difetti nei meccanismi di consenso decentralizzati. <a class="link-source-tile" href="https://www.wired.com/story/volodymyr-zelensky-suit-polymarket-rebellion">wired.com</a></p>
 </div>
 </div>
 
@@ -355,7 +355,7 @@ Nonostante tutta questa attività, POL viene scambiato a circa 0,226-0,23 dollar
 <!-- TradingView Widget BEGIN -->
 <div class="tradingview-widget-container">
   <div class="tradingview-widget-container__widget"></div>
-  <div class="tradingview-widget-copyright"><a href="https://www.tradingview.com/" rel="noopener nofollow" target="_blank"><span class="blue-text">Track all markets on TradingView</span></a></div>
+  <div class="tradingview-widget-copyright"><a href="https://www.tradingview.com" rel="noopener nofollow" target="_blank"><span class="blue-text">Track all markets on TradingView</span></a></div>
   <script type="text/javascript" src="https://s3.tradingview.com/external-embedding/embed-widget-symbol-overview.js" async>
   {
   "lineWidth": 2,
@@ -449,9 +449,9 @@ Rapporti recenti suggeriscono che Polymarket si sta avvicinando a un round di fi
 
 ### Puoi qualificarti per l'airdrop?
 
-Su X si parla già di potenziali airdrop di Polymarket, con le community cripto che discutono attivamente di strategie di "airdrop farming". La piattaforma ha centinaia di migliaia di utenti attivi e cronologie di transazioni dettagliate che risalgono al 2020: dati perfetti per distribuzioni di token mirate. Gli utenti iniziali, i trader ad alto volume e i previsori accurati potrebbero tutti ricevere allocazioni in base ai loro contributi alla piattaforma. <a class="link-source-tile" href="https://coincodex.com/article/67098/polymarket-airdrop/">coincodex.com</a>
+Su X si parla già di potenziali airdrop di Polymarket, con le community cripto che discutono attivamente di strategie di "airdrop farming". La piattaforma ha centinaia di migliaia di utenti attivi e cronologie di transazioni dettagliate che risalgono al 2020: dati perfetti per distribuzioni di token mirate. Gli utenti iniziali, i trader ad alto volume e i previsori accurati potrebbero tutti ricevere allocazioni in base ai loro contributi alla piattaforma. <a class="link-source-tile" href="https://coincodex.com/article/67098/polymarket-airdrop">coincodex.com</a>
 
-Aprire un account e piazzare scommesse su Polymarket potrebbe potenzialmente qualificarti per un futuro airdrop, sulla base di speculazioni diffuse della community e di strategie condivise su Twitter e Discord. <a class="link-source-tile" href="https://airdrops.io/polymarket/">airdrops.io</a>
+Aprire un account e piazzare scommesse su Polymarket potrebbe potenzialmente qualificarti per un futuro airdrop, sulla base di speculazioni diffuse della community e di strategie condivise su Twitter e Discord. <a class="link-source-tile" href="https://airdrops.io/polymarket">airdrops.io</a>
 
 Molte piattaforme di mercati di previsione e progetti DeFi hanno premiato i primi utilizzatori con airdrop di token, e gli utenti di Polymarket stanno attivamente "coltivando" la piattaforma aumentando il volume degli scambi nella speranza di essere idonei se mai verrà lanciato un token.
 

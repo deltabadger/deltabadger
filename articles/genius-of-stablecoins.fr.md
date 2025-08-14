@@ -25,9 +25,9 @@ Les chiffres sont fous :
 
 * En 6 ans, les stablecoins sont passés **de 6 milliards à 270 milliards de dollars, soit une multiplication par 45**. L'ensemble du marché des stablecoins est désormais plus important que le PIB de la Finlande.
 
-* Tether (98 milliards de dollars) et Circle (22 milliards de dollars) détiennent ensemble 120 milliards de dollars de titres du Trésor américain, ce qui en fait le 18e plus grand détenteur de la dette du gouvernement américain, devant la Belgique, Taïwan et la plupart des nations souveraines. <a class="link-source-tile" href="https://tether.io/news/tether-hits-13-billion-profits-for-2024-and-all-time-highs-in-u-s-treasury-holdings-usdt-circulation-and-reserve-buffer-in-q4-2024-attestation/">tether.io</a>
+* Tether (98 milliards de dollars) et Circle (22 milliards de dollars) détiennent ensemble 120 milliards de dollars de titres du Trésor américain, ce qui en fait le 18e plus grand détenteur de la dette du gouvernement américain, devant la Belgique, Taïwan et la plupart des nations souveraines. <a class="link-source-tile" href="https://tether.io/news/tether-hits-13-billion-profits-for-2024-and-all-time-highs-in-u-s-treasury-holdings-usdt-circulation-and-reserve-buffer-in-q4-2024-attestation">tether.io</a>
 
-* Tether traite plus de 100 milliards de dollars de transferts quotidiens certains jours, tandis que **l'ensemble de l'écosystème des stablecoins déplace 27 600 milliards de dollars par an, soit plus que Visa et Mastercard réunis**. <a class="link-source-tile" href="https://cryptoslate.com/stablecoins-surpass-visa-and-mastercard-with-27-6-trillion-transfer-volume-in-2024/">cryptoslate.com</a>
+* Tether traite plus de 100 milliards de dollars de transferts quotidiens certains jours, tandis que **l'ensemble de l'écosystème des stablecoins déplace 27 600 milliards de dollars par an, soit plus que Visa et Mastercard réunis**. <a class="link-source-tile" href="https://cryptoslate.com/stablecoins-surpass-visa-and-mastercard-with-27-6-trillion-transfer-volume-in-2024">cryptoslate.com</a>
 
 {::nomarkdown}
 <figure class="article__figure">
@@ -48,7 +48,7 @@ La loi GENIUS, adoptée par le Sénat par 68 voix contre 30 en juin 2025 et prom
 
 >*Nous utiliserons les stablecoins pour maintenir le dollar américain comme monnaie de réserve dominante.*
 >
->—Le secrétaire au Trésor, Scott Bessent <a class="link-source-tile" href="https://www.atlanticcouncil.org/blogs/new-atlanticist/dollar-backed-stablecoins-international-standards/">atlanticcouncil.org</a>
+>—Le secrétaire au Trésor, Scott Bessent <a class="link-source-tile" href="https://www.atlanticcouncil.org/blogs/new-atlanticist/dollar-backed-stablecoins-international-standards">atlanticcouncil.org</a>
 
 **Cela représente un changement radical, passant de la réglementation à l'armement.**
 
@@ -89,9 +89,9 @@ La différence dans les cas d'utilisation raconte l'histoire :
 
 Il existe une **relation inverse entre l'infrastructure financière traditionnelle et l'adoption des stablecoins** : les régions dotées de systèmes bancaires plus faibles affichent des taux d'utilisation plus élevés.
 
-En Argentine, 61,8 % de toutes les transactions impliquent désormais des stablecoins, ce qui est directement corrélé à une inflation du peso de 143 %. La Turquie affiche un taux de possession de crypto de 50 % de la population, avec la plus forte adoption mondiale de stablecoins à 4,3 % du PIB, tandis que les 26 millions d'utilisateurs de stablecoins du Nigeria (12 % de la population) contournent entièrement les contrôles des changes. <a class="link-source-tile" href="https://www.chainalysis.com/blog/2024-latin-america-crypto-adoption/">chainalysis.com</a>
+En Argentine, 61,8 % de toutes les transactions impliquent désormais des stablecoins, ce qui est directement corrélé à une inflation du peso de 143 %. La Turquie affiche un taux de possession de crypto de 50 % de la population, avec la plus forte adoption mondiale de stablecoins à 4,3 % du PIB, tandis que les 26 millions d'utilisateurs de stablecoins du Nigeria (12 % de la population) contournent entièrement les contrôles des changes. <a class="link-source-tile" href="https://www.chainalysis.com/blog/2024-latin-america-crypto-adoption">chainalysis.com</a>
 
-**L'Europe passe de manière spectaculaire à côté de cette révolution.** Bien qu'elle représente 48 % du volume mondial des cryptomonnaies, **seuls 0,2 % de l'offre de stablecoins sont détenus par des Européens**, ce qui suggère que leur participation de 10 à 15 % au volume des transactions est principalement due au trading, et non à l'adoption. <a class="link-source-tile" href="https://www.chainalysis.com/blog/2024-western-europe-crypto-adoption/">chainalysis.com</a>
+**L'Europe passe de manière spectaculaire à côté de cette révolution.** Bien qu'elle représente 48 % du volume mondial des cryptomonnaies, **seuls 0,2 % de l'offre de stablecoins sont détenus par des Européens**, ce qui suggère que leur participation de 10 à 15 % au volume des transactions est principalement due au trading, et non à l'adoption. <a class="link-source-tile" href="https://www.chainalysis.com/blog/2024-western-europe-crypto-adoption">chainalysis.com</a>
 
 ### Le dollar numérique furtif
 
@@ -108,7 +108,7 @@ Pendant ce temps, l'UE continue d'être un échec bureaucratique :
 * Les principales bourses retirent le Tether pour les utilisateurs de l'UE d'ici mars 2025
 * Le développement de l'euro numérique progresse à pas de tortue tandis que l'adoption des stablecoins s'accélère
 
-Pendant que l'Europe construit l'équivalent financier de la ligne Maginot, en dépensant plus de 1,1 milliard de dollars pour le projet de CBDC, la bataille s'est déjà déplacée vers les téléphones portables, où les États-Unis arment les stablecoins pour dollariser efficacement les marchés émergents, le tout financé par le secteur privé. <a class="link-source-tile" href="https://www.ledgerinsights.com/ecb-updates-status-of-digital-euro-work/">ledgerinsights.com</a>
+Pendant que l'Europe construit l'équivalent financier de la ligne Maginot, en dépensant plus de 1,1 milliard de dollars pour le projet de CBDC, la bataille s'est déjà déplacée vers les téléphones portables, où les États-Unis arment les stablecoins pour dollariser efficacement les marchés émergents, le tout financé par le secteur privé. <a class="link-source-tile" href="https://www.ledgerinsights.com/ecb-updates-status-of-digital-euro-work">ledgerinsights.com</a>
 
 ## Le portefeuille GENIUS
 
@@ -175,7 +175,7 @@ DeFiLlama fournit des données sur l'offre de stablecoins pour chaque blockchain
 | **Avalanche** | 10,49 G$ | 1,658 G$ | 1,5 % | 0,6 % | <span class="text-danger">-0,8 %</span> |
 | **Aptos** | 3,00 G$ | 1,351 G$ | 0,4 % | 0,5 % | <span class="text-success">+0,1 %</span> |
 
-TRON est devenu le plus grand réseau pour l'USDT en particulier, hébergeant 82 milliards de dollars en circulation, tandis qu'Ethereum est en tête de l'offre totale de stablecoins avec 132 milliards de dollars sur plusieurs stablecoins (USDT, USDC, DAI, etc.). L'USDT représente 98,5 % de l'activité de TRON, ce qui en fait une infrastructure dédiée à l'USDT. <a class="link-source-tile" href="https://cryptobriefing.com/usdt-on-tron-stablecoin-leader/">cryptobriefing.com</a>
+TRON est devenu le plus grand réseau pour l'USDT en particulier, hébergeant 82 milliards de dollars en circulation, tandis qu'Ethereum est en tête de l'offre totale de stablecoins avec 132 milliards de dollars sur plusieurs stablecoins (USDT, USDC, DAI, etc.). L'USDT représente 98,5 % de l'activité de TRON, ce qui en fait une infrastructure dédiée à l'USDT. <a class="link-source-tile" href="https://cryptobriefing.com/usdt-on-tron-stablecoin-leader">cryptobriefing.com</a>
 
 Cette domination découle de la combinaison de frais ultra-bas (inférieurs à 0,10 $), de règlements rapides en 3 secondes et du partenariat stratégique de Justin Sun en 2019 avec Tether, créant de puissants effets de réseau qui ont attiré à la fois les utilisateurs de détail des marchés émergents et les grands transferts institutionnels.
 

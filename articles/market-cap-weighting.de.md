@@ -38,7 +38,7 @@ Spulen wir vor ins Jahr 2025: **Nach Marktkapitalisierung gewichtete Indexfonds 
 
 ### Wie die Gewichtung nach Marktkapitalisierung funktioniert
 
-In einem **nach Marktkapitalisierung gewichteten Index** ist der Einfluss jedes Vermögenswerts proportional zu seiner Marktkapitalisierung. Wenn der S&P 500 eine kombinierte Marktkapitalisierung von 40 Billionen Dollar hat und Apple 3 Billionen Dollar davon ausmacht, dann macht Apple 7,5 % des Index aus. Dasselbe Prinzip gilt für Krypto-Indizes – wenn Bitcoin 50 % der gesamten Krypto-Marktkapitalisierung ausmacht, hätte es 50 % Gewicht in einem nach Marktkapitalisierung gewichteten Krypto-Index. Dieses Konzept spiegelt sich auch im [Bitcoin-Dominanzindex](https://coinmarketcap.com/charts/bitcoin-dominance/) wider.
+In einem **nach Marktkapitalisierung gewichteten Index** ist der Einfluss jedes Vermögenswerts proportional zu seiner Marktkapitalisierung. Wenn der S&P 500 eine kombinierte Marktkapitalisierung von 40 Billionen Dollar hat und Apple 3 Billionen Dollar davon ausmacht, dann macht Apple 7,5 % des Index aus. Dasselbe Prinzip gilt für Krypto-Indizes – wenn Bitcoin 50 % der gesamten Krypto-Marktkapitalisierung ausmacht, hätte es 50 % Gewicht in einem nach Marktkapitalisierung gewichteten Krypto-Index. Dieses Konzept spiegelt sich auch im [Bitcoin-Dominanzindex](https://coinmarketcap.com/charts/bitcoin-dominance) wider.
 
 {::nomarkdown}
 <figure class="article__figure">
@@ -80,7 +80,7 @@ Funktioniert die Marktkapitalisierungsgewichtung in Krypto? Sie funktioniert nic
 
 ### Der Kryptowährungsmarkt ist konzentrierter
 
-Bitcoin macht fast 67 % des gesamten Marktes aus, während die Top-10-Kryptowährungen über 93 % der gesamten Marktkapitalisierung repräsentieren. Dies bedeutet, dass **"Small-Cap"-Kryptowährungen ein deutlich höheres Risiko** für Anleger bergen. Aus diesem Grund investiert [der einzige bisher akzeptierte Multi-Krypto-ETF nur in die Top-5-Vermögenswerte](./grayscale-crypto-etf/).
+Bitcoin macht fast 67 % des gesamten Marktes aus, während die Top-10-Kryptowährungen über 93 % der gesamten Marktkapitalisierung repräsentieren. Dies bedeutet, dass **"Small-Cap"-Kryptowährungen ein deutlich höheres Risiko** für Anleger bergen. Aus diesem Grund investiert [der einzige bisher akzeptierte Multi-Krypto-ETF nur in die Top-5-Vermögenswerte](./grayscale-crypto-etf).
 
 {::nomarkdown}
 <figure class="article__figure" data-controller="pie-chart" data-pie-chart-data-value="#F7931A,BTC,Bitcoin,79.35
@@ -120,7 +120,7 @@ Nachdem wir nun wissen, was und warum, ist es an der Zeit, dieses Wissen in die 
 
 Beliebte Indizes des Kryptowährungsmarktes wie CoinMarketCap umfassen verschiedene Arten von Vermögenswerten: Layer-1- und Layer-2-Blockchains, Börsen-Token, Memecoins, Stablecoins und mehr.
 
-[Stablecoins](./genius-of-stablecoins/) sind keine Wachstumsanlagen, daher müssen sie aus dem nach Marktkapitalisierung gewichteten Teil Ihres Portfolios ausgeschlossen werden. Wenn Sie nach einem öffentlich verfügbaren Index suchen, der das tut, ist der [CoinMarketCap 100 Index](https://coinmarketcap.com/charts/cmc100/) der richtige Weg.
+[Stablecoins](./genius-of-stablecoins) sind keine Wachstumsanlagen, daher müssen sie aus dem nach Marktkapitalisierung gewichteten Teil Ihres Portfolios ausgeschlossen werden. Wenn Sie nach einem öffentlich verfügbaren Index suchen, der das tut, ist der [CoinMarketCap 100 Index](https://coinmarketcap.com/charts/cmc100) der richtige Weg.
 
 {::nomarkdown}
 <figure class="article__figure" data-controller="pie-chart" data-pie-chart-data-value="#F7931A,BTC,Bitcoin,66.97
@@ -144,7 +144,7 @@ Beliebte Indizes des Kryptowährungsmarktes wie CoinMarketCap umfassen verschied
 
 Für Privatanleger ist CMC100 eine viel bessere Alternative als CoinDesk-Indizes wie CD5 oder CD20. Erstens ist er vollständig öffentlich und bietet sogar einen öffentlich verfügbaren API-Endpunkt. Zweitens wendet er keine institutionellen Filter an, die Vermögenswerte ausschließen, die viele Anleger einbeziehen möchten: Privacy Coins, Börsen-Token oder Memecoins.
 
-Sie können nichts falsch machen, wenn Sie nur die Top-10-Kryptowährungen aus dem CMC100 auswählen, aber das ist nur eine Einladung in das Universum der Kryptowährungsindizes. Coingecko listet über 500 von ihnen auf, und Sie können sich leicht mehr vorstellen. Erst vor einer Woche haben wir einen Index von Blockchains diskutiert, die zur Übertragung von Stablecoins verwendet werden, als interessante Anlagethese. Die Möglichkeiten sind endlos. <a class="link-source-tile" href="https://www.coingecko.com/">coingecko.com</a>
+Sie können nichts falsch machen, wenn Sie nur die Top-10-Kryptowährungen aus dem CMC100 auswählen, aber das ist nur eine Einladung in das Universum der Kryptowährungsindizes. Coingecko listet über 500 von ihnen auf, und Sie können sich leicht mehr vorstellen. Erst vor einer Woche haben wir einen Index von Blockchains diskutiert, die zur Übertragung von Stablecoins verwendet werden, als interessante Anlagethese. Die Möglichkeiten sind endlos. <a class="link-source-tile" href="https://www.coingecko.com">coingecko.com</a>
 
 ### Altcoin-Saison-Index
 
@@ -154,7 +154,7 @@ Eines ist sicher: Wenn Sie auf eine Altcoin-Saison aus sind, gibt es keinen bess
 
 ### Wie man anfängt
 
-Während wir unseren ersten echten Index-Bot bauen, können Sie das Abenteuer mit der Marktkapitalisierungsgewichtung noch heute beginnen. Erstellen Sie einen [neu gewichteten DCA-Bot](https://deltabadger.com/de/academy/rebalanced-dca/) für Bitcoin und Ethereum und denken Sie daran, die Marktkapitalisierungsgewichtung zu verwenden. Historisch gesehen hat ein solcher Bot Bitcoin übertroffen, und die Strategie ist vollständig automatisiert.
+Während wir unseren ersten echten Index-Bot bauen, können Sie das Abenteuer mit der Marktkapitalisierungsgewichtung noch heute beginnen. Erstellen Sie einen [neu gewichteten DCA-Bot](https://deltabadger.com/de/academy/rebalanced-dca) für Bitcoin und Ethereum und denken Sie daran, die Marktkapitalisierungsgewichtung zu verwenden. Historisch gesehen hat ein solcher Bot Bitcoin übertroffen, und die Strategie ist vollständig automatisiert.
 
 ![Neu gewichteter DCA-Bot](https://deltabadger.com/images/articles/mcap/rebalanced-dca.avif)
 

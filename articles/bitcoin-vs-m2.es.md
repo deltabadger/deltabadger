@@ -67,7 +67,7 @@ La tesis central es simple:
 
 ### Bitcoin como el barómetro de liquidez superior
 
-Un estudio reciente de [Lyn Alden y Sam Callahan](https://www.lynalden.com/bitcoin-a-global-liquidity-barometer/) analizó datos desde mayo de 2013 hasta julio de 2024. Descubrieron que, de hecho, Bitcoin reacciona fuertemente a los cambios en la oferta monetaria global.
+Un estudio reciente de [Lyn Alden y Sam Callahan](https://www.lynalden.com/bitcoin-a-global-liquidity-barometer) analizó datos desde mayo de 2013 hasta julio de 2024. Descubrieron que, de hecho, Bitcoin reacciona fuertemente a los cambios en la oferta monetaria global.
 
 Esto es lo que muestran los números:
 
@@ -95,7 +95,7 @@ Si bien la investigación de Lyn Alden estableció la fuerte correlación y la a
 </blockquote><script async src="https://platform.twitter.com/widgets.js" charset="utf-8"></script>
 {:/nomarkdown}
 
-[El estudio de Sarson Funds](https://sarsonfunds.com/the-correlation-between-bitcoin-and-m2-money-supply-growth-a-deep-dive/) publicado en junio de 2025 identificó una **ventaja a futuro de 10 semanas** como óptima, mientras que otros analistas informan de 8 a 14 semanas.
+[El estudio de Sarson Funds](https://sarsonfunds.com/the-correlation-between-bitcoin-and-m2-money-supply-growth-a-deep-dive) publicado en junio de 2025 identificó una **ventaja a futuro de 10 semanas** como óptima, mientras que otros analistas informan de 8 a 14 semanas.
 
 Entonces, ¿encontramos una bola de cristal de Bitcoin?
 
@@ -143,7 +143,7 @@ Esto agrega más precisión al modelo.
 
 ### Usando el MVRV Z-Score
 
-El [MVRV Z-Score](https://www.bitcoinmagazinepro.com/charts/mvrv-zscore/) es un indicador técnico que ayuda a determinar si Bitcoin está sobrevaluado o infravalorado al comparar su precio de mercado actual con lo que los inversores pagaron en promedio. Cuando el Z-Score es alto, muchos tenedores pueden vender a pesar del crecimiento de la oferta monetaria. Cuando es bajo, Bitcoin puede estar sobrevendido y listo para subir incluso sin crecimiento de la oferta monetaria.
+El [MVRV Z-Score](https://www.bitcoinmagazinepro.com/charts/mvrv-zscore) es un indicador técnico que ayuda a determinar si Bitcoin está sobrevaluado o infravalorado al comparar su precio de mercado actual con lo que los inversores pagaron en promedio. Cuando el Z-Score es alto, muchos tenedores pueden vender a pesar del crecimiento de la oferta monetaria. Cuando es bajo, Bitcoin puede estar sobrevendido y listo para subir incluso sin crecimiento de la oferta monetaria.
 
 ### El patrón de la onda HODL
 

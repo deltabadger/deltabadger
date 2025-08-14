@@ -101,7 +101,7 @@ Os outros 40% são ativos **resilientes** (resilient) que fornecem seguro. Aqui 
 
 Agora pode entender de onde vem o "radical"—definitivamente não é o manual que um consultor financeiro tradicional recomendaria (ou estaria autorizado a recomendar).
 
-Enquanto que incluir [mercados preditivos](./polymarket/) num quadro de investimento geral parece verdadeiramente radical, a grande observação aqui é que em vez de serem apenas ativos exóticos ou apostas, podem ser usados como um seguro conservador clássico. Fazer uma pequena aposta num cenário improvável mas trágico pode ser uma estratégia válida para aumentar a segurança da sua carteira.
+Enquanto que incluir [mercados preditivos](./polymarket) num quadro de investimento geral parece verdadeiramente radical, a grande observação aqui é que em vez de serem apenas ativos exóticos ou apostas, podem ser usados como um seguro conservador clássico. Fazer uma pequena aposta num cenário improvável mas trágico pode ser uma estratégia válida para aumentar a segurança da sua carteira.
 
 ### Custódia própria (Self-custody)
 
@@ -174,7 +174,7 @@ Quando executa uma carteira contendo o ETF Invesco QQQ e ouro através de uma si
 {::nomarkdown}
 <figure class="article__figure">
 <img style="width: 100rem" src="https://deltabadger.com/images/articles/radical-portfolio-theory/qqq-gold.avif" alt="QQQ vs Ouro">
-<figcaption class="article__figure__caption">A alocação VOL mais baixa para QQQ e ouro. Testado com <a href="https://deltabadger.com/portfolio-analyzer/" title="Analisador de carteira para ações e cripto">Portfolio Analyzer</a></figcaption>
+<figcaption class="article__figure__caption">A alocação VOL mais baixa para QQQ e ouro. Testado com <a href="https://deltabadger.com/portfolio-analyzer" title="Analisador de carteira para ações e cripto">Portfolio Analyzer</a></figcaption>
 </figure>
 {:/nomarkdown}
 
@@ -202,6 +202,6 @@ O que nos leva ao meu quadro favorito de misturar as quatro classes de ativos: a
 
 Enquanto o ensaio original não se concentra no Bitcoin, para qualquer investidor em ativos digitais a conexão e o apelo serão óbvios e evidentes. Bitcoin é o ativo de resiliência perfeito natural que marca todas as caixas e merece ser parte de cada carteira. Enquanto um conselho "não ortodoxo" típico geralmente sugeria 1-5%, da perspetiva da "teoria radical de carteiras" uma alocação de 20-40% não soa tão louca.
 
-Dito isto, o quadro "radical" fornece tanto excelentes explicações como estratégias aplicáveis, trazendo clareza para os investidores que olham para muitas novas oportunidades vindas das finanças tradicionais como MSTR, STRK, ou o [próximo ETF multi-cripto da Grayscale](./grayscale-crypto-etf/).
+Dito isto, o quadro "radical" fornece tanto excelentes explicações como estratégias aplicáveis, trazendo clareza para os investidores que olham para muitas novas oportunidades vindas das finanças tradicionais como MSTR, STRK, ou o [próximo ETF multi-cripto da Grayscale](./grayscale-crypto-etf).
 
 Por convenientes que sejam, são parte do status quo contra o qual pode querer diversificar.

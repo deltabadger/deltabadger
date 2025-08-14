@@ -101,7 +101,7 @@ Pozostałe 40% to aktywa **odporne** (resilient), które służą jako ubezpiecz
 
 Teraz możesz zrozumieć, skąd bierze się "radykalny"—zdecydowanie nie jest to zestaw, który tradycyjny doradca finansowy by polecił (lub mógł polecić).
 
-Podczas gdy nawet włączenie [rynków predykcyjnych](./polymarket/) do ogólnego frameworku inwestycyjnego wydaje się naprawdę radykalne, wielką obserwacją tutaj jest to, że zamiast być tylko egzotycznymi aktywami lub hazardem, mogą być używane jako klasyczne konserwatywne ubezpieczenie. Postawienie małego zakładu na nieprawdopodobny, ale tragiczny scenariusz może być ważną strategią zwiększenia bezpieczeństwa twojego portfela.
+Podczas gdy nawet włączenie [rynków predykcyjnych](./polymarket) do ogólnego frameworku inwestycyjnego wydaje się naprawdę radykalne, wielką obserwacją tutaj jest to, że zamiast być tylko egzotycznymi aktywami lub hazardem, mogą być używane jako klasyczne konserwatywne ubezpieczenie. Postawienie małego zakładu na nieprawdopodobny, ale tragiczny scenariusz może być ważną strategią zwiększenia bezpieczeństwa twojego portfela.
 
 ### Samodzielne przechowywanie (Self-custody)
 
@@ -174,7 +174,7 @@ Kiedy przepuszczasz portfel zawierający ETF Invesco QQQ i złoto przez symulacj
 {::nomarkdown}
 <figure class="article__figure">
 <img style="width: 100rem" src="https://deltabadger.com/images/articles/radical-portfolio-theory/qqq-gold.avif" alt="QQQ vs Złoto">
-<figcaption class="article__figure__caption">Najniższa alokacja VOL dla QQQ i złota. Przetestowane z <a href="https://deltabadger.com/portfolio-analyzer/" title="Analizator portfela dla akcji i krypto">Portfolio Analyzer</a></figcaption>
+<figcaption class="article__figure__caption">Najniższa alokacja VOL dla QQQ i złota. Przetestowane z <a href="https://deltabadger.com/portfolio-analyzer" title="Analizator portfela dla akcji i krypto">Portfolio Analyzer</a></figcaption>
 </figure>
 {:/nomarkdown}
 
@@ -202,6 +202,6 @@ Co prowadzi nas do mojego ulubionego frameworku mieszania wszystkich czterech kl
 
 Podczas gdy oryginalny esej nie koncentruje się na Bitcoinie, dla każdego inwestora w aktywa cyfrowe połączenie i atrakcyjność będą oczywiste i ewidentne. Bitcoin jest naturalnym, idealnym aktywem odporności, który spełnia wszystkie kryteria i zasługuje na miejsce w każdym portfelu. Podczas gdy typowa "nieortodoksyjna" rada zwykle sugerowała 1-5%, z perspektywy "radykalnej teorii portfela" alokacja 20-40% nie brzmi tak szalenie.
 
-To powiedziawszy, "radykalny" framework dostarcza zarówno świetnych wyjaśnień, jak i możliwych do zastosowania strategii, przynosząc jasność dla inwestorów patrzących na wiele nowych możliwości pochodzących z tradycyjnych finansów, jak MSTR, STRK, czy [nadchodzący multi-krypto ETF od Grayscale](./grayscale-crypto-etf/).
+To powiedziawszy, "radykalny" framework dostarcza zarówno świetnych wyjaśnień, jak i możliwych do zastosowania strategii, przynosząc jasność dla inwestorów patrzących na wiele nowych możliwości pochodzących z tradycyjnych finansów, jak MSTR, STRK, czy [nadchodzący multi-krypto ETF od Grayscale](./grayscale-crypto-etf).
 
 Jakkolwiek wygodne by nie były, są częścią status quo, przed którym możesz chcieć się zdywersyfikować.

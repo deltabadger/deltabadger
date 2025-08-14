@@ -38,7 +38,7 @@ Snel vooruit naar 2025: **market cap-gewogen indexfondsen vertegenwoordigen onge
 
 ### Hoe Market Cap Weighting werkt
 
-In een **market cap-gewogen index** is de invloed van elk activum evenredig aan zijn marktkapitalisatie. Als de S&P 500 een gecombineerde marktkapitalisatie van $40 biljoen heeft en Apple vertegenwoordigt daarvan $3 biljoen, dan maakt Apple 7,5% van de index uit. Hetzelfde principe is van toepassing op crypto-indexen - als Bitcoin 50% van de totale crypto-marktkapitalisatie vertegenwoordigt, zou het 50% gewicht hebben in een market cap-gewogen crypto-index. Dit concept wordt ook weerspiegeld in de [Bitcoin-dominantie-index](https://coinmarketcap.com/charts/bitcoin-dominance/).
+In een **market cap-gewogen index** is de invloed van elk activum evenredig aan zijn marktkapitalisatie. Als de S&P 500 een gecombineerde marktkapitalisatie van $40 biljoen heeft en Apple vertegenwoordigt daarvan $3 biljoen, dan maakt Apple 7,5% van de index uit. Hetzelfde principe is van toepassing op crypto-indexen - als Bitcoin 50% van de totale crypto-marktkapitalisatie vertegenwoordigt, zou het 50% gewicht hebben in een market cap-gewogen crypto-index. Dit concept wordt ook weerspiegeld in de [Bitcoin-dominantie-index](https://coinmarketcap.com/charts/bitcoin-dominance).
 
 {::nomarkdown}
 <figure class="article__figure">
@@ -80,7 +80,7 @@ Werkt market cap weighting in crypto? Het werkt niet alleen, je zou kunnen stell
 
 ### De cryptomarkt is meer geconcentreerd
 
-Bitcoin is goed voor bijna 67% van de hele markt, terwijl de top 10 cryptocurrencies meer dan 93% van de totale marktkapitalisatie vertegenwoordigen. Dit betekent dat **"small-cap" cryptocurrencies een aanzienlijk hoger risico** met zich meebrengen voor beleggers. Dit is de reden waarom [de enige tot nu toe geaccepteerde multi-crypto ETF alleen investeert in de top 5 activa](./grayscale-crypto-etf/).
+Bitcoin is goed voor bijna 67% van de hele markt, terwijl de top 10 cryptocurrencies meer dan 93% van de totale marktkapitalisatie vertegenwoordigen. Dit betekent dat **"small-cap" cryptocurrencies een aanzienlijk hoger risico** met zich meebrengen voor beleggers. Dit is de reden waarom [de enige tot nu toe geaccepteerde multi-crypto ETF alleen investeert in de top 5 activa](./grayscale-crypto-etf).
 
 {::nomarkdown}
 <figure class="article__figure" data-controller="pie-chart" data-pie-chart-data-value="#F7931A,BTC,Bitcoin,79.35
@@ -120,7 +120,7 @@ Nu we weten wat en waarom, is het tijd om deze kennis in de praktijk te brengen.
 
 Populaire indexen van de cryptocurrency-markt zoals CoinMarketCap omvatten verschillende soorten activa: Layer 1- en Layer 2-blockchains, exchange-tokens, memecoins, stablecoins en meer.
 
-[Stablecoins](./genius-of-stablecoins/) zijn geen groei-activa, dus ze moeten worden uitgesloten van het market cap-gewogen deel van je portefeuille. Als je op zoek bent naar een openbaar beschikbare index die dat doet, is de [CoinMarketCap 100 Index](https://coinmarketcap.com/charts/cmc100/) de juiste keuze.
+[Stablecoins](./genius-of-stablecoins) zijn geen groei-activa, dus ze moeten worden uitgesloten van het market cap-gewogen deel van je portefeuille. Als je op zoek bent naar een openbaar beschikbare index die dat doet, is de [CoinMarketCap 100 Index](https://coinmarketcap.com/charts/cmc100) de juiste keuze.
 
 {::nomarkdown}
 <figure class="article__figure" data-controller="pie-chart" data-pie-chart-data-value="#F7931A,BTC,Bitcoin,66.97
@@ -144,7 +144,7 @@ Populaire indexen van de cryptocurrency-markt zoals CoinMarketCap omvatten versc
 
 Voor particuliere beleggers is CMC100 een veel beter alternatief dan CoinDesk Indices zoals CD5 of CD20. Ten eerste is het volledig openbaar en biedt het zelfs een openbaar beschikbaar API-eindpunt. Ten tweede past het geen institutionele filters toe die activa uitsluiten die veel beleggers willen opnemen: privacy-munten, exchange-tokens of memecoins.
 
-Je kunt niet fout gaan door alleen de top 10 cryptocurrencies uit CMC100 te kiezen, maar het is slechts een uitnodiging tot het universum van cryptocurrency-indexen. Coingecko somt er meer dan 500 op, en je kunt je er gemakkelijk meer voorstellen. Nog maar een week geleden bespraken we een index van blockchains die worden gebruikt om stablecoins over te dragen als een interessante beleggingsthese. De mogelijkheden zijn eindeloos. <a class="link-source-tile" href="https://www.coingecko.com/">coingecko.com</a>
+Je kunt niet fout gaan door alleen de top 10 cryptocurrencies uit CMC100 te kiezen, maar het is slechts een uitnodiging tot het universum van cryptocurrency-indexen. Coingecko somt er meer dan 500 op, en je kunt je er gemakkelijk meer voorstellen. Nog maar een week geleden bespraken we een index van blockchains die worden gebruikt om stablecoins over te dragen als een interessante beleggingsthese. De mogelijkheden zijn eindeloos. <a class="link-source-tile" href="https://www.coingecko.com">coingecko.com</a>
 
 ### Altcoin Seizoen Index
 
@@ -154,7 +154,7 @@ Eén ding is zeker: als je uit bent op een Altcoin-seizoen, is er geen betere ma
 
 ### Hoe te beginnen
 
-Terwijl we onze eerste echte indexbot bouwen, kun je vandaag het avontuur met market cap weighting beginnen. Maak een [geherbalanceerde DCA-bot](https://deltabadger.com/nl/academy/rebalanced-dca/) van Bitcoin en Ethereum, en vergeet niet om market cap weighting te gebruiken. Historisch gezien presteerde een dergelijke bot beter dan Bitcoin, en de strategie is volledig geautomatiseerd.
+Terwijl we onze eerste echte indexbot bouwen, kun je vandaag het avontuur met market cap weighting beginnen. Maak een [geherbalanceerde DCA-bot](https://deltabadger.com/nl/academy/rebalanced-dca) van Bitcoin en Ethereum, en vergeet niet om market cap weighting te gebruiken. Historisch gezien presteerde een dergelijke bot beter dan Bitcoin, en de strategie is volledig geautomatiseerd.
 
 ![Geherbalanceerde DCA-bot](https://deltabadger.com/images/articles/mcap/rebalanced-dca.avif)
 

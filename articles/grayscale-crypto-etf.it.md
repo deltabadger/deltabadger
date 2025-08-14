@@ -32,7 +32,7 @@ L'ETF offre un'esposizione diversificata alle principali criptovalute, con **Bit
 
 Mentre la maggior parte presume che l'ETF segua semplicemente le prime 5 criptovalute per capitalizzazione di mercato, in realtà segue l'**Indice CoinDesk 5 (CD5)**, una metodologia complessa progettata per gli investitori istituzionali, che fornisce sottili indizi su dove potrebbero confluire i capitali istituzionali, rendendola degna di un'analisi più approfondita.
 
-CD5 si trova al vertice di una **metodologia a quattro livelli** sviluppata da [CoinDesk Indices](https://indices.coindesk.com/). A differenza delle popolari classifiche di capitalizzazione di mercato su siti come CoinGecko o CoinPaprika, CD5 è stato creato appositamente per gli investitori istituzionali. Ciò significa che la sua complessa metodologia potrebbe sorprendere gli appassionati di criptovalute: è molto più selettiva della semplice scelta delle monete più grandi per capitalizzazione di mercato.
+CD5 si trova al vertice di una **metodologia a quattro livelli** sviluppata da [CoinDesk Indices](https://indices.coindesk.com). A differenza delle popolari classifiche di capitalizzazione di mercato su siti come CoinGecko o CoinPaprika, CD5 è stato creato appositamente per gli investitori istituzionali. Ciò significa che la sua complessa metodologia potrebbe sorprendere gli appassionati di criptovalute: è molto più selettiva della semplice scelta delle monete più grandi per capitalizzazione di mercato.
 
 {::nomarkdown}
 <figure class="article__figure">
@@ -73,7 +73,7 @@ Questa mancanza di trasparenza sulla dimensione effettiva dell'**Index Universe*
 
 L'[Indice CoinDesk 20 (CD20)](https://indices.coindesk.com/coindesk20) prende questo universo vagliato e aggiunge un ulteriore livello di gestione del portafoglio. È anche la parte dell'offerta meglio documentata online.
 
-**Ponderazione per capitalizzazione di mercato con paletti**: La ponderazione per capitalizzazione di mercato dell'indice, che gli utenti di Deltabadger conoscono dal [bot DCA ribilanciato](https://deltabadger.com/academy/rebalanced-dca/), è aggiustata aggiungendo dei limiti (massimo 30% per il più grande, 20% per gli altri). Non è molto chiaro il motivo per cui sia stato aggiunto il limite, e la documentazione ufficiale di CoinDesk non lo spiega.
+**Ponderazione per capitalizzazione di mercato con paletti**: La ponderazione per capitalizzazione di mercato dell'indice, che gli utenti di Deltabadger conoscono dal [bot DCA ribilanciato](https://deltabadger.com/academy/rebalanced-dca), è aggiustata aggiungendo dei limiti (massimo 30% per il più grande, 20% per gli altri). Non è molto chiaro il motivo per cui sia stato aggiunto il limite, e la documentazione ufficiale di CoinDesk non lo spiega.
 
 {::nomarkdown}
 <figure class="article__figure" data-controller="pie-chart" data-pie-chart-data-value="#F7931A,BTC,Bitcoin,30.53

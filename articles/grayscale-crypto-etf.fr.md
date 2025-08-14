@@ -32,7 +32,7 @@ L'ETF offre une exposition diversifiée aux principales cryptomonnaies, avec le 
 
 Alors que la plupart supposent que l'ETF suit simplement les 5 premières cryptomonnaies par capitalisation boursière, il suit en réalité l'indice **CoinDesk 5 (CD5)** — une méthodologie complexe conçue pour les investisseurs institutionnels, fournissant des indices subtils sur la direction que pourraient prendre les capitaux institutionnels, ce qui mérite un examen plus approfondi.
 
-Le CD5 se situe au sommet d'une **méthodologie à quatre niveaux** développée par [CoinDesk Indices](https://indices.coindesk.com/). Contrairement aux classements populaires de capitalisation boursière sur des sites comme CoinGecko ou CoinPaprika, le CD5 a été conçu spécifiquement pour les investisseurs institutionnels. Cela signifie que sa méthodologie complexe peut surprendre les amateurs de crypto — elle est beaucoup plus sélective que le simple choix des plus grandes monnaies par capitalisation boursière.
+Le CD5 se situe au sommet d'une **méthodologie à quatre niveaux** développée par [CoinDesk Indices](https://indices.coindesk.com). Contrairement aux classements populaires de capitalisation boursière sur des sites comme CoinGecko ou CoinPaprika, le CD5 a été conçu spécifiquement pour les investisseurs institutionnels. Cela signifie que sa méthodologie complexe peut surprendre les amateurs de crypto — elle est beaucoup plus sélective que le simple choix des plus grandes monnaies par capitalisation boursière.
 
 {::nomarkdown}
 <figure class="article__figure">
@@ -73,7 +73,7 @@ Ce manque de transparence concernant la taille réelle de l'**Index Universe** e
 
 L'[indice CoinDesk 20 (CD20)](https://indices.coindesk.com/coindesk20) prend cet univers validé et y ajoute une couche de gestion de portefeuille supplémentaire. C'est aussi la partie de l'offre la mieux documentée en ligne.
 
-**Pondération par la capitalisation boursière avec des garde-fous** : La pondération par la capitalisation boursière de l'indice, que les utilisateurs de Deltabadger connaissent grâce au [robot DCA rééquilibré](https://deltabadger.com/academy/rebalanced-dca/), est ajustée en ajoutant des plafonds (30 % maximum pour le plus grand, 20 % pour les autres). La raison de l'ajout de ce plafond n'est pas vraiment claire, et la documentation officielle de CoinDesk ne l'explique pas.
+**Pondération par la capitalisation boursière avec des garde-fous** : La pondération par la capitalisation boursière de l'indice, que les utilisateurs de Deltabadger connaissent grâce au [robot DCA rééquilibré](https://deltabadger.com/academy/rebalanced-dca), est ajustée en ajoutant des plafonds (30 % maximum pour le plus grand, 20 % pour les autres). La raison de l'ajout de ce plafond n'est pas vraiment claire, et la documentation officielle de CoinDesk ne l'explique pas.
 
 {::nomarkdown}
 <figure class="article__figure" data-controller="pie-chart" data-pie-chart-data-value="#F7931A,BTC,Bitcoin,30.53

@@ -38,7 +38,7 @@ La **capitalizzazione di mercato**, o "market cap", è semplicemente il valore t
 
 ### Come Funziona la Ponderazione per Capitalizzazione di Mercato
 
-In un **indice ponderato per capitalizzazione di mercato**, l'influenza di ogni asset è proporzionale alla sua capitalizzazione di mercato. Se l'S&P 500 ha una capitalizzazione di mercato combinata di 40 trilioni di dollari e Apple ne rappresenta 3 trilioni, allora Apple costituisce il 7,5% dell'indice. Lo stesso principio si applica agli indici di criptovalute: se Bitcoin rappresenta il 50% della capitalizzazione totale del mercato delle criptovalute, avrebbe un peso del 50% in un indice di criptovalute ponderato per capitalizzazione di mercato. Questo concetto si riflette anche nell'[indice di dominanza di Bitcoin](https://coinmarketcap.com/charts/bitcoin-dominance/).
+In un **indice ponderato per capitalizzazione di mercato**, l'influenza di ogni asset è proporzionale alla sua capitalizzazione di mercato. Se l'S&P 500 ha una capitalizzazione di mercato combinata di 40 trilioni di dollari e Apple ne rappresenta 3 trilioni, allora Apple costituisce il 7,5% dell'indice. Lo stesso principio si applica agli indici di criptovalute: se Bitcoin rappresenta il 50% della capitalizzazione totale del mercato delle criptovalute, avrebbe un peso del 50% in un indice di criptovalute ponderato per capitalizzazione di mercato. Questo concetto si riflette anche nell'[indice di dominanza di Bitcoin](https://coinmarketcap.com/charts/bitcoin-dominance).
 
 {::nomarkdown}
 <figure class="article__figure">
@@ -80,7 +80,7 @@ La ponderazione per capitalizzazione di mercato funziona nelle criptovalute? Non
 
 ### Il Mercato delle Criptovalute è Più Concentrato
 
-Bitcoin rappresenta quasi il 67% dell'intero mercato, mentre le prime 10 criptovalute rappresentano oltre il 93% della capitalizzazione totale del mercato. Ciò significa che le **criptovalute a "bassa capitalizzazione" comportano un rischio significativamente più elevato** per gli investitori. Questo è il motivo per cui [l'unico ETF multi-cripto accettato finora investe solo nei primi 5 asset](./grayscale-crypto-etf/).
+Bitcoin rappresenta quasi il 67% dell'intero mercato, mentre le prime 10 criptovalute rappresentano oltre il 93% della capitalizzazione totale del mercato. Ciò significa che le **criptovalute a "bassa capitalizzazione" comportano un rischio significativamente più elevato** per gli investitori. Questo è il motivo per cui [l'unico ETF multi-cripto accettato finora investe solo nei primi 5 asset](./grayscale-crypto-etf).
 
 {::nomarkdown}
 <figure class="article__figure" data-controller="pie-chart" data-pie-chart-data-value="#F7931A,BTC,Bitcoin,79.35
@@ -120,7 +120,7 @@ Ora che sappiamo cosa e perché, è tempo di applicare questa conoscenza in prat
 
 Indici popolari del mercato delle criptovalute come CoinMarketCap includono diversi tipi di asset: blockchain di Livello 1 e Livello 2, token di exchange, memecoin, stablecoin e altro ancora.
 
-Le [Stablecoin](./genius-of-stablecoins/) non sono asset di crescita, quindi devono essere escluse dalla parte del tuo portafoglio ponderata per capitalizzazione di mercato. Se stai cercando un indice disponibile pubblicamente che lo faccia, [l'Indice CoinMarketCap 100](https://coinmarketcap.com/charts/cmc100/) è la strada da percorrere.
+Le [Stablecoin](./genius-of-stablecoins) non sono asset di crescita, quindi devono essere escluse dalla parte del tuo portafoglio ponderata per capitalizzazione di mercato. Se stai cercando un indice disponibile pubblicamente che lo faccia, [l'Indice CoinMarketCap 100](https://coinmarketcap.com/charts/cmc100) è la strada da percorrere.
 
 {::nomarkdown}
 <figure class="article__figure" data-controller="pie-chart" data-pie-chart-data-value="#F7931A,BTC,Bitcoin,66.97
@@ -144,7 +144,7 @@ Le [Stablecoin](./genius-of-stablecoins/) non sono asset di crescita, quindi dev
 
 Per gli investitori al dettaglio, CMC100 è un'alternativa molto migliore rispetto a indici come CD5 o CD20 di CoinDesk. In primo luogo, è completamente pubblico e offre persino un endpoint API disponibile pubblicamente. In secondo luogo, non applica filtri istituzionali che escludono asset che molti investitori vogliono includere: monete per la privacy, token di exchange o memecoin.
 
-Non puoi sbagliare scegliendo solo le prime 10 criptovalute da CMC100, ma è solo un invito all'universo degli indici di criptovalute. Coingecko ne elenca oltre 500 e puoi facilmente immaginarne di più. Appena una settimana fa, abbiamo discusso di un indice di blockchain utilizzate per trasferire stablecoin come una tesi di investimento interessante. Le possibilità sono infinite. <a class="link-source-tile" href="https://www.coingecko.com/">coingecko.com</a>
+Non puoi sbagliare scegliendo solo le prime 10 criptovalute da CMC100, ma è solo un invito all'universo degli indici di criptovalute. Coingecko ne elenca oltre 500 e puoi facilmente immaginarne di più. Appena una settimana fa, abbiamo discusso di un indice di blockchain utilizzate per trasferire stablecoin come una tesi di investimento interessante. Le possibilità sono infinite. <a class="link-source-tile" href="https://www.coingecko.com">coingecko.com</a>
 
 ### Indice della Stagione delle Altcoin
 
@@ -154,7 +154,7 @@ Una cosa è certa: se cerchi una Stagione delle Altcoin, non c'è modo migliore 
 
 ### Come Iniziare
 
-Mentre costruiamo il nostro primo vero bot indice, puoi iniziare oggi l'avventura con la ponderazione per capitalizzazione di mercato. Crea un [bot DCA ribilanciato](https://deltabadger.com/it/academy/rebalanced-dca/) di Bitcoin ed Ethereum e ricorda di usare la ponderazione per capitalizzazione di mercato. Storicamente, un tale bot ha sovraperformato Bitcoin e la strategia è completamente automatizzata.
+Mentre costruiamo il nostro primo vero bot indice, puoi iniziare oggi l'avventura con la ponderazione per capitalizzazione di mercato. Crea un [bot DCA ribilanciato](https://deltabadger.com/it/academy/rebalanced-dca) di Bitcoin ed Ethereum e ricorda di usare la ponderazione per capitalizzazione di mercato. Storicamente, un tale bot ha sovraperformato Bitcoin e la strategia è completamente automatizzata.
 
 ![Bot DCA ribilanciato](https://deltabadger.com/images/articles/mcap/rebalanced-dca.avif)
 
