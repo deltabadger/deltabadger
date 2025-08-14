@@ -1,5 +1,5 @@
 # Tools
-Install needed tools (for example using [asdf version manager](https://asdf-vm.com/)):
+Install needed tools (for example using [asdf version manager](https://asdf-vm.com)):
 
 ruby 3.0.2
 nodejs 14.20.0
