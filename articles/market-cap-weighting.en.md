@@ -38,7 +38,7 @@ Fast forward to 2025: **market cap-weighted index funds represent approximately 
 
 ### How Market Cap Weighting Works
 
-In a **market cap-weighted index**, each asset's influence is proportional to its market cap. If the S&P 500 has a combined market cap of $40 trillion and Apple represents $3 trillion of that, then Apple makes up 7.5% of the index. The same principle applies to crypto indexes—if Bitcoin represents 50% of the total crypto market cap, it would have 50% weight in a market cap-weighted crypto index. This concept is also reflected in the [Bitcoin dominance index](https://coinmarketcap.com/charts/bitcoin-dominance/).
+In a **market cap-weighted index**, each asset's influence is proportional to its market cap. If the S&P 500 has a combined market cap of $40 trillion and Apple represents $3 trillion of that, then Apple makes up 7.5% of the index. The same principle applies to crypto indexes—if Bitcoin represents 50% of the total crypto market cap, it would have 50% weight in a market cap-weighted crypto index. This concept is also reflected in the [Bitcoin dominance index](https://coinmarketcap.com/charts/bitcoin-dominance).
 
 {::nomarkdown}
 <figure class="article__figure">
@@ -80,7 +80,7 @@ Does market cap weighting work in crypto? Not only does it work, but you could a
 
 ### Cryptocurrency Market Is More Concentrated
 
-Bitcoin is almost 67% of the whole market, while the top 10 cryptocurrencies represent over 93% of the whole market capitalization. This means **"small-cap" cryptocurrencies carry significantly higher risk** for investors. This is why [the only multi-crypto ETF accepted so far invests in only the top 5 assets](./grayscale-crypto-etf/).
+Bitcoin is almost 67% of the whole market, while the top 10 cryptocurrencies represent over 93% of the whole market capitalization. This means **"small-cap" cryptocurrencies carry significantly higher risk** for investors. This is why [the only multi-crypto ETF accepted so far invests in only the top 5 assets](./grayscale-crypto-etf).
 
 {::nomarkdown}
 <figure class="article__figure" data-controller="pie-chart" data-pie-chart-data-value="#F7931A,BTC,Bitcoin,79.35
@@ -120,7 +120,7 @@ Now that we know what and why, it's time to apply this knowledge in practice. Im
 
 Popular indexes of the cryptocurrency market like CoinMarketCap include different types of assets: Layer 1 and Layer 2 blockchains, exchange tokens, memecoins, stablecoins, and more.
 
-[Stablecoins](./genius-of-stablecoins/) are not growth assets, so they have to be excluded from the market cap-weighted part of your portfolio. If you're looking for a publicly available index that does that, [CoinMarketCap 100 Index](https://coinmarketcap.com/charts/cmc100/) is the way to go.
+[Stablecoins](./genius-of-stablecoins) are not growth assets, so they have to be excluded from the market cap-weighted part of your portfolio. If you're looking for a publicly available index that does that, [CoinMarketCap 100 Index](https://coinmarketcap.com/charts/cmc100) is the way to go.
 
 {::nomarkdown}
 <figure class="article__figure" data-controller="pie-chart" data-pie-chart-data-value="#F7931A,BTC,Bitcoin,66.97
@@ -144,7 +144,7 @@ Popular indexes of the cryptocurrency market like CoinMarketCap include differen
 
 For retail investors, CMC100 is a much better alternative than CoinDesk Indices like CD5 or CD20. First, it's fully public and even offers a publicly available API endpoint. Second, it doesn't apply institutional filters that exclude assets many investors want to include: privacy coins, exchange tokens, or memecoins.
 
-You can't go wrong with picking just the top 10 cryptocurrencies from CMC100, but it's just an invitation to the universe of cryptocurrency indexes. Coingecko lists over 500 of them, and you can easily imagine more. Merely a week ago, we discussed an index of blockchains used to transfer stablecoins as an interesting investment thesis. Possibilities are endless. <a class="link-source-tile" href="https://www.coingecko.com/">coingecko.com</a>
+You can't go wrong with picking just the top 10 cryptocurrencies from CMC100, but it's just an invitation to the universe of cryptocurrency indexes. Coingecko lists over 500 of them, and you can easily imagine more. Merely a week ago, we discussed an index of blockchains used to transfer stablecoins as an interesting investment thesis. Possibilities are endless. <a class="link-source-tile" href="https://www.coingecko.com">coingecko.com</a>
 
 ### Altcoin Season Index
 
@@ -154,7 +154,7 @@ One thing is sure: if you're after an Altcoin Season, there is no better way to 
 
 ### How to Start
 
-While we build our first true index bot, you can start the adventure with market cap weighting today. Create a [rebalanced DCA bot](https://deltabadger.com/academy/rebalanced-dca/) of Bitcoin and Ethereum, and remember to use market cap weighting. Historically, such a bot outperformed Bitcoin, and the strategy is fully automated.
+While we build our first true index bot, you can start the adventure with market cap weighting today. Create a [rebalanced DCA bot](https://deltabadger.com/academy/rebalanced-dca) of Bitcoin and Ethereum, and remember to use market cap weighting. Historically, such a bot outperformed Bitcoin, and the strategy is fully automated.
 
 ![Rebalanced DCA bot](https://deltabadger.com/images/articles/mcap/rebalanced-dca.avif)
 

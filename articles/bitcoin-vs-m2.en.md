@@ -67,7 +67,7 @@ The core thesis is simple:
 
 ### Bitcoin as the Superior Liquidity Barometer
 
-A recent study by [Lyn Alden and Sam Callahan](https://www.lynalden.com/bitcoin-a-global-liquidity-barometer/) looked at data from May 2013 to July 2024. They found that indeed Bitcoin reacts strongly to changes in global money supply.
+A recent study by [Lyn Alden and Sam Callahan](https://www.lynalden.com/bitcoin-a-global-liquidity-barometer) looked at data from May 2013 to July 2024. They found that indeed Bitcoin reacts strongly to changes in global money supply.
 
 Here's what the numbers show:
 
@@ -95,7 +95,7 @@ While Lyn Alden's research established the strong correlation and directional al
 </blockquote><script async src="https://platform.twitter.com/widgets.js" charset="utf-8"></script>
 {:/nomarkdown}
 
-[Sarson Funds' study](https://sarsonfunds.com/the-correlation-between-bitcoin-and-m2-money-supply-growth-a-deep-dive/) published in June 2025 identified a **10-week forward lead** as optimal, while other analysts report from 8-14 weeks.
+[Sarson Funds' study](https://sarsonfunds.com/the-correlation-between-bitcoin-and-m2-money-supply-growth-a-deep-dive) published in June 2025 identified a **10-week forward lead** as optimal, while other analysts report from 8-14 weeks.
 
 So, did we find a Bitcoin crystal ball?
 
@@ -143,7 +143,7 @@ This adds more precision to the model.
 
 ### Using MVRV Z-Score
 
-The [MVRV Z-Score](https://www.bitcoinmagazinepro.com/charts/mvrv-zscore/) is a technical indicator that helps determine if Bitcoin is overvalued or undervalued by comparing its current market price to what investors paid on average. When the Z-Score is high, many holders may sell despite growing money supply. When it's low, Bitcoin may be oversold and ready to rise even without money supply growth.
+The [MVRV Z-Score](https://www.bitcoinmagazinepro.com/charts/mvrv-zscore) is a technical indicator that helps determine if Bitcoin is overvalued or undervalued by comparing its current market price to what investors paid on average. When the Z-Score is high, many holders may sell despite growing money supply. When it's low, Bitcoin may be oversold and ready to rise even without money supply growth.
 
 ### The HODL Wave Pattern
 

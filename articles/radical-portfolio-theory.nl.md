@@ -101,7 +101,7 @@ De andere 40% zijn **veerkrachtige** (resilient) activa die als verzekering dien
 
 Je begrijpt nu misschien waar het "radicale" vandaan komt—zeker niet het handboek dat een traditionele financieel adviseur zou aanbevelen (of zou mogen aanbevelen).
 
-Hoewel zelfs het opnemen van [voorspellingsmarkten](./polymarket/) in een algemeen beleggingsframework echt radicaal lijkt, is de grote observatie hier dat ze, in plaats van alleen exotische activa of gokken te zijn, kunnen worden gebruikt als een klassieke conservatieve verzekering. Een kleine weddenschap op een onwaarschijnlijk, maar tragisch scenario kan een geldige strategie zijn om de veiligheid van je portefeuille te vergroten.
+Hoewel zelfs het opnemen van [voorspellingsmarkten](./polymarket) in een algemeen beleggingsframework echt radicaal lijkt, is de grote observatie hier dat ze, in plaats van alleen exotische activa of gokken te zijn, kunnen worden gebruikt als een klassieke conservatieve verzekering. Een kleine weddenschap op een onwaarschijnlijk, maar tragisch scenario kan een geldige strategie zijn om de veiligheid van je portefeuille te vergroten.
 
 ### Eigen bewaring (Self-custody)
 
@@ -174,7 +174,7 @@ Wanneer je een portefeuille met Invesco QQQ ETF en goud door een Modern Portfoli
 {::nomarkdown}
 <figure class="article__figure">
 <img style="width: 100rem" src="https://deltabadger.com/images/articles/radical-portfolio-theory/qqq-gold.avif" alt="QQQ vs Goud">
-<figcaption class="article__figure__caption">De laagste VOL allocatie voor QQQ en goud. Getest met <a href="https://deltabadger.com/portfolio-analyzer/" title="Portfolio Analyzer voor aandelen en crypto">Portfolio Analyzer</a></figcaption>
+<figcaption class="article__figure__caption">De laagste VOL allocatie voor QQQ en goud. Getest met <a href="https://deltabadger.com/portfolio-analyzer" title="Portfolio Analyzer voor aandelen en crypto">Portfolio Analyzer</a></figcaption>
 </figure>
 {:/nomarkdown}
 
@@ -202,6 +202,6 @@ Wat ons brengt bij mijn favoriete framework voor het mengen van alle vier deze a
 
 Hoewel het originele essay zich niet op Bitcoin richt, zal voor elke belegger in digitale activa de connectie en aantrekkingskracht voor de hand liggend en vanzelfsprekend zijn. Bitcoin is het natuurlijke perfecte veerkracht-actief dat alle vakjes aanvinkt en verdient deel uit te maken van elke portefeuille. Terwijl een typisch "niet-orthodox" advies meestal 1-5% suggereerde, klinkt vanuit het perspectief van de "radicale portefeuille theorie" een allocatie van 20-40% niet zo gek.
 
-Dat gezegd hebbende, biedt het "radicale" framework zowel uitstekende verklaringen als toepasbare strategieën, en brengt het duidelijkheid voor beleggers die kijken naar veel nieuwe mogelijkheden uit de traditionele financiële wereld zoals MSTR, STRK, of de [aankomende multi-crypto ETF van Grayscale](./grayscale-crypto-etf/).
+Dat gezegd hebbende, biedt het "radicale" framework zowel uitstekende verklaringen als toepasbare strategieën, en brengt het duidelijkheid voor beleggers die kijken naar veel nieuwe mogelijkheden uit de traditionele financiële wereld zoals MSTR, STRK, of de [aankomende multi-crypto ETF van Grayscale](./grayscale-crypto-etf).
 
 Hoe handig ze ook zijn, ze zijn deel van de status quo waartegen je zou kunnen willen diversifiëren.

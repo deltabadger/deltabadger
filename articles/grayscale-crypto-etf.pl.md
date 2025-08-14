@@ -32,7 +32,7 @@ ETF oferuje zdywersyfikowaną ekspozycję na główne kryptowaluty, z **Bitcoine
 
 Chociaż większość zakłada, że ETF po prostu śledzi 5 największych kryptowalut pod względem kapitalizacji rynkowej, w rzeczywistości podąża za indeksem **CoinDesk 5 (CD5)** — złożoną metodologią zaprojektowaną dla inwestorów instytucjonalnych, dostarczającą subtelnych wskazówek, dokąd mogą popłynąć kolejne pieniądze instytucjonalne, co czyni ją wartą bliższego przyjrzenia się.
 
-CD5 znajduje się na szczycie **czteropoziomowej metodologii** opracowanej przez [CoinDesk Indices](https://indices.coindesk.com/). W przeciwieństwie do popularnych rankingów kapitalizacji rynkowej na stronach takich jak CoinGecko czy CoinPaprika, CD5 został stworzony specjalnie dla inwestorów instytucjonalnych. Oznacza to, że jego złożona metodologia może zaskoczyć entuzjastów kryptowalut — jest znacznie bardziej selektywna niż zwykłe wybieranie największych monet pod względem kapitalizacji rynkowej.
+CD5 znajduje się na szczycie **czteropoziomowej metodologii** opracowanej przez [CoinDesk Indices](https://indices.coindesk.com). W przeciwieństwie do popularnych rankingów kapitalizacji rynkowej na stronach takich jak CoinGecko czy CoinPaprika, CD5 został stworzony specjalnie dla inwestorów instytucjonalnych. Oznacza to, że jego złożona metodologia może zaskoczyć entuzjastów kryptowalut — jest znacznie bardziej selektywna niż zwykłe wybieranie największych monet pod względem kapitalizacji rynkowej.
 
 {::nomarkdown}
 <figure class="article__figure">
@@ -73,7 +73,7 @@ Ten brak przejrzystości co do faktycznej wielkości **Index Universe** jest jed
 
 [Indeks CoinDesk 20 (CD20)](https://indices.coindesk.com/coindesk20) bierze to sprawdzone uniwersum i dodaje kolejną warstwę zarządzania portfelem. Jest to również najlepiej udokumentowana online część oferty.
 
-**Ważenie kapitalizacją rynkową z ograniczeniami**: Ważenie kapitalizacją rynkową indeksu, które użytkownicy Deltabadger znają z [bota DCA opartego na rebalancingu](https://deltabadger.com/academy/rebalanced-dca/), jest korygowane przez dodanie limitów (maksymalnie 30% dla największego, 20% dla pozostałych). Nie jest do końca jasne, dlaczego dodano limit, a oficjalna dokumentacja CoinDesk tego nie wyjaśnia.
+**Ważenie kapitalizacją rynkową z ograniczeniami**: Ważenie kapitalizacją rynkową indeksu, które użytkownicy Deltabadger znają z [bota DCA opartego na rebalancingu](https://deltabadger.com/academy/rebalanced-dca), jest korygowane przez dodanie limitów (maksymalnie 30% dla największego, 20% dla pozostałych). Nie jest do końca jasne, dlaczego dodano limit, a oficjalna dokumentacja CoinDesk tego nie wyjaśnia.
 
 {::nomarkdown}
 <figure class="article__figure" data-controller="pie-chart" data-pie-chart-data-value="#F7931A,BTC,Bitcoin,30.53

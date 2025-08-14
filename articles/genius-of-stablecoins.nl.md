@@ -25,9 +25,9 @@ De cijfers zijn krankzinnig:
 
 * In 6 jaar tijd groeiden stablecoins **van $6 miljard naar $270 miljard – een 45-voudige toename**. De hele stablecoinmarkt is nu groter dan het BBP van Finland.
 
-* Tether ($98 miljard) en Circle ($22 miljard) samen bezitten $120 miljard aan Amerikaanse staatsobligaties, waarmee ze de 18e grootste houder van Amerikaanse staatsschuld zijn – voor België, Taiwan en de meeste soevereine naties. <a class="link-source-tile" href="https://tether.io/news/tether-hits-13-billion-profits-for-2024-and-all-time-highs-in-u-s-treasury-holdings-usdt-circulation-and-reserve-buffer-in-q4-2024-attestation/">tether.io</a>
+* Tether ($98 miljard) en Circle ($22 miljard) samen bezitten $120 miljard aan Amerikaanse staatsobligaties, waarmee ze de 18e grootste houder van Amerikaanse staatsschuld zijn – voor België, Taiwan en de meeste soevereine naties. <a class="link-source-tile" href="https://tether.io/news/tether-hits-13-billion-profits-for-2024-and-all-time-highs-in-u-s-treasury-holdings-usdt-circulation-and-reserve-buffer-in-q4-2024-attestation">tether.io</a>
 
-* Tether verwerkt op sommige dagen meer dan $100 miljard aan dagelijkse overboekingen, terwijl **het hele stablecoin-ecosysteem jaarlijks $27,6 biljoen verplaatst – meer dan Visa en Mastercard samen**. <a class="link-source-tile" href="https://cryptoslate.com/stablecoins-surpass-visa-and-mastercard-with-27-6-trillion-transfer-volume-in-2024/">cryptoslate.com</a>
+* Tether verwerkt op sommige dagen meer dan $100 miljard aan dagelijkse overboekingen, terwijl **het hele stablecoin-ecosysteem jaarlijks $27,6 biljoen verplaatst – meer dan Visa en Mastercard samen**. <a class="link-source-tile" href="https://cryptoslate.com/stablecoins-surpass-visa-and-mastercard-with-27-6-trillion-transfer-volume-in-2024">cryptoslate.com</a>
 
 {::nomarkdown}
 <figure class="article__figure">
@@ -48,7 +48,7 @@ De GENIUS Act, die in juni 2025 door de Senaat werd aangenomen met 68-30 en in j
 
 >*We zullen stablecoins gebruiken om de Amerikaanse dollar de dominante reservevaluta te houden.*
 >
->—Minister van Financiën Scott Bessent <a class="link-source-tile" href="https://www.atlanticcouncil.org/blogs/new-atlanticist/dollar-backed-stablecoins-international-standards/">atlanticcouncil.org</a>
+>—Minister van Financiën Scott Bessent <a class="link-source-tile" href="https://www.atlanticcouncil.org/blogs/new-atlanticist/dollar-backed-stablecoins-international-standards">atlanticcouncil.org</a>
 
 **Dit vertegenwoordigt een dramatische verschuiving van regulering naar bewapening.**
 
@@ -89,9 +89,9 @@ Het verschil in gebruiksscenario's vertelt het verhaal:
 
 Er is een **omgekeerde relatie tussen traditionele financiële infrastructuur en de adoptie van stablecoins** – regio's met zwakkere banksystemen vertonen hogere gebruikscijfers.
 
-In Argentinië omvat 61,8% van alle transacties nu stablecoins, wat direct verband houdt met 143% peso-inflatie. Turkije toont 50% crypto-eigendom van de bevolking met de hoogste wereldwijde adoptie van stablecoins met 4,3% van het BBP, terwijl de 26 miljoen stablecoin-gebruikers van Nigeria (12% van de bevolking) de valutacontroles volledig omzeilen. <a class="link-source-tile" href="https://www.chainalysis.com/blog/2024-latin-america-crypto-adoption/">chainalysis.com</a>
+In Argentinië omvat 61,8% van alle transacties nu stablecoins, wat direct verband houdt met 143% peso-inflatie. Turkije toont 50% crypto-eigendom van de bevolking met de hoogste wereldwijde adoptie van stablecoins met 4,3% van het BBP, terwijl de 26 miljoen stablecoin-gebruikers van Nigeria (12% van de bevolking) de valutacontroles volledig omzeilen. <a class="link-source-tile" href="https://www.chainalysis.com/blog/2024-latin-america-crypto-adoption">chainalysis.com</a>
 
-**Europa mist deze revolutie op spectaculaire wijze.** Ondanks dat het 48% van het wereldwijde cryptocurrency-volume vertegenwoordigt, **wordt slechts 0,2% van het stablecoin-aanbod door Europeanen aangehouden**, wat suggereert dat hun deelname van 10-15% aan het transactievolume voornamelijk handel is, en geen adoptie. <a class="link-source-tile" href="https://www.chainalysis.com/blog/2024-western-europe-crypto-adoption/">chainalysis.com</a>
+**Europa mist deze revolutie op spectaculaire wijze.** Ondanks dat het 48% van het wereldwijde cryptocurrency-volume vertegenwoordigt, **wordt slechts 0,2% van het stablecoin-aanbod door Europeanen aangehouden**, wat suggereert dat hun deelname van 10-15% aan het transactievolume voornamelijk handel is, en geen adoptie. <a class="link-source-tile" href="https://www.chainalysis.com/blog/2024-western-europe-crypto-adoption">chainalysis.com</a>
 
 ### De sluipende digitale dollar
 
@@ -108,7 +108,7 @@ Ondertussen blijft de EU een bureaucratische mislukking:
 * Grote beurzen schrappen Tether voor EU-gebruikers tegen maart 2025
 * De ontwikkeling van de digitale euro kruipt voort terwijl de adoptie van stablecoins versnelt
 
-Terwijl Europa het financiële equivalent van de Maginotlinie bouwt, en meer dan $1,1 miljard uitgeeft aan het CBDC-project, is de strijd al verplaatst naar mobiele telefoons, waar de VS stablecoins bewapent om opkomende markten efficiënt te dollariseren - allemaal gefinancierd door de particuliere sector. <a class="link-source-tile" href="https://www.ledgerinsights.com/ecb-updates-status-of-digital-euro-work/">ledgerinsights.com</a>
+Terwijl Europa het financiële equivalent van de Maginotlinie bouwt, en meer dan $1,1 miljard uitgeeft aan het CBDC-project, is de strijd al verplaatst naar mobiele telefoons, waar de VS stablecoins bewapent om opkomende markten efficiënt te dollariseren - allemaal gefinancierd door de particuliere sector. <a class="link-source-tile" href="https://www.ledgerinsights.com/ecb-updates-status-of-digital-euro-work">ledgerinsights.com</a>
 
 ## Het GENIUS-portfolio
 
@@ -175,7 +175,7 @@ DeFiLlama levert stablecoin-aanbodgegevens voor elke blockchain. Door de top 10 
 | **Avalanche** | $10.49b | $1.658b | 1.5% | 0.6% | <span class="text-danger">-0.8%</span> |
 | **Aptos** | $3.00b | $1.351b | 0.4% | 0.5% | <span class="text-success">+0.1%</span> |
 
-TRON is het grootste netwerk voor USDT specifiek geworden, met $82 miljard in omloop – terwijl Ethereum het totale stablecoin-aanbod leidt met $132 miljard over meerdere stablecoins (USDT, USDC, DAI, enz.). USDT vertegenwoordigt 98,5% van de activiteit van TRON, waardoor het een speciale USDT-infrastructuur is. <a class="link-source-tile" href="https://cryptobriefing.com/usdt-on-tron-stablecoin-leader/">cryptobriefing.com</a>
+TRON is het grootste netwerk voor USDT specifiek geworden, met $82 miljard in omloop – terwijl Ethereum het totale stablecoin-aanbod leidt met $132 miljard over meerdere stablecoins (USDT, USDC, DAI, enz.). USDT vertegenwoordigt 98,5% van de activiteit van TRON, waardoor het een speciale USDT-infrastructuur is. <a class="link-source-tile" href="https://cryptobriefing.com/usdt-on-tron-stablecoin-leader">cryptobriefing.com</a>
 
 Deze dominantie komt voort uit de combinatie van ultralage kosten van TRON (minder dan $0,10), snelle afwikkelingen van 3 seconden en de strategische samenwerking van Justin Sun in 2019 met Tether, waardoor krachtige netwerkeffecten ontstonden die zowel particuliere gebruikers op opkomende markten als grote institutionele overdrachten aantrokken.
 

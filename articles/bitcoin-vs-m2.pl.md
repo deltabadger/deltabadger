@@ -65,7 +65,7 @@ Główna teza jest prosta:
 
 ### Bitcoin jako lepszy barometr płynności
 
-Niedawne badanie przeprowadzone przez [Lyn Alden i Sama Callahana](https://www.lynalden.com/bitcoin-a-global-liquidity-barometer/) przeanalizowało dane od maja 2013 do lipca 2024. Odkryli, że Bitcoin rzeczywiście silnie reaguje na zmiany w globalnej podaży pieniądza.
+Niedawne badanie przeprowadzone przez [Lyn Alden i Sama Callahana](https://www.lynalden.com/bitcoin-a-global-liquidity-barometer) przeanalizowało dane od maja 2013 do lipca 2024. Odkryli, że Bitcoin rzeczywiście silnie reaguje na zmiany w globalnej podaży pieniądza.
 
 Oto, co pokazują liczby:
 
@@ -93,7 +93,7 @@ Podczas gdy badania Lyn Alden ustaliły silną korelację i zgodność kierunkow
 </blockquote><script async src="https://platform.twitter.com/widgets.js" charset="utf-8"></script>
 {:/nomarkdown}
 
-[Badanie Sarson Funds](https://sarsonfunds.com/the-correlation-between-bitcoin-and-m2-money-supply-growth-a-deep-dive/) opublikowane w czerwcu 2025 roku zidentyfikowało **10-tygodniowe wyprzedzenie** jako optymalne, podczas gdy inni analitycy podają od 8 do 14 tygodni.
+[Badanie Sarson Funds](https://sarsonfunds.com/the-correlation-between-bitcoin-and-m2-money-supply-growth-a-deep-dive) opublikowane w czerwcu 2025 roku zidentyfikowało **10-tygodniowe wyprzedzenie** jako optymalne, podczas gdy inni analitycy podają od 8 do 14 tygodni.
 
 Czy więc znaleźliśmy kryształową kulę Bitcoina?
 
@@ -141,7 +141,7 @@ To dodaje modelowi większej precyzji.
 
 ### Użycie wskaźnika MVRV Z-Score
 
-[Wskaźnik MVRV Z-Score](https://www.bitcoinmagazinepro.com/charts/mvrv-zscore/) to wskaźnik techniczny, który pomaga określić, czy Bitcoin jest przewartościowany czy niedowartościowany, porównując jego obecną cenę rynkową do średniej ceny, jaką zapłacili inwestorzy. Gdy Z-Score jest wysoki, wielu posiadaczy może sprzedawać pomimo rosnącej podaży pieniądza. Gdy jest niski, Bitcoin może być wyprzedany i gotowy do wzrostu nawet bez wzrostu podaży pieniądza.
+[Wskaźnik MVRV Z-Score](https://www.bitcoinmagazinepro.com/charts/mvrv-zscore) to wskaźnik techniczny, który pomaga określić, czy Bitcoin jest przewartościowany czy niedowartościowany, porównując jego obecną cenę rynkową do średniej ceny, jaką zapłacili inwestorzy. Gdy Z-Score jest wysoki, wielu posiadaczy może sprzedawać pomimo rosnącej podaży pieniądza. Gdy jest niski, Bitcoin może być wyprzedany i gotowy do wzrostu nawet bez wzrostu podaży pieniądza.
 
 ### Wzór fali HODL
 

@@ -101,7 +101,7 @@ Die anderen 40% sind **widerstandsfähige** (resilient) Vermögenswerte, die als
 
 Jetzt können Sie verstehen, woher das "radikale" kommt—definitiv nicht das Handbuch, das ein traditioneller Finanzberater empfehlen würde (oder empfehlen dürfte).
 
-Während selbst die Einbeziehung von [Prognosemärkten](./polymarket/) in ein allgemeines Anlagekonzept wirklich radikal erscheint, ist die große Beobachtung hier, dass sie, anstatt nur exotische Vermögenswerte oder Glücksspiel zu sein, als klassische konservative Versicherung verwendet werden können. Eine kleine Wette auf ein unwahrscheinliches, aber tragisches Szenario kann eine gültige Strategie sein, um die Sicherheit Ihres Portfolios zu erhöhen.
+Während selbst die Einbeziehung von [Prognosemärkten](./polymarket) in ein allgemeines Anlagekonzept wirklich radikal erscheint, ist die große Beobachtung hier, dass sie, anstatt nur exotische Vermögenswerte oder Glücksspiel zu sein, als klassische konservative Versicherung verwendet werden können. Eine kleine Wette auf ein unwahrscheinliches, aber tragisches Szenario kann eine gültige Strategie sein, um die Sicherheit Ihres Portfolios zu erhöhen.
 
 ### Selbstverwahrung (Self-custody)
 
@@ -174,7 +174,7 @@ Wenn Sie ein Portfolio mit Invesco QQQ ETF und Gold durch eine Modern Portfolio 
 {::nomarkdown}
 <figure class="article__figure">
 <img style="width: 100rem" src="https://deltabadger.com/images/articles/radical-portfolio-theory/qqq-gold.avif" alt="QQQ vs Gold">
-<figcaption class="article__figure__caption">Die niedrigste VOL-Allokation für QQQ und Gold. Getestet mit <a href="https://deltabadger.com/portfolio-analyzer/" title="Portfolio Analyzer für Aktien und Krypto">Portfolio Analyzer</a></figcaption>
+<figcaption class="article__figure__caption">Die niedrigste VOL-Allokation für QQQ und Gold. Getestet mit <a href="https://deltabadger.com/portfolio-analyzer" title="Portfolio Analyzer für Aktien und Krypto">Portfolio Analyzer</a></figcaption>
 </figure>
 {:/nomarkdown}
 
@@ -202,6 +202,6 @@ Was uns zu meinem bevorzugten Konzept der Mischung aller vier Anlageklassen füh
 
 Während sich das ursprüngliche Essay nicht auf Bitcoin konzentriert, werden für jeden Investor in digitale Vermögenswerte die Verbindung und Attraktivität offensichtlich und selbstverständlich sein. Bitcoin ist der natürliche perfekte Resilienz-Asset, der alle Kästchen ankreuzt und verdient es, Teil jedes Portfolios zu sein. Während ein typischer "unorthodoxer" Rat normalerweise 1-5% vorschlug, klingt aus der Perspektive der "radikalen Portfolio-Theorie" eine Allokation von 20-40% nicht so verrückt.
 
-Das gesagt, bietet das "radikale" Konzept sowohl ausgezeichnete Erklärungen als auch anwendbare Strategien und bringt Klarheit für Investoren, die sich viele neue Möglichkeiten aus der traditionellen Finanzwelt wie MSTR, STRK oder den [kommenden Multi-Krypto-ETF von Grayscale](./grayscale-crypto-etf/) ansehen.
+Das gesagt, bietet das "radikale" Konzept sowohl ausgezeichnete Erklärungen als auch anwendbare Strategien und bringt Klarheit für Investoren, die sich viele neue Möglichkeiten aus der traditionellen Finanzwelt wie MSTR, STRK oder den [kommenden Multi-Krypto-ETF von Grayscale](./grayscale-crypto-etf) ansehen.
 
 So praktisch sie auch sein mögen, sie sind Teil des Status quo, gegen den Sie sich möglicherweise diversifizieren möchten.
