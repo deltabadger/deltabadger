@@ -90,19 +90,19 @@ Rails.application.configure do
   # Do not dump schema after migrations.
   config.active_record.dump_schema_after_migration = false
 
-  config.action_mailer.default_url_options = { host: ENV['MAILER_SMTP_DOMAIN'] }
+  config.action_mailer.default_url_options = { host: ENV.fetch('SMTP_DOMAIN') }
   config.action_mailer.perform_deliveries = true
   config.action_mailer.delivery_method = :smtp
   config.action_mailer.smtp_settings = {
-    address: ENV['MAILER_SMTP_ADDRESS'],
+    address: ENV.fetch('SMTP_ADDRESS'),
     authentication: :plain,
-    domain: ENV['MAILER_SMTP_DOMAIN'],
-    port: ENV["MAILER_SMTP_PORT"],
+    domain: ENV.fetch('SMTP_DOMAIN'),
+    port: ENV.fetch('SMTP_PORT'),
     enable_starttsl_auto: true,
-    user_name: ENV["MAILER_SMTP_USER_NAME"],
-    password: ENV["MAILER_SMTP_PASSWORD"]
+    user_name: ENV.fetch('SMTP_USER_NAME'),
+    password: ENV.fetch('SMTP_PASSWORD')
   }
-  routes.default_url_options = {host: ENV['APP_ROOT_URL'], protocol: 'https'}
+  routes.default_url_options = {host: ENV.fetch('APP_ROOT_URL'), protocol: 'https'}
 
   config.hosts << "app.deltabadger.com"
   config.hosts << "test.deltabadger.com"
@@ -110,7 +110,7 @@ Rails.application.configure do
 
   config.exceptions_app = self.routes
 
-  config.action_cable.allowed_request_origins = ["https://app.deltabadger.com", "https://test.deltabadger.com"]
+  config.action_cable.allowed_request_origins = [ENV.fetch('APP_ROOT_URL')]
   config.action_cable.worker_pool_size = ENV.fetch('MAX_DB_CONNECTIONS', 4)
 
   config.dry_run = false

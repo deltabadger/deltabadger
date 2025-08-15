@@ -7,7 +7,7 @@ module ExchangeApi
         URL = 'https://api.zondacrypto.exchange/rest/trading/history/transactions'.freeze
 
         def validate_credentials(api_key:, api_secret:)
-          conn = Faraday.new(proxy: ENV['US_HTTPS_PROXY'].present? ? "https://#{ENV['US_HTTPS_PROXY']}" : nil)
+          conn = Faraday.new(proxy: ENV['US_HTTPS_PROXY'])
           request = conn.get(URL, {}, headers(api_key, api_secret, ''))
           return false if request.status != 200
 

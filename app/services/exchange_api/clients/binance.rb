@@ -45,9 +45,9 @@ module ExchangeApi
       def attributes(url_base)
         attributes = { url: url_base }
         if url_base.in?([BinanceEnum::EU_URL_BASE, BinanceEnum::EU_WITHDRAWAL_URL_BASE])
-          attributes.merge!({ proxy: ENV['EU_HTTPS_PROXY'].present? ? "https://#{ENV['EU_HTTPS_PROXY']}" : nil })
+          attributes.merge!({ proxy: ENV['EU_HTTPS_PROXY'] })
         else
-          attributes.merge!({ proxy: ENV['US_HTTPS_PROXY'].present? ? "https://#{ENV['US_HTTPS_PROXY']}" : nil })
+          attributes.merge!({ proxy: ENV['US_HTTPS_PROXY'] })
         end
 
         attributes

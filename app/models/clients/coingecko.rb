@@ -1,7 +1,7 @@
 class Clients::Coingecko < Client
   # URL = 'https://pro-api.coingecko.com/api/v3'.freeze
   URL = 'https://api.coingecko.com/api/v3/'.freeze
-  KEY = ENV.fetch('COINGECKO_API_KEY').freeze
+  KEY = ENV.fetch('COINGECKO_API_KEY')
 
   def self.connection
     @connection ||= Faraday.new(url: URL, **OPTIONS) do |config|
