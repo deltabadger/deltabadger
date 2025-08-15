@@ -42,14 +42,14 @@ module ExchangeApi
       def base_client(url_base)
         Faraday.new(
           url: url_base,
-          proxy: ENV['EU_HTTPS_PROXY'].present? ? "https://#{ENV['EU_HTTPS_PROXY']}" : nil
+          proxy: ENV['EU_HTTPS_PROXY']
         )
       end
 
       def caching_client(url_base, expire_time = ENV['DEFAULT_MARKET_CACHING_TIME'])
         Faraday.new(
           url: url_base,
-          proxy: ENV['EU_HTTPS_PROXY'].present? ? "https://#{ENV['EU_HTTPS_PROXY']}" : nil
+          proxy: ENV['EU_HTTPS_PROXY']
         ) do |builder|
           builder.use :manual_cache,
                       expires_in: expire_time
