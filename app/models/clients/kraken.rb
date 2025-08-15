@@ -3,7 +3,7 @@ class Clients::Kraken < Client
   # https://docs.kraken.com/api/docs/guides/spot-rest-auth#authentication
 
   URL = 'https://api.kraken.com'.freeze
-  PROXY = ENV['US_HTTPS_PROXY'].present? ? "https://#{ENV['US_HTTPS_PROXY']}".freeze : nil
+  PROXY = ENV['US_HTTPS_PROXY']
 
   def initialize(api_key: nil, api_secret: nil)
     super()
@@ -13,7 +13,7 @@ class Clients::Kraken < Client
 
   def self.connection
     @connection ||= Faraday.new(url: URL, **OPTIONS) do |config|
-      config.proxy = PROXY if PROXY.present?
+      config.proxy = PROXY
       config.request :json
       config.response :json
       config.response :raise_error

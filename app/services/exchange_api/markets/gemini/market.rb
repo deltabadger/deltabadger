@@ -86,7 +86,7 @@ module ExchangeApi
             nonce: Time.now.strftime('%s%L')
           }
           body = request_params.to_json
-          conn = Faraday.new(proxy: ENV['US_HTTPS_PROXY'].present? ? "https://#{ENV['US_HTTPS_PROXY']}" : nil)
+          conn = Faraday.new(proxy: ENV['US_HTTPS_PROXY'])
           response = conn.post(url, body, headers(fee_api_keys.key, fee_api_keys.secret, body))
           JSON.parse(response.body)['api_maker_fee_bps'].to_f / 100
         end
