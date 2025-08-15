@@ -3,12 +3,11 @@ module ExchangeApi
     class Get < BaseService
       include ExchangeApi::BinanceEnum
       include ExchangeApi::FtxEnum
-      DISABLE_EXCHANGES_API = ENV.fetch('DISABLE_EXCHANGES_API') == 'true'
 
       # rubocop:disable Metrics/CyclomaticComplexity
       def call(exchange_id)
         exchange = Exchange.find(exchange_id)
-        return ExchangeApi::Markets::Fake::Market.new if DISABLE_EXCHANGES_API
+        return ExchangeApi::Markets::Fake::Market.new if Rails.configuration.dry_run
 
         case exchange.name.downcase
         when 'binance' then ExchangeApi::Markets::Binance::Market.new(url_base: EU_URL_BASE)
