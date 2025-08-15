@@ -1,8 +1,8 @@
 class Payments::Zen < Payment
   include Rails.application.routes.url_helpers
 
-  HOST = ENV.fetch('APP_ROOT_URL').freeze
-  ZEN_IPN_SECRET = ENV.fetch('ZEN_IPN_SECRET').freeze
+  HOST = ENV.fetch('APP_ROOT_URL')
+  IPN_SECRET = ENV.fetch('ZEN_IPN_SECRET')
 
   # validates :first_name, :last_name, presence: true
 
@@ -12,7 +12,7 @@ class Payments::Zen < Payment
       params[:currency],
       params[:amount],
       params[:status],
-      ZEN_IPN_SECRET
+      IPN_SECRET
     ].compact.join
     message_hash = Digest::SHA256.hexdigest(message).upcase
     message_hash == params[:hash]

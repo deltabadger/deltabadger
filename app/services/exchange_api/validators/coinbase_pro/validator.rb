@@ -7,7 +7,7 @@ module ExchangeApi
         URL = 'https://api.pro.coinbase.com/fees'.freeze
 
         def validate_credentials(api_key:, api_secret:, passphrase:)
-          conn = Faraday.new(proxy: ENV['US_HTTPS_PROXY'].present? ? "https://#{ENV['US_HTTPS_PROXY']}" : nil)
+          conn = Faraday.new(proxy: ENV['US_HTTPS_PROXY'])
           request = conn.get(URL, {}, headers(api_key, api_secret, passphrase, '', '/fees'))
           return false if request.status != 200
 

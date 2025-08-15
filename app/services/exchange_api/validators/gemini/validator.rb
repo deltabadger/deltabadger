@@ -13,7 +13,7 @@ module ExchangeApi
           }
 
           body = body.to_json
-          conn = Faraday.new(proxy: ENV['US_HTTPS_PROXY'].present? ? "https://#{ENV['US_HTTPS_PROXY']}" : nil)
+          conn = Faraday.new(proxy: ENV['US_HTTPS_PROXY'])
           request = conn.post(URL, nil, headers(api_key, api_secret, body))
           return false if request.status != 200
 

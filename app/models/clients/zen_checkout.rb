@@ -1,7 +1,7 @@
 class Clients::ZenCheckout < Client
-  URL = ENV.fetch('ZEN_CHECKOUT_URL').freeze
-  PAYWALL_SECRET = ENV.fetch('ZEN_PAYWALL_SECRET').freeze
-  TERMINAL_UUID = ENV.fetch('ZEN_TERMINAL_UUID').freeze
+  URL = ENV.fetch('ZEN_CHECKOUT_URL')
+  PAYWALL_SECRET = ENV.fetch('ZEN_PAYWALL_SECRET')
+  TERMINAL_UUID = ENV.fetch('ZEN_TERMINAL_UUID')
 
   def self.connection
     @connection ||= Faraday.new(url: URL, **OPTIONS) do |config|

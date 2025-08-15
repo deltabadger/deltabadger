@@ -14,7 +14,7 @@ class AffiliatesController < ApplicationController
   def new
     @affiliate = Affiliate.new
     @presenter = Presenters::Affiliates::New.new(@affiliate)
-    @reflink = ENV['HOME_PAGE_URL'] + ref_code_path(code: current_user.affiliate.code, locale: nil)
+    @reflink = ENV.fetch('HOME_PAGE_URL') + ref_code_path(code: current_user.affiliate.code, locale: nil)
   end
 
   def create
@@ -30,7 +30,7 @@ class AffiliatesController < ApplicationController
       Rails.logger.error("Affiliate creation failed for user #{current_user.email}")
       @affiliate = current_user.affiliate
       @presenter = Presenters::Affiliates::New.new(@affiliate)
-      @reflink = ENV['HOME_PAGE_URL'] + ref_code_path(code: current_user.affiliate.code, locale: nil)
+      @reflink = ENV.fetch('HOME_PAGE_URL') + ref_code_path(code: current_user.affiliate.code, locale: nil)
       render :new, status: :unprocessable_entity
     end
   end

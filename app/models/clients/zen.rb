@@ -1,6 +1,6 @@
 class Clients::Zen < Client
-  URL = ENV.fetch('ZEN_API_URL').freeze
-  TERMINAL_API_KEY = ENV.fetch('ZEN_TERMINAL_API_KEY').freeze
+  URL = ENV.fetch('ZEN_API_URL')
+  TERMINAL_API_KEY = ENV.fetch('ZEN_TERMINAL_API_KEY')
 
   def self.connection
     @connection ||= Faraday.new(url: URL, **OPTIONS) do |config|

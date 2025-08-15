@@ -2,7 +2,7 @@ class Clients::Binance < Client
   # https://developers.binance.com/docs/binance-spot-api-docs/rest-api
 
   URL = 'https://api.binance.com'.freeze
-  PROXY = ENV['EU_HTTPS_PROXY'].present? ? "https://#{ENV['EU_HTTPS_PROXY']}".freeze : nil
+  PROXY = ENV['EU_HTTPS_PROXY']
 
   def initialize(api_key: nil, api_secret: nil)
     super()
@@ -12,7 +12,7 @@ class Clients::Binance < Client
 
   def self.connection
     @connection ||= Faraday.new(url: URL, **OPTIONS) do |config|
-      config.proxy = PROXY if PROXY.present?
+      config.proxy = PROXY
       config.request :json
       config.response :json
       config.response :raise_error

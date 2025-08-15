@@ -1,7 +1,7 @@
 class Clients::Btcpay < Client
-  URL                  = ENV.fetch('BTCPAY_SERVER_URL').freeze
-  API_KEY              = ENV.fetch('BTCPAY_API_KEY').freeze
-  AUTHORIZATION_HEADER = ENV.fetch('BTCPAY_AUTHORIZATION_HEADER').freeze
+  URL                  = ENV.fetch('BTCPAY_SERVER_URL')
+  API_KEY              = ENV.fetch('BTCPAY_API_KEY')
+  AUTHORIZATION_HEADER = ENV.fetch('BTCPAY_AUTHORIZATION_HEADER')
 
   def self.connection
     @connection ||= Faraday.new(url: URL, **OPTIONS) do |config|

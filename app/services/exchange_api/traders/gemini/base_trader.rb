@@ -29,7 +29,7 @@ module ExchangeApi
             order_id: order_id
           }
           body = request_params.to_json
-          conn = Faraday.new(proxy: ENV['US_HTTPS_PROXY'].present? ? "https://#{ENV['US_HTTPS_PROXY']}" : nil)
+          conn = Faraday.new(proxy: ENV['US_HTTPS_PROXY'])
           request = conn.post(url, nil, headers(@api_key, @api_secret, body))
           response = JSON.parse(request.body)
 
@@ -54,7 +54,7 @@ module ExchangeApi
           url = API_URL + path
           order_params = order_params.merge(request: path, nonce: Time.now.strftime('%s%L'))
           body = order_params.to_json
-          conn = Faraday.new(proxy: ENV['US_HTTPS_PROXY'].present? ? "https://#{ENV['US_HTTPS_PROXY']}" : nil)
+          conn = Faraday.new(proxy: ENV['US_HTTPS_PROXY'])
           request = conn.post(url, nil, headers(@api_key, @api_secret, body))
           parse_request(request)
         rescue StandardError => e
