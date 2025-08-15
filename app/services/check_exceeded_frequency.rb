@@ -1,6 +1,6 @@
 class CheckExceededFrequency < BaseService
   def call(params)
-    frequency_limit = ENV['ORDERS_FREQUENCY_LIMIT']
+    frequency_limit = ENV.fetch('ORDERS_FREQUENCY_LIMIT').to_i
     unless params[:forceSmartIntervals] == 'true'
       return {
         limit_exceeded: false,

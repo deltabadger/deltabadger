@@ -10,7 +10,7 @@ module ExchangeApi
           path = '/api/v2/order_status/'
           url = "#{API_URL}#{path}"
           body = { id: FAKE_ORDER_ID }
-          conn = Faraday.new(proxy: ENV['US_HTTPS_PROXY'].present? ? "https://#{ENV['US_HTTPS_PROXY']}" : nil)
+          conn = Faraday.new(proxy: ENV['US_HTTPS_PROXY'])
           request = conn.post(url, body.to_query, headers(api_key, api_secret, body, path, 'POST'))
 
           response = JSON.parse(request.body)
