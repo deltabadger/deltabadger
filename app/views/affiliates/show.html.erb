@@ -47,7 +47,7 @@
     <div class="widget">
       <h4 class="modal__title"><%= t('.link_title') %></h4>
       <div class="db-form__row db-form__row--input mb-0" data-controller="clipboard">
-        <input class="db-form__input" id="referralLink" type="text" value="<%= ENV['HOME_PAGE_URL']+ref_code_path(code: @affiliate.code, locale: nil) %>" readonly="readonly" data-clipboard-target="input">
+        <input class="db-form__input" id="referralLink" type="text" value="<%= ENV.fetch('HOME_PAGE_URL') + ref_code_path(code: @affiliate.code, locale: nil) %>" readonly="readonly" data-clipboard-target="input">
         <label class="db-form__label"><%= t('.your_link') %></label>
         <div class="db-unmask" title="Copy to clipboard" data-action="click->clipboard#copy">
           <%= render "layouts/svg_copy_to_clipboard" %>

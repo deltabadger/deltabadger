@@ -27,7 +27,7 @@ module ExchangeApi
             "order_id": order_id.to_s,
             "market_id": market_id
           }
-          conn = Faraday.new(proxy: ENV['US_HTTPS_PROXY'].present? ? "https://#{ENV['US_HTTPS_PROXY']}" : nil)
+          conn = Faraday.new(proxy: ENV['US_HTTPS_PROXY'])
           request = conn.get(url, params, headers)
           return Result::Failure.new('Waiting for Probit response', NOT_FETCHED.to_s) unless request.status == 200
 
@@ -44,7 +44,7 @@ module ExchangeApi
           url = API_URL + path
           body = order_params.to_json
           headers = headers(@api_key, @api_secret)
-          conn = Faraday.new(proxy: ENV['US_HTTPS_PROXY'].present? ? "https://#{ENV['US_HTTPS_PROXY']}" : nil)
+          conn = Faraday.new(proxy: ENV['US_HTTPS_PROXY'])
           request = conn.post(url, body, headers)
           parse_request(request)
         end

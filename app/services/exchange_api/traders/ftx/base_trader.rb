@@ -24,7 +24,7 @@ module ExchangeApi
           path = "/api/orders/#{order_id}".freeze
           url = @url_base + path
           headers = get_headers(url, @api_key, @api_secret, '', path, 'GET', use_subaccout, selected_subaccount)
-          conn = Faraday.new(proxy: ENV['US_HTTPS_PROXY'].present? ? "https://#{ENV['US_HTTPS_PROXY']}" : nil)
+          conn = Faraday.new(proxy: ENV['US_HTTPS_PROXY'])
           request = conn.get(url, nil, headers)
           return Result::Failure.new('Waiting for FTX response', NOT_FETCHED.to_s) unless success?(request)
 
@@ -120,13 +120,13 @@ module ExchangeApi
           if @url_base == FtxEnum::FTX_EU_URL_BASE
             return Faraday.new(
               url: @url_base,
-              proxy: ENV['EU_HTTPS_PROXY'].present? ? "https://#{ENV['EU_HTTPS_PROXY']}" : nil
+              proxy: ENV['EU_HTTPS_PROXY']
             )
           end
 
           Faraday.new(
             url: @url_base,
-            proxy: ENV['US_HTTPS_PROXY'].present? ? "https://#{ENV['US_HTTPS_PROXY']}" : nil
+            proxy: ENV['US_HTTPS_PROXY']
           )
         end
       end

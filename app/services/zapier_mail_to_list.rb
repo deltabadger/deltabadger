@@ -1,5 +1,5 @@
 class ZapierMailToList < BaseService
-  HOOK_URL = ENV.fetch('ZAPIER_HOOK_URL').freeze
+  HOOK_URL = ENV.fetch('ZAPIER_HOOK_URL')
 
   def call(user)
     add_email_to_list(user)
