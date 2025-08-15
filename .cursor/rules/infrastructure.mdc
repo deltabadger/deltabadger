@@ -1,0 +1,22 @@
+---
+description:
+globs:
+alwaysApply: false
+---
+
+### Production Nginx trailing slash redirects
+
+In production, Nginx should redirect URLs with trailing slashes to their non-trailing counterpart, except for paths that require a trailing slash or special handling (e.g., websockets, Rails engine routes, asset pipeline, Webpacker packs, API, Sidekiq UI).
+
+Use this in the server block:
+
+```nginx
+# Remove trailing slash except for specific paths
+location ~ ^(.+)/$ {
+    rewrite ^/(?!cable|rails|assets|packs|api|sidekiq)(.*)/+$ /$1 permanent;
+}
+```
+
+Notes:
+- Exclusions currently include: `cable` (websockets), `rails` (e.g. Active Storage under `/rails/active_storage`), `assets` (asset pipeline), `packs` (webpacker), `api` (JSON API), and `sidekiq` (web UI).
+- Extend the exclusion list if additional mounted engines or endpoints require trailing slashes.

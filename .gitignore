@@ -22,8 +22,6 @@
 
 # Ignore master key for decrypting credentials and more.
 /config/master.key
-/config/database.yml
-/config/cable.yml
 
 .env
 .history

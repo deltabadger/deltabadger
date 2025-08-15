@@ -10,7 +10,7 @@ module ExchangeApi
 
         def validate_credentials(api_key:, api_secret:)
           headers = get_headers(@url, api_key, api_secret, nil, '/api/wallet/withdrawals')
-          conn = Faraday.new(proxy: ENV['US_HTTPS_PROXY'].present? ? "https://#{ENV['US_HTTPS_PROXY']}" : nil)
+          conn = Faraday.new(proxy: ENV['US_HTTPS_PROXY'])
           request = conn.get(@url, nil, headers)
           return false if request.status != 200
 

@@ -2,7 +2,7 @@ class Clients::Coinbase < Client
   # https://docs.cdp.coinbase.com/coinbase-app/trade/docs/api-overview
 
   URL = 'https://api.coinbase.com'.freeze
-  PROXY = ENV['US_HTTPS_PROXY'].present? ? "https://#{ENV['US_HTTPS_PROXY']}".freeze : nil
+  PROXY = ENV['US_HTTPS_PROXY']
 
   def initialize(api_key: nil, api_secret: nil)
     super()
@@ -12,7 +12,7 @@ class Clients::Coinbase < Client
 
   def self.connection
     @connection ||= Faraday.new(url: URL, **OPTIONS) do |config|
-      config.proxy = PROXY if PROXY.present?
+      config.proxy = PROXY
       config.request :json
       config.response :json
       config.response :raise_error

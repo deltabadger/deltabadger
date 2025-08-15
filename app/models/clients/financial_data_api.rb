@@ -1,6 +1,6 @@
 class Clients::FinancialDataApi < Client
-  URL = ENV.fetch('FINANCIAL_DATA_API_URL').freeze
-  KEY = ENV.fetch('FINANCIAL_DATA_API_KEY').freeze
+  URL = ENV.fetch('FINANCIAL_DATA_API_URL')
+  KEY = ENV.fetch('FINANCIAL_DATA_API_KEY')
 
   def self.connection
     @connection ||= Faraday.new(url: URL, **OPTIONS) do |config|

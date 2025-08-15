@@ -3,7 +3,6 @@ module ExchangeApi
     class Get < BaseService
       include ExchangeApi::BinanceEnum
       include ExchangeApi::FtxEnum
-      DISABLE_EXCHANGES_API = ENV.fetch('DISABLE_EXCHANGES_API') == 'true'
 
       def call(exchange_id, key_type)
         exchange = Exchange.find(exchange_id)
@@ -14,7 +13,7 @@ module ExchangeApi
 
       # rubocop:disable Metrics/CyclomaticComplexity
       def get_trading_key_validator(exchange)
-        return Fake::Validator.new if DISABLE_EXCHANGES_API
+        return Fake::Validator.new if Rails.configuration.dry_run
 
         case exchange.name.downcase
         when 'binance' then Binance::Validator.new(url_base: EU_URL_BASE)
@@ -37,7 +36,7 @@ module ExchangeApi
       # rubocop:enable Metrics/CyclomaticComplexity
 
       def get_withdrawal_key_validator(exchange)
-        return Fake::WithdrawalValidator.new if DISABLE_EXCHANGES_API
+        return Fake::WithdrawalValidator.new if Rails.configuration.dry_run
 
         case exchange.name.downcase
         when 'kraken'

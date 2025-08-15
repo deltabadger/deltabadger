@@ -11,7 +11,7 @@ import { configureStore } from "../deltabadger/Store";
 import { reducer } from "../deltabadger/reducer";
 
 Sentry.init({
-  dsn: process.env.REACT_SENTRY_DSN,
+  dsn: process.env.SENTRY_DSN_REACT,
   integrations: [new Integrations.BrowserTracing()],
   tracesSampleRate: 1.0,
 });

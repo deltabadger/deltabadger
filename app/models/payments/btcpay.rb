@@ -1,7 +1,7 @@
 class Payments::Btcpay < Payment
   include Rails.application.routes.url_helpers
 
-  HOST = ENV.fetch('APP_ROOT_URL').freeze
+  HOST = ENV.fetch('APP_ROOT_URL')
 
   # validates :first_name, :last_name, presence: true
   # validate :requires_minimum_age
