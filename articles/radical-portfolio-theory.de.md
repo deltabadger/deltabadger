@@ -131,15 +131,15 @@ Die geringe Liquidität, die alternative Vermögenswerte schwerer beweglich mach
 </figure>
 {:/nomarkdown}
 
-## Radikal einfach
-
-Das radikale Portfolio mag kompliziert klingen, kann aber wirklich einfach bleiben.
-
 <!-- PAYWALL -->
 
 <div class="article__playbook widget">
 
 <h1>Playbook <span>α</span></h1>
+
+## Radikal einfach
+
+Das radikale Portfolio mag kompliziert klingen, kann aber wirklich einfach bleiben.
 
 ### Widerstandsfähiger Maximalist
 

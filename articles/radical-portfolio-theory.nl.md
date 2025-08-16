@@ -131,15 +131,16 @@ De lage liquiditeit die alternatieve activa moeilijker verplaatsbaar maakt, is e
 </figure>
 {:/nomarkdown}
 
-## Radicaal eenvoudig
-
-De radicale portefeuille kan ingewikkeld klinken, maar kan echt eenvoudig blijven.
-
 <!-- PAYWALL -->
 
 <div class="article__playbook widget">
 
 <h1>Playbook <span>α</span></h1>
+
+## Radicaal eenvoudig
+
+De radicale portefeuille kan ingewikkeld klinken, maar kan echt eenvoudig blijven.
+
 
 ### Veerkrachtige maximalist
 

@@ -132,15 +132,15 @@ The low liquidity that makes alternative assets harder to move is actually part 
 </figure>
 {:/nomarkdown}
 
-## Radically Simple
-
-The radical portfolio may sound complicated, but can really keep the simplicity.
-
 <!-- PAYWALL -->
 
 <div class="article__playbook widget">
 
 <h1>Playbook <span>α</span></h1>
+
+## Radically Simple
+
+The radical portfolio may sound complicated, but can really keep the simplicity.
 
 ### Resilient Maximalist
 

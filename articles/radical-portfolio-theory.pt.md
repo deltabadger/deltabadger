@@ -131,15 +131,15 @@ A baixa liquidez que torna os ativos alternativos mais difíceis de mover é na 
 </figure>
 {:/nomarkdown}
 
-## Radicalmente simples
-
-A carteira radical pode soar complicada, mas realmente pode manter-se simples.
-
 <!-- PAYWALL -->
 
 <div class="article__playbook widget">
 
 <h1>Playbook <span>α</span></h1>
+
+## Radicalmente simples
+
+A carteira radical pode soar complicada, mas realmente pode manter-se simples.
 
 ### Maximalista resiliente
 

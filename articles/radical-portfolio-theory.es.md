@@ -131,15 +131,15 @@ La baja liquidez que hace que los activos alternativos sean más difíciles de m
 </figure>
 {:/nomarkdown}
 
-## Radicalmente simple
-
-La cartera radical puede sonar complicada, pero realmente puede mantenerse simple.
-
 <!-- PAYWALL -->
 
 <div class="article__playbook widget">
 
 <h1>Playbook <span>α</span></h1>
+
+## Radicalmente simple
+
+La cartera radical puede sonar complicada, pero realmente puede mantenerse simple.
 
 ### Maximalista resiliente
 

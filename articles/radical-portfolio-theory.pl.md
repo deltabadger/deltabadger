@@ -131,15 +131,15 @@ Niska płynność, która sprawia, że aktywa alternatywne są trudniejsze do pr
 </figure>
 {:/nomarkdown}
 
-## Radykalnie prosto
-
-Portfel radykalny może brzmieć skomplikowanie, ale może pozostać naprawdę prosty.
-
 <!-- PAYWALL -->
 
 <div class="article__playbook widget">
 
 <h1>Playbook <span>α</span></h1>
+
+## Radykalnie prosto
+
+Portfel radykalny może brzmieć skomplikowanie, ale może pozostać naprawdę prosty.
 
 ### Odporny maksymalista
 

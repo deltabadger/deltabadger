@@ -131,15 +131,15 @@ La bassa liquidità che rende gli asset alternativi più difficili da spostare �
 </figure>
 {:/nomarkdown}
 
-## Radicalmente semplice
-
-Il portafoglio radicale può sembrare complicato, ma può davvero rimanere semplice.
-
 <!-- PAYWALL -->
 
 <div class="article__playbook widget">
 
 <h1>Playbook <span>α</span></h1>
+
+## Radicalmente semplice
+
+Il portafoglio radicale può sembrare complicato, ma può davvero rimanere semplice.
 
 ### Massimalista resiliente
 
