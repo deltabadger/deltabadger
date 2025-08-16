@@ -29,6 +29,7 @@ en:
         select_plan: 'Select plan'
         back_to_dashboard: 'Go to dashboard'
         subscribe: 'Subscribe'
+        unlock: 'Unlock'
     data_labels:
         invested: "Total Invested"
         portfolio_value: "Portfolio Value"
