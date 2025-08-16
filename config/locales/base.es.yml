@@ -28,6 +28,7 @@ es:
         select_plan: 'Seleccionar Plan'
         back_to_dashboard: 'Ir al panel'
         subscribe: 'Suscribirse'
+        unlock: 'Desbloquear'
     data_labels:
         invested: "Total invertido"
         portfolio_value: "Valor de la cartera"

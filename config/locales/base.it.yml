@@ -28,6 +28,7 @@ it:
         select_plan: 'Seleziona Piano'
         back_to_dashboard: 'Vai alla dashboard'
         subscribe: 'Abbonati'
+        unlock: 'Sblocca'
     data_labels:
         invested: "Totale Investito"
         portfolio_value: "Valore del Portafoglio"
