@@ -181,7 +181,7 @@ Unter allen großen Netzwerken ist **TRON das zentralisierteste**, das vollstän
 
 <!-- PAYWALL -->
 
-<div class="article__playbook widget">
+<div class="playbook widget">
 
 <h1>Playbook <span>α</span></h1>
 
@@ -245,10 +245,10 @@ Unter allen großen Netzwerken ist **TRON das zentralisierteste**, das vollstän
 
 Die angebotsbasierte Allokation ist ein Handel, der auf Fundamentaldaten basiert – und möglicherweise eine genauere Geschichte erzählt als die Kapitalisierungen der Vermögenswerte. Konservativere Anleger können die Marktkapitalisierung als eine Informationsquelle betrachten, die vollständigere Informationen enthält. Es gibt hier keine eindeutige Antwort, da beide Ideen ihre Vorzüge haben.
 
-Während TRON für viele fragwürdig sein mag, bleibt Ethereum – die erste Smart-Contract-Plattform – der Anführer der dezentralen Finanzen. Wenn es sich jedoch ändert, ermöglicht uns das Verfolgen öffentlich verfügbarer Metriken und das vierteljährliche Neugewichten des Portfolios, die Allokation relevant zu halten.
-
-**Welche Allokation ist Ihr Favorit? Nehmen Sie an der Diskussion auf Telegram teil.** 
-
 </div>
 
 <!-- /PAYWALL -->
+
+Während TRON für viele fragwürdig sein mag, bleibt Ethereum – die erste Smart-Contract-Plattform – der Anführer der dezentralen Finanzen. Wenn es sich jedoch ändert, ermöglicht uns das Verfolgen öffentlich verfügbarer Metriken und das vierteljährliche Neugewichten des Portfolios, die Allokation relevant zu halten.
+
+**Welche Allokation ist Ihr Favorit? Nehmen Sie an der Diskussion auf Telegram teil.** 

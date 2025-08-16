@@ -183,7 +183,7 @@ Parmi tous les principaux réseaux, **TRON est le plus centralisé**, entièreme
 
 <!-- PAYWALL -->
 
-<div class="article__playbook widget">
+<div class="playbook widget">
 
 <h1>Playbook <span>α</span></h1>
 
@@ -247,10 +247,10 @@ Parmi tous les principaux réseaux, **TRON est le plus centralisé**, entièreme
 
 L'allocation basée sur l'offre est une transaction basée sur les fondamentaux, qui raconte potentiellement une histoire plus précise que les capitalisations des actifs. Les investisseurs plus conservateurs peuvent considérer la capitalisation boursière comme une source d'informations plus complètes. Il n'y a pas de réponse évidente ici, car les deux idées ont leurs mérites.
 
-Alors que TRON peut être remis en question pour beaucoup, Ethereum – la première plateforme de smart contracts – reste le leader de la finance décentralisée. Cependant, si cela change, le suivi des mesures publiquement disponibles et le rééquilibrage du portefeuille tous les 3 mois nous permettent de maintenir l'allocation pertinente.
-
-**Quelle allocation est votre préférée ? Rejoignez la discussion sur Telegram.**
-
 </div>
 
 <!-- /PAYWALL -->
+
+Alors que TRON peut être remis en question pour beaucoup, Ethereum – la première plateforme de smart contracts – reste le leader de la finance décentralisée. Cependant, si cela change, le suivi des mesures publiquement disponibles et le rééquilibrage du portefeuille tous les 3 mois nous permettent de maintenir l'allocation pertinente.
+
+**Quelle allocation est votre préférée ? Rejoignez la discussion sur Telegram.**

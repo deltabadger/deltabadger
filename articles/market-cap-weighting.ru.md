@@ -111,7 +111,7 @@ published_at: "2025-08-05"
 
 <!-- PAYWALL -->
 
-<div class="article__playbook widget">
+<div class="playbook widget">
 
 <h1>Playbook <span>α</span></h1>
 

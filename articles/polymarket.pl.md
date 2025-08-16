@@ -302,7 +302,7 @@ Użytkownicy Deltabadger mogą teraz zapytać: W miarę jak Polymarket będzie s
 
 <!-- PAYWALL -->
 
-<div class="article__playbook widget">
+<div class="playbook widget">
 
 <h1>Playbook <span>α</span></h1>
 

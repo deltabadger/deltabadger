@@ -133,7 +133,7 @@ La bassa liquidità che rende gli asset alternativi più difficili da spostare �
 
 <!-- PAYWALL -->
 
-<div class="article__playbook widget">
+<div class="playbook widget">
 
 <h1>Playbook <span>α</span></h1>
 

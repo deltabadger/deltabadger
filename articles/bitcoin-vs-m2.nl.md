@@ -204,7 +204,7 @@ Behandel nu het volgende als een amusementsgedeelte. Laten we AI de bevindingen 
 
 <!-- PAYWALL -->
 
-<div class="article__playbook widget">
+<div class="playbook widget">
 
 <h1>Playbook <span>α</span></h1>
 

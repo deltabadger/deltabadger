@@ -204,7 +204,7 @@ Ora, trattate la parte seguente come intrattenimento. Lasciamo che l'IA usi i ri
 
 <!-- PAYWALL -->
 
-<div class="article__playbook widget">
+<div class="playbook widget">
 
 <h1>Playbook <span>α</span></h1>
 

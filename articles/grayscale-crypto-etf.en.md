@@ -68,7 +68,7 @@ This lack of transparency around the actual Index Universe size is one of the cu
 
 <!-- PAYWALL -->
 
-<div class="article__playbook widget">
+<div class="playbook widget">
 
 <h1>Playbook <span>α</span></h1>
 

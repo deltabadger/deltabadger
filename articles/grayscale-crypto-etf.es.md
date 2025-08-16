@@ -69,7 +69,7 @@ Esta falta de transparencia en torno al tamaño real del **Index Universe** es u
 
 <!-- PAYWALL -->
 
-<div class="article__playbook widget">
+<div class="playbook widget">
 
 <h1>Playbook <span>α</span></h1>
 

@@ -133,7 +133,7 @@ De lage liquiditeit die alternatieve activa moeilijker verplaatsbaar maakt, is e
 
 <!-- PAYWALL -->
 
-<div class="article__playbook widget">
+<div class="playbook widget">
 
 <h1>Playbook <span>α</span></h1>
 

@@ -206,7 +206,7 @@ Betrachten Sie den folgenden Teil nun als Unterhaltung. Lassen wir die KI die Er
 
 <!-- PAYWALL -->
 
-<div class="article__playbook widget">
+<div class="playbook widget">
 
 <h1>Playbook <span>α</span></h1>
 

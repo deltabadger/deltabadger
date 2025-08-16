@@ -302,7 +302,7 @@ Deltabadger users may now ask: As Polymarket continues to grow – with partners
 
 <!-- PAYWALL -->
 
-<div class="article__playbook widget">
+<div class="playbook widget">
 
 <h1>Playbook <span>α</span></h1>
 

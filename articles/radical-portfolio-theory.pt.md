@@ -133,7 +133,7 @@ A baixa liquidez que torna os ativos alternativos mais difíceis de mover é na 
 
 <!-- PAYWALL -->
 
-<div class="article__playbook widget">
+<div class="playbook widget">
 
 <h1>Playbook <span>α</span></h1>
 

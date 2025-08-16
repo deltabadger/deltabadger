@@ -202,7 +202,7 @@ Now, treat the following as an entertainment part. Let's let AI use the findings
 
 <!-- PAYWALL -->
 
-<div class="article__playbook widget">
+<div class="playbook widget">
 
 <h1>Playbook <span>α</span></h1>
 

@@ -134,7 +134,7 @@ The low liquidity that makes alternative assets harder to move is actually part 
 
 <!-- PAYWALL -->
 
-<div class="article__playbook widget">
+<div class="playbook widget">
 
 <h1>Playbook <span>α</span></h1>
 

@@ -185,7 +185,7 @@ Entre todas as principais redes, **a TRON é a mais centralizada**, totalmente c
 
 <!-- PAYWALL -->
 
-<div class="article__playbook widget">
+<div class="playbook widget">
 
 <h1>Playbook <span>α</span></h1>
 
@@ -249,10 +249,10 @@ Entre todas as principais redes, **a TRON é a mais centralizada**, totalmente c
 
 A alocação baseada no fornecimento é uma negociação baseada em fundamentos – potencialmente contando uma história mais precisa do que as capitalizações dos ativos. Investidores mais conservadores podem considerar a capitalização de mercado como uma fonte de informação que inclui informações mais completas. Não há uma resposta óbvia aqui, já que ambas as ideias têm seus méritos.
 
-Embora a TRON possa estar em questão para muitos, o Ethereum – a primeira plataforma de smart contract – permanece o líder das finanças descentralizadas. No entanto, se isso mudar, seguir as métricas disponíveis publicamente e reequilibrar a carteira a cada 3 meses nos permite manter a alocação relevante.
-
-**Qual alocação é a sua favorita? Participe da discussão no Telegram.**
-
 </div>
 
 <!-- /PAYWALL -->
+
+Embora a TRON possa estar em questão para muitos, o Ethereum – a primeira plataforma de smart contract – permanece o líder das finanças descentralizadas. No entanto, se isso mudar, seguir as métricas disponíveis publicamente e reequilibrar a carteira a cada 3 meses nos permite manter a alocação relevante.
+
+**Qual alocação é a sua favorita? Participe da discussão no Telegram.**

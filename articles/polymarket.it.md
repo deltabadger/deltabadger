@@ -302,7 +302,7 @@ Gli utenti di Deltabadger potrebbero ora chiedersi: mentre Polymarket continua a
 
 <!-- PAYWALL -->
 
-<div class="article__playbook widget">
+<div class="playbook widget">
 
 <h1>Playbook <span>α</span></h1>
 

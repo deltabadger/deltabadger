@@ -113,7 +113,7 @@ Een belangrijk verschil in de cryptocurrency-markt is dat **niet alle marktkapit
 
 <!-- PAYWALL -->
 
-<div class="article__playbook widget">
+<div class="playbook widget">
 
 <h1>Playbook <span>α</span></h1>
 

@@ -69,7 +69,7 @@ Ten brak przejrzystości co do faktycznej wielkości **Index Universe** jest jed
 
 <!-- PAYWALL -->
 
-<div class="article__playbook widget">
+<div class="playbook widget">
 
 <h1>Playbook <span>α</span></h1>
 

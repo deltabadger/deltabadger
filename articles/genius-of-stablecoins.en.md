@@ -180,7 +180,7 @@ Among all major networks, **TRON is the most centralized**, fully controlled by 
 
 <!-- PAYWALL -->
 
-<div class="article__playbook widget">
+<div class="playbook widget">
 
 <h1>Playbook <span>α</span></h1>
 
@@ -244,10 +244,10 @@ Among all major networks, **TRON is the most centralized**, fully controlled by 
 
 Supply-based allocation is a trade based on fundamentals—potentially telling a more accurate story than capitalizations of the assets. More conservative investors may consider market cap as a source of information that includes more complete information. There is no one obvious answer here since both ideas have their merits.
 
-While TRON may be in question for many, Ethereum—the first smart contract platform—remains the leader of decentralized finance. However, if it changes, following publicly available metrics and rebalancing portfolio every 3 months allows us to keep allocation relevant.
-
-**Which allocation is your favorite? Join the discussion on Telegram.**
-
 </div>
 
 <!-- /PAYWALL -->
+
+While TRON may be in question for many, Ethereum—the first smart contract platform—remains the leader of decentralized finance. However, if it changes, following publicly available metrics and rebalancing portfolio every 3 months allows us to keep allocation relevant.
+
+**Which allocation is your favorite? Join the discussion on Telegram.**

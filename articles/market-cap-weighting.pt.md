@@ -111,7 +111,7 @@ Uma diferença importante no mercado de criptomoedas é que **nem todas as capit
 
 <!-- PAYWALL -->
 
-<div class="article__playbook widget">
+<div class="playbook widget">
 
 <h1>Playbook <span>α</span></h1>
 

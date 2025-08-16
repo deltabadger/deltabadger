@@ -184,7 +184,7 @@ Entre todas las redes principales, **TRON es la más centralizada**, totalmente 
 
 <!-- PAYWALL -->
 
-<div class="article__playbook widget">
+<div class="playbook widget">
 
 <h1>Playbook <span>α</span></h1>
 
@@ -248,10 +248,10 @@ Entre todas las redes principales, **TRON es la más centralizada**, totalmente 
 
 La asignación basada en el suministro es una operación basada en los fundamentos, que potencialmente cuenta una historia más precisa que las capitalizaciones de los activos. Los inversores más conservadores pueden considerar la capitalización de mercado como una fuente de información que incluye información más completa. No hay una respuesta obvia aquí, ya que ambas ideas tienen sus méritos.
 
-Si bien TRON puede ser cuestionable para muchos, Ethereum, la primera plataforma de smart contracts, sigue siendo el líder de las finanzas descentralizadas. Sin embargo, si cambia, seguir las métricas disponibles públicamente y reequilibrar la cartera cada 3 meses nos permite mantener la asignación relevante.
-
-**¿Qué asignación es tu favorita? Únete a la discusión en Telegram.**
-
 </div>
 
 <!-- /PAYWALL -->
+
+Si bien TRON puede ser cuestionable para muchos, Ethereum, la primera plataforma de smart contracts, sigue siendo el líder de las finanzas descentralizadas. Sin embargo, si cambia, seguir las métricas disponibles públicamente y reequilibrar la cartera cada 3 meses nos permite mantener la asignación relevante.
+
+**¿Qué asignación es tu favorita? Únete a la discusión en Telegram.**
