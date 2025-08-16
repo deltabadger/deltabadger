@@ -300,7 +300,11 @@ A plataforma utiliza o Oráculo Otimista da UMA descentralizado para as resoluç
 
 Os utilizadores da Deltabadger podem agora perguntar: À medida que a Polymarket continua a crescer – com parcerias como a do X, o apoio de titãs da tecnologia como Elon Musk e um crescimento projetado de 100x até 2028 – como é que isso poderá impactar a infraestrutura subjacente que a alimenta?
 
+<!-- PAYWALL -->
 
+<div class="article__playbook widget">
+
+<h1>Playbook <span>α</span></h1>
 
 ## Da Polymarket à Polygon: Análise de Investimento
 
@@ -462,6 +466,10 @@ Quando poderá ocorrer o teórico airdrop? Os padrões da indústria sugerem o f
 Para os detentores de Polygon, o lançamento de um token da Polymarket poderia ser otimista ou neutro. Se concebido com sinergias POL, poderia impulsionar uma procura adicional pela infraestrutura subjacente. Se concebido como uma camada puramente extrativa, poderia até desviar o valor da Polygon para a camada da aplicação.
 
 *Nota importante: A Polymarket não confirmou oficialmente quaisquer planos para um token nativo ou airdrop. Toda a discussão permanece especulativa, baseada em padrões da indústria e observações da comunidade.*
+
+</div>
+
+<!-- /PAYWALL -->
 
 ## Conclusão
 

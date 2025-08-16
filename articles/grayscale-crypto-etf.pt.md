@@ -187,7 +187,7 @@ A ideia de negociação aqui é simples: **investir no que está no ETF**. Se o 
 
 O Presidente da ETF Store, [Nate Geraci, vê implicações mais amplas](https://twitter.com/NateGeraci/status/1939454629915619403), sugerindo que esta aprovação poderia abrir caminho para ETFs à vista individuais para ativos como XRP, Solana e Litecoin. Isto permitiria aos investidores obter exposição direcionada a criptomoedas específicas através de contas de investimento tradicionais.
 
-{:nomarkdown}
+{::nomarkdown}
 <blockquote class="twitter-tweet">
 <p lang="en" dir="ltr">Final SEC deadline this week on Grayscale Digital Large Cap ETF (GDLC)…<br><br>Holds btc, eth, xrp, sol, &amp; ada.<br><br>Think *high likelihood* this is approved.<br><br>Would then be followed later by approval for individual spot ETFs on xrp, sol, ada, etc.</p>&mdash; Nate Geraci (@NateGeraci) <a href="https://twitter.com/NateGeraci/status/1939454629915619403?ref_src=twsrc%5Etfw">June 29, 2025</a>
 </blockquote><script async src="https://platform.twitter.com/widgets.js" charset="utf-8"></script>

@@ -187,7 +187,7 @@ Het handelsidee hier is eenvoudig: **investeer in wat er in de ETF zit**. Als in
 
 ETF Store President [Nate Geraci ziet bredere implicaties](https://twitter.com/NateGeraci/status/1939454629915619403), en suggereert dat deze goedkeuring de weg zou kunnen vrijmaken for individuele spot-ETF's voor activa als XRP, Solana en Litecoin. Dit zou beleggers in staat stellen gerichte blootstelling te krijgen aan specifieke cryptocurrencies via traditionele beleggingsrekeningen.
 
-{:nomarkdown}
+{::nomarkdown}
 <blockquote class="twitter-tweet">
 <p lang="en" dir="ltr">Final SEC deadline this week on Grayscale Digital Large Cap ETF (GDLC)…<br><br>Holds btc, eth, xrp, sol, &amp; ada.<br><br>Think *high likelihood* this is approved.<br><br>Would then be followed later by approval for individual spot ETFs on xrp, sol, ada, etc.</p>&mdash; Nate Geraci (@NateGeraci) <a href="https://twitter.com/NateGeraci/status/1939454629915619403?ref_src=twsrc%5Etfw">June 29, 2025</a>
 </blockquote><script async src="https://platform.twitter.com/widgets.js" charset="utf-8"></script>
