@@ -8,7 +8,6 @@ x_url: https://x.com/deltabadgerapp/status/1952974526746448114
 telegram_url: https://t.me/deltabadger/103
 paywall_hook: |
    <ul>
-       <li>¿Por qué la ponderación por capitalización de mercado funciona aún mejor en cripto?</li>
        <li>El mejor índice de criptomonedas para seguir</li>
        <li>Una estrategia para la Temporada de Altcoins</li>
    </ul>
@@ -76,8 +75,6 @@ Los activos más grandes suelen tener una mejor liquidez, y la ponderación por 
 
 ¿Funciona la ponderación por capitalización de mercado en cripto? No solo funciona, sino que se podría argumentar que funciona aún mejor. He aquí por qué:
 
-
-
 ### El Mercado de Criptomonedas está Más Concentrado
 
 Bitcoin representa casi el 67% de todo el mercado, mientras que las 10 principales criptomonedas representan más del 93% de la capitalización total del mercado. Esto significa que las **criptomonedas de "pequeña capitalización" conllevan un riesgo significativamente mayor** para los inversores. Es por eso que [el único ETF de múltiples criptomonedas aceptado hasta ahora invierte solo en los 5 activos principales](./grayscale-crypto-etf).
@@ -111,6 +108,12 @@ Finalmente, a diferencia de las acciones, las **criptomonedas son muy divisibles
 ### ¡Presta atención!
 
 Una diferencia importante en el mercado de las criptomonedas es que **no todas las capitalizaciones de mercado son iguales**. Muchos proyectos mantienen una gran parte de sus monedas en reserva, creando una escasez artificial. Cuando los precios suben, los fundadores del proyecto pueden lanzar estas monedas reservadas al mercado, diluyendo el valor para otros tenedores. Es por eso que debes fijarte en el "suministro circulante" en lugar del suministro total al evaluar las capitalizaciones de mercado.
+
+<!-- PAYWALL -->
+
+<div class="article__playbook widget">
+
+<h1>Playbook <span>α</span></h1>
 
 ## Construyendo tu ETF de Cripto Personal
 
@@ -151,6 +154,10 @@ No puedes equivocarte eligiendo solo las 10 principales criptomonedas de CMC100,
 Como mencioné antes, más del 60% del mercado de criptomonedas es Bitcoin. En el top 5, está cerca del 80%. En cierto modo, está en su propia categoría. Si ponderas por capitalización de mercado cualquier cartera, naturalmente será principalmente BTC, but it also creates a case for separating those segments completely: keeping the majority of your investment in Bitcoin stored on your hardware wallet without any rebalancing, and creating an index portfolio of altcoins.
 
 Una cosa es segura: si buscas una Temporada de Altcoins, no hay mejor manera de hacerlo que con una cartera de índice ponderada por capitalización de mercado.
+
+</div>
+
+<!-- /PAYWALL -->
 
 ### Cómo Empezar
 

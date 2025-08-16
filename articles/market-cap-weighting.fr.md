@@ -8,7 +8,6 @@ x_url: https://x.com/deltabadgerapp/status/1952974526746448114
 telegram_url: https://t.me/deltabadger/103
 paywall_hook: |
    <ul>
-       <li>Pourquoi la pondération par la capitalisation boursière fonctionne-t-elle encore mieux dans les cryptomonnaies ?</li>
        <li>Le meilleur indice de cryptomonnaies à suivre</li>
        <li>Une stratégie pour la saison des Altcoins</li>
    </ul>
@@ -76,8 +75,6 @@ Les actifs plus importants ont généralement une meilleure liquidité, et la po
 
 La pondération par la capitalisation boursière fonctionne-t-elle dans les cryptomonnaies ? Non seulement elle fonctionne, mais on pourrait soutenir qu'elle fonctionne encore mieux. Voici pourquoi :
 
-
-
 ### Le marché des cryptomonnaies est plus concentré
 
 Le Bitcoin représente près de 67 % de l'ensemble du marché, tandis que les 10 principales cryptomonnaies représentent plus de 93 % de la capitalisation boursière totale. Cela signifie que les **cryptomonnaies à faible capitalisation ("small-cap") comportent un risque nettement plus élevé** pour les investisseurs. C'est pourquoi [le seul ETF multi-crypto accepté jusqu'à présent n'investit que dans les 5 principaux actifs](./grayscale-crypto-etf).
@@ -111,6 +108,12 @@ Enfin, contrairement aux actions, les **cryptomonnaies sont très divisibles**, 
 ### Faites attention !
 
 Une différence importante sur le marché des cryptomonnaies est que **toutes les capitalisations boursières ne se valent pas**. De nombreux projets conservent une grande partie de leurs pièces en réserve, créant une rareté artificielle. Lorsque les prix augmentent, les fondateurs de projets peuvent déverser ces pièces réservées sur le marché, diluant la valeur pour les autres détenteurs. C'est pourquoi vous devez regarder "l'offre en circulation" plutôt que l'offre totale lors de l'évaluation des capitalisations boursières.
+
+<!-- PAYWALL -->
+
+<div class="article__playbook widget">
+
+<h1>Playbook <span>α</span></h1>
 
 ## Construire votre ETF crypto personnel
 
@@ -151,6 +154,10 @@ Vous ne pouvez pas vous tromper en choisissant simplement les 10 premières cryp
 Comme je l'ai mentionné précédemment, plus de 60 % du marché des cryptomonnaies est constitué de Bitcoin. Dans le top 5, il approche les 80 %. D'une certaine manière, il est dans sa propre catégorie. Si vous pondérez un portefeuille par la capitalisation boursière, il sera naturellement composé principalement de BTC, mais cela crée également un argument pour séparer complètement ces segments : conserver la majorité de votre investissement en Bitcoin stocké sur votre portefeuille matériel sans aucun rééquilibrage, et créer un portefeuille indiciel d'altcoins.
 
 Une chose est sûre : si vous visez une saison des Altcoins, il n'y a pas de meilleure façon de le faire qu'avec un portefeuille indiciel pondéré par la capitalisation boursière.
+
+</div>
+
+<!-- /PAYWALL -->
 
 ### Comment commencer
 

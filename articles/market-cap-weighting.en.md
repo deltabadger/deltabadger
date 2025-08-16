@@ -8,7 +8,6 @@ x_url: https://x.com/deltabadgerapp/status/1952974526746448114
 telegram_url: https://t.me/deltabadger/103
 paywall_hook: |
    <ul>
-       <li>Why market cap weighting works even better in crypto?</li>
        <li>The best cryptocurrency index to follow</li>
        <li>A strategy for Altcoin Season</li>
    </ul>
@@ -112,6 +111,12 @@ Finally, contrary to stocks, **cryptocurrencies are very divisible**, allowing i
 
 An important difference in the cryptocurrency market is that **not all market caps are created equal**. Many projects hold a large portion of their coins in reserve, creating artificial scarcity. When prices rise, project founders can dump these reserved coins on the market, diluting value for other holders. This is why you need to look at "circulating supply" rather than total supply when evaluating market caps.
 
+<!-- PAYWALL -->
+
+<div class="article__playbook widget">
+
+<h1>Playbook <span>α</span></h1>
+
 ## Building Your Personal Crypto ETF
 
 Now that we know what and why, it's time to apply this knowledge in practice. Immediately, we face the first challenge:
@@ -151,6 +156,10 @@ You can't go wrong with picking just the top 10 cryptocurrencies from CMC100, bu
 As I mentioned before, over 60% of the crypto market is Bitcoin. In the top 5, it's close to 80%. In a way, it's in its own category. If you market cap weight any portfolio, it will naturally be mostly BTC, but it also creates a case for separating those segments completely: keeping the majority of your investment in Bitcoin stored on your hardware wallet without any rebalancing, and creating an index portfolio of altcoins.
 
 One thing is sure: if you're after an Altcoin Season, there is no better way to do it than with a market cap-weighted index portfolio.
+
+</div>
+
+<!-- /PAYWALL -->
 
 ### How to Start
 

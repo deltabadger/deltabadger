@@ -8,7 +8,6 @@ x_url: https://x.com/deltabadgerapp/status/1952974526746448114
 telegram_url: https://t.me/deltabadger/103
 paywall_hook: |
    <ul>
-       <li>Warum funktioniert die Gewichtung nach Marktkapitalisierung bei Krypto noch besser?</li>
        <li>Der beste Kryptowährungsindex zum Folgen</li>
        <li>Eine Strategie für die Altcoin-Saison</li>
    </ul>
@@ -76,8 +75,6 @@ Größere Vermögenswerte haben in der Regel eine bessere Liquidität, und die G
 
 Funktioniert die Marktkapitalisierungsgewichtung in Krypto? Sie funktioniert nicht nur, man könnte sogar argumentieren, dass sie noch besser funktioniert. Hier ist der Grund:
 
-
-
 ### Der Kryptowährungsmarkt ist konzentrierter
 
 Bitcoin macht fast 67 % des gesamten Marktes aus, während die Top-10-Kryptowährungen über 93 % der gesamten Marktkapitalisierung repräsentieren. Dies bedeutet, dass **"Small-Cap"-Kryptowährungen ein deutlich höheres Risiko** für Anleger bergen. Aus diesem Grund investiert [der einzige bisher akzeptierte Multi-Krypto-ETF nur in die Top-5-Vermögenswerte](./grayscale-crypto-etf).
@@ -111,6 +108,12 @@ Schließlich sind **Kryptowährungen im Gegensatz zu Aktien sehr teilbar**, was 
 ### Achtung!
 
 Ein wichtiger Unterschied auf dem Kryptowährungsmarkt besteht darin, dass **nicht alle Marktkapitalisierungen gleich sind**. Viele Projekte halten einen großen Teil ihrer Münzen in Reserve und schaffen so eine künstliche Knappheit. Wenn die Preise steigen, können Projektgründer diese reservierten Münzen auf den Markt werfen und den Wert für andere Inhaber verwässern. Aus diesem Grund müssen Sie bei der Bewertung der Marktkapitalisierung auf das "umlaufende Angebot" und nicht auf das Gesamtangebot achten.
+
+<!-- PAYWALL -->
+
+<div class="article__playbook widget">
+
+<h1>Playbook <span>α</span></h1>
 
 ## Bauen Sie Ihren persönlichen Krypto-ETF
 
@@ -151,6 +154,10 @@ Sie können nichts falsch machen, wenn Sie nur die Top-10-Kryptowährungen aus d
 Wie ich bereits erwähnt habe, macht Bitcoin über 60 % des Krypto-Marktes aus. In den Top 5 sind es fast 80 %. In gewisser Weise ist es in seiner eigenen Kategorie. Wenn Sie ein Portfolio nach Marktkapitalisierung gewichten, wird es natürlich hauptsächlich aus BTC bestehen, aber es schafft auch einen Grund, diese Segmente vollständig zu trennen: den Großteil Ihrer Investition in Bitcoin auf Ihrer Hardware-Wallet zu halten, ohne Neugewichtung, und ein Indexportfolio von Altcoins zu erstellen.
 
 Eines ist sicher: Wenn Sie auf eine Altcoin-Saison aus sind, gibt es keinen besseren Weg, dies zu tun, als mit einem nach Marktkapitalisierung gewichteten Indexportfolio.
+
+</div>
+
+<!-- /PAYWALL -->
 
 ### Wie man anfängt
 

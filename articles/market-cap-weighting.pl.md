@@ -8,7 +8,6 @@ x_url: https://x.com/deltabadgerapp/status/1952974526746448114
 telegram_url: https://t.me/deltabadger/103
 paywall_hook: |
    <ul>
-       <li>Dlaczego ważenie kapitalizacją rynkową działa jeszcze lepiej w krypto?</li>
        <li>Najlepszy indeks kryptowalut do naśladowania</li>
        <li>Strategia na Sezon Altcoinów</li>
    </ul>
@@ -112,6 +111,12 @@ Wreszcie, w przeciwieństwie do akcji, **kryptowaluty są bardzo podzielne**, co
 
 Ważną różnicą na rynku kryptowalut jest to, że **nie wszystkie kapitalizacje rynkowe są sobie równe**. Wiele projektów trzyma dużą część swoich monet w rezerwie, tworząc sztuczną rzadkość. Gdy ceny rosną, założyciele projektów mogą rzucić te zarezerwowane monety na rynek, rozwadniając wartość dla innych posiadaczy. Dlatego przy ocenie kapitalizacji rynkowej należy patrzeć na "podaż w obiegu", a nie na podaż całkowitą.
 
+<!-- PAYWALL -->
+
+<div class="article__playbook widget">
+
+<h1>Playbook <span>α</span></h1>
+
 ## Budowanie własnego osobistego ETF-u krypto
 
 Teraz, gdy wiemy co i dlaczego, nadszedł czas, aby zastosować tę wiedzę w praktyce. Natychmiast stajemy przed pierwszym wyzwaniem:
@@ -151,6 +156,10 @@ Nie możesz się pomylić, wybierając tylko 10 największych kryptowalut z CMC1
 Jak wspomniałem wcześniej, ponad 60% rynku krypto to Bitcoin. W pierwszej piątce jest to blisko 80%. W pewnym sensie jest w swojej własnej kategorii. Jeśli ważysz portfel kapitalizacją rynkową, naturalnie będzie on w większości składał się z BTC, ale stwarza to również argument za całkowitym rozdzieleniem tych segmentów: trzymaniem większości inwestycji w Bitcoinie na portfelu sprzętowym bez żadnego rebalancingu i tworzeniem portfela indeksowego altcoinów.
 
 Jedno jest pewne: jeśli polujesz na Sezon Altcoinów, nie ma lepszego sposobu na to niż portfel indeksowy ważony kapitalizacją rynkową.
+
+</div>
+
+<!-- /PAYWALL -->
 
 ### Jak zacząć
 

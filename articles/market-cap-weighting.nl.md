@@ -8,7 +8,6 @@ x_url: https://x.com/deltabadgerapp/status/1952974526746448114
 telegram_url: https://t.me/deltabadger/103
 paywall_hook: |
    <ul>
-       <li>Waarom werkt market cap weighting nog beter in crypto?</li>
        <li>De beste cryptocurrency-index om te volgen</li>
        <li>Een strategie voor het altcoin-seizoen</li>
    </ul>
@@ -112,6 +111,12 @@ Tot slot, in tegenstelling tot aandelen, zijn **cryptocurrencies zeer deelbaar**
 
 Een belangrijk verschil in de cryptocurrency-markt is dat **niet alle marktkapitalisaties gelijk zijn**. Veel projecten houden een groot deel van hun munten in reserve, waardoor kunstmatige schaarste ontstaat. Wanneer de prijzen stijgen, kunnen projectoprichters deze gereserveerde munten op de markt dumpen, waardoor de waarde voor andere houders verwatert. Daarom moet je bij het evalueren van marktkapitalisaties kijken naar "circulerend aanbod" in plaats van naar het totale aanbod.
 
+<!-- PAYWALL -->
+
+<div class="article__playbook widget">
+
+<h1>Playbook <span>α</span></h1>
+
 ## Je persoonlijke crypto-ETF bouwen
 
 Nu we weten wat en waarom, is het tijd om deze kennis in de praktijk te brengen. Onmiddellijk worden we geconfronteerd met de eerste uitdaging:
@@ -151,6 +156,10 @@ Je kunt niet fout gaan door alleen de top 10 cryptocurrencies uit CMC100 te kiez
 Zoals ik al eerder zei, is meer dan 60% van de cryptomarkt Bitcoin. In de top 5 is dit bijna 80%. In zekere zin bevindt het zich in zijn eigen categorie. Als je een portefeuille op market cap weegt, zal deze van nature voornamelijk uit BTC bestaan, maar het creëert ook een argument om deze segmenten volledig te scheiden: het grootste deel van je investering in Bitcoin opgeslagen houden op je hardware wallet zonder enige herbalancering, en een indexportefeuille van altcoins creëren.
 
 Eén ding is zeker: als je uit bent op een Altcoin-seizoen, is er geen betere manier om dit te doen dan met een market cap-gewogen indexportefeuille.
+
+</div>
+
+<!-- /PAYWALL -->
 
 ### Hoe te beginnen
 
