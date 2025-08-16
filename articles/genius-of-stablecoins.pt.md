@@ -8,8 +8,6 @@ x_url: https://x.com/deltabadgerapp/status/1950462030970016075
 telegram_url: https://t.me/deltabadger/101
 paywall_hook: |
    <ul>
-       <li>Quais tokens se beneficiam da legitimação das stablecoins?</li>
-       <li>O TRON é o novo risco sistêmico para criptomoedas?</li>
        <li>Três alocações diferentes para a Carteira GENIUS</li>
    </ul>
 published: true
@@ -116,7 +114,7 @@ Enquanto a Europa constrói o equivalente financeiro da Linha Maginot, gastando 
 
 > *Toda revolução financeira cria milionários – mas eles geralmente estão vendendo pás e picaretas.*
 
-<!-- PAYWALL -->
+
 
 Você pode investir neste setor em expansão? Com certeza.
 
@@ -161,7 +159,7 @@ Eu acredito que sim.
 * Protocolos DeFi usando stablecoins precisam de gás para swaps, empréstimos e empréstimos
 * Em redes de prova de participação, o aumento da atividade de stablecoins impulsiona as recompensas de piquetagem, tornando os tokens nativos mais atraentes
 
-## A Carteira GENIUS
+### A Carteira
 
 O DeFiLlama fornece dados de fornecimento de stablecoins para cada blockchain. Pegar as 10 principais blockchains por uso de stablecoins e construir uma carteira alocada pelo fornecimento total de stablecoins gera alocações aproximadamente correlacionadas com a ponderação da capitalização de mercado – **com uma exceção significativa: TRON.** <a class="link-source-tile" href="https://defillama.com/stablecoins">defillama.com</a>
 
@@ -184,6 +182,12 @@ Essa dominância decorre da combinação de taxas ultrabaixas da TRON (abaixo de
 No entanto, se você está procurando um motivo pelo qual a capitalização de mercado da TRON é baixa em relação ao uso de sua rede, na verdade existe uma boa explicação para esse desconto:
 
 Entre todas as principais redes, **a TRON é a mais centralizada**, totalmente controlada pelo controverso fundador Justin Sun, o que certamente adiciona risco ao ativo subjacente. Embora o Tether possa não ser mais uma ameaça, a TRON representa um risco sistêmico potencial para o mercado de criptomoedas ou uma oportunidade de investimento subestimada.
+
+<!-- PAYWALL -->
+
+<div class="playbook widget">
+
+<h1>Playbook <span>α</span></h1>
 
 **Isso nos dá opções de ponderação de portfólio:**
 1. Siga as métricas de emissão de stablecoins.
@@ -245,6 +249,10 @@ Entre todas as principais redes, **a TRON é a mais centralizada**, totalmente c
 
 A alocação baseada no fornecimento é uma negociação baseada em fundamentos – potencialmente contando uma história mais precisa do que as capitalizações dos ativos. Investidores mais conservadores podem considerar a capitalização de mercado como uma fonte de informação que inclui informações mais completas. Não há uma resposta óbvia aqui, já que ambas as ideias têm seus méritos.
 
+</div>
+
+<!-- /PAYWALL -->
+
 Embora a TRON possa estar em questão para muitos, o Ethereum – a primeira plataforma de smart contract – permanece o líder das finanças descentralizadas. No entanto, se isso mudar, seguir as métricas disponíveis publicamente e reequilibrar a carteira a cada 3 meses nos permite manter a alocação relevante.
 
-**Qual alocação é a sua favorita? Participe da discussão no Telegram.** 
+**Qual alocação é a sua favorita? Participe da discussão no Telegram.**

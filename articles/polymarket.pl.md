@@ -302,6 +302,10 @@ Użytkownicy Deltabadger mogą teraz zapytać: W miarę jak Polymarket będzie s
 
 <!-- PAYWALL -->
 
+<div class="playbook widget">
+
+<h1>Playbook <span>α</span></h1>
+
 ## Od Polymarket do Polygon: Analiza Inwestycyjna
 
 Polymarket po cichu stał się jednym z najważniejszych motorów napędowych popytu na sieć Polygon. W okresach szczytowego handlu – szczególnie w okolicach ważnych wydarzeń, takich jak wybory w 2024 roku – Polymarket zużywał do 25% całego gazu Polygon, powodując trwałe wzrosty dziennych transakcji. <a class="link-source-tile" href="https://coinmetrics.substack.com/p/state-of-the-network-issue-283">coinmetrics.substack.com</a>
@@ -462,6 +466,10 @@ Kiedy mógłby nastąpić teoretyczny airdrop? Wzorce branżowe sugerują koniec
 Dla posiadaczy Polygon, wprowadzenie tokena Polymarket może być albo bycze, albo neutralne. Jeśli zostanie zaprojektowany z synergiami z POL, może napędzić dodatkowy popyt na bazową infrastrukturę. Jeśli zostanie zaprojektowany jako czysto wydobywcza warstwa, może nawet przekierować wartość z Polygon na warstwę aplikacji.
 
 *Ważna uwaga: Polymarket nie potwierdził oficjalnie żadnych planów dotyczących natywnego tokena ani airdropu. Wszystkie dyskusje pozostają spekulacyjne w oparciu o wzorce branżowe i obserwacje społeczności.*
+
+</div>
+
+<!-- /PAYWALL -->
 
 ## Podsumowanie
 

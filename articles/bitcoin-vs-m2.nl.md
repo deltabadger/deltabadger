@@ -59,7 +59,7 @@ De kernthese is eenvoudig:
 
 **Wanneer er meer geld wordt gedrukt (M2 groeit), neigt Bitcoin te stijgen omdat investeerders op zoek gaan naar alternatieven voor traditionele investeringen. Wanneer het geld drukken vertraagt of stopt, neigt Bitcoin ondermaats te presteren.**
 
-<!-- PAYWALL -->
+
 
 ## Het kwantitatieve bewijs
 
@@ -202,7 +202,11 @@ Het combineren van liquiditeitsanalyse met aanbod-side statistieken biedt superi
 
 Behandel nu het volgende als een amusementsgedeelte. Laten we AI de bevindingen gebruiken om de richting van de Bitcoin-prijs voor de komende 12 maanden te voorspellen.
 
-<div class="article__key-part" style="margin-top: 8rem; margin-bottom: 0">
+<!-- PAYWALL -->
+
+<div class="playbook widget">
+
+<h1>Playbook <span>α</span></h1>
 
 ## Bitcoin-prijsvoorspelling
 
@@ -255,6 +259,8 @@ Kijkend naar uw grafieken:
 **Samenvatting: Op basis van gunstige liquiditeitsvoorwaarden en gematigde MVRV Z-score niveaus, zou de Bitcoin-prijs de komende 6-12 maanden $150k-200k+ kunnen bereiken.**
 
 </div>
+
+<!-- /PAYWALL -->
 
 ## De eindconclusie
 

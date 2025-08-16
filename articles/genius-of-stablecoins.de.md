@@ -8,8 +8,6 @@ x_url: https://x.com/deltabadgerapp/status/1950462030970016075
 telegram_url: https://t.me/deltabadger/101
 paywall_hook: |
    <ul>
-       <li>Welche Token profitieren von der Legitimierung von Stablecoins?</li>
-       <li>Ist TRON das neue systemische Risiko für Krypto?</li>
        <li>Drei verschiedene Allokationen für das GENIUS-Portfolio</li>
    </ul>
 published: true
@@ -114,8 +112,6 @@ Während Europa das finanzielle Äquivalent der Maginot-Linie baut und über 1,1
 
 > *Jede finanzielle Revolution schafft Millionäre – aber sie verkaufen normalerweise Schaufeln und Spitzhacken.*
 
-<!-- PAYWALL -->
-
 Können Sie in diesen boomenden Sektor investieren? Absolut.
 
 Stablecoins sind keine Wachstumsanlagen, aber die zugrunde liegende Infrastruktur basiert auf Netzwerken, die von nativen Token unterstützt werden. Werfen wir einen genaueren Blick auf die beteiligten Blockchains.
@@ -159,7 +155,7 @@ Ich glaube schon.
 * DeFi-Protokolle, die Stablecoins verwenden, benötigen Gas für Swaps, Kreditvergabe und -aufnahme
 * In Proof-of-Stake-Netzwerken treibt die erhöhte Stablecoin-Aktivität die Staking-Belohnungen in die Höhe und macht native Token attraktiver
 
-## Das GENIUS-Portfolio
+### Das Portfolio
 
 DeFiLlama liefert Daten zum Stablecoin-Angebot für jede Blockchain. Nimmt man die Top-10-Blockchains nach Stablecoin-Nutzung und erstellt ein Portfolio, das nach dem gesamten Stablecoin-Angebot gewichtet ist, ergeben sich Allokationen, die grob mit der Marktkapitalisierungsgewichtung korrelieren – **mit einer signifikanten Ausnahme: TRON.** <a class="link-source-tile" href="https://defillama.com/stablecoins">defillama.com</a>
 
@@ -182,6 +178,12 @@ Diese Dominanz beruht auf der Kombination von extrem niedrigen Gebühren (unter 
 Wenn Sie jedoch nach einem Grund suchen, warum die Marktkapitalisierung von TRON im Verhältnis zu seiner Netzwerknutzung niedrig ist, gibt es tatsächlich eine gute Erklärung für diesen Abschlag:
 
 Unter allen großen Netzwerken ist **TRON das zentralisierteste**, das vollständig vom umstrittenen Gründer Justin Sun kontrolliert wird, was sicherlich ein Risiko für das zugrunde liegende Asset darstellt. Während Tether möglicherweise keine Bedrohung mehr darstellt, stellt TRON entweder ein potenzielles nächstes systemisches Risiko für den Kryptowährungsmarkt oder eine unterbewertete Investitionsmöglichkeit dar.
+
+<!-- PAYWALL -->
+
+<div class="playbook widget">
+
+<h1>Playbook <span>α</span></h1>
 
 **Dies gibt uns Optionen für die Portfolio-Gewichtung:**
 1. Folgen Sie den Metriken zur Ausgabe von Stablecoins.
@@ -242,6 +244,10 @@ Unter allen großen Netzwerken ist **TRON das zentralisierteste**, das vollstän
 {:/nomarkdown}
 
 Die angebotsbasierte Allokation ist ein Handel, der auf Fundamentaldaten basiert – und möglicherweise eine genauere Geschichte erzählt als die Kapitalisierungen der Vermögenswerte. Konservativere Anleger können die Marktkapitalisierung als eine Informationsquelle betrachten, die vollständigere Informationen enthält. Es gibt hier keine eindeutige Antwort, da beide Ideen ihre Vorzüge haben.
+
+</div>
+
+<!-- /PAYWALL -->
 
 Während TRON für viele fragwürdig sein mag, bleibt Ethereum – die erste Smart-Contract-Plattform – der Anführer der dezentralen Finanzen. Wenn es sich jedoch ändert, ermöglicht uns das Verfolgen öffentlich verfügbarer Metriken und das vierteljährliche Neugewichten des Portfolios, die Allokation relevant zu halten.
 

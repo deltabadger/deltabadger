@@ -1,0 +1,25 @@
+<% if article.paywalled? && !@content_unlocked %>
+  <div class="widget playbook playbook--paywall" <% if article.thumbnail_path.present? %>style="--thumbnail-bg: url('<%= asset_path(article.thumbnail_path) %>');"<% end %>>
+    <div class="playbook__content">
+      <h1>Playbook <span>α</span></h1>
+
+      <div class="playbook__description">
+        <%= t('articles.paywall.description_html').html_safe %>
+        <%= article.paywall_hook.present? ? raw(article.paywall_hook) : t('articles.paywall.description_html').html_safe %>
+      </div>
+
+      <div class="playbook__actions">
+        <%= render partial: 'articles/premium_subscribers', locals: { count: premium_subscribers_count } %>
+        <% if user_signed_in? %>
+          <%= link_to t('button.unlock'), upgrade_path, class: "button button--success button--large" %>
+        <% else %>
+          <%= button_to omniauth_authorize_path(:user, :google_oauth2), method: :post, data: { turbo: false }, class: "button button--google button--large" do %>
+            <%= render "svg/google" %>
+            <%= t('shared.links.signup_with_google') %>
+          <% end %>
+          <%= link_to t('shared.links.signup_with_email'), new_user_registration_path, class: "button button--link button--large" %>
+        <% end %>
+      </div>
+    </div>
+  </div>
+<% end %>

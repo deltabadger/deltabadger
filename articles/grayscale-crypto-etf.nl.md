@@ -6,9 +6,7 @@ thumbnail: grayscale-etf.avif
 excerpt: "Grayscale's nieuwe ETF volgt de CoinDesk 5 Index—niet alleen de top 5 cryptocurrencies op marktkapitalisatie, maar een complexe institutionele filter. Van Index Universe tot CD5, deze vierlaagse methodologie onthult waar institutioneel geld naartoe zal stromen."
 paywall_hook: |
     <ul>
-        <li>Waar zal het institutionele geld hierna naartoe vloeien?</li>
-        <li>Op ETF's gebaseerd handelsidee (geen toegang tot ETF's nodig)</li>
-        <li>Welke munten zijn de volgende voor individuele spot-ETF's?</li>
+        <li>Twee portefeuilles om institutioneel geld voor te zijn</li>
     </ul>
 x_url: https://x.com/deltabadgerapp/status/1943337030869471342
 telegram_url: https://t.me/deltabadger/97
@@ -47,7 +45,7 @@ Alles begint met het **Index Universe**—de fundamentele methodologie van CoinD
 
 Het Index Universe begint met de **top 250 cryptocurrencies op basis van marktkapitalisatie** en past vervolgens een reeks strikte kwaliteitsfilters toe:
 
-<!-- PAYWALL -->
+
 
 **Wat onmiddellijk wordt geëlimineerd:**
 
@@ -68,6 +66,14 @@ Het Index Universe begint met de **top 250 cryptocurrencies op basis van marktka
 Dit filterproces creëert het **Index Universe**—een samengestelde lijst van cryptocurrencies die voldoen aan de institutionele beleggingsnormen. Hoewel CoinDesk het exacte aantal cryptocurrencies dat door deze filters komt niet openbaar maakt, zijn het er waarschijnlijk rond de 50—we weten alleen zeker dat het er meer dan 20 zijn, maar minder dan 250.
 
 Dit gebrek aan transparantie over de werkelijke omvang van het **Index Universe** is een van de huidige beperkingen, samen met de nog in ontwikkeling zijnde documentatie van CD5. Meer duidelijkheid over deze cijfers zou beleggers helpen de aard van de index beter te begrijpen.
+
+<!-- PAYWALL -->
+
+<div class="playbook widget">
+
+<h1>Playbook <span>α</span></h1>
+
+CoinDesk Indices bieden een eenvoudige manier om institutionele geldstromen te volgen. Laten we de twee belangrijkste indices verkennen: CD20 en CD5 (die GDLC volgt):
 
 ### CoinDesk 20
 
@@ -151,6 +157,10 @@ Net als CD20 volgt CD5 hetzelfde kwartaalherbalanceringsschema, maar gebruikt he
 </figure>
 {:/nomarkdown}
 
+</div>
+
+<!-- /PAYWALL -->
+
 ### Samenvatting van de indexstructuur
 
 Om de methodologie samen te vatten:
@@ -177,9 +187,11 @@ Het handelsidee hier is eenvoudig: **investeer in wat er in de ETF zit**. Als in
 
 ETF Store President [Nate Geraci ziet bredere implicaties](https://twitter.com/NateGeraci/status/1939454629915619403), en suggereert dat deze goedkeuring de weg zou kunnen vrijmaken for individuele spot-ETF's voor activa als XRP, Solana en Litecoin. Dit zou beleggers in staat stellen gerichte blootstelling te krijgen aan specifieke cryptocurrencies via traditionele beleggingsrekeningen.
 
+{::nomarkdown}
 <blockquote class="twitter-tweet">
 <p lang="en" dir="ltr">Final SEC deadline this week on Grayscale Digital Large Cap ETF (GDLC)…<br><br>Holds btc, eth, xrp, sol, &amp; ada.<br><br>Think *high likelihood* this is approved.<br><br>Would then be followed later by approval for individual spot ETFs on xrp, sol, ada, etc.</p>&mdash; Nate Geraci (@NateGeraci) <a href="https://twitter.com/NateGeraci/status/1939454629915619403?ref_src=twsrc%5Etfw">June 29, 2025</a>
-</blockquote>
+</blockquote><script async src="https://platform.twitter.com/widgets.js" charset="utf-8"></script>
+{:/nomarkdown}
 
 ## Vooruitblik
 

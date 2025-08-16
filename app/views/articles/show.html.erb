@@ -91,10 +91,10 @@
   </header>
 
   <div class="article-body">
-    <%= raw @content %>
+    <%= raw process_inline_paywall(@content) %>
   </div>
 
-  <% if (@content_unlocked || !@article.paywalled?) && (@article.x_url.present? || @article.telegram_url.present?) %>
+  <% if @article.x_url.present? || @article.telegram_url.present? %>
     <div class="article-social-buttons">
       <% if @article.x_url.present? %>
         <%= link_to @article.x_url, class: "button button--x button--large", target: "_blank", rel: "noopener" do %>
@@ -108,26 +108,6 @@
           <%= render partial: 'svg/24x24_telegram' %>
         <% end %>
       <% end %>
-    </div>
-  <% end %>
-
-  <% if @article.paywalled? && !@content_unlocked %>
-    <div class="paywall">
-      <h2 style="margin-bottom: 0"><%= t('articles.paywall.title') %></h2>
-      <div><%= @article.paywall_hook.present? ? raw(@article.paywall_hook) : t('articles.paywall.description').html_safe %></div>
-
-      <div class="paywall__actions">
-        <%= render partial: 'articles/premium_subscribers', locals: { count: @premium_subscribers_count } %>
-        <% if user_signed_in? %>
-          <%= link_to t('subscriptions.upgrade'), upgrade_path, class: "button button--success button--large" %>
-        <% else %>
-          <%= button_to omniauth_authorize_path(:user, :google_oauth2), method: :post, data: { turbo: false }, class: "button button--google button--large" do %>
-            <%= render "svg/google" %>
-            <%= t('shared.links.signup_with_google') %>
-          <% end %>
-          <%= link_to t('shared.links.signup_with_email'), new_user_registration_path, class: "button button--link button--large" %>
-        <% end %>
-      </div>
     </div>
   <% end %>
 

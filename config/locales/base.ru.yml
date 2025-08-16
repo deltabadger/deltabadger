@@ -28,6 +28,7 @@ ru:
         select_plan: 'Выбрать план'
         back_to_dashboard: 'Перейти к панели'
         subscribe: 'Подписаться'
+        unlock: 'Разблокировать'
     data_labels:
         invested: "Всего вложено"
         portfolio_value: "Стоимость портфеля"

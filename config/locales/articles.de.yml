@@ -10,8 +10,8 @@ de:
     premium_content: "Premium"
     back_to_articles: "← Zurück zu artikeln"
     paywall:
-      title: "Abonniere, um weiterzulesen."
-      description: |
-        Wir sind eine Gemeinschaft von langfristigen Investoren in digitale Vermögenswerte. Erhalte Zugang zu:<br><b>wöchentliche Artikel &middot; Portfolio-Analyzer &middot; smarte DCA-Bots</b>
+      description_html: |
+        <h3><strong>Playbook</strong> ist ein Premium-Bereich mit umsetzbaren Taktiken und Strategien, die direkt auf dein Portfolio anwendbar sind.</h3>
+        <p>In diesem Playbook:</p>
     like_on_x: "Auf X liken"
     join_discussion: "Diskussion beitreten"
