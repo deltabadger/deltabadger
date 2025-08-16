@@ -187,9 +187,11 @@ CD20 использует **буферную систему**:
 
 Президент ETF Store [Нейт Герачи видит более широкие последствия](https://twitter.com/NateGeraci/status/1939454629915619403), предполагая, что это одобрение может проложить путь для индивидуальных спотовых ETF на такие активы, как XRP, Solana и Litecoin. Это позволит инвесторам получить целенаправленную экспозицию к конкретным криптовалютам через традиционные инвестиционные счета.
 
+{:nomarkdown}
 <blockquote class="twitter-tweet">
 <p lang="en" dir="ltr">Final SEC deadline this week on Grayscale Digital Large Cap ETF (GDLC)…<br><br>Holds btc, eth, xrp, sol, &amp; ada.<br><br>Think *high likelihood* this is approved.<br><br>Would then be followed later by approval for individual spot ETFs on xrp, sol, ada, etc.</p>&mdash; Nate Geraci (@NateGeraci) <a href="https://twitter.com/NateGeraci/status/1939454629915619403?ref_src=twsrc%5Etfw">June 29, 2025</a>
-</blockquote>
+</blockquote><script async src="https://platform.twitter.com/widgets.js" charset="utf-8"></script>
+{:/nomarkdown}
 
 ## Взгляд в будущее
 
