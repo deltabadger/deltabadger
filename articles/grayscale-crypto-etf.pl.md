@@ -6,9 +6,7 @@ thumbnail: grayscale-etf.avif
 excerpt: "Nowy ETF Grayscale śledzi Indeks CoinDesk 5—nie tylko top 5 kryptowalut według kapitalizacji rynkowej, ale złożony filtr instytucjonalny. Od Index Universe do CD5, ta czterowarstwowa metodologia ujawnia, gdzie popłynie kapitał instytucjonalny."
 paywall_hook: |
     <ul>
-        <li>Gdzie popłyną pieniądze instytucjonalne w następnej kolejności?</li>
-        <li>Pomysł na transakcję opartą na ETF (nie wymaga dostępu do ETF)</li>
-        <li>Które monety będą następne dla indywidualnych ETF-ów spotowych?</li>
+        <li>Dwa portfele, aby wyprzedzić pieniądze instytucjonalne</li>
     </ul>
 x_url: https://x.com/deltabadgerapp/status/1943337030869471342
 telegram_url: https://t.me/deltabadger/97
@@ -68,6 +66,14 @@ Index Universe zaczyna się od **250 największych kryptowalut pod względem kap
 Ten proces filtrowania tworzy **Index Universe** — wyselekcjonowaną listę kryptowalut, które spełniają instytucjonalne standardy inwestycyjne. Chociaż CoinDesk nie udostępnia publicznie dokładnej liczby kryptowalut, które przechodzą przez te filtry, prawdopodobnie jest to około 50 monet — wiemy tylko na pewno, że jest to więcej niż 20, ale mniej niż 250.
 
 Ten brak przejrzystości co do faktycznej wielkości **Index Universe** jest jednym z obecnych ograniczeń, wraz z wciąż rozwijającą się dokumentacją CD5. Większa jasność co do tych liczb pomogłaby inwestorom lepiej zrozumieć naturę indeksu.
+
+<!-- PAYWALL -->
+
+<div class="article__playbook widget">
+
+<h1>Playbook <span>α</span></h1>
+
+Indeksy CoinDesk oferują prosty sposób śledzenia przepływów pieniędzy instytucjonalnych. Przyjrzyjmy się dwóm najważniejszym indeksom: CD20 i CD5 (który śledzi GDLC):
 
 ### CoinDesk 20
 
@@ -150,6 +156,10 @@ Podobnie jak CD20, CD5 stosuje ten sam kwartalny harmonogram rebalancingu, ale u
 <figcaption class="article__figure__caption">Alokacja Indeksu CoinDesk 5 (CD5)</figcaption>
 </figure>
 {:/nomarkdown}
+
+</div>
+
+<!-- /PAYWALL -->
 
 ### Podsumowanie struktury indeksu
 

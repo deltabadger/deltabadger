@@ -251,4 +251,6 @@ Chociaż TRON może być dla wielu wątpliwy, Ethereum – pierwsza platforma sm
 
 **Która alokacja jest Twoją ulubioną? Dołącz do dyskusji na Telegramie.**
 
+</div>
+
 <!-- /PAYWALL -->

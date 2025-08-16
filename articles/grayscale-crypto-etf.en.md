@@ -6,9 +6,7 @@ thumbnail: grayscale-etf.avif
 excerpt: "Grayscale's new ETF tracks the CoinDesk 5 Index—not just the top 5 cryptos by market cap, but a complex institutional filter. From Index Universe to CD5, this four-tier methodology reveals where institutional money will flow next."
 paywall_hook: |
     <ul>
-        <li>Where will the institutional money flow next?</li>
-        <li>ETF-based trade idea (no ETF access needed)</li>
-        <li>Which coins are next for individual spot ETFs?</li>
+        <li>Two portfolios to frontrun institutional money</li>
     </ul>
 x_url: https://x.com/deltabadgerapp/status/1943337030869471342
 telegram_url: https://t.me/deltabadger/97
@@ -48,8 +46,6 @@ Everything begins with the **Index Universe**—CoinDesk's foundational methodol
 
 The Index Universe starts with the **top 250 cryptocurrencies by market capitalization**, then applies a set of strict quality filters:
 
-
-
 **What gets eliminated immediately:**
 
 ❌ **Stablecoins** (USDT, USDC) - they're meant to stay flat, not grow  
@@ -69,6 +65,14 @@ The Index Universe starts with the **top 250 cryptocurrencies by market capitali
 This filtering process creates the Index Universe—a curated list of cryptocurrencies that meet institutional investment standards. While CoinDesk doesn't publicly share the exact number of cryptocurrencies that make it through these filters, it's likely around 50 coins—we only know for sure it's more than 20 but less than 250.
 
 This lack of transparency around the actual Index Universe size is one of the current limitations, along with CD5's still-developing documentation. Greater clarity on these numbers would help investors better understand the nature of the index.
+
+<!-- PAYWALL -->
+
+<div class="article__playbook widget">
+
+<h1>Playbook <span>α</span></h1>
+
+CoinDesk Indices offer an easy way to track institutional money flows. Let's explore the two most important indices: CD20 and CD5 (which GDLC follows):
 
 ### CoinDesk 20
 
@@ -151,6 +155,10 @@ Like CD20, CD5 follows the same quarterly rebalancing schedule but uses a simple
 <figcaption class="article__figure__caption">CoinDesk 5 Index (CD5) Allocation</figcaption>
 </figure>
 {:/nomarkdown}
+
+</div>
+
+<!-- /PAYWALL -->
 
 ### Summary of the Index Structure
 

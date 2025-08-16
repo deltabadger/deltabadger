@@ -6,9 +6,7 @@ thumbnail: grayscale-etf.avif
 excerpt: "O novo ETF da Grayscale segue o Índice CoinDesk 5—não apenas as 5 principais criptomoedas por capitalização de mercado, mas um filtro institucional complexo. Do Index Universe ao CD5, esta metodologia de quatro camadas revela onde o dinheiro institucional fluirá."
 paywall_hook: |
     <ul>
-        <li>Para onde irá o dinheiro institucional a seguir?</li>
-        <li>Ideia de negociação baseada em ETFs (não é necessário acesso a ETFs)</li>
-        <li>Quais moedas serão as próximas para ETFs à vista individuais?</li>
+        <li>Duas carteiras para antecipar o dinheiro institucional</li>
     </ul>
 x_url: https://x.com/deltabadgerapp/status/1943337030869471342
 telegram_url: https://t.me/deltabadger/97
@@ -68,6 +66,14 @@ O Index Universe começa com as **250 principais criptomoedas por capitalizaçã
 Este processo de filtragem cria o **Index Universe**—uma lista curada de criptomoedas que cumprem os padrões de investimento institucional. Embora a CoinDesk não partilhe publicamente o número exato de criptomoedas que passam por estes filtros, é provável que sejam cerca de 50 moedas—só sabemos com certeza que são mais de 20 mas menos de 250.
 
 Esta falta de transparência em torno do tamanho real do **Index Universe** é uma das limitações atuais, juntamente com a documentação ainda em desenvolvimento do CD5. Maior clareza sobre estes números ajudaria os investidores a compreender melhor a natureza do índice.
+
+<!-- PAYWALL -->
+
+<div class="article__playbook widget">
+
+<h1>Playbook <span>α</span></h1>
+
+Os Índices CoinDesk oferecem uma forma simples de acompanhar os fluxos de dinheiro institucional. Vamos explorar os dois índices mais importantes: CD20 e CD5 (que o GDLC segue):
 
 ### CoinDesk 20
 
@@ -150,6 +156,10 @@ Tal como o CD20, o CD5 segue o mesmo cronograma de rebalanceamento trimestral, m
 <figcaption class="article__figure__caption">Alocação do Índice CoinDesk 5 (CD5)</figcaption>
 </figure>
 {:/nomarkdown}
+
+</div>
+
+<!-- /PAYWALL -->
 
 ### Resumo da Estrutura do Índice
 

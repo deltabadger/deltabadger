@@ -251,4 +251,6 @@ Mentre TRON può essere in discussione per molti, Ethereum, la prima piattaforma
 
 **Quale allocazione è la tua preferita? Partecipa alla discussione su Telegram.**
 
+</div>
+
 <!-- /PAYWALL -->

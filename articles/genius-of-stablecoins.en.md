@@ -248,4 +248,6 @@ While TRON may be in question for many, Ethereum—the first smart contract plat
 
 **Which allocation is your favorite? Join the discussion on Telegram.**
 
+</div>
+
 <!-- /PAYWALL -->

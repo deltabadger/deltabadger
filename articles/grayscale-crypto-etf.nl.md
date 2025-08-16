@@ -6,9 +6,7 @@ thumbnail: grayscale-etf.avif
 excerpt: "Grayscale's nieuwe ETF volgt de CoinDesk 5 Index—niet alleen de top 5 cryptocurrencies op marktkapitalisatie, maar een complexe institutionele filter. Van Index Universe tot CD5, deze vierlaagse methodologie onthult waar institutioneel geld naartoe zal stromen."
 paywall_hook: |
     <ul>
-        <li>Waar zal het institutionele geld hierna naartoe vloeien?</li>
-        <li>Op ETF's gebaseerd handelsidee (geen toegang tot ETF's nodig)</li>
-        <li>Welke munten zijn de volgende voor individuele spot-ETF's?</li>
+        <li>Twee portefeuilles om institutioneel geld voor te zijn</li>
     </ul>
 x_url: https://x.com/deltabadgerapp/status/1943337030869471342
 telegram_url: https://t.me/deltabadger/97
@@ -68,6 +66,14 @@ Het Index Universe begint met de **top 250 cryptocurrencies op basis van marktka
 Dit filterproces creëert het **Index Universe**—een samengestelde lijst van cryptocurrencies die voldoen aan de institutionele beleggingsnormen. Hoewel CoinDesk het exacte aantal cryptocurrencies dat door deze filters komt niet openbaar maakt, zijn het er waarschijnlijk rond de 50—we weten alleen zeker dat het er meer dan 20 zijn, maar minder dan 250.
 
 Dit gebrek aan transparantie over de werkelijke omvang van het **Index Universe** is een van de huidige beperkingen, samen met de nog in ontwikkeling zijnde documentatie van CD5. Meer duidelijkheid over deze cijfers zou beleggers helpen de aard van de index beter te begrijpen.
+
+<!-- PAYWALL -->
+
+<div class="article__playbook widget">
+
+<h1>Playbook <span>α</span></h1>
+
+CoinDesk Indices bieden een eenvoudige manier om institutionele geldstromen te volgen. Laten we de twee belangrijkste indices verkennen: CD20 en CD5 (die GDLC volgt):
 
 ### CoinDesk 20
 
@@ -150,6 +156,10 @@ Net als CD20 volgt CD5 hetzelfde kwartaalherbalanceringsschema, maar gebruikt he
 <figcaption class="article__figure__caption">CoinDesk 5 Index (CD5) Allocatie</figcaption>
 </figure>
 {:/nomarkdown}
+
+</div>
+
+<!-- /PAYWALL -->
 
 ### Samenvatting van de indexstructuur
 

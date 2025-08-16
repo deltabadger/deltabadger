@@ -6,9 +6,7 @@ thumbnail: grayscale-etf.avif
 excerpt: "Il nuovo ETF di Grayscale segue l'Indice CoinDesk 5—non solo le top 5 criptovalute per capitalizzazione di mercato, ma un complesso filtro istituzionale. Dall'Index Universe al CD5, questa metodologia a quattro livelli rivela dove affluirà il denaro istituzionale."
 paywall_hook: |
     <ul>
-        <li>Dove andranno a finire i capitali istituzionali?</li>
-        <li>Idea di trading basata sugli ETF (non è necessario l'accesso agli ETF)</li>
-        <li>Quali saranno le prossime monete per gli ETF spot individuali?</li>
+        <li>Due portafogli per anticipare il denaro istituzionale</li>
     </ul>
 x_url: https://x.com/deltabadgerapp/status/1943337030869471342
 telegram_url: https://t.me/deltabadger/97
@@ -68,6 +66,14 @@ L'Index Universe parte dalle **prime 250 criptovalute per capitalizzazione di me
 Questo processo di filtraggio crea l'**Index Universe**, un elenco curato di criptovalute che soddisfano gli standard di investimento istituzionale. Sebbene CoinDesk non condivida pubblicamente il numero esatto di criptovalute che superano questi filtri, è probabile che si tratti di circa 50 monete: sappiamo solo per certo che sono più di 20 ma meno di 250.
 
 Questa mancanza di trasparenza sulla dimensione effettiva dell'**Index Universe** è una delle attuali limitazioni, insieme alla documentazione ancora in fase di sviluppo di CD5. Una maggiore chiarezza su questi numeri aiuterebbe gli investitori a comprendere meglio la natura dell'indice.
+
+<!-- PAYWALL -->
+
+<div class="article__playbook widget">
+
+<h1>Playbook <span>α</span></h1>
+
+Gli indici CoinDesk offrono un modo semplice per monitorare i flussi di denaro istituzionale. Esploriamo i due indici più importanti: CD20 e CD5 (che GDLC segue):
 
 ### CoinDesk 20
 
@@ -150,6 +156,10 @@ Come CD20, anche CD5 segue lo stesso programma di ribilanciamento trimestrale ma
 <figcaption class="article__figure__caption">Allocazione dell'Indice CoinDesk 5 (CD5)</figcaption>
 </figure>
 {:/nomarkdown}
+
+</div>
+
+<!-- /PAYWALL -->
 
 ### Riepilogo della struttura dell'indice
 

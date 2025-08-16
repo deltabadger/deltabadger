@@ -252,4 +252,6 @@ Si bien TRON puede ser cuestionable para muchos, Ethereum, la primera plataforma
 
 **¿Qué asignación es tu favorita? Únete a la discusión en Telegram.**
 
+</div>
+
 <!-- /PAYWALL -->

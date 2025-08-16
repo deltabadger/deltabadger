@@ -251,4 +251,6 @@ Hoewel TRON voor velen misschien in twijfel wordt getrokken, blijft Ethereum –
 
 **Welke toewijzing is jouw favoriet? Neem deel aan de discussie op Telegram.**
 
+</div>
+
 <!-- /PAYWALL -->

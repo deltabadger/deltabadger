@@ -253,4 +253,6 @@ Embora a TRON possa estar em questão para muitos, o Ethereum – a primeira pla
 
 **Qual alocação é a sua favorita? Participe da discussão no Telegram.**
 
+</div>
+
 <!-- /PAYWALL -->

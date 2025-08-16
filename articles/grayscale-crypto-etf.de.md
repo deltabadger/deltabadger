@@ -6,9 +6,7 @@ thumbnail: grayscale-etf.avif
 excerpt: "Grayscales neuer ETF folgt dem CoinDesk 5 Index – nicht nur den Top 5 Kryptos nach Marktkapitalisierung, sondern einem komplexen institutionellen Filter. Von Index Universe zu CD5 zeigt diese vierstufige Methodik, wohin institutionelles Geld als nächstes fließen wird."
 paywall_hook: |
     <ul>
-        <li>Wohin fließt als Nächstes das institutionelle Geld?</li>
-        <li>ETF-basierte Handelsidee (kein ETF-Zugang erforderlich)</li>
-        <li>Welche Coins sind die nächsten für individuelle Spot-ETFs?</li>
+        <li>Zwei Portfolios, um institutionellem Geld zuvorzukommen</li>
     </ul>
 x_url: https://x.com/deltabadgerapp/status/1943337030869471342
 telegram_url: https://t.me/deltabadger/97
@@ -68,6 +66,14 @@ Das Index Universe beginnt mit den **Top-250-Kryptowährungen nach Marktkapitali
 Dieser Filterprozess schafft das Index Universe – eine kuratierte Liste von Kryptowährungen, die den institutionellen Anlagestandards entsprechen. Obwohl CoinDesk die genaue Anzahl der Kryptowährungen, die diese Filter bestehen, nicht öffentlich bekannt gibt, sind es wahrscheinlich etwa 50 Coins – wir wissen nur sicher, dass es mehr als 20, aber weniger als 250 sind.
 
 Diese mangelnde Transparenz hinsichtlich der tatsächlichen Größe des Index Universe ist eine der aktuellen Einschränkungen, zusammen mit der noch in Entwicklung befindlichen Dokumentation von CD5. Mehr Klarheit bei diesen Zahlen würde den Anlegern helfen, die Natur des Index besser zu verstehen.
+
+<!-- PAYWALL -->
+
+<div class="article__playbook widget">
+
+<h1>Playbook <span>α</span></h1>
+
+CoinDesk Indices bieten eine einfache Möglichkeit, institutionelle Geldflüsse zu verfolgen. Schauen wir uns die beiden wichtigsten Indizes an: CD20 und CD5 (dem GDLC folgt):
 
 ### CoinDesk 20
 
@@ -150,6 +156,10 @@ Wie CD20 folgt auch CD5 demselben vierteljährlichen Rebalancing-Zeitplan, verwe
 <figcaption class="article__figure__caption">CoinDesk 5 Index (CD5) Allokation</figcaption>
 </figure>
 {:/nomarkdown}
+
+</div>
+
+<!-- /PAYWALL -->
 
 ### Zusammenfassung der Indexstruktur
 

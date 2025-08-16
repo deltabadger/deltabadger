@@ -249,4 +249,6 @@ Während TRON für viele fragwürdig sein mag, bleibt Ethereum – die erste Sma
 
 **Welche Allokation ist Ihr Favorit? Nehmen Sie an der Diskussion auf Telegram teil.** 
 
+</div>
+
 <!-- /PAYWALL -->

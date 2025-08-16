@@ -6,9 +6,7 @@ thumbnail: grayscale-etf.avif
 excerpt: "Le nouvel ETF de Grayscale suit l'Indice CoinDesk 5—pas seulement les 5 principales cryptomonnaies par capitalisation boursière, mais un filtre institutionnel complexe. De l'Index Universe au CD5, cette méthodologie à quatre niveaux révèle où l'argent institutionnel affluera ensuite."
 paywall_hook: |
     <ul>
-        <li>Où ira l'argent institutionnel ensuite ?</li>
-        <li>Idée de trading basée sur les ETF (aucun accès aux ETF requis)</li>
-        <li>Quelles cryptomonnaies seront les prochaines pour les ETF au comptant individuels ?</li>
+        <li>Deux portefeuilles pour devancer l'argent institutionnel</li>
     </ul>
 x_url: https://x.com/deltabadgerapp/status/1943337030869471342
 telegram_url: https://t.me/deltabadger/97
@@ -68,6 +66,14 @@ L'Index Universe part des **250 premières cryptomonnaies par capitalisation bou
 Ce processus de filtrage crée l'**Index Universe** — une liste de cryptomonnaies sélectionnées qui répondent aux normes d'investissement institutionnel. Bien que CoinDesk ne partage pas publiquement le nombre exact de cryptomonnaies qui passent ces filtres, il est probable qu'il s'agisse d'environ 50 monnaies — nous savons seulement avec certitude qu'il y en a plus de 20 mais moins de 250.
 
 Ce manque de transparence concernant la taille réelle de l'**Index Universe** est l'une des limites actuelles, ainsi que la documentation encore en cours de développement du CD5. Une plus grande clarté sur ces chiffres aiderait les investisseurs à mieux comprendre la nature de l'indice.
+
+<!-- PAYWALL -->
+
+<div class="article__playbook widget">
+
+<h1>Playbook <span>α</span></h1>
+
+Les indices CoinDesk offrent un moyen simple de suivre les flux d'argent institutionnels. Explorons les deux indices les plus importants : le CD20 et le CD5 (que suit le GDLC) :
 
 ### CoinDesk 20
 
@@ -150,6 +156,10 @@ Comme le CD20, le CD5 suit le même calendrier de rééquilibrage trimestriel ma
 <figcaption class="article__figure__caption">Allocation de l'indice CoinDesk 5 (CD5)</figcaption>
 </figure>
 {:/nomarkdown}
+
+</div>
+
+<!-- /PAYWALL -->
 
 ### Résumé de la structure de l'indice
 
