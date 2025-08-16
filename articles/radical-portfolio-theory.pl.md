@@ -9,7 +9,6 @@ paywall_hook: |
         <li>Radykalny portfel dla bitcoinowych maksymalistów</li>
         <li>Złoto jako tradycyjny aktyw odporności</li>
         <li>Portfel permanentny 2.0</li>
-        <li>Argument za Bitcoinem</li>
     </ul>
 x_url: https://x.com/deltabadgerapp/status/1955506609607831798
 telegram_url: https://t.me/deltabadger/106
