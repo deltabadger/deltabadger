@@ -1,15 +1,22 @@
 .playbook
-    padding: 6rem 4rem
+    padding: 4rem
     margin: 8rem 0
-    gap: 5rem
+    gap: 2rem
     &__content
         gap: 5rem
         display: flex
         flex-direction: column
         @media (min-width: 768px)
             max-width: 58rem
+    p
+      margin: 0
+    h2 
+      margin: 2rem 0
+    h3
+      margin: 0
     h1
       font-size: 4rem
+      margin-bottom: 2rem
       margin-top: 0
       line-height: 1
       text-align: left
@@ -17,6 +24,7 @@
       width: 100%
       @media (min-width: 768px)
         font-size: 5rem
+        margin-bottom: 4rem
       span
         background: linear-gradient(to right, #886f00, #c5a100)
         -webkit-background-clip: text
@@ -86,6 +94,8 @@
             height: 100%
             mask-image: linear-gradient(to right, transparent 0%, black 100%)
             -webkit-mask-image: linear-gradient(to right, transparent 0%, black 100%)
+      h1
+        margin: 0 !important
       ul
         margin: 0
         padding: 0
