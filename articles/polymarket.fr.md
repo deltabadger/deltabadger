@@ -302,6 +302,10 @@ Les utilisateurs de Deltabadger peuvent maintenant se demander : alors que Polym
 
 <!-- PAYWALL -->
 
+<div class="article__playbook widget">
+
+<h1>Playbook <span>α</span></h1>
+
 ## De Polymarket à Polygon : Analyse d'investissement
 
 Polymarket est devenu discrètement l'un des moteurs de la demande les plus importants pour le réseau Polygon. Pendant les périodes de pointe des échanges – en particulier lors d'événements majeurs comme les élections de 2024 – Polymarket a consommé jusqu'à 25 % du gaz total de Polygon, entraînant des pics soutenus dans les transactions quotidiennes. <a class="link-source-tile" href="https://coinmetrics.substack.com/p/state-of-the-network-issue-283">coinmetrics.substack.com</a>
@@ -462,6 +466,10 @@ Quand l'airdrop théorique pourrait-il avoir lieu ? Les tendances de l'industrie
 Pour les détenteurs de Polygon, un lancement de jeton Polymarket pourrait être soit haussier soit neutre. S'il est conçu avec des synergies POL, il pourrait stimuler une demande supplémentaire pour l'infrastructure sous-jacente. S'il est conçu comme une couche purement extractive, il pourrait même détourner la valeur de Polygon vers la couche applicative.
 
 *Note importante : Polymarket n'a officiellement confirmé aucun plan pour un jeton natif ou un airdrop. Toute discussion reste spéculative sur la base des tendances de l'industrie et des observations de la communauté.*
+
+</div>
+
+<!-- /PAYWALL -->
 
 ## Conclusion
 

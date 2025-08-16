@@ -8,8 +8,6 @@ x_url: https://x.com/deltabadgerapp/status/1950462030970016075
 telegram_url: https://t.me/deltabadger/101
 paywall_hook: |
    <ul>
-       <li>Quali token beneficiano della legittimazione delle stablecoin?</li>
-       <li>TRON è il nuovo rischio sistemico per le criptovalute?</li>
        <li>Tre diverse allocazioni per il portafoglio GENIUS</li>
    </ul>
 published: true
@@ -114,7 +112,7 @@ Mentre l'Europa costruisce l'equivalente finanziario della Linea Maginot, spende
 
 > *Ogni rivoluzione finanziaria crea milionari, ma di solito vendono pale e picconi.*
 
-<!-- PAYWALL -->
+
 
 Puoi investire in questo settore in forte espansione? Assolutamente.
 
@@ -159,7 +157,7 @@ Credo di si.
 * I protocolli DeFi che utilizzano stablecoin necessitano di gas per swap, prestiti e mutui
 * Sulle reti proof-of-stake, l'aumento dell'attività delle stablecoin aumenta le ricompense di staking, rendendo i token nativi più attraenti
 
-## Il portafoglio GENIUS
+### Il portafoglio
 
 DeFiLlama fornisce dati sull'offerta di stablecoin for each blockchain. Taking the top 10 blockchains by stablecoin usage and building a portfolio allocated by total stablecoin supply yields allocations roughly correlated with market cap weighting—**with one significant exception: TRON.** <a class="link-source-tile" href="https://defillama.com/stablecoins">defillama.com</a>
 
@@ -182,6 +180,12 @@ Questa predominanza deriva dalla combinazione di commissioni ultra-basse di TRON
 Tuttavia, se stai cercando un motivo per cui la capitalizzazione di mercato di TRON è bassa rispetto all'utilizzo della sua rete, c'è in realtà una buona spiegazione per questo sconto:
 
 Tra tutte le principali reti, **TRON è la più centralizzata**, completamente controllata dal controverso fondatore Justin Sun, il che aggiunge certamente un rischio all'asset sottostante. Mentre Tether potrebbe non rappresentare più una minaccia, TRON rappresenta un potenziale prossimo rischio sistemico per il mercato delle criptovalute o un'opportunità di investimento sottovalutata.
+
+<!-- PAYWALL -->
+
+<div class="article__playbook widget">
+
+<h1>Playbook <span>α</span></h1>
 
 **Questo ci offre opzioni di ponderazione del portafoglio:**
 1. Segui le metriche di emissione delle stablecoin.
@@ -245,4 +249,8 @@ L'allocazione basata sull'offerta è un'operazione basata sui fondamentali, che 
 
 Mentre TRON può essere in discussione per molti, Ethereum, la prima piattaforma di smart contract, rimane il leader della finanza decentralizzata. Tuttavia, se le cose cambiano, seguire le metriche disponibili pubblicamente e ribilanciare il portafoglio ogni 3 mesi ci consente di mantenere l'allocazione pertinente.
 
-**Quale allocazione è la tua preferita? Partecipa alla discussione su Telegram.** 
+**Quale allocazione è la tua preferita? Partecipa alla discussione su Telegram.**
+
+</div>
+
+<!-- /PAYWALL -->

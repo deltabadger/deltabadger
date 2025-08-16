@@ -59,7 +59,7 @@ Główna teza jest prosta:
 
 **Gdy drukuje się więcej pieniądza (M2 rośnie), Bitcoin ma tendencję do wzrostu, ponieważ inwestorzy szukają alternatyw dla tradycyjnych inwestycji. Gdy drukowanie pieniądza zwalnia lub zatrzymuje się, Bitcoin ma tendencję do osiągania gorszych wyników.**
 
-<!-- PAYWALL -->
+
 
 ## Dowody ilościowe
 
@@ -202,7 +202,11 @@ Połączenie analizy płynności z wskaźnikami po stronie podaży zapewnia leps
 
 Teraz potraktujcie poniższą część jako rozrywkę. Pozwólmy AI wykorzystać te odkrycia do przewidzenia kierunku ceny Bitcoina na nadchodzące 12 miesięcy.
 
-<div class="article__key-part" style="margin-top: 8rem; margin-bottom: 0">
+<!-- PAYWALL -->
+
+<div class="article__playbook widget">
+
+<h1>Playbook <span>α</span></h1>
 
 ## Prognoza ceny Bitcoina
 
@@ -255,6 +259,8 @@ Patrząc na Twoje wykresy:
 **Podsumowanie: Na podstawie sprzyjających warunków płynnościowych i umiarkowanych poziomów wskaźnika MVRV Z-score, cena Bitcoina może osiągnąć 150-200 tys. $+ w ciągu najbliższych 6-12 miesięcy.**
 
 </div>
+
+<!-- /PAYWALL -->
 
 ## Konkluzja
 

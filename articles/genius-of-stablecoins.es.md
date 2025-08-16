@@ -8,8 +8,6 @@ x_url: https://x.com/deltabadgerapp/status/1950462030970016075
 telegram_url: https://t.me/deltabadger/101
 paywall_hook: |
    <ul>
-       <li>¿Qué tokens se benefician de la legitimación de las stablecoins?</li>
-       <li>¿Es TRON el nuevo riesgo sistémico para las criptomonedas?</li>
        <li>Tres asignaciones diferentes para la Cartera GENIUS</li>
    </ul>
 published: true
@@ -114,7 +112,7 @@ Mientras Europa construye el equivalente financiero de la Línea Maginot, gastan
 
 > *Toda revolución financiera crea millonarios, pero generalmente venden picos y palas.*
 
-<!-- PAYWALL -->
+
 
 ¿Se puede invertir en este sector en auge? Absolutamente.
 
@@ -159,7 +157,8 @@ Creo que sí.
 * Los protocolos DeFi que utilizan stablecoins necesitan gas para los intercambios, préstamos y empréstitos
 * En las redes de prueba de participación, el aumento de la actividad de las stablecoins impulsa las recompensas por participación, lo que hace que los tokens nativos sean más atractivos
 
-## La cartera GENIUS
+
+### La cartera
 
 DeFiLlama proporciona datos de suministro de stablecoins para cada blockchain. Tomar las 10 principales cadenas de bloques por uso de stablecoins y crear una cartera asignada por el suministro total de stablecoins produce asignaciones aproximadamente correlacionadas con la ponderación de la capitalización de mercado, **con una excepción significativa: TRON.** <a class="link-source-tile" href="https://defillama.com/stablecoins">defillama.com</a>
 
@@ -182,6 +181,12 @@ Este dominio se debe a la combinación de tarifas ultrabajas de TRON (menos de 0
 Sin embargo, si está buscando una razón por la que la capitalización de mercado de TRON es baja en relación con el uso de su red, en realidad hay una buena explicación para este descuento:
 
 Entre todas las redes principales, **TRON es la más centralizada**, totalmente controlada por el controvertido fundador Justin Sun, lo que sin duda añade riesgo al activo subyacente. Si bien es posible que Tether ya no sea una amenaza, TRON representa un posible próximo riesgo sistémico para el mercado de las criptomonedas o una oportunidad de inversión subestimada.
+
+<!-- PAYWALL -->
+
+<div class="article__playbook widget">
+
+<h1>Playbook <span>α</span></h1>
 
 **Esto nos da opciones de ponderación de la cartera:**
 1. Seguir las métricas de emisión de stablecoins.
@@ -245,4 +250,8 @@ La asignación basada en el suministro es una operación basada en los fundament
 
 Si bien TRON puede ser cuestionable para muchos, Ethereum, la primera plataforma de smart contracts, sigue siendo el líder de las finanzas descentralizadas. Sin embargo, si cambia, seguir las métricas disponibles públicamente y reequilibrar la cartera cada 3 meses nos permite mantener la asignación relevante.
 
-**¿Qué asignación es tu favorita? Únete a la discusión en Telegram.** 
+**¿Qué asignación es tu favorita? Únete a la discusión en Telegram.**
+
+</div>
+
+<!-- /PAYWALL -->

@@ -1,0 +1,107 @@
+.playbook
+    padding: 6rem 4rem
+    margin: 8rem 0
+    gap: 5rem
+    &__content
+        gap: 5rem
+        display: flex
+        flex-direction: column
+        @media (min-width: 768px)
+            max-width: 58rem
+    h1
+      font-size: 4rem
+      margin-top: 0
+      line-height: 1
+      text-align: left
+      display: block
+      width: 100%
+      @media (min-width: 768px)
+        font-size: 5rem
+      span
+        background: linear-gradient(to right, #886f00, #c5a100)
+        -webkit-background-clip: text
+        -webkit-text-fill-color: rgba(0, 0, 0, 0)
+        background-clip: text
+        top: -1.4rem
+        left: -0.5rem
+        position: relative
+    .button
+      width: 40rem
+      min-width: 40rem
+    &__description
+        h3
+            margin: 0
+            text-align: left !important
+            font-size: 3rem
+            line-height: 1.25
+            font-weight: 500
+            margin-bottom: 5rem
+    &__actions
+      display: flex
+      flex-direction: column
+      justify-content: flex-start
+      width: 100%
+      gap: 2rem
+      .premium-subscribers
+        @media (min-width: 768px)
+          justify-content: flex-start
+      .button
+        @media (min-width: 768px)
+          margin: 0
+    &--paywall
+      margin: 6rem 0
+      padding: 4rem 4rem 30rem
+      position: relative
+      z-index: 1
+      text-align: center
+      display: flex
+      flex-direction: column
+      align-items: center
+      justify-content: center
+      position: relative
+      overflow: hidden
+      box-shadow: 0 0 250rem 10rem var(--background), var(--widget-shadow), inset 0 0 0 1px #0002
+      @media (min-width: 768px)
+        padding: 6rem
+        text-align: left
+        align-items: flex-start
+      &::before
+        content: ""
+        position: absolute
+        background: var(--thumbnail-bg, #aaa8)
+        background-size: cover
+        background-position: center
+        background-repeat: no-repeat
+        mask-image: linear-gradient(to bottom, transparent 0%, black 100%)
+        -webkit-mask-image: linear-gradient(to bottom, transparent 0%, black 100%)
+        z-index: -1
+        top: 65%
+        right: 0
+        width: 100%
+        height: 35%
+        @media (min-width: 768px)
+            top: 0
+            right: 0
+            width: 60%
+            height: 100%
+            mask-image: linear-gradient(to right, transparent 0%, black 100%)
+            -webkit-mask-image: linear-gradient(to right, transparent 0%, black 100%)
+      ul
+        margin: 0
+        padding: 0
+      li
+        text-align: left
+        list-style: none
+        position: relative
+        padding-left: 3.5rem
+        margin-bottom: 1rem
+        &:before
+          content: ""
+          position: absolute
+          left: -0.25rem
+          top: 0
+          width: 3rem
+          height: 3rem
+          background-image: url("check.svg")
+          background-size: contain
+          background-repeat: no-repeat

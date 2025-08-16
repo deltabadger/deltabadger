@@ -302,6 +302,10 @@ Deltabadger-gebruikers vragen zich nu misschien af: terwijl Polymarket blijft gr
 
 <!-- PAYWALL -->
 
+<div class="article__playbook widget">
+
+<h1>Playbook <span>α</span></h1>
+
 ## Van Polymarket naar Polygon: een investeringsanalyse
 
 Polymarket is stilletjes een van de belangrijkste vraagstimulatoren voor het Polygon-netwerk geworden. Tijdens piekhandelsperioden – met name rond grote evenementen zoals de verkiezingen van 2024 – verbruikte Polymarket tot 25% van het totale gas van Polygon, wat zorgde voor aanhoudende pieken in dagelijkse transacties. <a class="link-source-tile" href="https://coinmetrics.substack.com/p/state-of-the-network-issue-283">coinmetrics.substack.com</a>
@@ -462,6 +466,10 @@ Wanneer zou de theoretische airdrop kunnen plaatsvinden? Industriepatronen sugge
 Voor de houders van Polygon zou een Polymarket-tokenlancering ofwel bullish ofwel neutraal kunnen zijn. Als het is ontworpen met POL-synergieën, zou het extra vraag naar de onderliggende infrastructuur kunnen stimuleren. Als het is ontworpen als een puur extractieve laag, zou het zelfs waarde kunnen wegleiden van Polygon naar de applicatielaag.
 
 *Belangrijke opmerking: Polymarket heeft geen officiële plannen voor een native token of airdrop bevestigd. Alle discussie blijft speculatief op basis van industriepatronen en observaties van de gemeenschap.*
+
+</div>
+
+<!-- /PAYWALL -->
 
 ## Conclusie
 

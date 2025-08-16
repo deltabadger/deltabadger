@@ -59,7 +59,7 @@ La tesi centrale è semplice:
 
 **Quando viene stampato più denaro (l'M2 cresce), Bitcoin tende a salire poiché gli investitori cercano alternative agli investimenti tradizionali. Quando la stampa di denaro rallenta o si ferma, Bitcoin tende a sottoperformare.**
 
-<!-- PAYWALL -->
+
 
 ## L'evidenza quantitativa
 
@@ -202,7 +202,11 @@ La combinazione dell'analisi della liquidità con le metriche dal lato dell'offe
 
 Ora, trattate la parte seguente come intrattenimento. Lasciamo che l'IA usi i risultati per prevedere la direzione del prezzo di Bitcoin per i prossimi 12 mesi.
 
-<div class="article__key-part" style="margin-top: 8rem; margin-bottom: 0">
+<!-- PAYWALL -->
+
+<div class="article__playbook widget">
+
+<h1>Playbook <span>α</span></h1>
 
 ## Previsione del prezzo di Bitcoin
 
@@ -255,6 +259,8 @@ Guardando i tuoi grafici:
 **Sommario: Sulla base di condizioni di liquidità favorevoli e livelli moderati di MVRV Z-score, il prezzo di Bitcoin potrebbe raggiungere 150k-200k $+ nei prossimi 6-12 mesi.**
 
 </div>
+
+<!-- /PAYWALL -->
 
 ## La linea di fondo
 

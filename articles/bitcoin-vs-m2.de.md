@@ -61,7 +61,7 @@ Die Kernthese ist einfach:
 
 **Wenn mehr Geld gedruckt wird (M2 wächst), tendiert Bitcoin dazu, zu steigen, da Anleger nach Alternativen zu traditionellen Anlagen suchen. Wenn das Gelddrucken verlangsamt oder gestoppt wird, tendiert Bitcoin dazu, sich unterdurchschnittlich zu entwickeln.**
 
-<!-- PAYWALL -->
+
 
 ## Die quantitativen Beweise
 
@@ -204,7 +204,11 @@ Die Kombination von Liquiditätsanalyse mit angebotsseitigen Metriken ermöglich
 
 Betrachten Sie den folgenden Teil nun als Unterhaltung. Lassen wir die KI die Ergebnisse nutzen, um die Richtung des Bitcoin-Preises für die kommenden 12 Monate vorherzusagen.
 
-<div class="article__key-part" style="margin-top: 8rem; margin-bottom: 0">
+<!-- PAYWALL -->
+
+<div class="article__playbook widget">
+
+<h1>Playbook <span>α</span></h1>
 
 ## Bitcoin-Preisvorhersage
 
@@ -257,6 +261,8 @@ Betrachtung Ihrer Charts:
 **Zusammenfassung: Basierend auf günstigen Liquiditätsbedingungen und moderaten MVRV-Z-Score-Werten könnte der Bitcoin-Preis in den nächsten 6-12 Monaten 150.000-200.000 $+ erreichen.**
 
 </div>
+
+<!-- /PAYWALL -->
 
 ## Das Fazit
 

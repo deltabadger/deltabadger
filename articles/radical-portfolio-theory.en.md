@@ -5,11 +5,11 @@ author_id: 1
 thumbnail: radical-portfolio-theory.avif
 excerpt: "Jeff Park's radical framework shows why traditional stock-bond portfolios no longer work and proposes a new 60/40 split: compliance vs. resistance assets for the modern financial landscape."
 paywall_hook: |
-   <ul>
-       <li>Gold as the traditional resilience asset</li>
-       <li>Permanent Portfolio 2.0</li>
-       <li>The case for Bitcoin</li>
-   </ul>
+    <ul>
+        <li>Radical Portfolio for Bitcoin Maximalists</li>
+        <li>Gold as the traditional resilience asset</li>
+        <li>Permanent Portfolio 2.0</li>
+    </ul>
 x_url: https://x.com/deltabadgerapp/status/1955506609607831798
 telegram_url: https://t.me/deltabadger/106
 published: true
@@ -132,6 +132,12 @@ The low liquidity that makes alternative assets harder to move is actually part 
 </figure>
 {:/nomarkdown}
 
+<!-- PAYWALL -->
+
+<div class="article__playbook widget">
+
+<h1>Playbook <span>α</span></h1>
+
 ## Radically Simple
 
 The radical portfolio may sound complicated, but can really keep the simplicity.
@@ -152,8 +158,6 @@ In the [Unchained interview](https://youtu.be/eq5KGH68EH4?si=l2WVeAb3T2gSNOhB&t=
 {:/nomarkdown}
 
 For a more traditional long-term focused portfolio, it seems more reasonable to replace fixed income STRK with a broad market ETF, which in the long run potentially offers much better and more diversified returns.
-
-<!-- PAYWALL -->
 
 ### Gold: The OG Resilience
 
@@ -198,6 +202,10 @@ Which leads us to my favorite framework of mixing all four of those asset classe
 <figcaption class="article__figure__caption">Stocks, Bitcoin, Gold — the new permanent portfolio</figcaption>
 </figure>
 {:/nomarkdown}
+
+</div>
+
+<!-- /PAYWALL -->
 
 ### Bitcoin: The New Resilience
 

@@ -8,9 +8,7 @@ x_url: https://x.com/deltabadgerapp/status/1939622461768892684
 telegram_url: https://t.me/deltabadger/91
 paywall_hook: |
     <ul>
-        <li>The model that predicts Bitcoin's direction with 83% accuracy</li>
-        <li>How to improve it with on-chain data</li>
-        <li>AI price prediction for the next 12 months</li>
+        <li>Predicting Bitcoin price movement with AI based on the M2 correlation model</li>
     </ul>
 published: true
 published_at: "2025-07-01"
@@ -60,8 +58,6 @@ When looking at Bitcoin's connection to money policy, M2 matters because it show
 The core thesis is simple:
 
 **When more money gets printed (M2 grows), Bitcoin tends to go up as investors look for alternatives to traditional investments. When money printing slows down or stops, Bitcoin tends to underperform.**
-
-<!-- PAYWALL -->
 
 ## The Quantitative Evidence
 
@@ -204,7 +200,11 @@ Combining liquidity analysis with supply-side metrics provides superior timing:
 
 Now, treat the following as an entertainment part. Let's let AI use the findings to predict the Bitcoin price direction for the coming 12 months.
 
-<div class="article__key-part" style="margin-top: 8rem; margin-bottom: 0">
+<!-- PAYWALL -->
+
+<div class="article__playbook widget">
+
+<h1>Playbook <span>α</span></h1>
 
 ## Bitcoin Price Prediction
 
@@ -257,6 +257,8 @@ Looking at your charts:
 **Summary: Based on favorable liquidity conditions and moderate MVRV Z-score levels, Bitcoin price could reach $150k-200k+ in the next 6-12 months.**
 
 </div>
+
+<!-- /PAYWALL -->
 
 ## The Bottom Line
 
