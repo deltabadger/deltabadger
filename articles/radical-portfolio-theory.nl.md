@@ -5,11 +5,11 @@ author_id: 1
 thumbnail: radical-portfolio-theory.avif
 excerpt: "Jeff Park's radicale framework laat zien waarom traditionele aandelen-obligatie portefeuilles niet meer werken en stelt een nieuwe 60/40 verdeling voor: conformerende (compliant) vs. veerkrachtige (resilient) activa voor het moderne financiële landschap."
 paywall_hook: |
-   <ul>
-       <li>Goud als traditioneel veerkracht-actief</li>
-       <li>Permanent Portfolio 2.0</li>
-       <li>De casus voor Bitcoin</li>
-   </ul>
+    <ul>
+        <li>Radicale Portefeuille voor Bitcoin Maximalisten</li>
+        <li>Goud als traditioneel veerkracht-actief</li>
+        <li>Permanent Portfolio 2.0</li>
+    </ul>
 x_url: https://x.com/deltabadgerapp/status/1955506609607831798
 telegram_url: https://t.me/deltabadger/106
 published: true
@@ -135,6 +135,12 @@ De lage liquiditeit die alternatieve activa moeilijker verplaatsbaar maakt, is e
 
 De radicale portefeuille kan ingewikkeld klinken, maar kan echt eenvoudig blijven.
 
+<!-- PAYWALL -->
+
+<div class="article__playbook widget">
+
+<h1>Playbook <span>α</span></h1>
+
 ### Veerkrachtige maximalist
 
 In het [Unchained interview](https://youtu.be/eq5KGH68EH4?si=l2WVeAb3T2gSNOhB&t=4192) maakt Jeff de observatie dat veel Bitcoiners zowel Bitcoin als MSTR-aandelen kopen, waarbij beide activa volledig gecorreleerd zijn. Een betere opstelling, die Bitcoin-maximalisten nog steeds zouden kunnen waarderen, zou zijn om Bitcoin aan te vullen met de STRK ticker—het Strategy preferente aandeel met zijn **8% dividendcoupon**. Beide activa zijn gebaseerd op het geloof in Bitcoin-groei, maar het vaste inkomen van 8% biedt betekenisvolle diversificatie voor Bitcoin-volatiliteit.
@@ -151,8 +157,6 @@ In het [Unchained interview](https://youtu.be/eq5KGH68EH4?si=l2WVeAb3T2gSNOhB&t=
 {:/nomarkdown}
 
 Voor een meer traditionele, op de lange termijn gerichte portefeuille lijkt het redelijker om het vastrentende STRK te vervangen door een brede markt-ETF, die op de lange termijn potentieel veel betere en meer gediversifieerde rendementen biedt.
-
-
 
 ### Goud: De OG veerkracht
 
@@ -197,6 +201,10 @@ Wat ons brengt bij mijn favoriete framework voor het mengen van alle vier deze a
 <figcaption class="article__figure__caption">Aandelen, Bitcoin, Goud — de nieuwe permanente portefeuille</figcaption>
 </figure>
 {:/nomarkdown}
+
+</div>
+
+<!-- /PAYWALL -->
 
 ### Bitcoin: De nieuwe veerkracht
 

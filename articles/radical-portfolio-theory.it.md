@@ -5,11 +5,11 @@ author_id: 1
 thumbnail: radical-portfolio-theory.avif
 excerpt: "Il framework radicale di Jeff Park mostra perché i tradizionali portafogli azioni-obbligazioni non funzionano più e propone una nuova divisione 60/40: asset conformi (compliant) vs. asset resilienti (resilient) per il panorama finanziario moderno."
 paywall_hook: |
-   <ul>
-       <li>L'oro come asset di resilienza tradizionale</li>
-       <li>Portafoglio Permanente 2.0</li>
-       <li>Il caso del Bitcoin</li>
-   </ul>
+    <ul>
+        <li>Portafoglio Radicale per Massimalisti Bitcoin</li>
+        <li>L'oro come asset di resilienza tradizionale</li>
+        <li>Portafoglio Permanente 2.0</li>
+    </ul>
 x_url: https://x.com/deltabadgerapp/status/1955506609607831798
 telegram_url: https://t.me/deltabadger/106
 published: true
@@ -135,6 +135,12 @@ La bassa liquidità che rende gli asset alternativi più difficili da spostare �
 
 Il portafoglio radicale può sembrare complicato, ma può davvero rimanere semplice.
 
+<!-- PAYWALL -->
+
+<div class="article__playbook widget">
+
+<h1>Playbook <span>α</span></h1>
+
 ### Massimalista resiliente
 
 Nell'[intervista Unchained](https://youtu.be/eq5KGH68EH4?si=l2WVeAb3T2gSNOhB&t=4192), Jeff fa l'osservazione che molti Bitcoiner comprano sia Bitcoin che azioni MSTR, con entrambi gli asset completamente correlati. Un setup migliore, che i massimalisti Bitcoin potrebbero ancora apprezzare, sarebbe complementare Bitcoin con il ticker STRK—l'azione privilegiata Strategy con la sua **cedola di dividendo dell'8%**. Entrambi gli asset si basano sulla convinzione nella crescita del Bitcoin, ma il reddito fisso dell'8% fornisce una diversificazione significativa alla volatilità del Bitcoin.
@@ -151,8 +157,6 @@ Nell'[intervista Unchained](https://youtu.be/eq5KGH68EH4?si=l2WVeAb3T2gSNOhB&t=4
 {:/nomarkdown}
 
 Per un portafoglio più tradizionale focalizzato sul lungo termine, sembra più ragionevole sostituire STRK a reddito fisso con un ETF di mercato ampio, che nel lungo periodo potenzialmente offre rendimenti molto migliori e più diversificati.
-
-
 
 ### Oro: La resilienza originale
 
@@ -197,6 +201,10 @@ Il che ci porta al mio framework preferito di miscelazione di tutte e quattro qu
 <figcaption class="article__figure__caption">Azioni, Bitcoin, Oro — il nuovo portafoglio permanente</figcaption>
 </figure>
 {:/nomarkdown}
+
+</div>
+
+<!-- /PAYWALL -->
 
 ### Bitcoin: La nuova resilienza
 

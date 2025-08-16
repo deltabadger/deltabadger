@@ -5,11 +5,12 @@ author_id: 1
 thumbnail: radical-portfolio-theory.avif
 excerpt: "Radykalne podejście Jeffa Parka pokazuje, dlaczego tradycyjne portfele akcji i obligacji już nie działają i proponuje nowy podział 60/40: aktywa zgodne (compliant) vs. aktywa odporne (resilient) dla współczesnego krajobrazu finansowego."
 paywall_hook: |
-   <ul>
-       <li>Złoto jako tradycyjny aktyw odporności</li>
-       <li>Portfel Permanentny 2.0</li>
-       <li>Argument za Bitcoinem</li>
-   </ul>
+    <ul>
+        <li>Radykalny portfel dla bitcoinowych maksymalistów</li>
+        <li>Złoto jako tradycyjny aktyw odporności</li>
+        <li>Portfel permanentny 2.0</li>
+        <li>Argument za Bitcoinem</li>
+    </ul>
 x_url: https://x.com/deltabadgerapp/status/1955506609607831798
 telegram_url: https://t.me/deltabadger/106
 published: true
@@ -135,6 +136,12 @@ Niska płynność, która sprawia, że aktywa alternatywne są trudniejsze do pr
 
 Portfel radykalny może brzmieć skomplikowanie, ale może pozostać naprawdę prosty.
 
+<!-- PAYWALL -->
+
+<div class="article__playbook widget">
+
+<h1>Playbook <span>α</span></h1>
+
 ### Odporny maksymalista
 
 W [wywiadzie Unchained](https://youtu.be/eq5KGH68EH4?si=l2WVeAb3T2gSNOhB&t=4192), Jeff zauważa, że wielu "bitkojniarzy" kupuje zarówno Bitcoin, jak i akcje MSTR, przy czym oba aktywa są całkowicie skorelowane. Lepszą konfiguracją, którą maksymaliści Bitcoin mogliby nadal docenić, byłoby uzupełnienie Bitcoina o ticker STRK—akcje uprzywilejowane Strategy z ich **8% kuponem dywidendowym**. Oba aktywa opierają się na wierze we wzrost Bitcoina, ale stały dochód 8% zapewnia znaczącą dywersyfikację dla zmienności Bitcoina.
@@ -197,6 +204,10 @@ Co prowadzi nas do mojego ulubionego frameworku mieszania wszystkich czterech kl
 <figcaption class="article__figure__caption">Akcje, Bitcoin, Złoto — nowy portfel permanentny</figcaption>
 </figure>
 {:/nomarkdown}
+
+</div>
+
+<!-- /PAYWALL -->
 
 ### Bitcoin: Nowa odporność
 

@@ -5,11 +5,11 @@ author_id: 1
 thumbnail: radical-portfolio-theory.avif
 excerpt: "Jeff Parks radikaler Ansatz zeigt, warum traditionelle Aktien-Anleihen-Portfolios nicht mehr funktionieren und schlägt eine neue 60/40-Aufteilung vor: konforme (compliant) vs. widerstandsfähige (resilient) Vermögenswerte für die moderne Finanzlandschaft."
 paywall_hook: |
-   <ul>
-       <li>Gold als traditioneller Resilienz-Asset</li>
-       <li>Permanent Portfolio 2.0</li>
-       <li>Der Fall für Bitcoin</li>
-   </ul>
+    <ul>
+        <li>Radikales Portfolio für Bitcoin-Maximalisten</li>
+        <li>Gold als traditioneller Resilienz-Asset</li>
+        <li>Permanent Portfolio 2.0</li>
+    </ul>
 x_url: https://x.com/deltabadgerapp/status/1955506609607831798
 telegram_url: https://t.me/deltabadger/106
 published: true
@@ -135,6 +135,12 @@ Die geringe Liquidität, die alternative Vermögenswerte schwerer beweglich mach
 
 Das radikale Portfolio mag kompliziert klingen, kann aber wirklich einfach bleiben.
 
+<!-- PAYWALL -->
+
+<div class="article__playbook widget">
+
+<h1>Playbook <span>α</span></h1>
+
 ### Widerstandsfähiger Maximalist
 
 Im [Unchained-Interview](https://youtu.be/eq5KGH68EH4?si=l2WVeAb3T2gSNOhB&t=4192) macht Jeff die Beobachtung, dass viele Bitcoiner sowohl Bitcoin als auch MSTR-Aktien kaufen, wobei beide Vermögenswerte vollständig korreliert sind. Eine bessere Konfiguration, die Bitcoin-Maximalisten immer noch schätzen könnten, wäre die Ergänzung von Bitcoin mit dem STRK-Ticker—die Strategy-Vorzugsaktie mit ihrem **8% Dividendenkupon**. Beide Vermögenswerte basieren auf dem Glauben an das Bitcoin-Wachstum, aber das feste Einkommen von 8% bietet eine bedeutende Diversifikation zur Bitcoin-Volatilität.
@@ -151,8 +157,6 @@ Im [Unchained-Interview](https://youtu.be/eq5KGH68EH4?si=l2WVeAb3T2gSNOhB&t=4192
 {:/nomarkdown}
 
 Für ein traditionelleres, langfristig orientiertes Portfolio erscheint es sinnvoller, das festverzinsliche STRK durch einen breiten Markt-ETF zu ersetzen, der langfristig potenziell viel bessere und diversifiziertere Renditen bietet.
-
-
 
 ### Gold: Die ursprüngliche Widerstandsfähigkeit
 
@@ -197,6 +201,10 @@ Was uns zu meinem bevorzugten Konzept der Mischung aller vier Anlageklassen füh
 <figcaption class="article__figure__caption">Aktien, Bitcoin, Gold — das neue permanente Portfolio</figcaption>
 </figure>
 {:/nomarkdown}
+
+</div>
+
+<!-- /PAYWALL -->
 
 ### Bitcoin: Die neue Widerstandsfähigkeit
 
