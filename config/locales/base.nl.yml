@@ -28,6 +28,7 @@ nl:
         select_plan: 'Selecteer plan'
         back_to_dashboard: 'Ga naar dashboard'
         subscribe: 'Abonneren'
+        unlock: 'Ontgrendelen'
     data_labels:
         invested: "Totaal geïnvesteerd"
         portfolio_value: "Portfoliowaarde"
