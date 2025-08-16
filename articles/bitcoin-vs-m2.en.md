@@ -85,6 +85,8 @@ The shorter-term connections are weaker because Bitcoin is volatile and gets aff
 | Bonds (BND) | 0.18 |
 | Treasury Long Term (TLT) | 0.15 |
 
+<!-- /PAYWALL -->
+
 ## 12-Week Lead Pattern?
 
 While Lyn Alden's research established the strong correlation and directional alignment between Bitcoin and global M2, what grabbed people's attention was the **12-week lead** pattern, shared by Julien Bittel, CFA and Head of Macro Research at Global Macro Investor:
