@@ -183,7 +183,7 @@ Spośród wszystkich głównych sieci **TRON jest najbardziej scentralizowany**,
 
 <!-- PAYWALL -->
 
-<div class="article__playbook widget">
+<div class="playbook widget">
 
 <h1>Playbook <span>α</span></h1>
 
@@ -247,10 +247,10 @@ Spośród wszystkich głównych sieci **TRON jest najbardziej scentralizowany**,
 
 Alokacja oparta na podaży to handel oparty na fundamentach – potencjalnie opowiadający dokładniejszą historię niż kapitalizacje aktywów. Bardziej konserwatywni inwestorzy mogą uznać kapitalizację rynkową za źródło informacji, które zawiera pełniejsze informacje. Nie ma tu jednej oczywistej odpowiedzi, ponieważ oba pomysły mają swoje zalety.
 
-Chociaż TRON może być dla wielu wątpliwy, Ethereum – pierwsza platforma smart kontraktów – pozostaje liderem zdecentralizowanych finansów. Jeśli jednak to się zmieni, śledzenie publicznie dostępnych wskaźników i rebalansowanie portfela co 3 miesiące pozwala nam utrzymać trafność alokacji.
-
-**Która alokacja jest Twoją ulubioną? Dołącz do dyskusji na Telegramie.**
-
 </div>
 
 <!-- /PAYWALL -->
+
+Chociaż TRON może być dla wielu wątpliwy, Ethereum – pierwsza platforma smart kontraktów – pozostaje liderem zdecentralizowanych finansów. Jeśli jednak to się zmieni, śledzenie publicznie dostępnych wskaźników i rebalansowanie portfela co 3 miesiące pozwala nam utrzymać trafność alokacji.
+
+**Która alokacja jest Twoją ulubioną? Dołącz do dyskusji na Telegramie.**

@@ -133,7 +133,7 @@ La baja liquidez que hace que los activos alternativos sean más difíciles de m
 
 <!-- PAYWALL -->
 
-<div class="article__playbook widget">
+<div class="playbook widget">
 
 <h1>Playbook <span>α</span></h1>
 

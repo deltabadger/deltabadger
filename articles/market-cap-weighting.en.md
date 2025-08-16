@@ -113,7 +113,7 @@ An important difference in the cryptocurrency market is that **not all market ca
 
 <!-- PAYWALL -->
 
-<div class="article__playbook widget">
+<div class="playbook widget">
 
 <h1>Playbook <span>α</span></h1>
 

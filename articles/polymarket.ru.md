@@ -302,7 +302,7 @@ Polymarket работает как простой бинарный рынок п
 
 <!-- PAYWALL -->
 
-<div class="article__playbook widget">
+<div class="playbook widget">
 
 <h1>Playbook <span>α</span></h1>
 

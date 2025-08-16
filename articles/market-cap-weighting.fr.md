@@ -111,7 +111,7 @@ Une différence importante sur le marché des cryptomonnaies est que **toutes le
 
 <!-- PAYWALL -->
 
-<div class="article__playbook widget">
+<div class="playbook widget">
 
 <h1>Playbook <span>α</span></h1>
 

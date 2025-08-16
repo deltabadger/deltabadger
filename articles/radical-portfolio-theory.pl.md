@@ -133,7 +133,7 @@ Niska płynność, która sprawia, że aktywa alternatywne są trudniejsze do pr
 
 <!-- PAYWALL -->
 
-<div class="article__playbook widget">
+<div class="playbook widget">
 
 <h1>Playbook <span>α</span></h1>
 

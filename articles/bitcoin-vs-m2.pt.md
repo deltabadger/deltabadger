@@ -204,7 +204,7 @@ Agora, trate a parte seguinte como entretenimento. Vamos deixar a IA usar as des
 
 <!-- PAYWALL -->
 
-<div class="article__playbook widget">
+<div class="playbook widget">
 
 <h1>Playbook <span>α</span></h1>
 

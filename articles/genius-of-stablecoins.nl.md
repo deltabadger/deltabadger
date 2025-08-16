@@ -183,7 +183,7 @@ Van alle grote netwerken is **TRON het meest gecentraliseerd**, volledig gecontr
 
 <!-- PAYWALL -->
 
-<div class="article__playbook widget">
+<div class="playbook widget">
 
 <h1>Playbook <span>α</span></h1>
 
@@ -247,10 +247,10 @@ Van alle grote netwerken is **TRON het meest gecentraliseerd**, volledig gecontr
 
 Op aanbod gebaseerde toewijzing is een handel op basis van fundamentals – die mogelijk een nauwkeuriger verhaal vertelt dan de kapitalisaties van de activa. Conservatievere beleggers kunnen marktkapitalisatie beschouwen als een bron van informatie die completere informatie bevat. Er is hier geen eenduidig antwoord, aangezien beide ideeën hun verdiensten hebben.
 
-Hoewel TRON voor velen misschien in twijfel wordt getrokken, blijft Ethereum – het eerste smart contract platform – de leider van de gedecentraliseerde financiën. Als dit echter verandert, stelt het volgen van openbaar beschikbare statistieken en het elke 3 maanden herbalanceren van de portefeuille ons in staat om de toewijzing relevant te houden.
-
-**Welke toewijzing is jouw favoriet? Neem deel aan de discussie op Telegram.**
-
 </div>
 
 <!-- /PAYWALL -->
+
+Hoewel TRON voor velen misschien in twijfel wordt getrokken, blijft Ethereum – het eerste smart contract platform – de leider van de gedecentraliseerde financiën. Als dit echter verandert, stelt het volgen van openbaar beschikbare statistieken en het elke 3 maanden herbalanceren van de portefeuille ons in staat om de toewijzing relevant te houden.
+
+**Welke toewijzing is jouw favoriet? Neem deel aan de discussie op Telegram.**

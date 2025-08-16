@@ -183,7 +183,7 @@ Tra tutte le principali reti, **TRON è la più centralizzata**, completamente c
 
 <!-- PAYWALL -->
 
-<div class="article__playbook widget">
+<div class="playbook widget">
 
 <h1>Playbook <span>α</span></h1>
 
@@ -247,10 +247,10 @@ Tra tutte le principali reti, **TRON è la più centralizzata**, completamente c
 
 L'allocazione basata sull'offerta è un'operazione basata sui fondamentali, che potenzialmente racconta una storia più accurata rispetto alle capitalizzazioni degli asset. Gli investitori più conservatori possono considerare la capitalizzazione di mercato come una fonte di informazioni più completa. Non c'è una risposta ovvia qui, poiché entrambe le idee hanno i loro meriti.
 
-Mentre TRON può essere in discussione per molti, Ethereum, la prima piattaforma di smart contract, rimane il leader della finanza decentralizzata. Tuttavia, se le cose cambiano, seguire le metriche disponibili pubblicamente e ribilanciare il portafoglio ogni 3 mesi ci consente di mantenere l'allocazione pertinente.
-
-**Quale allocazione è la tua preferita? Partecipa alla discussione su Telegram.**
-
 </div>
 
 <!-- /PAYWALL -->
+
+Mentre TRON può essere in discussione per molti, Ethereum, la prima piattaforma di smart contract, rimane il leader della finanza decentralizzata. Tuttavia, se le cose cambiano, seguire le metriche disponibili pubblicamente e ribilanciare il portafoglio ogni 3 mesi ci consente di mantenere l'allocazione pertinente.
+
+**Quale allocazione è la tua preferita? Partecipa alla discussione su Telegram.**

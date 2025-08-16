@@ -302,7 +302,7 @@ Les utilisateurs de Deltabadger peuvent maintenant se demander : alors que Polym
 
 <!-- PAYWALL -->
 
-<div class="article__playbook widget">
+<div class="playbook widget">
 
 <h1>Playbook <span>α</span></h1>
 

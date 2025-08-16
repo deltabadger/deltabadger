@@ -69,7 +69,7 @@ Index Universe начинается с **топ-250 криптовалют по 
 
 <!-- PAYWALL -->
 
-<div class="article__playbook widget">
+<div class="playbook widget">
 
 <h1>Playbook <span>α</span></h1>
 

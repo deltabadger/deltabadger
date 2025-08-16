@@ -69,7 +69,7 @@ Dit gebrek aan transparantie over de werkelijke omvang van het **Index Universe*
 
 <!-- PAYWALL -->
 
-<div class="article__playbook widget">
+<div class="playbook widget">
 
 <h1>Playbook <span>α</span></h1>
 

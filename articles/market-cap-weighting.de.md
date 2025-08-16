@@ -111,7 +111,7 @@ Ein wichtiger Unterschied auf dem Kryptowährungsmarkt besteht darin, dass **nic
 
 <!-- PAYWALL -->
 
-<div class="article__playbook widget">
+<div class="playbook widget">
 
 <h1>Playbook <span>α</span></h1>
 
