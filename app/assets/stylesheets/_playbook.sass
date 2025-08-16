@@ -1,19 +1,28 @@
 .playbook
-    padding: 4rem
-    margin: 8rem 0
+    padding: 3rem
+    margin: 6rem 0
     gap: 2rem
+    @media (min-width: 768px)
+      padding: 4rem
+      margin: 8rem 0
     &__content
         gap: 5rem
         display: flex
         flex-direction: column
         @media (min-width: 768px)
             max-width: 58rem
+    .article__figure
+      margin: 2rem 0
+    .pie-chart-wrapper
+      margin: 2rem 0 0
+    .article__figure iframe
+      box-shadow: none
     p
       margin: 0
     h2 
       margin: 2rem 0
     h3
-      margin: 0
+      margin: 2rem 0 0
     h1
       font-size: 4rem
       margin-bottom: 2rem
@@ -36,7 +45,11 @@
     .button
       width: 40rem
       min-width: 40rem
+      &--google
+        box-shadow: 0.2rem 0.2rem 0.75rem #0242 ,0 0 4rem #0241
     &__description
+        p
+          margin-bottom: 2rem
         h3
             margin: 0
             text-align: left !important
