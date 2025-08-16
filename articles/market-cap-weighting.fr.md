@@ -76,7 +76,7 @@ Les actifs plus importants ont généralement une meilleure liquidité, et la po
 
 La pondération par la capitalisation boursière fonctionne-t-elle dans les cryptomonnaies ? Non seulement elle fonctionne, mais on pourrait soutenir qu'elle fonctionne encore mieux. Voici pourquoi :
 
-<!-- PAYWALL -->
+
 
 ### Le marché des cryptomonnaies est plus concentré
 

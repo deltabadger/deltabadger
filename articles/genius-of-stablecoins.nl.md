@@ -8,8 +8,6 @@ x_url: https://x.com/deltabadgerapp/status/1950462030970016075
 telegram_url: https://t.me/deltabadger/101
 paywall_hook: |
    <ul>
-       <li>Welke tokens profiteren van de legitimatie van stablecoins?</li>
-       <li>Is TRON het nieuwe systemische risico voor crypto?</li>
        <li>Drie verschillende toewijzingen for GENIUS Portfolio</li>
    </ul>
 published: true
@@ -114,7 +112,7 @@ Terwijl Europa het financiële equivalent van de Maginotlinie bouwt, en meer dan
 
 > *Elke financiële revolutie creëert miljonairs – maar ze verkopen meestal pikhouwelen en schoppen.*
 
-<!-- PAYWALL -->
+
 
 Kun je investeren in deze bloeiende sector? Absoluut.
 
@@ -159,7 +157,7 @@ Ik geloof van wel.
 * DeFi-protocollen die stablecoins gebruiken, hebben gas nodig voor swaps, leningen en leningen
 * Op proof-of-stake-netwerken verhoogt de toegenomen stablecoin-activiteit de staking-beloningen, waardoor native tokens aantrekkelijker worden
 
-## Het GENIUS-portfolio
+### Het GENIUS-portfolio
 
 DeFiLlama levert stablecoin-aanbodgegevens voor elke blockchain. Door de top 10 blockchains op basis van stablecoin-gebruik te nemen en een portefeuille samen te stellen die is toegewezen op basis van het totale stablecoin-aanbod, worden toewijzingen verkregen die ruwweg gecorreleerd zijn met de weging van de marktkapitalisatie – **met één belangrijke uitzondering: TRON.** <a class="link-source-tile" href="https://defillama.com/stablecoins">defillama.com</a>
 
@@ -182,6 +180,12 @@ Deze dominantie komt voort uit de combinatie van ultralage kosten van TRON (mind
 Als u echter op zoek bent naar een reden waarom de marktkapitalisatie van TRON laag is in verhouding tot het netwerkgebruik, is er eigenlijk een goede verklaring voor deze korting:
 
 Van alle grote netwerken is **TRON het meest gecentraliseerd**, volledig gecontroleerd door de controversiële oprichter Justin Sun, wat zeker een risico toevoegt aan het onderliggende activum. Hoewel Tether misschien geen bedreiging meer is, vertegenwoordigt TRON ofwel een potentieel volgend systeemrisico voor de cryptocurrency-markt ofwel een ondergewaardeerde investeringsmogelijkheid.
+
+<!-- PAYWALL -->
+
+<div class="article__playbook widget">
+
+<h1>Playbook <span>α</span></h1>
 
 **Dit geeft ons weegopties voor de portefeuille:**
 1. Volg de statistieken over de uitgifte van stablecoins.
@@ -245,4 +249,6 @@ Op aanbod gebaseerde toewijzing is een handel op basis van fundamentals – die 
 
 Hoewel TRON voor velen misschien in twijfel wordt getrokken, blijft Ethereum – het eerste smart contract platform – de leider van de gedecentraliseerde financiën. Als dit echter verandert, stelt het volgen van openbaar beschikbare statistieken en het elke 3 maanden herbalanceren van de portefeuille ons in staat om de toewijzing relevant te houden.
 
-**Welke toewijzing is jouw favoriet? Neem deel aan de discussie op Telegram.** 
+**Welke toewijzing is jouw favoriet? Neem deel aan de discussie op Telegram.**
+
+<!-- /PAYWALL -->

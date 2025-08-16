@@ -152,7 +152,7 @@ Na [entrevista da Unchained](https://youtu.be/eq5KGH68EH4?si=l2WVeAb3T2gSNOhB&t=
 
 Para uma carteira mais tradicional focada no longo prazo, parece mais razoável substituir o STRK de rendimento fixo por um ETF de mercado amplo, que a longo prazo potencialmente oferece retornos muito melhores e mais diversificados.
 
-<!-- PAYWALL -->
+
 
 ### Ouro: A resiliência original
 

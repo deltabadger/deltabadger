@@ -76,7 +76,7 @@ Grotere activa hebben doorgaans een betere liquiditeit, en market cap weighting 
 
 Werkt market cap weighting in crypto? Het werkt niet alleen, je zou kunnen stellen dat het zelfs beter werkt. Hier is waarom:
 
-<!-- PAYWALL -->
+
 
 ### De cryptomarkt is meer geconcentreerd
 

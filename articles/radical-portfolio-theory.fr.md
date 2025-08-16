@@ -152,7 +152,7 @@ Dans l'[interview Unchained](https://youtu.be/eq5KGH68EH4?si=l2WVeAb3T2gSNOhB&t=
 
 Pour un portefeuille plus traditionnel axé sur le long terme, il semble plus raisonnable de remplacer le STRK à revenu fixe par un ETF de marché large, qui à long terme offre potentiellement des rendements beaucoup meilleurs et plus diversifiés.
 
-<!-- PAYWALL -->
+
 
 ### L'or : La résilience originelle
 

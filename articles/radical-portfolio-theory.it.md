@@ -152,7 +152,7 @@ Nell'[intervista Unchained](https://youtu.be/eq5KGH68EH4?si=l2WVeAb3T2gSNOhB&t=4
 
 Per un portafoglio più tradizionale focalizzato sul lungo termine, sembra più ragionevole sostituire STRK a reddito fisso con un ETF di mercato ampio, che nel lungo periodo potenzialmente offre rendimenti molto migliori e più diversificati.
 
-<!-- PAYWALL -->
+
 
 ### Oro: La resilienza originale
 

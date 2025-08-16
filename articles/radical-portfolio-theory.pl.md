@@ -152,7 +152,7 @@ W [wywiadzie Unchained](https://youtu.be/eq5KGH68EH4?si=l2WVeAb3T2gSNOhB&t=4192)
 
 Dla bardziej tradycyjnego portfela skoncentrowanego na długim terminie, wydaje się bardziej rozsądne zastąpienie STRK o stałym dochodzie szerokim ETF-em rynkowym, który w długim terminie potencjalnie oferuje znacznie lepsze i bardziej zdywersyfikowane zwroty.
 
-<!-- PAYWALL -->
+
 
 ### Złoto: Tradycyjna odporność
 

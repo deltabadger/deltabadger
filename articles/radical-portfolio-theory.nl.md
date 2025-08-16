@@ -152,7 +152,7 @@ In het [Unchained interview](https://youtu.be/eq5KGH68EH4?si=l2WVeAb3T2gSNOhB&t=
 
 Voor een meer traditionele, op de lange termijn gerichte portefeuille lijkt het redelijker om het vastrentende STRK te vervangen door een brede markt-ETF, die op de lange termijn potentieel veel betere en meer gediversifieerde rendementen biedt.
 
-<!-- PAYWALL -->
+
 
 ### Goud: De OG veerkracht
 

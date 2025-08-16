@@ -10,8 +10,9 @@ en:
     premium_content: "Premium"
     back_to_articles: "← Back to articles"
     paywall:
-      title: "Subscribe to continue reading"
-      description: |
-        We are a community of long-term investors in digital assets. Gain access to:<br><b>weekly articles &middot; portfolio analyzer &middot; smart DCA bots</b>
+      title: "Unlock Playbook."
+      description_html: |
+        <h3><strong>Playbook</strong> is a premium section with actionable tactics and strategies directly applicable to your portfolio.</h3>
+        <p>In this playbook:</p>
     like_on_x: "Like it on 𝕏"
     join_discussion: "Join discussion in the Community"

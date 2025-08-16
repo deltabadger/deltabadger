@@ -76,7 +76,7 @@ Większe aktywa zazwyczaj mają lepszą płynność, a ważenie kapitalizacją r
 
 Czy ważenie kapitalizacją rynkową działa w krypto? Nie tylko działa, ale można argumentować, że działa nawet lepiej. Oto dlaczego:
 
-<!-- PAYWALL -->
+
 
 ### Rynek kryptowalut jest bardziej skoncentrowany
 

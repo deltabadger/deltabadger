@@ -48,7 +48,7 @@ Everything begins with the **Index Universe**—CoinDesk's foundational methodol
 
 The Index Universe starts with the **top 250 cryptocurrencies by market capitalization**, then applies a set of strict quality filters:
 
-<!-- PAYWALL -->
+
 
 **What gets eliminated immediately:**
 

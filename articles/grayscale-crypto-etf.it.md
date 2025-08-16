@@ -47,7 +47,7 @@ Tutto inizia con l'**Index Universe**, la metodologia fondamentale di CoinDesk p
 
 L'Index Universe parte dalle **prime 250 criptovalute per capitalizzazione di mercato**, quindi applica una serie di rigorosi filtri di qualità:
 
-<!-- PAYWALL -->
+
 
 **Cosa viene eliminato immediatamente:**
 

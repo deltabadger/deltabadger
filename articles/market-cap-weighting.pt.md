@@ -76,7 +76,7 @@ Os ativos maiores têm normalmente melhor liquidez, e a ponderação por capital
 
 A ponderação por capitalização de mercado funciona em cripto? Não só funciona, como se poderia argumentar que funciona ainda melhor. Eis o porquê:
 
-<!-- PAYWALL -->
+
 
 ### O Mercado de Criptomoedas é Mais Concentrado
 

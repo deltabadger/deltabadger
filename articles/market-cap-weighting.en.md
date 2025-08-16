@@ -76,7 +76,7 @@ Larger assets typically have better liquidity, and market cap weighting naturall
 
 Does market cap weighting work in crypto? Not only does it work, but you could argue it works even better. Here's why:
 
-<!-- PAYWALL -->
+
 
 ### Cryptocurrency Market Is More Concentrated
 

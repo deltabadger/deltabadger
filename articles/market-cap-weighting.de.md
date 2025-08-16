@@ -76,7 +76,7 @@ Größere Vermögenswerte haben in der Regel eine bessere Liquidität, und die G
 
 Funktioniert die Marktkapitalisierungsgewichtung in Krypto? Sie funktioniert nicht nur, man könnte sogar argumentieren, dass sie noch besser funktioniert. Hier ist der Grund:
 
-<!-- PAYWALL -->
+
 
 ### Der Kryptowährungsmarkt ist konzentrierter
 

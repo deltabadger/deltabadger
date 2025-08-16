@@ -153,7 +153,7 @@ In the [Unchained interview](https://youtu.be/eq5KGH68EH4?si=l2WVeAb3T2gSNOhB&t=
 
 For a more traditional long-term focused portfolio, it seems more reasonable to replace fixed income STRK with a broad market ETF, which in the long run potentially offers much better and more diversified returns.
 
-<!-- PAYWALL -->
+
 
 ### Gold: The OG Resilience
 

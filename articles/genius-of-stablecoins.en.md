@@ -8,8 +8,6 @@ x_url: https://x.com/deltabadgerapp/status/1950462030970016075
 telegram_url: https://t.me/deltabadger/101
 paywall_hook: |
    <ul>
-       <li>Which tokens benefit from stablecoin legitimization?</li>
-       <li>Is TRON the new systemic risk for crypto?</li>
        <li>Three different allocations for GENIUS Portfolio</li>
    </ul>
 published: true
@@ -114,8 +112,6 @@ While Europe builds the financial equivalent of the Maginot Line, spending over 
 
 > *Every financial revolution creates millionaires—but they're usually selling picks and shovels.*
 
-<!-- PAYWALL -->
-
 Can you invest in this booming sector? Absolutely.
 
 Stablecoins are not growth assets, but the underlying infrastructure is built on networks supported by native tokens. Let's take a closer look at blockchians in play.
@@ -159,7 +155,7 @@ We believe so.
 * DeFi protocols using stablecoins need gas for swaps, lending, and borrowing
 * On proof-of-stake networks, increased stablecoin activity drives staking rewards, making native tokens more attractive
 
-## The GENIUS Portfolio
+### The Portfolio
 
 DeFiLlama provides stablecoin supply data for each blockchain. Taking the top 10 blockchains by stablecoin usage and building a portfolio allocated by total stablecoin supply yields allocations roughly correlated with market cap weighting—**with one significant exception: TRON.** <a class="link-source-tile" href="https://defillama.com/stablecoins">defillama.com</a>
 
@@ -182,10 +178,16 @@ This dominance stems from TRON's combination of ultra-low fees (under $0.10), fa
 However, if you're looking for a reason why TRON's market cap is low relative to its network usage, there's actually a good explanation for this discount:
 Among all major networks, **TRON is the most centralized**, fully controlled by controversial founder Justin Sun, which adds significant risk to the underlying asset. While Tether may not be a threat anymore, TRON represents either a potential next systemic risk to the cryptocurrency market or an underappreciated investment opportunity.
 
-**This gives us portfolio weighting options:**
-1. Follow stablecoin issuance metrics.
-2. Use market capitalization (to reduce TRON exposure).
-3. Exclude TRON entirely.
+<!-- PAYWALL -->
+
+<div class="article__playbook widget">
+
+<h1>Playbook <span>α</span></h1>
+
+**This gives us three portfolio weighting options:**
+1. Follow stablecoin supply data
+2. Use market capitalization weighting (reducing TRON exposure)
+3. Exclude TRON completely
 
 {::nomarkdown}
 <figure class="article__figure" data-controller="pie-chart" data-pie-chart-data-value="#627EEA,ETH,Ethereum,51.7
@@ -245,3 +247,5 @@ Supply-based allocation is a trade based on fundamentals—potentially telling a
 While TRON may be in question for many, Ethereum—the first smart contract platform—remains the leader of decentralized finance. However, if it changes, following publicly available metrics and rebalancing portfolio every 3 months allows us to keep allocation relevant.
 
 **Which allocation is your favorite? Join the discussion on Telegram.**
+
+<!-- /PAYWALL -->

@@ -300,7 +300,7 @@ A plataforma utiliza o Oráculo Otimista da UMA descentralizado para as resoluç
 
 Os utilizadores da Deltabadger podem agora perguntar: À medida que a Polymarket continua a crescer – com parcerias como a do X, o apoio de titãs da tecnologia como Elon Musk e um crescimento projetado de 100x até 2028 – como é que isso poderá impactar a infraestrutura subjacente que a alimenta?
 
-<!-- PAYWALL -->
+
 
 ## Da Polymarket à Polygon: Análise de Investimento
 

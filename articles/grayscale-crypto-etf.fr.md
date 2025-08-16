@@ -47,7 +47,7 @@ Tout commence avec l'**Index Universe** — la méthodologie fondamentale de Coi
 
 L'Index Universe part des **250 premières cryptomonnaies par capitalisation boursière**, puis applique un ensemble de filtres de qualité stricts :
 
-<!-- PAYWALL -->
+
 
 **Ce qui est éliminé immédiatement :**
 

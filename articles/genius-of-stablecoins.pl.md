@@ -8,8 +8,6 @@ x_url: https://x.com/deltabadgerapp/status/1950462030970016075
 telegram_url: https://t.me/deltabadger/101
 paywall_hook: |
    <ul>
-       <li>Które tokeny korzystają z legitymizacji stablecoinów?</li>
-       <li>Czy TRON to nowe ryzyko systemowe dla kryptowalut?</li>
        <li>Trzy różne alokacje dla Portfela GENIUS</li>
    </ul>
 published: true
@@ -114,7 +112,7 @@ Podczas gdy Europa buduje finansowy odpowiednik Linii Maginota, wydając ponad 1
 
 > *Każda rewolucja finansowa tworzy milionerów – ale zazwyczaj sprzedają oni kilofy i łopaty.*
 
-<!-- PAYWALL -->
+
 
 Czy można inwestować w ten dynamicznie rozwijający się sektor? Oczywiście.
 
@@ -159,7 +157,7 @@ Wierzę, że tak.
 * Protokoły DeFi wykorzystujące stablecoiny potrzebują gazu do swapów, pożyczek i pożyczek
 * W sieciach proof-of-stake zwiększona aktywność stablecoinów zwiększa nagrody za stakowanie, czyniąc tokeny natywne bardziej atrakcyjnymi
 
-## Portfel GENIUS
+### Portfel
 
 DeFiLlama dostarcza dane o podaży stablecoinów dla każdego blockchaina. Biorąc pod uwagę 10 najlepszych blockchainów pod względem wykorzystania stablecoinów i budując portfel alokowany według całkowitej podaży stablecoinów, uzyskuje się alokacje z grubsza skorelowane z wagą kapitalizacji rynkowej – **z jednym znaczącym wyjątkiem: TRON.** <a class="link-source-tile" href="https://defillama.com/stablecoins">defillama.com</a>
 
@@ -182,6 +180,12 @@ Ta dominacja wynika z połączenia ultra niskich opłat TRON (poniżej 0,10 USD)
 Jeśli jednak szukasz powodu, dla którego kapitalizacja rynkowa TRON jest niska w stosunku do wykorzystania jego sieci, istnieje na to dobre wyjaśnienie:
 
 Spośród wszystkich głównych sieci **TRON jest najbardziej scentralizowany**, w pełni kontrolowany przez kontrowersyjnego założyciela Justina Suna, co z pewnością dodaje ryzyka do bazowego aktywa. Chociaż Tether może już nie być zagrożeniem, TRON stanowi potencjalne następne ryzyko systemowe dla rynku kryptowalut lub niedocenianą okazję inwestycyjną.
+
+<!-- PAYWALL -->
+
+<div class="article__playbook widget">
+
+<h1>Playbook <span>α</span></h1>
 
 **To daje nam opcje ważenia portfela:**
 1. Postępuj zgodnie z metrykami emisji stablecoinów.
@@ -245,4 +249,6 @@ Alokacja oparta na podaży to handel oparty na fundamentach – potencjalnie opo
 
 Chociaż TRON może być dla wielu wątpliwy, Ethereum – pierwsza platforma smart kontraktów – pozostaje liderem zdecentralizowanych finansów. Jeśli jednak to się zmieni, śledzenie publicznie dostępnych wskaźników i rebalansowanie portfela co 3 miesiące pozwala nam utrzymać trafność alokacji.
 
-**Która alokacja jest Twoją ulubioną? Dołącz do dyskusji na Telegramie.** 
+**Która alokacja jest Twoją ulubioną? Dołącz do dyskusji na Telegramie.**
+
+<!-- /PAYWALL -->

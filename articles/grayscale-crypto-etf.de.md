@@ -47,7 +47,7 @@ Alles beginnt mit dem **Index Universe** – der grundlegenden Methodik von Coin
 
 Das Index Universe beginnt mit den **Top-250-Kryptowährungen nach Marktkapitalisierung** und wendet dann eine Reihe strenger Qualitätsfilter an:
 
-<!-- PAYWALL -->
+
 
 **Was sofort eliminiert wird:**
 

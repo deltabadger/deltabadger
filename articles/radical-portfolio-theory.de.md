@@ -152,7 +152,7 @@ Im [Unchained-Interview](https://youtu.be/eq5KGH68EH4?si=l2WVeAb3T2gSNOhB&t=4192
 
 Für ein traditionelleres, langfristig orientiertes Portfolio erscheint es sinnvoller, das festverzinsliche STRK durch einen breiten Markt-ETF zu ersetzen, der langfristig potenziell viel bessere und diversifiziertere Renditen bietet.
 
-<!-- PAYWALL -->
+
 
 ### Gold: Die ursprüngliche Widerstandsfähigkeit
 

@@ -47,7 +47,7 @@ Alles begint met het **Index Universe**—de fundamentele methodologie van CoinD
 
 Het Index Universe begint met de **top 250 cryptocurrencies op basis van marktkapitalisatie** en past vervolgens een reeks strikte kwaliteitsfilters toe:
 
-<!-- PAYWALL -->
+
 
 **Wat onmiddellijk wordt geëlimineerd:**
 

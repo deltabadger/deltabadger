@@ -76,7 +76,7 @@ Gli asset più grandi hanno in genere una liquidità migliore e la ponderazione 
 
 La ponderazione per capitalizzazione di mercato funziona nelle criptovalute? Non solo funziona, ma si potrebbe sostenere che funzioni anche meglio. Ecco perché:
 
-<!-- PAYWALL -->
+
 
 ### Il Mercato delle Criptovalute è Più Concentrato
 

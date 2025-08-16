@@ -47,7 +47,7 @@ Wszystko zaczyna się od **Index Universe** — fundamentalnej metodologii CoinD
 
 Index Universe zaczyna się od **250 największych kryptowalut pod względem kapitalizacji rynkowej**, a następnie stosuje zestaw rygorystycznych filtrów jakościowych:
 
-<!-- PAYWALL -->
+
 
 **Co jest natychmiast eliminowane:**
 
