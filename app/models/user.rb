@@ -29,6 +29,7 @@ class User < ApplicationRecord
   validates :time_zone, inclusion: { in: ActiveSupport::TimeZone.all.map(&:name), allow_nil: true }
 
   after_update_commit :reset_oauth_credentials, if: :saved_change_to_email?
+  after_update_commit :update_subscribed_to_email_marketing_changed_at, if: :saved_change_to_subscribed_to_email_marketing?
 
   delegate :paid?, to: :subscription
 
@@ -115,7 +116,11 @@ class User < ApplicationRecord
   end
 
   def reset_oauth_credentials
-    update(oauth_provider: nil, oauth_uid: nil)
+    update!(oauth_provider: nil, oauth_uid: nil)
+  end
+
+  def update_subscribed_to_email_marketing_changed_at
+    update!(subscribed_to_email_marketing_changed_at: Time.current)
   end
 
   def active_referrer
