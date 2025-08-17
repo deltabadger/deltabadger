@@ -4,6 +4,7 @@ require 'telegram/bot'
 require 'sidekiq/prometheus/exporter'
 
 Rails.application.routes.draw do
+  mount ::Caffeinate::Engine => '/caffeinate'
 
   get 'sso', to: 'sso#sso'
 
