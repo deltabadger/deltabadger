@@ -40,10 +40,6 @@ module ExchangeApi
           Result::Failure.new('Could not make Kraken order', RECOVERABLE.to_s)
         end
 
-        def send_user_to_sendgrid(exchange_name, user)
-          user.add_to_sendgrid_exchange_list(exchange_name)
-        end
-
         def currency_balance(currency) # rubocop:disable Metrics/CyclomaticComplexity,Metrics/PerceivedComplexity
           balances_res = @client.balance
           return Result::Failure.new(*balances_res['error']) if balances_res['error'].any?
