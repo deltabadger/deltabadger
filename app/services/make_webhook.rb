@@ -33,7 +33,6 @@ class MakeWebhook < BaseService
       settings_params = @update_formatter.call(bot, bot.settings.merge(user: bot.user))
       bot.update(**settings_params.merge({ status: 'executing' }))
       result = @fetch_order_result.call(bot.id, result.data, bot.price.to_f, called_bot: called_bot)
-      send_user_to_sendgrid(bot)
     elsif restart && recoverable?(result)
       result = range_check_result if result.nil?
       Transaction.create!(failed_transaction_params(result, bot))
@@ -72,13 +71,6 @@ class MakeWebhook < BaseService
   end
 
   private
-
-  def send_user_to_sendgrid(bot)
-    return unless bot.successful_transaction_count == 1
-
-    api = get_api(bot)
-    api.send_user_to_sendgrid(bot.exchange.name, bot.user)
-  end
 
   def check_allowable_balance(api, bot)
     balance = api.currency_balance(bot.quote)
