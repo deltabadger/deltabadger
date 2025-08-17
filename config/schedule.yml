@@ -14,6 +14,10 @@ fetch_all_assets_data_from_coingecko_job:
   cron: "20 0 * * 1" # At 00:20 UTC on Monday
   class: "Asset::FetchAllAssetsDataFromCoingeckoJob"
 
+send_caffeinate_emails_job:
+  cron: "* * * * *" # every minute
+  class: "SendCaffeinateEmailsJob"
+
 # update_bots_in_profit_job:
 #   cron: "15 0 * * *" # every day at 00:15 UTC
 #   class: "UpdateBotsInProfitJob"
