@@ -21,10 +21,10 @@ class Users::ConfirmationsController < Devise::ConfirmationsController
   # GET /resource/confirmation?confirmation_token=abcdef
   def show
     super do
-      if resource.previous_changes.key?('unconfirmed_email') && !resource.sendgrid_unsubscribed?
-        email_was = resource.previous_changes['email'].first
-        email_now = resource.previous_changes['email'].last
-        Sendgrid::UpdateEmailJob.perform_later(email_was, email_now)
+      if resource.previous_changes.key?('unconfirmed_email')
+        # email_was = resource.previous_changes['email'].first
+        # email_now = resource.previous_changes['email'].last
+        # TODO: update email in Intercom
       end
     end
   end
