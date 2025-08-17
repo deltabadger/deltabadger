@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema.define(version: 2025_08_08_173412) do
+ActiveRecord::Schema.define(version: 2025_08_17_113413) do
 
   # These are extensions that must be enabled in order to support this database
   enable_extension "plpgsql"
@@ -412,11 +412,12 @@ ActiveRecord::Schema.define(version: 2025_08_08_173412) do
     t.datetime "last_otp_at"
     t.string "name"
     t.boolean "news_banner_dismissed", default: false
-    t.boolean "sendgrid_unsubscribed", default: false
     t.string "time_zone", default: "UTC", null: false
     t.string "oauth_provider"
     t.string "oauth_uid"
     t.boolean "has_community_access", default: false
+    t.boolean "subscribed_to_email_marketing", default: true
+    t.datetime "subscribed_to_email_marketing_changed_at", default: "2025-08-17 19:27:28"
     t.index ["confirmation_token"], name: "index_users_on_confirmation_token", unique: true
     t.index ["email"], name: "index_users_on_email", unique: true
     t.index ["reset_password_token"], name: "index_users_on_reset_password_token", unique: true

@@ -9,12 +9,14 @@ class CustomDeviseMailer < Devise::Mailer
 
   def email_already_taken(email)
     @resource = User.find_by(email: email)
+
     mail(to: email, subject: t('devise.mailer.email_already_taken.subject'))
   end
 
   def confirm_email(record, token)
     @resource = record
     @token = token
+
     mail(to: @resource.unconfirmed_email)
   end
 
