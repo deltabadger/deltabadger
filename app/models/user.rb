@@ -33,7 +33,6 @@ class User < ApplicationRecord
   delegate :paid?, to: :subscription
 
   include Upgradeable
-  include Sendgridable
   include Intercomable
 
   # User/Affiliate relationship:

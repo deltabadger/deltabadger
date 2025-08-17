@@ -1,7 +1,3 @@
-sendgrid_sync_unsubscribes_job:
-  cron: "5 0 * * *" # every day at 00:10 UTC
-  class: "Sendgrid::SyncUnsubscribesJob"
-
 update_metrics_job:
   cron: "10 */4 * * *" # every 4 hours at minute 10
   class: "UpdateMetricsJob"
