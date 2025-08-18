@@ -61,7 +61,11 @@ COLUMN_BREAK
 </figure>
 {:/nomarkdown}
 
-In mijn X-artikel beschrijf ik kort elk bedrijf uit de top 100, maar eerst:
+In mijn X-artikel beschrijf ik kort elk bedrijf uit de top 100:
+
+[The Top 100 Bitcoin Treasury Companies: Who Are They?](https://x.com/klos/status/1957427954444533906)
+
+…maar eerst:
 
 ## Wat is een treasurybedrijf?
 

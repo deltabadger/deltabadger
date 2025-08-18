@@ -61,7 +61,11 @@ COLUMN_BREAK
 </figure>
 {:/nomarkdown}
 
-In meinem X-Artikel beschreibe ich kurz jedes Unternehmen der Top 100, aber zuerst:
+In meinem X-Artikel beschreibe ich kurz jedes Unternehmen der Top 100:
+
+[The Top 100 Bitcoin Treasury Companies: Who Are They?](https://x.com/klos/status/1957427954444533906)
+
+…aber zuerst:
 
 ## Was ist ein Treasury-Unternehmen?
 

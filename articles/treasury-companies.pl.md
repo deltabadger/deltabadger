@@ -61,7 +61,11 @@ COLUMN_BREAK
 </figure>
 {:/nomarkdown}
 
-W moim artykule na X krótko opisuję każdą firmę z pierwszej setki, ale najpierw:
+W moim artykule na X krótko opisuję każdą firmę z pierwszej setki:
+
+[The Top 100 Bitcoin Treasury Companies: Who Are They?](https://x.com/klos/status/1957427954444533906)
+
+…ale najpierw:
 
 ## Czym jest firma skarbcowa?
 
