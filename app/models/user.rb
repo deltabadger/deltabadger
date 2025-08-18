@@ -19,6 +19,7 @@ class User < ApplicationRecord
   has_many :portfolios, dependent: :destroy
   has_many :surveys, dependent: :destroy
   has_many :cards, dependent: :destroy
+  has_many :messages, class_name: 'Ahoy::Message', as: :user
 
   validates :terms_and_conditions, acceptance: true
   validate :active_referrer, on: :create

@@ -3,6 +3,8 @@ class SubscriptionMailer < ApplicationMailer
 
   helper LocalesHelper
 
+  has_history
+
   def subscription_granted
     @payment = params[:payment]
 

@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema.define(version: 2025_08_17_200157) do
+ActiveRecord::Schema.define(version: 2025_08_18_184611) do
 
   # These are extensions that must be enabled in order to support this database
   enable_extension "plpgsql"
@@ -41,6 +41,25 @@ ActiveRecord::Schema.define(version: 2025_08_17_200157) do
     t.index ["code"], name: "index_affiliates_on_code", unique: true
     t.index ["new_btc_address_token"], name: "index_affiliates_on_new_btc_address_token", unique: true
     t.index ["user_id"], name: "index_affiliates_on_user_id", unique: true
+  end
+
+  create_table "ahoy_clicks", force: :cascade do |t|
+    t.string "campaign"
+    t.string "token"
+    t.index ["campaign"], name: "index_ahoy_clicks_on_campaign"
+  end
+
+  create_table "ahoy_messages", force: :cascade do |t|
+    t.string "user_type"
+    t.bigint "user_id"
+    t.string "to"
+    t.string "mailer"
+    t.text "subject"
+    t.datetime "sent_at"
+    t.string "campaign"
+    t.index ["campaign"], name: "index_ahoy_messages_on_campaign"
+    t.index ["to"], name: "index_ahoy_messages_on_to"
+    t.index ["user_type", "user_id"], name: "index_ahoy_messages_on_user_type_and_user_id"
   end
 
   create_table "api_keys", force: :cascade do |t|

@@ -1,4 +1,6 @@
 class AffiliateMailer < ApplicationMailer
+  has_history
+
   def new_btc_address_confirmation
     @user = params[:user]
     @new_btc_address = params[:new_btc_address]
