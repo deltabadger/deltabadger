@@ -236,6 +236,12 @@ The closer MSTR gets to $1,000, the more the premium on STRK will be compressed,
 
 <!-- /PAYWALL -->
 
+## Not Only Bitcoin
+
+As treasury companies became a "hot topic," we see more and more companies trying to replicate this model for other assets. For example, Tom Lee's Ethereum Treasury BitMine (BMNR) holds over 1.15 million ETH, while DeFi Development Corp (DFDV) has accumulated over 175,000 SOL. <a class="link-source-tile" href="https://finance.yahoo.com/news/tom-lees-ethereum-treasury-bitmine-174118221.html">yahoo.com</a>
+
+Proof-of-Stake assets like Ethereum and Solana theoretically offer a significant advantage: staking yield could provide meaningful revenue for the company. However, we can't forget about past currencies like Dash, where despite significant protocol yields, the tokenomics weren't enough to prevent collapse. The model only works if the network continues attracting new capital.
+
 ## Conclusion
 
 Treasury companies are a completely new market play. The past never fully predicts the future, but in this case we simply lack historical data to model such a future. It's a market bet on hyperbitcoinization, accessible for stock investors and institutions. Remember that even if you strongly believe in the Saylor thesis, the first thing to look at is holding Bitcoin directly. However, treasury companies can be an interesting option to extend your Bitcoin exposure in places where it was previously impossible (retirement accounts), or to benefit from the stability of the fixed income tickers.

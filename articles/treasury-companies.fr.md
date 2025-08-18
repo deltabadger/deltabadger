@@ -236,6 +236,12 @@ Plus MSTR se rapproche de 1 000 $, plus la prime sur STRK sera compressée, donc
 
 <!-- /PAYWALL -->
 
+## Pas seulement Bitcoin
+
+Alors que les entreprises de trésorerie sont devenues un "sujet brûlant", nous voyons de plus en plus d'entreprises essayer de répliquer ce modèle pour d'autres actifs. Par exemple, Ethereum Treasury BitMine (BMNR) de Tom Lee détient plus de 1,15 million d'ETH, tandis que DeFi Development Corp (DFDV) a accumulé plus de 175 000 SOL. <a class="link-source-tile" href="https://finance.yahoo.com/news/tom-lees-ethereum-treasury-bitmine-174118221.html">yahoo.com</a>
+
+Les actifs Proof-of-Stake comme Ethereum et Solana offrent théoriquement un avantage significatif : les rendements de staking pourraient fournir des revenus significatifs pour l'entreprise. Cependant, nous ne pouvons pas oublier les monnaies passées comme Dash, où malgré des rendements de protocole significatifs, la tokenomie n'a pas suffi à empêcher l'effondrement. Le modèle ne fonctionne que si le réseau continue d'attirer de nouveaux capitaux.
+
 ## Conclusion
 
 Les entreprises de trésorerie sont une stratégie de marché complètement nouvelle. Le passé ne prédit jamais complètement l'avenir, mais dans ce cas nous manquons simplement de données historiques pour modéliser un tel futur. C'est un pari de marché sur l'hyperbitcoinisation, accessible pour les investisseurs en actions et les institutions. Rappelez-vous que même si vous croyez fortement en la thèse Saylor, la première chose à regarder est de détenir Bitcoin directement. Cependant, les entreprises de trésorerie peuvent être une option intéressante pour étendre votre exposition Bitcoin dans des endroits où c'était précédemment impossible (comptes de retraite), ou pour bénéficier de la stabilité des tickers à revenu fixe.

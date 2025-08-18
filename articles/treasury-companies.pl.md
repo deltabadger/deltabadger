@@ -236,6 +236,12 @@ Im bliżej MSTR zbliży się do 1000$, tym bardziej premia na STRK będzie kompr
 
 <!-- /PAYWALL -->
 
+## Nie tylko Bitcoin
+
+W miarę jak spółki skarbcowe stały się "gorącym tematem", widzimy coraz więcej firm próbujących replikować ten model dla innych aktywów. Na przykład, Ethereum Treasury BitMine (BMNR) Toma Lee posiada ponad 1,15 miliona ETH, podczas gdy DeFi Development Corp (DFDV) zgromadziła ponad 175 000 SOL. <a class="link-source-tile" href="https://finance.yahoo.com/news/tom-lees-ethereum-treasury-bitmine-174118221.html">yahoo.com</a>
+
+Aktywa Proof-of-Stake, takie jak Ethereum i Solana, teoretycznie oferują znaczną przewagę: zyski ze stakingu mogłyby zapewnić znaczące przychody dla firmy. Nie możemy jednak zapomnieć o przeszłych walutach, takich jak Dash, gdzie pomimo znaczących zysków protokołu, tokenomia nie wystarczyła do zapobieżenia załamaniu. Model działa tylko wtedy, gdy sieć nadal przyciąga nowy kapitał.
+
 ## Wniosek
 
 Spółki skarbcowe to całkowicie nowa strategia rynkowa. Przeszłość nigdy w pełni nie prognozuje przyszłości, ale w tym przypadku po prostu brakuje nam danych historycznych do modelowania takiej przyszłości. To zakład rynkowy na hiperbitcoinizację, dostępny dla inwestorów giełdowych i instytucji. Pamiętaj, że nawet jeśli mocno wierzysz w tezę Saylora, pierwszą rzeczą do rozważenia jest bezpośrednie posiadanie Bitcoina. Jednak firmy skarbcowe mogą być interesującą opcją do rozszerzenia twojej ekspozycji na Bitcoina w miejscach, gdzie wcześniej było to niemożliwe (konta emerytalne), lub aby skorzystać ze stabilności tickerów o stałym dochodzie.

@@ -236,6 +236,12 @@ Più MSTR si avvicina a $1.000, più il premio su STRK sarà compresso, quindi m
 
 <!-- /PAYWALL -->
 
+## Non solo Bitcoin
+
+Man mano che le società di tesoreria sono diventate un "argomento caldo", vediamo sempre più aziende che cercano di replicare questo modello per altri asset. Ad esempio, Ethereum Treasury BitMine (BMNR) di Tom Lee detiene oltre 1,15 milioni di ETH, mentre DeFi Development Corp (DFDV) ha accumulato oltre 175.000 SOL. <a class="link-source-tile" href="https://finance.yahoo.com/news/tom-lees-ethereum-treasury-bitmine-174118221.html">yahoo.com</a>
+
+Gli asset Proof-of-Stake come Ethereum e Solana offrono teoricamente un vantaggio significativo: i rendimenti di staking potrebbero fornire entrate significative per l'azienda. Tuttavia, non possiamo dimenticare le valute passate come Dash, dove nonostante significativi rendimenti di protocollo, la tokenomia non è stata sufficiente a prevenire il collasso. Il modello funziona solo se la rete continua ad attrarre nuovo capitale.
+
 ## Conclusione
 
 Le società di tesoreria sono una strategia di mercato completamente nuova. Il passato non predice mai completamente il futuro, ma in questo caso semplicemente manchiamo di dati storici per modellare un tale futuro. È una scommessa di mercato sull'iperbitcoinizzazione, accessibile per investitori azionari e istituzioni. Ricordate che anche se credete fortemente nella tesi Saylor, la prima cosa da guardare è detenere Bitcoin direttamente. Tuttavia, le società di tesoreria possono essere un'opzione interessante per estendere la vostra esposizione Bitcoin in posti dove era precedentemente impossibile (conti pensione), o per beneficiare della stabilità dei ticker a reddito fisso.

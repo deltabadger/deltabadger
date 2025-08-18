@@ -236,6 +236,12 @@ Je näher MSTR an 1.000 Dollar kommt, desto mehr wird der Aufschlag auf STRK kom
 
 <!-- /PAYWALL -->
 
+## Nicht nur Bitcoin
+
+Als Treasury-Unternehmen zu einem "heißen Thema" wurden, sehen wir immer mehr Unternehmen, die versuchen, dieses Modell für andere Assets zu replizieren. Zum Beispiel hält Tom Lees Ethereum Treasury BitMine (BMNR) über 1,15 Millionen ETH, während DeFi Development Corp (DFDV) über 175.000 SOL angesammelt hat. <a class="link-source-tile" href="https://finance.yahoo.com/news/tom-lees-ethereum-treasury-bitmine-174118221.html">yahoo.com</a>
+
+Proof-of-Stake-Assets wie Ethereum und Solana bieten theoretisch einen bedeutenden Vorteil: Staking-Erträge könnten bedeutende Einnahmen für das Unternehmen liefern. Wir können jedoch nicht die vergangenen Währungen wie Dash vergessen, wo trotz bedeutender Protokollerträge die Tokenökonomie nicht ausreichte, um einen Kollaps zu verhindern. Das Modell funktioniert nur, wenn das Netzwerk weiterhin neues Kapital anzieht.
+
 ## Fazit
 
 Treasury-Unternehmen sind ein völlig neuer Marktansatz. Die Vergangenheit sagt niemals vollständig die Zukunft voraus, aber in diesem Fall fehlen uns einfach historische Daten, um eine solche Zukunft zu modellieren. Es ist eine Marktwette auf Hyperbitcoinisierung, zugänglich für Aktieninvestoren und Institutionen. Denken Sie daran, dass selbst wenn Sie stark an die Saylor-These glauben, das Erste, was zu betrachten ist, Bitcoin direkt zu halten. Treasury-Unternehmen können jedoch eine interessante Option sein, um Ihr Bitcoin-Exposure an Orten zu erweitern, wo es zuvor unmöglich war (Altersvorsorgekonten), oder um von der Stabilität der Festzins-Ticker zu profitieren.

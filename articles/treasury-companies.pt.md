@@ -236,6 +236,12 @@ Quanto mais perto a MSTR chegar de $1.000, mais o prémio na STRK será comprimi
 
 <!-- /PAYWALL -->
 
+## Não só Bitcoin
+
+À medida que as empresas de tesouraria se tornaram um "tópico quente", vemos cada vez mais empresas tentando replicar este modelo para outros ativos. Por exemplo, Ethereum Treasury BitMine (BMNR) de Tom Lee detém mais de 1,15 milhões de ETH, enquanto DeFi Development Corp (DFDV) acumulou mais de 175.000 SOL. <a class="link-source-tile" href="https://finance.yahoo.com/news/tom-lees-ethereum-treasury-bitmine-174118221.html">yahoo.com</a>
+
+Os ativos Proof-of-Stake como Ethereum e Solana oferecem teoricamente uma vantagem significativa: os rendimentos de staking poderiam fornecer receitas significativas para a empresa. No entanto, não podemos esquecer as moedas passadas como Dash, onde apesar de rendimentos de protocolo significativos, a tokenomia não foi suficiente para prevenir o colapso. O modelo só funciona se a rede continuar a atrair novo capital.
+
 ## Conclusão
 
 As empresas de tesouraria são uma estratégia de mercado completamente nova. O passado nunca prediz completamente o futuro, mas neste caso simplesmente faltam-nos dados históricos para modelar tal futuro. É uma aposta de mercado na hiperbitcoinização, acessível para investidores em ações e instituições. Lembre-se de que mesmo se acredita firmemente na tese de Saylor, a primeira coisa a considerar é deter Bitcoin diretamente. No entanto, as empresas de tesouraria podem ser uma opção interessante para estender a sua exposição ao Bitcoin em lugares onde anteriormente era impossível (contas de reforma), ou para beneficiar da estabilidade dos tickers de rendimento fixo.
