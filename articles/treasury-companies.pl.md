@@ -61,7 +61,11 @@ COLUMN_BREAK
 </figure>
 {:/nomarkdown}
 
-W moim artykule na X krótko opisuję każdą firmę z pierwszej setki, ale najpierw:
+W moim artykule na X krótko opisuję każdą firmę z pierwszej setki:
+
+[The Top 100 Bitcoin Treasury Companies: Who Are They?](https://x.com/klos/status/1957427954444533906)
+
+…ale najpierw:
 
 ## Czym jest firma skarbcowa?
 
@@ -235,6 +239,12 @@ Im bliżej MSTR zbliży się do 1000$, tym bardziej premia na STRK będzie kompr
 </div>
 
 <!-- /PAYWALL -->
+
+## Nie tylko Bitcoin
+
+W miarę jak spółki skarbcowe stały się "gorącym tematem", widzimy coraz więcej firm próbujących replikować ten model dla innych aktywów. Na przykład, Ethereum Treasury BitMine (BMNR) Toma Lee posiada ponad 1,15 miliona ETH, podczas gdy DeFi Development Corp (DFDV) zgromadziła ponad 175 000 SOL. <a class="link-source-tile" href="https://finance.yahoo.com/news/tom-lees-ethereum-treasury-bitmine-174118221.html">yahoo.com</a>
+
+Aktywa Proof-of-Stake, takie jak Ethereum i Solana, teoretycznie oferują znaczną przewagę: zyski ze stakingu mogłyby zapewnić znaczące przychody dla firmy. Nie możemy jednak zapomnieć o przeszłych walutach, takich jak Dash, gdzie pomimo znaczących zysków protokołu, tokenomia nie wystarczyła do zapobieżenia załamaniu. Model działa tylko wtedy, gdy sieć nadal przyciąga nowy kapitał.
 
 ## Wniosek
 

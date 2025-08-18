@@ -61,7 +61,11 @@ COLUMN_BREAK
 </figure>
 {:/nomarkdown}
 
-In my X article, I briefly describe each company from the top 100, but first:
+In my X article, I briefly describe each company from the top 100:
+
+[The Top 100 Bitcoin Treasury Companies: Who Are They?](https://x.com/klos/status/1957427954444533906)
+
+…but first:
 
 ## What Is a Treasury Company?
 
@@ -235,6 +239,12 @@ The closer MSTR gets to $1,000, the more the premium on STRK will be compressed,
 </div>
 
 <!-- /PAYWALL -->
+
+## Not Only Bitcoin
+
+As treasury companies became a "hot topic," we see more and more companies trying to replicate this model for other assets. For example, Tom Lee's Ethereum Treasury BitMine (BMNR) holds over 1.15 million ETH, while DeFi Development Corp (DFDV) has accumulated over 175,000 SOL. <a class="link-source-tile" href="https://finance.yahoo.com/news/tom-lees-ethereum-treasury-bitmine-174118221.html">yahoo.com</a>
+
+Proof-of-Stake assets like Ethereum and Solana theoretically offer a significant advantage: staking yield could provide meaningful revenue for the company. However, we can't forget about past currencies like Dash, where despite significant protocol yields, the tokenomics weren't enough to prevent collapse. The model only works if the network continues attracting new capital.
 
 ## Conclusion
 

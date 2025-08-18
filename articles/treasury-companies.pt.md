@@ -61,7 +61,11 @@ COLUMN_BREAK
 </figure>
 {:/nomarkdown}
 
-No meu artigo no X, descrevo brevemente cada empresa do top 100, mas primeiro:
+No meu artigo no X, descrevo brevemente cada empresa do top 100:
+
+[The Top 100 Bitcoin Treasury Companies: Who Are They?](https://x.com/klos/status/1957427954444533906)
+
+…mas primeiro:
 
 ## O que é uma empresa de tesouraria?
 
@@ -235,6 +239,12 @@ Quanto mais perto a MSTR chegar de $1.000, mais o prémio na STRK será comprimi
 </div>
 
 <!-- /PAYWALL -->
+
+## Não só Bitcoin
+
+À medida que as empresas de tesouraria se tornaram um "tópico quente", vemos cada vez mais empresas tentando replicar este modelo para outros ativos. Por exemplo, Ethereum Treasury BitMine (BMNR) de Tom Lee detém mais de 1,15 milhões de ETH, enquanto DeFi Development Corp (DFDV) acumulou mais de 175.000 SOL. <a class="link-source-tile" href="https://finance.yahoo.com/news/tom-lees-ethereum-treasury-bitmine-174118221.html">yahoo.com</a>
+
+Os ativos Proof-of-Stake como Ethereum e Solana oferecem teoricamente uma vantagem significativa: os rendimentos de staking poderiam fornecer receitas significativas para a empresa. No entanto, não podemos esquecer as moedas passadas como Dash, onde apesar de rendimentos de protocolo significativos, a tokenomia não foi suficiente para prevenir o colapso. O modelo só funciona se a rede continuar a atrair novo capital.
 
 ## Conclusão
 

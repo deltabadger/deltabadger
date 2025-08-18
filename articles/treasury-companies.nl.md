@@ -61,7 +61,11 @@ COLUMN_BREAK
 </figure>
 {:/nomarkdown}
 
-In mijn X-artikel beschrijf ik kort elk bedrijf uit de top 100, maar eerst:
+In mijn X-artikel beschrijf ik kort elk bedrijf uit de top 100:
+
+[The Top 100 Bitcoin Treasury Companies: Who Are They?](https://x.com/klos/status/1957427954444533906)
+
+…maar eerst:
 
 ## Wat is een treasurybedrijf?
 
@@ -235,6 +239,12 @@ Hoe dichter MSTR bij $1.000 komt, hoe meer de premie op STRK zal worden gecompri
 </div>
 
 <!-- /PAYWALL -->
+
+## Niet alleen Bitcoin
+
+Naarmate treasurybedrijven een "hot topic" werden, zien we steeds meer bedrijven die proberen dit model te repliceren voor andere activa. Bijvoorbeeld, Tom Lee's Ethereum Treasury BitMine (BMNR) houdt meer dan 1,15 miljoen ETH, terwijl DeFi Development Corp (DFDV) meer dan 175.000 SOL heeft geaccumuleerd. <a class="link-source-tile" href="https://finance.yahoo.com/news/tom-lees-ethereum-treasury-bitmine-174118221.html">yahoo.com</a>
+
+Proof-of-Stake activa zoals Ethereum en Solana bieden theoretisch een significant voordeel: staking-opbrengsten zouden betekenisvolle inkomsten voor het bedrijf kunnen leveren. We kunnen echter niet de valuta's uit het verleden zoals Dash vergeten, waar ondanks significante protocolopbrengsten, de tokeneconomie niet genoeg was om ineenstorting te voorkomen. Het model werkt alleen als het netwerk blijft nieuw kapitaal aantrekken.
 
 ## Conclusie
 
