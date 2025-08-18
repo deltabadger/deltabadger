@@ -1,6 +1,5 @@
 ---
-description: 
-globs: config/locales/**/*.yml
+globs: config/locales/**/*.yml,articles/**/*.md,articles/*.md
 alwaysApply: false
 ---
 ---
