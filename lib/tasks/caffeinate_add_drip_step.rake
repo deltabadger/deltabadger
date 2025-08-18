@@ -1,6 +1,9 @@
 desc 'rake task to add a caffeinate drip step to an existing campaign'
 task caffeinate_add_drip_step: :environment do
-  # Adding a new drip step will send this step to anyone who was not unsubscribed, even if they ended subscription.
+  # Adding a new drip step will send this step to anyone who was not unsubscribed, even if
+  # they ended subscription.
+  # If the new drip step should have been sent before current time, it will be sent right away
+  # (after executing Caffeinate.perform!).
 
   campaign = 'onboarding'
   new_drip_step = 'new_action' # new drip step name
