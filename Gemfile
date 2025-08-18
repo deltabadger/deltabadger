@@ -96,3 +96,4 @@ gem 'ruby-technical-analysis', git: 'https://github.com/guillemap/ruby-technical
 gem 'omniauth-google-oauth2'
 gem "omniauth-rails_csrf_protection"
 gem "caffeinate", "~> 2.5"
+gem "ahoy_email", "~> 2.1"

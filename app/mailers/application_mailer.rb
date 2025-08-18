@@ -6,11 +6,11 @@ class ApplicationMailer < ActionMailer::Base
 
   before_action :set_show_dca_profit
 
-  private
-
   def default_url_options
     { locale: (I18n.locale unless I18n.locale == I18n.default_locale) }
   end
+
+  private
 
   def set_show_dca_profit
     @show_dca_profit = true
