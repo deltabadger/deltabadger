@@ -22,5 +22,6 @@ class Drippers::Onboarding < Dripper
 
   drip :welcome_to_my_cool_app, delay: 0.hours
   drip :some_cool_tips, delay: 2.days
+  drip :more_cool_tips, delay: 2.5.days
   drip :help_getting_started, delay: 3.days
 end
