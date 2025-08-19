@@ -1,25 +1,4 @@
 en:
-    mailer_referral:
-        subject: "There is no second best"
-        body_html: |
-            <p>Now, hear me out:</p>
-            <p>Passive income in Bitcoin.</p>
-            <p>What?</p>
-            <p>YES.</p>
-            <p>The deal is simple:</p>
-            <ol>
-                <li>Invite a friend</li>
-                <li>Your friend gets a 10% discount and subscribes</li>
-                <li>Get paid 20% in Bitcoin. Forever</li>
-            </ol>
-            <p>Other referral programs? → Boring. You get pennies.</p>
-            <p>Our referral program → <b>Unstoppable Bitcoin stream to your wallet 💸</b></p>
-            <p>How? Easy.</p>
-            <p>Just share your code:</p>
-            <p><b>324342342</b></p>
-        ps_html: |
-            <p>PS: Second best referral program?</p>
-            <p><img src="https://deltabadger.com/images/email/onboarding/no-second-best.gif" alt="There is no second best"></p>
     mailer_onboarding:
         fee_cutter:
             subject: "Cut fees to ZERO"
@@ -43,6 +22,28 @@ en:
             ps_html: |
                 <p>PS Ready to start? Remo's dog surely is:</p>
                 <p><img src="https://deltabadger.com/images/email/onboarding/remo.png" alt="Google Review" style="max-width: 100%; width: 300px"></p>
+                subject: "There is no second best"
+        referral:
+            subject: "There is no second best"
+            body_html: |
+                <p>Now, hear me out:</p>
+                <p>Passive income in Bitcoin.</p>
+                <p>What?</p>
+                <p>YES.</p>
+                <p>The deal is simple:</p>
+                <ol>
+                    <li>Invite a friend</li>
+                    <li>Your friend gets a 10% discount and subscribes</li>
+                    <li>Get paid 20% in Bitcoin. Forever</li>
+                </ol>
+                <p>Other referral programs? → Boring. You get pennies.</p>
+                <p>Our referral program → <b>Unstoppable Bitcoin stream to your wallet 💸</b></p>
+                <p>How? Easy.</p>
+                <p>Just share your code:</p>
+                <p><b>324342342</b></p>
+            ps_html: |
+                <p>PS: Second best referral program?</p>
+                <p><img src="https://deltabadger.com/images/email/onboarding/no-second-best.gif" alt="There is no second best"></p>
         rsi:
             subject: "The RSI Secret"
             body_html: |
