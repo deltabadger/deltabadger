@@ -1,0 +1,19 @@
+<html>
+<head>
+  <style>
+    body { font-family: sans-serif; line-height:1.5; }
+  </style>
+</head>
+<body>
+    <div style="max-width: 660px; margin: 0 auto;">
+
+        <%= yield %>
+
+        <div style="font-size: 12px; color: grey">
+          <p>—</p>
+          <p>Deltabadger OÜ, Pärnu mnt 139e/2-8, 11317 Tallinn, Estonia/p>
+          <p><%= link_to t('mailer.unsubscribe'), caffeinate_unsubscribe_url %></p>
+        </div>
+    </div>
+</body>
+</html>
