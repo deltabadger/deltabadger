@@ -1,5 +1,5 @@
 module Ahoy
-  class MessagesController < ApplicationController
+  class MessageOpensController < Ahoy::MessagesController
     def open
       token = params[:id].to_s
       campaign = params[:c].to_s

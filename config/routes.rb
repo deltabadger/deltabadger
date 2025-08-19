@@ -5,9 +5,7 @@ require 'sidekiq/prometheus/exporter'
 
 Rails.application.routes.draw do
   mount ::Caffeinate::Engine => '/caffeinate'
-  scope module: "ahoy" do
-    get "open" => "messages#open"
-  end
+  get 'ahoy/messages/:id/open' => 'ahoy/message_opens#open'
 
   get 'sso', to: 'sso#sso'
 
