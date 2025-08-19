@@ -35,6 +35,38 @@ Spulen wir vor ins Jahr 2025: **Nach Marktkapitalisierung gewichtete Indexfonds 
 
 **Marktkapitalisierung** oder "Market Cap" ist einfach der Gesamtwert einer Aktie oder eines digitalen Vermögenswerts, berechnet durch Multiplikation des Preises einer einzelnen Aktie/eines Tokens mit der Gesamtzahl der im Umlauf befindlichen Tokens. Wenn Apple 15 Milliarden Aktien hat, die zu je 200 Dollar gehandelt werden, beträgt seine Marktkapitalisierung 3 Billionen Dollar (200 Dollar × 15 Milliarden Aktien). Ähnlich verhält es sich, wenn Bitcoin 19,8 Millionen Tokens hat, die zu je 120.000 Dollar gehandelt werden, beträgt seine Marktkapitalisierung 2,38 Billionen Dollar. Diese Zahl repräsentiert, was Investoren gemeinsam glauben, dass das gesamte Unternehmen oder der Vermögenswert zu einem bestimmten Zeitpunkt wert ist.
 
+[AssetMarketCap](https://assetmarketcap.com) ist ein großartiger Ort, um globale Marktkapitalisierungen verschiedener Vermögenswerte zu prüfen. Immobilien stehen an der Spitze, Gold auf Platz vier und Bitcoin auf Platz achtzehn. Hier sind die Top-20-Vermögenswerte nach Marktkapitalisierung:
+
+{::nomarkdown}
+<figure class="article__figure" data-controller="pie-chart" data-pie-chart-data-value="#1bb200,RE,Immobilien,69.94
+#004081,OIL,Öl,11.84
+#ff0000,CNY,Chinesischer Yuan,4.84
+#e7b500,GOLD,Gold,2.40
+#228B22,USD,US-Dollar,2.32
+#4169E1,EUR,Euro,1.93
+#B87333,CU,Kupfer,1.35
+#87CEEB,GAS,Erdgas,0.97
+#FF69B4,JPY,Japanischer Yen,0.91
+#32CD32,NVDA,NVIDIA,0.46
+COLUMN_BREAK
+#800080,GBP,Britisches Pfund,0.44
+#00BFFF,MSFT,Microsoft,0.41
+#A9A9A9,AAPL,Apple Inc.,0.36
+#FF8C00,KRW,Koreanischer Won,0.33
+#4B0082,HKD,Hongkong-Dollar,0.27
+#9370DB,GOOGL,Alphabet Inc.,0.26
+#FF4500,AMZN,Amazon,0.26
+#F7931A,BTC,Bitcoin,0.24
+#20B2AA,TWD,Taiwan-Dollar,0.23
+#C0C0C0,AG,Silber,0.23">
+<div class="pie-chart-wrapper">
+<svg data-pie-chart-target="svg" width="300" height="300" class="pie-chart"></svg>
+<div data-pie-chart-target="legend" class="pie-legend"></div>
+</div>
+<figcaption class="article__figure__caption">Top 20 Vermögenswerte nach Marktkapitalisierung. Quelle: <a href="https://assetmarketcap.com/">AssetMarketCap.com</a></figcaption>
+</figure>
+{:/nomarkdown}
+
 ### Wie die Gewichtung nach Marktkapitalisierung funktioniert
 
 In einem **nach Marktkapitalisierung gewichteten Index** ist der Einfluss jedes Vermögenswerts proportional zu seiner Marktkapitalisierung. Wenn der S&P 500 eine kombinierte Marktkapitalisierung von 40 Billionen Dollar hat und Apple 3 Billionen Dollar davon ausmacht, dann macht Apple 7,5 % des Index aus. Dasselbe Prinzip gilt für Krypto-Indizes – wenn Bitcoin 50 % der gesamten Krypto-Marktkapitalisierung ausmacht, hätte es 50 % Gewicht in einem nach Marktkapitalisierung gewichteten Krypto-Index. Dieses Konzept spiegelt sich auch im [Bitcoin-Dominanzindex](https://coinmarketcap.com/charts/bitcoin-dominance) wider.

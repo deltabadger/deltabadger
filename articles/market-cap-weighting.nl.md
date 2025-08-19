@@ -35,6 +35,38 @@ Snel vooruit naar 2025: **market cap-gewogen indexfondsen vertegenwoordigen onge
 
 **Marktkapitalisatie**, of "market cap", is simpelweg de totale waarde van een aandeel of digitaal activum, berekend door de prijs van een enkel aandeel/token te vermenigvuldigen met het totale aantal tokens in omloop. Als Apple 15 miljard aandelen heeft die worden verhandeld tegen $200 per stuk, is de marktkapitalisatie $3 biljoen ($200 × 15 miljard aandelen). Op dezelfde manier, als Bitcoin 19,8 miljoen tokens heeft die worden verhandeld tegen $120.000 per stuk, is de marktkapitalisatie $2,38 biljoen. Dit getal vertegenwoordigt wat beleggers gezamenlijk geloven dat het hele bedrijf of activum op een bepaald moment waard is.
 
+[AssetMarketCap](https://assetmarketcap.com) is een geweldige plek om wereldwijde marktkapitalisaties van verschillende activa te controleren. Vastgoed staat bovenaan de lijst, goud op de vierde plaats en Bitcoin op de achttiende. Hier zijn de top 20 activa op marktkapitalisatie:
+
+{::nomarkdown}
+<figure class="article__figure" data-controller="pie-chart" data-pie-chart-data-value="#1bb200,RE,Vastgoed,69.94
+#004081,OIL,Olie,11.84
+#ff0000,CNY,Chinese Yuan,4.84
+#e7b500,GOLD,Goud,2.40
+#228B22,USD,Amerikaanse Dollar,2.32
+#4169E1,EUR,Euro,1.93
+#B87333,CU,Koper,1.35
+#87CEEB,GAS,Aardgas,0.97
+#FF69B4,JPY,Japanse Yen,0.91
+#32CD32,NVDA,NVIDIA,0.46
+COLUMN_BREAK
+#800080,GBP,Britse Pond,0.44
+#00BFFF,MSFT,Microsoft,0.41
+#A9A9A9,AAPL,Apple Inc.,0.36
+#FF8C00,KRW,Koreaanse Won,0.33
+#4B0082,HKD,Hongkong Dollar,0.27
+#9370DB,GOOGL,Alphabet Inc.,0.26
+#FF4500,AMZN,Amazon,0.26
+#F7931A,BTC,Bitcoin,0.24
+#20B2AA,TWD,Taiwan Dollar,0.23
+#C0C0C0,AG,Zilver,0.23">
+<div class="pie-chart-wrapper">
+<svg data-pie-chart-target="svg" width="300" height="300" class="pie-chart"></svg>
+<div data-pie-chart-target="legend" class="pie-legend"></div>
+</div>
+<figcaption class="article__figure__caption">Top 20 activa op marktkapitalisatie. Bron: <a href="https://assetmarketcap.com/">AssetMarketCap.com</a></figcaption>
+</figure>
+{:/nomarkdown}
+
 ### Hoe Market Cap Weighting werkt
 
 In een **market cap-gewogen index** is de invloed van elk activum evenredig aan zijn marktkapitalisatie. Als de S&P 500 een gecombineerde marktkapitalisatie van $40 biljoen heeft en Apple vertegenwoordigt daarvan $3 biljoen, dan maakt Apple 7,5% van de index uit. Hetzelfde principe is van toepassing op crypto-indexen - als Bitcoin 50% van de totale crypto-marktkapitalisatie vertegenwoordigt, zou het 50% gewicht hebben in een market cap-gewogen crypto-index. Dit concept wordt ook weerspiegeld in de [Bitcoin-dominantie-index](https://coinmarketcap.com/charts/bitcoin-dominance).

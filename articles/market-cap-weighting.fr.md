@@ -35,6 +35,38 @@ Avance rapide jusqu'en 2025 : **les fonds indiciels pondérés par la capitalisa
 
 La **capitalisation boursière**, ou "market cap", est simplement la valeur totale d'une action ou d'un actif numérique calculée en multipliant le prix d'une seule action/d'un seul jeton par le nombre total de jetons en circulation. Si Apple a 15 milliards d'actions se négociant à 200 $ chacune, sa capitalisation boursière est de 3 000 milliards de dollars (200 $ × 15 milliards d'actions). De même, si le Bitcoin a 19,8 millions de jetons se négociant à 120 000 $ chacun, sa capitalisation boursière est de 2 380 milliards de dollars. Ce nombre représente ce que les investisseurs croient collectivement que l'ensemble de l'entreprise ou de l'actif vaut à un moment donné.
 
+[AssetMarketCap](https://assetmarketcap.com) est un excellent endroit pour vérifier les capitalisations boursières mondiales de différents actifs. L'immobilier domine le classement, l'or se classe quatrième, et Bitcoin se situe au dix-huitième rang. Voici le top 20 des actifs par capitalisation boursière :
+
+{::nomarkdown}
+<figure class="article__figure" data-controller="pie-chart" data-pie-chart-data-value="#1bb200,RE,Immobilier,69.94
+#004081,OIL,Pétrole,11.84
+#ff0000,CNY,Yuan chinois,4.84
+#e7b500,GOLD,Or,2.40
+#228B22,USD,Dollar américain,2.32
+#4169E1,EUR,Euro,1.93
+#B87333,CU,Cuivre,1.35
+#87CEEB,GAS,Gaz naturel,0.97
+#FF69B4,JPY,Yen japonais,0.91
+#32CD32,NVDA,NVIDIA,0.46
+COLUMN_BREAK
+#800080,GBP,Livre sterling,0.44
+#00BFFF,MSFT,Microsoft,0.41
+#A9A9A9,AAPL,Apple Inc.,0.36
+#FF8C00,KRW,Won coréen,0.33
+#4B0082,HKD,Dollar de Hong Kong,0.27
+#9370DB,GOOGL,Alphabet Inc.,0.26
+#FF4500,AMZN,Amazon,0.26
+#F7931A,BTC,Bitcoin,0.24
+#20B2AA,TWD,Dollar taïwanais,0.23
+#C0C0C0,AG,Argent,0.23">
+<div class="pie-chart-wrapper">
+<svg data-pie-chart-target="svg" width="300" height="300" class="pie-chart"></svg>
+<div data-pie-chart-target="legend" class="pie-legend"></div>
+</div>
+<figcaption class="article__figure__caption">Top 20 des actifs par capitalisation boursière. Source : <a href="https://assetmarketcap.com/">AssetMarketCap.com</a></figcaption>
+</figure>
+{:/nomarkdown}
+
 ### Comment fonctionne la pondération par la capitalisation boursière
 
 Dans un **indice pondéré par la capitalisation boursière**, l'influence de chaque actif est proportionnelle à sa capitalisation boursière. Si le S&P 500 a une capitalisation boursière combinée de 40 000 milliards de dollars et qu'Apple en représente 3 000 milliards, alors Apple constitue 7,5 % de l'indice. Le même principe s'applique aux indices de cryptomonnaies – si le Bitcoin représente 50 % de la capitalisation boursière totale des cryptomonnaies, il aurait un poids de 50 % dans un indice de cryptomonnaies pondéré par la capitalisation boursière. Ce concept se reflète également dans [l'indice de dominance du Bitcoin](https://coinmarketcap.com/charts/bitcoin-dominance).

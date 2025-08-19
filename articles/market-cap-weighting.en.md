@@ -35,6 +35,38 @@ Fast forward to 2025: **market cap-weighted index funds represent approximately 
 
 **Market capitalization**, or "market cap," is simply the total value of a stock or digital asset calculated by multiplying a single share/token price by the total number of tokens in circulation. If Apple has 15 billion shares trading at $200 each, its market cap is $3 trillion ($200 × 15 billion shares). Similarly, if Bitcoin has 19.8 million tokens trading at $120,000 each, its market cap is $2.38 trillion. This number represents what investors collectively believe the entire company or asset is worth at any given moment.
 
+[AssetMarketCap](https://assetmarketcap.com) is a great place to check global market capitalizations across different assets. Real estate tops the list, gold ranks fourth, and Bitcoin sits at eighteenth. Here are the top 20 assets by market cap:
+
+{::nomarkdown}
+<figure class="article__figure" data-controller="pie-chart" data-pie-chart-data-value="#1bb200,RE,Real Estate,69.94
+#004081,OIL,Oil,11.84
+#ff0000,CNY,Chinese Yuan,4.84
+#e7b500,GOLD,Gold,2.40
+#228B22,USD,US Dollar,2.32
+#4169E1,EUR,Euro,1.93
+#B87333,CU,Copper,1.35
+#87CEEB,GAS,Natural Gas,0.97
+#FF69B4,JPY,Japanese Yen,0.91
+#32CD32,NVDA,NVIDIA,0.46
+COLUMN_BREAK
+#800080,GBP,British Pound,0.44
+#00BFFF,MSFT,Microsoft,0.41
+#A9A9A9,AAPL,Apple Inc.,0.36
+#FF8C00,KRW,Korean Won,0.33
+#4B0082,HKD,Hong Kong Dollar,0.27
+#9370DB,GOOGL,Alphabet Inc.,0.26
+#FF4500,AMZN,Amazon,0.26
+#F7931A,BTC,Bitcoin,0.24
+#20B2AA,TWD,Taiwan Dollar,0.23
+#C0C0C0,AG,Silver,0.23">
+<div class="pie-chart-wrapper">
+<svg data-pie-chart-target="svg" width="300" height="300" class="pie-chart"></svg>
+<div data-pie-chart-target="legend" class="pie-legend"></div>
+</div>
+<figcaption class="article__figure__caption">Top 20 Assets by Market Cap. Source: <a href="https://assetmarketcap.com/">AssetMarketCap.com</a></figcaption>
+</figure>
+{:/nomarkdown}
+
 ### How Market Cap Weighting Works
 
 In a **market cap-weighted index**, each asset's influence is proportional to its market cap. If the S&P 500 has a combined market cap of $40 trillion and Apple represents $3 trillion of that, then Apple makes up 7.5% of the index. The same principle applies to crypto indexes—if Bitcoin represents 50% of the total crypto market cap, it would have 50% weight in a market cap-weighted crypto index. This concept is also reflected in the [Bitcoin dominance index](https://coinmarketcap.com/charts/bitcoin-dominance).

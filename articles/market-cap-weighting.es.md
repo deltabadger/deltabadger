@@ -35,6 +35,38 @@ Avancemos rápidamente a 2025: **los fondos indexados ponderados por capitalizac
 
 La **capitalización de mercado**, o "market cap", es simplemente el valor total de una acción o un activo digital calculado multiplicando el precio de una sola acción/token por el número total de tokens en circulación. Si Apple tiene 15.000 millones de acciones que cotizan a 200 dólares cada una, su capitalización de mercado es de 3 billones de dólares (200 $ × 15.000 millones de acciones). Del mismo modo, si Bitcoin tiene 19,8 millones de tokens que cotizan a 120.000 dólares cada uno, su capitalización de mercado es de 2,38 billones de dólares. Este número representa lo que los inversores creen colectivamente que vale toda la empresa o el activo en un momento dado.
 
+[AssetMarketCap](https://assetmarketcap.com) es un gran lugar para consultar las capitalizaciones de mercado globales de diferentes activos. Los bienes raíces encabezan la lista, el oro ocupa el cuarto lugar y Bitcoin se sitúa en el decimoctavo. Aquí están los 20 principales activos por capitalización de mercado:
+
+{::nomarkdown}
+<figure class="article__figure" data-controller="pie-chart" data-pie-chart-data-value="#1bb200,RE,Bienes Raíces,69.94
+#004081,OIL,Petróleo,11.84
+#ff0000,CNY,Yuan Chino,4.84
+#e7b500,GOLD,Oro,2.40
+#228B22,USD,Dólar Estadounidense,2.32
+#4169E1,EUR,Euro,1.93
+#B87333,CU,Cobre,1.35
+#87CEEB,GAS,Gas Natural,0.97
+#FF69B4,JPY,Yen Japonés,0.91
+#32CD32,NVDA,NVIDIA,0.46
+COLUMN_BREAK
+#800080,GBP,Libra Esterlina,0.44
+#00BFFF,MSFT,Microsoft,0.41
+#A9A9A9,AAPL,Apple Inc.,0.36
+#FF8C00,KRW,Won Coreano,0.33
+#4B0082,HKD,Dólar de Hong Kong,0.27
+#9370DB,GOOGL,Alphabet Inc.,0.26
+#FF4500,AMZN,Amazon,0.26
+#F7931A,BTC,Bitcoin,0.24
+#20B2AA,TWD,Dólar Taiwanés,0.23
+#C0C0C0,AG,Plata,0.23">
+<div class="pie-chart-wrapper">
+<svg data-pie-chart-target="svg" width="300" height="300" class="pie-chart"></svg>
+<div data-pie-chart-target="legend" class="pie-legend"></div>
+</div>
+<figcaption class="article__figure__caption">Top 20 de activos por capitalización de mercado. Fuente: <a href="https://assetmarketcap.com/">AssetMarketCap.com</a></figcaption>
+</figure>
+{:/nomarkdown}
+
 ### Cómo Funciona la Ponderación por Capitalización de Mercado
 
 En un **índice ponderado por capitalización de mercado**, la influencia de cada activo es proporcional a su capitalización de mercado. Si el S&P 500 tiene una capitalización de mercado combinada de 40 billones de dólares y Apple representa 3 billones de eso, entonces Apple constituye el 7,5% del índice. El mismo principio se aplica a los índices de criptomonedas: si Bitcoin representa el 50% de la capitalización total del mercado de criptomonedas, tendría un peso del 50% en un índice de criptomonedas ponderado por capitalización de mercado. Este concepto también se refleja en el [índice de dominancia de Bitcoin](https://coinmarketcap.com/charts/bitcoin-dominance).

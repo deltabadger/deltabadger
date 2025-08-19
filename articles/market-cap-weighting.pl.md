@@ -35,6 +35,38 @@ Przenieśmy się do 2025 roku: **fundusze indeksowe ważone kapitalizacją rynko
 
 **Kapitalizacja rynkowa**, czyli "market cap", to po prostu całkowita wartość akcji lub aktywa cyfrowego, obliczana przez pomnożenie ceny pojedynczej akcji/tokenu przez całkowitą liczbę tokenów w obiegu. Jeśli Apple ma 15 miliardów akcji notowanych po 200 dolarów za sztukę, jego kapitalizacja rynkowa wynosi 3 biliony dolarów (200 $ × 15 miliardów akcji). Podobnie, jeśli Bitcoin ma 19,8 miliona tokenów notowanych po 120 000 dolarów za sztukę, jego kapitalizacja rynkowa wynosi 2,38 biliona dolarów. Ta liczba reprezentuje to, co inwestorzy wspólnie uważają za wartość całej firmy lub aktywa w danym momencie.
 
+[AssetMarketCap](https://assetmarketcap.com) to świetne miejsce do sprawdzania globalnych kapitalizacji rynkowych różnych aktywów. Nieruchomości prowadzą w rankingu, złoto zajmuje czwarte miejsce, a Bitcoin znajduje się na osiemnastym. Oto top 20 aktywów według kapitalizacji rynkowej:
+
+{::nomarkdown}
+<figure class="article__figure" data-controller="pie-chart" data-pie-chart-data-value="#1bb200,RE,Nieruchomości,69.94
+#004081,OIL,Ropa,11.84
+#ff0000,CNY,Juan Chiński,4.84
+#e7b500,GOLD,Złoto,2.40
+#228B22,USD,Dolar Amerykański,2.32
+#4169E1,EUR,Euro,1.93
+#B87333,CU,Miedź,1.35
+#87CEEB,GAS,Gaz Ziemny,0.97
+#FF69B4,JPY,Jen Japoński,0.91
+#32CD32,NVDA,NVIDIA,0.46
+COLUMN_BREAK
+#800080,GBP,Funt Brytyjski,0.44
+#00BFFF,MSFT,Microsoft,0.41
+#A9A9A9,AAPL,Apple Inc.,0.36
+#FF8C00,KRW,Won Koreański,0.33
+#4B0082,HKD,Dolar Hongkoński,0.27
+#9370DB,GOOGL,Alphabet Inc.,0.26
+#FF4500,AMZN,Amazon,0.26
+#F7931A,BTC,Bitcoin,0.24
+#20B2AA,TWD,Dolar Tajwański,0.23
+#C0C0C0,AG,Srebro,0.23">
+<div class="pie-chart-wrapper">
+<svg data-pie-chart-target="svg" width="300" height="300" class="pie-chart"></svg>
+<div data-pie-chart-target="legend" class="pie-legend"></div>
+</div>
+<figcaption class="article__figure__caption">Top 20 aktywów według kapitalizacji rynkowej. Źródło: <a href="https://assetmarketcap.com/">AssetMarketCap.com</a></figcaption>
+</figure>
+{:/nomarkdown}
+
 ### Jak działa ważenie kapitalizacją rynkową
 
 W **indeksie ważonym kapitalizacją rynkową** wpływ każdego aktywa jest proporcjonalny do jego kapitalizacji rynkowej. Jeśli S&P 500 ma łączną kapitalizację rynkową 40 bilionów dolarów, a Apple stanowi 3 biliony dolarów z tej kwoty, to Apple stanowi 7,5% indeksu. Ta sama zasada dotyczy indeksów kryptowalut - jeśli Bitcoin stanowi 50% całkowitej kapitalizacji rynkowej kryptowalut, miałby 50% wagę w indeksie kryptowalut ważonym kapitalizacją rynkową. Ta koncepcja znajduje również odzwierciedlenie w [indeksie dominacji Bitcoina](https://coinmarketcap.com/charts/bitcoin-dominance).
