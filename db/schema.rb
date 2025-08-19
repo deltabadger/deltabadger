@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema.define(version: 2025_08_18_184611) do
+ActiveRecord::Schema.define(version: 2025_08_18_184612) do
 
   # These are extensions that must be enabled in order to support this database
   enable_extension "plpgsql"
@@ -60,6 +60,12 @@ ActiveRecord::Schema.define(version: 2025_08_18_184611) do
     t.index ["campaign"], name: "index_ahoy_messages_on_campaign"
     t.index ["to"], name: "index_ahoy_messages_on_to"
     t.index ["user_type", "user_id"], name: "index_ahoy_messages_on_user_type_and_user_id"
+  end
+
+  create_table "ahoy_opens", force: :cascade do |t|
+    t.string "campaign"
+    t.string "token"
+    t.index ["campaign"], name: "index_ahoy_opens_on_campaign"
   end
 
   create_table "api_keys", force: :cascade do |t|
