@@ -7,15 +7,14 @@ de:
                 <small>*Hat nie jemand gesagt.</small></p>
                 <p>Die meisten Anleger akzeptieren Börsengebühren als "Geschäftskosten".</p>
                 <p>Aber hier ist der Trick:</p>
-                <p>Wenn die Börse dir 0,25% Gebühr berechnet,<br>
-                platziere Limit-Orders 0,25% unter dem aktuellen Preis.</p>
+                <p>Wenn die Börse dir 0,25% Gebühr berechnet, nutze FeeCutter, um Limit-Orders 0,25% unter dem aktuellen Preis zu platzieren und die Gebühren effektiv auf NULL zu senken.</p>
                 <p><b>Warum das funktioniert:</b></p>
                 <p>Krypto-Preise schwanken ständig.<br>
                 Die 0,25%-Lücke wird durch natürliche Marktbewegungen innerhalb weniger Stunden in 99% der Fälle geschlossen.</p>
                 <p><b>Beispiel:</b></p>
                 <p>Coinbase berechnet 0,6% Gebühr (!).<br>
                 Wenn du 2000$/Monat investierst, verlierst du <b>144$/Jahr</b> an Gebühren.</p>
-                <p>So viel sparst du mit FeeCutter und bekommst gratis:</p>
+                <p>So viel sparst du mit FeeCutter, genug um die Kosten zu decken für:</p>
                 <ul style="list-style: none; padding-left: 1em;">
                     <li>💸 Jährliches Deltabadger-Abo</li>
                     <li>☕ Kaffee</li>

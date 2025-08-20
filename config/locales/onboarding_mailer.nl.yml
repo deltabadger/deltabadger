@@ -7,15 +7,14 @@ nl:
                 <small>*Heeft niemand ooit gezegd.</small></p>
                 <p>De meeste beleggers accepteren exchange-kosten als "de kosten van zaken doen".</p>
                 <p>Maar hier is de truc:</p>
-                <p>Wanneer de exchange je 0,25% kosten rekent,<br>
-                plaats limit orders 0,25% onder de huidige prijs.</p>
+                <p>Wanneer de exchange je 0,25% kosten rekent, gebruik FeeCutter om limit orders 0,25% onder de huidige prijs te plaatsen en de kosten effectief naar NUL te brengen.</p>
                 <p><b>Waarom dit werkt:</b></p>
                 <p>Crypto-prijzen fluctueren voortdurend.<br>
                 De 0,25% gap wordt gevuld door natuurlijke marktbeweging binnen een paar uur 99% van de tijd.</p>
                 <p><b>Voorbeeld:</b></p>
                 <p>Coinbase rekent 0,6% kosten (!).<br>
                 Als je $2000/maand investeert, ben je <b>$144/jaar</b> kwijt aan kosten.</p>
-                <p>Dit bespaar je met FeeCutter, en krijg je gratis:</p>
+                <p>Dit bespaar je met FeeCutter, genoeg om de kosten te dekken van:</p>
                 <ul style="list-style: none; padding-left: 1em;">
                     <li>💸 Jaarlijks Deltabadger abonnement</li>
                     <li>☕ koffie</li>

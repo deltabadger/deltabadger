@@ -7,23 +7,22 @@ pl:
                 <small>*Powiedział nikt nigdy.</small></p>
                 <p>Większość inwestorów akceptuje opłaty giełd jako "koszt prowadzenia biznesu".</p>
                 <p>Ale oto sztuczka:</p>
-                <p>Gdy giełda pobiera od ciebie 0,25% opłaty,<br>
-                otwieraj zlecenia z limitem 0,25% poniżej obecnej ceny.</p>
+                <p>Gdy giełda pobiera od ciebie 0,25% opłaty, użyj FeeCutter, aby otwierać zlecenia z limitem 0,25% poniżej obecnej ceny i efektywnie obniżyć opłaty do ZERA.</p>
                 <p><b>Dlaczego to działa:</b></p>
                 <p>Ceny krypto nieustannie się zmieniają.<br>
                 Luka 0,25% jest wypełniana przez naturalne ruchy rynku w ciągu kilku godzin w 99% przypadków.</p>
                 <p><b>Przykład:</b></p>
                 <p>Coinbase pobiera opłatę transakcyjną 0,6%  (!).<br>
                 Jeśli inwestujesz 2000$/miesiąc, tracisz <b>144$/rok</b> na opłatach.</p>
-                <p>Tyle oszczędzasz z FeeCutter i otrzymujesz za darmo:</p>
+                <p>Tyle oszczędzasz z FeeCutter! Starczy na:</p>
                 <ul style="list-style: none; padding-left: 1em;">
-                    <li>💸 Roczną subskrypcję Deltabadger</li>
+                    <li>💸 Roczną subskrypcję Deltabadgera</li>
                     <li>☕ kawę</li>
                     <li>🐶 smakołyki dla psiecka</li>
                 </ul>
                 <p>Brzmi dobrze? <a href="https://app.deltabadger.com/pl/upgrade">Zautomatyzuj inwestowanie z FeeCutter →</a></p>
             ps_html: |
-                <p>PS Gotowy żeby zacząć? Pies Remo na bank tak:</p>
+                <p>PS Gotowy żeby zacząć? Bo pies Remo to na bank:</p>
                 <p><img src="https://deltabadger.com/images/email/onboarding/remo.png" alt="Opinia Google" style="max-width: 100%; width: 300px"></p>
         referral:
             subject: "There Is No Second Best"

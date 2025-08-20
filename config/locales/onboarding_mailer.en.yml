@@ -7,15 +7,14 @@ en:
                 <small>*Said no one ever.</small></p>
                 <p>Most investors accept exchange fees as "the cost of doing business."</p>
                 <p>But here's the trick:</p>
-                <p>With Deltabadger FeeCutter, when the exchange charges you with 0.25% fee,<br>
-                you can place limit orders 0.25% below the current price. <b>And neutralize the fee!</b></p>
+                <p>When the exchange charges you a 0.25% fee, use FeeCutter to place limit orders 0.25% below the current price, and effectively cut fees to ZERO.</p>
                 <p><b>Why this works:</b></p>
                 <p>Crypto prices move constantly.<br>
                 The 0.25% gap gets filled by natural market movement within a few hours 99% of the time.</p>
                 <p><b>Example:</b></p>
-                <p>Coinbase charges 0.6% fee (!).<br>
+                <p>Coinbase charges a 0.6% fee (!).<br>
                 If you invest $2000/month, you're bleeding <b>$144/year</b> in fees.</p>
-                <p>This is how much you save with FeeCutter, and get virtually for free:</p>
+                <p>This is how much you save with FeeCutter, enough to cover the cost of:</p>
                 <ul style="list-style: none; padding-left: 1em;">
                     <li>💸 Annual Deltabadger subscription</li>
                     <li>☕ coffee</li>
@@ -51,31 +50,31 @@ en:
                 <p><i>The best time to buy was yesterday. The second best time? When RSI hits 30.</i></p>
                 <p>Traders use thousands of indicators to catch the bottom.</p>
                 <p>Smart traders use RSI.</p>
-                <p>It’s simple.</p>
+                <p>It's simple.</p>
                 <p>RSI below 30 = sell-out = time to buy.</p>
                 <p><b>Why it works:</b></p>
                 <p>RSI measures momentum on a scale of 0-100. When it drops below 30, the asset is likely undervalued and due for a bounce.</p>
                 <p><b>Example:</b></p>
-                <p>Every single time when Bitcoin RSI was below 30 on the weekly chart, it was a perfect opportunity to DCA and catch the bottom.</p>
+                <p>Every single time Bitcoin's RSI was below 30 on the weekly chart, it was a perfect opportunity to DCA and catch the bottom.</p>
                 <p><img style="width:100%; margin: 24px 0" src="https://deltabadger.com/images/email/onboarding/rsi-chart.png"></p>
                 <p>Capturing moments like this with Deltabadger is easy:</p>
                 <p><img style="padding: 24px 0; text-align: center; width: 602px; max-width:100%;" src="https://deltabadger.com/images/email/onboarding/rsi-set.png"></p>
                 <p>Catch the dip, not the falling knife: <a href="https://app.deltabadger.com/upgrade">Buy the next dip with RSI →</a></p>
             ps_html: |
-                <p>PS: RSI is like your mom telling you to wear a jacket. You ignore it, and regret it later. Somehow, she often right.</p>
+                <p>PS: RSI is like your mom telling you to wear a jacket. You ignore it and regret it later. Somehow, she's often right.</p>
         avoid_taxes:
             subject: "Avoid taxes (legally)"
             body_html: |
                 <p><i>One thing is better than avoiding taxes: doing it legally.</i></p>
-                <p>Most investors rebalance their portfolio by selling best performing assets.</p>
-                <p>But every sale means a capital gain tax.</p>
+                <p>Most investors rebalance their portfolio by selling best-performing assets.</p>
+                <p>But every sale means a capital gains tax.</p>
                 <p>Here's a better way:</p>
                 <p>Rebalanced DCA using only BUY orders.</p>
                 <p><b>How it works:</b></p>
                 <p>Instead of selling your growing assets, the bot simply buys more of the falling ones during your regular DCA.</p>
                 <p><b>Example:</b></p>
                 <p>Your 50/50 BTC-ETH portfolio drifts to 60/40 because Bitcoin exploded.</p>
-                <p>Traditional rebalancing: sell some Bitcoin, and pay capital gain tax ❌</p>
+                <p>Traditional rebalancing: sell some Bitcoin, and pay capital gains tax ❌</p>
                 <p>Rebalanced DCA: buy more Ethereum, and pay no tax ✅</p>
                 <p><img style="margin:24px 0; width:443px;max-width:100%;" src="https://deltabadger.com/images/email/onboarding/rebalance.png"></p>
                 <p>Result: You maintain your target allocation without the tax office getting involved.</p>
@@ -83,13 +82,13 @@ en:
             ps_html: |
                 <p>PS While you're refreshing CoinGecko 🐸 every 5 minutes, the bot is your digital John Bogle handling the real business.</p>
         bitcoin_m2:
-            subject: "Bitcoin follows this pattern 83% of time"
+            subject: "Bitcoin follows this pattern 83% of the time"
             body_html: |
                 <p><em>Where will Bitcoin go? Follow the money.</em></p>
                 <p>Most Bitcoin predictions are just guessing, but Lyn Alden's research shows that:</p>
                 <p><b>Bitcoin follows one pattern 83% of the time</b>.</p>
                 <p>Yes, I'm talking about the M2 correlation.</p>
-                <p>This isn't a "crypto astrology":</p>
+                <p>This isn't "crypto astrology":</p>
                 <p>📈 When more money gets printed (M2 grows), Bitcoin tends to go up.</p>
                 <p>📉 When money printing slows down or stops, Bitcoin tends to underperform.</p>
                 <p>Applying it is hard?</p>
@@ -101,7 +100,7 @@ en:
         grayscale_etf:
             subject: "Follow the money"
             body_html: |
-                <p><i>Wanna know the future? See what institutional investors are doing.</p>
+                <p><i>Want to know the future? See what institutional investors are doing.</i></p>
                 <p>Picking future market winners is not easy.</p>
                 <p>But here's a secret trick:</p>
                 <p>A massive amount of money flows through ETFs.<br>
@@ -119,20 +118,20 @@ en:
             subject: "Stablecoin Goldmine"
             body_html: |
                 <p><i>Every financial revolution creates millionaires—but they're usually selling picks and shovels.</i></p>
-                <p>One of the easiet way to build great data-driven portfolio is to invest in the infrastructure underlying stablecoins:</p>
+                <p>One of the easiest ways to build a great data-driven portfolio is to invest in the infrastructure underlying stablecoins:</p>
                 <p><img style="width: 419px; max-width: 100%; margin: 24px auto; display: block;" src="https://deltabadger.com/images/email/onboarding/genius-portfolio.png" alt="GENIUS portfolio"></p>
                 <p><b>Why does it work?</b></p>
-                <p>The GENIUS Act cements stablecoins status as the new "digital dollar," that is now dollarizing emerging markets of Latin America, Africa, Asia…</p>
+                <p>The GENIUS Act cements stablecoins' status as the new "digital dollar," that is now dollarizing emerging markets of Latin America, Africa, Asia…</p>
                 <p>The best part?</p>
                 <p>All the traffic on the blockchain increases the demand for underlying tokens.</p>
-                </p>Learn more about different possible allocations of such a portfolio:<p>
+                <p>Learn more about different possible allocations of such a portfolio:</p>
                 <p><a href="https://app.deltabadger.com/articles/genius-of-stablecoins">Read full article →</a></p>
             ps_html: |
                 <p><strong>P.S.</strong> Digital Euro? Coming right after flying cars and world peace.</p>
         polymarket:
             subject: "This Project Is The Future"
             body_html: |
-                <p><i>Crypto has no usecase.</i></p>
+                <p><i>Crypto has no use case.</i></p>
                 <p>Sure, most crypto projects struggle to demonstrate real-world utility. But every now and then, something breaks through the noise.</p>
                 <p><strong>Polymarket</strong> – the crypto-based prediction platform, in 2024 alone, generated over $9 billion in transaction volume, becoming one of the <b>major use cases of the Polygon blockchain</b>.</p>
                 <p>Our deep dive covers:</p>
