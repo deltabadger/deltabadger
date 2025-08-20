@@ -8,12 +8,12 @@ pl:
                 <p>Większość inwestorów akceptuje opłaty giełd jako "koszt prowadzenia biznesu".</p>
                 <p>Ale oto sztuczka:</p>
                 <p>Gdy giełda pobiera od ciebie 0,25% opłaty,<br>
-                składaj zlecenia z limitem 0,25% poniżej obecnej ceny.</p>
+                otwieraj zlecenia z limitem 0,25% poniżej obecnej ceny.</p>
                 <p><b>Dlaczego to działa:</b></p>
                 <p>Ceny krypto nieustannie się zmieniają.<br> 
                 Luka 0,25% jest wypełniana przez naturalne ruchy rynku w ciągu kilku godzin w 99% przypadków.</p>
                 <p><b>Przykład:</b></p>
-                <p>Coinbase pobiera 0,6% opłaty (!).<br> 
+                <p>Coinbase pobiera opłatę transakcyjną 0,6%  (!).<br> 
                 Jeśli inwestujesz 2000$/miesiąc, tracisz <b>144$/rok</b> na opłatach.</p>
                 <p>Tyle oszczędzasz z FeeCutter i otrzymujesz za darmo:</p>
                 <ul style="list-style: none; padding-left: 1em;">
@@ -40,7 +40,7 @@ pl:
                 </ol>
                 <p>Inne programy polecające? → Nudne. Dostajesz grosze.</p>
                 <p>Nasz program polecający → <b>Niepowstrzymany strumień Bitcoina do twojego portfela 💸</b></p>
-                <p>Jak? Łatwo. Po prostu udostępnij swój link polecający:</p>
+                <p>Jak? Prosto. Udostępnij swój link referencyjny i lecimy:</p>
                 <p><b>324342342</b></p>
             ps_html: |
                 <p>PS: Drugi najlepszy program polecający?</p>
@@ -48,7 +48,7 @@ pl:
         rsi:
             subject: "Sekret RSI"
             body_html: |
-                <p><i>Najlepszy czas na kupno był wczoraj. Drugi najlepszy? Gdy RSI osiągnie 30.</i></p>
+                <p><i>Najlepszy czas na kupno był wczoraj. Drugi najlepszy moment? Gdy RSI osiągnie 30.</i></p>
                 <p>Traderzy używają tysięcy wskaźników, żeby złapać dno.</p>
                 <p>Mądrzy traderzy używają RSI.</p>
                 <p>To proste.</p>
@@ -62,12 +62,12 @@ pl:
                 <p><img style="padding: 24px 0; text-align: center; width: 602px; max-width:100%;" src="https://deltabadger.com/images/email/onboarding/rsi-set.png"></p>
                 <p>Złap spadek, nie spadający nóż: <a href="https://app.deltabadger.com/pl/upgrade">Kup następny spadek z RSI →</a></p>
             ps_html: |
-                <p>PS: RSI to jak twoja mama mówiąca ci, żebyś założył kurtkę. Ignorujesz to i później żałujesz. Jakoś często ma rację.</p>
+                <p>PS: RSI to jak twoja mama kiedy mówi ci, żebyś założył kurtkę. Ignorujesz to i później żałujesz. Jakoś często ma rację.</p>
         avoid_taxes:
             subject: "Unikaj podatków (legalnie)"
             body_html: |
                 <p><i>Jest coś lepszego niż unikanie podatków: robienie tego legalnie.</i></p>
-                <p>Większość inwestorów przywraca równowagę portfela, sprzedając najlepiej radzące sobie aktywa.</p>
+                <p>Większość inwestorów rebalansuje portfel, sprzedając najlepiej radzące sobie aktywa.</p>
                 <p>Ale każda sprzedaż oznacza podatek od zysków kapitałowych.</p>
                 <p>Oto lepszy sposób:</p>
                 <p>Zrównoważone DCA używające tylko zleceń KUPNA.</p>
