@@ -20,12 +20,13 @@ class Drippers::Onboarding < Dripper
     end
   end
 
+  # TODO: adjust delays
   drip :fee_cutter, delay: 0.hours
-  drip :avoid_taxes, delay: 1.day
-  drip :referral, delay: 2.day
-  drip :rsi, delay: 4.days
-  drip :bitcoin_m2, delay: 7.days
-  drip :grayscale_etf, delay: 14.days
-  drip :stablecoins, delay: 21.days
-  drip :polymarket, delay: 30.days
+  drip :avoid_taxes, delay: 1.minutes
+  drip :referral, delay: 2.minutes
+  drip :rsi, delay: 3.minutes
+  drip :bitcoin_m2, delay: 4.minutes
+  drip :grayscale_etf, delay: 5.minutes
+  drip :stablecoins, delay: 6.minutes
+  drip :polymarket, delay: 7.minutes
 end

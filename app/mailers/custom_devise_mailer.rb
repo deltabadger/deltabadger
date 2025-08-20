@@ -9,7 +9,6 @@ class CustomDeviseMailer < Devise::Mailer
 
   def email_already_taken(email)
     @resource = User.find_by(email: email)
-    set_locale(@resource)
 
     mail(to: email, subject: t('devise.mailer.email_already_taken.subject'))
   end
@@ -17,7 +16,6 @@ class CustomDeviseMailer < Devise::Mailer
   def confirm_email(record, token)
     @resource = record
     @token = token
-    set_locale(@resource)
 
     mail(to: @resource.unconfirmed_email)
   end
