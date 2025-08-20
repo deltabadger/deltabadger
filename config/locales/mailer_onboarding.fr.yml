@@ -41,7 +41,7 @@ fr:
                 <p>Autres programmes de parrainage ? → Ennuyeux. Vous récoltez des miettes.</p>
                 <p>Notre programme de parrainage → <b>Flux Bitcoin imparable vers votre portefeuille 💸</b></p>
                 <p>Comment ? Facile. Partagez simplement votre lien de parrainage :</p>
-                <p><b>{link_html}</b></p>
+                <p><b>%{link_html}</b></p>
             ps_html: |
                 <p>PS : Deuxième meilleur programme de parrainage ?</p>
                 <p><img style="max-width: 100%;" src="https://deltabadger.com/images/email/onboarding/no-second-best.gif" alt="There is no second best"></p>

@@ -5,7 +5,7 @@
 
 <p><%= t(@user.name.present? ? 'mailer.greeting_name' : 'mailer.greeting', name: @user.name) %></p>
 
-<% link_html = link_to(@ref_link, @ref_link, style: 'font-weight: bold; color: #2948A1; text-decoration: none;') %>
+<% link_html = link_to @ref_link, @ref_link, style: 'font-weight: bold; color: #2948A1; text-decoration: none;', data: { skip_click: true, skip_utm_params: true } %>
 <p><%= t("onboarding_mailer.#{@content_key}.body_html", link_html: link_html.html_safe).html_safe %></p>
 
 <p><%= t('mailer.best_html') %></p>

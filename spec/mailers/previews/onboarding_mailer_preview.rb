@@ -1,7 +1,6 @@
 # Preview all emails at http://localhost:3000/rails/mailers/onboarding_mailer
 class OnboardingMailerPreview < ActionMailer::Preview
   def onboarding_fee_cutter
-    mailing = Caffeinate::Mailing.new(
     OnboardingMailer.fee_cutter(mock_mailing_with_content_key('fee_cutter'))
   end
 

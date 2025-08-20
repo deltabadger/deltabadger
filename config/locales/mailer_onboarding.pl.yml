@@ -41,7 +41,7 @@ pl:
                 <p>Inne programy polecające? → Nudne. Dostajesz grosze.</p>
                 <p>Nasz program polecający → <b>Niepowstrzymany strumień Bitcoina do twojego portfela 💸</b></p>
                 <p>Jak? Prosto. Udostępnij swój link referencyjny i lecimy:</p>
-                <p><b>{link_html}</b></p>
+                <p><b>%{link_html}</b></p>
             ps_html: |
                 <p>PS: Drugi najlepszy program polecający?</p>
                 <p><img style="max-width: 100%;" src="https://deltabadger.com/images/email/onboarding/no-second-best.gif" alt="There is no second best"></p>

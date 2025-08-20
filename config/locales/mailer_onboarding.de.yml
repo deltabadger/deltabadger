@@ -41,7 +41,7 @@ de:
                 <p>Andere Empfehlungsprogramme? → Langweilig. Du bekommst Peanuts.</p>
                 <p>Unser Empfehlungsprogramm → <b>Unaufhaltsamer Bitcoin-Strom in deine Wallet 💸</b></p>
                 <p>Wie? Einfach. Teile deinen Empfehlungslink:</p>
-                <p><b>{link_html}</b></p>
+                <p><b>%{link_html}</b></p>
             ps_html: |
                 <p>PS: Zweitbestes Empfehlungsprogramm?</p>
                 <p><img style="max-width: 100%;" src="https://deltabadger.com/images/email/onboarding/no-second-best.gif" alt="There is no second best"></p>

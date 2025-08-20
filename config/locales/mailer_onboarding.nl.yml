@@ -41,7 +41,7 @@ nl:
                 <p>Andere verwijzingsprogramma's? → Saai. Je krijgt peanuts.</p>
                 <p>Ons verwijzingsprogramma → <b>Onstopbare Bitcoin-stroom naar je wallet 💸</b></p>
                 <p>Hoe? Makkelijk. Deel gewoon je verwijzingslink:</p>
-                <p><b>{link_html}</b></p>
+                <p><b>%{link_html}</b></p>
             ps_html: |
                 <p>PS: Tweede beste verwijzingsprogramma?</p>
                 <p><img style="max-width: 100%;" src="https://deltabadger.com/images/email/onboarding/no-second-best.gif" alt="There is no second best"></p>

@@ -41,7 +41,7 @@ pt:
                 <p>Outros programas de referência? → Aborrecidos. Recebes trocos.</p>
                 <p>O nosso programa de referência → <b>Fluxo imparável de Bitcoin para a tua carteira 💸</b></p>
                 <p>Como? Fácil. Partilha simplesmente o teu link de referência:</p>
-                <p><b>{link_html}</b></p>
+                <p><b>%{link_html}</b></p>
             ps_html: |
                 <p>PS: Segundo melhor programa de referência?</p>
                 <p><img style="max-width: 100%;" src="https://deltabadger.com/images/email/onboarding/no-second-best.gif" alt="There is no second best"></p>

@@ -41,7 +41,7 @@ es:
                 <p>¿Otros programas de referidos? → Aburridos. Recibes calderilla.</p>
                 <p>Nuestro programa de referidos → <b>Flujo imparable de Bitcoin a tu cartera 💸</b></p>
                 <p>¿Cómo? Fácil. Solo comparte tu enlace de referido:</p>
-                <p><b>{link_html}</b></p>
+                <p><b>%{link_html}</b></p>
             ps_html: |
                 <p>PD: ¿El segundo mejor programa de referidos?</p>
                 <p><img style="max-width: 100%;" src="https://deltabadger.com/images/email/onboarding/no-second-best.gif" alt="There is no second best"></p>

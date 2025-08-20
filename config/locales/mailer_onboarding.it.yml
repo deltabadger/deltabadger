@@ -41,7 +41,7 @@ it:
                 <p>Altri programmi di referral? → Noiosi. Ottieni spiccioli.</p>
                 <p>Il nostro programma di referral → <b>Flusso inarrestabile di Bitcoin nel tuo wallet 💸</b></p>
                 <p>Come? Facile. Condividi semplicemente il tuo link di referral:</p>
-                <p><b>{link_html}</b></p>
+                <p><b>%{link_html}</b></p>
             ps_html: |
                 <p>PS: Secondo miglior programma di referral?</p>
                 <p><img style="max-width: 100%;" src="https://deltabadger.com/images/email/onboarding/no-second-best.gif" alt="There is no second best"></p>
