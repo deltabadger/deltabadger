@@ -4,13 +4,15 @@ class OnboardingMailer < CaffeinateMailer
   track_clicks campaign: -> { "onboarding__#{@mailing.mailer_action}" }
   utm_params utm_medium: 'email', utm_source: 'onboarding', utm_campaign: -> { @mailing.mailer_action }
 
+  layout 'mailers/marketing'
+
   def onboarding(mailing)
     @mailing = mailing
     @user = mailing.subscriber
     @content_key = mailing.drip.options[:content_key] || 'fee_cutter'
 
     mail(
-      to: @user.email, 
+      to: @user.email,
       subject: "🔑 #{t("mailer_onboarding.#{@content_key}.subject")}"
     ) do |format|
       format.html { render layout: 'mailer_newsletter' }
@@ -23,7 +25,7 @@ class OnboardingMailer < CaffeinateMailer
     @ref_link = ENV.fetch('HOME_PAGE_URL') + Rails.application.routes.url_helpers.ref_code_path(code: @user.affiliate.code, locale: nil)
 
     mail(
-      to: @user.email, 
+      to: @user.email,
       subject: "🔑 #{t("mailer_onboarding.referral.subject")}"
     ) do |format|
       format.html { render layout: 'mailer_newsletter' }
