@@ -57,7 +57,7 @@ class OnboardingMailerPreview < ActionMailer::Preview
     Struct.new(:subscription, :subscriber, :mailer_action, :caffeinate_campaign_subscription, :drip).new(
       subscription,
       user,
-      'base',
+      content_key, # This should be the content_key, not 'base'
       campaign_subscription,
       drip
     )
