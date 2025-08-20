@@ -43,23 +43,23 @@
     = params[:locale]&.to_s&.upcase || 'EN'
   - locale = params[:locale]
   - unless locale.blank? || locale == 'en'
-    = link_to "English", url_for(request.params.merge(locale: nil)), class: "menu-mobile__item"
+    = link_to "English", url_for(request.params.merge(locale: 'en')), class: "menu-mobile__item", data: { turbo: false }
   - unless locale == 'de'
-    = link_to "Deutsch", url_for(request.params.merge(locale: 'de')), class: "menu-mobile__item"
+    = link_to "Deutsch", url_for(request.params.merge(locale: 'de')), class: "menu-mobile__item", data: { turbo: false }
   - unless locale == 'nl'
-    = link_to "Nederlandse", url_for(request.params.merge(locale: 'nl')), class: "menu-mobile__item"
+    = link_to "Nederlandse", url_for(request.params.merge(locale: 'nl')), class: "menu-mobile__item", data: { turbo: false }
   - unless locale == 'fr'
-    = link_to "Français", url_for(request.params.merge(locale: 'fr')), class: "menu-mobile__item"
+    = link_to "Français", url_for(request.params.merge(locale: 'fr')), class: "menu-mobile__item", data: { turbo: false }
   - unless locale == 'es'
-    = link_to "Español", url_for(request.params.merge(locale: 'es')), class: "menu-mobile__item"
+    = link_to "Español", url_for(request.params.merge(locale: 'es')), class: "menu-mobile__item", data: { turbo: false }
   - unless locale == 'pt'
-    = link_to "Português", url_for(request.params.merge(locale: 'pt')), class: "menu-mobile__item"
+    = link_to "Português", url_for(request.params.merge(locale: 'pt')), class: "menu-mobile__item", data: { turbo: false }
   - unless locale == 'it'
-    = link_to "Italiano", url_for(request.params.merge(locale: 'it')), class: "menu-mobile__item"
+    = link_to "Italiano", url_for(request.params.merge(locale: 'it')), class: "menu-mobile__item", data: { turbo: false }
   - unless locale == 'pl'
-    = link_to "Polski", url_for(request.params.merge(locale: 'pl')), class: "menu-mobile__item"
+    = link_to "Polski", url_for(request.params.merge(locale: 'pl')), class: "menu-mobile__item", data: { turbo: false }
   - unless locale == 'ru'
-    = link_to "Русский", url_for(request.params.merge(locale: 'ru')), class: "menu-mobile__item"
+    = link_to "Русский", url_for(request.params.merge(locale: 'ru')), class: "menu-mobile__item", data: { turbo: false }
   .menu-mobile__divider
   = button_to destroy_user_session_path, method: :delete, class: "menu-mobile__item menu-mobile__button", data: { turbo: false } do
     = t('links.logout')
