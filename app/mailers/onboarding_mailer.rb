@@ -4,31 +4,29 @@ class OnboardingMailer < CaffeinateMailer
   track_clicks campaign: -> { "onboarding__#{@mailing.mailer_action}" }
   utm_params utm_medium: 'email', utm_source: 'onboarding', utm_campaign: -> { @mailing.mailer_action }
 
-  def welcome_to_my_cool_app(mailing)
+  def onboarding(mailing)
     @mailing = mailing
     @user = mailing.subscriber
+    @content_key = mailing.drip.options[:content_key] || 'fee_cutter'
 
-    mail(to: @user.email, subject: 'Welcome to CoolApp!')
+    mail(
+      to: @user.email, 
+      subject: "🔑 #{t("mailer_onboarding.#{@content_key}.subject")}"
+    ) do |format|
+      format.html { render layout: 'mailer_newsletter' }
+    end
   end
 
-  def some_cool_tips(mailing)
+  def onboarding_referral(mailing)
     @mailing = mailing
     @user = mailing.subscriber
+    @ref_link = ENV.fetch('HOME_PAGE_URL') + Rails.application.routes.url_helpers.ref_code_path(code: @user.affiliate.code, locale: nil)
 
-    mail(to: @user.email, subject: 'Here are some cool tips for MyCoolApp')
-  end
-
-  def more_cool_tips(mailing)
-    @mailing = mailing
-    @user = mailing.subscriber
-
-    mail(to: @user.email, subject: 'Here are some cool tips for MyCoolApp')
-  end
-
-  def help_getting_started(mailing)
-    @mailing = mailing
-    @user = mailing.subscriber
-
-    mail(to: @user.email, subject: 'Do you need help getting started?')
+    mail(
+      to: @user.email, 
+      subject: "🔑 #{t("mailer_onboarding.referral.subject")}"
+    ) do |format|
+      format.html { render layout: 'mailer_newsletter' }
+    end
   end
 end

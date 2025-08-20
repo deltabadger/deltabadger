@@ -11,39 +11,40 @@ en:
                 place limit orders 0.25% below the current price.</p>
                 <p><b>Why this works:</b></p>
                 <p>Crypto prices move constantly.<br> 
-                That 0.25% gap gets filled by natural market movement within hours 99% of the time.</p>
+                The 0.25% gap gets filled by natural market movement within a few hours 99% of the time.</p>
                 <p><b>Example:</b></p>
                 <p>Coinbase charges 0.6% fee (!).<br> 
-                $2000/month investment?<br> 
-                You're bleeding $144/year in fees.</p>
-                <p>That's more than:</p>
-                <p>Annual Deltabadger subscription + ☕ coffee + 🐶 dog treats.</p>
+                If you invest $2000/month, you're bleeding <b>$144/year</b> in fees.</p>
+                <p>This is how much you save with FeeCutter, and get free:</p>
+                <ul style="list-style: none; padding-left: 1em;">
+                    <li>💸 Annual Deltabadger subscription</li>
+                    <li>☕ coffee</li>
+                    <li>🐶 dog treats</li>
+                </ul>
                 <p>Sounds good? <a href="https://app.deltabadger.com/">Automate investing with FeeCutter →</a></p>
             ps_html: |
                 <p>PS Ready to start? Remo's dog surely is:</p>
                 <p><img src="https://deltabadger.com/images/email/onboarding/remo.png" alt="Google Review" style="max-width: 100%; width: 300px"></p>
-                subject: "There is no second best"
         referral:
-            subject: "There is no second best"
+            subject: "There Is No Second Best"
             body_html: |
-                <p>Now, hear me out:</p>
+                <p>Hear me out, boss:</p>
                 <p>Passive income in Bitcoin.</p>
                 <p>What?</p>
                 <p>YES.</p>
                 <p>The deal is simple:</p>
                 <ol>
-                    <li>Invite a friend</li>
-                    <li>Your friend gets a 10% discount and subscribes</li>
-                    <li>Get paid 20% in Bitcoin. Forever</li>
+                    <li>Invite a friend.</li>
+                    <li>The friend gets a 10% discount and subscribes.</li>
+                    <li>We pay you 20% in Bitcoin. FOREVER.</li>
                 </ol>
                 <p>Other referral programs? → Boring. You get pennies.</p>
                 <p>Our referral program → <b>Unstoppable Bitcoin stream to your wallet 💸</b></p>
-                <p>How? Easy.</p>
-                <p>Just share your code:</p>
+                <p>How? Easy. Just share your referral link:</p>
                 <p><b>324342342</b></p>
             ps_html: |
                 <p>PS: Second best referral program?</p>
-                <p><img src="https://deltabadger.com/images/email/onboarding/no-second-best.gif" alt="There is no second best"></p>
+                <p><img style="max-width: 100%;" src="https://deltabadger.com/images/email/onboarding/no-second-best.gif" alt="There is no second best"></p>
         rsi:
             subject: "The RSI Secret"
             body_html: |
@@ -51,7 +52,7 @@ en:
                 <p>Traders use thousands of indicators to catch the bottom.</p>
                 <p>Smart traders use RSI.</p>
                 <p>It’s simple.</p>
-                <p>RSI below 30 = oversold = time to buy.</p>
+                <p>RSI below 30 = sell-out = time to buy.</p>
                 <p><b>Why it works:</b></p>
                 <p>RSI measures momentum on a scale of 0-100. When it drops below 30, the asset is likely undervalued and due for a bounce.</p>
                 <p><b>Example:</b></p>
@@ -68,19 +69,19 @@ en:
                 <p><i>One thing is better than avoiding taxes: doing it legally.</i></p>
                 <p>Most investors rebalance their portfolio by selling best performing assets.</p>
                 <p>But every sale means a capital gain tax.</p>
-                <p>Here's the smart way:</p>
+                <p>Here's a better way:</p>
                 <p>Rebalanced DCA using only BUY orders.</p>
                 <p><b>How it works:</b></p>
-                <p>Instead of selling your overweight assets, the bot simply buys more of your underweight ones during your regular DCA schedule.</p>
+                <p>Instead of selling your growing assets, the bot simply buys more of the falling ones during your regular DCA.</p>
                 <p><b>Example:</b></p>
-                <p>Your 50/50 BTC-ETH portfolio drifts to 60/40 because Bitcoin pumped.</p>
-                <p>Traditional rebalancing = sell some Bitcoin = taxes ❌</p>
-                <p>Rebalanced DCA = buy more Ethereum = no taxes ✅</p>
+                <p>Your 50/50 BTC-ETH portfolio drifts to 60/40 because Bitcoin exploded.</p>
+                <p>Traditional rebalancing: sell some Bitcoin, and pay capital gain tax ❌</p>
+                <p>Rebalanced DCA: buy more Ethereum, and pay no tax ✅</p>
                 <p><img style="margin:24px 0; width:443px;max-width:100%;" src="https://deltabadger.com/images/email/onboarding/rebalance.png"></p>
-                <p>Result: You maintain your target allocation without Uncle Sam getting involved.</p>
+                <p>Result: You maintain your target allocation without the tax office getting involved.</p>
                 <p><a href="https://app.deltabadger.com/" title="Go to the app">Avoid taxes with Rebalanced DCA →</a></p>
             ps_html: |
-                <p>PS While you're refreshing CoinGecko 🐸 every 5 minutes, the bot is your digital John Bogle handling the serious business.</p>
+                <p>PS While you're refreshing CoinGecko 🐸 every 5 minutes, the bot is your digital John Bogle handling the real business.</p>
         bitcoin_m2:
             subject: "Bitcoin follows this pattern 83% of time"
             body_html: |
@@ -100,8 +101,7 @@ en:
         grayscale_etf:
             subject: "Follow the money"
             body_html: |
-                <p><i>Wanna know the future? Follow the money.</i><br>
-                <small>*The institutional money.</small></p>
+                <p><i>Wanna know the future? See what institutional investors are doing.</p>
                 <p>Picking future market winners is not easy.</p>
                 <p>But here's a secret trick:</p>
                 <p>A massive amount of money flows through ETFs.<br>
