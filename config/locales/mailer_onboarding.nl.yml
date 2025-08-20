@@ -1,5 +1,5 @@
 nl:
-    mailer_onboarding:
+    onboarding_mailer:
         fee_cutter:
             subject: "Kosten naar NUL"
             body_html: |
@@ -10,10 +10,10 @@ nl:
                 <p>Wanneer de exchange je 0,25% kosten rekent,<br>
                 plaats limit orders 0,25% onder de huidige prijs.</p>
                 <p><b>Waarom dit werkt:</b></p>
-                <p>Crypto-prijzen fluctueren voortdurend.<br> 
+                <p>Crypto-prijzen fluctueren voortdurend.<br>
                 De 0,25% gap wordt gevuld door natuurlijke marktbeweging binnen een paar uur 99% van de tijd.</p>
                 <p><b>Voorbeeld:</b></p>
-                <p>Coinbase rekent 0,6% kosten (!).<br> 
+                <p>Coinbase rekent 0,6% kosten (!).<br>
                 Als je $2000/maand investeert, ben je <b>$144/jaar</b> kwijt aan kosten.</p>
                 <p>Dit bespaar je met FeeCutter, en krijg je gratis:</p>
                 <ul style="list-style: none; padding-left: 1em;">
@@ -41,7 +41,7 @@ nl:
                 <p>Andere verwijzingsprogramma's? → Saai. Je krijgt peanuts.</p>
                 <p>Ons verwijzingsprogramma → <b>Onstopbare Bitcoin-stroom naar je wallet 💸</b></p>
                 <p>Hoe? Makkelijk. Deel gewoon je verwijzingslink:</p>
-                <p><b>324342342</b></p>
+                <p><b>{link_html}</b></p>
             ps_html: |
                 <p>PS: Tweede beste verwijzingsprogramma?</p>
                 <p><img style="max-width: 100%;" src="https://deltabadger.com/images/email/onboarding/no-second-best.gif" alt="There is no second best"></p>

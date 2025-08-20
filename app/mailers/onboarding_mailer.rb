@@ -6,29 +6,52 @@ class OnboardingMailer < CaffeinateMailer
 
   layout 'mailers/marketing'
 
-  def onboarding(mailing)
-    @mailing = mailing
-    @user = mailing.subscriber
-    @content_key = mailing.drip.options[:content_key] || 'fee_cutter'
-
-    mail(
-      to: @user.email,
-      subject: "🔑 #{t("mailer_onboarding.#{@content_key}.subject")}"
-    ) do |format|
-      format.html { render layout: 'mailer_newsletter' }
-    end
+  def fee_cutter(mailing)
+    base_mail(mailing)
   end
 
-  def onboarding_referral(mailing)
+  def avoid_taxes(mailing)
+    base_mail(mailing)
+  end
+
+  def referral(mailing)
     @mailing = mailing
     @user = mailing.subscriber
+    @content_key = @mailing.mailer_action
     @ref_link = ENV.fetch('HOME_PAGE_URL') + Rails.application.routes.url_helpers.ref_code_path(code: @user.affiliate.code, locale: nil)
 
-    mail(
-      to: @user.email,
-      subject: "🔑 #{t("mailer_onboarding.referral.subject")}"
-    ) do |format|
-      format.html { render layout: 'mailer_newsletter' }
+    mail(to: @user.email, subject: "🔑 #{t("onboarding_mailer.#{@content_key}.subject")}")
+  end
+
+  def rsi(mailing)
+    base_mail(mailing)
+  end
+
+  def bitcoin_m2(mailing)
+    base_mail(mailing)
+  end
+
+  def grayscale_etf(mailing)
+    base_mail(mailing)
+  end
+
+  def stablecoins(mailing)
+    base_mail(mailing)
+  end
+
+  def polymarket(mailing)
+    base_mail(mailing)
+  end
+
+  private
+
+  def base_mail(mailing)
+    @mailing = mailing
+    @user = mailing.subscriber
+    @content_key = @mailing.mailer_action
+
+    mail(to: @user.email, subject: "🔑 #{t("onboarding_mailer.#{@content_key}.subject")}") do |format|
+      format.html { render 'onboarding_mailer/base' }
     end
   end
 end

@@ -20,12 +20,12 @@ class Drippers::Onboarding < Dripper
     end
   end
 
-  drip :onboarding, delay: 0.hours, options: { content_key: 'fee_cutter' }
-  drip :onboarding, delay: 1.day, options: { content_key: 'avoid_taxes' }
-  drip :onboarding_referral, delay: 2.days
-  drip :onboarding, delay: 4.days, options: { content_key: 'rsi' }
-  drip :onboarding, delay: 7.days, options: { content_key: 'bitcoin_m2' }
-  drip :onboarding, delay: 14.days, options: { content_key: 'grayscale_etf' }
-  drip :onboarding, delay: 21.days, options: { content_key: 'stablecoins' }
-  drip :onboarding, delay: 30.days, options: { content_key: 'polymarket' }
+  drip :fee_cutter, delay: 0.hours
+  drip :avoid_taxes, delay: 1.day
+  drip :referral, delay: 2.day
+  drip :rsi, delay: 4.days
+  drip :bitcoin_m2, delay: 7.days
+  drip :grayscale_etf, delay: 14.days
+  drip :stablecoins, delay: 21.days
+  drip :polymarket, delay: 30.days
 end

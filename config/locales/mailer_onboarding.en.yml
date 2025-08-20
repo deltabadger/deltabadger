@@ -1,5 +1,5 @@
 en:
-    mailer_onboarding:
+    onboarding_mailer:
         fee_cutter:
             subject: "Cut fees to ZERO"
             body_html: |
@@ -10,10 +10,10 @@ en:
                 <p>When exchange charges you with 0.25% fee,<br>
                 place limit orders 0.25% below the current price.</p>
                 <p><b>Why this works:</b></p>
-                <p>Crypto prices move constantly.<br> 
+                <p>Crypto prices move constantly.<br>
                 The 0.25% gap gets filled by natural market movement within a few hours 99% of the time.</p>
                 <p><b>Example:</b></p>
-                <p>Coinbase charges 0.6% fee (!).<br> 
+                <p>Coinbase charges 0.6% fee (!).<br>
                 If you invest $2000/month, you're bleeding <b>$144/year</b> in fees.</p>
                 <p>This is how much you save with FeeCutter, and get free:</p>
                 <ul style="list-style: none; padding-left: 1em;">
@@ -41,7 +41,7 @@ en:
                 <p>Other referral programs? → Boring. You get pennies.</p>
                 <p>Our referral program → <b>Unstoppable Bitcoin stream to your wallet 💸</b></p>
                 <p>How? Easy. Just share your referral link:</p>
-                <p><b>324342342</b></p>
+                <p><b>{link_html}</b></p>
             ps_html: |
                 <p>PS: Second best referral program?</p>
                 <p><img style="max-width: 100%;" src="https://deltabadger.com/images/email/onboarding/no-second-best.gif" alt="There is no second best"></p>

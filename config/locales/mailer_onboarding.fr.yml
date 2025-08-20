@@ -1,5 +1,5 @@
 fr:
-    mailer_onboarding:
+    onboarding_mailer:
         fee_cutter:
             subject: "Réduire les frais à ZÉRO"
             body_html: |
@@ -10,10 +10,10 @@ fr:
                 <p>Quand l'échange vous facture 0,25% de frais,<br>
                 placez des ordres à cours limité 0,25% en dessous du prix actuel.</p>
                 <p><b>Pourquoi ça marche :</b></p>
-                <p>Les prix crypto fluctuent en permanence.<br> 
+                <p>Les prix crypto fluctuent en permanence.<br>
                 L'écart de 0,25% se comble par le mouvement naturel du marché en quelques heures 99% du temps.</p>
                 <p><b>Exemple :</b></p>
-                <p>Coinbase facture 0,6% de frais (!).<br> 
+                <p>Coinbase facture 0,6% de frais (!).<br>
                 Si vous investissez 2000$/mois, vous perdez <b>144$/an</b> en frais.</p>
                 <p>Voici ce que vous économisez avec FeeCutter, et obtenez gratuitement :</p>
                 <ul style="list-style: none; padding-left: 1em;">
@@ -41,7 +41,7 @@ fr:
                 <p>Autres programmes de parrainage ? → Ennuyeux. Vous récoltez des miettes.</p>
                 <p>Notre programme de parrainage → <b>Flux Bitcoin imparable vers votre portefeuille 💸</b></p>
                 <p>Comment ? Facile. Partagez simplement votre lien de parrainage :</p>
-                <p><b>324342342</b></p>
+                <p><b>{link_html}</b></p>
             ps_html: |
                 <p>PS : Deuxième meilleur programme de parrainage ?</p>
                 <p><img style="max-width: 100%;" src="https://deltabadger.com/images/email/onboarding/no-second-best.gif" alt="There is no second best"></p>

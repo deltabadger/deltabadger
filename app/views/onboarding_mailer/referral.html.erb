@@ -5,7 +5,8 @@
 
 <p><%= t(@user.name.present? ? 'mailer.greeting_name' : 'mailer.greeting', name: @user.name) %></p>
 
-<p><%= t('mailer_onboarding.referral.body_html').gsub('324342342', link_to(@ref_link, @ref_link, style: 'font-weight: bold; color: #2948A1; text-decoration: none;')).html_safe %></p>
+<% link_html = link_to(@ref_link, @ref_link, style: 'font-weight: bold; color: #2948A1; text-decoration: none;') %>
+<p><%= t("onboarding_mailer.#{@content_key}.body_html", link_html: link_html.html_safe).html_safe %></p>
 
 <p><%= t('mailer.best_html') %></p>
 
@@ -13,4 +14,4 @@
     <img style="width: 120px; height: auto; margin: 0 0 1em;" src="https://deltabadger.com/images/email/signature.png" alt="Jan's Signature">
 </p>
 
-<p><%= t('mailer_onboarding.referral.ps_html') %></p>
+<p><%= t("onboarding_mailer.#{@content_key}.ps_html").html_safe %></p>

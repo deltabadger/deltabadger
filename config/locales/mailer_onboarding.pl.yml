@@ -1,5 +1,5 @@
 pl:
-    mailer_onboarding:
+    onboarding_mailer:
         fee_cutter:
             subject: "Opłaty na ZERO"
             body_html: |
@@ -10,10 +10,10 @@ pl:
                 <p>Gdy giełda pobiera od ciebie 0,25% opłaty,<br>
                 składaj zlecenia z limitem 0,25% poniżej obecnej ceny.</p>
                 <p><b>Dlaczego to działa:</b></p>
-                <p>Ceny krypto nieustannie się zmieniają.<br> 
+                <p>Ceny krypto nieustannie się zmieniają.<br>
                 Luka 0,25% jest wypełniana przez naturalne ruchy rynku w ciągu kilku godzin w 99% przypadków.</p>
                 <p><b>Przykład:</b></p>
-                <p>Coinbase pobiera 0,6% opłaty (!).<br> 
+                <p>Coinbase pobiera 0,6% opłaty (!).<br>
                 Jeśli inwestujesz 2000$/miesiąc, tracisz <b>144$/rok</b> na opłatach.</p>
                 <p>Tyle oszczędzasz z FeeCutter i otrzymujesz za darmo:</p>
                 <ul style="list-style: none; padding-left: 1em;">
@@ -41,7 +41,7 @@ pl:
                 <p>Inne programy polecające? → Nudne. Dostajesz grosze.</p>
                 <p>Nasz program polecający → <b>Niepowstrzymany strumień Bitcoina do twojego portfela 💸</b></p>
                 <p>Jak? Łatwo. Po prostu udostępnij swój link polecający:</p>
-                <p><b>324342342</b></p>
+                <p><b>{link_html}</b></p>
             ps_html: |
                 <p>PS: Drugi najlepszy program polecający?</p>
                 <p><img style="max-width: 100%;" src="https://deltabadger.com/images/email/onboarding/no-second-best.gif" alt="There is no second best"></p>

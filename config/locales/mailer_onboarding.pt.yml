@@ -1,5 +1,5 @@
 pt:
-    mailer_onboarding:
+    onboarding_mailer:
         fee_cutter:
             subject: "Reduzir taxas a ZERO"
             body_html: |
@@ -10,10 +10,10 @@ pt:
                 <p>Quando a exchange te cobra 0,25% de taxa,<br>
                 coloca ordens limitadas 0,25% abaixo do preço atual.</p>
                 <p><b>Porque funciona:</b></p>
-                <p>Os preços das criptos flutuam constantemente.<br> 
+                <p>Os preços das criptos flutuam constantemente.<br>
                 O gap de 0,25% é preenchido pelo movimento natural do mercado em poucas horas 99% das vezes.</p>
                 <p><b>Exemplo:</b></p>
-                <p>A Coinbase cobra 0,6% de taxa (!).<br> 
+                <p>A Coinbase cobra 0,6% de taxa (!).<br>
                 Se investires 2000$/mês, estás a perder <b>144$/ano</b> em taxas.</p>
                 <p>Isto é o que poupas com o FeeCutter, e recebes grátis:</p>
                 <ul style="list-style: none; padding-left: 1em;">
@@ -41,7 +41,7 @@ pt:
                 <p>Outros programas de referência? → Aborrecidos. Recebes trocos.</p>
                 <p>O nosso programa de referência → <b>Fluxo imparável de Bitcoin para a tua carteira 💸</b></p>
                 <p>Como? Fácil. Partilha simplesmente o teu link de referência:</p>
-                <p><b>324342342</b></p>
+                <p><b>{link_html}</b></p>
             ps_html: |
                 <p>PS: Segundo melhor programa de referência?</p>
                 <p><img style="max-width: 100%;" src="https://deltabadger.com/images/email/onboarding/no-second-best.gif" alt="There is no second best"></p>

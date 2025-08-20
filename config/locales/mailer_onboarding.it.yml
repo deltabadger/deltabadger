@@ -1,5 +1,5 @@
 it:
-    mailer_onboarding:
+    onboarding_mailer:
         fee_cutter:
             subject: "Commissioni a ZERO"
             body_html: |
@@ -10,10 +10,10 @@ it:
                 <p>Quando l'exchange ti addebita una commissione dello 0,25%,<br>
                 piazza ordini limite 0,25% sotto il prezzo attuale.</p>
                 <p><b>Perché funziona:</b></p>
-                <p>I prezzi delle crypto oscillano continuamente.<br> 
+                <p>I prezzi delle crypto oscillano continuamente.<br>
                 Il gap dello 0,25% viene colmato dal movimento naturale del mercato in poche ore il 99% delle volte.</p>
                 <p><b>Esempio:</b></p>
-                <p>Coinbase addebita una commissione dello 0,6% (!).<br> 
+                <p>Coinbase addebita una commissione dello 0,6% (!).<br>
                 Se investi 2000$/mese, stai perdendo <b>144$/anno</b> in commissioni.</p>
                 <p>Ecco quanto risparmi con FeeCutter, e ottieni gratis:</p>
                 <ul style="list-style: none; padding-left: 1em;">
@@ -41,7 +41,7 @@ it:
                 <p>Altri programmi di referral? → Noiosi. Ottieni spiccioli.</p>
                 <p>Il nostro programma di referral → <b>Flusso inarrestabile di Bitcoin nel tuo wallet 💸</b></p>
                 <p>Come? Facile. Condividi semplicemente il tuo link di referral:</p>
-                <p><b>324342342</b></p>
+                <p><b>{link_html}</b></p>
             ps_html: |
                 <p>PS: Secondo miglior programma di referral?</p>
                 <p><img style="max-width: 100%;" src="https://deltabadger.com/images/email/onboarding/no-second-best.gif" alt="There is no second best"></p>
