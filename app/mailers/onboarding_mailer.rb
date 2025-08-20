@@ -4,6 +4,8 @@ class OnboardingMailer < CaffeinateMailer
   track_clicks campaign: -> { "onboarding__#{@mailing.mailer_action}" }
   utm_params utm_medium: 'email', utm_source: 'onboarding', utm_campaign: -> { @mailing.mailer_action }
 
+  default from: 'hello@deltabadger.com'
+
   layout 'mailers/marketing'
 
   def fee_cutter(mailing)

@@ -26,7 +26,7 @@ class Users::ConfirmationsController < Devise::ConfirmationsController
         # email_now = resource.previous_changes['email'].last
         # TODO: update email in Intercom
       else
-        Drippers::Onboarding.subscribe(resource)
+        resource.subscribe_to_onboarding
       end
     end
   end
