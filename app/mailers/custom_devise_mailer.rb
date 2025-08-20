@@ -1,5 +1,5 @@
 class CustomDeviseMailer < Devise::Mailer
-  layout 'mailer'
+  layout 'mailers/transactional'
 
   before_action :set_show_dca_profit
 
