@@ -66,34 +66,34 @@ pl:
         avoid_taxes:
             subject: "Unikaj podatków (legalnie)"
             body_html: |
-                <p><i>Jest coś lepszego niż unikanie podatków: robienie tego legalnie.</i></p>
+                <p><i>Tylko jedna rzecz jest lepsza niż niepłacenie podatków: robienie tego legalnie.</i></p>
                 <p>Większość inwestorów rebalansuje portfel, sprzedając najlepiej radzące sobie aktywa.</p>
-                <p>Ale każda sprzedaż oznacza podatek od zysków kapitałowych.</p>
+                <p>Ale każda sprzedaż to podatek od zysków kapitałowych.</p>
                 <p>Oto lepszy sposób:</p>
-                <p>Zrównoważone DCA używające tylko zleceń KUPNA.</p>
+                <p>Rebalansowane DCA używające tylko zleceń KUPNA.</p>
                 <p><b>Jak to działa:</b></p>
-                <p>Zamiast sprzedawać rosnące aktywa, bot po prostu kupuje więcej tych spadających podczas twojego regularnego DCA.</p>
+                <p>Zamiast sprzedawać rosnące aktywa, bot kupuje więcej tych spadających podczas regularnego DCA.</p>
                 <p><b>Przykład:</b></p>
-                <p>Twój portfel 50/50 BTC-ETH przesuwa się do 60/40, bo Bitcoin wystrzeli.</p>
-                <p>Tradycyjne przywracanie równowagi: sprzedaj trochę Bitcoina i zapłać podatek od zysków ❌</p>
+                <p>Twój portfel 50/50 BTC-ETH przesuwa się do 60/40, bo Bitcoin wystrzelił.</p>
+                <p>Tradycyjne rebalansowanie: sprzedaj trochę Bitcoina i zapłać podatek od zysków ❌</p>
                 <p>Zrównoważone DCA: kup więcej Ethereum i nie płać podatków ✅</p>
                 <p><img style="margin:24px 0; width:443px;max-width:100%;" src="https://deltabadger.com/images/email/onboarding/rebalance.png"></p>
                 <p>Wynik: Utrzymujesz docelową alokację bez wtrącania się urzędu skarbowego.</p>
                 <p><a href="https://app.deltabadger.com/pl/" title="Idź do aplikacji">Unikaj podatków ze Zrównoważonym DCA →</a></p>
             ps_html: |
-                <p>PS Podczas gdy odświeżasz CoinGecko 🐸 co 5 minut, bot to twój cyfrowy John Bogle załatwiający prawdziwy biznes.</p>
+                <p>PS Podczas gdy odświeżasz CoinGecko 🐸 co 5 minut, bot to twój cyfrowy John Bogle, który zajmuje się prawdziwym biznesem.</p>
         bitcoin_m2:
             subject: "Bitcoin podąża za tym wzorem 83% czasu"
             body_html: |
                 <p><em>Gdzie pójdzie Bitcoin? Podążaj za pieniędzmi.</em></p>
                 <p>Większość przewidywań dotyczących Bitcoina to tylko zgadywanie, ale badania Lyn Alden pokazują, że:</p>
                 <p><b>Bitcoin podąża za jednym wzorem 83% czasu</b>.</p>
-                <p>Tak, mówię o korelacji M2.</p>
-                <p>To nie jest "krypto astrologia":</p>
+                <p>Tak, mówię o korelacji z podażą pieniądza M2.</p>
+                <p>To nie "krypto-horoskopy":</p>
                 <p>📈 Gdy drukuje się więcej pieniędzy (M2 rośnie), Bitcoin ma tendencję do wzrostu.</p>
                 <p>📉 Gdy drukowanie pieniędzy zwalnia lub zatrzymuje się, Bitcoin ma tendencję do gorszych wyników.</p>
                 <p>Zastosowanie tego jest trudne?</p>
-                <p>Wcale nie.</p>
+                <p>Nic bardziej mylnego!</p>
                 <p>Naucz się jak używać tego z AI i rób własne przewidywania:</p>
                 <p><a href="https://app.deltabadger.com/pl/articles/bitcoin-vs-m2">Przeczytaj pełny artykuł →</a></p>
             ps_html: |
@@ -102,7 +102,7 @@ pl:
             subject: "Podążaj za pieniędzmi"
             body_html: |
                 <p><i>Chcesz znać przyszłość? Zobacz co robią inwestorzy instytucjonalni.</p>
-                <p>Wybieranie przyszłych zwycięzców rynku nie jest łatwe.</p>
+                <p>Wybieranie przyszłych zwycięzców na rynku nie jest łatwe.</p>
                 <p>Ale oto sekretna sztuczka:</p>
                 <p>Ogromna ilość pieniędzy przepływa przez ETF-y.<br>
                 Zdobądź niesprawiedliwą przewagę:<br>
@@ -116,7 +116,7 @@ pl:
             ps_html: |
                 <p>PS 73% ludzi, którzy nie podążają za instytucjonalnymi pieniędzmi, kończy podążaniem za FOMO zamiast tego.</p>
         stablecoins:
-            subject: "Kopalnia Złota Stablecoinów"
+            subject: "Stablecoinowa kopalnia złota"
             body_html: |
                 <p><i>Każda rewolucja finansowa tworzy milionerów—ale zazwyczaj sprzedają kilofy i łopaty.</i></p>
                 <p>Jednym z najłatwiejszych sposobów zbudowania świetnego portfela opartego na danych jest inwestowanie w infrastrukturę leżącą u podstaw stablecoinów:</p>
