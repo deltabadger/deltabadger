@@ -15,4 +15,8 @@ class ApplicationMailer < ActionMailer::Base
   def set_show_dca_profit
     @show_dca_profit = true
   end
+
+  def set_locale(user)
+    I18n.locale = user.try(:locale) || I18n.default_locale
+  end
 end

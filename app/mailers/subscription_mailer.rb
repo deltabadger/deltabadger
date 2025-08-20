@@ -7,9 +7,11 @@ class SubscriptionMailer < ApplicationMailer
 
   def subscription_granted
     @payment = params[:payment]
+    @user = @payment.user
+    set_locale(@user)
 
     mail(
-      to: @payment.user.email,
+      to: @user.email,
       from: 'jan@deltabadger.com',
       subject: 'One more thing'
     ) do |format|
@@ -19,9 +21,11 @@ class SubscriptionMailer < ApplicationMailer
 
   def after_wire_transfer
     @payment = params[:payment]
+    @user = @payment.user
+    set_locale(@user)
 
     mail(
-      to: @payment.user.email,
+      to: @user.email,
       from: 'jan@deltabadger.com',
       subject: "#{localized_plan_name(@payment.subscription_plan.name)} plan granted!"
     ) do |format|
@@ -31,8 +35,10 @@ class SubscriptionMailer < ApplicationMailer
 
   def invoice
     @payment = params[:payment]
+    @user = @payment.user
+    set_locale(@user)
 
-    mail(to: @payment.user.email, subject: default_i18n_subject)
+    mail(to: @user.email, subject: default_i18n_subject)
   end
 
   def wire_transfer_summary
@@ -51,6 +57,7 @@ class SubscriptionMailer < ApplicationMailer
     @affected_bots = params[:affected_bots] || []
     @current_plan = params[:current_plan]
     @has_research_features = params[:has_research_features] || false
+    set_locale(@user)
 
     mail(to: @user.email, subject: default_i18n_subject)
   end
@@ -59,6 +66,7 @@ class SubscriptionMailer < ApplicationMailer
     @user = params[:user]
     @stopped_bots = params[:stopped_bots] || []
     @expired_plan = params[:expired_plan]
+    set_locale(@user)
 
     mail(to: @user.email, subject: default_i18n_subject)
   end
@@ -67,6 +75,7 @@ class SubscriptionMailer < ApplicationMailer
     @user = params[:user]
     @subscription_plan = params[:subscription_plan]
     @has_research_features = params[:has_research_features] || false
+    set_locale(@user)
 
     mail(to: @user.email, subject: default_i18n_subject)
   end

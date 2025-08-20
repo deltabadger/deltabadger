@@ -7,6 +7,7 @@ class BotAlertsMailer < ApplicationMailer
     @bot = params[:bot]
     @label = @bot.label
     @exchange_name = Exchange.find(@bot.exchange_id).name.upcase
+    set_locale(@user)
 
     mail(to: @user.email, subject: t('.subject', label: @label))
   end
@@ -18,6 +19,7 @@ class BotAlertsMailer < ApplicationMailer
     @bot = params[:bot]
     @label = @bot.label
     @exchange_name = Exchange.find(@bot.exchange_id).name.upcase
+    set_locale(@user)
 
     mail(to: @user.email, subject: default_i18n_subject)
   end
@@ -28,6 +30,7 @@ class BotAlertsMailer < ApplicationMailer
     @quote = params[:quote]
     @label = @bot.label
     @exchange_name = Exchange.find(@bot.exchange_id).name
+    set_locale(@user)
 
     mail(to: @user.email, subject: t('.subject', exchange_name: @exchange_name, quote: @quote))
   end
@@ -41,6 +44,7 @@ class BotAlertsMailer < ApplicationMailer
     @type = params[:type]
     @price = params[:price]
     @exchange_name = @bot.exchange.name
+    set_locale(@user)
 
     mail(to: @user.email, subject: default_i18n_subject)
   end
@@ -50,6 +54,7 @@ class BotAlertsMailer < ApplicationMailer
     @label = params[:label]
     @amount = params[:amount]
     @quote = params[:quote]
+    set_locale(@user)
 
     mail(to: @user.email, subject: t('.subject', label: @label))
   end

@@ -19,6 +19,7 @@ class OnboardingMailer < CaffeinateMailer
     @user = mailing.subscriber
     @content_key = @mailing.mailer_action
     @ref_link = ENV.fetch('HOME_PAGE_URL') + Rails.application.routes.url_helpers.ref_code_path(code: @user.affiliate.code, locale: nil)
+    set_locale(@user)
 
     mail(to: @user.email, subject: "🔑 #{t("onboarding_mailer.#{@content_key}.subject")}")
   end
@@ -49,6 +50,7 @@ class OnboardingMailer < CaffeinateMailer
     @mailing = mailing
     @user = mailing.subscriber
     @content_key = @mailing.mailer_action
+    set_locale(@user)
 
     mail(to: @user.email, subject: "🔑 #{t("onboarding_mailer.#{@content_key}.subject")}") do |format|
       format.html { render 'onboarding_mailer/base' }
