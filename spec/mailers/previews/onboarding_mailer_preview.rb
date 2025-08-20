@@ -35,10 +35,11 @@ class OnboardingMailerPreview < ActionMailer::Preview
   private
 
   def mock_mailing_with_content_key(content_key)
-    # Create a mock user
+    # Create a mock user with current locale
     user = User.new(
       email: 'test@example.com',
-      name: 'John Doe'
+      name: 'Mathias',
+      locale: params[:locale] || I18n.default_locale
     )
 
     # Create a mock campaign subscription with token
@@ -64,10 +65,11 @@ class OnboardingMailerPreview < ActionMailer::Preview
   end
 
   def mock_mailing_for_referral
-    # Create a mock user with affiliate
+    # Create a mock user with affiliate and current locale
     user = User.new(
       email: 'test@example.com',
-      name: 'John Doe'
+      name: 'Mathias',
+      locale: params[:locale] || I18n.default_locale
     )
 
     # Create a mock affiliate with code
