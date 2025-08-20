@@ -3,27 +3,27 @@ es:
         fee_cutter:
             subject: "Comisiones a CERO"
             body_html: |
-                <p><i>Me encanta pagar comisiones.</i><br>
-                <small>*No lo ha dicho nadie nunca.</small></p>
+                <p><i>¡Me encanta pagar comisiones!</i><br>
+                <small>*Dijo nadie en la vida.</small></p>
                 <p>La mayoría de inversores acepta las comisiones del exchange como "el coste de hacer negocios".</p>
                 <p>Pero aquí está el truco:</p>
-                <p>Cuando el exchange te cobra una comisión del 0,25%,<br>
-                coloca órdenes límite un 0,25% por debajo del precio actual.</p>
+                <p>Con Deltabadger FeeCutter, cuando el exchange te cobra una comisión del 0,25%,<br>
+                puedes colocar órdenes límite un 0,25% por debajo del precio de mercado. ¡Y neutralizar la comisión!</p>
                 <p><b>Por qué funciona:</b></p>
                 <p>Los precios de las criptomonedas fluctúan constantemente.<br>
                 Ese hueco del 0,25% se cierra por el movimiento natural del mercado en pocas horas el 99% de las veces.</p>
                 <p><b>Ejemplo:</b></p>
                 <p>Coinbase cobra una comisión del 0,6% (!).<br>
-                Si inviertes 2000$/mes, estás perdiendo <b>144$/año</b> en comisiones.</p>
+                Si inviertes 2000€/mes, estás perdiendo <b>144€/año</b> en comisiones.</p>
                 <p>Esto es lo que ahorras con FeeCutter, y obtienes gratis:</p>
                 <ul style="list-style: none; padding-left: 1em;">
                     <li>💸 Suscripción anual a Deltabadger</li>
                     <li>☕ café</li>
-                    <li>🐶 premios para perros</li>
+                    <li>🎩 un sombrero elegante para tu gato</li>
                 </ul>
-                <p>¿Suena bien? <a href="https://app.deltabadger.com/es/">Automatiza tu inversión con FeeCutter →</a></p>
+                <p>¿Suena bien? <a href="https://app.deltabadger.com/es/upgrade">Automatiza tu inversión con FeeCutter →</a></p>
             ps_html: |
-                <p>PD ¿Listo para empezar? El perro de Remo desde luego que sí:</p>
+                <p>PD ¿Listo para empezar?</p>
                 <p><img src="https://deltabadger.com/images/email/onboarding/remo.png" alt="Reseña de Google" style="max-width: 100%; width: 300px"></p>
         referral:
             subject: "There Is No Second Best"

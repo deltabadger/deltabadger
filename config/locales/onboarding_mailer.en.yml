@@ -7,21 +7,21 @@ en:
                 <small>*Said no one ever.</small></p>
                 <p>Most investors accept exchange fees as "the cost of doing business."</p>
                 <p>But here's the trick:</p>
-                <p>When exchange charges you with 0.25% fee,<br>
-                place limit orders 0.25% below the current price.</p>
+                <p>With Deltabadger FeeCutter, when the exchange charges you with 0.25% fee,<br>
+                you can place limit orders 0.25% below the current price. <b>And neutralize the fee!</b></p>
                 <p><b>Why this works:</b></p>
                 <p>Crypto prices move constantly.<br>
                 The 0.25% gap gets filled by natural market movement within a few hours 99% of the time.</p>
                 <p><b>Example:</b></p>
                 <p>Coinbase charges 0.6% fee (!).<br>
                 If you invest $2000/month, you're bleeding <b>$144/year</b> in fees.</p>
-                <p>This is how much you save with FeeCutter, and get free:</p>
+                <p>This is how much you save with FeeCutter, and get virtually for free:</p>
                 <ul style="list-style: none; padding-left: 1em;">
                     <li>💸 Annual Deltabadger subscription</li>
                     <li>☕ coffee</li>
                     <li>🐶 dog treats</li>
                 </ul>
-                <p>Sounds good? <a href="https://app.deltabadger.com/">Automate investing with FeeCutter →</a></p>
+                <p>Sounds good? <a href="https://app.deltabadger.com/upgrade">Automate investing with FeeCutter →</a></p>
             ps_html: |
                 <p>PS Ready to start? Remo's dog surely is:</p>
                 <p><img src="https://deltabadger.com/images/email/onboarding/remo.png" alt="Google Review" style="max-width: 100%; width: 300px"></p>
