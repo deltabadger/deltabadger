@@ -1,0 +1,145 @@
+nl:
+    mailer_onboarding:
+        fee_cutter:
+            subject: "Kosten naar NUL"
+            body_html: |
+                <p><i>Ik hou van kosten betalen.</i><br>
+                <small>*Heeft niemand ooit gezegd.</small></p>
+                <p>De meeste beleggers accepteren exchange-kosten als "de kosten van zaken doen".</p>
+                <p>Maar hier is de truc:</p>
+                <p>Wanneer de exchange je 0,25% kosten rekent,<br>
+                plaats limit orders 0,25% onder de huidige prijs.</p>
+                <p><b>Waarom dit werkt:</b></p>
+                <p>Crypto-prijzen fluctueren voortdurend.<br> 
+                De 0,25% gap wordt gevuld door natuurlijke marktbeweging binnen een paar uur 99% van de tijd.</p>
+                <p><b>Voorbeeld:</b></p>
+                <p>Coinbase rekent 0,6% kosten (!).<br> 
+                Als je $2000/maand investeert, ben je <b>$144/jaar</b> kwijt aan kosten.</p>
+                <p>Dit bespaar je met FeeCutter, en krijg je gratis:</p>
+                <ul style="list-style: none; padding-left: 1em;">
+                    <li>💸 Jaarlijks Deltabadger abonnement</li>
+                    <li>☕ koffie</li>
+                    <li>🐶 hondenkoekjes</li>
+                </ul>
+                <p>Klinkt goed? <a href="https://app.deltabadger.com/nl/">Automatiseer beleggen met FeeCutter →</a></p>
+            ps_html: |
+                <p>PS Klaar om te beginnen? Remo's hond zeker wel:</p>
+                <p><img src="https://deltabadger.com/images/email/onboarding/remo.png" alt="Google Review" style="max-width: 100%; width: 300px"></p>
+        referral:
+            subject: "There Is No Second Best"
+            body_html: |
+                <p>Luister naar me, baas:</p>
+                <p>Passief inkomen in Bitcoin.</p>
+                <p>Wat?</p>
+                <p>JA.</p>
+                <p>De deal is simpel:</p>
+                <ol>
+                    <li>Nodig een vriend uit.</li>
+                    <li>De vriend krijgt 10% korting en neemt een abonnement.</li>
+                    <li>Wij betalen jou 20% in Bitcoin. VOOR ALTIJD.</li>
+                </ol>
+                <p>Andere verwijzingsprogramma's? → Saai. Je krijgt peanuts.</p>
+                <p>Ons verwijzingsprogramma → <b>Onstopbare Bitcoin-stroom naar je wallet 💸</b></p>
+                <p>Hoe? Makkelijk. Deel gewoon je verwijzingslink:</p>
+                <p><b>324342342</b></p>
+            ps_html: |
+                <p>PS: Tweede beste verwijzingsprogramma?</p>
+                <p><img style="max-width: 100%;" src="https://deltabadger.com/images/email/onboarding/no-second-best.gif" alt="There is no second best"></p>
+        rsi:
+            subject: "Het RSI Geheim"
+            body_html: |
+                <p><i>Het beste moment om te kopen was gisteren. Het op één na beste? Wanneer RSI 30 raakt.</i></p>
+                <p>Traders gebruiken duizenden indicatoren om de bodem te pakken.</p>
+                <p>Slimme traders gebruiken RSI.</p>
+                <p>Het is simpel.</p>
+                <p>RSI onder 30 = uitverkoop = tijd om te kopen.</p>
+                <p><b>Waarom het werkt:</b></p>
+                <p>RSI meet momentum op een schaal van 0-100. Wanneer het onder 30 zakt, is het asset waarschijnlijk ondergewaardeerd en klaar voor een herstel.</p>
+                <p><b>Voorbeeld:</b></p>
+                <p>Elke keer dat Bitcoin RSI onder 30 was op de wekelijkse chart, was het een perfecte kans om te DCA'en en de bodem te pakken.</p>
+                <p><img style="width:100%; margin: 24px 0" src="https://deltabadger.com/images/email/onboarding/rsi-chart.png"></p>
+                <p>Zulke momenten pakken met Deltabadger is makkelijk:</p>
+                <p><img style="padding: 24px 0; text-align: center; width: 602px; max-width:100%;" src="https://deltabadger.com/images/email/onboarding/rsi-set.png"></p>
+                <p>Pak de dip, niet het vallende mes: <a href="https://app.deltabadger.com/nl/upgrade">Koop de volgende dip met RSI →</a></p>
+            ps_html: |
+                <p>PS: RSI is zoals je moeder die zegt dat je een jas aan moet. Je negeert het, en hebt er later spijt van. Op de een of andere manier heeft ze vaak gelijk.</p>
+        avoid_taxes:
+            subject: "Belasting vermijden (legaal)"
+            body_html: |
+                <p><i>Er is iets beters dan belasting vermijden: het legaal doen.</i></p>
+                <p>De meeste beleggers herbalanceren hun portfolio door hun best presterende assets te verkopen.</p>
+                <p>Maar elke verkoop betekent kapitaalwinstbelasting.</p>
+                <p>Hier is een betere manier:</p>
+                <p>Herbalanceerde DCA met alleen KOOP-orders.</p>
+                <p><b>Hoe het werkt:</b></p>
+                <p>In plaats van je groeiende assets te verkopen, koopt de bot gewoon meer van de dalende tijdens je reguliere DCA.</p>
+                <p><b>Voorbeeld:</b></p>
+                <p>Je 50/50 BTC-ETH portfolio drijft naar 60/40 omdat Bitcoin explodeerde.</p>
+                <p>Traditionele herbalancering: wat Bitcoin verkopen, en kapitaalwinstbelasting betalen ❌</p>
+                <p>Herbalanceerde DCA: meer Ethereum kopen, en geen belasting betalen ✅</p>
+                <p><img style="margin:24px 0; width:443px;max-width:100%;" src="https://deltabadger.com/images/email/onboarding/rebalance.png"></p>
+                <p>Resultaat: Je houdt je doelallocatie zonder dat de Belastingdienst zich ermee bemoeit.</p>
+                <p><a href="https://app.deltabadger.com/nl/" title="Ga naar de app">Vermijd belasting met Herbalanceerde DCA →</a></p>
+            ps_html: |
+                <p>PS Terwijl jij CoinGecko 🐸 elke 5 minuten ververst, is de bot je digitale John Bogle die de echte zaken regelt.</p>
+        bitcoin_m2:
+            subject: "Bitcoin volgt dit patroon 83% van de tijd"
+            body_html: |
+                <p><em>Waar gaat Bitcoin heen? Volg het geld.</em></p>
+                <p>De meeste Bitcoin-voorspellingen zijn gewoon gissen, maar Lyn Alden's onderzoek toont dat:</p>
+                <p><b>Bitcoin volgt één patroon 83% van de tijd</b>.</p>
+                <p>Ja, ik heb het over de M2-correlatie.</p>
+                <p>Dit is geen "crypto-astrologie":</p>
+                <p>📈 Wanneer er meer geld wordt gedrukt (M2 groeit), heeft Bitcoin de neiging omhoog te gaan.</p>
+                <p>📉 Wanneer het gelddrukken vertraagt of stopt, heeft Bitcoin de neiging te onderpresteren.</p>
+                <p>Het toepassen is moeilijk?</p>
+                <p>Helemaal niet.</p>
+                <p>Leer hoe je het met AI gebruikt en maak je eigen voorspellingen:</p>
+                <p><a href="https://app.deltabadger.com/nl/articles/bitcoin-vs-m2">Lees volledig artikel →</a></p>
+            ps_html: |
+                <p><strong>PS</strong> 83% nauwkeurigheid? Betere kansen dan de meeste huwelijksaanzoeken 🤦‍♂️</p>
+        grayscale_etf:
+            subject: "Volg het geld"
+            body_html: |
+                <p><i>Wil je de toekomst weten? Kijk wat institutionele beleggers doen.</p>
+                <p>Toekomstige marktwinnaars kiezen is niet makkelijk.</p>
+                <p>Maar hier is een geheim trucje:</p>
+                <p>Een enorme hoeveelheid geld stroomt door ETF's.<br>
+                Krijg een oneerlijk voordeel:<br>
+                <b>Kies coins die in een ETF zitten.</b></p>
+                <p>Waarom het werkt:</p>
+                <p>De meerderheid van institutionele beleggers kan niet direct in crypto investeren.<br>
+                Het grootste kapitaal is gedwongen om via ETF's te investeren.</p>
+                <p>Het beste deel? De eerste multi-crypto ETF is net goedgekeurd.</p>
+                <p>Kijk wat erin zit en loop voor op de gekte:</p>
+                <p><a href="https://app.deltabadger.com/nl/articles/grayscale-crypto-etf">Lees volledig artikel →</a></p>
+            ps_html: |
+                <p>PS 73% van mensen die institutioneel geld niet volgen, eindigen met het volgen van FOMO in plaats daarvan.</p>
+        stablecoins:
+            subject: "Stablecoin Goudmijn"
+            body_html: |
+                <p><i>Elke financiële revolutie creëert miljonairs—maar ze verkopen meestal pikhouwelen en schoppen.</i></p>
+                <p>Een van de makkelijkste manieren om een geweldige data-gedreven portfolio op te bouwen is investeren in de infrastructuur onder stablecoins:</p>
+                <p><img style="width: 419px; max-width: 100%; margin: 24px auto; display: block;" src="https://deltabadger.com/images/email/onboarding/genius-portfolio.png" alt="GENIUS portfolio"></p>
+                <p><b>Waarom werkt het?</b></p>
+                <p>De GENIUS Act bevestigt de status van stablecoins als de nieuwe "digitale dollar," die nu opkomende markten in Latijns-Amerika, Afrika, Azië… dollariseert.</p>
+                <p>Het beste deel?</p>
+                <p>Al het verkeer op de blockchain verhoogt de vraag naar onderliggende tokens.</p>
+                </p>Leer meer over verschillende mogelijke allocaties van zo'n portfolio:<p>
+                <p><a href="https://app.deltabadger.com/nl/articles/genius-of-stablecoins">Lees volledig artikel →</a></p>
+            ps_html: |
+                <p><strong>PS</strong> Digitale Euro? Komt net na vliegende auto's en wereldvrede.</p>
+        polymarket:
+            subject: "Dit Project Is De Toekomst"
+            body_html: |
+                <p><i>Crypto heeft geen gebruikscasus.</i></p>
+                <p>Zeker, de meeste crypto-projecten worstelen om echte bruikbaarheid te demonstreren. Maar af en toe doorbreekt iets het lawaai.</p>
+                <p><strong>Polymarket</strong> – het crypto-gebaseerde voorspellingsplatform, genereerde alleen al in 2024 meer dan $9 miljard aan transactievolume, en werd een van de <b>belangrijkste gebruikscasussen van de Polygon blockchain</b>.</p>
+                <p>Onze diepgaande analyse behandelt:</p>
+                <p>- Wat zijn voorspellingsmarkten?<br>
+                - Wanneer zullen POL (Polygon) houders profiteren?<br>
+                - Hoe kwalificeer je voor een mogelijke Polymarket airdrop?</p>
+                <p><a href="https://app.deltabadger.com/nl/articles/polymarket">Lees volledig artikel →</a></p>
+            ps_html: |
+                <p><strong>PS</strong> Slecht nieuws: Polymarket is 98% zeker dat Jezus dit jaar niet terugkomt. Maar, hey, het is <b>+4167%</b> als hij dat wel doet 😇</p>
+                <p><img style="width: 100%" src="https://deltabadger.com/images/email/onboarding/polymarket-jesus.png" alt="Polymarket"></p>

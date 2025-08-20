@@ -1,0 +1,145 @@
+es:
+    mailer_onboarding:
+        fee_cutter:
+            subject: "Comisiones a CERO"
+            body_html: |
+                <p><i>Me encanta pagar comisiones.</i><br>
+                <small>*No lo ha dicho nadie nunca.</small></p>
+                <p>La mayoría de inversores acepta las comisiones del exchange como "el coste de hacer negocios".</p>
+                <p>Pero aquí está el truco:</p>
+                <p>Cuando el exchange te cobra una comisión del 0,25%,<br>
+                coloca órdenes límite un 0,25% por debajo del precio actual.</p>
+                <p><b>Por qué funciona:</b></p>
+                <p>Los precios de las criptomonedas fluctúan constantemente.<br> 
+                Ese hueco del 0,25% se cierra por el movimiento natural del mercado en pocas horas el 99% de las veces.</p>
+                <p><b>Ejemplo:</b></p>
+                <p>Coinbase cobra una comisión del 0,6% (!).<br> 
+                Si inviertes 2000$/mes, estás perdiendo <b>144$/año</b> en comisiones.</p>
+                <p>Esto es lo que ahorras con FeeCutter, y obtienes gratis:</p>
+                <ul style="list-style: none; padding-left: 1em;">
+                    <li>💸 Suscripción anual a Deltabadger</li>
+                    <li>☕ café</li>
+                    <li>🐶 premios para perros</li>
+                </ul>
+                <p>¿Suena bien? <a href="https://app.deltabadger.com/es/">Automatiza tu inversión con FeeCutter →</a></p>
+            ps_html: |
+                <p>PD ¿Listo para empezar? El perro de Remo desde luego que sí:</p>
+                <p><img src="https://deltabadger.com/images/email/onboarding/remo.png" alt="Reseña de Google" style="max-width: 100%; width: 300px"></p>
+        referral:
+            subject: "There Is No Second Best"
+            body_html: |
+                <p>Escúchame, jefe:</p>
+                <p>Ingresos pasivos en Bitcoin.</p>
+                <p>¿Qué?</p>
+                <p>SÍ.</p>
+                <p>El trato es simple:</p>
+                <ol>
+                    <li>Invita a un amigo.</li>
+                    <li>El amigo obtiene un 10% de descuento y se suscribe.</li>
+                    <li>Te pagamos el 20% en Bitcoin. PARA SIEMPRE.</li>
+                </ol>
+                <p>¿Otros programas de referidos? → Aburridos. Recibes calderilla.</p>
+                <p>Nuestro programa de referidos → <b>Flujo imparable de Bitcoin a tu cartera 💸</b></p>
+                <p>¿Cómo? Fácil. Solo comparte tu enlace de referido:</p>
+                <p><b>324342342</b></p>
+            ps_html: |
+                <p>PD: ¿El segundo mejor programa de referidos?</p>
+                <p><img style="max-width: 100%;" src="https://deltabadger.com/images/email/onboarding/no-second-best.gif" alt="There is no second best"></p>
+        rsi:
+            subject: "El Secreto del RSI"
+            body_html: |
+                <p><i>El mejor momento para comprar fue ayer. ¿El segundo mejor? Cuando el RSI toca 30.</i></p>
+                <p>Los traders usan miles de indicadores para pillar el suelo.</p>
+                <p>Los traders inteligentes usan el RSI.</p>
+                <p>Es simple.</p>
+                <p>RSI por debajo de 30 = pánico de venta = momento de comprar.</p>
+                <p><b>Por qué funciona:</b></p>
+                <p>El RSI mide el impulso en una escala de 0-100. Cuando baja de 30, el activo probablemente está infravalorado y listo para rebotar.</p>
+                <p><b>Ejemplo:</b></p>
+                <p>Cada vez que el RSI de Bitcoin estuvo por debajo de 30 en el gráfico semanal, fue una oportunidad perfecta para hacer DCA y pillar el suelo.</p>
+                <p><img style="width:100%; margin: 24px 0" src="https://deltabadger.com/images/email/onboarding/rsi-chart.png"></p>
+                <p>Capturar momentos como este con Deltabadger es fácil:</p>
+                <p><img style="padding: 24px 0; text-align: center; width: 602px; max-width:100%;" src="https://deltabadger.com/images/email/onboarding/rsi-set.png"></p>
+                <p>Pilla la caída, no el cuchillo que cae: <a href="https://app.deltabadger.com/es/upgrade">Compra la próxima caída con RSI →</a></p>
+            ps_html: |
+                <p>PD: El RSI es como tu madre diciéndote que te pongas chaqueta. Lo ignoras, y luego te arrepientes. De alguna manera, suele tener razón.</p>
+        avoid_taxes:
+            subject: "Evita impuestos (legalmente)"
+            body_html: |
+                <p><i>Hay algo mejor que evitar impuestos: hacerlo legalmente.</i></p>
+                <p>La mayoría de inversores reequilibra su cartera vendiendo los activos que mejor rinden.</p>
+                <p>Pero cada venta significa impuesto sobre ganancias de capital.</p>
+                <p>Aquí tienes una forma mejor:</p>
+                <p>DCA reequilibrado usando solo órdenes de COMPRA.</p>
+                <p><b>Cómo funciona:</b></p>
+                <p>En lugar de vender tus activos en crecimiento, el bot simplemente compra más de los que están cayendo durante tu DCA habitual.</p>
+                <p><b>Ejemplo:</b></p>
+                <p>Tu cartera 50/50 BTC-ETH deriva a 60/40 porque Bitcoin se disparó.</p>
+                <p>Reequilibrio tradicional: vender algo de Bitcoin, y pagar impuesto sobre ganancias ❌</p>
+                <p>DCA reequilibrado: comprar más Ethereum, y no pagar impuestos ✅</p>
+                <p><img style="margin:24px 0; width:443px;max-width:100%;" src="https://deltabadger.com/images/email/onboarding/rebalance.png"></p>
+                <p>Resultado: Mantienes tu asignación objetivo sin que Hacienda se meta por medio.</p>
+                <p><a href="https://app.deltabadger.com/es/" title="Ir a la app">Evita impuestos con DCA Reequilibrado →</a></p>
+            ps_html: |
+                <p>PD Mientras tú actualizas CoinGecko 🐸 cada 5 minutos, el bot es tu John Bogle digital manejando el negocio de verdad.</p>
+        bitcoin_m2:
+            subject: "Bitcoin sigue este patrón el 83% del tiempo"
+            body_html: |
+                <p><em>¿Hacia dónde irá Bitcoin? Sigue el dinero.</em></p>
+                <p>La mayoría de predicciones sobre Bitcoin son solo conjeturas, pero la investigación de Lyn Alden muestra que:</p>
+                <p><b>Bitcoin sigue un patrón el 83% del tiempo</b>.</p>
+                <p>Sí, hablo de la correlación con M2.</p>
+                <p>Esto no es "astrología cripto":</p>
+                <p>📈 Cuando se imprime más dinero (M2 crece), Bitcoin tiende a subir.</p>
+                <p>📉 Cuando la impresión de dinero se ralentiza o para, Bitcoin tiende a rendir por debajo.</p>
+                <p>¿Aplicarlo es difícil?</p>
+                <p>Para nada.</p>
+                <p>Aprende cómo usarlo con IA y haz tus propias predicciones:</p>
+                <p><a href="https://app.deltabadger.com/es/articles/bitcoin-vs-m2">Leer artículo completo →</a></p>
+            ps_html: |
+                <p><strong>PD</strong> ¿83% de precisión? Mejores probabilidades que la mayoría de propuestas de matrimonio 🤦‍♂️</p>
+        grayscale_etf:
+            subject: "Sigue el dinero"
+            body_html: |
+                <p><i>¿Quieres saber el futuro? Mira qué hacen los inversores institucionales.</p>
+                <p>Elegir los ganadores futuros del mercado no es fácil.</p>
+                <p>Pero aquí tienes un truco secreto:</p>
+                <p>Una cantidad masiva de dinero fluye a través de ETFs.<br>
+                Consigue una ventaja injusta:<br>
+                <b>Elige monedas incluidas en un ETF.</b></p>
+                <p>Por qué funciona:</p>
+                <p>La mayoría de inversores institucionales no pueden invertir directamente en cripto.<br>
+                El mayor capital se ve forzado a invertir a través de ETFs.</p>
+                <p>¿La mejor parte? El primer ETF multicripto acaba de ser aprobado.</p>
+                <p>Mira qué contiene y adelántate a la locura:</p>
+                <p><a href="https://app.deltabadger.com/es/articles/grayscale-crypto-etf">Leer artículo completo →</a></p>
+            ps_html: |
+                <p>PD El 73% de la gente que no sigue el dinero institucional acaba siguiendo el FOMO en su lugar.</p>
+        stablecoins:
+            subject: "Mina de Oro de Stablecoins"
+            body_html: |
+                <p><i>Cada revolución financiera crea millonarios—pero suelen estar vendiendo picos y palas.</i></p>
+                <p>Una de las formas más fáciles de construir una gran cartera basada en datos es invertir en la infraestructura subyacente a las stablecoins:</p>
+                <p><img style="width: 419px; max-width: 100%; margin: 24px auto; display: block;" src="https://deltabadger.com/images/email/onboarding/genius-portfolio.png" alt="cartera GENIUS"></p>
+                <p><b>¿Por qué funciona?</b></p>
+                <p>La Ley GENIUS cementa el estatus de las stablecoins como el nuevo "dólar digital," que ahora está dolarizando mercados emergentes de Latinoamérica, África, Asia…</p>
+                <p>¿La mejor parte?</p>
+                <p>Todo el tráfico en la blockchain aumenta la demanda de los tokens subyacentes.</p>
+                </p>Aprende más sobre diferentes asignaciones posibles de tal cartera:<p>
+                <p><a href="https://app.deltabadger.com/es/articles/genius-of-stablecoins">Leer artículo completo →</a></p>
+            ps_html: |
+                <p><strong>PD</strong> ¿Euro digital? Llegará justo después de los coches voladores y la paz mundial.</p>
+        polymarket:
+            subject: "Este Proyecto Es El Futuro"
+            body_html: |
+                <p><i>Las criptos no tienen caso de uso.</i></p>
+                <p>Claro, la mayoría de proyectos cripto luchan por demostrar utilidad real. Pero de vez en cuando, algo rompe el ruido.</p>
+                <p><strong>Polymarket</strong> – la plataforma de predicciones basada en cripto, solo en 2024, generó más de 9 mil millones de dólares en volumen de transacciones, convirtiéndose en uno de los <b>principales casos de uso de la blockchain de Polygon</b>.</p>
+                <p>Nuestro análisis profundo cubre:</p>
+                <p>- ¿Qué son los mercados de predicción?<br>
+                - ¿Cuándo se beneficiarán los holders de POL (Polygon)?<br>
+                - ¿Cómo cualificar para un potencial airdrop de Polymarket?</p>
+                <p><a href="https://app.deltabadger.com/es/articles/polymarket">Leer artículo completo →</a></p>
+            ps_html: |
+                <p><strong>PD</strong> Malas noticias: Polymarket está 98% seguro de que Jesús no volverá este año. Pero, oye, es <b>+4167%</b> si lo hace 😇</p>
+                <p><img style="width: 100%" src="https://deltabadger.com/images/email/onboarding/polymarket-jesus.png" alt="Polymarket"></p>
