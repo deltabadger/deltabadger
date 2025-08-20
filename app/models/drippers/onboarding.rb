@@ -2,6 +2,9 @@ class Drippers::Onboarding < Dripper
   self.campaign = :onboarding
   default mailer: 'OnboardingMailer'
 
+  # WARNING: after adding a new drip step, you need to call rake caffeinate_add_drip_step
+  # WARNING: after renaming a drip step, you need to call rake caffeinate_rename_drip
+
   on_unsubscribe do |subscription|
     user = subscription.subscriber
     user.update(subscribed_to_email_marketing: false)
