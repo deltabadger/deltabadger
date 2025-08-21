@@ -10,7 +10,7 @@ module ExchangeApi
           path = "/api/v1/orders/#{FAKE_ORDER_ID}"
           conn = Faraday.new(
             url: API_URL,
-            proxy: ENV['EU_HTTPS_PROXY'].present? ? "https://#{ENV['EU_HTTPS_PROXY']}" : nil
+            proxy: ENV['EU_HTTPS_PROXY']
           )
           request = conn.delete(path, {}, headers(api_key, api_secret, passphrase, '', path, 'DELETE'))
           return false if request.status != 200

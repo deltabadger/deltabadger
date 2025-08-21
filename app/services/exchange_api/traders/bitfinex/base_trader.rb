@@ -23,7 +23,7 @@ module ExchangeApi
           path = '/auth/r/orders/hist'.freeze
           url = PRIVATE_API_URL + path
           body = { id: [order_id] }.to_json
-          conn = Faraday.new(proxy: ENV['US_HTTPS_PROXY'].present? ? "https://#{ENV['US_HTTPS_PROXY']}" : nil)
+          conn = Faraday.new(proxy: ENV['US_HTTPS_PROXY'])
           request = conn.post(url, body, headers(@api_key, @api_secret, body, path))
           response = JSON.parse(request.body)
 
@@ -50,7 +50,7 @@ module ExchangeApi
           path = '/auth/w/order/submit'.freeze
           url = PRIVATE_API_URL + path
           body = order_params.to_json
-          conn = Faraday.new(proxy: ENV['US_HTTPS_PROXY'].present? ? "https://#{ENV['US_HTTPS_PROXY']}" : nil)
+          conn = Faraday.new(proxy: ENV['US_HTTPS_PROXY'])
           request = conn.post(url, body, headers(@api_key, @api_secret, body, path))
 
           parse_request(request)
