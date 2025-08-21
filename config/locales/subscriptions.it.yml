@@ -1,12 +1,13 @@
 it:
     subscriptions:
-        per_month_html: "/mese"
-        per_year_html: "/anno"
-        per_4_years_html: "/4 anni"
+        per_week_html: "/ settimana"
+        per_month_html: "/ mese"
+        per_year_html: "/ anno"
+        per_4_years_html: "/ 4 anni"
         variant_lifetime: "A vita"
         variant_30_days: "Mensile"
-        variant_365_days: "Annuale"
-        variant_1460_days: "4 Anni"
+        variant_365_days: "1 anno"
+        variant_1460_days: "4 anni, risparmia 25%"
         variant_7_days: "Settimanale"
         free: "Gratuito"
         mini: "Mini"
@@ -14,11 +15,12 @@ it:
         pro: "Pro"
         research: "Research"
         legendary: "Legendary"
+        active: "Attivo"
         thank_you:
             title: "Grazie!"
             description: "Il tuo piano %{plan_name} è attivo."
         upgrade_modal:
-            title: "Passa a Pro"
+            title: "Upgrade"
             description: "Accedi a tutte le funzionalità avanzate."
         days_left:
             one: "1 giorno rimasto"
@@ -29,6 +31,8 @@ it:
         confirm_cancel_title: "Annulla il piano %{plan}"
         confirm_cancel: "Sei sicuro di voler annullare il tuo abbonamento? Tutti i bot con le funzionalità del piano %{plan} abilitate smetteranno di funzionare dopo il %{date}."
         payment:
+            cardholder_first_name: "Nome del titolare della carta"
+            cardholder_last_name: "Cognome del titolare della carta"
             price_usd_html: "<span class=price-ticker>%{symbol}</span><span class=price-amount>%{price}</span>"
             price_eur_html: "<span class=price-ticker>%{symbol}</span><span class=price-amount>%{price}</span>"
             card: "Carta"

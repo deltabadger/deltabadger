@@ -1,12 +1,13 @@
 nl:
     subscriptions:
-        per_month_html: "/mnd"
-        per_year_html: "/jr"
-        per_4_years_html: "/4 jaar"
+        per_week_html: "/ week"
+        per_month_html: "/ maand"
+        per_year_html: "/ jaar"
+        per_4_years_html: "/ 4 jaar"
         variant_lifetime: "Levenslang"
         variant_30_days: "Maandelijks"
-        variant_365_days: "Jaarlijks"
-        variant_1460_days: "4 Jaar"
+        variant_365_days: "1 jaar"
+        variant_1460_days: "4 jaar, bespaar 25%"
         variant_7_days: "Wekelijks"
         free: "Gratis"
         mini: "Mini"
@@ -14,11 +15,12 @@ nl:
         pro: "Pro"
         research: "Research"
         legendary: "Legendary"
+        active: "Actief"
         thank_you:
             title: "Dank je wel!"
             description: "Je %{plan_name}-abonnement is actief."
         upgrade_modal:
-            title: "Upgraden naar Pro"
+            title: "Upgrade"
             description: "Toegang tot alle geavanceerde functies."
         days_left:
             one: '1 dag over'
@@ -29,6 +31,8 @@ nl:
         confirm_cancel_title: "%{plan}-abonnement opzeggen"
         confirm_cancel: "Weet u zeker dat u uw abonnement wilt opzeggen? Alle bots met %{plan}-functies ingeschakeld, werken niet meer na %{date}."
         payment:
+            cardholder_first_name: 'Voornaam van de rekeninghouder'
+            cardholder_last_name: 'Achternaam van de rekeninghouder'
             price_usd_html: '<span class=price-ticker>%{symbol}</span><span class=price-amount>%{price}</span>'
             price_eur_html: '<span class=price-ticker>%{symbol}</span><span class=price-amount>%{price}</span>'
             account_holder: Rekeninghouder

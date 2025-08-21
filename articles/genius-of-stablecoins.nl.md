@@ -8,8 +8,6 @@ x_url: https://x.com/deltabadgerapp/status/1950462030970016075
 telegram_url: https://t.me/deltabadger/101
 paywall_hook: |
    <ul>
-       <li>Welke tokens profiteren van de legitimatie van stablecoins?</li>
-       <li>Is TRON het nieuwe systemische risico voor crypto?</li>
        <li>Drie verschillende toewijzingen for GENIUS Portfolio</li>
    </ul>
 published: true
@@ -25,9 +23,9 @@ De cijfers zijn krankzinnig:
 
 * In 6 jaar tijd groeiden stablecoins **van $6 miljard naar $270 miljard – een 45-voudige toename**. De hele stablecoinmarkt is nu groter dan het BBP van Finland.
 
-* Tether ($98 miljard) en Circle ($22 miljard) samen bezitten $120 miljard aan Amerikaanse staatsobligaties, waarmee ze de 18e grootste houder van Amerikaanse staatsschuld zijn – voor België, Taiwan en de meeste soevereine naties. <a class="link-source-tile" href="https://tether.io/news/tether-hits-13-billion-profits-for-2024-and-all-time-highs-in-u-s-treasury-holdings-usdt-circulation-and-reserve-buffer-in-q4-2024-attestation/">tether.io</a>
+* Tether ($98 miljard) en Circle ($22 miljard) samen bezitten $120 miljard aan Amerikaanse staatsobligaties, waarmee ze de 18e grootste houder van Amerikaanse staatsschuld zijn – voor België, Taiwan en de meeste soevereine naties. <a class="link-source-tile" href="https://tether.io/news/tether-hits-13-billion-profits-for-2024-and-all-time-highs-in-u-s-treasury-holdings-usdt-circulation-and-reserve-buffer-in-q4-2024-attestation">tether.io</a>
 
-* Tether verwerkt op sommige dagen meer dan $100 miljard aan dagelijkse overboekingen, terwijl **het hele stablecoin-ecosysteem jaarlijks $27,6 biljoen verplaatst – meer dan Visa en Mastercard samen**. <a class="link-source-tile" href="https://cryptoslate.com/stablecoins-surpass-visa-and-mastercard-with-27-6-trillion-transfer-volume-in-2024/">cryptoslate.com</a>
+* Tether verwerkt op sommige dagen meer dan $100 miljard aan dagelijkse overboekingen, terwijl **het hele stablecoin-ecosysteem jaarlijks $27,6 biljoen verplaatst – meer dan Visa en Mastercard samen**. <a class="link-source-tile" href="https://cryptoslate.com/stablecoins-surpass-visa-and-mastercard-with-27-6-trillion-transfer-volume-in-2024">cryptoslate.com</a>
 
 {::nomarkdown}
 <figure class="article__figure">
@@ -48,7 +46,7 @@ De GENIUS Act, die in juni 2025 door de Senaat werd aangenomen met 68-30 en in j
 
 >*We zullen stablecoins gebruiken om de Amerikaanse dollar de dominante reservevaluta te houden.*
 >
->—Minister van Financiën Scott Bessent <a class="link-source-tile" href="https://www.atlanticcouncil.org/blogs/new-atlanticist/dollar-backed-stablecoins-international-standards/">atlanticcouncil.org</a>
+>—Minister van Financiën Scott Bessent <a class="link-source-tile" href="https://www.atlanticcouncil.org/blogs/new-atlanticist/dollar-backed-stablecoins-international-standards">atlanticcouncil.org</a>
 
 **Dit vertegenwoordigt een dramatische verschuiving van regulering naar bewapening.**
 
@@ -89,9 +87,9 @@ Het verschil in gebruiksscenario's vertelt het verhaal:
 
 Er is een **omgekeerde relatie tussen traditionele financiële infrastructuur en de adoptie van stablecoins** – regio's met zwakkere banksystemen vertonen hogere gebruikscijfers.
 
-In Argentinië omvat 61,8% van alle transacties nu stablecoins, wat direct verband houdt met 143% peso-inflatie. Turkije toont 50% crypto-eigendom van de bevolking met de hoogste wereldwijde adoptie van stablecoins met 4,3% van het BBP, terwijl de 26 miljoen stablecoin-gebruikers van Nigeria (12% van de bevolking) de valutacontroles volledig omzeilen. <a class="link-source-tile" href="https://www.chainalysis.com/blog/2024-latin-america-crypto-adoption/">chainalysis.com</a>
+In Argentinië omvat 61,8% van alle transacties nu stablecoins, wat direct verband houdt met 143% peso-inflatie. Turkije toont 50% crypto-eigendom van de bevolking met de hoogste wereldwijde adoptie van stablecoins met 4,3% van het BBP, terwijl de 26 miljoen stablecoin-gebruikers van Nigeria (12% van de bevolking) de valutacontroles volledig omzeilen. <a class="link-source-tile" href="https://www.chainalysis.com/blog/2024-latin-america-crypto-adoption">chainalysis.com</a>
 
-**Europa mist deze revolutie op spectaculaire wijze.** Ondanks dat het 48% van het wereldwijde cryptocurrency-volume vertegenwoordigt, **wordt slechts 0,2% van het stablecoin-aanbod door Europeanen aangehouden**, wat suggereert dat hun deelname van 10-15% aan het transactievolume voornamelijk handel is, en geen adoptie. <a class="link-source-tile" href="https://www.chainalysis.com/blog/2024-western-europe-crypto-adoption/">chainalysis.com</a>
+**Europa mist deze revolutie op spectaculaire wijze.** Ondanks dat het 48% van het wereldwijde cryptocurrency-volume vertegenwoordigt, **wordt slechts 0,2% van het stablecoin-aanbod door Europeanen aangehouden**, wat suggereert dat hun deelname van 10-15% aan het transactievolume voornamelijk handel is, en geen adoptie. <a class="link-source-tile" href="https://www.chainalysis.com/blog/2024-western-europe-crypto-adoption">chainalysis.com</a>
 
 ### De sluipende digitale dollar
 
@@ -108,13 +106,13 @@ Ondertussen blijft de EU een bureaucratische mislukking:
 * Grote beurzen schrappen Tether voor EU-gebruikers tegen maart 2025
 * De ontwikkeling van de digitale euro kruipt voort terwijl de adoptie van stablecoins versnelt
 
-Terwijl Europa het financiële equivalent van de Maginotlinie bouwt, en meer dan $1,1 miljard uitgeeft aan het CBDC-project, is de strijd al verplaatst naar mobiele telefoons, waar de VS stablecoins bewapent om opkomende markten efficiënt te dollariseren - allemaal gefinancierd door de particuliere sector. <a class="link-source-tile" href="https://www.ledgerinsights.com/ecb-updates-status-of-digital-euro-work/">ledgerinsights.com</a>
+Terwijl Europa het financiële equivalent van de Maginotlinie bouwt, en meer dan $1,1 miljard uitgeeft aan het CBDC-project, is de strijd al verplaatst naar mobiele telefoons, waar de VS stablecoins bewapent om opkomende markten efficiënt te dollariseren - allemaal gefinancierd door de particuliere sector. <a class="link-source-tile" href="https://www.ledgerinsights.com/ecb-updates-status-of-digital-euro-work">ledgerinsights.com</a>
 
 ## Het GENIUS-portfolio
 
 > *Elke financiële revolutie creëert miljonairs – maar ze verkopen meestal pikhouwelen en schoppen.*
 
-<!-- PAYWALL -->
+
 
 Kun je investeren in deze bloeiende sector? Absoluut.
 
@@ -159,7 +157,7 @@ Ik geloof van wel.
 * DeFi-protocollen die stablecoins gebruiken, hebben gas nodig voor swaps, leningen en leningen
 * Op proof-of-stake-netwerken verhoogt de toegenomen stablecoin-activiteit de staking-beloningen, waardoor native tokens aantrekkelijker worden
 
-## Het GENIUS-portfolio
+### Het GENIUS-portfolio
 
 DeFiLlama levert stablecoin-aanbodgegevens voor elke blockchain. Door de top 10 blockchains op basis van stablecoin-gebruik te nemen en een portefeuille samen te stellen die is toegewezen op basis van het totale stablecoin-aanbod, worden toewijzingen verkregen die ruwweg gecorreleerd zijn met de weging van de marktkapitalisatie – **met één belangrijke uitzondering: TRON.** <a class="link-source-tile" href="https://defillama.com/stablecoins">defillama.com</a>
 
@@ -175,13 +173,19 @@ DeFiLlama levert stablecoin-aanbodgegevens voor elke blockchain. Door de top 10 
 | **Avalanche** | $10.49b | $1.658b | 1.5% | 0.6% | <span class="text-danger">-0.8%</span> |
 | **Aptos** | $3.00b | $1.351b | 0.4% | 0.5% | <span class="text-success">+0.1%</span> |
 
-TRON is het grootste netwerk voor USDT specifiek geworden, met $82 miljard in omloop – terwijl Ethereum het totale stablecoin-aanbod leidt met $132 miljard over meerdere stablecoins (USDT, USDC, DAI, enz.). USDT vertegenwoordigt 98,5% van de activiteit van TRON, waardoor het een speciale USDT-infrastructuur is. <a class="link-source-tile" href="https://cryptobriefing.com/usdt-on-tron-stablecoin-leader/">cryptobriefing.com</a>
+TRON is het grootste netwerk voor USDT specifiek geworden, met $82 miljard in omloop – terwijl Ethereum het totale stablecoin-aanbod leidt met $132 miljard over meerdere stablecoins (USDT, USDC, DAI, enz.). USDT vertegenwoordigt 98,5% van de activiteit van TRON, waardoor het een speciale USDT-infrastructuur is. <a class="link-source-tile" href="https://cryptobriefing.com/usdt-on-tron-stablecoin-leader">cryptobriefing.com</a>
 
 Deze dominantie komt voort uit de combinatie van ultralage kosten van TRON (minder dan $0,10), snelle afwikkelingen van 3 seconden en de strategische samenwerking van Justin Sun in 2019 met Tether, waardoor krachtige netwerkeffecten ontstonden die zowel particuliere gebruikers op opkomende markten als grote institutionele overdrachten aantrokken.
 
 Als u echter op zoek bent naar een reden waarom de marktkapitalisatie van TRON laag is in verhouding tot het netwerkgebruik, is er eigenlijk een goede verklaring voor deze korting:
 
 Van alle grote netwerken is **TRON het meest gecentraliseerd**, volledig gecontroleerd door de controversiële oprichter Justin Sun, wat zeker een risico toevoegt aan het onderliggende activum. Hoewel Tether misschien geen bedreiging meer is, vertegenwoordigt TRON ofwel een potentieel volgend systeemrisico voor de cryptocurrency-markt ofwel een ondergewaardeerde investeringsmogelijkheid.
+
+<!-- PAYWALL -->
+
+<div class="playbook widget">
+
+<h1>Playbook <span>α</span></h1>
 
 **Dit geeft ons weegopties voor de portefeuille:**
 1. Volg de statistieken over de uitgifte van stablecoins.
@@ -243,6 +247,10 @@ Van alle grote netwerken is **TRON het meest gecentraliseerd**, volledig gecontr
 
 Op aanbod gebaseerde toewijzing is een handel op basis van fundamentals – die mogelijk een nauwkeuriger verhaal vertelt dan de kapitalisaties van de activa. Conservatievere beleggers kunnen marktkapitalisatie beschouwen als een bron van informatie die completere informatie bevat. Er is hier geen eenduidig antwoord, aangezien beide ideeën hun verdiensten hebben.
 
+</div>
+
+<!-- /PAYWALL -->
+
 Hoewel TRON voor velen misschien in twijfel wordt getrokken, blijft Ethereum – het eerste smart contract platform – de leider van de gedecentraliseerde financiën. Als dit echter verandert, stelt het volgen van openbaar beschikbare statistieken en het elke 3 maanden herbalanceren van de portefeuille ons in staat om de toewijzing relevant te houden.
 
-**Welke toewijzing is jouw favoriet? Neem deel aan de discussie op Telegram.** 
+**Welke toewijzing is jouw favoriet? Neem deel aan de discussie op Telegram.**

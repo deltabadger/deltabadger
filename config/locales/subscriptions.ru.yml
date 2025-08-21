@@ -1,12 +1,13 @@
 ru:
     subscriptions:
-        per_month_html: "/мес"
-        per_year_html: "/год"
-        per_4_years_html: "/4 года"
+        per_week_html: "/ неделя"
+        per_month_html: "/ месяц"
+        per_year_html: "/ год"
+        per_4_years_html: "/ 4 года"
         variant_lifetime: "Пожизненно"
         variant_30_days: "Ежемесячно"
-        variant_365_days: "Ежегодно"
-        variant_1460_days: "4 Года"
+        variant_365_days: "1 год"
+        variant_1460_days: "4 года, экономьте 25%"
         variant_7_days: "Еженедельно"
         free: "Бесплатно"
         mini: "Mini"
@@ -14,11 +15,12 @@ ru:
         pro: "Pro"
         research: "Research"
         legendary: "Legendary"
+        active: "Активный"
         thank_you:
             title: "Спасибо!"
             description: "Ваш план %{plan_name} активен."
         upgrade_modal:
-            title: "Перейти на Pro"
+            title: "Улучшить"
             description: "Получите доступ ко всем расширенным функциям."
         days_left:
             one: 'Остался 1 день'
@@ -31,6 +33,8 @@ ru:
         confirm_cancel_title: "Отменить план %{plan}"
         confirm_cancel: "Вы уверены, что хотите отменить подписку? Все боты с включенными функциями %{plan} перестанут работать после %{date}."
         payment:
+            cardholder_first_name: 'Имя владельца карты'
+            cardholder_last_name: 'Фамилия владельца карты'
             price_usd_html: '<span class=price-ticker>%{symbol}</span><span class=price-amount>%{price}</span>'
             price_eur_html: '<span class=price-ticker>%{symbol}</span><span class=price-amount>%{price}</span>'
             account_holder: 'Владелец счета'

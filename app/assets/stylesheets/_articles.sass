@@ -1,11 +1,53 @@
+.view--articles-index,.view--articles-show
+  &.view--logged-in
+    .main
+      @media (max-width: 767.9px)
+        margin-top: 5rem !important
+.view--articles-index
+  &:not(.view--logged-in)
+    .menu__logo svg
+      display: flex
+    @media (min-width: 768px)
+      .menu__logo svg
+        display: none !important
+
+.db_nav__brand
+  display: none
+  align-items: center
+  gap: 2rem
+  text-decoration: none
+  @media (min-width: 768px)
+    display: flex
+  &__logo
+    top: -.5rem
+  &__name
+    color: var(--menulink-active)
+    font-weight: 650
+    letter-spacing: .025rem
+    font-size: 2.5rem
+    position: relative
+    top: -.25rem
+
 .articles
+  display: grid
+  grid-template-columns: repeat(1,minmax(0,1fr))
+  gap: 6rem 3rem
+  @media (min-width: 768px)
+    grid-template-columns: repeat(2,minmax(0,1fr))
+  @media (min-width: 1024px)
+    grid-template-columns: repeat(3,minmax(0,1fr))
+.articles-header
+  margin-bottom: 3rem
   display: flex
   flex-direction: column
-.articles-header
-  margin-bottom: 6rem
+  align-items: flex-start
+  gap: 3rem
+  @media (min-width: 768px)
+    gap: 8rem
+    margin-bottom: 16rem
   &__title
-    margin-bottom: 6rem
-    height: 5rem
+    color: var(--menulink-active)
+    font-family: "Domine", serif
     svg
       height: 5rem
       display: block
@@ -14,44 +56,47 @@
   &__subtitle
     font-size: 1.75rem
     line-height: 1.5
+  &__subscribe
+    display: flex
+    flex-direction: column
+    justify-content: stretch
+    gap: 1rem
+    .button--large
+      margin: 0
+    .premium-subscribers
+      margin-top: 2rem
+      margin-bottom: 0
 .article-card
   text-decoration: none
   color: var(--text) !important
   display: flex
   flex-direction: column
-  gap: 1.75rem
-  max-width: 144rem
-  padding: 1.75rem 0
-  border-bottom: 1px solid var(--menulink)
+  gap: 2rem
   &:hover
     background: linear-gradient(to right, #fff0, var(--widget-background),#fff0)
     cursor: pointer
-  &:first-child
-    border-top: 1px solid var(--menulink)
-  @media (min-width: 768px)
-    padding: 3rem 0
-    gap: 2rem
-  @media (min-width: 1024px)
-    flex-direction: row
-    gap: 3rem
   h2,h3
     font-family: "Domine", serif
     font-weight: 700
     color: var(--emphasis)
+  &__title
+    overflow: hidden
+    text-overflow: ellipsis
   &__thumbnail
     width: 100%
     height: 200px
     object-fit: cover
+    border-radius: 1rem
   &__content
     display: flex
     flex-direction: column
-    gap: 1rem
+    gap: 1.5rem
     h2
       margin: 0
       font-size: 3rem
       padding: 0
       text-align: left
-  &__meta
+  &__meta, &__meta__date
     font-size: 1.75rem
 
 [lang="ru"]
@@ -67,14 +112,10 @@
     --text: #024
   .main
     margin: 0 auto
-    padding: 8rem 1.5rem
-    max-width: 144rem
+    padding: 2rem
+    max-width: 150rem
     @media (min-width: 768px)
-      padding: 8rem 14rem
-    @media (min-width: 1024px)
-      padding: 12rem 16rem
-    @media (min-width: 1280px)
-      padding: 16rem
+      padding: 10rem 12rem
 
 .article
   display: flex
@@ -100,12 +141,12 @@
     @media (min-width: 768px)
       font-size: 3.2rem
       line-height: 1.2
-      margin: 12rem 0 6rem 0
+      margin: 8rem 0 6rem 0
     @media (min-width: 1024px)
       font-size: 4rem
       line-height: 1.1
   h3
-    margin: 8rem 0 4rem 0
+    margin: 6rem 0 3rem 0
     font-size: 2rem
     line-height: 1.5
     text-align: left
@@ -127,11 +168,11 @@
   blockquote
     border-left: 0.5rem solid var(--text-faded)
     padding-left: 2rem
-    margin: 8rem 0
+    margin: 6rem 0
     font-size: 1.75rem
     line-height: 1.5
     @media (min-width: 768px)
-      margin: 12rem 0
+      margin: 8rem 0
     em
       font-size: 3rem
   &__back-link
@@ -177,17 +218,26 @@
         font-size: 2.4rem
     &__meta
       font-size: 1.5rem
+      display: flex
+      align-items: center
+      gap: 1rem
       @media (min-width: 768px)
         font-size: 1.75rem
-      &__premium
-        color: var(--link)
-        font-weight: 500
-        text-transform: uppercase
-        font-size: 0.75em
-        display: inline-block
-        padding: 0 0.75em
-        border-radius: 1em
-        border: 1px solid var(--link)
+      &__author
+        display: flex
+        align-items: center
+        gap: 1.5rem
+        font-weight: 600
+        text-decoration: none
+        color: var(--text)
+        &__avatar
+          width: 5rem
+          height: 5rem
+          border-radius: 50%
+          background-size: 150%
+          filter: grayscale(100%) contrast(1.25)
+          background-position: center -1rem
+          box-shadow: var(--widget-shadow)
   &__figure 
     margin-top: 6rem
     margin-bottom: 6rem
@@ -207,56 +257,15 @@
       box-shadow: var(--widget-shadow)
     table
       margin: 0 auto !important
+      &.text-center
+        td, th
+          text-align: center
     &__caption
       text-align: center
       margin: 1rem 0 0
       font-size: 1.75rem
       color: var(--label)
       font-style: italic
-.paywall
-  background: linear-gradient(to bottom, #fff0 0%, var(--background) 25%)
-  position: relative
-  z-index: 1
-  margin-top: -40rem
-  padding: 32rem 3rem
-  text-align: center
-  display: flex
-  flex-direction: column
-  align-items: center
-  justify-content: center
-  gap: 7rem
-  text-align: center !important
-  ul
-    margin: 0
-    padding: 0
-  li
-    text-align: left
-    list-style: none
-    position: relative
-    padding-left: 3.5rem
-    margin-bottom: 1rem
-    &:before
-      content: ""
-      position: absolute
-      left: 0
-      top: 0
-      width: 3rem
-      height: 3rem
-      background-image: url("check.svg")
-      background-size: contain
-      background-repeat: no-repeat
-  h3, h2
-    width: 100%
-    text-align: center !important
-  &__actions
-    display: flex
-    flex-direction: column
-    gap: 2rem
-    .premium-subscribers
-      margin-bottom: 2rem
-  .button
-    width: 40rem
-    min-width: 40rem
 
 .monetary-aggregates,.rsi-performance
   margin: 4rem 0
@@ -301,14 +310,6 @@
       padding: 1rem 2rem
     tr
       font-family: Arial, "Helvetica Neue", Helvetica, sans
-  &__key-part
-    background: var(--widget-background)
-    border: 1px solid var(--text)
-    padding: 4rem
-    margin: 12rem 0
-    h2
-      margin-top: 0
-
 .article-bg-top
   display: none
   position: absolute
@@ -379,6 +380,8 @@
   gap: 1rem
   .button--large
     margin: 0
+    @media (max-width: 767.9px)
+      width: 100%
 
 .timeline
   display: flex
@@ -459,6 +462,7 @@
   color: var(--label)
   text-decoration: none
   background: var(--widget-background)
+  box-shadow: var(--widget-shadow)
   padding: 0 1rem
   border-radius: 1.5rem
   font-size: 1.5rem

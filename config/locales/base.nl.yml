@@ -27,6 +27,8 @@ nl:
         get_started: Beginnen
         select_plan: 'Selecteer plan'
         back_to_dashboard: 'Ga naar dashboard'
+        subscribe: 'Abonneren'
+        unlock: 'Ontgrendelen'
     data_labels:
         invested: "Totaal geïnvesteerd"
         portfolio_value: "Portfoliowaarde"
@@ -93,7 +95,7 @@ nl:
             title: Bedankt!
         contact:
             general_questions_html: 'Voor algemene vragen kan u terecht op ons <a class="db-social-link" href="https://t.me/deltabadgerchat" target="_blank" rel="nofollow">Telegram kanaal</a>. Dit is meestal de snelste manier om een antwoord te verkrijgen. Ook: all feedback, productideeën, en vragen betreffende exchanges zijn welkom.'
-            specific_questions_html: 'Voor meer specifieke vragen, email ons: %{email}, of via een persoonlijk bericht op Telegram of <a class="db-social-link" href="https://x.com/deltabadgerapp" target="_blank" rel="nofollow">𝕏</a>.'
+            specific_questions_html: 'Voor meer specifieke vragen, email ons: %{email}, of via een persoonlijk bericht op Telegram of <a class="db-social-link" href="https://x.com/intent/follow?screen_name=deltabadgerapp" target="_blank" rel="nofollow">𝕏</a>.'
             title: Contact
     links:
         about: 'Over ons'

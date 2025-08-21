@@ -8,7 +8,6 @@ x_url: https://x.com/deltabadgerapp/status/1952974526746448114
 telegram_url: https://t.me/deltabadger/103
 paywall_hook: |
    <ul>
-       <li>Porque é que a ponderação por capitalização de mercado funciona ainda melhor em cripto?</li>
        <li>O melhor índice de criptomoedas a seguir</li>
        <li>Uma estratégia para a Época das Altcoins</li>
    </ul>
@@ -38,7 +37,7 @@ A **capitalização de mercado**, ou "market cap", é simplesmente o valor total
 
 ### Como Funciona a Ponderação por Capitalização de Mercado
 
-Num **índice ponderado por capitalização de mercado**, a influência de cada ativo é proporcional à sua capitalização de mercado. Se o S&P 500 tiver uma capitalização de mercado combinada de 40 biliões de dólares e a Apple representar 3 biliões disso, então a Apple constitui 7,5% do índice. O mesmo princípio aplica-se aos índices de criptomoedas - se a Bitcoin representar 50% da capitalização total do mercado de criptomoedas, teria um peso de 50% num índice de criptomoedas ponderado por capitalização de mercado. Este conceito também se reflete no [índice de dominância da Bitcoin](https://coinmarketcap.com/charts/bitcoin-dominance/).
+Num **índice ponderado por capitalização de mercado**, a influência de cada ativo é proporcional à sua capitalização de mercado. Se o S&P 500 tiver uma capitalização de mercado combinada de 40 biliões de dólares e a Apple representar 3 biliões disso, então a Apple constitui 7,5% do índice. O mesmo princípio aplica-se aos índices de criptomoedas - se a Bitcoin representar 50% da capitalização total do mercado de criptomoedas, teria um peso de 50% num índice de criptomoedas ponderado por capitalização de mercado. Este conceito também se reflete no [índice de dominância da Bitcoin](https://coinmarketcap.com/charts/bitcoin-dominance).
 
 {::nomarkdown}
 <figure class="article__figure">
@@ -76,11 +75,9 @@ Os ativos maiores têm normalmente melhor liquidez, e a ponderação por capital
 
 A ponderação por capitalização de mercado funciona em cripto? Não só funciona, como se poderia argumentar que funciona ainda melhor. Eis o porquê:
 
-<!-- PAYWALL -->
-
 ### O Mercado de Criptomoedas é Mais Concentrado
 
-A Bitcoin representa quase 67% de todo o mercado, enquanto as 10 principais criptomoedas representam mais de 93% da capitalização total do mercado. Isto significa que as **criptomoedas de "pequena capitalização" acarretam um risco significativamente maior** para os investidores. É por isso que [o único ETF multi-cripto aceite até agora investe apenas nos 5 principais ativos](./grayscale-crypto-etf/).
+A Bitcoin representa quase 67% de todo o mercado, enquanto as 10 principais criptomoedas representam mais de 93% da capitalização total do mercado. Isto significa que as **criptomoedas de "pequena capitalização" acarretam um risco significativamente maior** para os investidores. É por isso que [o único ETF multi-cripto aceite até agora investe apenas nos 5 principais ativos](./grayscale-crypto-etf).
 
 {::nomarkdown}
 <figure class="article__figure" data-controller="pie-chart" data-pie-chart-data-value="#F7931A,BTC,Bitcoin,79.35
@@ -112,6 +109,12 @@ Finalmente, ao contrário das ações, as **criptomoedas são muito divisíveis*
 
 Uma diferença importante no mercado de criptomoedas é que **nem todas as capitalizações de mercado são criadas de forma igual**. Muitos projetos mantêm uma grande parte das suas moedas em reserva, criando uma escassez artificial. Quando os preços sobem, os fundadores do projeto podem despejar estas moedas reservadas no mercado, diluindo o valor para outros detentores. É por isso que precisa de olhar para a "oferta em circulação" em vez da oferta total ao avaliar as capitalizações de mercado.
 
+<!-- PAYWALL -->
+
+<div class="playbook widget">
+
+<h1>Playbook <span>α</span></h1>
+
 ## Construir o Seu ETF de Cripto Pessoal
 
 Agora que sabemos o quê e porquê, é altura de aplicar este conhecimento na prática. Imediatamente, enfrentamos o primeiro desafio:
@@ -120,7 +123,7 @@ Agora que sabemos o quê e porquê, é altura de aplicar este conhecimento na pr
 
 Índices populares do mercado de criptomoedas como o CoinMarketCap incluem diferentes tipos de ativos: blockchains de Camada 1 e Camada 2, tokens de exchange, memecoins, stablecoins e mais.
 
-As [Stablecoins](./genius-of-stablecoins/) não são ativos de crescimento, pelo que têm de ser excluídas da parte da sua carteira ponderada por capitalização de mercado. Se procura um índice disponível publicamente que o faça, o [Índice CoinMarketCap 100](https://coinmarketcap.com/charts/cmc100/) é o caminho a seguir.
+As [Stablecoins](./genius-of-stablecoins) não são ativos de crescimento, pelo que têm de ser excluídas da parte da sua carteira ponderada por capitalização de mercado. Se procura um índice disponível publicamente que o faça, o [Índice CoinMarketCap 100](https://coinmarketcap.com/charts/cmc100) é o caminho a seguir.
 
 {::nomarkdown}
 <figure class="article__figure" data-controller="pie-chart" data-pie-chart-data-value="#F7931A,BTC,Bitcoin,66.97
@@ -144,7 +147,7 @@ As [Stablecoins](./genius-of-stablecoins/) não são ativos de crescimento, pelo
 
 Para investidores de retalho, o CMC100 é uma alternativa muito melhor do que os Índices CoinDesk como o CD5 ou CD20. Primeiro, é totalmente público e até oferece um ponto final de API disponível publicamente. Segundo, não aplica filtros institucionais que excluem ativos que muitos investidores querem incluir: moedas de privacidade, tokens de exchange ou memecoins.
 
-Não pode errar ao escolher apenas as 10 principais criptomoedas do CMC100, mas é apenas um convite para o universo dos índices de criptomoedas. O Coingecko lista mais de 500 deles, e pode facilmente imaginar mais. Há apenas uma semana, discutimos um índice de blockchains usadas para transferir stablecoins como uma tese de investimento interessante. As possibilidades são infinitas. <a class="link-source-tile" href="https://www.coingecko.com/">coingecko.com</a>
+Não pode errar ao escolher apenas as 10 principais criptomoedas do CMC100, mas é apenas um convite para o universo dos índices de criptomoedas. O Coingecko lista mais de 500 deles, e pode facilmente imaginar mais. Há apenas uma semana, discutimos um índice de blockchains usadas para transferir stablecoins como uma tese de investimento interessante. As possibilidades são infinitas. <a class="link-source-tile" href="https://www.coingecko.com">coingecko.com</a>
 
 ### Índice da Época das Altcoins
 
@@ -152,9 +155,13 @@ Como mencionei anteriormente, mais de 60% do mercado de cripto é Bitcoin. No to
 
 Uma coisa é certa: se procura uma Época das Altcoins, não há melhor maneira de o fazer do que com uma carteira de índice ponderada por capitalização de mercado.
 
+</div>
+
+<!-- /PAYWALL -->
+
 ### Como Começar
 
-Enquanto construímos o nosso primeiro verdadeiro bot de índice, pode começar a aventura com a ponderação por capitalização de mercado hoje. Crie um [bot de DCA reequilibrado](https://deltabadger.com/pt/academy/rebalanced-dca/) de Bitcoin e Ethereum, e lembre-se de usar a ponderação por capitalização de mercado. Historicamente, tal bot superou a Bitcoin, e a estratégia é totalmente automatizada.
+Enquanto construímos o nosso primeiro verdadeiro bot de índice, pode começar a aventura com a ponderação por capitalização de mercado hoje. Crie um [bot de DCA reequilibrado](https://deltabadger.com/pt/academy/rebalanced-dca) de Bitcoin e Ethereum, e lembre-se de usar a ponderação por capitalização de mercado. Historicamente, tal bot superou a Bitcoin, e a estratégia é totalmente automatizada.
 
 ![Bot de DCA reequilibrado](https://deltabadger.com/images/articles/mcap/rebalanced-dca.avif)
 

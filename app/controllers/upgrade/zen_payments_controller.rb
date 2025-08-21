@@ -50,21 +50,13 @@ class Upgrade::ZenPaymentsController < ApplicationController
   private
 
   def payment_params
-    params.require(:payments_zen).permit(:cardholder_name, :payment_id, :finger_print_id)
-  end
-
-  def first_name(cardholder_name)
-    cardholder_name.split.first
-  end
-
-  def last_name(cardholder_name)
-    cardholder_name.split[1..].join(' ').presence
+    params.require(:payments_zen).permit(:first_name, :last_name, :payment_id, :finger_print_id)
   end
 
   def update_session
     parsed_params = {
-      first_name: first_name(payment_params[:cardholder_name]),
-      last_name: last_name(payment_params[:cardholder_name])
+      first_name: payment_params[:first_name],
+      last_name: payment_params[:last_name]
     }.compact.stringify_keys
     session[:payment_config].merge!(parsed_params)
   end

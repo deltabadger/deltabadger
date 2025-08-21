@@ -8,7 +8,6 @@ x_url: https://x.com/deltabadgerapp/status/1952974526746448114
 telegram_url: https://t.me/deltabadger/103
 paywall_hook: |
    <ul>
-       <li>Pourquoi la pondération par la capitalisation boursière fonctionne-t-elle encore mieux dans les cryptomonnaies ?</li>
        <li>Le meilleur indice de cryptomonnaies à suivre</li>
        <li>Une stratégie pour la saison des Altcoins</li>
    </ul>
@@ -38,7 +37,7 @@ La **capitalisation boursière**, ou "market cap", est simplement la valeur tota
 
 ### Comment fonctionne la pondération par la capitalisation boursière
 
-Dans un **indice pondéré par la capitalisation boursière**, l'influence de chaque actif est proportionnelle à sa capitalisation boursière. Si le S&P 500 a une capitalisation boursière combinée de 40 000 milliards de dollars et qu'Apple en représente 3 000 milliards, alors Apple constitue 7,5 % de l'indice. Le même principe s'applique aux indices de cryptomonnaies – si le Bitcoin représente 50 % de la capitalisation boursière totale des cryptomonnaies, il aurait un poids de 50 % dans un indice de cryptomonnaies pondéré par la capitalisation boursière. Ce concept se reflète également dans [l'indice de dominance du Bitcoin](https://coinmarketcap.com/charts/bitcoin-dominance/).
+Dans un **indice pondéré par la capitalisation boursière**, l'influence de chaque actif est proportionnelle à sa capitalisation boursière. Si le S&P 500 a une capitalisation boursière combinée de 40 000 milliards de dollars et qu'Apple en représente 3 000 milliards, alors Apple constitue 7,5 % de l'indice. Le même principe s'applique aux indices de cryptomonnaies – si le Bitcoin représente 50 % de la capitalisation boursière totale des cryptomonnaies, il aurait un poids de 50 % dans un indice de cryptomonnaies pondéré par la capitalisation boursière. Ce concept se reflète également dans [l'indice de dominance du Bitcoin](https://coinmarketcap.com/charts/bitcoin-dominance).
 
 {::nomarkdown}
 <figure class="article__figure">
@@ -76,11 +75,9 @@ Les actifs plus importants ont généralement une meilleure liquidité, et la po
 
 La pondération par la capitalisation boursière fonctionne-t-elle dans les cryptomonnaies ? Non seulement elle fonctionne, mais on pourrait soutenir qu'elle fonctionne encore mieux. Voici pourquoi :
 
-<!-- PAYWALL -->
-
 ### Le marché des cryptomonnaies est plus concentré
 
-Le Bitcoin représente près de 67 % de l'ensemble du marché, tandis que les 10 principales cryptomonnaies représentent plus de 93 % de la capitalisation boursière totale. Cela signifie que les **cryptomonnaies à faible capitalisation ("small-cap") comportent un risque nettement plus élevé** pour les investisseurs. C'est pourquoi [le seul ETF multi-crypto accepté jusqu'à présent n'investit que dans les 5 principaux actifs](./grayscale-crypto-etf/).
+Le Bitcoin représente près de 67 % de l'ensemble du marché, tandis que les 10 principales cryptomonnaies représentent plus de 93 % de la capitalisation boursière totale. Cela signifie que les **cryptomonnaies à faible capitalisation ("small-cap") comportent un risque nettement plus élevé** pour les investisseurs. C'est pourquoi [le seul ETF multi-crypto accepté jusqu'à présent n'investit que dans les 5 principaux actifs](./grayscale-crypto-etf).
 
 {::nomarkdown}
 <figure class="article__figure" data-controller="pie-chart" data-pie-chart-data-value="#F7931A,BTC,Bitcoin,79.35
@@ -112,6 +109,12 @@ Enfin, contrairement aux actions, les **cryptomonnaies sont très divisibles**, 
 
 Une différence importante sur le marché des cryptomonnaies est que **toutes les capitalisations boursières ne se valent pas**. De nombreux projets conservent une grande partie de leurs pièces en réserve, créant une rareté artificielle. Lorsque les prix augmentent, les fondateurs de projets peuvent déverser ces pièces réservées sur le marché, diluant la valeur pour les autres détenteurs. C'est pourquoi vous devez regarder "l'offre en circulation" plutôt que l'offre totale lors de l'évaluation des capitalisations boursières.
 
+<!-- PAYWALL -->
+
+<div class="playbook widget">
+
+<h1>Playbook <span>α</span></h1>
+
 ## Construire votre ETF crypto personnel
 
 Maintenant que nous savons quoi et pourquoi, il est temps d'appliquer ces connaissances en pratique. Immédiatement, nous sommes confrontés au premier défi :
@@ -120,7 +123,7 @@ Maintenant que nous savons quoi et pourquoi, il est temps d'appliquer ces connai
 
 Les indices populaires du marché des cryptomonnaies comme CoinMarketCap incluent différents types d'actifs : blockchains de couche 1 et de couche 2, jetons d'échange, memecoins, stablecoins, et plus encore.
 
-Les [Stablecoins](./genius-of-stablecoins/) ne sont pas des actifs de croissance, ils doivent donc être exclus de la partie de votre portefeuille pondérée par la capitalisation boursière. Si vous recherchez un indice accessible au public qui le fait, [l'indice CoinMarketCap 100](https://coinmarketcap.com/charts/cmc100/) est la solution.
+Les [Stablecoins](./genius-of-stablecoins) ne sont pas des actifs de croissance, ils doivent donc être exclus de la partie de votre portefeuille pondérée par la capitalisation boursière. Si vous recherchez un indice accessible au public qui le fait, [l'indice CoinMarketCap 100](https://coinmarketcap.com/charts/cmc100) est la solution.
 
 {::nomarkdown}
 <figure class="article__figure" data-controller="pie-chart" data-pie-chart-data-value="#F7931A,BTC,Bitcoin,66.97
@@ -144,7 +147,7 @@ Les [Stablecoins](./genius-of-stablecoins/) ne sont pas des actifs de croissance
 
 Pour les investisseurs de détail, le CMC100 est une bien meilleure alternative que les indices CoinDesk comme le CD5 ou le CD20. Premièrement, il est entièrement public et offre même un point de terminaison API accessible au public. Deuxièmement, il n'applique pas de filtres institutionnels qui excluent les actifs que de nombreux investisseurs souhaitent inclure : les pièces de confidentialité, les jetons d'échange ou les memecoins.
 
-Vous ne pouvez pas vous tromper en choisissant simplement les 10 premières cryptomonnaies du CMC100, mais ce n'est qu'une invitation à l'univers des indices de cryptomonnaies. Coingecko en répertorie plus de 500, et vous pouvez facilement en imaginer d'autres. Il y a à peine une semaine, nous avons discuté d'un indice de blockchains utilisées pour transférer des stablecoins comme une thèse d'investissement intéressante. Les possibilités sont infinies. <a class="link-source-tile" href="https://www.coingecko.com/">coingecko.com</a>
+Vous ne pouvez pas vous tromper en choisissant simplement les 10 premières cryptomonnaies du CMC100, mais ce n'est qu'une invitation à l'univers des indices de cryptomonnaies. Coingecko en répertorie plus de 500, et vous pouvez facilement en imaginer d'autres. Il y a à peine une semaine, nous avons discuté d'un indice de blockchains utilisées pour transférer des stablecoins comme une thèse d'investissement intéressante. Les possibilités sont infinies. <a class="link-source-tile" href="https://www.coingecko.com">coingecko.com</a>
 
 ### Indice de la saison des Altcoins
 
@@ -152,9 +155,13 @@ Comme je l'ai mentionné précédemment, plus de 60 % du marché des cryptomonna
 
 Une chose est sûre : si vous visez une saison des Altcoins, il n'y a pas de meilleure façon de le faire qu'avec un portefeuille indiciel pondéré par la capitalisation boursière.
 
+</div>
+
+<!-- /PAYWALL -->
+
 ### Comment commencer
 
-Pendant que nous construisons notre premier véritable robot indiciel, vous pouvez commencer l'aventure avec la pondération par la capitalisation boursière dès aujourd'hui. Créez un [robot DCA rééquilibré](https://deltabadger.com/fr/academy/rebalanced-dca/) de Bitcoin et d'Ethereum, et n'oubliez pas d'utiliser la pondération par la capitalisation boursière. Historiquement, un tel robot a surperformé le Bitcoin, et la stratégie est entièrement automatisée.
+Pendant que nous construisons notre premier véritable robot indiciel, vous pouvez commencer l'aventure avec la pondération par la capitalisation boursière dès aujourd'hui. Créez un [robot DCA rééquilibré](https://deltabadger.com/fr/academy/rebalanced-dca) de Bitcoin et d'Ethereum, et n'oubliez pas d'utiliser la pondération par la capitalisation boursière. Historiquement, un tel robot a surperformé le Bitcoin, et la stratégie est entièrement automatisée.
 
 ![Robot DCA rééquilibré](https://deltabadger.com/images/articles/mcap/rebalanced-dca.avif)
 

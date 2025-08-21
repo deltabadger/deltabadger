@@ -8,9 +8,7 @@ x_url: https://x.com/deltabadgerapp/status/1939622461768892684
 telegram_url: https://t.me/deltabadger/91
 paywall_hook: |
     <ul>
-        <li>The model that predicts Bitcoin's direction with 83% accuracy</li>
-        <li>How to improve it with on-chain data</li>
-        <li>AI price prediction for the next 12 months</li>
+        <li>Predicting Bitcoin price movement with AI based on the M2 correlation model</li>
     </ul>
 published: true
 published_at: "2025-07-01"
@@ -61,13 +59,11 @@ The core thesis is simple:
 
 **When more money gets printed (M2 grows), Bitcoin tends to go up as investors look for alternatives to traditional investments. When money printing slows down or stops, Bitcoin tends to underperform.**
 
-<!-- PAYWALL -->
-
 ## The Quantitative Evidence
 
 ### Bitcoin as the Superior Liquidity Barometer
 
-A recent study by [Lyn Alden and Sam Callahan](https://www.lynalden.com/bitcoin-a-global-liquidity-barometer/) looked at data from May 2013 to July 2024. They found that indeed Bitcoin reacts strongly to changes in global money supply.
+A recent study by [Lyn Alden and Sam Callahan](https://www.lynalden.com/bitcoin-a-global-liquidity-barometer) looked at data from May 2013 to July 2024. They found that indeed Bitcoin reacts strongly to changes in global money supply.
 
 Here's what the numbers show:
 
@@ -95,7 +91,7 @@ While Lyn Alden's research established the strong correlation and directional al
 </blockquote><script async src="https://platform.twitter.com/widgets.js" charset="utf-8"></script>
 {:/nomarkdown}
 
-[Sarson Funds' study](https://sarsonfunds.com/the-correlation-between-bitcoin-and-m2-money-supply-growth-a-deep-dive/) published in June 2025 identified a **10-week forward lead** as optimal, while other analysts report from 8-14 weeks.
+[Sarson Funds' study](https://sarsonfunds.com/the-correlation-between-bitcoin-and-m2-money-supply-growth-a-deep-dive) published in June 2025 identified a **10-week forward lead** as optimal, while other analysts report from 8-14 weeks.
 
 So, did we find a Bitcoin crystal ball?
 
@@ -143,7 +139,7 @@ This adds more precision to the model.
 
 ### Using MVRV Z-Score
 
-The [MVRV Z-Score](https://www.bitcoinmagazinepro.com/charts/mvrv-zscore/) is a technical indicator that helps determine if Bitcoin is overvalued or undervalued by comparing its current market price to what investors paid on average. When the Z-Score is high, many holders may sell despite growing money supply. When it's low, Bitcoin may be oversold and ready to rise even without money supply growth.
+The [MVRV Z-Score](https://www.bitcoinmagazinepro.com/charts/mvrv-zscore) is a technical indicator that helps determine if Bitcoin is overvalued or undervalued by comparing its current market price to what investors paid on average. When the Z-Score is high, many holders may sell despite growing money supply. When it's low, Bitcoin may be oversold and ready to rise even without money supply growth.
 
 ### The HODL Wave Pattern
 
@@ -204,7 +200,11 @@ Combining liquidity analysis with supply-side metrics provides superior timing:
 
 Now, treat the following as an entertainment part. Let's let AI use the findings to predict the Bitcoin price direction for the coming 12 months.
 
-<div class="article__key-part" style="margin-top: 8rem; margin-bottom: 0">
+<!-- PAYWALL -->
+
+<div class="playbook widget">
+
+<h1>Playbook <span>α</span></h1>
 
 ## Bitcoin Price Prediction
 
@@ -257,6 +257,8 @@ Looking at your charts:
 **Summary: Based on favorable liquidity conditions and moderate MVRV Z-score levels, Bitcoin price could reach $150k-200k+ in the next 6-12 months.**
 
 </div>
+
+<!-- /PAYWALL -->
 
 ## The Bottom Line
 

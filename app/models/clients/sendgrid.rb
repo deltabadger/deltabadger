@@ -1,6 +1,6 @@
 class Clients::Sendgrid < Client
   URL = 'https://api.sendgrid.com'.freeze
-  API_KEY = ENV.fetch('SENDGRID_API_KEY').freeze
+  API_KEY = ENV.fetch('SENDGRID_API_KEY')
 
   def self.connection
     @connection ||= Faraday.new(url: URL, **OPTIONS) do |config|

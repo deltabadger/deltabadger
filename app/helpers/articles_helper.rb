@@ -1,4 +1,18 @@
 module ArticlesHelper
+  def process_inline_paywall(content)
+    return content unless content.include?('<!-- INLINE_PAYWALL -->')
+
+    paywall_html = render_paywall_ui
+    content.gsub('<!-- INLINE_PAYWALL -->', paywall_html)
+  end
+
+  def render_paywall_ui
+    render(partial: 'articles/inline_paywall', locals: {
+             article: @article,
+             premium_subscribers_count: @premium_subscribers_count
+           })
+  end
+
   def article_json_ld(article)
     {
       "@context": 'https://schema.org',

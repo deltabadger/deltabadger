@@ -2,15 +2,16 @@ nl:
   articles:
     index:
       title: "Deltabadger Research"
-      meta_description: "Wekelijkse artikelen voor langetermijninvesteerders in digitale assets."
+      description_html: "Wekelijkse kennis voor<br>beleggers in digitale activa."
+      meta_description: "Wekelijkse kennis voor beleggers in digitale activa."
       no_articles: "Geen artikelen beschikbaar op dit moment."
       join_subscribers: "Word lid van %{count} abonnees <span class='desktop-only'>Premium</span>"
     reading_time: "%{minutes} min leestijd"
     premium_content: "Premium"
     back_to_articles: "← Terug naar artikelen"
     paywall:
-      title: "Abonneer om verder te lezen."
-      description: |
-        Wij zijn een gemeenschap van langetermijninvesteerders in digitale activa. Krijg toegang tot:<br><b>wekelijkse artikelen &middot; portfolioanalyse &middot; smart DCA bots</b>
+      description_html: |
+        <h3><strong>Playbook</strong> is een premium sectie met praktische tactieken en strategieën die direct toepasbaar zijn op jouw portefeuille.</h3>
+        <p>In dit playbook:</p>
     like_on_x: "Leuk vinden op X"
     join_discussion: "Deelnemen aan discussie"

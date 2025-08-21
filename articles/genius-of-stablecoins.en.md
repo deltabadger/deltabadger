@@ -8,8 +8,6 @@ x_url: https://x.com/deltabadgerapp/status/1950462030970016075
 telegram_url: https://t.me/deltabadger/101
 paywall_hook: |
    <ul>
-       <li>Which tokens benefit from stablecoin legitimization?</li>
-       <li>Is TRON the new systemic risk for crypto?</li>
        <li>Three different allocations for GENIUS Portfolio</li>
    </ul>
 published: true
@@ -25,9 +23,9 @@ The numbers are insane:
 
 * In 6 years, stablecoins grew **from $6 billion to $270 billion—a 45x increase**. The entire stablecoin market is now larger than the GDP of Finland.
 
-* Tether ($98 billion) and Circle ($22 billion) combined hold $120 billion in US Treasury securities, making them the 18th largest holder of American government debt—ahead of Belgium, Taiwan, and most sovereign nations. <a class="link-source-tile" href="https://tether.io/news/tether-hits-13-billion-profits-for-2024-and-all-time-highs-in-u-s-treasury-holdings-usdt-circulation-and-reserve-buffer-in-q4-2024-attestation/">tether.io</a>
+* Tether ($98 billion) and Circle ($22 billion) combined hold $120 billion in US Treasury securities, making them the 18th largest holder of American government debt—ahead of Belgium, Taiwan, and most sovereign nations. <a class="link-source-tile" href="https://tether.io/news/tether-hits-13-billion-profits-for-2024-and-all-time-highs-in-u-s-treasury-holdings-usdt-circulation-and-reserve-buffer-in-q4-2024-attestation">tether.io</a>
 
-* Tether processes over $100 billion in daily transfers on some days, while **the entire stablecoin ecosystem moves $27.6 trillion annually—more than Visa and Mastercard combined**. <a class="link-source-tile" href="https://cryptoslate.com/stablecoins-surpass-visa-and-mastercard-with-27-6-trillion-transfer-volume-in-2024/">cryptoslate.com</a>
+* Tether processes over $100 billion in daily transfers on some days, while **the entire stablecoin ecosystem moves $27.6 trillion annually—more than Visa and Mastercard combined**. <a class="link-source-tile" href="https://cryptoslate.com/stablecoins-surpass-visa-and-mastercard-with-27-6-trillion-transfer-volume-in-2024">cryptoslate.com</a>
 
 {::nomarkdown}
 <figure class="article__figure">
@@ -48,7 +46,7 @@ The GENIUS Act, passed by the Senate 68-30 in June 2025 and signed in July, mark
 
 >*We will use stablecoins to keep the US Dollar the dominant reserve currency.*  
 >
->—Treasury Secretary Scott Bessent <a class="link-source-tile" href="https://www.atlanticcouncil.org/blogs/new-atlanticist/dollar-backed-stablecoins-international-standards/">atlanticcouncil.org</a>
+>—Treasury Secretary Scott Bessent <a class="link-source-tile" href="https://www.atlanticcouncil.org/blogs/new-atlanticist/dollar-backed-stablecoins-international-standards">atlanticcouncil.org</a>
 
 **This represents a dramatic shift from regulation to weaponization.**
 
@@ -89,9 +87,9 @@ The difference in use cases tells the story:
 
 There's an **inverse relationship between traditional financial infrastructure and stablecoin adoption**—regions with weaker banking systems show higher usage rates.
 
-In Argentina, 61.8% of all transactions now involve stablecoins, directly correlated with 143% peso inflation. Turkey shows 50% population crypto ownership with the highest global stablecoin adoption at 4.3% of GDP, while Nigeria's 26 million stablecoin users (12% of population) bypass currency controls entirely. <a class="link-source-tile" href="https://www.chainalysis.com/blog/2024-latin-america-crypto-adoption/">chainalysis.com</a>
+In Argentina, 61.8% of all transactions now involve stablecoins, directly correlated with 143% peso inflation. Turkey shows 50% population crypto ownership with the highest global stablecoin adoption at 4.3% of GDP, while Nigeria's 26 million stablecoin users (12% of population) bypass currency controls entirely. <a class="link-source-tile" href="https://www.chainalysis.com/blog/2024-latin-america-crypto-adoption">chainalysis.com</a>
 
-**Europe is spectacularly missing this revolution.** Despite representing 48% of global cryptocurrency volume, **only 0.2% of stablecoin supply is held by Europeans**, suggesting their 10-15% participation in transaction volume is primarily trading, not adoption. <a class="link-source-tile" href="https://www.chainalysis.com/blog/2024-western-europe-crypto-adoption/">chainalysis.com</a>
+**Europe is spectacularly missing this revolution.** Despite representing 48% of global cryptocurrency volume, **only 0.2% of stablecoin supply is held by Europeans**, suggesting their 10-15% participation in transaction volume is primarily trading, not adoption. <a class="link-source-tile" href="https://www.chainalysis.com/blog/2024-western-europe-crypto-adoption">chainalysis.com</a>
 
 ### The Stealthy Digital Dollar
 
@@ -108,13 +106,11 @@ Meanwhile, the EU continues to be a bureaucratic failure:
 * Major exchanges delisting Tether for EU users by March 2025  
 * Digital euro development crawling while stablecoin adoption accelerates
 
-While Europe builds the financial equivalent of the Maginot Line, spending over $1.1 billion on the CBDC project, the battle has already moved to mobile phones, where the US weaponizes stablecoins to efficiently dollarize emerging markets—all financed by the private sector. <a class="link-source-tile" href="https://www.ledgerinsights.com/ecb-updates-status-of-digital-euro-work/">ledgerinsights.com</a>
+While Europe builds the financial equivalent of the Maginot Line, spending over $1.1 billion on the CBDC project, the battle has already moved to mobile phones, where the US weaponizes stablecoins to efficiently dollarize emerging markets—all financed by the private sector. <a class="link-source-tile" href="https://www.ledgerinsights.com/ecb-updates-status-of-digital-euro-work">ledgerinsights.com</a>
 
 ## The GENIUS Portfolio
 
 > *Every financial revolution creates millionaires—but they're usually selling picks and shovels.*
-
-<!-- PAYWALL -->
 
 Can you invest in this booming sector? Absolutely.
 
@@ -159,7 +155,7 @@ We believe so.
 * DeFi protocols using stablecoins need gas for swaps, lending, and borrowing
 * On proof-of-stake networks, increased stablecoin activity drives staking rewards, making native tokens more attractive
 
-## The GENIUS Portfolio
+### The Portfolio
 
 DeFiLlama provides stablecoin supply data for each blockchain. Taking the top 10 blockchains by stablecoin usage and building a portfolio allocated by total stablecoin supply yields allocations roughly correlated with market cap weighting—**with one significant exception: TRON.** <a class="link-source-tile" href="https://defillama.com/stablecoins">defillama.com</a>
 
@@ -175,17 +171,23 @@ DeFiLlama provides stablecoin supply data for each blockchain. Taking the top 10
 | **Avalanche** | $10.49b | $1.658b | 1.5% | 0.6% | <span class="text-danger">-0.8%</span> |
 | **Aptos** | $3.00b | $1.351b | 0.4% | 0.5% | <span class="text-success">+0.1%</span> |
 
-TRON has become the largest network for USDT specifically, hosting $82 billion in circulation—while Ethereum leads total stablecoin supply at $132 billion across multiple stablecoins (USDT, USDC, DAI, etc.). USDT represents 98.5% of TRON's activity, making it a dedicated USDT infrastructure. <a class="link-source-tile" href="https://cryptobriefing.com/usdt-on-tron-stablecoin-leader/">cryptobriefing.com</a>
+TRON has become the largest network for USDT specifically, hosting $82 billion in circulation—while Ethereum leads total stablecoin supply at $132 billion across multiple stablecoins (USDT, USDC, DAI, etc.). USDT represents 98.5% of TRON's activity, making it a dedicated USDT infrastructure. <a class="link-source-tile" href="https://cryptobriefing.com/usdt-on-tron-stablecoin-leader">cryptobriefing.com</a>
 
 This dominance stems from TRON's combination of ultra-low fees (under $0.10), fast 3-second settlements, and Justin Sun's strategic 2019 partnership with Tether, creating powerful network effects that attracted both emerging market retail users and large institutional transfers.
 
 However, if you're looking for a reason why TRON's market cap is low relative to its network usage, there's actually a good explanation for this discount:
 Among all major networks, **TRON is the most centralized**, fully controlled by controversial founder Justin Sun, which adds significant risk to the underlying asset. While Tether may not be a threat anymore, TRON represents either a potential next systemic risk to the cryptocurrency market or an underappreciated investment opportunity.
 
-**This gives us portfolio weighting options:**
-1. Follow stablecoin issuance metrics.
-2. Use market capitalization (to reduce TRON exposure).
-3. Exclude TRON entirely.
+<!-- PAYWALL -->
+
+<div class="playbook widget">
+
+<h1>Playbook <span>α</span></h1>
+
+**This gives us three portfolio weighting options:**
+1. Follow stablecoin supply data
+2. Use market capitalization weighting (reducing TRON exposure)
+3. Exclude TRON completely
 
 {::nomarkdown}
 <figure class="article__figure" data-controller="pie-chart" data-pie-chart-data-value="#627EEA,ETH,Ethereum,51.7
@@ -241,6 +243,10 @@ Among all major networks, **TRON is the most centralized**, fully controlled by 
 {:/nomarkdown}
 
 Supply-based allocation is a trade based on fundamentals—potentially telling a more accurate story than capitalizations of the assets. More conservative investors may consider market cap as a source of information that includes more complete information. There is no one obvious answer here since both ideas have their merits.
+
+</div>
+
+<!-- /PAYWALL -->
 
 While TRON may be in question for many, Ethereum—the first smart contract platform—remains the leader of decentralized finance. However, if it changes, following publicly available metrics and rebalancing portfolio every 3 months allows us to keep allocation relevant.
 

@@ -1,12 +1,13 @@
 pt:
     subscriptions:
-        per_month_html: "/mês"
-        per_year_html: "/ano"
-        per_4_years_html: "/4 anos"
+        per_week_html: "/ semana"
+        per_month_html: "/ mês"
+        per_year_html: "/ ano"
+        per_4_years_html: "/ 4 anos"
         variant_lifetime: "Vitalício"
         variant_30_days: "Mensal"
-        variant_365_days: "Anual"
-        variant_1460_days: "4 Anos"
+        variant_365_days: "1 ano"
+        variant_1460_days: "4 anos, economize 25%"
         variant_7_days: "Semanal"
         free: "Grátis"
         mini: "Mini"
@@ -14,11 +15,12 @@ pt:
         pro: "Pro"
         research: "Research"
         legendary: "Legendary"
+        active: "Ativo"
         thank_you:
             title: "Obrigado!"
             description: "O seu plano %{plan_name} está ativo."
         upgrade_modal:
-            title: "Atualizar para Pro"
+            title: "Upgrade"
             description: "Acesse todas as funcionalidades avançadas."
         days_left:
             one: '1 dia restante'
@@ -29,6 +31,8 @@ pt:
         confirm_cancel_title: "Cancelar plano %{plan}"
         confirm_cancel: "Tem a certeza que quer cancelar a sua subscrição? Todos os bots com funcionalidades do plano %{plan} ativadas deixarão de funcionar após %{date}."
         payment:
+            cardholder_first_name: 'Nome do titular da conta'
+            cardholder_last_name: 'Sobrenome do titular da conta'
             price_usd_html: '<span class=price-ticker>%{symbol}</span><span class=price-amount>%{price}</span>'
             price_eur_html: '<span class=price-ticker>%{symbol}</span><span class=price-amount>%{price}</span>'
             account_holder: 'Titular da conta'

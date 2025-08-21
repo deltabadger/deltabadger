@@ -1,7 +1,7 @@
 class SsoController < ApplicationController
   def sso
-    secret = ENV['DISCOURSE_SSO_SECRET']
-    discourse_sso_url = ENV['DISCOURSE_SSO_URL']
+    secret = ENV.fetch('DISCOURSE_SSO_SECRET')
+    discourse_sso_url = ENV.fetch('DISCOURSE_SSO_URL')
 
     if secret.nil? || discourse_sso_url.nil?
       Rails.logger.error 'Discourse SSO secret or URL not set'
@@ -60,9 +60,9 @@ class SsoController < ApplicationController
   private
 
   def assign_badges_to_user(user, active_subscription)
-    discourse_api_key = ENV['DISCOURSE_API_KEY']
-    discourse_api_username = ENV['DISCOURSE_API_USERNAME']
-    discourse_site_url = ENV['DISCOURSE_SITE_URL']
+    discourse_api_key = ENV.fetch('DISCOURSE_API_KEY')
+    discourse_api_username = ENV.fetch('DISCOURSE_API_USERNAME')
+    discourse_site_url = ENV.fetch('DISCOURSE_SITE_URL')
     discourse = DiscourseApi::Client.new(discourse_site_url)
     discourse.api_key = discourse_api_key
     discourse.api_username = discourse_api_username

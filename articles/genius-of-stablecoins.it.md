@@ -8,8 +8,6 @@ x_url: https://x.com/deltabadgerapp/status/1950462030970016075
 telegram_url: https://t.me/deltabadger/101
 paywall_hook: |
    <ul>
-       <li>Quali token beneficiano della legittimazione delle stablecoin?</li>
-       <li>TRON è il nuovo rischio sistemico per le criptovalute?</li>
        <li>Tre diverse allocazioni per il portafoglio GENIUS</li>
    </ul>
 published: true
@@ -25,9 +23,9 @@ I numeri sono pazzeschi:
 
 * In 6 anni, le stablecoin sono cresciute **da 6 a 270 miliardi di dollari, con un aumento di 45 volte**. L'intero mercato delle stablecoin è ora più grande del PIL della Finlandia.
 
-* Tether (98 miliardi di dollari) e Circle (22 miliardi di dollari) detengono insieme 120 miliardi di dollari in titoli del Tesoro statunitense, diventando il 18° maggior detentore di debito pubblico americano, davanti a Belgio, Taiwan e alla maggior parte delle nazioni sovrane. <a class="link-source-tile" href="https://tether.io/news/tether-hits-13-billion-profits-for-2024-and-all-time-highs-in-u-s-treasury-holdings-usdt-circulation-and-reserve-buffer-in-q4-2024-attestation/">tether.io</a>
+* Tether (98 miliardi di dollari) e Circle (22 miliardi di dollari) detengono insieme 120 miliardi di dollari in titoli del Tesoro statunitense, diventando il 18° maggior detentore di debito pubblico americano, davanti a Belgio, Taiwan e alla maggior parte delle nazioni sovrane. <a class="link-source-tile" href="https://tether.io/news/tether-hits-13-billion-profits-for-2024-and-all-time-highs-in-u-s-treasury-holdings-usdt-circulation-and-reserve-buffer-in-q4-2024-attestation">tether.io</a>
 
-* Tether elabora oltre 100 miliardi di dollari di trasferimenti giornalieri in alcuni giorni, mentre **l'intero ecosistema delle stablecoin muove 27,6 trilioni di dollari all'anno, più di Visa e Mastercard messi insieme**. <a class="link-source-tile" href="https://cryptoslate.com/stablecoins-surpass-visa-and-mastercard-with-27-6-trillion-transfer-volume-in-2024/">cryptoslate.com</a>
+* Tether elabora oltre 100 miliardi di dollari di trasferimenti giornalieri in alcuni giorni, mentre **l'intero ecosistema delle stablecoin muove 27,6 trilioni di dollari all'anno, più di Visa e Mastercard messi insieme**. <a class="link-source-tile" href="https://cryptoslate.com/stablecoins-surpass-visa-and-mastercard-with-27-6-trillion-transfer-volume-in-2024">cryptoslate.com</a>
 
 {::nomarkdown}
 <figure class="article__figure">
@@ -48,7 +46,7 @@ Il GENIUS Act, approvato dal Senato con 68 voti a favore e 30 contrari nel giugn
 
 >*Useremo le stablecoin per mantenere il dollaro USA la valuta di riserva dominante.*
 >
->—Segretario al Tesoro Scott Bessent <a class="link-source-tile" href="https://www.atlanticcouncil.org/blogs/new-atlanticist/dollar-backed-stablecoins-international-standards/">atlanticcouncil.org</a>
+>—Segretario al Tesoro Scott Bessent <a class="link-source-tile" href="https://www.atlanticcouncil.org/blogs/new-atlanticist/dollar-backed-stablecoins-international-standards">atlanticcouncil.org</a>
 
 **Questo rappresenta un cambiamento radicale dalla regolamentazione all'armamento.**
 
@@ -89,9 +87,9 @@ La differenza nei casi d'uso racconta la storia:
 
 Esiste una **relazione inversa tra l'infrastruttura finanziaria tradizionale e l'adozione delle stablecoin**: le regioni con sistemi bancari più deboli mostrano tassi di utilizzo più elevati.
 
-In Argentina, il 61,8% di tutte le transazioni ora coinvolge stablecoin, direttamente correlato a un'inflazione del peso del 143%. La Turchia mostra una proprietà di criptovalute del 50% della popolazione con la più alta adozione globale di stablecoin al 4,3% del PIL, mentre i 26 milioni di utenti di stablecoin della Nigeria (12% della popolazione) aggirano completamente i controlli valutari. <a class="link-source-tile" href="https://www.chainalysis.com/blog/2024-latin-america-crypto-adoption/">chainalysis.com</a>
+In Argentina, il 61,8% di tutte le transazioni ora coinvolge stablecoin, direttamente correlato a un'inflazione del peso del 143%. La Turchia mostra una proprietà di criptovalute del 50% della popolazione con la più alta adozione globale di stablecoin al 4,3% del PIL, mentre i 26 milioni di utenti di stablecoin della Nigeria (12% della popolazione) aggirano completamente i controlli valutari. <a class="link-source-tile" href="https://www.chainalysis.com/blog/2024-latin-america-crypto-adoption">chainalysis.com</a>
 
-**L'Europa sta clamorosamente perdendo questa rivoluzione.** Nonostante rappresenti il 48% del volume globale di criptovalute, **solo lo 0,2% dell'offerta di stablecoin è detenuto da europei**, suggerendo che la loro partecipazione del 10-15% al volume delle transazioni è principalmente trading, non adozione. <a class="link-source-tile" href="https://www.chainalysis.com/blog/2024-western-europe-crypto-adoption/">chainalysis.com</a>
+**L'Europa sta clamorosamente perdendo questa rivoluzione.** Nonostante rappresenti il 48% del volume globale di criptovalute, **solo lo 0,2% dell'offerta di stablecoin è detenuto da europei**, suggerendo che la loro partecipazione del 10-15% al volume delle transazioni è principalmente trading, non adozione. <a class="link-source-tile" href="https://www.chainalysis.com/blog/2024-western-europe-crypto-adoption">chainalysis.com</a>
 
 ### Il dollaro digitale furtivo
 
@@ -108,13 +106,13 @@ Nel frattempo, l'UE continua a essere un fallimento burocratico:
 * I principali scambi stanno delistando Tether per gli utenti dell'UE entro marzo 2025
 * Lo sviluppo dell'euro digitale procede a rilento mentre l'adozione delle stablecoin accelera
 
-Mentre l'Europa costruisce l'equivalente finanziario della Linea Maginot, spendendo oltre 1,1 miliardi di dollari per il progetto CBDC, la battaglia si è già spostata sui telefoni cellulari, dove gli Stati Uniti utilizzano le stablecoin come arma per dollarizzare in modo efficiente i mercati emergenti, il tutto finanziato dal settore privato. <a class="link-source-tile" href="https://www.ledgerinsights.com/ecb-updates-status-of-digital-euro-work/">ledgerinsights.com</a>
+Mentre l'Europa costruisce l'equivalente finanziario della Linea Maginot, spendendo oltre 1,1 miliardi di dollari per il progetto CBDC, la battaglia si è già spostata sui telefoni cellulari, dove gli Stati Uniti utilizzano le stablecoin come arma per dollarizzare in modo efficiente i mercati emergenti, il tutto finanziato dal settore privato. <a class="link-source-tile" href="https://www.ledgerinsights.com/ecb-updates-status-of-digital-euro-work">ledgerinsights.com</a>
 
 ## Il portafoglio GENIUS
 
 > *Ogni rivoluzione finanziaria crea milionari, ma di solito vendono pale e picconi.*
 
-<!-- PAYWALL -->
+
 
 Puoi investire in questo settore in forte espansione? Assolutamente.
 
@@ -159,7 +157,7 @@ Credo di si.
 * I protocolli DeFi che utilizzano stablecoin necessitano di gas per swap, prestiti e mutui
 * Sulle reti proof-of-stake, l'aumento dell'attività delle stablecoin aumenta le ricompense di staking, rendendo i token nativi più attraenti
 
-## Il portafoglio GENIUS
+### Il portafoglio
 
 DeFiLlama fornisce dati sull'offerta di stablecoin for each blockchain. Taking the top 10 blockchains by stablecoin usage and building a portfolio allocated by total stablecoin supply yields allocations roughly correlated with market cap weighting—**with one significant exception: TRON.** <a class="link-source-tile" href="https://defillama.com/stablecoins">defillama.com</a>
 
@@ -175,13 +173,19 @@ DeFiLlama fornisce dati sull'offerta di stablecoin for each blockchain. Taking t
 | **Avalanche** | $10.49b | $1.658b | 1.5% | 0.6% | <span class="text-danger">-0.8%</span> |
 | **Aptos** | $3.00b | $1.351b | 0.4% | 0.5% | <span class="text-success">+0.1%</span> |
 
-TRON è diventata la più grande rete per USDT in particolare, ospitando 82 miliardi di dollari in circolazione, mentre Ethereum è in testa all'offerta totale di stablecoin con 132 miliardi di dollari su più stablecoin (USDT, USDC, DAI, ecc.). USDT rappresenta il 98,5% dell'attività di TRON, rendendola un'infrastruttura dedicata a USDT. <a class="link-source-tile" href="https://cryptobriefing.com/usdt-on-tron-stablecoin-leader/">cryptobriefing.com</a>
+TRON è diventata la più grande rete per USDT in particolare, ospitando 82 miliardi di dollari in circolazione, mentre Ethereum è in testa all'offerta totale di stablecoin con 132 miliardi di dollari su più stablecoin (USDT, USDC, DAI, ecc.). USDT rappresenta il 98,5% dell'attività di TRON, rendendola un'infrastruttura dedicata a USDT. <a class="link-source-tile" href="https://cryptobriefing.com/usdt-on-tron-stablecoin-leader">cryptobriefing.com</a>
 
 Questa predominanza deriva dalla combinazione di commissioni ultra-basse di TRON (sotto $ 0,10), regolamenti veloci in 3 secondi e dalla partnership strategica di Justin Sun nel 2019 con Tether, creando potenti effetti di rete che hanno attratto sia gli utenti al dettaglio dei mercati emergenti che i grandi trasferimenti istituzionali.
 
 Tuttavia, se stai cercando un motivo per cui la capitalizzazione di mercato di TRON è bassa rispetto all'utilizzo della sua rete, c'è in realtà una buona spiegazione per questo sconto:
 
 Tra tutte le principali reti, **TRON è la più centralizzata**, completamente controllata dal controverso fondatore Justin Sun, il che aggiunge certamente un rischio all'asset sottostante. Mentre Tether potrebbe non rappresentare più una minaccia, TRON rappresenta un potenziale prossimo rischio sistemico per il mercato delle criptovalute o un'opportunità di investimento sottovalutata.
+
+<!-- PAYWALL -->
+
+<div class="playbook widget">
+
+<h1>Playbook <span>α</span></h1>
 
 **Questo ci offre opzioni di ponderazione del portafoglio:**
 1. Segui le metriche di emissione delle stablecoin.
@@ -243,6 +247,10 @@ Tra tutte le principali reti, **TRON è la più centralizzata**, completamente c
 
 L'allocazione basata sull'offerta è un'operazione basata sui fondamentali, che potenzialmente racconta una storia più accurata rispetto alle capitalizzazioni degli asset. Gli investitori più conservatori possono considerare la capitalizzazione di mercato come una fonte di informazioni più completa. Non c'è una risposta ovvia qui, poiché entrambe le idee hanno i loro meriti.
 
+</div>
+
+<!-- /PAYWALL -->
+
 Mentre TRON può essere in discussione per molti, Ethereum, la prima piattaforma di smart contract, rimane il leader della finanza decentralizzata. Tuttavia, se le cose cambiano, seguire le metriche disponibili pubblicamente e ribilanciare il portafoglio ogni 3 mesi ci consente di mantenere l'allocazione pertinente.
 
-**Quale allocazione è la tua preferita? Partecipa alla discussione su Telegram.** 
+**Quale allocazione è la tua preferita? Partecipa alla discussione su Telegram.**

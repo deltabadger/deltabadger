@@ -1,12 +1,13 @@
 de:
     subscriptions:
-        per_month_html: "/Monat"
-        per_year_html: "/Jahr"
-        per_4_years_html: "/4 Jahre"
+        per_week_html: "/ Woche"
+        per_month_html: "/ Monat"
+        per_year_html: "/ Jahr"
+        per_4_years_html: "4 Jahre"
         variant_lifetime: "Lebenslang"
         variant_30_days: "Monatlich"
-        variant_365_days: "Jährlich"
-        variant_1460_days: "4 Jahre"
+        variant_365_days: "1 Jahr"
+        variant_1460_days: "4 Jahre, sparen 25%"
         variant_7_days: "Wöchentlich"
         free: "Kostenlos"
         mini: "Mini"
@@ -14,6 +15,7 @@ de:
         pro: "Pro"
         research: "Research"
         legendary: "Legendary"
+        active: "Aktiv"
         thank_you:
             title: "Danke!"
             description: "Dein %{plan_name}-Plan ist aktiv."
@@ -37,7 +39,7 @@ de:
             premium_newsletter: "Premium-Newsletter"
             portfolio_analyzer: "Portfolio-Analysator"
         upgrade_modal:
-            title: "Auf Pro upgraden"
+            title: "Upgraden"
             description: "Zugang zu allen erweiterten Funktionen."
         days_left:
             one: '1 Tag übrig'
@@ -48,7 +50,8 @@ de:
         confirm_cancel_title: "%{plan}-Plan kündigen"
         confirm_cancel: "Sind Sie sicher, dass Sie Ihr Abonnement kündigen möchten? Alle Bots mit aktivierten %{plan}-Funktionen funktionieren nach dem %{date} nicht mehr."
         payment:
-            cardholder_name: "Karteninhaber"
+            cardholder_first_name: "Karteninhaber Vorname"
+            cardholder_last_name: "Karteninhaber Nachname"
             checkout: "Zur Kasse"
             price_usd_html: '<span class=price-ticker>%{symbol}</span><span class=price-amount>%{price}</span>'
             price_eur_html: '<span class=price-ticker>%{symbol}</span><span class=price-amount>%{price}</span>'

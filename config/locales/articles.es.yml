@@ -2,15 +2,16 @@ es:
   articles:
     index:
       title: "Deltabadger Research"
-      meta_description: "Artículos semanales para inversores a largo plazo en activos digitales."
+      description_html: "Conocimiento semanal para<br>inversores en activos digitales."
+      meta_description: "Conocimiento semanal para inversores en activos digitales."
       no_articles: "No hay artículos disponibles en este momento."
       join_subscribers: "Únete a %{count} suscriptores <span class='desktop-only'>Premium</span>"
     reading_time: "%{minutes} min de lectura"
     premium_content: "Premium"
     back_to_articles: "← Volver a artículos"
     paywall:
-      title: "Suscribirse para continuar leyendo."
-      description: |
-        Somos una comunidad de inversores a largo plazo en activos digitales. Accede a:<br><b>artículos semanales &middot; analizador de carteras &middot; smart DCA bots</b>
+      description_html: |
+        <h3><strong>Playbook</strong> es una sección premium con tácticas y estrategias prácticas directamente aplicables a tu cartera.</h3>
+        <p>En este playbook:</p>
     like_on_x: "Dale me gusta en X"
     join_discussion: "Unirse a la discusión"

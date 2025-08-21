@@ -10,12 +10,12 @@ IntercomRails.config do |config|
   # This is required to enable Identity Verification, you can find it on your Setup
   # guide in the "Identity Verification" step.
   #
-  config.api_secret = ENV.fetch("INTERCOM_HMAC")
+  config.api_secret = ENV.fetch('INTERCOM_HMAC')
 
   # == Enabled Environments
   # Which environments is auto inclusion of the Javascript enabled for
   #
-  config.enabled_environments = ["production"]
+  config.enabled_environments = %w[production]
 
   # == Current user method/variable
   # The method/variable that contains the logged in user in your controllers.

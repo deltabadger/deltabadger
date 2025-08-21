@@ -6,9 +6,7 @@ thumbnail: grayscale-etf.avif
 excerpt: "O novo ETF da Grayscale segue o Índice CoinDesk 5—não apenas as 5 principais criptomoedas por capitalização de mercado, mas um filtro institucional complexo. Do Index Universe ao CD5, esta metodologia de quatro camadas revela onde o dinheiro institucional fluirá."
 paywall_hook: |
     <ul>
-        <li>Para onde irá o dinheiro institucional a seguir?</li>
-        <li>Ideia de negociação baseada em ETFs (não é necessário acesso a ETFs)</li>
-        <li>Quais moedas serão as próximas para ETFs à vista individuais?</li>
+        <li>Duas carteiras para antecipar o dinheiro institucional</li>
     </ul>
 x_url: https://x.com/deltabadgerapp/status/1943337030869471342
 telegram_url: https://t.me/deltabadger/97
@@ -32,7 +30,7 @@ O ETF oferece uma exposição diversificada às principais criptomoedas, com o *
 
 Embora a maioria presuma que o ETF simplesmente segue as 5 principais criptomoedas por capitalização de mercado, na verdade ele segue o **Índice CoinDesk 5 (CD5)**—uma metodologia complexa concebida para investidores institucionais, fornecendo pistas subtis sobre para onde o dinheiro institucional poderá fluir a seguir, o que o torna digno de uma análise mais atenta.
 
-O CD5 está no topo de uma **metodologia de quatro camadas** desenvolvida pela [CoinDesk Indices](https://indices.coindesk.com/). Ao contrário das classificações populares de capitalização de mercado em sites como CoinGecko ou CoinPaprika, o CD5 foi construído especificamente para investidores institucionais. Isto significa que a sua metodologia complexa pode surpreender os entusiastas de cripto—é muito mais seletiva do que simplesmente escolher as maiores moedas por capitalização de mercado.
+O CD5 está no topo de uma **metodologia de quatro camadas** desenvolvida pela [CoinDesk Indices](https://indices.coindesk.com). Ao contrário das classificações populares de capitalização de mercado em sites como CoinGecko ou CoinPaprika, o CD5 foi construído especificamente para investidores institucionais. Isto significa que a sua metodologia complexa pode surpreender os entusiastas de cripto—é muito mais seletiva do que simplesmente escolher as maiores moedas por capitalização de mercado.
 
 {::nomarkdown}
 <figure class="article__figure">
@@ -47,7 +45,7 @@ Tudo começa com o **Index Universe**—a metodologia fundamental da CoinDesk pa
 
 O Index Universe começa com as **250 principais criptomoedas por capitalização de mercado**, e depois aplica um conjunto de filtros de qualidade rigorosos:
 
-<!-- PAYWALL -->
+
 
 **O que é eliminado imediatamente:**
 
@@ -69,11 +67,19 @@ Este processo de filtragem cria o **Index Universe**—uma lista curada de cript
 
 Esta falta de transparência em torno do tamanho real do **Index Universe** é uma das limitações atuais, juntamente com a documentação ainda em desenvolvimento do CD5. Maior clareza sobre estes números ajudaria os investidores a compreender melhor a natureza do índice.
 
+<!-- PAYWALL -->
+
+<div class="playbook widget">
+
+<h1>Playbook <span>α</span></h1>
+
+Os Índices CoinDesk oferecem uma forma simples de acompanhar os fluxos de dinheiro institucional. Vamos explorar os dois índices mais importantes: CD20 e CD5 (que o GDLC segue):
+
 ### CoinDesk 20
 
 O [Índice CoinDesk 20 (CD20)](https://indices.coindesk.com/coindesk20) pega neste universo verificado e adiciona uma camada adicional de gestão de portfólio. É também a parte da oferta mais bem documentada online.
 
-**Ponderação por capitalização de mercado com salvaguardas**: A ponderação por capitalização de mercado do índice, que os utilizadores do Deltabadger conhecem do [bot de DCA reequilibrado](https://deltabadger.com/academy/rebalanced-dca/), é ajustada pela adição de limites (30% máximo para o maior, 20% para os outros). Não é muito claro porque é que o limite foi adicionado, e a documentação oficial da CoinDesk não o explica.
+**Ponderação por capitalização de mercado com salvaguardas**: A ponderação por capitalização de mercado do índice, que os utilizadores do Deltabadger conhecem do [bot de DCA reequilibrado](https://deltabadger.com/academy/rebalanced-dca), é ajustada pela adição de limites (30% máximo para o maior, 20% para os outros). Não é muito claro porque é que o limite foi adicionado, e a documentação oficial da CoinDesk não o explica.
 
 {::nomarkdown}
 <figure class="article__figure" data-controller="pie-chart" data-pie-chart-data-value="#F7931A,BTC,Bitcoin,30.53
@@ -151,6 +157,10 @@ Tal como o CD20, o CD5 segue o mesmo cronograma de rebalanceamento trimestral, m
 </figure>
 {:/nomarkdown}
 
+</div>
+
+<!-- /PAYWALL -->
+
 ### Resumo da Estrutura do Índice
 
 Para resumir a metodologia:
@@ -177,9 +187,11 @@ A ideia de negociação aqui é simples: **investir no que está no ETF**. Se o 
 
 O Presidente da ETF Store, [Nate Geraci, vê implicações mais amplas](https://twitter.com/NateGeraci/status/1939454629915619403), sugerindo que esta aprovação poderia abrir caminho para ETFs à vista individuais para ativos como XRP, Solana e Litecoin. Isto permitiria aos investidores obter exposição direcionada a criptomoedas específicas através de contas de investimento tradicionais.
 
+{::nomarkdown}
 <blockquote class="twitter-tweet">
 <p lang="en" dir="ltr">Final SEC deadline this week on Grayscale Digital Large Cap ETF (GDLC)…<br><br>Holds btc, eth, xrp, sol, &amp; ada.<br><br>Think *high likelihood* this is approved.<br><br>Would then be followed later by approval for individual spot ETFs on xrp, sol, ada, etc.</p>&mdash; Nate Geraci (@NateGeraci) <a href="https://twitter.com/NateGeraci/status/1939454629915619403?ref_src=twsrc%5Etfw">June 29, 2025</a>
-</blockquote>
+</blockquote><script async src="https://platform.twitter.com/widgets.js" charset="utf-8"></script>
+{:/nomarkdown}
 
 ## Olhando em Frente
 

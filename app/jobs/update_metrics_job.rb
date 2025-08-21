@@ -1,5 +1,5 @@
 class UpdateMetricsJob < ApplicationJob
-  queue_as :default
+  queue_as :low_priority
 
   def perform
     metrics = Metrics.new

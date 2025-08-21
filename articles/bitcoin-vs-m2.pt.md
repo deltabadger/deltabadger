@@ -59,13 +59,13 @@ A tese central é simples:
 
 **Quando mais dinheiro é impresso (M2 cresce), o Bitcoin tende a subir, pois os investidores procuram alternativas aos investimentos tradicionais. Quando a impressão de dinheiro abranda ou para, o Bitcoin tende a ter um desempenho inferior.**
 
-<!-- PAYWALL -->
+
 
 ## A Evidência Quantitativa
 
 ### Bitcoin como o Barómetro de Liquidez Superior
 
-Um estudo recente de [Lyn Alden e Sam Callahan](https://www.lynalden.com/bitcoin-a-global-liquidity-barometer/) analisou dados de maio de 2013 a julho de 2024. Eles descobriram que, de facto, o Bitcoin reage fortemente às mudanças na oferta monetária global.
+Um estudo recente de [Lyn Alden e Sam Callahan](https://www.lynalden.com/bitcoin-a-global-liquidity-barometer) analisou dados de maio de 2013 a julho de 2024. Eles descobriram que, de facto, o Bitcoin reage fortemente às mudanças na oferta monetária global.
 
 Eis o que os números mostram:
 
@@ -93,7 +93,7 @@ Enquanto a pesquisa de Lyn Alden estabeleceu a forte correlação e alinhamento 
 </blockquote><script async src="https://platform.twitter.com/widgets.js" charset="utf-8"></script>
 {:/nomarkdown}
 
-[O estudo da Sarson Funds](https://sarsonfunds.com/the-correlation-between-bitcoin-and-m2-money-supply-growth-a-deep-dive/) publicado em junho de 2025 identificou uma **liderança a prazo de 10 semanas** como ótima, enquanto outros analistas relatam de 8 a 14 semanas.
+[O estudo da Sarson Funds](https://sarsonfunds.com/the-correlation-between-bitcoin-and-m2-money-supply-growth-a-deep-dive) publicado em junho de 2025 identificou uma **liderança a prazo de 10 semanas** como ótima, enquanto outros analistas relatam de 8 a 14 semanas.
 
 Então, encontrámos uma bola de cristal do Bitcoin?
 
@@ -141,7 +141,7 @@ Isso adiciona mais precisão ao modelo.
 
 ### Usando o MVRV Z-Score
 
-O [MVRV Z-Score](https://www.bitcoinmagazinepro.com/charts/mvrv-zscore/) é um indicador técnico que ajuda a determinar se o Bitcoin está sobrevalorizado ou subvalorizado, comparando o seu preço de mercado atual com o que os investidores pagaram em média. Quando o Z-Score está alto, muitos detentores podem vender apesar do aumento da oferta monetária. Quando está baixo, o Bitcoin pode estar sobrevendido e pronto para subir, mesmo sem crescimento da oferta monetária.
+O [MVRV Z-Score](https://www.bitcoinmagazinepro.com/charts/mvrv-zscore) é um indicador técnico que ajuda a determinar se o Bitcoin está sobrevalorizado ou subvalorizado, comparando o seu preço de mercado atual com o que os investidores pagaram em média. Quando o Z-Score está alto, muitos detentores podem vender apesar do aumento da oferta monetária. Quando está baixo, o Bitcoin pode estar sobrevendido e pronto para subir, mesmo sem crescimento da oferta monetária.
 
 ### O Padrão da Onda HODL
 
@@ -202,7 +202,11 @@ A combinação da análise de liquidez com métricas do lado da oferta proporcio
 
 Agora, trate a parte seguinte como entretenimento. Vamos deixar a IA usar as descobertas para prever a direção do preço do Bitcoin para os próximos 12 meses.
 
-<div class="article__key-part" style="margin-top: 8rem; margin-bottom: 0">
+<!-- PAYWALL -->
+
+<div class="playbook widget">
+
+<h1>Playbook <span>α</span></h1>
 
 ## Previsão de Preço do Bitcoin
 
@@ -255,6 +259,8 @@ Olhando para os seus gráficos:
 **Resumo: Com base em condições de liquidez favoráveis e níveis moderados de MVRV Z-score, o preço do Bitcoin poderá atingir $150k-200k+ nos próximos 6-12 meses.**
 
 </div>
+
+<!-- /PAYWALL -->
 
 ## O Ponto Essencial
 

@@ -2,15 +2,16 @@ en:
   articles:
     index:
       title: "Deltabadger Research"
-      meta_description: "Weekly articles for long-term investors in digital assets."
+      description_html: "Weekly knowledge for<br>investors in digital assets."
+      meta_description: "Weekly knowledge for investors in digital assets."
       no_articles: "No articles available at the moment."
       join_subscribers: "Join %{count} Premium subscribers"
     reading_time: "%{minutes} min read"
     premium_content: "Premium"
     back_to_articles: "← Back to articles"
     paywall:
-      title: "Subscribe to continue reading"
-      description: |
-        We are a community of long-term investors in digital assets. Gain access to:<br><b>weekly articles &middot; portfolio analyzer &middot; smart DCA bots</b>
+      description_html: |
+        <h3><strong>Playbook</strong> is a premium section with actionable tactics and strategies directly applicable to your portfolio.</h3>
+        <p>In this playbook:</p>
     like_on_x: "Like it on 𝕏"
     join_discussion: "Join discussion in the Community"
