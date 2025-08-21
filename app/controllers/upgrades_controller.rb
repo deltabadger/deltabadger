@@ -1,5 +1,4 @@
 class UpgradesController < ApplicationController
-  include Upgrades::Payable
   include Upgrades::Showable
 
   before_action :authenticate_user!
@@ -8,7 +7,9 @@ class UpgradesController < ApplicationController
   before_action :update_session, only: %i[show]
   before_action :set_show_instance_variables, only: %i[show]
 
-  def show; end
+  def show
+    @scope = 'upgrade'
+  end
 
   private
 
@@ -29,8 +30,6 @@ class UpgradesController < ApplicationController
       parsed_params = {
         mini_research_enabled: payment_params[:mini_research_enabled].presence&.in?(%w[1 true]),
         standard_research_enabled: payment_params[:standard_research_enabled].presence&.in?(%w[1 true]),
-        type: payment_params[:type],
-        country: payment_params[:country],
         days: payment_params[:days]&.to_i
       }.compact.stringify_keys
       session[:payment_config].merge!(parsed_params)

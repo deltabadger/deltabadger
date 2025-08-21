@@ -1,5 +1,4 @@
 class Upgrade::CheckoutsController < ApplicationController
-  include Upgrades::Payable
   include Upgrades::Showable
 
   before_action :authenticate_user!
@@ -8,6 +7,8 @@ class Upgrade::CheckoutsController < ApplicationController
 
   def show
     set_show_instance_variables
+    @scope = 'checkout'
+    @name_pattern = User::Name::PATTERN
     @generic_plan_name = session[:payment_config]['plan_name'].gsub('_research', '')
     @reference_payment_option = @reference_payment_options[session[:payment_config]['plan_name']]
     @payment = @payment_options[session[:payment_config]['plan_name']]
