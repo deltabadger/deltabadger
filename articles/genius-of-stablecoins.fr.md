@@ -8,8 +8,6 @@ x_url: https://x.com/deltabadgerapp/status/1950462030970016075
 telegram_url: https://t.me/deltabadger/101
 paywall_hook: |
    <ul>
-       <li>Quels jetons bénéficient de la légitimation des stablecoins ?</li>
-       <li>TRON est-il le nouveau risque systémique pour la crypto ?</li>
        <li>Trois allocations différentes pour le portefeuille GENIUS</li>
    </ul>
 published: true
@@ -114,7 +112,7 @@ Pendant que l'Europe construit l'équivalent financier de la ligne Maginot, en d
 
 > *Chaque révolution financière crée des millionnaires, mais ils vendent généralement des pelles et des pioches.*
 
-<!-- PAYWALL -->
+
 
 Pouvez-vous investir dans ce secteur en plein essor ? Absolument.
 
@@ -159,7 +157,7 @@ Je le crois.
 * Les protocoles DeFi utilisant des stablecoins ont besoin de gaz pour les swaps, les prêts et les emprunts
 * Sur les réseaux à preuve d'enjeu, l'activité accrue des stablecoins augmente les récompenses de jalonnement, rendant les jetons natifs plus attrayants
 
-## Le portefeuille GENIUS
+### Le portefeuille
 
 DeFiLlama fournit des données sur l'offre de stablecoins pour chaque blockchain. En prenant les 10 premières blockchains par utilisation de stablecoins et en construisant un portefeuille alloué par l'offre totale de stablecoins, on obtient des allocations à peu près corrélées à la pondération par capitalisation boursière – **à une exception notable près : TRON.** <a class="link-source-tile" href="https://defillama.com/stablecoins">defillama.com</a>
 
@@ -182,6 +180,12 @@ Cette domination découle de la combinaison de frais ultra-bas (inférieurs à 0
 Cependant, si vous cherchez une raison pour laquelle la capitalisation boursière de TRON est faible par rapport à l'utilisation de son réseau, il existe en fait une bonne explication à cette décote :
 
 Parmi tous les principaux réseaux, **TRON est le plus centralisé**, entièrement contrôlé par le fondateur controversé Justin Sun, ce qui ajoute certainement un risque à l'actif sous-jacent. Bien que Tether ne représente plus une menace, TRON représente soit un prochain risque systémique potentiel pour le marché des cryptomonnaies, soit une opportunité d'investissement sous-estimée.
+
+<!-- PAYWALL -->
+
+<div class="playbook widget">
+
+<h1>Playbook <span>α</span></h1>
 
 **Cela nous donne des options de pondération de portefeuille :**
 1. Suivre les mesures d'émission de stablecoins.
@@ -243,6 +247,10 @@ Parmi tous les principaux réseaux, **TRON est le plus centralisé**, entièreme
 
 L'allocation basée sur l'offre est une transaction basée sur les fondamentaux, qui raconte potentiellement une histoire plus précise que les capitalisations des actifs. Les investisseurs plus conservateurs peuvent considérer la capitalisation boursière comme une source d'informations plus complètes. Il n'y a pas de réponse évidente ici, car les deux idées ont leurs mérites.
 
+</div>
+
+<!-- /PAYWALL -->
+
 Alors que TRON peut être remis en question pour beaucoup, Ethereum – la première plateforme de smart contracts – reste le leader de la finance décentralisée. Cependant, si cela change, le suivi des mesures publiquement disponibles et le rééquilibrage du portefeuille tous les 3 mois nous permettent de maintenir l'allocation pertinente.
 
-**Quelle allocation est votre préférée ? Rejoignez la discussion sur Telegram.** 
+**Quelle allocation est votre préférée ? Rejoignez la discussion sur Telegram.**

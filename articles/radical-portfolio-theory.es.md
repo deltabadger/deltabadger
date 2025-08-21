@@ -5,11 +5,11 @@ author_id: 1
 thumbnail: radical-portfolio-theory.avif
 excerpt: "El marco radical de Jeff Park muestra por qué las carteras tradicionales de acciones y bonos ya no funcionan y propone una nueva división 60/40: activos conformes (compliant) vs. activos resilientes (resilient) para el panorama financiero moderno."
 paywall_hook: |
-   <ul>
-       <li>El oro como activo de resiliencia tradicional</li>
-       <li>Cartera Permanente 2.0</li>
-       <li>El caso del Bitcoin</li>
-   </ul>
+    <ul>
+        <li>Cartera Radical para Maximalistas de Bitcoin</li>
+        <li>El oro como activo de resiliencia tradicional</li>
+        <li>Cartera Permanente 2.0</li>
+    </ul>
 x_url: https://x.com/deltabadgerapp/status/1955506609607831798
 telegram_url: https://t.me/deltabadger/106
 published: true
@@ -131,6 +131,12 @@ La baja liquidez que hace que los activos alternativos sean más difíciles de m
 </figure>
 {:/nomarkdown}
 
+<!-- PAYWALL -->
+
+<div class="playbook widget">
+
+<h1>Playbook <span>α</span></h1>
+
 ## Radicalmente simple
 
 La cartera radical puede sonar complicada, pero realmente puede mantenerse simple.
@@ -151,8 +157,6 @@ En la [entrevista de Unchained](https://youtu.be/eq5KGH68EH4?si=l2WVeAb3T2gSNOhB
 {:/nomarkdown}
 
 Para una cartera más tradicional enfocada en el largo plazo, parece más razonable reemplazar el STRK de renta fija con un ETF de mercado amplio, que a largo plazo potencialmente ofrece rendimientos mucho mejores y más diversificados.
-
-<!-- PAYWALL -->
 
 ### Oro: La resiliencia original
 
@@ -197,6 +201,10 @@ Lo que nos lleva a mi marco favorito de mezclar las cuatro clases de activos: ac
 <figcaption class="article__figure__caption">Acciones, Bitcoin, Oro — la nueva cartera permanente</figcaption>
 </figure>
 {:/nomarkdown}
+
+</div>
+
+<!-- /PAYWALL -->
 
 ### Bitcoin: La nueva resiliencia
 

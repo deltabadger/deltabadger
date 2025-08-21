@@ -112,7 +112,7 @@
     --text: #024
   .main
     margin: 0 auto
-    padding: 2rem 1.5rem
+    padding: 2rem
     max-width: 150rem
     @media (min-width: 768px)
       padding: 10rem 12rem
@@ -141,12 +141,12 @@
     @media (min-width: 768px)
       font-size: 3.2rem
       line-height: 1.2
-      margin: 12rem 0 6rem 0
+      margin: 8rem 0 6rem 0
     @media (min-width: 1024px)
       font-size: 4rem
       line-height: 1.1
   h3
-    margin: 8rem 0 4rem 0
+    margin: 6rem 0 3rem 0
     font-size: 2rem
     line-height: 1.5
     text-align: left
@@ -168,11 +168,11 @@
   blockquote
     border-left: 0.5rem solid var(--text-faded)
     padding-left: 2rem
-    margin: 8rem 0
+    margin: 6rem 0
     font-size: 1.75rem
     line-height: 1.5
     @media (min-width: 768px)
-      margin: 12rem 0
+      margin: 8rem 0
     em
       font-size: 3rem
   &__back-link
@@ -238,15 +238,6 @@
           filter: grayscale(100%) contrast(1.25)
           background-position: center -1rem
           box-shadow: var(--widget-shadow)
-      &__premium
-        color: var(--link)
-        font-weight: 500
-        text-transform: uppercase
-        font-size: 0.75em
-        display: inline-block
-        padding: 0 0.75em
-        border-radius: 1em
-        border: 1px solid var(--link)
   &__figure 
     margin-top: 6rem
     margin-bottom: 6rem
@@ -275,50 +266,6 @@
       font-size: 1.75rem
       color: var(--label)
       font-style: italic
-.paywall
-  background: linear-gradient(to bottom, #fff0 0%, var(--background) 25%)
-  position: relative
-  z-index: 1
-  margin-top: -40rem
-  padding: 32rem 3rem
-  text-align: center
-  display: flex
-  flex-direction: column
-  align-items: center
-  justify-content: center
-  gap: 7rem
-  text-align: center !important
-  ul
-    margin: 0
-    padding: 0
-  li
-    text-align: left
-    list-style: none
-    position: relative
-    padding-left: 3.5rem
-    margin-bottom: 1rem
-    &:before
-      content: ""
-      position: absolute
-      left: 0
-      top: 0
-      width: 3rem
-      height: 3rem
-      background-image: url("check.svg")
-      background-size: contain
-      background-repeat: no-repeat
-  h3, h2
-    width: 100%
-    text-align: center !important
-  &__actions
-    display: flex
-    flex-direction: column
-    gap: 2rem
-    .premium-subscribers
-      margin-bottom: 2rem
-  .button
-    width: 40rem
-    min-width: 40rem
 
 .monetary-aggregates,.rsi-performance
   margin: 4rem 0
@@ -363,14 +310,6 @@
       padding: 1rem 2rem
     tr
       font-family: Arial, "Helvetica Neue", Helvetica, sans
-  &__key-part
-    background: var(--widget-background)
-    border: 1px solid var(--text)
-    padding: 4rem
-    margin: 12rem 0
-    h2
-      margin-top: 0
-
 .article-bg-top
   display: none
   position: absolute
@@ -441,6 +380,8 @@
   gap: 1rem
   .button--large
     margin: 0
+    @media (max-width: 767.9px)
+      width: 100%
 
 .timeline
   display: flex
@@ -521,6 +462,7 @@
   color: var(--label)
   text-decoration: none
   background: var(--widget-background)
+  box-shadow: var(--widget-shadow)
   padding: 0 1rem
   border-radius: 1.5rem
   font-size: 1.5rem

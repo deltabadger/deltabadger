@@ -5,11 +5,11 @@ author_id: 1
 thumbnail: radical-portfolio-theory.avif
 excerpt: "Le cadre radical de Jeff Park montre pourquoi les portefeuilles traditionnels actions-obligations ne fonctionnent plus et propose une nouvelle répartition 60/40 : actifs conformes (compliant) vs. actifs résilients (resilient) pour le paysage financier moderne."
 paywall_hook: |
-   <ul>
-       <li>L'or comme actif de résilience traditionnel</li>
-       <li>Portefeuille Permanent 2.0</li>
-       <li>Le cas du Bitcoin</li>
-   </ul>
+    <ul>
+        <li>Portefeuille radical pour les maximalistes du Bitcoin</li>
+        <li>L'or comme actif de résilience traditionnel</li>
+        <li>Portefeuille Permanent 2.0</li>
+    </ul>
 x_url: https://x.com/deltabadgerapp/status/1955506609607831798
 telegram_url: https://t.me/deltabadger/106
 published: true
@@ -131,6 +131,12 @@ La faible liquidité qui rend les actifs alternatifs plus difficiles à déplace
 </figure>
 {:/nomarkdown}
 
+<!-- PAYWALL -->
+
+<div class="playbook widget">
+
+<h1>Playbook <span>α</span></h1>
+
 ## Radicalement simple
 
 Le portefeuille radical peut sembler compliqué, mais peut vraiment rester simple.
@@ -152,7 +158,7 @@ Dans l'[interview Unchained](https://youtu.be/eq5KGH68EH4?si=l2WVeAb3T2gSNOhB&t=
 
 Pour un portefeuille plus traditionnel axé sur le long terme, il semble plus raisonnable de remplacer le STRK à revenu fixe par un ETF de marché large, qui à long terme offre potentiellement des rendements beaucoup meilleurs et plus diversifiés.
 
-<!-- PAYWALL -->
+
 
 ### L'or : La résilience originelle
 
@@ -197,6 +203,10 @@ Ce qui nous amène à mon cadre préféré de mélange de ces quatre classes d'a
 <figcaption class="article__figure__caption">Actions, Bitcoin, Or — le nouveau portefeuille permanent</figcaption>
 </figure>
 {:/nomarkdown}
+
+</div>
+
+<!-- /PAYWALL -->
 
 ### Bitcoin : La nouvelle résilience
 

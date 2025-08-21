@@ -1,6 +1,10 @@
 ---
+globs: config/locales/**/*.yml,articles/**/*.md,articles/*.md
+alwaysApply: false
+---
+---
 description: Translation and localization rules for supported languages
-globs: 
+globs:
   - "config/locales/**/*.yml"
   - "articles/**/*.md"
 alwaysApply: true
@@ -21,7 +25,7 @@ You are a professional translator who:
 - **Portuguese (PT)** - Lisbon/Portugal variant only
 - **Dutch (NL)** - Amsterdam/Netherlands variant only
 - **Polish (PL)** - Warsaw/Poland variant only
-- **Russian (RU)** - Moscow/Russian variant only 
+- **Russian (RU)** - Moscow/Russian variant only
 
 **Note**: NEVER use non-European variants of Spanish, French, and Portugese.
 
