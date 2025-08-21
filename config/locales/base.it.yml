@@ -27,6 +27,8 @@ it:
         get_started: Inizia
         select_plan: 'Seleziona Piano'
         back_to_dashboard: 'Vai alla dashboard'
+        subscribe: 'Abbonati'
+        unlock: 'Sblocca'
     data_labels:
         invested: "Totale Investito"
         portfolio_value: "Valore del Portafoglio"
@@ -93,7 +95,7 @@ it:
             title: Grazie!
         contact:
             general_questions_html: 'Per domande generali, prova il nostro <a class="db-social-link" href="https://t.me/deltabadgerchat" target="_blank" rel="nofollow">canale Telegram</a>. Questo è solitamente il modo più veloce per ottenere una risposta. Inoltre: tutti i feedback, idee sul prodotto e richieste di exchange sono benvenuti.'
-            specific_questions_html: 'Per problemi più specifici, mandaci un''email: %{email}, o un messaggio diretto su Telegram o <a class="db-social-link" href="https://x.com/deltabadgerapp" target="_blank" rel="nofollow">𝕏</a>.'
+            specific_questions_html: 'Per problemi più specifici, mandaci un''email: %{email}, o un messaggio diretto su Telegram o <a class="db-social-link" href="https://x.com/intent/follow?screen_name=deltabadgerapp" target="_blank" rel="nofollow">𝕏</a>.'
             title: Contatti
     links:
         about: Chi siamo

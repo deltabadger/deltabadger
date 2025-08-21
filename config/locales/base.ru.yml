@@ -27,6 +27,8 @@ ru:
         get_started: Начать
         select_plan: 'Выбрать план'
         back_to_dashboard: 'Перейти к панели'
+        subscribe: 'Подписаться'
+        unlock: 'Разблокировать'
     data_labels:
         invested: "Всего вложено"
         portfolio_value: "Стоимость портфеля"
@@ -97,7 +99,7 @@ ru:
             title: Спасибо!
         contact:
             general_questions_html: 'По общим вопросам, пожалуйста, обратитесь на наш <a class="db-social-link" href="https://t.me/deltabadgerchat" target="_blank" rel="nofollow">Telegram канал</a>. Обычно это самый быстрый способ получить ответ. Также: приветствуются все отзывы, идеи продуктов и запросы бирж.'
-            specific_questions_html: 'По более специфическим вопросам напишите нам на: %{email} или личное сообщение в Telegram или <a class="db-social-link" href="https://x.com/deltabadgerapp" target="_blank" rel="nofollow">𝕏</a>.'
+            specific_questions_html: 'По более специфическим вопросам напишите нам на: %{email} или личное сообщение в Telegram или <a class="db-social-link" href="https://x.com/intent/follow?screen_name=deltabadgerapp" target="_blank" rel="nofollow">𝕏</a>.'
             title: Контакты
     links:
         about: 'О нас'

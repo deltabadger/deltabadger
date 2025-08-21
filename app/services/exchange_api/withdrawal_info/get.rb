@@ -3,11 +3,10 @@ module ExchangeApi
     class Get < BaseService
       include ExchangeApi::BinanceEnum
       include ExchangeApi::FtxEnum
-      DISABLE_EXCHANGES_API = ENV.fetch('DISABLE_EXCHANGES_API') == 'true'
 
       def call(api_key)
         exchange = Exchange.find(api_key.exchange_id)
-        return ExchangeApi::WithdrawalInfo::Fake::AccountInfoProcessor.new if DISABLE_EXCHANGES_API
+        return ExchangeApi::WithdrawalInfo::Fake::AccountInfoProcessor.new if Rails.configuration.dry_run
 
         case exchange.name.downcase
         when 'kraken'
