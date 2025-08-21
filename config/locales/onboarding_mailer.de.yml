@@ -1,5 +1,6 @@
 de:
     onboarding_mailer:
+        take_care_html: "<p>Pass auf dich auf,<br>Jan</p>"
         fee_cutter:
             subject: "Gebühren auf NULL senken"
             body_html: |

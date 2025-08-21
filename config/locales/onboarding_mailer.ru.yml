@@ -1,5 +1,6 @@
 ru:
     onboarding_mailer:
+        take_care_html: "<p>Береги себя,<br>Jan</p>"
         fee_cutter:
             subject: "Комиссии к НУЛЮ"
             body_html: |

@@ -1,5 +1,6 @@
 es:
     onboarding_mailer:
+        take_care_html: "<p>Cuídate,<br>Jan</p>"
         fee_cutter:
             subject: "Comisiones a CERO"
             body_html: |

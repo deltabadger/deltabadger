@@ -1,13 +1,14 @@
 pl:
     onboarding_mailer:
+        take_care_html: "<p>Trzymaj się,<br>Jan</p>"
         fee_cutter:
-            subject: "Opłaty na ZERO"
+            subject: "Opłaty do ZERA"
             body_html: |
-                <p><i>Uwielbiam płacić opłaty.</i><br>
+                <p><i>Uwielbiam płacić prowizje.</i><br>
                 <small>*Powiedział nikt nigdy.</small></p>
-                <p>Większość inwestorów akceptuje opłaty giełd jako "koszt prowadzenia biznesu".</p>
+                <p>Większość inwestorów akceptuje opłaty transakcyjne giełd jako "koszt prowadzenia biznesu".</p>
                 <p>Ale oto sztuczka:</p>
-                <p>Gdy giełda pobiera od ciebie 0,25% opłaty, użyj FeeCutter, aby otwierać zlecenia z limitem 0,25% poniżej obecnej ceny i efektywnie obniżyć opłaty do ZERA.</p>
+                <p>Gdy giełda pobiera od ciebie 0,25% opłaty, użyj FeeCutter, i otwieraj zlecenia z limitem 0,25% poniżej obecnej ceny i efektywnie zmniejszając opłaty do ZERA.</p>
                 <p><b>Dlaczego to działa:</b></p>
                 <p>Ceny krypto nieustannie się zmieniają.<br>
                 Luka 0,25% jest wypełniana przez naturalne ruchy rynku w ciągu kilku godzin w 99% przypadków.</p>

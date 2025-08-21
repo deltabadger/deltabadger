@@ -1,5 +1,6 @@
 en:
     onboarding_mailer:
+        take_care_html: "<p>Take care,<br>Jan</p>"
         fee_cutter:
             subject: "Cut fees to ZERO"
             body_html: |

@@ -1,5 +1,6 @@
 fr:
     onboarding_mailer:
+        take_care_html: "<p>Prends soin de toi,<br>Jan</p>"
         fee_cutter:
             subject: "Réduire les frais à ZÉRO"
             body_html: |

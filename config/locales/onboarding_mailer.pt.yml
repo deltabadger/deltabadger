@@ -1,5 +1,6 @@
 pt:
     onboarding_mailer:
+        take_care_html: "<p>Cuida-te,<br>Jan</p>"
         fee_cutter:
             subject: "Reduzir taxas a ZERO"
             body_html: |

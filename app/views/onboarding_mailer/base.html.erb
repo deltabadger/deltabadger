@@ -3,14 +3,14 @@
     <div style="line-height: 30px; font-weight: bold; color: #2948A1;"></div>
 </div>
 
-<p><%= t(@user.name.present? ? 'mailer.greeting_name' : 'mailer.greeting', name: @user.name) %></p>
+<%= t(@user.name.present? ? 'mailer.greeting_name' : 'mailer.greeting', name: @user.name) %>
 
-<p><%= t("onboarding_mailer.#{@content_key}.body_html").html_safe %></p>
+<%= t("onboarding_mailer.#{@content_key}.body_html").html_safe %>
 
-<p><%= t('mailer.best_html') %></p>
+<%= t('onboarding_mailer.take_care_html').html_safe %>
 
-<p>
+<%# <p>
     <img style="width: 120px; height: auto; margin: 0 0 1em;" src="https://deltabadger.com/images/email/signature.png" alt="Jan's Signature">
-</p>
+</p> %>
 
-<p><%= t("onboarding_mailer.#{@content_key}.ps_html") %></p>
+<%= t("onboarding_mailer.#{@content_key}.ps_html") %>

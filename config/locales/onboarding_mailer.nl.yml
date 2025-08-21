@@ -1,5 +1,6 @@
 nl:
-    onboarding_mailer:
+    onboarding_mailer:        
+        take_care_html: "<p>Zorg goed voor jezelf,<br>Jan</p>"
         fee_cutter:
             subject: "Kosten naar NUL"
             body_html: |
