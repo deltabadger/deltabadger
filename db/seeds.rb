@@ -17,13 +17,6 @@ SettingFlag.find_or_create_by!(name: 'show_bitcoin_payment', value: true)
 SettingFlag.find_or_create_by!(name: 'show_wire_payment', value: true)
 SettingFlag.find_or_create_by!(name: 'show_zen_payment', value: true)
 
-COINBASE_API_KEY = ENV.fetch('COINBASE_API_KEY').freeze
-COINBASE_API_SECRET = ENV.fetch('COINBASE_API_SECRET').freeze
-
-FeeApiKey.find_or_create_by!(exchange: Exchange.find_or_create_by!(name: 'Coinbase'))
-FeeApiKey.update(key: COINBASE_API_KEY)
-FeeApiKey.update(secret: COINBASE_API_SECRET)
-
 free_plan = SubscriptionPlan.find_or_create_by!(name: 'free')
 mini_plan = SubscriptionPlan.find_or_create_by!(name: 'mini')
 mini_research_plan = SubscriptionPlan.find_or_create_by!(name: 'mini_research')

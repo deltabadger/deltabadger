@@ -26,7 +26,7 @@ module ExchangeApi
         def fetch_order_by_id(order_id, retry_attempts = 0)
           path = "/api/v3/brokerage/orders/historical/#{order_id}".freeze
           url = API_URL + path
-          conn = Faraday.new(proxy: ENV['US_HTTPS_PROXY'].present? ? "https://#{ENV['US_HTTPS_PROXY']}" : nil)
+          conn = Faraday.new(proxy: ENV['US_HTTPS_PROXY'])
           response = conn.get(url, nil, headers(@api_key, @api_secret, '', url, 'GET'))
 
           Rails.logger.info "Response status: #{response.status}"
@@ -72,7 +72,7 @@ module ExchangeApi
           path = '/api/v3/brokerage/orders'.freeze
           url = API_URL + path
           body = order_params.to_json
-          conn = Faraday.new(proxy: ENV['US_HTTPS_PROXY'].present? ? "https://#{ENV['US_HTTPS_PROXY']}" : nil)
+          conn = Faraday.new(proxy: ENV['US_HTTPS_PROXY'])
           request = conn.post(url, body, headers(@api_key, @api_secret, body, url, 'POST'))
           parse_request(request)
         rescue StandardError => e

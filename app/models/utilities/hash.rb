@@ -6,5 +6,15 @@ module Utilities
 
       value
     end
+
+    def self.safe_dig(hash, *keys)
+      current = hash
+      keys.each do |key|
+        return nil unless current.respond_to?(:dig)
+
+        current = current[key]
+      end
+      current
+    end
   end
 end
