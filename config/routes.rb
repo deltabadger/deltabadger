@@ -212,6 +212,8 @@ Rails.application.routes.draw do
 
     resources :articles, only: [:index, :show]
 
+    resource :pricing, only: [:show]
+
     namespace :broadcasts do
       post :metrics_update
       post :pnl_update
