@@ -21,7 +21,7 @@ nl:
                     <li>☕ koffie</li>
                     <li>🐶 hondenkoekjes</li>
                 </ul>
-                <p>Klinkt goed? <a href="https://app.deltabadger.com/nl/upgrade">Automatiseer beleggen met FeeCutter →</a></p>
+                <p>Klinkt goed? <a href="https://app.deltabadger.com/nl/upgrade">Begin met besparen met FeeCutter →</a></p>
             ps_html: |
                 <p>PS Klaar om te beginnen? Remo's hond zeker wel:</p>
                 <p><img src="https://deltabadger.com/images/email/onboarding/remo.png" alt="Google Review" style="max-width: 100%; width: 300px"></p>
@@ -40,10 +40,15 @@ nl:
                 </ol>
                 <p>Andere verwijzingsprogramma's? → Saai. Je krijgt peanuts.</p>
                 <p>Ons verwijzingsprogramma → <b>Onstopbare Bitcoin-stroom naar je wallet 💸</b></p>
-                <p>Hoe? Makkelijk. Deel gewoon je verwijzingslink:</p>
+                <p>Hoeveel je krijgt:</p>
+                <ul>
+                    <li>Voor elk Pro abonnement <b>$58 elk jaar (!)</b></li>
+                    <li>Voor elk Legendary abonnement <b>meer dan $400</b></li>
+                </ul>
+                <p>Laat die winsten naar je wallet stromen. Deel je verwijzingslink:</p>
                 <p><b>%{link_html}</b></p>
             ps_html: |
-                <p>PS: Tweede beste verwijzingsprogramma?</p>
+                <p>PS: Waar wacht je op? Op zoek naar het tweede beste verwijzingsprogramma? 🤦‍♂️</p>
                 <p><img style="max-width: 100%;" src="https://deltabadger.com/images/email/onboarding/no-second-best.gif" alt="There is no second best"></p>
         rsi:
             subject: "Het RSI Geheim"
@@ -94,8 +99,14 @@ nl:
                 <p>📉 Wanneer het gelddrukken vertraagt of stopt, heeft Bitcoin de neiging te onderpresteren.</p>
                 <p>Het toepassen is moeilijk?</p>
                 <p>Helemaal niet.</p>
-                <p>Leer hoe je het met AI gebruikt en maak je eigen voorspellingen:</p>
-                <p><a href="https://app.deltabadger.com/nl/articles/bitcoin-vs-m2">Lees volledig artikel →</a></p>
+                <p>Dit artikel bevat <b>Playbook<sup>α</sup></b> met uitvoerbare tactieken:</p>
+                <ul>
+                    <li>AI-aangedreven Bitcoin prijsvoorspellingsmodel</li>
+                    <li>M2 correlatiesignalen om te volgen</li>
+                    <li>In- en uitstapstrategieën</li>
+                </ul>
+                <p>Klaar om Bitcoin's volgende beweging te voorspellen?</p>
+                <p><a href="https://app.deltabadger.com/nl/articles/bitcoin-vs-m2">AI-aangedreven M2 correlatiemodel →</a></p>
             ps_html: |
                 <p><strong>PS</strong> 83% nauwkeurigheid? Betere kansen dan de meeste huwelijksaanzoeken 🤦‍♂️</p>
         grayscale_etf:
@@ -111,8 +122,14 @@ nl:
                 <p>De meerderheid van institutionele beleggers kan niet direct in crypto investeren.<br>
                 Het grootste kapitaal is gedwongen om via ETF's te investeren.</p>
                 <p>Het beste deel? De eerste multi-crypto ETF is net goedgekeurd.</p>
-                <p>Kijk wat erin zit en loop voor op de gekte:</p>
-                <p><a href="https://app.deltabadger.com/nl/articles/grayscale-crypto-etf">Lees volledig artikel →</a></p>
+                <p>Dit artikel bevat <b>Playbook <sup>α</sup></b> met uitvoerbare tactieken:</p>
+                <ul>
+                    <li>Twee complete portfolio's om institutioneel geld voor te zijn</li>
+                    <li>CD20 en CD5 index uitsplitsingen met exacte allocaties</li>
+                    <li>Zelfvervullende profetie investeringsstrategie</li>
+                </ul>
+                <p>Klaar om institutioneel kapitaal voor te zijn?</p>
+                <p><a href="https://app.deltabadger.com/nl/articles/grayscale-crypto-etf">Complete ETF positioneringsstrategie →</a></p>
             ps_html: |
                 <p>PS 73% van mensen die institutioneel geld niet volgen, eindigen met het volgen van FOMO in plaats daarvan.</p>
         stablecoins:
@@ -125,8 +142,14 @@ nl:
                 <p>De GENIUS Act bevestigt de status van stablecoins als de nieuwe "digitale dollar," die nu opkomende markten in Latijns-Amerika, Afrika, Azië… dollariseert.</p>
                 <p>Het beste deel?</p>
                 <p>Al het verkeer op de blockchain verhoogt de vraag naar onderliggende tokens.</p>
-                </p>Leer meer over verschillende mogelijke allocaties van zo'n portfolio:<p>
-                <p><a href="https://app.deltabadger.com/nl/articles/genius-of-stablecoins">Lees volledig artikel →</a></p>
+                <p>Dit artikel bevat <b>Playbook<sup>α</sup></b> met uitvoerbare tactieken:</p>
+                <ul>
+                    <li>Drie verschillende GENIUS portfolio allocaties</li>
+                    <li>Supply-gewogen vs marktkapitalisatie strategieën</li>
+                    <li>Complete setup gids met exacte percentages</li>
+                </ul>
+                <p>Klaar om je GENIUS portfolio te bouwen?</p>
+                <p><a href="https://app.deltabadger.com/nl/articles/genius-of-stablecoins">GENIUS portfolio allocaties →</a></p>
             ps_html: |
                 <p><strong>PS</strong> Digitale Euro? Komt net na vliegende auto's en wereldvrede.</p>
         polymarket:
@@ -134,12 +157,15 @@ nl:
             body_html: |
                 <p><i>Crypto deugt nergens voor.</i></p>
                 <p>Zeker, de meeste crypto-projecten worstelen om echte bruikbaarheid te demonstreren. Maar af en toe doorbreekt iets het lawaai.</p>
-                <p><strong>Polymarket</strong> – het crypto-gebaseerde voorspellingsplatform, genereerde alleen al in 2024 meer dan $9 miljard aan transactievolume, en werd een van de <b>belangrijkste toepassingen van de Polygon blockchain</b>.</p>
-                <p>Onze diepgaande analyse behandelt:</p>
-                <p>- Wat zijn voorspellingsmarkten?<br>
-                - Wanneer zullen POL (Polygon) houders profiteren?<br>
-                - Hoe kwalificeer je voor een mogelijke Polymarket airdrop?</p>
-                <p><a href="https://app.deltabadger.com/nl/articles/polymarket">Lees volledig artikel →</a></p>
+                <p><strong>Polymarket</strong> – het crypto-gebaseerde voorspellingsplatform, genereerde alleen al in 2024 meer dan $9 miljard aan transactievolume, en werd een van de belangrijkste toepassingen van de Polygon blockchain.</p>
+                <p>Dit artikel bevat <b>Playbook<sup>α</sup></b> met uitvoerbare tactieken:</p>
+                <ul>
+                    <li>Zal Polymarket POL token waardering stimuleren?</li>
+                    <li>Hoe kwalificeren voor potentiële Polymarket airdrops</li>
+                    <li>Lange termijn case voor Polygon infrastructuur</li>
+                </ul>
+                <p>Klaar om je te positioneren voor de voorspellingsmarkt boom?</p>
+                <p><a href="https://app.deltabadger.com/nl/articles/polymarket">Polymarket investeringsstrategie →</a></p>
             ps_html: |
                 <p><strong>PS</strong> Slecht nieuws: Polymarket is 98% zeker dat Jezus dit jaar niet terugkomt. Maar, hey, het is <b>+4167%</b> als hij dat wel doet 😇</p>
                 <p><img style="width: 100%" src="https://deltabadger.com/images/email/onboarding/polymarket-jesus.png" alt="Polymarket"></p>

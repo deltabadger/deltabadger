@@ -23,13 +23,41 @@ class Drippers::Onboarding < Dripper
     end
   end
 
-  # TODO: adjust delays
-  drip :fee_cutter, delay: 1.hours
-  drip :avoid_taxes, delay: 1.day
-  drip :referral, delay: 2.days
-  drip :rsi, delay: 3.days
-  drip :bitcoin_m2, delay: 4.days
-  drip :grayscale_etf, delay: 5.days
-  drip :stablecoins, delay: 6.days
-  drip :polymarket, delay: 7.days
+  # Optimized sequence for maximum sales + referral impact
+  drip :fee_cutter, delay: 1.hours        # Email #1: Immediate value, builds trust
+  drip :rsi, delay: 1.day                 # Email #2: Educational value, positions expertise
+  drip :referral, delay: 2.days           # Email #3: High engagement, passive income hook
+  drip :bitcoin_m2, on: :weekly_sunday     # Email #4: Knowledge article on Sunday
+  drip :grayscale_etf, on: :weekly_sunday  # Email #5: Knowledge article on Sunday
+  drip :stablecoins, on: :weekly_sunday    # Email #6: Knowledge article on Sunday
+  drip :polymarket, on: :weekly_sunday     # Email #7: Knowledge article on Sunday
+  drip :avoid_taxes, delay: 7.days         # Email #8: Advanced strategy for committed users
+
+  private
+
+  # Maps each article to its week number (starting from 0)
+  ARTICLE_SCHEDULE = {
+    bitcoin_m2: 0,
+    grayscale_etf: 1,
+    stablecoins: 2,
+    polymarket: 3
+  }.freeze
+
+  def weekly_sunday(_drip, mailing)
+    article_name = _drip.action
+    week_offset = ARTICLE_SCHEDULE[article_name]
+
+    signup_date = mailing.subscription.created_at
+    referral_send_date = signup_date + 2.days # When referral actually sends
+    earliest_article_date = referral_send_date + 1.day # Wait until day after referral
+    first_sunday = next_sunday_at_10am(earliest_article_date)
+
+    first_sunday + week_offset.weeks
+  end
+
+  def next_sunday_at_10am(from_date)
+    days_until_sunday = (7 - from_date.wday) % 7
+    days_until_sunday = 7 if days_until_sunday == 0 # If already Sunday, wait for next Sunday
+    (from_date + days_until_sunday.days).beginning_of_day + 10.hours
+  end
 end

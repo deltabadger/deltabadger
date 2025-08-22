@@ -21,7 +21,7 @@ pt:
                     <li>☕ café</li>
                     <li>🐶 biscoitos para cães</li>
                 </ul>
-                <p>Parece bem? <a href="https://app.deltabadger.com/pt/upgrade">Automatiza os investimentos com FeeCutter →</a></p>
+                <p>Parece bem? <a href="https://app.deltabadger.com/pt/upgrade">Começa a poupar com FeeCutter →</a></p>
             ps_html: |
                 <p>PS Pronto para começar? O cão do Remo certamente está:</p>
                 <p><img src="https://deltabadger.com/images/email/onboarding/remo.png" alt="Avaliação Google" style="max-width: 100%; width: 300px"></p>
@@ -40,10 +40,15 @@ pt:
                 </ol>
                 <p>Outros programas de referência? → Aborrecidos. Recebes trocos.</p>
                 <p>O nosso programa de referência → <b>Fluxo imparável de Bitcoin para a tua carteira 💸</b></p>
-                <p>Como? Fácil. Partilha simplesmente o teu link de referência:</p>
+                <p>Quanto recebes:</p>
+                <ul>
+                    <li>Por cada subscrição Pro <b>58$ todos os anos (!)</b></li>
+                    <li>Por cada subscrição Legendary <b>mais de 400$</b></li>
+                </ul>
+                <p>Deixa esses lucros fluir para a tua carteira. Partilha o teu link de referência:</p>
                 <p><b>%{link_html}</b></p>
             ps_html: |
-                <p>PS: Segundo melhor programa de referência?</p>
+                <p>PS: O que estás à espera? À procura do segundo melhor programa de referência? 🤦‍♂️</p>
                 <p><img style="max-width: 100%;" src="https://deltabadger.com/images/email/onboarding/no-second-best.gif" alt="There is no second best"></p>
         rsi:
             subject: "O Segredo do RSI"
@@ -94,8 +99,14 @@ pt:
                 <p>📉 Quando a impressão de dinheiro abranda ou para, Bitcoin tende a ter pior desempenho.</p>
                 <p>Aplicá-lo é difícil?</p>
                 <p>De todo.</p>
-                <p>Aprende como usá-lo com IA e faz as tuas próprias previsões:</p>
-                <p><a href="https://app.deltabadger.com/pt/articles/bitcoin-vs-m2">Ler artigo completo →</a></p>
+                <p>Este artigo inclui <b>Playbook<sup>α</sup></b> com táticas acionáveis:</p>
+                <ul>
+                    <li>Modelo de previsão de preços Bitcoin alimentado por IA</li>
+                    <li>Sinais de correlação M2 para observar</li>
+                    <li>Estratégias de entrada e saída</li>
+                </ul>
+                <p>Pronto para prever o próximo movimento do Bitcoin?</p>
+                <p><a href="https://app.deltabadger.com/pt/articles/bitcoin-vs-m2">Modelo de correlação M2 alimentado por IA →</a></p>
             ps_html: |
                 <p><strong>PS</strong> 83% de precisão? Melhores probabilidades que a maioria dos pedidos de casamento 🤦‍♂️</p>
         grayscale_etf:
@@ -111,8 +122,14 @@ pt:
                 <p>A maioria dos investidores institucionais não pode investir diretamente em crypto.<br>
                 O maior capital é forçado a investir através de ETFs.</p>
                 <p>A melhor parte? O primeiro ETF multi-crypto foi acabado de aprovar.</p>
-                <p>Verifica o que contém e antecipa-te à loucura:</p>
-                <p><a href="https://app.deltabadger.com/pt/articles/grayscale-crypto-etf">Ler artigo completo →</a></p>
+                <p>Este artigo inclui <b>Playbook <sup>α</sup></b> com táticas acionáveis:</p>
+                <ul>
+                    <li>Dois portfólios completos para antecipar o dinheiro institucional</li>
+                    <li>Decomposições de índices CD20 e CD5 com alocações exatas</li>
+                    <li>Estratégia de investimento de profecia autorrealizadora</li>
+                </ul>
+                <p>Pronto para antecipar o capital institucional?</p>
+                <p><a href="https://app.deltabadger.com/pt/articles/grayscale-crypto-etf">Estratégia completa de posicionamento ETF →</a></p>
             ps_html: |
                 <p>PS 73% das pessoas que não seguem o dinheiro institucional acabam por seguir FOMO em vez disso.</p>
         stablecoins:
@@ -125,8 +142,14 @@ pt:
                 <p>A Lei GENIUS cementa o estatuto das stablecoins como o novo "dólar digital," que agora está a dolarizar mercados emergentes da América Latina, África, Ásia…</p>
                 <p>A melhor parte?</p>
                 <p>Todo o tráfego na blockchain aumenta a procura pelos tokens subjacentes.</p>
-                </p>Aprende mais sobre diferentes alocações possíveis de tal portfólio:<p>
-                <p><a href="https://app.deltabadger.com/pt/articles/genius-of-stablecoins">Ler artigo completo →</a></p>
+                <p>Este artigo inclui <b>Playbook<sup>α</sup></b> com táticas acionáveis:</p>
+                <ul>
+                    <li>Três alocações diferentes de portfólio GENIUS</li>
+                    <li>Estratégias ponderadas por oferta vs capitalização de mercado</li>
+                    <li>Guia completo de configuração com percentagens exatas</li>
+                </ul>
+                <p>Pronto para construir o teu portfólio GENIUS?</p>
+                <p><a href="https://app.deltabadger.com/pt/articles/genius-of-stablecoins">Alocações de portfólio GENIUS →</a></p>
             ps_html: |
                 <p><strong>PS</strong> Euro digital? Chegará logo depois dos carros voadores e da paz mundial.</p>
         polymarket:
@@ -134,12 +157,15 @@ pt:
             body_html: |
                 <p><i>As crypto não servem para nada.</i></p>
                 <p>Claro, a maioria dos projetos crypto luta para demonstrar utilidade no mundo real. Mas de vez em quando, algo rompe o ruído.</p>
-                <p><strong>Polymarket</strong> – a plataforma de previsão baseada em crypto, só em 2024, gerou mais de 9 mil milhões de dólares em volume de transações, tornando-se numa das <b>principais aplicações da blockchain Polygon</b>.</p>
-                <p>A nossa análise aprofundada cobre:</p>
-                <p>- O que são mercados de previsão?<br>
-                - Quando é que os detentores de POL (Polygon) vão beneficiar?<br>
-                - Como qualificar para um potencial airdrop Polymarket?</p>
-                <p><a href="https://app.deltabadger.com/pt/articles/polymarket">Ler artigo completo →</a></p>
+                <p><strong>Polymarket</strong> – a plataforma de previsão baseada em crypto, só em 2024, gerou mais de 9 mil milhões de dólares em volume de transações, tornando-se numa das principais aplicações da blockchain Polygon.</p>
+                <p>Este artigo inclui <b>Playbook<sup>α</sup></b> com táticas acionáveis:</p>
+                <ul>
+                    <li>Polymarket vai impulsionar a valorização do token POL?</li>
+                    <li>Como qualificar para potenciais airdrops Polymarket</li>
+                    <li>Caso a longo prazo para infraestrutura Polygon</li>
+                </ul>
+                <p>Pronto para te posicionares para o boom dos mercados de previsão?</p>
+                <p><a href="https://app.deltabadger.com/pt/articles/polymarket">Estratégia de investimento Polymarket →</a></p>
             ps_html: |
                 <p><strong>PS</strong> Más notícias: Polymarket tem 98% de certeza que Jesus não volta este ano. Mas, hey, são <b>+4167%</b> se voltar 😇</p>
                 <p><img style="width: 100%" src="https://deltabadger.com/images/email/onboarding/polymarket-jesus.png" alt="Polymarket"></p>
