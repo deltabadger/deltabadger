@@ -31,7 +31,10 @@ class Drippers::Onboarding < Dripper
   drip :grayscale_etf, on: :weekly_sunday  # Email #5: Knowledge article on Sunday
   drip :stablecoins, on: :weekly_sunday    # Email #6: Knowledge article on Sunday
   drip :polymarket, on: :weekly_sunday     # Email #7: Knowledge article on Sunday
-  drip :avoid_taxes, delay: 7.days         # Email #8: Advanced strategy for committed users
+  drip :market_cap_weighting, on: :weekly_sunday # Email #8: Knowledge article on Sunday
+  drip :radical_portfolio, on: :weekly_sunday    # Email #9: Knowledge article on Sunday
+  drip :treasury_companies, on: :weekly_sunday   # Email #10: Knowledge article on Sunday
+  drip :avoid_taxes, delay: 7.days # Email #11: Advanced strategy for committed users
 
   private
 
@@ -40,7 +43,10 @@ class Drippers::Onboarding < Dripper
     bitcoin_m2: 0,
     grayscale_etf: 1,
     stablecoins: 2,
-    polymarket: 3
+    polymarket: 3,
+    market_cap_weighting: 4,
+    radical_portfolio: 5,
+    treasury_companies: 6
   }.freeze
 
   def weekly_sunday(_drip, mailing)

@@ -23,7 +23,7 @@ en:
                 </ul>
                 <p>Sounds good? <a href="https://app.deltabadger.com/upgrade">Start saving with FeeCutter →</a></p>
             ps_html: |
-                <p>PS Ready to start? Remo's dog surely is:</p>
+                <p><strong>P.S.</strong> Ready to start? Remo's dog surely is:</p>
                 <p><img src="https://deltabadger.com/images/email/onboarding/remo.png" alt="Google Review" style="max-width: 100%; width: 300px"></p>
         referral:
             subject: "There Is No Second Best"
@@ -48,7 +48,7 @@ en:
                 <p>Let those profits into your wallet. Share your referral link:</p>
                 <p><b>%{link_html}</b></p>
             ps_html: |
-                <p>PS: What are you waiting for? Looking for the second best referral program? 🤦‍♂️</p>
+                <p><strong>P.S.</strong> What are you waiting for? Looking for the second best referral program? 🤦‍♂️</p>
                 <p><img style="max-width: 100%;" src="https://deltabadger.com/images/email/onboarding/no-second-best.gif" alt="There is no second best"></p>
         rsi:
             subject: "The RSI Secret"
@@ -67,7 +67,7 @@ en:
                 <p><img style="padding: 24px 0; text-align: center; width: 602px; max-width:100%;" src="https://deltabadger.com/images/email/onboarding/rsi-set.png"></p>
                 <p>Catch the dip, not the falling knife: <a href="https://app.deltabadger.com/upgrade">Buy the next dip with RSI →</a></p>
             ps_html: |
-                <p>PS: RSI is like your mom telling you to wear a jacket. You ignore it and regret it later. Somehow, she's often right.</p>
+                <p><strong>P.S.</strong> RSI is like your mom telling you to wear a jacket. You ignore it and regret it later. Somehow, she's often right.</p>
         avoid_taxes:
             subject: "Avoid taxes (legally)"
             body_html: |
@@ -86,7 +86,7 @@ en:
                 <p>Result: You maintain your target allocation without the tax office getting involved.</p>
                 <p><a href="https://app.deltabadger.com/upgrade" title="Go to the app">Start tax-free rebalancing →</a></p>
             ps_html: |
-                <p>PS While you're refreshing CoinGecko 🐸 every 5 minutes, the bot is your digital John Bogle handling the real business.</p>
+                <p><strong>P.S.</strong> While you're refreshing CoinGecko 🐸 every 5 minutes, the bot is your digital John Bogle handling the real business.</p>
         bitcoin_m2:
             subject: "Bitcoin follows this pattern 83% of the time"
             body_html: |
@@ -102,8 +102,6 @@ en:
                 <p>This article includes <b>Playbook<sup>α</sup></b> with actionable tactics:</p>
                 <ul>
                     <li>AI-powered Bitcoin price prediction model</li>
-                    <li>M2 correlation signals to watch</li>
-                    <li>Entry/exit timing strategies</li>
                 </ul>
                 <p>Ready to predict Bitcoin's next move?</p>
                 <p><a href="https://app.deltabadger.com/articles/bitcoin-vs-m2">AI-powered M2 correlation model →</a></p>
@@ -131,7 +129,7 @@ en:
                 <p>Ready to front-run institutional capital?</p>
                 <p><a href="https://app.deltabadger.com/articles/grayscale-crypto-etf">Complete ETF positioning strategy →</a></p>
             ps_html: |
-                <p>PS 73% of people who don't follow institutional money end up following FOMO instead.</p>
+                <p><strong>P.S.</strong> 73% of people who don't follow institutional money end up following FOMO instead.</p>
         stablecoins:
             subject: "Stablecoin Goldmine"
             body_html: |
@@ -169,3 +167,62 @@ en:
             ps_html: |
                 <p><strong>P.S.</strong> Bad news: Polymarket is 98% sure that Jesus will not be back this year. But, hey, it's <b>+4167%</b> if he does 😇</p>
                 <p><img style="width: 100%" src="https://deltabadger.com/images/email/onboarding/polymarket-jesus.png" alt="Polymarket"></p>
+        market_cap_weighting:
+            subject: "Build Your Own ETF"
+            body_html: |
+                <p><i>Don't look for the needle in the haystack. Just buy the haystack!</i> <small>—Jack Bogle, founder of Vanguard</small></p>
+                <p>The most popular advice for retail investors is to "just buy an index fund" (usually S&P 500).</p>
+                <p>But did you know that besides 5 reasons why indexing won, there are 4 more reasons why in crypto indexing works even better?</p>
+                <p>This article includes <b>Playbook<sup>α</sup></b> with actionable tactics:</p>
+                <ul>
+                    <li>The best cryptocurrency index to follow</li>
+                    <li>Altcoin Season index strategy</li>
+                </ul>
+                <p>Ready to buy the crypto haystack?</p>
+                <p><a href="https://app.deltabadger.com/articles/market-cap-weighting">Personal crypto ETF blueprint →</a></p>
+            ps_html: |
+                <p><strong>P.S.</strong> When Vanguard Group launched their index of 500 companies, it was ridiculed as "anti-American." Today, indexing manages 45% of all fund assets in the US. Will crypto indexing be the next big thing?</p>
+        radical_portfolio:
+            subject: "The 60/40 Portfolio is Dead"
+            body_html: |
+                <p><i>Stocks are risky, bonds are safe.</i></p>
+                <p>That was true for over 50 years.</p>
+                <p>Not anymore.</p>
+                <p>Post-COVID, stocks and bonds became <b>positively correlated</b>.</p>
+                <p>Translation: Your "safe" bonds crash exactly when you need them most.</p>
+                <p>The new 60/40?</p>
+                <p><b>60% Compliant / 40% Resilient</b></p>
+                <p>This article includes <b>Playbook<sup>α</sup></b> with actionable tactics:</p>
+                <ul>
+                    <li>Radical Portfolio for Bitcoin Maximalists</li>
+                    <li>Gold as the traditional resilience asset</li>
+                    <li>Permanent Portfolio 2.0 allocation</li>
+                </ul>
+                <p>Ready to build anti-fragile wealth?</p>
+                <p><a href="https://app.deltabadger.com/articles/radical-portfolio-theory">Radical Portfolio blueprints →</a></p>
+            ps_html: |
+                <p><strong>P.S.</strong> Your financial advisor won't tell you this. They're not allowed to 🤫</p>
+        treasury_companies:
+            subject: ""
+            body_html: |
+                <p><i>This looks like a Ponzi scheme.</i></p>
+                <p>That's what many people think when they first hear about Bitcoin treasury companies.</p>
+                <p>A business that just… buys Bitcoin with borrowed money?</p>
+                <p>Where's the actual business model?</p>
+                <p>This type of a company is here for the first time in history, and there are two reasons that make it possible:</p>
+                <ol>
+                    <li>Bitcoin is growing faster than any other asset class</li>
+                    <li>Bitcoin has virtually no storage costs</li>
+                </ol>
+                <p>Lyn Alden still likes it at mNAV 1.5, but in their plans, Strategy discusses mNAV 4.0, and now they've launched 4 new tickers: <b>STRK, STRF, STRD, STRC</b></p>
+                <p>Each pays 8-10% dividends while you wait for Bitcoin to moon.</p>
+                <p>This article includes <b>Playbook<sup>α</sup></b> with actionable tactics:</p>
+                <ul>
+                    <li>Which Strategy ticker is right for you</li>
+                    <li>The gem: STRK's unlimited upside conversion</li>
+                    <li>Why treasury companies aren't actually Ponzi schemes</li>
+                </ul>
+                <p>Ready to understand the treasury company game?</p>
+                <p><a href="https://app.deltabadger.com/articles/treasury-companies">Strategy ticker breakdown →</a></p>
+            ps_html: |
+                <p><strong>P.S.</strong> Michael Saylor borrowed billions to buy Bitcoin and called it "corporate strategy." John borrowed $100 for groceries and friends bash him to find a job. Who's right?</p>
