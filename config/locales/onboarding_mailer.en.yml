@@ -203,26 +203,24 @@ en:
             ps_html: |
                 <p><strong>P.S.</strong> Your financial advisor won't tell you this. They're not allowed to 🤫</p>
         treasury_companies:
-            subject: ""
+            subject: "Stretch, Stride, Strike, Strife: Understanding Strategy Preferred Stocks"
             body_html: |
-                <p><i>This looks like a Ponzi scheme.</i></p>
+                <p><i>How do they generate revenue?</i></p>
                 <p>That's what many people think when they first hear about Bitcoin treasury companies.</p>
-                <p>A business that just… buys Bitcoin with borrowed money?</p>
-                <p>Where's the actual business model?</p>
-                <p>This type of a company is here for the first time in history, and there are two reasons that make it possible:</p>
+                <p>A business that just... buys Bitcoin with borrowed money?</p>
+                <p>Where's the actual business model? 🤔</p>
+                <p>This type of company is here for the first time in history, and there are two reasons that make it possible:</p>
                 <ol>
                     <li>Bitcoin is growing faster than any other asset class</li>
                     <li>Bitcoin has virtually no storage costs</li>
                 </ol>
-                <p>Lyn Alden still likes it at mNAV 1.5, but in their plans, Strategy discusses mNAV 4.0, and now they've launched 4 new tickers: <b>STRK, STRF, STRD, STRC</b></p>
+                <p>Lyn Alden still likes it at mNAV 1.5, but in their plans, Strategy discusses mNAV 4.0, and now they've launched 4 new tickers: <b>STRK, STRF, STRD, STRC</b>.</p>
                 <p>Each pays 8-10% dividends while you wait for Bitcoin to moon.</p>
                 <p>This article includes <b>Playbook<sup>α</sup></b> with actionable tactics:</p>
                 <ul>
-                    <li>Which Strategy ticker is right for you</li>
-                    <li>The gem: STRK's unlimited upside conversion</li>
-                    <li>Why treasury companies aren't actually Ponzi schemes</li>
+                    <li>STRK, STRF, STRD, STRC — Opportunities with new Strategy tickers</li>
                 </ul>
                 <p>Ready to understand the treasury company game?</p>
                 <p><a href="https://app.deltabadger.com/articles/treasury-companies">Strategy ticker breakdown →</a></p>
             ps_html: |
-                <p><strong>P.S.</strong> Michael Saylor borrowed billions to buy Bitcoin and called it "corporate strategy." John borrowed $100 for groceries and friends bash him to find a job. Who's right?</p>
+                <p><strong>P.S.</strong> Michael Saylor borrowed billions to buy Bitcoin. But before you copy him, remember, he can also afford to lose it.</p>

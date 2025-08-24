@@ -167,3 +167,60 @@ de:
             ps_html: |
                 <p><strong>PS</strong> Schlechte Nachrichten: Polymarket ist 98% sicher, dass Jesus dieses Jahr nicht zurückkommt. Aber hey, es sind <b>+4167%</b>, wenn er es doch tut 😇</p>
                 <p><img style="width: 100%" src="https://deltabadger.com/images/email/onboarding/polymarket-jesus.png" alt="Polymarket"></p>
+        market_cap_weighting:
+            subject: "Bau Deinen Eigenen ETF"
+            body_html: |
+                <p><i>Such nicht nach der Nadel im Heuhaufen. Kauf einfach den Heuhaufen!</i> <small>—Jack Bogle, Gründer von Vanguard</small></p>
+                <p>Der beliebteste Rat für Privatanleger ist "Kauf einfach einen Indexfonds" (meist S&P 500).</p>
+                <p>Aber wusstest du, dass es neben 5 Gründen, warum Indexing gewonnen hat, noch 4 weitere Gründe gibt, warum Indexing in Krypto sogar noch besser funktioniert?</p>
+                <p>Dieser Artikel enthält <b>Playbook<sup>α</sup></b> mit umsetzbaren Taktiken:</p>
+                <ul>
+                    <li>Der beste Kryptowährungs-Index zum Folgen</li>
+                    <li>Altcoin Season Index-Strategie</li>
+                </ul>
+                <p>Bereit, den Krypto-Heuhaufen zu kaufen?</p>
+                <p><a href="https://app.deltabadger.com/de/articles/market-cap-weighting">Persönlicher Krypto-ETF-Bauplan →</a></p>
+            ps_html: |
+                <p><strong>PS</strong> Als die Vanguard Group ihren Index aus 500 Unternehmen startete, wurde er als "anti-amerikanisch" verspottet. Heute verwaltet Indexing 45% aller Fondsanlagen in den USA. Wird Krypto-Indexing das nächste große Ding?</p>
+        radical_portfolio:
+            subject: "Das 60/40 Portfolio Ist Tot"
+            body_html: |
+                <p><i>Aktien sind riskant, Anleihen sind sicher.</i></p>
+                <p>Das war über 50 Jahre lang wahr.</p>
+                <p>Nicht mehr.</p>
+                <p>Nach COVID wurden Aktien und Anleihen <b>positiv korreliert</b>.</p>
+                <p>Übersetzung: Deine "sicheren" Anleihen crashen genau dann, wenn du sie am meisten brauchst.</p>
+                <p>Das neue 60/40?</p>
+                <p><b>60% Konform / 40% Widerstandsfähig</b></p>
+                <p>Dieser Artikel enthält <b>Playbook<sup>α</sup></b> mit umsetzbaren Taktiken:</p>
+                <ul>
+                    <li>Radikales Portfolio für Bitcoin-Maximalisten</li>
+                    <li>Gold als traditioneller Widerstandsasset</li>
+                    <li>Permanent Portfolio 2.0 Allokation</li>
+                </ul>
+                <p>Bereit, antifragilen Wohlstand aufzubauen?</p>
+                <p><a href="https://app.deltabadger.com/de/articles/radical-portfolio-theory">Radikale Portfolio-Baupläne →</a></p>
+            ps_html: |
+                <p><strong>PS</strong> Dein Finanzberater wird dir das nicht sagen. Er darf nicht 🤫</p>
+        treasury_companies:
+            subject: "Stretch, Stride, Strike, Strife: Strategy Preferred Stocks Verstehen"
+            body_html: |
+                <p><i>Wie generieren sie Einnahmen?</i></p>
+                <p>Das denken viele Leute, wenn sie zum ersten Mal von Bitcoin-Treasury-Unternehmen hören.</p>
+                <p>Ein Unternehmen, das einfach... Bitcoin mit geliehenem Geld kauft?</p>
+                <p>Wo ist das eigentliche Geschäftsmodell? 🤔</p>
+                <p>Diese Art von Unternehmen gibt es zum ersten Mal in der Geschichte, und es gibt zwei Gründe, die es möglich machen:</p>
+                <ol>
+                    <li>Bitcoin wächst schneller als jede andere Anlageklasse</li>
+                    <li>Bitcoin hat praktisch keine Lagerkosten</li>
+                </ol>
+                <p>Lyn Alden mag es immer noch bei mNAV 1.5, aber in ihren Plänen diskutiert Strategy mNAV 4.0, und jetzt haben sie 4 neue Ticker gestartet: <b>STRK, STRF, STRD, STRC</b>.</p>
+                <p>Jeder zahlt 8-10% Dividenden, während du darauf wartest, dass Bitcoin zum Mond fliegt.</p>
+                <p>Dieser Artikel enthält <b>Playbook<sup>α</sup></b> mit umsetzbaren Taktiken:</p>
+                <ul>
+                    <li>STRK, STRF, STRD, STRC — Chancen mit neuen Strategy-Tickern</li>
+                </ul>
+                <p>Bereit, das Treasury-Unternehmen-Spiel zu verstehen?</p>
+                <p><a href="https://app.deltabadger.com/de/articles/treasury-companies">Strategy-Ticker-Aufschlüsselung →</a></p>
+            ps_html: |
+                <p><strong>PS</strong> Michael Saylor lieh sich Milliarden, um Bitcoin zu kaufen. Aber bevor du ihn nachahmst, denk daran: Er kann es sich auch leisten, es zu verlieren.</p>

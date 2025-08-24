@@ -167,3 +167,60 @@ fr:
             ps_html: |
                 <p><strong>PS</strong> Mauvaises nouvelles : Polymarket est sûr à 98% que Jésus ne reviendra pas cette année. Mais, hey, c'est <b>+4167%</b> s'il le fait 😇</p>
                 <p><img style="width: 100%" src="https://deltabadger.com/images/email/onboarding/polymarket-jesus.png" alt="Polymarket"></p>
+        market_cap_weighting:
+            subject: "Construisez Votre Propre ETF"
+            body_html: |
+                <p><i>Ne cherchez pas l'aiguille dans la botte de foin. Achetez toute la botte de foin !</i> <small>—Jack Bogle, fondateur de Vanguard</small></p>
+                <p>Le conseil le plus populaire pour les investisseurs particuliers est "achetez simplement un fonds indiciel" (généralement le S&P 500).</p>
+                <p>Mais saviez-vous qu'en plus des 5 raisons pour lesquelles l'indexation a gagné, il y a 4 autres raisons pour lesquelles l'indexation en crypto fonctionne encore mieux ?</p>
+                <p>Cet article inclut <b>Playbook<sup>α</sup></b> avec des tactiques actionnables :</p>
+                <ul>
+                    <li>Le meilleur indice de cryptomonnaies à suivre</li>
+                    <li>Stratégie d'indice pour la Saison Altcoin</li>
+                </ul>
+                <p>Prêt à acheter la botte de foin crypto ?</p>
+                <p><a href="https://app.deltabadger.com/fr/articles/market-cap-weighting">Plan d'ETF crypto personnel →</a></p>
+            ps_html: |
+                <p><strong>PS</strong> Quand Vanguard Group a lancé son indice de 500 entreprises, on s'en est moqué en l'appelant "anti-américain". Aujourd'hui, l'indexation gère 45% de tous les actifs de fonds aux États-Unis. L'indexation crypto sera-t-elle la prochaine grande chose ?</p>
+        radical_portfolio:
+            subject: "Le Portefeuille 60/40 Est Mort"
+            body_html: |
+                <p><i>Les actions sont risquées, les obligations sont sûres.</i></p>
+                <p>C'était vrai pendant plus de 50 ans.</p>
+                <p>Plus maintenant.</p>
+                <p>Post-COVID, les actions et les obligations sont devenues <b>positivement corrélées</b>.</p>
+                <p>Traduction : Vos obligations "sûres" s'effondrent exactement quand vous en avez le plus besoin.</p>
+                <p>Le nouveau 60/40 ?</p>
+                <p><b>60% Conforme / 40% Résilient</b></p>
+                <p>Cet article inclut <b>Playbook<sup>α</sup></b> avec des tactiques actionnables :</p>
+                <ul>
+                    <li>Portefeuille Radical pour Maximalistes Bitcoin</li>
+                    <li>L'or comme actif de résilience traditionnel</li>
+                    <li>Allocation Portefeuille Permanent 2.0</li>
+                </ul>
+                <p>Prêt à construire une richesse anti-fragile ?</p>
+                <p><a href="https://app.deltabadger.com/fr/articles/radical-portfolio-theory">Plans de Portefeuille Radical →</a></p>
+            ps_html: |
+                <p><strong>PS</strong> Votre conseiller financier ne vous dira pas ça. Il n'a pas le droit 🤫</p>
+        treasury_companies:
+            subject: "Stretch, Stride, Strike, Strife : Comprendre les Actions Préférentielles de Strategy"
+            body_html: |
+                <p><i>Comment génèrent-elles des revenus ?</i></p>
+                <p>C'est ce que beaucoup de gens pensent quand ils entendent parler pour la première fois des entreprises de trésorerie Bitcoin.</p>
+                <p>Une entreprise qui... achète simplement du Bitcoin avec de l'argent emprunté ?</p>
+                <p>Où est le vrai modèle économique ? 🤔</p>
+                <p>Ce type d'entreprise existe pour la première fois dans l'histoire, et il y a deux raisons qui le rendent possible :</p>
+                <ol>
+                    <li>Bitcoin croît plus vite que toute autre classe d'actifs</li>
+                    <li>Bitcoin n'a pratiquement aucun coût de stockage</li>
+                </ol>
+                <p>Lyn Alden l'aime encore à mNAV 1.5, mais dans leurs plans, Strategy discute de mNAV 4.0, et maintenant ils ont lancé 4 nouveaux tickers : <b>STRK, STRF, STRD, STRC</b>.</p>
+                <p>Chacun paie des dividendes de 8-10% pendant que vous attendez que Bitcoin aille sur la lune.</p>
+                <p>Cet article inclut <b>Playbook<sup>α</sup></b> avec des tactiques actionnables :</p>
+                <ul>
+                    <li>STRK, STRF, STRD, STRC — Opportunités avec les nouveaux tickers Strategy</li>
+                </ul>
+                <p>Prêt à comprendre le jeu des entreprises de trésorerie ?</p>
+                <p><a href="https://app.deltabadger.com/fr/articles/treasury-companies">Analyse des tickers Strategy →</a></p>
+            ps_html: |
+                <p><strong>PS</strong> Michael Saylor a emprunté des milliards pour acheter du Bitcoin. Mais avant de le copier, rappelez-vous : il peut aussi se permettre de le perdre.</p>

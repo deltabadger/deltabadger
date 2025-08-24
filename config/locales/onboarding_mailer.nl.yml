@@ -167,3 +167,60 @@ nl:
             ps_html: |
                 <p><strong>PS</strong> Slecht nieuws: Polymarket is 98% zeker dat Jezus dit jaar niet terugkomt. Maar, hey, het is <b>+4167%</b> als hij dat wel doet 😇</p>
                 <p><img style="width: 100%" src="https://deltabadger.com/images/email/onboarding/polymarket-jesus.png" alt="Polymarket"></p>
+        market_cap_weighting:
+            subject: "Bouw Je Eigen ETF"
+            body_html: |
+                <p><i>Zoek niet naar de naald in de hooiberg. Koop gewoon de hele hooiberg!</i> <small>—Jack Bogle, oprichter van Vanguard</small></p>
+                <p>Het populairste advies voor particuliere beleggers is "koop gewoon een indexfonds" (meestal S&P 500).</p>
+                <p>Maar wist je dat naast de 5 redenen waarom indexering won, er nog 4 redenen zijn waarom indexering in crypto zelfs nog beter werkt?</p>
+                <p>Dit artikel bevat <b>Playbook<sup>α</sup></b> met uitvoerbare tactieken:</p>
+                <ul>
+                    <li>De beste cryptocurrency index om te volgen</li>
+                    <li>Altcoin Season index strategie</li>
+                </ul>
+                <p>Klaar om de crypto hooiberg te kopen?</p>
+                <p><a href="https://app.deltabadger.com/nl/articles/market-cap-weighting">Persoonlijk crypto ETF blauwdruk →</a></p>
+            ps_html: |
+                <p><strong>PS</strong> Toen Vanguard Group hun index van 500 bedrijven lanceerde, werd het bespot als "anti-Amerikaans". Vandaag beheert indexering 45% van alle fondsactiva in de VS. Wordt crypto indexering het volgende grote ding?</p>
+        radical_portfolio:
+            subject: "De 60/40 Portfolio Is Dood"
+            body_html: |
+                <p><i>Aandelen zijn risicovol, obligaties zijn veilig.</i></p>
+                <p>Dat was meer dan 50 jaar waar.</p>
+                <p>Niet meer.</p>
+                <p>Post-COVID werden aandelen en obligaties <b>positief gecorreleerd</b>.</p>
+                <p>Vertaling: Je "veilige" obligaties crashen precies wanneer je ze het meest nodig hebt.</p>
+                <p>De nieuwe 60/40?</p>
+                <p><b>60% Conformiteit / 40% Veerkracht</b></p>
+                <p>Dit artikel bevat <b>Playbook<sup>α</sup></b> met uitvoerbare tactieken:</p>
+                <ul>
+                    <li>Radicale Portfolio voor Bitcoin Maximalisten</li>
+                    <li>Goud als traditionele veerkracht asset</li>
+                    <li>Permanent Portfolio 2.0 allocatie</li>
+                </ul>
+                <p>Klaar om anti-fragiele rijkdom op te bouwen?</p>
+                <p><a href="https://app.deltabadger.com/nl/articles/radical-portfolio-theory">Radicale Portfolio blauwdrukken →</a></p>
+            ps_html: |
+                <p><strong>PS</strong> Je financieel adviseur zal je dit niet vertellen. Hij mag niet 🤫</p>
+        treasury_companies:
+            subject: "Stretch, Stride, Strike, Strife: Strategy Preferred Stocks Begrijpen"
+            body_html: |
+                <p><i>Hoe genereren ze inkomsten?</i></p>
+                <p>Dat is wat veel mensen denken wanneer ze voor het eerst horen over Bitcoin treasury bedrijven.</p>
+                <p>Een bedrijf dat gewoon... Bitcoin koopt met geleend geld?</p>
+                <p>Waar is het echte bedrijfsmodel? 🤔</p>
+                <p>Dit type bedrijf bestaat voor het eerst in de geschiedenis, en er zijn twee redenen die het mogelijk maken:</p>
+                <ol>
+                    <li>Bitcoin groeit sneller dan elke andere activaklasse</li>
+                    <li>Bitcoin heeft vrijwel geen opslagkosten</li>
+                </ol>
+                <p>Lyn Alden houdt er nog steeds van bij mNAV 1.5, maar in hun plannen bespreekt Strategy mNAV 4.0, en nu hebben ze 4 nieuwe tickers gelanceerd: <b>STRK, STRF, STRD, STRC</b>.</p>
+                <p>Elk betaalt 8-10% dividenden terwijl je wacht tot Bitcoin naar de maan gaat.</p>
+                <p>Dit artikel bevat <b>Playbook<sup>α</sup></b> met uitvoerbare tactieken:</p>
+                <ul>
+                    <li>STRK, STRF, STRD, STRC — Kansen met nieuwe Strategy tickers</li>
+                </ul>
+                <p>Klaar om het treasury bedrijven spel te begrijpen?</p>
+                <p><a href="https://app.deltabadger.com/nl/articles/treasury-companies">Strategy ticker analyse →</a></p>
+            ps_html: |
+                <p><strong>PS</strong> Michael Saylor leende miljarden om Bitcoin te kopen. Maar voordat je hem kopieert, onthoud: hij kan het zich ook veroorloven om het te verliezen.</p>
