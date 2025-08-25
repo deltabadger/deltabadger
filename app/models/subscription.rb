@@ -24,9 +24,8 @@ class Subscription < ApplicationRecord
   include Nftable
 
   before_create :set_ends_at
-  after_create_commit :sync_sendgrid, unless: :first_subscription?
   after_create_commit :sync_intercom
-  after_update_commit :sync_sendgrid, :sync_intercom, if: :saved_change_to_ends_at?
+  after_update_commit :sync_intercom, if: :saved_change_to_ends_at?
 
   # make subscription immutable, if we need to:
   # - upgrade: create a new subscription with ends_at set to nil || a date in the future
@@ -68,17 +67,6 @@ class Subscription < ApplicationRecord
                      else
                        subscription_plan_variant.duration.from_now
                      end
-  end
-
-  def first_subscription?
-    user.subscriptions.count == 1
-  end
-
-  def sync_sendgrid
-    Sendgrid::SyncPlanListJob.perform_later(user)
-    return unless ends_at.present?
-
-    Sendgrid::SyncPlanListJob.set(wait_until: ends_at).perform_later(user)
   end
 
   def sync_intercom

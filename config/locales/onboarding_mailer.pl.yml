@@ -1,0 +1,226 @@
+pl:
+    onboarding_mailer:
+        take_care_html: "<p>Trzymaj się,<br>Jan</p>"
+        fee_cutter:
+            subject: "Opłaty do ZERA"
+            body_html: |
+                <p><i>Uwielbiam płacić prowizje.</i><br>
+                <small>*Powiedział nikt nigdy.</small></p>
+                <p>Większość inwestorów akceptuje opłaty transakcyjne giełd jako "koszt prowadzenia biznesu".</p>
+                <p>Ale oto sztuczka:</p>
+                <p>Gdy giełda pobiera od ciebie 0,25% opłaty, użyj FeeCutter, i otwieraj zlecenia z limitem 0,25% poniżej obecnej ceny i efektywnie zmniejszając opłaty do ZERA.</p>
+                <p><b>Dlaczego to działa:</b></p>
+                <p>Ceny krypto nieustannie się zmieniają.<br>
+                Luka 0,25% jest wypełniana przez naturalne ruchy rynku w ciągu kilku godzin w 99% przypadków.</p>
+                <p><b>Przykład:</b></p>
+                <p>Coinbase pobiera opłatę transakcyjną 0,6%  (!).<br>
+                Jeśli inwestujesz 2000$/miesiąc, tracisz <b>144$/rok</b> na opłatach.</p>
+                <p>Tyle oszczędzasz z FeeCutter! Starczy na:</p>
+                <ul style="list-style: none; padding-left: 1em;">
+                    <li>💸 Roczną subskrypcję Deltabadgera</li>
+                    <li>☕ kawę</li>
+                    <li>🐶 smakołyki dla psiecka</li>
+                </ul>
+                <p>Brzmi dobrze? <a href="https://app.deltabadger.com/pl/upgrade">Zautomatyzuj inwestowanie z FeeCutter →</a></p>
+            ps_html: |
+                <p>PS Gotowy żeby zacząć? Bo pies Remo to na bank:</p>
+                <p><img src="https://deltabadger.com/images/email/onboarding/remo.png" alt="Opinia Google" style="max-width: 100%; width: 300px"></p>
+        referral:
+            subject: "There Is No Second Best"
+            body_html: |
+                <p>Słuchaj, szefie:</p>
+                <p>Pasywny przychód w Bitcoinie.</p>
+                <p>Co?</p>
+                <p>TAK.</p>
+                <p>Umowa jest prosta:</p>
+                <ol>
+                    <li>Zaproś znajomego.</li>
+                    <li>Znajomy otrzymuje 10% zniżki i subskrybuje.</li>
+                    <li>Płacimy ci 20% w Bitcoinie. NA ZAWSZE.</li>
+                </ol>
+                <p>Inne programy polecające? → Nudne. Dostajesz grosze.</p>
+                <p>Nasz program polecający → <b>Niepowstrzymany strumień Bitcoina do twojego portfela 💸</b></p>
+                <p>Ile otrzymujesz:</p>
+                <ul>
+                    <li>Za każdą subskrypcję Pro <b>58$ każdego roku (!)</b></li>
+                    <li>Za każdą subskrypcję Legendary <b>ponad 400$</b></li>
+                </ul>
+                <p>Pozwól tym zyskom wpłynąć do twojego portfela. Udostępnij swój link referencyjny:</p>
+                <p><b>%{link_html}</b></p>
+            ps_html: |
+                <p>PS: Na co czekasz? Szukasz drugiego najlepszego programu polecającego? 🤦‍♂️</p>
+                <p><img style="max-width: 100%;" src="https://deltabadger.com/images/email/onboarding/no-second-best.gif" alt="There is no second best"></p>
+        rsi:
+            subject: "Sekret RSI"
+            body_html: |
+                <p><i>Najlepszy czas na kupno był wczoraj. Drugi najlepszy moment? Gdy RSI osiągnie 30.</i></p>
+                <p>Traderzy używają tysięcy wskaźników, żeby złapać dno.</p>
+                <p>Mądrzy traderzy używają RSI.</p>
+                <p>To proste.</p>
+                <p>RSI poniżej 30 = wyprzedaż = czas na kupno.</p>
+                <p><b>Dlaczego to działa:</b></p>
+                <p>RSI mierzy momentum na skali 0-100. Gdy spadnie poniżej 30, aktywo jest prawdopodobnie niedowartościowane i gotowe na odbicie.</p>
+                <p><b>Przykład:</b></p>
+                <p>Za każdym razem, gdy RSI Bitcoina było poniżej 30 na wykresie tygodniowym, była to doskonała okazja do DCA i złapania dna.</p>
+                <p><img style="width:100%; margin: 24px 0" src="https://deltabadger.com/images/email/onboarding/rsi-chart.png"></p>
+                <p>Łapanie takich momentów z Deltabadger jest łatwe:</p>
+                <p><img style="padding: 24px 0; text-align: center; width: 602px; max-width:100%;" src="https://deltabadger.com/images/email/onboarding/rsi-set.png"></p>
+                <p>Złap spadek, nie spadający nóż: <a href="https://app.deltabadger.com/pl/upgrade">Kup następny spadek z RSI →</a></p>
+            ps_html: |
+                <p>PS: RSI to jak twoja mama kiedy mówi ci, żebyś założył kurtkę. Ignorujesz to i później żałujesz. Jakoś często ma rację.</p>
+        avoid_taxes:
+            subject: "Unikaj podatków (legalnie)"
+            body_html: |
+                <p><i>Tylko jedna rzecz jest lepsza niż niepłacenie podatków: robienie tego legalnie.</i></p>
+                <p>Większość inwestorów rebalansuje portfel, sprzedając najlepiej radzące sobie aktywa.</p>
+                <p>Ale każda sprzedaż to podatek od zysków kapitałowych.</p>
+                <p>Oto lepszy sposób:</p>
+                <p>Rebalansowane DCA używające tylko zleceń KUPNA.</p>
+                <p><b>Jak to działa:</b></p>
+                <p>Zamiast sprzedawać rosnące aktywa, bot kupuje więcej tych spadających podczas regularnego DCA.</p>
+                <p><b>Przykład:</b></p>
+                <p>Twój portfel 50/50 BTC-ETH przesuwa się do 60/40, bo Bitcoin wystrzelił.</p>
+                <p>Tradycyjne rebalansowanie: sprzedaj trochę Bitcoina i zapłać podatek od zysków ❌</p>
+                <p>Zrównoważone DCA: kup więcej Ethereum i nie płać podatków ✅</p>
+                <p><img style="margin:24px 0; width:443px;max-width:100%;" src="https://deltabadger.com/images/email/onboarding/rebalance.png"></p>
+                <p>Wynik: Utrzymujesz docelową alokację bez wtrącania się urzędu skarbowego.</p>
+                <p><a href="https://app.deltabadger.com/pl/" title="Idź do aplikacji">Unikaj podatków ze Zrównoważonym DCA →</a></p>
+            ps_html: |
+                <p>PS Podczas gdy odświeżasz CoinGecko 🐸 co 5 minut, bot to twój cyfrowy John Bogle, który zajmuje się prawdziwym biznesem.</p>
+        bitcoin_m2:
+            subject: "Bitcoin podąża za tym wzorem 83% czasu"
+            body_html: |
+                <p><em>Gdzie pójdzie Bitcoin? Podążaj za pieniędzmi.</em></p>
+                <p>Większość przewidywań dotyczących Bitcoina to tylko zgadywanie, ale badania Lyn Alden pokazują, że:</p>
+                <p><b>Bitcoin podąża za jednym wzorem 83% czasu</b>.</p>
+                <p>Tak, mówię o korelacji z podażą pieniądza M2.</p>
+                <p>To nie "krypto-horoskopy":</p>
+                <p>📈 Gdy drukuje się więcej pieniędzy (M2 rośnie), Bitcoin ma tendencję do wzrostu.</p>
+                <p>📉 Gdy drukowanie pieniędzy zwalnia lub zatrzymuje się, Bitcoin ma tendencję do gorszych wyników.</p>
+                <p>Zastosowanie tego jest trudne?</p>
+                <p>Nic bardziej mylnego!</p>
+                <p>Ten artykuł zawiera <b>Playbook<sup>α</sup></b> z taktykami gotowymi do użycia:</p>
+                <ul>
+                    <li>Model przewidywania cen Bitcoina oparty na AI</li>
+                </ul>
+                <p>Gotowy przewidzieć następny ruch Bitcoina?</p>
+                <p><a href="https://app.deltabadger.com/pl/articles/bitcoin-vs-m2">Model korelacji M2 oparty na AI →</a></p>
+            ps_html: |
+                <p><strong>PS</strong> 83% dokładności? Lepsze szanse niż większość oświadczeń małżeńskich 🤦‍♂️</p>
+        grayscale_etf:
+            subject: "Podążaj za pieniędzmi"
+            body_html: |
+                <p><i>Chcesz znać przyszłość? Zobacz co robią inwestorzy instytucjonalni.</p>
+                <p>Wybieranie przyszłych zwycięzców na rynku nie jest łatwe.</p>
+                <p>Ale oto sekretna sztuczka:</p>
+                <p>Ogromna ilość pieniędzy przepływa przez ETF-y.<br>
+                Zdobądź niesprawiedliwą przewagę:<br>
+                <b>Wybierz monety zawarte w ETF.</b></p>
+                <p>Dlaczego to działa:</p>
+                <p>Większość inwestorów instytucjonalnych nie może inwestować bezpośrednio w krypto.<br>
+                Największy kapitał jest zmuszony inwestować przez ETF-y.</p>
+                <p>Najlepsze? Pierwszy multi-krypto ETF został właśnie zatwierdzony.</p>
+                <p>Ten artykuł zawiera <b>Playbook <sup>α</sup></b> z taktykami gotowymi do użycia:</p>
+                <ul>
+                    <li>Dwa kompletne portfele do wyprzedzenia instytucjonalnych pieniędzy</li>
+                    <li>Rozkłady indeksów CD20 i CD5 z dokładnymi alokacjami</li>
+                    <li>Strategia inwestycyjna samospełniającej się przepowiedni</li>
+                </ul>
+                <p>Gotowy wyprzedzić kapitał instytucjonalny?</p>
+                <p><a href="https://app.deltabadger.com/pl/articles/grayscale-crypto-etf">Kompletna strategia pozycjonowania ETF →</a></p>
+            ps_html: |
+                <p>PS 73% ludzi, którzy nie podążają za instytucjonalnymi pieniędzmi, kończy podążaniem za FOMO zamiast tego.</p>
+        stablecoins:
+            subject: "Stablecoinowa kopalnia złota"
+            body_html: |
+                <p><i>Każda rewolucja finansowa tworzy milionerów—ale zazwyczaj sprzedają kilofy i łopaty.</i></p>
+                <p>Jednym z najłatwiejszych sposobów zbudowania świetnego portfela opartego na danych jest inwestowanie w infrastrukturę leżącą u podstaw stablecoinów:</p>
+                <p><img style="width: 419px; max-width: 100%; margin: 24px auto; display: block;" src="https://deltabadger.com/images/email/onboarding/genius-portfolio.png" alt="portfel GENIUS"></p>
+                <p><b>Dlaczego to działa?</b></p>
+                <p>Ustawa GENIUS umacnia status stablecoinów jako nowego "cyfrowego dolara," który teraz dolaryzuje wschodzące rynki Ameryki Łacińskiej, Afryki, Azji…</p>
+                <p>Najlepsze?</p>
+                <p>Cały ruch na blockchainie zwiększa popyt na podstawowe tokeny.</p>
+                <p>Ten artykuł zawiera <b>Playbook<sup>α</sup></b> z taktykami gotowymi do użycia:</p>
+                <ul>
+                    <li>Trzy różne alokacje portfela GENIUS</li>
+                    <li>Strategie ważone podażą vs kapitalizacją rynkową</li>
+                    <li>Kompletny przewodnik konfiguracji z dokładnymi procentami</li>
+                </ul>
+                <p>Gotowy zbudować swój portfel GENIUS?</p>
+                <p><a href="https://app.deltabadger.com/pl/articles/genius-of-stablecoins">Alokacje portfela GENIUS →</a></p>
+            ps_html: |
+                <p><strong>PS</strong> Cyfrowe euro? Przyjdzie zaraz po latających samochodach i pokoju światowym.</p>
+        polymarket:
+            subject: "Ten Projekt To Przyszłość"
+            body_html: |
+                <p><i>Krypto nie ma zastosowania.</i></p>
+                <p>Jasne, większość projektów krypto ma problemy z demonstrowaniem rzeczywistej użyteczności. Ale od czasu do czasu coś przebije się przez hałas.</p>
+                <p><strong>Polymarket</strong> – rynek predykcyjny oparty na krypto, tylko w 2024 roku wygenerował ponad 9 miliardów dolarów wolumenu transakcyjnego, stając się jednym z głównych zastosowań blockchainu Polygon.</p>
+                <p>Ten artykuł zawiera <b>Playbook<sup>α</sup></b> z taktykami gotowymi do użycia:</p>
+                <ul>
+                    <li>Czy Polymarket napedzi wzrost wartości tokena POL?</li>
+                    <li>Jak zakwalifikować się do potencjalnych airdropów Polymarket</li>
+                    <li>Długoterminowy case dla infrastruktury Polygon</li>
+                </ul>
+                <p>Gotowy pozycjonować się na boom rynków predykcyjnych?</p>
+                <p><a href="https://app.deltabadger.com/pl/articles/polymarket">Strategia inwestycyjna Polymarket →</a></p>
+            ps_html: |
+                <p><strong>PS</strong> Kiepska wiadomość: Polymarket jest w 98% pewny, że Jezus nie wróci w tym roku. Ale hej, to <b>+4167%</b> jeśli to zrobi 😇</p>
+                <p><img style="width: 100%" src="https://deltabadger.com/images/email/onboarding/polymarket-jesus.png" alt="Polymarket"></p>
+        market_cap_weighting:
+            subject: "Zbuduj Swój Własny ETF"
+            body_html: |
+                <p><i>Nie szukaj igły w stogu siana. Po prostu kup cały stóg!</i> <small>—Jack Bogle, założyciel Vanguard</small></p>
+                <p>Najpopularniejszą radą dla inwestorów indywidualnych jest "po prostu kup fundusz indeksowy" (zwykle S&P 500).</p>
+                <p>Ale czy wiedziałeś, że oprócz 5 powodów, dla których indexowanie wygrało, jest jeszcze 4 powody, dla których indexowanie w krypto działa jeszcze lepiej?</p>
+                <p>Ten artykuł zawiera <b>Playbook<sup>α</sup></b> z taktykami gotowymi do użycia:</p>
+                <ul>
+                    <li>Najlepszy indeks kryptowalut do śledzenia</li>
+                    <li>Strategia indeksu na Altcoin Season</li>
+                </ul>
+                <p>Gotowy kupić krypto stóg siana?</p>
+                <p><a href="https://app.deltabadger.com/pl/articles/market-cap-weighting">Plan osobistego krypto ETF →</a></p>
+            ps_html: |
+                <p><strong>PS</strong> Kiedy Vanguard Group uruchomił swój indeks 500 spółek, wyśmiewano go jako "anty-amerykański". Dziś indexowanie zarządza 45% wszystkich aktywów funduszy w USA. Czy indexowanie krypto będzie następną wielką rzeczą?</p>
+        radical_portfolio:
+            subject: "Portfel 60/40 Jest Martwy"
+            body_html: |
+                <p><i>Akcje są ryzykowne, obligacje są bezpieczne.</i></p>
+                <p>To było prawdą przez ponad 50 lat.</p>
+                <p>Już nie.</p>
+                <p>Po COVID akcje i obligacje stały się <b>pozytywnie skorelowane</b>.</p>
+                <p>Tłumaczenie: Twoje "bezpieczne" obligacje spadają dokładnie wtedy, gdy najbardziej ich potrzebujesz.</p>
+                <p>Nowe 60/40?</p>
+                <p><b>60% Konformistyczne / 40% Odporne</b></p>
+                <p>Ten artykuł zawiera <b>Playbook<sup>α</sup></b> z taktykami gotowymi do użycia:</p>
+                <ul>
+                    <li>Radykalny Portfel dla Maksymalistów Bitcoina</li>
+                    <li>Złoto jako tradycyjny zasób odporności</li>
+                    <li>Alokacja Portfela Permanentnego 2.0</li>
+                </ul>
+                <p>Gotowy zbudować antykruchą fortunę?</p>
+                <p><a href="https://app.deltabadger.com/pl/articles/radical-portfolio-theory">Plany Radykalnego Portfela →</a></p>
+            ps_html: |
+                <p><strong>PS</strong> Twój doradca finansowy ci tego nie powie. Nie wolno mu 🤫</p>
+        treasury_companies:
+            subject: "Stretch, Stride, Strike, Strife: Zrozumienie Akcji Uprzywilejowanych Strategy"
+            body_html: |
+                <p><i>Jak generują przychody?</i></p>
+                <p>To myśli wiele osób, gdy po raz pierwszy słyszą o firmach skarbowych Bitcoin.</p>
+                <p>Firma, która po prostu... kupuje Bitcoina za pożyczone pieniądze?</p>
+                <p>Gdzie jest prawdziwy model biznesowy? 🤔</p>
+                <p>Ten typ firmy istnieje po raz pierwszy w historii i są dwa powody, które to umożliwiają:</p>
+                <ol>
+                    <li>Bitcoin rośnie szybciej niż jakakolwiek inna klasa aktywów</li>
+                    <li>Bitcoin praktycznie nie ma kosztów przechowywania</li>
+                </ol>
+                <p>Lyn Alden nadal to lubi przy mNAV 1.5, ale w ich planach Strategy omawia mNAV 4.0, a teraz uruchomili 4 nowe tickery: <b>STRK, STRF, STRD, STRC</b>.</p>
+                <p>Każdy płaci 8-10% dywidend, podczas gdy czekasz, aż Bitcoin poleci na księżyc.</p>
+                <p>Ten artykuł zawiera <b>Playbook<sup>α</sup></b> z taktykami gotowymi do użycia:</p>
+                <ul>
+                    <li>STRK, STRF, STRD, STRC — Możliwości z nowymi tickerami Strategy</li>
+                </ul>
+                <p>Gotowy zrozumieć grę firm skarbowych?</p>
+                <p><a href="https://app.deltabadger.com/pl/articles/treasury-companies">Analiza tickerów Strategy →</a></p>
+            ps_html: |
+                <p><strong>PS</strong> Michael Saylor pożyczył miliardy, żeby kupić Bitcoina. Ale zanim go skopiujesz, pamiętaj: on może sobie też pozwolić na ich utratę.</p>

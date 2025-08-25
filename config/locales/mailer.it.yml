@@ -1,9 +1,11 @@
 it:
     mailer:
         follow_us_on_x: 'Seguici su 𝕏'
-        we_reply_faster_on_telegram: 'Rispondiamo più velocemente su Telegram'
-        greeting: 'Ahoy capitano,'
+        we_reply_faster_on_telegram: 'Telegram'
+        greeting: 'Ciao campione,'
         greeting_name: 'Ciao %{name},'
+        best_html: '<p>Saluti,<br>Jan</p>'
+        unsubscribe: 'Annulla iscrizione'
     affiliate_mailer:
         new_btc_address_confirmation:
             subject: "Conferma nuovo indirizzo di pagamento"

@@ -12,7 +12,7 @@ module Upgrades::Payable
       subscription_plan: subscription_plan,
       days: nil
     )
-    current_user.payments.new(
+    (current_user || mock_current_user).payments.new(
       status: :unpaid,
       type: type,
       payment_id: payment_id,
@@ -23,5 +23,14 @@ module Upgrades::Payable
       last_name: last_name,
       birth_date: birth_date
     )
+  end
+
+  # mock current_user for unauthenticated users
+  def mock_current_user
+    @mock_current_user ||= User.new.tap do |user|
+      def user.subscription
+        @subscription ||= Subscription.new(subscription_plan_variant: SubscriptionPlanVariant.find_by(subscription_plan: SubscriptionPlan.free))
+      end
+    end
   end
 end

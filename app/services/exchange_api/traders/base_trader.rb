@@ -16,10 +16,6 @@ module ExchangeApi
         Result::Failure.new('Could not fetch account info')
       end
 
-      def send_user_to_sendgrid(_exchange_name, _user)
-        Result::Failure.new('Failed to save user to Sendgrid')
-      end
-
       protected
 
       def error_to_failure(error)

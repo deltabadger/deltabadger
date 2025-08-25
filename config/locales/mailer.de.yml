@@ -1,9 +1,11 @@
 de:
     mailer:
         follow_us_on_x: 'Folge uns auf 𝕏'
-        we_reply_faster_on_telegram: 'Wir antworten schneller auf Telegram'
-        greeting: Hallo, %{name}!
-        greeting_name: Hallo, %{name}!
+        we_reply_faster_on_telegram: 'Telegram'
+        greeting: 'Hi Champion,'
+        greeting_name: 'Hi %{name},'
+        best_html: '<p>Beste Grüße,<br>Jan</p>'
+        unsubscribe: 'Abmelden'
     affiliate_mailer:
         new_btc_address_confirmation:
             subject: "Neue Auszahlungsadresse bestätigen"

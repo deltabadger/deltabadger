@@ -8,7 +8,7 @@ paywall_hook: |
     <ul>
         <li>STRK, STRF, STRD, STRC — Entender las oportunidades con los nuevos tickers de Strategy</li>
     </ul>
-x_url: https://x.com/deltabadgerapp/status/1955506609607831798
+x_url: https://x.com/deltabadgerapp/status/1957448205651566986
 telegram_url: https://t.me/deltabadger/107
 published: true
 published_at: "2025-08-18"

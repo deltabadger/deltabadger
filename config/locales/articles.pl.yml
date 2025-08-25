@@ -1,5 +1,6 @@
 pl:
   articles:
+    nfa_disclaimer: "Ten artykuł nie stanowi porady finansowej i nie powinien być tak interpretowany. Podane informacje służą wyłącznie celom edukacyjnym i informacyjnym. Nie jesteśmy licencjonowanymi doradcami finansowymi, a nic w tym dokumencie nie stanowi porady inwestycyjnej, prawnej czy podatkowej. Inwestowanie w kryptowaluty i aktywa cyfrowe wiąże się ze znacznym ryzykiem i może skutkować istotnymi stratami, w tym całkowitą utratą kapitału. Wyniki z przeszłości nie gwarantują przyszłych rezultatów. Przedstawione scenariusze są czysto hipotetyczne i nie gwarantują żadnych wyników. Sytuacja finansowa każdej osoby jest unikalna i powinieneś skonsultować się z wykwalifikowanymi specjalistami przed podjęciem decyzji inwestycyjnych. Przeprowadź własne badania i nigdy nie inwestuj więcej niż możesz sobie pozwolić na stratę."
     index:
       title: "Deltabadger Research"
       description_html: "Cotygodniowa porcja wiedzy<br>dla inwestorów w aktywa cyfrowe."

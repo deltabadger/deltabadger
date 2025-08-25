@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+    <style>
+      body {
+        font-family: sans-serif;
+      }
+      code {
+        font-size: 1.15em;
+        margin: 2em 0;
+        display: block;
+      }
+      h1 {
+        font-size: 1.4em;
+        margin: 1em 0 1.5em 0;
+        font-family: Arial, sans-serif;
+      }
+    </style>
+  </head>
+  <body>
+    <div style="max-width: 700px; margin: 30px auto;">
+      <img src="https://deltabadger.com/logo80x60.png" style="width:40px; height: 30px; margin: 1em 0;">
+
+      <%= yield %>
+
+      <p style="margin: 5em 0 1em 0;"></p>
+
+      <% if @show_dca_profit %>
+        <p><%= localized_dca_profit_recap('btc', 4) %></p>
+      <% end %>
+
+      <p>—</p>
+
+      <p>
+        <%= link_to "#{t('mailer.follow_us_on_x')} →", 'https://x.com/intent/follow?screen_name=deltabadgerapp', target: '_blank', rel: 'nofollow', style: 'color: #444', data: { skip_click: true, skip_utm_params: true } %>
+      </p>
+    </div>
+  </body>
+</html>

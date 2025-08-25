@@ -7,11 +7,10 @@ class LegendariesController < ApplicationController
 
   def update
     if legendary_params[:eth_address_confirmation] && @subscription.update(eth_address: legendary_params[:eth_address])
-      ClaimNftMailer.form_submission_email(
-        current_user.email,
-        current_user.subscription.nft_id,
-        current_user.subscription.eth_address
-      ).deliver_later
+      ClaimNftMailer.with(
+        user: current_user,
+        subscription: @subscription
+      ).form_submission_email.deliver_later
       redirect_to legendary_path
     else
       render :show, status: :unprocessable_entity

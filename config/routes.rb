@@ -4,6 +4,8 @@ require 'telegram/bot'
 require 'sidekiq/prometheus/exporter'
 
 Rails.application.routes.draw do
+  mount ::Caffeinate::Engine => '/caffeinate'
+  get 'ahoy/messages/:id/open' => 'ahoy/message_opens#open'
 
   get 'sso', to: 'sso#sso'
 
@@ -209,6 +211,8 @@ Rails.application.routes.draw do
     end
 
     resources :articles, only: [:index, :show]
+
+    resource :pricing, only: [:show]
 
     namespace :broadcasts do
       post :metrics_update

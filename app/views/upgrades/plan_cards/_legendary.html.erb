@@ -11,11 +11,13 @@
     } %>
   </div>
 
-  <% unless checkout %>
+  <% if scope == 'upgrade' %>
     <%= render partial: "upgrades/plan_cards/elements/button", locals: { generic_plan_name: generic_plan_name } %>
+  <% elsif scope == 'pricing' %>
+    <%= link_to t('button.start_now'), new_user_registration_path, class: "button button--success button--large button--upgrade", data: { turbo: false } %>
   <% end %>
 
-  <% if checkout %>
+  <% if scope == 'checkout' %>
     <ul class="widget--pricing__opt-bots">
       <li><%= t('subscriptions.features.unlimited_bots') %></li>
       <li><%= t('subscriptions.features.nft') %></li>
