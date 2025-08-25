@@ -1,10 +1,14 @@
 class OnboardingMailer < CaffeinateMailer
+  include Caffeinate::Helpers
+
   has_history
   track_open campaign: -> { "onboarding__#{@mailing.mailer_action}" }
   track_clicks campaign: -> { "onboarding__#{@mailing.mailer_action}" }
   utm_params utm_medium: 'email', utm_source: 'onboarding', utm_campaign: -> { @mailing.mailer_action }
 
-  default from: 'hello@deltabadger.com'
+  default from: 'hello@deltabadger.com',
+          'List-Unsubscribe' => -> { "<#{caffeinate_unsubscribe_url}>" },
+          'List-Unsubscribe-Post' => 'List-Unsubscribe=One-Click'
 
   layout 'mailers/marketing'
 
@@ -20,7 +24,8 @@ class OnboardingMailer < CaffeinateMailer
     @mailing = mailing
     @user = mailing.subscriber
     @content_key = @mailing.mailer_action
-    @ref_link = ENV.fetch('HOME_PAGE_URL') + Rails.application.routes.url_helpers.ref_code_path(code: @user.affiliate.code, locale: nil)
+    ref_code_path = Rails.application.routes.url_helpers.ref_code_path(code: @user.affiliate.code, locale: nil)
+    @ref_link = ENV.fetch('HOME_PAGE_URL') + ref_code_path
     set_locale(@user)
 
     mail(to: @user.email, subject: "🔑 #{t("onboarding_mailer.#{@content_key}.subject")}")
