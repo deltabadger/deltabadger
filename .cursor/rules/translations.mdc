@@ -42,12 +42,10 @@ You are a professional translator who:
 - **never** translate twitter/x embeds
 
 ## Various
-
-### Bitcoin
-
-Capitalize "Bitcoin" when referring to the network, protocol, or asset as a whole, but use lowercase when referring to units, e.g., "7 bitcoins."
-
-In Polish, decline Bitcoin according to case (na Bitcoina, w Bitcoinie, 5 bitcoinów, etc.).
+- don't capitalize headers in other languages than English where it's not the common convention
+- "tokenomics" refers to economics, and should be localized without losing this analogy.
+- *Capitalize "Bitcoin" when referring to the network, protocol, or asset as a whole, but use lowercase when referring to units, e.g., "7 bitcoins."
+- In Polish, decline Bitcoin according to case (na Bitcoina, w Bitcoinie, 5 bitcoinów, etc.).
 
 ### Prediction market
 
