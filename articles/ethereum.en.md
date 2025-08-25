@@ -1,6 +1,6 @@
 ---
-title: "The State of Ethereum"
-subtitle: 'The Second Decade Starts Now'
+title: "Ethereum: The Second Decade"
+subtitle: "Is Layer 2 Taking Over?"
 author_id: 1
 thumbnail: ethereum.avif
 excerpt: "As Ethereum enters its second decade with new all-time highs, stablecoins and institutional ETFs reshape its landscape. Discover how Layer 2 networks are transforming the ecosystem and learn optimal portfolio strategies for capturing this evolution."
@@ -11,14 +11,14 @@ paywall_hook: |
        <li>Three data-driven Layer 2 portfolio allocations</li>
    </ul>
 published: true
-published_at: "2025-08-23"
+published_at: "2025-08-24"
 ---
 
 A month after social streams celebrated Ethereum's 10th birthday, it approaches a long-awaited all-time high, but it's not social media hype that drives it. By legitimizing stablecoins, the GENIUS Act put it back in the spotlight as the main blockchain processing their transfers. At the same time, the SEC gave the green light for the GDLC ETF, extending already long list of ETFs with exposition to ETH. All of this, while Ethereum treasury companies became a hot topic. 
 
 It's a good moment to look closer at the state of the second-biggest cryptocurrency.
 
-## The Infrastructure for Decentralized Finance
+## The DeFi Infrastructure
 
 When Vitalik published the [Ethereum white paper](https://www.allcryptowhitepapers.com/wp-content/uploads/2018/05/Ethereum-Whitepaper.pdf) in 2013, he envisioned a "world computer" that could run any application. The vision was criticised and both vague and impractical—in the end EVM is an extremely slow computer. However, in 10 years since the launch, it evolved into something much more practical: a "world ledger." While Bitcoin is a ledger for… Bitcoin, Ethereum became a ledger for digital assets and financial contracts—stablecoins, tokenized stocks, NFTs, insurance policies, or programmable agreements that execute automatically.
 
@@ -92,68 +92,68 @@ This isn't speculative trading volume but real economic activity, with emerging 
 {::nomarkdown}
 
 <figure class="article__figure">
-    <table border="1">
-        <thead>
-            <tr>
-            <th>Ticker</th>
-            <th>Name</th>
-            <th>TVL</th>
-            </tr>
-        </thead>
-        <tbody>
-            <tr>
-            <td>BASE</td>
-            <td>Base</td>
-            <td>$4,891,238,692</td>
-            </tr>
-            <tr>
-            <td>ARB</td>
-            <td>Arbitrum One</td>
-            <td>$3,292,025,684</td>
-            </tr>
-            <tr>
-            <td>POL</td>
-            <td>Polygon POS</td>
-            <td>$1,243,194,355</td>
-            </tr>
-            <tr>
-            <td>LINEA</td>
-            <td>Linea</td>
-            <td>$581,438,640</td>
-            </tr>
-            <tr>
-            <td>UNI</td>
-            <td>Unichain</td>
-            <td>$544,757,983</td>
-            </tr>
-            <tr>
-            <td>OP</td>
-            <td>Optimism</td>
-            <td>$471,847,232</td>
-            </tr>
-            <tr>
-            <td>GNO</td>
-            <td>Gnosis Chain</td>
-            <td>$343,973,391</td>
-            </tr>
-            <tr>
-            <td>SCROLL</td>
-            <td>Scroll</td>
-            <td>$265,244,489</td>
-            </tr>
-            <tr>
-            <td>MNT</td>
-            <td>Mantle</td>
-            <td>$233,039,519</td>
-            </tr>
-            <tr>
-            <td>STRK</td>
-            <td>StarkNet</td>
-            <td>$132,200,697</td>
-            </tr>
-        </tbody>
-    </table>
-    <figcaption class="article__figure__caption">Ethereum ETFs</figcaption>
+  <table border="1">
+      <thead>
+          <tr>
+          <th>Ticker</th>
+          <th>Name</th>
+          <th>TVL</th>
+          </tr>
+      </thead>
+      <tbody>
+          <tr>
+          <td>BASE</td>
+          <td>Base</td>
+          <td>$4,891,238,692</td>
+          </tr>
+          <tr>
+          <td>ARB</td>
+          <td>Arbitrum One</td>
+          <td>$3,292,025,684</td>
+          </tr>
+          <tr>
+          <td>POL</td>
+          <td>Polygon POS</td>
+          <td>$1,243,194,355</td>
+          </tr>
+          <tr>
+          <td>LINEA</td>
+          <td>Linea</td>
+          <td>$581,438,640</td>
+          </tr>
+          <tr>
+          <td>UNI</td>
+          <td>Unichain</td>
+          <td>$544,757,983</td>
+          </tr>
+          <tr>
+          <td>OP</td>
+          <td>Optimism</td>
+          <td>$471,847,232</td>
+          </tr>
+          <tr>
+          <td>GNO</td>
+          <td>Gnosis Chain</td>
+          <td>$343,973,391</td>
+          </tr>
+          <tr>
+          <td>SCROLL</td>
+          <td>Scroll</td>
+          <td>$265,244,489</td>
+          </tr>
+          <tr>
+          <td>MNT</td>
+          <td>Mantle</td>
+          <td>$233,039,519</td>
+          </tr>
+          <tr>
+          <td>STRK</td>
+          <td>StarkNet</td>
+          <td>$132,200,697</td>
+          </tr>
+      </tbody>
+  </table>
+  <figcaption class="article__figure__caption">Top 10 Ethereum Layer 2 Protocols by TVL (Total Value Locked) — the total value of cryptocurrency assets deposited and locked in a protocol's smart contracts. TVL is the main metric for measuring DeFi protocol adoption and usage.</figcaption>
 </figure>
 
 {:/nomarkdown}
@@ -172,13 +172,13 @@ Vitalik has acknowledged this challenge, proposing solutions like higher minimum
 
 Openness and transparency of blockchain are both great selling points and source of challenges. Bitcoin focused on transparency and simplicity of its layer 1, passing solving potential problems on external implementations. However, for Ethereum that runs code directly, it poses two major challenges stemming from the same root: when every transaction is visible to everyone, sophisticated actors can exploit this visibility while ordinary users lose both money and privacy.
 
-### MEV Crisis: The Invisible Tax
+### MEV: The Invisible Tax
 
-This transparency has enabled what critics call an "invisible tax" on every Ethereum user through **MEV (Maximal Extractable Value)** extraction:
+This transparency has enabled what critics call an "invisible tax" on every Ethereum user through **MEV (Maximal Extractable Value)** extraction - the practice of extracting additional profit by manipulating the order and placement of transactions in a block.
 
-Bots monitor the public mempool to front-run trades, execute sandwich attacks, and extract profit from price differences—over $2 billion lost since tracking began. The situation has become so severe that despite Ethereum's decentralized ethos, 95% of blocks are now produced by just two specialized builders who optimize for MEV extraction, while 54% of transaction fees flow through private channels that bypass public visibility entirely. This creates a "glass house" effect where sophisticated actors can see and manipulate every transaction, turning what was designed as a fair, permissionless system into one dominated by high-frequency trading dynamics. <a class="link-source-tile" href="https://ethereum.org/en/developers/docs/mev/">ethereum.org</a> <a class="link-source-tile" href="https://arxiv.org/abs/1904.05234">arxiv.org</a>
+For example, when you try to buy a token, MEV bots can see your pending transaction and quickly insert their own trades before and after yours to profit from the price impact. These "sandwich attacks" and other MEV strategies have extracted over $2 billion from regular users since tracking began. The situation has become so severe that despite Ethereum's decentralized ethos, 95% of blocks are now produced by just two specialized builders who optimize for MEV extraction, while 54% of transaction fees flow through private channels that bypass public visibility entirely. This creates a "glass house" effect where sophisticated actors can see and manipulate every transaction, turning what was designed as a fair, permissionless system into one dominated by high-frequency trading dynamics. <a class="link-source-tile" href="https://ethereum.org/en/developers/docs/mev/">ethereum.org</a> <a class="link-source-tile" href="https://arxiv.org/abs/1904.05234">arxiv.org</a>
 
-### Privacy: Vitalik's Cypherpunk Revival
+### Privacy
 
 The same transparency makes financial privacy nearly impossible, creating what Vitalik Buterin has identified as one of Ethereum's most urgent problems. Every transaction reveals amounts, counterparties, and trading strategies to the entire world—making it unsuitable for enterprises, institutions, or individuals who need confidentiality.
 
@@ -203,73 +203,73 @@ Finally, exposure to Ethereum is available through 9 ETFs, with more awaiting ap
 {::nomarkdown}
 
 <figure class="article__figure">
-    <table border="1">
-        <thead>
-            <tr>
-            <th>Ticker</th>
-            <th>Fund Name</th>
-            <th>AUM (Market Cap)</th>
-            <th>Expense Ratio</th>
-            </tr>
-        </thead>
-        <tbody>
-            <tr>
-            <td>ETHA</td>
-            <td><a href="https://www.ishares.com/us/products/337614/ishares-ethereum-trust-etf">iShares Ethereum Trust ETF</a></td>
-            <td>$15.02B</td>
-            <td>0.25%</td>
-            </tr>
-            <tr>
-            <td>ETHE</td>
-            <td><a href="https://etfs.grayscale.com/ethe">Grayscale Ethereum Trust (ETH)</a></td>
-            <td>$4.54B</td>
-            <td>2.50%</td>
-            </tr>
-            <tr>
-            <td>FETH</td>
-            <td><a href="https://institutional.fidelity.com/advisors/investment-solutions/asset-classes/alternatives/fidelity-ethereum-fund">Fidelity Ethereum Fund</a></td>
-            <td>$3.12B</td>
-            <td>0.25%</td>
-            </tr>
-            <tr>
-            <td>ETH</td>
-            <td><a href="https://etfs.grayscale.com/eth">Grayscale Ethereum Mini Trust (ETH)</a></td>
-            <td>$2.91B</td>
-            <td>0.15%</td>
-            </tr>
-            <tr>
-            <td>ETHW</td>
-            <td><a href="https://ethwetf.com/">Bitwise Ethereum ETF</a></td>
-            <td>$537.74M</td>
-            <td>0.20%</td>
-            </tr>
-            <tr>
-            <td>ETHV</td>
-            <td><a href="https://www.vaneck.com/us/en/investments/ethereum-etf-ethv/">VanEck Ethereum ETF</a></td>
-            <td>$260.87M</td>
-            <td>0.20%</td>
-            </tr>
-            <tr>
-            <td>EZET</td>
-            <td><a href="https://www.franklintempleton.com/investments/options/exchange-traded-funds/products/40521/SINGLCLASS/franklin-ethereum-etf/EZET">Franklin Ethereum ETF</a></td>
-            <td>$80.51M</td>
-            <td>0.19%</td>
-            </tr>
-            <tr>
-            <td>CETH</td>
-            <td><a href="https://www.21shares.com/en-us/products-us/ceth">21Shares Core Ethereum ETF</a></td>
-            <td>$48.09M</td>
-            <td>0.21%</td>
-            </tr>
-            <tr>
-            <td>QETH</td>
-            <td><a href="https://www.invesco.com/us/financial-products/etfs/product-detail?audienceType=Advisor&productId=ETF-QETH">Invesco Galaxy Ethereum ETF</a></td>
-            <td>$32.98M</td>
-            <td>0.25%</td>
-            </tr>
-        </tbody> 
-    </table>
-    <figcaption class="article__figure__caption">Ethereum ETFs</figcaption>
+  <table border="1">
+      <thead>
+          <tr>
+          <th>Ticker</th>
+          <th>Fund Name</th>
+          <th>AUM (Market Cap)</th>
+          <th>Expense Ratio</th>
+          </tr>
+      </thead>
+      <tbody>
+          <tr>
+          <td>ETHA</td>
+          <td><a href="https://www.ishares.com/us/products/337614/ishares-ethereum-trust-etf">iShares Ethereum Trust ETF</a></td>
+          <td>$15.02B</td>
+          <td>0.25%</td>
+          </tr>
+          <tr>
+          <td>ETHE</td>
+          <td><a href="https://etfs.grayscale.com/ethe">Grayscale Ethereum Trust (ETH)</a></td>
+          <td>$4.54B</td>
+          <td>2.50%</td>
+          </tr>
+          <tr>
+          <td>FETH</td>
+          <td><a href="https://institutional.fidelity.com/advisors/investment-solutions/asset-classes/alternatives/fidelity-ethereum-fund">Fidelity Ethereum Fund</a></td>
+          <td>$3.12B</td>
+          <td>0.25%</td>
+          </tr>
+          <tr>
+          <td>ETH</td>
+          <td><a href="https://etfs.grayscale.com/eth">Grayscale Ethereum Mini Trust (ETH)</a></td>
+          <td>$2.91B</td>
+          <td>0.15%</td>
+          </tr>
+          <tr>
+          <td>ETHW</td>
+          <td><a href="https://ethwetf.com/">Bitwise Ethereum ETF</a></td>
+          <td>$537.74M</td>
+          <td>0.20%</td>
+          </tr>
+          <tr>
+          <td>ETHV</td>
+          <td><a href="https://www.vaneck.com/us/en/investments/ethereum-etf-ethv/">VanEck Ethereum ETF</a></td>
+          <td>$260.87M</td>
+          <td>0.20%</td>
+          </tr>
+          <tr>
+          <td>EZET</td>
+          <td><a href="https://www.franklintempleton.com/investments/options/exchange-traded-funds/products/40521/SINGLCLASS/franklin-ethereum-etf/EZET">Franklin Ethereum ETF</a></td>
+          <td>$80.51M</td>
+          <td>0.19%</td>
+          </tr>
+          <tr>
+          <td>CETH</td>
+          <td><a href="https://www.21shares.com/en-us/products-us/ceth">21Shares Core Ethereum ETF</a></td>
+          <td>$48.09M</td>
+          <td>0.21%</td>
+          </tr>
+          <tr>
+          <td>QETH</td>
+          <td><a href="https://www.invesco.com/us/financial-products/etfs/product-detail?audienceType=Advisor&productId=ETF-QETH">Invesco Galaxy Ethereum ETF</a></td>
+          <td>$32.98M</td>
+          <td>0.25%</td>
+          </tr>
+      </tbody> 
+  </table>
+  <figcaption class="article__figure__caption">Ethereum ETFs</figcaption>
 </figure>
 
 {:/nomarkdown}
