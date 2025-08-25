@@ -2,23 +2,25 @@ class User < ApplicationRecord
   attr_accessor :otp_code_token
 
   after_create :set_free_subscription, :set_affiliate
+  after_create_commit :subscribe_to_onboarding, if: -> { oauth_provider.present? }
   devise :database_authenticatable, :registerable,
          :recoverable, :rememberable, :validatable, :confirmable,
          :omniauthable, omniauth_providers: [:google_oauth2]
 
   has_one_time_password
   enum otp_module: %i[disabled enabled], _prefix: true
-  has_one :affiliate
+  has_one :affiliate, dependent: :destroy
   belongs_to :referrer, class_name: 'Affiliate', optional: true
   has_many :api_keys
   has_many :exchanges, through: :api_keys
   has_many :bots
   has_many :transactions, through: :bots
-  has_many :subscriptions
+  has_many :subscriptions, dependent: :destroy
   has_many :payments
   has_many :portfolios, dependent: :destroy
   has_many :surveys, dependent: :destroy
   has_many :cards, dependent: :destroy
+  has_many :messages, class_name: 'Ahoy::Message', as: :user
 
   validates :terms_and_conditions, acceptance: true
   validate :active_referrer, on: :create
@@ -32,8 +34,9 @@ class User < ApplicationRecord
 
   delegate :paid?, to: :subscription
 
+  acts_as_caffeinate_subscriber
+
   include Upgradeable
-  include Sendgridable
   include Intercomable
 
   # User/Affiliate relationship:
@@ -90,6 +93,10 @@ class User < ApplicationRecord
     SubscriptionPlanVariant.find_by(id: pending_plan_variant_id)
   end
 
+  def subscribe_to_onboarding
+    Drippers::Onboarding.subscribe(self)
+  end
+
   private
 
   def set_free_subscription
@@ -116,7 +123,7 @@ class User < ApplicationRecord
   end
 
   def reset_oauth_credentials
-    update(oauth_provider: nil, oauth_uid: nil)
+    update!(oauth_provider: nil, oauth_uid: nil)
   end
 
   def active_referrer

@@ -4,11 +4,17 @@ alwaysApply: false
 ---
 ---
 description: Translation and localization rules for supported languages
-globs: 
+globs:
   - "config/locales/**/*.yml"
   - "articles/**/*.md"
 alwaysApply: true
 ---
+You are a professional translator who:
+- Understands the source text's meaning and intent
+- Writes naturally flowing text in the target language
+- Uses local idioms and expressions instead of literal translations
+- Adapts grammar and sentence structure to match target language conventions
+- Ensures translations feel native to local readers while preserving the original message
 
 ## Supported Languages
 - **German (DE)** Berlin/Germany variant only
@@ -19,7 +25,7 @@ alwaysApply: true
 - **Portuguese (PT)** - Lisbon/Portugal variant only
 - **Dutch (NL)** - Amsterdam/Netherlands variant only
 - **Polish (PL)** - Warsaw/Poland variant only
-- **Russian (RU)** - Moscow/Russian variant only 
+- **Russian (RU)** - Moscow/Russian variant only
 
 **Note**: NEVER use non-European variants of Spanish, French, and Portugese.
 
@@ -34,3 +40,21 @@ alwaysApply: true
 - When translating an article, create a copy of the markdown file with the appropriate language slug, e.g., `…de.md`, `…es.md`, etc.
 - **Do not** add translations to `*.yml` files.
 - **never** translate twitter/x embeds
+
+## Various
+- don't capitalize headers in other languages than English where it's not the common convention
+- "tokenomics" refers to economics, and should be localized without losing this analogy.
+- *Capitalize "Bitcoin" when referring to the network, protocol, or asset as a whole, but use lowercase when referring to units, e.g., "7 bitcoins."
+- In Polish, decline Bitcoin according to case (na Bitcoina, w Bitcoinie, 5 bitcoinów, etc.).
+
+### Prediction market
+
+English: prediction market
+German: prognosemarkt
+Spanish: mercado de predicción
+French: marché de prédiction
+Italian: mercato di previsione
+Dutch: voorspellingsmarkt
+Portuguese: mercado de previsão
+Polish: rynek predykcyjny
+Russian: рынок предсказаний

@@ -1,5 +1,6 @@
 it:
   articles:
+    nfa_disclaimer: "Questo articolo non costituisce consulenza finanziaria e non deve essere interpretato come tale. Le informazioni fornite sono esclusivamente per scopi educativi e informativi. Non siamo consulenti finanziari autorizzati, e nulla qui contenuto costituisce consulenza di investimento, legale o fiscale. Investire in criptovalute e asset digitali comporta rischi sostanziali e può risultare in perdite significative, inclusa la perdita totale del capitale. Le performance passate non garantiscono risultati futuri. Gli scenari presentati sono puramente ipotetici e non garantiscono alcun risultato. La situazione finanziaria di ogni individuo è unica, e dovresti consultare professionisti qualificati prima di prendere decisioni di investimento. Conduci le tue ricerche e non investire mai più di quanto puoi permetterti di perdere."
     index:
       title: "Deltabadger Research"
       description_html: "Conoscenza settimanale per<br>investitori in asset digitali."

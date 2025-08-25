@@ -1,8 +1,11 @@
 class AffiliateMailer < ApplicationMailer
+  has_history
+
   def new_btc_address_confirmation
     @user = params[:user]
     @new_btc_address = params[:new_btc_address]
     @token = params[:token]
+    set_locale(@user)
 
     mail(to: @user.email, subject: default_i18n_subject)
   end
@@ -10,6 +13,7 @@ class AffiliateMailer < ApplicationMailer
   def referrals_payout_notification
     @user = params[:user]
     @amount = params[:amount]
+    set_locale(@user)
 
     mail(to: @user.email, subject: default_i18n_subject)
   end
@@ -18,6 +22,7 @@ class AffiliateMailer < ApplicationMailer
     @referrer = params[:referrer]
     @amount = params[:amount]
     @user = @referrer.user
+    set_locale(@user)
 
     mail(to: @referrer.user.email, subject: default_i18n_subject(amount: @amount))
   end
