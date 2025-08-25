@@ -1,9 +1,11 @@
 ru:
     mailer:
-        follow_us_on_x: 'Подписывайтесь на нас в 𝕏'
-        we_reply_faster_on_telegram: 'Мы быстрее отвечаем в Telegram'
-        greeting: 'Приветствую, капитан,'
+        follow_us_on_x: 'Подпишитесь на нас в 𝕏'
+        we_reply_faster_on_telegram: 'Telegram'
+        greeting: 'Привет, легенда,'
         greeting_name: 'Привет, %{name},'
+        best_html: '<p>С уважением,<br>Jan</p>'
+        unsubscribe: 'Отписаться'
     affiliate_mailer:
         new_btc_address_confirmation:
             subject: "Подтвердите новый адрес для выплат"

@@ -43,7 +43,6 @@ class MakeTransaction < BaseService
       bot.update(status: 'executing')
       result = @fetch_order_result.call(bot.id, result.data, fixing_price)
       check_allowable_balance(api, bot, fixing_price, notify)
-      send_user_to_sendgrid(bot)
     elsif restart && (!range_check_result.success? || recoverable?(result))
       result = range_check_result if result.nil?
       Transaction.create!(failed_transaction_params(result, bot, fixing_price))
@@ -71,13 +70,6 @@ class MakeTransaction < BaseService
   # rubocop:enable Metrics/CyclomaticComplexity, Metrics/PerceivedComplexity
 
   private
-
-  def send_user_to_sendgrid(bot)
-    return unless bot.successful_transaction_count == 1
-
-    api = get_api(bot)
-    api.send_user_to_sendgrid(bot.exchange.name, bot.user)
-  end
 
   def check_allowable_balance(api, bot, price = nil, notify = true)
     price = fixing_transaction?(price) ? price.to_f : bot.price.to_f

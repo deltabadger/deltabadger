@@ -1,7 +1,3 @@
-sendgrid_sync_unsubscribes_job:
-  cron: "5 0 * * *" # every day at 00:10 UTC
-  class: "Sendgrid::SyncUnsubscribesJob"
-
 update_metrics_job:
   cron: "10 */4 * * *" # every 4 hours at minute 10
   class: "UpdateMetricsJob"
@@ -17,6 +13,10 @@ sync_all_tickers_and_assets_job:
 fetch_all_assets_data_from_coingecko_job:
   cron: "20 0 * * 1" # At 00:20 UTC on Monday
   class: "Asset::FetchAllAssetsDataFromCoingeckoJob"
+
+send_caffeinate_emails_job:
+  cron: "* * * * *" # every minute
+  class: "SendCaffeinateEmailsJob"
 
 # update_bots_in_profit_job:
 #   cron: "15 0 * * *" # every day at 00:15 UTC

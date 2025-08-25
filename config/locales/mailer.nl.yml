@@ -1,9 +1,11 @@
 nl:
     mailer:
         follow_us_on_x: 'Volg ons op 𝕏'
-        we_reply_faster_on_telegram: 'We reageren sneller op Telegram'
-        greeting: 'Ahoy kapitein,'
-        greeting_name: 'Ahoy %{name},'
+        we_reply_faster_on_telegram: 'Telegram'
+        greeting: 'Hoi kampioen,'
+        greeting_name: 'Hoi %{name},'
+        best_html: '<p>Groeten,<br>Jan</p>'
+        unsubscribe: 'Uitschrijven'
     affiliate_mailer:
         new_btc_address_confirmation:
             subject: "Bevestig nieuw uitbetalingsadres"
