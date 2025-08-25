@@ -4,8 +4,8 @@ subtitle: "Is Layer 2 Taking Over?"
 author_id: 1
 thumbnail: ethereum.avif
 excerpt: "As Ethereum enters its second decade with new all-time highs, stablecoins and institutional ETFs reshape its landscape. Discover how Layer 2 networks are transforming the ecosystem and learn optimal portfolio strategies for capturing this evolution."
-x_url: https://x.com/deltabadgerapp/status/1952974526746448114
-telegram_url: https://t.me/deltabadger/103
+x_url: https://x.com/deltabadgerapp/status/1959995577703493796
+telegram_url: https://t.me/deltabadger/109
 paywall_hook: |
    <ul>
        <li>Three data-driven Layer 2 portfolio allocations</li>
