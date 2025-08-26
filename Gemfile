@@ -24,7 +24,7 @@ gem 'pg', '>= 0.18', '< 2.0'
 gem 'puma', '~> 6.3'
 gem "rack", "2.2.6.4"
 gem 'rack-cors'
-gem 'rails', '~> 6.0.4', '>= 6.0.4.1'
+gem 'rails', '~> 6.0.6.1'
 gem 'rails_cloudflare_turnstile', git: 'https://github.com/guillemap/rails-cloudflare-turnstile', branch: 'add-turbo-support' # TODO: use the official gem once https://github.com/instrumentl/rails-cloudflare-turnstile/pull/186 is merged
 gem 'rqrcode'
 gem 'webpacker', '~> 5.4'
@@ -97,3 +97,5 @@ gem 'omniauth-google-oauth2'
 gem "omniauth-rails_csrf_protection"
 gem "caffeinate", "~> 2.5"
 gem "ahoy_email", "~> 2.1"
+
+gem "aws-sdk-sesv2", "~> 1.83"
