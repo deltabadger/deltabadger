@@ -151,6 +151,12 @@ es:
             free_plan_reset_date_html: 'Tu límite se restablece el <b>%{end_time}</b>.'
             title: 'Configuración'
             two_factor_section: 'Autenticación de Segundo Factor'
+            notifications_section: 'Notificaciones por correo electrónico'
+        notifications:
+            subscribed_to_email_marketing: 'Campañas de marketing por correo electrónico'
+            onboarding: 'Educación y capacitación'
+            newsletter: 'Boletín de Deltabadger'
+            product_updates: 'Actualizaciones de productos y características'
     social:
         blog: 'Lee nuestro blog'
         knowledge_base: 'Base de conocimientos'
