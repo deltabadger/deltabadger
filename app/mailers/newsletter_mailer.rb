@@ -4,9 +4,7 @@ class NewsletterMailer < CaffeinateMailer
   track_clicks campaign: -> { "newsletter__#{@mailing.mailer_action}" }
   utm_params utm_medium: 'email', utm_source: 'newsletter', utm_campaign: -> { @mailing.mailer_action }
 
-  default from: 'Deltabadger Research <research@deltabadger.com>',
-          'List-Unsubscribe' => -> { "<#{Caffeinate::UrlHelpers.caffeinate_unsubscribe_url(@mailing.subscription)}>" },
-          'List-Unsubscribe-Post' => 'List-Unsubscribe=One-Click'
+  default from: 'Deltabadger Research <research@deltabadger.com>'
 
   layout 'mailers/marketing'
 

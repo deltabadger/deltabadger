@@ -4,9 +4,7 @@ class OnboardingMailer < CaffeinateMailer
   track_clicks campaign: -> { "onboarding__#{@mailing.mailer_action}" }
   utm_params utm_medium: 'email', utm_source: 'onboarding', utm_campaign: -> { @mailing.mailer_action }
 
-  default from: 'Deltabadger <hello@deltabadger.com>',
-          'List-Unsubscribe' => -> { "<#{Caffeinate::UrlHelpers.caffeinate_unsubscribe_url(@mailing.subscription)}>" },
-          'List-Unsubscribe-Post' => 'List-Unsubscribe=One-Click'
+  default from: 'Deltabadger <hello@deltabadger.com>'
 
   layout 'mailers/marketing'
 

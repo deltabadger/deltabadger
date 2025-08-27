@@ -23,7 +23,8 @@
       <% @email_marketing_campaigns.each do |campaign| %>
         <div class="toggle-group">
           <div class="toggle">
-            <%= f.check_box campaign.slug.to_sym, data: { action: "change->form--submit#submit change->class-toggle#toggle" }, checked: current_user.subscribed_to_email_marketing? ? !campaign.subscriber(current_user).unsubscribed? : false, disabled: !current_user.subscribed_to_email_marketing? %>
+            <% subscription = campaign.subscriber(current_user) %>
+            <%= f.check_box campaign.slug.to_sym, data: { action: "change->form--submit#submit change->class-toggle#toggle" }, checked: current_user.subscribed_to_email_marketing? ? (subscription.present? && !subscription.unsubscribed?) : false, disabled: !current_user.subscribed_to_email_marketing? %>
             <div class="toggle__style"></div>
           </div>
           <div class="toggle-group__info">
