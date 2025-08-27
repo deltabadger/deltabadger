@@ -27,6 +27,8 @@ class Users::ConfirmationsController < Devise::ConfirmationsController
         # TODO: update email in Intercom
       else
         resource.subscribe_to_onboarding
+        resource.subscribe_to_newsletter
+        resource.subscribe_to_product_updates
       end
     end
   end
