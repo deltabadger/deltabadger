@@ -152,6 +152,12 @@ en:
             free_plan_reset_date_html: 'Your limit resets on <b>%{end_time}</b>.'
             title: Settings
             two_factor_section: 'Second Factor Authentication'
+            notifications_section: 'Email notifications'
+        notifications:
+            subscribed_to_email_marketing: 'Email marketing campaigns'
+            onboarding: 'Education & Training'
+            newsletter: 'Deltabadger Newsletter'
+            product_updates: 'Product & Feature Updates'
     social:
         blog: 'Read our blog'
         knowledge_base: 'Knowledge base'

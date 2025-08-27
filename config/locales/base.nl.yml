@@ -135,6 +135,12 @@ nl:
             free_plan_reset_date_html: 'Uw limiet wordt gereset op <b>%{end_time}</b>.'
             title: Instellingen
             two_factor_section: 'Second Factor Authentication'
+            notifications_section: 'E-mail notificaties'
+        notifications:
+            subscribed_to_email_marketing: 'E-mail marketing campagnes'
+            onboarding: 'Onderwijs en training'
+            newsletter: 'Deltabadger nieuwsbrief'
+            product_updates: 'Product- en functie updates'
         name:
             updated: 'Uw naam is bijgewerkt.'
         two_fa:

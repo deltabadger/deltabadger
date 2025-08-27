@@ -138,6 +138,12 @@ pt:
             password_section: Palavra-passe
             title: Definições
             two_factor_section: 'Autenticação do Segundo Fator'
+            notifications_section: 'Notificações por e-mail'
+        notifications:
+            subscribed_to_email_marketing: 'Campanhas de marketing por e-mail'
+            onboarding: 'Educação e formação'
+            newsletter: 'Boletim Deltabadger'
+            product_updates: 'Atualizações de produtos e funcionalidades'
         name:
             updated: 'Seu nome foi atualizado.'
         two_fa:
