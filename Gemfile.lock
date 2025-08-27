@@ -22,15 +22,6 @@ GIT
       curb (~> 1.0)
 
 GIT
-  remote: https://github.com/guillemap/rails-cloudflare-turnstile
-  revision: bdeec3f34acc2ccc196db3d1b71b0c93fb6045d7
-  branch: add-turbo-support
-  specs:
-    rails_cloudflare_turnstile (0.2.1)
-      faraday (>= 1.0, < 3.0)
-      rails (>= 6.0, < 8)
-
-GIT
   remote: https://github.com/guillemap/ruby-technical-analysis
   revision: bfd3d10985002930e9c6005fc6ac8e73226defbe
   specs:
@@ -435,6 +426,9 @@ GEM
     rails-html-sanitizer (1.6.0)
       loofah (~> 2.21)
       nokogiri (~> 1.14)
+    rails_cloudflare_turnstile (0.2.2)
+      faraday (>= 1.0, < 3.0)
+      rails (>= 6.0, < 9)
     railties (6.0.6.1)
       actionpack (= 6.0.6.1)
       activesupport (= 6.0.6.1)
@@ -666,7 +660,7 @@ DEPENDENCIES
   rack-cors
   rack-mini-profiler (~> 3.3)
   rails (~> 6.0.6.1)
-  rails_cloudflare_turnstile!
+  rails_cloudflare_turnstile (~> 0.2.2)
   rbnacl
   redis (~> 4.8.1)
   rqrcode
