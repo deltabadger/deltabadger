@@ -152,6 +152,12 @@ fr:
             free_plan_reset_date_html: 'Votre limite sera réinitialisée le <b>%{end_time}</b>.'
             title: 'Paramètres'
             two_factor_section: 'Authentification à deux facteurs'
+            notifications_section: 'Notifications par e-mail'
+        notifications:
+            subscribed_to_email_marketing: 'Campagnes de marketing par e-mail'
+            onboarding: 'Éducation et formation'
+            newsletter: 'Lettre d''information Deltabadger'
+            product_updates: 'Mises à jour de produits et fonctionnalités'
     social:
         blog: 'Lire notre blog'
         knowledge_base: 'Base de connaissances'
