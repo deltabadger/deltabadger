@@ -7,18 +7,18 @@ class AwsSes
   }.freeze
 
   def sync_opt_outs
-    opt_outs_result = opt_outs
+    result = get_opt_outs
 
-    opted_out_user_ids = User.where(email: opt_outs_result.keys).pluck(:id)
+    opted_out_user_ids = User.where(email: result.data.keys).pluck(:id)
     Caffeinate::CampaignSubscription.active.where(subscriber_id: opted_out_user_ids).find_each do |subscription|
-      if opt_outs_result[subscription.subscriber.email][:time] > (subscription.resubscribed_at || subscription.created_at)
+      if result.data[subscription.subscriber.email][:time] > (subscription.resubscribed_at || subscription.created_at)
         subscription.subscriber.update!(subscribed_to_email_marketing: false)
-        subscription.unsubscribe!(opt_outs_result[subscription.subscriber.email][:reason])
+        subscription.unsubscribe!(result.data[subscription.subscriber.email][:reason])
       end
     end
   end
 
-  def opt_outs
+  def get_opt_outs
     response = client.list_suppressed_destinations({
                                                      reasons: %w[BOUNCE COMPLAINT],
                                                      start_date: Time.current - (86_400 * 365),
@@ -34,7 +34,7 @@ class AwsSes
         }
       end
     end
-    opt_outs
+    Result::Success.new(opt_outs)
   end
 
   private
