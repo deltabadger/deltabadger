@@ -1,9 +1,9 @@
 # frozen_string_literal: true
 
 class Users::SessionsController < Devise::SessionsController
-  prepend_before_action :validate_cloudflare_turnstile, only: [:create]
+  # prepend_before_action :validate_cloudflare_turnstile, only: [:create]
 
-  rescue_from RailsCloudflareTurnstile::Forbidden, with: :handle_turnstile_failure
+  # rescue_from RailsCloudflareTurnstile::Forbidden, with: :handle_turnstile_failure
 
   def new
     super do
@@ -65,11 +65,11 @@ class Users::SessionsController < Devise::SessionsController
     @email_address_pattern = User::Email::ADDRESS_PATTERN
   end
 
-  def handle_turnstile_failure
-    self.resource = resource_class.new(sign_in_params)
-    flash.now[:alert] = t('errors.cloudflare_turnstile')
-    switch_locale { respond_with_navigational(resource) { render :new } }
-  end
+  # def handle_turnstile_failure
+  #   self.resource = resource_class.new(sign_in_params)
+  #   flash.now[:alert] = t('errors.cloudflare_turnstile')
+  #   switch_locale { respond_with_navigational(resource) { render :new } }
+  # end
 
   def trim_long_password(password)
     password[0...Devise.password_length.max]
