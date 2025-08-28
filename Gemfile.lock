@@ -15,7 +15,7 @@ GIT
 
 GIT
   remote: https://github.com/guillemap/caffeinate
-  revision: 9b0665c64e60d1c8c073a2010a83b5068c7d296b
+  revision: 4af0982dbdde19abf6c85f1252b7449ed637ddfc
   branch: fix-headers
   specs:
     caffeinate (2.5.0)
