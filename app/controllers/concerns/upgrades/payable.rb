@@ -18,7 +18,7 @@ module Upgrades::Payable
       payment_id: payment_id,
       subscription_plan_variant: variant,
       country: country,
-      currency: country != VatRate::NOT_EU ? :eur : :usd,
+      currency: Country.find_by!(name: country).currency,
       first_name: first_name,
       last_name: last_name,
       birth_date: birth_date
