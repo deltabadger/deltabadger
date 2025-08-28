@@ -7,6 +7,7 @@ class ApplicationController < ActionController::Base
   before_action :set_signed_in_cookie
   around_action :switch_locale
   before_action :check_onboarding_survey, if: :user_signed_in?, unless: :user_signing_out?
+  before_action :set_country
 
   def switch_locale(&action)
     locale = params[:locale] || current_user.try(:locale) || I18n.default_locale
@@ -46,5 +47,10 @@ class ApplicationController < ActionController::Base
     return if current_user.admin?
 
     redirect_to step_one_surveys_onboarding_path unless current_user.surveys.onboarding.exists?
+  end
+
+  def set_country
+    country_code = request.headers['CF-IPCountry']
+    @country = Country.find_by(code: country_code) || Country.find_by(name: 'Other')
   end
 end

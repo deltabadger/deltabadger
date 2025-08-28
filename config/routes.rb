@@ -52,7 +52,7 @@ Rails.application.routes.draw do
     end
     put '/change_setting_flag', to: 'settings#change_setting_flag'
 
-    resources :vat_rates
+    resources :countries
 
     get :dashboard, to: 'dashboard#index'
 
