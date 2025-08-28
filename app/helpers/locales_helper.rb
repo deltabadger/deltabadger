@@ -20,10 +20,10 @@ module LocalesHelper
   end
 
   def localized_payment_country_options
-    @localized_payment_country_options ||= VatRate.all_in_display_order.map do |vat_rate|
+    @localized_payment_country_options ||= Country.all_in_display_order.map do |country|
       [
-        vat_rate.country == VatRate::NOT_EU ? t('helpers.label.payment.other') : vat_rate.country,
-        vat_rate.country
+        country.name == 'Other' ? t('helpers.label.payment.other') : country.name,
+        country.name
       ]
     end
   end
