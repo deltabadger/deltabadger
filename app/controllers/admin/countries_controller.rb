@@ -1,5 +1,5 @@
 module Admin
-  class VatRatesController < Admin::ApplicationController
+  class CountriesController < Admin::ApplicationController
     # Overwrite any of the RESTful controller actions to implement custom behavior
     # For example, you may want to send an email after a foo is updated.
     #
@@ -32,7 +32,7 @@ module Admin
     # for more information
 
     def model_name
-      :vat_rate
+      :country
     end
   end
 end

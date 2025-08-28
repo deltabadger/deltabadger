@@ -2,7 +2,7 @@ class CalculateSalesStatistics < BaseService
   # rubocop:disable Metrics/CyclomaticComplexity, Metrics/PerceivedComplexity
   def call
     @paid_payments = Payment.where(status: 'paid').includes(:user)
-    @vat_rates = VatRate.pluck(:country, :vat).to_h
+    @vat_rates = Country.pluck(:name, :vat_rate).to_h
 
     total_sum = 0
     sum_of_first_month = 0

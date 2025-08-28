@@ -26,7 +26,7 @@ class PricingsController < ApplicationController
         mini_research_enabled: false,
         standard_research_enabled: false,
         type: '',
-        country: VatRate::NOT_EU,
+        country: @country.name,
         days: available_variant_days.min
       }.stringify_keys
     else
