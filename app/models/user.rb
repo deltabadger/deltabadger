@@ -3,6 +3,9 @@ class User < ApplicationRecord
 
   after_create :set_free_subscription, :set_affiliate
   after_create_commit :subscribe_to_onboarding, if: -> { oauth_provider.present? }
+  after_update_commit :subscribe_to_newsletter, if: -> { oauth_provider.present? }
+  after_update_commit :subscribe_to_product_updates, if: -> { oauth_provider.present? }
+
   devise :database_authenticatable, :registerable,
          :recoverable, :rememberable, :validatable, :confirmable,
          :omniauthable, omniauth_providers: [:google_oauth2]
@@ -95,6 +98,14 @@ class User < ApplicationRecord
 
   def subscribe_to_onboarding
     Drippers::Onboarding.subscribe(self)
+  end
+
+  def subscribe_to_newsletter
+    Drippers::Newsletter.subscribe(self)
+  end
+
+  def subscribe_to_product_updates
+    Drippers::ProductUpdates.subscribe(self)
   end
 
   private
