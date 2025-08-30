@@ -101,7 +101,8 @@ it:
         about: Chi siamo
         calculator: Calcolatore
         analyzer: 'Analizzatore'
-        community: 'Community'
+        telegram: 'Telegram'
+        community: 'Comunità Fireheads'
         contact: Contatti
         cookies_policy: 'Politica dei Cookie'
         create_account: 'Crea account gratuito'
@@ -151,12 +152,13 @@ it:
             free_plan_reset_date_html: 'Il tuo limite si resetta il <b>%{end_time}</b>.'
             title: Impostazioni
             two_factor_section: 'Autenticazione a Due Fattori'
-            notifications_section: 'Notifiche per email'
+            notifications_section: 'Comunicazioni via email'
         notifications:
-            subscribed_to_email_marketing: 'Campagne di marketing per email'
-            onboarding: 'Educazione e formazione'
-            newsletter: 'Newsletter Deltabadger'
-            product_updates: 'Aggiornamenti di prodotti e funzionalità'
+            global_unsubscribe: 'Tutte le newsletter'
+            onboarding_html: 'Consigli e guide'
+            newsletter_html: 'Articoli <a href="../articles">Deltabadger Research</a>'
+            product_updates_html: 'Novità e aggiornamenti del progetto'
+            newsletters: 'Newsletter:'
     social:
         blog: 'Leggi il nostro blog'
         knowledge_base: 'Base di conoscenza'
