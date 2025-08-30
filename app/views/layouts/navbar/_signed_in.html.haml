@@ -20,7 +20,11 @@
   = link_to articles_path, class: 'menu-mobile__item menu-mobile__item--articles', data: { controller: 'tooltip', action: 'mouseenter->tooltip#showTooltip mouseleave->tooltip#hideTooltip' } do
     = t('links.articles')
 
-  = link_to 'https://t.me/+V-TV99Y6suYATK8F', class: "menu-mobile__item menu-mobile__item--community", data: { controller: 'tooltip', action: 'mouseenter->tooltip#showTooltip mouseleave->tooltip#hideTooltip' }, target: "_blank", rel: "noopener" do
+  = link_to 'https://t.me/deltabadgerchat', class: "menu-mobile__item menu-mobile__item--community", data: { controller: 'tooltip', action: 'mouseenter->tooltip#showTooltip mouseleave->tooltip#hideTooltip' }, target: "_blank", rel: "noopener" do
+    = t('links.telegram')
+    = render "svg/16x16_link"
+
+  = link_to 'https://www.skool.com/firestarters-1846', class: "menu-mobile__item menu-mobile__item--community", data: { controller: 'tooltip', action: 'mouseenter->tooltip#showTooltip mouseleave->tooltip#hideTooltip' }, target: "_blank", rel: "noopener" do
     = t('links.community')
     = render "svg/16x16_link"
 
@@ -103,9 +107,13 @@
       .tooltip
         = t('links.articles')
 
-    = link_to 'https://t.me/+V-TV99Y6suYATK8F', class: "menu__item menu__item--community", data: { controller: 'tooltip', action: 'mouseenter->tooltip#showTooltip mouseleave->tooltip#hideTooltip' }, target: "_blank", rel: "noopener" do
+    = link_to 'https://t.me/deltabadgerchat', class: "menu__item menu__item--community", data: { controller: 'tooltip', action: 'mouseenter->tooltip#showTooltip mouseleave->tooltip#hideTooltip' }, target: "_blank", rel: "noopener" do
       = render 'svg/24x24_community'
-      //.xsbadge= t('utils.new')
+      .tooltip
+        = t('links.telegram')
+
+    = link_to 'https://www.skool.com/firestarters-1846', class: "menu__item menu__item--community", data: { controller: 'tooltip', action: 'mouseenter->tooltip#showTooltip mouseleave->tooltip#hideTooltip' }, target: "_blank", rel: "noopener" do
+      = render 'svg/24x24_fire'
       .tooltip
         = t('links.community')
 

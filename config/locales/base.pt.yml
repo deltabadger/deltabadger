@@ -101,7 +101,8 @@ pt:
         about: 'Sobre'
         analyzer: 'Analisador'
         calculator: 'Calculadora'
-        community: 'Comunidade'
+        telegram: 'Telegram'
+        community: 'Comunidade Fireheads'
         contact: Contacto
         cookies_policy: 'Política de Cookies'
         create_account: 'Criar conta gratuita'
@@ -138,12 +139,13 @@ pt:
             password_section: Palavra-passe
             title: Definições
             two_factor_section: 'Autenticação do Segundo Fator'
-            notifications_section: 'Notificações por e-mail'
+            notifications_section: 'Comunicação por e-mail'
         notifications:
-            subscribed_to_email_marketing: 'Campanhas de marketing por e-mail'
-            onboarding: 'Educação e formação'
-            newsletter: 'Boletim Deltabadger'
-            product_updates: 'Atualizações de produtos e funcionalidades'
+            global_unsubscribe: 'Todos os boletins'
+            onboarding_html: 'Dicas e guias'
+            newsletter_html: 'Artigos <a href="../articles">Deltabadger Research</a>'
+            product_updates_html: 'Notícias e atualizações do projeto'
+            newsletters: 'Boletins:'
         name:
             updated: 'Seu nome foi atualizado.'
         two_fa:
