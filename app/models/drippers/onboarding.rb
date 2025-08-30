@@ -5,11 +5,6 @@ class Drippers::Onboarding < Dripper
   # WARNING: after adding a new drip step, you need to call rake caffeinate_add_drip_step
   # WARNING: after renaming a drip step, you need to call rake caffeinate_rename_drip
 
-  on_unsubscribe do |subscription|
-    user = subscription.subscriber
-    user.update(subscribed_to_email_marketing: false)
-  end
-
   on_resubscribe do |subscription|
     user = subscription.subscriber
     user.update(subscribed_to_email_marketing: true)

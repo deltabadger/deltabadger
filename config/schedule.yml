@@ -18,6 +18,10 @@ send_caffeinate_emails_job:
   cron: "* * * * *" # every minute
   class: "SendCaffeinateEmailsJob"
 
+sync_aws_ses_opt_outs_job:
+  cron: "0 0 * * *" # every day at 00:00 UTC
+  class: "SyncAwsSesOptOutsJob"
+
 # update_bots_in_profit_job:
 #   cron: "15 0 * * *" # every day at 00:15 UTC
 #   class: "UpdateBotsInProfitJob"

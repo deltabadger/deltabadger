@@ -141,6 +141,12 @@ pl:
             free_plan_reset_date_html: 'Twój limit zostanie zresetowany w dniu <b> %{end_time} </b>.'
             title: Ustawienia
             two_factor_section: 'Uwierzytelnianie drugim czynnikiem (2FA)'
+            notifications_section: 'Powiadomienia e-mail'
+        notifications:
+            subscribed_to_email_marketing: 'Kampanie marketingowe e-mail'
+            onboarding: 'Edukacja i szkolenie'
+            newsletter: 'Newsletter Deltabadger'
+            product_updates: 'Aktualizacje produktów i funkcji'
         name:
             updated: 'Twoje imię zostało zaktualizowane.'
         two_fa:

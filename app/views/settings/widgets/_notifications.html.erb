@@ -1,0 +1,40 @@
+<div class="widget" id="notifications">
+  <h4 class="modal__title"><%= t('settings.index.notifications_section') %></h4>
+    Note: This unsubscribes the user from all email campaigns. Current and future ones. [delete after styles]
+    <%= form_with model: current_user, method: :patch, url: settings_update_notifications_path, data: { controller: "class-toggle form--submit form--html5-validations form--label-animations" } do |f| %>
+
+      <div class="toggle-group">
+        <div class="toggle">
+          <%= f.check_box :subscribed_to_email_marketing, data: { action: "change->form--submit#submit change->class-toggle#toggle" } %>
+          <div class="toggle__style"></div>
+        </div>
+        <div class="toggle-group__info">
+          <div class="toggle-group__info__label">
+            <%= f.label :subscribed_to_email_marketing, class: "conversational conversational--small conversational--disabled" do %>
+              <%= t('settings.notifications.subscribed_to_email_marketing') %>
+            <% end %>
+          </div>
+        </div>
+      </div>
+    <% end %>
+
+    Note: These are individual campaigns. Users can manually unsubscribe from them. [delete after styles]
+    <%= form_with method: :patch, url: settings_update_notifications_campaign_subscriptions_path, data: { controller: "class-toggle form--submit form--html5-validations form--label-animations" } do |f| %>
+      <% @email_marketing_campaigns.each do |campaign| %>
+        <div class="toggle-group">
+          <div class="toggle">
+            <% subscription = campaign.subscriber(current_user) %>
+            <%= f.check_box campaign.slug.to_sym, data: { action: "change->form--submit#submit change->class-toggle#toggle" }, checked: current_user.subscribed_to_email_marketing? ? (subscription.present? && !subscription.unsubscribed?) : false, disabled: !current_user.subscribed_to_email_marketing? %>
+            <div class="toggle__style"></div>
+          </div>
+          <div class="toggle-group__info">
+            <div class="toggle-group__info__label">
+              <%= f.label campaign.slug.to_sym, class: "conversational conversational--small conversational--disabled" do %>
+                <%= t("settings.notifications.#{campaign.slug}") %>
+              <% end %>
+            </div>
+          </div>
+        </div>
+      <% end %>
+    <% end %>
+</div>
