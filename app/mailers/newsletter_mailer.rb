@@ -8,9 +8,9 @@ class NewsletterMailer < CaffeinateMailer
 
   layout 'mailers/marketing'
 
-  # def first_email(mailing)
-  #   base_mail(mailing)
-  # end
+  def first_email(mailing)
+    base_mail(mailing)
+  end
 
   private
 

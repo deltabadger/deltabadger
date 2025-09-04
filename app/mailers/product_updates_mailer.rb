@@ -8,9 +8,9 @@ class ProductUpdatesMailer < CaffeinateMailer
 
   layout 'mailers/marketing'
 
-  # def first_email(mailing)
-  #   base_mail(mailing)
-  # end
+  def first_email(mailing)
+    base_mail(mailing)
+  end
 
   private
 
@@ -20,7 +20,7 @@ class ProductUpdatesMailer < CaffeinateMailer
     @content_key = @mailing.mailer_action
     set_locale(@user)
 
-    mail(to: @user.email, subject: "✦ #{t("product_updates_mailer.#{@content_key}.subject")}") do |format|
+    mail(to: @user.email, subject: "📢 #{t("newsletter_mailer.#{@content_key}.subject")}") do |format|
       format.html { render 'product_updates_mailer/base' }
     end
   end

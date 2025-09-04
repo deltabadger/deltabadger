@@ -1,0 +1,14 @@
+pl:
+  newsletter_mailer:
+    first_email:
+        subject: "Społeczność + Przewodnik Altcoin Season"
+        body: |
+            <h2>Społeczność wraca po wakacjach!</h2>
+
+            <p>Po długich poszukiwaniach najlepszej platformy zdałem sobie sprawę, że Skool działa najlepiej.</p>
+            <p>Teraz ma "Classroom" z naszym pierwszym <a href="https://www.skool.com/firestarters-1846">Altcoin Season Playbook</a>.</p>
+            <p><a href="https://www.skool.com/firestarters-1846">Dołącz do społeczności zanim umieścimy ją za paywallem</a>.</p>
+            <p>Wszyscy aktywni użytkownicy, którzy dołączą wcześniej, pozostaną bezpłatni na zawsze.</p>
+            <p>Pozdrawiam,</p>
+            <p>Jan</p>
+        ps: <p>PS. Możesz teraz kontrolować wszystkie wypisania w <b>Ustawieniach</b> aplikacji.</p>

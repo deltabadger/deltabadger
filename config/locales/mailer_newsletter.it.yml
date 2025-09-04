@@ -1,0 +1,14 @@
+it:
+  newsletter_mailer:
+    first_email:
+        subject: "Community + Playbook Altcoin Season"
+        body: |
+            <h2>La community è finalmente tornata!</h2>
+
+            <p>Dopo una lunga ricerca della migliore piattaforma, mi sono reso conto che Skool funziona meglio.</p>
+            <p>Ora ha un "Classroom" con il nostro primo <a href="https://www.skool.com/firestarters-1846">Altcoin Season Playbook</a>.</p>
+            <p><a href="https://www.skool.com/firestarters-1846">Unisciti alla community prima che la mettiamo dietro un paywall</a>.</p>
+            <p>Tutti gli utenti attivi che si uniscono prima rimarranno gratuiti per sempre.</p>
+            <p>Cordiali saluti,</p>
+            <p>Jan</p>
+        ps: <p>PS. Ora puoi controllare tutte le disiscrizioni nelle <b>Impostazioni</b> dell'app.</p>
