@@ -17,7 +17,7 @@ task caffeinate_schedule_one_time_mailing: :environment do
   # Cleanup
   # 6. Comment the sent drip in the dripper, e.g. Drippers::ProductUpdates -> # drip :first_email
   #
-  # * mailer actions can be deleted after sending, the only place where we need to keep track of drip names is in the dripper
+  # * mailer actions and locale keys can be deleted after sending, the only place where we need to keep track of drip names is in the dripper
 
   campaign = 'product_updates'
   mailer_class = 'ProductUpdatesMailer'
