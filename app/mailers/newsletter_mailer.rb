@@ -17,10 +17,9 @@ class NewsletterMailer < CaffeinateMailer
   def base_mail(mailing)
     @mailing = mailing
     @user = mailing.subscriber
-    @content_key = @mailing.mailer_action
     set_locale(@user)
 
-    mail(to: @user.email, subject: "✦ #{t("newsletter_mailer.#{@content_key}.subject")}") do |format|
+    mail(to: @user.email, subject: "✦ #{t('onetime_campaign_mailer.subject')}") do |format|
       format.html { render 'newsletter_mailer/base' }
     end
   end

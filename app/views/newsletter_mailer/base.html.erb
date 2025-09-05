@@ -4,10 +4,10 @@
 
 <%= t(@user.name.present? ? 'mailer.greeting_name' : 'mailer.greeting', name: @user.name) %>
 
-<%= t("newsletter_mailer.#{@content_key}.body").html_safe %>
+<%= t("onetime_campaign_mailer.body").html_safe %>
 
 <p>
     <img style="width: 120px; height: auto; margin: 0 0 1em;" src="https://deltabadger.com/images/email/signature.png" alt="Jan's Signature">
 </p>
 
-<%= t("newsletter_mailer.#{@content_key}.ps").html_safe %>
+<%= t("onetime_campaign_mailer.ps").html_safe %>
