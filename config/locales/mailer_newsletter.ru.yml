@@ -1,5 +1,5 @@
 ru:
-  newsletter_mailer:
+  onetime_campaign_mailer:
     first_email:
         subject: "Сообщество + Руководство по Altcoin Season"
         body: |

@@ -1,5 +1,5 @@
 fr:
-  newsletter_mailer:
+  onetime_campaign_mailer:
     first_email:
         subject: "Communauté + Guide Altcoin Season"
         body: |
