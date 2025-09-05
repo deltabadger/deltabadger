@@ -4,7 +4,7 @@ class OnboardingMailer < CaffeinateMailer
   track_clicks campaign: -> { "onboarding__#{@mailing.mailer_action}" }
   utm_params utm_medium: 'email', utm_source: 'onboarding', utm_campaign: -> { @mailing.mailer_action }
 
-  default from: 'hello@deltabadger.com'
+  default from: 'Deltabadger <hello@deltabadger.com>'
 
   layout 'mailers/marketing'
 
@@ -20,7 +20,8 @@ class OnboardingMailer < CaffeinateMailer
     @mailing = mailing
     @user = mailing.subscriber
     @content_key = @mailing.mailer_action
-    @ref_link = ENV.fetch('HOME_PAGE_URL') + Rails.application.routes.url_helpers.ref_code_path(code: @user.affiliate.code, locale: nil)
+    ref_code_path = Rails.application.routes.url_helpers.ref_code_path(code: @user.affiliate.code, locale: nil)
+    @ref_link = ENV.fetch('HOME_PAGE_URL') + ref_code_path
     set_locale(@user)
 
     mail(to: @user.email, subject: "🔑 #{t("onboarding_mailer.#{@content_key}.subject")}")

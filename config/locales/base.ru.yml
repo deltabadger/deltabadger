@@ -105,6 +105,7 @@ ru:
         about: 'О нас'
         analyzer: 'Анализатор'
         calculator: 'Калькулятор'
+        telegram: 'Телеграм'
         community: 'Сообщество Fireheads'
         contact: Контакты
         cookies_policy: 'Политика использования файлов cookie'
@@ -156,6 +157,13 @@ ru:
             password_section: Пароль
             title: Настройки
             two_factor_section: 'Аутентификация по второму фактору'
+            notifications_section: 'Электронная рассылка'
+        notifications:
+            global_unsubscribe: 'Все рассылки'
+            onboarding_html: 'Советы и руководства'
+            newsletter_html: 'Статьи <a href="../articles">Deltabadger Research</a>'
+            product_updates_html: 'Новости и обновления проекта'
+            newsletters: 'Рассылки:'
     social:
         blog: 'Читайте наш блог'
         knowledge_base: 'База знаний'

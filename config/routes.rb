@@ -52,7 +52,7 @@ Rails.application.routes.draw do
     end
     put '/change_setting_flag', to: 'settings#change_setting_flag'
 
-    resources :vat_rates
+    resources :countries
 
     get :dashboard, to: 'dashboard#index'
 
@@ -128,6 +128,8 @@ Rails.application.routes.draw do
       patch :update_email
       patch :update_name
       patch :update_time_zone
+      patch :update_notifications
+      patch :update_notifications_campaign_subscriptions
       get :edit_two_fa
       patch :update_two_fa
       get 'confirm_destroy_api_key/:id', action: :confirm_destroy_api_key, as: :confirm_destroy_api_key

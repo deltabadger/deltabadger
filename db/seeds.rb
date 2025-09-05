@@ -60,9 +60,9 @@ SubscriptionPlanVariant.find_or_create_by!(subscription_plan: research_plan, day
 research_plan_1_year_variant = SubscriptionPlanVariant.find_or_create_by!(subscription_plan: research_plan, days: 365, cost_eur: 140, cost_usd: 140)
 SubscriptionPlanVariant.find_or_create_by!(subscription_plan: research_plan, days: 1460, cost_eur: 420, cost_usd: 420)
 
-VatRate.find_or_create_by!(country: 'Other', vat: 0)
-VatRate.find_or_create_by!(country: 'Poland', vat: 0.23)
-VatRate.find_or_create_by!(country: 'Estonia', vat: 0.24)
+Country.find_or_create_by!(name: 'Other', vat_rate: 0)
+Country.find_or_create_by!(name: 'Poland', vat_rate: 0.23, code: 'PL', eu_member: true)
+Country.find_or_create_by!(name: 'Estonia', vat_rate: 0.24, code: 'EE', eu_member: true)
 
 User.find_or_create_by(email: "test@test.com") do |user|
   user.name = "Satoshi"

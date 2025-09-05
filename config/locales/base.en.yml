@@ -102,7 +102,8 @@ en:
         about: About
         calculator: Calculator
         analyzer: 'Analyzer'
-        community: 'Community'
+        telegram: 'Telegram'
+        community: 'Fireheads Community'
         contact: Contact
         cookies_policy: 'Cookies Policy'
         create_account: 'Create free account'
@@ -152,6 +153,13 @@ en:
             free_plan_reset_date_html: 'Your limit resets on <b>%{end_time}</b>.'
             title: Settings
             two_factor_section: 'Second Factor Authentication'
+            notifications_section: 'Email communication'
+        notifications:
+            global_unsubscribe: 'All newsletters'
+            onboarding_html: 'Tips and guides'
+            newsletter_html: '<a href="../articles">Deltabadger Research</a> articles'
+            product_updates_html: 'Project news and updates'
+            newsletters: 'Newsletters:'
     social:
         blog: 'Read our blog'
         knowledge_base: 'Knowledge base'

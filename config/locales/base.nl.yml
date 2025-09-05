@@ -101,7 +101,8 @@ nl:
         about: 'Over ons'
         analyzer: 'Analyseerder'
         calculator: 'Rekenmachine'
-        community: 'Community'
+        telegram: 'Telegram'
+        community: 'Fireheads Gemeenschap'
         contact: Contact
         cookies_policy: Cookie-instellingen
         create_account: 'Gratis account aanmaken'
@@ -135,6 +136,13 @@ nl:
             free_plan_reset_date_html: 'Uw limiet wordt gereset op <b>%{end_time}</b>.'
             title: Instellingen
             two_factor_section: 'Second Factor Authentication'
+            notifications_section: 'E-mailcommunicatie'
+        notifications:
+            global_unsubscribe: 'Alle nieuwsbrieven'
+            onboarding_html: 'Tips en handleidingen'
+            newsletter_html: '<a href="../articles">Deltabadger Research</a> artikelen'
+            product_updates_html: 'Projectnieuws en updates'
+            newsletters: 'Nieuwsbrieven:'
         name:
             updated: 'Uw naam is bijgewerkt.'
         two_fa:

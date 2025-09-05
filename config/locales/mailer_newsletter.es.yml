@@ -1,0 +1,14 @@
+es:
+  newsletter_mailer:
+    first_email:
+        subject: "Comunidad + Manual Altcoin Season"
+        body: |
+            <h2>¡La comunidad vuelve con fuerza!</h2>
+
+            <p>Después de una larga búsqueda de la mejor plataforma, me di cuenta de que Skool funciona mejor.</p>
+            <p>Ahora tiene un "Classroom" con nuestro primer <a href="https://www.skool.com/firestarters-1846">Altcoin Season Playbook</a>.</p>
+            <p><a href="https://www.skool.com/firestarters-1846">Únete a la comunidad antes de que la pongamos detrás de un muro de pago</a>.</p>
+            <p>Todos los usuarios activos que se unan antes permanecerán gratis para siempre.</p>
+            <p>Saludos cordiales,</p>
+            <p>Jan</p>
+        ps: <p>PD. Para darte de baja de estos emails, ahora también puedes hacerlo en la <b>Configuración</b> de la app.</p>

@@ -1,6 +1,6 @@
 require 'administrate/base_dashboard'
 
-class VatRateDashboard < Administrate::BaseDashboard
+class CountryDashboard < Administrate::BaseDashboard
   # ATTRIBUTE_TYPES
   # a hash that describes the type of each of the model's fields.
   #
@@ -9,8 +9,11 @@ class VatRateDashboard < Administrate::BaseDashboard
   # on pages throughout the dashboard.
   ATTRIBUTE_TYPES = {
     id: Field::Number,
-    country: Field::String,
-    vat: Field::String.with_options(searchable: false),
+    name: Field::String,
+    code: Field::String,
+    eu_member: Field::Boolean,
+    currency: Field::String.with_options(searchable: false),
+    vat_rate: Field::String.with_options(searchable: false),
     created_at: Field::DateTime,
     updated_at: Field::DateTime
   }.freeze
@@ -22,16 +25,22 @@ class VatRateDashboard < Administrate::BaseDashboard
   # Feel free to add, remove, or rearrange items.
   COLLECTION_ATTRIBUTES = %i[
     id
-    country
-    vat
+    name
+    code
+    eu_member
+    currency
+    vat_rate
   ].freeze
 
   # SHOW_PAGE_ATTRIBUTES
   # an array of attributes that will be displayed on the model's show page.
   SHOW_PAGE_ATTRIBUTES = %i[
     id
-    country
-    vat
+    name
+    code
+    eu_member
+    currency
+    vat_rate
     created_at
     updated_at
   ].freeze
@@ -40,8 +49,11 @@ class VatRateDashboard < Administrate::BaseDashboard
   # an array of attributes that will be displayed
   # on the model's form (`new` and `edit`) pages.
   FORM_ATTRIBUTES = %i[
-    country
-    vat
+    name
+    code
+    eu_member
+    currency
+    vat_rate
   ].freeze
 
   # COLLECTION_FILTERS

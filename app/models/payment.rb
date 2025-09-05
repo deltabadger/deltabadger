@@ -2,7 +2,7 @@ class Payment < ApplicationRecord
   belongs_to :user
   belongs_to :subscription_plan_variant
 
-  enum currency: %i[usd eur]
+  enum currency: %i[usd eur] # must match Country.currency
   enum status: { draft: 1, unpaid: 0, paid: 2, cancelled: 5, refunded: 6 }
 
   scope :commission_granted, -> { where(commission_granted: true) }
@@ -39,7 +39,7 @@ class Payment < ApplicationRecord
     to = 2.month.ago.end_of_month
     vat_collected = 0
     paid.eur.where(paid_at: from..to).find_each do |payment|
-      vat_rate = VatRate.find_by!(country: payment.country).vat
+      vat_rate = Country.find_by!(name: payment.country).vat_rate
       vat_collected += payment.total - payment.total / (1 + vat_rate)
     end
     vat_collected
@@ -53,11 +53,11 @@ class Payment < ApplicationRecord
   end
 
   def from_eu?
-    country != VatRate::NOT_EU
+    Country.find_by!(name: country).eu_member
   end
 
   def vat_percent
-    VatRate.find_by!(country: country).vat
+    Country.find_by!(name: country).vat_rate
   end
 
   def vat_amount
@@ -191,7 +191,7 @@ class Payment < ApplicationRecord
                            else
                              payment.usd? ? payment.total : payment.total * eur_usd_rate
                            end
-    vat_rate = VatRate.find_by!(country: payment.country).vat
+    vat_rate = Country.find_by!(name: payment.country).vat_rate
     amount_paid_with_vat / (1 + vat_rate)
   end
 
