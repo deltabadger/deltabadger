@@ -1,14 +1,13 @@
 de:
   onetime_campaign_mailer:
-    first_email:
-        subject: "Community + Altcoin Season Playbook"
-        body: |
-            <h2>Die Community ist wieder da!</h2>
+    subject: "Community + Altcoin Season Playbook"
+    body: |
+        <h2>Die Community ist wieder da!</h2>
 
-            <p>Nach einer langen Suche nach der besten Plattform habe ich festgestellt, dass Skool am besten funktioniert.</p>
-            <p>Jetzt gibt es ein "Classroom" mit unserem ersten <a href="https://www.skool.com/firestarters-1846">Altcoin Season Playbook</a>.</p>
-            <p><a href="https://www.skool.com/firestarters-1846">Tritt der Community bei, bevor wir sie hinter eine Paywall stellen</a>.</p>
-            <p>Alle aktiven Nutzer, die vorher beitreten, bleiben für immer kostenlos.</p>
-            <p>Beste Grüße,</p>
-            <p>Jan</p>
-        ps: <p>PS. Du kannst jetzt alle Abmeldungen in den App-<b>Einstellungen</b> verwalten.</p>
+        <p>Nach einer langen Suche nach der besten Plattform habe ich festgestellt, dass Skool am besten funktioniert.</p>
+        <p>Jetzt gibt es ein "Classroom" mit unserem ersten <a href="https://www.skool.com/firestarters-1846">Altcoin Season Playbook</a>.</p>
+        <p><a href="https://www.skool.com/firestarters-1846">Tritt der Community bei, bevor wir sie hinter eine Paywall stellen</a>.</p>
+        <p>Alle aktiven Nutzer, die vorher beitreten, bleiben für immer kostenlos.</p>
+        <p>Beste Grüße,</p>
+        <p>Jan</p>
+    ps: <p>PS. Du kannst jetzt alle Abmeldungen in den App-<b>Einstellungen</b> verwalten.</p>

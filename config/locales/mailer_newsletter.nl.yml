@@ -1,14 +1,13 @@
 nl:
   onetime_campaign_mailer:
-    first_email:
-        subject: "Community + Altcoin Season Playbook"
-        body: |
-            <h2>De community is weer terug!</h2>
+    subject: "Community + Altcoin Season Playbook"
+    body: |
+        <h2>De community is weer terug!</h2>
 
-            <p>Na een lange zoektocht naar het beste platform, realiseerde ik me dat Skool het beste werkt.</p>
-            <p>Nu heeft het een "Classroom" met ons eerste <a href="https://www.skool.com/firestarters-1846">Altcoin Season Playbook</a>.</p>
-            <p><a href="https://www.skool.com/firestarters-1846">Sluit je aan bij de community voordat we het achter een paywall zetten</a>.</p>
-            <p>Alle actieve gebruikers die zich daarvoor aansluiten blijven voor altijd gratis.</p>
-            <p>Vriendelijke groeten,</p>
-            <p>Jan</p>
-        ps: <p>PS. Je kunt nu alle uitschrijvingen beheren in de app <b>Instellingen</b>.</p>
+        <p>Na een lange zoektocht naar het beste platform, realiseerde ik me dat Skool het beste werkt.</p>
+        <p>Nu heeft het een "Classroom" met ons eerste <a href="https://www.skool.com/firestarters-1846">Altcoin Season Playbook</a>.</p>
+        <p><a href="https://www.skool.com/firestarters-1846">Sluit je aan bij de community voordat we het achter een paywall zetten</a>.</p>
+        <p>Alle actieve gebruikers die zich daarvoor aansluiten blijven voor altijd gratis.</p>
+        <p>Vriendelijke groeten,</p>
+        <p>Jan</p>
+    ps: <p>PS. Je kunt nu alle uitschrijvingen beheren in de app <b>Instellingen</b>.</p>
