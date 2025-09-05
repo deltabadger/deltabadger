@@ -1,14 +1,13 @@
 fr:
   onetime_campaign_mailer:
-    first_email:
-        subject: "Communauté + Guide Altcoin Season"
-        body: |
-            <h2>La communauté fait son grand retour !</h2>
+    subject: "Communauté + Guide Altcoin Season"
+    body: |
+        <h2>La communauté fait son grand retour !</h2>
 
-            <p>Après une longue recherche de la meilleure plateforme, j'ai réalisé que Skool fonctionne le mieux.</p>
-            <p>Maintenant, elle dispose d'un "Classroom" avec notre premier <a href="https://www.skool.com/firestarters-1846">Altcoin Season Playbook</a>.</p>
-            <p><a href="https://www.skool.com/firestarters-1846">Rejoignez la communauté avant qu'on la place derrière un mur payant</a>.</p>
-            <p>Tous les utilisateurs actifs qui rejoignent avant cela resteront gratuits pour toujours.</p>
-            <p>Meilleures salutations,</p>
-            <p>Jan</p>
-        ps: <p>PS. Vous pouvez maintenant contrôler tous les désabonnements dans les <b>Paramètres</b> de l'app.</p>
+        <p>Après une longue recherche de la meilleure plateforme, j'ai réalisé que Skool fonctionne le mieux.</p>
+        <p>Maintenant, elle dispose d'un "Classroom" avec notre premier <a href="https://www.skool.com/firestarters-1846">Altcoin Season Playbook</a>.</p>
+        <p><a href="https://www.skool.com/firestarters-1846">Rejoignez la communauté avant qu'on la place derrière un mur payant</a>.</p>
+        <p>Tous les utilisateurs actifs qui rejoignent avant cela resteront gratuits pour toujours.</p>
+        <p>Meilleures salutations,</p>
+        <p>Jan</p>
+    ps: <p>PS. Vous pouvez maintenant contrôler tous les désabonnements dans les <b>Paramètres</b> de l'app.</p>
