@@ -28,12 +28,14 @@ task caffeinate_schedule_one_time_mailing: :environment do
   # drip_step = 'first_email' # new drip step name
 
   campaign = Caffeinate::Campaign.find_by!(slug: campaign)
-  campaign.subscriptions.ended.update_all(ended_at: nil)
 
   campaign.subscriptions.subscribed.find_each do |subscription|
-    puts "Adding new drip step #{drip_step} for #{subscription.subscriber.email}"
-    subscription.mailings.create!(send_at: subscription.created_at,
-                                  mailer_class: mailer_class,
-                                  mailer_action: drip_step)
+    unless subscription.mailings.find_by(mailer_action: drip_step).present?
+      puts "Adding new drip step #{drip_step} for #{subscription.subscriber.email}"
+      subscription.update!(ended_at: nil) if subscription.ended?
+      subscription.mailings.create!(send_at: subscription.created_at,
+                                    mailer_class: mailer_class,
+                                    mailer_action: drip_step)
+    end
   end
 end
