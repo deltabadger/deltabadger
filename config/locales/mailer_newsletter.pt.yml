@@ -1,5 +1,5 @@
 pt:
-  newsletter_mailer:
+  onetime_campaign_mailer:
     first_email:
         subject: "Comunidade + Manual Altcoin Season"
         body: |

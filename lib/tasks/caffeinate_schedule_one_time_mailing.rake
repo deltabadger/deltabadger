@@ -21,7 +21,11 @@ task caffeinate_schedule_one_time_mailing: :environment do
 
   campaign = 'product_updates'
   mailer_class = 'ProductUpdatesMailer'
-  drip_step = 'first_email' # new drip step name
+  drip_step = 'fireheads_restart' # new drip step name
+
+  # campaign = 'newsletter'
+  # mailer_class = 'NewsletterMailer'
+  # drip_step = 'first_email' # new drip step name
 
   campaign = Caffeinate::Campaign.find_by!(slug: campaign)
   campaign.subscriptions.ended.update_all(ended_at: nil)

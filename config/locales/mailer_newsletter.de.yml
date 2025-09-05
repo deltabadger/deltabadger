@@ -1,5 +1,5 @@
 de:
-  newsletter_mailer:
+  onetime_campaign_mailer:
     first_email:
         subject: "Community + Altcoin Season Playbook"
         body: |
