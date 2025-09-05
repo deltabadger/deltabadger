@@ -1,0 +1,35 @@
+desc 'rake task to schedule a one time mailing'
+task caffeinate_schedule_one_time_mailing: :environment do
+  # Adding a new drip step will send this step to anyone who was not unsubscribed, even if they ended subscription.
+  #
+  # Steps to send a 1-time email from a campaign:
+  #
+  # Setup
+  # 1. Create a unique drip step, e.g. Drippers::ProductUpdates -> drip :first_email
+  # * make the drip unique so stats are not mixed with other drips in the campaign
+  # 2. Create the mailer action, e.g. ProductUpdatesMailer#first_email
+  # 3. Edit the rake task caffeinate_schedule_one_time_mailing to use the new drip step
+  # 4. Create the email template, locales etc
+  #
+  # Sending
+  # 5. Run the rake task:  rake caffeinate_schedule_one_time_mailing
+  #
+  # Cleanup
+  # 6. Comment the sent drip in the dripper, e.g. Drippers::ProductUpdates -> # drip :first_email
+  #
+  # * mailer actions and locale keys can be deleted after sending, the only place where we need to keep track of drip names is in the dripper
+
+  campaign = 'product_updates'
+  mailer_class = 'ProductUpdatesMailer'
+  drip_step = 'first_email' # new drip step name
+
+  campaign = Caffeinate::Campaign.find_by!(slug: campaign)
+  campaign.subscriptions.ended.update_all(ended_at: nil)
+
+  campaign.subscriptions.subscribed.find_each do |subscription|
+    puts "Adding new drip step #{drip_step} for #{subscription.subscriber.email}"
+    subscription.mailings.create!(send_at: subscription.created_at,
+                                  mailer_class: mailer_class,
+                                  mailer_action: drip_step)
+  end
+end

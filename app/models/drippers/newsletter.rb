@@ -18,5 +18,7 @@ class Drippers::Newsletter < Dripper
     end
   end
 
-  # drip :first_email, delay: 1.hours
+  # Comment the sent drips instead of deleting them, so drip names are not repeated and stats are not
+  # mixed with other drips in the campaign
+  # drip :first_email, delay: 0
 end
