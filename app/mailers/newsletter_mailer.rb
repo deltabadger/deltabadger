@@ -8,7 +8,7 @@ class NewsletterMailer < CaffeinateMailer
 
   layout 'mailers/marketing'
 
-  def first_email(mailing)
+  def research_bitcoin_etf(mailing)
     base_mail(mailing)
   end
 
