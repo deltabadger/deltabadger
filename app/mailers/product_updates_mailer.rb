@@ -8,7 +8,7 @@ class ProductUpdatesMailer < CaffeinateMailer
 
   layout 'mailers/marketing'
 
-  def research_bitcoin_etf(mailing)
+  def fireheads_restart(mailing)
     base_mail(mailing)
   end
 
