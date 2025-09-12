@@ -4,8 +4,8 @@ subtitle: "Exposição Bitcoin convencional na sua carteira"
 author_id: 1
 thumbnail: bitcoin-etf.avif
 excerpt: "Um guia completo sobre ETFs Bitcoin: comparando ETFs spot vs futuros, analisando rácios de despesas e encontrando a opção certa para a sua carteira. Cobre tanto mercados americanos como europeus com análises detalhadas dos fundos líderes."
-x_url: https://x.com/deltabadgerapp/status/1959995577703493796
-telegram_url: https://t.me/deltabadger/109
+x_url: https://x.com/deltabadgerapp/status/1966563246770471231
+telegram_url: https://t.me/deltabadgerchat/23005
 paywall_hook: |
    <ul>
       <li>Replicar ETFs Bitcoin-Ethereum</li>

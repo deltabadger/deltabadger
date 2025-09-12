@@ -4,8 +4,8 @@ subtitle: "Konventionelle Bitcoin-Exposition in Ihrem Portfolio"
 author_id: 1
 thumbnail: bitcoin-etf.avif
 excerpt: "Ein umfassender Leitfaden zu Bitcoin-ETFs: Vergleich von Spot- und Futures-ETFs, Analyse der Kostenquoten und Finden der richtigen Option für Ihr Portfolio. Behandelt sowohl US-amerikanische als auch europäische Märkte mit detaillierten Aufschlüsselungen führender Fonds."
-x_url: https://x.com/deltabadgerapp/status/1959995577703493796
-telegram_url: https://t.me/deltabadger/109
+x_url: https://x.com/deltabadgerapp/status/1966563246770471231
+telegram_url: https://t.me/deltabadgerchat/23005
 paywall_hook: |
    <ul>
       <li>Bitcoin-Ethereum-ETFs nachbilden</li>
