@@ -21,7 +21,7 @@ task caffeinate_schedule_one_time_mailing: :environment do
 
   # campaign_slug = 'product_updates'
   # mailer_class = 'ProductUpdatesMailer'
-  # drip_step = 'research_bitcoin_etf' # new drip step name
+  # drip_step = 'fireheads_restart' # new drip step name
 
   campaign_slug = 'newsletter'
   mailer_class = 'NewsletterMailer'
