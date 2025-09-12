@@ -4,8 +4,8 @@ subtitle: "Compliant Bitcoin Exposure in Your Portfolio"
 author_id: 1
 thumbnail: bitcoin-etf.avif
 excerpt: "A comprehensive guide to Bitcoin ETFs: comparing spot vs futures, analyzing expense ratios, and finding the right option for your portfolio. Covers both US and European markets with detailed breakdowns of leading funds."
-x_url: https://x.com/deltabadgerapp/status/1959995577703493796
-telegram_url: https://t.me/deltabadger/109
+x_url: https://x.com/deltabadgerapp/status/1966563246770471231
+telegram_url: https://t.me/deltabadgerchat/23005
 paywall_hook: |
    <ul>
       <li>Replicating Bitcoin-Ethereum ETFs</li>
