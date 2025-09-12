@@ -168,6 +168,14 @@ Redes como Base y Arbitrum capturan la mayoría de las comisiones de transacció
 
 Vitalik ha reconocido este desafío, proponiendo soluciones como comisiones blob mínimas más altas y tiempos de retiro más rápidos para mantener más actividad económica en L1, pero la tensión fundamental entre el éxito L2 y la captura de valor L1 permanece sin resolver.
 
+Más sobre el tema:
+
+{::nomarkdown}
+
+<div class="substack-post-embed"><p lang="en">The Death of Ultrasound Money by Jan Klosowski</p><p>As Layer 2 Scaling Solutions Take Over, Ethereum Disappears</p><a data-post-link href="https://janklosowski.substack.com/p/the-death-of-ultrasound-money">Read on Substack</a></div><script async src="https://substack.com/embedjs/embed.js" charset="utf-8"></script>
+
+{:/nomarkdown}
+
 ## Desafíos de Transparencia
 
 La apertura y transparencia de blockchain son tanto grandes puntos de venta como fuente de desafíos. Bitcoin se enfocó en la transparencia y simplicidad de su capa 1, pasando la resolución de problemas potenciales a implementaciones externas. Sin embargo, para Ethereum que ejecuta código directamente, plantea dos desafíos principales derivados de la misma raíz: cuando cada transacción es visible para todos, los actores sofisticados pueden explotar esta visibilidad mientras los usuarios ordinarios pierden tanto dinero como privacidad.

@@ -19,7 +19,7 @@ class Drippers::Onboarding < Dripper
   end
 
   # Optimized sequence for maximum sales + referral impact
-  drip :fee_cutter, delay: 1.hours        # Email #1: Immediate value, builds trust
+  drip :fee_cutter, delay: 1.minute       # Email #1: Immediate value, builds trust
   drip :rsi, delay: 1.day                 # Email #2: Educational value, positions expertise
   drip :referral, delay: 2.days           # Email #3: High engagement, passive income hook
   drip :bitcoin_m2, on: :weekly_sunday     # Email #4: Knowledge article on Sunday

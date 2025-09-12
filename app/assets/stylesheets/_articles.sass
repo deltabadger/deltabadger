@@ -120,7 +120,7 @@
 .article
   display: flex
   flex-direction: column
-  gap: 8rem
+  gap: 5rem
   @media (min-width: 768px)
     gap: 12rem
   p,ul,ol,li,blockquote
@@ -133,7 +133,7 @@
     &:first-child
       margin-top: 0
   h2
-    margin: 8rem 0 4rem 0
+    margin: 5rem 0 2.5rem 0
     font-size: 2.8rem
     line-height: 1.5
     text-align: left
@@ -492,3 +492,9 @@
         transform-origin: left center
         @media (prefers-color-scheme: light)
           filter: invert(1)
+
+
+.substack-post-embed
+  margin: 3rem auto !important
+  @media (min-width: 768px)
+    margin: 4rem auto !important
