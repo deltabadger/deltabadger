@@ -168,6 +168,14 @@ Reti come Base e Arbitrum catturano la maggior parte delle commissioni di transa
 
 Vitalik ha riconosciuto questa sfida, proponendo soluzioni come commissioni blob minime più alte e tempi di prelievo più veloci per mantenere più attività economica su L1, ma la tensione fondamentale tra il successo L2 e la cattura di valore L1 rimane irrisolta.
 
+Approfondimenti sull'argomento:
+
+{::nomarkdown}
+
+<div class="substack-post-embed"><p lang="en">The Death of Ultrasound Money by Jan Klosowski</p><p>As Layer 2 Scaling Solutions Take Over, Ethereum Disappears</p><a data-post-link href="https://janklosowski.substack.com/p/the-death-of-ultrasound-money">Read on Substack</a></div><script async src="https://substack.com/embedjs/embed.js" charset="utf-8"></script>
+
+{:/nomarkdown}
+
 ## Sfide di trasparenza
 
 L'apertura e la trasparenza della blockchain sono sia ottimi punti di vendita che fonte di sfide. Bitcoin si è concentrato sulla trasparenza e semplicità del suo layer 1, passando la risoluzione di potenziali problemi alle implementazioni esterne. Tuttavia, per Ethereum che esegue codice direttamente, pone due sfide principali derivanti dalla stessa radice: quando ogni transazione è visibile a tutti, gli attori sofisticati possono sfruttare questa visibilità mentre gli utenti ordinari perdono sia denaro che privacy.

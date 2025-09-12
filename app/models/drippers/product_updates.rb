@@ -21,5 +21,5 @@ class Drippers::ProductUpdates < Dripper
   # Comment the sent drips instead of deleting them, so drip names are not repeated and stats are not
   # mixed with other drips in the campaign
 
-  drip :fireheads_restart, delay: 0
+  drip :research_bitcoin_etf, delay: 0
 end

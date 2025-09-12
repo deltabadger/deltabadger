@@ -1,13 +1,18 @@
 de:
   onetime_campaign_mailer:
-    subject: "Community + Altcoin Season Playbook"
+    subject: "Bitcoin ETFs: Welchen sollten Sie wählen?"
     body: |
-        <h2>Die Community ist wieder da!</h2>
+        <p>Für das erste Jahrzehnt von Bitcoins Existenz waren ETFs mythische Geister am Horizont, die den Bitcoin-Preis "zum Mond" bewegen würden. Im Februar 2021 wurde der erste ETF endlich in Kanada (BTCC) zugelassen, und vorspulend ist die Landschaft der ETFs und ETPs so groß geworden, dass man schnell den Überblick verlieren kann.</p>
+        
+        <p>Was ist der Unterschied zwischen Spot- und Futures-ETFs oder zwischen ETF und ETP?</p>
+        <p>Welchen sollten Sie wählen?</p>
 
-        <p>Nach einer langen Suche nach der besten Plattform habe ich festgestellt, dass Skool am besten funktioniert.</p>
-        <p>Jetzt gibt es ein "Classroom" mit unserem ersten <a href="https://www.skool.com/firestarters-1846">Altcoin Season Playbook</a>.</p>
-        <p><a href="https://www.skool.com/firestarters-1846">Tritt der Community bei, bevor wir sie hinter eine Paywall stellen</a>.</p>
-        <p>Alle aktiven Nutzer, die vorher beitreten, bleiben für immer kostenlos.</p>
+        <p>Zusätzlich behandeln wir im Playbook:</p>
+        <p>✦ Bitcoin/Ethereum ETFs<br/>
+        ✦ Wie man sie mit Deltabadger nachbildet?</p>
+        <p><a href="https://app.deltabadger.com/de/articles/bitcoin-etf">Vollständigen Artikel lesen →</a></p>
         <p>Beste Grüße,</p>
         <p>Jan</p>
-    ps: <p>PS. Du kannst jetzt alle Abmeldungen in den App-<b>Einstellungen</b> verwalten.</p>
+    ps: | 
+      <p>PS. Falls Sie meine vorherige E-Mail verpasst haben:</p>
+      <p><a href="https://www.skool.com/firestarters-1846">Treten Sie der Community bei, bevor der kostenlose Zugang weg ist →</a></p>

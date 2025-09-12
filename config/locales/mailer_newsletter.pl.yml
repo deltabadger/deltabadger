@@ -1,13 +1,18 @@
 pl:
   onetime_campaign_mailer:
-    subject: "Społeczność + Przewodnik Altcoin Season"
+    subject: "ETF-y na Bitcoina: Który wybrać?"
     body: |
-        <h2>Społeczność wraca po wakacjach!</h2>
+        <p>Przez pierwszą dekadę istnienia Bitcoina ETF-y były mitycznymi duchami na horyzoncie, które miały wznieść cenę Bitcoina "na księżyc". W lutym 2021 pierwszy ETF został w końcu zaakceptowany w Kanadzie (BTCC), a przewijając do przodu, krajobraz ETF-ów i ETP stał się tak rozległy, że może przyprawić o zawrót głowy.</p>
+        
+        <p>Jaka jest różnica między ETF-ami spot a futures, lub między ETF a ETP?</p>
+        <p>Który wybrać?</p>
 
-        <p>Po długich poszukiwaniach najlepszej platformy zdałem sobie sprawę, że Skool działa najlepiej.</p>
-        <p>Teraz ma "Classroom" z naszym pierwszym <a href="https://www.skool.com/firestarters-1846">Altcoin Season Playbook</a>.</p>
-        <p><a href="https://www.skool.com/firestarters-1846">Dołącz do społeczności zanim umieścimy ją za paywallem</a>.</p>
-        <p>Wszyscy aktywni użytkownicy, którzy dołączą wcześniej, pozostaną bezpłatni na zawsze.</p>
-        <p>Pozdrawiam,</p>
+        <p>Dodatkowo w Playbook omawiamy:</p>
+        <p>✦ ETF-y na Bitcoina/Ethereum<br/>
+        ✦ Jak je replikować z Deltabadger?</p>
+        <p><a href="https://app.deltabadger.com/pl/articles/bitcoin-etf">Przeczytaj pełny artykuł →</a></p>
+        <p>Pozdrawiam serdecznie,</p>
         <p>Jan</p>
-    ps: <p>PS. Możesz teraz kontrolować wszystkie wypisania w <b>Ustawieniach</b> aplikacji.</p>
+    ps: | 
+      <p>PS. Jeśli przegapiliście mój poprzedni email:</p>
+      <p><a href="https://www.skool.com/firestarters-1846">Dołączcie do społeczności zanim darmowy dostęp zniknie →</a></p>

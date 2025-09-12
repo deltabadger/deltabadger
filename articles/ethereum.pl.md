@@ -168,6 +168,14 @@ Sieci jak Base i Arbitrum przechwytują większość opłat transakcyjnych, pole
 
 Vitalik uznał to wyzwanie, proponując rozwiązania takie jak wyższe minimalne opłaty blob i szybsze czasy wypłat, aby utrzymać więcej aktywności gospodarczej na L1, ale fundamentalne napięcie między sukcesem L2 a przechwytem wartości L1 pozostaje nierozwiązane.
 
+Więcej na temat:
+
+{::nomarkdown}
+
+<div class="substack-post-embed"><p lang="en">The Death of Ultrasound Money by Jan Klosowski</p><p>As Layer 2 Scaling Solutions Take Over, Ethereum Disappears</p><a data-post-link href="https://janklosowski.substack.com/p/the-death-of-ultrasound-money">Read on Substack</a></div><script async src="https://substack.com/embedjs/embed.js" charset="utf-8"></script>
+
+{:/nomarkdown}
+
 ## Wyzwania przejrzystości
 
 Otwartość i przejrzystość blockchain to zarówno świetne argumenty sprzedażowe, jak i źródło wyzwań. Bitcoin skupił się na przejrzystości i prostocie swojej warstwy 1, przekazując rozwiązywanie potencjalnych problemów zewnętrznym implementacjom. Jednak dla Ethereum, które wykonuje kod bezpośrednio, stwarza to dwa główne wyzwania wynikające z tego samego korzenia: gdy każda transakcja jest widoczna dla wszystkich, wyrafinowani aktorzy mogą wykorzystać tę widoczność, podczas gdy zwykli użytkownicy tracą zarówno pieniądze, jak i prywatność.
