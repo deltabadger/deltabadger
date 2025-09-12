@@ -4,8 +4,8 @@ subtitle: "Konwencjonalna ekspozycja na Bitcoina w twoim portfelu"
 author_id: 1
 thumbnail: bitcoin-etf.avif
 excerpt: "Kompleksowy przewodnik po ETF-ach Bitcoina: porównanie ETF-ów spot vs futures, analiza wskaźników kosztów i znalezienie odpowiedniej opcji dla twojego portfela. Obejmuje zarówno rynki amerykańskie, jak i europejskie ze szczegółowymi analizami wiodących funduszy."
-x_url: https://x.com/deltabadgerapp/status/1959995577703493796
-telegram_url: https://t.me/deltabadger/109
+x_url: https://x.com/deltabadgerapp/status/1966563246770471231
+telegram_url: https://t.me/deltabadgerchat/23005
 paywall_hook: |
    <ul>
       <li>Replikowanie ETF-ów Bitcoin-Ethereum</li>

@@ -4,8 +4,8 @@ subtitle: "Exposition Bitcoin conventionnelle dans votre portefeuille"
 author_id: 1
 thumbnail: bitcoin-etf.avif
 excerpt: "Un guide complet des ETF Bitcoin : comparaison des ETF spot vs futures, analyse des ratios de frais et recherche de l'option appropriée pour votre portefeuille. Couvre les marchés américains et européens avec des analyses détaillées des fonds leaders."
-x_url: https://x.com/deltabadgerapp/status/1959995577703493796
-telegram_url: https://t.me/deltabadger/109
+x_url: https://x.com/deltabadgerapp/status/1966563246770471231
+telegram_url: https://t.me/deltabadgerchat/23005
 paywall_hook: |
    <ul>
       <li>Répliquer les ETF Bitcoin-Ethereum</li>
