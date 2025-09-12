@@ -168,6 +168,14 @@ Redes como Base e Arbitrum capturam a maioria das taxas de transação enquanto 
 
 Vitalik reconheceu este desafio, propondo soluções como taxas blob mínimas mais altas e tempos de levantamento mais rápidos para manter mais atividade económica no L1, mas a tensão fundamental entre o sucesso L2 e a captura de valor L1 permanece por resolver.
 
+Mais sobre o tema:
+
+{::nomarkdown}
+
+<div class="substack-post-embed"><p lang="en">The Death of Ultrasound Money by Jan Klosowski</p><p>As Layer 2 Scaling Solutions Take Over, Ethereum Disappears</p><a data-post-link href="https://janklosowski.substack.com/p/the-death-of-ultrasound-money">Read on Substack</a></div><script async src="https://substack.com/embedjs/embed.js" charset="utf-8"></script>
+
+{:/nomarkdown}
+
 ## Desafios de transparência
 
 A abertura e transparência da blockchain são tanto grandes pontos de venda como fonte de desafios. O Bitcoin focou-se na transparência e simplicidade da sua camada 1, passando a resolução de problemas potenciais para implementações externas. Contudo, para o Ethereum que executa código diretamente, coloca dois desafios principais derivados da mesma raiz: quando cada transação é visível para todos, atores sofisticados podem explorar esta visibilidade enquanto utilizadores comuns perdem tanto dinheiro como privacidade.

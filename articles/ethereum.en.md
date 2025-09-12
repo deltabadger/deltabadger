@@ -168,6 +168,14 @@ Networks like Base and Arbitrum capture the majority of transaction fees while r
 
 Vitalik has acknowledged this challenge, proposing solutions like higher minimum blob fees and faster withdrawal times to keep more economic activity on L1, but the fundamental tension between L2 success and L1 value capture remains unresolved.
 
+More on the topic:
+
+{::nomarkdown}
+
+<div class="substack-post-embed"><p lang="en">The Death of Ultrasound Money by Jan Klosowski</p><p>As Layer 2 Scaling Solutions Take Over, Ethereum Disappears</p><a data-post-link href="https://janklosowski.substack.com/p/the-death-of-ultrasound-money">Read on Substack</a></div><script async src="https://substack.com/embedjs/embed.js" charset="utf-8"></script>
+
+{:/nomarkdown}
+
 ## Transparency Challenges
 
 Openness and transparency of blockchain are both great selling points and source of challenges. Bitcoin focused on transparency and simplicity of its layer 1, passing solving potential problems on external implementations. However, for Ethereum that runs code directly, it poses two major challenges stemming from the same root: when every transaction is visible to everyone, sophisticated actors can exploit this visibility while ordinary users lose both money and privacy.
