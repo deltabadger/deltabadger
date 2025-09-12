@@ -1,13 +1,18 @@
 nl:
   onetime_campaign_mailer:
-    subject: "Community + Altcoin Season Playbook"
+    subject: "Bitcoin ETFs: Welke kiezen?"
     body: |
-        <h2>De community is weer terug!</h2>
+        <p>Gedurende het eerste decennium van Bitcoin's bestaan waren ETFs mythische geesten aan de horizon die de Bitcoin-prijs "naar de maan" zouden brengen. In februari 2021 werd de eerste ETF eindelijk geaccepteerd in Canada (BTCC), en spoelend vooruit is het landschap van ETFs en ETPs zo uitgebreid geworden dat je er gemakkelijk het overzicht bij verliest.</p>
+        
+        <p>Wat is het verschil tussen spot- en futures-ETFs, of tussen ETF en ETP?</p>
+        <p>Welke kiezen?</p>
 
-        <p>Na een lange zoektocht naar het beste platform, realiseerde ik me dat Skool het beste werkt.</p>
-        <p>Nu heeft het een "Classroom" met ons eerste <a href="https://www.skool.com/firestarters-1846">Altcoin Season Playbook</a>.</p>
-        <p><a href="https://www.skool.com/firestarters-1846">Sluit je aan bij de community voordat we het achter een paywall zetten</a>.</p>
-        <p>Alle actieve gebruikers die zich daarvoor aansluiten blijven voor altijd gratis.</p>
-        <p>Vriendelijke groeten,</p>
+        <p>Daarnaast behandelen we in het Playbook:</p>
+        <p>✦ Bitcoin/Ethereum ETFs<br/>
+        ✦ Hoe ze na te bootsen met Deltabadger?</p>
+        <p><a href="https://app.deltabadger.com/nl/articles/bitcoin-etf">Volledig artikel lezen →</a></p>
+        <p>Met vriendelijke groet,</p>
         <p>Jan</p>
-    ps: <p>PS. Je kunt nu alle uitschrijvingen beheren in de app <b>Instellingen</b>.</p>
+    ps: | 
+      <p>PS. Als je mijn vorige e-mail hebt gemist:</p>
+      <p><a href="https://www.skool.com/firestarters-1846">Word lid van de community voordat gratis toegang verdwijnt →</a></p>

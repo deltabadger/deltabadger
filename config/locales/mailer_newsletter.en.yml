@@ -1,13 +1,18 @@
 en:
   onetime_campaign_mailer:
-    subject: "Community + Altcoin Season Playbook"
+    subject: "Bitcoin ETFs: Which One to Choose?"
     body: |
-        <h2>The community is back.</h2>
+        <p>For the first decade of Bitcoin's existence, ETFs were mythical ghosts on the horizon that would move the price of Bitcoin "to the moon." In February 2021, the first ETF was finally accepted in Canada (BTCC), and fast forward, the landscape of ETFs and ETPs is so vast that it may be confusing.</p>
+        
+        <p>What's the difference between spot and futures ETFs, or between ETF and ETP?</p>
+        <p>Which one to choose?</p>
 
-        <p>After a long search for the best platform, I realised that Skool works best.</p>
-        <p>Now, it has a "Classroom" featuring our first <a href="https://www.skool.com/firestarters-1846">Altcoin Season playbook</a>.</p>
-        <p><a href="https://www.skool.com/firestarters-1846">Join the community before we move it behind a paywall</a>.</p>
-        <p>All active users who join before then will remain free forever.</p>
+        <p>Additionally, in the Playbook we cover:</p>
+        <p>✦ Bitcoin/Ethereum ETFs<br/>
+        ✦ How to replicate them with Deltabadger?</p>
+        <p><a href="https://app.deltabadger.com/articles/bitcoin-etf">Read full article →</a></p>
         <p>Best regards,</p>
         <p>Jan</p>
-    ps: <p>PS. You can now control all unsubscribes in the app <b>Settings</b>.</p>
+    ps: | 
+      <p>PS. If you missed my previous email:</p>
+      <p><a href="https://www.skool.com/firestarters-1846">Join the community before free access is gone →</a></p>

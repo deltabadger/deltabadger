@@ -19,13 +19,13 @@ task caffeinate_schedule_one_time_mailing: :environment do
   #
   # * mailer actions and locale keys can be deleted after sending, the only place where we need to keep track of drip names is in the dripper
 
-  campaign_slug = 'product_updates'
-  mailer_class = 'ProductUpdatesMailer'
-  drip_step = 'fireheads_restart' # new drip step name
+  # campaign_slug = 'product_updates'
+  # mailer_class = 'ProductUpdatesMailer'
+  # drip_step = 'fireheads_restart' # new drip step name
 
-  # campaign_slug = 'newsletter'
-  # mailer_class = 'NewsletterMailer'
-  # drip_step = 'first_email' # new drip step name
+  campaign_slug = 'newsletter'
+  mailer_class = 'NewsletterMailer'
+  drip_step = 'research_bitcoin_etf' # new drip step name
 
   campaign = Caffeinate::Campaign.find_by!(slug: campaign_slug)
 

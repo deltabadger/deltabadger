@@ -168,6 +168,14 @@ Netwerken zoals Base en Arbitrum vangen het grootste deel van de transactiekoste
 
 Vitalik heeft deze uitdaging erkend en oplossingen voorgesteld zoals hogere minimum blob-kosten en snellere opnamtijden om meer economische activiteit op L1 te houden, maar de fundamentele spanning tussen L2-succes en L1-waardecreatie blijft onopgelost.
 
+Meer over dit onderwerp:
+
+{::nomarkdown}
+
+<div class="substack-post-embed"><p lang="en">The Death of Ultrasound Money by Jan Klosowski</p><p>As Layer 2 Scaling Solutions Take Over, Ethereum Disappears</p><a data-post-link href="https://janklosowski.substack.com/p/the-death-of-ultrasound-money">Read on Substack</a></div><script async src="https://substack.com/embedjs/embed.js" charset="utf-8"></script>
+
+{:/nomarkdown}
+
 ## Transparantie-uitdagingen
 
 Openheid en transparantie van blockchain zijn zowel geweldige verkoopargumenten als bron van uitdagingen. Bitcoin richtte zich op transparantie en eenvoud van zijn layer 1, waarbij het oplossen van potentiële problemen werd doorgeschoven naar externe implementaties. Voor Ethereum dat code direct uitvoert, vormt het echter twee grote uitdagingen die uit dezelfde wortel voortkomen: wanneer elke transactie zichtbaar is voor iedereen, kunnen geavanceerde actoren deze zichtbaarheid uitbuiten terwijl gewone gebruikers zowel geld als privacy verliezen.

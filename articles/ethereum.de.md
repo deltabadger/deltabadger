@@ -170,6 +170,14 @@ Netzwerke wie Base und Arbitrum fangen den Großteil der Transaktionsgebühren a
 
 Vitalik hat diese Herausforderung anerkannt und Lösungen wie höhere Mindest-Blob-Gebühren und schnellere Abhebungszeiten vorgeschlagen, um mehr wirtschaftliche Aktivität auf L1 zu halten, aber die grundlegende Spannung zwischen L2-Erfolg und L1-Werteerfassung bleibt ungelöst.
 
+Mehr zum Thema:
+
+{::nomarkdown}
+
+<div class="substack-post-embed"><p lang="en">The Death of Ultrasound Money by Jan Klosowski</p><p>As Layer 2 Scaling Solutions Take Over, Ethereum Disappears</p><a data-post-link href="https://janklosowski.substack.com/p/the-death-of-ultrasound-money">Read on Substack</a></div><script async src="https://substack.com/embedjs/embed.js" charset="utf-8"></script>
+
+{:/nomarkdown}
+
 ## Transparenz-Herausforderungen
 
 Offenheit und Transparenz der Blockchain sind sowohl großartige Verkaufsargumente als auch Quelle von Herausforderungen. Bitcoin konzentrierte sich auf Transparenz und Einfachheit seiner Layer 1 und übertrug die Lösung potenzieller Probleme auf externe Implementierungen. Für Ethereum, das Code direkt ausführt, stellt es jedoch zwei große Herausforderungen dar, die aus derselben Wurzel stammen: Wenn jede Transaktion für jeden sichtbar ist, können raffinierte Akteure diese Sichtbarkeit ausnutzen, während gewöhnliche Benutzer sowohl Geld als auch Privatsphäre verlieren.
