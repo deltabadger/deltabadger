@@ -53,6 +53,8 @@ module Exchange::Synchronizer
         [%w[base coin_id], %w[target target_coin_id]].each do |symbol_key, external_id_key|
           symbol = ticker[symbol_key]
           external_id = ticker[external_id_key] || eodhd_external_id_for_symbol(symbol)
+          next if external_id.blank?
+
           if hash[symbol].present? && hash[symbol] != external_id
             raise "Multiple external ids for #{symbol} on #{coingecko_id}: #{hash[symbol]} and #{external_id}"
           end
