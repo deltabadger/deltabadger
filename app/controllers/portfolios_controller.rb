@@ -1,5 +1,6 @@
 class PortfoliosController < ApplicationController
   before_action :authenticate_user!
+  before_action :authenticate_research_user!, only: %i[show]
   before_action :set_portfolio, except: %i[new create compare]
   before_action :set_last_assets, except: %i[update_risk_level compare]
   after_action :save_last_assets, except: %i[update_risk_level normalize_allocations compare]
@@ -242,6 +243,10 @@ class PortfoliosController < ApplicationController
   end
 
   private
+
+  def authenticate_research_user!
+    redirect_to root_path, alert: 'You need to be a research user to access this page.' unless current_user.subscription.research?
+  end
 
   def portfolio_params
     params.require(:portfolio).permit(
