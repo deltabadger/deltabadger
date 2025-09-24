@@ -230,6 +230,7 @@ GEM
       raabro (~> 1.4)
     globalid (1.1.0)
       activesupport (>= 5.0)
+    google-protobuf (3.25.5-aarch64-linux)
     google-protobuf (3.25.5-arm64-darwin)
     google-protobuf (3.25.5-x86_64-darwin)
     google-protobuf (3.25.5-x86_64-linux)
@@ -347,6 +348,8 @@ GEM
     net-smtp (0.3.3)
       net-protocol
     nio4r (2.5.9)
+    nokogiri (1.16.4-aarch64-linux)
+      racc (~> 1.4)
     nokogiri (1.16.4-arm64-darwin)
       racc (~> 1.4)
     nokogiri (1.16.4-x86_64-darwin)
@@ -504,6 +507,8 @@ GEM
     ruby2_keywords (0.0.5)
     rubyzip (2.3.2)
     safely_block (0.4.1)
+    sass-embedded (1.69.5-aarch64-linux-gnu)
+      google-protobuf (~> 3.23)
     sass-embedded (1.69.5-arm64-darwin)
       google-protobuf (~> 3.23)
     sass-embedded (1.69.5-x86_64-darwin)
@@ -606,6 +611,7 @@ GEM
     zeitwerk (2.6.13)
 
 PLATFORMS
+  aarch64-linux-gnu
   arm64-darwin-23
   arm64-darwin-24
   x86_64-darwin-21
