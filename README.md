@@ -2,7 +2,7 @@
 Install needed tools (for example using [asdf version manager](https://asdf-vm.com)):
 
 ruby 3.2.3
-nodejs 14.20.0
+nodejs 18.19.1
 # Setup
 Run:
 ```bash

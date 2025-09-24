@@ -1,5 +1,5 @@
 # local setup for asdf version manager
 ruby 3.2.3
-nodejs 14.20.0
+nodejs 18.19.1
 python 3.10.0
-yarn 1.22.19
+yarn 1.22.22
