@@ -1,8 +1,8 @@
 # Tools
 Install needed tools (for example using [asdf version manager](https://asdf-vm.com)):
 
-ruby 3.0.2
-nodejs 14.20.0
+ruby 3.2.3
+nodejs 18.19.1
 # Setup
 Run:
 ```bash
@@ -49,7 +49,7 @@ You can run test automatically using guard gem:
 bundle exec guard -c
 ```
 
-# MacOS 
+# MacOS
 
 If you encounter the following error (while loading the list of exchanges):
 
