@@ -16,7 +16,7 @@ jobs:
       with:
         host: ${{ secrets.SERVICES_SERVER_IP }}
         username: ubuntu
-        key: ${{ secrets.SERVICES_SERVER_KEY }}
+        key: ${{ secrets.GH_ACTIONS_KEY }}
         port: 22
         script: |
            mkdir -p github_actions
@@ -25,4 +25,4 @@ jobs:
            git clone git@deltabadger:deltabadger/deltabadger.git --branch production
            cd deltabadger && git clone git@deltabadger-ansible:deltabadger/deltabadger-ansible --branch autodeploy
            sudo echo "${{ secrets.ANSIBLE_VAULT_PASSWORD }}" > deltabadger-ansible/.vault_password
-           cd deltabadger-ansible && BRANCH=stage ANSIBLE_HOST_KEY_CHECKING=False ansible-playbook site.yml -i inventories/production
+           cd deltabadger-ansible && BRANCH=stage ansible-playbook site.yml -i inventories/production --private-key /home/ubuntu/.ssh/id_ed25519
