@@ -22,7 +22,7 @@ jobs:
            mkdir -p github_actions
            cd github_actions
            rm -r deltabadger
-           git clone git@deltabadger:deltabadger/deltabadger.git --branch production
-           cd deltabadger && git clone git@deltabadger-ansible:deltabadger/deltabadger-ansible --branch autodeploy
+           git clone https://deltabadger:${{ secrets.GH_ACTIONS_TOKEN }}@github.com/deltabadger/deltabadger.git --branch production
+           cd deltabadger && git clone https://deltabadger:${{ secrets.GH_ACTIONS_TOKEN }}@github.com/deltabadger/deltabadger-ansible.git --branch autodeploy
            sudo echo "${{ secrets.ANSIBLE_VAULT_PASSWORD }}" > deltabadger-ansible/.vault_password
            cd deltabadger-ansible && BRANCH=stage ansible-playbook site.yml -i inventories/production --private-key /home/ubuntu/.ssh/id_ed25519
