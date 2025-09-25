@@ -25,4 +25,4 @@ jobs:
            git clone https://deltabadger:${{ secrets.GH_ACTIONS_TOKEN }}@github.com/deltabadger/deltabadger.git --branch stage
            cd deltabadger && git clone https://deltabadger:${{ secrets.GH_ACTIONS_TOKEN }}@github.com/deltabadger/deltabadger-ansible.git --branch autodeploy
            sudo echo "${{ secrets.ANSIBLE_VAULT_PASSWORD }}" > deltabadger-ansible/.vault_password
-           cd deltabadger-ansible && BRANCH=stage ansible-playbook site.yml -i inventories/production --private-key /home/ubuntu/.ssh/id_ed25519
+           cd deltabadger-ansible && BRANCH=stage ansible-playbook site.yml -i inventories/test --private-key /home/ubuntu/.ssh/id_ed25519
