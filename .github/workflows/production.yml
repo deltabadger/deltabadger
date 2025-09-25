@@ -3,24 +3,26 @@ name: PRODUCTION deltabadger autodeploy
 on:
   push:
     branches: [production]
-    
+
 jobs:
   AutoDeploy:
     environment: production
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     timeout-minutes: 10
 
     steps:
     - name: execute remote ssh commands
       uses: appleboy/ssh-action@v0.1.7
       with:
-        host: 3.17.104.213 # ssh-tunnel (Bastion)
+        host: ${{ secrets.SERVICES_SERVER_IP }}
         username: ubuntu
-        key: ${{ secrets.bastion_key }}
+        key: ${{ secrets.GH_ACTIONS_KEY }}
         port: 22
         script: |
+           mkdir -p github_actions
+           cd github_actions
            rm -r deltabadger
-           git clone git@deltabadger:deltabadger/deltabadger.git --branch production
-           cd deltabadger && git clone git@deltabadger-ansible:deltabadger/deltabadger-ansible --branch autodeploy
-           sudo echo "${{ secrets.VAULT_PASSWORD }}" > deltabadger-ansible/.vault_password 
-           cd deltabadger-ansible && BRANCH=stage ANSIBLE_HOST_KEY_CHECKING=False ansible-playbook site.yml -i inventories/production
+           git clone https://deltabadger:${{ secrets.GH_ACTIONS_TOKEN }}@github.com/deltabadger/deltabadger.git --branch production
+           cd deltabadger && git clone https://deltabadger:${{ secrets.GH_ACTIONS_TOKEN }}@github.com/deltabadger/deltabadger-ansible.git --branch autodeploy
+           sudo echo "${{ secrets.ANSIBLE_VAULT_PASSWORD }}" > deltabadger-ansible/.vault_password
+           cd deltabadger-ansible && BRANCH=production ansible-playbook site.yml -i inventories/production --private-key /home/ubuntu/.ssh/id_ed25519

@@ -245,7 +245,7 @@ class PortfoliosController < ApplicationController
   private
 
   def authenticate_research_user!
-    redirect_to root_path, alert: 'You need to be a research user to access this page.' unless current_user.subscription.research?
+    redirect_to root_path, alert: 'You need to be a research user to access this the Portfolio Analyzer.' unless current_user.subscription.research?
   end
 
   def portfolio_params
