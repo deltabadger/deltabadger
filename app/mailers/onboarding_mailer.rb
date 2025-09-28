@@ -47,6 +47,18 @@ class OnboardingMailer < CaffeinateMailer
     base_mail(mailing)
   end
 
+  def market_cap_weighting(mailing)
+    base_mail(mailing)
+  end
+
+  def radical_portfolio(mailing)
+    base_mail(mailing)
+  end
+
+  def treasury_companies(mailing)
+    base_mail(mailing)
+  end
+
   private
 
   def base_mail(mailing)
