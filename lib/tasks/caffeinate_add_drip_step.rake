@@ -5,6 +5,8 @@ task caffeinate_add_drip_step: :environment do
   # If the new drip step happens to be sent before current time, it will be sent right away
   # (after executing Caffeinate.perform!).
 
+  # FIXME: instead of this task, better use CampaignSubscription.refuel!(offset: :created_at)
+
   campaign = 'newsletter'
   mailer_class = 'NewsletterMailer'
   new_drip_step = 'first_email' # new drip step name
@@ -32,7 +34,7 @@ task caffeinate_add_drip_step: :environment do
       # only happens if there are no mailings for this campaign
       puts "Adding new drip step #{new_drip_step} at #{subscription.created_at + new_drip_step_delay}"
       subscription.mailings.create!(send_at: subscription.created_at + new_drip_step_delay,
-                                    mailer_class: mailer_class,
+                                    mailer_class:,
                                     mailer_action: new_drip_step)
     end
   end
