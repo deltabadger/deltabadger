@@ -41,12 +41,7 @@ environment.config.merge({
         ],
       },
     ],
-  },
-  resolve: {
-    alias: {
-      axios: "axios/dist/axios.min.js",
-    },
-  },
+  }
 });
 
 module.exports = environment;
