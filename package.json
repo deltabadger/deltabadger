@@ -23,7 +23,7 @@
     "@rails/webpacker": "5.4.3",
     "@sentry/react": "^7.15.0",
     "@sentry/tracing": "^7.15.0",
-    "axios": "~1.8.2",
+    "axios": "~1.6.8",
     "babel-loader": "^8.0.0",
     "babel-plugin-transform-react-remove-prop-types": "^0.4.24",
     "chart.js": "^4.0.0",
