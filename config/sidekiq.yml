@@ -1,5 +1,5 @@
 ---
-:concurrency: 2
+:concurrency: 16
 :queues:
   - [low_priority, 1]
   - [starting_bots, 1]

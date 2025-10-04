@@ -338,23 +338,23 @@ GEM
     nenv (0.3.0)
     net-http-persistent (4.0.4)
       connection_pool (~> 2.2)
-    net-imap (0.3.7)
+    net-imap (0.3.9)
       date
       net-protocol
     net-pop (0.1.2)
       net-protocol
-    net-protocol (0.2.1)
+    net-protocol (0.2.2)
       timeout
     net-smtp (0.3.3)
       net-protocol
     nio4r (2.5.9)
-    nokogiri (1.16.4-aarch64-linux)
+    nokogiri (1.18.9-aarch64-linux-gnu)
       racc (~> 1.4)
-    nokogiri (1.16.4-arm64-darwin)
+    nokogiri (1.18.9-arm64-darwin)
       racc (~> 1.4)
-    nokogiri (1.16.4-x86_64-darwin)
+    nokogiri (1.18.9-x86_64-darwin)
       racc (~> 1.4)
-    nokogiri (1.16.4-x86_64-linux)
+    nokogiri (1.18.9-x86_64-linux-gnu)
       racc (~> 1.4)
     notiffany (0.1.3)
       nenv (~> 0.1)
@@ -400,8 +400,8 @@ GEM
     puma (6.3.1)
       nio4r (~> 2.0)
     raabro (1.4.0)
-    racc (1.7.3)
-    rack (2.2.6.4)
+    racc (1.8.1)
+    rack (2.2.18)
     rack-cors (2.0.1)
       rack (>= 2.0.0)
     rack-mini-profiler (3.3.1)
@@ -576,7 +576,7 @@ GEM
     thor (1.3.1)
     thread_safe (0.3.6)
     tilt (2.2.0)
-    timeout (0.4.0)
+    timeout (0.4.3)
     turbo-rails (2.0.11)
       actionpack (>= 6.0.0)
       railties (>= 6.0.0)
@@ -670,7 +670,7 @@ DEPENDENCIES
   parallel
   pg (>= 0.18, < 2.0)
   puma (~> 6.3)
-  rack (= 2.2.6.4)
+  rack (= 2.2.18)
   rack-cors
   rack-mini-profiler (~> 3.3)
   rails (~> 6.0.6.1)

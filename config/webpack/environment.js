@@ -41,7 +41,7 @@ environment.config.merge({
         ],
       },
     ],
-  },
+  }
 });
 
 module.exports = environment;
