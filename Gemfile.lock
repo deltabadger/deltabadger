@@ -204,7 +204,7 @@ GEM
     et-orbi (1.2.11)
       tzinfo
     event_stream_parser (1.0.0)
-    execjs (2.8.1)
+    execjs (2.10.0)
     factory_bot (6.2.1)
       activesupport (>= 5.0.0)
     factory_bot_rails (6.2.0)
@@ -582,7 +582,7 @@ GEM
       railties (>= 6.0.0)
     tzinfo (1.2.11)
       thread_safe (~> 0.1)
-    uglifier (4.2.0)
+    uglifier (4.2.1)
       execjs (>= 0.3.0, < 3)
     unicode (0.4.4.5)
     unicode-display_width (2.4.2)
