@@ -28,7 +28,7 @@ gem 'rails', '~> 6.0.6.1'
 gem "rails_cloudflare_turnstile", "~> 0.2.2"
 gem 'rqrcode'
 gem 'webpacker', '~> 5.4'
-gem 'sidekiq', '~> 6.5.12'
+gem 'sidekiq', '~> 7.3.9'
 gem 'sidekiq-limit_fetch', git: 'https://github.com/brainopia/sidekiq-limit_fetch'
 gem 'scenic'
 gem 'uglifier', '>= 1.3.0'
