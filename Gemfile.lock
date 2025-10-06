@@ -114,7 +114,7 @@ GEM
     archive-zip (0.12.0)
       io-like (~> 0.3.0)
     ast (2.4.2)
-    attr_encrypted (3.1.0)
+    attr_encrypted (4.2.0)
       encryptor (~> 3.0.0)
     aws-eventstream (1.4.0)
     aws-partitions (1.1150.0)
@@ -622,7 +622,7 @@ DEPENDENCIES
   active_model_otp
   administrate
   ahoy_email (~> 2.1)
-  attr_encrypted (~> 3.1.0)
+  attr_encrypted (~> 4.2.0)
   aws-sdk-sesv2 (~> 1.83)
   bootsnap (>= 1.4.2)
   bullet (~> 7.2.0)
