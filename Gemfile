@@ -22,7 +22,7 @@ gem 'nio4r', '2.5.9'
 gem 'parallel'
 gem 'pg', '>= 0.18', '< 2.0'
 gem 'puma', '~> 6.3'
-gem "rack", "2.2.18"
+gem "rack", "2.2.19"
 gem 'rack-cors'
 gem 'rails', '~> 6.0.6.1'
 gem "rails_cloudflare_turnstile", "~> 0.2.2"
