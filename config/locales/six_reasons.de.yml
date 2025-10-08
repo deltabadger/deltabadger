@@ -1,20 +1,14 @@
 de:
     six_reasons:
         tracking:
-            title: "Verfolgung"
-            description: "<b>Verfolgen Sie Ihre Investition</b> mit einem Diagramm und CSV-Export. Wenn Ihre Börse die Gebühren geändert hat, verschieben Sie Ihren Bot zu einer anderen Börse, ohne Ihre Historie zu verlieren."
+            title: "Verfolge deine Investition"
         lower_fees:
-            title: "Niedrigere Gebühren"
-            description: "Viele DCA-Automatisierungen beinhalten höhere Gebühren und Preise. FeeCutter ermöglicht es Ihnen, von niedrigeren <i>Maker</i>-Gebühren zu profitieren und <b>Gebühren effektiv auf null zu reduzieren</b>."
+            title: "Reduziere Gebühren auf NULL"
         buy_the_dip:
-            title: "Kaufe den Dip!"
-            description: "<b>Fangen Sie die besten Preise</b> mit beliebten Indikatoren wie RSI und gleitenden Durchschnitten oder erkennen Sie einfach plötzliche Preisrückgänge mit unseren einzigartigen Optionen für Trader."
+            title: "Kaufe den Dip mit RSI"
         avoid_taxes:
-            title: "Steuern vermeiden"
-            description: "<b>Rebalanced DCA</b> ist unsere <i>geheime Zutat</i>. DCA in mehrere Vermögenswerte, Rebalancing zu Ihrer gewünschten Allokation ohne in Kapitalertragssteuern zu fallen."
+            title: "Rebalancing ohne Steuern"
         backtest_with_ai:
-            title: "Backtest mit KI"
-            description: "Unser <b>Portfolio Analyzer</b> ermöglicht es Ihnen, jedes Portfolio zu backtesten, von DeFi bis zu Vanguard ETFs, optimale Allokationen zu finden und KI-Einblicke zu erhalten."
+            title: "Backtesting mit KI"
         invest_in_index:
             title: "In den Index investieren"
-            description: "Top 10 oder Top 500? Bauen Sie Ihren persönlichen <b>Krypto S&P 500</b>. Der Bot verkauft automatisch Underperformer und allokiert Ihr Kapital zu gewinnenden Projekten." 
