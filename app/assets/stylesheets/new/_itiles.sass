@@ -10,9 +10,13 @@
         gap: 2rem
         align-items: stretch
     h2
-        margin-top: 8rem
-        font-size: 2.4rem
+        margin-top: 4rem
+        margin-bottom: 0 !important
+        padding-bottom: 0 !important
+        font-size: 2rem
         text-align: center
+        color: var(--label)
+        opacity: 0.65
     p
         flex: 2
         margin-bottom: 0
@@ -20,9 +24,10 @@
         justify-self: flex-end
 
     @media screen and (min-width: 768px)
-        grid-template-columns: repeat(2, 1fr)   
-    @media screen and (min-width: 1280px)
         grid-template-columns: repeat(3, 1fr)
+.menu-start
+    @media screen and (min-width: 768px)
+        padding-top: 7rem !important
 .itiles
     display: grid
     grid-template-columns: 1fr
@@ -80,9 +85,15 @@
     &--faded
         filter: opacity(0.5) saturate(0.9)
     &--bot-type
-        .index-title,.index-info
-            color: #fff !important
-            text-shadow: 0 0 10rem #01f
+        padding: 2rem
+        height: 16rem !important
+        align-items: center
+        justify-content: center
+        .index-title
+            color: var(--new-vibe) !important
+        .index-info
+            color: var(--label) !important
+            flex: none
         .theme-img
             opacity: 0.8 !important
             height: 100% !important
@@ -90,30 +101,11 @@
                 opacity: 1 !important
                 background-image: linear-gradient(to bottom, #0000 0%, #00a 80%) !important
                 height: 100% !important
-        &:hover
-            .theme-img
-                transform: scale(1.1) !important
-                opacity: 1 !important
-    &--dca
-        &:hover, &.active
-            background: color(display-p3 0 0.31 0.34) !important
-    &--dca-dual-asset
-        &:hover, &.active
-            background: #00a !important
-            .theme-img
-                &::after
-                    top: 0 !important
-        .theme-img
-            &::after
-                top: -20rem !important
-                transition: all 4s ease
-                background-image: linear-gradient(to bottom, #00a0 0%, #00a 80%) !important
-    &--dca
-        .theme-img::after
-            background-image: linear-gradient(to bottom, #0000 0%, color(display-p3 0 0.31 0.34) 80%) !important
-    &--legacy
-        .theme-img::after
-            background-image: linear-gradient(to bottom, #0000 0%, color(display-p3 0 0.18 0.34) 80%) !important
+    &--soon
+        cursor: default
+        &.itile--bot-type .index-title
+            color: var(--label) !important
+            opacity: 0.75
     .sbadge
         position: absolute
         top: 1rem

@@ -1,20 +1,14 @@
 pl:
     six_reasons:
         tracking:
-            title: "Tracking"
-            description: "<b>Śledź swoją inwestycję</b> za pomocą wykresu i eksportu CSV. Jeśli twoja giełda zmieniła opłaty, przenieś swojego bota na inną giełdę bez utraty historii."
+            title: "Śledź swoją inwestycję"
         lower_fees:
-            title: "Niższe opłaty"
-            description: "Wiele automatyzacji DCA wiąże się z wyższymi opłatami i cenami. FeeCutter pozwala ci skorzystać z niższych opłat <i>maker</i> i <b>skutecznie zredukować opłaty do zera</b>."
+            title: "Zredukuj opłaty do ZERA"
         buy_the_dip:
-            title: "Kup spadek!"
-            description: "<b>Łap najlepsze ceny</b> używając popularnych wskaźników jak RSI i średnie kroczące, lub po prostu wykrywaj nagłe spadki cen dzięki naszym unikalnym opcjom dla traderów."
+            title: "Kupuj spadki z RSI"
         avoid_taxes:
-            title: "Unikaj podatków"
-            description: "<b>Rebalansowane DCA</b> to nasz <i>as w rękawie</i>. DCA w wiele aktywów, rebalansowanie do pożądanej alokacji bez wpadania w podatek od zysków kapitałowych."
+            title: "Rebalansuj bez podatku"
         backtest_with_ai:
             title: "Backtestuj z AI"
-            description: "Nasz <b>Analizator Portfolio</b> pozwala ci przetestować każde portfolio, od DeFi po ETF-y Vanguard, znaleźć optymalne alokacje i uzyskać wgląd AI."
         invest_in_index:
             title: "Inwestuj w indeks"
-            description: "Top 10 czy Top 500? Zbuduj swój osobisty <b>crypto S&P 500</b>. Bot automatycznie sprzedaje słabo radzące sobie aktywa i alokuje twój kapitał do wygrywających projektów." 
