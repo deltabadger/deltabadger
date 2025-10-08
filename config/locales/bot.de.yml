@@ -10,7 +10,7 @@ de:
                 description: "In einen Vermögenswert investieren"
             dca_dual_asset:
                 title: "Rebalanciertes DCA"
-                description: "Zwischen zwei Vermögenswerten rebalancieren"
+                description: "Zwei Assets rebalancieren"
             legacy:
                 title: "Legacy Bot"
                 description: "DCA + Auszahlungen"

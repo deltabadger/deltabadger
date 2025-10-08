@@ -10,7 +10,7 @@ en:
                 description: "Invest in one asset"
             dca_dual_asset:
                 title: "Rebalanced DCA"
-                description: "Rebalance between two assets"
+                description: "Rebalance two assets"
             legacy:
                 title: "Legacy Bot"
                 description: "DCA + Withdrawals"

@@ -10,7 +10,7 @@ pl:
                 description: "Inwestuj w jedno aktywo"
             dca_dual_asset:
                 title: "Rebalansowane DCA"
-                description: "Rebalansuj między dwoma aktywami"
+                description: "Rebalansuj dwa aktywa"
             legacy:
                 title: "Bot Legacy"
                 description: "DCA + Wypłaty"
