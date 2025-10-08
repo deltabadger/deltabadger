@@ -1,34 +1,18 @@
-
-<!--<div class="page-head page-head--dashboard">
-
-    <%= button_to new_bot_path, method: :get, class: "button button--primary", data: { turbo_frame: "modal" } do %>
-        <span class="d-none d-sm-inline"><%= t('bot.new') %></span>
-        <i class="material-icons">add</i>
-    <% end %>
-</div>-->
-
 <div class="menu-start">
-    <div class="big-header big-header--2 text-center"><%= t('header.start_investing') %></div>
     <div class="introtiles">
-
-        <%= link_to new_bots_dca_single_assets_pick_buyable_asset_path, class: 'itile itile--bot-type itile--dca', data: { action: 'click->modal--base#animateOutCloseAndCleanUp', turbo_frame: "modal" } do %>
-            <div class="theme-img" style="background-image: url('<%= asset_path('strategy--dca.webp') %>')"></div>
+        <%= link_to new_bots_dca_single_assets_pick_buyable_asset_path, class: 'itile itile--bot-type', data: { action: 'click->modal--base#animateOutCloseAndCleanUp', turbo_frame: "modal" } do %>
             <div class="index-title"><%= t('bot.types.dca.title') %></div>
             <div class="index-info"><%= t('bot.types.dca.description').html_safe %></div>
         <% end %>
 
         <%= link_to new_bots_dca_dual_assets_pick_first_buyable_asset_path, class: 'itile itile--bot-type', data: { action: 'click->modal--base#animateOutCloseAndCleanUp', turbo_frame: 'modal' } do %>
-            <div class="theme-img" style="background-image: url('<%= asset_path('strategy--barbell.webp') %>')"></div>
             <div class="index-title"><%= t('bot.types.dca_dual_asset.title') %></div>
             <div class="index-info"><%= t('bot.types.dca_dual_asset.description').html_safe %></div>
         <% end %>
 
-        <%# path = current_user.subscription.free? ? upgrade_instructions_path : bots_path(create: true) %>
-        <%# data = current_user.subscription.free? ? { turbo_frame: "modal" } : { turbo: false } %>
         <% path = bots_path(create: true) %>
         <% data = { turbo: false } %>
-        <%= link_to path, class: 'itile itile--bot-type itile--legacy', data: { action: 'click->modal--base#animateOutCloseAndCleanUp' }.merge(data) do %>
-            <div class="theme-img" style="background-image: url('<%= asset_path('strategy-06.jpg') %>')"></div>
+        <%= link_to path, class: 'itile itile--bot-type', data: { action: 'click->modal--base#animateOutCloseAndCleanUp' }.merge(data) do %>
             <div class="index-title"><%= t('bot.types.legacy.title') %></div>
             <div class="index-info"><%= t('bot.types.legacy.description').html_safe %></div>
         <% end %>
@@ -241,36 +225,29 @@
         -->
 </div>
 
-<div class="big-header big-header--2 text-center" style="margin: 9rem 0 0"><%= t('header.six_reasons') %></div>
 <div class="introtiles">
     <div class="introtile">
-        <h2 class="header header--3"><%= t('six_reasons.tracking.title') %></h2>
-        <p><%= t('six_reasons.tracking.description').html_safe %></p>
-        <%= render partial: 'svg/why01' %>
-    </div>
-    <div class="introtile">
         <h2 class="header header--3"><%= t('six_reasons.lower_fees.title') %></h2>
-        <p><%= t('six_reasons.lower_fees.description').html_safe %></p>
         <%= render partial: 'svg/why02' %>
     </div>
     <div class="introtile">
         <h2 class="header header--3"><%= t('six_reasons.buy_the_dip.title') %></h2>
-        <p><%= t('six_reasons.buy_the_dip.description').html_safe %></p>
         <%= render partial: 'svg/why03' %>
     </div>
     <div class="introtile">
         <h2 class="header header--3"><%= t('six_reasons.avoid_taxes.title') %></h2>
-        <p><%= t('six_reasons.avoid_taxes.description').html_safe %></p>
         <%= render partial: 'svg/why04' %>
     </div>
     <div class="introtile">
         <h2 class="header header--3"><%= t('six_reasons.backtest_with_ai.title') %></h2>
-        <p><%= t('six_reasons.backtest_with_ai.description').html_safe %></p>
         <%= render partial: 'svg/why05' %>
     </div>
     <div class="introtile">
+        <h2 class="header header--3"><%= t('six_reasons.tracking.title') %></h2>
+        <%= render partial: 'svg/why01' %>
+    </div>
+    <div class="introtile">
         <h2 class="header header--3"><%= t('six_reasons.invest_in_index.title') %> <span class="sbadge sbadge--soon"><%= t('utils.soon') %></span></h2>
-        <p><%= t('six_reasons.invest_in_index.description').html_safe %></p>
         <%= render partial: 'svg/why06' %>
     </div>
 </div>

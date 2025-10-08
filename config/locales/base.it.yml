@@ -1,7 +1,6 @@
 it:
     header:
         start_investing: 'Inizia a investire:'
-        six_reasons: '6 motivi per investire con Deltabadger:'
         trading_options: 'Opzioni per traders:'
     ads:
         dca_profit_html: |

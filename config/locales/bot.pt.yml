@@ -10,7 +10,7 @@ pt:
                 description: "Investir num ativo"
             dca_dual_asset:
                 title: "DCA Reequilibrado"
-                description: "Reequilibrar entre dois ativos"
+                description: "Reequilibrar dois ativos"
             legacy:
                 title: "Bot Legacy"
                 description: "DCA + Levantamentos"
