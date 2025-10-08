@@ -10,7 +10,7 @@ ru:
                 description: "Инвестировать в один актив"
             dca_dual_asset:
                 title: "Ребалансированный DCA"
-                description: "Ребалансировка между двумя активами"
+                description: "Ребалансировка двух активов"
             legacy:
                 title: "Legacy Bot"
                 description: "DCA + Вывод средств"
