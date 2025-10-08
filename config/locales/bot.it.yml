@@ -10,7 +10,7 @@ it:
                 description: "Investi in un asset"
             dca_dual_asset:
                 title: "DCA Ribilanciato"
-                description: "Ribilancia tra due asset"
+                description: "Ribilancia due asset"
             legacy:
                 title: "Bot Legacy"
                 description: "DCA + Prelievi"
