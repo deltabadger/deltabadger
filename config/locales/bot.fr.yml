@@ -10,7 +10,7 @@ fr:
                 description: "Investir dans un actif"
             dca_dual_asset:
                 title: "DCA Rééquilibré"
-                description: "Rééquilibrer entre deux actifs"
+                description: "Rééquilibrer deux actifs"
             legacy:
                 title: "Bot Legacy"
                 description: "DCA + Retraits"

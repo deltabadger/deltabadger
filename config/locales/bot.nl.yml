@@ -10,7 +10,7 @@ nl:
                 description: "Investeer in één asset"
             dca_dual_asset:
                 title: "Geherbalanceerde DCA"
-                description: "Herbalanceer tussen twee assets"
+                description: "Herbalanceer twee assets"
             legacy:
                 title: "Legacy Bot"
                 description: "DCA + Opnames"
