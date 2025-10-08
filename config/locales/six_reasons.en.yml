@@ -1,20 +1,14 @@
 en:
     six_reasons:
         tracking:
-            title: "Tracking"
-            description: "<b>Track your investment</b> with a chart and CSV export. If your exchange has changed fees, move your bot to another exchange without losing your history."
+            title: "Track your investment"
         lower_fees:
-            title: "Lower fees"
-            description: "Many DCA automations involve higher fees and prices. FeeCutter allows you to benefit from lower <i>maker</i> fees and effectively <b>reduce fees to zero</b>."
+            title: "Cut fees to ZERO"
         buy_the_dip:
-            title: "Buy the dip!"
-            description: "<b>Catch the best prices</b> using popular indicators like RSI and moving averages, or simply detect sudden price drops with our unique options for traders."
+            title: "Buy the dip with RSI"
         avoid_taxes:
-            title: "Avoid taxes"
-            description: "<b>Rebalanced DCA</b> is our <i>special sauce</i>. DCA into multiple assets, rebalancing to your desired allocation without incurring capital gains taxes."
+            title: "Rebalance without taxes"
         backtest_with_ai:
             title: "Backtest with AI"
-            description: "Our <b>Portfolio Analyzer</b> allows you to backtest any portfolio, from DeFi to Vanguard ETFs, find optimal allocations, and get AI insights."
         invest_in_index:
             title: "Invest in the index"
-            description: "Top 10 or Top 500? Build your personal <b>crypto S&P 500</b>. The bot automatically sells underperformers and allocates your capital to winning projects."
