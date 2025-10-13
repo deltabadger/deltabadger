@@ -28,8 +28,8 @@ class Clients::Coingecko < Client
       response = self.class.connection.get do |req|
         req.url 'coins/list'
         req.params = {
-          include_platform: include_platform include_platform,
- status          status: status
+          include_platform: include_platform,
+          status: status
         }
       end
       Result::Success.new(response.body)
@@ -67,14 +67,14 @@ class Clients::Coingecko < Client
       response = self.class.connection.get do |req|
         req.url 'coins/markets'
         ids = ids.join(',') if ids.present?
-        req.params =  vs_currency{
-          vs_c idsurrency: vs_currency, category
-          ids: id orders,
-          category per_page: category,
-      page     order: order,
-    sparkline       per_page: per_page,
-          price_change_percentage page: page,
-       locale    sparkline: sparkli precisionne,
+        req.params = {
+          vs_currency: vs_currency,
+          ids: ids,
+          category: category,
+          order: order,
+          per_page: per_page,
+          page: page,
+          sparkline: sparkline,
           price_change_percentage: price_change_percentage,
           locale: locale,
           precision: precision
@@ -102,10 +102,10 @@ class Clients::Coingecko < Client
     sparkline: false
   )
     with_rescue do
-      re localizationsponse = self.class. tickersconnection.get do |req|
- market_data        req.url "coins/#{id community_data}"
+      response = self.class.connection.get do |req|
+        req.url "coins/#{id}"
         req.params = {
-  developer_data         localization: sparkline localization,
+          localization: localization,
           tickers: tickers,
           market_data: market_data,
           community_data: community_data,
@@ -135,11 +135,11 @@ class Clients::Coingecko < Client
     precision: 'full'
   )
     with_rescue do
-      response = self.class include_market_cap.connection.get do |req|
-     include_24hr_vol    req.url 'simple/price'
-      include_24hr_change   req.params = {
-          ids: coi include_last_updated_atn_ids.join(','),
-      precision     vs_currencies: vs_currencies.join(','),
+      response = self.class.connection.get do |req|
+        req.url 'simple/price'
+        req.params = {
+          ids: coin_ids.join(','),
+          vs_currencies: vs_currencies.join(','),
           include_market_cap: include_market_cap,
           include_24hr_vol: include_24hr_vol,
           include_24hr_change: include_24hr_change,
@@ -157,9 +157,9 @@ class Clients::Coingecko < Client
   # @param days [Int] Data up to number of days ago, can be integer or 'max'
   # @param interval [String] can be one of these values: nil, '5m', 'hourly', 'daily'
   # @param precision [Int] or 'full' for full data
-  def coi vs_currencyn_historical_char dayst_data_by_id(
-    coi intervaln_id:,
-    vs_currency precision:,
+  def coin_historical_chart_data_by_id(
+    coin_id:,
+    vs_currency:,
     days:,
     interval: nil,
     precision: 'full'
@@ -185,11 +185,11 @@ class Clients::Coingecko < Client
   # @param to [Int] To date in UNIX timestamp
   # @param interval [String] can be one of these values: '5m', 'hourly', 'daily'
   # @param precision [Int] or 'full' for full data
-  def coin vs_currency_historical_chart_data_within_time_range_by_id(
+  def coin_historical_chart_data_within_time_range_by_id(
     coin_id:,
-    vs_cu intervalrrency:,
+    vs_currency:,
     from:,
-   precision  to:,
+    to:,
     interval: 'daily',
     precision: 'full'
   )
@@ -226,10 +226,10 @@ class Clients::Coingecko < Client
   # @param page [Int] Page through results, default: 1
   # @param depth [Boolean] Include 2% orderbook depth (Example: cost_to_move_up_usd & cost_to_move_down_usd), default: false
   # @param order [String] Use this to sort the order of responses, default: trust_score_desc
-  def exchange_t include_exchange_logoickers_by_id(
-    page id:,
-    coin_ids depth: nil,
-    include order_exchange_logo: false,
+  def exchange_tickers_by_id(
+    id:,
+    coin_ids: nil,
+    include_exchange_logo: false,
     page: 1,
     depth: false,
     order: 'trust_score_desc'
