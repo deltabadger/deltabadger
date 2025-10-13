@@ -167,7 +167,7 @@ GEM
     chunky_png (1.4.0)
     coderay (1.1.3)
     concurrent-ruby (1.2.3)
-    connection_pool (2.5.0)
+    connection_pool (2.5.4)
     crass (1.0.6)
     cronex (0.15.0)
       tzinfo
@@ -220,7 +220,7 @@ GEM
     faraday-multipart (1.0.4)
       multipart-post (~> 2)
     faraday-net_http (3.0.2)
-    faraday-net_http_persistent (2.3.0)
+    faraday-net_http_persistent (2.3.1)
       faraday (~> 2.5)
       net-http-persistent (>= 4.0.4, < 5)
     ffi (1.17.2-aarch64-linux-gnu)
@@ -339,8 +339,8 @@ GEM
     multi_xml (0.6.0)
     multipart-post (2.4.1)
     nenv (0.3.0)
-    net-http-persistent (4.0.4)
-      connection_pool (~> 2.2)
+    net-http-persistent (4.0.6)
+      connection_pool (~> 2.2, >= 2.2.4)
     net-imap (0.3.9)
       date
       net-protocol
@@ -647,7 +647,7 @@ DEPENDENCIES
   faker
   faraday
   faraday-manual-cache!
-  faraday-net_http_persistent (~> 2.3.0)
+  faraday-net_http_persistent (~> 2.3.1)
   guard-rspec
   guard-rubocop
   haikunator (~> 1.1)
