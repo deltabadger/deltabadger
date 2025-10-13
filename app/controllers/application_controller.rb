@@ -11,7 +11,7 @@ class ApplicationController < ActionController::Base
 
   def switch_locale(&action)
     locale = params[:locale] || current_user.try(:locale) || I18n.default_locale
-    current_user.update(locale: locale) if current_user.present?
+    current_user.update(locale:) if current_user.present?
     I18n.with_locale(locale, &action)
   end
 
@@ -46,7 +46,7 @@ class ApplicationController < ActionController::Base
   def check_onboarding_survey
     return if current_user.admin?
 
-    redirect_to step_one_surveys_onboarding_path unless current_user.surveys.onboarding.exists?
+    redirect_to step_one_surveys_onboarding_v2_path unless current_user.surveys.onboarding_v2.exists?
   end
 
   def set_country

@@ -1,5 +1,5 @@
-desc 'Generate onboarding survey results'
-task onboarding_survey_results: :environment do
+desc 'Generate onboarding survey V1 results'
+task onboarding_survey_v1_results: :environment do
   answers = Survey.onboarding.pluck(:answers)
 
   buy_the_dip = answers.count { |answer| answer['investment_goal'] == 'buy_the_dip' }

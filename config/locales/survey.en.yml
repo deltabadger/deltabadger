@@ -9,3 +9,25 @@ en:
       step2:
         title: "Which exchanges do you use?"
         other: "Other"
+  onboarding_v2:
+    survey:
+      step1:
+        title: "How would you like to invest?"
+        options:
+          exchange: "Exchange"
+          defi: "DeFi"
+      step2:
+        title: "What would you like to invest into?"
+        options:
+          bitcoin: "Bitcoin"
+          ethereum: "Ethereum"
+          top_5_crypto: "Top 5 Crypto"
+          top_10_crypto: "Top 10 Crypto"
+          top_50_crypto: "Top 50 Crypto"
+          altcoin_season: "Altcoin Season"
+          magnificent_7: "Magnificent 7"
+          nasdaq_100: "Nasdaq 100"
+          sp_500: "S&P 500"
+          gold: "Gold"
+          other_stocks: "Other stocks"
+          other_crypto: "Other crypto"
