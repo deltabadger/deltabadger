@@ -19,6 +19,7 @@ class Exchange < ApplicationRecord
                                            Exchanges::Kraken
                                            Exchanges::Binance
                                            Exchanges::BinanceUs
+                                           Exchanges::Kucoin
                                          ])
                                  } # FIXME: Temporary until all exchanges are supported
 

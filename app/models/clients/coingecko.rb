@@ -28,8 +28,8 @@ class Clients::Coingecko < Client
       response = self.class.connection.get do |req|
         req.url 'coins/list'
         req.params = {
-          include_platform: include_platform,
-          status: status
+          include_platform:,
+          status:
         }
       end
       Result::Success.new(response.body)
@@ -68,16 +68,16 @@ class Clients::Coingecko < Client
         req.url 'coins/markets'
         ids = ids.join(',') if ids.present?
         req.params = {
-          vs_currency: vs_currency,
-          ids: ids,
-          category: category,
-          order: order,
-          per_page: per_page,
-          page: page,
-          sparkline: sparkline,
-          price_change_percentage: price_change_percentage,
-          locale: locale,
-          precision: precision
+          vs_currency:,
+          ids:,
+          category:,
+          order:,
+          per_page:,
+          page:,
+          sparkline:,
+          price_change_percentage:,
+          locale:,
+          precision:
         }.compact
       end
       Result::Success.new(response.body)
@@ -105,12 +105,12 @@ class Clients::Coingecko < Client
       response = self.class.connection.get do |req|
         req.url "coins/#{id}"
         req.params = {
-          localization: localization,
-          tickers: tickers,
-          market_data: market_data,
-          community_data: community_data,
-          developer_data: developer_data,
-          sparkline: sparkline
+          localization:,
+          tickers:,
+          market_data:,
+          community_data:,
+          developer_data:,
+          sparkline:
         }.compact
       end
       Result::Success.new(response.body)
@@ -140,11 +140,11 @@ class Clients::Coingecko < Client
         req.params = {
           ids: coin_ids.join(','),
           vs_currencies: vs_currencies.join(','),
-          include_market_cap: include_market_cap,
-          include_24hr_vol: include_24hr_vol,
-          include_24hr_change: include_24hr_change,
-          include_last_updated_at: include_last_updated_at,
-          precision: precision
+          include_market_cap:,
+          include_24hr_vol:,
+          include_24hr_change:,
+          include_last_updated_at:,
+          precision:
         }.compact
       end
       Result::Success.new(response.body)
@@ -168,10 +168,10 @@ class Clients::Coingecko < Client
       response = self.class.connection.get do |req|
         req.url "coins/#{coin_id}/market_chart"
         req.params = {
-          vs_currency: vs_currency,
-          days: days,
-          interval: interval,
-          precision: precision
+          vs_currency:,
+          days:,
+          interval:,
+          precision:
         }.compact
       end
       Result::Success.new(response.body)
@@ -197,11 +197,11 @@ class Clients::Coingecko < Client
       response = self.class.connection.get do |req|
         req.url "coins/#{coin_id}/market_chart/range"
         req.params = {
-          vs_currency: vs_currency,
+          vs_currency:,
           from: from.to_i,
           to: to.to_i,
-          interval: interval,
-          precision: precision
+          interval:,
+          precision:
         }.compact
       end
       Result::Success.new(response.body)
@@ -239,10 +239,10 @@ class Clients::Coingecko < Client
         req.url "exchanges/#{id}/tickers"
         req.params = {
           coin_ids: coin_ids&.join(','),
-          include_exchange_logo: include_exchange_logo,
-          page: page,
-          depth: depth,
-          order: order
+          include_exchange_logo:,
+          page:,
+          depth:,
+          order:
         }.compact
       end
       Result::Success.new(response.body)
