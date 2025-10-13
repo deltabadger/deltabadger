@@ -1,0 +1,22 @@
+<div class="onboarding-survey__step onboarding-survey__step--2">
+  <h1 class="onboarding-survey__title"><%= t('onboarding_v2.survey.step2.title') %></h1>
+
+  <%= form_with model: @survey, url: surveys_onboarding_v2_path, method: :post, class: "onboarding-survey__options", data: { controller: "form--checkbox-enables", form__checkbox_enables_mode_value: "some" } do |f| %>
+    <%= f.hidden_field :investment_method, value: @survey.answers['investment_method'] %>
+
+    <div class="onboarding-survey__exchanges">
+      <% @investment_assets.each do |asset| %>
+        <label class="onboarding-survey__exchanges__item" data-controller="class-toggle" data-class-toggle-target="togglable" data-class-toggle-toggle-classes-value='["active"]'>
+          <%= f.check_box :investment_assets, { multiple: true, class: "onboarding-survey__exchanges__item__checkbox", data: { action: "change->class-toggle#toggle change->form--checkbox-enables#toggleSubmitButton", form__checkbox_enables_target: "checkbox" } }, asset[:id], nil %>
+          <%= asset[:name] %>
+        </label>
+      <% end %>
+    </div>
+
+    <div class="onboarding-survey__actions">
+      <%= f.submit t(('button.start')), class: "button button--large button--success", data: { form__checkbox_enables_target: "submit" }, disabled: true %>
+    </div>
+
+  <% end %>
+</div>
+

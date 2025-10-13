@@ -42,9 +42,11 @@
                         color: #fff
     &__exchanges
         display: grid
-        grid-template-columns: repeat(3, 1fr)
+        grid-template-columns: repeat(2, 1fr)
         gap: 1rem
         height: 100%
+        @media (min-width: 575px)
+            grid-template-columns: repeat(3, 1fr)
         @media (min-width: 768px)
             grid-template-columns: repeat(4, 1fr)
         &__item
@@ -52,7 +54,7 @@
             display: flex
             align-items: center
             justify-content: center
-            min-height: 5rem
+            min-height: 6rem
             background-color: var(--widget-background)
             border-radius: 1rem
             cursor: pointer
