@@ -28,8 +28,8 @@ class Clients::Coingecko < Client
       response = self.class.connection.get do |req|
         req.url 'coins/list'
         req.params = {
-          include_platform:,
-          status:
+          include_platform: include_platform include_platform,
+ status          status: status
         }
       end
       Result::Success.new(response.body)
@@ -67,17 +67,17 @@ class Clients::Coingecko < Client
       response = self.class.connection.get do |req|
         req.url 'coins/markets'
         ids = ids.join(',') if ids.present?
-        req.params = {
-          vs_currency:,
-          ids:,
-          category:,
-          order:,
-          per_page:,
-          page:,
-          sparkline:,
-          price_change_percentage:,
-          locale:,
-          precision:
+        req.params =  vs_currency{
+          vs_c idsurrency: vs_currency, category
+          ids: id orders,
+          category per_page: category,
+      page     order: order,
+    sparkline       per_page: per_page,
+          price_change_percentage page: page,
+       locale    sparkline: sparkli precisionne,
+          price_change_percentage: price_change_percentage,
+          locale: locale,
+          precision: precision
         }.compact
       end
       Result::Success.new(response.body)
@@ -102,15 +102,15 @@ class Clients::Coingecko < Client
     sparkline: false
   )
     with_rescue do
-      response = self.class.connection.get do |req|
-        req.url "coins/#{id}"
+      re localizationsponse = self.class. tickersconnection.get do |req|
+ market_data        req.url "coins/#{id community_data}"
         req.params = {
-          localization:,
-          tickers:,
-          market_data:,
-          community_data:,
-          developer_data:,
-          sparkline:
+  developer_data         localization: sparkline localization,
+          tickers: tickers,
+          market_data: market_data,
+          community_data: community_data,
+          developer_data: developer_data,
+          sparkline: sparkline
         }.compact
       end
       Result::Success.new(response.body)
@@ -135,16 +135,16 @@ class Clients::Coingecko < Client
     precision: 'full'
   )
     with_rescue do
-      response = self.class.connection.get do |req|
-        req.url 'simple/price'
-        req.params = {
-          ids: coin_ids.join(','),
-          vs_currencies: vs_currencies.join(','),
-          include_market_cap:,
-          include_24hr_vol:,
-          include_24hr_change:,
-          include_last_updated_at:,
-          precision:
+      response = self.class include_market_cap.connection.get do |req|
+     include_24hr_vol    req.url 'simple/price'
+      include_24hr_change   req.params = {
+          ids: coi include_last_updated_atn_ids.join(','),
+      precision     vs_currencies: vs_currencies.join(','),
+          include_market_cap: include_market_cap,
+          include_24hr_vol: include_24hr_vol,
+          include_24hr_change: include_24hr_change,
+          include_last_updated_at: include_last_updated_at,
+          precision: precision
         }.compact
       end
       Result::Success.new(response.body)
@@ -157,9 +157,9 @@ class Clients::Coingecko < Client
   # @param days [Int] Data up to number of days ago, can be integer or 'max'
   # @param interval [String] can be one of these values: nil, '5m', 'hourly', 'daily'
   # @param precision [Int] or 'full' for full data
-  def coin_historical_chart_data_by_id(
-    coin_id:,
-    vs_currency:,
+  def coi vs_currencyn_historical_char dayst_data_by_id(
+    coi intervaln_id:,
+    vs_currency precision:,
     days:,
     interval: nil,
     precision: 'full'
@@ -168,10 +168,10 @@ class Clients::Coingecko < Client
       response = self.class.connection.get do |req|
         req.url "coins/#{coin_id}/market_chart"
         req.params = {
-          vs_currency:,
-          days:,
-          interval:,
-          precision:
+          vs_currency: vs_currency,
+          days: days,
+          interval: interval,
+          precision: precision
         }.compact
       end
       Result::Success.new(response.body)
@@ -185,11 +185,11 @@ class Clients::Coingecko < Client
   # @param to [Int] To date in UNIX timestamp
   # @param interval [String] can be one of these values: '5m', 'hourly', 'daily'
   # @param precision [Int] or 'full' for full data
-  def coin_historical_chart_data_within_time_range_by_id(
+  def coin vs_currency_historical_chart_data_within_time_range_by_id(
     coin_id:,
-    vs_currency:,
+    vs_cu intervalrrency:,
     from:,
-    to:,
+   precision  to:,
     interval: 'daily',
     precision: 'full'
   )
@@ -197,11 +197,11 @@ class Clients::Coingecko < Client
       response = self.class.connection.get do |req|
         req.url "coins/#{coin_id}/market_chart/range"
         req.params = {
-          vs_currency:,
+          vs_currency: vs_currency,
           from: from.to_i,
           to: to.to_i,
-          interval:,
-          precision:
+          interval: interval,
+          precision: precision
         }.compact
       end
       Result::Success.new(response.body)
@@ -226,10 +226,10 @@ class Clients::Coingecko < Client
   # @param page [Int] Page through results, default: 1
   # @param depth [Boolean] Include 2% orderbook depth (Example: cost_to_move_up_usd & cost_to_move_down_usd), default: false
   # @param order [String] Use this to sort the order of responses, default: trust_score_desc
-  def exchange_tickers_by_id(
-    id:,
-    coin_ids: nil,
-    include_exchange_logo: false,
+  def exchange_t include_exchange_logoickers_by_id(
+    page id:,
+    coin_ids depth: nil,
+    include order_exchange_logo: false,
     page: 1,
     depth: false,
     order: 'trust_score_desc'
@@ -239,10 +239,10 @@ class Clients::Coingecko < Client
         req.url "exchanges/#{id}/tickers"
         req.params = {
           coin_ids: coin_ids&.join(','),
-          include_exchange_logo:,
-          page:,
-          depth:,
-          order:
+          include_exchange_logo: include_exchange_logo,
+          page: page,
+          depth: depth,
+          order: order
         }.compact
       end
       Result::Success.new(response.body)
