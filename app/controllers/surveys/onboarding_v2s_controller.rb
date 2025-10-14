@@ -30,7 +30,7 @@ class Surveys::OnboardingV2sController < ApplicationController
       { id: 'gold', name: t('onboarding_v2.survey.step2.options.gold') },
       { id: 'other_stocks', name: t('onboarding_v2.survey.step2.options.other_stocks') },
       { id: 'other_crypto', name: t('onboarding_v2.survey.step2.options.other_crypto') }
-    ]
+    ].shuffle
   end
 
   def create
