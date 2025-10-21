@@ -13,7 +13,7 @@ task onboarding_survey_v1_results: :environment do
 
   puts "\nExchange counts:"
   exchange_counts.sort_by { |_, count| count }.reverse.each do |exchange, count|
-    puts "#{exchange}: #{count} (#{(count.to_f / exchange_counts.values.sum * 100).round(2)}%)"
+    puts "#{exchange}: #{count} (#{(count.to_f / answers.count * 100).round(2)}%)"
   end
 
   answers.reject! { |answer| answer['preferred_exchange'].include?('binance') }
@@ -24,6 +24,6 @@ task onboarding_survey_v1_results: :environment do
 
   puts "\nExchange counts (excluding Binance, Coinbase, Kraken):"
   exchange_counts.sort_by { |_, count| count }.reverse.each do |exchange, count|
-    puts "#{exchange}: #{count} (#{(count.to_f / exchange_counts.values.sum * 100).round(2)}%)"
+    puts "#{exchange}: #{count} (#{(count.to_f / answers.count * 100).round(2)}%)"
   end
 end
