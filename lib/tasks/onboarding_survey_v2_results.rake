@@ -13,6 +13,6 @@ task onboarding_survey_v2_results: :environment do
 
   puts "\nInvestment asset counts:"
   asset_counts.sort_by { |_, count| count }.reverse.each do |asset, count|
-    puts "#{asset}: #{count} (#{(count.to_f / asset_counts.values.sum * 100).round(2)}%)"
+    puts "#{asset}: #{count} (#{(count.to_f / answers.count * 100).round(2)}%)"
   end
 end
