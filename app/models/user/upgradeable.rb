@@ -4,13 +4,22 @@ module User::Upgradeable
   def available_plan_names
     return [] if subscription.legendary?
 
-    available_plans = base_plans[subscription.name] || []
+    # Normal (all plans are available)
+    # available_plans = base_plans[subscription.name] || []
+    # if subscription.research_only?
+    #   available_plans << SubscriptionPlan::RESEARCH_PLAN unless subscription.recurring?
+    # elsif subscription.free? || subscription.mini? || subscription.standard?
+    #   available_plans << SubscriptionPlan::RESEARCH_PLAN
+    # end
+    # available_plans << SubscriptionPlan::LEGENDARY_PLAN if legendary_plan_available?
+
+    # Capped (only research plan is available)
+    available_plans = []
     if subscription.research_only?
       available_plans << SubscriptionPlan::RESEARCH_PLAN unless subscription.recurring?
     elsif subscription.free? || subscription.mini? || subscription.standard?
       available_plans << SubscriptionPlan::RESEARCH_PLAN
     end
-    available_plans << SubscriptionPlan::LEGENDARY_PLAN if legendary_plan_available?
 
     available_plans
   end
