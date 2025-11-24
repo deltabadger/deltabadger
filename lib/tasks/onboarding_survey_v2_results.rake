@@ -22,7 +22,7 @@ task onboarding_survey_v2_results: :environment do
   digital_stocks = %w[other_stocks nasdaq_100 magnificent_7 sp_500]
   digital_stocks_count = answers.count { |answer| (answer['investment_assets'] & digital_stocks).any? }
 
-  crypto_only = %w[bitcoin ethereum top_10_crypto top_5_crypto other_crypto top_50_crypto altcoin_season]
+  crypto_only = %w[bitcoin ethereum top_10_crypto top_5_crypto other_crypto top_50_crypto altcoin_season gold]
   crypto_only_count = answers.count do |answer|
     (answer['investment_assets'] - crypto_only).empty? && answer['investment_assets'].any?
   end
