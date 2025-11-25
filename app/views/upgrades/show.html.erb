@@ -1,14 +1,15 @@
 <% content_for :body_class, "view--upgrade" %>
 
-<% if BlackFriday.week? && !current_user.subscription.legendary? %>
-  <%= render partial: 'layouts/banners/black_friday', locals: { show_upgrade_button: false } %>
-<% end %>
+<%# if BlackFriday.week? && !current_user.subscription.legendary? %>
+<%# = render partial: 'layouts/banners/black_friday', locals: { show_upgrade_button: false } %>
+<%# end %>
 
 <%= turbo_frame_tag "upgrade" do %>
   <div class="page-head">
     <%= form_with url: @scope == 'pricing' ? pricing_path : upgrade_path, method: :get, data: { controller: "form--submit", turbo_stream: true }, class: "pricing-period-toggle" do |f| %>
       <% @available_variant_days.each do |days| %>
         <% selected = days == @selected_days %>
+
         <%= tag.label class: "hide_radio_buttons" do %>
           <%= f.radio_button :days, days, checked: selected, data: { action: "change->form--submit#submit" } %>
           <span><%= t("subscriptions.variant_#{days}_days") %></span>
@@ -24,6 +25,7 @@
         <% next if !@mini_research_enabled && available_plan_name == 'mini_research' %>
         <% next if @standard_research_enabled && available_plan_name == 'standard' %>
         <% next if !@standard_research_enabled && available_plan_name == 'standard_research' %>
+
         <%= render partial: "upgrades/plan_cards/#{available_plan_name.gsub('_research', '')}", locals: {
           generic_plan_name: available_plan_name.gsub('_research', ''),
           reference_payment_option: @reference_payment_options[available_plan_name],

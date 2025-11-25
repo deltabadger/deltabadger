@@ -21,7 +21,7 @@ class Payment < ApplicationRecord
     # eg: June sales are calculated after June close and include the sales during May
     from = 2.month.ago.beginning_of_month
     to = 2.month.ago.end_of_month
-    paid.where(currency: currency).where(paid_at: from..to).sum(:total)
+    paid.where(currency:).where(paid_at: from..to).sum(:total)
   end
 
   def self.last_month_affiliate_commissions(currency)
@@ -29,7 +29,7 @@ class Payment < ApplicationRecord
     # eg: June sales are calculated after June close and include the sales during May
     from = 2.month.ago.beginning_of_month
     to = 2.month.ago.end_of_month
-    commission_granted.where(currency: currency).where(paid_at: from..to).sum(:commission)
+    commission_granted.where(currency:).where(paid_at: from..to).sum(:commission)
   end
 
   def self.last_month_vat_collected
@@ -113,6 +113,8 @@ class Payment < ApplicationRecord
   end
 
   def black_friday_discount_percent
+    return 0 # manually disabled for now
+
     return 0 unless subscription_plan_variant.pro? || subscription_plan_variant.legendary?
     return 0 unless BlackFriday.week?
 
@@ -132,7 +134,7 @@ class Payment < ApplicationRecord
                commission_multiplier = commission / total
                (btc_paid * commission_multiplier).floor(8)
              else
-               result = coingecko.get_price(coin_id: 'bitcoin', currency: currency)
+               result = coingecko.get_price(coin_id: 'bitcoin', currency:)
                return result if result.failure?
 
                btc_price = result.data
@@ -148,11 +150,11 @@ class Payment < ApplicationRecord
       if user.subscription.name == subscription_plan.name && user.subscription.ends_at.nil?
         # all good, we are just renewing the current subscription
       else
-        user.subscriptions.create!(subscription_plan_variant: subscription_plan_variant)
+        user.subscriptions.create!(subscription_plan_variant:)
       end
     else
       user.subscriptions.create!(
-        subscription_plan_variant: subscription_plan_variant,
+        subscription_plan_variant:,
         ends_at: subscription_plan_variant.days.nil? ? nil : paid_at + subscription_plan_variant.duration
       )
     end
@@ -197,9 +199,9 @@ class Payment < ApplicationRecord
 
   def current_subscription_base_price
     Payment.new(
-      user: user,
+      user:,
       subscription_plan_variant: user.subscription.subscription_plan_variant,
-      country: country
+      country:
     ).base_price
   end
 
