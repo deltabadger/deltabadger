@@ -1,8 +1,8 @@
 <%= turbo_stream_from "user_#{current_user.id}", :bot_updates %>
 
-<% if BlackFriday.week? && !current_user.subscription.legendary? %>
-  <%= render partial: 'layouts/banners/black_friday', locals: { show_upgrade_button: true } %>
-<% end %>
+<%# if BlackFriday.week? && !current_user.subscription.legendary? %>
+<%# = render partial: 'layouts/banners/black_friday', locals: { show_upgrade_button: true } %>
+<%# end %>
 
 <% unless current_user.news_banner_dismissed? %>
   <%# render 'layouts/banners/news_message' %>
@@ -12,7 +12,6 @@
   <%= render 'layouts/banners/referral_message' %>
 <% end %>
 
-
 <% unless current_user.welcome_banner_dismissed? %>
   <%= render partial: 'bots/welcome_message' %>
 <% end %>
@@ -21,7 +20,6 @@
   <%= render partial: 'bots/new_menu_start' %>
 <% else %>
   <div class="page-head page-head--dashboard">
-    
     <div class="bot-filters">
       <% if @show_filters %>
         <%= link_to t('bot_filters.all'), bots_path(filter: 'all'), class: ["button button--multi", ("button--multi--active" if @filter == 'all')] %>
@@ -29,7 +27,7 @@
         <%= link_to t('bot_filters.inactive'), bots_path(filter: 'inactive'), class: ["button button--multi", ("button--multi--active" if @filter == 'inactive')] %>
       <% end %>
     </div>
-    
+
     <div>
       <%= button_to new_bot_path, method: :get, class: "button button--primary", data: { turbo_frame: "modal" } do %>
         <span class="d-none d-sm-inline"><%= t('bot.new') %></span>
@@ -37,7 +35,6 @@
       <% end %>
     </div>
   </div>
-
   <% ids_to_load = @loading_hash.select { |_, loading| loading }.keys %>
   <%= tag.div class: 'itiles', data: ids_to_load.any? ? { controller: "broadcast--on-connect",
                                                           broadcast__on_connect_method_value: "pnl_update",
