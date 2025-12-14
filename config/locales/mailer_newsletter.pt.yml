@@ -4,7 +4,7 @@ pt:
     body: |
         <p>Não há uma maneira fácil de escrever isto, então serei directo:</p>
         <p>Somos forçados pelas regulamentações MiCA a parar de oferecer os bots nos nossos servidores até 31 de dezembro.</p>
-        
+
         <p><strong>O que está a mudar:</strong></p>
         <ol>
           <li>O serviço online irá agora oferecer apenas o <a href="https://app.deltabadger.com/en/portfolio-analyzer">Analisador de Carteira</a></li>
@@ -12,7 +12,7 @@ pt:
           <li>Estamos a tirar uma fotografia de todas as subscrições activas para creditar para o que vier a seguir</li>
           <li>Estamos a explorar como voltar num formato diferente</li>
         </ol>
-        
+
         <p><strong>O que aconteceu:</strong></p>
         <p>Quando lancei a Deltabadger em 2020, escolhi a Estónia porque tinham as regulamentações mais favoráveis às criptomoedas, a licença custava 345 euros e... não precisava dela porque o negócio não tocava nos fundos dos clientes. A licença hoje custa mais de 200.000 euros mais custos anuais recorrentes e KYC. A Deltabadger nunca foi grande o suficiente para se permitir esse tipo de custo recorrente, mesmo que conseguíssemos obter a licença, o que não é fácil nem rápido.</p>
         <p>Quando a MiCA foi introduzida, estava optimista porque esclarecia o estatuto de muitas coisas. Perdi uma mudança importante:</p>
@@ -26,8 +26,8 @@ pt:
         <p>Então aqui estamos, mesmo quando começámos a transformar a plataforma numa ferramenta de próximo nível, não nos podemos permitir a licença e temos de parar de oferecer o serviço.</p>
         <p>Sinto que vos desapontei, especialmente os nossos subscritores de longo prazo e vitalícios que construíram esta comunidade. Obrigado por acreditarem nesta visão. Dediquei 6 anos da minha vida a este projecto e continuarei a procurar formas de honrar a vossa confiança.</p>
         <p>O que está a acontecer agora:</p>
-        <p>O serviço online ainda oferecerá o Analisador e histórico de bots, mas será impossível iniciá-los depois de 31 de dezembro. O Guillem está a preparar a Deltabadger para que possam instalá-la no vosso próprio servidor (isto ainda é legal) ou computador pessoal para aqueles que quiserem continuar a usá-la.</p>
+        <p>O serviço online ainda oferecerá o Analisador e histórico de bots, mas será impossível iniciá-los depois de 31 de dezembro. Estamos a preparar o código de Deltabadger para que possam instalá-lo no vosso próprio servidor (isto ainda é legal) ou computador pessoal para aqueles que quiserem continuar a usá-lo.</p>
         <p>Manter-vos-ei actualizados sobre tudo o que está para vir.</p>
         <p>Os meus melhores cumprimentos,<br>Jan</p>
-    ps: | 
+    ps: |
       <p><strong>PS</strong> Tenho mais reflexões e <a href="https://janklosowski.substack.com/">escrevê-las-ei no meu Substack</a> quando o código open-source for lançado.</p>

@@ -4,7 +4,7 @@ nl:
     body: |
         <p>Er is geen makkelijke manier om dit te schrijven, dus ik zal direct zijn:</p>
         <p>We worden door MiCA-regelgeving gedwongen om het aanbieden van de bots op onze servers voor 31 december te stoppen.</p>
-        
+
         <p><strong>Wat er verandert:</strong></p>
         <ol>
           <li>De online service zal nu alleen nog de <a href="https://app.deltabadger.com/en/portfolio-analyzer">Portfolio Analyzer</a> aanbieden</li>
@@ -12,7 +12,7 @@ nl:
           <li>We maken een momentopname van alle actieve abonnementen om ze te crediteren naar wat er daarna komt</li>
           <li>We onderzoeken hoe we kunnen terugkeren in een ander formaat</li>
         </ol>
-        
+
         <p><strong>Wat er gebeurd is:</strong></p>
         <p>Toen ik Deltabadger in 2020 startte, koos ik voor Estland omdat zij de meest crypto-vriendelijke regelgeving hadden, de licentie kostte €345 en... ik had het niet nodig omdat het bedrijf geen klantengelden aanraakte. De licentie kost vandaag meer dan €200.000 plus terugkerende jaarlijkse kosten en KYC. Deltabadger was nooit groot genoeg om zich dat soort terugkerende kosten te kunnen veroorloven, zelfs als we de licentie hadden kunnen krijgen, wat niet makkelijk of snel is.</p>
         <p>Toen MiCA werd geïntroduceerd, was ik hoopvol omdat het de status van veel zaken opklaarde. Ik miste één belangrijke verandering:</p>
@@ -26,8 +26,8 @@ nl:
         <p>Dus hier zijn we, net toen we begonnen het platform te transformeren in een tool van het volgende niveau, kunnen we ons de licentie niet veroorloven en moeten we stoppen met het aanbieden van de service.</p>
         <p>Ik heb het gevoel dat ik jullie teleurgesteld heb, vooral onze langetermijn en levenslange abonnees die deze gemeenschap hebben opgebouwd. Bedankt voor het geloven in deze visie. Ik heb 6 jaar van mijn leven gewijd aan dit project en zal blijven zoeken naar manieren om jullie vertrouwen te eren.</p>
         <p>Wat er nu gebeurt:</p>
-        <p>De online service zal nog steeds de Analyzer en geschiedenis van bots aanbieden, maar het zal onmogelijk zijn om ze na 31 december te starten. Guillem bereidt Deltabadger voor zodat jullie het op jullie eigen server (dit is nog steeds legaal) of persoonlijke computer kunnen installeren voor degenen die het willen blijven gebruiken.</p>
+        <p>De online service zal nog steeds de Analyzer en geschiedenis van bots aanbieden, maar het zal onmogelijk zijn om ze na 31 december te starten. We bereiden de code van Deltabadger voor zodat jullie het op jullie eigen server (dit is nog steeds legaal) of persoonlijke computer kunnen installeren voor degenen die het willen blijven gebruiken.</p>
         <p>Ik zal jullie op de hoogte houden van alles wat eraan komt.</p>
         <p>Met vriendelijke groet,<br>Jan</p>
-    ps: | 
+    ps: |
       <p><strong>PS</strong> Ik heb meer gedachten en <a href="https://janklosowski.substack.com/">ik zal ze op mijn Substack</a> schrijven wanneer de open-source code wordt vrijgegeven.</p>

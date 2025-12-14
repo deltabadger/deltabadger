@@ -4,7 +4,7 @@ pl:
     body: |
         <p>Nie ma łatwego sposobu, żeby to napisać, więc powiem wprost:</p>
         <p>Regulacje MiCA zmuszają nas do zaprzestania oferowania botów na naszych serwerach do 31 grudnia.</p>
-        
+
         <p><strong>Co się zmienia:</strong></p>
         <ol>
           <li>Usługa online będzie teraz oferować jedynie <a href="https://app.deltabadger.com/en/portfolio-analyzer">Analizator Portfela</a></li>
@@ -12,7 +12,7 @@ pl:
           <li>Robimy zrzut wszystkich aktywnych subskrypcji, aby przeliczyć je na przyszłe rozwiązania</li>
           <li>Badamy możliwości powrotu w innej formie</li>
         </ol>
-        
+
         <p><strong>Co się stało:</strong></p>
         <p>Kiedy założyłem Deltabadger w 2020 roku, wybrałem Estonię, ponieważ mieli najbardziej przyjazne dla krypto regulacje, licencja kosztowała 345 euro i... nie potrzebowałem jej, bo firma nie dotykała środków klientów. Dziś licencja kosztuje ponad 200 tys. euro plus coroczne koszty i KYC. Deltabadger nigdy nie był na tyle duży, żeby pozwolić sobie na tego typu cykliczne koszty, nawet gdybyśmy mogli uzyskać licencję, co nie jest łatwe ani szybkie.</p>
         <p>Kiedy wprowadzono MiCA, miałem nadzieję, bo wyjaśniło to status wielu rzeczy. Przegapiłem jedną ważną zmianę:</p>
@@ -26,8 +26,8 @@ pl:
         <p>I tak oto, akurat gdy zaczęliśmy przekształcać platformę w narzędzie nowego poziomu, nie stać nas na licencję i musimy przestać oferować usługę.</p>
         <p>Czuję, że was zawiodłem, szczególnie naszych długoterminowych i dożywotnich subskrybentów, którzy zbudowali tę społeczność. Dziękuję za wiarę w tę wizję. Poświęciłem 6 lat mojego życia temu projektowi i będę nadal szukać sposobów, aby uhonorować wasze zaufanie.</p>
         <p>Co dzieje się teraz:</p>
-        <p>Usługa online nadal będzie oferować Analizator i historię botów, ale nie będzie już możliwe uruchamianie ich po 31 grudnia. Guillem przygotowuje Deltabadger, żebyście mogli go zainstalować na własnym serwerze (to nadal legalne) lub komputerze osobistym dla tych, którzy chcą dalej z niego korzystać.</p>
+        <p>Usługa online nadal będzie oferować Analizator i historię botów, ale nie będzie już możliwe uruchamianie ich po 31 grudnia. Przygotowujemy kod Deltabadger, żebyście mogli go zainstalować na własnym serwerze (to nadal legalne) lub komputerze osobistym dla tych, którzy chcą dalej z niego korzystać.</p>
         <p>Będę was informować o wszystkim, co nadchodzi.</p>
         <p>Życzę wszystkiego najlepszego,<br>Jan</p>
-    ps: | 
+    ps: |
       <p><strong>PS</strong> Mam więcej przemyśleń i <a href="https://janklosowski.substack.com/">napiszę je na moim Substack</a>, gdy kod open-source zostanie opublikowany.</p>
