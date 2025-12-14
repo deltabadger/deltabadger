@@ -1,18 +1,33 @@
 it:
   onetime_campaign_mailer:
-    subject: "ETF Bitcoin: Quale scegliere?"
+    subject: "Sono passati 6 anni"
     body: |
-        <p>Per il primo decennio di esistenza di Bitcoin, gli ETF erano fantasmi mitici all'orizzonte che avrebbero portato il prezzo di Bitcoin "sulla luna". Nel febbraio 2021, il primo ETF è stato finalmente accettato in Canada (BTCC), e andando avanti velocemente, il panorama degli ETF e ETP è diventato così vasto che ci si perde facilmente.</p>
+        <p>Non c'è un modo facile per scrivere questo, quindi sarò diretto:</p>
+        <p>Siamo costretti dalle normative MiCA a interrompere l'offerta dei bot sui nostri server entro il 31 dicembre.</p>
         
-        <p>Qual è la differenza tra ETF spot e futures, o tra ETF e ETP?</p>
-        <p>Quale scegliere?</p>
-
-        <p>Inoltre, nel Playbook copriamo:</p>
-        <p>✦ ETF Bitcoin/Ethereum<br/>
-        ✦ Come replicarli con Deltabadger?</p>
-        <p><a href="https://app.deltabadger.com/it/articles/bitcoin-etf">Leggi l'articolo completo →</a></p>
-        <p>Cordiali saluti,</p>
-        <p>Jan</p>
+        <p><strong>Cosa sta cambiando:</strong></p>
+        <ol>
+          <li>Il servizio online offrirà ora solo l'<a href="https://app.deltabadger.com/en/portfolio-analyzer">Analizzatore di Portafoglio</a></li>
+          <li>Il bot diventa open-source (rilascio del codice presto)</li>
+          <li>Stiamo facendo un'istantanea di tutti gli abbonamenti attivi per accreditarli verso qualsiasi cosa arrivi dopo</li>
+          <li>Stiamo esplorando come tornare in un formato diverso</li>
+        </ol>
+        
+        <p><strong>Cosa è successo:</strong></p>
+        <p>Quando ho lanciato Deltabadger nel 2020, ho scelto l'Estonia perché aveva le normative più favorevoli alle criptovalute, la licenza costava 345 euro e... non ne avevo bisogno perché l'azienda non toccava i fondi dei clienti. La licenza oggi costa oltre 200.000 euro più costi annuali ricorrenti e KYC. Deltabadger non è mai stata abbastanza grande da permettersi quel tipo di costo ricorrente anche se fossimo riusciti a ottenere la licenza, il che non è facile né veloce.</p>
+        <p>Quando MiCA è stata introdotta, ero speranzoso perché chiariva lo stato di molte cose. Mi sono perso un cambiamento importante:</p>
+        <p>Un servizio che partecipa in qualsiasi modo nelle transazioni degli utenti ora richiede un livello di regolamentazione più alto di un portafoglio di custodia. È difficile non notare che stava anche cambiando ogni due anni, quindi chissà quando accadrà il prossimo aumento:</p>
+        <ul>
+          <li>2017-2020: 345 euro</li>
+          <li>2020-2022: 3.300 euro</li>
+          <li>2022-2024: 10.000+ euro</li>
+          <li>2024-Ora: 200.000+ euro</li>
+        </ul>
+        <p>Quindi eccoci qui, proprio quando abbiamo iniziato a trasformare la piattaforma in uno strumento di livello superiore, non possiamo permetterci la licenza e dobbiamo smettere di offrire il servizio.</p>
+        <p>Sento di avervi deluso, specialmente i nostri abbonati di lunga data e a vita che hanno costruito questa comunità. Grazie per aver creduto in questa visione. Ho dedicato 6 anni della mia vita a questo progetto e continuerò a cercare modi per onorare la vostra fiducia.</p>
+        <p>Cosa sta succedendo ora:</p>
+        <p>Il servizio online offrirà ancora l'Analizzatore e la cronologia dei bot, ma sarà impossibile avviarli dopo il 31 dicembre. Guillem sta preparando Deltabadger in modo che possiate installarlo sul vostro server (questo è ancora legale) o computer personale per coloro che vogliono continuare a usarlo.</p>
+        <p>Vi terrò aggiornati su tutto quello che sta arrivando.</p>
+        <p>I miei migliori auguri,<br>Jan</p>
     ps: | 
-      <p>PS. Se hai perso la mia email precedente:</p>
-      <p><a href="https://www.skool.com/firestarters-1846">Unisciti alla community prima che l'accesso gratuito scompaia →</a></p>
+      <p><strong>PS</strong> Ho altri pensieri e <a href="https://janklosowski.substack.com/">li scriverò sul mio Substack</a> quando il codice open-source sarà rilasciato.</p>
