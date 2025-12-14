@@ -8,7 +8,7 @@ class ProductUpdatesMailer < CaffeinateMailer
 
   layout 'mailers/marketing'
 
-  def fireheads_restart(mailing)
+  def bot_goes_opensource(mailing)
     base_mail(mailing)
   end
 

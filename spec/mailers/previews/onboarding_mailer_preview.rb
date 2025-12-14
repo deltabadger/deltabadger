@@ -52,7 +52,7 @@ class OnboardingMailerPreview < ActionMailer::Preview
     )
 
     # Create a mock drip with options
-    drip = Struct.new(:options).new({ content_key: content_key })
+    drip = Struct.new(:options).new({ content_key: })
 
     # Create a mock mailing with the required attributes
     Struct.new(:subscription, :subscriber, :mailer_action, :caffeinate_campaign_subscription, :drip).new(

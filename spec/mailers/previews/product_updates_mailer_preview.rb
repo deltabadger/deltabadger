@@ -1,7 +1,7 @@
 # Preview all emails at http://localhost:3000/rails/mailers/product_updates_mailer
 class ProductUpdatesMailerPreview < ActionMailer::Preview
-  def first_email
-    ProductUpdatesMailer.new.first_email(mock_mailing_with_content_key('first_email'))
+  def bot_goes_opensource
+    ProductUpdatesMailer.bot_goes_opensource(mock_mailing_with_content_key('bot_goes_opensource'))
   end
 
   private
@@ -24,7 +24,7 @@ class ProductUpdatesMailerPreview < ActionMailer::Preview
     )
 
     # Create a mock drip with options
-    drip = Struct.new(:options).new({ content_key: content_key })
+    drip = Struct.new(:options).new({ content_key: })
 
     # Create a mock mailing with the required attributes
     Struct.new(:subscription, :subscriber, :mailer_action, :caffeinate_campaign_subscription, :drip).new(

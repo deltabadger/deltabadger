@@ -22,4 +22,5 @@ class Drippers::ProductUpdates < Dripper
   # mixed with other drips in the campaign
 
   # drip :fireheads_restart, delay: 0.days
+  drip :bot_goes_opensource, delay: 0.days
 end

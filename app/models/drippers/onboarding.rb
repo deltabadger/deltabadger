@@ -19,17 +19,18 @@ class Drippers::Onboarding < Dripper
   end
 
   # Optimized sequence for maximum sales + referral impact
-  drip :fee_cutter, delay: 1.minute       # Email #1: Immediate value, builds trust
-  drip :rsi, delay: 1.day                 # Email #2: Educational value, positions expertise
-  drip :referral, delay: 2.days           # Email #3: High engagement, passive income hook
-  drip :bitcoin_m2, on: :weekly_sunday     # Email #4: Knowledge article on Sunday
-  drip :grayscale_etf, on: :weekly_sunday  # Email #5: Knowledge article on Sunday
-  drip :stablecoins, on: :weekly_sunday    # Email #6: Knowledge article on Sunday
-  drip :polymarket, on: :weekly_sunday     # Email #7: Knowledge article on Sunday
-  drip :market_cap_weighting, on: :weekly_sunday # Email #8: Knowledge article on Sunday
-  drip :radical_portfolio, on: :weekly_sunday    # Email #9: Knowledge article on Sunday
-  drip :treasury_companies, on: :weekly_sunday   # Email #10: Knowledge article on Sunday
-  drip :avoid_taxes, delay: 7.days # Email #11: Advanced strategy for committed users
+
+  # drip :fee_cutter, delay: 1.minute       # Email #1: Immediate value, builds trust
+  # drip :rsi, delay: 1.day                 # Email #2: Educational value, positions expertise
+  # drip :referral, delay: 2.days           # Email #3: High engagement, passive income hook
+  # drip :bitcoin_m2, on: :weekly_sunday     # Email #4: Knowledge article on Sunday
+  # drip :grayscale_etf, on: :weekly_sunday  # Email #5: Knowledge article on Sunday
+  # drip :stablecoins, on: :weekly_sunday    # Email #6: Knowledge article on Sunday
+  # drip :polymarket, on: :weekly_sunday     # Email #7: Knowledge article on Sunday
+  # drip :market_cap_weighting, on: :weekly_sunday # Email #8: Knowledge article on Sunday
+  # drip :radical_portfolio, on: :weekly_sunday    # Email #9: Knowledge article on Sunday
+  # drip :treasury_companies, on: :weekly_sunday   # Email #10: Knowledge article on Sunday
+  # drip :avoid_taxes, delay: 7.days # Email #11: Advanced strategy for committed users
 
   private
 
