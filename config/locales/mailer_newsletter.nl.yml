@@ -1,18 +1,33 @@
 nl:
   onetime_campaign_mailer:
-    subject: "Bitcoin ETFs: Welke kiezen?"
+    subject: "Het is 6 jaar geweest"
     body: |
-        <p>Gedurende het eerste decennium van Bitcoin's bestaan waren ETFs mythische geesten aan de horizon die de Bitcoin-prijs "naar de maan" zouden brengen. In februari 2021 werd de eerste ETF eindelijk geaccepteerd in Canada (BTCC), en spoelend vooruit is het landschap van ETFs en ETPs zo uitgebreid geworden dat je er gemakkelijk het overzicht bij verliest.</p>
-        
-        <p>Wat is het verschil tussen spot- en futures-ETFs, of tussen ETF en ETP?</p>
-        <p>Welke kiezen?</p>
+        <p>Er is geen makkelijke manier om dit te schrijven, dus ik zal direct zijn:</p>
+        <p>We worden door MiCA-regelgeving gedwongen om het aanbieden van de bots op onze servers voor 31 december te stoppen.</p>
 
-        <p>Daarnaast behandelen we in het Playbook:</p>
-        <p>✦ Bitcoin/Ethereum ETFs<br/>
-        ✦ Hoe ze na te bootsen met Deltabadger?</p>
-        <p><a href="https://app.deltabadger.com/nl/articles/bitcoin-etf">Volledig artikel lezen →</a></p>
-        <p>Met vriendelijke groet,</p>
-        <p>Jan</p>
-    ps: | 
-      <p>PS. Als je mijn vorige e-mail hebt gemist:</p>
-      <p><a href="https://www.skool.com/firestarters-1846">Word lid van de community voordat gratis toegang verdwijnt →</a></p>
+        <p><strong>Wat er verandert:</strong></p>
+        <ol>
+          <li>De online service zal nu alleen nog de <a href="https://app.deltabadger.com/en/portfolio-analyzer">Portfolio Analyzer</a> aanbieden</li>
+          <li>De bot wordt open-source (code release binnenkort)</li>
+          <li>We maken een momentopname van alle actieve abonnementen om ze te crediteren naar wat er daarna komt</li>
+          <li>We onderzoeken hoe we kunnen terugkeren in een ander formaat</li>
+        </ol>
+
+        <p><strong>Wat er gebeurd is:</strong></p>
+        <p>Toen ik Deltabadger in 2020 startte, koos ik voor Estland omdat zij de meest crypto-vriendelijke regelgeving hadden, de licentie kostte €345 en... ik had het niet nodig omdat het bedrijf geen klantengelden aanraakte. De licentie kost vandaag meer dan €200.000 plus terugkerende jaarlijkse kosten en KYC. Deltabadger was nooit groot genoeg om zich dat soort terugkerende kosten te kunnen veroorloven, zelfs als we de licentie hadden kunnen krijgen, wat niet makkelijk of snel is.</p>
+        <p>Toen MiCA werd geïntroduceerd, was ik hoopvol omdat het de status van veel zaken opklaarde. Ik miste één belangrijke verandering:</p>
+        <p>Een service die op enigerlei wijze deelneemt aan gebruikerstransacties vereist nu een hoger niveau van regulatie dan een bewaar-wallet. Het is moeilijk om niet op te merken dat het ook elke twee jaar veranderde, dus wie weet wanneer de volgende verhoging zal plaatsvinden:</p>
+        <ul>
+          <li>2017-2020: €345</li>
+          <li>2020-2022: €3.300</li>
+          <li>2022-2024: €10.000+</li>
+          <li>2024-Nu: €200.000+</li>
+        </ul>
+        <p>Dus hier zijn we, net toen we begonnen het platform te transformeren in een tool van het volgende niveau, kunnen we ons de licentie niet veroorloven en moeten we stoppen met het aanbieden van de service.</p>
+        <p>Ik heb het gevoel dat ik jullie teleurgesteld heb, vooral onze langetermijn en levenslange abonnees die deze gemeenschap hebben opgebouwd. Bedankt voor het geloven in deze visie. Ik heb 6 jaar van mijn leven gewijd aan dit project en zal blijven zoeken naar manieren om jullie vertrouwen te eren.</p>
+        <p>Wat er nu gebeurt:</p>
+        <p>De online service zal nog steeds de Analyzer en geschiedenis van bots aanbieden, maar het zal onmogelijk zijn om ze na 31 december te starten. We bereiden Deltabadger voor zodat jullie het op jullie eigen server (dit is nog steeds legaal) of persoonlijke computer kunnen installeren voor degenen die het willen blijven gebruiken.</p>
+        <p>Ik zal jullie op de hoogte houden van alles wat eraan komt.</p>
+        <p>Met vriendelijke groet,<br>Jan</p>
+    ps: |
+      <p><strong>PS</strong> Ik heb meer gedachten en <a href="https://janklosowski.substack.com/">ik zal ze op mijn Substack</a> schrijven wanneer de open-source code wordt vrijgegeven.</p>

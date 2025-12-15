@@ -1,18 +1,33 @@
 de:
   onetime_campaign_mailer:
-    subject: "Bitcoin ETFs: Welchen sollten Sie wählen?"
+    subject: "Es sind 6 Jahre vergangen"
     body: |
-        <p>Für das erste Jahrzehnt von Bitcoins Existenz waren ETFs mythische Geister am Horizont, die den Bitcoin-Preis "zum Mond" bewegen würden. Im Februar 2021 wurde der erste ETF endlich in Kanada (BTCC) zugelassen, und vorspulend ist die Landschaft der ETFs und ETPs so groß geworden, dass man schnell den Überblick verlieren kann.</p>
-        
-        <p>Was ist der Unterschied zwischen Spot- und Futures-ETFs oder zwischen ETF und ETP?</p>
-        <p>Welchen sollten Sie wählen?</p>
+        <p>Es gibt keinen einfachen Weg, das zu schreiben, deshalb werde ich direkt sein:</p>
+        <p>Wir sind durch die MiCA-Verordnung gezwungen, das Angebot der Bots auf unseren Servern bis zum 31. Dezember einzustellen.</p>
 
-        <p>Zusätzlich behandeln wir im Playbook:</p>
-        <p>✦ Bitcoin/Ethereum ETFs<br/>
-        ✦ Wie man sie mit Deltabadger nachbildet?</p>
-        <p><a href="https://app.deltabadger.com/de/articles/bitcoin-etf">Vollständigen Artikel lesen →</a></p>
-        <p>Beste Grüße,</p>
-        <p>Jan</p>
-    ps: | 
-      <p>PS. Falls Sie meine vorherige E-Mail verpasst haben:</p>
-      <p><a href="https://www.skool.com/firestarters-1846">Treten Sie der Community bei, bevor der kostenlose Zugang weg ist →</a></p>
+        <p><strong>Was sich ändert:</strong></p>
+        <ol>
+          <li>Der Online-Service wird nur noch den <a href="https://app.deltabadger.com/en/portfolio-analyzer">Portfolio-Analyzer</a> anbieten</li>
+          <li>Der Bot wird Open-Source (Code-Veröffentlichung bald)</li>
+          <li>Wir erstellen eine Momentaufnahme aller aktiven Abonnements, um sie für künftige Entwicklungen anzurechnen</li>
+          <li>Wir erkunden Möglichkeiten, in einem anderen Format zurückzukehren</li>
+        </ol>
+
+        <p><strong>Was passiert ist:</strong></p>
+        <p>Als ich Deltabadger 2020 gründete, wählte ich Estland, weil sie die kryptofreundlichsten Vorschriften hatten, die Lizenz kostete 345 Euro und... ich brauchte sie nicht, da das Unternehmen keine Kundengelder berührte. Die Lizenz kostet heute über 200.000 Euro plus wiederkehrende jährliche Kosten und KYC. Deltabadger war nie groß genug, um sich solche wiederkehrenden Kosten leisten zu können, selbst wenn wir die Lizenz hätten erhalten können, was nicht einfach oder schnell ist.</p>
+        <p>Als MiCA eingeführt wurde, war ich hoffnungsvoll, weil es den Status vieler Dinge klärte. Ich verpasste eine wichtige Änderung:</p>
+        <p>Ein Service, der in irgendeiner Weise an Nutzertransaktionen teilnimmt, benötigt nun eine höhere Regulierungsstufe als ein Verwahrer-Wallet. Es ist schwer zu übersehen, dass sich das auch alle zwei Jahre änderte, also wer weiß, wann die nächste Erhöhung kommt:</p>
+        <ul>
+          <li>2017-2020: 345 Euro</li>
+          <li>2020-2022: 3.300 Euro</li>
+          <li>2022-2024: 10.000+ Euro</li>
+          <li>2024-Jetzt: 200.000+ Euro</li>
+        </ul>
+        <p>Und so stehen wir hier, genau dann, als wir begannen, die Plattform in ein Tool der nächsten Stufe zu verwandeln, können wir uns die Lizenz nicht leisten und müssen den Service einstellen.</p>
+        <p>Ich habe das Gefühl, Sie enttäuscht zu haben, insbesondere unsere langjährigen und lebenslangen Abonnenten, die diese Community aufgebaut haben. Danke, dass Sie an diese Vision geglaubt haben. Ich habe 6 Jahre meines Lebens diesem Projekt gewidmet und werde weiterhin nach Wegen suchen, Ihr Vertrauen zu ehren.</p>
+        <p>Was jetzt passiert:</p>
+        <p>Der Online-Service wird weiterhin den Analyzer und die Bot-Historie anbieten, aber es wird nach dem 31. Dezember unmöglich sein, sie zu starten. Wir bereiten Deltabadger vor, damit Sie es auf Ihrem eigenen Server (das ist noch legal) oder persönlichen Computer installieren können, für diejenigen, die es weiter nutzen möchten.</p>
+        <p>Ich werde Sie über alles Kommende auf dem Laufenden halten.</p>
+        <p>Mit freundlichen Grüßen,<br>Jan</p>
+    ps: |
+      <p><strong>PS</strong> Ich habe weitere Gedanken und <a href="https://janklosowski.substack.com/">werde sie auf meinem Substack</a> niederschreiben, wenn der Open-Source-Code veröffentlicht wird.</p>

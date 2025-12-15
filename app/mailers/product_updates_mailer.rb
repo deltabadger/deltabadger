@@ -12,6 +12,10 @@ class ProductUpdatesMailer < CaffeinateMailer
     base_mail(mailing)
   end
 
+  def bot_goes_opensource(mailing)
+    base_mail(mailing)
+  end
+
   private
 
   def base_mail(mailing)
