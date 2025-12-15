@@ -12,6 +12,10 @@ class ProductUpdatesMailer < CaffeinateMailer
     base_mail(mailing)
   end
 
+  def bot_goes_opensource(mailing)
+    base_mail(mailing)
+  end
+
   private
 
   def base_mail(mailing)
@@ -19,7 +23,7 @@ class ProductUpdatesMailer < CaffeinateMailer
     @user = mailing.subscriber
     set_locale(@user)
 
-    mail(to: @user.email, subject: "📢 #{t('onetime_campaign_mailer.subject')}") do |format|
+    mail(to: @user.email, subject: "#{t('onetime_campaign_mailer.subject')}") do |format|
       format.html { render 'product_updates_mailer/base' }
     end
   end

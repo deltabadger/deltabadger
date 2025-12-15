@@ -1,18 +1,32 @@
 en:
   onetime_campaign_mailer:
-    subject: "Bitcoin ETFs: Which One to Choose?"
+    subject: "The end of the chapter"
     body: |
-        <p>For the first decade of Bitcoin's existence, ETFs were mythical ghosts on the horizon that would move the price of Bitcoin "to the moon." In February 2021, the first ETF was finally accepted in Canada (BTCC), and fast forward, the landscape of ETFs and ETPs is so vast that it may be confusing.</p>
-        
-        <p>What's the difference between spot and futures ETFs, or between ETF and ETP?</p>
-        <p>Which one to choose?</p>
+        <p>There is no easy way to write this, so I will be straight:</p>
+        <p>We're forced by MiCA regulations to stop offering the bots on our servers by December 31st.</p>
 
-        <p>Additionally, in the Playbook we cover:</p>
-        <p>✦ Bitcoin/Ethereum ETFs<br/>
-        ✦ How to replicate them with Deltabadger?</p>
-        <p><a href="https://app.deltabadger.com/articles/bitcoin-etf">Read full article →</a></p>
-        <p>Best regards,</p>
+        <p><strong>What's changing:</strong></p>
+        <ol>
+          <li>The online service will now offer only the <a href="https://app.deltabadger.com/en/portfolio-analyzer">Portfolio Analyzer</a></li>
+          <li>The bot is going open-source (code release soon)</li>
+          <li>We're taking a snapshot of all active subscriptions to honor them in whatever is coming</li>
+        </ol>
+        <p>We're working on how to return in a different format as a service again, but legally we can't continue in the current form, and there is no easy fix.</p>
+        <p><strong>What happened:</strong></p>
+        <p>When I started Deltabadger in 2020, I picked Estonia because they had the most crypto-friendly regulations, the license cost €345, and… I didn't need it because the business wasn't touching customer funds. The license today costs over €200k plus recurring annual costs and KYC. Deltabadger was never big enough to afford that type of recurring cost even if we would be able to get the license which is not easy or fast.</p>
+        <p>When MiCA was introduced, I was hopeful because it cleared the status of many things. I missed one important change:</p>
+        <p>A service that participates in any way in user's transactions now requires a higher level of regulation than a custodian wallet. It's hard not to notice that it was also changing every two years, so who knows when the next raise will happen:</p>
+        <ul>
+          <li>2017-2020: €345</li>
+          <li>2020-2022: €3.3k</li>
+          <li>2022-2024: €10k+</li>
+          <li>2024-Now: €200k+</li>
+        </ul>
+        <p>So, here we are, right when we started transforming the platform into a next-level tool, we can't afford the license, and we have to stop offering the service.</p>
+        <p>I feel like I've let you down, especially our long-term and lifetime subscribers who built this community. Thank you for believing in this vision. I dedicated 6 years of my life to this project, and will continue looking for ways to honor your trust.</p>
+        <p>What is happening now:</p>
+        <p>The online service will still offer the Analyzer and history of bots, but it will be impossible to start them anymore after December 31. We are preparing Deltabadger so you'll be able to install it on your own server (this is still legal) or personal computer for those who want to continue using it.</p>
+        <p>I'll keep you up to date with everything that is coming.</p>
         <p>Jan</p>
-    ps: | 
-      <p>PS. If you missed my previous email:</p>
-      <p><a href="https://www.skool.com/firestarters-1846">Join the community before free access is gone →</a></p>
+    ps: |
+      <p><strong>PS</strong> I have more thoughts and <a href="https://janklosowski.substack.com/">I will write them down on my Substack</a> when the open-source code will be released.</p>
