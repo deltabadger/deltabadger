@@ -1,6 +1,6 @@
 es:
   onetime_campaign_mailer:
-    subject: "Han pasado 6 años"
+    subject: "El final del capítulo"
     body: |
         <p>No hay una forma fácil de escribir esto, así que seré directo:</p>
         <p>Las regulaciones MiCA nos obligan a dejar de ofrecer los bots en nuestros servidores antes del 31 de diciembre.</p>
@@ -9,10 +9,9 @@ es:
         <ol>
           <li>El servicio online ahora solo ofrecerá el <a href="https://app.deltabadger.com/en/portfolio-analyzer">Analizador de Cartera</a></li>
           <li>El bot se convertirá en código abierto (lanzamiento del código próximamente)</li>
-          <li>Estamos tomando una instantánea de todas las suscripciones activas para acreditarlas hacia lo que venga después</li>
-          <li>Estamos explorando cómo volver en un formato diferente</li>
+          <li>Estamos tomando una instantánea de todas las suscripciones activas para honrarlas en lo que esté por venir</li>
         </ol>
-
+        <p>Estamos trabajando en cómo volver como servicio en un formato diferente, pero legalmente no podemos continuar en la forma actual, y no hay una solución fácil.</p>
         <p><strong>Qué ha pasado:</strong></p>
         <p>Cuando lancé Deltabadger en 2020, elegí Estonia porque tenían las regulaciones más favorables para las criptomonedas, la licencia costaba 345 euros y... no la necesitaba porque el negocio no tocaba los fondos de los clientes. La licencia hoy cuesta más de 200.000 euros más costes anuales recurrentes y KYC. Deltabadger nunca fue lo suficientemente grande como para permitirse ese tipo de coste recurrente, incluso si pudiéramos obtener la licencia, lo cual no es fácil ni rápido.</p>
         <p>Cuando se introdujo MiCA, tenía esperanzas porque aclaraba el estado de muchas cosas. Me perdí un cambio importante:</p>
@@ -28,6 +27,6 @@ es:
         <p>Qué está pasando ahora:</p>
         <p>El servicio online seguirá ofreciendo el Analizador y el historial de bots, pero será imposible iniciarlos después del 31 de diciembre. Estamos preparando Deltabadger para que podáis instalarlo en vuestro propio servidor (esto sigue siendo legal) u ordenador personal para quienes quieran seguir usándolo.</p>
         <p>Os mantendré informados de todo lo que esté por venir.</p>
-        <p>Mis mejores deseos,<br>Jan</p>
+        <p>Jan</p>
     ps: |
       <p><strong>PD</strong> Tengo más reflexiones y <a href="https://janklosowski.substack.com/">las escribiré en mi Substack</a> cuando se publique el código abierto.</p>

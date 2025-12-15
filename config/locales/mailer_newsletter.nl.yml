@@ -1,6 +1,6 @@
 nl:
   onetime_campaign_mailer:
-    subject: "Het is 6 jaar geweest"
+    subject: "Het einde van het hoofdstuk"
     body: |
         <p>Er is geen makkelijke manier om dit te schrijven, dus ik zal direct zijn:</p>
         <p>We worden door MiCA-regelgeving gedwongen om het aanbieden van de bots op onze servers voor 31 december te stoppen.</p>
@@ -9,10 +9,9 @@ nl:
         <ol>
           <li>De online service zal nu alleen nog de <a href="https://app.deltabadger.com/en/portfolio-analyzer">Portfolio Analyzer</a> aanbieden</li>
           <li>De bot wordt open-source (code release binnenkort)</li>
-          <li>We maken een momentopname van alle actieve abonnementen om ze te crediteren naar wat er daarna komt</li>
-          <li>We onderzoeken hoe we kunnen terugkeren in een ander formaat</li>
+          <li>We maken een momentopname van alle actieve abonnementen om ze te eren in wat er aan komt</li>
         </ol>
-
+        <p>We werken eraan hoe we als service kunnen terugkeren in een ander formaat, maar juridisch kunnen we niet doorgaan in de huidige vorm, en er is geen makkelijke oplossing.</p>
         <p><strong>Wat er gebeurd is:</strong></p>
         <p>Toen ik Deltabadger in 2020 startte, koos ik voor Estland omdat zij de meest crypto-vriendelijke regelgeving hadden, de licentie kostte €345 en... ik had het niet nodig omdat het bedrijf geen klantengelden aanraakte. De licentie kost vandaag meer dan €200.000 plus terugkerende jaarlijkse kosten en KYC. Deltabadger was nooit groot genoeg om zich dat soort terugkerende kosten te kunnen veroorloven, zelfs als we de licentie hadden kunnen krijgen, wat niet makkelijk of snel is.</p>
         <p>Toen MiCA werd geïntroduceerd, was ik hoopvol omdat het de status van veel zaken opklaarde. Ik miste één belangrijke verandering:</p>
@@ -28,6 +27,6 @@ nl:
         <p>Wat er nu gebeurt:</p>
         <p>De online service zal nog steeds de Analyzer en geschiedenis van bots aanbieden, maar het zal onmogelijk zijn om ze na 31 december te starten. We bereiden Deltabadger voor zodat jullie het op jullie eigen server (dit is nog steeds legaal) of persoonlijke computer kunnen installeren voor degenen die het willen blijven gebruiken.</p>
         <p>Ik zal jullie op de hoogte houden van alles wat eraan komt.</p>
-        <p>Met vriendelijke groet,<br>Jan</p>
+        <p>Jan</p>
     ps: |
       <p><strong>PS</strong> Ik heb meer gedachten en <a href="https://janklosowski.substack.com/">ik zal ze op mijn Substack</a> schrijven wanneer de open-source code wordt vrijgegeven.</p>
