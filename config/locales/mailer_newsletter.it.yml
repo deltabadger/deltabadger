@@ -1,6 +1,6 @@
 it:
   onetime_campaign_mailer:
-    subject: "Sono passati 6 anni"
+    subject: "La fine del capitolo"
     body: |
         <p>Non c'è un modo facile per scrivere questo, quindi sarò diretto:</p>
         <p>Siamo costretti dalle normative MiCA a interrompere l'offerta dei bot sui nostri server entro il 31 dicembre.</p>
@@ -9,10 +9,9 @@ it:
         <ol>
           <li>Il servizio online offrirà ora solo l'<a href="https://app.deltabadger.com/en/portfolio-analyzer">Analizzatore di Portafoglio</a></li>
           <li>Il bot diventa open-source (rilascio del codice presto)</li>
-          <li>Stiamo facendo un'istantanea di tutti gli abbonamenti attivi per accreditarli verso qualsiasi cosa arrivi dopo</li>
-          <li>Stiamo esplorando come tornare in un formato diverso</li>
+          <li>Stiamo facendo un'istantanea di tutti gli abbonamenti attivi per onorarli in qualsiasi cosa stia arrivando</li>
         </ol>
-
+        <p>Stiamo lavorando su come tornare come servizio in un formato diverso, ma legalmente non possiamo continuare nella forma attuale, e non c'è una soluzione semplice.</p>
         <p><strong>Cosa è successo:</strong></p>
         <p>Quando ho lanciato Deltabadger nel 2020, ho scelto l'Estonia perché aveva le normative più favorevoli alle criptovalute, la licenza costava 345 euro e... non ne avevo bisogno perché l'azienda non toccava i fondi dei clienti. La licenza oggi costa oltre 200.000 euro più costi annuali ricorrenti e KYC. Deltabadger non è mai stata abbastanza grande da permettersi quel tipo di costo ricorrente anche se fossimo riusciti a ottenere la licenza, il che non è facile né veloce.</p>
         <p>Quando MiCA è stata introdotta, ero speranzoso perché chiariva lo stato di molte cose. Mi sono perso un cambiamento importante:</p>
@@ -28,6 +27,6 @@ it:
         <p>Cosa sta succedendo ora:</p>
         <p>Il servizio online offrirà ancora l'Analizzatore e la cronologia dei bot, ma sarà impossibile avviarli dopo il 31 dicembre. Stiamo preparando Deltabadger per che possiate installarlo sul vostro server (questo è ancora legale) o computer personale per coloro che vogliono continuare a usarlo.</p>
         <p>Vi terrò aggiornati su tutto quello che sta arrivando.</p>
-        <p>I miei migliori auguri,<br>Jan</p>
+        <p>Jan</p>
     ps: |
       <p><strong>PS</strong> Ho altri pensieri e <a href="https://janklosowski.substack.com/">li scriverò sul mio Substack</a> quando il codice open-source sarà rilasciato.</p>
