@@ -24,7 +24,7 @@ gem 'pg', '>= 0.18', '< 2.0'
 gem 'puma', '~> 6.3'
 gem "rack", "2.2.20"
 gem 'rack-cors'
-gem 'rails', '~> 6.0.6.1'
+gem 'rails', '~> 8.0.4'
 gem "rails_cloudflare_turnstile", "~> 0.2.2"
 gem 'rqrcode'
 gem 'webpacker', '~> 5.4'
