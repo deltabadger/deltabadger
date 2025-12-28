@@ -6,7 +6,7 @@ ruby '3.2.3'
 gem 'securerandom'
 gem 'active_model_otp'
 gem "administrate"
-gem "attr_encrypted", "~> 3.1.0"
+gem "attr_encrypted", "~> 4.2.0"
 gem 'bootsnap', '>= 1.4.2', require: false
 gem 'date', "= 3.3.3"
 gem 'devise'
