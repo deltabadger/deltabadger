@@ -160,7 +160,6 @@ nl:
     welcome:
         banner_html: |
             <p>Welkom aan boord, %{name}!</p>
-            <p>Bedankt voor het invullen van de enquête. Het zal ons helpen om te prioriteren welke exchange als volgende te integreren.</p>
             <ul>
                 <li><b>Controleer je e-mail</b>—ik heb je een snelle gids gestuurd voor het gebruik van de bots.</li>
                 <li><b>Antwoord met <i>"FIRE"</i></b> en krijg toegang tot onze community.</li>

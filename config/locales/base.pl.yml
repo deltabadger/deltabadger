@@ -164,7 +164,6 @@ pl:
     welcome:
         banner_html: |
             <p>Witaj na pokładzie, %{name}!</p>
-            <p>Dziękuję za wypełnienie ankiety. Pomoże nam to ustalić priorytet, którą giełdę zintegrować następnie.</p>
             <ul>
                 <li><b>Sprawdź swój e-mail</b>—wysłałem ci szybki przewodnik po używaniu botów.</li>
                 <li><b>Odpowiedz <i>"FIRE"</i></b> i uzyskaj dostęp do naszej społeczności.</li>
