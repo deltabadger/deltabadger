@@ -118,7 +118,6 @@ nl:
         sign_up: Registreren
         terms_and_conditions: 'Algemene voorwaarden'
         legendary_badger: 'Legendary Badger'
-        articles: Artikelen
     referral:
         banner_html: '<b>Deel uw verwijzingslink met vrienden en <a href="/referral-program" alt="Read more">verdien 20% terugkerende commissie</a> in BTC. De beste manier om aan Bitcoin-DCA te doen is door ze te verdienen!</b>'
         copied: Gekopieerd!
@@ -139,7 +138,6 @@ nl:
         notifications:
             global_unsubscribe: 'Alle nieuwsbrieven'
             onboarding_html: 'Tips en handleidingen'
-            newsletter_html: '<a href="../articles">Deltabadger Research</a> artikelen'
             product_updates_html: 'Projectnieuws en updates'
             newsletters: 'Nieuwsbrieven:'
         name:

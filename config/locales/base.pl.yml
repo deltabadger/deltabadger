@@ -120,7 +120,6 @@ pl:
         sign_up: 'Stwórz konto'
         terms_and_conditions: Regulamin
         legendary_badger: 'Legendary Badger'
-        articles: Artykuły
     referral:
         banner_html: '<b>Udostępnij swój link polecający znajomym i <a href="/referral-program" alt="Read more">zarabiaj 20% stałej prowizji</a> w BTC. Najlepszym sposobem na DCA w Bitcoinie jest jego zarabianie!</b>'
         copied: Skopiowano!
@@ -145,7 +144,6 @@ pl:
         notifications:
             global_unsubscribe: 'Wszystkie newslettery'
             onboarding_html: 'Wskazówki i poradniki'
-            newsletter_html: 'Artykuły <a href="../articles">Deltabadger Research</a>'
             product_updates_html: 'Nowości i aktualizacje projektu'
             newsletters: 'Newslettery:'
         name:
