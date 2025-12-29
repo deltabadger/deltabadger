@@ -163,7 +163,6 @@ pt:
     welcome:
         banner_html: |
             <p>Bem-vindo a bordo, %{name}!</p>
-            <p>Obrigado por preencher a pesquisa. Isso nos ajudará a priorizar qual exchange integrar a seguir.</p>
             <ul>
                 <li><b>Verifique seu e-mail</b>—enviei um guia rápido sobre como usar os bots.</li>
                 <li><b>Responda com <i>"FIRE"</i></b> e obtenha acesso à nossa comunidade.</li>

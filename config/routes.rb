@@ -205,17 +205,6 @@ Rails.application.routes.draw do
       get :confirm_destroy
     end
 
-    namespace :surveys do
-      resource :onboarding, only: [:create] do
-        get 'step-one', to: 'onboardings#new_step_one'
-        get 'step-two', to: 'onboardings#new_step_two'
-      end
-      resource :onboarding_v2, only: [:create] do
-        get 'step-one', to: 'onboarding_v2s#new_step_one'
-        get 'step-two', to: 'onboarding_v2s#new_step_two'
-      end
-    end
-
     namespace :broadcasts do
       post :metrics_update
       post :pnl_update
