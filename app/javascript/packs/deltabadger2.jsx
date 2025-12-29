@@ -39,21 +39,6 @@ document.addEventListener("turbo:load", () => {
   }
 });
 
-if (document.getElementById("referral_banner_link")) {
-  document.addEventListener("turbo:load", () => {
-    document
-      .getElementById("referral_banner_link")
-      .addEventListener("click", (evt) => {
-        evt.preventDefault();
-        navigator.clipboard
-          .writeText(evt.target.getAttribute("href"))
-          .then(() => {
-            $("#referral_badge").removeClass("invisible");
-          });
-      });
-  });
-}
-
 // Update theme color meta tag based on the background color of the body
 document.addEventListener("turbo:load", () => {
   function updateThemeColor() {

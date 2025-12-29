@@ -50,16 +50,6 @@ es:
         minimum_length: '%{length} caracteres mínimo'
     helpers:
         label:
-            affiliate:
-                address: 'Dirección de la empresa:'
-                btc_address: 'Dirección de BTC'
-                btc_address_tooltip: 'Dirección de BTC en la que deseas recibir tus pagos.'
-                check: Comprobar
-                code_tooltip: 'Elige el código de referidos que desees.'
-                name: 'Nombre de la empresa:'
-                vat_number: 'Número de IVA (opcional):'
-                visible_link: Enlace
-                visible_name: 'Nombre en la vista previa'
             payment:
                 birth_date: 'Fecha de nacimiento'
                 business_invoice: 'Necesito una factura oficial.'
@@ -112,15 +102,11 @@ es:
         menu: Menú
         privacy_policy: 'Política de privacidad'
         earn: 'Ganar'
-        referral_program: 'Programa de referidos'
         resend_link: 'Reenviar enlace'
         settings: Configuración
         sign_up: Registrarse
         terms_and_conditions: 'Términos y condiciones'
         legendary_badger: 'Legendary Badger'
-    referral:
-        banner_html: '<b>Comparte tu enlace de referidos con amigos y <a href="/referral-program" alt="Read more">gana una comisión recurrente del 20%</a> en BTC. ¡La mejor forma de hacer DCA en Bitcoin es ganándolo!</b>'
-        copied: ¡Copiado!
     settings:
         timezone:
             title: 'Zona horaria'

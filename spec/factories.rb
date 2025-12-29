@@ -13,17 +13,6 @@ FactoryBot.define do
     backtest_start { 'MyString' }
   end
 
-  factory :affiliate do
-    user
-    type { :individual }
-    btc_address { Faker::Blockchain::Bitcoin.address }
-    code { Faker::Alphanumeric.unique.alphanumeric(number: 10).upcase }
-    max_profit { 20 }
-    discount_percent { 0.2 }
-    total_bonus_percent { 0.2 }
-    active { true }
-  end
-
   factory :payment do
     user
     subscription_plan { SubscriptionPlansRepository.new.saver }

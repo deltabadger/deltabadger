@@ -2,10 +2,6 @@ nl:
     activerecord:
         errors:
             models:
-                affiliate:
-                    attributes:
-                        code:
-                            invalid_format: 'moet bestaan uit alfanumerieke hoofdletters'
                 subscription:
                     attributes:
                         eth_address:
@@ -102,7 +98,6 @@ nl:
                 other: 'is de verkeerde lengte (moet %{count} karakters zijn)'
             wrong_password: 'Verkeerd wachtwoord'
             wrong_two_fa_token: 'Ingegeven code is verkeerd.'
-        referral_program_inactive: 'Uw verwijzingsprogramma is inactief'
         unverified_request: 'Vernieuw uw browser en probeer het opnieuw'
     alert:
         bot:

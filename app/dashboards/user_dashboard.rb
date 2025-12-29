@@ -14,7 +14,6 @@ class UserDashboard < Administrate::BaseDashboard
     subscriptions: Field::HasMany.with_options(sort_by: :id, direction: :desc),
     subscription: SubscriptionField,
     payments: Field::HasMany.with_options(sort_by: :id, direction: :desc),
-    affiliate: Field::HasOne,
     id: Field::Number,
     email: Field::String,
     name: Field::String,
@@ -33,8 +32,6 @@ class UserDashboard < Administrate::BaseDashboard
     updates_agreement: Field::Boolean,
     welcome_banner_dismissed: Field::Boolean,
     news_banner_dismissed: Field::Boolean,
-    referral_banner_dismissed: Field::Boolean,
-    referrer: Field::HasOne.with_options(class_name: 'Affiliate'),
     otp_secret_key: Field::String,
     otp_module: Field::Select.with_options(collection: %w[disabled enabled])
   }.freeze
@@ -63,7 +60,6 @@ class UserDashboard < Administrate::BaseDashboard
     bots
     subscriptions
     payments
-    affiliate
     reset_password_sent_at
     remember_created_at
     confirmed_at
@@ -77,8 +73,6 @@ class UserDashboard < Administrate::BaseDashboard
     updates_agreement
     welcome_banner_dismissed
     news_banner_dismissed
-    referral_banner_dismissed
-    referrer
   ].freeze
 
   # FORM_ATTRIBUTES
@@ -96,7 +90,6 @@ class UserDashboard < Administrate::BaseDashboard
     updates_agreement
     welcome_banner_dismissed
     news_banner_dismissed
-    referral_banner_dismissed
   ].freeze
 
   # COLLECTION_FILTERS

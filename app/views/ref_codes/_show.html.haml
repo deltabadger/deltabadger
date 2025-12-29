@@ -1,9 +1,0 @@
-- code_presenter = RefCodesPresenter.new(affiliate)
-- if code_presenter.valid?
-  %b.text-success
-    = t('affiliates.discount.congrats_html', discount_percent: code_presenter.discount_percent)
-    - if code_presenter.info?
-      = t('affiliates.discount.referrer_html', visible_link: code_presenter.visible_path, visible_name: code_presenter.visible_name)
-    = t('affiliates.discount.valid_for')
-- else
-  %b= t('affiliates.discount.invalid')

@@ -2,10 +2,6 @@ de:
     activerecord:
         errors:
             models:
-                affiliate:
-                    attributes:
-                        code:
-                            invalid_format: 'muss aus alphanumerischen Zeichen in Großbuchstaben bestehen'
                 subscription:
                     attributes:
                         eth_address:
@@ -102,7 +98,6 @@ de:
                 other: 'ist die falsche Länge (sollte %{count} Zeichen lang sein)'
             wrong_password: 'Falsches Passwort'
             wrong_two_fa_token: 'Falscher 2FA-Code.'
-        referral_program_inactive: 'Dein Werbeprogramm ist nicht aktiv.'
         unverified_request: 'Bitte lade deinen Browser neu und versuche es noch einmal'
     alert:
         bot:

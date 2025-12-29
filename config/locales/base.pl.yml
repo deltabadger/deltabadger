@@ -52,16 +52,6 @@ pl:
         minimum_length: 'Co najmniej %{length} znaków'
     helpers:
         label:
-            affiliate:
-                address: 'Adres firmy:'
-                btc_address: 'Adres BTC'
-                btc_address_tooltip: 'Adres BTC, na który chcesz otrzymywać wypłaty.'
-                check: Sprawdź
-                code_tooltip: 'Wybierz swój kod polecający.'
-                name: 'Nazwa firmy:'
-                vat_number: 'Numer VAT (opcjonalnie):'
-                visible_link: Link
-                visible_name: 'Imię na podglądzie'
             payment:
                 birth_date: 'Data urodzenia'
                 business_invoice: 'Potrzebuję faktury biznesowej.'
@@ -114,15 +104,11 @@ pl:
         menu: Menu
         privacy_policy: 'Polityka prywatności'
         earn: 'Zarabiaj'
-        referral_program: 'Program referencyjny'
         resend_link: 'Wyślij link'
         settings: Ustawienia
         sign_up: 'Stwórz konto'
         terms_and_conditions: Regulamin
         legendary_badger: 'Legendary Badger'
-    referral:
-        banner_html: '<b>Udostępnij swój link polecający znajomym i <a href="/referral-program" alt="Read more">zarabiaj 20% stałej prowizji</a> w BTC. Najlepszym sposobem na DCA w Bitcoinie jest jego zarabianie!</b>'
-        copied: Skopiowano!
     settings:
         timezone:
             title: 'Strefa czasowa'

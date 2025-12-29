@@ -25,9 +25,6 @@
     = t('links.community')
     = render "svg/16x16_link"
 
-  = link_to affiliate_path, class: "menu-mobile__item menu-mobile__item--referral-program", data: { controller: 'tooltip', action: 'mouseenter->tooltip#showTooltip mouseleave->tooltip#hideTooltip' } do
-    = t('links.referral_program')
-
   = link_to settings_path, class: 'menu-mobile__item menu-mobile__item--settings', data: { controller: 'tooltip', action: 'mouseenter->tooltip#showTooltip mouseleave->tooltip#hideTooltip' } do
     = t('links.settings')
 
@@ -108,11 +105,6 @@
       = render 'svg/24x24_fire'
       .tooltip
         = t('links.community')
-
-    = link_to affiliate_path, class: "menu__item menu__item--referral-program", data: { controller: 'tooltip', action: 'mouseenter->tooltip#showTooltip mouseleave->tooltip#hideTooltip' } do
-      = render 'svg/24x24_bitcoin'
-      .tooltip
-        = t('links.earn')
 
     = link_to settings_path, class: 'menu__item menu__item--settings', data: { controller: 'tooltip', action: 'mouseenter->tooltip#showTooltip mouseleave->tooltip#hideTooltip' } do
       = render 'svg/24x24_sliders'

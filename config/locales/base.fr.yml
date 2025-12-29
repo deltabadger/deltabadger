@@ -50,16 +50,6 @@ fr:
         minimum_length: '%{length} caractères minimum'
     helpers:
         label:
-            affiliate:
-                address: 'Adresse de l''entreprise :'
-                btc_address: 'Adresse BTC'
-                btc_address_tooltip: 'Adresse BTC à laquelle vous souhaitez recevoir les paiements.'
-                check: 'Vérifier'
-                code_tooltip: 'Choisissez le code de parrainage souhaité.'
-                name: 'Nom de l''entreprise :'
-                vat_number: 'Numéro de TVA (facultatif) :'
-                visible_link: 'Lien'
-                visible_name: 'Nom sur l''aperçu'
             payment:
                 birth_date: 'Date de naissance'
                 business_invoice: 'J''ai besoin d''une facture professionnelle.'
@@ -112,15 +102,11 @@ fr:
         menu: 'Menu'
         privacy_policy: 'Politique de confidentialité'
         earn: 'Gagner'
-        referral_program: 'Programme de parrainage'
         resend_link: 'Renvoyer le lien'
         settings: 'Paramètres'
         sign_up: 'S''inscrire'
         terms_and_conditions: 'Conditions générales'
         legendary_badger: 'Legendary Badger'
-    referral:
-        banner_html: '<b>Partagez votre lien de parrainage avec vos amis et <a href="/referral-program" alt="Read more">gagnez une commission récurrente de 20%</a> en BTC. La meilleure façon de faire du DCA en Bitcoin est d''en gagner !</b>'
-        copied: Copié !
     settings:
         timezone:
             title: 'Fuseau horaire'

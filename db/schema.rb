@@ -10,38 +10,10 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema.define(version: 2025_12_29_225204) do
+ActiveRecord::Schema.define(version: 2025_12_29_233130) do
 
   # These are extensions that must be enabled in order to support this database
   enable_extension "plpgsql"
-
-  create_table "affiliates", force: :cascade do |t|
-    t.bigint "user_id"
-    t.integer "type", null: false
-    t.string "name"
-    t.string "address"
-    t.string "vat_number"
-    t.string "btc_address"
-    t.string "code", null: false
-    t.string "visible_name"
-    t.string "visible_link"
-    t.decimal "discount_percent", precision: 3, scale: 2, null: false
-    t.decimal "total_bonus_percent", precision: 3, scale: 2, null: false
-    t.datetime "created_at", null: false
-    t.datetime "updated_at", null: false
-    t.string "new_btc_address"
-    t.string "new_btc_address_token"
-    t.datetime "new_btc_address_send_at"
-    t.boolean "active", default: true, null: false
-    t.decimal "unexported_btc_commission", precision: 16, scale: 8, default: "0.0", null: false
-    t.decimal "exported_btc_commission", precision: 16, scale: 8, default: "0.0", null: false
-    t.decimal "paid_btc_commission", precision: 16, scale: 8, default: "0.0", null: false
-    t.string "visible_link_scheme", default: "https", null: false
-    t.string "old_code"
-    t.index ["code"], name: "index_affiliates_on_code", unique: true
-    t.index ["new_btc_address_token"], name: "index_affiliates_on_new_btc_address_token", unique: true
-    t.index ["user_id"], name: "index_affiliates_on_user_id", unique: true
-  end
 
   create_table "ahoy_clicks", force: :cascade do |t|
     t.string "campaign"
@@ -435,7 +407,6 @@ ActiveRecord::Schema.define(version: 2025_12_29_225204) do
     t.boolean "terms_and_conditions"
     t.boolean "updates_agreement"
     t.boolean "welcome_banner_dismissed", default: false
-    t.bigint "referrer_id"
     t.boolean "show_smart_intervals_info", default: true, null: false
     t.string "pending_wire_transfer"
     t.integer "pending_plan_variant_id"
@@ -456,7 +427,6 @@ ActiveRecord::Schema.define(version: 2025_12_29_225204) do
     t.index ["reset_password_token"], name: "index_users_on_reset_password_token", unique: true
   end
 
-  add_foreign_key "affiliates", "users"
   add_foreign_key "api_keys", "exchanges"
   add_foreign_key "api_keys", "users"
   add_foreign_key "bots", "exchanges"
@@ -480,7 +450,6 @@ ActiveRecord::Schema.define(version: 2025_12_29_225204) do
   add_foreign_key "tickers", "exchanges"
   add_foreign_key "transactions", "bots"
   add_foreign_key "transactions", "exchanges"
-  add_foreign_key "users", "affiliates", column: "referrer_id"
   add_foreign_key "users", "subscription_plan_variants", column: "pending_plan_variant_id"
 
   create_view "bots_total_amounts", materialized: true, sql_definition: <<-SQL

@@ -8,10 +8,6 @@
   <%# render 'layouts/banners/news_message' %>
 <% end %>
 
-<% unless current_user.referral_banner_dismissed? %>
-  <%= render 'layouts/banners/referral_message' %>
-<% end %>
-
 <% unless current_user.welcome_banner_dismissed? %>
   <%= render partial: 'bots/welcome_message' %>
 <% end %>

@@ -50,16 +50,6 @@ nl:
         minimum_length: 'Minimaal %{length} tekens'
     helpers:
         label:
-            affiliate:
-                address: 'Adres van het bedrijf:'
-                btc_address: 'BTC adres'
-                btc_address_tooltip: 'BTC adres waarop u uw uitbetalingen wilt ontvangen.'
-                check: Controleer
-                code_tooltip: 'Kies uw gewenste referral code.'
-                name: 'Naam van het bedrijf:'
-                vat_number: 'BTW-nummer (optioneel):'
-                visible_link: Link
-                visible_name: 'Naam op de preview'
             payment:
                 birth_date: Geboortedatum
                 business_invoice: 'Ik heb een factuur nodig voor mijn onderneming.'
@@ -112,15 +102,11 @@ nl:
         menu: Menu
         privacy_policy: Privacybeleid
         earn: Verdien
-        referral_program: Verwijzingsprogramma
         resend_link: 'Link verzenden'
         settings: Instellingen
         sign_up: Registreren
         terms_and_conditions: 'Algemene voorwaarden'
         legendary_badger: 'Legendary Badger'
-    referral:
-        banner_html: '<b>Deel uw verwijzingslink met vrienden en <a href="/referral-program" alt="Read more">verdien 20% terugkerende commissie</a> in BTC. De beste manier om aan Bitcoin-DCA te doen is door ze te verdienen!</b>'
-        copied: Gekopieerd!
     settings:
         index:
             api_key_confirmation: 'Weet je het zeker?'
