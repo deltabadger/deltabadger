@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema.define(version: 2025_12_29_223007) do
+ActiveRecord::Schema.define(version: 2025_12_29_225204) do
 
   # These are extensions that must be enabled in order to support this database
   enable_extension "plpgsql"
@@ -361,16 +361,6 @@ ActiveRecord::Schema.define(version: 2025_12_29_223007) do
     t.index ["user_id"], name: "index_subscriptions_on_user_id"
   end
 
-  create_table "surveys", force: :cascade do |t|
-    t.bigint "user_id", null: false
-    t.string "type", null: false
-    t.jsonb "answers", default: {}, null: false
-    t.datetime "created_at", precision: 6, null: false
-    t.datetime "updated_at", precision: 6, null: false
-    t.index ["user_id", "type"], name: "index_surveys_on_user_id_and_type", unique: true
-    t.index ["user_id"], name: "index_surveys_on_user_id"
-  end
-
   create_table "tickers", force: :cascade do |t|
     t.bigint "exchange_id", null: false
     t.bigint "base_asset_id", null: false
@@ -485,7 +475,6 @@ ActiveRecord::Schema.define(version: 2025_12_29_223007) do
   add_foreign_key "subscription_plan_variants", "subscription_plans"
   add_foreign_key "subscriptions", "subscription_plan_variants"
   add_foreign_key "subscriptions", "users"
-  add_foreign_key "surveys", "users"
   add_foreign_key "tickers", "assets", column: "base_asset_id"
   add_foreign_key "tickers", "assets", column: "quote_asset_id"
   add_foreign_key "tickers", "exchanges"

@@ -21,7 +21,6 @@ class User < ApplicationRecord
   has_many :subscriptions, dependent: :destroy
   has_many :payments
   has_many :portfolios, dependent: :destroy
-  has_many :surveys, dependent: :destroy
   has_many :cards, dependent: :destroy
   has_many :messages, class_name: 'Ahoy::Message', as: :user
 

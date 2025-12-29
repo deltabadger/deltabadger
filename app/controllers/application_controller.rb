@@ -6,7 +6,6 @@ class ApplicationController < ActionController::Base
   before_action :set_no_cache, if: :user_signed_in?
   before_action :set_signed_in_cookie
   around_action :switch_locale
-  before_action :check_onboarding_survey, if: :user_signed_in?, unless: :user_signing_out?
   before_action :set_country
 
   def switch_locale(&action)
@@ -41,12 +40,6 @@ class ApplicationController < ActionController::Base
 
   def user_signing_out?
     controller_name == 'sessions' && action_name == 'destroy' && devise_controller?
-  end
-
-  def check_onboarding_survey
-    return if current_user.admin?
-
-    redirect_to step_one_surveys_onboarding_v2_path unless current_user.surveys.onboarding_v2.exists?
   end
 
   def set_country
