@@ -164,7 +164,6 @@ de:
     welcome:
         banner_html: |
             <p>Willkommen an Bord, %{name}!</p>
-            <p>Vielen Dank für das Ausfüllen der Umfrage. Es wird uns helfen zu priorisieren, welche Börse als nächstes integriert wird.</p>
             <ul>
                 <li><b>Überprüfe deine E-Mails</b>—ich habe dir eine kurze Anleitung zur Nutzung der Bots geschickt.</li>
                 <li><b>Antworte mit <i>"FIRE"</i></b> und erhalte Zugang zu unserer Community.</li>
