@@ -2,10 +2,6 @@ es:
     activerecord:
         errors:
             models:
-                affiliate:
-                    attributes:
-                        code:
-                            invalid_format: 'tiene que constar de caracteres alfanuméricos en mayúscula'
                 subscription:
                     attributes:
                         eth_address:
@@ -102,7 +98,6 @@ es:
                 other: 'es la longitud equivocada (debería ser %{count} caracteres)'
             wrong_password: 'Contraseña incorrecta'
             wrong_two_fa_token: 'El código indicado es erróneo'
-        referral_program_inactive: 'Tu programa de referidos está inactivo'
         unverified_request: 'Actualiza tu navegador e inténtalo de nuevo.'
     alert:
         bot:

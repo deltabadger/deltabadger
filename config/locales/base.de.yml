@@ -50,16 +50,6 @@ de:
         minimum_length: 'Mindestens %{length} Zeichen'
     helpers:
         label:
-            affiliate:
-                address: 'Firmenanschrift:'
-                btc_address: BTC-Adresse
-                btc_address_tooltip: 'BTC-Adresse, an die du deine Auszahlungen erhalten möchtest.'
-                check: Prüfen
-                code_tooltip: 'Wähle deinen gewünschten Empfehlungscode.'
-                name: 'Firmenname:'
-                vat_number: 'Steuernummer (optional):'
-                visible_link: Link
-                visible_name: 'Name auf der Vorschau'
             payment:
                 birth_date: Geburtsdatum
                 business_invoice: 'Ich benötige eine geschäftliche Rechnung.'
@@ -112,15 +102,11 @@ de:
         menu: Menü
         privacy_policy: Datenschutzrichtlinie
         earn: Erzielen
-        referral_program: Empfehlungsprogramm
         resend_link: Link erneut senden
         settings: Einstellungen
         sign_up: Registrieren
         terms_and_conditions: Nutzungsbedingungen
         legendary_badger: Legendary Badger
-    referral:
-        banner_html: '<b>Teilen Sie Ihren Empfehlungslink mit Freunden und <a href="/referral-program" alt="Read more">verdienen Sie 20% wiederkehrende Provision</a> in BTC. Der beste Weg zum Bitcoin-DCA ist es, welche zu verdienen!</b>'
-        copied: Kopiert!
     settings:
         timezone:
             title: 'Zeitzone'
