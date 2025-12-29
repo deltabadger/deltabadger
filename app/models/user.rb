@@ -1,7 +1,7 @@
 class User < ApplicationRecord
   attr_accessor :otp_code_token
 
-  after_create :set_free_subscription, :set_affiliate
+  after_create :set_free_subscription
   after_create_commit :subscribe_to_onboarding, if: -> { oauth_provider.present? }
   after_update_commit :subscribe_to_newsletter, if: -> { oauth_provider.present? }
   after_update_commit :subscribe_to_product_updates, if: -> { oauth_provider.present? }
@@ -12,8 +12,6 @@ class User < ApplicationRecord
 
   has_one_time_password
   enum otp_module: %i[disabled enabled], _prefix: true
-  has_one :affiliate, dependent: :destroy
-  belongs_to :referrer, class_name: 'Affiliate', optional: true
   has_many :api_keys
   has_many :exchanges, through: :api_keys
   has_many :bots
@@ -25,7 +23,6 @@ class User < ApplicationRecord
   has_many :messages, class_name: 'Ahoy::Message', as: :user
 
   validates :terms_and_conditions, acceptance: true
-  validate :active_referrer, on: :create
   validates :name, presence: true, if: -> { new_record? }
   validate :validate_name, if: -> { new_record? || name_changed? }
   validate :validate_email, if: -> { new_record? || email_changed? }
@@ -40,13 +37,6 @@ class User < ApplicationRecord
 
   include Upgradeable
   include Intercomable
-
-  # User/Affiliate relationship:
-  # A user can be an affiliate to refer other users
-  # A user can be referred by another affiliate
-  # From the affiliate's perspective, the user is a referral
-  # From the referral's perspective, the affiliate is the referrer
-  # A user can be both an affiliate (or referrer) and a referral
 
   def self.from_omniauth(auth)
     user = User.find_by(oauth_provider: auth.provider, oauth_uid: auth.uid)
@@ -73,10 +63,6 @@ class User < ApplicationRecord
 
   def subscription
     @subscription ||= subscriptions.active.order(created_at: :asc).last
-  end
-
-  def eligible_referrer
-    referrer if eligible_for_discount?
   end
 
   def webhook_bots_transactions
@@ -110,32 +96,12 @@ class User < ApplicationRecord
     subscriptions.create!(subscription_plan_variant:)
   end
 
-  def set_affiliate
-    affiliate_params = ActionController::Parameters.new(
-      type: 'individual',
-      discount_percent: Affiliate::DEFAULT_DISCOUNT_PERCENT,
-      btc_address: nil,
-      code: SecureRandom.hex(5)
-    )
-
-    Affiliates::Create.call(
-      user: self,
-      affiliate_params:
-    )
-  end
-
   def set_default_time_zone
     self.time_zone = 'UTC' if time_zone.blank?
   end
 
   def reset_oauth_credentials
     update!(oauth_provider: nil, oauth_uid: nil)
-  end
-
-  def active_referrer
-    return if referrer_id.nil? || Affiliate.find(referrer_id).active?
-
-    errors.add(:referrer, :invalid)
   end
 
   def eligible_for_discount?

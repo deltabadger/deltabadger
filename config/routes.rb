@@ -92,14 +92,6 @@ Rails.application.routes.draw do
       post 'verify_two_factor', to: 'users/sessions#verify_two_factor'
     end
 
-    resource :affiliate, path: 'referral-program', only: [:new, :show] do
-      get ':token/confirm_btc_address', action: 'confirm_btc_address', as: :confirm_btc_address
-      patch :update_visible_info
-      patch :update_btc_address
-      # patch :new, to: 'affiliates#new'
-      patch :create, to: 'affiliates#create'
-    end
-
     resource :upgrade, only: [:show]
     namespace :upgrade do
       resource :btcpay_payment, only: [:create]
@@ -123,7 +115,6 @@ Rails.application.routes.draw do
       get '/', action: :index
       patch :hide_welcome_banner
       patch :hide_news_banner
-      patch :hide_referral_banner
       patch :update_password
       patch :update_email
       patch :update_name
@@ -184,8 +175,6 @@ Rails.application.routes.draw do
     get '/cookies-policy', to: 'home#cookies_policy', as: :cookies_policy
     get '/contact', to: 'home#contact', as: :contact
     get '/about', to: 'home#about', as: :about
-    get '/referral-program', to: 'home#referral_program', as: :referral_program
-    get '/ref/:code', to: 'ref_codes#apply_code'
     post '/h/:webhook', to: 'api/bots#webhook', as: :webhooks
 
     resources :portfolios, except: [:index], path: '/portfolio-analyzer' do
@@ -220,7 +209,6 @@ Rails.application.routes.draw do
   get '/terms-and-conditions', to: redirect("/#{I18n.default_locale}/terms-and-conditions")
   get '/privacy-policy', to: redirect("/#{I18n.default_locale}/privacy-policy")
   get '/cookies-policy', to: redirect("/#{I18n.default_locale}/cookies-policy")
-  get '/referral-program', to: redirect("/#{I18n.default_locale}/referral-program")
   get '/', to: redirect("/#{I18n.default_locale}")
   get '/legendary-badger', to: redirect("/#{I18n.default_locale}/legendary-badger")
 
@@ -228,9 +216,6 @@ Rails.application.routes.draw do
   get '/sitemap', to: 'sitemap#index', defaults: {format: 'xml'}
   get '/metrics', to: 'metrics#index', as: :bot_btc_metrics
   get '/health-check', to: 'health_check#index', as: :health_check
-
-  get '/ref/:code', to: 'ref_codes#apply_code', as: 'ref_code'
-  post '/ref/accept', to: 'ref_codes#accept'
 
   # get '*path', to: redirect("/#{I18n.default_locale}")
 

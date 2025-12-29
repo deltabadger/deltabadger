@@ -6,30 +6,6 @@ fr:
         greeting_name: 'Salut %{name},'
         best_html: '<p>Cordialement,<br>Jan</p>'
         unsubscribe: 'Se désabonner'
-    affiliate_mailer:
-        new_btc_address_confirmation:
-            subject: "Confirmer la nouvelle adresse de paiement"
-            template_html: |
-                <p>Il semble que vous souhaitiez modifier votre adresse de paiement pour le programme de parrainage :</p>
-                <p><code>%{new_btc_address}</code></p>
-                <p>Veuillez confirmer ce changement en cliquant sur le lien ci-dessous :</p>
-                <p><a href="%{confirmation_url}" title="Confirmer la nouvelle adresse de paiement">Oui, je veux utiliser cette adresse pour les paiements futurs</a></p>
-        referrals_payout_notification:
-            subject: "C'est le jour de paye !"
-            template_html: |
-                <p>Merci. Deltabadger ne grandit que grâce au bouche-à-oreille.</p>
-                <p>Et le vôtre fonctionne vraiment bien :</p>
-                <p>Il y a peu, nous vous avons transféré <b>%{amount} BTC</b>.</p>
-                <p>Le meilleur ? Ce n'est pas fini :</p>
-                <p><b>Vous recevrez 20% à chaque fois que ces filleuls prolongent leur abonnement</b>.</p>
-                <p>Connaissez-vous quelqu'un d'autre qui pourrait bénéficier de Deltabadger ?</p>
-            grow_stream: "Faites-leur savoir et augmentez vos revenus récurrents"
-        registration_reminder:
-            subject: "Wow ! Vous avez gagné %{amount} BTC !"
-            template_html: |
-                <p>Une nouvelle commission du programme de parrainage vous attend !</p>
-                <p>Complétez votre inscription pour recevoir vos bitcoin :</p>
-            complete_registration: "Compléter l'inscription"
     bot_alerts_mailer:
         successful_webhook_bot_transaction:
             subject: "La transaction a été réussie"

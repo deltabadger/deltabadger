@@ -20,10 +20,6 @@
   form__password_strength_digit_pattern_value: @password_digit_pattern,
   form__password_strength_symbol_pattern_value: @password_symbol_pattern
 } do |f| %>
-  <% if @code.present? %>
-    <%= render partial: 'ref_codes/show', locals: { affiliate: @affiliate } %>
-  <% end %>
-
   <div class="db-form__row db-form__row--input">
     <%= f.text_field :name, class: "db-form__input", required: true, pattern: @name_pattern %>
     <%= f.label :name, class: "db-form__label" %>

@@ -9,17 +9,13 @@ class Users::RegistrationsController < Devise::RegistrationsController
 
   def new
     set_new_instance_variables
-    set_affiliate
     super
   end
 
   def create
-    affiliate = Affiliate.find_active_by_code(@code)
-
     super do
       if resource.persisted?
         session.delete(:code)
-        resource.update(referrer_id: affiliate.id) if affiliate.present?
       else
 
         # for privacy, if the registered email is :taken, just redirect as if registration was successful
@@ -35,7 +31,6 @@ class Users::RegistrationsController < Devise::RegistrationsController
         end
 
         set_new_instance_variables
-        set_affiliate
       end
     end
 
@@ -50,7 +45,7 @@ class Users::RegistrationsController < Devise::RegistrationsController
 
   def configure_permitted_parameters
     devise_parameter_sanitizer
-      .permit(:sign_up, keys: %i[terms_and_conditions updates_agreement referrer_id name])
+      .permit(:sign_up, keys: %i[terms_and_conditions updates_agreement name])
   end
 
   def after_inactive_sign_up_path_for(_resource)
@@ -61,17 +56,6 @@ class Users::RegistrationsController < Devise::RegistrationsController
 
   def sign_up_params
     params.require(:user).permit(:name, :email, :password, :terms_and_conditions)
-  end
-
-  def set_code
-    @code = session[:code]
-  end
-
-  def set_affiliate
-    return if @code.nil?
-
-    @affiliate = Affiliate.find_active_by_code(@code)
-    session.delete(:code) if @affiliate.nil? # don't show an invalid code twice
   end
 
   def set_new_instance_variables

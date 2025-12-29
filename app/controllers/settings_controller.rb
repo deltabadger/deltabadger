@@ -15,11 +15,6 @@ class SettingsController < ApplicationController
     head :no_content
   end
 
-  def hide_referral_banner
-    current_user.update!(referral_banner_dismissed: true)
-    head :no_content
-  end
-
   def update_name
     if current_user.update(update_name_params)
       flash.now[:notice] = t('settings.name.updated')
@@ -82,14 +77,12 @@ class SettingsController < ApplicationController
       subscription = campaign.subscriber(current_user)
       if Utilities::String.to_boolean(subscribed)
         if subscription.nil?
-          Object.const_get("Drippers::#{campaign.slug.titleize.gsub(' ','')}").subscribe(current_user)
+          Object.const_get("Drippers::#{campaign.slug.titleize.gsub(' ', '')}").subscribe(current_user)
         elsif subscription.unsubscribed?
           campaign.subscriber(current_user).resubscribe!(force: true)
         end
-      else
-        if subscription&.subscribed?
-          subscription.unsubscribe!('settings')
-        end
+      elsif subscription&.subscribed?
+        subscription.unsubscribe!('settings')
       end
     end
   end
@@ -132,7 +125,7 @@ class SettingsController < ApplicationController
       trading_api_keys = current_user.api_keys.includes(:exchange).where(key_type: 'trading')
       withdrawal_api_keys = current_user.api_keys.includes(:exchange).where(key_type: 'withdrawal')
       render partial: 'settings/widgets/api_keys',
-             locals: { trading_api_keys: trading_api_keys, withdrawal_api_keys: withdrawal_api_keys }
+             locals: { trading_api_keys:, withdrawal_api_keys: }
     else
       flash.now[:alert] = api_key.errors.messages.values.flatten.to_sentence
       render turbo_stream: turbo_stream_prepend_flash, status: :unprocessable_entity
