@@ -119,7 +119,6 @@ en:
         sign_up: 'Sign up'
         terms_and_conditions: 'Terms & Conditions'
         legendary_badger: 'Legendary Badger'
-        articles: 'Articles'
     referral:
         banner_html: '<b>Share your referral link with friends and <a href="/referral-program" alt="Read more">earn 20% recurring commission</a> in BTC. The best way to DCA Bitcoin is to earn it!</b>'
         copied: Copied!
@@ -156,7 +155,6 @@ en:
         notifications:
             global_unsubscribe: 'All newsletters'
             onboarding_html: 'Tips and guides'
-            newsletter_html: '<a href="../articles">Deltabadger Research</a> articles'
             product_updates_html: 'Project news and updates'
             newsletters: 'Newsletters:'
     social:

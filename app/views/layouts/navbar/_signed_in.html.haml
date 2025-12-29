@@ -17,9 +17,6 @@
     = link_to upgrade_instructions_path, class: 'menu-mobile__item menu-mobile__item--upgrade', data: { controller: 'tooltip', action: 'mouseenter->tooltip#showTooltip mouseleave->tooltip#hideTooltip', turbo_frame: "modal" } do
       = t('subscriptions.upgrade_plan')
 
-  = link_to articles_path, class: 'menu-mobile__item menu-mobile__item--articles', data: { controller: 'tooltip', action: 'mouseenter->tooltip#showTooltip mouseleave->tooltip#hideTooltip' } do
-    = t('links.articles')
-
   = link_to 'https://t.me/deltabadgerchat', class: "menu-mobile__item menu-mobile__item--community", data: { controller: 'tooltip', action: 'mouseenter->tooltip#showTooltip mouseleave->tooltip#hideTooltip' }, target: "_blank", rel: "noopener" do
     = t('links.telegram')
     = render "svg/16x16_link"
@@ -101,11 +98,6 @@
         = render 'svg/24x24_prism_c'
         .tooltip
           = t('links.analyzer')
-
-    = link_to articles_path, class: 'menu__item menu__item--articles', data: { controller: 'tooltip', action: 'mouseenter->tooltip#showTooltip mouseleave->tooltip#hideTooltip' } do
-      = render 'svg/24x24_a'
-      .tooltip
-        = t('links.articles')
 
     = link_to 'https://t.me/deltabadgerchat', class: "menu__item menu__item--community", data: { controller: 'tooltip', action: 'mouseenter->tooltip#showTooltip mouseleave->tooltip#hideTooltip' }, target: "_blank", rel: "noopener" do
       = render 'svg/24x24_community'
