@@ -54,7 +54,7 @@ class User < ApplicationRecord
     return user if user.present?
 
     email = User::Email.real_email(auth.info.email)
-    user = User.find_by(email: email)
+    user = User.find_by(email:)
     if user.present?
       user.update(oauth_provider: auth.provider, oauth_uid: auth.uid)
       return user
@@ -74,10 +74,6 @@ class User < ApplicationRecord
 
   def subscription
     @subscription ||= subscriptions.active.order(created_at: :asc).last
-  end
-
-  def can_access_full_articles?
-    subscription.research? || subscription.pro? || subscription.legendary?
   end
 
   def eligible_referrer
@@ -112,7 +108,7 @@ class User < ApplicationRecord
 
   def set_free_subscription
     subscription_plan_variant = SubscriptionPlanVariant.find_by(subscription_plan: SubscriptionPlan.free)
-    subscriptions.create!(subscription_plan_variant: subscription_plan_variant)
+    subscriptions.create!(subscription_plan_variant:)
   end
 
   def set_affiliate
@@ -125,7 +121,7 @@ class User < ApplicationRecord
 
     Affiliates::Create.call(
       user: self,
-      affiliate_params: affiliate_params
+      affiliate_params:
     )
   end
 
