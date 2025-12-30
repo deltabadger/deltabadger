@@ -26,7 +26,7 @@ module BotsManager::Trading::Validators
 
       attr_reader :interval, :base, :quote, :type, :order_type, :price,
                   :percentage, :allowed_symbols, :free_plan_symbols,
-                  :pro, :legendary, :paid_plan, :force_smart_intervals, :smart_intervals_value, :exchange_name,
+                  :pro, :force_smart_intervals, :smart_intervals_value, :exchange_name,
                   :price_range_enabled, :price_range, :use_subaccount, :selected_subaccount
 
       TYPES = %w[buy sell sell_old].freeze
@@ -34,8 +34,6 @@ module BotsManager::Trading::Validators
 
       validates :interval, :base, :quote, :type, :order_type, :price, presence: true
       validate :allowed_symbol
-      validate :plan_allowed_symbol
-      validate :plan_allowed_bot
       validates :interval, inclusion: { in: Bot::Schedulable::INTERVALS.keys }
       validates :type, inclusion: { in: TYPES }
       validates :order_type, inclusion: { in: ORDER_TYPES }
@@ -49,10 +47,8 @@ module BotsManager::Trading::Validators
         smaller_than: 100
       }
       validates :use_subaccount, inclusion: { in: [true, false, nil] }
-      validate :paid_plan_if_limit_order
       validate :percentage_if_limit_order
       validate :smart_intervals_above_minimum
-      validate :paid_plan_if_price_range
       validate :validate_price_range
       validate :validate_use_subaccount
       validate :validate_subaccount_name
@@ -72,10 +68,8 @@ module BotsManager::Trading::Validators
         @allowed_symbols = allowed_symbols
         @free_plan_symbols = free_plan_symbols
         @exchange_name = exchange_name
-        @pro = user.subscription.pro?
-        @legendary = user.subscription.legendary?
-        @paid_plan = user.subscription.paid? && !user.subscription.research_only?
-        @minimums = GetSmartIntervalsInfo.new.call(params.merge(exchange_name: exchange_name), user).data
+        @pro = true
+        @minimums = GetSmartIntervalsInfo.new.call(params.merge(exchange_name:), user).data
         @use_subaccount = params['use_subaccount']
         @selected_subaccount = params['selected_subaccount']
         @exchange_id = exchange_id
@@ -88,26 +82,7 @@ module BotsManager::Trading::Validators
         symbol = ExchangeApi::Markets::MarketSymbol.new(base, quote)
         return if symbol.in?(allowed_symbols)
 
-        errors.add(:symbol, I18n.t('bot.messages.symbol_not_supported', symbol: symbol))
-      end
-
-      def plan_allowed_symbol
-        symbol = ExchangeApi::Markets::MarketSymbol.new(base, quote)
-        return if @paid_plan || symbol.in?(free_plan_symbols)
-
-        errors.add(:symbol, I18n.t('bot.messages.symbol_not_supported_subscription', symbol: symbol))
-      end
-
-      def plan_allowed_bot
-        return if @user.paid? || @user.bots.working.count.zero?
-
-        errors.add(:base, I18n.t('bot.messages.upgrade_plan_more_bots'))
-      end
-
-      def paid_plan_if_limit_order
-        return if paid_plan || order_type == 'market'
-
-        errors.add(:base, I18n.t('bot.messages.upgrade_plan_limit_orders'))
+        errors.add(:symbol, I18n.t('bot.messages.symbol_not_supported', symbol:))
       end
 
       def percentage_if_limit_order
@@ -146,12 +121,6 @@ module BotsManager::Trading::Validators
         order_type == 'limit' && ['coinbase pro', 'kucoin'].include?(exchange_name.downcase)
       end
 
-      def paid_plan_if_price_range
-        return if paid_plan || !@price_range_enabled
-
-        errors.add(:base, I18n.t('bot.messages.upgrade_price_range'))
-      end
-
       def validate_use_subaccount
         return unless @use_subaccount && !subaccounts_allowed_exchange
 
@@ -175,7 +144,7 @@ module BotsManager::Trading::Validators
       end
 
       def get_api_keys(user, exchange_id)
-        ApiKey.find_by(user: user, exchange_id: exchange_id, key_type: 'trading')
+        ApiKey.find_by(user:, exchange_id:, key_type: 'trading')
       end
 
       def subaccounts_allowed_exchange

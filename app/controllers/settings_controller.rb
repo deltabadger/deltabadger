@@ -87,22 +87,6 @@ class SettingsController < ApplicationController
     end
   end
 
-  def confirm_cancel_subscription
-    @subscription = current_user.subscription
-  end
-
-  def cancel_subscription
-    @subscription = current_user.subscription
-    @subscription.ends_at = @subscription.renews_at
-    if @subscription.save
-      flash[:notice] = t('subscriptions.canceled')
-      render turbo_stream: turbo_stream_page_refresh
-    else
-      flash.now[:alert] = @subscription.errors.full_messages.to_sentence
-      render turbo_stream: turbo_stream_prepend_flash, status: :unprocessable_entity
-    end
-  end
-
   def update_password
     if current_user.update_with_password(update_password_params)
       bypass_sign_in(current_user)

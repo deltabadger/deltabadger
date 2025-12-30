@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema.define(version: 2025_12_29_233130) do
+ActiveRecord::Schema.define(version: 2025_12_30_002934) do
 
   # These are extensions that must be enabled in order to support this database
   enable_extension "plpgsql"
@@ -144,30 +144,12 @@ ActiveRecord::Schema.define(version: 2025_12_29_233130) do
     t.index ["caffeinate_campaign_subscription_id"], name: "index_caffeinate_mailings_on_campaign_subscription"
   end
 
-  create_table "cards", force: :cascade do |t|
-    t.bigint "user_id", null: false
-    t.string "token", null: false
-    t.string "first_transaction_id"
-    t.string "ip"
-    t.index ["user_id"], name: "index_cards_on_user_id"
-  end
-
   create_table "conversion_rates", force: :cascade do |t|
     t.string "currency", null: false
     t.decimal "rate", null: false
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
     t.index ["currency"], name: "index_conversion_rates_on_currency", unique: true
-  end
-
-  create_table "countries", force: :cascade do |t|
-    t.string "name", null: false
-    t.decimal "vat_rate", precision: 2, scale: 2, null: false
-    t.datetime "created_at", null: false
-    t.datetime "updated_at", null: false
-    t.string "code"
-    t.boolean "eu_member", default: false, null: false
-    t.integer "currency", default: 0, null: false
   end
 
   create_table "daily_transaction_aggregates", force: :cascade do |t|
@@ -235,39 +217,6 @@ ActiveRecord::Schema.define(version: 2025_12_29_233130) do
     t.index ["exchange_id"], name: "index_fee_api_keys_on_exchange_id"
   end
 
-  create_table "payments", force: :cascade do |t|
-    t.string "payment_id"
-    t.integer "status", null: false
-    t.decimal "total", precision: 10, scale: 2, null: false
-    t.integer "currency", null: false
-    t.bigint "user_id", null: false
-    t.datetime "created_at", null: false
-    t.datetime "updated_at", null: false
-    t.string "first_name"
-    t.string "last_name"
-    t.date "birth_date"
-    t.datetime "paid_at"
-    t.decimal "btc_total", precision: 16, scale: 8, default: "0.0", null: false
-    t.decimal "btc_paid", precision: 16, scale: 8, default: "0.0", null: false
-    t.decimal "commission", precision: 10, scale: 2, null: false
-    t.decimal "btc_commission", precision: 16, scale: 8, default: "0.0", null: false
-    t.boolean "discounted", null: false
-    t.bigint "subscription_plan_variant_id", null: false
-    t.string "country", null: false
-    t.boolean "gads_tracked", default: false
-    t.boolean "commission_granted", default: false
-    t.string "type"
-    t.jsonb "external_statuses", default: []
-    t.boolean "recurring", default: false, null: false
-    t.string "url"
-    t.string "finger_print_id"
-    t.index ["currency"], name: "index_payments_on_currency"
-    t.index ["status"], name: "index_payments_on_status"
-    t.index ["subscription_plan_variant_id"], name: "index_payments_on_subscription_plan_variant_id"
-    t.index ["type"], name: "index_payments_on_type"
-    t.index ["user_id"], name: "index_payments_on_user_id"
-  end
-
   create_table "portfolio_assets", force: :cascade do |t|
     t.bigint "portfolio_id", null: false
     t.string "ticker"
@@ -297,40 +246,6 @@ ActiveRecord::Schema.define(version: 2025_12_29_233130) do
     t.jsonb "compare_to", default: [], null: false
     t.date "backtest_start_date", default: "2020-01-01", null: false
     t.index ["user_id"], name: "index_portfolios_on_user_id"
-  end
-
-  create_table "setting_flags", force: :cascade do |t|
-    t.string "name"
-    t.boolean "value"
-  end
-
-  create_table "subscription_plan_variants", force: :cascade do |t|
-    t.integer "subscription_plan_id", null: false
-    t.integer "days"
-    t.decimal "cost_eur", precision: 10, scale: 2
-    t.decimal "cost_usd", precision: 10, scale: 2
-    t.datetime "created_at", precision: 6, null: false
-    t.datetime "updated_at", precision: 6, null: false
-  end
-
-  create_table "subscription_plans", force: :cascade do |t|
-    t.string "name"
-    t.datetime "created_at", null: false
-    t.datetime "updated_at", null: false
-  end
-
-  create_table "subscriptions", force: :cascade do |t|
-    t.bigint "subscription_plan_variant_id"
-    t.bigint "user_id"
-    t.datetime "ends_at"
-    t.datetime "created_at", null: false
-    t.datetime "updated_at", null: false
-    t.integer "nft_id"
-    t.string "eth_address"
-    t.boolean "auto_renew", default: false
-    t.index ["nft_id"], name: "index_subscriptions_on_nft_id", unique: true, where: "(nft_id IS NOT NULL)"
-    t.index ["subscription_plan_variant_id"], name: "index_subscriptions_on_subscription_plan_variant_id"
-    t.index ["user_id"], name: "index_subscriptions_on_user_id"
   end
 
   create_table "tickers", force: :cascade do |t|
@@ -408,11 +323,8 @@ ActiveRecord::Schema.define(version: 2025_12_29_233130) do
     t.boolean "updates_agreement"
     t.boolean "welcome_banner_dismissed", default: false
     t.boolean "show_smart_intervals_info", default: true, null: false
-    t.string "pending_wire_transfer"
-    t.integer "pending_plan_variant_id"
     t.string "otp_secret_key"
     t.integer "otp_module", default: 0
-    t.boolean "referral_banner_dismissed", default: false
     t.datetime "last_otp_at"
     t.string "name"
     t.boolean "news_banner_dismissed", default: false
@@ -433,24 +345,17 @@ ActiveRecord::Schema.define(version: 2025_12_29_233130) do
   add_foreign_key "bots", "users"
   add_foreign_key "caffeinate_campaign_subscriptions", "caffeinate_campaigns"
   add_foreign_key "caffeinate_mailings", "caffeinate_campaign_subscriptions"
-  add_foreign_key "cards", "users"
   add_foreign_key "daily_transaction_aggregates", "bots"
   add_foreign_key "exchange_assets", "assets"
   add_foreign_key "exchange_assets", "exchanges"
   add_foreign_key "fee_api_keys", "exchanges"
-  add_foreign_key "payments", "subscription_plan_variants"
-  add_foreign_key "payments", "users"
   add_foreign_key "portfolio_assets", "portfolios"
   add_foreign_key "portfolios", "users"
-  add_foreign_key "subscription_plan_variants", "subscription_plans"
-  add_foreign_key "subscriptions", "subscription_plan_variants"
-  add_foreign_key "subscriptions", "users"
   add_foreign_key "tickers", "assets", column: "base_asset_id"
   add_foreign_key "tickers", "assets", column: "quote_asset_id"
   add_foreign_key "tickers", "exchanges"
   add_foreign_key "transactions", "bots"
   add_foreign_key "transactions", "exchanges"
-  add_foreign_key "users", "subscription_plan_variants", column: "pending_plan_variant_id"
 
   create_view "bots_total_amounts", materialized: true, sql_definition: <<-SQL
       SELECT transactions.bot_id,

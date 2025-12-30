@@ -44,7 +44,6 @@ module Bot::IndicatorLimitable
     validates :indicator_limit_value_condition, inclusion: { in: INDICATOR_LIMIT_VALUE_CONDITIONS }
     validates :indicator_limit_in_indicator, inclusion: { in: INDICATOR_LIMIT_INDICATORS }
     validates :indicator_limit_in_timeframe, inclusion: { in: INDICATOR_LIMIT_TIMEFRAMES.keys }
-    validate :validate_indicator_limitable_included_in_subscription_plan, on: :start
 
     decorators = Module.new do
       def parse_params(params)
@@ -74,7 +73,7 @@ module Bot::IndicatorLimitable
       end
 
       def stop(stop_message_key: nil)
-        is_stopped = super(stop_message_key: stop_message_key)
+        is_stopped = super(stop_message_key:)
         return is_stopped unless indicator_limited?
 
         cancel_scheduled_indicator_limit_check_jobs
@@ -161,7 +160,7 @@ module Bot::IndicatorLimitable
       ["user_#{user_id}", :bot_updates],
       target: new_record? ? 'new-settings-indicator-limit-info' : 'settings-indicator-limit-info',
       partial: 'bots/settings/indicator_limit_info',
-      locals: { bot: self, info: info }
+      locals: { bot: self, info: }
     )
   end
 
@@ -170,13 +169,6 @@ module Bot::IndicatorLimitable
   end
 
   private
-
-  def validate_indicator_limitable_included_in_subscription_plan
-    return unless indicator_limited?
-    return if user.subscription.standard? || user.subscription.pro? || user.subscription.legendary?
-
-    errors.add(:user, :upgrade)
-  end
 
   def indicator_limit_info_cache_key
     "bot_#{id}_indicator_limit_info"

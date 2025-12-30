@@ -25,15 +25,10 @@ document.addEventListener("turbo:load", () => {
 document.addEventListener("turbo:load", () => {
   const dashboardDiv = document.getElementById("dashboard");
   if (dashboardDiv) {
-    const node = document.getElementById("current_user_subscription");
-    const data = node ? node.getAttribute("data") : null;
-    const isBasic = data === "basic";
-    const isPro = data === "pro";
-    const isLegendary = data === "legendary";
     const root = createRoot(dashboardDiv);
     root.render(
       <Provider store={store}>
-        <Dashboard isBasic={isBasic} isPro={isPro} isLegendary={isLegendary} />
+        <Dashboard isBasic={false} isPro={false} isLegendary={true} />
       </Provider>
     );
   }

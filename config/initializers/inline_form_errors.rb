@@ -1,7 +1,7 @@
 
 # this initializer automatically adds form validation errors from the model below the input field (inline)
 # avoids having to add a class like
-# <%= tag.p @subscription.errors[:eth_address].join(", ") if @subscription.errors[:eth_address].any? %>
+# <%= tag.p @user.errors[:email].join(", ") if @user.errors[:email].any? %>
 # below each form field
 # source: https://www.jorgemanrubia.com/2019/02/16/form-validations-with-html5-and-modern-rails/
 

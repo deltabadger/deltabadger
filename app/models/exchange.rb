@@ -51,13 +51,6 @@ class Exchange < ApplicationRecord
   end
   # rubocop:enable Metrics/CyclomaticComplexity
 
-  def free_plan_symbols
-    all_symbols = symbols
-    return all_symbols unless all_symbols.success?
-
-    Result::Success.new(all_symbols.data)
-  end
-
   def name_id
     self.class.name.demodulize.underscore
   end

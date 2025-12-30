@@ -6,7 +6,6 @@ class ApplicationController < ActionController::Base
   before_action :set_no_cache, if: :user_signed_in?
   before_action :set_signed_in_cookie
   around_action :switch_locale
-  before_action :set_country
 
   def switch_locale(&action)
     locale = params[:locale] || current_user.try(:locale) || I18n.default_locale
@@ -40,10 +39,5 @@ class ApplicationController < ActionController::Base
 
   def user_signing_out?
     controller_name == 'sessions' && action_name == 'destroy' && devise_controller?
-  end
-
-  def set_country
-    country_code = request.headers['CF-IPCountry']
-    @country = Country.find_by(code: country_code) || Country.find_by(name: 'Other')
   end
 end

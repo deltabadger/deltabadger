@@ -31,7 +31,6 @@ module Bot::PriceDropLimitable
               },
               if: :price_drop_limited?
     validates :price_drop_limit_time_window_condition, inclusion: { in: PRICE_DROP_LIMIT_TIME_WINDOW_CONDITIONS.keys }
-    validate :validate_price_drop_limitable_included_in_subscription_plan, on: :start
 
     decorators = Module.new do
       def parse_params(params)
@@ -60,7 +59,7 @@ module Bot::PriceDropLimitable
       end
 
       def stop(stop_message_key: nil)
-        is_stopped = super(stop_message_key: stop_message_key)
+        is_stopped = super(stop_message_key:)
         return is_stopped unless price_drop_limited?
 
         cancel_scheduled_price_drop_limit_check_jobs
@@ -152,7 +151,7 @@ module Bot::PriceDropLimitable
       ["user_#{user_id}", :bot_updates],
       target: new_record? ? 'new-settings-price-drop-limit-info' : 'settings-price-drop-limit-info',
       partial: 'bots/settings/price_drop_limit_info',
-      locals: { bot: self, info: info }
+      locals: { bot: self, info: }
     )
   end
 
@@ -161,13 +160,6 @@ module Bot::PriceDropLimitable
   end
 
   private
-
-  def validate_price_drop_limitable_included_in_subscription_plan
-    return unless price_drop_limited?
-    return if user.subscription.standard? || user.subscription.pro? || user.subscription.legendary?
-
-    errors.add(:user, :upgrade)
-  end
 
   def price_drop_limit_info_cache_key
     "bot_#{id}_price_drop_limit_info"

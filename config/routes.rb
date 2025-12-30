@@ -22,12 +22,6 @@ Rails.application.routes.draw do
 
   namespace :admin do
     resources :users, except: [:destroy]
-    resources :affiliates, except: [:destroy] do
-      get :wallet_csv, on: :collection
-      get :accounting_csv, on: :collection
-      post :mark_as_exported, on: :collection
-      post :mark_as_paid, on: :collection
-    end
     resources :api_keys, except: [:edit, :update]
     namespace :bots do
       resources :basics
@@ -38,21 +32,6 @@ Rails.application.routes.draw do
     resources :conversion_rates
     resources :exchanges
     resources :transactions
-    resources :subscriptions
-    resources :subscription_plans
-    resources :subscription_plan_variants
-    namespace :payments do
-      resources :zens
-      resources :btcpays
-      resources :wires
-    end
-    resources :payments, only: [:index] do
-      get :csv, on: :collection
-      put '/confirm/:id', action: :confirm, as: :confirm, on: :collection
-    end
-    put '/change_setting_flag', to: 'settings#change_setting_flag'
-
-    resources :countries
 
     get :dashboard, to: 'dashboard#index'
 
@@ -92,25 +71,6 @@ Rails.application.routes.draw do
       post 'verify_two_factor', to: 'users/sessions#verify_two_factor'
     end
 
-    resource :upgrade, only: [:show]
-    namespace :upgrade do
-      resource :btcpay_payment, only: [:create]
-      namespace :btcpay_payment do
-        resource :ipn, only: [:create]
-        resource :success, only: [:show]
-      end
-      resource :wire_payment, only: [:create]
-      resource :zen_payment, only: [:create]
-      namespace :zen_payment do
-        resource :ipn, only: [:create]
-        resource :success, only: [:show]
-        resource :failure, only: [:show]
-      end
-      resource :instructions, only: [:show]
-      resource :checkout, only: [:show]
-      resource :thank_you, only: [:show] # only used to preview the thank you page
-    end
-
     namespace :settings do
       get '/', action: :index
       patch :hide_welcome_banner
@@ -125,8 +85,6 @@ Rails.application.routes.draw do
       patch :update_two_fa
       get 'confirm_destroy_api_key/:id', action: :confirm_destroy_api_key, as: :confirm_destroy_api_key
       delete 'destroy_api_key/:id', action: :destroy_api_key, as: :destroy_api_key
-      get :confirm_cancel_subscription
-      patch :cancel_subscription
       get :community_access_instructions
     end
 
@@ -167,8 +125,6 @@ Rails.application.routes.draw do
     end
 
     get '/calculator', to: 'calculator#show', as: :calculator
-
-    resource :legendary, only: [:show, :update], path: '/legendary-badger'
 
     get '/terms-and-conditions', to: 'home#terms_and_conditions', as: :terms_and_conditions
     get '/privacy-policy', to: 'home#privacy_policy', as: :privacy_policy
