@@ -32,9 +32,6 @@ module BotsManager::Withdrawal::Validators
         @address = params['address']
         @threshold_enabled = params['threshold_enabled']
         @interval_enabled = params['interval_enabled']
-        @pro = user.subscription.pro?
-        @legendary = user.subscription.legendary?
-        @paid_plan = user.subscription.paid? && !user.subscription.research_only?
         @minimums = GetWithdrawalMinimums.call({ exchange_id: bot.exchange_id }, user)
         @withdrawal_info_processor = get_withdrawal_info_processor(user.api_keys, bot.exchange_id)
         @exchange_id = bot.exchange_id
@@ -73,7 +70,7 @@ module BotsManager::Withdrawal::Validators
       end
 
       def get_withdrawal_info_processor(api_keys, exchange_id)
-        api_key = api_keys.find_by(exchange_id: exchange_id, key_type: 'withdrawal')
+        api_key = api_keys.find_by(exchange_id:, key_type: 'withdrawal')
         return nil unless api_key.present?
 
         ExchangeApi::WithdrawalInfo::Get.call(api_key)

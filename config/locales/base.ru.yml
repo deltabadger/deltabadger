@@ -52,15 +52,6 @@ ru:
         minimum_length: 'минимум %{length} символов'
     helpers:
         label:
-            payment:
-                birth_date: 'Дата рождения'
-                business_invoice: 'Мне нужен официальный счет.'
-                country: Страна
-                first_name: Имя
-                last_name: Фамилия
-                other: Другая
-                submit_pro_order: 'Заказать план ходлера'
-                submit_basic_order: 'Заказать план инвестора'
             settings:
                 current_status: 'Текущее состояние:'
                 disable_two_fa: 'Отключить 2FA'
@@ -112,7 +103,6 @@ ru:
         start_fast: 'Начать за 5 минут'
         start_fast_longer_html: 'Начать <span class="d-none d-sm-inline">бесплатно</span> через 5 минут'
         terms_and_conditions: 'Условия и положения'
-        legendary_badger: 'Legendary Badger'
     settings:
         timezone:
             title: 'Часовой пояс'
@@ -125,15 +115,9 @@ ru:
             enabled: 'Двухфакторная аутентификация была включена.'
         api_keys:
             confirm_delete: "Вы уверены, что хотите удалить этот ключ API?"
-        subscription:
-            next_payment_html: 'Следующий платеж: %{cost_html}'
-            requires_manual_payment: 'Требуется ручная оплата'
-            enable_recurring: 'Сделать повторяющимся'
-            cancel_subscription: 'Отменить подписку'
         index:
             api_key_confirmation: 'Вы уверены?'
             api_keys_section: 'Ключи API'
-            subscription_section: 'Подписка'
             trading_keys_section: 'Ключи торговли'
             withdrawal_keys_section: 'Ключи вывода'
             email_section: 'Электронная почта'
@@ -232,6 +216,10 @@ ru:
         seconds:
             one: "%{count} секунда"
             other: "%{count} секунд"
+        days_short: 'd'
+        hours_short: 'h'
+        minutes_short: 'm'
+        seconds_short: 's'
     dca_calculator:
         title: "Сколько времени нужно было откладывать <span>$%{amount}/месяц,</span> чтобы %{goal}?"
         goal_millionaire: "стать миллионером"

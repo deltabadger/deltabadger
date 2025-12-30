@@ -28,7 +28,7 @@ module Admin
     private
 
     def get_sorting_attribute(model_name)
-      %i[payment user].include?(model_name) ? :created_at : :id
+      %i[user].include?(model_name) ? :created_at : :id
     end
 
     # Override this value to specify the number of elements to display at a time

@@ -23,8 +23,6 @@ class Bot < ApplicationRecord
   after_update_commit :broadcast_status_button_update, if: :saved_change_to_status?
   after_update_commit -> { Bot::UpdateMetricsJob.perform_later(self) if custom_exchange_id_changed? }
 
-  validate :validate_bot_count_in_subscription_plan, on: :start
-
   def working?
     scheduled? || executing? || retrying? || waiting?
   end
@@ -50,8 +48,8 @@ class Bot < ApplicationRecord
   end
 
   def api_key
-    @api_key ||= user.api_keys.find_by(exchange_id: exchange_id, key_type: api_key_type) ||
-                 user.api_keys.new(exchange_id: exchange_id, key_type: api_key_type, status: :pending_validation)
+    @api_key ||= user.api_keys.find_by(exchange_id:, key_type: api_key_type) ||
+                 user.api_keys.new(exchange_id:, key_type: api_key_type, status: :pending_validation)
   end
 
   def last_transaction
@@ -119,7 +117,7 @@ class Bot < ApplicationRecord
       ["user_#{user_id}", :bot_updates],
       target: 'orders_list',
       partial: 'bots/orders/order',
-      locals: { order: order, decimals: decimals, exchange_name: order.exchange.name, current_user: user, fetch: false }
+      locals: { order:, decimals:, exchange_name: order.exchange.name, current_user: user, fetch: false }
     )
   end
 
@@ -135,19 +133,11 @@ class Bot < ApplicationRecord
       ["user_#{user_id}", :bot_updates],
       target: dom_id(order),
       partial: 'bots/orders/order',
-      locals: { order: order, decimals: decimals, exchange_name: order.exchange.name, current_user: user, fetch: false }
+      locals: { order:, decimals:, exchange_name: order.exchange.name, current_user: user, fetch: false }
     )
   end
 
   private
-
-  def validate_bot_count_in_subscription_plan
-    max_bots = user.subscription.max_bots
-    return unless max_bots.present?
-    return if user.bots.working.count < max_bots
-
-    errors.add(:user, :upgrade)
-  end
 
   def store_previous_exchange_id
     @previous_exchange_id = exchange_id_was

@@ -50,13 +50,6 @@ de:
         minimum_length: 'Mindestens %{length} Zeichen'
     helpers:
         label:
-            payment:
-                birth_date: Geburtsdatum
-                business_invoice: 'Ich benötige eine geschäftliche Rechnung.'
-                country: Land
-                first_name: Vorname
-                last_name: Nachname
-                other: Sonstige
             settings:
                 current_status: 'Aktueller Status:'
                 disable_two_fa: '2FA deaktivieren'
@@ -106,7 +99,6 @@ de:
         settings: Einstellungen
         sign_up: Registrieren
         terms_and_conditions: Nutzungsbedingungen
-        legendary_badger: Legendary Badger
     settings:
         timezone:
             title: 'Zeitzone'
@@ -119,15 +111,9 @@ de:
             enabled: 'Die Zwei-Faktor-Authentifizierung wurde aktiviert.'
         api_keys:
             confirm_delete: 'Möchten Sie diesen API-Schlüssel löschen?'
-        subscription:
-            next_payment_html: 'Nächste Zahlung: %{cost_html}'
-            requires_manual_payment: 'Manuelle Zahlung erforderlich'
-            enable_recurring: 'Wiederkehrend machen'
-            cancel_subscription: 'Abonnement kündigen'
         index:
             api_key_confirmation: 'Bist du sicher?'
             api_keys_section: API-Schlüssel
-            subscription_section: 'Abonnement'
             trading_keys_section: 'Handelsschlüssel'
             withdrawal_keys_section: 'Auszahlungsschlüssel'
             email_section: E-Mail
@@ -227,6 +213,10 @@ de:
         seconds:
             one: "%{count} Sekunde"
             other: "%{count} Sekunden"
+        days_short: 't'
+        hours_short: 's'
+        minutes_short: 'm'
+        seconds_short: 's'
     dca_calculator:
         title: "Wie lange musstest du <span>$%{amount}/Monat</span> sparen, um %{goal}?"
         goal_millionaire: "Millionär zu werden"

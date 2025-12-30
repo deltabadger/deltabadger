@@ -1,7 +1,6 @@
 class User < ApplicationRecord
   attr_accessor :otp_code_token
 
-  after_create :set_free_subscription
   after_create_commit :subscribe_to_onboarding, if: -> { oauth_provider.present? }
   after_update_commit :subscribe_to_newsletter, if: -> { oauth_provider.present? }
   after_update_commit :subscribe_to_product_updates, if: -> { oauth_provider.present? }
@@ -16,10 +15,7 @@ class User < ApplicationRecord
   has_many :exchanges, through: :api_keys
   has_many :bots
   has_many :transactions, through: :bots
-  has_many :subscriptions, dependent: :destroy
-  has_many :payments
   has_many :portfolios, dependent: :destroy
-  has_many :cards, dependent: :destroy
   has_many :messages, class_name: 'Ahoy::Message', as: :user
 
   validates :terms_and_conditions, acceptance: true
@@ -31,11 +27,8 @@ class User < ApplicationRecord
 
   after_update_commit :reset_oauth_credentials, if: :saved_change_to_email?
 
-  delegate :paid?, to: :subscription
-
   acts_as_caffeinate_subscriber
 
-  include Upgradeable
   include Intercomable
 
   def self.from_omniauth(auth)
@@ -61,20 +54,12 @@ class User < ApplicationRecord
     user
   end
 
-  def subscription
-    @subscription ||= subscriptions.active.order(created_at: :asc).last
-  end
-
   def webhook_bots_transactions
     transactions.where(bot_id: bots.webhook.pluck(:id))
   end
 
   def newly_webhook_bots_transactions(time)
     webhook_bots_transactions.where('transactions.created_at > ? ', time)
-  end
-
-  def pending_plan_variant
-    SubscriptionPlanVariant.find_by(id: pending_plan_variant_id)
   end
 
   def subscribe_to_onboarding
@@ -91,21 +76,12 @@ class User < ApplicationRecord
 
   private
 
-  def set_free_subscription
-    subscription_plan_variant = SubscriptionPlanVariant.find_by(subscription_plan: SubscriptionPlan.free)
-    subscriptions.create!(subscription_plan_variant:)
-  end
-
   def set_default_time_zone
     self.time_zone = 'UTC' if time_zone.blank?
   end
 
   def reset_oauth_credentials
     update!(oauth_provider: nil, oauth_uid: nil)
-  end
-
-  def eligible_for_discount?
-    @eligible_for_discount ||= !payments.paid.where(discounted: true).exists?
   end
 
   def validate_name

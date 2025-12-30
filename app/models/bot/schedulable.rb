@@ -13,7 +13,6 @@ module Bot::Schedulable
                    :last_action_job_at
 
     validates :interval, presence: true, inclusion: { in: INTERVALS.keys }, unless: :legacy?
-    validate :validate_interval_included_in_subscription_plan, on: :start, unless: :legacy?
   end
 
   def interval_duration
@@ -93,12 +92,6 @@ module Bot::Schedulable
   end
 
   private
-
-  def validate_interval_included_in_subscription_plan
-    return unless user.subscription.free? || user.subscription.research_only?
-
-    errors.add(:user, :upgrade) if interval == 'hour'
-  end
 
   def legacy_next_interval_checkpoint_at
     NextTradingBotTransactionAt.new.call(self) || Time.current

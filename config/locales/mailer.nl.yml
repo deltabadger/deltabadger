@@ -22,20 +22,3 @@ nl:
         stopped_by_amount_limit:
             subject: "%{label} heeft het volledige bedrag geïnvesteerd"
             template_html: "<p>Uw bot <b>%{label}</b> heeft uw doel bereikt en het volledige bedrag van %{amount} %{quote} geïnvesteerd.</p><p>De bot is automatisch gestopt. Schakel de bedragslimiet UIT om het doel te resetten.</p>"
-    subscription_mailer:
-        invoice:
-            subject: 'Factuur'
-            template_html: |
-                <h2>Deltabadger %{plan_name} Plan (%{years}-jarig)</h2>
-                <p> <b>Betaald:</b></p>
-                <h2>%{total_paid} %{currency}</h2>
-                <p><b>Betaald op:</b></p>
-                <p>%{paid_at}</p>
-                <p><b>Verkoper:</b></p>
-                <p>Deltabadger OÜ<br>
-                Pärnu mnt 158/2-88 <br>
-                11317 Tallinn <br> Estland <br>
-                KvK nr.14781461</p>
-                <p><b>Koper:</b></p>
-                <p> %{first_name} %{last_name} <br>
-                %{email}</p>
