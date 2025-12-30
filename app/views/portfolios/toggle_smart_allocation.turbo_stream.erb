@@ -1,9 +1,0 @@
-<%= turbo_stream.replace "smart-allocation-controls", partial: "portfolios/smart_allocation_controls", locals: { portfolio: @portfolio } %>
-<%= turbo_stream.replace "normalize-button", partial: "portfolios/normalize_button", locals: { portfolio: @portfolio } %>
-<%= turbo_stream_replace_backtest_results(@backtest, @portfolio) %>
-<% if !@portfolio.smart_allocation_on? %>
-  <%= turbo_stream.remove "portfolio-idle-assets-label" %>
-<% end %>
-<%= turbo_stream_update_portfolio_assets(@portfolio, @last_active_assets_ids, @last_idle_assets_ids) %>
-<%= turbo_stream_replace_insights_button(@backtest, @portfolio) %>
-<%= turbo_stream_prepend_flash %>
