@@ -50,13 +50,6 @@ fr:
         minimum_length: '%{length} caractères minimum'
     helpers:
         label:
-            payment:
-                birth_date: 'Date de naissance'
-                business_invoice: 'J''ai besoin d''une facture professionnelle.'
-                country: 'Pays'
-                first_name: 'Nom'
-                last_name: 'Nom de famille'
-                other: 'Autre'
             settings:
                 current_status: 'Statut actuel :'
                 disable_two_fa: 'Désactiver 2FA'
@@ -106,7 +99,6 @@ fr:
         settings: 'Paramètres'
         sign_up: 'S''inscrire'
         terms_and_conditions: 'Conditions générales'
-        legendary_badger: 'Legendary Badger'
     settings:
         timezone:
             title: 'Fuseau horaire'
@@ -119,15 +111,9 @@ fr:
             enabled: "L'authentification à deux facteurs a été activée."
         api_keys:
             confirm_delete: "Voulez-vous supprimer cette clé d'API ?"
-        subscription:
-            next_payment_html: 'Prochain paiement: %{cost_html}'
-            requires_manual_payment: 'Paiement manuel requis'
-            enable_recurring: 'Rendre récurrent'
-            cancel_subscription: "Annuler l'abonnement"
         index:
             api_key_confirmation: 'Êtes-vous sûr ?'
             api_keys_section: 'Clés API'
-            subscription_section: 'Abonnement'
             trading_keys_section: 'Clés de trading'
             withdrawal_keys_section: 'Clés de retrait'
             current_password: 'Mot de passe actuel (pour confirmation)'
@@ -229,6 +215,10 @@ fr:
         seconds:
             one: "%{count} seconde"
             other: "%{count} secondes"
+        days_short: 'd'
+        hours_short: 'h'
+        minutes_short: 'm'
+        seconds_short: 's'
     dca_calculator:
         title: "Combien de temps fallait-il épargner <span>$%{amount}/mois</span> pour %{goal} ?"
         goal_millionaire: "devenir millionnaire"

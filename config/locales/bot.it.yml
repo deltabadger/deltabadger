@@ -139,13 +139,9 @@ it:
         messages:
             do_you_want_to_delete: 'Vuoi eliminare questo bot?'
             symbol_not_supported: "%{symbol} non è supportato"
-            symbol_not_supported_subscription: "%{symbol} non è supportato nel tuo abbonamento"
-            upgrade_plan_more_bots: "Aggiorna il tuo piano per eseguire più bot"
-            upgrade_plan_limit_orders: "Aggiorna il tuo piano per utilizzare FeeCutter"
             specify_percentage_limit_order: "Specifica la percentuale quando crei un ordine limite"
             smart_intervals_above_minimum: "Il valore degli intervalli intelligenti dovrebbe essere maggiore di %{minimum}"
             invalid_price_range: "L'intervallo di prezzo non è valido"
-            upgrade_price_range: "Aggiorna per utilizzare l'Intervallo di Prezzo"
             subaccounts_not_allowed: "Sottoconti non permessi su questo exchange"
             no_subaccount_name: "Nessun nome di sottoconto fornito"
             wrong_subaccount_name: "Nome del sottoconto errato"

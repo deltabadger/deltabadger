@@ -17,7 +17,6 @@ class Bots::DcaDualAsset < Bot
   validate :validate_unchangeable_interval, on: :update
   validate :validate_unchangeable_exchange, on: :update
   validate :validate_tickers_available, on: :start
-  validate :validate_dca_dual_asset_included_in_subscription_plan, on: :start
 
   before_save :set_tickers, if: :will_save_change_to_exchange_id?
 
@@ -80,7 +79,7 @@ class Bots::DcaDualAsset < Bot
     if update(
       status: :stopped,
       stopped_at: Time.current,
-      stop_message_key: stop_message_key
+      stop_message_key:
     )
       cancel_scheduled_action_jobs
       true
@@ -117,7 +116,7 @@ class Bots::DcaDualAsset < Bot
   def available_exchanges_for_current_settings
     base_asset_ids = [base0_asset_id, base1_asset_id].compact
     scope = Ticker.available.where(exchange: Exchange.available_for_new_bots)
-    scope = scope.where(quote_asset_id: quote_asset_id) if quote_asset_id.present?
+    scope = scope.where(quote_asset_id:) if quote_asset_id.present?
     scope = scope.where(base_asset_id: base_asset_ids) if base_asset_ids.any?
     exchange_ids = if base_asset_ids.size > 1
                      scope.group_by(&:exchange_id)
@@ -140,7 +139,7 @@ class Bots::DcaDualAsset < Bot
       scope = Ticker.available
                     .where(exchange: available_exchanges)
                     .where.not(base_asset_id: base_asset_ids + [quote_asset_id])
-      scope = scope.where(quote_asset_id: quote_asset_id) if quote_asset_id.present?
+      scope = scope.where(quote_asset_id:) if quote_asset_id.present?
     when :quote_asset
       scope = Ticker.available
                     .where(exchange: available_exchanges)
@@ -236,8 +235,8 @@ class Bots::DcaDualAsset < Bot
   end
 
   def validate_bot_exchange
-    return if exchange.tickers.available.exists?(base_asset: base0_asset, quote_asset: quote_asset) &&
-              exchange.tickers.available.exists?(base_asset: base1_asset, quote_asset: quote_asset)
+    return if exchange.tickers.available.exists?(base_asset: base0_asset, quote_asset:) &&
+              exchange.tickers.available.exists?(base_asset: base1_asset, quote_asset:)
 
     errors.add(:exchange, :unsupported, message: I18n.t('errors.bots.exchange_asset_mismatch', exchange_name: exchange.name))
   end
@@ -268,12 +267,6 @@ class Bots::DcaDualAsset < Bot
                message: I18n.t('errors.bots.exchange_change_while_open_orders', exchange_name: exchange.name))
   end
 
-  def validate_dca_dual_asset_included_in_subscription_plan
-    return if user.subscription.mini? || user.subscription.standard? || user.subscription.pro? || user.subscription.legendary?
-
-    errors.add(:user, :upgrade)
-  end
-
   def validate_tickers_available
     return if ticker0.present? && ticker0.available? && ticker1.present? && ticker1.available?
 
@@ -284,7 +277,7 @@ class Bots::DcaDualAsset < Bot
 
   def set_tickers
     @tickers = exchange&.tickers&.where(base_asset_id: [base0_asset_id, base1_asset_id],
-                                        quote_asset_id: quote_asset_id) ||
+                                        quote_asset_id:) ||
                Ticker.none
   end
 

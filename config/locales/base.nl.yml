@@ -50,13 +50,6 @@ nl:
         minimum_length: 'Minimaal %{length} tekens'
     helpers:
         label:
-            payment:
-                birth_date: Geboortedatum
-                business_invoice: 'Ik heb een factuur nodig voor mijn onderneming.'
-                country: Land
-                first_name: Voornaam
-                last_name: Achternaam
-                other: Anders
             settings:
                 current_status: 'Huidige status:'
                 disable_two_fa: '2FA uitschakelen'
@@ -106,12 +99,10 @@ nl:
         settings: Instellingen
         sign_up: Registreren
         terms_and_conditions: 'Algemene voorwaarden'
-        legendary_badger: 'Legendary Badger'
     settings:
         index:
             api_key_confirmation: 'Weet je het zeker?'
             api_keys_section: 'API keys'
-            subscription_section: 'Abonnement'
             trading_keys_section: 'Trading keys'
             withdrawal_keys_section: 'Withdrawal keys'
             email_section: Email
@@ -133,11 +124,6 @@ nl:
             enabled: 'Twee-factor-authenticatie is ingeschakeld.'
         api_keys:
             confirm_delete: "Wilt u deze API-sleutel verwijderen?"
-        subscription:
-            next_payment_html: 'Volgende betaling: %{cost_html}'
-            requires_manual_payment: 'Handmatige betaling vereist'
-            enable_recurring: 'Maak het terugkerend'
-            cancel_subscription: 'Abonnement opzeggen'
     social:
         blog: 'Lees onze blog'
         knowledge_base: Kennisbank
@@ -223,6 +209,10 @@ nl:
         seconds:
             one: "%{count} seconde"
             other: "%{count} seconden"
+        days_short: 'd'
+        hours_short: 'h'
+        minutes_short: 'm'
+        seconds_short: 's'
     dca_calculator:
         title: "Hoe lang moest je <span>$%{amount}/maand</span> sparen om %{goal}?"
         goal_millionaire: "miljonair te worden"

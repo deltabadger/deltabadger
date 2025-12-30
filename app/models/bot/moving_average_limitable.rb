@@ -39,7 +39,6 @@ module Bot::MovingAverageLimitable
     validates :moving_average_limit_in_ma_type, inclusion: { in: MOVING_AVERAGE_LIMIT_MA_TYPES }
     validates :moving_average_limit_in_timeframe, inclusion: { in: MOVING_AVERAGE_LIMIT_TIMEFRAMES.keys }
     validates :moving_average_limit_in_period, numericality: { only_integer: true, greater_than: 0 }, if: :moving_average_limited?
-    validate :validate_moving_average_limitable_included_in_subscription_plan, on: :start
 
     decorators = Module.new do
       def parse_params(params)
@@ -69,7 +68,7 @@ module Bot::MovingAverageLimitable
       end
 
       def stop(stop_message_key: nil)
-        is_stopped = super(stop_message_key: stop_message_key)
+        is_stopped = super(stop_message_key:)
         return is_stopped unless moving_average_limited?
 
         cancel_scheduled_moving_average_limit_check_jobs
@@ -159,7 +158,7 @@ module Bot::MovingAverageLimitable
       ["user_#{user_id}", :bot_updates],
       target: new_record? ? 'new-settings-moving-average-limit-info' : 'settings-moving-average-limit-info',
       partial: 'bots/settings/moving_average_limit_info',
-      locals: { bot: self, info: info }
+      locals: { bot: self, info: }
     )
   end
 
@@ -168,13 +167,6 @@ module Bot::MovingAverageLimitable
   end
 
   private
-
-  def validate_moving_average_limitable_included_in_subscription_plan
-    return unless moving_average_limited?
-    return if user.subscription.standard? || user.subscription.pro? || user.subscription.legendary?
-
-    errors.add(:user, :upgrade)
-  end
 
   def moving_average_limit_info_cache_key
     "bot_#{id}_moving_average_limit_info"

@@ -1,16 +1,7 @@
 module BotsManager
   class Create < BaseService
-    def initialize(
-      subscription_validator: -> { Result::Success.new }
-    )
-      @subscription_validator = subscription_validator
-    end
-
     def call(user, params)
-      subscription_validation_result = @subscription_validator.call
-      return subscription_validation_result if subscription_validation_result.failure?
-
-      bot_params = params.merge(user: user)
+      bot_params = params.merge(user:)
       type = params.fetch(:bot_type)
       case type
       when 'trading'

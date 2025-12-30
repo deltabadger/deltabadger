@@ -1,16 +1,6 @@
 module BotHelper
-  def bot_intervals_select_options(subscription)
-    if subscription.free? || subscription.research_only?
-      Bot::Schedulable::INTERVALS.keys.map do |interval|
-        if interval == 'hour'
-          [t("bot.#{interval}") + " (#{t('subscriptions.upgrade')})", interval, { disabled: true }]
-        else
-          [t("bot.#{interval}"), interval]
-        end
-      end
-    else
-      Bot::Schedulable::INTERVALS.keys.map { |interval| [t("bot.#{interval}"), interval] }
-    end
+  def bot_intervals_select_options
+    Bot::Schedulable::INTERVALS.keys.map { |interval| [t("bot.#{interval}"), interval] }
   end
 
   def bot_type_label(bot)

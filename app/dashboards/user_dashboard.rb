@@ -11,9 +11,6 @@ class UserDashboard < Administrate::BaseDashboard
     api_keys: Field::HasMany.with_options(sort_by: :id, direction: :desc),
     exchanges: Field::HasMany.with_options(sort_by: :id, direction: :desc),
     bots: Field::HasMany.with_options(sort_by: :id, direction: :desc),
-    subscriptions: Field::HasMany.with_options(sort_by: :id, direction: :desc),
-    subscription: SubscriptionField,
-    payments: Field::HasMany.with_options(sort_by: :id, direction: :desc),
     id: Field::Number,
     email: Field::String,
     name: Field::String,
@@ -45,7 +42,6 @@ class UserDashboard < Administrate::BaseDashboard
     id
     email
     name
-    subscription
     admin
   ].freeze
 
@@ -58,8 +54,6 @@ class UserDashboard < Administrate::BaseDashboard
     api_keys
     exchanges
     bots
-    subscriptions
-    payments
     reset_password_sent_at
     remember_created_at
     confirmed_at

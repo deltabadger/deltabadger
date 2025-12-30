@@ -5,7 +5,7 @@ module Api
       exchange_type_pairs = get_exchange_type_pairs(api_keys)
 
       build_data = lambda do |exchange|
-        symbols_query = paid_subscription?(current_user.subscription.name) ? exchange.symbols : exchange.free_plan_symbols
+        symbols_query = exchange.symbols
         symbols = symbols_query.success? ? symbols_query.data : []
         all_symbols = exchange.symbols.or([])
         status_of_trading_key = status_of_key(exchange.id, 'trading', exchange_type_pairs)
@@ -18,8 +18,8 @@ module Api
           maker_fee: exchange.maker_fee || '?',
           taker_fee: exchange.taker_fee || '?',
           withdrawal_fee: exchange.withdrawal_fee || '?',
-          symbols: symbols,
-          all_symbols: all_symbols,
+          symbols:,
+          all_symbols:,
           trading_key_status: status_of_trading_key,
           webhook_key_status: status_of_webhook_key,
           withdrawal_key_status: status_of_withdrawal_key,
@@ -46,10 +46,6 @@ module Api
 
     def exchanges_params
       params.permit(:type)
-    end
-
-    def paid_subscription?(subscription_name)
-      %w[mini mini_research standard standard_research pro legendary].include?(subscription_name)
     end
 
     def get_withdrawal_info_processor(api_keys, exchange)
