@@ -142,36 +142,6 @@ en:
                 <li><b>Reply with <i>"FIRE"</i></b> and get access to our community.</li>
             </ul>
             <p>See you there,<br>Jan</p>
-    analyzer:
-        default_portfolio: "Default portfolio"
-        duplicate_portfolio: 'Duplicate portfolio'
-        do_you_want_to_delete: 'Do you want to delete this portfolio?'
-        portfolio_name: 'Portfolio name'
-        compare: 'Compare'
-        new_portfolio: 'New portfolio'
-        total_value: 'Total value'
-        no_assets: 'Get started by adding a new asset.'
-        assets_dont_coexist: 'Unable to backtest this portfolio. The assets you selected have never coexisted since %{backtest_start_date}!'
-        api_unreachable: 'Unable to backtest this portfolio right now. Data API server is unreachable.'
-        these_assets: 'These assets neither lower Volatility nor increase Sharpe Ratio of your portfolio:'
-        smart_allocation:
-            name: 'Smart Allocation'
-            short_info_html: '<p>Smart Allocation applies <b>Modern Portfolio Theory (MPT)</b> algorithms to find the best asset allocation for your portfolio.</p>You can optimize for two different metrics and even choose a desired spot between those two optimizations.'
-        risk_free_rate: 'Risk-Free Rate'
-        us_bonds: 'US Bonds'
-        benchmark: 'Benchmark'
-        benchmark_info: 'The better the benchmark choice, the more reliable the Exp. Return calculation. Pick a benchmark that closely matches the investment strategy and market segment of your portfolio. Other metrics affected by the benchmark include Alpha, Beta, R², and Info Ratio.'
-        insights: 'Insights'
-        pnl: 'Profit/Loss'
-        strategy:
-            fixed: 'One-time investment'
-            dca: 'DCA'
-            rebalancing: 'Rebalancing'
-        backtest:
-            time_window:
-                adjusted_both_html: "The backtest time window has been adjusted to start at <strong>%{start_date}</strong> and end at <strong>%{end_date}</strong> to fit the available history of all assets."
-                adjusted_start_html: "The backtest start date has been adjusted to <strong>%{start_date}</strong> to fit the available history of all assets."
-                adjusted_end_html: "The backtest end date has been adjusted to <strong>%{end_date}</strong> to fit the available history of all assets."
     utils:
         assets: Assets
         beta: Beta

@@ -88,15 +88,6 @@ application.register("nested-link-in-button", NestedLinkInButtonController)
 import PieChartController from "./pie_chart_controller"
 application.register("pie-chart", PieChartController)
 
-import PortfolioAnalyzer__AssetAllocationController from "./portfolio_analyzer/asset_allocation_controller"
-application.register("portfolio-analyzer--asset-allocation", PortfolioAnalyzer__AssetAllocationController)
-
-import PortfolioAnalyzer__ChartController from "./portfolio_analyzer/chart_controller"
-application.register("portfolio-analyzer--chart", PortfolioAnalyzer__ChartController)
-
-import PortfolioAnalyzer__RiskLevelAllocationsController from "./portfolio_analyzer/risk_level_allocations_controller"
-application.register("portfolio-analyzer--risk-level-allocations", PortfolioAnalyzer__RiskLevelAllocationsController)
-
 import ProgressBarController from "./progress_bar_controller"
 application.register("progress-bar", ProgressBarController)
 
