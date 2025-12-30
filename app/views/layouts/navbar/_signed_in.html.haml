@@ -10,9 +10,6 @@
   = link_to calculator_path, class: 'menu-mobile__item menu-mobile__item--calculator', data: { controller: 'tooltip', action: 'mouseenter->tooltip#showTooltip mouseleave->tooltip#hideTooltip' } do
     = t('links.calculator')
 
-  = link_to portfolios_path, class: 'menu-mobile__item menu-mobile__item--analyzer', data: { controller: 'tooltip', action: 'mouseenter->tooltip#showTooltip mouseleave->tooltip#hideTooltip' } do
-    = t('links.analyzer')
-
   = link_to 'https://t.me/deltabadgerchat', class: "menu-mobile__item menu-mobile__item--community", data: { controller: 'tooltip', action: 'mouseenter->tooltip#showTooltip mouseleave->tooltip#hideTooltip' }, target: "_blank", rel: "noopener" do
     = t('links.telegram')
     = render "svg/16x16_link"
@@ -68,11 +65,6 @@
       -# .xsbadge= t('utils.new')
       .tooltip
         = t('links.calculator')
-
-    = link_to portfolios_path, class: 'menu__item menu__item--analyzer', data: { controller: 'tooltip', action: 'mouseenter->tooltip#showTooltip mouseleave->tooltip#hideTooltip' } do
-      = render 'svg/24x24_prism_c'
-      .tooltip
-        = t('links.analyzer')
 
     = link_to 'https://t.me/deltabadgerchat', class: "menu__item menu__item--community", data: { controller: 'tooltip', action: 'mouseenter->tooltip#showTooltip mouseleave->tooltip#hideTooltip' }, target: "_blank", rel: "noopener" do
       = render 'svg/24x24_community'

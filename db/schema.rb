@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema.define(version: 2025_12_30_002934) do
+ActiveRecord::Schema.define(version: 2025_12_30_014648) do
 
   # These are extensions that must be enabled in order to support this database
   enable_extension "plpgsql"
@@ -217,37 +217,6 @@ ActiveRecord::Schema.define(version: 2025_12_30_002934) do
     t.index ["exchange_id"], name: "index_fee_api_keys_on_exchange_id"
   end
 
-  create_table "portfolio_assets", force: :cascade do |t|
-    t.bigint "portfolio_id", null: false
-    t.string "ticker"
-    t.decimal "allocation", precision: 5, scale: 4, default: "0.0", null: false
-    t.datetime "created_at", precision: 6, null: false
-    t.datetime "updated_at", precision: 6, null: false
-    t.string "color"
-    t.string "name"
-    t.string "api_id"
-    t.string "category"
-    t.string "url"
-    t.string "country"
-    t.string "exchange"
-    t.index ["portfolio_id"], name: "index_portfolio_assets_on_portfolio_id"
-  end
-
-  create_table "portfolios", force: :cascade do |t|
-    t.bigint "user_id", null: false
-    t.integer "strategy", default: 0, null: false
-    t.boolean "smart_allocation_on", default: false, null: false
-    t.integer "risk_level", default: 2, null: false
-    t.integer "benchmark", default: 0, null: false
-    t.datetime "created_at", precision: 6, null: false
-    t.datetime "updated_at", precision: 6, null: false
-    t.decimal "risk_free_rate", precision: 5, scale: 4, default: "0.0", null: false
-    t.string "label"
-    t.jsonb "compare_to", default: [], null: false
-    t.date "backtest_start_date", default: "2020-01-01", null: false
-    t.index ["user_id"], name: "index_portfolios_on_user_id"
-  end
-
   create_table "tickers", force: :cascade do |t|
     t.bigint "exchange_id", null: false
     t.bigint "base_asset_id", null: false
@@ -349,8 +318,6 @@ ActiveRecord::Schema.define(version: 2025_12_30_002934) do
   add_foreign_key "exchange_assets", "assets"
   add_foreign_key "exchange_assets", "exchanges"
   add_foreign_key "fee_api_keys", "exchanges"
-  add_foreign_key "portfolio_assets", "portfolios"
-  add_foreign_key "portfolios", "users"
   add_foreign_key "tickers", "assets", column: "base_asset_id"
   add_foreign_key "tickers", "assets", column: "quote_asset_id"
   add_foreign_key "tickers", "exchanges"

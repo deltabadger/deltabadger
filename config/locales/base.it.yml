@@ -141,36 +141,6 @@ it:
                 <li><b>Rispondi con <i>"FIRE"</i></b> e ottieni l'accesso alla nostra community.</li>
             </ul>
             <p>Ci vediamo lì,<br>Jan</p>
-    analyzer:
-        default_portfolio: "Portfolio predefinito"
-        duplicate_portfolio: 'Duplica portfolio'
-        do_you_want_to_delete: 'Vuoi eliminare questo portfolio?'
-        portfolio_name: 'Nome del portfolio'
-        compare: 'Confronta'
-        new_portfolio: 'Nuovo portfolio'
-        total_value: 'Valore totale'
-        no_assets: 'Inizia aggiungendo un nuovo asset.'
-        assets_dont_coexist: 'Impossibile testare questo portfolio. Gli asset selezionati non sono mai coesistiti dal %{backtest_start_date}!'
-        api_unreachable: 'Impossibile testare questo portfolio in questo momento. Il server API dei dati non è raggiungibile.'
-        these_assets: 'Questi asset non riducono la Volatilità né aumentano lo Sharpe Ratio del tuo portfolio:'
-        smart_allocation:
-            name: 'Allocazione Intelligente'
-            short_info_html: '<p>L''Allocazione Intelligente applica gli algoritmi della <b>Teoria Moderna del Portafoglio (MPT)</b> per trovare la migliore allocazione degli asset per il tuo portfolio.</p>Puoi ottimizzare per due diverse metriche e persino scegliere un punto desiderato tra queste due ottimizzazioni.'
-        risk_free_rate: 'Tasso Privo di Rischio'
-        us_bonds: 'Obbligazioni USA'
-        benchmark: 'Benchmark'
-        benchmark_info: 'Migliore è la scelta del benchmark, più affidabile sarà il calcolo del Rendimento Atteso. Scegli un benchmark che corrisponda strettamente alla strategia di investimento e al segmento di mercato del tuo portfolio. Altre metriche influenzate dal benchmark includono Alpha, Beta, R² e Info Ratio.'
-        insights: 'Approfondimenti'
-        pnl: 'Profitto/Perdita'
-        strategy:
-            fixed: 'Investimento una tantum'
-            dca: 'DCA'
-            rebalancing: 'Ribilanciamento'
-        backtest:
-            time_window:
-                adjusted_both_html: "La finestra temporale del backtest è stata modificata per iniziare il <strong>%{start_date}</strong> e terminare il <strong>%{end_date}</strong> per adattarsi alla storia disponibile di tutti gli asset."
-                adjusted_start_html: "La data di inizio del backtest è stata modificata al <strong>%{start_date}</strong> per adattarsi alla storia disponibile di tutti gli asset."
-                adjusted_end_html: "La data di fine del backtest è stata modificata al <strong>%{end_date}</strong> per adattarsi alla storia disponibile di tutti gli asset."
     utils:
         assets: Asset
         cash: Contanti
