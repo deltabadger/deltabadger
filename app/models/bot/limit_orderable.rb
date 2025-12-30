@@ -1,7 +1,7 @@
 module Bot::LimitOrderable
   extend ActiveSupport::Concern
 
-  included do # rubocop:disable Metrics/BlockLength
+  included do
     store_accessor :settings,
                    :limit_ordered,
                    :limit_order_pcnt_distance
@@ -12,7 +12,6 @@ module Bot::LimitOrderable
     validates :limit_order_pcnt_distance,
               numericality: { greater_than_or_equal_to: 0, less_than_or_equal_to: 1 },
               if: :limit_ordered
-    validate :validate_limit_orderable_included_in_subscription_plan, on: :start
 
     decorators = Module.new do
       def parse_params(params)
@@ -41,13 +40,6 @@ module Bot::LimitOrderable
   end
 
   private
-
-  def validate_limit_orderable_included_in_subscription_plan
-    return unless limit_ordered?
-    return if user.subscription.mini? || user.subscription.standard? || user.subscription.pro? || user.subscription.legendary?
-
-    errors.add(:user, :upgrade)
-  end
 
   def initialize_limit_orderable_settings
     self.limit_ordered ||= false

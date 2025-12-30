@@ -1,6 +1,5 @@
 class PortfoliosController < ApplicationController
   before_action :authenticate_user!
-  before_action :authenticate_research_user!, only: %i[show]
   before_action :set_portfolio, except: %i[new create compare]
   before_action :set_last_assets, except: %i[update_risk_level compare]
   after_action :save_last_assets, except: %i[update_risk_level normalize_allocations compare]
@@ -244,10 +243,6 @@ class PortfoliosController < ApplicationController
 
   private
 
-  def authenticate_research_user!
-    redirect_to root_path, alert: 'You need to be a research user to access this the Portfolio Analyzer.' unless current_user.subscription.research?
-  end
-
   def portfolio_params
     params.require(:portfolio).permit(
       :id,
@@ -320,7 +315,7 @@ class PortfoliosController < ApplicationController
         risk_free_rate_name = Portfolio::RISK_FREE_RATES[params[:risk_free_rate_shortcut].to_sym][:name]
         flash.now[:alert] =
           "#{t('alert.portfolio.unable_to_set_risk_rate',
-               risk_free_rate_name: risk_free_rate_name)} #{t('alert.portfolio.api_unreachable')}"
+               risk_free_rate_name:)} #{t('alert.portfolio.api_unreachable')}"
         nil
       else
         risk_free_rate_result.data

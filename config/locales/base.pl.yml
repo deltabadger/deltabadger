@@ -52,13 +52,6 @@ pl:
         minimum_length: 'Co najmniej %{length} znaków'
     helpers:
         label:
-            payment:
-                birth_date: 'Data urodzenia'
-                business_invoice: 'Potrzebuję faktury biznesowej.'
-                country: Kraj
-                first_name: Imię
-                last_name: Nazwisko
-                other: Inny
             settings:
                 current_status: Status
                 disable_two_fa: 'Wyłącz 2FA'
@@ -108,7 +101,6 @@ pl:
         settings: Ustawienia
         sign_up: 'Stwórz konto'
         terms_and_conditions: Regulamin
-        legendary_badger: 'Legendary Badger'
     settings:
         timezone:
             title: 'Strefa czasowa'
@@ -117,7 +109,6 @@ pl:
         index:
             api_key_confirmation: 'Jesteś pewny?'
             api_keys_section: 'Klucze API'
-            subscription_section: 'Subskrypcja'
             trading_keys_section: 'Klucze handlowe'
             withdrawal_keys_section: 'Klucze wypłat'
             email_section: E-mail
@@ -137,11 +128,6 @@ pl:
         two_fa:
             disabled: 'Uwierzytelnianie dwuskładnikowe zostało wyłączone.'
             enabled: 'Uwierzytelnianie dwuskładnikowe zostało włączone.'
-        subscription:
-            next_payment_html: 'Następna płatność: %{cost_html}'
-            requires_manual_payment: 'Wymaga płatności ręcznej'
-            enable_recurring: 'Włącz płatności cykliczne'
-            cancel_subscription: 'Anuluj subskrypcję'
     social:
         blog: 'Czytaj nasz blog'
         knowledge_base: 'Baza wiedzy'
@@ -227,6 +213,10 @@ pl:
         seconds:
             one: "%{count} sekunda"
             other: "%{count} sekund"
+        days_short: 'd'
+        hours_short: 'h'
+        minutes_short: 'm'
+        seconds_short: 's'
     dca_calculator:
         title: "Jak długo musiałbyś oszczędzać <span>$%{amount}/miesięcznie,</span> aby %{goal}?"
         goal_millionaire: "zostać milionerem"

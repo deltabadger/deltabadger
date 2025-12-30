@@ -22,21 +22,3 @@ de:
         stopped_by_amount_limit:
             subject: "%{label} hat den vollen Betrag investiert"
             template_html: "<p>Ihr Bot <b>%{label}</b> hat Ihr Ziel erreicht und den gesamten Betrag von %{amount} %{quote} investiert.</p><p>Er wurde automatisch gestoppt. Schalten Sie das Betragslimit AUS, um das Ziel zurückzusetzen.</p>"
-    subscription_mailer:
-        invoice:
-            subject: 'Quittung'
-            template_html: |
-                <h2>Deltabadger %{plan_name} Plan (%{years}-Jahr)</h2>
-                <p> <b>Bezahlt:</b></p>
-                <h2>%{total_paid} %{currency}</h2>
-                <p><b>Bezahlt am:</b></p>
-                <p>%{paid_at}</p>
-                <p><b>Verkäufer:</b></p>
-                <p>Deltabadger OÜ<br>
-                Pärnu mnt 158/2-88 <br>
-                11317 Tallinn <br> Estland <br>
-                Reg.Nr.14781461</p>
-                <p><b>Käufer:</b></p>
-                <p> %{first_name} %{last_name} <br>
-                %{email}</p>
-

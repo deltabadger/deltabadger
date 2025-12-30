@@ -22,20 +22,3 @@ pl:
         stopped_by_amount_limit:
             subject: "%{label} zainwestował pełną kwotę"
             template_html: "<p>Twój bot <b>%{label}</b> osiągnął cel i zainwestował całą kwotę %{amount} %{quote}.</p><p>Został automatycznie zatrzymany. Wyłącz limit kwoty, aby zresetować cel.</p>"
-    subscription_mailer:
-        invoice:
-            subject: 'Rachunek'
-            template_html: |
-                <h2>Plan Deltabadger %{plan_name} (%{years}-letni)</h2>
-                <p> <b>Zapłacono:</b></p>
-                <h2>%{total_paid} %{currency}</h2>
-                <p><b>Data płatności:</b></p>
-                <p>%{paid_at}</p>
-                <p><b>Sprzedawca:</b></p>
-                <p>Deltabadger OÜ<br>
-                Pärnu mnt 158/2-88 <br>
-                11317 Tallinn <br> Estonia <br>
-                Nr rej. 14781461</p>
-                <p><b>Nabywca:</b></p>
-                <p> %{first_name} %{last_name} <br>
-                %{email}</p>

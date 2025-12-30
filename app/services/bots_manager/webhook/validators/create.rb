@@ -25,7 +25,7 @@ module BotsManager::Webhook::Validators
       include ActiveModel::Validations
 
       attr_reader :base, :quote, :type, :order_type, :price, :allowed_symbols, :free_plan_symbols,
-                  :pro, :legendary, :paid_plan, :exchange_name, :name, :trigger_url, :trigger_possibility,
+                  :exchange_name, :name, :trigger_url, :trigger_possibility,
                   :already_triggered_types, :additional_type, :additional_type_enabled,
                   :additional_trigger_url, :additional_price
 
@@ -38,7 +38,6 @@ module BotsManager::Webhook::Validators
       validates :type, :price, :base, :quote, :name, :trigger_url, :trigger_possibility, :order_type, presence: true
       validates :additional_type, :additional_trigger_url, :additional_price, presence: true, if: -> { additional_type_enabled }
       validate :allowed_symbol
-      validate :plan_allowed_symbol
       validates :type, inclusion: { in: TYPES }
       validates :additional_type, inclusion: { in: TYPES }, if: -> { additional_type_enabled }
       validate :allowed_additional_type
@@ -66,10 +65,7 @@ module BotsManager::Webhook::Validators
         @allowed_symbols = allowed_symbols
         @free_plan_symbols = free_plan_symbols
         @exchange_name = exchange_name
-        @pro = user.subscription.pro?
-        @legendary = user.subscription.legendary?
-        @paid_plan = user.subscription.paid? && !user.subscription.research_only?
-        @minimums = GetSmartIntervalsInfo.new.call(params.merge(exchange_name: exchange_name), user).data
+        @minimums = GetSmartIntervalsInfo.new.call(params.merge(exchange_name:), user).data
 
         @exchange_id = exchange_id
         @user = user
@@ -82,19 +78,6 @@ module BotsManager::Webhook::Validators
         return if symbol.in?(allowed_symbols)
 
         errors.add(:symbol, "#{symbol} is not supported")
-      end
-
-      def plan_allowed_symbol
-        symbol = ExchangeApi::Markets::MarketSymbol.new(base, quote)
-        return if @paid_plan || symbol.in?(free_plan_symbols)
-
-        errors.add(:symbol, "#{symbol} is not supported in your subscription")
-      end
-
-      def paid_plan_if_limit_order
-        return if paid_plan || order_type == 'market'
-
-        errors.add(:base, 'Limit orders are only available in Pro and Legendary plans')
       end
 
       def allowed_additional_type

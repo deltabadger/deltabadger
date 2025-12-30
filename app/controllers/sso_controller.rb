@@ -27,13 +27,6 @@ class SsoController < ApplicationController
       return render plain: 'No user logged in', status: :unauthorized
     end
 
-    # Check the subscription plan ID
-    active_subscription = user.subscription
-    unless active_subscription && active_subscription.name != SubscriptionPlan::FREE_PLAN
-      Rails.logger.error 'User does not have an eligible subscription plan for SSO'
-      return render plain: 'Upgrade your plan to access the community', status: :forbidden
-    end
-
     # Assign Discourse badges based on the subscription plan
     assign_badges_to_user(user, active_subscription)
 

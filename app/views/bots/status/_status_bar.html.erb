@@ -30,10 +30,10 @@
       controller: "countdown",
       countdown_end_time_value: bot.next_action_job_at&.iso8601,
       countdown_hide_if_zero_value: true,
-      countdown_days_label_value: t('subscriptions.payment.days_short'),
-      countdown_hours_label_value: t('subscriptions.payment.hours_short'),
-      countdown_minutes_label_value: t('subscriptions.payment.minutes_short'),
-      countdown_seconds_label_value: t('subscriptions.payment.seconds_short'),
+      countdown_days_label_value: t('utils.days_short'),
+      countdown_hours_label_value: t('utils.hours_short'),
+      countdown_minutes_label_value: t('utils.minutes_short'),
+      countdown_seconds_label_value: t('utils.seconds_short'),
       marquee_target: "text"
     } do %>
       <% if bot.retrying? %>

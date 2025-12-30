@@ -1,33 +1,4 @@
 module LocalesHelper
-  def localized_price(price, currency, show_zero_decimals = false) # rubocop:disable Style/OptionalBooleanParameter
-    # Check if the price is an integer (no decimals needed)
-    formatted_price = if (price.round(2).to_s.end_with?('.0') || price == price.to_i) && !show_zero_decimals
-                        price.round(2).to_i.to_s # Remove decimal part if it's .00
-                      else
-                        format('%0.02f', price) # Format normally
-                      end
-
-    # Format based on the currency
-    if currency == 'eur'
-      t('subscriptions.payment.price_eur_html', symbol: '€', price: formatted_price)
-    else
-      t('subscriptions.payment.price_usd_html', symbol: '$', price: formatted_price)
-    end
-  end
-
-  def localized_plan_name(name)
-    t("subscriptions.#{name}")
-  end
-
-  def localized_payment_country_options
-    @localized_payment_country_options ||= Country.all_in_display_order.map do |country|
-      [
-        country.name == 'Other' ? t('helpers.label.payment.other') : country.name,
-        country.name
-      ]
-    end
-  end
-
   def localized_time_difference_from_now(date, precision: :days, zero_time_message: t('utils.days', count: 0))
     return '-' if date.nil?
 
@@ -62,8 +33,8 @@ module LocalesHelper
 
     t('ads.dca_profit_html',
       profit: (dca_profit_result.data * 100).to_i,
-      years: years,
-      sp500_diff: sp500_diff)
+      years:,
+      sp500_diff:)
   end
 
   private

@@ -2,10 +2,6 @@ it:
     activerecord:
         errors:
             models:
-                subscription:
-                    attributes:
-                        eth_address:
-                            invalid_address: '"%{eth_address}" è un indirizzo Ethereum non valido. Riprova.'
                 asset:
                     attributes:
                         portfolio:

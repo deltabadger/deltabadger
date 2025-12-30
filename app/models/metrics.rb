@@ -7,9 +7,6 @@ class Metrics
     metrics = {
       liveBots: Bot.working.count,
       btcBought: convert_to_satoshis(total_btc_bought),
-      availableLegendaryBadgers: SubscriptionPlan.legendary.for_sale_count,
-      takenLegendaryBadgersNftIds: Subscription.used_nft_ids,
-      claimedLegendaryBadgersNftIds: Subscription.claimed_nft_ids,
       dca4yrProfitBtc: DcaProfitGetter.call('btc', 4.years.ago).data,
       dca4yrProfitEth: DcaProfitGetter.call('eth', 4.years.ago).data,
       dca4yrProfitXrp: DcaProfitGetter.call('xrp', 4.years.ago).data,

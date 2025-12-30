@@ -31,7 +31,6 @@ module Bot::PriceLimitable
     validates :price_limit_range_upper_bound, numericality: { greater_than_or_equal_to: 0 }, if: :price_limited?
     validates :price_limit_timing_condition, inclusion: { in: PRICE_LIMIT_TIMING_CONDITIONS }
     validates :price_limit_value_condition, inclusion: { in: PRICE_LIMIT_VALUE_CONDITIONS }
-    validate :validate_price_limitable_included_in_subscription_plan, on: :start
 
     decorators = Module.new do
       def parse_params(params)
@@ -61,7 +60,7 @@ module Bot::PriceLimitable
       end
 
       def stop(stop_message_key: nil)
-        is_stopped = super(stop_message_key: stop_message_key)
+        is_stopped = super(stop_message_key:)
         return is_stopped unless price_limited?
 
         cancel_scheduled_price_limit_check_jobs
@@ -146,7 +145,7 @@ module Bot::PriceLimitable
       ["user_#{user_id}", :bot_updates],
       target: new_record? ? 'new-settings-price-limit-info' : 'settings-price-limit-info',
       partial: 'bots/settings/price_limit_info',
-      locals: { bot: self, info: info }
+      locals: { bot: self, info: }
     )
   end
 
@@ -155,13 +154,6 @@ module Bot::PriceLimitable
   end
 
   private
-
-  def validate_price_limitable_included_in_subscription_plan
-    return unless price_limited?
-    return if user.subscription.standard? || user.subscription.pro? || user.subscription.legendary?
-
-    errors.add(:user, :upgrade)
-  end
 
   def price_limit_info_cache_key
     "bot_#{id}_price_limit_info"
