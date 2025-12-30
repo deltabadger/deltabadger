@@ -142,37 +142,6 @@ fr:
                 <li><b>Répondez avec <i>"FIRE"</i></b> et obtenez l'accès à notre communauté.</li>
             </ul>
             <p>À bientôt,<br>Jan</p>
-    analyzer:
-        default_portfolio: 'Portefeuille par défaut'
-        duplicate_portfolio: 'Dupliquer le portefeuille'
-        do_you_want_to_delete: 'Voulez-vous vraiment supprimer ce portefeuille ?'
-        portfolio_name: 'Nom du portefeuille'
-        compare: 'Comparer'
-        new_portfolio: 'Nouveau portefeuille'
-        total_value: 'Valeur Totale'
-        no_assets: 'Commencez par ajouter un nouvel actif.'
-        assets_dont_coexist: 'Impossible de backtester ce portefeuille. Les actifs que vous avez sélectionnés n''ont jamais coexisté depuis %{backtest_start_date}!'
-        api_unreachable: 'Impossible de backtester ce portefeuille en ce moment. Le serveur de données API est inaccessible.'
-        these_assets: 'Ces actifs ne réduisent ni la volatilité ni n''augmentent le ratio de Sharpe de votre portefeuille:'
-        smart_allocation:
-            name: 'Allocation Intelligente'
-            short_info_html: '<p>L''Allocation Intelligente applique les algorithmes de la <b>Théorie Moderne du Portefeuille (MPT)</b> pour trouver la meilleure allocation d''actifs pour votre portefeuille.</p>Vous pouvez optimiser pour deux métriques différentes et même choisir un point souhaité entre ces deux optimisations.'
-
-        risk_free_rate: 'Taux Sans Risque'
-        us_bonds: 'Obligations US'
-        benchmark: 'Indice de Référence'
-        benchmark_info: 'Plus le choix de l''indice de référence est bon, plus le calcul du Rendement Attendu est fiable. Choisissez un indice de référence qui correspond étroitement à la stratégie d''investissement et au segment de marché de votre portefeuille. D''autres métriques affectées par l''indice de référence incluent Alpha, Beta, R² et le Ratio d''Info.'
-        insights: 'Aperçus'
-        pnl: 'Profit/Perte'
-        strategy:
-            fixed: 'Investissement unique'
-            dca: 'DCA'
-            rebalancing: 'Rééquilibrage'
-        backtest:
-            time_window:
-                adjusted_both_html: "La période de test rétroactif a été ajustée pour commencer le <strong>%{start_date}</strong> et se terminer le <strong>%{end_date}</strong> pour correspondre à l''historique disponible de tous les actifs."
-                adjusted_start_html: "La date de début du test rétroactif a été ajustée au <strong>%{start_date}</strong> pour correspondre à l''historique disponible de tous les actifs."
-                adjusted_end_html: "La date de fin du test rétroactif a été ajustée au <strong>%{end_date}</strong> pour correspondre à l''historique disponible de tous les actifs."
     utils:
         assets: Actifs
         cash: Liquidités

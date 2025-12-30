@@ -141,36 +141,6 @@ de:
                 <li><b>Antworte mit <i>"FIRE"</i></b> und erhalte Zugang zu unserer Community.</li>
             </ul>
             <p>Bis dann,<br>Jan</p>
-    analyzer:
-        default_portfolio: 'Standardportfolio'
-        duplicate_portfolio: 'Portfolio duplizieren'
-        do_you_want_to_delete: 'Möchten Sie dieses Portfolio löschen?'
-        portfolio_name: 'Portfoliowert'
-        compare: 'Vergleichen'
-        new_portfolio: 'Neues Portfolio'
-        total_value: 'Gesamtwert'
-        no_assets: 'Fügen Sie ein neues Asset hinzu, um loszulegen.'
-        assets_dont_coexist: 'Dieses Portfolio kann nicht backgetestet werden. Die von Ihnen ausgewählten Assets haben seit %{backtest_start_date} nie gleichzeitig existiert!'
-        api_unreachable: 'Dieses Portfolio kann derzeit nicht backgetestet werden. Der Daten-API-Server ist nicht erreichbar.'
-        these_assets: 'Diese Vermögenswerte senken weder die Volatilität noch erhöhen sie das Sharpe Ratio Ihres Portfolios:'
-        smart_allocation:
-            name: 'Intelligente Allokation'
-            short_info_html: '<p>Intelligente Allokation wendet <b>Moderne Portfoliotheorie (MPT)</b> Algorithmen an, um die beste Asset-Allokation für Ihr Portfolio zu finden.</p>Sie können für zwei verschiedene Metriken optimieren und sogar einen gewünschten Punkt zwischen diesen beiden Optimierungen wählen.'
-        risk_free_rate: 'Risikofreier Zinssatz'
-        us_bonds: 'US-Anleihen'
-        benchmark: 'Benchmark'
-        benchmark_info: 'Je besser die Benchmark-Auswahl, desto zuverlässiger die Berechnung der Erw. Rendite. Wählen Sie eine Benchmark, die eng mit der Anlagestrategie und dem Marktsegment Ihres Portfolios übereinstimmt. Andere durch die Benchmark beeinflusste Metriken sind Alpha, Beta, R² und Info Ratio.'
-        insights: 'Einblicke'
-        pnl: 'Gewinn/Verlust'
-        strategy:
-            fixed: 'Einmalige Investition'
-            dca: 'DCA'
-            rebalancing: 'Neugewichtung'
-        backtest:
-            time_window:
-                adjusted_both_html: "Der Backtest-Zeitraum wurde angepasst, um am <strong>%{start_date}</strong> zu beginnen und am <strong>%{end_date}</strong> zu enden, um der verfügbaren Historie aller Vermögenswerte zu entsprechen."
-                adjusted_start_html: "Das Startdatum des Backtests wurde auf <strong>%{start_date}</strong> angepasst, um der verfügbaren Historie aller Vermögenswerte zu entsprechen."
-                adjusted_end_html: "Das Enddatum des Backtests wurde auf <strong>%{end_date}</strong> angepasst, um der verfügbaren Historie aller Vermögenswerte zu entsprechen."
     utils:
         assets: Vermögenswerte
         cash: Bargeld

@@ -2,10 +2,6 @@ it:
     activerecord:
         errors:
             models:
-                asset:
-                    attributes:
-                        portfolio:
-                            max_assets_reached: "Numero massimo di asset raggiunto."
                 bot:
                     attributes:
                         smart_interval_quote_amount:
@@ -98,22 +94,3 @@ it:
     alert:
         bot:
             bot_updated: 'Il bot è stato aggiornato con successo.'
-        portfolio:
-            invalid_name: 'Nome portfolio non valido.'
-            invalid_benchmark: 'Valore benchmark non valido.'
-            invalid_strategy: 'Valore strategia non valido.'
-            invalid_start_date: 'Valore data di inizio non valido.'
-            invalid_risk_free_rate: 'Valore tasso privo di rischio non valido.'
-            invalid_smart_allocation: 'Valore allocazione intelligente non valido.'
-            invalid_risk_level: 'Valore livello di rischio non valido.'
-            unable_to_calculate: 'Impossibile calcolare le Allocazioni Intelligenti per questi parametri.'
-            portfolio_normalized: 'Le allocazioni del portfolio sono state normalizzate.'
-            risk_level_updated: 'Il livello di rischio è stato aggiornato.'
-            smart_allocation_updated: 'Le allocazioni intelligenti sono state aggiornate.'
-            unable_to_set_risk_rate: 'Impossibile impostare il tasso privo di rischio a %{risk_free_rate_name}.'
-            api_unreachable: 'Il server API dei dati non è raggiungibile.'
-            portfolio_created: 'Il portfolio è stato creato con successo.'
-            portfolio_updated: 'Il portfolio è stato aggiornato con successo.'
-            portfolio_destroyed: 'Il portfolio è stato eliminato con successo.'
-            portfolio_duplicated: 'Il portfolio è stato duplicato con successo.'
-            unable_to_duplicate_portfolio: 'Impossibile duplicare il portfolio.'
