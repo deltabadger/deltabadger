@@ -137,36 +137,6 @@ nl:
                 <li><b>Antwoord met <i>"FIRE"</i></b> en krijg toegang tot onze community.</li>
             </ul>
             <p>Tot ziens daar,<br>Jan</p>
-    analyzer:
-        default_portfolio: 'Standaardportefeuille'
-        duplicate_portfolio: 'Portefeuille dupliceren'
-        do_you_want_to_delete: 'Wil je deze portefeuille verwijderen?'
-        portfolio_name: 'Portefeuille naam'
-        compare: 'Vergelijken'
-        new_portfolio: 'Nieuwe portefeuille'
-        total_value: 'Totale waarde'
-        no_assets: 'Begin met het toevoegen van een nieuwe asset.'
-        assets_dont_coexist: 'Het is niet mogelijk om deze portefeuille te backtesten. De door u geselecteerde assets hebben nooit samen bestaan sinds %{backtest_start_date}!'
-        api_unreachable: 'Het is momenteel niet mogelijk om deze portefeuille te backtesten. De data API-server is niet bereikbaar.'
-        these_assets: 'Deze activa verlagen noch de volatiliteit, noch verhogen ze de Sharpe Ratio van uw portefeuille:'
-        smart_allocation:
-            name: 'Slimme Allocatie'
-            short_info_html: '<p>Slimme Allocatie past <b>Moderne Portefeuille Theorie (MPT)</b>-algoritmen toe om de beste activaspreiding voor uw portefeuille te vinden.</p>U kunt optimaliseren voor twee verschillende metrics en zelfs een gewenste plek kiezen tussen deze twee optimalisaties.'
-        risk_free_rate: 'Risicovrije Rente'
-        us_bonds: 'Amerikaanse Obligaties'
-        benchmark: 'Benchmark'
-        benchmark_info: 'Hoe beter de keuze van de benchmark, hoe betrouwbaarder de berekening van het Verwachte Rendement. Kies een benchmark die nauw aansluit bij de beleggingsstrategie en het marktsegment van uw portefeuille. Andere door de benchmark beïnvloede metrics zijn onder meer Alpha, Beta, R² en de Info Ratio.'
-        insights: 'Inzichten'
-        pnl: 'Winst/Verlies'
-        strategy:
-            fixed: 'Eenmalige investering'
-            dca: 'DCA'
-            rebalancing: 'Herbalancering'
-        backtest:
-            time_window:
-                adjusted_both_html: 'Het backtest tijdsvenster is aangepast om te beginnen op <strong>%{start_date}</strong> en te eindigen op <strong>%{end_date}</strong> om aan te sluiten op de beschikbare geschiedenis van alle activa.'
-                adjusted_start_html: 'De startdatum van de backtest is aangepast naar <strong>%{start_date}</strong> om aan te sluiten op de beschikbare geschiedenis van alle activa.'
-                adjusted_end_html: 'De einddatum van de backtest is aangepast naar <strong>%{end_date}</strong> om aan te sluiten op de beschikbare geschiedenis van alle activa.'
     utils:
         assets: Activa
         cash: Contant geld

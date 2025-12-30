@@ -133,23 +133,6 @@ Rails.application.routes.draw do
     get '/about', to: 'home#about', as: :about
     post '/h/:webhook', to: 'api/bots#webhook', as: :webhooks
 
-    resources :portfolios, except: [:index], path: '/portfolio-analyzer' do
-      resources :portfolio_assets, only: [:new, :create, :destroy, :update], as: :assets
-      get :show, on: :collection
-      patch :toggle_smart_allocation
-      patch :update_risk_level
-      patch :update_benchmark
-      patch :update_strategy
-      patch :update_backtest_start_date
-      patch :update_risk_free_rate
-      patch :update_compare_to
-      post :normalize_allocations
-      post :duplicate
-      get :openai_insights
-      get :compare
-      get :confirm_destroy
-    end
-
     namespace :broadcasts do
       post :metrics_update
       post :pnl_update
@@ -166,7 +149,6 @@ Rails.application.routes.draw do
   get '/privacy-policy', to: redirect("/#{I18n.default_locale}/privacy-policy")
   get '/cookies-policy', to: redirect("/#{I18n.default_locale}/cookies-policy")
   get '/', to: redirect("/#{I18n.default_locale}")
-  get '/legendary-badger', to: redirect("/#{I18n.default_locale}/legendary-badger")
 
   get '/thank-you', to: 'home#confirm_registration', as: :confirm_registration
   get '/sitemap', to: 'sitemap#index', defaults: {format: 'xml'}
