@@ -24,6 +24,8 @@
 /config/master.key
 
 .env
+.env.docker
+.env.local
 .history
 .DS_Store
 
