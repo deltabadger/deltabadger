@@ -34,23 +34,26 @@ WORKDIR /app
 # Set build environment
 ENV RAILS_ENV=production \
     NODE_ENV=production \
+    NODE_OPTIONS=--openssl-legacy-provider \
     BUNDLE_WITHOUT="development:test" \
     BUNDLE_DEPLOYMENT=1 \
     BUNDLE_PATH=/app/vendor/bundle
 
-# Install system dependencies for building
+# Install system dependencies for building (without nodejs/npm)
 RUN apt-get update -qq && \
     apt-get install -y --no-install-recommends \
     build-essential \
     libpq-dev \
     git \
     curl \
-    nodejs \
-    npm \
     libvips-dev \
     libsodium-dev && \
-    npm install -g yarn && \
     rm -rf /var/lib/apt/lists/*
+
+# Install Node 18.x to match .tool-versions
+RUN curl -fsSL https://deb.nodesource.com/setup_18.x | bash - && \
+    apt-get install -y nodejs && \
+    npm install -g yarn
 
 # Copy Gemfile first for caching
 COPY Gemfile Gemfile.lock ./

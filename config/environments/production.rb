@@ -40,7 +40,8 @@ Rails.application.configure do
   # config.action_dispatch.x_sendfile_header = 'X-Accel-Redirect' # for NGINX
 
   # Force all access to the app over SSL, use Strict-Transport-Security, and use secure cookies.
-  config.force_ssl = true
+  # For self-hosted deployments, SSL can be disabled by not setting FORCE_SSL=true
+  config.force_ssl = ENV['FORCE_SSL'] == 'true'
 
   # Use the lowest log level to ensure availability of diagnostic information
   # when problems arise.
@@ -90,7 +91,15 @@ Rails.application.configure do
   # Do not dump schema after migrations.
   config.active_record.dump_schema_after_migration = false
 
-  config.action_mailer.default_url_options = { host: ENV.fetch('APP_ROOT_URL'), protocol: 'https' }
+  # Determine protocol from APP_ROOT_URL or use FORCE_SSL setting
+  app_root_url = ENV.fetch('APP_ROOT_URL')
+  default_protocol = app_root_url.start_with?('https://') ? 'https' : 'http'
+  default_protocol = 'https' if ENV['FORCE_SSL'] == 'true'
+  
+  # Extract host from URL (remove protocol)
+  app_host = app_root_url.gsub(/^https?:\/\//, '').gsub(/\/.*$/, '')
+  
+  config.action_mailer.default_url_options = { host: app_host, protocol: default_protocol }
   config.action_mailer.perform_deliveries = true
   config.action_mailer.delivery_method = :smtp
   config.action_mailer.smtp_settings = {
@@ -102,11 +111,23 @@ Rails.application.configure do
     user_name: ENV.fetch('SMTP_USER_NAME'),
     password: ENV.fetch('SMTP_PASSWORD')
   }
-  routes.default_url_options = {host: ENV.fetch('APP_ROOT_URL'), protocol: 'https'}
+  routes.default_url_options = {host: app_host, protocol: default_protocol}
 
-  config.hosts << "app.deltabadger.com"
-  config.hosts << "test.deltabadger.com"
-  config.hosts << "community.deltabadger.com"
+  # Host authorization configuration for self-hosted deployments
+  if ENV['ALLOWED_HOSTS'].present?
+    # Allow specific hosts from environment variable (comma-separated)
+    # Example: ALLOWED_HOSTS=example.com,subdomain.example.com
+    ENV['ALLOWED_HOSTS'].split(',').each do |host|
+      config.hosts << host.strip
+    end
+    # Always allow localhost for local development
+    config.hosts << "localhost"
+    config.hosts << "127.0.0.1"
+  else
+    # For self-hosted deployments, allow all hosts if no specific hosts are configured
+    # This provides flexibility for users running on their own domains/servers
+    config.hosts.clear
+  end
 
   config.exceptions_app = self.routes
 
