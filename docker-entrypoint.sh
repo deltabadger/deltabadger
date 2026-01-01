@@ -53,14 +53,18 @@ wait_for_redis() {
 # Prepare the database
 prepare_database() {
     echo "Checking database status..."
-
-    # Check if database exists and is migrated
-    if bundle exec rails db:version 2>/dev/null; then
-        echo "Database exists, running migrations..."
-        bundle exec rails db:migrate
-    else
-        echo "Database not found, creating and setting up..."
+    
+    local db_version=$(bundle exec rails db:version 2>/dev/null | grep -oE '[0-9]+$' || echo "none")
+    
+    if [ "$db_version" = "none" ]; then
+        echo "Database not found, creating..."
         bundle exec rails db:create db:schema:load
+    elif [ "$db_version" = "0" ]; then
+        echo "Empty database, loading schema..."
+        bundle exec rails db:schema:load
+    else
+        echo "Database at version $db_version, running migrations..."
+        bundle exec rails db:migrate
     fi
 }
 

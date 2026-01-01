@@ -10,48 +10,24 @@ x-app-common: &app-common
     context: .
     dockerfile: Dockerfile
   image: deltabadger:latest
-  environment: &app-env
+  env_file:
+    - .env
+  environment:
+    # Docker-specific overrides (these override .env values)
     RAILS_ENV: production
     NODE_ENV: production
     RAILS_LOG_TO_STDOUT: "true"
     RAILS_SERVE_STATIC_FILES: "true"
-    # Database
+    # Database defaults for Docker network
     DB_HOST: ${DB_HOST:-postgres}
     DB_PORT: ${DB_PORT:-5432}
     DB_NAME: ${DB_NAME:-deltabadger_production}
     DB_USER: ${DB_USER:-deltabadger}
     DB_PASSWORD: ${DB_PASSWORD:-changeme}
-    # Redis
+    # Redis defaults for Docker network
     REDIS_SIDEKIQ_URL: ${REDIS_SIDEKIQ_URL:-redis://redis:6379/0}
     REDIS_CABLE_URL: ${REDIS_CABLE_URL:-redis://redis:6379/1}
     REDIS_CACHE_URL: ${REDIS_CACHE_URL:-redis://redis:6379/2}
-    # App secrets (MUST be set)
-    SECRET_KEY_BASE: ${SECRET_KEY_BASE:?SECRET_KEY_BASE is required}
-    DEVISE_SECRET_KEY: ${DEVISE_SECRET_KEY:?DEVISE_SECRET_KEY is required}
-    # Encryption keys
-    API_KEY_ENCRYPTION_KEY: ${API_KEY_ENCRYPTION_KEY:?API_KEY_ENCRYPTION_KEY is required}
-    API_SECRET_ENCRYPTION_KEY: ${API_SECRET_ENCRYPTION_KEY:?API_SECRET_ENCRYPTION_KEY is required}
-    API_PASSPHRASE_ENCRYPTION_KEY: ${API_PASSPHRASE_ENCRYPTION_KEY:?API_PASSPHRASE_ENCRYPTION_KEY is required}
-    # App URLs
-    HOME_PAGE_URL: ${HOME_PAGE_URL:-http://localhost:3000}
-    APP_ROOT_URL: ${APP_ROOT_URL:-http://localhost:3000}
-    # Optional settings
-    RAILS_MAX_THREADS: ${RAILS_MAX_THREADS:-5}
-    WEB_CONCURRENCY: ${WEB_CONCURRENCY:-2}
-    MAX_DB_CONNECTIONS: ${MAX_DB_CONNECTIONS:-10}
-    # SMTP (optional)
-    SMTP_ADDRESS: ${SMTP_ADDRESS:-}
-    SMTP_PORT: ${SMTP_PORT:-}
-    SMTP_DOMAIN: ${SMTP_DOMAIN:-}
-    SMTP_USER_NAME: ${SMTP_USER_NAME:-}
-    SMTP_PASSWORD: ${SMTP_PASSWORD:-}
-    NOTIFICATIONS_SENDER: ${NOTIFICATIONS_SENDER:-}
-    # External services (optional)
-    CLOUDFLARE_TURNSTILE_SITE_KEY: ${CLOUDFLARE_TURNSTILE_SITE_KEY:-}
-    CLOUDFLARE_TURNSTILE_SECRET_KEY: ${CLOUDFLARE_TURNSTILE_SECRET_KEY:-}
-    COINGECKO_API_KEY: ${COINGECKO_API_KEY:-}
-    TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN:-}
-    TELEGRAM_BOT_NICKNAME: ${TELEGRAM_BOT_NICKNAME:-}
   volumes:
     - storage:/app/storage
     - logs:/app/log
