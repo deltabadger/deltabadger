@@ -49,7 +49,7 @@ module ExchangeApi
             end
             Result::Success.new(
               external_id: order_id,
-              amount: amount,
+              amount:,
               price: rate
             )
           elsif response.status == 404 && retry_attempts < 10
@@ -57,11 +57,9 @@ module ExchangeApi
             sleep 0.5
             fetch_order_by_id(order_id, retry_attempts + 1)
           else
-            Raven.capture_exception(StandardError.new("Unexpected response status: #{response.status}"))
             Result::Failure.new("Could not fetch order parameters from Coinbase. Unexpected response status: #{response.status}")
           end
         rescue StandardError => e
-          Raven.capture_exception(e)
           Result::Failure.new('Could not fetch order parameters from Coinbase')
         end
         # rubocop:enable Metrics/CyclomaticComplexity, Metrics/PerceivedComplexity
@@ -76,7 +74,6 @@ module ExchangeApi
           request = conn.post(url, body, headers(@api_key, @api_secret, body, url, 'POST'))
           parse_request(request)
         rescue StandardError => e
-          Raven.capture_exception(e)
           Result::Failure.new('Could not make Coinbase order', RECOVERABLE.to_s)
         end
 
