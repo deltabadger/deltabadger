@@ -4,34 +4,14 @@
 manifestVersion: 1
 id: deltabadger
 name: Deltabadger
-tagline: Automated DCA cryptocurrency trading bot
-icon: https://deltabadger.com/icon.png
+tagline: Auto-DCA for Crypto
+icon: http://localhost:3000/icon.png
 category: finance
 version: "1.0.0"
 port: 3000
 description: >-
   Deltabadger is a powerful Dollar Cost Averaging (DCA) platform that automates
   your cryptocurrency investment strategy across multiple exchanges.
-
-
-  Key Features:
-
-  - Automated DCA trading across Binance, Kraken, Bitfinex, KuCoin, and more
-
-  - Smart order execution with configurable intervals
-
-  - Portfolio tracking and performance analytics
-
-  - Multi-exchange support with unified dashboard
-
-  - Secure API key encryption
-
-  - Telegram notifications
-
-  - Self-hosted for maximum privacy and control
-
-
-  Take control of your crypto investments with automated, hands-off DCA strategies.
 developer: Deltabadger
 website: https://deltabadger.com
 repo: https://github.com/deltabadger/deltabadger
