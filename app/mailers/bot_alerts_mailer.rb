@@ -1,6 +1,4 @@
 class BotAlertsMailer < ApplicationMailer
-  has_history
-
   def notify_about_error
     @user = params[:user]
     @errors = params[:errors].to_sentence
