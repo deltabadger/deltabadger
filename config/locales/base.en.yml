@@ -127,14 +127,6 @@ en:
         knowledge_base: 'Knowledge base'
         telegram: 'Join our Telegram group'
         twitter: 'Follow us on 𝕏'
-    welcome:
-        banner_html: |
-            <p>Welcome aboard, %{name}!</p>
-            <ul>
-                <li><b>Check your email</b>—I sent you a quick guide to using the bots.</li>
-                <li><b>Reply with <i>"FIRE"</i></b> and get access to our community.</li>
-            </ul>
-            <p>See you there,<br>Jan</p>
     utils:
         assets: Assets
         beta: Beta

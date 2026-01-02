@@ -27,8 +27,6 @@ class UserDashboard < Administrate::BaseDashboard
     admin: Field::Boolean,
     terms_and_conditions: Field::Boolean,
     updates_agreement: Field::Boolean,
-    welcome_banner_dismissed: Field::Boolean,
-    news_banner_dismissed: Field::Boolean,
     otp_secret_key: Field::String,
     otp_module: Field::Select.with_options(collection: %w[disabled enabled])
   }.freeze
@@ -65,8 +63,6 @@ class UserDashboard < Administrate::BaseDashboard
     admin
     terms_and_conditions
     updates_agreement
-    welcome_banner_dismissed
-    news_banner_dismissed
   ].freeze
 
   # FORM_ATTRIBUTES
@@ -82,8 +78,6 @@ class UserDashboard < Administrate::BaseDashboard
     admin
     terms_and_conditions
     updates_agreement
-    welcome_banner_dismissed
-    news_banner_dismissed
   ].freeze
 
   # COLLECTION_FILTERS
