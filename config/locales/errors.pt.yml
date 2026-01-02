@@ -26,7 +26,6 @@ pt:
                             not_a_number: "Tem de especificar qual o montante que não pode ser excedido"
                             greater_than_or_equal_to: "O limite do montante tem de ser maior ou igual a %{count}"
     errors:
-        cloudflare_turnstile: 'A verificação de Cloudflare Turnstile falhou'
         bitcoin_address_not_updated: 'Não foi possível atualizar o endereço Bitcoin'
         format: '%{attribute}%{message}'
         frequency_limit: 'Excedido o limite de frequência'

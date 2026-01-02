@@ -1,10 +1,6 @@
 # frozen_string_literal: true
 
 class Users::ConfirmationsController < Devise::ConfirmationsController
-  prepend_before_action :validate_cloudflare_turnstile, only: [:create]
-
-  rescue_from RailsCloudflareTurnstile::Forbidden, with: :handle_turnstile_failure
-
   def new
     super
     set_new_instance_variables
@@ -27,12 +23,5 @@ class Users::ConfirmationsController < Devise::ConfirmationsController
   def set_new_instance_variables
     @email_value = resource.pending_reconfirmation? ? resource.unconfirmed_email : resource.email
     @email_address_pattern = User::Email::ADDRESS_PATTERN
-  end
-
-  def handle_turnstile_failure
-    self.resource = resource_class.new(confirmation_params)
-    set_new_instance_variables
-    flash.now[:alert] = t('errors.cloudflare_turnstile')
-    switch_locale { respond_with_navigational(resource) { render :new } }
   end
 end

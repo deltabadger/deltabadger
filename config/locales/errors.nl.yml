@@ -26,7 +26,6 @@ nl:
                             not_a_number: "U moet aangeven welk bedrag niet mag worden overschreden"
                             greater_than_or_equal_to: "De bedragslimiet moet groter dan of gelijk zijn aan %{count}"
     errors:
-        cloudflare_turnstile: 'Cloudflare Turnstile-validatie mislukt'
         bitcoin_address_not_updated: 'Bitcoin-adres kon niet worden bijgewerkt'
         format: '%{attribute}%{message}'
         frequency_limit: 'Frequentiegrens overschreden'
