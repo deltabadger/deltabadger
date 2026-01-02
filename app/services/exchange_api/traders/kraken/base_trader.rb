@@ -32,11 +32,10 @@ module ExchangeApi
 
           Result::Success.new(
             external_id: order_id,
-            amount: amount,
+            amount:,
             price: rate
           )
         rescue StandardError => e
-          Raven.capture_exception(e)
           Result::Failure.new('Could not make Kraken order', RECOVERABLE.to_s)
         end
 
@@ -69,14 +68,13 @@ module ExchangeApi
           result = parse_response(response)
           Result::Success.new(result)
         rescue StandardError => e
-          Raven.capture_exception(e)
           Result::Failure.new('Could not make Kraken order', RECOVERABLE.to_s)
         end
 
         def parse_response(response)
           created_order = response.fetch('result')
           external_id = created_order.fetch('txid').first
-          { external_id: external_id }
+          { external_id: }
         end
 
         def common_order_params(symbol)
