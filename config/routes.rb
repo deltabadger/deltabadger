@@ -3,8 +3,6 @@ require 'sidekiq/cron/web'
 require 'sidekiq/prometheus/exporter'
 
 Rails.application.routes.draw do
-  get 'sso', to: 'sso#sso'
-
   match "/404", to: "errors#redirect_to_root", via: :all
   match "/422", to: "errors#unprocessable_entity", via: :all
   match "/500", to: "errors#internal_server_error", via: :all
