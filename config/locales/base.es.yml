@@ -78,7 +78,6 @@ es:
         about: 'Acerca de'
         analyzer: 'Analizador'
         telegram: 'Telegram'
-        community: 'Fireheads Comunidad'
         create_account: 'Crear cuenta gratuita'
         dashboard: 'Panel de control'
         homepage: 'Enlace a la página de inicio'
@@ -171,13 +170,6 @@ es:
             past_performance: "Rendimiento pasado"
             benchmark_performance: "Rendimiento pasado del benchmark"
             metrics_since: "Métricas desde %{start_date} hasta %{end_date}:"
-    community:
-        access_instructions_html: |
-            <p>¡Hola%{name}! La comunidad está a solo un paso.</p>
-            <p>Para mantenerla libre de spam y de personas que no se toman en serio la libertad financiera:</p>
-            <p>Envía un correo electrónico a <strong>%{email}</strong> con <strong>"FIRE"</strong> en la línea de asunto.</p>
-            <p>Tu acceso de por vida llegará poco después.</p>
-            <p>Nos vemos allí, Jan</p>
     bot_filters:
         all: 'Todos'
         active: 'Activos'

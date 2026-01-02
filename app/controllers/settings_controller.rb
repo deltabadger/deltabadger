@@ -98,8 +98,6 @@ class SettingsController < ApplicationController
     end
   end
 
-  def community_access_instructions; end
-
   private
 
   def set_index_instance_variables
