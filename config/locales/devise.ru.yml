@@ -97,9 +97,6 @@ ru:
                 message: 'Этот email уже зарегистрирован.'
                 reset_password_message: 'Если это ваша учетная запись, вы можете сбросить пароль здесь:'
                 reset_password_button: 'Сбросить пароль'
-        omniauth_callbacks:
-            failure: 'Не удалось выполнить аутентификацию из %{kind}, потому что "%{reason}".'
-            success: 'Успешная аутентификация из учетной записи %{kind}.'
     shared:
         links:
             log_in_with_google: "Войти через Google"
