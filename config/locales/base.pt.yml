@@ -114,12 +114,6 @@ pt:
             password_section: Palavra-passe
             title: Definições
             two_factor_section: 'Autenticação do Segundo Fator'
-            notifications_section: 'Comunicação por e-mail'
-        notifications:
-            global_unsubscribe: 'Todos os boletins'
-            onboarding_html: 'Dicas e guias'
-            product_updates_html: 'Notícias e atualizações do projeto'
-            newsletters: 'Boletins:'
         name:
             updated: 'Seu nome foi atualizado.'
         two_fa:

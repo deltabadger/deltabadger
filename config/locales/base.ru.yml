@@ -125,12 +125,6 @@ ru:
             password_section: Пароль
             title: Настройки
             two_factor_section: 'Аутентификация по второму фактору'
-            notifications_section: 'Электронная рассылка'
-        notifications:
-            global_unsubscribe: 'Все рассылки'
-            onboarding_html: 'Советы и руководства'
-            product_updates_html: 'Новости и обновления проекта'
-            newsletters: 'Рассылки:'
     social:
         blog: 'Читайте наш блог'
         knowledge_base: 'База знаний'
