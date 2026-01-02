@@ -5,16 +5,6 @@ class SettingsController < ApplicationController
     set_index_instance_variables
   end
 
-  def hide_welcome_banner
-    current_user.update!(welcome_banner_dismissed: true)
-    head :no_content
-  end
-
-  def hide_news_banner
-    current_user.update!(news_banner_dismissed: true)
-    head :no_content
-  end
-
   def update_name
     if current_user.update(update_name_params)
       flash.now[:notice] = t('settings.name.updated')

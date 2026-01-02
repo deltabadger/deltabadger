@@ -126,14 +126,6 @@ de:
         knowledge_base: Wissensdatenbank
         telegram: 'Schließe dich unserer Telegram-Gruppe an'
         twitter: 'Folge uns auf 𝕏'
-    welcome:
-        banner_html: |
-            <p>Willkommen an Bord, %{name}!</p>
-            <ul>
-                <li><b>Überprüfe deine E-Mails</b>—ich habe dir eine kurze Anleitung zur Nutzung der Bots geschickt.</li>
-                <li><b>Antworte mit <i>"FIRE"</i></b> und erhalte Zugang zu unserer Community.</li>
-            </ul>
-            <p>Bis dann,<br>Jan</p>
     utils:
         assets: Vermögenswerte
         cash: Bargeld

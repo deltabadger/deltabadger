@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema.define(version: 2026_01_02_162517) do
+ActiveRecord::Schema.define(version: 2026_01_02_163713) do
 
   # These are extensions that must be enabled in order to support this database
   enable_extension "plpgsql"
@@ -216,13 +216,11 @@ ActiveRecord::Schema.define(version: 2026_01_02_162517) do
     t.boolean "admin", default: false, null: false
     t.boolean "terms_and_conditions"
     t.boolean "updates_agreement"
-    t.boolean "welcome_banner_dismissed", default: false
     t.boolean "show_smart_intervals_info", default: true, null: false
     t.string "otp_secret_key"
     t.integer "otp_module", default: 0
     t.datetime "last_otp_at"
     t.string "name"
-    t.boolean "news_banner_dismissed", default: false
     t.string "time_zone", default: "UTC", null: false
     t.string "oauth_provider"
     t.string "oauth_uid"
