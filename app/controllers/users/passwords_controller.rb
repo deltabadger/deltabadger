@@ -1,10 +1,7 @@
 # frozen_string_literal: true
 
 class Users::PasswordsController < Devise::PasswordsController
-  prepend_before_action :validate_cloudflare_turnstile, only: [:create]
   before_action :ensure_valid_token, only: [:edit]
-
-  rescue_from RailsCloudflareTurnstile::Forbidden, with: :handle_turnstile_failure
 
   def new
     super
@@ -46,7 +43,7 @@ class Users::PasswordsController < Devise::PasswordsController
   def ensure_valid_token
     original_token = params[:reset_password_token]
     reset_password_token = Devise.token_generator.digest(self, :reset_password_token, original_token)
-    user = User.find_or_initialize_with_errors([:reset_password_token], reset_password_token: reset_password_token)
+    user = User.find_or_initialize_with_errors([:reset_password_token], reset_password_token:)
     @user_email = user.email
     @two_fa_enabled = user.otp_module_enabled?
     return if user.persisted? && user.reset_password_period_valid?
@@ -73,11 +70,5 @@ class Users::PasswordsController < Devise::PasswordsController
     @two_fa_enabled = resource.otp_module_enabled?
     set_edit_instance_variables
     respond_with_navigational(resource) { render :edit }
-  end
-
-  def handle_turnstile_failure
-    self.resource = resource_class.new(password_params)
-    flash.now[:alert] = t('errors.cloudflare_turnstile')
-    switch_locale { respond_with_navigational(resource) { render :new } }
   end
 end

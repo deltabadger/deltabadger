@@ -1,11 +1,8 @@
 # frozen_string_literal: true
 
 class Users::RegistrationsController < Devise::RegistrationsController
-  prepend_before_action :validate_cloudflare_turnstile, only: [:create]
   before_action :configure_permitted_parameters, only: [:create]
   before_action :set_code, only: %i[new create]
-
-  rescue_from RailsCloudflareTurnstile::Forbidden, with: :handle_turnstile_failure
 
   def new
     set_new_instance_variables
@@ -68,12 +65,5 @@ class Users::RegistrationsController < Devise::RegistrationsController
     @password_symbol_pattern = User::Password::SYMBOL_PATTERN
     @password_pattern = User::Password::PATTERN
     @password_minimum_length = Devise.password_length.min
-  end
-
-  def handle_turnstile_failure
-    self.resource = resource_class.new(sign_up_params)
-    set_new_instance_variables
-    flash.now[:alert] = t('errors.cloudflare_turnstile')
-    switch_locale { respond_with_navigational(resource) { render :new } }
   end
 end
