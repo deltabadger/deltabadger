@@ -24,19 +24,6 @@ module LocalesHelper
     localized_time_difference_from_now_finalize_result(result, zero_time_message)
   end
 
-  def localized_dca_profit_recap(asset, years)
-    dca_profit_result = DcaProfitGetter.call(asset, years.years.ago)
-    return '' if dca_profit_result.failure?
-
-    sp500_profit_result = DcaProfitGetter.call('gspc', years.years.ago)
-    sp500_diff = sp500_profit_result.success? ? ((dca_profit_result.data - sp500_profit_result.data) * 100).to_i : 0
-
-    t('ads.dca_profit_html',
-      profit: (dca_profit_result.data * 100).to_i,
-      years:,
-      sp500_diff:)
-  end
-
   private
 
   def localized_time_difference_from_now_component(duration, unit, translation_key)
