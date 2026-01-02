@@ -26,7 +26,6 @@ ru:
                             not_a_number: "Вы должны указать сумму, которая не может быть превышена"
                             greater_than_or_equal_to: "Лимит суммы должен быть больше или равен %{count}"
     errors:
-        cloudflare_turnstile: 'Валидация Cloudflare Turnstile не прошла'
         bitcoin_address_not_updated: 'Биткоин-адрес не может быть обновлен'
         format: '%{attribute}%{message}'
         frequency_limit: 'Превышено ограничение частоты'

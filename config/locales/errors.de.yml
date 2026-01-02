@@ -26,7 +26,6 @@ de:
                             not_a_number: "Sie müssen angeben, welcher Betrag nicht überschritten werden darf"
                             greater_than_or_equal_to: "Das Betragslimit muss größer oder gleich %{count} sein"
     errors:
-        cloudflare_turnstile: 'Cloudflare Turnstile-Überprüfung fehlgeschlagen'
         bitcoin_address_not_updated: 'Deine Bitcoin-Adresse konnte nicht aktualisiert werden'
         format: '%{attribute} %{message}'
         frequency_limit: 'Frequenzgrenze überschritten'

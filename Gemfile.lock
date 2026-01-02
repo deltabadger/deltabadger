@@ -370,9 +370,6 @@ GEM
     rails-html-sanitizer (1.6.0)
       loofah (~> 2.21)
       nokogiri (~> 1.14)
-    rails_cloudflare_turnstile (0.2.2)
-      faraday (>= 1.0, < 3.0)
-      rails (>= 6.0, < 9)
     railties (6.0.6.1)
       actionpack (= 6.0.6.1)
       activesupport (= 6.0.6.1)
@@ -591,7 +588,6 @@ DEPENDENCIES
   rack-cors
   rack-mini-profiler (~> 3.3)
   rails (~> 6.0.6.1)
-  rails_cloudflare_turnstile (~> 0.2.2)
   rbnacl
   redis (~> 4.8.1)
   rqrcode

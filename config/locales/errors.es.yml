@@ -26,7 +26,6 @@ es:
                             not_a_number: "Debes indicar qué cantidad no se puede exceder"
                             greater_than_or_equal_to: "El límite de cantidad debe ser mayor o igual a %{count}"
     errors:
-        cloudflare_turnstile: 'La verificación de Cloudflare Turnstile ha fallado'
         bitcoin_address_not_updated: 'No se ha podido actualizar la dirección de Bitcoin'
         format: '%{attribute} %{message}'
         frequency_limit: 'Límite de frecuencia superado'
