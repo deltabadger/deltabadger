@@ -97,9 +97,6 @@ de:
                 message: 'Diese E-Mail-Adresse ist bereits registriert.'
                 reset_password_message: 'Wenn dies Ihr Konto ist, können Sie hier Ihr Passwort zurücksetzen:'
                 reset_password_button: 'Passwort zurücksetzen'
-        omniauth_callbacks:
-            failure: 'Sie konnten nicht über %{kind} authentifiziert werden, weil "%{reason}".'
-            success: 'Erfolgreich über %{kind}-Konto authentifiziert.'
     shared:
         links:
             log_in_with_google: "Mit Google einloggen"

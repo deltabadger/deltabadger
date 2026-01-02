@@ -97,9 +97,6 @@ es:
                 message: 'Este correo electrónico ya está registrado.'
                 reset_password_message: 'Si esta es tu cuenta, puedes restablecer tu contraseña aquí:'
                 reset_password_button: 'Restablecer contraseña'
-        omniauth_callbacks:
-            failure: 'No pudimos autenticarte desde %{kind} porque "%{reason}".'
-            success: 'Autenticado exitosamente desde la cuenta %{kind}.'
     shared:
         links:
             log_in_with_google: "Iniciar sesión con Google"

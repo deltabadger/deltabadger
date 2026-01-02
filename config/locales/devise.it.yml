@@ -97,9 +97,6 @@ it:
                 message: 'Questa email è già registrata.'
                 reset_password_message: 'Se questo è il tuo account, puoi reimpostare la tua password qui:'
                 reset_password_button: 'Reimposta password'
-        omniauth_callbacks:
-            failure: 'Non è stato possibile autenticarti da %{kind} perché "%{reason}".'
-            success: 'Autenticazione riuscita dall''account %{kind}.'
     shared:
         links:
             log_in_with_google: "Accedi con Google"
@@ -108,4 +105,4 @@ it:
             or: "o"
             sign_in: "Accedi"
             sign_up: "Registrati"
-            forgot_your_password: "Password dimenticata?" 
+            forgot_your_password: "Password dimenticata?"

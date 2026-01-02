@@ -96,9 +96,6 @@ en:
                 message: 'This email is already registered.'
                 reset_password_message: 'If this is your account, you can reset your password here:'
                 reset_password_button: 'Reset password'
-        omniauth_callbacks:
-            failure: 'Could not authenticate you from %{kind} because "%{reason}".'
-            success: 'Successfully authenticated from %{kind} account.'
         unlocks:
             send_instructions: 'You will receive an email with instructions for how to unlock your account in a few minutes.'
             send_paranoid_instructions: 'If your account exists, you will receive an email with instructions for how to unlock it in a few minutes.'

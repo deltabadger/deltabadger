@@ -97,9 +97,6 @@ fr:
                 message: 'Cet e-mail est déjà enregistré.'
                 reset_password_message: 'Si c''est votre compte, vous pouvez réinitialiser votre mot de passe ici :'
                 reset_password_button: 'Réinitialiser le mot de passe'
-        omniauth_callbacks:
-            failure: 'Nous n''avons pas pu vous authentifier via %{kind} pour la raison suivante : "%{reason}".'
-            success: 'Authentification réussie avec le compte %{kind}.'
     shared:
         links:
             log_in_with_google: "Se connecter avec Google"

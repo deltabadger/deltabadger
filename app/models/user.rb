@@ -2,8 +2,7 @@ class User < ApplicationRecord
   attr_accessor :otp_code_token
 
   devise :database_authenticatable, :registerable,
-         :recoverable, :rememberable, :validatable, :confirmable,
-         :omniauthable, omniauth_providers: [:google_oauth2]
+         :recoverable, :rememberable, :validatable, :confirmable
 
   has_one_time_password
   enum otp_module: %i[disabled enabled], _prefix: true
@@ -19,31 +18,6 @@ class User < ApplicationRecord
   validate :password_complexity, if: -> { password.present? }
   validates :time_zone, inclusion: { in: ActiveSupport::TimeZone.all.map(&:name), allow_nil: true }
 
-  after_update_commit :reset_oauth_credentials, if: :saved_change_to_email?
-
-  def self.from_omniauth(auth)
-    user = User.find_by(oauth_provider: auth.provider, oauth_uid: auth.uid)
-    return user if user.present?
-
-    email = User::Email.real_email(auth.info.email)
-    user = User.find_by(email:)
-    if user.present?
-      user.update(oauth_provider: auth.provider, oauth_uid: auth.uid)
-      return user
-    end
-
-    user = User.new(
-      oauth_provider: auth.provider,
-      oauth_uid: auth.uid,
-      email: auth.info.email,
-      name: auth.info.name,
-      password: Devise.friendly_token[0, 20]
-    )
-    user.skip_confirmation!
-    user.save
-    user
-  end
-
   def webhook_bots_transactions
     transactions.where(bot_id: bots.webhook.pluck(:id))
   end
@@ -56,10 +30,6 @@ class User < ApplicationRecord
 
   def set_default_time_zone
     self.time_zone = 'UTC' if time_zone.blank?
-  end
-
-  def reset_oauth_credentials
-    update!(oauth_provider: nil, oauth_uid: nil)
   end
 
   def validate_name

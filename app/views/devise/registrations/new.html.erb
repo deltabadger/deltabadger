@@ -1,11 +1,6 @@
 <% content_for :title, page_title_for_static_page('sign_up') %>
 <% content_for :meta_description, meta_description_for_static_page('sign_up') %>
 
-<%= button_to omniauth_authorize_path(resource_name, :google_oauth2), method: :post, data: { turbo: false }, class: "button button--google button--large w-100" do %>
-    <%= render "svg/google" %>
-    <%= t('shared.links.signup_with_google') %>
-<% end %>
-
 <div class="text-center or-element">
   <span class="text"><%= t('shared.links.or') %></span>
 </div>

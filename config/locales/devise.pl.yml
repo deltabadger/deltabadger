@@ -97,9 +97,6 @@ pl:
                 message: 'Ten email jest już zarejestrowany.'
                 reset_password_message: 'Jeśli to Twoje konto, możesz zresetować hasło tutaj:'
                 reset_password_button: 'Zresetuj hasło'
-        omniauth_callbacks:
-            failure: 'Nie można było uwierzytelnić Cię z %{kind} z powodu "%{reason}".'
-            success: 'Pomyślnie uwierzytelniono z konta %{kind}.'
     shared:
         links:
             log_in_with_google: "Zaloguj się z Google"
