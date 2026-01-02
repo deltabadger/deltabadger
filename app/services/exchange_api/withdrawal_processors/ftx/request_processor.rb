@@ -35,7 +35,6 @@ module ExchangeApi
           result = parse_withdrawal(response)
           Result::Success.new(result)
         rescue StandardError => e
-          Raven.capture_exception(e)
           Result::Failure.new('Could not make Kraken withdrawal', RECOVERABLE.to_s)
         end
 

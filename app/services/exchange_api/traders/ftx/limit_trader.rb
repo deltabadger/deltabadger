@@ -23,7 +23,6 @@ module ExchangeApi
         def fetch_order_by_id(_order_id, response_params = nil, _use_subaccout = false, _selected_subaccount = '')
           Result::Success.new(response_params)
         rescue StandardError => e
-          Raven.capture_exception(e)
           Result::Failure.new('Could not fetch order parameters from FTX')
         end
 

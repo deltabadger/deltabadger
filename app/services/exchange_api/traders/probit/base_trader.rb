@@ -33,7 +33,6 @@ module ExchangeApi
 
           Result::Success.new(JSON.parse(request.body))
         rescue StandardError => e
-          Raven.capture_exception(e)
           Result::Failure.new('Could not fetch order from Probit', RECOVERABLE.to_s)
         end
 

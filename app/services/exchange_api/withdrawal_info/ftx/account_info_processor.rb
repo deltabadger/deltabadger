@@ -29,7 +29,6 @@ module ExchangeApi
           all_symbols = response['result'].select { |c| c['canWithdraw'] }.map { |c| c['id'] }
           Result::Success.new(all_symbols)
         rescue StandardError => e
-          Raven.capture_exception(e)
           Result::Failure.new('Could not fetch currencies from Ftx', RECOVERABLE.to_s)
         end
 
@@ -48,7 +47,6 @@ module ExchangeApi
           end
           Result::Success.new(addresses)
         rescue StandardError => e
-          Raven.capture_exception(e)
           Result::Failure.new('Could not fetch wallets from Ftx', RECOVERABLE.to_s)
         end
 
@@ -63,7 +61,6 @@ module ExchangeApi
           coin_parameters = response.fetch('main').find { |c| c.fetch('coin') == currency } || { free: 0.0 }
           Result::Success.new(coin_parameters.fetch('free'))
         rescue StandardError => e
-          Raven.capture_exception(e)
           Result::Failure.new('Could not fetch funds from Ftx', RECOVERABLE.to_s)
         end
 
