@@ -25,10 +25,6 @@ class Users::ConfirmationsController < Devise::ConfirmationsController
         # email_was = resource.previous_changes['email'].first
         # email_now = resource.previous_changes['email'].last
         # TODO: update email in Intercom
-      else
-        resource.subscribe_to_onboarding
-        resource.subscribe_to_newsletter
-        resource.subscribe_to_product_updates
       end
     end
   end
