@@ -82,7 +82,6 @@ es:
     links:
         about: 'Acerca de'
         analyzer: 'Analizador'
-        calculator: 'Calculadora'
         telegram: 'Telegram'
         community: 'Fireheads Comunidad'
         contact: Contacto
@@ -181,9 +180,6 @@ es:
         hours_short: 'h'
         minutes_short: 'm'
         seconds_short: 's'
-    dca_calculator:
-        title: "¿Cuánto tiempo necesitabas ahorrar <span>$%{amount}/mes</span> para %{goal}?"
-        goal_millionaire: "convertte en millonario"
     ai:
         insights:
             intro: "Evalúa mi cartera en el estilo de los tweets de Naval. Encuentra la tesis geopolítica o técnica detrás y los eventos macro relevantes de los últimos años. Observa si la cartera te recuerda a algún estilo de inversión o idea popular como la cartera de 3 fondos, etc. Señala los activos superpuestos, como los ETFs con las mismas acciones (solo si los hay). Muestra hasta 5 pros y/o contras. Organízalos: primero los pros. Presta más atención a métricas como volatilidad y beta, luego a aquellas que reflejan principalmente el pasado, como el ratio de Sharpe. Usa la escala Malo/Neutral/Bueno/Excepcional."

@@ -84,7 +84,6 @@ pl:
     links:
         about: 'O nas'
         analyzer: 'Analizator'
-        calculator: 'Kalkulator'
         telegram: 'Telegram'
         community: 'Społeczność Fireheads'
         contact: Kontakt
@@ -181,9 +180,6 @@ pl:
         hours_short: 'h'
         minutes_short: 'm'
         seconds_short: 's'
-    dca_calculator:
-        title: "Jak długo musiałbyś oszczędzać <span>$%{amount}/miesięcznie,</span> aby %{goal}?"
-        goal_millionaire: "zostać milionerem"
     ai:
         insights:
             intro: "Oceń mój portfel w stylu tweetów Navala. Znajdź stojącą za nim tezę geopolityczną lub techniczną oraz istotne wydarzenia makroekonomiczne z ostatnich lat. Zauważ, czy portfel przypomina ci jakiś styl inwestycyjny lub popularną ideę, jak portfel trzyfunduszowy, itd. Wskaż pokrywające się aktywa, takie jak ETF-y z tymi samymi akcjami (jeśli takie istnieją). Następnie pokaż do 5 zalet i/lub wad. Zorganizuj je pokazując zalety pierwsze. Zwróć większą uwagę na takie wskaźniki jak zmienność i beta, a dopiero w drugiej kolejności na te, które odzwierciedlają głównie przeszłość, jak Sharpe. Używaj skali Słaby/Neutralny/Dobry/Wyjątkowy."

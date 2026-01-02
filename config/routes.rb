@@ -115,8 +115,6 @@ Rails.application.routes.draw do
       get :show_index_bot, on: :collection # TODO: move to custom :show logic according to bot type
     end
 
-    get '/calculator', to: 'calculator#show', as: :calculator
-
     get '/terms-and-conditions', to: 'home#terms_and_conditions', as: :terms_and_conditions
     get '/privacy-policy', to: 'home#privacy_policy', as: :privacy_policy
     get '/cookies-policy', to: 'home#cookies_policy', as: :cookies_policy

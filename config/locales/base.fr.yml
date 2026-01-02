@@ -82,7 +82,6 @@ fr:
     links:
         about: 'À propos'
         analyzer: 'Analyseur'
-        calculator: 'Calculatrice'
         telegram: 'Telegram'
         community: 'Communauté des Fireheads'
         contact: 'Contact'
@@ -182,9 +181,6 @@ fr:
         hours_short: 'h'
         minutes_short: 'm'
         seconds_short: 's'
-    dca_calculator:
-        title: "Combien de temps fallait-il épargner <span>$%{amount}/mois</span> pour %{goal} ?"
-        goal_millionaire: "devenir millionnaire"
     ai:
         insights:
             intro: "Évaluez mon portefeuille dans le style des tweets de Naval. Trouvez la thèse géopolitique ou technique sous-jacente et les événements macroéconomiques pertinents des dernières années. Remarquez si le portefeuille vous rappelle un style d'investissement ou une idée populaire, comme le portefeuille à 3 fonds, etc. Identifiez les actifs se chevauchant comme les ETF avec les mêmes actions (seulement s'il y en a). Indiquez jusqu'à 5 avantages et/ou inconvénients. Organisez-les : avantages en premier. Accordez plus d'importance aux métriques comme la volatilité et le bêta, puis à celles reflétant principalement le passé, comme le ratio de Sharpe. Utilisez l'échelle Mauvais/Neutre/Bon/Exceptionnel."

@@ -82,7 +82,6 @@ en:
             title: Contact
     links:
         about: About
-        calculator: Calculator
         analyzer: 'Analyzer'
         telegram: 'Telegram'
         community: 'Fireheads Community'
@@ -183,9 +182,6 @@ en:
         hours_short: 'h'
         minutes_short: 'm'
         seconds_short: 's'
-    dca_calculator:
-        title: "How long you had to save <span>$%{amount}/month</span> to %{goal}?"
-        goal_millionaire: "become a millionaire"
     ai:
         insights:
             intro: "Evaluate my portfolio in the style of Naval tweets. Find geopolitical or technical thesis behind, and relevant macro events in the recent years. Notice if portfolio reminds you of some investing style or popular idea like 3-fund portfolio, etc. Point out overlapping assets like ETFs with the same stocks (only if there are any). Then show up to 5 pros and/or cons organized so all pros go first. Put more attention to metrics like volatility and beta, then those mostly reflecting past like Sharpe. Use Poor/Neutral/Good/Exceptional scale."
