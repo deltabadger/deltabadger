@@ -123,12 +123,6 @@ en:
             free_plan_reset_date_html: 'Your limit resets on <b>%{end_time}</b>.'
             title: Settings
             two_factor_section: 'Second Factor Authentication'
-            notifications_section: 'Email communication'
-        notifications:
-            global_unsubscribe: 'All newsletters'
-            onboarding_html: 'Tips and guides'
-            product_updates_html: 'Project news and updates'
-            newsletters: 'Newsletters:'
     social:
         blog: 'Read our blog'
         knowledge_base: 'Knowledge base'

@@ -60,33 +60,6 @@ class SettingsController < ApplicationController
     render turbo_stream: turbo_stream_page_refresh
   end
 
-  def update_notifications
-    if current_user.update(update_notifications_params)
-      set_index_instance_variables
-    else
-      flash.now[:alert] = current_user.errors.full_messages.to_sentence
-      render turbo_stream: turbo_stream_prepend_flash, status: :unprocessable_entity
-    end
-  end
-
-  def update_notifications_campaign_subscriptions
-    # TODO: handle errors
-
-    update_notifications_campaign_subscriptions_params.each do |campaign_slug, subscribed|
-      campaign = Caffeinate::Campaign.find_by(slug: campaign_slug)
-      subscription = campaign.subscriber(current_user)
-      if Utilities::String.to_boolean(subscribed)
-        if subscription.nil?
-          Object.const_get("Drippers::#{campaign.slug.titleize.gsub(' ', '')}").subscribe(current_user)
-        elsif subscription.unsubscribed?
-          campaign.subscriber(current_user).resubscribe!(force: true)
-        end
-      elsif subscription&.subscribed?
-        subscription.unsubscribe!('settings')
-      end
-    end
-  end
-
   def update_password
     if current_user.update_with_password(update_password_params)
       bypass_sign_in(current_user)
@@ -158,7 +131,6 @@ class SettingsController < ApplicationController
                           else
                             t('helpers.label.settings.enable_two_fa')
                           end
-    @email_marketing_campaigns = Caffeinate::Campaign.active
   end
 
   def set_edit_two_fa_instance_variables
@@ -199,14 +171,6 @@ class SettingsController < ApplicationController
 
   def update_email_params
     params.require(:user).permit(:email, :current_password)
-  end
-
-  def update_notifications_params
-    params.require(:user).permit(:subscribed_to_email_marketing)
-  end
-
-  def update_notifications_campaign_subscriptions_params
-    params.permit(*Caffeinate::Campaign.pluck(:slug))
   end
 
   def update_time_zone_params
