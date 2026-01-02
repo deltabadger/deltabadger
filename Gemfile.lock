@@ -258,10 +258,6 @@ GEM
       activerecord
       kaminari-core (= 1.2.2)
     kaminari-core (1.2.2)
-    kramdown (2.4.0)
-      rexml
-    kramdown-parser-gfm (1.1.0)
-      kramdown (~> 2.0)
     launchy (2.5.2)
       addressable (~> 2.8)
     letter_opener (1.8.1)
@@ -564,8 +560,6 @@ DEPENDENCIES
   jwt
   kaminari
   kraken_ruby_client!
-  kramdown (~> 2.4)
-  kramdown-parser-gfm (~> 1.1)
   letter_opener
   listen (>= 3.0.5, < 4.0)
   lol_dba
