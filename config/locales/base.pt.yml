@@ -82,7 +82,6 @@ pt:
     links:
         about: 'Sobre'
         analyzer: 'Analisador'
-        calculator: 'Calculadora'
         telegram: 'Telegram'
         community: 'Comunidade Fireheads'
         contact: Contacto
@@ -180,9 +179,6 @@ pt:
         hours_short: 'h'
         minutes_short: 'm'
         seconds_short: 's'
-    dca_calculator:
-        title: "Quanto tempo você precisava poupar <span>$%{amount}/mês</span> para %{goal}?"
-        goal_millionaire: "se tornar milionário"
     ai:
         insights:
             intro: "Avalie minha carteira no estilo dos tweets de Naval. Encontre a tese geopolítica ou técnica por trás e eventos macroeconômicos relevantes nos últimos anos. Perceba se a carteira te lembra algum estilo de investimento ou ideia popular, como a carteira de 3 fundos, etc. Aponte ativos sobrepostos, como ETFs com as mesmas ações (somente se houver)."
