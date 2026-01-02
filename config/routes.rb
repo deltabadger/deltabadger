@@ -128,7 +128,6 @@ Rails.application.routes.draw do
 
   get '/thank-you', to: 'home#confirm_registration', as: :confirm_registration
   get '/sitemap', to: 'sitemap#index', defaults: {format: 'xml'}
-  get '/metrics', to: 'metrics#index', as: :bot_btc_metrics
   get '/health-check', to: 'health_check#index', as: :health_check
 
   # get '*path', to: redirect("/#{I18n.default_locale}")
