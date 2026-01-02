@@ -33,11 +33,10 @@ module ExchangeApi
 
           Result::Success.new(
             external_id: order_id,
-            amount: amount,
+            amount:,
             price: rate
           )
         rescue StandardError => e
-          Raven.capture_exception(e)
           Result::Failure.new('Could not fetch order parameters from Bitso')
         end
 
@@ -51,7 +50,6 @@ module ExchangeApi
           request = conn.post(url, body, headers(@api_key, @api_secret, body, path, 'POST'))
           parse_request(request)
         rescue StandardError => e
-          Raven.capture_exception(e)
           Result::Failure.new('Could not make Bitso order', RECOVERABLE.to_s)
         end
 
