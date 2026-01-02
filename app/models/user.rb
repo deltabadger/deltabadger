@@ -21,8 +21,6 @@ class User < ApplicationRecord
 
   after_update_commit :reset_oauth_credentials, if: :saved_change_to_email?
 
-  include Intercomable
-
   def self.from_omniauth(auth)
     user = User.find_by(oauth_provider: auth.provider, oauth_uid: auth.uid)
     return user if user.present?
