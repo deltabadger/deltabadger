@@ -95,7 +95,4 @@ gem "kramdown-parser-gfm", "~> 1.1" # GitHub Flavored Markdown support
 gem 'ruby-technical-analysis', git: 'https://github.com/guillemap/ruby-technical-analysis' # TODO: use the official gem once https://github.com/johnnypaper/ruby-technical-analysis/pull/32 is merged
 gem 'omniauth-google-oauth2'
 gem "omniauth-rails_csrf_protection"
-gem "caffeinate", git: 'https://github.com/guillemap/caffeinate', branch: 'fix-headers' # TODO: use the official gem once https://github.com/joshmn/caffeinate/pull/50 is merged
 gem "ahoy_email", "~> 2.1"
-
-gem "aws-sdk-sesv2", "~> 1.83"

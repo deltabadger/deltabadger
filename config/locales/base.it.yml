@@ -122,12 +122,6 @@ it:
             free_plan_reset_date_html: 'Il tuo limite si resetta il <b>%{end_time}</b>.'
             title: Impostazioni
             two_factor_section: 'Autenticazione a Due Fattori'
-            notifications_section: 'Comunicazioni via email'
-        notifications:
-            global_unsubscribe: 'Tutte le newsletter'
-            onboarding_html: 'Consigli e guide'
-            product_updates_html: 'Novità e aggiornamenti del progetto'
-            newsletters: 'Newsletter:'
     social:
         blog: 'Leggi il nostro blog'
         knowledge_base: 'Base di conoscenza'
