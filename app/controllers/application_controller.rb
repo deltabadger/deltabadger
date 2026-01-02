@@ -2,7 +2,6 @@ class ApplicationController < ActionController::Base
   include SharedHelper
   include MetaTagsHelper
 
-  before_action :set_raven_context
   before_action :set_no_cache, if: :user_signed_in?
   before_action :set_signed_in_cookie
   around_action :switch_locale
@@ -14,11 +13,6 @@ class ApplicationController < ActionController::Base
   end
 
   private
-
-  def set_raven_context
-    Raven.user_context(id: session[:current_user_id])
-    Raven.extra_context(params: params.to_unsafe_h, url: request.url)
-  end
 
   def set_signed_in_cookie
     cookies[:signed_in] = { value: user_signed_in?, domain: 'deltabadger.com' }

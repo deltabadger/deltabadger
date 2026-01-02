@@ -31,7 +31,6 @@ module ExchangeApi
           all_symbols = response['result'].map { |_symbol, data| data['altname'] }
           Result::Success.new(all_symbols)
         rescue StandardError => e
-          Raven.capture_exception(e)
           Result::Failure.new('Could not fetch currencies from Kraken', RECOVERABLE.to_s)
         end
 
@@ -54,7 +53,6 @@ module ExchangeApi
           Rails.logger.info "withdrawal available_funds data: #{data.inspect}" # TODO: delete after testing
           Result::Success.new(data)
         rescue StandardError => e
-          Raven.capture_exception(e)
           Result::Failure.new('Could not fetch funds from Kraken', RECOVERABLE.to_s)
         end
 

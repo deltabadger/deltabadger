@@ -37,10 +37,9 @@ module ExchangeApi
           Result::Success.new(
             external_id: order_id,
             amount: amount.abs,
-            price: price
+            price:
           )
         rescue StandardError => e
-          Raven.capture_exception(e)
           Result::Failure.new('Could not fetch order parameters from Bitfinex')
         end
 
@@ -55,7 +54,6 @@ module ExchangeApi
 
           parse_request(request)
         rescue StandardError => e
-          Raven.capture_exception(e)
           Result::Failure.new('Could not make Bitfinex order', RECOVERABLE.to_s)
         end
 
