@@ -111,12 +111,6 @@ nl:
             free_plan_reset_date_html: 'Uw limiet wordt gereset op <b>%{end_time}</b>.'
             title: Instellingen
             two_factor_section: 'Second Factor Authentication'
-            notifications_section: 'E-mailcommunicatie'
-        notifications:
-            global_unsubscribe: 'Alle nieuwsbrieven'
-            onboarding_html: 'Tips en handleidingen'
-            product_updates_html: 'Projectnieuws en updates'
-            newsletters: 'Nieuwsbrieven:'
         name:
             updated: 'Uw naam is bijgewerkt.'
         two_fa:

@@ -123,12 +123,6 @@ fr:
             free_plan_reset_date_html: 'Votre limite sera réinitialisée le <b>%{end_time}</b>.'
             title: 'Paramètres'
             two_factor_section: 'Authentification à deux facteurs'
-            notifications_section: 'Communication par e-mail'
-        notifications:
-            global_unsubscribe: 'Toutes les newsletters'
-            onboarding_html: 'Conseils et guides'
-            product_updates_html: 'Actualités et mises à jour du projet'
-            newsletters: 'Newsletters :'
     social:
         blog: 'Lire notre blog'
         knowledge_base: 'Base de connaissances'

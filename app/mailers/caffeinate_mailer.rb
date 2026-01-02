@@ -1,2 +1,0 @@
-class CaffeinateMailer < ApplicationMailer
-end
