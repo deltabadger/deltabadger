@@ -127,14 +127,6 @@ fr:
         knowledge_base: 'Base de connaissances'
         telegram: 'Rejoignez notre groupe Telegram'
         twitter: 'Suivez-nous sur 𝕏'
-    welcome:
-        banner_html: |
-            <p>Bienvenue à bord, %{name}!</p>
-            <ul>
-                <li><b>Consultez votre e-mail</b>—je vous ai envoyé un guide rapide d'utilisation des bots.</li>
-                <li><b>Répondez avec <i>"FIRE"</i></b> et obtenez l'accès à notre communauté.</li>
-            </ul>
-            <p>À bientôt,<br>Jan</p>
     utils:
         assets: Actifs
         cash: Liquidités
