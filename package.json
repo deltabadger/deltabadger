@@ -46,7 +46,7 @@
     "regenerator-runtime": "^0.13.9",
     "resolve-url-loader": "^5.0.0",
     "use-deep-compare-effect": "^1.8.1",
-    "webpack": "^4.0.0"
+    "webpack": "^5.104.1"
   },
   "version": "0.1.0",
   "devDependencies": {
