@@ -11,7 +11,6 @@ class User < ApplicationRecord
   has_many :exchanges, through: :api_keys
   has_many :bots
   has_many :transactions, through: :bots
-  has_many :messages, class_name: 'Ahoy::Message', as: :user
 
   validates :terms_and_conditions, acceptance: true
   validates :name, presence: true, if: -> { new_record? }
