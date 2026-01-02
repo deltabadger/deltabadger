@@ -3,18 +3,10 @@ import "../controllers";
 import React from "react";
 import { createRoot } from "react-dom/client";
 import I18n from "i18n-js/index.js.erb";
-import * as Sentry from "@sentry/react";
-import { Integrations } from "@sentry/tracing";
 import { Dashboard } from "../deltabadger/components/Dashboard";
 import { Provider } from "react-redux";
 import { configureStore } from "../deltabadger/Store";
 import { reducer } from "../deltabadger/reducer";
-
-Sentry.init({
-  dsn: process.env.SENTRY_DSN_REACT,
-  integrations: [new Integrations.BrowserTracing()],
-  tracesSampleRate: 1.0,
-});
 
 const store = configureStore(reducer);
 

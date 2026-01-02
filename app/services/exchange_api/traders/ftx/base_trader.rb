@@ -16,7 +16,7 @@ module ExchangeApi
           @api_key = api_key
           @api_secret = api_secret
           @url_base = url_base
-          @market = market.new(url_base: url_base)
+          @market = market.new(url_base:)
           @map_errors = map_errors
         end
 
@@ -39,11 +39,10 @@ module ExchangeApi
 
           Result::Success.new(
             external_id: order_id,
-            amount: amount,
+            amount:,
             price: rate
           )
         rescue StandardError => e
-          Raven.capture_exception(e)
           Result::Failure.new('Could not fetch order parameters from FTX')
         end
 
@@ -62,7 +61,6 @@ module ExchangeApi
           end
           parse_request(request)
         rescue StandardError => e
-          Raven.capture_exception(e)
           Result::Failure.new('Could not make FTX order', RECOVERABLE.to_s)
         end
 

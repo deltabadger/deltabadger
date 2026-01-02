@@ -3,7 +3,7 @@ class MakeWebhookWorker
 
   def perform(bot_id, webhook)
     MakeWebhook.call(bot_id, webhook)
-  rescue StandardError => e # prevent job from retrying
-    Raven.capture_exception(e)
+  rescue StandardError => e
+    # prevent job from retrying
   end
 end

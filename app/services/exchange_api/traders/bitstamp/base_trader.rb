@@ -21,7 +21,6 @@ module ExchangeApi
         def fetch_order_by_id(_order_id, response_params = nil)
           Result::Success.new(response_params)
         rescue StandardError => e
-          Raven.capture_exception(e)
           Result::Failure.new('Could not fetch order parameters from Bitstamp')
         end
 
@@ -37,7 +36,6 @@ module ExchangeApi
 
           parse_response(response)
         rescue StandardError => e
-          Raven.capture_exception(e)
           Result::Failure.new('Could not make Bitstamp order', RECOVERABLE.to_s)
         end
 

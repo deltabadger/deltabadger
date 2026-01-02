@@ -38,11 +38,10 @@ module ExchangeApi
 
           Result::Success.new(
             external_id: order_id,
-            amount: amount,
+            amount:,
             price: (response.fetch('executed_value').to_f / amount)
           )
         rescue StandardError => e
-          Raven.capture_exception(e)
           Result::Failure.new('Could not fetch order parameters from Coinbase Pro')
         end
 
@@ -56,7 +55,6 @@ module ExchangeApi
           request = conn.post(url, body, headers(@api_key, @api_secret, @passphrase, body, path, 'POST'))
           parse_request(request)
         rescue StandardError => e
-          Raven.capture_exception(e)
           Result::Failure.new('Could not make Coinbase Pro order', RECOVERABLE.to_s)
         end
 
