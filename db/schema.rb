@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema.define(version: 2026_01_02_153719) do
+ActiveRecord::Schema.define(version: 2026_01_02_162517) do
 
   # These are extensions that must be enabled in order to support this database
   enable_extension "plpgsql"
@@ -76,14 +76,6 @@ ActiveRecord::Schema.define(version: 2026_01_02_153719) do
     t.string "stop_message_key"
     t.index ["exchange_id"], name: "index_bots_on_exchange_id"
     t.index ["user_id"], name: "index_bots_on_user_id"
-  end
-
-  create_table "conversion_rates", force: :cascade do |t|
-    t.string "currency", null: false
-    t.decimal "rate", null: false
-    t.datetime "created_at", null: false
-    t.datetime "updated_at", null: false
-    t.index ["currency"], name: "index_conversion_rates_on_currency", unique: true
   end
 
   create_table "daily_transaction_aggregates", force: :cascade do |t|

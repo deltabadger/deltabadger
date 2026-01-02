@@ -23,7 +23,6 @@ Rails.application.routes.draw do
       resources :webhooks
       resources :dca_dual_assets
     end
-    resources :conversion_rates
     resources :exchanges
     resources :transactions
 
