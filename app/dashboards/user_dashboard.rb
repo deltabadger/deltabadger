@@ -25,8 +25,6 @@ class UserDashboard < Administrate::BaseDashboard
     updated_at: Field::DateTime,
     unconfirmed_email: Field::String,
     admin: Field::Boolean,
-    terms_and_conditions: Field::Boolean,
-    updates_agreement: Field::Boolean,
     otp_secret_key: Field::String,
     otp_module: Field::Select.with_options(collection: %w[disabled enabled])
   }.freeze
@@ -61,8 +59,6 @@ class UserDashboard < Administrate::BaseDashboard
     unconfirmed_email
     otp_module
     admin
-    terms_and_conditions
-    updates_agreement
   ].freeze
 
   # FORM_ATTRIBUTES
@@ -76,8 +72,6 @@ class UserDashboard < Administrate::BaseDashboard
     unconfirmed_email
     otp_module
     admin
-    terms_and_conditions
-    updates_agreement
   ].freeze
 
   # COLLECTION_FILTERS

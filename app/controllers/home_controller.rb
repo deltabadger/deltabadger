@@ -1,11 +1,6 @@
 class HomeController < ApplicationController
   PUBLIC_PAGES = %i[
     index
-    terms_and_conditions
-    privacy_policy
-    cookies_policy
-    contact
-    about
     confirm_registration
   ].freeze
 

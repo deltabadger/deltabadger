@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema.define(version: 2026_01_02_164450) do
+ActiveRecord::Schema.define(version: 2026_01_02_170108) do
 
   # These are extensions that must be enabled in order to support this database
   enable_extension "plpgsql"
@@ -214,16 +214,12 @@ ActiveRecord::Schema.define(version: 2026_01_02_164450) do
     t.datetime "updated_at", null: false
     t.string "unconfirmed_email"
     t.boolean "admin", default: false, null: false
-    t.boolean "terms_and_conditions"
-    t.boolean "updates_agreement"
     t.boolean "show_smart_intervals_info", default: true, null: false
     t.string "otp_secret_key"
     t.integer "otp_module", default: 0
     t.datetime "last_otp_at"
     t.string "name"
     t.string "time_zone", default: "UTC", null: false
-    t.boolean "has_community_access", default: false
-    t.boolean "subscribed_to_email_marketing", default: true
     t.string "locale"
     t.index ["confirmation_token"], name: "index_users_on_confirmation_token", unique: true
     t.index ["email"], name: "index_users_on_email", unique: true

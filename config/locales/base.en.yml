@@ -70,35 +70,26 @@ en:
                 password: Password
                 password_confirmation: 'Password confirmation'
                 remember_me: 'Remember me'
-                terms_and_conditions_tooltip: 'By continuing I agree to the %{terms_and_conditions} and %{privacy_policy}.'
     home:
         confirm_registration:
             deliverability_html: '<b>This is very important!</b><br><br> If you didn''t get the confirmation email, check your <b>junk folder</b>. If you still cannot find it, please, email me at %{email}. <br><br>Thanks, Jan'
             text_html: 'Check your mailbox and click on the <b>confirmation link</b> we''ve sent to you. Then go to the login page.'
             title: Thanks!
-        contact:
-            general_questions_html: 'For general questions, please try our <a class="db-social-link" href="https://t.me/deltabadgerchat" target="_blank" rel="nofollow">Telegram channel</a>. This is usually the quickest way to get an answer. Also: all feedback, product ideas, and exchange requests are welcomed.'
-            specific_questions_html: 'For more specific issues, email us: %{email}, or a direct message on Telegram or <a class="db-social-link" href="https://x.com/intent/follow?screen_name=deltabadgerapp" target="_blank" rel="nofollow">𝕏</a>.'
-            title: Contact
     links:
         about: About
         analyzer: 'Analyzer'
         telegram: 'Telegram'
         community: 'Fireheads Community'
-        contact: Contact
-        cookies_policy: 'Cookies Policy'
         create_account: 'Create free account'
         dashboard: Dashboard
         homepage: 'Link to the homepage'
         log_in: 'Log in'
         log_out: Logout
         menu: Menu
-        privacy_policy: 'Privacy Policy'
         earn: 'Earn'
         resend_link: 'Resend link'
         settings: Settings
         sign_up: 'Sign up'
-        terms_and_conditions: 'Terms & Conditions'
     settings:
         timezone:
             title: 'Timezone'

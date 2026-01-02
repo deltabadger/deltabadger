@@ -5,24 +5,12 @@ pl:
         twitter_image_alt: "Zautomatyzowany dollar-cost averaging dla Bitcoina, Ethereum, Polkadot, Cardano, Solana i innych aktywów cyfrowych."
         descriptions:
             default: "Rozpocznij za darmo najbardziej sprawdzoną strategię, która działa z Binance, Coinbase, Kraken, Kucoin i innymi giełdami. Bez KYC."
-            privacy_policy: "Dowiedz się, jak Deltabadger chroni Twoją prywatność i zarządza Twoimi danymi podczas korzystania z naszej zautomatyzowanej platformy DCA dla kryptowalut."
-            terms_and_conditions: "Przeczytaj nasze warunki korzystania z usługi, aby zrozumieć swoje prawa i obowiązki podczas korzystania z zautomatyzowanej platformy DCA dla kryptowalut Deltabadger."
-            cookies_policy: "Dowiedz się, jak Deltabadger używa plików cookie, aby ulepszyć Twoje doświadczenie na naszej zautomatyzowanej platformie DCA dla kryptowalut."
-            contact: "Skontaktuj się z zespołem Deltabadger w sprawie wsparcia, pytań lub opinii dotyczących naszej zautomatyzowanej platformy DCA dla kryptowalut."
-            about: "Poznaj historię Jana Kłosowskiego i powstania Deltabadger oraz dowiedz się, jak zautomatyzowany dollar-cost averaging może pomóc w budowaniu portfela kryptowalut."
-            # Strony Devise
             sign_up: "Utwórz darmowe konto Deltabadger, aby rozpocząć zautomatyzowany dollar-cost averaging dla Bitcoina i innych kryptowalut."
             sign_in: "Zaloguj się do swojego konta Deltabadger, aby zarządzać zautomatyzowanymi strategiami DCA i portfelem kryptowalut."
             forgot_password: "Zresetuj hasło do konta Deltabadger, aby odzyskać dostęp do zautomatyzowanej platformy DCA dla kryptowalut."
             reset_password: "Zmień hasło do konta Deltabadger, aby zachować bezpieczeństwo zautomatyzowanego inwestowania w kryptowaluty."
             confirm_email: "Potwierdź swój adres e-mail, aby aktywować konto Deltabadger i rozpocząć zautomatyzowany dollar-cost averaging kryptowalut."
         titles:
-            privacy_policy: "Polityka Prywatności • Deltabadger"
-            terms_and_conditions: "Warunki i Zasady • Deltabadger"
-            cookies_policy: "Polityka Cookies • Deltabadger"
-            contact: "Kontakt • Deltabadger"
-            about: "O nas • Deltabadger"
-            # Strony Devise
             sign_up: "Rejestracja • Deltabadger"
             sign_in: "Logowanie • Deltabadger"
             forgot_password: "Resetowanie Hasła • Deltabadger"

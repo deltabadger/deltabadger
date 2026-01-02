@@ -69,35 +69,26 @@ es:
                 password: Contraseña
                 password_confirmation: 'confirmación de contraseña'
                 remember_me: Recuérdame
-                terms_and_conditions_tooltip: 'Al continuar, acepto los %{terms_and_conditions} y la %{privacy_policy}.'
     home:
         confirm_registration:
             deliverability_html: '<b>¡Esto es muy importante!</b><br><br> Si no has recibido el correo electrónico de confirmación, revisa la <b>carpeta de correo no deseado</b>. Si sigues sin ubicar el mensaje, envíame un correo a la dirección %{email}. <br><br>Gracias, Jan'
             text_html: 'Comprueba tu buzón y haz clic en el <b>enlace de confirmación</b> que te hemos enviado. A continuación, ve a la página de inicio de sesión.'
             title: ¡Gracias!
-        contact:
-            general_questions_html: 'Para preguntas generales, prueba nuestro <a class="db-social-link" href="https://t.me/deltabadgerchat" target="_blank" rel="nofollow">canal de Telegram</a>. Suele ser la forma más rápida de obtener una respuesta. Además: todos los comentarios, ideas de productos y solicitudes de intercambio son bienvenidos.'
-            specific_questions_html: 'Para cuestiones específicas, envíanos un correo electrónico: %{email}, o un mensaje por Telegram o a través de <a class="db-social-link" href="https://x.com/intent/follow?screen_name=deltabadgerapp" target="_blank" rel="nofollow">𝕏</a>.'
-            title: Contacto
     links:
         about: 'Acerca de'
         analyzer: 'Analizador'
         telegram: 'Telegram'
         community: 'Fireheads Comunidad'
-        contact: Contacto
-        cookies_policy: 'Política de cookies'
         create_account: 'Crear cuenta gratuita'
         dashboard: 'Panel de control'
         homepage: 'Enlace a la página de inicio'
         log_in: 'Iniciar sesión'
         log_out: 'Cerrar sesión'
         menu: Menú
-        privacy_policy: 'Política de privacidad'
         earn: 'Ganar'
         resend_link: 'Reenviar enlace'
         settings: Configuración
         sign_up: Registrarse
-        terms_and_conditions: 'Términos y condiciones'
     settings:
         timezone:
             title: 'Zona horaria'
