@@ -1,10 +1,6 @@
 class User < ApplicationRecord
   attr_accessor :otp_code_token
 
-  after_create_commit :subscribe_to_onboarding, if: -> { oauth_provider.present? }
-  after_update_commit :subscribe_to_newsletter, if: -> { oauth_provider.present? }
-  after_update_commit :subscribe_to_product_updates, if: -> { oauth_provider.present? }
-
   devise :database_authenticatable, :registerable,
          :recoverable, :rememberable, :validatable, :confirmable,
          :omniauthable, omniauth_providers: [:google_oauth2]
@@ -25,8 +21,6 @@ class User < ApplicationRecord
   validates :time_zone, inclusion: { in: ActiveSupport::TimeZone.all.map(&:name), allow_nil: true }
 
   after_update_commit :reset_oauth_credentials, if: :saved_change_to_email?
-
-  acts_as_caffeinate_subscriber
 
   include Intercomable
 
@@ -59,18 +53,6 @@ class User < ApplicationRecord
 
   def newly_webhook_bots_transactions(time)
     webhook_bots_transactions.where('transactions.created_at > ? ', time)
-  end
-
-  def subscribe_to_onboarding
-    Drippers::Onboarding.subscribe(self)
-  end
-
-  def subscribe_to_newsletter
-    Drippers::Newsletter.subscribe(self)
-  end
-
-  def subscribe_to_product_updates
-    Drippers::ProductUpdates.subscribe(self)
   end
 
   private

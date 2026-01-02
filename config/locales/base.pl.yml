@@ -117,12 +117,6 @@ pl:
             free_plan_reset_date_html: 'Twój limit zostanie zresetowany w dniu <b> %{end_time} </b>.'
             title: Ustawienia
             two_factor_section: 'Uwierzytelnianie drugim czynnikiem (2FA)'
-            notifications_section: 'Komunikacja e-mail'
-        notifications:
-            global_unsubscribe: 'Wszystkie newslettery'
-            onboarding_html: 'Wskazówki i poradniki'
-            product_updates_html: 'Nowości i aktualizacje projektu'
-            newsletters: 'Newslettery:'
         name:
             updated: 'Twoje imię zostało zaktualizowane.'
         two_fa:
