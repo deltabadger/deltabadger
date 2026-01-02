@@ -33,7 +33,6 @@ gem 'sidekiq-limit_fetch', git: 'https://github.com/brainopia/sidekiq-limit_fetc
 gem 'scenic'
 gem 'uglifier', '>= 1.3.0'
 gem 'kraken_ruby_client', git: 'https://github.com/guillemap/kraken_ruby_client', branch: 'add-withdrawal-endpoints'
-gem 'sentry-raven'
 gem 'i18n-js', '~> 3.8.0'
 gem 'whenever', require: false
 gem 'sidekiq-prometheus-exporter', '~> 0.1'

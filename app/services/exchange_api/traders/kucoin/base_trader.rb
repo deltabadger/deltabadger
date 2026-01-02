@@ -36,11 +36,10 @@ module ExchangeApi
 
           Result::Success.new(
             external_id: order_id,
-            amount: amount,
+            amount:,
             price: amount.zero? ? nil : (response['data'].fetch('dealFunds').to_f / amount)
           )
         rescue StandardError => e
-          Raven.capture_exception(e)
           Result::Failure.new('Could not fetch order parameters from KuCoin')
         end
 
@@ -57,7 +56,6 @@ module ExchangeApi
 
           parse_request(request)
         rescue StandardError => e
-          Raven.capture_exception(e)
           Result::Failure.new('Could not make KuCoin order', RECOVERABLE.to_s)
         end
 
@@ -95,7 +93,7 @@ module ExchangeApi
         def common_order_params(symbol)
           {
             clientOid: SecureRandom.uuid,
-            symbol: symbol
+            symbol:
           }
         end
 

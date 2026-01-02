@@ -14,14 +14,13 @@ module ExchangeApi
           map_errors: ExchangeApi::MapErrors::Binance.new
         )
           @signed_client = signed_client(api_key, api_secret, url_base)
-          @market = market.new(url_base: url_base)
+          @market = market.new(url_base:)
           @map_errors = map_errors
         end
 
         def fetch_order_by_id(_order_id, response_params = nil)
           Result::Success.new(response_params)
         rescue StandardError => e
-          Raven.capture_exception(e)
           Result::Failure.new('Could not fetch order parameters from Binance')
         end
 
@@ -50,7 +49,7 @@ module ExchangeApi
 
         def common_order_params(symbol)
           {
-            symbol: symbol
+            symbol:
           }
         end
 
