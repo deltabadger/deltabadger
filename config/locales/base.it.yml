@@ -162,14 +162,6 @@ it:
         hours_short: 'h'
         minutes_short: 'm'
         seconds_short: 's'
-    ai:
-        insights:
-            intro: "Valuta il mio portfolio nello stile dei tweet di Naval. Trova la tesi geopolitica o tecnica dietro, e gli eventi macro rilevanti negli ultimi anni. Nota se il portfolio ti ricorda qualche stile di investimento o idea popolare come il portfolio a 3 fondi, ecc. Evidenzia asset sovrapposti come ETF con le stesse azioni (solo se ce ne sono). Poi mostra fino a 5 pro e/o contro organizzati in modo che tutti i pro vengano prima. Presta più attenzione a metriche come volatilità e beta, poi a quelle che riflettono principalmente il passato come Sharpe. Usa la scala Scarso/Neutro/Buono/Eccezionale."
-            response_format: |
-                Rispondi nel seguente formato HTML (tutti i testi nel template sono solo esempi). Inserisco la tua risposta direttamente nel mio template HTML quindi NON restituirla come snippet di codice: <div class="insight insight--summary"><span class="insight__name">Titolo provocatorio</span>. Breve narrativa sul portfolio in 5 frasi.</div><div class="insight insight--pro"><span class="insight__name">Nome metrica <b>2.22</b> &middot; Eccezionale</span>. Valutazione in una frase</div><div class="insight insight--con"><span class="insight__name">Nome metrica <b>-1.36%</b> &middot; Scarso</span>. Valutazione in una frase.</div>
-            past_performance: "Performance passata"
-            benchmark_performance: "Performance passata del benchmark"
-            metrics_since: "Metriche per il periodo dal %{start_date} al %{end_date}:"
     bot_filters:
         all: 'Tutti'
         active: 'Attivi'
