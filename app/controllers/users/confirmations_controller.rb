@@ -18,17 +18,6 @@ class Users::ConfirmationsController < Devise::ConfirmationsController
     end
   end
 
-  # GET /resource/confirmation?confirmation_token=abcdef
-  def show
-    super do
-      if resource.previous_changes.key?('unconfirmed_email')
-        # email_was = resource.previous_changes['email'].first
-        # email_now = resource.previous_changes['email'].last
-        # TODO: update email in Intercom
-      end
-    end
-  end
-
   private
 
   def confirmation_params
