@@ -69,35 +69,26 @@ fr:
                 password: 'Mot de passe'
                 password_confirmation: 'Confirmation du mot de passe'
                 remember_me: 'Se souvenir de moi'
-                terms_and_conditions_tooltip: 'En continuant, j''accepte les %{terms_and_conditions} et %{privacy_policy}.'
     home:
         confirm_registration:
             deliverability_html: '<b> C''est très important ! </b><br><br> Si vous n''avez pas reçu l''e-mail de confirmation, vérifiez votre <b> dossier indésirable </b>. Si vous ne le trouvez toujours pas, envoyez-moi un e-mail à %{email}. <br> <br> Merci, Jan'
             text_html: 'Vérifie ta boîte aux lettres et clique sur le <b> lien de confirmation </b> que nous vous avons envoyé. Rends-toi ensuite sur la page de connexion.'
             title: 'Merci !'
-        contact:
-            general_questions_html: 'Pour des questions d''ordre général, merci d''essayer notre <a class="db-social-link" href="https://t.me/deltabadgerchat" target="_blank" rel="nofollow"> chaîne Telegram </a>. C''est généralement le moyen le plus rapide d''obtenir une réponse. Aussi : tous les commentaires, idées de produits et demandes d''échange sont les bienvenus.'
-            specific_questions_html: 'Pour des problèmes plus spécifiques, envoyez-nous un e-mail : %{email} , ou un message direct sur Telegram ou <a class="db-social-link" href="https://x.com/intent/follow?screen_name=deltabadgerapp" target="_blank" rel="nofollow">𝕏</a> .'
-            title: 'Contact'
     links:
         about: 'À propos'
         analyzer: 'Analyseur'
         telegram: 'Telegram'
         community: 'Communauté des Fireheads'
-        contact: 'Contact'
-        cookies_policy: 'Politique sur l''usage des cookies'
         create_account: 'Créer un compte gratuit'
         dashboard: 'Tableau de bord'
         homepage: 'Lien vers la page d''accueil'
         log_in: 'Connexion'
         log_out: 'Se déconnecter'
         menu: 'Menu'
-        privacy_policy: 'Politique de confidentialité'
         earn: 'Gagner'
         resend_link: 'Renvoyer le lien'
         settings: 'Paramètres'
         sign_up: 'S''inscrire'
-        terms_and_conditions: 'Conditions générales'
     settings:
         timezone:
             title: 'Fuseau horaire'

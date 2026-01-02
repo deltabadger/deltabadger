@@ -11,7 +11,6 @@ class User < ApplicationRecord
   has_many :bots
   has_many :transactions, through: :bots
 
-  validates :terms_and_conditions, acceptance: true
   validates :name, presence: true, if: -> { new_record? }
   validate :validate_name, if: -> { new_record? || name_changed? }
   validate :validate_email, if: -> { new_record? || email_changed? }

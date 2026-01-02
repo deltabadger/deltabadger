@@ -69,35 +69,26 @@ nl:
                 password: Wachtwoord
                 password_confirmation: 'Wachtwoord bevestiging'
                 remember_me: 'Onthoud mij'
-                terms_and_conditions_tooltip: 'Door verder te gaan, ga ik akkoord met de %{terms_and_conditions} en het %{privacy_policy}.'
     home:
         confirm_registration:
             deliverability_html: '<b>Dit is heel belangrijk!</b><br><br> Als je de bevestigingsmail niet hebt ontvangen, controleer dan je <b>junk folder</b>. Als je de mail nog steeds niet kunt vinden, stuur dan een email naar %{email}. <br><br>Bedankt, Jan'
             text_html: 'Controleer uw mailbox en klik op de <b>bevestigingslink</b> die wij u hebben gestuurd. Ga vervolgens naar de inlogpagina.'
             title: Bedankt!
-        contact:
-            general_questions_html: 'Voor algemene vragen kan u terecht op ons <a class="db-social-link" href="https://t.me/deltabadgerchat" target="_blank" rel="nofollow">Telegram kanaal</a>. Dit is meestal de snelste manier om een antwoord te verkrijgen. Ook: all feedback, productideeën, en vragen betreffende exchanges zijn welkom.'
-            specific_questions_html: 'Voor meer specifieke vragen, email ons: %{email}, of via een persoonlijk bericht op Telegram of <a class="db-social-link" href="https://x.com/intent/follow?screen_name=deltabadgerapp" target="_blank" rel="nofollow">𝕏</a>.'
-            title: Contact
     links:
         about: 'Over ons'
         analyzer: 'Analyseerder'
         telegram: 'Telegram'
         community: 'Fireheads Gemeenschap'
-        contact: Contact
-        cookies_policy: Cookie-instellingen
         create_account: 'Gratis account aanmaken'
         dashboard: Dashboard
         homepage: 'Link naar de homepagina'
         log_in: Aanmelden
         log_out: Afmelden
         menu: Menu
-        privacy_policy: Privacybeleid
         earn: Verdien
         resend_link: 'Link verzenden'
         settings: Instellingen
         sign_up: Registreren
-        terms_and_conditions: 'Algemene voorwaarden'
     settings:
         index:
             api_key_confirmation: 'Weet je het zeker?'
