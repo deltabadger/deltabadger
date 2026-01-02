@@ -2,10 +2,6 @@ update_metrics_job:
   cron: "10 */4 * * *" # every 4 hours at minute 10
   class: "UpdateMetricsJob"
 
-send_telegram_update_job:
-  cron: "0 7 * * *" # every day at 07:00 UTC
-  class: "SendTelegramUpdateJob"
-
 sync_all_tickers_and_assets_job:
   cron: "15 */4 * * *" # every 4 hours at minute 15
   class: "Exchange::SyncAllTickersAndAssetsJob"

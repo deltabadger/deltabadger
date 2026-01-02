@@ -8,7 +8,6 @@ require 'rspec/rails'
 require 'helpers/devise'
 require "selenium/webdriver"
 require 'support/factory_bot'
-require 'telegram/bot/rspec/integration/rails'
 
 Capybara.register_driver :chrome do |app|
   Capybara::Selenium::Driver.new(app, browser: :chrome)
@@ -80,5 +79,4 @@ RSpec.configure do |config|
   # config.filter_gems_from_backtrace("gem name")
   config.include Devise::Test::IntegrationHelpers, type: :feature
   config.include DeviseHelpers, type: :feature
-  config.after { Telegram.bot.reset }
 end

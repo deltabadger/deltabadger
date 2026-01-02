@@ -3,7 +3,6 @@ class Metrics
   BOTS_IN_PROFIT_KEY = 'bots_in_profit'.freeze
 
   def update_metrics
-    telegram_metrics = FetchTelegramMetrics.new.call
     metrics = {
       liveBots: Bot.working.count,
       btcBought: convert_to_satoshis(total_btc_bought),
@@ -27,7 +26,7 @@ class Metrics
       dca4yrProfitGld: DcaProfitGetter.call('gld', 4.years.ago).data,
       # dca4yrProfitIta: DcaProfitGetter.call('ita', 4.years.ago).data
       topCoins: top_coins_data(count: 60)
-    }.merge(telegram_metrics)
+    }
     redis_client.set(METRICS_KEY, metrics.to_json)
   end
 

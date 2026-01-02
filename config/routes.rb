@@ -1,6 +1,5 @@
 require 'sidekiq/web'
 require 'sidekiq/cron/web'
-require 'telegram/bot'
 require 'sidekiq/prometheus/exporter'
 
 Rails.application.routes.draw do
@@ -151,6 +150,4 @@ Rails.application.routes.draw do
   get '/health-check', to: 'health_check#index', as: :health_check
 
   # get '*path', to: redirect("/#{I18n.default_locale}")
-
-  telegram_webhook TelegramWebhooksController
 end
