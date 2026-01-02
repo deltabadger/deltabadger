@@ -26,7 +26,7 @@ module ExchangeApi
           request_params = {
             request: path,
             nonce: Time.now.strftime('%s%L'),
-            order_id: order_id
+            order_id:
           }
           body = request_params.to_json
           conn = Faraday.new(proxy: ENV['US_HTTPS_PROXY'])
@@ -39,11 +39,10 @@ module ExchangeApi
           rate = response.fetch('avg_execution_price').to_f
           Result::Success.new(
             external_id: order_id,
-            amount: amount,
+            amount:,
             price: rate
           )
         rescue KeyError => e
-          Raven.capture_exception(e)
           Result::Failure.new("Could not fetch Gemini order by id: #{order_id}", RECOVERABLE.to_s)
         end
 
@@ -58,7 +57,6 @@ module ExchangeApi
           request = conn.post(url, nil, headers(@api_key, @api_secret, body))
           parse_request(request)
         rescue StandardError => e
-          Raven.capture_exception(e)
           Result::Failure.new('Could not make Gemini order', RECOVERABLE.to_s)
         end
 
@@ -80,7 +78,7 @@ module ExchangeApi
 
         def common_order_params(symbol)
           {
-            symbol: symbol
+            symbol:
           }
         end
 
