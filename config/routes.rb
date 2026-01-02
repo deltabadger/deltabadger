@@ -72,7 +72,6 @@ Rails.application.routes.draw do
       patch :update_two_fa
       get 'confirm_destroy_api_key/:id', action: :confirm_destroy_api_key, as: :confirm_destroy_api_key
       delete 'destroy_api_key/:id', action: :destroy_api_key, as: :destroy_api_key
-      get :community_access_instructions
     end
 
     get :dashboard, to: redirect { |params, request|

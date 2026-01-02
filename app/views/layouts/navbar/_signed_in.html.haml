@@ -11,10 +11,6 @@
     = t('links.telegram')
     = render "svg/16x16_link"
 
-  = link_to 'https://www.skool.com/firestarters-1846', class: "menu-mobile__item menu-mobile__item--community", data: { controller: 'tooltip', action: 'mouseenter->tooltip#showTooltip mouseleave->tooltip#hideTooltip' }, target: "_blank", rel: "noopener" do
-    = t('links.community')
-    = render "svg/16x16_link"
-
   = link_to settings_path, class: 'menu-mobile__item menu-mobile__item--settings', data: { controller: 'tooltip', action: 'mouseenter->tooltip#showTooltip mouseleave->tooltip#hideTooltip' } do
     = t('links.settings')
   .menu-mobile__divider
@@ -61,11 +57,6 @@
       = render 'svg/24x24_community'
       .tooltip
         = t('links.telegram')
-
-    = link_to 'https://www.skool.com/firestarters-1846', class: "menu__item menu__item--community", data: { controller: 'tooltip', action: 'mouseenter->tooltip#showTooltip mouseleave->tooltip#hideTooltip' }, target: "_blank", rel: "noopener" do
-      = render 'svg/24x24_fire'
-      .tooltip
-        = t('links.community')
 
     = link_to settings_path, class: 'menu__item menu__item--settings', data: { controller: 'tooltip', action: 'mouseenter->tooltip#showTooltip mouseleave->tooltip#hideTooltip' } do
       = render 'svg/24x24_sliders'
