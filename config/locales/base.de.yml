@@ -122,12 +122,6 @@ de:
             free_plan_reset_date_html: 'Dein Limit wird am <b>%{end_time}</b> zurückgesetzt.'
             title: Einstellungen
             two_factor_section: Zwei-Faktor-Authentifizierung
-            notifications_section: 'E-Mail-Kommunikation'
-        notifications:
-            global_unsubscribe: 'Alle Newsletter'
-            onboarding_html: 'Tipps und Anleitungen'
-            product_updates_html: 'Projekt-News und Updates'
-            newsletters: 'Newsletter:'
     social:
         blog: 'Lies unseren Blog'
         knowledge_base: Wissensdatenbank
