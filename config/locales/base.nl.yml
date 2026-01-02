@@ -82,7 +82,6 @@ nl:
     links:
         about: 'Over ons'
         analyzer: 'Analyseerder'
-        calculator: 'Rekenmachine'
         telegram: 'Telegram'
         community: 'Fireheads Gemeenschap'
         contact: Contact
@@ -177,9 +176,6 @@ nl:
         hours_short: 'h'
         minutes_short: 'm'
         seconds_short: 's'
-    dca_calculator:
-        title: "Hoe lang moest je <span>$%{amount}/maand</span> sparen om %{goal}?"
-        goal_millionaire: "miljonair te worden"
     ai:
         insights:
             intro: "Evalueer mijn portefeuille in de stijl van Naval-tweets. Vind de geopolitieke of technische thesis erachter, en relevante macro-economische gebeurtenissen van de afgelopen jaren. Merk op of de portefeuille je doet denken aan een bepaalde beleggingsstijl of populair idee, zoals een 3-fondsen portefeuille, enz. Wijs op overlappende activa, zoals ETF's met dezelfde aandelen (alleen als die er zijn). Geef maximaal 5 voor- en/of nadelen weer. Organiseer ze: eerst de voordelen. Besteed meer aandacht aan statistieken zoals volatiliteit en beta, en daarna aan die welke voornamelijk het verleden weerspiegelen, zoals de Sharpe-ratio. Gebruik de schaal Slecht/Neutraal/Goed/Uitmuntend."
