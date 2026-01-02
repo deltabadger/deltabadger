@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema.define(version: 2026_01_02_163713) do
+ActiveRecord::Schema.define(version: 2026_01_02_164450) do
 
   # These are extensions that must be enabled in order to support this database
   enable_extension "plpgsql"
@@ -222,8 +222,6 @@ ActiveRecord::Schema.define(version: 2026_01_02_163713) do
     t.datetime "last_otp_at"
     t.string "name"
     t.string "time_zone", default: "UTC", null: false
-    t.string "oauth_provider"
-    t.string "oauth_uid"
     t.boolean "has_community_access", default: false
     t.boolean "subscribed_to_email_marketing", default: true
     t.string "locale"

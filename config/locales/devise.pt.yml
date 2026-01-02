@@ -97,9 +97,6 @@ pt:
                 message: 'Este e-mail já está registrado.'
                 reset_password_message: 'Se esta é sua conta, você pode redefinir sua senha aqui:'
                 reset_password_button: 'Redefinir senha'
-        omniauth_callbacks:
-            failure: 'Não foi possível autenticá-lo do %{kind} porque "%{reason}".'
-            success: 'Autenticado com sucesso da conta %{kind}.'
     shared:
         links:
             log_in_with_google: "Entrar com o Google"

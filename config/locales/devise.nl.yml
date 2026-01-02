@@ -96,9 +96,6 @@ nl:
                 message: 'Dit e-mailadres is al geregistreerd.'
                 reset_password_message: 'Als dit jouw account is, kun je hier je wachtwoord resetten:'
                 reset_password_button: 'Wachtwoord resetten'
-        omniauth_callbacks:
-            failure: 'Kon je niet authenticeren via %{kind} omdat "%{reason}".'
-            success: 'Succesvol geauthenticeerd via %{kind} account.'
     shared:
         links:
             log_in_with_google: "Aanmelden met Google"
