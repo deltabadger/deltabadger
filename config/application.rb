@@ -44,11 +44,6 @@ module Deltabadger
     config.i18n.default_locale = :en
     config.i18n.fallbacks = true
 
-    Raven.configure do |config|
-      config.dsn = ENV['SENTRY_DSN']
-      config.environments = %w[ production ]
-    end
-
     config.action_view.form_with_generates_remote_forms = false
     # remove Turbo from Asset Pipeline precompilation
     config.after_initialize do

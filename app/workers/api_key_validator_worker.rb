@@ -3,7 +3,7 @@ class ApiKeyValidatorWorker
 
   def perform(api_key_id)
     ApiKeyValidator.call(api_key_id)
-  rescue StandardError => e # prevent job from retrying
-    Raven.capture_exception(e)
+  rescue StandardError => e
+    # prevent job from retrying
   end
 end
