@@ -71,35 +71,26 @@ pl:
                 password: Hasło
                 password_confirmation: 'Potwierdź hasło'
                 remember_me: 'Zapamiętaj mnie'
-                terms_and_conditions_tooltip: 'Przechodząc dalej, akceptuję %{terms_and_conditions} i %{privacy_policy}.'
     home:
         confirm_registration:
             deliverability_html: '<b>To ważne! </b><br><br> Jeśli nie otrzymałeś e-maila potwierdzającego, sprawdź swój <b>folder kosza</b>. Jeśli nadal nie możesz go znaleźć, wyślij mi e-mail na adres %{email}. <br><br>Dzięki, Jan'
             text_html: 'Sprawdź swoją skrzynkę pocztową i kliknij <b>link potwierdzający</b>, który do Ciebie wysłaliśmy. Następnie przejdź do strony logowania.'
             title: Dzięki!
-        contact:
-            general_questions_html: 'W przypadku pytań ogólnych spróbuj naszego <a class="db-social-link" href="https://t.me/deltabadgerchat" target="_blank" rel="nofollow">kanału na Telegramie</a>. To zazwyczaj najszybszy sposób na uzyskanie odpowiedzi. Wszystkie opinie, pomysły na produkty i prośby o dodanie giełdy są mile widziane.'
-            specific_questions_html: 'W przypadku bardziej szczegółowych kwestii, napisz do nas maila: %{email}, lub bezpośrednią wiadomość na Telegramie lub <a class="db-social-link" href="https://x.com/intent/follow?screen_name=deltabadgerapp" target="_blank" rel="nofollow">𝕏</a>.'
-            title: Kontakt
     links:
         about: 'O nas'
         analyzer: 'Analizator'
         telegram: 'Telegram'
         community: 'Społeczność Fireheads'
-        contact: Kontakt
-        cookies_policy: 'Polityka ciasteczek'
         create_account: 'Stwórz darmowe konto'
         dashboard: Pulpit
         homepage: 'Link do strony głównej'
         log_in: Logowanie
         log_out: Wyloguj
         menu: Menu
-        privacy_policy: 'Polityka prywatności'
         earn: 'Zarabiaj'
         resend_link: 'Wyślij link'
         settings: Ustawienia
         sign_up: 'Stwórz konto'
-        terms_and_conditions: Regulamin
     settings:
         timezone:
             title: 'Strefa czasowa'

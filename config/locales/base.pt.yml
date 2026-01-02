@@ -69,35 +69,26 @@ pt:
                 password: Palavra-passe
                 password_confirmation: 'Confirmação de senha'
                 remember_me: Lembrar-me
-                terms_and_conditions_tooltip: 'Ao continuar, concordo com os %{terms_and_conditions} e a %{privacy_policy}.'
     home:
         confirm_registration:
             deliverability_html: '<b>Isto é muito importante!</b><br><br> Se não recebeu o e-mail de confirmação, verifique a sua <b>pasta de e-mail de lixo</b>. Se, ainda assim, não o encontrar, envie-me um e-mail para %{email}. <br><br>Obrigado, Jan'
             text_html: 'Verifique a sua caixa de correio eletrónico e clique na <b>ligação de confirmação</b> que lhe enviámos. Depois, aceda à página de início de sessão.'
             title: Obrigado!
-        contact:
-            general_questions_html: 'Para questões gerais, experimente o nosso <a class="db-social-link" href="https://t.me/deltabadgerchat" target="_blank" rel="nofollow">canal no Telegram</a>. Esta é, normalmente, a forma mais rápida de obter uma resposta. Adicionalmente, todos os comentários, ideias de produtos e pedidos de câmbio são bem-vindos.'
-            specific_questions_html: 'Para questões mais específicas, envie-nos um e-mail para %{email} ou uma mensagem direta no Telegram ou no <a class="db-social-link" href="https://x.com/intent/follow?screen_name=deltabadgerapp" target="_blank" rel="nofollow">𝕏</a>.'
-            title: Contacto
     links:
         about: 'Sobre'
         analyzer: 'Analisador'
         telegram: 'Telegram'
         community: 'Comunidade Fireheads'
-        contact: Contacto
-        cookies_policy: 'Política de Cookies'
         create_account: 'Criar conta gratuita'
         dashboard: Painel
         homepage: 'Ligação para a página inicial'
         log_in: 'Entrar'
         log_out: 'Terminar sessão'
         menu: Menu
-        privacy_policy: 'Política de Privacidade'
         earn: 'Ganhar'
         resend_link: 'Reenviar ligação'
         settings: Definições
         sign_up: Registar
-        terms_and_conditions: 'Termos e Condições'
     settings:
         timezone:
             title: 'Fuso horário'

@@ -2,7 +2,6 @@
 
 class Users::RegistrationsController < Devise::RegistrationsController
   before_action :configure_permitted_parameters, only: [:create]
-  before_action :set_code, only: %i[new create]
 
   def new
     set_new_instance_variables
@@ -42,7 +41,7 @@ class Users::RegistrationsController < Devise::RegistrationsController
 
   def configure_permitted_parameters
     devise_parameter_sanitizer
-      .permit(:sign_up, keys: %i[terms_and_conditions updates_agreement name])
+      .permit(:sign_up, keys: %i[name])
   end
 
   def after_inactive_sign_up_path_for(_resource)
@@ -52,7 +51,7 @@ class Users::RegistrationsController < Devise::RegistrationsController
   private
 
   def sign_up_params
-    params.require(:user).permit(:name, :email, :password, :terms_and_conditions)
+    params.require(:user).permit(:name, :email, :password)
   end
 
   def set_new_instance_variables

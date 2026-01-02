@@ -69,35 +69,26 @@ de:
                 password: Passwort
                 password_confirmation: 'Passwort bestätigen'
                 remember_me: 'Daten speichern'
-                terms_and_conditions_tooltip: 'Mit dem Fortfahren akzeptiere ich die %{terms_and_conditions} und %{privacy_policy}.'
     home:
         confirm_registration:
             deliverability_html: '<b>Das ist sehr wichtig!</b><br><br> Wenn Sie die Bestätigungs-E-Mail nicht erhalten haben, überprüfen Sie Ihren <b>Spam-Ordner</b>. Wenn Sie sie immer noch nicht finden können, schicken Sie mir bitte eine E-Mail an %{email}. <br><br>Danke, Jan'
             text_html: 'Überprüfe dein Postfach und klicke auf den <b>Bestätigungslink</b>, den wir dir zugesendet haben. Wechsle dann zur Anmeldeseite.'
             title: Danke!
-        contact:
-            general_questions_html: 'Für allgemeine Fragen besuche bitte unseren <a class="db-social-link" href="https://t.me/deltabadgerchat" target="_blank" rel="nofollow">Telegram-Kanal</a>. Dies ist üblicherweise der schnellste Weg zu einer Antwort. Außerdem: Alle Rückmeldungen, Produktideen und Austauschwünsche sind willkommen.'
-            specific_questions_html: 'Solltest du ein Problem haben, schick uns eine eMail %{email} oder sende uns eine Direktnachricht auf Telegram oder <a class="db-social-link" href="https://x.com/intent/follow?screen_name=deltabadgerapp" target="_blank" rel="nofollow">𝕏</a>'
-            title: Kontakt
     links:
         about: Über
         analyzer: 'Analysator'
         telegram: Telegram
         community: Fireheads Gemeinschaft
-        contact: Kontakt
-        cookies_policy: Cookies-Richtlinie
         create_account: Konto erstellen
         dashboard: Dashboard
         homepage: Startseite
         log_in: Anmelden
         log_out: Abmelden
         menu: Menü
-        privacy_policy: Datenschutzrichtlinie
         earn: Erzielen
         resend_link: Link erneut senden
         settings: Einstellungen
         sign_up: Registrieren
-        terms_and_conditions: Nutzungsbedingungen
     settings:
         timezone:
             title: 'Zeitzone'

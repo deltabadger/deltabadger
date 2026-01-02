@@ -111,11 +111,6 @@ Rails.application.routes.draw do
       get :show_index_bot, on: :collection # TODO: move to custom :show logic according to bot type
     end
 
-    get '/terms-and-conditions', to: 'home#terms_and_conditions', as: :terms_and_conditions
-    get '/privacy-policy', to: 'home#privacy_policy', as: :privacy_policy
-    get '/cookies-policy', to: 'home#cookies_policy', as: :cookies_policy
-    get '/contact', to: 'home#contact', as: :contact
-    get '/about', to: 'home#about', as: :about
     post '/h/:webhook', to: 'api/bots#webhook', as: :webhooks
 
     namespace :broadcasts do
@@ -130,9 +125,6 @@ Rails.application.routes.draw do
   end
 
   get '/cryptocurrency-dollar-cost-averaging', to: redirect("/#{I18n.default_locale}/cryptocurrency-dollar-cost-averaging")
-  get '/terms-and-conditions', to: redirect("/#{I18n.default_locale}/terms-and-conditions")
-  get '/privacy-policy', to: redirect("/#{I18n.default_locale}/privacy-policy")
-  get '/cookies-policy', to: redirect("/#{I18n.default_locale}/cookies-policy")
   get '/', to: redirect("/#{I18n.default_locale}")
 
   get '/thank-you', to: 'home#confirm_registration', as: :confirm_registration
