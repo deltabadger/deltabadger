@@ -4,7 +4,6 @@ require 'telegram/bot'
 require 'sidekiq/prometheus/exporter'
 
 Rails.application.routes.draw do
-  mount ::Caffeinate::Engine => '/caffeinate'
   get 'ahoy/messages/:id/open' => 'ahoy/message_opens#open'
 
   get 'sso', to: 'sso#sso'
@@ -79,8 +78,6 @@ Rails.application.routes.draw do
       patch :update_email
       patch :update_name
       patch :update_time_zone
-      patch :update_notifications
-      patch :update_notifications_campaign_subscriptions
       get :edit_two_fa
       patch :update_two_fa
       get 'confirm_destroy_api_key/:id', action: :confirm_destroy_api_key, as: :confirm_destroy_api_key
