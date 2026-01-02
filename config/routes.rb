@@ -4,8 +4,6 @@ require 'telegram/bot'
 require 'sidekiq/prometheus/exporter'
 
 Rails.application.routes.draw do
-  get 'ahoy/messages/:id/open' => 'ahoy/message_opens#open'
-
   get 'sso', to: 'sso#sso'
 
   match "/404", to: "errors#redirect_to_root", via: :all
