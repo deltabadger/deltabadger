@@ -1,0 +1,126 @@
+# Deltabadger Docker Compose
+# Works as standalone Docker setup and is used by Umbrel
+#
+# Usage:
+#   Standard Docker: docker compose up -d
+#   Umbrel: Automatically managed by Umbrel app system
+
+x-app-common: &app-common
+  build:
+    context: .
+    dockerfile: Dockerfile
+  image: deltabadger:latest
+  env_file:
+    - .env
+  environment:
+    # Docker-specific overrides (these override .env values)
+    RAILS_ENV: production
+    NODE_ENV: production
+    RAILS_LOG_TO_STDOUT: "true"
+    RAILS_SERVE_STATIC_FILES: "true"
+    # Database defaults for Docker network
+    DB_HOST: ${DB_HOST:-postgres}
+    DB_PORT: ${DB_PORT:-5432}
+    DB_NAME: ${DB_NAME:-deltabadger_production}
+    DB_USER: ${DB_USER:-deltabadger}
+    DB_PASSWORD: ${DB_PASSWORD:-changeme}
+    # Redis defaults for Docker network
+    REDIS_SIDEKIQ_URL: ${REDIS_SIDEKIQ_URL:-redis://redis:6379/0}
+    REDIS_CABLE_URL: ${REDIS_CABLE_URL:-redis://redis:6379/1}
+    REDIS_CACHE_URL: ${REDIS_CACHE_URL:-redis://redis:6379/2}
+  volumes:
+    - storage:/app/storage
+    - logs:/app/log
+  depends_on:
+    postgres:
+      condition: service_healthy
+    redis:
+      condition: service_healthy
+  restart: unless-stopped
+
+services:
+  # PostgreSQL Database
+  postgres:
+    image: postgres:15-alpine
+    environment:
+      POSTGRES_USER: ${DB_USER:-deltabadger}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-changeme}
+      POSTGRES_DB: ${DB_NAME:-deltabadger_production}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-deltabadger} -d ${DB_NAME:-deltabadger_production}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  # Redis for Sidekiq, ActionCable, and Cache
+  redis:
+    image: redis:7-alpine
+    command: redis-server --appendonly yes --maxmemory 256mb --maxmemory-policy allkeys-lru
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  # Database migrations (run once)
+  migrate:
+    <<: *app-common
+    command: migrate
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: "no"
+
+  # Web server (Puma)
+  web:
+    <<: *app-common
+    command: web
+    ports:
+      - "${APP_PORT:-3000}:3000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/health-check"]
+      interval: 30s
+      timeout: 10s
+      start_period: 60s
+      retries: 3
+
+  # Sidekiq background job processor
+  sidekiq:
+    <<: *app-common
+    command: sidekiq
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+    healthcheck:
+      test: ["CMD-SHELL", "bundle exec sidekiqmon processes | grep -q 'Busy'"]
+      interval: 30s
+      timeout: 10s
+      start_period: 30s
+      retries: 3
+
+volumes:
+  postgres_data:
+  redis_data:
+  storage:
+  logs:
+
+networks:
+  default:
+    name: deltabadger_network
