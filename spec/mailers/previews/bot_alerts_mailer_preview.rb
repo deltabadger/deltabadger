@@ -31,17 +31,4 @@ class BotAlertsMailerPreview < ActionMailer::Preview
     ).end_of_funds
   end
 
-  def successful_webhook_bot_transaction
-    user = User.new(email: 'test@example.com', name: 'Mathias')
-    bot = Bot.new(exchange_id: 1)
-    BotAlertsMailer.with(
-      user: user,
-      bot: bot,
-      base: 'BTC',
-      quote: 'USDT',
-      bot_name: 'My Bot',
-      type: 'buy',
-      price: '50000'
-    ).successful_webhook_bot_transaction
-  end
 end

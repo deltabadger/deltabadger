@@ -5,8 +5,7 @@
 <% end %>
 <%= turbo_stream.replace 'exchange_select', partial: 'bots/exchange_select', locals: { bot: @bot } %>
 
-<% if @bot.user.subscription.max_bots.present? && @bot.user.bots.working.count == @bot.user.subscription.max_bots - 1 %>
-  <% @bot.user.bots.not_deleted.each do |bot| %>
-    <%= turbo_stream.replace dom_id(bot, :status_button), partial: bot.legacy? ? 'bots/status/status_button_legacy' : 'bots/status/status_button', locals: { bot: bot } %>
-  <% end %>
+
+<% @bot.user.bots.not_deleted.each do |bot| %>
+  <%= turbo_stream.replace dom_id(bot, :status_button), partial: bot.legacy? ? 'bots/status/status_button_legacy' : 'bots/status/status_button', locals: { bot: bot } %>
 <% end %>

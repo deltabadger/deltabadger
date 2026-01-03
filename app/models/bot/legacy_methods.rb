@@ -6,8 +6,7 @@ module Bot::LegacyMethods
   def bot_type
     {
       'Bots::Basic' => 'trading',
-      'Bots::Withdrawal' => 'withdrawal',
-      'Bots::Webhook' => 'webhook'
+      'Bots::Withdrawal' => 'withdrawal'
     }[type] || nil
   end
 
@@ -121,20 +120,8 @@ module Bot::LegacyMethods
     settings['name']
   end
 
-  def called_bot(webhook)
-    return 'additional_bot' if additional_type_enabled? && additional_trigger_url == webhook
-
-    'main_bot' if trigger_url == webhook
-  end
-
   def already_triggered?(type)
     already_triggered_types.include? type
-  end
-
-  def possible_to_call_a_webhook?(webhook)
-    return true if every_time?
-
-    !already_triggered?(called_bot(webhook))
   end
 
   def first_time?
