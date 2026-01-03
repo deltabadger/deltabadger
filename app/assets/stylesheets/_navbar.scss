@@ -4,7 +4,7 @@
   gap: 2rem;
   &__logo {
     height: 5rem;
-    fill: var(--navbarLink);
+    fill: var(--menuLogo) !important;
     position: relative;
     @media (max-width: 575px) {
       display: block;
