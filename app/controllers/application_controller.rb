@@ -2,6 +2,7 @@ class ApplicationController < ActionController::Base
   include SharedHelper
   include MetaTagsHelper
 
+  before_action :redirect_to_setup_if_needed
   before_action :set_no_cache, if: :user_signed_in?
   before_action :set_signed_in_cookie
   around_action :switch_locale
@@ -33,5 +34,16 @@ class ApplicationController < ActionController::Base
 
   def user_signing_out?
     controller_name == 'sessions' && action_name == 'destroy' && devise_controller?
+  end
+
+  def redirect_to_setup_if_needed
+    return if setup_controller?
+    return if AppConfig.setup_completed?
+
+    redirect_to new_setup_path
+  end
+
+  def setup_controller?
+    controller_name == 'setup'
   end
 end

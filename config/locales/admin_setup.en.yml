@@ -1,0 +1,14 @@
+en:
+  setup:
+    title: "Initial Setup - Deltabadger"
+    admin_account: "Admin Account"
+    api_configuration: "Coingecko API"
+    coingecko_api_key: "Coingecko API Key"
+    coingecko_api_key_hint_html: |
+      <ol>
+        <li>Sign up to <a href="https://www.coingecko.com/en/api" target="_blank" rel="noopener">CoinGecko</a>.</li>
+        <li>Go to API section.</li>
+        <li>Press <b>Create API key</b></li>
+      </ol>
+    submit: "Complete Setup"
+    success: "Setup completed successfully. Welcome to Deltabadger!"
