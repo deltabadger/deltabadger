@@ -3,6 +3,10 @@ require 'sidekiq/cron/web'
 require 'sidekiq/prometheus/exporter'
 
 Rails.application.routes.draw do
+  # Setup wizard for initial admin configuration
+  get '/setup', to: 'setup#new', as: :new_setup
+  post '/setup', to: 'setup#create', as: :setup
+
   match "/404", to: "errors#redirect_to_root", via: :all
   match "/422", to: "errors#unprocessable_entity", via: :all
   match "/500", to: "errors#internal_server_error", via: :all

@@ -119,7 +119,7 @@ ActiveRecord::Schema.define(version: 2026_01_02_171555) do
     t.index ["asset_id"], name: "index_exchange_assets_on_asset_id"
     t.index ["exchange_id"], name: "index_exchange_assets_on_exchange_id"
   end
-
+ 
   create_table "exchanges", force: :cascade do |t|
     t.string "name"
     t.datetime "created_at", null: false

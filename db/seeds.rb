@@ -13,15 +13,15 @@ Exchanges::Bitfinex.find_or_create_by!(name: 'Bitfinex')
 Exchanges::Bitstamp.find_or_create_by!(name: 'Bitstamp')
 Exchanges::ProbitGlobal.find_or_create_by!(name: 'ProBit Global')
 
-User.find_or_create_by(email: "test@test.com") do |user|
-  user.name = "Satoshi"
-  user.password = "Polo@polo1"
-  user.confirmed_at = user.confirmed_at || Time.current
-end
+# User.find_or_create_by(email: "test@test.com") do |user|
+#   user.name = "Satoshi"
+#   user.password = "Polo@polo1"
+#   user.confirmed_at = user.confirmed_at || Time.current
+# end
 
-User.find_or_create_by(email: "admin@test.com") do |user|
-  user.name = "Satoshi"
-  user.password = "Polo@polo1"
-  user.confirmed_at = user.confirmed_at || Time.current
-  user.admin = true
-end
+# User.find_or_create_by(email: "admin@test.com") do |user|
+#   user.name = "Satoshi"
+#   user.password = "Polo@polo1"
+#   user.confirmed_at = user.confirmed_at || Time.current
+#   user.admin = true
+# end
