@@ -5,12 +5,11 @@ import { Logs } from './BotDetails/Logs';
 import { Info } from './BotDetails/Info';
 import { isNotEmpty, isEmpty } from '../utils/array';
 import { WithdrawalTransactions } from "./BotDetails/WithdrawalTransactions";
-import { WebhookTransactions } from "./BotDetails/WebhookTransactions";
 
 export const BotDetails = ({ bot }) => {
-  const statisticsActive = isNotEmpty(bot.transactions) || bot.bot_type == "webhook"
+  const statisticsActive = isNotEmpty(bot.transactions)
   const logActive = isNotEmpty(bot.logs) && !statisticsActive
-  const infoActive = isEmpty(bot.transactions) && isEmpty(bot.logs) && bot.bot_type != "webhook"
+  const infoActive = isEmpty(bot.transactions) && isEmpty(bot.logs)
 
   const [activeTab, setActiveTab] = useState(
     statisticsActive ? 'statistics' : 
@@ -70,9 +69,6 @@ export const BotDetails = ({ bot }) => {
       }
       { bot.bot_type === 'withdrawal' &&
         <WithdrawalTransactions bot={bot} active={activeTab === 'statistics'}/>
-      }
-      { bot.bot_type === 'webhook' &&
-        <WebhookTransactions bot={bot} active={activeTab === 'statistics'}/>
       }
       <Logs bot={bot} active={activeTab === 'log'}/>
       <Info bot={bot} active={activeTab === 'info'} />

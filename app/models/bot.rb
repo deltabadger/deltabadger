@@ -11,7 +11,6 @@ class Bot < ApplicationRecord
   include Dryable # decorators for: api_key
   include Typeable
   include Labelable
-  include Webhookable
   include Rankable
   include Notifyable
   include DomIdable

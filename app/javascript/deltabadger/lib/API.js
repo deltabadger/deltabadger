@@ -107,25 +107,6 @@ const API = {
     return client.request({ url, data: { bot: botParams }, method: 'post' }).then(data => data.data);
   },
 
-  createWebhookBot(params) {
-      const url = `${API_URL}/bots`;
-      const botParams = {
-        bot_type: params.botType,
-        exchange_id: params.exchangeId,
-        type: params.type,
-        price: params.price,
-        base: params.base,
-        quote: params.quote,
-        name: params.name,
-        additional_type_enabled: params.additionalTypeEnabled,
-        additional_type: params.additionalType,
-        additional_price: params.additionalPrice,
-        trigger_possibility: params.triggerPossibility,
-        order_type: 'market',
-      }
-      return client.request({ url, data: { bot: botParams }, method: 'post' }).then(data => data.data);
-  },
-
   updateTradingBot(params) {
     const url = `${API_URL}/bots/${params.id}`;
     const botParams= {
@@ -156,22 +137,6 @@ const API = {
       interval_enabled: params.intervalEnabled
     }
 
-    return client.request({ url, data: { bot: botParams }, method: 'put' }).then(data => data.data);
-  },
-
-  updateWebhookBot(params) {
-    const url = `${API_URL}/bots/${params.id}`;
-    const botParams= {
-      type: params.type,
-      price: params.price,
-      trigger_possibility: params.triggerPossibility,
-      name: params.name,
-      additional_type_enabled: params.additionalTypeEnabled,
-      additional_price: params.additionalPrice,
-      already_triggered_types: [],
-      additional_type: params.additionalType,
-      order_type: 'market',
-    }
     return client.request({ url, data: { bot: botParams }, method: 'put' }).then(data => data.data);
   },
 

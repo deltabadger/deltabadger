@@ -44,7 +44,6 @@ it:
             automatic_withdrawal: "Prelievo Automatico"
             request_exchange: "Chiedi di aggiungere un exchange"
             move_existing_bot: "Sposta bot esistente su un altro exchange"
-            webhook: "Scambio Webhook"
             delete:
                 ok: "Rimuovi completamente"
                 warning_html: "Questo rimuoverà il bot con tutti<br>i suoi dati storici. Sei sicuro?"
@@ -96,13 +95,6 @@ it:
                     <h3>Prelievi Automatici</h3>
                     <p><i>Non le tue chiavi non i tuoi Bitcoin.</i> — Andreas Antonopoulos</p>
                     <p>Preleva i tuoi fondi nel tuo wallet. È il modo più sicuro per conservare le tue crypto.</p>
-                webhook:
-                    info_html: '<p>Il bot Webhook compra e vende in base ai segnali di servizi di terze parti come TradingView. È un ottimo modo per creare ordini basati su RSI, medie mobili o altri indicatori.</p><p>Il bot può funzionare in un modo o in due modi:</p><ul><li><em>Un modo</em> significa che comprerà solo o venderà solo.</li><li><em>Due modi</em> significa che comprerà e venderà usando due segnali diversi.</li></ul><p>Per ogni modo, ottieni un URL webhook. Ecco come usarlo con TradingView:</p>'
-                    create_alert: Crea un avviso.
-                    configure_signal: Configura il segnale desiderato.
-                    set_webhook: Passa alla scheda Notifiche e fornisci l'URL Webhook che vedi nel pannello del tuo bot a sinistra.
-                    experimental: Il bot webhook è ancora molto sperimentale. Un miglioramento che arriverà presto è la possibilità di comprare e vendere usando tutti i fondi disponibili sull'account. Per favore, testalo e facci sapere come possiamo migliorarlo.
-                    working_and_waiting: Il bot sta funzionando e aspetta un segnale.
             log:
                 date: Data
                 errors: Errori
@@ -166,10 +158,6 @@ it:
         first_time: "prima volta"
         every_time: "ogni volta"
         name: "Nome:"
-        triggered_title: "questo webhook è attivato:"
-        triggered_first: "il primo webhook è attivato."
-        triggered_second: "il secondo webhook è attivato."
-        webhook_has_been_copied: "Il webhook è stato copiato negli appunti."
         fees: "Commissioni"
         maker_fee: "Maker"
         taker_fee: "Taker"

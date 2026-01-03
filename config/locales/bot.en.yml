@@ -44,7 +44,6 @@ en:
             automatic_withdrawal: "Automatic Withdrawal"
             request_exchange: "Ask to add an exchange"
             move_existing_bot: "Move existing bot to another exchange"
-            webhook: "Webhook Trade"
             delete:
                 ok: "Remove completely"
                 warning_html: "That will remove the bot with all<br>its historical data. Are you sure?"
@@ -96,13 +95,6 @@ en:
                     <h3>Auto-Withdrawals</h3>
                     <p><i>Not your keys not your Bitcoin.</i> — Andreas Antonopoulos</p>
                     <p>Withdraw your funds to your own wallet. It's the safest way to store your crypto.</p>
-                webhook:
-                    info_html: '<p>The Webhook bot buys and sells based on signals from third-party services like TradingView. It''s a great way to create orders based on RSI, moving averages, or other indicators.</p><p>The bot can work one way or two ways:</p><ul><li><em>One way</em> means it will only buy or only sell.</li><li><em>Two ways</em> mean it will both buy and sell using two different signals.</li></ul><p>For each way, you get one webhook URL. This is how to use it with TradingView:</p>'
-                    create_alert: Create alert.
-                    configure_signal: Configure desired signal.
-                    set_webhook: Switch to the Notifications tab, and provide Webhook URL that you see in your bot panel on the left.
-                    experimental: The webhook bot is still very experimental. One improvement that is coming soon is the ability to buy and sell using all funds available on the account. Please, test it and let us know how can we improve it.
-                    working_and_waiting: The bot is working and waiting for a signal.
             log:
                 date: Date
                 errors: Errors
@@ -166,10 +158,6 @@ en:
         first_time: "first time"
         every_time: "every time"
         name: "Name:"
-        triggered_title: "this webhook is triggered:"
-        triggered_first: "the first webhook is triggered."
-        triggered_second: "the second webhook is triggered."
-        webhook_has_been_copied: "Webhook has been copied to clipboard."
         fees: "Fees"
         maker_fee: "Maker"
         taker_fee: "Taker"
