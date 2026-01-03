@@ -136,6 +136,25 @@ module Api
 
     private
 
+    def bot_create_params
+      @bot_create_params ||= case params[:bot][:bot_type]
+                             when 'trading' then trading_bot_create_params
+                             when 'withdrawal' then withdrawal_bot_create_params
+                             end
+    end
+
+    def bot_update_params
+      @bot_update_params ||= case params[:bot][:bot_type]
+                             when 'trading' then trading_bot_update_params
+                             when 'withdrawal' then withdrawal_bot_update_params
+                             end
+    end
+
+    def present_bot(bot)
+      return Presenters::Api::TradingBot.call(bot) if bot.basic?
+      return Presenters::Api::WithdrawalBot.call(bot) if bot.withdrawal?
+    end
+
     def present_bots(bots)
       Presenters::Api::Bots.call(bots)
     end
