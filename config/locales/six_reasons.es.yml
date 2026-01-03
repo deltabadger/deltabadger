@@ -8,7 +8,5 @@ es:
             title: "Compra las caídas con RSI"
         avoid_taxes:
             title: "Rebalancea sin impuestos"
-        backtest_with_ai:
-            title: "Backtesting con IA"
         invest_in_index:
             title: "Invierte en el índice"
