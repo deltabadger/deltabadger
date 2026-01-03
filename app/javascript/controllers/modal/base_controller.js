@@ -23,11 +23,34 @@ export default class extends Controller {
 
   animateOutCloseAndCleanUp() {
     const frame = document.getElementById('modal')
+    if (!frame) return
+    
     const elementToRemove = frame.firstElementChild
+    if (!elementToRemove) return
+    
     const exitAnimationClass = elementToRemove.dataset['hwAnimateOut'];
     if (exitAnimationClass) {
+      elementToRemove.classList.remove(exitAnimationClass);
+      
+      // Listen for animationend, but also use a timeout as fallback
+      let closeScheduled = false;
+      const close = () => {
+        if (!closeScheduled) {
+          closeScheduled = true;
+          this.#closeAndCleanUp();
+        }
+      };
+      
+      elementToRemove.addEventListener("animationend", close, { once: true })
+      
+      // Force browser to process the removal
+      void elementToRemove.offsetWidth;
+      
+      // Re-add the class to trigger the animation
       elementToRemove.classList.add(exitAnimationClass)
-      elementToRemove.addEventListener("animationend", this.#closeAndCleanUp.bind(this))
+      
+      // Fallback timeout: animation is 0.25s, add a bit of buffer
+      setTimeout(close, 300)
     } else {
       this.#closeAndCleanUp()
     }
