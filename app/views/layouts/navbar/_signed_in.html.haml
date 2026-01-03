@@ -53,15 +53,17 @@
       .tooltip
         = t('links.dashboard')
 
+    = link_to settings_path, class: 'menu__item menu__item--settings', data: { controller: 'tooltip', action: 'mouseenter->tooltip#showTooltip mouseleave->tooltip#hideTooltip' } do
+      = render 'svg/24x24_account'
+      .tooltip
+        = t('links.settings')
+
     = link_to 'https://t.me/deltabadgerchat', class: "menu__item menu__item--community", data: { controller: 'tooltip', action: 'mouseenter->tooltip#showTooltip mouseleave->tooltip#hideTooltip' }, target: "_blank", rel: "noopener" do
-      = render 'svg/24x24_community'
+      = render 'svg/24x24_telegram'
       .tooltip
         = t('links.telegram')
 
-    = link_to settings_path, class: 'menu__item menu__item--settings', data: { controller: 'tooltip', action: 'mouseenter->tooltip#showTooltip mouseleave->tooltip#hideTooltip' } do
-      = render 'svg/24x24_sliders'
-      .tooltip
-        = t('links.settings')
+
 
   .menu__section.menu__section--bottom
 

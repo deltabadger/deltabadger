@@ -8,7 +8,5 @@ en:
             title: "Buy the dip with RSI"
         avoid_taxes:
             title: "Rebalance without taxes"
-        backtest_with_ai:
-            title: "Backtest with AI"
         invest_in_index:
             title: "Invest in the index"
