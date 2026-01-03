@@ -1,13 +1,16 @@
 class Clients::Coingecko < Client
   # URL = 'https://pro-api.coingecko.com/api/v3'.freeze
   URL = 'https://api.coingecko.com/api/v3/'.freeze
-  KEY = ENV.fetch('COINGECKO_API_KEY')
+
+  def self.api_key
+    AppConfig.coingecko_api_key
+  end
 
   def self.connection
     @connection ||= Faraday.new(url: URL, **OPTIONS) do |config|
       config.headers = {
-        # 'x-cg-pro-api-key': KEY
-        'x-cg-demo-api-key': KEY
+        # 'x-cg-pro-api-key': api_key
+        'x-cg-demo-api-key': api_key
       }
       config.request :json
       config.response :json

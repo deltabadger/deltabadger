@@ -1,0 +1,74 @@
+<% content_for :title, t('setup.title') %>
+
+<%= form_with url: setup_path, method: :post, data: {
+  turbo: false,
+  controller: "form--html5-validations form--label-animations form--password-strength",
+  form__password_strength_success_class_value: "db-form__validation--success",
+  form__password_strength_length_pattern_value: @password_length_pattern,
+  form__password_strength_uppercase_pattern_value: @password_uppercase_pattern,
+  form__password_strength_lowercase_pattern_value: @password_lowercase_pattern,
+  form__password_strength_digit_pattern_value: @password_digit_pattern,
+  form__password_strength_symbol_pattern_value: @password_symbol_pattern
+} do |f| %>
+  <% if @user.errors.any? %>
+    <div class="db-form__errors">
+      <ul>
+        <% @user.errors.full_messages.each do |message| %>
+          <li><%= message %></li>
+        <% end %>
+      </ul>
+    </div>
+  <% end %>
+
+  <fieldset class="db-form__fieldset">
+    <legend class="db-form__legend"><%= t('setup.admin_account') %></legend>
+
+    <div class="db-form__row db-form__row--input">
+      <%= f.text_field :user, value: @user.name, name: "user[name]", class: "db-form__input", required: true, pattern: @name_pattern, id: "user_name" %>
+      <%= f.label :name, t('activerecord.attributes.user.name'), class: "db-form__label", for: "user_name" %>
+    </div>
+
+    <div class="db-form__row db-form__row--input">
+      <%= f.email_field :user, value: @user.email, name: "user[email]", autocomplete: "username", class: "db-form__input", required: true, pattern: @email_address_pattern, id: "user_email" %>
+      <%= f.label :email, t('activerecord.attributes.user.email'), class: "db-form__label", for: "user_email" %>
+    </div>
+
+    <%= tag.div class: "db-form__row db-has-unmask", data: { controller: "form--password-unmask" } do %>
+      <%= f.password_field :user, name: "user[password]", autocomplete: "new-password", class: "db-form__input db-form__input--has-icon", data: {
+        form__password_unmask_target: "input",
+        form__password_strength_target: "input",
+        action: "input->form--password-strength#checkPasswordStrength"
+      }, required: true, pattern: @password_pattern, id: "user_password" %>
+      <%= f.label :password, t('activerecord.attributes.user.password'), class: "db-form__label", for: "user_password" %>
+
+      <div class="db-unmask" data-action="click->form--password-unmask#toggle">
+        <%= render "layouts/svg_mi_visibility" %>
+        <%= render "layouts/svg_mi_visibility-off" %>
+      </div>
+    <% end %>
+
+    <div class="db-form__row">
+      <ul data-form--password-strength-target="requirementsList" class="hidden password-requirements">
+        <li class="db-form__validation" data-form--password-strength-target="length"><%= t('devise.passwords.validations.length', count: @password_minimum_length) %></li>
+        <li class="db-form__validation" data-form--password-strength-target="uppercase"><%= t('devise.passwords.validations.uppercase') %></li>
+        <li class="db-form__validation" data-form--password-strength-target="lowercase"><%= t('devise.passwords.validations.lowercase') %></li>
+        <li class="db-form__validation" data-form--password-strength-target="digit"><%= t('devise.passwords.validations.digit') %></li>
+        <li class="db-form__validation" data-form--password-strength-target="symbol"><%= t('devise.passwords.validations.symbol') %></li>
+      </ul>
+    </div>
+  </fieldset>
+
+  <fieldset class="db-form__fieldset">
+    <legend class="db-form__legend"><%= t('setup.api_configuration') %></legend>
+
+    <div class="db-form__row db-form__row--input">
+      <%= f.text_field :coingecko_api_key, name: "coingecko_api_key", class: "db-form__input", required: true, id: "coingecko_api_key" %>
+      <%= f.label :coingecko_api_key, t('setup.coingecko_api_key'), class: "db-form__label", for: "coingecko_api_key" %>
+    </div>
+    <%= t('setup.coingecko_api_key_hint_html') %>
+  </fieldset>
+
+  <div class="large-button-wrapper">
+    <%= f.submit t('setup.submit'), class: "button button--success button--large" %>
+  </div>
+<% end %>
