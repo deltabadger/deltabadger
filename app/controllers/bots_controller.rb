@@ -107,10 +107,6 @@ class BotsController < ApplicationController
     params.require(:bots_withdrawal).permit(:label)
   end
 
-  def webhook_bot_params
-    params.require(:bots_webhook).permit(:label)
-  end
-
   def dca_single_asset_bot_params
     params.require(:bots_dca_single_asset).permit(
       :label,
@@ -132,8 +128,6 @@ class BotsController < ApplicationController
       basic_bot_params
     elsif @bot.withdrawal?
       withdrawal_bot_params
-    elsif @bot.webhook?
-      webhook_bot_params
     elsif @bot.dca_single_asset?
       {
         settings: @bot.settings.merge(

@@ -24,7 +24,6 @@ Rails.application.routes.draw do
     namespace :bots do
       resources :basics
       resources :withdrawals
-      resources :webhooks
       resources :dca_dual_assets
     end
     resources :exchanges
@@ -52,7 +51,6 @@ Rails.application.routes.draw do
       get 'charts/portfolio_value_over_time', to: 'charts#portfolio_value_over_time'
       get :restart_params
     end
-    get '/webhook_bots_data', to: 'bots#webhook_bots_data'
   end
 
   scope "(:locale)", locale: /#{I18n.available_locales.join("|")}/ do
@@ -113,8 +111,6 @@ Rails.application.routes.draw do
       post :show
       get :show_index_bot, on: :collection # TODO: move to custom :show logic according to bot type
     end
-
-    post '/h/:webhook', to: 'api/bots#webhook', as: :webhooks
 
     namespace :broadcasts do
       post :metrics_update

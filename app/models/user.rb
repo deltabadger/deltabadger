@@ -17,14 +17,6 @@ class User < ApplicationRecord
   validate :password_complexity, if: -> { password.present? }
   validates :time_zone, inclusion: { in: ActiveSupport::TimeZone.all.map(&:name), allow_nil: true }
 
-  def webhook_bots_transactions
-    transactions.where(bot_id: bots.webhook.pluck(:id))
-  end
-
-  def newly_webhook_bots_transactions(time)
-    webhook_bots_transactions.where('transactions.created_at > ? ', time)
-  end
-
   private
 
   def set_default_time_zone

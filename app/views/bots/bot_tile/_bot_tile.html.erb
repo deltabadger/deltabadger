@@ -20,8 +20,6 @@
             <span><%= bot.base %></span>
           <% elsif bot.withdrawal? && bot.currency.present? %>
             <%= bot.currency %>
-          <% elsif bot.webhook? && bot.base.present? %>
-            <span><%= bot.base %></span>
           <% end %>
           <% if bot.exchange.present? %>
             <%= render "svg/exchange-#{bot.exchange.name_id}", title: bot.exchange.name %>
@@ -38,9 +36,7 @@
     </div>
   <% end %>
   <div class="bot-control">
-    <% unless bot.webhook? %>
-      <%= render "bots/status/status_bar", bot: bot %>
-    <% end %>
+    <%= render "bots/status/status_bar", bot: bot %>
     <% if bot.legacy? %>
       <%= render "bots/status/status_button_legacy", bot: bot %>
     <% else %>

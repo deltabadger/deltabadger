@@ -37,7 +37,6 @@ module BotsManager
       elsif bot.withdrawal?
         BotsManager::Withdrawal::Validators::Update.new
       else
-        BotsManager::Webhook::Validators::Update.new
       end
     end
 
@@ -47,7 +46,6 @@ module BotsManager
       elsif bot.withdrawal?
         BotsManager::Withdrawal::FormatParams::Update.new
       else
-        BotsManager::Webhook::FormatParams::Update.new
       end
     end
   end

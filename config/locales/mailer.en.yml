@@ -7,9 +7,6 @@ en:
         best_html: '<p>Best,<br>Jan</p>'
         unsubscribe: 'Unsubscribe'
     bot_alerts_mailer:
-        successful_webhook_bot_transaction:
-            subject: "Transaction has been successful"
-            template_html: "Transaction successful, base: %{base}, quote: %{quote}, bot_name: %{bot_name}, type: %{type}, price: %{price}, exchange: %{exchange_name}"
         end_of_funds:
             subject: "Your %{exchange_name} account is running out of %{quote}"
             template_html: "<p>Your %{exchange_name} account is running out of %{quote}.</p><p>Make a transfer to %{exchange_name} to ensure your bots are working continuously.</p>"

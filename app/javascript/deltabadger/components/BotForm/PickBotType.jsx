@@ -3,7 +3,7 @@ import I18n from 'i18n-js'
 import { Breadcrumbs } from './Breadcrumbs'
 import { Progressbar } from './Progressbar'
 
-export const PickBotType = ({ handleSubmit, showWebhookButton }) => {
+export const PickBotType = ({ handleSubmit }) => {
   return (
     <div className="db-bots__item db-bot db-bot--pick-exchange db-bot--active">
       <div className="db-bot__header">
@@ -31,16 +31,7 @@ export const PickBotType = ({ handleSubmit, showWebhookButton }) => {
           </svg>
           {I18n.t('bot.buttons.automatic_withdrawal')}
         </div>
-        {/* <div
-          className={`db-bot__types__item db-bot__types__item--wh ${showWebhookButton ? '' : 'db-bot__types__item--inactive'}`}
-          onClick={() => showWebhookButton ? handleSubmit('webhook') : null}
-        >
-          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                <path className="stroke-1" stroke="var(--pickExchangeItemTxt)" strokeLinecap="round" strokeWidth="2" d="M7.8 10.8a6 6 0 0 1 8.4 0M5 8c3.8-4 10.2-4 14 0"/>
-                <circle className="stroke-1" cx="12" cy="15" r="2" stroke="var(--pickExchangeItemTxt)" strokeWidth="2"/>
-              </svg>
-          {I18n.t('bot.buttons.webhook')}
-        </div> */}
+
         <a
           className="db-bot__types__item db-bot__types__item--move"
           href="mailto:jan@deltabadger.com?subject=Move my bot to another exchange"

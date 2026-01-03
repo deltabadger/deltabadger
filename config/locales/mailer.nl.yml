@@ -7,9 +7,6 @@ nl:
         best_html: '<p>Groeten,<br>Jan</p>'
         unsubscribe: 'Uitschrijven'
     bot_alerts_mailer:
-        successful_webhook_bot_transaction:
-            subject: "Transactie is succesvol uitgevoerd"
-            template_html: "Transactie succesvol, basis: %{base}, quote: %{quote}, bot-naam: %{bot_name}, type: %{type}, prijs: %{price}, exchange: %{exchange_name}"
         end_of_funds:
             subject: "Uw %{exchange_name} account raakt door de %{quote} heen"
             template_html: "<p>Uw %{exchange_name} account raakt door de %{quote} heen.</p><p>Maak een overschrijving naar %{exchange_name} om ervoor te zorgen dat uw bots continu blijven werken.</p>"

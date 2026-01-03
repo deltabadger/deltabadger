@@ -12,7 +12,6 @@ import {
 } from '../bot_actions'
 import API from "../lib/API";
 import { WithdrawalBot } from "./WithdrawalBot";
-import { WebhookBot } from "./WebhookBot";
 import { Spinner } from './Spinner';
 
 let apiKeyTimeout;
@@ -120,8 +119,7 @@ const DashboardTemplate = ({
     }
 
     const BotComponent = selectedBot.bot_type === 'trading' ? TradingBot :
-                        selectedBot.bot_type === 'withdrawal' ? WithdrawalBot :
-                        selectedBot.bot_type === 'webhook' ? WebhookBot : null;
+                        selectedBot.bot_type === 'withdrawal' ? WithdrawalBot : null;
 
     return (
       <>

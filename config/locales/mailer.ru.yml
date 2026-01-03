@@ -7,9 +7,6 @@ ru:
         best_html: '<p>С уважением,<br>Jan</p>'
         unsubscribe: 'Отписаться'
     bot_alerts_mailer:
-        successful_webhook_bot_transaction:
-            subject: "Транзакция успешно выполнена"
-            template_html: "Транзакция успешна, базовая валюта: %{base}, котируемая валюта: %{quote}, имя бота: %{bot_name}, тип: %{type}, цена: %{price}, биржа: %{exchange_name}"
         end_of_funds:
             subject: "На вашем счету %{exchange_name} скоро закончится %{quote}"
             template_html: "<p>На вашем счету %{exchange_name} скоро закончится %{quote}.</p><p>Сделайте перевод на %{exchange_name}, чтобы обеспечить непрерывную работу ваших ботов.</p>"

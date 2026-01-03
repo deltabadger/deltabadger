@@ -7,7 +7,6 @@ import { AddApiKey } from './BotForm/AddApiKey';
 import { Details } from './BotForm/Details';
 import { removeInvalidApiKeys } from "./helpers";
 import { ConfigureWithdrawalBot } from "./BotForm/ConfigureWithdrawalBot";
-import { ConfigureWebhookBot } from './BotForm/ConfigureWebhookBot';
 import { PickBotType } from "./BotForm/PickBotType";
 
 const STEPS = [
@@ -18,14 +17,12 @@ const STEPS = [
   'validating_api_key',
   'invalid_api_key',
   'configure_trading_bot',
-  'configure_withdrawal_bot',
-  'configure_webhook_bot'
+  'configure_withdrawal_bot'
 ]
 
 const TYPES = [
   'trading',
-  'withdrawal',
-  'webhook'
+  'withdrawal'
 ]
 
 export const BotForm = ({
@@ -91,8 +88,6 @@ export const BotForm = ({
           return 6;
         case 'withdrawal':
           return 7;
-        case 'webhook':
-          return 8;
       }
     }
     if ((STEPS[step] == 'add_api_key') && invalidExchangesIds.includes(form.exchangeId)) { return 5 }
@@ -107,8 +102,6 @@ export const BotForm = ({
           return 6;
         case 'withdrawal':
           return 7;
-        case 'webhook':
-          return 8;
       }
     }
     if ((STEPS[step] == 'validating_api_key') && invalidExchangesIds.includes(form.exchangeId)) { return 5 }
@@ -223,20 +216,6 @@ export const BotForm = ({
     }).finally(() => setCreatingBot(false));
   }
 
-  const configureWebhookBotHandler = (botParams) => {
-    // debugger
-    const params = {...botParams, exchangeId: form.exchangeId}
-    setCreatingBot(true);
-    API.createWebhookBot(params).then(response => {
-      callbackAfterCreation(response.data.id)
-      setErrors([])
-      setStep(0)
-      setFormState({})
-    }).catch((data) => {
-      setErrors(data.response.data.errors[0])
-    }).finally(() => setCreatingBot(false));
-  }
-
   const handleCancel = () => {
     setStep(0)
     callbackAfterClosing()
@@ -260,7 +239,6 @@ export const BotForm = ({
             callbackAfterClosing()
           }}
           handleSubmit={pickBotTypeHandler}
-          showWebhookButton={isPro || isLegendary}
           />
       case 'pick_exchange':
         return <PickExchange
@@ -323,17 +301,6 @@ export const BotForm = ({
           getMinimums={getWithdrawalMinimums}
           disable={isCreatingBot}
           errors={errors}
-        />
-      case 'configure_webhook_bot':
-        return <ConfigureWebhookBot
-            showLimitOrders={isBasic || isPro || isLegendary}
-            currentExchange={pickedExchange}
-            handleReset={resetFormToStep(1)}
-            handleSubmit={configureWebhookBotHandler}
-            handleSmartIntervalsInfo={getSmartIntervalsInfo}
-            setShowInfo={setShowSmartIntervalsInfo}
-            disable={isCreatingBot}
-            errors={errors}
         />
     }
   }
