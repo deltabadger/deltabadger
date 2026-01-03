@@ -8,7 +8,5 @@ it:
             title: "Compra i ribassi con RSI"
         avoid_taxes:
             title: "Ribilancia senza tasse"
-        backtest_with_ai:
-            title: "Backtest con IA"
         invest_in_index:
             title: "Investi nell'indice"
