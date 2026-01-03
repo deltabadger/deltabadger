@@ -11,7 +11,7 @@ x-app-common: &app-common
     dockerfile: Dockerfile
   image: deltabadger:latest
   env_file:
-    - .env
+    - .env.docker
   environment:
     # Docker-specific overrides (these override .env values)
     RAILS_ENV: production
