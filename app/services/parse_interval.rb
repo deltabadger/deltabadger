@@ -2,7 +2,6 @@ class ParseInterval < BaseService
   Error = StandardError
 
   def call(bot)
-    return 0.seconds if bot.webhook?
 
     last_transaction = set_last_transaction(bot)
     return 0.seconds if last_transaction.nil?

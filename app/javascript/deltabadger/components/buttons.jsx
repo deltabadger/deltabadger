@@ -236,7 +236,6 @@ export const RemoveButton = ({onClick, disabled}) => {
 
 export const ExchangeButton = ({ handleClick, exchange, type }) => {
   const withdrawalEnabled = () => ['kraken', 'ftx', 'ftx.us'];
-  const webhookEnabled = () => ['kraken'];
 
   const exchangeClass = () => {
     if (type === 'trading') {
@@ -245,10 +244,6 @@ export const ExchangeButton = ({ handleClick, exchange, type }) => {
 
     if (type === 'withdrawal') {
       return withdrawalEnabled().includes(exchange.name.toLowerCase()) ? exchange.name.toLowerCase() : 'unavailable';
-    }
-
-    if (type === 'webhook') {
-      return webhookEnabled().includes(exchange.name.toLowerCase()) ? exchange.name.toLowerCase() : 'unavailable';
     }
 
     return 'unavailable';

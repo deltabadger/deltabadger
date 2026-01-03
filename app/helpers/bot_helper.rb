@@ -8,7 +8,6 @@ module BotHelper
       'Bots::DcaDualAsset' => 'Rebalanced DCA',
       'Bots::Basic' => 'Basic DCA',
       'Bots::Withdrawal' => 'Withdrawal',
-      'Bots::Webhook' => 'Webhook'
     }[bot.type]
   end
 

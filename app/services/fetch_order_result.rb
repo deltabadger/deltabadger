@@ -25,13 +25,7 @@ class FetchOrderResult < BaseService
 
     if result.success?
       bot.update(restarts: 0, fetch_restarts: 0, **success_status(bot))
-      if notify && bot.webhook?
-        @notifications.successful_webhook_bot_transaction(bot: bot,
-                                                          type: called_bot_type(
-                                                            bot, called_bot
-                                                          ))
-      end
-      @schedule_transaction.call(bot) if !bot.webhook?
+      @schedule_transaction.call(bot)
     elsif !fetched?(result)
       bot.update(fetch_restarts: bot.fetch_restarts + 1)
       @schedule_result_fetching.call(bot, result_params, fixing_price)
@@ -66,7 +60,7 @@ class FetchOrderResult < BaseService
   private
 
   def success_status(bot)
-    return { status: 'scheduled' } if !bot.webhook? || bot.every_time? || !bot.already_triggered_types.blank?
+    return { status: 'scheduled' } if !bot.every_time? || !bot.already_triggered_types.blank?
 
     { status: 'stopped' }
   end
@@ -128,10 +122,10 @@ class FetchOrderResult < BaseService
       result.data.slice(:external_id, :price, :amount).merge(
         bot_id: bot.id,
         status: :submitted,
-        bot_interval: bot.webhook? ? '' : bot.interval,
+        bot_interval: bot.interval,
         bot_quote_amount: fixing_transaction?(price) ? price : bot.price,
         transaction_type: fixing_transaction?(price) ? 'FIXING' : 'REGULAR',
-        called_bot_type: bot.webhook? ? called_bot_type(bot, called_bot) : nil,
+        called_bot_type: called_bot_type(bot, called_bot),
         exchange: bot.exchange
       )
     else
@@ -139,10 +133,10 @@ class FetchOrderResult < BaseService
         bot_id: bot.id,
         status: :failed,
         error_messages: result.errors,
-        bot_interval: bot.webhook? ? '' : bot.interval,
+        bot_interval: bot.interval,
         bot_quote_amount: fixing_transaction?(price) ? price : bot.price,
         transaction_type: fixing_transaction?(price) ? 'FIXING' : 'REGULAR',
-        called_bot_type: bot.webhook? ? called_bot_type(bot, called_bot) : nil,
+        called_bot_type: called_bot_type(bot, called_bot),
         exchange: bot.exchange,
       }
     end

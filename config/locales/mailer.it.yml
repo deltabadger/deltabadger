@@ -7,9 +7,6 @@ it:
         best_html: '<p>Saluti,<br>Jan</p>'
         unsubscribe: 'Annulla iscrizione'
     bot_alerts_mailer:
-        successful_webhook_bot_transaction:
-            subject: "La transazione è stata completata con successo"
-            template_html: "Transazione riuscita, base: %{base}, quota: %{quote}, nome bot: %{bot_name}, tipo: %{type}, prezzo: %{price}, exchange: %{exchange_name}"
         end_of_funds:
             subject: "Il tuo account %{exchange_name} sta finendo %{quote}"
             template_html: "<p>Il tuo account %{exchange_name} sta finendo %{quote}.</p><p>Effettua un trasferimento a %{exchange_name} per garantire che i tuoi bot continuino a funzionare.</p>"

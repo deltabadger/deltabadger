@@ -25,8 +25,6 @@ class GenerateTransactionsCsv < BaseService
                     Presenters::Api::TradingTransaction.new
                   elsif bot.withdrawal?
                     Presenters::Api::WithdrawalTransaction.new
-                  else
-                    Presenters::Api::WebhookTransaction.new
                   end
 
     transactions = Transaction.for_bot_by_status(bot, status: :submitted)

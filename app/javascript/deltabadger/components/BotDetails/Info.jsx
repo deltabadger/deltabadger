@@ -16,17 +16,5 @@ export const Info = ({ active }) => (
     <RawHTML className="legacy-tab__section db-showif--setup db-bot-info--withdrawal">
       {I18n.t('bot.details.info.withdrawal_html')}
     </RawHTML>
-    <div className="db-bot-info--webhook">
-      <RawHTML>
-        {I18n.t('bot.details.info.webhook.info_html')}
-      </RawHTML>
-      <p>1. {I18n.t('bot.details.info.webhook.create_alert')}</p>
-      <img src="https://deltabadger.com/app/webhook-tw-01.webp" alt="Create alert in Trading View" />
-      <p>2. {I18n.t('bot.details.info.webhook.configure_signal')}</p>
-      <img src="https://deltabadger.com/app/webhook-tw-02.webp" alt="Configure signal in Trading View" />
-      <p>3. {I18n.t('bot.details.info.webhook.set_webhook')}</p>
-      <img src="https://deltabadger.com/app/webhook-tw-03.webp" alt="Set webhook in Trading View" />
-      <p>{I18n.t('bot.details.info.webhook.experimental')}</p>
-    </div>
   </div>
 )

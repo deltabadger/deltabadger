@@ -14,8 +14,6 @@ module Presenters
         # Each bot presentation might be loading all transactions/aggregates
         return Presenters::Api::TradingBot.call(bot) if bot.basic?
         return Presenters::Api::WithdrawalBot.call(bot) if bot.withdrawal?
-
-        Presenters::Api::WebhookBot.call(bot)
       end
     end
   end

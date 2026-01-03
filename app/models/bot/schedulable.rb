@@ -103,8 +103,6 @@ module Bot::Schedulable
       next_interval_checkpoint_at - interval_duration
     when 'Bots::Withdrawal'
       transactions.last&.created_at || Time.current
-    when 'Bots::Webhook'
-      Time.current
     end
   end
 end
