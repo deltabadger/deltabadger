@@ -134,18 +134,6 @@ it:
             limit_warning: 'Impostare i tuoi ordini all''importo della commissione riduce effettivamente la tua commissione a zero. Mentre gli ordini limite potrebbero richiedere più tempo per essere eseguiti, sono generalmente una buona idea. L''impostazione predefinita lo fa per te, quindi è meglio attenersi ad essa se non sei sicuro.'
             next: Avanti
             no_wallet_found: 'Nessun wallet trovato. Vai su %{exchangeName} e aggiungi un wallet di prelievo.'
-            probit:
-                instructions_1_html: 'Accedi al tuo account %{exchange_link}.'
-                instructions_2_html: 'Nel menu <b>La Mia Pagina</b> (angolo in alto a destra) vai a <b>Gestione API</b>.'
-                instructions_3_html: 'Fornisci un''etichetta per la chiave API e premi <b>Crea nuova chiave</b>.'
-                instructions_4_html: 'Conferma la creazione delle chiavi API.'
-                instructions_5_html: 'Se vuoi limitare l''accesso in modo che solo Deltabadger possa usare le chiavi, premi <b>Modifica</b> e imposta <b>Restrizione Indirizzo IP</b> a questo IP: <b>3.18.70.231</b>'
-                instructions_6_1_html: 'Imposta i permessi per:'
-                instructions_6_2_html: '<b>Lettura</b>'
-                instructions_6_3_html: '<b>Trading</b>'
-                instructions_7_html: 'Copia e incolla il tuo nuovo ID Cliente e Chiave Segreta del Cliente nel modulo sopra.'
-                private_key: 'Chiave Segreta del Cliente'
-                public_key: 'ID Cliente'
             set: Imposta
             smart_intervals:
                 dont_show_again: 'Non mostrare più'

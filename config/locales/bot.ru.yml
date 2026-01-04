@@ -131,9 +131,6 @@ ru:
             specify_percentage_limit_order: "Укажите процент при создании лимитного ордера"
             smart_intervals_above_minimum: "Значение умных интервалов должно быть больше, чем %{minimum}"
             invalid_price_range: "Диапазон цен недействителен"
-            subaccounts_not_allowed: "Субаккаунты не разрешены на этой бирже"
-            no_subaccount_name: "Не указано имя субаккаунта"
-            wrong_subaccount_name: "Неправильное имя субаккаунта"
             failed_tooltip_explanation: "Этот ордер не выполнен: %{error_message}"
             skipped_tooltip_explanation: "Этот ордер был пропущен, так как сумма была ниже минимального размера ордера на %{exchange_name}. Пропущенная сумма была буферизована и будет добавлена к следующему ордеру."
             failed_status_bar_explanation: "Последний ордер не выполнен: %{error_message}"
@@ -154,7 +151,6 @@ ru:
         smart_intervals_disclaimer_base: 'Размер ордеров на %{exchange} указывается в %{currency}. Минимальный размер ордера составляет %{minimum}%{currency}.'
         smart_intervals_disclaimer_quote: 'Минимальный размер ордера составляет %{minimum}%{currency}.'
         starting: Начало
-        subaccounts_info: 'Использовать субсчет'
         week: Неделя
         withdraw_interval_html: ''
         minimum_transaction_size_warning: "%{amount} %{quote_currency} меньше минимального размера транзакции %{exchange_name} (%{min_transaction_size} %{base_currency}). Буфер готов на %{buffer_percentage}% и будет использован, когда накопится 100% средств."

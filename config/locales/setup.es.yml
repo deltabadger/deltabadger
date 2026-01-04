@@ -134,18 +134,6 @@ es:
             limit_warning: 'Establecer tus órdenes al valor de la comisión reduce efectivamente la comisión a cero. Aunque las órdenes limitadas pueden tardar más en ejecutarse, generalmente son una buena idea. La configuración predeterminada lo hace por ti, así que es mejor mantenerla si no estás seguro.'
             next: Próximo
             no_wallet_found: 'No se ha encontrado ningún monedero. Ve a %{exchangeName} y añade un monedero de retirada.'
-            probit:
-                instructions_1_html: 'Inicia sesión en tu cuenta %{exchange_link}.'
-                instructions_2_html: 'En el menú <b>Mi página</b> (esquina superior derecha) accede a <b>Gestión de API</b>.'
-                instructions_3_html: 'Proporciona la etiqueta de la clave API y pulsa <b>Crear nueva clave</b>.'
-                instructions_4_html: 'Confirma la creación de las claves API.'
-                instructions_5_html: 'Si quieres restringir el acceso para que únicamente Deltabadger pueda usar las claves, pulsa <b>Editar</b> y define la siguiente <b>dirección IP</b>, <b>3.18.70.231</b>, para restringir el acceso.'
-                instructions_6_1_html: 'Establece los permisos para lo siguiente:'
-                instructions_6_2_html: '<b>Lectura</b>'
-                instructions_6_3_html: '<b>Trading</b>'
-                instructions_7_html: 'Copia y pega el nuevo ID y la clave secreta del cliente en el formulario anterior.'
-                private_key: 'Clave secreta del cliente'
-                public_key: 'ID de cliente'
             set: Establecer
             smart_intervals:
                 dont_show_again: 'No volver a mostrar'

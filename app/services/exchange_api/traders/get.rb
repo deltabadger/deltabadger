@@ -3,7 +3,6 @@ module ExchangeApi
     # rubocop:disable Metrics/ClassLength
     class Get < BaseService
       include ExchangeApi::BinanceEnum
-      include ExchangeApi::FtxEnum
 
       # rubocop:disable Metrics/CyclomaticComplexity
       def call(api_key, order_type)
@@ -18,14 +17,10 @@ module ExchangeApi
         when 'coinbase pro' then coinbase_pro_client(api_key, order_type)
         when 'coinbase' then coinbase_client(api_key, order_type)
         when 'gemini' then gemini_client(api_key, order_type)
-        when 'ftx' then ftx_client(api_key, order_type, FTX_EU_URL_BASE)
-        when 'ftx.us' then ftx_client(api_key, order_type, FTX_US_URL_BASE)
         when 'bitso' then bitso_client(api_key, order_type)
         when 'kucoin' then kucoin_client(api_key, order_type)
         when 'bitfinex' then bitfinex_client(api_key, order_type)
         when 'bitstamp' then bitstamp_client(api_key, order_type)
-        when 'probit global' then probit_client(api_key, order_type)
-        when 'probit' then probit_client(api_key, order_type)
         end
       end
       # rubocop:enable Metrics/CyclomaticComplexity
@@ -116,19 +111,6 @@ module ExchangeApi
         )
       end
 
-      def ftx_client(api_key, order_type, url_base)
-        client = if limit_trader?(order_type)
-                   ExchangeApi::Traders::Ftx::LimitTrader
-                 else
-                   ExchangeApi::Traders::Ftx::MarketTrader
-                 end
-        client.new(
-          api_key: api_key.key,
-          api_secret: api_key.secret,
-          url_base: url_base
-        )
-      end
-
       def bitso_client(api_key, order_type)
         client = if limit_trader?(order_type)
                    ExchangeApi::Traders::Bitso::LimitTrader
@@ -159,18 +141,6 @@ module ExchangeApi
                    ExchangeApi::Traders::Bitfinex::LimitTrader
                  else
                    ExchangeApi::Traders::Bitfinex::MarketTrader
-                 end
-        client.new(
-          api_key: api_key.key,
-          api_secret: api_key.secret
-        )
-      end
-
-      def probit_client(api_key, order_type)
-        client = if limit_trader?(order_type)
-                   ExchangeApi::Traders::Probit::LimitTrader
-                 else
-                   ExchangeApi::Traders::Probit::MarketTrader
                  end
         client.new(
           api_key: api_key.key,
