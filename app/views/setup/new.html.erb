@@ -1,3 +1,5 @@
+<%= render partial: "layouts/language_dropdown_full", locals: { extra_classes: "dropdown-wrapper--fullscreen dropdown-wrapper--down" } %>
+
 <% content_for :title, t('setup.title') %>
 
 <%= form_with url: setup_path, method: :post, data: {

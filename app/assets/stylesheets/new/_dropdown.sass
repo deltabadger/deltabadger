@@ -16,7 +16,7 @@
         &::before
             background: rgba(0, 0, 0, 0.03)
         .dropdown
-            display: block
+            display: flex
     &--right
         .dropdown
             left: auto
@@ -25,8 +25,23 @@
         .dropdown
             top: auto
             bottom: 4.5rem
+    &--fullscreen
+        .dropdown
+            width: 100vw
+            height: 100vh
+            top: 0
+            left: 0
+            position: fixed
+            flex-direction: column
+            border-radius: 0
+            justify-content: center
+            align-items: center
+            background: var(--background-devise)
+            &__item
+                text-align: center
 .dropdown
     display: none
+    flex-direction: column
     z-index: 1000000
     position: absolute
     background: var(--dropdown-bg)

@@ -1,12 +1,12 @@
 .devise
-    height: calc(100vh - 8rem)
+    height: 100vh
     display: flex
     align-items: center
     justify-content: center
     min-height: fit-content
-    padding: 4rem
+    padding: 4rem 4rem 8rem
     flex-direction: column
-    gap: 4rem
+    background: var(--background-devise)
     &__row
         display: flex
         flex-direction: column-reverse
@@ -73,6 +73,15 @@
         margin: 0 auto
     .button
         height: 7rem
+    ol
+        padding: 2rem 0 2rem 2.5rem !important
+    .db-form__legend
+        width: 100%
+        text-align: center
+    .dropdown-wrapper
+        gap: 0
+
+
 
 .password-requirements
     list-style-type: none

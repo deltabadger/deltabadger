@@ -92,3 +92,46 @@ $spinnerColor: darken(#e9ecef,3%);
     75%  {clip-path:polygon(50% 50%,0 0,100% 0,100% 100%,0 100%,0 100%)}
     100% {clip-path:polygon(50% 50%,0 0,100% 0,100% 100%,0 100%,0 0)}
 }
+
+.setup-syncing {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: calc(100vh - 16rem);
+  padding: 4rem;
+
+  &__content {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 3rem;
+    text-align: center;
+  }
+
+  &__spinner {
+    position: relative;
+    width: 8rem;
+    height: 8rem;
+
+    .loader {
+      position: relative;
+      width: 8rem;
+      height: 8rem;
+      top: 0;
+      right: 0;
+    }
+  }
+
+  &__text {
+    font-size: 2.5rem;
+    font-weight: 500;
+    color: var(--text);
+    max-width: 30rem;
+    line-height: 1.4;
+  }
+
+  &__hint {
+    font-size: 1.75rem;
+    color: var(--label);
+  }
+}
