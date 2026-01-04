@@ -1,20 +1,12 @@
-class Asset::FetchAllAssetsDataFromCoingeckoJob < ApplicationJob
+class Setup::SeedAndSyncJob < ApplicationJob
   queue_as :low_priority
 
   def perform
     mark_sync_in_progress
 
-    asset_ids = Asset.where(category: 'Cryptocurrency').pluck(:external_id).compact
-    result = coingecko.get_coins_list_with_market_data(ids: asset_ids)
-    
-    if result.failure?
-      mark_sync_failed(error_message: result.errors.to_sentence)
-      return
-    end
-
-    Asset.where(category: 'Cryptocurrency').find_each do |asset|
-      sync_asset(asset, result.data.find { |coin| coin['id'] == asset.external_id })
-    end
+    seed_exchanges
+    sync_exchanges
+    sync_assets_with_coingecko
 
     mark_sync_completed
   rescue StandardError => e
@@ -23,17 +15,34 @@ class Asset::FetchAllAssetsDataFromCoingeckoJob < ApplicationJob
 
   private
 
-  def sync_asset(asset, prefetched_data)
-    image_url_was = asset.image_url
-    result = asset.sync_data_with_coingecko(prefetched_data: prefetched_data)
+  def seed_exchanges
+    Rails.application.load_seed
+  end
+
+  def sync_exchanges
+    Exchange.available_for_new_bots.each do |exchange|
+      Exchange::SyncTickersAndAssetsJob.new.perform(exchange)
+    rescue StandardError => e
+      Rails.logger.warn "[Setup] Error syncing #{exchange.name}: #{e.message}"
+    end
+  end
+
+  def sync_assets_with_coingecko
+    # Call existing job synchronously (skip its mark_sync_* methods by calling perform directly)
+    job = Asset::FetchAllAssetsDataFromCoingeckoJob.new
+    
+    asset_ids = Asset.where(category: 'Cryptocurrency').pluck(:external_id).compact
+    return if asset_ids.empty?
+
+    result = job.send(:coingecko).get_coins_list_with_market_data(ids: asset_ids)
     if result.failure?
-      Rails.logger.warn "[CoinGecko] Failed to sync asset #{asset.external_id}: #{result.errors.to_sentence}"
+      Rails.logger.warn "[Setup] Failed to fetch CoinGecko data: #{result.errors.to_sentence}"
       return
     end
 
-    Asset::InferColorFromImageJob.perform_later(asset) if image_url_was != asset.image_url
-  rescue StandardError => e
-    Rails.logger.warn "[CoinGecko] Error syncing asset #{asset.external_id}: #{e.message}"
+    Asset.where(category: 'Cryptocurrency').find_each do |asset|
+      job.send(:sync_asset, asset, result.data.find { |coin| coin['id'] == asset.external_id })
+    end
   end
 
   def mark_sync_in_progress
@@ -83,9 +92,5 @@ class Asset::FetchAllAssetsDataFromCoingeckoJob < ApplicationJob
         </a>
       </div>
     HTML
-  end
-
-  def coingecko
-    @coingecko ||= Coingecko.new
   end
 end

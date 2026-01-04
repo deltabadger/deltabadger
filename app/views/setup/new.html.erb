@@ -2,7 +2,7 @@
 
 <% content_for :title, t('setup.title') %>
 
-<%= form_with url: setup_path, method: :post, data: {
+<%= form_with model: @user, url: setup_path, method: :post, data: {
   turbo: false,
   controller: "form--html5-validations form--label-animations form--password-strength",
   form__password_strength_success_class_value: "db-form__validation--success",
@@ -26,17 +26,17 @@
     <legend class="db-form__legend"><%= t('setup.admin_account') %></legend>
 
     <div class="db-form__row db-form__row--input">
-      <%= f.text_field :user, value: @user.name, name: "user[name]", class: "db-form__input", required: true, pattern: @name_pattern, id: "user_name" %>
+      <%= f.text_field :name, class: "db-form__input", required: true, pattern: @name_pattern, id: "user_name" %>
       <%= f.label :name, t('activerecord.attributes.user.name'), class: "db-form__label", for: "user_name" %>
     </div>
 
     <div class="db-form__row db-form__row--input">
-      <%= f.email_field :user, value: @user.email, name: "user[email]", autocomplete: "username", class: "db-form__input", required: true, pattern: @email_address_pattern, id: "user_email" %>
+      <%= f.email_field :email, autocomplete: "username", class: "db-form__input", required: true, pattern: @email_address_pattern, id: "user_email" %>
       <%= f.label :email, t('activerecord.attributes.user.email'), class: "db-form__label", for: "user_email" %>
     </div>
 
     <%= tag.div class: "db-form__row db-has-unmask", data: { controller: "form--password-unmask" } do %>
-      <%= f.password_field :user, name: "user[password]", autocomplete: "new-password", class: "db-form__input db-form__input--has-icon", data: {
+      <%= f.password_field :password, autocomplete: "new-password", class: "db-form__input db-form__input--has-icon", data: {
         form__password_unmask_target: "input",
         form__password_strength_target: "input",
         action: "input->form--password-strength#checkPasswordStrength"
@@ -64,8 +64,8 @@
     <legend class="db-form__legend"><%= t('setup.api_configuration') %></legend>
 
     <div class="db-form__row db-form__row--input">
-      <%= f.text_field :coingecko_api_key, name: "coingecko_api_key", class: "db-form__input", required: true, id: "coingecko_api_key" %>
-      <%= f.label :coingecko_api_key, t('setup.coingecko_api_key'), class: "db-form__label", for: "coingecko_api_key" %>
+      <%= tag.input class: "db-form__input", type: "text", name: "coingecko_api_key", required: true, id: "coingecko_api_key" %>
+      <%= label_tag :coingecko_api_key, t('setup.coingecko_api_key'), class: "db-form__label" %>
     </div>
     <%= t('setup.coingecko_api_key_hint_html') %>
   </fieldset>

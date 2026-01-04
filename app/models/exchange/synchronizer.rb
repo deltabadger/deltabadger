@@ -56,7 +56,8 @@ module Exchange::Synchronizer
           next if external_id.blank?
 
           if hash[symbol].present? && hash[symbol] != external_id
-            raise "Multiple external ids for #{symbol} on #{coingecko_id}: #{hash[symbol]} and #{external_id}"
+            Rails.logger.warn "[Sync] Skipping #{symbol}: multiple external ids (#{hash[symbol]} and #{external_id})"
+            next
           end
 
           hash[symbol] = external_id
@@ -69,7 +70,7 @@ module Exchange::Synchronizer
 
   def eodhd_external_id_for_symbol(symbol)
     fiat_currency = Fiat.currencies.find { |c| c[:symbol] == symbol.upcase }
-    raise "Unknown external id for #{symbol}. Add it to Fiat.currencies to proceed" unless fiat_currency.present?
+    return nil unless fiat_currency.present?
 
     fiat_currency[:external_id]
   end
@@ -80,12 +81,17 @@ module Exchange::Synchronizer
       Exchanges::Coinbase::ASSET_BLACKLIST.each { |symbol| hash.delete(symbol) }
     when Exchanges::Kraken::COINGECKO_ID
       hash['XDG'] = hash.delete('DOGE')
+      Exchanges::Kraken::ASSET_BLACKLIST.each { |symbol| hash.delete(symbol) }
     end
 
+    # Remove duplicate external_ids (keep first occurrence)
+    seen_external_ids = {}
     hash.each do |symbol, external_id|
-      if external_id.in?(hash.values) && symbol != hash.key(external_id)
-        raise "Duplicated external id #{external_id} on #{coingecko_id}: #{symbol} and #{hash.key(external_id)}. " \
-              'Blacklist one of the symbols in the exchange implementation'
+      if seen_external_ids[external_id]
+        Rails.logger.warn "[Sync] Skipping #{symbol}: duplicate external_id #{external_id} (already used by #{seen_external_ids[external_id]})"
+        hash.delete(symbol)
+      else
+        seen_external_ids[external_id] = symbol
       end
     end
 
@@ -95,14 +101,18 @@ module Exchange::Synchronizer
   def create_missing_assets!(new_external_ids)
     current_external_ids = Asset.pluck(:external_id)
     new_crypto_assets = []
-    (new_external_ids - current_external_ids).each do |external_id|
+    (new_external_ids - current_external_ids).compact.each do |external_id|
+      next if external_id.blank?
+
       fiat_currency = Fiat.currencies.find { |c| c[:external_id] == external_id }
       if fiat_currency.present?
-        Asset.create!(fiat_currency)
+        Asset.create(fiat_currency)
       else
-        asset = Asset.create!(external_id: external_id, category: 'Cryptocurrency')
-        new_crypto_assets << asset
+        asset = Asset.create(external_id: external_id, category: 'Cryptocurrency')
+        new_crypto_assets << asset if asset.persisted?
       end
+    rescue ActiveRecord::RecordInvalid => e
+      Rails.logger.warn "[Sync] Skipping asset #{external_id}: #{e.message}"
     end
     return if new_crypto_assets.empty?
 
@@ -121,7 +131,8 @@ module Exchange::Synchronizer
       quote = ticker_info[:quote]
       ticker = tickers.find_by(base: base, quote: quote)
       if ticker.present?
-        ticker.update!(ticker_info)
+        ticker.update(ticker_info)
+        updated_tickers << ticker.ticker
       else
         base_asset_external_id = external_id_from_symbol(base)
         quote_asset_external_id = external_id_from_symbol(quote)
@@ -129,18 +140,22 @@ module Exchange::Synchronizer
 
         base_asset = Asset.find_by(external_id: base_asset_external_id)
         quote_asset = Asset.find_by(external_id: quote_asset_external_id)
+        next if base_asset.blank? || quote_asset.blank?
+
         [base_asset, quote_asset].each do |asset|
           exchange_asset = exchange_assets.find_by(asset_id: asset.id)
-          exchange_asset.present? ? exchange_asset.update!(available: true) : exchange_assets.create!(asset_id: asset.id)
+          exchange_asset.present? ? exchange_asset.update(available: true) : exchange_assets.create(asset_id: asset.id)
         end
 
         ticker_data = {
           base_asset: base_asset,
           quote_asset: quote_asset
         }.merge(ticker_info)
-        ticker = tickers.create!(ticker_data)
+        ticker = tickers.create(ticker_data)
+        updated_tickers << ticker.ticker if ticker.persisted?
       end
-      updated_tickers << ticker.ticker
+    rescue ActiveRecord::RecordInvalid => e
+      Rails.logger.warn "[Sync] Skipping ticker #{base}/#{quote}: #{e.message}"
     end
 
     tickers.where(ticker: current_tickers - updated_tickers).update_all(available: false)

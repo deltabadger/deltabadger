@@ -16,6 +16,8 @@ en:
       </ol>
     submit: "Start"
     success: "Setup completed successfully. Welcome to Deltabadger!"
-    syncing_title: "Syncing Assets - Deltabadger"
-    syncing_message: "Syncing exchange assets..."
-    syncing_hint: "It may take a while. Keep it running."
+    syncing_title: "Syncing Assets…"
+    syncing_message: "Syncing assets…"
+    syncing_hint: "It may take a few minutes"
+    invalid_coingecko_api_key: "Invalid CoinGecko API key. Please check your key and try again."
+    retry: "Try Again"

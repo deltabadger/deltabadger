@@ -1,0 +1,137 @@
+$offset: 70
+$duration: 1.5s
+$spinnerColor: darken(#e9ecef,3%)
+
+.spinner
+  animation: rotator $duration linear infinite
+
+@keyframes rotator
+  0%
+    transform: rotate(0deg)
+  100%
+    transform: rotate(270deg)
+
+.path
+  stroke-dasharray: $offset
+  stroke-dashoffset: 0
+  transform-origin: center
+  animation: dash $duration ease-in-out infinite, colors ($duration*4) ease-in-out infinite
+
+@keyframes colors
+  0%
+    stroke: $spinnerColor
+  25%
+    stroke: $spinnerColor
+  50%
+    stroke: $spinnerColor
+  75%
+    stroke: $spinnerColor
+  100%
+    stroke: $spinnerColor
+
+@keyframes dash
+  0%
+    stroke-dashoffset: $offset
+  50%
+    stroke-dashoffset: $offset*0.25
+    transform: rotate(135deg)
+  100%
+    stroke-dashoffset: $offset
+    transform: rotate(450deg)
+
+.loader--small
+  width: 2rem
+  height: 2rem
+  border-radius: 50%
+  position: relative
+  animation: rotate 1s linear infinite
+  position: absolute
+  top: 1.5rem
+  right: 1.5rem
+
+.loader--small::before
+  content: ""
+  box-sizing: border-box
+  position: absolute
+  inset: 0
+  border-radius: 50%
+  border: 0.25rem solid var(--modal-search-placeholder)
+  animation: prixClipFix 3s linear infinite
+  animation-direction: alternate
+
+.loader
+  width: 4rem
+  height: 4rem
+  border-radius: 50%
+  position: relative
+  animation: rotate 1s linear infinite
+  position: absolute
+  top: 1.5rem
+  right: 1.5rem
+
+.loader::before
+  content: ""
+  box-sizing: border-box
+  position: absolute
+  inset: 0
+  border-radius: 50%
+  border: 0.25rem solid var(--menuLogo)
+  animation: prixClipFix 3s linear infinite
+  animation-direction: alternate
+
+@keyframes rotate
+  100%
+    transform: rotate(360deg)
+
+@keyframes prixClipFix
+  0%
+    clip-path: polygon(50% 50%,0 0,0 0,0 0,0 0,0 0)
+  25%
+    clip-path: polygon(50% 50%,0 0,100% 0,100% 0,100% 0,100% 0)
+  50%
+    clip-path: polygon(50% 50%,0 0,100% 0,100% 100%,100% 100%,100% 100%)
+  75%
+    clip-path: polygon(50% 50%,0 0,100% 0,100% 100%,0 100%,0 100%)
+  100%
+    clip-path: polygon(50% 50%,0 0,100% 0,100% 100%,0 100%,0 0)
+
+.setup-syncing
+  display: flex
+  align-items: center
+  justify-content: center
+  padding: 2rem 4rem 0
+
+  &__content
+    display: flex
+    flex-direction: column
+    align-items: center
+    gap: 3rem
+    text-align: center
+
+  &__spinner
+    position: relative
+    width: 8rem
+    height: 8rem
+
+    .loader
+      position: relative
+      width: 8rem
+      height: 8rem
+      top: 0
+      right: 0
+
+  &__text
+    font-size: 2.5rem
+    font-weight: 600
+    color: var(--menuLogo)
+    max-width: 40rem
+    line-height: 1.4
+    margin: 0
+
+  &__hint
+    font-size: 1.75rem
+    color: var(--menuLogo)
+    opacity: 0.4
+    position: relative
+    top: -2rem
+    margin: 0
