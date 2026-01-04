@@ -1,4 +1,8 @@
 class Coingecko
+  def initialize(api_key: nil)
+    @api_key = api_key
+  end
+
   def get_price(coin_id:, currency: 'usd')
     currency = currency.downcase
     price = Rails.cache.fetch("#{coin_id}_price_in_#{currency}", expires_in: 20.seconds) do
@@ -97,6 +101,6 @@ class Coingecko
   private
 
   def client
-    @client ||= Clients::Coingecko.new
+    @client ||= Clients::Coingecko.new(api_key: @api_key)
   end
 end

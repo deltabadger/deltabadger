@@ -1,0 +1,23 @@
+ru:
+  setup:
+    title: "Добро пожаловать в Deltabadger"
+    admin_account: "Учетная запись администратора"
+    api_configuration: "API CoinGecko"
+    coingecko_api_key: "Ключ API CoinGecko"
+    coingecko_api_key_hint_html: |
+      <ol>
+        <li>Зарегистрируйтесь на <a href="https://www.coingecko.com/ru/api" target="_blank" rel="noopener">CoinGecko</a></li>
+        <li>Перейдите в <a href="https://www.coingecko.com/ru/api" target="_blank" rel="noopener">раздел API</a></li>
+        <li>Нажмите <b>Получить ключ API сейчас</b></li>
+        <li><b>Создать бесплатный аккаунт</b> находится ниже расценок</li>
+        <li>Заполните форму</li>
+        <li>Нажмите <b>Создать ключ API</b></li>
+        <li><b>Скопируйте ключ API</b> и вставьте его выше</li>
+      </ol>
+    submit: "Начать"
+    success: "Настройка успешно завершена. Добро пожаловать в Deltabadger!"
+    syncing_title: "Синхронизация активов…"
+    syncing_message: "Синхронизация активов…"
+    syncing_hint: "Это может занять несколько минут"
+    invalid_coingecko_api_key: "Неверный ключ API CoinGecko. Пожалуйста, проверьте свой ключ и попробуйте снова."
+    retry: "Попробовать еще раз"
