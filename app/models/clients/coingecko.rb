@@ -2,8 +2,33 @@ class Clients::Coingecko < Client
   # URL = 'https://pro-api.coingecko.com/api/v3'.freeze
   URL = 'https://api.coingecko.com/api/v3/'.freeze
 
+  def initialize(api_key: nil)
+    @instance_api_key = api_key
+  end
+
   def self.api_key
     AppConfig.coingecko_api_key
+  end
+
+  def api_key
+    @instance_api_key || self.class.api_key
+  end
+
+  def connection
+    @connection ||= Faraday.new(url: URL, **OPTIONS) do |config|
+      config.headers = {
+        # 'x-cg-pro-api-key': api_key
+        'x-cg-demo-api-key': api_key
+      }
+      config.request :json
+      config.response :json
+      config.response :raise_error
+      config.response :logger, Rails.logger, headers: false, bodies: true, log_level: :debug
+      config.adapter :net_http_persistent do |http|
+        http.idle_timeout = 100
+      end
+      config.request :rate_limit, limit: 30, interval: 60
+    end
   end
 
   def self.connection
@@ -28,7 +53,7 @@ class Clients::Coingecko < Client
   # @param status [String] Filter by status of coins, default: active
   def coins_list(include_platform: false, status: 'active')
     with_rescue do
-      response = self.class.connection.get do |req|
+      response = connection.get do |req|
         req.url 'coins/list'
         req.params = {
           include_platform: include_platform,
@@ -67,7 +92,7 @@ class Clients::Coingecko < Client
     precision: 'full'
   )
     with_rescue do
-      response = self.class.connection.get do |req|
+      response = connection.get do |req|
         req.url 'coins/markets'
         ids = ids.join(',') if ids.present?
         req.params = {
@@ -105,7 +130,7 @@ class Clients::Coingecko < Client
     sparkline: false
   )
     with_rescue do
-      response = self.class.connection.get do |req|
+      response = connection.get do |req|
         req.url "coins/#{id}"
         req.params = {
           localization: localization,
@@ -138,7 +163,7 @@ class Clients::Coingecko < Client
     precision: 'full'
   )
     with_rescue do
-      response = self.class.connection.get do |req|
+      response = connection.get do |req|
         req.url 'simple/price'
         req.params = {
           ids: coin_ids.join(','),
@@ -168,7 +193,7 @@ class Clients::Coingecko < Client
     precision: 'full'
   )
     with_rescue do
-      response = self.class.connection.get do |req|
+      response = connection.get do |req|
         req.url "coins/#{coin_id}/market_chart"
         req.params = {
           vs_currency: vs_currency,
@@ -197,7 +222,7 @@ class Clients::Coingecko < Client
     precision: 'full'
   )
     with_rescue do
-      response = self.class.connection.get do |req|
+      response = connection.get do |req|
         req.url "coins/#{coin_id}/market_chart/range"
         req.params = {
           vs_currency: vs_currency,
@@ -215,7 +240,7 @@ class Clients::Coingecko < Client
   # @param id [String] The exchange id
   def exchange_data_by_id(id:)
     with_rescue do
-      response = self.class.connection.get do |req|
+      response = connection.get do |req|
         req.url "exchanges/#{id}"
       end
       Result::Success.new(response.body)
@@ -238,7 +263,7 @@ class Clients::Coingecko < Client
     order: 'trust_score_desc'
   )
     with_rescue do
-      response = self.class.connection.get do |req|
+      response = connection.get do |req|
         req.url "exchanges/#{id}/tickers"
         req.params = {
           coin_ids: coin_ids&.join(','),

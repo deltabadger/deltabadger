@@ -112,6 +112,13 @@ class Fiat
         name: 'Russian Ruble',
         category: 'Currency',
         color: '#9C9CDE'
+      },
+      {
+        external_id: 'IDR.FOREX', # eodhd ID
+        symbol: 'IDR',
+        name: 'Indonesian Rupiah',
+        category: 'Currency',
+        color: '#E74C3C'
       }
     ]
   end

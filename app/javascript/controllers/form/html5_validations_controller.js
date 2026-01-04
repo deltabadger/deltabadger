@@ -91,7 +91,7 @@ export default class extends Controller {
   }
 
   get #formFields() {
-    return Array.from(this.element.elements)
+    return Array.from(this.element.elements).filter(field => typeof field.checkValidity === 'function')
   }
 
   get #firstInvalidField() {
