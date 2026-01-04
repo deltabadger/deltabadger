@@ -134,9 +134,6 @@ es:
             specify_percentage_limit_order: "Especifica el porcentaje al crear una orden limitada"
             smart_intervals_above_minimum: "El valor de los intervalos inteligentes debe ser mayor que %{minimum}"
             invalid_price_range: "El rango de precios no es válido"
-            subaccounts_not_allowed: "Las subcuentas no están permitidas en este intercambio"
-            no_subaccount_name: "No se suministró el nombre de la subcuenta"
-            wrong_subaccount_name: "Nombre de subcuenta incorrecto"
             failed_tooltip_explanation: "Esta orden falló: %{error_message}"
             skipped_tooltip_explanation: "Esta orden se ha omitido porque la cantidad estaba por debajo del tamaño mínimo de orden de %{exchange_name}. La cantidad omitida se ha almacenado y se añadirá a la siguiente orden."
             failed_status_bar_explanation: "La última orden falló: %{error_message}"
@@ -157,7 +154,6 @@ es:
         smart_intervals_disclaimer_base: 'El tamaño de las órdenes en %{exchange} se define en %{currency}. El tamaño mínimo de la orden es de %{minimum}%{currency}.'
         smart_intervals_disclaimer_quote: 'El tamaño mínimo de orden es de %{minimum}%{currency}.'
         starting: Empezar
-        subaccounts_info: 'Utilizar la subcuenta'
         week: Semana
         withdraw_interval_html: 'Retirar cada <split>2</split> días.'
         withdraw_threshold_html: 'Retirar cuando haya al menos <split>0,001</split> %{currency} disponible.'

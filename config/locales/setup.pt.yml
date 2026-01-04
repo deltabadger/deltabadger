@@ -132,18 +132,6 @@ pt:
                 public_key: 'Chave API'
             limit_warning: 'Definir suas ordens no valor da taxa reduz efetivamente sua taxa a zero. Embora as ordens limitadas possam demorar mais para serem executadas, geralmente são uma boa ideia. A configuração padrão faz isso por você, então é melhor mantê-la se você estiver em dúvida.'
             next: Próximo
-            probit:
-                instructions_1_html: 'Inicie sessão na sua conta %{exchange_link}.'
-                instructions_2_html: 'No menu <b>A minha página</b> (canto superior direito) aceda a <b>Gestão de API</b>.'
-                instructions_3_html: 'Faculte uma etiqueta de chave API e pressione <b>Criar nova chave</b>.'
-                instructions_4_html: 'Confirme a criação de chaves API.'
-                instructions_5_html: 'Se quiser restringir o acesso para que apenas Deltabadger possa utilizar as chaves, pressione <b>Editar</b> e defina <b>Restrição de Endereço IP</b> para este IP: <b>3.18.70.231</b>'
-                instructions_6_1_html: 'Defina as permissões para o seguinte:'
-                instructions_6_2_html: '<b>Ler</b>'
-                instructions_6_3_html: '<b>Transações</b>'
-                instructions_7_html: 'Copie e cole no formulário acima a sua nova ID de cliente e a chave secreta do cliente.'
-                private_key: 'Chave secreta do cliente'
-                public_key: 'ID do cliente'
             set: Definir
             smart_intervals:
                 dont_show_again: 'Não mostrar novamente'

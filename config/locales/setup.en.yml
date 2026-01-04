@@ -134,18 +134,6 @@ en:
             limit_warning: 'Setting your orders at the fee amount effectively reduces your fee to zero. While limit orders may take longer to execute, they are generally good idea. The default setting does this for you, so it''s best to stick with it if you''re unsure.'
             next: Next
             no_wallet_found: 'No wallet found. Go to %{exchangeName} and add a withdrawal wallet.'
-            probit:
-                instructions_1_html: 'Log into your %{exchange_link} account.'
-                instructions_2_html: 'In the <b>My Page</b> menu (top right corner) go to <b>API Management</b>.'
-                instructions_3_html: 'Provide API key label and press <b>Create new key</b>.'
-                instructions_4_html: 'Confirm creation of API keys.'
-                instructions_5_html: 'If you want to restrict the access so only Deltabadger can use the keys, press <b>Edit</b> and set <b>IP Address Restriction</b> to this IP: <b>3.18.70.231</b>'
-                instructions_6_1_html: 'Set permissions for:'
-                instructions_6_2_html: '<b>Read</b>'
-                instructions_6_3_html: '<b>Trading</b>'
-                instructions_7_html: 'Copy and paste your new Client ID and Client''s Secret Key into the form above.'
-                private_key: 'Client''s Secret Key'
-                public_key: 'Client ID'
             set: Set
             smart_intervals:
                 dont_show_again: 'Don''t show again'

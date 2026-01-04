@@ -134,9 +134,6 @@ it:
             specify_percentage_limit_order: "Specifica la percentuale quando crei un ordine limite"
             smart_intervals_above_minimum: "Il valore degli intervalli intelligenti dovrebbe essere maggiore di %{minimum}"
             invalid_price_range: "L'intervallo di prezzo non è valido"
-            subaccounts_not_allowed: "Sottoconti non permessi su questo exchange"
-            no_subaccount_name: "Nessun nome di sottoconto fornito"
-            wrong_subaccount_name: "Nome del sottoconto errato"
             failed_tooltip_explanation: "Questo ordine è fallito: %{error_message}"
             skipped_tooltip_explanation: "Questo ordine è stato saltato perché l'importo era inferiore alla dimensione minima dell'ordine di %{exchange_name}. L'importo saltato è stato messo in buffer e verrà aggiunto al prossimo ordine."
             failed_status_bar_explanation: "L'ultimo ordine è fallito: %{error_message}"
@@ -167,7 +164,6 @@ it:
         smart_intervals_disclaimer_base: 'La dimensione degli ordini su %{exchange} è definita in %{currency}. La dimensione minima dell''ordine è %{minimum}%{currency}.'
         smart_intervals_disclaimer_quote: 'La dimensione minima dell''ordine è %{minimum}%{currency}.'
         starting: Avvio in corso
-        subaccounts_info: 'Usa sottoconto'
         week: Settimana
         withdraw_interval_html: 'Preleva ogni <split>2</split> giorni.'
         withdraw_threshold_html: 'Preleva quando almeno <split>0.001</split> %{currency} è disponibile.'

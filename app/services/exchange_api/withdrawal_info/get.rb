@@ -2,7 +2,6 @@ module ExchangeApi
   module WithdrawalInfo
     class Get < BaseService
       include ExchangeApi::BinanceEnum
-      include ExchangeApi::FtxEnum
 
       def call(api_key)
         exchange = Exchange.find(api_key.exchange_id)
@@ -12,14 +11,6 @@ module ExchangeApi
         when 'kraken'
           ExchangeApi::WithdrawalInfo::Kraken::AccountInfoProcessor.new(api_key: api_key.key,
                                                                         api_secret: api_key.secret)
-        when 'ftx'
-          ExchangeApi::WithdrawalInfo::Ftx::AccountInfoProcessor.new(api_key: api_key.key,
-                                                                     api_secret: api_key.secret,
-                                                                     url_base: FTX_EU_URL_BASE)
-        when 'ftx.us'
-          ExchangeApi::WithdrawalInfo::Ftx::AccountInfoProcessor.new(api_key: api_key.key,
-                                                                     api_secret: api_key.secret,
-                                                                     url_base: FTX_US_URL_BASE)
         end
       end
     end

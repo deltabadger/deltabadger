@@ -74,14 +74,11 @@ class FetchOrderResult < BaseService
   def perform_action(api, result_params, bot, price, called_bot = nil)
     external_id = get_external_id(result_params)
     Rails.logger.info "Fetching order id: #{external_id} for bot: #{bot.id}"
-    result_params = result_params.merge(quote: bot.settings['quote'], base: bot.settings['base']) if probit?(bot)
     use_subaccount = bot.use_subaccount
     selected_subaccount = bot.selected_subaccount
     result = nil
     10.times do |i|
       result = if already_fetched?(result_params)
-                 api.fetch_order_by_id(external_id, result_params)
-               elsif probit?(bot)
                  api.fetch_order_by_id(external_id, result_params)
                elsif use_subaccount
                  api.fetch_order_by_id(external_id, use_subaccount, selected_subaccount)
@@ -103,10 +100,6 @@ class FetchOrderResult < BaseService
     result
   end
   # rubocop:enable Metrics/CyclomaticComplexity, Metrics/PerceivedComplexity
-
-  def probit?(bot)
-    bot.exchange.name == 'Probit' || bot.exchange.name == 'Probit Global' || bot.exchange.name == 'ProBit Global'
-  end
 
   def fetched?(result)
     result.data&.dig(:fetched).nil? || result.data&.dig(:fetched) == true

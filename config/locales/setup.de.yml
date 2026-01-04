@@ -134,18 +134,6 @@ de:
             limit_warning: 'Wenn Sie Ihre Orders auf den Gebührenbetrag setzen, reduzieren Sie die Gebühren effektiv auf null. Auch wenn Limit-Orders länger dauern können, bis sie ausgeführt werden, sind sie im Allgemeinen eine gute Idee. Die Basic übernimmt dies für Sie, also bleiben Sie dabei, wenn Sie unsicher sind.'
             next: Weiter
             no_wallet_found: 'Kein Wallet gefunden. Gehe zu %{exchangeName} und füge ein Wallet für die Auszahlung hinzu.'
-            probit:
-                instructions_1_html: 'Melde dich bei deinem %{exchange_link}-Konto an.'
-                instructions_2_html: 'Wähle im Menü <b>Meine Seite</b> (oben rechts) den Punkt <b>API Management</b>.'
-                instructions_3_html: 'Gib die Bezeichnung des API-Schlüssels an und klicke auf <b>Neuen Schlüssel erstellen</b>.'
-                instructions_4_html: 'Bestätige die Erstellung von API-Schlüsseln.'
-                instructions_5_html: 'Wenn du den Zugang einschränken willst, damit nur Deltabadger die Tasten benutzen kann, klicke auf <b>Bearbeiten</b> und setze <b>IP-Adressenbeschränkung</b> auf diese IP: <b>3.18.70.231</b>'
-                instructions_6_1_html: 'Setze Berechtigungen für:'
-                instructions_6_2_html: '<b>Lesen</b>'
-                instructions_6_3_html: '<b>Trading</b>'
-                instructions_7_html: 'Kopiere deine neue Client-ID und den geheimen Client-Schlüssel und füge sie in das Formular oben ein.'
-                private_key: 'Geheimer Client-Schlüssel'
-                public_key: Client-ID
             set: Einstellen
             smart_intervals:
                 dont_show_again: 'Nicht wieder anzeigen'

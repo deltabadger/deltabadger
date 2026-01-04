@@ -34,16 +34,6 @@ export const exchanges = {
       url: 'https://exchange.gemini.com/signin',
       translation_key: 'gemini',
   },
-  'ftx': {
-      name: 'FTX',
-      url: 'https://ftx.com',
-      translation_key: 'ftx',
-  },
-  'ftx.us': {
-    name: 'FTX.US',
-    url: 'https://ftx.us',
-    translation_key  : 'ftx',
-    },
   'bitso': {
     name: 'Bitso',
     url: 'https://bitso.com/',
@@ -64,16 +54,6 @@ export const exchanges = {
     url: 'https://bitstamp.net/',
     translation_key: 'bitstamp'
   },
-  'probit': {
-    name: 'ProBit Global',
-    url: 'https://www.probit.com/',
-    translation_key: 'probit'
-  },
-  'probit global': {
-    name: 'ProBit Global',
-    url: 'https://www.probit.com/',
-    translation_key: 'probit'
-  }
 }
 
 export const getExchange = (exchangeName, type) => {
