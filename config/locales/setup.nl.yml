@@ -129,18 +129,6 @@ nl:
             limit_warning: 'Door je orders op het bedrag van de vergoeding in te stellen, verlaag je de vergoeding effectief tot nul. Hoewel limietorders langer kunnen duren om uitgevoerd te worden, zijn ze over het algemeen een goed idee. De standaardinstelling regelt dit voor je, dus blijf daarbij als je niet zeker bent.'
             next: Volgende
             no_wallet_found: 'Geen wallet gevonden. Ga naar %{exchangeName} en voeg een opname wallet toe.'
-            probit:
-                instructions_1_html: 'Log in op uw %{exchange_link} account.'
-                instructions_2_html: 'Ga in het menu <b>My Page</b> (rechterbovenhoek) naar <b>API Management</b>.'
-                instructions_3_html: 'Geef het API key label in en druk op <b>Create new key</b>.'
-                instructions_4_html: 'Bevestig de aanmaak van de API keys.'
-                instructions_5_html: 'Als u de toegang wilt beperken, zodat enkel Deltabadger de keys kan gebruiken, druk dan op <b>Edit</b> en stel <b>IP Address Restriction</b> in op dit IP adres: <b>3.18.70.231</b>'
-                instructions_6_1_html: 'Stel machtigingen in voor:'
-                instructions_6_2_html: '<b>Read</b>'
-                instructions_6_3_html: '<b>Trading</b>'
-                instructions_7_html: 'Kopieer en plak uw nieuwe Client ID en Client''s Secret Key in het bovenstaande formulier.'
-                private_key: 'Client''s Secret Key'
-                public_key: 'Client ID'
             set: 'Stel in'
             smart_intervals:
                 dont_show_again: 'Niet opnieuw tonen'

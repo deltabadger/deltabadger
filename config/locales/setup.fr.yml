@@ -134,18 +134,6 @@ fr:
             limit_warning: 'Définir vos ordres au montant des frais réduit effectivement vos frais à zéro. Bien que les ordres à cours limité puissent prendre plus de temps à s''exécuter, ils sont généralement une bonne idée. Le paramètre par défaut le fait pour vous, donc mieux vaut s''y tenir si vous n''êtes pas sûr.'
             next: 'Suivant'
             no_wallet_found: 'Aucun portefeuille trouvé. Allez sur %{exchangeName} et ajoutez un portefeuille de retrait.'
-            probit:
-                instructions_1_html: 'Connectez-vous à votre compte %{exchange_link}.'
-                instructions_2_html: 'Dans le menu <b>Ma page</b> (dans l''angle supérieur à droite) allez dans <b>Gestion des API</b>.'
-                instructions_3_html: 'Renseignez l''étiquette de la clé API et appuyez sur <b>Créer une nouvelle clé</b>.'
-                instructions_4_html: 'Confirmez la création des clés API.'
-                instructions_5_html: 'Si vous souhaitez restreindre l''accès pour que seul Deltabadger puisse utiliser les clés, appuyez sur <b>Modifier</b> et définissez la <b>Restriction d''adresse IP</b> sur cette IP : <b>3.18.70.231</b>'
-                instructions_6_1_html: 'Définissez les autorisations pour les éléments suivants:'
-                instructions_6_2_html: '<b>Lire</b>'
-                instructions_6_3_html: '<b> Trading </b>'
-                instructions_7_html: 'Copiez-collez votre nouveau ID Client et votre nouvelle Clé secrète du client dans le formulaire ci-dessus.'
-                private_key: 'Clé secrète du client'
-                public_key: 'ID client'
             set: 'Définir'
             smart_intervals:
                 dont_show_again: 'Ne plus afficher'
