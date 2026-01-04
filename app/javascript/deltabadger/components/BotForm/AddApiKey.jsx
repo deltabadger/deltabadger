@@ -20,7 +20,6 @@ const apiKeyNames = exchangeName => {
 const isPassphraseRequired = exchangeName => {
   return ['Coinbase Pro', 'KuCoin'].includes(exchangeName)
 }
-const NOT_RELEVANT_BOTS = ["Coinbase Pro"];
 
 export const AddApiKey = ({
   pickedExchangeName,
@@ -56,13 +55,9 @@ export const AddApiKey = ({
       evt.preventDefault();
 
       if(!disableSubmit) {
-        if(!NOT_RELEVANT_BOTS.includes(pickedExchangeName)) {
-          setShowError(false);
+        setShowError(false);
 
-          handleSubmit(key, secret, passphrase, agreement, type);
-        } else {
-          setShowError(true);
-        }
+        handleSubmit(key, secret, passphrase, agreement, type);
       }
   }
 
