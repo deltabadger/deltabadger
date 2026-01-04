@@ -8,9 +8,16 @@ module Admin
   class ApplicationController < Administrate::ApplicationController
     before_action :authenticate_user!
     before_action :authenticate_admin
+    before_action :redirect_to_syncing_if_needed
 
     def authenticate_admin
       redirect_to root_path if !current_user.admin?
+    end
+
+    def redirect_to_syncing_if_needed
+      return unless AppConfig.setup_sync_needed?
+
+      redirect_to setup_syncing_path
     end
 
     def model_name
