@@ -13,7 +13,7 @@ export const startButtonType = {
     FAILED: "failed"
 }
 let timeout;
-const NOT_RELEVANT_BOTS = ["FTX", "FTX.US", "Coinbase Pro"];
+const NOT_RELEVANT_BOTS = ["Coinbase Pro"];
 
 export const StartButton = ({settings, getRestartType, onClickReset, setShowInfo, exchangeName, newSettings}) => {
   const [isOpen, setOpen] = useState(false)
@@ -235,7 +235,7 @@ export const RemoveButton = ({onClick, disabled}) => {
 }
 
 export const ExchangeButton = ({ handleClick, exchange, type }) => {
-  const withdrawalEnabled = () => ['kraken', 'ftx', 'ftx.us'];
+  const withdrawalEnabled = () => ['kraken'];
 
   const exchangeClass = () => {
     if (type === 'trading') {

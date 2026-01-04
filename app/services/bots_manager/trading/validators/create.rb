@@ -148,7 +148,7 @@ module BotsManager::Trading::Validators
       end
 
       def subaccounts_allowed_exchange
-        ['ftx', 'ftx.us'].include?(@exchange_name)
+        []
       end
     end
   end

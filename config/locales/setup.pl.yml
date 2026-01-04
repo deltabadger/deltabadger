@@ -129,18 +129,6 @@ pl:
             limit_warning: 'Ustawienie zleceń na kwotę opłaty efektywnie obniża opłatę do zera. Chociaż realizacja zleceń z limitem może potrwać dłużej, zazwyczaj jest to dobry pomysł. Domyślne ustawienie robi to za Ciebie, więc najlepiej się go trzymać, jeśli nie jesteś pewien.'
             next: Dalej
             no_wallet_found: 'Nie znaleziono portfela. Przejdź do %{exchangeName} i dodaj portfel do wypłaty.'
-            probit:
-                instructions_1_html: 'Zaloguj się do swojego konta %{exchange_link}.'
-                instructions_2_html: 'W menu <b>My Page</b> (prawy górny róg) przejdź do <b>API Management</b>.'
-                instructions_3_html: 'Ustaw nazwę dla klucza API i naciśnij przycisk <b>Create new key</b>.'
-                instructions_4_html: 'Potwierdź utworzenie kluczy API.'
-                instructions_5_html: 'Jeśli chcesz ograniczyć dostęp, aby tylko Deltabadger mógł korzystać z kluczy, kliknij <b>Edytuj</b> i ustaw <b>IP Address Restriction</b> na ten adres IP: <b>3.18.70.231</b>'
-                instructions_6_1_html: 'Ustaw uprawnienia dla:'
-                instructions_6_2_html: '<b>Read</b>'
-                instructions_6_3_html: '<b>Trading</b>'
-                instructions_7_html: 'Skopiuj i wklej swój nowy identyfikator Klienta oraz Tajny Klucz Klienta do powyższego formularza.'
-                private_key: 'Sekretny klucz klienta'
-                public_key: 'ID klienta'
             set: Ustaw
             smart_intervals:
                 dont_show_again: 'Nie pokazuj ponownie'

@@ -133,9 +133,6 @@ nl:
             specify_percentage_limit_order: "Geef het percentage op bij het maken van een limietorder"
             smart_intervals_above_minimum: "De waarde van slimme intervallen moet groter zijn dan %{minimum}"
             invalid_price_range: "De prijsklasse is ongeldig"
-            subaccounts_not_allowed: "Subaccounts zijn niet toegestaan op deze uitwisseling"
-            no_subaccount_name: "Geen subaccountnaam opgegeven"
-            wrong_subaccount_name: "Verkeerde subaccountnaam"
             failed_tooltip_explanation: "Deze bestelling is mislukt: %{error_message}"
             skipped_tooltip_explanation: "Deze bestelling is overgeslagen omdat het bedrag onder de minimale ordergrootte van %{exchange_name} lag. Het overgeslagen bedrag is gebufferd en wordt toegevoegd aan de volgende bestelling."
             failed_status_bar_explanation: "De laatste bestelling is mislukt: %{error_message}"
@@ -156,7 +153,6 @@ nl:
         smart_intervals_disclaimer_base: 'De ordergrootte bij %{exchange} wordt bepaald in %{currency}. De minimale ordergrootte is %{minimum}%{currency}.'
         smart_intervals_disclaimer_quote: 'De minimale ordergrootte is %{minimum}%{currency}.'
         starting: Startend
-        subaccounts_info: 'Gebruik subaccount '
         week: Week
         withdraw_interval_html: 'Neem elke <split>2</split> dagen fondsen op.'
         withdraw_threshold_html: 'Fondsen opnamen zodra er minimum <split>0.001</split> %{currency} beschikbaar is.'

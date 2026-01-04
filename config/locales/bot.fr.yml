@@ -133,9 +133,6 @@ fr:
             specify_percentage_limit_order: "Spécifiez le pourcentage lors de la création d''un ordre limité"
             smart_intervals_above_minimum: "La valeur des intervalles intelligents doit être supérieure à %{minimum}"
             invalid_price_range: "La fourchette de prix est invalide"
-            subaccounts_not_allowed: "Les sous-comptes ne sont pas autorisés sur cet échange"
-            no_subaccount_name: "Aucun nom de sous-compte fourni"
-            wrong_subaccount_name: "Nom de sous-compte incorrect"
             failed_tooltip_explanation: "Cette commande a échoué: %{error_message}"
             skipped_tooltip_explanation: "Cette commande a été ignorée car le montant était inférieur à la taille minimale de commande de %{exchange_name}. Le montant ignoré a été mis en mémoire tampon et sera ajouté à la prochaine commande."
             failed_status_bar_explanation: "La dernière commande a échoué: %{error_message}"
@@ -156,7 +153,6 @@ fr:
         smart_intervals_disclaimer_base: 'Le montant des ordres sur %{exchange} est définie en %{currency}. Le montant minimum est de %{minimum}%{currency}.'
         smart_intervals_disclaimer_quote: 'Le montant minimal d''un ordre est de %{minimum}%{currency}.'
         starting: 'Commencer'
-        subaccounts_info: 'Utiliser un sous-compte'
         week: 'Semaine'
         withdraw_interval_html: 'Retirer tous les <split>2</split> jours.'
         withdraw_threshold_html: 'Retirer lorsqu''un minimum de <split>0,001</split> %{currency} est disponible.'
