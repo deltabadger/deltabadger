@@ -10,10 +10,63 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema.define(version: 2026_01_03_000001) do
+ActiveRecord::Schema.define(version: 2026_01_04_194208) do
 
   # These are extensions that must be enabled in order to support this database
   enable_extension "plpgsql"
+
+  create_table "affiliates", force: :cascade do |t|
+    t.bigint "user_id"
+    t.integer "type", null: false
+    t.string "name"
+    t.string "address"
+    t.string "vat_number"
+    t.string "btc_address"
+    t.string "code", null: false
+    t.string "visible_name"
+    t.string "visible_link"
+    t.decimal "discount_percent", precision: 3, scale: 2, null: false
+    t.decimal "total_bonus_percent", precision: 3, scale: 2, null: false
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.string "new_btc_address"
+    t.string "new_btc_address_token"
+    t.datetime "new_btc_address_send_at"
+    t.boolean "active", default: true, null: false
+    t.decimal "unexported_btc_commission", precision: 16, scale: 8, default: "0.0", null: false
+    t.decimal "exported_btc_commission", precision: 16, scale: 8, default: "0.0", null: false
+    t.decimal "paid_btc_commission", precision: 16, scale: 8, default: "0.0", null: false
+    t.string "visible_link_scheme", default: "https", null: false
+    t.string "old_code"
+    t.index ["code"], name: "index_affiliates_on_code", unique: true
+    t.index ["new_btc_address_token"], name: "index_affiliates_on_new_btc_address_token", unique: true
+    t.index ["user_id"], name: "index_affiliates_on_user_id", unique: true
+  end
+
+  create_table "ahoy_clicks", force: :cascade do |t|
+    t.string "campaign"
+    t.string "token"
+    t.index ["campaign"], name: "index_ahoy_clicks_on_campaign"
+  end
+
+  create_table "ahoy_messages", force: :cascade do |t|
+    t.string "user_type"
+    t.bigint "user_id"
+    t.string "to"
+    t.string "mailer"
+    t.text "subject"
+    t.datetime "sent_at"
+    t.string "campaign"
+    t.index ["campaign"], name: "index_ahoy_messages_on_campaign"
+    t.index ["to"], name: "index_ahoy_messages_on_to"
+    t.index ["user_type", "user_id"], name: "index_ahoy_messages_on_user_type_and_user_id"
+  end
+
+  create_table "ahoy_opens", force: :cascade do |t|
+    t.string "campaign"
+    t.string "token"
+    t.index ["campaign"], name: "index_ahoy_opens_on_campaign"
+  end
 
   create_table "api_keys", force: :cascade do |t|
     t.bigint "exchange_id", null: false
@@ -35,10 +88,34 @@ ActiveRecord::Schema.define(version: 2026_01_03_000001) do
 
   create_table "app_configs", force: :cascade do |t|
     t.string "key", null: false
-    t.text "value"
     t.datetime "created_at", precision: 6, null: false
     t.datetime "updated_at", precision: 6, null: false
+    t.text "encrypted_value"
+    t.string "encrypted_value_iv"
     t.index ["key"], name: "index_app_configs_on_key", unique: true
+  end
+
+  create_table "articles", force: :cascade do |t|
+    t.string "slug", null: false
+    t.string "locale", limit: 2, null: false
+    t.string "title", null: false
+    t.string "subtitle"
+    t.text "excerpt"
+    t.text "content", null: false
+    t.string "thumbnail"
+    t.bigint "author_id"
+    t.integer "reading_time_minutes"
+    t.boolean "published", default: false, null: false
+    t.datetime "published_at"
+    t.datetime "created_at", precision: 6, null: false
+    t.datetime "updated_at", precision: 6, null: false
+    t.string "x_url"
+    t.string "telegram_url"
+    t.text "paywall_hook"
+    t.index ["author_id"], name: "index_articles_on_author_id"
+    t.index ["locale"], name: "index_articles_on_locale"
+    t.index ["published", "published_at"], name: "index_articles_on_published_and_published_at"
+    t.index ["slug", "locale"], name: "index_articles_on_slug_and_locale", unique: true
   end
 
   create_table "assets", force: :cascade do |t|
@@ -60,6 +137,16 @@ ActiveRecord::Schema.define(version: 2026_01_03_000001) do
     t.index ["isin"], name: "index_assets_on_isin"
     t.index ["name"], name: "index_assets_on_name"
     t.index ["symbol"], name: "index_assets_on_symbol"
+  end
+
+  create_table "authors", force: :cascade do |t|
+    t.string "name", null: false
+    t.string "url"
+    t.string "avatar"
+    t.text "bio"
+    t.datetime "created_at", precision: 6, null: false
+    t.datetime "updated_at", precision: 6, null: false
+    t.index ["name"], name: "index_authors_on_name"
   end
 
   create_table "bots", force: :cascade do |t|
@@ -84,6 +171,73 @@ ActiveRecord::Schema.define(version: 2026_01_03_000001) do
     t.string "stop_message_key"
     t.index ["exchange_id"], name: "index_bots_on_exchange_id"
     t.index ["user_id"], name: "index_bots_on_user_id"
+  end
+
+  create_table "caffeinate_campaign_subscriptions", force: :cascade do |t|
+    t.bigint "caffeinate_campaign_id", null: false
+    t.string "subscriber_type", null: false
+    t.integer "subscriber_id", null: false
+    t.string "user_type"
+    t.integer "user_id"
+    t.string "token", null: false
+    t.datetime "ended_at"
+    t.string "ended_reason"
+    t.datetime "resubscribed_at"
+    t.datetime "unsubscribed_at"
+    t.string "unsubscribe_reason"
+    t.datetime "created_at", precision: 6, null: false
+    t.datetime "updated_at", precision: 6, null: false
+    t.index ["caffeinate_campaign_id", "subscriber_id", "subscriber_type", "user_id", "user_type", "ended_at", "resubscribed_at", "unsubscribed_at"], name: "index_caffeinate_campaign_subscriptions"
+    t.index ["caffeinate_campaign_id"], name: "caffeineate_campaign_subscriptions_on_campaign"
+    t.index ["token"], name: "index_caffeinate_campaign_subscriptions_on_token", unique: true
+  end
+
+  create_table "caffeinate_campaigns", force: :cascade do |t|
+    t.string "name", null: false
+    t.string "slug", null: false
+    t.boolean "active", default: true, null: false
+    t.datetime "created_at", precision: 6, null: false
+    t.datetime "updated_at", precision: 6, null: false
+    t.index ["slug"], name: "index_caffeinate_campaigns_on_slug", unique: true
+  end
+
+  create_table "caffeinate_mailings", force: :cascade do |t|
+    t.bigint "caffeinate_campaign_subscription_id", null: false
+    t.datetime "send_at", null: false
+    t.datetime "sent_at"
+    t.datetime "skipped_at"
+    t.string "mailer_class", null: false
+    t.string "mailer_action", null: false
+    t.datetime "created_at", precision: 6, null: false
+    t.datetime "updated_at", precision: 6, null: false
+    t.index ["caffeinate_campaign_subscription_id", "send_at", "sent_at", "skipped_at"], name: "index_caffeinate_mailings"
+    t.index ["caffeinate_campaign_subscription_id"], name: "index_caffeinate_mailings_on_campaign_subscription"
+  end
+
+  create_table "cards", force: :cascade do |t|
+    t.bigint "user_id", null: false
+    t.string "token", null: false
+    t.string "first_transaction_id"
+    t.string "ip"
+    t.index ["user_id"], name: "index_cards_on_user_id"
+  end
+
+  create_table "conversion_rates", force: :cascade do |t|
+    t.string "currency", null: false
+    t.decimal "rate", null: false
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["currency"], name: "index_conversion_rates_on_currency", unique: true
+  end
+
+  create_table "countries", force: :cascade do |t|
+    t.string "name", null: false
+    t.decimal "vat_rate", precision: 2, scale: 2, null: false
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.string "code"
+    t.boolean "eu_member", default: false, null: false
+    t.integer "currency", default: 0, null: false
   end
 
   create_table "daily_transaction_aggregates", force: :cascade do |t|
@@ -149,6 +303,114 @@ ActiveRecord::Schema.define(version: 2026_01_03_000001) do
     t.string "encrypted_passphrase"
     t.string "encrypted_passphrase_iv"
     t.index ["exchange_id"], name: "index_fee_api_keys_on_exchange_id"
+  end
+
+  create_table "payments", force: :cascade do |t|
+    t.string "payment_id"
+    t.integer "status", null: false
+    t.decimal "total", precision: 10, scale: 2, null: false
+    t.integer "currency", null: false
+    t.bigint "user_id", null: false
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.string "first_name"
+    t.string "last_name"
+    t.date "birth_date"
+    t.datetime "paid_at"
+    t.decimal "btc_total", precision: 16, scale: 8, default: "0.0", null: false
+    t.decimal "btc_paid", precision: 16, scale: 8, default: "0.0", null: false
+    t.decimal "commission", precision: 10, scale: 2, null: false
+    t.decimal "btc_commission", precision: 16, scale: 8, default: "0.0", null: false
+    t.boolean "discounted", null: false
+    t.bigint "subscription_plan_variant_id", null: false
+    t.string "country", null: false
+    t.boolean "gads_tracked", default: false
+    t.boolean "commission_granted", default: false
+    t.string "type"
+    t.jsonb "external_statuses", default: []
+    t.boolean "recurring", default: false, null: false
+    t.string "url"
+    t.string "finger_print_id"
+    t.index ["currency"], name: "index_payments_on_currency"
+    t.index ["status"], name: "index_payments_on_status"
+    t.index ["subscription_plan_variant_id"], name: "index_payments_on_subscription_plan_variant_id"
+    t.index ["type"], name: "index_payments_on_type"
+    t.index ["user_id"], name: "index_payments_on_user_id"
+  end
+
+  create_table "portfolio_assets", force: :cascade do |t|
+    t.bigint "portfolio_id", null: false
+    t.string "ticker"
+    t.decimal "allocation", precision: 5, scale: 4, default: "0.0", null: false
+    t.datetime "created_at", precision: 6, null: false
+    t.datetime "updated_at", precision: 6, null: false
+    t.string "color"
+    t.string "name"
+    t.string "api_id"
+    t.string "category"
+    t.string "url"
+    t.string "country"
+    t.string "exchange"
+    t.index ["portfolio_id"], name: "index_portfolio_assets_on_portfolio_id"
+  end
+
+  create_table "portfolios", force: :cascade do |t|
+    t.bigint "user_id", null: false
+    t.integer "strategy", default: 0, null: false
+    t.boolean "smart_allocation_on", default: false, null: false
+    t.integer "risk_level", default: 2, null: false
+    t.integer "benchmark", default: 0, null: false
+    t.datetime "created_at", precision: 6, null: false
+    t.datetime "updated_at", precision: 6, null: false
+    t.decimal "risk_free_rate", precision: 5, scale: 4, default: "0.0", null: false
+    t.string "label"
+    t.jsonb "compare_to", default: [], null: false
+    t.date "backtest_start_date", default: "2020-01-01", null: false
+    t.index ["user_id"], name: "index_portfolios_on_user_id"
+  end
+
+  create_table "setting_flags", force: :cascade do |t|
+    t.string "name"
+    t.boolean "value"
+  end
+
+  create_table "subscription_plan_variants", force: :cascade do |t|
+    t.integer "subscription_plan_id", null: false
+    t.integer "days"
+    t.decimal "cost_eur", precision: 10, scale: 2
+    t.decimal "cost_usd", precision: 10, scale: 2
+    t.datetime "created_at", precision: 6, null: false
+    t.datetime "updated_at", precision: 6, null: false
+  end
+
+  create_table "subscription_plans", force: :cascade do |t|
+    t.string "name"
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+  end
+
+  create_table "subscriptions", force: :cascade do |t|
+    t.bigint "subscription_plan_variant_id"
+    t.bigint "user_id"
+    t.datetime "ends_at"
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.integer "nft_id"
+    t.string "eth_address"
+    t.boolean "auto_renew", default: false
+    t.index ["nft_id"], name: "index_subscriptions_on_nft_id", unique: true, where: "(nft_id IS NOT NULL)"
+    t.index ["subscription_plan_variant_id"], name: "index_subscriptions_on_subscription_plan_variant_id"
+    t.index ["user_id"], name: "index_subscriptions_on_user_id"
+  end
+
+  create_table "surveys", force: :cascade do |t|
+    t.bigint "user_id", null: false
+    t.string "type", null: false
+    t.jsonb "answers", default: {}, null: false
+    t.datetime "created_at", precision: 6, null: false
+    t.datetime "updated_at", precision: 6, null: false
+    t.index ["user_id", "type"], name: "index_surveys_on_user_id_and_type", unique: true
+    t.index ["user_id"], name: "index_surveys_on_user_id"
   end
 
   create_table "tickers", force: :cascade do |t|
@@ -222,31 +484,58 @@ ActiveRecord::Schema.define(version: 2026_01_03_000001) do
     t.datetime "updated_at", null: false
     t.string "unconfirmed_email"
     t.boolean "admin", default: false, null: false
+    t.boolean "terms_and_conditions"
+    t.boolean "updates_agreement"
+    t.boolean "welcome_banner_dismissed", default: false
+    t.bigint "referrer_id"
     t.boolean "show_smart_intervals_info", default: true, null: false
+    t.string "pending_wire_transfer"
+    t.integer "pending_plan_variant_id"
     t.string "otp_secret_key"
     t.integer "otp_module", default: 0
+    t.boolean "referral_banner_dismissed", default: false
     t.datetime "last_otp_at"
     t.string "name"
+    t.boolean "news_banner_dismissed", default: false
     t.string "time_zone", default: "UTC", null: false
+    t.string "oauth_provider"
+    t.string "oauth_uid"
+    t.boolean "has_community_access", default: false
+    t.boolean "subscribed_to_email_marketing", default: true
     t.string "locale"
     t.index ["confirmation_token"], name: "index_users_on_confirmation_token", unique: true
     t.index ["email"], name: "index_users_on_email", unique: true
     t.index ["reset_password_token"], name: "index_users_on_reset_password_token", unique: true
   end
 
+  add_foreign_key "affiliates", "users"
   add_foreign_key "api_keys", "exchanges"
   add_foreign_key "api_keys", "users"
+  add_foreign_key "articles", "authors"
   add_foreign_key "bots", "exchanges"
   add_foreign_key "bots", "users"
+  add_foreign_key "caffeinate_campaign_subscriptions", "caffeinate_campaigns"
+  add_foreign_key "caffeinate_mailings", "caffeinate_campaign_subscriptions"
+  add_foreign_key "cards", "users"
   add_foreign_key "daily_transaction_aggregates", "bots"
   add_foreign_key "exchange_assets", "assets"
   add_foreign_key "exchange_assets", "exchanges"
   add_foreign_key "fee_api_keys", "exchanges"
+  add_foreign_key "payments", "subscription_plan_variants"
+  add_foreign_key "payments", "users"
+  add_foreign_key "portfolio_assets", "portfolios"
+  add_foreign_key "portfolios", "users"
+  add_foreign_key "subscription_plan_variants", "subscription_plans"
+  add_foreign_key "subscriptions", "subscription_plan_variants"
+  add_foreign_key "subscriptions", "users"
+  add_foreign_key "surveys", "users"
   add_foreign_key "tickers", "assets", column: "base_asset_id"
   add_foreign_key "tickers", "assets", column: "quote_asset_id"
   add_foreign_key "tickers", "exchanges"
   add_foreign_key "transactions", "bots"
   add_foreign_key "transactions", "exchanges"
+  add_foreign_key "users", "affiliates", column: "referrer_id"
+  add_foreign_key "users", "subscription_plan_variants", column: "pending_plan_variant_id"
 
   create_view "bots_total_amounts", materialized: true, sql_definition: <<-SQL
       SELECT transactions.bot_id,

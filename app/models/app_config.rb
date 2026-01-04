@@ -1,6 +1,8 @@
 class AppConfig < ApplicationRecord
   validates :key, presence: true, uniqueness: true
 
+  attr_encrypted :value, key: ENV.fetch('APP_ENCRYPTION_KEY')
+
   COINGECKO_API_KEY = 'coingecko_api_key'.freeze
   SETUP_SYNC_STATUS = 'setup_sync_status'.freeze
 
