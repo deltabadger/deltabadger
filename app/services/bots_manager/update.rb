@@ -36,7 +36,6 @@ module BotsManager
         BotsManager::Trading::Validators::Update.new
       elsif bot.withdrawal?
         BotsManager::Withdrawal::Validators::Update.new
-      else
       end
     end
 
@@ -45,7 +44,6 @@ module BotsManager
         BotsManager::Trading::FormatParams::Update.new
       elsif bot.withdrawal?
         BotsManager::Withdrawal::FormatParams::Update.new
-      else
       end
     end
   end
