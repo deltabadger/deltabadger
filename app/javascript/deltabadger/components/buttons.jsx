@@ -13,14 +13,14 @@ export const startButtonType = {
     FAILED: "failed"
 }
 let timeout;
-const NOT_RELEVANT_BOTS = ["Coinbase Pro"];
+
 
 export const StartButton = ({settings, getRestartType, onClickReset, setShowInfo, exchangeName, newSettings}) => {
   const [isOpen, setOpen] = useState(false)
   const [getType, setType] = useState(startButtonType.ON_SCHEDULE)
   const [timeToNextTransaction, setTimeToNextTransaction] = useState("")
   const [missedAmount, setMissedAmount] = useState(0.0)
-  const [showStart, setShowStart] = useState(!NOT_RELEVANT_BOTS.includes(exchangeName))
+  const [showStart, setShowStart] = useState(true)
   const node = useRef()
 
   const handleClickOutside = e => {
