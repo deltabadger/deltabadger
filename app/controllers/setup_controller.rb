@@ -14,11 +14,18 @@ class SetupController < ApplicationController
     @user.admin = true
     @user.confirmed_at = Time.current
 
+    # Validate CoinGecko API key before creating admin account
+    unless validate_coingecko_api_key(params[:coingecko_api_key])
+      @user.errors.add(:base, t('setup.invalid_coingecko_api_key'))
+      set_form_instance_variables
+      return render :new, status: :unprocessable_entity
+    end
+
     if @user.save
       AppConfig.coingecko_api_key = params[:coingecko_api_key]
       AppConfig.setup_sync_status = AppConfig::SYNC_STATUS_PENDING
       sign_in(@user)
-      Asset::FetchAllAssetsDataFromCoingeckoJob.perform_later
+      Setup::SeedAndSyncJob.perform_later
       redirect_to setup_syncing_path
     else
       set_form_instance_variables
@@ -36,6 +43,14 @@ class SetupController < ApplicationController
 
   def admin_params
     params.require(:user).permit(:name, :email, :password)
+  end
+
+  def validate_coingecko_api_key(api_key)
+    return false if api_key.blank?
+
+    coingecko = Coingecko.new(api_key: api_key)
+    result = coingecko.get_coins_list_with_market_data(ids: ['bitcoin'], limit: 1)
+    result.success?
   end
 
   def ensure_setup_required

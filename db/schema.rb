@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema.define(version: 2026_01_02_171555) do
+ActiveRecord::Schema.define(version: 2026_01_03_000001) do
 
   # These are extensions that must be enabled in order to support this database
   enable_extension "plpgsql"
@@ -31,6 +31,14 @@ ActiveRecord::Schema.define(version: 2026_01_02_171555) do
     t.integer "key_type", default: 0, null: false
     t.index ["exchange_id"], name: "index_api_keys_on_exchange_id"
     t.index ["user_id"], name: "index_api_keys_on_user_id"
+  end
+
+  create_table "app_configs", force: :cascade do |t|
+    t.string "key", null: false
+    t.text "value"
+    t.datetime "created_at", precision: 6, null: false
+    t.datetime "updated_at", precision: 6, null: false
+    t.index ["key"], name: "index_app_configs_on_key", unique: true
   end
 
   create_table "assets", force: :cascade do |t|
@@ -119,7 +127,7 @@ ActiveRecord::Schema.define(version: 2026_01_02_171555) do
     t.index ["asset_id"], name: "index_exchange_assets_on_asset_id"
     t.index ["exchange_id"], name: "index_exchange_assets_on_exchange_id"
   end
- 
+
   create_table "exchanges", force: :cascade do |t|
     t.string "name"
     t.datetime "created_at", null: false

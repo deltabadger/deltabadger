@@ -1,0 +1,23 @@
+nl:
+  setup:
+    title: "Welkom bij Deltabadger"
+    admin_account: "Beheerdersaccount"
+    api_configuration: "CoinGecko API"
+    coingecko_api_key: "CoinGecko API-sleutel"
+    coingecko_api_key_hint_html: |
+      <ol>
+        <li>Meld je aan op <a href="https://www.coingecko.com/nl/api" target="_blank" rel="noopener">CoinGecko</a></li>
+        <li>Ga naar het <a href="https://www.coingecko.com/nl/api" target="_blank" rel="noopener">API-gedeelte</a></li>
+        <li>Klik op <b>Haal nu je API-sleutel op</b></li>
+        <li><b>Maak gratis account aan</b> staat onder de prijzen</li>
+        <li>Vul het formulier in</li>
+        <li>Klik op <b>API-sleutel maken</b></li>
+        <li><b>Kopieer de API-sleutel</b> en plak deze hierboven</li>
+      </ol>
+    submit: "Starten"
+    success: "Setup succesvol voltooid. Welkom bij Deltabadger!"
+    syncing_title: "Assets synchroniseren…"
+    syncing_message: "Assets synchroniseren…"
+    syncing_hint: "Dit kan enkele minuten duren"
+    invalid_coingecko_api_key: "Ongeldige CoinGecko API-sleutel. Controleer alstublieft uw sleutel en probeer het opnieuw."
+    retry: "Opnieuw proberen"
