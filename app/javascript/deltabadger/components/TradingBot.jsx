@@ -534,7 +534,6 @@ const BotTemplate = ({
               disabled={working}
           />
           <div>
-            <RawHTML tag="span">{splitTranslation(I18n.t('bot.subaccounts_info'))}</RawHTML>
             <select
                 value={selectedSubaccount}
                 onChange={e => setSelectedSubaccount(e.target.value)}

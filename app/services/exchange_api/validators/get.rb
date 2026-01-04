@@ -2,7 +2,6 @@ module ExchangeApi
   module Validators
     class Get < BaseService
       include ExchangeApi::BinanceEnum
-      include ExchangeApi::FtxEnum
 
       def call(exchange_id, key_type)
         exchange = Exchange.find(exchange_id)
@@ -23,14 +22,10 @@ module ExchangeApi
         when 'coinbase pro' then CoinbasePro::Validator.new
         when 'coinbase' then Coinbase::Validator.new
         when 'gemini' then Gemini::Validator.new
-        when 'ftx' then Ftx::Validator.new(url_base: FTX_EU_URL_BASE)
-        when 'ftx.us' then Ftx::Validator.new(url_base: FTX_US_URL_BASE)
         when 'bitso' then Bitso::Validator.new
         when 'kucoin' then Kucoin::Validator.new
         when 'bitfinex' then Bitfinex::Validator.new
         when 'bitstamp' then Bitstamp::Validator.new
-        when 'probit global' then Probit::Validator.new
-        when 'probit' then Probit::Validator.new
         end
       end
       # rubocop:enable Metrics/CyclomaticComplexity
@@ -41,10 +36,6 @@ module ExchangeApi
         case exchange.name.downcase
         when 'kraken'
           ExchangeApi::Validators::Kraken::WithdrawalValidator.new
-        when 'ftx'
-          ExchangeApi::Validators::Ftx::WithdrawalValidator.new(url_base: FTX_EU_URL_BASE)
-        when 'ftx.us'
-          ExchangeApi::Validators::Ftx::WithdrawalValidator.new(url_base: FTX_US_URL_BASE)
         end
       end
     end
