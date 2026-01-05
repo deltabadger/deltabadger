@@ -186,7 +186,7 @@ const BotTemplate = ({
   const isSellOffer = () => settings.type === 'sell'
   const isLegacySell = () => settings.type === 'sell_old'
 
-  const isLimitOrderDefinedInBase = (name) => ['Coinbase Pro', 'KuCoin'].includes(name)
+  const isLimitOrderDefinedInBase = (name) => ['KuCoin'].includes(name)
 
   const baseName = shouldRename(exchangeName) ? renameSymbol(settings.base) : settings.base
   const quoteName = shouldRename(exchangeName) ? renameSymbol(settings.quote) : settings.quote

@@ -10,7 +10,7 @@
       <div style="display: flex; gap: 1rem; padding-right: 0.5rem">
         <%= t('bot.setup.sentence.at') %>
         <%= form_with url: new_bots_dca_single_assets_pick_exchange_path, method: :get, data: { controller: "form--submit-after-delay", turbo_frame: "exchange-picker" } do |f| %>
-          <%= f.text_field :query, autofocus: true, autocomplete: "off", placeholder: "…", data: { action: "input->form--submit-after-delay#submit" }, class: "conversational__input" %>
+          <%= f.text_field :query, autofocus: true, autocomplete: "off", placeholder: "…", data: { action: "input->form--submit-after-delay#submit" }, class: "conversational__input sinput" %>
         <% end %>
       </div>
     </div>

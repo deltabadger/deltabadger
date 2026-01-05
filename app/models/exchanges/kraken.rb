@@ -1,5 +1,8 @@
 class Exchanges::Kraken < Exchange
   COINGECKO_ID = 'kraken'.freeze # https://docs.coingecko.com/reference/exchanges-list
+  ASSET_BLACKLIST = [
+    'COPM' # has the same external_id (ecomi) as OMI. Remove it when Kraken delists COPM pairs
+  ].freeze
   ASSET_MAP = {
     'ZUSD' => 'USD',
     'ZEUR' => 'EUR',
@@ -61,7 +64,7 @@ class Exchanges::Kraken < Exchange
 
   def get_tickers_info(force: false)
     cache_key = "exchange_#{id}_tickers_info"
-    tickers_info = Rails.cache.fetch(cache_key, expires_in: 1.hour, force: force) do
+    tickers_info = Rails.cache.fetch(cache_key, expires_in: 1.hour, force:) do
       result = client.get_tradable_asset_pairs
       return result if result.failure?
 
@@ -77,11 +80,11 @@ class Exchanges::Kraken < Exchange
         # minimum_quote_size = (REAL_COSTMIN[quote] || Utilities::Hash.dig_or_raise(info, 'costmin')).to_d
         minimum_quote_size = (REAL_COSTMIN[quote] || info['costmin'] || 0).to_d # some assets have no costmin
         {
-          ticker: ticker,
-          base: base,
-          quote: quote,
-          minimum_base_size: minimum_base_size,
-          minimum_quote_size: minimum_quote_size,
+          ticker:,
+          base:,
+          quote:,
+          minimum_base_size:,
+          minimum_quote_size:,
           maximum_base_size: nil,
           maximum_quote_size: nil,
           base_decimals: Utilities::Hash.dig_or_raise(info, 'lot_decimals'),
@@ -97,7 +100,7 @@ class Exchanges::Kraken < Exchange
 
   def get_tickers_prices(force: false)
     cache_key = "exchange_#{id}_prices"
-    tickers_prices = Rails.cache.fetch(cache_key, expires_in: 1.minute, force: force) do
+    tickers_prices = Rails.cache.fetch(cache_key, expires_in: 1.minute, force:) do
       result = client.get_ticker_information
       return result if result.failure?
 
@@ -152,7 +155,7 @@ class Exchanges::Kraken < Exchange
       total = Utilities::Hash.dig_or_raise(balance, 'balance').to_d
       locked = Utilities::Hash.dig_or_raise(balance, 'hold_trade').to_d
       free = total - locked
-      balances[asset.id] = { free: free, locked: locked }
+      balances[asset.id] = { free:, locked: }
     end
 
     Result::Success.new(balances)
@@ -160,7 +163,7 @@ class Exchanges::Kraken < Exchange
 
   def get_last_price(ticker:, force: false)
     cache_key = "exchange_#{id}_last_price_#{ticker.id}"
-    price = Rails.cache.fetch(cache_key, expires_in: 5.seconds, force: force) do
+    price = Rails.cache.fetch(cache_key, expires_in: 5.seconds, force:) do
       result = get_ticker_information(ticker)
       return result if result.failure?
 
@@ -175,7 +178,7 @@ class Exchanges::Kraken < Exchange
 
   def get_bid_price(ticker:, force: false)
     cache_key = "exchange_#{id}_bid_price_#{ticker.id}"
-    price = Rails.cache.fetch(cache_key, expires_in: 5.seconds, force: force) do
+    price = Rails.cache.fetch(cache_key, expires_in: 5.seconds, force:) do
       result = get_ticker_information(ticker)
       return result if result.failure?
 
@@ -190,7 +193,7 @@ class Exchanges::Kraken < Exchange
 
   def get_ask_price(ticker:, force: false)
     cache_key = "exchange_#{id}_ask_price_#{ticker.id}"
-    price = Rails.cache.fetch(cache_key, expires_in: 5.seconds, force: force) do
+    price = Rails.cache.fetch(cache_key, expires_in: 5.seconds, force:) do
       result = get_ticker_information(ticker)
       return result if result.failure?
 
@@ -226,7 +229,7 @@ class Exchanges::Kraken < Exchange
     start_at -= 1.second
     result = client.get_ohlc_data(
       pair: ticker.ticker,
-      interval: interval,
+      interval:,
       since: start_at.to_i
     )
     return result if result.failure?
@@ -249,9 +252,9 @@ class Exchanges::Kraken < Exchange
       candles << new_candle if new_candle[0] >= start_at
     end
 
-    candles = build_candles_from_candles(candles: candles, timeframe: timeframe) if timeframe.in?([3.days,
-                                                                                                   1.week,
-                                                                                                   1.month])
+    candles = build_candles_from_candles(candles:, timeframe:) if timeframe.in?([3.days,
+                                                                                 1.week,
+                                                                                 1.month])
 
     Result::Success.new(candles)
   end
@@ -259,9 +262,9 @@ class Exchanges::Kraken < Exchange
   # @param amount_type [Symbol] :base or :quote
   def market_buy(ticker:, amount:, amount_type:)
     set_market_order(
-      ticker: ticker,
-      amount: amount,
-      amount_type: amount_type,
+      ticker:,
+      amount:,
+      amount_type:,
       side: :buy
     )
   end
@@ -269,9 +272,9 @@ class Exchanges::Kraken < Exchange
   # @param amount_type [Symbol] :base or :quote
   def market_sell(ticker:, amount:, amount_type:)
     set_market_order(
-      ticker: ticker,
-      amount: amount,
-      amount_type: amount_type,
+      ticker:,
+      amount:,
+      amount_type:,
       side: :sell
     )
   end
@@ -279,22 +282,22 @@ class Exchanges::Kraken < Exchange
   # @param amount_type [Symbol] :base or :quote
   def limit_buy(ticker:, amount:, amount_type:, price:)
     set_limit_order(
-      ticker: ticker,
-      amount: amount,
-      amount_type: amount_type,
+      ticker:,
+      amount:,
+      amount_type:,
       side: :buy,
-      price: price
+      price:
     )
   end
 
   # @param amount_type [Symbol] :base or :quote
   def limit_sell(ticker:, amount:, amount_type:, price:)
     set_limit_order(
-      ticker: ticker,
-      amount: amount,
-      amount_type: amount_type,
+      ticker:,
+      amount:,
+      amount_type:,
       side: :sell,
-      price: price
+      price:
     )
   end
 
@@ -455,7 +458,7 @@ class Exchanges::Kraken < Exchange
   def set_market_order(ticker:, amount:, amount_type:, side:)
     raise 'Kraken does not support market sell orders in quote currency' if side == :sell && amount_type == :quote
 
-    amount = ticker.adjusted_amount(amount: amount, amount_type: amount_type)
+    amount = ticker.adjusted_amount(amount:, amount_type:)
 
     order_settings = {
       ordertype: 'market',
@@ -474,7 +477,7 @@ class Exchanges::Kraken < Exchange
     return Result::Failure.new("Failed to set #{name} market order (order_id is nil)") if order_id.nil?
 
     data = {
-      order_id: order_id
+      order_id:
     }
 
     Result::Success.new(data)
@@ -485,8 +488,8 @@ class Exchanges::Kraken < Exchange
   # @param side [Symbol] must be either :buy or :sell
   # @param price [Float] must be a positive number
   def set_limit_order(ticker:, amount:, amount_type:, side:, price:)
-    amount = ticker.adjusted_amount(amount: amount, amount_type: amount_type)
-    price = ticker.adjusted_price(price: price)
+    amount = ticker.adjusted_amount(amount:, amount_type:)
+    price = ticker.adjusted_price(price:)
 
     order_settings = {
       ordertype: 'limit',
@@ -506,7 +509,7 @@ class Exchanges::Kraken < Exchange
     return Result::Failure.new("Failed to set #{name} limit order (order_id is nil)") if order_id.nil?
 
     data = {
-      order_id: order_id
+      order_id:
     }
 
     Result::Success.new(data)
@@ -539,17 +542,17 @@ class Exchanges::Kraken < Exchange
     status = parse_order_status(Utilities::Hash.dig_or_raise(order_data, 'status'))
 
     {
-      order_id: order_id,
-      ticker: ticker,
-      price: price,
-      amount: amount,                       # amount in the order config
-      quote_amount: quote_amount,           # amount in the order config
-      amount_exec: amount_exec,             # amount the account balance went up or down
-      quote_amount_exec: quote_amount_exec, # amount the account balance went up or down
-      side: side,
-      order_type: order_type,
+      order_id:,
+      ticker:,
+      price:,
+      amount:, # amount in the order config
+      quote_amount:, # amount in the order config
+      amount_exec:, # amount the account balance went up or down
+      quote_amount_exec:, # amount the account balance went up or down
+      side:,
+      order_type:,
       error_messages: errors,
-      status: status,
+      status:,
       exchange_response: order_data
     }
   end

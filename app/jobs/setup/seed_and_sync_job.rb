@@ -20,17 +20,23 @@ class Setup::SeedAndSyncJob < ApplicationJob
   end
 
   def sync_exchanges
-    Exchange.available_for_new_bots.each do |exchange|
+    exchanges = Exchange.available_for_new_bots.to_a
+    exchanges.each_with_index do |exchange, index|
       Exchange::SyncTickersAndAssetsJob.new.perform(exchange)
+      # Wait between exchanges to avoid CoinGecko rate limiting (30 req/min)
+      sleep(65) if index < exchanges.length - 1
     rescue StandardError => e
       Rails.logger.warn "[Setup] Error syncing #{exchange.name}: #{e.message}"
     end
   end
 
   def sync_assets_with_coingecko
+    # Wait for rate limit to reset after exchange sync
+    sleep(65)
+
     # Call existing job synchronously (skip its mark_sync_* methods by calling perform directly)
     job = Asset::FetchAllAssetsDataFromCoingeckoJob.new
-    
+
     asset_ids = Asset.where(category: 'Cryptocurrency').pluck(:external_id).compact
     return if asset_ids.empty?
 

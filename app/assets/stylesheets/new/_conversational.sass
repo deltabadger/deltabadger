@@ -36,12 +36,16 @@
     &__input
         border: none
         margin: 0
-        background: none
+        background: var(--sinput-on-paper)
+        border-radius: 2rem
         color: var(--link) !important
         text-align: left
         max-width: 10rem
         text-transform: uppercase
         text-align: center
+        font-size: 2rem
+        position: relative
+        top: -0.2rem
         &:focus
             outline: none
         &::placeholder
@@ -53,10 +57,10 @@
     .ticker
         box-shadow: 1px 1px 2px #0002
     .sinput
-        margin-left: -.5rem
-        margin-right: -.5rem
-        padding-left: 1rem
-        padding-right: 1rem
+        margin-left: -.25rem
+        margin-right: -.25rem
+        padding-left: 1.25rem
+        padding-right: 1.25rem
         color: var(--link)
         background: var(--sinput-on-paper)
         text-align: center
