@@ -71,8 +71,12 @@ COPY --from=frontend-builder /app/node_modules ./node_modules
 # Copy application code
 COPY . .
 
+# Create writable directories for asset compilation
+RUN mkdir -p /app/tmp/cache/assets /app/tmp/pids /app/log
+
 # Precompile assets - all ENV.fetch calls need placeholder values during build
-RUN SECRET_KEY_BASE=placeholder \
+RUN YARN_CACHE_FOLDER=/tmp/yarn-cache \
+    SECRET_KEY_BASE=placeholder \
     DEVISE_SECRET_KEY=placeholder \
     RAILS_ENV=production \
     REDIS_SIDEKIQ_URL=redis://localhost:6379/0 \
@@ -119,7 +123,8 @@ RUN apt-get update -qq && \
     libsodium23 \
     postgresql-client \
     netcat-openbsd \
-    tzdata && \
+    tzdata \
+    imagemagick && \
     rm -rf /var/lib/apt/lists/* /var/cache/apt/archives/*
 
 # Create non-root user for security

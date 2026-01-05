@@ -19,11 +19,6 @@ export const exchanges = {
       url: 'https://r.kraken.com/deltabadger',
       translation_key: 'kraken',
   },
-  'coinbase pro': {
-    name: 'Coinbase Pro',
-    url: 'https://pro.coinbase.com/',
-    translation_key: 'coinbase_pro',
-  },
   'coinbase': {
       name: 'Coinbase',
       url: 'https://www.coinbase.com/advanced-trade',
