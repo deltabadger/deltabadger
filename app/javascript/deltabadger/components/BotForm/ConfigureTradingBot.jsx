@@ -288,7 +288,7 @@ export const ConfigureTradingBot = ({ showLimitOrders, currentExchange, handleRe
     }
   }
 
-  const isLimitOrderDefinedInBase = (name) => ['Coinbase Pro', 'KuCoin'].includes(name)
+  const isLimitOrderDefinedInBase = (name) => ['KuCoin'].includes(name)
 
   const splitTranslation = (s) => {
     return s.split(/<split>.*?<\/split>/)

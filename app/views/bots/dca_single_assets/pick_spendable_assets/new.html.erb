@@ -17,7 +17,7 @@
       </div>
       <%= t('bot.setup.sentence.spending') %>
       <%= form_with url: new_bots_dca_single_assets_pick_spendable_asset_path, method: :get, data: { controller: "form--submit-after-delay", turbo_frame: "asset-picker" } do |f| %>
-        <%= f.text_field :query, autofocus: true, autocomplete: "off", placeholder: "…", data: { action: "input->form--submit-after-delay#submit" }, class: "conversational__input" %>
+        <%= f.text_field :query, autofocus: true, autocomplete: "off", placeholder: "…", data: { action: "input->form--submit-after-delay#submit" }, class: "conversational__input sinput" %>
       <% end %>
     </div>
 

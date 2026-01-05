@@ -4,7 +4,7 @@ module Utilities
       image = MiniMagick::Image.new(image_path)
 
       # Get image histogram
-      result = MiniMagick::Tool::Magick.new do |convert|
+      result = MiniMagick::Tool::Convert.new do |convert|
         convert << image.path
         convert << '-format' << '%c'
         convert << '-colors' << quantity.to_s
