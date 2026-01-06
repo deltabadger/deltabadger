@@ -14,7 +14,6 @@ module ExchangeApi
         when 'binance.us' then binance_client(api_key, order_type, US_URL_BASE)
         when 'zonda' then zonda_client(api_key, order_type)
         when 'kraken' then kraken_client(api_key, order_type)
-        when 'coinbase pro' then coinbase_pro_client(api_key, order_type)
         when 'coinbase' then coinbase_client(api_key, order_type)
         when 'gemini' then gemini_client(api_key, order_type)
         when 'bitso' then bitso_client(api_key, order_type)
@@ -71,19 +70,6 @@ module ExchangeApi
           api_key: api_key.key,
           api_secret: api_key.secret,
           options: { german_trading_agreement: api_key.german_trading_agreement }
-        )
-      end
-
-      def coinbase_pro_client(api_key, order_type)
-        client = if limit_trader?(order_type)
-                   ExchangeApi::Traders::CoinbasePro::LimitTrader
-                 else
-                   ExchangeApi::Traders::CoinbasePro::MarketTrader
-                 end
-        client.new(
-          api_key: api_key.key,
-          api_secret: api_key.secret,
-          passphrase: api_key.passphrase
         )
       end
 
