@@ -10,8 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema.define(version: 2026_01_06_111302) do
-
+ActiveRecord::Schema[7.2].define(version: 2026_01_06_115209) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "plpgsql"
 
@@ -27,11 +26,11 @@ ActiveRecord::Schema.define(version: 2026_01_06_111302) do
     t.string "visible_link"
     t.decimal "discount_percent", precision: 3, scale: 2, null: false
     t.decimal "total_bonus_percent", precision: 3, scale: 2, null: false
-    t.datetime "created_at", null: false
-    t.datetime "updated_at", null: false
+    t.datetime "created_at", precision: nil, null: false
+    t.datetime "updated_at", precision: nil, null: false
     t.string "new_btc_address"
     t.string "new_btc_address_token"
-    t.datetime "new_btc_address_send_at"
+    t.datetime "new_btc_address_send_at", precision: nil
     t.boolean "active", default: true, null: false
     t.decimal "unexported_btc_commission", precision: 16, scale: 8, default: "0.0", null: false
     t.decimal "exported_btc_commission", precision: 16, scale: 8, default: "0.0", null: false
@@ -55,7 +54,7 @@ ActiveRecord::Schema.define(version: 2026_01_06_111302) do
     t.string "to"
     t.string "mailer"
     t.text "subject"
-    t.datetime "sent_at"
+    t.datetime "sent_at", precision: nil
     t.string "campaign"
     t.index ["campaign"], name: "index_ahoy_messages_on_campaign"
     t.index ["to"], name: "index_ahoy_messages_on_to"
@@ -73,8 +72,8 @@ ActiveRecord::Schema.define(version: 2026_01_06_111302) do
     t.bigint "user_id", null: false
     t.string "encrypted_key"
     t.string "encrypted_key_iv"
-    t.datetime "created_at", null: false
-    t.datetime "updated_at", null: false
+    t.datetime "created_at", precision: nil, null: false
+    t.datetime "updated_at", precision: nil, null: false
     t.string "encrypted_secret"
     t.string "encrypted_secret_iv"
     t.boolean "german_trading_agreement"
@@ -88,8 +87,8 @@ ActiveRecord::Schema.define(version: 2026_01_06_111302) do
 
   create_table "app_configs", force: :cascade do |t|
     t.string "key", null: false
-    t.datetime "created_at", precision: 6, null: false
-    t.datetime "updated_at", precision: 6, null: false
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
     t.text "encrypted_value"
     t.string "encrypted_value_iv"
     t.index ["key"], name: "index_app_configs_on_key", unique: true
@@ -106,9 +105,9 @@ ActiveRecord::Schema.define(version: 2026_01_06_111302) do
     t.bigint "author_id"
     t.integer "reading_time_minutes"
     t.boolean "published", default: false, null: false
-    t.datetime "published_at"
-    t.datetime "created_at", precision: 6, null: false
-    t.datetime "updated_at", precision: 6, null: false
+    t.datetime "published_at", precision: nil
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
     t.string "x_url"
     t.string "telegram_url"
     t.text "paywall_hook"
@@ -130,8 +129,8 @@ ActiveRecord::Schema.define(version: 2026_01_06_111302) do
     t.string "url"
     t.string "image_url"
     t.integer "market_cap_rank"
-    t.datetime "created_at", precision: 6, null: false
-    t.datetime "updated_at", precision: 6, null: false
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
     t.bigint "market_cap"
     t.index ["external_id"], name: "index_assets_on_external_id", unique: true
     t.index ["isin"], name: "index_assets_on_isin"
@@ -144,8 +143,8 @@ ActiveRecord::Schema.define(version: 2026_01_06_111302) do
     t.string "url"
     t.string "avatar"
     t.text "bio"
-    t.datetime "created_at", precision: 6, null: false
-    t.datetime "updated_at", precision: 6, null: false
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
     t.index ["name"], name: "index_authors_on_name"
   end
 
@@ -154,18 +153,18 @@ ActiveRecord::Schema.define(version: 2026_01_06_111302) do
     t.integer "status", default: 0, null: false
     t.bigint "user_id"
     t.jsonb "settings", default: {}, null: false
-    t.datetime "created_at", null: false
-    t.datetime "updated_at", null: false
+    t.datetime "created_at", precision: nil, null: false
+    t.datetime "updated_at", precision: nil, null: false
     t.integer "restarts", default: 0, null: false
     t.integer "delay", default: 0, null: false
     t.integer "current_delay", default: 0, null: false
-    t.datetime "settings_changed_at"
+    t.datetime "settings_changed_at", precision: nil
     t.integer "fetch_restarts", default: 0, null: false
     t.decimal "account_balance", default: "0.0"
-    t.datetime "last_end_of_funds_notification"
+    t.datetime "last_end_of_funds_notification", precision: nil
     t.jsonb "transient_data", default: {}, null: false
-    t.datetime "started_at"
-    t.datetime "stopped_at"
+    t.datetime "started_at", precision: nil
+    t.datetime "stopped_at", precision: nil
     t.string "label"
     t.string "type"
     t.string "stop_message_key"
@@ -180,13 +179,13 @@ ActiveRecord::Schema.define(version: 2026_01_06_111302) do
     t.string "user_type"
     t.integer "user_id"
     t.string "token", null: false
-    t.datetime "ended_at"
+    t.datetime "ended_at", precision: nil
     t.string "ended_reason"
-    t.datetime "resubscribed_at"
-    t.datetime "unsubscribed_at"
+    t.datetime "resubscribed_at", precision: nil
+    t.datetime "unsubscribed_at", precision: nil
     t.string "unsubscribe_reason"
-    t.datetime "created_at", precision: 6, null: false
-    t.datetime "updated_at", precision: 6, null: false
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
     t.index ["caffeinate_campaign_id", "subscriber_id", "subscriber_type", "user_id", "user_type", "ended_at", "resubscribed_at", "unsubscribed_at"], name: "index_caffeinate_campaign_subscriptions"
     t.index ["caffeinate_campaign_id"], name: "caffeineate_campaign_subscriptions_on_campaign"
     t.index ["token"], name: "index_caffeinate_campaign_subscriptions_on_token", unique: true
@@ -196,20 +195,20 @@ ActiveRecord::Schema.define(version: 2026_01_06_111302) do
     t.string "name", null: false
     t.string "slug", null: false
     t.boolean "active", default: true, null: false
-    t.datetime "created_at", precision: 6, null: false
-    t.datetime "updated_at", precision: 6, null: false
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
     t.index ["slug"], name: "index_caffeinate_campaigns_on_slug", unique: true
   end
 
   create_table "caffeinate_mailings", force: :cascade do |t|
     t.bigint "caffeinate_campaign_subscription_id", null: false
-    t.datetime "send_at", null: false
-    t.datetime "sent_at"
-    t.datetime "skipped_at"
+    t.datetime "send_at", precision: nil, null: false
+    t.datetime "sent_at", precision: nil
+    t.datetime "skipped_at", precision: nil
     t.string "mailer_class", null: false
     t.string "mailer_action", null: false
-    t.datetime "created_at", precision: 6, null: false
-    t.datetime "updated_at", precision: 6, null: false
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
     t.index ["caffeinate_campaign_subscription_id", "send_at", "sent_at", "skipped_at"], name: "index_caffeinate_mailings"
     t.index ["caffeinate_campaign_subscription_id"], name: "index_caffeinate_mailings_on_campaign_subscription"
   end
@@ -225,16 +224,16 @@ ActiveRecord::Schema.define(version: 2026_01_06_111302) do
   create_table "conversion_rates", force: :cascade do |t|
     t.string "currency", null: false
     t.decimal "rate", null: false
-    t.datetime "created_at", null: false
-    t.datetime "updated_at", null: false
+    t.datetime "created_at", precision: nil, null: false
+    t.datetime "updated_at", precision: nil, null: false
     t.index ["currency"], name: "index_conversion_rates_on_currency", unique: true
   end
 
   create_table "countries", force: :cascade do |t|
     t.string "name", null: false
     t.decimal "vat_rate", precision: 2, scale: 2, null: false
-    t.datetime "created_at", null: false
-    t.datetime "updated_at", null: false
+    t.datetime "created_at", precision: nil, null: false
+    t.datetime "updated_at", precision: nil, null: false
     t.string "code"
     t.boolean "eu_member", default: false, null: false
     t.integer "currency", default: 0, null: false
@@ -250,8 +249,8 @@ ActiveRecord::Schema.define(version: 2026_01_06_111302) do
     t.string "bot_interval", default: "", null: false
     t.string "transaction_type", default: "REGULAR", null: false
     t.string "called_bot_type"
-    t.datetime "created_at", null: false
-    t.datetime "updated_at", null: false
+    t.datetime "created_at", precision: nil, null: false
+    t.datetime "updated_at", precision: nil, null: false
     t.decimal "total_amount", default: "0.0", null: false
     t.decimal "total_value", default: "0.0", null: false
     t.decimal "total_invested", default: "0.0", null: false
@@ -274,8 +273,8 @@ ActiveRecord::Schema.define(version: 2026_01_06_111302) do
   create_table "exchange_assets", force: :cascade do |t|
     t.bigint "asset_id", null: false
     t.bigint "exchange_id", null: false
-    t.datetime "created_at", precision: 6, null: false
-    t.datetime "updated_at", precision: 6, null: false
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
     t.boolean "available", default: true
     t.index ["asset_id", "exchange_id"], name: "index_exchange_assets_on_asset_id_and_exchange_id", unique: true
     t.index ["asset_id"], name: "index_exchange_assets_on_asset_id"
@@ -284,8 +283,8 @@ ActiveRecord::Schema.define(version: 2026_01_06_111302) do
 
   create_table "exchanges", force: :cascade do |t|
     t.string "name"
-    t.datetime "created_at", null: false
-    t.datetime "updated_at", null: false
+    t.datetime "created_at", precision: nil, null: false
+    t.datetime "updated_at", precision: nil, null: false
     t.string "taker_fee"
     t.string "withdrawal_fee"
     t.string "maker_fee"
@@ -311,12 +310,12 @@ ActiveRecord::Schema.define(version: 2026_01_06_111302) do
     t.decimal "total", precision: 10, scale: 2, null: false
     t.integer "currency", null: false
     t.bigint "user_id", null: false
-    t.datetime "created_at", null: false
-    t.datetime "updated_at", null: false
+    t.datetime "created_at", precision: nil, null: false
+    t.datetime "updated_at", precision: nil, null: false
     t.string "first_name"
     t.string "last_name"
     t.date "birth_date"
-    t.datetime "paid_at"
+    t.datetime "paid_at", precision: nil
     t.decimal "btc_total", precision: 16, scale: 8, default: "0.0", null: false
     t.decimal "btc_paid", precision: 16, scale: 8, default: "0.0", null: false
     t.decimal "commission", precision: 10, scale: 2, null: false
@@ -342,8 +341,8 @@ ActiveRecord::Schema.define(version: 2026_01_06_111302) do
     t.bigint "portfolio_id", null: false
     t.string "ticker"
     t.decimal "allocation", precision: 5, scale: 4, default: "0.0", null: false
-    t.datetime "created_at", precision: 6, null: false
-    t.datetime "updated_at", precision: 6, null: false
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
     t.string "color"
     t.string "name"
     t.string "api_id"
@@ -360,8 +359,8 @@ ActiveRecord::Schema.define(version: 2026_01_06_111302) do
     t.boolean "smart_allocation_on", default: false, null: false
     t.integer "risk_level", default: 2, null: false
     t.integer "benchmark", default: 0, null: false
-    t.datetime "created_at", precision: 6, null: false
-    t.datetime "updated_at", precision: 6, null: false
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
     t.decimal "risk_free_rate", precision: 5, scale: 4, default: "0.0", null: false
     t.string "label"
     t.jsonb "compare_to", default: [], null: false
@@ -379,22 +378,22 @@ ActiveRecord::Schema.define(version: 2026_01_06_111302) do
     t.integer "days"
     t.decimal "cost_eur", precision: 10, scale: 2
     t.decimal "cost_usd", precision: 10, scale: 2
-    t.datetime "created_at", precision: 6, null: false
-    t.datetime "updated_at", precision: 6, null: false
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
   end
 
   create_table "subscription_plans", force: :cascade do |t|
     t.string "name"
-    t.datetime "created_at", null: false
-    t.datetime "updated_at", null: false
+    t.datetime "created_at", precision: nil, null: false
+    t.datetime "updated_at", precision: nil, null: false
   end
 
   create_table "subscriptions", force: :cascade do |t|
     t.bigint "subscription_plan_variant_id"
     t.bigint "user_id"
-    t.datetime "ends_at"
-    t.datetime "created_at", null: false
-    t.datetime "updated_at", null: false
+    t.datetime "ends_at", precision: nil
+    t.datetime "created_at", precision: nil, null: false
+    t.datetime "updated_at", precision: nil, null: false
     t.integer "nft_id"
     t.string "eth_address"
     t.boolean "auto_renew", default: false
@@ -407,8 +406,8 @@ ActiveRecord::Schema.define(version: 2026_01_06_111302) do
     t.bigint "user_id", null: false
     t.string "type", null: false
     t.jsonb "answers", default: {}, null: false
-    t.datetime "created_at", precision: 6, null: false
-    t.datetime "updated_at", precision: 6, null: false
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
     t.index ["user_id", "type"], name: "index_surveys_on_user_id_and_type", unique: true
     t.index ["user_id"], name: "index_surveys_on_user_id"
   end
@@ -427,10 +426,10 @@ ActiveRecord::Schema.define(version: 2026_01_06_111302) do
     t.integer "base_decimals", null: false
     t.integer "quote_decimals", null: false
     t.integer "price_decimals", null: false
-    t.datetime "created_at", precision: 6, null: false
-    t.datetime "updated_at", precision: 6, null: false
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
     t.decimal "ath"
-    t.datetime "ath_updated_at"
+    t.datetime "ath_updated_at", precision: nil
     t.boolean "available", default: true
     t.index ["base_asset_id"], name: "index_tickers_on_base_asset_id"
     t.index ["exchange_id", "base", "quote"], name: "index_exchange_tickers_on_unique_base_and_quote", unique: true
@@ -446,8 +445,8 @@ ActiveRecord::Schema.define(version: 2026_01_06_111302) do
     t.decimal "price"
     t.decimal "amount"
     t.integer "status"
-    t.datetime "created_at", null: false
-    t.datetime "updated_at", null: false
+    t.datetime "created_at", precision: nil, null: false
+    t.datetime "updated_at", precision: nil, null: false
     t.decimal "bot_quote_amount", default: "0.0", null: false
     t.string "bot_interval", default: "", null: false
     t.string "transaction_type", default: "REGULAR", null: false
@@ -475,13 +474,13 @@ ActiveRecord::Schema.define(version: 2026_01_06_111302) do
     t.string "email", default: "", null: false
     t.string "encrypted_password", default: "", null: false
     t.string "reset_password_token"
-    t.datetime "reset_password_sent_at"
-    t.datetime "remember_created_at"
+    t.datetime "reset_password_sent_at", precision: nil
+    t.datetime "remember_created_at", precision: nil
     t.string "confirmation_token"
-    t.datetime "confirmed_at"
-    t.datetime "confirmation_sent_at"
-    t.datetime "created_at", null: false
-    t.datetime "updated_at", null: false
+    t.datetime "confirmed_at", precision: nil
+    t.datetime "confirmation_sent_at", precision: nil
+    t.datetime "created_at", precision: nil, null: false
+    t.datetime "updated_at", precision: nil, null: false
     t.string "unconfirmed_email"
     t.boolean "admin", default: false, null: false
     t.boolean "terms_and_conditions"
@@ -494,7 +493,7 @@ ActiveRecord::Schema.define(version: 2026_01_06_111302) do
     t.string "otp_secret_key"
     t.integer "otp_module", default: 0
     t.boolean "referral_banner_dismissed", default: false
-    t.datetime "last_otp_at"
+    t.datetime "last_otp_at", precision: nil
     t.string "name"
     t.boolean "news_banner_dismissed", default: false
     t.string "time_zone", default: "UTC", null: false
