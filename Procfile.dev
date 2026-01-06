@@ -1,4 +1,4 @@
-webpack: bin/webpack-dev-server
-sidekiq: bundle exec rdbg -O -n -c -- sidekiq
 web: bundle exec rdbg -O -n -c -- bin/rails server -b 0.0.0.0 -p 3000
+sidekiq: bundle exec rdbg -O -n -c -- sidekiq
+js: yarn build:watch
 css: bin/rails dartsass:watch
