@@ -16,6 +16,7 @@ gem 'concurrent-ruby', '1.3.4'
 gem 'faraday'
 gem 'faraday-manual-cache', git: 'https://github.com/dobs/faraday-manual-cache'
 gem 'haml-rails', '~> 2.1'
+gem 'image_processing', '~> 1.2'
 gem 'jbuilder', '~> 2.5'
 gem 'jsbundling-rails'
 gem 'kaminari'
@@ -24,7 +25,7 @@ gem 'net-imap', require: false
 gem 'net-pop', require: false
 gem 'nio4r', '2.5.9'
 gem 'parallel'
-gem 'pg', '>= 0.18', '< 2.0'
+gem 'sqlite3', '~> 2.0'
 gem 'puma', '~> 6.3'
 gem "rack", "2.2.20"
 gem 'rack-cors'
@@ -32,7 +33,7 @@ gem 'rails', '~> 8.1.1'
 gem 'rqrcode'
 gem 'sidekiq', '~> 6.5.12'
 gem 'sidekiq-limit_fetch', git: 'https://github.com/brainopia/sidekiq-limit_fetch'
-gem 'scenic'
+# gem 'scenic' # Removed - was only used for PostgreSQL materialized views
 gem 'sprockets-rails'
 gem 'kraken_ruby_client', git: 'https://github.com/guillemap/kraken_ruby_client', branch: 'add-withdrawal-endpoints'
 gem 'whenever', require: false

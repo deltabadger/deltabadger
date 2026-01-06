@@ -65,7 +65,7 @@ module Bot::Rankable
     def legacy_bots_hash
       all_bots_hash = Bot.basic
                          .working
-                         .group("bots.settings->>'base'")
+                         .group("json_extract(bots.settings, '$.base')")
                          .count
       all_bots_hash.delete(nil)
       SYMBOLS_HASH.each do |symbol_key, symbol_value|
@@ -79,7 +79,7 @@ module Bot::Rankable
     def dca_single_asset_bots_hash
       all_bots_hash = Bot.dca_single_asset
                          .working
-                         .group("bots.settings->>'base_asset_id'")
+                         .group("json_extract(bots.settings, '$.base_asset_id')")
                          .count
       all_bots_hash.transform_keys { |key| Asset.find(key).symbol }
     end
@@ -87,11 +87,11 @@ module Bot::Rankable
     def dca_dual_asset_bots_hash
       all_bots_hash0 = Bot.dca_dual_asset
                           .working
-                          .group("bots.settings->>'base0_asset_id'")
+                          .group("json_extract(bots.settings, '$.base0_asset_id')")
                           .count
       all_bots_hash1 = Bot.dca_dual_asset
                           .working
-                          .group("bots.settings->>'base1_asset_id'")
+                          .group("json_extract(bots.settings, '$.base1_asset_id')")
                           .count
       all_bots_hash = combine_hashes(all_bots_hash0, all_bots_hash1)
       all_bots_hash.transform_keys { |key| Asset.find(key).symbol }
