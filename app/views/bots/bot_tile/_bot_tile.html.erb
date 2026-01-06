@@ -14,12 +14,6 @@
               <span><%= bot.base0_asset.symbol %></span>,
               <span><%= bot.base1_asset.symbol %></span>
             </span>
-          <% elsif bot.basic? && bot.quote.present? && bot.base.present? %>
-            <span><%= bot.quote %></span>
-            <span class="bot-tile__operator">&rarr;</span>
-            <span><%= bot.base %></span>
-          <% elsif bot.withdrawal? && bot.currency.present? %>
-            <%= bot.currency %>
           <% end %>
           <% if bot.exchange.present? %>
             <%= render "svg/exchange-#{bot.exchange.name_id}", title: bot.exchange.name %>
@@ -30,17 +24,13 @@
           <%= bot.label %>
         </div>
       </div>
-      <% if bot.dca_single_asset? || bot.dca_dual_asset? || bot.basic? %>
+      <% if bot.dca_single_asset? || bot.dca_dual_asset? %>
         <%= render "bots/bot_tile/bot_tile_pnl", bot: bot, loading: loading_hash[bot.id], pnl: pnl_hash[bot.id] || '' %>
       <% end %>
     </div>
   <% end %>
   <div class="bot-control">
     <%= render "bots/status/status_bar", bot: bot %>
-    <% if bot.legacy? %>
-      <%= render "bots/status/status_button_legacy", bot: bot %>
-    <% else %>
-      <%= render "bots/status/status_button", bot: bot %>
-    <% end %>
+    <%= render "bots/status/status_button", bot: bot %>
   </div>
 </div>

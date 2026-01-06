@@ -1,12 +1,11 @@
 const KRAKEN = 'Kraken'
-const KUCOIN = 'KuCoin'
 const SYMBOLS_MAP = {
     XDG:'DOGE',
     XBT:'BTC',
     XXBT: 'BTC',
     BCHSV: 'BSV'
 }
-export const shouldRename = (name) => name === KRAKEN || name === KUCOIN
+export const shouldRename = (name) => name === KRAKEN
 export const shouldShowSubaccounts = (name) => [].includes(name)
 
 export const renameSymbol = (s) => {

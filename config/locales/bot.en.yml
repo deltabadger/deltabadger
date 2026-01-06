@@ -11,9 +11,6 @@ en:
             dca_dual_asset:
                 title: "Rebalanced DCA"
                 description: "Rebalance two assets"
-            legacy:
-                title: "Legacy Bot"
-                description: "DCA + Withdrawals"
             index_portfolio:
                 title: "Index Portfolio"
                 description: "Build your personal crypto ETF"

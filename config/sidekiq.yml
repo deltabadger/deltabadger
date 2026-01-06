@@ -7,24 +7,12 @@
   - [mailers, 1]
   - [binance, 2]
   - [binance_us, 2]
-  - [zonda, 2]
-  - [bitfinex, 2]
-  - [bitso, 2]
-  - [bitstamp, 2]
   - [coinbase, 2]
-  - [gemini, 2]
   - [kraken, 2]
-  - [kucoin, 2]
   - [default, 1]
 :limits:
   low_priority: 1
   binance: 1
   binance_us: 1
-  zonda: 1
-  bitfinex: 1
-  bitso: 1
-  bitstamp: 1
   coinbase: 1
-  gemini: 1
   kraken: 1
-  kucoin: 1

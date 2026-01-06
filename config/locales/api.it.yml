@@ -61,22 +61,3 @@ it:
                     -   text_html: 'Copia e incolla le tue nuove chiavi API nel modulo sopra.'
                 private_key: 'Chiave privata'
                 public_key: 'API key'
-            kucoin:
-                instructions:
-                    -   text_html: 'Accedi al tuo account %{exchange_link}.'
-                    -   text_html: 'Nel menu dell''account (angolo in alto a destra accanto al selettore della lingua) vai a <b>Gestione API</b>.'
-                    -   text_html: 'Premi <b>Crea API</b>.'
-                    -   text_html: 'Se crei le tue chiavi API per la prima volta, imposta e salva la <b>Password di Trading</b>.'
-                    -   text_html: 'Fornisci <b>Nome API</b>.'
-                    -   text_html: 'Fornisci e salva <b>Passphrase API</b>.'
-                    -   text_html: 'Imposta i permessi per:'
-                        sub_instructions:
-                            -   text_html: '<b>Generale</b>'
-                            -   text_html: '<b>Scambia</b>'
-                    -   text_html: 'Se desideri limitare l''accesso alla chiave solo per Deltabadger, imposta <b>Restrizione IP</b> su sì e aggiungi questo IP: <b>%{ip}</b>'
-                    -   text_html: 'Premi <b>Avanti</b>.'
-                    -   text_html: 'Conferma la creazione delle chiavi API tramite Password di Trading e 2FA.'
-                    -   text_html: 'Copia e incolla le tue nuove chiavi API nel modulo sopra.'
-                passphrase: Passphrase
-                private_key: 'Segreto API'
-                public_key: 'Chiave API'

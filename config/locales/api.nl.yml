@@ -64,22 +64,3 @@ nl:
                     -   text_html: 'Kopieer en plak je nieuwe API-sleutels in het bovenstaande formulier.'
                 private_key: 'Privésleutel'
                 public_key: 'API-sleutel'
-            kucoin:
-                instructions:
-                    -   text_html: 'Log in op je %{exchange_link}-account.'
-                    -   text_html: 'Ga in het accountmenu (rechterbovenhoek naast de taalkiezer) naar <b>API-beheer</b>.'
-                    -   text_html: 'Druk op <b>API Aanmaken</b>.'
-                    -   text_html: 'Als je je API-sleutels voor de eerste keer aanmaakt, stel dan <b>Handelwachtwoord</b> in en sla het op.'
-                    -   text_html: 'Geef <b>API-naam</b> op.'
-                    -   text_html: 'Geef <b>API-wachtwoordzin</b> op en sla deze op.'
-                    -   text_html: 'Stel rechten in voor:'
-                        sub_instructions:
-                            -   text_html: '<b>Algemeen</b>'
-                            -   text_html: '<b>Handelen</b>'
-                    -   text_html: 'Als je de toegang tot de sleutel alleen voor Deltabadger wilt beperken, stel dan <b>IP-beperking</b> in op ja en voeg dit IP-adres toe: <b>%{ip}</b>'
-                    -   text_html: 'Druk op <b>Volgende</b>.'
-                    -   text_html: 'Bevestig het aanmaken van API-sleutels met Handelwachtwoord en 2FA.'
-                    -   text_html: 'Kopieer en plak je nieuwe API-sleutels in het bovenstaande formulier.'
-                passphrase: Wachtwoordzin
-                private_key: 'API-geheim'
-                public_key: 'API-sleutel'

@@ -9,18 +9,13 @@
 
 @import "mixins";
 @import "styles";
-@import "pages";
-@import "navbar";
-@import "bots";
 @import "forms";
 @import "spinner";
 @import "dropdown";
-@import "alerts";
 @import "charts";
 @import "exchanges";
 @import "qr_code";
 @import "rwd";
-@import "bot_info";
 
 @import "new/base";
 @import "new/animicon";
@@ -53,10 +48,6 @@
 @import "new/small-random";
 @import "new/utilities";
 
-@import "animations-countdown";
 @import "new/start";
 
 @import "animations-order";
-
-@import "playbook";
-@import "pie_chart";

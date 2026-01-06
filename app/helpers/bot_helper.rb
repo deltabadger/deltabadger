@@ -6,8 +6,7 @@ module BotHelper
   def bot_type_label(bot)
     {
       'Bots::DcaDualAsset' => 'Rebalanced DCA',
-      'Bots::Basic' => 'Basic DCA',
-      'Bots::Withdrawal' => 'Withdrawal',
+      'Bots::DcaSingleAsset' => 'Basic DCA',
     }[bot.type]
   end
 

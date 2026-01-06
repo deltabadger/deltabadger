@@ -64,22 +64,3 @@ fr:
                     -   text_html: 'Copiez et collez vos nouvelles clés API dans le formulaire ci-dessus.'
                 private_key: 'Clé privée'
                 public_key: 'Clé API'
-            kucoin:
-                instructions:
-                    -   text_html: 'Connectez-vous à votre compte %{exchange_link}.'
-                    -   text_html: 'Dans le menu du compte (coin supérieur droit à côté du sélecteur de langue), allez dans <b>Gestion des API</b>.'
-                    -   text_html: 'Appuyez sur <b>Créer une API</b>.'
-                    -   text_html: 'Si vous créez vos clés API pour la première fois, définissez et enregistrez le <b>Mot de passe de Trading</b>.'
-                    -   text_html: 'Fournissez le <b>Nom de l''API</b>.'
-                    -   text_html: 'Fournissez et enregistrez la <b>Phrase secrète de l''API</b>.'
-                    -   text_html: 'Définissez les permissions pour :'
-                        sub_instructions:
-                            -   text_html: '<b>Général</b>'
-                            -   text_html: '<b>Trader</b>'
-                    -   text_html: 'Si vous souhaitez restreindre l''accès à la clé uniquement pour Deltabadger, définissez <b>Restriction IP</b> sur oui et ajoutez cette IP : <b>%{ip}</b>'
-                    -   text_html: 'Appuyez sur <b>Suivant</b>.'
-                    -   text_html: 'Confirmez la création des clés API par Mot de passe de Trading et 2FA.'
-                    -   text_html: 'Copiez et collez vos nouvelles clés API dans le formulaire ci-dessus.'
-                passphrase: Phrase secrète
-                private_key: 'Secret API'
-                public_key: 'Clé API'

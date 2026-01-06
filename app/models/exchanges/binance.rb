@@ -420,35 +420,18 @@ class Exchanges::Binance < Exchange
     ).api_description
 
     if result.success?
-      valid = if api_key.trading?
-                result.data['ipRestrict'] == true &&
-                  result.data['enableFixApiTrade'] == false &&
-                  result.data['enableFixReadOnly'] == false &&
-                  result.data['enableFutures'] == false &&
-                  result.data['enableInternalTransfer'] == false &&
-                  result.data['enableMargin'] == false &&
-                  result.data['enablePortfolioMarginTrading'] == false &&
-                  result.data['enableReading'] == true &&
-                  result.data['enableSpotAndMarginTrading'] == true &&
-                  result.data['enableVanillaOptions'] == false &&
-                  result.data['enableWithdrawals'] == false &&
-                  result.data['permitsUniversalTransfer'] == false
-              elsif api_key.withdrawal?
-                result.data['ipRestrict'] == true &&
-                  result.data['enableFixApiTrade'] == false &&
-                  result.data['enableFixReadOnly'] == false &&
-                  result.data['enableFutures'] == false &&
-                  result.data['enableInternalTransfer'] == false &&
-                  result.data['enableMargin'] == false &&
-                  result.data['enablePortfolioMarginTrading'] == false &&
-                  result.data['enableReading'] == true &&
-                  result.data['enableSpotAndMarginTrading'] == false &&
-                  result.data['enableVanillaOptions'] == false &&
-                  result.data['enableWithdrawals'] == true &&
-                  result.data['permitsUniversalTransfer'] == false
-              else
-                raise StandardError, 'Invalid API key type'
-              end
+      valid = result.data['ipRestrict'] == true &&
+              result.data['enableFixApiTrade'] == false &&
+              result.data['enableFixReadOnly'] == false &&
+              result.data['enableFutures'] == false &&
+              result.data['enableInternalTransfer'] == false &&
+              result.data['enableMargin'] == false &&
+              result.data['enablePortfolioMarginTrading'] == false &&
+              result.data['enableReading'] == true &&
+              result.data['enableSpotAndMarginTrading'] == true &&
+              result.data['enableVanillaOptions'] == false &&
+              result.data['enableWithdrawals'] == false &&
+              result.data['permitsUniversalTransfer'] == false
       Result::Success.new(valid)
     elsif parse_error_code(result).in?(ERROR_CODES[:invalid_key])
       Result::Success.new(false)

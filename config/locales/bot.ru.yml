@@ -11,9 +11,6 @@ ru:
             dca_dual_asset:
                 title: "Ребалансированный DCA"
                 description: "Ребалансировка двух активов"
-            legacy:
-                title: "Legacy Bot"
-                description: "DCA + Вывод средств"
             index_portfolio:
                 title: "Индексный Портфель"
                 description: "Создайте свой персональный крипто ETF"
