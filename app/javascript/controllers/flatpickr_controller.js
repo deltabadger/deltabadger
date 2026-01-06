@@ -13,8 +13,7 @@ import { Russian } from "flatpickr/dist/l10n/ru.js";
 import { Indonesian } from "flatpickr/dist/l10n/id.js";
 import { Vietnamese } from "flatpickr/dist/l10n/vn.js";
 import { Mandarin } from "flatpickr/dist/l10n/zh.js";
-require("flatpickr/dist/flatpickr.css");
-// require("flatpickr/dist/themes/dark.css");
+// CSS is loaded via application.scss, not here
 
 // Connects to data-controller="flatpickr"
 export default class extends Controller {
