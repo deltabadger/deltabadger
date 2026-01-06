@@ -1,6 +1,6 @@
 <%= render 'layouts/modal/base' do %>
   <div class="modal">
-    <%= button_tag class: 'modal__close', data: { action: 'modal--base#animateOutCloseAndCleanUp' } do %>
+    <%= button_tag type: 'button', class: 'modal__close', data: { action: 'modal--base#animateOutCloseAndCleanUp' } do %>
       <%= render partial: 'svg/24x24_close' %>
     <% end %>
     <%= render partial: 'bots/api_key_form', locals: {
