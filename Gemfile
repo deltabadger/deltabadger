@@ -27,7 +27,7 @@ gem 'pg', '>= 0.18', '< 2.0'
 gem 'puma', '~> 6.3'
 gem "rack", "2.2.20"
 gem 'rack-cors'
-gem 'rails', '~> 7.2.0'
+gem 'rails', '~> 8.1.1'
 gem 'rqrcode'
 gem 'webpacker', '~> 5.4'
 gem 'sidekiq', '~> 6.5.12'
@@ -44,7 +44,7 @@ gem 'lol_dba'
 
 group :development, :test do
   gem 'debug'
-  gem 'bullet', '~>7.2.0'
+  # gem 'bullet', '~>7.2.0' Not supported in Rails 8 yet
   gem 'byebug', platforms: [:mri, :mingw, :x64_mingw]
   gem 'rubocop'
   gem 'rspec-rails'

@@ -4,7 +4,7 @@ class Bot < ApplicationRecord
   has_many :transactions, dependent: :destroy
   has_many :daily_transaction_aggregates
 
-  enum status: %i[created scheduled stopped deleted executing retrying waiting]
+  enum :status, %i[created scheduled stopped deleted executing retrying waiting]
 
   scope :working, -> { where(status: %i[scheduled executing retrying waiting]) }
 

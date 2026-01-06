@@ -22,14 +22,14 @@ class Transaction < ApplicationRecord
 
   validates :bot, presence: true
 
-  enum status: [
+  enum :status, [
     :submitted, # Successfully sent and accepted by the exchange
     :failed,    # Attempted but failed (internal error or exchange rejection)
     :skipped    # Not even attempted (e.g., filtered, blocked, etc.)
   ]
-  enum side: %i[buy sell]
-  enum order_type: %i[market_order limit_order]
-  enum external_status: %i[unknown open closed]
+  enum :side, %i[buy sell]
+  enum :order_type, %i[market_order limit_order]
+  enum :external_status, %i[unknown open closed]
 
   BTC = %w[XXBT XBT BTC].freeze
 
