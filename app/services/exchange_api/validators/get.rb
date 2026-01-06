@@ -10,25 +10,16 @@ module ExchangeApi
 
       private
 
-      # rubocop:disable Metrics/CyclomaticComplexity
       def get_trading_key_validator(exchange)
         return Fake::Validator.new if Rails.configuration.dry_run
 
         case exchange.name.downcase
         when 'binance' then Binance::Validator.new(url_base: EU_URL_BASE)
         when 'binance.us' then Binance::Validator.new(url_base: US_URL_BASE)
-        when 'zonda' then Zonda::Validator.new
         when 'kraken' then Kraken::Validator.new
-        when 'coinbase pro' then CoinbasePro::Validator.new
         when 'coinbase' then Coinbase::Validator.new
-        when 'gemini' then Gemini::Validator.new
-        when 'bitso' then Bitso::Validator.new
-        when 'kucoin' then Kucoin::Validator.new
-        when 'bitfinex' then Bitfinex::Validator.new
-        when 'bitstamp' then Bitstamp::Validator.new
         end
       end
-      # rubocop:enable Metrics/CyclomaticComplexity
 
       def get_withdrawal_key_validator(exchange)
         return Fake::WithdrawalValidator.new if Rails.configuration.dry_run

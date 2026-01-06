@@ -1,10 +1,8 @@
 module ExchangeApi
   module Traders
-    # rubocop:disable Metrics/ClassLength
     class Get < BaseService
       include ExchangeApi::BinanceEnum
 
-      # rubocop:disable Metrics/CyclomaticComplexity
       def call(api_key, order_type)
         exchange = Exchange.find(api_key.exchange_id)
         return fake_client(order_type, exchange.name) if Rails.configuration.dry_run
@@ -12,18 +10,10 @@ module ExchangeApi
         case exchange.name.downcase
         when 'binance' then binance_client(api_key, order_type, EU_URL_BASE)
         when 'binance.us' then binance_client(api_key, order_type, US_URL_BASE)
-        when 'zonda' then zonda_client(api_key, order_type)
         when 'kraken' then kraken_client(api_key, order_type)
-        when 'coinbase pro' then coinbase_pro_client(api_key, order_type)
         when 'coinbase' then coinbase_client(api_key, order_type)
-        when 'gemini' then gemini_client(api_key, order_type)
-        when 'bitso' then bitso_client(api_key, order_type)
-        when 'kucoin' then kucoin_client(api_key, order_type)
-        when 'bitfinex' then bitfinex_client(api_key, order_type)
-        when 'bitstamp' then bitstamp_client(api_key, order_type)
         end
       end
-      # rubocop:enable Metrics/CyclomaticComplexity
 
       private
 
@@ -45,19 +35,7 @@ module ExchangeApi
         client.new(
           api_key: api_key.key,
           api_secret: api_key.secret,
-          url_base: url_base
-        )
-      end
-
-      def zonda_client(api_key, order_type)
-        client = if limit_trader?(order_type)
-                   ExchangeApi::Traders::Zonda::LimitTrader
-                 else
-                   ExchangeApi::Traders::Zonda::MarketTrader
-                 end
-        client.new(
-          api_key: api_key.key,
-          api_secret: api_key.secret
+          url_base:
         )
       end
 
@@ -74,85 +52,11 @@ module ExchangeApi
         )
       end
 
-      def coinbase_pro_client(api_key, order_type)
-        client = if limit_trader?(order_type)
-                   ExchangeApi::Traders::CoinbasePro::LimitTrader
-                 else
-                   ExchangeApi::Traders::CoinbasePro::MarketTrader
-                 end
-        client.new(
-          api_key: api_key.key,
-          api_secret: api_key.secret,
-          passphrase: api_key.passphrase
-        )
-      end
-
       def coinbase_client(api_key, order_type)
         client = if limit_trader?(order_type)
                    ExchangeApi::Traders::Coinbase::LimitTrader
                  else
                    ExchangeApi::Traders::Coinbase::MarketTrader
-                 end
-        client.new(
-          api_key: api_key.key,
-          api_secret: api_key.secret
-        )
-      end
-
-      def gemini_client(api_key, order_type)
-        client = if limit_trader?(order_type)
-                   ExchangeApi::Traders::Gemini::LimitTrader
-                 else
-                   ExchangeApi::Traders::Gemini::MarketTrader
-                 end
-        client.new(
-          api_key: api_key.key,
-          api_secret: api_key.secret
-        )
-      end
-
-      def bitso_client(api_key, order_type)
-        client = if limit_trader?(order_type)
-                   ExchangeApi::Traders::Bitso::LimitTrader
-                 else
-                   ExchangeApi::Traders::Bitso::MarketTrader
-                 end
-        client.new(
-          api_key: api_key.key,
-          api_secret: api_key.secret
-        )
-      end
-
-      def kucoin_client(api_key, order_type)
-        client = if limit_trader?(order_type)
-                   ExchangeApi::Traders::Kucoin::LimitTrader
-                 else
-                   ExchangeApi::Traders::Kucoin::MarketTrader
-                 end
-        client.new(
-          api_key: api_key.key,
-          api_secret: api_key.secret,
-          passphrase: api_key.passphrase
-        )
-      end
-
-      def bitfinex_client(api_key, order_type)
-        client = if limit_trader?(order_type)
-                   ExchangeApi::Traders::Bitfinex::LimitTrader
-                 else
-                   ExchangeApi::Traders::Bitfinex::MarketTrader
-                 end
-        client.new(
-          api_key: api_key.key,
-          api_secret: api_key.secret
-        )
-      end
-
-      def bitstamp_client(api_key, order_type)
-        client = if limit_trader?(order_type)
-                   ExchangeApi::Traders::Bitstamp::LimitTrader
-                 else
-                   ExchangeApi::Traders::Bitstamp::MarketTrader
                  end
         client.new(
           api_key: api_key.key,
@@ -168,6 +72,5 @@ module ExchangeApi
         !market_trader?(order_type)
       end
     end
-    # rubocop:enable Metrics/ClassLength
   end
 end

@@ -4,9 +4,7 @@ class Bots::StartsController < ApplicationController
   before_action :authenticate_user!
   before_action :set_bot
 
-  def edit
-    render :edit_legacy if @bot.legacy?
-  end
+  def edit; end
 
   def update
     return if @bot.start(start_fresh: Utilities::String.to_boolean(params[:start_fresh]))

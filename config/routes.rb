@@ -23,8 +23,7 @@ Rails.application.routes.draw do
     resources :users, except: [:destroy]
     resources :api_keys, except: [:edit, :update]
     namespace :bots do
-      resources :basics
-      resources :withdrawals
+      resources :dca_single_assets
       resources :dca_dual_assets
     end
     resources :exchanges
@@ -39,19 +38,7 @@ Rails.application.routes.draw do
     get '/subscriptions/check', to: 'subscriptions#check'
     resources :api_keys, only: [:create]
     resources :exchanges, only: [:index]
-    get :smart_intervals_info, to: 'bots#smart_intervals_info'
-    get :subaccounts, to: 'bots#subaccounts'
-    get :frequency_limit_exceeded, to: 'bots#frequency_limit_exceeded'
-    get :withdrawal_minimums, to: 'bots#withdrawal_minimums'
-    post :set_show_smart_intervals_info, to: 'bots#set_show_smart_intervals_info'
     post :remove_invalid_keys, to: 'api_keys#remove_invalid_keys'
-    resources :bots, except: [:new, :edit] do
-      post :stop, on: :member
-      post :start, on: :member
-      get :transactions_csv, to: 'transactions#csv'
-      get 'charts/portfolio_value_over_time', to: 'charts#portfolio_value_over_time'
-      get :restart_params
-    end
   end
 
   scope "(:locale)", locale: /#{I18n.available_locales.join("|")}/ do

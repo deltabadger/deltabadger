@@ -12,10 +12,10 @@
 
         <% path = bots_path(create: true) %>
         <% data = { turbo: false } %>
-        <%= link_to path, class: 'itile itile--bot-type', data: { action: 'click->modal--base#animateOutCloseAndCleanUp' }.merge(data) do %>
-            <div class="index-title"><%= t('bot.types.legacy.title') %></div>
-            <div class="index-info"><%= t('bot.types.legacy.description').html_safe %></div>
-        <% end %>
+        <div class="itile itile--bot-type itile--soon">
+            <div class="index-title"><%= t('bot.types.index_portfolio.title') %></div>
+            <div class="index-info"><%= t('bot.types.index_portfolio.description').html_safe %></div>
+        </div>
     </div>
 </div>
 

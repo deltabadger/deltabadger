@@ -68,9 +68,8 @@ class SettingsController < ApplicationController
     api_key = current_user.api_keys.find(params[:id])
     if api_key.present? && stop_working_bots(api_key) && api_key.destroy
       trading_api_keys = current_user.api_keys.includes(:exchange).where(key_type: 'trading')
-      withdrawal_api_keys = current_user.api_keys.includes(:exchange).where(key_type: 'withdrawal')
       render partial: 'settings/widgets/api_keys',
-             locals: { trading_api_keys:, withdrawal_api_keys: }
+             locals: { trading_api_keys: }
     else
       flash.now[:alert] = api_key.errors.messages.values.flatten.to_sentence
       render turbo_stream: turbo_stream_prepend_flash, status: :unprocessable_entity
@@ -111,7 +110,6 @@ class SettingsController < ApplicationController
     @password_pattern = User::Password::PATTERN
     @password_minimum_length = Devise.password_length.min
     @trading_api_keys = current_user.api_keys.includes(:exchange).where(key_type: 'trading')
-    @withdrawal_api_keys = current_user.api_keys.includes(:exchange).where(key_type: 'withdrawal')
     @two_fa_button_text = if current_user.otp_module_enabled?
                             t('helpers.label.settings.disable_two_fa')
                           else
@@ -138,17 +136,12 @@ class SettingsController < ApplicationController
     current_user.bots.not_deleted.not_stopped.each do |bot|
       next unless same_exchange_and_type?(bot, api_key)
 
-      if bot.legacy?
-        StopBot.call(bot.id)
-      else
-        bot.stop
-      end
+      bot.stop
     end
   end
 
   def same_exchange_and_type?(bot, api_key)
-    bot_type = bot.withdrawal? ? 'withdrawal' : 'trading'
-    bot.exchange_id == api_key.exchange_id && bot_type == api_key.key_type
+    bot.exchange_id == api_key.exchange_id && 'trading' == api_key.key_type
   end
 
   def update_password_params

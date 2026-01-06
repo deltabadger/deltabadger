@@ -1,9 +1,0 @@
-<% if @bot.present? %>
-  <div class="page-head">
-    <%= render "bots/header", bot: @bot, other_bots: @other_bots %>
-  </div>
-<% end %>
-
-<% content_for :body_class, ".view--dashboard" %>
-
-<div id="dashboard"></div>

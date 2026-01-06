@@ -11,9 +11,6 @@ nl:
             dca_dual_asset:
                 title: "Geherbalanceerde DCA"
                 description: "Herbalanceer twee assets"
-            legacy:
-                title: "Legacy Bot"
-                description: "DCA + Opnames"
             index_portfolio:
                 title: "Index Portefeuille"
                 description: "Bouw je persoonlijke crypto ETF"

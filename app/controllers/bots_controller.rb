@@ -6,8 +6,6 @@ class BotsController < ApplicationController
   before_action :set_bot, only: %i[show edit update]
 
   def index
-    return render 'bots/react_dashboard' if params[:create] # TODO: remove this once the legacy dashboard is removed
-
     @filter = params[:filter] || 'all'
     @bots = current_user.bots.not_deleted.includes(:exchange)
     case @filter
@@ -26,7 +24,7 @@ class BotsController < ApplicationController
     @pnl_hash = {}
     @loading_hash = {}
     @bots.each do |bot|
-      next unless bot.dca_single_asset? || bot.dca_dual_asset? || bot.basic?
+      next unless bot.dca_single_asset? || bot.dca_dual_asset?
 
       metrics_with_current_prices = bot.metrics_with_current_prices_from_cache
       @pnl_hash[bot.id] = metrics_with_current_prices[:pnl] unless metrics_with_current_prices.nil?
@@ -47,31 +45,23 @@ class BotsController < ApplicationController
     else
       @other_bots = current_user.bots.not_deleted.order(label: :asc).where.not(id: @bot.id).pluck(:id, :label, :type)
 
-      if @bot.legacy?
-        # TODO: remove this once the legacy dashboard is removed
-        respond_to do |format|
-          format.html { render 'bots/react_dashboard' }
-          format.json { render json: @bot }
-        end
-      else
-        # TODO: When transactions point to real asset ids, we can use the asset ids directly instead of symbols
-        if @bot.dca_single_asset?
-          @decimals = {
-            @bot.base_asset.symbol => @bot.decimals[:base],
-            @bot.quote_asset.symbol => @bot.decimals[:quote]
-          }
-        elsif @bot.dca_dual_asset?
-          @decimals = {
-            @bot.base0_asset.symbol => @bot.decimals[:base0],
-            @bot.base1_asset.symbol => @bot.decimals[:base1],
-            @bot.quote_asset.symbol => @bot.decimals[:quote]
-          }
-        end
-
-        metrics_with_current_prices_and_candles = @bot.metrics_with_current_prices_and_candles_from_cache
-        @loading = metrics_with_current_prices_and_candles.nil?
-        @metrics = @loading ? @bot.metrics : metrics_with_current_prices_and_candles
+      # TODO: When transactions point to real asset ids, we can use the asset ids directly instead of symbols
+      if @bot.dca_single_asset?
+        @decimals = {
+          @bot.base_asset.symbol => @bot.decimals[:base],
+          @bot.quote_asset.symbol => @bot.decimals[:quote]
+        }
+      elsif @bot.dca_dual_asset?
+        @decimals = {
+          @bot.base0_asset.symbol => @bot.decimals[:base0],
+          @bot.base1_asset.symbol => @bot.decimals[:base1],
+          @bot.quote_asset.symbol => @bot.decimals[:quote]
+        }
       end
+
+      metrics_with_current_prices_and_candles = @bot.metrics_with_current_prices_and_candles_from_cache
+      @loading = metrics_with_current_prices_and_candles.nil?
+      @metrics = @loading ? @bot.metrics : metrics_with_current_prices_and_candles
     end
   end
 
@@ -89,23 +79,11 @@ class BotsController < ApplicationController
       # flash.now[:notice] = t('alert.bot.bot_updated')
     else
       flash.now[:alert] = @bot.errors.messages.values.flatten.to_sentence
-      if @bot.legacy?
-        render turbo_stream: turbo_stream_prepend_flash, status: :unprocessable_entity
-      else
-        render :update, status: :unprocessable_entity
-      end
+      render :update, status: :unprocessable_entity
     end
   end
 
   private
-
-  def basic_bot_params
-    params.require(:bots_basic).permit(:label)
-  end
-
-  def withdrawal_bot_params
-    params.require(:bots_withdrawal).permit(:label)
-  end
 
   def dca_single_asset_bot_params
     params.require(:bots_dca_single_asset).permit(
@@ -124,11 +102,7 @@ class BotsController < ApplicationController
   end
 
   def update_params
-    if @bot.basic?
-      basic_bot_params
-    elsif @bot.withdrawal?
-      withdrawal_bot_params
-    elsif @bot.dca_single_asset?
+    if @bot.dca_single_asset?
       {
         settings: @bot.settings.merge(
           @bot.parse_params(dca_single_asset_bot_params).stringify_keys

@@ -7,5 +7,5 @@
 
 
 <% @bot.user.bots.not_deleted.each do |bot| %>
-  <%= turbo_stream.replace dom_id(bot, :status_button), partial: bot.legacy? ? 'bots/status/status_button_legacy' : 'bots/status/status_button', locals: { bot: bot } %>
+  <%= turbo_stream.replace dom_id(bot, :status_button), partial: 'bots/status/status_button', locals: { bot: bot } %>
 <% end %>

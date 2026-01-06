@@ -24,27 +24,18 @@ class Exchange < ApplicationRecord
   include Synchronizer
   include CandleBuilder
 
-  # rubocop:disable Metrics/CyclomaticComplexity
   def symbols
     market = case name.downcase
              when 'binance' then ExchangeApi::Markets::Binance::Market.new(url_base: EU_URL_BASE)
              when 'binance.us' then ExchangeApi::Markets::Binance::Market.new(url_base: US_URL_BASE)
-             when 'zonda' then ExchangeApi::Markets::Zonda::Market.new
              when 'kraken' then ExchangeApi::Markets::Kraken::Market.new
-             when 'coinbase pro' then ExchangeApi::Markets::CoinbasePro::Market.new
              when 'coinbase' then ExchangeApi::Markets::Coinbase::Market.new
-             when 'gemini' then ExchangeApi::Markets::Gemini::Market.new
-             when 'bitso' then ExchangeApi::Markets::Bitso::Market.new
-             when 'kucoin' then ExchangeApi::Markets::Kucoin::Market.new
-             when 'bitfinex' then ExchangeApi::Markets::Bitfinex::Market.new
-             when 'bitstamp' then ExchangeApi::Markets::Bitstamp::Market.new
              else
                Result::Failure.new("Unsupported exchange #{name}")
              end
     cache_key = "#{name.downcase}_all_symbols"
     market.all_symbols(cache_key)
   end
-  # rubocop:enable Metrics/CyclomaticComplexity
 
   def name_id
     self.class.name.demodulize.underscore

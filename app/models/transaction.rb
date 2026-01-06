@@ -2,14 +2,13 @@ class Transaction < ApplicationRecord
   belongs_to :bot
   belongs_to :exchange
 
-  before_create :set_exchange, if: -> { bot.legacy? }
   before_save :round_numeric_fields
   before_save :store_previous_quote_amount_exec
   after_create_commit :set_daily_transaction_aggregate
-  after_create_commit -> { bot.broadcast_new_order(self) if !bot.legacy? }
-  after_update_commit -> { bot.broadcast_updated_order(self) if !bot.legacy? }
+  after_create_commit -> { bot.broadcast_new_order(self) }
+  after_update_commit -> { bot.broadcast_updated_order(self) }
   after_commit lambda {
-                 Bot::UpdateMetricsJob.perform_later(bot) if !bot.legacy? && custom_quote_amount_exec_changed?
+                 Bot::UpdateMetricsJob.perform_later(bot) if custom_quote_amount_exec_changed?
                }, on: %i[create update]
   after_commit lambda {
                  if bot.class.include?(Bot::QuoteAmountLimitable) && custom_quote_amount_exec_changed?
@@ -95,10 +94,6 @@ class Transaction < ApplicationRecord
   #     .where("bots.settings->>'type' = ? AND bots.settings->>'base' IN (?)", type, BTC)
   #     .sum(:amount).ceil(8)
   # end
-
-  def set_exchange
-    self.exchange ||= bot.exchange
-  end
 
   def round_numeric_fields
     self.price = price&.round(18)

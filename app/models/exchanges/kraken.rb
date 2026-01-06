@@ -349,20 +349,14 @@ class Exchanges::Kraken < Exchange
       api_key: api_key.key,
       api_secret: api_key.secret
     )
-    result = if api_key.trading?
-               temp_client.add_order(
-                 ordertype: 'market',
-                 type: 'buy',
-                 volume: 100,
-                 pair: 'XBTUSD',
-                 oflags: ['viqc'],
-                 validate: true
-               )
-             elsif api_key.withdrawal?
-               temp_client.get_withdrawal_methods
-             else
-               raise StandardError, 'Invalid API key type'
-             end
+    result = temp_client.add_order(
+      ordertype: 'market',
+      type: 'buy',
+      volume: 100,
+      pair: 'XBTUSD',
+      oflags: ['viqc'],
+      validate: true
+    )
     return result if result.failure?
 
     errors = Utilities::Hash.dig_or_raise(result.data, 'error')

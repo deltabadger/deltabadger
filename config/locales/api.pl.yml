@@ -64,22 +64,3 @@ pl:
                     -   text_html: 'Skopiuj i wklej swoje nowe klucze API do powyższego formularza.'
                 private_key: 'Klucz prywatny'
                 public_key: 'Klucz API'
-            kucoin:
-                instructions:
-                    -   text_html: 'Zaloguj się na swoje konto %{exchange_link}.'
-                    -   text_html: 'W menu konta (prawy górny róg obok wyboru języka) przejdź do <b>Zarządzanie API</b>.'
-                    -   text_html: 'Naciśnij <b>Utwórz API</b>.'
-                    -   text_html: 'Jeśli tworzysz klucze API po raz pierwszy, ustaw i zapisz <b>Hasło Handlowe</b>.'
-                    -   text_html: 'Podaj <b>Nazwę API</b>.'
-                    -   text_html: 'Podaj i zapisz <b>Hasło API</b>.'
-                    -   text_html: 'Ustaw uprawnienia dla:'
-                        sub_instructions:
-                            -   text_html: '<b>Ogólne</b>'
-                            -   text_html: '<b>Handel</b>'
-                    -   text_html: 'Jeśli chcesz ograniczyć dostęp do klucza tylko dla Deltabadger, ustaw <b>Ograniczenie IP</b> na tak i dodaj ten adres IP: <b>%{ip}</b>'
-                    -   text_html: 'Naciśnij <b>Dalej</b>.'
-                    -   text_html: 'Potwierdź utworzenie kluczy API za pomocą Hasła Handlowego i 2FA.'
-                    -   text_html: 'Skopiuj i wklej swoje nowe klucze API do powyższego formularza.'
-                passphrase: Hasło
-                private_key: 'Sekret API'
-                public_key: 'Klucz API'

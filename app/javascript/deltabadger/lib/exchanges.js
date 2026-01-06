@@ -9,11 +9,6 @@ export const exchanges = {
       url: 'https://www.binance.us/en/home',
       translation_key: 'binance',
   },
-  'zonda': {
-      name: 'Zonda',
-      url: 'https://zondacrypto.com/',
-      translation_key: 'zonda',
-  },
   'kraken': {
       name: 'Kraken',
       url: 'https://r.kraken.com/deltabadger',
@@ -23,31 +18,6 @@ export const exchanges = {
       name: 'Coinbase',
       url: 'https://www.coinbase.com/advanced-trade',
       translation_key: 'coinbase',
-  },
-  'gemini': {
-      name: 'Gemini',
-      url: 'https://exchange.gemini.com/signin',
-      translation_key: 'gemini',
-  },
-  'bitso': {
-    name: 'Bitso',
-    url: 'https://bitso.com/',
-    translation_key: 'bitso'
-  },
-  'kucoin': {
-    name: 'KuCoin',
-    url: 'https://kucoin.com/',
-    translation_key: 'kucoin'
-  },
-  'bitfinex': {
-    name: 'Bitfinex',
-    url: 'https://bitfinex.com/',
-    translation_key: 'bitfinex'
-  },
-  'bitstamp': {
-    name: 'Bitstamp',
-    url: 'https://bitstamp.net/',
-    translation_key: 'bitstamp'
   },
 }
 

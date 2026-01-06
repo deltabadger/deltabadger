@@ -12,7 +12,7 @@ module Bot::Schedulable
     store_accessor :transient_data,
                    :last_action_job_at
 
-    validates :interval, presence: true, inclusion: { in: INTERVALS.keys }, unless: :legacy?
+    validates :interval, presence: true, inclusion: { in: INTERVALS.keys }
   end
 
   def interval_duration
@@ -61,7 +61,6 @@ module Bot::Schedulable
   end
 
   def next_interval_checkpoint_at
-    return legacy_next_interval_checkpoint_at if legacy?
     return Time.current if effective_interval_duration.zero?
 
     checkpoint = started_at || Time.current
@@ -78,8 +77,6 @@ module Bot::Schedulable
   end
 
   def last_interval_checkpoint_at
-    return legacy_last_interval_checkpoint_at if legacy?
-
     next_interval_checkpoint_at - effective_interval_duration
   end
 
@@ -88,21 +85,6 @@ module Bot::Schedulable
       (Time.current - last_action_job_at) / (next_action_job_at - last_action_job_at)
     else
       0
-    end
-  end
-
-  private
-
-  def legacy_next_interval_checkpoint_at
-    NextTradingBotTransactionAt.new.call(self) || Time.current
-  end
-
-  def legacy_last_interval_checkpoint_at
-    case type
-    when 'Bots::Basic'
-      next_interval_checkpoint_at - interval_duration
-    when 'Bots::Withdrawal'
-      transactions.last&.created_at || Time.current
     end
   end
 end
