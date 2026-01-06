@@ -5,7 +5,7 @@ class User < ApplicationRecord
          :recoverable, :rememberable, :validatable, :confirmable
 
   has_one_time_password
-  enum otp_module: %i[disabled enabled], _prefix: true
+  enum :otp_module, %i[disabled enabled], prefix: true
   has_many :api_keys
   has_many :exchanges, through: :api_keys
   has_many :bots

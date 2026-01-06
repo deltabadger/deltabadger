@@ -1,7 +1,7 @@
 class DailyTransactionAggregate < ApplicationRecord
   belongs_to :bot
-  enum currency: %i[USD EUR PLN]
-  enum status: %i[submitted failed skipped]
+  enum :currency, %i[USD EUR PLN]
+  enum :status, %i[submitted failed skipped]
 
   before_create :round_numeric_fields
 
