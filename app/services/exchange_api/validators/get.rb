@@ -19,7 +19,6 @@ module ExchangeApi
         when 'binance.us' then Binance::Validator.new(url_base: US_URL_BASE)
         when 'zonda' then Zonda::Validator.new
         when 'kraken' then Kraken::Validator.new
-        when 'coinbase pro' then CoinbasePro::Validator.new
         when 'coinbase' then Coinbase::Validator.new
         when 'gemini' then Gemini::Validator.new
         when 'bitso' then Bitso::Validator.new

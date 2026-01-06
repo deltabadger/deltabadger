@@ -118,7 +118,7 @@ module BotsManager::Trading::Validators
       end
 
       def limit_minimum_in_base?(exchange_name, order_type)
-        order_type == 'limit' && ['coinbase pro', 'kucoin'].include?(exchange_name.downcase)
+        order_type == 'limit' && ['kucoin'].include?(exchange_name.downcase)
       end
 
       def validate_use_subaccount
