@@ -33,11 +33,9 @@ parse_redis_url() {
     echo "${host:-localhost}:${port:-6379}"
 }
 
-# Database connection check
-wait_for_postgres() {
-    if [ -n "$DB_HOST" ]; then
-        wait_for_service "$DB_HOST" "${DB_PORT:-5432}" "PostgreSQL"
-    fi
+# Database preparation (SQLite - no network wait needed)
+ensure_database_directory() {
+    mkdir -p /app/storage
 }
 
 # Redis connection check
@@ -82,7 +80,7 @@ main() {
     case "$cmd" in
         web)
             echo "Starting Deltabadger Web Server..."
-            wait_for_postgres
+            ensure_database_directory
             wait_for_redis
             cleanup_pid
 
@@ -96,7 +94,7 @@ main() {
 
         sidekiq)
             echo "Starting Deltabadger Sidekiq Worker..."
-            wait_for_postgres
+            ensure_database_directory
             wait_for_redis
 
             exec bundle exec sidekiq
@@ -104,21 +102,21 @@ main() {
 
         migrate)
             echo "Running database migrations..."
-            wait_for_postgres
+            ensure_database_directory
             prepare_database
             echo "Migrations completed!"
             ;;
 
         setup)
             echo "Setting up database..."
-            wait_for_postgres
+            ensure_database_directory
             bundle exec rails db:create db:schema:load db:seed
             echo "Database setup completed!"
             ;;
 
         console)
             echo "Starting Rails console..."
-            wait_for_postgres
+            ensure_database_directory
             exec bundle exec rails console
             ;;
 
