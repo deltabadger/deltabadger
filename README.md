@@ -3,7 +3,7 @@ Auto-DCA for crypto. Automate your Dollar Cost Averaging strategy across multipl
 
 ## About this release
 
-Version 0.9.0 was released quickly under pressure from the [MiCA regulations](https://janklosowski.substack.com/p/eu-killed-my-company-i-open-source), so it's not a one-click standalone yet. If you encounter any issues, please join us on the [Telegram channel](https://t.me/deltabadgerchat) and we'll help.
+Version 0.9.0 was released quickly under pressure from the [MiCA regulations](https://janklosowski.substack.com/p/eu-killed-my-company-i-open-source), so it's not a one-click standalone yet, but it's working, and if you encounter any issues, please join us on the [Telegram channel](https://t.me/deltabadgerchat) and we'll help.
 
 ### What next
 
