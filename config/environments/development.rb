@@ -89,5 +89,6 @@ Rails.application.configure do
 
   routes.default_url_options = { host: ENV.fetch('APP_ROOT_URL'), protocol: 'http' }
 
-  config.dry_run = Utilities::String.to_boolean(ENV['DRY_RUN'] || false)
+  config.dry_run = %w[true 1 yes].include?(ENV.fetch('DRY_RUN', 'false').to_s.downcase)
+
 end
