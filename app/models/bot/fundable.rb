@@ -35,17 +35,17 @@ module Bot::Fundable
     # notified_in_last_day? per asset
     legacy_buy_bots = user.bots
                           .basic
-                          .where('settings @> ?', { type: 'buy' }.to_json)
-                          .where('settings @> ?', { quote: quote_asset.symbol }.to_json)
+                          .where("json_extract(settings, '$.type') = ?", 'buy')
+                          .where("json_extract(settings, '$.quote') = ?", quote_asset.symbol)
                           .pluck(:last_end_of_funds_notification)
     legacy_sell_bots = user.bots
                            .basic
-                           .where('settings @> ?', { type: 'sell' }.to_json)
-                           .where('settings @> ?', { base: quote_asset.symbol }.to_json)
+                           .where("json_extract(settings, '$.type') = ?", 'sell')
+                           .where("json_extract(settings, '$.base') = ?", quote_asset.symbol)
                            .pluck(:last_end_of_funds_notification)
     new_bots = user.bots
                    .not_legacy
-                   .where('settings @> ?', { quote_asset_id: quote_asset_id }.to_json)
+                   .where("json_extract(settings, '$.quote_asset_id') = ?", quote_asset_id)
                    .pluck(:last_end_of_funds_notification)
     (legacy_buy_bots + legacy_sell_bots + new_bots).compact.any? { |t| t > 1.day.ago }
   end

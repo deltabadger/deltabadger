@@ -43,7 +43,7 @@ ENV RAILS_ENV=production \
 RUN apt-get update -qq && \
     apt-get install -y --no-install-recommends \
     build-essential \
-    libpq-dev \
+    libsqlite3-dev \
     git \
     curl \
     libvips-dev \
@@ -118,11 +118,10 @@ ENV RAILS_ENV=production \
 # Install runtime dependencies only
 RUN apt-get update -qq && \
     apt-get install -y --no-install-recommends \
-    libpq5 \
+    libsqlite3-0 \
     curl \
     libvips42 \
     libsodium23 \
-    postgresql-client \
     netcat-openbsd \
     tzdata \
     imagemagick && \

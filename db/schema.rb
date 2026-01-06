@@ -11,8 +11,6 @@
 # It's strongly recommended that you check this file into your version control system.
 
 ActiveRecord::Schema[8.1].define(version: 2026_01_06_162140) do
-  # These are extensions that must be enabled in order to support this database
-  enable_extension "pg_catalog.plpgsql"
 
   create_table "affiliates", force: :cascade do |t|
     t.boolean "active", default: true, null: false
@@ -158,13 +156,13 @@ ActiveRecord::Schema[8.1].define(version: 2026_01_06_162140) do
     t.string "label"
     t.datetime "last_end_of_funds_notification", precision: nil
     t.integer "restarts", default: 0, null: false
-    t.jsonb "settings", default: {}, null: false
+    t.json "settings", default: {}, null: false
     t.datetime "settings_changed_at", precision: nil
     t.datetime "started_at", precision: nil
     t.integer "status", default: 0, null: false
     t.string "stop_message_key"
     t.datetime "stopped_at", precision: nil
-    t.jsonb "transient_data", default: {}, null: false
+    t.json "transient_data", default: {}, null: false
     t.string "type"
     t.datetime "updated_at", precision: nil, null: false
     t.bigint "user_id"
@@ -284,7 +282,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_01_06_162140) do
     t.datetime "created_at", precision: nil, null: false
     t.integer "currency", null: false
     t.boolean "discounted", null: false
-    t.jsonb "external_statuses", default: []
+    t.json "external_statuses", default: []
     t.string "finger_print_id"
     t.string "first_name"
     t.boolean "gads_tracked", default: false
@@ -325,7 +323,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_01_06_162140) do
   create_table "portfolios", force: :cascade do |t|
     t.date "backtest_start_date", default: "2020-01-01", null: false
     t.integer "benchmark", default: 0, null: false
-    t.jsonb "compare_to", default: [], null: false
+    t.json "compare_to", default: [], null: false
     t.datetime "created_at", null: false
     t.string "label"
     t.decimal "risk_free_rate", precision: 5, scale: 4, default: "0.0", null: false
@@ -372,7 +370,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_01_06_162140) do
   end
 
   create_table "surveys", force: :cascade do |t|
-    t.jsonb "answers", default: {}, null: false
+    t.json "answers", default: {}, null: false
     t.datetime "created_at", null: false
     t.string "type", null: false
     t.datetime "updated_at", null: false
@@ -417,7 +415,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_01_06_162140) do
     t.decimal "bot_quote_amount", default: "0.0", null: false
     t.string "called_bot_type"
     t.datetime "created_at", precision: nil, null: false
-    t.jsonb "error_messages", default: [], null: false
+    t.json "error_messages", default: [], null: false
     t.bigint "exchange_id", null: false
     t.string "external_id"
     t.integer "external_status"

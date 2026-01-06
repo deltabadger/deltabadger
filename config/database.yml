@@ -1,21 +1,16 @@
+default: &default
+  adapter: sqlite3
+  pool: <%= ENV.fetch("RAILS_MAX_THREADS") { 5 } %>
+  timeout: 5000
+
 development:
-  adapter: postgresql
-  encoding: unicode
-  pool: <%= ENV['MAX_DB_CONNECTIONS'] || ENV['RAILS_MAX_THREADS'] || 5 %>
-  database: deltabadger_development
+  <<: *default
+  database: storage/development.sqlite3
 
 test:
-  adapter: postgresql
-  encoding: unicode
-  pool: <%= ENV['MAX_DB_CONNECTIONS'] || ENV['RAILS_MAX_THREADS'] || 5 %>
-  database: deltabadger_test
+  <<: *default
+  database: storage/test.sqlite3
 
 production:
-  adapter: postgresql
-  encoding: unicode
-  pool: <%= ENV['MAX_DB_CONNECTIONS'] || ENV['RAILS_MAX_THREADS'] || 5 %>
-  host: <%= ENV['DB_HOST'] %>
-  database: <%= ENV['DB_NAME'] %>
-  username: <%= ENV['DB_USER'] %>
-  password: <%= ENV['DB_PASSWORD'] %>
-  timeout: 5000
+  <<: *default
+  database: <%= ENV.fetch("DATABASE_PATH") { "storage/production.sqlite3" } %>
