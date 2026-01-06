@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_01_06_115209) do
+ActiveRecord::Schema[8.1].define(version: 2026_01_06_162140) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
 
@@ -237,37 +237,6 @@ ActiveRecord::Schema[8.1].define(version: 2026_01_06_115209) do
     t.string "name", null: false
     t.datetime "updated_at", precision: nil, null: false
     t.decimal "vat_rate", precision: 2, scale: 2, null: false
-  end
-
-  create_table "daily_transaction_aggregates", force: :cascade do |t|
-    t.decimal "amount"
-    t.decimal "amount_exec"
-    t.string "base"
-    t.bigint "bot_id"
-    t.string "bot_interval", default: "", null: false
-    t.decimal "bot_quote_amount", default: "0.0", null: false
-    t.string "called_bot_type"
-    t.datetime "created_at", precision: nil, null: false
-    t.jsonb "error_messages", default: [], null: false
-    t.string "external_id"
-    t.integer "external_status"
-    t.integer "order_type"
-    t.decimal "price"
-    t.string "quote"
-    t.decimal "quote_amount"
-    t.decimal "quote_amount_exec"
-    t.integer "side"
-    t.integer "status"
-    t.decimal "total_amount", default: "0.0", null: false
-    t.decimal "total_invested", default: "0.0", null: false
-    t.decimal "total_value", default: "0.0", null: false
-    t.string "transaction_type", default: "REGULAR", null: false
-    t.datetime "updated_at", precision: nil, null: false
-    t.index ["bot_id", "created_at"], name: "index_daily_transaction_aggregates_on_bot_id_and_created_at"
-    t.index ["bot_id", "status", "created_at"], name: "dailies_index_status_created_at"
-    t.index ["bot_id", "transaction_type", "created_at"], name: "dailies_index_bot_type_created_at"
-    t.index ["bot_id"], name: "index_daily_transaction_aggregates_on_bot_id"
-    t.index ["created_at"], name: "index_daily_transaction_aggregates_on_created_at"
   end
 
   create_table "exchange_assets", force: :cascade do |t|
@@ -516,7 +485,6 @@ ActiveRecord::Schema[8.1].define(version: 2026_01_06_115209) do
   add_foreign_key "caffeinate_campaign_subscriptions", "caffeinate_campaigns"
   add_foreign_key "caffeinate_mailings", "caffeinate_campaign_subscriptions"
   add_foreign_key "cards", "users"
-  add_foreign_key "daily_transaction_aggregates", "bots"
   add_foreign_key "exchange_assets", "assets"
   add_foreign_key "exchange_assets", "exchanges"
   add_foreign_key "fee_api_keys", "exchanges"
@@ -535,19 +503,4 @@ ActiveRecord::Schema[8.1].define(version: 2026_01_06_115209) do
   add_foreign_key "transactions", "exchanges"
   add_foreign_key "users", "affiliates", column: "referrer_id"
   add_foreign_key "users", "subscription_plan_variants", column: "pending_plan_variant_id"
-
-  create_view "bots_total_amounts", materialized: true, sql_definition: <<-SQL
-      SELECT transactions.bot_id,
-      sum((transactions.amount * transactions.price)) AS total_cost,
-      sum(transactions.amount) AS total_amount,
-      bots.exchange_id,
-      bots.settings,
-      bots.created_at
-     FROM (bots
-       JOIN transactions ON ((transactions.bot_id = bots.id)))
-    WHERE ((bots.settings ->> 'type'::text) = 'buy'::text)
-    GROUP BY transactions.bot_id, bots.exchange_id, bots.settings, bots.created_at;
-  SQL
-  add_index "bots_total_amounts", ["bot_id"], name: "index_bots_total_amounts_on_bot_id", unique: true
-
 end

@@ -1,47 +1,21 @@
 module Charts::PortfolioValueOverTime
   class Data < BaseService
     def call(bot)
-      sanitized_sql = ActiveRecord::Base.sanitize_sql([query, bot.id])
-      response = ActiveRecord::Base.connection.execute(sanitized_sql)
-      response.map(&present_data)
-    end
+      transactions = bot.transactions.submitted.order(created_at: :asc)
+      return [] if transactions.empty?
 
-    private
+      total_invested = 0
+      total_accumulated = 0
 
-    def query
-      <<~SQL
-        with daily_data as (
-          select distinct on (date_trunc('day', created_at))
-            date_trunc('day', created_at) as day,
-            created_at,
-            price * amount as invested,
-            amount,
-            price
-          from daily_transaction_aggregates
-          where bot_id = ? and status = 0
-          order by date_trunc('day', created_at), created_at desc
-        ),
-        windowed_data as (
-          select
-            day as created_at,
-            sum(invested) over (order by day asc) as total_invested,
-            sum(amount) over (order by day asc) as total_accumulated,
-            price
-          from daily_data
-        )
+      transactions.map do |t|
+        next unless t.price.present? && t.amount.present?
 
-        select
-          created_at,
-          total_invested,
-          price * total_accumulated as current_value,
-          total_accumulated
-        from windowed_data
-        order by created_at asc
-      SQL
-    end
+        total_invested += t.price * t.amount
+        total_accumulated += t.amount
+        current_value = t.price * total_accumulated
 
-    def present_data
-      ->(row) { row.slice('created_at', 'total_invested', 'current_value').values }
+        [t.created_at, total_invested, current_value]
+      end.compact
     end
   end
 end

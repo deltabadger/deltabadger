@@ -2,7 +2,6 @@ class Bot < ApplicationRecord
   belongs_to :exchange, optional: true
   belongs_to :user
   has_many :transactions, dependent: :destroy
-  has_many :daily_transaction_aggregates
 
   enum :status, %i[created scheduled stopped deleted executing retrying waiting]
 
@@ -72,7 +71,7 @@ class Bot < ApplicationRecord
   end
 
   def total_amount
-    daily_transaction_aggregates.sum(:amount)
+    transactions.submitted.sum(:amount)
   end
 
   def destroy
