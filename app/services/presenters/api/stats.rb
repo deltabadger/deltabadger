@@ -13,12 +13,12 @@ module Presenters
         current_price_result = market.current_price(market_symbol)
         current_price = current_price_result.or(transactions.last.price)
 
-        daily_aggregates = bot.daily_transaction_aggregates
+        submitted_transactions = bot.transactions.submitted
 
-        transactions_amount_sum = daily_aggregates.sum(:amount)
-        total_invested = daily_aggregates.sum { |agg| agg.amount * agg.price }
+        transactions_amount_sum = submitted_transactions.sum(:amount)
+        total_invested = submitted_transactions.sum('amount * price')
 
-        average_price = total_invested / transactions_amount_sum
+        average_price = transactions_amount_sum.positive? ? total_invested / transactions_amount_sum : 0
         current_value = current_price * transactions_amount_sum
 
         {

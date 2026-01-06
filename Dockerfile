@@ -21,10 +21,11 @@ COPY package.json yarn.lock ./
 RUN yarn install --frozen-lockfile --network-timeout 100000
 
 # Copy frontend source files
-COPY babel.config.js postcss.config.js ./
-COPY config/webpacker.yml config/webpack ./config/
 COPY app/javascript ./app/javascript
 COPY app/assets ./app/assets
+
+# Build JavaScript with esbuild
+RUN yarn build
 
 # Stage 2: Build Ruby dependencies and compile assets
 FROM ruby:3.2.3-slim AS builder
@@ -34,7 +35,6 @@ WORKDIR /app
 # Set build environment
 ENV RAILS_ENV=production \
     NODE_ENV=production \
-    NODE_OPTIONS=--openssl-legacy-provider \
     BUNDLE_WITHOUT="development:test" \
     BUNDLE_DEPLOYMENT=1 \
     BUNDLE_PATH=/app/vendor/bundle
@@ -50,7 +50,7 @@ RUN apt-get update -qq && \
     libsodium-dev && \
     rm -rf /var/lib/apt/lists/*
 
-# Install Node 18.x to match .tool-versions
+# Install Node 18.x for dartsass-rails
 RUN curl -fsSL https://deb.nodesource.com/setup_18.x | bash - && \
     apt-get install -y nodejs && \
     npm install -g yarn
@@ -65,8 +65,9 @@ RUN bundle config set --local without 'development test' && \
     find /app/vendor/bundle/ruby/*/gems/ -name "*.c" -delete && \
     find /app/vendor/bundle/ruby/*/gems/ -name "*.o" -delete
 
-# Copy node_modules from frontend builder
+# Copy node_modules and built JS from frontend builder
 COPY --from=frontend-builder /app/node_modules ./node_modules
+COPY --from=frontend-builder /app/app/assets/builds ./app/assets/builds
 
 # Copy application code
 COPY . .
@@ -134,7 +135,6 @@ RUN groupadd --gid 1000 deltabadger && \
 # Copy built artifacts from builder stage
 COPY --from=builder /app/vendor/bundle ./vendor/bundle
 COPY --from=builder /app/public/assets ./public/assets
-COPY --from=builder /app/public/packs ./public/packs
 
 # Copy application code
 COPY --chown=deltabadger:deltabadger . .

@@ -4,7 +4,6 @@ class Transaction < ApplicationRecord
 
   before_save :round_numeric_fields
   before_save :store_previous_quote_amount_exec
-  after_create_commit :set_daily_transaction_aggregate
   after_create_commit -> { bot.broadcast_new_order(self) }
   after_update_commit -> { bot.broadcast_updated_order(self) }
   after_commit lambda {
@@ -33,7 +32,7 @@ class Transaction < ApplicationRecord
 
   BTC = %w[XXBT XBT BTC].freeze
 
-  # TODO: Migrate Transaction & DailyTransactionAggregate to directly refference assets instead of symbols
+  # TODO: Migrate Transaction to directly reference assets instead of symbols
   def base_asset
     @base_asset ||= exchange.assets.find_by(symbol: base) ||
                     exchange.tickers.find_by(base: base)&.base_asset ||
@@ -110,23 +109,5 @@ class Transaction < ApplicationRecord
 
   def custom_quote_amount_exec_changed?
     quote_amount_exec != @previous_quote_amount_exec && quote_amount_exec.present? && quote_amount_exec.positive?
-  end
-
-  def set_daily_transaction_aggregate # rubocop:disable Metrics/CyclomaticComplexity,Metrics/PerceivedComplexity
-    return unless submitted?
-
-    daily_transaction_aggregate = DailyTransactionAggregate.today_for_bot(bot).first
-    return DailyTransactionAggregate.create(attributes.except('id', 'exchange_id')) unless daily_transaction_aggregate
-
-    bot_transactions = Transaction.today_for_bot(bot)
-    bot_transactions_with_price = bot_transactions.reject { |t| t.price.nil? }
-    bot_transactions_with_amount = bot_transactions.reject { |t| t.amount.nil? }
-    return if bot_transactions_with_price.count.zero? || bot_transactions_with_amount.count.zero?
-
-    daily_transaction_aggregate_new_data = {
-      price: bot_transactions_with_price.sum(&:price) / bot_transactions_with_price.count.to_f,
-      amount: bot_transactions_with_amount.sum(&:amount)
-    }
-    daily_transaction_aggregate.update(daily_transaction_aggregate_new_data)
   end
 end

@@ -37,7 +37,7 @@ module Charts::PortfolioValueOverTime
 
       current_price = current_price_result.data
 
-      value = bot.daily_transaction_aggregates.sum(:amount) * current_price
+      value = bot.transactions.submitted.sum(:amount) * current_price
       Result::Success.new([date, total_invested, value])
     end
   end
