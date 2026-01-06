@@ -1,5 +1,5 @@
 class ApplicationJob < ActiveJob::Base
-  include Bullet::ActiveJob if Rails.env.development?
+  # include Bullet::ActiveJob if Rails.env.development? # Bullet not supported in Rails 8 yet
 
   # For retries we dont use ActiveJob retry_on exponential backoff and builtin executions count
   # because this would ignore retries being placed in the retries section in the Sidekiq dashboard.
