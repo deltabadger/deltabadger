@@ -29,7 +29,6 @@ gem 'webpacker', '~> 5.4'
 gem 'sidekiq', '~> 6.5.12'
 gem 'sidekiq-limit_fetch', git: 'https://github.com/brainopia/sidekiq-limit_fetch'
 gem 'scenic'
-gem 'uglifier', '>= 1.3.0'
 gem 'kraken_ruby_client', git: 'https://github.com/guillemap/kraken_ruby_client', branch: 'add-withdrawal-endpoints'
 gem 'i18n-js', '~> 3.8.0'
 gem 'whenever', require: false
