@@ -1,5 +1,5 @@
 # Deltabadger
-Auto-DCA for crypto. Automate your Dollar Cost Averaging strategy across multiple exchanges. As a service, [Deltabadger](https://deltabadger.com) helped users invest over $72 million into Bitcoin and other digital assets. Now it's free and open-source!
+Auto-DCA for crypto. Automate your Dollar Cost Averaging strategy across multiple exchanges. As a service, [Deltabadger](https://deltabadger.com) helped users invest over $72 million into Bitcoin and other digital assets. Now it's free and open-source.
 
 ## About this release
 
@@ -7,9 +7,9 @@ Version 0.9.0 was released quickly under pressure from the [MiCA regulations](ht
 
 ### What next
 
-The 1.0.0 will include significant updates, to make it a standalone app that you can run without Docker. The Umbrel app comes next.
+The 1.0.0 will include significant updates, to make it a standalone app that you can run without Docker. The Umbrel app comes next. Going from an online service to a standalone app requires deep changes, and a lot of testing, but we're already on the way there.
 
-Join our [Telegram channel](https://t.me/deltabadgerchat) and help us build the best DCA bot out there.
+If you want to help us to build the best DCA bot on the planet, join [Telegram channel](https://t.me/deltabadgerchat) and say "hi".
 
 ## Running with Docker
 
