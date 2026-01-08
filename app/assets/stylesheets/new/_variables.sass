@@ -1,54 +1,56 @@
-$primary: rgb(41, 72, 161)
-$text:    #061A4F
-$success: color(display-p3 0 0.7 0.45)
-$danger:  color(display-p3 1 0 0)
-$warning: color(display-p3 1 0.5 0)
-$soon:    color(display-p3 1 0.5 0)
-$pro:     rgb(0, 64, 255)
-$legendary: rgb(140, 0, 255)
-
-$gray-100: #EDF0F6
-$gray-150: #dde0ea
-$gray-200: #b4bcd1
-$gray-300: #8894B6
-
-$page-bg: #f5f6f8
-$widget-bg: #fff
-
-$dropdown-bg: #FFF
+@font-face
+  font-family: 'Montserrat'
+  src: url('/assets/Montserrat-VariableFont_wght.ttf') format('truetype-variations')
+  font-weight: 100 900
+  font-style: normal
+  font-display: swap
 
 \:root
   font-size: 8px
-  --text-dark: #061A4F
-  --widget-shadow: 0.125rem 0.125rem 0.125rem rgba(0,0,0,0.035), 0.5rem 0.5rem 1.5rem rgba(0,0,0,0.035)
+  font-family: 'Montserrat', sans-serif
+
+  --binance: #F0B90B
+
+  @media (prefers-color-scheme: light)
+    --sky: color(display-p3 0 0 1)
+    --ink: #002244
+    --ash: #4D587C
+    --stone: #77829A
+    --concrete: #A1ACB9
+    --steel: #C5CFD8
+    --silver: #E2E6EB
+    --paper: #F5F6F8
+    --washed: #FFFFFF
+    --white: #FFFFFF
+    --grass: color(display-p3 0 0.7 0.45)
+    --berry: #CF0000
+
+    --shadow-basic: 0.125rem 0.125rem 0.25rem rgba(0,0,0,0.07), 0.25rem 0.25rem 1rem rgba(0,0,0,0.05)
+    --shadow-paper: 0.125rem 0.125rem 0.125rem rgba(0,0,0,0.15)
+    --shadow-indent: inset 0.125rem 0.125rem 0.125rem rgba(0,0,0,0.15)
+
+  @media (prefers-color-scheme: dark)
+    --sky: color(display-p3 0 0 1)
+    --ink: #002244
+    --ash: #B2D5FFc9
+    --stone: #77829A
+    --concrete: #A1ACB9
+    --steel: #C5CFD8
+    --silver: #000
+    --paper: #001b36
+    --washed: #0D223F
+    --white: #FFFFFF
+    --grass: color(display-p3 0 0.7 0.45)
+    --berry: #CF0000
+
+    --shadow-basic: 0.125rem 0.125rem 0.25rem rgba(0,0,0,0.07), 0.25rem 0.25rem 1rem rgba(0,0,0,0.05)
+    --shadow-paper: 0.125rem 0.125rem 0.125rem rgba(0,0,0,0.1)
+    --shadow-indent: inset 0.125rem 0.125rem 0.125rem rgba(0,0,0,0.1)
 
 @media (prefers-color-scheme: light)
-  .db-darkmode-only,.darkmode-only
-    display: none
   \:root
-    --primary: #00f
-    --primary-button: #00f
-    --primary-shadow: 0.125rem 0.125rem 0.125rem rgba(0,0,0,0.07), 0.5rem 0.5rem 0.5rem rgba(0,0,0,0.07)
-    --success: color(display-p3 0 0.7 0.45)
-    --success-shadow: 0.125rem 0.125rem 0.125rem rgba(0, 30, 15, 0.07), 0.5rem 0.5rem 0.5rem rgba(0, 30, 15, 0.07)
-    --danger: #f7002d
-    --danger-shadow: 0.125rem 0.125rem 0.125rem rgba(0,0,0,0.07), 0.5rem 0.5rem 0.5rem rgba(0,0,0,0.07)
-    --danger-highlight: #f041
     --warning: color(display-p3 1 0.5 0)
-    --warning-semitransparent: color(display-p3 1 0.5 0 / 0.38)
-    --warning-shadow: 0.125rem 0.125rem 0.125rem rgba(0,0,0,0.07), 0.5rem 0.5rem 0.5rem rgba(0,0,0,0.07)
-    --soon: color(display-p3 1 0.5 0)
-    --soon-shadow: 0.125rem 0.125rem 0.125rem rgba(0,0,0,0.07), 0.5rem 0.5rem 0.5rem rgba(0,0,0,0.07)
-    --success-semitransparent: color(display-p3 0 0.7 0.4 / 0.2)
-    --discount: color(display-p3 0 0.6 0.34)
-    --ai: color(display-p3 0.7 0 0.7)
-    --new-vibe: #0947ff
     --benchmark: #949db5
-    --background-new: #f5f6f8
-    --background-art: #E8ECF2
-    --background-new-semitransparent: #cfdeff69
-    --widget-background: #fff
-    --widget-background-odd: #0033660d
     --widget-line: #D9E0E7
     --insight-title: #061A4F
     --insight-background: #8098dd77
@@ -60,31 +62,24 @@ $dropdown-bg: #FFF
     --label: #061A4Fba
     --label-select-inactive: #061a4f80
     --close-hover: #ebeef2
-    
-    --emphasis: #024
-    --research-logo: #061A4F
 
     --modal-backdrop: #bcc4d338
 
     --pick-bot-item-bg: #fff
     --pick-bot-item-text-hover: #012
-    --big-header: var(--label)
+    --big-header: var(--stone)
 
     --input-text: #061A4F
     --input-text-inactive:  #8894B6
     --input-border: #8894B6
 
     --sinput-background: #fff
-    --sinput-on-paper: #ebeef2
   
     --sinput-text: #00f
 
     --button-add-asset: #fff
   
     --button-add-asset-hover: #d9e0e7
-
-    --toggle-background: #061a4f80
-    --toggle-background-active: color(display-p3 0 0.7 0.45)
 
     --modal-background: #fff
     --modal-search-hover-background: #fff
@@ -118,26 +113,9 @@ $dropdown-bg: #FFF
     --x-text: #fff
 
 @media (prefers-color-scheme: dark)
-  .db-lightmode-only,.lightmode-only
-    display: none
   \:root
-    --new-vibe: #fff
-    --primary: #0040ff
-    --primary-button: #0040ff
-    --success: color(display-p3 0 0.7 0.45)
-    --success-semitransparent: color(display-p3 0 0.7 0.4 / 0.2)
-    --discount: color(display-p3 0 0.75 0.42)
-    --ai: color(display-p3 0.7 0 0.7)
-    --danger: #f7002d
-    --danger-highlight: #f041
     --warning: color(display-p3 1 0.5 0)
-    --warning-semitransparent: color(display-p3 1 0.5 0 / 0.38)
     --benchmark: #465f81
-    --background-new: #001b36
-    --background-art: #00152a
-    --background-new-semitransparent: #001b3669
-    --widget-background: #0D223F
-    --widget-background-odd: #bbddff0a
     --widget-line: #313C59
     --insight-title: #fff
     --insight-background: #00f77
@@ -148,8 +126,6 @@ $dropdown-bg: #FFF
     --slider-progress: #00f
     --label: #B2D5FFc9
     --label-select-inactive: #b2d5ff77
-    --emphasis: #fff
-    --research-logo: #fff
 
     --modal-backdrop: #012b
     --close-hover: #fff1
@@ -163,14 +139,10 @@ $dropdown-bg: #FFF
     --input-border: #8894B6
 
     --sinput-background: #0D223F
-    --sinput-on-paper: #001b36
     --sinput-text: #fff
 
     --button-add-asset: #0D223F
     --button-add-asset-hover: #172a46
-
-    --toggle-background: #b2d5ff45
-    --toggle-background-active: color(display-p3 0 0.7 0.45)
 
     --modal-background: #0d203c
     --modal-search-hover-background: #0D223F

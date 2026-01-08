@@ -39,7 +39,7 @@
             border-radius: 0
             justify-content: center
             align-items: center
-            background: var(--background-devise)
+            background: var(--paper)
             &__item
                 text-align: center
 .dropdown
@@ -79,7 +79,7 @@
         &:focus
             outline: none
         &::placeholder
-            color: var(--label)
+            color: var(--stone)
         &--icon
             position: absolute
             top: 0
@@ -87,9 +87,9 @@
             width: 6rem
             line-height: 6rem
             padding: 1.5rem
-            color: var(--label)
+            color: var(--stone)
             path, circle
-                stroke: var(--label)
+                stroke: var(--stone)
     &__item
         display: grid
         cursor: pointer
@@ -102,10 +102,10 @@
         width: 100%      // <button>
         color: var(--dropdown-link)
         &--danger
-            color: var(--danger)
+            color: var(--berry)
             &:hover
-                color: #fff !important
-                background: var(--danger) !important
+                color: var(--white) !important
+                background: var(--berry) !important
         &--divider
             padding: 0
             margin: 1rem 0
@@ -115,7 +115,5 @@
                 background: none !important
         &:hover
             background: var(--dropdown-hover)
-        span
-            color: color.adjust($text, $alpha: -0.35)
 
         

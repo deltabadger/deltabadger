@@ -5,7 +5,7 @@
         controller: "broadcast--on-connect",
         broadcast__on_connect_method_value: "price_drop_limit_info_update",
         broadcast__on_connect_method_args_value: { bot_id: bot.id }.to_json
-      }, class: "loader--small", style: "position: unset; float: left; margin-top: 8px;" %>
+      }, class: "loader--small", style: "position: unset; float: left; margin-top: 1rem;" %>
     <% else %>
       <div class="<%= info[:condition_met] ? "text-success" : "" %>">
         <%= t("bot.settings.extra_price_drop_limit.info",

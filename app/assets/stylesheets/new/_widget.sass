@@ -7,20 +7,20 @@
     flex-direction: column
     gap: 0.25rem
 
-    box-shadow: var(--widget-shadow)
+    box-shadow: var(--shadow-basic)
     .widget, .insight
         border-radius: 0
         box-shadow: none
 
 .widget
-    color: var(--text)
-    background: var(--widget-background)
+    color: var(--ash)
+    background: var(--washed)
     padding: 2rem
     display: flex
     flex-direction: column
     gap: 3rem
     border-radius: 2rem
-    box-shadow: var(--widget-shadow)
+    box-shadow: var(--shadow-basic)
     &__placeholder
         aspect-ratio: 10 / 3
         align-self: center
@@ -30,12 +30,12 @@
         position: relative
     p
         b
-            color: var(--emphasis)
+            color: var(--ink)
     &--info
         background: var(--insight-background)
     .small-info
         font-size: 1.75rem
-        padding-top: 1em
+        padding-top: 0.5em
         display: block
         width: 100%
     &.widget--chart
@@ -53,7 +53,7 @@
             background: none
             padding: 0
             &__value
-                color: $success
+                color: var(--grass)
                 font-weight: 600
     &--main-bot-settings
         padding-top: 4rem
@@ -75,13 +75,13 @@
         thead
             position: sticky
             top: 0
-            background-color: var(--widget-background)
+            background-color: var(--washed)
             box-shadow: 0 0.25rem var(--widget-shadow-line)
         tbody
             overflow-y: auto
             height: 0
         th
-            color: var(--label)
+            color: var(--stone)
             font-weight: 600
             z-index: 1
         thead
@@ -110,29 +110,31 @@
                 left: auto
                 top: 2.5rem
                 border-color: #fff0
-                border-left-color: var(--primary) !important
+                border-left-color: var(--sky) !important
         path
-            fill: var(--label)
+            fill: var(--stone)
     .sinput
         box-shadow: none
     p:last-child
         margin-bottom: 0
     strong
-        color: var(--emphasis)
+        color: var(--ink)
     &.bot-settings
         &--active
             .conversational
-                color: var(--label) !important
+                color: var(--stone) !important
             .sinput
                 color: var(--link) !important 
-                font-weight: 600 !important    // color: var(--text) !important
+                font-weight: 700 !important    // color: var(--ash) !important
                 &:disabled,&[disabled],&--disabled
-                    color: var(--label) !important
+                    color: var(--stone) !important
         &--inactive
             box-shadow: none
             background: none
             .conversational,.sinput,.label
                 color: var(--label-select-inactive) !important
+            .sinput
+                background: var(--silver)
             .icon-24 path
                 fill: var(--label-select-inactive) !important
 

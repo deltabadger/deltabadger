@@ -12,7 +12,7 @@
 
         <% path = bots_path(create: true) %>
         <% data = { turbo: false } %>
-        <div class="itile itile--bot-type itile--soon">
+        <div class="itile itile--bot-type">
             <div class="index-title"><%= t('bot.types.index_portfolio.title') %></div>
             <div class="index-info"><%= t('bot.types.index_portfolio.description').html_safe %></div>
         </div>
@@ -32,14 +32,4 @@
         <h2 class="header header--3"><%= t('six_reasons.avoid_taxes.title') %></h2>
         <%= render partial: 'svg/why04' %>
     </div>
-    <!--
-    <div class="introtile">
-        <h2 class="header header--3"><%= t('six_reasons.tracking.title') %></h2>
-        <%= render partial: 'svg/why01' %>
-    </div>
-    <div class="introtile">
-        <h2 class="header header--3"><%= t('six_reasons.invest_in_index.title') %> <span class="sbadge sbadge--soon"><%= t('utils.soon') %></span></h2>
-        <%= render partial: 'svg/why06' %>
-    </div>
-    -->
 </div>

@@ -1,7 +1,7 @@
 @use "variables" as *
 
 .ticker, .tag
-    background: $gray-300
+    background: var(--stone)
     border-radius: 2rem
     color: #fff
     font-weight: 700
@@ -13,11 +13,12 @@
     text-overflow:      ellipsis
     text-wrap:          nowrap
     text-decoration: none !important
+    box-shadow: var(--shadow-paper)
     &:hover, &:focus
         color: #fff
     @media (min-width: 768px)
-        line-height: 4rem
-        height: 4rem
+        line-height: 3.5rem
+        height: 3.5rem
 .ticker
     display: block
     min-width: 9rem

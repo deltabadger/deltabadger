@@ -9,7 +9,7 @@
     display: none !important
 
 .table
-  color: var(--label)
+  color: var(--stone)
 .pagination
   flex-direction: row
   gap: 0
@@ -24,13 +24,13 @@ b
 .nobreak
   white-space: nowrap
 html
-  background: var(--background)
+  background: var(--paper)
   overflow-x: hidden
 body
   font-family: $fontText
   text-rendering: geometricPrecision
   background: none
-  color: var(--text)
+  color: var(--ash)
   overflow-x: hidden
   font-size: 2rem
   line-height: 1.5
@@ -49,17 +49,17 @@ body
 .text-inactive
   color: var(--text-faded) !important
 .text-success
-  color: var(--success) !important
+  color: var(--grass) !important
 .text-label
-  color: var(--label) !important
+  color: var(--stone) !important
 .text-danger
-  color: var(--danger) !important
+  color: var(--berry) !important
 .text-center
   text-align: center !important
 .bg-success
-  background-color: var(--success) !important
+  background-color: var(--grass) !important
 .bg-danger
-  background-color: var(--danger) !important
+  background-color: var(--berry) !important
 .m
   &b
     &-5
@@ -124,10 +124,10 @@ sup
   display: inline-block
 .field_with_errors
   input
-    border-color: var(--danger) !important
+    border-color: var(--berry) !important
     &:focus,
     &.form-check-input
-      box-shadow: 0 0 0 .3rem rgba(var(--danger),.3) !important
+      box-shadow: 0 0 0 .3rem rgba(var(--berry),.3) !important
   &+.invalid-feedback
     display: block
 
@@ -157,14 +157,14 @@ sup
   top: -.1em
   left: -.1em
   &--success
-    background: var(--success)
+    background: var(--grass)
 
 .first-letter::first-letter
   font-size: 2.9em
   display: block
   float: left
   line-height: 1.05
-  color: var(--primary)
+  color: var(--sky)
   padding-right: 0.2em
   font-family: Montserrat
 
@@ -180,10 +180,10 @@ sup
 
 .db-product-menu
   background: white
-  color: var(--primary)
+  color: var(--sky)
   svg
     *
-      fill: var(--primary)
+      fill: var(--sky)
 
 .db-relative
   position: relative
@@ -376,9 +376,9 @@ sup
 // free
 
 .text-success--lighter
-  color: var(--success) !important
+  color: var(--grass) !important
 .text-danger--lighter
-  color: var(--danger) !important
+  color: var(--berry) !important
 
 // intro image
 .db-intro-image-container
@@ -418,21 +418,6 @@ sup
           content: counters(item, ".") ". "
           margin-left: -4rem
 
-
-  .blockquote
-    padding: 1em 1em .25em 1.1em
-    font-style: italic
-    position: relative
-    &::before
-      content: "”"
-      font-size: 6em
-      font-style: normal
-      position: absolute
-      top: 0
-      left: -.05em
-      line-height: .9
-      opacity: .2
-
 // settings
 .db-content__box
   background:    white
@@ -449,11 +434,11 @@ sup
 .db-remove-api-key
   position: relative
   path
-    fill: var(--primary)
+    fill: var(--sky)
 
   &:hover
     path
-      fill: var(--primary)
+      fill: var(--sky)
 
 .db-settings-section
   margin-bottom: 4rem
@@ -656,7 +641,7 @@ sup
   backdrop-filter: blur(.8rem)
 @-moz-document url-prefix()
   .db-group-cta__bubble
-    background: var(--primary)
+    background: var(--sky)
 
 .db-group-cta__arrow-forward
   display: inline-block
@@ -702,8 +687,8 @@ sup
       transform: scaleY(calc(2 - (var(--scroll-a) + var(--pulsing)*20) * 0.0012))
 
     &__underground
-      // fill: linear-gradient(180deg, #903 0, var(--primary) 120vh, #0D1A40 100%)
-      // fill: linear-gradient(180deg, #{'color(display-p3 0.6 0 0.2)'} 0,  var(--primary)-p3 120vh, #{'color(display-p3 0.05 0.10 0.25)'} 100%)
+      // fill: linear-gradient(180deg, #903 0, var(--sky) 120vh, #0D1A40 100%)
+      // fill: linear-gradient(180deg, #{'color(display-p3 0.6 0 0.2)'} 0,  var(--sky)-p3 120vh, #{'color(display-p3 0.05 0.10 0.25)'} 100%)
 
     &__badger
       transform: translateY(calc((var(--scroll-a) + var(--pulsing)*20) * -.0007rem))
@@ -836,12 +821,12 @@ sup
     width: 60rem
     max-width: 100%
   .db-form__label
-    background: var(--background)
+    background: var(--paper)
   img
     width: 40rem
     height: 40rem
   &__title
-    color: var(--primary)
+    color: var(--sky)
     font-size: 2rem
     font-weight: 700
 .lb_form
