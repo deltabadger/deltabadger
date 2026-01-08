@@ -20,7 +20,6 @@ gem 'image_processing', '~> 1.2'
 gem 'jbuilder', '~> 2.5'
 gem 'jsbundling-rails'
 gem 'kaminari'
-gem 'mission_control-jobs'
 gem 'net-smtp', require: false
 gem 'net-imap', require: false
 gem 'net-pop', require: false
