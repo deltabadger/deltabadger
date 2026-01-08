@@ -1,0 +1,20 @@
+# Solid Queue recurring tasks configuration
+# These replace the sidekiq-cron scheduled jobs
+
+production:
+  sync_all_tickers_and_assets_job:
+    class: Exchange::SyncAllTickersAndAssetsJob
+    schedule: "15 */4 * * *"  # every 4 hours at minute 15
+
+  fetch_all_assets_data_from_coingecko_job:
+    class: Asset::FetchAllAssetsDataFromCoingeckoJob
+    schedule: "20 0 * * 1"  # At 00:20 UTC on Monday
+
+development:
+  sync_all_tickers_and_assets_job:
+    class: Exchange::SyncAllTickersAndAssetsJob
+    schedule: "15 */4 * * *"  # every 4 hours at minute 15
+
+  fetch_all_assets_data_from_coingecko_job:
+    class: Asset::FetchAllAssetsDataFromCoingeckoJob
+    schedule: "20 0 * * 1"  # At 00:20 UTC on Monday
