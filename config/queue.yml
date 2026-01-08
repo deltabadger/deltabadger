@@ -1,0 +1,40 @@
+# Solid Queue configuration
+# Replaces config/sidekiq.yml
+
+default: &default
+  dispatchers:
+    - polling_interval: 1
+      batch_size: 500
+  workers:
+    - queues: "*"
+      threads: <%= ENV.fetch("SOLID_QUEUE_THREADS", 5) %>
+      polling_interval: 0.1
+
+development:
+  <<: *default
+
+test:
+  <<: *default
+
+production:
+  dispatchers:
+    - polling_interval: 1
+      batch_size: 500
+  workers:
+    # High priority exchange queues - one thread each for rate limiting
+    - queues: [binance]
+      threads: 1
+      polling_interval: 1
+    - queues: [binance_us]
+      threads: 1
+      polling_interval: 1
+    - queues: [coinbase]
+      threads: 1
+      polling_interval: 1
+    - queues: [kraken]
+      threads: 1
+      polling_interval: 1
+    # Other queues
+    - queues: [mailers, api_keys_validation, starting_bots, low_priority, default]
+      threads: <%= ENV.fetch("SOLID_QUEUE_THREADS", 5) %>
+      polling_interval: 0.1
