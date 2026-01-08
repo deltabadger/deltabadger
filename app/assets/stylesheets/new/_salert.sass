@@ -1,0 +1,39 @@
+// flash messages
+#flash
+  position: fixed
+  bottom: 1rem
+  right: 1rem
+  z-index: 9999999999 // keep it above 999999999 to show them above the Tidio chat
+
+  display: flex
+  flex-direction: column
+  align-items: center
+  gap: 1rem
+
+  max-width: 100%
+  width: max-content
+
+  &__message
+    animation: appear-then-fade 60s both
+
+@keyframes appear-then-fade
+  0%, 100%
+    opacity:0
+  0.5%, 99.5%
+    opacity:1
+
+
+.salert
+  position: relative
+  background-color: var(--primary)
+  color: white
+  padding: 3rem 8.5rem 3rem 3.5rem
+  border-radius: 2rem
+  width: 50rem
+  max-width: calc(100vw - 6rem)
+  &--danger
+    background-color: var(--danger)
+  &--success
+    background-color: var(--success)
+  &--warning
+    background-color: var(--warning)

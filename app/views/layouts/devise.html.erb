@@ -28,6 +28,12 @@
 
     <%= render 'application/favicon' %>
 
+    <script>
+      if (window.__IS_TAURI__) {
+        document.documentElement.classList.add('tauri');
+      }
+    </script>
+
     <%= stylesheet_link_tag 'application', media: 'all', "data-turbo-track": "reload" %>
     <%= javascript_include_tag "application", "data-turbo-track": "reload", defer: true %>
 
@@ -65,5 +71,6 @@
         </div>
       </div>
     </div>
+
   </body>
 </html>

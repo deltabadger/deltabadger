@@ -28,7 +28,7 @@ module ColorsHelper
     white_contrast = (white_luminance + 0.05) / (luminance + 0.05)
     # black_contrast = (luminance + 0.05) / (black_luminance + 0.05)
 
-    white_contrast >= contrast_ratio ? '#fff' : 'var(--text-dark)'
+    white_contrast >= contrast_ratio ? '#fff' : 'var(--ink)'
   end
 
   def transparent_color(color, opacity, min_opacity = 0.6)

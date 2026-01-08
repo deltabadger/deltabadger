@@ -1,51 +1,20 @@
 @use "sass:color"
 
-$primary:            #00f
-$primary-p3:         #{'color(display-p3 0.13 0.26 0.62)'}
-$primary09:          #00f
-$white:              #fff
-$primary10-p3:       #{'color(display-p3 0.17 0.35 0.75)'}
-$primary-10-p3:      #{'color(display-p3 0.11 0.23 0.55)'}
-$success:            #00b186
-$success-p3:         #{'color(display-p3 0.0275 0.62 0.376)'}
-$text:               #0D223F
-$background:         #F0F1F2
-$background-p3:      #F0F1F2
-
-$primary-dark:       #00f
-$primary-dark-p3:    #{'color(display-p3 0.13 0.26 0.62)'}
-$primary10-dark-p3:  #{'color(display-p3 0.17 0.35 0.75)'}
-$primary-10-dark-p3: #{'color(display-p3 0.11 0.23 0.55)'}
-$white-dark:         #123
-$success-dark:       #00b186
-$success-dark-p3:    #{'color(display-p3 0.0275 0.62 0.376)'}
-$text-dark:          #fff
-$background-dark:    #123
-$background-dark-p3: #123
+@font-face
+  font-family: 'Montserrat'
+  src: url('/assets/Montserrat-VariableFont_wght.ttf') format('truetype-variations')
+  font-weight: 100 900
+  font-style: normal
+  font-display: swap
 
 \:root
+  font-size: 8px
+  font-family: 'Montserrat', sans-serif
 
-  --primary:       #00f
-  --secondary:     #789
-  --danger:        #f7002d
-  --success:       #00b186
-  --white:         #fff
-  --lightA:        #F0F1F2
-  --darkA:         #123
-  --cookies:       #0D223F
-
-  --text:                     #3d4d64
-  --paper:                    #fff
-  --paperBorder:              #dbe0e8
-  --progressBar:              #e3e5e9
-  --background:               #f5f6f8
-  --background-devise:        #fff
-  --background-new:           #f5f6f8
-  --background-art:           #E8ECF2
-  --background-devise:        #FFF
+\:root
   --link:                     #00f
   --focus:                    #00f
-  --inputTextFocus:           #0D223F
+  --inputTextFocus:         #0D223F
   --autocomplete:             #cde
   --inactive:                 #abc
   --linkInactive:             #abc
@@ -53,19 +22,19 @@ $background-dark-p3: #123
   --navMenuFill:              #abc
   --navbarMenuLink:           #fff
   --botModalBackground:       rgba(255,255,255,.85)
-  --alertPrimaryTxt:          #122352
-  --alertPrimaryBg:           #d3d9ec
-  --alertPrimaryBorder:       #c1cae4
-  --pickExchangeItemBg:       #dbe4f0
+  --alertPrimaryTxt:        #122352
+  --alertPrimaryBg:         #d3d9ec
+  --alertPrimaryBorder:     #c1cae4
+  --pickExchangeItemBg:     #dbe4f0
   --pickExchangeItemTxt:      #00f
   --pickExchangeItemInactive: #abc
   --pickExchangeItemSelect:   #fff
   --headerHome:               #fff
   --headerDevise:             #00f
   --textPageBg:               #fff
-  --planBorder:               #dbe0e8
+  --planBorder:             #dbe0e8
   --planBg:                   #fff
-  --planBadge:                #d3d9ec
+  --planBadge:              #d3d9ec
   --planSelectedBorder:       #00f
   --planSelectedBg:           #00f
   --planSelectedBadge:        #00b186
@@ -77,18 +46,10 @@ $background-dark-p3: #123
   .db-darkmode-only
     display: none
   \:root
-    --text:                     #3d4d64
     --menulink:                 #789
     --menulink-active:          #00f
     --menuLogo:                 #00f
-    --paper:                    #f5f6f8
-    --paperBorder:              #dbe0e8
-    --progressBar:              #e3e5e9
     --background:               #f5f6f8
-    --background-devise:        #fff
-    --background-new:           #f5f6f8
-    --background-art:           #E8ECF2
-    --background-devise:        #FFF
     --link:                     #00f
     --focus:                    #00f
     --inputTextFocus:           #0D223F
@@ -135,7 +96,7 @@ $background-dark-p3: #123
     --alertSuccessBackground:   #cdecdf
 
     --paginationBg:             var(--paper)
-    --paginationHover:          var(--background)
+    --paginationHover:          var(--paper)
 
     --temporaryDiscount:        #00b186
     --addBotButton:             #00f
@@ -144,18 +105,10 @@ $background-dark-p3: #123
   .db-lightmode-only
     display: none
   \:root
-    --text:                #abc
     --menulink:            #61798d
     --menulink-active:     #def
     --menuLogo:             #def
-    --paper:               #0D223F
-    --paperBorder:         #0D223F
-    --progressBar:         #001b36
     --background:          #001b36
-    --background-devise:   #001b36
-    --background-new:      #001b36
-    --background-art:      #00152a
-    --background-devise:   #001b36
     --link:                #fff
     --focus:               #fff
     --inputTextFocus:      #fff
@@ -202,7 +155,7 @@ $background-dark-p3: #123
     --alertSuccessText:         #00b186 !important
     --alertSuccessBackground:   transparent !important
 
-    --paginationBg:             var(--background)
+    --paginationBg:             var(--paper)
     --paginationHover:          var(--paper)
 
     --temporaryDiscount:        #00b186
@@ -233,17 +186,13 @@ $input-btn-padding-x-sm: 0.75rem !default
 $input-btn-padding-x-lg: 1.25rem !default
 
 .fill-primary
-  fill: $primary !important
-  fill: $primary-p3 !important
+  fill: var(--sky) !important
 .fill-success
-  fill: $success !important
-  fill: $success-p3 !important
+  fill: var(--grass) !important
 .stroke-success
-  stroke: $success !important
-  stroke: $success-p3 !important
+  stroke: var(--grass) !important
 .stop-color-primary
-  stop-color: $primary !important
-  stop-color: $primary-p3 !important
+  stop-color: var(--sky) !important
 
 $borderColorLight:   #dbe0e8
 $bgColorLight:       #fafbfc
@@ -252,8 +201,6 @@ $sidebarItemHeight:  5.6rem
 $sidebarItemPadding: 2rem
 
 $textColorInverted:  rgba(255,255,255,1)
-
-$successLighter:      color.adjust($success, $lightness: 7%)
 
 $bgColor:            $bgColorLight
 $bgBot:              white

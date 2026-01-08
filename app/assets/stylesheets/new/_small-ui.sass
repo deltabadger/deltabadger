@@ -7,19 +7,19 @@
 
 .label
     font-weight: 600
-    color: var(--label)
+    color: var(--stone)
     white-space: nowrap
     overflow: hidden
     text-overflow: ellipsis
     &--select
         color: var(--link)
     &__value
-        color: var(--emphasis)
+        color: var(--ink)
         font-weight: bold
     &--select
         svg
             path
-                stroke: var(--emphasis)
+                stroke: var(--ink)
 
 .sbadge
     background: primary
@@ -29,24 +29,18 @@
     font-size: 1.5rem
     text-transform: uppercase
     &--success
-        background: var(--success)
+        background: var(--grass)
     &--danger
-        background: var(--danger)
+        background: var(--berry)
     &--warning
         background: var(--warning)
-    &--soon
-        background: var(--warning)
-    &--pro
-        background: $pro
-    &--legendary
-        background: $legendary
 .sinput,.numeric-input
     &.is-invalid
-        box-shadow: inset 0 0 0 3px var(--danger) !important
+        box-shadow: inset 0 0 0 3px var(--berry) !important
         background: #f041 !important
 
 .sinput
-    font-weight: 600 !important
+    font-weight: 600
     background: var(--sinput-background)
     color: var(--sinput-text)
     line-height: 4rem
@@ -55,11 +49,11 @@
     padding: 0 1.5rem
     height: 4rem
     width: fit-content
-    box-shadow: var(--widget-shadow)
+    box-shadow: var(--shadow-basic)
     cursor: pointer
     text-decoration: none !important
     &[disabled="disabled"],&[disabled],&--disabled
-        color: var(--label) !important
+        color: var(--stone) !important
         cursor: not-allowed
     .label
         min-width: 2.2rem
@@ -68,7 +62,7 @@
         height: 3rem
     &--hover-warning
         &:hover
-            background: var(--danger) !important
+            background: var(--berry) !important
             color: #fff !important
     &--calendar
         width: 15rem
@@ -101,7 +95,7 @@
         align-items: center
         .icon-24
             path
-                fill: var(--label)
+                fill: var(--stone)
     &--exchange
         display: flex
         align-items: center
@@ -181,6 +175,7 @@ select
     padding: 0 2rem
     gap: 1rem
     text-decoration: none !important
+    box-shadow: var(--shadow-basic)
     &:not(.button--link)
         min-width: 8rem
     &:hover, &:focus, &:active, &[disabled="disabled"],&[disabled]
@@ -196,15 +191,13 @@ select
         margin: 0 auto
     &--google
         background: #fff
-        color: var(--primary) !important
-        box-shadow: var(--primary-shadow)
+        color: var(--sky) !important
         svg
             width: 3rem
     &--x
         padding: 0 3rem
         background: var(--x-background)
         color: var(--x-text) !important
-        box-shadow: var(--primary-shadow)
         svg
             width: 3rem
     &--telegram
@@ -215,20 +208,14 @@ select
         path
             fill: #fff
     &--primary
-        background: var(--primary-button)
-        box-shadow: var(--primary-shadow)
+        background: var(--sky)
     &--secondary
-        background: var(--menulink)
-        box-shadow: var(--secondary-shadow)
+        background: var(--stone)
     &--success
-        background: var(--success)
-        box-shadow: var(--success-shadow)
+        background: var(--grass)
         font-weight: 700
     &--danger
-        background: var(--danger)
-        box-shadow: var(--danger-shadow)
-    &--outline
-        box-shadow: var(--primary-shadow)
+        background: var(--berry)    
     &--outline, &--link,&--disabled,&[disabled="disabled"],&[disabled]
         background: none
     &--outline, &--link
@@ -236,56 +223,49 @@ select
         path
             fill: var(--link)
     &--disabled,&[disabled="disabled"],&[disabled]
-        color: var(--label) !important
+        color: var(--stone) !important
         &:hover, &:focus, &:active
-            color: var(--label) !important
+            color: var(--stone) !important
         &.button--success,&.button--secondary,&.button--danger
-            color: var(--label) !important
+            color: var(--stone) !important
             path
-                fill: var(--label) !important
+                fill: var(--stone) !important
     &--outline,&--disabled,&[disabled="disabled"],&[disabled]
         border: 0.25rem solid var(--link)
         padding: 0 calc(2rem - 0.25rem)
         &[disabled="disabled"],&[disabled]
-            border-color: var(--label)
+            border-color: var(--stone)
         &.button--success
-            border-color: var(--success)
+            border-color: var(--grass)
         &.button--danger
-            border-color: var(--danger)
+            border-color: var(--berry)
         &.button--secondary
             border-color: var(--menulink)
     &--disabled,&[disabled="disabled"],&[disabled]
         cursor: not-allowed
         opacity: 0.5
-        border-color: var(--label) !important
+        border-color: var(--stone) !important
         .animicon *
-            background-color: var(--label) !important
+            background-color: var(--stone) !important
     &--link
         padding-left: 0 !important
         padding-right: 0 !important
+        box-shadow: none !important
         &.button--disabled,&[disabled="disabled"],&[disabled]
             border-width: 0 !important
         path
             fill: var(--link)
-        &.button--ai
-            color: var(--ai)
-            path
-                fill: var(--ai)
-            &[disabled="disabled"],&[disabled]
-                cursor: wait
         &[disabled="disabled"],&[disabled]
             path
-                fill: var(--label) !important
-            &.button--ai
-                color: var(--label) !important
+                fill: var(--stone) !important
     &--multi
         color: var(--label-select-inactive)
         min-width: 0 !important
         &--active
             cursor: default
             color: var(--link)
-            background: var(--widget-background)
-            box-shadow: var(--widget-shadow)
+            background: var(--washed)
+            box-shadow: var(--shadow-basic)
     &--add-asset
         width: 20rem
     &--icon-and-text
@@ -294,7 +274,7 @@ select
 
 .widget
     .sinput
-        background: var(--background)
+        background: var(--paper)
 .bot-filters
     display: flex
     .button

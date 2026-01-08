@@ -1,17 +1,15 @@
 @use "variables" as *
 
 \:root
-    background: var(--background)
+    background: var(--paper)
     font-size: 8px
-    @media only screen and (max-width: 1359px)
-        // font-size: 7.5px
     &.view--portfolios-show
-        background: var(--background-new)
+        background: var(--paper)
 body
     font-size:   2rem
     font-weight: 450
     font-family: Montserrat, sans-serif
-    color:       var(--text)
+    color:       var(--ash)
     position:    relative
 dialog
   display: block // override default display: none, used if js is disabled
@@ -63,7 +61,7 @@ ol, ul
         gap: 2rem
         align-items: center
         justify-content: space-between
-        color: var(--label)
+        color: var(--stone)
 #backtest-results
     display: flex
     border-radius: 2rem
@@ -83,7 +81,7 @@ ol, ul
         span
             white-space: nowrap
         .sinput
-            background: var(--widget-background) !important
+            background: var(--washed) !important
         @media only screen and (max-width: 767.9px)
             padding: 0
             margin-top: -2rem
@@ -107,13 +105,13 @@ ol, ul
         cursor: pointer
         &.active
             background: var(--link)
-            color: var(--background)
+            color: var(--paper)
         @media (max-width: 767.9px)
             position: absolute
             top: 2.25rem
             right: 2rem
 .hinput
-    background:  var(--widget-background) !important
+    background:  var(--washed) !important
     border: none
     border-radius: 0
     display: inline-block
@@ -129,7 +127,7 @@ ol, ul
 
 .time-counter
     font-weight: 600
-    color: var(--success)
+    color: var(--grass)
     text-align: right
     line-height: 4rem
     width: 100%

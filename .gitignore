@@ -62,3 +62,7 @@ spring/*.pid
 # Storage
 /storage/*
 !/storage/.keep
+
+# Tauri
+/src-tauri/target/
+/src-tauri/Cargo.lock
