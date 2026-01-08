@@ -4,13 +4,55 @@ default: &default
   timeout: 5000
 
 development:
-  <<: *default
-  database: storage/development.sqlite3
+  primary:
+    <<: *default
+    database: storage/development.sqlite3
+  queue:
+    <<: *default
+    database: storage/development_queue.sqlite3
+    migrations_paths: db/queue_migrate
+    pool: <%= ENV.fetch("RAILS_MAX_THREADS") { 5 }.to_i + 5 %>
+  cache:
+    <<: *default
+    database: storage/development_cache.sqlite3
+    migrations_paths: db/cache_migrate
+  cable:
+    <<: *default
+    database: storage/development_cable.sqlite3
+    migrations_paths: db/cable_migrate
 
 test:
-  <<: *default
-  database: storage/test.sqlite3
+  primary:
+    <<: *default
+    database: storage/test.sqlite3
+  queue:
+    <<: *default
+    database: storage/test_queue.sqlite3
+    migrations_paths: db/queue_migrate
+    pool: <%= ENV.fetch("RAILS_MAX_THREADS") { 5 }.to_i + 5 %>
+  cache:
+    <<: *default
+    database: storage/test_cache.sqlite3
+    migrations_paths: db/cache_migrate
+  cable:
+    <<: *default
+    database: storage/test_cable.sqlite3
+    migrations_paths: db/cable_migrate
 
 production:
-  <<: *default
-  database: <%= ENV.fetch("DATABASE_PATH") { "storage/production.sqlite3" } %>
+  primary:
+    <<: *default
+    database: <%= ENV.fetch("DATABASE_PATH") { "storage/production.sqlite3" } %>
+  queue:
+    <<: *default
+    database: <%= ENV.fetch("QUEUE_DATABASE_PATH") { "storage/production_queue.sqlite3" } %>
+    migrations_paths: db/queue_migrate
+    pool: <%= ENV.fetch("RAILS_MAX_THREADS") { 5 }.to_i + 5 %>
+  cache:
+    <<: *default
+    database: <%= ENV.fetch("CACHE_DATABASE_PATH") { "storage/production_cache.sqlite3" } %>
+    migrations_paths: db/cache_migrate
+  cable:
+    <<: *default
+    database: <%= ENV.fetch("CABLE_DATABASE_PATH") { "storage/production_cable.sqlite3" } %>
+    migrations_paths: db/cable_migrate

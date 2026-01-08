@@ -31,13 +31,14 @@ gem "rack", "2.2.20"
 gem 'rack-cors'
 gem 'rails', '~> 8.1.1'
 gem 'rqrcode'
-gem 'sidekiq', '~> 6.5.12'
-gem 'sidekiq-limit_fetch', git: 'https://github.com/brainopia/sidekiq-limit_fetch'
+gem 'solid_queue'
+gem 'solid_cache'
+gem 'solid_cable'
 # gem 'scenic' # Removed - was only used for PostgreSQL materialized views
 gem 'sprockets-rails'
 gem 'kraken_ruby_client', git: 'https://github.com/guillemap/kraken_ruby_client', branch: 'add-withdrawal-endpoints'
 gem 'whenever', require: false
-gem 'sidekiq-prometheus-exporter', '~> 0.1'
+gem 'mission_control-jobs'
 gem 'bundler', '~> 2.5.23'
 gem 'lol_dba'
 
@@ -77,13 +78,11 @@ gem "faraday-net_http_persistent", "~> 2.3.0"
 
 gem "turbo-rails", "~> 2.0.11"
 gem "stimulus-rails", "~> 1.3.4"
-gem 'redis', '~> 4.8.1'
 gem "jwt"
 gem "rbnacl"
 gem "jaro_winkler", "~> 1.6"
 gem "oj", "~> 3.16"
 gem "dartsass-rails", "~> 0.5.1"
-gem "sidekiq-cron"
 gem "pagy", "~> 6.5"
 gem "haikunator", "~> 1.1"
 gem "sqids" # for obfuscating IDs

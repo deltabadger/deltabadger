@@ -80,9 +80,6 @@ RUN YARN_CACHE_FOLDER=/tmp/yarn-cache \
     SECRET_KEY_BASE=placeholder \
     DEVISE_SECRET_KEY=placeholder \
     RAILS_ENV=production \
-    REDIS_SIDEKIQ_URL=redis://localhost:6379/0 \
-    REDIS_CABLE_URL=redis://localhost:6379/1 \
-    REDIS_CACHE_URL=redis://localhost:6379/2 \
     APP_ENCRYPTION_KEY=placeholder1234567890123456 \
     APP_ROOT_URL=http://localhost:3000 \
     HOME_PAGE_URL=http://localhost:3000 \
@@ -122,7 +119,6 @@ RUN apt-get update -qq && \
     curl \
     libvips42 \
     libsodium23 \
-    netcat-openbsd \
     tzdata \
     imagemagick && \
     rm -rf /var/lib/apt/lists/* /var/cache/apt/archives/*

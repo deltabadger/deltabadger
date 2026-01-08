@@ -1,14 +1,9 @@
 class ApplicationJob < ActiveJob::Base
-  # include Bullet::ActiveJob if Rails.env.development? # Bullet not supported in Rails 8 yet
+  # Automatically retry jobs that encounter transient errors
+  # retry_on StandardError, wait: :polynomially_longer, attempts: 5
 
-  # For retries we dont use ActiveJob retry_on exponential backoff and builtin executions count
-  # because this would ignore retries being placed in the retries section in the Sidekiq dashboard.
-  # Instead we use middleware-injected retry_count from Sidekiq.
-
-  attr_accessor :retry_count
-
-  def deserialize(job_data)
-    self.retry_count = job_data['retry_count'] || 0
-    super
+  # Use ActiveJob's built-in executions count for retry tracking
+  def retry_count
+    executions - 1
   end
 end
