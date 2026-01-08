@@ -4,15 +4,6 @@
 version: "3.7"
 
 services:
-  # Redis for Sidekiq, ActionCable, and Cache
-  redis:
-    image: redis:7-alpine
-    user: "1000:1000"
-    command: redis-server --appendonly yes --maxmemory 256mb --maxmemory-policy allkeys-lru
-    volumes:
-      - ${APP_DATA_DIR}/redis:/data
-    restart: on-failure
-
   # Web server (Puma)
   web:
     image: ghcr.io/deltabadger/deltabadger:${APP_DELTABADGER_VERSION:-latest}
@@ -26,10 +17,9 @@ services:
       AUTO_MIGRATE: "true"
       # Database (SQLite - stored in /app/storage)
       DATABASE_PATH: /app/storage/production.sqlite3
-      # Redis
-      REDIS_SIDEKIQ_URL: redis://deltabadger_redis_1:6379/0
-      REDIS_CABLE_URL: redis://deltabadger_redis_1:6379/1
-      REDIS_CACHE_URL: redis://deltabadger_redis_1:6379/2
+      QUEUE_DATABASE_PATH: /app/storage/production_queue.sqlite3
+      CACHE_DATABASE_PATH: /app/storage/production_cache.sqlite3
+      CABLE_DATABASE_PATH: /app/storage/production_cable.sqlite3
       # App secrets
       SECRET_KEY_BASE: ${APP_SEED}-secret-key-base
       DEVISE_SECRET_KEY: ${APP_SEED}-devise-secret
@@ -46,25 +36,22 @@ services:
     volumes:
       - ${APP_DATA_DIR}/storage:/app/storage
       - ${APP_DATA_DIR}/logs:/app/log
-    depends_on:
-      - redis
     restart: on-failure
 
-  # Sidekiq background job processor
-  sidekiq:
+  # Solid Queue background job processor
+  jobs:
     image: ghcr.io/deltabadger/deltabadger:${APP_DELTABADGER_VERSION:-latest}
     user: "1000:1000"
-    command: sidekiq
+    command: jobs
     environment:
       RAILS_ENV: production
       NODE_ENV: production
       RAILS_LOG_TO_STDOUT: "true"
       # Database (SQLite - stored in /app/storage)
       DATABASE_PATH: /app/storage/production.sqlite3
-      # Redis
-      REDIS_SIDEKIQ_URL: redis://deltabadger_redis_1:6379/0
-      REDIS_CABLE_URL: redis://deltabadger_redis_1:6379/1
-      REDIS_CACHE_URL: redis://deltabadger_redis_1:6379/2
+      QUEUE_DATABASE_PATH: /app/storage/production_queue.sqlite3
+      CACHE_DATABASE_PATH: /app/storage/production_cache.sqlite3
+      CABLE_DATABASE_PATH: /app/storage/production_cable.sqlite3
       # App secrets
       SECRET_KEY_BASE: ${APP_SEED}-secret-key-base
       DEVISE_SECRET_KEY: ${APP_SEED}-devise-secret
@@ -77,6 +64,5 @@ services:
       - ${APP_DATA_DIR}/storage:/app/storage
       - ${APP_DATA_DIR}/logs:/app/log
     depends_on:
-      - redis
       - web
     restart: on-failure

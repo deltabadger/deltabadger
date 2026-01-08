@@ -18,9 +18,7 @@ Rails.application.configure do
   config.cache_classes = false
 
   # Do not eager load code on boot.
-  # FIXME: Eager loading is enabled for Sidekiq because Kraken::Validator is not autoloaded. Review why this is happening: https://guides.rubyonrails.org/v5.2/autoloading_and_reloading_constants.html#autoloading-algorithms
-  # config.eager_load = false
-  config.eager_load = Sidekiq.server?.present?
+  config.eager_load = false
 
   # Show full error reports.
   config.consider_all_requests_local = true
@@ -34,12 +32,7 @@ Rails.application.configure do
   # Run rails dev:cache to toggle caching.
   if Rails.root.join('tmp', 'caching-dev.txt').exist?
     config.action_controller.perform_caching = true
-    config.cache_store = :file_store, Rails.root.join('tmp', 'cache', 'views')
-
-    # DO NOT use the same REDIS_URL for caching and Sidekiq:
-    # https://github.com/sidekiq/sidekiq/wiki/Using-Redis#multiple-redis-instances
-    # https://medium.com/@simptive/rails-using-redis-for-caching-as-well-as-for-sidekiq-jobs-5254ba0d2f7d
-    # config.cache_store = :redis_cache_store, { url: ENV.fetch('REDIS_CACHE_URL') }
+    config.cache_store = :solid_cache_store
   else
     config.action_controller.perform_caching = false
     config.cache_store = :null_store

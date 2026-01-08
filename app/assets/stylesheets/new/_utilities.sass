@@ -1,3 +1,6 @@
+@use "sass:meta"
+@use "variables" as *
+
 .d-none
   display: none
 .desktop-only
@@ -84,7 +87,7 @@ $spacings: ("gap": gap, "m": margin, "mt": margin-top, "mb": margin-bottom, "mr"
 @for $i from 0 through 8
   @each $prefix, $property in $spacings
     .#{$prefix}-#{$i}
-      @if type-of($property) == list
+      @if meta.type-of($property) == list
         @each $prop in $property
           #{$prop}: #{$i}rem
       @else
@@ -95,7 +98,17 @@ $sides: "m" "p"
 $values: 1 2 3 4 5
 
 @each $side in $sides
+  $side-suffix: "adding"
+  @if $side == "m"
+    $side-suffix: "argin"
   @each $direction in $directions
+    $dir-name: "right"
+    @if $direction == "t"
+      $dir-name: "top"
+    @else if $direction == "b"
+      $dir-name: "bottom"
+    @else if $direction == "l"
+      $dir-name: "left"
     @each $value in $values
       .#{$side}#{$direction}-#{$value}
-        #{$side + if($side == "m", "argin", "adding")}-#{if($direction == "t", "top", if($direction == "b", "bottom", if($direction == "l", "left", "right")))}: #{$value}rem
+        #{$side}#{$side-suffix}-#{$dir-name}: #{$value}rem

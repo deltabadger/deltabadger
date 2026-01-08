@@ -1,3 +1,6 @@
+@use "sass:map"
+@use "sass:list"
+
 @mixin textAdjust($wght)
   @if $wght == 1
     font-variation-settings: "wght" calc(350 + calc(0.4 * var(--font-wght-adjustment)))
@@ -8,20 +11,32 @@
 
 $grid-breakpoints: ( xs: 0, sm: 576px, md: 768px, lg: 992px, xl: 1200px ) !default  
   
-@function breakpoint-next($name, $breakpoints: $grid-breakpoints, $breakpoint-names: map-keys($breakpoints))
-  $n: index($breakpoint-names, $name)
-  @return if($n != null and $n < length($breakpoint-names), nth($breakpoint-names, $n + 1), null)
+@function breakpoint-next($name, $breakpoints: $grid-breakpoints, $breakpoint-names: map.keys($breakpoints))
+  $n: list.index($breakpoint-names, $name)
+  @if $n != null and $n < list.length($breakpoint-names)
+    @return list.nth($breakpoint-names, $n + 1)
+  @else
+    @return null
 
 @function breakpoint-min($name, $breakpoints: $grid-breakpoints)
-  $min: map-get($breakpoints, $name)
-  @return if($min != 0, $min, null)
+  $min: map.get($breakpoints, $name)
+  @if $min != 0
+    @return $min
+  @else
+    @return null
 
 @function breakpoint-max($name, $breakpoints: $grid-breakpoints)
   $next: breakpoint-next($name, $breakpoints)
-  @return if($next, breakpoint-min($next, $breakpoints) - .02, null)
+  @if $next
+    @return breakpoint-min($next, $breakpoints) - .02
+  @else
+    @return null
 
 @function breakpoint-infix($name, $breakpoints: $grid-breakpoints)
-  @return if(breakpoint-min($name, $breakpoints) == null, "", "-#{$name}")
+  @if breakpoint-min($name, $breakpoints) == null
+    @return ""
+  @else
+    @return "-#{$name}"
 
 @mixin media-breakpoint-up($name, $breakpoints: $grid-breakpoints)
   $min: breakpoint-min($name, $breakpoints)

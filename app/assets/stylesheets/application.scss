@@ -1,56 +1,52 @@
 // Vendor CSS
-@import "flatpickr/dist/flatpickr";
+@use "flatpickr/dist/flatpickr";
+@use "variables";
 
-:root {
-  font-size: 8px;
-}
+@use "new/reset";
+@use "new/variables" as new-variables;
 
-@import "variables";
+@use "mixins";
+@use "styles";
+@use "forms";
+@use "spinner";
+@use "dropdown";
+@use "charts";
+@use "exchanges";
+@use "qr_code";
+@use "rwd";
 
-@import "new/reset";
-@import "new/variables";
+@use "new/base";
+@use "new/animicon";
+@use "new/dropdown" as new-dropdown;
+@use "new/modal-search";
+@use "new/navbar";
+@use "new/hamburger";
+@use "new/menu-mobile";
+@use "new/slider";
+@use "new/small-ui";
+@use "new/smart-allocation";
+@use "new/ticker";
+@use "new/ticker-input";
+@use "new/toggle";
+@use "new/tooltip";
+@use "new/total-value";
+@use "new/widget";
+@use "new/data-grid";
+@use "new/multiselect";
+@use "new/conversational";
+@use "new/dca-dual-asset";
+@use "new/devise";
+@use "new/page-head";
+@use "new/bot-control";
+@use "new/bot-tile";
+@use "new/itiles";
+@use "new/set-api";
 
-@import "mixins";
-@import "styles";
-@import "forms";
-@import "spinner";
-@import "dropdown";
-@import "charts";
-@import "exchanges";
-@import "qr_code";
-@import "rwd";
+@use "new/small-random";
+@use "new/utilities";
 
-@import "new/base";
-@import "new/animicon";
-@import "new/basket";
-@import "new/dropdown";
-@import "new/modal-search";
-@import "new/navbar";
-@import "new/hamburger";
-@import "new/menu-mobile";
-@import "new/slider";
-@import "new/small-ui";
-@import "new/smart-allocation";
-@import "new/ticker";
-@import "new/ticker-input";
-@import "new/toggle";
-@import "new/tooltip";
-@import "new/total-value";
-@import "new/widget";
-@import "new/data-grid";
-@import "new/multiselect";
-@import "new/conversational";
-@import "new/dca-dual-asset";
-@import "new/devise";
-@import "new/page-head";
-@import "new/bot-control";
-@import "new/bot-tile";
-@import "new/itiles";
-@import "new/set-api";
+@use "new/start";
 
-@import "new/small-random";
-@import "new/utilities";
+@use "animations-order";
 
-@import "new/start";
-
-@import "animations-order";
+@import url('https://fonts.googleapis.com/css2?family=Montserrat:ital,wght@0,100..900;1,100..900&display=swap');
