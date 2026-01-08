@@ -5,7 +5,7 @@
         controller: "broadcast--on-connect",
         broadcast__on_connect_method_value: "indicator_limit_info_update",
         broadcast__on_connect_method_args_value: { bot_id: bot.id }.to_json
-      }, class: "loader--small", style: "position: unset; float: left; margin-top: 8px;" %>
+      }, class: "loader--small", style: "position: unset; float: left; margin-top: 1rem;" %>
     <% else %>
       <% ticker_select_options = ticker_select_options(bot) %>
       <% selected_ticker_id = bot.tickers.find_by(id: bot.indicator_limit_in_ticker_id)&.id %>

@@ -1,20 +1,23 @@
 @use "variables" as *
 
 .ticker-input
-    background:         var(--widget-background)
+    background:         var(--washed)
     border-radius:      2rem
     color:              var(--link)
     display:            flex
     font-weight:        700
     justify-content:    space-between
     line-height:        4rem
+    .ticker
+        background: var(--washed)
+        color: var(--ash)
     .numeric-input
         min-width:      5rem
         background:     none
         &:focus
             outline: none
         &[disabled]
-            color:     var(--label)
+            color:     var(--stone)
     &--percentage
         gap: 1rem
         .numeric-input
@@ -31,7 +34,7 @@
     color: var(--link)
     font-weight: 600
     line-height: 4rem
-    background: var(--widget-background)
+    background: var(--washed)
     border-radius: 2rem
     border: none
     padding: 0 1rem
@@ -64,4 +67,4 @@ input[type=number]
 
 .widget
     .ticker-input
-        background-color: var(--background)
+        background-color: var(--paper)

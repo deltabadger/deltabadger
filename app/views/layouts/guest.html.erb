@@ -11,6 +11,13 @@
 
     <%= render 'application/favicon' %>
 
+    <script>
+      // Tauri detection - add class to html element for CSS targeting
+      if (window.__TAURI__) {
+        document.documentElement.classList.add('tauri');
+      }
+    </script>
+
     <%= stylesheet_link_tag 'application', media: 'all', "data-turbo-track": "reload" %>
     <%= javascript_include_tag "application", "data-turbo-track": "reload", defer: true %>
 
