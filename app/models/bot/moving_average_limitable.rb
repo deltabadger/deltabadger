@@ -245,17 +245,9 @@ module Bot::MovingAverageLimitable
   end
 
   def cancel_scheduled_moving_average_limit_check_jobs
-    sidekiq_places = [
-      Sidekiq::ScheduledSet.new,
-      Sidekiq::Queue.new(exchange.name_id),
-      Sidekiq::RetrySet.new
-    ]
-    sidekiq_places.each do |place|
-      place.each do |job|
-        job.delete if job.queue == 'default' &&
-                      job.display_class == 'Bot::MovingAverageLimitCheckJob' &&
-                      job.display_args.first == [{ '_aj_globalid' => to_global_id.to_s }].first
-      end
-    end
+    cancel_solid_queue_jobs(
+      job_class: 'Bot::MovingAverageLimitCheckJob',
+      record: self
+    )
   end
 end

@@ -2,64 +2,25 @@
 set -e
 
 # Deltabadger Docker Entrypoint Script
-# Supports multiple process types: web, sidekiq, migrate, console
-
-# Wait for dependent services
-wait_for_service() {
-    local host="$1"
-    local port="$2"
-    local service="$3"
-    local max_attempts="${4:-30}"
-    local attempt=1
-
-    echo "Waiting for $service at $host:$port..."
-    while ! nc -z "$host" "$port" 2>/dev/null; do
-        if [ $attempt -ge $max_attempts ]; then
-            echo "Error: $service not available after $max_attempts attempts"
-            exit 1
-        fi
-        echo "Attempt $attempt/$max_attempts: $service not ready, waiting..."
-        sleep 2
-        attempt=$((attempt + 1))
-    done
-    echo "$service is available!"
-}
-
-# Extract host and port from URL
-parse_redis_url() {
-    local url="$1"
-    local host=$(echo "$url" | sed -E 's|redis://([^:]+):?([0-9]*)/.*|\1|')
-    local port=$(echo "$url" | sed -E 's|redis://[^:]+:?([0-9]*)/.*|\1|')
-    echo "${host:-localhost}:${port:-6379}"
-}
+# Supports multiple process types: web, jobs, migrate, console
 
 # Database preparation (SQLite - no network wait needed)
 ensure_database_directory() {
     mkdir -p /app/storage
 }
 
-# Redis connection check
-wait_for_redis() {
-    if [ -n "$REDIS_SIDEKIQ_URL" ]; then
-        local redis_hp=$(parse_redis_url "$REDIS_SIDEKIQ_URL")
-        local redis_host=$(echo "$redis_hp" | cut -d: -f1)
-        local redis_port=$(echo "$redis_hp" | cut -d: -f2)
-        wait_for_service "$redis_host" "$redis_port" "Redis"
-    fi
-}
-
 # Prepare the database
 prepare_database() {
     echo "Checking database status..."
-    
+
     local db_version=$(bundle exec rails db:version 2>/dev/null | grep -oE '[0-9]+$' || echo "none")
-    
+
     if [ "$db_version" = "none" ]; then
         echo "Database not found, creating..."
-        bundle exec rails db:create db:schema:load
+        bundle exec rails db:prepare
     elif [ "$db_version" = "0" ]; then
         echo "Empty database, loading schema..."
-        bundle exec rails db:schema:load
+        bundle exec rails db:prepare
     else
         echo "Database at version $db_version, running migrations..."
         bundle exec rails db:migrate
@@ -81,7 +42,6 @@ main() {
         web)
             echo "Starting Deltabadger Web Server..."
             ensure_database_directory
-            wait_for_redis
             cleanup_pid
 
             # Run migrations if AUTO_MIGRATE is set
@@ -92,12 +52,11 @@ main() {
             exec bundle exec puma -C config/puma.rb
             ;;
 
-        sidekiq)
-            echo "Starting Deltabadger Sidekiq Worker..."
+        jobs)
+            echo "Starting Deltabadger Job Worker (Solid Queue)..."
             ensure_database_directory
-            wait_for_redis
 
-            exec bundle exec sidekiq
+            exec bundle exec rake solid_queue:start
             ;;
 
         migrate)
@@ -110,7 +69,7 @@ main() {
         setup)
             echo "Setting up database..."
             ensure_database_directory
-            bundle exec rails db:create db:schema:load db:seed
+            bundle exec rails db:prepare db:seed
             echo "Database setup completed!"
             ;;
 

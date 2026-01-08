@@ -1,3 +1,5 @@
+@use "sass:color"
+
 $primary:            #00f
 $primary-p3:         #{'color(display-p3 0.13 0.26 0.62)'}
 $primary09:          #00f
@@ -251,7 +253,7 @@ $sidebarItemPadding: 2rem
 
 $textColorInverted:  rgba(255,255,255,1)
 
-$successLighter:      lighten($success,7%)
+$successLighter:      color.adjust($success, $lightness: 7%)
 
 $bgColor:            $bgColorLight
 $bgBot:              white

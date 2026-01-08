@@ -11,7 +11,6 @@
 # It's strongly recommended that you check this file into your version control system.
 
 ActiveRecord::Schema[8.1].define(version: 2026_01_06_162140) do
-
   create_table "affiliates", force: :cascade do |t|
     t.boolean "active", default: true, null: false
     t.string "address"

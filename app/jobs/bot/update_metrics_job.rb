@@ -14,17 +14,32 @@ class Bot::UpdateMetricsJob < ApplicationJob
   private
 
   def cancel_other_update_metrics_jobs(bot)
-    sidekiq_places = [
-      Sidekiq::RetrySet.new,
-      Sidekiq::ScheduledSet.new,
-      Sidekiq::Queue.new(queue_name)
-    ]
-    sidekiq_places.each do |place|
-      place.each do |job|
-        job.delete if job.queue == queue_name &&
-                      job.display_class == 'Bot::UpdateMetricsJob' &&
-                      job.display_args.first == { '_aj_globalid' => bot.to_global_id.to_s }
+    return unless defined?(SolidQueue)
+
+    global_id = bot.to_global_id.to_s
+
+    # Cancel scheduled jobs
+    SolidQueue::ScheduledExecution.joins(:job)
+      .where(solid_queue_jobs: { class_name: 'Bot::UpdateMetricsJob' })
+      .find_each do |execution|
+        execution.job.destroy if job_matches_record?(execution.job, global_id)
       end
+
+    # Cancel ready (queued) jobs
+    SolidQueue::ReadyExecution.joins(:job)
+      .where(solid_queue_jobs: { class_name: 'Bot::UpdateMetricsJob' })
+      .find_each do |execution|
+        execution.job.destroy if job_matches_record?(execution.job, global_id)
+      end
+  end
+
+  def job_matches_record?(job, global_id)
+    return false unless job&.arguments.present?
+
+    args = job.arguments
+    args.any? do |arg|
+      (arg.is_a?(Hash) && arg['_aj_globalid'] == global_id) ||
+      (arg.is_a?(String) && arg == global_id)
     end
   end
 end

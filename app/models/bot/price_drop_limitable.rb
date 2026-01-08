@@ -213,17 +213,9 @@ module Bot::PriceDropLimitable
   end
 
   def cancel_scheduled_price_drop_limit_check_jobs
-    sidekiq_places = [
-      Sidekiq::ScheduledSet.new,
-      Sidekiq::Queue.new(exchange.name_id),
-      Sidekiq::RetrySet.new
-    ]
-    sidekiq_places.each do |place|
-      place.each do |job|
-        job.delete if job.queue == 'default' &&
-                      job.display_class == 'Bot::PriceDropLimitCheckJob' &&
-                      job.display_args.first == [{ '_aj_globalid' => to_global_id.to_s }].first
-      end
-    end
+    cancel_solid_queue_jobs(
+      job_class: 'Bot::PriceDropLimitCheckJob',
+      record: self
+    )
   end
 end

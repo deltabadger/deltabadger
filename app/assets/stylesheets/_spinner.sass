@@ -1,6 +1,8 @@
+@use "sass:color"
+
 $offset: 70
 $duration: 1.5s
-$spinnerColor: darken(#e9ecef,3%)
+$spinnerColor: color.adjust(#e9ecef, $lightness: -3%)
 
 .spinner
   animation: rotator $duration linear infinite

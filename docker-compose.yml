@@ -19,28 +19,15 @@ x-app-common: &app-common
     RAILS_LOG_TO_STDOUT: "true"
     RAILS_SERVE_STATIC_FILES: "true"
     DATABASE_PATH: /app/storage/production.sqlite3
+    QUEUE_DATABASE_PATH: /app/storage/production_queue.sqlite3
+    CACHE_DATABASE_PATH: /app/storage/production_cache.sqlite3
+    CABLE_DATABASE_PATH: /app/storage/production_cable.sqlite3
   volumes:
     - storage:/app/storage
     - logs:/app/log
-  depends_on:
-    redis:
-      condition: service_healthy
   restart: unless-stopped
 
 services:
-  # Redis for Sidekiq, ActionCable, and Cache
-  redis:
-    image: redis:7-alpine
-    command: redis-server --appendonly yes --maxmemory 256mb --maxmemory-policy allkeys-lru
-    volumes:
-      - redis_data:/data
-    healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-    restart: unless-stopped
-
   # Database migrations (run once)
   migrate:
     <<: *app-common
@@ -54,8 +41,6 @@ services:
     ports:
       - "${APP_PORT:-3000}:3000"
     depends_on:
-      redis:
-        condition: service_healthy
       migrate:
         condition: service_completed_successfully
     healthcheck:
@@ -65,24 +50,21 @@ services:
       start_period: 60s
       retries: 3
 
-  # Sidekiq background job processor
-  sidekiq:
+  # Solid Queue background job processor
+  jobs:
     <<: *app-common
-    command: sidekiq
+    command: jobs
     depends_on:
-      redis:
-        condition: service_healthy
       migrate:
         condition: service_completed_successfully
     healthcheck:
-      test: ["CMD-SHELL", "bundle exec sidekiqmon processes | grep -q 'Busy'"]
+      test: ["CMD-SHELL", "pgrep -f 'solid_queue' || exit 1"]
       interval: 30s
       timeout: 10s
       start_period: 30s
       retries: 3
 
 volumes:
-  redis_data:
   storage:
   logs:
 

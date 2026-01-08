@@ -43,7 +43,7 @@ The example file works out of the box for local use.
 docker compose up
 ```
 
-First run takes a few minutes to download images and build. Once you see logs from `web` and `sidekiq`, the app is ready.
+First run takes a few minutes to download images and build. Once you see logs from `web` and `jobs`, the app is ready.
 
 Access the app at `http://localhost:3000`.
 
@@ -98,7 +98,7 @@ If something goes wrong and you want to reset everything:
 docker compose down
 
 # Remove data volumes (deletes all data!)
-docker volume rm deltabadger_postgres_data deltabadger_redis_data deltabadger_storage deltabadger_logs
+docker volume rm deltabadger_storage deltabadger_logs
 ```
 
 > **Note:** Volume names may vary. Run `docker volume ls` to see all volumes.
@@ -128,8 +128,6 @@ Edit `.env.docker` and replace the dev values.
 
 - Ruby 3.2.3
 - Node.js 18.19.1
-- PostgreSQL
-- Redis
 
 Use [asdf](https://asdf-vm.com) or your preferred version manager.
 
@@ -142,33 +140,29 @@ bin/setup
 ### 2. Database
 
 ```bash
-bundle exec rails db:migrate
+bundle exec rails db:prepare
 ```
 
-### 3. Start services
-
-Terminal 1 — Webpack:
+### 3. Start the app
 
 ```bash
-bin/webpack-dev-server
+bin/dev
 ```
 
-Terminal 2 — Rails:
+This starts the Rails server with Solid Queue (background jobs) running in-process via Puma.
+
+Alternatively, run services separately:
+
+Terminal 1 — Rails (with background jobs):
 
 ```bash
 rails s
 ```
 
-Terminal 3 — Redis:
+Terminal 2 — JavaScript bundler (optional, for live reloading):
 
 ```bash
-redis-server
-```
-
-Terminal 4 — Sidekiq (for background jobs):
-
-```bash
-bundle exec sidekiq
+yarn build --watch
 ```
 
 ### Running tests
