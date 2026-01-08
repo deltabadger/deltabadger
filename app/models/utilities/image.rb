@@ -1,17 +1,14 @@
 module Utilities
   module Image
     def self.extract_dominant_colors(image_path, quantity = 5, threshold = 0.01)
-      image = MiniMagick::Image.new(image_path)
-
-      # Get image histogram
-      result = MiniMagick::Tool::Convert.new do |convert|
-        convert << image.path
+      # Get image histogram using the convert tool
+      result = MiniMagick.convert do |convert|
+        convert << image_path
         convert << '-format' << '%c'
         convert << '-colors' << quantity.to_s
         convert << '-depth' << '8'
         convert << '-alpha' << 'on'
         convert << 'histogram:info:'
-        convert.call
       end
 
       # Extract colors and frequencies from result

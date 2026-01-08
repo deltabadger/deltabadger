@@ -1,7 +1,3 @@
-require 'sidekiq/web'
-require 'sidekiq/cron/web'
-require 'sidekiq/prometheus/exporter'
-
 Rails.application.routes.draw do
   # Setup wizard for initial admin configuration
   get '/setup', to: 'setup#new', as: :new_setup
@@ -13,10 +9,10 @@ Rails.application.routes.draw do
   match "/500", to: "errors#internal_server_error", via: :all
 
   mount ActionCable.server => '/cable'
-  mount Sidekiq::Prometheus::Exporter => '/sidekiq-metrics'
 
+  # Job dashboard (replaces Sidekiq Web UI)
   authenticate :user, lambda { |u| u.admin? } do
-    mount Sidekiq::Web => '/sidekiq'
+    mount MissionControl::Jobs::Engine, at: "/jobs"
   end
 
   namespace :admin do
