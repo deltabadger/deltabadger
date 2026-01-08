@@ -18,7 +18,7 @@
         padding-bottom: 0 !important
         font-size: 2rem
         text-align: center
-        color: var(--label)
+        color: var(--stone)
         opacity: 0.65
     p
         flex: 2
@@ -43,12 +43,11 @@
     padding: 10rem 2rem 2rem
     @media screen and (min-width: 768px)
         padding: 20rem 2rem 2rem
-    &:not(.itile--soon)
-        &:hover,&.active
-            .theme-img
-                transform: scale(1.05)
-                &::after
-                    background-image: linear-gradient(to bottom, #0000 40%, var(--pick-bot-item-bg) 22rem)
+    &:hover,&.active
+        .theme-img
+            transform: scale(1.05)
+            &::after
+                background-image: linear-gradient(to bottom, #0000 40%, var(--pick-bot-item-bg) 22rem)
     &__value
         font-size: 1.75rem
         font-weight: 450
@@ -65,7 +64,7 @@
     gap: 1rem !important
     position: relative
     overflow: hidden
-    background: var(--widget-background)
+    background: var(--washed)
     z-index: 0
     border-radius: 2rem
     display: flex
@@ -74,17 +73,16 @@
     width: 100%
     text-align: left
     text-decoration: none
-    color: var(--text)
+    color: var(--ash)
     transition: all 0.2s ease
-    box-shadow: var(--widget-shadow)
-    &:not(.itile--soon)
-        &:hover,&.active
-            background: var(--pick-bot-item-bg)
-            box-shadow: 0.5rem 0.5rem 1.5rem #0242s
-            color: var(--pick-bot-item-text-hover)
-            cursor: pointer
-            .theme-img
-                opacity: 1
+    box-shadow: var(--shadow-basic)
+    &:hover,&.active
+        background: var(--pick-bot-item-bg)
+        box-shadow: 0.5rem 0.5rem 1.5rem #0242s
+        color: var(--pick-bot-item-text-hover)
+        cursor: pointer
+        .theme-img
+            opacity: 1
     &--faded
         filter: opacity(0.5) saturate(0.9)
     &--bot-type
@@ -92,10 +90,8 @@
         height: 16rem !important
         align-items: center
         justify-content: center
-        .index-title
-            color: var(--new-vibe) !important
         .index-info
-            color: var(--label) !important
+            color: var(--stone) !important
             flex: none
         .theme-img
             opacity: 0.8 !important
@@ -104,19 +100,10 @@
                 opacity: 1 !important
                 background-image: linear-gradient(to bottom, #0000 0%, #00a 80%) !important
                 height: 100% !important
-    &--soon
-        cursor: default
-        &.itile--bot-type .index-title
-            color: var(--label) !important
-            opacity: 0.75
     .sbadge
         position: absolute
         top: 1rem
         right: 1rem
-        &--soon
-            opacity: 0.85
-            background-color: var(--label)
-            color: var(--widget-background)
         &--beta
             background-color: #0040ff
     .slider__style__track

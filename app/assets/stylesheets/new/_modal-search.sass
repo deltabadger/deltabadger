@@ -90,13 +90,6 @@
         padding: 1rem 0 0
         @media screen and (min-width: 768px)
             padding-bottom: 12rem
-        .itile
-            &--soon
-                background: var(--widget-background) // var(--itile-soon-bg)
-                color: var(--label)
-                backdrop-filter: blur(4rem)
-                .theme-img
-                    display: none
         .modal__header
             margin-bottom: 3rem
         .modal__title
@@ -105,7 +98,7 @@
             top: 0rem
             right: 0rem
             &:hover
-                background: var(--widget-background)
+                background: var(--washed)
             *
                 fill: var(--link)
     &--full
@@ -148,7 +141,7 @@
         background: none // <button>
         border: none     // <button>
         path
-            fill: var(--label)
+            fill: var(--stone)
             .flash__message &
                 fill: white
         &:focus-visible
@@ -244,12 +237,12 @@
         text-wrap: nowrap
         &--ticker
             font-weight: bold
-            color: var(--emphasis)
+            color: var(--ink)
         &--name
-            color: var(--emphasis)
+            color: var(--ink)
             &__country
                 font-weight: 400
-                color: var(--label)
+                color: var(--stone)
             a
                 text-decoration: none
             .icon-24
@@ -257,18 +250,18 @@
                 position: relative
                 top: -.125rem
                 path
-                    fill: var(--label)
+                    fill: var(--stone)
         &--exchanges
             font-weight: 400
-            color: var(--label)
+            color: var(--stone)
             text-align: end
             padding-right: 2.5rem
             svg
                 width: 2rem
                 height: 2rem
-                fill: var(--label)
+                fill: var(--stone)
         &--category
-            color: var(--label)
+            color: var(--stone)
             text-align: right
             margin-right: 2.5rem
 .community-access-instructions

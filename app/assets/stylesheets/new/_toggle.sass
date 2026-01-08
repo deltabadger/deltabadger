@@ -1,22 +1,4 @@
 @use "variables" as *
-
-input[type=checkbox]
-    cursor: pointer
-.toggle-group
-    display: flex
-    align-items: flex-start
-    gap: 1rem
-    justify-content: flex-start
-    @media (min-width: 768px)
-        gap: 1.5rem
-    &__info
-        display: flex
-        flex-direction: column
-        gap: 2rem
-        flex-grow: 1
-        &__label
-            display: flex
-            gap: 1rem
             
 .toggle
     display: flex
@@ -29,10 +11,11 @@ input[type=checkbox]
         width: 4.25rem
         min-width: 4.25rem
         height: 3rem
-        background-color: var(--toggle-background)
+        background-color: var(--steel)
         border-radius: 1.5rem
         transition: background-color 0.3s
         pointer-events: none
+        box-shadow: var(--shadow-indent)
         @media (min-width: 768px)
             width: 5rem
             min-width: 5rem
@@ -46,6 +29,7 @@ input[type=checkbox]
             background-color: white
             border-radius: 50%
             transition: transform 0.3s
+            box-shadow: var(--shadow-paper)
     &--vertical
         .toggle__style
             width: 3rem !important
@@ -74,24 +58,42 @@ input[type=checkbox]
         opacity: 0
         &~  *
             path
-                fill: var(--label)
+                fill: var(--stone)
         &:checked 
             &~ .toggle__style
-                background-color: var(--toggle-background-active)
+                background-color: var(--grass)
                 &::after
                     transform: translateX(1.25rem)
                     @media (min-width: 768px)
                         transform: translateX(2rem)
             &~ .label
-                color: var(--toggle-background-active)
+                color: var(--grass)
             &~  *
                 path
-                    fill: var(--toggle-background-active)
+                    fill: var(--grass)
+
+input[type=checkbox]
+    cursor: pointer
+.toggle-group
+    display: flex
+    align-items: flex-start
+    gap: 1rem
+    justify-content: flex-start
+    @media (min-width: 768px)
+        gap: 1.5rem
+    &__info
+        display: flex
+        flex-direction: column
+        gap: 2rem
+        flex-grow: 1
+        &__label
+            display: flex
+            gap: 1rem
 
 .bot-option-info
-    color: var(--label)
+    color: var(--stone)
     font-size: 1.75rem
     font-weight: 550
     b
-        color: var(--label) !important
+        color: var(--stone) !important
         font-weight: 750

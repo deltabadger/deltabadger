@@ -7,9 +7,9 @@ $formUnit: 2rem
 .widget
   .db-form
     &__label
-      background: var(--background)
+      background: var(--paper)
     &__input
-      background: var(--background)
+      background: var(--paper)
 
 .db-wire-transfer-in-progress
   input
@@ -25,7 +25,7 @@ $formUnit: 2rem
   &__fieldset
     padding: 0
     margin: 0
-    border: 0px solid var(--text)
+    border: 0px solid var(--ash)
     padding: 0
     border-radius: 2rem
     display: flex
@@ -35,7 +35,7 @@ $formUnit: 2rem
     padding: 0 0.5rem
     margin-bottom: 2rem
     font-weight: 700
-    color: var(--secondary)
+    color: var(--stone)
 
   &__row
     margin-bottom: 1.25*$formUnit
@@ -93,7 +93,7 @@ $formUnit: 2rem
     line-height: 0.25rem
   &__input
     font-size: 2rem
-    color: var(--text)
+    color: var(--ash)
     background: none
     padding-bottom: .2rem
     padding-left: 2.4rem
@@ -123,10 +123,10 @@ $formUnit: 2rem
         font-size: 1.75rem
     &.is-invalid
       &:not(:focus)
-        border-color: var(--danger)
+        border-color: var(--berry)
         border-width: .2rem
         &~.db-form__label
-          color: var(--danger)
+          color: var(--berry)
           font-weight: bold
           @include textAdjust(2)
       &~.db-form__info--invalid
@@ -145,9 +145,9 @@ $formUnit: 2rem
       @include textAdjust(2)
       font-weight: bold
     &--invalid, &--alert
-      color: var(--danger)
+      color: var(--berry)
     &--notice
-      color: var(--success)
+      color: var(--grass)
     &--right
       float: right
       padding-right: .4rem
@@ -160,10 +160,10 @@ $formUnit: 2rem
   &__validation
     list-style-type: none
     padding-left: 2.9rem
-    color: var(--label)
+    color: var(--stone)
     font-weight: 500
     &--success
-      color: var(--success)
+      color: var(--grass)
       font-weight: bold
   &__other-links
     text-align: center
@@ -214,7 +214,7 @@ $formUnit: 2rem
 
 input:-webkit-autofill, input:-webkit-autofill:hover, input:-webkit-autofill:focus, textarea:-webkit-autofill, textarea:-webkit-autofill:hover, textarea:-webkit-autofill:focus, select:-webkit-autofill, select:-webkit-autofill:hover, select:-webkit-autofill:focus
   border-color:            var(--link)
-  -webkit-text-fill-color: var(--text)
+  -webkit-text-fill-color: var(--ash)
   -webkit-box-shadow:      0 0 rem 100rem var(--autocomplete) inset
   transition:              background-color 5000s ease-in-out 0s
   &~label

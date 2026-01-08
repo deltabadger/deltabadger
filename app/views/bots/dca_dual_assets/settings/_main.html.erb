@@ -26,7 +26,7 @@
       <% if bot.new_record? %>
         <%= link_to quote, new_bots_dca_dual_assets_pick_spendable_asset_path, data: { turbo_frame: "modal_content" }, class: "ticker", style: "background: #{quote_color}" %>
       <% else %>
-        <div class="ticker" style="background: <%= quote_color %>">
+        <div class="ticker">
           <%= quote %>
         </div>
       <% end %>

@@ -10,7 +10,6 @@
 @use "forms";
 @use "spinner";
 @use "dropdown";
-@use "charts";
 @use "exchanges";
 @use "qr_code";
 @use "rwd";
@@ -22,6 +21,7 @@
 @use "new/navbar";
 @use "new/hamburger";
 @use "new/menu-mobile";
+@use "new/salert";
 @use "new/slider";
 @use "new/small-ui";
 @use "new/smart-allocation";
@@ -49,4 +49,7 @@
 
 @use "animations-order";
 
-@import url('https://fonts.googleapis.com/css2?family=Montserrat:ital,wght@0,100..900;1,100..900&display=swap');
+@use "new2/tauri";
+
+
+

@@ -5,7 +5,7 @@
     line-height: 3rem
     gap: 0.75rem
     font-weight: 600
-    color: var(--text)
+    color: var(--ash)
     flex-wrap: wrap
     b
         font-weight: 725
@@ -15,7 +15,7 @@
         display: flex
         gap: 0.5rem
     &--disabled
-        color: var(--label)
+        color: var(--stone)
     &--small
         flex-wrap: wrap
         line-height: 3rem
@@ -26,7 +26,7 @@
             line-height: 3rem
             text-align: center
             &:disabled
-                color: var(--label)
+                color: var(--stone)
 
     &--bot-setup
         font-size: 2.25rem
@@ -38,7 +38,7 @@
     &__input
         border: none
         margin: 0
-        background: var(--sinput-on-paper)
+        background: var(--paper)
         border-radius: 2rem
         color: var(--link) !important
         text-align: left
@@ -51,42 +51,39 @@
         &:focus
             outline: none
         &::placeholder
-            color: var(--label)
+            color: var(--stone)
     .ticker-input
-        background: var(--sinput-on-paper) !important
+        background: var(--paper) !important
     .ticker-input,.sinput
-        box-shadow: inset 1px 1px 2px #0001
+        box-shadow: var(--shadow-indent)
+        overflow: hidden
     .ticker
-        box-shadow: 1px 1px 2px #0002
+        position: relative
+        top: 0.25rem
+        right: 0.25rem
     .sinput
         margin-left: -.25rem
         margin-right: -.25rem
         padding-left: 1.25rem
         padding-right: 1.25rem
         color: var(--link)
-        background: var(--sinput-on-paper)
+        background: var(--paper)
         text-align: center
-        
+        font-weight: 700
         @media (max-width: 767.9px)
             line-height: 3rem
             height: 3rem
     .numeric-input
         text-align: center
+        font-weight: 700
     &--big
         font-size: 2.5rem
         line-height: 4rem
         justify-content: center
         width: 100%
         .sinput
-            background: var(--widget-background) !important
+            background: var(--washed) !important
             display: inline-block
-.db-bot
-    .conversational
-        padding: 3rem 0 4rem
-    .sinput
-        box-shadow: none
-        background: var(--sinput-on-paper)
-        text-align: center
 .process-progress
     display: flex
     align-items: center
@@ -109,12 +106,11 @@
         &--now
              color: var(--link)
              &~.process-progress__connector
-                background: var(--label)
+                background: var(--stone)
                 opacity: 0.5
         &--todo
-            color: var(--label)
+            color: var(--stone)
             opacity: 0.5
-
 .exchange-picker
     &__items
         display: flex
@@ -129,7 +125,7 @@
       @media (min-width: 768px)
         padding: 3rem
       &--header
-        color:                  var(--label)
+        color:                  var(--stone)
       &--exchange
         background:             none
         font-weight:            bold
@@ -140,7 +136,6 @@
         cursor:                 pointer
         &:hover
             background: var(--modal-search-highlight-background)
-
 .bot-creation-layout
     position: relative
     display: flex
@@ -157,7 +152,6 @@
         .button
             min-width: 15rem
             width: 100%
-
 .bot-creation-preview
     display: flex
     flex-direction: column

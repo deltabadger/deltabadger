@@ -1,0 +1,17 @@
+#!/usr/bin/env bash
+
+# DeltaBadger Tauri Development Script
+# This script prepares the Rails app and launches Tauri in dev mode
+
+set -e
+
+echo "==> Preparing assets..."
+npm run build
+bundle exec rails dartsass:build
+
+echo "==> Preparing database..."
+bundle exec rails db:prepare
+
+echo "==> Starting Tauri development mode..."
+echo "    (Rails server will be started automatically by Tauri)"
+npm run tauri:dev
