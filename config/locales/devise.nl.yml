@@ -35,7 +35,7 @@ nl:
                 email_suggestion_html: 'E-mail ongeldig! Bedoelde je: <b>%{suggestion}</b>'
                 name_invalid: 'Het hoeft niet echt te zijn 👻'
                 submit: 'Registreren'
-                title_html: 'Maak een <span class="text-success">gratis</span> account aan'
+                title: 'Maak een account'
             signed_up: 'Welkom! Je hebt je succesvol geregistreerd.'
             signed_up_but_inactive: 'Je hebt je succesvol geregistreerd. We konden je echter niet inloggen omdat je account nog niet is geactiveerd.'
             signed_up_but_unconfirmed: 'Een bericht met een bevestigingslink is verzonden naar je e-mailadres. Volg de link om je account te activeren.'
