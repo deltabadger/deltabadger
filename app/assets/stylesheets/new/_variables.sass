@@ -9,9 +9,15 @@
   font-size: 8px
   font-family: 'Montserrat', sans-serif
 
+  // form elements: buttons, inputs, selects, etc.
+  --ui-height: 6rem
+  --ui-height-xl: 7rem
+  --ui-radius: 1.25rem
+
   --binance: #F0B90B
 
   @media (prefers-color-scheme: light)
+
     --sky: color(display-p3 0 0 1)
     --ink: #002244
     --ash: #4D587C
@@ -24,6 +30,7 @@
     --white: #FFFFFF
     --grass: color(display-p3 0 0.7 0.45)
     --berry: #CF0000
+    --highlight: var(--sky)
 
     --shadow-basic: 0.125rem 0.125rem 0.25rem rgba(0,0,0,0.07), 0.25rem 0.25rem 1rem rgba(0,0,0,0.05)
     --shadow-paper: 0.125rem 0.125rem 0.125rem rgba(0,0,0,0.15)
@@ -42,6 +49,8 @@
     --white: #FFFFFF
     --grass: color(display-p3 0 0.7 0.45)
     --berry: #CF0000
+
+    --highlight: var(--white)
 
     --shadow-basic: 0.125rem 0.125rem 0.25rem rgba(0,0,0,0.07), 0.25rem 0.25rem 1rem rgba(0,0,0,0.05)
     --shadow-paper: 0.125rem 0.125rem 0.125rem rgba(0,0,0,0.1)

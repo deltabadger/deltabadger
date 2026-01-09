@@ -68,29 +68,6 @@ nl:
         counter: '%{countdown}'
         day: Dag
         details:
-            info:
-                title: Info
-                what_is_dca_html: |
-                    <h3>Wat is DCA?</h3>
-                    <p>Stel je de markt voor als je spaarvarken. Elke dag gooi je er een muntje in—of de prijzen nu stijgen, dalen of stabiel blijven.</p>
-                    <p>We noemen het <i>gemiddelde</i>, maar geloof me, er is niets gemiddeld aan wat je doet.</p>
-                    <p>De gemiddelde belegger? Twijfelt, raakt in paniek, verkoopt te vroeg.</p>
-                    <p>Jij niet.</p>
-                    <p>Jij chillt zoals opa Warren met zijn Cola, en laat de markt zijn werk doen.</p>
-                    <p>Het spel is lang, maar simpel. Het begint met het indrukken van ▶️</p>
-                smart_intervals_html: |
-                    <h3>Slimme Intervallen</h3>
-                    <p>Beurzen hebben minimale ordergroottes. Slimme intervallen regelen dit voor je:</p>
-                    <p>Wil je $5 per dag kopen, maar het minimum is $10? Ze plaatsen je bestelling van $10 elke tweede dag.</p>
-                daily_weekly_monthly_html: |
-                    <h3>Dagelijks? Wekelijks? Maandelijks?</h3>
-                    <p>Op de lange termijn zijn de resultaten zo vergelijkbaar dat het nauwelijks uitmaakt.</p>
-                    <p>Let op—als je belastingaangifte-software per transactie kosten rekent, is dat een goede reden om minder vaak te kopen.</p>
-                    <p>Anders, hou het klein en vaak, en laat de magie van DCA sneller zijn werk doen.</p>
-                withdrawal_html: |
-                    <h3>Automatische Opnames</h3>
-                    <p><i>Niet jouw sleutels, niet jouw Bitcoin.</i> — Andreas Antonopoulos</p>
-                    <p>Haal je fondsen naar je eigen wallet. Het is de veiligste manier om je crypto op te slaan.</p>
             log:
                 date: Datum
                 errors: Errors

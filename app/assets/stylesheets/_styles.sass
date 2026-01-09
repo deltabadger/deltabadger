@@ -19,8 +19,6 @@ a
   color: var(--link)
   &:hover
     color: var(--link)
-b
-  @include textAdjust(2)
 .nobreak
   white-space: nowrap
 html
@@ -139,6 +137,12 @@ sup
 .no-break
   white-space: nowrap !important
 .db-middot
+  color: var(--highlight) !important
+  font-size: 1.5rem
+  font-weight: 700
+  line-height: 1.25rem
+  position: relative
+  top: 0.25rem
   &:last-child
     display: none
 
@@ -601,7 +605,6 @@ sup
   white-space: nowrap
   a
     font-weight: 700
-    @include textAdjust(2)
     color: var(--white)
     text-decoration: underline
 

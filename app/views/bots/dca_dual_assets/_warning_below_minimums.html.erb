@@ -34,11 +34,8 @@
 
     <!-- 2: General Note -->
     <p><%= t('bot.warning.general_note') %></p>
-
-    <div class="large-button-wrapper" style="padding-top: 2rem;">
-      <%= button_tag type: 'button', class: 'button button--success button--large', data: { action: 'modal--base#animateOutCloseAndCleanUp' } do %>
-        <%= t('button.understand') %>
-      <% end %>
-    </div>
+    <%= button_tag type: 'button', class: 'button button--success button--large', data: { action: 'modal--base#animateOutCloseAndCleanUp' } do %>
+      <%= t('button.understand') %>
+    <% end %>
   </div>
 <% end %>

@@ -4,30 +4,11 @@ $formUnit: 2rem
 
 // forms
 
-.widget
-  .db-form
-    &__label
-      background: var(--paper)
-    &__input
-      background: var(--paper)
-
-.db-wire-transfer-in-progress
-  input
-    display: none
-  select
-    display: none
-  label
-    display: none
-  h4
-    display: none
-
 .db-form
   &__fieldset
     padding: 0
     margin: 0
-    border: 0px solid var(--ash)
-    padding: 0
-    border-radius: 2rem
+    border: none
     display: flex
     flex-direction: column
     gap: 2rem
@@ -36,73 +17,37 @@ $formUnit: 2rem
     margin-bottom: 2rem
     font-weight: 700
     color: var(--stone)
-
   &__row
-    margin-bottom: 1.25*$formUnit
     position: relative
-    &--double
-      display: flex
-      gap: 2.4rem
-      .db-form__row__col
-        position: relative
-        flex-grow: 1
-    textarea
-      padding-top: 1.2rem
-      &:focus,&:active
-        padding-top: 1.1rem
-    &--input
-      &--has-http-select
-        input
-          padding-left: 4.65em !important
-          &:focus,&:active
-            padding-left: calc(4.65em - .1rem) !important
-        select
-          position: absolute
-          top: 2rem
-          left: 2.2rem
-          border: none
-          appearance: none
-          opacity: 0.5
-          outline: none !important
-          background: var(--paper)
-          cursor: pointer
-        label
-          top: 0rem
-
     &--check
       letter-spacing: -0.025em
       padding: 2rem 0
       font-size: 1.75rem
       line-height: 2.5rem
-    &--hidden
-      display: none
-    &--visible
-      display: block
   &__label
-    font-size:      2rem
-    border-radius:  .4rem
-    background:     var(--paper)
+    font-weight: 550
+    font-size: 1.75rem
+    background:     var(--washed)
     color:          var(--input-border)
     position:       absolute
-    top:            3.4rem
     padding-left:   .5rem
     padding-right:  .5rem
     left:           2.2rem
-    transition:     all 100ms ease-out
+    top:            0
     pointer-events: none
     line-height: 0.25rem
   &__input
     font-size: 2rem
     color: var(--ash)
-    background: none
+    background: var(--washed)
     padding-bottom: .2rem
     padding-left: 2.4rem
     padding-right: 2.4rem
-    border: .1rem solid var(--input-border)
-    border-radius: 1rem
+    border: .125rem solid var(--input-border)
+    border-radius: var(--ui-radius)
     width: 100%
     position: relative
-    height: 7rem
+    height: var(--ui-height-xl)
     &--select
       appearance: none
     &--has-icon
@@ -115,12 +60,8 @@ $formUnit: 2rem
       &~.db-form__label
         color: var(--link)
         font-weight: bold
-        @include textAdjust(2)
     &--select,&:focus,&:not([value=""]),&:placeholder-shown,&[type="date"]
       opacity: 1
-      &~.db-form__label
-        top: 0
-        font-size: 1.75rem
     &.is-invalid
       &:not(:focus)
         border-color: var(--berry)
@@ -128,7 +69,6 @@ $formUnit: 2rem
         &~.db-form__label
           color: var(--berry)
           font-weight: bold
-          @include textAdjust(2)
       &~.db-form__info--invalid
         display: block
       &:focus
@@ -137,13 +77,12 @@ $formUnit: 2rem
   &__info
     padding-left: .4rem
     font-size: 1.75rem
-    margin-top: .75rem
+    margin-top: .5rem
     margin-bottom: -.4rem
     &--invalid
       display: none
     &--invalid, &--alert, &--notice
-      @include textAdjust(2)
-      font-weight: bold
+      font-weight: 600
     &--invalid, &--alert
       color: var(--berry)
     &--notice
@@ -153,7 +92,6 @@ $formUnit: 2rem
       padding-right: .4rem
     a
       font-weight: bold
-      @include textAdjust(2)
       text-decoration: none
       &:hover
         text-decoration: underline
@@ -202,13 +140,6 @@ $formUnit: 2rem
       display: none
     .db-svg--mi-visibility-off
       display: block
-
-.db-selectable
-  cursor: pointer
-
-.form-label-check
-  margin-left: .2rem
-
 
 // autocomplete
 

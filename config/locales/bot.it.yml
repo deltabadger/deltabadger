@@ -72,29 +72,6 @@ it:
         counter: '%{countdown}'
         day: Giorno
         details:
-            info:
-                title: Info
-                what_is_dca_html: |
-                    <h3>Cos'è il DCA?</h3>
-                    <p>Immagina il mercato come il tuo salvadanaio. Ogni giorno inserisci una moneta—che i prezzi salgano, scendano o restino invariati.</p>
-                    <p>Lo chiamiamo <i>media</i>, ma fidati, non c'è nulla di medio in quello che stai facendo.</p>
-                    <p>L'investitore medio? Esita, va nel panico, vende troppo presto.</p>
-                    <p>Ma non tu.</p>
-                    <p>Tu sei rilassato come nonno Warren che sorseggia la sua Coca, lasciando che il mercato faccia il suo corso.</p>
-                    <p>Il gioco è lungo, ma semplice. Inizia premendo ▶️</p>
-                smart_intervals_html: |
-                    <h3>Intervalli Intelligenti</h3>
-                    <p>Gli exchange hanno dimensioni minime per gli ordini. Gli intervalli intelligenti gestiscono questo per te:</p>
-                    <p>Vuoi comprare $5 al giorno, ma il minimo è $10? Piazzeranno il tuo ordine di $10 ogni due giorni.</p>
-                daily_weekly_monthly_html: |
-                    <h3>Giornaliero? Settimanale? Mensile?</h3>
-                    <p>Sorprendentemente, i risultati a lungo termine sono così simili che non fa davvero differenza.</p>
-                    <p>Ma attenzione—se il tuo software di dichiarazione fiscale addebita per transazione, è un buon motivo per comprare meno frequentemente.</p>
-                    <p>Altrimenti, mantieni le transazioni piccole e frequenti, e lascia che la magia del DCA inizi prima.</p>
-                withdrawal_html: |
-                    <h3>Prelievi Automatici</h3>
-                    <p><i>Non le tue chiavi non i tuoi Bitcoin.</i> — Andreas Antonopoulos</p>
-                    <p>Preleva i tuoi fondi nel tuo wallet. È il modo più sicuro per conservare le tue crypto.</p>
             log:
                 date: Data
                 errors: Errori

@@ -10,7 +10,7 @@
       <% end %>
 
       <div class="db-form__row db-form__row--input">
-        <%= f.email_field :email, autocomplete: "username", class: 'db-form__input', value: "", placeholder: current_user.email, pattern: email_address_pattern %>
+        <%= f.email_field :email, autocomplete: "username", class: 'db-form__input', value: "", placeholder: current_user.email, pattern: email_address_pattern, data: { html5_error_message: t('devise.registrations.new.email_invalid') } %>
         <%= f.label :email, t('helpers.label.user.new_email'), class: "db-form__label" %>
       </div>
 
@@ -23,9 +23,7 @@
         </div>
       <% end %>
 
-      <div class="large-button-wrapper">
-        <%= f.submit t('button.update'), class: "button button--large button--primary" %>
-      </div>
+      <%= f.submit t('button.update'), class: "button button--large button--primary" %>
     <% end %>
   <% end %>
 </div>
