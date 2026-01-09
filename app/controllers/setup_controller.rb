@@ -1,36 +1,52 @@
 class SetupController < ApplicationController
   layout 'devise'
 
-  before_action :ensure_setup_required, only: [:new, :create]
+  # Step 1: Account creation (no admin exists yet)
+  before_action :ensure_no_admin_exists, only: [:new, :create]
+  # Step 2: Sync configuration (user must be signed in, setup not completed)
+  before_action :authenticate_user!, only: [:sync, :configure_sync]
+  before_action :ensure_setup_not_completed, only: [:sync, :configure_sync]
+  # Syncing page
   before_action :ensure_sync_in_progress, only: [:syncing]
 
+  # Step 1: Show admin account creation form
   def new
     @user = User.new
     set_form_instance_variables
   end
 
+  # Step 1: Create admin account
   def create
     @user = User.new(admin_params)
     @user.admin = true
     @user.confirmed_at = Time.current
-
-    # Validate CoinGecko API key before creating admin account
-    unless validate_coingecko_api_key(params[:coingecko_api_key])
-      @user.errors.add(:base, t('setup.invalid_coingecko_api_key'))
-      set_form_instance_variables
-      return render :new, status: :unprocessable_entity
-    end
+    @user.setup_completed = false
 
     if @user.save
-      AppConfig.coingecko_api_key = params[:coingecko_api_key]
-      AppConfig.setup_sync_status = AppConfig::SYNC_STATUS_PENDING
       sign_in(@user)
-      Setup::SeedAndSyncJob.perform_later
-      redirect_to setup_syncing_path
+      redirect_to setup_sync_path
     else
       set_form_instance_variables
       render :new, status: :unprocessable_entity
     end
+  end
+
+  # Step 2: Show sync configuration form (CoinGecko API key)
+  def sync
+  end
+
+  # Step 2: Validate and store CoinGecko API key
+  def configure_sync
+    unless validate_coingecko_api_key(params[:coingecko_api_key])
+      flash.now[:alert] = t('setup.invalid_coingecko_api_key')
+      return render :sync, status: :unprocessable_entity
+    end
+
+    AppConfig.coingecko_api_key = params[:coingecko_api_key]
+    AppConfig.setup_sync_status = AppConfig::SYNC_STATUS_PENDING
+    current_user.update!(setup_completed: true)
+    Setup::SeedAndSyncJob.perform_later
+    redirect_to setup_syncing_path
   end
 
   def syncing
@@ -53,8 +69,12 @@ class SetupController < ApplicationController
     result.success?
   end
 
-  def ensure_setup_required
-    redirect_to root_path if AppConfig.setup_completed?
+  def ensure_no_admin_exists
+    redirect_to root_path if User.exists?(admin: true)
+  end
+
+  def ensure_setup_not_completed
+    redirect_to admin_root_path if current_user.setup_completed?
   end
 
   def ensure_sync_in_progress

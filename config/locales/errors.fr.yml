@@ -1,5 +1,10 @@
 fr:
     activerecord:
+        attributes:
+            user:
+                name: "Nom"
+                email: "Email"
+                password: "Mot de passe"
         errors:
             models:
                 bot:

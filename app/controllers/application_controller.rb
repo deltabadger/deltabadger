@@ -38,9 +38,18 @@ class ApplicationController < ActionController::Base
 
   def redirect_to_setup_if_needed
     return if setup_controller?
-    return if AppConfig.setup_completed?
 
-    redirect_to new_setup_path
+    # If no admin exists, redirect to step 1 (account creation)
+    unless User.exists?(admin: true)
+      redirect_to new_setup_path
+      return
+    end
+
+    # If current user is admin and hasn't completed setup (API key step),
+    # redirect to step 2
+    if user_signed_in? && current_user.admin? && !current_user.setup_completed?
+      redirect_to setup_sync_path
+    end
   end
 
   def redirect_to_syncing_if_needed
