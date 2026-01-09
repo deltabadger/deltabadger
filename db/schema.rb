@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_01_06_162140) do
+ActiveRecord::Schema[8.1].define(version: 2026_01_09_050047) do
   create_table "affiliates", force: :cascade do |t|
     t.boolean "active", default: true, null: false
     t.string "address"
@@ -460,6 +460,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_01_06_162140) do
     t.datetime "remember_created_at", precision: nil
     t.datetime "reset_password_sent_at", precision: nil
     t.string "reset_password_token"
+    t.boolean "setup_completed", default: false, null: false
     t.boolean "show_smart_intervals_info", default: true, null: false
     t.boolean "subscribed_to_email_marketing", default: true
     t.boolean "terms_and_conditions"
