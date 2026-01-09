@@ -27,8 +27,6 @@
         margin: 0 auto
     &--primary
         background: var(--sky)
-    &--secondary
-        background: var(--stone)
     &--success
         background: var(--grass)
     &--danger
@@ -43,7 +41,7 @@
         color: var(--stone) !important
         &:hover, &:focus, &:active
             color: var(--stone) !important
-        &.button--success,&.button--secondary,&.button--danger
+        &.button--success,&.button--danger
             color: var(--stone) !important
             path
                 fill: var(--stone) !important
@@ -56,8 +54,6 @@
             border-color: var(--grass)
         &.button--danger
             border-color: var(--berry)
-        &.button--secondary
-            border-color: var(--menulink)
     &--disabled,&[disabled="disabled"],&[disabled]
         cursor: not-allowed
         pointer-events: none
@@ -84,10 +80,6 @@
             color: var(--link)
             background: var(--washed)
             box-shadow: var(--shadow-basic)
-    &--add-asset
-        width: 20rem
-    &--icon-and-text
-
 .buttons
     display: flex
     gap: 2rem

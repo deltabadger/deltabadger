@@ -36,7 +36,7 @@ de:
                 email_suggestion_html: 'E-Mail ungültig! Meinten Sie: <b>%{suggestion}</b>'
                 name_invalid: 'Muss nicht echt sein 👻'
                 submit: 'Registrieren'
-                title_html: '<span class="text-success">Kostenloses</span> Konto erstellen'
+                title: 'Kostenloses Konto erstellen'
             signed_up: 'Willkommen! Sie haben sich erfolgreich registriert.'
             signed_up_but_inactive: 'Sie haben sich erfolgreich registriert. Wir konnten Sie jedoch nicht anmelden, da Ihr Konto noch nicht aktiviert ist.'
             signed_up_but_unconfirmed: 'Eine Nachricht mit einem Bestätigungslink wurde an Ihre E-Mail-Adresse gesendet. Bitte folgen Sie dem Link, um Ihr Konto zu aktivieren.'

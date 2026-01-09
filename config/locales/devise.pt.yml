@@ -36,7 +36,7 @@ pt:
                 email_suggestion_html: 'E-mail inválido! Você quis dizer: <b>%{suggestion}</b>'
                 name_invalid: 'Não precisa ser real 👻'
                 submit: 'Cadastrar'
-                title_html: 'Criar conta <span class="text-success">gratuita</span>'
+                title: 'Criar conta'
             signed_up: 'Bem-vindo! Você se cadastrou com sucesso.'
             signed_up_but_inactive: 'Você se cadastrou com sucesso. No entanto, não pudemos conectá-lo porque sua conta ainda não está ativada.'
             signed_up_but_unconfirmed: 'Uma mensagem com um link de confirmação foi enviada para seu endereço de e-mail. Por favor, siga o link para ativar sua conta.'

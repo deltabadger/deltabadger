@@ -36,7 +36,7 @@ it:
                 email_suggestion_html: 'Email non valida! Intendevi: <b>%{suggestion}</b>'
                 name_invalid: 'Non deve essere reale 👻'
                 submit: 'Registrati'
-                title_html: 'Crea account <span class="text-success">gratuito</span>'
+                title: 'Crea account'
             signed_up: 'Benvenuto! Ti sei registrato con successo.'
             signed_up_but_inactive: 'Ti sei registrato con successo. Tuttavia, non abbiamo potuto accederti perché il tuo account non è ancora attivato.'
             signed_up_but_unconfirmed: 'Un messaggio con un link di conferma è stato inviato al tuo indirizzo email. Segui il link per attivare il tuo account.'
