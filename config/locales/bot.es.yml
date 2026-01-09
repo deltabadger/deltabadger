@@ -71,29 +71,6 @@ es:
         counter: '%{countdown}'
         day: Día
         details:
-            info:
-                title: Información
-                what_is_dca_html: |
-                    <h3>¿Qué es DCA?</h3>
-                    <p>Imagina el mercado como tu alcancía. Cada día pones una moneda—ya sea que los precios suban, bajen o se mantengan.</p>
-                    <p>Lo llamamos <i>promediación</i>, pero créeme, no hay nada de promedio en lo que estás haciendo.</p>
-                    <p>¿El inversor promedio? Duda, entra en pánico, vende demasiado pronto.</p>
-                    <p>Tú no.</p>
-                    <p>Estás relajado como el abuelo Warren tomando su Coca-Cola, dejando que el mercado haga lo suyo.</p>
-                    <p>El juego es largo, pero simple. Comienza al presionar ▶️</p>
-                smart_intervals_html: |
-                    <h3>Intervalos Inteligentes</h3>
-                    <p>Las bolsas tienen tamaños mínimos de pedido. Los intervalos inteligentes se encargan de esto por ti:</p>
-                    <p>¿Quieres comprar 5 $ al día, pero el mínimo es 10 $? Colocarán tu orden de 10 $ cada dos días.</p>
-                daily_weekly_monthly_html: |
-                    <h3>¿Diario? ¿Semanal? ¿Mensual?</h3>
-                    <p>Sorprendentemente, los resultados a largo plazo son tan parecidos que realmente no importa.</p>
-                    <p>Pero cuidado: si tu software de declaración de impuestos cobra por transacción, es una buena razón para comprar con menos frecuencia.</p>
-                    <p>De lo contrario, mantén las transacciones pequeñas y frecuentes, y deja que la magia del DCA funcione antes.</p>
-                withdrawal_html: |
-                    <h3>Retiros Automáticos</h3>
-                    <p><i>Si no son tus llaves, no son tus Bitcoin.</i> — Andreas Antonopoulos</p>
-                    <p>Retira tus fondos a tu propia billetera. Es la forma más segura de almacenar tu cripto.</p>
             log:
                 date: Fecha
                 errors: Errores

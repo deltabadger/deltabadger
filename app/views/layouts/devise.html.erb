@@ -55,22 +55,17 @@
   </head>
 
   <body data-controller="hotwire-animations">
-
     <div class="devise">
 
       <div class="devise__row">
-        <%= render 'svg/40x30_logo' %>
-      </div>
-
-      <div class="devise__row">
         <div class="devise__col">
-          <div id="flash">
-            <%= render 'layouts/flash' %>
-          </div>
           <%= yield %>
         </div>
       </div>
-    </div>
+      <div id="flash">
+        <%= render 'layouts/flash' %>
+      </div>
 
+    </div>
   </body>
 </html>

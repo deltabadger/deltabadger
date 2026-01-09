@@ -69,29 +69,6 @@ en:
         counter: '%{countdown}'
         day: Day
         details:
-            info:
-                title: Info
-                what_is_dca_html: |
-                    <h3>What is DCA?</h3>
-                    <p>Imagine market as your piggy bank. Every day you drop in one coin—whether prices are up, down, or sideways.</p>
-                    <p>We call it <i>averaging</i>, but trust me, there's nothing average about what you're doing.</p>
-                    <p>The average investor? They hesitate, panic, sell too soon.</p>
-                    <p>But not you.</p>
-                    <p>You're chilling like Grandpa Warren sipping his Coke, letting the market do its thing.</p>
-                    <p>The game is long, but simple. It begins with pressing ▶️</p>
-                smart_intervals_html: |
-                    <h3>Smart Intervals</h3>
-                    <p>Exchanges have minimum order sizes. Smart intervals handle this for you:</p>
-                    <p>Want to buy $5 a day, but the minimum is $10? They'll place your $10 order every second day.</p>
-                daily_weekly_monthly_html: |
-                    <h3>Daily? Weekly? Monthly?</h3>
-                    <p>Surprisingly, long-term results are so close it doesn't really matter.</p>
-                    <p>But watch out—if your tax reporting software charges per transaction, that's a good reason to buy less often.</p>
-                    <p>Otherwise, keep transactions small and frequent, and let the magic of DCA kick in sooner.</p>
-                withdrawal_html: |
-                    <h3>Auto-Withdrawals</h3>
-                    <p><i>Not your keys not your Bitcoin.</i> — Andreas Antonopoulos</p>
-                    <p>Withdraw your funds to your own wallet. It's the safest way to store your crypto.</p>
             log:
                 date: Date
                 errors: Errors

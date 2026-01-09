@@ -70,29 +70,6 @@ de:
         counter: '%{countdown}'
         day: Tag
         details:
-            info:
-                title: Info
-                what_is_dca_html: |
-                    <h3>Was ist DCA?</h3>
-                    <p>Stellen Sie sich den Markt als Ihr Sparschwein vor. Jeden Tag werfen Sie eine Münze hinein—ob die Preise steigen, fallen oder gleich bleiben.</p>
-                    <p>Wir nennen es <i>Durchschnittsbildung</i>, aber glauben Sie mir, was Sie tun, ist alles andere als durchschnittlich.</p>
-                    <p>Der durchschnittliche Investor? Zögert, gerät in Panik, verkauft zu früh.</p>
-                    <p>Aber nicht Sie.</p>
-                    <p>Sie chillen wie Opa Warren, der an seiner Cola nippt, und lassen den Markt seine Arbeit tun.</p>
-                    <p>Das Spiel ist lang, aber simpel. Es beginnt mit einem Druck auf ▶️</p>
-                smart_intervals_html: |
-                    <h3>Intelligente Intervalle</h3>
-                    <p>Börsen haben Mindestbestellgrößen. Intelligente Intervalle regeln das für dich:</p>
-                    <p>Möchtest du für 5 $ pro Tag kaufen, aber das Minimum beträgt 10 $? Sie setzen deine 10 $ Bestellungen jeden zweiten Tag.</p>
-                daily_weekly_monthly_html: |
-                    <h3>Täglich? Wöchentlich? Monatlich?</h3>
-                    <p>Überraschenderweise sind die langfristigen Ergebnisse so ähnlich, dass es kaum einen Unterschied macht.</p>
-                    <p>Aber Vorsicht—wenn deine Steuersoftware pro Transaktion abrechnet, ist das ein guter Grund, seltener zu kaufen.</p>
-                    <p>Andernfalls halte die Transaktionen klein und häufig, und lass die Magie von DCA früher wirken.</p>
-                withdrawal_html: |
-                    <h3>Automatische Auszahlungen</h3>
-                    <p><i>Nicht deine Schlüssel, nicht deine Bitcoin.</i> — Andreas Antonopoulos</p>
-                    <p>Zieh deine Gelder auf deine eigene Wallet ab. Das ist der sicherste Weg, deine Krypto aufzubewahren.</p>
             log:
                 date: Datum
                 errors: Fehler

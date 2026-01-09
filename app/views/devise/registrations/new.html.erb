@@ -11,13 +11,18 @@
   form__password_strength_digit_pattern_value: @password_digit_pattern,
   form__password_strength_symbol_pattern_value: @password_symbol_pattern
 } do |f| %>
+
+  <%= render 'svg/40x30_logo' %>
+
+  <h1><%= t('.title') %></h1>
+
   <div class="db-form__row db-form__row--input">
     <%= f.text_field :name, class: "db-form__input", required: true, pattern: @name_pattern %>
     <%= f.label :name, class: "db-form__label" %>
   </div>
 
   <div class="db-form__row db-form__row--input">
-    <%= f.email_field :email, autocomplete: "username", class: "db-form__input", required: true, pattern: @email_address_pattern %>
+    <%= f.email_field :email, autocomplete: "username", class: "db-form__input", required: true, pattern: @email_address_pattern, data: { html5_error_message: t('devise.registrations.new.email_invalid') } %>
     <%= f.label :email, class: "db-form__label" %>
   </div>
 
@@ -35,8 +40,8 @@
     </div>
   <% end %>
 
-  <div class="db-form__row">
-    <ul data-form--password-strength-target="requirementsList" class="hidden password-requirements">
+  <div data-form--password-strength-target="requirementsList" class="hidden">
+    <ul class="password-requirements">
       <li class="db-form__validation" data-form--password-strength-target="length"><%= t('devise.passwords.validations.length', count: @password_minimum_length) %></li>
       <li class="db-form__validation" data-form--password-strength-target="uppercase"><%= t('devise.passwords.validations.uppercase') %></li>
       <li class="db-form__validation" data-form--password-strength-target="lowercase"><%= t('devise.passwords.validations.lowercase') %></li>
@@ -44,11 +49,7 @@
       <li class="db-form__validation" data-form--password-strength-target="symbol"><%= t('devise.passwords.validations.symbol') %></li>
     </ul>
   </div>
+  <%= f.submit t('.submit'), class: "button button--success button--large" %>
 
-  <div class="large-button-wrapper">
-    <%= f.submit t('.submit'), class: "button button--success button--large" %>
-  </div>
+  <%= render "devise/shared/links" %>
 <% end %>
-
-
-<%= render "devise/shared/links" %>
