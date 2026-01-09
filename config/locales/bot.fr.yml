@@ -71,29 +71,6 @@ fr:
         counter: '%{countdown}'
         day: 'Jour'
         details:
-            info:
-                title: Info
-                what_is_dca_html: |
-                    <h3>Qu'est-ce que le DCA ?</h3>
-                    <p>Imaginez le marché comme votre tirelire. Chaque jour, vous y déposez une pièce—que les prix montent, baissent ou restent stables.</p>
-                    <p>Nous appelons cela <i>lissage des coûts</i>, mais croyez-moi, ce que vous faites est loin d'être moyen.</p>
-                    <p>L'investisseur moyen ? Il hésite, panique, vend trop tôt.</p>
-                    <p>Pas vous.</p>
-                    <p>Vous êtes tranquille, comme le grand-père Warren sirotant son Coca, laissant le marché faire son travail.</p>
-                    <p>Le jeu est long, mais simple. Il commence en appuyant sur ▶️</p>
-                smart_intervals_html: |
-                    <h3>Intervalles Intelligents</h3>
-                    <p>Les plateformes ont des tailles d'ordre minimales. Les intervalles intelligents gèrent cela pour vous :</p>
-                    <p>Vous voulez acheter pour 5$ par jour, mais le minimum est de 10$? Ils passeront votre commande de 10$ tous les deux jours.</p>
-                daily_weekly_monthly_html: |
-                    <h3>Quotidien? Hebdomadaire? Mensuel?</h3>
-                    <p>Sur le long terme, les résultats sont tellement proches que ça n'a presque pas d'importance.</p>
-                    <p>Attention—si votre logiciel de déclaration fiscale facture par transaction, c'est une bonne raison d'acheter moins souvent.</p>
-                    <p>Sinon, gardez les transactions petites et fréquentes, et laissez la magie du DCA opérer plus vite.</p>
-                withdrawal_html: |
-                    <h3>Retraits Automatiques</h3>
-                    <p><i>Pas vos clés, pas votre Bitcoin.</i> — Andreas Antonopoulos</p>
-                    <p>Retirez vos fonds vers votre propre portefeuille. C'est la façon la plus sûre de stocker votre crypto.</p>
             log:
                 date: 'Date'
                 errors: 'Erreurs'

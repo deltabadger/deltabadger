@@ -69,29 +69,6 @@ pt:
         counter: '%{countdown}'
         day: Dia
         details:
-            info:
-                title: Informações
-                what_is_dca_html: |
-                    <h3>O que é DCA?</h3>
-                    <p>Imagine o mercado como seu cofrinho. Todos os dias, você coloca uma moeda—seja com preços subindo, descendo ou estáveis.</p>
-                    <p>Chamamos isso de <i>média de custo</i>, mas acredite, não há nada de médio no que você está fazendo.</p>
-                    <p>O investidor médio? Hesita, entra em pânico, vende cedo demais.</p>
-                    <p>Não você.</p>
-                    <p>Você está tranquilo, como o vovô Warren saboreando sua Coca-Cola, deixando o mercado seguir seu curso.</p>
-                    <p>O jogo é longo, mas simples. Começa ao apertar ▶️</p>
-                smart_intervals_html: |
-                    <h3>Intervalos Inteligentes</h3>
-                    <p>As exchanges têm tamanhos mínimos de pedido. Intervalos inteligentes cuidam disso para você:</p>
-                    <p>Quer comprar $5 por dia, mas o mínimo é $10? Eles fazem pedidos de $10 a cada dois dias.</p>
-                daily_weekly_monthly_html: |
-                    <h3>Diário? Semanal? Mensal?</h3>
-                    <p>Surpreendentemente, os resultados a longo prazo são tão próximos que não faz muita diferença.</p>
-                    <p>Mas atenção—se o seu software de declaração de impostos cobrar por transação, é um bom motivo para comprar com menos frequência.</p>
-                    <p>De outra forma, mantenha as transações pequenas e frequentes e deixe a mágica do DCA acontecer mais rápido.</p>
-                withdrawal_html: |
-                    <h3>Saques Automáticos</h3>
-                    <p><i>Se não são suas chaves, não são seus bitcoin.</i> — Andreas Antonopoulos</p>
-                    <p>Saque seus fundos para sua própria carteira. É a maneira mais segura de armazenar suas criptomoedas.</p>
             log:
                 date: Data
                 errors: Erros

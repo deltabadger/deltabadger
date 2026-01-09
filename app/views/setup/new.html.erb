@@ -1,5 +1,8 @@
 <%= render partial: "layouts/language_dropdown_full", locals: { extra_classes: "dropdown-wrapper--fullscreen dropdown-wrapper--down" } %>
 
+<%= render 'svg/40x30_logo' %>
+
+<!-- <h1><%= t('.title') %></h1> -->
 <% content_for :title, t('setup.title') %>
 
 <%= form_with model: @user, url: setup_path, method: :post, data: {
@@ -31,7 +34,7 @@
     </div>
 
     <div class="db-form__row db-form__row--input">
-      <%= f.email_field :email, autocomplete: "username", class: "db-form__input", required: true, pattern: @email_address_pattern, id: "user_email" %>
+      <%= f.email_field :email, autocomplete: "username", class: "db-form__input", required: true, pattern: @email_address_pattern, id: "user_email", data: { html5_error_message: t('devise.registrations.new.email_invalid') } %>
       <%= f.label :email, t('activerecord.attributes.user.email'), class: "db-form__label", for: "user_email" %>
     </div>
 
@@ -70,7 +73,5 @@
     <%= t('setup.coingecko_api_key_hint_html') %>
   </fieldset>
 
-  <div class="large-button-wrapper">
-    <%= f.submit t('setup.submit'), class: "button button--success button--large" %>
-  </div>
+  <%= f.submit t('setup.submit'), class: "button button--success button--large" %>
 <% end %>
