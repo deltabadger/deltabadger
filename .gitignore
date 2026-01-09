@@ -11,6 +11,7 @@
 *.sqlite3-*
 *.dump
 *.sql
+/storage/development.sqlite3
 
 # Dependencies
 /.bundle
