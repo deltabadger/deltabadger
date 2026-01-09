@@ -2,16 +2,22 @@
 <% content_for :title, page_title_for_static_page('forgot_password') %>
 <% content_for :meta_description, meta_description_for_static_page('forgot_password') %>
 
-<h3><%= t('.title') %></h3>
 <%= form_with model: resource, url: password_path(resource_name), data: { controller: "form--html5-validations form--label-animations" } do |f| %>
+
+  <%= render 'svg/40x30_logo' %>
+
+  <h1><%= t('.title') %></h1>
+
   <div class="db-form__row">
-    <%= f.email_field :email, autofocus: true, autocomplete: "email", class: "db-form__input", pattern: @email_address_pattern %>
+    <%= f.email_field :email, autofocus: true, autocomplete: "email", class: "db-form__input", pattern: @email_address_pattern, data: { html5_error_message: t('devise.registrations.new.email_invalid') } %>
     <%= f.label :email, class: "db-form__label" %>
   </div>
 
   <div class="db-form__row db-form__row--final-button">
     <%= f.submit t('.submit'), class: "button button--large w-100 button--primary" %>
   </div>
+
+  <%= render "devise/shared/links" %>
 <% end %>
 
-<%= render "devise/shared/links" %>
+

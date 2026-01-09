@@ -10,9 +10,7 @@
             <%= f.text_field :secret, class: "db-form__input", rows: 3 %>
             <%= f.label :secret, "API Secret", class: "db-form__label" %>
           </div>
-          <div class="large-button-wrapper">
-            <%= f.submit t('button.connect'), class: "button button--success button--large", data: { turbo_stream: true, turbo_submits_with: t('bot.setup.validating') } %>
-          </div>
+          <%= f.submit t('button.connect'), class: "button button--success button--large", data: { turbo_stream: true, turbo_submits_with: t('bot.setup.validating') } %>
         <% end %>
       </div>
       <div class="set-api__instructions">

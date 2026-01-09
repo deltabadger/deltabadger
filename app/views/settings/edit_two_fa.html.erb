@@ -23,9 +23,7 @@
         <%= f.label :otp_label, t('helpers.label.settings.enter_two_fa_code'), class: "db-form__label" %>
       </div>
 
-      <div class="large-button-wrapper">
-        <%= f.submit @two_fa_button_text, class: "button button--large button--success" %>
-      </div>
+      <%= f.submit @two_fa_button_text, class: "button button--large button--success" %>
     <% end %>
   </div>
 <% end %>
