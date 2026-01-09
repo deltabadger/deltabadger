@@ -1,10 +1,3 @@
-<%= render partial: "layouts/language_dropdown_full", locals: { extra_classes: "dropdown-wrapper--fullscreen dropdown-wrapper--down" } %>
-
-<%= render 'svg/40x30_logo' %>
-
-<!-- <h1><%= t('.title') %></h1> -->
-<% content_for :title, t('setup.title') %>
-
 <%= form_with model: @user, url: setup_path, method: :post, data: {
   turbo: false,
   controller: "form--html5-validations form--label-animations form--password-strength",
@@ -25,53 +18,46 @@
     </div>
   <% end %>
 
-  <fieldset class="db-form__fieldset">
-    <legend class="db-form__legend"><%= t('setup.admin_account') %></legend>
+  <%= render 'svg/40x30_logo' %>
 
-    <div class="db-form__row db-form__row--input">
-      <%= f.text_field :name, class: "db-form__input", required: true, pattern: @name_pattern, id: "user_name" %>
-      <%= f.label :name, t('activerecord.attributes.user.name'), class: "db-form__label", for: "user_name" %>
+  <%= render partial: "layouts/language_dropdown_full", locals: { extra_classes: "sinput sinput--select dropdown-wrapper--fullscreen dropdown-wrapper--down" } %>
+
+  <h1><%= t('setup.admin_account') %></h1>
+
+  <div class="db-form__row db-form__row--input">
+    <%= f.text_field :name, class: "db-form__input", required: true, pattern: @name_pattern, id: "user_name", data: { html5_error_message: t('setup.validations.name_required') } %>
+    <%= f.label :name, t('activerecord.attributes.user.name'), class: "db-form__label", for: "user_name" %>
+  </div>
+
+  <div class="db-form__row db-form__row--input">
+    <%= f.email_field :email, autocomplete: "username", class: "db-form__input", required: true, pattern: @email_address_pattern, id: "user_email", data: { html5_error_message: t('setup.validations.email_required') } %>
+    <%= f.label :email, t('activerecord.attributes.user.email'), class: "db-form__label", for: "user_email" %>
+  </div>
+
+  <%= tag.div class: "db-form__row db-has-unmask", data: { controller: "form--password-unmask" } do %>
+    <%= f.password_field :password, autocomplete: "new-password", class: "db-form__input db-form__input--has-icon", data: {
+      form__password_unmask_target: "input",
+      form__password_strength_target: "input",
+      action: "input->form--password-strength#checkPasswordStrength",
+      html5_error_message: t('setup.validations.password_required')
+    }, required: true, pattern: @password_pattern, id: "user_password" %>
+    <%= f.label :password, t('activerecord.attributes.user.password'), class: "db-form__label", for: "user_password" %>
+
+    <div class="db-unmask" data-action="click->form--password-unmask#toggle">
+      <%= render "layouts/svg_mi_visibility" %>
+      <%= render "layouts/svg_mi_visibility-off" %>
     </div>
+  <% end %>
 
-    <div class="db-form__row db-form__row--input">
-      <%= f.email_field :email, autocomplete: "username", class: "db-form__input", required: true, pattern: @email_address_pattern, id: "user_email", data: { html5_error_message: t('devise.registrations.new.email_invalid') } %>
-      <%= f.label :email, t('activerecord.attributes.user.email'), class: "db-form__label", for: "user_email" %>
-    </div>
+  <div data-form--password-strength-target="requirementsList" class="hidden">
+    <ul class="password-requirements">
+      <li class="db-form__validation" data-form--password-strength-target="length"><%= t('devise.passwords.validations.length', count: @password_minimum_length) %></li>
+      <li class="db-form__validation" data-form--password-strength-target="uppercase"><%= t('devise.passwords.validations.uppercase') %></li>
+      <li class="db-form__validation" data-form--password-strength-target="lowercase"><%= t('devise.passwords.validations.lowercase') %></li>
+      <li class="db-form__validation" data-form--password-strength-target="digit"><%= t('devise.passwords.validations.digit') %></li>
+      <li class="db-form__validation" data-form--password-strength-target="symbol"><%= t('devise.passwords.validations.symbol') %></li>
+    </ul>
+  </div>
 
-    <%= tag.div class: "db-form__row db-has-unmask", data: { controller: "form--password-unmask" } do %>
-      <%= f.password_field :password, autocomplete: "new-password", class: "db-form__input db-form__input--has-icon", data: {
-        form__password_unmask_target: "input",
-        form__password_strength_target: "input",
-        action: "input->form--password-strength#checkPasswordStrength"
-      }, required: true, pattern: @password_pattern, id: "user_password" %>
-      <%= f.label :password, t('activerecord.attributes.user.password'), class: "db-form__label", for: "user_password" %>
-
-      <div class="db-unmask" data-action="click->form--password-unmask#toggle">
-        <%= render "layouts/svg_mi_visibility" %>
-        <%= render "layouts/svg_mi_visibility-off" %>
-      </div>
-    <% end %>
-
-    <div class="db-form__row">
-      <ul data-form--password-strength-target="requirementsList" class="hidden password-requirements">
-        <li class="db-form__validation" data-form--password-strength-target="length"><%= t('devise.passwords.validations.length', count: @password_minimum_length) %></li>
-        <li class="db-form__validation" data-form--password-strength-target="uppercase"><%= t('devise.passwords.validations.uppercase') %></li>
-        <li class="db-form__validation" data-form--password-strength-target="lowercase"><%= t('devise.passwords.validations.lowercase') %></li>
-        <li class="db-form__validation" data-form--password-strength-target="digit"><%= t('devise.passwords.validations.digit') %></li>
-        <li class="db-form__validation" data-form--password-strength-target="symbol"><%= t('devise.passwords.validations.symbol') %></li>
-      </ul>
-    </div>
-  </fieldset>
-
-  <fieldset class="db-form__fieldset">
-    <legend class="db-form__legend"><%= t('setup.api_configuration') %></legend>
-
-    <div class="db-form__row db-form__row--input">
-      <%= tag.input class: "db-form__input", type: "text", name: "coingecko_api_key", required: true, id: "coingecko_api_key" %>
-      <%= label_tag :coingecko_api_key, t('setup.coingecko_api_key'), class: "db-form__label" %>
-    </div>
-    <%= t('setup.coingecko_api_key_hint_html') %>
-  </fieldset>
-
-  <%= f.submit t('setup.submit'), class: "button button--success button--large" %>
+  <%= f.submit t('setup.continue'), class: "button button--success button--large" %>
 <% end %>

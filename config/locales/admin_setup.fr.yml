@@ -2,6 +2,10 @@ fr:
   setup:
     title: "Bienvenue sur Deltabadger"
     admin_account: "Compte administrateur"
+    validations:
+      name_required: "Le nom est requis"
+      email_required: "L'e-mail est requis"
+      password_required: "Le mot de passe est requis"
     api_configuration: "API CoinGecko"
     coingecko_api_key: "Clé API CoinGecko"
     coingecko_api_key_hint_html: |
@@ -14,6 +18,7 @@ fr:
         <li>Cliquez sur <b>Créer une clé API</b></li>
         <li><b>Copiez la clé API</b> et collez-la ci-dessus</li>
       </ol>
+    continue: "Continuer"
     submit: "Commencer"
     success: "Configuration terminée avec succès. Bienvenue sur Deltabadger!"
     syncing_title: "Synchronisation des actifs…"
