@@ -1,9 +1,9 @@
 import { Controller } from "@hotwired/stimulus"
 
 // This controller allows showing native html5 form validation errors with custom style, inline (below each field).
-// The form fields have to be wrapped in a div with class `db-form__row` for the error to be displayed correctly.
+// The form fields have to be wrapped in a div with class `form__row` for the error to be displayed correctly.
 // The field will include the class `invalid` when the field is invalid.
-// The error message will be displayed in a div with class `db-form__info--invalid`.
+// The error message will be displayed in a div with class `form__info--invalid`.
 // Errors are removed when the input changes.
 // source: https://www.jorgemanrubia.com/2019/02/16/form-validations-with-html5-and-modern-rails/
 
@@ -72,11 +72,11 @@ export default class extends Controller {
   }
 
   #removeExistingErrorMessage(field) {
-    const fieldContainer = field.closest('.db-form__row')
+    const fieldContainer = field.closest('.form__row')
     if(!fieldContainer) {
       return;
     }
-    const existingErrorMessageElement = fieldContainer.querySelector('.db-form__info--invalid')
+    const existingErrorMessageElement = fieldContainer.querySelector('.form__info--invalid')
     if (existingErrorMessageElement)
       existingErrorMessageElement.parentNode.removeChild(existingErrorMessageElement)
   }
@@ -87,7 +87,7 @@ export default class extends Controller {
 
   #buildFieldErrorHtml(field) {
     const errorMessage = field.dataset.html5ErrorMessage || field.validationMessage
-    return `<div class="db-form__info db-form__info--invalid">${errorMessage}</div>`
+    return `<div class="form__info form__info--invalid">${errorMessage}</div>`
   }
 
   get #formFields() {

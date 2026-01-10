@@ -19,7 +19,7 @@ ActionView::Base.field_error_proc = Proc.new do |html_tag, instance|
            field['class'] = "#{field['class']} is-invalid"
            html = <<-HTML
              #{fragment.to_s}
-             <div class="db-form__info db-form__info--invalid">#{error_message.upcase_first}</div>
+             <div class="form__info form__info--invalid">#{error_message.upcase_first}</div>
            HTML
            html
          else

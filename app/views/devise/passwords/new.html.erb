@@ -8,12 +8,12 @@
 
   <h1><%= t('.title') %></h1>
 
-  <div class="db-form__row">
-    <%= f.email_field :email, autofocus: true, autocomplete: "email", class: "db-form__input", pattern: @email_address_pattern, data: { html5_error_message: t('devise.registrations.new.email_invalid') } %>
-    <%= f.label :email, class: "db-form__label" %>
+  <div class="form__row">
+    <%= f.email_field :email, autofocus: true, autocomplete: "email", class: "form__input", pattern: @email_address_pattern, data: { html5_error_message: t('devise.registrations.new.email_invalid') } %>
+    <%= f.label :email, class: "form__label" %>
   </div>
 
-  <div class="db-form__row db-form__row--final-button">
+  <div class="form__row form__row--final-button">
     <%= f.submit t('.submit'), class: "button button--large w-100 button--primary" %>
   </div>
 
