@@ -1,7 +1,7 @@
 <div class="widget">
   <h4 class="modal__title"><%= t('settings.index.email_section') %></h4>
   <%= turbo_frame_tag "update_email_form" do %>
-    <%= form_with model: current_user, url: settings_update_email_path, data: { controller: "form--html5-validations form--label-animations", turbo_frame: "update_email_form" } do |f| %>
+    <%= form_with model: current_user, url: settings_update_email_path, class: "setting-form", data: { controller: "form--html5-validations form--label-animations", turbo_frame: "update_email_form" } do |f| %>
 
       <% if current_user.pending_reconfirmation? %>
         <div class="db-form__row db-form__row--input" style="text-align: center;">
@@ -23,7 +23,7 @@
         </div>
       <% end %>
 
-      <%= f.submit t('button.update'), class: "button button--large button--primary" %>
+      <%= f.submit t('button.update'), class: "button button--primary" %>
     <% end %>
   <% end %>
 </div>

@@ -8,8 +8,14 @@ class ApplicationController < ActionController::Base
   around_action :switch_locale
 
   def switch_locale(&action)
-    locale = params[:locale] || current_user.try(:locale) || I18n.default_locale
-    current_user.update(locale:) if current_user.present?
+    # Only update user's locale if they explicitly chose one (via language dropdown)
+    # Otherwise, use their saved preference
+    if params[:locale].present?
+      locale = params[:locale]
+      current_user.update(locale:) if current_user.present?
+    else
+      locale = current_user.try(:locale) || I18n.default_locale
+    end
     I18n.with_locale(locale, &action)
   end
 
@@ -46,9 +52,11 @@ class ApplicationController < ActionController::Base
     end
 
     # If current user is admin and hasn't completed setup (API key step),
-    # redirect to step 2
+    # redirect to step 2 with user's locale preference
     if user_signed_in? && current_user.admin? && !current_user.setup_completed?
-      redirect_to setup_sync_path
+      # Use params[:locale] first (if user explicitly chose), then saved preference
+      locale_param = params[:locale].presence || current_user.locale.presence
+      redirect_to setup_sync_path(locale: locale_param)
     end
   end
 
