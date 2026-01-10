@@ -2,13 +2,13 @@
       <div class="set-api__form">
         <h2 class="set-api__header"><%= t('bot.add_api_keys', exchange: bot.exchange.name) %></h2>
         <%= form_with model: api_key, url: path, method: :post, data: form_data do |f| %>
-          <div class="db-form__row db-form__row--input">
-            <%= f.text_field :key, autofocus: true, data: { controller: "autofocus" }, class: "db-form__input", rows: 3 %>
-            <%= f.label :key, "API Key", class: "db-form__label" %>
+          <div class="form__row form__row--input">
+            <%= f.text_field :key, autofocus: true, data: { controller: "autofocus" }, class: "form__input", rows: 3 %>
+            <%= f.label :key, "API Key", class: "form__label" %>
           </div>
-          <div class="db-form__row db-form__row--input">
-            <%= f.text_field :secret, class: "db-form__input", rows: 3 %>
-            <%= f.label :secret, "API Secret", class: "db-form__label" %>
+          <div class="form__row form__row--input">
+            <%= f.text_field :secret, class: "form__input", rows: 3 %>
+            <%= f.label :secret, "API Secret", class: "form__label" %>
           </div>
           <%= f.submit t('button.connect'), class: "button button--success button--large", data: { turbo_stream: true, turbo_submits_with: t('bot.setup.validating') } %>
         <% end %>

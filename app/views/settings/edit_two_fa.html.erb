@@ -7,7 +7,7 @@
        <h1 class="modal__title">2FA</h1>
     </div>
 
-    <div class="db-form__row">
+    <div class="form__row">
       <%= t('helpers.label.settings.current_status') %>
       <b class="<%= current_user.otp_module_enabled? ? 'text-success' : 'text-secondary' %>">
         <%= @two_fa_status_text %>
@@ -15,12 +15,12 @@
     </div>
 
     <%= form_with model: current_user, url: settings_update_two_fa_path, method: :patch, class: "setting-form", data: { controller: "form--html5-validations form--label-animations", action: "turbo:submit-end->modal--base#submitEnd" } do |f| %>
-      <div class="db-form__row">
+      <div class="form__row">
         <%= render partial: 'qr_code', locals: { qr_code: @qr_code } if @qr_code.present? %>
       </div>
-      <div class="db-form__row db-form__row--input">
-        <%= f.text_field :otp_code_token, class: "db-form__input", required: true, pattern: "\\d{6}" %>
-        <%= f.label :otp_label, t('helpers.label.settings.enter_two_fa_code'), class: "db-form__label" %>
+      <div class="form__row form__row--input">
+        <%= f.text_field :otp_code_token, class: "form__input", required: true, pattern: "\\d{6}" %>
+        <%= f.label :otp_label, t('helpers.label.settings.enter_two_fa_code'), class: "form__label" %>
       </div>
 
       <%= f.submit @two_fa_button_text, class: "button button--success" %>
