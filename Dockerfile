@@ -28,7 +28,7 @@ COPY app/assets ./app/assets
 RUN yarn build
 
 # Stage 2: Build Ruby dependencies and compile assets
-FROM ruby:3.2.3-slim AS builder
+FROM ruby:3.4.8-slim AS builder
 
 WORKDIR /app
 
@@ -94,7 +94,7 @@ RUN YARN_CACHE_FOLDER=/tmp/yarn-cache \
     bundle exec rails assets:precompile
 
 # Stage 3: Production runtime image
-FROM ruby:3.2.3-slim AS runtime
+FROM ruby:3.4.8-slim AS runtime
 
 LABEL maintainer="Deltabadger"
 LABEL org.opencontainers.image.title="Deltabadger"
