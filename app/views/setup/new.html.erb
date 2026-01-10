@@ -1,4 +1,4 @@
-<%= form_with model: @user, url: setup_path, method: :post, data: {
+<%= form_with model: @user, url: setup_path(locale: I18n.locale), method: :post, data: {
   turbo: false,
   controller: "form--html5-validations form--label-animations form--password-strength",
   form__password_strength_success_class_value: "db-form__validation--success",
@@ -17,6 +17,8 @@
       </ul>
     </div>
   <% end %>
+
+  <%= hidden_field_tag :locale, I18n.locale %>
 
   <%= render 'svg/40x30_logo' %>
 

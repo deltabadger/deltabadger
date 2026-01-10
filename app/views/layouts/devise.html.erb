@@ -1,18 +1,5 @@
-<%
-  devise_view_class = case controller_name
-    when 'registrations'
-      action_name == 'new' ? 'view--signup' : 'view--edit-profile'
-    when 'sessions'
-      'view--login'
-    when 'passwords'
-      'view--password'
-    when 'confirmations'
-      'view--confirmation'
-    else
-      'view--devise-other'
-    end
-%>
-<html lang="<%= I18n.locale %>" class="<%= devise_view_class %> db--devise db--loggedout" prefix="og: http://ogp.me/ns#">
+<!DOCTYPE html>
+<html lang="<%= I18n.locale %>" prefix="og: http://ogp.me/ns#">
   <head>
     <meta charset="UTF-8">
     <meta content="width=device-width, initial-scale=1.0" name="viewport">
@@ -27,12 +14,6 @@
     <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
 
     <%= render 'application/favicon' %>
-
-    <script>
-      if (window.__IS_TAURI__) {
-        document.documentElement.classList.add('tauri');
-      }
-    </script>
 
     <%= stylesheet_link_tag 'application', media: 'all', "data-turbo-track": "reload" %>
     <%= javascript_include_tag "application", "data-turbo-track": "reload", defer: true %>
@@ -55,6 +36,7 @@
   </head>
 
   <body data-controller="hotwire-animations">
+    <div data-tauri-drag-region class="titlebar-drag-region"></div>
     <div class="devise">
 
       <div class="devise__row">

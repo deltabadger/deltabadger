@@ -14,7 +14,7 @@
       </b>
     </div>
 
-    <%= form_with model: current_user, url: settings_update_two_fa_path, method: :patch, data: { controller: "form--html5-validations form--label-animations", action: "turbo:submit-end->modal--base#submitEnd" } do |f| %>
+    <%= form_with model: current_user, url: settings_update_two_fa_path, method: :patch, class: "setting-form", data: { controller: "form--html5-validations form--label-animations", action: "turbo:submit-end->modal--base#submitEnd" } do |f| %>
       <div class="db-form__row">
         <%= render partial: 'qr_code', locals: { qr_code: @qr_code } if @qr_code.present? %>
       </div>
@@ -23,7 +23,7 @@
         <%= f.label :otp_label, t('helpers.label.settings.enter_two_fa_code'), class: "db-form__label" %>
       </div>
 
-      <%= f.submit @two_fa_button_text, class: "button button--large button--success" %>
+      <%= f.submit @two_fa_button_text, class: "button button--success" %>
     <% end %>
   </div>
 <% end %>

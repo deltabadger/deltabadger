@@ -54,7 +54,13 @@ class Users::SessionsController < Devise::SessionsController
 
   def continue_sign_in(resource_name, resource)
     sign_in(resource_name, resource)
-    respond_with resource, location: after_sign_in_path_for(resource)
+    location = after_sign_in_path_for(resource)
+    # Use user's saved locale preference unless they explicitly chose one during login
+    if params[:locale].blank? && resource.locale.present? && resource.locale != I18n.default_locale.to_s
+      separator = location.include?('?') ? '&' : '?'
+      location = "#{location}#{separator}locale=#{resource.locale}"
+    end
+    respond_with resource, location: location
   end
 
   def set_new_instance_variables
