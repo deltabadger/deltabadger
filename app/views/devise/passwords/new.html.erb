@@ -9,7 +9,7 @@
   <h1><%= t('.title') %></h1>
 
   <div class="form__row">
-    <%= f.email_field :email, autofocus: true, autocomplete: "email", class: "form__input", pattern: @email_address_pattern, data: { html5_error_message: t('devise.registrations.new.email_invalid') } %>
+    <%= f.email_field :email, autofocus: true, autocomplete: "email", class: "form__input form__input--large", pattern: @email_address_pattern, data: { html5_error_message: t('devise.registrations.new.email_invalid') } %>
     <%= f.label :email, class: "form__label" %>
   </div>
 

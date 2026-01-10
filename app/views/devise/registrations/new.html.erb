@@ -17,17 +17,17 @@
   <h1><%= t('.title') %></h1>
 
   <div class="form__row form__row--input">
-    <%= f.text_field :name, class: "form__input", required: true, pattern: @name_pattern %>
+    <%= f.text_field :name, class: "form__input form__input--large", required: true, pattern: @name_pattern %>
     <%= f.label :name, class: "form__label" %>
   </div>
 
   <div class="form__row form__row--input">
-    <%= f.email_field :email, autocomplete: "username", class: "form__input", required: true, pattern: @email_address_pattern, data: { html5_error_message: t('devise.registrations.new.email_invalid') } %>
+    <%= f.email_field :email, autocomplete: "username", class: "form__input form__input--large", required: true, pattern: @email_address_pattern, data: { html5_error_message: t('devise.registrations.new.email_invalid') } %>
     <%= f.label :email, class: "form__label" %>
   </div>
 
   <%= tag.div class: "form__row db-has-unmask", data: { controller: "form--password-unmask" } do %>
-    <%= f.password_field :password, autocomplete: "new-password", class: "form__input form__input--has-icon", data: {
+    <%= f.password_field :password, autocomplete: "new-password", class: "form__input form__input--has-icon form__input--large", data: {
       form__password_unmask_target: "input",
       form__password_strength_target: "input",
       action: "input->form--password-strength#checkPasswordStrength"

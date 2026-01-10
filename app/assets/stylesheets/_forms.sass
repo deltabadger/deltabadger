@@ -5,18 +5,9 @@ $formUnit: 2rem
 // forms
 
 .form
-  &__fieldset
-    padding: 0
-    margin: 0
-    border: none
-    display: flex
-    flex-direction: column
-    gap: 2rem
-  &__legend
-    padding: 0 0.5rem
-    margin-bottom: 2rem
-    font-weight: 700
-    color: var(--stone)
+  display: flex
+  flex-direction: column
+  gap: 2rem
   &__row
     position: relative
     &--check
@@ -32,7 +23,7 @@ $formUnit: 2rem
     position:       absolute
     padding-left:   .5rem
     padding-right:  .5rem
-    left:           2.2rem
+    left:           1.7rem
     top:            0
     pointer-events: none
     line-height: 0.25rem
@@ -41,13 +32,24 @@ $formUnit: 2rem
     color: var(--ash)
     background: var(--washed)
     padding-bottom: .2rem
-    padding-left: 2.4rem
-    padding-right: 2.4rem
+    padding-left: 2rem
+    padding-right: 2rem
     border: .125rem solid var(--input-border)
     border-radius: var(--ui-radius)
     width: 100%
     position: relative
-    height: var(--ui-height-xl)
+    height: var(--ui-height)
+    &::placeholder
+      color: var(--concrete)
+    &--large
+      height: var(--ui-height-xl)
+      padding-left: 2.4rem
+      padding-right: 2.4rem
+      &~.form__label
+        left: 2.2rem
+      &~.db-unmask
+        top: 2rem
+        right: 2.5rem
     &--select
       appearance: none
     &--has-icon
@@ -114,12 +116,12 @@ $formUnit: 2rem
   width: 3rem
   height: 3rem
   position: absolute
-  top: 2rem
-  right: 2.5rem
+  top: 1.5rem
+  right: 2rem
   cursor: pointer
   .db-svg--mi
     transition: opacity 100ms ease-in-out
-    fill: var(--input-border)
+    fill: var(--concrete)
   &:hover
     .db-svg--mi
       opacity: 1
