@@ -1,7 +1,7 @@
 source 'https://rubygems.org'
 git_source(:github) { |repo| "https://github.com/#{repo}.git" }
 
-ruby '3.2.3'
+ruby '3.4.8'
 
 gem 'securerandom'
 gem 'active_model_otp'
@@ -39,7 +39,7 @@ gem 'sprockets-rails'
 gem 'kraken_ruby_client', git: 'https://github.com/guillemap/kraken_ruby_client', branch: 'add-withdrawal-endpoints'
 gem 'whenever', require: false
 gem 'mission_control-jobs'
-gem 'bundler', '~> 2.5.23'
+gem 'bundler', '~> 4.0.3'
 gem 'lol_dba'
 
 group :development, :test do
