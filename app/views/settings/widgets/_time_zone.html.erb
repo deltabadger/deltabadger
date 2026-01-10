@@ -1,4 +1,4 @@
-<div class="widget">
+<div class="widget widget--settings">
   <h4 class="modal__title"><%= t('settings.timezone.title') %></h4>
   <%= turbo_frame_tag "update_time_zone_form" do %>
     <%= form_with model: current_user, url: settings_update_time_zone_path, method: :patch, class: "flex-column gap-2", data: { controller: "form--submit", turbo_frame: "update_time_zone_form" } do |f| %>

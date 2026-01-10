@@ -8,12 +8,12 @@
   <h1><%= t('.title') %></h1>
 
   <div class="form__row">
-    <%= f.email_field :email, autofocus: true, autocomplete: "email", class: "form__input", pattern: @email_address_pattern, data: { html5_error_message: t('devise.registrations.new.email_invalid') } %>
+    <%= f.email_field :email, autofocus: true, autocomplete: "email", class: "form__input form__input--large", pattern: @email_address_pattern, data: { html5_error_message: t('devise.registrations.new.email_invalid') } %>
     <%= f.label :email, class: "form__label" %>
   </div>
 
   <%= tag.div class: "form__row db-has-unmask", data: { controller: "form--password-unmask" } do %>
-    <%= f.password_field :password, autocomplete: "current-password", class: "form__input form__input--has-icon", data: { form__password_unmask_target: "input" } %>
+    <%= f.password_field :password, autocomplete: "current-password", class: "form__input form__input--has-icon form__input--large", data: { form__password_unmask_target: "input" } %>
     <%= f.label :password, class: "form__label" %>
     <div class="db-unmask" data-action="click->form--password-unmask#toggle">
       <%= render "layouts/svg_mi_visibility" %>

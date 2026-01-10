@@ -1,4 +1,4 @@
-<div class="widget">
+<div class="widget widget--settings">
   <h4 class="modal__title"><%= t('settings.index.email_section') %></h4>
   <%= turbo_frame_tag "update_email_form" do %>
     <%= form_with model: current_user, url: settings_update_email_path, class: "setting-form", data: { controller: "form--html5-validations form--label-animations", turbo_frame: "update_email_form" } do |f| %>
