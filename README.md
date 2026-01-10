@@ -126,7 +126,7 @@ Edit `.env.docker` and replace the dev values.
 
 ### Requirements
 
-- Ruby 3.2.3
+- Ruby 3.4.8
 - Node.js 18.19.1
 
 Use [asdf](https://asdf-vm.com) or your preferred version manager.
