@@ -21,6 +21,7 @@ class SetupController < ApplicationController
     @user.admin = true
     @user.confirmed_at = Time.current
     @user.setup_completed = false
+    @user.locale = I18n.locale.to_s
 
     if @user.save
       sign_in(@user)

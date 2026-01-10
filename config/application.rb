@@ -35,6 +35,10 @@ module Deltabadger
     config.time_zone = 'UTC'
     config.active_record.default_timezone = :utc
 
+    #cookie
+
+    config.session_store :cookie_store, key: '_deltabadger_session', expire_after: 30.days
+
     # Don't generate system test files.
     config.generators.system_tests = nil
 
