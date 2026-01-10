@@ -8,8 +8,8 @@
 <%= form_with model: resource, url: password_path(resource_name), method: :patch, data: {
   turbo: false,
   controller: "form--html5-validations form--label-animations form--password-strength form--password-match",
-  form__password_match_success_class_value: "db-form__validation--success",
-  form__password_strength_success_class_value: "db-form__validation--success",
+  form__password_match_success_class_value: "form__validation--success",
+  form__password_strength_success_class_value: "form__validation--success",
   form__password_strength_length_pattern_value: @password_length_pattern,
   form__password_strength_uppercase_pattern_value: @password_uppercase_pattern,
   form__password_strength_lowercase_pattern_value: @password_lowercase_pattern,
@@ -20,56 +20,56 @@
 
   <%# workaround because sometimes f.hidden_field doesn't works with password managers %>
   <div class="hidden">
-    <%= f.email_field :email, autocomplete: "username", class: 'db-form__input', value: @user_email, readonly: true %>
-    <%= f.label :email, class: "db-form__label" %>
+    <%= f.email_field :email, autocomplete: "username", class: 'form__input', value: @user_email, readonly: true %>
+    <%= f.label :email, class: "form__label" %>
   </div>
 
-  <%= tag.div class: "db-form__row db-has-unmask", data: { controller: "form--password-unmask" } do %>
-    <%= f.password_field :password, autofocus: true, autocomplete: "new-password", class: "db-form__input db-form__input--has-icon", data: {
+  <%= tag.div class: "form__row db-has-unmask", data: { controller: "form--password-unmask" } do %>
+    <%= f.password_field :password, autofocus: true, autocomplete: "new-password", class: "form__input form__input--has-icon", data: {
       form__password_unmask_target: "input",
       form__password_strength_target: "input",
       form__password_match_target: "input0",
       action: "input->form--password-strength#checkPasswordStrength"
     }, required: true, pattern: @password_pattern %>
-    <%= f.label :password, t('helpers.label.user.new_password'), class: "db-form__label" %>
+    <%= f.label :password, t('helpers.label.user.new_password'), class: "form__label" %>
     <div class="db-unmask" data-action="click->form--password-unmask#toggle">
       <%= render "layouts/svg_mi_visibility" %>
       <%= render "layouts/svg_mi_visibility-off" %>
     </div>
   <% end %>
 
-  <%= tag.div class: "db-form__row db-has-unmask", data: { controller: "form--password-unmask" } do %>
-    <%= f.password_field :password_confirmation, autocomplete: "new-password", class: "db-form__input db-form__input--has-icon", data: {
+  <%= tag.div class: "form__row db-has-unmask", data: { controller: "form--password-unmask" } do %>
+    <%= f.password_field :password_confirmation, autocomplete: "new-password", class: "form__input form__input--has-icon", data: {
       form__password_unmask_target: "input",
       form__password_match_target: "input1",
       action: "input->form--password-match#checkPasswordMatch"
     }, required: true %>
-    <%= f.label :password_confirmation, t('helpers.label.user.new_password_confirmation'), class: "db-form__label" %>
+    <%= f.label :password_confirmation, t('helpers.label.user.new_password_confirmation'), class: "form__label" %>
     <div class="db-unmask" data-action="click->form--password-unmask#toggle">
       <%= render "layouts/svg_mi_visibility" %>
       <%= render "layouts/svg_mi_visibility-off" %>
     </div>
   <% end %>
 
-  <div class="db-form__row">
+  <div class="form__row">
     <ul data-form--password-strength-target="requirementsList" class="hidden password-requirements">
-      <li class="db-form__validation" data-form--password-strength-target="length"><%= t('devise.passwords.validations.length', count: @password_minimum_length) %></li>
-      <li class="db-form__validation" data-form--password-strength-target="uppercase"><%= t('devise.passwords.validations.uppercase') %></li>
-      <li class="db-form__validation" data-form--password-strength-target="lowercase"><%= t('devise.passwords.validations.lowercase') %></li>
-      <li class="db-form__validation" data-form--password-strength-target="digit"><%= t('devise.passwords.validations.digit') %></li>
-      <li class="db-form__validation" data-form--password-strength-target="symbol"><%= t('devise.passwords.validations.symbol') %></li>
-      <li class="db-form__validation" data-form--password-match-target="match" class="hidden"><%= t('devise.passwords.validations.match') %></li>
+      <li class="form__validation" data-form--password-strength-target="length"><%= t('devise.passwords.validations.length', count: @password_minimum_length) %></li>
+      <li class="form__validation" data-form--password-strength-target="uppercase"><%= t('devise.passwords.validations.uppercase') %></li>
+      <li class="form__validation" data-form--password-strength-target="lowercase"><%= t('devise.passwords.validations.lowercase') %></li>
+      <li class="form__validation" data-form--password-strength-target="digit"><%= t('devise.passwords.validations.digit') %></li>
+      <li class="form__validation" data-form--password-strength-target="symbol"><%= t('devise.passwords.validations.symbol') %></li>
+      <li class="form__validation" data-form--password-match-target="match" class="hidden"><%= t('devise.passwords.validations.match') %></li>
     </ul>
   </div>
 
   <% if @two_fa_enabled %>
-    <div class="db-form__row">
-      <%= f.text_field :otp_code_token, autocomplete: 'off', class: "db-form__input", required: true %>
-      <%= f.label :otp_code_token, "2FA code", class: "db-form__label" %>
+    <div class="form__row">
+      <%= f.text_field :otp_code_token, autocomplete: 'off', class: "form__input", required: true %>
+      <%= f.label :otp_code_token, "2FA code", class: "form__label" %>
     </div>
   <% end %>
 
-  <div class="db-form__row db-form__row--final-button">
+  <div class="form__row form__row--final-button">
     <%= f.submit t('.submit'), class: "button button--primary button--large w-100" %>
   </div>
 

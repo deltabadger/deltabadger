@@ -4,7 +4,7 @@ $formUnit: 2rem
 
 // forms
 
-.db-form
+.form
   &__fieldset
     padding: 0
     margin: 0
@@ -57,7 +57,7 @@ $formUnit: 2rem
       border-color: var(--link)
       border-width: .2rem
       outline: none
-      &~.db-form__label
+      &~.form__label
         color: var(--link)
         font-weight: bold
     &--select,&:focus,&:not([value=""]),&:placeholder-shown,&[type="date"]
@@ -66,13 +66,13 @@ $formUnit: 2rem
       &:not(:focus)
         border-color: var(--berry)
         border-width: .2rem
-        &~.db-form__label
+        &~.form__label
           color: var(--berry)
           font-weight: bold
-      &~.db-form__info--invalid
+      &~.form__info--invalid
         display: block
       &:focus
-        &~.db-form__info--invalid
+        &~.form__info--invalid
           color: var(--link)
   &__info
     padding-left: .4rem

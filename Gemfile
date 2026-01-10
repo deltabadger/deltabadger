@@ -3,6 +3,7 @@ git_source(:github) { |repo| "https://github.com/#{repo}.git" }
 
 ruby '3.4.8'
 
+gem 'csv'
 gem 'securerandom'
 gem 'active_model_otp'
 gem "administrate"

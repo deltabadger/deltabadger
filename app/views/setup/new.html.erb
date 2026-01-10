@@ -1,7 +1,7 @@
 <%= form_with model: @user, url: setup_path(locale: I18n.locale), method: :post, data: {
   turbo: false,
   controller: "form--html5-validations form--label-animations form--password-strength",
-  form__password_strength_success_class_value: "db-form__validation--success",
+  form__password_strength_success_class_value: "form__validation--success",
   form__password_strength_length_pattern_value: @password_length_pattern,
   form__password_strength_uppercase_pattern_value: @password_uppercase_pattern,
   form__password_strength_lowercase_pattern_value: @password_lowercase_pattern,
@@ -9,7 +9,7 @@
   form__password_strength_symbol_pattern_value: @password_symbol_pattern
 } do |f| %>
   <% if @user.errors.any? %>
-    <div class="db-form__errors">
+    <div class="form__errors">
       <ul>
         <% @user.errors.full_messages.each do |message| %>
           <li><%= message %></li>
@@ -26,24 +26,24 @@
 
   <h1><%= t('setup.admin_account') %></h1>
 
-  <div class="db-form__row db-form__row--input">
-    <%= f.text_field :name, class: "db-form__input", required: true, pattern: @name_pattern, id: "user_name", data: { html5_error_message: t('setup.validations.name_required') } %>
-    <%= f.label :name, t('activerecord.attributes.user.name'), class: "db-form__label", for: "user_name" %>
+  <div class="form__row form__row--input">
+    <%= f.text_field :name, class: "form__input", required: true, pattern: @name_pattern, id: "user_name", data: { html5_error_message: t('setup.validations.name_required') } %>
+    <%= f.label :name, t('activerecord.attributes.user.name'), class: "form__label", for: "user_name" %>
   </div>
 
-  <div class="db-form__row db-form__row--input">
-    <%= f.email_field :email, autocomplete: "username", class: "db-form__input", required: true, pattern: @email_address_pattern, id: "user_email", data: { html5_error_message: t('setup.validations.email_required') } %>
-    <%= f.label :email, t('activerecord.attributes.user.email'), class: "db-form__label", for: "user_email" %>
+  <div class="form__row form__row--input">
+    <%= f.email_field :email, autocomplete: "username", class: "form__input", required: true, pattern: @email_address_pattern, id: "user_email", data: { html5_error_message: t('setup.validations.email_required') } %>
+    <%= f.label :email, t('activerecord.attributes.user.email'), class: "form__label", for: "user_email" %>
   </div>
 
-  <%= tag.div class: "db-form__row db-has-unmask", data: { controller: "form--password-unmask" } do %>
-    <%= f.password_field :password, autocomplete: "new-password", class: "db-form__input db-form__input--has-icon", data: {
+  <%= tag.div class: "form__row db-has-unmask", data: { controller: "form--password-unmask" } do %>
+    <%= f.password_field :password, autocomplete: "new-password", class: "form__input form__input--has-icon", data: {
       form__password_unmask_target: "input",
       form__password_strength_target: "input",
       action: "input->form--password-strength#checkPasswordStrength",
       html5_error_message: t('setup.validations.password_required')
     }, required: true, pattern: @password_pattern, id: "user_password" %>
-    <%= f.label :password, t('activerecord.attributes.user.password'), class: "db-form__label", for: "user_password" %>
+    <%= f.label :password, t('activerecord.attributes.user.password'), class: "form__label", for: "user_password" %>
 
     <div class="db-unmask" data-action="click->form--password-unmask#toggle">
       <%= render "layouts/svg_mi_visibility" %>
@@ -53,11 +53,11 @@
 
   <div data-form--password-strength-target="requirementsList" class="hidden">
     <ul class="password-requirements">
-      <li class="db-form__validation" data-form--password-strength-target="length"><%= t('devise.passwords.validations.length', count: @password_minimum_length) %></li>
-      <li class="db-form__validation" data-form--password-strength-target="uppercase"><%= t('devise.passwords.validations.uppercase') %></li>
-      <li class="db-form__validation" data-form--password-strength-target="lowercase"><%= t('devise.passwords.validations.lowercase') %></li>
-      <li class="db-form__validation" data-form--password-strength-target="digit"><%= t('devise.passwords.validations.digit') %></li>
-      <li class="db-form__validation" data-form--password-strength-target="symbol"><%= t('devise.passwords.validations.symbol') %></li>
+      <li class="form__validation" data-form--password-strength-target="length"><%= t('devise.passwords.validations.length', count: @password_minimum_length) %></li>
+      <li class="form__validation" data-form--password-strength-target="uppercase"><%= t('devise.passwords.validations.uppercase') %></li>
+      <li class="form__validation" data-form--password-strength-target="lowercase"><%= t('devise.passwords.validations.lowercase') %></li>
+      <li class="form__validation" data-form--password-strength-target="digit"><%= t('devise.passwords.validations.digit') %></li>
+      <li class="form__validation" data-form--password-strength-target="symbol"><%= t('devise.passwords.validations.symbol') %></li>
     </ul>
   </div>
 
