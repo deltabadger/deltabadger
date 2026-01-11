@@ -25,7 +25,7 @@
         @media screen and (min-width: 576px)
             padding: 2rem 0
 .dialogview
-    background: var(--modal-background)
+    background: var(--paper)
     border: none
     width: 100vw
     height: 100vh
@@ -210,7 +210,7 @@
             .loader
                 display: block
         &__item
-            border-bottom: 0.125rem solid var(--slider-track) !important
+            border-radius: var(--ui-radius)
             &:last-child
                 border-bottom: none !important
             &:hover
@@ -230,7 +230,8 @@
                     grid-template-columns: 13rem 1fr 13rem
     &__cell
         text-align: left
-        padding: 2rem 0 2rem 2.5rem
+        padding: 1rem 0 1rem 2.5rem
+        line-height: 3.5rem
         font-weight: 500
         overflow: hidden
         text-overflow: ellipsis
@@ -283,7 +284,7 @@
         padding: 10rem
         gap: 8rem
 .selectable-options:hover
-    .modal--search__assets__item__highlight
+    .modal--search__assets__item__highlight 
         background: none !important
         &:hover
             background: var(--modal-search-highlight-background) !important

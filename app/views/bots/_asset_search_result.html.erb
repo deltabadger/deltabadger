@@ -1,6 +1,10 @@
 <div class="modal--search__assets__item" data-arrow-keys-navigation-target="item">
   <%= button_tag name: "#{bot.model_name.param_key}[#{asset_field}]", value: id, type: :submit, data: { arrow_keys_navigation_target: "button", turbo_frame: "modal_content" } do %>
-    <div class="modal--search__cell modal--search__cell--ticker"><%= symbol %></div>
+    <div class="modal--search__cell modal--search__cell--ticker">
+      <div class="ticker" style="background: <%= ensure_contrast(color || "#8A9BA8") %>">
+        <%= symbol %>
+      </div>
+    </div>
     <div class="modal--search__cell modal--search__cell--name">
       <%= name %>
     </div>
