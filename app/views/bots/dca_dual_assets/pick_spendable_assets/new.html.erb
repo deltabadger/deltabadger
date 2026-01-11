@@ -26,8 +26,8 @@
 
     <%= turbo_frame_tag "asset-picker", data: { action: "keydown@window->arrow-keys-navigation#navigate", controller: "arrow-keys-navigation" }, class: "modal--search__assets selectable-options" do %>
       <%= form_with model: @bot, url: bots_dca_dual_assets_pick_spendable_asset_path, method: :post do |f| %>
-        <% @assets.each do |id, symbol, name, exchanges| %>
-          <%= render partial: "bots/asset_search_result", locals: { bot: @bot, asset_field: :quote_asset_id, id: id, symbol: symbol, name: name, exchanges: exchanges } %>
+        <% @assets.each do |id, symbol, name, color, exchanges| %>
+          <%= render partial: "bots/asset_search_result", locals: { bot: @bot, asset_field: :quote_asset_id, id: id, symbol: symbol, name: name, color: color, exchanges: exchanges } %>
         <% end %>
       <% end %>
     <% end %>

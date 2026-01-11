@@ -89,6 +89,13 @@ en:
                 date: Date
                 download_csv: 'Download .csv'
                 generating_csv: 'Generating file...'
+                import_csv: 'Import .csv'
+                import_success: 'Successfully imported %{count} order(s).'
+                import_no_new_orders: 'No new orders to import (all orders already exist or currencies do not match).'
+                import_no_file: 'Please select a CSV file to import.'
+                import_invalid_format: 'Invalid CSV format. Please use a file exported from this application.'
+                import_malformed_csv: 'The CSV file is malformed and cannot be parsed.'
+                import_error: 'Import failed: %{message}'
                 exchange_unavailable_html: 'The exchange API does not respond at the moment.<br>Calculations are based on the last data available.'
                 order: Order
                 profit_loss: Profit/Loss
