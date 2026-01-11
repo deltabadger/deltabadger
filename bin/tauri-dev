@@ -5,6 +5,20 @@
 
 set -e
 
+# Get the directory where this script lives, then go to project root
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+PROJECT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+
+# Clean up stale PID file if the process is not running
+PIDFILE="$PROJECT_ROOT/tmp/pids/server.pid"
+if [ -f "$PIDFILE" ]; then
+  PID=$(cat "$PIDFILE")
+  if ! kill -0 "$PID" 2>/dev/null; then
+    echo "==> Removing stale PID file..."
+    rm -f "$PIDFILE"
+  fi
+fi
+
 echo "==> Preparing assets..."
 npm run build
 bundle exec rails dartsass:build

@@ -71,7 +71,6 @@ it:
                 remember_me: 'Ricordami'
     home:
         confirm_registration:
-            deliverability_html: '<b>Questo è molto importante!</b><br><br> Se non hai ricevuto l''email di conferma, controlla la tua <b>cartella spam</b>. Se ancora non riesci a trovarla, per favore, mandami un''email a %{email}. <br><br>Grazie, Jan'
             text_html: 'Controlla la tua casella di posta e clicca sul <b>link di conferma</b> che ti abbiamo inviato. Poi vai alla pagina di login.'
             title: Grazie!
     links:

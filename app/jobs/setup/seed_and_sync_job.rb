@@ -93,7 +93,7 @@ class Setup::SeedAndSyncJob < ApplicationJob
     <<~HTML
       <div class="setup-syncing__error">
         <p class="setup-syncing__error-message">#{error_message}</p>
-        <a href="#{Rails.application.routes.url_helpers.setup_path}" class="button button--primary">
+        <a href="#{Rails.application.routes.url_helpers.setup_path}" class="button button--sky">
           #{I18n.t('setup.retry')}
         </a>
       </div>

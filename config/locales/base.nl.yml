@@ -71,7 +71,6 @@ nl:
                 remember_me: 'Onthoud mij'
     home:
         confirm_registration:
-            deliverability_html: '<b>Dit is heel belangrijk!</b><br><br> Als je de bevestigingsmail niet hebt ontvangen, controleer dan je <b>junk folder</b>. Als je de mail nog steeds niet kunt vinden, stuur dan een email naar %{email}. <br><br>Bedankt, Jan'
             text_html: 'Controleer uw mailbox en klik op de <b>bevestigingslink</b> die wij u hebben gestuurd. Ga vervolgens naar de inlogpagina.'
             title: Bedankt!
     links:
