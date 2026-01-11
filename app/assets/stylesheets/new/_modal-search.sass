@@ -175,6 +175,8 @@
     background: var(--modal-background)
     border-radius: 2rem
     overflow: hidden
+    .sinput
+        background: var(--washed)
     @media screen and (min-width: 576px)
         max-width: calc(100vw - 4rem)
         max-height: calc(100vh - 4rem)
@@ -210,7 +212,8 @@
             .loader
                 display: block
         &__item
-            border-radius: var(--ui-radius)
+            @media screen and (min-width: 768px)
+                border-radius: var(--ui-radius)
             &:last-child
                 border-bottom: none !important
             &:hover
@@ -230,7 +233,7 @@
                     grid-template-columns: 13rem 1fr 13rem
     &__cell
         text-align: left
-        padding: 1rem 0 1rem 2.5rem
+        padding: 1rem 0 1rem 2rem
         line-height: 3.5rem
         font-weight: 500
         overflow: hidden
