@@ -9,3 +9,12 @@
     <%= t('bot.details.stats.generating_csv') %>
   </div>
 </div>
+
+<div id="<%= dom_id(bot, :import) %>" style="margin-top: 0.5rem;">
+  <%= form_with url: bot_import_path(bot), method: :post, multipart: true, data: { turbo: false } do |f| %>
+    <div style="display: flex; gap: 0.5rem; align-items: center;">
+      <%= f.file_field :file, accept: '.csv', class: 'sinput', style: 'flex: 1;' %>
+      <%= f.submit t('bot.details.stats.import_csv'), class: 'sinput' %>
+    </div>
+  <% end %>
+</div>

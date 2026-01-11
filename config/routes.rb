@@ -96,6 +96,7 @@ Rails.application.routes.draw do
       resource :add_api_key, only: [:new, :create], controller: 'bots/add_api_keys'
       resource :asset_search, only: [:edit], controller: 'bots/asset_searches'
       resource :export, only: [:create], controller: 'bots/exports'
+      resource :import, only: [:create], controller: 'bots/imports'
       resources :transactions, only: [:destroy], controller: 'bots/cancel_orders'
       post :show
       get :show_index_bot, on: :collection # TODO: move to custom :show logic according to bot type

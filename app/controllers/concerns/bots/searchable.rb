@@ -6,15 +6,15 @@ module Bots::Searchable
   def asset_search_results(bot, query, asset_type)
     available_assets = bot.available_assets_for_current_settings(asset_type: asset_type)
     filtered_assets = filter_assets_by_query(assets: available_assets, query: query)
-                      .pluck(:id, :symbol, :name)
+                      .pluck(:id, :symbol, :name, :color)
                       .reject { |_, symbol, _| symbol.blank? }
     exchanges_data = Exchange.available_for_new_bots.each_with_object([]) do |exchange, list|
       assets = exchange.exchange_assets.available.pluck(:asset_id)
       list << [exchange.name_id, exchange.name, assets] if assets.any?
     end
-    filtered_assets.map do |id, symbol, name|
+    filtered_assets.map do |id, symbol, name, color|
       exchanges = exchanges_data.select { |_, _, assets| assets.include?(id) }
-      [id, symbol, name, parse_exchanges(exchanges)]
+      [id, symbol, name, color, parse_exchanges(exchanges)]
     end
   end
 
