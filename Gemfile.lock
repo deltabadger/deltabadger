@@ -139,7 +139,7 @@ GEM
     chunky_png (1.4.0)
     coderay (1.1.3)
     concurrent-ruby (1.2.3)
-    connection_pool (2.5.0)
+    connection_pool (2.5.5)
     crass (1.0.6)
     cronex (0.15.0)
       tzinfo
@@ -461,7 +461,7 @@ GEM
       fugit (~> 1.8, >= 1.11.1)
       globalid (>= 1.0.1)
       sidekiq (>= 6.5.0)
-    sidekiq-prometheus-exporter (0.2.0)
+    sidekiq-prometheus-exporter (0.3.0)
       rack (>= 1.6.0)
       sidekiq (>= 4.1.0)
     spring (4.1.1)
@@ -583,7 +583,7 @@ DEPENDENCIES
   sidekiq (~> 6.5.12)
   sidekiq-cron
   sidekiq-limit_fetch!
-  sidekiq-prometheus-exporter (~> 0.1)
+  sidekiq-prometheus-exporter (~> 0.3)
   spring
   spring-commands-rspec
   spring-watcher-listen (~> 2.1.0)

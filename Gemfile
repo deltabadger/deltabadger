@@ -32,7 +32,7 @@ gem 'scenic'
 gem 'kraken_ruby_client', git: 'https://github.com/guillemap/kraken_ruby_client', branch: 'add-withdrawal-endpoints'
 gem 'i18n-js', '~> 3.8.0'
 gem 'whenever', require: false
-gem 'sidekiq-prometheus-exporter', '~> 0.1'
+gem 'sidekiq-prometheus-exporter', '~> 0.3'
 gem 'bundler', '~> 2.5.23'
 gem 'lol_dba'
 
