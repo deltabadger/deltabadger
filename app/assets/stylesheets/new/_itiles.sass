@@ -77,14 +77,14 @@
     transition: all 0.2s ease
     box-shadow: var(--shadow-basic)
     &:hover,&.active
-        background: var(--pick-bot-item-bg)
         box-shadow: 0.5rem 0.5rem 1.5rem #0242s
-        color: var(--pick-bot-item-text-hover)
+        color: var(--ink)
         cursor: pointer
         .theme-img
             opacity: 1
-    &--faded
+    &--soon
         filter: opacity(0.5) saturate(0.9)
+        cursor: default !important
     &--bot-type
         padding: 2rem
         height: 16rem !important
@@ -135,6 +135,7 @@
     font-size: 2.25rem
     line-height: 3rem
     font-weight: 650 !important
+    color: var(--ink)
 .index-info
     font-size: 1.75rem
     line-height: 2.65rem
