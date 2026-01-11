@@ -68,7 +68,7 @@ end
 
 gem 'tzinfo-data', platforms: [:mingw, :mswin, :x64_mingw, :jruby]
 
-gem "faraday-net_http_persistent", "~> 2.3.0"
+gem "faraday-net_http_persistent", "~> 2.3.1"
 
 gem "turbo-rails", "~> 2.0.11"
 gem "stimulus-rails", "~> 1.3.4"
