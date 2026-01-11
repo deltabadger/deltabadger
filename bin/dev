@@ -8,4 +8,14 @@ fi
 # Default to port 3000 if not specified
 export PORT="${PORT:-3000}"
 
+# Clean up stale PID file if the process is not running
+PIDFILE="tmp/pids/server.pid"
+if [ -f "$PIDFILE" ]; then
+  PID=$(cat "$PIDFILE")
+  if ! kill -0 "$PID" 2>/dev/null; then
+    echo "Removing stale PID file..."
+    rm -f "$PIDFILE"
+  fi
+fi
+
 exec foreman start -f Procfile.dev --env /dev/null "$@"

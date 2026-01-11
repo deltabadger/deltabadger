@@ -1,12 +1,6 @@
-%noscript
-  %iframe{height: "0", src: "https://www.googletagmanager.com/ns.html?id=GTM-W8FD8XHV", style: "display:none;visibility:hidden", width: "0"}
-/ End Google Tag Manager (noscript)
+= render 'svg/40x30_logo'
 
-%h2.db-modal-title= t('.title')
-.text-center.mb-5= t('.text_html')
-.alert.alert-primary
-  = t('.deliverability_html', email: %q{<a href="mailto:jan@deltabadger.com">jan@deltabadger.com</a>}.html_safe)
-  %p.mb-0
-    = image_tag "signature.png", alt: "Klosowski", style: "width: 120px; mix-blend-mode: exclusion; filter: invert(1);"
+%h1= t('.title')
+.text-center= t('.text_html')
 
-= link_to(t('links.log_in'), new_user_session_path, class: 'button button--primary button--large w-100 mt-5')
+= link_to(t('links.log_in'), new_user_session_path, class: 'button button--sky button--large')
