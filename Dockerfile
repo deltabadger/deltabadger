@@ -47,13 +47,14 @@ RUN apt-get update -qq && \
     git \
     curl \
     libvips-dev \
-    libsodium-dev && \
+    libsodium-dev \
+    libyaml-dev && \
     rm -rf /var/lib/apt/lists/*
 
-# Install Node 18.x for dartsass-rails
+# Install Node 18.x for dartsass-rails and esbuild for jsbundling
 RUN curl -fsSL https://deb.nodesource.com/setup_18.x | bash - && \
     apt-get install -y nodejs && \
-    npm install -g yarn
+    npm install -g yarn esbuild
 
 # Copy Gemfile first for caching
 COPY Gemfile Gemfile.lock ./
@@ -74,6 +75,9 @@ COPY . .
 
 # Create writable directories for asset compilation
 RUN mkdir -p /app/tmp/cache/assets /app/tmp/pids /app/log
+
+# Add node_modules/.bin to PATH for esbuild
+ENV PATH="/app/node_modules/.bin:$PATH"
 
 # Precompile assets - all ENV.fetch calls need placeholder values during build
 RUN YARN_CACHE_FOLDER=/tmp/yarn-cache \
@@ -119,6 +123,7 @@ RUN apt-get update -qq && \
     curl \
     libvips42 \
     libsodium23 \
+    libyaml-0-2 \
     tzdata \
     imagemagick && \
     rm -rf /var/lib/apt/lists/* /var/cache/apt/archives/*
