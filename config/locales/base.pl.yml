@@ -115,6 +115,7 @@ pl:
         telegram: 'Dołącz do naszej grupy na Telegramie'
         twitter: 'Śledź nas na 𝕏'
     utils:
+        pnl: 'Z/S'
         assets: Aktywa
         cash: Gotówka
         bonds: Obligacje

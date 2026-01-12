@@ -1,20 +1,22 @@
-<div id="<%= dom_id(bot, :export) %>" data-controller="class-toggle" data-class-toggle-toggle-classes-value='["hidden"]'>
-  <%= button_to t('bot.details.stats.download_csv'),
-              bot_export_path(bot),
-              class: 'sinput',
-              method: :post,
-              data: { turbo: false, class_toggle_target: "togglable", action: "click->class-toggle#toggle" } %>
-  <div class="hidden" data-class-toggle-target="togglable" style="padding: 0.5rem;">
-    <div class="loader--small" style="position: unset; float: left; margin: 0.25rem 1rem;"></div>
-    <%= t('bot.details.stats.generating_csv') %>
-  </div>
-</div>
-
-<div id="<%= dom_id(bot, :import) %>" style="margin-top: 0.5rem;">
-  <%= form_with url: bot_import_path(bot), method: :post, multipart: true, data: { turbo: false } do |f| %>
-    <div style="display: flex; gap: 0.5rem; align-items: center;">
-      <%= f.file_field :file, accept: '.csv', class: 'sinput', style: 'flex: 1;' %>
-      <%= f.submit t('bot.details.stats.import_csv'), class: 'sinput' %>
+<div style="display: flex; gap: 1rem">
+  <div id="<%= dom_id(bot, :export) %>" data-controller="class-toggle" data-class-toggle-toggle-classes-value='["hidden"]'>
+    <%= button_to t('bot.details.stats.download_csv'),
+                bot_export_path(bot),
+                class: 'sinput',
+                method: :post,
+                data: { turbo: false, class_toggle_target: "togglable", action: "click->class-toggle#toggle" } %>
+    <div class="hidden" data-class-toggle-target="togglable" style="padding: 0.5rem;">
+      <div class="loader--small" style="position: unset; float: left; margin: 0.25rem 1rem;"></div>
+      <%= t('bot.details.stats.generating_csv') %>
     </div>
-  <% end %>
+  </div>
+
+  <div id="<%= dom_id(bot, :import) %>">
+    <%= form_with url: bot_import_path(bot), method: :post, multipart: true, data: { turbo: false }, id: dom_id(bot, :import_form) do |f| %>
+      <label class="sinput" style="cursor: pointer; display: inline-block;">
+        <%= t('bot.details.stats.import_csv') %>
+        <%= f.file_field :file, accept: '.csv', style: 'display: none;', onchange: "this.form.submit();" %>
+      </label>
+    <% end %>
+  </div>
 </div>

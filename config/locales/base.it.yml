@@ -115,6 +115,7 @@ it:
         telegram: 'Unisciti al nostro gruppo Telegram'
         twitter: 'Seguici su 𝕏'
     utils:
+        pnl: 'G/L'
         assets: Asset
         cash: Contanti
         bonds: Obbligazioni

@@ -89,8 +89,9 @@ pl:
                 current_value: 'Bieżąca wartość'
                 current_value_sold: 'Aktualna wartość sprzedanych %{base}'
                 date: Data
-                download_csv: 'Pobierz .csv'
+                download_csv: 'Pobierz transakcje'
                 generating_csv: 'Generowanie pliku...'
+                import_csv: 'Wczytaj transakcje'
                 exchange_unavailable_html: 'API giełdy nie odpowiada w tej chwili.<br>Obliczenia są oparte na ostatnich dostępnych danych.'
                 order: Zlecenie
                 profit_loss: Zysk/Strata

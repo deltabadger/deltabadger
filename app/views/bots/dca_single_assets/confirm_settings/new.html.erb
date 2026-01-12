@@ -8,9 +8,9 @@
           <%= render "svg/exchange-#{@bot.exchange.name_id}", title: @bot.exchange.name %>
           <span class="hide-on-mobile"><%= @bot.exchange.name %></span>
         <% end %>
+        <%= render partial: "bots/dca_single_assets/create_bot_button", locals: { bot: @bot } %>
       </div>
       <%= render partial: "bots/dca_single_assets/settings", locals: { bot: @bot } %>
     </div>
-    <%= render partial: "bots/dca_single_assets/create_bot_button", locals: { bot: @bot } %>
   </div>
 <% end %>

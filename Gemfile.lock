@@ -651,6 +651,7 @@ DEPENDENCIES
   haikunator (~> 1.1)
   haml-rails (~> 2.1)
   image_processing (~> 1.2)
+  importmap-rails
   jaro_winkler (~> 1.6)
   jbuilder (~> 2.5)
   jsbundling-rails

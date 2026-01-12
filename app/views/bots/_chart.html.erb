@@ -19,9 +19,9 @@
     </div>
   <% else %>
     <div class="data-grid__item" data-controller="tooltip" data-action="mouseenter->tooltip#showTooltip mouseleave->tooltip#hideTooltip">
-      <div class="label"><%= t('analyzer.pnl') %></div>
-      <%= tag.div class: "data-grid__item__value", style: "color: var(--#{metrics[:pnl].negative? ? 'danger' : 'success'})" do %>
-        <%= sprintf('%+.0f', (metrics[:pnl] * 100)) + '%' %>
+      <div class="label"><%= t('utils.pnl') %></div>
+      <%= tag.div class: "data-grid__item__value", style: "color: var(--#{metrics[:pnl].negative? ? 'berry' : 'grass'})" do %>
+        <%= sprintf('%+.2f', (metrics[:pnl] * 100)) + '%' %>
       <% end %>
     </div>
     <%= tag.div data: {
