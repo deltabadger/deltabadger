@@ -1,5 +1,5 @@
 <div id="create-bot-button">
   <%= form_with model: bot, url: bots_dca_dual_assets_path(bot), method: :post, data: { action: "turbo:submit-end->modal--base#submitEnd" } do |f| %>
-    <%= f.submit t('button.start'), class: 'button button--success', disabled: bot.invalid? %>
+    <%= f.submit t('button.start'), class: 'sbutton button--success', disabled: bot.invalid? %>
   <% end %>
 </div>

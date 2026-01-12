@@ -1,7 +1,7 @@
 <%= form_with model: bot,
               url: path,
               method: method,
-              class: "widget #{bot.marketcap_allocated? ? "bot-settings--active" : "bot-settings--inactive"}",
+              class: "widget bot-settings #{bot.marketcap_allocated? ? "bot-settings--active" : "bot-settings--inactive"}",
               data: {
                 controller: "class-toggle form--submit",
                 class_toggle_target: "togglable",

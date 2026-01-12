@@ -55,6 +55,13 @@
             padding: 4rem 0
     .modal--search__assets
         max-height: none !important
+    .conversational
+        .sinput
+            background: var(--washed)
+    .widget
+        .conversational
+            .sinput
+                background: var(--paper)
 #modal
     .modal
         position: relative
@@ -175,8 +182,6 @@
     background: var(--modal-background)
     border-radius: 2rem
     overflow: hidden
-    .sinput
-        background: var(--washed)
     @media screen and (min-width: 576px)
         max-width: calc(100vw - 4rem)
         max-height: calc(100vh - 4rem)
@@ -204,7 +209,6 @@
     &__assets
         max-height: 56.875rem !important
         display: block
-        overflow-y: scroll
         scrollbar-width: none
         .loader
             display: none
@@ -217,11 +221,15 @@
             &:last-child
                 border-bottom: none !important
             &:hover
-                background: var(--modal-search-highlight-background)
+                background: var(--washed)
+                box-shadow: var(--shadow-basic)
             &__highlight
-                background: var(--modal-search-highlight-background)
+                background: var(--washed) !important
+                box-shadow: var(--shadow-basic)
+                border-radius: var(--ui-radius)
                 &:hover
-                    background: var(--modal-search-highlight-background)
+                    background: var(--washed) !important    
+                    box-shadow: var(--shadow-basic)
             button
                 background: none
                 border: none
@@ -234,11 +242,13 @@
     &__cell
         text-align: left
         padding: 1rem 0 1rem 2rem
-        line-height: 3.5rem
+        line-height: 2.5rem
         font-weight: 500
         overflow: hidden
         text-overflow: ellipsis
         text-wrap: nowrap
+        @media screen and (min-width: 768px)
+            line-height: 3rem
         &--ticker
             font-weight: 650
             color: var(--ink)
@@ -289,9 +299,10 @@
 .selectable-options:hover
     .modal--search__assets__item__highlight 
         background: none !important
+        box-shadow: none !important
         &:hover
-            background: var(--modal-search-highlight-background) !important
-
+            background: var(--washed) !important
+            box-shadow: var(--shadow-basic)
 .flash__message
     .modal__close
         right: 1rem

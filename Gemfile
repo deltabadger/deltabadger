@@ -20,6 +20,7 @@ gem 'haml-rails', '~> 2.1'
 gem 'image_processing', '~> 1.2'
 gem 'jbuilder', '~> 2.5'
 gem 'jsbundling-rails'
+gem 'importmap-rails' # Required by mission_control-jobs
 gem 'kaminari'
 gem 'net-smtp', require: false
 gem 'net-imap', require: false

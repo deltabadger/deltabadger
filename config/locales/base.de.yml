@@ -115,6 +115,7 @@ de:
         telegram: 'Schließe dich unserer Telegram-Gruppe an'
         twitter: 'Folge uns auf 𝕏'
     utils:
+        pnl: 'G/V'
         assets: Vermögenswerte
         cash: Bargeld
         bonds: Anleihen
