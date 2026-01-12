@@ -8,7 +8,17 @@ window.Stimulus = application;
 
 export { application };
 
-// FIXME: temporary solution from https://github.com/hotwired/turbo-rails/pull/367#issuecomment-1934729149
+// Custom Turbo Stream Actions
 Turbo.StreamActions.redirect = function () {
   Turbo.visit(this.target);
+};
+
+Turbo.StreamActions.add_class = function () {
+  const className = this.getAttribute("class-name");
+  this.targetElements.forEach((element) => element.classList.add(className));
+};
+
+Turbo.StreamActions.remove_class = function () {
+  const className = this.getAttribute("class-name");
+  this.targetElements.forEach((element) => element.classList.remove(className));
 };

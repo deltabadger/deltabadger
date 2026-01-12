@@ -19,6 +19,7 @@ class Bot < ApplicationRecord
   before_save :store_previous_exchange_id
   after_update_commit :broadcast_status_bar_update, if: :saved_change_to_status?
   after_update_commit :broadcast_status_button_update, if: :saved_change_to_status?
+  after_update_commit :broadcast_columns_lock_update, if: :saved_change_to_status?
   after_update_commit -> { Bot::UpdateMetricsJob.perform_later(self) if custom_exchange_id_changed? }
 
   def working?
@@ -93,6 +94,16 @@ class Bot < ApplicationRecord
       target: dom_id(self, :status_button),
       partial: 'bots/status/status_button',
       locals: { bot: self }
+    )
+  end
+
+  def broadcast_columns_lock_update
+    action = scheduled? ? :add_class : :remove_class
+    Turbo::StreamsChannel.broadcast_action_to(
+      ["user_#{user_id}", :bot_updates],
+      action:,
+      target: dom_id(self, :columns),
+      attributes: { "class-name": "bot-locked" }
     )
   end
 

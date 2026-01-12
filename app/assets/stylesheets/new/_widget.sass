@@ -148,8 +148,17 @@
 
 .bot-locked
     .widget.bot-settings
-        .conversational
-            .sinput
-                color: var(--stone) !important
-                &:disabled,&[disabled],&--disabled
+        &--active
+            .toggle__style
+                background-color: var(--steel) !important
+            .conversational
+                color: var(--ash) !important
+                .sinput
                     color: var(--stone) !important
+        &--inactive
+            .toggle__style
+                background-color: var(--silver) !important
+            .conversational
+                color: var(--concrete) !important
+                .sinput
+                    color: var(--concrete) !important
