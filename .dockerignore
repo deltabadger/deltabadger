@@ -54,8 +54,11 @@ tmp/*
 # Node modules (copied separately in Dockerfile)
 node_modules/
 
-# Build artifacts
-public/assets
+# Build artifacts (exclude compiled assets but keep fonts)
+public/assets/*
+!public/assets/*.ttf
+!public/assets/*.woff
+!public/assets/*.woff2
 public/packs
 .sass-cache
 

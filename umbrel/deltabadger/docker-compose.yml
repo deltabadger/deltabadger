@@ -1,8 +1,6 @@
 # Umbrel App - Deltabadger Docker Compose
 # This file is used by Umbrel's app system
 
-version: "3.7"
-
 services:
   # Web server (Puma)
   web:

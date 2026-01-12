@@ -40,22 +40,17 @@ class Bot::ActionJob < BotJob
     error.message.in?(errors)
   end
 
-  def sidekiq_estimated_retry_delay
-    @sidekiq_estimated_retry_delay ||= begin
+  def estimated_retry_delay
+    @estimated_retry_delay ||= begin
       next_retry_count = retry_count + 1
       ((next_retry_count**4) + 15 + (rand(10) * (next_retry_count + 1))).seconds
     end
   end
 
   def notify_retry(bot, error)
-    if sidekiq_estimated_retry_delay > bot.effective_interval_duration
-
-      # the email message doesn't really make sense here, so we use notify_about_error instead
-      # bot.notify_about_restart(errors: [error.message], delay: sidekiq_estimated_retry_delay)
-
+    if estimated_retry_delay > bot.effective_interval_duration
       bot.notify_about_error(errors: [error.message])
-
-    elsif sidekiq_estimated_retry_delay > 1.minute # 3 failed attempts
+    elsif estimated_retry_delay > 1.minute # 3 failed attempts
       bot.notify_about_error(errors: [error.message])
     end
   end
