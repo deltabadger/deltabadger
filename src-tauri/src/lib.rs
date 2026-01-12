@@ -2,7 +2,12 @@ use std::process::{Child, Command, Stdio};
 use std::sync::Mutex;
 use std::thread;
 use std::time::Duration;
-use tauri::{Manager, WebviewUrl, WebviewWindowBuilder};
+use tauri::{
+    image::Image,
+    menu::{MenuBuilder, MenuItemBuilder},
+    tray::TrayIconBuilder,
+    ActivationPolicy, Manager, WebviewUrl, WebviewWindowBuilder,
+};
 
 const RAILS_PORT: u16 = 3000;
 const RAILS_HOST: &str = "127.0.0.1";
@@ -147,6 +152,70 @@ pub fn run() {
                         .devtools(true)
                         .initialization_script("window.__TAURI_INTERNALS__ = true; window.__IS_TAURI__ = true;")
                         .build()?;
+
+                        // Set up system tray
+                        let show_item = MenuItemBuilder::with_id("show", "Show Deltabadger").build(app)?;
+                        let quit_item = MenuItemBuilder::with_id("quit", "Quit").build(app)?;
+                        let tray_menu = MenuBuilder::new(app)
+                            .item(&show_item)
+                            .separator()
+                            .item(&quit_item)
+                            .build()?;
+
+                        let tray_icon = Image::from_path("icons/tray-icon.png")
+                            .unwrap_or_else(|_| Image::from_bytes(include_bytes!("../icons/tray-icon.png")).unwrap());
+
+                        let _tray = TrayIconBuilder::new()
+                            .icon(tray_icon)
+                            .icon_as_template(true)
+                            .menu(&tray_menu)
+                            .tooltip("Deltabadger")
+                            .on_menu_event(|app, event| {
+                                match event.id().as_ref() {
+                                    "show" => {
+                                        // Show in Dock when window is shown
+                                        #[cfg(target_os = "macos")]
+                                        let _ = app.set_activation_policy(ActivationPolicy::Regular);
+
+                                        if let Some(window) = app.get_webview_window("main") {
+                                            let _ = window.show();
+                                            let _ = window.set_focus();
+                                        }
+                                    }
+                                    "quit" => {
+                                        // Shutdown Rails server before quitting
+                                        let state: tauri::State<RailsServer> = app.state();
+                                        let mut guard = state.0.lock().unwrap();
+                                        if let Some(ref mut child) = *guard {
+                                            log::info!("Shutting down Rails server...");
+                                            let _ = child.kill();
+                                            let _ = child.wait();
+                                        }
+                                        *guard = None;
+                                        app.exit(0);
+                                    }
+                                    _ => {}
+                                }
+                            })
+                            .on_tray_icon_event(|tray, event| {
+                                if let tauri::tray::TrayIconEvent::Click { button, .. } = event {
+                                    if button == tauri::tray::MouseButton::Left {
+                                        let app = tray.app_handle();
+
+                                        // Show in Dock when window is shown
+                                        #[cfg(target_os = "macos")]
+                                        let _ = app.set_activation_policy(ActivationPolicy::Regular);
+
+                                        if let Some(window) = app.get_webview_window("main") {
+                                            let _ = window.show();
+                                            let _ = window.set_focus();
+                                        }
+                                    }
+                                }
+                            })
+                            .build(app)?;
+
+                        log::info!("System tray initialized");
                     } else {
                         log::error!("Rails server failed to start within timeout");
                         return Err("Rails server failed to start".into());
@@ -161,18 +230,16 @@ pub fn run() {
             Ok(())
         })
         .on_window_event(|window, event| {
-            if let tauri::WindowEvent::CloseRequested { .. } = event {
-                // Shutdown Rails server when window closes
-                let app = window.app_handle();
-                let state: tauri::State<RailsServer> = app.state();
-                let mut guard = state.0.lock().unwrap();
-                if let Some(ref mut child) = *guard {
-                    log::info!("Shutting down Rails server...");
-                    let _ = child.kill();
-                    let _ = child.wait();
-                    log::info!("Rails server shut down");
-                }
-                *guard = None;
+            if let tauri::WindowEvent::CloseRequested { api, .. } = event {
+                // Hide the window instead of closing (app stays in tray)
+                let _ = window.hide();
+                api.prevent_close();
+
+                // Hide from Dock when window is closed
+                #[cfg(target_os = "macos")]
+                let _ = window.app_handle().set_activation_policy(ActivationPolicy::Accessory);
+
+                log::info!("Window hidden, app running in tray");
             }
         })
         .run(tauri::generate_context!())

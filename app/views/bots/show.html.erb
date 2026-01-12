@@ -13,7 +13,7 @@
       <%= render partial: "bots/status/status_bar", locals: { bot: @bot } %>
       <%= render partial: "bots/status/status_button", locals: { bot: @bot } %>
     </div>
-    <div class="columns">
+    <div class="columns<%= ' bot-locked' if @bot.scheduled? %>">
       <div class="column gap-1">
         <% if @bot.dca_single_asset? %>
           <%= render partial: "bots/dca_single_assets/settings", locals: { bot: @bot } %>
