@@ -114,6 +114,7 @@ pt:
         telegram: 'Adira ao nosso grupo no Telegram'
         twitter: 'Siga-nos no 𝕏'
     utils:
+        pnl: 'L/P'
         assets: Ativos
         cash: Dinheiro
         bonds: Obrigações

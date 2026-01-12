@@ -1,7 +1,7 @@
 <% path = bot.new_record? ? bots_dca_single_assets_confirm_settings_path : bot_path(bot) %>
 <% method = bot.new_record? ? :post : :patch %>
 
-<div id="<%= bot.new_record? ? "new-settings" : "settings" %>" class="column gap-1">
+<div id="<%= bot.new_record? ? "new-settings" : "settings" %>" class="column gap-1 mb-4">
   <%= render partial: "bots/dca_single_assets/settings/main", locals: { bot: bot, method: method, path: path } %>
   <%= render partial: "bots/settings/smart_intervals", locals: { bot: bot, method: method, path: path } %>
   <%= render partial: "bots/settings/limit_orders", locals: { bot: bot, method: method, path: path } %>

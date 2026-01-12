@@ -10,7 +10,7 @@
 <%= form_with model: bot,
               url: path,
               method: method,
-              class: "widget widget--main-bot-settings widget--main-bot-settings--dual-asset",
+              class: "widget main-bot-settings main-bot-settings--dual-asset",
               data: {
                 turbo_stream: true,
                 controller: "form--submit form--submit-after-delay form--move-cursor-to-end bot--barbell-allocation form--html5-validations",
@@ -24,7 +24,7 @@
       <%= f.number_field :quote_amount, value: value, class: 'numeric-input', step: :any, size: 2, data: { controller: "autowidth-input", action: "input->form--submit-after-delay#submit input->autowidth-input#resize", form__move_cursor_to_end_target: "input" }, autofocus: bot.new_record? && bot.quote_amount.blank?, disabled: bot.working?, placeholder: "100" %>
 
       <% if bot.new_record? %>
-        <%= link_to quote, new_bots_dca_dual_assets_pick_spendable_asset_path, data: { turbo_frame: "modal_content" }, class: "ticker", style: "background: #{quote_color}" %>
+        <%= link_to quote, new_bots_dca_dual_assets_pick_spendable_asset_path, data: { turbo_frame: "modal_content" }, class: "ticker" %> 
       <% else %>
         <div class="ticker">
           <%= quote %>

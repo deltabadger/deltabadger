@@ -178,3 +178,42 @@ ol, ul
                 font-size: calc(3rem * 0.6)
                 line-height: calc(3rem * 0.6)
                 letter-spacing: calc(0.25rem * 0.6)
+
+.sbutton
+    font-size: 2rem
+    padding: 0 2rem
+    height: 4rem
+    line-height: 4rem
+    border-radius: 2rem
+    min-width: 15rem
+    border: none
+    color: var(--white)
+    font-weight: 650
+    box-shadow: var(--shadow-strong)
+    cursor: pointer
+    &--success
+        background: var(--grass)
+    &--danger
+        background: var(--berry)
+    &--outline
+        background: none
+        border: 0.25rem solid var(--link)
+        color: var(--link)
+        padding: 0 calc(2rem - 0.25rem)
+        &[disabled="disabled"],&[disabled]
+            border-color: var(--stone)
+            color: var(--stone)
+        &.button--success
+            border-color: var(--grass)
+            color: var(--grass)
+        &.button--danger
+            border-color: var(--berry)
+            color: var(--berry)
+    &--disabled,&[disabled="disabled"],&[disabled]
+        cursor: not-allowed
+        pointer-events: none
+        opacity: 0.5
+        border-color: var(--stone) !important
+        color: var(--stone) !important
+        .animicon *
+            background-color: var(--stone) !important

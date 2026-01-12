@@ -116,6 +116,7 @@ en:
         telegram: 'Join our Telegram group'
         twitter: 'Follow us on 𝕏'
     utils:
+        pnl: 'P/L'
         assets: Assets
         beta: Beta
         cash: Cash

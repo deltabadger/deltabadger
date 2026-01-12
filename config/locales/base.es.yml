@@ -115,6 +115,7 @@ es:
         telegram: 'Únete a nuestro grupo de Telegram'
         twitter: 'Síguenos en 𝕏'
     utils:
+        pnl: 'G/P'
         assets: Activos
         cash: Efectivo
         bonds: Bonos

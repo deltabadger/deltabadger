@@ -1,6 +1,8 @@
 import { Controller } from "@hotwired/stimulus";
-import { Chart, Tooltip } from "chart.js/auto";
+import Chart from "chart.js/auto";
 import "chartjs-adapter-date-fns";
+
+const Tooltip = Chart.registry.plugins.get("tooltip")._element;
 window.Chart = Chart;
 window.Tooltip = Tooltip;
 

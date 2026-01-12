@@ -90,8 +90,9 @@ it:
                 current_value: 'Valore attuale'
                 current_value_sold: 'Valore attuale del %{base} venduto'
                 date: Data
-                download_csv: 'Scarica .csv'
-                generating_csv: 'Generazione del file...'
+                download_csv: 'Scarica transazioni'
+                generating_csv: 'Generazione file...'
+                import_csv: 'Importa transazioni'
                 exchange_unavailable_html: 'L''API dell''exchange non risponde al momento.<br>I calcoli sono basati sugli ultimi dati disponibili.'
                 order: Ordine
                 profit_loss: Profitto/Perdita

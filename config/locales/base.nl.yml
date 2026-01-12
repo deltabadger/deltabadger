@@ -111,6 +111,7 @@ nl:
         telegram: 'Word lid van onze Telegram-groep'
         twitter: 'Volg ons op 𝕏'
     utils:
+        pnl: 'W/V'
         assets: Activa
         cash: Contant geld
         bonds: Obligaties

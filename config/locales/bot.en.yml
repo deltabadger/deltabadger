@@ -87,9 +87,9 @@ en:
                 current_value: 'Current value'
                 current_value_sold: 'Current value of the %{base} sold'
                 date: Date
-                download_csv: 'Download .csv'
+                download_csv: 'Export transactions'
                 generating_csv: 'Generating file...'
-                import_csv: 'Import .csv'
+                import_csv: 'Import transactions'
                 import_success: 'Successfully imported %{count} order(s).'
                 import_no_new_orders: 'No new orders to import (all orders already exist or currencies do not match).'
                 import_no_file: 'Please select a CSV file to import.'

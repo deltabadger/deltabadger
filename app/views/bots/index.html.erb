@@ -6,14 +6,14 @@
   <div class="page-head page-head--dashboard">
     <div class="bot-filters">
       <% if @show_filters %>
-        <%= link_to t('bot_filters.all'), bots_path(filter: 'all'), class: ["button button--multi", ("button--multi--active" if @filter == 'all')] %>
-        <%= link_to t('bot_filters.active'), bots_path(filter: 'active'), class: ["button button--multi", ("button--multi--active" if @filter == 'active')] %>
-        <%= link_to t('bot_filters.inactive'), bots_path(filter: 'inactive'), class: ["button button--multi", ("button--multi--active" if @filter == 'inactive')] %>
+        <%= link_to t('bot_filters.all'), bots_path(filter: 'all'), class: ["button button--small button--multi", ("button--multi--active" if @filter == 'all')] %>
+        <%= link_to t('bot_filters.active'), bots_path(filter: 'active'), class: ["button button--small button--multi", ("button--multi--active" if @filter == 'active')] %>
+        <%= link_to t('bot_filters.inactive'), bots_path(filter: 'inactive'), class: ["button button--small button--multi", ("button--multi--active" if @filter == 'inactive')] %>
       <% end %>
     </div>
 
     <div>
-      <%= button_to new_bot_path, method: :get, class: "button button--sky", data: { turbo_frame: "modal" } do %>
+      <%= button_to new_bot_path, method: :get, class: "button button--small button--sky", data: { turbo_frame: "modal" } do %>
         <span class="d-none d-sm-inline"><%= t('bot.new') %></span>
         <%= render partial: 'svg/24x24_plus' %>
       <% end %>

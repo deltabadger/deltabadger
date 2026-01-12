@@ -3,7 +3,7 @@
 <%= form_with model: bot,
               url: path,
               method: method,
-              class: "widget #{bot.price_limited? ? "bot-settings--active" : "bot-settings--inactive"}",
+              class: "widget bot-settings #{bot.price_limited? ? "bot-settings--active" : "bot-settings--inactive"}",
               data: {
                 controller: "class-toggle form--submit form--submit-after-delay form--move-cursor-to-end form--html5-validations",
                 class_toggle_target: "togglable",

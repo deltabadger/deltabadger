@@ -54,13 +54,10 @@
             height: auto
             background: none
             padding: 0
-            &__value
-                color: var(--grass)
-                font-weight: 650
-    &--main-bot-settings
+    .main-bot-settings
         padding-top: 4rem
         padding-bottom: 4rem
-        &.widget--main-bot-settings--dual-asset
+        &.main-bot-settings--dual-asset
             padding-bottom: 2rem
         @media (min-width: 768px)
             padding-top: 4.5rem
@@ -122,14 +119,19 @@
     strong
         color: var(--ink)
     &.bot-settings
-        &--active
-            .conversational
-                color: var(--stone) !important
+        .conversational
             .sinput
-                color: var(--link) !important 
+                height: 3rem !important
+                line-height: 3rem !important
+        &--active
+            .conversational,.label,.small-info
+                color: var(--ink) !important
+            .sinput
+                color: var(--link) !important
                 font-weight: 650 !important    // color: var(--ash) !important
                 &:disabled,&[disabled],&--disabled
                     color: var(--stone) !important
+
         &--inactive
             box-shadow: none
             background: none

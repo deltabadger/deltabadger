@@ -84,8 +84,9 @@ ru:
                 current_value: 'Текущая стоимость'
                 current_value_sold: 'Текущая стоимость проданных %{base}'
                 date: Дата
-                download_csv: 'Загрузить .csv'
-                generating_csv: 'Генерация файла...'
+                download_csv: 'Скачать транзакции'
+                generating_csv: 'Создание файла...'
+                import_csv: 'Импортировать транзакции'
                 exchange_unavailable_html: 'API биржи в данный момент не отвечает.<br>Расчеты основаны на последних доступных данных.'
                 order: Ордер
                 profit_loss: Прибыль/Убытки

@@ -112,7 +112,10 @@ module Bot::Schedulable
   def job_matches_record?(job, global_id)
     return false unless job&.arguments.present?
 
-    args = job.arguments
+    # SolidQueue stores arguments as a Hash with "arguments" key containing the actual job args
+    args = job.arguments.is_a?(Hash) ? job.arguments["arguments"] : job.arguments
+    return false unless args.is_a?(Array)
+
     # ActiveJob serializes GlobalID records as { "_aj_globalid" => "..." }
     args.any? do |arg|
       (arg.is_a?(Hash) && arg['_aj_globalid'] == global_id) ||
