@@ -29,6 +29,12 @@ check_prereqs() {
 
 check_prereqs
 
+# Create .env file if it doesn't exist
+if [[ ! -f .env ]]; then
+    echo "Creating .env file from .env.example..."
+    cp .env.example .env
+fi
+
 # Install dependencies
 echo "Installing Ruby gems..."
 bundle install
