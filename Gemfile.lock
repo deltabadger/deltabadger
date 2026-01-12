@@ -408,7 +408,7 @@ GEM
     rack (2.2.20)
     rack-cors (2.0.2)
       rack (>= 2.0.0)
-    rack-mini-profiler (3.3.1)
+    rack-mini-profiler (4.0.1)
       rack (>= 1.2.0)
     rack-session (1.0.2)
       rack (< 3)
@@ -673,7 +673,7 @@ DEPENDENCIES
   puma (~> 6.3)
   rack (= 2.2.20)
   rack-cors
-  rack-mini-profiler (~> 3.3)
+  rack-mini-profiler (~> 4.0)
   rails (~> 8.1.1)
   rbnacl
   rqrcode
@@ -850,7 +850,7 @@ CHECKSUMS
   racc (1.8.1) sha256=4a7f6929691dbec8b5209a0b373bc2614882b55fc5d2e447a21aaa691303d62f
   rack (2.2.20) sha256=85da3447a4845230a00803d47413ed4d1dd9823f948a8d93c0b2d1e149c07170
   rack-cors (2.0.2) sha256=415d4e1599891760c5dc9ef0349c7fecdf94f7c6a03e75b2e7c2b54b82adda1b
-  rack-mini-profiler (3.3.1) sha256=2bf0de7d5795f54581e453b248e42cc50e8d0529efac73828653a9ad2407a801
+  rack-mini-profiler (4.0.1) sha256=485810c23211f908196c896ea10cad72ed68780ee2998bec1f1dfd7558263d78
   rack-session (1.0.2) sha256=a02115e5420b4de036839b9811e3f7967d73446a554b42aa45106af335851d76
   rack-test (2.2.0) sha256=005a36692c306ac0b4a9350355ee080fd09ddef1148a5f8b2ac636c720f5c463
   rackup (1.0.1) sha256=ba86604a28989fe1043bff20d819b360944ca08156406812dca6742b24b3c249
