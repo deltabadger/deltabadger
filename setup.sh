@@ -42,10 +42,18 @@ mkdir -p storage
 bundle exec rails db:prepare
 bundle exec rails db:seed
 
-# Build and start
+# Build assets
 echo "Building assets..."
 npm run build
+bundle exec rails dartsass:build
+
+# Build Tauri app (debug mode for faster builds)
+echo "Building Tauri app..."
+cd src-tauri && cargo build && cd ..
 
 echo ""
-echo "Setup complete! Starting app..."
-npm run tauri:dev
+echo "Setup complete!"
+echo ""
+echo "To start the app:"
+echo "  ./start.sh        - Run in background (no console)"
+echo "  bin/tauri-dev     - Run with console logs (development)"

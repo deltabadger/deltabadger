@@ -3,11 +3,17 @@ Auto-DCA for crypto. Automate your Dollar Cost Averaging strategy across multipl
 
 ## About this release
 
-Version 0.9.0 was released quickly under pressure from the [MiCA regulations](https://janklosowski.substack.com/p/eu-killed-my-company-i-open-source), so it's not a one-click standalone yet, but it's working, and if you encounter any issues, please join us on the [Telegram channel](https://t.me/deltabadgerchat) and we'll help.
+**Release 1.0.0-beta** is the first attempt to make Deltabadger a standalone app. To make it possible, we had to get rid of legacy bots, so at the moment the app works only with Binance, Coinbase, and Kraken. To use other exchanges, check [release 0.9.0](https://github.com/deltabadger/deltabadger/releases/tag/v0.9.0).
 
-### What next
+1. Download release.
+2. Run `./setup.sh` first.
+3. Run `./start.sh` to use the app.
 
-We're working on releasing the app on Umbrel first. If the community stays strong, we'll make a simpler installer for other platforms.
+On Mac, if you close the app, it continues working in the background. You can find it on the topbar.
+
+Scripts should work on Linux as well, but have not been tested.
+
+For Windows, the best way at the moment is to use Docker.
 
 Are you a developer? Jump on the [Telegram channel](https://t.me/deltabadgerchat) and help build the best DCA bot out there.
 

@@ -11,7 +11,8 @@
     "windows": [],
     "security": {
       "csp": null
-    }
+    },
+    "macOSPrivateApi": true
   },
   
   "bundle": {
@@ -27,6 +28,9 @@
     "macOS": {
       "minimumSystemVersion": "10.15"
     },
+    "resources": [
+      "icons/tray-icon.png"
+    ],
     "windows": {
       "webviewInstallMode": {
         "type": "embedBootstrapper"
