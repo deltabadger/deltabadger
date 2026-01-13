@@ -1,6 +1,10 @@
 # Deltabadger
 Auto-DCA for crypto. Automate your Dollar Cost Averaging strategy across multiple exchanges. As a service, [Deltabadger](https://deltabadger.com) helped users invest over $72 million into Bitcoin and other digital assets. Now it's free and open-source!
 
+![bot](https://github.com/user-attachments/assets/efa94d9d-f663-4999-9a24-22bb909812b4)
+
+![dashboard](https://github.com/user-attachments/assets/a388230f-b106-48b3-8fca-170dba16751d)
+
 ## About this release
 
 **Release 1.0.0-beta** is the first attempt to make Deltabadger a standalone app. To make it possible, we had to get rid of legacy bots, so at the moment the app works only with Binance, Coinbase, and Kraken. To use other exchanges, check [release 0.9.0](https://github.com/deltabadger/deltabadger/releases/tag/v0.9.0).
