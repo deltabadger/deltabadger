@@ -106,9 +106,20 @@ pub fn run() {
 
             // Get the app directory (where Rails app lives)
             let app_dir = if cfg!(debug_assertions) {
-                // In development, use the project root
-                std::env::current_dir()
-                    .unwrap_or_else(|_| std::path::PathBuf::from("."))
+                // In development, find project root relative to executable
+                // When run via .app bundle: exe is in target/debug/bundle/macos/Deltabadger.app/Contents/MacOS/
+                // When run via cargo/tauri dev: current_dir is project root
+                let exe_path = std::env::current_exe().ok();
+                let from_bundle = exe_path.as_ref().map(|p| {
+                    p.ancestors()
+                        .find(|a| a.ends_with("src-tauri"))
+                        .map(|p| p.parent().unwrap().to_path_buf())
+                }).flatten();
+
+                from_bundle.unwrap_or_else(|| {
+                    std::env::current_dir()
+                        .unwrap_or_else(|_| std::path::PathBuf::from("."))
+                })
             } else {
                 // In production, resources are bundled
                 app.path()

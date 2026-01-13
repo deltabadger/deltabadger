@@ -53,9 +53,9 @@ echo "Building assets..."
 npm run build
 bundle exec rails dartsass:build
 
-# Build Tauri app (debug mode for faster builds)
+# Build Tauri app bundle (debug mode for faster builds)
 echo "Building Tauri app..."
-cd src-tauri && cargo build && cd ..
+npm run tauri build -- --debug --bundles app
 
 echo ""
 echo "Setup complete!"

@@ -17,7 +17,7 @@ class Bot < ApplicationRecord
 
   before_save :update_settings_changed_at, if: :will_save_change_to_settings?
   before_save :store_previous_exchange_id
-  after_update_commit :broadcast_status_bar_update, if: :saved_change_to_status?
+  after_update_commit :broadcast_status_bar_update, if: -> { saved_change_to_status? && !@skip_status_bar_broadcast }
   after_update_commit :broadcast_status_button_update, if: :saved_change_to_status?
   after_update_commit :broadcast_columns_lock_update, if: :saved_change_to_status?
   after_update_commit -> { Bot::UpdateMetricsJob.perform_later(self) if custom_exchange_id_changed? }

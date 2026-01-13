@@ -13,28 +13,32 @@ fi
 
 # Find and run the app
 if [[ "$OSTYPE" == "darwin"* ]]; then
-  # macOS
+  # macOS - use .app bundle for proper icon
   if [ -d "src-tauri/target/release/bundle/macos/Deltabadger.app" ]; then
     open "src-tauri/target/release/bundle/macos/Deltabadger.app"
-    exit 0
+  elif [ -d "src-tauri/target/debug/bundle/macos/Deltabadger.app" ]; then
+    open "src-tauri/target/debug/bundle/macos/Deltabadger.app"
+  else
+    echo "No .app bundle found. Run './setup.sh' first."
+    exit 1
   fi
 elif [[ "$OSTYPE" == "linux"* ]]; then
-  # Linux - check for AppImage or deb install
-  if [ -f "src-tauri/target/release/bundle/appimage/deltabadger"*.AppImage ]; then
-    nohup src-tauri/target/release/bundle/appimage/deltabadger*.AppImage > /dev/null 2>&1 &
+  # Linux - check for AppImage or binary
+  APPIMAGE=$(find src-tauri/target/release/bundle/appimage -name "*.AppImage" 2>/dev/null | head -1)
+  if [ -n "$APPIMAGE" ] && [ -f "$APPIMAGE" ]; then
+    nohup "$APPIMAGE" > /dev/null 2>&1 &
     echo "Deltabadger started in background"
-    exit 0
   elif [ -f "src-tauri/target/release/deltabadger" ]; then
     nohup src-tauri/target/release/deltabadger > /dev/null 2>&1 &
     echo "Deltabadger started in background"
-    exit 0
+  elif [ -f "src-tauri/target/debug/deltabadger" ]; then
+    nohup src-tauri/target/debug/deltabadger > /dev/null 2>&1 &
+    echo "Deltabadger started in background"
+  else
+    echo "No build found. Run './setup.sh' first."
+    exit 1
   fi
-fi
-
-# Fallback to debug build
-if [ -f "src-tauri/target/debug/deltabadger" ]; then
-  nohup src-tauri/target/debug/deltabadger > /dev/null 2>&1 &
-  echo "Deltabadger started in background (dev build)"
 else
-  echo "No build found. Run './setup.sh' first or 'npm run tauri build'"
+  echo "Unsupported OS: $OSTYPE"
+  exit 1
 fi

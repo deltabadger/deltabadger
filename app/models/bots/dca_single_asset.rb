@@ -56,6 +56,10 @@ class Bots::DcaSingleAsset < Bot
       self.missed_quote_amount = nil
     end
 
+    # Skip the automatic status bar broadcast if we're scheduling a delayed job,
+    # since BroadcastAfterScheduledActionJob will handle it after the job is persisted
+    @skip_status_bar_broadcast = !set_order_now
+
     if valid?(:start) && save
       if set_order_now
         Bot::ActionJob.perform_later(self)

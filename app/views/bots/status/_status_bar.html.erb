@@ -20,9 +20,8 @@
     <% if bot.scheduled? %>
       <%= tag.div class: "bot-control__status__bar", style: "min-width:0.5rem; width: #{bot.progress_percentage * 100}%", data: {
         controller: "progress-bar",
-        progress_bar_start_time_value: bot.last_interval_checkpoint_at.iso8601,
+        progress_bar_start_time_value: bot.last_action_job_at&.iso8601,
         progress_bar_end_time_value: bot.next_action_job_at&.iso8601,
-        progress_bar_target: "progressBar",
       } %>
     <% end %>
 
