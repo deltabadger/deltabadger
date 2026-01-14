@@ -110,6 +110,7 @@ Rails.application.routes.draw do
       post :indicator_limit_info_update
       post :moving_average_limit_info_update
       post :fetch_open_orders
+      post :wake_dispatcher
     end
   end
 

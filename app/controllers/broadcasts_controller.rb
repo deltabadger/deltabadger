@@ -54,4 +54,21 @@ class BroadcastsController < ApplicationController
     Bot::FetchAndUpdateOpenOrdersJob.perform_later(bot, update_missed_quote_amount: true, success_or_kill: true)
     head :ok
   end
+
+  # Called when app becomes visible after being in background/sleep
+  # Releases any overdue scheduled jobs that were missed while inactive
+  def wake_dispatcher
+    released_count = 0
+
+    SolidQueue::ScheduledExecution
+      .where("scheduled_at <= ?", Time.current)
+      .limit(100)
+      .each do |execution|
+        execution.promote
+        released_count += 1
+      end
+
+    Rails.logger.info "[WakeDispatcher] Released #{released_count} overdue job(s)" if released_count > 0
+    head :ok
+  end
 end
