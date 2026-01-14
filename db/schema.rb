@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_01_14_145256) do
+ActiveRecord::Schema[8.1].define(version: 2026_01_14_154223) do
   create_table "api_keys", force: :cascade do |t|
     t.datetime "created_at", precision: nil, null: false
     t.string "encrypted_key"
@@ -156,7 +156,6 @@ ActiveRecord::Schema[8.1].define(version: 2026_01_14_145256) do
     t.bigint "bot_id"
     t.string "bot_interval", default: "", null: false
     t.decimal "bot_quote_amount", default: "0.0", null: false
-    t.string "called_bot_type"
     t.datetime "created_at", precision: nil, null: false
     t.json "error_messages", default: [], null: false
     t.bigint "exchange_id", null: false
@@ -188,29 +187,20 @@ ActiveRecord::Schema[8.1].define(version: 2026_01_14_145256) do
     t.datetime "created_at", precision: nil, null: false
     t.string "email", default: "", null: false
     t.string "encrypted_password", default: "", null: false
-    t.boolean "has_community_access", default: false
     t.datetime "last_otp_at", precision: nil
     t.string "locale"
     t.string "name"
-    t.boolean "news_banner_dismissed", default: false
-    t.string "oauth_provider"
-    t.string "oauth_uid"
     t.integer "otp_module", default: 0
     t.string "otp_secret_key"
-    t.string "pending_wire_transfer"
-    t.boolean "referral_banner_dismissed", default: false
     t.datetime "remember_created_at", precision: nil
     t.datetime "reset_password_sent_at", precision: nil
     t.string "reset_password_token"
     t.boolean "setup_completed", default: false, null: false
     t.boolean "show_smart_intervals_info", default: true, null: false
     t.boolean "subscribed_to_email_marketing", default: true
-    t.boolean "terms_and_conditions"
     t.string "time_zone", default: "UTC", null: false
     t.string "unconfirmed_email"
     t.datetime "updated_at", precision: nil, null: false
-    t.boolean "updates_agreement"
-    t.boolean "welcome_banner_dismissed", default: false
     t.index ["confirmation_token"], name: "index_users_on_confirmation_token", unique: true
     t.index ["email"], name: "index_users_on_email", unique: true
     t.index ["reset_password_token"], name: "index_users_on_reset_password_token", unique: true
