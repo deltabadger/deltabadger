@@ -88,9 +88,9 @@ de:
                 current_value: 'Aktueller Wert'
                 current_value_sold: 'Aktuellen Wert des %{base} verkauft'
                 date: Datum
-                download_csv: 'Transaktionen herunterladen'
+                download_csv: 'Exportieren'
                 generating_csv: 'Datei wird generiert...'
-                import_csv: 'Transaktionen importieren'
+                import_csv: 'Importieren'
                 exchange_unavailable_html: 'Die Börsen-API reagiert derzeit nicht.<br>Berechnungen basieren auf den letzten verfügbaren Daten.'
                 order: 'Order Art'
                 profit_loss: Gewinn/Verlust
