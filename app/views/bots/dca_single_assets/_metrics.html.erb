@@ -2,12 +2,12 @@
   <div class="widget data-grid data-grid--two-columns">
     <%= render partial: "bots/dca_single_assets/metrics_item", locals: {
       label: t('data_labels.invested'),
-      value: metrics[:total_quote_amount_invested].round(bot.decimals[:quote] || 8),
+      value: format_value(metrics[:total_quote_amount_invested], max_decimals: bot.decimals[:quote] || 8),
       loading: false
     } %>
     <%= render partial: "bots/dca_single_assets/metrics_item", locals: {
       label: t('data_labels.portfolio_value'),
-      value: metrics[:total_amount_value_in_quote].round(bot.decimals[:quote] || 8),
+      value: format_value(metrics[:total_amount_value_in_quote], max_decimals: bot.decimals[:quote] || 8),
       loading: loading
     } %>
   </div>
@@ -34,7 +34,7 @@
               <% if loading %>
                 <td><div class="loader--small" style="position: unset; float:right"></div></td>
               <% else %>
-                <td><%= metrics[:total_amount_value_in_quote].round(bot.decimals[:quote] || 8) %></td>
+                <td><%= format_value(metrics[:total_amount_value_in_quote], max_decimals: bot.decimals[:quote] || 8) %></td>
               <% end %>
               <% if loading %>
                 <td><div class="loader--small" style="position: unset; float:right"></div></td>

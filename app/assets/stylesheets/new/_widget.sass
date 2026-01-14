@@ -80,13 +80,19 @@
             overflow-y: auto
             height: 0
         th
-            color: var(--stone)
+            color: var(--concrete)
             font-weight: 600
             z-index: 1
         thead
             z-index: 1
+        th
+            padding: 1.5rem 0 1rem 2rem
+        td
+            padding: 0.75rem 0 0.75rem 2rem
+        tr:last-child
+            td
+                padding-bottom: 1.5rem
         td, th
-            padding: 1.5rem 0 1.5rem 2rem
             text-align: right
             border: none
             &:first-child
@@ -156,10 +162,9 @@
         &--active
             .toggle__style
                 background-color: var(--steel) !important
-            .label
+            .label,.small-info,.conversational
                 color: var(--ash) !important
             .conversational
-                color: var(--ash) !important
                 .sinput
                     color: var(--stone) !important
         &--inactive
