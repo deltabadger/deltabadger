@@ -173,7 +173,7 @@ en:
                 sentence_html: '<b>Smart Intervals<sup>®</sup></b> Split <span>the</span> amount <span>into</span> <span>%{amount_html} %{quote}</span> units'
                 info: "Splitting your %{quote_amount} %{quote} / %{interval} into units of %{amount} %{quote} will result in one investment every %{smart_interval}"
             limit_orders:
-                sentence_html: '<b>FeeCutter<sup>®</sup></b> Cut fees using limit orders <span>%{amount_html}%</span> below the price'
+                sentence_html: '<b>FeeCutter<sup>®</sup></b> <span>Cut fees</span> using <span>limit</span> orders <span>%{amount_html}%</span> <span>below the price</span>'
                 info: "To cut fees to zero, set it at %{maker_fee}% which is %{exchange}'s maker fee. Set it lower to get faster execution, or higher to get a potentially better deal. Track your order execution in the orders table."
             extra_amount_limit:
                 sentence_html: "Don't spend more than <span>%{value_html} %{quote}</span>"

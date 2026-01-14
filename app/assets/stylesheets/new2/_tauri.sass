@@ -1,11 +1,20 @@
 .tauri
-    .menu__section--logo
-        opacity: 0
-    .titlebar-drag-region
-        width: 100vw
-        height: 3.5rem
-        -webkit-app-region: drag
-        position: fixed
-        top: 0
-        left: 0
-        z-index: 10000
+  .menu__section--logo
+    opacity: 0
+  .titlebar-drag-region
+    width: 100vw
+    height: 3.5rem
+    -webkit-app-region: drag
+    position: fixed
+    top: 0
+    left: 0
+    z-index: 1000
+  @media (max-width: 767.9px)
+    .page-head
+      padding-top: 3.5rem
+    .hamburger__a
+      top: 4.5rem
+    .hamburger__b
+      top: 5.5rem
+    #hamburger:checked~.hamburger
+        top: 5rem
