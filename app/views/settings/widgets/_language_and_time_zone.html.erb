@@ -1,11 +1,24 @@
+<% language_options = [
+  ['English', 'en'],
+  ['Deutsch', 'de'],
+  ['Nederlands', 'nl'],
+  ['Français', 'fr'],
+  ['Español', 'es'],
+  ['Português', 'pt'],
+  ['Italiano', 'it'],
+  ['Polski', 'pl'],
+  ['Русский', 'ru']
+] %>
+<% current_locale = current_user.locale || I18n.default_locale.to_s %>
+
 <div class="widget widget--settings">
   <h4 class="modal__title"><%= t('settings.language_and_timezone.title') %></h4>
 
   <%= turbo_frame_tag "update_locale_form" do %>
     <%= form_with model: current_user, url: settings_update_locale_path, method: :patch, class: "flex-column gap-2", data: { controller: "form--submit", turbo_frame: "update_locale_form" } do |f| %>
       <div class="sinput sinput--select">
-        <%= language_label_for(current_user.locale || I18n.default_locale) %>
-        <%= f.select :locale, language_options, { selected: current_user.locale || I18n.default_locale }, data: { action: "change->form--submit#submit" } %>
+        <%= language_options.find { |_, code| code == current_locale }&.first || 'English' %>
+        <%= f.select :locale, language_options, { selected: current_locale }, data: { action: "change->form--submit#submit" } %>
       </div>
     <% end %>
   <% end %>
