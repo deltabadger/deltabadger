@@ -87,8 +87,9 @@ pt:
         settings: Definições
         sign_up: Registar
     settings:
-        timezone:
-            title: 'Fuso horário'
+        language_and_timezone:
+            title: 'Idioma e fuso horário'
+            language_updated: 'O seu idioma foi atualizado.'
             updated: 'O seu fuso horário foi atualizado.'
             current_time_is: 'Este fuso horário será usado nos logs do bot. Segundo ele, a hora actual é'
         index:

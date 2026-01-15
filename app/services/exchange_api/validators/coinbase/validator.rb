@@ -9,7 +9,7 @@ module ExchangeApi
         def validate_credentials(api_key:, api_secret:)
           path = '/api/v3/brokerage/transaction_summary'.freeze
           url = API_URL + path
-          conn = Faraday.new(proxy: ENV['US_HTTPS_PROXY'])
+          conn = Faraday.new
           request = conn.get(url, nil, headers(api_key, api_secret, '', url, 'GET'))
           return false if request.status != 200
 
