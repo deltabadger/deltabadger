@@ -6,10 +6,7 @@
 #   Umbrel: Automatically managed by Umbrel app system
 
 x-app-common: &app-common
-  build:
-    context: .
-    dockerfile: Dockerfile
-  image: deltabadger:latest
+  image: ghcr.io/deltabadger/deltabadger:beta
   env_file:
     - .env.docker
   environment:
