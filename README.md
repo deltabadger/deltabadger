@@ -29,9 +29,16 @@ Install [Docker Desktop](https://www.docker.com/products/docker-desktop/) for yo
 
 After installation, make sure Docker is running (you should see the Docker icon in your system tray/menu bar).
 
-To run the app locally, open a terminal in the /deltabadger folder, and:
+### Quick Start
 
-### 1. Create environment file
+1. **Download the Docker files:**
+
+```bash
+curl -O https://raw.githubusercontent.com/deltabadger/deltabadger/main/docker-compose.yml
+curl -O https://raw.githubusercontent.com/deltabadger/deltabadger/main/.env.docker.example
+```
+
+2. **Create environment file:**
 
 macOS/Linux:
 
@@ -47,81 +54,45 @@ copy .env.docker.example .env.docker
 
 The example file works out of the box for local use.
 
-### 2. Start the app
+3. **Start the app:**
 
 ```bash
-docker compose up
+docker compose up -d
 ```
 
-First run takes a few minutes to download images and build. Once you see logs from `web` and `jobs`, the app is ready.
+First run downloads the pre-built image. Once complete, access the app at `http://localhost:3000`.
 
-Access the app at `http://localhost:3000`.
-
-> **Tip:** Add `-d` to run in the background: `docker compose up -d`
-
-### Stopping the app
+### Updating to a New Version
 
 ```bash
-docker compose down
+docker compose pull
+docker compose up -d
 ```
 
 ### Docker Commands Reference
 
-**Start the app:**
-
-```bash
-docker compose up
-```
-
-Add `-d` to run in background. Add `--build` to rebuild after code changes.
-
-**Stop the app:**
-
-```bash
-docker compose down
-```
-
-Stops and removes all containers and networks.
-
-**Rebuild after changes:**
-
-```bash
-docker compose build
-```
-
-Add `--no-cache` to force a complete rebuild.
-
-**View logs:**
-
-```bash
-docker compose logs -f
-```
-
-Add service name to filter: `docker compose logs -f web`
+| Command | Description |
+|---------|-------------|
+| `docker compose up -d` | Start in background |
+| `docker compose down` | Stop all containers |
+| `docker compose pull` | Pull latest image |
+| `docker compose logs -f` | View logs (Ctrl+C to exit) |
+| `docker compose logs -f web` | View web server logs only |
 
 ### Starting Fresh
 
 If something goes wrong and you want to reset everything:
 
 ```bash
-# Stop all containers
 docker compose down
-
-# Remove data volumes (deletes all data!)
 docker volume rm deltabadger_storage deltabadger_logs
 ```
 
-> **Note:** Volume names may vary. Run `docker volume ls` to see all volumes.
-
-Nuclear option — removes all unused Docker data:
-
-```bash
-docker system prune -a --volumes
-```
+> **Note:** This deletes all data. Volume names may vary — run `docker volume ls` to see all volumes.
 
 ### Production Secrets
 
-If you want to run it on an online server, generate proper secrets:
+For online servers, generate proper secrets:
 
 ```bash
 openssl rand -hex 64  # For SECRET_KEY_BASE and DEVISE_SECRET_KEY
@@ -129,6 +100,15 @@ openssl rand -hex 16  # For APP_ENCRYPTION_KEY
 ```
 
 Edit `.env.docker` and replace the dev values.
+
+### Building from Source
+
+If you prefer to build the image locally instead of using the pre-built one:
+
+```bash
+docker compose build
+docker compose up -d
+```
 
 ---
 
