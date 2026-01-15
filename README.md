@@ -14,7 +14,7 @@ Install [Docker Desktop](https://www.docker.com/products/docker-desktop/) for yo
 docker run -d --name deltabadger \
   -p 3000:3000 \
   -v deltabadger_data:/app/storage \
-  ghcr.io/deltabadger/deltabadger:beta standalone
+  ghcr.io/deltabadger/deltabadger:latest standalone
 ```
 
 That's it! Access the app at `http://localhost:3000`.
@@ -34,9 +34,9 @@ For Windows, the best way at the moment is to use Docker.
 
 Are you a developer? Jump on the [Telegram channel](https://t.me/deltabadgerchat) and help build the best DCA bot out there.
 
-## Running with Docker
+## Running with Docker Compose
 
-For more control (separate job worker, custom configuration):
+Alternative to the single command above, using Docker Compose:
 
 1. **Download docker-compose.yml:**
 
@@ -68,11 +68,11 @@ Single command:
 
 ```bash
 docker stop deltabadger && docker rm deltabadger
-docker pull ghcr.io/deltabadger/deltabadger:beta
+docker pull ghcr.io/deltabadger/deltabadger:latest
 docker run -d --name deltabadger \
   -p 3000:3000 \
   -v deltabadger_data:/app/storage \
-  ghcr.io/deltabadger/deltabadger:beta standalone
+  ghcr.io/deltabadger/deltabadger:latest standalone
 ```
 
 Docker Compose:
@@ -110,7 +110,6 @@ Secrets are auto-generated on first run and stored in `/app/storage/.secrets` (i
 For production deployments:
 - Use a reverse proxy (nginx, Traefik) for HTTPS
 - Set `APP_ROOT_URL` and `HOME_PAGE_URL` to your domain in `.env.docker`
-- Consider using Docker Compose for separate web/job workers
 
 ### Building from Source
 

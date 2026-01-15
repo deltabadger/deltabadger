@@ -1,54 +1,31 @@
 # Deltabadger Docker Compose
-# Works as standalone Docker setup and is used by Umbrel
 #
-# Usage:
-#   Standard Docker: docker compose up -d
-#   Umbrel: Automatically managed by Umbrel app system
+# Usage: docker compose up -d
+# Access: http://localhost:3000
 #
 # Configuration:
 #   - Create .env.docker to override defaults (optional)
-#   - Secrets are auto-generated on first run and stored in /app/storage/.secrets
-
-x-app-common: &app-common
-  image: ghcr.io/deltabadger/deltabadger:beta
-  env_file:
-    - path: .env.docker
-      required: false
-  environment:
-    # Core settings
-    RAILS_ENV: production
-    NODE_ENV: production
-    RAILS_LOG_TO_STDOUT: "true"
-    RAILS_SERVE_STATIC_FILES: "true"
-    # Database paths (SQLite stored in volume)
-    DATABASE_PATH: /app/storage/production.sqlite3
-    QUEUE_DATABASE_PATH: /app/storage/production_queue.sqlite3
-    CACHE_DATABASE_PATH: /app/storage/production_cache.sqlite3
-    CABLE_DATABASE_PATH: /app/storage/production_cable.sqlite3
-    # Default URLs (override in .env.docker for production)
-    APP_ROOT_URL: ${APP_ROOT_URL:-http://localhost:3000}
-    HOME_PAGE_URL: ${HOME_PAGE_URL:-http://localhost:3000}
-  volumes:
-    - storage:/app/storage
-    - logs:/app/log
-  restart: unless-stopped
+#   - Secrets are auto-generated on first run
 
 services:
-  # Database migrations (run once)
-  migrate:
-    <<: *app-common
-    command: migrate
-    restart: "no"
-
-  # Web server (Puma)
-  web:
-    <<: *app-common
-    command: web
+  deltabadger:
+    image: ghcr.io/deltabadger/deltabadger:latest
+    command: standalone
     ports:
       - "${APP_PORT:-3000}:3000"
-    depends_on:
-      migrate:
-        condition: service_completed_successfully
+    env_file:
+      - path: .env.docker
+        required: false
+    environment:
+      RAILS_ENV: production
+      NODE_ENV: production
+      RAILS_LOG_TO_STDOUT: "true"
+      RAILS_SERVE_STATIC_FILES: "true"
+      APP_ROOT_URL: ${APP_ROOT_URL:-http://localhost:3000}
+      HOME_PAGE_URL: ${HOME_PAGE_URL:-http://localhost:3000}
+    volumes:
+      - storage:/app/storage
+    restart: unless-stopped
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:3000/health-check"]
       interval: 30s
@@ -56,24 +33,5 @@ services:
       start_period: 60s
       retries: 3
 
-  # Solid Queue background job processor
-  jobs:
-    <<: *app-common
-    command: jobs
-    depends_on:
-      migrate:
-        condition: service_completed_successfully
-    healthcheck:
-      test: ["CMD-SHELL", "pgrep -f 'solid_queue' || exit 1"]
-      interval: 30s
-      timeout: 10s
-      start_period: 30s
-      retries: 3
-
 volumes:
   storage:
-  logs:
-
-networks:
-  default:
-    name: deltabadger_network
