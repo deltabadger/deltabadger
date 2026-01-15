@@ -1,4 +1,24 @@
 module SettingsHelper
+  LANGUAGE_OPTIONS = {
+    'en' => 'English',
+    'de' => 'Deutsch',
+    'nl' => 'Nederlands',
+    'fr' => 'Français',
+    'es' => 'Español',
+    'pt' => 'Português',
+    'it' => 'Italiano',
+    'pl' => 'Polski',
+    'ru' => 'Русский'
+  }.freeze
+
+  def language_options
+    LANGUAGE_OPTIONS.map { |code, name| [name, code] }
+  end
+
+  def language_label_for(locale)
+    LANGUAGE_OPTIONS[locale.to_s] || LANGUAGE_OPTIONS['en']
+  end
+
   def time_zone_with_offset(time_zone)
     tz = ActiveSupport::TimeZone[time_zone]
     offset = tz.now.utc_offset / 3600.0 # Convert seconds to hours

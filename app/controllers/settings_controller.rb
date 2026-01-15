@@ -44,7 +44,14 @@ class SettingsController < ApplicationController
   def update_time_zone
     return unless current_user.update(update_time_zone_params)
 
-    flash[:notice] = t('settings.timezone.updated')
+    flash[:notice] = t('settings.language_and_timezone.timezone.updated')
+    render turbo_stream: turbo_stream_page_refresh
+  end
+
+  def update_locale
+    return unless current_user.update(update_locale_params)
+
+    flash[:notice] = I18n.t('settings.language_and_timezone.language_updated', locale: current_user.locale)
     render turbo_stream: turbo_stream_page_refresh
   end
 
@@ -154,6 +161,10 @@ class SettingsController < ApplicationController
 
   def update_time_zone_params
     params.require(:user).permit(:time_zone)
+  end
+
+  def update_locale_params
+    params.require(:user).permit(:locale)
   end
 
   def update_name_params

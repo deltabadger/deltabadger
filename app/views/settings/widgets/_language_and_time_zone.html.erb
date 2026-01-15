@@ -1,0 +1,24 @@
+<div class="widget widget--settings">
+  <h4 class="modal__title"><%= t('settings.language_and_timezone.title') %></h4>
+
+  <%= turbo_frame_tag "update_locale_form" do %>
+    <%= form_with model: current_user, url: settings_update_locale_path, method: :patch, class: "flex-column gap-2", data: { controller: "form--submit", turbo_frame: "update_locale_form" } do |f| %>
+      <div class="sinput sinput--select">
+        <%= language_label_for(current_user.locale || I18n.default_locale) %>
+        <%= f.select :locale, language_options, { selected: current_user.locale || I18n.default_locale }, data: { action: "change->form--submit#submit" } %>
+      </div>
+    <% end %>
+  <% end %>
+
+  <%= turbo_frame_tag "update_time_zone_form" do %>
+    <%= form_with model: current_user, url: settings_update_time_zone_path, method: :patch, class: "flex-column gap-2", data: { controller: "form--submit", turbo_frame: "update_time_zone_form" } do |f| %>
+      <div class="sinput sinput--select">
+        <%= time_zone_with_offset(current_user.time_zone) %>
+        <%= f.select :time_zone, sorted_time_zone_options, { selected: current_user.time_zone }, data: { action: "change->form--submit#submit" } %>
+      </div>
+      <small data-controller="clock" data-clock-time-zone-value="<%= ActiveSupport::TimeZone[current_user.time_zone].tzinfo.identifier %>">
+        <%= t('settings.language_and_timezone.timezone.current_time_is') %> <b data-clock-target="timestamp"><%= Time.current.in_time_zone(current_user.time_zone).strftime("%Y-%m-%d %I:%M %p") %></b>
+      </small>
+    <% end %>
+  <% end %>
+</div>

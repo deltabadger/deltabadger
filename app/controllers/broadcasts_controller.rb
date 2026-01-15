@@ -57,6 +57,7 @@ class BroadcastsController < ApplicationController
 
   # Called when app becomes visible after being in background/sleep
   # Releases any overdue scheduled jobs that were missed while inactive
+  # and broadcasts status bar updates for all working bots
   def wake_dispatcher
     released_count = 0
 
@@ -69,6 +70,13 @@ class BroadcastsController < ApplicationController
       end
 
     Rails.logger.info "[WakeDispatcher] Released #{released_count} overdue job(s)" if released_count > 0
+
+    # Broadcast status bar updates for all working bots after a delay
+    # This ensures the UI refreshes even if the WebSocket wasn't ready during job execution
+    current_user.bots.working.find_each do |bot|
+      Bot::BroadcastAfterScheduledActionJob.set(wait: 1.second).perform_later(bot)
+    end
+
     head :ok
   end
 end

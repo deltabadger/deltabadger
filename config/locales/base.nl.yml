@@ -87,6 +87,11 @@ nl:
         settings: Instellingen
         sign_up: Registreren
     settings:
+        language_and_timezone:
+            title: 'Taal & Tijdzone'
+            language_updated: 'Uw taal is bijgewerkt.'
+            updated: 'Uw tijdzone is bijgewerkt.'
+            current_time_is: 'Deze tijdzone wordt gebruikt in de bot logs. Volgens deze is de huidige tijd'
         index:
             api_key_confirmation: 'Weet je het zeker?'
             api_keys_section: 'API keys'

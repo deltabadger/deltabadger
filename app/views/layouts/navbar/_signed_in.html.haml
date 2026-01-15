@@ -63,11 +63,7 @@
       .tooltip
         = t('links.telegram')
 
-
-
   .menu__section.menu__section--bottom
-
-    = render partial: "layouts/language_dropdown", locals: { extra_classes: "dropdown-wrapper--right" }
 
     = button_to destroy_user_session_path, method: :delete, class: "menu__item menu__button", data: { turbo: false } do
 

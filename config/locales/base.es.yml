@@ -87,8 +87,9 @@ es:
         settings: Configuración
         sign_up: Registrarse
     settings:
-        timezone:
-            title: 'Zona horaria'
+        language_and_timezone:
+            title: 'Idioma y zona horaria'
+            language_updated: 'Tu idioma ha sido actualizado.'
             updated: 'Tu zona horaria ha sido actualizada.'
             current_time_is: 'Esta zona horaria se usará en los logs del bot. Según ella, la hora actual es'
         name:
