@@ -89,8 +89,9 @@ pl:
         settings: Ustawienia
         sign_up: 'Stwórz konto'
     settings:
-        timezone:
-            title: 'Strefa czasowa'
+        language_and_timezone:
+            title: 'Język i strefa czasowa'
+            language_updated: 'Twój język został zaktualizowany.'
             updated: 'Twoja strefa czasowa została zaktualizowana.'
             current_time_is: 'Ta strefa czasowa będzie używana w logach bota. Zgodnie z nią, aktualna godzina to'
         index:

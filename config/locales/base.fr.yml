@@ -87,8 +87,9 @@ fr:
         settings: 'Paramètres'
         sign_up: 'S''inscrire'
     settings:
-        timezone:
-            title: 'Fuseau horaire'
+        language_and_timezone:
+            title: 'Langue et fuseau horaire'
+            language_updated: 'Votre langue a été mise à jour.'
             updated: 'Votre fuseau horaire a été mis à jour.'
             current_time_is: 'Ce fuseau horaire sera utilisé dans les logs du bot. Selon lui, l''heure actuelle est'
         name:
