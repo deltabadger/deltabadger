@@ -134,10 +134,15 @@ RUN groupadd --gid 1000 deltabadger && \
 
 # Copy built artifacts from builder stage
 COPY --from=builder /app/vendor/bundle ./vendor/bundle
-COPY --from=builder /app/public/assets ./public/assets
 
 # Copy application code
 COPY --chown=deltabadger:deltabadger . .
+
+# Copy precompiled assets AFTER application code to avoid being overwritten
+COPY --from=builder --chown=deltabadger:deltabadger /app/public/assets ./public/assets
+
+# Copy font files to public/assets for static serving (used by Tauri and CSS hardcoded paths)
+COPY --chown=deltabadger:deltabadger app/assets/fonts/*.ttf ./public/assets/
 
 # Copy entrypoint script
 COPY docker-entrypoint.sh /usr/local/bin/
