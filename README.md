@@ -5,9 +5,22 @@ Auto-DCA for crypto. Automate your Dollar Cost Averaging strategy across multipl
 
 ![dashboard](https://github.com/user-attachments/assets/a388230f-b106-48b3-8fca-170dba16751d)
 
-## About this release
 
-**Release 1.0.0-beta** is the first attempt to make Deltabadger a standalone app. To make it possible, we had to get rid of legacy bots, so at the moment the app works only with Binance, Coinbase, and Kraken. To use other exchanges, check [release 0.9.0](https://github.com/deltabadger/deltabadger/releases/tag/v0.9.0).
+### Quick Start
+
+Install [Docker Desktop](https://www.docker.com/products/docker-desktop/) for your operating system, and make sure it's running, then run Deltabadger with a single command:
+
+```bash
+docker run -d --name deltabadger \
+  -p 3000:3000 \
+  -v deltabadger_data:/app/storage \
+  ghcr.io/deltabadger/deltabadger:beta standalone
+```
+
+That's it! Access the app at `http://localhost:3000`.
+
+
+## Running with Tauri (macOS and Linux)
 
 1. Download release.
 2. Run `./setup.sh` first.
@@ -23,46 +36,46 @@ Are you a developer? Jump on the [Telegram channel](https://t.me/deltabadgerchat
 
 ## Running with Docker
 
-### Prerequisites
+For more control (separate job worker, custom configuration):
 
-Install [Docker Desktop](https://www.docker.com/products/docker-desktop/) for your operating system.
-
-After installation, make sure Docker is running (you should see the Docker icon in your system tray/menu bar).
-
-### Quick Start
-
-1. **Download the Docker files:**
+1. **Download docker-compose.yml:**
 
 ```bash
 curl -O https://raw.githubusercontent.com/deltabadger/deltabadger/main/docker-compose.yml
-curl -O https://raw.githubusercontent.com/deltabadger/deltabadger/main/.env.docker.example
 ```
 
-2. **Create environment file:**
-
-macOS/Linux:
-
-```bash
-cp .env.docker.example .env.docker
-```
-
-Windows (Command Prompt):
-
-```cmd
-copy .env.docker.example .env.docker
-```
-
-The example file works out of the box for local use.
-
-3. **Start the app:**
+2. **Start the app:**
 
 ```bash
 docker compose up -d
 ```
 
-First run downloads the pre-built image. Once complete, access the app at `http://localhost:3000`.
+First run downloads the pre-built image. Secrets are auto-generated. Once complete, access the app at `http://localhost:3000`.
+
+3. **Optional: Custom configuration**
+
+Create `.env.docker` to override defaults (copy from `.env.docker.example` for reference):
+
+```bash
+curl -O https://raw.githubusercontent.com/deltabadger/deltabadger/main/.env.docker.example
+cp .env.docker.example .env.docker
+# Edit .env.docker as needed
+```
 
 ### Updating to a New Version
+
+Single command:
+
+```bash
+docker stop deltabadger && docker rm deltabadger
+docker pull ghcr.io/deltabadger/deltabadger:beta
+docker run -d --name deltabadger \
+  -p 3000:3000 \
+  -v deltabadger_data:/app/storage \
+  ghcr.io/deltabadger/deltabadger:beta standalone
+```
+
+Docker Compose:
 
 ```bash
 docker compose pull
@@ -90,16 +103,14 @@ docker volume rm deltabadger_storage deltabadger_logs
 
 > **Note:** This deletes all data. Volume names may vary — run `docker volume ls` to see all volumes.
 
-### Production Secrets
+### Production Notes
 
-For online servers, generate proper secrets:
+Secrets are auto-generated on first run and stored in `/app/storage/.secrets` (inside the volume). These persist across container restarts and upgrades.
 
-```bash
-openssl rand -hex 64  # For SECRET_KEY_BASE and DEVISE_SECRET_KEY
-openssl rand -hex 16  # For APP_ENCRYPTION_KEY
-```
-
-Edit `.env.docker` and replace the dev values.
+For production deployments:
+- Use a reverse proxy (nginx, Traefik) for HTTPS
+- Set `APP_ROOT_URL` and `HOME_PAGE_URL` to your domain in `.env.docker`
+- Consider using Docker Compose for separate web/job workers
 
 ### Building from Source
 
