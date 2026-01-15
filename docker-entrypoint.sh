@@ -2,11 +2,80 @@
 set -e
 
 # Deltabadger Docker Entrypoint Script
-# Supports multiple process types: web, jobs, migrate, console
+# Supports multiple process types: web, jobs, migrate, console, standalone
 
-# Database preparation (SQLite - no network wait needed)
-ensure_database_directory() {
+SECRETS_FILE="/app/storage/.secrets"
+
+# Ensure storage directory exists
+ensure_storage_directory() {
     mkdir -p /app/storage
+}
+
+# Generate a random hex string
+generate_hex() {
+    local length=${1:-64}
+    # Try multiple methods for generating random hex
+    if command -v openssl &> /dev/null; then
+        openssl rand -hex "$length"
+    elif [ -r /dev/urandom ]; then
+        head -c "$length" /dev/urandom | od -An -tx1 | tr -d ' \n' | head -c $((length * 2))
+    else
+        # Fallback: use $RANDOM (less secure but works everywhere)
+        local result=""
+        for i in $(seq 1 $((length * 2))); do
+            result="${result}$(printf '%x' $((RANDOM % 16)))"
+        done
+        echo "$result"
+    fi
+}
+
+# Generate secrets file if it doesn't exist
+generate_secrets() {
+    if [ -f "$SECRETS_FILE" ]; then
+        echo "Loading existing secrets from $SECRETS_FILE"
+        return 0
+    fi
+
+    echo "Generating new secrets..."
+
+    local secret_key_base=$(generate_hex 64)
+    local devise_secret_key=$(generate_hex 64)
+    local app_encryption_key=$(generate_hex 16)  # 32 hex chars = 16 bytes
+
+    cat > "$SECRETS_FILE" << EOF
+# Auto-generated secrets for Deltabadger
+# Generated on $(date -u +"%Y-%m-%d %H:%M:%S UTC")
+# DO NOT DELETE - these are required for data encryption
+SECRET_KEY_BASE=${secret_key_base}
+DEVISE_SECRET_KEY=${devise_secret_key}
+APP_ENCRYPTION_KEY=${app_encryption_key}
+EOF
+
+    chmod 600 "$SECRETS_FILE"
+    echo "Secrets generated and saved to $SECRETS_FILE"
+}
+
+# Load secrets from file into environment
+load_secrets() {
+    if [ -f "$SECRETS_FILE" ]; then
+        # Only load if env vars are not already set
+        if [ -z "$SECRET_KEY_BASE" ]; then
+            export SECRET_KEY_BASE=$(grep "^SECRET_KEY_BASE=" "$SECRETS_FILE" | cut -d'=' -f2)
+        fi
+        if [ -z "$DEVISE_SECRET_KEY" ]; then
+            export DEVISE_SECRET_KEY=$(grep "^DEVISE_SECRET_KEY=" "$SECRETS_FILE" | cut -d'=' -f2)
+        fi
+        if [ -z "$APP_ENCRYPTION_KEY" ]; then
+            export APP_ENCRYPTION_KEY=$(grep "^APP_ENCRYPTION_KEY=" "$SECRETS_FILE" | cut -d'=' -f2)
+        fi
+    fi
+}
+
+# Setup secrets - generate if needed, then load
+setup_secrets() {
+    ensure_storage_directory
+    generate_secrets
+    load_secrets
 }
 
 # Prepare the database
@@ -39,9 +108,24 @@ main() {
     local cmd="${1:-web}"
 
     case "$cmd" in
+        standalone)
+            echo "Starting Deltabadger (standalone mode)..."
+            setup_secrets
+            cleanup_pid
+
+            # Always run migrations in standalone mode
+            prepare_database
+
+            # Run Solid Queue in Puma process
+            export SOLID_QUEUE_IN_PUMA=true
+
+            echo "Starting web server with in-process job worker..."
+            exec bundle exec puma -C config/puma.rb
+            ;;
+
         web)
             echo "Starting Deltabadger Web Server..."
-            ensure_database_directory
+            setup_secrets
             cleanup_pid
 
             # Run migrations if AUTO_MIGRATE is set
@@ -54,28 +138,28 @@ main() {
 
         jobs)
             echo "Starting Deltabadger Job Worker (Solid Queue)..."
-            ensure_database_directory
+            setup_secrets
 
             exec bundle exec rake solid_queue:start
             ;;
 
         migrate)
             echo "Running database migrations..."
-            ensure_database_directory
+            setup_secrets
             prepare_database
             echo "Migrations completed!"
             ;;
 
         setup)
             echo "Setting up database..."
-            ensure_database_directory
+            setup_secrets
             bundle exec rails db:prepare db:seed
             echo "Database setup completed!"
             ;;
 
         console)
             echo "Starting Rails console..."
-            ensure_database_directory
+            setup_secrets
             exec bundle exec rails console
             ;;
 
