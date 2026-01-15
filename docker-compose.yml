@@ -4,21 +4,30 @@
 # Usage:
 #   Standard Docker: docker compose up -d
 #   Umbrel: Automatically managed by Umbrel app system
+#
+# Configuration:
+#   - Create .env.docker to override defaults (optional)
+#   - Secrets are auto-generated on first run and stored in /app/storage/.secrets
 
 x-app-common: &app-common
   image: ghcr.io/deltabadger/deltabadger:beta
   env_file:
-    - .env.docker
+    - path: .env.docker
+      required: false
   environment:
-    # Docker-specific overrides (these override .env values)
+    # Core settings
     RAILS_ENV: production
     NODE_ENV: production
     RAILS_LOG_TO_STDOUT: "true"
     RAILS_SERVE_STATIC_FILES: "true"
+    # Database paths (SQLite stored in volume)
     DATABASE_PATH: /app/storage/production.sqlite3
     QUEUE_DATABASE_PATH: /app/storage/production_queue.sqlite3
     CACHE_DATABASE_PATH: /app/storage/production_cache.sqlite3
     CABLE_DATABASE_PATH: /app/storage/production_cable.sqlite3
+    # Default URLs (override in .env.docker for production)
+    APP_ROOT_URL: ${APP_ROOT_URL:-http://localhost:3000}
+    HOME_PAGE_URL: ${HOME_PAGE_URL:-http://localhost:3000}
   volumes:
     - storage:/app/storage
     - logs:/app/log
