@@ -5,7 +5,7 @@ class Coingecko
 
   def get_price(coin_id:, currency: 'usd')
     currency = currency.downcase
-    price = Rails.cache.fetch("#{coin_id}_price_in_#{currency}", expires_in: 20.seconds) do
+    price = Rails.cache.fetch("#{coin_id}_price_in_#{currency}", expires_in: 60.seconds) do
       result = client.coin_price_by_ids(coin_ids: [coin_id], vs_currencies: [currency])
       return result if result.failure?
 
@@ -96,6 +96,16 @@ class Coingecko
     return result if result.failure?
 
     Result::Success.new(result.data)
+  end
+
+  def get_exchange_rates
+    rates = Rails.cache.fetch('coingecko_exchange_rates', expires_in: 60.seconds) do
+      result = client.exchange_rates
+      return result if result.failure?
+
+      result.data
+    end
+    Result::Success.new(rates)
   end
 
   private

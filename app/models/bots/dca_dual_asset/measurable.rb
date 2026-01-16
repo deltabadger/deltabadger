@@ -148,6 +148,8 @@ module Bots::DcaDualAsset::Measurable
       partial: 'bots/bot_tile/bot_tile_pnl',
       locals: { bot: self, pnl: metrics_data[:pnl] || '', loading: false }
     )
+
+    user.broadcast_global_pnl_update
   end
 
   def metrics_with_current_prices_from_cache
