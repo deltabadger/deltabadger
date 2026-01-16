@@ -168,3 +168,7 @@ en:
         all: 'All'
         active: 'Active'
         inactive: 'Inactive'
+    order_filters:
+        all: 'All'
+        successful: 'Successful'
+        waiting: 'Waiting'

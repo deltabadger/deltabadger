@@ -169,3 +169,7 @@ ru:
         all: 'Все'
         active: 'Активные'
         inactive: 'Неактивные'
+    order_filters:
+        all: 'Все'
+        successful: 'Выполненные'
+        waiting: 'Ожидающие'

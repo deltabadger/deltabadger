@@ -1,25 +1,45 @@
-<%= tag.div class: "widget widget--table", data: bot.transactions.submitted.open.any? ? {
-  controller: "broadcast--on-connect",
-  broadcast__on_connect_method_value: "fetch_open_orders",
-  broadcast__on_connect_method_args_value: { bot_id: bot.id }.to_json
-} : {} do %>
-  <table class="table">
-    <thead>
-      <tr>
-        <th scope="col"><%= t('data_labels.date') %></th>
-        <th scope="col"><%= t('data_labels.amount') %></th>
-        <th scope="col"><%= t('data_labels.value') %></th>
-        <th></th>
-      </tr>
-    </thead>
-    <tbody id="orders_list">
-      <% if bot.transactions.none? %>
-        <tr id="orders_list_placeholder">
-          <td colspan="4" class="text-center text-inactive" style="padding-bottom: 2rem;">. . .</td>
-        </tr>
+<% has_successful = bot.transactions.submitted.where.not(external_status: :open).exists? %>
+<% has_waiting = bot.transactions.open.exists? %>
+<% has_other = bot.transactions.where(status: [:skipped, :failed]).exists? %>
+<% categories = [has_successful, has_waiting, has_other].count(true) %>
+<% show_filters = categories > 1 %>
+
+<div data-controller="order-filter">
+  <% if show_filters %>
+    <div class="order-filters" data-order-filter-target="filterContainer" style="margin-bottom: 0.5rem;">
+      <button class="button button--small button--multi button--multi--active" data-order-filter-target="filter" data-filter-type="all" data-action="click->order-filter#filter"><%= t('order_filters.all') %></button>
+      <% if has_successful %>
+        <button class="button button--small button--multi" data-order-filter-target="filter" data-filter-type="successful" data-action="click->order-filter#filter"><%= t('order_filters.successful') %></button>
       <% end %>
-    </tbody>
-  </table>
-  <%= turbo_frame_tag 'orders_pagination', src: bot_path(bot, format: :turbo_stream, params: { decimals: decimals }), loading: :lazy %>
-<% end %>
+      <% if has_waiting %>
+        <button class="button button--small button--multi" data-order-filter-target="filter" data-filter-type="waiting" data-action="click->order-filter#filter"><%= t('order_filters.waiting') %></button>
+      <% end %>
+    </div>
+  <% end %>
+
+  <%= tag.div class: "widget widget--table", data: has_waiting ? {
+    controller: "broadcast--on-connect",
+    broadcast__on_connect_method_value: "fetch_open_orders",
+    broadcast__on_connect_method_args_value: { bot_id: bot.id }.to_json
+  } : {} do %>
+    <table class="table">
+      <thead>
+        <tr>
+          <th scope="col"><%= t('data_labels.date') %></th>
+          <th scope="col"><%= t('data_labels.amount') %></th>
+          <th scope="col"><%= t('data_labels.value') %></th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody id="orders_list">
+        <% if bot.transactions.none? %>
+          <tr id="orders_list_placeholder">
+            <td colspan="4" class="text-center text-inactive" style="padding-bottom: 2rem;">. . .</td>
+          </tr>
+        <% end %>
+      </tbody>
+    </table>
+    <%= turbo_frame_tag 'orders_pagination', src: bot_path(bot, format: :turbo_stream, params: { decimals: decimals }), loading: :lazy %>
+  <% end %>
+</div>
 <%= render 'bots/orders/export', bot: bot %>

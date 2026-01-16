@@ -166,3 +166,7 @@ nl:
         all: 'Alle'
         active: 'Actief'
         inactive: 'Inactief'
+    order_filters:
+        all: 'Alle'
+        successful: 'Geslaagd'
+        waiting: 'Wachtend'

@@ -1,4 +1,5 @@
-<%= tag.tr id: dom_id(order), class: order.skipped? ? 'text-inactive' : order.failed? ? 'text-danger' : '', data: { hw_animate_in_prepend: "animate-order-in" } do %>
+<% order_filter_type = order.open? ? 'waiting' : (order.submitted? && !order.open?) ? 'successful' : nil %>
+<%= tag.tr id: dom_id(order), class: order.skipped? ? 'text-inactive' : order.failed? ? 'text-danger' : '', data: { hw_animate_in_prepend: "animate-order-in", order_filter_target: "row", order_type: order_filter_type } do %>
   <td scope="row"><%= order.created_at.in_time_zone(current_user.time_zone).strftime("%Y-%m-%d %I:%M %p") %></td>
 
   <% show_executed_amounts = order.submitted? && !order.open? %>

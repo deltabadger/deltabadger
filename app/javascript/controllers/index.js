@@ -4,6 +4,9 @@
 
 import { application } from "./application"
 
+import AppWakeController from "./app_wake_controller"
+application.register("app-wake", AppWakeController)
+
 import ArrowKeysNavigationController from "./arrow_keys_navigation_controller"
 application.register("arrow-keys-navigation", ArrowKeysNavigationController)
 
@@ -84,6 +87,9 @@ application.register("modal--open-and-submit-on-key-press", Modal__OpenAndSubmit
 
 import NestedLinkInButtonController from "./nested_link_in_button_controller"
 application.register("nested-link-in-button", NestedLinkInButtonController)
+
+import OrderFilterController from "./order_filter_controller"
+application.register("order-filter", OrderFilterController)
 
 import PieChartController from "./pie_chart_controller"
 application.register("pie-chart", PieChartController)
