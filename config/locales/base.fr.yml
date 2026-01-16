@@ -166,3 +166,7 @@ fr:
         all: 'Tous'
         active: 'Actifs'
         inactive: 'Inactifs'
+    order_filters:
+        all: 'Tous'
+        successful: 'Réussis'
+        waiting: 'En attente'

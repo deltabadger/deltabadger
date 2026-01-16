@@ -166,3 +166,7 @@ pl:
         all: 'Wszystkie'
         active: 'Aktywne'
         inactive: 'Nieaktywne'
+    order_filters:
+        all: 'Wszystkie'
+        successful: 'Zrealizowane'
+        waiting: 'Oczekujące'

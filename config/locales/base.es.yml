@@ -166,3 +166,7 @@ es:
         all: 'Todos'
         active: 'Activos'
         inactive: 'Inactivos'
+    order_filters:
+        all: 'Todos'
+        successful: 'Exitosos'
+        waiting: 'En espera'

@@ -166,3 +166,7 @@ it:
         all: 'Tutti'
         active: 'Attivi'
         inactive: 'Inattivi'
+    order_filters:
+        all: 'Tutti'
+        successful: 'Riusciti'
+        waiting: 'In attesa'

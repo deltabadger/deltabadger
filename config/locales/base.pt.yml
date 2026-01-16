@@ -165,3 +165,7 @@ pt:
         all: 'Todos'
         active: 'Ativos'
         inactive: 'Inativos'
+    order_filters:
+        all: 'Todos'
+        successful: 'Bem-sucedidos'
+        waiting: 'Aguardando'
