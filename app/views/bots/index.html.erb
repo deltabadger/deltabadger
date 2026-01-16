@@ -4,7 +4,7 @@
   <%= render partial: 'bots/new_menu_start' %>
 <% else %>
   <div class="page-head page-head--dashboard">
-    <div class="bot-filters">
+    <div class="filters">
       <% if @show_filters %>
         <%= link_to t('bot_filters.all'), bots_path(filter: 'all'), class: ["button button--small button--multi", ("button--multi--active" if @filter == 'all')] %>
         <%= link_to t('bot_filters.active'), bots_path(filter: 'active'), class: ["button button--small button--multi", ("button--multi--active" if @filter == 'active')] %>
