@@ -276,4 +276,16 @@ class Clients::Coingecko < Client
       Result::Success.new(response.body)
     end
   end
+
+  # https://docs.coingecko.com/reference/exchange-rates
+  # Returns BTC exchange rates against other currencies
+  # @return [Result::Success, Result::Failure] Result with rates hash
+  def exchange_rates
+    with_rescue do
+      response = connection.get do |req|
+        req.url 'exchange_rates'
+      end
+      Result::Success.new(response.body['rates'])
+    end
+  end
 end

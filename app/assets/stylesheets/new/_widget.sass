@@ -15,7 +15,7 @@
 .widget
     color: var(--ash)
     background: var(--washed)
-    padding: 2rem
+    padding: var(--ui-padding)
     display: flex
     flex-direction: column
     gap: 3rem
@@ -42,7 +42,6 @@
         width: 100%
     &.widget--chart
         max-width: 100%
-        padding-bottom: 2rem
     &.data-grid
         border-radius: 2rem
         padding: 0
@@ -58,7 +57,7 @@
         padding-top: 4rem
         padding-bottom: 4rem
         &.main-bot-settings--dual-asset
-            padding-bottom: 2rem
+            padding-bottom: var(--ui-padding)
         @media (min-width: 768px)
             padding-top: 4.5rem
             padding-bottom: 4.5rem
@@ -86,19 +85,22 @@
         thead
             z-index: 1
         th
-            padding: 1.5rem 0 1rem 2rem
+            padding: 1.5rem 0 1rem var(--ui-padding)
         td
-            padding: 0.75rem 0 0.75rem 2rem
+            padding: 0.75rem 0 0.75rem var(--ui-padding)
+        tr:first-child
+            th,td
+                padding-top: calc(var(--ui-padding)/1.5)
         tr:last-child
-            td
-                padding-bottom: 1.5rem
+            th,td
+                padding-bottom: calc(var(--ui-padding)/1.5)
         td, th
             text-align: right
             border: none
             &:first-child
                 text-align: left
             &:last-child
-                padding-right: 2rem
+                padding-right: var(--ui-padding)
         .tooltip-info-icon
             width: 3rem
             float: right
@@ -117,7 +119,7 @@
                 border-color: #fff0
                 border-left-color: var(--sky) !important
         path
-            fill: var(--stone)
+            fill: var(--concrete)
     .sinput
         box-shadow: none
     p:last-child
