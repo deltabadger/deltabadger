@@ -153,7 +153,13 @@ select
 .widget
     .sinput
         background: var(--paper)
-.bot-filters
+
+.filters
     display: flex
     .button
+        color: var(--ink)
         margin-right: -1rem
+        &:not(.button--multi--active)
+            box-shadow: none
+            background: none
+            color: var(--stone)
