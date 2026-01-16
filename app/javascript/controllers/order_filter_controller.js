@@ -3,7 +3,7 @@ import { Controller } from "@hotwired/stimulus"
 // Connects to data-controller="order-filter"
 // Filters order rows based on type (all, successful, waiting)
 export default class extends Controller {
-  static targets = ["row", "filter", "filterContainer"]
+  static targets = ["row", "filter"]
   static values = { current: { type: String, default: "all" } }
 
   connect() {
@@ -11,7 +11,6 @@ export default class extends Controller {
   }
 
   rowTargetConnected() {
-    this.updateFilterVisibility()
     this.updateVisibility()
   }
 
@@ -37,23 +36,4 @@ export default class extends Controller {
     })
   }
 
-  updateFilterVisibility() {
-    if (!this.hasFilterContainerTarget) return
-
-    let hasSuccessful = false
-    let hasWaiting = false
-    let hasOther = false // skipped, failed, etc.
-
-    this.rowTargets.forEach(row => {
-      const orderType = row.dataset.orderType
-      if (orderType === "successful") hasSuccessful = true
-      else if (orderType === "waiting") hasWaiting = true
-      else hasOther = true
-    })
-
-    // Show filters if there's more than one category of orders
-    const categories = [hasSuccessful, hasWaiting, hasOther].filter(Boolean).length
-    const shouldShow = categories > 1 || (hasSuccessful && hasWaiting)
-    this.filterContainerTarget.style.display = shouldShow ? "" : "none"
-  }
 }

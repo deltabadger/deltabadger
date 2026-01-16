@@ -23,13 +23,17 @@ class BotsController < ApplicationController
 
     @pnl_hash = {}
     @loading_hash = {}
+    @metrics_hash = {}
     @bots.each do |bot|
       next unless bot.dca_single_asset? || bot.dca_dual_asset?
 
       metrics_with_current_prices = bot.metrics_with_current_prices_from_cache
       @pnl_hash[bot.id] = metrics_with_current_prices[:pnl] unless metrics_with_current_prices.nil?
       @loading_hash[bot.id] = metrics_with_current_prices.nil?
+      @metrics_hash[bot.id] = metrics_with_current_prices unless metrics_with_current_prices.nil?
     end
+
+    @global_pnl = current_user.global_pnl
   end
 
   def new
