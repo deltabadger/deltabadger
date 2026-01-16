@@ -90,7 +90,7 @@ Rails.application.configure do
   config.active_record.dump_schema_after_migration = false
 
   # Determine protocol from APP_ROOT_URL or use FORCE_SSL setting
-  app_root_url = ENV.fetch('APP_ROOT_URL')
+  app_root_url = ENV.fetch('APP_ROOT_URL', 'http://localhost:3000')
   default_protocol = app_root_url.start_with?('https://') ? 'https' : 'http'
   default_protocol = 'https' if ENV['FORCE_SSL'] == 'true'
 
@@ -98,16 +98,16 @@ Rails.application.configure do
   app_host = app_root_url.gsub(/^https?:\/\//, '').gsub(/\/.*$/, '')
 
   config.action_mailer.default_url_options = { host: app_host, protocol: default_protocol }
-  config.action_mailer.perform_deliveries = true
+  config.action_mailer.perform_deliveries = ENV['SMTP_ADDRESS'].present?
   config.action_mailer.delivery_method = :smtp
   config.action_mailer.smtp_settings = {
-    address: ENV.fetch('SMTP_ADDRESS'),
+    address: ENV.fetch('SMTP_ADDRESS', 'localhost'),
     authentication: :plain,
-    domain: ENV.fetch('SMTP_DOMAIN'),
-    port: ENV.fetch('SMTP_PORT'),
+    domain: ENV.fetch('SMTP_DOMAIN', 'localhost'),
+    port: ENV.fetch('SMTP_PORT', '25'),
     enable_starttsl_auto: true,
-    user_name: ENV.fetch('SMTP_USER_NAME'),
-    password: ENV.fetch('SMTP_PASSWORD')
+    user_name: ENV.fetch('SMTP_USER_NAME', ''),
+    password: ENV.fetch('SMTP_PASSWORD', '')
   }
   routes.default_url_options = {host: app_host, protocol: default_protocol}
 
@@ -129,7 +129,7 @@ Rails.application.configure do
 
   config.exceptions_app = self.routes
 
-  config.action_cable.allowed_request_origins = [ENV.fetch('APP_ROOT_URL')]
+  config.action_cable.allowed_request_origins = [app_root_url]
   config.action_cable.worker_pool_size = ENV.fetch('MAX_DB_CONNECTIONS', 4)
 
   config.dry_run = false

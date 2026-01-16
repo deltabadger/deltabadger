@@ -116,8 +116,7 @@ For production deployments:
 If you prefer to build the image locally instead of using the pre-built one:
 
 ```bash
-docker compose build
-docker compose up -d
+docker compose -f docker-compose.build.yml up -d --build
 ```
 
 ---

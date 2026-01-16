@@ -1,0 +1,33 @@
+# Deltabadger Docker Compose - Build from Source
+#
+# Usage: docker compose -f docker-compose.build.yml up -d --build
+# Access: http://localhost:3000
+
+services:
+  deltabadger:
+    build: .
+    command: standalone
+    ports:
+      - "${APP_PORT:-3000}:3000"
+    env_file:
+      - path: .env.docker
+        required: false
+    environment:
+      RAILS_ENV: production
+      NODE_ENV: production
+      RAILS_LOG_TO_STDOUT: "true"
+      RAILS_SERVE_STATIC_FILES: "true"
+      APP_ROOT_URL: ${APP_ROOT_URL:-http://localhost:3000}
+      HOME_PAGE_URL: ${HOME_PAGE_URL:-http://localhost:3000}
+    volumes:
+      - storage:/app/storage
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/health-check"]
+      interval: 30s
+      timeout: 10s
+      start_period: 60s
+      retries: 3
+
+volumes:
+  storage:
