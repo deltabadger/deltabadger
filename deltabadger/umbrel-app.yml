@@ -1,0 +1,32 @@
+manifestVersion: 1
+id: deltabadger
+name: Deltabadger
+tagline: Automated DCA cryptocurrency trading bot
+icon: https://raw.githubusercontent.com/deltabadger/deltabadger/main/deltabadger/icon.svg
+category: finance
+version: "1.0.15-beta"
+port: 3000
+description: >-
+  Deltabadger automates Dollar Cost Averaging (DCA) on popular crypto exchanges. Over 6 years, it has helped users invest over $72 million into Bitcoin and other digital assets. Now it's free, open-source, and self-hosted for maximum privacy and control.
+
+  Key Features:
+
+  - Automated DCA trading across Binance, Kraken, and Coinbase
+
+  - Advanced triggers: RSI, EMA, "buy the dip", etc.
+
+  - Moving bots between exchanges
+
+  - Performance tracking
+
+developer: Deltabadger
+website: https://deltabadger.com
+repo: https://github.com/deltabadger/deltabadger
+support: https://github.com/deltabadger/deltabadger/issues
+gallery:
+  - https://raw.githubusercontent.com/deltabadger/deltabadger/main/deltabadger/gallery/1.webp
+  - https://raw.githubusercontent.com/deltabadger/deltabadger/main/deltabadger/gallery/2.webp
+releaseNotes: >-
+  Initial Umbrel release with full DCA automation capabilities.
+dependencies: []
+submitter: Deltabadger
