@@ -1,0 +1,20 @@
+<div id="global-pnl">
+  <% if global_pnl.present? %>
+    <% pnl_percent = global_pnl[:percent] %>
+    <% profit_usd = global_pnl[:profit_usd] %>
+    <% color_class = pnl_percent.negative? ? 'text-danger' : pnl_percent.positive? ? 'text-success' : '' %>
+    <h1 class="header header--1 <%= color_class %>"
+        data-controller="value-toggle"
+        data-action="click->value-toggle#toggle"
+        style="cursor: pointer;">
+      <span data-value-toggle-target="primary">
+        <%= pnl_percent.positive? ? '+' : '' %><%= format_percent(pnl_percent, precision: 2) %>
+      </span>
+      <span data-value-toggle-target="secondary" class="d-none">
+        <%= profit_usd.positive? ? '+' : '' %><%= number_to_currency(profit_usd, precision: 0) %>
+      </span>
+    </h1>
+  <% elsif loading %>
+    <div class="loader--small"></div>
+  <% end %>
+</div>
