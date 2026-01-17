@@ -17,12 +17,16 @@ max_threads_count = ENV.fetch('RAILS_MAX_THREADS', 5)
 min_threads_count = ENV.fetch('RAILS_MIN_THREADS', max_threads_count)
 threads min_threads_count, max_threads_count
 
-# Specifies that the worker count should equal the number of processors in production.
-workers_count = if rails_env == 'production'
-                  require 'concurrent-ruby'
-                  Integer(ENV.fetch('WEB_CONCURRENCY') { Concurrent.physical_processor_count })
+# Specifies the worker count.
+# Default to 0 (single-mode) for Docker/standalone to avoid fork issues on macOS.
+# Set WEB_CONCURRENCY explicitly for multi-worker cluster mode.
+workers_count = if ENV.key?('WEB_CONCURRENCY')
+                  Integer(ENV['WEB_CONCURRENCY'])
+                elsif rails_env == 'production'
+                  # Default to single-mode in production (safer for Docker/self-hosted)
+                  0
                 else
-                  Integer(ENV.fetch('WEB_CONCURRENCY', 2))
+                  0
                 end
 
 if workers_count > 1

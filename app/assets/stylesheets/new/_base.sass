@@ -24,10 +24,10 @@ ol, ul
 .main
     display: flex
     justify-content: center
-    padding: 1rem 2.5rem 2.5rem 9.625rem
+    padding: 0 1rem 1rem
     min-height: 100vh
-    @media only screen and (max-width: 767.9px)
-      padding: 8rem 1rem 1rem
+    @media only screen and (min-width: 768px)
+      padding: 1rem 2.5rem 2.5rem 9.625rem
 .main-content
     @media (min-width: 768px)
         max-width: calc(100vw - 4rem)
@@ -54,7 +54,6 @@ ol, ul
     justify-content: space-between
     @media only screen and (max-width: 767.9px)
         justify-content: flex-end
-        margin-top: -8rem
         margin-bottom: 0
     &__controls
         display: flex
@@ -221,7 +220,7 @@ ol, ul
 
 .dash-intro
     border-bottom: 0.1rem solid var(--steel)
-    display: none
+    display: flex
     flex-direction: column
     justify-content: flex-end
     align-items: flex-end

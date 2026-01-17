@@ -9,7 +9,7 @@
 
 services:
   deltabadger:
-    image: ghcr.io/deltabadger/deltabadger:beta
+    image: ghcr.io/deltabadger/deltabadger:latest
     command: standalone
     ports:
       - "${APP_PORT:-3000}:3000"
