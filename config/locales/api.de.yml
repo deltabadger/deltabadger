@@ -10,7 +10,7 @@ de:
                     -   text_html: 'Beschriften Sie Ihre Schlüssel (z.B. "deltabadger") und führen Sie bei Bedarf die Sicherheitsüberprüfung durch.'
                     -   text_html: 'Klicken Sie auf <b class="pbutton">Einschränkungen bearbeiten</b> in der oberen rechten Ecke der Schlüsselkachel.'
                         sub_instructions:
-                            -   text_html: "🔘 Zugriff auf vertrauenswürdige IPs beschränken: <b>%{ip}</b>.<br><strong>⚠️ Wichtig:</strong> Führen Sie diesen Schritt zuerst aus, um den nächsten Schritt zu ermöglichen."
+                            -   text_html: "🔘 Restrict access to trusted IPs only: Fügen Sie die IP-Adresse der Maschine hinzu, auf der Deltabadger installiert ist. Wenn es auf einem Server läuft, verwenden Sie die öffentliche IP des Servers. Wenn es Ihr lokaler Computer ist, <a href=\"https://whatismyipaddress.com\" target=\"_blank\">prüfen Sie Ihre IP hier</a>.<br><strong>⚠️ Wichtig:</strong> Führen Sie dies zuerst aus, um den nächsten Schritt zu aktivieren."
                             -   text_html: "Aktivieren Sie:<br>☑️ <b>Leseberechtigung aktivieren</b><br>☑️ <b>Spot- und Margin-Handel aktivieren</b>.<br><strong>⚠️ Wichtig:</strong> Die Schlüssel funktionieren nicht, wenn Sie weitere Berechtigungen hinzufügen."
                     -   text_html: 'Klicken Sie auf <b>Speichern</b> und führen Sie bei Bedarf die Sicherheitsüberprüfung durch.'
                     -   text_html: 'Kopieren und fügen Sie Ihre neuen API-Schlüssel oben ein.'
@@ -34,9 +34,9 @@ de:
                                     -   text_html: '<b>Standard</b>, oder das Portfolio, auf das Deltabadger zugreifen soll, wenn Sie keine Coinbase-Portfolios verwenden.'
                                     -   text_html: '<b>View</b> (read-only)'
                                     -   text_html: '<b>Trade</b> (execute trades on your behalf)<br><strong>⚠️ Wichtig:</strong> Die Schlüssel funktionieren nicht, wenn Sie weitere Berechtigungen hinzufügen.'
-                            -   text_html: 'IP-Positivliste'
+                            -   text_html: 'IP whitelist'
                                 sub_instructions:
-                                    -   text_html: '<b>%{ip}</b>'
+                                    -   text_html: '🔘 Fügen Sie die IP-Adresse der Maschine hinzu, auf der Deltabadger installiert ist. Wenn es auf einem Server läuft, verwenden Sie die öffentliche IP des Servers. Wenn es Ihr lokaler Computer ist, <a href="https://whatismyipaddress.com" target="_blank">prüfen Sie Ihre IP hier</a>.'
                     -   text_html: 'Klicken Sie auf <b>Erstellen und herunterladen</b> und schließen Sie die 2-Schritt-Verifizierung ab.'
                     -   text_html: 'Kopieren und fügen Sie Ihre neuen API-Schlüssel in das obige Formular ein.'
                 private_key: 'Privater Schlüssel'
@@ -57,9 +57,9 @@ de:
                                     -   text_html: '<b>Abfrage geschlossener Order & Trades</b>'
                                     -   text_html: '<b>Orders erstellen und ändern</b>'
                                     -   text_html: '<b>Orders stornieren und schließen</b><br><strong>⚠️ Wichtig:</strong> Die Schlüssel funktionieren nicht, wenn Sie weitere Berechtigungen hinzufügen.'
-                            -   text_html: 'Einschränkung der IP-Adresse:'
+                            -   text_html: 'IP address restriction:'
                                 sub_instructions:
-                                    -   text_html: '<b>Aus</b>, IP: <b>%{ip}</b>'
+                                    -   text_html: '🔘 Fügen Sie die IP-Adresse der Maschine hinzu, auf der Deltabadger installiert ist. Wenn es auf einem Server läuft, verwenden Sie die öffentliche IP des Servers. Wenn es Ihr lokaler Computer ist, <a href="https://whatismyipaddress.com" target="_blank">prüfen Sie Ihre IP hier</a>.'
                     -   text_html: 'Klicken Sie auf <b>Schlüssel generieren</b>.'
                     -   text_html: 'Kopieren und fügen Sie Ihre neuen API-Schlüssel in das obige Formular ein.'
                 private_key: 'Privater Schlüssel'

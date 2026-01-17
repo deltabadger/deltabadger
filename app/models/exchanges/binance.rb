@@ -20,10 +20,6 @@ class Exchanges::Binance < Exchange
     ERRORS
   end
 
-  def proxy_ip
-    @proxy_ip ||= Clients::Binance::PROXY.split('://').last.split(':').first if Clients::Binance::PROXY.present?
-  end
-
   def set_client(api_key: nil)
     @api_key = api_key
     @client = Clients::Binance.new(

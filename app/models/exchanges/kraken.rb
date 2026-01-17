@@ -50,10 +50,6 @@ class Exchanges::Kraken < Exchange
     ERRORS
   end
 
-  def proxy_ip
-    @proxy_ip ||= Clients::Kraken::PROXY.split('://').last.split(':').first if Clients::Kraken::PROXY.present?
-  end
-
   def set_client(api_key: nil)
     @api_key = api_key
     @client = Clients::Kraken.new(

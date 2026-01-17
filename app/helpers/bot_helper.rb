@@ -113,17 +113,16 @@ module BotHelper
   def render_api_key_instructions(bot)
     exchange_key = bot.exchange.name_id
     exchange_name = bot.exchange.name
-    exchange_ip = bot.exchange.proxy_ip || ''
     instructions = t("bot.api.#{exchange_key}.instructions")
     content_tag(:ol, class: 'set__list') do
-      instructions.map { |instruction| render_instruction(instruction, exchange_name, exchange_ip) }.join.html_safe
+      instructions.map { |instruction| render_instruction(instruction, exchange_name) }.join.html_safe
     end
   end
 
   private
 
-  def render_instruction(instruction, exchange_name, exchange_ip, level = 1)
-    text = instruction[:text_html].gsub('%{exchange_link}', exchange_name).gsub('%{ip}', exchange_ip).html_safe # rubocop:disable Style/FormatStringToken
+  def render_instruction(instruction, exchange_name, level = 1)
+    text = instruction[:text_html].gsub('%{exchange_link}', exchange_name).html_safe
     sub_instructions = instruction[:sub_instructions]
 
     content_tag(:li) do
@@ -132,7 +131,7 @@ module BotHelper
         if sub_instructions&.any?
           content_tag(level == 1 ? :ol : :ul) do
             sub_instructions.map do |sub_instruction|
-              render_instruction(sub_instruction, exchange_name, exchange_ip, level + 1)
+              render_instruction(sub_instruction, exchange_name, level + 1)
             end.join.html_safe
           end
         end

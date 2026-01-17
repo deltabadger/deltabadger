@@ -10,7 +10,7 @@ fr:
                     -   text_html: 'Étiquetez vos clés (par exemple "deltabadger") et passez la vérification de sécurité si nécessaire.'
                     -   text_html: 'Cliquez sur <b class="pbutton">Modifier les restrictions</b> dans le coin supérieur droit de la tuile des clés.'
                         sub_instructions:
-                            -   text_html: "🔘 Restreindre l’accès aux adresses IP de confiance uniquement : <b>%{ip}</b>.<br><strong>⚠️ Important :</strong> Faites ceci en premier pour activer l'étape suivante."
+                            -   text_html: "🔘 Restreindre l'accès aux adresses IP de confiance uniquement : ajoutez l'adresse IP de la machine où Deltabadger est installé. Si vous utilisez un serveur, utilisez l'IP publique du serveur. Si c'est votre ordinateur personnel, <a href=\"https://whatismyipaddress.com\" target=\"_blank\">vérifiez votre IP ici</a>.<br><strong>⚠️ Important :</strong> Faites ceci en premier pour activer l'étape suivante."
                             -   text_html: "Cochez:<br>☑️ <b>Permettre la lecture</b><br>☑️ <b>Activer le trading Spot et sur marge</b>.<br><strong>⚠️ Important :</strong> Les clés ne fonctionneront pas si vous ajoutez plus d'autorisations."
                     -   text_html: 'Cliquez sur <b>Enregistrer</b> et passez la vérification de sécurité si nécessaire.'
                     -   text_html: 'Copiez et collez vos nouvelles clés API ci-dessus.'
@@ -36,7 +36,7 @@ fr:
                                     -   text_html: '<b>Trade</b> (execute trades on your behalf)<br><strong>⚠️ Important :</strong> Les clés ne fonctionneront pas si vous ajoutez plus d''autorisations.'
                             -   text_html: 'Liste blanche d''adresses IP'
                                 sub_instructions:
-                                    -   text_html: '<b>%{ip}</b>'
+                                    -   text_html: '🔘 Ajoutez l''adresse IP de la machine où Deltabadger est installé. Si vous utilisez un serveur, utilisez l''IP publique du serveur. Si c''est votre ordinateur personnel, <a href="https://whatismyipaddress.com" target="_blank">vérifiez votre IP ici</a>.'
                     -   text_html: 'Cliquez sur <b>Créer et télécharger</b> et terminez la vérification en 2 étapes.'
                     -   text_html: 'Copiez et collez vos nouvelles clés API dans le formulaire ci-dessus.'
                 private_key: 'Clé privée'
@@ -59,7 +59,7 @@ fr:
                                     -   text_html: '<b>Annuler et clôturer les ordres</b><br><strong>⚠️ Important :</strong> Les clés ne fonctionneront pas si vous ajoutez plus d''autorisations.'
                             -   text_html: 'Restriction d''adresse IP'
                                 sub_instructions:
-                                    -   text_html: '<b>Activé</b>, IP : <b>%{ip}</b>'
+                                    -   text_html: '🔘 Ajoutez l''adresse IP de la machine où Deltabadger est installé. Si vous utilisez un serveur, utilisez l''IP publique du serveur. Si c''est votre ordinateur personnel, <a href="https://whatismyipaddress.com" target="_blank">vérifiez votre IP ici</a>.'
                     -   text_html: 'Appuyez sur <b>Générer la Clé</b>.'
                     -   text_html: 'Copiez et collez vos nouvelles clés API dans le formulaire ci-dessus.'
                 private_key: 'Clé privée'

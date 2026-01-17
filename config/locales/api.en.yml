@@ -10,7 +10,7 @@ en:
                     -   text_html: 'Label your keys (e.g. "deltabadger") and pass the security verification if necessary.'
                     -   text_html: 'Click <b class="pbutton">Edit restrictions</b> in the top-right corner of the keys tile.'
                         sub_instructions:
-                            -   text_html: "🔘 Restrict access to trusted IPs only: <b>%{ip}</b>.<br><strong>⚠️ Important:</strong> Do this first to enable the next step."
+                            -   text_html: "🔘 Restrict access to trusted IPs only: whitelist the IP address of the machine where Deltabadger is installed. If running on a server, use the server's public IP. If it's your local computer <a href=\"https://whatismyipaddress.com\" target=\"_blank\">check your IP here</a>.<br><strong>⚠️ Important:</strong> Do this first to enable the next step."
                             -   text_html: "Check:<br>☑️ <b>Enable Reading</b><br>☑️ <b>Enable Spot & Margin Trading</b>.<br><strong>⚠️ Important:</strong> The keys will not work if you add more permissions."
                     -   text_html: 'Click <b>Save</b> and pass the security verification if necessary.'
                     -   text_html: 'Copy and paste your new API keys above.'
@@ -36,7 +36,7 @@ en:
                                     -   text_html: '<b>Trade</b> (execute trades on your behalf)<br><strong>⚠️ Important:</strong> The keys will not work if you add more permissions.'
                             -   text_html: 'IP whitelist'
                                 sub_instructions:
-                                    -   text_html: '<b>%{ip}</b>'
+                                    -   text_html: '🔘 Whitelist the IP address of the machine where Deltabadger is installed. If running on a server, use the server''s public IP. If it''s your local computer <a href="https://whatismyipaddress.com" target="_blank">check your IP here</a>.'
                     -   text_html: 'Click <b>Create & download</b> and complete the 2-step verification.'
                     -   text_html: 'Copy and paste your new API keys into the form above.'
                 private_key: 'Secret'
@@ -59,7 +59,7 @@ en:
                                     -   text_html: '<b>Cancel & close orders</b><br><strong>⚠️ Important:</strong> The keys will not work if you add more permissions.'
                             -   text_html: 'IP address restriction:'
                                 sub_instructions:
-                                    -   text_html: '<b>On</b>, IP: <b>%{ip}</b>'
+                                    -   text_html: '🔘 Whitelist the IP address of the machine where Deltabadger is installed. If running on a server, use the server''s public IP. If it''s your local computer <a href="https://whatismyipaddress.com" target="_blank">check your IP here</a>.'
                     -   text_html: 'Press <b>Generate key</b>.'
                     -   text_html: 'Copy and paste your new API keys into the form above.'
                 private_key: 'Private Key'
