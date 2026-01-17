@@ -1,15 +1,16 @@
-# Umbrel App - Deltabadger Docker Compose
-# This file is used by Umbrel's app system
+version: "3.7"
 
 services:
   app_proxy:
     environment:
       APP_HOST: deltabadger_web_1
       APP_PORT: 3000
+      PROXY_AUTH_ADD: "false"
 
   web:
-    image: ghcr.io/deltabadger/deltabadger:${APP_DELTABADGER_VERSION:-latest}
+    image: ghcr.io/deltabadger/deltabadger:latest
     user: "1000:1000"
+    restart: on-failure
     command: web
     environment:
       RAILS_ENV: production
@@ -24,17 +25,17 @@ services:
       SECRET_KEY_BASE: ${APP_SEED}-secret-key-base
       DEVISE_SECRET_KEY: ${APP_SEED}-devise-secret
       APP_ENCRYPTION_KEY: ${APP_SEED}-encryption-key-0000
-      HOME_PAGE_URL: http://${DEVICE_HOSTNAME}:${APP_DELTABADGER_PORT}
-      APP_ROOT_URL: http://${DEVICE_HOSTNAME}:${APP_DELTABADGER_PORT}
+      HOME_PAGE_URL: http://${DEVICE_DOMAIN_NAME}:3000
+      APP_ROOT_URL: http://${DEVICE_DOMAIN_NAME}:3000
       RAILS_MAX_THREADS: "5"
     volumes:
-      - ${APP_DATA_DIR}/storage:/app/storage
-      - ${APP_DATA_DIR}/logs:/app/log
-    restart: on-failure
+      - ${APP_DATA_DIR}/data/storage:/app/storage
+      - ${APP_DATA_DIR}/data/logs:/app/log
 
   jobs:
-    image: ghcr.io/deltabadger/deltabadger:${APP_DELTABADGER_VERSION:-latest}
+    image: ghcr.io/deltabadger/deltabadger:latest
     user: "1000:1000"
+    restart: on-failure
     command: jobs
     environment:
       RAILS_ENV: production
@@ -43,15 +44,14 @@ services:
       DATABASE_PATH: /app/storage/production.sqlite3
       QUEUE_DATABASE_PATH: /app/storage/production_queue.sqlite3
       CACHE_DATABASE_PATH: /app/storage/production_cache.sqlite3
-      CABLE_DATABASE_PATH: /app/storage/production_cable.sqlite3
+      CABLE_DATABASE_PATH: /app/storage/production_cache.sqlite3
       SECRET_KEY_BASE: ${APP_SEED}-secret-key-base
       DEVISE_SECRET_KEY: ${APP_SEED}-devise-secret
       APP_ENCRYPTION_KEY: ${APP_SEED}-encryption-key-0000
-      HOME_PAGE_URL: http://${DEVICE_HOSTNAME}:${APP_DELTABADGER_PORT}
-      APP_ROOT_URL: http://${DEVICE_HOSTNAME}:${APP_DELTABADGER_PORT}
+      HOME_PAGE_URL: http://${DEVICE_DOMAIN_NAME}:3000
+      APP_ROOT_URL: http://${DEVICE_DOMAIN_NAME}:3000
     volumes:
-      - ${APP_DATA_DIR}/storage:/app/storage
-      - ${APP_DATA_DIR}/logs:/app/log
+      - ${APP_DATA_DIR}/data/storage:/app/storage
+      - ${APP_DATA_DIR}/data/logs:/app/log
     depends_on:
       - web
-    restart: on-failure
