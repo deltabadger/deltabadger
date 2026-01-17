@@ -10,7 +10,7 @@ pl:
                     -   text_html: 'Oznacz swoje klucze (np. "deltabadger") i w razie potrzeby przejdź weryfikację bezpieczeństwa.'
                     -   text_html: 'Kliknij <b class="pbutton">Zmień uprawnienia</b> w prawym górnym rogu kafelka kluczy.'
                         sub_instructions:
-                            -   text_html: "🔘 Ogranicz dostęp tylko do zaufanych adresów IP: <b>%{ip}</b>.<br><strong>⚠️ Ważne:</strong> Zrób to najpierw, aby umożliwić następny krok."
+                            -   text_html: "🔘 Restrict access to trusted IPs only: dodaj adres IP maszyny, na której zainstalowany jest Deltabadger. Jeśli to serwer, użyj publicznego IP serwera. Jeśli to twój komputer lokalny, <a href=\"https://whatismyipaddress.com\" target=\"_blank\">sprawdź swoje IP tutaj</a>.<br><strong>⚠️ Ważne:</strong> Zrób to najpierw, aby włączyć następny krok."
                             -   text_html: "Zaznacz:<br>☑️ <b>Włącz Odczyt</b><br>☑️ <b>Włącz Handel Spot i Margin</b>.<br><strong>⚠️ Ważne:</strong> Klucze nie będą działać, jeśli dodasz więcej uprawnień."
                     -   text_html: 'Kliknij <b>Zapisz</b> i w razie potrzeby przejdź weryfikację bezpieczeństwa.'
                     -   text_html: 'Skopiuj i wklej swoje nowe klucze API powyżej.'
@@ -36,7 +36,7 @@ pl:
                                     -   text_html: '<b>Trade</b> (execute trades on your behalf)<br><strong>⚠️ Ważne:</strong> Klucze nie będą działać, jeśli dodasz więcej uprawnień.'
                             -   text_html: 'IP whitelist'
                                 sub_instructions:
-                                    -   text_html: '<b>%{ip}</b>'
+                                    -   text_html: '🔘 Dodaj adres IP maszyny, na której zainstalowany jest Deltabadger. Jeśli to serwer, użyj publicznego IP serwera. Jeśli to twój komputer lokalny, <a href="https://whatismyipaddress.com" target="_blank">sprawdź swoje IP tutaj</a>.'
                     -   text_html: 'Kliknij <b>Create & download</b> i ukończ weryfikację 2-etapową.'
                     -   text_html: 'Skopiuj i wklej swoje nowe klucze API do powyższego formularza.'
                 private_key: 'Secret'
@@ -57,9 +57,9 @@ pl:
                                     -   text_html: '<b>Zapytanie o zamknięte zlecenia i transakcje</b>'
                                     -   text_html: '<b>Twórz i modyfikuj zlecenia</b>'
                                     -   text_html: '<b>Anuluj i zamknij zlecenia</b><br><strong>⚠️ Ważne:</strong> Klucze nie będą działać, jeśli dodasz więcej uprawnień.'
-                            -   text_html: 'Ograniczenie adresu IP:'
+                            -   text_html: 'IP address restriction:'
                                 sub_instructions:
-                                    -   text_html: '<b>Wł.</b>, IP: <b>%{ip}</b>'
+                                    -   text_html: '🔘 Dodaj adres IP maszyny, na której zainstalowany jest Deltabadger. Jeśli to serwer, użyj publicznego IP serwera. Jeśli to twój komputer lokalny, <a href="https://whatismyipaddress.com" target="_blank">sprawdź swoje IP tutaj</a>.'
                     -   text_html: 'Naciśnij <b>Wygeneruj klucz</b>.'
                     -   text_html: 'Skopiuj i wklej swoje nowe klucze API do powyższego formularza.'
                 private_key: 'Klucz prywatny'

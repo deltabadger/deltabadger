@@ -21,10 +21,6 @@ class Exchanges::Coinbase < Exchange
     ERRORS
   end
 
-  def proxy_ip
-    @proxy_ip ||= Clients::Coinbase::PROXY.split('://').last.split(':').first if Clients::Coinbase::PROXY.present?
-  end
-
   def set_client(api_key: nil)
     @api_key = api_key
     @client = Clients::Coinbase.new(
