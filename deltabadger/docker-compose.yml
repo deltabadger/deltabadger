@@ -2,7 +2,11 @@
 # This file is used by Umbrel's app system
 
 services:
-  # Web server (Puma)
+  app_proxy:
+    environment:
+      APP_HOST: deltabadger_web_1
+      APP_PORT: 3000
+
   web:
     image: ghcr.io/deltabadger/deltabadger:${APP_DELTABADGER_VERSION:-latest}
     user: "1000:1000"
@@ -13,29 +17,21 @@ services:
       RAILS_LOG_TO_STDOUT: "true"
       RAILS_SERVE_STATIC_FILES: "true"
       AUTO_MIGRATE: "true"
-      # Database (SQLite - stored in /app/storage)
       DATABASE_PATH: /app/storage/production.sqlite3
       QUEUE_DATABASE_PATH: /app/storage/production_queue.sqlite3
       CACHE_DATABASE_PATH: /app/storage/production_cache.sqlite3
       CABLE_DATABASE_PATH: /app/storage/production_cable.sqlite3
-      # App secrets
       SECRET_KEY_BASE: ${APP_SEED}-secret-key-base
       DEVISE_SECRET_KEY: ${APP_SEED}-devise-secret
-      # Encryption key (derived from seed)
       APP_ENCRYPTION_KEY: ${APP_SEED}-encryption-key-0000
-      # App URLs
       HOME_PAGE_URL: http://${DEVICE_HOSTNAME}:${APP_DELTABADGER_PORT}
       APP_ROOT_URL: http://${DEVICE_HOSTNAME}:${APP_DELTABADGER_PORT}
-      # Performance
       RAILS_MAX_THREADS: "5"
-    ports:
-      - "${APP_DELTABADGER_PORT}:3000"
     volumes:
       - ${APP_DATA_DIR}/storage:/app/storage
       - ${APP_DATA_DIR}/logs:/app/log
     restart: on-failure
 
-  # Solid Queue background job processor
   jobs:
     image: ghcr.io/deltabadger/deltabadger:${APP_DELTABADGER_VERSION:-latest}
     user: "1000:1000"
@@ -44,17 +40,13 @@ services:
       RAILS_ENV: production
       NODE_ENV: production
       RAILS_LOG_TO_STDOUT: "true"
-      # Database (SQLite - stored in /app/storage)
       DATABASE_PATH: /app/storage/production.sqlite3
       QUEUE_DATABASE_PATH: /app/storage/production_queue.sqlite3
       CACHE_DATABASE_PATH: /app/storage/production_cache.sqlite3
       CABLE_DATABASE_PATH: /app/storage/production_cable.sqlite3
-      # App secrets
       SECRET_KEY_BASE: ${APP_SEED}-secret-key-base
       DEVISE_SECRET_KEY: ${APP_SEED}-devise-secret
-      # Encryption key (derived from seed)
       APP_ENCRYPTION_KEY: ${APP_SEED}-encryption-key-0000
-      # App URLs
       HOME_PAGE_URL: http://${DEVICE_HOSTNAME}:${APP_DELTABADGER_PORT}
       APP_ROOT_URL: http://${DEVICE_HOSTNAME}:${APP_DELTABADGER_PORT}
     volumes:
