@@ -3,7 +3,7 @@ id: deltabadger
 name: Deltabadger
 tagline: DCA bot for crypto
 category: finance
-version: "1.0.20"
+version: "1.0.21"
 port: 3000
 description: >-
   Deltabadger automates Dollar Cost Averaging (DCA) on popular crypto exchanges. Over 6 years, it has helped users invest over $72 million into Bitcoin and other digital assets. Now it's free, open-source, and self-hosted for maximum privacy and control.
