@@ -14,7 +14,7 @@ Install [Docker Desktop](https://www.docker.com/products/docker-desktop/) for yo
 docker run -d --name deltabadger \
   -p 3000:3000 \
   -v deltabadger_data:/app/storage \
-  ghcr.io/deltabadger/deltabadger:beta standalone
+  ghcr.io/deltabadger/deltabadger:latest standalone
 ```
 
 That's it! Access the app at `http://localhost:3000`.
@@ -68,11 +68,11 @@ Single command:
 
 ```bash
 docker stop deltabadger && docker rm deltabadger
-docker pull ghcr.io/deltabadger/deltabadger:beta
+docker pull ghcr.io/deltabadger/deltabadger:latest
 docker run -d --name deltabadger \
   -p 3000:3000 \
   -v deltabadger_data:/app/storage \
-  ghcr.io/deltabadger/deltabadger:beta standalone
+  ghcr.io/deltabadger/deltabadger:latest standalone
 ```
 
 Docker Compose:

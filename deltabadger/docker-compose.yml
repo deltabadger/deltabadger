@@ -28,7 +28,6 @@ services:
       APP_ROOT_URL: http://${DEVICE_HOSTNAME}:${APP_DELTABADGER_PORT}
       # Performance
       RAILS_MAX_THREADS: "5"
-      WEB_CONCURRENCY: "2"
     ports:
       - "${APP_DELTABADGER_PORT}:3000"
     volumes:

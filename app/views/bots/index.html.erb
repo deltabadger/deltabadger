@@ -1,10 +1,11 @@
 <%= turbo_stream_from "user_#{current_user.id}", :bot_updates %>
 
-<% if @global_pnl.present? || @loading_hash.values.any? %>
+
   <section class="dash-intro">
-    <%= render partial: 'bots/global_pnl', locals: { global_pnl: @global_pnl, loading: @loading_hash.values.any? } %>
+    <% if @global_pnl.present? || @loading_hash.values.any? %>
+      <%= render partial: 'bots/global_pnl', locals: { global_pnl: @global_pnl, loading: @loading_hash.values.any? } %>
+    <% end %>
   </section>
-<% end %>
 
 <% if @bots.empty? %>
   <%= render partial: 'bots/new_menu_start' %>
