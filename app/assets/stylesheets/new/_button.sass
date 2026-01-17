@@ -17,8 +17,10 @@
     &:not(.button--link)
         min-width: 8rem
     &:hover, &:focus, &:active, &[disabled="disabled"],&[disabled]
-        color: var(--white)
         outline: none
+    &--sky, &--success, &--danger
+        &:hover, &:focus, &:active, &[disabled="disabled"],&[disabled]
+            color: var(--white)
     svg
         fill: #fff
     &--small
