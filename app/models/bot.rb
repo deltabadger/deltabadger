@@ -128,6 +128,17 @@ class Bot < ApplicationRecord
       partial: 'bots/orders/order',
       locals: { order:, decimals:, exchange_name: order.exchange.name, current_user: user, fetch: false }
     )
+
+    broadcast_order_filters_update
+  end
+
+  def broadcast_order_filters_update
+    broadcast_replace_to(
+      ["user_#{user_id}", :bot_updates],
+      target: dom_id(self, :order_filters),
+      partial: 'bots/orders/order_filters',
+      locals: { bot: self }
+    )
   end
 
   def broadcast_updated_order(order)
@@ -144,6 +155,8 @@ class Bot < ApplicationRecord
       partial: 'bots/orders/order',
       locals: { order:, decimals:, exchange_name: order.exchange.name, current_user: user, fetch: false }
     )
+
+    broadcast_order_filters_update
   end
 
   private
