@@ -21,8 +21,8 @@ services:
       # App secrets
       SECRET_KEY_BASE: ${APP_SEED}-secret-key-base
       DEVISE_SECRET_KEY: ${APP_SEED}-devise-secret
-      # Encryption key (derived from seed for consistency)
-      APP_ENCRYPTION_KEY: ${APP_SEED:0:32}
+      # Encryption key (derived from seed)
+      APP_ENCRYPTION_KEY: ${APP_SEED}-encryption-key-0000
       # App URLs
       HOME_PAGE_URL: http://${DEVICE_HOSTNAME}:${APP_DELTABADGER_PORT}
       APP_ROOT_URL: http://${DEVICE_HOSTNAME}:${APP_DELTABADGER_PORT}
@@ -53,8 +53,8 @@ services:
       # App secrets
       SECRET_KEY_BASE: ${APP_SEED}-secret-key-base
       DEVISE_SECRET_KEY: ${APP_SEED}-devise-secret
-      # Encryption key
-      APP_ENCRYPTION_KEY: ${APP_SEED:0:32}
+      # Encryption key (derived from seed)
+      APP_ENCRYPTION_KEY: ${APP_SEED}-encryption-key-0000
       # App URLs
       HOME_PAGE_URL: http://${DEVICE_HOSTNAME}:${APP_DELTABADGER_PORT}
       APP_ROOT_URL: http://${DEVICE_HOSTNAME}:${APP_DELTABADGER_PORT}
