@@ -1,0 +1,18 @@
+<% has_successful = bot.transactions.submitted.where.not(external_status: :open).exists? %>
+<% has_waiting = bot.transactions.open.exists? %>
+<% has_other = bot.transactions.where(status: [:skipped, :failed]).exists? %>
+<% categories = [has_successful, has_waiting, has_other].count(true) %>
+<% show_filters = categories > 1 %>
+
+<% order_filter = params[:order_filter] || 'all' %>
+<div id="<%= dom_id(bot, :order_filters) %>" class="filters" data-order-filter-target="filterContainer">
+  <% if show_filters %>
+    <%= link_to t('order_filters.all'), "#", class: ["button button--small button--multi", ("button--multi--active" if order_filter == 'all')], data: { order_filter_target: "filter", filter_type: "all", action: "click->order-filter#filter" } %>
+    <% if has_successful %>
+      <%= link_to t('order_filters.successful'), "#", class: ["button button--small button--multi", ("button--multi--active" if order_filter == 'successful')], data: { order_filter_target: "filter", filter_type: "successful", action: "click->order-filter#filter" } %>
+    <% end %>
+    <% if has_waiting %>
+      <%= link_to t('order_filters.waiting'), "#", class: ["button button--small button--multi", ("button--multi--active" if order_filter == 'waiting')], data: { order_filter_target: "filter", filter_type: "waiting", action: "click->order-filter#filter" } %>
+    <% end %>
+  <% end %>
+</div>

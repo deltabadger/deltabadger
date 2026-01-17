@@ -10,7 +10,7 @@ nl:
                     -   text_html: 'Label je sleutels (bijv. "deltabadger") en doorloop indien nodig de beveiligingsverificatie.'
                     -   text_html: 'Klik op <b class="pbutton">Edit restrictions</b> in de rechterbovenhoek van het sleutelvak.'
                         sub_instructions:
-                            -   text_html: "🔘 Beperk toegang tot alleen vertrouwde IP's: <b>%{ip}</b>.<br><strong>⚠️ Belangrijk:</strong> Doe dit eerst om de volgende stap mogelijk te maken."
+                            -   text_html: "🔘 Restrict access to trusted IPs only: voeg het IP-adres toe van de machine waar Deltabadger is geïnstalleerd. Als het op een server draait, gebruik dan het publieke IP van de server. Als het je lokale computer is, <a href=\"https://whatismyipaddress.com\" target=\"_blank\">controleer je IP hier</a>.<br><strong>⚠️ Belangrijk:</strong> Doe dit eerst om de volgende stap te activeren."
                             -   text_html: "Vink:<br>☑️ <b>Enable Reading</b><br>☑️ <b>Enable Spot & Margin Trading</b> aan.<br><strong>⚠️ Belangrijk:</strong> De sleutels werken niet als je meer rechten toevoegt."
                     -   text_html: 'Klik op <b>Save</b> en doorloop indien nodig de beveiligingsverificatie.'
                     -   text_html: 'Kopieer en plak je nieuwe API-sleutels hierboven.'
@@ -36,7 +36,7 @@ nl:
                                     -   text_html: '<b>Trade</b> (execute trades on your behalf)<br><strong>⚠️ Belangrijk:</strong> De sleutels werken niet als je meer rechten toevoegt.'
                             -   text_html: 'IP whitelist'
                                 sub_instructions:
-                                    -   text_html: '<b>%{ip}</b>'
+                                    -   text_html: '🔘 Voeg het IP-adres toe van de machine waar Deltabadger is geïnstalleerd. Als het op een server draait, gebruik dan het publieke IP van de server. Als het je lokale computer is, <a href="https://whatismyipaddress.com" target="_blank">controleer je IP hier</a>.'
                     -   text_html: 'Klik op <b>Create & download</b> en voltooi de 2-stapsverificatie.'
                     -   text_html: 'Kopieer en plak je nieuwe API-sleutels in het bovenstaande formulier.'
                 private_key: 'Secret'
@@ -57,9 +57,9 @@ nl:
                                     -   text_html: '<b>Gesloten orders en transacties opvragen</b>'
                                     -   text_html: '<b>Orders aanmaken en wijzigen</b>'
                                     -   text_html: '<b>Orders annuleren en sluiten</b><br><strong>⚠️ Belangrijk:</strong> De sleutels werken niet als je meer rechten toevoegt.'
-                            -   text_html: 'Beperking IP-adres:'
+                            -   text_html: 'IP address restriction:'
                                 sub_instructions:
-                                    -   text_html: '<b>Aan</b>, IP: <b>%{ip}</b>'
+                                    -   text_html: '🔘 Voeg het IP-adres toe van de machine waar Deltabadger is geïnstalleerd. Als het op een server draait, gebruik dan het publieke IP van de server. Als het je lokale computer is, <a href="https://whatismyipaddress.com" target="_blank">controleer je IP hier</a>.'
                     -   text_html: 'Druk op <b>Sleutel genereren</b>.'
                     -   text_html: 'Kopieer en plak je nieuwe API-sleutels in het bovenstaande formulier.'
                 private_key: 'Privésleutel'
