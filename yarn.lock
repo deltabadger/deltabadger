@@ -155,15 +155,10 @@
   resolved "https://registry.yarnpkg.com/@kurkle/color/-/color-0.3.4.tgz#4d4ff677e1609214fc71c580125ddddd86abcabf"
   integrity sha512-M5UknZPHRu3DEDWoipU6sE8PdkZ6Z/S+v4dD+Ke8IaNlpdSQah50lz1KtcFBa2vsdOnwbbnxJwVM4wty6udA5w==
 
-"@rails/actioncable@>=7.0":
+"@rails/actioncable@>=7.0", "@rails/actioncable@^8.1.200":
   version "8.1.200"
   resolved "https://registry.yarnpkg.com/@rails/actioncable/-/actioncable-8.1.200.tgz#acecf74ab4846144eefdbc16618786df0cebedf9"
   integrity sha512-on0DSb7AFUkq1ocxivDNQhhGW/RQpY91zvRVyyaEWP4gOOZWy33P/UyxjQk74IENWNrTqs8+zOGHwTjiiFruRw==
-
-"@rails/actioncable@^7.0.4":
-  version "7.2.300"
-  resolved "https://registry.yarnpkg.com/@rails/actioncable/-/actioncable-7.2.300.tgz#5bf24ffded6dd659d8b42cc67fb68fb51767b989"
-  integrity sha512-bmrp+HgCPd2BlhDfJ81hJ6Nvd6yh0B2hIW8ThOmUdOr3L+sFjU1glpBmn+MoQF2K0HLvnWCGqF3TxT/S0jj3QA==
 
 "@tauri-apps/api@^2.8.0", "@tauri-apps/api@^2.9.1":
   version "2.9.1"
