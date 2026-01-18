@@ -28,7 +28,7 @@ gem 'net-pop', require: false
 gem 'nio4r', '2.5.9'
 gem 'parallel'
 gem 'sqlite3', '~> 2.0'
-gem 'puma', '~> 6.3'
+gem 'puma', '~> 7.1'
 gem "rack", "3.2.4"
 gem 'rack-cors'
 gem 'rails', '~> 8.1.1'
