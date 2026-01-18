@@ -212,12 +212,24 @@ ol, ul
         cursor: not-allowed
         pointer-events: none
         opacity: 0.5
-        border-color: var(--stone) !important
-        color: var(--stone) !important
+        box-shadow: none !important
+        background-color: var(--stone)
+        &.button--outline
+            border-color: var(--stone) !important
+            color: var(--stone) !important
         .animicon *
             background-color: var(--stone) !important
-
-
+    &--outline,&--link,&--disabled,&[disabled="disabled"],&[disabled]
+        background: none
+        border: 0.25rem solid var(--link)
+        color: var(--link)
+        padding: 0 calc(2rem - 0.25rem)
+        &[disabled="disabled"],&[disabled]
+            border-color: var(--stone)
+        &.button--success
+            border-color: var(--grass)
+        &.button--danger
+            border-color: var(--berry)
 .dash-intro
     border-bottom: 0.1rem solid var(--steel)
     display: flex

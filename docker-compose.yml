@@ -1,7 +1,7 @@
 # Deltabadger Docker Compose
 #
 # Usage: docker compose up -d
-# Access: http://localhost:3000
+# Access: http://localhost:3737
 #
 # Configuration:
 #   - Create .env.docker to override defaults (optional)
@@ -12,7 +12,7 @@ services:
     image: ghcr.io/deltabadger/deltabadger:latest
     command: standalone
     ports:
-      - "${APP_PORT:-3000}:3000"
+      - "${APP_PORT:-3737}:3000"
     env_file:
       - path: .env.docker
         required: false
@@ -21,8 +21,8 @@ services:
       NODE_ENV: production
       RAILS_LOG_TO_STDOUT: "true"
       RAILS_SERVE_STATIC_FILES: "true"
-      APP_ROOT_URL: ${APP_ROOT_URL:-http://localhost:3000}
-      HOME_PAGE_URL: ${HOME_PAGE_URL:-http://localhost:3000}
+      APP_ROOT_URL: ${APP_ROOT_URL:-http://localhost:3737}
+      HOME_PAGE_URL: ${HOME_PAGE_URL:-http://localhost:3737}
     volumes:
       - storage:/app/storage
     restart: unless-stopped
