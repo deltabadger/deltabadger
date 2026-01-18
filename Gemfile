@@ -25,7 +25,7 @@ gem 'kaminari'
 gem 'net-smtp', require: false
 gem 'net-imap', require: false
 gem 'net-pop', require: false
-gem 'nio4r', '2.5.9'
+gem 'nio4r', '2.7.5'
 gem 'parallel'
 gem 'sqlite3', '~> 2.0'
 gem 'puma', '~> 7.1'
