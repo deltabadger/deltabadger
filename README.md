@@ -1,23 +1,16 @@
-# Deltabadger
+![Frame 3 (3)](https://github.com/user-attachments/assets/265db32f-e0ff-4ad9-9cbc-e10d1d47b7fe)
+
 Auto-DCA for crypto. Automate your Dollar Cost Averaging strategy across multiple exchanges. As a service, [Deltabadger](https://deltabadger.com) helped users invest over $72 million into Bitcoin and other digital assets. Now it's free and open-source!
-
-![bot](https://github.com/user-attachments/assets/efa94d9d-f663-4999-9a24-22bb909812b4)
-
-![dashboard](https://github.com/user-attachments/assets/a388230f-b106-48b3-8fca-170dba16751d)
-
 
 ### Quick Start
 
 Install [Docker Desktop](https://www.docker.com/products/docker-desktop/) for your operating system, and make sure it's running, then run Deltabadger with a single command:
 
 ```bash
-docker run -d --name deltabadger \
-  -p 3000:3000 \
-  -v deltabadger_data:/app/storage \
-  ghcr.io/deltabadger/deltabadger:latest standalone
+docker run -d --name deltabadger -p 3737:3000 -v deltabadger_data:/app/storage ghcr.io/deltabadger/deltabadger:latest standalone
 ```
 
-That's it! Access the app at `http://localhost:3000`.
+That's it! Access the app at `http://localhost:3737`.
 
 
 ## Running with Tauri (macOS and Linux)
@@ -50,7 +43,7 @@ curl -O https://raw.githubusercontent.com/deltabadger/deltabadger/main/docker-co
 docker compose up -d
 ```
 
-First run downloads the pre-built image. Secrets are auto-generated. Once complete, access the app at `http://localhost:3000`.
+First run downloads the pre-built image. Secrets are auto-generated. Once complete, access the app at `http://localhost:3737`.
 
 3. **Optional: Custom configuration**
 
@@ -64,15 +57,17 @@ cp .env.docker.example .env.docker
 
 ### Updating to a New Version
 
-Single command:
+First, stop and remove the old container:
 
 ```bash
 docker stop deltabadger && docker rm deltabadger
+```
+
+Then pull the latest image and run:
+
+```bash
 docker pull ghcr.io/deltabadger/deltabadger:latest
-docker run -d --name deltabadger \
-  -p 3000:3000 \
-  -v deltabadger_data:/app/storage \
-  ghcr.io/deltabadger/deltabadger:latest standalone
+docker run -d --name deltabadger -p 3737:3000 -v deltabadger_data:/app/storage ghcr.io/deltabadger/deltabadger:latest standalone
 ```
 
 Docker Compose:
@@ -195,10 +190,13 @@ Common fixes:
 
 ### Docker: Port already in use
 
-Another app is using port 3000. Either stop that app, or change the port in `.env.docker`:
+Another app is using port 3737. Either stop that app, or change the port mapping. For example, to use port 4000:
 
+**Single command:** Change `-p 3737:3000` to `-p 4000:3000`
+
+**Docker Compose:** Set in `.env.docker`:
 ```bash
-APP_PORT=3001
+APP_PORT=4000
 ```
 
 ### macOS: fork() crash (development)
