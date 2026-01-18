@@ -2,7 +2,7 @@
 # Deltabadger - Multi-stage Dockerfile for Umbrel/Docker deployment
 
 # Stage 1: Build frontend assets
-FROM node:18.19.1-slim AS frontend-builder
+FROM node:20-slim AS frontend-builder
 
 WORKDIR /app
 
@@ -51,8 +51,8 @@ RUN apt-get update -qq && \
     libyaml-dev && \
     rm -rf /var/lib/apt/lists/*
 
-# Install Node 18.x for dartsass-rails and esbuild for jsbundling
-RUN curl -fsSL https://deb.nodesource.com/setup_18.x | bash - && \
+# Install Node 20.x for dartsass-rails and esbuild for jsbundling
+RUN curl -fsSL https://deb.nodesource.com/setup_20.x | bash - && \
     apt-get install -y nodejs && \
     npm install -g yarn esbuild
 
