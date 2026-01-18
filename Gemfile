@@ -13,7 +13,7 @@ gem 'date', "= 3.3.3"
 gem 'devise'
 gem 'dotenv-rails'
 gem 'dotiw'
-gem 'concurrent-ruby', '1.3.4'
+gem 'concurrent-ruby', '1.3.6'
 gem 'faraday'
 gem 'faraday-manual-cache', git: 'https://github.com/dobs/faraday-manual-cache'
 gem 'haml-rails', '~> 2.1'
