@@ -58,16 +58,60 @@ EOF
 # Load secrets from file into environment
 load_secrets() {
     if [ -f "$SECRETS_FILE" ]; then
-        # Only load if env vars are not already set
+        echo "Loading secrets from $SECRETS_FILE..."
+
+        # Source the file directly to handle all formats properly
+        # First, clean the file of any Windows line endings and whitespace issues
+        while IFS='=' read -r key value || [ -n "$key" ]; do
+            # Skip comments and empty lines
+            [[ "$key" =~ ^#.*$ ]] && continue
+            [[ -z "$key" ]] && continue
+
+            # Remove any carriage returns and leading/trailing whitespace
+            key=$(echo "$key" | tr -d '\r' | xargs)
+            value=$(echo "$value" | tr -d '\r' | xargs)
+
+            # Only export if not already set in environment
+            case "$key" in
+                SECRET_KEY_BASE)
+                    if [ -z "$SECRET_KEY_BASE" ]; then
+                        export SECRET_KEY_BASE="$value"
+                        echo "  Loaded SECRET_KEY_BASE"
+                    fi
+                    ;;
+                DEVISE_SECRET_KEY)
+                    if [ -z "$DEVISE_SECRET_KEY" ]; then
+                        export DEVISE_SECRET_KEY="$value"
+                        echo "  Loaded DEVISE_SECRET_KEY"
+                    fi
+                    ;;
+                APP_ENCRYPTION_KEY)
+                    if [ -z "$APP_ENCRYPTION_KEY" ]; then
+                        export APP_ENCRYPTION_KEY="$value"
+                        echo "  Loaded APP_ENCRYPTION_KEY"
+                    fi
+                    ;;
+            esac
+        done < "$SECRETS_FILE"
+
+        # Verify critical secrets are loaded
         if [ -z "$SECRET_KEY_BASE" ]; then
-            export SECRET_KEY_BASE=$(grep "^SECRET_KEY_BASE=" "$SECRETS_FILE" | cut -d'=' -f2)
+            echo "ERROR: SECRET_KEY_BASE not found in $SECRETS_FILE"
+            exit 1
         fi
         if [ -z "$DEVISE_SECRET_KEY" ]; then
-            export DEVISE_SECRET_KEY=$(grep "^DEVISE_SECRET_KEY=" "$SECRETS_FILE" | cut -d'=' -f2)
+            echo "ERROR: DEVISE_SECRET_KEY not found in $SECRETS_FILE"
+            exit 1
         fi
         if [ -z "$APP_ENCRYPTION_KEY" ]; then
-            export APP_ENCRYPTION_KEY=$(grep "^APP_ENCRYPTION_KEY=" "$SECRETS_FILE" | cut -d'=' -f2)
+            echo "ERROR: APP_ENCRYPTION_KEY not found in $SECRETS_FILE"
+            exit 1
         fi
+
+        echo "All secrets loaded successfully"
+    else
+        echo "ERROR: Secrets file not found at $SECRETS_FILE"
+        exit 1
     fi
 }
 
