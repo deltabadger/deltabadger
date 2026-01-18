@@ -13,7 +13,7 @@
     "chart.js": "^4.0.0",
     "chartjs-adapter-date-fns": "^3.0.0",
     "date-fns": "^3.6.0",
-    "debounce": "^1.2.1",
+    "debounce": "^3.0.0",
     "flatpickr": "^4.6.13"
   },
   "devDependencies": {
