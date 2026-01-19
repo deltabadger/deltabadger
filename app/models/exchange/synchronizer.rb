@@ -1,7 +1,7 @@
 module Exchange::Synchronizer
   extend ActiveSupport::Concern
 
-  def sync_tickers_and_assets_with_external_data
+  def sync_tickers_and_assets_with_external_data(skip_async_jobs: false)
     result = coingecko.get_exchange_tickers_by_id(exchange_id: coingecko_id)
     return result if result.failure?
 
@@ -11,7 +11,7 @@ module Exchange::Synchronizer
     return result if result.failure?
 
     # Only create assets that exist in Coingecko or Eodhd!
-    create_missing_assets!(external_ids)
+    create_missing_assets!(external_ids, skip_async_jobs:)
 
     # Never destroy an Asset, ExchangeAsset or Ticker!
     sync_existing_exchange_assets_and_tickers!(result.data)
@@ -98,7 +98,7 @@ module Exchange::Synchronizer
     hash
   end
 
-  def create_missing_assets!(new_external_ids)
+  def create_missing_assets!(new_external_ids, skip_async_jobs: false)
     current_external_ids = Asset.pluck(:external_id)
     new_crypto_assets = []
     (new_external_ids - current_external_ids).compact.each do |external_id|
@@ -114,7 +114,7 @@ module Exchange::Synchronizer
     rescue ActiveRecord::RecordInvalid => e
       Rails.logger.warn "[Sync] Skipping asset #{external_id}: #{e.message}"
     end
-    return if new_crypto_assets.empty?
+    return if new_crypto_assets.empty? || skip_async_jobs
 
     if new_crypto_assets.count == 1
       Asset::FetchDataFromCoingeckoJob.perform_later(new_crypto_assets.first)
