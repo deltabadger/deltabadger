@@ -1,4 +1,4 @@
-![Frame 3 (3)](https://github.com/user-attachments/assets/265db32f-e0ff-4ad9-9cbc-e10d1d47b7fe)
+![Frame 3 (4)](https://github.com/user-attachments/assets/ffd80181-014d-40ad-9669-b98e5c1f265e)
 
 Auto-DCA for crypto. Automate your Dollar Cost Averaging strategy across multiple exchanges. As a service, [Deltabadger](https://deltabadger.com) helped users invest over $72 million into Bitcoin and other digital assets. Now it's free and open-source!
 
