@@ -14,10 +14,11 @@ fi
 # Find and run the app
 if [[ "$OSTYPE" == "darwin"* ]]; then
   # macOS - use .app bundle for proper icon
-  if [ -d "src-tauri/target/release/bundle/macos/Deltabadger.app" ]; then
-    open "src-tauri/target/release/bundle/macos/Deltabadger.app"
-  elif [ -d "src-tauri/target/debug/bundle/macos/Deltabadger.app" ]; then
+  # Prefer debug bundle for development (release requires production secrets)
+  if [ -d "src-tauri/target/debug/bundle/macos/Deltabadger.app" ]; then
     open "src-tauri/target/debug/bundle/macos/Deltabadger.app"
+  elif [ -d "src-tauri/target/release/bundle/macos/Deltabadger.app" ]; then
+    open "src-tauri/target/release/bundle/macos/Deltabadger.app"
   else
     echo "No .app bundle found. Run './setup.sh' first."
     exit 1
