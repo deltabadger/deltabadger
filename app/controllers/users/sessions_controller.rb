@@ -15,8 +15,7 @@ class Users::SessionsController < Devise::SessionsController
       sign_out(resource)
       session[:pending_user_id] = user.id
       session[:remember_me] = params[:user][:remember_me]
-      self.resource = user
-      render :two_factor
+      redirect_to verify_two_factor_path
     else
       self.resource = warden.authenticate!(auth_options)
       continue_sign_in(resource_name, resource)
