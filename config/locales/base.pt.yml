@@ -92,6 +92,13 @@ pt:
             language_updated: 'O seu idioma foi atualizado.'
             updated: 'O seu fuso horário foi atualizado.'
             current_time_is: 'Este fuso horário será usado nos logs do bot. Segundo ele, a hora actual é'
+        name:
+            updated: 'Seu nome foi atualizado.'
+        two_fa:
+            disabled: 'A autenticação de dois fatores foi desativada.'
+            enabled: 'A autenticação de dois fatores foi ativada.'
+        api_keys:
+            confirm_delete: "Pretende apagar esta chave de API?"
         index:
             api_key_confirmation: 'Tem a certeza?'
             api_keys_section: 'Chaves de API'
@@ -102,13 +109,11 @@ pt:
             password_section: Palavra-passe
             title: Definições
             two_factor_section: 'Autenticação do Segundo Fator'
-        name:
-            updated: 'Seu nome foi atualizado.'
-        two_fa:
-            disabled: 'A autenticação de dois fatores foi desativada.'
-            enabled: 'A autenticação de dois fatores foi ativada.'
-        api_keys:
-            confirm_delete: "Pretende apagar esta chave de API?"
+        resync_assets:
+            button: 'Ressincronizar Ativos'
+            hint: 'Ressincronize os tickers de câmbio e dados de ativos do CoinGecko. Utilize isto se faltar alguma bolsa ou ativos.'
+        coingecko_key:
+            confirm_delete: 'Pretende remover esta chave de API do CoinGecko?'
     social:
         blog: 'Leia o nosso blog'
         knowledge_base: 'Base de conhecimento'
