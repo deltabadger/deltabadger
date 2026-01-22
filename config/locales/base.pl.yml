@@ -94,6 +94,13 @@ pl:
             language_updated: 'Twój język został zaktualizowany.'
             updated: 'Twoja strefa czasowa została zaktualizowana.'
             current_time_is: 'Ta strefa czasowa będzie używana w logach bota. Zgodnie z nią, aktualna godzina to'
+        name:
+            updated: 'Twoje imię zostało zaktualizowane.'
+        two_fa:
+            disabled: 'Uwierzytelnianie dwuskładnikowe zostało wyłączone.'
+            enabled: 'Uwierzytelnianie dwuskładnikowe zostało włączone.'
+        api_keys:
+            confirm_delete: 'Czy chcesz usunąć ten klucz API?'
         index:
             api_key_confirmation: 'Jesteś pewny?'
             api_keys_section: 'Klucze API'
@@ -105,11 +112,11 @@ pl:
             free_plan_reset_date_html: 'Twój limit zostanie zresetowany w dniu <b> %{end_time} </b>.'
             title: Ustawienia
             two_factor_section: 'Uwierzytelnianie drugim czynnikiem (2FA)'
-        name:
-            updated: 'Twoje imię zostało zaktualizowane.'
-        two_fa:
-            disabled: 'Uwierzytelnianie dwuskładnikowe zostało wyłączone.'
-            enabled: 'Uwierzytelnianie dwuskładnikowe zostało włączone.'
+        resync_assets:
+            button: 'Ponownie zsynchronizuj aktywa'
+            hint: 'Ponownie zsynchronizuj tickery giełd i dane aktywów z CoinGecko. Użyj tego, jeśli brakuje Ci niektórych giełd lub aktywów.'
+        coingecko_key:
+            confirm_delete: 'Czy chcesz usunąć ten klucz API CoinGecko?'
     social:
         blog: 'Czytaj nasz blog'
         knowledge_base: 'Baza wiedzy'
