@@ -113,6 +113,11 @@ ru:
             password_section: Пароль
             title: Настройки
             two_factor_section: 'Аутентификация по второму фактору'
+        resync_assets:
+            button: 'Пересинхронизировать активы'
+            hint: 'Пересинхронизируйте тикеры бирж и данные активов с CoinGecko. Используйте это, если отсутствуют некоторые биржи или активы.'
+        coingecko_key:
+            confirm_delete: 'Вы хотите удалить этот ключ API CoinGecko?'
     social:
         blog: 'Читайте наш блог'
         knowledge_base: 'База знаний'
