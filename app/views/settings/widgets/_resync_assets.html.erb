@@ -1,0 +1,8 @@
+<div class="widget widget--settings setting-form">
+  <h4 class="modal__title"><%= t('settings.index.resync_assets_section') %></h4>
+  <% if AppConfig.coingecko_api_key.present? %>
+    <%= render 'settings/widgets/resync_assets_key' %>
+  <% else %>
+    <%= render 'settings/widgets/resync_assets_form' %>
+  <% end %>
+</div>

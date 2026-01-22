@@ -1,7 +1,8 @@
 class Setup::SeedAndSyncJob < ApplicationJob
   queue_as :low_priority
 
-  def perform
+  def perform(source: 'setup')
+    @source = source
     mark_sync_in_progress
 
     seed_exchanges
@@ -71,19 +72,47 @@ class Setup::SeedAndSyncJob < ApplicationJob
   end
 
   def broadcast_sync_completed
-    Turbo::StreamsChannel.broadcast_replace_to(
-      "setup_sync",
-      target: "setup-syncing-container",
-      html: redirect_script
-    )
+    if @source == 'settings'
+      broadcast_settings_sync_completed
+    else
+      Turbo::StreamsChannel.broadcast_replace_to(
+        "setup_sync",
+        target: "setup-syncing-container",
+        html: redirect_script
+      )
+    end
   end
 
   def broadcast_sync_failed(error_message)
+    if @source == 'settings'
+      broadcast_settings_sync_failed(error_message)
+    else
+      Turbo::StreamsChannel.broadcast_replace_to(
+        "setup_sync",
+        target: "setup-syncing-container",
+        html: error_html(error_message)
+      )
+    end
+  end
+
+  def broadcast_settings_sync_completed
+    Turbo::StreamsChannel.broadcast_remove_to("settings_sync", target: "flash-syncing")
+  end
+
+  def broadcast_settings_sync_failed(error_message)
     Turbo::StreamsChannel.broadcast_replace_to(
-      "setup_sync",
-      target: "setup-syncing-container",
-      html: error_html(error_message)
+      "settings_sync",
+      target: "flash-syncing",
+      html: settings_error_html(error_message)
     )
+  end
+
+  def settings_error_html(error_message)
+    <<~HTML
+      <div id="flash-syncing" class="flash__message salert salert--danger" role="alert">
+        #{error_message}
+      </div>
+    HTML
   end
 
   def redirect_script

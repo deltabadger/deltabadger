@@ -110,6 +110,11 @@ it:
             free_plan_reset_date_html: 'Il tuo limite si resetta il <b>%{end_time}</b>.'
             title: Impostazioni
             two_factor_section: 'Autenticazione a Due Fattori'
+        resync_assets:
+            button: 'Risincronizza Asset'
+            hint: 'Risincronizza i ticker degli exchange e i dati degli asset da CoinGecko. Usalo se mancano alcuni exchange o asset.'
+        coingecko_key:
+            confirm_delete: 'Vuoi rimuovere questa chiave API di CoinGecko?'
     social:
         blog: 'Leggi il nostro blog'
         knowledge_base: 'Base di conoscenza'

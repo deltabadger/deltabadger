@@ -104,7 +104,47 @@ class SettingsController < ApplicationController
     end
   end
 
+  def resync_assets
+    AppConfig.setup_sync_status = AppConfig::SYNC_STATUS_PENDING
+    Setup::SeedAndSyncJob.perform_later(source: 'settings')
+    render turbo_stream: turbo_stream.prepend('flash', partial: 'layouts/flash_syncing')
+  end
+
+  def confirm_destroy_coingecko_key
+  end
+
+  def destroy_coingecko_key
+    AppConfig.coingecko_api_key = ''
+    render partial: 'settings/widgets/resync_assets'
+  end
+
+  def update_coingecko_key
+    unless validate_coingecko_api_key(params[:coingecko_api_key])
+      flash.now[:alert] = t('setup.invalid_coingecko_api_key')
+      return render turbo_stream: [
+        turbo_stream.prepend('flash', partial: 'layouts/flash'),
+        turbo_stream.replace('coingecko_key', partial: 'settings/widgets/resync_assets_form')
+      ], status: :unprocessable_entity
+    end
+
+    AppConfig.coingecko_api_key = params[:coingecko_api_key]
+    AppConfig.setup_sync_status = AppConfig::SYNC_STATUS_PENDING
+    Setup::SeedAndSyncJob.perform_later(source: 'settings')
+    render turbo_stream: [
+      turbo_stream.prepend('flash', partial: 'layouts/flash_syncing'),
+      turbo_stream.replace('coingecko_key', partial: 'settings/widgets/resync_assets_key')
+    ]
+  end
+
   private
+
+  def validate_coingecko_api_key(api_key)
+    return false if api_key.blank?
+
+    coingecko = Coingecko.new(api_key: api_key)
+    result = coingecko.get_coins_list_with_market_data(ids: ['bitcoin'], limit: 1)
+    result.success?
+  end
 
   def set_index_instance_variables
     @name_pattern = User::Name::PATTERN

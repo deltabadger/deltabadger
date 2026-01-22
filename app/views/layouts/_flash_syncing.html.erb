@@ -1,0 +1,5 @@
+<%= turbo_stream_from "settings_sync" %>
+<%= tag.div id: "flash-syncing", class: "flash__message salert salert--info", role: "alert" do %>
+  <div class="loader loader--small"></div>
+  <%= t('setup.syncing_message') %>
+<% end %>
