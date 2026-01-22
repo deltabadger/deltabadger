@@ -1,0 +1,13 @@
+<%= turbo_frame_tag "coingecko_key", class: "setting-form" do %>
+  <%= form_with url: settings_update_coingecko_key_path, method: :post, class: "setting-form", data: {
+    controller: "form--html5-validations form--label-animations"
+  } do |f| %>
+    <div class="form__row form__row--input">
+      <%= tag.input class: "form__input", type: "text", name: "coingecko_api_key", required: true, id: "coingecko_api_key" %>
+      <%= label_tag :coingecko_api_key, t('setup.coingecko_api_key'), class: "form__label" %>
+    </div>
+    <%= t('setup.coingecko_api_key_hint_html') %>
+
+    <%= f.submit t('setup.submit'), class: "button button--success" %>
+  <% end %>
+<% end %>

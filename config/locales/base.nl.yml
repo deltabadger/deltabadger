@@ -92,6 +92,13 @@ nl:
             language_updated: 'Uw taal is bijgewerkt.'
             updated: 'Uw tijdzone is bijgewerkt.'
             current_time_is: 'Deze tijdzone wordt gebruikt in de bot logs. Volgens deze is de huidige tijd'
+        name:
+            updated: 'Uw naam is bijgewerkt.'
+        two_fa:
+            disabled: 'Twee-factor-authenticatie is uitgeschakeld.'
+            enabled: 'Twee-factor-authenticatie is ingeschakeld.'
+        api_keys:
+            confirm_delete: "Wilt u deze API-sleutel verwijderen?"
         index:
             api_key_confirmation: 'Weet je het zeker?'
             api_keys_section: 'API keys'
@@ -103,13 +110,11 @@ nl:
             free_plan_reset_date_html: 'Uw limiet wordt gereset op <b>%{end_time}</b>.'
             title: Instellingen
             two_factor_section: 'Second Factor Authentication'
-        name:
-            updated: 'Uw naam is bijgewerkt.'
-        two_fa:
-            disabled: 'Twee-factor-authenticatie is uitgeschakeld.'
-            enabled: 'Twee-factor-authenticatie is ingeschakeld.'
-        api_keys:
-            confirm_delete: "Wilt u deze API-sleutel verwijderen?"
+        resync_assets:
+            button: 'Assets opnieuw synchroniseren'
+            hint: 'Synchroniseer exchange tickers en assetgegevens opnieuw van CoinGecko. Gebruik dit als sommige exchanges of assets ontbreken.'
+        coingecko_key:
+            confirm_delete: 'Wilt u deze CoinGecko API-sleutel verwijderen?'
     social:
         blog: 'Lees onze blog'
         knowledge_base: Kennisbank
