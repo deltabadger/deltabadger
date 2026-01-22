@@ -37,23 +37,25 @@
         .ticker:not(:last-child)
             margin-right: -10rem 
 
-
+.tags
+    display: flex
+    gap: .5rem
+    width: 100%
 .tag
-    font-weight: 500
+    background: var(--silver) !important
+    color: var(--stone) !important
+    font-weight: 600
     gap: .5rem
     display: flex
-    .button_to
-        display: flex
-    &__remove
-        background: none
-        border: none
-        opacity: 0.5
-        margin-right: -.75rem
-        display: flex
-        align-items: center
-        justify-content: center
-        svg
-            width: 2.5rem
-            height: 2.5rem
+    @media (prefers-color-scheme: dark)
+        background: var(--steel) !important
+        color: var(--ash) !important
+    svg
+        width: 2rem
+        height: 2rem
+        margin-right: -.5rem
+        path
+            fill: var(--concrete)
+        &:hover
             path
-                fill: #fff !important
+                fill: var(--link)
