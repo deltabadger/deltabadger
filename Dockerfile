@@ -116,7 +116,7 @@ ENV RAILS_ENV=production \
     RAILS_SERVE_STATIC_FILES=true \
     MALLOC_ARENA_MAX=2
 
-# Install runtime dependencies only
+# Install runtime dependencies only (added gosu)
 RUN apt-get update -qq && \
     apt-get install -y --no-install-recommends \
     libsqlite3-0 \
@@ -125,7 +125,8 @@ RUN apt-get update -qq && \
     libsodium23 \
     libyaml-0-2 \
     tzdata \
-    imagemagick && \
+    imagemagick \
+    gosu && \
     rm -rf /var/lib/apt/lists/* /var/cache/apt/archives/*
 
 # Create non-root user for security
@@ -152,8 +153,9 @@ RUN chmod +x /usr/local/bin/docker-entrypoint.sh
 RUN mkdir -p /app/tmp/pids /app/tmp/cache /app/tmp/sockets /app/log /app/storage && \
     chown -R deltabadger:deltabadger /app/tmp /app/log /app/storage
 
-# Switch to non-root user
-USER deltabadger
+# Don't switch to non-root user here - let entrypoint handle it
+# This allows the container to fix volume permissions when needed (e.g., Umbrel)
+# For regular Docker usage, specify user: "1000:1000" in docker-compose.yml
 
 # Expose port
 EXPOSE 3000
