@@ -9,7 +9,6 @@ services:
 
   web:
     image: ghcr.io/deltabadger/deltabadger:latest
-    user: "1000:1000"
     restart: on-failure
     command: web
     environment:
@@ -34,7 +33,6 @@ services:
 
   jobs:
     image: ghcr.io/deltabadger/deltabadger:latest
-    user: "1000:1000"
     restart: on-failure
     command: jobs
     environment:

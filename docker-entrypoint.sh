@@ -149,6 +149,13 @@ cleanup_pid() {
 
 # Main entrypoint logic
 main() {
+    # If running as root, fix permissions and drop to app user
+    if [ "$(id -u)" = "0" ]; then
+        mkdir -p /app/storage /app/log
+        chown -R deltabadger:deltabadger /app/storage /app/log
+        exec gosu deltabadger "$0" "$@"
+    fi
+
     local cmd="${1:-web}"
 
     case "$cmd" in
