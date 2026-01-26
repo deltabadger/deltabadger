@@ -22,11 +22,15 @@ class AppConfig < ApplicationRecord
   end
 
   def self.coingecko_api_key
-    get(COINGECKO_API_KEY) || ENV.fetch('COINGECKO_API_KEY', '')
+    get(COINGECKO_API_KEY).presence || ENV.fetch('COINGECKO_API_KEY', '')
   end
 
   def self.coingecko_api_key=(value)
     set(COINGECKO_API_KEY, value)
+  end
+
+  def self.coingecko_configured?
+    coingecko_api_key.present?
   end
 
   def self.setup_completed?

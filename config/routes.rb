@@ -1,13 +1,7 @@
 Rails.application.routes.draw do
   # Setup wizard for initial admin configuration
-  # Step 1: Admin account creation
   get '/setup', to: 'setup#new', as: :new_setup
   post '/setup', to: 'setup#create', as: :setup
-  # Step 2: Sync configuration (CoinGecko API)
-  get '/setup/sync', to: 'setup#sync', as: :setup_sync
-  post '/setup/sync', to: 'setup#configure_sync', as: :setup_configure_sync
-  # Sync progress
-  get '/setup/syncing', to: 'setup#syncing', as: :setup_syncing
 
   match "/404", to: "errors#redirect_to_root", via: :all
   match "/422", to: "errors#unprocessable_entity", via: :all
