@@ -4,6 +4,8 @@ class Coingecko
   end
 
   def get_price(coin_id:, currency: 'usd')
+    return Result::Failure.new('CoinGecko API key not configured') if @api_key.blank?
+
     currency = currency.downcase
     price = Rails.cache.fetch("#{coin_id}_price_in_#{currency}", expires_in: 60.seconds) do
       result = client.coin_price_by_ids(coin_ids: [coin_id], vs_currencies: [currency])
@@ -15,6 +17,8 @@ class Coingecko
   end
 
   def get_market_cap(coin_id:, currency: 'usd')
+    return Result::Failure.new('CoinGecko API key not configured') if @api_key.blank?
+
     currency = currency.downcase
     market_cap = Rails.cache.fetch("#{coin_id}_market_cap_in_#{currency}", expires_in: 6.hours) do
       result = client.coin_price_by_ids(coin_ids: [coin_id], vs_currencies: [currency], include_market_cap: true)
@@ -26,6 +30,8 @@ class Coingecko
   end
 
   def get_exchange_tickers_by_id(exchange_id:)
+    return Result::Failure.new('CoinGecko API key not configured') if @api_key.blank?
+
     all_tickers = []
     tickers_per_page = 100
     25.times do |i|
@@ -46,6 +52,7 @@ class Coingecko
     category: nil,
     limit: nil
   )
+    return Result::Failure.new('CoinGecko API key not configured') if @api_key.blank?
 
     all_coins = []
     per_page = 250
@@ -84,6 +91,8 @@ class Coingecko
     developer_data: false,
     sparkline: false
   )
+    return Result::Failure.new('CoinGecko API key not configured') if @api_key.blank?
+
     result = client.coin_data_by_id(
       id: coin_id,
       localization: localization,
@@ -99,6 +108,8 @@ class Coingecko
   end
 
   def get_exchange_rates
+    return Result::Failure.new('CoinGecko API key not configured') if @api_key.blank?
+
     rates = Rails.cache.fetch('coingecko_exchange_rates', expires_in: 60.seconds) do
       result = client.exchange_rates
       return result if result.failure?

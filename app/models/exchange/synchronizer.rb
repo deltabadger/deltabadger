@@ -2,6 +2,8 @@ module Exchange::Synchronizer
   extend ActiveSupport::Concern
 
   def sync_tickers_and_assets_with_external_data(skip_async_jobs: false)
+    return Result::Success.new unless AppConfig.coingecko_configured?
+
     result = coingecko.get_exchange_tickers_by_id(exchange_id: coingecko_id)
     return result if result.failure?
 
