@@ -1,3 +1,5 @@
+require 'rails_helper'
+
 RSpec.describe CalculateRestartDelay do
   describe '#call' do
     subject { described_class.new.call(restarts) }
