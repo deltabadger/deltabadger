@@ -15,6 +15,7 @@ class Asset < ApplicationRecord
   ].freeze
 
   def sync_data_with_coingecko(prefetched_data: nil)
+    return Result::Success.new(self) unless AppConfig.coingecko_configured?
     return Result::Success.new(self) if COINGECKO_BLACKLISTED_IDS.include?(external_id)
 
     data = prefetched_data || begin
@@ -30,7 +31,8 @@ class Asset < ApplicationRecord
       url: "https://www.coingecko.com/coins/#{data['web_slug'] || external_id}",
       image_url: Utilities::Hash.safe_dig(data, 'image', 'large') || data['image'],
       market_cap_rank: data['market_cap_rank'],
-      market_cap: Utilities::Hash.safe_dig(data, 'market_data', 'market_cap', 'usd') || data['market_cap']
+      market_cap: Utilities::Hash.safe_dig(data, 'market_data', 'market_cap', 'usd') || data['market_cap'],
+      circulating_supply: Utilities::Hash.safe_dig(data, 'market_data', 'circulating_supply') || data['circulating_supply']
     )
     Result::Success.new(self)
   end
