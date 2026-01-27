@@ -21,8 +21,17 @@ class AppConfig < ApplicationRecord
     config
   end
 
+  def self.delete(key)
+    find_by(key: key)&.destroy
+  end
+
   def self.coingecko_api_key
-    get(COINGECKO_API_KEY).presence || ENV.fetch('COINGECKO_API_KEY', '')
+    record = find_by(key: COINGECKO_API_KEY)
+    # If record exists in DB, use its value (even if empty - user explicitly cleared it)
+    # Only fall back to ENV when no DB record exists (initial setup)
+    return record.value if record
+
+    ENV.fetch('COINGECKO_API_KEY', '')
   end
 
   def self.coingecko_api_key=(value)
