@@ -2,6 +2,8 @@ class Asset::FetchAllAssetsDataFromCoingeckoJob < ApplicationJob
   queue_as :low_priority
 
   def perform
+    return unless AppConfig.coingecko_configured?
+
     mark_sync_in_progress
 
     asset_ids = Asset.where(category: 'Cryptocurrency').pluck(:external_id).compact
