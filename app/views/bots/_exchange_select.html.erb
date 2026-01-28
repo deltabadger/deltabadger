@@ -1,5 +1,5 @@
 <%= form_with model: bot, url: bot_path(bot), method: :patch, id: "exchange_select", class: "flex-row", data: { controller: "form--submit" } do |f| %>
-  <div class="sinput sinput--select sinput--exchange sinput--exchange--<%= bot.exchange.name_id %> <%= 'sinput--disabled' unless bot.stopped? %>">
+  <div class="sbutton sbutton--exchange sbutton--exchange--<%= bot.exchange.name_id %> <%= 'sinput--disabled' unless bot.stopped? %>">
     <%= render "svg/exchange-#{bot.exchange.name_id}", title: bot.exchange.name %>
     <span class="hide-on-mobile"><%= bot.exchange&.name || t('bot.pick_exchange') %></span>
     <% exchange_options = bot.available_exchanges_for_current_settings.pluck(:name, :id).map { |name, id| [name.capitalize, id] } %>

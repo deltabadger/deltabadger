@@ -2,6 +2,15 @@ pt:
     bot:
         setup:
             api_not_available: "API do Exchange não disponível"
+            progress_steps:
+                currencies: "Escolher ativo"
+                currencies2: "Segundo ativo"
+                exchange: "Exchange"
+                spendable: "Moeda"
+                api: "Conectar exchange"
+                schedule: "Definir horário"
+                coingecko: "Conectar CoinGecko"
+                index: "Escolher índice"
             sentence:
                 invest_in: "Investir em"
                 and: "e"
@@ -69,6 +78,7 @@ pt:
             step_api_key: 'Chave API'
             step_assets: 'Ativos'
             step_exchange: Câmbio
+            step_settings: Settings
             step_schedule: Horário
             validating: Validando…
             withdrawal:

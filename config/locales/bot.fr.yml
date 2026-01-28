@@ -3,7 +3,30 @@ fr:
         add_api_keys: "Ajouter les clés API pour %{exchange}"
         bot_name: 'Nom du bot'
         new: "Nouveau bot"
-        start_new_bot: "Créer un nouveau bot"
+        dca_index:
+            setup:
+                step_index: "Indice"
+                sentence:
+                    build_index: "Construire un portefeuille indexé"
+                    build_index_at: "Construire le portefeuille %{index_name}"
+                pick_index:
+                    top_coins: "Principales Cryptomonnaies"
+                    top_coins_description: "Les principales cryptomonnaies par capitalisation boursière"
+                    error: "Veuillez sélectionner un indice"
+            num_coins: "Nombre de cryptomonnaies"
+            allocation_flattening: "Aplatissement de l'allocation"
+            into_index: "dans %{index_name}"
+            index_preview: "Aperçu de l'Indice"
+            fewer_coins_available: "%{available} des %{requested} cryptomonnaies dans l'indice sont disponibles sur %{exchange_name}"
+            num_assets: "Actifs dans l'indice"
+            asset_breakdown: "Ventilation des Actifs"
+            asset: "Actif"
+            amount: "Montant"
+            avg_price: "Prix Moyen"
+            value: "Valeur"
+            pl: "G/P"
+            warning:
+                intro: "Certaines ordres (%{skipped_count}) étaient en dessous de la taille minimale de commande de %{exchange_name}. Voici comment le bot le gère :"
         types:
             dca:
                 title: "DCA"

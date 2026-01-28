@@ -4,7 +4,7 @@
       <%= render partial: 'svg/24x24_close' %>
     <% end %>
     <div class="modal__header">
-       <h1 class="modal__title"><%= t('bot.start_new_bot') %></h1>
+       <h1 class="modal__title"><%= t('button.start') %></h1>
     </div>
 
     <div class="itiles">
@@ -19,11 +19,10 @@
             <div class="index-info"><%= t('bot.types.dca_dual_asset.description').html_safe %></div>
         <% end %>
 
-        <div class="itile itile--bot-type itile--soon">
-            <b class="sbadge sbadge--soon"><%= t('utils.soon') %></b>
+        <%= link_to new_bots_dca_indexes_setup_coingecko_path, class: 'itile itile--bot-type', data: { turbo_frame: "modal" } do %>
             <div class="index-title"><%= t('bot.types.index_portfolio.title') %></div>
-            <div class="index-info"><%= t('bot.types.index_portfolio.description') %></div>
-        </div>
+            <div class="index-info"><%= t('bot.types.index_portfolio.description').html_safe %></div>
+        <% end %>
 
     </div>
 

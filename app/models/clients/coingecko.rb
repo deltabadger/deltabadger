@@ -288,4 +288,30 @@ class Clients::Coingecko < Client
       Result::Success.new(response.body['rates'])
     end
   end
+
+  # https://docs.coingecko.com/reference/coins-categories-list
+  # List all categories (id and name only)
+  # @return [Result::Success, Result::Failure] Result with categories array
+  def categories_list
+    with_rescue do
+      response = connection.get do |req|
+        req.url 'coins/categories/list'
+      end
+      Result::Success.new(response.body)
+    end
+  end
+
+  # https://docs.coingecko.com/reference/coins-categories
+  # List all categories with market data
+  # @param order [String] Sort by field, default: market_cap_desc
+  # @return [Result::Success, Result::Failure] Result with categories array
+  def categories(order: 'market_cap_desc')
+    with_rescue do
+      response = connection.get do |req|
+        req.url 'coins/categories'
+        req.params = { order: order }
+      end
+      Result::Success.new(response.body)
+    end
+  end
 end

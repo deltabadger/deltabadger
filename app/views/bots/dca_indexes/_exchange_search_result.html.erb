@@ -1,0 +1,23 @@
+<div data-arrow-keys-navigation-target="item">
+  <%= button_tag name: "#{bot.model_name.param_key}[#{:exchange_id}]", value: exchange.id, type: :submit, class: "exchange-picker__item exchange-picker__item--exchange", data: { arrow_keys_navigation_target: "button", turbo_frame: "modal_content" } do %>
+    <div><%= exchange.name %></div>
+    <div><%= "#{exchange.maker_fee}%".presence || '-' %></div>
+    <div><%= "#{exchange.taker_fee}%".presence || '-' %></div>
+    <div class="exchange-picker__coins">
+      <% display_limit = Index::ExchangeAvailability::DISPLAY_COINS_COUNT %>
+      <% if top_coins.present? %>
+        <div class="ticker-group ticker-group--many">
+          <% top_coins.first(display_limit).each do |asset| %>
+            <% color = ensure_contrast(asset.color || '#8A9BA8') %>
+            <span class="ticker" style="background-color: <%= color %>"><%= asset.symbol %></span>
+          <% end %>
+          <% if total_coins > [top_coins.size, display_limit].min %>
+            <span class="ticker ticker--more">+<%= total_coins - [top_coins.size, display_limit].min %></span>
+          <% end %>
+        </div>
+      <% else %>
+        <span>-</span>
+      <% end %>
+    </div>
+  <% end %>
+</div>

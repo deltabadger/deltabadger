@@ -2,6 +2,15 @@ pl:
     bot:
         setup:
             api_not_available: 'API giełdy nie jest dostępne'
+            progress_steps:
+                currencies: "Wybierz aktywo"
+                currencies2: "Drugie aktywo"
+                exchange: "Giełda"
+                spendable: "Waluta"
+                api: "Połącz giełdę"
+                schedule: "Ustaw harmonogram"
+                coingecko: "Połącz CoinGecko"
+                index: "Wybierz indeks"
             binance:
                 instructions_1_html: 'Zaloguj się do swojego konta %{exchange_link}.'
                 instructions_2_html: 'W menu użytkownika (okrągła ikona w prawym górnym rogu) przejdź do <b>Ustawienia API</b>.'
@@ -66,6 +75,7 @@ pl:
             step_api_key: 'Klucz API'
             step_assets: Aktywa
             step_exchange: Giełda
+            step_settings: Settings
             step_schedule: Harmonogram
             step_type: Typ
             validating: Weryfikacja…

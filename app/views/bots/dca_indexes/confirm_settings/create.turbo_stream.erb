@@ -1,0 +1,3 @@
+<%= turbo_stream.replace 'new-settings', partial: 'bots/dca_indexes/settings', locals: { bot: @bot, index_preview: @index_preview } %>
+<%= turbo_stream.replace 'create-bot-button', partial: 'bots/dca_indexes/create_bot_button', locals: { bot: @bot } %>
+<%= turbo_stream_prepend_flash %>

@@ -1,0 +1,54 @@
+<div id="metrics" style="display: flex; flex-direction: column; gap: 1rem;">
+  <div class="widget data-grid data-grid--two-columns">
+    <div class="data-grid__item" data-controller="tooltip">
+      <div class="label"><%= t('bot.details.stats.total_invested') %></div>
+      <div class="data-grid__item__value">
+        <% if loading %>
+          <span class="loading-placeholder">...</span>
+        <% else %>
+          <%= number_with_precision(metrics[:total_quote_amount_invested] || 0, precision: 2, delimiter: ',') %>
+        <% end %>
+      </div>
+    </div>
+    <div class="data-grid__item" data-controller="tooltip">
+      <div class="label"><%= t('bot.details.stats.portfolio_value') %></div>
+      <div class="data-grid__item__value">
+        <% if loading %>
+          <span class="loading-placeholder">...</span>
+        <% else %>
+          <%= number_with_precision(metrics[:total_amount_value_in_quote] || 0, precision: 2, delimiter: ',') %>
+        <% end %>
+      </div>
+    </div>
+  </div>
+
+  <% if metrics[:asset_values].present? %>
+    <div id="assets_metrics_table" class="widget widget--table">
+      <table class="table">
+        <thead>
+          <tr>
+            <th scope="col"><%= t('bot.dca_index.asset') %></th>
+            <th scope="col"><%= t('bot.dca_index.amount') %></th>
+            <th scope="col"><%= t('bot.dca_index.avg_price') %></th>
+            <th scope="col"><%= t('bot.dca_index.value') %></th>
+            <th scope="col"><%= t('bot.dca_index.pl') %></th>
+          </tr>
+        </thead>
+        <tbody id="assets_metrics_list">
+          <% metrics[:asset_values].each do |symbol, data| %>
+            <% pnl_pct = data[:pnl_percentage] || 0 %>
+            <tr>
+              <td scope="row"><%= symbol %></td>
+              <td><%= number_with_precision(data[:amount] || 0, precision: 6, strip_insignificant_zeros: true) %></td>
+              <td><%= number_with_precision(data[:avg_price] || 0, precision: 2, delimiter: ',') %></td>
+              <td><%= number_with_precision(data[:current_value] || 0, precision: 2, delimiter: ',') %></td>
+              <td class="<%= pnl_pct >= 0 ? 'text-success' : 'text-danger' %>">
+                <b><%= pnl_pct >= 0 ? '+' : '' %><%= number_with_precision(pnl_pct * 100, precision: 1) %>%</b>
+              </td>
+            </tr>
+          <% end %>
+        </tbody>
+      </table>
+    </div>
+  <% end %>
+</div>

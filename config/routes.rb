@@ -20,6 +20,7 @@ Rails.application.routes.draw do
     namespace :bots do
       resources :dca_single_assets
       resources :dca_dual_assets
+      resources :dca_indexes
     end
     resources :exchanges
     resources :transactions
@@ -86,6 +87,15 @@ Rails.application.routes.draw do
         resource :pick_spendable_asset, only: [:new, :create]
         resource :confirm_settings, only: [:new, :create]
       end
+      resources :dca_indexes, only: [:create]
+      namespace :dca_indexes do
+        resource :setup_coingecko, only: [:new, :create]
+        resource :pick_index, only: [:new, :create]
+        resource :pick_exchange, only: [:new, :create]
+        resource :add_api_key, only: [:new, :create]
+        resource :pick_spendable_asset, only: [:new, :create]
+        resource :confirm_settings, only: [:new, :create]
+      end
     end
 
     resources :bots do
@@ -98,7 +108,6 @@ Rails.application.routes.draw do
       resource :import, only: [:create], controller: 'bots/imports'
       resources :transactions, only: [:destroy], controller: 'bots/cancel_orders'
       post :show
-      get :show_index_bot, on: :collection # TODO: move to custom :show logic according to bot type
     end
 
     namespace :broadcasts do

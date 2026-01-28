@@ -50,14 +50,16 @@
     </div>
 
     <div class="barbell__bar">
-      <div class="slider">
+      <div class="slider slider--dual">
         <%= f.range_field :allocation0, in: 0.0..1.0, step: 0.01, value: bot.allocation0, class: "slider__input numeric-input", data: { bot__barbell_allocation_target: "allocation0", action: "input->bot--barbell-allocation#updateAllocation0 change->form--submit#submit" }, disabled: bot.marketcap_allocated? || bot.working? %>
-        <div class="slider__style">
-          <%= tag.div class: "slider__style__track", style: "border-left-color: #{base0_color_transparent};  background: #{base1_color_transparent}", data: { bot__barbell_allocation_target: "allocation0SliderTrack" } do %>
-            <%= tag.div class: "slider__style__progress", style: "width: #{bot.allocation0 * 100}%; background: #{base0_color_transparent}", data: { bot__barbell_allocation_target: "allocation0SliderProgress" } do %>
+          <div class="slider__style">
+            <%= tag.div class: "slider__style__track", style: "border-left-color: #{base0_color_transparent}; border-right-color: #{base1_color_transparent}; grid-template-columns: #{bot.allocation0 * 100}% auto;", data: { bot__barbell_allocation_target: "allocation0SliderTrack" } do %>
+              <%= tag.div class: "slider__style__progress", style: "background: #{base0_color_transparent}", data: { bot__barbell_allocation_target: "allocation0SliderProgress" } do %>
               <div class="slider__style__thumb"></div>
             <% end %>
+            <%= tag.div class: "slider__style__othervalue", style: "background: #{base1_color_transparent};", data: { bot__barbell_allocation_target: "allocation1SliderOthervalue" } %>
           <% end %>
+          
         </div>
       </div>
     </div>

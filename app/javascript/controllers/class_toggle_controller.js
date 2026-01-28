@@ -11,11 +11,7 @@ import { Controller } from "@hotwired/stimulus"
 //
 export default class extends Controller {
   static targets = ["togglable"]
-  static values = { toggleClasses: Array }
-
-  // connect() {
-  //   console.log("ClassToggleController connected");
-  // }
+  static values = { toggleClasses: Array, resetAfter: Number }
 
   toggle() {
     if (!this.hasToggleClassesValue) {
@@ -28,5 +24,13 @@ export default class extends Controller {
         element.classList.toggle(toggleClass);
       });
     });
+
+    if (this.hasResetAfterValue && this.resetAfterValue > 0 && !this.resetting) {
+      this.resetting = true;
+      setTimeout(() => {
+        this.toggle();
+        this.resetting = false;
+      }, this.resetAfterValue);
+    }
   }
 }
