@@ -1,0 +1,26 @@
+<%= render 'layouts/modal/full_page' do %>
+  <div class="bot-creation-layout">
+    <%= render partial: 'bots/dca_indexes/new_step_progress_bar', locals: { current_step: :coingecko } %>
+
+    <div class="widget widget--centered" style="max-width: 72rem; margin: 0 auto;">
+      <p><%= t('setup.api_configuration') %></p>
+
+      <%= form_with url: bots_dca_indexes_setup_coingecko_path,
+                    method: :post,
+                    class: "setting-form",
+                    data: {
+                      controller: "form--html5-validations form--label-animations",
+                      turbo_frame: 'modal_content'
+                    } do |f| %>
+        <div class="form__row form__row--input">
+          <%= tag.input class: "form__input", type: "text", name: "api_key", required: true, id: "api_key", autocomplete: "off" %>
+          <%= label_tag :api_key, t('setup.coingecko_api_key'), class: "form__label" %>
+        </div>
+
+        <%= t('setup.coingecko_api_key_hint_html').html_safe %>
+
+        <%= f.submit t('setup.continue'), class: "button button--success" %>
+      <% end %>
+    </div>
+  </div>
+<% end %>

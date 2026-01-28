@@ -40,14 +40,25 @@
     @media screen and (min-width: 576px)
         grid-template-columns: repeat(auto-fill, minmax(280px, 1fr))
 .itile
-    padding: 10rem 2rem 2rem
-    @media screen and (min-width: 768px)
-        padding: 20rem 2rem 2rem
+    padding: 2rem
     &:hover,&.active
+        .ticker-group
+            .ticker
+                margin-right: -3rem
+            .ticker--more
+                opacity: 0  
         .theme-img
             transform: scale(1.05)
             &::after
                 background-image: linear-gradient(to bottom, #0000 40%, var(--pick-bot-item-bg) 22rem)
+    &--has-img
+        padding-top: 10rem
+        @media screen and (min-width: 768px)
+            padding-top: 20rem
+    p
+        flex: 2
+        font-size: 1.75rem
+        margin-bottom: 0.25rem
     &__value
         font-size: 1.75rem
         font-weight: 450
@@ -61,7 +72,7 @@
         margin-bottom: 0
 
 .itile
-    gap: 1rem !important
+    gap: 1.5rem !important
     position: relative
     overflow: hidden
     background: var(--washed)
@@ -154,8 +165,6 @@
     flex-direction: column
     gap: 0.75rem !important
     justify-content: flex-start
-    @media screen and (min-width: 920px)
-        height: 38.5rem
 .index-asset
     display: flex
     flex-direction: column
@@ -166,12 +175,9 @@
     .slider
         margin-bottom: 0
     .ticker
-        width: 22rem
+        width: 12rem
         min-width: 0
         padding: 0 1rem
-        height: 3rem
-        font-size: 1.75rem
-        line-height: 3rem
     .allocation
         min-width: 7rem
         text-align: right

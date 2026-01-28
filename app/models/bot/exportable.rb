@@ -51,30 +51,44 @@ module Bot::Exportable
       return { success: false, error: I18n.t('bot.details.stats.import_invalid_format') }
     end
 
-    # Get bot's currencies - handle both single and dual asset bots
+    # Get bot's currencies - handle single, dual, and index bots
     bot_base_symbols = if respond_to?(:base_asset) && base_asset.present?
                          [base_asset.symbol&.upcase]
                        elsif respond_to?(:base0_asset) && respond_to?(:base1_asset)
                          [base0_asset&.symbol&.upcase, base1_asset&.symbol&.upcase].compact
                        else
-                         []
+                         nil # nil means accept any base asset (for index bots)
                        end
     bot_quote = quote_asset&.symbol&.upcase
 
     imported_count = 0
-    existing_order_ids = transactions.pluck(:external_id).compact
+    skipped_currency_mismatch = 0
+    skipped_already_exists = 0
+    existing_order_ids = Set.new(transactions.pluck(:external_id).compact)
 
     rows.each do |row|
-      csv_base = row['Base Asset']&.upcase
-      csv_quote = row['Quote Asset']&.upcase
+      csv_base = row['Base Asset']&.strip&.upcase
+      csv_quote = row['Quote Asset']&.strip&.upcase
 
-      # Skip rows where currencies don't match (base must be one of the bot's base assets, quote must match)
-      next unless bot_base_symbols.include?(csv_base) && csv_quote == bot_quote
+      # Skip rows where currencies don't match
+      # For index bots (bot_base_symbols is nil), accept any base asset as long as quote matches
+      base_matches = bot_base_symbols.nil? || bot_base_symbols.include?(csv_base)
+      unless base_matches && csv_quote == bot_quote
+        skipped_currency_mismatch += 1
+        next
+      end
 
-      order_id = row['Order ID']
+      original_order_id = row['Order ID']
 
-      # Skip if order already exists
-      next if existing_order_ids.include?(order_id)
+      # Generate a unique external_id for the imported transaction
+      # This allows importing the same orders to different bots
+      order_id = "imported_#{id}_#{original_order_id}"
+
+      # Skip if this order was already imported to THIS bot
+      if existing_order_ids.include?(order_id)
+        skipped_already_exists += 1
+        next
+      end
 
       # Parse values
       timestamp = Time.zone.parse(row['Timestamp'])
@@ -106,7 +120,17 @@ module Bot::Exportable
       imported_count += 1
     end
 
-    { success: true, imported_count: imported_count }
+    # Provide detailed feedback
+    if imported_count == 0 && skipped_currency_mismatch > 0
+      return {
+        success: false,
+        error: I18n.t('bot.details.stats.import_currency_mismatch',
+                      csv_quote: rows.first&.dig('Quote Asset'),
+                      bot_quote: bot_quote)
+      }
+    end
+
+    { success: true, imported_count: imported_count, skipped_existing: skipped_already_exists }
   rescue CSV::MalformedCSVError => e
     { success: false, error: I18n.t('bot.details.stats.import_malformed_csv') }
   rescue StandardError => e

@@ -2,6 +2,15 @@ nl:
     bot:
         setup:
             api_not_available: 'Exchange API is niet beschikbaar'
+            progress_steps:
+                currencies: "Kies asset"
+                currencies2: "Tweede asset"
+                exchange: "Exchange"
+                spendable: "Valuta"
+                api: "Verbind exchange"
+                schedule: "Schema instellen"
+                coingecko: "Verbind CoinGecko"
+                index: "Kies index"
             binance:
                 instructions_1_html: 'Log in op uw %{exchange_link} account.'
                 instructions_2_html: 'In het gebruikersmenu (rond pictogram in de rechterbovenhoek) gaat u naar <b>API Management</b>.'
@@ -66,6 +75,7 @@ nl:
             step_api_key: 'API Key'
             step_assets: Assets
             step_exchange: Exchange
+            step_settings: Settings
             step_schedule: Schema
             step_type: Type
             validating: Validating…

@@ -8,8 +8,11 @@ class Bots::DcaDualAssets::AddApiKeysController < ApplicationController
       redirect_to new_bots_dca_dual_assets_pick_exchange_path
     else
       @api_key = @bot.api_key
-      result = @api_key.get_validity
-      @api_key.update_status!(result) if @api_key.key.present? && @api_key.secret.present?
+      # Only validate if key exists but isn't already confirmed correct
+      if @api_key.key.present? && @api_key.secret.present? && !@api_key.correct?
+        result = @api_key.get_validity
+        @api_key.update_status!(result)
+      end
       redirect_to new_bots_dca_dual_assets_pick_spendable_asset_path if @api_key.correct?
     end
   end

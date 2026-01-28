@@ -7,6 +7,7 @@
     font-weight: 600
     color: var(--ink)
     flex-wrap: wrap
+    align-items: center
     b
         font-weight: 725
     @media (min-width: 768px)
@@ -29,12 +30,10 @@
                 color: var(--stone)
 
     &--bot-setup
-        font-size: 2.25rem
         font-weight: 600
         flex-wrap: wrap
         justify-content: center
-        @media (min-width: 768px)
-            font-size: 2.5rem
+        align-items: center
     &__input
         border: none
         margin: 0
@@ -78,10 +77,6 @@
         @media (min-width: 768px)
             line-height: 4rem
             height: 4rem
-        &--exchange
-            @media (max-width: 767.9px)
-                padding-left: 1rem !important
-                padding-right: 1.5rem !important
     .numeric-input
         text-align: center
         font-weight: 600
@@ -94,40 +89,28 @@
             background: var(--washed) !important
             display: inline-block
 .process-progress
+    padding: 0 1rem
     display: flex
+    flex-direction: column
+    gap: 2rem
     align-items: center
-    justify-content: center
-    gap: 0.5rem
-    &__connector
-        width: 4rem
-        height: 0.25rem
-        border-radius: 0.25rem
-        background: var(--ink)
-        @media (max-width: 768px)
-            width: 2rem
-    &__step
-        display: flex
-        flex-direction: column
-        align-items: center
-        font-weight: 600
-        &--done
-            color: var(--ink)
-        &--now
-             color: var(--ink)
-             &~.process-progress__connector
-                background: var(--stone)
-                opacity: 0.5
-        &--todo
-            color: var(--stone)
-            opacity: 0.5
+    h4
+        color: var(--link)
+    .slider__style__track
+        border: none
+    .slider__style__progress
+        background: var(--link)
+        border-radius: 1rem
 
 .bot-creation-layout
     position: relative
     display: flex
     flex-direction: column
     gap: 4rem
+    padding-bottom: 2rem
     @media (min-width: 768px)
         gap: 7rem
+        padding-bottom: 4rem
     #create-bot-button
         display: flex
         justify-content: flex-end
@@ -141,6 +124,8 @@
         padding: 2rem
         @media screen and (min-width: 576px)
             padding: 4rem
+    .itiles
+        padding: 0 1rem
 .bot-creation-preview
     display: flex
     flex-direction: column

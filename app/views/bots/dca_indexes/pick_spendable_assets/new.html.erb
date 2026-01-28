@@ -1,0 +1,27 @@
+<%= render 'layouts/modal/full_page' do %>
+  <div class="bot-creation-layout">
+    <%= render partial: 'bots/dca_indexes/new_step_progress_bar', locals: { current_step: :spendable } %>
+
+    <div class="conversational conversational--bot-setup">
+      <%= t('bot.dca_index.setup.sentence.build_index') %>
+      <%= t('bot.setup.sentence.at') %>
+      <%= link_to new_bots_dca_indexes_pick_exchange_path, data: { turbo_frame: "modal_content" }, class: "sbutton sbutton--exchange sbutton--exchange--#{@bot.exchange.name_id}" do %>
+        <%= render "svg/exchange-#{@bot.exchange.name_id}", title: @bot.exchange.name %>
+        <span class="hide-on-mobile"><%= @bot.exchange.name %></span>
+      <% end %>
+      <%= t('bot.setup.sentence.spending') %>
+      <%= form_with url: new_bots_dca_indexes_pick_spendable_asset_path, method: :get, data: { controller: "form--submit-after-delay", turbo_frame: "asset-picker" } do |f| %>
+        <%= f.text_field :query, autofocus: true, autocomplete: "off", placeholder: "...", data: { action: "input->form--submit-after-delay#submit" }, class: "conversational__input sinput" %>
+      <% end %>
+    </div>
+
+    <%= turbo_frame_tag "asset-picker", data: { action: "keydown@window->arrow-keys-navigation#navigate", controller: "arrow-keys-navigation" }, class: "modal--search__assets selectable-options" do %>
+      <%= form_with model: @bot, url: bots_dca_indexes_pick_spendable_asset_path, method: :post do |f| %>
+        <% @assets.each do |id, symbol, name, color, exchanges| %>
+          <%= render partial: "bots/asset_search_result", locals: { bot: @bot, asset_field: :quote_asset_id, id: id, symbol: symbol, name: name, color: color, exchanges: exchanges } %>
+        <% end %>
+      <% end %>
+    <% end %>
+
+  </div>
+<% end %>

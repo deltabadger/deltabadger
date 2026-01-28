@@ -8,6 +8,7 @@ require 'rspec/rails'
 require 'helpers/devise'
 require "selenium/webdriver"
 require 'support/factory_bot'
+require 'support/exchange_mock_helpers'
 
 Capybara.register_driver :chrome do |app|
   Capybara::Selenium::Driver.new(app, browser: :chrome)
@@ -77,5 +78,6 @@ RSpec.configure do |config|
   # arbitrary gems may also be filtered via:
   # config.filter_gems_from_backtrace("gem name")
   config.include Devise::Test::IntegrationHelpers, type: :feature
+  config.include Devise::Test::IntegrationHelpers, type: :request
   config.include DeviseHelpers, type: :feature
 end

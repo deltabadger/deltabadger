@@ -68,12 +68,17 @@ class Coingecko
       return result if result.failure?
 
       all_coins.concat(result.data).uniq! { |coin| coin['id'] }
+
+      # Check if we've fetched all available data (fewer results than per_page means no more pages)
+      no_more_pages = result.data.count < per_page
+
       if limit.present?
         all_coins = all_coins[...limit]
-        return Result::Success.new(all_coins) if all_coins.count >= limit
+        # Return if we've reached the limit OR if there are no more pages to fetch
+        return Result::Success.new(all_coins) if all_coins.count >= limit || no_more_pages
       elsif ids.present?
         return Result::Success.new(all_coins) if id_batches.count == i + 1
-      elsif result.data.count < per_page
+      elsif no_more_pages
         return Result::Success.new(all_coins)
       end
     end
@@ -117,6 +122,69 @@ class Coingecko
       result.data
     end
     Result::Success.new(rates)
+  end
+
+  # Get top N cryptocurrencies by market cap
+  # @param limit [Integer] Number of coins to fetch (default: 50)
+  # @param currency [String] Quote currency for prices (default: 'usd')
+  # @return [Result] Array of coin data with market_cap, current_price, circulating_supply, etc.
+  def get_top_coins_by_market_cap(limit: 50, currency: 'usd')
+    return Result::Failure.new('CoinGecko API key not configured') if @api_key.blank?
+
+    cache_key = "coingecko_top_coins_#{limit}_#{currency}"
+    coins = Rails.cache.fetch(cache_key, expires_in: 1.hour) do
+      result = get_coins_list_with_market_data(currency: currency, limit: limit)
+      return result if result.failure?
+
+      result.data
+    end
+    Result::Success.new(coins)
+  end
+
+  # Get top N cryptocurrencies by market cap for a specific category
+  # @param category [String] CoinGecko category ID
+  # @param limit [Integer] Number of coins to fetch (default: 50)
+  # @param currency [String] Quote currency for prices (default: 'usd')
+  # @return [Result] Array of coin data
+  def get_top_coins_by_category(category:, limit: 50, currency: 'usd')
+    return Result::Failure.new('CoinGecko API key not configured') if @api_key.blank?
+
+    cache_key = "coingecko_category_#{category}_#{limit}_#{currency}"
+    coins = Rails.cache.fetch(cache_key, expires_in: 1.hour) do
+      result = get_coins_list_with_market_data(currency: currency, category: category, limit: limit)
+      return result if result.failure?
+
+      result.data
+    end
+    Result::Success.new(coins)
+  end
+
+  # Get list of all CoinGecko categories
+  # @return [Result] Array of categories with id, name
+  def get_categories_list
+    return Result::Failure.new('CoinGecko API key not configured') if @api_key.blank?
+
+    categories = Rails.cache.fetch('coingecko_categories_list', expires_in: 24.hours) do
+      result = client.categories_list
+      return result if result.failure?
+
+      result.data
+    end
+    Result::Success.new(categories)
+  end
+
+  # Get categories with market data (for displaying top categories)
+  # @return [Result] Array of categories with market data
+  def get_categories_with_market_data
+    return Result::Failure.new('CoinGecko API key not configured') if @api_key.blank?
+
+    categories = Rails.cache.fetch('coingecko_categories_market_data', expires_in: 1.hour) do
+      result = client.categories
+      return result if result.failure?
+
+      result.data
+    end
+    Result::Success.new(categories)
   end
 
   private

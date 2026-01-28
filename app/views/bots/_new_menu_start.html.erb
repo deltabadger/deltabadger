@@ -10,12 +10,10 @@
             <div class="index-info"><%= t('bot.types.dca_dual_asset.description').html_safe %></div>
         <% end %>
 
-        <% path = bots_path(create: true) %>
-        <% data = { turbo: false } %>
-        <div class="itile itile--bot-type itile--soon">
+        <%= link_to new_bots_dca_indexes_setup_coingecko_path, class: 'itile itile--bot-type', data: { action: 'click->modal--base#animateOutCloseAndCleanUp', turbo_frame: 'modal' } do %>
             <div class="index-title"><%= t('bot.types.index_portfolio.title') %></div>
             <div class="index-info"><%= t('bot.types.index_portfolio.description').html_safe %></div>
-        </div>
+        <% end %>
     </div>
 </div>
 

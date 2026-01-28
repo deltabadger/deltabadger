@@ -1,0 +1,35 @@
+<%= render 'layouts/modal/full_page' do %>
+  <div class="bot-creation-layout">
+    <%= render partial: 'bots/dca_indexes/new_step_progress_bar', locals: { current_step: :exchange } %>
+
+    <div class="conversational conversational--bot-setup">
+      <%= t('bot.dca_index.setup.sentence.build_index_at', index_name: @bot.display_index_name) %>
+      <%= t('bot.setup.sentence.at') %>
+      <%= form_with url: new_bots_dca_indexes_pick_exchange_path, method: :get, data: { controller: "form--submit-after-delay", turbo_frame: "exchange-picker" } do |f| %>
+        <%= f.text_field :query, autofocus: true, autocomplete: "off", placeholder: "...", data: { action: "input->form--submit-after-delay#submit" }, class: "conversational__input sinput" %>
+      <% end %>
+    </div>
+
+    <%= turbo_frame_tag "exchange-picker", data: { action: "keydown@window->arrow-keys-navigation#navigate", controller: "arrow-keys-navigation" }, class: "modal--search__assets selectable-options" do %>
+      <div class="exchange-picker__item exchange-picker__item--header">
+        <div>Exchange</div>
+        <div>Maker</div>
+        <div>Taker</div>
+        <div>Coins</div>
+      </div>
+      <div class="selectable-options">
+        <%= form_with model: @bot, url: bots_dca_indexes_pick_exchange_path, method: :post do |f| %>
+          <% @exchanges.each do |exchange| %>
+            <%= render partial: "bots/dca_indexes/exchange_search_result", locals: {
+              bot: @bot,
+              exchange: exchange,
+              index: @index,
+              top_coins: @exchange_top_coins&.dig(exchange.id) || [],
+              total_coins: @index&.coin_count_for_exchange(exchange.type) || 0
+            } %>
+          <% end %>
+        <% end %>
+      </div>
+    <% end %>
+  </div>
+<% end %>

@@ -76,7 +76,8 @@ class Bot < ApplicationRecord
   end
 
   def destroy
-    update(status: 'deleted')
+    self.status = 'deleted'
+    save(validate: false)
   end
 
   def broadcast_status_bar_update
