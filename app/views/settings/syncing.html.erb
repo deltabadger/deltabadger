@@ -1,0 +1,13 @@
+<%= turbo_stream_from "settings_sync" %>
+
+<div class="setup-syncing-fullscreen">
+  <div id="setup-syncing-container" class="setup-syncing">
+    <div class="setup-syncing__content">
+      <div class="setup-syncing__spinner">
+        <div class="loader"></div>
+      </div>
+      <p class="setup-syncing__text"><%= t('setup.syncing_message') %></p>
+      <p class="setup-syncing__hint"><%= t('setup.syncing_hint') %></p>
+    </div>
+  </div>
+</div>

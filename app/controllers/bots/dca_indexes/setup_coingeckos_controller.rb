@@ -2,8 +2,8 @@ class Bots::DcaIndexes::SetupCoingeckosController < ApplicationController
   before_action :authenticate_user!
 
   def new
-    # Skip to pick index if CoinGecko is already configured
-    if AppConfig.coingecko_configured?
+    # Skip to pick index if CoinGecko is already configured and synced
+    if AppConfig.coingecko_configured? && AppConfig.setup_sync_completed?
       session[:bot_config] ||= {}
       redirect_to new_bots_dca_indexes_pick_index_path
     end
@@ -20,7 +20,11 @@ class Bots::DcaIndexes::SetupCoingeckosController < ApplicationController
 
     AppConfig.coingecko_api_key = api_key
     session[:bot_config] ||= {}
-    redirect_to new_bots_dca_indexes_pick_index_path
+
+    # Trigger sync and redirect to fullscreen syncing page
+    AppConfig.setup_sync_status = AppConfig::SYNC_STATUS_PENDING
+    Setup::SeedAndSyncJob.perform_later(source: 'settings', redirect_to: new_bots_dca_indexes_pick_index_path)
+    render turbo_stream: turbo_stream_redirect(settings_syncing_path)
   end
 
   private
