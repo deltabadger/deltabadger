@@ -135,7 +135,32 @@ $spinnerColor: color.adjust(#e9ecef, $lightness: -3%)
   &__hint
     font-size: 1.75rem
     color: var(--menuLogo)
-    opacity: 0.4
     position: relative
     top: -2rem
     margin: 0
+
+  &__error
+    display: flex
+    flex-direction: column
+    align-items: center
+    gap: 2rem
+    text-align: center
+
+  &__error-message
+    font-size: 1.75rem
+    color: var(--danger)
+    max-width: 40rem
+    line-height: 1.4
+    margin: 0
+
+.setup-syncing-fullscreen
+  position: fixed
+  top: 0
+  left: 0
+  width: 100vw
+  height: 100vh
+  background: var(--paper)
+  z-index: 9999
+  display: flex
+  align-items: center
+  justify-content: center

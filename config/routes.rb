@@ -63,6 +63,7 @@ Rails.application.routes.draw do
       get :confirm_destroy_coingecko_key
       delete :destroy_coingecko_key
       post :update_coingecko_key
+      get :syncing
     end
 
     get :dashboard, to: redirect { |params, request|

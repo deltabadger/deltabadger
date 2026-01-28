@@ -106,8 +106,8 @@ class SettingsController < ApplicationController
 
   def resync_assets
     AppConfig.setup_sync_status = AppConfig::SYNC_STATUS_PENDING
-    Setup::SeedAndSyncJob.perform_later(source: 'settings')
-    render turbo_stream: turbo_stream.prepend('flash', partial: 'layouts/flash_syncing')
+    Setup::SeedAndSyncJob.perform_later(source: 'settings', redirect_to: settings_path)
+    redirect_to settings_syncing_path
   end
 
   def confirm_destroy_coingecko_key
@@ -129,11 +129,13 @@ class SettingsController < ApplicationController
 
     AppConfig.coingecko_api_key = params[:coingecko_api_key]
     AppConfig.setup_sync_status = AppConfig::SYNC_STATUS_PENDING
-    Setup::SeedAndSyncJob.perform_later(source: 'settings')
-    render turbo_stream: [
-      turbo_stream.prepend('flash', partial: 'layouts/flash_syncing'),
-      turbo_stream.replace('coingecko_key', partial: 'settings/widgets/resync_assets_key')
-    ]
+    Setup::SeedAndSyncJob.perform_later(source: 'settings', redirect_to: settings_path)
+    redirect_to settings_syncing_path
+  end
+
+  def syncing
+    # If sync is already completed, redirect to settings
+    redirect_to settings_path if AppConfig.setup_sync_completed?
   end
 
   private

@@ -1,8 +1,9 @@
 class Setup::SeedAndSyncJob < ApplicationJob
   queue_as :low_priority
 
-  def perform(source: 'setup')
+  def perform(source: 'setup', redirect_to: nil)
     @source = source
+    @redirect_to = redirect_to
     mark_sync_in_progress
 
     seed_exchanges
@@ -96,21 +97,30 @@ class Setup::SeedAndSyncJob < ApplicationJob
   end
 
   def broadcast_settings_sync_completed
-    Turbo::StreamsChannel.broadcast_remove_to("settings_sync", target: "flash-syncing")
-  end
-
-  def broadcast_settings_sync_failed(error_message)
+    redirect_url = @redirect_to || Rails.application.routes.url_helpers.settings_path
     Turbo::StreamsChannel.broadcast_replace_to(
       "settings_sync",
-      target: "flash-syncing",
-      html: settings_error_html(error_message)
+      target: "setup-syncing-container",
+      html: "<script>window.location.href = '#{redirect_url}';</script>"
     )
   end
 
-  def settings_error_html(error_message)
+  def broadcast_settings_sync_failed(error_message)
+    retry_url = @redirect_to || Rails.application.routes.url_helpers.settings_path
+    Turbo::StreamsChannel.broadcast_replace_to(
+      "settings_sync",
+      target: "setup-syncing-container",
+      html: settings_error_html(error_message, retry_url)
+    )
+  end
+
+  def settings_error_html(error_message, retry_url)
     <<~HTML
-      <div id="flash-syncing" class="flash__message salert salert--danger" role="alert">
-        #{error_message}
+      <div class="setup-syncing__error">
+        <p class="setup-syncing__error-message">#{error_message}</p>
+        <a href="#{retry_url}" class="button button--sky">
+          #{I18n.t('setup.retry')}
+        </a>
       </div>
     HTML
   end
