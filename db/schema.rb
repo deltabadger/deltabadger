@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_01_26_145012) do
+ActiveRecord::Schema[8.1].define(version: 2026_01_28_000001) do
   create_table "api_keys", force: :cascade do |t|
     t.datetime "created_at", precision: nil, null: false
     t.string "encrypted_key"
@@ -58,6 +58,23 @@ ActiveRecord::Schema[8.1].define(version: 2026_01_26_145012) do
     t.index ["isin"], name: "index_assets_on_isin"
     t.index ["name"], name: "index_assets_on_name"
     t.index ["symbol"], name: "index_assets_on_symbol"
+  end
+
+  create_table "bot_index_assets", force: :cascade do |t|
+    t.integer "asset_id", null: false
+    t.integer "bot_id", null: false
+    t.datetime "created_at", null: false
+    t.decimal "current_allocation", precision: 10, scale: 6
+    t.datetime "entered_at"
+    t.datetime "exited_at"
+    t.boolean "in_index", default: true
+    t.decimal "target_allocation", precision: 10, scale: 6
+    t.integer "ticker_id", null: false
+    t.datetime "updated_at", null: false
+    t.index ["asset_id"], name: "index_bot_index_assets_on_asset_id"
+    t.index ["bot_id", "asset_id"], name: "index_bot_index_assets_on_bot_id_and_asset_id", unique: true
+    t.index ["bot_id"], name: "index_bot_index_assets_on_bot_id"
+    t.index ["ticker_id"], name: "index_bot_index_assets_on_ticker_id"
   end
 
   create_table "bots", force: :cascade do |t|
@@ -116,6 +133,20 @@ ActiveRecord::Schema[8.1].define(version: 2026_01_26_145012) do
     t.string "encrypted_secret_iv"
     t.bigint "exchange_id", null: false
     t.index ["exchange_id"], name: "index_fee_api_keys_on_exchange_id"
+  end
+
+  create_table "indices", force: :cascade do |t|
+    t.json "available_exchanges", default: {}
+    t.integer "coins_count"
+    t.datetime "created_at", null: false
+    t.text "description"
+    t.string "external_id"
+    t.decimal "market_cap"
+    t.string "name"
+    t.string "source"
+    t.json "top_coins"
+    t.datetime "updated_at", null: false
+    t.index ["external_id", "source"], name: "index_indices_on_external_id_and_source", unique: true
   end
 
   create_table "setting_flags", force: :cascade do |t|
@@ -209,6 +240,9 @@ ActiveRecord::Schema[8.1].define(version: 2026_01_26_145012) do
 
   add_foreign_key "api_keys", "exchanges"
   add_foreign_key "api_keys", "users"
+  add_foreign_key "bot_index_assets", "assets"
+  add_foreign_key "bot_index_assets", "bots"
+  add_foreign_key "bot_index_assets", "tickers"
   add_foreign_key "bots", "exchanges"
   add_foreign_key "bots", "users"
   add_foreign_key "exchange_assets", "assets"

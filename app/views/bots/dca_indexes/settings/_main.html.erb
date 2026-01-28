@@ -1,0 +1,118 @@
+<% quote_color = ensure_contrast(bot.quote_asset&.color || "#8A9BA8") %>
+<% quote = bot.quote_asset&.symbol || 'USD' %>
+<% num_coins = bot.num_coins || 10 %>
+<% num_coins_progress = ((num_coins - Bots::DcaIndex::MIN_COINS).to_f / (Bots::DcaIndex::MAX_COINS - Bots::DcaIndex::MIN_COINS) * 100).round %>
+<% flattening = bot.allocation_flattening || 0 %>
+<% flattening_progress = (flattening * 100).round %>
+<% index_preview = local_assigns.fetch(:index_preview, nil) || [] %>
+
+<div data-controller="index-allocation">
+  <%= form_with model: bot,
+                url: path,
+                method: method,
+                class: "widget main-bot-settings main-bot-settings--index",
+                data: {
+                  turbo_stream: true,
+                  controller: "form--submit form--submit-after-delay form--move-cursor-to-end form--html5-validations"
+                } do |f| %>
+    <div class="conversational flex-justify-center">
+      <%= t('bot.conversational.invest') %>
+      <div class="ticker-input ticker-input--autoscale">
+        <% value = bot.quote_amount.present? ? bot.quote_amount.to_d.to_s('F').sub(/([0-9]\d*)\.0$/, '\1') : nil %>
+        <%= f.number_field :quote_amount, value: value, class: 'numeric-input', step: :any, size: 2, data: { controller: "autowidth-input", action: "input->form--submit-after-delay#submit input->autowidth-input#resize", form__move_cursor_to_end_target: "input" }, autofocus: bot.new_record? && bot.quote_amount.blank?, disabled: bot.working?, placeholder: "100" %>
+
+        <% if bot.new_record? %>
+          <%= link_to quote, new_bots_dca_indexes_pick_spendable_asset_path, data: { turbo_frame: "modal_content" }, class: "ticker" %>
+        <% else %>
+          <div class="ticker">
+            <%= quote %>
+          </div>
+        <% end %>
+      </div>
+      /
+      <div class="sinput sinput--select <%= 'sinput--disabled' if bot.working? %>">
+        <%= t("bot.#{bot.interval}") %>
+        <%= f.select :interval, bot_intervals_select_options, { selected: bot.interval }, data: { action: "change->form--submit#submit" }, disabled: bot.working? %>
+      </div>
+      <%= t('bot.dca_index.into_index', index_name: bot.display_index_name) %>
+    </div>
+
+    <div class="index-settings">
+      <div class="index-setting">
+        <div class="flex-row space-between">
+          <div class="label label--select ellipsis"><%= t('bot.dca_index.num_coins') %></div>
+          <div class="label label--select ellipsis" data-index-allocation-target="numCoinsValue"><%= num_coins %></div>
+        </div>
+        <div class="slider">
+          <input type="range"
+                 name="bots_dca_index[num_coins]"
+                 min="<%= Bots::DcaIndex::MIN_COINS %>"
+                 max="<%= Bots::DcaIndex::MAX_COINS %>"
+                 value="<%= num_coins %>"
+                 class="slider__input"
+                 data-index-allocation-target="numCoins"
+                 data-action="input->index-allocation#updateNumCoins change->form--submit#submit"
+                 <%= 'disabled' if bot.working? %>>
+          <div class="slider__style">
+            <div class="slider__style__track" data-index-allocation-target="numCoinsTrack" style="grid-template-columns: <%= num_coins_progress %>% auto;">
+              <div class="slider__style__progress">
+                <div class="slider__style__thumb"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="index-setting">
+        <div class="flex-row space-between">
+          <div class="label label--select ellipsis"><%= t('bot.dca_index.allocation_flattening') %></div>
+          <div class="label label--select ellipsis" data-index-allocation-target="flatteningValue"><%= flattening_progress %>%</div>
+        </div>
+        <div class="slider">
+          <input type="range"
+                 name="bots_dca_index[allocation_flattening]"
+                 min="0"
+                 max="1"
+                 step="0.01"
+                 value="<%= flattening %>"
+                 class="slider__input"
+                 data-index-allocation-target="flattening"
+                 data-action="input->index-allocation#updateFlattening change->form--submit#submit"
+                 <%= 'disabled' if bot.working? %>>
+          <div class="slider__style">
+            <div class="slider__style__track" data-index-allocation-target="flatteningTrack" style="grid-template-columns: <%= flattening_progress %>% auto;">
+              <div class="slider__style__progress">
+                <div class="slider__style__thumb"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <% if index_preview.present? %>
+      <div class="index-assets" data-index-allocation-target="assets" data-total-available="<%= index_preview.size %>">
+        <% index_preview.each_with_index do |coin, index| %>
+          <% color = ensure_contrast(coin[:color] || '#8A9BA8') %>
+          <% visible = index < num_coins %>
+          <div class="index-asset" data-market-cap="<%= coin[:market_cap] %>" data-index="<%= index %>" <%= 'style="display: none;"' unless visible %>>
+            <div class="index-asset__row">
+              <div class="ticker" style="background-color: <%= color %>"><%= coin[:symbol] %></div>
+              <div class="slider">
+                <div class="slider__style">
+                  <div class="slider__style__track" style="border-left-color: <%= color %>; grid-template-columns: 0% auto;">
+                    <div class="slider__style__progress" style="background-color: <%= color %>;"></div>
+                  </div>
+                </div>
+              </div>
+              <div class="allocation">0%</div>
+            </div>
+          </div>
+        <% end %>
+      </div>
+      <p class="index-preview__note" data-index-allocation-target="note" <%= 'style="display: none;"' unless index_preview.size < num_coins %>>
+        <%= t('bot.dca_index.fewer_coins_available', available: index_preview.size, requested: num_coins, exchange_name: bot.exchange.name) %>
+      </p>
+    <% end %>
+  <% end %>
+</div>

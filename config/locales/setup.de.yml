@@ -2,6 +2,15 @@ de:
     bot:
         setup:
             api_not_available: "Exchange API ist nicht verfügbar"
+            progress_steps:
+                currencies: "Asset wählen"
+                currencies2: "Zweites Asset"
+                exchange: "Börse"
+                spendable: "Währung"
+                api: "Börse verbinden"
+                schedule: "Zeitplan festlegen"
+                coingecko: "CoinGecko verbinden"
+                index: "Index wählen"
             sentence:
                 invest_in: "Investiere in"
                 and: "und"
@@ -71,6 +80,7 @@ de:
             step_api_key: API-Schlüssel
             step_assets: Assets
             step_exchange: Umtauschen
+            step_settings: Settings
             step_schedule: Planen
             validating: 'Wird validiert'
             withdrawal:

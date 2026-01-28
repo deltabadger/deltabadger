@@ -1,22 +1,22 @@
 <div style="display: flex; gap: 1rem">
-  <div id="<%= dom_id(bot, :export) %>" data-controller="class-toggle" data-class-toggle-toggle-classes-value='["hidden"]'>
+  <div id="<%= dom_id(bot, :export) %>" data-controller="class-toggle" data-class-toggle-toggle-classes-value='["hidden"]' data-class-toggle-reset-after-value="3000">
     <%= button_to t('bot.details.stats.download_csv'),
                 bot_export_path(bot),
                 class: 'sinput',
                 method: :post,
                 data: { turbo: false, class_toggle_target: "togglable", action: "click->class-toggle#toggle" } %>
-    <div class="hidden" data-class-toggle-target="togglable" style="padding: 0.5rem;">
-      <div class="loader--small" style="position: unset; float: left; margin: 0.25rem 1rem;"></div>
+    <div class="hidden" data-class-toggle-target="togglable" style="font-weight: 600; padding: 0.5rem; color: var(--concrete); display: flex; align-items: center; justify-content: center;">
+      <div class="loader--small" style="position: unset; float: left; margin: 0.25rem 1rem; display: flex; align-items: center; justify-content: center;"></div>
       <%= t('bot.details.stats.generating_csv') %>
     </div>
   </div>
 
   <div id="<%= dom_id(bot, :import) %>">
     <%= form_with url: bot_import_path(bot), method: :post, multipart: true, data: { turbo: false }, id: dom_id(bot, :import_form) do |f| %>
-      <label class="sinput" style="cursor: pointer; display: inline-block;">
+      <button type="button" class="sinput" onclick="this.nextElementSibling.click()">
         <%= t('bot.details.stats.import_csv') %>
-        <%= f.file_field :file, accept: '.csv', style: 'display: none;', onchange: "this.form.submit();" %>
-      </label>
+      </button>
+      <%= f.file_field :file, accept: '.csv', hidden: true, onchange: "this.form.submit();" %>
     <% end %>
   </div>
 </div>

@@ -1,0 +1,95 @@
+@use "variables" as *
+
+// Index bot settings
+
+
+.index-picker-layout
+  @media screen and (min-width: 768px)
+    width: 90vw
+    margin-left: calc(-45vw + 50rem)
+
+.index-settings
+  display: flex
+  flex-direction: column
+  gap: 1.5rem
+  padding: 1rem 0
+
+.index-setting
+  display: flex
+  flex-direction: column
+
+  &__label
+    font-weight: 600
+    color: var(--text)
+
+  &__control
+    display: flex
+    align-items: center
+    gap: 1rem
+
+    &--flattening
+      flex-direction: column
+      align-items: stretch
+
+      @media (min-width: 600px)
+        flex-direction: row
+        align-items: center
+
+  &__value
+    min-width: 3rem
+    text-align: center
+    font-weight: 600
+    color: var(--accent)
+
+  &__value-row
+    display: flex
+    justify-content: center
+
+  &__hint
+    font-size: 0.875rem
+    color: var(--text-muted)
+    white-space: nowrap
+
+.index-preview__note
+  font-size: 1.75rem
+  color: var(--stone)
+
+
+// Metrics for index bot
+.metrics--index
+  .metrics__breakdown
+    margin-top: 1.5rem
+    padding-top: 1rem
+    border-top: 1px solid var(--border)
+
+    &-title
+      font-size: 0.875rem
+      font-weight: 600
+      margin-bottom: 0.75rem
+      color: var(--text-muted)
+
+    &-list
+      display: flex
+      flex-direction: column
+      gap: 0.25rem
+
+    &-item
+      display: grid
+      grid-template-columns: 4rem 1fr 5rem
+      gap: 0.5rem
+      align-items: center
+      padding: 0.25rem 0
+
+    &-symbol
+      font-weight: 600
+      color: var(--text)
+
+    &-amount
+      font-size: 0.875rem
+      color: var(--text-muted)
+      text-align: right
+
+    &-value
+      text-align: right
+      font-weight: 500
+      color: var(--text)

@@ -1,0 +1,43 @@
+<%= render 'layouts/modal/full_page' do %>
+  <div class="bot-creation-layout index-picker-layout">
+    <%= render partial: 'bots/dca_indexes/new_step_progress_bar', locals: { current_step: :index } %>
+
+    <%= form_with url: bots_dca_indexes_pick_index_path, method: :post, class: 'itiles', data: { turbo_frame: 'modal_content' } do |f| %>
+      <% if @indices.present? %>
+        <% @indices.each do |index| %>
+          <% is_top_coins = index.source == Index::SOURCE_INTERNAL %>
+          <% index_type_value = is_top_coins ? Bots::DcaIndex::INDEX_TYPE_TOP : Bots::DcaIndex::INDEX_TYPE_CATEGORY %>
+          <button type="submit"
+                  name="index_type"
+                  value="<%= index_type_value %>"
+                  class="itile <%= 'itile--top' if is_top_coins %>"
+                  onclick="this.form.querySelector('#index_category_id').value='<%= index.external_id %>'; this.form.querySelector('#index_name').value='<%= j(index.name) %>';">
+            <h4><%= index.name %></h4>
+            <p><%= truncate(index.description, length: 150) %></p>
+            <% if index.top_coins.present? %>
+              <div class="ticker-group ticker-group--many">
+                <% display_limit = Index::ExchangeAvailability::DISPLAY_COINS_COUNT %>
+                <% displayed_count = 0 %>
+                <% index.top_coins.each do |coin_id| %>
+                  <% break if displayed_count >= display_limit %>
+                  <% asset = @assets_by_coingecko_id[coin_id] %>
+                  <% if asset.present? %>
+                    <% displayed_count += 1 %>
+                    <% color = ensure_contrast(asset.color || '#8A9BA8') %>
+                    <span class="ticker" style="background-color: <%= color %>"><%= asset.symbol %></span>
+                  <% end %>
+                <% end %>
+                <% max_exchange_coins = index.available_exchanges.values.max || 0 %>
+                <% if max_exchange_coins > displayed_count %>
+                  <span class="ticker ticker--more">+<%= max_exchange_coins - displayed_count %></span>
+                <% end %>
+              </div>
+            <% end %>
+          </button>
+        <% end %>
+      <% end %>
+      <%= hidden_field_tag :index_category_id, '', id: 'index_category_id' %>
+      <%= hidden_field_tag :index_name, '', id: 'index_name' %>
+    <% end %>
+  </div>
+<% end %>

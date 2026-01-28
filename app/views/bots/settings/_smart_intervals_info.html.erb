@@ -1,10 +1,10 @@
 <% if bot.smart_intervaled? && bot.smart_interval_quote_amount&.positive? && bot.quote_amount&.positive? %>
   <small id="<%= bot.new_record? ? "new-settings-smart-intervals-info" : "settings-smart-intervals-info" %>" class="small-info">
     <%= t("bot.settings.smart_intervals.info",
-          quote_amount: bot.quote_amount.round(bot.decimals[:quote]),
-          quote: bot.quote_asset.symbol,
+          quote_amount: bot.quote_amount.round(bot.decimals[:quote] || 2),
+          quote: bot.quote_asset&.symbol || 'USD',
           interval: t("bot.#{bot.interval}"),
-          amount: bot.smart_interval_quote_amount.round(bot.decimals[:quote]),
+          amount: bot.smart_interval_quote_amount.round(bot.decimals[:quote] || 2),
           smart_interval: distance_of_time_in_words(bot.effective_interval_duration)) %>
   </small>
 <% end %>

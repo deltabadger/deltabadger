@@ -3,7 +3,30 @@ ru:
         add_api_keys: "Добавить API ключи для %{exchange}"
         bot_name: "Имя бота"
         new: "Новый бот"
-        start_new_bot: "Создать нового бота"
+        dca_index:
+            setup:
+                step_index: "Индекс"
+                sentence:
+                    build_index: "Построить портфель индекса"
+                    build_index_at: "Построить портфель %{index_name}"
+                pick_index:
+                    top_coins: "Топ монеты"
+                    top_coins_description: "Топ криптовалют по рыночной капитализации"
+                    error: "Пожалуйста, выберите индекс"
+            num_coins: "Количество монет"
+            allocation_flattening: "Выравнивание распределения"
+            into_index: "в %{index_name}"
+            index_preview: "Предпросмотр индекса"
+            fewer_coins_available: "%{available} из %{requested} монет в индексе доступны на %{exchange_name}"
+            num_assets: "Активы в индексе"
+            asset_breakdown: "Разбор активов"
+            asset: "Актив"
+            amount: "Количество"
+            avg_price: "Средняя цена"
+            value: "Стоимость"
+            pl: "П/У"
+            warning:
+                intro: "Некоторые ордеры (%{skipped_count}) были ниже минимального размера ордера на %{exchange_name}. Вот как бот это обрабатывает:"
         types:
             dca:
                 title: "DCA"

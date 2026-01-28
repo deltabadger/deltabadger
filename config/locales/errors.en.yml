@@ -47,6 +47,7 @@ en:
             exchange_change_while_open_orders: "Cancel all open orders this bot has on %{exchange_name} before changing the exchange"
             destroy_success: "Bot %{bot_label} deleted successfully"
             api_key_success: "API keys saved successfully"
+            coingecko_required: "CoinGecko API key is required for Index bots"
         messages:
             accepted: 'must be accepted'
             already_confirmed: 'was already confirmed, please try signing in.'

@@ -73,6 +73,9 @@ application.register("form--submit", Form__SubmitController)
 import HotwireAnimationsController from "./hotwire_animations_controller"
 application.register("hotwire-animations", HotwireAnimationsController)
 
+import IndexAllocationController from "./index_allocation_controller"
+application.register("index-allocation", IndexAllocationController)
+
 import MarqueeController from "./marquee_controller"
 application.register("marquee", MarqueeController)
 
@@ -96,6 +99,9 @@ application.register("progress-bar", ProgressBarController)
 
 import RemovalsController from "./removals_controller"
 application.register("removals", RemovalsController)
+
+import SliderController from "./slider_controller"
+application.register("slider", SliderController)
 
 import ThreeDotsController from "./three_dots_controller"
 application.register("three-dots", ThreeDotsController)

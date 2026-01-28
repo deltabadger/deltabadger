@@ -2,6 +2,15 @@ it:
     bot:
         setup:
             api_not_available: "L'API dell'exchange non è disponibile"
+            progress_steps:
+                currencies: "Scegli asset"
+                currencies2: "Secondo asset"
+                exchange: "Exchange"
+                spendable: "Valuta"
+                api: "Connetti exchange"
+                schedule: "Imposta programma"
+                coingecko: "Connetti CoinGecko"
+                index: "Scegli indice"
             sentence:
                 invest_in: "Investi in"
                 and: "e"
@@ -71,6 +80,7 @@ it:
             step_api_key: 'Chiave API'
             step_assets: Beni
             step_exchange: Exchange
+            step_settings: Settings
             step_schedule: Programma
             step_type: Tipo
             validating: Validando…

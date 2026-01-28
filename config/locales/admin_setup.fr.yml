@@ -6,7 +6,7 @@ fr:
       name_required: "Le nom est requis"
       email_required: "L'e-mail est requis"
       password_required: "Le mot de passe est requis"
-    api_configuration: "API CoinGecko"
+    api_configuration: "Le bot utilise les données de marché fournies par CoinGecko. L'accès à l'API de CoinGecko est gratuit, mais vous devez vous inscrire et créer une clé API. Trouvez les instructions ci-dessous."
     coingecko_api_key: "Clé API CoinGecko"
     coingecko_api_key_hint_html: |
       <ol>

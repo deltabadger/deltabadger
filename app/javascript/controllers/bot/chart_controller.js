@@ -99,6 +99,7 @@ export default class extends Controller {
       {
         label: all_names[1],
         lineTension: 0,
+        stepped: 'before',
         borderWidth: 2.5,
         borderColor: benchmark_color,
         pointRadius: Array(maxPointsToDraw - 1)

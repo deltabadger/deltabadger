@@ -3,7 +3,30 @@ pl:
         add_api_keys: "Dodaj klucze API dla %{exchange}"
         bot_name: "Nazwa bota"
         new: "Nowy bot"
-        start_new_bot: "Utwórz nowego bota"
+        dca_index:
+            setup:
+                step_index: "Indeks"
+                sentence:
+                    build_index: "Zbuduj portfel indeksowy"
+                    build_index_at: "Zbuduj portfel %{index_name}"
+                pick_index:
+                    top_coins: "Top Monety"
+                    top_coins_description: "Najlepsze kryptowaluty według kapitalizacji rynkowej"
+                    error: "Proszę wybrać indeks"
+            num_coins: "Liczba monet"
+            allocation_flattening: "Wyrównanie alokacji"
+            into_index: "w %{index_name}"
+            index_preview: "Podgląd Indeksu"
+            fewer_coins_available: "%{available} z %{requested} monet w indeksie jest dostępnych na %{exchange_name}"
+            num_assets: "Aktywa w indeksie"
+            asset_breakdown: "Podział Aktywów"
+            asset: "Aktywo"
+            amount: "Ilość"
+            avg_price: "Średnia Cena"
+            value: "Wartość"
+            pl: "Z/S"
+            warning:
+                intro: "Niektóre zlecenia (%{skipped_count}) były poniżej minimalnego rozmiaru zlecenia %{exchange_name}. Oto jak bot to obsługuje:"
         types:
             dca:
                 title: "DCA"

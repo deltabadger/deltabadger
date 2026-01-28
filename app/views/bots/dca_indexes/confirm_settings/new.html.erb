@@ -1,0 +1,16 @@
+<%= render 'layouts/modal/full_page' do %>
+  <div class="bot-creation-layout">
+    <%= render partial: 'bots/dca_indexes/new_step_progress_bar', locals: { current_step: :schedule } %>
+
+    <div class="bot-creation-preview">
+      <div class="flex-row">
+        <%= link_to new_bots_dca_indexes_pick_exchange_path, data: { turbo_frame: "modal_content" }, class: "sbutton sbutton--exchange sbutton--exchange--#{@bot.exchange.name_id}" do %>
+          <%= render "svg/exchange-#{@bot.exchange.name_id}", title: @bot.exchange.name %>
+          <span class="hide-on-mobile"><%= @bot.exchange.name %></span>
+        <% end %>
+        <%= render partial: "bots/dca_indexes/create_bot_button", locals: { bot: @bot } %>
+      </div>
+      <%= render partial: "bots/dca_indexes/settings", locals: { bot: @bot, index_preview: @index_preview } %>
+    </div>
+  </div>
+<% end %>

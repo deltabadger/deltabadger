@@ -160,7 +160,7 @@ module Utilities
       end
 
       def coingecko
-        @coingecko ||= Coingecko.new
+        @coingecko ||= Coingecko.new(api_key: AppConfig.coingecko_api_key)
       end
 
       FIAT_SYMBOLS = %w[

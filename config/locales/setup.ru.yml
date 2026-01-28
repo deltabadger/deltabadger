@@ -2,6 +2,15 @@ ru:
     bot:
         setup:
             api_not_available: "API биржи недоступна"
+            progress_steps:
+                currencies: "Выбрать актив"
+                currencies2: "Второй актив"
+                exchange: "Биржа"
+                spendable: "Валюта"
+                api: "Подключить биржу"
+                schedule: "Настроить расписание"
+                coingecko: "Подключить CoinGecko"
+                index: "Выбрать индекс"
             sentence:
                 invest_in: "Инвестировать в"
                 and: "и"
@@ -56,6 +65,7 @@ ru:
             step_api_key: 'Ключ API'
             step_assets: Активы
             step_exchange: Биржа
+            step_settings: Settings
             step_schedule: График
             validating: Проверка…
             withdrawal:

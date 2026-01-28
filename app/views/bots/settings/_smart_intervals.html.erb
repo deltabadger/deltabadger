@@ -22,7 +22,7 @@
           <% end %>
           <%= t("bot.settings.smart_intervals.sentence_html",
                 amount_html: amount_html.html_safe,
-                quote: bot.quote_asset.symbol).html_safe %>
+                quote: bot.quote_asset&.symbol || 'USD').html_safe %>
           <%= render partial: "bots/settings/smart_intervals_info", locals: { bot: bot } %>
         <% end %>
       </div>

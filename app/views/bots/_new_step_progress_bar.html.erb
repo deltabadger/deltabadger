@@ -1,0 +1,12 @@
+<% progress = steps[current_step] || 0 %>
+
+<div class="process-progress">
+  <h4><%= t("bot.setup.progress_steps.#{current_step}", default: current_step.to_s.humanize) %></h4>
+  <div class="slider">
+    <div class="slider__style">
+      <div class="slider__style__track" style="grid-template-columns: <%= progress %>% auto">
+        <div class="slider__style__progress"></div>
+      </div>
+    </div>
+  </div>
+</div>

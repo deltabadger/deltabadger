@@ -6,7 +6,7 @@ en:
       name_required: "Name is required"
       email_required: "Email is required"
       password_required: "Password is required"
-    api_configuration: "CoinGecko API"
+    api_configuration: "The bot uses market data provided by CoinGecko. Access to the CoinGecko API is free, but you need to sign up and create an API key. Find instructions below."
     coingecko_api_key: "CoinGecko API Key"
     coingecko_api_key_hint_html: |
       <ol>

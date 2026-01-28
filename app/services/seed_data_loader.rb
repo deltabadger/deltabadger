@@ -7,6 +7,7 @@ class SeedDataLoader
     Rails.logger.info "Loading seed data from fixtures..."
 
     load_assets
+    load_indices
     Exchange.all.each do |exchange|
       load_tickers(exchange)
       load_exchange_assets(exchange)
@@ -36,6 +37,29 @@ class SeedDataLoader
     )
 
     Rails.logger.info "Loaded #{assets.size} assets"
+  end
+
+  def load_indices
+    file_path = @fixtures_dir.join("indices.json")
+
+    unless File.exist?(file_path)
+      Rails.logger.warn "Indices fixtures not found at #{file_path}. Skipping indices seeding."
+      return
+    end
+
+    Rails.logger.info "Loading indices from #{file_path}..."
+    fixture_data = JSON.parse(File.read(file_path))
+    indices = fixture_data['data']
+
+    Rails.logger.info "Found #{indices.size} indices in fixture"
+
+    # Bulk upsert for performance
+    Index.upsert_all(
+      indices.map { |i| prepare_index_attributes(i) },
+      unique_by: [:external_id, :source]
+    )
+
+    Rails.logger.info "Loaded #{indices.size} indices"
   end
 
   def load_tickers(exchange)
@@ -131,7 +155,21 @@ class SeedDataLoader
       market_cap: asset_data['market_cap'],
       circulating_supply: asset_data['circulating_supply'],
       url: asset_data['url'],
-      available: true,
+      created_at: Time.current,
+      updated_at: Time.current
+    }
+  end
+
+  def prepare_index_attributes(index_data)
+    {
+      external_id: index_data['external_id'],
+      source: index_data['source'],
+      name: index_data['name'],
+      description: index_data['description'],
+      top_coins: index_data['top_coins'],
+      coins_count: index_data['coins_count'],
+      market_cap: index_data['market_cap'],
+      available_exchanges: index_data['available_exchanges'] || {},
       created_at: Time.current,
       updated_at: Time.current
     }

@@ -24,7 +24,7 @@ export default class extends Controller {
   updateActiveButton() {
     this.filterTargets.forEach(button => {
       const isActive = button.dataset.filterType === this.currentValue
-      button.classList.toggle("button--multi--active", isActive)
+      button.classList.toggle("sbutton--multi--active", isActive)
     })
   }
 

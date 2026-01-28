@@ -23,7 +23,7 @@
         .animicon__b
             clip-path: polygon(60% 10%, 80% 10%, 80% 90%, 60% 90%)
 
-.button
+.button,.sbutton
     .animicon
         box-sizing: content-box
         border-right: 1rem solid transparent
@@ -32,7 +32,11 @@
         .animicon
             &__a, &__b
                 background-color: var(--link)
-        &.button--success
+        &.button--success,.sbutton--success
             .animicon
                 &__a, &__b
                     background-color: var(--grass)
+        &.button--danger,.sbutton--danger
+            .animicon
+                &__a, &__b
+                    background-color: var(--berry)

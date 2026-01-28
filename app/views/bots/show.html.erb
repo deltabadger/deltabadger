@@ -19,6 +19,8 @@
           <%= render partial: "bots/dca_single_assets/settings", locals: { bot: @bot } %>
         <% elsif @bot.dca_dual_asset? %>
           <%= render partial: "bots/dca_dual_assets/settings", locals: { bot: @bot } %>
+        <% elsif @bot.dca_index? %>
+          <%= render partial: "bots/dca_indexes/settings", locals: { bot: @bot, index_preview: @index_preview } %>
         <% end %>
       </div>
       <div class="column gap-1">
@@ -27,6 +29,8 @@
           <%= render partial: "bots/dca_single_assets/metrics", locals: { bot: @bot, metrics: @metrics, loading: @loading } %>
         <% elsif @bot.dca_dual_asset? %>
           <%= render partial: "bots/dca_dual_assets/metrics", locals: { bot: @bot, metrics: @metrics, loading: @loading } %>
+        <% elsif @bot.dca_index? %>
+          <%= render partial: "bots/dca_indexes/metrics", locals: { bot: @bot, metrics: @metrics, loading: @loading } %>
         <% end %>
         <%= render partial: "bots/orders/orders", locals: { bot: @bot, decimals: @decimals } %>
       </div>

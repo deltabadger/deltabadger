@@ -17,6 +17,9 @@ class Bot::ActionJob < BotJob
     if result.data.present? && result.data[:break_reschedule]
       Rails.logger.info("ActionJob for bot #{bot.id} reschedule disabled.")
     else
+      # Skip the automatic broadcast - BroadcastAfterScheduledActionJob will handle it
+      # after the next job is actually scheduled
+      bot.instance_variable_set(:@skip_status_bar_broadcast, true)
       bot.update!(status: :scheduled)
       schedule_next_action_job(bot)
     end

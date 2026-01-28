@@ -3,7 +3,30 @@ nl:
         add_api_keys: "API-sleutels toevoegen voor %{exchange}"
         bot_name: 'Bot naam'
         new: "Nieuwe bot"
-        start_new_bot: "Nieuwe bot maken"
+        dca_index:
+            setup:
+                step_index: "Index"
+                sentence:
+                    build_index: "Index portefeuille bouwen"
+                    build_index_at: "%{index_name} portefeuille bouwen"
+                pick_index:
+                    top_coins: "Top Munten"
+                    top_coins_description: "Top cryptocurrencies op marktkapitalisatie"
+                    error: "Selecteer alstublieft een index"
+            num_coins: "Aantal munten"
+            allocation_flattening: "Allocatie afvlakking"
+            into_index: "in %{index_name}"
+            index_preview: "Index Voorbeeld"
+            fewer_coins_available: "%{available} van de %{requested} munten in de index zijn beschikbaar op %{exchange_name}"
+            num_assets: "Activa in index"
+            asset_breakdown: "Activa Verdeling"
+            asset: "Activa"
+            amount: "Bedrag"
+            avg_price: "Gem. Prijs"
+            value: "Waarde"
+            pl: "W/V"
+            warning:
+                intro: "Sommige orders (%{skipped_count}) waren onder de minimale ordergrootte van %{exchange_name}. Hier is hoe de bot dit aanpakt:"
         types:
             dca:
                 title: "DCA"

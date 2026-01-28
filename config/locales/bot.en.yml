@@ -3,7 +3,30 @@ en:
         add_api_keys: "Add API keys for %{exchange}"
         bot_name: 'Bot name'
         new: "New bot"
-        start_new_bot: "Create new bot"
+        dca_index:
+            setup:
+                step_index: "Index"
+                sentence:
+                    build_index: "Build index portfolio"
+                    build_index_at: "Build %{index_name} portfolio"
+                pick_index:
+                    top_coins: "Top Coins"
+                    top_coins_description: "Top cryptocurrencies by market cap"
+                    error: "Please select an index"
+            num_coins: "Number of coins"
+            allocation_flattening: "Allocation flattening"
+            into_index: "into %{index_name}"
+            index_preview: "Index Preview"
+            fewer_coins_available: "%{available} of %{requested} coins in the index are available on %{exchange_name}"
+            num_assets: "Assets in index"
+            asset_breakdown: "Asset Breakdown"
+            asset: "Asset"
+            amount: "Amount"
+            avg_price: "Avg. Price"
+            value: "Value"
+            pl: "P/L"
+            warning:
+                intro: "Some orders (%{skipped_count}) were below the %{exchange_name} minimum order size. Here's how the bot handles it:"
         types:
             dca:
                 title: "DCA"
@@ -96,6 +119,7 @@ en:
                 import_invalid_format: 'Invalid CSV format. Please use a file exported from this application.'
                 import_malformed_csv: 'The CSV file is malformed and cannot be parsed.'
                 import_error: 'Import failed: %{message}'
+                import_currency_mismatch: "Currency mismatch: CSV has '%{csv_quote}' but bot uses '%{bot_quote}'"
                 exchange_unavailable_html: 'The exchange API does not respond at the moment.<br>Calculations are based on the last data available.'
                 order: Order
                 profit_loss: Profit/Loss
@@ -103,6 +127,7 @@ en:
                 sold: Sold
                 title: Statistics
                 total_invested: 'Total invested'
+                portfolio_value: 'Portfolio Value'
         for: for
         force_smart_intervals_html: '<b>Smart intervals<sup>®</sup></b> · Buy with orders of <split>$100</split> %{currency} each.'
         feecutter_html: '<b>FeeCutter<sup>®</sup></b> · Cut fees with limit orders'

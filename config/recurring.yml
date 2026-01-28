@@ -10,6 +10,14 @@ production:
     class: Asset::FetchAllAssetsDataFromCoingeckoJob
     schedule: "20 0 * * 1"  # At 00:20 UTC on Monday
 
+  sync_indices_from_coingecko_job:
+    class: Index::SyncFromCoingeckoJob
+    schedule: "30 0 * * 1"  # At 00:30 UTC on Monday (after asset sync)
+
+  repair_orphaned_bots_job:
+    class: Bot::RepairOrphanedBotsJob
+    schedule: "*/15 * * * *"  # Every 15 minutes
+
 development:
   sync_all_tickers_and_assets_job:
     class: Exchange::SyncAllTickersAndAssetsJob
@@ -18,3 +26,11 @@ development:
   fetch_all_assets_data_from_coingecko_job:
     class: Asset::FetchAllAssetsDataFromCoingeckoJob
     schedule: "20 0 * * 1"  # At 00:20 UTC on Monday
+
+  sync_indices_from_coingecko_job:
+    class: Index::SyncFromCoingeckoJob
+    schedule: "30 0 * * 1"  # At 00:30 UTC on Monday (after asset sync)
+
+  repair_orphaned_bots_job:
+    class: Bot::RepairOrphanedBotsJob
+    schedule: "*/5 * * * *"  # Every 5 minutes for testing

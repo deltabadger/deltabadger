@@ -1,0 +1,7 @@
+<div id="create-bot-button">
+  <%= form_with url: bots_dca_indexes_path, method: :post, data: { turbo_stream: true } do |f| %>
+    <button type="submit" class="sbutton sbutton--success" <%= 'disabled' if bot.quote_amount.blank? %>>
+      <%= t('utils.start') %>
+    </button>
+  <% end %>
+</div>
