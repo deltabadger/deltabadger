@@ -9,8 +9,8 @@ class SeedDataLoader
     load_assets
     load_indices
     Exchange.all.each do |exchange|
+      load_exchange_assets(exchange)  # Must run before load_tickers (ticker validation requires ExchangeAsset records)
       load_tickers(exchange)
-      load_exchange_assets(exchange)
     end
 
     Rails.logger.info "Seed data loaded successfully"
@@ -119,12 +119,23 @@ class SeedDataLoader
   end
 
   def load_exchange_assets(exchange)
+    file_path = @fixtures_dir.join("tickers", "#{exchange.name_id}.json")
+
+    unless File.exist?(file_path)
+      Rails.logger.warn "Ticker fixtures not found for #{exchange.name} at #{file_path}. Skipping exchange assets."
+      return
+    end
+
     Rails.logger.info "Loading exchange assets for #{exchange.name}..."
 
-    # Get unique asset IDs from tickers
-    asset_ids = exchange.tickers.available.pluck(:base_asset_id, :quote_asset_id).flatten.uniq
+    # Get unique asset external_ids from ticker fixtures
+    fixture_data = JSON.parse(File.read(file_path))
+    tickers = fixture_data['data']
 
-    Rails.logger.info "Found #{asset_ids.size} unique assets from tickers"
+    external_ids = tickers.flat_map { |t| [t['base_external_id'], t['quote_external_id']] }.uniq
+    asset_ids = Asset.where(external_id: external_ids).pluck(:id)
+
+    Rails.logger.info "Found #{asset_ids.size} unique assets from ticker fixtures"
 
     # Create ExchangeAsset records
     created_count = 0
