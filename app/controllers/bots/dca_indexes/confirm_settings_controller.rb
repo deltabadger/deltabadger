@@ -5,7 +5,8 @@ class Bots::DcaIndexes::ConfirmSettingsController < ApplicationController
 
   def new
     session[:bot_config]['settings'] ||= {}
-    session[:bot_config]['settings']['interval'] ||= 'day'
+    session[:bot_config]['settings']['interval'] ||= 'week'
+    session[:bot_config]['settings']['quote_amount'] ||= 100
     session[:bot_config]['settings']['num_coins'] ||= 10
     session[:bot_config]['settings']['allocation_flattening'] ||= 0.0
     @bot = current_user.bots.dca_index.new(session[:bot_config])

@@ -178,6 +178,15 @@ class Bots::DcaIndex < Bot
     }
   end
 
+  # Returns the highest minimum_quote_size among all index tickers.
+  # Ensures smart interval amount is high enough that at least one order can execute,
+  # even if 100% of funds concentrate on a single coin during rebalancing.
+  def minimum_for_exchange
+    return 0 unless tickers.any?
+
+    tickers.maximum(:minimum_quote_size).to_f
+  end
+
   def current_index_preview
     return [] unless exchange.present? && quote_asset_id.present?
 

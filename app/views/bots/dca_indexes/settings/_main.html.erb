@@ -1,10 +1,11 @@
 <% quote_color = ensure_contrast(bot.quote_asset&.color || "#8A9BA8") %>
 <% quote = bot.quote_asset&.symbol || 'USD' %>
-<% num_coins = bot.num_coins || 10 %>
-<% num_coins_progress = ((num_coins - Bots::DcaIndex::MIN_COINS).to_f / (Bots::DcaIndex::MAX_COINS - Bots::DcaIndex::MIN_COINS) * 100).round %>
+<% index_preview = local_assigns.fetch(:index_preview, nil) || [] %>
+<% max_coins = index_preview.present? ? [Bots::DcaIndex::MAX_COINS, index_preview.size].min : Bots::DcaIndex::MAX_COINS %>
+<% num_coins = [[bot.num_coins || 10, Bots::DcaIndex::MIN_COINS].max, max_coins].min %>
+<% num_coins_progress = max_coins > Bots::DcaIndex::MIN_COINS ? ((num_coins - Bots::DcaIndex::MIN_COINS).to_f / (max_coins - Bots::DcaIndex::MIN_COINS) * 100).round : 100 %>
 <% flattening = bot.allocation_flattening || 0 %>
 <% flattening_progress = (flattening * 100).round %>
-<% index_preview = local_assigns.fetch(:index_preview, nil) || [] %>
 
 <div data-controller="index-allocation">
   <%= form_with model: bot,
@@ -47,7 +48,7 @@
           <input type="range"
                  name="bots_dca_index[num_coins]"
                  min="<%= Bots::DcaIndex::MIN_COINS %>"
-                 max="<%= Bots::DcaIndex::MAX_COINS %>"
+                 max="<%= max_coins %>"
                  value="<%= num_coins %>"
                  class="slider__input"
                  data-index-allocation-target="numCoins"
