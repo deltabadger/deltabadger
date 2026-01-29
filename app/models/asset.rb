@@ -14,6 +14,11 @@ class Asset < ApplicationRecord
     'assister-ai' # TODO: remove this once assister-ai is supported in coingecko
   ].freeze
 
+  # Manual color overrides for assets where image extraction fails or produces poor results
+  COLOR_OVERRIDES = {
+    'ripple' => '#6366F1' # XRP
+  }.freeze
+
   def sync_data_with_coingecko(prefetched_data: nil)
     return Result::Success.new(self) unless AppConfig.coingecko_configured?
     return Result::Success.new(self) if COINGECKO_BLACKLISTED_IDS.include?(external_id)
@@ -38,6 +43,11 @@ class Asset < ApplicationRecord
   end
 
   def infer_color_from_image
+    if COLOR_OVERRIDES.key?(external_id)
+      update!(color: COLOR_OVERRIDES[external_id])
+      return
+    end
+
     return if image_url.blank?
 
     # some images have single quotes in the url that ImageMagick doesn't like

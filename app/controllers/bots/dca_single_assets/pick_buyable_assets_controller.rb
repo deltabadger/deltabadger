@@ -7,6 +7,7 @@ class Bots::DcaSingleAssets::PickBuyableAssetsController < ApplicationController
     session[:bot_config] ||= {}
     @bot = current_user.bots.dca_single_asset.new(session[:bot_config])
     @bot.base_asset_id = nil
+    @bot.exchange_id = nil
     session[:bot_config]['label'] ||= @bot.label
     @assets = asset_search_results(@bot, search_params[:query], :base_asset)
   end

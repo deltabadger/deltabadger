@@ -136,6 +136,8 @@ nl:
         search:
             placeholder:
                 asset: 'Zoek naar een asset…'
+                index: 'Zoek naar een index…'
+            no_results: 'Geen resultaten gevonden'
         time_periods:
             ytd: 'YTD'
             ytd_title: 'Begin van het jaar'

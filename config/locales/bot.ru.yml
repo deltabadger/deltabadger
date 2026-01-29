@@ -11,7 +11,7 @@ ru:
                     build_index_at: "Построить портфель %{index_name}"
                 pick_index:
                     top_coins: "Топ монеты"
-                    top_coins_description: "Топ криптовалют по рыночной капитализации"
+                    top_coins_description: "Топ криптовалют по рыночной капитализации. S&P 500 крипто."
                     error: "Пожалуйста, выберите индекс"
             num_coins: "Количество монет"
             allocation_flattening: "Выравнивание распределения"
@@ -36,7 +36,7 @@ ru:
                 description: "Ребалансировка двух активов"
             index_portfolio:
                 title: "Индексный Портфель"
-                description: "Создайте свой персональный крипто ETF"
+                description: "Ваш персональный крипто ETF"
             custom_portfolio:
                 title: "Пользовательский Портфель"
                 description: "Ребалансировка пользовательского набора активов"

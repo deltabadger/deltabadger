@@ -48,15 +48,22 @@ class Bots::DcaIndexes::PickExchangesController < ApplicationController
   def load_exchange_coins_data
     return unless @index.present?
 
-    # Load assets for display
-    @assets_by_external_id = Asset.where(external_id: @index.top_coins).index_by(&:external_id)
+    # Collect all external_ids we need (from per-exchange or global top_coins)
+    all_external_ids = if @index.top_coins_by_exchange.present?
+                         @index.top_coins_by_exchange.values.flatten.uniq
+                       else
+                         @index.top_coins || []
+                       end
 
-    # For each exchange, find which top coins have available tickers
+    # Load assets for display
+    @assets_by_external_id = Asset.where(external_id: all_external_ids).index_by(&:external_id)
+
+    # For each exchange, get the top coins specific to that exchange
     @exchange_top_coins = {}
     @exchanges.each do |exchange|
-      available_asset_ids = exchange.tickers.available.pluck(:base_asset_id).to_set
-      coins = @index.top_coins.map { |ext_id| @assets_by_external_id[ext_id] }.compact
-      @exchange_top_coins[exchange.id] = coins.select { |asset| available_asset_ids.include?(asset.id) }
+      exchange_coin_ids = @index.top_coins_for_exchange(exchange.type)
+      coins = exchange_coin_ids.map { |ext_id| @assets_by_external_id[ext_id] }.compact
+      @exchange_top_coins[exchange.id] = coins
     end
   end
 
@@ -74,7 +81,8 @@ class Bots::DcaIndexes::PickExchangesController < ApplicationController
                     Exchange.available_for_new_bots
                   end
                 else
-                  # "Top N" indices can dynamically find coins on any exchange
+                  # Load "Top Coins" index to get per-exchange coin data
+                  @index = Index.find_by(external_id: Index::TOP_COINS_EXTERNAL_ID, source: Index::SOURCE_INTERNAL)
                   Exchange.available_for_new_bots
                 end
 

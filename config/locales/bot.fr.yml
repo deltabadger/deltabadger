@@ -11,7 +11,7 @@ fr:
                     build_index_at: "Construire le portefeuille %{index_name}"
                 pick_index:
                     top_coins: "Principales Cryptomonnaies"
-                    top_coins_description: "Les principales cryptomonnaies par capitalisation boursière"
+                    top_coins_description: "Les principales cryptomonnaies par capitalisation boursière. Le S&P 500 de la crypto."
                     error: "Veuillez sélectionner un indice"
             num_coins: "Nombre de cryptomonnaies"
             allocation_flattening: "Aplatissement de l'allocation"
@@ -39,7 +39,7 @@ fr:
                 description: "DCA + Retraits"
             index_portfolio:
                 title: "Portefeuille Indice"
-                description: "Construisez votre ETF crypto personnel"
+                description: "Votre ETF crypto personnel"
             custom_portfolio:
                 title: "Portefeuille Personnalisé"
                 description: "Rééquilibrer un mix d'actifs personnalisé"

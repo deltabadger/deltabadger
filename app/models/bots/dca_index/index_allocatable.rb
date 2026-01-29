@@ -69,7 +69,7 @@ module Bots::DcaIndex::IndexAllocatable
     # Fetch more coins than needed to account for ones not available on exchange
     fetch_limit = [num_coins.to_i * 3, 100].min
 
-    result = if index_type == INDEX_TYPE_CATEGORY && index_category_id.present?
+    result = if index_type == Bots::DcaIndex::INDEX_TYPE_CATEGORY && index_category_id.present?
                coingecko.get_top_coins_by_category(category: index_category_id, limit: fetch_limit)
              else
                coingecko.get_top_coins_by_market_cap(limit: fetch_limit)

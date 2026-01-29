@@ -136,6 +136,8 @@ de:
         search:
             placeholder:
                 asset: 'Nach einem Asset suchen…'
+                index: 'Nach einem Index suchen…'
+            no_results: 'Keine Ergebnisse gefunden'
         time_periods:
             ytd: 'YTD'
             ytd_title: 'Beginn des Jahres'

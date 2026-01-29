@@ -139,6 +139,8 @@ en:
         search:
             placeholder:
                 asset: 'Search for an asset…'
+                index: 'Search for an index…'
+            no_results: 'No results found'
         time_periods:
             ytd: 'YTD'
             ytd_title: 'Beginning of the year'

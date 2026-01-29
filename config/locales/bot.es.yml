@@ -11,7 +11,7 @@ es:
                     build_index_at: "Construir cartera %{index_name}"
                 pick_index:
                     top_coins: "Monedas Principales"
-                    top_coins_description: "Las principales criptomonedas por capitalización de mercado"
+                    top_coins_description: "Las principales criptomonedas por capitalización de mercado. El S&P 500 de la cripto."
                     error: "Por favor, selecciona un índice"
             num_coins: "Número de monedas"
             allocation_flattening: "Aplanamiento de asignación"
@@ -39,7 +39,7 @@ es:
                 description: "DCA + Retiros"
             index_portfolio:
                 title: "Cartera Indexada"
-                description: "Construye tu propio ETF cripto"
+                description: "Tu propio ETF cripto"
             custom_portfolio:
                 title: "Cartera Personalizada"
                 description: "Rebalancea un mix de activos personalizado"

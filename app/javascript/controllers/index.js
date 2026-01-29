@@ -76,6 +76,9 @@ application.register("hotwire-animations", HotwireAnimationsController)
 import IndexAllocationController from "./index_allocation_controller"
 application.register("index-allocation", IndexAllocationController)
 
+import IndexFilterController from "./index_filter_controller"
+application.register("index-filter", IndexFilterController)
+
 import MarqueeController from "./marquee_controller"
 application.register("marquee", MarqueeController)
 

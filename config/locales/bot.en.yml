@@ -11,7 +11,7 @@ en:
                     build_index_at: "Build %{index_name} portfolio"
                 pick_index:
                     top_coins: "Top Coins"
-                    top_coins_description: "Top cryptocurrencies by market cap"
+                    top_coins_description: "Top cryptocurrencies by market cap. The S&P 500 of crypto."
                     error: "Please select an index"
             num_coins: "Number of coins"
             allocation_flattening: "Allocation flattening"
@@ -36,7 +36,7 @@ en:
                 description: "Rebalance two assets"
             index_portfolio:
                 title: "Index Portfolio"
-                description: "Build your personal crypto ETF"
+                description: "Your personal crypto ETF"
             custom_portfolio:
                 title: "Custom Portfolio"
                 description: "Rebalance custom asset mix"

@@ -52,7 +52,8 @@ class SettingsController < ApplicationController
     return unless current_user.update(update_locale_params)
 
     flash[:notice] = I18n.t('settings.language_and_timezone.language_updated', locale: current_user.locale)
-    render turbo_stream: turbo_stream_page_refresh
+    new_locale = current_user.locale == I18n.default_locale.to_s ? nil : current_user.locale
+    render turbo_stream: turbo_stream_redirect(settings_path(locale: new_locale))
   end
 
   def update_password

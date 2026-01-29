@@ -11,7 +11,7 @@ de:
                     build_index_at: "%{index_name} Portfolio erstellen"
                 pick_index:
                     top_coins: "Top Coins"
-                    top_coins_description: "Top-Kryptowährungen nach Marktkapitalisierung"
+                    top_coins_description: "Top-Kryptowährungen nach Marktkapitalisierung. Der S&P 500 der Krypto."
                     error: "Bitte wähle einen Index"
             num_coins: "Anzahl der Coins"
             allocation_flattening: "Allokationsabflachung"
@@ -39,7 +39,7 @@ de:
                 description: "DCA + Auszahlungen"
             index_portfolio:
                 title: "Index Portfolio"
-                description: "Baue deinen persönlichen Krypto-ETF"
+                description: "Dein persönlicher Krypto-ETF"
             custom_portfolio:
                 title: "Individuelles Portfolio"
                 description: "Rebalanciere individuelle Vermögensmischung"

@@ -5,7 +5,6 @@ FactoryBot.define do
     name { "MyString" }
     description { "MyText" }
     top_coins { "" }
-    coins_count { 1 }
     market_cap { "9.99" }
   end
 

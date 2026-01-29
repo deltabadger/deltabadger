@@ -139,6 +139,8 @@ ru:
         search:
             placeholder:
                 asset: 'Искать актив…'
+                index: 'Искать индекс…'
+            no_results: 'Ничего не найдено'
         time_periods:
             ytd: 'YTD'
             ytd_title: 'Начало года'

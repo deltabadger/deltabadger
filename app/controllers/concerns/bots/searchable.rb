@@ -38,7 +38,8 @@ module Bots::Searchable
   end
 
   def filter_assets_by_query(assets:, query:)
-    return assets.order(:market_cap_rank, :symbol) if query.blank?
+    # Sort by market cap rank (lower = higher market cap), assets without market cap go last
+    return assets.order(Arel.sql('market_cap_rank IS NULL'), :market_cap_rank, :symbol) if query.blank?
 
     assets
       .map { |asset| [asset, similarities_for_asset(asset, query.downcase)] }
