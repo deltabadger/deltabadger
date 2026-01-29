@@ -28,7 +28,7 @@ class Transaction < ApplicationRecord
   ]
   enum :side, %i[buy sell]
   enum :order_type, %i[market_order limit_order]
-  enum :external_status, %i[unknown open closed]
+  enum :external_status, %i[unknown open closed cancelled]
 
   BTC = %w[XXBT XBT BTC].freeze
 

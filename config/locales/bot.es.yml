@@ -137,6 +137,7 @@ es:
             invalid_price_range: "El rango de precios no es válido"
             failed_tooltip_explanation: "Esta orden falló: %{error_message}"
             skipped_tooltip_explanation: "Esta orden se ha omitido porque la cantidad estaba por debajo del tamaño mínimo de orden de %{exchange_name}. La cantidad omitida se ha almacenado y se añadirá a la siguiente orden."
+            cancelled_tooltip_explanation: "Esta orden fue cancelada o expiró antes de ser ejecutada."
             failed_status_bar_explanation: "La última orden falló: %{error_message}"
             order_cancelled: 'Orden cancelada'
             failed_to_cancel_order: 'Error al cancelar la orden'

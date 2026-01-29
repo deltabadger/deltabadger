@@ -136,6 +136,7 @@ de:
             invalid_price_range: "Der Preisbereich ist ungültig"
             failed_tooltip_explanation: "Diese Bestellung ist fehlgeschlagen: %{error_message}"
             skipped_tooltip_explanation: "Diese Bestellung wurde übersprungen, da der Betrag unter der Mindestbestellgröße von %{exchange_name} lag. Der übersprungene Betrag wurde gepuffert und wird der nächsten Bestellung hinzugefügt."
+            cancelled_tooltip_explanation: "Diese Bestellung wurde storniert oder ist abgelaufen, bevor sie ausgeführt wurde."
             failed_status_bar_explanation: "Letzte Bestellung fehlgeschlagen: %{error_message}"
             order_cancelled: 'Bestellung storniert'
             failed_to_cancel_order: 'Stornierung der Bestellung fehlgeschlagen'

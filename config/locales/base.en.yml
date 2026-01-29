@@ -179,4 +179,5 @@ en:
     order_filters:
         all: 'All'
         successful: 'Successful'
+        cancelled: 'Cancelled'
         waiting: 'Waiting'
