@@ -61,7 +61,7 @@ module Bot::SmartIntervalable
   end
 
   def minimum_smart_interval_quote_amount
-    # the minimum amount would set one order every 1 minute
+    # the minimum amount would set one order every 5 minutes
     maximum_frequency = 300 # seconds
     minimum_for_frequency = if quote_amount.present?
                               quote_amount / interval_duration.to_f * maximum_frequency
@@ -73,8 +73,15 @@ module Bot::SmartIntervalable
 
     [
       Utilities::Number.round_up(minimum_for_frequency, precision: least_precise_quote_decimals),
-      minimum_for_precision
+      minimum_for_precision,
+      minimum_for_exchange
     ].max
+  end
+
+  # Override in subclasses to set exchange-specific minimums
+  # For Index bots, this returns the highest minimum_quote_size among tickers
+  def minimum_for_exchange
+    0
   end
 
   def readjust_smart_interval_quote_amount
