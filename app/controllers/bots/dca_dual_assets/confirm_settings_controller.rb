@@ -2,7 +2,8 @@ class Bots::DcaDualAssets::ConfirmSettingsController < ApplicationController
   before_action :authenticate_user!
 
   def new
-    session[:bot_config]['settings']['interval'] ||= 'day'
+    session[:bot_config]['settings']['interval'] ||= 'week'
+    session[:bot_config]['settings']['quote_amount'] ||= 100
     session[:bot_config]['settings']['allocation0'] ||= 0.5
     @bot = current_user.bots.dca_dual_asset.new(session[:bot_config])
   end
