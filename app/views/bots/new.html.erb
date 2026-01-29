@@ -4,22 +4,33 @@
       <%= render partial: 'svg/24x24_close' %>
     <% end %>
     <div class="modal__header">
-       <h1 class="modal__title"><%= t('button.start') %></h1>
     </div>
 
-    <div class="itiles">
+    <div class="introtiles">
 
         <%= link_to new_bots_dca_single_assets_pick_buyable_asset_path, class: 'itile itile--bot-type', data: { turbo_frame: "modal" } do %>
+            <div class="ticker" style="background-color: #f37738"></div>
             <div class="index-title"><%= t('bot.types.dca.title') %></div>
             <div class="index-info"><%= t('bot.types.dca.description').html_safe %></div>
         <% end %>
 
         <%= link_to new_bots_dca_dual_assets_pick_first_buyable_asset_path, class: 'itile itile--bot-type', data: { turbo_frame: "modal" } do %>
+            <div class="ticker-group ticker-group--many">
+                <span class="ticker" style="background-color: #f37738"></span>
+                <span class="ticker" style="background-color: #e5aa40"></span>
+            </div>
             <div class="index-title"><%= t('bot.types.dca_dual_asset.title') %></div>
             <div class="index-info"><%= t('bot.types.dca_dual_asset.description').html_safe %></div>
         <% end %>
 
         <%= link_to new_bots_dca_indexes_setup_coingecko_path, class: 'itile itile--bot-type', data: { turbo_frame: "modal" } do %>
+            <div class="ticker-group ticker-group--many">
+                <span class="ticker" style="background-color: #f37738"></span>
+                <span class="ticker" style="background-color: #e5aa40"></span>
+                <span class="ticker" style="background-color: #44d64c"></span>
+                <span class="ticker" style="background-color: #279be1"></span>
+                <span class="ticker" style="background-color: #3e7eff"></span>
+            </div>
             <div class="index-title"><%= t('bot.types.index_portfolio.title') %></div>
             <div class="index-info"><%= t('bot.types.index_portfolio.description').html_safe %></div>
         <% end %>
