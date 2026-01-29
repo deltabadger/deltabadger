@@ -23,12 +23,16 @@ module Fixtures
       result.data.each do |coin|
         next if Asset::COINGECKO_BLACKLISTED_IDS.include?(coin['id'])
 
+        color = extract_color(coin['id'], coin['image'])
+        log_info "  #{coin['symbol']&.upcase}: #{color || 'no color'}"
+
         assets << {
           external_id: coin['id'],
           symbol: coin['symbol']&.upcase,
           name: coin['name'],
           category: 'Cryptocurrency',
           image_url: coin['image'],
+          color: color,
           market_cap_rank: coin['market_cap_rank'],
           market_cap: coin['market_cap'],
           circulating_supply: coin['circulating_supply'],
@@ -47,8 +51,10 @@ module Fixtures
           name: fiat[:name],
           category: fiat[:category],
           image_url: nil,
+          color: fiat[:color],
           market_cap_rank: nil,
           market_cap: nil,
+          circulating_supply: nil,
           url: nil
         }
       end
@@ -69,6 +75,19 @@ module Fixtures
     end
 
     private
+
+    def extract_color(external_id, image_url)
+      # Use manual override if available
+      return Asset::COLOR_OVERRIDES[external_id] if Asset::COLOR_OVERRIDES.key?(external_id)
+      return nil if image_url.blank?
+
+      parsed_url = image_url.gsub("'", '%27')
+      colors = Utilities::Image.extract_dominant_colors(parsed_url)
+      Utilities::Image.most_vivid_color(colors)
+    rescue StandardError => e
+      log_warn "Failed to extract color for #{external_id}: #{e.message}"
+      nil
+    end
 
     def coingecko
       @coingecko ||= Coingecko.new(api_key: AppConfig.coingecko_api_key)

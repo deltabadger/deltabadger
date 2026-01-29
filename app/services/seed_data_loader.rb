@@ -162,6 +162,7 @@ class SeedDataLoader
       name: asset_data['name'],
       category: asset_data['category'],
       image_url: asset_data['image_url'],
+      color: asset_data['color'],
       market_cap_rank: asset_data['market_cap_rank'],
       market_cap: asset_data['market_cap'],
       circulating_supply: asset_data['circulating_supply'],
