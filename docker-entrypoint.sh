@@ -137,6 +137,8 @@ prepare_database() {
     else
         echo "Database at version $db_version, running migrations..."
         bundle exec rails db:migrate
+        echo "Ensuring seed data is loaded..."
+        bundle exec rails db:seed
     fi
 }
 
