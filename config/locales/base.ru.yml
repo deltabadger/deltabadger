@@ -179,4 +179,5 @@ ru:
     order_filters:
         all: 'Все'
         successful: 'Выполненные'
+        cancelled: 'Отмененные'
         waiting: 'Ожидающие'

@@ -137,6 +137,7 @@ it:
             invalid_price_range: "L'intervallo di prezzo non è valido"
             failed_tooltip_explanation: "Questo ordine è fallito: %{error_message}"
             skipped_tooltip_explanation: "Questo ordine è stato saltato perché l'importo era inferiore alla dimensione minima dell'ordine di %{exchange_name}. L'importo saltato è stato messo in buffer e verrà aggiunto al prossimo ordine."
+            cancelled_tooltip_explanation: "Questo ordine è stato annullato o è scaduto prima di essere eseguito."
             failed_status_bar_explanation: "L'ultimo ordine è fallito: %{error_message}"
             order_cancelled: 'Ordine annullato'
             failed_to_cancel_order: 'Impossibile annullare l''ordine'

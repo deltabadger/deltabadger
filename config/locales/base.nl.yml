@@ -176,4 +176,5 @@ nl:
     order_filters:
         all: 'Alle'
         successful: 'Geslaagd'
+        cancelled: 'Geannuleerd'
         waiting: 'Wachtend'

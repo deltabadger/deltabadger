@@ -136,6 +136,7 @@ pl:
             invalid_price_range: "Zakres cenowy jest nieprawidłowy"
             failed_tooltip_explanation: "To zlecenie zakończyło się niepowodzeniem: %{error_message}"
             skipped_tooltip_explanation: "To zlecenie zostało pominięte, ponieważ kwota była poniżej minimalnego rozmiaru zlecenia %{exchange_name}. Pominięta kwota została zbuforowana i zostanie dodana do następnego zlecenia."
+            cancelled_tooltip_explanation: "To zlecenie zostało anulowane lub wygasło przed realizacją."
             failed_status_bar_explanation: "Ostatnie zlecenie zakończyło się niepowodzeniem: %{error_message}"
             order_cancelled: 'Zlecenie anulowane'
             failed_to_cancel_order: 'Nie udało się anulować zlecenia'
