@@ -133,6 +133,7 @@ pt:
             invalid_price_range: "A faixa de preço é inválida"
             failed_tooltip_explanation: "Esta ordem falhou: %{error_message}"
             skipped_tooltip_explanation: "Esta ordem foi pulada porque a quantidade estava abaixo do tamanho mínimo de ordem da %{exchange_name}. A quantidade pulada foi armazenada e será adicionada à próxima ordem."
+            cancelled_tooltip_explanation: "Esta ordem foi cancelada ou expirou antes de ser executada."
             failed_status_bar_explanation: "A última ordem falhou: %{error_message}"
             order_cancelled: 'Ordem cancelada'
             failed_to_cancel_order: 'Falha ao cancelar ordem'

@@ -565,8 +565,10 @@ class Exchanges::Kraken < Exchange
       :unknown
     when 'open'
       :open
-    when 'closed', 'canceled', 'expired'
+    when 'closed'
       :closed
+    when 'canceled', 'expired'
+      :cancelled
     else
       raise "Unknown #{name} order status: #{status}"
     end

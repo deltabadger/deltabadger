@@ -1,8 +1,8 @@
-<% order_filter_type = order.open? ? 'waiting' : (order.submitted? && !order.open?) ? 'successful' : nil %>
-<%= tag.tr id: dom_id(order), class: order.skipped? ? 'text-inactive' : order.failed? ? 'text-danger' : '', data: { hw_animate_in_prepend: "animate-order-in", order_filter_target: "row", order_type: order_filter_type } do %>
+<% order_filter_type = order.open? ? 'waiting' : order.cancelled? ? 'cancelled' : order.closed? ? 'successful' : nil %>
+<%= tag.tr id: dom_id(order), class: order.skipped? ? 'text-inactive' : order.failed? ? 'text-danger' : order.cancelled? ? 'text-inactive' : '', data: { hw_animate_in_prepend: "animate-order-in", order_filter_target: "row", order_type: order_filter_type } do %>
   <td scope="row"><%= order.created_at.in_time_zone(current_user.time_zone).strftime("%Y-%m-%d %I:%M %p") %></td>
 
-  <% show_executed_amounts = order.submitted? && !order.open? %>
+  <% show_executed_amounts = order.submitted? && order.closed? %>
   <% executed_amount = order.amount_exec || order.amount %>
   <% executed_quote_amount = order.quote_amount_exec || order.quote_amount %>
 
@@ -41,6 +41,18 @@
         </div>
         <div class="tooltip tooltip--smart-allocation">
           <%= t('bot.messages.skipped_tooltip_explanation', exchange_name: exchange_name) %>
+        </div>
+      </div>
+    <% elsif order.cancelled? %>
+      <div class="tooltip-info-icon" data-controller="tooltip" data-action="click->tooltip#toggle">
+        <div class="tooltip-icon--off">
+          <%= render 'svg/24x24_info' %>
+        </div>
+        <div class="tooltip-icon--on">
+          <%= render 'svg/24x24_info-filled' %>
+        </div>
+        <div class="tooltip tooltip--smart-allocation">
+          <%= t('bot.messages.cancelled_tooltip_explanation') %>
         </div>
       </div>
     <% end %>

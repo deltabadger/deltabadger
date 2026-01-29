@@ -1,7 +1,8 @@
-<% has_successful = bot.transactions.submitted.where.not(external_status: :open).exists? %>
+<% has_successful = bot.transactions.submitted.closed.exists? %>
+<% has_cancelled = bot.transactions.submitted.cancelled.exists? %>
 <% has_waiting = bot.transactions.open.exists? %>
 <% has_other = bot.transactions.where(status: [:skipped, :failed]).exists? %>
-<% categories = [has_successful, has_waiting, has_other].count(true) %>
+<% categories = [has_successful, has_cancelled, has_waiting, has_other].count(true) %>
 <% show_filters = categories > 1 %>
 
 <% order_filter = params[:order_filter] || 'all' %>
@@ -10,6 +11,9 @@
     <%= link_to t('order_filters.all'), "#", class: ["sbutton sbutton--multi", ("sbutton--multi--active" if order_filter == 'all')], data: { order_filter_target: "filter", filter_type: "all", action: "click->order-filter#filter" } %>
     <% if has_successful %>
       <%= link_to t('order_filters.successful'), "#", class: ["sbutton sbutton--multi", ("sbutton--multi--active" if order_filter == 'successful')], data: { order_filter_target: "filter", filter_type: "successful", action: "click->order-filter#filter" } %>
+    <% end %>
+    <% if has_cancelled %>
+      <%= link_to t('order_filters.cancelled'), "#", class: ["sbutton sbutton--multi", ("sbutton--multi--active" if order_filter == 'cancelled')], data: { order_filter_target: "filter", filter_type: "cancelled", action: "click->order-filter#filter" } %>
     <% end %>
     <% if has_waiting %>
       <%= link_to t('order_filters.waiting'), "#", class: ["sbutton sbutton--multi", ("sbutton--multi--active" if order_filter == 'waiting')], data: { order_filter_target: "filter", filter_type: "waiting", action: "click->order-filter#filter" } %>

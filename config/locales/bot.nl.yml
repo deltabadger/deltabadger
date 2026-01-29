@@ -133,6 +133,7 @@ nl:
             invalid_price_range: "De prijsklasse is ongeldig"
             failed_tooltip_explanation: "Deze bestelling is mislukt: %{error_message}"
             skipped_tooltip_explanation: "Deze bestelling is overgeslagen omdat het bedrag onder de minimale ordergrootte van %{exchange_name} lag. Het overgeslagen bedrag is gebufferd en wordt toegevoegd aan de volgende bestelling."
+            cancelled_tooltip_explanation: "Deze bestelling is geannuleerd of verlopen voordat deze werd uitgevoerd."
             failed_status_bar_explanation: "De laatste bestelling is mislukt: %{error_message}"
             order_cancelled: 'Order geannuleerd'
             failed_to_cancel_order: 'Annuleren van order mislukt'

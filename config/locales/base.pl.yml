@@ -178,4 +178,5 @@ pl:
     order_filters:
         all: 'Wszystkie'
         successful: 'Zrealizowane'
+        cancelled: 'Anulowane'
         waiting: 'Oczekujące'

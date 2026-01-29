@@ -176,4 +176,5 @@ es:
     order_filters:
         all: 'Todos'
         successful: 'Exitosos'
+        cancelled: 'Cancelados'
         waiting: 'En espera'

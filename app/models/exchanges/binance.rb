@@ -698,8 +698,10 @@ class Exchanges::Binance < Exchange
       :unknown
     when 'NEW', 'PENDING_NEW', 'PARTIALLY_FILLED'
       :open
-    when 'FILLED', 'CANCELED', 'EXPIRED', 'EXPIRED_IN_MATCH'
+    when 'FILLED'
       :closed
+    when 'CANCELED', 'EXPIRED', 'EXPIRED_IN_MATCH'
+      :cancelled
     when 'REJECTED'
       :failed # Warning! This is not a valid external_status.
     else

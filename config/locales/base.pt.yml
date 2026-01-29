@@ -175,4 +175,5 @@ pt:
     order_filters:
         all: 'Todos'
         successful: 'Bem-sucedidos'
+        cancelled: 'Cancelados'
         waiting: 'Aguardando'

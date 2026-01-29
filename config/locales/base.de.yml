@@ -176,5 +176,6 @@ de:
     order_filters:
         all: 'Alle'
         successful: 'Erfolgreich'
+        cancelled: 'Storniert'
         waiting: 'Wartend'
 

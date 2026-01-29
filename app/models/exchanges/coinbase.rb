@@ -483,8 +483,10 @@ class Exchanges::Coinbase < Exchange
       :unknown
     when 'OPEN'
       :open
-    when 'FILLED', 'CANCELLED', 'EXPIRED'
+    when 'FILLED'
       :closed
+    when 'CANCELLED', 'EXPIRED'
+      :cancelled
     when 'FAILED'
       :failed # Warning! This is not a valid external_status.
     else

@@ -13,8 +13,8 @@ module Fixtures
       log_info "Fetching tickers from CoinGecko..."
       result = coingecko.get_exchange_tickers_by_id(exchange_id: @exchange.coingecko_id)
       if result.failure?
-        log_error "Failed to fetch tickers: #{result.error}"
-        raise result.error
+        log_error "Failed to fetch tickers: #{result.errors}"
+        raise result.errors
       end
 
       @exchange.send(:set_symbol_to_external_id_hash, result.data)
@@ -23,8 +23,8 @@ module Fixtures
       log_info "Fetching ticker details from exchange API..."
       result = @exchange.get_tickers_info(force: true)
       if result.failure?
-        log_error "Failed to fetch ticker info: #{result.error}"
-        raise result.error
+        log_error "Failed to fetch ticker info: #{result.errors}"
+        raise result.errors
       end
 
       tickers_info = result.data
@@ -33,14 +33,28 @@ module Fixtures
       available_tickers = tickers_info.select { |t| t[:available] }
       log_info "Found #{available_tickers.size} available tickers (#{tickers_info.size} total)"
 
-      # Extract relevant data for each ticker
-      tickers = available_tickers.map do |ticker_info|
-        {
+      # Load asset external_ids from assets fixture to filter tickers
+      asset_external_ids = load_asset_external_ids
+      log_info "Loaded #{asset_external_ids.size} asset external_ids from fixtures"
+
+      # Extract relevant data for each ticker, filtering to only those with matching assets
+      tickers = []
+      skipped = 0
+      available_tickers.each do |ticker_info|
+        base_external_id = @exchange.send(:external_id_from_symbol, ticker_info[:base])
+        quote_external_id = @exchange.send(:external_id_from_symbol, ticker_info[:quote])
+
+        unless asset_external_ids.include?(base_external_id) && asset_external_ids.include?(quote_external_id)
+          skipped += 1
+          next
+        end
+
+        tickers << {
           ticker: ticker_info[:ticker],
           base: ticker_info[:base],
           quote: ticker_info[:quote],
-          base_external_id: @exchange.send(:external_id_from_symbol, ticker_info[:base]),
-          quote_external_id: @exchange.send(:external_id_from_symbol, ticker_info[:quote]),
+          base_external_id: base_external_id,
+          quote_external_id: quote_external_id,
           minimum_base_size: ticker_info[:minimum_base_size].to_s,
           minimum_quote_size: ticker_info[:minimum_quote_size].to_s,
           maximum_base_size: ticker_info[:maximum_base_size].to_s,
@@ -49,7 +63,9 @@ module Fixtures
           quote_decimals: ticker_info[:quote_decimals],
           price_decimals: ticker_info[:price_decimals]
         }
-      end.compact
+      end
+
+      log_info "Skipped #{skipped} tickers (missing assets in fixtures)"
 
       # Write to file
       file_path = write_json_file(
@@ -67,6 +83,17 @@ module Fixtures
     end
 
     private
+
+    def load_asset_external_ids
+      assets_file = Rails.root.join('db', 'fixtures', 'assets.json')
+      unless File.exist?(assets_file)
+        log_warn "Assets fixture not found, including all tickers"
+        return Set.new
+      end
+
+      data = JSON.parse(File.read(assets_file))
+      Set.new(data['data'].map { |a| a['external_id'] })
+    end
 
     def coingecko
       @coingecko ||= Coingecko.new(api_key: AppConfig.coingecko_api_key)
