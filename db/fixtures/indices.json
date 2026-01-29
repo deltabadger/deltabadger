@@ -1,9 +1,9 @@
 {
   "metadata": {
-    "generated_at": "2026-01-28T09:32:58Z",
+    "generated_at": "2026-01-29T15:15:57Z",
     "version": "1.0",
     "generator": "Fixtures::IndicesGenerator",
-    "count": 165,
+    "count": 161,
     "source": "coingecko"
   },
   "data": [
@@ -11,26 +11,75 @@
       "external_id": "top-coins",
       "source": "internal",
       "name": "Top Coins",
-      "description": "Top cryptocurrencies by market cap",
+      "description": "Top cryptocurrencies by market cap. The S&P 500 of crypto.",
       "top_coins": [
         "bitcoin",
         "ethereum",
         "tether",
         "binancecoin",
         "ripple",
-        "solana",
         "usd-coin",
-        "staked-ether",
+        "solana",
         "tron",
+        "staked-ether",
         "dogecoin"
       ],
-      "coins_count": 178,
+      "top_coins_by_exchange": {
+        "Exchanges::Binance": [
+          "bitcoin",
+          "ethereum",
+          "tether",
+          "binancecoin",
+          "ripple",
+          "usd-coin",
+          "solana",
+          "tron",
+          "dogecoin",
+          "cardano"
+        ],
+        "Exchanges::BinanceUs": [
+          "bitcoin",
+          "ethereum",
+          "tether",
+          "binancecoin",
+          "ripple",
+          "usd-coin",
+          "solana",
+          "dogecoin",
+          "cardano",
+          "bitcoin-cash"
+        ],
+        "Exchanges::Coinbase": [
+          "bitcoin",
+          "ethereum",
+          "tether",
+          "binancecoin",
+          "ripple",
+          "usd-coin",
+          "solana",
+          "dogecoin",
+          "cardano",
+          "bitcoin-cash"
+        ],
+        "Exchanges::Kraken": [
+          "bitcoin",
+          "ethereum",
+          "tether",
+          "binancecoin",
+          "ripple",
+          "usd-coin",
+          "solana",
+          "tron",
+          "cardano",
+          "bitcoin-cash"
+        ]
+      },
       "market_cap": null,
       "available_exchanges": {
-        "Exchanges::Binance": 107,
+        "Exchanges::Binance": 108,
         "Exchanges::BinanceUs": 77,
         "Exchanges::Coinbase": 99,
-        "Exchanges::Kraken": 127
+        "Exchanges::Kraken": 128
       }
     },
     {
@@ -50,13 +99,12 @@
         "monero",
         "hyperliquid"
       ],
-      "coins_count": 250,
-      "market_cap": 2526153685988.224,
+      "market_cap": 2484912773276.844,
       "available_exchanges": {
         "Exchanges::Binance": 132,
         "Exchanges::BinanceUs": 72,
         "Exchanges::Coinbase": 91,
-        "Exchanges::Kraken": 133
+        "Exchanges::Kraken": 132
       }
     },
     {
@@ -74,10 +122,9 @@
         "bitcoin-cash",
         "monero",
         "hyperliquid",
-        "zcash"
+        "canton-network"
       ],
-      "coins_count": 250,
-      "market_cap": 2478665121827.413,
+      "market_cap": 2439087497783.042,
       "available_exchanges": {
         "Exchanges::Binance": 84,
         "Exchanges::BinanceUs": 47,
@@ -102,8 +149,7 @@
         "dash",
         "beldex"
       ],
-      "coins_count": 165,
-      "market_cap": 1836500874932.378,
+      "market_cap": 1811582745053.606,
       "available_exchanges": {
         "Exchanges::Binance": 17,
         "Exchanges::BinanceUs": 12,
@@ -123,13 +169,12 @@
         "tron",
         "wrapped-bitcoin",
         "chainlink",
-        "avalanche-2",
         "usd1-wlfi",
+        "avalanche-2",
         "mantle",
         "aave"
       ],
-      "coins_count": 16,
-      "market_cap": 685528359140.7524,
+      "market_cap": 674272673374.4166,
       "available_exchanges": {
         "Exchanges::Binance": 14,
         "Exchanges::BinanceUs": 11,
@@ -154,8 +199,7 @@
         "the-open-network",
         "polkadot"
       ],
-      "coins_count": 156,
-      "market_cap": 637316532618.87,
+      "market_cap": 622002252709.3539,
       "available_exchanges": {
         "Exchanges::Binance": 42,
         "Exchanges::BinanceUs": 29,
@@ -170,101 +214,22 @@
       "description": "Refers to cryptocurrencies that have significant connections to the United States, either through their founding team or company headquarters.",
       "top_coins": [
         "ripple",
-        "solana",
         "usd-coin",
+        "solana",
         "figure-heloc",
         "cardano",
         "chainlink",
         "stellar",
         "zcash",
-        "sui",
-        "litecoin"
+        "litecoin",
+        "sui"
       ],
-      "coins_count": 250,
-      "market_cap": 375750877517.0577,
+      "market_cap": 365918099401.527,
       "available_exchanges": {
         "Exchanges::Binance": 82,
         "Exchanges::BinanceUs": 54,
         "Exchanges::Coinbase": 88,
         "Exchanges::Kraken": 107
-      }
-    },
-    {
-      "external_id": "stablecoins",
-      "source": "coingecko",
-      "name": "Stablecoins",
-      "description": "A stablecoin is a type of cryptocurrency that is designed to maintain a stable value by being pegged to an external reference, such as a fiat currency.",
-      "top_coins": [
-        "tether",
-        "usd-coin",
-        "usds",
-        "ethena-usde",
-        "usd1-wlfi",
-        "dai",
-        "paypal-usd",
-        "tether-gold",
-        "pax-gold",
-        "falcon-finance"
-      ],
-      "coins_count": 250,
-      "market_cap": 312685130017.1022,
-      "available_exchanges": {
-        "Exchanges::Binance": 17,
-        "Exchanges::BinanceUs": 5,
-        "Exchanges::Coinbase": 10,
-        "Exchanges::Kraken": 23
-      }
-    },
-    {
-      "external_id": "usd-stablecoin",
-      "source": "coingecko",
-      "name": "USD Stablecoin",
-      "description": "A USD stablecoin is a type of cryptocurrency that is designed to maintain a stable value by being pegged to the United States dollar.",
-      "top_coins": [
-        "tether",
-        "usd-coin",
-        "usds",
-        "ethena-usde",
-        "usd1-wlfi",
-        "dai",
-        "paypal-usd",
-        "falcon-finance",
-        "global-dollar",
-        "ripple-usd"
-      ],
-      "coins_count": 184,
-      "market_cap": 301211326414.9486,
-      "available_exchanges": {
-        "Exchanges::Binance": 11,
-        "Exchanges::BinanceUs": 4,
-        "Exchanges::Coinbase": 6,
-        "Exchanges::Kraken": 13
-      }
-    },
-    {
-      "external_id": "fiat-backed-stablecoin",
-      "source": "coingecko",
-      "name": "Fiat-backed Stablecoin",
-      "description": "A fiat-backed stablecoin is designed to maintain a stable value by being pegged to a reserve of fiat currency, such as the US dollar, euro, or other national currencies. ",
-      "top_coins": [
-        "tether",
-        "usd-coin",
-        "usds",
-        "ethena-usde",
-        "dai",
-        "paypal-usd",
-        "global-dollar",
-        "ripple-usd",
-        "usdd",
-        "true-usd"
-      ],
-      "coins_count": 159,
-      "market_cap": 293291935451.4506,
-      "available_exchanges": {
-        "Exchanges::Binance": 10,
-        "Exchanges::BinanceUs": 3,
-        "Exchanges::Coinbase": 7,
-        "Exchanges::Kraken": 15
       }
     },
     {
@@ -284,8 +249,7 @@
         "algorand",
         "nexo"
       ],
-      "coins_count": 41,
-      "market_cap": 250448001366.8626,
+      "market_cap": 244988050454.6581,
       "available_exchanges": {
         "Exchanges::Binance": 24,
         "Exchanges::BinanceUs": 15,
@@ -308,10 +272,9 @@
         "bitget-token",
         "okb",
         "pump-fun",
-        "aster-2"
+        "htx-dao"
       ],
-      "coins_count": 250,
-      "market_cap": 178800005445.0333,
+      "market_cap": 175883172919.4737,
       "available_exchanges": {
         "Exchanges::Binance": 39,
         "Exchanges::BinanceUs": 15,
@@ -336,8 +299,7 @@
         "usdd",
         "vechain"
       ],
-      "coins_count": 33,
-      "market_cap": 166346206101.343,
+      "market_cap": 163992587692.0418,
       "available_exchanges": {
         "Exchanges::Binance": 17,
         "Exchanges::BinanceUs": 8,
@@ -362,8 +324,7 @@
         "gatechain-token",
         "nexo"
       ],
-      "coins_count": 79,
-      "market_cap": 158072229667.2794,
+      "market_cap": 155832774386.7641,
       "available_exchanges": {
         "Exchanges::Binance": 5,
         "Exchanges::Coinbase": 4,
@@ -385,15 +346,14 @@
         "uniswap",
         "aave",
         "pump-fun",
-        "aster-2"
+        "jupiter-perpetuals-liquidity-provider-token"
       ],
-      "coins_count": 250,
-      "market_cap": 111419945582.0015,
+      "market_cap": 109250482519.1803,
       "available_exchanges": {
         "Exchanges::Binance": 104,
         "Exchanges::BinanceUs": 34,
         "Exchanges::Coinbase": 87,
-        "Exchanges::Kraken": 110
+        "Exchanges::Kraken": 111
       }
     },
     {
@@ -403,8 +363,8 @@
       "description": "CoinList is a platform specializes in compliant token launches for new projects.",
       "top_coins": [
         "solana",
-        "pump-fun",
         "near",
+        "pump-fun",
         "ondo-finance",
         "algorand",
         "filecoin",
@@ -413,8 +373,7 @@
         "immutable-x",
         "flow"
       ],
-      "coins_count": 72,
-      "market_cap": 81573823842.136,
+      "market_cap": 78716600680.36282,
       "available_exchanges": {
         "Exchanges::Binance": 20,
         "Exchanges::BinanceUs": 14,
@@ -437,10 +396,9 @@
         "rocket-pool-eth",
         "mantle-staked-ether",
         "liquid-staked-ethereum",
-        "msol"
+        "coinbase-wrapped-staked-eth"
       ],
-      "coins_count": 250,
-      "market_cap": 74367443088.83443,
+      "market_cap": 72718029215.64291,
       "available_exchanges": {
         "Exchanges::Binance": 3,
         "Exchanges::Coinbase": 4,
@@ -456,16 +414,15 @@
         "staked-ether",
         "wrapped-steth",
         "wrapped-beacon-eth",
-        "jito-staked-sol",
         "kelp-dao-restaked-eth",
+        "jito-staked-sol",
         "binance-staked-sol",
         "rocket-pool-eth",
         "mantle-staked-ether",
         "liquid-staked-ethereum",
         "lido-dao"
       ],
-      "coins_count": 250,
-      "market_cap": 71185287107.78978,
+      "market_cap": 69428408005.07071,
       "available_exchanges": {
         "Exchanges::Binance": 15,
         "Exchanges::BinanceUs": 3,
@@ -485,13 +442,12 @@
         "tether-gold",
         "pax-gold",
         "blackrock-usd-institutional-digital-liquidity-fund",
-        "ondo-finance",
         "hashnote-usyc",
+        "ondo-finance",
         "hash-2",
         "quant-network"
       ],
-      "coins_count": 250,
-      "market_cap": 55727968727.92716,
+      "market_cap": 55118846074.9309,
       "available_exchanges": {
         "Exchanges::Binance": 23,
         "Exchanges::BinanceUs": 13,
@@ -516,8 +472,7 @@
         "floki",
         "spx6900"
       ],
-      "coins_count": 250,
-      "market_cap": 44875177392.30489,
+      "market_cap": 43114832326.70377,
       "available_exchanges": {
         "Exchanges::Binance": 29,
         "Exchanges::BinanceUs": 27,
@@ -537,13 +492,12 @@
         "aave",
         "internet-computer",
         "sky",
-        "ethena",
         "worldcoin-wld",
+        "ethena",
         "cosmos",
         "arbitrum"
       ],
-      "coins_count": 232,
-      "market_cap": 33049722278.16358,
+      "market_cap": 32418023924.80914,
       "available_exchanges": {
         "Exchanges::Binance": 61,
         "Exchanges::BinanceUs": 35,
@@ -568,8 +522,7 @@
         "dogs-2",
         "czs-dog"
       ],
-      "coins_count": 250,
-      "market_cap": 28293590022.47731,
+      "market_cap": 27148349088.71578,
       "available_exchanges": {
         "Exchanges::Binance": 8,
         "Exchanges::BinanceUs": 7,
@@ -590,12 +543,11 @@
         "filecoin",
         "beldex",
         "blockstack",
+        "stable-2",
         "lido-dao",
-        "doublezero",
-        "stable-2"
+        "doublezero"
       ],
-      "coins_count": 250,
-      "market_cap": 27374585756.93525,
+      "market_cap": 26407080666.48207,
       "available_exchanges": {
         "Exchanges::Binance": 46,
         "Exchanges::BinanceUs": 16,
@@ -620,8 +572,7 @@
         "fetch-ai",
         "the-graph"
       ],
-      "coins_count": 250,
-      "market_cap": 26223498296.12256,
+      "market_cap": 25260044829.09992,
       "available_exchanges": {
         "Exchanges::Binance": 50,
         "Exchanges::BinanceUs": 21,
@@ -646,8 +597,7 @@
         "troll-2",
         "apu-s-club"
       ],
-      "coins_count": 74,
-      "market_cap": 24799452833.25045,
+      "market_cap": 23730964677.53559,
       "available_exchanges": {
         "Exchanges::Binance": 3,
         "Exchanges::BinanceUs": 6,
@@ -672,8 +622,7 @@
         "aerodrome-finance",
         "gnosis"
       ],
-      "coins_count": 250,
-      "market_cap": 21393615395.26693,
+      "market_cap": 20910764647.95748,
       "available_exchanges": {
         "Exchanges::Binance": 36,
         "Exchanges::BinanceUs": 14,
@@ -689,17 +638,16 @@
       "top_coins": [
         "memecore",
         "ondo-finance",
-        "river",
         "midnight-3",
+        "river",
         "morpho",
         "virtual-protocol",
         "doublezero",
-        "aerodrome-finance",
         "syrup",
-        "newton-project"
+        "aerodrome-finance",
+        "apenft"
       ],
-      "coins_count": 250,
-      "market_cap": 18979088806.24349,
+      "market_cap": 18181290396.96893,
       "available_exchanges": {
         "Exchanges::Binance": 42,
         "Exchanges::BinanceUs": 11,
@@ -724,8 +672,7 @@
         "coti",
         "anoma"
       ],
-      "coins_count": 106,
-      "market_cap": 18244139914.90815,
+      "market_cap": 17546178788.98696,
       "available_exchanges": {
         "Exchanges::Binance": 10,
         "Exchanges::BinanceUs": 5,
@@ -745,13 +692,12 @@
         "pendle",
         "mantle-restaked-eth",
         "eigenlayer",
-        "altlayer",
         "ssv-network",
+        "altlayer",
         "solayer",
         "kernel-2"
       ],
-      "coins_count": 71,
-      "market_cap": 15943022930.495,
+      "market_cap": 15487804002.76542,
       "available_exchanges": {
         "Exchanges::Binance": 10,
         "Exchanges::Coinbase": 8,
@@ -771,12 +717,11 @@
         "chiliz",
         "curve-dao-token",
         "injective-protocol",
-        "axie-infinity",
         "bittorrent",
-        "celestia"
+        "celestia",
+        "axie-infinity"
       ],
-      "coins_count": 163,
-      "market_cap": 15932723175.39821,
+      "market_cap": 15232603446.76156,
       "available_exchanges": {
         "Exchanges::Binance": 91,
         "Exchanges::BinanceUs": 31,
@@ -799,10 +744,9 @@
         "raydium",
         "dydx-chain",
         "arkham",
-        "avantis"
+        "drift-protocol"
       ],
-      "coins_count": 111,
-      "market_cap": 14047819065.73541,
+      "market_cap": 13844975617.85792,
       "available_exchanges": {
         "Exchanges::Binance": 17,
         "Exchanges::BinanceUs": 5,
@@ -827,8 +771,7 @@
         "balancer",
         "maker"
       ],
-      "coins_count": 10,
-      "market_cap": 13302576387.7016,
+      "market_cap": 12815245675.00975,
       "available_exchanges": {
         "Exchanges::Binance": 7,
         "Exchanges::BinanceUs": 6,
@@ -853,13 +796,59 @@
         "zencash",
         "linea"
       ],
-      "coins_count": 108,
-      "market_cap": 12352915321.22587,
+      "market_cap": 11638569130.89373,
       "available_exchanges": {
         "Exchanges::Binance": 27,
         "Exchanges::BinanceUs": 11,
         "Exchanges::Coinbase": 22,
         "Exchanges::Kraken": 26
+      }
+    },
+    {
+      "external_id": "tokenized-products",
+      "source": "coingecko",
+      "name": "Tokenized Assets",
+      "description": "Tokenized products refers to digital representation of assets on a blockchain platform.",
+      "top_coins": [
+        "tether-gold",
+        "pax-gold",
+        "hashnote-usyc",
+        "tesla-xstock",
+        "circle-xstock",
+        "nvidia-xstock",
+        "alphabet-xstock",
+        "sp500-xstock",
+        "microstrategy-xstock",
+        "nasdaq-xstock"
+      ],
+      "market_cap": 11448602010.67116,
+      "available_exchanges": {
+        "Exchanges::Kraken": 3
+      }
+    },
+    {
+      "external_id": "decentralized-derivatives",
+      "source": "coingecko",
+      "name": "Derivatives",
+      "description": "Derivatives are financial instruments whose value is derived from an underlying asset (e.g. Crude Oil, Gold, Bitcoin etc). Compared to spot markets where the underlying asset changes ownership, in derivatives markets, traders trade contracts rather than the actual assets.",
+      "top_coins": [
+        "hyperliquid",
+        "myx-finance",
+        "lighter",
+        "pendle",
+        "havven",
+        "stp-network",
+        "arkham",
+        "drift-protocol",
+        "avantis",
+        "gmx"
+      ],
+      "market_cap": 11302594928.78256,
+      "available_exchanges": {
+        "Exchanges::Binance": 11,
+        "Exchanges::BinanceUs": 3,
+        "Exchanges::Coinbase": 11,
+        "Exchanges::Kraken": 21
       }
     },
     {
@@ -877,38 +866,11 @@
         "xion-2",
         "union-2"
       ],
-      "coins_count": 12,
-      "market_cap": 11568867073.56394,
+      "market_cap": 10993638074.94326,
       "available_exchanges": {
         "Exchanges::Binance": 3,
         "Exchanges::Coinbase": 3,
         "Exchanges::Kraken": 8
-      }
-    },
-    {
-      "external_id": "decentralized-derivatives",
-      "source": "coingecko",
-      "name": "Derivatives",
-      "description": "Derivatives are financial instruments whose value is derived from an underlying asset (e.g. Crude Oil, Gold, Bitcoin etc). Compared to spot markets where the underlying asset changes ownership, in derivatives markets, traders trade contracts rather than the actual assets.",
-      "top_coins": [
-        "hyperliquid",
-        "myx-finance",
-        "lighter",
-        "pendle",
-        "havven",
-        "stp-network",
-        "arkham",
-        "avantis",
-        "drift-protocol",
-        "gmx"
-      ],
-      "coins_count": 128,
-      "market_cap": 11380020071.87222,
-      "available_exchanges": {
-        "Exchanges::Binance": 11,
-        "Exchanges::BinanceUs": 3,
-        "Exchanges::Coinbase": 11,
-        "Exchanges::Kraken": 21
       }
     },
     {
@@ -926,38 +888,14 @@
         "keeta",
         "frax-share",
         "spark-2",
-        "resolv"
+        "spell-token"
       ],
-      "coins_count": 50,
-      "market_cap": 11290025155.4222,
+      "market_cap": 10968260313.51987,
       "available_exchanges": {
         "Exchanges::Binance": 13,
         "Exchanges::BinanceUs": 6,
         "Exchanges::Coinbase": 11,
         "Exchanges::Kraken": 17
-      }
-    },
-    {
-      "external_id": "tokenized-products",
-      "source": "coingecko",
-      "name": "Tokenized Assets",
-      "description": "Tokenized products refers to digital representation of assets on a blockchain platform.",
-      "top_coins": [
-        "tether-gold",
-        "pax-gold",
-        "hashnote-usyc",
-        "tesla-xstock",
-        "circle-xstock",
-        "nvidia-xstock",
-        "alphabet-xstock",
-        "microstrategy-xstock",
-        "sp500-xstock",
-        "nasdaq-xstock"
-      ],
-      "coins_count": 250,
-      "market_cap": 11190798430.66729,
-      "available_exchanges": {
-        "Exchanges::Kraken": 3
       }
     },
     {
@@ -970,20 +908,44 @@
         "ondo-finance",
         "zebec-network",
         "plume",
-        "centrifuge-2",
         "polymesh",
+        "centrifuge-2",
         "chex-token",
         "chromaway",
         "epic-chain",
         "goldfinch"
       ],
-      "coins_count": 83,
-      "market_cap": 10957777033.52378,
+      "market_cap": 10609525715.97693,
       "available_exchanges": {
         "Exchanges::Binance": 8,
         "Exchanges::BinanceUs": 4,
         "Exchanges::Coinbase": 8,
         "Exchanges::Kraken": 13
+      }
+    },
+    {
+      "external_id": "privacy-blockchain",
+      "source": "coingecko",
+      "name": "Privacy Blockchain",
+      "description": "A privacy blockchain is a smart contract platform designed to prioritize transaction confidentiality and anonymity while maintaining decentralization and security. ",
+      "top_coins": [
+        "canton-network",
+        "midnight-3",
+        "beldex",
+        "tezos",
+        "starknet",
+        "humanity",
+        "zksync",
+        "concordium",
+        "oasis-network",
+        "mina-protocol"
+      ],
+      "market_cap": 10605070248.45425,
+      "available_exchanges": {
+        "Exchanges::Binance": 10,
+        "Exchanges::BinanceUs": 4,
+        "Exchanges::Coinbase": 7,
+        "Exchanges::Kraken": 14
       }
     },
     {
@@ -997,14 +959,13 @@
         "wormhole",
         "soon-2",
         "threshold-network-token",
-        "axelar",
         "zetachain",
+        "axelar",
         "debridge",
         "omni-network",
         "icon"
       ],
-      "coins_count": 72,
-      "market_cap": 10838920915.89084,
+      "market_cap": 10479349227.70549,
       "available_exchanges": {
         "Exchanges::Binance": 12,
         "Exchanges::BinanceUs": 5,
@@ -1023,8 +984,7 @@
         "official-trump",
         "melania-meme"
       ],
-      "coins_count": 4,
-      "market_cap": 10535151025.52349,
+      "market_cap": 10442663031.16593,
       "available_exchanges": {
         "Exchanges::Binance": 3,
         "Exchanges::BinanceUs": 3,
@@ -1047,39 +1007,12 @@
         "orderly-network",
         "ancient8"
       ],
-      "coins_count": 18,
-      "market_cap": 10489807332.10237,
+      "market_cap": 10229170573.07521,
       "available_exchanges": {
         "Exchanges::Binance": 6,
         "Exchanges::BinanceUs": 5,
         "Exchanges::Coinbase": 5,
         "Exchanges::Kraken": 7
-      }
-    },
-    {
-      "external_id": "privacy-blockchain",
-      "source": "coingecko",
-      "name": "Privacy Blockchain",
-      "description": "A privacy blockchain is a smart contract platform designed to prioritize transaction confidentiality and anonymity while maintaining decentralization and security. ",
-      "top_coins": [
-        "canton-network",
-        "midnight-3",
-        "tezos",
-        "beldex",
-        "starknet",
-        "humanity",
-        "zksync",
-        "concordium",
-        "oasis-network",
-        "mina-protocol"
-      ],
-      "coins_count": 49,
-      "market_cap": 10413811299.77159,
-      "available_exchanges": {
-        "Exchanges::Binance": 10,
-        "Exchanges::BinanceUs": 4,
-        "Exchanges::Coinbase": 7,
-        "Exchanges::Kraken": 14
       }
     },
     {
@@ -1099,8 +1032,7 @@
         "zebec-network",
         "theta-token"
       ],
-      "coins_count": 250,
-      "market_cap": 10310883735.3266,
+      "market_cap": 10070093466.65604,
       "available_exchanges": {
         "Exchanges::Binance": 28,
         "Exchanges::BinanceUs": 16,
@@ -1118,45 +1050,18 @@
         "beldex",
         "zksync",
         "concordium",
-        "zencash",
         "oasis-network",
+        "zencash",
         "iexec-rlc",
         "nym",
         "nillion"
       ],
-      "coins_count": 20,
-      "market_cap": 10203871343.1268,
+      "market_cap": 9886773844.253054,
       "available_exchanges": {
         "Exchanges::Binance": 6,
         "Exchanges::BinanceUs": 4,
         "Exchanges::Coinbase": 5,
         "Exchanges::Kraken": 7
-      }
-    },
-    {
-      "external_id": "layer-2",
-      "source": "coingecko",
-      "name": "Layer 2 (L2)",
-      "description": "Layer 2s are off-chain vertical scaling solutions that run on top of Layer 1 blockchains like Ethereum to improve scalability, while maintaining the decentralization and security standards of the Layer 1.",
-      "top_coins": [
-        "mantle",
-        "polygon-ecosystem-token",
-        "arbitrum",
-        "optimism",
-        "blockstack",
-        "starknet",
-        "zksync",
-        "adi-token",
-        "immutable-x",
-        "zora"
-      ],
-      "coins_count": 138,
-      "market_cap": 9839964233.558157,
-      "available_exchanges": {
-        "Exchanges::Binance": 31,
-        "Exchanges::BinanceUs": 13,
-        "Exchanges::Coinbase": 22,
-        "Exchanges::Kraken": 38
       }
     },
     {
@@ -1176,13 +1081,37 @@
         "convex-finance",
         "havven"
       ],
-      "coins_count": 209,
-      "market_cap": 9787745367.350023,
+      "market_cap": 9537394319.071196,
       "available_exchanges": {
         "Exchanges::Binance": 27,
         "Exchanges::BinanceUs": 9,
         "Exchanges::Coinbase": 21,
         "Exchanges::Kraken": 28
+      }
+    },
+    {
+      "external_id": "layer-2",
+      "source": "coingecko",
+      "name": "Layer 2 (L2)",
+      "description": "Layer 2s are off-chain vertical scaling solutions that run on top of Layer 1 blockchains like Ethereum to improve scalability, while maintaining the decentralization and security standards of the Layer 1.",
+      "top_coins": [
+        "mantle",
+        "polygon-ecosystem-token",
+        "arbitrum",
+        "optimism",
+        "blockstack",
+        "starknet",
+        "zksync",
+        "adi-token",
+        "immutable-x",
+        "zora"
+      ],
+      "market_cap": 9446269818.317289,
+      "available_exchanges": {
+        "Exchanges::Binance": 31,
+        "Exchanges::BinanceUs": 13,
+        "Exchanges::Coinbase": 22,
+        "Exchanges::Kraken": 38
       }
     },
     {
@@ -1193,8 +1122,8 @@
       "top_coins": [
         "chainlink",
         "pyth-network",
-        "xyo-network",
         "redstone-oracles",
+        "xyo-network",
         "uma",
         "api3",
         "tellor",
@@ -1202,8 +1131,7 @@
         "iexec-rlc",
         "apro"
       ],
-      "coins_count": 57,
-      "market_cap": 9457822536.892328,
+      "market_cap": 9174848817.007118,
       "available_exchanges": {
         "Exchanges::Binance": 14,
         "Exchanges::BinanceUs": 5,
@@ -1218,49 +1146,22 @@
       "description": "x402 is an open protocol that defines an internet-native micropayment rail using HTTP 402 and stablecoins. It allows automated clients and AI agents to pay directly for APIs, data, and compute on demand, enabling real-time, low-friction transactions without intermediaries.",
       "top_coins": [
         "chainlink",
-        "concordium",
         "eigenlayer",
+        "concordium",
         "skale",
         "peaq-2",
         "bankercoin-2",
-        "magic",
         "elsa",
+        "magic",
         "flock-2",
         "adex"
       ],
-      "coins_count": 117,
-      "market_cap": 9329658575.600422,
+      "market_cap": 8989885908.421175,
       "available_exchanges": {
         "Exchanges::Binance": 5,
         "Exchanges::BinanceUs": 5,
         "Exchanges::Coinbase": 7,
         "Exchanges::Kraken": 6
-      }
-    },
-    {
-      "external_id": "binance-launchpool",
-      "source": "coingecko",
-      "name": "Binance Launchpool",
-      "description": "Tokens and coins launched on Binance Launchpool, a platform that allows crypto holders to earn new tokens by locking some of their existing assets.",
-      "top_coins": [
-        "sui",
-        "ethena",
-        "ether-fi",
-        "beam-2",
-        "venus",
-        "redstone-oracles",
-        "bio-protocol",
-        "memecoin-2",
-        "altlayer",
-        "omni-network"
-      ],
-      "coins_count": 60,
-      "market_cap": 8623631135.854885,
-      "available_exchanges": {
-        "Exchanges::Binance": 48,
-        "Exchanges::BinanceUs": 7,
-        "Exchanges::Coinbase": 15,
-        "Exchanges::Kraken": 26
       }
     },
     {
@@ -1277,11 +1178,35 @@
         "immunefi",
         "utrust"
       ],
-      "coins_count": 42,
-      "market_cap": 8594899860.993271,
+      "market_cap": 8318426880.490657,
       "available_exchanges": {
         "Exchanges::Binance": 4,
         "Exchanges::Coinbase": 4
+      }
+    },
+    {
+      "external_id": "binance-launchpool",
+      "source": "coingecko",
+      "name": "Binance Launchpool",
+      "description": "Tokens and coins launched on Binance Launchpool, a platform that allows crypto holders to earn new tokens by locking some of their existing assets.",
+      "top_coins": [
+        "sui",
+        "ethena",
+        "ether-fi",
+        "beam-2",
+        "redstone-oracles",
+        "bio-protocol",
+        "omni-network",
+        "memecoin-2",
+        "venus",
+        "altlayer"
+      ],
+      "market_cap": 8203590331.086946,
+      "available_exchanges": {
+        "Exchanges::Binance": 48,
+        "Exchanges::BinanceUs": 7,
+        "Exchanges::Coinbase": 15,
+        "Exchanges::Kraken": 26
       }
     },
     {
@@ -1291,18 +1216,17 @@
       "description": "Non-fungible tokens (NFTs) are collectible elements that represent something unique and therefore are not mutually interchangeable. In other words, no non-fungible token is the same. NFT creators can also encrypt details such as rich metadata or secure file links allowing people to create all sorts of digital assets which are verifiable such as videos and songs.",
       "top_coins": [
         "render-token",
-        "chiliz",
         "fetch-ai",
-        "axie-infinity",
+        "chiliz",
         "floki",
+        "axie-infinity",
         "apenft",
         "ethereum-name-service",
         "the-sandbox",
         "gala",
         "decentraland"
       ],
-      "coins_count": 250,
-      "market_cap": 8330574311.552693,
+      "market_cap": 7990922454.477744,
       "available_exchanges": {
         "Exchanges::Binance": 48,
         "Exchanges::BinanceUs": 29,
@@ -1324,32 +1248,15 @@
         "pendle",
         "raydium",
         "1inch",
-        "frax-share",
-        "sushi"
+        "sushi",
+        "frax-share"
       ],
-      "coins_count": 83,
-      "market_cap": 8046830901.449898,
+      "market_cap": 7684404151.918249,
       "available_exchanges": {
         "Exchanges::Binance": 16,
         "Exchanges::BinanceUs": 8,
         "Exchanges::Coinbase": 16,
         "Exchanges::Kraken": 21
-      }
-    },
-    {
-      "external_id": "quantum-resistant",
-      "source": "coingecko",
-      "name": "Quantum-Resistant",
-      "description": "Quantum-resistant projects are characterised by their use of post-quantum cryptographic algorithms (e.g., hash-based, lattice-based) to remain secure against potential attacks from future quantum computers.",
-      "top_coins": [
-        "zcash",
-        "starknet",
-        "nervos-network"
-      ],
-      "coins_count": 19,
-      "market_cap": 7314749257.615605,
-      "available_exchanges": {
-        "Exchanges::Binance": 3
       }
     },
     {
@@ -1366,8 +1273,7 @@
         "streamr",
         "analog"
       ],
-      "coins_count": 17,
-      "market_cap": 7111060728.691519,
+      "market_cap": 6859127345.268582,
       "available_exchanges": {
         "Exchanges::Binance": 5,
         "Exchanges::BinanceUs": 4,
@@ -1376,24 +1282,38 @@
       }
     },
     {
+      "external_id": "quantum-resistant",
+      "source": "coingecko",
+      "name": "Quantum-Resistant",
+      "description": "Quantum-resistant projects are characterised by their use of post-quantum cryptographic algorithms (e.g., hash-based, lattice-based) to remain secure against potential attacks from future quantum computers.",
+      "top_coins": [
+        "zcash",
+        "starknet",
+        "nervos-network"
+      ],
+      "market_cap": 6796248482.009189,
+      "available_exchanges": {
+        "Exchanges::Binance": 3
+      }
+    },
+    {
       "external_id": "gaming",
       "source": "coingecko",
       "name": "Gaming (GameFi)",
       "description": "GameFi combines blockchain technology, gaming, and decentralized finance (DeFi), allowing players to earn cryptocurrency and NFT rewards while also offering true ownership and control over in-game assets.",
       "top_coins": [
-        "axie-infinity",
         "floki",
+        "axie-infinity",
         "the-sandbox",
         "gala",
         "decentraland",
-        "immutable-x",
         "loaded-lions",
+        "immutable-x",
         "apecoin",
         "beam-2",
         "gmt-token"
       ],
-      "coins_count": 250,
-      "market_cap": 6297939971.106314,
+      "market_cap": 6057960511.661899,
       "available_exchanges": {
         "Exchanges::Binance": 36,
         "Exchanges::BinanceUs": 17,
@@ -1414,8 +1334,7 @@
         "constellation-labs",
         "unicorn-ultra"
       ],
-      "coins_count": 14,
-      "market_cap": 6169267343.750992,
+      "market_cap": 5999747231.979528,
       "available_exchanges": {
         "Exchanges::Binance": 3,
         "Exchanges::BinanceUs": 3,
@@ -1439,8 +1358,7 @@
         "popcat",
         "peanut-the-squirrel"
       ],
-      "coins_count": 250,
-      "market_cap": 5859050453.010061,
+      "market_cap": 5538833834.008156,
       "available_exchanges": {
         "Exchanges::Binance": 7,
         "Exchanges::BinanceUs": 13,
@@ -1459,8 +1377,7 @@
         "msol",
         "liquid-staked-sol"
       ],
-      "coins_count": 36,
-      "market_cap": 5712360327.700556,
+      "market_cap": 5502229622.713766,
       "available_exchanges": {
         "Exchanges::Kraken": 3
       }
@@ -1476,14 +1393,13 @@
         "pancakeswap-token",
         "virtual-protocol",
         "raydium",
-        "zora",
         "meteora",
-        "toshi",
+        "zora",
         "four",
+        "toshi",
         "kaito"
       ],
-      "coins_count": 225,
-      "market_cap": 5326781485.134805,
+      "market_cap": 5040008306.775001,
       "available_exchanges": {
         "Exchanges::Binance": 11,
         "Exchanges::BinanceUs": 5,
@@ -1508,8 +1424,7 @@
         "euler",
         "folks"
       ],
-      "coins_count": 69,
-      "market_cap": 4669693877.90799,
+      "market_cap": 4574060723.297219,
       "available_exchanges": {
         "Exchanges::Binance": 14,
         "Exchanges::Coinbase": 13,
@@ -1528,8 +1443,7 @@
         "plasma",
         "chronobank"
       ],
-      "coins_count": 19,
-      "market_cap": 4108649740.410511,
+      "market_cap": 3876052473.344418,
       "available_exchanges": {
         "Exchanges::Coinbase": 4,
         "Exchanges::Kraken": 4
@@ -1552,8 +1466,7 @@
         "connect-token-wct",
         "vultisig"
       ],
-      "coins_count": 101,
-      "market_cap": 3823981454.639771,
+      "market_cap": 3720144036.215391,
       "available_exchanges": {
         "Exchanges::Binance": 5,
         "Exchanges::Coinbase": 4,
@@ -1577,8 +1490,7 @@
         "alchemy-pay",
         "huma-finance"
       ],
-      "coins_count": 109,
-      "market_cap": 3614382904.086208,
+      "market_cap": 3579273652.990416,
       "available_exchanges": {
         "Exchanges::Binance": 6,
         "Exchanges::BinanceUs": 3,
@@ -1597,8 +1509,7 @@
         "football-fun",
         "augur"
       ],
-      "coins_count": 73,
-      "market_cap": 3511226960.355114,
+      "market_cap": 3465684068.382233,
       "available_exchanges": {
         "Exchanges::Kraken": 3
       }
@@ -1617,11 +1528,10 @@
         "stp-network",
         "iotex",
         "ai-rig-complex",
-        "bankercoin-2",
-        "iexec-rlc"
+        "iexec-rlc",
+        "bankercoin-2"
       ],
-      "coins_count": 250,
-      "market_cap": 3465636729.935288,
+      "market_cap": 3211049347.231141,
       "available_exchanges": {
         "Exchanges::Binance": 16,
         "Exchanges::BinanceUs": 9,
@@ -1636,18 +1546,17 @@
       "description": "The metaverse refers to a digital world where participants can interact with each other in a shared virtual reality.",
       "top_coins": [
         "render-token",
-        "axie-infinity",
         "floki",
+        "axie-infinity",
         "the-sandbox",
         "decentraland",
         "origintrail",
         "xyo-network",
-        "illuvium",
         "enjincoin",
-        "yield-guild-games"
+        "illuvium",
+        "ecomi"
       ],
-      "coins_count": 169,
-      "market_cap": 3255096250.004103,
+      "market_cap": 3106591604.63861,
       "available_exchanges": {
         "Exchanges::Binance": 16,
         "Exchanges::BinanceUs": 12,
@@ -1661,19 +1570,18 @@
       "name": "Play To Earn",
       "description": "Play to Earn games are built on the blockchain, giving players full control over their gaming accounts and related assets, which they can sell on exchanges or secondary marketplaces.",
       "top_coins": [
-        "axie-infinity",
         "floki",
+        "axie-infinity",
         "the-sandbox",
         "gala",
         "decentraland",
         "immutable-x",
         "ronin",
         "yooldo-games",
-        "notcoin",
-        "illuvium"
+        "illuvium",
+        "notcoin"
       ],
-      "coins_count": 250,
-      "market_cap": 3223635524.315147,
+      "market_cap": 3061254937.142058,
       "available_exchanges": {
         "Exchanges::Binance": 21,
         "Exchanges::BinanceUs": 11,
@@ -1689,8 +1597,8 @@
       "top_coins": [
         "fetch-ai",
         "injective-protocol",
-        "axie-infinity",
         "bittorrent",
+        "axie-infinity",
         "the-sandbox",
         "safepal",
         "elrond-erd-2",
@@ -1698,8 +1606,7 @@
         "arkham",
         "kava"
       ],
-      "coins_count": 37,
-      "market_cap": 3152186393.556214,
+      "market_cap": 3016118996.638738,
       "available_exchanges": {
         "Exchanges::Binance": 27,
         "Exchanges::BinanceUs": 13,
@@ -1716,46 +1623,20 @@
         "pudgy-penguins",
         "plasma",
         "falcon-finance-ff",
-        "zero-gravity",
         "lombard-protocol",
+        "zero-gravity",
         "movement",
         "kaito",
-        "berachain-bera",
         "nexpace",
+        "berachain-bera",
         "avantis"
       ],
-      "coins_count": 45,
-      "market_cap": 3073201181.223047,
+      "market_cap": 2913877653.925248,
       "available_exchanges": {
         "Exchanges::Binance": 43,
         "Exchanges::BinanceUs": 3,
         "Exchanges::Coinbase": 17,
         "Exchanges::Kraken": 22
-      }
-    },
-    {
-      "external_id": "binance-wallet-ido",
-      "source": "coingecko",
-      "name": "Binance Wallet IDO",
-      "description": "Tokens and coins launched on Binance Wallet IDO.",
-      "top_coins": [
-        "myx-finance",
-        "river",
-        "sentient",
-        "irys",
-        "momentum-3",
-        "mind-network",
-        "bitlayer-bitvm",
-        "bsquared-network",
-        "hyperlane",
-        "zerobase"
-      ],
-      "coins_count": 54,
-      "market_cap": 3045522160.730648,
-      "available_exchanges": {
-        "Exchanges::Binance": 12,
-        "Exchanges::Coinbase": 7,
-        "Exchanges::Kraken": 18
       }
     },
     {
@@ -1775,12 +1656,35 @@
         "uxlink",
         "noice"
       ],
-      "coins_count": 180,
-      "market_cap": 3037506332.671413,
+      "market_cap": 2847137808.260189,
       "available_exchanges": {
         "Exchanges::Binance": 5,
         "Exchanges::Coinbase": 6,
         "Exchanges::Kraken": 8
+      }
+    },
+    {
+      "external_id": "binance-wallet-ido",
+      "source": "coingecko",
+      "name": "Binance Wallet IDO",
+      "description": "Tokens and coins launched on Binance Wallet IDO.",
+      "top_coins": [
+        "myx-finance",
+        "river",
+        "sentient",
+        "irys",
+        "momentum-3",
+        "bitlayer-bitvm",
+        "bsquared-network",
+        "mind-network",
+        "hyperlane",
+        "apriori"
+      ],
+      "market_cap": 2818247192.728075,
+      "available_exchanges": {
+        "Exchanges::Binance": 12,
+        "Exchanges::Coinbase": 7,
+        "Exchanges::Kraken": 18
       }
     },
     {
@@ -1796,8 +1700,7 @@
         "apu-s-club",
         "fwog"
       ],
-      "coins_count": 162,
-      "market_cap": 2749572691.706709,
+      "market_cap": 2639506517.371078,
       "available_exchanges": {
         "Exchanges::Binance": 3,
         "Exchanges::BinanceUs": 3,
@@ -1817,12 +1720,11 @@
         "nervos-network",
         "altlayer",
         "loopring",
-        "openledger-2",
+        "bsquared-network",
         "metis-token",
-        "bsquared-network"
+        "openledger-2"
       ],
-      "coins_count": 31,
-      "market_cap": 2687686704.020959,
+      "market_cap": 2572938661.217226,
       "available_exchanges": {
         "Exchanges::Binance": 12,
         "Exchanges::BinanceUs": 6,
@@ -1843,64 +1745,12 @@
         "syscoin",
         "covalent-x-token"
       ],
-      "coins_count": 15,
-      "market_cap": 2638468680.911455,
+      "market_cap": 2554196880.069645,
       "available_exchanges": {
         "Exchanges::Binance": 4,
         "Exchanges::BinanceUs": 4,
         "Exchanges::Coinbase": 3,
         "Exchanges::Kraken": 5
-      }
-    },
-    {
-      "external_id": "pump-fun",
-      "source": "coingecko",
-      "name": "Pump.fun Ecosystem",
-      "description": "Pump.fun Ecosystem consists of tokens launched via pump.fun.",
-      "top_coins": [
-        "fartcoin",
-        "alchemist-ai",
-        "peanut-the-squirrel",
-        "moo-deng",
-        "ai-rig-complex",
-        "goatseus-maximus",
-        "vine",
-        "troll-2",
-        "act-i-the-ai-prophecy",
-        "aura-on-sol"
-      ],
-      "coins_count": 250,
-      "market_cap": 2466423247.698348,
-      "available_exchanges": {
-        "Exchanges::BinanceUs": 4,
-        "Exchanges::Coinbase": 4,
-        "Exchanges::Kraken": 25
-      }
-    },
-    {
-      "external_id": "storage",
-      "source": "coingecko",
-      "name": "Storage",
-      "description": "Storage protocols allow users to store their data on the blockchain network in a decentralized manner. This negates the need for a centralized storage host such as Amazon, OneDrive, DropBox, and others. This removes the issue of a single point of failure. Decentralized servers make use of independent nodes which in turn use spare storage space on computers. Users are able to rent out their spare storage on  In exchange for storage space, users are able to use a storage protocol’s token to pay for the service.",
-      "top_coins": [
-        "filecoin",
-        "bittorrent",
-        "arweave",
-        "walrus-2",
-        "aioz-network",
-        "impossible-cloud-network-token",
-        "holotoken",
-        "siacoin",
-        "ocean-protocol",
-        "iagon"
-      ],
-      "coins_count": 49,
-      "market_cap": 2349565782.959506,
-      "available_exchanges": {
-        "Exchanges::Binance": 7,
-        "Exchanges::BinanceUs": 3,
-        "Exchanges::Coinbase": 6,
-        "Exchanges::Kraken": 11
       }
     },
     {
@@ -1920,8 +1770,7 @@
         "layer3",
         "bluwhale"
       ],
-      "coins_count": 60,
-      "market_cap": 2332846820.192466,
+      "market_cap": 2342796320.145345,
       "available_exchanges": {
         "Exchanges::Binance": 6,
         "Exchanges::BinanceUs": 4,
@@ -1930,28 +1779,52 @@
       }
     },
     {
-      "external_id": "ai-framework",
+      "external_id": "storage",
       "source": "coingecko",
-      "name": "AI Framework",
-      "description": "An AI Framework/ AI agent framework is a set of tools, libraries, and methodologies designed to facilitate the development, management, and operation of AI agents. ",
+      "name": "Storage",
+      "description": "Storage protocols allow users to store their data on the blockchain network in a decentralized manner. This negates the need for a centralized storage host such as Amazon, OneDrive, DropBox, and others. This removes the issue of a single point of failure. Decentralized servers make use of independent nodes which in turn use spare storage space on computers. Users are able to rent out their spare storage on  In exchange for storage space, users are able to use a storage protocol’s token to pay for the service.",
       "top_coins": [
-        "virtual-protocol",
-        "zero-gravity",
-        "ai-rig-complex",
-        "unifai-network",
-        "everipedia",
-        "pha",
-        "mira-3",
-        "chaingpt",
-        "holoworld",
-        "arcblock"
+        "filecoin",
+        "bittorrent",
+        "arweave",
+        "walrus-2",
+        "impossible-cloud-network-token",
+        "aioz-network",
+        "holotoken",
+        "siacoin",
+        "ocean-protocol",
+        "iagon"
       ],
-      "coins_count": 138,
-      "market_cap": 1983373010.995413,
+      "market_cap": 2280737400.644256,
       "available_exchanges": {
-        "Exchanges::Binance": 9,
-        "Exchanges::Coinbase": 3,
-        "Exchanges::Kraken": 12
+        "Exchanges::Binance": 7,
+        "Exchanges::BinanceUs": 3,
+        "Exchanges::Coinbase": 6,
+        "Exchanges::Kraken": 11
+      }
+    },
+    {
+      "external_id": "pump-fun",
+      "source": "coingecko",
+      "name": "Pump.fun Ecosystem",
+      "description": "Pump.fun Ecosystem consists of tokens launched via pump.fun.",
+      "top_coins": [
+        "fartcoin",
+        "alchemist-ai",
+        "peanut-the-squirrel",
+        "moo-deng",
+        "ai-rig-complex",
+        "goatseus-maximus",
+        "vine",
+        "troll-2",
+        "act-i-the-ai-prophecy",
+        "griffain"
+      ],
+      "market_cap": 2210883821.014862,
+      "available_exchanges": {
+        "Exchanges::BinanceUs": 4,
+        "Exchanges::Coinbase": 4,
+        "Exchanges::Kraken": 25
       }
     },
     {
@@ -1970,13 +1843,36 @@
         "mxc",
         "robonomics-network"
       ],
-      "coins_count": 23,
-      "market_cap": 1799329803.555179,
+      "market_cap": 1749521650.986939,
       "available_exchanges": {
         "Exchanges::Binance": 5,
         "Exchanges::BinanceUs": 3,
         "Exchanges::Coinbase": 6,
         "Exchanges::Kraken": 6
+      }
+    },
+    {
+      "external_id": "ai-framework",
+      "source": "coingecko",
+      "name": "AI Framework",
+      "description": "An AI Framework/ AI agent framework is a set of tools, libraries, and methodologies designed to facilitate the development, management, and operation of AI agents. ",
+      "top_coins": [
+        "virtual-protocol",
+        "zero-gravity",
+        "ai-rig-complex",
+        "unifai-network",
+        "everipedia",
+        "pha",
+        "holoworld",
+        "mira-3",
+        "chaingpt",
+        "arcblock"
+      ],
+      "market_cap": 1731100745.285953,
+      "available_exchanges": {
+        "Exchanges::Binance": 9,
+        "Exchanges::Coinbase": 3,
+        "Exchanges::Kraken": 12
       }
     },
     {
@@ -1996,12 +1892,82 @@
         "chaingpt",
         "intuition"
       ],
-      "coins_count": 176,
-      "market_cap": 1683750608.724338,
+      "market_cap": 1656695803.657889,
       "available_exchanges": {
         "Exchanges::Binance": 12,
         "Exchanges::Coinbase": 11,
         "Exchanges::Kraken": 11
+      }
+    },
+    {
+      "external_id": "masternodes",
+      "source": "coingecko",
+      "name": "Masternodes",
+      "description": "Masternodes are needed to verify new blocks in certain cryptocurrencies. However, unlike other nodes, they do not add new blocks to the network. In order to maintain a masternode, one would need to hold a certain amount of the protocol’s cryptocurrency, and it’s usually a significant amount. In return for operating a masternode, the operator is rewarded with the native currency.",
+      "top_coins": [
+        "dash",
+        "beldex",
+        "ontology",
+        "zelcash",
+        "syscoin",
+        "pivx",
+        "tomochain"
+      ],
+      "market_cap": 1535230821.421984,
+      "available_exchanges": {
+        "Exchanges::Binance": 6,
+        "Exchanges::BinanceUs": 4,
+        "Exchanges::Kraken": 3
+      }
+    },
+    {
+      "external_id": "ai-agent-launchpad",
+      "source": "coingecko",
+      "name": "AI Agent Launchpad",
+      "description": "Platforms that allow users to deploy and launch their own AI agents.",
+      "top_coins": [
+        "virtual-protocol",
+        "fetch-ai",
+        "stp-network",
+        "ai-rig-complex",
+        "everipedia",
+        "holoworld",
+        "magic",
+        "griffain",
+        "myshell",
+        "gaia-3"
+      ],
+      "market_cap": 1495454862.986875,
+      "available_exchanges": {
+        "Exchanges::Binance": 7,
+        "Exchanges::BinanceUs": 3,
+        "Exchanges::Coinbase": 3,
+        "Exchanges::Kraken": 7
+      }
+    },
+    {
+      "external_id": "gaming-blockchains",
+      "source": "coingecko",
+      "name": "Gaming Blockchains",
+      "description": "Gaming blockchains refer to blockchain platforms specialized in gaming.",
+      "top_coins": [
+        "immutable-x",
+        "apecoin",
+        "beam-2",
+        "superfarm",
+        "ronin",
+        "enjincoin",
+        "skale",
+        "hive",
+        "gunz",
+        "somnia"
+      ],
+      "market_cap": 1475830322.5908,
+      "available_exchanges": {
+        "Exchanges::Binance": 15,
+        "Exchanges::BinanceUs": 5,
+        "Exchanges::Coinbase": 10,
+        "Exchanges::Kraken": 12
       }
     },
     {
@@ -2021,86 +1987,11 @@
         "ava-ai",
         "wen-4"
       ],
-      "coins_count": 250,
-      "market_cap": 1615950342.600745,
+      "market_cap": 1422671933.560439,
       "available_exchanges": {
         "Exchanges::Binance": 4,
         "Exchanges::BinanceUs": 3,
         "Exchanges::Kraken": 9
-      }
-    },
-    {
-      "external_id": "masternodes",
-      "source": "coingecko",
-      "name": "Masternodes",
-      "description": "Masternodes are needed to verify new blocks in certain cryptocurrencies. However, unlike other nodes, they do not add new blocks to the network. In order to maintain a masternode, one would need to hold a certain amount of the protocol’s cryptocurrency, and it’s usually a significant amount. In return for operating a masternode, the operator is rewarded with the native currency.",
-      "top_coins": [
-        "dash",
-        "beldex",
-        "ontology",
-        "zelcash",
-        "pivx",
-        "syscoin",
-        "tomochain"
-      ],
-      "coins_count": 38,
-      "market_cap": 1580178486.480373,
-      "available_exchanges": {
-        "Exchanges::Binance": 6,
-        "Exchanges::BinanceUs": 4,
-        "Exchanges::Kraken": 3
-      }
-    },
-    {
-      "external_id": "ai-agent-launchpad",
-      "source": "coingecko",
-      "name": "AI Agent Launchpad",
-      "description": "Platforms that allow users to deploy and launch their own AI agents.",
-      "top_coins": [
-        "virtual-protocol",
-        "fetch-ai",
-        "stp-network",
-        "ai-rig-complex",
-        "everipedia",
-        "magic",
-        "holoworld",
-        "griffain",
-        "myshell",
-        "balance"
-      ],
-      "coins_count": 134,
-      "market_cap": 1549113032.804595,
-      "available_exchanges": {
-        "Exchanges::Binance": 7,
-        "Exchanges::BinanceUs": 3,
-        "Exchanges::Coinbase": 3,
-        "Exchanges::Kraken": 7
-      }
-    },
-    {
-      "external_id": "gaming-blockchains",
-      "source": "coingecko",
-      "name": "Gaming Blockchains",
-      "description": "Gaming blockchains refer to blockchain platforms specialized in gaming.",
-      "top_coins": [
-        "immutable-x",
-        "apecoin",
-        "beam-2",
-        "superfarm",
-        "ronin",
-        "skale",
-        "somnia",
-        "enjincoin",
-        "hive",
-        "gunz"
-      ],
-      "coins_count": 40,
-      "market_cap": 1543487370.739937,
-      "available_exchanges": {
-        "Exchanges::Binance": 15,
-        "Exchanges::BinanceUs": 5,
-        "Exchanges::Coinbase": 10,
-        "Exchanges::Kraken": 12
       }
     },
     {
@@ -2115,13 +2006,12 @@
         "skale",
         "echelon-prime",
         "smooth-love-potion",
-        "my-neighbor-alice",
         "checkmate-2",
-        "aavegotchi",
-        "arena-z"
+        "my-neighbor-alice",
+        "arena-z",
+        "aavegotchi"
       ],
-      "coins_count": 135,
-      "market_cap": 1457744116.025004,
+      "market_cap": 1363706577.666824,
       "available_exchanges": {
         "Exchanges::Binance": 10,
         "Exchanges::BinanceUs": 8,
@@ -2143,8 +2033,7 @@
         "bob-build-on-bitcoin",
         "elastos"
       ],
-      "coins_count": 21,
-      "market_cap": 1336203246.03847,
+      "market_cap": 1283194207.496365,
       "available_exchanges": {
         "Exchanges::Binance": 3,
         "Exchanges::Coinbase": 6,
@@ -2165,8 +2054,7 @@
         "bob-build-on-bitcoin",
         "elastos"
       ],
-      "coins_count": 20,
-      "market_cap": 1251642699.376845,
+      "market_cap": 1204127014.536549,
       "available_exchanges": {
         "Exchanges::Coinbase": 5,
         "Exchanges::Kraken": 5
@@ -2184,26 +2072,52 @@
         "jeo-boden",
         "donald-tremp"
       ],
-      "coins_count": 105,
-      "market_cap": 1190011992.331781,
+      "market_cap": 1143344037.268552,
       "available_exchanges": {
         "Exchanges::Kraken": 4
       }
     },
     {
-      "external_id": "binance-buildkey-tge",
+      "external_id": "airdropped-tokens-by-nft-projects",
       "source": "coingecko",
-      "name": "Binance Buildkey TGE",
-      "description": "The BuildKey TGE Model is a hybrid Token Generation Event (TGE) framework developed by Aspecta in collaboration with Binance Wallet.",
+      "name": "Airdropped Tokens by NFT Projects",
+      "description": "Airdropped tokens by NFT Projects refer to tokens distributed by NFT projects as part of their community engagement or ecosystem expansion initiatives. Airdrops are often tied to ownership of specific NFT collections or eligibility within certain user groups.",
       "top_coins": [
-        "river",
-        "fight-2",
-        "zkpass"
+        "pudgy-penguins",
+        "loaded-lions",
+        "apecoin",
+        "doodles",
+        "anime"
       ],
-      "coins_count": 3,
-      "market_cap": 1161247033.458859,
+      "market_cap": 1142621505.334212,
       "available_exchanges": {
-        "Exchanges::Kraken": 3
+        "Exchanges::Binance": 3,
+        "Exchanges::BinanceUs": 4,
+        "Exchanges::Kraken": 4
+      }
+    },
+    {
+      "external_id": "dex-aggregator",
+      "source": "coingecko",
+      "name": "Dex Aggregator",
+      "description": "A DEX aggregator is designed to enhance the efficiency and accessibility of cryptocurrency trading. It searches across multiple decentralized exchanges (DEXs) to combine their liquidity, helping users avoid slippage on large orders, lower trading fees, and secure the best prices for tokens.",
+      "top_coins": [
+        "jupiter-exchange-solana",
+        "1inch",
+        "home",
+        "swftcoin",
+        "definitive",
+        "dolomite",
+        "joe",
+        "cetus-protocol",
+        "shapeshift-fox-token",
+        "odos"
+      ],
+      "market_cap": 1108021108.964484,
+      "available_exchanges": {
+        "Exchanges::Binance": 6,
+        "Exchanges::Coinbase": 7,
+        "Exchanges::Kraken": 7
       }
     },
     {
@@ -2223,58 +2137,12 @@
         "stader",
         "treehouse"
       ],
-      "coins_count": 42,
-      "market_cap": 1117762134.881273,
+      "market_cap": 1048658336.044934,
       "available_exchanges": {
         "Exchanges::Binance": 8,
         "Exchanges::BinanceUs": 3,
         "Exchanges::Coinbase": 9,
         "Exchanges::Kraken": 11
-      }
-    },
-    {
-      "external_id": "dex-aggregator",
-      "source": "coingecko",
-      "name": "Dex Aggregator",
-      "description": "A DEX aggregator is designed to enhance the efficiency and accessibility of cryptocurrency trading. It searches across multiple decentralized exchanges (DEXs) to combine their liquidity, helping users avoid slippage on large orders, lower trading fees, and secure the best prices for tokens.",
-      "top_coins": [
-        "jupiter-exchange-solana",
-        "1inch",
-        "home",
-        "swftcoin",
-        "definitive",
-        "joe",
-        "dolomite",
-        "cetus-protocol",
-        "shapeshift-fox-token",
-        "odos"
-      ],
-      "coins_count": 34,
-      "market_cap": 1108322240.165228,
-      "available_exchanges": {
-        "Exchanges::Binance": 6,
-        "Exchanges::Coinbase": 7,
-        "Exchanges::Kraken": 7
-      }
-    },
-    {
-      "external_id": "airdropped-tokens-by-nft-projects",
-      "source": "coingecko",
-      "name": "Airdropped Tokens by NFT Projects",
-      "description": "Airdropped tokens by NFT Projects refer to tokens distributed by NFT projects as part of their community engagement or ecosystem expansion initiatives. Airdrops are often tied to ownership of specific NFT collections or eligibility within certain user groups.",
-      "top_coins": [
-        "pudgy-penguins",
-        "loaded-lions",
-        "apecoin",
-        "doodles",
-        "anime"
-      ],
-      "coins_count": 17,
-      "market_cap": 1101401420.251562,
-      "available_exchanges": {
-        "Exchanges::Binance": 3,
-        "Exchanges::BinanceUs": 4,
-        "Exchanges::Kraken": 4
       }
     },
     {
@@ -2294,13 +2162,57 @@
         "keyboard-cat-base",
         "wen-4"
       ],
-      "coins_count": 26,
-      "market_cap": 1071999997.801603,
+      "market_cap": 1018348824.209232,
       "available_exchanges": {
         "Exchanges::Binance": 3,
         "Exchanges::BinanceUs": 5,
         "Exchanges::Coinbase": 4,
         "Exchanges::Kraken": 8
+      }
+    },
+    {
+      "external_id": "name-service",
+      "source": "coingecko",
+      "name": "Name Service",
+      "description": "Name Service is a decentralized naming system that allows users to map human-readable domain names to machine-readable information.",
+      "top_coins": [
+        "beldex",
+        "ethereum-name-service",
+        "bonfida"
+      ],
+      "market_cap": 972953573.3293421,
+      "available_exchanges": {
+        "Exchanges::Kraken": 3
+      }
+    },
+    {
+      "external_id": "parallel-evm",
+      "source": "coingecko",
+      "name": "Parallelized EVM",
+      "description": "Parallel EVM refers to the capability of processing and executing multiple blockchain transactions simultaneously rather than in a sequential manner.",
+      "top_coins": [
+        "sei-network",
+        "monad",
+        "neon"
+      ],
+      "market_cap": 934274175.2455662,
+      "available_exchanges": {
+        "Exchanges::Coinbase": 3
+      }
+    },
+    {
+      "external_id": "binance-buildkey-tge",
+      "source": "coingecko",
+      "name": "Binance Buildkey TGE",
+      "description": "The BuildKey TGE Model is a hybrid Token Generation Event (TGE) framework developed by Aspecta in collaboration with Binance Wallet.",
+      "top_coins": [
+        "river",
+        "fight-2",
+        "zkpass"
+      ],
+      "market_cap": 918563907.7152835,
+      "available_exchanges": {
+        "Exchanges::Kraken": 3
       }
     },
     {
@@ -2314,51 +2226,18 @@
         "fight-2",
         "santos-fc-fan-token",
         "og-fan-token",
-        "as-roma-fan-token",
         "lazio-fan-token",
+        "as-roma-fan-token",
         "fc-porto",
         "fc-barcelona-fan-token",
         "paris-saint-germain-fan-token"
       ],
-      "coins_count": 144,
-      "market_cap": 1041920852.3701,
+      "market_cap": 904595703.6254979,
       "available_exchanges": {
         "Exchanges::Binance": 14,
         "Exchanges::BinanceUs": 5,
         "Exchanges::Coinbase": 4,
         "Exchanges::Kraken": 5
-      }
-    },
-    {
-      "external_id": "parallel-evm",
-      "source": "coingecko",
-      "name": "Parallelized EVM",
-      "description": "Parallel EVM refers to the capability of processing and executing multiple blockchain transactions simultaneously rather than in a sequential manner.",
-      "top_coins": [
-        "sei-network",
-        "monad",
-        "neon"
-      ],
-      "coins_count": 6,
-      "market_cap": 977056088.9896613,
-      "available_exchanges": {
-        "Exchanges::Coinbase": 3
-      }
-    },
-    {
-      "external_id": "name-service",
-      "source": "coingecko",
-      "name": "Name Service",
-      "description": "Name Service is a decentralized naming system that allows users to map human-readable domain names to machine-readable information.",
-      "top_coins": [
-        "beldex",
-        "ethereum-name-service",
-        "bonfida"
-      ],
-      "coins_count": 13,
-      "market_cap": 965326109.8331394,
-      "available_exchanges": {
-        "Exchanges::Kraken": 3
       }
     },
     {
@@ -2374,12 +2253,11 @@
         "yield-guild-games",
         "gods-unchained",
         "my-neighbor-alice",
-        "alien-worlds",
         "mobox",
-        "aavegotchi"
+        "alien-worlds",
+        "arena-z"
       ],
-      "coins_count": 64,
-      "market_cap": 924268429.1194899,
+      "market_cap": 856772299.6162394,
       "available_exchanges": {
         "Exchanges::Binance": 10,
         "Exchanges::BinanceUs": 6,
@@ -2397,30 +2275,10 @@
         "convex-finance",
         "frax-share"
       ],
-      "coins_count": 15,
-      "market_cap": 856666311.4389064,
+      "market_cap": 833778290.6646395,
       "available_exchanges": {
         "Exchanges::Binance": 3,
         "Exchanges::Kraken": 3
-      }
-    },
-    {
-      "external_id": "eur-stablecoin",
-      "source": "coingecko",
-      "name": "EUR Stablecoin",
-      "description": "A EUR stablecoin is a type of cryptocurrency that is designed to maintain a stable value by being pegged to the Euro.",
-      "top_coins": [
-        "euro-coin",
-        "anchored-coins-eur",
-        "eurite",
-        "stablr-euro",
-        "schuman-europ",
-        "quantoz-eurq"
-      ],
-      "coins_count": 22,
-      "market_cap": 856361090.591114,
-      "available_exchanges": {
-        "Exchanges::Kraken": 4
       }
     },
     {
@@ -2435,8 +2293,7 @@
         "puffer-finance",
         "swell-network"
       ],
-      "coins_count": 16,
-      "market_cap": 826242848.162921,
+      "market_cap": 793032031.4014598,
       "available_exchanges": {
         "Exchanges::Binance": 3,
         "Exchanges::Coinbase": 4,
@@ -2458,10 +2315,9 @@
         "solv-protocol",
         "hemi",
         "portal-to-bitcoin",
-        "yala"
+        "union-2"
       ],
-      "coins_count": 29,
-      "market_cap": 794028089.9979115,
+      "market_cap": 781557527.2269297,
       "available_exchanges": {
         "Exchanges::Binance": 7,
         "Exchanges::Coinbase": 3,
@@ -2485,29 +2341,12 @@
         "syscoin",
         "hemi"
       ],
-      "coins_count": 22,
-      "market_cap": 786471129.8781114,
+      "market_cap": 755462174.4083788,
       "available_exchanges": {
         "Exchanges::Binance": 9,
         "Exchanges::BinanceUs": 4,
         "Exchanges::Coinbase": 3,
         "Exchanges::Kraken": 6
-      }
-    },
-    {
-      "external_id": "ip",
-      "source": "coingecko",
-      "name": "IP",
-      "description": "Intellectual property (IP) related crypto projects leverage blockchain technology to tokenize and manage intellectual property, enabling transparent ownership, automated royalties, and decentralized marketplaces for creators and investors.",
-      "top_coins": [
-        "story-2",
-        "camp-network",
-        "black-mirror"
-      ],
-      "coins_count": 11,
-      "market_cap": 780275006.4740887,
-      "available_exchanges": {
-        "Exchanges::Kraken": 3
       }
     },
     {
@@ -2521,12 +2360,70 @@
         "humidifi",
         "hashflow"
       ],
-      "coins_count": 13,
-      "market_cap": 772120752.1089756,
+      "market_cap": 737510040.6209335,
       "available_exchanges": {
         "Exchanges::Binance": 3,
         "Exchanges::Coinbase": 4,
         "Exchanges::Kraken": 3
+      }
+    },
+    {
+      "external_id": "ip",
+      "source": "coingecko",
+      "name": "IP",
+      "description": "Intellectual property (IP) related crypto projects leverage blockchain technology to tokenize and manage intellectual property, enabling transparent ownership, automated royalties, and decentralized marketplaces for creators and investors.",
+      "top_coins": [
+        "story-2",
+        "camp-network",
+        "black-mirror"
+      ],
+      "market_cap": 728415684.3314976,
+      "available_exchanges": {
+        "Exchanges::Kraken": 3
+      }
+    },
+    {
+      "external_id": "defai",
+      "source": "coingecko",
+      "name": "DeFAI",
+      "description": "DeFAI or AIFI projects leverage AI to streamline and automate DeFi activities such as trading, staking, yield farming, market analysis, and investment optimization.",
+      "top_coins": [
+        "derive",
+        "bankercoin-2",
+        "everipedia",
+        "elsa",
+        "aixbt",
+        "newton-protocol",
+        "apriori",
+        "rujira",
+        "infinit",
+        "velvet"
+      ],
+      "market_cap": 727489764.5389844,
+      "available_exchanges": {
+        "Exchanges::Binance": 4,
+        "Exchanges::Coinbase": 6,
+        "Exchanges::Kraken": 11
+      }
+    },
+    {
+      "external_id": "account-abstraction",
+      "source": "coingecko",
+      "name": "Account Abstraction",
+      "description": "Account abstraction aims to simplify the way users interact with dApps by doing away with the complexities of gas fees and transaction management.",
+      "top_coins": [
+        "trust-wallet-token",
+        "home",
+        "iotex",
+        "biconomy",
+        "skale",
+        "particle-network"
+      ],
+      "market_cap": 704916468.505022,
+      "available_exchanges": {
+        "Exchanges::Binance": 6,
+        "Exchanges::BinanceUs": 4,
+        "Exchanges::Coinbase": 4
       }
     },
     {
@@ -2546,8 +2443,7 @@
         "astra-nova",
         "sidekick"
       ],
-      "coins_count": 121,
-      "market_cap": 724819882.6869632,
+      "market_cap": 704293848.9360141,
       "available_exchanges": {
         "Exchanges::Binance": 5,
         "Exchanges::BinanceUs": 4,
@@ -2569,57 +2465,10 @@
         "tokenfi",
         "vultisig"
       ],
-      "coins_count": 171,
-      "market_cap": 717511951.8281984,
+      "market_cap": 688360334.4980618,
       "available_exchanges": {
         "Exchanges::Binance": 5,
         "Exchanges::Kraken": 5
-      }
-    },
-    {
-      "external_id": "account-abstraction",
-      "source": "coingecko",
-      "name": "Account Abstraction",
-      "description": "Account abstraction aims to simplify the way users interact with dApps by doing away with the complexities of gas fees and transaction management.",
-      "top_coins": [
-        "trust-wallet-token",
-        "home",
-        "iotex",
-        "biconomy",
-        "skale",
-        "particle-network"
-      ],
-      "coins_count": 29,
-      "market_cap": 711193534.9190667,
-      "available_exchanges": {
-        "Exchanges::Binance": 6,
-        "Exchanges::BinanceUs": 4,
-        "Exchanges::Coinbase": 4
-      }
-    },
-    {
-      "external_id": "defai",
-      "source": "coingecko",
-      "name": "DeFAI",
-      "description": "DeFAI or AIFI projects leverage AI to streamline and automate DeFi activities such as trading, staking, yield farming, market analysis, and investment optimization.",
-      "top_coins": [
-        "bankercoin-2",
-        "derive",
-        "everipedia",
-        "aixbt",
-        "elsa",
-        "apriori",
-        "newton-protocol",
-        "rujira",
-        "velvet",
-        "infinit"
-      ],
-      "coins_count": 161,
-      "market_cap": 708944798.7641094,
-      "available_exchanges": {
-        "Exchanges::Binance": 4,
-        "Exchanges::Coinbase": 6,
-        "Exchanges::Kraken": 11
       }
     },
     {
@@ -2639,8 +2488,7 @@
         "wen-4",
         "ket"
       ],
-      "coins_count": 250,
-      "market_cap": 688086886.1160576,
+      "market_cap": 639741945.3442801,
       "available_exchanges": {
         "Exchanges::BinanceUs": 4,
         "Exchanges::Coinbase": 4,
@@ -2664,8 +2512,7 @@
         "voxies",
         "gensokishis-metaverse"
       ],
-      "coins_count": 99,
-      "market_cap": 640703572.2756994,
+      "market_cap": 613022109.5165282,
       "available_exchanges": {
         "Exchanges::Binance": 6,
         "Exchanges::BinanceUs": 3,
@@ -2683,8 +2530,7 @@
         "decentraland",
         "my-neighbor-alice"
       ],
-      "coins_count": 16,
-      "market_cap": 640684650.3769506,
+      "market_cap": 607388181.360238,
       "available_exchanges": {
         "Exchanges::Binance": 3,
         "Exchanges::BinanceUs": 3,
@@ -2707,8 +2553,7 @@
         "retardio",
         "lock-in"
       ],
-      "coins_count": 11,
-      "market_cap": 620424276.6690841,
+      "market_cap": 580125342.1632271,
       "available_exchanges": {
         "Exchanges::BinanceUs": 3,
         "Exchanges::Coinbase": 4,
@@ -2727,28 +2572,29 @@
         "hooked-protocol",
         "vulcan-forged"
       ],
-      "coins_count": 70,
-      "market_cap": 565652587.6497011,
+      "market_cap": 544890252.4757552,
       "available_exchanges": {
         "Exchanges::Binance": 4,
         "Exchanges::Kraken": 3
       }
     },
     {
-      "external_id": "four-meme-ecosystem",
+      "external_id": "synthetic",
       "source": "coingecko",
-      "name": "Four.meme Ecosystem (BNB Memes)",
-      "description": "Four.meme Ecosystem consists of tokens launched via four.meme on BNB Chain.",
+      "name": "Synthetic",
+      "description": "This category includes both synthetic asset issuers and the synthetic assets themselves. Synthetic assets are on-chain tokens that replicate the price behavior of another asset, whether it’s a fiat currency, commodity, or stock using smart contracts and price oracles. ",
       "top_coins": [
-        "bianrensheng",
-        "czs-dog",
-        "test-3",
-        "tutorial"
+        "havven",
+        "stp-network",
+        "uma",
+        "cryptex-finance",
+        "mirror-protocol"
       ],
-      "coins_count": 160,
-      "market_cap": 546438787.4978381,
+      "market_cap": 533693122.6735782,
       "available_exchanges": {
-        "Exchanges::Binance": 4
+        "Exchanges::Binance": 3,
+        "Exchanges::Coinbase": 4,
+        "Exchanges::Kraken": 3
       }
     },
     {
@@ -2766,8 +2612,7 @@
         "synapse-2",
         "multichain"
       ],
-      "coins_count": 29,
-      "market_cap": 546356243.2871712,
+      "market_cap": 521084646.4101953,
       "available_exchanges": {
         "Exchanges::Binance": 6,
         "Exchanges::BinanceUs": 3,
@@ -2776,22 +2621,35 @@
       }
     },
     {
-      "external_id": "synthetic",
+      "external_id": "four-meme-ecosystem",
       "source": "coingecko",
-      "name": "Synthetic",
-      "description": "This category includes both synthetic asset issuers and the synthetic assets themselves. Synthetic assets are on-chain tokens that replicate the price behavior of another asset, whether it’s a fiat currency, commodity, or stock using smart contracts and price oracles. ",
+      "name": "Four.meme Ecosystem (BNB Memes)",
+      "description": "Four.meme Ecosystem consists of tokens launched via four.meme on BNB Chain.",
       "top_coins": [
-        "havven",
-        "stp-network",
-        "uma",
-        "cryptex-finance",
-        "mirror-protocol"
+        "bianrensheng",
+        "czs-dog",
+        "test-3",
+        "tutorial"
       ],
-      "coins_count": 26,
-      "market_cap": 545392095.9867939,
+      "market_cap": 517880743.4646846,
       "available_exchanges": {
-        "Exchanges::Binance": 3,
-        "Exchanges::Coinbase": 4,
+        "Exchanges::Binance": 4
+      }
+    },
+    {
+      "external_id": "buidlpad-launchpad",
+      "source": "coingecko",
+      "name": "Buidlpad Launchpad",
+      "description": "Buidlpad is a launchpad that enables token sales with KYC-verified participants.",
+      "top_coins": [
+        "falcon-finance-ff",
+        "lombard-protocol",
+        "sahara-ai",
+        "solayer"
+      ],
+      "market_cap": 473946794.6644527,
+      "available_exchanges": {
+        "Exchanges::Binance": 4,
         "Exchanges::Kraken": 3
       }
     },
@@ -2806,29 +2664,49 @@
         "gods-unchained",
         "alien-worlds"
       ],
-      "coins_count": 44,
-      "market_cap": 521520736.7938009,
+      "market_cap": 470554708.2765031,
       "available_exchanges": {
         "Exchanges::Coinbase": 3,
         "Exchanges::Kraken": 3
       }
     },
     {
-      "external_id": "buidlpad-launchpad",
+      "external_id": "lsdfi",
       "source": "coingecko",
-      "name": "Buidlpad Launchpad",
-      "description": "Buidlpad is a launchpad that enables token sales with KYC-verified participants.",
+      "name": "LSDFi",
+      "description": "Liquid Staking Derivatives Finance (LSDFi) combines the principles of liquid staking derivatives with traditional DeFi applications to offer enhanced financial opportunities and flexibility to cryptocurrency users.",
       "top_coins": [
-        "falcon-finance-ff",
-        "lombard-protocol",
-        "sahara-ai",
+        "pendle",
+        "babylon",
+        "sanctum-2",
         "solayer"
       ],
-      "coins_count": 5,
-      "market_cap": 489943715.0517795,
+      "market_cap": 446763578.3169219,
       "available_exchanges": {
-        "Exchanges::Binance": 4,
-        "Exchanges::Kraken": 3
+        "Exchanges::Binance": 3,
+        "Exchanges::Kraken": 4
+      }
+    },
+    {
+      "external_id": "yield-aggregator",
+      "source": "coingecko",
+      "name": "Yield Aggregator",
+      "description": "Yield aggregators are protocols that collate multiple yield farms in a single place in order to ease the process of farming. With many new farms popping up on the market, it can be tedious for one to hop from farm to farm. However, with yield aggregators, that isn’t necessary as it’s done automatically in order to maximize the yield generated for users.",
+      "top_coins": [
+        "convex-finance",
+        "yearn-finance",
+        "inverse-finance",
+        "beefy-finance",
+        "harvest-finance",
+        "badger-dao",
+        "bella-protocol",
+        "alpha-finance"
+      ],
+      "market_cap": 446695171.7352898,
+      "available_exchanges": {
+        "Exchanges::Binance": 5,
+        "Exchanges::Coinbase": 5,
+        "Exchanges::Kraken": 5
       }
     },
     {
@@ -2846,52 +2724,10 @@
         "noice",
         "unstable-coin"
       ],
-      "coins_count": 250,
-      "market_cap": 467605849.7465382,
+      "market_cap": 436963794.4221724,
       "available_exchanges": {
         "Exchanges::Coinbase": 5,
         "Exchanges::Kraken": 4
-      }
-    },
-    {
-      "external_id": "lsdfi",
-      "source": "coingecko",
-      "name": "LSDFi",
-      "description": "Liquid Staking Derivatives Finance (LSDFi) combines the principles of liquid staking derivatives with traditional DeFi applications to offer enhanced financial opportunities and flexibility to cryptocurrency users.",
-      "top_coins": [
-        "pendle",
-        "babylon",
-        "sanctum-2",
-        "solayer"
-      ],
-      "coins_count": 17,
-      "market_cap": 457595474.4420062,
-      "available_exchanges": {
-        "Exchanges::Binance": 3,
-        "Exchanges::Kraken": 4
-      }
-    },
-    {
-      "external_id": "yield-aggregator",
-      "source": "coingecko",
-      "name": "Yield Aggregator",
-      "description": "Yield aggregators are protocols that collate multiple yield farms in a single place in order to ease the process of farming. With many new farms popping up on the market, it can be tedious for one to hop from farm to farm. However, with yield aggregators, that isn’t necessary as it’s done automatically in order to maximize the yield generated for users.",
-      "top_coins": [
-        "convex-finance",
-        "yearn-finance",
-        "inverse-finance",
-        "beefy-finance",
-        "harvest-finance",
-        "bella-protocol",
-        "badger-dao",
-        "alpha-finance"
-      ],
-      "coins_count": 62,
-      "market_cap": 446854298.0682258,
-      "available_exchanges": {
-        "Exchanges::Binance": 5,
-        "Exchanges::Coinbase": 5,
-        "Exchanges::Kraken": 5
       }
     },
     {
@@ -2904,8 +2740,7 @@
         "simon-s-cat",
         "tokenfi"
       ],
-      "coins_count": 6,
-      "market_cap": 436139405.7785591,
+      "market_cap": 416750773.8163035,
       "available_exchanges": {
         "Exchanges::Kraken": 3
       }
@@ -2921,8 +2756,7 @@
         "gunz",
         "coq-inu"
       ],
-      "coins_count": 18,
-      "market_cap": 379755156.7050113,
+      "market_cap": 366171991.9702274,
       "available_exchanges": {
         "Exchanges::Binance": 3,
         "Exchanges::Kraken": 3
@@ -2939,8 +2773,7 @@
         "researchcoin",
         "bluzelle"
       ],
-      "coins_count": 82,
-      "market_cap": 368620472.8918923,
+      "market_cap": 355735494.749902,
       "available_exchanges": {
         "Exchanges::Coinbase": 4,
         "Exchanges::Kraken": 4
@@ -2958,8 +2791,7 @@
         "cryptex-finance",
         "mirror-protocol"
       ],
-      "coins_count": 17,
-      "market_cap": 323402444.3697201,
+      "market_cap": 315096386.1329365,
       "available_exchanges": {
         "Exchanges::Binance": 3,
         "Exchanges::Coinbase": 4,
@@ -2979,8 +2811,7 @@
         "enso",
         "synapse-2"
       ],
-      "coins_count": 15,
-      "market_cap": 306511779.4971119,
+      "market_cap": 295336641.5274438,
       "available_exchanges": {
         "Exchanges::Binance": 4,
         "Exchanges::Coinbase": 4,
@@ -2998,8 +2829,7 @@
         "cookie",
         "bubblemaps"
       ],
-      "coins_count": 14,
-      "market_cap": 300949097.4577811,
+      "market_cap": 291779609.0105702,
       "available_exchanges": {
         "Exchanges::Binance": 3,
         "Exchanges::Coinbase": 3,
@@ -3017,8 +2847,7 @@
         "tensor",
         "rarible"
       ],
-      "coins_count": 36,
-      "market_cap": 281320750.8670865,
+      "market_cap": 264188846.7575168,
       "available_exchanges": {
         "Exchanges::Binance": 3,
         "Exchanges::Coinbase": 4,
@@ -3034,16 +2863,15 @@
         "fight-2",
         "santos-fc-fan-token",
         "og-fan-token",
-        "as-roma-fan-token",
         "lazio-fan-token",
+        "as-roma-fan-token",
         "fc-porto",
         "fc-barcelona-fan-token",
         "paris-saint-germain-fan-token",
         "juventus-fan-token",
         "manchester-city-fan-token"
       ],
-      "coins_count": 64,
-      "market_cap": 274272417.1045778,
+      "market_cap": 253588467.8269149,
       "available_exchanges": {
         "Exchanges::Binance": 12,
         "Exchanges::BinanceUs": 3
@@ -3062,8 +2890,7 @@
         "duckchain-token",
         "tanssi"
       ],
-      "coins_count": 16,
-      "market_cap": 256845232.1031497,
+      "market_cap": 252067300.4451179,
       "available_exchanges": {
         "Exchanges::Binance": 3,
         "Exchanges::Kraken": 5
@@ -3079,8 +2906,7 @@
         "sushi",
         "keep3rv1"
       ],
-      "coins_count": 28,
-      "market_cap": 206664309.0160038,
+      "market_cap": 196808155.296296,
       "available_exchanges": {
         "Exchanges::Kraken": 3
       }
@@ -3091,13 +2917,12 @@
       "name": "Rollups-as-a-Service (RaaS)",
       "description": "Rollups-as-a-Service (RaaS) streamlines the deployment and maintenance of custom application-specific rollups by offering a simplified interface including no-code deployment options.",
       "top_coins": [
-        "altlayer",
         "ankr",
+        "altlayer",
         "caldera",
         "dymension"
       ],
-      "coins_count": 6,
-      "market_cap": 187397617.4034378,
+      "market_cap": 178177534.3407858,
       "available_exchanges": {
         "Exchanges::Binance": 4,
         "Exchanges::Coinbase": 3,
@@ -3114,8 +2939,7 @@
         "moo-deng",
         "sudeng"
       ],
-      "coins_count": 43,
-      "market_cap": 168997622.4749027,
+      "market_cap": 160183544.5368722,
       "available_exchanges": {
         "Exchanges::Kraken": 3
       }
@@ -3128,12 +2952,11 @@
       "top_coins": [
         "orbs",
         "degen-base",
-        "cartesi",
         "xai-blockchain",
+        "cartesi",
         "aavegotchi"
       ],
-      "coins_count": 12,
-      "market_cap": 162494667.2882006,
+      "market_cap": 157480014.7309174,
       "available_exchanges": {
         "Exchanges::Binance": 3,
         "Exchanges::Coinbase": 3,
@@ -3150,45 +2973,9 @@
         "audius",
         "limewire-token"
       ],
-      "coins_count": 38,
-      "market_cap": 152700697.2208424,
+      "market_cap": 147963307.7983233,
       "available_exchanges": {
         "Exchanges::Kraken": 3
-      }
-    },
-    {
-      "external_id": "runes",
-      "source": "coingecko",
-      "name": "Runes",
-      "description": "Runes is a token standard on Bitcoin that improve the creation of fungible tokens on the blockchain.",
-      "top_coins": [
-        "dog-go-to-the-moon-rune",
-        "magic-internet-money-runes",
-        "lobo-the-wolf-pup-runes",
-        "rune-pups",
-        "billion-dollar-cat-runes"
-      ],
-      "coins_count": 45,
-      "market_cap": 152459863.3559658,
-      "available_exchanges": {
-        "Exchanges::Kraken": 5
-      }
-    },
-    {
-      "external_id": "action-games",
-      "source": "coingecko",
-      "name": "Action Games",
-      "description": "Fast-paced games that emphasize combat, reflexes, and real-time challenges.",
-      "top_coins": [
-        "gunz",
-        "gods-unchained",
-        "vulcan-forged",
-        "pirate-token"
-      ],
-      "coins_count": 76,
-      "market_cap": 149594144.2906194,
-      "available_exchanges": {
-        "Exchanges::Coinbase": 3
       }
     },
     {
@@ -3206,12 +2993,60 @@
         "keep3rv1",
         "barnbridge"
       ],
-      "coins_count": 24,
-      "market_cap": 146714802.800362,
+      "market_cap": 145537940.5016471,
       "available_exchanges": {
         "Exchanges::Binance": 3,
         "Exchanges::Coinbase": 5,
         "Exchanges::Kraken": 5
+      }
+    },
+    {
+      "external_id": "action-games",
+      "source": "coingecko",
+      "name": "Action Games",
+      "description": "Fast-paced games that emphasize combat, reflexes, and real-time challenges.",
+      "top_coins": [
+        "gunz",
+        "gods-unchained",
+        "vulcan-forged",
+        "pirate-token"
+      ],
+      "market_cap": 144292137.9355833,
+      "available_exchanges": {
+        "Exchanges::Coinbase": 3
+      }
+    },
+    {
+      "external_id": "runes",
+      "source": "coingecko",
+      "name": "Runes",
+      "description": "Runes is a token standard on Bitcoin that improve the creation of fungible tokens on the blockchain.",
+      "top_coins": [
+        "dog-go-to-the-moon-rune",
+        "magic-internet-money-runes",
+        "lobo-the-wolf-pup-runes",
+        "billion-dollar-cat-runes",
+        "rune-pups"
+      ],
+      "market_cap": 143529772.905403,
+      "available_exchanges": {
+        "Exchanges::Kraken": 5
+      }
+    },
+    {
+      "external_id": "bitcoin-meme",
+      "source": "coingecko",
+      "name": "Bitcoin Meme",
+      "description": "Meme coins native to the Bitcoin network.",
+      "top_coins": [
+        "dog-go-to-the-moon-rune",
+        "magic-internet-money-runes",
+        "billion-dollar-cat-runes",
+        "rune-pups"
+      ],
+      "market_cap": 133358188.8347861,
+      "available_exchanges": {
+        "Exchanges::Kraken": 4
       }
     },
     {
@@ -3225,41 +3060,7 @@
         "donald-tremp",
         "ghiblification"
       ],
-      "coins_count": 100,
-      "market_cap": 142467345.2089009,
-      "available_exchanges": {
-        "Exchanges::Kraken": 3
-      }
-    },
-    {
-      "external_id": "bitcoin-meme",
-      "source": "coingecko",
-      "name": "Bitcoin Meme",
-      "description": "Meme coins native to the Bitcoin network.",
-      "top_coins": [
-        "dog-go-to-the-moon-rune",
-        "magic-internet-money-runes",
-        "rune-pups",
-        "billion-dollar-cat-runes"
-      ],
-      "coins_count": 18,
-      "market_cap": 141749914.4056933,
-      "available_exchanges": {
-        "Exchanges::Kraken": 4
-      }
-    },
-    {
-      "external_id": "energy",
-      "source": "coingecko",
-      "name": "Energy",
-      "description": "Projects focused on renewable energy, green technology, and sustainable practices within the cryptocurrency ecosystem.",
-      "top_coins": [
-        "power-ledger",
-        "energy-web-token",
-        "kula"
-      ],
-      "coins_count": 31,
-      "market_cap": 121735083.2623128,
+      "market_cap": 131426757.790171,
       "available_exchanges": {
         "Exchanges::Kraken": 3
       }
@@ -3274,10 +3075,24 @@
         "tokenbot-2",
         "noice"
       ],
-      "coins_count": 59,
-      "market_cap": 119453592.3010571,
+      "market_cap": 125545446.475031,
       "available_exchanges": {
         "Exchanges::Coinbase": 3
+      }
+    },
+    {
+      "external_id": "energy",
+      "source": "coingecko",
+      "name": "Energy",
+      "description": "Projects focused on renewable energy, green technology, and sustainable practices within the cryptocurrency ecosystem.",
+      "top_coins": [
+        "power-ledger",
+        "energy-web-token",
+        "kula"
+      ],
+      "market_cap": 116864935.7213463,
+      "available_exchanges": {
+        "Exchanges::Kraken": 3
       }
     },
     {
@@ -3292,8 +3107,7 @@
         "star-atlas-dao",
         "star-atlas"
       ],
-      "coins_count": 44,
-      "market_cap": 114120160.4039308,
+      "market_cap": 110363405.924059,
       "available_exchanges": {
         "Exchanges::Binance": 3,
         "Exchanges::Kraken": 4
@@ -3309,8 +3123,7 @@
         "catizen",
         "hamster-kombat"
       ],
-      "coins_count": 23,
-      "market_cap": 110976653.6022455,
+      "market_cap": 103879803.3715826,
       "available_exchanges": {
         "Exchanges::Binance": 3
       }
@@ -3325,8 +3138,7 @@
         "parcl",
         "estatex"
       ],
-      "coins_count": 29,
-      "market_cap": 104920523.3242264,
+      "market_cap": 100829643.2957507,
       "available_exchanges": {
         "Exchanges::Kraken": 3
       }
@@ -3342,26 +3154,9 @@
         "green-satoshi-token",
         "moonwalk-fitness"
       ],
-      "coins_count": 31,
-      "market_cap": 95145804.71717627,
+      "market_cap": 94523258.72258808,
       "available_exchanges": {
         "Exchanges::Kraken": 4
-      }
-    },
-    {
-      "external_id": "capital-launchpad",
-      "source": "coingecko",
-      "name": "Capital Launchpad (Kaito)",
-      "description": "Capital Launchpad is a Web3 crowdfunding platform by Kaito that connects early-stage crypto projects with investors through a merit-based allocation system.",
-      "top_coins": [
-        "boundless",
-        "theoriq",
-        "superfluid"
-      ],
-      "coins_count": 12,
-      "market_cap": 79740203.80715309,
-      "available_exchanges": {
-        "Exchanges::Coinbase": 3
       }
     },
     {
@@ -3374,10 +3169,24 @@
         "bouncebit",
         "solv-protocol"
       ],
-      "coins_count": 3,
-      "market_cap": 78914175.14760302,
+      "market_cap": 74748068.8258944,
       "available_exchanges": {
         "Exchanges::Binance": 3
+      }
+    },
+    {
+      "external_id": "capital-launchpad",
+      "source": "coingecko",
+      "name": "Capital Launchpad (Kaito)",
+      "description": "Capital Launchpad is a Web3 crowdfunding platform by Kaito that connects early-stage crypto projects with investors through a merit-based allocation system.",
+      "top_coins": [
+        "boundless",
+        "theoriq",
+        "superfluid"
+      ],
+      "market_cap": 70722873.30769274,
+      "available_exchanges": {
+        "Exchanges::Coinbase": 3
       }
     },
     {
@@ -3397,13 +3206,12 @@
         "ethena-staked-usde",
         "the-open-network"
       ],
-      "coins_count": 250,
       "market_cap": null,
       "available_exchanges": {
         "Exchanges::Binance": 84,
         "Exchanges::BinanceUs": 41,
-        "Exchanges::Coinbase": 56,
-        "Exchanges::Kraken": 93
+        "Exchanges::Coinbase": 55,
+        "Exchanges::Kraken": 91
       }
     },
     {
@@ -3423,13 +3231,12 @@
         "usd1-wlfi",
         "world-liberty-financial"
       ],
-      "coins_count": 250,
       "market_cap": null,
       "available_exchanges": {
         "Exchanges::Binance": 55,
         "Exchanges::BinanceUs": 34,
         "Exchanges::Coinbase": 60,
-        "Exchanges::Kraken": 98
+        "Exchanges::Kraken": 96
       }
     },
     {
@@ -3449,7 +3256,6 @@
         "nexo",
         "bonk"
       ],
-      "coins_count": 250,
       "market_cap": null,
       "available_exchanges": {
         "Exchanges::Binance": 52,
@@ -3475,7 +3281,6 @@
         "uniswap",
         "aave"
       ],
-      "coins_count": 250,
       "market_cap": null,
       "available_exchanges": {
         "Exchanges::Binance": 36,
@@ -3501,7 +3306,6 @@
         "sushi",
         "stargate-finance"
       ],
-      "coins_count": 155,
       "market_cap": null,
       "available_exchanges": {
         "Exchanges::Binance": 16,
@@ -3527,7 +3331,6 @@
         "notcoin",
         "catizen"
       ],
-      "coins_count": 189,
       "market_cap": null,
       "available_exchanges": {
         "Exchanges::Binance": 9,
@@ -3552,7 +3355,6 @@
         "balancer",
         "hopr"
       ],
-      "coins_count": 110,
       "market_cap": null,
       "available_exchanges": {
         "Exchanges::Binance": 7,
@@ -3570,15 +3372,14 @@
         "chainlink",
         "uniswap",
         "aave",
-        "axie-infinity",
         "the-graph",
+        "axie-infinity",
         "basic-attention-token",
         "compound-governance-token",
         "livepeer",
         "havven",
         "yearn-finance"
       ],
-      "coins_count": 79,
       "market_cap": null,
       "available_exchanges": {
         "Exchanges::Binance": 18,
@@ -3604,7 +3405,6 @@
         "the-graph",
         "basic-attention-token"
       ],
-      "coins_count": 78,
       "market_cap": null,
       "available_exchanges": {
         "Exchanges::Binance": 18,
@@ -3630,7 +3430,6 @@
         "berachain-bera",
         "stargate-finance"
       ],
-      "coins_count": 80,
       "market_cap": null,
       "available_exchanges": {
         "Exchanges::Binance": 7,
@@ -3656,7 +3455,6 @@
         "ankr",
         "scroll"
       ],
-      "coins_count": 49,
       "market_cap": null,
       "available_exchanges": {
         "Exchanges::Binance": 7,
@@ -3681,7 +3479,6 @@
         "dymension",
         "juno-network"
       ],
-      "coins_count": 28,
       "market_cap": null,
       "available_exchanges": {
         "Exchanges::Binance": 8,
@@ -3706,13 +3503,50 @@
         "hydradx",
         "moonbeam"
       ],
-      "coins_count": 25,
       "market_cap": null,
       "available_exchanges": {
         "Exchanges::Binance": 7,
         "Exchanges::BinanceUs": 4,
         "Exchanges::Coinbase": 4,
         "Exchanges::Kraken": 13
+      }
+    },
+    {
+      "external_id": "terra-ecosystem",
+      "source": "coingecko",
+      "name": "Terra Ecosystem",
+      "description": "Terra is a blockchain network that builds on the Tendermint consensus (Proof-of-Stake) and the Cosmos SDK toolkit. Terra’s network token is LUNA which powers the entire ecosystem. Unlike most blockchains, Terra’s ecosystem includes a native algorithmic stablecoin, TerraUSD (UST). A decentralized network with its own decentralized currency is a very attractive thesis for both users and developers. More dApps are being built on Terra, especially DeFi protocols which are now commonly known as TeFi.",
+      "top_coins": [
+        "weth",
+        "cosmos",
+        "injective-protocol",
+        "terra-luna-2"
+      ],
+      "market_cap": null,
+      "available_exchanges": {
+        "Exchanges::Binance": 3
+      }
+    },
+    {
+      "external_id": "ronin-ecosystem",
+      "source": "coingecko",
+      "name": "Ronin Ecosystem",
+      "description": "Protocols that are built on the Ronin network, an EVM-compatible blockchain designed for games.",
+      "top_coins": [
+        "chainlink",
+        "rocket-pool-eth",
+        "axie-infinity",
+        "ronin",
+        "yield-guild-games",
+        "smooth-love-potion",
+        "pixels"
+      ],
+      "market_cap": null,
+      "available_exchanges": {
+        "Exchanges::Binance": 6,
+        "Exchanges::BinanceUs": 3,
+        "Exchanges::Coinbase": 3,
+        "Exchanges::Kraken": 3
       }
     },
     {
@@ -3731,52 +3565,11 @@
         "bella-protocol",
         "quickswap"
       ],
-      "coins_count": 29,
       "market_cap": null,
       "available_exchanges": {
         "Exchanges::Binance": 7,
         "Exchanges::Coinbase": 3,
         "Exchanges::Kraken": 3
-      }
-    },
-    {
-      "external_id": "ronin-ecosystem",
-      "source": "coingecko",
-      "name": "Ronin Ecosystem",
-      "description": "Protocols that are built on the Ronin network, an EVM-compatible blockchain designed for games.",
-      "top_coins": [
-        "chainlink",
-        "rocket-pool-eth",
-        "axie-infinity",
-        "ronin",
-        "yield-guild-games",
-        "smooth-love-potion",
-        "pixels"
-      ],
-      "coins_count": 35,
-      "market_cap": null,
-      "available_exchanges": {
-        "Exchanges::Binance": 6,
-        "Exchanges::BinanceUs": 3,
-        "Exchanges::Coinbase": 3,
-        "Exchanges::Kraken": 3
-      }
-    },
-    {
-      "external_id": "terra-ecosystem",
-      "source": "coingecko",
-      "name": "Terra Ecosystem",
-      "description": "Terra is a blockchain network that builds on the Tendermint consensus (Proof-of-Stake) and the Cosmos SDK toolkit. Terra’s network token is LUNA which powers the entire ecosystem. Unlike most blockchains, Terra’s ecosystem includes a native algorithmic stablecoin, TerraUSD (UST). A decentralized network with its own decentralized currency is a very attractive thesis for both users and developers. More dApps are being built on Terra, especially DeFi protocols which are now commonly known as TeFi.",
-      "top_coins": [
-        "weth",
-        "cosmos",
-        "injective-protocol",
-        "terra-luna-2"
-      ],
-      "coins_count": 20,
-      "market_cap": null,
-      "available_exchanges": {
-        "Exchanges::Binance": 3
       }
     },
     {
@@ -3791,7 +3584,6 @@
         "mango-markets",
         "neon"
       ],
-      "coins_count": 12,
       "market_cap": null,
       "available_exchanges": {
         "Exchanges::Coinbase": 4,

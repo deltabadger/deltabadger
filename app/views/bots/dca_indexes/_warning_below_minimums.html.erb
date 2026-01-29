@@ -1,14 +1,19 @@
-<%= render 'layouts/modal/modal' do %>
-  <div class="warning-modal">
-    <h2 class="warning-modal__title"><%= t('bot.warning.title') %></h2>
-    <p class="warning-modal__intro">
-      <%= t('bot.dca_index.warning.intro', skipped_count: skipped_count, exchange_name: bot.exchange.name) %>
-    </p>
-    <p class="warning-modal__explanation">
-      <%= t('bot.warning.buffer_explanation', count: skipped_count) %>
-    </p>
-    <p class="warning-modal__note">
-      <%= t('bot.warning.general_note') %>
-    </p>
+<%= render 'layouts/modal/base' do %>
+  <div class="modal">
+    <%= button_tag type: 'button', class: 'modal__close', data: { action: 'modal--base#animateOutCloseAndCleanUp' } do %>
+      <%= render partial: 'svg/24x24_close' %>
+    <% end %>
+    <div class="modal__header">
+       <h1 class="modal__title"><%= t('bot.warning.title') %></h1>
+    </div>
+
+    <p><%= t('bot.dca_index.warning.intro', skipped_count: skipped_count, exchange_name: bot.exchange.name) %></p>
+
+    <p><%= t('bot.warning.buffer_explanation', count: skipped_count) %></p>
+
+    <p><%= t('bot.warning.general_note') %></p>
+    <%= button_tag type: 'button', class: 'button button--success button--large', data: { action: 'modal--base#animateOutCloseAndCleanUp' } do %>
+      <%= t('button.understand') %>
+    <% end %>
   </div>
 <% end %>

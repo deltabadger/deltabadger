@@ -1,16 +1,30 @@
 <%= render 'layouts/modal/full_page' do %>
-  <div class="bot-creation-layout index-picker-layout">
+  <div class="bot-creation-layout index-picker-layout" data-controller="index-filter">
     <%= render partial: 'bots/dca_indexes/new_step_progress_bar', locals: { current_step: :index } %>
+
+    <div class="index-search">
+      <input type="text"
+             class="index-search__input"
+             placeholder="<%= t('utils.search.placeholder.index') %>"
+             autocomplete="off"
+             autofocus
+             data-index-filter-target="input"
+             data-action="input->index-filter#filter">
+    </div>
 
     <%= form_with url: bots_dca_indexes_pick_index_path, method: :post, class: 'itiles', data: { turbo_frame: 'modal_content' } do |f| %>
       <% if @indices.present? %>
-        <% @indices.each do |index| %>
+        <% @indices.each_with_index do |index, idx| %>
           <% is_top_coins = index.source == Index::SOURCE_INTERNAL %>
           <% index_type_value = is_top_coins ? Bots::DcaIndex::INDEX_TYPE_TOP : Bots::DcaIndex::INDEX_TYPE_CATEGORY %>
           <button type="submit"
                   name="index_type"
                   value="<%= index_type_value %>"
                   class="itile <%= 'itile--top' if is_top_coins %>"
+                  data-index-filter-target="tile"
+                  data-index-order="<%= idx %>"
+                  data-index-name="<%= index.name %>"
+                  data-index-description="<%= index.description %>"
                   onclick="this.form.querySelector('#index_category_id').value='<%= index.external_id %>'; this.form.querySelector('#index_name').value='<%= j(index.name) %>';">
             <h4><%= index.name %></h4>
             <p><%= truncate(index.description, length: 150) %></p>
@@ -39,5 +53,9 @@
       <%= hidden_field_tag :index_category_id, '', id: 'index_category_id' %>
       <%= hidden_field_tag :index_name, '', id: 'index_name' %>
     <% end %>
+
+    <div class="index-search__empty" data-index-filter-target="empty" style="display: none;">
+      <p><%= t('utils.search.no_results') %></p>
+    </div>
   </div>
 <% end %>

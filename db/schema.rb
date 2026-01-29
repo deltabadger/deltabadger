@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_01_28_000001) do
+ActiveRecord::Schema[8.1].define(version: 2026_01_29_142740) do
   create_table "api_keys", force: :cascade do |t|
     t.datetime "created_at", precision: nil, null: false
     t.string "encrypted_key"
@@ -137,7 +137,6 @@ ActiveRecord::Schema[8.1].define(version: 2026_01_28_000001) do
 
   create_table "indices", force: :cascade do |t|
     t.json "available_exchanges", default: {}
-    t.integer "coins_count"
     t.datetime "created_at", null: false
     t.text "description"
     t.string "external_id"
@@ -145,6 +144,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_01_28_000001) do
     t.string "name"
     t.string "source"
     t.json "top_coins"
+    t.json "top_coins_by_exchange", default: {}
     t.datetime "updated_at", null: false
     t.index ["external_id", "source"], name: "index_indices_on_external_id_and_source", unique: true
   end

@@ -167,7 +167,7 @@ class SeedDataLoader
       name: index_data['name'],
       description: index_data['description'],
       top_coins: index_data['top_coins'],
-      coins_count: index_data['coins_count'],
+      top_coins_by_exchange: index_data['top_coins_by_exchange'] || {},
       market_cap: index_data['market_cap'],
       available_exchanges: index_data['available_exchanges'] || {},
       created_at: Time.current,

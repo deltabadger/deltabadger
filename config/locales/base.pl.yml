@@ -138,6 +138,8 @@ pl:
         search:
             placeholder:
                 asset: 'Szukaj aktywa…'
+                index: 'Szukaj indeksu…'
+            no_results: 'Nie znaleziono wyników'
         time_periods:
             ytd: 'YTD'
             ytd_title: 'Początek roku'

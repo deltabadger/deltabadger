@@ -16,6 +16,7 @@ class Index::SyncFromCoingeckoJob < ApplicationJob
 
     categories.each do |category|
       next if category['id'].blank?
+      next if Index::EXCLUDED_CATEGORY_IDS.include?(category['id'])
       next if category['content'].blank?
 
       # Fetch ALL coins for this category (up to 250)
@@ -25,7 +26,6 @@ class Index::SyncFromCoingeckoJob < ApplicationJob
       next if coins_result.nil?
 
       all_category_coins = coins_result[:coins]
-      coins_count = coins_result[:total_count]
 
       # Filter to coins that exist in our database
       valid_coins = all_category_coins.select { |coin_id| available_asset_ids.include?(coin_id) }
@@ -52,7 +52,6 @@ class Index::SyncFromCoingeckoJob < ApplicationJob
         description: category['content'],
         top_coins: top_coins_for_display,
         market_cap: category['market_cap'],
-        coins_count: coins_count,
         available_exchanges: available_exchanges
       )
 

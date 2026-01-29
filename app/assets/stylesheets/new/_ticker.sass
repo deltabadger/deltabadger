@@ -28,7 +28,8 @@
 .ticker-group
     display: flex
     .ticker
-        transition: margin-right 0.2s ease-in-out
+        transition: all 0.2s ease-in-out
+        max-width: 10rem
     .ticker--more
         padding-left: 9rem
         background: none
@@ -46,6 +47,7 @@
             margin-right: -8rem
         .ticker:not(:first-child)
             border-radius:0 2rem 2rem 0
+            color: transparent
 
     .ticker-group--many
         .ticker:not(:last-child)

@@ -11,7 +11,7 @@ it:
                     build_index_at: "Costruisci portafoglio %{index_name}"
                 pick_index:
                     top_coins: "Criptovalute Principali"
-                    top_coins_description: "Criptovalute principali per capitalizzazione di mercato"
+                    top_coins_description: "Criptovalute principali per capitalizzazione di mercato. Il S&P 500 della crypto."
                     error: "Seleziona un indice"
             num_coins: "Numero di criptovalute"
             allocation_flattening: "Livellamento dell'allocazione"
@@ -39,7 +39,7 @@ it:
                 description: "DCA + Prelievi"
             index_portfolio:
                 title: "Portafoglio Indice"
-                description: "Costruisci il tuo ETF crypto personale"
+                description: "Il tuo ETF crypto personale"
             custom_portfolio:
                 title: "Portafoglio Personalizzato"
                 description: "Ribilancia mix personalizzato di asset"

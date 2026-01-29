@@ -28,9 +28,6 @@
 
     @media screen and (min-width: 768px)
         grid-template-columns: repeat(3, 1fr)
-.menu-start
-    @media screen and (min-width: 768px)
-        padding-top: 7rem !important
 .itiles
     display: grid
     grid-template-columns: 1fr
@@ -45,6 +42,10 @@
         .ticker-group
             .ticker
                 margin-right: -3rem
+                min-width: 10rem
+                width: 10rem
+                max-width: 10rem
+                color: var(--white)
             .ticker--more
                 opacity: 0  
         .theme-img
@@ -146,7 +147,6 @@
     font-size: 2.25rem
     line-height: 3rem
     font-weight: 600 !important
-    color: var(--ink)
 .index-info
     font-size: 1.75rem
     line-height: 2.65rem
@@ -181,3 +181,28 @@
     .allocation
         min-width: 7rem
         text-align: right
+
+.index-search
+    width: 100%
+    max-width: 100rem
+    padding: 0 1rem
+    margin: 0 auto
+    &__input
+        width: 100%
+        padding: 1.5rem 2rem
+        font-size: 1.75rem
+        font-weight: 500
+        border: none
+        border-radius: 1.5rem
+        background: var(--washed)
+        box-shadow: var(--shadow-basic)
+        color: var(--ink)
+        &:focus
+            outline: none
+        &::placeholder
+            color: var(--stone)
+    &__empty
+        text-align: center
+        padding: 4rem 2rem
+        color: var(--stone)
+        font-size: 1.75rem

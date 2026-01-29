@@ -11,7 +11,7 @@ nl:
                     build_index_at: "%{index_name} portefeuille bouwen"
                 pick_index:
                     top_coins: "Top Munten"
-                    top_coins_description: "Top cryptocurrencies op marktkapitalisatie"
+                    top_coins_description: "Top cryptocurrencies op marktkapitalisatie. De S&P 500 van crypto."
                     error: "Selecteer alstublieft een index"
             num_coins: "Aantal munten"
             allocation_flattening: "Allocatie afvlakking"
@@ -36,7 +36,7 @@ nl:
                 description: "Herbalanceer twee assets"
             index_portfolio:
                 title: "Index Portefeuille"
-                description: "Bouw je persoonlijke crypto ETF"
+                description: "Je persoonlijke crypto ETF"
             custom_portfolio:
                 title: "Aangepaste Portefeuille"
                 description: "Herbalanceer aangepaste asset mix"

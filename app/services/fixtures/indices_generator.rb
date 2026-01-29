@@ -29,7 +29,7 @@ module Fixtures
       puts ""
 
       indices = []
-      skipped = { no_description: 0, api_failed: 0, few_coins: 0, not_in_db: 0, no_exchange: 0 }
+      skipped = { excluded: 0, no_description: 0, api_failed: 0, few_coins: 0, not_in_db: 0, no_exchange: 0 }
 
       # Generate "Top Coins" index first
       top_coins_index = generate_top_coins_index(coingecko, available_asset_ids, ticker_data)
@@ -38,6 +38,11 @@ module Fixtures
 
       categories.each_with_index do |category, idx|
         progress = "[#{idx + 1}/#{categories.size}]"
+
+        if Index::EXCLUDED_CATEGORY_IDS.include?(category['id'])
+          skipped[:excluded] += 1
+          next
+        end
 
         if category['id'].blank? || category['content'].blank?
           skipped[:no_description] += 1
@@ -58,7 +63,6 @@ module Fixtures
         end
 
         all_category_coins = coins_result.data.map { |coin| coin['id'] }
-        coins_count = all_category_coins.size
 
         # Filter to coins that exist in our database
         valid_coins = all_category_coins.select { |coin_id| available_asset_ids.include?(coin_id) }
@@ -92,7 +96,6 @@ module Fixtures
           name: category['name'],
           description: category['content'],
           top_coins: top_coins_for_display,
-          coins_count: coins_count,
           market_cap: category['market_cap'],
           available_exchanges: available_exchanges
         }
@@ -105,6 +108,7 @@ module Fixtures
       log_info "Results:"
       log_info "  Included: #{indices.size} indices"
       log_info "  Skipped:"
+      log_info "    - Excluded: #{skipped[:excluded]}"
       log_info "    - No description: #{skipped[:no_description]}"
       log_info "    - API failed: #{skipped[:api_failed]}"
       log_info "    - Too few coins: #{skipped[:few_coins]}"
@@ -154,6 +158,9 @@ module Fixtures
         return nil
       end
 
+      # Calculate top coins per exchange (coins are already sorted by market cap from CoinGecko)
+      top_coins_by_exchange = calculate_top_coins_by_exchange(valid_coins, ticker_data)
+
       exchanges_summary = available_exchanges.map { |k, v| "#{abbreviate_exchange(k)}:#{v}" }.join(' ')
       puts " OK (#{exchanges_summary})"
 
@@ -165,10 +172,27 @@ module Fixtures
         name: I18n.t('bot.dca_index.setup.pick_index.top_coins', locale: :en),
         description: I18n.t('bot.dca_index.setup.pick_index.top_coins_description', locale: :en),
         top_coins: top_coins_for_display,
-        coins_count: valid_coins.size,
+        top_coins_by_exchange: top_coins_by_exchange,
         market_cap: nil,
         available_exchanges: available_exchanges
       }
+    end
+
+    # Calculate top coins available on each exchange
+    # @param valid_coins [Array<String>] Coins sorted by market cap (from CoinGecko)
+    # @param ticker_data [Hash] { "Exchanges::Binance" => Set<base_external_ids>, ... }
+    # @return [Hash] { "Exchanges::Binance" => ["bitcoin", "ethereum", ...], ... }
+    def calculate_top_coins_by_exchange(valid_coins, ticker_data)
+      result = {}
+
+      ticker_data.each do |exchange_type, base_external_ids|
+        # Filter valid_coins to those available on this exchange, preserving market cap order
+        exchange_top_coins = valid_coins.select { |coin_id| base_external_ids.include?(coin_id) }
+        # Store top N coins for display
+        result[exchange_type] = exchange_top_coins.first(Index::ExchangeAvailability::TOP_COINS_COUNT)
+      end
+
+      result
     end
 
     def abbreviate_exchange(exchange_type)

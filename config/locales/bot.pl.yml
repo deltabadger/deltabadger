@@ -11,7 +11,7 @@ pl:
                     build_index_at: "Zbuduj portfel %{index_name}"
                 pick_index:
                     top_coins: "Top Monety"
-                    top_coins_description: "Najlepsze kryptowaluty według kapitalizacji rynkowej"
+                    top_coins_description: "Najlepsze kryptowaluty według kapitalizacji rynkowej. S&P 500 krypto."
                     error: "Proszę wybrać indeks"
             num_coins: "Liczba monet"
             allocation_flattening: "Wyrównanie alokacji"
@@ -39,7 +39,7 @@ pl:
                 description: "DCA + Wypłaty"
             index_portfolio:
                 title: "Portfel Indeksowy"
-                description: "Zbuduj swój osobisty ETF kryptowalutowy"
+                description: "Twój osobisty ETF kryptowalutowy"
             custom_portfolio:
                 title: "Portfel Niestandardowy"
                 description: "Rebalansuj niestandardowy zestaw aktywów"
