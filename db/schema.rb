@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_01_29_160000) do
+ActiveRecord::Schema[8.1].define(version: 2026_01_30_114825) do
   create_table "api_keys", force: :cascade do |t|
     t.datetime "created_at", precision: nil, null: false
     t.string "encrypted_key"
@@ -146,7 +146,9 @@ ActiveRecord::Schema[8.1].define(version: 2026_01_29_160000) do
     t.json "top_coins"
     t.json "top_coins_by_exchange", default: {}
     t.datetime "updated_at", null: false
+    t.integer "weight", default: 0, null: false
     t.index ["external_id", "source"], name: "index_indices_on_external_id_and_source", unique: true
+    t.index ["weight"], name: "index_indices_on_weight"
   end
 
   create_table "setting_flags", force: :cascade do |t|

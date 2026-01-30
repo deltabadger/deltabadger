@@ -93,11 +93,12 @@ module Fixtures
         indices << {
           external_id: category['id'],
           source: Index::SOURCE_COINGECKO,
-          name: category['name'],
+          name: strip_brackets(category['name']),
           description: category['content'],
           top_coins: top_coins_for_display,
           market_cap: category['market_cap'],
-          available_exchanges: available_exchanges
+          available_exchanges: available_exchanges,
+          weight: Index::WEIGHTED_CATEGORIES[category['id']] || 0
         }
 
         # Rate limit protection - wait between API calls
@@ -174,7 +175,8 @@ module Fixtures
         top_coins: top_coins_for_display,
         top_coins_by_exchange: top_coins_by_exchange,
         market_cap: nil,
-        available_exchanges: available_exchanges
+        available_exchanges: available_exchanges,
+        weight: 0
       }
     end
 
@@ -193,6 +195,11 @@ module Fixtures
       end
 
       result
+    end
+
+    # Remove trailing bracketed text from names, e.g. "Layer 1 (L1)" → "Layer 1"
+    def strip_brackets(name)
+      name&.gsub(/\s*\([^)]+\)\s*$/, '')&.strip
     end
 
     def abbreviate_exchange(exchange_type)

@@ -98,8 +98,8 @@ class SeedDataLoader
         quote_asset: quote_asset,
         minimum_base_size: BigDecimal(ticker_data['minimum_base_size']),
         minimum_quote_size: BigDecimal(ticker_data['minimum_quote_size']),
-        maximum_base_size: BigDecimal(ticker_data['maximum_base_size']),
-        maximum_quote_size: BigDecimal(ticker_data['maximum_quote_size']),
+        maximum_base_size: parse_optional_decimal(ticker_data['maximum_base_size']),
+        maximum_quote_size: parse_optional_decimal(ticker_data['maximum_quote_size']),
         base_decimals: ticker_data['base_decimals'],
         quote_decimals: ticker_data['quote_decimals'],
         price_decimals: ticker_data['price_decimals'],
@@ -155,6 +155,12 @@ class SeedDataLoader
 
   private
 
+  def parse_optional_decimal(value)
+    return nil if value.nil? || value.to_s.strip.empty?
+
+    BigDecimal(value)
+  end
+
   def prepare_asset_attributes(asset_data)
     {
       external_id: asset_data['external_id'],
@@ -173,6 +179,9 @@ class SeedDataLoader
   end
 
   def prepare_index_attributes(index_data)
+    # Use weight from fixture, or look up from WEIGHTED_CATEGORIES, or default to 0
+    weight = index_data['weight'] || Index::WEIGHTED_CATEGORIES[index_data['external_id']] || 0
+
     {
       external_id: index_data['external_id'],
       source: index_data['source'],
@@ -182,6 +191,7 @@ class SeedDataLoader
       top_coins_by_exchange: index_data['top_coins_by_exchange'] || {},
       market_cap: index_data['market_cap'],
       available_exchanges: index_data['available_exchanges'] || {},
+      weight: weight,
       created_at: Time.current,
       updated_at: Time.current
     }

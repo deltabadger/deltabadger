@@ -4,9 +4,10 @@ class Bots::DcaIndexes::PickIndicesController < ApplicationController
 
   def new
     session[:bot_config] ||= {}
-    # Load internal indices first (Top Coins), then categories by market cap
+    # Load internal indices first (Top Coins), then weighted/popular categories, then by market cap
     @indices = Index.order(
       Arel.sql("CASE WHEN source = '#{Index::SOURCE_INTERNAL}' THEN 0 ELSE 1 END"),
+      weight: :desc,
       market_cap: :desc
     )
     @assets_by_coingecko_id = fetch_assets_for_indices(@indices)
@@ -38,6 +39,7 @@ class Bots::DcaIndexes::PickIndicesController < ApplicationController
       flash.now[:alert] = t('bot.dca_index.setup.pick_index.error')
       @indices = Index.order(
         Arel.sql("CASE WHEN source = '#{Index::SOURCE_INTERNAL}' THEN 0 ELSE 1 END"),
+        weight: :desc,
         market_cap: :desc
       )
       @assets_by_coingecko_id = fetch_assets_for_indices(@indices)

@@ -22,20 +22,21 @@
         height: 3.5rem
 .ticker
     display: block
-    min-width: 9rem
-    @media (min-width: 768px)
-        min-width: 10rem
+    min-width: 11rem
 .ticker-group
     display: flex
+    filter: drop-shadow(var(--shadow-paper-vertical))
     .ticker
         transition: all 0.2s ease-in-out
-        max-width: 10rem
+        max-width: 11rem
+        box-shadow: var(--shadow-paper-horizontal)
     .ticker--more
-        padding-left: 9rem
+        margin-left: 7.5rem
         background: none
         color: var(--stone)
         box-shadow: none
         transition: opacity 0.2s ease-in-out
+        text-align: left
     @for $i from 1 through 20
         .ticker:nth-child(#{$i})
             z-index: 21 - $i
@@ -45,7 +46,7 @@
     &--many
         .ticker:not(:last-child)
             margin-right: -8rem
-        .ticker:not(:first-child)
+        .ticker:not(:first-child):not(.ticker--more)
             border-radius:0 2rem 2rem 0
             color: transparent
 
