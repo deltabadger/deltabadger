@@ -2,7 +2,14 @@
 
 # Version bump script for Deltabadger
 # Updates version in: umbrel-app.yml, Cargo.toml, tauri.conf.json
-# Creates a signed git tag and pushes it
+# Source of truth: Cargo.toml (Rails reads from there via config/initializers/version.rb)
+#
+# Usage:
+#   ./bump-version.sh           # Bump patch (1.0.0 → 1.0.1)
+#   ./bump-version.sh patch     # Bump patch (1.0.0 → 1.0.1)
+#   ./bump-version.sh minor     # Bump minor (1.0.5 → 1.1.0)
+#   ./bump-version.sh major     # Bump major (1.2.5 → 2.0.0)
+#   ./bump-version.sh 1.2.3     # Set explicit version
 
 set -e
 
@@ -14,7 +21,7 @@ UMBREL_APP="$ROOT_DIR/deltabadger/umbrel-app.yml"
 CARGO_TOML="$ROOT_DIR/src-tauri/Cargo.toml"
 TAURI_CONF="$ROOT_DIR/src-tauri/tauri.conf.json"
 
-# Get current version from Cargo.toml
+# Get current version from Cargo.toml (source of truth)
 CURRENT_VERSION=$(grep -m1 '^version = ' "$CARGO_TOML" | sed 's/version = "\(.*\)"/\1/')
 
 echo "Current version: $CURRENT_VERSION"
@@ -22,14 +29,28 @@ echo "Current version: $CURRENT_VERSION"
 # Parse version components
 IFS='.' read -r MAJOR MINOR PATCH <<< "$CURRENT_VERSION"
 
-# Determine new version
-if [ -n "$1" ]; then
-    NEW_VERSION="$1"
-else
-    # Auto-increment patch version
-    NEW_PATCH=$((PATCH + 1))
-    NEW_VERSION="$MAJOR.$MINOR.$NEW_PATCH"
-fi
+# Determine new version based on argument
+case "${1:-patch}" in
+    major)
+        NEW_VERSION="$((MAJOR + 1)).0.0"
+        ;;
+    minor)
+        NEW_VERSION="$MAJOR.$((MINOR + 1)).0"
+        ;;
+    patch)
+        NEW_VERSION="$MAJOR.$MINOR.$((PATCH + 1))"
+        ;;
+    *)
+        # Explicit version provided (e.g., 1.2.3)
+        if [[ "$1" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            NEW_VERSION="$1"
+        else
+            echo "Error: Invalid version format '$1'"
+            echo "Usage: $0 [major|minor|patch|X.Y.Z]"
+            exit 1
+        fi
+        ;;
+esac
 
 echo "New version: $NEW_VERSION"
 echo ""

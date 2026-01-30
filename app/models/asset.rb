@@ -15,8 +15,26 @@ class Asset < ApplicationRecord
   ].freeze
 
   # Manual color overrides for assets where image extraction fails or produces poor results
+  # Keys are CoinGecko external_ids, not ticker symbols
   COLOR_OVERRIDES = {
-    'ripple' => '#6366F1' # XRP
+    'ripple' => '#6366F1',
+    'altlayer' => '#6f51b1',
+    'nervos-network' => '#3cc68a',
+    'lisk' => '#3e6ded',
+    'bittensor' => '#00C48C',
+    'algorand' => '#00bea5',
+    'arweave' => '#ff6700',
+    'stellar' => '#04b5e5',
+    'artificial-superintelligence-alliance' => '#4B0082',
+    'quant' => '#bd2426',
+    'worldcoin' => '#1A1A1A',
+    'forefront' => '#6366F1',
+    'ai-rig-complex' => '#001f3f',
+    'jito' => '#085639',
+    'convex-finance' => '#1682fe',
+    'big-time' => '#FFD700',
+    'axelar' => '#ff6414',
+    'syndicate' => '#5865F2'
   }.freeze
 
   def sync_data_with_coingecko(prefetched_data: nil)
