@@ -119,9 +119,10 @@ nl:
                 sold: Verkocht
                 title: Statistieken
                 total_invested: 'Totaal geïnvesteerd'
+                portfolio_value: 'Portfoliowaarde'
         for: voor
-        force_smart_intervals_html: '<b>Slimme intervallen<sup>®</sup></b> · Koop met bestellingen van <split>100$</split> %{currency} per stuk.'
-        feecutter_html: '<b>FeeCutter<sup>®</sup></b> · Verlaag kosten met limietorders'
+        force_smart_intervals_html: '<b>Slimme intervallen</b> · Koop met bestellingen van <split>100$</split> %{currency} per stuk.'
+        feecutter_html: '<b>FeeCutter</b> · Verlaag kosten met limietorders'
         hour: Uur
         limit_buy: 'Limiet aankoop'
         limit_sell: 'Limiet verkoop'
@@ -137,6 +138,7 @@ nl:
             failed_status_bar_explanation: "De laatste bestelling is mislukt: %{error_message}"
             order_cancelled: 'Order geannuleerd'
             failed_to_cancel_order: 'Annuleren van order mislukt'
+            cannot_cancel_imported_order: 'Kan geïmporteerde orders niet annuleren'
         minimum_withdrawal_disclaimer: 'De minimale opnamegrootte is %{minimum} %{currency}.'
         minimum_withdrawal_disclaimer_usd: 'De minimale opname bedraagt %{minimum} USD.'
         month: Maand
@@ -173,10 +175,10 @@ nl:
             general_note: "Minimale bedragen van exchanges en vereiste herbalanceringsbedragen kunnen veranderen. Orders kunnen er soms onregelmatig uitzien, maar de bot streeft altijd naar de gewenste toewijzing en schema, dus er is geen extra werk nodig."
         settings:
             smart_intervals:
-                sentence_html: '<b>Smart Intervals<sup>®</sup></b> Splits <span>het bedrag</span> in eenheden van <span>%{amount_html} %{quote}</span>'
+                sentence_html: '<b>Smart Intervals</b> Splits <span>het bedrag</span> in eenheden van <span>%{amount_html} %{quote}</span>'
                 info: "Het splitsen van je %{quote_amount} %{quote} / %{interval} in eenheden van %{amount} %{quote} resulteert in één investering per %{smart_interval}"
             limit_orders:
-                sentence_html: '<b>FeeCutter<sup>®</sup></b> Verlaag kosten met limietorders <span>%{amount_html}%</span> onder de prijs'
+                sentence_html: '<b>FeeCutter</b> Verlaag kosten met limietorders <span>%{amount_html}%</span> onder de prijs'
                 info: "Om de kosten tot nul te verlagen, stel het in op %{maker_fee}% wat de maker fee van %{exchange} is. Stel het lager in voor snellere uitvoering, of hoger voor mogelijk een betere prijs. Volg de uitvoering van je orders in de ordertabel."
             extra_amount_limit:
                 sentence_html: "Besteed niet meer dan <span>%{value_html} %{quote}</span>"

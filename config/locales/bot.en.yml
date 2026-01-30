@@ -129,8 +129,8 @@ en:
                 total_invested: 'Total invested'
                 portfolio_value: 'Portfolio Value'
         for: for
-        force_smart_intervals_html: '<b>Smart intervals<sup>®</sup></b> · Buy with orders of <split>$100</split> %{currency} each.'
-        feecutter_html: '<b>FeeCutter<sup>®</sup></b> · Cut fees with limit orders'
+        force_smart_intervals_html: '<b>Smart intervals</b> · Buy with orders of <split>$100</split> %{currency} each.'
+        feecutter_html: '<b>FeeCutter</b> · Cut fees with limit orders'
         hour: Hour
         limit_buy: 'Limit buy'
         limit_sell: 'Limit sell'
@@ -149,6 +149,7 @@ en:
             failed_status_bar_explanation: "Last order failed: %{error_message}"
             order_cancelled: 'Order cancelled'
             failed_to_cancel_order: 'Failed to cancel order'
+            cannot_cancel_imported_order: 'Cannot cancel imported orders'
         minimum_withdrawal_disclaimer: 'The minimum withdrawal size is %{minimum} %{currency}.'
         minimum_withdrawal_disclaimer_usd: 'The minimum withdrawal size is %{minimum} USD.'
         month: Month
@@ -196,10 +197,10 @@ en:
             general_note: "Exchange minimums and required rebalancing amounts change. Transactions might sometimes look irregular, but the bot always targets your desired allocation and schedule, so no extra work is needed."
         settings:
             smart_intervals:
-                sentence_html: '<b>Smart Intervals<sup>®</sup></b> Split <span>the</span> amount <span>into</span> <span>%{amount_html} %{quote}</span> units'
+                sentence_html: '<b>Smart Intervals</b> Split <span>the</span> amount <span>into</span> <span>%{amount_html} %{quote}</span> units'
                 info: "Splitting your %{quote_amount} %{quote} / %{interval} into units of %{amount} %{quote} will result in one investment every %{smart_interval}"
             limit_orders:
-                sentence_html: '<b>FeeCutter<sup>®</sup></b> <span>Cut fees</span> using <span>limit</span> orders <span>%{amount_html}%</span> <span>below the price</span>'
+                sentence_html: '<b>FeeCutter</b> <span>Cut fees</span> using <span>limit</span> orders <span>%{amount_html}%</span> <span>below the price</span>'
                 info: "To cut fees to zero, set it at %{maker_fee}% which is %{exchange}'s maker fee. Set it lower to get faster execution, or higher to get a potentially better deal. Track your order execution in the orders table."
             extra_amount_limit:
                 sentence_html: "Don't spend more than <span>%{value_html} %{quote}</span>"

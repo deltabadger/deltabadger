@@ -113,7 +113,7 @@ en:
             two_factor_section: 'Second Factor Authentication'
             resync_assets_section: 'CoinGecko API'
         resync_assets:
-            button: 'Re-sync Assets'
+            button: 'Synchronize'
             hint: 'Re-sync exchange tickers and asset data from CoinGecko. Use this if some exchanges or assets are missing.'
         coingecko_key:
             confirm_delete: 'Do you want to remove this CoinGecko API key?'
@@ -180,4 +180,4 @@ en:
         all: 'All'
         successful: 'Successful'
         cancelled: 'Cancelled'
-        waiting: 'Waiting'
+        waiting: 'Scheduled'

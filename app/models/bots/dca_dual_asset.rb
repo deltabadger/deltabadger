@@ -119,7 +119,7 @@ class Bots::DcaDualAsset < Bot
 
   def available_exchanges_for_current_settings
     base_asset_ids = [base0_asset_id, base1_asset_id].compact
-    scope = Ticker.available.where(exchange: Exchange.available_for_new_bots)
+    scope = Ticker.available.where(exchange: Exchange.available)
     scope = scope.where(quote_asset_id:) if quote_asset_id.present?
     scope = scope.where(base_asset_id: base_asset_ids) if base_asset_ids.any?
     exchange_ids = if base_asset_ids.size > 1
@@ -135,7 +135,7 @@ class Bots::DcaDualAsset < Bot
 
   # @param asset_type: :base_asset or :quote_asset
   def available_assets_for_current_settings(asset_type:, include_exchanges: false)
-    available_exchanges = exchange.present? ? [exchange] : Exchange.available_for_new_bots
+    available_exchanges = exchange.present? ? [exchange] : Exchange.available
     base_asset_ids = [base0_asset_id, base1_asset_id].compact
 
     case asset_type

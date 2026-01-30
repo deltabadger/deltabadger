@@ -75,9 +75,10 @@ class Index::SyncFromCoingeckoJob < ApplicationJob
 
   private
 
-  # Remove trailing bracketed text from names, e.g. "Layer 1 (L1)" → "Layer 1"
+  # Remove bracketed text from names, e.g. "Layer 1 (L1)" → "Layer 1"
+  # Also handles brackets in the middle: "YZi Labs (Prev. Binance Labs) Portfolio" → "YZi Labs Portfolio"
   def strip_brackets(name)
-    name&.gsub(/\s*\([^)]+\)\s*$/, '')&.strip
+    name&.gsub(/\s*\([^)]+\)/, '')&.gsub(/\s+/, ' ')&.strip
   end
 
   # Fetch all coins for a category (up to 250)

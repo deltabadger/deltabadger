@@ -1,10 +1,6 @@
 module Bot::Rankable
   extend ActiveSupport::Concern
 
-  SYMBOLS_HASH = {
-    'XDG' => 'DOGE',
-    'XBT' => 'BTC'
-  }.freeze
   TOP_BOTS_KEY = 'TOP_BOTS_CACHE_KEY'.freeze
 
   class_methods do
@@ -58,22 +54,8 @@ module Bot::Rankable
     end
 
     def most_popular_bots(amount)
-      all_bots_hash = combine_hashes(legacy_bots_hash, dca_single_asset_bots_hash, dca_dual_asset_bots_hash)
+      all_bots_hash = combine_hashes(dca_single_asset_bots_hash, dca_dual_asset_bots_hash, dca_index_bots_hash)
       all_bots_hash.sort_by { |_, v| -v }[0...amount]
-    end
-
-    def legacy_bots_hash
-      all_bots_hash = Bot.basic
-                         .working
-                         .group("json_extract(bots.settings, '$.base')")
-                         .count
-      all_bots_hash.delete(nil)
-      SYMBOLS_HASH.each do |symbol_key, symbol_value|
-        all_bots_hash[symbol_value] ||= 0
-        all_bots_hash[symbol_value] += all_bots_hash[symbol_key] || 0
-        all_bots_hash.delete(symbol_key)
-      end
-      all_bots_hash
     end
 
     def dca_single_asset_bots_hash
@@ -94,6 +76,14 @@ module Bot::Rankable
                           .group("json_extract(bots.settings, '$.base1_asset_id')")
                           .count
       all_bots_hash = combine_hashes(all_bots_hash0, all_bots_hash1)
+      all_bots_hash.transform_keys { |key| Asset.find(key).symbol }
+    end
+
+    def dca_index_bots_hash
+      all_bots_hash = BotIndexAsset.joins(:bot)
+                                   .where(bots: { type: 'Bots::DcaIndex', status: Bot.statuses.values_at(:scheduled, :executing, :retrying, :waiting) })
+                                   .group(:asset_id)
+                                   .count
       all_bots_hash.transform_keys { |key| Asset.find(key).symbol }
     end
 

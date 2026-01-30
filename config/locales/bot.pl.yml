@@ -122,9 +122,10 @@ pl:
                 sold: Sprzedane
                 title: Statystyki
                 total_invested: 'Zainwestowana suma'
+                portfolio_value: 'Wartość portfela'
         for: za
-        force_smart_intervals_html: '<b>Inteligentne Interwały<sup>®</sup></b> · Kupuj za pomocą zleceń o wartości <split>100$</split> %{currency} każde.'
-        feecutter_html: '<b>FeeCutter<sup>®</sup></b> · Zmniejsz opłaty za pomocą zleceń z limitem'
+        force_smart_intervals_html: '<b>Inteligentne Interwały</b> · Kupuj za pomocą zleceń o wartości <split>100$</split> %{currency} każde.'
+        feecutter_html: '<b>FeeCutter</b> · Zmniejsz opłaty za pomocą zleceń z limitem'
         hour: godzinę
         limit_buy: 'Kup z limitem'
         limit_sell: 'Sprzedaj z limitem'
@@ -140,6 +141,7 @@ pl:
             failed_status_bar_explanation: "Ostatnie zlecenie zakończyło się niepowodzeniem: %{error_message}"
             order_cancelled: 'Zlecenie anulowane'
             failed_to_cancel_order: 'Nie udało się anulować zlecenia'
+            cannot_cancel_imported_order: 'Nie można anulować zaimportowanych zleceń'
         minimum_withdrawal_disclaimer: 'Minimalna wielkość wypłaty to %{minimum} %{currency}.'
         minimum_withdrawal_disclaimer_usd: 'Minimalna wielkość wypłaty to %{minimum} USD.'
         month: miesiąc
@@ -176,10 +178,10 @@ pl:
             general_note: "Minimalne kwoty na giełdach i wymagane kwoty rebalancingu mogą się zmieniać. Zlecenia mogą czasami wyglądać nieregularnie, ale bot zawsze dąży do Twojej pożądanej alokacji i harmonogramu, więc nie jest wymagana dodatkowa praca."
         settings:
             smart_intervals:
-                sentence_html: '<b>Smart Intervals<sup>®</sup></b> Podziel <span>kwotę</span> na porcje po <span>%{amount_html} %{quote}</span>'
+                sentence_html: '<b>Smart Intervals</b> Podziel <span>kwotę</span> na porcje po <span>%{amount_html} %{quote}</span>'
                 info: "Podział twojej kwoty %{quote_amount} %{quote} / %{interval} w porcjach po %{amount} %{quote} spowoduje jedną inwestycję co %{smart_interval}"
             limit_orders:
-                sentence_html: '<b>FeeCutter<sup>®</sup></b> Zmniejsz opłaty używając zleceń limit <span>%{amount_html}%</span> poniżej ceny'
+                sentence_html: '<b>FeeCutter</b> Zmniejsz opłaty używając zleceń limit <span>%{amount_html}%</span> poniżej ceny'
                 info: "Aby zredukować opłaty do zera, ustaw je na %{maker_fee}%, czyli opłatę maker na %{exchange}. Ustaw niżej, aby uzyskać szybszą realizację, lub wyżej, aby potencjalnie uzyskać lepszą cenę. Śledź realizację swoich zleceń w tabeli zleceń."
             extra_amount_limit:
                 sentence_html: "Nie wydawaj więcej niż <span>%{value_html} %{quote}</span>"

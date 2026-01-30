@@ -31,7 +31,6 @@ Rails.application.routes.draw do
   end
 
   namespace :api do
-    get '/subscriptions/check', to: 'subscriptions#check'
     resources :api_keys, only: [:create]
     resources :exchanges, only: [:index]
     post :remove_invalid_keys, to: 'api_keys#remove_invalid_keys'

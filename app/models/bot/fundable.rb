@@ -29,25 +29,12 @@ module Bot::Fundable
   private
 
   def notified_in_last_day?
-    # # notified_in_last_day? per bot
-    # last_end_of_funds_notification.present? && last_end_of_funds_notification > 1.day.ago
-
-    # notified_in_last_day? per asset
-    legacy_buy_bots = user.bots
-                          .basic
-                          .where("json_extract(settings, '$.type') = ?", 'buy')
-                          .where("json_extract(settings, '$.quote') = ?", quote_asset.symbol)
-                          .pluck(:last_end_of_funds_notification)
-    legacy_sell_bots = user.bots
-                           .basic
-                           .where("json_extract(settings, '$.type') = ?", 'sell')
-                           .where("json_extract(settings, '$.base') = ?", quote_asset.symbol)
-                           .pluck(:last_end_of_funds_notification)
-    new_bots = user.bots
-                   .not_legacy
-                   .where("json_extract(settings, '$.quote_asset_id') = ?", quote_asset_id)
-                   .pluck(:last_end_of_funds_notification)
-    (legacy_buy_bots + legacy_sell_bots + new_bots).compact.any? { |t| t > 1.day.ago }
+    # notified_in_last_day? per asset - check all bots with the same quote_asset
+    user.bots
+        .where("json_extract(settings, '$.quote_asset_id') = ?", quote_asset_id)
+        .where.not(last_end_of_funds_notification: nil)
+        .where("last_end_of_funds_notification > ?", 1.day.ago)
+        .exists?
   end
 
   def required_balance_buffer

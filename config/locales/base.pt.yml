@@ -110,7 +110,7 @@ pt:
             title: Definições
             two_factor_section: 'Autenticação do Segundo Fator'
         resync_assets:
-            button: 'Ressincronizar Ativos'
+            button: 'Sincronizar'
             hint: 'Ressincronize os tickers de câmbio e dados de ativos do CoinGecko. Utilize isto se faltar alguma bolsa ou ativos.'
         coingecko_key:
             confirm_delete: 'Pretende remover esta chave de API do CoinGecko?'
@@ -176,4 +176,4 @@ pt:
         all: 'Todos'
         successful: 'Bem-sucedidos'
         cancelled: 'Cancelados'
-        waiting: 'Aguardando'
+        waiting: 'Programados'

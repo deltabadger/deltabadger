@@ -76,14 +76,14 @@ class Bots::DcaIndexes::PickExchangesController < ApplicationController
     exchanges = if index_type == Bots::DcaIndex::INDEX_TYPE_CATEGORY && index_category_id.present?
                   @index = Index.find_by(external_id: index_category_id, source: Index::SOURCE_COINGECKO)
                   if @index&.available_exchanges.present?
-                    Exchange.available_for_new_bots.where(type: @index.available_exchanges.keys)
+                    Exchange.available.where(type: @index.available_exchanges.keys)
                   else
-                    Exchange.available_for_new_bots
+                    Exchange.available
                   end
                 else
                   # Load "Top Coins" index to get per-exchange coin data
                   @index = Index.find_by(external_id: Index::TOP_COINS_EXTERNAL_ID, source: Index::SOURCE_INTERNAL)
-                  Exchange.available_for_new_bots
+                  Exchange.available
                 end
 
     filter_exchanges_by_query(exchanges: exchanges, query: query)

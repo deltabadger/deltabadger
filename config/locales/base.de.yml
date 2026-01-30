@@ -111,7 +111,7 @@ de:
             title: Einstellungen
             two_factor_section: Zwei-Faktor-Authentifizierung
         resync_assets:
-            button: 'Assets neu synchronisieren'
+            button: 'Synchronisieren'
             hint: 'Synchronisiere Exchange-Ticker und Asset-Daten von CoinGecko neu. Verwende dies, wenn einige Exchanges oder Assets fehlen.'
         coingecko_key:
             confirm_delete: 'Möchten Sie diesen CoinGecko API-Schlüssel entfernen?'
@@ -177,5 +177,5 @@ de:
         all: 'Alle'
         successful: 'Erfolgreich'
         cancelled: 'Storniert'
-        waiting: 'Wartend'
+        waiting: 'Geplant'
 

@@ -8,7 +8,7 @@ module Bots::Searchable
     filtered_assets = filter_assets_by_query(assets: available_assets, query: query)
                       .pluck(:id, :symbol, :name, :color)
                       .reject { |_, symbol, _| symbol.blank? }
-    exchanges_data = Exchange.available_for_new_bots.each_with_object([]) do |exchange, list|
+    exchanges_data = Exchange.available.each_with_object([]) do |exchange, list|
       assets = exchange.exchange_assets.available.pluck(:asset_id)
       list << [exchange.name_id, exchange.name, assets] if assets.any?
     end

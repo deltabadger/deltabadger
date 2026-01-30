@@ -117,9 +117,10 @@ ru:
                 sold: Продано
                 title: Статистика
                 total_invested: 'Всего инвестировано'
+                portfolio_value: 'Стоимость портфеля'
         for: за
-        force_smart_intervals_html: '<b>Умные интервалы<sup>®</sup></b> · Покупайте с заказами на сумму <split>100$</split> %{currency} каждый.'
-        feecutter_html: '<b>FeeCutter<sup>®</sup></b> · Сократите комиссии с лимитными ордерами'
+        force_smart_intervals_html: '<b>Умные интервалы</b> · Покупайте с заказами на сумму <split>100$</split> %{currency} каждый.'
+        feecutter_html: '<b>FeeCutter</b> · Сократите комиссии с лимитными ордерами'
         hour: Час
         limit_buy: 'Лимитная покупка'
         limit_sell: 'Лимитная продажа'
@@ -135,6 +136,7 @@ ru:
             failed_status_bar_explanation: "Последний ордер не выполнен: %{error_message}"
             order_cancelled: 'Ордер отменен'
             failed_to_cancel_order: 'Не удалось отменить ордер'
+            cannot_cancel_imported_order: 'Невозможно отменить импортированные ордера'
         minimum_withdrawal_disclaimer: "Минимальный размер вывода составляет %{minimum} %{currency}."
         minimum_withdrawal_disclaimer_usd: "Минимальный размер вывода составляет %{minimum} USD."
         month: Месяц
@@ -172,10 +174,10 @@ ru:
             general_note: "Минимумы биржи и требуемые суммы ребалансировки могут меняться. Ордера иногда могут выглядеть нерегулярными, но бот всегда нацелен на желаемое распределение и расписание, поэтому дополнительная работа не требуется."
         settings:
             smart_intervals:
-                sentence_html: '<b>Smart Intervals<sup>®</sup></b> Разделить <span>сумму</span> на единицы по <span>%{amount_html} %{quote}</span>'
+                sentence_html: '<b>Smart Intervals</b> Разделить <span>сумму</span> на единицы по <span>%{amount_html} %{quote}</span>'
                 info: "Разделение ваших %{quote_amount} %{quote} / %{interval} на единицы по %{amount} %{quote} приведет к одной инвестиции каждые %{smart_interval}"
             limit_orders:
-                sentence_html: '<b>FeeCutter<sup>®</sup></b> Снизить комиссии, используя лимитные ордера <span>%{amount_html}%</span> ниже цены'
+                sentence_html: '<b>FeeCutter</b> Снизить комиссии, используя лимитные ордера <span>%{amount_html}%</span> ниже цены'
                 info: "Чтобы снизить комиссии до нуля, установите значение %{maker_fee}%, что соответствует комиссии мейкера на %{exchange}. Установите ниже для более быстрого исполнения или выше для потенциально лучшей цены. Отслеживайте исполнение ваших ордеров в таблице ордеров."
             extra_amount_limit:
                 sentence_html: "Не тратить больше чем <span>%{value_html} %{quote}</span>"

@@ -136,7 +136,7 @@ class Bots::DcaIndex < Bot
   end
 
   def available_exchanges_for_current_settings
-    scope = Ticker.available.where(exchange: Exchange.available_for_new_bots)
+    scope = Ticker.available.where(exchange: Exchange.available)
     scope = scope.where(quote_asset_id:) if quote_asset_id.present?
     exchange_ids = scope.pluck(:exchange_id).uniq
     Exchange.where(id: exchange_ids)
@@ -144,7 +144,7 @@ class Bots::DcaIndex < Bot
 
   # @param asset_type: :quote_asset (only quote_asset supported for Index bots)
   def available_assets_for_current_settings(asset_type:, include_exchanges: false)
-    available_exchanges = exchange.present? ? [exchange] : Exchange.available_for_new_bots
+    available_exchanges = exchange.present? ? [exchange] : Exchange.available
     scope = Ticker.available.where(exchange: available_exchanges)
     asset_ids = scope.pluck(:quote_asset_id).uniq
     include_exchanges ? Asset.includes(:exchanges).where(id: asset_ids) : Asset.where(id: asset_ids)

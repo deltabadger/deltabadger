@@ -122,9 +122,10 @@ es:
                 sold: Vendido
                 title: Estadísticas
                 total_invested: 'Total invertido'
+                portfolio_value: 'Valor de la cartera'
         for: por
-        force_smart_intervals_html: '<b>Intervalos Inteligentes<sup>®</sup></b> · Compre con órdenes de <split>$100</split> %{currency} cada una.'
-        feecutter_html: '<b>FeeCutter<sup>®</sup></b> · Reduzca tarifas con órdenes límite'
+        force_smart_intervals_html: '<b>Intervalos Inteligentes</b> · Compre con órdenes de <split>$100</split> %{currency} cada una.'
+        feecutter_html: '<b>FeeCutter</b> · Reduzca tarifas con órdenes límite'
 
         hour: Hora
         limit_buy: 'Compra limitada'
@@ -141,6 +142,7 @@ es:
             failed_status_bar_explanation: "La última orden falló: %{error_message}"
             order_cancelled: 'Orden cancelada'
             failed_to_cancel_order: 'Error al cancelar la orden'
+            cannot_cancel_imported_order: 'No se pueden cancelar órdenes importadas'
         minimum_withdrawal_disclaimer: 'El importe mínimo de retirada es de %{minimum} %{currency}.'
         minimum_withdrawal_disclaimer_usd: 'El importe mínimo de retirada es de %{minimum} USD.'
         month: Mes
@@ -177,10 +179,10 @@ es:
             general_note: "Los mínimos del exchange y las cantidades requeridas para el rebalanceo pueden cambiar. Las transacciones a veces pueden parecer irregulares, pero el bot siempre apunta a tu asignación y programación deseadas, así que no necesitas hacer nada más."
         settings:
             smart_intervals:
-                sentence_html: '<b>Smart Intervals<sup>®</sup></b> Divide <span>la</span> cantidad <span>en</span> unidades <span>de</span> <span>%{amount_html} %{quote}</span>'
+                sentence_html: '<b>Smart Intervals</b> Divide <span>la</span> cantidad <span>en</span> unidades <span>de</span> <span>%{amount_html} %{quote}</span>'
                 info: "Dividir tus %{quote_amount} %{quote} / %{interval} en unidades de %{amount} %{quote} resultará en una inversión cada %{smart_interval}"
             limit_orders:
-                sentence_html: '<b>FeeCutter<sup>®</sup></b> Reduce las comisiones usando órdenes limitadas <span>%{amount_html}%</span> por debajo del precio'
+                sentence_html: '<b>FeeCutter</b> Reduce las comisiones usando órdenes limitadas <span>%{amount_html}%</span> por debajo del precio'
                 info: "Para eliminar las comisiones, configúralo al %{maker_fee}%, que es la comisión maker de %{exchange}. Configúralo más bajo para una ejecución más rápida, o más alto para obtener potencialmente un mejor precio. Haz seguimiento de la ejecución de tus órdenes en la tabla de órdenes."
             extra_amount_limit:
                 sentence_html: "No gastar más de <span>%{value_html} %{quote}</span>"

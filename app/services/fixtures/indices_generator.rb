@@ -197,9 +197,10 @@ module Fixtures
       result
     end
 
-    # Remove trailing bracketed text from names, e.g. "Layer 1 (L1)" → "Layer 1"
+    # Remove bracketed text from names, e.g. "Layer 1 (L1)" → "Layer 1"
+    # Also handles brackets in the middle: "YZi Labs (Prev. Binance Labs) Portfolio" → "YZi Labs Portfolio"
     def strip_brackets(name)
-      name&.gsub(/\s*\([^)]+\)\s*$/, '')&.strip
+      name&.gsub(/\s*\([^)]+\)/, '')&.gsub(/\s+/, ' ')&.strip
     end
 
     def abbreviate_exchange(exchange_type)

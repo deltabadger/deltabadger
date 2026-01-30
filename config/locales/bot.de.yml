@@ -121,9 +121,10 @@ de:
                 sold: Verkauft
                 title: Statistiken
                 total_invested: 'Insgesamt investiert'
+                portfolio_value: 'Portfoliowert'
         for: für
-        force_smart_intervals_html: '<b>Smart-Intervalle<sup>®</sup></b> · Kaufen Sie mit Bestellungen von jeweils <split>100$</split> %{currency}.'
-        feecutter_html: '<b>FeeCutter<sup>®</sup></b> · Reduzieren Sie Gebühren mit Limit-Aufträgen'
+        force_smart_intervals_html: '<b>Smart-Intervalle</b> · Kaufen Sie mit Bestellungen von jeweils <split>100$</split> %{currency}.'
+        feecutter_html: '<b>FeeCutter</b> · Reduzieren Sie Gebühren mit Limit-Aufträgen'
 
         hour: Stunde
         limit_buy: 'Limit Kauf'
@@ -140,6 +141,7 @@ de:
             failed_status_bar_explanation: "Letzte Bestellung fehlgeschlagen: %{error_message}"
             order_cancelled: 'Bestellung storniert'
             failed_to_cancel_order: 'Stornierung der Bestellung fehlgeschlagen'
+            cannot_cancel_imported_order: 'Importierte Bestellungen können nicht storniert werden'
         minimum_withdrawal_disclaimer: 'Der Mindestauszahlungsbetrag beträgt %{minimum} %{currency}.'
         minimum_withdrawal_disclaimer_usd: 'Der Mindestauszahlungsbetrag beträgt %{minimum} USD.'
         month: Monat
@@ -186,10 +188,10 @@ de:
             general_note: "Börsen-Mindestgrößen und erforderliche Rebalancing-Beträge ändern sich. Transaktionen können manchmal unregelmäßig aussehen, aber der Bot hält immer deine gewünschte Allokation und deinen Zeitplan ein, sodass kein zusätzlicher Aufwand nötig ist."
         settings:
             smart_intervals:
-                sentence_html: '<b>Smart Intervals<sup>®</sup></b> Teilt <span>den Betrag</span> in <span>%{amount_html} %{quote}</span> Einheiten auf'
+                sentence_html: '<b>Smart Intervals</b> Teilt <span>den Betrag</span> in <span>%{amount_html} %{quote}</span> Einheiten auf'
                 info: "Die Aufteilung deiner %{quote_amount} %{quote} / %{interval} in Einheiten von %{amount} %{quote} führt zu einer Investition alle %{smart_interval}"
             limit_orders:
-                sentence_html: '<b>FeeCutter<sup>®</sup></b> Reduziere Gebühren mit Limit-Orders <span>%{amount_html}%</span> unter dem Preis'
+                sentence_html: '<b>FeeCutter</b> Reduziere Gebühren mit Limit-Orders <span>%{amount_html}%</span> unter dem Preis'
                 info: "Um die Gebühren auf Null zu reduzieren, stelle es auf %{maker_fee}% ein, was der Maker-Gebühr von %{exchange} entspricht. Stelle es niedriger ein für schnellere Ausführung oder höher für potenziell bessere Kurse. Verfolge deine Orderausführung in der Ordertabelle."
             extra_amount_limit:
                 sentence_html: "Nicht mehr ausgeben als <span>%{value_html} %{quote}</span>"
