@@ -6,7 +6,6 @@ ruby '3.4.8'
 gem 'csv'
 gem 'securerandom'
 gem 'active_model_otp'
-gem "administrate"
 gem "attr_encrypted", git: "https://github.com/attr-encrypted/attr_encrypted", branch: "master"
 gem 'bootsnap', '>= 1.4.2', require: false
 gem 'date', "= 3.3.3"

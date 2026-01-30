@@ -14,22 +14,6 @@ Rails.application.routes.draw do
     mount MissionControl::Jobs::Engine, at: "/jobs"
   end
 
-  namespace :admin do
-    resources :users, except: [:destroy]
-    resources :api_keys, except: [:edit, :update]
-    namespace :bots do
-      resources :dca_single_assets
-      resources :dca_dual_assets
-      resources :dca_indexes
-    end
-    resources :exchanges
-    resources :transactions
-
-    get :dashboard, to: 'dashboard#index'
-
-    root to: "dashboard#index"
-  end
-
   namespace :api do
     resources :api_keys, only: [:create]
     resources :exchanges, only: [:index]

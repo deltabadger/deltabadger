@@ -190,7 +190,6 @@ return result if result.failure?
 - Devise for authentication
 - Optional 2FA with `active_model_otp`
 - Encrypted API keys using `attr_encrypted` with `APP_ENCRYPTION_KEY`
-- Admin namespace at `/admin` (Administrate gem)
 - Multi-tenant: each user has their own bots and API keys
 
 ### Internationalization
