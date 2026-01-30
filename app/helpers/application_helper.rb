@@ -7,11 +7,4 @@ module ApplicationHelper
     classes << "view--#{controller_name}-#{action_name}"
     classes.join(' ')
   end
-
-  private
-
-  # FIXME: is this needed?
-  def action?(controller, action)
-    params[:controller] == controller && params[:action] == action
-  end
 end

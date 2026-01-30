@@ -111,7 +111,7 @@ nl:
             title: Instellingen
             two_factor_section: 'Second Factor Authentication'
         resync_assets:
-            button: 'Assets opnieuw synchroniseren'
+            button: 'Synchroniseren'
             hint: 'Synchroniseer exchange tickers en assetgegevens opnieuw van CoinGecko. Gebruik dit als sommige exchanges of assets ontbreken.'
         coingecko_key:
             confirm_delete: 'Wilt u deze CoinGecko API-sleutel verwijderen?'
@@ -177,4 +177,4 @@ nl:
         all: 'Alle'
         successful: 'Geslaagd'
         cancelled: 'Geannuleerd'
-        waiting: 'Wachtend'
+        waiting: 'Gepland'

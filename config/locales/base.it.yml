@@ -111,7 +111,7 @@ it:
             title: Impostazioni
             two_factor_section: 'Autenticazione a Due Fattori'
         resync_assets:
-            button: 'Risincronizza Asset'
+            button: 'Sincronizza'
             hint: 'Risincronizza i ticker degli exchange e i dati degli asset da CoinGecko. Usalo se mancano alcuni exchange o asset.'
         coingecko_key:
             confirm_delete: 'Vuoi rimuovere questa chiave API di CoinGecko?'
@@ -177,4 +177,4 @@ it:
         all: 'Tutti'
         successful: 'Riusciti'
         cancelled: 'Annullati'
-        waiting: 'In attesa'
+        waiting: 'Programmati'

@@ -63,14 +63,6 @@ class Bot < ApplicationRecord
     transactions.where(status: %i[submitted skipped]).order(created_at: :desc).count
   end
 
-  def any_last_transaction
-    transactions.order(created_at: :desc).limit(1).last
-  end
-
-  def last_withdrawal
-    transactions.where(transaction_type: 'WITHDRAWAL').order(created_at: :desc).limit(1).last
-  end
-
   def total_amount
     transactions.submitted.sum(:amount)
   end
@@ -99,7 +91,7 @@ class Bot < ApplicationRecord
   end
 
   def broadcast_columns_lock_update
-    action = scheduled? ? :add_class : :remove_class
+    action = working? ? :add_class : :remove_class
     Turbo::StreamsChannel.broadcast_action_to(
       ["user_#{user_id}", :bot_updates],
       action:,
@@ -160,7 +152,24 @@ class Bot < ApplicationRecord
     broadcast_order_filters_update
   end
 
+  # Override broadcast methods to use user's locale for translated partials
+  def broadcast_replace_to(...)
+    with_user_locale { super }
+  end
+
+  def broadcast_prepend_to(...)
+    with_user_locale { super }
+  end
+
+  def broadcast_append_to(...)
+    with_user_locale { super }
+  end
+
   private
+
+  def with_user_locale(&block)
+    I18n.with_locale(user.locale || I18n.default_locale, &block)
+  end
 
   def store_previous_exchange_id
     @previous_exchange_id = exchange_id_was

@@ -3,9 +3,9 @@ module ExchangeApi
     class Get < BaseService
       include ExchangeApi::BinanceEnum
 
-      def call(exchange_id, key_type)
+      def call(exchange_id, _key_type = nil)
         exchange = Exchange.find(exchange_id)
-        key_type == 'withdrawal' ? get_withdrawal_key_validator(exchange) : get_trading_key_validator(exchange)
+        get_trading_key_validator(exchange)
       end
 
       private
@@ -18,15 +18,6 @@ module ExchangeApi
         when 'binance.us' then Binance::Validator.new(url_base: US_URL_BASE)
         when 'kraken' then Kraken::Validator.new
         when 'coinbase' then Coinbase::Validator.new
-        end
-      end
-
-      def get_withdrawal_key_validator(exchange)
-        return Fake::WithdrawalValidator.new if Rails.configuration.dry_run
-
-        case exchange.name.downcase
-        when 'kraken'
-          ExchangeApi::Validators::Kraken::WithdrawalValidator.new
         end
       end
     end

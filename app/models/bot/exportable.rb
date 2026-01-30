@@ -19,6 +19,7 @@ module Bot::Exportable
 
     transactions_data = transactions
                         .submitted
+                        .where(external_status: :closed)
                         .order(:created_at)
                         .pluck(
                           :created_at,
@@ -90,6 +91,10 @@ module Bot::Exportable
         next
       end
 
+      # Only import closed/finalized orders
+      status = row['Status']&.strip&.downcase
+      next unless status == 'closed'
+
       # Parse values
       timestamp = Time.zone.parse(row['Timestamp'])
       order_type = "#{row['Type'].downcase}_order"
@@ -97,7 +102,6 @@ module Bot::Exportable
       amount = row['Amount'].to_d
       value = row['Value'].to_d
       price = row['Price'].to_d
-      status = row['Status'].downcase
 
       # Create the transaction
       transactions.create!(
@@ -114,7 +118,7 @@ module Bot::Exportable
         base: csv_base,
         quote: csv_quote,
         status: :submitted,
-        external_status: status == 'closed' ? :closed : (status == 'open' ? :open : :unknown)
+        external_status: :closed
       )
 
       imported_count += 1

@@ -45,7 +45,7 @@ module Index::ExchangeAvailability
       return {} if asset_ids.empty?
 
       # Count how many coins each exchange supports
-      Exchange.available_for_new_bots.each do |exchange|
+      Exchange.available.each do |exchange|
         matching_count = exchange.tickers.available.where(base_asset_id: asset_ids).count
         result[exchange.type] = matching_count if matching_count >= MINIMUM_SUPPORTED_COINS
       end

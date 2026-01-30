@@ -229,30 +229,6 @@ class Clients::Kraken < Client
     end
   end
 
-  # https://docs.kraken.com/api/docs/rest-api/get-withdrawal-methods
-  # @param asset [String] Filter methods for specific asset
-  # @param aclass [String] Filter methods for specific asset class
-  # @param network [String] Filter methods for specific network
-  def get_withdrawal_methods(
-    asset: nil,
-    aclass: nil,
-    network: nil
-  )
-    with_rescue do
-      response = self.class.connection.post do |req|
-        req.url '/0/private/WithdrawMethods'
-        req.body = {
-          nonce: nonce,
-          asset: asset,
-          aclass: aclass,
-          network: network
-        }.compact.to_query
-        req.headers = headers(req.path, req.body)
-      end
-      Result::Success.new(response.body)
-    end
-  end
-
   # https://docs.kraken.com/api/docs/rest-api/get-ohlc-data
   # @param pair [String] Asset pair to get data for
   # @param interval [Integer] Time frame interval in minutes

@@ -112,7 +112,7 @@ fr:
             title: 'Paramètres'
             two_factor_section: 'Authentification à deux facteurs'
         resync_assets:
-            button: 'Re-synchroniser les actifs'
+            button: 'Synchroniser'
             hint: 'Re-synchronisez les tickers d''échange et les données d''actifs de CoinGecko. Utilisez ceci si certains échanges ou actifs manquent.'
         coingecko_key:
             confirm_delete: 'Voulez-vous supprimer cette clé API CoinGecko ?'
@@ -177,4 +177,4 @@ fr:
         all: 'Tous'
         successful: 'Réussis'
         cancelled: 'Annulés'
-        waiting: 'En attente'
+        waiting: 'Programmés'

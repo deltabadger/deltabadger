@@ -112,7 +112,7 @@ class Bots::DcaSingleAsset < Bot
   end
 
   def available_exchanges_for_current_settings
-    scope = Ticker.available.where(exchange: Exchange.available_for_new_bots)
+    scope = Ticker.available.where(exchange: Exchange.available)
     scope = scope.where(quote_asset_id:) if quote_asset_id.present?
     scope = scope.where(base_asset_id:) if base_asset_id.present?
     exchange_ids = scope.pluck(:exchange_id).uniq
@@ -121,7 +121,7 @@ class Bots::DcaSingleAsset < Bot
 
   # @param asset_type: :base_asset or :quote_asset
   def available_assets_for_current_settings(asset_type:, include_exchanges: false)
-    available_exchanges = exchange.present? ? [exchange] : Exchange.available_for_new_bots
+    available_exchanges = exchange.present? ? [exchange] : Exchange.available
 
     case asset_type
     when :base_asset

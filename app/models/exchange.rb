@@ -12,14 +12,6 @@ class Exchange < ApplicationRecord
   validates :type, uniqueness: true
 
   scope :available, -> { where(available: true) }
-  scope :available_for_new_bots, lambda {
-                                   where(type: %w[
-                                           Exchanges::Coinbase
-                                           Exchanges::Kraken
-                                           Exchanges::Binance
-                                           Exchanges::BinanceUs
-                                         ])
-                                 } # FIXME: Temporary until all exchanges are supported
 
   include Synchronizer
   include CandleBuilder

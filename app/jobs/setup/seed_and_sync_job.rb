@@ -22,7 +22,7 @@ class Setup::SeedAndSyncJob < ApplicationJob
   end
 
   def sync_exchanges
-    exchanges = Exchange.available_for_new_bots.to_a
+    exchanges = Exchange.available.to_a
     exchanges.each_with_index do |exchange, index|
       # Skip async jobs during setup - we fetch asset data synchronously at the end
       exchange.sync_tickers_and_assets_with_external_data(skip_async_jobs: true)
