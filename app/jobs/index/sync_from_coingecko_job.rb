@@ -47,13 +47,20 @@ class Index::SyncFromCoingeckoJob < ApplicationJob
         source: Index::SOURCE_COINGECKO
       )
 
-      index.update!(
-        name: category['name'],
+      attrs = {
+        name: strip_brackets(category['name']),
         description: category['content'],
         top_coins: top_coins_for_display,
         market_cap: category['market_cap'],
         available_exchanges: available_exchanges
-      )
+      }
+
+      # Set weight from WEIGHTED_CATEGORIES for new indices only
+      if index.new_record?
+        attrs[:weight] = Index::WEIGHTED_CATEGORIES[category['id']] || 0
+      end
+
+      index.update!(attrs)
 
       synced_ids << index.id
     rescue StandardError => e
@@ -67,6 +74,11 @@ class Index::SyncFromCoingeckoJob < ApplicationJob
   end
 
   private
+
+  # Remove trailing bracketed text from names, e.g. "Layer 1 (L1)" → "Layer 1"
+  def strip_brackets(name)
+    name&.gsub(/\s*\([^)]+\)\s*$/, '')&.strip
+  end
 
   # Fetch all coins for a category (up to 250)
   # @return [Hash, nil] { coins: [...], total_count: N } or nil on failure

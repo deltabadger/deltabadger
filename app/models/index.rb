@@ -14,6 +14,23 @@ class Index < ApplicationRecord
     usd-stablecoin
   ].freeze
 
+  # Weighted categories shown first in picker (higher weight = shown earlier)
+  # Maps CoinGecko category ID to weight (1-12, higher = more prominent)
+  WEIGHTED_CATEGORIES = {
+    'layer-1' => 12,
+    'layer-2' => 11,
+    'meme-token' => 10,
+    'privacy-coins' => 9,
+    'yield-farming' => 8,
+    'runes' => 7,
+    'decentralized-finance-defi' => 6,
+    'artificial-intelligence' => 5,
+    'gaming' => 4,
+    'real-world-assets-rwa' => 3,
+    'ai-agents' => 2,
+    'zero-knowledge-zk' => 1
+  }.freeze
+
   validates :external_id, presence: true
   validates :source, presence: true
   validates :name, presence: true
