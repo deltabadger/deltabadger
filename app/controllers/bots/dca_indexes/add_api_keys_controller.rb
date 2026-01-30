@@ -27,7 +27,7 @@ class Bots::DcaIndexes::AddApiKeysController < ApplicationController
     result = @api_key.get_validity
     @api_key.update_status!(result)
     if @api_key.correct?
-      redirect_to new_bots_dca_indexes_pick_spendable_asset_path
+      render turbo_stream: turbo_stream_redirect(new_bots_dca_indexes_pick_spendable_asset_path)
     elsif @api_key.incorrect?
       flash.now[:alert] = t('errors.incorrect_api_key_permissions')
       render turbo_stream: turbo_stream_prepend_flash, status: :unprocessable_entity
