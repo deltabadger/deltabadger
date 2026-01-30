@@ -2,7 +2,7 @@
   <div class="bot-creation-layout">
     <%= render partial: 'bots/dca_indexes/new_step_progress_bar', locals: { current_step: :coingecko } %>
 
-    <div class="widget widget--centered" style="max-width: 72rem; margin: 0 auto;">
+    <div class="widget widget--centered" style="margin: 0 1rem; padding: 4rem">
       <p><%= t('setup.api_configuration') %></p>
 
       <%= form_with url: bots_dca_indexes_setup_coingecko_path,
