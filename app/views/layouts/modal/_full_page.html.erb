@@ -5,6 +5,7 @@
         <%= render partial: 'svg/24x24_close' %>
       <% end %>
       <%= turbo_frame_tag "modal_content" do %>
+        <%= render 'layouts/flash' %>
         <%= yield %>
       <% end %>
     </div>
