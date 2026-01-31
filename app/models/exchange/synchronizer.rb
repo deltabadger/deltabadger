@@ -33,7 +33,7 @@ module Exchange::Synchronizer
   private
 
   def coingecko
-    @coingecko ||= Coingecko.new
+    @coingecko ||= Coingecko.new(api_key: AppConfig.coingecko_api_key)
   end
 
   def external_id_from_symbol(symbol)
