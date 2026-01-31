@@ -89,6 +89,14 @@
       background: var(--silver)
       @media (prefers-color-scheme: dark)
         background: var(--washed)
+    &--active
+      background: var(--washed) !important
+      box-shadow: var(--shadow-basic)
+      cursor: default
+      pointer-events: none
+      svg *
+        fill: var(--link) !important
+
   &__button
     background: none
     border: none
@@ -108,15 +116,3 @@
     fill: var(--sky)
   &--logo
     fill: var(--link)
-
-
-.menu
-  .dropdown-wrapper
-    display: flex
-    align-items: center
-    justify-content: center
-    .dropdown
-      left: 5rem
-      right: auto
-      top: auto
-      bottom: 0
