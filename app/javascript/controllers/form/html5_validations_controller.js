@@ -62,7 +62,9 @@ export default class extends Controller {
   }
 
   #shouldValidateField(field) {
-    return !field.disabled && !['file', 'reset', 'submit', 'button'].includes(field.type)
+    return typeof field.checkValidity === 'function' &&
+      !field.disabled &&
+      !['file', 'reset', 'submit', 'button'].includes(field.type)
   }
 
   #refreshErrorForInvalidField(field, isValid) {
