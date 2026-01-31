@@ -1,4 +1,5 @@
 require_relative 'boot'
+require_relative '../lib/middleware/chrome_devtools'
 
 require "rails"
 # Pick the frameworks you want:
@@ -30,6 +31,9 @@ module Deltabadger
     if defined?(Bullet)
       config.middleware.use Bullet::Rack
     end
+
+    # Silence Chrome DevTools workspace requests
+    config.middleware.use Middleware::ChromeDevtools
 
     # explicit app timezone
     config.time_zone = 'UTC'
