@@ -75,7 +75,7 @@ gem 'tzinfo-data', platforms: [:mingw, :mswin, :x64_mingw, :jruby]
 
 gem "faraday-net_http_persistent", "~> 2.3.0"
 
-gem "turbo-rails", "~> 2.0.21"
+gem "turbo-rails", "~> 2.0.23"
 gem "stimulus-rails", "~> 1.3.4"
 gem "jwt"
 gem "rbnacl"
