@@ -82,7 +82,7 @@ gem "rbnacl"
 gem "jaro_winkler", "~> 1.6"
 gem "oj", "~> 3.16"
 gem "dartsass-rails", "~> 0.5.1"
-gem "pagy", "~> 6.5"
+gem "pagy", "~> 43.2"
 gem "haikunator", "~> 1.1"
 gem "sqids" # for obfuscating IDs
 gem "mini_magick", "~> 5.2"
