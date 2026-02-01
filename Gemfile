@@ -8,7 +8,7 @@ gem 'securerandom'
 gem 'active_model_otp'
 gem "attr_encrypted", git: "https://github.com/attr-encrypted/attr_encrypted", branch: "master"
 gem 'bootsnap', '>= 1.4.2', require: false
-gem 'date', "= 3.3.3"
+gem 'date', "3.5.1"
 gem 'devise'
 gem 'dotenv-rails'
 gem 'dotiw'
