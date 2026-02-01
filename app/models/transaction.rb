@@ -86,9 +86,9 @@ class Transaction < ApplicationRecord
     return Result::Failure.new(I18n.t('bot.messages.cannot_cancel_imported_order')) if imported?
 
     result = bot.cancel_order(order_id: external_id)
-    Bot::FetchAndUpdateOrderJob.perform_later(self, update_missed_quote_amount: true)
     return result if result.failure?
 
+    Bot::FetchAndUpdateOrderJob.perform_later(self, update_missed_quote_amount: true)
     Result::Success.new(self)
   end
 

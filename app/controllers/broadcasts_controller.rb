@@ -51,7 +51,7 @@ class BroadcastsController < ApplicationController
     bot = Bot.find_by(id: params['bot_id'])
     return if bot.nil?
 
-    Bot::FetchAndUpdateOpenOrdersJob.perform_later(bot, update_missed_quote_amount: true, success_or_kill: true)
+    Bot::FetchAndUpdateOpenOrdersJob.perform_now(bot, update_missed_quote_amount: true, success_or_kill: true)
     head :ok
   end
 
