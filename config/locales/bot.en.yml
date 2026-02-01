@@ -149,6 +149,7 @@ en:
             failed_status_bar_explanation: "Last order failed: %{error_message}"
             order_cancelled: 'Order cancelled'
             failed_to_cancel_order: 'Failed to cancel order'
+            failed_to_cancel_order_invalid_api_key: 'Failed to cancel order: Invalid API key. Please check your API key settings on %{exchange_name}.'
             cannot_cancel_imported_order: 'Cannot cancel imported orders'
         minimum_withdrawal_disclaimer: 'The minimum withdrawal size is %{minimum} %{currency}.'
         minimum_withdrawal_disclaimer_usd: 'The minimum withdrawal size is %{minimum} USD.'

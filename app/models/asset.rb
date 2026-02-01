@@ -34,7 +34,9 @@ class Asset < ApplicationRecord
     'convex-finance' => '#1682fe',
     'big-time' => '#FFD700',
     'axelar' => '#ff6414',
-    'syndicate' => '#5865F2'
+    'syndicate' => '#5865F2',
+    'zksync' => '#1a24b2',
+    'immutable-x' => '#ecc968'
   }.freeze
 
   def sync_data_with_coingecko(prefetched_data: nil)

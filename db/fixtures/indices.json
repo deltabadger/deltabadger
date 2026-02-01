@@ -110,7 +110,7 @@
     {
       "external_id": "layer-1",
       "source": "coingecko",
-      "name": "Layer 1 (L1)",
+      "name": "Layer 1",
       "description": "Layer 1 serves as the primary and autonomous chain on which transactions are directly executed and confirmed, as well as providing the essential infrastructure for the blockchain network.",
       "top_coins": [
         "bitcoin",
@@ -135,7 +135,7 @@
     {
       "external_id": "proof-of-work-pow",
       "source": "coingecko",
-      "name": "Proof of Work (PoW)",
+      "name": "Proof of Work",
       "description": "Proof of Work (PoW) is a blockchain consensus mechanism to validate transactions and create new blocks through computational efforts by miners.",
       "top_coins": [
         "bitcoin",
@@ -185,7 +185,7 @@
     {
       "external_id": "proof-of-stake-pos",
       "source": "coingecko",
-      "name": "Proof of Stake (PoS)",
+      "name": "Proof of Stake",
       "description": "Proof of Stake (PoS) is a blockchain consensus mechanism where validators are selected to create new blocks based on the amount of cryptocurrency they hold and are willing to stake as collateral.",
       "top_coins": [
         "ethereum",
@@ -310,7 +310,7 @@
     {
       "external_id": "centralized-exchange-token-cex",
       "source": "coingecko",
-      "name": "Centralized Exchange (CEX) Token",
+      "name": "Centralized Exchange Token",
       "description": "These utility tokens are issued by a centralized exchange and can be used for a variety of purposes. Although holders are not able to exercise governance, they still carry many other benefits such as enjoy discounted trading fees and gain access to exclusive token sales on the exchange.",
       "top_coins": [
         "binancecoin",
@@ -334,7 +334,7 @@
     {
       "external_id": "decentralized-finance-defi",
       "source": "coingecko",
-      "name": "Decentralized Finance (DeFi)",
+      "name": "Decentralized Finance",
       "description": "Decentralized Finance, is a financial system that operates without central authorities or intermediaries, using blockchain technology and smart contracts to provide a range of financial services such as lending, borrowing, and trading.",
       "top_coins": [
         "staked-ether",
@@ -433,7 +433,7 @@
     {
       "external_id": "real-world-assets-rwa",
       "source": "coingecko",
-      "name": "Real World Assets (RWA)",
+      "name": "Real World Assets",
       "description": "Real World Assets (RWAs) refer to tangible or physical assets that have value in the real world. The tokenization of RWAs involves representing these assets digitally on a blockchain, allowing for fractional ownership, increased liquidity, and more efficient management and trading of these assets.",
       "top_coins": [
         "figure-heloc",
@@ -558,7 +558,7 @@
     {
       "external_id": "artificial-intelligence",
       "source": "coingecko",
-      "name": "Artificial Intelligence (AI)",
+      "name": "Artificial Intelligence",
       "description": "Artificial Intelligence (AI) tokens are cryptocurrencies that power AI-related projects, such as AI-powered portfolio management, image generation, path finding, and more. ",
       "top_coins": [
         "chainlink",
@@ -608,7 +608,7 @@
     {
       "external_id": "decentralized-exchange",
       "source": "coingecko",
-      "name": "Decentralized Exchange (DEX)",
+      "name": "Decentralized Exchange",
       "description": "Decentralized exchanges (DEXs) allow users to trade with one another in a permissionless manner and without any intermediaries.",
       "top_coins": [
         "hyperliquid",
@@ -707,7 +707,7 @@
     {
       "external_id": "yzi-labs-portfolio",
       "source": "coingecko",
-      "name": "YZi Labs (Prev. Binance Labs) Portfolio",
+      "name": "YZi Labs Portfolio",
       "description": "Protocols and tokens that YZi Labs (Prev. Binance Labs) have invested in.",
       "top_coins": [
         "sui",
@@ -782,7 +782,7 @@
     {
       "external_id": "zero-knowledge-zk",
       "source": "coingecko",
-      "name": "Zero Knowledge (ZK)",
+      "name": "Zero Knowledge",
       "description": "Zero-knowledge proof or Zero-knowledge protocol is a method by which one party (the prover) can prove to another party (the verifier) that a given statement is true while the prover avoids conveying any additional information apart from the fact that the statement is indeed true.\r\n\r\nThis category tracks cryptocurrency that utilises Zero Knowledge implementation to execute transactions, which may include smart contract execution, value transfer, and others.",
       "top_coins": [
         "zcash",
@@ -1092,7 +1092,7 @@
     {
       "external_id": "layer-2",
       "source": "coingecko",
-      "name": "Layer 2 (L2)",
+      "name": "Layer 2",
       "description": "Layer 2s are off-chain vertical scaling solutions that run on top of Layer 1 blockchains like Ethereum to improve scalability, while maintaining the decentralization and security standards of the Layer 1.",
       "top_coins": [
         "mantle",
@@ -1237,7 +1237,7 @@
     {
       "external_id": "automated-market-maker-amm",
       "source": "coingecko",
-      "name": "Automated Market Maker (AMM)",
+      "name": "Automated Market Maker",
       "description": "Automated market makers (AMMs) make use of liquidity pools containing 2 or more assets, and prices are derived based on the proportion of each asset in that pool as well as the mathematical function used. Orders through an AMM are executed automatically via a smart contract that will calculate the trade prices algorithmically, including any slippage from the trade execution.",
       "top_coins": [
         "uniswap",
@@ -1262,7 +1262,7 @@
     {
       "external_id": "layer-0-l0",
       "source": "coingecko",
-      "name": "Layer 0 (L0)",
+      "name": "Layer 0",
       "description": "Layer 0 is the foundational infrastructure upon which multiple Layer 1 blockchains can be built.",
       "top_coins": [
         "polkadot",
@@ -1299,7 +1299,7 @@
     {
       "external_id": "gaming",
       "source": "coingecko",
-      "name": "Gaming (GameFi)",
+      "name": "Gaming",
       "description": "GameFi combines blockchain technology, gaming, and decentralized finance (DeFi), allowing players to earn cryptocurrency and NFT rewards while also offering true ownership and control over in-game assets.",
       "top_coins": [
         "floki",
@@ -1324,7 +1324,7 @@
     {
       "external_id": "directed-acyclic-graph-dag",
       "source": "coingecko",
-      "name": "Directed Acyclic Graph (DAG)",
+      "name": "Directed Acyclic Graph",
       "description": "A DAG-based blockchain is a type of distributed ledger that uses a graph-like structure instead of a linear chain, allowing faster and parallel transaction processing by linking each transaction to multiple previous ones.",
       "top_coins": [
         "hedera-hashgraph",
@@ -1756,7 +1756,7 @@
     {
       "external_id": "identity",
       "source": "coingecko",
-      "name": "Decentralized Identifier (DID)",
+      "name": "Decentralized Identifier",
       "description": "Decentralized Identifier (DID) allows individuals or entities to create and manage their own identifiers independently of any centralized registry, identity provider, or intermediary. ",
       "top_coins": [
         "worldcoin-wld",
@@ -1830,7 +1830,7 @@
     {
       "external_id": "internet-of-things-iot",
       "source": "coingecko",
-      "name": "Internet of Things (IOT)",
+      "name": "Internet of Things",
       "description": "The Internet of Things (IoT) ecosystem consists of interconnected computing devices, with the ability to transfer data over a network without the need for any human interaction.",
       "top_coins": [
         "vechain",
@@ -2623,7 +2623,7 @@
     {
       "external_id": "four-meme-ecosystem",
       "source": "coingecko",
-      "name": "Four.meme Ecosystem (BNB Memes)",
+      "name": "Four.meme Ecosystem",
       "description": "Four.meme Ecosystem consists of tokens launched via four.meme on BNB Chain.",
       "top_coins": [
         "bianrensheng",
@@ -2765,7 +2765,7 @@
     {
       "external_id": "decentralized-science-desci",
       "source": "coingecko",
-      "name": "Decentralized Science (DeSci)",
+      "name": "Decentralized Science",
       "description": "Decentralized Science aims to leverage the blockchain and Web3 tools to create an open ecosystem to conduct, and disseminate scientific research. ",
       "top_coins": [
         "origintrail",
@@ -2914,7 +2914,7 @@
     {
       "external_id": "rollups-as-a-service-raas",
       "source": "coingecko",
-      "name": "Rollups-as-a-Service (RaaS)",
+      "name": "Rollups-as-a-Service",
       "description": "Rollups-as-a-Service (RaaS) streamlines the deployment and maintenance of custom application-specific rollups by offering a simplified interface including no-code deployment options.",
       "top_coins": [
         "ankr",
@@ -2947,7 +2947,7 @@
     {
       "external_id": "layer-3-l3",
       "source": "coingecko",
-      "name": "Layer 3 (L3)",
+      "name": "Layer 3",
       "description": "Layer 3 protocols are built on Layer 2, enabling hosting of application-specific decentralized applications while addressing issues such as scalability, interoperability and customization.",
       "top_coins": [
         "orbs",
@@ -3177,7 +3177,7 @@
     {
       "external_id": "capital-launchpad",
       "source": "coingecko",
-      "name": "Capital Launchpad (Kaito)",
+      "name": "Capital Launchpad",
       "description": "Capital Launchpad is a Web3 crowdfunding platform by Kaito that connects early-stage crypto projects with investors through a merit-based allocation system.",
       "top_coins": [
         "boundless",
