@@ -46,7 +46,7 @@ gem 'lol_dba'
 group :development, :test do
   gem 'debug'
   # gem 'bullet', '~>7.2.0' Not supported in Rails 8 yet
-  gem 'byebug', platforms: [:mri, :mingw, :x64_mingw]
+  gem 'byebug', platforms: [:mri, :windows]
   gem 'rubocop'
   gem 'rspec-rails'
   gem 'factory_bot_rails'
@@ -71,7 +71,7 @@ group :test do
   gem "selenium-webdriver"
 end
 
-gem 'tzinfo-data', platforms: [:mingw, :mswin, :x64_mingw, :jruby]
+gem 'tzinfo-data', platforms: [:windows, :jruby]
 
 gem "faraday-net_http_persistent", "~> 2.3.0"
 
@@ -82,7 +82,7 @@ gem "rbnacl"
 gem "jaro_winkler", "~> 1.6"
 gem "oj", "~> 3.16"
 gem "dartsass-rails", "~> 0.5.1"
-gem "pagy", "~> 43.2"
+gem "pagy", "~> 9.3"
 gem "haikunator", "~> 1.1"
 gem "sqids" # for obfuscating IDs
 gem "mini_magick", "~> 5.2"
