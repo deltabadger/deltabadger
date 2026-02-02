@@ -111,6 +111,47 @@ $formUnit: 2rem
     a
       padding-left: 0
       padding-right: 0
+  &__radios
+    display: flex
+    gap: 1.5rem
+  &__radio
+    display: flex
+    align-items: center
+    gap: 1rem
+    cursor: pointer
+    font-size: 2rem
+    color: var(--ash)
+    input[type="radio"]
+      appearance: none
+      width: 2.4rem
+      height: 2.4rem
+      border: .2rem solid var(--input-border)
+      border-radius: 50%
+      cursor: pointer
+      position: relative
+      flex-shrink: 0
+      &:checked
+        border-color: var(--link)
+        &::after
+          content: ''
+          position: absolute
+          top: 50%
+          left: 50%
+          transform: translate(-50%, -50%)
+          width: 1.2rem
+          height: 1.2rem
+          background: var(--link)
+          border-radius: 50%
+      &:focus
+        outline: none
+        border-color: var(--link)
+    span
+      user-select: none
+  &__gmail-fields
+    display: flex
+    flex-direction: column
+    gap: 2rem
+    padding-top: 1rem
 
 .db-unmask
   width: 3rem

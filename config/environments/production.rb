@@ -98,16 +98,14 @@ Rails.application.configure do
   app_host = app_root_url.gsub(/^https?:\/\//, '').gsub(/\/.*$/, '')
 
   config.action_mailer.default_url_options = { host: app_host, protocol: default_protocol }
-  config.action_mailer.perform_deliveries = ENV['SMTP_ADDRESS'].present?
+  config.action_mailer.asset_host = "#{default_protocol}://#{app_host}"
+  config.action_mailer.perform_deliveries = true
   config.action_mailer.delivery_method = :smtp
+  # SMTP settings are configured dynamically via SmtpSettings (see config/initializers/smtp_settings.rb)
+  # Users can configure SMTP via Settings UI (Gmail) or ENV variables (env_smtp)
   config.action_mailer.smtp_settings = {
-    address: ENV.fetch('SMTP_ADDRESS', 'localhost'),
-    authentication: :plain,
-    domain: ENV.fetch('SMTP_DOMAIN', 'localhost'),
-    port: ENV.fetch('SMTP_PORT', '25'),
-    enable_starttsl_auto: true,
-    user_name: ENV.fetch('SMTP_USER_NAME', ''),
-    password: ENV.fetch('SMTP_PASSWORD', '')
+    address: 'localhost',
+    port: 25
   }
   routes.default_url_options = {host: app_host, protocol: default_protocol}
 

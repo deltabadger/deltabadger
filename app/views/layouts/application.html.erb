@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="<%= I18n.locale %>" prefix="og: http://ogp.me/ns#">
+<html lang="<%= I18n.locale %>">
   <head>
     <meta charset="UTF-8">
     <meta content="width=device-width, initial-scale=1.0" name="viewport">
@@ -9,9 +9,6 @@
 
     <%= csrf_meta_tags %>
     <%= csp_meta_tag %>
-
-    <%= canonical_url_for_static_page if content_for?(:static_page) %>
-    <meta name="description" content="<%= content_for?(:meta_description) ? yield(:meta_description) : t('meta.descriptions.default') %>">
 
     <title><%= content_for?(:title) ? yield(:title) : t('meta.title') %></title>
 

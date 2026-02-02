@@ -139,6 +139,62 @@ class SettingsController < ApplicationController
     redirect_to settings_path if AppConfig.setup_sync_completed?
   end
 
+  def update_email_notifications
+    provider = params[:smtp_provider]
+
+    if provider.blank?
+      # Just disable, keep credentials for easy re-enable
+      AppConfig.smtp_provider = nil
+      flash.now[:notice] = t('settings.email_notifications.disabled')
+    elsif provider == 'gmail_smtp'
+      if params[:gmail_email].blank? || params[:gmail_password].blank?
+        # Clear provider and show Gmail setup form
+        AppConfig.smtp_provider = nil
+        @show_gmail_form = true
+      else
+        AppConfig.smtp_provider = 'gmail_smtp'
+        AppConfig.smtp_gmail_email = params[:gmail_email]
+        AppConfig.smtp_gmail_password = params[:gmail_password]
+        flash.now[:notice] = t('settings.email_notifications.updated')
+      end
+    elsif provider == 'env_smtp'
+      AppConfig.smtp_provider = 'env_smtp'
+      flash.now[:notice] = t('settings.email_notifications.updated')
+    end
+
+    render turbo_stream: [
+      turbo_stream.replace('email_notifications', partial: 'settings/widgets/email_notifications'),
+      turbo_stream.prepend('flash', partial: 'layouts/flash')
+    ]
+  end
+
+  def disconnect_email
+    AppConfig.clear_smtp_settings!
+    flash.now[:notice] = t('settings.email_notifications.disconnected')
+
+    render turbo_stream: [
+      turbo_stream.replace('email_notifications', partial: 'settings/widgets/email_notifications'),
+      turbo_stream.prepend('flash', partial: 'layouts/flash')
+    ]
+  end
+
+  def send_test_email
+    unless SmtpSettings.configured?
+      flash[:alert] = t('settings.email_notifications.not_configured')
+      return redirect_to settings_path
+    end
+
+    begin
+      TestMailer.test_email(current_user).deliver_now
+      flash[:notice] = t('settings.email_notifications.test_email_sent', email: current_user.email)
+    rescue => e
+      Rails.logger.error "Test email failed: #{e.message}"
+      flash[:alert] = t('settings.email_notifications.test_email_failed', error: e.message)
+    end
+
+    redirect_to settings_path
+  end
+
   private
 
   def validate_coingecko_api_key(api_key)

@@ -1,4 +1,6 @@
 fr:
+    meta:
+        title: 'Deltabadger'
     header:
         start_investing: 'Commencer à investir:'
         trading_options: 'Options pour les traders:'
@@ -116,11 +118,6 @@ fr:
             hint: 'Re-synchronisez les tickers d''échange et les données d''actifs de CoinGecko. Utilisez ceci si certains échanges ou actifs manquent.'
         coingecko_key:
             confirm_delete: 'Voulez-vous supprimer cette clé API CoinGecko ?'
-    social:
-        blog: 'Lire notre blog'
-        knowledge_base: 'Base de connaissances'
-        telegram: 'Rejoignez notre groupe Telegram'
-        twitter: 'Suivez-nous sur 𝕏'
     utils:
         assets: Actifs
         cash: Liquidités

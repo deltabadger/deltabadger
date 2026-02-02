@@ -1,11 +1,13 @@
 pt:
     mailer:
-        follow_us_on_x: 'Siga-nos no 𝕏'
-        we_reply_faster_on_telegram: 'Telegram'
         greeting: 'Olá campeão,'
         greeting_name: 'Olá %{name},'
         best_html: '<p>Cumprimentos,<br>Jan</p>'
         unsubscribe: 'Cancelar subscrição'
+    test_mailer:
+        test_email:
+            subject: "Email de teste Deltabadger"
+            body: "Este é um email de teste da sua instância Deltabadger. Se recebeu este email, as suas notificações por email estão funcionando."
     bot_alerts_mailer:
         end_of_funds:
             subject: "A sua conta %{exchange_name} está a ficar sem %{quote}"

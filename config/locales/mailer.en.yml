@@ -1,11 +1,13 @@
 en:
     mailer:
-        follow_us_on_x: 'Follow us on 𝕏'
-        we_reply_faster_on_telegram: 'Telegram'
         greeting: 'Hi legend,'
         greeting_name: 'Hi %{name},'
         best_html: '<p>Best,<br>Jan</p>'
         unsubscribe: 'Unsubscribe'
+    test_mailer:
+        test_email:
+            subject: "Deltabadger Test Email"
+            body: "This is a test email from your Deltabadger instance. If you received this, your email notifications are working."
     bot_alerts_mailer:
         end_of_funds:
             subject: "Your %{exchange_name} account is running out of %{quote}"

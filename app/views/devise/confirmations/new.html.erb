@@ -1,8 +1,3 @@
-<% content_for :title, page_title_for_static_page('confirm_email') %>
-<% content_for :meta_description, meta_description_for_static_page('confirm_email') %>
-
-<% content_for :meta_robots_content, 'noindex' %>
-
 <%= form_with model: resource, url: confirmation_path(resource_name), data: { controller: "form--html5-validations form--label-animations" } do |f| %>
 
   <%= render 'svg/40x30_logo' %>

@@ -1,11 +1,13 @@
 nl:
     mailer:
-        follow_us_on_x: 'Volg ons op 𝕏'
-        we_reply_faster_on_telegram: 'Telegram'
         greeting: 'Hoi kampioen,'
         greeting_name: 'Hoi %{name},'
         best_html: '<p>Groeten,<br>Jan</p>'
         unsubscribe: 'Uitschrijven'
+    test_mailer:
+        test_email:
+            subject: "Deltabadger Test-e-mail"
+            body: "Dit is een test-e-mail van uw Deltabadger-instantie. Als u deze hebt ontvangen, werken uw e-mailmeldingen correct."
     bot_alerts_mailer:
         end_of_funds:
             subject: "Uw %{exchange_name} account raakt door de %{quote} heen"

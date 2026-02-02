@@ -1,6 +1,5 @@
 class ApplicationController < ActionController::Base
   include SharedHelper
-  include MetaTagsHelper
 
   before_action :redirect_to_setup_if_needed
   before_action :set_no_cache, if: :user_signed_in?
