@@ -1,5 +1,5 @@
-<%= turbo_frame_tag "coingecko_key", class: "setting-form" do %>
-  <div class="tags">
+<%= turbo_frame_tag "coingecko_key" do %>
+  <div class="tags" style="margin-bottom: 2rem">
     <div class="tag">
       CoinGecko
       <%= link_to settings_confirm_destroy_coingecko_key_path, data: { turbo_frame: "modal" } do %>
@@ -8,5 +8,7 @@
     </div>
   </div>
   <p><%= t('settings.resync_assets.hint') %></p>
-  <%= button_to t('settings.resync_assets.button'), settings_resync_assets_path, method: :post, class: "button button--success" %>
+  <div class="setting-form">
+    <%= button_to t('settings.resync_assets.button'), settings_resync_assets_path, method: :post, class: "button button--success" %>
+  </div>
 <% end %>

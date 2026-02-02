@@ -1,4 +1,4 @@
-<html lang="<%= I18n.locale %>" class="<%= yield(:html_class) %>" prefix="og: http://ogp.me/ns#">
+<html lang="<%= I18n.locale %>" class="<%= yield(:html_class) %>">
   <head>
     <meta charset="UTF-8">
     <meta content="width=device-width, initial-scale=1.0" name="viewport">
@@ -20,8 +20,6 @@
 
     <%= stylesheet_link_tag 'application', media: 'all', "data-turbo-track": "reload" %>
     <%= javascript_include_tag "application", "data-turbo-track": "reload", defer: true %>
-
-    <%= render 'layouts/content_meta_tags' %>
 
     <%= csrf_meta_tags %>
     <%= csp_meta_tag %>

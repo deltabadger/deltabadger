@@ -79,6 +79,7 @@ Rails.application.configure do
   config.action_mailer.delivery_method = :letter_opener
   config.action_mailer.perform_deliveries = true
   config.action_mailer.default_url_options = { host: ENV.fetch('APP_ROOT_URL'), protocol: 'http' }
+  config.action_mailer.asset_host = "http://#{ENV.fetch('APP_ROOT_URL')}"
 
   routes.default_url_options = { host: ENV.fetch('APP_ROOT_URL'), protocol: 'http' }
 

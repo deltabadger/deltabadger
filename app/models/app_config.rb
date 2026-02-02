@@ -10,6 +10,11 @@ class AppConfig < ApplicationRecord
   SYNC_STATUS_IN_PROGRESS = 'in_progress'.freeze
   SYNC_STATUS_COMPLETED = 'completed'.freeze
 
+  # SMTP/Email notification settings
+  SMTP_PROVIDER = 'smtp_provider'.freeze         # 'gmail_smtp' or 'env_smtp'
+  SMTP_GMAIL_EMAIL = 'smtp_gmail_email'.freeze
+  SMTP_GMAIL_PASSWORD = 'smtp_gmail_password'.freeze
+
   def self.get(key)
     find_by(key: key)&.value
   end
@@ -70,5 +75,52 @@ class AppConfig < ApplicationRecord
 
   def self.setup_sync_needed?
     setup_sync_pending? || setup_sync_in_progress?
+  end
+
+  # SMTP configuration methods
+  def self.smtp_provider
+    get(SMTP_PROVIDER)
+  end
+
+  def self.smtp_provider=(value)
+    if value.nil? || value.blank?
+      delete(SMTP_PROVIDER)
+    else
+      set(SMTP_PROVIDER, value)
+    end
+  end
+
+  def self.smtp_gmail_email
+    get(SMTP_GMAIL_EMAIL)
+  end
+
+  def self.smtp_gmail_email=(value)
+    set(SMTP_GMAIL_EMAIL, value)
+  end
+
+  def self.smtp_gmail_password
+    get(SMTP_GMAIL_PASSWORD)
+  end
+
+  def self.smtp_gmail_password=(value)
+    set(SMTP_GMAIL_PASSWORD, value)
+  end
+
+  def self.smtp_configured?
+    smtp_provider.present?
+  end
+
+  def self.smtp_env_available?
+    ENV['SMTP_ADDRESS'].present?
+  end
+
+  def self.smtp_env_provider_name
+    ENV.fetch('SMTP_PROVIDER_NAME', ENV['SMTP_ADDRESS'])
+  end
+
+  def self.clear_smtp_settings!
+    delete(SMTP_PROVIDER)
+    delete(SMTP_GMAIL_EMAIL)
+    delete(SMTP_GMAIL_PASSWORD)
   end
 end

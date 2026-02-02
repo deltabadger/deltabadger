@@ -25,3 +25,8 @@ SeedDataLoader.new.load_all
 #   user.confirmed_at = user.confirmed_at || Time.current
 #   user.admin = true
 # end
+
+# Set default SMTP provider to env_smtp if SMTP_ADDRESS is configured
+if AppConfig.smtp_env_available? && AppConfig.smtp_provider.blank?
+  AppConfig.smtp_provider = 'env_smtp'
+end

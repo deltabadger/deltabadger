@@ -1,6 +1,3 @@
-<% content_for :title, page_title_for_static_page('sign_in') %>
-<% content_for :meta_description, meta_description_for_static_page('sign_in') %>
-
 <%= form_with model: resource, url: session_path(resource_name), method: :post, data: { controller: "form--html5-validations form--label-animations" } do |f| %>
 
   <%= render 'svg/40x30_logo' %>

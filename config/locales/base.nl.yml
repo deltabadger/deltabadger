@@ -1,4 +1,6 @@
 nl:
+    meta:
+        title: 'Deltabadger'
     header:
         start_investing: 'Start investeren:'
         trading_options: 'Opties voor traders:'
@@ -115,11 +117,6 @@ nl:
             hint: 'Synchroniseer exchange tickers en assetgegevens opnieuw van CoinGecko. Gebruik dit als sommige exchanges of assets ontbreken.'
         coingecko_key:
             confirm_delete: 'Wilt u deze CoinGecko API-sleutel verwijderen?'
-    social:
-        blog: 'Lees onze blog'
-        knowledge_base: Kennisbank
-        telegram: 'Word lid van onze Telegram-groep'
-        twitter: 'Volg ons op 𝕏'
     utils:
         pnl: 'W/V'
         assets: Activa
