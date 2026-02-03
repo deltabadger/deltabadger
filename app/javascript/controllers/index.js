@@ -49,6 +49,9 @@ application.register("form--checkbox-enables", Form__CheckboxEnablesController)
 import Form__EmailNotificationsController from "./form/email_notifications_controller"
 application.register("form--email-notifications", Form__EmailNotificationsController)
 
+import Form__MarketDataController from "./form/market_data_controller"
+application.register("form--market-data", Form__MarketDataController)
+
 import Form__Html5ValidationsController from "./form/html5_validations_controller"
 application.register("form--html5-validations", Form__Html5ValidationsController)
 

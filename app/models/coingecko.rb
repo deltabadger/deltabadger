@@ -16,19 +16,6 @@ class Coingecko
     Result::Success.new(price)
   end
 
-  def get_market_cap(coin_id:, currency: 'usd')
-    return Result::Failure.new('CoinGecko API key not configured') if @api_key.blank?
-
-    currency = currency.downcase
-    market_cap = Rails.cache.fetch("#{coin_id}_market_cap_in_#{currency}", expires_in: 6.hours) do
-      result = client.coin_price_by_ids(coin_ids: [coin_id], vs_currencies: [currency], include_market_cap: true)
-      return result if result.failure?
-
-      Utilities::Hash.dig_or_raise(result.data, coin_id, "#{currency}_market_cap").to_i
-    end
-    Result::Success.new(market_cap)
-  end
-
   def get_exchange_tickers_by_id(exchange_id:)
     return Result::Failure.new('CoinGecko API key not configured') if @api_key.blank?
 

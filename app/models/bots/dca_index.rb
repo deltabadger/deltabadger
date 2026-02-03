@@ -27,7 +27,7 @@ class Bots::DcaIndex < Bot
   validate :validate_unchangeable_interval, on: :update
   validate :validate_unchangeable_exchange, on: :update
   validate :validate_unchangeable_index, on: :update
-  validate :validate_coingecko_configured, on: :start
+  validate :validate_market_data_configured, on: :start
 
   before_save :set_tickers, if: :will_save_change_to_exchange_id?
 
@@ -298,11 +298,11 @@ class Bots::DcaIndex < Bot
     end
   end
 
-  def validate_coingecko_configured
-    return if AppConfig.coingecko_configured?
+  def validate_market_data_configured
+    return if MarketData.configured?
 
-    errors.add(:base, :coingecko_required,
-               message: I18n.t('errors.bots.coingecko_required'))
+    errors.add(:base, :market_data_required,
+               message: I18n.t('errors.bots.market_data_required'))
   end
 
   def set_tickers

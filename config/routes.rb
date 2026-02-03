@@ -46,6 +46,8 @@ Rails.application.routes.draw do
       get :confirm_destroy_coingecko_key
       delete :destroy_coingecko_key
       post :update_coingecko_key
+      patch :update_market_data
+      delete :disconnect_market_data
       get :syncing
       patch :update_registration
       patch :update_email_notifications

@@ -56,13 +56,6 @@ module Bots::DcaDualAsset::MarketcapAllocatable
       end
     end
 
-    # If CoinGecko is configured, try to fetch live market cap directly
-    if AppConfig.coingecko_configured?
-      result = asset.get_market_cap
-      return result.data.to_f if result.success?
-      Rails.logger.warn("Failed to get market cap from CoinGecko for #{asset.symbol}: #{result.errors.join(', ')}")
-    end
-
     # Fall back to static market cap from database
     asset.market_cap&.to_f
   end
@@ -82,8 +75,8 @@ module Bots::DcaDualAsset::MarketcapAllocatable
       end
     end
 
-    # If CoinGecko is configured, try to get price from there
-    if AppConfig.coingecko_configured?
+    # If a market data provider is configured, try to get price from there
+    if MarketData.configured?
       result = asset.get_price(currency: 'usd')
       return result if result.success?
     end
@@ -91,8 +84,6 @@ module Bots::DcaDualAsset::MarketcapAllocatable
     # No price available
     Result::Failure.new("No price data available for #{asset.symbol}")
   end
-
-  private
 
   def initialize_marketcap_allocatable_settings
     self.marketcap_allocated ||= false

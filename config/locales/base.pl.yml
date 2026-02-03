@@ -124,6 +124,14 @@ pl:
             hint: 'Ponownie zsynchronizuj tickery giełd i dane aktywów z CoinGecko. Użyj tego, jeśli brakuje Ci niektórych giełd lub aktywów.'
         coingecko_key:
             confirm_delete: 'Czy chcesz usunąć ten klucz API CoinGecko?'
+        market_data:
+            none: 'Brak'
+            disabled: 'Synchronizacja danych rynkowych wyłączona.'
+            updated: 'Ustawienia danych rynkowych zaktualizowane.'
+            coingecko_configured: 'Połączono z CoinGecko w celu pobierania danych rynkowych na żywo.'
+            deltabadger_configured: 'Połączono z Deltabadger.com w celu pobierania danych rynkowych na żywo.'
+            disconnect: 'Odłącz'
+            disconnected: 'Dostawca danych rynkowych został odłączony.'
     utils:
         pnl: 'Z/S'
         assets: Aktywa

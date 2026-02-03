@@ -30,3 +30,8 @@ SeedDataLoader.new.load_all
 if AppConfig.smtp_env_available? && AppConfig.smtp_provider.blank?
   AppConfig.smtp_provider = 'env_smtp'
 end
+
+# Set default market data provider to deltabadger if MARKET_DATA_URL is configured
+if AppConfig.market_data_env_available? && AppConfig.market_data_provider.blank?
+  AppConfig.market_data_provider = MarketDataSettings::PROVIDER_DELTABADGER
+end

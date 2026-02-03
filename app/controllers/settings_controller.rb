@@ -116,7 +116,8 @@ class SettingsController < ApplicationController
 
   def destroy_coingecko_key
     AppConfig.coingecko_api_key = ''
-    render partial: 'settings/widgets/resync_assets'
+    AppConfig.market_data_provider = nil
+    render partial: 'settings/widgets/market_data'
   end
 
   def update_coingecko_key
@@ -124,14 +125,53 @@ class SettingsController < ApplicationController
       flash.now[:alert] = t('setup.invalid_coingecko_api_key')
       return render turbo_stream: [
         turbo_stream.prepend('flash', partial: 'layouts/flash'),
-        turbo_stream.replace('coingecko_key', partial: 'settings/widgets/resync_assets_form')
+        turbo_stream.replace('market_data_settings', partial: 'settings/widgets/market_data_coingecko_form')
       ], status: :unprocessable_entity
     end
 
     AppConfig.coingecko_api_key = params[:coingecko_api_key]
+    AppConfig.market_data_provider = MarketDataSettings::PROVIDER_COINGECKO
     AppConfig.setup_sync_status = AppConfig::SYNC_STATUS_PENDING
     Setup::SeedAndSyncJob.perform_later(source: 'settings', redirect_to: settings_path)
     redirect_to settings_syncing_path
+  end
+
+  def update_market_data
+    provider = params[:market_data_provider]
+
+    if provider.blank?
+      AppConfig.market_data_provider = nil
+      flash.now[:notice] = t('settings.market_data.disabled')
+    elsif provider == MarketDataSettings::PROVIDER_COINGECKO
+      if params[:coingecko_api_key].blank?
+        # No key provided - show CoinGecko setup form
+        AppConfig.market_data_provider = nil
+        @show_coingecko_form = true
+      else
+        AppConfig.market_data_provider = MarketDataSettings::PROVIDER_COINGECKO
+        AppConfig.coingecko_api_key = params[:coingecko_api_key]
+        flash.now[:notice] = t('settings.market_data.updated')
+      end
+    elsif provider == MarketDataSettings::PROVIDER_DELTABADGER
+      AppConfig.market_data_provider = MarketDataSettings::PROVIDER_DELTABADGER
+      flash.now[:notice] = t('settings.market_data.updated')
+    end
+
+    render turbo_stream: [
+      turbo_stream.replace('market_data_settings', partial: 'settings/widgets/market_data'),
+      turbo_stream.prepend('flash', partial: 'layouts/flash')
+    ]
+  end
+
+  def disconnect_market_data
+    AppConfig.clear_market_data_settings!
+    AppConfig.coingecko_api_key = ''
+    flash.now[:notice] = t('settings.market_data.disconnected')
+
+    render turbo_stream: [
+      turbo_stream.replace('market_data_settings', partial: 'settings/widgets/market_data'),
+      turbo_stream.prepend('flash', partial: 'layouts/flash')
+    ]
   end
 
   def syncing

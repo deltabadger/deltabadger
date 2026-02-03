@@ -22,6 +22,14 @@ class Setup::SeedAndSyncJob < ApplicationJob
   end
 
   def sync_exchanges
+    if MarketDataSettings.deltabadger?
+      sync_exchanges_from_deltabadger
+    else
+      sync_exchanges_from_coingecko
+    end
+  end
+
+  def sync_exchanges_from_coingecko
     exchanges = Exchange.available.to_a
     exchanges.each_with_index do |exchange, index|
       # Skip async jobs during setup - we fetch asset data synchronously at the end
@@ -33,7 +41,23 @@ class Setup::SeedAndSyncJob < ApplicationJob
     end
   end
 
+  def sync_exchanges_from_deltabadger
+    Exchange.available.each do |exchange|
+      MarketData.sync_tickers!(exchange)
+    rescue StandardError => e
+      Rails.logger.warn "[Setup] Error syncing #{exchange.name}: #{e.message}"
+    end
+  end
+
   def sync_assets_with_coingecko
+    if MarketDataSettings.deltabadger?
+      sync_assets_from_deltabadger
+    else
+      sync_assets_from_coingecko
+    end
+  end
+
+  def sync_assets_from_coingecko
     # Wait for rate limit to reset after exchange sync
     sleep(65)
 
@@ -51,6 +75,18 @@ class Setup::SeedAndSyncJob < ApplicationJob
 
     Asset.where(category: 'Cryptocurrency').find_each do |asset|
       job.send(:sync_asset, asset, result.data.find { |coin| coin['id'] == asset.external_id })
+    end
+  end
+
+  def sync_assets_from_deltabadger
+    result = MarketData.sync_assets!
+    if result.failure?
+      Rails.logger.warn "[Setup] Failed to sync assets from market data service: #{result.errors.to_sentence}"
+    end
+
+    result = MarketData.sync_indices!
+    if result.failure?
+      Rails.logger.warn "[Setup] Failed to sync indices from market data service: #{result.errors.to_sentence}"
     end
   end
 

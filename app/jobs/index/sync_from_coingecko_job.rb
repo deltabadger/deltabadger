@@ -2,7 +2,7 @@ class Index::SyncFromCoingeckoJob < ApplicationJob
   queue_as :low_priority
 
   def perform
-    return unless AppConfig.coingecko_configured?
+    return unless MarketData.configured?
 
     @coingecko = Coingecko.new(api_key: AppConfig.coingecko_api_key)
     result = @coingecko.get_categories_with_market_data

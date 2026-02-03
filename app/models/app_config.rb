@@ -6,6 +6,11 @@ class AppConfig < ApplicationRecord
   COINGECKO_API_KEY = 'coingecko_api_key'.freeze
   SETUP_SYNC_STATUS = 'setup_sync_status'.freeze
 
+  # Market data provider settings
+  MARKET_DATA_PROVIDER = 'market_data_provider'.freeze   # 'coingecko' or 'deltabadger'
+  MARKET_DATA_URL = 'market_data_url'.freeze
+  MARKET_DATA_TOKEN = 'market_data_token'.freeze
+
   SYNC_STATUS_PENDING = 'pending'.freeze
   SYNC_STATUS_IN_PROGRESS = 'in_progress'.freeze
   SYNC_STATUS_COMPLETED = 'completed'.freeze
@@ -134,5 +139,54 @@ class AppConfig < ApplicationRecord
     delete(SMTP_PROVIDER)
     delete(SMTP_GMAIL_EMAIL)
     delete(SMTP_GMAIL_PASSWORD)
+  end
+
+  # Market data provider configuration methods
+  def self.market_data_provider
+    get(MARKET_DATA_PROVIDER)
+  end
+
+  def self.market_data_provider=(value)
+    if value.nil? || value.blank?
+      delete(MARKET_DATA_PROVIDER)
+    else
+      set(MARKET_DATA_PROVIDER, value)
+    end
+  end
+
+  def self.market_data_url
+    record = find_by(key: MARKET_DATA_URL)
+    return record.value if record
+
+    ENV.fetch('MARKET_DATA_URL', '')
+  end
+
+  def self.market_data_url=(value)
+    set(MARKET_DATA_URL, value)
+  end
+
+  def self.market_data_token
+    record = find_by(key: MARKET_DATA_TOKEN)
+    return record.value if record
+
+    ENV.fetch('MARKET_DATA_TOKEN', '')
+  end
+
+  def self.market_data_token=(value)
+    set(MARKET_DATA_TOKEN, value)
+  end
+
+  def self.market_data_configured?
+    MarketDataSettings.configured?
+  end
+
+  def self.market_data_env_available?
+    ENV['MARKET_DATA_URL'].present?
+  end
+
+  def self.clear_market_data_settings!
+    delete(MARKET_DATA_PROVIDER)
+    delete(MARKET_DATA_URL)
+    delete(MARKET_DATA_TOKEN)
   end
 end
