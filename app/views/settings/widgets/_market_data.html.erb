@@ -64,12 +64,7 @@
         </div>
       <% end %>
 
-      <% if is_deltabadger_configured %>
-        <p style="text-align: center; margin-top: 3rem"><%= t('settings.market_data.deltabadger_configured', provider_name: AppConfig.market_data_env_provider_name) %></p>
-        <div class="setting-form" data-form--market-data-target="deltabadgerButtons">
-          <%= button_to t('settings.resync_assets.button'), settings_resync_assets_path, method: :post, class: "button button--outline", data: { turbo_frame: "_top" } %>
-        </div>
-      <% end %>
+      <%# API provider: no additional UI needed — green ON indicator is sufficient %>
     <% end %>
   </div>
 <% end %>
