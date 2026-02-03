@@ -2,6 +2,7 @@
 
 class Users::RegistrationsController < Devise::RegistrationsController
   before_action :configure_permitted_parameters, only: [:create]
+  before_action :check_registration_open, only: [:new, :create]
 
   def new
     set_new_instance_variables
@@ -49,6 +50,12 @@ class Users::RegistrationsController < Devise::RegistrationsController
   end
 
   private
+
+  def check_registration_open
+    return if AppConfig.registration_open?
+
+    redirect_to new_user_session_path
+  end
 
   def sign_up_params
     params.require(:user).permit(:name, :email, :password)

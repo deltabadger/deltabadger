@@ -1,0 +1,25 @@
+<%= turbo_frame_tag "registration_settings" do %>
+  <div class="widget widget--settings">
+    <h4 class="modal__title"><%= t('settings.index.registration_section') %></h4>
+    <%= form_with url: settings_update_registration_path, method: :patch, data: {
+      controller: "form--submit",
+      turbo_frame: "registration_settings"
+    } do |f| %>
+      <div class="toggle-group">
+        <div class="toggle">
+          <%= check_box_tag :registration_open, '1', AppConfig.registration_open?, data: { action: "change->form--submit#submit" } %>
+          <div class="toggle__style"></div>
+        </div>
+        <div class="toggle-group__info">
+          <div class="toggle-group__info__label">
+            <% if AppConfig.registration_open? %>
+              <%= t('settings.registration.open') %>
+            <% else %>
+              <%= t('settings.registration.closed') %>
+            <% end %>
+          </div>
+        </div>
+      </div>
+    <% end %>
+  </div>
+<% end %>

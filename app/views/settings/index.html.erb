@@ -21,6 +21,10 @@
 
     <%= render partial: 'settings/widgets/two_fa', locals: { two_fa_button_text: @two_fa_button_text } %>
 
+    <% if current_user.admin? %>
+      <%= render partial: 'settings/widgets/registration' %>
+    <% end %>
+
     <%= render partial: 'settings/widgets/email_notifications' %>
 
     

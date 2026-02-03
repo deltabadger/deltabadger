@@ -115,6 +115,11 @@ en:
             two_factor_section: 'Second Factor Authentication'
             resync_assets_section: 'Market Data'
             email_notifications_section: 'Email Notifications'
+            registration_section: 'Registration'
+        registration:
+            open: 'New account registration is open.'
+            closed: 'New account registration is closed.'
+            updated: 'Registration setting updated.'
         resync_assets:
             button: 'Synchronize'
             hint: 'Re-sync exchange tickers and asset data from CoinGecko. Use this if some exchanges or assets are missing.'
