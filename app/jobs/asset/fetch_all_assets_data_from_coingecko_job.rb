@@ -2,7 +2,7 @@ class Asset::FetchAllAssetsDataFromCoingeckoJob < ApplicationJob
   queue_as :low_priority
 
   def perform
-    return unless AppConfig.coingecko_configured?
+    return unless MarketData.configured?
 
     mark_sync_in_progress
 

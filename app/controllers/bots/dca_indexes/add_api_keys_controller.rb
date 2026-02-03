@@ -1,6 +1,6 @@
 class Bots::DcaIndexes::AddApiKeysController < ApplicationController
   before_action :authenticate_user!
-  before_action :require_coingecko_configured
+  before_action :require_market_data_configured
 
   def new
     @bot = current_user.bots.dca_index.new(session[:bot_config])
@@ -39,8 +39,8 @@ class Bots::DcaIndexes::AddApiKeysController < ApplicationController
 
   private
 
-  def require_coingecko_configured
-    return if AppConfig.coingecko_configured?
+  def require_market_data_configured
+    return if MarketData.configured?
 
     redirect_to new_bots_dca_indexes_setup_coingecko_path
   end

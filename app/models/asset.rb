@@ -40,7 +40,7 @@ class Asset < ApplicationRecord
   }.freeze
 
   def sync_data_with_coingecko(prefetched_data: nil)
-    return Result::Success.new(self) unless AppConfig.coingecko_configured?
+    return Result::Success.new(self) unless MarketData.configured?
     return Result::Success.new(self) if COINGECKO_BLACKLISTED_IDS.include?(external_id)
 
     data = prefetched_data || begin
@@ -63,6 +63,8 @@ class Asset < ApplicationRecord
   end
 
   def infer_color_from_image
+    return if color.present? && MarketDataSettings.deltabadger?
+
     if COLOR_OVERRIDES.key?(external_id)
       update!(color: COLOR_OVERRIDES[external_id])
       return
@@ -81,15 +83,6 @@ class Asset < ApplicationRecord
     return Result::Failure.new('Asset is not a cryptocurrency') if category != 'Cryptocurrency'
 
     result = coingecko.get_price(coin_id: external_id, currency: currency)
-    return result if result.failure?
-
-    Result::Success.new(result.data)
-  end
-
-  def get_market_cap(currency: 'usd')
-    return Result::Failure.new('Asset is not a cryptocurrency') if category != 'Cryptocurrency'
-
-    result = coingecko.get_market_cap(coin_id: external_id, currency: currency)
     return result if result.failure?
 
     Result::Success.new(result.data)

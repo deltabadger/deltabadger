@@ -122,6 +122,14 @@ es:
             hint: 'Resincroniza los tickers de exchange y los datos de activos de CoinGecko. Úsalo si faltan algunos exchanges o activos.'
         coingecko_key:
             confirm_delete: '¿Quieres eliminar esta clave API de CoinGecko?'
+        market_data:
+            none: 'Ninguno'
+            disabled: 'Sincronización de datos de mercado desactivada.'
+            updated: 'Configuración de datos de mercado actualizada.'
+            coingecko_configured: 'Conectado a CoinGecko para datos de mercado en tiempo real.'
+            deltabadger_configured: 'Conectado a Deltabadger.com para datos de mercado en tiempo real.'
+            disconnect: 'Desconectar'
+            disconnected: 'Proveedor de datos de mercado desconectado.'
     utils:
         pnl: 'G/P'
         assets: Activos

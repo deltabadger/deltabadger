@@ -26,9 +26,14 @@ class SeedDataLoader
 
     Rails.logger.info "Loading assets from #{file_path}..."
     fixture_data = JSON.parse(File.read(file_path))
-    assets = fixture_data['data']
+    load_assets_from_hash(fixture_data)
+  end
 
-    Rails.logger.info "Found #{assets.size} assets in fixture"
+  def load_assets_from_hash(json_hash)
+    assets = json_hash['data']
+    return if assets.blank?
+
+    Rails.logger.info "Found #{assets.size} assets"
 
     # Bulk upsert for performance
     Asset.upsert_all(
@@ -49,9 +54,14 @@ class SeedDataLoader
 
     Rails.logger.info "Loading indices from #{file_path}..."
     fixture_data = JSON.parse(File.read(file_path))
-    indices = fixture_data['data']
+    load_indices_from_hash(fixture_data)
+  end
 
-    Rails.logger.info "Found #{indices.size} indices in fixture"
+  def load_indices_from_hash(json_hash)
+    indices = json_hash['data']
+    return if indices.blank?
+
+    Rails.logger.info "Found #{indices.size} indices"
 
     # Bulk upsert for performance
     Index.upsert_all(
@@ -72,9 +82,14 @@ class SeedDataLoader
 
     Rails.logger.info "Loading tickers for #{exchange.name} from #{file_path}..."
     fixture_data = JSON.parse(File.read(file_path))
-    tickers = fixture_data['data']
+    load_tickers_from_hash(exchange, fixture_data)
+  end
 
-    Rails.logger.info "Found #{tickers.size} tickers in fixture"
+  def load_tickers_from_hash(exchange, json_hash)
+    tickers = json_hash['data']
+    return if tickers.blank?
+
+    Rails.logger.info "Found #{tickers.size} tickers for #{exchange.name}"
 
     # Create tickers one by one (can't use upsert_all due to associations)
     created_count = 0
@@ -127,15 +142,18 @@ class SeedDataLoader
     end
 
     Rails.logger.info "Loading exchange assets for #{exchange.name}..."
-
-    # Get unique asset external_ids from ticker fixtures
     fixture_data = JSON.parse(File.read(file_path))
-    tickers = fixture_data['data']
+    load_exchange_assets_from_hash(exchange, fixture_data)
+  end
+
+  def load_exchange_assets_from_hash(exchange, json_hash)
+    tickers = json_hash['data']
+    return if tickers.blank?
 
     external_ids = tickers.flat_map { |t| [t['base_external_id'], t['quote_external_id']] }.uniq
     asset_ids = Asset.where(external_id: external_ids).pluck(:id)
 
-    Rails.logger.info "Found #{asset_ids.size} unique assets from ticker fixtures"
+    Rails.logger.info "Found #{asset_ids.size} unique assets for #{exchange.name}"
 
     # Create ExchangeAsset records
     created_count = 0

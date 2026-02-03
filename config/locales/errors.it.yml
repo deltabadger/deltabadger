@@ -47,6 +47,8 @@ it:
             exchange_change_while_open_orders: "Annulla tutte le ordini aperti di questo bot su %{exchange_name} prima di cambiare l'exchange"
             destroy_success: "Bot %{bot_label} eliminato con successo"
             api_key_success: "Chiavi API salvate con successo"
+            coingecko_required: "La chiave API di CoinGecko è necessaria per i bot indice"
+            market_data_required: "Un fornitore di dati di mercato deve essere configurato per i bot indice. Vai alle Impostazioni per connettere CoinGecko o Deltabadger.com."
         messages:
             accepted: 'deve essere accettato'
             already_confirmed: 'è già stato confermato, prova ad accedere.'

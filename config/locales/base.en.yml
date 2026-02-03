@@ -125,6 +125,14 @@ en:
             hint: 'Re-sync exchange tickers and asset data from CoinGecko. Use this if some exchanges or assets are missing.'
         coingecko_key:
             confirm_delete: 'Do you want to remove this CoinGecko API key?'
+        market_data:
+            none: 'None'
+            disabled: 'Market data sync disabled.'
+            updated: 'Market data settings updated.'
+            coingecko_configured: 'Connected to CoinGecko for live market data.'
+            deltabadger_configured: 'Connected to Deltabadger.com for live market data.'
+            disconnect: 'Disconnect'
+            disconnected: 'Market data provider disconnected.'
         email_notifications:
             none: 'None'
             gmail_email: 'Gmail address'

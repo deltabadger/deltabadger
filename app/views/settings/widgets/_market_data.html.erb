@@ -1,0 +1,76 @@
+<%= turbo_frame_tag "market_data_settings" do %>
+  <div class="widget widget--settings">
+    <% is_coingecko_configured = MarketDataSettings.coingecko? %>
+    <% is_deltabadger_configured = MarketDataSettings.deltabadger? %>
+    <% is_configured = MarketData.configured? %>
+    <h4 class="modal__title">
+      <%= t('settings.index.resync_assets_section') %>:
+      <% if is_configured %>
+        <span class="text-success">ON</span>
+      <% else %>
+        <span>OFF</span>
+      <% end %>
+    </h4>
+
+    <%= form_with url: settings_update_market_data_path, method: :patch, data: {
+      controller: "form--market-data",
+      turbo_frame: "market_data_settings"
+    } do |f| %>
+      <% show_coingecko_form = @show_coingecko_form || false %>
+      <div class="form__radios" style="display: flex; justify-content: center;">
+        <label class="form__radio">
+          <%= radio_button_tag :market_data_provider, '', !is_configured && !show_coingecko_form, data: { action: "form--market-data#selectNone" } %>
+          <span><%= t('settings.market_data.none') %></span>
+        </label>
+
+        <label class="form__radio">
+          <%= radio_button_tag :market_data_provider, MarketDataSettings::PROVIDER_COINGECKO, is_coingecko_configured || show_coingecko_form, data: { action: "form--market-data#selectCoingecko" } %>
+          <span>CoinGecko</span>
+        </label>
+
+        <% if MarketDataSettings.deltabadger_available? %>
+          <label class="form__radio">
+            <%= radio_button_tag :market_data_provider, MarketDataSettings::PROVIDER_DELTABADGER, is_deltabadger_configured, data: { action: "form--market-data#selectDeltabadger" } %>
+            <span>Deltabadger.com</span>
+          </label>
+        <% end %>
+      </div>
+
+      <% if is_coingecko_configured %>
+        <%# CoinGecko configured: show status and actions %>
+        <p style="text-align: center; margin-top: 3rem"><%= t('settings.market_data.coingecko_configured') %></p>
+        <div class="setting-form">
+          <%= button_to t('settings.resync_assets.button'), settings_resync_assets_path, method: :post, class: "button button--outline", data: { turbo_frame: "_top" } %>
+          <%= link_to t('settings.market_data.disconnect'), settings_disconnect_market_data_path, data: { turbo_method: :delete, turbo_frame: "market_data_settings" }, class: "button button--danger", style: "margin-top: 0" %>
+        </div>
+      <% elsif AppConfig.coingecko_api_key.present? %>
+        <%# CoinGecko key exists but not active provider - include hidden field for auto-submit %>
+        <%= hidden_field_tag :coingecko_api_key, AppConfig.coingecko_api_key %>
+      <% else %>
+        <%# CoinGecko setup form (no key yet) %>
+        <div class="setting-form" data-form--market-data-target="coingeckoFields" style="display: <%= show_coingecko_form ? 'flex' : 'none' %>;">
+          <div class="form__row form__row--input">
+            <%= tag.input class: "form__input",
+                          type: "text",
+                          name: "coingecko_api_key",
+                          id: "coingecko_api_key",
+                          placeholder: " " %>
+            <%= label_tag :coingecko_api_key, t('setup.coingecko_api_key'), class: "form__label" %>
+          </div>
+          <p class="form__info"><%= t('setup.coingecko_api_key_hint_html') %></p>
+        </div>
+        <div class="setting-form" data-form--market-data-target="coingeckoButtons" style="display: <%= show_coingecko_form ? 'flex' : 'none' %>; margin-top: 2rem;">
+          <%= f.submit t('setup.submit'), class: "button button--success", style: "margin-top: 0" %>
+        </div>
+      <% end %>
+
+      <%# Deltabadger.com status %>
+      <% if is_deltabadger_configured %>
+        <p style="text-align: center; margin-top: 3rem"><%= t('settings.market_data.deltabadger_configured') %></p>
+        <div class="setting-form" data-form--market-data-target="deltabadgerButtons">
+          <%= button_to t('settings.resync_assets.button'), settings_resync_assets_path, method: :post, class: "button button--outline", data: { turbo_frame: "_top" } %>
+        </div>
+      <% end %>
+    <% end %>
+  </div>
+<% end %>

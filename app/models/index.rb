@@ -2,6 +2,7 @@ class Index < ApplicationRecord
   include Index::ExchangeAvailability
 
   SOURCE_COINGECKO = 'coingecko'.freeze
+  SOURCE_DELTABADGER = 'deltabadger'.freeze
   SOURCE_INTERNAL = 'internal'.freeze
   TOP_COINS_EXTERNAL_ID = 'top-coins'.freeze
 
@@ -36,6 +37,7 @@ class Index < ApplicationRecord
   validates :name, presence: true
 
   scope :coingecko, -> { where(source: SOURCE_COINGECKO) }
+  scope :deltabadger, -> { where(source: SOURCE_DELTABADGER) }
   scope :with_description, -> { where.not(description: [nil, '']) }
 
   # Filter to indices available on a specific exchange

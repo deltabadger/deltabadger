@@ -1,6 +1,6 @@
 class Bots::DcaIndexes::ConfirmSettingsController < ApplicationController
   before_action :authenticate_user!
-  before_action :require_coingecko_configured
+  before_action :require_market_data_configured
   before_action :require_bot_config
 
   def new
@@ -31,8 +31,8 @@ class Bots::DcaIndexes::ConfirmSettingsController < ApplicationController
 
   private
 
-  def require_coingecko_configured
-    return if AppConfig.coingecko_configured?
+  def require_market_data_configured
+    return if MarketData.configured?
 
     redirect_to new_bots_dca_indexes_setup_coingecko_path
   end

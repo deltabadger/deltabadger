@@ -2,8 +2,8 @@ class Bots::DcaIndexes::SetupCoingeckosController < ApplicationController
   before_action :authenticate_user!
 
   def new
-    # Skip to pick index if CoinGecko is already configured and synced
-    if AppConfig.coingecko_configured? && AppConfig.setup_sync_completed?
+    # Skip to pick index if market data is already configured and synced
+    if MarketData.configured? && AppConfig.setup_sync_completed?
       session[:bot_config] ||= {}
       redirect_to new_bots_dca_indexes_pick_index_path
     end

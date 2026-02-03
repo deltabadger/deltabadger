@@ -122,6 +122,14 @@ nl:
             hint: 'Synchroniseer exchange tickers en assetgegevens opnieuw van CoinGecko. Gebruik dit als sommige exchanges of assets ontbreken.'
         coingecko_key:
             confirm_delete: 'Wilt u deze CoinGecko API-sleutel verwijderen?'
+        market_data:
+            none: 'Geen'
+            disabled: 'Marktgegevens synchronisatie uitgeschakeld.'
+            updated: 'Marktgegevens instellingen bijgewerkt.'
+            coingecko_configured: 'Verbonden met CoinGecko voor live marktgegevens.'
+            deltabadger_configured: 'Verbonden met Deltabadger.com voor live marktgegevens.'
+            disconnect: 'Ontkoppelen'
+            disconnected: 'Marktgegevensprovider ontkoppeld.'
     utils:
         pnl: 'W/V'
         assets: Activa
