@@ -19,9 +19,11 @@ class AppConfig < ApplicationRecord
   REGISTRATION_OPEN = 'registration_open'.freeze
 
   # SMTP/Email notification settings
-  SMTP_PROVIDER = 'smtp_provider'.freeze         # 'gmail_smtp' or 'env_smtp'
-  SMTP_GMAIL_EMAIL = 'smtp_gmail_email'.freeze
-  SMTP_GMAIL_PASSWORD = 'smtp_gmail_password'.freeze
+  SMTP_PROVIDER = 'smtp_provider'.freeze         # 'custom_smtp' or 'env_smtp'
+  SMTP_USERNAME = 'smtp_username'.freeze
+  SMTP_PASSWORD = 'smtp_password'.freeze
+  SMTP_HOST = 'smtp_host'.freeze
+  SMTP_PORT = 'smtp_port'.freeze
 
   def self.get(key)
     find_by(key: key)&.value
@@ -107,20 +109,36 @@ class AppConfig < ApplicationRecord
     end
   end
 
-  def self.smtp_gmail_email
-    get(SMTP_GMAIL_EMAIL)
+  def self.smtp_username
+    get(SMTP_USERNAME)
   end
 
-  def self.smtp_gmail_email=(value)
-    set(SMTP_GMAIL_EMAIL, value)
+  def self.smtp_username=(value)
+    set(SMTP_USERNAME, value)
   end
 
-  def self.smtp_gmail_password
-    get(SMTP_GMAIL_PASSWORD)
+  def self.smtp_password
+    get(SMTP_PASSWORD)
   end
 
-  def self.smtp_gmail_password=(value)
-    set(SMTP_GMAIL_PASSWORD, value)
+  def self.smtp_password=(value)
+    set(SMTP_PASSWORD, value)
+  end
+
+  def self.smtp_host
+    get(SMTP_HOST)
+  end
+
+  def self.smtp_host=(value)
+    set(SMTP_HOST, value)
+  end
+
+  def self.smtp_port
+    get(SMTP_PORT)
+  end
+
+  def self.smtp_port=(value)
+    set(SMTP_PORT, value)
   end
 
   def self.smtp_configured?
@@ -135,10 +153,18 @@ class AppConfig < ApplicationRecord
     ENV.fetch('SMTP_PROVIDER_NAME', ENV['SMTP_ADDRESS'])
   end
 
+  def self.notifications_sender
+    ENV.fetch('NOTIFICATIONS_SENDER', nil) ||
+      smtp_username.presence ||
+      'noreply@localhost'
+  end
+
   def self.clear_smtp_settings!
     delete(SMTP_PROVIDER)
-    delete(SMTP_GMAIL_EMAIL)
-    delete(SMTP_GMAIL_PASSWORD)
+    delete(SMTP_USERNAME)
+    delete(SMTP_PASSWORD)
+    delete(SMTP_HOST)
+    delete(SMTP_PORT)
   end
 
   # Market data provider configuration methods
@@ -182,6 +208,10 @@ class AppConfig < ApplicationRecord
 
   def self.market_data_env_available?
     ENV['MARKET_DATA_URL'].present?
+  end
+
+  def self.market_data_env_provider_name
+    ENV.fetch('MARKET_DATA_PROVIDER_NAME', ENV['MARKET_DATA_URL'])
   end
 
   def self.clear_market_data_settings!

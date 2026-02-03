@@ -37,7 +37,7 @@ fr:
             destroy_success: "Bot %{bot_label} supprimé avec succès"
             api_key_success: "Clés API enregistrées avec succès"
             coingecko_required: "Une clé API CoinGecko est requise pour les bots d'indice"
-            market_data_required: "Un fournisseur de données de marché doit être configuré pour les bots d'indice. Allez dans les Paramètres pour connecter CoinGecko ou Deltabadger.com."
+            market_data_required: "Un fournisseur de données de marché doit être configuré pour les bots d'indice. Allez dans les Paramètres pour en connecter un."
         bitcoin_address_not_updated: 'L''adresse Bitcoin n''a pas pu être mise à jour'
         format: '%{attribute} %{message}'
         frequency_limit: 'Limite de fréquence dépassée'

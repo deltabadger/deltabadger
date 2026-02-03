@@ -48,7 +48,7 @@ en:
             destroy_success: "Bot %{bot_label} deleted successfully"
             api_key_success: "API keys saved successfully"
             coingecko_required: "CoinGecko API key is required for Index bots"
-            market_data_required: "A market data provider must be configured for Index bots. Go to Settings to connect CoinGecko or Deltabadger.com."
+            market_data_required: "A market data provider must be configured for Index bots. Go to Settings to connect one."
             index_change_after_transactions: "Index type cannot be changed after orders have been placed"
         messages:
             accepted: 'must be accepted'

@@ -31,7 +31,7 @@
         <% if MarketDataSettings.deltabadger_available? %>
           <label class="form__radio">
             <%= radio_button_tag :market_data_provider, MarketDataSettings::PROVIDER_DELTABADGER, is_deltabadger_configured, data: { action: "form--market-data#selectDeltabadger" } %>
-            <span>Deltabadger.com</span>
+            <span><%= AppConfig.market_data_env_provider_name %></span>
           </label>
         <% end %>
       </div>
@@ -48,7 +48,7 @@
         <%= hidden_field_tag :coingecko_api_key, AppConfig.coingecko_api_key %>
       <% else %>
         <%# CoinGecko setup form (no key yet) %>
-        <div class="setting-form" data-form--market-data-target="coingeckoFields" style="display: <%= show_coingecko_form ? 'flex' : 'none' %>;">
+        <div class="setting-form" data-form--market-data-target="coingeckoFields" style="margin: 4rem auto 2rem; display: <%= show_coingecko_form ? 'flex' : 'none' %>;">
           <div class="form__row form__row--input">
             <%= tag.input class: "form__input",
                           type: "text",
@@ -64,9 +64,8 @@
         </div>
       <% end %>
 
-      <%# Deltabadger.com status %>
       <% if is_deltabadger_configured %>
-        <p style="text-align: center; margin-top: 3rem"><%= t('settings.market_data.deltabadger_configured') %></p>
+        <p style="text-align: center; margin-top: 3rem"><%= t('settings.market_data.deltabadger_configured', provider_name: AppConfig.market_data_env_provider_name) %></p>
         <div class="setting-form" data-form--market-data-target="deltabadgerButtons">
           <%= button_to t('settings.resync_assets.button'), settings_resync_assets_path, method: :post, class: "button button--outline", data: { turbo_frame: "_top" } %>
         </div>

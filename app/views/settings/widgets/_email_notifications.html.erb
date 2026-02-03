@@ -1,32 +1,32 @@
 <%= turbo_frame_tag "email_notifications" do %>
   <div class="widget widget--settings">
-    <% is_gmail_configured = AppConfig.smtp_provider == 'gmail_smtp' %>
+    <% is_custom_configured = AppConfig.smtp_provider == 'custom_smtp' %>
     <% is_env_configured = AppConfig.smtp_provider == 'env_smtp' %>
     <% is_configured = AppConfig.smtp_configured? %>
     <h4 class="modal__title">
-      <%= t('settings.index.email_notifications_section') %>: 
+      <%= t('settings.index.email_notifications_section') %>:
       <% if is_configured %>
         <span class="text-success">ON</span>
       <% else %>
         <span>OFF</span>
       <% end %>
     </h4>
-    <% has_gmail_credentials = AppConfig.smtp_gmail_email.present? && AppConfig.smtp_gmail_password.present? %>
+    <% has_smtp_credentials = AppConfig.smtp_username.present? && AppConfig.smtp_password.present? %>
 
     <%= form_with url: settings_update_email_notifications_path, method: :patch, data: {
       controller: "form--email-notifications",
       turbo_frame: "email_notifications"
     } do |f| %>
-      <% show_gmail_form = @show_gmail_form || false %>
+      <% show_smtp_form = @show_smtp_form || false %>
       <div class="form__radios" style="display: flex; justify-content: center;">
         <label class="form__radio">
-          <%= radio_button_tag :smtp_provider, '', !is_configured && !show_gmail_form, data: { action: "form--email-notifications#selectNone" } %>
+          <%= radio_button_tag :smtp_provider, '', !is_configured && !show_smtp_form, data: { action: "form--email-notifications#selectNone" } %>
           <span><%= t('settings.email_notifications.none') %></span>
         </label>
 
         <label class="form__radio">
-          <%= radio_button_tag :smtp_provider, 'gmail_smtp', is_gmail_configured || show_gmail_form, data: { action: "form--email-notifications#selectGmail" } %>
-          <span>Gmail</span>
+          <%= radio_button_tag :smtp_provider, 'custom_smtp', is_custom_configured || show_smtp_form, data: { action: "form--email-notifications#selectCustom" } %>
+          <span>Custom SMTP</span>
         </label>
 
         <% if AppConfig.smtp_env_available? %>
@@ -37,39 +37,60 @@
         <% end %>
       </div>
 
-      <% if is_gmail_configured %>
-        <%# Gmail configured: show status message %>
-        <p style="text-align: center; margin-top: 3rem"><%= t('settings.email_notifications.gmail_configured_html', email: AppConfig.smtp_gmail_email) %></p>
+      <% if is_custom_configured %>
+        <%# Custom SMTP configured: show status message %>
+        <% smtp_host = AppConfig.smtp_host.presence || 'smtp.gmail.com' %>
+        <p style="text-align: center; margin-top: 3rem"><%= t('settings.email_notifications.smtp_configured_html', host: smtp_host) %></p>
         <div class="setting-form">
           <%= link_to t('settings.email_notifications.send_test'), settings_send_test_email_path, data: { turbo_method: :post, turbo_frame: "_top" }, class: "button button--outline" %>
           <%= link_to t('settings.email_notifications.disconnect'), settings_disconnect_email_path, data: { turbo_method: :delete, turbo_frame: "email_notifications" }, class: "button button--danger", style: "margin-top: 0" %>
         </div>
-      <% elsif has_gmail_credentials %>
-        <%# Credentials exist but Gmail not active - include hidden fields for auto-submit %>
-        <%= hidden_field_tag :gmail_email, AppConfig.smtp_gmail_email %>
-        <%= hidden_field_tag :gmail_password, AppConfig.smtp_gmail_password %>
+      <% elsif has_smtp_credentials %>
+        <%# Credentials exist but custom SMTP not active - include hidden fields for auto-submit %>
+        <%= hidden_field_tag :smtp_username, AppConfig.smtp_username %>
+        <%= hidden_field_tag :smtp_password, AppConfig.smtp_password %>
+        <%= hidden_field_tag :smtp_host, AppConfig.smtp_host %>
+        <%= hidden_field_tag :smtp_port, AppConfig.smtp_port %>
       <% else %>
-        <%# Gmail setup form (no credentials yet) %>
-        <div class="setting-form" data-form--email-notifications-target="gmailFields" style="display: <%= show_gmail_form ? 'flex' : 'none' %>;">
+        <%# Custom SMTP setup form (no credentials yet) %>
+        <div class="setting-form" data-form--email-notifications-target="smtpFields" style="margin: 4rem auto; display: <%= show_smtp_form ? 'flex' : 'none' %>;">
           <div class="form__row form__row--input">
             <%= tag.input class: "form__input",
-                          type: "email",
-                          name: "gmail_email",
-                          id: "gmail_email",
+                          type: "text",
+                          name: "smtp_host",
+                          id: "smtp_host",
+                          value: "smtp.gmail.com",
                           placeholder: " " %>
-            <%= label_tag :gmail_email, t('settings.email_notifications.gmail_email'), class: "form__label" %>
+            <%= label_tag :smtp_host, t('settings.email_notifications.smtp_host'), class: "form__label" %>
+          </div>
+          <div class="form__row form__row--input">
+            <%= tag.input class: "form__input",
+                          type: "number",
+                          name: "smtp_port",
+                          id: "smtp_port",
+                          value: "587",
+                          placeholder: " " %>
+            <%= label_tag :smtp_port, t('settings.email_notifications.smtp_port'), class: "form__label" %>
+          </div>
+          <div class="form__row form__row--input">
+            <%= tag.input class: "form__input",
+                          type: "text",
+                          name: "smtp_username",
+                          id: "smtp_username",
+                          placeholder: " " %>
+            <%= label_tag :smtp_username, t('settings.email_notifications.smtp_username'), class: "form__label" %>
           </div>
           <div class="form__row form__row--input">
             <%= tag.input class: "form__input",
                           type: "password",
-                          name: "gmail_password",
-                          id: "gmail_password",
+                          name: "smtp_password",
+                          id: "smtp_password",
                           placeholder: " " %>
-            <%= label_tag :gmail_password, t('settings.email_notifications.gmail_password'), class: "form__label" %>
+            <%= label_tag :smtp_password, t('settings.email_notifications.smtp_password'), class: "form__label" %>
           </div>
-          <p class="form__info"><%= t('settings.email_notifications.gmail_hint_html') %></p>
+          <p class="form__info"><%= t('settings.email_notifications.smtp_hint_html') %></p>
         </div>
-        <div class="setting-form" data-form--email-notifications-target="gmailButtons" style="display: <%= show_gmail_form ? 'flex' : 'none' %>; margin-top: 2rem;">
+        <div class="setting-form" data-form--email-notifications-target="smtpButtons" style="display: <%= show_smtp_form ? 'flex' : 'none' %>; margin-top: 2rem;">
           <%= f.submit t('settings.email_notifications.set'), class: "button button--success", style: "margin-top: 0" %>
         </div>
       <% end %>
