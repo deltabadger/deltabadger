@@ -4,7 +4,7 @@
     <span class="db-middot">●</span>
   <% end %>
 
-  <% if devise_mapping.registerable? && controller_name != 'registrations' %>
+  <% if devise_mapping.registerable? && controller_name != 'registrations' && AppConfig.registration_open? %>
     <%= link_to t('links.sign_up'), new_registration_path(resource_name), class: "button button--link" %>
     <span class="db-middot">●</span>
   <% end %>

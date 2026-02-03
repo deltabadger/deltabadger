@@ -112,6 +112,11 @@ nl:
             free_plan_reset_date_html: 'Uw limiet wordt gereset op <b>%{end_time}</b>.'
             title: Instellingen
             two_factor_section: 'Second Factor Authentication'
+            registration_section: 'Registratie'
+        registration:
+            open: 'Registratie van nieuwe accounts is open.'
+            closed: 'Registratie van nieuwe accounts is gesloten.'
+            updated: 'Registratie-instelling bijgewerkt.'
         resync_assets:
             button: 'Synchroniseren'
             hint: 'Synchroniseer exchange tickers en assetgegevens opnieuw van CoinGecko. Gebruik dit als sommige exchanges of assets ontbreken.'

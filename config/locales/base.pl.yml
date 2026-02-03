@@ -114,6 +114,11 @@ pl:
             free_plan_reset_date_html: 'Twój limit zostanie zresetowany w dniu <b> %{end_time} </b>.'
             title: Ustawienia
             two_factor_section: 'Uwierzytelnianie drugim czynnikiem (2FA)'
+            registration_section: 'Rejestracja'
+        registration:
+            open: 'Rejestracja nowych kont jest otwarta.'
+            closed: 'Rejestracja nowych kont jest zamknięta.'
+            updated: 'Ustawienie rejestracji zaktualizowane.'
         resync_assets:
             button: 'Synchronizuj'
             hint: 'Ponownie zsynchronizuj tickery giełd i dane aktywów z CoinGecko. Użyj tego, jeśli brakuje Ci niektórych giełd lub aktywów.'

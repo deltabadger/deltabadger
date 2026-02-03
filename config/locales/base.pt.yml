@@ -111,6 +111,11 @@ pt:
             password_section: Palavra-passe
             title: Definições
             two_factor_section: 'Autenticação do Segundo Fator'
+            registration_section: 'Registro'
+        registration:
+            open: 'O registro de novas contas está aberto.'
+            closed: 'O registro de novas contas está fechado.'
+            updated: 'Configuração de registro atualizada.'
         resync_assets:
             button: 'Sincronizar'
             hint: 'Ressincronize os tickers de câmbio e dados de ativos do CoinGecko. Utilize isto se faltar alguma bolsa ou ativos.'

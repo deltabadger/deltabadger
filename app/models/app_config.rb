@@ -10,6 +10,9 @@ class AppConfig < ApplicationRecord
   SYNC_STATUS_IN_PROGRESS = 'in_progress'.freeze
   SYNC_STATUS_COMPLETED = 'completed'.freeze
 
+  # Registration
+  REGISTRATION_OPEN = 'registration_open'.freeze
+
   # SMTP/Email notification settings
   SMTP_PROVIDER = 'smtp_provider'.freeze         # 'gmail_smtp' or 'env_smtp'
   SMTP_GMAIL_EMAIL = 'smtp_gmail_email'.freeze
@@ -75,6 +78,15 @@ class AppConfig < ApplicationRecord
 
   def self.setup_sync_needed?
     setup_sync_pending? || setup_sync_in_progress?
+  end
+
+  # Registration configuration
+  def self.registration_open?
+    get(REGISTRATION_OPEN) == 'true'
+  end
+
+  def self.registration_open=(value)
+    set(REGISTRATION_OPEN, value.to_s)
   end
 
   # SMTP configuration methods

@@ -112,6 +112,11 @@ it:
             free_plan_reset_date_html: 'Il tuo limite si resetta il <b>%{end_time}</b>.'
             title: Impostazioni
             two_factor_section: 'Autenticazione a Due Fattori'
+            registration_section: 'Registrazione'
+        registration:
+            open: 'La registrazione di nuovi account è aperta.'
+            closed: 'La registrazione di nuovi account è chiusa.'
+            updated: 'Impostazione di registrazione aggiornata.'
         resync_assets:
             button: 'Sincronizza'
             hint: 'Risincronizza i ticker degli exchange e i dati degli asset da CoinGecko. Usalo se mancano alcuni exchange o asset.'

@@ -139,6 +139,18 @@ class SettingsController < ApplicationController
     redirect_to settings_path if AppConfig.setup_sync_completed?
   end
 
+  def update_registration
+    return head(:forbidden) unless current_user.admin?
+
+    AppConfig.registration_open = params[:registration_open] == '1'
+    flash.now[:notice] = t('settings.registration.updated')
+
+    render turbo_stream: [
+      turbo_stream.replace('registration_settings', partial: 'settings/widgets/registration'),
+      turbo_stream.prepend('flash', partial: 'layouts/flash')
+    ]
+  end
+
   def update_email_notifications
     provider = params[:smtp_provider]
 

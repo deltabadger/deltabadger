@@ -113,6 +113,11 @@ fr:
             free_plan_reset_date_html: 'Votre limite sera réinitialisée le <b>%{end_time}</b>.'
             title: 'Paramètres'
             two_factor_section: 'Authentification à deux facteurs'
+            registration_section: 'Inscription'
+        registration:
+            open: "L'inscription de nouveaux comptes est ouverte."
+            closed: "L'inscription de nouveaux comptes est fermée."
+            updated: "Paramètre d'inscription mis à jour."
         resync_assets:
             button: 'Synchroniser'
             hint: 'Re-synchronisez les tickers d''échange et les données d''actifs de CoinGecko. Utilisez ceci si certains échanges ou actifs manquent.'
