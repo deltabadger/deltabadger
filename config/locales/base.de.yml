@@ -127,7 +127,7 @@ de:
             disabled: 'Marktdaten-Synchronisierung deaktiviert.'
             updated: 'Marktdaten-Einstellungen aktualisiert.'
             coingecko_configured: 'Mit CoinGecko für Live-Marktdaten verbunden.'
-            deltabadger_configured: 'Mit Deltabadger.com für Live-Marktdaten verbunden.'
+            deltabadger_configured: 'Mit %{provider_name} für Live-Marktdaten verbunden.'
             disconnect: 'Trennen'
             disconnected: 'Marktdatenanbieter getrennt.'
     utils:

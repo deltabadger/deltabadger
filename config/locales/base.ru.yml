@@ -130,7 +130,7 @@ ru:
             disabled: 'Синхронизация рыночных данных отключена.'
             updated: 'Настройки рыночных данных обновлены.'
             coingecko_configured: 'Подключено к CoinGecko для получения рыночных данных в реальном времени.'
-            deltabadger_configured: 'Подключено к Deltabadger.com для получения рыночных данных в реальном времени.'
+            deltabadger_configured: 'Подключено к %{provider_name} для получения рыночных данных в реальном времени.'
             disconnect: 'Отключить'
             disconnected: 'Поставщик рыночных данных отключен.'
     utils:

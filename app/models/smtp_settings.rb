@@ -1,19 +1,12 @@
 # frozen_string_literal: true
 
 class SmtpSettings
-  GMAIL_SMTP = {
-    address: 'smtp.gmail.com',
-    port: 587,
-    authentication: :plain,
-    enable_starttls_auto: true
-  }.freeze
-
   def self.current
     provider = AppConfig.smtp_provider
 
     case provider
-    when 'gmail_smtp'
-      gmail_settings
+    when 'custom_smtp'
+      custom_settings
     when 'env_smtp'
       env_settings
     else
@@ -21,17 +14,22 @@ class SmtpSettings
     end
   end
 
-  def self.gmail_settings
-    email = AppConfig.smtp_gmail_email
-    password = AppConfig.smtp_gmail_password
+  def self.custom_settings
+    username = AppConfig.smtp_username
+    password = AppConfig.smtp_password
+    host = AppConfig.smtp_host.presence || 'smtp.gmail.com'
+    port = (AppConfig.smtp_port.presence || '587').to_i
 
-    return nil if email.blank? || password.blank?
+    return nil if username.blank? || password.blank?
 
-    GMAIL_SMTP.merge(
-      user_name: email,
+    {
+      address: host,
+      port: port,
+      user_name: username,
       password: password,
-      domain: 'gmail.com'
-    )
+      authentication: :plain,
+      enable_starttls_auto: true
+    }
   end
 
   def self.env_settings

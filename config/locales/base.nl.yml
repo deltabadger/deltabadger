@@ -127,7 +127,7 @@ nl:
             disabled: 'Marktgegevens synchronisatie uitgeschakeld.'
             updated: 'Marktgegevens instellingen bijgewerkt.'
             coingecko_configured: 'Verbonden met CoinGecko voor live marktgegevens.'
-            deltabadger_configured: 'Verbonden met Deltabadger.com voor live marktgegevens.'
+            deltabadger_configured: 'Verbonden met %{provider_name} voor live marktgegevens.'
             disconnect: 'Ontkoppelen'
             disconnected: 'Marktgegevensprovider ontkoppeld.'
     utils:

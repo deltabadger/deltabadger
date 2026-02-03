@@ -1,5 +1,5 @@
 class ApplicationMailer < ActionMailer::Base
-  default from: ENV.fetch('NOTIFICATIONS_SENDER', 'noreply@localhost')
+  default from: -> { AppConfig.notifications_sender }
   layout 'mailers/transactional'
 
   helper LocalesHelper
