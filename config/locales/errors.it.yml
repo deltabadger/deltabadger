@@ -48,7 +48,7 @@ it:
             destroy_success: "Bot %{bot_label} eliminato con successo"
             api_key_success: "Chiavi API salvate con successo"
             coingecko_required: "La chiave API di CoinGecko è necessaria per i bot indice"
-            market_data_required: "Un fornitore di dati di mercato deve essere configurato per i bot indice. Vai alle Impostazioni per connettere CoinGecko o Deltabadger.com."
+            market_data_required: "Un fornitore di dati di mercato deve essere configurato per i bot indice. Vai alle Impostazioni per connettere uno."
         messages:
             accepted: 'deve essere accettato'
             already_confirmed: 'è già stato confermato, prova ad accedere.'

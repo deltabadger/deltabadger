@@ -48,7 +48,7 @@ nl:
             destroy_success: "Bot %{bot_label} succesvol verwijderd"
             api_key_success: "API-sleutels succesvol opgeslagen"
             coingecko_required: "CoinGecko API-sleutel is vereist voor Index bots"
-            market_data_required: "Er moet een marktgegevensprovider worden geconfigureerd voor Index bots. Ga naar Instellingen om CoinGecko of Deltabadger.com te verbinden."
+            market_data_required: "Er moet een marktgegevensprovider worden geconfigureerd voor Index bots. Ga naar Instellingen om er een te verbinden."
         messages:
             accepted: 'moet worden geaccepteerd'
             already_confirmed: 'was reeds bevestigd, probeer u aan te melden.'

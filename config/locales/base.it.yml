@@ -127,7 +127,7 @@ it:
             disabled: 'Sincronizzazione dei dati di mercato disabilitata.'
             updated: 'Impostazioni dei dati di mercato aggiornate.'
             coingecko_configured: 'Connesso a CoinGecko per i dati di mercato in tempo reale.'
-            deltabadger_configured: 'Connesso a Deltabadger.com per i dati di mercato in tempo reale.'
+            deltabadger_configured: 'Connesso a %{provider_name} per i dati di mercato in tempo reale.'
             disconnect: 'Disconnetti'
             disconnected: 'Fornitore di dati di mercato disconnesso.'
     utils:

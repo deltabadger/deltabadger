@@ -198,15 +198,17 @@ class SettingsController < ApplicationController
       # Just disable, keep credentials for easy re-enable
       AppConfig.smtp_provider = nil
       flash.now[:notice] = t('settings.email_notifications.disabled')
-    elsif provider == 'gmail_smtp'
-      if params[:gmail_email].blank? || params[:gmail_password].blank?
-        # Clear provider and show Gmail setup form
+    elsif provider == 'custom_smtp'
+      if params[:smtp_username].blank? || params[:smtp_password].blank?
+        # Clear provider and show SMTP setup form
         AppConfig.smtp_provider = nil
-        @show_gmail_form = true
+        @show_smtp_form = true
       else
-        AppConfig.smtp_provider = 'gmail_smtp'
-        AppConfig.smtp_gmail_email = params[:gmail_email]
-        AppConfig.smtp_gmail_password = params[:gmail_password]
+        AppConfig.smtp_provider = 'custom_smtp'
+        AppConfig.smtp_host = params[:smtp_host]
+        AppConfig.smtp_port = params[:smtp_port]
+        AppConfig.smtp_username = params[:smtp_username]
+        AppConfig.smtp_password = params[:smtp_password]
         flash.now[:notice] = t('settings.email_notifications.updated')
       end
     elsif provider == 'env_smtp'
