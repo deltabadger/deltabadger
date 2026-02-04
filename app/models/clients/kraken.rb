@@ -12,7 +12,7 @@ class Clients::Kraken < Client
 
   def self.connection
     @connection ||= Faraday.new(url: URL, **OPTIONS) do |config|
-      config.proxy = ENV['PROXY_URL'] if ENV['PROXY_URL'].present?
+      config.proxy = ENV['PROXY_KRAKEN'] if ENV['PROXY_KRAKEN'].present?
       config.request :json
       config.response :json
       config.response :raise_error

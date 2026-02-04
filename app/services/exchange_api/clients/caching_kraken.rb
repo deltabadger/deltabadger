@@ -6,7 +6,9 @@ module ExchangeApi
         cache_key = url + "/#{opts}"
         return Rails.cache.read(cache_key) if Rails.cache.exist?(cache_key)
 
-        http = Curl.get(url, opts)
+        http = Curl::Easy.new(url)
+        http.proxy_url = ENV['PROXY_KRAKEN'] if ENV['PROXY_KRAKEN'].present?
+        http.http_get
         parsed_response = parse_response(http)
         Rails.cache.write(cache_key, parsed_response, expires_in: ENV['DEFAULT_MARKET_CACHING_TIME'])
         parsed_response
