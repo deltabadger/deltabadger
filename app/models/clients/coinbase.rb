@@ -11,7 +11,7 @@ class Clients::Coinbase < Client
 
   def self.connection
     @connection ||= Faraday.new(url: URL, **OPTIONS) do |config|
-      config.proxy = ENV['PROXY_URL'] if ENV['PROXY_URL'].present?
+      config.proxy = ENV['PROXY_COINBASE'] if ENV['PROXY_COINBASE'].present?
       config.request :json
       config.response :json
       config.response :raise_error
