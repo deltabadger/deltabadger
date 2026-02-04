@@ -48,7 +48,6 @@ group :development, :test do
   # gem 'bullet', '~>7.2.0' Not supported in Rails 8 yet
   gem 'byebug', platforms: [:mri, :windows]
   gem 'rubocop'
-  gem 'rspec-rails'
   gem 'factory_bot_rails'
   gem 'faker'
 end
@@ -58,9 +57,7 @@ group :development do
   gem 'letter_opener'
   gem 'listen', '>= 3.0.5', '< 4.0'
   gem 'spring'
-  gem 'spring-commands-rspec'
   gem 'spring-watcher-listen', '~> 2.1.0'
-  gem 'guard-rspec', require: false
   gem 'guard-rubocop'
   gem 'web-console'
   gem "rack-mini-profiler", "~> 4.0"
@@ -69,6 +66,7 @@ end
 group :test do
   gem 'capybara'
   gem "selenium-webdriver"
+  gem 'mocha'
 end
 
 gem 'tzinfo-data', platforms: [:windows, :jruby]
