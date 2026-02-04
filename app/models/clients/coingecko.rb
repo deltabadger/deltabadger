@@ -16,7 +16,6 @@ class Clients::Coingecko < Client
 
   def connection
     @connection ||= Faraday.new(url: URL, **OPTIONS) do |config|
-      config.proxy = ENV['PROXY_URL'] if ENV['PROXY_URL'].present?
       config.headers = {
         # 'x-cg-pro-api-key': api_key
         'x-cg-demo-api-key': api_key
@@ -34,7 +33,6 @@ class Clients::Coingecko < Client
 
   def self.connection
     @connection ||= Faraday.new(url: URL, **OPTIONS) do |config|
-      config.proxy = ENV['PROXY_URL'] if ENV['PROXY_URL'].present?
       config.headers = {
         # 'x-cg-pro-api-key': api_key
         'x-cg-demo-api-key': api_key
