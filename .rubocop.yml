@@ -59,3 +59,19 @@ Layout/LineLength:
 Lint/MissingSuper:
   Exclude:
     - 'app/services/**/*'
+
+# These auto-corrections break functionality:
+# - FormatStringToken: %{...} tokens are used in gsub, not sprintf
+# - MemoizedInstanceVariableName: @allocation0 conflicts with store_accessor
+# - HashTransformValues: original uses Hash[] from map.collect on key-value pairs
+Style/FormatStringToken:
+  Exclude:
+    - 'app/helpers/bot_helper.rb'
+
+Naming/MemoizedInstanceVariableName:
+  Exclude:
+    - 'app/models/bots/dca_dual_asset/marketcap_allocatable.rb'
+
+Style/HashTransformValues:
+  Exclude:
+    - 'app/services/exchange_api/markets/kraken/market.rb'
