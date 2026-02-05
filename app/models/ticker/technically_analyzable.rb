@@ -7,7 +7,7 @@ module Ticker::TechnicallyAnalyzable
     rsi_value = Rails.cache.fetch(cache_key, expires_in: expires_in) do
       # Although RSI only "needs" 15 candles the calculation actually accounts for previous gains/losses.
       # A slice of 10 * period candles gives a good ratio between accuracy and performance.
-      since = Time.now.utc - (10 * period * timeframe + 2 * timeframe)
+      since = Time.now.utc - ((10 * period * timeframe) + (2 * timeframe))
       result = get_candles(
         start_at: since,
         timeframe: timeframe
@@ -26,9 +26,7 @@ module Ticker::TechnicallyAnalyzable
         period: period
       )
       return result if result.failure?
-      unless rsi.valid?
-        return Result::Failure.new("Failed to calculate #{timeframe.inspect} RSI for #{ticker} (period: #{period})")
-      end
+      return Result::Failure.new("Failed to calculate #{timeframe.inspect} RSI for #{ticker} (period: #{period})") unless rsi.valid?
 
       rsi.call.round(2)
     end
@@ -54,7 +52,7 @@ module Ticker::TechnicallyAnalyzable
     ma_values = Rails.cache.fetch(cache_key, expires_in: expires_in) do
       # Although EMA only "needs" 21 candles the calculation actually accounts for previous gains/losses.
       # A slice of 10 * period candles gives a good ratio between accuracy and performance.
-      since = Time.now.utc - (10 * period * timeframe + 2 * timeframe)
+      since = Time.now.utc - ((10 * period * timeframe) + (2 * timeframe))
       result = get_candles(
         start_at: since,
         timeframe: timeframe

@@ -86,10 +86,10 @@ class CheckExceededFrequency < BaseService
 
   def duration_in_hours(interval)
     {
-      'hour': 1,
-      'day': 24,
-      'week': 24 * 7,
-      'month': 24 * 30
+      hour: 1,
+      day: 24,
+      week: 24 * 7,
+      month: 24 * 30
     }[interval.to_sym]
   end
 end

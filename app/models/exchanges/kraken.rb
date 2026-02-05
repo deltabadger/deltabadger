@@ -389,7 +389,7 @@ class Exchanges::Kraken < Exchange
     @asset_from_symbol[symbol]
   end
 
-  def get_ticker_information(ticker) # rubocop:disable Metrics/MethodLength
+  def get_ticker_information(ticker)
     cache_key = "exchange_#{id}_ticker_information_#{ticker.ticker}"
     Rails.cache.fetch(cache_key, expires_in: 1.seconds) do
       result = client.get_ticker_information(pair: ticker.ticker)

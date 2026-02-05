@@ -1,9 +1,3 @@
-inherit_from: .rubocop_todo.yml
-
-inherit_mode:
-  merge:
-    - Exclude
-
 AllCops:
   NewCops: enable
   SuggestExtensions: false
@@ -20,58 +14,91 @@ AllCops:
     - 'tmp/**/*'
     - 'node_modules/**/*'
 
-Metrics/BlockLength:
-  Exclude:
-    - 'Rakefile'
-    - '**/*.rake'
-    - 'spec/**/*.rb'
-
-Style/Documentation:
-  Enabled: false
-
-Style/ClassAndModuleChildren:
-  Enabled: false
-
-Style/FrozenStringLiteralComment:
-  Enabled: false
-
-Style/NegatedIf:
-  Enabled: false
-
-Naming/AccessorMethodName:
-  Enabled: false
-
-Metrics/ParameterLists:
-  Enabled: false
-
+# Metrics — disabled, not worth enforcing on existing codebase
 Metrics/AbcSize:
   Enabled: false
-
+Metrics/BlockLength:
+  Enabled: false
 Metrics/ClassLength:
-  Max: 150
-
+  Enabled: false
+Metrics/CyclomaticComplexity:
+  Enabled: false
 Metrics/MethodLength:
-  Max: 40
+  Enabled: false
+Metrics/ModuleLength:
+  Enabled: false
+Metrics/ParameterLists:
+  Enabled: false
+Metrics/PerceivedComplexity:
+  Enabled: false
 
+# Layout
 Layout/LineLength:
-  Max: 130
+  Max: 150
+  AllowedPatterns:
+    - '^  #'
 
-Lint/MissingSuper:
-  Exclude:
-    - 'app/services/**/*'
+# Style — disabled
+Style/Documentation:
+  Enabled: false
+Style/ClassAndModuleChildren:
+  Enabled: false
+Style/FrozenStringLiteralComment:
+  Enabled: false
+Style/NegatedIf:
+  Enabled: false
+Style/EmptyElse:
+  Enabled: false
 
-# These auto-corrections break functionality:
-# - FormatStringToken: %{...} tokens are used in gsub, not sprintf
-# - MemoizedInstanceVariableName: @allocation0 conflicts with store_accessor
-# - HashTransformValues: original uses Hash[] from map.collect on key-value pairs
+# Style — auto-corrections that break functionality
 Style/FormatStringToken:
   Exclude:
     - 'app/helpers/bot_helper.rb'
+Style/HashTransformValues:
+  Exclude:
+    - 'app/services/exchange_api/markets/kraken/market.rb'
 
+# Naming
+Naming/AccessorMethodName:
+  Enabled: false
 Naming/MemoizedInstanceVariableName:
   Exclude:
     - 'app/models/bots/dca_dual_asset/marketcap_allocatable.rb'
 
-Style/HashTransformValues:
+# Style — disabled
+Style/FetchEnvVar:
+  Enabled: false
+Style/SuperArguments:
+  Enabled: false
+Style/ArgumentsForwarding:
+  Enabled: false
+Style/CollectionQuerying:
+  Enabled: false
+Style/ComparableBetween:
+  Enabled: false
+Style/SafeNavigationChainLength:
+  Enabled: false
+Style/MultilineBlockChain:
+  Enabled: false
+
+# Naming — disabled
+Naming/BlockForwarding:
+  Enabled: false
+Naming/PredicateMethod:
+  Enabled: false
+Naming/PredicatePrefix:
+  Enabled: false
+
+# Lint
+Lint/DuplicateBranch:
+  Enabled: false
+Lint/NoReturnInBeginEndBlocks:
+  Enabled: false
+Lint/UselessConstantScoping:
+  Enabled: false
+Lint/MissingSuper:
   Exclude:
-    - 'app/services/exchange_api/markets/kraken/market.rb'
+    - 'app/services/**/*'
+    - 'app/models/clients/coingecko.rb'
+    - 'app/models/clients/market_data.rb'
+    - 'lib/result.rb'

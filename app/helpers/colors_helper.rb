@@ -32,7 +32,7 @@ module ColorsHelper
   end
 
   def transparent_color(color, opacity, min_opacity = 0.6)
-    adjusted_opacity = min_opacity + (1 - min_opacity) * opacity
+    adjusted_opacity = min_opacity + ((1 - min_opacity) * opacity)
     alpha = (adjusted_opacity * 255).round.to_s(16).rjust(2, '0')
     color + alpha
   end
@@ -61,11 +61,11 @@ module ColorsHelper
     g = g <= 0.03928 ? g / 12.92 : ((g + 0.055) / 1.055)**2.4
     b = b <= 0.03928 ? b / 12.92 : ((b + 0.055) / 1.055)**2.4
 
-    0.2126 * r + 0.7152 * g + 0.0722 * b
+    (0.2126 * r) + (0.7152 * g) + (0.0722 * b)
   end
 
   def lighten_color(r, g, b, percentage) # rubocop:disable Naming/MethodParameterName
-    [(r + (255 - r) * percentage).round, (g + (255 - g) * percentage).round, (b + (255 - b) * percentage).round]
+    [(r + ((255 - r) * percentage)).round, (g + ((255 - g) * percentage)).round, (b + ((255 - b) * percentage)).round]
   end
 
   def darken_color(r, g, b, percentage) # rubocop:disable Naming/MethodParameterName

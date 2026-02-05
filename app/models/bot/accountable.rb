@@ -56,7 +56,7 @@ module Bot::Accountable
     # puts "effective_interval_duration: #{effective_interval_duration}"
     # puts "result: #{effective_quote_amount * intervals + missed_quote_amount - total_quote_amount_invested}"
 
-    [effective_quote_amount * intervals + missed_quote_amount - total_quote_amount_invested, 0].max
+    [(effective_quote_amount * intervals) + missed_quote_amount - total_quote_amount_invested, 0].max
   end
 
   def set_missed_quote_amount

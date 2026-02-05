@@ -319,7 +319,7 @@ class Clients::Coinbase < Client
 
   def unauthenticated_headers
     {
-      'Accept': 'application/json',
+      Accept: 'application/json',
       'Content-Type': 'application/json'
     }
   end
@@ -345,8 +345,8 @@ class Clients::Coinbase < Client
     jwt = JWT.encode(jwt_payload, signing_key, algorithm, { kid: @api_key, nonce: SecureRandom.hex })
 
     {
-      'Authorization': "Bearer #{jwt}",
-      'Accept': 'application/json',
+      Authorization: "Bearer #{jwt}",
+      Accept: 'application/json',
       'Content-Type': 'application/json'
     }
   end

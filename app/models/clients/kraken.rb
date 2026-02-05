@@ -272,7 +272,7 @@ class Clients::Kraken < Client
     {
       'API-Key': @api_key,
       'API-Sign': signature,
-      'Accept': 'application/json',
+      Accept: 'application/json',
       'Content-Type': 'application/x-www-form-urlencoded',
       'User-Agent': 'Kraken REST API'
     }
@@ -280,7 +280,7 @@ class Clients::Kraken < Client
 
   def unauthenticated_headers
     {
-      'Accept': 'application/json',
+      Accept: 'application/json',
       'Content-Type': 'application/json',
       'User-Agent': 'Kraken REST API'
     }
