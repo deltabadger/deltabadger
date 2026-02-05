@@ -1,7 +1,7 @@
 class SetupController < ApplicationController
   layout 'devise'
 
-  before_action :ensure_no_admin_exists, only: [:new, :create]
+  before_action :ensure_no_admin_exists, only: %i[new create]
 
   # Step 1: Show admin account creation form
   def new

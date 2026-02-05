@@ -2,7 +2,6 @@ require 'result'
 module ExchangeApi
   module Markets
     module Binance
-      # rubocop:disable Metrics/ClassLength
       class Market < BaseMarket
         include ExchangeApi::Clients::Binance
 
@@ -101,7 +100,7 @@ module ExchangeApi
           client = signed_client(fee_api_keys.key, fee_api_keys.secret, @base_client.url_prefix.to_s)
           response = JSON.parse(client.get('account').body)
           response['makerCommission'] / 100.to_f
-        rescue StandardError => e
+        rescue StandardError
           false
         end
 

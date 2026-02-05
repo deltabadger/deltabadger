@@ -47,10 +47,9 @@ module Bot::Exportable
     rows = CSV.parse(csv_content, headers: true)
 
     # Validate CSV structure
-    expected_headers = ['Timestamp', 'Order ID', 'Type', 'Side', 'Amount', 'Value', 'Price', 'Base Asset', 'Quote Asset', 'Status']
-    unless rows.headers == expected_headers
-      return { success: false, error: I18n.t('bot.details.stats.import_invalid_format') }
-    end
+    expected_headers = ['Timestamp', 'Order ID', 'Type', 'Side', 'Amount', 'Value', 'Price', 'Base Asset', 'Quote Asset',
+                        'Status']
+    return { success: false, error: I18n.t('bot.details.stats.import_invalid_format') } unless rows.headers == expected_headers
 
     # Get bot's currencies - handle single, dual, and index bots
     bot_base_symbols = if respond_to?(:base_asset) && base_asset.present?
@@ -125,7 +124,7 @@ module Bot::Exportable
     end
 
     # Provide detailed feedback
-    if imported_count == 0 && skipped_currency_mismatch > 0
+    if imported_count.zero? && skipped_currency_mismatch.positive?
       return {
         success: false,
         error: I18n.t('bot.details.stats.import_currency_mismatch',
@@ -135,7 +134,7 @@ module Bot::Exportable
     end
 
     { success: true, imported_count: imported_count, skipped_existing: skipped_already_exists }
-  rescue CSV::MalformedCSVError => e
+  rescue CSV::MalformedCSVError
     { success: false, error: I18n.t('bot.details.stats.import_malformed_csv') }
   rescue StandardError => e
     { success: false, error: I18n.t('bot.details.stats.import_error', message: e.message) }

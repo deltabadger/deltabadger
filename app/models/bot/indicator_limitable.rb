@@ -13,7 +13,7 @@ module Bot::IndicatorLimitable
     'one_month' => 1.month
   }.freeze
 
-  included do # rubocop:disable Metrics/BlockLength
+  included do
     store_accessor :settings,
                    :indicator_limited,
                    :indicator_limit,
@@ -211,12 +211,12 @@ module Bot::IndicatorLimitable
     end
   end
 
-  def initialize_indicator_limitable_settings # rubocop:disable Metrics/CyclomaticComplexity,Metrics/PerceivedComplexity
+  def initialize_indicator_limitable_settings
     self.indicator_limited ||= false
     self.indicator_limit ||= 30
     self.indicator_limit_timing_condition ||= 'while'
     self.indicator_limit_value_condition ||= 'below'
-    self.indicator_limit_in_ticker_id ||= tickers.sort_by { |t| t[:base] }&.first&.id
+    self.indicator_limit_in_ticker_id ||= tickers.min_by { |t| t[:base] }&.id
     self.indicator_limit_in_indicator ||= 'rsi'
     self.indicator_limit_in_timeframe ||= 'one_day'
   end

@@ -1,4 +1,4 @@
-require "test_helper"
+require 'test_helper'
 
 # Shared behavior for scheduling cycle tests
 module SchedulingCycleBehaviorTests
@@ -14,17 +14,17 @@ module SchedulingCycleBehaviorTests
       SolidQueue::ScheduledExecution.destroy_all
     end
 
-    test "executes bot and schedules next job" do
+    test 'executes bot and schedules next job' do
       bot = create_bot
       setup_cycle_mocks(bot)
 
       Bot::ActionJob.perform_now(bot)
 
       assert bot.reload.next_action_job_at.present?
-      assert_equal "scheduled", bot.status
+      assert_equal 'scheduled', bot.status
     end
 
-    test "schedules next job at correct interval" do
+    test 'schedules next job at correct interval' do
       bot = create_bot
       setup_cycle_mocks(bot)
 
@@ -38,7 +38,7 @@ module SchedulingCycleBehaviorTests
       end
     end
 
-    test "counter starts from bot started_at" do
+    test 'counter starts from bot started_at' do
       bot = create_bot
       setup_cycle_mocks(bot)
 
@@ -64,7 +64,7 @@ end
 class BotSchedulingCycleWithSingleAssetTest < ActiveSupport::TestCase
   include SchedulingCycleBehaviorTests
 
-  test "hourly interval schedules next job within an hour" do
+  test 'hourly interval schedules next job within an hour' do
     bot = create(:dca_single_asset, :started, :hourly)
     setup_cycle_mocks(bot)
 
@@ -76,7 +76,7 @@ class BotSchedulingCycleWithSingleAssetTest < ActiveSupport::TestCase
     end
   end
 
-  test "weekly interval schedules next job within a week" do
+  test 'weekly interval schedules next job within a week' do
     bot = create(:dca_single_asset, :started, :weekly)
     setup_cycle_mocks(bot)
 
@@ -88,9 +88,9 @@ class BotSchedulingCycleWithSingleAssetTest < ActiveSupport::TestCase
     end
   end
 
-  test "below minimum skips transaction but still schedules next" do
+  test 'below minimum skips transaction but still schedules next' do
     bot = build(:dca_single_asset, :started)
-    bot.settings = bot.settings.merge("quote_amount" => 5.0)
+    bot.settings = bot.settings.merge('quote_amount' => 5.0)
     bot.set_missed_quote_amount
     bot.save!
 
@@ -100,7 +100,7 @@ class BotSchedulingCycleWithSingleAssetTest < ActiveSupport::TestCase
 
     assert_equal 1, bot.transactions.skipped.count
     assert bot.reload.next_action_job_at.present?
-    assert_equal "scheduled", bot.status
+    assert_equal 'scheduled', bot.status
   end
 
   private
@@ -129,7 +129,7 @@ class BotSchedulingCycleRecoveryTest < ActiveSupport::TestCase
     SolidQueue::ScheduledExecution.destroy_all
   end
 
-  test "recovers full cycle after system restart" do
+  test 'recovers full cycle after system restart' do
     bot = create(:dca_single_asset, :started)
     setup_bot_execution_mocks(bot)
     bot.stubs(:broadcast_below_minimums_warning)
@@ -151,19 +151,19 @@ class BotSchedulingCycleRecoveryTest < ActiveSupport::TestCase
     assert bot.reload.next_action_job_at.present?
   end
 
-  test "reschedules after recoverable error" do
+  test 'reschedules after recoverable error' do
     bot = create(:dca_single_asset, :started)
     bot.stubs(:broadcast_below_minimums_warning)
     Bot::BroadcastAfterScheduledActionJob.stubs(:perform_later)
 
-    bot.stubs(:execute_action).returns(Result::Failure.new("Temporary error"))
+    bot.stubs(:execute_action).returns(Result::Failure.new('Temporary error'))
     bot.stubs(:notify_about_error)
 
-    assert_raises(RuntimeError, "Temporary error") do
+    assert_raises(RuntimeError, 'Temporary error') do
       Bot::ActionJob.perform_now(bot)
     end
 
-    assert_equal "retrying", bot.reload.status
+    assert_equal 'retrying', bot.reload.status
 
     # Repair job should detect and reschedule
     Bot::RepairOrphanedBotsJob.perform_now

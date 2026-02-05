@@ -1,7 +1,7 @@
 module Bot::SmartIntervalable
   extend ActiveSupport::Concern
 
-  included do # rubocop:disable Metrics/BlockLength
+  included do
     store_accessor :settings,
                    :smart_intervaled,
                    :smart_interval_quote_amount

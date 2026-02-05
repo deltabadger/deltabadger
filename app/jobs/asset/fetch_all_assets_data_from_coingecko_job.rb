@@ -8,7 +8,7 @@ class Asset::FetchAllAssetsDataFromCoingeckoJob < ApplicationJob
 
     asset_ids = Asset.where(category: 'Cryptocurrency').pluck(:external_id).compact
     result = coingecko.get_coins_list_with_market_data(ids: asset_ids)
-    
+
     if result.failure?
       mark_sync_failed(error_message: result.errors.to_sentence)
       return
@@ -58,16 +58,16 @@ class Asset::FetchAllAssetsDataFromCoingeckoJob < ApplicationJob
 
   def broadcast_sync_completed
     Turbo::StreamsChannel.broadcast_replace_to(
-      "setup_sync",
-      target: "setup-syncing-container",
+      'setup_sync',
+      target: 'setup-syncing-container',
       html: redirect_script
     )
   end
 
   def broadcast_sync_failed(error_message)
     Turbo::StreamsChannel.broadcast_replace_to(
-      "setup_sync",
-      target: "setup-syncing-container",
+      'setup_sync',
+      target: 'setup-syncing-container',
       html: error_html(error_message)
     )
   end
