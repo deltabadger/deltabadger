@@ -1,17 +1,17 @@
 FactoryBot.define do
   factory :index do
-    external_id { "MyString" }
-    source { "MyString" }
-    name { "MyString" }
-    description { "MyText" }
-    top_coins { "" }
-    market_cap { "9.99" }
+    external_id { 'MyString' }
+    source { 'MyString' }
+    name { 'MyString' }
+    description { 'MyText' }
+    top_coins { '' }
+    market_cap { '9.99' }
   end
 
   factory :user do
     sequence(:email) { |n| "user#{n}@example.com" }
-    name { "Test User" }
-    password { "TestPassword1!" }
+    name { 'Test User' }
+    password { 'TestPassword1!' }
     admin { false }
     confirmed_at { Time.current }
   end
@@ -109,14 +109,14 @@ FactoryBot.define do
 
     minimum_base_size { 0.0001 }
     minimum_quote_size { 10 }
-    maximum_base_size { 10000 }
-    maximum_quote_size { 1000000 }
+    maximum_base_size { 10_000 }
+    maximum_quote_size { 1_000_000 }
     base_decimals { 8 }
     quote_decimals { 2 }
     price_decimals { 2 }
     available { true }
 
-    after(:build) do |ticker, evaluator|
+    after(:build) do |ticker, _evaluator|
       # Ensure exchange_assets exist for both assets
       unless ExchangeAsset.exists?(exchange: ticker.exchange, asset: ticker.base_asset)
         create(:exchange_asset, exchange: ticker.exchange, asset: ticker.base_asset)
@@ -215,9 +215,7 @@ FactoryBot.define do
         quote_asset: quote
       )
 
-      unless existing_ticker
-        create(:ticker, exchange: bot.exchange, base_asset: base, quote_asset: quote)
-      end
+      create(:ticker, exchange: bot.exchange, base_asset: base, quote_asset: quote) unless existing_ticker
 
       # Merge core settings while preserving concern defaults
       bot.settings = bot.settings.merge(
@@ -228,7 +226,7 @@ FactoryBot.define do
       )
     end
 
-    before(:create) do |bot, evaluator|
+    before(:create) do |bot, _evaluator|
       # The Accountable concern requires set_missed_quote_amount to be called before
       # saving settings changes
       bot.set_missed_quote_amount
@@ -236,10 +234,8 @@ FactoryBot.define do
 
     after(:create) do |bot, evaluator|
       # Create API key after bot is created (so user is persisted)
-      if evaluator.with_api_key
-        unless ApiKey.exists?(user: bot.user, exchange: bot.exchange, key_type: :trading)
-          create(:api_key, user: bot.user, exchange: bot.exchange)
-        end
+      if evaluator.with_api_key && !ApiKey.exists?(user: bot.user, exchange: bot.exchange, key_type: :trading)
+        create(:api_key, user: bot.user, exchange: bot.exchange)
       end
     end
 
@@ -335,15 +331,13 @@ FactoryBot.define do
       )
     end
 
-    before(:create) do |bot, evaluator|
+    before(:create) do |bot, _evaluator|
       bot.set_missed_quote_amount
     end
 
     after(:create) do |bot, evaluator|
-      if evaluator.with_api_key
-        unless ApiKey.exists?(user: bot.user, exchange: bot.exchange, key_type: :trading)
-          create(:api_key, user: bot.user, exchange: bot.exchange)
-        end
+      if evaluator.with_api_key && !ApiKey.exists?(user: bot.user, exchange: bot.exchange, key_type: :trading)
+        create(:api_key, user: bot.user, exchange: bot.exchange)
       end
     end
 
@@ -442,7 +436,7 @@ FactoryBot.define do
     base { 'BTC' }
     quote { 'USD' }
     amount { 0.001 }
-    price { 50000 }
+    price { 50_000 }
     quote_amount { 50 }
     amount_exec { 0.001 }
     quote_amount_exec { 50 }

@@ -63,12 +63,11 @@ class BotsController < ApplicationController
         }
       elsif @bot.dca_index?
         @decimals = {}
-        if @bot.quote_asset.present?
-          @decimals[@bot.quote_asset.symbol] = @bot.decimals[:quote]
-        end
+        @decimals[@bot.quote_asset.symbol] = @bot.decimals[:quote] if @bot.quote_asset.present?
         # Add decimals for all index assets
         @bot.bot_index_assets.in_index.includes(:ticker).each do |bia|
           next unless bia.ticker.present?
+
           @decimals[bia.ticker.base] = bia.ticker.base_decimals
         end
         # Build index preview from bot's current state

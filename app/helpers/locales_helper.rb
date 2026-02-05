@@ -18,7 +18,7 @@ module LocalesHelper
       result << localized_time_difference_from_now_component(remaining, unit[:duration], unit[:key])
       return localized_time_difference_from_now_finalize_result(result, zero_time_message) if unit[:precision] == precision
 
-      remaining = remaining % unit[:duration]
+      remaining %= unit[:duration]
     end
 
     localized_time_difference_from_now_finalize_result(result, zero_time_message)

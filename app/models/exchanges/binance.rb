@@ -409,7 +409,7 @@ class Exchanges::Binance < Exchange
     Result::Success.new(order_id)
   end
 
-  def get_api_key_validity(api_key:) # rubocop:disable Metrics/PerceivedComplexity,Metrics/CyclomaticComplexity
+  def get_api_key_validity(api_key:)
     result = Clients::Binance.new(
       api_key: api_key.key,
       api_secret: api_key.secret

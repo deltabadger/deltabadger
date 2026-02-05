@@ -19,7 +19,7 @@ module Bots::DcaDualAsset::OrderSetter # rubocop:disable Metrics/ModuleLength
     return result if result.failure?
 
     orders_data = result.data
-    orders_data.each do |order_data| # rubocop:disable Metrics/BlockLength
+    orders_data.each do |order_data|
       if order_data[:amount].zero?
         Rails.logger.info("set_orders for bot #{id} ignoring order #{order_data.inspect}")
         next

@@ -1,23 +1,23 @@
 class SeedDataLoader
   def initialize
-    @fixtures_dir = Rails.root.join("db", "fixtures")
+    @fixtures_dir = Rails.root.join('db', 'fixtures')
   end
 
   def load_all
-    Rails.logger.info "Loading seed data from fixtures..."
+    Rails.logger.info 'Loading seed data from fixtures...'
 
     load_assets
     load_indices
     Exchange.all.each do |exchange|
-      load_exchange_assets(exchange)  # Must run before load_tickers (ticker validation requires ExchangeAsset records)
+      load_exchange_assets(exchange) # Must run before load_tickers (ticker validation requires ExchangeAsset records)
       load_tickers(exchange)
     end
 
-    Rails.logger.info "Seed data loaded successfully"
+    Rails.logger.info 'Seed data loaded successfully'
   end
 
   def load_assets
-    file_path = @fixtures_dir.join("assets.json")
+    file_path = @fixtures_dir.join('assets.json')
 
     unless File.exist?(file_path)
       Rails.logger.warn "Asset fixtures not found at #{file_path}. Skipping asset seeding."
@@ -45,7 +45,7 @@ class SeedDataLoader
   end
 
   def load_indices
-    file_path = @fixtures_dir.join("indices.json")
+    file_path = @fixtures_dir.join('indices.json')
 
     unless File.exist?(file_path)
       Rails.logger.warn "Indices fixtures not found at #{file_path}. Skipping indices seeding."
@@ -66,14 +66,14 @@ class SeedDataLoader
     # Bulk upsert for performance
     Index.upsert_all(
       indices.map { |i| prepare_index_attributes(i) },
-      unique_by: [:external_id, :source]
+      unique_by: %i[external_id source]
     )
 
     Rails.logger.info "Loaded #{indices.size} indices"
   end
 
   def load_tickers(exchange)
-    file_path = @fixtures_dir.join("tickers", "#{exchange.name_id}.json")
+    file_path = @fixtures_dir.join('tickers', "#{exchange.name_id}.json")
 
     unless File.exist?(file_path)
       Rails.logger.warn "Ticker fixtures not found for #{exchange.name} at #{file_path}. Skipping."
@@ -134,7 +134,7 @@ class SeedDataLoader
   end
 
   def load_exchange_assets(exchange)
-    file_path = @fixtures_dir.join("tickers", "#{exchange.name_id}.json")
+    file_path = @fixtures_dir.join('tickers', "#{exchange.name_id}.json")
 
     unless File.exist?(file_path)
       Rails.logger.warn "Ticker fixtures not found for #{exchange.name} at #{file_path}. Skipping exchange assets."

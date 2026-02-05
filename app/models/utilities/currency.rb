@@ -74,19 +74,16 @@ module Utilities
         to_asset = find_asset(to)
 
         # Both are fiat currencies - use exchange_rates endpoint
-        if fiat?(from, from_asset) && fiat?(to, to_asset)
-          return fiat_to_fiat_rate(from, to)
-        end
+        return fiat_to_fiat_rate(from, to) if fiat?(from, from_asset) && fiat?(to, to_asset)
 
         # From crypto/stablecoin to fiat (most common case)
-        if crypto_or_stablecoin?(from, from_asset) && fiat?(to, to_asset)
-          return crypto_to_fiat_rate(from, from_asset, to)
-        end
+        return crypto_to_fiat_rate(from, from_asset, to) if crypto_or_stablecoin?(from, from_asset) && fiat?(to, to_asset)
 
         # From fiat to crypto/stablecoin
         if fiat?(from, from_asset) && crypto_or_stablecoin?(to, to_asset)
           result = crypto_to_fiat_rate(to, to_asset, from)
           return result if result.failure?
+
           return Result::Success.new(1.0 / result.data)
         end
 
@@ -109,9 +106,7 @@ module Utilities
         from_rate = rates.dig(from_key, 'value')
         to_rate = rates.dig(to_key, 'value')
 
-        if from_rate.nil? || to_rate.nil?
-          return Result::Failure.new("Exchange rate not found for #{from} or #{to}")
-        end
+        return Result::Failure.new("Exchange rate not found for #{from} or #{to}") if from_rate.nil? || to_rate.nil?
 
         # Rates are BTC-based, so: from_currency -> BTC -> to_currency
         # If 1 BTC = X EUR and 1 BTC = Y USD, then 1 EUR = Y/X USD

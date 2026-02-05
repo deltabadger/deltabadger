@@ -1,6 +1,6 @@
 module NumbersHelper
   def format_percent(percent, precision: 2)
-    "#{format('%0.' + precision.to_s + 'f', percent * 100)}%"
+    "#{format("%0.#{precision}f", percent * 100)}%"
   end
 
   def format_value(value, max_decimals: 8)

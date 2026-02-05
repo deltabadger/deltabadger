@@ -83,17 +83,17 @@ module Bot::Schedulable
 
     # Cancel scheduled jobs
     SolidQueue::ScheduledExecution.joins(:job)
-      .where(solid_queue_jobs: { class_name: job_class.to_s })
-      .find_each do |execution|
-        execution.job.destroy if job_matches_record?(execution.job, global_id)
-      end
+                                  .where(solid_queue_jobs: { class_name: job_class.to_s })
+                                  .find_each do |execution|
+                                    execution.job.destroy if job_matches_record?(execution.job, global_id)
+    end
 
     # Cancel ready (queued) jobs
     SolidQueue::ReadyExecution.joins(:job)
-      .where(solid_queue_jobs: { class_name: job_class.to_s })
-      .find_each do |execution|
-        execution.job.destroy if job_matches_record?(execution.job, global_id)
-      end
+                              .where(solid_queue_jobs: { class_name: job_class.to_s })
+                              .find_each do |execution|
+                                execution.job.destroy if job_matches_record?(execution.job, global_id)
+    end
   end
 
   def find_next_scheduled_job_at(job_class:, record:)
@@ -102,11 +102,11 @@ module Bot::Schedulable
     global_id = record.to_global_id.to_s
 
     SolidQueue::ScheduledExecution.joins(:job)
-      .where(solid_queue_jobs: { class_name: job_class.to_s })
-      .order(:scheduled_at)
-      .find_each do |execution|
-        return execution.scheduled_at.in_time_zone if job_matches_record?(execution.job, global_id)
-      end
+                                  .where(solid_queue_jobs: { class_name: job_class.to_s })
+                                  .order(:scheduled_at)
+                                  .find_each do |execution|
+                                    return execution.scheduled_at.in_time_zone if job_matches_record?(execution.job, global_id)
+    end
 
     nil
   end
@@ -115,13 +115,13 @@ module Bot::Schedulable
     return false unless job&.arguments.present?
 
     # SolidQueue stores arguments as a Hash with "arguments" key containing the actual job args
-    args = job.arguments.is_a?(Hash) ? job.arguments["arguments"] : job.arguments
+    args = job.arguments.is_a?(Hash) ? job.arguments['arguments'] : job.arguments
     return false unless args.is_a?(Array)
 
     # ActiveJob serializes GlobalID records as { "_aj_globalid" => "..." }
     args.any? do |arg|
       (arg.is_a?(Hash) && arg['_aj_globalid'] == global_id) ||
-      (arg.is_a?(String) && arg == global_id)
+        (arg.is_a?(String) && arg == global_id)
     end
   end
 end

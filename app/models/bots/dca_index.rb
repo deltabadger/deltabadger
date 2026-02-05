@@ -36,7 +36,7 @@ class Bots::DcaIndex < Bot
   include LimitOrderable         # decorators for: parse_params, execute_action
 
   # Standard infrastructure concerns
-  include Fundable               # decorators for: execute_action
+  include Fundable # decorators for: execute_action
   include Schedulable
   include OrderCreator
   include Accountable
@@ -206,6 +206,7 @@ class Bots::DcaIndex < Bot
     ticker_by_coingecko_id = {}
     available_tickers.each do |ticker|
       next unless ticker.base_asset&.external_id.present?
+
       ticker_by_coingecko_id[ticker.base_asset.external_id] = ticker
     end
 
@@ -242,7 +243,7 @@ class Bots::DcaIndex < Bot
     # Count recent skipped transactions
     recent_transactions = transactions.limit(num_coins.to_i * 2)
     skipped_count = recent_transactions.count(&:skipped?)
-    return unless skipped_count > 0 && recent_transactions.count == skipped_count
+    return unless skipped_count.positive? && recent_transactions.count == skipped_count
 
     broadcast_replace_to(
       ["user_#{user_id}", :bot_updates],
@@ -292,10 +293,10 @@ class Bots::DcaIndex < Bot
     return unless settings_changed?
     return unless transactions.any?
 
-    if index_type_was != index_type || index_category_id_was != index_category_id
-      errors.add(:index_type, :unchangeable,
-                 message: I18n.t('errors.bots.index_change_after_transactions'))
-    end
+    return unless index_type_was != index_type || index_category_id_was != index_category_id
+
+    errors.add(:index_type, :unchangeable,
+               message: I18n.t('errors.bots.index_change_after_transactions'))
   end
 
   def validate_market_data_configured

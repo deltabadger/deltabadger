@@ -3,10 +3,10 @@ class Bots::DcaIndexes::SetupCoingeckosController < ApplicationController
 
   def new
     # Skip to pick index if market data is already configured and synced
-    if MarketData.configured? && AppConfig.setup_sync_completed?
-      session[:bot_config] ||= {}
-      redirect_to new_bots_dca_indexes_pick_index_path
-    end
+    return unless MarketData.configured? && AppConfig.setup_sync_completed?
+
+    session[:bot_config] ||= {}
+    redirect_to new_bots_dca_indexes_pick_index_path
   end
 
   def create

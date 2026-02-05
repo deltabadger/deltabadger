@@ -13,7 +13,7 @@ module Bot::MovingAverageLimitable
     'one_month' => 1.month
   }.freeze
 
-  included do # rubocop:disable Metrics/BlockLength
+  included do
     store_accessor :settings,
                    :moving_average_limited,
                    :moving_average_limit_timing_condition,
@@ -210,7 +210,7 @@ module Bot::MovingAverageLimitable
     end
   end
 
-  def initialize_moving_average_limitable_settings # rubocop:disable Metrics/CyclomaticComplexity,Metrics/PerceivedComplexity
+  def initialize_moving_average_limitable_settings
     self.moving_average_limited ||= false
     self.moving_average_limit_timing_condition ||= 'while'
     self.moving_average_limit_value_condition ||= 'below'

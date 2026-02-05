@@ -6,7 +6,7 @@ module BotHelper
   def bot_type_label(bot)
     {
       'Bots::DcaDualAsset' => 'Rebalanced DCA',
-      'Bots::DcaSingleAsset' => 'Basic DCA',
+      'Bots::DcaSingleAsset' => 'Basic DCA'
     }[bot.type]
   end
 
@@ -135,9 +135,9 @@ module BotHelper
 
   def render_instruction(instruction, exchange_name, whitelist_ip = nil, level = 1)
     text = instruction[:text_html]
-      .gsub('%{exchange_link}', exchange_name)
-      .gsub('%{whitelist_ip}', whitelist_ip.to_s)
-      .html_safe
+           .gsub('%<exchange_link>s', exchange_name)
+           .gsub('%<whitelist_ip>s', whitelist_ip.to_s)
+           .html_safe
     sub_instructions = instruction[:sub_instructions]
 
     content_tag(:li) do

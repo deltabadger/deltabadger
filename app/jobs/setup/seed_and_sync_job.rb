@@ -80,14 +80,12 @@ class Setup::SeedAndSyncJob < ApplicationJob
 
   def sync_assets_from_deltabadger
     result = MarketData.sync_assets!
-    if result.failure?
-      Rails.logger.warn "[Setup] Failed to sync assets from market data service: #{result.errors.to_sentence}"
-    end
+    Rails.logger.warn "[Setup] Failed to sync assets from market data service: #{result.errors.to_sentence}" if result.failure?
 
     result = MarketData.sync_indices!
-    if result.failure?
-      Rails.logger.warn "[Setup] Failed to sync indices from market data service: #{result.errors.to_sentence}"
-    end
+    return unless result.failure?
+
+    Rails.logger.warn "[Setup] Failed to sync indices from market data service: #{result.errors.to_sentence}"
   end
 
   def mark_sync_in_progress
@@ -113,8 +111,8 @@ class Setup::SeedAndSyncJob < ApplicationJob
       broadcast_settings_sync_completed
     else
       Turbo::StreamsChannel.broadcast_replace_to(
-        "setup_sync",
-        target: "setup-syncing-container",
+        'setup_sync',
+        target: 'setup-syncing-container',
         html: redirect_script
       )
     end
@@ -125,8 +123,8 @@ class Setup::SeedAndSyncJob < ApplicationJob
       broadcast_settings_sync_failed(error_message)
     else
       Turbo::StreamsChannel.broadcast_replace_to(
-        "setup_sync",
-        target: "setup-syncing-container",
+        'setup_sync',
+        target: 'setup-syncing-container',
         html: error_html(error_message)
       )
     end
@@ -135,8 +133,8 @@ class Setup::SeedAndSyncJob < ApplicationJob
   def broadcast_settings_sync_completed
     redirect_url = @redirect_to || Rails.application.routes.url_helpers.settings_path
     Turbo::StreamsChannel.broadcast_replace_to(
-      "settings_sync",
-      target: "setup-syncing-container",
+      'settings_sync',
+      target: 'setup-syncing-container',
       html: "<script>window.location.href = '#{redirect_url}';</script>"
     )
   end
@@ -144,8 +142,8 @@ class Setup::SeedAndSyncJob < ApplicationJob
   def broadcast_settings_sync_failed(error_message)
     retry_url = @redirect_to || Rails.application.routes.url_helpers.settings_path
     Turbo::StreamsChannel.broadcast_replace_to(
-      "settings_sync",
-      target: "setup-syncing-container",
+      'settings_sync',
+      target: 'setup-syncing-container',
       html: settings_error_html(error_message, retry_url)
     )
   end

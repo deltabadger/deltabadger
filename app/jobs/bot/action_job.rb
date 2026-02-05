@@ -3,7 +3,7 @@ class Bot::ActionJob < BotJob
     :insufficient_funds
   ].freeze
 
-  def perform(bot) # rubocop:disable Metrics/CyclomaticComplexity,Metrics/PerceivedComplexity
+  def perform(bot)
     return unless bot.scheduled? || bot.retrying?
     raise "ActionJob for bot #{bot.id}: The bot already has an action job scheduled" if bot.next_action_job_at.present?
 
