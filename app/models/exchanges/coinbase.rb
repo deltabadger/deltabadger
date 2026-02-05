@@ -180,7 +180,7 @@ class Exchanges::Coinbase < Exchange
     candles = []
     loop do
       now = Time.now.utc
-      end_time = [start_at + 350 * duration[granularity], now].min
+      end_time = [start_at + (350 * duration[granularity]), now].min
       result = client.get_public_product_candles(
         product_id: ticker.ticker,
         start_time: start_at.to_i,

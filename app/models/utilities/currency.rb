@@ -88,9 +88,7 @@ module Utilities
         end
 
         # Both are crypto - convert through USD
-        if crypto_or_stablecoin?(from, from_asset) && crypto_or_stablecoin?(to, to_asset)
-          return crypto_to_crypto_rate(from, from_asset, to, to_asset)
-        end
+        return crypto_to_crypto_rate(from, from_asset, to, to_asset) if crypto_or_stablecoin?(from, from_asset) && crypto_or_stablecoin?(to, to_asset)
 
         Result::Failure.new("Unable to determine conversion path from #{from} to #{to}")
       end

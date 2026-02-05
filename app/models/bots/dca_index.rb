@@ -143,7 +143,7 @@ class Bots::DcaIndex < Bot
   end
 
   # @param asset_type: :quote_asset (only quote_asset supported for Index bots)
-  def available_assets_for_current_settings(asset_type:, include_exchanges: false)
+  def available_assets_for_current_settings(asset_type:, include_exchanges: false) # rubocop:disable Lint/UnusedMethodArgument
     available_exchanges = exchange.present? ? [exchange] : Exchange.available
     scope = Ticker.available.where(exchange: available_exchanges)
     asset_ids = scope.pluck(:quote_asset_id).uniq
