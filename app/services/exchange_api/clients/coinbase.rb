@@ -6,13 +6,13 @@ module ExchangeApi
       def headers(api_key, api_secret, body, request_url, method = 'GET')
         if api_key.blank?
           {
-            'Accept': 'application/json',
+            Accept: 'application/json',
             'Content-Type': 'application/json'
           }
         elsif cdp_secret?(api_secret)
           jwt = jwt_token(api_key, api_secret, method, request_url)
           {
-            'Authorization': "Bearer #{jwt}"
+            Authorization: "Bearer #{jwt}"
           }
         else
           # for legacy keys
@@ -23,7 +23,7 @@ module ExchangeApi
             'CB-ACCESS-KEY': api_key,
             'CB-ACCESS-TIMESTAMP': timestamp,
             'CB-ACCESS-SIGN': signature,
-            'Accept': 'application/json',
+            Accept: 'application/json',
             'Content-Type': 'application/json'
           }
         end

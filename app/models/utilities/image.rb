@@ -54,7 +54,7 @@ module Utilities
         saturation = if delta.zero?
                        0.0
                      else
-                       delta / (1.0 - (2.0 * lightness - 1.0).abs)
+                       delta / (1.0 - ((2.0 * lightness) - 1.0).abs)
                      end
 
         # Define vividness as a combination of saturation and lightness

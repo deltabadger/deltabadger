@@ -1,4 +1,4 @@
-module Bots::DcaDualAsset::OrderSetter # rubocop:disable Metrics/ModuleLength
+module Bots::DcaDualAsset::OrderSetter
   extend ActiveSupport::Concern
 
   include Bot::OrderSetter

@@ -16,9 +16,7 @@ module Bot::LimitOrderable
     decorators = Module.new do
       def parse_params(params)
         parsed_limit_order_pcnt_distance = params[:limit_order_pcnt_distance].presence&.to_f
-        parsed_limit_order_pcnt_distance = if parsed_limit_order_pcnt_distance.present?
-                                             (parsed_limit_order_pcnt_distance / 100).round(4)
-                                           end
+        parsed_limit_order_pcnt_distance = ((parsed_limit_order_pcnt_distance / 100).round(4) if parsed_limit_order_pcnt_distance.present?)
         super(params).merge(
           limit_ordered: params[:limit_ordered].presence&.in?(%w[1 true]),
           limit_order_pcnt_distance: parsed_limit_order_pcnt_distance

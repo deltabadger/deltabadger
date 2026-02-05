@@ -223,7 +223,7 @@ module Bots::DcaSingleAsset::Measurable
       base_amount_acquired = metrics_data[:chart][:extra_series][0][i]
       quote_amount_invested = metrics_data[:chart][:series][1][i]
       extended_chart_data[:labels] << candle[0]
-      extended_chart_data[:series][0] << base_amount_acquired * candle[1]
+      extended_chart_data[:series][0] << (base_amount_acquired * candle[1])
       extended_chart_data[:series][1] << quote_amount_invested
     end
 

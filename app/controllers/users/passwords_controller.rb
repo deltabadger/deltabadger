@@ -24,12 +24,8 @@ class Users::PasswordsController < Devise::PasswordsController
   def update
     super do
       if resource&.otp_module_enabled?
-        unless params[:user][:otp_code_token].present?
-          return abort_update(:otp_code_token, t('errors.messages.empty_two_fa_token'))
-        end
-        unless Users::VerifyOtp.call(resource, params[:user][:otp_code_token])
-          return abort_update(:otp_code_token, t('errors.messages.bad_2fa_code'))
-        end
+        return abort_update(:otp_code_token, t('errors.messages.empty_two_fa_token')) unless params[:user][:otp_code_token].present?
+        return abort_update(:otp_code_token, t('errors.messages.bad_2fa_code')) unless Users::VerifyOtp.call(resource, params[:user][:otp_code_token])
       end
     end
   end

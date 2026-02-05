@@ -43,7 +43,7 @@ module Presenters
 
       def profit_loss_format(current_value, total_invested)
         profit_loss = current_value - total_invested
-        profit_loss_percentage = ((1 - current_value / total_invested) * 100).floor(2)
+        profit_loss_percentage = ((1 - (current_value / total_invested)) * 100).floor(2)
 
         positive = profit_loss >= 0
         sign = positive ? '+' : '-'

@@ -214,7 +214,7 @@ class Exchanges::Binance < Exchange
       end
       break if result.data.last.nil? || result.data.empty? || result.data.last[0] > timeframe.ago.to_i * 1000
 
-      start_at = candles.empty? ? start_at + limit * interval.to_i * 1000 : candles.last[0] + 1
+      start_at = candles.empty? ? start_at + (limit * interval.to_i * 1000) : candles.last[0] + 1
     end
 
     Result::Success.new(candles)
@@ -367,9 +367,7 @@ class Exchanges::Binance < Exchange
       else # request weight is 20 when passing no order id
         end_time = Time.current.to_i * 1000
         100.times do |i|
-          if i == 100
-            raise "Too many attempts to get #{name} #{symbol} trades. Adjust the number of iterations in the loop if needed."
-          end
+          raise "Too many attempts to get #{name} #{symbol} trades. Adjust the number of iterations in the loop if needed." if i == 100
 
           result = client.account_trade_list(symbol: symbol, end_time: end_time, limit: limit)
           if result.failure?
@@ -566,13 +564,13 @@ class Exchanges::Binance < Exchange
     ticker = tickers.find_by(ticker: symbol)
     order_type = parse_order_type(Utilities::Hash.dig_or_raise(order_data, 'type'))
     amount = Utilities::Hash.dig_or_raise(order_data, 'origQty').to_d
-    amount = amount.zero? ? nil : amount
+    amount = nil if amount.zero?
     quote_amount = Utilities::Hash.dig_or_raise(order_data, 'origQuoteOrderQty').to_d
-    quote_amount = quote_amount.zero? ? nil : quote_amount
+    quote_amount = nil if quote_amount.zero?
     side = Utilities::Hash.dig_or_raise(order_data, 'side').downcase.to_sym
     amount_exec_excl_commission = Utilities::Hash.dig_or_raise(order_data, 'executedQty').to_d
     quote_amount_exec_excl_commission = Utilities::Hash.dig_or_raise(order_data, 'cummulativeQuoteQty').to_d
-    quote_amount_exec_excl_commission = quote_amount_exec_excl_commission.negative? ? nil : quote_amount_exec_excl_commission # for some historical orders
+    quote_amount_exec_excl_commission = nil if quote_amount_exec_excl_commission.negative? # for some historical orders
     status = parse_order_status(Utilities::Hash.dig_or_raise(order_data, 'status'))
     price = Utilities::Hash.dig_or_raise(order_data, 'price').to_d
     if price.zero? &&

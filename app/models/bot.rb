@@ -96,7 +96,7 @@ class Bot < ApplicationRecord
       ["user_#{user_id}", :bot_updates],
       action:,
       target: dom_id(self, :columns),
-      attributes: { "class-name": 'bot-locked' }
+      attributes: { 'class-name': 'bot-locked' }
     )
   end
 

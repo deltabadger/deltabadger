@@ -405,7 +405,7 @@ class Clients::Binance < Client
 
   def unauthenticated_headers
     {
-      'Accept': 'application/json',
+      Accept: 'application/json',
       'Content-Type': 'application/json'
     }
   end
@@ -413,7 +413,7 @@ class Clients::Binance < Client
   def authenticated_headers
     {
       'X-MBX-APIKEY': @api_key,
-      'Accept': 'application/json',
+      Accept: 'application/json',
       'Content-Type': 'application/json'
     }
   end

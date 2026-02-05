@@ -10,9 +10,7 @@ class Transaction < ApplicationRecord
                  Bot::UpdateMetricsJob.perform_later(bot) if custom_quote_amount_exec_changed?
                }, on: %i[create update]
   after_commit lambda {
-                 if bot.class.include?(Bot::QuoteAmountLimitable) && custom_quote_amount_exec_changed?
-                   bot.handle_quote_amount_limit_update
-                 end
+                 bot.handle_quote_amount_limit_update if bot.class.include?(Bot::QuoteAmountLimitable) && custom_quote_amount_exec_changed?
                }, on: %i[create update]
 
   scope :for_bot, ->(bot) { where(bot_id: bot.id).order(created_at: :desc) }

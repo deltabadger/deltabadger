@@ -49,7 +49,7 @@ module ExchangeApi
 
         def new_prices
           @bid = rand(6000...8000)
-          @ask = @bid * (1 + rand * 0.2)
+          @ask = @bid * (1 + (rand * 0.2))
         end
       end
     end

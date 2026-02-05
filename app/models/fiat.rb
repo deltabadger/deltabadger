@@ -1,5 +1,5 @@
 class Fiat
-  def self.currencies # rubocop:disable Metrics/MethodLength
+  def self.currencies
     [
       {
         external_id: 'USD.FOREX', # eodhd ID

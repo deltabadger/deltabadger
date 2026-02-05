@@ -45,7 +45,7 @@ module Bots::DcaIndex::IndexAllocatable
     coins_data.map do |coin|
       market_cap_weight = total_market_cap.positive? ? coin[:market_cap].to_f / total_market_cap : equal_weight
       # allocation_flattening: 0 = pure market cap, 1 = equal weight
-      final_weight = market_cap_weight * (1 - allocation_flattening.to_f) + equal_weight * allocation_flattening.to_f
+      final_weight = (market_cap_weight * (1 - allocation_flattening.to_f)) + (equal_weight * allocation_flattening.to_f)
 
       {
         asset_id: coin[:asset_id],
