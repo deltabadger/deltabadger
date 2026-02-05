@@ -184,7 +184,7 @@ class Clients::Coinbase < Client
 
   # https://docs.cdp.coinbase.com/api-reference/advanced-trade-api/rest-api/public/get-public-product
   # @param product_id [String] The product id
-  # @param get_tradability_status [Boolean] Whether or not to populate view_only with the tradability status of the product. This is only enabled for SPOT products. # rubocop:disable Layout/LineLength
+  # @param get_tradability_status [Boolean] Whether or not to populate view_only with the tradability status of the product. This is only enabled for SPOT products.
   def get_public_product(
     product_id:,
     get_tradability_status: nil
@@ -204,7 +204,7 @@ class Clients::Coinbase < Client
   # https://docs.cdp.coinbase.com/api-reference/advanced-trade-api/rest-api/public/get-public-product-book
   # @param product_id [String] The product id
   # @param limit [Integer] The number of bid/asks to be returned
-  # @param aggregation_price_increment [String] The minimum price intervals at which buy and sell orders are grouped or combined in the order book # rubocop:disable Layout/LineLength
+  # @param aggregation_price_increment [String] The minimum price intervals at which buy and sell orders are grouped or combined in the order book
   def get_public_product_book(
     product_id:,
     limit: nil,

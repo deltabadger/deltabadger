@@ -19,7 +19,7 @@ module ExchangeApi
           )
           response = JSON.parse(request.body)
           response['code'] == ORDER_DOES_NOT_EXIST
-        rescue StandardError => e
+        rescue StandardError
           false
         end
       end

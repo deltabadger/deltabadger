@@ -17,7 +17,7 @@ class Bot::RepairOrphanedBotsJob < ApplicationJob
   private
 
   def find_orphaned_bots
-    Bot.where(status: [:scheduled, :retrying]).select do |bot|
+    Bot.where(status: %i[scheduled retrying]).select do |bot|
       bot.exchange.present? && bot.next_action_job_at.nil?
     end
   end

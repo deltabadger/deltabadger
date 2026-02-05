@@ -62,14 +62,14 @@ class BroadcastsController < ApplicationController
     released_count = 0
 
     SolidQueue::ScheduledExecution
-      .where("scheduled_at <= ?", Time.current)
+      .where('scheduled_at <= ?', Time.current)
       .limit(100)
       .each do |execution|
         execution.promote
         released_count += 1
       end
 
-    Rails.logger.info "[WakeDispatcher] Released #{released_count} overdue job(s)" if released_count > 0
+    Rails.logger.info "[WakeDispatcher] Released #{released_count} overdue job(s)" if released_count.positive?
 
     # Broadcast status bar updates for all working bots after a delay
     # This ensures the UI refreshes even if the WebSocket wasn't ready during job execution

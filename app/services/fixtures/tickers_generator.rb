@@ -10,7 +10,7 @@ module Fixtures
       log_info "Generating ticker fixtures for #{@exchange.name_id}..."
 
       # Fetch tickers from CoinGecko
-      log_info "Fetching tickers from CoinGecko..."
+      log_info 'Fetching tickers from CoinGecko...'
       result = coingecko.get_exchange_tickers_by_id(exchange_id: @exchange.coingecko_id)
       if result.failure?
         log_error "Failed to fetch tickers: #{result.errors}"
@@ -20,7 +20,7 @@ module Fixtures
       @exchange.send(:set_symbol_to_external_id_hash, result.data)
 
       # Get ticker info from exchange API
-      log_info "Fetching ticker details from exchange API..."
+      log_info 'Fetching ticker details from exchange API...'
       result = @exchange.get_tickers_info(force: true)
       if result.failure?
         log_error "Failed to fetch ticker info: #{result.errors}"
@@ -68,7 +68,7 @@ module Fixtures
       log_info "Skipped #{skipped} tickers (missing assets in fixtures)"
 
       # Write to file
-      file_path = write_json_file(
+      write_json_file(
         "tickers/#{@exchange.name_id}.json",
         tickers,
         metadata: {
@@ -87,7 +87,7 @@ module Fixtures
     def load_asset_external_ids
       assets_file = Rails.root.join('db', 'fixtures', 'assets.json')
       unless File.exist?(assets_file)
-        log_warn "Assets fixture not found, including all tickers"
+        log_warn 'Assets fixture not found, including all tickers'
         return Set.new
       end
 

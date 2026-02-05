@@ -391,7 +391,7 @@ class Exchanges::Kraken < Exchange
 
   def get_ticker_information(ticker) # rubocop:disable Metrics/MethodLength
     cache_key = "exchange_#{id}_ticker_information_#{ticker.ticker}"
-    Rails.cache.fetch(cache_key, expires_in: 1.seconds) do # rubocop:disable Metrics/BlockLength
+    Rails.cache.fetch(cache_key, expires_in: 1.seconds) do
       result = client.get_ticker_information(pair: ticker.ticker)
       return result if result.failure?
 

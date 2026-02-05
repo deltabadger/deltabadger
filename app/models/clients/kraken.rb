@@ -106,8 +106,8 @@ class Clients::Kraken < Client
     deadline: nil,
     validate: nil
   )
-    with_rescue do # rubocop:disable Metrics/BlockLength
-      response = self.class.connection.post do |req| # rubocop:disable Metrics/BlockLength
+    with_rescue do
+      response = self.class.connection.post do |req|
         req.url '/0/private/AddOrder'
         req.body = {
           'nonce' => nonce,

@@ -1,7 +1,7 @@
 module Fixtures
   class BaseGenerator
     def initialize
-      @fixtures_dir = Rails.root.join("db", "fixtures")
+      @fixtures_dir = Rails.root.join('db', 'fixtures')
     end
 
     protected
@@ -13,7 +13,7 @@ module Fixtures
       output = {
         metadata: {
           generated_at: Time.current.iso8601,
-          version: "1.0",
+          version: '1.0',
           generator: self.class.name
         }.merge(metadata),
         data: data
@@ -33,9 +33,9 @@ module Fixtures
     end
 
     def require_coingecko!
-      unless AppConfig.coingecko_api_key.present?
-        raise "CoinGecko API key not configured. Set COINGECKO_API_KEY environment variable."
-      end
+      return if AppConfig.coingecko_api_key.present?
+
+      raise 'CoinGecko API key not configured. Set COINGECKO_API_KEY environment variable.'
     end
   end
 end

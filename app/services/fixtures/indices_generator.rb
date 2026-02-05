@@ -3,21 +3,21 @@ module Fixtures
     def generate
       require_coingecko!
 
-      log_info "Fetching categories from CoinGecko..."
-      print "  Calling API"
+      log_info 'Fetching categories from CoinGecko...'
+      print '  Calling API'
       $stdout.flush
       coingecko = Coingecko.new(api_key: AppConfig.coingecko_api_key)
 
       result = coingecko.get_categories_with_market_data
       if result.failure?
-        puts " FAILED"
+        puts ' FAILED'
         return Result::Failure.new("Failed to fetch categories: #{result.data}")
       end
-      puts " OK"
+      puts ' OK'
 
       categories = result.data
       log_info "Found #{categories.size} categories"
-      puts ""
+      puts ''
 
       # Build lookup of available asset external_ids
       available_asset_ids = Asset.where.not(external_id: nil).pluck(:external_id).to_set
@@ -26,7 +26,7 @@ module Fixtures
       # Load ticker fixture data to calculate exchange availability
       ticker_data = load_ticker_fixture_data
       log_info "Loaded ticker data for #{ticker_data.size} exchanges"
-      puts ""
+      puts ''
 
       indices = []
       skipped = { excluded: 0, no_description: 0, api_failed: 0, few_coins: 0, not_in_db: 0, no_exchange: 0 }
@@ -34,7 +34,7 @@ module Fixtures
       # Generate "Top Coins" index first
       top_coins_index = generate_top_coins_index(coingecko, available_asset_ids, ticker_data)
       indices << top_coins_index if top_coins_index.present?
-      puts ""
+      puts ''
 
       categories.each_with_index do |category, idx|
         progress = "[#{idx + 1}/#{categories.size}]"
@@ -105,10 +105,10 @@ module Fixtures
         sleep_with_progress(3)
       end
 
-      puts ""
-      log_info "Results:"
+      puts ''
+      log_info 'Results:'
       log_info "  Included: #{indices.size} indices"
-      log_info "  Skipped:"
+      log_info '  Skipped:'
       log_info "    - Excluded: #{skipped[:excluded]}"
       log_info "    - No description: #{skipped[:no_description]}"
       log_info "    - API failed: #{skipped[:api_failed]}"
@@ -116,14 +116,14 @@ module Fixtures
       log_info "    - Coins not in DB: #{skipped[:not_in_db]}"
       log_info "    - No exchange support: #{skipped[:no_exchange]}"
 
-      write_json_file("indices.json", indices, metadata: {
-        count: indices.size,
-        source: "coingecko"
-      })
+      write_json_file('indices.json', indices, metadata: {
+                        count: indices.size,
+                        source: 'coingecko'
+                      })
 
       Result::Success.new(indices)
     rescue StandardError => e
-      puts ""
+      puts ''
       log_error "Error generating indices: #{e.message}"
       log_error e.backtrace.first(5).join("\n")
       Result::Failure.new(e.message)
@@ -132,7 +132,7 @@ module Fixtures
     private
 
     def generate_top_coins_index(coingecko, available_asset_ids, ticker_data)
-      print "[Top Coins] Fetching top coins by market cap..."
+      print '[Top Coins] Fetching top coins by market cap...'
       $stdout.flush
 
       # Fetch top coins globally (not filtered by category)
@@ -155,7 +155,7 @@ module Fixtures
       available_exchanges = Index.calculate_available_exchanges(top_coins: valid_coins, ticker_data: ticker_data)
 
       if available_exchanges.empty?
-        puts " SKIP (no exchange support)"
+        puts ' SKIP (no exchange support)'
         return nil
       end
 
@@ -215,11 +215,11 @@ module Fixtures
 
     def sleep_with_progress(seconds)
       seconds.times do
-        print "."
+        print '.'
         $stdout.flush
         sleep(1)
       end
-      print "\r" + " " * 80 + "\r"  # Clear the dots line
+      print "\r#{' ' * 80}\r" # Clear the dots line
       $stdout.flush
     end
 
@@ -227,16 +227,16 @@ module Fixtures
     # @return [Hash] { "Exchanges::Binance" => Set<base_external_ids>, ... }
     def load_ticker_fixture_data
       ticker_data = {}
-      fixtures_dir = Rails.root.join("db", "fixtures", "tickers")
+      fixtures_dir = Rails.root.join('db', 'fixtures', 'tickers')
 
       return ticker_data unless Dir.exist?(fixtures_dir)
 
-      Dir.glob(fixtures_dir.join("*.json")).each do |file_path|
+      Dir.glob(fixtures_dir.join('*.json')).each do |file_path|
         fixture_content = JSON.parse(File.read(file_path))
         tickers = fixture_content['data'] || []
 
         # Determine exchange type from filename
-        exchange_name_id = File.basename(file_path, ".json")
+        exchange_name_id = File.basename(file_path, '.json')
         exchange = Exchange.all.find { |e| e.name_id == exchange_name_id }
         next unless exchange
 

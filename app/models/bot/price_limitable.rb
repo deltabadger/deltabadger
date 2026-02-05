@@ -4,7 +4,7 @@ module Bot::PriceLimitable
   PRICE_LIMIT_TIMING_CONDITIONS = %w[while after].freeze
   PRICE_LIMIT_VALUE_CONDITIONS = %w[above below between].freeze
 
-  included do # rubocop:disable Metrics/BlockLength
+  included do
     store_accessor :settings,
                    :price_limited,
                    :price_limit,
@@ -188,7 +188,7 @@ module Bot::PriceLimitable
     end
   end
 
-  def initialize_price_limitable_settings # rubocop:disable Metrics/CyclomaticComplexity,Metrics/PerceivedComplexity
+  def initialize_price_limitable_settings
     self.price_limited ||= false
     self.price_limit ||= 1_000_000 # 1 million meme
     self.price_limit_range_lower_bound ||= 0

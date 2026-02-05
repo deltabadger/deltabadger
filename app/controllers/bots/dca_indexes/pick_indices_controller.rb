@@ -23,17 +23,17 @@ class Bots::DcaIndexes::PickIndicesController < ApplicationController
 
     if index_type == Bots::DcaIndex::INDEX_TYPE_TOP
       session[:bot_config]['settings'].merge!({
-        'index_type' => Bots::DcaIndex::INDEX_TYPE_TOP,
-        'index_category_id' => nil,
-        'index_name' => nil
-      })
+                                                'index_type' => Bots::DcaIndex::INDEX_TYPE_TOP,
+                                                'index_category_id' => nil,
+                                                'index_name' => nil
+                                              })
       redirect_to new_bots_dca_indexes_pick_exchange_path
     elsif index_type == Bots::DcaIndex::INDEX_TYPE_CATEGORY && index_category_id.present?
       session[:bot_config]['settings'].merge!({
-        'index_type' => Bots::DcaIndex::INDEX_TYPE_CATEGORY,
-        'index_category_id' => index_category_id,
-        'index_name' => index_name
-      })
+                                                'index_type' => Bots::DcaIndex::INDEX_TYPE_CATEGORY,
+                                                'index_category_id' => index_category_id,
+                                                'index_name' => index_name
+                                              })
       redirect_to new_bots_dca_indexes_pick_exchange_path
     else
       flash.now[:alert] = t('bot.dca_index.setup.pick_index.error')

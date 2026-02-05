@@ -41,13 +41,13 @@ class Index < ApplicationRecord
   scope :with_description, -> { where.not(description: [nil, '']) }
 
   # Filter to indices available on a specific exchange
-  scope :available_on_exchange, ->(exchange) {
+  scope :available_on_exchange, lambda { |exchange|
     exchange_type = exchange.is_a?(Exchange) ? exchange.type : exchange.to_s
-    where("json_extract(available_exchanges, ?) IS NOT NULL", "$.\"#{exchange_type}\"")
+    where('json_extract(available_exchanges, ?) IS NOT NULL', "$.\"#{exchange_type}\"")
   }
 
   # Filter to indices available on at least one exchange
-  scope :available_on_any_exchange, -> {
+  scope :available_on_any_exchange, lambda {
     where("json_extract(available_exchanges, '$') != '{}' AND available_exchanges IS NOT NULL")
   }
 

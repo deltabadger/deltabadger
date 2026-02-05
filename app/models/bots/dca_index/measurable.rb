@@ -17,7 +17,7 @@ module Bots::DcaIndex::Measurable
 
       totals = initialize_totals_data
       asset_totals = Hash.new { |h, k| h[k] = { amount: 0, quote_invested: 0 } }
-      asset_prices = {}  # Track last known price for each asset
+      asset_prices = {} # Track last known price for each asset
 
       transactions_array.each do |created_at, price, amount_exec, quote_amount_exec, amount, base|
         quote_amount_exec ||= price * amount
@@ -59,7 +59,7 @@ module Bots::DcaIndex::Measurable
       data[:total_quote_amount_invested] = totals[:total_quote_amount_invested]
       data[:total_amount_value_in_quote] = estimated_value
       data[:pnl] = calculate_pnl(data[:total_quote_amount_invested], estimated_value)
-      data[:asset_breakdown] = {}.merge(asset_totals)  # Create plain hash without default proc for caching
+      data[:asset_breakdown] = {}.merge(asset_totals) # Create plain hash without default proc for caching
       data[:num_assets] = asset_totals.keys.size
 
       data
@@ -262,12 +262,12 @@ module Bots::DcaIndex::Measurable
       total_value = 0
       asset_amounts.each do |symbol, amount|
         asset_candles = candles_by_symbol[symbol]
-        if asset_candles.present?
-          # Find the candle closest to this time
-          asset_candle = asset_candles.find { |c| c[0] >= candle_time } || asset_candles.last
-          price = asset_candle[1] if asset_candle # close price
-          total_value += amount * price if price
-        end
+        next unless asset_candles.present?
+
+        # Find the candle closest to this time
+        asset_candle = asset_candles.find { |c| c[0] >= candle_time } || asset_candles.last
+        price = asset_candle[1] if asset_candle # close price
+        total_value += amount * price if price
       end
 
       extended_chart_data[:labels] << candle_time

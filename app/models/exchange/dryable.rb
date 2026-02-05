@@ -1,7 +1,7 @@
 module Exchange::Dryable
   extend ActiveSupport::Concern
 
-  included do # rubocop:disable Metrics/BlockLength
+  included do
     decorators = Module.new do
       def get_balances(asset_ids: nil)
         dry_run? ? get_dry_balances(asset_ids: asset_ids) : super

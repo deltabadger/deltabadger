@@ -61,7 +61,7 @@ module Fixtures
 
       # Write to file
       write_json_file(
-        "assets.json",
+        'assets.json',
         assets,
         metadata: {
           top_n_cryptocurrencies: TOP_N_CRYPTOCURRENCIES,
@@ -70,7 +70,7 @@ module Fixtures
         }
       )
 
-      log_info "Asset fixtures generated successfully"
+      log_info 'Asset fixtures generated successfully'
       Result::Success.new(assets)
     end
 

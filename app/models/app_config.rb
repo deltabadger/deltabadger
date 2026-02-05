@@ -7,7 +7,7 @@ class AppConfig < ApplicationRecord
   SETUP_SYNC_STATUS = 'setup_sync_status'.freeze
 
   # Market data provider settings
-  MARKET_DATA_PROVIDER = 'market_data_provider'.freeze   # 'coingecko' or 'deltabadger'
+  MARKET_DATA_PROVIDER = 'market_data_provider'.freeze # 'coingecko' or 'deltabadger'
   MARKET_DATA_URL = 'market_data_url'.freeze
   MARKET_DATA_TOKEN = 'market_data_token'.freeze
 
@@ -19,7 +19,7 @@ class AppConfig < ApplicationRecord
   REGISTRATION_OPEN = 'registration_open'.freeze
 
   # SMTP/Email notification settings
-  SMTP_PROVIDER = 'smtp_provider'.freeze         # 'custom_smtp' or 'env_smtp'
+  SMTP_PROVIDER = 'smtp_provider'.freeze # 'custom_smtp' or 'env_smtp'
   SMTP_USERNAME = 'smtp_username'.freeze
   SMTP_PASSWORD = 'smtp_password'.freeze
   SMTP_HOST = 'smtp_host'.freeze

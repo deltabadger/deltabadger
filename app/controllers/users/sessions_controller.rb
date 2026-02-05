@@ -11,7 +11,7 @@ class Users::SessionsController < Devise::SessionsController
     params[:user][:password] = trim_long_password(params[:user][:password])
     user = User.find_for_authentication(email: params[:user][:email])
 
-    if user&.otp_module_enabled? && user&.valid_password?(params[:user][:password])
+    if user&.otp_module_enabled? && user.valid_password?(params[:user][:password])
       sign_out(resource)
       session[:pending_user_id] = user.id
       session[:remember_me] = params[:user][:remember_me]

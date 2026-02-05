@@ -6,7 +6,7 @@ module Bot::PriceDropLimitable
     'twenty_four_hours' => 24.hours
   }.freeze
 
-  included do # rubocop:disable Metrics/BlockLength
+  included do
     store_accessor :settings,
                    :price_drop_limited,
                    :price_drop_limit,
@@ -98,7 +98,7 @@ module Bot::PriceDropLimitable
     PRICE_DROP_LIMIT_TIME_WINDOW_CONDITIONS[price_drop_limit_time_window_condition]
   end
 
-  def get_price_drop_limit_condition_met? # rubocop:disable Metrics/CyclomaticComplexity,Metrics/PerceivedComplexity
+  def get_price_drop_limit_condition_met?
     return Result::Success.new(false) unless price_drop_limited?
     return Result::Success.new(true) if timing_condition_satisfied?
 

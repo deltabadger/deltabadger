@@ -67,7 +67,7 @@ class Bots::DcaIndexes::PickExchangesController < ApplicationController
     end
   end
 
-  def exchange_search_results_for_index_bot(bot, query)
+  def exchange_search_results_for_index_bot(_bot, query)
     index_type = session.dig(:bot_config, 'settings', 'index_type')
     index_category_id = session.dig(:bot_config, 'settings', 'index_category_id')
 

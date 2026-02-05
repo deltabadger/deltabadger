@@ -2,7 +2,7 @@
 
 class Users::RegistrationsController < Devise::RegistrationsController
   before_action :configure_permitted_parameters, only: [:create]
-  before_action :check_registration_open, only: [:new, :create]
+  before_action :check_registration_open, only: %i[new create]
 
   def new
     set_new_instance_variables

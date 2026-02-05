@@ -43,7 +43,7 @@ module Bots::DcaIndex::IndexAllocatable
     equal_weight = 1.0 / num_coins_in_index
 
     coins_data.map do |coin|
-      market_cap_weight = total_market_cap > 0 ? coin[:market_cap].to_f / total_market_cap : equal_weight
+      market_cap_weight = total_market_cap.positive? ? coin[:market_cap].to_f / total_market_cap : equal_weight
       # allocation_flattening: 0 = pure market cap, 1 = equal weight
       final_weight = market_cap_weight * (1 - allocation_flattening.to_f) + equal_weight * allocation_flattening.to_f
 
@@ -105,9 +105,7 @@ module Bots::DcaIndex::IndexAllocatable
       }
     end
 
-    if coins_data.empty?
-      return Result::Failure.new("No matching coins found on #{exchange.name} for the index")
-    end
+    return Result::Failure.new("No matching coins found on #{exchange.name} for the index") if coins_data.empty?
 
     allocations = calculate_allocations_with_flattening(coins_data)
     Result::Success.new(allocations)

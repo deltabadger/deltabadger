@@ -1,4 +1,12 @@
+inherit_from: .rubocop_todo.yml
+
+inherit_mode:
+  merge:
+    - Exclude
+
 AllCops:
+  NewCops: enable
+  SuggestExtensions: false
   Exclude:
     - 'bin/**/*'
     - 'db/**/*'
@@ -45,7 +53,7 @@ Metrics/ClassLength:
 Metrics/MethodLength:
   Max: 40
 
-Metrics/LineLength:
+Layout/LineLength:
   Max: 130
 
 Lint/MissingSuper:

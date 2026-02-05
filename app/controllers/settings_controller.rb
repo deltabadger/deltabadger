@@ -111,8 +111,7 @@ class SettingsController < ApplicationController
     redirect_to settings_syncing_path
   end
 
-  def confirm_destroy_coingecko_key
-  end
+  def confirm_destroy_coingecko_key; end
 
   def destroy_coingecko_key
     AppConfig.coingecko_api_key = ''
@@ -241,7 +240,7 @@ class SettingsController < ApplicationController
     begin
       TestMailer.test_email(current_user).deliver_now
       flash[:notice] = t('settings.email_notifications.test_email_sent', email: current_user.email)
-    rescue => e
+    rescue StandardError => e
       Rails.logger.error "Test email failed: #{e.message}"
       flash[:alert] = t('settings.email_notifications.test_email_failed', error: e.message)
     end
@@ -301,7 +300,7 @@ class SettingsController < ApplicationController
   end
 
   def same_exchange_and_type?(bot, api_key)
-    bot.exchange_id == api_key.exchange_id && 'trading' == api_key.key_type
+    bot.exchange_id == api_key.exchange_id && api_key.key_type == 'trading'
   end
 
   def update_password_params

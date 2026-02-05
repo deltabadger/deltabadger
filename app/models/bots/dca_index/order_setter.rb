@@ -119,7 +119,7 @@ module Bots::DcaIndex::OrderSetter
     # Step 4: Calculate how much each asset is underweight (offset)
     offsets = {}
     total_offset = 0
-    asset_prices.each do |symbol, _data|
+    asset_prices.each_key do |symbol|
       offset = [0, target_values[symbol] - current_values[symbol]].max
       offsets[symbol] = offset
       total_offset += offset
@@ -134,7 +134,7 @@ module Bots::DcaIndex::OrderSetter
       next if offset.zero?
 
       # Allocate proportionally to offset, capped by remaining investment
-      if total_offset > 0
+      if total_offset.positive?
         order_amount_in_quote = [offset, remaining_investment * (offset / total_offset)].min
         order_amount_in_quote = [order_amount_in_quote, remaining_investment].min
       else

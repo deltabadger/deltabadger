@@ -20,7 +20,7 @@ module ExchangeMockHelpers
   end
 
   # Stub ticker price failure
-  def stub_ticker_price_failure(ticker, error: "Price fetch failed")
+  def stub_ticker_price_failure(ticker, error: 'Price fetch failed')
     ticker.stubs(:get_ask_price).returns(Result::Failure.new(error))
     ticker.stubs(:get_bid_price).returns(Result::Failure.new(error))
     ticker.stubs(:get_last_price).returns(Result::Failure.new(error))
@@ -34,7 +34,7 @@ module ExchangeMockHelpers
   # Stub exchange balance for a single asset
   def stub_exchange_balance(exchange, asset_id:, free: 0, locked: 0)
     exchange.stubs(:get_balance).with(asset_id: asset_id)
-      .returns(Result::Success.new({free: free, locked: locked}))
+            .returns(Result::Success.new({ free: free, locked: locked }))
   end
 
   # Stub a successful market buy order
@@ -44,7 +44,7 @@ module ExchangeMockHelpers
   end
 
   # Stub a failed market buy order
-  def stub_market_buy_failure(exchange, error: "Insufficient funds")
+  def stub_market_buy_failure(exchange, error: 'Insufficient funds')
     exchange.stubs(:market_buy).returns(Result::Failure.new(error))
   end
 
@@ -55,7 +55,7 @@ module ExchangeMockHelpers
   end
 
   # Stub a failed limit buy order
-  def stub_limit_buy_failure(exchange, error: "Order rejected")
+  def stub_limit_buy_failure(exchange, error: 'Order rejected')
     exchange.stubs(:limit_buy).returns(Result::Failure.new(error))
   end
 
@@ -65,7 +65,7 @@ module ExchangeMockHelpers
   end
 
   # Convenience method to set up all common mocks for bot execution
-  def setup_bot_execution_mocks(bot, price: 50000, order_id: nil)
+  def setup_bot_execution_mocks(bot, price: 50_000, order_id: nil)
     order_id ||= "test-order-#{SecureRandom.hex(8)}"
 
     # Handle both single asset (ticker) and dual asset (ticker0, ticker1) bots
@@ -88,16 +88,10 @@ module ExchangeMockHelpers
     stub_market_buy_success(bot.exchange, order_id: order_id)
 
     # Stub balance checks - handle both single and dual asset bots
-    balances = {bot.quote_asset_id => {free: 10000, locked: 0}}
-    if bot.respond_to?(:base_asset_id)
-      balances[bot.base_asset_id] = {free: 1.0, locked: 0}
-    end
-    if bot.respond_to?(:base0_asset_id)
-      balances[bot.base0_asset_id] = {free: 1.0, locked: 0}
-    end
-    if bot.respond_to?(:base1_asset_id)
-      balances[bot.base1_asset_id] = {free: 1.0, locked: 0}
-    end
+    balances = { bot.quote_asset_id => { free: 10_000, locked: 0 } }
+    balances[bot.base_asset_id] = { free: 1.0, locked: 0 } if bot.respond_to?(:base_asset_id)
+    balances[bot.base0_asset_id] = { free: 1.0, locked: 0 } if bot.respond_to?(:base0_asset_id)
+    balances[bot.base1_asset_id] = { free: 1.0, locked: 0 } if bot.respond_to?(:base1_asset_id)
     stub_exchange_balances(bot.exchange, balances)
 
     order_id

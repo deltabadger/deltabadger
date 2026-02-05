@@ -47,11 +47,11 @@ class ApplicationController < ActionController::Base
 
     # If current user is admin and hasn't completed setup (API key step),
     # redirect to step 2 with user's locale preference
-    if user_signed_in? && current_user.admin? && !current_user.setup_completed?
-      # Use params[:locale] first (if user explicitly chose), then saved preference
-      locale_param = params[:locale].presence || current_user.locale.presence
-      redirect_to setup_sync_path(locale: locale_param)
-    end
+    return unless user_signed_in? && current_user.admin? && !current_user.setup_completed?
+
+    # Use params[:locale] first (if user explicitly chose), then saved preference
+    locale_param = params[:locale].presence || current_user.locale.presence
+    redirect_to setup_sync_path(locale: locale_param)
   end
 
   def redirect_to_syncing_if_needed

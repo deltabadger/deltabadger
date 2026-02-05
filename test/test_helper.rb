@@ -1,16 +1,18 @@
-ENV["RAILS_ENV"] ||= "test"
-require_relative "../config/environment"
-require "rails/test_help"
-require "mocha/minitest"
-require "selenium/webdriver"
-require_relative "support/exchange_mock_helpers"
+ENV['RAILS_ENV'] ||= 'test'
+require_relative '../config/environment'
+require 'rails/test_help'
+require 'mocha/minitest'
+require 'selenium/webdriver'
+require_relative 'support/exchange_mock_helpers'
+
+puts "\n\e[1mDeltabadger v#{Rails.application.config.version}\e[0m\n\n"
 
 # Capybara configuration
 Capybara.register_driver :headless_chrome do |app|
   options = Selenium::WebDriver::Chrome::Options.new
-  options.add_argument("--headless=new")
-  options.add_argument("--proxy-server=direct://")
-  options.add_argument("--proxy-bypass-list=*")
+  options.add_argument('--headless=new')
+  options.add_argument('--proxy-server=direct://')
+  options.add_argument('--proxy-bypass-list=*')
 
   Capybara::Selenium::Driver.new(app, browser: :chrome, options: options)
 end
@@ -39,9 +41,9 @@ end
 module DeviseHelpers
   def sign_in_user
     user = User.create(
-      email: "test@test.com",
-      password: "password",
-      password_confirmation: "password",
+      email: 'test@test.com',
+      password: 'password',
+      password_confirmation: 'password',
       confirmed_at: Time.now
     )
     sign_in user

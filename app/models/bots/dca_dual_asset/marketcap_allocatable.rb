@@ -27,12 +27,12 @@ module Bots::DcaDualAsset::MarketcapAllocatable
   def allocation0
     return super unless marketcap_allocated?
 
-    @allocation0_memoized ||= begin
+    @allocation0 ||= begin
       # Calculate dynamic market cap using circulating_supply * current_price
       marketcap0 = calculate_dynamic_market_cap(base0_asset)
       marketcap1 = calculate_dynamic_market_cap(base1_asset)
 
-      if marketcap0.present? && marketcap0 > 0 && marketcap1.present? && marketcap1 > 0
+      if marketcap0.present? && marketcap0.positive? && marketcap1.present? && marketcap1.positive?
         (marketcap0.to_f / (marketcap0 + marketcap1)).round(2)
       else
         # Fall back to stored allocation0 value (default 50/50 split)
@@ -46,14 +46,13 @@ module Bots::DcaDualAsset::MarketcapAllocatable
 
   def calculate_dynamic_market_cap(asset)
     # If circulating supply is available from fixtures, calculate market cap dynamically
-    if asset.circulating_supply.present? && asset.circulating_supply > 0
+    if asset.circulating_supply.present? && asset.circulating_supply.positive?
       # Get current price (from exchange or CoinGecko)
       price_result = get_current_price(asset)
-      if price_result.success?
-        return (asset.circulating_supply * price_result.data).to_f
-      else
-        Rails.logger.warn("Failed to get price for #{asset.symbol}: #{price_result.errors.join(', ')}")
-      end
+      return (asset.circulating_supply * price_result.data).to_f if price_result.success?
+
+      Rails.logger.warn("Failed to get price for #{asset.symbol}: #{price_result.errors.join(', ')}")
+
     end
 
     # Fall back to static market cap from database
@@ -63,7 +62,7 @@ module Bots::DcaDualAsset::MarketcapAllocatable
   def get_current_price(asset)
     # First, try to get price from the exchange if a USD or USDT ticker exists
     if exchange.present?
-      ['USDT', 'USD', 'USDC', 'BUSD'].each do |quote_symbol|
+      %w[USDT USD USDC BUSD].each do |quote_symbol|
         ticker = exchange.tickers.available.find_by(
           base_asset_id: asset.id,
           quote: quote_symbol

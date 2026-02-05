@@ -14,7 +14,7 @@ module Bot::QuoteAmountLimitable
 
     validates :quote_amount_limited, inclusion: { in: [true, false] }
     validates :quote_amount_limit,
-              numericality: { greater_than_or_equal_to: ->(b) { b.minimum_quote_amount_limit } },
+              numericality: { greater_than_or_equal_to: lambda(&:minimum_quote_amount_limit) },
               if: :quote_amount_limited?
     validate :validate_quote_amount_limit_not_reached, if: :quote_amount_limited?, on: :start
 

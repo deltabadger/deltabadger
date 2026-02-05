@@ -2,7 +2,7 @@ module Index::ExchangeAvailability
   extend ActiveSupport::Concern
 
   MINIMUM_SUPPORTED_COINS = 3
-  TOP_COINS_COUNT = 10  # Store more for flexibility in exchange picker (show top 5 available per exchange)
+  TOP_COINS_COUNT = 10 # Store more for flexibility in exchange picker (show top 5 available per exchange)
   DISPLAY_COINS_COUNT = 5
 
   class_methods do

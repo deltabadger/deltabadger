@@ -1,5 +1,4 @@
 class GetSubaccounts < BaseService
-
   def call(user, exchange_id)
     exchange_market = ExchangeApi::Markets::Get.call(exchange_id)
     subaccounts = exchange_market.subaccounts(get_api_keys(user, exchange_id))

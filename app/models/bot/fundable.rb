@@ -33,7 +33,7 @@ module Bot::Fundable
     user.bots
         .where("json_extract(settings, '$.quote_asset_id') = ?", quote_asset_id)
         .where.not(last_end_of_funds_notification: nil)
-        .where("last_end_of_funds_notification > ?", 1.day.ago)
+        .where('last_end_of_funds_notification > ?', 1.day.ago)
         .exists?
   end
 

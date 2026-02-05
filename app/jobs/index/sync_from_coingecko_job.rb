@@ -56,9 +56,7 @@ class Index::SyncFromCoingeckoJob < ApplicationJob
       }
 
       # Set weight from WEIGHTED_CATEGORIES for new indices only
-      if index.new_record?
-        attrs[:weight] = Index::WEIGHTED_CATEGORIES[category['id']] || 0
-      end
+      attrs[:weight] = Index::WEIGHTED_CATEGORIES[category['id']] || 0 if index.new_record?
 
       index.update!(attrs)
 
