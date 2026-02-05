@@ -70,7 +70,7 @@ module ExchangeApi
 
         def altname_symbols
           symbols = @caching_client.assets
-          symbols['result'].map.transform_values { |data| data['altname'] }
+          symbols['result'].to_h { |name, data| [name, data['altname']] }
         end
 
         def fetch_symbol(symbol)

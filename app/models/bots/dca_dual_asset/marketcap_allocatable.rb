@@ -27,7 +27,7 @@ module Bots::DcaDualAsset::MarketcapAllocatable
   def allocation0
     return super unless marketcap_allocated?
 
-    @allocation0 ||= begin
+    @allocation0_memoized ||= begin
       # Calculate dynamic market cap using circulating_supply * current_price
       marketcap0 = calculate_dynamic_market_cap(base0_asset)
       marketcap1 = calculate_dynamic_market_cap(base1_asset)
