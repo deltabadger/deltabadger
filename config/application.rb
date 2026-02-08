@@ -20,8 +20,7 @@ Bundler.require(*Rails.groups)
 module Deltabadger
   class Application < Rails::Application
     # Initialize configuration defaults for originally generated Rails version.
-    config.load_defaults 7.2
-    config.autoloader = :zeitwerk
+    config.load_defaults 8.1
     # Settings in config/environments/* take precedence over those specified here.
     # Application configuration can go into files in config/initializers
     # -- all .rb files in that directory are automatically loaded after loading
@@ -50,7 +49,6 @@ module Deltabadger
     config.i18n.default_locale = :en
     config.i18n.fallbacks = true
 
-    config.action_view.form_with_generates_remote_forms = false
     # remove Turbo from Asset Pipeline precompilation
     config.after_initialize do
       config.assets.precompile -= Turbo::Engine::PRECOMPILE_ASSETS

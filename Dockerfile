@@ -82,9 +82,7 @@ ENV PATH="/app/node_modules/.bin:$PATH"
 # Precompile assets - all ENV.fetch calls need placeholder values during build
 RUN YARN_CACHE_FOLDER=/tmp/yarn-cache \
     SECRET_KEY_BASE=placeholder \
-    DEVISE_SECRET_KEY=placeholder \
     RAILS_ENV=production \
-    APP_ENCRYPTION_KEY=placeholder \
     APP_ROOT_URL=http://localhost:3000 \
     HOME_PAGE_URL=http://localhost:3000 \
     SMTP_ADDRESS=localhost \

@@ -2,9 +2,9 @@ class ApiKey < ApplicationRecord
   belongs_to :exchange
   belongs_to :user
 
-  attr_encrypted :key, key: EncryptionKey.derived_key
-  attr_encrypted :secret, key: EncryptionKey.derived_key
-  attr_encrypted :passphrase, key: EncryptionKey.derived_key
+  encrypts :key
+  encrypts :secret
+  encrypts :passphrase
 
   validate :unique_for_user_exchange_and_key_type, on: :create
 

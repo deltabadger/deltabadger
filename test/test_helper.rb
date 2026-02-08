@@ -2,22 +2,9 @@ ENV['RAILS_ENV'] ||= 'test'
 require_relative '../config/environment'
 require 'rails/test_help'
 require 'mocha/minitest'
-require 'selenium/webdriver'
 require_relative 'support/exchange_mock_helpers'
 
 puts "\n\e[1mDeltabadger v#{Rails.application.config.version}\e[0m\n\n"
-
-# Capybara configuration
-Capybara.register_driver :headless_chrome do |app|
-  options = Selenium::WebDriver::Chrome::Options.new
-  options.add_argument('--headless=new')
-  options.add_argument('--proxy-server=direct://')
-  options.add_argument('--proxy-bypass-list=*')
-
-  Capybara::Selenium::Driver.new(app, browser: :chrome, options: options)
-end
-
-Capybara.javascript_driver = :headless_chrome
 
 module ActiveSupport
   class TestCase
