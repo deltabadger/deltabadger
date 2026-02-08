@@ -376,3 +376,7 @@ Docker auto-generates secrets in `/app/storage/.secrets` on first run.
 ## Mission Control
 
 Job monitoring available at `/jobs` (admin only) - uses `mission_control-jobs` gem to manage Solid Queue.
+
+## Commits
+
+- Do not include Co-Authored-By lines in commit messages.
