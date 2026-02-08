@@ -1,9 +1,40 @@
 module Bots::Searchable
   extend ActiveSupport::Concern
 
+  ASSET_PAGE_SIZE = 20
+
   private
 
   def asset_search_results(bot, query, asset_type)
+    offset = params[:offset].to_i
+    all_assets = build_asset_search_results(bot, query, asset_type)
+    page = all_assets[offset, ASSET_PAGE_SIZE] || []
+
+    next_offset = offset + ASSET_PAGE_SIZE
+    if all_assets.size > next_offset
+      @next_page_frame_id = "assets-page-#{next_offset}"
+      @next_page_url = "#{request.path}?#{request.query_parameters.merge('offset' => next_offset).to_query}"
+    end
+    @asset_page_offset = offset
+
+    page
+  end
+
+  def render_asset_page(bot:, asset_field:)
+    return false unless @asset_page_offset.positive?
+
+    render partial: 'bots/asset_page', locals: {
+      page_frame_id: "assets-page-#{@asset_page_offset}",
+      assets: @assets,
+      bot: bot,
+      asset_field: asset_field,
+      next_page_url: @next_page_url,
+      next_page_frame_id: @next_page_frame_id
+    }
+    true
+  end
+
+  def build_asset_search_results(bot, query, asset_type)
     available_assets = bot.available_assets_for_current_settings(asset_type: asset_type)
     filtered_assets = filter_assets_by_query(assets: available_assets, query: query)
                       .pluck(:id, :symbol, :name, :color)
@@ -12,23 +43,16 @@ module Bots::Searchable
       assets = exchange.exchange_assets.available.pluck(:asset_id)
       list << [exchange.name_id, exchange.name, assets] if assets.any?
     end
+    binance_name = exchanges_data.find { |name_id, _, _| name_id == 'binance' }&.second
     filtered_assets.map do |id, symbol, name, color|
       exchanges = exchanges_data.select { |_, _, assets| assets.include?(id) }
-      [id, symbol, name, color, parse_exchanges(exchanges)]
+      [id, symbol, name, color, parse_exchanges(exchanges, binance_name)]
     end
   end
 
-  def parse_exchanges(exchanges)
-    # exchanges sorted by name_id
-    # exchanges.map { |name_id, name, _| [name_id, name] }.sort
-
-    # flattening binance and binance_us to binance
-    binance_name_id = 'binance'
-    binance_us_name_id = 'binance_us'
-    binance_name = Exchange.find_by(type: 'Exchanges::Binance').name
-
+  def parse_exchanges(exchanges, binance_name)
     exchanges.map { |name_id, name, _| [name_id, name] }
-             .map { |name_id, name| name_id == binance_us_name_id ? [binance_name_id, binance_name] : [name_id, name] }
+             .map { |name_id, name| name_id == 'binance_us' && binance_name ? ['binance', binance_name] : [name_id, name] }
              .uniq.sort
   end
 

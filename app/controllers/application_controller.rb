@@ -2,6 +2,7 @@ class ApplicationController < ActionController::Base
   include SharedHelper
 
   before_action :redirect_to_setup_if_needed
+  before_action :redirect_to_syncing_if_needed
   before_action :set_no_cache, if: :user_signed_in?
   around_action :switch_locale
 
@@ -55,13 +56,20 @@ class ApplicationController < ActionController::Base
   end
 
   def redirect_to_syncing_if_needed
+    return unless user_signed_in?
+    return if syncing_page?
     return if setup_controller?
+    return if user_signing_out?
     return unless AppConfig.setup_sync_needed?
 
-    redirect_to setup_syncing_path
+    redirect_to settings_syncing_path
   end
 
   def setup_controller?
     controller_name == 'setup'
+  end
+
+  def syncing_page?
+    controller_name == 'settings' && action_name == 'syncing'
   end
 end
