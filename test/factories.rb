@@ -40,6 +40,36 @@ FactoryBot.define do
       name { 'Coinbase' }
       type { 'Exchanges::Coinbase' }
     end
+
+    factory :bitget_exchange, class: 'Exchanges::Bitget' do
+      name { 'Bitget' }
+      type { 'Exchanges::Bitget' }
+    end
+
+    factory :kucoin_exchange, class: 'Exchanges::Kucoin' do
+      name { 'KuCoin' }
+      type { 'Exchanges::Kucoin' }
+    end
+
+    factory :bybit_exchange, class: 'Exchanges::Bybit' do
+      name { 'Bybit' }
+      type { 'Exchanges::Bybit' }
+    end
+
+    factory :mexc_exchange, class: 'Exchanges::Mexc' do
+      name { 'MEXC' }
+      type { 'Exchanges::Mexc' }
+    end
+
+    factory :gemini_exchange, class: 'Exchanges::Gemini' do
+      name { 'Gemini' }
+      type { 'Exchanges::Gemini' }
+    end
+
+    factory :bitvavo_exchange, class: 'Exchanges::Bitvavo' do
+      name { 'Bitvavo' }
+      type { 'Exchanges::Bitvavo' }
+    end
   end
 
   # Asset factory with traits for common cryptocurrencies
