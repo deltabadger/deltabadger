@@ -64,3 +64,104 @@ pl:
                     -   text_html: 'Skopiuj i wklej swoje nowe klucze API do powyższego formularza.'
                 private_key: 'Klucz prywatny'
                 public_key: 'Klucz API'
+            bitget:
+                instructions:
+                    -   text_html: 'Zaloguj się na swoje konto %{exchange_link}.'
+                    -   text_html: 'Przejdź do <a href="https://www.bitget.com/account/newapi"><b>Account</b> → <b>API Management</b></a>.'
+                    -   text_html: 'Kliknij <b>Create API Key</b>.'
+                    -   text_html: 'Wybierz <b>System generated</b>.'
+                    -   text_html: 'Oznacz klucz (np. "Deltabadger") i ustaw <b>Passphrase</b>.'
+                    -   text_html: 'Ustaw uprawnienia:'
+                        sub_instructions:
+                            -   text_html: '☑️ <b>Read</b>'
+                            -   text_html: '☑️ <b>Spot Trading</b><br><strong>⚠️ Ważne:</strong> Nie włączaj uprawnień do wypłat ani Futures.'
+                            -   text_html: 'IP whitelist:'
+                                sub_instructions:
+                                    -   text_html: '🔘 Dodaj adres IP maszyny, na której zainstalowany jest Deltabadger.'
+                    -   text_html: 'Kliknij <b>Next</b> i przejdź weryfikację.'
+                    -   text_html: 'Skopiuj i wklej API Key, Secret Key i Passphrase do formularza powyżej.'
+                private_key: 'Secret Key'
+                public_key: 'API Key'
+            kucoin:
+                instructions:
+                    -   text_html: 'Zaloguj się na swoje konto %{exchange_link}.'
+                    -   text_html: 'Przejdź do <a href="https://www.kucoin.com/account/api"><b>Account</b> → <b>API Management</b></a>.'
+                    -   text_html: 'Kliknij <b>Create API</b>.'
+                    -   text_html: 'Oznacz klucz (np. "Deltabadger") i ustaw <b>Passphrase</b>.'
+                    -   text_html: 'Ustaw uprawnienia:'
+                        sub_instructions:
+                            -   text_html: '☑️ <b>General</b>'
+                            -   text_html: '☑️ <b>Spot Trading</b><br><strong>⚠️ Ważne:</strong> Nie włączaj uprawnień do wypłat ani Futures.'
+                            -   text_html: 'IP whitelist:'
+                                sub_instructions:
+                                    -   text_html: '🔘 Dodaj adres IP maszyny, na której zainstalowany jest Deltabadger.'
+                    -   text_html: 'Kliknij <b>Confirm</b> i przejdź weryfikację.'
+                    -   text_html: 'Skopiuj i wklej API Key, Secret Key i Passphrase do formularza powyżej.'
+                private_key: 'API Secret'
+                public_key: 'API Key'
+            bybit:
+                instructions:
+                    -   text_html: 'Zaloguj się na swoje konto %{exchange_link}.'
+                    -   text_html: 'Przejdź do <a href="https://www.bybit.com/app/user/api-management"><b>Account</b> → <b>API Management</b></a>.'
+                    -   text_html: 'Kliknij <b>Create New Key</b>.'
+                    -   text_html: 'Wybierz <b>System-generated API Keys</b>.'
+                    -   text_html: 'Oznacz klucz (np. "Deltabadger").'
+                    -   text_html: 'Ustaw uprawnienia:'
+                        sub_instructions:
+                            -   text_html: '☑️ <b>Read-Only</b>'
+                            -   text_html: '☑️ <b>Spot Trading</b><br><strong>⚠️ Ważne:</strong> Nie włączaj uprawnień do wypłat ani Derivatives.'
+                            -   text_html: 'IP whitelist:'
+                                sub_instructions:
+                                    -   text_html: '🔘 Dodaj adres IP maszyny, na której zainstalowany jest Deltabadger.'
+                    -   text_html: 'Kliknij <b>Submit</b> i przejdź weryfikację.'
+                    -   text_html: 'Skopiuj i wklej klucze API do formularza powyżej.'
+                private_key: 'API Secret'
+                public_key: 'API Key'
+            mexc:
+                instructions:
+                    -   text_html: 'Zaloguj się na swoje konto %{exchange_link}.'
+                    -   text_html: 'Przejdź do <a href="https://www.mexc.com/user/openapi"><b>Account</b> → <b>API Management</b></a>.'
+                    -   text_html: 'Kliknij <b>Create API Key</b>.'
+                    -   text_html: 'Oznacz klucz (np. "Deltabadger").'
+                    -   text_html: 'Ustaw uprawnienia:'
+                        sub_instructions:
+                            -   text_html: '☑️ <b>Read</b>'
+                            -   text_html: '☑️ <b>Spot Trading</b><br><strong>⚠️ Ważne:</strong> Nie włączaj uprawnień do wypłat.'
+                            -   text_html: 'IP whitelist:'
+                                sub_instructions:
+                                    -   text_html: '🔘 Dodaj adres IP maszyny, na której zainstalowany jest Deltabadger.'
+                    -   text_html: 'Kliknij <b>Confirm</b> i przejdź weryfikację.'
+                    -   text_html: 'Skopiuj i wklej klucze API do formularza powyżej.'
+                private_key: 'API Secret'
+                public_key: 'API Key'
+            gemini:
+                instructions:
+                    -   text_html: 'Zaloguj się na swoje konto %{exchange_link}.'
+                    -   text_html: 'Przejdź do <a href="https://exchange.gemini.com/settings/api"><b>Settings</b> → <b>API</b></a>.'
+                    -   text_html: 'Kliknij <b>Create a New API Key</b>.'
+                    -   text_html: 'Ustaw zakres klucza na <b>Primary</b>.'
+                    -   text_html: 'Ustaw uprawnienia:'
+                        sub_instructions:
+                            -   text_html: '☑️ <b>Order Placement</b>'
+                            -   text_html: '☑️ <b>Order Status</b>'
+                            -   text_html: '☑️ <b>Account Balance</b><br><strong>⚠️ Ważne:</strong> Nie włączaj uprawnień do wypłat.'
+                    -   text_html: 'Kliknij <b>Create API Key</b> i przejdź weryfikację.'
+                    -   text_html: 'Skopiuj i wklej klucze API do formularza powyżej.'
+                private_key: 'API Secret'
+                public_key: 'API Key'
+            bitvavo:
+                instructions:
+                    -   text_html: 'Zaloguj się na swoje konto %{exchange_link}.'
+                    -   text_html: 'Przejdź do <a href="https://account.bitvavo.com/user/api"><b>Settings</b> → <b>API</b></a>.'
+                    -   text_html: 'Kliknij <b>Generate new key</b>.'
+                    -   text_html: 'Ustaw uprawnienia:'
+                        sub_instructions:
+                            -   text_html: '☑️ <b>View</b>'
+                            -   text_html: '☑️ <b>Trade</b><br><strong>⚠️ Ważne:</strong> Nie włączaj uprawnień do wypłat.'
+                            -   text_html: 'IP whitelist:'
+                                sub_instructions:
+                                    -   text_html: '🔘 Dodaj adres IP maszyny, na której zainstalowany jest Deltabadger.'
+                    -   text_html: 'Kliknij <b>Generate</b>.'
+                    -   text_html: 'Skopiuj i wklej klucze API do formularza powyżej.'
+                private_key: 'API Secret'
+                public_key: 'API Key'
