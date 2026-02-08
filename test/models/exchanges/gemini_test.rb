@@ -1,0 +1,45 @@
+require 'test_helper'
+
+class Exchanges::GeminiTest < ActiveSupport::TestCase
+  setup do
+    @exchange = create(:gemini_exchange)
+  end
+
+  test 'coingecko_id returns gemini' do
+    assert_equal 'gemini', @exchange.coingecko_id
+  end
+
+  test 'known_errors includes insufficient_funds and invalid_key' do
+    errors = @exchange.known_errors
+    assert errors[:insufficient_funds].present?
+    assert errors[:invalid_key].present?
+    assert_kind_of Array, errors[:insufficient_funds]
+    assert_kind_of Array, errors[:invalid_key]
+  end
+
+  test 'minimum_amount_logic returns base' do
+    assert_equal :base, @exchange.minimum_amount_logic
+  end
+
+  test 'requires_passphrase? returns false (default)' do
+    assert_not @exchange.requires_passphrase?
+  end
+
+  test 'set_client creates Clients::Gemini instance' do
+    api_key = stub(key: 'test_key', secret: 'test_secret')
+    @exchange.set_client(api_key: api_key)
+    assert_kind_of Clients::Gemini, @exchange.instance_variable_get(:@client)
+  end
+
+  test 'set_client sets api_key reader' do
+    api_key = stub(key: 'test_key', secret: 'test_secret')
+    @exchange.set_client(api_key: api_key)
+    assert_equal api_key, @exchange.api_key
+  end
+
+  test 'set_client handles nil api_key' do
+    @exchange.set_client(api_key: nil)
+    assert_nil @exchange.api_key
+    assert_kind_of Clients::Gemini, @exchange.instance_variable_get(:@client)
+  end
+end
