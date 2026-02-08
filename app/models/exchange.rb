@@ -22,6 +22,12 @@ class Exchange < ApplicationRecord
              when 'binance.us' then ExchangeApi::Markets::Binance::Market.new(url_base: US_URL_BASE)
              when 'kraken' then ExchangeApi::Markets::Kraken::Market.new
              when 'coinbase' then ExchangeApi::Markets::Coinbase::Market.new
+             when 'bitget' then ExchangeApi::Markets::Bitget::Market.new
+             when 'kucoin' then ExchangeApi::Markets::Kucoin::Market.new
+             when 'bybit' then ExchangeApi::Markets::Bybit::Market.new
+             when 'mexc' then ExchangeApi::Markets::Mexc::Market.new
+             when 'gemini' then ExchangeApi::Markets::Gemini::Market.new
+             when 'bitvavo' then ExchangeApi::Markets::Bitvavo::Market.new
              else
                Result::Failure.new("Unsupported exchange #{name}")
              end
@@ -114,5 +120,9 @@ class Exchange < ApplicationRecord
 
   def minimum_amount_logic
     raise NotImplementedError, "#{self.class.name} must implement minimum_amount_logic"
+  end
+
+  def requires_passphrase?
+    false
   end
 end

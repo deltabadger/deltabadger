@@ -18,6 +18,12 @@ module ExchangeApi
         when 'binance.us' then Binance::Validator.new(url_base: US_URL_BASE)
         when 'kraken' then Kraken::Validator.new
         when 'coinbase' then Coinbase::Validator.new
+        when 'bitget' then Bitget::Validator.new
+        when 'kucoin' then Kucoin::Validator.new
+        when 'bybit' then Bybit::Validator.new
+        when 'mexc' then Mexc::Validator.new
+        when 'gemini' then Gemini::Validator.new
+        when 'bitvavo' then Bitvavo::Validator.new
         end
       end
     end
