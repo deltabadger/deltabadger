@@ -6,6 +6,7 @@ class User < ApplicationRecord
   devise :database_authenticatable, :registerable,
          :recoverable, :rememberable, :validatable, :confirmable
 
+  attr_encrypted :otp_secret_key, key: EncryptionKey.derived_key
   has_one_time_password
   enum :otp_module, %i[disabled enabled], prefix: true
   has_many :api_keys

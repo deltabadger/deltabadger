@@ -33,10 +33,9 @@ bin/rails dartsass:watch  # CSS watcher
 
 ### Testing
 ```bash
-bundle exec rspec                    # Run all tests
-bundle exec rspec spec/models        # Run model tests
-bundle exec rspec spec/path/to/file_spec.rb  # Run single file
-bundle exec guard -c                 # Auto-run tests on file changes
+bin/rails test                       # Run all tests
+bin/rails test test/models           # Run model tests
+bin/rails test test/path/to/file_test.rb  # Run single file
 ```
 
 ### Database
@@ -98,7 +97,7 @@ yarn tauri build                    # Build production app
 - Statuses: `pending`, `submitted`, `failed`, `skipped`, `cancelled`
 
 **ApiKey** - Encrypted exchange API credentials
-- Encrypted with `attr_encrypted` gem using `APP_ENCRYPTION_KEY`
+- Encrypted with `attr_encrypted` gem using `EncryptionKey.derived_key` (SHA-256 of `APP_ENCRYPTION_KEY`)
 - Types: `:trading`, `:withdrawal`
 
 ### Concerns-Based Architecture
@@ -189,7 +188,7 @@ return result if result.failure?
 
 - Devise for authentication
 - Optional 2FA with `active_model_otp`
-- Encrypted API keys using `attr_encrypted` with `APP_ENCRYPTION_KEY`
+- Encrypted API keys and OTP secrets using `attr_encrypted` with `EncryptionKey.derived_key` (SHA-256 of `APP_ENCRYPTION_KEY`)
 - Multi-tenant: each user has their own bots and API keys
 
 ### Internationalization
@@ -331,7 +330,7 @@ rake fixtures:generate_tickers[binance]
 
 Key variables (see `.env.example`):
 - `SECRET_KEY_BASE`, `DEVISE_SECRET_KEY` - Rails secrets
-- `APP_ENCRYPTION_KEY` - 32-char hex for encrypting API keys
+- `APP_ENCRYPTION_KEY` - Any string (SHA-256 derived internally); for best security use `openssl rand -hex 32`
 - `DRY_RUN` - Mock exchange APIs (development only)
 - `ORDERS_FREQUENCY_LIMIT` - Minimum seconds between orders
 - `COINGECKO_API_KEY` - Optional CoinGecko API key
@@ -342,9 +341,9 @@ Docker auto-generates secrets in `/app/storage/.secrets` on first run.
 
 ## Testing
 
-- RSpec for testing
-- FactoryBot for fixtures (`spec/factories.rb`)
-- Capybara + Selenium for feature tests
+- Minitest for testing
+- Mocha for mocking (`stubs`, `expects`)
+- FactoryBot for fixtures (`test/factories.rb`)
 - Test DB auto-maintained via `db:test:prepare`
 
 ## Common Gotchas

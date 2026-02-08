@@ -2,9 +2,9 @@ class ApiKey < ApplicationRecord
   belongs_to :exchange
   belongs_to :user
 
-  attr_encrypted :key, key: ENV.fetch('APP_ENCRYPTION_KEY')
-  attr_encrypted :secret, key: ENV.fetch('APP_ENCRYPTION_KEY')
-  attr_encrypted :passphrase, key: ENV.fetch('APP_ENCRYPTION_KEY')
+  attr_encrypted :key, key: EncryptionKey.derived_key
+  attr_encrypted :secret, key: EncryptionKey.derived_key
+  attr_encrypted :passphrase, key: EncryptionKey.derived_key
 
   validate :unique_for_user_exchange_and_key_type, on: :create
 

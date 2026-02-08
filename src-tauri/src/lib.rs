@@ -45,6 +45,49 @@ fn wait_for_server(port: u16, timeout_secs: u64) -> bool {
     false
 }
 
+fn run_migrations(app_dir: &std::path::Path) -> Result<(), String> {
+    log::info!("Running database migrations...");
+
+    let rails_env = if cfg!(debug_assertions) {
+        "development"
+    } else {
+        "production"
+    };
+
+    let rails_cmd = if cfg!(target_os = "windows") {
+        "ruby"
+    } else {
+        "bundle"
+    };
+
+    let mut cmd = Command::new(rails_cmd);
+
+    if cfg!(target_os = "windows") {
+        cmd.args(["bin/rails", "db:migrate"]);
+    } else {
+        cmd.args(["exec", "rails", "db:migrate"]);
+    }
+
+    cmd.current_dir(app_dir)
+        .env("RAILS_ENV", rails_env)
+        .stdout(Stdio::inherit())
+        .stderr(Stdio::inherit());
+
+    let status = cmd
+        .status()
+        .map_err(|e| format!("Failed to run migrations: {}", e))?;
+
+    if status.success() {
+        log::info!("Migrations completed successfully");
+        Ok(())
+    } else {
+        Err(format!(
+            "Migration failed with exit code: {}",
+            status.code().unwrap_or(-1)
+        ))
+    }
+}
+
 fn start_rails_server(app_dir: &std::path::Path, port: u16) -> Result<Child, String> {
     log::info!("Starting Rails server from: {:?}", app_dir);
     log::info!("Rails will listen on port: {}", port);
@@ -134,6 +177,12 @@ pub fn run() {
             // Find an available port
             let port = find_available_port(RAILS_PORT);
             log::info!("Using port: {}", port);
+
+            // Run pending migrations before starting the server
+            if let Err(e) = run_migrations(&app_dir) {
+                log::error!("Migration error: {}", e);
+                return Err(e.into());
+            }
 
             // Start the Rails server
             match start_rails_server(&app_dir, port) {

@@ -22,6 +22,7 @@ module ExchangeApi
       def signed_client(api_key, api_secret, url_base)
         Faraday.new(url: url_base) do |conn|
           conn.headers['X-MBX-APIKEY'] = api_key
+          conn.proxy = ENV['PROXY_BINANCE'] if ENV['PROXY_BINANCE'].present?
           conn.use AddTimestamp
           conn.use AddSignature, api_secret
           conn.adapter Faraday.default_adapter
@@ -30,12 +31,14 @@ module ExchangeApi
 
       def base_client(url_base)
         Faraday.new(url: url_base) do |conn|
+          conn.proxy = ENV['PROXY_BINANCE'] if ENV['PROXY_BINANCE'].present?
           conn.adapter Faraday.default_adapter
         end
       end
 
       def caching_client(url_base, expire_time = ENV['DEFAULT_MARKET_CACHING_TIME'])
         Faraday.new(url: url_base) do |builder|
+          builder.proxy = ENV['PROXY_BINANCE'] if ENV['PROXY_BINANCE'].present?
           builder.use :manual_cache,
                       expires_in: expire_time
           builder.adapter Faraday.default_adapter

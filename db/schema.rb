@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_02_03_191449) do
+ActiveRecord::Schema[8.1].define(version: 2026_02_08_120001) do
   create_table "api_keys", force: :cascade do |t|
     t.datetime "created_at", precision: nil, null: false
     t.string "encrypted_key"
@@ -220,12 +220,13 @@ ActiveRecord::Schema[8.1].define(version: 2026_02_03_191449) do
     t.datetime "confirmed_at", precision: nil
     t.datetime "created_at", precision: nil, null: false
     t.string "email", default: "", null: false
+    t.string "encrypted_otp_secret_key"
+    t.string "encrypted_otp_secret_key_iv"
     t.string "encrypted_password", default: "", null: false
     t.datetime "last_otp_at", precision: nil
     t.string "locale"
     t.string "name"
     t.integer "otp_module", default: 0
-    t.string "otp_secret_key"
     t.datetime "remember_created_at", precision: nil
     t.datetime "reset_password_sent_at", precision: nil
     t.string "reset_password_token"
