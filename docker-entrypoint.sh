@@ -14,18 +14,13 @@ ensure_storage_directory() {
 # Generate a random hex string
 generate_hex() {
     local length=${1:-64}
-    # Try multiple methods for generating random hex
     if command -v openssl &> /dev/null; then
         openssl rand -hex "$length"
     elif [ -r /dev/urandom ]; then
         head -c "$length" /dev/urandom | od -An -tx1 | tr -d ' \n' | head -c $((length * 2))
     else
-        # Fallback: use $RANDOM (less secure but works everywhere)
-        local result=""
-        for i in $(seq 1 $((length * 2))); do
-            result="${result}$(printf '%x' $((RANDOM % 16)))"
-        done
-        echo "$result"
+        echo "ERROR: No secure random source available (need openssl or /dev/urandom)" >&2
+        exit 1
     fi
 }
 
@@ -40,7 +35,7 @@ generate_secrets() {
 
     local secret_key_base=$(generate_hex 64)
     local devise_secret_key=$(generate_hex 64)
-    local app_encryption_key=$(generate_hex 16)  # 32 hex chars = 16 bytes
+    local app_encryption_key=$(generate_hex 32)  # 64 hex chars = 256 bits of entropy
 
     cat > "$SECRETS_FILE" << EOF
 # Auto-generated secrets for Deltabadger
