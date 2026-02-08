@@ -24,6 +24,9 @@
         <% @assets.each do |id, symbol, name, color, exchanges| %>
           <%= render partial: "bots/asset_search_result", locals: { bot: @bot, asset_field: :quote_asset_id, id: id, symbol: symbol, name: name, color: color, exchanges: exchanges } %>
         <% end %>
+        <% if @next_page_url %>
+          <%= turbo_frame_tag @next_page_frame_id, src: @next_page_url, loading: :lazy %>
+        <% end %>
       <% end %>
     <% end %>
 
