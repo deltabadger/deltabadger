@@ -22,8 +22,6 @@ services:
       CACHE_DATABASE_PATH: /app/storage/production_cache.sqlite3
       CABLE_DATABASE_PATH: /app/storage/production_cable.sqlite3
       SECRET_KEY_BASE: ${APP_SEED}-secret-key-base
-      DEVISE_SECRET_KEY: ${APP_SEED}-devise-secret
-      APP_ENCRYPTION_KEY: ${APP_SEED}-encryption-key-0000
       HOME_PAGE_URL: http://${DEVICE_DOMAIN_NAME}:3737
       APP_ROOT_URL: http://${DEVICE_DOMAIN_NAME}:3737
       RAILS_MAX_THREADS: "5"
@@ -44,8 +42,6 @@ services:
       CACHE_DATABASE_PATH: /app/storage/production_cache.sqlite3
       CABLE_DATABASE_PATH: /app/storage/production_cache.sqlite3
       SECRET_KEY_BASE: ${APP_SEED}-secret-key-base
-      DEVISE_SECRET_KEY: ${APP_SEED}-devise-secret
-      APP_ENCRYPTION_KEY: ${APP_SEED}-encryption-key-0000
       HOME_PAGE_URL: http://${DEVICE_DOMAIN_NAME}:3737
       APP_ROOT_URL: http://${DEVICE_DOMAIN_NAME}:3737
     volumes:

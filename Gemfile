@@ -6,47 +6,33 @@ ruby '3.4.8'
 gem 'csv'
 gem 'securerandom'
 gem 'active_model_otp'
-gem "attr_encrypted", git: "https://github.com/attr-encrypted/attr_encrypted", branch: "master"
 gem 'bootsnap', '>= 1.4.2', require: false
-gem 'date', "3.5.1"
 gem 'devise'
 gem 'dotenv-rails'
 gem 'dotiw'
-gem 'concurrent-ruby', '1.3.6'
 gem 'faraday'
 gem 'faraday-manual-cache', git: 'https://github.com/dobs/faraday-manual-cache'
 gem 'haml-rails', '~> 3.0'
-gem 'image_processing', '~> 1.2'
-gem 'jbuilder', '~> 2.5'
 gem 'jsbundling-rails'
 gem 'importmap-rails' # Required by mission_control-jobs
-gem 'kaminari'
 gem 'net-smtp', require: false
 gem 'net-imap', require: false
 gem 'net-pop', require: false
-gem 'nio4r', '2.7.5'
-gem 'parallel'
 gem 'sqlite3', '~> 2.0'
 gem 'puma', '~> 7.2'
-gem "rack", "3.2.4"
 gem 'rack-cors'
 gem 'rails', '~> 8.1.1'
 gem 'rqrcode'
 gem 'solid_queue'
 gem 'solid_cache'
 gem 'solid_cable'
-# gem 'scenic' # Removed - was only used for PostgreSQL materialized views
 gem 'sprockets-rails'
 gem 'kraken_ruby_client', git: 'https://github.com/guillemap/kraken_ruby_client', branch: 'add-withdrawal-endpoints'
-gem 'whenever', require: false
 gem 'mission_control-jobs'
-gem 'bundler', '~> 4.0.3'
-gem 'lol_dba'
 
 group :development, :test do
   gem 'debug'
   # gem 'bullet', '~>7.2.0' Not supported in Rails 8 yet
-  gem 'byebug', platforms: [:mri, :windows]
   gem 'rubocop'
   gem 'factory_bot_rails'
   gem 'faker'
@@ -56,16 +42,12 @@ group :development do
   gem 'bundle-audit'
   gem 'letter_opener'
   gem 'listen', '>= 3.0.5', '< 4.0'
-  gem 'spring'
-  gem 'spring-watcher-listen', '~> 2.1.0'
-  gem 'guard-rubocop'
+  gem 'lol_dba'
   gem 'web-console'
   gem "rack-mini-profiler", "~> 4.0"
 end
 
 group :test do
-  gem 'capybara'
-  gem "selenium-webdriver"
   gem 'mocha'
 end
 
@@ -83,5 +65,4 @@ gem "dartsass-rails", "~> 0.5.1"
 gem "pagy", "~> 9.3"
 gem "haikunator", "~> 1.1"
 gem "sqids" # for obfuscating IDs
-gem "mini_magick", "~> 5.2"
 gem 'ruby-technical-analysis', git: 'https://github.com/guillemap/ruby-technical-analysis' # TODO: use the official gem once https://github.com/johnnypaper/ruby-technical-analysis/pull/32 is merged

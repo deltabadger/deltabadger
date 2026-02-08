@@ -10,18 +10,15 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_02_08_120001) do
+ActiveRecord::Schema[8.1].define(version: 2026_02_08_114731) do
   create_table "api_keys", force: :cascade do |t|
     t.datetime "created_at", precision: nil, null: false
-    t.string "encrypted_key"
-    t.string "encrypted_key_iv"
-    t.string "encrypted_passphrase"
-    t.string "encrypted_passphrase_iv"
-    t.string "encrypted_secret"
-    t.string "encrypted_secret_iv"
     t.bigint "exchange_id", null: false
     t.boolean "german_trading_agreement"
+    t.string "key"
     t.integer "key_type", default: 0, null: false
+    t.string "passphrase"
+    t.string "secret"
     t.integer "status", default: 0, null: false
     t.datetime "updated_at", precision: nil, null: false
     t.bigint "user_id", null: false
@@ -31,10 +28,9 @@ ActiveRecord::Schema[8.1].define(version: 2026_02_08_120001) do
 
   create_table "app_configs", force: :cascade do |t|
     t.datetime "created_at", null: false
-    t.text "encrypted_value"
-    t.string "encrypted_value_iv"
     t.string "key", null: false
     t.datetime "updated_at", null: false
+    t.text "value"
     t.index ["key"], name: "index_app_configs_on_key", unique: true
   end
 
@@ -125,13 +121,10 @@ ActiveRecord::Schema[8.1].define(version: 2026_02_08_120001) do
   end
 
   create_table "fee_api_keys", force: :cascade do |t|
-    t.string "encrypted_key"
-    t.string "encrypted_key_iv"
-    t.string "encrypted_passphrase"
-    t.string "encrypted_passphrase_iv"
-    t.string "encrypted_secret"
-    t.string "encrypted_secret_iv"
     t.bigint "exchange_id", null: false
+    t.string "key"
+    t.string "passphrase"
+    t.string "secret"
     t.index ["exchange_id"], name: "index_fee_api_keys_on_exchange_id"
   end
 
@@ -220,13 +213,12 @@ ActiveRecord::Schema[8.1].define(version: 2026_02_08_120001) do
     t.datetime "confirmed_at", precision: nil
     t.datetime "created_at", precision: nil, null: false
     t.string "email", default: "", null: false
-    t.string "encrypted_otp_secret_key"
-    t.string "encrypted_otp_secret_key_iv"
     t.string "encrypted_password", default: "", null: false
     t.datetime "last_otp_at", precision: nil
     t.string "locale"
     t.string "name"
     t.integer "otp_module", default: 0
+    t.string "otp_secret_key"
     t.datetime "remember_created_at", precision: nil
     t.datetime "reset_password_sent_at", precision: nil
     t.string "reset_password_token"

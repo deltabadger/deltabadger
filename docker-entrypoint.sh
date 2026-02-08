@@ -34,16 +34,12 @@ generate_secrets() {
     echo "Generating new secrets..."
 
     local secret_key_base=$(generate_hex 64)
-    local devise_secret_key=$(generate_hex 64)
-    local app_encryption_key=$(generate_hex 32)  # 64 hex chars = 256 bits of entropy
 
     cat > "$SECRETS_FILE" << EOF
 # Auto-generated secrets for Deltabadger
 # Generated on $(date -u +"%Y-%m-%d %H:%M:%S UTC")
 # DO NOT DELETE - these are required for data encryption
 SECRET_KEY_BASE=${secret_key_base}
-DEVISE_SECRET_KEY=${devise_secret_key}
-APP_ENCRYPTION_KEY=${app_encryption_key}
 EOF
 
     chmod 600 "$SECRETS_FILE"
@@ -74,18 +70,6 @@ load_secrets() {
                         echo "  Loaded SECRET_KEY_BASE"
                     fi
                     ;;
-                DEVISE_SECRET_KEY)
-                    if [ -z "$DEVISE_SECRET_KEY" ]; then
-                        export DEVISE_SECRET_KEY="$value"
-                        echo "  Loaded DEVISE_SECRET_KEY"
-                    fi
-                    ;;
-                APP_ENCRYPTION_KEY)
-                    if [ -z "$APP_ENCRYPTION_KEY" ]; then
-                        export APP_ENCRYPTION_KEY="$value"
-                        echo "  Loaded APP_ENCRYPTION_KEY"
-                    fi
-                    ;;
             esac
         done < "$SECRETS_FILE"
 
@@ -94,15 +78,6 @@ load_secrets() {
             echo "ERROR: SECRET_KEY_BASE not found in $SECRETS_FILE"
             exit 1
         fi
-        if [ -z "$DEVISE_SECRET_KEY" ]; then
-            echo "ERROR: DEVISE_SECRET_KEY not found in $SECRETS_FILE"
-            exit 1
-        fi
-        if [ -z "$APP_ENCRYPTION_KEY" ]; then
-            echo "ERROR: APP_ENCRYPTION_KEY not found in $SECRETS_FILE"
-            exit 1
-        fi
-
         echo "All secrets loaded successfully"
     else
         echo "ERROR: Secrets file not found at $SECRETS_FILE"

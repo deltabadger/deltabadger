@@ -97,7 +97,7 @@ yarn tauri build                    # Build production app
 - Statuses: `pending`, `submitted`, `failed`, `skipped`, `cancelled`
 
 **ApiKey** - Encrypted exchange API credentials
-- Encrypted with `attr_encrypted` gem using `EncryptionKey.derived_key` (SHA-256 of `APP_ENCRYPTION_KEY`)
+- Encrypted with Rails ActiveRecord Encryption (keys derived from `SECRET_KEY_BASE`)
 - Types: `:trading`, `:withdrawal`
 
 ### Concerns-Based Architecture
@@ -188,7 +188,7 @@ return result if result.failure?
 
 - Devise for authentication
 - Optional 2FA with `active_model_otp`
-- Encrypted API keys and OTP secrets using `attr_encrypted` with `EncryptionKey.derived_key` (SHA-256 of `APP_ENCRYPTION_KEY`)
+- Encrypted API keys and OTP secrets using Rails ActiveRecord Encryption (keys derived from `SECRET_KEY_BASE`)
 - Multi-tenant: each user has their own bots and API keys
 
 ### Internationalization
@@ -244,6 +244,11 @@ Controllers handle multi-step wizard:
 - Model concerns: `app/models/concerns/` (shared) or `app/models/<model>/` (model-specific)
 - Controller concerns: `app/controllers/concerns/` or `app/controllers/concerns/<subsystem>/`
 - Concerns must be cohesive units with "has trait" semantics, not arbitrary code containers
+
+**Rails-First Principle:**
+- Before implementing any feature, CHECK if Rails offers it natively (encryption, authentication, caching, jobs, etc.)
+- Always prefer the approach closest to Rails conventions and built-in features
+- Only reach for external gems when Rails genuinely has no equivalent
 
 **Dependencies:**
 - Resist adding Ruby gems - keep Gemfile minimal
@@ -329,8 +334,7 @@ rake fixtures:generate_tickers[binance]
 ## Environment Variables
 
 Key variables (see `.env.example`):
-- `SECRET_KEY_BASE`, `DEVISE_SECRET_KEY` - Rails secrets
-- `APP_ENCRYPTION_KEY` - Any string (SHA-256 derived internally); for best security use `openssl rand -hex 32`
+- `SECRET_KEY_BASE` - Rails secret (Devise also derives its key from this)
 - `DRY_RUN` - Mock exchange APIs (development only)
 - `ORDERS_FREQUENCY_LIMIT` - Minimum seconds between orders
 - `COINGECKO_API_KEY` - Optional CoinGecko API key
