@@ -11,6 +11,7 @@ gem 'devise'
 gem 'dotenv-rails'
 gem 'dotiw'
 gem 'faraday'
+gem 'mini_magick'
 gem 'faraday-manual-cache', git: 'https://github.com/dobs/faraday-manual-cache'
 gem 'haml-rails', '~> 3.0'
 gem 'jsbundling-rails'
@@ -62,7 +63,7 @@ gem "rbnacl"
 gem "jaro_winkler", "~> 1.6"
 gem "oj", "~> 3.16"
 gem "dartsass-rails", "~> 0.5.1"
-gem "pagy", "~> 9.3"
+gem "pagy", "~> 43.2"
 gem "haikunator", "~> 1.1"
 gem "sqids" # for obfuscating IDs
 gem 'ruby-technical-analysis', git: 'https://github.com/guillemap/ruby-technical-analysis' # TODO: use the official gem once https://github.com/johnnypaper/ruby-technical-analysis/pull/32 is merged

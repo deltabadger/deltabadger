@@ -37,3 +37,18 @@
     background-color: var(--grass)
   &--warning
     background-color: var(--warning)
+  &--syncing
+    animation: none
+    display: flex
+    align-items: center
+    gap: 1.5rem
+    padding: 2rem 2.5rem
+
+.loader--syncing
+  width: 2rem
+  height: 2rem
+  min-width: 2rem
+  border-radius: 50%
+  border: 0.25rem solid rgba(255, 255, 255, 0.3)
+  border-top-color: white
+  animation: rotate 1s linear infinite

@@ -98,11 +98,8 @@ prepare_database() {
 
     local db_version=$(bundle exec rails db:version 2>/dev/null | grep -oE '[0-9]+$' || echo "none")
 
-    if [ "$db_version" = "none" ]; then
+    if [ "$db_version" = "none" ] || [ "$db_version" = "0" ]; then
         echo "Database not found, creating..."
-        bundle exec rails db:prepare
-    elif [ "$db_version" = "0" ]; then
-        echo "Empty database, loading schema..."
         bundle exec rails db:prepare
     else
         echo "Database at version $db_version, running migrations..."
