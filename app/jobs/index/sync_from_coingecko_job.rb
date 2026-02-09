@@ -47,10 +47,14 @@ class Index::SyncFromCoingeckoJob < ApplicationJob
         source: Index::SOURCE_COINGECKO
       )
 
+      # Calculate top coins per exchange
+      top_coins_by_exchange = calculate_top_coins_by_exchange(valid_coins)
+
       attrs = {
         name: strip_brackets(category['name']),
         description: category['content'],
         top_coins: top_coins_for_display,
+        top_coins_by_exchange: top_coins_by_exchange,
         market_cap: category['market_cap'],
         available_exchanges: available_exchanges
       }
@@ -77,6 +81,26 @@ class Index::SyncFromCoingeckoJob < ApplicationJob
   # Also handles brackets in the middle: "YZi Labs (Prev. Binance Labs) Portfolio" → "YZi Labs Portfolio"
   def strip_brackets(name)
     name&.gsub(/\s*\([^)]+\)/, '')&.gsub(/\s+/, ' ')&.strip
+  end
+
+  # Calculate top coins available on each exchange, preserving market cap order
+  # @param valid_coins [Array<String>] Coins sorted by market cap
+  # @return [Hash] { "Exchanges::Binance" => ["bitcoin", "ethereum", ...], ... }
+  def calculate_top_coins_by_exchange(valid_coins)
+    result = {}
+
+    Exchange.available.each do |exchange|
+      exchange_coin_ids = exchange.tickers.available
+                                  .joins(:base_asset)
+                                  .where(assets: { external_id: valid_coins })
+                                  .pluck('assets.external_id')
+                                  .uniq
+
+      ordered = valid_coins.select { |coin_id| exchange_coin_ids.include?(coin_id) }
+      result[exchange.type] = ordered.first(Index::ExchangeAvailability::TOP_COINS_COUNT)
+    end
+
+    result
   end
 
   # Fetch all coins for a category (up to 250)

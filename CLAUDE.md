@@ -292,44 +292,34 @@ Controllers handle multi-step wizard:
 - Turbo Streams broadcast to user-specific channels: `["user_#{user_id}", :bot_updates]`
 - See `app/models/bot.rb` broadcast methods: `broadcast_status_bar_update`, `broadcast_new_order`
 
-### CoinGecko Integration
+### Market Data Architecture
 
-**CoinGecko is now optional** - the app uses pre-seeded fixture data by default:
-- Fixtures in `db/fixtures/` contain top 100 cryptocurrencies + fiat currencies + tickers
-- Loaded automatically during `rails db:seed` via `SeedDataLoader`
+**Seed data** — the app ships with pre-built JSON seed data in `db/seed_data/`:
+- `assets.json` — cryptocurrencies + fiat currencies with metadata, colors, circulating supply
+- `indices.json` — CoinGecko category indices with per-exchange top coins
+- `tickers/{exchange}.json` — trading pairs (10 files, one per exchange)
+- Loaded during `rails db:seed` via `MarketData.import_*` methods
 - No API key required for basic functionality
 
-**Optional CoinGecko API key** (for fresh market data):
-- Add `COINGECKO_API_KEY` to enable live sync of assets and tickers
-- When configured: recurring jobs sync every 12 hours
-- When not configured: jobs skip silently, app uses fixture data
-- `Coingecko` model wraps API client (`app/models/coingecko.rb`)
-- Caching: 60s for prices, 6h for market caps
+**One code path** — `MarketData.import_assets!`, `import_indices!`, `import_tickers!`:
+- Used by `db/seeds.rb` (reads JSON files at first boot)
+- Used by `sync_*_from_deltabadger!` (fetches from data-api HTTP during live sync)
+- Same upsert logic, different data sources
 
-**Generating new fixtures** (requires CoinGecko API key):
+**Regenerating seed data** (requires CoinGecko API key):
 ```bash
-# Generate all fixtures (assets + tickers for all exchanges)
-rake fixtures:generate_all
-
-# Generate only assets (top 100 cryptocurrencies + fiat)
-rake fixtures:generate_assets
-
-# Generate tickers for specific exchange
-rake fixtures:generate_tickers[binance]
+COINGECKO_API_KEY=xxx rake seed:generate
 ```
+Syncs from CoinGecko + exchange APIs into a temp DB, then exports as JSON to `db/seed_data/`.
 
-**Fixture data includes:**
-- `assets.json` - Top N cryptocurrencies (default: 100) + 17 fiat currencies
-  - Includes `circulating_supply` for dynamic market cap calculation
-  - Market cap calculated as: circulating_supply × current_price (from exchange)
-  - Circulating supply changes slowly, so fixtures remain accurate
-- `tickers/{exchange}.json` - Trading pairs with min/max sizes, decimals, pricing info
-- Change `Fixtures::AssetsGenerator::TOP_N_CRYPTOCURRENCIES` to include more/fewer assets
+**Live sync** (two providers, configured in settings):
+- **CoinGecko** (open source users): `COINGECKO_API_KEY` enables direct sync
+- **data-api** (deltabadger.com users): `MARKET_DATA_URL` + `MARKET_DATA_TOKEN` for the commercial data service
+- Recurring jobs sync every 12 hours when configured; skip silently when not
 
 **Market cap allocation (DCA Dual Asset bots):**
-- Without CoinGecko: Uses `circulating_supply` × current exchange price
-- With CoinGecko: Can fetch live market cap directly
-- Circulating supply from fixtures + live prices = accurate dynamic market cap
+- Uses `circulating_supply` from seed data × current exchange price
+- Circulating supply changes slowly, so seed data remains accurate
 
 ## Environment Variables
 

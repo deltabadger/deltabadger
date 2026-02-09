@@ -54,13 +54,6 @@ class ApplicationController < ActionController::Base
     redirect_to setup_sync_path(locale: locale_param)
   end
 
-  def redirect_to_syncing_if_needed
-    return if setup_controller?
-    return unless AppConfig.setup_sync_needed?
-
-    redirect_to setup_syncing_path
-  end
-
   def setup_controller?
     controller_name == 'setup'
   end
