@@ -1,6 +1,8 @@
 class Exchange < ApplicationRecord
   include ExchangeApi::BinanceEnum
 
+  STABLE_TYPES = %w[Exchanges::Binance Exchanges::BinanceUs Exchanges::Coinbase Exchanges::Kraken].freeze
+
   has_many :bots
   has_many :api_keys
   has_many :exchange_assets
@@ -12,6 +14,10 @@ class Exchange < ApplicationRecord
   validates :type, uniqueness: true
 
   scope :available, -> { where(available: true) }
+
+  def beta?
+    !type.in?(STABLE_TYPES)
+  end
 
   include Synchronizer
   include CandleBuilder

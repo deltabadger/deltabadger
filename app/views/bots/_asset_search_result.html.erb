@@ -10,7 +10,7 @@
     </div>
     <div class="modal--search__cell modal--search__cell--exchanges">
       <% exchanges.each do |exchange_name_id, exchange_name| %>
-        <%= render "svg/exchange-#{exchange_name_id}", title: exchange_name %>
+        <%= exchange_icon_svg(exchange_name_id) %>
       <% end %>
     </div>
   <% end %>

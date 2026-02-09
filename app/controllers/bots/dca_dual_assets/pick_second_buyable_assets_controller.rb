@@ -11,6 +11,7 @@ class Bots::DcaDualAssets::PickSecondBuyableAssetsController < ApplicationContro
     else
       @bot.base1_asset_id = nil
       @assets = asset_search_results(@bot, search_params[:query], :base_asset)
+      nil if render_asset_page(bot: @bot, asset_field: :base1_asset_id)
     end
   end
 

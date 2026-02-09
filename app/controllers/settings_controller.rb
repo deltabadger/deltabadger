@@ -106,9 +106,9 @@ class SettingsController < ApplicationController
   end
 
   def resync_assets
-    AppConfig.setup_sync_status = AppConfig::SYNC_STATUS_PENDING
-    Setup::SeedAndSyncJob.perform_later(source: 'settings', redirect_to: settings_path)
-    redirect_to settings_syncing_path
+    AppConfig.setup_sync_status = AppConfig::SYNC_STATUS_IN_PROGRESS
+    Setup::SeedAndSyncJob.perform_later
+    redirect_to settings_path
   end
 
   def confirm_destroy_coingecko_key; end
@@ -130,9 +130,9 @@ class SettingsController < ApplicationController
 
     AppConfig.coingecko_api_key = params[:coingecko_api_key]
     AppConfig.market_data_provider = MarketDataSettings::PROVIDER_COINGECKO
-    AppConfig.setup_sync_status = AppConfig::SYNC_STATUS_PENDING
-    Setup::SeedAndSyncJob.perform_later(source: 'settings', redirect_to: settings_path)
-    redirect_to settings_syncing_path
+    AppConfig.setup_sync_status = AppConfig::SYNC_STATUS_IN_PROGRESS
+    Setup::SeedAndSyncJob.perform_later
+    redirect_to settings_path
   end
 
   def update_market_data
@@ -171,11 +171,6 @@ class SettingsController < ApplicationController
       turbo_stream.replace('market_data_settings', partial: 'settings/widgets/market_data'),
       turbo_stream.prepend('flash', partial: 'layouts/flash')
     ]
-  end
-
-  def syncing
-    # If sync is already completed, redirect to settings
-    redirect_to settings_path if AppConfig.setup_sync_completed?
   end
 
   def update_registration

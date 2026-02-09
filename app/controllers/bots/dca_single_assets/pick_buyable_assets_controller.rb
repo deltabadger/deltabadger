@@ -10,6 +10,7 @@ class Bots::DcaSingleAssets::PickBuyableAssetsController < ApplicationController
     @bot.exchange_id = nil
     session[:bot_config]['label'] ||= @bot.label
     @assets = asset_search_results(@bot, search_params[:query], :base_asset)
+    nil if render_asset_page(bot: @bot, asset_field: :base_asset_id)
   end
 
   def create

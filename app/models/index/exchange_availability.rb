@@ -8,34 +8,10 @@ module Index::ExchangeAvailability
   class_methods do
     # Calculate which exchanges support enough coins from the index
     # @param top_coins [Array<String>] Array of CoinGecko coin IDs (external_ids)
-    # @param ticker_data [Hash, nil] Optional pre-loaded ticker data for fixture generation
-    #   Format: { "Exchanges::Binance" => Set<base_external_ids>, ... }
     # @return [Hash] Exchange types with coin counts, e.g. {"Exchanges::Binance" => 9}
-    def calculate_available_exchanges(top_coins:, ticker_data: nil)
+    def calculate_available_exchanges(top_coins:)
       return {} if top_coins.blank?
 
-      if ticker_data.present?
-        calculate_from_fixture_data(top_coins, ticker_data)
-      else
-        calculate_from_database(top_coins)
-      end
-    end
-
-    private
-
-    def calculate_from_fixture_data(top_coins, ticker_data)
-      result = {}
-      coin_ids = top_coins.to_set
-
-      ticker_data.each do |exchange_type, base_external_ids|
-        matching_count = (coin_ids & base_external_ids).size
-        result[exchange_type] = matching_count if matching_count >= MINIMUM_SUPPORTED_COINS
-      end
-
-      result
-    end
-
-    def calculate_from_database(top_coins)
       result = {}
 
       # Get asset IDs for the top coins
