@@ -2,7 +2,7 @@
   "metadata": {
     "exchange_name_id": "bybit",
     "count": 640,
-    "generated_at": "2026-02-09T01:11:36Z"
+    "generated_at": "2026-02-09T11:42:07Z"
   },
   "data": [
     {
@@ -8763,7 +8763,7 @@
       "quote_external_id": "tether",
       "minimum_base_size": "0.1",
       "minimum_quote_size": "5.0",
-      "maximum_base_size": "2426890.0",
+      "maximum_base_size": "214920.0",
       "maximum_quote_size": "200000.0",
       "base_decimals": 1,
       "quote_decimals": 6,

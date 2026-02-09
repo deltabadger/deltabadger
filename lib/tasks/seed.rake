@@ -174,6 +174,7 @@ namespace :seed do
     puts "  Indices:         #{Index.count}"
     puts ''
     colorless_assets = Asset.where(category: 'Cryptocurrency', color: nil).pluck(:external_id)
+    colorless_assets.reject! { |id| Asset::COLOR_OVERRIDES.key?(id) }
     if colorless_assets.any?
       puts "  Missing colors (#{colorless_assets.size}):"
       colorless_assets.each { |id| puts "    #{id}" }
