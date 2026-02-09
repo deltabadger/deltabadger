@@ -19,7 +19,7 @@
     "flatpickr": "^4.6.13"
   },
   "devDependencies": {
-    "@tauri-apps/cli": "^2.9.6",
+    "@tauri-apps/cli": "^2.10.0",
     "esbuild": "^0.27.3"
   },
   "scripts": {
