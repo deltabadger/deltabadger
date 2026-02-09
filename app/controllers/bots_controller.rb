@@ -1,5 +1,5 @@
 class BotsController < ApplicationController
-  include Pagy::Backend
+  include Pagy::Method
   include Bots::Botable
 
   before_action :authenticate_user!
@@ -43,7 +43,7 @@ class BotsController < ApplicationController
 
   def show
     if request.format.turbo_stream?
-      @pagy, @orders = pagy_countless(@bot.transactions.order(created_at: :desc), items: 10)
+      @pagy, @orders = pagy(:countless, @bot.transactions.order(created_at: :desc), limit: 10)
       permitted_params = params.require(:decimals).permit(*Asset.all.pluck(:symbol))
       @decimals = permitted_params.transform_values(&:to_i)
     else
