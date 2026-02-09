@@ -11,7 +11,6 @@ namespace :seed do
     temp_db_path = Rails.root.join('tmp/seed_generation.sqlite3')
     FileUtils.rm_f(temp_db_path)
 
-    # Cache colors from existing seed data
     seed_dir = Rails.root.join('db/seed_data')
     cached_colors = load_cached_colors(seed_dir.join('assets.json'))
 
@@ -101,6 +100,17 @@ namespace :seed do
           end
           puts "       Restored #{applied} colors from previous seed data." if applied.positive?
         end
+
+        # Apply color overrides (takes precedence over cached and inferred colors)
+        override_applied = 0
+        Asset::COLOR_OVERRIDES.each do |external_id, color|
+          asset = Asset.find_by(external_id: external_id)
+          next unless asset
+
+          asset.update_column(:color, color)
+          override_applied += 1
+        end
+        puts "       Applied #{override_applied} color overrides." if override_applied.positive?
 
         # Infer colors only for truly new assets
         colorless = Asset.where(category: 'Cryptocurrency', color: nil).where.not(image_url: nil)

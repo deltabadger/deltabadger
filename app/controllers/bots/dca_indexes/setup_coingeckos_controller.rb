@@ -2,8 +2,8 @@ class Bots::DcaIndexes::SetupCoingeckosController < ApplicationController
   before_action :authenticate_user!
 
   def new
-    # Skip to pick index if market data is already configured and synced
-    return unless MarketData.configured? && AppConfig.setup_sync_completed?
+    # Skip to pick index if market data is already configured
+    return unless MarketData.configured?
 
     session[:bot_config] ||= {}
     redirect_to new_bots_dca_indexes_pick_index_path
@@ -19,12 +19,11 @@ class Bots::DcaIndexes::SetupCoingeckosController < ApplicationController
     end
 
     AppConfig.coingecko_api_key = api_key
+    AppConfig.market_data_provider = MarketDataSettings::PROVIDER_COINGECKO
     session[:bot_config] ||= {}
 
-    # Trigger sync and redirect to fullscreen syncing page
-    AppConfig.setup_sync_status = AppConfig::SYNC_STATUS_PENDING
-    Setup::SeedAndSyncJob.perform_later(source: 'settings', redirect_to: new_bots_dca_indexes_pick_index_path)
-    render turbo_stream: turbo_stream_redirect(settings_syncing_path)
+    Setup::SeedAndSyncJob.perform_later
+    redirect_to new_bots_dca_indexes_pick_index_path
   end
 
   private

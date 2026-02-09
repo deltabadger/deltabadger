@@ -80,12 +80,12 @@ module Bots::Searchable
   end
 
   def filter_exchanges_by_query(exchanges:, query:)
-    return exchanges.order(:name) if query.blank?
+    return exchanges.order(Arel.sql("type IN (#{Exchange::STABLE_TYPES.map { |t| "'#{t}'" }.join(',')}) DESC"), :name) if query.blank?
 
     exchanges
       .map { |exchange| [exchange, similarities_for_exchange(exchange, query.downcase)] }
       .select { |_, similarities| similarities.first >= 0.7 }
-      .sort_by { |_, similarities| similarities.map(&:-@) }
+      .sort_by { |exchange, similarities| [exchange.beta? ? 1 : 0, similarities.map(&:-@)] }
       .map(&:first)
   end
 
