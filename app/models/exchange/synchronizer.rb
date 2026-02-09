@@ -1,7 +1,8 @@
 module Exchange::Synchronizer
   extend ActiveSupport::Concern
 
-  def sync_tickers_and_assets_with_external_data(skip_async_jobs: false)
+  def sync_tickers_and_assets_with_external_data(skip_async_jobs: false, on_progress: nil)
+    @on_progress = on_progress
     return Result::Success.new unless MarketData.configured?
 
     result = coingecko.get_exchange_tickers_by_id(exchange_id: coingecko_id)
@@ -113,6 +114,7 @@ module Exchange::Synchronizer
         asset = Asset.create(external_id: external_id, category: 'Cryptocurrency')
         new_crypto_assets << asset if asset.persisted?
       end
+      @on_progress&.call
     rescue ActiveRecord::RecordInvalid => e
       Rails.logger.warn "[Sync] Skipping asset #{external_id}: #{e.message}"
     end
@@ -129,6 +131,7 @@ module Exchange::Synchronizer
     current_tickers = tickers.available.pluck(:ticker)
     updated_tickers = []
     tickers_info.each do |ticker_info|
+      @on_progress&.call
       base = ticker_info[:base]
       quote = ticker_info[:quote]
       ticker = tickers.find_by(base: base, quote: quote)
@@ -160,7 +163,14 @@ module Exchange::Synchronizer
       Rails.logger.warn "[Sync] Skipping ticker #{base}/#{quote}: #{e.message}"
     end
 
-    tickers.where(ticker: current_tickers - updated_tickers).update_all(available: false)
+    # Only mark tickers unavailable if the sync confirmed at least some existing tickers.
+    # This prevents a sync with no overlap (e.g. API issues or missing exchange data)
+    # from wiping out fixture-loaded tickers.
+    stale_tickers = current_tickers - updated_tickers
+    return unless updated_tickers.any? && stale_tickers.size < current_tickers.size
+
+    tickers.where(ticker: stale_tickers).update_all(available: false)
+
     current_exchange_asset_ids = exchange_assets.available.pluck(:asset_id)
     updated_exchange_asset_ids = tickers.available.pluck(:base_asset_id, :quote_asset_id).flatten.uniq
     exchange_assets.where(asset_id: current_exchange_asset_ids - updated_exchange_asset_ids).update_all(available: false)

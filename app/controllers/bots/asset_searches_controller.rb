@@ -7,8 +7,9 @@ class Bots::AssetSearchesController < ApplicationController
 
   def edit
     asset_type = search_params[:asset_field] == 'quote_asset_id' ? :quote_asset : :base_asset
-    @assets = asset_search_results(@bot, search_params[:query], asset_type)
     @asset_field = search_params[:asset_field]
+    @assets = asset_search_results(@bot, search_params[:query], asset_type)
+    nil if render_asset_page(bot: @bot, asset_field: @asset_field)
   end
 
   private

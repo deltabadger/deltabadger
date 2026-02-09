@@ -60,6 +60,7 @@
 
     <div id="flash" data-turbo-permanent>
       <%= render 'layouts/flash' %>
+      <%= render 'layouts/flash_syncing' if AppConfig.setup_sync_in_progress? %>
     </div>
 
     <%= render 'layouts/navbar' %>

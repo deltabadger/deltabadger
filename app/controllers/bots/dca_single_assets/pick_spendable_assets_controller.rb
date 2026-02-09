@@ -10,6 +10,7 @@ class Bots::DcaSingleAssets::PickSpendableAssetsController < ApplicationControll
     if @api_key.correct?
       @bot.quote_asset_id = nil
       @assets = asset_search_results(@bot, search_params[:query], :quote_asset)
+      nil if render_asset_page(bot: @bot, asset_field: :quote_asset_id)
     else
       redirect_to new_bots_dca_single_assets_add_api_key_path
     end
