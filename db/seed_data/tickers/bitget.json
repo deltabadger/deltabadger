@@ -1,8 +1,8 @@
 {
   "metadata": {
     "exchange_name_id": "bitget",
-    "count": 711,
-    "generated_at": "2026-02-09T01:11:36Z"
+    "count": 712,
+    "generated_at": "2026-02-09T11:42:07Z"
   },
   "data": [
     {
@@ -2228,8 +2228,8 @@
       "maximum_base_size": "900000000000000000000.0",
       "maximum_quote_size": null,
       "base_decimals": 2,
-      "quote_decimals": 6,
-      "price_decimals": 4
+      "quote_decimals": 7,
+      "price_decimals": 5
     },
     {
       "ticker": "XLMUSDC",
@@ -7256,6 +7256,20 @@
       "base_decimals": 2,
       "quote_decimals": 5,
       "price_decimals": 3
+    },
+    {
+      "ticker": "LISTAUSDT",
+      "base": "LISTA",
+      "quote": "USDT",
+      "base_external_id": "lista",
+      "quote_external_id": "tether",
+      "minimum_base_size": "0.0",
+      "minimum_quote_size": "1.0",
+      "maximum_base_size": "900000000000000000000.0",
+      "maximum_quote_size": null,
+      "base_decimals": 2,
+      "quote_decimals": 6,
+      "price_decimals": 4
     },
     {
       "ticker": "LNQUSDT",

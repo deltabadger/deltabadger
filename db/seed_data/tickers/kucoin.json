@@ -2,7 +2,7 @@
   "metadata": {
     "exchange_name_id": "kucoin",
     "count": 1132,
-    "generated_at": "2026-02-09T01:11:36Z"
+    "generated_at": "2026-02-09T11:42:07Z"
   },
   "data": [
     {
@@ -2622,6 +2622,20 @@
       "base_decimals": 4,
       "quote_decimals": 5,
       "price_decimals": 5
+    },
+    {
+      "ticker": "PHA-USDT",
+      "base": "PHA",
+      "quote": "USDT",
+      "base_external_id": "pha",
+      "quote_external_id": "tether",
+      "minimum_base_size": "1.0",
+      "minimum_quote_size": "0.1",
+      "maximum_base_size": "10000000000.0",
+      "maximum_quote_size": "99999999.0",
+      "base_decimals": 4,
+      "quote_decimals": 4,
+      "price_decimals": 4
     },
     {
       "ticker": "ADA-KCS",
@@ -7958,20 +7972,6 @@
       "price_decimals": 4
     },
     {
-      "ticker": "KACE-USDT",
-      "base": "KACE",
-      "quote": "USDT",
-      "base_external_id": "endurance",
-      "quote_external_id": "tether",
-      "minimum_base_size": "0.1",
-      "minimum_quote_size": "0.1",
-      "maximum_base_size": "10000000000.0",
-      "maximum_quote_size": "99999999.0",
-      "base_decimals": 4,
-      "quote_decimals": 4,
-      "price_decimals": 4
-    },
-    {
       "ticker": "APP-USDT",
       "base": "APP",
       "quote": "USDT",
@@ -8922,6 +8922,20 @@
       "base_decimals": 2,
       "quote_decimals": 4,
       "price_decimals": 4
+    },
+    {
+      "ticker": "FURY-USDT",
+      "base": "FURY",
+      "quote": "USDT",
+      "base_external_id": "engines-of-fury",
+      "quote_external_id": "tether",
+      "minimum_base_size": "1.0",
+      "minimum_quote_size": "0.1",
+      "maximum_base_size": "10000000000.0",
+      "maximum_quote_size": "99999999.0",
+      "base_decimals": 1,
+      "quote_decimals": 5,
+      "price_decimals": 5
     },
     {
       "ticker": "NOT-USDT",
@@ -15404,20 +15418,6 @@
       "base_decimals": 2,
       "quote_decimals": 4,
       "price_decimals": 4
-    },
-    {
-      "ticker": "KYO-USDT",
-      "base": "KYO",
-      "quote": "USDT",
-      "base_external_id": "kyo",
-      "quote_external_id": "tether",
-      "minimum_base_size": "10.0",
-      "minimum_quote_size": "0.1",
-      "maximum_base_size": "10000000000.0",
-      "maximum_quote_size": "99999999.0",
-      "base_decimals": 1,
-      "quote_decimals": 5,
-      "price_decimals": 5
     },
     {
       "ticker": "CYS-USDT",
