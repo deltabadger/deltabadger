@@ -1,8 +1,8 @@
 {
   "metadata": {
     "exchange_name_id": "bybit",
-    "count": 639,
-    "generated_at": "2026-02-08T22:53:20Z"
+    "count": 640,
+    "generated_at": "2026-02-09T01:11:36Z"
   },
   "data": [
     {
@@ -3011,6 +3011,20 @@
       "minimum_quote_size": "5.0",
       "maximum_base_size": "3100000.0",
       "maximum_quote_size": "600000.0",
+      "base_decimals": 2,
+      "quote_decimals": 6,
+      "price_decimals": 4
+    },
+    {
+      "ticker": "CYBERUSDT",
+      "base": "CYBER",
+      "quote": "USDT",
+      "base_external_id": "cyberconnect",
+      "quote_external_id": "tether",
+      "minimum_base_size": "0.01",
+      "minimum_quote_size": "5.0",
+      "maximum_base_size": "38000.0",
+      "maximum_quote_size": "200000.0",
       "base_decimals": 2,
       "quote_decimals": 6,
       "price_decimals": 4

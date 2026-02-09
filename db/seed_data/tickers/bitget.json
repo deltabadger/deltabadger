@@ -1,8 +1,8 @@
 {
   "metadata": {
     "exchange_name_id": "bitget",
-    "count": 712,
-    "generated_at": "2026-02-08T22:53:20Z"
+    "count": 711,
+    "generated_at": "2026-02-09T01:11:36Z"
   },
   "data": [
     {
@@ -7256,20 +7256,6 @@
       "base_decimals": 2,
       "quote_decimals": 5,
       "price_decimals": 3
-    },
-    {
-      "ticker": "LISTAUSDT",
-      "base": "LISTA",
-      "quote": "USDT",
-      "base_external_id": "lista",
-      "quote_external_id": "tether",
-      "minimum_base_size": "0.0",
-      "minimum_quote_size": "1.0",
-      "maximum_base_size": "900000000000000000000.0",
-      "maximum_quote_size": null,
-      "base_decimals": 2,
-      "quote_decimals": 6,
-      "price_decimals": 4
     },
     {
       "ticker": "LNQUSDT",

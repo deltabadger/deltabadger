@@ -1,8 +1,8 @@
 {
   "metadata": {
     "exchange_name_id": "binance",
-    "count": 1453,
-    "generated_at": "2026-02-08T22:53:20Z"
+    "count": 1455,
+    "generated_at": "2026-02-09T01:11:36Z"
   },
   "data": [
     {
@@ -2174,6 +2174,20 @@
       "base_decimals": 1,
       "quote_decimals": 8,
       "price_decimals": 3
+    },
+    {
+      "ticker": "BNTUSDT",
+      "base": "BNT",
+      "quote": "USDT",
+      "base_external_id": "bancor",
+      "quote_external_id": "tether",
+      "minimum_base_size": "0.1",
+      "minimum_quote_size": "5.0",
+      "maximum_base_size": "900000.0",
+      "maximum_quote_size": "9000000.0",
+      "base_decimals": 1,
+      "quote_decimals": 8,
+      "price_decimals": 4
     },
     {
       "ticker": "MBLUSDT",
@@ -8670,6 +8684,20 @@
       "base_decimals": 0,
       "quote_decimals": 8,
       "price_decimals": 6
+    },
+    {
+      "ticker": "AEURUSDT",
+      "base": "AEUR",
+      "quote": "USDT",
+      "base_external_id": "anchored-coins-eur",
+      "quote_external_id": "tether",
+      "minimum_base_size": "0.1",
+      "minimum_quote_size": "5.0",
+      "maximum_base_size": "6000000.0",
+      "maximum_quote_size": "9000000.0",
+      "base_decimals": 1,
+      "quote_decimals": 8,
+      "price_decimals": 4
     },
     {
       "ticker": "LUNCTRY",

@@ -1,8 +1,8 @@
 {
   "metadata": {
     "exchange_name_id": "kucoin",
-    "count": 1130,
-    "generated_at": "2026-02-08T22:53:20Z"
+    "count": 1132,
+    "generated_at": "2026-02-09T01:11:36Z"
   },
   "data": [
     {
@@ -102,6 +102,20 @@
       "base_decimals": 4,
       "quote_decimals": 9,
       "price_decimals": 9
+    },
+    {
+      "ticker": "MTV-USDT",
+      "base": "MTV",
+      "quote": "USDT",
+      "base_external_id": "multivac",
+      "quote_external_id": "tether",
+      "minimum_base_size": "1.0",
+      "minimum_quote_size": "0.1",
+      "maximum_base_size": "10000000000.0",
+      "maximum_quote_size": "99999999.0",
+      "base_decimals": 4,
+      "quote_decimals": 7,
+      "price_decimals": 7
     },
     {
       "ticker": "KMD-USDT",
@@ -2608,20 +2622,6 @@
       "base_decimals": 4,
       "quote_decimals": 5,
       "price_decimals": 5
-    },
-    {
-      "ticker": "PHA-USDT",
-      "base": "PHA",
-      "quote": "USDT",
-      "base_external_id": "pha",
-      "quote_external_id": "tether",
-      "minimum_base_size": "1.0",
-      "minimum_quote_size": "0.1",
-      "maximum_base_size": "10000000000.0",
-      "maximum_quote_size": "99999999.0",
-      "base_decimals": 4,
-      "quote_decimals": 4,
-      "price_decimals": 4
     },
     {
       "ticker": "ADA-KCS",
@@ -8896,6 +8896,20 @@
       "price_decimals": 5
     },
     {
+      "ticker": "CTA-USDT",
+      "base": "CTA",
+      "quote": "USDT",
+      "base_external_id": "cross-the-ages",
+      "quote_external_id": "tether",
+      "minimum_base_size": "10.0",
+      "minimum_quote_size": "0.1",
+      "maximum_base_size": "1000000000.0",
+      "maximum_quote_size": "99999999.0",
+      "base_decimals": 1,
+      "quote_decimals": 5,
+      "price_decimals": 5
+    },
+    {
       "ticker": "DRIFT-USDT",
       "base": "DRIFT",
       "quote": "USDT",
@@ -8908,20 +8922,6 @@
       "base_decimals": 2,
       "quote_decimals": 4,
       "price_decimals": 4
-    },
-    {
-      "ticker": "FURY-USDT",
-      "base": "FURY",
-      "quote": "USDT",
-      "base_external_id": "engines-of-fury",
-      "quote_external_id": "tether",
-      "minimum_base_size": "1.0",
-      "minimum_quote_size": "0.1",
-      "maximum_base_size": "10000000000.0",
-      "maximum_quote_size": "99999999.0",
-      "base_decimals": 1,
-      "quote_decimals": 5,
-      "price_decimals": 5
     },
     {
       "ticker": "NOT-USDT",
@@ -12970,6 +12970,20 @@
       "price_decimals": 2
     },
     {
+      "ticker": "LOT-USDT",
+      "base": "LOT",
+      "quote": "USDT",
+      "base_external_id": "league-of-traders",
+      "quote_external_id": "tether",
+      "minimum_base_size": "10.0",
+      "minimum_quote_size": "0.1",
+      "maximum_base_size": "10000000000.0",
+      "maximum_quote_size": "99999999.0",
+      "base_decimals": 1,
+      "quote_decimals": 6,
+      "price_decimals": 6
+    },
+    {
       "ticker": "CESS-USDT",
       "base": "CESS",
       "quote": "USDT",
@@ -15410,6 +15424,20 @@
       "base": "CYS",
       "quote": "USDT",
       "base_external_id": "cysic",
+      "quote_external_id": "tether",
+      "minimum_base_size": "10.0",
+      "minimum_quote_size": "0.1",
+      "maximum_base_size": "10000000000.0",
+      "maximum_quote_size": "99999999.0",
+      "base_decimals": 1,
+      "quote_decimals": 5,
+      "price_decimals": 5
+    },
+    {
+      "ticker": "THQ-USDT",
+      "base": "THQ",
+      "quote": "USDT",
+      "base_external_id": "theoriq",
       "quote_external_id": "tether",
       "minimum_base_size": "10.0",
       "minimum_quote_size": "0.1",

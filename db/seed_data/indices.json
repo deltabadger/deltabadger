@@ -1,7 +1,7 @@
 {
   "metadata": {
     "count": 227,
-    "generated_at": "2026-02-08T22:53:20Z"
+    "generated_at": "2026-02-09T01:11:36Z"
   },
   "data": [
     {
@@ -143,7 +143,7 @@
           "hedera-hashgraph"
         ]
       },
-      "market_cap": "1930166766717.428",
+      "market_cap": "1912468584393.529",
       "available_exchanges": {
         "Exchanges::Binance": 383,
         "Exchanges::BinanceUs": 78,
@@ -292,17 +292,17 @@
           "loopring"
         ]
       },
-      "market_cap": "7173539707.581731",
+      "market_cap": "7130653967.757912",
       "available_exchanges": {
         "Exchanges::Binance": 110,
         "Exchanges::BinanceUs": 16,
         "Exchanges::Kraken": 76,
         "Exchanges::Coinbase": 47,
         "Exchanges::Bitget": 49,
-        "Exchanges::Kucoin": 65,
-        "Exchanges::Bybit": 45,
-        "Exchanges::Mexc": 100,
-        "Exchanges::Gemini": 20,
+        "Exchanges::Kucoin": 64,
+        "Exchanges::Bybit": 46,
+        "Exchanges::Mexc": 99,
+        "Exchanges::Gemini": 19,
         "Exchanges::Bitvavo": 34
       },
       "weight": 11
@@ -322,7 +322,7 @@
         "bonk",
         "pudgy-penguins",
         "floki",
-        "pippin"
+        "spx6900"
       ],
       "top_coins_by_exchange": {
         "Exchanges::Binance": [
@@ -419,7 +419,7 @@
           "bonk",
           "pudgy-penguins",
           "floki",
-          "pippin"
+          "spx6900"
         ],
         "Exchanges::Gemini": [
           "dogecoin",
@@ -446,7 +446,7 @@
           "dogwifcoin"
         ]
       },
-      "market_cap": "33887518387.84973",
+      "market_cap": "33688323189.02768",
       "available_exchanges": {
         "Exchanges::Binance": 115,
         "Exchanges::BinanceUs": 33,
@@ -475,8 +475,8 @@
         "zano",
         "zencash",
         "verge",
-        "dusk-network",
-        "zama"
+        "zama",
+        "dusk-network"
       ],
       "top_coins_by_exchange": {
         "Exchanges::Binance": [
@@ -485,8 +485,8 @@
           "decred",
           "zencash",
           "verge",
-          "dusk-network",
           "zama",
+          "dusk-network",
           "coti",
           "zkpass",
           "arpa"
@@ -559,8 +559,8 @@
           "zano",
           "zencash",
           "verge",
-          "dusk-network",
-          "zama"
+          "zama",
+          "dusk-network"
         ],
         "Exchanges::Gemini": [
           "zcash"
@@ -574,7 +574,7 @@
           "arpa"
         ]
       },
-      "market_cap": "12322425230.21871",
+      "market_cap": "12475385916.20494",
       "available_exchanges": {
         "Exchanges::Binance": 31,
         "Exchanges::BinanceUs": 5,
@@ -724,7 +724,7 @@
           "yearn-finance"
         ]
       },
-      "market_cap": "6872460544.35924",
+      "market_cap": "6825561912.469674",
       "available_exchanges": {
         "Exchanges::Binance": 70,
         "Exchanges::BinanceUs": 14,
@@ -777,7 +777,7 @@
         "Exchanges::Gemini": [],
         "Exchanges::Bitvavo": []
       },
-      "market_cap": "135091664.4488967",
+      "market_cap": "134187573.4398576",
       "available_exchanges": {
         "Exchanges::Kraken": 10,
         "Exchanges::Mexc": 4
@@ -923,16 +923,16 @@
           "jupiter-exchange-solana"
         ]
       },
-      "market_cap": "49879845552.71889",
+      "market_cap": "49668703813.07604",
       "available_exchanges": {
-        "Exchanges::Binance": 298,
+        "Exchanges::Binance": 299,
         "Exchanges::BinanceUs": 44,
         "Exchanges::Kraken": 248,
-        "Exchanges::Coinbase": 200,
-        "Exchanges::Bitget": 131,
+        "Exchanges::Coinbase": 198,
+        "Exchanges::Bitget": 130,
         "Exchanges::Kucoin": 145,
         "Exchanges::Bybit": 111,
-        "Exchanges::Mexc": 223,
+        "Exchanges::Mexc": 224,
         "Exchanges::Gemini": 88,
         "Exchanges::Bitvavo": 86
       },
@@ -945,32 +945,32 @@
       "description": "Artificial Intelligence (AI) tokens are cryptocurrencies that power AI-related projects, such as AI-powered portfolio management, image generation, path finding, and more. ",
       "top_coins": [
         "bittensor",
-        "internet-computer",
         "near",
+        "internet-computer",
         "render-token",
         "story-2",
         "virtual-protocol",
         "fetch-ai",
-        "the-graph",
         "kite-2",
+        "the-graph",
         "pippin"
       ],
       "top_coins_by_exchange": {
         "Exchanges::Binance": [
           "bittensor",
-          "internet-computer",
           "near",
+          "internet-computer",
           "render-token",
           "virtual-protocol",
           "fetch-ai",
-          "the-graph",
           "kite-2",
+          "the-graph",
           "theta-token",
           "sentient"
         ],
         "Exchanges::BinanceUs": [
-          "internet-computer",
           "near",
+          "internet-computer",
           "render-token",
           "virtual-protocol",
           "fetch-ai",
@@ -982,8 +982,8 @@
         ],
         "Exchanges::Kraken": [
           "bittensor",
-          "internet-computer",
           "near",
+          "internet-computer",
           "render-token",
           "story-2",
           "virtual-protocol",
@@ -994,43 +994,43 @@
         ],
         "Exchanges::Coinbase": [
           "bittensor",
-          "internet-computer",
           "near",
+          "internet-computer",
           "story-2",
           "fetch-ai",
-          "the-graph",
           "kite-2",
+          "the-graph",
           "sentient",
           "golem",
           "origintrail"
         ],
         "Exchanges::Bitget": [
           "bittensor",
-          "internet-computer",
           "near",
+          "internet-computer",
           "render-token",
           "story-2",
           "virtual-protocol",
           "fetch-ai",
-          "the-graph",
           "kite-2",
+          "the-graph",
           "sentient"
         ],
         "Exchanges::Kucoin": [
           "bittensor",
-          "internet-computer",
           "near",
+          "internet-computer",
           "render-token",
           "story-2",
           "virtual-protocol",
           "fetch-ai",
-          "the-graph",
           "kite-2",
+          "the-graph",
           "theta-token"
         ],
         "Exchanges::Bybit": [
-          "internet-computer",
           "near",
+          "internet-computer",
           "render-token",
           "story-2",
           "virtual-protocol",
@@ -1042,14 +1042,14 @@
         ],
         "Exchanges::Mexc": [
           "bittensor",
-          "internet-computer",
           "near",
+          "internet-computer",
           "render-token",
           "story-2",
           "virtual-protocol",
           "fetch-ai",
-          "the-graph",
           "kite-2",
+          "the-graph",
           "pippin"
         ],
         "Exchanges::Gemini": [
@@ -1062,8 +1062,8 @@
         ],
         "Exchanges::Bitvavo": [
           "bittensor",
-          "internet-computer",
           "near",
+          "internet-computer",
           "render-token",
           "story-2",
           "virtual-protocol",
@@ -1073,7 +1073,7 @@
           "origintrail"
         ]
       },
-      "market_cap": "12817903045.01554",
+      "market_cap": "12763970650.23148",
       "available_exchanges": {
         "Exchanges::Binance": 168,
         "Exchanges::BinanceUs": 28,
@@ -1081,8 +1081,8 @@
         "Exchanges::Coinbase": 99,
         "Exchanges::Bitget": 83,
         "Exchanges::Kucoin": 124,
-        "Exchanges::Bybit": 61,
-        "Exchanges::Mexc": 203,
+        "Exchanges::Bybit": 62,
+        "Exchanges::Mexc": 202,
         "Exchanges::Gemini": 24,
         "Exchanges::Bitvavo": 47
       },
@@ -1225,7 +1225,7 @@
           "ronin"
         ]
       },
-      "market_cap": "4783234414.184189",
+      "market_cap": "4761461434.793929",
       "available_exchanges": {
         "Exchanges::Binance": 102,
         "Exchanges::BinanceUs": 20,
@@ -1234,7 +1234,7 @@
         "Exchanges::Bitget": 57,
         "Exchanges::Kucoin": 95,
         "Exchanges::Bybit": 58,
-        "Exchanges::Mexc": 170,
+        "Exchanges::Mexc": 169,
         "Exchanges::Gemini": 32,
         "Exchanges::Bitvavo": 37
       },
@@ -1373,7 +1373,7 @@
           "reserve-rights-token"
         ]
       },
-      "market_cap": "50619969397.64975",
+      "market_cap": "50362417058.79519",
       "available_exchanges": {
         "Exchanges::Binance": 77,
         "Exchanges::BinanceUs": 16,
@@ -1382,7 +1382,7 @@
         "Exchanges::Bitget": 42,
         "Exchanges::Kucoin": 72,
         "Exchanges::Bybit": 39,
-        "Exchanges::Mexc": 169,
+        "Exchanges::Mexc": 171,
         "Exchanges::Gemini": 16,
         "Exchanges::Bitvavo": 27
       },
@@ -1435,8 +1435,8 @@
           "origintrail",
           "venice-token",
           "ai-rig-complex",
-          "iexec-rlc",
           "warden-2",
+          "iexec-rlc",
           "pha",
           "holoworld",
           "aixbt"
@@ -1459,8 +1459,8 @@
           "kite-2",
           "stp-network",
           "iotex",
-          "iexec-rlc",
           "warden-2",
+          "iexec-rlc",
           "everipedia",
           "pha",
           "magic"
@@ -1474,8 +1474,8 @@
           "venice-token",
           "ai-rig-complex",
           "iotex",
-          "iexec-rlc",
-          "warden-2"
+          "warden-2",
+          "iexec-rlc"
         ],
         "Exchanges::Bybit": [
           "virtual-protocol",
@@ -1485,8 +1485,8 @@
           "magic",
           "holoworld",
           "aixbt",
-          "paal-ai",
           "elsa",
+          "paal-ai",
           "chaingpt"
         ],
         "Exchanges::Mexc": [
@@ -1499,7 +1499,7 @@
           "venice-token",
           "ai-rig-complex",
           "iotex",
-          "iexec-rlc"
+          "warden-2"
         ],
         "Exchanges::Gemini": [
           "fetch-ai",
@@ -1519,7 +1519,7 @@
           "adex"
         ]
       },
-      "market_cap": "2735404259.078949",
+      "market_cap": "2732167394.594693",
       "available_exchanges": {
         "Exchanges::Binance": 43,
         "Exchanges::BinanceUs": 10,
@@ -1546,8 +1546,8 @@
         "starknet",
         "humanity",
         "zksync",
-        "immutable-x",
         "concordium",
+        "immutable-x",
         "ozone-chain",
         "zencash"
       ],
@@ -1560,8 +1560,8 @@
           "immutable-x",
           "zencash",
           "mina-protocol",
-          "ronin",
           "movement",
+          "ronin",
           "space-and-time"
         ],
         "Exchanges::BinanceUs": [
@@ -1573,8 +1573,8 @@
           "loopring",
           "coti",
           "g-token",
-          "marlin",
-          "magic"
+          "magic",
+          "marlin"
         ],
         "Exchanges::Kraken": [
           "zcash",
@@ -1583,8 +1583,8 @@
           "starknet",
           "humanity",
           "zksync",
-          "immutable-x",
           "concordium",
+          "immutable-x",
           "mina-protocol",
           "aleo"
         ],
@@ -1609,8 +1609,8 @@
           "immutable-x",
           "zencash",
           "mina-protocol",
-          "ronin",
-          "movement"
+          "movement",
+          "ronin"
         ],
         "Exchanges::Kucoin": [
           "zcash",
@@ -1619,8 +1619,8 @@
           "starknet",
           "humanity",
           "zksync",
-          "immutable-x",
           "concordium",
+          "immutable-x",
           "zencash",
           "mina-protocol"
         ],
@@ -1643,8 +1643,8 @@
           "starknet",
           "humanity",
           "zksync",
-          "immutable-x",
           "concordium",
+          "immutable-x",
           "ozone-chain",
           "zencash"
         ],
@@ -1659,22 +1659,22 @@
           "starknet",
           "zksync",
           "immutable-x",
-          "ronin",
           "movement",
-          "dusk-network",
+          "ronin",
           "succinct",
+          "dusk-network",
           "loopring",
           "coti"
         ]
       },
-      "market_cap": "8577827683.196175",
+      "market_cap": "8590430921.972176",
       "available_exchanges": {
         "Exchanges::Binance": 88,
         "Exchanges::BinanceUs": 12,
         "Exchanges::Kraken": 57,
         "Exchanges::Coinbase": 46,
         "Exchanges::Bitget": 37,
-        "Exchanges::Kucoin": 54,
+        "Exchanges::Kucoin": 53,
         "Exchanges::Bybit": 32,
         "Exchanges::Mexc": 91,
         "Exchanges::Gemini": 16,
@@ -1821,17 +1821,17 @@
           "stellar"
         ]
       },
-      "market_cap": "1966135110425.573",
+      "market_cap": "1948211107191.013",
       "available_exchanges": {
         "Exchanges::Binance": 568,
         "Exchanges::BinanceUs": 111,
         "Exchanges::Kraken": 382,
         "Exchanges::Coinbase": 251,
         "Exchanges::Bitget": 218,
-        "Exchanges::Kucoin": 292,
-        "Exchanges::Bybit": 217,
+        "Exchanges::Kucoin": 291,
+        "Exchanges::Bybit": 218,
         "Exchanges::Mexc": 350,
-        "Exchanges::Gemini": 121,
+        "Exchanges::Gemini": 120,
         "Exchanges::Bitvavo": 129
       },
       "weight": 0
@@ -1967,7 +1967,7 @@
           "digibyte"
         ]
       },
-      "market_cap": "1463435107492.489",
+      "market_cap": "1449657177703.202",
       "available_exchanges": {
         "Exchanges::Binance": 83,
         "Exchanges::BinanceUs": 20,
@@ -1976,7 +1976,7 @@
         "Exchanges::Bitget": 32,
         "Exchanges::Kucoin": 60,
         "Exchanges::Bybit": 28,
-        "Exchanges::Mexc": 93,
+        "Exchanges::Mexc": 94,
         "Exchanges::Gemini": 27,
         "Exchanges::Bitvavo": 13
       },
@@ -2118,7 +2118,7 @@
           "vaulta"
         ]
       },
-      "market_cap": "560008225458.5232",
+      "market_cap": "556799177386.3009",
       "available_exchanges": {
         "Exchanges::Binance": 97,
         "Exchanges::BinanceUs": 17,
@@ -2272,7 +2272,7 @@
           "polkadot"
         ]
       },
-      "market_cap": "460058184116.0809",
+      "market_cap": "456012292505.1949",
       "available_exchanges": {
         "Exchanges::Binance": 218,
         "Exchanges::BinanceUs": 49,
@@ -2281,7 +2281,7 @@
         "Exchanges::Bitget": 75,
         "Exchanges::Kucoin": 120,
         "Exchanges::Bybit": 73,
-        "Exchanges::Mexc": 135,
+        "Exchanges::Mexc": 136,
         "Exchanges::Gemini": 54,
         "Exchanges::Bitvavo": 46
       },
@@ -2426,17 +2426,17 @@
           "sui"
         ]
       },
-      "market_cap": "301433775516.0426",
+      "market_cap": "300437707648.1453",
       "available_exchanges": {
         "Exchanges::Binance": 366,
         "Exchanges::BinanceUs": 85,
         "Exchanges::Kraken": 300,
         "Exchanges::Coinbase": 235,
         "Exchanges::Bitget": 136,
-        "Exchanges::Kucoin": 192,
+        "Exchanges::Kucoin": 191,
         "Exchanges::Bybit": 142,
-        "Exchanges::Mexc": 270,
-        "Exchanges::Gemini": 136,
+        "Exchanges::Mexc": 271,
+        "Exchanges::Gemini": 135,
         "Exchanges::Bitvavo": 90
       },
       "weight": 0
@@ -2452,8 +2452,8 @@
         "tron",
         "cardano",
         "the-open-network",
-        "internet-computer",
         "near",
+        "internet-computer",
         "cosmos",
         "algorand",
         "nexo"
@@ -2465,8 +2465,8 @@
           "tron",
           "cardano",
           "the-open-network",
-          "internet-computer",
           "near",
+          "internet-computer",
           "cosmos",
           "algorand",
           "nexo"
@@ -2475,8 +2475,8 @@
           "binancecoin",
           "solana",
           "cardano",
-          "internet-computer",
           "near",
+          "internet-computer",
           "cosmos",
           "algorand",
           "filecoin",
@@ -2489,8 +2489,8 @@
           "tron",
           "cardano",
           "the-open-network",
-          "internet-computer",
           "near",
+          "internet-computer",
           "cosmos",
           "algorand",
           "filecoin"
@@ -2500,8 +2500,8 @@
           "solana",
           "cardano",
           "the-open-network",
-          "internet-computer",
           "near",
+          "internet-computer",
           "cosmos",
           "algorand",
           "filecoin",
@@ -2513,8 +2513,8 @@
           "tron",
           "cardano",
           "the-open-network",
-          "internet-computer",
           "near",
+          "internet-computer",
           "cosmos",
           "algorand",
           "nexo"
@@ -2525,8 +2525,8 @@
           "tron",
           "cardano",
           "the-open-network",
-          "internet-computer",
           "near",
+          "internet-computer",
           "cosmos",
           "algorand",
           "filecoin"
@@ -2537,8 +2537,8 @@
           "tron",
           "cardano",
           "the-open-network",
-          "internet-computer",
           "near",
+          "internet-computer",
           "cosmos",
           "algorand",
           "nexo"
@@ -2549,8 +2549,8 @@
           "tron",
           "cardano",
           "the-open-network",
-          "internet-computer",
           "near",
+          "internet-computer",
           "cosmos",
           "algorand",
           "nexo"
@@ -2572,14 +2572,14 @@
           "tron",
           "cardano",
           "the-open-network",
-          "internet-computer",
           "near",
+          "internet-computer",
           "cosmos",
           "algorand",
           "filecoin"
         ]
       },
-      "market_cap": "185234960805.914",
+      "market_cap": "184082788994.9358",
       "available_exchanges": {
         "Exchanges::Binance": 125,
         "Exchanges::BinanceUs": 28,
@@ -2731,9 +2731,9 @@
           "aerodrome-finance"
         ]
       },
-      "market_cap": "136336554007.9908",
+      "market_cap": "135519087847.3079",
       "available_exchanges": {
-        "Exchanges::Binance": 118,
+        "Exchanges::Binance": 119,
         "Exchanges::BinanceUs": 23,
         "Exchanges::Kraken": 111,
         "Exchanges::Coinbase": 86,
@@ -2870,7 +2870,7 @@
           "phoenix-global"
         ]
       },
-      "market_cap": "126377887618.1104",
+      "market_cap": "125241418672.2491",
       "available_exchanges": {
         "Exchanges::Binance": 73,
         "Exchanges::BinanceUs": 12,
@@ -2983,7 +2983,7 @@
           "ftx-token"
         ]
       },
-      "market_cap": "119135263810.2557",
+      "market_cap": "118276738280.7795",
       "available_exchanges": {
         "Exchanges::Binance": 21,
         "Exchanges::BinanceUs": 3,
@@ -3133,7 +3133,7 @@
           "axelar"
         ]
       },
-      "market_cap": "56594252960.8727",
+      "market_cap": "56352302716.84058",
       "available_exchanges": {
         "Exchanges::Binance": 83,
         "Exchanges::BinanceUs": 20,
@@ -3141,7 +3141,7 @@
         "Exchanges::Coinbase": 71,
         "Exchanges::Bitget": 46,
         "Exchanges::Kucoin": 54,
-        "Exchanges::Bybit": 50,
+        "Exchanges::Bybit": 51,
         "Exchanges::Mexc": 66,
         "Exchanges::Gemini": 26,
         "Exchanges::Bitvavo": 24
@@ -3287,17 +3287,17 @@
           "arbitrum"
         ]
       },
-      "market_cap": "26628948299.66212",
+      "market_cap": "26599141782.86099",
       "available_exchanges": {
-        "Exchanges::Binance": 198,
+        "Exchanges::Binance": 199,
         "Exchanges::BinanceUs": 47,
         "Exchanges::Kraken": 174,
         "Exchanges::Coinbase": 155,
         "Exchanges::Bitget": 80,
         "Exchanges::Kucoin": 108,
-        "Exchanges::Bybit": 66,
+        "Exchanges::Bybit": 67,
         "Exchanges::Mexc": 166,
-        "Exchanges::Gemini": 96,
+        "Exchanges::Gemini": 95,
         "Exchanges::Bitvavo": 52
       },
       "weight": 0
@@ -3430,7 +3430,7 @@
           "chill-guy"
         ]
       },
-      "market_cap": "21753939537.66425",
+      "market_cap": "21608844980.49722",
       "available_exchanges": {
         "Exchanges::Binance": 45,
         "Exchanges::BinanceUs": 11,
@@ -3509,7 +3509,7 @@
           "doublezero",
           "lido-dao",
           "the-graph",
-          "starknet"
+          "pyth-network"
         ],
         "Exchanges::Bitget": [
           "chainlink",
@@ -3582,14 +3582,14 @@
           "the-graph"
         ]
       },
-      "market_cap": "21185259136.70854",
+      "market_cap": "21114961133.67053",
       "available_exchanges": {
         "Exchanges::Binance": 158,
         "Exchanges::BinanceUs": 21,
         "Exchanges::Kraken": 165,
         "Exchanges::Coinbase": 98,
         "Exchanges::Bitget": 72,
-        "Exchanges::Kucoin": 134,
+        "Exchanges::Kucoin": 133,
         "Exchanges::Bybit": 73,
         "Exchanges::Mexc": 200,
         "Exchanges::Gemini": 34,
@@ -3607,8 +3607,8 @@
         "pepe",
         "bonk",
         "spx6900",
-        "non-playable-coin",
         "mog-coin",
+        "non-playable-coin",
         "gigachad-2",
         "pepecoin-network",
         "harrypotterobamasonic10in",
@@ -3632,8 +3632,8 @@
           "pepe",
           "bonk",
           "spx6900",
-          "non-playable-coin",
           "mog-coin",
+          "non-playable-coin",
           "gigachad-2",
           "harrypotterobamasonic10in",
           "apu-s-club",
@@ -3653,16 +3653,16 @@
           "dogecoin",
           "pepe",
           "bonk",
-          "non-playable-coin",
-          "mog-coin"
+          "mog-coin",
+          "non-playable-coin"
         ],
         "Exchanges::Kucoin": [
           "dogecoin",
           "pepe",
           "bonk",
           "spx6900",
-          "non-playable-coin",
           "mog-coin",
+          "non-playable-coin",
           "gigachad-2",
           "harrypotterobamasonic10in",
           "troll-2",
@@ -3681,8 +3681,8 @@
           "pepe",
           "bonk",
           "spx6900",
-          "non-playable-coin",
           "mog-coin",
+          "non-playable-coin",
           "gigachad-2",
           "pepecoin-network",
           "harrypotterobamasonic10in",
@@ -3702,7 +3702,7 @@
           "gigachad-2"
         ]
       },
-      "market_cap": "19006034153.43866",
+      "market_cap": "18889618569.89386",
       "available_exchanges": {
         "Exchanges::Binance": 23,
         "Exchanges::BinanceUs": 9,
@@ -3853,9 +3853,9 @@
           "raydium"
         ]
       },
-      "market_cap": "17749545846.63342",
+      "market_cap": "17792696218.21884",
       "available_exchanges": {
-        "Exchanges::Binance": 99,
+        "Exchanges::Binance": 100,
         "Exchanges::BinanceUs": 20,
         "Exchanges::Kraken": 97,
         "Exchanges::Coinbase": 80,
@@ -3928,7 +3928,7 @@
           "dogecoin"
         ]
       },
-      "market_cap": "16382636573.34173",
+      "market_cap": "16276912400.10019",
       "available_exchanges": {
         "Exchanges::Binance": 10,
         "Exchanges::Coinbase": 6,
@@ -3954,8 +3954,8 @@
         "apenft",
         "syrup",
         "doublezero",
-        "aerodrome-finance",
-        "kite-2"
+        "kite-2",
+        "aerodrome-finance"
       ],
       "top_coins_by_exchange": {
         "Exchanges::Binance": [
@@ -3976,8 +3976,8 @@
           "fartcoin",
           "rekt-4",
           "cat-in-a-dogs-world",
-          "avantis",
           "popcat",
+          "avantis",
           "moo-deng",
           "doodles",
           "aixbt"
@@ -3999,12 +3999,12 @@
           "morpho",
           "syrup",
           "doublezero",
-          "aerodrome-finance",
           "kite-2",
+          "aerodrome-finance",
           "sentient",
           "fartcoin",
-          "instadapp",
-          "lombard-protocol"
+          "lombard-protocol",
+          "instadapp"
         ],
         "Exchanges::Bitget": [
           "memecore",
@@ -4014,8 +4014,8 @@
           "apenft",
           "syrup",
           "doublezero",
-          "aerodrome-finance",
           "kite-2",
+          "aerodrome-finance",
           "humanity"
         ],
         "Exchanges::Kucoin": [
@@ -4026,8 +4026,8 @@
           "apenft",
           "syrup",
           "doublezero",
-          "aerodrome-finance",
           "kite-2",
+          "aerodrome-finance",
           "humanity"
         ],
         "Exchanges::Bybit": [
@@ -4051,8 +4051,8 @@
           "apenft",
           "syrup",
           "doublezero",
-          "aerodrome-finance",
-          "kite-2"
+          "kite-2",
+          "aerodrome-finance"
         ],
         "Exchanges::Gemini": [
           "doublezero",
@@ -4077,16 +4077,16 @@
           "zero-gravity"
         ]
       },
-      "market_cap": "14591523536.79607",
+      "market_cap": "14544060972.43608",
       "available_exchanges": {
         "Exchanges::Binance": 136,
         "Exchanges::BinanceUs": 11,
         "Exchanges::Kraken": 238,
         "Exchanges::Coinbase": 104,
         "Exchanges::Bitget": 137,
-        "Exchanges::Kucoin": 165,
+        "Exchanges::Kucoin": 166,
         "Exchanges::Bybit": 101,
-        "Exchanges::Mexc": 276,
+        "Exchanges::Mexc": 275,
         "Exchanges::Gemini": 32,
         "Exchanges::Bitvavo": 45
       },
@@ -4220,7 +4220,7 @@
           "woo-network"
         ]
       },
-      "market_cap": "12885392530.77753",
+      "market_cap": "12937002921.34938",
       "available_exchanges": {
         "Exchanges::Binance": 47,
         "Exchanges::BinanceUs": 7,
@@ -4229,7 +4229,7 @@
         "Exchanges::Bitget": 24,
         "Exchanges::Kucoin": 29,
         "Exchanges::Bybit": 25,
-        "Exchanges::Mexc": 51,
+        "Exchanges::Mexc": 52,
         "Exchanges::Gemini": 16,
         "Exchanges::Bitvavo": 18
       },
@@ -4355,8 +4355,8 @@
           "injective-protocol",
           "the-sandbox",
           "gala",
-          "mask-network",
           "ankr",
+          "mask-network",
           "stepn",
           "alethea-artificial-liquid-intelligence-token"
         ],
@@ -4373,7 +4373,7 @@
           "the-sandbox"
         ]
       },
-      "market_cap": "11411489406.27104",
+      "market_cap": "11348730046.75064",
       "available_exchanges": {
         "Exchanges::Binance": 268,
         "Exchanges::BinanceUs": 37,
@@ -4381,7 +4381,7 @@
         "Exchanges::Coinbase": 93,
         "Exchanges::Bitget": 95,
         "Exchanges::Kucoin": 115,
-        "Exchanges::Bybit": 72,
+        "Exchanges::Bybit": 73,
         "Exchanges::Mexc": 158,
         "Exchanges::Gemini": 36,
         "Exchanges::Bitvavo": 74
@@ -4461,14 +4461,14 @@
         ],
         "Exchanges::Bitvavo": []
       },
-      "market_cap": "11235252603.58769",
+      "market_cap": "11237800455.34212",
       "available_exchanges": {
         "Exchanges::Binance": 4,
         "Exchanges::Kraken": 10,
         "Exchanges::Bitget": 3,
         "Exchanges::Kucoin": 5,
         "Exchanges::Bybit": 12,
-        "Exchanges::Mexc": 110,
+        "Exchanges::Mexc": 111,
         "Exchanges::Gemini": 4
       },
       "weight": 0
@@ -4522,7 +4522,7 @@
           "bitcoin-cash"
         ]
       },
-      "market_cap": "10983265489.27643",
+      "market_cap": "10983253686.86196",
       "available_exchanges": {
         "Exchanges::Binance": 11,
         "Exchanges::BinanceUs": 3,
@@ -4661,7 +4661,7 @@
           "aevo-exchange"
         ]
       },
-      "market_cap": "10646224944.3121",
+      "market_cap": "10720018674.46838",
       "available_exchanges": {
         "Exchanges::Binance": 25,
         "Exchanges::BinanceUs": 4,
@@ -4670,7 +4670,7 @@
         "Exchanges::Bitget": 20,
         "Exchanges::Kucoin": 25,
         "Exchanges::Bybit": 20,
-        "Exchanges::Mexc": 39,
+        "Exchanges::Mexc": 40,
         "Exchanges::Gemini": 16,
         "Exchanges::Bitvavo": 12
       },
@@ -4689,8 +4689,8 @@
         "starknet",
         "humanity",
         "zksync",
-        "zano",
         "concordium",
+        "zano",
         "oasis-network"
       ],
       "top_coins_by_exchange": {
@@ -4777,8 +4777,8 @@
           "starknet",
           "humanity",
           "zksync",
-          "zano",
           "concordium",
+          "zano",
           "oasis-network"
         ],
         "Exchanges::Gemini": [
@@ -4794,7 +4794,7 @@
           "zerobase"
         ]
       },
-      "market_cap": "9905294016.184341",
+      "market_cap": "9921189140.989515",
       "available_exchanges": {
         "Exchanges::Binance": 30,
         "Exchanges::BinanceUs": 4,
@@ -4872,7 +4872,7 @@
           "official-trump"
         ]
       },
-      "market_cap": "9177955182.978468",
+      "market_cap": "9038955318.235239",
       "available_exchanges": {
         "Exchanges::Binance": 15,
         "Exchanges::BinanceUs": 3,
@@ -4913,8 +4913,8 @@
           "frax-share",
           "spark-2",
           "spell-token",
-          "resolv",
-          "usual"
+          "usual",
+          "resolv"
         ],
         "Exchanges::BinanceUs": [
           "world-liberty-financial",
@@ -4958,8 +4958,8 @@
           "frax-share",
           "spark-2",
           "spell-token",
-          "resolv",
-          "usual"
+          "usual",
+          "resolv"
         ],
         "Exchanges::Kucoin": [
           "world-liberty-financial",
@@ -4969,8 +4969,8 @@
           "curve-dao-token",
           "telcoin",
           "spark-2",
-          "resolv",
           "usual",
+          "resolv",
           "stbl"
         ],
         "Exchanges::Bybit": [
@@ -5013,7 +5013,7 @@
           "ampleforth-governance-token"
         ]
       },
-      "market_cap": "8305799272.269263",
+      "market_cap": "8137649466.327982",
       "available_exchanges": {
         "Exchanges::Binance": 42,
         "Exchanges::BinanceUs": 9,
@@ -5142,7 +5142,7 @@
           "openeden"
         ]
       },
-      "market_cap": "8188331506.713747",
+      "market_cap": "8137446278.396938",
       "available_exchanges": {
         "Exchanges::Binance": 27,
         "Exchanges::BinanceUs": 5,
@@ -5282,7 +5282,7 @@
           "particle-network"
         ]
       },
-      "market_cap": "8166640238.052273",
+      "market_cap": "8123857468.830448",
       "available_exchanges": {
         "Exchanges::Binance": 48,
         "Exchanges::BinanceUs": 6,
@@ -5304,8 +5304,8 @@
       "description": "DePIN refers to Decentralized Physical Infrastructure Networks which utilize blockchain and tokenized incentives to build real-world infrastructure across areas like wireless networks, storage, geolocation, transportation and energy.",
       "top_coins": [
         "bittensor",
-        "filecoin",
         "render-token",
+        "filecoin",
         "beldex",
         "bittorrent",
         "iota",
@@ -5317,8 +5317,8 @@
       "top_coins_by_exchange": {
         "Exchanges::Binance": [
           "bittensor",
-          "filecoin",
           "render-token",
+          "filecoin",
           "bittorrent",
           "iota",
           "the-graph",
@@ -5328,8 +5328,8 @@
           "arweave"
         ],
         "Exchanges::BinanceUs": [
-          "filecoin",
           "render-token",
+          "filecoin",
           "iota",
           "the-graph",
           "theta-token",
@@ -5341,8 +5341,8 @@
         ],
         "Exchanges::Kraken": [
           "bittensor",
-          "filecoin",
           "render-token",
+          "filecoin",
           "beldex",
           "bittorrent",
           "the-graph",
@@ -5365,8 +5365,8 @@
         ],
         "Exchanges::Bitget": [
           "bittensor",
-          "filecoin",
           "render-token",
+          "filecoin",
           "bittorrent",
           "the-graph",
           "jasmycoin",
@@ -5377,8 +5377,8 @@
         ],
         "Exchanges::Kucoin": [
           "bittensor",
-          "filecoin",
           "render-token",
+          "filecoin",
           "beldex",
           "bittorrent",
           "iota",
@@ -5388,8 +5388,8 @@
           "theta-token"
         ],
         "Exchanges::Bybit": [
-          "filecoin",
           "render-token",
+          "filecoin",
           "bittorrent",
           "the-graph",
           "jasmycoin",
@@ -5401,8 +5401,8 @@
         ],
         "Exchanges::Mexc": [
           "bittensor",
-          "filecoin",
           "render-token",
+          "filecoin",
           "beldex",
           "bittorrent",
           "iota",
@@ -5412,8 +5412,8 @@
           "helium"
         ],
         "Exchanges::Gemini": [
-          "filecoin",
           "render-token",
+          "filecoin",
           "the-graph",
           "helium",
           "livepeer",
@@ -5423,8 +5423,8 @@
         ],
         "Exchanges::Bitvavo": [
           "bittensor",
-          "filecoin",
           "render-token",
+          "filecoin",
           "bittorrent",
           "iota",
           "the-graph",
@@ -5434,14 +5434,14 @@
           "origintrail"
         ]
       },
-      "market_cap": "7981420741.274416",
+      "market_cap": "7948070440.414718",
       "available_exchanges": {
         "Exchanges::Binance": 83,
         "Exchanges::BinanceUs": 22,
         "Exchanges::Kraken": 112,
         "Exchanges::Coinbase": 66,
         "Exchanges::Bitget": 46,
-        "Exchanges::Kucoin": 94,
+        "Exchanges::Kucoin": 93,
         "Exchanges::Bybit": 27,
         "Exchanges::Mexc": 148,
         "Exchanges::Gemini": 32,
@@ -5524,6 +5524,7 @@
           "zetachain",
           "particle-network",
           "rujira",
+          "xion-2",
           "union-2",
           "cycle-2",
           "router-protocol-2"
@@ -5540,7 +5541,7 @@
           "union-2"
         ]
       },
-      "market_cap": "7968083156.177962",
+      "market_cap": "7935663946.943602",
       "available_exchanges": {
         "Exchanges::Binance": 22,
         "Exchanges::BinanceUs": 4,
@@ -5549,7 +5550,7 @@
         "Exchanges::Bitget": 11,
         "Exchanges::Kucoin": 12,
         "Exchanges::Bybit": 10,
-        "Exchanges::Mexc": 14,
+        "Exchanges::Mexc": 15,
         "Exchanges::Gemini": 4,
         "Exchanges::Bitvavo": 6
       },
@@ -5628,6 +5629,7 @@
           "worldcoin-wld",
           "optimism",
           "celo",
+          "cyberconnect",
           "orderly-network",
           "ancient8",
           "mode"
@@ -5656,7 +5658,7 @@
           "cyberconnect"
         ]
       },
-      "market_cap": "7894559448.486942",
+      "market_cap": "7855540052.528349",
       "available_exchanges": {
         "Exchanges::Binance": 35,
         "Exchanges::BinanceUs": 7,
@@ -5664,7 +5666,7 @@
         "Exchanges::Coinbase": 16,
         "Exchanges::Bitget": 14,
         "Exchanges::Kucoin": 10,
-        "Exchanges::Bybit": 12,
+        "Exchanges::Bybit": 13,
         "Exchanges::Mexc": 14,
         "Exchanges::Gemini": 12,
         "Exchanges::Bitvavo": 6
@@ -5680,8 +5682,8 @@
         "chainlink",
         "beldex",
         "zksync",
-        "zano",
         "concordium",
+        "zano",
         "oasis-network",
         "zencash",
         "railgun",
@@ -5755,8 +5757,8 @@
           "chainlink",
           "beldex",
           "zksync",
-          "zano",
           "concordium",
+          "zano",
           "oasis-network",
           "zencash",
           "railgun",
@@ -5774,7 +5776,7 @@
           "nillion"
         ]
       },
-      "market_cap": "7782717999.166676",
+      "market_cap": "7749651237.863236",
       "available_exchanges": {
         "Exchanges::Binance": 30,
         "Exchanges::BinanceUs": 5,
@@ -5835,7 +5837,7 @@
         ],
         "Exchanges::Bitvavo": []
       },
-      "market_cap": "7600519788.22667",
+      "market_cap": "7590060856.562842",
       "available_exchanges": {
         "Exchanges::Kraken": 3,
         "Exchanges::Bitget": 3,
@@ -5967,14 +5969,14 @@
           "dia-data"
         ]
       },
-      "market_cap": "7051282983.237622",
+      "market_cap": "7020129547.775057",
       "available_exchanges": {
         "Exchanges::Binance": 48,
         "Exchanges::BinanceUs": 5,
         "Exchanges::Kraken": 31,
         "Exchanges::Coinbase": 27,
         "Exchanges::Bitget": 14,
-        "Exchanges::Kucoin": 26,
+        "Exchanges::Kucoin": 25,
         "Exchanges::Bybit": 9,
         "Exchanges::Mexc": 31,
         "Exchanges::Gemini": 16,
@@ -6068,7 +6070,7 @@
           "magic",
           "elsa",
           "flock-2",
-          "adex"
+          "openserv"
         ],
         "Exchanges::Gemini": [
           "chainlink",
@@ -6083,7 +6085,7 @@
           "adex"
         ]
       },
-      "market_cap": "6949098472.158543",
+      "market_cap": "6923620137.121812",
       "available_exchanges": {
         "Exchanges::Binance": 23,
         "Exchanges::BinanceUs": 6,
@@ -6174,7 +6176,7 @@
           "immunefi"
         ]
       },
-      "market_cap": "6406951539.704331",
+      "market_cap": "6377231748.841304",
       "available_exchanges": {
         "Exchanges::Binance": 18,
         "Exchanges::BinanceUs": 3,
@@ -6328,15 +6330,15 @@
           "immutable-x"
         ]
       },
-      "market_cap": "6207122662.545896",
+      "market_cap": "6180304860.299751",
       "available_exchanges": {
         "Exchanges::Binance": 143,
         "Exchanges::BinanceUs": 37,
         "Exchanges::Kraken": 97,
         "Exchanges::Coinbase": 83,
         "Exchanges::Bitget": 60,
-        "Exchanges::Kucoin": 104,
-        "Exchanges::Bybit": 61,
+        "Exchanges::Kucoin": 105,
+        "Exchanges::Bybit": 62,
         "Exchanges::Mexc": 157,
         "Exchanges::Gemini": 52,
         "Exchanges::Bitvavo": 48
@@ -6470,7 +6472,7 @@
           "certik"
         ]
       },
-      "market_cap": "6114139913.139811",
+      "market_cap": "6075505408.633174",
       "available_exchanges": {
         "Exchanges::Binance": 149,
         "Exchanges::BinanceUs": 8,
@@ -6478,7 +6480,7 @@
         "Exchanges::Coinbase": 30,
         "Exchanges::Bitget": 44,
         "Exchanges::Kucoin": 38,
-        "Exchanges::Bybit": 29,
+        "Exchanges::Bybit": 30,
         "Exchanges::Mexc": 75,
         "Exchanges::Gemini": 4,
         "Exchanges::Bitvavo": 37
@@ -6539,7 +6541,7 @@
         ],
         "Exchanges::Bitvavo": []
       },
-      "market_cap": "5839870871.303791",
+      "market_cap": "5870802771.703391",
       "available_exchanges": {
         "Exchanges::Binance": 4,
         "Exchanges::Kraken": 6,
@@ -6681,9 +6683,9 @@
           "sushi"
         ]
       },
-      "market_cap": "5597350549.678558",
+      "market_cap": "5549577148.615721",
       "available_exchanges": {
-        "Exchanges::Binance": 45,
+        "Exchanges::Binance": 46,
         "Exchanges::BinanceUs": 12,
         "Exchanges::Kraken": 45,
         "Exchanges::Coinbase": 42,
@@ -6788,7 +6790,7 @@
           "streamr"
         ]
       },
-      "market_cap": "5442312945.42248",
+      "market_cap": "5405873015.105077",
       "available_exchanges": {
         "Exchanges::Binance": 28,
         "Exchanges::BinanceUs": 7,
@@ -6880,7 +6882,7 @@
           "nano"
         ]
       },
-      "market_cap": "5277176698.955638",
+      "market_cap": "5252878659.025222",
       "available_exchanges": {
         "Exchanges::Binance": 13,
         "Exchanges::BinanceUs": 5,
@@ -6891,6 +6893,86 @@
         "Exchanges::Bybit": 5,
         "Exchanges::Mexc": 16,
         "Exchanges::Bitvavo": 4
+      },
+      "weight": 0
+    },
+    {
+      "external_id": "quantum-resistant",
+      "source": "coingecko",
+      "name": "Quantum-Resistant",
+      "description": "Quantum-resistant projects are characterised by their use of post-quantum cryptographic algorithms (e.g., hash-based, lattice-based) to remain secure against potential attacks from future quantum computers.",
+      "top_coins": [
+        "zcash",
+        "starknet",
+        "quantum-resistant-ledger",
+        "nervos-network",
+        "qubic-network",
+        "naoris",
+        "abelian",
+        "minima",
+        "cellframe",
+        "amepay"
+      ],
+      "top_coins_by_exchange": {
+        "Exchanges::Binance": [
+          "zcash",
+          "starknet",
+          "nervos-network"
+        ],
+        "Exchanges::BinanceUs": [
+          "zcash"
+        ],
+        "Exchanges::Kraken": [
+          "zcash",
+          "starknet"
+        ],
+        "Exchanges::Coinbase": [
+          "zcash",
+          "starknet"
+        ],
+        "Exchanges::Bitget": [
+          "zcash",
+          "starknet",
+          "nervos-network",
+          "qubic-network",
+          "naoris"
+        ],
+        "Exchanges::Kucoin": [
+          "zcash",
+          "starknet",
+          "nervos-network"
+        ],
+        "Exchanges::Bybit": [
+          "starknet"
+        ],
+        "Exchanges::Mexc": [
+          "zcash",
+          "starknet",
+          "quantum-resistant-ledger",
+          "nervos-network",
+          "qubic-network",
+          "naoris",
+          "abelian",
+          "minima",
+          "cellframe",
+          "amepay"
+        ],
+        "Exchanges::Gemini": [
+          "zcash"
+        ],
+        "Exchanges::Bitvavo": [
+          "starknet"
+        ]
+      },
+      "market_cap": "4619791075.486011",
+      "available_exchanges": {
+        "Exchanges::Binance": 11,
+        "Exchanges::Kraken": 4,
+        "Exchanges::Coinbase": 4,
+        "Exchanges::Bitget": 5,
+        "Exchanges::Kucoin": 5,
+        "Exchanges::Mexc": 15,
+        "Exchanges::Gemini": 4
       },
       "weight": 0
     },
@@ -7003,7 +7085,7 @@
           "rocket-pool"
         ]
       },
-      "market_cap": "4626118604.183234",
+      "market_cap": "4599418904.706613",
       "available_exchanges": {
         "Exchanges::Binance": 25,
         "Exchanges::BinanceUs": 8,
@@ -7019,86 +7101,6 @@
       "weight": 0
     },
     {
-      "external_id": "quantum-resistant",
-      "source": "coingecko",
-      "name": "Quantum-Resistant",
-      "description": "Quantum-resistant projects are characterised by their use of post-quantum cryptographic algorithms (e.g., hash-based, lattice-based) to remain secure against potential attacks from future quantum computers.",
-      "top_coins": [
-        "zcash",
-        "starknet",
-        "quantum-resistant-ledger",
-        "nervos-network",
-        "qubic-network",
-        "naoris",
-        "abelian",
-        "minima",
-        "cellframe",
-        "amepay"
-      ],
-      "top_coins_by_exchange": {
-        "Exchanges::Binance": [
-          "zcash",
-          "starknet",
-          "nervos-network"
-        ],
-        "Exchanges::BinanceUs": [
-          "zcash"
-        ],
-        "Exchanges::Kraken": [
-          "zcash",
-          "starknet"
-        ],
-        "Exchanges::Coinbase": [
-          "zcash",
-          "starknet"
-        ],
-        "Exchanges::Bitget": [
-          "zcash",
-          "starknet",
-          "nervos-network",
-          "qubic-network",
-          "naoris"
-        ],
-        "Exchanges::Kucoin": [
-          "zcash",
-          "starknet",
-          "nervos-network"
-        ],
-        "Exchanges::Bybit": [
-          "starknet"
-        ],
-        "Exchanges::Mexc": [
-          "zcash",
-          "starknet",
-          "quantum-resistant-ledger",
-          "nervos-network",
-          "qubic-network",
-          "naoris",
-          "abelian",
-          "minima",
-          "cellframe",
-          "amepay"
-        ],
-        "Exchanges::Gemini": [
-          "zcash"
-        ],
-        "Exchanges::Bitvavo": [
-          "starknet"
-        ]
-      },
-      "market_cap": "4604106727.340031",
-      "available_exchanges": {
-        "Exchanges::Binance": 11,
-        "Exchanges::Kraken": 4,
-        "Exchanges::Coinbase": 4,
-        "Exchanges::Bitget": 5,
-        "Exchanges::Kucoin": 5,
-        "Exchanges::Mexc": 15,
-        "Exchanges::Gemini": 4
-      },
-      "weight": 0
-    },
-    {
       "external_id": "solana-meme-coins",
       "source": "coingecko",
       "name": "Solana Meme",
@@ -7110,8 +7112,8 @@
         "pippin",
         "dogwifcoin",
         "fartcoin",
-        "melania-meme",
         "the-white-whale",
+        "melania-meme",
         "dog-go-to-the-moon-rune",
         "comedian"
       ],
@@ -7204,8 +7206,8 @@
           "pippin",
           "dogwifcoin",
           "fartcoin",
-          "melania-meme",
           "the-white-whale",
+          "melania-meme",
           "dog-go-to-the-moon-rune",
           "comedian"
         ],
@@ -7234,7 +7236,7 @@
           "book-of-meme"
         ]
       },
-      "market_cap": "4157200288.797793",
+      "market_cap": "4143245847.818576",
       "available_exchanges": {
         "Exchanges::Binance": 32,
         "Exchanges::BinanceUs": 15,
@@ -7375,7 +7377,7 @@
           "immunefi"
         ]
       },
-      "market_cap": "3714408072.030409",
+      "market_cap": "3678192816.149568",
       "available_exchanges": {
         "Exchanges::Binance": 35,
         "Exchanges::BinanceUs": 7,
@@ -7384,7 +7386,7 @@
         "Exchanges::Bitget": 17,
         "Exchanges::Kucoin": 35,
         "Exchanges::Bybit": 21,
-        "Exchanges::Mexc": 64,
+        "Exchanges::Mexc": 63,
         "Exchanges::Gemini": 8,
         "Exchanges::Bitvavo": 9
       },
@@ -7455,7 +7457,6 @@
           "compound-governance-token",
           "kamino",
           "spark-2",
-          "lista",
           "truefi",
           "radiant-capital",
           "scallop-2"
@@ -7515,13 +7516,13 @@
           "radiant-capital"
         ]
       },
-      "market_cap": "3575757671.839426",
+      "market_cap": "3559821802.555535",
       "available_exchanges": {
         "Exchanges::Binance": 38,
         "Exchanges::BinanceUs": 3,
         "Exchanges::Kraken": 35,
         "Exchanges::Coinbase": 30,
-        "Exchanges::Bitget": 12,
+        "Exchanges::Bitget": 11,
         "Exchanges::Kucoin": 19,
         "Exchanges::Bybit": 14,
         "Exchanges::Mexc": 40,
@@ -7542,8 +7543,8 @@
         "jetton",
         "winr-protocol",
         "hilo-2",
-        "boxbet",
-        "solama"
+        "solama",
+        "boxbet"
       ],
       "top_coins_by_exchange": {
         "Exchanges::Binance": [
@@ -7565,13 +7566,13 @@
           "jetton",
           "winr-protocol",
           "hilo-2",
-          "boxbet",
-          "solama"
+          "solama",
+          "boxbet"
         ],
         "Exchanges::Gemini": [],
         "Exchanges::Bitvavo": []
       },
-      "market_cap": "3533363527.367353",
+      "market_cap": "3497685915.496846",
       "available_exchanges": {
         "Exchanges::Mexc": 9
       },
@@ -7639,7 +7640,7 @@
           "drift-protocol"
         ]
       },
-      "market_cap": "3300493752.449522",
+      "market_cap": "3263639470.606124",
       "available_exchanges": {
         "Exchanges::Kraken": 6,
         "Exchanges::Coinbase": 4,
@@ -7682,7 +7683,7 @@
         "Exchanges::Gemini": [],
         "Exchanges::Bitvavo": []
       },
-      "market_cap": "3223165655.406483",
+      "market_cap": "3186356533.731147",
       "available_exchanges": {
         "Exchanges::Kucoin": 3,
         "Exchanges::Mexc": 3
@@ -7765,7 +7766,7 @@
           "plasma"
         ]
       },
-      "market_cap": "2936123790.589514",
+      "market_cap": "2923160585.082299",
       "available_exchanges": {
         "Exchanges::Binance": 8,
         "Exchanges::Kraken": 10,
@@ -7887,7 +7888,7 @@
           "connect-token-wct"
         ]
       },
-      "market_cap": "2764912146.260917",
+      "market_cap": "2747962078.83772",
       "available_exchanges": {
         "Exchanges::Binance": 10,
         "Exchanges::Kraken": 20,
@@ -7913,8 +7914,8 @@
         "ultima",
         "reallink",
         "amp-token",
-        "keeta",
         "concordium",
+        "keeta",
         "nano",
         "request-network"
       ],
@@ -7936,8 +7937,8 @@
           "stable-2",
           "telcoin",
           "zebec-network",
-          "keeta",
           "concordium",
+          "keeta",
           "nano",
           "request-network",
           "alchemy-pay",
@@ -7987,8 +7988,8 @@
           "ultima",
           "reallink",
           "amp-token",
-          "keeta",
           "concordium",
+          "keeta",
           "bitdca",
           "slash-vision-labs"
         ],
@@ -8004,7 +8005,7 @@
           "xmoney-2"
         ]
       },
-      "market_cap": "2456316007.43307",
+      "market_cap": "2465271453.414399",
       "available_exchanges": {
         "Exchanges::Binance": 13,
         "Exchanges::BinanceUs": 3,
@@ -8154,14 +8155,14 @@
           "illuvium"
         ]
       },
-      "market_cap": "2335752399.436913",
+      "market_cap": "2321281911.774936",
       "available_exchanges": {
         "Exchanges::Binance": 65,
         "Exchanges::BinanceUs": 14,
         "Exchanges::Kraken": 42,
         "Exchanges::Coinbase": 31,
         "Exchanges::Bitget": 27,
-        "Exchanges::Kucoin": 48,
+        "Exchanges::Kucoin": 49,
         "Exchanges::Bybit": 32,
         "Exchanges::Mexc": 89,
         "Exchanges::Gemini": 24,
@@ -8304,7 +8305,7 @@
           "yield-guild-games"
         ]
       },
-      "market_cap": "2329624945.857975",
+      "market_cap": "2313940316.577208",
       "available_exchanges": {
         "Exchanges::Binance": 47,
         "Exchanges::BinanceUs": 15,
@@ -8330,8 +8331,8 @@
         "injective-protocol",
         "the-sandbox",
         "axie-infinity",
-        "elrond-erd-2",
         "safepal",
+        "elrond-erd-2",
         "edu-coin",
         "arkham",
         "kava"
@@ -8343,8 +8344,8 @@
           "injective-protocol",
           "the-sandbox",
           "axie-infinity",
-          "elrond-erd-2",
           "safepal",
+          "elrond-erd-2",
           "edu-coin",
           "arkham",
           "kava"
@@ -8359,7 +8360,7 @@
           "harmony",
           "cartesi",
           "celer-network",
-          "lazio-fan-token"
+          "fc-porto"
         ],
         "Exchanges::Kraken": [
           "fetch-ai",
@@ -8391,8 +8392,8 @@
           "injective-protocol",
           "the-sandbox",
           "axie-infinity",
-          "elrond-erd-2",
           "safepal",
+          "elrond-erd-2",
           "arkham",
           "kava",
           "band-protocol"
@@ -8403,8 +8404,8 @@
           "injective-protocol",
           "the-sandbox",
           "axie-infinity",
-          "elrond-erd-2",
           "safepal",
+          "elrond-erd-2",
           "edu-coin",
           "arkham",
           "kava"
@@ -8427,8 +8428,8 @@
           "injective-protocol",
           "the-sandbox",
           "axie-infinity",
-          "elrond-erd-2",
           "safepal",
+          "elrond-erd-2",
           "edu-coin",
           "arkham",
           "kava"
@@ -8445,14 +8446,14 @@
           "injective-protocol",
           "the-sandbox",
           "axie-infinity",
-          "elrond-erd-2",
           "safepal",
+          "elrond-erd-2",
           "edu-coin",
           "arkham",
           "kava"
         ]
       },
-      "market_cap": "2300660773.578022",
+      "market_cap": "2294005818.054268",
       "available_exchanges": {
         "Exchanges::Binance": 69,
         "Exchanges::BinanceUs": 17,
@@ -8592,7 +8593,7 @@
           "openledger-2"
         ]
       },
-      "market_cap": "2272488997.595381",
+      "market_cap": "2258839740.379768",
       "available_exchanges": {
         "Exchanges::Binance": 149,
         "Exchanges::BinanceUs": 5,
@@ -8717,13 +8718,13 @@
           "theoriq"
         ]
       },
-      "market_cap": "2246619499.132251",
+      "market_cap": "2201283913.101756",
       "available_exchanges": {
         "Exchanges::Binance": 41,
         "Exchanges::Kraken": 37,
         "Exchanges::Coinbase": 16,
         "Exchanges::Bitget": 28,
-        "Exchanges::Kucoin": 26,
+        "Exchanges::Kucoin": 28,
         "Exchanges::Bybit": 14,
         "Exchanges::Mexc": 65,
         "Exchanges::Bitvavo": 5
@@ -8803,6 +8804,7 @@
         "Exchanges::Bybit": [
           "pump-fun",
           "zora",
+          "cyberconnect",
           "limewire-token",
           "towns",
           "access-protocol",
@@ -8834,14 +8836,14 @@
           "towns"
         ]
       },
-      "market_cap": "2123952269.117019",
+      "market_cap": "2096837523.890116",
       "available_exchanges": {
         "Exchanges::Binance": 21,
         "Exchanges::Kraken": 17,
         "Exchanges::Coinbase": 12,
         "Exchanges::Bitget": 11,
         "Exchanges::Kucoin": 22,
-        "Exchanges::Bybit": 12,
+        "Exchanges::Bybit": 13,
         "Exchanges::Mexc": 50,
         "Exchanges::Gemini": 4,
         "Exchanges::Bitvavo": 5
@@ -8927,7 +8929,7 @@
           "book-of-meme"
         ]
       },
-      "market_cap": "2036164863.130596",
+      "market_cap": "2036537442.797085",
       "available_exchanges": {
         "Exchanges::Binance": 15,
         "Exchanges::BinanceUs": 4,
@@ -9006,7 +9008,7 @@
           "based-brett"
         ]
       },
-      "market_cap": "1951321232.905043",
+      "market_cap": "1950299929.135903",
       "available_exchanges": {
         "Exchanges::Binance": 8,
         "Exchanges::BinanceUs": 3,
@@ -9017,6 +9019,105 @@
         "Exchanges::Mexc": 18,
         "Exchanges::Gemini": 4,
         "Exchanges::Bitvavo": 3
+      },
+      "weight": 0
+    },
+    {
+      "external_id": "data-availability",
+      "source": "coingecko",
+      "name": "Data Availability",
+      "description": "Data availability on the blockchain ensures that all participants have the transaction data needed to verify blocks, even with resource limitations and scalability needs. Without it, independent verification crumbles, compromising the entire system. Data availability centric protocols aim to allow nodes to verify data availability more efficiently.",
+      "top_coins": [
+        "near",
+        "celestia",
+        "eigenlayer",
+        "unibase",
+        "bsquared-network",
+        "avail",
+        "syscoin",
+        "covalent-x-token",
+        "rovr-network",
+        "synternet-synt"
+      ],
+      "top_coins_by_exchange": {
+        "Exchanges::Binance": [
+          "near",
+          "celestia",
+          "eigenlayer",
+          "syscoin"
+        ],
+        "Exchanges::BinanceUs": [
+          "near",
+          "celestia",
+          "eigenlayer",
+          "syscoin"
+        ],
+        "Exchanges::Kraken": [
+          "near",
+          "celestia",
+          "eigenlayer",
+          "bsquared-network",
+          "covalent-x-token"
+        ],
+        "Exchanges::Coinbase": [
+          "near",
+          "celestia",
+          "eigenlayer"
+        ],
+        "Exchanges::Bitget": [
+          "near",
+          "celestia",
+          "eigenlayer",
+          "bsquared-network",
+          "syscoin"
+        ],
+        "Exchanges::Kucoin": [
+          "near",
+          "celestia",
+          "eigenlayer",
+          "unibase",
+          "bsquared-network",
+          "avail",
+          "syscoin",
+          "covalent-x-token",
+          "synternet-synt"
+        ],
+        "Exchanges::Bybit": [
+          "near",
+          "celestia",
+          "eigenlayer",
+          "avail"
+        ],
+        "Exchanges::Mexc": [
+          "near",
+          "celestia",
+          "eigenlayer",
+          "unibase",
+          "bsquared-network",
+          "avail",
+          "syscoin",
+          "covalent-x-token",
+          "rovr-network",
+          "synternet-synt"
+        ],
+        "Exchanges::Gemini": [],
+        "Exchanges::Bitvavo": [
+          "near",
+          "celestia",
+          "eigenlayer"
+        ]
+      },
+      "market_cap": "1899436403.445635",
+      "available_exchanges": {
+        "Exchanges::Binance": 17,
+        "Exchanges::BinanceUs": 5,
+        "Exchanges::Kraken": 10,
+        "Exchanges::Coinbase": 7,
+        "Exchanges::Bitget": 7,
+        "Exchanges::Kucoin": 11,
+        "Exchanges::Bybit": 8,
+        "Exchanges::Mexc": 14,
+        "Exchanges::Bitvavo": 4
       },
       "weight": 0
     },
@@ -9148,117 +9249,18 @@
           "taiko"
         ]
       },
-      "market_cap": "1909147803.284783",
+      "market_cap": "1898829757.985255",
       "available_exchanges": {
         "Exchanges::Binance": 42,
         "Exchanges::BinanceUs": 8,
         "Exchanges::Kraken": 26,
         "Exchanges::Coinbase": 20,
         "Exchanges::Bitget": 17,
-        "Exchanges::Kucoin": 21,
+        "Exchanges::Kucoin": 20,
         "Exchanges::Bybit": 12,
         "Exchanges::Mexc": 30,
-        "Exchanges::Gemini": 16,
+        "Exchanges::Gemini": 15,
         "Exchanges::Bitvavo": 12
-      },
-      "weight": 0
-    },
-    {
-      "external_id": "data-availability",
-      "source": "coingecko",
-      "name": "Data Availability",
-      "description": "Data availability on the blockchain ensures that all participants have the transaction data needed to verify blocks, even with resource limitations and scalability needs. Without it, independent verification crumbles, compromising the entire system. Data availability centric protocols aim to allow nodes to verify data availability more efficiently.",
-      "top_coins": [
-        "near",
-        "celestia",
-        "eigenlayer",
-        "unibase",
-        "bsquared-network",
-        "avail",
-        "syscoin",
-        "covalent-x-token",
-        "rovr-network",
-        "synternet-synt"
-      ],
-      "top_coins_by_exchange": {
-        "Exchanges::Binance": [
-          "near",
-          "celestia",
-          "eigenlayer",
-          "syscoin"
-        ],
-        "Exchanges::BinanceUs": [
-          "near",
-          "celestia",
-          "eigenlayer",
-          "syscoin"
-        ],
-        "Exchanges::Kraken": [
-          "near",
-          "celestia",
-          "eigenlayer",
-          "bsquared-network",
-          "covalent-x-token"
-        ],
-        "Exchanges::Coinbase": [
-          "near",
-          "celestia",
-          "eigenlayer"
-        ],
-        "Exchanges::Bitget": [
-          "near",
-          "celestia",
-          "eigenlayer",
-          "bsquared-network",
-          "syscoin"
-        ],
-        "Exchanges::Kucoin": [
-          "near",
-          "celestia",
-          "eigenlayer",
-          "unibase",
-          "bsquared-network",
-          "avail",
-          "syscoin",
-          "covalent-x-token",
-          "synternet-synt"
-        ],
-        "Exchanges::Bybit": [
-          "near",
-          "celestia",
-          "eigenlayer",
-          "avail"
-        ],
-        "Exchanges::Mexc": [
-          "near",
-          "celestia",
-          "eigenlayer",
-          "unibase",
-          "bsquared-network",
-          "avail",
-          "syscoin",
-          "covalent-x-token",
-          "rovr-network",
-          "synternet-synt"
-        ],
-        "Exchanges::Gemini": [],
-        "Exchanges::Bitvavo": [
-          "near",
-          "celestia",
-          "eigenlayer"
-        ]
-      },
-      "market_cap": "1902047817.295961",
-      "available_exchanges": {
-        "Exchanges::Binance": 17,
-        "Exchanges::BinanceUs": 5,
-        "Exchanges::Kraken": 10,
-        "Exchanges::Coinbase": 7,
-        "Exchanges::Bitget": 7,
-        "Exchanges::Kucoin": 11,
-        "Exchanges::Bybit": 8,
-        "Exchanges::Mexc": 14,
-        "Exchanges::Bitvavo": 4
       },
       "weight": 0
     },
@@ -9341,6 +9343,7 @@
           "worldcoin-wld",
           "ethereum-name-service",
           "mocaverse",
+          "cyberconnect",
           "g-token",
           "layer3",
           "suins-token"
@@ -9371,7 +9374,7 @@
           "lukso-token-2"
         ]
       },
-      "market_cap": "1859345710.917846",
+      "market_cap": "1842400389.578431",
       "available_exchanges": {
         "Exchanges::Binance": 22,
         "Exchanges::BinanceUs": 5,
@@ -9379,7 +9382,7 @@
         "Exchanges::Coinbase": 12,
         "Exchanges::Bitget": 12,
         "Exchanges::Kucoin": 19,
-        "Exchanges::Bybit": 9,
+        "Exchanges::Bybit": 10,
         "Exchanges::Mexc": 28,
         "Exchanges::Gemini": 8,
         "Exchanges::Bitvavo": 7
@@ -9494,7 +9497,7 @@
           "chill-guy"
         ]
       },
-      "market_cap": "1797384769.564489",
+      "market_cap": "1787827790.224267",
       "available_exchanges": {
         "Exchanges::Binance": 6,
         "Exchanges::BinanceUs": 4,
@@ -9620,7 +9623,7 @@
           "storj"
         ]
       },
-      "market_cap": "1788575109.280108",
+      "market_cap": "1782815900.056302",
       "available_exchanges": {
         "Exchanges::Binance": 21,
         "Exchanges::BinanceUs": 3,
@@ -9705,7 +9708,7 @@
           "ssv-network",
           "babylon",
           "rocket-pool",
-          "lista"
+          "apriori"
         ],
         "Exchanges::Kucoin": [
           "lido-dao",
@@ -9762,13 +9765,13 @@
           "origin-protocol"
         ]
       },
-      "market_cap": "1428115098.094206",
+      "market_cap": "1425519176.066779",
       "available_exchanges": {
         "Exchanges::Binance": 37,
         "Exchanges::BinanceUs": 4,
         "Exchanges::Kraken": 49,
         "Exchanges::Coinbase": 33,
-        "Exchanges::Bitget": 17,
+        "Exchanges::Bitget": 16,
         "Exchanges::Kucoin": 23,
         "Exchanges::Bybit": 26,
         "Exchanges::Mexc": 40,
@@ -9845,10 +9848,10 @@
           "ai-rig-complex",
           "unifai-network",
           "swarm-network",
-          "pha",
           "holoworld",
           "paal-ai",
-          "chaingpt"
+          "chaingpt",
+          "mira-3"
         ],
         "Exchanges::Bybit": [
           "virtual-protocol",
@@ -9882,13 +9885,13 @@
           "arcblock"
         ]
       },
-      "market_cap": "1417059437.410024",
+      "market_cap": "1404470730.820354",
       "available_exchanges": {
         "Exchanges::Binance": 25,
         "Exchanges::Kraken": 25,
         "Exchanges::Coinbase": 6,
         "Exchanges::Bitget": 15,
-        "Exchanges::Kucoin": 21,
+        "Exchanges::Kucoin": 20,
         "Exchanges::Bybit": 11,
         "Exchanges::Mexc": 46,
         "Exchanges::Bitvavo": 5
@@ -9993,7 +9996,7 @@
           "io"
         ]
       },
-      "market_cap": "1394776364.699013",
+      "market_cap": "1389167184.95463",
       "available_exchanges": {
         "Exchanges::Binance": 14,
         "Exchanges::BinanceUs": 5,
@@ -10039,7 +10042,7 @@
         "Exchanges::Gemini": [],
         "Exchanges::Bitvavo": []
       },
-      "market_cap": "1374263803.549458",
+      "market_cap": "1368298182.769004",
       "available_exchanges": {
         "Exchanges::Mexc": 7
       },
@@ -10057,8 +10060,8 @@
         "kaito",
         "arkham",
         "numeraire",
-        "sign-global",
         "subsquid",
+        "sign-global",
         "chaingpt",
         "intuition"
       ],
@@ -10122,8 +10125,8 @@
           "kaito",
           "arkham",
           "numeraire",
-          "sign-global",
           "subsquid",
+          "sign-global",
           "chaingpt",
           "intuition",
           "cookie"
@@ -10133,8 +10136,8 @@
           "pyth-network",
           "sosovalue",
           "arkham",
-          "sign-global",
           "subsquid",
+          "sign-global",
           "chaingpt",
           "cookie",
           "tokenfi",
@@ -10147,8 +10150,8 @@
           "kaito",
           "arkham",
           "numeraire",
-          "sign-global",
           "subsquid",
+          "sign-global",
           "chaingpt",
           "intuition"
         ],
@@ -10166,14 +10169,14 @@
           "treehouse"
         ]
       },
-      "market_cap": "1285850256.177027",
+      "market_cap": "1284316814.655268",
       "available_exchanges": {
         "Exchanges::Binance": 42,
         "Exchanges::BinanceUs": 4,
         "Exchanges::Kraken": 24,
         "Exchanges::Coinbase": 25,
         "Exchanges::Bitget": 14,
-        "Exchanges::Kucoin": 26,
+        "Exchanges::Kucoin": 27,
         "Exchanges::Bybit": 13,
         "Exchanges::Mexc": 51,
         "Exchanges::Gemini": 8,
@@ -10282,7 +10285,7 @@
           "magic"
         ]
       },
-      "market_cap": "1271878755.449555",
+      "market_cap": "1271932247.439358",
       "available_exchanges": {
         "Exchanges::Binance": 22,
         "Exchanges::BinanceUs": 4,
@@ -10372,7 +10375,7 @@
           "tomochain"
         ]
       },
-      "market_cap": "1231254274.410133",
+      "market_cap": "1221952449.268144",
       "available_exchanges": {
         "Exchanges::Binance": 15,
         "Exchanges::BinanceUs": 4,
@@ -10512,7 +10515,7 @@
           "somnia"
         ]
       },
-      "market_cap": "1153331294.815777",
+      "market_cap": "1152459282.75041",
       "available_exchanges": {
         "Exchanges::Binance": 44,
         "Exchanges::BinanceUs": 5,
@@ -10608,7 +10611,7 @@
           "bob-build-on-bitcoin"
         ]
       },
-      "market_cap": "1128887450.819712",
+      "market_cap": "1123516278.524385",
       "available_exchanges": {
         "Exchanges::Binance": 7,
         "Exchanges::Kraken": 8,
@@ -10630,8 +10633,8 @@
         "pippin",
         "fartcoin",
         "ribbita-by-virtuals",
-        "ai-companions",
         "turbo",
+        "ai-companions",
         "pythia",
         "goatseus-maximus",
         "aixbt",
@@ -10697,8 +10700,8 @@
           "pippin",
           "fartcoin",
           "ribbita-by-virtuals",
-          "ai-companions",
           "turbo",
+          "ai-companions",
           "pythia",
           "goatseus-maximus",
           "aixbt",
@@ -10717,7 +10720,7 @@
           "act-i-the-ai-prophecy"
         ]
       },
-      "market_cap": "1080617638.40527",
+      "market_cap": "1063037809.360658",
       "available_exchanges": {
         "Exchanges::Binance": 11,
         "Exchanges::BinanceUs": 3,
@@ -10812,7 +10815,7 @@
           "bob-build-on-bitcoin"
         ]
       },
-      "market_cap": "1013502769.048628",
+      "market_cap": "1005877410.493652",
       "available_exchanges": {
         "Exchanges::Binance": 7,
         "Exchanges::Kraken": 10,
@@ -10910,7 +10913,7 @@
           "my-neighbor-alice",
           "sweatcoin",
           "arena-z",
-          "pixels"
+          "cross-the-ages"
         ],
         "Exchanges::Bybit": [
           "the-sandbox",
@@ -10954,14 +10957,14 @@
           "aavegotchi"
         ]
       },
-      "market_cap": "963457983.518057",
+      "market_cap": "957953841.9746244",
       "available_exchanges": {
         "Exchanges::Binance": 27,
         "Exchanges::BinanceUs": 9,
         "Exchanges::Kraken": 30,
         "Exchanges::Coinbase": 21,
         "Exchanges::Bitget": 11,
-        "Exchanges::Kucoin": 21,
+        "Exchanges::Kucoin": 22,
         "Exchanges::Bybit": 12,
         "Exchanges::Mexc": 43,
         "Exchanges::Gemini": 12,
@@ -11033,7 +11036,7 @@
           "constitutiondao"
         ]
       },
-      "market_cap": "946660991.3069967",
+      "market_cap": "948685725.6016147",
       "available_exchanges": {
         "Exchanges::Binance": 10,
         "Exchanges::Kraken": 12,
@@ -11136,7 +11139,7 @@
           "cetus-protocol"
         ]
       },
-      "market_cap": "885300066.9213927",
+      "market_cap": "884006088.9345363",
       "available_exchanges": {
         "Exchanges::Binance": 17,
         "Exchanges::BinanceUs": 3,
@@ -11210,7 +11213,7 @@
           "ethereum-name-service"
         ]
       },
-      "market_cap": "869344827.7646528",
+      "market_cap": "867683401.8855224",
       "available_exchanges": {
         "Exchanges::Binance": 5,
         "Exchanges::Kraken": 5,
@@ -11235,8 +11238,8 @@
         "pendle",
         "mantle-restaked-eth",
         "eigenlayer",
-        "altlayer",
         "ssv-network",
+        "altlayer",
         "solayer",
         "kernel-2"
       ],
@@ -11245,8 +11248,8 @@
           "ether-fi",
           "pendle",
           "eigenlayer",
-          "altlayer",
           "ssv-network",
+          "altlayer",
           "solayer",
           "kernel-2",
           "renzo",
@@ -11262,8 +11265,8 @@
           "pendle",
           "mantle-restaked-eth",
           "eigenlayer",
-          "altlayer",
           "ssv-network",
+          "altlayer",
           "solayer",
           "kernel-2",
           "renzo",
@@ -11284,8 +11287,8 @@
           "ether-fi",
           "pendle",
           "eigenlayer",
-          "altlayer",
           "ssv-network",
+          "altlayer",
           "solayer",
           "kernel-2",
           "renzo",
@@ -11295,8 +11298,8 @@
           "ether-fi",
           "pendle",
           "eigenlayer",
-          "altlayer",
           "ssv-network",
+          "altlayer",
           "kernel-2",
           "renzo",
           "bouncebit",
@@ -11310,8 +11313,8 @@
           "pendle",
           "mantle-restaked-eth",
           "eigenlayer",
-          "altlayer",
           "ssv-network",
+          "altlayer",
           "solayer",
           "bouncebit"
         ],
@@ -11320,8 +11323,8 @@
           "ether-fi",
           "pendle",
           "eigenlayer",
-          "altlayer",
           "ssv-network",
+          "altlayer",
           "solayer",
           "kernel-2",
           "renzo",
@@ -11332,8 +11335,8 @@
           "ether-fi",
           "pendle",
           "eigenlayer",
-          "altlayer",
           "ssv-network",
+          "altlayer",
           "kernel-2",
           "renzo",
           "puffer-finance",
@@ -11341,7 +11344,7 @@
           "swell-network"
         ]
       },
-      "market_cap": "863916287.9072881",
+      "market_cap": "860166438.1603737",
       "available_exchanges": {
         "Exchanges::Binance": 34,
         "Exchanges::Kraken": 29,
@@ -11364,8 +11367,8 @@
         "loaded-lions",
         "apecoin",
         "moonbirds",
-        "anime",
         "doodles",
+        "anime",
         "alethea-artificial-liquid-intelligence-token",
         "milady-cult-coin",
         "liquidium-token",
@@ -11380,8 +11383,8 @@
         "Exchanges::BinanceUs": [
           "pudgy-penguins",
           "apecoin",
-          "anime",
-          "doodles"
+          "doodles",
+          "anime"
         ],
         "Exchanges::Kraken": [
           "pudgy-penguins",
@@ -11399,15 +11402,15 @@
           "pudgy-penguins",
           "apecoin",
           "moonbirds",
-          "anime",
-          "doodles"
+          "doodles",
+          "anime"
         ],
         "Exchanges::Kucoin": [
           "pudgy-penguins",
           "apecoin",
           "moonbirds",
-          "anime",
           "doodles",
+          "anime",
           "milady-cult-coin",
           "kong-2"
         ],
@@ -11415,15 +11418,15 @@
           "pudgy-penguins",
           "apecoin",
           "moonbirds",
-          "anime",
-          "doodles"
+          "doodles",
+          "anime"
         ],
         "Exchanges::Mexc": [
           "pudgy-penguins",
           "apecoin",
           "moonbirds",
-          "anime",
           "doodles",
+          "anime",
           "alethea-artificial-liquid-intelligence-token",
           "milady-cult-coin",
           "liquidium-token",
@@ -11440,7 +11443,7 @@
           "anime"
         ]
       },
-      "market_cap": "814296643.3068678",
+      "market_cap": "810782912.8105661",
       "available_exchanges": {
         "Exchanges::Binance": 9,
         "Exchanges::BinanceUs": 4,
@@ -11573,7 +11576,7 @@
           "haedal"
         ]
       },
-      "market_cap": "759990439.5127641",
+      "market_cap": "758096208.8124378",
       "available_exchanges": {
         "Exchanges::Binance": 19,
         "Exchanges::BinanceUs": 3,
@@ -11600,9 +11603,9 @@
         "og-fan-token",
         "fight-2",
         "argentine-football-association-fan-token",
-        "lazio-fan-token",
         "fc-porto",
         "as-roma-fan-token",
+        "lazio-fan-token",
         "fc-barcelona-fan-token"
       ],
       "top_coins_by_exchange": {
@@ -11611,9 +11614,9 @@
           "flow",
           "santos-fc-fan-token",
           "og-fan-token",
-          "lazio-fan-token",
           "fc-porto",
           "as-roma-fan-token",
+          "lazio-fan-token",
           "fc-barcelona-fan-token",
           "paris-saint-germain-fan-token",
           "juventus-fan-token"
@@ -11622,8 +11625,8 @@
           "chiliz",
           "flow",
           "santos-fc-fan-token",
-          "lazio-fan-token",
           "fc-porto",
+          "lazio-fan-token",
           "alpine-f1-team-fan-token"
         ],
         "Exchanges::Kraken": [
@@ -11645,9 +11648,9 @@
           "santos-fc-fan-token",
           "og-fan-token",
           "argentine-football-association-fan-token",
-          "lazio-fan-token",
           "fc-porto",
           "as-roma-fan-token",
+          "lazio-fan-token",
           "fc-barcelona-fan-token",
           "paris-saint-germain-fan-token"
         ],
@@ -11679,8 +11682,8 @@
           "og-fan-token",
           "fight-2",
           "argentine-football-association-fan-token",
-          "lazio-fan-token",
           "fc-porto",
+          "lazio-fan-token",
           "fc-barcelona-fan-token",
           "paris-saint-germain-fan-token"
         ],
@@ -11692,7 +11695,7 @@
           "sweatcoin"
         ]
       },
-      "market_cap": "757952843.4767107",
+      "market_cap": "757620114.942636",
       "available_exchanges": {
         "Exchanges::Binance": 32,
         "Exchanges::BinanceUs": 6,
@@ -11761,7 +11764,7 @@
           "sei-network"
         ]
       },
-      "market_cap": "724597826.9131418",
+      "market_cap": "720663906.019478",
       "available_exchanges": {
         "Exchanges::Binance": 5,
         "Exchanges::Kraken": 5,
@@ -11870,7 +11873,7 @@
           "simon-s-cat"
         ]
       },
-      "market_cap": "710793700.2854407",
+      "market_cap": "708633260.6735024",
       "available_exchanges": {
         "Exchanges::Binance": 11,
         "Exchanges::BinanceUs": 5,
@@ -11942,7 +11945,7 @@
           "frax-share"
         ]
       },
-      "market_cap": "646664155.8194056",
+      "market_cap": "644324589.6885942",
       "available_exchanges": {
         "Exchanges::Binance": 7,
         "Exchanges::Kraken": 6,
@@ -11991,7 +11994,7 @@
         "Exchanges::Gemini": [],
         "Exchanges::Bitvavo": []
       },
-      "market_cap": "633718036.3532196",
+      "market_cap": "633131312.6823477",
       "available_exchanges": {
         "Exchanges::Kraken": 3,
         "Exchanges::Kucoin": 4,
@@ -12059,7 +12062,7 @@
           "hashflow"
         ]
       },
-      "market_cap": "604832909.5477678",
+      "market_cap": "603890713.2504958",
       "available_exchanges": {
         "Exchanges::Binance": 5,
         "Exchanges::Kraken": 6,
@@ -12098,7 +12101,7 @@
         "Exchanges::Gemini": [],
         "Exchanges::Bitvavo": []
       },
-      "market_cap": "601165531.5858134",
+      "market_cap": "597162648.3072226",
       "available_exchanges": {
         "Exchanges::Mexc": 3
       },
@@ -12228,7 +12231,7 @@
           "aavegotchi"
         ]
       },
-      "market_cap": "592703743.450808",
+      "market_cap": "587557940.5160097",
       "available_exchanges": {
         "Exchanges::Binance": 26,
         "Exchanges::BinanceUs": 6,
@@ -12254,10 +12257,10 @@
         "derive",
         "everipedia",
         "aixbt",
-        "paal-ai",
         "elsa",
-        "apriori",
+        "paal-ai",
         "supra",
+        "apriori",
         "infinit"
       ],
       "top_coins_by_exchange": {
@@ -12304,8 +12307,8 @@
         ],
         "Exchanges::Kucoin": [
           "aixbt",
-          "paal-ai",
           "elsa",
+          "paal-ai",
           "supra",
           "infinit",
           "velvet",
@@ -12316,8 +12319,8 @@
         ],
         "Exchanges::Bybit": [
           "aixbt",
-          "paal-ai",
           "elsa",
+          "paal-ai",
           "supra",
           "newton-protocol",
           "rss3",
@@ -12329,10 +12332,10 @@
           "ribbita-by-virtuals",
           "everipedia",
           "aixbt",
-          "paal-ai",
           "elsa",
-          "apriori",
+          "paal-ai",
           "supra",
+          "apriori",
           "infinit",
           "rujira",
           "velvet"
@@ -12346,7 +12349,7 @@
           "wayfinder"
         ]
       },
-      "market_cap": "582863668.1192939",
+      "market_cap": "584531963.2277669",
       "available_exchanges": {
         "Exchanges::Binance": 9,
         "Exchanges::Kraken": 22,
@@ -12356,118 +12359,6 @@
         "Exchanges::Bybit": 10,
         "Exchanges::Mexc": 41,
         "Exchanges::Bitvavo": 5
-      },
-      "weight": 0
-    },
-    {
-      "external_id": "entertainment",
-      "source": "coingecko",
-      "name": "Entertainment",
-      "description": "Projects that are specifically designed to be used within the entertainment sector, which may include areas such as music, film, gaming, and other forms of digital media.",
-      "top_coins": [
-        "decentraland",
-        "ravedao",
-        "enjincoin",
-        "deapcoin",
-        "doodles",
-        "smooth-love-potion",
-        "og-fan-token",
-        "meet48",
-        "ado-network",
-        "pepper"
-      ],
-      "top_coins_by_exchange": {
-        "Exchanges::Binance": [
-          "decentraland",
-          "enjincoin",
-          "smooth-love-potion",
-          "og-fan-token",
-          "contentos"
-        ],
-        "Exchanges::BinanceUs": [
-          "decentraland",
-          "enjincoin",
-          "doodles",
-          "smooth-love-potion"
-        ],
-        "Exchanges::Kraken": [
-          "decentraland",
-          "ravedao",
-          "enjincoin",
-          "astra-nova",
-          "sidekick"
-        ],
-        "Exchanges::Coinbase": [
-          "decentraland",
-          "doodles",
-          "aventus"
-        ],
-        "Exchanges::Bitget": [
-          "decentraland",
-          "enjincoin",
-          "doodles",
-          "smooth-love-potion",
-          "og-fan-token",
-          "meet48",
-          "astra-nova",
-          "tcom-global",
-          "xeleb-protocol",
-          "alt-town"
-        ],
-        "Exchanges::Kucoin": [
-          "decentraland",
-          "enjincoin",
-          "doodles",
-          "smooth-love-potion",
-          "hana-network",
-          "astra-nova",
-          "ultra",
-          "verasity",
-          "phantasma",
-          "sidekick"
-        ],
-        "Exchanges::Bybit": [
-          "decentraland",
-          "enjincoin",
-          "doodles",
-          "smooth-love-potion",
-          "verasity",
-          "sidekick"
-        ],
-        "Exchanges::Mexc": [
-          "decentraland",
-          "ravedao",
-          "enjincoin",
-          "deapcoin",
-          "doodles",
-          "smooth-love-potion",
-          "og-fan-token",
-          "meet48",
-          "ado-network",
-          "pepper"
-        ],
-        "Exchanges::Gemini": [
-          "decentraland"
-        ],
-        "Exchanges::Bitvavo": [
-          "decentraland",
-          "enjincoin",
-          "smooth-love-potion",
-          "contentos"
-        ]
-      },
-      "market_cap": "581107927.2471385",
-      "available_exchanges": {
-        "Exchanges::Binance": 13,
-        "Exchanges::BinanceUs": 4,
-        "Exchanges::Kraken": 13,
-        "Exchanges::Coinbase": 7,
-        "Exchanges::Bitget": 11,
-        "Exchanges::Kucoin": 16,
-        "Exchanges::Bybit": 7,
-        "Exchanges::Mexc": 35,
-        "Exchanges::Gemini": 4,
-        "Exchanges::Bitvavo": 4
       },
       "weight": 0
     },
@@ -12572,7 +12463,7 @@
           "saga-2"
         ]
       },
-      "market_cap": "580469269.6405634",
+      "market_cap": "581554932.2650445",
       "available_exchanges": {
         "Exchanges::Binance": 27,
         "Exchanges::BinanceUs": 4,
@@ -12588,6 +12479,118 @@
       "weight": 0
     },
     {
+      "external_id": "entertainment",
+      "source": "coingecko",
+      "name": "Entertainment",
+      "description": "Projects that are specifically designed to be used within the entertainment sector, which may include areas such as music, film, gaming, and other forms of digital media.",
+      "top_coins": [
+        "decentraland",
+        "ravedao",
+        "enjincoin",
+        "deapcoin",
+        "doodles",
+        "smooth-love-potion",
+        "og-fan-token",
+        "meet48",
+        "ado-network",
+        "pepper"
+      ],
+      "top_coins_by_exchange": {
+        "Exchanges::Binance": [
+          "decentraland",
+          "enjincoin",
+          "smooth-love-potion",
+          "og-fan-token",
+          "contentos"
+        ],
+        "Exchanges::BinanceUs": [
+          "decentraland",
+          "enjincoin",
+          "doodles",
+          "smooth-love-potion"
+        ],
+        "Exchanges::Kraken": [
+          "decentraland",
+          "ravedao",
+          "enjincoin",
+          "astra-nova",
+          "sidekick"
+        ],
+        "Exchanges::Coinbase": [
+          "decentraland",
+          "doodles",
+          "aventus"
+        ],
+        "Exchanges::Bitget": [
+          "decentraland",
+          "enjincoin",
+          "doodles",
+          "smooth-love-potion",
+          "og-fan-token",
+          "meet48",
+          "astra-nova",
+          "tcom-global",
+          "xeleb-protocol",
+          "alt-town"
+        ],
+        "Exchanges::Kucoin": [
+          "decentraland",
+          "enjincoin",
+          "doodles",
+          "smooth-love-potion",
+          "hana-network",
+          "astra-nova",
+          "ultra",
+          "verasity",
+          "phantasma",
+          "sidekick"
+        ],
+        "Exchanges::Bybit": [
+          "decentraland",
+          "enjincoin",
+          "doodles",
+          "smooth-love-potion",
+          "verasity",
+          "sidekick"
+        ],
+        "Exchanges::Mexc": [
+          "decentraland",
+          "ravedao",
+          "enjincoin",
+          "deapcoin",
+          "doodles",
+          "smooth-love-potion",
+          "og-fan-token",
+          "meet48",
+          "ado-network",
+          "pepper"
+        ],
+        "Exchanges::Gemini": [
+          "decentraland"
+        ],
+        "Exchanges::Bitvavo": [
+          "decentraland",
+          "enjincoin",
+          "smooth-love-potion",
+          "contentos"
+        ]
+      },
+      "market_cap": "578254595.9371524",
+      "available_exchanges": {
+        "Exchanges::Binance": 13,
+        "Exchanges::BinanceUs": 4,
+        "Exchanges::Kraken": 13,
+        "Exchanges::Coinbase": 7,
+        "Exchanges::Bitget": 11,
+        "Exchanges::Kucoin": 16,
+        "Exchanges::Bybit": 7,
+        "Exchanges::Mexc": 35,
+        "Exchanges::Gemini": 4,
+        "Exchanges::Bitvavo": 4
+      },
+      "weight": 0
+    },
+    {
       "external_id": "btcfi",
       "source": "coingecko",
       "name": "BTCfi Protocol",
@@ -12598,8 +12601,8 @@
         "threshold-network-token",
         "babylon",
         "bitlayer-bitvm",
-        "lorenzo-protocol",
         "bedrock-token",
+        "lorenzo-protocol",
         "hemi",
         "solv-protocol",
         "pumpbtc-2"
@@ -12625,8 +12628,8 @@
           "solv-protocol",
           "portal-to-bitcoin",
           "union-2",
-          "rhea-2",
-          "yala"
+          "yala",
+          "rhea-2"
         ],
         "Exchanges::Coinbase": [
           "pendle",
@@ -12639,8 +12642,8 @@
           "threshold-network-token",
           "babylon",
           "bitlayer-bitvm",
-          "lorenzo-protocol",
           "bedrock-token",
+          "lorenzo-protocol",
           "solv-protocol",
           "pumpbtc-2",
           "rhea-2"
@@ -12655,7 +12658,7 @@
           "solv-protocol",
           "portal-to-bitcoin",
           "echo-protocol",
-          "persistence"
+          "union-2"
         ],
         "Exchanges::Bybit": [
           "pendle",
@@ -12672,8 +12675,8 @@
           "threshold-network-token",
           "babylon",
           "bitlayer-bitvm",
-          "lorenzo-protocol",
           "bedrock-token",
+          "lorenzo-protocol",
           "hemi",
           "solv-protocol",
           "pumpbtc-2"
@@ -12687,7 +12690,7 @@
           "union-2"
         ]
       },
-      "market_cap": "577549689.8269374",
+      "market_cap": "575500386.7144326",
       "available_exchanges": {
         "Exchanges::Binance": 23,
         "Exchanges::Kraken": 18,
@@ -12710,9 +12713,9 @@
         "audiera",
         "gamebuild",
         "vultisig",
-        "paal-ai",
-        "banana-gun",
         "tradoor",
+        "banana-gun",
+        "paal-ai",
         "chaingpt",
         "catizen",
         "tokenfi"
@@ -12741,8 +12744,8 @@
         "Exchanges::Bitget": [
           "floki",
           "gamebuild",
-          "banana-gun",
           "tradoor",
+          "banana-gun",
           "chaingpt",
           "catizen",
           "hamster-kombat",
@@ -12751,8 +12754,8 @@
         ],
         "Exchanges::Kucoin": [
           "floki",
-          "paal-ai",
           "banana-gun",
+          "paal-ai",
           "chaingpt",
           "catizen",
           "tokenfi",
@@ -12775,9 +12778,9 @@
           "floki",
           "audiera",
           "gamebuild",
-          "paal-ai",
-          "banana-gun",
           "tradoor",
+          "banana-gun",
+          "paal-ai",
           "chaingpt",
           "catizen",
           "tokenfi",
@@ -12793,7 +12796,7 @@
           "hamster-kombat"
         ]
       },
-      "market_cap": "575062871.6975462",
+      "market_cap": "573584048.7595056",
       "available_exchanges": {
         "Exchanges::Binance": 18,
         "Exchanges::Kraken": 10,
@@ -12883,7 +12886,7 @@
           "swell-network"
         ]
       },
-      "market_cap": "555274314.9407002",
+      "market_cap": "552983133.294063",
       "available_exchanges": {
         "Exchanges::Binance": 11,
         "Exchanges::Kraken": 10,
@@ -12936,9 +12939,9 @@
         "Exchanges::Gemini": [],
         "Exchanges::Bitvavo": []
       },
-      "market_cap": "551110172.4601474",
+      "market_cap": "549881715.7548822",
       "available_exchanges": {
-        "Exchanges::Mexc": 96
+        "Exchanges::Mexc": 99
       },
       "weight": 0
     },
@@ -13034,7 +13037,7 @@
           "particle-network"
         ]
       },
-      "market_cap": "512152535.342678",
+      "market_cap": "509294284.912617",
       "available_exchanges": {
         "Exchanges::Binance": 17,
         "Exchanges::BinanceUs": 4,
@@ -13046,65 +13049,6 @@
         "Exchanges::Mexc": 17,
         "Exchanges::Gemini": 8,
         "Exchanges::Bitvavo": 5
-      },
-      "weight": 0
-    },
-    {
-      "external_id": "asset-backed-tokens",
-      "source": "coingecko",
-      "name": "Crypto-Backed Tokens",
-      "description": "Crypto-backed tokens are digital assets backed or collateralized by other cryptocurrencies. Stablecoins are excluded from this category and are classified separately under the Crypto-Backed Stablecoin category.",
-      "top_coins": [
-        "wrapped-bitcoin",
-        "wrapped-beacon-eth",
-        "wrapped-eeth",
-        "tbtc",
-        "coinbase-wrapped-staked-eth",
-        "wrapped-nxm",
-        "wrapped-ncg"
-      ],
-      "top_coins_by_exchange": {
-        "Exchanges::Binance": [
-          "wrapped-bitcoin",
-          "wrapped-beacon-eth"
-        ],
-        "Exchanges::BinanceUs": [
-          "wrapped-bitcoin"
-        ],
-        "Exchanges::Kraken": [
-          "wrapped-bitcoin",
-          "tbtc"
-        ],
-        "Exchanges::Coinbase": [
-          "coinbase-wrapped-staked-eth"
-        ],
-        "Exchanges::Bitget": [
-          "wrapped-bitcoin",
-          "wrapped-eeth"
-        ],
-        "Exchanges::Kucoin": [
-          "wrapped-bitcoin"
-        ],
-        "Exchanges::Bybit": [
-          "wrapped-bitcoin",
-          "wrapped-eeth"
-        ],
-        "Exchanges::Mexc": [
-          "wrapped-bitcoin",
-          "wrapped-eeth",
-          "wrapped-nxm",
-          "wrapped-ncg"
-        ],
-        "Exchanges::Gemini": [],
-        "Exchanges::Bitvavo": []
-      },
-      "market_cap": "490164331.0476023",
-      "available_exchanges": {
-        "Exchanges::Binance": 5,
-        "Exchanges::Kraken": 6,
-        "Exchanges::Coinbase": 3,
-        "Exchanges::Bybit": 3,
-        "Exchanges::Mexc": 6
       },
       "weight": 0
     },
@@ -13198,7 +13142,7 @@
           "simon-s-cat"
         ]
       },
-      "market_cap": "482601995.6528066",
+      "market_cap": "487421567.8949636",
       "available_exchanges": {
         "Exchanges::BinanceUs": 4,
         "Exchanges::Kraken": 21,
@@ -13209,6 +13153,65 @@
         "Exchanges::Mexc": 30,
         "Exchanges::Gemini": 8,
         "Exchanges::Bitvavo": 3
+      },
+      "weight": 0
+    },
+    {
+      "external_id": "asset-backed-tokens",
+      "source": "coingecko",
+      "name": "Crypto-Backed Tokens",
+      "description": "Crypto-backed tokens are digital assets backed or collateralized by other cryptocurrencies. Stablecoins are excluded from this category and are classified separately under the Crypto-Backed Stablecoin category.",
+      "top_coins": [
+        "wrapped-bitcoin",
+        "wrapped-beacon-eth",
+        "wrapped-eeth",
+        "tbtc",
+        "coinbase-wrapped-staked-eth",
+        "wrapped-nxm",
+        "wrapped-ncg"
+      ],
+      "top_coins_by_exchange": {
+        "Exchanges::Binance": [
+          "wrapped-bitcoin",
+          "wrapped-beacon-eth"
+        ],
+        "Exchanges::BinanceUs": [
+          "wrapped-bitcoin"
+        ],
+        "Exchanges::Kraken": [
+          "wrapped-bitcoin",
+          "tbtc"
+        ],
+        "Exchanges::Coinbase": [
+          "coinbase-wrapped-staked-eth"
+        ],
+        "Exchanges::Bitget": [
+          "wrapped-bitcoin",
+          "wrapped-eeth"
+        ],
+        "Exchanges::Kucoin": [
+          "wrapped-bitcoin"
+        ],
+        "Exchanges::Bybit": [
+          "wrapped-bitcoin",
+          "wrapped-eeth"
+        ],
+        "Exchanges::Mexc": [
+          "wrapped-bitcoin",
+          "wrapped-eeth",
+          "wrapped-nxm",
+          "wrapped-ncg"
+        ],
+        "Exchanges::Gemini": [],
+        "Exchanges::Bitvavo": []
+      },
+      "market_cap": "485367936.0341974",
+      "available_exchanges": {
+        "Exchanges::Binance": 5,
+        "Exchanges::Kraken": 6,
+        "Exchanges::Coinbase": 3,
+        "Exchanges::Bybit": 3,
+        "Exchanges::Mexc": 6
       },
       "weight": 0
     },
@@ -13311,7 +13314,7 @@
           "aavegotchi"
         ]
       },
-      "market_cap": "474876564.2415565",
+      "market_cap": "470401032.4378102",
       "available_exchanges": {
         "Exchanges::Binance": 14,
         "Exchanges::BinanceUs": 4,
@@ -13382,7 +13385,7 @@
           "story-2"
         ]
       },
-      "market_cap": "471671956.1488093",
+      "market_cap": "465903764.9119191",
       "available_exchanges": {
         "Exchanges::Kraken": 6,
         "Exchanges::Bitget": 5,
@@ -13461,7 +13464,7 @@
           "my-neighbor-alice"
         ]
       },
-      "market_cap": "457212255.165035",
+      "market_cap": "455711380.9855069",
       "available_exchanges": {
         "Exchanges::Binance": 10,
         "Exchanges::BinanceUs": 4,
@@ -13549,7 +13552,7 @@
           "gigachad-2"
         ]
       },
-      "market_cap": "452289696.827381",
+      "market_cap": "447874177.6861815",
       "available_exchanges": {
         "Exchanges::BinanceUs": 3,
         "Exchanges::Kraken": 17,
@@ -13559,6 +13562,174 @@
         "Exchanges::Mexc": 9,
         "Exchanges::Gemini": 4,
         "Exchanges::Bitvavo": 3
+      },
+      "weight": 0
+    },
+    {
+      "external_id": "buidlpad-launchpad",
+      "source": "coingecko",
+      "name": "Buidlpad Launchpad",
+      "description": "Buidlpad is a launchpad that enables token sales with KYC-verified participants.",
+      "top_coins": [
+        "falcon-finance-ff",
+        "lombard-protocol",
+        "sahara-ai",
+        "solayer",
+        "aria-2"
+      ],
+      "top_coins_by_exchange": {
+        "Exchanges::Binance": [
+          "falcon-finance-ff",
+          "lombard-protocol",
+          "sahara-ai",
+          "solayer"
+        ],
+        "Exchanges::BinanceUs": [
+          "solayer"
+        ],
+        "Exchanges::Kraken": [
+          "falcon-finance-ff",
+          "sahara-ai",
+          "solayer"
+        ],
+        "Exchanges::Coinbase": [
+          "lombard-protocol",
+          "solayer"
+        ],
+        "Exchanges::Bitget": [
+          "falcon-finance-ff",
+          "lombard-protocol",
+          "sahara-ai",
+          "solayer",
+          "aria-2"
+        ],
+        "Exchanges::Kucoin": [
+          "falcon-finance-ff",
+          "lombard-protocol",
+          "sahara-ai"
+        ],
+        "Exchanges::Bybit": [
+          "falcon-finance-ff",
+          "lombard-protocol",
+          "sahara-ai",
+          "solayer"
+        ],
+        "Exchanges::Mexc": [
+          "falcon-finance-ff",
+          "lombard-protocol",
+          "sahara-ai",
+          "solayer",
+          "aria-2"
+        ],
+        "Exchanges::Gemini": [],
+        "Exchanges::Bitvavo": []
+      },
+      "market_cap": "429923482.9518724",
+      "available_exchanges": {
+        "Exchanges::Binance": 14,
+        "Exchanges::Kraken": 6,
+        "Exchanges::Coinbase": 4,
+        "Exchanges::Bitget": 5,
+        "Exchanges::Kucoin": 3,
+        "Exchanges::Bybit": 4,
+        "Exchanges::Mexc": 10
+      },
+      "weight": 0
+    },
+    {
+      "external_id": "gaming-platform",
+      "source": "coingecko",
+      "name": "Gaming Platform",
+      "description": "Gaming platform allows users to play, download, and manage video games. They often provide features like multiplayer matchmaking, community forums, and in-game purchases.",
+      "top_coins": [
+        "gala",
+        "unipoly",
+        "deapcoin",
+        "gamebuild",
+        "ready",
+        "portal-2",
+        "skor-ai",
+        "vulcan-forged",
+        "hooked-protocol",
+        "hybux"
+      ],
+      "top_coins_by_exchange": {
+        "Exchanges::Binance": [
+          "gala",
+          "portal-2",
+          "vulcan-forged",
+          "hooked-protocol"
+        ],
+        "Exchanges::BinanceUs": [
+          "gala"
+        ],
+        "Exchanges::Kraken": [
+          "gala",
+          "gamebuild",
+          "portal-2"
+        ],
+        "Exchanges::Coinbase": [
+          "vulcan-forged"
+        ],
+        "Exchanges::Bitget": [
+          "gala",
+          "gamebuild",
+          "portal-2",
+          "vulcan-forged",
+          "hooked-protocol",
+          "creo-engine"
+        ],
+        "Exchanges::Kucoin": [
+          "gala",
+          "ready",
+          "portal-2",
+          "vulcan-forged",
+          "altura",
+          "nakamoto-games",
+          "ultra",
+          "elympics",
+          "qopro",
+          "myria"
+        ],
+        "Exchanges::Bybit": [
+          "gala",
+          "portal-2",
+          "hooked-protocol",
+          "nakamoto-games",
+          "qopro"
+        ],
+        "Exchanges::Mexc": [
+          "gala",
+          "unipoly",
+          "deapcoin",
+          "gamebuild",
+          "ready",
+          "portal-2",
+          "skor-ai",
+          "vulcan-forged",
+          "hooked-protocol",
+          "hybux"
+        ],
+        "Exchanges::Gemini": [
+          "gala"
+        ],
+        "Exchanges::Bitvavo": [
+          "gala",
+          "portal-2",
+          "vulcan-forged",
+          "hooked-protocol"
+        ]
+      },
+      "market_cap": "429297387.9277522",
+      "available_exchanges": {
+        "Exchanges::Binance": 11,
+        "Exchanges::Kraken": 6,
+        "Exchanges::Bitget": 6,
+        "Exchanges::Kucoin": 19,
+        "Exchanges::Bybit": 5,
+        "Exchanges::Mexc": 29,
+        "Exchanges::Gemini": 4,
+        "Exchanges::Bitvavo": 4
       },
       "weight": 0
     },
@@ -13661,7 +13832,7 @@
           "synapse-2"
         ]
       },
-      "market_cap": "432196692.4442987",
+      "market_cap": "428302025.691926",
       "available_exchanges": {
         "Exchanges::Binance": 13,
         "Exchanges::BinanceUs": 3,
@@ -13672,174 +13843,6 @@
         "Exchanges::Bybit": 6,
         "Exchanges::Mexc": 14,
         "Exchanges::Bitvavo": 6
-      },
-      "weight": 0
-    },
-    {
-      "external_id": "gaming-platform",
-      "source": "coingecko",
-      "name": "Gaming Platform",
-      "description": "Gaming platform allows users to play, download, and manage video games. They often provide features like multiplayer matchmaking, community forums, and in-game purchases.",
-      "top_coins": [
-        "gala",
-        "unipoly",
-        "deapcoin",
-        "gamebuild",
-        "ready",
-        "portal-2",
-        "skor-ai",
-        "vulcan-forged",
-        "hooked-protocol",
-        "hybux"
-      ],
-      "top_coins_by_exchange": {
-        "Exchanges::Binance": [
-          "gala",
-          "portal-2",
-          "vulcan-forged",
-          "hooked-protocol"
-        ],
-        "Exchanges::BinanceUs": [
-          "gala"
-        ],
-        "Exchanges::Kraken": [
-          "gala",
-          "gamebuild",
-          "portal-2"
-        ],
-        "Exchanges::Coinbase": [
-          "vulcan-forged"
-        ],
-        "Exchanges::Bitget": [
-          "gala",
-          "gamebuild",
-          "portal-2",
-          "vulcan-forged",
-          "hooked-protocol",
-          "creo-engine"
-        ],
-        "Exchanges::Kucoin": [
-          "gala",
-          "ready",
-          "portal-2",
-          "vulcan-forged",
-          "altura",
-          "nakamoto-games",
-          "ultra",
-          "elympics",
-          "qopro",
-          "myria"
-        ],
-        "Exchanges::Bybit": [
-          "gala",
-          "portal-2",
-          "hooked-protocol",
-          "nakamoto-games",
-          "qopro"
-        ],
-        "Exchanges::Mexc": [
-          "gala",
-          "unipoly",
-          "deapcoin",
-          "gamebuild",
-          "ready",
-          "portal-2",
-          "skor-ai",
-          "vulcan-forged",
-          "hooked-protocol",
-          "hybux"
-        ],
-        "Exchanges::Gemini": [
-          "gala"
-        ],
-        "Exchanges::Bitvavo": [
-          "gala",
-          "portal-2",
-          "vulcan-forged",
-          "hooked-protocol"
-        ]
-      },
-      "market_cap": "431801553.7628198",
-      "available_exchanges": {
-        "Exchanges::Binance": 11,
-        "Exchanges::Kraken": 6,
-        "Exchanges::Bitget": 6,
-        "Exchanges::Kucoin": 19,
-        "Exchanges::Bybit": 5,
-        "Exchanges::Mexc": 29,
-        "Exchanges::Gemini": 4,
-        "Exchanges::Bitvavo": 4
-      },
-      "weight": 0
-    },
-    {
-      "external_id": "buidlpad-launchpad",
-      "source": "coingecko",
-      "name": "Buidlpad Launchpad",
-      "description": "Buidlpad is a launchpad that enables token sales with KYC-verified participants.",
-      "top_coins": [
-        "falcon-finance-ff",
-        "lombard-protocol",
-        "sahara-ai",
-        "solayer",
-        "aria-2"
-      ],
-      "top_coins_by_exchange": {
-        "Exchanges::Binance": [
-          "falcon-finance-ff",
-          "lombard-protocol",
-          "sahara-ai",
-          "solayer"
-        ],
-        "Exchanges::BinanceUs": [
-          "solayer"
-        ],
-        "Exchanges::Kraken": [
-          "falcon-finance-ff",
-          "sahara-ai",
-          "solayer"
-        ],
-        "Exchanges::Coinbase": [
-          "lombard-protocol",
-          "solayer"
-        ],
-        "Exchanges::Bitget": [
-          "falcon-finance-ff",
-          "lombard-protocol",
-          "sahara-ai",
-          "solayer",
-          "aria-2"
-        ],
-        "Exchanges::Kucoin": [
-          "falcon-finance-ff",
-          "lombard-protocol",
-          "sahara-ai"
-        ],
-        "Exchanges::Bybit": [
-          "falcon-finance-ff",
-          "lombard-protocol",
-          "sahara-ai",
-          "solayer"
-        ],
-        "Exchanges::Mexc": [
-          "falcon-finance-ff",
-          "lombard-protocol",
-          "sahara-ai",
-          "solayer",
-          "aria-2"
-        ],
-        "Exchanges::Gemini": [],
-        "Exchanges::Bitvavo": []
-      },
-      "market_cap": "429204929.5590769",
-      "available_exchanges": {
-        "Exchanges::Binance": 14,
-        "Exchanges::Kraken": 6,
-        "Exchanges::Coinbase": 4,
-        "Exchanges::Bitget": 5,
-        "Exchanges::Kucoin": 3,
-        "Exchanges::Bybit": 4,
-        "Exchanges::Mexc": 10
       },
       "weight": 0
     },
@@ -13896,7 +13899,7 @@
         "Exchanges::Gemini": [],
         "Exchanges::Bitvavo": []
       },
-      "market_cap": "389221389.9600933",
+      "market_cap": "380852586.0299146",
       "available_exchanges": {
         "Exchanges::Binance": 10,
         "Exchanges::Kucoin": 4,
@@ -13982,7 +13985,7 @@
           "alpha-finance"
         ]
       },
-      "market_cap": "376698379.3946681",
+      "market_cap": "369880594.7665439",
       "available_exchanges": {
         "Exchanges::Binance": 7,
         "Exchanges::Kraken": 10,
@@ -14056,7 +14059,7 @@
           "uma"
         ]
       },
-      "market_cap": "360330763.1967047",
+      "market_cap": "360569584.8902457",
       "available_exchanges": {
         "Exchanges::Binance": 7,
         "Exchanges::Kraken": 7,
@@ -14118,7 +14121,7 @@
           "floki"
         ]
       },
-      "market_cap": "340677572.3571512",
+      "market_cap": "337648204.4864999",
       "available_exchanges": {
         "Exchanges::Binance": 5,
         "Exchanges::Kraken": 4,
@@ -14181,7 +14184,7 @@
           "simon-s-cat"
         ]
       },
-      "market_cap": "326063171.1240916",
+      "market_cap": "323064650.2919212",
       "available_exchanges": {
         "Exchanges::Binance": 5,
         "Exchanges::Kraken": 6,
@@ -14266,7 +14269,7 @@
           "ponke"
         ]
       },
-      "market_cap": "312233692.5420512",
+      "market_cap": "309280764.6951536",
       "available_exchanges": {
         "Exchanges::Kraken": 8,
         "Exchanges::Coinbase": 10,
@@ -14345,7 +14348,7 @@
           "beam-2"
         ]
       },
-      "market_cap": "306533356.5325782",
+      "market_cap": "306857437.0653945",
       "available_exchanges": {
         "Exchanges::Binance": 11,
         "Exchanges::Kraken": 6,
@@ -14418,7 +14421,7 @@
           "uma"
         ]
       },
-      "market_cap": "305442260.1989339",
+      "market_cap": "305583034.066654",
       "available_exchanges": {
         "Exchanges::Binance": 7,
         "Exchanges::Kraken": 7,
@@ -14468,7 +14471,7 @@
           "spx6900"
         ]
       },
-      "market_cap": "300026603.2479089",
+      "market_cap": "297363778.6874905",
       "available_exchanges": {
         "Exchanges::Mexc": 3
       },
@@ -14520,6 +14523,7 @@
           "axie-infinity",
           "gods-unchained",
           "alien-worlds",
+          "cross-the-ages",
           "unagi-token",
           "anome",
           "monsta-infinite"
@@ -14548,13 +14552,13 @@
           "alien-worlds"
         ]
       },
-      "market_cap": "294206516.6099141",
+      "market_cap": "291138211.5667915",
       "available_exchanges": {
         "Exchanges::Binance": 7,
         "Exchanges::Kraken": 6,
         "Exchanges::Coinbase": 6,
         "Exchanges::Bitget": 4,
-        "Exchanges::Kucoin": 6,
+        "Exchanges::Kucoin": 7,
         "Exchanges::Bybit": 4,
         "Exchanges::Mexc": 11,
         "Exchanges::Bitvavo": 3
@@ -14619,7 +14623,7 @@
           "babylon"
         ]
       },
-      "market_cap": "285940778.7393018",
+      "market_cap": "284127619.1365184",
       "available_exchanges": {
         "Exchanges::Binance": 10,
         "Exchanges::Kraken": 8,
@@ -14695,65 +14699,13 @@
           "bluzelle"
         ]
       },
-      "market_cap": "282606275.8334614",
+      "market_cap": "283185391.2447688",
       "available_exchanges": {
         "Exchanges::Binance": 3,
         "Exchanges::Kraken": 8,
         "Exchanges::Coinbase": 8,
         "Exchanges::Kucoin": 6,
         "Exchanges::Mexc": 12
-      },
-      "weight": 0
-    },
-    {
-      "external_id": "binance-buildkey-tge",
-      "source": "coingecko",
-      "name": "Binance Buildkey TGE",
-      "description": "The BuildKey TGE Model is a hybrid Token Generation Event (TGE) framework developed by Aspecta in collaboration with Binance Wallet.",
-      "top_coins": [
-        "river",
-        "zkpass",
-        "fight-2"
-      ],
-      "top_coins_by_exchange": {
-        "Exchanges::Binance": [
-          "zkpass"
-        ],
-        "Exchanges::BinanceUs": [],
-        "Exchanges::Kraken": [
-          "river",
-          "zkpass",
-          "fight-2"
-        ],
-        "Exchanges::Coinbase": [
-          "zkpass",
-          "fight-2"
-        ],
-        "Exchanges::Bitget": [
-          "river"
-        ],
-        "Exchanges::Kucoin": [
-          "zkpass",
-          "fight-2"
-        ],
-        "Exchanges::Bybit": [
-          "zkpass",
-          "fight-2"
-        ],
-        "Exchanges::Mexc": [
-          "river",
-          "zkpass",
-          "fight-2"
-        ],
-        "Exchanges::Gemini": [],
-        "Exchanges::Bitvavo": []
-      },
-      "market_cap": "281534297.0982576",
-      "available_exchanges": {
-        "Exchanges::Binance": 3,
-        "Exchanges::Kraken": 6,
-        "Exchanges::Coinbase": 4,
-        "Exchanges::Mexc": 4
       },
       "weight": 0
     },
@@ -14808,10 +14760,62 @@
         "Exchanges::Gemini": [],
         "Exchanges::Bitvavo": []
       },
-      "market_cap": "278725526.1945722",
+      "market_cap": "278450906.7835977",
       "available_exchanges": {
         "Exchanges::Bybit": 10,
         "Exchanges::Mexc": 11
+      },
+      "weight": 0
+    },
+    {
+      "external_id": "binance-buildkey-tge",
+      "source": "coingecko",
+      "name": "Binance Buildkey TGE",
+      "description": "The BuildKey TGE Model is a hybrid Token Generation Event (TGE) framework developed by Aspecta in collaboration with Binance Wallet.",
+      "top_coins": [
+        "river",
+        "zkpass",
+        "fight-2"
+      ],
+      "top_coins_by_exchange": {
+        "Exchanges::Binance": [
+          "zkpass"
+        ],
+        "Exchanges::BinanceUs": [],
+        "Exchanges::Kraken": [
+          "river",
+          "zkpass",
+          "fight-2"
+        ],
+        "Exchanges::Coinbase": [
+          "zkpass",
+          "fight-2"
+        ],
+        "Exchanges::Bitget": [
+          "river"
+        ],
+        "Exchanges::Kucoin": [
+          "zkpass",
+          "fight-2"
+        ],
+        "Exchanges::Bybit": [
+          "zkpass",
+          "fight-2"
+        ],
+        "Exchanges::Mexc": [
+          "river",
+          "zkpass",
+          "fight-2"
+        ],
+        "Exchanges::Gemini": [],
+        "Exchanges::Bitvavo": []
+      },
+      "market_cap": "277661313.4181374",
+      "available_exchanges": {
+        "Exchanges::Binance": 3,
+        "Exchanges::Kraken": 6,
+        "Exchanges::Coinbase": 4,
+        "Exchanges::Mexc": 4
       },
       "weight": 0
     },
@@ -14898,7 +14902,7 @@
           "synapse-2"
         ]
       },
-      "market_cap": "267231833.2969163",
+      "market_cap": "265106633.717636",
       "available_exchanges": {
         "Exchanges::Binance": 12,
         "Exchanges::Kraken": 12,
@@ -14973,7 +14977,7 @@
           "kaito"
         ]
       },
-      "market_cap": "245492730.4881957",
+      "market_cap": "247080854.1359967",
       "available_exchanges": {
         "Exchanges::Binance": 9,
         "Exchanges::Kraken": 8,
@@ -15035,7 +15039,7 @@
         "Exchanges::Gemini": [],
         "Exchanges::Bitvavo": []
       },
-      "market_cap": "243753943.3120862",
+      "market_cap": "243372544.8655125",
       "available_exchanges": {
         "Exchanges::Bybit": 10,
         "Exchanges::Mexc": 10
@@ -15052,9 +15056,9 @@
         "og-fan-token",
         "fight-2",
         "argentine-football-association-fan-token",
-        "lazio-fan-token",
         "fc-porto",
         "as-roma-fan-token",
+        "lazio-fan-token",
         "fc-barcelona-fan-token",
         "paris-saint-germain-fan-token",
         "galatasaray-fan-token"
@@ -15063,9 +15067,9 @@
         "Exchanges::Binance": [
           "santos-fc-fan-token",
           "og-fan-token",
-          "lazio-fan-token",
           "fc-porto",
           "as-roma-fan-token",
+          "lazio-fan-token",
           "fc-barcelona-fan-token",
           "paris-saint-germain-fan-token",
           "juventus-fan-token",
@@ -15074,8 +15078,8 @@
         ],
         "Exchanges::BinanceUs": [
           "santos-fc-fan-token",
-          "lazio-fan-token",
           "fc-porto",
+          "lazio-fan-token",
           "alpine-f1-team-fan-token"
         ],
         "Exchanges::Kraken": [
@@ -15088,9 +15092,9 @@
           "santos-fc-fan-token",
           "og-fan-token",
           "argentine-football-association-fan-token",
-          "lazio-fan-token",
           "fc-porto",
           "as-roma-fan-token",
+          "lazio-fan-token",
           "fc-barcelona-fan-token",
           "paris-saint-germain-fan-token",
           "galatasaray-fan-token",
@@ -15113,8 +15117,8 @@
           "og-fan-token",
           "fight-2",
           "argentine-football-association-fan-token",
-          "lazio-fan-token",
           "fc-porto",
+          "lazio-fan-token",
           "fc-barcelona-fan-token",
           "paris-saint-germain-fan-token",
           "juventus-fan-token",
@@ -15123,7 +15127,7 @@
         "Exchanges::Gemini": [],
         "Exchanges::Bitvavo": []
       },
-      "market_cap": "226330461.1569159",
+      "market_cap": "223248564.0456547",
       "available_exchanges": {
         "Exchanges::Binance": 26,
         "Exchanges::BinanceUs": 4,
@@ -15174,7 +15178,7 @@
           "convex-finance"
         ]
       },
-      "market_cap": "222670818.273515",
+      "market_cap": "220465057.8372682",
       "available_exchanges": {
         "Exchanges::Kraken": 4,
         "Exchanges::Kucoin": 3,
@@ -15224,7 +15228,7 @@
           "pendle"
         ]
       },
-      "market_cap": "222029163.5235518",
+      "market_cap": "218524165.478281",
       "available_exchanges": {
         "Exchanges::Binance": 4,
         "Exchanges::Kraken": 4,
@@ -15310,7 +15314,7 @@
           "tensor"
         ]
       },
-      "market_cap": "204860145.8225955",
+      "market_cap": "204387095.6096206",
       "available_exchanges": {
         "Exchanges::Binance": 10,
         "Exchanges::BinanceUs": 3,
@@ -15366,7 +15370,7 @@
           "fuel-network"
         ]
       },
-      "market_cap": "193868566.0184855",
+      "market_cap": "193917867.4334488",
       "available_exchanges": {
         "Exchanges::Mexc": 5
       },
@@ -15414,7 +15418,7 @@
         "Exchanges::Gemini": [],
         "Exchanges::Bitvavo": []
       },
-      "market_cap": "187853420.5942696",
+      "market_cap": "188369571.3751698",
       "available_exchanges": {
         "Exchanges::Binance": 3,
         "Exchanges::Mexc": 10
@@ -15485,7 +15489,7 @@
           "saga-2"
         ]
       },
-      "market_cap": "183064094.7779574",
+      "market_cap": "181896025.0105604",
       "available_exchanges": {
         "Exchanges::Binance": 11,
         "Exchanges::Kraken": 10,
@@ -15555,7 +15559,7 @@
           "immutable-x"
         ]
       },
-      "market_cap": "175416862.6753805",
+      "market_cap": "175861797.237946",
       "available_exchanges": {
         "Exchanges::Kraken": 4,
         "Exchanges::Coinbase": 3,
@@ -15609,7 +15613,7 @@
           "edu-coin"
         ]
       },
-      "market_cap": "170119242.4445983",
+      "market_cap": "171338049.552096",
       "available_exchanges": {
         "Exchanges::Mexc": 7
       },
@@ -15669,7 +15673,7 @@
           "sushi"
         ]
       },
-      "market_cap": "166957126.5688616",
+      "market_cap": "164530613.9103515",
       "available_exchanges": {
         "Exchanges::Binance": 4,
         "Exchanges::BinanceUs": 3,
@@ -15720,7 +15724,7 @@
         "Exchanges::Gemini": [],
         "Exchanges::Bitvavo": []
       },
-      "market_cap": "162994506.7895009",
+      "market_cap": "161412466.5120273",
       "available_exchanges": {
         "Exchanges::Coinbase": 6,
         "Exchanges::Mexc": 4
@@ -15784,7 +15788,7 @@
           "highstreet"
         ]
       },
-      "market_cap": "160929977.8840313",
+      "market_cap": "159914605.9755258",
       "available_exchanges": {
         "Exchanges::Kraken": 4,
         "Exchanges::Coinbase": 4,
@@ -15793,6 +15797,63 @@
         "Exchanges::Bybit": 3,
         "Exchanges::Mexc": 5,
         "Exchanges::Bitvavo": 4
+      },
+      "weight": 0
+    },
+    {
+      "external_id": "e-commerce",
+      "source": "coingecko",
+      "name": "E-commerce",
+      "description": "Tokens or projects that facilitate online shopping, digital marketplaces, and payment solutions within the e-commerce industry.",
+      "top_coins": [
+        "pay-coin",
+        "optio",
+        "wexo",
+        "boson-protocol",
+        "kin",
+        "acquire-fi",
+        "paysenger-ego",
+        "mbd-financials",
+        "botify",
+        "fun"
+      ],
+      "top_coins_by_exchange": {
+        "Exchanges::Binance": [],
+        "Exchanges::BinanceUs": [
+          "boson-protocol"
+        ],
+        "Exchanges::Kraken": [
+          "kin"
+        ],
+        "Exchanges::Coinbase": [],
+        "Exchanges::Bitget": [
+          "pay-coin"
+        ],
+        "Exchanges::Kucoin": [
+          "boson-protocol",
+          "acquire-fi",
+          "paysenger-ego"
+        ],
+        "Exchanges::Bybit": [],
+        "Exchanges::Mexc": [
+          "optio",
+          "wexo",
+          "boson-protocol",
+          "acquire-fi",
+          "paysenger-ego",
+          "mbd-financials",
+          "botify",
+          "fun",
+          "bistroo",
+          "msquare-global"
+        ],
+        "Exchanges::Gemini": [],
+        "Exchanges::Bitvavo": []
+      },
+      "market_cap": "154000126.5645471",
+      "available_exchanges": {
+        "Exchanges::Kucoin": 3,
+        "Exchanges::Mexc": 13
       },
       "weight": 0
     },
@@ -15859,7 +15920,7 @@
           "synfutures"
         ]
       },
-      "market_cap": "152366536.8459341",
+      "market_cap": "151403015.6077816",
       "available_exchanges": {
         "Exchanges::Binance": 6,
         "Exchanges::Kraken": 4,
@@ -15867,63 +15928,6 @@
         "Exchanges::Kucoin": 5,
         "Exchanges::Bybit": 4,
         "Exchanges::Mexc": 8
-      },
-      "weight": 0
-    },
-    {
-      "external_id": "e-commerce",
-      "source": "coingecko",
-      "name": "E-commerce",
-      "description": "Tokens or projects that facilitate online shopping, digital marketplaces, and payment solutions within the e-commerce industry.",
-      "top_coins": [
-        "pay-coin",
-        "optio",
-        "wexo",
-        "boson-protocol",
-        "kin",
-        "acquire-fi",
-        "paysenger-ego",
-        "mbd-financials",
-        "botify",
-        "bistroo"
-      ],
-      "top_coins_by_exchange": {
-        "Exchanges::Binance": [],
-        "Exchanges::BinanceUs": [
-          "boson-protocol"
-        ],
-        "Exchanges::Kraken": [
-          "kin"
-        ],
-        "Exchanges::Coinbase": [],
-        "Exchanges::Bitget": [
-          "pay-coin"
-        ],
-        "Exchanges::Kucoin": [
-          "boson-protocol",
-          "acquire-fi",
-          "paysenger-ego"
-        ],
-        "Exchanges::Bybit": [],
-        "Exchanges::Mexc": [
-          "optio",
-          "wexo",
-          "boson-protocol",
-          "acquire-fi",
-          "paysenger-ego",
-          "mbd-financials",
-          "botify",
-          "bistroo",
-          "fun",
-          "msquare-global"
-        ],
-        "Exchanges::Gemini": [],
-        "Exchanges::Bitvavo": []
-      },
-      "market_cap": "152026484.8141705",
-      "available_exchanges": {
-        "Exchanges::Kucoin": 3,
-        "Exchanges::Mexc": 13
       },
       "weight": 0
     },
@@ -15985,7 +15989,7 @@
           "limewire-token"
         ]
       },
-      "market_cap": "139568776.4278858",
+      "market_cap": "139513068.2582103",
       "available_exchanges": {
         "Exchanges::Kraken": 6,
         "Exchanges::Kucoin": 4,
@@ -16059,7 +16063,7 @@
           "dymension"
         ]
       },
-      "market_cap": "138744382.9019719",
+      "market_cap": "138255535.559446",
       "available_exchanges": {
         "Exchanges::Binance": 15,
         "Exchanges::Kraken": 7,
@@ -16070,45 +16074,6 @@
         "Exchanges::Mexc": 7,
         "Exchanges::Gemini": 4,
         "Exchanges::Bitvavo": 3
-      },
-      "weight": 0
-    },
-    {
-      "external_id": "bitcoin-meme",
-      "source": "coingecko",
-      "name": "Bitcoin Meme",
-      "description": "Meme coins native to the Bitcoin network.",
-      "top_coins": [
-        "dog-go-to-the-moon-rune",
-        "magic-internet-money-runes",
-        "billion-dollar-cat-runes",
-        "rune-pups"
-      ],
-      "top_coins_by_exchange": {
-        "Exchanges::Binance": [],
-        "Exchanges::BinanceUs": [],
-        "Exchanges::Kraken": [
-          "dog-go-to-the-moon-rune",
-          "magic-internet-money-runes",
-          "billion-dollar-cat-runes",
-          "rune-pups"
-        ],
-        "Exchanges::Coinbase": [],
-        "Exchanges::Bitget": [
-          "dog-go-to-the-moon-rune"
-        ],
-        "Exchanges::Kucoin": [],
-        "Exchanges::Bybit": [],
-        "Exchanges::Mexc": [
-          "dog-go-to-the-moon-rune",
-          "billion-dollar-cat-runes"
-        ],
-        "Exchanges::Gemini": [],
-        "Exchanges::Bitvavo": []
-      },
-      "market_cap": "124401159.2504873",
-      "available_exchanges": {
-        "Exchanges::Kraken": 8
       },
       "weight": 0
     },
@@ -16160,78 +16125,48 @@
         "Exchanges::Gemini": [],
         "Exchanges::Bitvavo": []
       },
-      "market_cap": "123739827.3965404",
+      "market_cap": "128570399.1170655",
       "available_exchanges": {
         "Exchanges::Mexc": 11
       },
       "weight": 0
     },
     {
-      "external_id": "olympus-pro",
+      "external_id": "bitcoin-meme",
       "source": "coingecko",
-      "name": "Olympus Pro Ecosystem",
-      "description": "Olympus Pro designed to provide liquidity management solutions for DeFi protocols. They offers a service called \"bonds-as-a-service,\" which allows protocols to own their liquidity by offering discounted OHM tokens in exchange for liquidity provider (LP) tokens. This helps protocols to reduce their reliance on liquidity mining incentives and gain more control over their liquidity.",
+      "name": "Bitcoin Meme",
+      "description": "Meme coins native to the Bitcoin network.",
       "top_coins": [
-        "spell-token",
-        "inverse-finance",
-        "alchemix",
-        "synapse-2",
-        "pangolin",
-        "shapeshift-fox-token",
-        "keep3rv1",
-        "barnbridge"
+        "dog-go-to-the-moon-rune",
+        "magic-internet-money-runes",
+        "billion-dollar-cat-runes",
+        "rune-pups"
       ],
       "top_coins_by_exchange": {
-        "Exchanges::Binance": [
-          "spell-token",
-          "alchemix",
-          "synapse-2"
-        ],
+        "Exchanges::Binance": [],
         "Exchanges::BinanceUs": [],
         "Exchanges::Kraken": [
-          "spell-token",
-          "alchemix",
-          "synapse-2",
-          "keep3rv1",
-          "barnbridge"
+          "dog-go-to-the-moon-rune",
+          "magic-internet-money-runes",
+          "billion-dollar-cat-runes",
+          "rune-pups"
         ],
-        "Exchanges::Coinbase": [
-          "spell-token",
-          "inverse-finance",
-          "alchemix",
-          "pangolin",
-          "shapeshift-fox-token"
-        ],
+        "Exchanges::Coinbase": [],
         "Exchanges::Bitget": [
-          "spell-token",
-          "synapse-2"
+          "dog-go-to-the-moon-rune"
         ],
-        "Exchanges::Kucoin": [
-          "synapse-2"
-        ],
-        "Exchanges::Bybit": [
-          "spell-token"
-        ],
+        "Exchanges::Kucoin": [],
+        "Exchanges::Bybit": [],
         "Exchanges::Mexc": [
-          "spell-token",
-          "inverse-finance",
-          "synapse-2",
-          "pangolin",
-          "shapeshift-fox-token",
-          "keep3rv1",
-          "barnbridge"
+          "dog-go-to-the-moon-rune",
+          "billion-dollar-cat-runes"
         ],
         "Exchanges::Gemini": [],
-        "Exchanges::Bitvavo": [
-          "synapse-2"
-        ]
+        "Exchanges::Bitvavo": []
       },
-      "market_cap": "122823900.5281559",
+      "market_cap": "123344991.2875486",
       "available_exchanges": {
-        "Exchanges::Binance": 5,
-        "Exchanges::Kraken": 10,
-        "Exchanges::Coinbase": 10,
-        "Exchanges::Mexc": 7
+        "Exchanges::Kraken": 8
       },
       "weight": 0
     },
@@ -16305,7 +16240,7 @@
           "aavegotchi"
         ]
       },
-      "market_cap": "122380872.585385",
+      "market_cap": "120463445.8626887",
       "available_exchanges": {
         "Exchanges::Binance": 6,
         "Exchanges::Kraken": 6,
@@ -16314,6 +16249,75 @@
         "Exchanges::Kucoin": 5,
         "Exchanges::Mexc": 5,
         "Exchanges::Bitvavo": 4
+      },
+      "weight": 0
+    },
+    {
+      "external_id": "olympus-pro",
+      "source": "coingecko",
+      "name": "Olympus Pro Ecosystem",
+      "description": "Olympus Pro designed to provide liquidity management solutions for DeFi protocols. They offers a service called \"bonds-as-a-service,\" which allows protocols to own their liquidity by offering discounted OHM tokens in exchange for liquidity provider (LP) tokens. This helps protocols to reduce their reliance on liquidity mining incentives and gain more control over their liquidity.",
+      "top_coins": [
+        "spell-token",
+        "alchemix",
+        "synapse-2",
+        "inverse-finance",
+        "pangolin",
+        "shapeshift-fox-token",
+        "keep3rv1",
+        "barnbridge"
+      ],
+      "top_coins_by_exchange": {
+        "Exchanges::Binance": [
+          "spell-token",
+          "alchemix",
+          "synapse-2"
+        ],
+        "Exchanges::BinanceUs": [],
+        "Exchanges::Kraken": [
+          "spell-token",
+          "alchemix",
+          "synapse-2",
+          "keep3rv1",
+          "barnbridge"
+        ],
+        "Exchanges::Coinbase": [
+          "spell-token",
+          "alchemix",
+          "inverse-finance",
+          "pangolin",
+          "shapeshift-fox-token"
+        ],
+        "Exchanges::Bitget": [
+          "spell-token",
+          "synapse-2"
+        ],
+        "Exchanges::Kucoin": [
+          "synapse-2"
+        ],
+        "Exchanges::Bybit": [
+          "spell-token"
+        ],
+        "Exchanges::Mexc": [
+          "spell-token",
+          "synapse-2",
+          "inverse-finance",
+          "pangolin",
+          "shapeshift-fox-token",
+          "keep3rv1",
+          "barnbridge"
+        ],
+        "Exchanges::Gemini": [],
+        "Exchanges::Bitvavo": [
+          "synapse-2"
+        ]
+      },
+      "market_cap": "119087972.263731",
+      "available_exchanges": {
+        "Exchanges::Binance": 5,
+        "Exchanges::Kraken": 10,
+        "Exchanges::Coinbase": 10,
+        "Exchanges::Mexc": 7
       },
       "weight": 0
     },
@@ -16392,12 +16396,12 @@
           "heroes-of-mavia"
         ]
       },
-      "market_cap": "120064105.2354333",
+      "market_cap": "118949476.8359974",
       "available_exchanges": {
         "Exchanges::Binance": 6,
         "Exchanges::Coinbase": 6,
         "Exchanges::Bitget": 3,
-        "Exchanges::Kucoin": 13,
+        "Exchanges::Kucoin": 12,
         "Exchanges::Bybit": 7,
         "Exchanges::Mexc": 21
       },
@@ -16473,7 +16477,7 @@
           "my-neighbor-alice"
         ]
       },
-      "market_cap": "114131613.4893503",
+      "market_cap": "113255011.413236",
       "available_exchanges": {
         "Exchanges::Kraken": 4,
         "Exchanges::Kucoin": 13,
@@ -16542,7 +16546,7 @@
           "moo-deng"
         ]
       },
-      "market_cap": "112921072.3716688",
+      "market_cap": "112430331.2444451",
       "available_exchanges": {
         "Exchanges::Binance": 3,
         "Exchanges::Kraken": 6,
@@ -16603,7 +16607,7 @@
         "Exchanges::Gemini": [],
         "Exchanges::Bitvavo": []
       },
-      "market_cap": "101921562.4808332",
+      "market_cap": "101833555.3567491",
       "available_exchanges": {
         "Exchanges::Kraken": 6,
         "Exchanges::Mexc": 8
@@ -16644,7 +16648,7 @@
         "Exchanges::Gemini": [],
         "Exchanges::Bitvavo": []
       },
-      "market_cap": "99500368.79161641",
+      "market_cap": "98255885.846805",
       "available_exchanges": {
         "Exchanges::Mexc": 7
       },
@@ -16703,7 +16707,7 @@
         "Exchanges::Gemini": [],
         "Exchanges::Bitvavo": []
       },
-      "market_cap": "98422360.85992913",
+      "market_cap": "97893175.20454621",
       "available_exchanges": {
         "Exchanges::Binance": 6,
         "Exchanges::Bitget": 3,
@@ -16749,7 +16753,7 @@
         "Exchanges::Gemini": [],
         "Exchanges::Bitvavo": []
       },
-      "market_cap": "94599675.7357083",
+      "market_cap": "93834487.61422142",
       "available_exchanges": {
         "Exchanges::Mexc": 6
       },
@@ -16763,8 +16767,8 @@
       "top_coins": [
         "power-ledger",
         "energy-web-token",
-        "vebetterdao",
         "openvpp",
+        "vebetterdao",
         "dione",
         "solarx-2",
         "electric-vehicle-direct-currency",
@@ -16792,8 +16796,8 @@
         "Exchanges::Bybit": [],
         "Exchanges::Mexc": [
           "energy-web-token",
-          "vebetterdao",
           "openvpp",
+          "vebetterdao",
           "dione",
           "solarx-2",
           "electric-vehicle-direct-currency",
@@ -16804,7 +16808,7 @@
           "power-ledger"
         ]
       },
-      "market_cap": "94422275.10173418",
+      "market_cap": "93665928.3411147",
       "available_exchanges": {
         "Exchanges::Kraken": 6,
         "Exchanges::Mexc": 7
@@ -16851,7 +16855,7 @@
         "Exchanges::Gemini": [],
         "Exchanges::Bitvavo": []
       },
-      "market_cap": "93002001.32492986",
+      "market_cap": "92603129.95188984",
       "available_exchanges": {
         "Exchanges::Mexc": 8
       },
@@ -16902,7 +16906,7 @@
         "Exchanges::Gemini": [],
         "Exchanges::Bitvavo": []
       },
-      "market_cap": "92768134.73739204",
+      "market_cap": "92514552.99507162",
       "available_exchanges": {
         "Exchanges::Kucoin": 3,
         "Exchanges::Mexc": 6
@@ -16966,7 +16970,7 @@
         "Exchanges::Gemini": [],
         "Exchanges::Bitvavo": []
       },
-      "market_cap": "90639967.76584479",
+      "market_cap": "89825474.19963273",
       "available_exchanges": {
         "Exchanges::Kraken": 4,
         "Exchanges::Coinbase": 4,
@@ -17025,7 +17029,7 @@
         "Exchanges::Gemini": [],
         "Exchanges::Bitvavo": []
       },
-      "market_cap": "90205240.94797902",
+      "market_cap": "89603992.87738319",
       "available_exchanges": {
         "Exchanges::Binance": 6,
         "Exchanges::Bitget": 3,
@@ -17043,8 +17047,8 @@
       "top_coins": [
         "non-playable-coin",
         "wojak-4",
-        "retard-finder-coin",
-        "wojak"
+        "wojak",
+        "retard-finder-coin"
       ],
       "top_coins_by_exchange": {
         "Exchanges::Binance": [],
@@ -17064,15 +17068,15 @@
         "Exchanges::Mexc": [
           "non-playable-coin",
           "wojak-4",
-          "retard-finder-coin",
-          "wojak"
+          "wojak",
+          "retard-finder-coin"
         ],
         "Exchanges::Gemini": [],
         "Exchanges::Bitvavo": [
           "non-playable-coin"
         ]
       },
-      "market_cap": "90040419.47604436",
+      "market_cap": "89474597.81689408",
       "available_exchanges": {
         "Exchanges::Mexc": 5
       },
@@ -17122,7 +17126,7 @@
         "Exchanges::Gemini": [],
         "Exchanges::Bitvavo": []
       },
-      "market_cap": "88390507.95623098",
+      "market_cap": "88038529.24857624",
       "available_exchanges": {
         "Exchanges::Kucoin": 3,
         "Exchanges::Mexc": 8
@@ -17201,7 +17205,7 @@
           "vulcan-forged"
         ]
       },
-      "market_cap": "87946412.17892171",
+      "market_cap": "86766107.0509935",
       "available_exchanges": {
         "Exchanges::Binance": 6,
         "Exchanges::Kraken": 8,
@@ -17275,7 +17279,7 @@
           "hamster-kombat"
         ]
       },
-      "market_cap": "84606278.97235952",
+      "market_cap": "84092071.20117123",
       "available_exchanges": {
         "Exchanges::Binance": 10,
         "Exchanges::Kraken": 4,
@@ -17345,7 +17349,7 @@
         "Exchanges::Gemini": [],
         "Exchanges::Bitvavo": []
       },
-      "market_cap": "83414896.0599902",
+      "market_cap": "83084906.99709953",
       "available_exchanges": {
         "Exchanges::Kraken": 6,
         "Exchanges::Coinbase": 4,
@@ -17418,7 +17422,7 @@
           "sweatcoin"
         ]
       },
-      "market_cap": "82429218.07362403",
+      "market_cap": "82138637.08505096",
       "available_exchanges": {
         "Exchanges::Binance": 4,
         "Exchanges::Kraken": 8,
@@ -17468,6 +17472,7 @@
           "everlyn",
           "limitless-3",
           "boundless",
+          "theoriq",
           "block-4",
           "play-ai",
           "bitdealer"
@@ -17491,12 +17496,12 @@
           "theoriq"
         ]
       },
-      "market_cap": "81920973.03876512",
+      "market_cap": "81291156.13643384",
       "available_exchanges": {
         "Exchanges::Binance": 3,
         "Exchanges::Coinbase": 6,
         "Exchanges::Bitget": 3,
-        "Exchanges::Kucoin": 6,
+        "Exchanges::Kucoin": 7,
         "Exchanges::Mexc": 10
       },
       "weight": 0
@@ -17550,7 +17555,7 @@
           "dogs-2"
         ]
       },
-      "market_cap": "78246206.03068013",
+      "market_cap": "77638520.19234538",
       "available_exchanges": {
         "Exchanges::Binance": 8,
         "Exchanges::Kraken": 4,
@@ -17613,7 +17618,7 @@
           "chill-guy"
         ]
       },
-      "market_cap": "76648367.69777675",
+      "market_cap": "75904110.68254277",
       "available_exchanges": {
         "Exchanges::Kraken": 4,
         "Exchanges::Kucoin": 4,
@@ -17673,7 +17678,7 @@
         "Exchanges::Gemini": [],
         "Exchanges::Bitvavo": []
       },
-      "market_cap": "67527314.3905445",
+      "market_cap": "67140264.66496116",
       "available_exchanges": {
         "Exchanges::Binance": 5,
         "Exchanges::Kraken": 3,
@@ -17736,7 +17741,7 @@
           "illuvium"
         ]
       },
-      "market_cap": "65856546.03103928",
+      "market_cap": "65445656.98332941",
       "available_exchanges": {
         "Exchanges::Kucoin": 3,
         "Exchanges::Mexc": 9
@@ -17797,7 +17802,7 @@
           "hamster-kombat"
         ]
       },
-      "market_cap": "63606895.85469587",
+      "market_cap": "64198025.66022807",
       "available_exchanges": {
         "Exchanges::Binance": 3,
         "Exchanges::Kucoin": 5,
@@ -17838,7 +17843,7 @@
         "Exchanges::Gemini": [],
         "Exchanges::Bitvavo": []
       },
-      "market_cap": "61590960.05741215",
+      "market_cap": "61411445.04720481",
       "available_exchanges": {
         "Exchanges::Mexc": 5
       },
@@ -17878,7 +17883,7 @@
         "Exchanges::Gemini": [],
         "Exchanges::Bitvavo": []
       },
-      "market_cap": "60226287.72867806",
+      "market_cap": "60032311.59194901",
       "available_exchanges": {
         "Exchanges::Mexc": 3
       },
@@ -17918,8 +17923,7 @@
           "artyfact",
           "shrapnel-2",
           "sin-city",
-          "netvrk",
-          "engines-of-fury"
+          "netvrk"
         ],
         "Exchanges::Bybit": [
           "artyfact"
@@ -17937,10 +17941,10 @@
         "Exchanges::Gemini": [],
         "Exchanges::Bitvavo": []
       },
-      "market_cap": "57850446.51596223",
+      "market_cap": "58378595.48612428",
       "available_exchanges": {
         "Exchanges::Binance": 5,
-        "Exchanges::Kucoin": 6,
+        "Exchanges::Kucoin": 5,
         "Exchanges::Mexc": 9
       },
       "weight": 0
@@ -17993,7 +17997,7 @@
           "stepn"
         ]
       },
-      "market_cap": "55102927.49787358",
+      "market_cap": "54846008.23835572",
       "available_exchanges": {
         "Exchanges::Binance": 4,
         "Exchanges::Kucoin": 4,
@@ -18050,7 +18054,7 @@
         "Exchanges::Gemini": [],
         "Exchanges::Bitvavo": []
       },
-      "market_cap": "54796157.204312",
+      "market_cap": "54505718.88771172",
       "available_exchanges": {
         "Exchanges::Kucoin": 4,
         "Exchanges::Bybit": 3,
@@ -18123,7 +18127,7 @@
           "heroes-of-mavia"
         ]
       },
-      "market_cap": "51758464.98279326",
+      "market_cap": "51043654.53712048",
       "available_exchanges": {
         "Exchanges::Binance": 4,
         "Exchanges::Coinbase": 4,
@@ -18158,7 +18162,7 @@
         "Exchanges::Gemini": [],
         "Exchanges::Bitvavo": []
       },
-      "market_cap": "50433604.04953696",
+      "market_cap": "50794621.27547944",
       "available_exchanges": {
         "Exchanges::Mexc": 3
       },
@@ -18186,7 +18190,6 @@
         ],
         "Exchanges::Coinbase": [],
         "Exchanges::Bitget": [
-          "lista",
           "bouncebit",
           "solv-protocol"
         ],
@@ -18210,10 +18213,9 @@
           "solv-protocol"
         ]
       },
-      "market_cap": "49093752.20082968",
+      "market_cap": "48996340.7527909",
       "available_exchanges": {
         "Exchanges::Binance": 13,
-        "Exchanges::Bitget": 3,
         "Exchanges::Kucoin": 3,
         "Exchanges::Mexc": 4
       },
@@ -18258,7 +18260,6 @@
         ],
         "Exchanges::Bitget": [
           "staked-ether",
-          "lista",
           "bitget-staked-sol"
         ],
         "Exchanges::Kucoin": [
@@ -18283,12 +18284,11 @@
           "lista"
         ]
       },
-      "market_cap": "48824268.96933235",
+      "market_cap": "48571642.69877707",
       "available_exchanges": {
         "Exchanges::Binance": 7,
         "Exchanges::Kraken": 13,
         "Exchanges::Coinbase": 10,
-        "Exchanges::Bitget": 3,
         "Exchanges::Bybit": 9,
         "Exchanges::Mexc": 4,
         "Exchanges::Gemini": 5
@@ -18302,8 +18302,8 @@
       "description": "Meme coins which are inspired by anime.",
       "top_coins": [
         "anime",
-        "psyopanime",
         "wen-4",
+        "psyopanime",
         "wagmi-game-2",
         "mumu-the-bull-3",
         "shiro-neko-2"
@@ -18333,8 +18333,8 @@
         ],
         "Exchanges::Mexc": [
           "anime",
-          "psyopanime",
           "wen-4",
+          "psyopanime",
           "wagmi-game-2",
           "mumu-the-bull-3",
           "shiro-neko-2"
@@ -18344,7 +18344,7 @@
           "anime"
         ]
       },
-      "market_cap": "47635887.6222913",
+      "market_cap": "46796652.87266499",
       "available_exchanges": {
         "Exchanges::Binance": 3,
         "Exchanges::Kraken": 4,
@@ -18407,7 +18407,7 @@
         "Exchanges::Gemini": [],
         "Exchanges::Bitvavo": []
       },
-      "market_cap": "42878076.24404243",
+      "market_cap": "42541175.24818412",
       "available_exchanges": {
         "Exchanges::Kucoin": 6,
         "Exchanges::Bybit": 3,
@@ -18446,7 +18446,7 @@
         ],
         "Exchanges::Bitvavo": []
       },
-      "market_cap": "40821878.57414591",
+      "market_cap": "40254907.22583815",
       "available_exchanges": {
         "Exchanges::Mexc": 3,
         "Exchanges::Gemini": 4
@@ -18485,7 +18485,7 @@
         "Exchanges::Gemini": [],
         "Exchanges::Bitvavo": []
       },
-      "market_cap": "40026850.62157128",
+      "market_cap": "39629658.29196939",
       "available_exchanges": {
         "Exchanges::Mexc": 6
       },
@@ -18517,7 +18517,7 @@
         "Exchanges::Gemini": [],
         "Exchanges::Bitvavo": []
       },
-      "market_cap": "37419472.84400681",
+      "market_cap": "36405002.46694887",
       "available_exchanges": {
         "Exchanges::Mexc": 3
       },
@@ -18564,7 +18564,7 @@
           "concierge-io"
         ]
       },
-      "market_cap": "34088441.06308383",
+      "market_cap": "33729539.3763818",
       "available_exchanges": {
         "Exchanges::Kucoin": 4,
         "Exchanges::Mexc": 5
@@ -18627,7 +18627,7 @@
         "Exchanges::Gemini": [],
         "Exchanges::Bitvavo": []
       },
-      "market_cap": "31837091.79332427",
+      "market_cap": "31921940.40667331",
       "available_exchanges": {
         "Exchanges::Kraken": 4,
         "Exchanges::Kucoin": 5,
@@ -18666,7 +18666,7 @@
         ],
         "Exchanges::Bitvavo": []
       },
-      "market_cap": "26344026.31314568",
+      "market_cap": "25926370.70408639",
       "available_exchanges": {
         "Exchanges::Gemini": 4
       },
@@ -18711,7 +18711,7 @@
         "Exchanges::Gemini": [],
         "Exchanges::Bitvavo": []
       },
-      "market_cap": "22288541.58718053",
+      "market_cap": "22048492.10373393",
       "available_exchanges": {
         "Exchanges::Kraken": 4,
         "Exchanges::Kucoin": 3,
@@ -18755,7 +18755,7 @@
         "Exchanges::Gemini": [],
         "Exchanges::Bitvavo": []
       },
-      "market_cap": "14209014.07333149",
+      "market_cap": "14121107.28143157",
       "available_exchanges": {
         "Exchanges::Mexc": 5
       },
@@ -18789,7 +18789,7 @@
         "Exchanges::Gemini": [],
         "Exchanges::Bitvavo": []
       },
-      "market_cap": "12687231.28703757",
+      "market_cap": "12616100.77018662",
       "available_exchanges": {
         "Exchanges::Mexc": 4
       },
@@ -18827,7 +18827,7 @@
         "Exchanges::Gemini": [],
         "Exchanges::Bitvavo": []
       },
-      "market_cap": "9619772.22990131",
+      "market_cap": "9558501.564535618",
       "available_exchanges": {
         "Exchanges::Mexc": 3
       },
@@ -18859,102 +18859,9 @@
         "Exchanges::Gemini": [],
         "Exchanges::Bitvavo": []
       },
-      "market_cap": "3929853.728993352",
+      "market_cap": "3772030.562887229",
       "available_exchanges": {
         "Exchanges::Mexc": 3
-      },
-      "weight": 0
-    },
-    {
-      "external_id": "liquid-staked-sol",
-      "source": "coingecko",
-      "name": "Liquid Staked SOL",
-      "description": "Liquid staked SOL is a tokenized representation of staked SOL that can be traded or used in various DeFi applications.",
-      "top_coins": [
-        "jito-staked-sol",
-        "binance-staked-sol",
-        "msol",
-        "bybit-staked-sol",
-        "bitget-staked-sol",
-        "liquid-staked-sol"
-      ],
-      "top_coins_by_exchange": {
-        "Exchanges::Binance": [
-          "binance-staked-sol"
-        ],
-        "Exchanges::BinanceUs": [],
-        "Exchanges::Kraken": [
-          "jito-staked-sol",
-          "msol",
-          "liquid-staked-sol"
-        ],
-        "Exchanges::Coinbase": [
-          "jito-staked-sol",
-          "msol"
-        ],
-        "Exchanges::Bitget": [
-          "bitget-staked-sol"
-        ],
-        "Exchanges::Kucoin": [],
-        "Exchanges::Bybit": [
-          "bybit-staked-sol"
-        ],
-        "Exchanges::Mexc": [],
-        "Exchanges::Gemini": [
-          "jito-staked-sol"
-        ],
-        "Exchanges::Bitvavo": []
-      },
-      "market_cap": "0.0",
-      "available_exchanges": {
-        "Exchanges::Kraken": 8,
-        "Exchanges::Coinbase": 4,
-        "Exchanges::Bybit": 4,
-        "Exchanges::Gemini": 5
-      },
-      "weight": 0
-    },
-    {
-      "external_id": "liquid-staked-eth",
-      "source": "coingecko",
-      "name": "Liquid Staked ETH",
-      "description": "Liquid staked ETH is a tokenized representation of staked Ethereum that can be traded or used in various DeFi applications.",
-      "top_coins": [
-        "staked-ether",
-        "mantle-staked-ether",
-        "liquid-staked-ethereum",
-        "coinbase-wrapped-staked-eth"
-      ],
-      "top_coins_by_exchange": {
-        "Exchanges::Binance": [],
-        "Exchanges::BinanceUs": [],
-        "Exchanges::Kraken": [
-          "mantle-staked-ether",
-          "liquid-staked-ethereum"
-        ],
-        "Exchanges::Coinbase": [
-          "liquid-staked-ethereum",
-          "coinbase-wrapped-staked-eth"
-        ],
-        "Exchanges::Bitget": [
-          "staked-ether"
-        ],
-        "Exchanges::Kucoin": [],
-        "Exchanges::Bybit": [
-          "staked-ether",
-          "mantle-staked-ether"
-        ],
-        "Exchanges::Mexc": [
-          "staked-ether"
-        ],
-        "Exchanges::Gemini": [],
-        "Exchanges::Bitvavo": []
-      },
-      "market_cap": "0.0",
-      "available_exchanges": {
-        "Exchanges::Kraken": 5,
-        "Exchanges::Coinbase": 6,
-        "Exchanges::Bybit": 4
       },
       "weight": 0
     },
@@ -19026,6 +18933,99 @@
       "market_cap": "0.0",
       "available_exchanges": {
         "Exchanges::Binance": 5
+      },
+      "weight": 0
+    },
+    {
+      "external_id": "liquid-staked-eth",
+      "source": "coingecko",
+      "name": "Liquid Staked ETH",
+      "description": "Liquid staked ETH is a tokenized representation of staked Ethereum that can be traded or used in various DeFi applications.",
+      "top_coins": [
+        "staked-ether",
+        "mantle-staked-ether",
+        "liquid-staked-ethereum",
+        "coinbase-wrapped-staked-eth"
+      ],
+      "top_coins_by_exchange": {
+        "Exchanges::Binance": [],
+        "Exchanges::BinanceUs": [],
+        "Exchanges::Kraken": [
+          "mantle-staked-ether",
+          "liquid-staked-ethereum"
+        ],
+        "Exchanges::Coinbase": [
+          "liquid-staked-ethereum",
+          "coinbase-wrapped-staked-eth"
+        ],
+        "Exchanges::Bitget": [
+          "staked-ether"
+        ],
+        "Exchanges::Kucoin": [],
+        "Exchanges::Bybit": [
+          "staked-ether",
+          "mantle-staked-ether"
+        ],
+        "Exchanges::Mexc": [
+          "staked-ether"
+        ],
+        "Exchanges::Gemini": [],
+        "Exchanges::Bitvavo": []
+      },
+      "market_cap": "0.0",
+      "available_exchanges": {
+        "Exchanges::Kraken": 5,
+        "Exchanges::Coinbase": 6,
+        "Exchanges::Bybit": 4
+      },
+      "weight": 0
+    },
+    {
+      "external_id": "liquid-staked-sol",
+      "source": "coingecko",
+      "name": "Liquid Staked SOL",
+      "description": "Liquid staked SOL is a tokenized representation of staked SOL that can be traded or used in various DeFi applications.",
+      "top_coins": [
+        "jito-staked-sol",
+        "binance-staked-sol",
+        "msol",
+        "bybit-staked-sol",
+        "bitget-staked-sol",
+        "liquid-staked-sol"
+      ],
+      "top_coins_by_exchange": {
+        "Exchanges::Binance": [
+          "binance-staked-sol"
+        ],
+        "Exchanges::BinanceUs": [],
+        "Exchanges::Kraken": [
+          "jito-staked-sol",
+          "msol",
+          "liquid-staked-sol"
+        ],
+        "Exchanges::Coinbase": [
+          "jito-staked-sol",
+          "msol"
+        ],
+        "Exchanges::Bitget": [
+          "bitget-staked-sol"
+        ],
+        "Exchanges::Kucoin": [],
+        "Exchanges::Bybit": [
+          "bybit-staked-sol"
+        ],
+        "Exchanges::Mexc": [],
+        "Exchanges::Gemini": [
+          "jito-staked-sol"
+        ],
+        "Exchanges::Bitvavo": []
+      },
+      "market_cap": "0.0",
+      "available_exchanges": {
+        "Exchanges::Kraken": 8,
+        "Exchanges::Coinbase": 4,
+        "Exchanges::Bybit": 4,
+        "Exchanges::Gemini": 5
       },
       "weight": 0
     },
@@ -19441,7 +19441,6 @@
           "peaq-2",
           "manta-network",
           "energy-web-token",
-          "pha",
           "moonbeam",
           "bifrost-native-coin"
         ],
@@ -19485,7 +19484,7 @@
         "Exchanges::Kraken": 34,
         "Exchanges::Coinbase": 12,
         "Exchanges::Bitget": 8,
-        "Exchanges::Kucoin": 16,
+        "Exchanges::Kucoin": 15,
         "Exchanges::Bybit": 6,
         "Exchanges::Mexc": 19,
         "Exchanges::Gemini": 4,
@@ -21167,7 +21166,7 @@
         "Exchanges::Bitget": 99,
         "Exchanges::Kucoin": 124,
         "Exchanges::Bybit": 127,
-        "Exchanges::Mexc": 213,
+        "Exchanges::Mexc": 214,
         "Exchanges::Gemini": 133,
         "Exchanges::Bitvavo": 61
       },
@@ -21314,13 +21313,13 @@
       },
       "market_cap": null,
       "available_exchanges": {
-        "Exchanges::Binance": 302,
+        "Exchanges::Binance": 303,
         "Exchanges::BinanceUs": 51,
         "Exchanges::Kraken": 216,
         "Exchanges::Coinbase": 138,
-        "Exchanges::Bitget": 128,
+        "Exchanges::Bitget": 127,
         "Exchanges::Kucoin": 149,
-        "Exchanges::Bybit": 107,
+        "Exchanges::Bybit": 108,
         "Exchanges::Mexc": 239,
         "Exchanges::Gemini": 80,
         "Exchanges::Bitvavo": 62
@@ -21336,8 +21335,8 @@
         "bitcoin",
         "ethereum",
         "tether",
-        "binancecoin",
         "ripple",
+        "binancecoin",
         "usd-coin",
         "solana",
         "tron",
@@ -21349,8 +21348,8 @@
           "bitcoin",
           "ethereum",
           "tether",
-          "binancecoin",
           "ripple",
+          "binancecoin",
           "usd-coin",
           "solana",
           "tron",
@@ -21361,8 +21360,8 @@
           "bitcoin",
           "ethereum",
           "tether",
-          "binancecoin",
           "ripple",
+          "binancecoin",
           "usd-coin",
           "solana",
           "dogecoin",
@@ -21373,8 +21372,8 @@
           "bitcoin",
           "ethereum",
           "tether",
-          "binancecoin",
           "ripple",
+          "binancecoin",
           "usd-coin",
           "solana",
           "tron",
@@ -21385,8 +21384,8 @@
           "bitcoin",
           "ethereum",
           "tether",
-          "binancecoin",
           "ripple",
+          "binancecoin",
           "usd-coin",
           "solana",
           "dogecoin",
@@ -21397,8 +21396,8 @@
           "bitcoin",
           "ethereum",
           "tether",
-          "binancecoin",
           "ripple",
+          "binancecoin",
           "usd-coin",
           "solana",
           "tron",
@@ -21409,8 +21408,8 @@
           "bitcoin",
           "ethereum",
           "tether",
-          "binancecoin",
           "ripple",
+          "binancecoin",
           "usd-coin",
           "solana",
           "tron",
@@ -21421,8 +21420,8 @@
           "bitcoin",
           "ethereum",
           "tether",
-          "binancecoin",
           "ripple",
+          "binancecoin",
           "usd-coin",
           "solana",
           "tron",
@@ -21432,8 +21431,8 @@
         "Exchanges::Mexc": [
           "bitcoin",
           "ethereum",
-          "binancecoin",
           "ripple",
+          "binancecoin",
           "usd-coin",
           "solana",
           "tron",
@@ -21445,8 +21444,8 @@
           "bitcoin",
           "ethereum",
           "tether",
-          "binancecoin",
           "ripple",
+          "binancecoin",
           "usd-coin",
           "solana",
           "dogecoin",
@@ -21456,8 +21455,8 @@
         "Exchanges::Bitvavo": [
           "bitcoin",
           "ethereum",
-          "binancecoin",
           "ripple",
+          "binancecoin",
           "usd-coin",
           "solana",
           "tron",
@@ -21476,7 +21475,7 @@
         "Exchanges::Kucoin": 307,
         "Exchanges::Bybit": 270,
         "Exchanges::Mexc": 387,
-        "Exchanges::Gemini": 266,
+        "Exchanges::Gemini": 265,
         "Exchanges::Bitvavo": 124
       },
       "weight": 0

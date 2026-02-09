@@ -1,8 +1,8 @@
 {
   "metadata": {
     "exchange_name_id": "gemini",
-    "count": 387,
-    "generated_at": "2026-02-08T22:53:20Z"
+    "count": 386,
+    "generated_at": "2026-02-09T01:11:37Z"
   },
   "data": [
     {
@@ -431,20 +431,6 @@
       "quote": "USD",
       "base_external_id": "arbitrum",
       "quote_external_id": "USD.FOREX",
-      "minimum_base_size": "0.2",
-      "minimum_quote_size": "0.0",
-      "maximum_base_size": null,
-      "maximum_quote_size": null,
-      "base_decimals": 2,
-      "quote_decimals": 4,
-      "price_decimals": 4
-    },
-    {
-      "ticker": "arbusdc",
-      "base": "ARB",
-      "quote": "USDC",
-      "base_external_id": "arbitrum",
-      "quote_external_id": "usd-coin",
       "minimum_base_size": "0.2",
       "minimum_quote_size": "0.0",
       "maximum_base_size": null,
