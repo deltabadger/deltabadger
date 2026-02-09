@@ -1,9 +1,7 @@
 class Setup::SeedAndSyncJob < ApplicationJob
   queue_as :low_priority
 
-  def perform(source: 'setup', redirect_to: nil)
-    @source = source
-    @redirect_to = redirect_to
+  def perform
     mark_sync_in_progress
 
     seed_exchanges
@@ -102,75 +100,15 @@ class Setup::SeedAndSyncJob < ApplicationJob
   end
 
   def mark_sync_failed(error_message:)
-    AppConfig.setup_sync_status = AppConfig::SYNC_STATUS_PENDING
-    broadcast_sync_failed(error_message)
+    AppConfig.setup_sync_status = AppConfig::SYNC_STATUS_COMPLETED
+    Rails.logger.error "[Setup] Sync failed: #{error_message}"
+    broadcast_sync_completed
   end
 
   def broadcast_sync_completed
-    if @source == 'settings'
-      broadcast_settings_sync_completed
-    else
-      Turbo::StreamsChannel.broadcast_replace_to(
-        'setup_sync',
-        target: 'setup-syncing-container',
-        html: redirect_script
-      )
-    end
-  end
-
-  def broadcast_sync_failed(error_message)
-    if @source == 'settings'
-      broadcast_settings_sync_failed(error_message)
-    else
-      Turbo::StreamsChannel.broadcast_replace_to(
-        'setup_sync',
-        target: 'setup-syncing-container',
-        html: error_html(error_message)
-      )
-    end
-  end
-
-  def broadcast_settings_sync_completed
-    redirect_url = @redirect_to || Rails.application.routes.url_helpers.settings_path
-    Turbo::StreamsChannel.broadcast_replace_to(
+    Turbo::StreamsChannel.broadcast_remove_to(
       'settings_sync',
-      target: 'setup-syncing-container',
-      html: "<script>window.location.href = '#{redirect_url}';</script>"
+      target: 'flash-syncing'
     )
-  end
-
-  def broadcast_settings_sync_failed(error_message)
-    retry_url = @redirect_to || Rails.application.routes.url_helpers.settings_path
-    Turbo::StreamsChannel.broadcast_replace_to(
-      'settings_sync',
-      target: 'setup-syncing-container',
-      html: settings_error_html(error_message, retry_url)
-    )
-  end
-
-  def settings_error_html(error_message, retry_url)
-    <<~HTML
-      <div class="setup-syncing__error">
-        <p class="setup-syncing__error-message">#{error_message}</p>
-        <a href="#{retry_url}" class="button button--sky">
-          #{I18n.t('setup.retry')}
-        </a>
-      </div>
-    HTML
-  end
-
-  def redirect_script
-    "<script>window.location.href = '#{Rails.application.routes.url_helpers.bots_path}';</script>"
-  end
-
-  def error_html(error_message)
-    <<~HTML
-      <div class="setup-syncing__error">
-        <p class="setup-syncing__error-message">#{error_message}</p>
-        <a href="#{Rails.application.routes.url_helpers.setup_path}" class="button button--sky">
-          #{I18n.t('setup.retry')}
-        </a>
-      </div>
-    HTML
   end
 end
