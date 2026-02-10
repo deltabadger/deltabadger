@@ -113,7 +113,7 @@ module BotHelper
   def render_api_key_instructions(bot)
     exchange_key = bot.exchange.name_id
     exchange_name = bot.exchange.name
-    whitelist_ip = whitelist_ip_for(exchange_key)
+    whitelist_ip = whitelist_ip_html_for(exchange_key)
     instructions = t("bot.api.#{exchange_key}.instructions")
     content_tag(:ol, class: 'set__list') do
       instructions.map { |instruction| render_instruction(instruction, exchange_name, whitelist_ip) }.join.html_safe
@@ -129,6 +129,15 @@ module BotHelper
     URI.parse(proxy_url).host
   rescue URI::InvalidURIError
     nil
+  end
+
+  def whitelist_ip_html_for(exchange)
+    ip = whitelist_ip_for(exchange)
+    if ip
+      "<code>#{ip}</code>"
+    else
+      t('bot.api.whitelist_ip_fallback_html')
+    end
   end
 
   private
