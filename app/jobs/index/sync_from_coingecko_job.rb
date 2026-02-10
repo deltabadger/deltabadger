@@ -4,7 +4,13 @@ class Index::SyncFromCoingeckoJob < ApplicationJob
   def perform
     return unless MarketData.configured?
 
-    @coingecko = Coingecko.new(api_key: AppConfig.coingecko_api_key)
+    if MarketDataSettings.deltabadger?
+      result = MarketData.sync_indices_from_deltabadger!
+      Rails.logger.warn "[MarketData] Failed to sync indices: #{result.errors.to_sentence}" if result.failure?
+      return
+    end
+
+    @coingecko = MarketData.coingecko
     result = @coingecko.get_categories_with_market_data
     return if result.failure?
 

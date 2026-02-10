@@ -59,21 +59,8 @@ class Setup::SeedAndSyncJob < ApplicationJob
     # Wait for rate limit to reset after exchange sync
     sleep(65)
 
-    # Call existing job synchronously (skip its mark_sync_* methods by calling perform directly)
-    job = Asset::FetchAllAssetsDataFromCoingeckoJob.new
-
-    asset_ids = Asset.where(category: 'Cryptocurrency').pluck(:external_id).compact
-    return if asset_ids.empty?
-
-    result = job.send(:coingecko).get_coins_list_with_market_data(ids: asset_ids)
-    if result.failure?
-      Rails.logger.warn "[Setup] Failed to fetch CoinGecko data: #{result.errors.to_sentence}"
-      return
-    end
-
-    Asset.where(category: 'Cryptocurrency').find_each do |asset|
-      job.send(:sync_asset, asset, result.data.find { |coin| coin['id'] == asset.external_id })
-    end
+    result = MarketData.sync_assets_from_coingecko!
+    Rails.logger.warn "[Setup] Failed to fetch CoinGecko data: #{result.errors.to_sentence}" if result.failure?
   end
 
   def sync_assets_from_deltabadger

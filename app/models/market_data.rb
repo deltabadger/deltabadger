@@ -83,6 +83,43 @@ class MarketData
     exchange.sync_tickers_and_assets_with_external_data
   end
 
+  # Fetch top coins for index preview/composition (provider-abstracted)
+  # Returns Result with data in CoinGecko-compatible format: [{ 'id' => external_id, 'market_cap' => float }, ...]
+  def self.get_top_coins(index_type:, category_id: nil, limit: 150)
+    case MarketDataSettings.current_provider
+    when MarketDataSettings::PROVIDER_COINGECKO
+      return Result::Failure.new('CoinGecko API key not configured') unless AppConfig.coingecko_configured?
+
+      if index_type == Bots::DcaIndex::INDEX_TYPE_CATEGORY && category_id.present?
+        coingecko.get_top_coins_by_category(category: category_id, limit: limit)
+      else
+        coingecko.get_top_coins_by_market_cap(limit: limit)
+      end
+    when MarketDataSettings::PROVIDER_DELTABADGER
+      index = if index_type == Bots::DcaIndex::INDEX_TYPE_CATEGORY && category_id.present?
+                Index.find_by(external_id: category_id)
+              else
+                Index.find_by(external_id: Index::TOP_COINS_EXTERNAL_ID)
+              end
+
+      return Result::Failure.new('Index not found') unless index
+
+      coin_ids = (index.top_coins || []).first(limit)
+      assets = Asset.where(external_id: coin_ids).index_by(&:external_id)
+
+      data = coin_ids.filter_map do |coin_id|
+        asset = assets[coin_id]
+        next unless asset
+
+        { 'id' => coin_id, 'market_cap' => asset.market_cap.to_f }
+      end
+
+      Result::Success.new(data)
+    else
+      Result::Failure.new('No market data provider configured')
+    end
+  end
+
   # Import methods — used by both db/seeds.rb (JSON files) and live sync (data-api HTTP)
 
   def self.import_assets!(assets_data)

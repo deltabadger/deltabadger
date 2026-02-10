@@ -2,6 +2,8 @@ import { Controller } from "@hotwired/stimulus";
 
 // Connects to data-controller="modal--base"
 export default class extends Controller {
+  static values = { closeUrl: String }
+
   connect() {
     this.#open()
     // needed because ESC key does not trigger close event
@@ -73,6 +75,7 @@ export default class extends Controller {
   }
 
   #closeAndCleanUp() {
+    const closeUrl = this.hasCloseUrlValue ? this.closeUrlValue : null
     this.element.close()
     // clean up modal content
     const frame = document.getElementById('modal')
@@ -80,6 +83,10 @@ export default class extends Controller {
     frame.innerHTML = ""
     document.body.classList.remove('overflow-hidden')
     this.#dispatchModalOpenEvent(false)
+    // Full-page dialogs navigate back to a known page after closing
+    if (closeUrl) {
+      Turbo.visit(closeUrl)
+    }
   }
 
   #dispatchModalOpenEvent(detail) {
