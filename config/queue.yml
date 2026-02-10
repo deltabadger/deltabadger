@@ -21,38 +21,9 @@ production:
     - polling_interval: 1
       batch_size: 500
   workers:
-    # High priority exchange queues - one thread each for rate limiting
-    - queues: [binance]
-      threads: 1
+    - queues: [binance, binance_us, coinbase, kraken, bitget, kucoin, bybit, mexc, gemini, bitvavo]
+      threads: 2
       polling_interval: 1
-    - queues: [binance_us]
-      threads: 1
-      polling_interval: 1
-    - queues: [coinbase]
-      threads: 1
-      polling_interval: 1
-    - queues: [kraken]
-      threads: 1
-      polling_interval: 1
-    - queues: [bitget]
-      threads: 1
-      polling_interval: 1
-    - queues: [kucoin]
-      threads: 1
-      polling_interval: 1
-    - queues: [bybit]
-      threads: 1
-      polling_interval: 1
-    - queues: [mexc]
-      threads: 1
-      polling_interval: 1
-    - queues: [gemini]
-      threads: 1
-      polling_interval: 1
-    - queues: [bitvavo]
-      threads: 1
-      polling_interval: 1
-    # Other queues
     - queues: [mailers, api_keys_validation, starting_bots, low_priority, default]
-      threads: <%= ENV.fetch("SOLID_QUEUE_THREADS", 5) %>
+      threads: 2
       polling_interval: 0.1
