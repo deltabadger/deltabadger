@@ -65,5 +65,5 @@ pidfile ENV.fetch('PIDFILE', 'tmp/pids/server.pid')
 plugin :tmp_restart
 
 # Run Solid Queue in Puma (async = threaded mode, no forking)
-solid_queue_mode :async
 plugin :solid_queue if ENV["SOLID_QUEUE_IN_PUMA"] || rails_env == 'development'
+solid_queue_mode :async
