@@ -143,36 +143,26 @@ class MarketData
   def self.import_tickers!(exchange, tickers_data)
     return if tickers_data.blank?
 
-    # Create exchange assets
+    # Single query to map external_id -> asset id
     external_ids = tickers_data.flat_map { |t| [t['base_external_id'], t['quote_external_id']] }.uniq
-    asset_ids = Asset.where(external_id: external_ids).pluck(:id)
-    asset_ids.each do |asset_id|
-      ea = exchange.exchange_assets.find_or_initialize_by(asset_id: asset_id)
-      ea.update(available: true)
-    end
+    asset_map = Asset.where(external_id: external_ids).pluck(:external_id, :id).to_h
 
-    # Create/update tickers
-    tickers_data.each do |ticker_data|
-      base_asset = Asset.find_by(external_id: ticker_data['base_external_id'])
-      quote_asset = Asset.find_by(external_id: ticker_data['quote_external_id'])
-      next unless base_asset && quote_asset
-
-      ticker = exchange.tickers.find_or_initialize_by(base: ticker_data['base'], quote: ticker_data['quote'])
-      ticker.assign_attributes(
-        ticker: ticker_data['ticker'],
-        base_asset: base_asset,
-        quote_asset: quote_asset,
-        minimum_base_size: BigDecimal(ticker_data['minimum_base_size']),
-        minimum_quote_size: BigDecimal(ticker_data['minimum_quote_size']),
-        maximum_base_size: ticker_data['maximum_base_size'].present? ? BigDecimal(ticker_data['maximum_base_size']) : nil,
-        maximum_quote_size: ticker_data['maximum_quote_size'].present? ? BigDecimal(ticker_data['maximum_quote_size']) : nil,
-        base_decimals: ticker_data['base_decimals'],
-        quote_decimals: ticker_data['quote_decimals'],
-        price_decimals: ticker_data['price_decimals'],
-        available: true
-      )
-      ticker.save
+    # Batch upsert exchange assets
+    now = Time.current
+    ea_records = asset_map.values.map do |asset_id|
+      { asset_id: asset_id, exchange_id: exchange.id, available: true, created_at: now, updated_at: now }
     end
+    ExchangeAsset.upsert_all(ea_records, unique_by: %i[asset_id exchange_id]) if ea_records.any?
+
+    # Batch upsert tickers
+    ticker_records = tickers_data.filter_map do |t|
+      base_asset_id = asset_map[t['base_external_id']]
+      quote_asset_id = asset_map[t['quote_external_id']]
+      next unless base_asset_id && quote_asset_id
+
+      upsert_ticker_attributes(t, exchange_id: exchange.id, base_asset_id: base_asset_id, quote_asset_id: quote_asset_id)
+    end
+    Ticker.upsert_all(ticker_records, unique_by: %i[exchange_id base quote]) if ticker_records.any?
   end
 
   # Deltabadger Market Data Service sync methods (thin wrappers around import_*)
@@ -240,6 +230,27 @@ class MarketData
       market_cap: index_data['market_cap'],
       available_exchanges: index_data['available_exchanges'] || {},
       weight: weight,
+      created_at: Time.current,
+      updated_at: Time.current
+    }
+  end
+
+  def self.upsert_ticker_attributes(ticker_data, exchange_id:, base_asset_id:, quote_asset_id:)
+    {
+      exchange_id: exchange_id,
+      base: ticker_data['base'],
+      quote: ticker_data['quote'],
+      ticker: ticker_data['ticker'],
+      base_asset_id: base_asset_id,
+      quote_asset_id: quote_asset_id,
+      minimum_base_size: BigDecimal(ticker_data['minimum_base_size']),
+      minimum_quote_size: BigDecimal(ticker_data['minimum_quote_size']),
+      maximum_base_size: ticker_data['maximum_base_size'].present? ? BigDecimal(ticker_data['maximum_base_size']) : nil,
+      maximum_quote_size: ticker_data['maximum_quote_size'].present? ? BigDecimal(ticker_data['maximum_quote_size']) : nil,
+      base_decimals: ticker_data['base_decimals'],
+      quote_decimals: ticker_data['quote_decimals'],
+      price_decimals: ticker_data['price_decimals'],
+      available: true,
       created_at: Time.current,
       updated_at: Time.current
     }
