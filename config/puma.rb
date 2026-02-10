@@ -13,7 +13,7 @@ environment rails_env
 # Any libraries that use thread pools should be configured to match
 # the maximum value specified for Puma. Default is set to 5 threads for minimum
 # and maximum; this matches the default thread size of Active Record.
-max_threads_count = ENV.fetch('RAILS_MAX_THREADS', 5)
+max_threads_count = ENV.fetch('RAILS_MAX_THREADS', 1)
 min_threads_count = ENV.fetch('RAILS_MIN_THREADS', max_threads_count)
 threads min_threads_count, max_threads_count
 
@@ -64,5 +64,6 @@ pidfile ENV.fetch('PIDFILE', 'tmp/pids/server.pid')
 # Allow puma to be restarted by `rails restart` command.
 plugin :tmp_restart
 
-# Run Solid Queue in Puma for development
+# Run Solid Queue in Puma (async = threaded mode, no forking)
+solid_queue_mode :async
 plugin :solid_queue if ENV["SOLID_QUEUE_IN_PUMA"] || rails_env == 'development'
