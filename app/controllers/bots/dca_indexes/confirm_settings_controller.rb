@@ -56,13 +56,11 @@ class Bots::DcaIndexes::ConfirmSettingsController < ApplicationController
   def fetch_index_preview(bot)
     return [] unless bot.exchange.present? && bot.quote_asset_id.present?
 
-    coingecko = Coingecko.new(api_key: AppConfig.coingecko_api_key)
-    # Fetch coins based on index type
-    result = if bot.index_type == Bots::DcaIndex::INDEX_TYPE_CATEGORY && bot.index_category_id.present?
-               coingecko.get_top_coins_by_category(category: bot.index_category_id, limit: 150)
-             else
-               coingecko.get_top_coins_by_market_cap(limit: 150)
-             end
+    result = MarketData.get_top_coins(
+      index_type: bot.index_type,
+      category_id: bot.index_category_id,
+      limit: 150
+    )
     return [] if result.failure?
 
     top_coins = result.data

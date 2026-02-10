@@ -65,15 +65,14 @@ module Bots::DcaIndex::IndexAllocatable
   end
 
   def fetch_top_coins_with_allocations
-    coingecko = Coingecko.new(api_key: AppConfig.coingecko_api_key)
     # Fetch more coins than needed to account for ones not available on exchange
     fetch_limit = [num_coins.to_i * 3, 100].min
 
-    result = if index_type == Bots::DcaIndex::INDEX_TYPE_CATEGORY && index_category_id.present?
-               coingecko.get_top_coins_by_category(category: index_category_id, limit: fetch_limit)
-             else
-               coingecko.get_top_coins_by_market_cap(limit: fetch_limit)
-             end
+    result = MarketData.get_top_coins(
+      index_type: index_type,
+      category_id: index_category_id,
+      limit: fetch_limit
+    )
     return result if result.failure?
 
     top_coins = result.data

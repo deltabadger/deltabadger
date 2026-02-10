@@ -111,7 +111,9 @@ class Asset < ApplicationRecord
     return Result::Success.new(self) if COINGECKO_BLACKLISTED_IDS.include?(external_id)
 
     data = prefetched_data || begin
-      result = coingecko.get_coin_data_by_id(coin_id: external_id)
+      return Result::Failure.new('CoinGecko API key not configured') unless AppConfig.coingecko_configured?
+
+      result = MarketData.coingecko.get_coin_data_by_id(coin_id: external_id)
       return result if result.failure?
 
       result.data
@@ -148,16 +150,11 @@ class Asset < ApplicationRecord
 
   def get_price(currency: 'usd')
     return Result::Failure.new('Asset is not a cryptocurrency') if category != 'Cryptocurrency'
+    return Result::Failure.new('CoinGecko API key not configured') unless AppConfig.coingecko_configured?
 
-    result = coingecko.get_price(coin_id: external_id, currency: currency)
+    result = MarketData.coingecko.get_price(coin_id: external_id, currency: currency)
     return result if result.failure?
 
     Result::Success.new(result.data)
-  end
-
-  private
-
-  def coingecko
-    @coingecko ||= Coingecko.new(api_key: AppConfig.coingecko_api_key)
   end
 end
