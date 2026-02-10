@@ -59,15 +59,7 @@ class BroadcastsController < ApplicationController
   # Releases any overdue scheduled jobs that were missed while inactive
   # and broadcasts status bar updates for all working bots
   def wake_dispatcher
-    released_count = 0
-
-    SolidQueue::ScheduledExecution
-      .where('scheduled_at <= ?', Time.current)
-      .limit(100)
-      .each do |execution|
-        execution.promote
-        released_count += 1
-      end
+    released_count = SolidQueue::ScheduledExecution.dispatch_next_batch(100)
 
     Rails.logger.info "[WakeDispatcher] Released #{released_count} overdue job(s)" if released_count.positive?
 
