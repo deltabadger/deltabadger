@@ -1,6 +1,7 @@
 pl:
     bot:
         api:
+            whitelist_ip_fallback_html: 'adres IP maszyny, na której zainstalowany jest Deltabadger. Jeśli to serwer, użyj publicznego IP serwera. Jeśli to twój komputer lokalny, <a href="https://whatismyipaddress.com" target="_blank">sprawdź swoje IP tutaj</a>'
             binance: &binance_config
                 instructions:
                     -   text_html: 'Zaloguj się na swoje konto %{exchange_link}.'
@@ -10,7 +11,7 @@ pl:
                     -   text_html: 'Oznacz swoje klucze (np. "deltabadger") i w razie potrzeby przejdź weryfikację bezpieczeństwa.'
                     -   text_html: 'Kliknij <b class="pbutton">Zmień uprawnienia</b> w prawym górnym rogu kafelka kluczy.'
                         sub_instructions:
-                            -   text_html: "🔘 Restrict access to trusted IPs only: dodaj adres IP maszyny, na której zainstalowany jest Deltabadger. Jeśli to serwer, użyj publicznego IP serwera. Jeśli to twój komputer lokalny, <a href=\"https://whatismyipaddress.com\" target=\"_blank\">sprawdź swoje IP tutaj</a>.<br><strong>⚠️ Ważne:</strong> Zrób to najpierw, aby włączyć następny krok."
+                            -   text_html: "🔘 Restrict access to trusted IPs only: dodaj %{whitelist_ip}.<br><strong>⚠️ Ważne:</strong> Zrób to najpierw, aby włączyć następny krok."
                             -   text_html: "Zaznacz:<br>☑️ <b>Włącz Odczyt</b><br>☑️ <b>Włącz Handel Spot i Margin</b>.<br><strong>⚠️ Ważne:</strong> Klucze nie będą działać, jeśli dodasz więcej uprawnień."
                     -   text_html: 'Kliknij <b>Zapisz</b> i w razie potrzeby przejdź weryfikację bezpieczeństwa.'
                     -   text_html: 'Skopiuj i wklej swoje nowe klucze API powyżej.'
@@ -36,7 +37,7 @@ pl:
                                     -   text_html: '<b>Trade</b> (execute trades on your behalf)<br><strong>⚠️ Ważne:</strong> Klucze nie będą działać, jeśli dodasz więcej uprawnień.'
                             -   text_html: 'IP whitelist'
                                 sub_instructions:
-                                    -   text_html: '🔘 Dodaj adres IP maszyny, na której zainstalowany jest Deltabadger. Jeśli to serwer, użyj publicznego IP serwera. Jeśli to twój komputer lokalny, <a href="https://whatismyipaddress.com" target="_blank">sprawdź swoje IP tutaj</a>.'
+                                    -   text_html: '🔘 Dodaj %{whitelist_ip}.'
                     -   text_html: 'Kliknij <b>Create & download</b> i ukończ weryfikację 2-etapową.'
                     -   text_html: 'Skopiuj i wklej swoje nowe klucze API do powyższego formularza.'
                 private_key: 'Secret'
@@ -59,7 +60,7 @@ pl:
                                     -   text_html: '<b>Anuluj i zamknij zlecenia</b><br><strong>⚠️ Ważne:</strong> Klucze nie będą działać, jeśli dodasz więcej uprawnień.'
                             -   text_html: 'IP address restriction:'
                                 sub_instructions:
-                                    -   text_html: '🔘 Dodaj adres IP maszyny, na której zainstalowany jest Deltabadger. Jeśli to serwer, użyj publicznego IP serwera. Jeśli to twój komputer lokalny, <a href="https://whatismyipaddress.com" target="_blank">sprawdź swoje IP tutaj</a>.'
+                                    -   text_html: '🔘 Dodaj %{whitelist_ip}.'
                     -   text_html: 'Naciśnij <b>Wygeneruj klucz</b>.'
                     -   text_html: 'Skopiuj i wklej swoje nowe klucze API do powyższego formularza.'
                 private_key: 'Klucz prywatny'
@@ -77,7 +78,7 @@ pl:
                             -   text_html: '☑️ <b>Spot Trading</b><br><strong>⚠️ Ważne:</strong> Nie włączaj uprawnień do wypłat ani Futures.'
                             -   text_html: 'IP whitelist:'
                                 sub_instructions:
-                                    -   text_html: '🔘 Dodaj adres IP maszyny, na której zainstalowany jest Deltabadger.'
+                                    -   text_html: '🔘 Dodaj %{whitelist_ip}.'
                     -   text_html: 'Kliknij <b>Next</b> i przejdź weryfikację.'
                     -   text_html: 'Skopiuj i wklej API Key, Secret Key i Passphrase do formularza powyżej.'
                 private_key: 'Secret Key'
@@ -94,7 +95,7 @@ pl:
                             -   text_html: '☑️ <b>Spot Trading</b><br><strong>⚠️ Ważne:</strong> Nie włączaj uprawnień do wypłat ani Futures.'
                             -   text_html: 'IP whitelist:'
                                 sub_instructions:
-                                    -   text_html: '🔘 Dodaj adres IP maszyny, na której zainstalowany jest Deltabadger.'
+                                    -   text_html: '🔘 Dodaj %{whitelist_ip}.'
                     -   text_html: 'Kliknij <b>Confirm</b> i przejdź weryfikację.'
                     -   text_html: 'Skopiuj i wklej API Key, Secret Key i Passphrase do formularza powyżej.'
                 private_key: 'API Secret'
@@ -112,7 +113,7 @@ pl:
                             -   text_html: '☑️ <b>Spot Trading</b><br><strong>⚠️ Ważne:</strong> Nie włączaj uprawnień do wypłat ani Derivatives.'
                             -   text_html: 'IP whitelist:'
                                 sub_instructions:
-                                    -   text_html: '🔘 Dodaj adres IP maszyny, na której zainstalowany jest Deltabadger.'
+                                    -   text_html: '🔘 Dodaj %{whitelist_ip}.'
                     -   text_html: 'Kliknij <b>Submit</b> i przejdź weryfikację.'
                     -   text_html: 'Skopiuj i wklej klucze API do formularza powyżej.'
                 private_key: 'API Secret'
@@ -129,7 +130,7 @@ pl:
                             -   text_html: '☑️ <b>Spot Trading</b><br><strong>⚠️ Ważne:</strong> Nie włączaj uprawnień do wypłat.'
                             -   text_html: 'IP whitelist:'
                                 sub_instructions:
-                                    -   text_html: '🔘 Dodaj adres IP maszyny, na której zainstalowany jest Deltabadger.'
+                                    -   text_html: '🔘 Dodaj %{whitelist_ip}.'
                     -   text_html: 'Kliknij <b>Confirm</b> i przejdź weryfikację.'
                     -   text_html: 'Skopiuj i wklej klucze API do formularza powyżej.'
                 private_key: 'API Secret'
@@ -160,7 +161,7 @@ pl:
                             -   text_html: '☑️ <b>Trade</b><br><strong>⚠️ Ważne:</strong> Nie włączaj uprawnień do wypłat.'
                             -   text_html: 'IP whitelist:'
                                 sub_instructions:
-                                    -   text_html: '🔘 Dodaj adres IP maszyny, na której zainstalowany jest Deltabadger.'
+                                    -   text_html: '🔘 Dodaj %{whitelist_ip}.'
                     -   text_html: 'Kliknij <b>Generate</b>.'
                     -   text_html: 'Skopiuj i wklej klucze API do formularza powyżej.'
                 private_key: 'API Secret'
