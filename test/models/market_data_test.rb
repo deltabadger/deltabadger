@@ -129,6 +129,52 @@ class MarketDataImportTickersTest < ActiveSupport::TestCase
     assert_equal 0, @exchange.exchange_assets.count
   end
 
+  test 'upserts when existing ticker has different symbol strings but same asset IDs' do
+    # Simulate upgrade scenario: Kraken used XDG for Dogecoin, now uses DOGE
+    doge = create(:asset, external_id: 'dogecoin', symbol: 'DOGE', name: 'Dogecoin', category: 'Cryptocurrency')
+    create(:exchange_asset, exchange: @exchange, asset: doge)
+    create(:exchange_asset, exchange: @exchange, asset: @usd)
+    Ticker.create!(
+      exchange: @exchange, base: 'XDG', quote: 'USD', ticker: 'XDGUSD',
+      base_asset_id: doge.id, quote_asset_id: @usd.id,
+      minimum_base_size: 1, minimum_quote_size: 10, base_decimals: 8, quote_decimals: 2, price_decimals: 2
+    )
+
+    data = [
+      ticker_data(base_ext_id: 'dogecoin', quote_ext_id: 'usd', base: 'DOGE', quote: 'USD', ticker: 'DOGEUSD')
+    ]
+
+    MarketData.import_tickers!(@exchange, data)
+
+    assert_equal 1, @exchange.tickers.count
+    t = @exchange.tickers.first
+    assert_equal 'DOGE', t.base
+    assert_equal 'USD', t.quote
+    assert_equal 'DOGEUSD', t.ticker
+    assert_equal doge.id, t.base_asset_id
+  end
+
+  test 'upserts when existing ticker has different ticker string but same asset IDs' do
+    create(:exchange_asset, exchange: @exchange, asset: @btc)
+    create(:exchange_asset, exchange: @exchange, asset: @usd)
+    Ticker.create!(
+      exchange: @exchange, base: 'BTC', quote: 'USD', ticker: 'XBTUSD',
+      base_asset_id: @btc.id, quote_asset_id: @usd.id,
+      minimum_base_size: 0.00001, minimum_quote_size: 10, base_decimals: 8, quote_decimals: 2, price_decimals: 2
+    )
+
+    data = [
+      ticker_data(base_ext_id: 'bitcoin', quote_ext_id: 'usd', base: 'BTC', quote: 'USD', ticker: 'BTCUSD')
+    ]
+
+    MarketData.import_tickers!(@exchange, data)
+
+    assert_equal 1, @exchange.tickers.count
+    t = @exchange.tickers.first
+    assert_equal 'BTCUSD', t.ticker
+    assert_equal @btc.id, t.base_asset_id
+  end
+
   test 'upserts exchange assets without duplicates' do
     data = [
       ticker_data(base_ext_id: 'bitcoin', quote_ext_id: 'usd', base: 'BTC', quote: 'USD', ticker: 'BTCUSD')
