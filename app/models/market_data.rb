@@ -162,7 +162,17 @@ class MarketData
 
       upsert_ticker_attributes(t, exchange_id: exchange.id, base_asset_id: base_asset_id, quote_asset_id: quote_asset_id)
     end
-    Ticker.upsert_all(ticker_records, unique_by: %i[exchange_id base quote]) if ticker_records.any?
+    return if ticker_records.empty?
+
+    # Deduplicate within the batch (keep first occurrence per constraint key)
+    ticker_records.uniq! { |r| [r[:exchange_id], r[:base_asset_id], r[:quote_asset_id]] }
+    ticker_records.uniq! { |r| [r[:exchange_id], r[:base], r[:quote]] }
+    ticker_records.uniq! { |r| [r[:exchange_id], r[:ticker]] }
+
+    # Pre-align existing tickers so secondary constraints don't conflict
+    reconcile_ticker_conflicts!(exchange, ticker_records)
+
+    Ticker.upsert_all(ticker_records, unique_by: %i[exchange_id base_asset_id quote_asset_id])
   end
 
   # Deltabadger Market Data Service sync methods (thin wrappers around import_*)
@@ -198,6 +208,22 @@ class MarketData
   rescue StandardError => e
     Rails.logger.error "[MarketData] Failed to sync tickers for #{exchange.name}: #{e.message}"
     Result::Failure.new(e.message)
+  end
+
+  private_class_method def self.reconcile_ticker_conflicts!(exchange, ticker_records)
+    existing = Ticker.where(exchange_id: exchange.id).index_by { |t| [t.base_asset_id, t.quote_asset_id] }
+    return if existing.empty?
+
+    ticker_records.each do |record|
+      existing_ticker = existing[[record[:base_asset_id], record[:quote_asset_id]]]
+      next unless existing_ticker
+
+      updates = {}
+      updates[:base] = record[:base] if existing_ticker.base != record[:base]
+      updates[:quote] = record[:quote] if existing_ticker.quote != record[:quote]
+      updates[:ticker] = record[:ticker] if existing_ticker.ticker != record[:ticker]
+      existing_ticker.update_columns(updates) if updates.any?
+    end
   end
 
   def self.upsert_asset_attributes(asset_data)
