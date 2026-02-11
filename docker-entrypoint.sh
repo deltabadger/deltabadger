@@ -70,6 +70,21 @@ load_secrets() {
                         echo "  Loaded SECRET_KEY_BASE"
                     fi
                     ;;
+                # Legacy keys from old .secrets files — only needed for
+                # MigrateToRailsEncryption migration (attr_encrypted -> Rails encrypts).
+                # New containers don't generate these.
+                APP_ENCRYPTION_KEY)
+                    if [ -z "$APP_ENCRYPTION_KEY" ]; then
+                        export APP_ENCRYPTION_KEY="$value"
+                        echo "  Loaded APP_ENCRYPTION_KEY (legacy)"
+                    fi
+                    ;;
+                DEVISE_SECRET_KEY)
+                    if [ -z "$DEVISE_SECRET_KEY" ]; then
+                        export DEVISE_SECRET_KEY="$value"
+                        echo "  Loaded DEVISE_SECRET_KEY (legacy)"
+                    fi
+                    ;;
             esac
         done < "$SECRETS_FILE"
 
