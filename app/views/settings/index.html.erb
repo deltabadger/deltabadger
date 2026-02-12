@@ -25,12 +25,16 @@
       <%= render partial: 'settings/widgets/registration' %>
     <% end %>
 
-    <%= render partial: 'settings/widgets/email_notifications' %>
+    <% if current_user.admin? %>
+      <%= render partial: 'settings/widgets/email_notifications' %>
+    <% end %>
 
-    
     <%= render partial: 'settings/widgets/api_keys', locals: {
       trading_api_keys: @trading_api_keys
     } %>
-    <%= render partial: 'settings/widgets/market_data' %>
+
+    <% if current_user.admin? %>
+      <%= render partial: 'settings/widgets/market_data' %>
+    <% end %>
   </div>
 </div>
