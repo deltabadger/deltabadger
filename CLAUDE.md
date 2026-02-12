@@ -38,6 +38,8 @@ bin/rails test test/models           # Run model tests
 bin/rails test test/path/to/file_test.rb  # Run single file
 ```
 
+**Run `bin/rails test` after every change.** The test suite includes Rubocop linting, so this catches both logic errors and style violations.
+
 ### Database
 ```bash
 bundle exec rails db:prepare         # Create and migrate database
