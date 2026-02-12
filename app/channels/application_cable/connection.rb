@@ -9,7 +9,8 @@ end
 # to return early instead of raising.
 ActionCable::Connection::Subscriptions.prepend(Module.new do
   def remove(data)
-    if subscription = @subscriptions[data["identifier"]]
+    subscription = @subscriptions[data['identifier']]
+    if subscription
       remove_subscription(subscription)
     else
       logger.debug "[ActionCable] Ignoring stale unsubscribe: #{data['identifier']}"
