@@ -1,5 +1,10 @@
 class SettingsController < ApplicationController
   before_action :authenticate_user!
+  before_action :require_admin!, only: %i[
+    update_registration
+    update_email_notifications disconnect_email send_test_email
+    update_market_data disconnect_market_data update_coingecko_key destroy_coingecko_key resync_assets
+  ]
 
   def index
     set_index_instance_variables
@@ -174,8 +179,6 @@ class SettingsController < ApplicationController
   end
 
   def update_registration
-    return head(:forbidden) unless current_user.admin?
-
     AppConfig.registration_open = params[:registration_open] == '1'
     flash.now[:notice] = t('settings.registration.updated')
 
@@ -244,6 +247,10 @@ class SettingsController < ApplicationController
   end
 
   private
+
+  def require_admin!
+    head(:forbidden) unless current_user.admin?
+  end
 
   def validate_coingecko_api_key(api_key)
     return false if api_key.blank?
