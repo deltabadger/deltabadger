@@ -1,8 +1,8 @@
 {
   "metadata": {
     "exchange_name_id": "kraken",
-    "count": 1431,
-    "generated_at": "2026-02-09T11:42:07Z"
+    "count": 1438,
+    "generated_at": "2026-02-12T23:19:58Z"
   },
   "data": [
     {
@@ -2216,6 +2216,34 @@
       "base_decimals": 8,
       "quote_decimals": 5,
       "price_decimals": 3
+    },
+    {
+      "ticker": "AZTECEUR",
+      "base": "AZTEC",
+      "quote": "EUR",
+      "base_external_id": "aztec",
+      "quote_external_id": "EUR.FOREX",
+      "minimum_base_size": "150.0",
+      "minimum_quote_size": "0.5",
+      "maximum_base_size": null,
+      "maximum_quote_size": null,
+      "base_decimals": 5,
+      "quote_decimals": 5,
+      "price_decimals": 5
+    },
+    {
+      "ticker": "AZTECUSD",
+      "base": "AZTEC",
+      "quote": "USD",
+      "base_external_id": "aztec",
+      "quote_external_id": "USD.FOREX",
+      "minimum_base_size": "150.0",
+      "minimum_quote_size": "5.0",
+      "maximum_base_size": null,
+      "maximum_quote_size": null,
+      "base_decimals": 5,
+      "quote_decimals": 5,
+      "price_decimals": 5
     },
     {
       "ticker": "B2EUR",
@@ -5592,6 +5620,20 @@
       "price_decimals": 4
     },
     {
+      "ticker": "ESPEUR",
+      "base": "ESP",
+      "quote": "EUR",
+      "base_external_id": "espresso",
+      "quote_external_id": "EUR.FOREX",
+      "minimum_base_size": "60.0",
+      "minimum_quote_size": "0.5",
+      "maximum_base_size": null,
+      "maximum_quote_size": null,
+      "base_decimals": 5,
+      "quote_decimals": 5,
+      "price_decimals": 5
+    },
+    {
       "ticker": "ESPORTSUSD",
       "base": "ESPORTS",
       "quote": "USD",
@@ -5604,6 +5646,20 @@
       "base_decimals": 5,
       "quote_decimals": 5,
       "price_decimals": 4
+    },
+    {
+      "ticker": "ESPUSD",
+      "base": "ESP",
+      "quote": "USD",
+      "base_external_id": "espresso",
+      "quote_external_id": "USD.FOREX",
+      "minimum_base_size": "60.0",
+      "minimum_quote_size": "5.0",
+      "maximum_base_size": null,
+      "maximum_quote_size": null,
+      "base_decimals": 5,
+      "quote_decimals": 5,
+      "price_decimals": 5
     },
     {
       "ticker": "ESUSD",
@@ -6626,34 +6682,6 @@
       "base_decimals": 5,
       "quote_decimals": 8,
       "price_decimals": 4
-    },
-    {
-      "ticker": "FLYEUR",
-      "base": "FLY",
-      "quote": "EUR",
-      "base_external_id": "fly-2",
-      "quote_external_id": "EUR.FOREX",
-      "minimum_base_size": "310.0",
-      "minimum_quote_size": "0.5",
-      "maximum_base_size": null,
-      "maximum_quote_size": null,
-      "base_decimals": 5,
-      "quote_decimals": 5,
-      "price_decimals": 5
-    },
-    {
-      "ticker": "FLYUSD",
-      "base": "FLY",
-      "quote": "USD",
-      "base_external_id": "fly-2",
-      "quote_external_id": "USD.FOREX",
-      "minimum_base_size": "310.0",
-      "minimum_quote_size": "5.0",
-      "maximum_base_size": null,
-      "maximum_quote_size": null,
-      "base_decimals": 5,
-      "quote_decimals": 5,
-      "price_decimals": 5
     },
     {
       "ticker": "FOLKSEUR",
@@ -11836,6 +11864,20 @@
       "price_decimals": 9
     },
     {
+      "ticker": "PEPEUR",
+      "base": "PEP",
+      "quote": "EUR",
+      "base_external_id": "pepecoin-network",
+      "quote_external_id": "EUR.FOREX",
+      "minimum_base_size": "15000.0",
+      "minimum_quote_size": "0.5",
+      "maximum_base_size": null,
+      "maximum_quote_size": null,
+      "base_decimals": 5,
+      "quote_decimals": 5,
+      "price_decimals": 7
+    },
+    {
       "ticker": "PEPEUSD",
       "base": "PEPE",
       "quote": "USD",
@@ -11848,6 +11890,20 @@
       "base_decimals": 5,
       "quote_decimals": 5,
       "price_decimals": 9
+    },
+    {
+      "ticker": "PEPUSD",
+      "base": "PEP",
+      "quote": "USD",
+      "base_external_id": "pepecoin-network",
+      "quote_external_id": "USD.FOREX",
+      "minimum_base_size": "15000.0",
+      "minimum_quote_size": "5.0",
+      "maximum_base_size": null,
+      "maximum_quote_size": null,
+      "base_decimals": 5,
+      "quote_decimals": 5,
+      "price_decimals": 7
     },
     {
       "ticker": "PERPEUR",
@@ -12800,6 +12856,34 @@
       "base_decimals": 5,
       "quote_decimals": 5,
       "price_decimals": 4
+    },
+    {
+      "ticker": "RAINEUR",
+      "base": "RAIN",
+      "quote": "EUR",
+      "base_external_id": "rain",
+      "quote_external_id": "EUR.FOREX",
+      "minimum_base_size": "550.0",
+      "minimum_quote_size": "0.5",
+      "maximum_base_size": null,
+      "maximum_quote_size": null,
+      "base_decimals": 8,
+      "quote_decimals": 5,
+      "price_decimals": 6
+    },
+    {
+      "ticker": "RAINUSD",
+      "base": "RAIN",
+      "quote": "USD",
+      "base_external_id": "rain",
+      "quote_external_id": "USD.FOREX",
+      "minimum_base_size": "550.0",
+      "minimum_quote_size": "5.0",
+      "maximum_base_size": null,
+      "maximum_quote_size": null,
+      "base_decimals": 8,
+      "quote_decimals": 5,
+      "price_decimals": 6
     },
     {
       "ticker": "RAREEUR",
@@ -16708,6 +16792,34 @@
       "price_decimals": 7
     },
     {
+      "ticker": "UPEUR",
+      "base": "UP",
+      "quote": "EUR",
+      "base_external_id": "superform",
+      "quote_external_id": "EUR.FOREX",
+      "minimum_base_size": "50.0",
+      "minimum_quote_size": "0.5",
+      "maximum_base_size": null,
+      "maximum_quote_size": null,
+      "base_decimals": 5,
+      "quote_decimals": 5,
+      "price_decimals": 5
+    },
+    {
+      "ticker": "UPUSD",
+      "base": "UP",
+      "quote": "USD",
+      "base_external_id": "superform",
+      "quote_external_id": "USD.FOREX",
+      "minimum_base_size": "50.0",
+      "minimum_quote_size": "5.0",
+      "maximum_base_size": null,
+      "maximum_quote_size": null,
+      "base_decimals": 5,
+      "quote_decimals": 5,
+      "price_decimals": 5
+    },
+    {
       "ticker": "USATUSD",
       "base": "USAT",
       "quote": "USD",
@@ -16953,20 +17065,6 @@
       "quote_external_id": "tether",
       "minimum_base_size": "5.0",
       "minimum_quote_size": "5.0",
-      "maximum_base_size": null,
-      "maximum_quote_size": null,
-      "base_decimals": 5,
-      "quote_decimals": 8,
-      "price_decimals": 4
-    },
-    {
-      "ticker": "USDGEUR",
-      "base": "USDG",
-      "quote": "EUR",
-      "base_external_id": "global-dollar",
-      "quote_external_id": "EUR.FOREX",
-      "minimum_base_size": "5.0",
-      "minimum_quote_size": "0.5",
       "maximum_base_size": null,
       "maximum_quote_size": null,
       "base_decimals": 5,
