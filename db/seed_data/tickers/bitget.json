@@ -1,8 +1,8 @@
 {
   "metadata": {
     "exchange_name_id": "bitget",
-    "count": 712,
-    "generated_at": "2026-02-09T11:42:07Z"
+    "count": 714,
+    "generated_at": "2026-02-12T23:19:58Z"
   },
   "data": [
     {
@@ -410,20 +410,6 @@
       "base_decimals": 2,
       "quote_decimals": 6,
       "price_decimals": 4
-    },
-    {
-      "ticker": "BTCWUSD",
-      "base": "BTC",
-      "quote": "WUSD",
-      "base_external_id": "bitcoin",
-      "quote_external_id": "worldwide-usd",
-      "minimum_base_size": "0.0",
-      "minimum_quote_size": "1.0",
-      "maximum_base_size": "900000000000000000000.0",
-      "maximum_quote_size": null,
-      "base_decimals": 6,
-      "quote_decimals": 8,
-      "price_decimals": 2
     },
     {
       "ticker": "SWCHUSDT",
@@ -2986,20 +2972,6 @@
       "base_decimals": 0,
       "quote_decimals": 5,
       "price_decimals": 5
-    },
-    {
-      "ticker": "FLUXUSDT",
-      "base": "FLUX",
-      "quote": "USDT",
-      "base_external_id": "zelcash",
-      "quote_external_id": "tether",
-      "minimum_base_size": "0.0",
-      "minimum_quote_size": "1.0",
-      "maximum_base_size": "900000000000000000000.0",
-      "maximum_quote_size": null,
-      "base_decimals": 3,
-      "quote_decimals": 7,
-      "price_decimals": 4
     },
     {
       "ticker": "ROSEUSDT",
@@ -6152,6 +6124,34 @@
       "price_decimals": 4
     },
     {
+      "ticker": "BTCRLUSD",
+      "base": "BTC",
+      "quote": "RLUSD",
+      "base_external_id": "bitcoin",
+      "quote_external_id": "ripple-usd",
+      "minimum_base_size": "0.0",
+      "minimum_quote_size": "1.0",
+      "maximum_base_size": "900000000000000000000.0",
+      "maximum_quote_size": null,
+      "base_decimals": 6,
+      "quote_decimals": 8,
+      "price_decimals": 2
+    },
+    {
+      "ticker": "XRPRLUSD",
+      "base": "XRP",
+      "quote": "RLUSD",
+      "base_external_id": "ripple",
+      "quote_external_id": "ripple-usd",
+      "minimum_base_size": "0.0",
+      "minimum_quote_size": "1.0",
+      "maximum_base_size": "900000000000000000000.0",
+      "maximum_quote_size": null,
+      "base_decimals": 4,
+      "quote_decimals": 8,
+      "price_decimals": 4
+    },
+    {
       "ticker": "IDOLUSDT",
       "base": "IDOL",
       "quote": "USDT",
@@ -6220,6 +6220,20 @@
       "base_decimals": 2,
       "quote_decimals": 7,
       "price_decimals": 5
+    },
+    {
+      "ticker": "ETHRLUSD",
+      "base": "ETH",
+      "quote": "RLUSD",
+      "base_external_id": "ethereum",
+      "quote_external_id": "ripple-usd",
+      "minimum_base_size": "0.0",
+      "minimum_quote_size": "1.0",
+      "maximum_base_size": "900000000000000000000.0",
+      "maximum_quote_size": null,
+      "base_decimals": 4,
+      "quote_decimals": 6,
+      "price_decimals": 2
     },
     {
       "ticker": "SPKUSDT",
@@ -9390,6 +9404,20 @@
       "base": "VSN",
       "quote": "USDT",
       "base_external_id": "vision-3",
+      "quote_external_id": "tether",
+      "minimum_base_size": "0.0",
+      "minimum_quote_size": "1.0",
+      "maximum_base_size": "900000000000000000000.0",
+      "maximum_quote_size": null,
+      "base_decimals": 2,
+      "quote_decimals": 7,
+      "price_decimals": 5
+    },
+    {
+      "ticker": "RAVEUSDT",
+      "base": "RAVE",
+      "quote": "USDT",
+      "base_external_id": "ravedao",
       "quote_external_id": "tether",
       "minimum_base_size": "0.0",
       "minimum_quote_size": "1.0",
