@@ -1,8 +1,8 @@
 {
   "metadata": {
     "exchange_name_id": "bybit",
-    "count": 640,
-    "generated_at": "2026-02-09T11:42:07Z"
+    "count": 638,
+    "generated_at": "2026-02-12T23:19:58Z"
   },
   "data": [
     {
@@ -3310,20 +3310,6 @@
       "price_decimals": 4
     },
     {
-      "ticker": "ROOTUSDT",
-      "base": "ROOT",
-      "quote": "USDT",
-      "base_external_id": "the-root-network",
-      "quote_external_id": "tether",
-      "minimum_base_size": "0.01",
-      "minimum_quote_size": "5.0",
-      "maximum_base_size": "42000000.0",
-      "maximum_quote_size": "200000.0",
-      "base_decimals": 2,
-      "quote_decimals": 9,
-      "price_decimals": 7
-    },
-    {
       "ticker": "PYTHUSDT",
       "base": "PYTH",
       "quote": "USDT",
@@ -3574,20 +3560,6 @@
       "base_decimals": 1,
       "quote_decimals": 12,
       "price_decimals": 11
-    },
-    {
-      "ticker": "PORT3USDT",
-      "base": "PORT3",
-      "quote": "USDT",
-      "base_external_id": "port3-network",
-      "quote_external_id": "tether",
-      "minimum_base_size": "0.1",
-      "minimum_quote_size": "5.0",
-      "maximum_base_size": "6800000.0",
-      "maximum_quote_size": "200000.0",
-      "base_decimals": 1,
-      "quote_decimals": 7,
-      "price_decimals": 6
     },
     {
       "ticker": "XAIUSDT",
@@ -4218,20 +4190,6 @@
       "base_decimals": 2,
       "quote_decimals": 7,
       "price_decimals": 5
-    },
-    {
-      "ticker": "MODEUSDT",
-      "base": "MODE",
-      "quote": "USDT",
-      "base_external_id": "mode",
-      "quote_external_id": "tether",
-      "minimum_base_size": "0.01",
-      "minimum_quote_size": "5.0",
-      "maximum_base_size": "18000000.0",
-      "maximum_quote_size": "3500.0",
-      "base_decimals": 2,
-      "quote_decimals": 9,
-      "price_decimals": 7
     },
     {
       "ticker": "PONKEUSDT",
@@ -8960,6 +8918,20 @@
       "minimum_base_size": "0.1",
       "minimum_quote_size": "5.0",
       "maximum_base_size": "10000000.0",
+      "maximum_quote_size": "200000.0",
+      "base_decimals": 1,
+      "quote_decimals": 7,
+      "price_decimals": 6
+    },
+    {
+      "ticker": "AZTECUSDT",
+      "base": "AZTEC",
+      "quote": "USDT",
+      "base_external_id": "aztec",
+      "quote_external_id": "tether",
+      "minimum_base_size": "0.1",
+      "minimum_quote_size": "5.0",
+      "maximum_base_size": "11111111.2",
       "maximum_quote_size": "200000.0",
       "base_decimals": 1,
       "quote_decimals": 7,

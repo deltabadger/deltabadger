@@ -1,8 +1,8 @@
 {
   "metadata": {
     "exchange_name_id": "binance_us",
-    "count": 254,
-    "generated_at": "2026-02-09T11:42:07Z"
+    "count": 252,
+    "generated_at": "2026-02-12T23:19:58Z"
   },
   "data": [
     {
@@ -818,20 +818,6 @@
       "price_decimals": 5
     },
     {
-      "ticker": "OGNUSDT",
-      "base": "OGN",
-      "quote": "USDT",
-      "base_external_id": "origin-protocol",
-      "quote_external_id": "tether",
-      "minimum_base_size": "1.0",
-      "minimum_quote_size": "1.0",
-      "maximum_base_size": "900000.0",
-      "maximum_quote_size": "0.0",
-      "base_decimals": 0,
-      "quote_decimals": 8,
-      "price_decimals": 4
-    },
-    {
       "ticker": "GALAUSDT",
       "base": "GALA",
       "quote": "USDT",
@@ -900,20 +886,6 @@
       "base_decimals": 2,
       "quote_decimals": 8,
       "price_decimals": 2
-    },
-    {
-      "ticker": "WBTCBTC",
-      "base": "WBTC",
-      "quote": "BTC",
-      "base_external_id": "wrapped-bitcoin",
-      "quote_external_id": "bitcoin",
-      "minimum_base_size": "0.00001",
-      "minimum_quote_size": "0.0001",
-      "maximum_base_size": "92141578.0",
-      "maximum_quote_size": "0.0",
-      "base_decimals": 5,
-      "quote_decimals": 8,
-      "price_decimals": 4
     },
     {
       "ticker": "REQUSDT",
@@ -1053,7 +1025,7 @@
       "maximum_quote_size": "0.0",
       "base_decimals": 2,
       "quote_decimals": 8,
-      "price_decimals": 3
+      "price_decimals": 4
     },
     {
       "ticker": "FLOWUSDT",
@@ -1067,7 +1039,7 @@
       "maximum_quote_size": "0.0",
       "base_decimals": 2,
       "quote_decimals": 8,
-      "price_decimals": 3
+      "price_decimals": 5
     },
     {
       "ticker": "GTCUSDT",
@@ -2957,7 +2929,7 @@
       "maximum_quote_size": "0.0",
       "base_decimals": 1,
       "quote_decimals": 8,
-      "price_decimals": 4
+      "price_decimals": 5
     },
     {
       "ticker": "SUSDT",
@@ -2971,7 +2943,7 @@
       "maximum_quote_size": "0.0",
       "base_decimals": 1,
       "quote_decimals": 8,
-      "price_decimals": 4
+      "price_decimals": 5
     },
     {
       "ticker": "JTOUSDT",
@@ -2985,7 +2957,7 @@
       "maximum_quote_size": "0.0",
       "base_decimals": 1,
       "quote_decimals": 8,
-      "price_decimals": 3
+      "price_decimals": 4
     },
     {
       "ticker": "ORCAUSDT",
@@ -3182,20 +3154,6 @@
       "base_decimals": 1,
       "quote_decimals": 8,
       "price_decimals": 4
-    },
-    {
-      "ticker": "ANIMEUSDT",
-      "base": "ANIME",
-      "quote": "USDT",
-      "base_external_id": "anime",
-      "quote_external_id": "tether",
-      "minimum_base_size": "0.1",
-      "minimum_quote_size": "1.0",
-      "maximum_base_size": "92141578.0",
-      "maximum_quote_size": "0.0",
-      "base_decimals": 1,
-      "quote_decimals": 8,
-      "price_decimals": 5
     },
     {
       "ticker": "1000MOGUSDT",
@@ -3433,7 +3391,7 @@
       "maximum_quote_size": "0.0",
       "base_decimals": 2,
       "quote_decimals": 8,
-      "price_decimals": 3
+      "price_decimals": 4
     },
     {
       "ticker": "DUSKUSDT",
@@ -3552,6 +3510,20 @@
       "base": "TROLL",
       "quote": "USDT",
       "base_external_id": "troll-2",
+      "quote_external_id": "tether",
+      "minimum_base_size": "1.0",
+      "minimum_quote_size": "1.0",
+      "maximum_base_size": "913205152.0",
+      "maximum_quote_size": "0.0",
+      "base_decimals": 0,
+      "quote_decimals": 8,
+      "price_decimals": 6
+    },
+    {
+      "ticker": "RHEAUSDT",
+      "base": "RHEA",
+      "quote": "USDT",
+      "base_external_id": "rhea-2",
       "quote_external_id": "tether",
       "minimum_base_size": "1.0",
       "minimum_quote_size": "1.0",

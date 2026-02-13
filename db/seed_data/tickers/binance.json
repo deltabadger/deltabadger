@@ -1,8 +1,8 @@
 {
   "metadata": {
     "exchange_name_id": "binance",
-    "count": 1455,
-    "generated_at": "2026-02-09T11:42:07Z"
+    "count": 1442,
+    "generated_at": "2026-02-12T23:19:58Z"
   },
   "data": [
     {
@@ -244,20 +244,6 @@
       "price_decimals": 7
     },
     {
-      "ticker": "REQBTC",
-      "base": "REQ",
-      "quote": "BTC",
-      "base_external_id": "request-network",
-      "quote_external_id": "bitcoin",
-      "minimum_base_size": "1.0",
-      "minimum_quote_size": "0.0001",
-      "maximum_base_size": "90000000.0",
-      "maximum_quote_size": "9000000.0",
-      "base_decimals": 0,
-      "quote_decimals": 8,
-      "price_decimals": 8
-    },
-    {
       "ticker": "TRXBTC",
       "base": "TRX",
       "quote": "BTC",
@@ -384,20 +370,6 @@
       "price_decimals": 8
     },
     {
-      "ticker": "MANAETH",
-      "base": "MANA",
-      "quote": "ETH",
-      "base_external_id": "decentraland",
-      "quote_external_id": "ethereum",
-      "minimum_base_size": "1.0",
-      "minimum_quote_size": "0.001",
-      "maximum_base_size": "90000000.0",
-      "maximum_quote_size": "9000000.0",
-      "base_decimals": 0,
-      "quote_decimals": 8,
-      "price_decimals": 7
-    },
-    {
       "ticker": "ADXBTC",
       "base": "ADX",
       "quote": "BTC",
@@ -508,20 +480,6 @@
       "base_decimals": 3,
       "quote_decimals": 8,
       "price_decimals": 4
-    },
-    {
-      "ticker": "ICXBTC",
-      "base": "ICX",
-      "quote": "BTC",
-      "base_external_id": "icon",
-      "quote_external_id": "bitcoin",
-      "minimum_base_size": "1.0",
-      "minimum_quote_size": "0.0001",
-      "maximum_base_size": "90000000.0",
-      "maximum_quote_size": "9000000.0",
-      "base_decimals": 0,
-      "quote_decimals": 8,
-      "price_decimals": 8
     },
     {
       "ticker": "RLCBTC",
@@ -844,20 +802,6 @@
       "base_decimals": 1,
       "quote_decimals": 8,
       "price_decimals": 4
-    },
-    {
-      "ticker": "ARDRBTC",
-      "base": "ARDR",
-      "quote": "BTC",
-      "base_external_id": "ardor",
-      "quote_external_id": "bitcoin",
-      "minimum_base_size": "1.0",
-      "minimum_quote_size": "0.0001",
-      "maximum_base_size": "90000000.0",
-      "maximum_quote_size": "9000000.0",
-      "base_decimals": 0,
-      "quote_decimals": 8,
-      "price_decimals": 8
     },
     {
       "ticker": "VETBTC",
@@ -2958,20 +2902,6 @@
       "base_decimals": 2,
       "quote_decimals": 8,
       "price_decimals": 2
-    },
-    {
-      "ticker": "DIABTC",
-      "base": "DIA",
-      "quote": "BTC",
-      "base_external_id": "dia-data",
-      "quote_external_id": "bitcoin",
-      "minimum_base_size": "0.1",
-      "minimum_quote_size": "0.0001",
-      "maximum_base_size": "90000000.0",
-      "maximum_quote_size": "9000000.0",
-      "base_decimals": 1,
-      "quote_decimals": 8,
-      "price_decimals": 8
     },
     {
       "ticker": "DIAUSDT",
@@ -5158,20 +5088,6 @@
       "price_decimals": 4
     },
     {
-      "ticker": "YGGBTC",
-      "base": "YGG",
-      "quote": "BTC",
-      "base_external_id": "yield-guild-games",
-      "quote_external_id": "bitcoin",
-      "minimum_base_size": "0.1",
-      "minimum_quote_size": "0.0001",
-      "maximum_base_size": "92141578.0",
-      "maximum_quote_size": "9000000.0",
-      "base_decimals": 1,
-      "quote_decimals": 8,
-      "price_decimals": 8
-    },
-    {
       "ticker": "SYSUSDT",
       "base": "SYS",
       "quote": "USDT",
@@ -5718,20 +5634,6 @@
       "price_decimals": 4
     },
     {
-      "ticker": "FLUXBTC",
-      "base": "FLUX",
-      "quote": "BTC",
-      "base_external_id": "zelcash",
-      "quote_external_id": "bitcoin",
-      "minimum_base_size": "0.01",
-      "minimum_quote_size": "0.0001",
-      "maximum_base_size": "92141578.0",
-      "maximum_quote_size": "9000000.0",
-      "base_decimals": 2,
-      "quote_decimals": 8,
-      "price_decimals": 8
-    },
-    {
       "ticker": "FLUXUSDT",
       "base": "FLUX",
       "quote": "USDT",
@@ -5914,20 +5816,6 @@
       "price_decimals": 6
     },
     {
-      "ticker": "ICPETH",
-      "base": "ICP",
-      "quote": "ETH",
-      "base_external_id": "internet-computer",
-      "quote_external_id": "ethereum",
-      "minimum_base_size": "0.001",
-      "minimum_quote_size": "0.001",
-      "maximum_base_size": "92141578.0",
-      "maximum_quote_size": "9000000.0",
-      "base_decimals": 3,
-      "quote_decimals": 8,
-      "price_decimals": 6
-    },
-    {
       "ticker": "ATOMTRY",
       "base": "ATOM",
       "quote": "TRY",
@@ -6094,20 +5982,6 @@
       "base_decimals": 2,
       "quote_decimals": 8,
       "price_decimals": 4
-    },
-    {
-      "ticker": "XNOBTC",
-      "base": "XNO",
-      "quote": "BTC",
-      "base_external_id": "nano",
-      "quote_external_id": "bitcoin",
-      "minimum_base_size": "0.01",
-      "minimum_quote_size": "0.0001",
-      "maximum_base_size": "92141578.0",
-      "maximum_quote_size": "9000000.0",
-      "base_decimals": 2,
-      "quote_decimals": 8,
-      "price_decimals": 8
     },
     {
       "ticker": "XNOUSDT",
@@ -8532,20 +8406,6 @@
       "price_decimals": 4
     },
     {
-      "ticker": "GALAFDUSD",
-      "base": "GALA",
-      "quote": "FDUSD",
-      "base_external_id": "gala",
-      "quote_external_id": "first-digital-usd",
-      "minimum_base_size": "1.0",
-      "minimum_quote_size": "5.0",
-      "maximum_base_size": "92141578.0",
-      "maximum_quote_size": "9000000.0",
-      "base_decimals": 0,
-      "quote_decimals": 8,
-      "price_decimals": 5
-    },
-    {
       "ticker": "WLDFDUSD",
       "base": "WLD",
       "quote": "FDUSD",
@@ -10030,20 +9890,6 @@
       "price_decimals": 8
     },
     {
-      "ticker": "GRTFDUSD",
-      "base": "GRT",
-      "quote": "FDUSD",
-      "base_external_id": "the-graph",
-      "quote_external_id": "first-digital-usd",
-      "minimum_base_size": "1.0",
-      "minimum_quote_size": "5.0",
-      "maximum_base_size": "900000.0",
-      "maximum_quote_size": "9000000.0",
-      "base_decimals": 0,
-      "quote_decimals": 8,
-      "price_decimals": 5
-    },
-    {
       "ticker": "NEARUSDC",
       "base": "NEAR",
       "quote": "USDC",
@@ -10912,20 +10758,6 @@
       "price_decimals": 4
     },
     {
-      "ticker": "BBBTC",
-      "base": "BB",
-      "quote": "BTC",
-      "base_external_id": "bouncebit",
-      "quote_external_id": "bitcoin",
-      "minimum_base_size": "0.1",
-      "minimum_quote_size": "0.0001",
-      "maximum_base_size": "46116860414.0",
-      "maximum_quote_size": "9000000.0",
-      "base_decimals": 1,
-      "quote_decimals": 8,
-      "price_decimals": 8
-    },
-    {
       "ticker": "BBUSDT",
       "base": "BB",
       "quote": "USDT",
@@ -10938,20 +10770,6 @@
       "base_decimals": 1,
       "quote_decimals": 8,
       "price_decimals": 4
-    },
-    {
-      "ticker": "BBBNB",
-      "base": "BB",
-      "quote": "BNB",
-      "base_external_id": "bouncebit",
-      "quote_external_id": "binancecoin",
-      "minimum_base_size": "0.1",
-      "minimum_quote_size": "0.01",
-      "maximum_base_size": "46116860414.0",
-      "maximum_quote_size": "9000000.0",
-      "base_decimals": 1,
-      "quote_decimals": 8,
-      "price_decimals": 7
     },
     {
       "ticker": "BBTRY",
@@ -11400,20 +11218,6 @@
       "base_decimals": 1,
       "quote_decimals": 8,
       "price_decimals": 2
-    },
-    {
-      "ticker": "ZROBTC",
-      "base": "ZRO",
-      "quote": "BTC",
-      "base_external_id": "layerzero",
-      "quote_external_id": "bitcoin",
-      "minimum_base_size": "0.01",
-      "minimum_quote_size": "0.0001",
-      "maximum_base_size": "46116860414.0",
-      "maximum_quote_size": "9000000.0",
-      "base_decimals": 2,
-      "quote_decimals": 8,
-      "price_decimals": 8
     },
     {
       "ticker": "ZROUSDT",
@@ -13880,20 +13684,6 @@
       "price_decimals": 3
     },
     {
-      "ticker": "BERABTC",
-      "base": "BERA",
-      "quote": "BTC",
-      "base_external_id": "berachain-bera",
-      "quote_external_id": "bitcoin",
-      "minimum_base_size": "0.001",
-      "minimum_quote_size": "0.0001",
-      "maximum_base_size": "46116860414.0",
-      "maximum_quote_size": "9000000.0",
-      "base_decimals": 3,
-      "quote_decimals": 8,
-      "price_decimals": 8
-    },
-    {
       "ticker": "BERAUSDT",
       "base": "BERA",
       "quote": "USDT",
@@ -14188,20 +13978,6 @@
       "price_decimals": 4
     },
     {
-      "ticker": "KAITOFDUSD",
-      "base": "KAITO",
-      "quote": "FDUSD",
-      "base_external_id": "kaito",
-      "quote_external_id": "first-digital-usd",
-      "minimum_base_size": "0.1",
-      "minimum_quote_size": "5.0",
-      "maximum_base_size": "92141578.0",
-      "maximum_quote_size": "9000000.0",
-      "base_decimals": 1,
-      "quote_decimals": 8,
-      "price_decimals": 4
-    },
-    {
       "ticker": "KAITOTRY",
       "base": "KAITO",
       "quote": "TRY",
@@ -14396,20 +14172,6 @@
       "base_decimals": 1,
       "quote_decimals": 8,
       "price_decimals": 3
-    },
-    {
-      "ticker": "GPSBNB",
-      "base": "GPS",
-      "quote": "BNB",
-      "base_external_id": "goplus-security",
-      "quote_external_id": "binancecoin",
-      "minimum_base_size": "0.1",
-      "minimum_quote_size": "0.01",
-      "maximum_base_size": "46116860414.0",
-      "maximum_quote_size": "9000000.0",
-      "base_decimals": 1,
-      "quote_decimals": 8,
-      "price_decimals": 8
     },
     {
       "ticker": "REDUSDC",
@@ -15056,20 +14818,6 @@
       "price_decimals": 8
     },
     {
-      "ticker": "GUNFDUSD",
-      "base": "GUN",
-      "quote": "FDUSD",
-      "base_external_id": "gunz",
-      "quote_external_id": "first-digital-usd",
-      "minimum_base_size": "1.0",
-      "minimum_quote_size": "5.0",
-      "maximum_base_size": "913205152.0",
-      "maximum_quote_size": "9000000.0",
-      "base_decimals": 0,
-      "quote_decimals": 8,
-      "price_decimals": 5
-    },
-    {
       "ticker": "GUNTRY",
       "base": "GUN",
       "quote": "TRY",
@@ -15334,20 +15082,6 @@
       "base_decimals": 1,
       "quote_decimals": 8,
       "price_decimals": 4
-    },
-    {
-      "ticker": "KERNELBNB",
-      "base": "KERNEL",
-      "quote": "BNB",
-      "base_external_id": "kernel-2",
-      "quote_external_id": "binancecoin",
-      "minimum_base_size": "0.1",
-      "minimum_quote_size": "0.01",
-      "maximum_base_size": "46116860414.0",
-      "maximum_quote_size": "9000000.0",
-      "base_decimals": 1,
-      "quote_decimals": 8,
-      "price_decimals": 7
     },
     {
       "ticker": "KERNELTRY",
@@ -18066,20 +17800,6 @@
       "price_decimals": 2
     },
     {
-      "ticker": "NOMFDUSD",
-      "base": "NOM",
-      "quote": "FDUSD",
-      "base_external_id": "nomina",
-      "quote_external_id": "first-digital-usd",
-      "minimum_base_size": "1.0",
-      "minimum_quote_size": "5.0",
-      "maximum_base_size": "913205152.0",
-      "maximum_quote_size": "9000000.0",
-      "base_decimals": 0,
-      "quote_decimals": 8,
-      "price_decimals": 5
-    },
-    {
       "ticker": "NOMTRY",
       "base": "NOM",
       "quote": "TRY",
@@ -20366,6 +20086,104 @@
       "base": "ZAMA",
       "quote": "TRY",
       "base_external_id": "zama",
+      "quote_external_id": "TRY.FOREX",
+      "minimum_base_size": "1.0",
+      "minimum_quote_size": "10.0",
+      "maximum_base_size": "92141578.0",
+      "maximum_quote_size": "90000000.0",
+      "base_decimals": 0,
+      "quote_decimals": 8,
+      "price_decimals": 3
+    },
+    {
+      "ticker": "ASTERU",
+      "base": "ASTER",
+      "quote": "U",
+      "base_external_id": "aster-2",
+      "quote_external_id": "united-stables",
+      "minimum_base_size": "0.01",
+      "minimum_quote_size": "5.0",
+      "maximum_base_size": "92141578.0",
+      "maximum_quote_size": "9000000.0",
+      "base_decimals": 2,
+      "quote_decimals": 8,
+      "price_decimals": 3
+    },
+    {
+      "ticker": "PAXGUSD1",
+      "base": "PAXG",
+      "quote": "USD1",
+      "base_external_id": "pax-gold",
+      "quote_external_id": "usd1-wlfi",
+      "minimum_base_size": "0.0001",
+      "minimum_quote_size": "5.0",
+      "maximum_base_size": "9000.0",
+      "maximum_quote_size": "9000000.0",
+      "base_decimals": 4,
+      "quote_decimals": 8,
+      "price_decimals": 2
+    },
+    {
+      "ticker": "SUIU",
+      "base": "SUI",
+      "quote": "U",
+      "base_external_id": "sui",
+      "quote_external_id": "united-stables",
+      "minimum_base_size": "0.1",
+      "minimum_quote_size": "5.0",
+      "maximum_base_size": "92141578.0",
+      "maximum_quote_size": "9000000.0",
+      "base_decimals": 1,
+      "quote_decimals": 8,
+      "price_decimals": 4
+    },
+    {
+      "ticker": "XRPU",
+      "base": "XRP",
+      "quote": "U",
+      "base_external_id": "ripple",
+      "quote_external_id": "united-stables",
+      "minimum_base_size": "0.1",
+      "minimum_quote_size": "5.0",
+      "maximum_base_size": "9222449.0",
+      "maximum_quote_size": "9000000.0",
+      "base_decimals": 1,
+      "quote_decimals": 8,
+      "price_decimals": 4
+    },
+    {
+      "ticker": "ESPUSDT",
+      "base": "ESP",
+      "quote": "USDT",
+      "base_external_id": "espresso",
+      "quote_external_id": "tether",
+      "minimum_base_size": "1.0",
+      "minimum_quote_size": "5.0",
+      "maximum_base_size": "913205152.0",
+      "maximum_quote_size": "9000000.0",
+      "base_decimals": 0,
+      "quote_decimals": 8,
+      "price_decimals": 5
+    },
+    {
+      "ticker": "ESPUSDC",
+      "base": "ESP",
+      "quote": "USDC",
+      "base_external_id": "espresso",
+      "quote_external_id": "usd-coin",
+      "minimum_base_size": "1.0",
+      "minimum_quote_size": "5.0",
+      "maximum_base_size": "913205152.0",
+      "maximum_quote_size": "9000000.0",
+      "base_decimals": 0,
+      "quote_decimals": 8,
+      "price_decimals": 5
+    },
+    {
+      "ticker": "ESPTRY",
+      "base": "ESP",
+      "quote": "TRY",
+      "base_external_id": "espresso",
       "quote_external_id": "TRY.FOREX",
       "minimum_base_size": "1.0",
       "minimum_quote_size": "10.0",
