@@ -211,7 +211,7 @@ class Bot::OrderSetterTest < ActiveSupport::TestCase
 
   # == Missed quote amount buffer ==
 
-  test 'preserves pending amount when settings change' do
+  test 'caps missed_quote_amount at effective_quote_amount on settings change' do
     bot = create(:dca_single_asset, :started)
     create(:transaction, bot: bot, quote_amount_exec: 30, external_status: :closed, created_at: Time.current)
     bot.reload
@@ -219,11 +219,29 @@ class Bot::OrderSetterTest < ActiveSupport::TestCase
     assert_equal 70, bot.pending_quote_amount
 
     bot.set_missed_quote_amount
+    # Capped at effective_quote_amount (100.0) — 70 < 100, so 70 is preserved
     assert_equal 70, bot.missed_quote_amount
 
     bot.update!(settings: bot.settings.merge('quote_amount' => 200.0))
 
     assert_equal 70, bot.missed_quote_amount
+  end
+
+  test 'caps missed_quote_amount when switching to smaller effective amount' do
+    bot = create(:dca_single_asset, :started)
+    # No transactions — pending_quote_amount equals effective_quote_amount (100.0)
+    assert_equal 100.0, bot.pending_quote_amount
+
+    # Switch to smart intervals with a much smaller effective amount
+    bot.set_missed_quote_amount
+    bot.update!(settings: bot.settings.merge(
+      'smart_intervaled' => true,
+      'smart_interval_quote_amount' => 5.0
+    ))
+
+    # missed_quote_amount should be capped at the new effective_quote_amount (5.0),
+    # not carry forward the full 100.0
+    assert_equal 5.0, bot.missed_quote_amount
   end
 
   test 'clears missed_quote_amount on bot start' do

@@ -86,6 +86,9 @@ module Bot::Accountable
       raise 'Attempting to save settings with missed_quote_amount not set, call set_missed_quote_amount before saving'
     end
 
+    # Cap at the new effective_quote_amount to prevent accumulated debt from
+    # carrying through schedule changes (e.g. switching to smart intervals).
+    self.missed_quote_amount = [missed_quote_amount, effective_quote_amount].min
     self.missed_quote_amount_was_set = nil
   end
 end
