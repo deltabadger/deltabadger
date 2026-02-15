@@ -849,9 +849,10 @@ class Bots::DcaDualAssetTest < ActiveSupport::TestCase
     assert_equal 70, bot.pending_quote_amount
   end
 
-  test 'set_missed_quote_amount stores current pending_quote_amount' do
+  test 'set_missed_quote_amount caps at effective_quote_amount' do
     bot = create(:dca_dual_asset, :started)
     bot.set_missed_quote_amount
+    # pending_quote_amount <= effective_quote_amount, so it's preserved as-is
     assert_equal bot.pending_quote_amount, bot.missed_quote_amount
   end
 
