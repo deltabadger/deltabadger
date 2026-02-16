@@ -32,7 +32,7 @@ class Bot::ExportableTest < ActiveSupport::TestCase
 
   test 'orders_csv formats order type and side correctly' do
     create(:transaction, bot: @bot, order_type: :market_order, side: :buy,
-           external_status: :closed, status: :submitted)
+                         external_status: :closed, status: :submitted)
 
     rows = CSV.parse(@bot.reload.orders_csv, headers: true)
 
@@ -42,7 +42,7 @@ class Bot::ExportableTest < ActiveSupport::TestCase
 
   test 'orders_csv uses amount_exec when available' do
     create(:transaction, bot: @bot, amount: 1.0, amount_exec: 0.99,
-           external_status: :closed, status: :submitted)
+                         external_status: :closed, status: :submitted)
 
     rows = CSV.parse(@bot.reload.orders_csv, headers: true)
 
@@ -51,7 +51,7 @@ class Bot::ExportableTest < ActiveSupport::TestCase
 
   test 'orders_csv falls back to amount when amount_exec is nil' do
     create(:transaction, bot: @bot, amount: 1.0, amount_exec: nil,
-           external_status: :closed, status: :submitted)
+                         external_status: :closed, status: :submitted)
 
     rows = CSV.parse(@bot.reload.orders_csv, headers: true)
 
@@ -60,8 +60,8 @@ class Bot::ExportableTest < ActiveSupport::TestCase
 
   test 'orders_csv uses quote_amount_exec for value' do
     create(:transaction, bot: @bot, quote_amount: 50.0, quote_amount_exec: 49.5,
-           amount: 1.0, price: 50_000,
-           external_status: :closed, status: :submitted)
+                         amount: 1.0, price: 50_000,
+                         external_status: :closed, status: :submitted)
 
     rows = CSV.parse(@bot.reload.orders_csv, headers: true)
 
@@ -70,8 +70,8 @@ class Bot::ExportableTest < ActiveSupport::TestCase
 
   test 'orders_csv calculates value from amount * price when quote amounts nil' do
     create(:transaction, bot: @bot, quote_amount: nil, quote_amount_exec: nil,
-           amount: 0.001, price: 50_000,
-           external_status: :closed, status: :submitted)
+                         amount: 0.001, price: 50_000,
+                         external_status: :closed, status: :submitted)
 
     rows = CSV.parse(@bot.reload.orders_csv, headers: true)
 
@@ -82,7 +82,7 @@ class Bot::ExportableTest < ActiveSupport::TestCase
     @bot.user.update!(time_zone: 'Tokyo')
     freeze_time do
       create(:transaction, bot: @bot, external_status: :closed, status: :submitted,
-             created_at: Time.utc(2025, 1, 15, 12, 0, 0))
+                           created_at: Time.utc(2025, 1, 15, 12, 0, 0))
 
       rows = CSV.parse(@bot.reload.orders_csv, headers: true)
       timestamp = Time.zone.parse(rows.first['Timestamp'])
@@ -96,9 +96,9 @@ class Bot::ExportableTest < ActiveSupport::TestCase
 
   test 'import_orders_csv imports valid CSV' do
     csv = generate_csv([
-      ['2025-01-15 12:00:00', 'order-1', 'Market', 'Buy', '0.001', '50', '50000',
-       @bot.base_asset.symbol, @bot.quote_asset.symbol, 'closed']
-    ])
+                         ['2025-01-15 12:00:00', 'order-1', 'Market', 'Buy', '0.001', '50', '50000',
+                          @bot.base_asset.symbol, @bot.quote_asset.symbol, 'closed']
+                       ])
 
     result = @bot.import_orders_csv(csv)
 
@@ -110,9 +110,9 @@ class Bot::ExportableTest < ActiveSupport::TestCase
 
   test 'import_orders_csv creates transactions with correct attributes' do
     csv = generate_csv([
-      ['2025-01-15 12:00:00', 'order-1', 'Market', 'Buy', '0.001', '50', '50000',
-       'BTC', 'USD', 'closed']
-    ])
+                         ['2025-01-15 12:00:00', 'order-1', 'Market', 'Buy', '0.001', '50', '50000',
+                          'BTC', 'USD', 'closed']
+                       ])
 
     @bot.import_orders_csv(csv)
     txn = @bot.transactions.last
@@ -133,9 +133,9 @@ class Bot::ExportableTest < ActiveSupport::TestCase
 
   test 'import_orders_csv handles limit orders' do
     csv = generate_csv([
-      ['2025-01-15 12:00:00', 'order-1', 'Limit', 'Sell', '0.5', '25000', '50000',
-       'BTC', 'USD', 'closed']
-    ])
+                         ['2025-01-15 12:00:00', 'order-1', 'Limit', 'Sell', '0.5', '25000', '50000',
+                          'BTC', 'USD', 'closed']
+                       ])
 
     @bot.import_orders_csv(csv)
     txn = @bot.transactions.last
@@ -160,9 +160,9 @@ class Bot::ExportableTest < ActiveSupport::TestCase
 
   test 'import_orders_csv skips already imported orders' do
     csv = generate_csv([
-      ['2025-01-15 12:00:00', 'order-1', 'Market', 'Buy', '0.001', '50', '50000',
-       'BTC', 'USD', 'closed']
-    ])
+                         ['2025-01-15 12:00:00', 'order-1', 'Market', 'Buy', '0.001', '50', '50000',
+                          'BTC', 'USD', 'closed']
+                       ])
 
     @bot.import_orders_csv(csv)
     csv.rewind
@@ -176,9 +176,9 @@ class Bot::ExportableTest < ActiveSupport::TestCase
 
   test 'import_orders_csv skips currency mismatch rows' do
     csv = generate_csv([
-      ['2025-01-15 12:00:00', 'order-1', 'Market', 'Buy', '1', '3000', '3000',
-       'ETH', 'EUR', 'closed']
-    ])
+                         ['2025-01-15 12:00:00', 'order-1', 'Market', 'Buy', '1', '3000', '3000',
+                          'ETH', 'EUR', 'closed']
+                       ])
 
     result = @bot.import_orders_csv(csv)
 
@@ -189,13 +189,13 @@ class Bot::ExportableTest < ActiveSupport::TestCase
 
   test 'import_orders_csv skips non-closed orders' do
     csv = generate_csv([
-      ['2025-01-15 12:00:00', 'order-1', 'Market', 'Buy', '0.001', '50', '50000',
-       'BTC', 'USD', 'open'],
-      ['2025-01-15 12:00:00', 'order-2', 'Market', 'Buy', '0.001', '50', '50000',
-       'BTC', 'USD', 'cancelled'],
-      ['2025-01-15 12:00:00', 'order-3', 'Market', 'Buy', '0.001', '50', '50000',
-       'BTC', 'USD', 'closed']
-    ])
+                         ['2025-01-15 12:00:00', 'order-1', 'Market', 'Buy', '0.001', '50', '50000',
+                          'BTC', 'USD', 'open'],
+                         ['2025-01-15 12:00:00', 'order-2', 'Market', 'Buy', '0.001', '50', '50000',
+                          'BTC', 'USD', 'cancelled'],
+                         ['2025-01-15 12:00:00', 'order-3', 'Market', 'Buy', '0.001', '50', '50000',
+                          'BTC', 'USD', 'closed']
+                       ])
 
     result = @bot.import_orders_csv(csv)
 
@@ -226,11 +226,11 @@ class Bot::ExportableTest < ActiveSupport::TestCase
     Bot::UpdateMetricsJob.expects(:perform_later).with(@bot).once
 
     csv = generate_csv([
-      ['2025-01-15 12:00:00', 'order-1', 'Market', 'Buy', '0.001', '50', '50000',
-       'BTC', 'USD', 'closed'],
-      ['2025-01-15 12:00:00', 'order-2', 'Market', 'Buy', '0.002', '100', '50000',
-       'BTC', 'USD', 'closed']
-    ])
+                         ['2025-01-15 12:00:00', 'order-1', 'Market', 'Buy', '0.001', '50', '50000',
+                          'BTC', 'USD', 'closed'],
+                         ['2025-01-15 12:00:00', 'order-2', 'Market', 'Buy', '0.002', '100', '50000',
+                          'BTC', 'USD', 'closed']
+                       ])
 
     @bot.import_orders_csv(csv)
   end
@@ -240,9 +240,9 @@ class Bot::ExportableTest < ActiveSupport::TestCase
     Bot::UpdateMetricsJob.expects(:perform_later).never
 
     csv = generate_csv([
-      ['2025-01-15 12:00:00', 'order-1', 'Market', 'Buy', '0.001', '50', '50000',
-       'ETH', 'EUR', 'closed']
-    ])
+                         ['2025-01-15 12:00:00', 'order-1', 'Market', 'Buy', '0.001', '50', '50000',
+                          'ETH', 'EUR', 'closed']
+                       ])
 
     @bot.import_orders_csv(csv)
   end
@@ -251,15 +251,15 @@ class Bot::ExportableTest < ActiveSupport::TestCase
 
   test 'export then import preserves data' do
     create(:transaction, bot: @bot,
-           external_id: 'original-1', order_type: :market_order, side: :buy,
-           amount: 0.001, amount_exec: 0.001,
-           quote_amount: 50, quote_amount_exec: 50,
-           price: 50_000, base: 'BTC', quote: 'USD',
-           external_status: :closed, status: :submitted)
+                         external_id: 'original-1', order_type: :market_order, side: :buy,
+                         amount: 0.001, amount_exec: 0.001,
+                         quote_amount: 50, quote_amount_exec: 50,
+                         price: 50_000, base: 'BTC', quote: 'USD',
+                         external_status: :closed, status: :submitted)
 
     csv_content = @bot.reload.orders_csv
     other_bot = create(:dca_single_asset, user: @bot.user, exchange: @bot.exchange,
-                       base_asset: @bot.base_asset, quote_asset: @bot.quote_asset)
+                                          base_asset: @bot.base_asset, quote_asset: @bot.quote_asset)
     file = StringIO.new(csv_content)
 
     result = other_bot.import_orders_csv(file)
@@ -282,17 +282,17 @@ class Bot::ExportableTest < ActiveSupport::TestCase
     eth = Asset.find_by(symbol: 'ETH') || create(:asset, :ethereum)
     usd = Asset.find_by(symbol: 'USD') || create(:asset, :usd)
     dual_bot = create(:dca_dual_asset, base0_asset: btc, base1_asset: eth, quote_asset: usd,
-                      exchange: @bot.exchange)
+                                       exchange: @bot.exchange)
     base0 = dual_bot.base0_asset.symbol
     base1 = dual_bot.base1_asset.symbol
     quote = dual_bot.quote_asset.symbol
 
     csv = generate_csv([
-      ['2025-01-15 12:00:00', 'order-1', 'Market', 'Buy', '0.001', '50', '50000',
-       base0, quote, 'closed'],
-      ['2025-01-15 12:00:00', 'order-2', 'Market', 'Buy', '1', '3000', '3000',
-       base1, quote, 'closed']
-    ])
+                         ['2025-01-15 12:00:00', 'order-1', 'Market', 'Buy', '0.001', '50', '50000',
+                          base0, quote, 'closed'],
+                         ['2025-01-15 12:00:00', 'order-2', 'Market', 'Buy', '1', '3000', '3000',
+                          base1, quote, 'closed']
+                       ])
 
     result = dual_bot.import_orders_csv(csv)
 
