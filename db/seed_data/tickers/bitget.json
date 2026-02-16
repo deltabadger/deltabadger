@@ -1,8 +1,8 @@
 {
   "metadata": {
     "exchange_name_id": "bitget",
-    "count": 714,
-    "generated_at": "2026-02-12T23:19:58Z"
+    "count": 710,
+    "generated_at": "2026-02-16T16:00:12Z"
   },
   "data": [
     {
@@ -594,20 +594,6 @@
       "price_decimals": 4
     },
     {
-      "ticker": "ALTUSDT",
-      "base": "ALT",
-      "quote": "USDT",
-      "base_external_id": "altlayer",
-      "quote_external_id": "tether",
-      "minimum_base_size": "0.0",
-      "minimum_quote_size": "1.0",
-      "maximum_base_size": "900000000000000000000.0",
-      "maximum_quote_size": null,
-      "base_decimals": 2,
-      "quote_decimals": 7,
-      "price_decimals": 5
-    },
-    {
       "ticker": "ONDOUSDT",
       "base": "ONDO",
       "quote": "USDT",
@@ -914,20 +900,6 @@
       "base_decimals": 2,
       "quote_decimals": 5,
       "price_decimals": 3
-    },
-    {
-      "ticker": "ASTRUSDT",
-      "base": "ASTR",
-      "quote": "USDT",
-      "base_external_id": "astar",
-      "quote_external_id": "tether",
-      "minimum_base_size": "0.0",
-      "minimum_quote_size": "1.0",
-      "maximum_base_size": "900000000000000000000.0",
-      "maximum_quote_size": null,
-      "base_decimals": 0,
-      "quote_decimals": 5,
-      "price_decimals": 5
     },
     {
       "ticker": "VELOUSDT",
@@ -2974,6 +2946,20 @@
       "price_decimals": 5
     },
     {
+      "ticker": "FLUXUSDT",
+      "base": "FLUX",
+      "quote": "USDT",
+      "base_external_id": "zelcash",
+      "quote_external_id": "tether",
+      "minimum_base_size": "0.0",
+      "minimum_quote_size": "1.0",
+      "maximum_base_size": "900000000000000000000.0",
+      "maximum_quote_size": null,
+      "base_decimals": 3,
+      "quote_decimals": 7,
+      "price_decimals": 4
+    },
+    {
       "ticker": "ROSEUSDT",
       "base": "ROSE",
       "quote": "USDT",
@@ -3042,20 +3028,6 @@
       "base_decimals": 2,
       "quote_decimals": 7,
       "price_decimals": 5
-    },
-    {
-      "ticker": "GALFANUSDT",
-      "base": "GALFAN",
-      "quote": "USDT",
-      "base_external_id": "galatasaray-fan-token",
-      "quote_external_id": "tether",
-      "minimum_base_size": "0.0",
-      "minimum_quote_size": "1.0",
-      "maximum_base_size": "900000000000000000000.0",
-      "maximum_quote_size": null,
-      "base_decimals": 4,
-      "quote_decimals": 7,
-      "price_decimals": 3
     },
     {
       "ticker": "BTCUSDC",
@@ -4918,20 +4890,6 @@
       "base_decimals": 4,
       "quote_decimals": 8,
       "price_decimals": 4
-    },
-    {
-      "ticker": "MASAUSDT",
-      "base": "MASA",
-      "quote": "USDT",
-      "base_external_id": "masa-finance",
-      "quote_external_id": "tether",
-      "minimum_base_size": "0.0",
-      "minimum_quote_size": "1.0",
-      "maximum_base_size": "900000000000000000000.0",
-      "maximum_quote_size": null,
-      "base_decimals": 2,
-      "quote_decimals": 7,
-      "price_decimals": 5
     },
     {
       "ticker": "SAGAUSDT",
@@ -9330,20 +9288,6 @@
       "price_decimals": 5
     },
     {
-      "ticker": "DGRAMUSDT",
-      "base": "DGRAM",
-      "quote": "USDT",
-      "base_external_id": "datagram-network",
-      "quote_external_id": "tether",
-      "minimum_base_size": "0.0",
-      "minimum_quote_size": "1.0",
-      "maximum_base_size": "900000000000000000000.0",
-      "maximum_quote_size": null,
-      "base_decimals": 2,
-      "quote_decimals": 9,
-      "price_decimals": 7
-    },
-    {
       "ticker": "POWERUSDT",
       "base": "POWER",
       "quote": "USDT",
@@ -9596,6 +9540,20 @@
       "price_decimals": 6
     },
     {
+      "ticker": "VOOIUSDT",
+      "base": "VOOI",
+      "quote": "USDT",
+      "base_external_id": "vooi",
+      "quote_external_id": "tether",
+      "minimum_base_size": "0.0",
+      "minimum_quote_size": "1.0",
+      "maximum_base_size": "900000000000000000000.0",
+      "maximum_quote_size": null,
+      "base_decimals": 1,
+      "quote_decimals": 6,
+      "price_decimals": 5
+    },
+    {
       "ticker": "DNUSDT",
       "base": "DN",
       "quote": "USDT",
@@ -9650,20 +9608,6 @@
       "base_decimals": 2,
       "quote_decimals": 6,
       "price_decimals": 4
-    },
-    {
-      "ticker": "SPACEUSD1",
-      "base": "SPACE",
-      "quote": "USD1",
-      "base_external_id": "spacecoin-2",
-      "quote_external_id": "usd1-wlfi",
-      "minimum_base_size": "0.0",
-      "minimum_quote_size": "1.0",
-      "maximum_base_size": "900000000000000000000.0",
-      "maximum_quote_size": null,
-      "base_decimals": 1,
-      "quote_decimals": 7,
-      "price_decimals": 6
     },
     {
       "ticker": "WIFEUR",

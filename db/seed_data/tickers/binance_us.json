@@ -1,8 +1,8 @@
 {
   "metadata": {
     "exchange_name_id": "binance_us",
-    "count": 252,
-    "generated_at": "2026-02-12T23:19:58Z"
+    "count": 248,
+    "generated_at": "2026-02-16T16:00:12Z"
   },
   "data": [
     {
@@ -818,6 +818,20 @@
       "price_decimals": 5
     },
     {
+      "ticker": "OGNUSDT",
+      "base": "OGN",
+      "quote": "USDT",
+      "base_external_id": "origin-protocol",
+      "quote_external_id": "tether",
+      "minimum_base_size": "1.0",
+      "minimum_quote_size": "1.0",
+      "maximum_base_size": "900000.0",
+      "maximum_quote_size": "0.0",
+      "base_decimals": 0,
+      "quote_decimals": 8,
+      "price_decimals": 5
+    },
+    {
       "ticker": "GALAUSDT",
       "base": "GALA",
       "quote": "USDT",
@@ -886,6 +900,20 @@
       "base_decimals": 2,
       "quote_decimals": 8,
       "price_decimals": 2
+    },
+    {
+      "ticker": "WBTCBTC",
+      "base": "WBTC",
+      "quote": "BTC",
+      "base_external_id": "wrapped-bitcoin",
+      "quote_external_id": "bitcoin",
+      "minimum_base_size": "0.00001",
+      "minimum_quote_size": "0.0001",
+      "maximum_base_size": "92141578.0",
+      "maximum_quote_size": "0.0",
+      "base_decimals": 5,
+      "quote_decimals": 8,
+      "price_decimals": 4
     },
     {
       "ticker": "REQUSDT",
@@ -1448,20 +1476,6 @@
       "price_decimals": 4
     },
     {
-      "ticker": "FORTHUSDT",
-      "base": "FORTH",
-      "quote": "USDT",
-      "base_external_id": "ampleforth-governance-token",
-      "quote_external_id": "tether",
-      "minimum_base_size": "0.01",
-      "minimum_quote_size": "1.0",
-      "maximum_base_size": "90000.0",
-      "maximum_quote_size": "0.0",
-      "base_decimals": 2,
-      "quote_decimals": 8,
-      "price_decimals": 3
-    },
-    {
       "ticker": "ASTRUSDT",
       "base": "ASTR",
       "quote": "USDT",
@@ -1588,20 +1602,6 @@
       "price_decimals": 3
     },
     {
-      "ticker": "MASKUSDT",
-      "base": "MASK",
-      "quote": "USDT",
-      "base_external_id": "mask-network",
-      "quote_external_id": "tether",
-      "minimum_base_size": "0.1",
-      "minimum_quote_size": "1.0",
-      "maximum_base_size": "9222449.0",
-      "maximum_quote_size": "0.0",
-      "base_decimals": 1,
-      "quote_decimals": 8,
-      "price_decimals": 3
-    },
-    {
       "ticker": "BOSONUSDT",
       "base": "BOSON",
       "quote": "USDT",
@@ -1684,6 +1684,20 @@
       "base_decimals": 2,
       "quote_decimals": 8,
       "price_decimals": 3
+    },
+    {
+      "ticker": "DIAUSDT",
+      "base": "DIA",
+      "quote": "USDT",
+      "base_external_id": "dia-data",
+      "quote_external_id": "tether",
+      "minimum_base_size": "0.1",
+      "minimum_quote_size": "1.0",
+      "maximum_base_size": "922327.0",
+      "maximum_quote_size": "0.0",
+      "base_decimals": 1,
+      "quote_decimals": 8,
+      "price_decimals": 4
     },
     {
       "ticker": "BTCUSD",
@@ -2498,34 +2512,6 @@
       "price_decimals": 5
     },
     {
-      "ticker": "ADXUSDT",
-      "base": "ADX",
-      "quote": "USDT",
-      "base_external_id": "adex",
-      "quote_external_id": "tether",
-      "minimum_base_size": "1.0",
-      "minimum_quote_size": "1.0",
-      "maximum_base_size": "92141578.0",
-      "maximum_quote_size": "0.0",
-      "base_decimals": 0,
-      "quote_decimals": 8,
-      "price_decimals": 4
-    },
-    {
-      "ticker": "FORTUSDT",
-      "base": "FORT",
-      "quote": "USDT",
-      "base_external_id": "forta",
-      "quote_external_id": "tether",
-      "minimum_base_size": "1.0",
-      "minimum_quote_size": "1.0",
-      "maximum_base_size": "900000.0",
-      "maximum_quote_size": "0.0",
-      "base_decimals": 0,
-      "quote_decimals": 8,
-      "price_decimals": 4
-    },
-    {
       "ticker": "SUIUSDT",
       "base": "SUI",
       "quote": "USDT",
@@ -2820,20 +2806,6 @@
       "price_decimals": 3
     },
     {
-      "ticker": "EIGENUSDT",
-      "base": "EIGEN",
-      "quote": "USDT",
-      "base_external_id": "eigenlayer",
-      "quote_external_id": "tether",
-      "minimum_base_size": "0.01",
-      "minimum_quote_size": "1.0",
-      "maximum_base_size": "92141578.0",
-      "maximum_quote_size": "0.0",
-      "base_decimals": 2,
-      "quote_decimals": 8,
-      "price_decimals": 3
-    },
-    {
       "ticker": "MEUSDT",
       "base": "ME",
       "quote": "USDT",
@@ -2944,20 +2916,6 @@
       "base_decimals": 1,
       "quote_decimals": 8,
       "price_decimals": 5
-    },
-    {
-      "ticker": "JTOUSDT",
-      "base": "JTO",
-      "quote": "USDT",
-      "base_external_id": "jito-governance-token",
-      "quote_external_id": "tether",
-      "minimum_base_size": "0.1",
-      "minimum_quote_size": "1.0",
-      "maximum_base_size": "92141578.0",
-      "maximum_quote_size": "0.0",
-      "base_decimals": 1,
-      "quote_decimals": 8,
-      "price_decimals": 4
     },
     {
       "ticker": "ORCAUSDT",
@@ -3322,20 +3280,6 @@
       "base_decimals": 1,
       "quote_decimals": 8,
       "price_decimals": 4
-    },
-    {
-      "ticker": "MEWUSDT",
-      "base": "MEW",
-      "quote": "USDT",
-      "base_external_id": "cat-in-a-dogs-world",
-      "quote_external_id": "tether",
-      "minimum_base_size": "1.0",
-      "minimum_quote_size": "1.0",
-      "maximum_base_size": "46000000000.0",
-      "maximum_quote_size": "0.0",
-      "base_decimals": 0,
-      "quote_decimals": 8,
-      "price_decimals": 6
     },
     {
       "ticker": "SKYUSDT",
