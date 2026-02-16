@@ -110,6 +110,7 @@ module Bot::PriceDropLimitable
 
     high_result = ticker.get_high_of_last(duration: price_drop_limit_time_window_duration)
     return high_result if high_result.failure?
+    return Result::Success.new(false) unless high_result.data.present?
 
     if price_drop_limit_time_window_condition_satisfied?(price_result.data, high_result.data)
       if price_drop_limit_condition_met_at.nil?
