@@ -61,10 +61,11 @@ module Bot::Exportable
                        end
     bot_quote = quote_asset&.symbol&.upcase
 
-    imported_count = 0
     skipped_currency_mismatch = 0
     skipped_already_exists = 0
     existing_order_ids = Set.new(transactions.pluck(:external_id).compact)
+    now = Time.current
+    records = []
 
     rows.each do |row|
       csv_base = row['Base Asset']&.strip&.upcase
@@ -102,29 +103,28 @@ module Bot::Exportable
       value = row['Value'].to_d
       price = row['Price'].to_d
 
-      # Create the transaction
-      transactions.create!(
-        exchange: exchange,
+      records << {
+        bot_id: id,
+        exchange_id: exchange.id,
         external_id: order_id,
         created_at: timestamp,
+        updated_at: now,
         order_type: order_type,
         side: side,
-        amount: amount,
-        amount_exec: amount,
-        quote_amount: value,
-        quote_amount_exec: value,
-        price: price,
+        amount: amount.round(18),
+        amount_exec: amount.round(18),
+        quote_amount: value.round(18),
+        quote_amount_exec: value.round(18),
+        price: price.round(18),
         base: csv_base,
         quote: csv_quote,
         status: :submitted,
         external_status: :closed
-      )
-
-      imported_count += 1
+      }
     end
 
     # Provide detailed feedback
-    if imported_count.zero? && skipped_currency_mismatch.positive?
+    if records.empty? && skipped_currency_mismatch.positive?
       return {
         success: false,
         error: I18n.t('bot.details.stats.import_currency_mismatch',
@@ -133,7 +133,13 @@ module Bot::Exportable
       }
     end
 
-    { success: true, imported_count: imported_count, skipped_existing: skipped_already_exists }
+    # Bulk insert — single query, skips callbacks (no per-row broadcasts/jobs)
+    Transaction.insert_all(records) if records.any?
+
+    # Single metrics update after all rows are imported
+    Bot::UpdateMetricsJob.perform_later(self) if records.any?
+
+    { success: true, imported_count: records.size, skipped_existing: skipped_already_exists }
   rescue CSV::MalformedCSVError
     { success: false, error: I18n.t('bot.details.stats.import_malformed_csv') }
   rescue StandardError => e
