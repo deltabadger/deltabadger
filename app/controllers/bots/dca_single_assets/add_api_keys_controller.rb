@@ -23,6 +23,7 @@ class Bots::DcaSingleAssets::AddApiKeysController < ApplicationController
     @api_key = @bot.api_key
     @api_key.key = api_key_params[:key]
     @api_key.secret = api_key_params[:secret]
+    @api_key.passphrase = api_key_params[:passphrase]
     result = @api_key.get_validity
     @api_key.update_status!(result)
     if @api_key.correct?
@@ -39,6 +40,6 @@ class Bots::DcaSingleAssets::AddApiKeysController < ApplicationController
   private
 
   def api_key_params
-    params.require(:api_key).permit(:key, :secret)
+    params.require(:api_key).permit(:key, :secret, :passphrase)
   end
 end
