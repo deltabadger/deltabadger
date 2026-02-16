@@ -215,19 +215,34 @@ class MarketData
   end
 
   private_class_method def self.reconcile_ticker_conflicts!(exchange, ticker_records)
-    existing = Ticker.where(exchange_id: exchange.id).index_by { |t| [t.base_asset_id, t.quote_asset_id] }
-    return if existing.empty?
+    existing_tickers = Ticker.where(exchange_id: exchange.id)
+    return if existing_tickers.empty?
 
+    by_asset_pair = existing_tickers.index_by { |t| [t.base_asset_id, t.quote_asset_id] }
+    by_ticker = existing_tickers.index_by(&:ticker)
+
+    # Pass 1: same asset pair, different ticker string — update in place
     ticker_records.each do |record|
-      existing_ticker = existing[[record[:base_asset_id], record[:quote_asset_id]]]
-      next unless existing_ticker
+      existing = by_asset_pair[[record[:base_asset_id], record[:quote_asset_id]]]
+      next unless existing
 
       updates = {}
-      updates[:base] = record[:base] if existing_ticker.base != record[:base]
-      updates[:quote] = record[:quote] if existing_ticker.quote != record[:quote]
-      updates[:ticker] = record[:ticker] if existing_ticker.ticker != record[:ticker]
-      existing_ticker.update_columns(updates) if updates.any?
+      updates[:base] = record[:base] if existing.base != record[:base]
+      updates[:quote] = record[:quote] if existing.quote != record[:quote]
+      updates[:ticker] = record[:ticker] if existing.ticker != record[:ticker]
+      existing.update_columns(updates) if updates.any?
     end
+
+    # Pass 2: same ticker string, different asset pair — delete stale record so upsert can insert
+    stale_ids = []
+    ticker_records.each do |record|
+      existing = by_ticker[record[:ticker]]
+      next unless existing
+      next if existing.base_asset_id == record[:base_asset_id] && existing.quote_asset_id == record[:quote_asset_id]
+
+      stale_ids << existing.id
+    end
+    Ticker.where(id: stale_ids).delete_all if stale_ids.any?
   end
 
   def self.upsert_asset_attributes(asset_data)
