@@ -13,6 +13,7 @@ class User < ApplicationRecord
   has_many :exchanges, through: :api_keys
   has_many :bots
   has_many :transactions, through: :bots
+  has_many :rules, dependent: :destroy
 
   validates :name, presence: true, if: -> { new_record? }
   validate :validate_name, if: -> { new_record? || name_changed? }
