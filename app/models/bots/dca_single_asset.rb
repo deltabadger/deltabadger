@@ -25,7 +25,7 @@ class Bots::DcaSingleAsset < Bot
   include MovingAverageLimitable # decorators for: parse_params, started_at, execute_action, stop
   include IndicatorLimitable     # decorators for: parse_params, started_at, execute_action, stop
   include Fundable               # decorators for: execute_action
-  include Schedulable
+  include Automation::Schedulable
   include OrderCreator
   include Accountable
   include Exportable

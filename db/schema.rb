@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_02_08_114731) do
+ActiveRecord::Schema[8.1].define(version: 2026_02_17_100001) do
   create_table "api_keys", force: :cascade do |t|
     t.datetime "created_at", precision: nil, null: false
     t.bigint "exchange_id", null: false
@@ -144,6 +144,32 @@ ActiveRecord::Schema[8.1].define(version: 2026_02_08_114731) do
     t.index ["weight"], name: "index_indices_on_weight"
   end
 
+  create_table "rule_logs", force: :cascade do |t|
+    t.datetime "created_at", null: false
+    t.json "details", default: {}, null: false
+    t.string "message"
+    t.integer "rule_id", null: false
+    t.integer "status", default: 0, null: false
+    t.index ["rule_id", "created_at"], name: "index_rule_logs_on_rule_id_and_created_at"
+    t.index ["rule_id"], name: "index_rule_logs_on_rule_id"
+  end
+
+  create_table "rules", force: :cascade do |t|
+    t.string "address"
+    t.integer "asset_id"
+    t.datetime "created_at", null: false
+    t.integer "exchange_id"
+    t.json "settings", default: {}, null: false
+    t.integer "status", default: 0, null: false
+    t.string "type", null: false
+    t.datetime "updated_at", null: false
+    t.integer "user_id", null: false
+    t.index ["asset_id"], name: "index_rules_on_asset_id"
+    t.index ["exchange_id"], name: "index_rules_on_exchange_id"
+    t.index ["user_id", "type", "exchange_id", "asset_id"], name: "idx_rules_user_type_exchange_asset", unique: true
+    t.index ["user_id"], name: "index_rules_on_user_id"
+  end
+
   create_table "setting_flags", force: :cascade do |t|
     t.string "name"
     t.boolean "value"
@@ -243,6 +269,10 @@ ActiveRecord::Schema[8.1].define(version: 2026_02_08_114731) do
   add_foreign_key "exchange_assets", "assets"
   add_foreign_key "exchange_assets", "exchanges"
   add_foreign_key "fee_api_keys", "exchanges"
+  add_foreign_key "rule_logs", "rules"
+  add_foreign_key "rules", "assets"
+  add_foreign_key "rules", "exchanges"
+  add_foreign_key "rules", "users"
   add_foreign_key "tickers", "assets", column: "base_asset_id"
   add_foreign_key "tickers", "assets", column: "quote_asset_id"
   add_foreign_key "tickers", "exchanges"

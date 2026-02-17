@@ -31,6 +31,18 @@ Rails.application.routes.draw do
       post 'verify_two_factor', to: 'users/sessions#verify_two_factor'
     end
 
+    resources :rules, only: [:index]
+    namespace :rules do
+      resources :withdrawals, only: [:create, :update, :destroy] do
+        member do
+          get :confirm_destroy
+        end
+        collection do
+          resource :add_api_key, only: [:new, :create]
+        end
+      end
+    end
+
     namespace :settings do
       get '/', action: :index
       patch :update_password

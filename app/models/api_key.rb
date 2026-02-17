@@ -9,7 +9,7 @@ class ApiKey < ApplicationRecord
   validate :unique_for_user_exchange_and_key_type, on: :create
 
   enum :status, %i[pending_validation correct incorrect]
-  enum :key_type, %i[trading]
+  enum :key_type, %i[trading withdrawal]
 
   scope :for_bot, lambda { |user_id, exchange_id, key_type = 'trading'|
     where(user_id: user_id, exchange_id: exchange_id, key_type: key_type)

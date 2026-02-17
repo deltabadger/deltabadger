@@ -1,4 +1,4 @@
-module Labelable
+module Automation::Labelable
   extend ActiveSupport::Concern
 
   included do
