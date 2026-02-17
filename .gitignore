@@ -36,10 +36,8 @@
 /app/assets/builds/*
 !/app/assets/builds/.keep
 
-# Yarn/npm
-yarn-error.log
-yarn-debug.log*
-.yarn-integrity
+# npm
+npm-debug.log*
 
 # Rails
 /config/master.key

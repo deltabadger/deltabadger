@@ -80,6 +80,7 @@ en:
         about: About
         telegram: 'Telegram'
         create_account: 'Create free account'
+        bot: Bot
         dashboard: Dashboard
         homepage: 'Link to the homepage'
         log_in: 'Log in'
