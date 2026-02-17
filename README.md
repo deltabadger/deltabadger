@@ -156,19 +156,13 @@ rails s
 Terminal 2 — JavaScript bundler (optional, for live reloading):
 
 ```bash
-yarn build --watch
+npm run build:watch
 ```
 
 ### Running tests
 
 ```bash
-bundle exec rspec
-```
-
-Auto-run tests on file changes:
-
-```bash
-bundle exec guard -c
+bin/rails test
 ```
 
 ---
