@@ -1,4 +1,4 @@
-module DomIdable
+module Automation::DomIdable
   extend ActiveSupport::Concern
 
   # mocks the dom_id method of ActionView::RecordIdentifier

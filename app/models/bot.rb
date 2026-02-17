@@ -1,55 +1,25 @@
 class Bot < ApplicationRecord
-  belongs_to :exchange, optional: true
+  include Automation::Statusable
+  include Automation::Configurable
+  include Automation::Executable
+  include Automation::ExchangeConnectable
+  include Automation::Dryable # decorators for: api_key
+  include Automation::Labelable
+  include Automation::DomIdable
+
+  include Typeable
+  include Rankable
+  include Notifyable
+  include ExchangeUser
+
   belongs_to :user
   has_many :transactions, dependent: :destroy
 
-  enum :status, %i[created scheduled stopped deleted executing retrying waiting]
-
-  scope :working, -> { where(status: %i[scheduled executing retrying waiting]) }
-
-  include Dryable # decorators for: api_key
-  include Typeable
-  include Labelable
-  include Rankable
-  include Notifyable
-  include DomIdable
-  include ExchangeUser
-
-  before_save :update_settings_changed_at, if: :will_save_change_to_settings?
   before_save :store_previous_exchange_id
   after_update_commit :broadcast_status_bar_update, if: -> { saved_change_to_status? && !@skip_status_bar_broadcast }
   after_update_commit :broadcast_status_button_update, if: :saved_change_to_status?
   after_update_commit :broadcast_columns_lock_update, if: :saved_change_to_status?
   after_update_commit -> { Bot::UpdateMetricsJob.perform_later(self) if custom_exchange_id_changed? }
-
-  def working?
-    scheduled? || executing? || retrying? || waiting?
-  end
-
-  def api_key_type
-    raise NotImplementedError, "#{self.class} must implement api_key_type"
-  end
-
-  def parse_params(params)
-    raise NotImplementedError, "#{self.class.name} must implement parse_params"
-  end
-
-  def start(start_fresh: true)
-    raise NotImplementedError, "#{self.class.name} must implement start"
-  end
-
-  def stop(stop_message_key: nil)
-    raise NotImplementedError, "#{self.class.name} must implement stop"
-  end
-
-  def delete
-    raise NotImplementedError, "#{self.class.name} must implement delete"
-  end
-
-  def api_key
-    @api_key ||= user.api_keys.find_by(exchange_id:, key_type: api_key_type) ||
-                 user.api_keys.new(exchange_id:, key_type: api_key_type, status: :pending_validation)
-  end
 
   def last_transaction
     transactions.where(transaction_type: 'REGULAR').order(created_at: :desc).limit(1).last
@@ -65,11 +35,6 @@ class Bot < ApplicationRecord
 
   def total_amount
     transactions.submitted.sum(:amount)
-  end
-
-  def destroy
-    self.status = 'deleted'
-    save(validate: false)
   end
 
   def broadcast_status_bar_update
@@ -177,13 +142,5 @@ class Bot < ApplicationRecord
 
   def custom_exchange_id_changed?
     exchange_id != @previous_exchange_id
-  end
-
-  def update_settings_changed_at
-    # FIXME: Required because we are using store_accessor and will_save_change_to_settings?
-    # always returns true, at least in Rails 6.0
-    return if settings_was == settings
-
-    self.settings_changed_at = Time.current
   end
 end
