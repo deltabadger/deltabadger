@@ -1,4 +1,4 @@
-module Bot::Dryable
+module Automation::Dryable
   extend ActiveSupport::Concern
 
   included do
