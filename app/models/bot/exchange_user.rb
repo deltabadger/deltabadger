@@ -54,11 +54,4 @@ module Bot::ExchangeUser
       exchange.limit_sell(ticker: ticker, amount: amount, amount_type: amount_type, price: price)
     end
   end
-
-  private
-
-  def with_api_key
-    exchange.set_client(api_key: api_key) if exchange.present? && (exchange.api_key.blank? || exchange.api_key != api_key)
-    yield
-  end
 end
