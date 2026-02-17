@@ -15,17 +15,17 @@ RUN apt-get update -qq && \
     rm -rf /var/lib/apt/lists/*
 
 # Copy package files
-COPY package.json yarn.lock ./
+COPY package.json package-lock.json ./
 
 # Install Node dependencies
-RUN yarn install --frozen-lockfile --network-timeout 100000
+RUN npm ci
 
 # Copy frontend source files
 COPY app/javascript ./app/javascript
 COPY app/assets ./app/assets
 
 # Build JavaScript with esbuild
-RUN yarn build
+RUN npm run build
 
 # Stage 2: Build Ruby dependencies and compile assets
 FROM ruby:3.4.8-slim AS builder
@@ -54,7 +54,7 @@ RUN apt-get update -qq && \
 # Install Node 20.x for dartsass-rails and esbuild for jsbundling
 RUN curl -fsSL https://deb.nodesource.com/setup_20.x | bash - && \
     apt-get install -y nodejs && \
-    npm install -g yarn esbuild
+    npm install -g esbuild
 
 # Copy Gemfile first for caching
 COPY Gemfile Gemfile.lock ./
@@ -80,8 +80,7 @@ RUN mkdir -p /app/tmp/cache/assets /app/tmp/pids /app/log
 ENV PATH="/app/node_modules/.bin:$PATH"
 
 # Precompile assets - all ENV.fetch calls need placeholder values during build
-RUN YARN_CACHE_FOLDER=/tmp/yarn-cache \
-    SECRET_KEY_BASE=placeholder \
+RUN SECRET_KEY_BASE=placeholder \
     RAILS_ENV=production \
     APP_ROOT_URL=http://localhost:3000 \
     HOME_PAGE_URL=http://localhost:3000 \

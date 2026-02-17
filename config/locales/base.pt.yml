@@ -79,6 +79,7 @@ pt:
         about: 'Sobre'
         telegram: 'Telegram'
         create_account: 'Criar conta gratuita'
+        bot: Bot
         dashboard: Painel
         homepage: 'Ligação para a página inicial'
         log_in: 'Entrar'

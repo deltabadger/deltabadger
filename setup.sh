@@ -40,7 +40,7 @@ echo "Installing Ruby gems..."
 bundle install
 
 echo "Installing Node packages..."
-yarn install || npm install
+npm install
 
 # Setup database
 echo "Setting up database..."

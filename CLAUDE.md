@@ -20,14 +20,14 @@ Deltabadger is an open-source Dollar Cost Averaging (DCA) bot for cryptocurrency
 ```bash
 bin/setup              # Install dependencies and prepare database
 bundle install         # Install Ruby gems
-yarn install          # Install Node packages
+npm install           # Install Node packages
 ```
 
 ### Running the App
 ```bash
 bin/dev               # Start all services (Rails + JS bundler + CSS watcher)
 rails s               # Rails server only (background jobs run in-process)
-yarn build:watch      # JavaScript bundler with live reload
+npm run build:watch   # JavaScript bundler with live reload
 bin/rails dartsass:watch  # CSS watcher
 ```
 
@@ -65,8 +65,8 @@ docker compose logs -f              # View logs
 
 ### Tauri Desktop App
 ```bash
-yarn tauri dev                      # Run in dev mode
-yarn tauri build                    # Build production app
+npm run tauri:dev                   # Run in dev mode
+npm run tauri:build                 # Build production app
 ./setup.sh                          # First-time setup (macOS/Linux)
 ./start.sh                          # Start app (macOS/Linux)
 ```

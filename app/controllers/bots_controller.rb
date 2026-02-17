@@ -6,8 +6,11 @@ class BotsController < ApplicationController
   before_action :set_bot, only: %i[show edit update]
 
   def index
+    non_deleted_bots = current_user.bots.not_deleted
+    redirect_to bot_path(non_deleted_bots.first) and return if non_deleted_bots.size == 1
+
     @filter = params[:filter] || 'all'
-    @bots = current_user.bots.not_deleted.includes(:exchange)
+    @bots = non_deleted_bots.includes(:exchange)
     case @filter
     when 'active'
       @bots = @bots.working

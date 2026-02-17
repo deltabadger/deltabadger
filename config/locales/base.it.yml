@@ -79,6 +79,7 @@ it:
         about: Chi siamo
         telegram: 'Telegram'
         create_account: 'Crea account gratuito'
+        bot: Bot
         dashboard: Dashboard
         homepage: 'Link alla homepage'
         log_in: 'Accedi'

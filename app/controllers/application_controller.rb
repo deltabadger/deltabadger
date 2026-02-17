@@ -5,6 +5,14 @@ class ApplicationController < ActionController::Base
   before_action :set_no_cache, if: :user_signed_in?
   around_action :switch_locale
 
+  helper_method :single_bot_mode?
+
+  def single_bot_mode?
+    return @single_bot_mode if defined?(@single_bot_mode)
+
+    @single_bot_mode = user_signed_in? && current_user.bots.not_deleted.size == 1
+  end
+
   def switch_locale(&action)
     # Only update user's locale if they explicitly chose one (via language dropdown)
     # Otherwise, use their saved preference

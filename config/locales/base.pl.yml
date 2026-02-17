@@ -81,6 +81,7 @@ pl:
         about: 'O nas'
         telegram: 'Telegram'
         create_account: 'Stwórz darmowe konto'
+        bot: Bot
         dashboard: Pulpit
         homepage: 'Link do strony głównej'
         log_in: Logowanie

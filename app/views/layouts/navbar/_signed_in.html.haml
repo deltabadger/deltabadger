@@ -4,8 +4,13 @@
 .hamburger.hamburger__b
 
 .menu-mobile
-  = link_to bots_path, class: "menu-mobile__item menu-mobile__item--dashboard #{'menu-mobile__item--active' if current_page?(bots_path)}", data: { controller: 'tooltip', action: 'mouseenter->tooltip#showTooltip mouseleave->tooltip#hideTooltip' } do
-    = t('links.dashboard')
+  - if single_bot_mode?
+    - single_bot_path = bot_path(current_user.bots.not_deleted.first)
+    = link_to single_bot_path, class: "menu-mobile__item menu-mobile__item--dashboard #{'menu-mobile__item--active' if current_page?(single_bot_path)}", data: { controller: 'tooltip', action: 'mouseenter->tooltip#showTooltip mouseleave->tooltip#hideTooltip' } do
+      = t('links.bot')
+  - else
+    = link_to bots_path, class: "menu-mobile__item menu-mobile__item--dashboard #{'menu-mobile__item--active' if current_page?(bots_path)}", data: { controller: 'tooltip', action: 'mouseenter->tooltip#showTooltip mouseleave->tooltip#hideTooltip' } do
+      = t('links.dashboard')
 
   = link_to settings_path, class: "menu-mobile__item menu-mobile__item--settings #{'menu-mobile__item--active' if current_page?(settings_path)}", data: { controller: 'tooltip', action: 'mouseenter->tooltip#showTooltip mouseleave->tooltip#hideTooltip' } do
     = t('links.settings')
@@ -19,15 +24,22 @@
 .menu
   .menu__section.menu__section--top.menu__section--logo
 
-    = link_to bots_path, class: 'menu__logo' do
+    = link_to (single_bot_mode? ? bot_path(current_user.bots.not_deleted.first) : bots_path), class: 'menu__logo' do
       = render 'svg/40x30_logo'
 
   .menu__section.menu__section--top.menu__section--main-menu
 
-    = link_to bots_path, class: "menu__item menu__item--dashboard #{'menu__item--active' if current_page?(bots_path)}", data: { controller: 'tooltip', action: 'mouseenter->tooltip#showTooltip mouseleave->tooltip#hideTooltip' } do
-      = render 'svg/24x24_dashboard'
-      .tooltip
-        = t('links.dashboard')
+    - if single_bot_mode?
+      - single_bot_path = bot_path(current_user.bots.not_deleted.first)
+      = link_to single_bot_path, class: "menu__item menu__item--dashboard #{'menu__item--active' if current_page?(single_bot_path)}", data: { controller: 'tooltip', action: 'mouseenter->tooltip#showTooltip mouseleave->tooltip#hideTooltip' } do
+        = render 'svg/24x24_dashboard'
+        .tooltip
+          = t('links.bot')
+    - else
+      = link_to bots_path, class: "menu__item menu__item--dashboard #{'menu__item--active' if current_page?(bots_path)}", data: { controller: 'tooltip', action: 'mouseenter->tooltip#showTooltip mouseleave->tooltip#hideTooltip' } do
+        = render 'svg/24x24_dashboard'
+        .tooltip
+          = t('links.dashboard')
 
     = link_to settings_path, class: "menu__item menu__item--settings #{'menu__item--active' if current_page?(settings_path)}", data: { controller: 'tooltip', action: 'mouseenter->tooltip#showTooltip mouseleave->tooltip#hideTooltip' } do
       = render 'svg/24x24_account'

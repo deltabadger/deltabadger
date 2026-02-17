@@ -79,6 +79,7 @@ nl:
         about: 'Over ons'
         telegram: 'Telegram'
         create_account: 'Gratis account aanmaken'
+        bot: Bot
         dashboard: Dashboard
         homepage: 'Link naar de homepagina'
         log_in: Aanmelden
