@@ -1,0 +1,47 @@
+<%= form_with model: rule, url: rules_withdrawal_path(rule), method: :patch,
+              class: "widget bot-settings #{rule.active? ? "bot-settings--active" : "bot-settings--inactive"}",
+              data: {
+                controller: "class-toggle form--submit",
+                class_toggle_target: "togglable",
+                class_toggle_toggle_classes_value: ["bot-settings--active", "bot-settings--inactive"],
+                turbo_stream: true
+              } do |f| %>
+  <div class="toggle-group">
+    <div class="toggle">
+      <%= f.check_box :status, { checked: rule.active?, data: { action: "change->form--submit#submit change->class-toggle#toggle" } }, "active", "inactive" %>
+      <div class="toggle__style"></div>
+    </div>
+    <div class="toggle-group__info">
+      <div class="toggle-group__info__label">
+        <div class="conversational conversational--small">
+          <b><%= t('rules.tile.withdrawal') %></b>
+          <span><%= t('rules.withdrawals.sentence.withdraw_all') %></span>
+          <span class="ticker" style="background: <%= ensure_contrast(rule.asset.color || "#8A9BA8") %>"><%= rule.asset.symbol %></span>
+          <span><%= t('rules.withdrawals.sentence.from') %></span>
+          <span class="sbutton sbutton--exchange sbutton--exchange--<%= rule.exchange.name_id %>">
+            <%= render "svg/exchange-#{rule.exchange.name_id}", title: rule.exchange.name %>
+            <span class="hide-on-mobile"><%= rule.exchange.name %></span>
+          </span>
+          <span><%= t('rules.withdrawals.sentence.to') %></span>
+          <span class="rule-tile__address" title="<%= rule.address %>"><code><%= truncate(rule.address, length: 12) %></code></span>
+          <span><%= t('rules.withdrawals.sentence.when_fee_not_more_than') %></span>
+          <span><b><%= rule.max_fee_percentage %>%</b></span>
+          <span><%= t('rules.withdrawals.sentence.of_the_amount') %></span>
+        </div>
+      </div>
+      <% if rule.minimum_withdrawal_amount %>
+        <div class="small-info">
+          <%= t('rules.tile.min_amount_info',
+                fee: rule.exchange.withdrawal_fee,
+                symbol: rule.asset.symbol,
+                amount: rule.minimum_withdrawal_amount) %>
+        </div>
+      <% end %>
+    </div>
+  </div>
+  <div class="rule-tile__footer">
+    <%= link_to confirm_destroy_rules_withdrawal_path(rule), data: { turbo_frame: "modal" }, class: "sbutton sbutton--danger sbutton--small" do %>
+      <%= t('button.delete') %>
+    <% end %>
+  </div>
+<% end %>
