@@ -24,6 +24,7 @@ en:
         add: 'Add'
         remove: 'Remove'
         start: 'Start'
+        next: 'Next'
         connect: 'Connect'
         understand: 'Got it!'
         get_started: 'Get Started'
@@ -216,25 +217,32 @@ en:
                 description: 'Auto-withdraw assets when balance exceeds a threshold.'
         withdrawals:
             sentence:
-                withdraw_all: 'Withdraw all'
+                withdraw_all: 'Withdraw'
                 from: 'from'
                 to: 'to'
-                when_fee_not_more_than: 'when the fee is not more than'
-                of_the_amount: '% of the amount.'
+                when_fee_not_more_than: 'Keep fees below'
+                of_the_amount: '%'
             form:
                 submit: 'Create Rule'
                 submitting: 'Creating…'
             confirm_destroy:
                 message: 'Do you want to delete this withdrawal rule?'
+            confirm_settings:
+                min_amount_html: 'Based on current prices and rates, the rule will withdraw <b>%{symbol}</b> when there is <b>%{amount} %{symbol}</b> on the account.'
         tile:
             withdrawal: 'Withdrawal'
-            min_amount_info: 'With fee %{fee} %{symbol}, withdraw when balance reaches %{amount} %{symbol}.'
+            min_amount_info: 'Based on the current fee of %{fee} %{symbol}, the withdrawal will be triggered when the balance reaches %{amount} %{symbol}.'
         logs:
             title: 'Rule Logs'
             date: 'Date'
             status: 'Status'
             message: 'Message'
             empty: 'No logs yet.'
+        add_address:
+            label: 'Withdrawal address'
+            placeholder: 'Paste address here…'
+            instructions_title: 'Adding a withdrawal address on %{exchange}'
+            warning_html: 'Make sure this is a <b>%{symbol}</b> address on the correct network. Sending to the wrong address or network will result in permanent loss of funds.'
         add_api_key:
             title: 'Add withdrawal API key for %{exchange}'
             instructions_title: 'How to get keys from %{exchange}'

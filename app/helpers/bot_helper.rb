@@ -118,6 +118,10 @@ module BotHelper
     render_instructions_from('withdrawal_api', exchange)
   end
 
+  def render_withdrawal_address_instructions(exchange)
+    render_instructions_from('withdrawal_address', exchange)
+  end
+
   def whitelist_ip_for(exchange)
     return nil unless exchange.present?
 

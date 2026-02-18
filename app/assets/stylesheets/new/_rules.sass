@@ -1,18 +1,9 @@
 @use "variables" as *
 
-.rule-tile__footer
-    display: flex
-    justify-content: flex-end
-    margin-top: 1rem
-
-.rule-tile__address code
-    font-size: 0.9em
-
 .rule-logs
-    margin-top: 3rem
     &__empty
         color: var(--concrete)
-        font-size: 1.75rem
+        text-align: center
 
 .rule-log-status
     font-size: 1.5rem
@@ -24,3 +15,55 @@
         color: var(--danger)
     &--pending
         color: var(--ash)
+
+.rules
+    display: grid
+    grid-template-columns: 1fr
+    gap: 1rem
+    @media (min-width: 768px)
+        grid-template-columns: 1fr 1fr
+
+
+.conversational-column
+    display: flex
+    flex-direction: column
+    gap: 2rem
+
+.rule
+    .toggle-group__controls
+        display: flex
+        flex-direction: column
+        gap: 1rem
+    .sbutton--danger
+        min-width: 0 !important
+        width: 4.25rem !important
+        @media (min-width: 768px)
+            width: 5rem !important
+    .sinput,.tag,.sbutton,.ticker
+        height: 3rem !important
+        line-height: 3rem !important
+    .ticker
+        min-width: 9rem
+    &--active
+        .conversational,.label,.small-info
+            color: var(--ink) !important
+        .sinput
+            color: var(--link) !important
+            font-weight: 600 !important    // color: var(--ash) !important
+            &:disabled,&[disabled],&--disabled
+                color: var(--stone) !important
+        .sbutton--exchange
+            background: none !important
+            margin: 0 !important
+            padding: 0 !important
+            box-shadow: none !important
+    &--inactive
+        box-shadow: none
+        background: none
+        .conversational,.sinput,.label
+            color: var(--label-select-inactive) !important
+        .sinput
+            background: var(--silver)
+        .sbutton--exchange,.tag--address
+            background: var(--washed) !important
+        

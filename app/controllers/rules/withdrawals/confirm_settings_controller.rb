@@ -6,15 +6,19 @@ class Rules::Withdrawals::ConfirmSettingsController < ApplicationController
     @asset = Asset.find_by(id: @rule_config['asset_id'])
     @exchange = Exchange.find_by(id: @rule_config['exchange_id'])
 
+    @address = @rule_config['address']
+
     if @asset.blank?
       redirect_to new_rules_withdrawals_pick_asset_path
     elsif @exchange.blank?
       redirect_to new_rules_withdrawals_pick_exchange_path
+    elsif @address.blank?
+      redirect_to new_rules_withdrawals_add_address_path
     else
       @rule = Rules::Withdrawal.new(
         asset: @asset,
         exchange: @exchange,
-        address: @rule_config['address'],
+        address: @address,
         max_fee_percentage: @rule_config['max_fee_percentage']
       )
     end
@@ -47,6 +51,6 @@ class Rules::Withdrawals::ConfirmSettingsController < ApplicationController
   private
 
   def rule_params
-    params.permit(:address, :max_fee_percentage)
+    params.permit(:max_fee_percentage)
   end
 end
