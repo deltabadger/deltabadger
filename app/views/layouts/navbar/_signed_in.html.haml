@@ -45,7 +45,7 @@
           = t('links.dashboard')
 
     = link_to rules_path, class: "menu__item menu__item--rules #{'menu__item--active' if current_page?(rules_path)}", data: { controller: 'tooltip', action: 'mouseenter->tooltip#showTooltip mouseleave->tooltip#hideTooltip' } do
-      = render 'svg/24x24_rules'
+      = render 'svg/24x24_withdrawal'
       .tooltip
         = t('links.rules')
 
