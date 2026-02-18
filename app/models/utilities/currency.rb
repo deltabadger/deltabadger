@@ -94,7 +94,7 @@ module Utilities
       end
 
       def fiat_to_fiat_rate(from, to)
-        result = coingecko.get_exchange_rates
+        result = MarketData.get_exchange_rates
         return result if result.failure?
 
         rates = result.data
@@ -115,7 +115,7 @@ module Utilities
         coin_id = coingecko_id_for(crypto_symbol, crypto_asset)
         return Result::Failure.new("No CoinGecko ID found for #{crypto_symbol}") if coin_id.nil?
 
-        result = coingecko.get_price(coin_id: coin_id, currency: fiat_symbol.downcase)
+        result = MarketData.get_price(coin_id: coin_id, currency: fiat_symbol.downcase)
         return result if result.failure?
 
         Result::Success.new(result.data)
@@ -150,10 +150,6 @@ module Utilities
 
         # Use asset's external_id if available
         asset&.external_id
-      end
-
-      def coingecko
-        MarketData.coingecko
       end
 
       FIAT_SYMBOLS = %w[

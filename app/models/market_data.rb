@@ -120,6 +120,37 @@ class MarketData
     end
   end
 
+  def self.get_price(coin_id:, currency: 'usd')
+    case MarketDataSettings.current_provider
+    when MarketDataSettings::PROVIDER_COINGECKO
+      coingecko.get_price(coin_id: coin_id, currency: currency)
+    when MarketDataSettings::PROVIDER_DELTABADGER
+      result = client.get_prices(coin_ids: [coin_id], vs_currencies: [currency])
+      return result if result.failure?
+
+      price = result.data.dig('data', coin_id, currency)
+      return Result::Failure.new("Price not found for #{coin_id} in #{currency}") if price.nil?
+
+      Result::Success.new(price)
+    else
+      Result::Failure.new('No market data provider configured')
+    end
+  end
+
+  def self.get_exchange_rates
+    case MarketDataSettings.current_provider
+    when MarketDataSettings::PROVIDER_COINGECKO
+      coingecko.get_exchange_rates
+    when MarketDataSettings::PROVIDER_DELTABADGER
+      result = client.get_exchange_rates
+      return result if result.failure?
+
+      Result::Success.new(result.data['data'])
+    else
+      Result::Failure.new('No market data provider configured')
+    end
+  end
+
   # Import methods — used by both db/seeds.rb (JSON files) and live sync (data-api HTTP)
 
   def self.import_assets!(assets_data)

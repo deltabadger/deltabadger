@@ -150,11 +150,8 @@ class Asset < ApplicationRecord
 
   def get_price(currency: 'usd')
     return Result::Failure.new('Asset is not a cryptocurrency') if category != 'Cryptocurrency'
-    return Result::Failure.new('CoinGecko API key not configured') unless AppConfig.coingecko_configured?
+    return Result::Failure.new('No market data provider configured') unless MarketData.configured?
 
-    result = MarketData.coingecko.get_price(coin_id: external_id, currency: currency)
-    return result if result.failure?
-
-    Result::Success.new(result.data)
+    MarketData.get_price(coin_id: external_id, currency: currency)
   end
 end
