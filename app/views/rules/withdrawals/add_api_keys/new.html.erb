@@ -1,0 +1,44 @@
+<% asset_color = ensure_contrast(@asset&.color || "#8A9BA8") %>
+
+<%= render layout: 'layouts/modal/full_page', locals: { close_url: rules_path } do %>
+  <div class="bot-creation-layout">
+    <%= render "bots/new_step_progress_bar", current_step: :api, steps: { pick_asset: 25, pick_exchange: 50, api: 75, settings: 100 } %>
+
+    <div class="conversational conversational--bot-setup">
+      <%= t('rules.withdrawals.sentence.withdraw_all') %>
+      <%= link_to @asset.symbol, new_rules_withdrawals_pick_asset_path, data: { turbo_frame: "modal_content" }, class: "ticker", style: "background: #{asset_color}" %>
+      <%= t('rules.withdrawals.sentence.from') %>
+      <%= link_to new_rules_withdrawals_pick_exchange_path, data: { turbo_frame: "modal_content" }, class: "sbutton sbutton--exchange sbutton--exchange--#{@exchange.name_id}" do %>
+        <%= render "svg/exchange-#{@exchange.name_id}", title: @exchange.name %>
+        <span class="hide-on-mobile"><%= @exchange.name %></span>
+      <% end %>
+    </div>
+
+    <div class="set-api widget">
+      <div class="set-api__form">
+        <h2 class="set-api__header"><%= t('bot.add_api_keys', exchange: @exchange.name) %></h2>
+        <%= form_with model: @api_key, url: rules_withdrawals_add_api_key_path(exchange_id: @exchange.id), method: :post, data: { controller: "form--label-animations form--html5-validations", turbo_frame: 'modal_content' }, class: "form" do |f| %>
+          <div class="form__row form__row--input">
+            <%= f.text_field :key, autofocus: true, data: { controller: "autofocus" }, class: "form__input form__input--large", rows: 3 %>
+            <%= f.label :key, "API Key", class: "form__label" %>
+          </div>
+          <div class="form__row form__row--input">
+            <%= f.text_field :secret, class: "form__input form__input--large", rows: 3 %>
+            <%= f.label :secret, "API Secret", class: "form__label" %>
+          </div>
+          <% if @exchange.requires_passphrase? %>
+            <div class="form__row form__row--input">
+              <%= f.text_field :passphrase, class: "form__input form__input--large" %>
+              <%= f.label :passphrase, "API Passphrase", class: "form__label" %>
+            </div>
+          <% end %>
+          <%= f.submit t('button.connect'), class: "button button--success button--large", data: { turbo_stream: true, turbo_submits_with: t('bot.setup.validating') } %>
+        <% end %>
+      </div>
+      <div class="set-api__instructions">
+        <h2 class="set-api__header"><%= t('bot.setup.how_to_get_keys', exchange: @exchange.name) %></h2>
+        <%= render_withdrawal_api_key_instructions(@exchange) %>
+      </div>
+    </div>
+  </div>
+<% end %>

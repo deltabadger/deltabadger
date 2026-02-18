@@ -88,6 +88,7 @@ en:
         menu: Menu
         earn: 'Earn'
         resend_link: 'Resend link'
+        rules: Rules
         settings: Settings
         sign_up: 'Sign up'
     settings:
@@ -206,6 +207,38 @@ en:
         all: 'All'
         active: 'Active'
         inactive: 'Inactive'
+    rules:
+        index:
+            title: 'Rules'
+        types:
+            withdrawal:
+                title: 'Withdrawal Rule'
+                description: 'Auto-withdraw assets when balance exceeds a threshold.'
+        withdrawals:
+            sentence:
+                withdraw_all: 'Withdraw all'
+                from: 'from'
+                to: 'to'
+                when_fee_not_more_than: 'when the fee is not more than'
+                of_the_amount: '% of the amount.'
+            form:
+                submit: 'Create Rule'
+                submitting: 'Creating…'
+            confirm_destroy:
+                message: 'Do you want to delete this withdrawal rule?'
+        tile:
+            withdrawal: 'Withdrawal'
+            min_amount_info: 'With fee %{fee} %{symbol}, withdraw when balance reaches %{amount} %{symbol}.'
+        logs:
+            title: 'Rule Logs'
+            date: 'Date'
+            status: 'Status'
+            message: 'Message'
+            empty: 'No logs yet.'
+        add_api_key:
+            title: 'Add withdrawal API key for %{exchange}'
+            instructions_title: 'How to get keys from %{exchange}'
+            instructions_body: 'Create a withdrawal-enabled API key on %{exchange} and paste the credentials here.'
     order_filters:
         all: 'All'
         successful: 'Successful'

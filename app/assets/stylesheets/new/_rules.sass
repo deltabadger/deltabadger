@@ -1,0 +1,26 @@
+@use "variables" as *
+
+.rule-tile__footer
+    display: flex
+    justify-content: flex-end
+    margin-top: 1rem
+
+.rule-tile__address code
+    font-size: 0.9em
+
+.rule-logs
+    margin-top: 3rem
+    &__empty
+        color: var(--concrete)
+        font-size: 1.75rem
+
+.rule-log-status
+    font-size: 1.5rem
+    font-weight: 600
+    text-transform: uppercase
+    &--success
+        color: var(--success)
+    &--failed
+        color: var(--danger)
+    &--pending
+        color: var(--ash)

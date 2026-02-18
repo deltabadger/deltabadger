@@ -1,0 +1,19 @@
+<%= render 'layouts/modal/base' do %>
+  <div class="modal">
+    <%= button_tag type: 'button', class: 'modal__close', data: { action: 'modal--base#animateOutCloseAndCleanUp' } do %>
+      <%= render partial: 'svg/24x24_close' %>
+    <% end %>
+    <div class="modal__header">
+      <h1 class="modal__title"><%= @rule.asset.symbol %> — <%= @rule.exchange.name %></h1>
+    </div>
+    <div class="modal__body text-center">
+      <p><%= t('rules.withdrawals.confirm_destroy.message') %></p>
+      <div class="buttons buttons--row--2">
+        <%= button_tag type: 'button', class: 'button button--outline button--large', data: { action: 'modal--base#animateOutCloseAndCleanUp' } do %>
+          <%= t('button.cancel') %>
+        <% end %>
+        <%= button_to t('button.delete'), rules_withdrawal_path(@rule), method: :delete, class: 'button button--danger button--large', data: { turbo_stream: true, action: 'modal--base#animateOutCloseAndCleanUp' } %>
+      </div>
+    </div>
+  </div>
+<% end %>

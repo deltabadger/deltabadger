@@ -11,6 +11,9 @@ en:
                 schedule: "Set schedule"
                 coingecko: "Connect CoinGecko"
                 index: "Pick index"
+                pick_asset: "Pick asset"
+                pick_exchange: "Pick exchange"
+                settings: "Settings"
             sentence:
                 invest_in: "Invest in"
                 and: "and"
