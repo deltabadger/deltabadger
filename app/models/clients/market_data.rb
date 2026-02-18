@@ -32,6 +32,22 @@ class Clients::MarketData < Client
     end
   end
 
+  def get_prices(coin_ids:, vs_currencies:)
+    with_rescue do
+      response = connection.get('api/v1/prices') do |req|
+        req.params = { coin_ids: coin_ids.join(','), vs_currencies: vs_currencies.join(',') }
+      end
+      Result::Success.new(response.body)
+    end
+  end
+
+  def get_exchange_rates
+    with_rescue do
+      response = connection.get('api/v1/exchange_rates')
+      Result::Success.new(response.body)
+    end
+  end
+
   private
 
   def connection
