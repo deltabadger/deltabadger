@@ -12,7 +12,7 @@ class Rules::Withdrawals::AddApiKeysController < ApplicationController
     end
 
     if Rails.configuration.dry_run
-      redirect_to new_rules_withdrawals_confirm_settings_path
+      redirect_to new_rules_withdrawals_add_address_path
       return
     end
 
@@ -23,7 +23,7 @@ class Rules::Withdrawals::AddApiKeysController < ApplicationController
       @api_key.update_status!(result)
     end
 
-    redirect_to new_rules_withdrawals_confirm_settings_path if @api_key.correct?
+    redirect_to new_rules_withdrawals_add_address_path if @api_key.correct?
   end
 
   def create
@@ -39,7 +39,7 @@ class Rules::Withdrawals::AddApiKeysController < ApplicationController
     @api_key.update_status!(result)
 
     if @api_key.correct?
-      render turbo_stream: turbo_stream_redirect(new_rules_withdrawals_confirm_settings_path)
+      render turbo_stream: turbo_stream_redirect(new_rules_withdrawals_add_address_path)
     elsif @api_key.incorrect?
       flash.now[:alert] = t('errors.incorrect_api_key_permissions')
       render turbo_stream: turbo_stream_prepend_flash, status: :unprocessable_entity

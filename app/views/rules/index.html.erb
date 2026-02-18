@@ -19,11 +19,14 @@
     </div>
   </div>
 
-  <div class="itiles">
-    <% @withdrawal_rules.each do |rule| %>
-      <%= render partial: 'rules/rule_tile', locals: { rule: rule } %>
-    <% end %>
-  </div>
+  <div class="rules">
 
-  <%= render partial: 'rules/rule_logs', locals: { rule_logs: @rule_logs } %>
+    <div class="rules-list">
+      <% @withdrawal_rules.each do |rule| %>
+        <%= render partial: 'rules/rule_tile', locals: { rule: rule } %>
+      <% end %>
+    </div>
+
+    <%= render partial: 'rules/rule_logs', locals: { rule_logs: @rule_logs } %>
+  </div>
 <% end %>

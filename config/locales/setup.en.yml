@@ -13,6 +13,7 @@ en:
                 index: "Pick index"
                 pick_asset: "Pick asset"
                 pick_exchange: "Pick exchange"
+                address: "Address"
                 settings: "Settings"
             sentence:
                 invest_in: "Invest in"
