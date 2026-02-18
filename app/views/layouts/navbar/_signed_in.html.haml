@@ -12,6 +12,9 @@
     = link_to bots_path, class: "menu-mobile__item menu-mobile__item--dashboard #{'menu-mobile__item--active' if current_page?(bots_path)}", data: { controller: 'tooltip', action: 'mouseenter->tooltip#showTooltip mouseleave->tooltip#hideTooltip' } do
       = t('links.dashboard')
 
+  = link_to rules_path, class: "menu-mobile__item menu-mobile__item--rules #{'menu-mobile__item--active' if current_page?(rules_path)}", data: { controller: 'tooltip', action: 'mouseenter->tooltip#showTooltip mouseleave->tooltip#hideTooltip' } do
+    = t('links.rules')
+
   = link_to settings_path, class: "menu-mobile__item menu-mobile__item--settings #{'menu-mobile__item--active' if current_page?(settings_path)}", data: { controller: 'tooltip', action: 'mouseenter->tooltip#showTooltip mouseleave->tooltip#hideTooltip' } do
     = t('links.settings')
 
@@ -40,6 +43,11 @@
         = render 'svg/24x24_dashboard'
         .tooltip
           = t('links.dashboard')
+
+    = link_to rules_path, class: "menu__item menu__item--rules #{'menu__item--active' if current_page?(rules_path)}", data: { controller: 'tooltip', action: 'mouseenter->tooltip#showTooltip mouseleave->tooltip#hideTooltip' } do
+      = render 'svg/24x24_rules'
+      .tooltip
+        = t('links.rules')
 
     = link_to settings_path, class: "menu__item menu__item--settings #{'menu__item--active' if current_page?(settings_path)}", data: { controller: 'tooltip', action: 'mouseenter->tooltip#showTooltip mouseleave->tooltip#hideTooltip' } do
       = render 'svg/24x24_account'

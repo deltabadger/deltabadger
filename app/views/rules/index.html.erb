@@ -1,0 +1,29 @@
+<% if @withdrawal_rules.empty? %>
+  <div class="menu-start">
+    <div class="introtiles">
+      <%= link_to new_rules_withdrawals_pick_asset_path, class: 'itile itile--bot-type', data: { turbo_frame: "modal" } do %>
+        <div class="ticker" style="background-color: #8A9BA8"></div>
+        <div class="index-title"><%= t('rules.types.withdrawal.title') %></div>
+        <div class="index-info"><%= t('rules.types.withdrawal.description') %></div>
+      <% end %>
+    </div>
+  </div>
+<% else %>
+  <div class="page-head">
+    <h1 class="page-head__title"><%= t('rules.index.title') %></h1>
+    <div>
+      <%= link_to new_rules_withdrawals_pick_asset_path, class: "sbutton sbutton--sky", data: { turbo_frame: "modal" } do %>
+        <span class="d-none d-sm-inline"><%= t('button.add') %></span>
+        <%= render partial: 'svg/24x24_plus' %>
+      <% end %>
+    </div>
+  </div>
+
+  <div class="itiles">
+    <% @withdrawal_rules.each do |rule| %>
+      <%= render partial: 'rules/rule_tile', locals: { rule: rule } %>
+    <% end %>
+  </div>
+
+  <%= render partial: 'rules/rule_logs', locals: { rule_logs: @rule_logs } %>
+<% end %>

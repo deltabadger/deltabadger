@@ -111,13 +111,11 @@ module BotHelper
   end
 
   def render_api_key_instructions(bot)
-    exchange_key = bot.exchange.name_id
-    exchange_name = bot.exchange.name
-    whitelist_ip = whitelist_ip_html_for(exchange_key)
-    instructions = t("bot.api.#{exchange_key}.instructions")
-    content_tag(:ol, class: 'set__list') do
-      instructions.map { |instruction| render_instruction(instruction, exchange_name, whitelist_ip) }.join.html_safe
-    end
+    render_instructions_from('bot.api', bot.exchange)
+  end
+
+  def render_withdrawal_api_key_instructions(exchange)
+    render_instructions_from('withdrawal_api', exchange)
   end
 
   def whitelist_ip_for(exchange)
@@ -141,6 +139,16 @@ module BotHelper
   end
 
   private
+
+  def render_instructions_from(locale_prefix, exchange)
+    exchange_key = exchange.name_id
+    exchange_name = exchange.name
+    whitelist_ip = whitelist_ip_html_for(exchange_key)
+    instructions = t("#{locale_prefix}.#{exchange_key}.instructions")
+    content_tag(:ol, class: 'set__list') do
+      instructions.map { |instruction| render_instruction(instruction, exchange_name, whitelist_ip) }.join.html_safe
+    end
+  end
 
   def render_instruction(instruction, exchange_name, whitelist_ip = nil, level = 1)
     text = instruction[:text_html]
