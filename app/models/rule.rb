@@ -5,6 +5,4 @@ class Rule < ApplicationRecord
   has_many :rule_logs, dependent: :destroy
 
   enum :status, %i[inactive active]
-
-  scope :active, -> { where(status: :active) }
 end
