@@ -126,10 +126,11 @@
             box-shadow: var(--shadow-basic)
     &--exchange
         align-items: center
-        color: #fff !important
         cursor: pointer
         min-width: fit-content
         padding: 0 1.5rem 0 1rem !important
+        background: var(--washed) !important
+        box-shadow: var(--shadow-basic)
         @media only screen and (max-width: 768px)
             padding: 0 2rem 0 1.5rem !important
         svg
@@ -137,21 +138,44 @@
             height: 2.5rem
             max-width: 2.5rem
             min-width: 2.5rem
-            path
-                fill: #fff !important
+        &--binance,&--binance_us
+            color: #f3bb30 !important
+            svg path
+                fill: #f3bb30 !important
         &--kraken
-            background: #7133f5 !important
+            color: #7133f5 !important
+            svg path
+                fill: #7133f5 !important
         &--coinbase
-            background: #0052ff !important
+            color: #0052ff !important
+            svg path
+                fill: #0052ff !important
             @media (min-width: 768px)
                 padding-left: 1rem
-        &--binance,&--binance_us
-            background: var(--washed) !important
-            color: #f3bb30 !important
-            box-shadow: var(--shadow-basic)
-            svg
-                path
-                    fill: #f3bb30 !important
+        &--bitget
+            color: #00f0ff !important
+            svg path
+                fill: #00f0ff !important
+        &--bitvavo
+            color: #004dff !important
+            svg path
+                fill: #004dff !important
+        &--bybit
+            color: #f7a600 !important
+            svg path
+                fill: #f7a600 !important
+        &--gemini
+            color: #00dcfa !important
+            svg path
+                fill: #00dcfa !important
+        &--kucoin
+            color: #23af91 !important
+            svg path
+                fill: #23af91 !important
+        &--mexc
+            color: #2354e6 !important
+            svg path
+                fill: #2354e6 !important
     &--outline
         background: var(--washed)
         border: 0.25rem solid var(--link)
