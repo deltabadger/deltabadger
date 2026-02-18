@@ -11,6 +11,11 @@ class Rules::Withdrawals::AddApiKeysController < ApplicationController
       return
     end
 
+    if Rails.configuration.dry_run
+      redirect_to new_rules_withdrawals_confirm_settings_path
+      return
+    end
+
     @api_key = current_user.api_keys.find_or_initialize_by(exchange: @exchange, key_type: :withdrawal)
 
     if @api_key.persisted? && @api_key.key.present? && @api_key.secret.present? && !@api_key.correct?
