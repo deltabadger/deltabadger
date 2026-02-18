@@ -41,8 +41,9 @@ Rails.application.routes.draw do
       namespace :withdrawals do
         resource :pick_asset, only: %i[new create]
         resource :pick_exchange, only: %i[new create]
-        resource :confirm_settings, only: %i[new create]
         resource :add_api_key, only: %i[new create]
+        resource :add_address, only: %i[new create]
+        resource :confirm_settings, only: %i[new create]
       end
     end
 

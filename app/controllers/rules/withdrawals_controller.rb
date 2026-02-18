@@ -27,6 +27,6 @@ class Rules::WithdrawalsController < ApplicationController
   end
 
   def update_params
-    params.require(:rules_withdrawal).permit(:status)
+    params.require(:rules_withdrawal).permit(:status, :max_fee_percentage)
   end
 end

@@ -61,10 +61,10 @@
             height: auto
             background: none
             padding: 0
-    .main-bot-settings
+    .main-rule
         padding-top: 4rem
         padding-bottom: 4rem
-        &.main-bot-settings--dual-asset
+        &.main-rule--dual-asset
             padding-bottom: var(--ui-padding)
         @media (min-width: 768px)
             padding-top: 4.5rem
@@ -135,29 +135,6 @@
         margin-bottom: 0
     strong
         color: var(--ink)
-    &.bot-settings
-        .conversational
-            .sinput
-                height: 3rem !important
-                line-height: 3rem !important
-        &--active
-            .conversational,.label,.small-info
-                color: var(--ink) !important
-            .sinput
-                color: var(--link) !important
-                font-weight: 600 !important    // color: var(--ash) !important
-                &:disabled,&[disabled],&--disabled
-                    color: var(--stone) !important
-
-        &--inactive
-            box-shadow: none
-            background: none
-            .conversational,.sinput,.label
-                color: var(--label-select-inactive) !important
-            .sinput
-                background: var(--silver)
-            .icon-24 path
-                fill: var(--label-select-inactive) !important
 
 .backtests--warning
     .widget--chart, .data-grid__item
@@ -166,10 +143,10 @@
 .bot-locked
     .big-header--traders,.toggle,.index-settings
         display: none
-    .main-bot-settings
+    .main-rule
         .conversational
             color: var(--ash) !important
-    .widget.bot-settings
+    .widget.rule
         &--active
             .toggle__style
                 background-color: var(--steel) !important

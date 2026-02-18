@@ -1,0 +1,88 @@
+en:
+    withdrawal_address:
+        binance: &binance_address_config
+            instructions:
+                -   text_html: 'Log into your %{exchange_link} account.'
+                -   text_html: 'Go to <a href="https://www.binance.com/en/my/wallet/account/main/withdrawal/crypto/"><b>Wallet</b> → <b>Withdraw</b></a>.'
+                -   text_html: 'Select the coin you want to withdraw.'
+                -   text_html: 'Choose the correct <b>network</b> for the withdrawal.'
+                -   text_html: 'Paste your destination wallet address.'
+                    sub_instructions:
+                        -   text_html: 'If you have enabled the withdrawal address whitelist, make sure this address is added to your <a href="https://www.binance.com/en/my/settings/address-management"><b>Address Management</b></a>.'
+                -   text_html: 'Copy the exact wallet <b>address</b> and paste it into the form above.'
+        binance_us: *binance_address_config
+        coinbase:
+            instructions:
+                -   text_html: 'Log into your %{exchange_link} account.'
+                -   text_html: 'Go to <b>Send & Receive</b> → <b>Send</b>.'
+                -   text_html: 'Select the asset you want to send.'
+                -   text_html: 'Enter the destination wallet address.'
+                    sub_instructions:
+                        -   text_html: 'You can save it to your <b>Address Book</b> for easier management.'
+                -   text_html: 'Copy the exact wallet <b>address</b> and paste it into the form above.'
+        kraken:
+            instructions:
+                -   text_html: 'Log into your %{exchange_link} account.'
+                -   text_html: 'Go to <a href="https://www.kraken.com/u/funding/withdraw"><b>Funding</b> → <b>Withdraw</b></a>.'
+                -   text_html: 'Select the asset you want to withdraw.'
+                -   text_html: 'Click <b>Add address</b> and enter your destination wallet address.'
+                    sub_instructions:
+                        -   text_html: 'Give it a recognizable <b>description</b> (e.g. "My Ledger BTC").'
+                        -   text_html: '<strong>⚠️ Important:</strong> Kraken uses the address <b>description</b> (label) to identify withdrawal destinations, not the address itself.'
+                -   text_html: 'Copy the address <b>description</b> you assigned and paste it into the form above.'
+        bitget:
+            instructions:
+                -   text_html: 'Log into your %{exchange_link} account.'
+                -   text_html: 'Go to <a href="https://www.bitget.com/asset/withdraw"><b>Assets</b> → <b>Withdraw</b></a>.'
+                -   text_html: 'Select the coin you want to withdraw.'
+                -   text_html: 'Choose the correct <b>chain/network</b>.'
+                -   text_html: 'Enter the destination wallet address.'
+                    sub_instructions:
+                        -   text_html: 'You can save it to your <b>Address Book</b> for future use.'
+                -   text_html: 'Copy the exact wallet <b>address</b> and paste it into the form above.'
+        kucoin:
+            instructions:
+                -   text_html: 'Log into your %{exchange_link} account.'
+                -   text_html: 'Go to <a href="https://www.kucoin.com/assets/withdraw"><b>Assets</b> → <b>Withdraw</b></a>.'
+                -   text_html: 'Select the coin you want to withdraw.'
+                -   text_html: 'Choose the correct <b>network</b>.'
+                -   text_html: 'Enter the destination wallet address.'
+                    sub_instructions:
+                        -   text_html: 'You can add it to your <b>Address Book</b> for future withdrawals.'
+                -   text_html: 'Copy the exact wallet <b>address</b> and paste it into the form above.'
+        bybit:
+            instructions:
+                -   text_html: 'Log into your %{exchange_link} account.'
+                -   text_html: 'Go to <a href="https://www.bybit.com/user/assets/home/withdraw"><b>Assets</b> → <b>Withdraw</b></a>.'
+                -   text_html: 'Select the coin you want to withdraw.'
+                -   text_html: 'Choose the correct <b>chain type</b>.'
+                -   text_html: 'Enter the destination wallet address.'
+                    sub_instructions:
+                        -   text_html: 'You can save it to your <b>Address Book</b> for easier management.'
+                -   text_html: 'Copy the exact wallet <b>address</b> and paste it into the form above.'
+        mexc:
+            instructions:
+                -   text_html: 'Log into your %{exchange_link} account.'
+                -   text_html: 'Go to <a href="https://www.mexc.com/assets/withdraw"><b>Assets</b> → <b>Withdraw</b></a>.'
+                -   text_html: 'Select the coin you want to withdraw.'
+                -   text_html: 'Choose the correct <b>network</b>.'
+                -   text_html: 'Enter the destination wallet address.'
+                -   text_html: 'Copy the exact wallet <b>address</b> and paste it into the form above.'
+        gemini:
+            instructions:
+                -   text_html: 'Log into your %{exchange_link} account.'
+                -   text_html: 'Go to <a href="https://exchange.gemini.com/settings/addresses"><b>Settings</b> → <b>Approved Addresses</b></a>.'
+                -   text_html: 'Click <b>Add Address</b> and select the correct asset.'
+                -   text_html: 'Enter the destination wallet address and give it a label.'
+                    sub_instructions:
+                        -   text_html: '<strong>⚠️ Important:</strong> Gemini requires a waiting period before you can withdraw to a newly approved address.'
+                -   text_html: 'Copy the exact wallet <b>address</b> and paste it into the form above.'
+        bitvavo:
+            instructions:
+                -   text_html: 'Log into your %{exchange_link} account.'
+                -   text_html: 'Go to your portfolio and select the asset you want to withdraw.'
+                -   text_html: 'Click <b>Withdraw</b>.'
+                -   text_html: 'Enter the destination wallet address.'
+                    sub_instructions:
+                        -   text_html: 'You can whitelist the address for added security.'
+                -   text_html: 'Copy the exact wallet <b>address</b> and paste it into the form above.'
