@@ -1,6 +1,8 @@
 pl:
     bot:
         add_api_keys: "Dodaj klucze API dla %{exchange}"
+        fees: "Opłaty"
+        withdrawal_fee: "Wypłata"
         bot_name: "Nazwa bota"
         new: "Nowy bot"
         dca_index:
@@ -125,7 +127,6 @@ pl:
                 portfolio_value: 'Wartość portfela'
         for: za
         force_smart_intervals_html: '<b>Inteligentne Interwały</b> · Kupuj za pomocą zleceń o wartości <split>100$</split> %{currency} każde.'
-        feecutter_html: '<b>FeeCutter</b> · Zmniejsz opłaty za pomocą zleceń z limitem'
         hour: godzinę
         limit_buy: 'Kup z limitem'
         limit_sell: 'Sprzedaj z limitem'

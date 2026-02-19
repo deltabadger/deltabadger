@@ -23,6 +23,17 @@ class Clients::Bitget < Client
     end
   end
 
+  # https://www.bitget.com/api-doc/spot/public/get-coins
+  def get_coins
+    with_rescue do
+      response = self.class.connection.get do |req|
+        req.url '/api/v2/spot/public/coins'
+        req.headers = unauthenticated_headers
+      end
+      Result::Success.new(response.body)
+    end
+  end
+
   # https://www.bitget.com/api-doc/spot/market/Get-Symbols
   def get_symbols
     with_rescue do
@@ -146,6 +157,33 @@ class Clients::Bitget < Client
     with_rescue do
       path = '/api/v2/spot/trade/cancel-order'
       body = { orderId: order_id }
+      response = self.class.connection.post do |req|
+        req.url path
+        req.headers = authenticated_headers('POST', path, body: body.to_json)
+        req.body = body
+      end
+      Result::Success.new(response.body)
+    end
+  end
+
+  # https://www.bitget.com/api-doc/spot/account/Wallet-Withdrawal
+  # @param coin [String] Coin name (e.g., "BTC")
+  # @param transfer_type [String] on_chain
+  # @param address [String] Withdrawal address
+  # @param size [String] Withdrawal amount
+  # @param chain [String] Chain name (e.g., "BTC")
+  # @param tag [String] Optional tag/memo
+  def withdraw(coin:, address:, size:, chain:, transfer_type: 'on_chain', tag: nil)
+    with_rescue do
+      path = '/api/v2/spot/wallet/withdrawal'
+      body = {
+        coin: coin,
+        transferType: transfer_type,
+        address: address,
+        size: size,
+        chain: chain,
+        tag: tag
+      }.compact
       response = self.class.connection.post do |req|
         req.url path
         req.headers = authenticated_headers('POST', path, body: body.to_json)

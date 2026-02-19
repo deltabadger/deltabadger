@@ -1,5 +1,5 @@
 <%= form_with model: rule, url: rules_withdrawal_path(rule), method: :patch,
-              class: "widget rule #{rule.active? ? "rule--active" : "rule--inactive"}",
+              class: "widget rule #{rule.scheduled? ? "rule--active" : "rule--inactive"}",
               data: {
                 controller: "class-toggle form--submit",
                 class_toggle_target: "togglable",
@@ -9,10 +9,10 @@
   <div class="toggle-group">
     <div class="toggle-group__controls">
       <div class="toggle">
-        <%= f.check_box :status, { checked: rule.active?, data: { action: "change->form--submit#submit change->class-toggle#toggle" } }, "active", "inactive" %>
+        <%= f.check_box :status, { checked: rule.scheduled?, data: { action: "change->form--submit#submit change->class-toggle#toggle" } }, "scheduled", "stopped" %>
         <div class="toggle__style"></div>
       </div>
-      <% if rule.inactive? %>
+      <% if rule.stopped? %>
       <%= link_to confirm_destroy_rules_withdrawal_path(rule), data: { turbo_frame: "modal" }, class: "sbutton sbutton--danger sbutton--small" do %>
             <%= render partial: 'svg/24x24_close_small' %>
           <% end %>
@@ -31,11 +31,17 @@
             </span>
             <span><%= t('rules.withdrawals.sentence.to') %></span>
             <span class="tag tag--address"><%= render 'svg/16x16_wallet' %><%= rule.address %></span>
+            <% if rule.network.present? %>
+              <span class="tag"><%= rule.network %></span>
+            <% end %>
+            <% if rule.address_tag.present? %>
+              <span class="tag"><%= t('rules.tile.memo') %>: <%= rule.address_tag %></span>
+            <% end %>
           </div>
           <div class="conversational conversational--small">
-            
+
             <span><%= t('rules.withdrawals.sentence.when_fee_not_more_than') %></span>
-            <%= f.number_field :max_fee_percentage, value: rule.max_fee_percentage, class: 'sinput numeric-input', step: :any, min: 0.01, max: 100, size: 2, required: true, disabled: rule.active?, data: { controller: "autowidth-input", action: "input->autowidth-input#resize change->form--submit#submit" }, style: "width: 50px;" %>
+            <%= f.number_field :max_fee_percentage, value: rule.max_fee_percentage, class: 'sinput numeric-input', step: :any, min: 0.01, max: 100, size: 2, required: true, disabled: rule.scheduled?, data: { controller: "autowidth-input", action: "input->autowidth-input#resize change->form--submit#submit" }, style: "width: 50px;" %>
             <span><%= t('rules.withdrawals.sentence.of_the_amount') %></span>
           </div>
         </div>
@@ -47,9 +53,13 @@
                 symbol: rule.asset.symbol,
                 amount: rule.minimum_withdrawal_amount) %>
         </div>
-      <% elsif rule.withdrawal_fee_amount.zero? %>
+      <% elsif rule.withdrawal_fee_known? && rule.withdrawal_fee_amount.zero? %>
         <div class="small-info">
           <%= t('rules.tile.no_fee_info', exchange: rule.exchange.name) %>
+        </div>
+      <% elsif !rule.withdrawal_fee_known? %>
+        <div class="small-info">
+          <%= t('rules.tile.unknown_fee_info', exchange: rule.exchange.name) %>
         </div>
       <% end %>
     </div>

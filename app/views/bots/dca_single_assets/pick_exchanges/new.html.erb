@@ -15,15 +15,15 @@
 
     <%= turbo_frame_tag "exchange-picker", data: { action: "keydown@window->arrow-keys-navigation#navigate", controller: "arrow-keys-navigation" }, class: "modal--search__assets selectable-options" do %>
       <div class="exchange-picker__item exchange-picker__item--header">
-        <div>Fees:</div>
+        <div><%= t('bot.fees') %>:</div>
         <div>Maker</div>
         <div>Taker</div>
-        <div>Withdrawal (₿)</div>
+        <div><%= t('bot.withdrawal_fee') %></div>
       </div>
       <div class="selectable-options">
         <%= form_with model: @bot, url: bots_dca_single_assets_pick_exchange_path, method: :post do |f| %>
           <% @exchanges.each do |exchange| %>
-            <%= render partial: "bots/exchange_search_result", locals: { bot: @bot, exchange: exchange } %>
+            <%= render partial: "bots/exchange_search_result", locals: { bot: @bot, exchange: exchange, withdrawal_fees: @withdrawal_fees } %>
           <% end %>
         <% end %>
       </div>

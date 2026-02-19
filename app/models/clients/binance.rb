@@ -376,6 +376,23 @@ class Clients::Binance < Client
     end
   end
 
+  # https://developers.binance.com/docs/wallet/capital/all-coins-info
+  # @param recv_window [Integer] The value cannot be greater than 60000
+  def get_all_coins_information(recv_window: 5000)
+    with_rescue do
+      response = self.class.connection.get do |req|
+        req.url '/sapi/v1/capital/config/getall'
+        req.headers = headers
+        req.params = {
+          recvWindow: recv_window,
+          timestamp: timestamp
+        }.compact
+        req.params[:signature] = hmac_signature(req.params)
+      end
+      Result::Success.new(response.body)
+    end
+  end
+
   # https://developers.binance.com/docs/wallet/account/api-key-permission#api-description
   # @param recv_window [Integer] The value cannot be greater than 60000
   def api_description(recv_window: 5000)
@@ -384,6 +401,33 @@ class Clients::Binance < Client
         req.url '/sapi/v1/account/apiRestrictions'
         req.headers = headers
         req.params = {
+          recvWindow: recv_window,
+          timestamp: timestamp
+        }.compact
+        req.params[:signature] = hmac_signature(req.params)
+      end
+      Result::Success.new(response.body)
+    end
+  end
+
+  # https://developers.binance.com/docs/wallet/capital/withdraw
+  # @param coin [String] Coin name (e.g., "BTC")
+  # @param address [String] Withdrawal address
+  # @param amount [String] Withdrawal amount
+  # @param network [String] Optional network name
+  # @param address_tag [String] Optional secondary address identifier (memo/tag)
+  # @param recv_window [Integer] The value cannot be greater than 60000
+  def withdraw(coin:, address:, amount:, network: nil, address_tag: nil, recv_window: 5000)
+    with_rescue do
+      response = self.class.connection.post do |req|
+        req.url '/sapi/v1/capital/withdraw/apply'
+        req.headers = headers
+        req.params = {
+          coin: coin,
+          address: address,
+          amount: amount,
+          network: network,
+          addressTag: address_tag,
           recvWindow: recv_window,
           timestamp: timestamp
         }.compact

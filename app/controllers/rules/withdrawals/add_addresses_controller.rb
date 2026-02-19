@@ -12,12 +12,14 @@ class Rules::Withdrawals::AddAddressesController < ApplicationController
       redirect_to new_rules_withdrawals_pick_exchange_path
     else
       @address = @rule_config['address']
+      @address_tag = @rule_config['address_tag']
     end
   end
 
   def create
     session[:withdrawal_rule_config] ||= {}
     session[:withdrawal_rule_config]['address'] = params[:address]
+    session[:withdrawal_rule_config]['address_tag'] = params[:address_tag].presence
     redirect_to new_rules_withdrawals_confirm_settings_path
   end
 end

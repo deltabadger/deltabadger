@@ -23,6 +23,19 @@ class Clients::Bybit < Client
     end
   end
 
+  # https://bybit-exchange.github.io/docs/v5/asset/coin-info
+  def get_coin_query_info
+    with_rescue do
+      params = {}
+      response = self.class.connection.get do |req|
+        req.url '/v5/asset/coin/query-info'
+        req.headers = authenticated_headers('GET', params)
+        req.params = params
+      end
+      Result::Success.new(response.body)
+    end
+  end
+
   # https://bybit-exchange.github.io/docs/v5/market/instrument
   # @param category [String] Product type: spot, linear, inverse, option
   # @param symbol [String]
@@ -210,6 +223,33 @@ class Clients::Bybit < Client
       }.compact
       response = self.class.connection.post do |req|
         req.url '/v5/order/cancel'
+        req.headers = authenticated_headers('POST', body)
+        req.body = body
+      end
+      Result::Success.new(response.body)
+    end
+  end
+
+  # https://bybit-exchange.github.io/docs/v5/asset/withdraw
+  # @param coin [String] Coin name (e.g., "BTC")
+  # @param chain [String] Chain name
+  # @param address [String] Withdrawal address
+  # @param amount [String] Withdrawal amount
+  # @param tag [String] Optional tag/memo
+  # @param force_chain [Integer] 0 or 1
+  def withdraw(coin:, chain:, address:, amount:, tag: nil, force_chain: nil)
+    with_rescue do
+      body = {
+        coin: coin,
+        chain: chain,
+        address: address,
+        amount: amount,
+        tag: tag,
+        forceChain: force_chain,
+        timestamp: timestamp
+      }.compact
+      response = self.class.connection.post do |req|
+        req.url '/v5/asset/withdraw/create'
         req.headers = authenticated_headers('POST', body)
         req.body = body
       end
