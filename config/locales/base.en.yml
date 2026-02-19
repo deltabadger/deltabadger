@@ -228,10 +228,11 @@ en:
             confirm_destroy:
                 message: 'Do you want to delete this withdrawal rule?'
             confirm_settings:
-                min_amount_html: 'Based on current prices and rates, the rule will withdraw <b>%{symbol}</b> when there is <b>%{amount} %{symbol}</b> on the account.'
+                min_amount_html: 'Based on the current fee of <b>%{fee} %{symbol}</b>, the withdrawal will be triggered when the balance reaches <b>%{amount} %{symbol}</b>.'
         tile:
             withdrawal: 'Withdrawal'
             min_amount_info: 'Based on the current fee of %{fee} %{symbol}, the withdrawal will be triggered when the balance reaches %{amount} %{symbol}.'
+            no_fee_info: '%{exchange} reports no withdrawal fee for this asset. The rule will withdraw any available balance.'
         logs:
             title: 'Rule Logs'
             date: 'Date'
