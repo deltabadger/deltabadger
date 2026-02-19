@@ -23,6 +23,17 @@ class Clients::Kucoin < Client
     end
   end
 
+  # https://www.kucoin.com/docs/rest/funding/funding-overview/get-currency-list
+  def get_currencies
+    with_rescue do
+      response = self.class.connection.get do |req|
+        req.url '/api/v3/currencies'
+        req.headers = unauthenticated_headers
+      end
+      Result::Success.new(response.body)
+    end
+  end
+
   # https://www.kucoin.com/docs/rest/spot-trading/market-data/get-symbols-list
   def get_symbols
     with_rescue do
@@ -146,6 +157,31 @@ class Clients::Kucoin < Client
       response = self.class.connection.delete do |req|
         req.url path
         req.headers = authenticated_headers('DELETE', path)
+      end
+      Result::Success.new(response.body)
+    end
+  end
+
+  # https://www.kucoin.com/docs/rest/funding/withdrawals/apply-withdraw-v3-
+  # @param currency [String] Currency code (e.g., "BTC")
+  # @param address [String] Withdrawal address
+  # @param amount [String] Withdrawal amount
+  # @param chain [String] Optional chain name
+  # @param memo [String] Optional memo/tag
+  def withdraw(currency:, address:, amount:, chain: nil, memo: nil)
+    with_rescue do
+      path = '/api/v3/withdrawals'
+      body = {
+        currency: currency,
+        address: address,
+        amount: amount,
+        chain: chain,
+        memo: memo
+      }.compact
+      response = self.class.connection.post do |req|
+        req.url path
+        req.headers = authenticated_headers('POST', path, nil, body.to_json)
+        req.body = body
       end
       Result::Success.new(response.body)
     end

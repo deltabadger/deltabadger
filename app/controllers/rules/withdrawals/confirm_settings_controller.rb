@@ -15,12 +15,18 @@ class Rules::Withdrawals::ConfirmSettingsController < ApplicationController
     elsif @address.blank?
       redirect_to new_rules_withdrawals_add_address_path
     else
+      @exchange.fetch_withdrawal_fees! unless @exchange.withdrawal_fee_fresh?(asset: @asset)
+
       @rule = Rules::Withdrawal.new(
         asset: @asset,
         exchange: @exchange,
         address: @address,
+        address_tag: @rule_config['address_tag'],
+        network: @rule_config['network'],
         max_fee_percentage: @rule_config['max_fee_percentage']
       )
+
+      @chains = @rule.available_chains
     end
   end
 
@@ -36,6 +42,8 @@ class Rules::Withdrawals::ConfirmSettingsController < ApplicationController
       asset: @asset,
       exchange: @exchange,
       address: config['address'],
+      address_tag: config['address_tag'],
+      network: config['network'],
       max_fee_percentage: config['max_fee_percentage']
     )
 
@@ -51,6 +59,6 @@ class Rules::Withdrawals::ConfirmSettingsController < ApplicationController
   private
 
   def rule_params
-    params.permit(:max_fee_percentage)
+    params.permit(:max_fee_percentage, :network)
   end
 end

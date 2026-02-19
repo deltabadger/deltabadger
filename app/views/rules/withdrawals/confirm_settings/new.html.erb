@@ -26,6 +26,18 @@
             <% end %>
             <%= t('rules.withdrawals.sentence.to') %>
             <%= link_to truncate(@address, length: 16), new_rules_withdrawals_add_address_path, data: { turbo_frame: "modal_content" }, class: "tag tag--address" %>
+            <% if @chains.present? && @chains.size > 1 %>
+              <%= t('rules.withdrawals.sentence.on_network') %>
+              <%= f.select :network,
+                    options_for_select(
+                      @chains.map { |c| ["#{c['name']} (#{t('rules.withdrawals.sentence.fee')}: #{c['fee']})", c['name']] },
+                      @rule.network || @chains.find { |c| c['is_default'] }&.dig('name') || @chains.first&.dig('name')
+                    ),
+                    {},
+                    class: 'sinput' %>
+            <% elsif @chains.present? && @chains.size == 1 %>
+              <%= f.hidden_field :network, value: @chains.first['name'] %>
+            <% end %>
             <%= t('rules.withdrawals.sentence.when_fee_not_more_than') %>
             <%= f.number_field :max_fee_percentage, value: @rule.max_fee_percentage || 0.5, class: 'sinput numeric-input', step: :any, min: 0.01, max: 100, size: 2, required: true, placeholder: "0.5", data: { controller: "autowidth-input", action: "input->autowidth-input#resize" }, style: "width: 50px;" %>
             <%= t('rules.withdrawals.sentence.of_the_amount') %>
@@ -37,9 +49,13 @@
                     symbol: @asset.symbol,
                     amount: @rule.minimum_withdrawal_amount).html_safe %>
             </small>
-          <% elsif @rule.withdrawal_fee_amount.zero? %>
+          <% elsif @rule.withdrawal_fee_known? && @rule.withdrawal_fee_amount.zero? %>
             <small>
               <%= t('rules.tile.no_fee_info', exchange: @exchange.name) %>
+            </small>
+          <% elsif !@rule.withdrawal_fee_known? %>
+            <small>
+              <%= t('rules.tile.unknown_fee_info', exchange: @exchange.name) %>
             </small>
           <% end %>
         </div>

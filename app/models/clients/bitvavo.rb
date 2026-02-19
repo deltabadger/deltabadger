@@ -23,6 +23,17 @@ class Clients::Bitvavo < Client
     end
   end
 
+  # https://docs.bitvavo.com/#tag/Market-Data/paths/~1v2~1assets/get
+  def get_assets
+    with_rescue do
+      response = self.class.connection.get do |req|
+        req.url '/v2/assets'
+        req.headers = unauthenticated_headers
+      end
+      Result::Success.new(response.body)
+    end
+  end
+
   # https://docs.bitvavo.com/#tag/Market-Data/paths/~1v2~1markets/get
   # @param market [String] Filter on a specific market (e.g. "BTC-EUR")
   def markets(market: nil)
@@ -173,6 +184,30 @@ class Clients::Bitvavo < Client
         query_string = "?#{Faraday::Utils.build_query(params)}"
         req.headers = authenticated_headers('DELETE', "#{path}#{query_string}", '')
         req.params = params
+      end
+      Result::Success.new(response.body)
+    end
+  end
+
+  # https://docs.bitvavo.com/#tag/Account/paths/~1v2~1withdrawal/post
+  # @param symbol [String] Currency symbol (e.g., "BTC")
+  # @param amount [String] Withdrawal amount
+  # @param address [String] Withdrawal address
+  # @param payment_id [String] Optional payment ID / memo / tag
+  def withdrawal(symbol:, amount:, address:, payment_id: nil)
+    with_rescue do
+      path = '/v2/withdrawal'
+      body = {
+        symbol: symbol,
+        amount: amount,
+        address: address,
+        paymentId: payment_id
+      }.compact
+      body_string = body.to_json
+      response = self.class.connection.post do |req|
+        req.url path
+        req.headers = authenticated_headers('POST', path, body_string)
+        req.body = body
       end
       Result::Success.new(response.body)
     end

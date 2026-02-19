@@ -3,12 +3,27 @@ class Rules::WithdrawalsController < ApplicationController
   before_action :set_rule, only: %i[update destroy confirm_destroy]
 
   def update
-    if @rule.update(update_params)
-      render turbo_stream: turbo_stream_page_refresh
-    else
-      flash.now[:alert] = @rule.errors.full_messages.to_sentence
-      render turbo_stream: turbo_stream_prepend_flash, status: :unprocessable_entity
+    status = update_params[:status]
+    settings_params = update_params.except(:status)
+
+    if settings_params.present?
+      @rule.parse_params(settings_params)
+      unless @rule.save
+        flash.now[:alert] = @rule.errors.full_messages.to_sentence
+        return render turbo_stream: turbo_stream_prepend_flash, status: :unprocessable_entity
+      end
     end
+
+    if status == 'scheduled'
+      @rule.start
+    elsif status == 'stopped'
+      @rule.stop
+    end
+
+    render turbo_stream: turbo_stream_page_refresh
+  rescue ActiveRecord::RecordInvalid => e
+    flash.now[:alert] = e.record.errors.full_messages.to_sentence
+    render turbo_stream: turbo_stream_prepend_flash, status: :unprocessable_entity
   end
 
   def confirm_destroy
@@ -16,7 +31,7 @@ class Rules::WithdrawalsController < ApplicationController
   end
 
   def destroy
-    @rule.destroy
+    @rule.delete
     render turbo_stream: turbo_stream_page_refresh
   end
 
