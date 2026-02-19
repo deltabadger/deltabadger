@@ -30,11 +30,18 @@
             <%= f.number_field :max_fee_percentage, value: @rule.max_fee_percentage || 0.5, class: 'sinput numeric-input', step: :any, min: 0.01, max: 100, size: 2, required: true, placeholder: "0.5", data: { controller: "autowidth-input", action: "input->autowidth-input#resize" }, style: "width: 50px;" %>
             <%= t('rules.withdrawals.sentence.of_the_amount') %>
           </div>
-          <small>
-            <%= t('rules.withdrawals.confirm_settings.min_amount_html',
-                  symbol: @asset.symbol,
-                  amount: @rule.minimum_withdrawal_amount || '…').html_safe %>
-          </small>
+          <% if @rule.minimum_withdrawal_amount %>
+            <small>
+              <%= t('rules.withdrawals.confirm_settings.min_amount_html',
+                    fee: @rule.withdrawal_fee_amount.to_s('F'),
+                    symbol: @asset.symbol,
+                    amount: @rule.minimum_withdrawal_amount).html_safe %>
+            </small>
+          <% elsif @rule.withdrawal_fee_amount.zero? %>
+            <small>
+              <%= t('rules.tile.no_fee_info', exchange: @exchange.name) %>
+            </small>
+          <% end %>
         </div>
       <% end %>
     </div>
