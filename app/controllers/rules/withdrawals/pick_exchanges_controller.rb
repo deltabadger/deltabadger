@@ -13,6 +13,8 @@ class Rules::Withdrawals::PickExchangesController < ApplicationController
       # Build a temporary bot to reuse Searchable concern for exchange search
       @bot = current_user.bots.dca_single_asset.new(base_asset_id: @asset.id)
       @exchanges = exchange_search_results(@bot, search_params[:query])
+
+      @withdrawal_fees = withdrawal_fees_for(exchanges: @exchanges, asset: @asset)
     end
   end
 

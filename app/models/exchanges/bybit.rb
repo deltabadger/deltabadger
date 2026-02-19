@@ -354,6 +354,66 @@ class Exchanges::Bybit < Exchange
     :base_or_quote
   end
 
+  def withdraw(asset:, amount:, address:, network: nil, address_tag: nil)
+    symbol = symbol_from_asset(asset)
+    return Result::Failure.new("Unknown symbol for asset #{asset.symbol}") if symbol.blank?
+
+    # Use provided network or determine the default chain
+    chain_name = network
+    if chain_name.blank?
+      coin_result = client.get_coin_query_info
+      return coin_result if coin_result.failure?
+
+      rows = coin_result.data.dig('result', 'rows') || []
+      coin_data = rows.find { |r| r['coin'] == symbol }
+      return Result::Failure.new("No coin data found for #{symbol} on Bybit") if coin_data.blank?
+
+      chains = coin_data['chains'] || []
+      chain = chains.find { |c| c['chainDefault'] == '1' } || chains.first
+      return Result::Failure.new("No chain found for #{symbol} on Bybit") if chain.blank?
+
+      chain_name = chain['chain']
+    end
+
+    result = client.withdraw(coin: symbol, chain: chain_name, address: address,
+                             amount: amount.to_d.to_s('F'), tag: address_tag)
+    if result.failure?
+      error = parse_error_message(result)
+      return error.present? ? Result::Failure.new(error) : result
+    end
+
+    withdrawal_id = result.data.dig('result', 'id')
+    Result::Success.new({ withdrawal_id: withdrawal_id })
+  end
+
+  def fetch_withdrawal_fees!
+    api_key = fee_api_key
+    return Result::Success.new({}) if api_key.blank?
+
+    result = Clients::Bybit.new(
+      api_key: api_key.key,
+      api_secret: api_key.secret
+    ).get_coin_query_info
+    return result if result.failure?
+
+    fees = {}
+    chain_data = {}
+    rows = result.data.dig('result', 'rows') || []
+    rows.each do |coin|
+      symbol = coin['coin']
+      coin_chains = coin['chains'] || []
+      chain = coin_chains.find { |c| c['chainDefault'] == '1' } || coin_chains.first
+      next unless chain
+
+      fees[symbol] = chain['withdrawFee']
+      chain_data[symbol] = coin_chains.map do |c|
+        { 'name' => c['chain'], 'fee' => c['withdrawFee'], 'is_default' => c['chainDefault'] == '1' }
+      end
+    end
+
+    update_exchange_asset_fees!(fees, chains: chain_data)
+  end
+
   private
 
   def client

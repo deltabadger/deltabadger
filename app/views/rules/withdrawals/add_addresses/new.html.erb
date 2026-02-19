@@ -30,6 +30,12 @@
                              placeholder: t('rules.add_address.placeholder') %>
             <%= f.label :address, t('rules.add_address.label'), class: "form__label" %>
           </div>
+          <div class="form__row form__row--input">
+            <%= f.text_field :address_tag, value: @address_tag, autocomplete: "off",
+                             class: "form__input form__input--large",
+                             placeholder: t('rules.add_address.address_tag_placeholder') %>
+            <%= f.label :address_tag, t('rules.add_address.address_tag_label'), class: "form__label" %>
+          </div>
           <%= f.submit t('button.next'), class: "button button--success button--large" %>
         <% end %>
       </div>

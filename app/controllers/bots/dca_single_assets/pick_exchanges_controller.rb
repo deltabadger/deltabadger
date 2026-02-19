@@ -11,6 +11,7 @@ class Bots::DcaSingleAssets::PickExchangesController < ApplicationController
     else
       @bot.exchange_id = nil
       @exchanges = exchange_search_results(@bot, search_params[:query])
+      @withdrawal_fees = withdrawal_fees_for(exchanges: @exchanges, asset: @bot.base_asset)
     end
   end
 

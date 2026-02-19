@@ -79,6 +79,16 @@ module Bots::Searchable
     ].sort.reverse
   end
 
+  def withdrawal_fees_for(exchanges:, asset:)
+    fees = {}
+    exchanges.each do |exchange|
+      exchange.fetch_withdrawal_fees! unless exchange.withdrawal_fee_fresh?(asset: asset)
+      fee = exchange.withdrawal_fee_for(asset: asset)
+      fees[exchange.id] = fee ? fee.to_s('F') : '?'
+    end
+    fees
+  end
+
   def filter_exchanges_by_query(exchanges:, query:)
     return exchanges.order(Arel.sql("type IN (#{Exchange::STABLE_TYPES.map { |t| "'#{t}'" }.join(',')}) DESC"), :name) if query.blank?
 

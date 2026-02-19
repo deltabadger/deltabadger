@@ -1,6 +1,10 @@
 module Automation::Executable
   extend ActiveSupport::Concern
 
+  def execute
+    raise NotImplementedError, "#{self.class.name} must implement execute"
+  end
+
   def api_key_type
     raise NotImplementedError, "#{self.class} must implement api_key_type"
   end

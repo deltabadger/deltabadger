@@ -312,6 +312,53 @@ class Exchanges::Kucoin < Exchange
     :base_or_quote
   end
 
+  def withdraw(asset:, amount:, address:, network: nil, address_tag: nil)
+    symbol = symbol_from_asset(asset)
+    return Result::Failure.new("Unknown symbol for asset #{asset.symbol}") if symbol.blank?
+
+    # Use provided network or determine the default chain
+    chain_name = network
+    if chain_name.blank?
+      currencies_result = Clients::Kucoin.new.get_currencies
+      return currencies_result if currencies_result.failure?
+
+      coin_data = Array(currencies_result.data['data']).find { |c| c['currency'] == symbol }
+      return Result::Failure.new("No currency data found for #{symbol} on KuCoin") if coin_data.blank?
+
+      chains = coin_data['chains'] || []
+      chain = chains.find { |c| c['isDefault'] == true } || chains.first
+      chain_name = chain&.dig('chainName')
+    end
+
+    result = client.withdraw(currency: symbol, address: address, amount: amount.to_d.to_s('F'),
+                             chain: chain_name, memo: address_tag)
+    return result if result.failure?
+
+    withdrawal_id = result.data.dig('data', 'withdrawalId')
+    Result::Success.new({ withdrawal_id: withdrawal_id })
+  end
+
+  def fetch_withdrawal_fees!
+    result = Clients::Kucoin.new.get_currencies
+    return result if result.failure?
+
+    fees = {}
+    chain_data = {}
+    Array(result.data['data']).each do |coin|
+      symbol = coin['currency']
+      coin_chains = coin['chains'] || []
+      chain = coin_chains.find { |c| c['isDefault'] == true } || coin_chains.first
+      next unless chain
+
+      fees[symbol] = chain['withdrawalMinFee']
+      chain_data[symbol] = coin_chains.map do |c|
+        { 'name' => c['chainName'], 'fee' => c['withdrawalMinFee'], 'is_default' => c['isDefault'] == true }
+      end
+    end
+
+    update_exchange_asset_fees!(fees, chains: chain_data)
+  end
+
   private
 
   def client

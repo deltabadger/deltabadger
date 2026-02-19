@@ -130,7 +130,6 @@ en:
                 portfolio_value: 'Portfolio Value'
         for: for
         force_smart_intervals_html: '<b>Smart intervals</b> · Buy with orders of <split>$100</split> %{currency} each.'
-        feecutter_html: '<b>FeeCutter</b> · Cut fees with limit orders'
         hour: Hour
         limit_buy: 'Limit buy'
         limit_sell: 'Limit sell'
@@ -170,7 +169,7 @@ en:
         fees: "Fees"
         maker_fee: "Maker"
         taker_fee: "Taker"
-        withdrawal_fee: "Withdrawal (₿)"
+        withdrawal_fee: "Withdrawal"
         additional_title: "Two-way bot"
         smart_intervals_disclaimer: 'Orders size on %{exchange} is defined in %{currency}. The minimum order size is %{minimum}%{currency}.'
         smart_intervals_disclaimer_base: 'Orders size on %{exchange} is defined in %{currency}. The minimum order size is %{minimum}%{currency}.'
