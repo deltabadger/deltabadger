@@ -1,6 +1,8 @@
 es:
     bot:
         add_api_keys: "Añadir claves API para %{exchange}"
+        fees: "Comisiones"
+        withdrawal_fee: "Retiro"
         bot_name: 'Nombre del bot'
         new: "Nuevo bot"
         dca_index:
@@ -125,8 +127,6 @@ es:
                 portfolio_value: 'Valor de la cartera'
         for: por
         force_smart_intervals_html: '<b>Intervalos Inteligentes</b> · Compre con órdenes de <split>$100</split> %{currency} cada una.'
-        feecutter_html: '<b>FeeCutter</b> · Reduzca tarifas con órdenes límite'
-
         hour: Hora
         limit_buy: 'Compra limitada'
         limit_sell: 'Venta limitada'

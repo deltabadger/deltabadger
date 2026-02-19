@@ -14,7 +14,6 @@ module Api
           name: exchange.name,
           maker_fee: exchange.maker_fee || '?',
           taker_fee: exchange.taker_fee || '?',
-          withdrawal_fee: exchange.withdrawal_fee || '?',
           symbols:,
           all_symbols:,
           trading_key_status: status_of_trading_key

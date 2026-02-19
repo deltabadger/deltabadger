@@ -315,6 +315,36 @@ class Exchanges::Coinbase < Exchange
     :base_or_quote
   end
 
+  def withdraw(asset:, amount:, address:, network: nil, address_tag: nil) # rubocop:disable Lint/UnusedMethodArgument
+    symbol = symbol_from_asset(asset)
+    return Result::Failure.new("Unknown symbol for asset #{asset.symbol}") if symbol.blank?
+
+    # Find the account UUID for this currency
+    result = client.list_accounts
+    return result if result.failure?
+
+    accounts = result.data['accounts'] || []
+    account = accounts.find { |a| a['currency'] == symbol }
+    return Result::Failure.new("No Coinbase account found for #{symbol}") if account.blank?
+
+    account_uuid = account['uuid']
+    result = client.send_money(
+      account_id: account_uuid,
+      to: address,
+      amount: amount.to_d.to_s('F'),
+      currency: symbol,
+      idem: SecureRandom.uuid
+    )
+    return result if result.failure?
+
+    tx_id = result.data.dig('data', 'id')
+    Result::Success.new({ withdrawal_id: tx_id })
+  end
+
+  def fetch_withdrawal_fees!
+    Result::Success.new({})
+  end
+
   private
 
   def client
