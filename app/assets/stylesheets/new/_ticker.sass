@@ -62,6 +62,19 @@
     color: var(--stone) !important
     display: flex
     gap: .5rem
+    &--address
+        text-overflow: ellipsis
+        overflow: hidden
+        display: block !important
+        max-width: 12rem
+        font-family: monospace !important
+        color: var(--link) !important
+        padding-left: 3.5rem !important
+        position: relative
+        svg
+            position: absolute
+            left: 1rem
+            top: 0.5rem
     @media (prefers-color-scheme: dark)
         background: var(--steel) !important
         color: var(--ash) !important
