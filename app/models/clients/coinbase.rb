@@ -303,6 +303,29 @@ class Clients::Coinbase < Client
     end
   end
 
+  # https://docs.cdp.coinbase.com/coinbase-app/docs/api-send-money
+  # @param account_id [String] The account/wallet UUID to send from
+  # @param to [String] Crypto address or email
+  # @param amount [String] Amount to send
+  # @param currency [String] Currency code (e.g., "BTC")
+  # @param idem [String] Optional idempotency key
+  def send_money(account_id:, to:, amount:, currency:, idem: nil)
+    with_rescue do
+      response = self.class.connection.post do |req|
+        req.url "/v2/accounts/#{account_id}/transactions"
+        req.headers = headers(req)
+        req.body = {
+          type: 'send',
+          to: to,
+          amount: amount,
+          currency: currency,
+          idem: idem
+        }.compact
+      end
+      Result::Success.new(response.body)
+    end
+  end
+
   private
 
   def headers(req)

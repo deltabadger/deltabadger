@@ -17,6 +17,29 @@ class Exchanges::BinanceUs < Exchanges::Binance
     )
   end
 
+  def fetch_withdrawal_fees!
+    api_key = fee_api_key
+    return Result::Success.new({}) if api_key.blank?
+
+    result = Clients::BinanceUs.new(
+      api_key: api_key.key,
+      api_secret: api_key.secret
+    ).get_all_coins_information
+    return result if result.failure?
+
+    fees = {}
+    result.data.each do |coin|
+      symbol = coin['coin']
+      networks = coin['networkList'] || []
+      network = networks.find { |n| n['isDefault'] == true } || networks.first
+      next unless network
+
+      fees[symbol] = network['withdrawFee']
+    end
+
+    update_exchange_asset_fees!(fees)
+  end
+
   def get_api_key_validity(api_key:)
     result = Clients::BinanceUs.new(
       api_key: api_key.key,

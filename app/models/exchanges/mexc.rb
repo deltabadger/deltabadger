@@ -321,6 +321,56 @@ class Exchanges::Mexc < Exchange
     end
   end
 
+  def withdraw(asset:, amount:, address:, network: nil, address_tag: nil)
+    symbol = symbol_from_asset(asset)
+    return Result::Failure.new("Unknown symbol for asset #{asset.symbol}") if symbol.blank?
+
+    # Use provided network or determine the default
+    network_name = network
+    if network_name.blank?
+      coins_result = Clients::Mexc.new.get_all_coins_information
+      return coins_result if coins_result.failure?
+
+      coin_data = Array(coins_result.data).find { |c| c['coin'] == symbol }
+      return Result::Failure.new("No coin data found for #{symbol} on MEXC") if coin_data.blank?
+
+      networks = coin_data['networkList'] || []
+      default_network = networks.find { |n| n['isDefault'] == true } || networks.first
+      network_name = default_network&.dig('network')
+    end
+
+    result = client.withdraw(coin: symbol, address: address, amount: amount.to_d.to_s('F'),
+                             network: network_name, memo: address_tag)
+    if result.failure?
+      error = parse_error_message(result)
+      return error.present? ? Result::Failure.new(error) : result
+    end
+
+    withdrawal_id = result.data['id']
+    Result::Success.new({ withdrawal_id: withdrawal_id })
+  end
+
+  def fetch_withdrawal_fees!
+    result = Clients::Mexc.new.get_all_coins_information
+    return result if result.failure?
+
+    fees = {}
+    chains = {}
+    Array(result.data).each do |coin|
+      symbol = coin['coin']
+      networks = coin['networkList'] || []
+      network = networks.find { |n| n['isDefault'] == true } || networks.first
+      next unless network
+
+      fees[symbol] = network['withdrawFee']
+      chains[symbol] = networks.map do |n|
+        { 'name' => n['network'], 'fee' => n['withdrawFee'], 'is_default' => n['isDefault'] == true }
+      end
+    end
+
+    update_exchange_asset_fees!(fees, chains: chains)
+  end
+
   private
 
   def client

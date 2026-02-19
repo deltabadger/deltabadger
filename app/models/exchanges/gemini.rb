@@ -251,6 +251,21 @@ class Exchanges::Gemini < Exchange
     :base
   end
 
+  def withdraw(asset:, amount:, address:, network: nil, address_tag: nil) # rubocop:disable Lint/UnusedMethodArgument
+    symbol = symbol_from_asset(asset)
+    return Result::Failure.new("Unknown symbol for asset #{asset.symbol}") if symbol.blank?
+
+    result = client.withdraw_crypto_funds(currency: symbol.downcase, address: address, amount: amount.to_d.to_s('F'))
+    return result if result.failure?
+
+    withdrawal_id = result.data['txHash'] || result.data['withdrawalId']
+    Result::Success.new({ withdrawal_id: withdrawal_id })
+  end
+
+  def fetch_withdrawal_fees!
+    Result::Success.new({})
+  end
+
   private
 
   def client

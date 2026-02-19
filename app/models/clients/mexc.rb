@@ -22,6 +22,17 @@ class Clients::Mexc < Client
     end
   end
 
+  # https://mexcdevelop.github.io/apidocs/spot_v3_en/#query-the-currency-information
+  def get_all_coins_information
+    with_rescue do
+      response = self.class.connection.get do |req|
+        req.url '/api/v3/capital/config/getall'
+        req.headers = headers
+      end
+      Result::Success.new(response.body)
+    end
+  end
+
   # https://mexcdevelop.github.io/apidocs/spot_v3_en/#exchange-information
   def exchange_information
     with_rescue do
@@ -191,6 +202,33 @@ class Clients::Mexc < Client
           orderId: order_id,
           origClientOrderId: orig_client_order_id,
           newClientOrderId: new_client_order_id,
+          recvWindow: recv_window,
+          timestamp: timestamp
+        }.compact
+        req.params[:signature] = hmac_signature(req.params)
+      end
+      Result::Success.new(response.body)
+    end
+  end
+
+  # https://mexcdevelop.github.io/apidocs/spot_v3_en/#withdraw
+  # @param coin [String] Coin name (e.g., "BTC")
+  # @param address [String] Withdrawal address
+  # @param amount [String] Withdrawal amount
+  # @param network [String] Optional network name
+  # @param memo [String] Optional memo/tag
+  # @param recv_window [Integer]
+  def withdraw(coin:, address:, amount:, network: nil, memo: nil, recv_window: 5000)
+    with_rescue do
+      response = self.class.connection.post do |req|
+        req.url '/api/v3/capital/withdraw/apply'
+        req.headers = headers
+        req.params = {
+          coin: coin,
+          address: address,
+          amount: amount,
+          network: network,
+          memo: memo,
           recvWindow: recv_window,
           timestamp: timestamp
         }.compact

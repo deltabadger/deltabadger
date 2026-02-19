@@ -9,6 +9,10 @@ export default class extends Controller {
     this.submit = debounce(this.submit.bind(this), 250);
   }
 
+  disconnect() {
+    this.submit.clear();
+  }
+
   submit() {
     const inputElements = this.element.querySelectorAll("input");
     let someNumericInputHasToBeFilledBeforeSubmit = false;
