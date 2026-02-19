@@ -4,7 +4,7 @@ class Rules::Withdrawals::PickAssetsController < ApplicationController
   include Bots::Searchable
 
   def new
-    session[:withdrawal_rule_config] ||= {}
+    session[:withdrawal_rule_config] = {}
     # Build a temporary bot to reuse Searchable concern for asset search
     @bot = current_user.bots.dca_single_asset.new
     @assets = asset_search_results(@bot, search_params[:query], :base_asset)
