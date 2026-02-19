@@ -24,6 +24,7 @@ module ExchangeApi
         when 'mexc' then Mexc::Validator.new
         when 'gemini' then Gemini::Validator.new
         when 'bitvavo' then Bitvavo::Validator.new
+        when 'hyperliquid' then Hyperliquid::Validator.new
         end
       end
     end
