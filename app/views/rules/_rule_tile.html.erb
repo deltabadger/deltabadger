@@ -30,7 +30,7 @@
               <span class="hide-on-mobile"><%= rule.exchange.name %></span>
             </span>
             <span><%= t('rules.withdrawals.sentence.to') %></span>
-            <span class="tag tag--address" title="<%= rule.address %>"><%= truncate(rule.address, length: 12) %></span>
+            <span class="tag tag--address"><%= render 'svg/16x16_wallet' %><%= rule.address %></span>
           </div>
           <div class="conversational conversational--small">
             
@@ -43,9 +43,13 @@
       <% if rule.minimum_withdrawal_amount %>
         <div class="small-info">
           <%= t('rules.tile.min_amount_info',
-                fee: rule.exchange.withdrawal_fee,
+                fee: rule.withdrawal_fee_amount.to_s('F'),
                 symbol: rule.asset.symbol,
                 amount: rule.minimum_withdrawal_amount) %>
+        </div>
+      <% elsif rule.withdrawal_fee_amount.zero? %>
+        <div class="small-info">
+          <%= t('rules.tile.no_fee_info', exchange: rule.exchange.name) %>
         </div>
       <% end %>
     </div>
