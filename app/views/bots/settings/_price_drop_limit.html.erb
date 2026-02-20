@@ -1,11 +1,11 @@
 <%= form_with model: bot,
               url: path,
               method: method,
-              class: "widget bot-settings #{bot.price_drop_limited? ? "bot-settings--active" : "bot-settings--inactive"}",
+              class: "widget rule #{bot.price_drop_limited? ? "rule--active" : "rule--inactive"}",
               data: {
                 controller: "class-toggle form--submit form--submit-after-delay form--move-cursor-to-end form--html5-validations",
                 class_toggle_target: "togglable",
-                class_toggle_toggle_classes_value: ["bot-settings--active", "bot-settings--inactive"],
+                class_toggle_toggle_classes_value: ["rule--active", "rule--inactive"],
                 turbo_stream: true
               } do |f| %>
   <div class="toggle-group">

@@ -37,7 +37,7 @@ class Bots::DcaIndex < Bot
 
   # Standard infrastructure concerns
   include Fundable # decorators for: execute_action
-  include Schedulable
+  include Automation::Schedulable
   include OrderCreator
   include Accountable
   include Exportable

@@ -1,6 +1,8 @@
 ru:
     bot:
         add_api_keys: "Добавить API ключи для %{exchange}"
+        fees: "Комиссии"
+        withdrawal_fee: "Вывод"
         bot_name: "Имя бота"
         new: "Новый бот"
         dca_index:
@@ -120,7 +122,6 @@ ru:
                 portfolio_value: 'Стоимость портфеля'
         for: за
         force_smart_intervals_html: '<b>Умные интервалы</b> · Покупайте с заказами на сумму <split>100$</split> %{currency} каждый.'
-        feecutter_html: '<b>FeeCutter</b> · Сократите комиссии с лимитными ордерами'
         hour: Час
         limit_buy: 'Лимитная покупка'
         limit_sell: 'Лимитная продажа'

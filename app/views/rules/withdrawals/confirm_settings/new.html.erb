@@ -1,0 +1,65 @@
+<% asset_color = ensure_contrast(@asset.color || "#8A9BA8") %>
+
+<%= render layout: 'layouts/modal/full_page', locals: { close_url: rules_path } do %>
+  <div class="bot-creation-layout">
+    <%= render "bots/new_step_progress_bar", current_step: :settings, steps: { pick_asset: 20, pick_exchange: 40, api: 60, address: 80, settings: 100 } %>
+
+    <div class="bot-creation-preview">
+      <%= form_with url: rules_withdrawals_confirm_settings_path, method: :post,
+                    data: {
+                      controller: "form--html5-validations",
+                      turbo_stream: true
+                    } do |f| %>
+        <div class="flex-row">
+          <div id="create-bot-button">
+            <%= f.submit t('rules.withdrawals.form.submit'), class: 'sbutton button--success' %>
+          </div>
+        </div>
+        <div class="widget main-rule">
+          <div class="conversational flex-justify-center">
+            <%= t('rules.withdrawals.sentence.withdraw_all') %>
+            <%= link_to @asset.symbol, new_rules_withdrawals_pick_asset_path, data: { turbo_frame: "modal_content" }, class: "ticker", style: "background: #{asset_color}" %>
+            <%= t('rules.withdrawals.sentence.from') %>
+            <%= link_to new_rules_withdrawals_pick_exchange_path, data: { turbo_frame: "modal_content" }, class: "sbutton sbutton--exchange sbutton--exchange--#{@exchange.name_id}" do %>
+              <%= render "svg/exchange-#{@exchange.name_id}", title: @exchange.name %>
+              <span class="hide-on-mobile"><%= @exchange.name %></span>
+            <% end %>
+            <%= t('rules.withdrawals.sentence.to') %>
+            <%= link_to truncate(@address, length: 16), new_rules_withdrawals_add_address_path, data: { turbo_frame: "modal_content" }, class: "tag tag--address" %>
+            <% if @chains.present? && @chains.size > 1 %>
+              <%= t('rules.withdrawals.sentence.on_network') %>
+              <%= f.select :network,
+                    options_for_select(
+                      @chains.map { |c| ["#{c['name']} (#{t('rules.withdrawals.sentence.fee')}: #{c['fee']})", c['name']] },
+                      @rule.network || @chains.find { |c| c['is_default'] }&.dig('name') || @chains.first&.dig('name')
+                    ),
+                    {},
+                    class: 'sinput' %>
+            <% elsif @chains.present? && @chains.size == 1 %>
+              <%= f.hidden_field :network, value: @chains.first['name'] %>
+            <% end %>
+            <%= t('rules.withdrawals.sentence.when_fee_not_more_than') %>
+            <%= f.number_field :max_fee_percentage, value: @rule.max_fee_percentage || 0.5, class: 'sinput numeric-input', step: :any, min: 0.01, max: 100, size: 2, required: true, placeholder: "0.5", data: { controller: "autowidth-input", action: "input->autowidth-input#resize" }, style: "width: 50px;" %>
+            <%= t('rules.withdrawals.sentence.of_the_amount') %>
+          </div>
+          <% if @rule.minimum_withdrawal_amount %>
+            <small>
+              <%= t('rules.withdrawals.confirm_settings.min_amount_html',
+                    fee: @rule.withdrawal_fee_amount.to_s('F'),
+                    symbol: @asset.symbol,
+                    amount: @rule.minimum_withdrawal_amount).html_safe %>
+            </small>
+          <% elsif @rule.withdrawal_fee_known? && @rule.withdrawal_fee_amount.zero? %>
+            <small>
+              <%= t('rules.tile.no_fee_info', exchange: @exchange.name) %>
+            </small>
+          <% elsif !@rule.withdrawal_fee_known? %>
+            <small>
+              <%= t('rules.tile.unknown_fee_info', exchange: @exchange.name) %>
+            </small>
+          <% end %>
+        </div>
+      <% end %>
+    </div>
+  </div>
+<% end %>

@@ -249,6 +249,28 @@ class Clients::Kraken < Client
     end
   end
 
+  # https://docs.kraken.com/api/docs/rest-api/withdraw-funds
+  # @param asset [String] Asset being withdrawn (e.g., "XBT")
+  # @param key [String] Withdrawal key name (as set up in Kraken account)
+  # @param amount [String] Amount to withdraw
+  # @param address [String] Optional crypto address (overrides key address)
+  def withdraw(asset:, key:, amount:, address: nil)
+    with_rescue do
+      response = self.class.connection.post do |req|
+        req.url '/0/private/Withdraw'
+        req.body = {
+          nonce: nonce,
+          asset: asset,
+          key: key,
+          amount: amount,
+          address: address
+        }.compact.to_query
+        req.headers = headers(req.path, req.body)
+      end
+      Result::Success.new(response.body)
+    end
+  end
+
   private
 
   def nonce

@@ -1,0 +1,25 @@
+<div class="widget widget--settings rule-logs">
+  <h4 class="modal__title"><%= t('rules.logs.title') %></h4>
+  <% if rule_logs.any? %>
+    <table class="data-grid">
+      <thead>
+        <tr>
+          <th><%= t('rules.logs.date') %></th>
+          <th><%= t('rules.logs.status') %></th>
+          <th><%= t('rules.logs.message') %></th>
+        </tr>
+      </thead>
+      <tbody>
+        <% rule_logs.each do |log| %>
+          <tr>
+            <td><%= l(log.created_at, format: :short) %></td>
+            <td><span class="rule-log-status rule-log-status--<%= log.status %>"><%= log.status %></span></td>
+            <td><%= log.message %></td>
+          </tr>
+        <% end %>
+      </tbody>
+    </table>
+  <% else %>
+    <p class="rule-logs__empty"><%= t('rules.logs.empty') %></p>
+  <% end %>
+</div>

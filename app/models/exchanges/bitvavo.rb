@@ -288,6 +288,35 @@ class Exchanges::Bitvavo < Exchange
     :base_or_quote
   end
 
+  def withdraw(asset:, amount:, address:, network: nil, address_tag: nil) # rubocop:disable Lint/UnusedMethodArgument
+    symbol = symbol_from_asset(asset)
+    return Result::Failure.new("Unknown symbol for asset #{asset.symbol}") if symbol.blank?
+
+    result = client.withdrawal(symbol: symbol, amount: amount.to_d.to_s('F'), address: address,
+                               payment_id: address_tag)
+    return result if result.failure?
+
+    withdrawal_id = result.data['success'] ? "bitvavo-#{SecureRandom.uuid}" : nil
+    Result::Success.new({ withdrawal_id: withdrawal_id })
+  end
+
+  def fetch_withdrawal_fees!
+    result = Clients::Bitvavo.new.get_assets
+    return result if result.failure?
+
+    fees = {}
+    chains = {}
+    Array(result.data).each do |coin|
+      symbol = coin['symbol']
+      next if coin['withdrawalFee'].blank?
+
+      fees[symbol] = coin['withdrawalFee']
+      chains[symbol] = [{ 'name' => symbol, 'fee' => coin['withdrawalFee'], 'is_default' => true }]
+    end
+
+    update_exchange_asset_fees!(fees, chains: chains)
+  end
+
   private
 
   def client

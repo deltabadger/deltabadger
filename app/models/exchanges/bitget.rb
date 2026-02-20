@@ -308,6 +308,55 @@ class Exchanges::Bitget < Exchange
     :base_or_quote
   end
 
+  def withdraw(asset:, amount:, address:, network: nil, address_tag: nil)
+    symbol = symbol_from_asset(asset)
+    return Result::Failure.new("Unknown symbol for asset #{asset.symbol}") if symbol.blank?
+
+    # Use provided network or determine the default chain
+    chain_name = network
+    if chain_name.blank?
+      coins_result = Clients::Bitget.new.get_coins
+      return coins_result if coins_result.failure?
+
+      coin_data = Array(coins_result.data['data']).find { |c| c['coin'] == symbol }
+      return Result::Failure.new("No coin data found for #{symbol} on Bitget") if coin_data.blank?
+
+      chains = coin_data['chains'] || []
+      chain = chains.find { |c| c['isDefault'] == 'true' } || chains.first
+      return Result::Failure.new("No chain found for #{symbol} on Bitget") if chain.blank?
+
+      chain_name = chain['chain']
+    end
+
+    result = client.withdraw(coin: symbol, address: address, size: amount.to_d.to_s('F'),
+                             chain: chain_name, tag: address_tag)
+    return result if result.failure?
+
+    withdrawal_id = result.data.dig('data', 'orderId')
+    Result::Success.new({ withdrawal_id: withdrawal_id })
+  end
+
+  def fetch_withdrawal_fees!
+    result = Clients::Bitget.new.get_coins
+    return result if result.failure?
+
+    fees = {}
+    chain_data = {}
+    Array(result.data['data']).each do |coin|
+      symbol = coin['coin']
+      coin_chains = coin['chains'] || []
+      chain = coin_chains.find { |c| c['isDefault'] == 'true' } || coin_chains.first
+      next unless chain
+
+      fees[symbol] = chain['withdrawFee']
+      chain_data[symbol] = coin_chains.map do |c|
+        { 'name' => c['chain'], 'fee' => c['withdrawFee'], 'is_default' => c['isDefault'] == 'true' }
+      end
+    end
+
+    update_exchange_asset_fees!(fees, chains: chain_data)
+  end
+
   private
 
   def client

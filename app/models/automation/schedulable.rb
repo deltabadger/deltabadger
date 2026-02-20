@@ -1,4 +1,4 @@
-module Bot::Schedulable
+module Automation::Schedulable
   extend ActiveSupport::Concern
 
   INTERVALS = {

@@ -126,7 +126,6 @@ it:
                 portfolio_value: 'Valore del portafoglio'
         for: per
         force_smart_intervals_html: '<b>Intervalli intelligenti</b> · Compra con ordini di <split>$100</split> %{currency} ciascuno.'
-        feecutter_html: '<b>FeeCutter</b> · Taglia le commissioni con ordini limite'
         hour: Ora
         limit_buy: 'Acquisto limite'
         limit_sell: 'Vendita limite'
@@ -162,7 +161,7 @@ it:
         fees: "Commissioni"
         maker_fee: "Maker"
         taker_fee: "Taker"
-        withdrawal_fee: "Prelievo (₿)"
+        withdrawal_fee: "Prelievo"
         additional_title: "Bot bidirezionale"
         smart_intervals_disclaimer: 'La dimensione degli ordini su %{exchange} è definita in %{currency}. La dimensione minima dell''ordine è %{minimum}%{currency}.'
         smart_intervals_disclaimer_base: 'La dimensione degli ordini su %{exchange} è definita in %{currency}. La dimensione minima dell''ordine è %{minimum}%{currency}.'
