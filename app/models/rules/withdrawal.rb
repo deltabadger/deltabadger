@@ -26,6 +26,8 @@ class Rules::Withdrawal < Rule
 
   def parse_params(params)
     self.max_fee_percentage = params[:max_fee_percentage] if params[:max_fee_percentage].present?
+    self.network = params[:network] if params.key?(:network)
+    self.address_tag = params[:address_tag] if params.key?(:address_tag)
   end
 
   def execute
@@ -102,6 +104,9 @@ class Rules::Withdrawal < Rule
   end
 
   def withdrawal_fee_amount
+    chain_fee = fee_for_selected_chain
+    return BigDecimal(chain_fee) if chain_fee.present?
+
     exchange.withdrawal_fee_for(asset: asset) || BigDecimal('0')
   end
 
@@ -122,5 +127,14 @@ class Rules::Withdrawal < Rule
     return nil if fee.zero?
 
     (fee / (pct / 100)).round(8)
+  end
+
+  private
+
+  def fee_for_selected_chain
+    return nil if network.blank?
+
+    chain = available_chains.find { |c| c['name'] == network }
+    chain&.dig('fee')
   end
 end
