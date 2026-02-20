@@ -65,4 +65,89 @@ class Rules::WithdrawalTest < ActiveSupport::TestCase
 
     assert_nil rule.minimum_withdrawal_amount
   end
+
+  # Chain-specific fee tests
+
+  test 'withdrawal_fee_amount uses selected chain fee when network is set' do
+    @ea.update!(
+      withdrawal_fee: '0.0005',
+      withdrawal_fee_updated_at: Time.current,
+      withdrawal_chains: [
+        { 'name' => 'BTC', 'fee' => '0.0005', 'is_default' => true },
+        { 'name' => 'BEP20', 'fee' => '0.00001', 'is_default' => false }
+      ]
+    )
+    rule = build_rule
+    rule.network = 'BEP20'
+
+    assert_equal BigDecimal('0.00001'), rule.withdrawal_fee_amount
+  end
+
+  test 'withdrawal_fee_amount falls back to default when network not in chains' do
+    @ea.update!(
+      withdrawal_fee: '0.0005',
+      withdrawal_fee_updated_at: Time.current,
+      withdrawal_chains: [
+        { 'name' => 'BTC', 'fee' => '0.0005', 'is_default' => true }
+      ]
+    )
+    rule = build_rule
+    rule.network = 'NONEXISTENT'
+
+    assert_equal BigDecimal('0.0005'), rule.withdrawal_fee_amount
+  end
+
+  test 'withdrawal_fee_amount falls back to default when network is blank' do
+    @ea.update!(withdrawal_fee: '0.0005', withdrawal_fee_updated_at: Time.current)
+    rule = build_rule
+
+    assert_equal BigDecimal('0.0005'), rule.withdrawal_fee_amount
+  end
+
+  test 'minimum_withdrawal_amount uses selected chain fee' do
+    @ea.update!(
+      withdrawal_fee: '0.0005',
+      withdrawal_fee_updated_at: Time.current,
+      withdrawal_chains: [
+        { 'name' => 'BTC', 'fee' => '0.0005', 'is_default' => true },
+        { 'name' => 'BEP20', 'fee' => '0.00001', 'is_default' => false }
+      ]
+    )
+    rule = build_rule(max_fee_percentage: '1.0')
+    rule.network = 'BEP20'
+
+    # fee=0.00001, pct=1% => 0.00001 / 0.01 = 0.001
+    assert_equal BigDecimal('0.001'), rule.minimum_withdrawal_amount
+  end
+
+  # parse_params tests
+
+  test 'parse_params updates max_fee_percentage' do
+    rule = build_rule
+    rule.parse_params(max_fee_percentage: '2.5')
+
+    assert_equal '2.5', rule.max_fee_percentage
+  end
+
+  test 'parse_params updates network' do
+    rule = build_rule
+    rule.parse_params(network: 'BEP20')
+
+    assert_equal 'BEP20', rule.network
+  end
+
+  test 'parse_params updates address_tag' do
+    rule = build_rule
+    rule.parse_params(address_tag: 'memo456')
+
+    assert_equal 'memo456', rule.address_tag
+  end
+
+  test 'parse_params clears network with nil' do
+    rule = build_rule
+    rule.network = 'BTC'
+    rule.parse_params(network: nil)
+
+    assert_nil rule.network
+  end
 end
