@@ -2,7 +2,7 @@ manifestVersion: 1
 id: deltabadger
 name: Deltabadger
 category: finance
-version: "1.6.24"
+version: "1.6.26"
 tagline: DCA bot for crypto
 icon: https://raw.githubusercontent.com/deltabadger/deltabadger/refs/heads/main/deltabadger/icon.svg
 description: >-

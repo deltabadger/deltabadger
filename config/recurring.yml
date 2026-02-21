@@ -18,6 +18,10 @@ production:
     class: Bot::RepairOrphanedBotsJob
     schedule: "*/15 * * * *"  # Every 15 minutes
 
+  evaluate_all_rules_job:
+    class: Rule::EvaluateAllJob
+    schedule: "0 */4 * * *"  # Every 4 hours
+
 development:
   sync_all_tickers_and_assets_job:
     class: Exchange::SyncAllTickersAndAssetsJob
@@ -34,3 +38,7 @@ development:
   repair_orphaned_bots_job:
     class: Bot::RepairOrphanedBotsJob
     schedule: "*/5 * * * *"  # Every 5 minutes for testing
+
+  evaluate_all_rules_job:
+    class: Rule::EvaluateAllJob
+    schedule: "0 */4 * * *"  # Every 4 hours

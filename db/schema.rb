@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_02_17_100001) do
+ActiveRecord::Schema[8.1].define(version: 2026_02_19_130000) do
   create_table "api_keys", force: :cascade do |t|
     t.datetime "created_at", precision: nil, null: false
     t.bigint "exchange_id", null: false
@@ -103,6 +103,9 @@ ActiveRecord::Schema[8.1].define(version: 2026_02_17_100001) do
     t.datetime "created_at", null: false
     t.bigint "exchange_id", null: false
     t.datetime "updated_at", null: false
+    t.json "withdrawal_chains"
+    t.string "withdrawal_fee"
+    t.datetime "withdrawal_fee_updated_at"
     t.index ["asset_id", "exchange_id"], name: "index_exchange_assets_on_asset_id_and_exchange_id", unique: true
     t.index ["asset_id"], name: "index_exchange_assets_on_asset_id"
     t.index ["exchange_id"], name: "index_exchange_assets_on_exchange_id"
@@ -116,7 +119,6 @@ ActiveRecord::Schema[8.1].define(version: 2026_02_17_100001) do
     t.string "taker_fee"
     t.string "type"
     t.datetime "updated_at", precision: nil, null: false
-    t.string "withdrawal_fee"
     t.index ["type"], name: "index_exchanges_on_type", unique: true
   end
 
@@ -160,6 +162,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_02_17_100001) do
     t.datetime "created_at", null: false
     t.integer "exchange_id"
     t.json "settings", default: {}, null: false
+    t.datetime "settings_changed_at"
     t.integer "status", default: 0, null: false
     t.string "type", null: false
     t.datetime "updated_at", null: false

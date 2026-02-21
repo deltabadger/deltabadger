@@ -37,9 +37,13 @@ Rails.application.routes.draw do
         member do
           get :confirm_destroy
         end
-        collection do
-          resource :add_api_key, only: [:new, :create]
-        end
+      end
+      namespace :withdrawals do
+        resource :pick_asset, only: %i[new create]
+        resource :pick_exchange, only: %i[new create]
+        resource :add_api_key, only: %i[new create]
+        resource :add_address, only: %i[new create]
+        resource :confirm_settings, only: %i[new create]
       end
     end
 
