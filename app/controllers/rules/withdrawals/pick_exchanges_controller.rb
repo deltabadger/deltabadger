@@ -12,7 +12,7 @@ class Rules::Withdrawals::PickExchangesController < ApplicationController
     else
       # Build a temporary bot to reuse Searchable concern for exchange search
       @bot = current_user.bots.dca_single_asset.new(base_asset_id: @asset.id)
-      @exchanges = exchange_search_results(@bot, search_params[:query])
+      @exchanges = exchange_search_results(@bot, search_params[:query]).select(&:supports_withdrawal?)
 
       @withdrawal_fees = withdrawal_fees_for(exchanges: @exchanges, asset: @asset)
     end
