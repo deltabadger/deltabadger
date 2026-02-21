@@ -1,15 +1,16 @@
 # 1. Create exchanges (always needed)
 [
-  { type: 'Exchanges::Binance', name: 'Binance', maker_fee: '0.1', taker_fee: '0.1' },
-  { type: 'Exchanges::BinanceUs', name: 'Binance.US', maker_fee: '0.0', taker_fee: '0.01' },
-  { type: 'Exchanges::Kraken', name: 'Kraken', maker_fee: '0.25', taker_fee: '0.4' },
-  { type: 'Exchanges::Coinbase', name: 'Coinbase', maker_fee: '0.6', taker_fee: '1.2' },
-  { type: 'Exchanges::Bitget', name: 'Bitget', maker_fee: '0.1', taker_fee: '0.1' },
-  { type: 'Exchanges::Kucoin', name: 'KuCoin', maker_fee: '0.1', taker_fee: '0.1' },
-  { type: 'Exchanges::Bybit', name: 'Bybit', maker_fee: '0.1', taker_fee: '0.1' },
-  { type: 'Exchanges::Mexc', name: 'MEXC', maker_fee: '0.0', taker_fee: '0.05' },
-  { type: 'Exchanges::Gemini', name: 'Gemini', maker_fee: '0.2', taker_fee: '0.4' },
-  { type: 'Exchanges::Bitvavo', name: 'Bitvavo', maker_fee: '0.15', taker_fee: '0.25' }
+  { type: 'Exchanges::Binance', name: 'Binance', maker_fee: '0.1', taker_fee: '0.1', withdrawal_fee: '0.0002' },
+  { type: 'Exchanges::BinanceUs', name: 'Binance.US', maker_fee: '0.0', taker_fee: '0.01', withdrawal_fee: '0.0002' },
+  { type: 'Exchanges::Kraken', name: 'Kraken', maker_fee: '0.25', taker_fee: '0.4', withdrawal_fee: '0.00005' },
+  { type: 'Exchanges::Coinbase', name: 'Coinbase', maker_fee: '0.6', taker_fee: '1.2', withdrawal_fee: '0.0' },
+  { type: 'Exchanges::Bitget', name: 'Bitget', maker_fee: '0.1', taker_fee: '0.1', withdrawal_fee: '0.0' },
+  { type: 'Exchanges::Kucoin', name: 'KuCoin', maker_fee: '0.1', taker_fee: '0.1', withdrawal_fee: '0.0' },
+  { type: 'Exchanges::Bybit', name: 'Bybit', maker_fee: '0.1', taker_fee: '0.1', withdrawal_fee: '0.0' },
+  { type: 'Exchanges::Mexc', name: 'MEXC', maker_fee: '0.0', taker_fee: '0.05', withdrawal_fee: '0.0' },
+  { type: 'Exchanges::Gemini', name: 'Gemini', maker_fee: '0.2', taker_fee: '0.4', withdrawal_fee: '0.0' },
+  { type: 'Exchanges::Bitvavo', name: 'Bitvavo', maker_fee: '0.15', taker_fee: '0.25', withdrawal_fee: '0.0' },
+  { type: 'Exchanges::Hyperliquid', name: 'Hyperliquid', maker_fee: '0.01', taker_fee: '0.035', withdrawal_fee: '0.0' }
 ].each do |attrs|
   klass = attrs[:type].constantize
   klass.find_or_create_by!(name: attrs[:name]).update!(attrs.except(:type, :name))

@@ -166,3 +166,15 @@ en:
                     -   text_html: 'Copy and paste your new API keys into the form above.'
                 private_key: 'API Secret'
                 public_key: 'API Key'
+            hyperliquid:
+                instructions:
+                    -   text_html: 'Log into your %{exchange_link} account.'
+                    -   text_html: 'Go to <a href="https://app.hyperliquid.xyz/API"><b>API</b></a> from the left sidebar.'
+                    -   text_html: 'Click <b>Generate API agent</b>.'
+                    -   text_html: 'Copy the <b>Agent Private Key</b> that is shown. <strong>⚠️ Important:</strong> This is shown only once.'
+                    -   text_html: 'Your <b>Wallet Address</b> is visible in the top-right corner of the page (starts with 0x...).'
+                    -   text_html: 'Paste your Wallet Address and Agent Private Key into the form above.'
+                    -   text_html: '<strong>⚠️ Security:</strong> Only use <b>Agent keys</b> (trade-only). <b>Never</b> enter your main wallet private key.'
+                    -   text_html: '<strong>ℹ️ Note:</strong> Hyperliquid is a decentralized exchange. All orders are publicly visible on-chain.'
+                private_key: 'Agent Private Key'
+                public_key: 'Wallet Address'
