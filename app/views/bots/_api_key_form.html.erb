@@ -4,11 +4,11 @@
         <%= form_with model: api_key, url: path, method: :post, data: form_data, class: "form" do |f| %>
           <div class="form__row form__row--input">
             <%= f.text_field :key, autofocus: true, data: { controller: "autofocus" }, class: "form__input form__input--large", rows: 3 %>
-            <%= f.label :key, "API Key", class: "form__label" %>
+            <%= f.label :key, t("bot.api.#{bot.exchange.name_id}.public_key", default: "API Key"), class: "form__label" %>
           </div>
           <div class="form__row form__row--input">
             <%= f.text_field :secret, class: "form__input form__input--large", rows: 3 %>
-            <%= f.label :secret, "API Secret", class: "form__label" %>
+            <%= f.label :secret, t("bot.api.#{bot.exchange.name_id}.private_key", default: "API Secret"), class: "form__label" %>
           </div>
           <% if bot.exchange.requires_passphrase? %>
             <div class="form__row form__row--input">

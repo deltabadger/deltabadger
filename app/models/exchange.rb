@@ -35,6 +35,7 @@ class Exchange < ApplicationRecord
              when 'mexc' then ExchangeApi::Markets::Mexc::Market.new
              when 'gemini' then ExchangeApi::Markets::Gemini::Market.new
              when 'bitvavo' then ExchangeApi::Markets::Bitvavo::Market.new
+             when 'hyperliquid' then ExchangeApi::Markets::Hyperliquid::Market.new
              else
                Result::Failure.new("Unsupported exchange #{name}")
              end

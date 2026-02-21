@@ -70,6 +70,11 @@ FactoryBot.define do
       name { 'Bitvavo' }
       type { 'Exchanges::Bitvavo' }
     end
+
+    factory :hyperliquid_exchange, class: 'Exchanges::Hyperliquid' do
+      name { 'Hyperliquid' }
+      type { 'Exchanges::Hyperliquid' }
+    end
   end
 
   # Asset factory with traits for common cryptocurrencies
