@@ -121,6 +121,10 @@ class Exchange < ApplicationRecord
     raise NotImplementedError, "#{self.class.name} must implement cancel_order"
   end
 
+  def supports_withdrawal?
+    true
+  end
+
   def withdraw(asset:, amount:, address:, network: nil, address_tag: nil)
     raise NotImplementedError, "#{self.class.name} must implement withdraw"
   end
