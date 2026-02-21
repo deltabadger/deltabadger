@@ -149,6 +149,28 @@ class Clients::Gemini < Client
     end
   end
 
+  # https://docs.gemini.com/rest-api/#withdraw-crypto-funds
+  # @param currency [String] Currency code (e.g., "BTC")
+  # @param address [String] Withdrawal address
+  # @param amount [String] Withdrawal amount
+  def withdraw_crypto_funds(currency:, address:, amount:)
+    with_rescue do
+      path = '/v1/withdraw/crypto'
+      payload = {
+        request: path,
+        nonce: nonce,
+        currency: currency,
+        address: address,
+        amount: amount
+      }
+      response = self.class.connection.post do |req|
+        req.url path
+        req.headers = authenticated_headers(payload)
+      end
+      Result::Success.new(response.body)
+    end
+  end
+
   private
 
   def unauthenticated_headers

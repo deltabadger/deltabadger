@@ -5,6 +5,7 @@ class Exchange < ApplicationRecord
 
   has_many :bots
   has_many :api_keys
+  has_one :fee_api_key
   has_many :exchange_assets
   has_many :assets, through: :exchange_assets
   has_many :tickers
@@ -120,15 +121,66 @@ class Exchange < ApplicationRecord
     raise NotImplementedError, "#{self.class.name} must implement cancel_order"
   end
 
+  def supports_withdrawal?
+    true
+  end
+
+  def withdraw(asset:, amount:, address:, network: nil, address_tag: nil)
+    raise NotImplementedError, "#{self.class.name} must implement withdraw"
+  end
+
   def get_api_key_validity(api_key:)
     raise NotImplementedError, "#{self.class.name} must implement get_api_key_validity"
+  end
+
+  def fetch_withdrawal_fees!
+    raise NotImplementedError, "#{self.class.name} must implement fetch_withdrawal_fees!"
+  end
+
+  def withdrawal_fee_for(asset:)
+    ea = exchange_assets.find_by(asset: asset)
+    return nil if ea.nil? || ea.withdrawal_fee.blank?
+
+    BigDecimal(ea.withdrawal_fee)
+  end
+
+  def withdrawal_fee_fresh?(asset:)
+    ea = exchange_assets.find_by(asset: asset)
+    return false if ea.nil? || ea.withdrawal_fee_updated_at.nil?
+
+    ea.withdrawal_fee_updated_at > 24.hours.ago
   end
 
   def minimum_amount_logic
     raise NotImplementedError, "#{self.class.name} must implement minimum_amount_logic"
   end
 
+  def symbol_from_asset(asset)
+    @symbol_from_asset ||= tickers.available.includes(:base_asset, :quote_asset).each_with_object({}) do |t, h|
+      h[t.base_asset_id] ||= t.base
+      h[t.quote_asset_id] ||= t.quote
+    end
+    @symbol_from_asset[asset.id]
+  end
+
   def requires_passphrase?
     false
+  end
+
+  private
+
+  def update_exchange_asset_fees!(fees, chains: {})
+    updated = {}
+    fees.each do |symbol, fee_string|
+      asset = asset_from_symbol(symbol)
+      next unless asset
+
+      ea = exchange_assets.find_or_create_by!(asset: asset)
+      attrs = { withdrawal_fee: fee_string, withdrawal_fee_updated_at: Time.current }
+      attrs[:withdrawal_chains] = chains[symbol] if chains.key?(symbol)
+      ea.update!(attrs)
+      updated[symbol] = fee_string
+    end
+    Result::Success.new(updated)
   end
 end

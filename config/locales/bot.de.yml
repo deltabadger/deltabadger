@@ -124,8 +124,6 @@ de:
                 portfolio_value: 'Portfoliowert'
         for: für
         force_smart_intervals_html: '<b>Smart-Intervalle</b> · Kaufen Sie mit Bestellungen von jeweils <split>100$</split> %{currency}.'
-        feecutter_html: '<b>FeeCutter</b> · Reduzieren Sie Gebühren mit Limit-Aufträgen'
-
         hour: Stunde
         limit_buy: 'Limit Kauf'
         limit_sell: 'Limit Verkauf'
@@ -161,7 +159,7 @@ de:
         fees: "Gebühren"
         maker_fee: "Maker"
         taker_fee: "Taker"
-        withdrawal_fee: "Auszahlung (₿)"
+        withdrawal_fee: "Auszahlung"
         additional_title: "Zwei-Wege-Bot"
         smart_intervals_disclaimer: ' Die Mindestordergröße beträgt %{minimum}%{currency}'
         smart_intervals_disclaimer_base: ' Die Mindestordergröße beträgt %{minimum}%{currency}'

@@ -373,6 +373,24 @@ class Exchanges::Kraken < Exchange
     end
   end
 
+  def withdraw(asset:, amount:, address:, network: nil, address_tag: nil) # rubocop:disable Lint/UnusedMethodArgument
+    symbol = symbol_from_asset(asset)
+    return Result::Failure.new("Unknown symbol for asset #{asset.symbol}") if symbol.blank?
+
+    result = client.withdraw(asset: symbol, key: address, amount: amount.to_d.to_s('F'), address: address)
+    return result if result.failure?
+
+    error = result.data['error']
+    return Result::Failure.new(error.first) if error.present? && error.any?
+
+    refid = result.data.dig('result', 'refid')
+    Result::Success.new({ withdrawal_id: refid })
+  end
+
+  def fetch_withdrawal_fees!
+    Result::Success.new({})
+  end
+
   private
 
   def client
