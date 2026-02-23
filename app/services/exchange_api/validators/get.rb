@@ -25,6 +25,9 @@ module ExchangeApi
         when 'gemini' then Gemini::Validator.new
         when 'bitvavo' then Bitvavo::Validator.new
         when 'hyperliquid' then Hyperliquid::Validator.new
+        when 'bingx' then Bingx::Validator.new
+        when 'bitrue' then Bitrue::Validator.new
+        when 'bitmart' then BitMart::Validator.new
         end
       end
     end
