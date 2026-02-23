@@ -25,7 +25,8 @@
               <span class="hide-on-mobile"><%= @exchange.name %></span>
             <% end %>
             <%= t('rules.withdrawals.sentence.to') %>
-            <%= link_to truncate(@address, length: 16), new_rules_withdrawals_add_address_path, data: { turbo_frame: "modal_content" }, class: "tag tag--address" %>
+            <%= link_to new_rules_withdrawals_add_address_path, data: { turbo_frame: "modal_content" }, class: "tag tag--address" do %><%= render 'svg/16x16_wallet' %><%= truncate(@address, length: 16) %><% end %>
+
             <% if @chains.present? && @chains.size > 1 %>
               <%= t('rules.withdrawals.sentence.on_network') %>
               <%= f.select :network,
@@ -38,11 +39,43 @@
             <% elsif @chains.present? && @chains.size == 1 %>
               <%= f.hidden_field :network, value: @chains.first['name'] %>
             <% end %>
-            <%= t('rules.withdrawals.sentence.when_fee_not_more_than') %>
-            <%= f.number_field :max_fee_percentage, value: @rule.max_fee_percentage || 0.5, class: 'sinput numeric-input', step: :any, min: 0.01, max: 100, size: 2, required: true, placeholder: "0.5", data: { controller: "autowidth-input", action: "input->autowidth-input#resize" }, style: "width: 50px;" %>
-            <%= t('rules.withdrawals.sentence.of_the_amount') %>
+            <% fee_known = @rule.withdrawal_fee_known? %>
+            <% default_threshold = fee_known ? 'fee_percentage' : 'min_amount' %>
+            <% selected_threshold = @rule.threshold_type || default_threshold %>
+
+            <span data-controller="form--select-toggle">
+              <%= t('rules.withdrawals.sentence.when') %>
+              <% if fee_known %>
+                <%= f.select :threshold_type,
+                      options_for_select([
+                        [t('rules.withdrawals.sentence.fee_less_than'), 'fee_percentage'],
+                        [t('rules.withdrawals.sentence.amount_crosses'), 'min_amount']
+                      ], selected_threshold),
+                      {},
+                      class: 'sinput', data: { action: "change->form--select-toggle#toggle" } %>
+              <% else %>
+                <%= f.hidden_field :threshold_type, value: 'min_amount' %>
+                <%= t('rules.withdrawals.sentence.amount_crosses') %>
+              <% end %>
+
+              <span data-form--select-toggle-target="section" data-select-toggle-value="fee_percentage" style="<%= 'display:none' unless selected_threshold == 'fee_percentage' %>">
+                <%= f.number_field :max_fee_percentage, value: @rule.max_fee_percentage || 0.5, class: 'sinput numeric-input', step: :any, min: 0.01, max: 100, size: 2, required: selected_threshold == 'fee_percentage', placeholder: "0.5", data: { controller: "autowidth-input", action: "input->autowidth-input#resize" }, style: "width: 50px;" %>
+                <%= t('rules.withdrawals.sentence.of_the_amount') %>
+              </span>
+
+              <span data-form--select-toggle-target="section" data-select-toggle-value="min_amount" style="<%= 'display:none' unless selected_threshold == 'min_amount' %>">
+                <%= f.number_field :min_amount, value: @rule.min_amount || 0.1, class: 'sinput numeric-input', step: :any, min: 0.00000001, size: 2, required: selected_threshold == 'min_amount', placeholder: "0.1", data: { controller: "autowidth-input", action: "input->autowidth-input#resize" }, style: "width: 70px;" %>
+                <%= @asset.symbol %>
+              </span>
+            </span>
           </div>
-          <% if @rule.minimum_withdrawal_amount %>
+          <% if selected_threshold == 'min_amount' %>
+            <small>
+              <%= t('rules.tile.fixed_amount_info',
+                    amount: @rule.min_amount || 0.1,
+                    symbol: @asset.symbol) %>
+            </small>
+          <% elsif @rule.minimum_withdrawal_amount %>
             <small>
               <%= t('rules.withdrawals.confirm_settings.min_amount_html',
                     fee: @rule.withdrawal_fee_amount.to_s('F'),
@@ -52,10 +85,6 @@
           <% elsif @rule.withdrawal_fee_known? && @rule.withdrawal_fee_amount.zero? %>
             <small>
               <%= t('rules.tile.no_fee_info', exchange: @exchange.name) %>
-            </small>
-          <% elsif !@rule.withdrawal_fee_known? %>
-            <small>
-              <%= t('rules.tile.unknown_fee_info', exchange: @exchange.name) %>
             </small>
           <% end %>
         </div>

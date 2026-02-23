@@ -222,7 +222,9 @@ en:
                 to: 'to'
                 on_network: 'on'
                 fee: 'fee'
-                when_fee_not_more_than: 'Keep fees below'
+                when: 'when'
+                fee_less_than: 'fee is less than'
+                amount_crosses: 'the amount crosses'
                 of_the_amount: '%'
             pick_exchange:
                 withdrawal_fee: 'Withdrawal'
@@ -239,6 +241,7 @@ en:
             min_amount_info: 'Based on the current fee of %{fee} %{symbol}, the withdrawal will be triggered when the balance reaches %{amount} %{symbol}.'
             no_fee_info: '%{exchange} reports no withdrawal fee for this asset. The rule will withdraw any available balance.'
             unknown_fee_info: 'Fee data unavailable for %{exchange}. The rule will withdraw any available balance.'
+            fixed_amount_info: 'The withdrawal will be triggered when the balance reaches %{amount} %{symbol}.'
         logs:
             title: 'Rule Logs'
             date: 'Date'

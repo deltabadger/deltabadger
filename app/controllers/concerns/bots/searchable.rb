@@ -82,9 +82,8 @@ module Bots::Searchable
   def withdrawal_fees_for(exchanges:, asset:)
     fees = {}
     exchanges.each do |exchange|
-      exchange.fetch_withdrawal_fees! unless exchange.withdrawal_fee_fresh?(asset: asset)
       fee = exchange.withdrawal_fee_for(asset: asset)
-      fees[exchange.id] = fee ? fee.to_s('F') : '?'
+      fees[exchange.id] = fee&.to_s('F')
     end
     fees
   end

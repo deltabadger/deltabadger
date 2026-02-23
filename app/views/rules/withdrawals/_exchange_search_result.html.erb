@@ -8,6 +8,6 @@
     </div>
     <div><%= "#{exchange.maker_fee}%".presence || '-' %></div>
     <div><%= "#{exchange.taker_fee}%".presence || '-' %></div>
-    <div><%= withdrawal_fees[exchange.id] %></div>
+    <div><%= withdrawal_fees[exchange.id] || '-' %></div>
   <% end %>
 </div>

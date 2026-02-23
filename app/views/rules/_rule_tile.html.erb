@@ -39,27 +39,53 @@
             <% end %>
           </div>
           <div class="conversational conversational--small">
+            <% fee_known = rule.withdrawal_fee_known? %>
+            <% current_threshold = rule.threshold_type || (fee_known ? 'fee_percentage' : 'min_amount') %>
 
-            <span><%= t('rules.withdrawals.sentence.when_fee_not_more_than') %></span>
-            <%= f.number_field :max_fee_percentage, value: rule.max_fee_percentage, class: 'sinput numeric-input', step: :any, min: 0.01, max: 100, size: 2, required: true, disabled: rule.scheduled?, data: { controller: "autowidth-input", action: "input->autowidth-input#resize change->form--submit#submit" }, style: "width: 50px;" %>
-            <span><%= t('rules.withdrawals.sentence.of_the_amount') %></span>
+            <span data-controller="form--select-toggle">
+              <span><%= t('rules.withdrawals.sentence.when') %></span>
+              <% if fee_known %>
+                <%= f.select :threshold_type,
+                      options_for_select([
+                        [t('rules.withdrawals.sentence.fee_less_than'), 'fee_percentage'],
+                        [t('rules.withdrawals.sentence.amount_crosses'), 'min_amount']
+                      ], current_threshold),
+                      {},
+                      class: 'sinput', disabled: rule.scheduled?, data: { action: "change->form--select-toggle#toggle change->form--submit#submit" } %>
+              <% else %>
+                <%= f.hidden_field :threshold_type, value: 'min_amount' %>
+                <span><%= t('rules.withdrawals.sentence.amount_crosses') %></span>
+              <% end %>
+
+              <span data-form--select-toggle-target="section" data-select-toggle-value="fee_percentage" style="<%= 'display:none' unless current_threshold == 'fee_percentage' %>">
+                <%= f.number_field :max_fee_percentage, value: rule.max_fee_percentage, class: 'sinput numeric-input', step: :any, min: 0.01, max: 100, size: 2, required: current_threshold == 'fee_percentage', disabled: rule.scheduled?, data: { controller: "autowidth-input", action: "input->autowidth-input#resize change->form--submit#submit" }, style: "width: 50px;" %>
+                <span><%= t('rules.withdrawals.sentence.of_the_amount') %></span>
+              </span>
+
+              <span data-form--select-toggle-target="section" data-select-toggle-value="min_amount" style="<%= 'display:none' unless current_threshold == 'min_amount' %>">
+                <%= f.number_field :min_amount, value: rule.min_amount, class: 'sinput numeric-input', step: :any, min: 0.00000001, size: 2, required: current_threshold == 'min_amount', disabled: rule.scheduled?, data: { controller: "autowidth-input", action: "input->autowidth-input#resize change->form--submit#submit" }, style: "width: 70px;" %>
+                <span><%= rule.asset.symbol %></span>
+              </span>
+            </span>
           </div>
         </div>
       </div>
-      <% if rule.minimum_withdrawal_amount %>
+      <% if current_threshold == 'min_amount' && rule.min_amount.present? %>
+        <div class="small-info">
+          <%= t('rules.tile.fixed_amount_info',
+                amount: rule.min_amount,
+                symbol: rule.asset.symbol) %>
+        </div>
+      <% elsif current_threshold != 'min_amount' && rule.minimum_withdrawal_amount %>
         <div class="small-info">
           <%= t('rules.tile.min_amount_info',
                 fee: rule.withdrawal_fee_amount.to_s('F'),
                 symbol: rule.asset.symbol,
                 amount: rule.minimum_withdrawal_amount) %>
         </div>
-      <% elsif rule.withdrawal_fee_known? && rule.withdrawal_fee_amount.zero? %>
+      <% elsif current_threshold != 'min_amount' && rule.withdrawal_fee_known? && rule.withdrawal_fee_amount.zero? %>
         <div class="small-info">
           <%= t('rules.tile.no_fee_info', exchange: rule.exchange.name) %>
-        </div>
-      <% elsif !rule.withdrawal_fee_known? %>
-        <div class="small-info">
-          <%= t('rules.tile.unknown_fee_info', exchange: rule.exchange.name) %>
         </div>
       <% end %>
     </div>
