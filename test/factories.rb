@@ -75,6 +75,21 @@ FactoryBot.define do
       name { 'Hyperliquid' }
       type { 'Exchanges::Hyperliquid' }
     end
+
+    factory :bingx_exchange, class: 'Exchanges::Bingx' do
+      name { 'BingX' }
+      type { 'Exchanges::Bingx' }
+    end
+
+    factory :bitrue_exchange, class: 'Exchanges::Bitrue' do
+      name { 'Bitrue' }
+      type { 'Exchanges::Bitrue' }
+    end
+
+    factory :bit_mart_exchange, class: 'Exchanges::BitMart' do
+      name { 'BitMart' }
+      type { 'Exchanges::BitMart' }
+    end
   end
 
   # Asset factory with traits for common cryptocurrencies
