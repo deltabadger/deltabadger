@@ -126,15 +126,15 @@ de:
                     -   text_html: 'Label your key (e.g. "Deltabadger").'
                     -   text_html: 'Set permissions:'
                         sub_instructions:
-                            -   text_html: '☑️ <b>Read</b>'
-                            -   text_html: '☑️ <b>Spot Trading</b><br><strong>⚠️ Important:</strong> Do not enable Withdraw permissions.'
-                            -   text_html: 'IP whitelist:'
+                            -   text_html: '☑️ <b>View Order Details</b>'
+                            -   text_html: '☑️ <b>Trade</b><br><strong>⚠️ Important:</strong> Do not enable Withdraw permissions.'
+                            -   text_html: 'Link IP Address:'
                                 sub_instructions:
                                     -   text_html: '🔘 Whitelist %{whitelist_ip}.'
                     -   text_html: 'Click <b>Confirm</b> and complete the verification.'
                     -   text_html: 'Copy and paste your new API keys into the form above.'
-                private_key: 'API Secret'
-                public_key: 'API Key'
+                private_key: 'Secret Key'
+                public_key: 'Access Key'
             gemini:
                 instructions:
                     -   text_html: 'Log into your %{exchange_link} account.'

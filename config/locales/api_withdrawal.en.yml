@@ -161,9 +161,9 @@ en:
                 -   text_html: 'Label your key (e.g. "Deltabadger Withdrawal").'
                 -   text_html: 'Set permissions:'
                     sub_instructions:
-                        -   text_html: '☑️ <b>Read</b>'
-                        -   text_html: '☑️ <b>Withdraw</b><br><strong>⚠️ Important:</strong> Do not enable Spot Trading permissions.'
-                        -   text_html: 'IP whitelist:'
+                        -   text_html: '☑️ <b>View Order Details</b>'
+                        -   text_html: '☑️ <b>Withdraw</b><br><strong>⚠️ Important:</strong> Do not enable Trade permissions.'
+                        -   text_html: 'Link IP Address:'
                             sub_instructions:
                                 -   text_html: '🔘 Whitelist %{whitelist_ip}.'
                 -   text_html: 'Click <b>Confirm</b> and complete the verification.'

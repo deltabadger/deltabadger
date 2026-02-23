@@ -22,8 +22,14 @@ class ApiKey < ApplicationRecord
 
   def update_status!(result)
     if result.success?
-      update!(status: result.data ? :correct : :incorrect)
+      if result.data
+        update!(status: :correct)
+      else
+        Rails.logger.warn("[#{exchange.name}] API key validation: incorrect key")
+        update!(status: :incorrect)
+      end
     else
+      Rails.logger.warn("[#{exchange.name}] API key validation failed: #{result.errors.join(', ')}")
       update!(status: :pending_validation)
     end
   end
