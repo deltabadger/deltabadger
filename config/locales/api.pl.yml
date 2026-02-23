@@ -126,15 +126,15 @@ pl:
                     -   text_html: 'Oznacz klucz (np. "Deltabadger").'
                     -   text_html: 'Ustaw uprawnienia:'
                         sub_instructions:
-                            -   text_html: '☑️ <b>Read</b>'
-                            -   text_html: '☑️ <b>Spot Trading</b><br><strong>⚠️ Ważne:</strong> Nie włączaj uprawnień do wypłat.'
-                            -   text_html: 'IP whitelist:'
+                            -   text_html: '☑️ <b>View Order Details</b>'
+                            -   text_html: '☑️ <b>Trade</b><br><strong>⚠️ Ważne:</strong> Nie włączaj uprawnień do wypłat.'
+                            -   text_html: 'Link IP Address:'
                                 sub_instructions:
                                     -   text_html: '🔘 Dodaj %{whitelist_ip}.'
                     -   text_html: 'Kliknij <b>Confirm</b> i przejdź weryfikację.'
                     -   text_html: 'Skopiuj i wklej klucze API do formularza powyżej.'
-                private_key: 'API Secret'
-                public_key: 'API Key'
+                private_key: 'Secret Key'
+                public_key: 'Access Key'
             gemini:
                 instructions:
                     -   text_html: 'Zaloguj się na swoje konto %{exchange_link}.'
