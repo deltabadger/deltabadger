@@ -9,13 +9,15 @@ class Rules::WithdrawalTest < ActiveSupport::TestCase
     @ea = ExchangeAsset.find_by(exchange: @exchange, asset: @asset)
   end
 
-  def build_rule(max_fee_percentage: '1.0')
+  def build_rule(max_fee_percentage: '1.0', threshold_type: 'fee_percentage', min_amount: nil)
     Rules::Withdrawal.new(
       user: @user,
       exchange: @exchange,
       asset: @asset,
       address: '1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa',
-      max_fee_percentage: max_fee_percentage
+      threshold_type: threshold_type,
+      max_fee_percentage: max_fee_percentage,
+      min_amount: min_amount
     )
   end
 
@@ -49,9 +51,9 @@ class Rules::WithdrawalTest < ActiveSupport::TestCase
     assert_not rule.withdrawal_fee_known?
   end
 
-  # minimum_withdrawal_amount with per-asset fee
+  # minimum_withdrawal_amount with fee_percentage mode
 
-  test 'minimum_withdrawal_amount uses per-asset fee' do
+  test 'minimum_withdrawal_amount uses per-asset fee in fee_percentage mode' do
     @ea.update!(withdrawal_fee: '0.001', withdrawal_fee_updated_at: Time.current)
     rule = build_rule(max_fee_percentage: '1.0')
 
@@ -59,11 +61,32 @@ class Rules::WithdrawalTest < ActiveSupport::TestCase
     assert_equal BigDecimal('0.1'), rule.minimum_withdrawal_amount
   end
 
-  test 'minimum_withdrawal_amount returns nil when fee is zero' do
+  test 'minimum_withdrawal_amount returns nil when fee is zero in fee_percentage mode' do
     @ea.update!(withdrawal_fee: '0.0', withdrawal_fee_updated_at: Time.current)
     rule = build_rule(max_fee_percentage: '1.0')
 
     assert_nil rule.minimum_withdrawal_amount
+  end
+
+  # minimum_withdrawal_amount with min_amount mode
+
+  test 'minimum_withdrawal_amount returns fixed amount in min_amount mode' do
+    rule = build_rule(threshold_type: 'min_amount', min_amount: '0.05')
+
+    assert_equal BigDecimal('0.05'), rule.minimum_withdrawal_amount
+  end
+
+  test 'minimum_withdrawal_amount returns nil when min_amount is blank' do
+    rule = build_rule(threshold_type: 'min_amount', min_amount: nil)
+
+    assert_nil rule.minimum_withdrawal_amount
+  end
+
+  test 'minimum_withdrawal_amount ignores fee in min_amount mode' do
+    @ea.update!(withdrawal_fee: '0.001', withdrawal_fee_updated_at: Time.current)
+    rule = build_rule(threshold_type: 'min_amount', min_amount: '0.5')
+
+    assert_equal BigDecimal('0.5'), rule.minimum_withdrawal_amount
   end
 
   # Chain-specific fee tests
@@ -149,5 +172,54 @@ class Rules::WithdrawalTest < ActiveSupport::TestCase
     rule.parse_params(network: nil)
 
     assert_nil rule.network
+  end
+
+  test 'parse_params updates threshold_type' do
+    rule = build_rule
+    rule.parse_params(threshold_type: 'min_amount')
+
+    assert_equal 'min_amount', rule.threshold_type
+  end
+
+  test 'parse_params updates min_amount' do
+    rule = build_rule(threshold_type: 'min_amount')
+    rule.parse_params(min_amount: '0.25')
+
+    assert_equal '0.25', rule.min_amount
+  end
+
+  # Validation tests
+
+  test 'validates max_fee_percentage required in fee_percentage mode' do
+    rule = build_rule(max_fee_percentage: nil, threshold_type: 'fee_percentage')
+
+    assert_not rule.valid?
+    assert rule.errors[:max_fee_percentage].any?
+  end
+
+  test 'does not validate max_fee_percentage in min_amount mode' do
+    rule = build_rule(max_fee_percentage: nil, threshold_type: 'min_amount', min_amount: '0.1')
+
+    assert rule.valid?
+  end
+
+  test 'validates min_amount required in min_amount mode' do
+    rule = build_rule(threshold_type: 'min_amount', min_amount: nil)
+
+    assert_not rule.valid?
+    assert rule.errors[:min_amount].any?
+  end
+
+  test 'validates min_amount must be positive' do
+    rule = build_rule(threshold_type: 'min_amount', min_amount: '0')
+
+    assert_not rule.valid?
+    assert rule.errors[:min_amount].any?
+  end
+
+  test 'does not validate min_amount in fee_percentage mode' do
+    rule = build_rule(threshold_type: 'fee_percentage', min_amount: nil)
+
+    assert rule.valid?
   end
 end

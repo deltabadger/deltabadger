@@ -70,6 +70,9 @@ application.register("form--password-strength", Form__PasswordStrengthController
 import Form__PasswordUnmaskController from "./form/password_unmask_controller"
 application.register("form--password-unmask", Form__PasswordUnmaskController)
 
+import Form__SelectToggleController from "./form/select_toggle_controller"
+application.register("form--select-toggle", Form__SelectToggleController)
+
 import Form__SubmitAfterDelayController from "./form/submit_after_delay_controller"
 application.register("form--submit-after-delay", Form__SubmitAfterDelayController)
 

@@ -23,7 +23,9 @@ class Rules::Withdrawals::ConfirmSettingsController < ApplicationController
         address: @address,
         address_tag: @rule_config['address_tag'],
         network: @rule_config['network'],
-        max_fee_percentage: @rule_config['max_fee_percentage']
+        threshold_type: @rule_config['threshold_type'],
+        max_fee_percentage: @rule_config['max_fee_percentage'],
+        min_amount: @rule_config['min_amount']
       )
 
       @chains = @rule.available_chains
@@ -44,7 +46,9 @@ class Rules::Withdrawals::ConfirmSettingsController < ApplicationController
       address: config['address'],
       address_tag: config['address_tag'],
       network: config['network'],
-      max_fee_percentage: config['max_fee_percentage']
+      threshold_type: config['threshold_type'],
+      max_fee_percentage: config['max_fee_percentage'],
+      min_amount: config['min_amount']
     )
 
     if @rule.save
@@ -59,6 +63,6 @@ class Rules::Withdrawals::ConfirmSettingsController < ApplicationController
   private
 
   def rule_params
-    params.permit(:max_fee_percentage, :network)
+    params.permit(:threshold_type, :max_fee_percentage, :min_amount, :network)
   end
 end

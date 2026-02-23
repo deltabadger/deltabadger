@@ -4,11 +4,15 @@ class Rules::Withdrawal < Rule
 
   encrypts :address
 
-  store_accessor :settings, :max_fee_percentage, :network, :address_tag
+  store_accessor :settings, :max_fee_percentage, :network, :address_tag, :threshold_type, :min_amount
 
   validates :address, presence: true
   validates :max_fee_percentage, presence: true,
-                                 numericality: { greater_than: 0, less_than_or_equal_to: 100 }
+                                 numericality: { greater_than: 0, less_than_or_equal_to: 100 },
+                                 unless: -> { threshold_type == 'min_amount' }
+  validates :min_amount, presence: true,
+                         numericality: { greater_than: 0 },
+                         if: -> { threshold_type == 'min_amount' }
 
   def api_key_type = :withdrawal
 
@@ -25,7 +29,9 @@ class Rules::Withdrawal < Rule
   end
 
   def parse_params(params)
+    self.threshold_type = params[:threshold_type] if params.key?(:threshold_type)
     self.max_fee_percentage = params[:max_fee_percentage] if params[:max_fee_percentage].present?
+    self.min_amount = params[:min_amount] if params[:min_amount].present?
     self.network = params[:network] if params.key?(:network)
     self.address_tag = params[:address_tag] if params.key?(:address_tag)
   end
@@ -119,14 +125,20 @@ class Rules::Withdrawal < Rule
   end
 
   def minimum_withdrawal_amount
-    return nil if max_fee_percentage.blank?
+    if threshold_type == 'min_amount'
+      return nil if min_amount.blank?
 
-    fee = withdrawal_fee_amount
-    pct = BigDecimal(max_fee_percentage.to_s)
-    return nil if pct.zero?
-    return nil if fee.zero?
+      BigDecimal(min_amount.to_s)
+    else
+      return nil if max_fee_percentage.blank?
 
-    (fee / (pct / 100)).round(8)
+      fee = withdrawal_fee_amount
+      pct = BigDecimal(max_fee_percentage.to_s)
+      return nil if pct.zero?
+      return nil if fee.zero?
+
+      (fee / (pct / 100)).round(8)
+    end
   end
 
   private
