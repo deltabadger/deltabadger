@@ -234,7 +234,10 @@ de:
                 min_amount_html: 'Basierend auf der aktuellen Gebühr von <b>%{fee} %{symbol}</b> wird die Auszahlung ausgelöst, wenn das Guthaben <b>%{amount} %{symbol}</b> erreicht.'
         tile:
             withdrawal: 'Auszahlung'
+            network: 'Netzwerk'
             memo: 'Memo'
+            activated: 'Die Regel ist aktiv.'
+            deactivated: 'Die Regel wurde deaktiviert.'
             min_amount_info: 'Basierend auf der aktuellen Gebühr von %{fee} %{symbol} wird die Auszahlung ausgelöst, wenn das Guthaben %{amount} %{symbol} erreicht.'
             no_fee_info: '%{exchange} meldet keine Auszahlungsgebühr für dieses Asset. Die Regel zahlt jedes verfügbare Guthaben aus.'
             unknown_fee_info: 'Gebührendaten für %{exchange} nicht verfügbar. Die Regel zahlt jedes verfügbare Guthaben aus.'

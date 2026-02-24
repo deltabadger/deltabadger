@@ -234,7 +234,10 @@ it:
                 min_amount_html: 'In base alla commissione attuale di <b>%{fee} %{symbol}</b>, il prelievo verrà attivato quando il saldo raggiunge <b>%{amount} %{symbol}</b>.'
         tile:
             withdrawal: 'Prelievo'
+            network: 'Rete'
             memo: 'Memo'
+            activated: 'La regola è attiva.'
+            deactivated: 'La regola è stata disattivata.'
             min_amount_info: 'In base alla commissione attuale di %{fee} %{symbol}, il prelievo verrà attivato quando il saldo raggiunge %{amount} %{symbol}.'
             no_fee_info: '%{exchange} non indica commissioni di prelievo per questo asset. La regola preleverà qualsiasi saldo disponibile.'
             unknown_fee_info: 'Dati sulle commissioni non disponibili per %{exchange}. La regola preleverà qualsiasi saldo disponibile.'

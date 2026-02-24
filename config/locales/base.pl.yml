@@ -236,7 +236,10 @@ pl:
                 min_amount_html: 'Na podstawie aktualnej opłaty w wysokości <b>%{fee} %{symbol}</b> wypłata zostanie uruchomiona, gdy saldo osiągnie <b>%{amount} %{symbol}</b>.'
         tile:
             withdrawal: 'Wypłata'
+            network: 'Sieć'
             memo: 'Memo'
+            activated: 'Reguła jest aktywna.'
+            deactivated: 'Reguła została dezaktywowana.'
             min_amount_info: 'Na podstawie aktualnej opłaty w wysokości %{fee} %{symbol} wypłata zostanie uruchomiona, gdy saldo osiągnie %{amount} %{symbol}.'
             no_fee_info: '%{exchange} nie zgłasza opłaty za wypłatę tego aktywa. Reguła wypłaci każde dostępne saldo.'
             unknown_fee_info: 'Dane o opłatach niedostępne dla %{exchange}. Reguła wypłaci każde dostępne saldo.'

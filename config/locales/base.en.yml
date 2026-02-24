@@ -237,7 +237,10 @@ en:
                 min_amount_html: 'Based on the current fee of <b>%{fee} %{symbol}</b>, the withdrawal will be triggered when the balance reaches <b>%{amount} %{symbol}</b>.'
         tile:
             withdrawal: 'Withdrawal'
+            network: 'Network'
             memo: 'Memo'
+            activated: 'The rule is active.'
+            deactivated: 'The rule has been deactivated.'
             min_amount_info: 'Based on the current fee of %{fee} %{symbol}, the withdrawal will be triggered when the balance reaches %{amount} %{symbol}.'
             no_fee_info: '%{exchange} reports no withdrawal fee for this asset. The rule will withdraw any available balance.'
             unknown_fee_info: 'Fee data unavailable for %{exchange}. The rule will withdraw any available balance.'
