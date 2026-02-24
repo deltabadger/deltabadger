@@ -14,13 +14,19 @@ class Rules::WithdrawalsController < ApplicationController
       end
     end
 
+    streams = [turbo_stream_page_refresh]
+
     if status == 'scheduled'
       @rule.start
+      flash.now[:notice] = t('rules.tile.activated')
+      streams.unshift(turbo_stream_prepend_flash)
     elsif status == 'stopped'
       @rule.stop
+      flash.now[:notice] = t('rules.tile.deactivated')
+      streams.unshift(turbo_stream_prepend_flash)
     end
 
-    render turbo_stream: turbo_stream_page_refresh
+    render turbo_stream: streams
   rescue ActiveRecord::RecordInvalid => e
     flash.now[:alert] = e.record.errors.full_messages.to_sentence
     render turbo_stream: turbo_stream_prepend_flash, status: :unprocessable_entity
