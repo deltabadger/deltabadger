@@ -21,7 +21,7 @@ production:
     - polling_interval: 1
       batch_size: 500
   workers:
-    - queues: [binance, binance_us, coinbase, kraken, bitget, kucoin, bybit, mexc, gemini, bitvavo, hyperliquid, bingx, bitrue, bit_mart]
+    - queues: [binance, binance_us, coinbase, kraken, bitget, kucoin, bybit, mexc, gemini, bitvavo, hyperliquid, bingx, bitrue, bitmart]
       threads: 2
       polling_interval: 1
     - queues: [mailers, api_keys_validation, starting_bots, low_priority, default]

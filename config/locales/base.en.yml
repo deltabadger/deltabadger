@@ -213,8 +213,8 @@ en:
             title: 'Rules'
         types:
             withdrawal:
-                title: 'Withdrawal Rule'
-                description: 'Auto-withdraw assets when balance exceeds a threshold.'
+                title: 'Auto-withdrawal'
+                description: 'Withdraw funds from exchanges'
         withdrawals:
             sentence:
                 withdraw_all: 'Withdraw'

@@ -8,6 +8,9 @@ namespace :seed do
       exit 1
     end
 
+    # SKIP_TO=indices or SKIP_TO=5 to skip steps 3-4 (loads existing seed data instead)
+    skip_to_step = parse_skip_to(ENV['SKIP_TO'])
+
     temp_db_path = Rails.root.join('tmp/seed_generation.sqlite3')
     FileUtils.rm_f(temp_db_path)
 
@@ -16,6 +19,7 @@ namespace :seed do
 
     puts '=' * 80
     puts 'Generating seed data: db/seed_data/'
+    puts "Skipping to step #{skip_to_step}..." if skip_to_step
     puts '=' * 80
     puts ''
 
@@ -35,107 +39,120 @@ namespace :seed do
     AppConfig.market_data_provider = MarketDataSettings::PROVIDER_COINGECKO
     puts "       Created #{Exchange.count} exchanges."
 
-    # 3. Sync tickers and assets for each exchange
-    exchanges = Exchange.available.to_a
-    puts ''
-    puts "[3/7] Syncing tickers and assets for #{exchanges.size} exchanges..."
-    puts '       Each exchange requires 2 API calls (CoinGecko + exchange API).'
-    puts '       Rate limit: 65s between exchanges.'
-    puts ''
-
-    dot = lambda do
-      print '.'
-      $stdout.flush
+    if skip_to_step
+      # Load existing seed data instead of fetching from APIs
+      puts ''
+      puts '       Loading existing seed data (skipping API sync)...'
+      import_existing_seed_data(seed_dir)
+      puts "       #{Asset.count} assets, #{Ticker.count} tickers loaded."
     end
 
-    start_from = ENV['START_FROM']
-    exchanges.each_with_index do |exchange, idx|
-      if start_from.present? && !exchange.name.downcase.include?(start_from.downcase)
-        puts "       [#{idx + 1}/#{exchanges.size}] #{exchange.name} (skipped)"
-        next
-      end
-      start_from = nil # found it, sync all remaining
+    unless skip_to_step && skip_to_step > 3
+      # 3. Sync tickers and assets for each exchange
+      exchanges = Exchange.available.to_a
+      puts ''
+      puts "[3/7] Syncing tickers and assets for #{exchanges.size} exchanges..."
+      puts '       Each exchange requires 2 API calls (CoinGecko + exchange API).'
+      puts '       Rate limit: 65s between exchanges.'
+      puts ''
 
-      print "       [#{idx + 1}/#{exchanges.size}] #{exchange.name} "
-      $stdout.flush
-
-      result = exchange.sync_tickers_and_assets_with_external_data(skip_async_jobs: true, on_progress: dot)
-
-      if result.failure?
-        puts "\n       FAILED (#{result.errors.first.to_s.truncate(60)})"
-      else
-        ticker_count = exchange.tickers.available.count
-        asset_count = exchange.exchange_assets.count
-        puts "\n       #{ticker_count} tickers, #{asset_count} assets"
+      dot = lambda do
+        print '.'
+        $stdout.flush
       end
 
-      wait_with_countdown(65, prefix: '       ') if idx < exchanges.size - 1
+      start_from = ENV['START_FROM']
+      exchanges.each_with_index do |exchange, idx|
+        if start_from.present? && !exchange.name.downcase.include?(start_from.downcase)
+          puts "       [#{idx + 1}/#{exchanges.size}] #{exchange.name} (skipped)"
+          next
+        end
+        start_from = nil # found it, sync all remaining
+
+        print "       [#{idx + 1}/#{exchanges.size}] #{exchange.name} "
+        $stdout.flush
+
+        result = exchange.sync_tickers_and_assets_with_external_data(skip_async_jobs: true, on_progress: dot)
+
+        if result.failure?
+          puts "\n       FAILED (#{result.errors.first.to_s.truncate(60)})"
+        else
+          ticker_count = exchange.tickers.available.count
+          asset_count = exchange.exchange_assets.count
+          puts "\n       #{ticker_count} tickers, #{asset_count} assets"
+        end
+
+        wait_with_countdown(65, prefix: '       ') if idx < exchanges.size - 1
+      end
     end
-
-    # 4. Fetch asset metadata + colors
-    crypto_count = Asset.where(category: 'Cryptocurrency').count
-    puts ''
-    puts "[4/7] Fetching metadata and colors for #{crypto_count} crypto assets..."
-    wait_with_countdown(65, prefix: '       ')
 
     coingecko = Coingecko.new(api_key: AppConfig.coingecko_api_key)
-    asset_ids = Asset.where(category: 'Cryptocurrency').pluck(:external_id).compact
 
-    if asset_ids.any?
-      print '       Fetching from CoinGecko... '
-      $stdout.flush
-      result = coingecko.get_coins_list_with_market_data(ids: asset_ids)
-      if result.failure?
-        puts "FAILED: #{result.errors.to_sentence}"
-      else
-        puts 'OK'
-        synced = 0
-        Asset.where(category: 'Cryptocurrency').find_each do |asset|
-          prefetched = result.data.find { |coin| coin['id'] == asset.external_id }
-          asset.sync_data_with_coingecko(prefetched_data: prefetched)
-          synced += 1
-        end
-        puts "       Updated metadata for #{synced} assets."
+    unless skip_to_step && skip_to_step > 4
+      # 4. Fetch asset metadata + colors
+      crypto_count = Asset.where(category: 'Cryptocurrency').count
+      puts ''
+      puts "[4/7] Fetching metadata and colors for #{crypto_count} crypto assets..."
+      wait_with_countdown(65, prefix: '       ')
 
-        # Apply cached colors from previous seed data
-        if cached_colors.any?
-          applied = 0
-          Asset.where(category: 'Cryptocurrency', color: nil)
-               .where(external_id: cached_colors.keys).find_each do |asset|
-            asset.update_column(:color, cached_colors[asset.external_id])
-            applied += 1
-          end
-          puts "       Restored #{applied} colors from previous seed data." if applied.positive?
-        end
+      asset_ids = Asset.where(category: 'Cryptocurrency').pluck(:external_id).compact
 
-        # Apply color overrides (takes precedence over cached and inferred colors)
-        override_applied = 0
-        Asset::COLOR_OVERRIDES.each do |external_id, color|
-          asset = Asset.find_by(external_id: external_id)
-          next unless asset
-
-          asset.update_column(:color, color)
-          override_applied += 1
-        end
-        puts "       Applied #{override_applied} color overrides." if override_applied.positive?
-
-        # Infer colors only for truly new assets
-        colorless = Asset.where(category: 'Cryptocurrency', color: nil).where.not(image_url: nil)
-        colorless_count = colorless.count
-        if colorless_count.positive?
-          colored = 0
-          processed = 0
-          colorless.find_each do |asset|
-            asset.infer_color_from_image
-            colored += 1 if asset.color.present?
-            processed += 1
-            pct = (processed * 100.0 / colorless_count).round(1)
-            print "\r       Extracting colors... #{processed}/#{colorless_count} (#{pct}%)  "
-            $stdout.flush
-          end
-          puts "\r       Extracted #{colored} colors from #{colorless_count} new assets.     "
+      if asset_ids.any?
+        print '       Fetching from CoinGecko... '
+        $stdout.flush
+        result = coingecko.get_coins_list_with_market_data(ids: asset_ids)
+        if result.failure?
+          puts "FAILED: #{result.errors.to_sentence}"
         else
-          puts '       All assets already have colors.'
+          puts 'OK'
+          synced = 0
+          Asset.where(category: 'Cryptocurrency').find_each do |asset|
+            prefetched = result.data.find { |coin| coin['id'] == asset.external_id }
+            asset.sync_data_with_coingecko(prefetched_data: prefetched)
+            synced += 1
+          end
+          puts "       Updated metadata for #{synced} assets."
+
+          # Apply cached colors from previous seed data
+          if cached_colors.any?
+            applied = 0
+            Asset.where(category: 'Cryptocurrency', color: nil)
+                 .where(external_id: cached_colors.keys).find_each do |asset|
+              asset.update_column(:color, cached_colors[asset.external_id])
+              applied += 1
+            end
+            puts "       Restored #{applied} colors from previous seed data." if applied.positive?
+          end
+
+          # Apply color overrides (takes precedence over cached and inferred colors)
+          override_applied = 0
+          Asset::COLOR_OVERRIDES.each do |external_id, color|
+            asset = Asset.find_by(external_id: external_id)
+            next unless asset
+
+            asset.update_column(:color, color)
+            override_applied += 1
+          end
+          puts "       Applied #{override_applied} color overrides." if override_applied.positive?
+
+          # Infer colors only for truly new assets
+          colorless = Asset.where(category: 'Cryptocurrency', color: nil).where.not(image_url: nil)
+          colorless_count = colorless.count
+          if colorless_count.positive?
+            colored = 0
+            processed = 0
+            colorless.find_each do |asset|
+              asset.infer_color_from_image
+              colored += 1 if asset.color.present?
+              processed += 1
+              pct = (processed * 100.0 / colorless_count).round(1)
+              print "\r       Extracting colors... #{processed}/#{colorless_count} (#{pct}%)  "
+              $stdout.flush
+            end
+            puts "\r       Extracted #{colored} colors from #{colorless_count} new assets.     "
+          else
+            puts '       All assets already have colors.'
+          end
         end
       end
     end
@@ -143,7 +160,7 @@ namespace :seed do
     # 5. Sync indices with top_coins_by_exchange
     puts ''
     puts '[5/7] Syncing indices from CoinGecko...'
-    wait_with_countdown(65, prefix: '       ')
+    wait_with_countdown(65, prefix: '       ') unless skip_to_step
     sync_indices(coingecko)
 
     # 6. Export to JSON files
@@ -151,30 +168,32 @@ namespace :seed do
     puts '[6/7] Exporting to JSON...'
     FileUtils.mkdir_p(seed_dir.join('tickers'))
 
-    # Export assets
-    assets_data = Asset.order(:market_cap_rank).map { |a| export_asset(a) }
-    assets_json = { metadata: { count: assets_data.size, generated_at: Time.current.iso8601 }, data: assets_data }
-    File.write(seed_dir.join('assets.json'), JSON.pretty_generate(assets_json))
-    puts "       assets.json: #{assets_data.size} assets"
+    unless skip_to_step
+      # Export assets
+      assets_data = Asset.order(:market_cap_rank).map { |a| export_asset(a) }
+      assets_json = { metadata: { count: assets_data.size, generated_at: Time.current.iso8601 }, data: assets_data }
+      File.write(seed_dir.join('assets.json'), JSON.pretty_generate(assets_json))
+      puts "       assets.json: #{assets_data.size} assets"
 
-    # Export indices
+      # Export tickers per exchange
+      Exchange.available.each do |exchange|
+        name_id = exchange.name_id
+        tickers = exchange.tickers.available.includes(:base_asset, :quote_asset)
+        tickers_data = tickers.map { |t| export_ticker(t) }
+        tickers_json = {
+          metadata: { exchange_name_id: name_id, count: tickers_data.size, generated_at: Time.current.iso8601 },
+          data: tickers_data
+        }
+        File.write(seed_dir.join("tickers/#{name_id}.json"), JSON.pretty_generate(tickers_json))
+        puts "       tickers/#{name_id}.json: #{tickers_data.size} tickers"
+      end
+    end
+
+    # Export indices (always — this is the main output when skipping)
     indices_data = Index.order(weight: :desc, market_cap: :desc).map { |i| export_index(i) }
     indices_json = { metadata: { count: indices_data.size, generated_at: Time.current.iso8601 }, data: indices_data }
     File.write(seed_dir.join('indices.json'), JSON.pretty_generate(indices_json))
     puts "       indices.json: #{indices_data.size} indices"
-
-    # Export tickers per exchange
-    Exchange.available.each do |exchange|
-      name_id = exchange.name_id
-      tickers = exchange.tickers.available.includes(:base_asset, :quote_asset)
-      tickers_data = tickers.map { |t| export_ticker(t) }
-      tickers_json = {
-        metadata: { exchange_name_id: name_id, count: tickers_data.size, generated_at: Time.current.iso8601 },
-        data: tickers_data
-      }
-      File.write(seed_dir.join("tickers/#{name_id}.json"), JSON.pretty_generate(tickers_json))
-      puts "       tickers/#{name_id}.json: #{tickers_data.size} tickers"
-    end
 
     # 7. Print summary
     puts ''
@@ -207,6 +226,35 @@ namespace :seed do
   end
 end
 
+def parse_skip_to(value)
+  return nil if value.blank?
+
+  step = case value.downcase
+         when 'indices', 'indexes' then 5
+         when 'colors', 'metadata' then 4
+         else value.to_i
+         end
+  step if step >= 3
+end
+
+def import_existing_seed_data(seed_dir)
+  assets_file = seed_dir.join('assets.json')
+  if assets_file.exist?
+    data = JSON.parse(assets_file.read)
+    MarketData.import_assets!(data['data'])
+  end
+
+  tickers_dir = seed_dir.join('tickers')
+  return unless tickers_dir.exist?
+
+  Dir.glob(tickers_dir.join('*.json')).each do |file|
+    data = JSON.parse(File.read(file))
+    exchange_name_id = File.basename(file, '.json')
+    exchange = Exchange.available.find { |e| e.name_id == exchange_name_id }
+    MarketData.import_tickers!(exchange, data['data']) if exchange
+  end
+end
+
 def wait_with_countdown(seconds, prefix: '')
   seconds.downto(1) do |remaining|
     print "\r#{prefix}Waiting #{remaining}s for rate limit...  "
@@ -232,7 +280,7 @@ def create_exchanges
     { type: 'Exchanges::Hyperliquid', name: 'Hyperliquid', maker_fee: '0.01', taker_fee: '0.035' },
     { type: 'Exchanges::Bingx', name: 'BingX', maker_fee: '0.1', taker_fee: '0.1' },
     { type: 'Exchanges::Bitrue', name: 'Bitrue', maker_fee: '0.1', taker_fee: '0.1' },
-    { type: 'Exchanges::BitMart', name: 'BitMart', maker_fee: '0.1', taker_fee: '0.1' }
+    { type: 'Exchanges::Bitmart', name: 'Bitmart', maker_fee: '0.1', taker_fee: '0.1' }
   ].each do |attrs|
     klass = attrs[:type].constantize
     exchange = klass.find_or_create_by!(name: attrs[:name])
@@ -251,9 +299,20 @@ def sync_indices(coingecko)
   # Sync category indices
   print '       Fetching categories... '
   $stdout.flush
-  result = coingecko.get_categories_with_market_data
+  result = nil
+  3.times do |attempt|
+    result = coingecko.get_categories_with_market_data
+    break if result.success?
+
+    puts "FAILED (attempt #{attempt + 1}/3: #{result.errors.first.to_s.truncate(60)})"
+    if attempt < 2
+      wait_with_countdown(10, prefix: '       ')
+      print '       Retrying... '
+      $stdout.flush
+    end
+  end
   if result.failure?
-    puts 'FAILED'
+    puts '       Giving up on categories sync.'
     return
   end
 

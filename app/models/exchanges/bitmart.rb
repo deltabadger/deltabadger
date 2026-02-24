@@ -1,4 +1,4 @@
-class Exchanges::BitMart < Exchange
+class Exchanges::Bitmart < Exchange
   COINGECKO_ID = 'bitmart'.freeze # https://docs.coingecko.com/reference/exchanges-list
   ERRORS = {
     insufficient_funds: ['Balance not enough', 'Insufficient balance'],
@@ -23,7 +23,7 @@ class Exchanges::BitMart < Exchange
 
   def set_client(api_key: nil)
     @api_key = api_key
-    @client = Clients::BitMart.new(
+    @client = Clients::Bitmart.new(
       api_key: api_key&.key,
       api_secret: api_key&.secret,
       memo: api_key&.passphrase
@@ -170,7 +170,7 @@ class Exchanges::BitMart < Exchange
   end
 
   def get_candles(ticker:, start_at:, timeframe:)
-    # BitMart kline steps are in minutes
+    # Bitmart kline steps are in minutes
     intervals = {
       1.minute => 1,
       5.minutes => 5,
@@ -306,7 +306,7 @@ class Exchanges::BitMart < Exchange
   end
 
   def get_api_key_validity(api_key:)
-    result = Clients::BitMart.new(
+    result = Clients::Bitmart.new(
       api_key: api_key.key,
       api_secret: api_key.secret,
       memo: api_key.passphrase
@@ -355,7 +355,7 @@ class Exchanges::BitMart < Exchange
   end
 
   def fetch_withdrawal_fees!
-    result = Clients::BitMart.new.get_currencies
+    result = Clients::Bitmart.new.get_currencies
     return result if result.failure?
 
     return Result::Failure.new(result.data['message']) if result.data['code'] != 1000

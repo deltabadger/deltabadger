@@ -1,4 +1,4 @@
-class Clients::BitMart < Client
+class Clients::Bitmart < Client
   # https://developer-pro.bitmart.com/en/spot/
 
   URL = 'https://api-cloud.bitmart.com'.freeze
@@ -12,7 +12,7 @@ class Clients::BitMart < Client
 
   def self.connection
     @connection ||= Faraday.new(url: URL, **OPTIONS) do |config|
-      config.proxy = ENV['PROXY_BIT_MART'] if ENV['PROXY_BIT_MART'].present?
+      config.proxy = ENV['PROXY_BITMART'] if ENV['PROXY_BITMART'].present?
       config.request :json
       config.response :json
       config.response :raise_error

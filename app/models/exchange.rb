@@ -38,7 +38,7 @@ class Exchange < ApplicationRecord
              when 'hyperliquid' then ExchangeApi::Markets::Hyperliquid::Market.new
              when 'bingx' then ExchangeApi::Markets::Bingx::Market.new
              when 'bitrue' then ExchangeApi::Markets::Bitrue::Market.new
-             when 'bitmart' then ExchangeApi::Markets::BitMart::Market.new
+             when 'bitmart' then ExchangeApi::Markets::Bitmart::Market.new
              else
                Result::Failure.new("Unsupported exchange #{name}")
              end
