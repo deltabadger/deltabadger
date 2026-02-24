@@ -234,7 +234,10 @@ fr:
                 min_amount_html: 'Selon les frais actuels de <b>%{fee} %{symbol}</b>, le retrait sera déclenché lorsque le solde atteindra <b>%{amount} %{symbol}</b>.'
         tile:
             withdrawal: 'Retrait'
+            network: 'Réseau'
             memo: 'Mémo'
+            activated: 'La règle est active.'
+            deactivated: 'La règle a été désactivée.'
             min_amount_info: 'Selon les frais actuels de %{fee} %{symbol}, le retrait sera déclenché lorsque le solde atteindra %{amount} %{symbol}.'
             no_fee_info: '%{exchange} n''indique aucun frais de retrait pour cet actif. La règle retirera tout solde disponible.'
             unknown_fee_info: 'Données de frais indisponibles pour %{exchange}. La règle retirera tout solde disponible.'

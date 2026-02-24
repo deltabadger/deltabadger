@@ -233,7 +233,10 @@ pt:
                 min_amount_html: 'Com base na taxa atual de <b>%{fee} %{symbol}</b>, o levantamento será acionado quando o saldo atingir <b>%{amount} %{symbol}</b>.'
         tile:
             withdrawal: 'Levantamento'
+            network: 'Rede'
             memo: 'Memo'
+            activated: 'A regra está ativa.'
+            deactivated: 'A regra foi desativada.'
             min_amount_info: 'Com base na taxa atual de %{fee} %{symbol}, o levantamento será acionado quando o saldo atingir %{amount} %{symbol}.'
             no_fee_info: '%{exchange} não reporta taxa de levantamento para este ativo. A regra levantará qualquer saldo disponível.'
             unknown_fee_info: 'Dados de taxa indisponíveis para %{exchange}. A regra levantará qualquer saldo disponível.'

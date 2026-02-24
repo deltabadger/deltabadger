@@ -28,14 +28,20 @@
             <%= link_to new_rules_withdrawals_add_address_path, data: { turbo_frame: "modal_content" }, class: "tag tag--address" do %><%= render 'svg/16x16_wallet' %><%= truncate(@address, length: 16) %><% end %>
 
             <% if @chains.present? && @chains.size > 1 %>
+              <% selected_network = @rule.network || @chains.find { |c| c['is_default'] }&.dig('name') || @chains.first&.dig('name') %>
+              <% selected_chain = @chains.find { |c| c['name'] == selected_network } %>
+              <% selected_network_label = selected_chain ? "#{selected_chain['name']} (#{t('rules.withdrawals.sentence.fee')}: #{selected_chain['fee']})" : selected_network %>
               <%= t('rules.withdrawals.sentence.on_network') %>
-              <%= f.select :network,
-                    options_for_select(
-                      @chains.map { |c| ["#{c['name']} (#{t('rules.withdrawals.sentence.fee')}: #{c['fee']})", c['name']] },
-                      @rule.network || @chains.find { |c| c['is_default'] }&.dig('name') || @chains.first&.dig('name')
-                    ),
-                    {},
-                    class: 'sinput' %>
+              <div class="sinput sinput--select" data-controller="form--select-display">
+                <span data-form--select-display-target="label"><%= selected_network_label %></span>
+                <%= f.select :network,
+                      options_for_select(
+                        @chains.map { |c| ["#{c['name']} (#{t('rules.withdrawals.sentence.fee')}: #{c['fee']})", c['name']] },
+                        selected_network
+                      ),
+                      {},
+                      data: { action: "change->form--select-display#update" } %>
+              </div>
             <% elsif @chains.present? && @chains.size == 1 %>
               <%= f.hidden_field :network, value: @chains.first['name'] %>
             <% end %>
@@ -46,13 +52,16 @@
             <span data-controller="form--select-toggle">
               <%= t('rules.withdrawals.sentence.when') %>
               <% if fee_known %>
-                <%= f.select :threshold_type,
-                      options_for_select([
-                        [t('rules.withdrawals.sentence.fee_less_than'), 'fee_percentage'],
-                        [t('rules.withdrawals.sentence.amount_crosses'), 'min_amount']
-                      ], selected_threshold),
-                      {},
-                      class: 'sinput', data: { action: "change->form--select-toggle#toggle" } %>
+                <div class="sinput sinput--select" data-controller="form--select-display">
+                  <span data-form--select-display-target="label"><%= selected_threshold == 'fee_percentage' ? t('rules.withdrawals.sentence.fee_less_than') : t('rules.withdrawals.sentence.amount_crosses') %></span>
+                  <%= f.select :threshold_type,
+                        options_for_select([
+                          [t('rules.withdrawals.sentence.fee_less_than'), 'fee_percentage'],
+                          [t('rules.withdrawals.sentence.amount_crosses'), 'min_amount']
+                        ], selected_threshold),
+                        {},
+                        data: { action: "change->form--select-display#update change->form--select-toggle#toggle" } %>
+                </div>
               <% else %>
                 <%= f.hidden_field :threshold_type, value: 'min_amount' %>
                 <%= t('rules.withdrawals.sentence.amount_crosses') %>

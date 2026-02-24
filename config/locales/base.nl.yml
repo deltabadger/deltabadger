@@ -234,7 +234,10 @@ nl:
                 min_amount_html: 'Op basis van de huidige kosten van <b>%{fee} %{symbol}</b> wordt de opname geactiveerd wanneer het saldo <b>%{amount} %{symbol}</b> bereikt.'
         tile:
             withdrawal: 'Opname'
+            network: 'Netwerk'
             memo: 'Memo'
+            activated: 'De regel is actief.'
+            deactivated: 'De regel is gedeactiveerd.'
             min_amount_info: 'Op basis van de huidige kosten van %{fee} %{symbol} wordt de opname geactiveerd wanneer het saldo %{amount} %{symbol} bereikt.'
             no_fee_info: '%{exchange} meldt geen opnamekosten voor dit asset. De regel neemt elk beschikbaar saldo op.'
             unknown_fee_info: 'Kostengegevens niet beschikbaar voor %{exchange}. De regel neemt elk beschikbaar saldo op.'

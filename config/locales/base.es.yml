@@ -234,7 +234,10 @@ es:
                 min_amount_html: 'Según la comisión actual de <b>%{fee} %{symbol}</b>, el retiro se activará cuando el saldo alcance <b>%{amount} %{symbol}</b>.'
         tile:
             withdrawal: 'Retiro'
+            network: 'Red'
             memo: 'Memo'
+            activated: 'La regla está activa.'
+            deactivated: 'La regla ha sido desactivada.'
             min_amount_info: 'Según la comisión actual de %{fee} %{symbol}, el retiro se activará cuando el saldo alcance %{amount} %{symbol}.'
             no_fee_info: '%{exchange} no reporta comisión de retiro para este activo. La regla retirará cualquier saldo disponible.'
             unknown_fee_info: 'Datos de comisión no disponibles para %{exchange}. La regla retirará cualquier saldo disponible.'
