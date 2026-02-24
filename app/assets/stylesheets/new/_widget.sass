@@ -140,6 +140,14 @@
     .widget--chart, .data-grid__item
         background-color: var(--insight-warning-background)
 
+.widget.rule--active
+    .conversational
+        color: var(--ash) !important
+        .sinput
+            color: var(--stone) !important
+    .small-info
+        color: var(--stone) !important
+
 .bot-locked
     .big-header--traders,.toggle,.index-settings
         display: none
@@ -150,13 +158,6 @@
         &--active
             .toggle__style
                 background-color: var(--steel) !important
-            .label,.conversational
-                color: var(--ash) !important
-            .small-info
-                color: var(--stone) !important
-            .conversational
-                .sinput
-                    color: var(--stone) !important
         &--inactive
             display: none
     .data-grid__item__value, .table

@@ -12,12 +12,13 @@ Deltabadger is an open-source Dollar Cost Averaging (DCA) bot for cryptocurrency
 
 ## Development
 
-- Rails style guidelines: `.claude/rails.md`
-- Run `bin/rails test` after every change
+- when adding a new feature, write tests first, and present it to review
+- Use Rails style guidelines: `.claude/rails.md`
+
 - Always check if our stack doesn't have built in solution already
 - After every change in dependencies or deployment look check Docker and Tauri if they need updates
-- Do not include Co-Authored-By lines in commit messages
 - Environment variables: see `.env.example`
+- Run `bin/rails test` after every change
 
 ## Core Domain Models
 

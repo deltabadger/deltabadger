@@ -11,6 +11,10 @@ pl:
                 schedule: "Ustaw harmonogram"
                 coingecko: "Połącz CoinGecko"
                 index: "Wybierz indeks"
+                pick_asset: "Wybierz aktywo"
+                pick_exchange: "Wybierz giełdę"
+                address: "Adres"
+                settings: "Ustawienia"
             binance:
                 instructions_1_html: 'Zaloguj się do swojego konta %{exchange_link}.'
                 instructions_2_html: 'W menu użytkownika (okrągła ikona w prawym górnym rogu) przejdź do <b>Ustawienia API</b>.'

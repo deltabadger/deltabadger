@@ -11,6 +11,10 @@ de:
                 schedule: "Zeitplan festlegen"
                 coingecko: "CoinGecko verbinden"
                 index: "Index wählen"
+                pick_asset: "Asset wählen"
+                pick_exchange: "Börse wählen"
+                address: "Adresse"
+                settings: "Einstellungen"
             sentence:
                 invest_in: "Investiere in"
                 and: "und"

@@ -24,6 +24,7 @@ it:
         add: 'Aggiungi'
         remove: 'Rimuovi'
         start: 'Inizia'
+        next: 'Avanti'
         connect: 'Connetti'
         get_started: Inizia
         select_plan: 'Seleziona Piano'
@@ -114,6 +115,8 @@ it:
             title: Impostazioni
             two_factor_section: 'Autenticazione a Due Fattori'
             registration_section: 'Registrazione'
+            resync_assets_section: 'Dati di mercato'
+            email_notifications_section: 'Notifiche e-mail'
         registration:
             open: 'La registrazione di nuovi account è aperta.'
             closed: 'La registrazione di nuovi account è chiusa.'
@@ -128,8 +131,27 @@ it:
             disabled: 'Sincronizzazione dei dati di mercato disabilitata.'
             updated: 'Impostazioni dei dati di mercato aggiornate.'
             coingecko_configured: 'Connesso a CoinGecko per i dati di mercato in tempo reale.'
+            deltabadger_configured: 'Connesso a %{provider_name} per i dati di mercato in tempo reale.'
             disconnect: 'Disconnetti'
             disconnected: 'Fornitore di dati di mercato disconnesso.'
+        email_notifications:
+            none: 'Nessuno'
+            smtp_host: 'Host SMTP'
+            smtp_port: 'Porta'
+            smtp_username: 'Nome utente'
+            smtp_password: 'Password'
+            smtp_hint_html: 'Per Gmail, usa una <a href="https://support.google.com/accounts/answer/185833" target="_blank">password per le app</a> come password.'
+            updated: 'Impostazioni delle notifiche e-mail aggiornate.'
+            disabled: 'Notifiche e-mail disabilitate.'
+            smtp_credentials_required: 'Nome utente e password SMTP sono obbligatori.'
+            set: 'Configurato'
+            smtp_configured_html: 'Configurato con <b>%{host}</b>.'
+            send_test: 'Invia e-mail di prova'
+            test_email_sent: 'E-mail di prova inviata a %{email}.'
+            test_email_failed: 'Invio dell''e-mail di prova non riuscito: %{error}'
+            not_configured: 'Le notifiche e-mail non sono configurate.'
+            disconnect: 'Disconnetti'
+            disconnected: 'Fornitore e-mail disconnesso.'
     utils:
         pnl: 'G/L'
         assets: Asset
@@ -183,6 +205,57 @@ it:
         all: 'Tutti'
         active: 'Attivi'
         inactive: 'Inattivi'
+    rules:
+        index:
+            title: 'Regole'
+        types:
+            withdrawal:
+                title: 'Prelievo automatico'
+                description: 'Preleva fondi dagli exchange'
+        withdrawals:
+            sentence:
+                withdraw_all: 'Preleva'
+                from: 'da'
+                to: 'a'
+                on_network: 'su'
+                fee: 'commissione'
+                when: 'quando'
+                fee_less_than: 'commissione inferiore a'
+                amount_crosses: 'l''importo raggiunge'
+                of_the_amount: '%'
+            pick_exchange:
+                withdrawal_fee: 'Prelievo'
+            form:
+                submit: 'Crea regola'
+                submitting: 'Creazione…'
+            confirm_destroy:
+                message: 'Vuoi eliminare questa regola di prelievo?'
+            confirm_settings:
+                min_amount_html: 'In base alla commissione attuale di <b>%{fee} %{symbol}</b>, il prelievo verrà attivato quando il saldo raggiunge <b>%{amount} %{symbol}</b>.'
+        tile:
+            withdrawal: 'Prelievo'
+            memo: 'Memo'
+            min_amount_info: 'In base alla commissione attuale di %{fee} %{symbol}, il prelievo verrà attivato quando il saldo raggiunge %{amount} %{symbol}.'
+            no_fee_info: '%{exchange} non indica commissioni di prelievo per questo asset. La regola preleverà qualsiasi saldo disponibile.'
+            unknown_fee_info: 'Dati sulle commissioni non disponibili per %{exchange}. La regola preleverà qualsiasi saldo disponibile.'
+            fixed_amount_info: 'Il prelievo verrà attivato quando il saldo raggiunge %{amount} %{symbol}.'
+        logs:
+            title: 'Log della regola'
+            date: 'Data'
+            status: 'Stato'
+            message: 'Messaggio'
+            empty: 'Nessun log per ora.'
+        add_address:
+            label: 'Indirizzo di prelievo'
+            placeholder: 'Incolla l''indirizzo qui…'
+            address_tag_label: 'Memo / Tag (opzionale)'
+            address_tag_placeholder: 'Memo, tag o ID pagamento…'
+            instructions_title: 'Aggiungere un indirizzo di prelievo su %{exchange}'
+            warning_html: 'Assicurati che sia un indirizzo <b>%{symbol}</b> sulla rete corretta. Inviare all''indirizzo o alla rete sbagliata comporterà la perdita permanente dei fondi.'
+        add_api_key:
+            title: 'Aggiungi chiave API di prelievo per %{exchange}'
+            instructions_title: 'Come ottenere le chiavi da %{exchange}'
+            instructions_body: 'Crea una chiave API con autorizzazione al prelievo su %{exchange} e incolla le credenziali qui.'
     order_filters:
         all: 'Tutti'
         successful: 'Riusciti'

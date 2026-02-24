@@ -11,6 +11,7 @@ pl:
                 sentence:
                     build_index: "Zbuduj portfel indeksowy"
                     build_index_at: "Zbuduj portfel %{index_name}"
+                    portfolio: portfel
                 pick_index:
                     top_coins: "Top Monety"
                     top_coins_description: "Najlepsze kryptowaluty według kapitalizacji rynkowej. S&P 500 krypto."
@@ -18,6 +19,7 @@ pl:
             num_coins: "Liczba monet"
             allocation_flattening: "Wyrównanie alokacji"
             into_index: "w %{index_name}"
+            into: w
             index_preview: "Podgląd Indeksu"
             fewer_coins_available: "%{available} z %{requested} monet w indeksie jest dostępnych na %{exchange_name}"
             num_assets: "Aktywa w indeksie"

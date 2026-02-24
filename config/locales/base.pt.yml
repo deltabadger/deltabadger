@@ -24,6 +24,7 @@ pt:
         add: 'Adicionar'
         remove: 'Remover'
         start: 'Iniciar'
+        next: 'Seguinte'
         connect: 'Conectar'
         get_started: Começar
         select_plan: 'Selecionar Plano'
@@ -113,6 +114,8 @@ pt:
             title: Definições
             two_factor_section: 'Autenticação do Segundo Fator'
             registration_section: 'Registro'
+            resync_assets_section: 'Dados de mercado'
+            email_notifications_section: 'Notificações por e-mail'
         registration:
             open: 'O registro de novas contas está aberto.'
             closed: 'O registro de novas contas está fechado.'
@@ -127,8 +130,27 @@ pt:
             disabled: 'Sincronização de dados de mercado desativada.'
             updated: 'Configurações de dados de mercado atualizadas.'
             coingecko_configured: 'Conectado ao CoinGecko para dados de mercado em tempo real.'
+            deltabadger_configured: 'Conectado a %{provider_name} para dados de mercado em tempo real.'
             disconnect: 'Desconectar'
             disconnected: 'Fornecedor de dados de mercado desconectado.'
+        email_notifications:
+            none: 'Nenhum'
+            smtp_host: 'Servidor SMTP'
+            smtp_port: 'Porta'
+            smtp_username: 'Nome de utilizador'
+            smtp_password: 'Palavra-passe'
+            smtp_hint_html: 'Para o Gmail, use uma <a href="https://support.google.com/accounts/answer/185833" target="_blank">palavra-passe de aplicação</a> como palavra-passe.'
+            updated: 'Definições de notificações por e-mail atualizadas.'
+            disabled: 'Notificações por e-mail desativadas.'
+            smtp_credentials_required: 'O nome de utilizador e a palavra-passe SMTP são obrigatórios.'
+            set: 'Configurado'
+            smtp_configured_html: 'Configurado com <b>%{host}</b>.'
+            send_test: 'Enviar e-mail de teste'
+            test_email_sent: 'E-mail de teste enviado para %{email}.'
+            test_email_failed: 'Falha ao enviar e-mail de teste: %{error}'
+            not_configured: 'As notificações por e-mail não estão configuradas.'
+            disconnect: 'Desconectar'
+            disconnected: 'Fornecedor de e-mail desconectado.'
     utils:
         pnl: 'L/P'
         assets: Ativos
@@ -182,6 +204,57 @@ pt:
         all: 'Todos'
         active: 'Ativos'
         inactive: 'Inativos'
+    rules:
+        index:
+            title: 'Regras'
+        types:
+            withdrawal:
+                title: 'Levantamento automático'
+                description: 'Levantar fundos das corretoras'
+        withdrawals:
+            sentence:
+                withdraw_all: 'Levantar'
+                from: 'de'
+                to: 'para'
+                on_network: 'na'
+                fee: 'taxa'
+                when: 'quando'
+                fee_less_than: 'taxa inferior a'
+                amount_crosses: 'o montante atinge'
+                of_the_amount: '%'
+            pick_exchange:
+                withdrawal_fee: 'Levantamento'
+            form:
+                submit: 'Criar regra'
+                submitting: 'A criar…'
+            confirm_destroy:
+                message: 'Pretende eliminar esta regra de levantamento?'
+            confirm_settings:
+                min_amount_html: 'Com base na taxa atual de <b>%{fee} %{symbol}</b>, o levantamento será acionado quando o saldo atingir <b>%{amount} %{symbol}</b>.'
+        tile:
+            withdrawal: 'Levantamento'
+            memo: 'Memo'
+            min_amount_info: 'Com base na taxa atual de %{fee} %{symbol}, o levantamento será acionado quando o saldo atingir %{amount} %{symbol}.'
+            no_fee_info: '%{exchange} não reporta taxa de levantamento para este ativo. A regra levantará qualquer saldo disponível.'
+            unknown_fee_info: 'Dados de taxa indisponíveis para %{exchange}. A regra levantará qualquer saldo disponível.'
+            fixed_amount_info: 'O levantamento será acionado quando o saldo atingir %{amount} %{symbol}.'
+        logs:
+            title: 'Registos da regra'
+            date: 'Data'
+            status: 'Estado'
+            message: 'Mensagem'
+            empty: 'Sem registos por enquanto.'
+        add_address:
+            label: 'Endereço de levantamento'
+            placeholder: 'Cole o endereço aqui…'
+            address_tag_label: 'Memo / Tag (opcional)'
+            address_tag_placeholder: 'Memo, tag ou ID de pagamento…'
+            instructions_title: 'Adicionar um endereço de levantamento em %{exchange}'
+            warning_html: 'Certifique-se de que é um endereço <b>%{symbol}</b> na rede correta. Enviar para o endereço ou rede errados resultará na perda permanente dos fundos.'
+        add_api_key:
+            title: 'Adicionar chave API de levantamento para %{exchange}'
+            instructions_title: 'Como obter as chaves de %{exchange}'
+            instructions_body: 'Crie uma chave API com permissão de levantamento em %{exchange} e cole as credenciais aqui.'
     order_filters:
         all: 'Todos'
         successful: 'Bem-sucedidos'

@@ -24,6 +24,7 @@ fr:
         add: 'Ajouter'
         remove: 'Supprimer'
         start: 'Démarrer'
+        next: 'Suivant'
         connect: 'Connecter'
         get_started: Commencer
         select_plan: 'Sélectionner'
@@ -115,6 +116,8 @@ fr:
             title: 'Paramètres'
             two_factor_section: 'Authentification à deux facteurs'
             registration_section: 'Inscription'
+            resync_assets_section: 'Données de marché'
+            email_notifications_section: 'Notifications par e-mail'
         registration:
             open: "L'inscription de nouveaux comptes est ouverte."
             closed: "L'inscription de nouveaux comptes est fermée."
@@ -129,8 +132,27 @@ fr:
             disabled: 'Synchronisation des données de marché désactivée.'
             updated: 'Paramètres des données de marché mis à jour.'
             coingecko_configured: 'Connecté à CoinGecko pour les données de marché en direct.'
+            deltabadger_configured: 'Connecté à %{provider_name} pour les données de marché en direct.'
             disconnect: 'Déconnecter'
             disconnected: 'Fournisseur de données de marché déconnecté.'
+        email_notifications:
+            none: 'Aucune'
+            smtp_host: 'Hôte SMTP'
+            smtp_port: 'Port'
+            smtp_username: 'Identifiant'
+            smtp_password: 'Mot de passe'
+            smtp_hint_html: 'Pour Gmail, utilisez un <a href="https://support.google.com/accounts/answer/185833" target="_blank">mot de passe d''application</a> comme mot de passe.'
+            updated: 'Paramètres de notification par e-mail mis à jour.'
+            disabled: 'Notifications par e-mail désactivées.'
+            smtp_credentials_required: 'L''identifiant et le mot de passe SMTP sont requis.'
+            set: 'Configuré'
+            smtp_configured_html: 'Configuré avec <b>%{host}</b>.'
+            send_test: 'Envoyer un e-mail test'
+            test_email_sent: 'E-mail test envoyé à %{email}.'
+            test_email_failed: 'Échec de l''envoi de l''e-mail test : %{error}'
+            not_configured: 'Les notifications par e-mail ne sont pas configurées.'
+            disconnect: 'Déconnecter'
+            disconnected: 'Fournisseur e-mail déconnecté.'
     utils:
         assets: Actifs
         cash: Liquidités
@@ -183,6 +205,57 @@ fr:
         all: 'Tous'
         active: 'Actifs'
         inactive: 'Inactifs'
+    rules:
+        index:
+            title: 'Règles'
+        types:
+            withdrawal:
+                title: 'Retrait automatique'
+                description: 'Retirer des fonds des plateformes d''échange'
+        withdrawals:
+            sentence:
+                withdraw_all: 'Retirer'
+                from: 'de'
+                to: 'vers'
+                on_network: 'sur'
+                fee: 'frais'
+                when: 'quand'
+                fee_less_than: 'frais inférieurs à'
+                amount_crosses: 'le montant atteint'
+                of_the_amount: '%'
+            pick_exchange:
+                withdrawal_fee: 'Retrait'
+            form:
+                submit: 'Créer la règle'
+                submitting: 'Création…'
+            confirm_destroy:
+                message: 'Voulez-vous supprimer cette règle de retrait ?'
+            confirm_settings:
+                min_amount_html: 'Selon les frais actuels de <b>%{fee} %{symbol}</b>, le retrait sera déclenché lorsque le solde atteindra <b>%{amount} %{symbol}</b>.'
+        tile:
+            withdrawal: 'Retrait'
+            memo: 'Mémo'
+            min_amount_info: 'Selon les frais actuels de %{fee} %{symbol}, le retrait sera déclenché lorsque le solde atteindra %{amount} %{symbol}.'
+            no_fee_info: '%{exchange} n''indique aucun frais de retrait pour cet actif. La règle retirera tout solde disponible.'
+            unknown_fee_info: 'Données de frais indisponibles pour %{exchange}. La règle retirera tout solde disponible.'
+            fixed_amount_info: 'Le retrait sera déclenché lorsque le solde atteindra %{amount} %{symbol}.'
+        logs:
+            title: 'Historique de la règle'
+            date: 'Date'
+            status: 'Statut'
+            message: 'Message'
+            empty: 'Aucun log pour le moment.'
+        add_address:
+            label: 'Adresse de retrait'
+            placeholder: 'Collez l''adresse ici…'
+            address_tag_label: 'Mémo / Tag (optionnel)'
+            address_tag_placeholder: 'Mémo, tag ou identifiant de paiement…'
+            instructions_title: 'Ajouter une adresse de retrait sur %{exchange}'
+            warning_html: 'Assurez-vous qu''il s''agit d''une adresse <b>%{symbol}</b> sur le bon réseau. Envoyer à la mauvaise adresse ou sur le mauvais réseau entraînera une perte définitive des fonds.'
+        add_api_key:
+            title: 'Ajouter une clé API de retrait pour %{exchange}'
+            instructions_title: 'Comment obtenir les clés de %{exchange}'
+            instructions_body: 'Créez une clé API avec autorisation de retrait sur %{exchange} et collez les identifiants ici.'
     order_filters:
         all: 'Tous'
         successful: 'Réussis'

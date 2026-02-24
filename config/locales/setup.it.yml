@@ -11,6 +11,10 @@ it:
                 schedule: "Imposta programma"
                 coingecko: "Connetti CoinGecko"
                 index: "Scegli indice"
+                pick_asset: "Scegli asset"
+                pick_exchange: "Scegli exchange"
+                address: "Indirizzo"
+                settings: "Impostazioni"
             sentence:
                 invest_in: "Investi in"
                 and: "e"

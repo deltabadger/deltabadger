@@ -11,6 +11,10 @@ pt:
                 schedule: "Definir horário"
                 coingecko: "Conectar CoinGecko"
                 index: "Escolher índice"
+                pick_asset: "Escolher ativo"
+                pick_exchange: "Escolher corretora"
+                address: "Endereço"
+                settings: "Definições"
             sentence:
                 invest_in: "Investir em"
                 and: "e"

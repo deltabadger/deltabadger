@@ -4,8 +4,8 @@
   <div class="bot-creation-layout">
     <%= render "bots/new_step_progress_bar", current_step: :settings, steps: { pick_asset: 20, pick_exchange: 40, api: 60, address: 80, settings: 100 } %>
 
-    <div class="bot-creation-preview">
       <%= form_with url: rules_withdrawals_confirm_settings_path, method: :post,
+                    class: "bot-creation-preview",
                     data: {
                       controller: "form--html5-validations",
                       turbo_stream: true
@@ -89,6 +89,5 @@
           <% end %>
         </div>
       <% end %>
-    </div>
   </div>
 <% end %>

@@ -35,7 +35,12 @@
         <%= t("bot.#{bot.interval}") %>
         <%= f.select :interval, bot_intervals_select_options, { selected: bot.interval }, data: { action: "change->form--submit#submit" }, disabled: bot.working? %>
       </div>
-      <%= t('bot.dca_index.into_index', index_name: bot.display_index_name) %>
+      <%= t('bot.dca_index.into') %>
+      <% if bot.new_record? %>
+        <%= link_to bot.display_index_name, new_bots_dca_indexes_pick_index_path, data: { turbo_frame: "modal_content" }, class: "conversational__link" %>
+      <% else %>
+        <%= bot.display_index_name %>
+      <% end %>
     </div>
 
     <div class="index-settings">
