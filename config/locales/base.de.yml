@@ -24,6 +24,7 @@ de:
         add: 'Hinzufügen'
         remove: 'Entfernen'
         start: 'Starten'
+        next: 'Weiter'
         connect: "Verbinden"
         get_started: Loslegen
         select_plan: 'Plan auswählen'
@@ -114,6 +115,8 @@ de:
             title: Einstellungen
             two_factor_section: Zwei-Faktor-Authentifizierung
             registration_section: 'Registrierung'
+            resync_assets_section: 'Marktdaten'
+            email_notifications_section: 'E-Mail-Benachrichtigungen'
         registration:
             open: 'Die Registrierung neuer Konten ist offen.'
             closed: 'Die Registrierung neuer Konten ist geschlossen.'
@@ -128,8 +131,27 @@ de:
             disabled: 'Marktdaten-Synchronisierung deaktiviert.'
             updated: 'Marktdaten-Einstellungen aktualisiert.'
             coingecko_configured: 'Mit CoinGecko für Live-Marktdaten verbunden.'
+            deltabadger_configured: 'Verbunden mit %{provider_name} für Live-Marktdaten.'
             disconnect: 'Trennen'
             disconnected: 'Marktdatenanbieter getrennt.'
+        email_notifications:
+            none: 'Keine'
+            smtp_host: 'SMTP-Host'
+            smtp_port: 'Port'
+            smtp_username: 'Benutzername'
+            smtp_password: 'Passwort'
+            smtp_hint_html: 'Für Gmail verwenden Sie ein <a href="https://support.google.com/accounts/answer/185833" target="_blank">App-Passwort</a> als Passwort.'
+            updated: 'Einstellungen für E-Mail-Benachrichtigungen aktualisiert.'
+            disabled: 'E-Mail-Benachrichtigungen deaktiviert.'
+            smtp_credentials_required: 'SMTP-Benutzername und Passwort sind erforderlich.'
+            set: 'Festgelegt'
+            smtp_configured_html: 'Konfiguriert mit <b>%{host}</b>.'
+            send_test: 'Test-E-Mail senden'
+            test_email_sent: 'Test-E-Mail an %{email} gesendet.'
+            test_email_failed: 'Test-E-Mail konnte nicht gesendet werden: %{error}'
+            not_configured: 'E-Mail-Benachrichtigungen sind nicht konfiguriert.'
+            disconnect: 'Trennen'
+            disconnected: 'E-Mail-Anbieter getrennt.'
     utils:
         pnl: 'G/V'
         assets: Vermögenswerte
@@ -183,6 +205,57 @@ de:
         all: 'Alle'
         active: 'Aktiv'
         inactive: 'Inaktiv'
+    rules:
+        index:
+            title: 'Regeln'
+        types:
+            withdrawal:
+                title: 'Automatische Auszahlung'
+                description: 'Guthaben automatisch von Börsen auszahlen'
+        withdrawals:
+            sentence:
+                withdraw_all: 'Auszahlen'
+                from: 'von'
+                to: 'an'
+                on_network: 'über'
+                fee: 'Gebühr'
+                when: 'wenn'
+                fee_less_than: 'Gebühr unter'
+                amount_crosses: 'der Betrag erreicht'
+                of_the_amount: '%'
+            pick_exchange:
+                withdrawal_fee: 'Auszahlung'
+            form:
+                submit: 'Regel erstellen'
+                submitting: 'Wird erstellt…'
+            confirm_destroy:
+                message: 'Möchten Sie diese Auszahlungsregel löschen?'
+            confirm_settings:
+                min_amount_html: 'Basierend auf der aktuellen Gebühr von <b>%{fee} %{symbol}</b> wird die Auszahlung ausgelöst, wenn das Guthaben <b>%{amount} %{symbol}</b> erreicht.'
+        tile:
+            withdrawal: 'Auszahlung'
+            memo: 'Memo'
+            min_amount_info: 'Basierend auf der aktuellen Gebühr von %{fee} %{symbol} wird die Auszahlung ausgelöst, wenn das Guthaben %{amount} %{symbol} erreicht.'
+            no_fee_info: '%{exchange} meldet keine Auszahlungsgebühr für dieses Asset. Die Regel zahlt jedes verfügbare Guthaben aus.'
+            unknown_fee_info: 'Gebührendaten für %{exchange} nicht verfügbar. Die Regel zahlt jedes verfügbare Guthaben aus.'
+            fixed_amount_info: 'Die Auszahlung wird ausgelöst, wenn das Guthaben %{amount} %{symbol} erreicht.'
+        logs:
+            title: 'Regel-Logs'
+            date: 'Datum'
+            status: 'Status'
+            message: 'Nachricht'
+            empty: 'Noch keine Logs.'
+        add_address:
+            label: 'Auszahlungsadresse'
+            placeholder: 'Adresse hier einfügen…'
+            address_tag_label: 'Memo / Tag (optional)'
+            address_tag_placeholder: 'Memo, Tag oder Zahlungs-ID…'
+            instructions_title: 'Auszahlungsadresse auf %{exchange} hinzufügen'
+            warning_html: 'Stellen Sie sicher, dass dies eine <b>%{symbol}</b>-Adresse im richtigen Netzwerk ist. Das Senden an die falsche Adresse oder das falsche Netzwerk führt zu dauerhaftem Verlust der Mittel.'
+        add_api_key:
+            title: 'Auszahlungs-API-Schlüssel für %{exchange} hinzufügen'
+            instructions_title: 'So erhalten Sie Schlüssel von %{exchange}'
+            instructions_body: 'Erstellen Sie einen API-Schlüssel mit Auszahlungsberechtigung auf %{exchange} und fügen Sie die Zugangsdaten hier ein.'
     order_filters:
         all: 'Alle'
         successful: 'Erfolgreich'

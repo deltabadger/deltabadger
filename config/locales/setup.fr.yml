@@ -11,6 +11,10 @@ fr:
                 schedule: "Définir le calendrier"
                 coingecko: "Connecter CoinGecko"
                 index: "Choisir l'indice"
+                pick_asset: "Choisir l'actif"
+                pick_exchange: "Choisir la plateforme"
+                address: "Adresse"
+                settings: "Paramètres"
             sentence:
                 invest_in: "Investir dans"
                 and: "et"

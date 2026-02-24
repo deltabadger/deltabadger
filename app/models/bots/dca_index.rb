@@ -146,7 +146,20 @@ class Bots::DcaIndex < Bot
   def available_assets_for_current_settings(asset_type:, include_exchanges: false) # rubocop:disable Lint/UnusedMethodArgument
     available_exchanges = exchange.present? ? [exchange] : Exchange.available
     scope = Ticker.available.where(exchange: available_exchanges)
-    asset_ids = scope.pluck(:quote_asset_id).uniq
+
+    # For category index bots, only show quote assets that have enough pairs with category coins
+    if index_type == INDEX_TYPE_CATEGORY && index_category_id.present? && exchange.present?
+      index = Index.find_by(external_id: index_category_id)
+      if index.present?
+        coin_ids = index.top_coins_for_exchange(exchange.type)
+        base_asset_ids = Asset.where(external_id: coin_ids).pluck(:id) if coin_ids.present?
+        scope = scope.where(base_asset_id: base_asset_ids) if base_asset_ids&.any?
+      end
+    end
+
+    asset_ids = scope.group(:quote_asset_id)
+                     .having('COUNT(*) >= ?', Index::ExchangeAvailability::MINIMUM_SUPPORTED_COINS)
+                     .pluck(:quote_asset_id)
     include_exchanges ? Asset.includes(:exchanges).where(id: asset_ids) : Asset.where(id: asset_ids)
   end
 

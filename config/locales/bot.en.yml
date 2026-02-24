@@ -9,6 +9,7 @@ en:
                 sentence:
                     build_index: "Build index portfolio"
                     build_index_at: "Build %{index_name} portfolio"
+                    portfolio: portfolio
                 pick_index:
                     top_coins: "Top Coins"
                     top_coins_description: "Top cryptocurrencies by market cap. The S&P 500 of crypto."
@@ -16,6 +17,7 @@ en:
             num_coins: "Number of coins"
             allocation_flattening: "Allocation flattening"
             into_index: "into %{index_name}"
+            into: into
             index_preview: "Index Preview"
             fewer_coins_available: "%{available} of %{requested} coins in the index are available on %{exchange_name}"
             num_assets: "Assets in index"
