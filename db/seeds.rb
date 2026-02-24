@@ -13,7 +13,7 @@
   { type: 'Exchanges::Hyperliquid', name: 'Hyperliquid', maker_fee: '0.01', taker_fee: '0.035' },
   { type: 'Exchanges::Bingx', name: 'BingX', maker_fee: '0.1', taker_fee: '0.1' },
   { type: 'Exchanges::Bitrue', name: 'Bitrue', maker_fee: '0.1', taker_fee: '0.1' },
-  { type: 'Exchanges::BitMart', name: 'BitMart', maker_fee: '0.1', taker_fee: '0.1' }
+  { type: 'Exchanges::Bitmart', name: 'Bitmart', maker_fee: '0.1', taker_fee: '0.1' }
 ].each do |attrs|
   klass = attrs[:type].constantize
   klass.find_or_create_by!(name: attrs[:name]).update!(attrs.except(:type, :name))

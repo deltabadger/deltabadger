@@ -1,9 +1,9 @@
 class Client
   OPTIONS = {
     request: {
-      open_timeout: 1,  # seconds to wait for the connection to open
-      read_timeout: 5,  # seconds to wait for one block to be read
-      write_timeout: 5  # seconds to wait for one block to be written
+      open_timeout: 5,   # seconds to wait for the connection to open
+      read_timeout: 30,  # seconds to wait for one block to be read
+      write_timeout: 10  # seconds to wait for one block to be written
     }
   }.freeze
 

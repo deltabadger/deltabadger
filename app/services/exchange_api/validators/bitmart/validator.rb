@@ -1,9 +1,9 @@
 module ExchangeApi
   module Validators
-    module BitMart
+    module Bitmart
       class Validator < BaseValidator
         def validate_credentials(api_key:, api_secret:, passphrase: nil)
-          result = Clients::BitMart.new(
+          result = Clients::Bitmart.new(
             api_key: api_key,
             api_secret: api_secret,
             memo: passphrase

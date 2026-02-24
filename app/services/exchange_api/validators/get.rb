@@ -27,7 +27,7 @@ module ExchangeApi
         when 'hyperliquid' then Hyperliquid::Validator.new
         when 'bingx' then Bingx::Validator.new
         when 'bitrue' then Bitrue::Validator.new
-        when 'bitmart' then BitMart::Validator.new
+        when 'bitmart' then Bitmart::Validator.new
         end
       end
     end

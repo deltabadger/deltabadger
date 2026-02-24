@@ -1,8 +1,8 @@
 require 'test_helper'
 
-class Exchanges::BitMartTest < ActiveSupport::TestCase
+class Exchanges::BitmartTest < ActiveSupport::TestCase
   setup do
-    @exchange = create(:bit_mart_exchange)
+    @exchange = create(:bitmart_exchange)
   end
 
   test 'coingecko_id returns bitmart' do
@@ -21,9 +21,9 @@ class Exchanges::BitMartTest < ActiveSupport::TestCase
     assert_equal :base_and_quote, @exchange.minimum_amount_logic
   end
 
-  test 'set_client creates a Clients::BitMart instance' do
+  test 'set_client creates a Clients::Bitmart instance' do
     @exchange.set_client
-    assert_kind_of Clients::BitMart, @exchange.send(:client)
+    assert_kind_of Clients::Bitmart, @exchange.send(:client)
   end
 
   test 'set_client with api_key stores the api_key' do

@@ -86,9 +86,9 @@ FactoryBot.define do
       type { 'Exchanges::Bitrue' }
     end
 
-    factory :bit_mart_exchange, class: 'Exchanges::BitMart' do
-      name { 'BitMart' }
-      type { 'Exchanges::BitMart' }
+    factory :bitmart_exchange, class: 'Exchanges::Bitmart' do
+      name { 'Bitmart' }
+      type { 'Exchanges::Bitmart' }
     end
   end
 

@@ -2,15 +2,15 @@ require 'result'
 
 module ExchangeApi
   module Markets
-    module BitMart
+    module Bitmart
       class Market < BaseMarket
         def initialize
-          @client = Clients::BitMart.new
+          @client = Clients::Bitmart.new
         end
 
         def fetch_all_symbols
           result = @client.get_symbols
-          return Result::Failure.new('BitMart exchange info is unavailable', RECOVERABLE.to_s) if result.failure?
+          return Result::Failure.new('Bitmart exchange info is unavailable', RECOVERABLE.to_s) if result.failure?
 
           items = result.data.dig('data', 'symbols') || []
           market_symbols = items.map do |symbol_info|
@@ -21,7 +21,7 @@ module ExchangeApi
 
           Result::Success.new(market_symbols)
         rescue StandardError => e
-          Result::Failure.new("BitMart exchange info is unavailable. Error: #{e}", RECOVERABLE.to_s)
+          Result::Failure.new("Bitmart exchange info is unavailable. Error: #{e}", RECOVERABLE.to_s)
         end
       end
     end

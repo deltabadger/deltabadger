@@ -19,16 +19,16 @@
         <h2 class="set-api__header"><%= t('bot.add_api_keys', exchange: @exchange.name) %></h2>
         <%= form_with model: @api_key, url: rules_withdrawals_add_api_key_path(exchange_id: @exchange.id), method: :post, data: { controller: "form--label-animations form--html5-validations", turbo_frame: 'modal_content' }, class: "form" do |f| %>
           <div class="form__row form__row--input">
-            <%= f.text_field :key, autofocus: true, data: { controller: "autofocus" }, class: "form__input form__input--large", rows: 3 %>
+            <%= f.text_field :key, autofocus: true, autocomplete: "off", data: { controller: "autofocus" }, class: "form__input form__input--large", rows: 3 %>
             <%= f.label :key, "API Key", class: "form__label" %>
           </div>
           <div class="form__row form__row--input">
-            <%= f.text_field :secret, class: "form__input form__input--large", rows: 3 %>
+            <%= f.text_field :secret, autocomplete: "off", class: "form__input form__input--large", rows: 3 %>
             <%= f.label :secret, "API Secret", class: "form__label" %>
           </div>
           <% if @exchange.requires_passphrase? %>
             <div class="form__row form__row--input">
-              <%= f.text_field :passphrase, class: "form__input form__input--large" %>
+              <%= f.text_field :passphrase, autocomplete: "off", class: "form__input form__input--large" %>
               <%= f.label :passphrase, "API Passphrase", class: "form__label" %>
             </div>
           <% end %>
