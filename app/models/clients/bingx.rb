@@ -13,7 +13,7 @@ class Clients::Bingx < Client
     @connection ||= Faraday.new(url: URL, **OPTIONS) do |config|
       config.proxy = ENV['PROXY_BINGX'] if ENV['PROXY_BINGX'].present?
       config.request :json
-      config.response :json
+      config.response :json, content_type: //
       config.response :raise_error
       config.response :logger, Rails.logger, headers: false, bodies: false, log_level: :debug
       config.adapter :net_http_persistent do |http|

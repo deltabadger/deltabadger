@@ -1,8 +1,8 @@
 {
   "metadata": {
     "exchange_name_id": "binance",
-    "count": 1420,
-    "generated_at": "2026-02-16T16:00:12Z"
+    "count": 1419,
+    "generated_at": "2026-02-23T23:47:39Z"
   },
   "data": [
     {
@@ -5366,20 +5366,6 @@
       "base_decimals": 0,
       "quote_decimals": 8,
       "price_decimals": 6
-    },
-    {
-      "ticker": "PYRUSDT",
-      "base": "PYR",
-      "quote": "USDT",
-      "base_external_id": "vulcan-forged",
-      "quote_external_id": "tether",
-      "minimum_base_size": "0.001",
-      "minimum_quote_size": "5.0",
-      "maximum_base_size": "9222449.0",
-      "maximum_quote_size": "9000000.0",
-      "base_decimals": 3,
-      "quote_decimals": 8,
-      "price_decimals": 3
     },
     {
       "ticker": "ALCXUSDT",

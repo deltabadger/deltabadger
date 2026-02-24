@@ -8,8 +8,8 @@ class Exchanges::HyperliquidTest < ActiveSupport::TestCase
     @exchange = create(:hyperliquid_exchange)
   end
 
-  test 'coingecko_id returns hyperliquid_spot' do
-    assert_equal 'hyperliquid_spot', @exchange.coingecko_id
+  test 'coingecko_id returns hyperliquid-spot' do
+    assert_equal 'hyperliquid-spot', @exchange.coingecko_id
   end
 
   test 'known_errors returns expected error messages' do

@@ -1,8 +1,8 @@
 {
   "metadata": {
     "exchange_name_id": "bitget",
-    "count": 710,
-    "generated_at": "2026-02-16T16:00:12Z"
+    "count": 708,
+    "generated_at": "2026-02-23T23:47:39Z"
   },
   "data": [
     {
@@ -594,6 +594,20 @@
       "price_decimals": 4
     },
     {
+      "ticker": "ALTUSDT",
+      "base": "ALT",
+      "quote": "USDT",
+      "base_external_id": "altlayer",
+      "quote_external_id": "tether",
+      "minimum_base_size": "0.0",
+      "minimum_quote_size": "1.0",
+      "maximum_base_size": "900000000000000000000.0",
+      "maximum_quote_size": null,
+      "base_decimals": 2,
+      "quote_decimals": 7,
+      "price_decimals": 5
+    },
+    {
       "ticker": "ONDOUSDT",
       "base": "ONDO",
       "quote": "USDT",
@@ -900,6 +914,20 @@
       "base_decimals": 2,
       "quote_decimals": 5,
       "price_decimals": 3
+    },
+    {
+      "ticker": "ASTRUSDT",
+      "base": "ASTR",
+      "quote": "USDT",
+      "base_external_id": "astar",
+      "quote_external_id": "tether",
+      "minimum_base_size": "0.0",
+      "minimum_quote_size": "1.0",
+      "maximum_base_size": "900000000000000000000.0",
+      "maximum_quote_size": null,
+      "base_decimals": 0,
+      "quote_decimals": 5,
+      "price_decimals": 5
     },
     {
       "ticker": "VELOUSDT",
@@ -3042,20 +3070,6 @@
       "base_decimals": 5,
       "quote_decimals": 7,
       "price_decimals": 2
-    },
-    {
-      "ticker": "ENJUSDT",
-      "base": "ENJ",
-      "quote": "USDT",
-      "base_external_id": "enjincoin",
-      "quote_external_id": "tether",
-      "minimum_base_size": "0.0",
-      "minimum_quote_size": "1.0",
-      "maximum_base_size": "900000000000000000000.0",
-      "maximum_quote_size": null,
-      "base_decimals": 1,
-      "quote_decimals": 6,
-      "price_decimals": 5
     },
     {
       "ticker": "MANAUSDT",
@@ -5354,20 +5368,6 @@
       "price_decimals": 4
     },
     {
-      "ticker": "VIRTUALUSDT",
-      "base": "VIRTUAL",
-      "quote": "USDT",
-      "base_external_id": "virtual-protocol",
-      "quote_external_id": "tether",
-      "minimum_base_size": "0.0",
-      "minimum_quote_size": "1.0",
-      "maximum_base_size": "900000000000000000000.0",
-      "maximum_quote_size": null,
-      "base_decimals": 2,
-      "quote_decimals": 6,
-      "price_decimals": 4
-    },
-    {
       "ticker": "GAME2USDT",
       "base": "GAME2",
       "quote": "USDT",
@@ -5436,20 +5436,6 @@
       "base_decimals": 2,
       "quote_decimals": 6,
       "price_decimals": 4
-    },
-    {
-      "ticker": "VETUSDT",
-      "base": "VET",
-      "quote": "USDT",
-      "base_external_id": "vechain",
-      "quote_external_id": "tether",
-      "minimum_base_size": "0.0",
-      "minimum_quote_size": "1.0",
-      "maximum_base_size": "900000000000000000000.0",
-      "maximum_quote_size": null,
-      "base_decimals": 2,
-      "quote_decimals": 7,
-      "price_decimals": 5
     },
     {
       "ticker": "BANANAUSDT",
@@ -9047,20 +9033,6 @@
       "maximum_quote_size": null,
       "base_decimals": 2,
       "quote_decimals": 8,
-      "price_decimals": 6
-    },
-    {
-      "ticker": "BOSUSDT",
-      "base": "BOS",
-      "quote": "USDT",
-      "base_external_id": "bitcoinos",
-      "quote_external_id": "tether",
-      "minimum_base_size": "0.0",
-      "minimum_quote_size": "1.0",
-      "maximum_base_size": "900000000000000000000.0",
-      "maximum_quote_size": null,
-      "base_decimals": 1,
-      "quote_decimals": 7,
       "price_decimals": 6
     },
     {

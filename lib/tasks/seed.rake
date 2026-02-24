@@ -48,7 +48,14 @@ namespace :seed do
       $stdout.flush
     end
 
+    start_from = ENV['START_FROM']
     exchanges.each_with_index do |exchange, idx|
+      if start_from.present? && !exchange.name.downcase.include?(start_from.downcase)
+        puts "       [#{idx + 1}/#{exchanges.size}] #{exchange.name} (skipped)"
+        next
+      end
+      start_from = nil # found it, sync all remaining
+
       print "       [#{idx + 1}/#{exchanges.size}] #{exchange.name} "
       $stdout.flush
 
@@ -212,20 +219,20 @@ end
 
 def create_exchanges
   [
-    { type: 'Exchanges::Binance', name: 'Binance', maker_fee: '0.1', taker_fee: '0.1', withdrawal_fee: '0.0002' },
-    { type: 'Exchanges::BinanceUs', name: 'Binance.US', maker_fee: '0.0', taker_fee: '0.01', withdrawal_fee: '0.0002' },
-    { type: 'Exchanges::Kraken', name: 'Kraken', maker_fee: '0.25', taker_fee: '0.4', withdrawal_fee: '0.00005' },
-    { type: 'Exchanges::Coinbase', name: 'Coinbase', maker_fee: '0.6', taker_fee: '1.2', withdrawal_fee: '0.0' },
-    { type: 'Exchanges::Bitget', name: 'Bitget', maker_fee: '0.1', taker_fee: '0.1', withdrawal_fee: '0.0' },
-    { type: 'Exchanges::Kucoin', name: 'KuCoin', maker_fee: '0.1', taker_fee: '0.1', withdrawal_fee: '0.0' },
-    { type: 'Exchanges::Bybit', name: 'Bybit', maker_fee: '0.1', taker_fee: '0.1', withdrawal_fee: '0.0' },
-    { type: 'Exchanges::Mexc', name: 'MEXC', maker_fee: '0.0', taker_fee: '0.05', withdrawal_fee: '0.0' },
-    { type: 'Exchanges::Gemini', name: 'Gemini', maker_fee: '0.2', taker_fee: '0.4', withdrawal_fee: '0.0' },
-    { type: 'Exchanges::Bitvavo', name: 'Bitvavo', maker_fee: '0.15', taker_fee: '0.25', withdrawal_fee: '0.0' },
-    { type: 'Exchanges::Hyperliquid', name: 'Hyperliquid', maker_fee: '0.01', taker_fee: '0.035', withdrawal_fee: '0.0' },
-    { type: 'Exchanges::Bingx', name: 'BingX', maker_fee: '0.1', taker_fee: '0.1', withdrawal_fee: '0.0' },
-    { type: 'Exchanges::Bitrue', name: 'Bitrue', maker_fee: '0.1', taker_fee: '0.1', withdrawal_fee: '0.0' },
-    { type: 'Exchanges::BitMart', name: 'BitMart', maker_fee: '0.1', taker_fee: '0.1', withdrawal_fee: '0.0' }
+    { type: 'Exchanges::Binance', name: 'Binance', maker_fee: '0.1', taker_fee: '0.1' },
+    { type: 'Exchanges::BinanceUs', name: 'Binance.US', maker_fee: '0.0', taker_fee: '0.01' },
+    { type: 'Exchanges::Kraken', name: 'Kraken', maker_fee: '0.25', taker_fee: '0.4' },
+    { type: 'Exchanges::Coinbase', name: 'Coinbase', maker_fee: '0.6', taker_fee: '1.2' },
+    { type: 'Exchanges::Bitget', name: 'Bitget', maker_fee: '0.1', taker_fee: '0.1' },
+    { type: 'Exchanges::Kucoin', name: 'KuCoin', maker_fee: '0.1', taker_fee: '0.1' },
+    { type: 'Exchanges::Bybit', name: 'Bybit', maker_fee: '0.1', taker_fee: '0.1' },
+    { type: 'Exchanges::Mexc', name: 'MEXC', maker_fee: '0.0', taker_fee: '0.05' },
+    { type: 'Exchanges::Gemini', name: 'Gemini', maker_fee: '0.2', taker_fee: '0.4' },
+    { type: 'Exchanges::Bitvavo', name: 'Bitvavo', maker_fee: '0.15', taker_fee: '0.25' },
+    { type: 'Exchanges::Hyperliquid', name: 'Hyperliquid', maker_fee: '0.01', taker_fee: '0.035' },
+    { type: 'Exchanges::Bingx', name: 'BingX', maker_fee: '0.1', taker_fee: '0.1' },
+    { type: 'Exchanges::Bitrue', name: 'Bitrue', maker_fee: '0.1', taker_fee: '0.1' },
+    { type: 'Exchanges::BitMart', name: 'BitMart', maker_fee: '0.1', taker_fee: '0.1' }
   ].each do |attrs|
     klass = attrs[:type].constantize
     exchange = klass.find_or_create_by!(name: attrs[:name])

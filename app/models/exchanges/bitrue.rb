@@ -34,39 +34,36 @@ class Exchanges::Bitrue < Exchange
         return error.present? ? Result::Failure.new(error) : result
       end
 
-      result.data['symbols'].map do |product|
+      result.data['symbols'].filter_map do |product|
         ticker = Utilities::Hash.dig_or_raise(product, 'symbol')
         status = Utilities::Hash.dig_or_raise(product, 'status')
 
         filters = product['filters'] || []
         price_filter = filters.find { |filter| filter['filterType'] == 'PRICE_FILTER' }
         lot_size_filter = filters.find { |filter| filter['filterType'] == 'LOT_SIZE' }
-        notional_filter = filters.find { |filter| filter['filterType'].in?(%w[NOTIONAL MIN_NOTIONAL]) }
 
         {
           ticker: ticker,
-          base: Utilities::Hash.dig_or_raise(product, 'baseAsset'),
-          quote: Utilities::Hash.dig_or_raise(product, 'quoteAsset'),
+          base: product['baseAsset']&.upcase,
+          quote: product['quoteAsset']&.upcase,
           minimum_base_size: lot_size_filter&.dig('minQty').to_d,
-          minimum_quote_size: notional_filter&.dig('minNotional').to_d,
+          minimum_quote_size: lot_size_filter&.dig('minVal').to_d,
           maximum_base_size: lot_size_filter&.dig('maxQty').to_d,
-          maximum_quote_size: notional_filter&.dig('maxNotional').to_d,
+          maximum_quote_size: 0.to_d,
           base_decimals: if lot_size_filter
                            Utilities::Number.decimals(lot_size_filter['stepSize'])
                          else
-                           Utilities::Hash.dig_or_raise(product,
-                                                        'baseAssetPrecision')
+                           Utilities::Hash.dig_or_raise(product, 'baseAssetPrecision')
                          end,
-          quote_decimals: Utilities::Hash.dig_or_raise(product, 'quoteAssetPrecision'),
+          quote_decimals: Utilities::Hash.dig_or_raise(product, 'quotePrecision'),
           price_decimals: if price_filter
                             Utilities::Number.decimals(price_filter['tickSize'])
                           else
-                            Utilities::Hash.dig_or_raise(product,
-                                                         'quotePrecision')
+                            Utilities::Hash.dig_or_raise(product, 'quotePrecision')
                           end,
           available: status == 'TRADING'
         }
-      end.compact
+      end
     end
 
     Result::Success.new(tickers_info)

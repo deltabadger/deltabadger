@@ -1,6 +1,6 @@
 class Clients::Coingecko < Client
-  # URL = 'https://pro-api.coingecko.com/api/v3'.freeze
-  URL = 'https://api.coingecko.com/api/v3/'.freeze
+  PRO_URL = 'https://pro-api.coingecko.com/api/v3'.freeze
+  DEMO_URL = 'https://api.coingecko.com/api/v3'.freeze
 
   def initialize(api_key: nil)
     @instance_api_key = api_key
@@ -15,37 +15,29 @@ class Clients::Coingecko < Client
   end
 
   def connection
-    @connection ||= Faraday.new(url: URL, **OPTIONS) do |config|
-      config.headers = {
-        # 'x-cg-pro-api-key': api_key
-        'x-cg-demo-api-key': api_key
-      }
-      config.request :json
-      config.response :json
-      config.response :raise_error
-      config.response :logger, Rails.logger, headers: false, bodies: true, log_level: :debug
-      config.adapter :net_http_persistent do |http|
-        http.idle_timeout = 100
-      end
-      config.request :rate_limit, limit: 30, interval: 60
-    end
+    @connection ||= build_connection(api_key)
   end
 
   def self.connection
-    @connection ||= Faraday.new(url: URL, **OPTIONS) do |config|
-      config.headers = {
-        # 'x-cg-pro-api-key': api_key
-        'x-cg-demo-api-key': api_key
-      }
-      config.request :json
+    @connection ||= new.send(:build_connection, api_key)
+  end
+
+  private_class_method def self.pro_key?(key)
+    return false if key.blank?
+
+    conn = Faraday.new(url: PRO_URL) do |config|
+      config.headers = { 'x-cg-pro-api-key': key }
       config.response :json
-      config.response :raise_error
-      config.response :logger, Rails.logger, headers: false, bodies: true, log_level: :debug
-      config.adapter :net_http_persistent do |http|
-        http.idle_timeout = 100
-      end
-      config.request :rate_limit, limit: 30, interval: 60
+      config.adapter :net_http
     end
+    response = conn.get('ping')
+    response.status == 200
+  rescue StandardError
+    false
+  end
+
+  def self.detect_plan(key)
+    @detect_plan ||= pro_key?(key) ? :pro : :demo
   end
 
   # https://docs.coingecko.com/reference/coins-list
@@ -312,6 +304,27 @@ class Clients::Coingecko < Client
         req.params = { order: order }
       end
       Result::Success.new(response.body)
+    end
+  end
+
+  private
+
+  def build_connection(key)
+    plan = self.class.detect_plan(key)
+    url = plan == :pro ? PRO_URL : DEMO_URL
+    header_key = plan == :pro ? :'x-cg-pro-api-key' : :'x-cg-demo-api-key'
+    rate = plan == :pro ? 250 : 30
+
+    Faraday.new(url: url, **OPTIONS) do |config|
+      config.headers = { header_key => key }
+      config.request :json
+      config.response :json
+      config.response :raise_error
+      config.response :logger, Rails.logger, headers: false, bodies: true, log_level: :debug
+      config.adapter :net_http_persistent do |http|
+        http.idle_timeout = 100
+      end
+      config.request :rate_limit, limit: rate, interval: 60
     end
   end
 end
