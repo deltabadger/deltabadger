@@ -48,7 +48,10 @@ RUN apt-get update -qq && \
     curl \
     libvips-dev \
     libsodium-dev \
-    libyaml-dev && \
+    libyaml-dev \
+    libtool \
+    autoconf \
+    automake && \
     rm -rf /var/lib/apt/lists/*
 
 # Install Node 20.x for dartsass-rails and esbuild for jsbundling
