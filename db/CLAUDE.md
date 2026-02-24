@@ -1,0 +1,7 @@
+- SQLite3 with proper connection pooling
+- Three separate databases:
+  - Main: `storage/production.sqlite3`
+  - Solid Queue: `storage/production_queue.sqlite3`
+  - Solid Cache: `storage/production_cache.sqlite3`
+- Schema: `db/schema.rb`
+- Migrations: `db/migrate/`

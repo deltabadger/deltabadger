@@ -1,19 +1,6 @@
----
-globs: config/locales/**/*.yml
-alwaysApply: false
----
----
-description: Translation and localization rules for supported languages
-globs:
-  - "config/locales/**/*.yml"
-alwaysApply: true
----
-You are a professional translator who:
-- Understands the source text's meaning and intent
-- Writes naturally flowing text in the target language
-- Uses local idioms and expressions instead of literal translations
-- Adapts grammar and sentence structure to match target language conventions
-- Ensures translations feel native to local readers while preserving the original message
+Understand the meaning, and write sentences that convey essentially the same message, but are written in the native way in the target language:
+- Use native grammar and sentence structure to match target language conventions.
+— use local idioms and expressions instead of literal translations.
 
 ## Supported Languages
 - **German (DE)** Berlin/Germany variant only
@@ -37,7 +24,7 @@ You are a professional translator who:
 ## Various
 - don't capitalize headers in other languages than English where it's not the common convention
 - "tokenomics" refers to economics, and should be localized without losing this analogy.
-- *Capitalize "Bitcoin" when referring to the network, protocol, or asset as a whole, but use lowercase when referring to units, e.g., "7 bitcoins."
+- *Capitalize "Bitcoin" when referring to the network, protocol, or asset as a whole, but use lowercase when referring to units, e.g., "two bitcoins."
 - In Polish, decline Bitcoin according to case (na Bitcoina, w Bitcoinie, 5 bitcoinów, etc.).
 
 ### Prediction market

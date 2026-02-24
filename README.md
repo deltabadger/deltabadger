@@ -192,21 +192,6 @@ Another app is using port 3737. Either stop that app, or change the port mapping
 ```bash
 APP_PORT=4000
 ```
-
-### macOS: fork() crash (development)
-
-If you see this error when loading exchanges:
-
-```
-objc[86427]: +[__NSCFConstantString initialize] may have been in progress in another thread when fork() was called.
-```
-
-Add to your shell config:
-
-```bash
-export OBJC_DISABLE_INITIALIZE_FORK_SAFETY=YES
-```
-
 ---
 
 ## License
