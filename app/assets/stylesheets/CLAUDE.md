@@ -1,0 +1,5 @@
+- ALL CSS files MUST be placed in `app/assets/stylesheets/` directory
+- ALWAYS use `.sass` format (indented syntax), NEVER use `.scss` or `.css`
+- If the feature needs styling, create a new `.sass` file in `app/assets/stylesheets/new/` and reference it in `app/assets/stylesheets/application.scss`
+- Follow Rails asset pipeline conventions
+- Use Sass indented syntax (no braces or semicolons)
