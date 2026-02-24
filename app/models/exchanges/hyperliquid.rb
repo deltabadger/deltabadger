@@ -1,5 +1,5 @@
 class Exchanges::Hyperliquid < Exchange
-  COINGECKO_ID = 'hyperliquid_spot'.freeze
+  COINGECKO_ID = 'hyperliquid-spot'.freeze
   ERRORS = {
     insufficient_funds: ['Insufficient balance', 'Not enough balance'],
     invalid_key: ['Invalid API key', 'Authentication failed', 'Invalid signature']

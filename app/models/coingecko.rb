@@ -22,6 +22,7 @@ class Coingecko
     all_tickers = []
     tickers_per_page = 100
     50.times do |i|
+      sleep(3) if i.positive?
       result = client.exchange_tickers_by_id(id: exchange_id, order: 'base_asset', page: i + 1)
       return result if result.failure?
 

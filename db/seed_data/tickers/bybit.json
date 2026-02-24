@@ -1,8 +1,8 @@
 {
   "metadata": {
     "exchange_name_id": "bybit",
-    "count": 637,
-    "generated_at": "2026-02-16T16:00:12Z"
+    "count": 634,
+    "generated_at": "2026-02-23T23:47:40Z"
   },
   "data": [
     {
@@ -2680,20 +2680,6 @@
       "price_decimals": 4
     },
     {
-      "ticker": "VRAUSDT",
-      "base": "VRA",
-      "quote": "USDT",
-      "base_external_id": "verasity",
-      "quote_external_id": "tether",
-      "minimum_base_size": "0.01",
-      "minimum_quote_size": "5.0",
-      "maximum_base_size": "170000000.0",
-      "maximum_quote_size": "200000.0",
-      "base_decimals": 2,
-      "quote_decimals": 10,
-      "price_decimals": 8
-    },
-    {
       "ticker": "IDUSDT",
       "base": "ID",
       "quote": "USDT",
@@ -3338,20 +3324,6 @@
       "price_decimals": 4
     },
     {
-      "ticker": "KCSUSDT",
-      "base": "KCS",
-      "quote": "USDT",
-      "base_external_id": "kucoin-shares",
-      "quote_external_id": "tether",
-      "minimum_base_size": "0.01",
-      "minimum_quote_size": "5.0",
-      "maximum_base_size": "3548.0",
-      "maximum_quote_size": "200000.0",
-      "base_decimals": 2,
-      "quote_decimals": 5,
-      "price_decimals": 3
-    },
-    {
       "ticker": "VANRYUSDT",
       "base": "VANRY",
       "quote": "USDT",
@@ -3490,20 +3462,6 @@
       "base_decimals": 2,
       "quote_decimals": 6,
       "price_decimals": 4
-    },
-    {
-      "ticker": "COQUSDT",
-      "base": "COQ",
-      "quote": "USDT",
-      "base_external_id": "coq-inu",
-      "quote_external_id": "tether",
-      "minimum_base_size": "0.1",
-      "minimum_quote_size": "5.0",
-      "maximum_base_size": "40000000000.0",
-      "maximum_quote_size": "200000.0",
-      "base_decimals": 1,
-      "quote_decimals": 11,
-      "price_decimals": 10
     },
     {
       "ticker": "AIOZUSDT",

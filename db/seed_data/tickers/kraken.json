@@ -2,7 +2,7 @@
   "metadata": {
     "exchange_name_id": "kraken",
     "count": 1438,
-    "generated_at": "2026-02-16T16:00:12Z"
+    "generated_at": "2026-02-23T23:47:39Z"
   },
   "data": [
     {
@@ -1614,34 +1614,6 @@
       "base_decimals": 8,
       "quote_decimals": 9,
       "price_decimals": 5
-    },
-    {
-      "ticker": "ARTEUR",
-      "base": "ART",
-      "quote": "EUR",
-      "base_external_id": "liveart",
-      "quote_external_id": "EUR.FOREX",
-      "minimum_base_size": "3800.0",
-      "minimum_quote_size": "0.5",
-      "maximum_base_size": null,
-      "maximum_quote_size": null,
-      "base_decimals": 5,
-      "quote_decimals": 5,
-      "price_decimals": 6
-    },
-    {
-      "ticker": "ARTUSD",
-      "base": "ART",
-      "quote": "USD",
-      "base_external_id": "liveart",
-      "quote_external_id": "USD.FOREX",
-      "minimum_base_size": "3800.0",
-      "minimum_quote_size": "5.0",
-      "maximum_base_size": null,
-      "maximum_quote_size": null,
-      "base_decimals": 5,
-      "quote_decimals": 5,
-      "price_decimals": 6
     },
     {
       "ticker": "ARUSD",
@@ -6138,20 +6110,6 @@
       "price_decimals": 4
     },
     {
-      "ticker": "EVAAUSD",
-      "base": "EVAA",
-      "quote": "USD",
-      "base_external_id": "evaa-protocol",
-      "quote_external_id": "USD.FOREX",
-      "minimum_base_size": "5.0",
-      "minimum_quote_size": "5.0",
-      "maximum_base_size": null,
-      "maximum_quote_size": null,
-      "base_decimals": 5,
-      "quote_decimals": 5,
-      "price_decimals": 4
-    },
-    {
       "ticker": "EWTEUR",
       "base": "EWT",
       "quote": "EUR",
@@ -6682,6 +6640,34 @@
       "base_decimals": 5,
       "quote_decimals": 8,
       "price_decimals": 4
+    },
+    {
+      "ticker": "FLYEUR",
+      "base": "FLY",
+      "quote": "EUR",
+      "base_external_id": "fly-2",
+      "quote_external_id": "EUR.FOREX",
+      "minimum_base_size": "310.0",
+      "minimum_quote_size": "0.5",
+      "maximum_base_size": null,
+      "maximum_quote_size": null,
+      "base_decimals": 5,
+      "quote_decimals": 5,
+      "price_decimals": 5
+    },
+    {
+      "ticker": "FLYUSD",
+      "base": "FLY",
+      "quote": "USD",
+      "base_external_id": "fly-2",
+      "quote_external_id": "USD.FOREX",
+      "minimum_base_size": "310.0",
+      "minimum_quote_size": "5.0",
+      "maximum_base_size": null,
+      "maximum_quote_size": null,
+      "base_decimals": 5,
+      "quote_decimals": 5,
+      "price_decimals": 5
     },
     {
       "ticker": "FOLKSEUR",
@@ -11834,6 +11820,20 @@
       "base_decimals": 5,
       "quote_decimals": 5,
       "price_decimals": 9
+    },
+    {
+      "ticker": "PEPECOINUSD",
+      "base": "PEPECOIN",
+      "quote": "USD",
+      "base_external_id": "pepecoin-2",
+      "quote_external_id": "USD.FOREX",
+      "minimum_base_size": "60.0",
+      "minimum_quote_size": "5.0",
+      "maximum_base_size": null,
+      "maximum_quote_size": null,
+      "base_decimals": 5,
+      "quote_decimals": 5,
+      "price_decimals": 5
     },
     {
       "ticker": "PEPEEUR",

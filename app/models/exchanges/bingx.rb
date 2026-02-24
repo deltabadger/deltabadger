@@ -37,24 +37,25 @@ class Exchanges::Bingx < Exchange
       return Result::Failure.new(result.data['msg']) if result.data['code'].to_i != 0
 
       items = Utilities::Hash.dig_or_raise(result.data, 'data', 'symbols')
-      items.map do |product|
+      items.filter_map do |product|
         ticker = Utilities::Hash.dig_or_raise(product, 'symbol')
-        status = product['status']
+        parts = ticker.split('-')
+        next unless parts.size == 2
 
         {
           ticker: ticker,
-          base: Utilities::Hash.dig_or_raise(product, 'baseAsset'),
-          quote: Utilities::Hash.dig_or_raise(product, 'quoteAsset'),
+          base: parts[0],
+          quote: parts[1],
           minimum_base_size: product['minQty'].to_d,
           minimum_quote_size: product['minNotional'].to_d,
           maximum_base_size: product['maxQty'].to_d,
           maximum_quote_size: product['maxNotional'].to_d,
-          base_decimals: product['quantityPrecision'].to_i,
-          quote_decimals: product['quotePrecision'].to_i,
-          price_decimals: product['pricePrecision'].to_i,
-          available: status.to_i == 1
+          base_decimals: Utilities::Number.decimals(product['stepSize']),
+          quote_decimals: Utilities::Number.decimals(product['tickSize']),
+          price_decimals: Utilities::Number.decimals(product['tickSize']),
+          available: product['status'].to_i == 1
         }
-      end.compact
+      end
     end
 
     Result::Success.new(tickers_info)

@@ -42,7 +42,7 @@ class Exchanges::BitMart < Exchange
       return Result::Failure.new(result.data['message']) if result.data['code'] != 1000
 
       items = Utilities::Hash.dig_or_raise(result.data, 'data', 'symbols')
-      items.map do |product|
+      items.filter_map do |product|
         ticker = Utilities::Hash.dig_or_raise(product, 'symbol')
         trade_status = Utilities::Hash.dig_or_raise(product, 'trade_status')
 
@@ -52,14 +52,14 @@ class Exchanges::BitMart < Exchange
           quote: Utilities::Hash.dig_or_raise(product, 'quote_currency'),
           minimum_base_size: product['base_min_size'].to_d,
           minimum_quote_size: product['min_buy_amount'].to_d,
-          maximum_base_size: product['base_max_size'].to_d,
-          maximum_quote_size: product['max_buy_amount'].to_d,
-          base_decimals: product['amount_precision'].to_i,
-          quote_decimals: product['quote_increment'].to_i,
+          maximum_base_size: 0.to_d,
+          maximum_quote_size: 0.to_d,
+          base_decimals: Utilities::Number.decimals(product['base_min_size']),
+          quote_decimals: Utilities::Number.decimals(product['quote_increment']),
           price_decimals: product['price_max_precision'].to_i,
           available: trade_status == 'trading'
         }
-      end.compact
+      end
     end
 
     Result::Success.new(tickers_info)

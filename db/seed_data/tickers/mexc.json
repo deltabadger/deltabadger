@@ -1,8 +1,8 @@
 {
   "metadata": {
     "exchange_name_id": "mexc",
-    "count": 2487,
-    "generated_at": "2026-02-16T16:00:12Z"
+    "count": 2444,
+    "generated_at": "2026-02-23T23:47:40Z"
   },
   "data": [
     {
@@ -88,20 +88,6 @@
       "base_decimals": 2,
       "quote_decimals": 5,
       "price_decimals": 5
-    },
-    {
-      "ticker": "BNTUSDT",
-      "base": "BNT",
-      "quote": "USDT",
-      "base_external_id": "bancor",
-      "quote_external_id": "tether",
-      "minimum_base_size": "0.0",
-      "minimum_quote_size": "0.0",
-      "maximum_base_size": "0.0",
-      "maximum_quote_size": "0.0",
-      "base_decimals": 2,
-      "quote_decimals": 4,
-      "price_decimals": 4
     },
     {
       "ticker": "NTXUSDT",
@@ -282,8 +268,8 @@
       "maximum_base_size": "0.0",
       "maximum_quote_size": "0.0",
       "base_decimals": 2,
-      "quote_decimals": 6,
-      "price_decimals": 6
+      "quote_decimals": 7,
+      "price_decimals": 7
     },
     {
       "ticker": "BANUSDT",
@@ -352,8 +338,8 @@
       "maximum_base_size": "0.0",
       "maximum_quote_size": "0.0",
       "base_decimals": 2,
-      "quote_decimals": 9,
-      "price_decimals": 9
+      "quote_decimals": 10,
+      "price_decimals": 10
     },
     {
       "ticker": "SELOUSDT",
@@ -506,8 +492,8 @@
       "maximum_base_size": "0.0",
       "maximum_quote_size": "0.0",
       "base_decimals": 2,
-      "quote_decimals": 7,
-      "price_decimals": 7
+      "quote_decimals": 8,
+      "price_decimals": 8
     },
     {
       "ticker": "ROAMUSDT",
@@ -830,20 +816,6 @@
       "base_decimals": 3,
       "quote_decimals": 2,
       "price_decimals": 2
-    },
-    {
-      "ticker": "NAMUSDT",
-      "base": "NAM",
-      "quote": "USDT",
-      "base_external_id": "namada",
-      "quote_external_id": "tether",
-      "minimum_base_size": "0.0",
-      "minimum_quote_size": "0.0",
-      "maximum_base_size": "0.0",
-      "maximum_quote_size": "0.0",
-      "base_decimals": 2,
-      "quote_decimals": 6,
-      "price_decimals": 6
     },
     {
       "ticker": "DFUSDT",
@@ -1292,20 +1264,6 @@
       "base_decimals": 2,
       "quote_decimals": 6,
       "price_decimals": 6
-    },
-    {
-      "ticker": "SEEDUSDT",
-      "base": "SEED",
-      "quote": "USDT",
-      "base_external_id": "seed-3",
-      "quote_external_id": "tether",
-      "minimum_base_size": "0.0",
-      "minimum_quote_size": "0.0",
-      "maximum_base_size": "0.0",
-      "maximum_quote_size": "0.0",
-      "base_decimals": 2,
-      "quote_decimals": 7,
-      "price_decimals": 7
     },
     {
       "ticker": "RENTAUSDT",
@@ -1882,20 +1840,6 @@
       "price_decimals": 2
     },
     {
-      "ticker": "PELLUSDT",
-      "base": "PELL",
-      "quote": "USDT",
-      "base_external_id": "pell-network-token",
-      "quote_external_id": "tether",
-      "minimum_base_size": "0.0",
-      "minimum_quote_size": "0.0",
-      "maximum_base_size": "0.0",
-      "maximum_quote_size": "0.0",
-      "base_decimals": 2,
-      "quote_decimals": 7,
-      "price_decimals": 7
-    },
-    {
       "ticker": "SENTUSDC",
       "base": "SENT",
       "quote": "USDC",
@@ -2260,20 +2204,6 @@
       "price_decimals": 6
     },
     {
-      "ticker": "BNBHOLDERUSDT",
-      "base": "BNBHOLDER",
-      "quote": "USDT",
-      "base_external_id": "bian-holder",
-      "quote_external_id": "tether",
-      "minimum_base_size": "0.0",
-      "minimum_quote_size": "0.0",
-      "maximum_base_size": "0.0",
-      "maximum_quote_size": "0.0",
-      "base_decimals": 2,
-      "quote_decimals": 7,
-      "price_decimals": 7
-    },
-    {
       "ticker": "VEREMUSDT",
       "base": "VEREM",
       "quote": "USDT",
@@ -2554,20 +2484,6 @@
       "price_decimals": 6
     },
     {
-      "ticker": "KANGUSDT",
-      "base": "KANG",
-      "quote": "USDT",
-      "base_external_id": "kangamoon",
-      "quote_external_id": "tether",
-      "minimum_base_size": "0.0",
-      "minimum_quote_size": "0.0",
-      "maximum_base_size": "0.0",
-      "maximum_quote_size": "0.0",
-      "base_decimals": 2,
-      "quote_decimals": 7,
-      "price_decimals": 7
-    },
-    {
       "ticker": "CVNAONUSDT",
       "base": "CVNAON",
       "quote": "USDT",
@@ -2608,20 +2524,6 @@
       "base_decimals": 2,
       "quote_decimals": 4,
       "price_decimals": 4
-    },
-    {
-      "ticker": "SYNDUSDT",
-      "base": "SYND",
-      "quote": "USDT",
-      "base_external_id": "syndicate-3",
-      "quote_external_id": "tether",
-      "minimum_base_size": "0.0",
-      "minimum_quote_size": "0.0",
-      "maximum_base_size": "0.0",
-      "maximum_quote_size": "0.0",
-      "base_decimals": 2,
-      "quote_decimals": 5,
-      "price_decimals": 5
     },
     {
       "ticker": "GOATUSDT",
@@ -2694,20 +2596,6 @@
       "price_decimals": 6
     },
     {
-      "ticker": "WLFIUSDT",
-      "base": "WLFI",
-      "quote": "USDT",
-      "base_external_id": "world-liberty-financial",
-      "quote_external_id": "tether",
-      "minimum_base_size": "0.0",
-      "minimum_quote_size": "0.0",
-      "maximum_base_size": "0.0",
-      "maximum_quote_size": "0.0",
-      "base_decimals": 2,
-      "quote_decimals": 4,
-      "price_decimals": 4
-    },
-    {
       "ticker": "MUONUSDT",
       "base": "MUON",
       "quote": "USDT",
@@ -2720,6 +2608,20 @@
       "base_decimals": 3,
       "quote_decimals": 2,
       "price_decimals": 2
+    },
+    {
+      "ticker": "WLFIUSDT",
+      "base": "WLFI",
+      "quote": "USDT",
+      "base_external_id": "world-liberty-financial",
+      "quote_external_id": "tether",
+      "minimum_base_size": "0.0",
+      "minimum_quote_size": "0.0",
+      "maximum_base_size": "0.0",
+      "maximum_quote_size": "0.0",
+      "base_decimals": 2,
+      "quote_decimals": 4,
+      "price_decimals": 4
     },
     {
       "ticker": "LDOUSDC",
@@ -3170,20 +3072,6 @@
       "price_decimals": 4
     },
     {
-      "ticker": "SUPERDAPPUSDT",
-      "base": "SUPERDAPP",
-      "quote": "USDT",
-      "base_external_id": "superdapp",
-      "quote_external_id": "tether",
-      "minimum_base_size": "0.0",
-      "minimum_quote_size": "0.0",
-      "maximum_base_size": "0.0",
-      "maximum_quote_size": "0.0",
-      "base_decimals": 2,
-      "quote_decimals": 7,
-      "price_decimals": 7
-    },
-    {
       "ticker": "TIAUSDC",
       "base": "TIA",
       "quote": "USDC",
@@ -3352,20 +3240,6 @@
       "price_decimals": 5
     },
     {
-      "ticker": "TIMIUSDT",
-      "base": "TIMI",
-      "quote": "USDT",
-      "base_external_id": "metaarena",
-      "quote_external_id": "tether",
-      "minimum_base_size": "0.0",
-      "minimum_quote_size": "0.0",
-      "maximum_base_size": "0.0",
-      "maximum_quote_size": "0.0",
-      "base_decimals": 2,
-      "quote_decimals": 7,
-      "price_decimals": 7
-    },
-    {
       "ticker": "SEDAUSDT",
       "base": "SEDA",
       "quote": "USDT",
@@ -3404,8 +3278,8 @@
       "maximum_base_size": "0.0",
       "maximum_quote_size": "0.0",
       "base_decimals": 2,
-      "quote_decimals": 4,
-      "price_decimals": 4
+      "quote_decimals": 5,
+      "price_decimals": 5
     },
     {
       "ticker": "PAALUSDT",
@@ -3786,20 +3660,6 @@
       "price_decimals": 2
     },
     {
-      "ticker": "NEROUSDT",
-      "base": "NERO",
-      "quote": "USDT",
-      "base_external_id": "nero-chain",
-      "quote_external_id": "tether",
-      "minimum_base_size": "0.0",
-      "minimum_quote_size": "0.0",
-      "maximum_base_size": "0.0",
-      "maximum_quote_size": "0.0",
-      "base_decimals": 2,
-      "quote_decimals": 6,
-      "price_decimals": 6
-    },
-    {
       "ticker": "SVSAUSDT",
       "base": "SVSA",
       "quote": "USDT",
@@ -4150,20 +4010,6 @@
       "price_decimals": 5
     },
     {
-      "ticker": "SHARDSUSDT",
-      "base": "SHARDS",
-      "quote": "USDT",
-      "base_external_id": "worldshards",
-      "quote_external_id": "tether",
-      "minimum_base_size": "0.0",
-      "minimum_quote_size": "0.0",
-      "maximum_base_size": "0.0",
-      "maximum_quote_size": "0.0",
-      "base_decimals": 2,
-      "quote_decimals": 8,
-      "price_decimals": 8
-    },
-    {
       "ticker": "AVAXUSDT",
       "base": "AVAX",
       "quote": "USDT",
@@ -4300,8 +4146,8 @@
       "maximum_base_size": "0.0",
       "maximum_quote_size": "0.0",
       "base_decimals": 2,
-      "quote_decimals": 4,
-      "price_decimals": 4
+      "quote_decimals": 5,
+      "price_decimals": 5
     },
     {
       "ticker": "VINEBRL",
@@ -4650,14 +4496,28 @@
       "maximum_base_size": "0.0",
       "maximum_quote_size": "0.0",
       "base_decimals": 2,
-      "quote_decimals": 5,
-      "price_decimals": 5
+      "quote_decimals": 6,
+      "price_decimals": 6
     },
     {
       "ticker": "FRAXUSDT",
       "base": "FRAX",
       "quote": "USDT",
       "base_external_id": "frax-share",
+      "quote_external_id": "tether",
+      "minimum_base_size": "0.0",
+      "minimum_quote_size": "0.0",
+      "maximum_base_size": "0.0",
+      "maximum_quote_size": "0.0",
+      "base_decimals": 2,
+      "quote_decimals": 4,
+      "price_decimals": 4
+    },
+    {
+      "ticker": "FDUSDUSDT",
+      "base": "FDUSD",
+      "quote": "USDT",
+      "base_external_id": "first-digital-usd",
       "quote_external_id": "tether",
       "minimum_base_size": "0.0",
       "minimum_quote_size": "0.0",
@@ -4794,10 +4654,10 @@
       "price_decimals": 4
     },
     {
-      "ticker": "ERGUSDT",
-      "base": "ERG",
+      "ticker": "ALEUSDT",
+      "base": "ALE",
       "quote": "USDT",
-      "base_external_id": "ergo",
+      "base_external_id": "project-ailey",
       "quote_external_id": "tether",
       "minimum_base_size": "0.0",
       "minimum_quote_size": "0.0",
@@ -4808,10 +4668,10 @@
       "price_decimals": 4
     },
     {
-      "ticker": "ALEUSDT",
-      "base": "ALE",
+      "ticker": "ERGUSDT",
+      "base": "ERG",
       "quote": "USDT",
-      "base_external_id": "project-ailey",
+      "base_external_id": "ergo",
       "quote_external_id": "tether",
       "minimum_base_size": "0.0",
       "minimum_quote_size": "0.0",
@@ -4874,8 +4734,8 @@
       "maximum_base_size": "0.0",
       "maximum_quote_size": "0.0",
       "base_decimals": 2,
-      "quote_decimals": 6,
-      "price_decimals": 6
+      "quote_decimals": 7,
+      "price_decimals": 7
     },
     {
       "ticker": "TAOUSDC",
@@ -5014,8 +4874,8 @@
       "maximum_base_size": "0.0",
       "maximum_quote_size": "0.0",
       "base_decimals": 2,
-      "quote_decimals": 5,
-      "price_decimals": 5
+      "quote_decimals": 6,
+      "price_decimals": 6
     },
     {
       "ticker": "HOSICOUSDT",
@@ -5322,8 +5182,8 @@
       "maximum_base_size": "0.0",
       "maximum_quote_size": "0.0",
       "base_decimals": 2,
-      "quote_decimals": 7,
-      "price_decimals": 7
+      "quote_decimals": 8,
+      "price_decimals": 8
     },
     {
       "ticker": "XRPBRL",
@@ -5797,7 +5657,7 @@
       "minimum_quote_size": "0.0",
       "maximum_base_size": "0.0",
       "maximum_quote_size": "0.0",
-      "base_decimals": 2,
+      "base_decimals": 3,
       "quote_decimals": 2,
       "price_decimals": 2
     },
@@ -5994,8 +5854,8 @@
       "maximum_base_size": "0.0",
       "maximum_quote_size": "0.0",
       "base_decimals": 2,
-      "quote_decimals": 6,
-      "price_decimals": 6
+      "quote_decimals": 7,
+      "price_decimals": 7
     },
     {
       "ticker": "COREUMUSDT",
@@ -6164,20 +6024,6 @@
       "base_decimals": 2,
       "quote_decimals": 3,
       "price_decimals": 3
-    },
-    {
-      "ticker": "ETANUSDT",
-      "base": "ETAN",
-      "quote": "USDT",
-      "base_external_id": "etarn",
-      "quote_external_id": "tether",
-      "minimum_base_size": "0.0",
-      "minimum_quote_size": "0.0",
-      "maximum_base_size": "0.0",
-      "maximum_quote_size": "0.0",
-      "base_decimals": 2,
-      "quote_decimals": 6,
-      "price_decimals": 6
     },
     {
       "ticker": "SOMIUSDC",
@@ -6474,20 +6320,6 @@
       "price_decimals": 3
     },
     {
-      "ticker": "LIVEUSDT",
-      "base": "LIVE",
-      "quote": "USDT",
-      "base_external_id": "live",
-      "quote_external_id": "tether",
-      "minimum_base_size": "0.0",
-      "minimum_quote_size": "0.0",
-      "maximum_base_size": "0.0",
-      "maximum_quote_size": "0.0",
-      "base_decimals": 2,
-      "quote_decimals": 8,
-      "price_decimals": 8
-    },
-    {
       "ticker": "MOVEUSDC",
       "base": "MOVE",
       "quote": "USDC",
@@ -6780,20 +6612,6 @@
       "base_decimals": 2,
       "quote_decimals": 7,
       "price_decimals": 7
-    },
-    {
-      "ticker": "LAIKAL2USDT",
-      "base": "LAIKAL2",
-      "quote": "USDT",
-      "base_external_id": "laikachain",
-      "quote_external_id": "tether",
-      "minimum_base_size": "0.0",
-      "minimum_quote_size": "0.0",
-      "maximum_base_size": "0.0",
-      "maximum_quote_size": "0.0",
-      "base_decimals": 2,
-      "quote_decimals": 5,
-      "price_decimals": 5
     },
     {
       "ticker": "MGOUSDT",
@@ -7394,8 +7212,8 @@
       "maximum_base_size": "0.0",
       "maximum_quote_size": "0.0",
       "base_decimals": 2,
-      "quote_decimals": 5,
-      "price_decimals": 5
+      "quote_decimals": 7,
+      "price_decimals": 7
     },
     {
       "ticker": "ELPUSDT",
@@ -7450,8 +7268,8 @@
       "maximum_base_size": "0.0",
       "maximum_quote_size": "0.0",
       "base_decimals": 2,
-      "quote_decimals": 8,
-      "price_decimals": 8
+      "quote_decimals": 9,
+      "price_decimals": 9
     },
     {
       "ticker": "PUBLICUSDT",
@@ -7576,8 +7394,8 @@
       "maximum_base_size": "0.0",
       "maximum_quote_size": "0.0",
       "base_decimals": 2,
-      "quote_decimals": 4,
-      "price_decimals": 4
+      "quote_decimals": 5,
+      "price_decimals": 5
     },
     {
       "ticker": "STORMUSDT",
@@ -8308,20 +8126,6 @@
       "price_decimals": 5
     },
     {
-      "ticker": "USATUSDT",
-      "base": "USAT",
-      "quote": "USDT",
-      "base_external_id": "usa",
-      "quote_external_id": "tether",
-      "minimum_base_size": "0.0",
-      "minimum_quote_size": "0.0",
-      "maximum_base_size": "0.0",
-      "maximum_quote_size": "0.0",
-      "base_decimals": 2,
-      "quote_decimals": 4,
-      "price_decimals": 4
-    },
-    {
       "ticker": "SDEXUSDT",
       "base": "SDEX",
       "quote": "USDT",
@@ -8446,20 +8250,6 @@
       "base_decimals": 2,
       "quote_decimals": 5,
       "price_decimals": 5
-    },
-    {
-      "ticker": "IVPAYUSDT",
-      "base": "IVPAY",
-      "quote": "USDT",
-      "base_external_id": "ivendpay",
-      "quote_external_id": "tether",
-      "minimum_base_size": "0.0",
-      "minimum_quote_size": "0.0",
-      "maximum_base_size": "0.0",
-      "maximum_quote_size": "0.0",
-      "base_decimals": 2,
-      "quote_decimals": 6,
-      "price_decimals": 6
     },
     {
       "ticker": "PEAQUSDT",
@@ -9284,8 +9074,8 @@
       "maximum_base_size": "0.0",
       "maximum_quote_size": "0.0",
       "base_decimals": 2,
-      "quote_decimals": 8,
-      "price_decimals": 8
+      "quote_decimals": 9,
+      "price_decimals": 9
     },
     {
       "ticker": "NCTUSDT",
@@ -9984,8 +9774,8 @@
       "maximum_base_size": "0.0",
       "maximum_quote_size": "0.0",
       "base_decimals": 2,
-      "quote_decimals": 6,
-      "price_decimals": 6
+      "quote_decimals": 7,
+      "price_decimals": 7
     },
     {
       "ticker": "VVVUSDT",
@@ -10084,20 +9874,6 @@
       "base_decimals": 2,
       "quote_decimals": 3,
       "price_decimals": 3
-    },
-    {
-      "ticker": "DIKOUSDT",
-      "base": "DIKO",
-      "quote": "USDT",
-      "base_external_id": "arkadiko-protocol",
-      "quote_external_id": "tether",
-      "minimum_base_size": "0.0",
-      "minimum_quote_size": "0.0",
-      "maximum_base_size": "0.0",
-      "maximum_quote_size": "0.0",
-      "base_decimals": 2,
-      "quote_decimals": 6,
-      "price_decimals": 6
     },
     {
       "ticker": "MIRAUSDT",
@@ -10576,20 +10352,6 @@
       "price_decimals": 7
     },
     {
-      "ticker": "BITUSDT",
-      "base": "BIT",
-      "quote": "USDT",
-      "base_external_id": "bitdealer",
-      "quote_external_id": "tether",
-      "minimum_base_size": "0.0",
-      "minimum_quote_size": "0.0",
-      "maximum_base_size": "0.0",
-      "maximum_quote_size": "0.0",
-      "base_decimals": 2,
-      "quote_decimals": 7,
-      "price_decimals": 7
-    },
-    {
       "ticker": "SYRUPUSDT",
       "base": "SYRUP",
       "quote": "USDT",
@@ -10630,6 +10392,20 @@
       "base_decimals": 2,
       "quote_decimals": 7,
       "price_decimals": 7
+    },
+    {
+      "ticker": "PUNCHUSDT",
+      "base": "PUNCH",
+      "quote": "USDT",
+      "base_external_id": "punch-2",
+      "quote_external_id": "tether",
+      "minimum_base_size": "0.0",
+      "minimum_quote_size": "0.0",
+      "maximum_base_size": "0.0",
+      "maximum_quote_size": "0.0",
+      "base_decimals": 2,
+      "quote_decimals": 6,
+      "price_decimals": 6
     },
     {
       "ticker": "DLBUSDT",
@@ -11262,20 +11038,6 @@
       "price_decimals": 2
     },
     {
-      "ticker": "XYMUSDT",
-      "base": "XYM",
-      "quote": "USDT",
-      "base_external_id": "symbol",
-      "quote_external_id": "tether",
-      "minimum_base_size": "0.0",
-      "minimum_quote_size": "0.0",
-      "maximum_base_size": "0.0",
-      "maximum_quote_size": "0.0",
-      "base_decimals": 2,
-      "quote_decimals": 6,
-      "price_decimals": 6
-    },
-    {
       "ticker": "CAKEUSDC",
       "base": "CAKE",
       "quote": "USDC",
@@ -11454,8 +11216,8 @@
       "maximum_base_size": "0.0",
       "maximum_quote_size": "0.0",
       "base_decimals": 2,
-      "quote_decimals": 4,
-      "price_decimals": 4
+      "quote_decimals": 5,
+      "price_decimals": 5
     },
     {
       "ticker": "TUTUSDT",
@@ -12364,8 +12126,8 @@
       "maximum_base_size": "0.0",
       "maximum_quote_size": "0.0",
       "base_decimals": 2,
-      "quote_decimals": 3,
-      "price_decimals": 3
+      "quote_decimals": 4,
+      "price_decimals": 4
     },
     {
       "ticker": "RIZEUSDT",
@@ -12420,8 +12182,8 @@
       "maximum_base_size": "0.0",
       "maximum_quote_size": "0.0",
       "base_decimals": 2,
-      "quote_decimals": 4,
-      "price_decimals": 4
+      "quote_decimals": 5,
+      "price_decimals": 5
     },
     {
       "ticker": "GRASSUSDT",
@@ -13176,8 +12938,8 @@
       "maximum_base_size": "0.0",
       "maximum_quote_size": "0.0",
       "base_decimals": 2,
-      "quote_decimals": 5,
-      "price_decimals": 5
+      "quote_decimals": 6,
+      "price_decimals": 6
     },
     {
       "ticker": "TCAPYUSDT",
@@ -13390,20 +13152,6 @@
       "price_decimals": 7
     },
     {
-      "ticker": "KUSDT",
-      "base": "K",
-      "quote": "USDT",
-      "base_external_id": "sidekick",
-      "quote_external_id": "tether",
-      "minimum_base_size": "0.0",
-      "minimum_quote_size": "0.0",
-      "maximum_base_size": "0.0",
-      "maximum_quote_size": "0.0",
-      "base_decimals": 2,
-      "quote_decimals": 6,
-      "price_decimals": 6
-    },
-    {
       "ticker": "JTOUSDT",
       "base": "JTO",
       "quote": "USDT",
@@ -13428,8 +13176,8 @@
       "maximum_base_size": "0.0",
       "maximum_quote_size": "0.0",
       "base_decimals": 2,
-      "quote_decimals": 4,
-      "price_decimals": 4
+      "quote_decimals": 5,
+      "price_decimals": 5
     },
     {
       "ticker": "1DOLLARUSDT",
@@ -13904,8 +13652,8 @@
       "maximum_base_size": "0.0",
       "maximum_quote_size": "0.0",
       "base_decimals": 2,
-      "quote_decimals": 4,
-      "price_decimals": 4
+      "quote_decimals": 5,
+      "price_decimals": 5
     },
     {
       "ticker": "SUIPUSDT",
@@ -13988,8 +13736,8 @@
       "maximum_base_size": "0.0",
       "maximum_quote_size": "0.0",
       "base_decimals": 2,
-      "quote_decimals": 5,
-      "price_decimals": 5
+      "quote_decimals": 6,
+      "price_decimals": 6
     },
     {
       "ticker": "JAMUSDT",
@@ -14164,6 +13912,20 @@
       "base": "OM",
       "quote": "USDT",
       "base_external_id": "mantra-dao",
+      "quote_external_id": "tether",
+      "minimum_base_size": "0.0",
+      "minimum_quote_size": "0.0",
+      "maximum_base_size": "0.0",
+      "maximum_quote_size": "0.0",
+      "base_decimals": 2,
+      "quote_decimals": 5,
+      "price_decimals": 5
+    },
+    {
+      "ticker": "GODSUSDT",
+      "base": "GODS",
+      "quote": "USDT",
+      "base_external_id": "gods-unchained",
       "quote_external_id": "tether",
       "minimum_base_size": "0.0",
       "minimum_quote_size": "0.0",
@@ -14758,8 +14520,8 @@
       "maximum_base_size": "0.0",
       "maximum_quote_size": "0.0",
       "base_decimals": 2,
-      "quote_decimals": 5,
-      "price_decimals": 5
+      "quote_decimals": 6,
+      "price_decimals": 6
     },
     {
       "ticker": "BOBACATUSDT",
@@ -15710,8 +15472,8 @@
       "maximum_base_size": "0.0",
       "maximum_quote_size": "0.0",
       "base_decimals": 2,
-      "quote_decimals": 4,
-      "price_decimals": 4
+      "quote_decimals": 5,
+      "price_decimals": 5
     },
     {
       "ticker": "LATUSDT",
@@ -15866,20 +15628,6 @@
       "base_decimals": 2,
       "quote_decimals": 5,
       "price_decimals": 5
-    },
-    {
-      "ticker": "RETIKUSDT",
-      "base": "RETIK",
-      "quote": "USDT",
-      "base_external_id": "retik-finance",
-      "quote_external_id": "tether",
-      "minimum_base_size": "0.0",
-      "minimum_quote_size": "0.0",
-      "maximum_base_size": "0.0",
-      "maximum_quote_size": "0.0",
-      "base_decimals": 2,
-      "quote_decimals": 7,
-      "price_decimals": 7
     },
     {
       "ticker": "AALONUSDT",
@@ -16484,20 +16232,6 @@
       "price_decimals": 5
     },
     {
-      "ticker": "BGSCUSDT",
-      "base": "BGSC",
-      "quote": "USDT",
-      "base_external_id": "bugscoin",
-      "quote_external_id": "tether",
-      "minimum_base_size": "0.0",
-      "minimum_quote_size": "0.0",
-      "maximum_base_size": "0.0",
-      "maximum_quote_size": "0.0",
-      "base_decimals": 2,
-      "quote_decimals": 7,
-      "price_decimals": 7
-    },
-    {
       "ticker": "PINGUSDT",
       "base": "PING",
       "quote": "USDT",
@@ -16656,20 +16390,6 @@
       "base": "RIF",
       "quote": "USDT",
       "base_external_id": "rif-token",
-      "quote_external_id": "tether",
-      "minimum_base_size": "0.0",
-      "minimum_quote_size": "0.0",
-      "maximum_base_size": "0.0",
-      "maximum_quote_size": "0.0",
-      "base_decimals": 2,
-      "quote_decimals": 5,
-      "price_decimals": 5
-    },
-    {
-      "ticker": "DORKYUSDT",
-      "base": "DORKY",
-      "quote": "USDT",
-      "base_external_id": "dork-lord-2",
       "quote_external_id": "tether",
       "minimum_base_size": "0.0",
       "minimum_quote_size": "0.0",
@@ -17002,20 +16722,6 @@
       "price_decimals": 5
     },
     {
-      "ticker": "SMLUSDT",
-      "base": "SML",
-      "quote": "USDT",
-      "base_external_id": "smell",
-      "quote_external_id": "tether",
-      "minimum_base_size": "0.0",
-      "minimum_quote_size": "0.0",
-      "maximum_base_size": "0.0",
-      "maximum_quote_size": "0.0",
-      "base_decimals": 2,
-      "quote_decimals": 7,
-      "price_decimals": 7
-    },
-    {
       "ticker": "AVAAIUSDT",
       "base": "AVAAI",
       "quote": "USDT",
@@ -17166,8 +16872,8 @@
       "maximum_base_size": "0.0",
       "maximum_quote_size": "0.0",
       "base_decimals": 2,
-      "quote_decimals": 5,
-      "price_decimals": 5
+      "quote_decimals": 6,
+      "price_decimals": 6
     },
     {
       "ticker": "XCXUSDT",
@@ -17268,20 +16974,6 @@
       "price_decimals": 2
     },
     {
-      "ticker": "CLYUSDT",
-      "base": "CLY",
-      "quote": "USDT",
-      "base_external_id": "colony",
-      "quote_external_id": "tether",
-      "minimum_base_size": "0.0",
-      "minimum_quote_size": "0.0",
-      "maximum_base_size": "0.0",
-      "maximum_quote_size": "0.0",
-      "base_decimals": 2,
-      "quote_decimals": 5,
-      "price_decimals": 5
-    },
-    {
       "ticker": "ANKRUSDT",
       "base": "ANKR",
       "quote": "USDT",
@@ -17294,6 +16986,20 @@
       "base_decimals": 4,
       "quote_decimals": 6,
       "price_decimals": 6
+    },
+    {
+      "ticker": "CLYUSDT",
+      "base": "CLY",
+      "quote": "USDT",
+      "base_external_id": "colony",
+      "quote_external_id": "tether",
+      "minimum_base_size": "0.0",
+      "minimum_quote_size": "0.0",
+      "maximum_base_size": "0.0",
+      "maximum_quote_size": "0.0",
+      "base_decimals": 2,
+      "quote_decimals": 5,
+      "price_decimals": 5
     },
     {
       "ticker": "ADOUSDT",
@@ -17362,8 +17068,8 @@
       "maximum_base_size": "0.0",
       "maximum_quote_size": "0.0",
       "base_decimals": 2,
-      "quote_decimals": 7,
-      "price_decimals": 7
+      "quote_decimals": 8,
+      "price_decimals": 8
     },
     {
       "ticker": "GRAMPUSUSDT",
@@ -17810,8 +17516,8 @@
       "maximum_base_size": "0.0",
       "maximum_quote_size": "0.0",
       "base_decimals": 2,
-      "quote_decimals": 6,
-      "price_decimals": 6
+      "quote_decimals": 7,
+      "price_decimals": 7
     },
     {
       "ticker": "SNEKUSDT",
@@ -18066,20 +17772,6 @@
       "price_decimals": 6
     },
     {
-      "ticker": "DMDBTC",
-      "base": "DMD",
-      "quote": "BTC",
-      "base_external_id": "diamond",
-      "quote_external_id": "bitcoin",
-      "minimum_base_size": "0.0",
-      "minimum_quote_size": "0.0",
-      "maximum_base_size": "0.0",
-      "maximum_quote_size": "0.0",
-      "base_decimals": 2,
-      "quote_decimals": 8,
-      "price_decimals": 8
-    },
-    {
       "ticker": "PLAIUSDT",
       "base": "PLAI",
       "quote": "USDT",
@@ -18258,8 +17950,8 @@
       "maximum_base_size": "0.0",
       "maximum_quote_size": "0.0",
       "base_decimals": 2,
-      "quote_decimals": 8,
-      "price_decimals": 8
+      "quote_decimals": 9,
+      "price_decimals": 9
     },
     {
       "ticker": "OVLUSDT",
@@ -18738,20 +18430,6 @@
       "price_decimals": 4
     },
     {
-      "ticker": "XNAPUSDT",
-      "base": "XNAP",
-      "quote": "USDT",
-      "base_external_id": "snapx",
-      "quote_external_id": "tether",
-      "minimum_base_size": "0.0",
-      "minimum_quote_size": "0.0",
-      "maximum_base_size": "0.0",
-      "maximum_quote_size": "0.0",
-      "base_decimals": 2,
-      "quote_decimals": 8,
-      "price_decimals": 8
-    },
-    {
       "ticker": "LAUSDT",
       "base": "LA",
       "quote": "USDT",
@@ -18776,8 +18454,8 @@
       "maximum_base_size": "0.0",
       "maximum_quote_size": "0.0",
       "base_decimals": 2,
-      "quote_decimals": 5,
-      "price_decimals": 5
+      "quote_decimals": 6,
+      "price_decimals": 6
     },
     {
       "ticker": "KZENUSDT",
@@ -20008,8 +19686,8 @@
       "maximum_base_size": "0.0",
       "maximum_quote_size": "0.0",
       "base_decimals": 2,
-      "quote_decimals": 7,
-      "price_decimals": 7
+      "quote_decimals": 8,
+      "price_decimals": 8
     },
     {
       "ticker": "PIEVERSEUSDT",
@@ -20768,20 +20446,6 @@
       "price_decimals": 6
     },
     {
-      "ticker": "CORALUSDT",
-      "base": "CORAL",
-      "quote": "USDT",
-      "base_external_id": "coral-protocol",
-      "quote_external_id": "tether",
-      "minimum_base_size": "0.0",
-      "minimum_quote_size": "0.0",
-      "maximum_base_size": "0.0",
-      "maximum_quote_size": "0.0",
-      "base_decimals": 2,
-      "quote_decimals": 7,
-      "price_decimals": 7
-    },
-    {
       "ticker": "KANGOUSDT",
       "base": "KANGO",
       "quote": "USDT",
@@ -20794,20 +20458,6 @@
       "base_decimals": 2,
       "quote_decimals": 9,
       "price_decimals": 9
-    },
-    {
-      "ticker": "SOLAXYUSDT",
-      "base": "SOLAXY",
-      "quote": "USDT",
-      "base_external_id": "solaxy",
-      "quote_external_id": "tether",
-      "minimum_base_size": "0.0",
-      "minimum_quote_size": "0.0",
-      "maximum_base_size": "0.0",
-      "maximum_quote_size": "0.0",
-      "base_decimals": 2,
-      "quote_decimals": 8,
-      "price_decimals": 8
     },
     {
       "ticker": "RENUSDT",
@@ -22266,20 +21916,6 @@
       "price_decimals": 8
     },
     {
-      "ticker": "POLYXUSDT",
-      "base": "POLYX",
-      "quote": "USDT",
-      "base_external_id": "polymesh",
-      "quote_external_id": "tether",
-      "minimum_base_size": "0.0",
-      "minimum_quote_size": "0.0",
-      "maximum_base_size": "0.0",
-      "maximum_quote_size": "0.0",
-      "base_decimals": 2,
-      "quote_decimals": 4,
-      "price_decimals": 4
-    },
-    {
       "ticker": "SOLUSDC",
       "base": "SOL",
       "quote": "USDC",
@@ -22840,6 +22476,20 @@
       "price_decimals": 11
     },
     {
+      "ticker": "FTUSDT",
+      "base": "FT",
+      "quote": "USDT",
+      "base_external_id": "fuel",
+      "quote_external_id": "tether",
+      "minimum_base_size": "0.0",
+      "minimum_quote_size": "0.0",
+      "maximum_base_size": "0.0",
+      "maximum_quote_size": "0.0",
+      "base_decimals": 2,
+      "quote_decimals": 5,
+      "price_decimals": 5
+    },
+    {
       "ticker": "2ZUSDT",
       "base": "2Z",
       "quote": "USDT",
@@ -22922,6 +22572,20 @@
       "base_decimals": 2,
       "quote_decimals": 4,
       "price_decimals": 4
+    },
+    {
+      "ticker": "BINDERUSDT",
+      "base": "BINDER",
+      "quote": "USDT",
+      "base_external_id": "binder",
+      "quote_external_id": "tether",
+      "minimum_base_size": "0.0",
+      "minimum_quote_size": "0.0",
+      "maximum_base_size": "0.0",
+      "maximum_quote_size": "0.0",
+      "base_decimals": 2,
+      "quote_decimals": 6,
+      "price_decimals": 6
     },
     {
       "ticker": "FRTSUSDT",
@@ -23452,8 +23116,8 @@
       "maximum_base_size": "0.0",
       "maximum_quote_size": "0.0",
       "base_decimals": 2,
-      "quote_decimals": 4,
-      "price_decimals": 4
+      "quote_decimals": 5,
+      "price_decimals": 5
     },
     {
       "ticker": "PLUMEUSDC",
@@ -23466,8 +23130,8 @@
       "maximum_base_size": "0.0",
       "maximum_quote_size": "0.0",
       "base_decimals": 2,
-      "quote_decimals": 5,
-      "price_decimals": 5
+      "quote_decimals": 6,
+      "price_decimals": 6
     },
     {
       "ticker": "REIUSDT",
@@ -23718,8 +23382,8 @@
       "maximum_base_size": "0.0",
       "maximum_quote_size": "0.0",
       "base_decimals": 2,
-      "quote_decimals": 7,
-      "price_decimals": 7
+      "quote_decimals": 8,
+      "price_decimals": 8
     },
     {
       "ticker": "QAIUSDT",
@@ -23830,8 +23494,8 @@
       "maximum_base_size": "0.0",
       "maximum_quote_size": "0.0",
       "base_decimals": 2,
-      "quote_decimals": 5,
-      "price_decimals": 5
+      "quote_decimals": 6,
+      "price_decimals": 6
     },
     {
       "ticker": "BTCUSD1",
@@ -23874,20 +23538,6 @@
       "base_decimals": 2,
       "quote_decimals": 4,
       "price_decimals": 4
-    },
-    {
-      "ticker": "AURASOLUSDT",
-      "base": "AURASOL",
-      "quote": "USDT",
-      "base_external_id": "aura-on-sol",
-      "quote_external_id": "tether",
-      "minimum_base_size": "0.0",
-      "minimum_quote_size": "0.0",
-      "maximum_base_size": "0.0",
-      "maximum_quote_size": "0.0",
-      "base_decimals": 2,
-      "quote_decimals": 5,
-      "price_decimals": 5
     },
     {
       "ticker": "GFIUSDT",
@@ -24198,20 +23848,6 @@
       "price_decimals": 6
     },
     {
-      "ticker": "SERSHUSDT",
-      "base": "SERSH",
-      "quote": "USDT",
-      "base_external_id": "serenity-shield",
-      "quote_external_id": "tether",
-      "minimum_base_size": "0.0",
-      "minimum_quote_size": "0.0",
-      "maximum_base_size": "0.0",
-      "maximum_quote_size": "0.0",
-      "base_decimals": 2,
-      "quote_decimals": 5,
-      "price_decimals": 5
-    },
-    {
       "ticker": "ARKUSDT",
       "base": "ARK",
       "quote": "USDT",
@@ -24432,8 +24068,8 @@
       "maximum_base_size": "0.0",
       "maximum_quote_size": "0.0",
       "base_decimals": 2,
-      "quote_decimals": 8,
-      "price_decimals": 8
+      "quote_decimals": 9,
+      "price_decimals": 9
     },
     {
       "ticker": "MRSOONUSDT",
@@ -24616,6 +24252,20 @@
       "base_decimals": 2,
       "quote_decimals": 6,
       "price_decimals": 6
+    },
+    {
+      "ticker": "21USDT",
+      "base": "21",
+      "quote": "USDT",
+      "base_external_id": "2131kobushide",
+      "quote_external_id": "tether",
+      "minimum_base_size": "0.0",
+      "minimum_quote_size": "0.0",
+      "maximum_base_size": "0.0",
+      "maximum_quote_size": "0.0",
+      "base_decimals": 2,
+      "quote_decimals": 7,
+      "price_decimals": 7
     },
     {
       "ticker": "LIGHTUSDC",
@@ -25374,20 +25024,6 @@
       "price_decimals": 5
     },
     {
-      "ticker": "VLRUSDT",
-      "base": "VLR",
-      "quote": "USDT",
-      "base_external_id": "velora",
-      "quote_external_id": "tether",
-      "minimum_base_size": "0.0",
-      "minimum_quote_size": "0.0",
-      "maximum_base_size": "0.0",
-      "maximum_quote_size": "0.0",
-      "base_decimals": 2,
-      "quote_decimals": 6,
-      "price_decimals": 6
-    },
-    {
       "ticker": "XDAGUSDT",
       "base": "XDAG",
       "quote": "USDT",
@@ -25710,20 +25346,6 @@
       "price_decimals": 6
     },
     {
-      "ticker": "TALENTUSDT",
-      "base": "TALENT",
-      "quote": "USDT",
-      "base_external_id": "talent-protocol",
-      "quote_external_id": "tether",
-      "minimum_base_size": "0.0",
-      "minimum_quote_size": "0.0",
-      "maximum_base_size": "0.0",
-      "maximum_quote_size": "0.0",
-      "base_decimals": 2,
-      "quote_decimals": 7,
-      "price_decimals": 7
-    },
-    {
       "ticker": "APEPEUSDT",
       "base": "APEPE",
       "quote": "USDT",
@@ -25938,20 +25560,6 @@
       "base": "SKI",
       "quote": "USDT",
       "base_external_id": "ski-mask-dog",
-      "quote_external_id": "tether",
-      "minimum_base_size": "0.0",
-      "minimum_quote_size": "0.0",
-      "maximum_base_size": "0.0",
-      "maximum_quote_size": "0.0",
-      "base_decimals": 2,
-      "quote_decimals": 6,
-      "price_decimals": 6
-    },
-    {
-      "ticker": "OBTUSDT",
-      "base": "OBT",
-      "quote": "USDT",
-      "base_external_id": "orbiter-finance",
       "quote_external_id": "tether",
       "minimum_base_size": "0.0",
       "minimum_quote_size": "0.0",
@@ -26294,8 +25902,8 @@
       "maximum_base_size": "0.0",
       "maximum_quote_size": "0.0",
       "base_decimals": 2,
-      "quote_decimals": 7,
-      "price_decimals": 7
+      "quote_decimals": 8,
+      "price_decimals": 8
     },
     {
       "ticker": "SONICUSDT",
@@ -26536,20 +26144,6 @@
       "price_decimals": 3
     },
     {
-      "ticker": "GALEON1USDT",
-      "base": "GALEON1",
-      "quote": "USDT",
-      "base_external_id": "galeon",
-      "quote_external_id": "tether",
-      "minimum_base_size": "0.0",
-      "minimum_quote_size": "0.0",
-      "maximum_base_size": "0.0",
-      "maximum_quote_size": "0.0",
-      "base_decimals": 2,
-      "quote_decimals": 6,
-      "price_decimals": 6
-    },
-    {
       "ticker": "FARTCOINUSDC",
       "base": "FARTCOIN",
       "quote": "USDC",
@@ -26686,8 +26280,8 @@
       "maximum_base_size": "0.0",
       "maximum_quote_size": "0.0",
       "base_decimals": 2,
-      "quote_decimals": 3,
-      "price_decimals": 3
+      "quote_decimals": 4,
+      "price_decimals": 4
     },
     {
       "ticker": "CHZUSDC",
@@ -26868,8 +26462,8 @@
       "maximum_base_size": "0.0",
       "maximum_quote_size": "0.0",
       "base_decimals": 2,
-      "quote_decimals": 6,
-      "price_decimals": 6
+      "quote_decimals": 7,
+      "price_decimals": 7
     },
     {
       "ticker": "VSCUSDT",
@@ -27218,8 +26812,8 @@
       "maximum_base_size": "0.0",
       "maximum_quote_size": "0.0",
       "base_decimals": 2,
-      "quote_decimals": 5,
-      "price_decimals": 5
+      "quote_decimals": 6,
+      "price_decimals": 6
     },
     {
       "ticker": "LINGOUSDC",
@@ -27234,20 +26828,6 @@
       "base_decimals": 2,
       "quote_decimals": 6,
       "price_decimals": 6
-    },
-    {
-      "ticker": "DANKDOGEUSDT",
-      "base": "DANKDOGE",
-      "quote": "USDT",
-      "base_external_id": "dank-doge",
-      "quote_external_id": "tether",
-      "minimum_base_size": "0.0",
-      "minimum_quote_size": "0.0",
-      "maximum_base_size": "0.0",
-      "maximum_quote_size": "0.0",
-      "base_decimals": 0,
-      "quote_decimals": 16,
-      "price_decimals": 16
     },
     {
       "ticker": "CYPRUSDT",
@@ -27268,20 +26848,6 @@
       "base": "POKT",
       "quote": "USDT",
       "base_external_id": "pocket-network",
-      "quote_external_id": "tether",
-      "minimum_base_size": "0.0",
-      "minimum_quote_size": "0.0",
-      "maximum_base_size": "0.0",
-      "maximum_quote_size": "0.0",
-      "base_decimals": 2,
-      "quote_decimals": 6,
-      "price_decimals": 6
-    },
-    {
-      "ticker": "PUSDT",
-      "base": "P",
-      "quote": "USDT",
-      "base_external_id": "pop-planet",
       "quote_external_id": "tether",
       "minimum_base_size": "0.0",
       "minimum_quote_size": "0.0",
@@ -27824,20 +27390,6 @@
       "price_decimals": 9
     },
     {
-      "ticker": "LBMUSDT",
-      "base": "LBM",
-      "quote": "USDT",
-      "base_external_id": "libertum",
-      "quote_external_id": "tether",
-      "minimum_base_size": "0.0",
-      "minimum_quote_size": "0.0",
-      "maximum_base_size": "0.0",
-      "maximum_quote_size": "0.0",
-      "base_decimals": 2,
-      "quote_decimals": 6,
-      "price_decimals": 6
-    },
-    {
       "ticker": "MANUSDT",
       "base": "MAN",
       "quote": "USDT",
@@ -27884,20 +27436,6 @@
       "base": "MEE",
       "quote": "USDT",
       "base_external_id": "medieval-empires",
-      "quote_external_id": "tether",
-      "minimum_base_size": "0.0",
-      "minimum_quote_size": "0.0",
-      "maximum_base_size": "0.0",
-      "maximum_quote_size": "0.0",
-      "base_decimals": 2,
-      "quote_decimals": 6,
-      "price_decimals": 6
-    },
-    {
-      "ticker": "COM3USDT",
-      "base": "COM3",
-      "quote": "USDT",
-      "base_external_id": "comput3",
       "quote_external_id": "tether",
       "minimum_base_size": "0.0",
       "minimum_quote_size": "0.0",
@@ -27988,8 +27526,8 @@
       "maximum_base_size": "0.0",
       "maximum_quote_size": "0.0",
       "base_decimals": 2,
-      "quote_decimals": 5,
-      "price_decimals": 5
+      "quote_decimals": 6,
+      "price_decimals": 6
     },
     {
       "ticker": "NVDAONUSDT",
@@ -28116,20 +27654,6 @@
       "base_decimals": 2,
       "quote_decimals": 5,
       "price_decimals": 5
-    },
-    {
-      "ticker": "LOGXUSDT",
-      "base": "LOGX",
-      "quote": "USDT",
-      "base_external_id": "logx-2",
-      "quote_external_id": "tether",
-      "minimum_base_size": "0.0",
-      "minimum_quote_size": "0.0",
-      "maximum_base_size": "0.0",
-      "maximum_quote_size": "0.0",
-      "base_decimals": 2,
-      "quote_decimals": 8,
-      "price_decimals": 8
     },
     {
       "ticker": "SNFTUSDT",
@@ -28268,8 +27792,8 @@
       "maximum_base_size": "0.0",
       "maximum_quote_size": "0.0",
       "base_decimals": 2,
-      "quote_decimals": 6,
-      "price_decimals": 6
+      "quote_decimals": 7,
+      "price_decimals": 7
     },
     {
       "ticker": "ANDYETHUSDT",
@@ -28296,8 +27820,8 @@
       "maximum_base_size": "0.0",
       "maximum_quote_size": "0.0",
       "base_decimals": 2,
-      "quote_decimals": 5,
-      "price_decimals": 5
+      "quote_decimals": 6,
+      "price_decimals": 6
     },
     {
       "ticker": "DOGEEUR",
@@ -28634,20 +28158,6 @@
       "base_decimals": 2,
       "quote_decimals": 7,
       "price_decimals": 7
-    },
-    {
-      "ticker": "PINGPONGUSDT",
-      "base": "PINGPONG",
-      "quote": "USDT",
-      "base_external_id": "pingpong",
-      "quote_external_id": "tether",
-      "minimum_base_size": "0.0",
-      "minimum_quote_size": "0.0",
-      "maximum_base_size": "0.0",
-      "maximum_quote_size": "0.0",
-      "base_decimals": 2,
-      "quote_decimals": 6,
-      "price_decimals": 6
     },
     {
       "ticker": "LAUSD1",
@@ -29532,20 +29042,6 @@
       "price_decimals": 2
     },
     {
-      "ticker": "WEETHUSDT",
-      "base": "WEETH",
-      "quote": "USDT",
-      "base_external_id": "wrapped-eeth",
-      "quote_external_id": "tether",
-      "minimum_base_size": "0.0",
-      "minimum_quote_size": "0.0",
-      "maximum_base_size": "0.0",
-      "maximum_quote_size": "0.0",
-      "base_decimals": 4,
-      "quote_decimals": 2,
-      "price_decimals": 2
-    },
-    {
       "ticker": "HASHAIUSDT",
       "base": "HASHAI",
       "quote": "USDT",
@@ -29612,8 +29108,8 @@
       "maximum_base_size": "0.0",
       "maximum_quote_size": "0.0",
       "base_decimals": 2,
-      "quote_decimals": 6,
-      "price_decimals": 6
+      "quote_decimals": 7,
+      "price_decimals": 7
     },
     {
       "ticker": "RIOUSDC",
@@ -29826,20 +29322,6 @@
       "price_decimals": 6
     },
     {
-      "ticker": "LOCKUSDT",
-      "base": "LOCK",
-      "quote": "USDT",
-      "base_external_id": "houdini-swap",
-      "quote_external_id": "tether",
-      "minimum_base_size": "0.0",
-      "minimum_quote_size": "0.0",
-      "maximum_base_size": "0.0",
-      "maximum_quote_size": "0.0",
-      "base_decimals": 2,
-      "quote_decimals": 4,
-      "price_decimals": 4
-    },
-    {
       "ticker": "LITKEYUSDT",
       "base": "LITKEY",
       "quote": "USDT",
@@ -29950,34 +29432,6 @@
       "base_decimals": 2,
       "quote_decimals": 5,
       "price_decimals": 5
-    },
-    {
-      "ticker": "THINKUSDT",
-      "base": "THINK",
-      "quote": "USDT",
-      "base_external_id": "think-protocol",
-      "quote_external_id": "tether",
-      "minimum_base_size": "0.0",
-      "minimum_quote_size": "0.0",
-      "maximum_base_size": "0.0",
-      "maximum_quote_size": "0.0",
-      "base_decimals": 2,
-      "quote_decimals": 7,
-      "price_decimals": 7
-    },
-    {
-      "ticker": "VMCUSDT",
-      "base": "VMC",
-      "quote": "USDT",
-      "base_external_id": "vms-classic-2",
-      "quote_external_id": "tether",
-      "minimum_base_size": "0.0",
-      "minimum_quote_size": "0.0",
-      "maximum_base_size": "0.0",
-      "maximum_quote_size": "0.0",
-      "base_decimals": 4,
-      "quote_decimals": 6,
-      "price_decimals": 6
     },
     {
       "ticker": "SAIUSDT",
@@ -30708,20 +30162,6 @@
       "price_decimals": 8
     },
     {
-      "ticker": "FRAGUSDT",
-      "base": "FRAG",
-      "quote": "USDT",
-      "base_external_id": "fragmetric",
-      "quote_external_id": "tether",
-      "minimum_base_size": "0.0",
-      "minimum_quote_size": "0.0",
-      "maximum_base_size": "0.0",
-      "maximum_quote_size": "0.0",
-      "base_decimals": 2,
-      "quote_decimals": 6,
-      "price_decimals": 6
-    },
-    {
       "ticker": "MADUSDT",
       "base": "MAD",
       "quote": "USDT",
@@ -31338,20 +30778,6 @@
       "price_decimals": 6
     },
     {
-      "ticker": "客服小何USDT",
-      "base": "客服小何",
-      "quote": "USDT",
-      "base_external_id": "customer-service-xiao-he",
-      "quote_external_id": "tether",
-      "minimum_base_size": "0.0",
-      "minimum_quote_size": "0.0",
-      "maximum_base_size": "0.0",
-      "maximum_quote_size": "0.0",
-      "base_decimals": 2,
-      "quote_decimals": 6,
-      "price_decimals": 6
-    },
-    {
       "ticker": "CAUSDT",
       "base": "CA",
       "quote": "USDT",
@@ -31744,20 +31170,6 @@
       "price_decimals": 6
     },
     {
-      "ticker": "INDYUSDT",
-      "base": "INDY",
-      "quote": "USDT",
-      "base_external_id": "indigo-dao-governance-token",
-      "quote_external_id": "tether",
-      "minimum_base_size": "0.0",
-      "minimum_quote_size": "0.0",
-      "maximum_base_size": "0.0",
-      "maximum_quote_size": "0.0",
-      "base_decimals": 2,
-      "quote_decimals": 4,
-      "price_decimals": 4
-    },
-    {
       "ticker": "VOLTUSDT",
       "base": "VOLT",
       "quote": "USDT",
@@ -32108,20 +31520,6 @@
       "price_decimals": 6
     },
     {
-      "ticker": "DMAILUSDT",
-      "base": "DMAIL",
-      "quote": "USDT",
-      "base_external_id": "dmail-network",
-      "quote_external_id": "tether",
-      "minimum_base_size": "0.0",
-      "minimum_quote_size": "0.0",
-      "maximum_base_size": "0.0",
-      "maximum_quote_size": "0.0",
-      "base_decimals": 2,
-      "quote_decimals": 6,
-      "price_decimals": 6
-    },
-    {
       "ticker": "SAMOUSDT",
       "base": "SAMO",
       "quote": "USDT",
@@ -32458,20 +31856,6 @@
       "price_decimals": 4
     },
     {
-      "ticker": "GSONUSDT",
-      "base": "GSON",
-      "quote": "USDT",
-      "base_external_id": "goldman-sachs-ondo-tokenized-stock",
-      "quote_external_id": "tether",
-      "minimum_base_size": "0.0",
-      "minimum_quote_size": "0.0",
-      "maximum_base_size": "0.0",
-      "maximum_quote_size": "0.0",
-      "base_decimals": 3,
-      "quote_decimals": 2,
-      "price_decimals": 2
-    },
-    {
       "ticker": "PIXELUSDC",
       "base": "PIXEL",
       "quote": "USDC",
@@ -32524,8 +31908,8 @@
       "maximum_base_size": "0.0",
       "maximum_quote_size": "0.0",
       "base_decimals": 2,
-      "quote_decimals": 5,
-      "price_decimals": 5
+      "quote_decimals": 6,
+      "price_decimals": 6
     },
     {
       "ticker": "RIOUSDT",
@@ -33214,20 +32598,6 @@
       "price_decimals": 4
     },
     {
-      "ticker": "EARNMUSDT",
-      "base": "EARNM",
-      "quote": "USDT",
-      "base_external_id": "earnm",
-      "quote_external_id": "tether",
-      "minimum_base_size": "0.0",
-      "minimum_quote_size": "0.0",
-      "maximum_base_size": "0.0",
-      "maximum_quote_size": "0.0",
-      "base_decimals": 2,
-      "quote_decimals": 6,
-      "price_decimals": 6
-    },
-    {
       "ticker": "BANANAUSDT",
       "base": "BANANA",
       "quote": "USDT",
@@ -33686,8 +33056,8 @@
       "maximum_base_size": "0.0",
       "maximum_quote_size": "0.0",
       "base_decimals": 2,
-      "quote_decimals": 3,
-      "price_decimals": 3
+      "quote_decimals": 4,
+      "price_decimals": 4
     },
     {
       "ticker": "BCEUSDT",
@@ -34054,6 +33424,20 @@
       "price_decimals": 3
     },
     {
+      "ticker": "MBOXUSDT",
+      "base": "MBOX",
+      "quote": "USDT",
+      "base_external_id": "mobox",
+      "quote_external_id": "tether",
+      "minimum_base_size": "0.0",
+      "minimum_quote_size": "0.0",
+      "maximum_base_size": "0.0",
+      "maximum_quote_size": "0.0",
+      "base_decimals": 2,
+      "quote_decimals": 5,
+      "price_decimals": 5
+    },
+    {
       "ticker": "XAIUSDC",
       "base": "XAI",
       "quote": "USDC",
@@ -34064,8 +33448,8 @@
       "maximum_base_size": "0.0",
       "maximum_quote_size": "0.0",
       "base_decimals": 2,
-      "quote_decimals": 5,
-      "price_decimals": 5
+      "quote_decimals": 6,
+      "price_decimals": 6
     },
     {
       "ticker": "BELLSUSDT",
@@ -34150,6 +33534,20 @@
       "base_decimals": 2,
       "quote_decimals": 2,
       "price_decimals": 2
+    },
+    {
+      "ticker": "SENTISUSDT",
+      "base": "SENTIS",
+      "quote": "USDT",
+      "base_external_id": "sentismai",
+      "quote_external_id": "tether",
+      "minimum_base_size": "0.0",
+      "minimum_quote_size": "0.0",
+      "maximum_base_size": "0.0",
+      "maximum_quote_size": "0.0",
+      "base_decimals": 2,
+      "quote_decimals": 5,
+      "price_decimals": 5
     },
     {
       "ticker": "ICNTUSDT",
@@ -34274,8 +33672,8 @@
       "maximum_base_size": "0.0",
       "maximum_quote_size": "0.0",
       "base_decimals": 2,
-      "quote_decimals": 5,
-      "price_decimals": 5
+      "quote_decimals": 6,
+      "price_decimals": 6
     },
     {
       "ticker": "CNGUSDT",
@@ -34540,8 +33938,8 @@
       "maximum_base_size": "0.0",
       "maximum_quote_size": "0.0",
       "base_decimals": 2,
-      "quote_decimals": 5,
-      "price_decimals": 5
+      "quote_decimals": 6,
+      "price_decimals": 6
     },
     {
       "ticker": "INCUSDT",
@@ -34584,20 +33982,6 @@
       "base_decimals": 2,
       "quote_decimals": 5,
       "price_decimals": 5
-    },
-    {
-      "ticker": "VULPEFIUSDT",
-      "base": "VULPEFI",
-      "quote": "USDT",
-      "base_external_id": "vulpe-finance",
-      "quote_external_id": "tether",
-      "minimum_base_size": "0.0",
-      "minimum_quote_size": "0.0",
-      "maximum_base_size": "0.0",
-      "maximum_quote_size": "0.0",
-      "base_decimals": 2,
-      "quote_decimals": 6,
-      "price_decimals": 6
     },
     {
       "ticker": "KIMAUSDT",
@@ -34716,6 +34100,20 @@
       "base": "HYPER",
       "quote": "USDC",
       "base_external_id": "hyperlane",
+      "quote_external_id": "usd-coin",
+      "minimum_base_size": "0.0",
+      "minimum_quote_size": "0.0",
+      "maximum_base_size": "0.0",
+      "maximum_quote_size": "0.0",
+      "base_decimals": 2,
+      "quote_decimals": 5,
+      "price_decimals": 5
+    },
+    {
+      "ticker": "FTUSDC",
+      "base": "FT",
+      "quote": "USDC",
+      "base_external_id": "fuel",
       "quote_external_id": "usd-coin",
       "minimum_base_size": "0.0",
       "minimum_quote_size": "0.0",
