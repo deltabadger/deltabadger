@@ -96,65 +96,7 @@ namespace :seed do
       wait_with_countdown(65, prefix: '       ')
 
       asset_ids = Asset.where(category: 'Cryptocurrency').pluck(:external_id).compact
-
-      if asset_ids.any?
-        print '       Fetching from CoinGecko... '
-        $stdout.flush
-        result = coingecko.get_coins_list_with_market_data(ids: asset_ids)
-        if result.failure?
-          puts "FAILED: #{result.errors.to_sentence}"
-        else
-          puts 'OK'
-          synced = 0
-          Asset.where(category: 'Cryptocurrency').find_each do |asset|
-            prefetched = result.data.find { |coin| coin['id'] == asset.external_id }
-            asset.sync_data_with_coingecko(prefetched_data: prefetched)
-            synced += 1
-          end
-          puts "       Updated metadata for #{synced} assets."
-
-          # Apply cached colors from previous seed data
-          if cached_colors.any?
-            applied = 0
-            Asset.where(category: 'Cryptocurrency', color: nil)
-                 .where(external_id: cached_colors.keys).find_each do |asset|
-              asset.update_column(:color, cached_colors[asset.external_id])
-              applied += 1
-            end
-            puts "       Restored #{applied} colors from previous seed data." if applied.positive?
-          end
-
-          # Apply color overrides (takes precedence over cached and inferred colors)
-          override_applied = 0
-          Asset::COLOR_OVERRIDES.each do |external_id, color|
-            asset = Asset.find_by(external_id: external_id)
-            next unless asset
-
-            asset.update_column(:color, color)
-            override_applied += 1
-          end
-          puts "       Applied #{override_applied} color overrides." if override_applied.positive?
-
-          # Infer colors only for truly new assets
-          colorless = Asset.where(category: 'Cryptocurrency', color: nil).where.not(image_url: nil)
-          colorless_count = colorless.count
-          if colorless_count.positive?
-            colored = 0
-            processed = 0
-            colorless.find_each do |asset|
-              asset.infer_color_from_image
-              colored += 1 if asset.color.present?
-              processed += 1
-              pct = (processed * 100.0 / colorless_count).round(1)
-              print "\r       Extracting colors... #{processed}/#{colorless_count} (#{pct}%)  "
-              $stdout.flush
-            end
-            puts "\r       Extracted #{colored} colors from #{colorless_count} new assets.     "
-          else
-            puts '       All assets already have colors.'
-          end
-        end
-      end
+      sync_asset_metadata(coingecko, asset_ids, cached_colors) if asset_ids.any?
     end
 
     # 5. Sync indices with top_coins_by_exchange
@@ -223,6 +165,66 @@ namespace :seed do
     FileUtils.rm_f(temp_db_path)
     ActiveRecord::Base.connection_handler.clear_all_connections!
     ActiveRecord::Base.establish_connection(Rails.env.to_sym)
+  end
+end
+
+def sync_asset_metadata(coingecko, asset_ids, cached_colors)
+  print '       Fetching from CoinGecko... '
+  $stdout.flush
+  result = coingecko.get_coins_list_with_market_data(ids: asset_ids)
+  if result.failure?
+    puts "FAILED: #{result.errors.to_sentence}"
+    return
+  end
+
+  puts 'OK'
+  synced = 0
+  Asset.where(category: 'Cryptocurrency').find_each do |asset|
+    prefetched = result.data.find { |coin| coin['id'] == asset.external_id }
+    asset.sync_data_with_coingecko(prefetched_data: prefetched)
+    synced += 1
+  end
+  puts "       Updated metadata for #{synced} assets."
+
+  # Apply cached colors from previous seed data
+  if cached_colors.any?
+    applied = 0
+    Asset.where(category: 'Cryptocurrency', color: nil)
+         .where(external_id: cached_colors.keys).find_each do |asset|
+      asset.update_column(:color, cached_colors[asset.external_id])
+      applied += 1
+    end
+    puts "       Restored #{applied} colors from previous seed data." if applied.positive?
+  end
+
+  # Apply color overrides (takes precedence over cached and inferred colors)
+  override_applied = 0
+  Asset::COLOR_OVERRIDES.each do |external_id, color|
+    asset = Asset.find_by(external_id: external_id)
+    next unless asset
+
+    asset.update_column(:color, color)
+    override_applied += 1
+  end
+  puts "       Applied #{override_applied} color overrides." if override_applied.positive?
+
+  # Infer colors only for truly new assets
+  colorless = Asset.where(category: 'Cryptocurrency', color: nil).where.not(image_url: nil)
+  colorless_count = colorless.count
+  if colorless_count.positive?
+    colored = 0
+    processed = 0
+    colorless.find_each do |asset|
+      asset.infer_color_from_image
+      colored += 1 if asset.color.present?
+      processed += 1
+      pct = (processed * 100.0 / colorless_count).round(1)
+      print "\r       Extracting colors... #{processed}/#{colorless_count} (#{pct}%)  "
+      $stdout.flush
+    end
+    puts "\r       Extracted #{colored} colors from #{colorless_count} new assets.     "
+  else
+    puts '       All assets already have colors.'
   end
 end
 
@@ -305,11 +307,11 @@ def sync_indices(coingecko)
     break if result.success?
 
     puts "FAILED (attempt #{attempt + 1}/3: #{result.errors.first.to_s.truncate(60)})"
-    if attempt < 2
-      wait_with_countdown(10, prefix: '       ')
-      print '       Retrying... '
-      $stdout.flush
-    end
+    next unless attempt < 2
+
+    wait_with_countdown(10, prefix: '       ')
+    print '       Retrying... '
+    $stdout.flush
   end
   if result.failure?
     puts '       Giving up on categories sync.'
