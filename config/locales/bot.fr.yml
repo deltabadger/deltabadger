@@ -11,6 +11,7 @@ fr:
                 sentence:
                     build_index: "Construire un portefeuille indexé"
                     build_index_at: "Construire le portefeuille %{index_name}"
+                    portfolio: portefeuille
                 pick_index:
                     top_coins: "Principales Cryptomonnaies"
                     top_coins_description: "Les principales cryptomonnaies par capitalisation boursière. Le S&P 500 de la crypto."
@@ -18,6 +19,7 @@ fr:
             num_coins: "Nombre de cryptomonnaies"
             allocation_flattening: "Aplatissement de l'allocation"
             into_index: "dans %{index_name}"
+            into: dans
             index_preview: "Aperçu de l'Indice"
             fewer_coins_available: "%{available} des %{requested} cryptomonnaies dans l'indice sont disponibles sur %{exchange_name}"
             num_assets: "Actifs dans l'indice"

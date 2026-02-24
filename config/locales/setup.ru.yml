@@ -11,6 +11,10 @@ ru:
                 schedule: "Настроить расписание"
                 coingecko: "Подключить CoinGecko"
                 index: "Выбрать индекс"
+                pick_asset: "Выбрать актив"
+                pick_exchange: "Выбрать биржу"
+                address: "Адрес"
+                settings: "Настройки"
             sentence:
                 invest_in: "Инвестировать в"
                 and: "и"

@@ -24,6 +24,7 @@ nl:
         add: 'Toevoegen'
         remove: 'Verwijderen'
         start: 'Starten'
+        next: 'Volgende'
         connect: 'Verbinden'
         get_started: Beginnen
         select_plan: 'Selecteer plan'
@@ -114,6 +115,8 @@ nl:
             title: Instellingen
             two_factor_section: 'Second Factor Authentication'
             registration_section: 'Registratie'
+            resync_assets_section: 'Marktgegevens'
+            email_notifications_section: 'E-mailmeldingen'
         registration:
             open: 'Registratie van nieuwe accounts is open.'
             closed: 'Registratie van nieuwe accounts is gesloten.'
@@ -128,8 +131,27 @@ nl:
             disabled: 'Marktgegevens synchronisatie uitgeschakeld.'
             updated: 'Marktgegevens instellingen bijgewerkt.'
             coingecko_configured: 'Verbonden met CoinGecko voor live marktgegevens.'
+            deltabadger_configured: 'Verbonden met %{provider_name} voor live marktgegevens.'
             disconnect: 'Ontkoppelen'
             disconnected: 'Marktgegevensprovider ontkoppeld.'
+        email_notifications:
+            none: 'Geen'
+            smtp_host: 'SMTP-host'
+            smtp_port: 'Poort'
+            smtp_username: 'Gebruikersnaam'
+            smtp_password: 'Wachtwoord'
+            smtp_hint_html: 'Voor Gmail gebruik je een <a href="https://support.google.com/accounts/answer/185833" target="_blank">app-wachtwoord</a> als wachtwoord.'
+            updated: 'Instellingen voor e-mailmeldingen bijgewerkt.'
+            disabled: 'E-mailmeldingen uitgeschakeld.'
+            smtp_credentials_required: 'SMTP-gebruikersnaam en wachtwoord zijn vereist.'
+            set: 'Ingesteld'
+            smtp_configured_html: 'Geconfigureerd met <b>%{host}</b>.'
+            send_test: 'Test-e-mail verzenden'
+            test_email_sent: 'Test-e-mail verzonden naar %{email}.'
+            test_email_failed: 'Test-e-mail verzenden mislukt: %{error}'
+            not_configured: 'E-mailmeldingen zijn niet geconfigureerd.'
+            disconnect: 'Ontkoppelen'
+            disconnected: 'E-mailprovider ontkoppeld.'
     utils:
         pnl: 'W/V'
         assets: Activa
@@ -183,6 +205,57 @@ nl:
         all: 'Alle'
         active: 'Actief'
         inactive: 'Inactief'
+    rules:
+        index:
+            title: 'Regels'
+        types:
+            withdrawal:
+                title: 'Automatische opname'
+                description: 'Geld opnemen van exchanges'
+        withdrawals:
+            sentence:
+                withdraw_all: 'Opnemen'
+                from: 'van'
+                to: 'naar'
+                on_network: 'via'
+                fee: 'kosten'
+                when: 'wanneer'
+                fee_less_than: 'kosten lager dan'
+                amount_crosses: 'het bedrag bereikt'
+                of_the_amount: '%'
+            pick_exchange:
+                withdrawal_fee: 'Opname'
+            form:
+                submit: 'Regel aanmaken'
+                submitting: 'Aanmaken…'
+            confirm_destroy:
+                message: 'Wilt u deze opnameregel verwijderen?'
+            confirm_settings:
+                min_amount_html: 'Op basis van de huidige kosten van <b>%{fee} %{symbol}</b> wordt de opname geactiveerd wanneer het saldo <b>%{amount} %{symbol}</b> bereikt.'
+        tile:
+            withdrawal: 'Opname'
+            memo: 'Memo'
+            min_amount_info: 'Op basis van de huidige kosten van %{fee} %{symbol} wordt de opname geactiveerd wanneer het saldo %{amount} %{symbol} bereikt.'
+            no_fee_info: '%{exchange} meldt geen opnamekosten voor dit asset. De regel neemt elk beschikbaar saldo op.'
+            unknown_fee_info: 'Kostengegevens niet beschikbaar voor %{exchange}. De regel neemt elk beschikbaar saldo op.'
+            fixed_amount_info: 'De opname wordt geactiveerd wanneer het saldo %{amount} %{symbol} bereikt.'
+        logs:
+            title: 'Regellogs'
+            date: 'Datum'
+            status: 'Status'
+            message: 'Bericht'
+            empty: 'Nog geen logs.'
+        add_address:
+            label: 'Opnameadres'
+            placeholder: 'Plak hier het adres…'
+            address_tag_label: 'Memo / Tag (optioneel)'
+            address_tag_placeholder: 'Memo, tag of betalings-ID…'
+            instructions_title: 'Een opnameadres toevoegen op %{exchange}'
+            warning_html: 'Zorg ervoor dat dit een <b>%{symbol}</b>-adres op het juiste netwerk is. Verzenden naar het verkeerde adres of netwerk leidt tot permanent verlies van fondsen.'
+        add_api_key:
+            title: 'Opname-API-sleutel toevoegen voor %{exchange}'
+            instructions_title: 'Hoe u sleutels van %{exchange} verkrijgt'
+            instructions_body: 'Maak een API-sleutel met opnamerechten aan op %{exchange} en plak de gegevens hier.'
     order_filters:
         all: 'Alle'
         successful: 'Geslaagd'

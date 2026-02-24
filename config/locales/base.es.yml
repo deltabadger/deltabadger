@@ -24,6 +24,7 @@ es:
         add: 'Añadir'
         remove: 'Quitar'
         start: 'Empezar'
+        next: 'Siguiente'
         connect: 'Conectar'
         get_started: Empezar
         select_plan: 'Seleccionar Plan'
@@ -114,6 +115,8 @@ es:
             title: 'Configuración'
             two_factor_section: 'Autenticación de Segundo Factor'
             registration_section: 'Registro'
+            resync_assets_section: 'Datos de mercado'
+            email_notifications_section: 'Notificaciones por correo'
         registration:
             open: 'El registro de nuevas cuentas está abierto.'
             closed: 'El registro de nuevas cuentas está cerrado.'
@@ -128,8 +131,27 @@ es:
             disabled: 'Sincronización de datos de mercado desactivada.'
             updated: 'Configuración de datos de mercado actualizada.'
             coingecko_configured: 'Conectado a CoinGecko para datos de mercado en tiempo real.'
+            deltabadger_configured: 'Conectado a %{provider_name} para datos de mercado en tiempo real.'
             disconnect: 'Desconectar'
             disconnected: 'Proveedor de datos de mercado desconectado.'
+        email_notifications:
+            none: 'Ninguno'
+            smtp_host: 'Host SMTP'
+            smtp_port: 'Puerto'
+            smtp_username: 'Usuario'
+            smtp_password: 'Contraseña'
+            smtp_hint_html: 'Para Gmail, usa una <a href="https://support.google.com/accounts/answer/185833" target="_blank">contraseña de aplicación</a> como contraseña.'
+            updated: 'Configuración de notificaciones por correo actualizada.'
+            disabled: 'Notificaciones por correo desactivadas.'
+            smtp_credentials_required: 'El usuario y la contraseña SMTP son obligatorios.'
+            set: 'Configurado'
+            smtp_configured_html: 'Configurado con <b>%{host}</b>.'
+            send_test: 'Enviar correo de prueba'
+            test_email_sent: 'Correo de prueba enviado a %{email}.'
+            test_email_failed: 'Error al enviar el correo de prueba: %{error}'
+            not_configured: 'Las notificaciones por correo no están configuradas.'
+            disconnect: 'Desconectar'
+            disconnected: 'Proveedor de correo desconectado.'
     utils:
         pnl: 'G/P'
         assets: Activos
@@ -183,6 +205,57 @@ es:
         all: 'Todos'
         active: 'Activos'
         inactive: 'Inactivos'
+    rules:
+        index:
+            title: 'Reglas'
+        types:
+            withdrawal:
+                title: 'Retiro automático'
+                description: 'Retirar fondos de los exchanges'
+        withdrawals:
+            sentence:
+                withdraw_all: 'Retirar'
+                from: 'de'
+                to: 'a'
+                on_network: 'en'
+                fee: 'comisión'
+                when: 'cuando'
+                fee_less_than: 'comisión menor que'
+                amount_crosses: 'el monto alcance'
+                of_the_amount: '%'
+            pick_exchange:
+                withdrawal_fee: 'Retiro'
+            form:
+                submit: 'Crear regla'
+                submitting: 'Creando…'
+            confirm_destroy:
+                message: '¿Quieres eliminar esta regla de retiro?'
+            confirm_settings:
+                min_amount_html: 'Según la comisión actual de <b>%{fee} %{symbol}</b>, el retiro se activará cuando el saldo alcance <b>%{amount} %{symbol}</b>.'
+        tile:
+            withdrawal: 'Retiro'
+            memo: 'Memo'
+            min_amount_info: 'Según la comisión actual de %{fee} %{symbol}, el retiro se activará cuando el saldo alcance %{amount} %{symbol}.'
+            no_fee_info: '%{exchange} no reporta comisión de retiro para este activo. La regla retirará cualquier saldo disponible.'
+            unknown_fee_info: 'Datos de comisión no disponibles para %{exchange}. La regla retirará cualquier saldo disponible.'
+            fixed_amount_info: 'El retiro se activará cuando el saldo alcance %{amount} %{symbol}.'
+        logs:
+            title: 'Historial de la regla'
+            date: 'Fecha'
+            status: 'Estado'
+            message: 'Mensaje'
+            empty: 'Sin registros por ahora.'
+        add_address:
+            label: 'Dirección de retiro'
+            placeholder: 'Pega la dirección aquí…'
+            address_tag_label: 'Memo / Tag (opcional)'
+            address_tag_placeholder: 'Memo, tag o ID de pago…'
+            instructions_title: 'Añadir una dirección de retiro en %{exchange}'
+            warning_html: 'Asegúrate de que sea una dirección <b>%{symbol}</b> en la red correcta. Enviar a la dirección o red incorrecta provocará la pérdida permanente de los fondos.'
+        add_api_key:
+            title: 'Añadir clave API de retiro para %{exchange}'
+            instructions_title: 'Cómo obtener las claves de %{exchange}'
+            instructions_body: 'Crea una clave API con permiso de retiro en %{exchange} y pega las credenciales aquí.'
     order_filters:
         all: 'Todos'
         successful: 'Exitosos'

@@ -45,9 +45,9 @@ module Exchange::Dryable
         dry_run? ? dry_withdraw(asset:, amount:, address:, network:, address_tag:) : super
       end
 
-      # fetch_withdrawal_fees! is NOT overridden in dry mode.
-      # Exchanges with public APIs (Bitget, KuCoin) return real fees.
-      # Exchanges needing auth (Binance, Bybit) return empty when no fee_api_key.
+      def fetch_withdrawal_fees!
+        dry_run? ? dry_fetch_withdrawal_fees! : super
+      end
     end
 
     prepend decorators
@@ -92,6 +92,17 @@ module Exchange::Dryable
 
   def dry_withdraw(asset:, amount:, address:, network: nil, address_tag: nil) # rubocop:disable Lint/UnusedMethodArgument
     Result::Success.new({ withdrawal_id: "dry-withdrawal-#{SecureRandom.uuid}" })
+  end
+
+  def dry_fetch_withdrawal_fees!
+    exchange_assets.find_each do |ea|
+      ea.update!(
+        withdrawal_fee: '0.001',
+        withdrawal_fee_updated_at: Time.current,
+        withdrawal_chains: [{ 'name' => 'DryNet', 'fee' => '0.001', 'is_default' => true }]
+      )
+    end
+    Result::Success.new({})
   end
 
   def dry_cancel_order(order_id:) # rubocop:disable Lint/UnusedMethodArgument

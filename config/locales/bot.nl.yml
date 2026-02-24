@@ -11,6 +11,7 @@ nl:
                 sentence:
                     build_index: "Index portefeuille bouwen"
                     build_index_at: "%{index_name} portefeuille bouwen"
+                    portfolio: portefeuille
                 pick_index:
                     top_coins: "Top Munten"
                     top_coins_description: "Top cryptocurrencies op marktkapitalisatie. De S&P 500 van crypto."
@@ -18,6 +19,7 @@ nl:
             num_coins: "Aantal munten"
             allocation_flattening: "Allocatie afvlakking"
             into_index: "in %{index_name}"
+            into: in
             index_preview: "Index Voorbeeld"
             fewer_coins_available: "%{available} van de %{requested} munten in de index zijn beschikbaar op %{exchange_name}"
             num_assets: "Activa in index"
