@@ -1,0 +1,4 @@
+- Rails runs as background process managed by Tauri
+- `app/javascript/tauri.js` — IPC bridge between Rails and Tauri
+- Rust code in `src/` handles OS integration, tray icon, window management
+- Desktop app shares same Rails backend as web version
