@@ -246,7 +246,6 @@ en:
             unknown_fee_info: 'Fee data unavailable for %{exchange}. The rule will withdraw any available balance.'
             fixed_amount_info: 'The withdrawal will be triggered when the balance reaches %{amount} %{symbol}.'
         logs:
-            title: 'Rule Logs'
             date: 'Date'
             status: 'Status'
             message: 'Message'

@@ -245,7 +245,6 @@ pl:
             unknown_fee_info: 'Dane o opłatach niedostępne dla %{exchange}. Reguła wypłaci każde dostępne saldo.'
             fixed_amount_info: 'Wypłata zostanie uruchomiona, gdy saldo osiągnie %{amount} %{symbol}.'
         logs:
-            title: 'Logi reguły'
             date: 'Data'
             status: 'Status'
             message: 'Wiadomość'
