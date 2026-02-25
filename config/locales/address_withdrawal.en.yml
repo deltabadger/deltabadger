@@ -86,3 +86,29 @@ en:
                     sub_instructions:
                         -   text_html: 'You can whitelist the address for added security.'
                 -   text_html: 'Copy the exact wallet <b>address</b> and paste it into the form above.'
+        bitrue:
+            instructions:
+                -   text_html: 'Log into your %{exchange_link} account.'
+                -   text_html: 'Go to <b>Assets</b> → <b>Withdraw</b>.'
+                -   text_html: 'Select the coin you want to withdraw.'
+                -   text_html: 'Choose the correct <b>network</b>.'
+                -   text_html: 'Enter the destination wallet address.'
+                -   text_html: 'Copy the exact wallet <b>address</b> and paste it into the form above.'
+        bitmart:
+            instructions:
+                -   text_html: 'Log into your %{exchange_link} account.'
+                -   text_html: 'Go to <b>Assets</b> → <b>Withdraw</b>.'
+                -   text_html: 'Select the coin you want to withdraw.'
+                -   text_html: 'Choose the correct <b>network</b>.'
+                -   text_html: 'Enter the destination wallet address.'
+                    sub_instructions:
+                        -   text_html: 'You can save it to your <b>Address Book</b> for future use.'
+                -   text_html: 'Copy the exact wallet <b>address</b> and paste it into the form above.'
+        bingx:
+            instructions:
+                -   text_html: 'Log into your %{exchange_link} account.'
+                -   text_html: 'Go to <b>Assets</b> → <b>Withdraw</b>.'
+                -   text_html: 'Select the coin you want to withdraw.'
+                -   text_html: 'Choose the correct <b>network</b>.'
+                -   text_html: 'Enter the destination wallet address.'
+                -   text_html: 'Copy the exact wallet <b>address</b> and paste it into the form above.'

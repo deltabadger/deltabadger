@@ -243,7 +243,6 @@ it:
             unknown_fee_info: 'Dati sulle commissioni non disponibili per %{exchange}. La regola preleverà qualsiasi saldo disponibile.'
             fixed_amount_info: 'Il prelievo verrà attivato quando il saldo raggiunge %{amount} %{symbol}.'
         logs:
-            title: 'Log della regola'
             date: 'Data'
             status: 'Stato'
             message: 'Messaggio'

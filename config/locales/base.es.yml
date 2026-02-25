@@ -243,7 +243,6 @@ es:
             unknown_fee_info: 'Datos de comisión no disponibles para %{exchange}. La regla retirará cualquier saldo disponible.'
             fixed_amount_info: 'El retiro se activará cuando el saldo alcance %{amount} %{symbol}.'
         logs:
-            title: 'Historial de la regla'
             date: 'Fecha'
             status: 'Estado'
             message: 'Mensaje'

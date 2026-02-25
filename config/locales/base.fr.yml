@@ -243,7 +243,6 @@ fr:
             unknown_fee_info: 'Données de frais indisponibles pour %{exchange}. La règle retirera tout solde disponible.'
             fixed_amount_info: 'Le retrait sera déclenché lorsque le solde atteindra %{amount} %{symbol}.'
         logs:
-            title: 'Historique de la règle'
             date: 'Date'
             status: 'Statut'
             message: 'Message'

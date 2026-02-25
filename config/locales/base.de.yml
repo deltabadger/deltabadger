@@ -243,7 +243,6 @@ de:
             unknown_fee_info: 'Gebührendaten für %{exchange} nicht verfügbar. Die Regel zahlt jedes verfügbare Guthaben aus.'
             fixed_amount_info: 'Die Auszahlung wird ausgelöst, wenn das Guthaben %{amount} %{symbol} erreicht.'
         logs:
-            title: 'Regel-Logs'
             date: 'Datum'
             status: 'Status'
             message: 'Nachricht'

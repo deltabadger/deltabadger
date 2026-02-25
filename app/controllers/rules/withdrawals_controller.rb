@@ -18,7 +18,7 @@ class Rules::WithdrawalsController < ApplicationController
 
     if status == 'scheduled'
       @rule.start
-      flash.now[:notice] = t('rules.tile.activated')
+      flash.now[:success] = t('rules.tile.activated')
       streams.unshift(turbo_stream_prepend_flash)
     elsif status == 'stopped'
       @rule.stop

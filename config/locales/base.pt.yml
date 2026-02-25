@@ -242,7 +242,6 @@ pt:
             unknown_fee_info: 'Dados de taxa indisponíveis para %{exchange}. A regra levantará qualquer saldo disponível.'
             fixed_amount_info: 'O levantamento será acionado quando o saldo atingir %{amount} %{symbol}.'
         logs:
-            title: 'Registos da regra'
             date: 'Data'
             status: 'Estado'
             message: 'Mensagem'

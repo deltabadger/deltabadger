@@ -31,13 +31,21 @@
             </span>
             <span><%= t('rules.withdrawals.sentence.to') %></span>
             <% has_address_details = rule.network.present? || rule.address_tag.present? %>
-            <span style="position: relative" <%= "data-controller=tooltip data-action=mouseenter->tooltip#showTooltip\x20mouseleave->tooltip#hideTooltip".html_safe if has_address_details %>>
+            <% if has_address_details %>
+            <span style="position: relative" data-controller="tooltip" data-action="mouseenter->tooltip#showTooltip mouseleave->tooltip#hideTooltip">
+            <% else %>
+            <span>
+            <% end %>
               <span class="tag tag--address"><%= render 'svg/16x16_wallet' %><%= rule.address %></span>
               <% if has_address_details %>
                 <div class="tooltip tooltip--address">
-                  <% if rule.network.present? %><b><%= t('rules.tile.network') %>:</b> <%= rule.network %><% end %>
-                  <% if rule.network.present? && rule.address_tag.present? %><br><% end %>
-                  <% if rule.address_tag.present? %><b><%= t('rules.tile.memo') %>:</b> <%= rule.address_tag %><% end %>
+                  <div><b><%= rule.address %></b></div>
+                  <% if rule.network.present? %>
+                    <div><b><%= t('rules.tile.network') %>:</b> <%= rule.network %></div>
+                  <% end %>
+                  <% if rule.address_tag.present? %>
+                    <div><b><%= t('rules.tile.memo') %>:</b> <%= rule.address_tag %></div>
+                  <% end %>
                 </div>
               <% end %>
             </span>
