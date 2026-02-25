@@ -40,6 +40,24 @@ export default class extends Controller {
   #setTooltipTimeout() {
     this.showTooltipTimeout = setTimeout(() => {
       this.element.classList.add("show-tooltip");
+      this.#adjustPosition();
     }, this.constructor.dynamicDelay);
+  }
+
+  #adjustPosition() {
+    const tooltip = this.element.querySelector(".tooltip");
+    if (!tooltip) return;
+
+    tooltip.style.left = "";
+    const rect = tooltip.getBoundingClientRect();
+    const margin = 8;
+
+    if (rect.right > window.innerWidth - margin) {
+      const overflow = rect.right - window.innerWidth + margin;
+      tooltip.style.left = `${-overflow}px`;
+    }
+    if (rect.left < margin) {
+      tooltip.style.left = `${margin - rect.left + parseFloat(tooltip.style.left || 0)}px`;
+    }
   }
 }

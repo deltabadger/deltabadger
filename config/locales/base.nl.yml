@@ -243,7 +243,6 @@ nl:
             unknown_fee_info: 'Kostengegevens niet beschikbaar voor %{exchange}. De regel neemt elk beschikbaar saldo op.'
             fixed_amount_info: 'De opname wordt geactiveerd wanneer het saldo %{amount} %{symbol} bereikt.'
         logs:
-            title: 'Regellogs'
             date: 'Datum'
             status: 'Status'
             message: 'Bericht'

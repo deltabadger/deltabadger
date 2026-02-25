@@ -211,3 +211,48 @@ en:
                                 -   text_html: '🔘 Whitelist %{whitelist_ip}.'
                 -   text_html: 'Click <b>Generate</b>.'
                 -   text_html: 'Copy and paste your new API keys into the form above.'
+        bitrue:
+            instructions:
+                -   text_html: 'Log into your %{exchange_link} account.'
+                -   text_html: 'Go to <a href="https://www.bitrue.com/account/api"><b>Account</b> → <b>API Management</b></a>.'
+                -   text_html: 'Click <b>Create API</b>.'
+                -   text_html: 'Label your key (e.g. "Deltabadger Withdrawal").'
+                -   text_html: 'Set permissions:'
+                    sub_instructions:
+                        -   text_html: '☑️ <b>Read</b>'
+                        -   text_html: '☑️ <b>Withdraw</b><br><strong>⚠️ Important:</strong> Do not enable Trade permissions.'
+                        -   text_html: 'IP whitelist:'
+                            sub_instructions:
+                                -   text_html: '🔘 Whitelist %{whitelist_ip}.'
+                -   text_html: 'Click <b>Confirm</b> and complete the verification.'
+                -   text_html: 'Copy and paste your new API keys into the form above.'
+        bitmart:
+            instructions:
+                -   text_html: 'Log into your %{exchange_link} account.'
+                -   text_html: 'Go to <a href="https://www.bitmart.com/api-management"><b>Account</b> → <b>API Management</b></a>.'
+                -   text_html: 'Click <b>Create API Key</b>.'
+                -   text_html: 'Label your key (e.g. "Deltabadger Withdrawal") and set a <b>Memo</b>.'
+                -   text_html: 'Set permissions:'
+                    sub_instructions:
+                        -   text_html: '☑️ <b>Read</b>'
+                        -   text_html: '☑️ <b>Withdraw</b><br><strong>⚠️ Important:</strong> Do not enable Trade permissions.'
+                        -   text_html: 'IP whitelist:'
+                            sub_instructions:
+                                -   text_html: '🔘 Whitelist %{whitelist_ip}.'
+                -   text_html: 'Click <b>Submit</b> and complete the verification.'
+                -   text_html: 'Copy and paste your API Key, Secret Key, and Memo into the form above.'
+        bingx:
+            instructions:
+                -   text_html: 'Log into your %{exchange_link} account.'
+                -   text_html: 'Go to <a href="https://bingx.com/account/api"><b>Account</b> → <b>API Management</b></a>.'
+                -   text_html: 'Click <b>Create API</b>.'
+                -   text_html: 'Label your key (e.g. "Deltabadger Withdrawal").'
+                -   text_html: 'Set permissions:'
+                    sub_instructions:
+                        -   text_html: '☑️ <b>Read</b>'
+                        -   text_html: '☑️ <b>Withdraw</b><br><strong>⚠️ Important:</strong> Do not enable Trade permissions.'
+                        -   text_html: 'IP whitelist:'
+                            sub_instructions:
+                                -   text_html: '🔘 Whitelist %{whitelist_ip}.'
+                -   text_html: 'Click <b>Confirm</b> and complete the verification.'
+                -   text_html: 'Copy and paste your new API keys into the form above.'
