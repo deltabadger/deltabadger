@@ -9,7 +9,7 @@
       <%= link_to "🇩🇪 Deutsch", url_for(request.params.merge(locale: 'de')), class: "dropdown__item", data: { turbo: false } %>
     <% end %>
     <% unless locale == 'nl' %>
-      <%= link_to "🇳🇱 Nederlandse", url_for(request.params.merge(locale: 'nl')), class: "dropdown__item", data: { turbo: false } %>
+      <%= link_to "🇳🇱 Nederlands", url_for(request.params.merge(locale: 'nl')), class: "dropdown__item", data: { turbo: false } %>
     <% end %>
     <% unless locale == 'fr' %>
       <%= link_to "🇫🇷 Français", url_for(request.params.merge(locale: 'fr')), class: "dropdown__item", data: { turbo: false } %>
