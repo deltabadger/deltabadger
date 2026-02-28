@@ -38,6 +38,7 @@ de:
         invalid_risk_free_rate_key: 'Ungültiger risikofreier Zinssatz-Schlüssel.'
         api_key_permission_validation_failed: 'Überprüfung der API-Schlüsselberechtigungen fehlgeschlagen'
         api_key_already_exists: 'Ein API-Schlüssel für %{exchange_name} existiert bereits'
+        withdrawal_rule_already_exists: 'Eine Auszahlungsregel für %{asset_symbol} auf %{exchange_name} existiert bereits'
         incorrect_api_key_permissions: 'Falsche API-Schlüsselberechtigungen'
         unable_to_get_risk_free_rate: 'Der risikofreie Zinssatz für %{risk_free_rate_name} kann nicht abgerufen werden. Daten-API-Server ist nicht erreichbar.'
         invalid_number_of_allocations: 'Ungültige Anzahl von Zuordnungen'
@@ -49,6 +50,8 @@ de:
             api_key_success: "API-Schlüssel erfolgreich gespeichert"
             coingecko_required: "CoinGecko API-Schlüssel ist für Index-Bots erforderlich"
             market_data_required: "Für Index-Bots muss ein Marktdatenanbieter konfiguriert werden. Gehen Sie zu den Einstellungen, um einen zu verbinden."
+            signal_required: "Mindestens ein Signal ist erforderlich"
+            signal_minimum: "Das letzte Signal kann nicht entfernt werden"
         messages:
             accepted: 'muss akzeptiert werden'
             already_confirmed: 'wurde bereits bestätigt, bitte versuche dich anzumelden.'

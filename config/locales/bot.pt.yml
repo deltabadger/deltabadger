@@ -47,11 +47,15 @@ pt:
             custom_portfolio:
                 title: "Custom Portfolio"
                 description: "Rebalance custom asset mix"
+            signal:
+                title: "Signal"
+                description: "Negociar com sinais externos"
         status:
             setting_orders: "Configurando ordens…"
             paused: "Pausado"
             next_try: "Próxima tentativa em"
             waiting: "À espera que todas as condições sejam cumpridas"
+            listening: "A escutar"
         conversational:
             invest: "Investir"
             into: "em"
@@ -92,6 +96,14 @@ pt:
                     continue: 'Continuar com o horário original'
                     info_html: 'Ainda tem <b>%{time}</b> até ao próximo pedido. Pode ignorá-lo e executar imediatamente o próximo pedido ou continuar a contagem decrescente original.'
                     skip: Ignorar
+        signal:
+            trade: "Negociar"
+            spending: "gastando"
+            add_signal: "+ Adicionar signal"
+            url_placeholder: "Webhook URL will show up here"
+            for: "para"
+            when_triggered: "quando este webhook for acionado:"
+            of_the_balance: "do saldo"
         buy: Comprar
         counter: '%{countdown}'
         day: Dia

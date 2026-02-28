@@ -18,6 +18,10 @@
             <span><%= bot.quote_asset.symbol %></span>
             <span class="bot-tile__operator">&rarr;</span>
             <span><%= bot.display_index_name %></span>
+          <% elsif bot.signal? && bot.quote_asset_id.present? && bot.base_asset_id.present? %>
+            <span><%= bot.quote_asset.symbol %></span>
+            <span class="bot-tile__operator">&rarr;</span>
+            <span><%= bot.base_asset.symbol %></span>
           <% end %>
           <% if bot.exchange.present? %>
             <%= render "svg/exchange-#{bot.exchange.name_id}", title: bot.exchange.name %>
@@ -28,7 +32,7 @@
           <%= bot.label %>
         </div>
       </div>
-      <% if bot.dca_single_asset? || bot.dca_dual_asset? || bot.dca_index? %>
+      <% if bot.dca_single_asset? || bot.dca_dual_asset? || bot.dca_index? || bot.signal? %>
         <%= render "bots/bot_tile/bot_tile_pnl", bot: bot, loading: loading_hash[bot.id], pnl: pnl_hash[bot.id] || '' %>
       <% end %>
     </div>

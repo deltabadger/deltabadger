@@ -39,17 +39,39 @@ class Rules::Withdrawals::ConfirmSettingsController < ApplicationController
 
     @asset = Asset.find_by(id: config['asset_id'])
     @exchange = Exchange.find_by(id: config['exchange_id'])
-    @rule = current_user.rules.build(
-      type: 'Rules::Withdrawal',
-      asset: @asset,
-      exchange: @exchange,
-      address: config['address'],
-      address_tag: config['address_tag'],
-      network: config['network'],
-      threshold_type: config['threshold_type'],
-      max_fee_percentage: config['max_fee_percentage'],
-      min_amount: config['min_amount']
-    )
+
+    existing = current_user.rules.find_by(type: 'Rules::Withdrawal', asset: @asset, exchange: @exchange)
+    if existing && !existing.deleted?
+      flash.now[:alert] = t('errors.withdrawal_rule_already_exists',
+                            asset_symbol: @asset.symbol, exchange_name: @exchange.name)
+      return render turbo_stream: turbo_stream_prepend_flash, status: :unprocessable_entity
+    end
+
+    @rule = existing
+
+    if @rule
+      @rule.assign_attributes(
+        address: config['address'],
+        address_tag: config['address_tag'],
+        network: config['network'],
+        threshold_type: config['threshold_type'],
+        max_fee_percentage: config['max_fee_percentage'],
+        min_amount: config['min_amount'],
+        status: :created
+      )
+    else
+      @rule = current_user.rules.build(
+        type: 'Rules::Withdrawal',
+        asset: @asset,
+        exchange: @exchange,
+        address: config['address'],
+        address_tag: config['address_tag'],
+        network: config['network'],
+        threshold_type: config['threshold_type'],
+        max_fee_percentage: config['max_fee_percentage'],
+        min_amount: config['min_amount']
+      )
+    end
 
     if @rule.save
       session[:withdrawal_rule_config] = nil

@@ -460,6 +460,69 @@ FactoryBot.define do
     end
   end
 
+  # Signal bot factory
+  factory :signal_bot, class: 'Bots::Signal' do
+    user
+    type { 'Bots::Signal' }
+    status { :created }
+
+    transient do
+      base_asset { nil }
+      quote_asset { nil }
+      with_api_key { true }
+    end
+
+    after(:build) do |bot, evaluator|
+      base = evaluator.base_asset || create(:asset, :bitcoin)
+      quote = evaluator.quote_asset || create(:asset, :usd)
+
+      bot.exchange ||= create(:binance_exchange)
+
+      unless Ticker.exists?(exchange: bot.exchange, base_asset: base, quote_asset: quote)
+        create(:ticker, exchange: bot.exchange, base_asset: base, quote_asset: quote)
+      end
+
+      bot.settings = bot.settings.merge(
+        'base_asset_id' => base.id,
+        'quote_asset_id' => quote.id
+      )
+    end
+
+    after(:create) do |bot, evaluator|
+      if evaluator.with_api_key && !ApiKey.exists?(user: bot.user, exchange: bot.exchange, key_type: :trading)
+        create(:api_key, user: bot.user, exchange: bot.exchange)
+      end
+    end
+
+    trait :started do
+      status { :scheduled }
+      started_at { Time.current }
+    end
+
+    trait :stopped do
+      status { :stopped }
+      started_at { 1.day.ago }
+      stopped_at { Time.current }
+    end
+
+    trait :deleted do
+      status { :deleted }
+      started_at { 1.day.ago }
+      stopped_at { Time.current }
+    end
+  end
+
+  # BotSignal factory
+  factory :bot_signal do
+    bot { association :signal_bot }
+    direction { :buy }
+    amount { 100 }
+
+    trait :sell do
+      direction { :sell }
+    end
+  end
+
   # Transaction factory
   factory :transaction do
     bot { association :dca_single_asset }

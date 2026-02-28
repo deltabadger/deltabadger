@@ -6,11 +6,11 @@
 .menu-mobile
   - if single_bot_mode?
     - single_bot_path = bot_path(current_user.bots.not_deleted.first)
-    = link_to single_bot_path, class: "menu-mobile__item menu-mobile__item--dashboard #{'menu-mobile__item--active' if current_page?(single_bot_path)}", data: { controller: 'tooltip', action: 'mouseenter->tooltip#showTooltip mouseleave->tooltip#hideTooltip' } do
+    = link_to single_bot_path, class: "menu-mobile__item menu-mobile__item--bots #{'menu-mobile__item--active' if current_page?(single_bot_path)}", data: { controller: 'tooltip', action: 'mouseenter->tooltip#showTooltip mouseleave->tooltip#hideTooltip' } do
       = t('links.bot')
   - else
-    = link_to bots_path, class: "menu-mobile__item menu-mobile__item--dashboard #{'menu-mobile__item--active' if current_page?(bots_path)}", data: { controller: 'tooltip', action: 'mouseenter->tooltip#showTooltip mouseleave->tooltip#hideTooltip' } do
-      = t('links.dashboard')
+    = link_to bots_path, class: "menu-mobile__item menu-mobile__item--bots #{'menu-mobile__item--active' if current_page?(bots_path)}", data: { controller: 'tooltip', action: 'mouseenter->tooltip#showTooltip mouseleave->tooltip#hideTooltip' } do
+      = t('links.bots')
 
   = link_to rules_path, class: "menu-mobile__item menu-mobile__item--rules #{'menu-mobile__item--active' if current_page?(rules_path)}", data: { controller: 'tooltip', action: 'mouseenter->tooltip#showTooltip mouseleave->tooltip#hideTooltip' } do
     = t('links.rules')
@@ -34,15 +34,15 @@
 
     - if single_bot_mode?
       - single_bot_path = bot_path(current_user.bots.not_deleted.first)
-      = link_to single_bot_path, class: "menu__item menu__item--dashboard #{'menu__item--active' if current_page?(single_bot_path)}", data: { controller: 'tooltip', action: 'mouseenter->tooltip#showTooltip mouseleave->tooltip#hideTooltip' } do
+      = link_to single_bot_path, class: "menu__item menu__item--bots #{'menu__item--active' if current_page?(single_bot_path)}", data: { controller: 'tooltip', action: 'mouseenter->tooltip#showTooltip mouseleave->tooltip#hideTooltip' } do
         = render 'svg/24x24_dashboard'
         .tooltip
           = t('links.bot')
     - else
-      = link_to bots_path, class: "menu__item menu__item--dashboard #{'menu__item--active' if current_page?(bots_path)}", data: { controller: 'tooltip', action: 'mouseenter->tooltip#showTooltip mouseleave->tooltip#hideTooltip' } do
+      = link_to bots_path, class: "menu__item menu__item--bots #{'menu__item--active' if current_page?(bots_path)}", data: { controller: 'tooltip', action: 'mouseenter->tooltip#showTooltip mouseleave->tooltip#hideTooltip' } do
         = render 'svg/24x24_dashboard'
         .tooltip
-          = t('links.dashboard')
+          = t('links.bots')
 
     = link_to rules_path, class: "menu__item menu__item--rules #{'menu__item--active' if current_page?(rules_path)}", data: { controller: 'tooltip', action: 'mouseenter->tooltip#showTooltip mouseleave->tooltip#hideTooltip' } do
       = render 'svg/24x24_withdrawal'

@@ -7,7 +7,7 @@
     <%= render partial: 'bots/global_pnl', locals: { global_pnl: @global_pnl, loading: @loading_hash.values.any? } %>
   </section>
   
-  <div class="page-head page-head--dashboard">
+  <div class="page-head page-head--bots">
     <div class="filters">
       <% if @show_filters %>
         <%= link_to t('bot_filters.all'), bots_path(filter: 'all'), class: ["sbutton sbutton--multi", ("sbutton--multi--active" if @filter == 'all')] %>
