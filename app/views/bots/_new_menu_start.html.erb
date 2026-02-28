@@ -26,5 +26,11 @@
             <div class="index-title"><%= t('bot.types.index_portfolio.title') %></div>
             <div class="index-info"><%= t('bot.types.index_portfolio.description').html_safe %></div>
         <% end %>
+
+        <%= link_to new_bots_signals_pick_buyable_asset_path, class: 'itile itile--bot-type', data: { action: 'click->modal--base#animateOutCloseAndCleanUp', turbo_frame: 'modal' } do %>
+            <%= render partial: 'svg/24x24_signal' %>
+            <div class="index-title"><%= t('bot.types.signal.title') %></div>
+            <div class="index-info"><%= t('bot.types.signal.description').html_safe %></div>
+        <% end %>
     </div>
 </div>

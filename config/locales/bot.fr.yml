@@ -47,11 +47,15 @@ fr:
             custom_portfolio:
                 title: "Portefeuille Personnalisé"
                 description: "Rééquilibrer un mix d'actifs personnalisé"
+            signal:
+                title: "Signal"
+                description: "Trader sur signaux externes"
         status:
             setting_orders: "Configuration des commandes…"
             paused: "En pause"
             next_try: "Prochain essai dans"
             waiting: "En attente que toutes les conditions soient remplies"
+            listening: "En écoute"
         conversational:
             invest: "Investir"
             into: "dans"
@@ -94,6 +98,14 @@ fr:
                     continue: 'Poursuivre le programme initial'
                     info_html: 'Il vous reste <b>%{time}</b> jusqu''à l''ordre suivant. Vous pouvez l''ignorer et exécuter l''ordre suivant immédiatement, ou poursuivre le compte à rebours initial.'
                     skip: 'Ignorer'
+        signal:
+            trade: "Trader"
+            spending: "dépensant"
+            add_signal: "+ Ajouter un signal"
+            url_placeholder: "Webhook URL will show up here"
+            for: "pour"
+            when_triggered: "quand ce webhook est déclenché :"
+            of_the_balance: "du solde"
         buy: 'Acheter'
         counter: '%{countdown}'
         day: 'Jour'

@@ -27,7 +27,11 @@
         justify-self: flex-end
 
     @media screen and (min-width: 768px)
+        grid-template-columns: repeat(2, 1fr)
+    @media screen and (min-width: 1024px)
         grid-template-columns: repeat(3, 1fr)
+    @media screen and (min-width: 1280px)
+        grid-template-columns: repeat(4, 1fr)
 
     .itile
         min-height: 24rem
@@ -57,7 +61,7 @@
     &:hover,&.active
         .ticker-group
             .ticker
-                margin-right: -3rem
+                margin-right: -3.5rem
                 color: var(--white)
             .ticker--more
                 opacity: 0  

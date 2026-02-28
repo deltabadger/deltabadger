@@ -45,11 +45,15 @@ it:
             custom_portfolio:
                 title: "Portafoglio Personalizzato"
                 description: "Ribilancia mix personalizzato di asset"
+            signal:
+                title: "Signal"
+                description: "Opera con segnali esterni"
         status:
             setting_orders: "Impostazione ordini…"
             paused: "In pausa"
             next_try: "Prossimo tentativo in"
             waiting: "In attesa che tutte le condizioni siano soddisfatte"
+            listening: "In ascolto"
         pick_exchange: "Scegli Exchange"
         conversational:
             invest: "Investi"
@@ -93,6 +97,14 @@ it:
                     continue: "Continua il programma originale"
                     info_html: "Hai ancora <b>%{time}</b> rimanenti per il prossimo ordine. Puoi saltarlo ed eseguire il prossimo ordine immediatamente, o continuare il conto alla rovescia originale."
                     skip: "Saltalo"
+        signal:
+            trade: "Opera"
+            spending: "spendendo"
+            add_signal: "+ Aggiungi signal"
+            url_placeholder: "Webhook URL will show up here"
+            for: "per"
+            when_triggered: "quando questo webhook viene attivato:"
+            of_the_balance: "del saldo"
         buy: Compra
         counter: '%{countdown}'
         day: Giorno

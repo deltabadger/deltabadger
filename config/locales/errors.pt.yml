@@ -38,6 +38,7 @@ pt:
         invalid_risk_free_rate_key: 'Chave de taxa livre de risco inválida.'
         api_key_permission_validation_failed: 'Falha na validação das permissões da chave API'
         api_key_already_exists: 'Já existe uma chave API para %{exchange_name}'
+        withdrawal_rule_already_exists: 'Já existe uma regra de levantamento para %{asset_symbol} na %{exchange_name}'
         incorrect_api_key_permissions: 'Permissões de chave API incorretas'
         unable_to_get_risk_free_rate: 'Não é possível obter a taxa livre de risco para %{risk_free_rate_name}. O servidor da API de dados está inacessível.'
         invalid_number_of_allocations: 'Número de alocações inválido'
@@ -49,6 +50,8 @@ pt:
             api_key_success: "Chaves de API salvas com sucesso"
             coingecko_required: "A chave API do CoinGecko é necessária para bots de índice"
             market_data_required: "Um fornecedor de dados de mercado deve ser configurado para bots de índice. Vá a Configurações para conectar um."
+            signal_required: "É necessário pelo menos um sinal"
+            signal_minimum: "Não é possível remover o último sinal"
         messages:
             accepted: 'deve ser aceite'
             already_confirmed: 'já foi confirmado, tente novamente mais tarde.'

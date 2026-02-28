@@ -1,0 +1,16 @@
+<% base_color = ensure_contrast(bot.base_asset&.color || "#8A9BA8") %>
+<% base = bot.base_asset.symbol %>
+<% quote = bot.quote_asset.symbol %>
+
+<div class="widget main-rule">
+  <div class="conversational flex-justify-center">
+    <%= t('bot.signal.trade') %>
+    <div class="ticker" style="background: <%= base_color %>">
+      <%= base %>
+    </div>
+    <%= t('bot.signal.spending') %>
+    <div class="ticker">
+      <%= quote %>
+    </div>
+  </div>
+</div>

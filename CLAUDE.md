@@ -1,4 +1,4 @@
-Deltabadger is an open-source Dollar Cost Averaging (DCA) bot for cryptocurrency trading.
+Deltabadger is an open-source Dollar Cost Averaging (DCA) bot for cryptocurrency trading developed in the TTD methodology. Tests are always written and presented to review first.
 
 ## Stack
 
