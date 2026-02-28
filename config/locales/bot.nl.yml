@@ -44,11 +44,15 @@ nl:
             custom_portfolio:
                 title: "Aangepaste Portefeuille"
                 description: "Herbalanceer aangepaste asset mix"
+            signal:
+                title: "Signal"
+                description: "Handelen op externe signalen"
         status:
             setting_orders: "Orders instellen…"
             paused: "Gepauzeerd"
             next_try: "Volgende poging in"
             waiting: "Wachten tot aan alle voorwaarden is voldaan"
+            listening: "Luistert"
         conversational:
             invest: "Investeren"
             into: "naar"
@@ -91,6 +95,14 @@ nl:
                     continue: 'Verdergaan met het oorspronkelijke schema'
                     info_html: 'U hebt nog <b>%{time}</b> over tot de uitvoering van het volgende order. U kunt het overslaan, en het volgende order onmiddellijk uitvoeren, of doorgaan met de oorspronkelijke aftelling.'
                     skip: Overslaan
+        signal:
+            trade: "Handelen"
+            spending: "besteden"
+            add_signal: "+ Signal toevoegen"
+            url_placeholder: "Webhook URL will show up here"
+            for: "voor"
+            when_triggered: "wanneer deze webhook wordt geactiveerd:"
+            of_the_balance: "van het saldo"
         buy: Kopen
         counter: '%{countdown}'
         day: Dag

@@ -38,6 +38,7 @@ es:
         invalid_risk_free_rate_key: 'Clave de tasa libre de riesgo no válida.'
         api_key_permission_validation_failed: 'Error al validar los permisos de la clave API'
         api_key_already_exists: 'Ya existe una clave API para %{exchange_name}'
+        withdrawal_rule_already_exists: 'Ya existe una regla de retiro para %{asset_symbol} en %{exchange_name}'
         incorrect_api_key_permissions: 'Permisos de clave API incorrectos'
         unable_to_get_risk_free_rate: 'No se puede obtener la tasa libre de riesgo para %{risk_free_rate_name}. El servidor de la API de datos no está disponible.'
         invalid_number_of_allocations: 'Número de asignaciones no válido'
@@ -49,6 +50,8 @@ es:
             api_key_success: "claves API guardadas con éxito"
             coingecko_required: "Se requiere una clave API de CoinGecko para los bots de índice"
             market_data_required: "Se debe configurar un proveedor de datos de mercado para los bots de índice. Ve a Configuración para conectar uno."
+            signal_required: "Se requiere al menos una señal"
+            signal_minimum: "No se puede eliminar la última señal"
         messages:
             accepted: 'debe ser aceptado'
             already_confirmed: 'ya estaba confirmado, intenta iniciar sesión.'

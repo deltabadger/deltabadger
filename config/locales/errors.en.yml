@@ -38,6 +38,7 @@ en:
         invalid_risk_free_rate_key: 'Invalid Risk Free Rate Key.'
         api_key_permission_validation_failed: 'Failed to validate API key permissions'
         api_key_already_exists: 'An API key for %{exchange_name} already exists'
+        withdrawal_rule_already_exists: 'A withdrawal rule for %{asset_symbol} on %{exchange_name} already exists'
         incorrect_api_key_permissions: 'Incorrect API key permissions'
         unable_to_get_risk_free_rate: 'Unable to get the risk free rate for %{risk_free_rate_name}. Data API server is unreachable.'
         invalid_number_of_allocations: 'Invalid number of allocations'
@@ -50,6 +51,8 @@ en:
             coingecko_required: "CoinGecko API key is required for Index bots"
             market_data_required: "A market data provider must be configured for Index bots. Go to Settings to connect one."
             index_change_after_transactions: "Index type cannot be changed after orders have been placed"
+            signal_required: "At least one signal is required"
+            signal_minimum: "Cannot remove the last signal"
         messages:
             accepted: 'must be accepted'
             already_confirmed: 'was already confirmed, please try signing in.'

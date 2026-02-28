@@ -15,6 +15,7 @@ ru:
                 pick_exchange: "Выбрать биржу"
                 address: "Адрес"
                 settings: "Настройки"
+                confirm: "Подтвердить"
             sentence:
                 invest_in: "Инвестировать в"
                 and: "и"

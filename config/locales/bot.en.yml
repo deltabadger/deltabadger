@@ -42,11 +42,15 @@ en:
             custom_portfolio:
                 title: "Custom Portfolio"
                 description: "Rebalance custom asset mix"
+            signal:
+                title: "Signal"
+                description: "Trade based on external signals"
         status:
             setting_orders: "Setting orders…"
             paused: "Paused"
             next_try: "Next try in"
             waiting: "Waiting for all conditions to be met"
+            listening: "Listening"
         pick_exchange: "Pick Exchange"
         conversational:
             invest: "Invest"
@@ -90,6 +94,14 @@ en:
                     continue: "Continue original schedule"
                     info_html: "You have still <b>%{time}</b> remaining to the next order. You can skip it, and execute the next order immediately, or continue the original countdown."
                     skip: "Skip it"
+        signal:
+            trade: "Trade"
+            spending: "spending"
+            add_signal: "+ Add signal"
+            url_placeholder: "Webhook URL will show up here"
+            for: "for"
+            when_triggered: "when this webhook is triggered:"
+            of_the_balance: "of the balance"
         buy: Buy
         counter: '%{countdown}'
         day: Day

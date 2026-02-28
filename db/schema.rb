@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_02_26_000000) do
+ActiveRecord::Schema[8.1].define(version: 2026_02_28_152720) do
   create_table "api_keys", force: :cascade do |t|
     t.datetime "created_at", precision: nil, null: false
     t.bigint "exchange_id", null: false
@@ -71,6 +71,19 @@ ActiveRecord::Schema[8.1].define(version: 2026_02_26_000000) do
     t.index ["bot_id", "asset_id"], name: "index_bot_index_assets_on_bot_id_and_asset_id", unique: true
     t.index ["bot_id"], name: "index_bot_index_assets_on_bot_id"
     t.index ["ticker_id"], name: "index_bot_index_assets_on_ticker_id"
+  end
+
+  create_table "bot_signals", force: :cascade do |t|
+    t.decimal "amount", null: false
+    t.integer "amount_type", default: 0, null: false
+    t.integer "bot_id", null: false
+    t.datetime "created_at", null: false
+    t.integer "direction", default: 0, null: false
+    t.boolean "enabled", default: true, null: false
+    t.string "token", null: false
+    t.datetime "updated_at", null: false
+    t.index ["bot_id"], name: "index_bot_signals_on_bot_id"
+    t.index ["token"], name: "index_bot_signals_on_token", unique: true
   end
 
   create_table "bots", force: :cascade do |t|
@@ -267,6 +280,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_02_26_000000) do
   add_foreign_key "bot_index_assets", "assets"
   add_foreign_key "bot_index_assets", "bots"
   add_foreign_key "bot_index_assets", "tickers"
+  add_foreign_key "bot_signals", "bots"
   add_foreign_key "bots", "exchanges"
   add_foreign_key "bots", "users"
   add_foreign_key "exchange_assets", "assets"

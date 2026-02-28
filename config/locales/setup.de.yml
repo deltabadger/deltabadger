@@ -15,6 +15,7 @@ de:
                 pick_exchange: "Börse wählen"
                 address: "Adresse"
                 settings: "Einstellungen"
+                confirm: "Bestätigen"
             sentence:
                 invest_in: "Investiere in"
                 and: "und"

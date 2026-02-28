@@ -81,6 +81,7 @@ nl:
         telegram: 'Telegram'
         create_account: 'Gratis account aanmaken'
         bot: Bot
+        bots: Bots
         dashboard: Dashboard
         homepage: 'Link naar de homepagina'
         log_in: Aanmelden
@@ -88,6 +89,7 @@ nl:
         menu: Menu
         earn: Verdien
         resend_link: 'Link verzenden'
+        rules: Regels
         settings: Instellingen
         sign_up: Registreren
     settings:

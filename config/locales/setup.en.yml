@@ -15,6 +15,7 @@ en:
                 pick_exchange: "Pick exchange"
                 address: "Address"
                 settings: "Settings"
+                confirm: "Confirm"
             sentence:
                 invest_in: "Invest in"
                 and: "and"

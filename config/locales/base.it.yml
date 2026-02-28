@@ -81,6 +81,7 @@ it:
         telegram: 'Telegram'
         create_account: 'Crea account gratuito'
         bot: Bot
+        bots: Bots
         dashboard: Dashboard
         homepage: 'Link alla homepage'
         log_in: 'Accedi'
@@ -88,6 +89,7 @@ it:
         menu: Menu
         earn: 'Guadagna'
         resend_link: 'Reinvia link'
+        rules: Regole
         settings: Impostazioni
         sign_up: 'Registrati'
     settings:

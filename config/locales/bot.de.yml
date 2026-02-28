@@ -45,11 +45,15 @@ de:
             custom_portfolio:
                 title: "Individuelles Portfolio"
                 description: "Rebalanciere individuelle Vermögensmischung"
+            signal:
+                title: "Signal"
+                description: "Handeln basierend auf externen Signalen"
         status:
             setting_orders: "Orders werden erstellt…"
             paused: "Pausiert"
             next_try: "Nächster Versuch in"
             waiting: "Warten bis alle Bedingungen erfüllt sind"
+            listening: "Empfangsbereit"
         conversational:
             invest: "Investieren"
             into: "in"
@@ -91,6 +95,14 @@ de:
                     continue: 'Mit ursprünglichem Plan fortfahren'
                     info_html: 'Du hast noch <b>%{time}</b> bis zur nächsten Order. Du kannst diese überspringen und die nächste Order Auftrag sofort ausführen oder den ursprünglichen Countdown fortsetzen.'
                     skip: Überspringen
+        signal:
+            trade: "Handeln"
+            spending: "ausgeben"
+            add_signal: "+ Signal hinzufügen"
+            url_placeholder: "Webhook URL will show up here"
+            for: "für"
+            when_triggered: "wenn dieser Webhook ausgelöst wird:"
+            of_the_balance: "des Guthabens"
         buy: Kauf
         counter: '%{countdown}'
         day: Tag

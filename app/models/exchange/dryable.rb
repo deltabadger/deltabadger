@@ -62,7 +62,7 @@ module Exchange::Dryable
   def get_dry_balances(asset_ids: nil)
     asset_ids ||= assets.pluck(:id)
     balances = asset_ids.each_with_object({}) do |asset_id, balances_hash|
-      balances_hash[asset_id] = { free: Float::INFINITY, locked: 0 }
+      balances_hash[asset_id] = { free: rand(100.0..10_000.0).round(8), locked: 0 }
     end
     Result::Success.new(balances)
   end

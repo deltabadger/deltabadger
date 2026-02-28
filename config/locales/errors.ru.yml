@@ -33,6 +33,7 @@ ru:
         invalid_risk_free_rate_key: 'Недействительный ключ безрисковой ставки.'
         api_key_permission_validation_failed: 'Не удалось проверить разрешения ключа API'
         api_key_already_exists: 'Ключ API для %{exchange_name} уже существует'
+        withdrawal_rule_already_exists: 'Правило вывода для %{asset_symbol} на %{exchange_name} уже существует'
         incorrect_api_key_permissions: 'Неверные разрешения ключа API'
         unable_to_get_risk_free_rate: 'Не удается получить безрисковую ставку для %{risk_free_rate_name}. Сервер API данных недоступен.'
         invalid_number_of_allocations: 'Недопустимое количество распределений'
@@ -44,6 +45,8 @@ ru:
             api_key_success: "Ключи API успешно сохранены"
             coingecko_required: "Ключ API CoinGecko необходим для индексных ботов"
             market_data_required: "Для индексных ботов необходимо настроить поставщика рыночных данных. Перейдите в Настройки, чтобы подключить его."
+            signal_required: "Необходим хотя бы один сигнал"
+            signal_minimum: "Невозможно удалить последний сигнал"
         messages:
             accepted: 'должно быть принят'
             already_confirmed: 'уже подтвержден, попробуйте войти.'

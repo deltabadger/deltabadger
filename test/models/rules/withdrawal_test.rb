@@ -192,6 +192,7 @@ class Rules::WithdrawalTest < ActiveSupport::TestCase
 
   test 'validates max_fee_percentage required in fee_percentage mode' do
     rule = build_rule(max_fee_percentage: nil, threshold_type: 'fee_percentage')
+    rule.status = :scheduled
 
     assert_not rule.valid?
     assert rule.errors[:max_fee_percentage].any?
@@ -205,6 +206,7 @@ class Rules::WithdrawalTest < ActiveSupport::TestCase
 
   test 'validates min_amount required in min_amount mode' do
     rule = build_rule(threshold_type: 'min_amount', min_amount: nil)
+    rule.status = :scheduled
 
     assert_not rule.valid?
     assert rule.errors[:min_amount].any?
@@ -212,6 +214,7 @@ class Rules::WithdrawalTest < ActiveSupport::TestCase
 
   test 'validates min_amount must be positive' do
     rule = build_rule(threshold_type: 'min_amount', min_amount: '0')
+    rule.status = :scheduled
 
     assert_not rule.valid?
     assert rule.errors[:min_amount].any?

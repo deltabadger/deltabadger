@@ -1,0 +1,15 @@
+<div id="<%= bot.new_record? ? "new-settings" : "settings" %>" class="column gap-1">
+  <%= render partial: "bots/signals/settings/main", locals: { bot: bot } %>
+  <% bot.bot_signals.each_with_index do |signal, index| %>
+    <%= render partial: "bots/signals/signal_widget", locals: { bot: bot, signal: signal, index: index } %>
+  <% end %>
+  <% if bot.new_record? %>
+    <div id="add-signal-button">
+      <%= button_to t('bot.signal.add_signal'), add_signal_bots_signals_confirm_settings_path, method: :post, class: "sbutton sbutton--sky" %>
+    </div>
+  <% elsif !bot.working? %>
+    <div id="add-signal-button">
+      <%= button_to t('bot.signal.add_signal'), bot_bot_signals_path(bot), method: :post, class: "sbutton sbutton--sky" %>
+    </div>
+  <% end %>
+</div>

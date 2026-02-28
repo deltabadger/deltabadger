@@ -101,9 +101,22 @@ Rails.application.routes.draw do
         resource :pick_spendable_asset, only: [:new, :create]
         resource :confirm_settings, only: [:new, :create]
       end
+      resources :signals, only: [:create]
+      namespace :signals do
+        resource :pick_buyable_asset, only: [:new, :create]
+        resource :pick_exchange, only: [:new, :create]
+        resource :add_api_key, only: [:new, :create]
+        resource :pick_spendable_asset, only: [:new, :create]
+        resource :confirm_settings, only: [:new, :create] do
+          post :add_signal, on: :collection
+          delete :remove_signal, on: :collection
+          patch :update_signal, on: :collection
+        end
+      end
     end
 
     resources :bots do
+      resources :bot_signals, only: [:create, :update, :destroy], controller: 'bots/bot_signals'
       resource :start, only: [:edit, :update], controller: 'bots/starts'
       resource :stop, only: [:update], controller: 'bots/stops'
       resource :delete, only: [:edit, :destroy], controller: 'bots/deletes'

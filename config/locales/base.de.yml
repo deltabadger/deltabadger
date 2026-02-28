@@ -81,6 +81,7 @@ de:
         telegram: Telegram
         create_account: Konto erstellen
         bot: Bot
+        bots: Bots
         dashboard: Dashboard
         homepage: Startseite
         log_in: Anmelden
@@ -88,6 +89,7 @@ de:
         menu: Menü
         earn: Erzielen
         resend_link: Link erneut senden
+        rules: Regeln
         settings: Einstellungen
         sign_up: Registrieren
     settings:

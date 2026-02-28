@@ -38,6 +38,7 @@ nl:
         invalid_risk_free_rate_key: 'Ongeldige risicovrije rentesleutel.'
         api_key_permission_validation_failed: 'API-sleutelmachtigingen konden niet worden gevalideerd'
         api_key_already_exists: 'Er bestaat al een API-sleutel voor %{exchange_name}'
+        withdrawal_rule_already_exists: 'Er bestaat al een opnameregel voor %{asset_symbol} op %{exchange_name}'
         incorrect_api_key_permissions: 'Onjuiste API-sleutelmachtigingen'
         unable_to_get_risk_free_rate: 'Kan de risicovrije rente voor %{risk_free_rate_name} niet ophalen. De Data API-server is niet bereikbaar.'
         invalid_number_of_allocations: 'Ongeldig aantal toewijzingen'
@@ -49,6 +50,8 @@ nl:
             api_key_success: "API-sleutels succesvol opgeslagen"
             coingecko_required: "CoinGecko API-sleutel is vereist voor Index bots"
             market_data_required: "Er moet een marktgegevensprovider worden geconfigureerd voor Index bots. Ga naar Instellingen om er een te verbinden."
+            signal_required: "Minimaal één signaal is vereist"
+            signal_minimum: "Kan het laatste signaal niet verwijderen"
         messages:
             accepted: 'moet worden geaccepteerd'
             already_confirmed: 'was reeds bevestigd, probeer u aan te melden.'

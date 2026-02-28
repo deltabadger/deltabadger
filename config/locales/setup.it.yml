@@ -15,6 +15,7 @@ it:
                 pick_exchange: "Scegli exchange"
                 address: "Indirizzo"
                 settings: "Impostazioni"
+                confirm: "Conferma"
             sentence:
                 invest_in: "Investi in"
                 and: "e"

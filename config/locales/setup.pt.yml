@@ -15,6 +15,7 @@ pt:
                 pick_exchange: "Escolher corretora"
                 address: "Endereço"
                 settings: "Definições"
+                confirm: "Confirmar"
             sentence:
                 invest_in: "Investir em"
                 and: "e"

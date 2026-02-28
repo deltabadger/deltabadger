@@ -1,0 +1,94 @@
+<% if bot.new_record? %>
+  <%= form_with url: update_signal_bots_signals_confirm_settings_path(signal_index: index), method: :patch,
+                class: "widget rule #{signal.enabled? ? 'rule--active' : 'rule--inactive'}",
+                data: {
+                  controller: "class-toggle form--submit",
+                  class_toggle_target: "togglable",
+                  class_toggle_toggle_classes_value: ["rule--active", "rule--inactive"],
+                  turbo_stream: true
+                } do |f| %>
+    <div class="toggle-group">
+      <% if bot.bot_signals.size > 1 %>
+        <div class="toggle-group__controls">
+          <div class="toggle">
+            <%= f.check_box :enabled, checked: signal.enabled?, data: { action: "change->form--submit#submit change->class-toggle#toggle" } %>
+            <div class="toggle__style"></div>
+          </div>
+          <%= link_to remove_signal_bots_signals_confirm_settings_path(signal_index: index), data: { turbo_method: :delete, turbo_stream: true }, class: "sbutton sbutton--danger sbutton--small" do %>
+            <%= render "svg/24x24_close_small" %>
+          <% end %>
+        </div>
+      <% end %>
+      <div class="toggle-group__info">
+        <div class="toggle-group__info__label">
+          <div class="conversational conversational--small" data-controller="form--select-toggle">
+            <div class="sinput sinput--select">
+              <%= t("bot.#{signal.direction}") %>
+              <%= f.select :direction, options_for_select([[t('bot.buy'), :buy], [t('bot.sell'), :sell]], signal.direction), {}, data: { action: "change->form--submit#submit" } %>
+            </div>
+            <span><%= t('bot.signal.for') %></span>
+            <div class="ticker-input ticker-input--autoscale" data-controller="form--select-display">
+              <% value = signal.amount.present? ? signal.amount.to_d.to_s('F').sub(/([0-9]\d*)\.0$/, '\1') : nil %>
+              <%= f.number_field :amount, value: value, class: 'numeric-input', step: :any, size: 2, data: { controller: "autowidth-input", action: "input->form--submit#submit input->autowidth-input#resize" }, placeholder: "100" %>
+              <div class="sinput sinput--select">
+                <span data-form--select-display-target="label"><%= signal.percentage? ? '%' : bot.quote_asset.symbol %></span>
+                <%= f.select :amount_type, options_for_select([[bot.quote_asset.symbol, :fixed], ['%', :percentage]], signal.amount_type), {}, data: { action: "change->form--select-toggle#toggle change->form--submit#submit change->form--select-display#update" } %>
+              </div>
+            </div>
+            <span data-form--select-toggle-target="section" data-select-toggle-value="percentage" style="<%= 'display:none' unless signal.percentage? %>"><%= t('bot.signal.of_the_balance') %></span>
+            <span><%= t('bot.signal.when_triggered') %></span>
+            <span class="tag"><%= t('bot.signal.url_placeholder') %></span>
+          </div>
+        </div>
+      </div>
+    </div>
+  <% end %>
+<% else %>
+  <%= form_with model: signal, url: bot_bot_signal_path(bot, signal), method: :patch,
+                id: dom_id(signal),
+                class: "widget rule #{signal.enabled? ? 'rule--active' : 'rule--inactive'}",
+                data: {
+                  controller: "class-toggle form--submit",
+                  class_toggle_target: "togglable",
+                  class_toggle_toggle_classes_value: ["rule--active", "rule--inactive"],
+                  turbo_stream: true
+                } do |f| %>
+    <div class="toggle-group">
+      <% if bot.bot_signals.size > 1 %>
+        <div class="toggle-group__controls">
+          <div class="toggle">
+            <%= f.check_box :enabled, checked: signal.enabled?, data: { action: "change->form--submit#submit change->class-toggle#toggle" }, disabled: bot.working? %>
+            <div class="toggle__style"></div>
+          </div>
+          <% unless bot.working? %>
+            <%= link_to bot_bot_signal_path(bot, signal), data: { turbo_method: :delete, turbo_stream: true }, class: "sbutton sbutton--danger sbutton--small" do %>
+              <%= render "svg/24x24_close_small" %>
+            <% end %>
+          <% end %>
+        </div>
+      <% end %>
+      <div class="toggle-group__info">
+        <div class="toggle-group__info__label">
+          <div class="conversational conversational--small" data-controller="form--select-toggle">
+            <div class="sinput sinput--select <%= 'sinput--disabled' if bot.working? %>">
+              <%= t("bot.#{signal.direction}") %>
+              <%= f.select :direction, options_for_select([[t('bot.buy'), :buy], [t('bot.sell'), :sell]], signal.direction), {}, data: { action: "change->form--submit#submit" }, disabled: bot.working? %>
+            </div>
+            <span><%= t('bot.signal.for') %></span>
+            <div class="ticker-input ticker-input--autoscale" data-controller="form--select-display">
+              <% value = signal.amount.present? ? signal.amount.to_d.to_s('F').sub(/([0-9]\d*)\.0$/, '\1') : nil %>
+              <%= f.number_field :amount, value: value, class: 'numeric-input', step: :any, size: 2, data: { controller: "autowidth-input", action: "input->form--submit#submit input->autowidth-input#resize" }, disabled: bot.working?, placeholder: "100" %>
+              <div class="sinput sinput--select <%= 'sinput--disabled' if bot.working? %>">
+                <span data-form--select-display-target="label"><%= signal.percentage? ? '%' : bot.quote_asset.symbol %></span>
+                <%= f.select :amount_type, options_for_select([[bot.quote_asset.symbol, :fixed], ['%', :percentage]], signal.amount_type), {}, data: { action: "change->form--select-toggle#toggle change->form--submit#submit change->form--select-display#update" }, disabled: bot.working? %>
+              </div>
+            </div>
+            <span data-form--select-toggle-target="section" data-select-toggle-value="percentage" style="<%= 'display:none' unless signal.percentage? %>"><%= t('bot.signal.of_the_balance') %></span>
+            <span><%= t('bot.signal.when_triggered') %></span>
+            <span class="tag"><%= request.base_url %><%= signal.webhook_url %></span>
+          </div>
+        </div>
+      </div>
+    </div>
+  <% end %>
+<% end %>

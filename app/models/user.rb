@@ -27,7 +27,7 @@ class User < ApplicationRecord
     has_any_metrics = false
 
     bots.not_deleted.each do |bot|
-      next unless bot.dca_single_asset? || bot.dca_dual_asset? || bot.dca_index?
+      next unless bot.dca_single_asset? || bot.dca_dual_asset? || bot.dca_index? || bot.signal?
 
       metrics = if use_cache
                   bot.metrics_with_current_prices_from_cache || bot.metrics_with_current_prices

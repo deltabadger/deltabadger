@@ -47,11 +47,15 @@ es:
             custom_portfolio:
                 title: "Cartera Personalizada"
                 description: "Rebalancea un mix de activos personalizado"
+            signal:
+                title: "Signal"
+                description: "Operar con señales externas"
         status:
             setting_orders: "Configurando órdenes…"
             paused: "Pausado"
             next_try: "Próximo intento en"
             waiting: "Esperando a que se cumplan todas las condiciones"
+            listening: "Escuchando"
         conversational:
             invest: "Invertir"
             into: "en"
@@ -94,6 +98,14 @@ es:
                     continue: 'Continuar con el programa original'
                     info_html: 'Todavía te quedan <b>%{time}</b> hasta la siguiente orden. Puedes saltártela y ejecutar la siguiente orden inmediatamente, o continuar con la cuenta atrás original.'
                     skip: Saltarlo
+        signal:
+            trade: "Operar"
+            spending: "gastando"
+            add_signal: "+ Añadir signal"
+            url_placeholder: "Webhook URL will show up here"
+            for: "por"
+            when_triggered: "cuando se active este webhook:"
+            of_the_balance: "del saldo"
         buy: Comprar
         counter: '%{countdown}'
         day: Día

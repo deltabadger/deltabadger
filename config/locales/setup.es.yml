@@ -15,6 +15,7 @@ es:
                 pick_exchange: "Elegir exchange"
                 address: "Dirección"
                 settings: "Configuración"
+                confirm: "Confirmar"
             sentence:
                 invest_in: "Invertir en"
                 and: "y"

@@ -1,0 +1,16 @@
+<%= render 'layouts/modal/full_page' do %>
+  <div class="bot-creation-layout">
+    <%= render partial: 'bots/signals/new_step_progress_bar', locals: { current_step: :confirm } %>
+
+    <div class="bot-creation-preview">
+      <div class="flex-row">
+        <%= link_to new_bots_signals_pick_exchange_path, data: { turbo_frame: "modal_content" }, class: "sbutton sbutton--exchange sbutton--exchange--#{@bot.exchange.name_id}" do %>
+          <%= render "svg/exchange-#{@bot.exchange.name_id}", title: @bot.exchange.name %>
+          <span class="hide-on-mobile"><%= @bot.exchange.name %></span>
+        <% end %>
+        <%= render partial: "bots/signals/create_bot_button", locals: { bot: @bot } %>
+      </div>
+      <%= render partial: "bots/signals/settings", locals: { bot: @bot } %>
+    </div>
+  </div>
+<% end %>

@@ -47,11 +47,15 @@ pl:
             custom_portfolio:
                 title: "Portfel Niestandardowy"
                 description: "Rebalansuj niestandardowy zestaw aktywów"
+            signal:
+                title: "Signal"
+                description: "Handluj na podstawie zewnętrznych sygnałów"
         status:
             setting_orders: "Ustawianie zleceń…"
             paused: "Wstrzymany"
             next_try: "Następna próba za"
             waiting: "Oczekiwanie na spełnienie wszystkich warunków"
+            listening: "Nasłuchiwanie"
         conversational:
             invest: "Inwestuj"
             into: "w"
@@ -94,6 +98,14 @@ pl:
                     continue: 'Kontynuuj zgodnie z planem'
                     info_html: 'Do następnego zlecenia pozostało jeszcze <b>%{time}</b>. Możesz je pominąć i od razu wykonać następne lub kontynuować oryginalne odliczanie.'
                     skip: Omiń
+        signal:
+            trade: "Handluj"
+            spending: "wydając"
+            add_signal: "+ Dodaj signal"
+            url_placeholder: "Webhook URL will show up here"
+            for: "za"
+            when_triggered: "gdy ten webhook zostanie wywołany:"
+            of_the_balance: "salda"
         buy: Kup
         counter: '%{countdown}'
         day: dzień

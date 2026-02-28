@@ -28,7 +28,7 @@ class BotsController < ApplicationController
     @loading_hash = {}
     @metrics_hash = {}
     @bots.each do |bot|
-      next unless bot.dca_single_asset? || bot.dca_dual_asset? || bot.dca_index?
+      next unless bot.dca_single_asset? || bot.dca_dual_asset? || bot.dca_index? || bot.signal?
 
       metrics_with_current_prices = bot.metrics_with_current_prices_from_cache
       @pnl_hash[bot.id] = metrics_with_current_prices[:pnl] unless metrics_with_current_prices.nil?
@@ -75,6 +75,11 @@ class BotsController < ApplicationController
         end
         # Build index preview from bot's current state
         @index_preview = @bot.current_index_preview
+      elsif @bot.signal?
+        @decimals = {
+          @bot.base_asset.symbol => @bot.decimals[:base],
+          @bot.quote_asset.symbol => @bot.decimals[:quote]
+        }
       end
 
       metrics_with_current_prices_and_candles = @bot.metrics_with_current_prices_and_candles_from_cache
@@ -122,6 +127,14 @@ class BotsController < ApplicationController
     )
   end
 
+  def signal_bot_params
+    params.require(:bots_signal).permit(
+      :label,
+      :exchange_id,
+      *Bots::Signal.stored_attributes[:settings]
+    )
+  end
+
   def update_params
     if @bot.dca_single_asset?
       {
@@ -146,6 +159,14 @@ class BotsController < ApplicationController
         ),
         exchange_id: dca_index_bot_params[:exchange_id],
         label: dca_index_bot_params[:label].presence
+      }.compact
+    elsif @bot.signal?
+      {
+        settings: @bot.settings.merge(
+          @bot.parse_params(signal_bot_params).stringify_keys
+        ),
+        exchange_id: signal_bot_params[:exchange_id],
+        label: signal_bot_params[:label].presence
       }.compact
     else
       raise "Unknown bot type: #{@bot.type}"

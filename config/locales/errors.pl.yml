@@ -38,6 +38,7 @@ pl:
         invalid_risk_free_rate_key: 'Nieprawidłowy klucz stopy wolnej od ryzyka.'
         api_key_permission_validation_failed: 'Nie udało się zweryfikować uprawnień klucza API'
         api_key_already_exists: 'Klucz API dla %{exchange_name} już istnieje'
+        withdrawal_rule_already_exists: 'Reguła wypłaty dla %{asset_symbol} na %{exchange_name} już istnieje'
         incorrect_api_key_permissions: 'Nieprawidłowe uprawnienia klucza API'
         unable_to_get_risk_free_rate: 'Nie można uzyskać stopy wolnej od ryzyka dla %{risk_free_rate_name}. Serwer API danych jest nieosiągalny.'
         invalid_number_of_allocations: 'Nieprawidłowa liczba alokacji'
@@ -49,6 +50,8 @@ pl:
             api_key_success: "Klucze API zostały pomyślnie zapisane"
             coingecko_required: "Klucz API CoinGecko jest wymagany dla botów indeksowych"
             market_data_required: "Dostawca danych rynkowych musi być skonfigurowany dla botów indeksowych. Przejdź do Ustawień, aby go połączyć."
+            signal_required: "Wymagany jest co najmniej jeden sygnał"
+            signal_minimum: "Nie można usunąć ostatniego sygnału"
         messages:
             accepted: 'musi zostać zaakceptowane'
             already_confirmed: 'został już potwierdzony, spróbuj się zalogować.'

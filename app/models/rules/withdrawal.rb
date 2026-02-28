@@ -9,10 +9,11 @@ class Rules::Withdrawal < Rule
   validates :address, presence: true
   validates :max_fee_percentage, presence: true,
                                  numericality: { greater_than: 0, less_than_or_equal_to: 100 },
-                                 unless: -> { threshold_type == 'min_amount' }
+                                 unless: -> { threshold_type == 'min_amount' },
+                                 if: -> { scheduled? }
   validates :min_amount, presence: true,
                          numericality: { greater_than: 0 },
-                         if: -> { threshold_type == 'min_amount' }
+                         if: -> { threshold_type == 'min_amount' && scheduled? }
 
   def api_key_type = :withdrawal
 

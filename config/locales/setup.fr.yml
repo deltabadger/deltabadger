@@ -15,6 +15,7 @@ fr:
                 pick_exchange: "Choisir la plateforme"
                 address: "Adresse"
                 settings: "Paramètres"
+                confirm: "Confirmer"
             sentence:
                 invest_in: "Investir dans"
                 and: "et"

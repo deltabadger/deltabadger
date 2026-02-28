@@ -83,6 +83,7 @@ pl:
         telegram: 'Telegram'
         create_account: 'Stwórz darmowe konto'
         bot: Bot
+        bots: Boty
         dashboard: Pulpit
         homepage: 'Link do strony głównej'
         log_in: Logowanie
@@ -90,6 +91,7 @@ pl:
         menu: Menu
         earn: 'Zarabiaj'
         resend_link: 'Wyślij link'
+        rules: Reguły
         settings: Ustawienia
         sign_up: 'Stwórz konto'
     settings:

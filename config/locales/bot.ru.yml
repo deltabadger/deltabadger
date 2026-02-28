@@ -44,11 +44,15 @@ ru:
             custom_portfolio:
                 title: "Пользовательский Портфель"
                 description: "Ребалансировка пользовательского набора активов"
+            signal:
+                title: "Signal"
+                description: "Торговля по внешним сигналам"
         status:
             setting_orders: "Настройка ордеров…"
             paused: "На паузе"
             next_try: "Следующая попытка через"
             waiting: "Ожидание выполнения всех условий"
+            listening: "Ожидание сигнала"
         conversational:
             invest: "Инвестировать"
             into: "в"
@@ -91,6 +95,14 @@ ru:
                     continue: 'Продолжить исходный график'
                     info_html: 'У вас остается <b>%{time}</b> до следующего ордера. Вы можете его пропустить и немедленно выполнить следующий ордер или продолжить обратный отсчет.'
                     skip: Пропустить
+        signal:
+            trade: "Торговать"
+            spending: "тратя"
+            add_signal: "+ Добавить сигнал"
+            url_placeholder: "Webhook URL will show up here"
+            for: "за"
+            when_triggered: "при вызове этого вебхука:"
+            of_the_balance: "от баланса"
         buy: Купить
         counter: ''
         day: День
