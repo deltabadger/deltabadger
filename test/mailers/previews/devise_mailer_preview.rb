@@ -31,7 +31,7 @@ class DeviseMailerPreview < ActionMailer::Preview
     User.find_by(email: email) || User.create!(
       email: email,
       name: 'Preview User',
-      password: 'password123',
+      password: 'Password123!',
       confirmed_at: Time.current
     )
 
