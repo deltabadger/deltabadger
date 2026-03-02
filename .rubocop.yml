@@ -80,6 +80,9 @@ Style/SafeNavigationChainLength:
   Enabled: false
 Style/MultilineBlockChain:
   Enabled: false
+Style/OneClassPerFile:
+  Exclude:
+    - 'test/**/*'
 
 # Naming — disabled
 Naming/BlockForwarding:
