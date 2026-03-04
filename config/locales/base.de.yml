@@ -116,12 +116,12 @@ de:
             free_plan_reset_date_html: 'Dein Limit wird am <b>%{end_time}</b> zurückgesetzt.'
             title: Einstellungen
             two_factor_section: Zwei-Faktor-Authentifizierung
-            registration_section: 'Registrierung'
+            registration_section: 'Mehrere Konten'
             resync_assets_section: 'Marktdaten'
             email_notifications_section: 'E-Mail-Benachrichtigungen'
         registration:
-            open: 'Die Registrierung neuer Konten ist offen.'
-            closed: 'Die Registrierung neuer Konten ist geschlossen.'
+            enable_sign_up: 'Registrierung aktivieren'
+            disable_sign_up: 'Registrierung deaktivieren'
             updated: 'Registrierungseinstellung aktualisiert.'
         resync_assets:
             button: 'Synchronisieren'
