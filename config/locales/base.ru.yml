@@ -119,12 +119,12 @@ ru:
             password_section: Пароль
             title: Настройки
             two_factor_section: 'Аутентификация по второму фактору'
-            registration_section: 'Регистрация'
+            registration_section: 'Несколько аккаунтов'
             resync_assets_section: 'Рыночные данные'
             email_notifications_section: 'Уведомления по почте'
         registration:
-            open: 'Регистрация новых аккаунтов открыта.'
-            closed: 'Регистрация новых аккаунтов закрыта.'
+            enable_sign_up: 'Включить регистрацию'
+            disable_sign_up: 'Отключить регистрацию'
             updated: 'Настройка регистрации обновлена.'
         resync_assets:
             button: 'Синхронизировать'

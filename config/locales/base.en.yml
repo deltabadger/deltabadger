@@ -119,10 +119,10 @@ en:
             two_factor_section: 'Second Factor Authentication'
             resync_assets_section: 'Market Data'
             email_notifications_section: 'Email Notifications'
-            registration_section: 'Registration'
+            registration_section: 'Multiple Accounts'
         registration:
-            open: 'New account registration is open.'
-            closed: 'New account registration is closed.'
+            enable_sign_up: 'Enable Sign Up'
+            disable_sign_up: 'Disable Sign Up'
             updated: 'Registration setting updated.'
         resync_assets:
             button: 'Synchronize'

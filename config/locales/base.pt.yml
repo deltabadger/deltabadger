@@ -115,12 +115,12 @@ pt:
             password_section: Palavra-passe
             title: Definições
             two_factor_section: 'Autenticação do Segundo Fator'
-            registration_section: 'Registro'
+            registration_section: 'Várias contas'
             resync_assets_section: 'Dados de mercado'
             email_notifications_section: 'Notificações por e-mail'
         registration:
-            open: 'O registro de novas contas está aberto.'
-            closed: 'O registro de novas contas está fechado.'
+            enable_sign_up: 'Ativar registo'
+            disable_sign_up: 'Desativar registo'
             updated: 'Configuração de registro atualizada.'
         resync_assets:
             button: 'Sincronizar'

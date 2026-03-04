@@ -118,12 +118,12 @@ pl:
             free_plan_reset_date_html: 'Twój limit zostanie zresetowany w dniu <b> %{end_time} </b>.'
             title: Ustawienia
             two_factor_section: 'Uwierzytelnianie drugim czynnikiem (2FA)'
-            registration_section: 'Rejestracja'
+            registration_section: 'Wiele kont'
             resync_assets_section: 'Dane rynkowe'
             email_notifications_section: 'Powiadomienia e-mail'
         registration:
-            open: 'Rejestracja nowych kont jest otwarta.'
-            closed: 'Rejestracja nowych kont jest zamknięta.'
+            enable_sign_up: 'Włącz rejestrację'
+            disable_sign_up: 'Wyłącz rejestrację'
             updated: 'Ustawienie rejestracji zaktualizowane.'
         resync_assets:
             button: 'Synchronizuj'

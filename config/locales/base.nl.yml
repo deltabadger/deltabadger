@@ -116,12 +116,12 @@ nl:
             free_plan_reset_date_html: 'Uw limiet wordt gereset op <b>%{end_time}</b>.'
             title: Instellingen
             two_factor_section: 'Second Factor Authentication'
-            registration_section: 'Registratie'
+            registration_section: 'Meerdere accounts'
             resync_assets_section: 'Marktgegevens'
             email_notifications_section: 'E-mailmeldingen'
         registration:
-            open: 'Registratie van nieuwe accounts is open.'
-            closed: 'Registratie van nieuwe accounts is gesloten.'
+            enable_sign_up: 'Registratie inschakelen'
+            disable_sign_up: 'Registratie uitschakelen'
             updated: 'Registratie-instelling bijgewerkt.'
         resync_assets:
             button: 'Synchroniseren'
