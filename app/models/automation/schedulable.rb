@@ -85,14 +85,14 @@ module Automation::Schedulable
     SolidQueue::ScheduledExecution.joins(:job)
                                   .where(solid_queue_jobs: { class_name: job_class.to_s })
                                   .find_each do |execution|
-                                    execution.job.destroy if job_matches_record?(execution.job, global_id)
+      execution.job.destroy if job_matches_record?(execution.job, global_id)
     end
 
     # Cancel ready (queued) jobs
     SolidQueue::ReadyExecution.joins(:job)
                               .where(solid_queue_jobs: { class_name: job_class.to_s })
                               .find_each do |execution|
-                                execution.job.destroy if job_matches_record?(execution.job, global_id)
+      execution.job.destroy if job_matches_record?(execution.job, global_id)
     end
   end
 
@@ -105,7 +105,7 @@ module Automation::Schedulable
                                   .where(solid_queue_jobs: { class_name: job_class.to_s })
                                   .order(:scheduled_at)
                                   .find_each do |execution|
-                                    return execution.scheduled_at.in_time_zone if job_matches_record?(execution.job, global_id)
+      return execution.scheduled_at.in_time_zone if job_matches_record?(execution.job, global_id)
     end
 
     nil

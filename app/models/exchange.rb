@@ -39,6 +39,7 @@ class Exchange < ApplicationRecord
              when 'bingx' then ExchangeApi::Markets::Bingx::Market.new
              when 'bitrue' then ExchangeApi::Markets::Bitrue::Market.new
              when 'bitmart' then ExchangeApi::Markets::Bitmart::Market.new
+             when 'alpaca' then return Result::Success.new([]) # Alpaca stocks are not synced via symbols
              else
                Result::Failure.new("Unsupported exchange #{name}")
              end
@@ -123,6 +124,14 @@ class Exchange < ApplicationRecord
 
   def cancel_order(order_id:)
     raise NotImplementedError, "#{self.class.name} must implement cancel_order"
+  end
+
+  def market_open?
+    true
+  end
+
+  def next_market_open_at
+    Time.current
   end
 
   def supports_withdrawal?

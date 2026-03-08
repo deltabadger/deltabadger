@@ -139,6 +139,7 @@ class Bots::Signal < Bot
   end
 
   def validate_bot_exchange
+    return if stopped? || deleted?
     return if exchange.tickers.available.exists?(base_asset:, quote_asset:)
 
     errors.add(:exchange, :unsupported, message: I18n.t('errors.bots.exchange_asset_mismatch', exchange_name: exchange.name))

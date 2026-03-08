@@ -137,6 +137,16 @@ en:
             deltabadger_configured: 'Connected to %{provider_name} for live market data.'
             disconnect: 'Disconnect'
             disconnected: 'Market data provider disconnected.'
+        stocks:
+            title: 'Stocks (Alpaca)'
+            enabled: 'Stocks enabled. Syncing assets from Alpaca...'
+            disabled: 'Stocks disabled.'
+            disconnected: 'Alpaca disconnected. Stock tickers marked unavailable.'
+            configured: 'Connected to Alpaca (%{mode}). Stock assets are synced.'
+            invalid_api_key: 'Invalid Alpaca API key. Please check your credentials.'
+            disconnect: 'Disconnect'
+            mode_paper: 'Paper'
+            mode_live: 'Live'
         email_notifications:
             none: 'None'
             smtp_host: 'SMTP host'

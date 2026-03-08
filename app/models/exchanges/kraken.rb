@@ -139,8 +139,8 @@ class Exchanges::Kraken < Exchange
     return Result::Failure.new(*error) if error.any?
 
     asset_ids ||= assets.pluck(:id)
-    balances = asset_ids.each_with_object({}) do |asset_id, balances_hash|
-      balances_hash[asset_id] = { free: 0, locked: 0 }
+    balances = asset_ids.to_h do |asset_id|
+      [asset_id, { free: 0, locked: 0 }]
     end
     balances_data = Utilities::Hash.dig_or_raise(result.data, 'result')
     balances_data.each do |asset, balance|

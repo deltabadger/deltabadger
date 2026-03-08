@@ -5,7 +5,7 @@
 <div class="widget main-rule">
   <div class="conversational flex-justify-center">
     <%= t('bot.signal.trade') %>
-    <div class="ticker" style="background: <%= base_color %>">
+    <div class="<%= ticker_class(bot.base_asset) %>" style="background: <%= base_color %>">
       <%= base %>
     </div>
     <%= t('bot.signal.spending') %>

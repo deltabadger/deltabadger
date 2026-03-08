@@ -1,4 +1,4 @@
-<%= render 'layouts/modal/full_page' do %>
+<%= render 'layouts/modal/full_page', **(params[:auto_open] ? { close_url: "" } : {}) do %>
   <div class="bot-creation-layout">
 
     <%= render partial: 'bots/dca_single_assets/new_step_progress_bar', locals: {
@@ -14,8 +14,8 @@
 
     <%= turbo_frame_tag "asset-picker", data: { action: "keydown@window->arrow-keys-navigation#navigate", controller: "arrow-keys-navigation" }, class: "modal--search__assets selectable-options" do %>
       <%= form_with model: @bot, url: bots_dca_single_assets_pick_buyable_asset_path, method: :post do |f| %>
-        <% @assets.each do |id, symbol, name, color, exchanges| %>
-          <%= render partial: "bots/asset_search_result", locals: { bot: @bot, asset_field: :base_asset_id, id: id, symbol: symbol, name: name, color: color, exchanges: exchanges } %>
+        <% @assets.each do |id, symbol, name, color, category, exchanges| %>
+          <%= render partial: "bots/asset_search_result", locals: { bot: @bot, asset_field: :base_asset_id, id: id, symbol: symbol, name: name, color: color, category: category, exchanges: exchanges } %>
         <% end %>
         <% if @next_page_url %>
           <%= turbo_frame_tag @next_page_frame_id, src: @next_page_url, loading: :lazy %>

@@ -140,6 +140,12 @@ class Bots::DcaDualAsset < Bot
 
     case asset_type
     when :base_asset
+      # When picking second asset, narrow to exchanges that also have the first asset
+      if exchange.blank? && base_asset_ids.any?
+        shared_exchange_ids = Ticker.available.where(exchange: available_exchanges, base_asset_id: base_asset_ids)
+                                    .pluck(:exchange_id).uniq
+        available_exchanges = Exchange.where(id: shared_exchange_ids)
+      end
       scope = Ticker.available
                     .where(exchange: available_exchanges)
                     .where.not(base_asset_id: base_asset_ids + [quote_asset_id])
@@ -239,6 +245,7 @@ class Bots::DcaDualAsset < Bot
   end
 
   def validate_bot_exchange
+    return if stopped? || deleted?
     return if exchange.tickers.available.exists?(base_asset: base0_asset, quote_asset:) &&
               exchange.tickers.available.exists?(base_asset: base1_asset, quote_asset:)
 

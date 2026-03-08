@@ -99,16 +99,18 @@ class Bots::DcaSingleAsset < Bot
   end
 
   def execute_action
-    update!(status: :executing)
-    result = set_order(
-      order_amount_in_quote: pending_quote_amount,
-      update_missed_quote_amount: true
-    )
-    return result if result.failure?
+    with_api_key do
+      update!(status: :executing)
+      result = set_order(
+        order_amount_in_quote: pending_quote_amount,
+        update_missed_quote_amount: true
+      )
+      return result if result.failure?
 
-    update!(status: :waiting)
-    broadcast_below_minimums_warning
-    Result::Success.new
+      update!(status: :waiting)
+      broadcast_below_minimums_warning
+      Result::Success.new
+    end
   end
 
   def available_exchanges_for_current_settings
@@ -204,6 +206,7 @@ class Bots::DcaSingleAsset < Bot
   end
 
   def validate_bot_exchange
+    return if stopped? || deleted?
     return if exchange.tickers.available.exists?(base_asset:, quote_asset:)
 
     errors.add(:exchange, :unsupported, message: I18n.t('errors.bots.exchange_asset_mismatch', exchange_name: exchange.name))

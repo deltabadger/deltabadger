@@ -4,11 +4,8 @@ class Bots::DcaDualAssets::PickFirstBuyableAssetsController < ApplicationControl
   include Bots::Searchable
 
   def new
-    session[:bot_config] ||= {}
+    session[:bot_config] = { 'label' => session.dig(:bot_config, 'label') || Bots::DcaDualAsset.new.label }
     @bot = current_user.bots.dca_dual_asset.new(session[:bot_config])
-    @bot.base0_asset_id = nil
-    @bot.exchange_id = nil
-    session[:bot_config]['label'] ||= @bot.label
     @assets = asset_search_results(@bot, search_params[:query], :base_asset)
     nil if render_asset_page(bot: @bot, asset_field: :base0_asset_id)
   end
