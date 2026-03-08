@@ -37,7 +37,7 @@ class Exchanges::Hyperliquid < Exchange
 
       tokens = result.data['tokens']
       universe = result.data['universe']
-      token_map = tokens.each_with_object({}) { |t, h| h[t['index']] = t }
+      token_map = tokens.to_h { |t| [t['index'], t] }
 
       universe.map do |pair|
         base_token = token_map[pair['tokens'][0]]
@@ -83,8 +83,8 @@ class Exchanges::Hyperliquid < Exchange
     return result if result.failure?
 
     asset_ids ||= assets.pluck(:id)
-    balances = asset_ids.each_with_object({}) do |asset_id, balances_hash|
-      balances_hash[asset_id] = { free: 0, locked: 0 }
+    balances = asset_ids.to_h do |asset_id|
+      [asset_id, { free: 0, locked: 0 }]
     end
 
     balance_list = result.data['balances'] || []

@@ -90,6 +90,11 @@ FactoryBot.define do
       name { 'Bitmart' }
       type { 'Exchanges::Bitmart' }
     end
+
+    factory :alpaca_exchange, class: 'Exchanges::Alpaca' do
+      name { 'Alpaca' }
+      type { 'Exchanges::Alpaca' }
+    end
   end
 
   # Asset factory with traits for common cryptocurrencies

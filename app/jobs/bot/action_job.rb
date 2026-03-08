@@ -7,6 +7,14 @@ class Bot::ActionJob < BotJob
     return unless bot.scheduled? || bot.retrying?
     raise "ActionJob for bot #{bot.id}: The bot already has an action job scheduled" if bot.next_action_job_at.present?
 
+    bot.ensure_exchange_authenticated
+    unless bot.exchange.market_open?
+      Rails.logger.info("ActionJob for bot #{bot.id}: market closed, rescheduling to #{bot.exchange.next_market_open_at}")
+      Bot::ActionJob.set(wait_until: bot.exchange.next_market_open_at).perform_later(bot)
+      Bot::BroadcastAfterScheduledActionJob.perform_later(bot)
+      return
+    end
+
     bot.update!(last_action_job_at: Time.current)
     result = bot.execute_action
     if result.failure?

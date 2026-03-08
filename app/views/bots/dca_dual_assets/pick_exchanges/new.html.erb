@@ -7,9 +7,9 @@
 
     <div class="conversational conversational--bot-setup">
       <%= t('bot.setup.sentence.invest_in') %>
-      <%= link_to @bot.base0_asset.symbol, new_bots_dca_dual_assets_pick_first_buyable_asset_path, data: { turbo_frame: "modal_content" }, class: "ticker", style: "background: #{base0_color}" %>
+      <%= link_to @bot.base0_asset.symbol, new_bots_dca_dual_assets_pick_first_buyable_asset_path, data: { turbo_frame: "modal_content" }, class: ticker_class(@bot.base0_asset), style: "background: #{base0_color}" %>
       <%= t('bot.setup.sentence.and') %>
-      <%= link_to @bot.base1_asset.symbol, new_bots_dca_dual_assets_pick_second_buyable_asset_path, data: { turbo_frame: "modal_content" }, class: "ticker", style: "background: #{base1_color}" %>
+      <%= link_to @bot.base1_asset.symbol, new_bots_dca_dual_assets_pick_second_buyable_asset_path, data: { turbo_frame: "modal_content" }, class: ticker_class(@bot.base1_asset), style: "background: #{base1_color}" %>
       <%= t('bot.setup.sentence.at') %>
       <%= form_with url: new_bots_dca_dual_assets_pick_exchange_path, method: :get, data: { controller: "form--submit-after-delay", turbo_frame: "exchange-picker" } do |f| %>
         <%= f.text_field :query, autofocus: true, autocomplete: "off", placeholder: "…", data: { action: "input->form--submit-after-delay#submit" }, class: "conversational__input sinput" %>
@@ -21,12 +21,11 @@
         <div><%= t('bot.fees') %>:</div>
         <div>Maker</div>
         <div>Taker</div>
-        <div><%= t('bot.withdrawal_fee') %> (<%= @bot.base0_asset.symbol %>)</div>
       </div>
       <div class="selectable-options">
         <%= form_with model: @bot, url: bots_dca_dual_assets_pick_exchange_path, method: :post do |f| %>
           <% @exchanges.each do |exchange| %>
-            <%= render partial: "bots/exchange_search_result", locals: { bot: @bot, exchange: exchange, withdrawal_fees: @withdrawal_fees } %>
+            <%= render partial: "bots/exchange_search_result", locals: { bot: @bot, exchange: exchange } %>
           <% end %>
         <% end %>
       </div>

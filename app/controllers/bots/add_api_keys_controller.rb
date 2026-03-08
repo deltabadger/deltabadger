@@ -16,6 +16,7 @@ class Bots::AddApiKeysController < ApplicationController
     result = @api_key.get_validity
     @api_key.update_status!(result)
     if @api_key.correct?
+      sync_alpaca_settings(@api_key) if @bot.exchange.is_a?(Exchanges::Alpaca)
       flash[:notice] = t('errors.bots.api_key_success')
       render turbo_stream: turbo_stream_page_refresh
     elsif @api_key.incorrect?
@@ -31,5 +32,12 @@ class Bots::AddApiKeysController < ApplicationController
 
   def api_key_params
     params.require(:api_key).permit(:key, :secret, :passphrase)
+  end
+
+  def sync_alpaca_settings(api_key)
+    AppConfig.set('alpaca_api_key', api_key.key)
+    AppConfig.set('alpaca_api_secret', api_key.secret)
+    AppConfig.set('alpaca_mode', api_key.passphrase == 'live' ? 'live' : 'paper')
+    Exchange::SyncAlpacaAssetsJob.perform_later
   end
 end

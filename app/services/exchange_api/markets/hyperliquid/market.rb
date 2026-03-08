@@ -14,7 +14,7 @@ module ExchangeApi
 
           tokens = result.data['tokens']
           universe = result.data['universe']
-          token_map = tokens.each_with_object({}) { |t, h| h[t['index']] = t }
+          token_map = tokens.to_h { |t| [t['index'], t] }
 
           market_symbols = universe.map do |pair|
             base_token = token_map[pair['tokens'][0]]

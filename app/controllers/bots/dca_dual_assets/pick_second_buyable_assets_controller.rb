@@ -19,13 +19,28 @@ class Bots::DcaDualAssets::PickSecondBuyableAssetsController < ApplicationContro
     if bot_params[:base1_asset_id].present?
       bot = current_user.bots.dca_dual_asset.new(session[:bot_config])
       session[:bot_config].deep_merge!({ settings: bot.parse_params(bot_params) }.deep_stringify_keys)
-      redirect_to new_bots_dca_dual_assets_pick_exchange_path
+
+      base0 = Asset.find_by(id: session.dig(:bot_config, 'settings', 'base0_asset_id'))
+      base1 = Asset.find_by(id: bot_params[:base1_asset_id])
+      if base0&.category == 'Stock' || base1&.category == 'Stock'
+        set_stock_defaults
+        redirect_to new_bots_dca_dual_assets_add_api_key_path
+      else
+        redirect_to new_bots_dca_dual_assets_pick_exchange_path
+      end
     else
       render :new, status: :unprocessable_entity
     end
   end
 
   private
+
+  def set_stock_defaults
+    alpaca = Exchanges::Alpaca.first
+    usd = Asset.find_by(external_id: 'usd')
+    session[:bot_config]['exchange_id'] = alpaca.id if alpaca
+    session[:bot_config].deep_merge!({ 'settings' => { 'quote_asset_id' => usd.id } }) if usd
+  end
 
   def search_params
     params.permit(:query)

@@ -54,7 +54,7 @@
     
   </head>
 
-  <body data-controller="hotwire-animations app-wake" data-locale="<%= I18n.locale %>">
+  <body data-controller="hotwire-animations app-wake" data-locale="<%= I18n.locale %>" <% if content_for?(:hide_chrome) %>class="hide-chrome"<% end %>>
 
     <div data-tauri-drag-region class="titlebar-drag-region"></div>
 
@@ -71,7 +71,19 @@
       </div>
     </div>
 
-    <%= turbo_frame_tag 'modal' %>
+    <%= turbo_frame_tag 'modal', src: (content_for(:modal_src) if content_for?(:modal_src)) %>
+
+    <% if content_for?(:hide_chrome) %>
+      <script>
+        function revealChrome(e) {
+          if (!e.detail) {
+            document.body.classList.remove('hide-chrome')
+            window.removeEventListener('modalIsOpen', revealChrome)
+          }
+        }
+        window.addEventListener('modalIsOpen', revealChrome)
+      </script>
+    <% end %>
 
   </body>
 </html>

@@ -18,12 +18,11 @@
         <div><%= t('bot.fees') %>:</div>
         <div>Maker</div>
         <div>Taker</div>
-        <div><%= t('rules.withdrawals.pick_exchange.withdrawal_fee') %></div>
       </div>
       <div class="selectable-options">
         <%= form_with url: rules_withdrawals_pick_exchange_path, method: :post do |f| %>
           <% @exchanges.each do |exchange| %>
-            <%= render partial: "rules/withdrawals/exchange_search_result", locals: { bot: @bot, exchange: exchange, withdrawal_fees: @withdrawal_fees } %>
+            <%= render partial: "rules/withdrawals/exchange_search_result", locals: { bot: @bot, exchange: exchange } %>
           <% end %>
         <% end %>
       </div>

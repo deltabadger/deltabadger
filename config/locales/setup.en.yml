@@ -13,6 +13,7 @@ en:
                 index: "Pick index"
                 pick_asset: "Pick asset"
                 pick_exchange: "Pick exchange"
+                stock: "Pick stock"
                 address: "Address"
                 settings: "Settings"
                 confirm: "Confirm"
@@ -48,6 +49,14 @@ en:
                 instructions_8_html: 'Copy and paste your new API keys into the form above.'
                 private_key: 'Secret'
                 public_key: 'API key'
+            alpaca:
+                instructions_1_html: 'Sign up or log into your %{exchange_link} account.'
+                instructions_2_html: 'Go to <b>Paper Trading</b> or <b>Live Trading</b> dashboard.'
+                instructions_3_html: 'Navigate to <b>API Keys</b> in the left sidebar.'
+                instructions_4_html: 'Click <b>Generate New Key</b>.'
+                instructions_5_html: 'Copy and paste your new API Key ID and Secret Key into the form above.'
+                private_key: 'Secret Key'
+                public_key: 'API Key ID'
             error_info: 'Validation failed. Try again or generate new keys.'
             frequency_limit:
                 back_to_settings: 'Back to settings'

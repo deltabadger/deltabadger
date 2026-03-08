@@ -4,6 +4,7 @@ class SettingsController < ApplicationController
     update_registration
     update_email_notifications disconnect_email send_test_email
     update_market_data disconnect_market_data update_coingecko_key destroy_coingecko_key resync_assets
+    update_stocks disconnect_stocks
   ]
 
   def index
@@ -178,6 +179,68 @@ class SettingsController < ApplicationController
     ]
   end
 
+  def update_stocks
+    api_key = params[:alpaca_api_key]
+    api_secret = params[:alpaca_api_secret]
+    mode = params[:alpaca_mode] || 'paper'
+
+    if api_key.blank? || api_secret.blank?
+      # Disable stocks
+      AppConfig.clear_alpaca_settings!
+      flash.now[:notice] = t('settings.stocks.disabled')
+      return render turbo_stream: [
+        turbo_stream.replace('stocks_settings', partial: 'settings/widgets/stocks'),
+        turbo_stream.prepend('flash', partial: 'layouts/flash')
+      ]
+    end
+
+    unless validate_alpaca_api_key(api_key, api_secret, mode)
+      flash.now[:alert] = t('settings.stocks.invalid_api_key')
+      return render turbo_stream: [
+        turbo_stream.replace('stocks_settings', partial: 'settings/widgets/stocks'),
+        turbo_stream.prepend('flash', partial: 'layouts/flash')
+      ], status: :unprocessable_entity
+    end
+
+    AppConfig.set('alpaca_api_key', api_key)
+    AppConfig.set('alpaca_api_secret', api_secret)
+    AppConfig.set('alpaca_mode', mode)
+
+    # Create/update ApiKey for current user (for trading in regular DCA flow)
+    exchange = Exchanges::Alpaca.first
+    if exchange
+      user_api_key = current_user.api_keys.find_or_initialize_by(exchange: exchange, key_type: :trading)
+      user_api_key.key = api_key
+      user_api_key.secret = api_secret
+      user_api_key.passphrase = mode
+      user_api_key.save!
+      user_api_key.update_status!(Result::Success.new(true))
+    end
+
+    Exchange::SyncAlpacaAssetsJob.perform_later
+    flash.now[:notice] = t('settings.stocks.enabled')
+    render turbo_stream: [
+      turbo_stream.replace('stocks_settings', partial: 'settings/widgets/stocks'),
+      turbo_stream.prepend('flash', partial: 'layouts/flash')
+    ]
+  end
+
+  def disconnect_stocks
+    AppConfig.clear_alpaca_settings!
+
+    exchange = Exchanges::Alpaca.first
+    if exchange
+      exchange.tickers.update_all(available: false)
+      ApiKey.where(exchange: exchange).update_all(status: :pending_validation)
+    end
+
+    flash.now[:notice] = t('settings.stocks.disconnected')
+    render turbo_stream: [
+      turbo_stream.replace('stocks_settings', partial: 'settings/widgets/stocks'),
+      turbo_stream.prepend('flash', partial: 'layouts/flash')
+    ]
+  end
+
   def update_registration
     AppConfig.registration_open = params[:registration_open] == '1'
     flash.now[:notice] = t('settings.registration.updated')
@@ -257,6 +320,17 @@ class SettingsController < ApplicationController
 
     coingecko = Coingecko.new(api_key: api_key)
     result = coingecko.get_coins_list_with_market_data(ids: ['bitcoin'], limit: 1)
+    result.success?
+  end
+
+  def validate_alpaca_api_key(api_key, api_secret, mode)
+    return false if api_key.blank? || api_secret.blank?
+
+    result = Clients::Alpaca.new(
+      api_key: api_key,
+      api_secret: api_secret,
+      paper: mode != 'live'
+    ).get_account
     result.success?
   end
 

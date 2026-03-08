@@ -53,6 +53,7 @@ class Users::SessionsController < Devise::SessionsController
 
   def continue_sign_in(resource_name, resource)
     sign_in(resource_name, resource)
+    session[:auto_open_bot_wizard] = true
     location = after_sign_in_path_for(resource)
     # Use user's saved locale preference unless they explicitly chose one during login
     if params[:locale].blank? && resource.locale.present? && resource.locale != I18n.default_locale.to_s

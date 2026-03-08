@@ -1,6 +1,10 @@
 <%= turbo_stream_from "user_#{current_user.id}", :bot_updates %>
 
 <% if @bots.empty? %>
+  <% if @auto_open_dca %>
+    <% content_for :modal_src, new_bots_dca_single_assets_pick_buyable_asset_path(auto_open: true) %>
+    <% content_for :hide_chrome, true %>
+  <% end %>
   <%= render partial: 'bots/new_menu_start' %>
 <% else %>
   <section class="dash-intro">

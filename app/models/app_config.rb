@@ -19,6 +19,11 @@ class AppConfig < ApplicationRecord
   REGISTRATION_OPEN = 'registration_open'.freeze
 
   # SMTP/Email notification settings
+  # Alpaca (stocks) settings
+  ALPACA_API_KEY = 'alpaca_api_key'.freeze
+  ALPACA_API_SECRET = 'alpaca_api_secret'.freeze
+  ALPACA_MODE = 'alpaca_mode'.freeze # 'paper' or 'live'
+
   SMTP_PROVIDER = 'smtp_provider'.freeze # 'custom_smtp' or 'env_smtp'
   SMTP_USERNAME = 'smtp_username'.freeze
   SMTP_PASSWORD = 'smtp_password'.freeze
@@ -212,6 +217,17 @@ class AppConfig < ApplicationRecord
 
   def self.market_data_env_provider_name
     ENV.fetch('MARKET_DATA_PROVIDER_NAME', ENV['MARKET_DATA_URL'])
+  end
+
+  # Alpaca (stocks) configuration methods
+  def self.alpaca_configured?
+    get(ALPACA_API_KEY).present?
+  end
+
+  def self.clear_alpaca_settings!
+    delete(ALPACA_API_KEY)
+    delete(ALPACA_API_SECRET)
+    delete(ALPACA_MODE)
   end
 
   def self.clear_market_data_settings!
