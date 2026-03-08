@@ -18,6 +18,10 @@ production:
     class: Bot::RepairOrphanedBotsJob
     schedule: "*/15 * * * *"  # Every 15 minutes
 
+  sync_alpaca_assets_job:
+    class: Exchange::SyncAlpacaAssetsJob
+    schedule: "0 3 * * 1"  # At 03:00 UTC on Monday
+
   evaluate_all_rules_job:
     class: Rule::EvaluateAllJob
     schedule: "0 */4 * * *"  # Every 4 hours
@@ -38,6 +42,10 @@ development:
   repair_orphaned_bots_job:
     class: Bot::RepairOrphanedBotsJob
     schedule: "*/5 * * * *"  # Every 5 minutes for testing
+
+  sync_alpaca_assets_job:
+    class: Exchange::SyncAlpacaAssetsJob
+    schedule: "0 3 * * 1"  # At 03:00 UTC on Monday
 
   evaluate_all_rules_job:
     class: Rule::EvaluateAllJob
