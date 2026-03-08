@@ -4,7 +4,7 @@ class Exchange::SyncAllTickersAndAssetsJob < ApplicationJob
   def perform
     return unless MarketData.configured?
 
-    Exchange.available.each_with_index do |exchange, i|
+    Exchange.available.where.not(type: 'Exchanges::Alpaca').each_with_index do |exchange, i|
       Exchange::SyncTickersAndAssetsJob.set(wait: i * 1.minute).perform_later(exchange)
     end
   end
