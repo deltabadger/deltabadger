@@ -7,4 +7,8 @@ module ApplicationHelper
   def exchange_icon_svg(exchange_name_id)
     EXCHANGE_SVGS[exchange_name_id]
   end
+
+  def ticker_class(asset)
+    asset&.category == 'Stock' ? 'ticker ticker--stock' : 'ticker'
+  end
 end

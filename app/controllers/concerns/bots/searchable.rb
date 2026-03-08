@@ -37,16 +37,16 @@ module Bots::Searchable
   def build_asset_search_results(bot, query, asset_type)
     available_assets = bot.available_assets_for_current_settings(asset_type: asset_type)
     filtered_assets = filter_assets_by_query(assets: available_assets, query: query)
-                      .pluck(:id, :symbol, :name, :color)
+                      .pluck(:id, :symbol, :name, :color, :category)
                       .reject { |_, symbol, _| symbol.blank? }
     exchanges_data = Exchange.available.each_with_object([]) do |exchange, list|
       assets = exchange.exchange_assets.available.pluck(:asset_id)
       list << [exchange.name_id, exchange.name, assets] if assets.any?
     end
     binance_name = exchanges_data.find { |name_id, _, _| name_id == 'binance' }&.second
-    filtered_assets.map do |id, symbol, name, color|
+    filtered_assets.map do |id, symbol, name, color, category|
       exchanges = exchanges_data.select { |_, _, assets| assets.include?(id) }
-      [id, symbol, name, color, parse_exchanges(exchanges, binance_name)]
+      [id, symbol, name, color, category, parse_exchanges(exchanges, binance_name)]
     end
   end
 
@@ -65,11 +65,32 @@ module Bots::Searchable
     # Sort by market cap rank (lower = higher market cap), assets without market cap go last
     return assets.order(Arel.sql('market_cap_rank IS NULL'), :market_cap_rank, :symbol) if query.blank?
 
-    assets
-      .map { |asset| [asset, similarities_for_asset(asset, query.downcase)] }
-      .select { |_, similarities| similarities.first >= 0.7 }
-      .sort_by { |asset, similarities| [similarities.map(&:-@), asset.market_cap_rank || Float::INFINITY] }
-      .map(&:first)
+    q = query.downcase
+
+    # Phase 1: exact symbol match (BTC → BTC)
+    exact = assets.where('LOWER(symbol) = ?', q)
+
+    # Phase 2: symbol starts with query (BT → BTC, BTT, …)
+    prefix = assets.where('LOWER(symbol) LIKE ?', "#{q}%").where.not(id: exact.select(:id))
+
+    # Phase 3: name contains query (bitcoin → Bitcoin)
+    name_match = assets.where('LOWER(name) LIKE ?', "%#{q}%")
+                       .where.not(id: exact.select(:id))
+                       .where.not(id: prefix.select(:id))
+
+    # Phase 4: fuzzy match via JaroWinkler on remaining assets (capped to avoid loading all 18k)
+    excluded_ids = exact.pluck(:id) + prefix.pluck(:id) + name_match.pluck(:id)
+    fuzzy_candidates = excluded_ids.any? ? assets.where.not(id: excluded_ids) : assets
+    fuzzy = fuzzy_candidates.limit(2000)
+                            .select { |asset| similarities_for_asset(asset, q).first >= 0.85 }
+
+    # Each phase sorted by market cap rank
+    rank_sort = ->(a) { a.market_cap_rank || Float::INFINITY }
+
+    exact.order(Arel.sql('market_cap_rank IS NULL'), :market_cap_rank).to_a +
+      prefix.order(Arel.sql('market_cap_rank IS NULL'), :market_cap_rank).to_a +
+      name_match.order(Arel.sql('market_cap_rank IS NULL'), :market_cap_rank).to_a +
+      fuzzy.sort_by(&rank_sort)
   end
 
   def similarities_for_asset(asset, query)
@@ -77,15 +98,6 @@ module Bots::Searchable
       asset.symbol.present? ? JaroWinkler.similarity(asset.symbol.downcase.to_s, query) : 0,
       asset.name.present? ? JaroWinkler.similarity(asset.name.downcase.to_s, query) : 0
     ].sort.reverse
-  end
-
-  def withdrawal_fees_for(exchanges:, asset:)
-    fees = {}
-    exchanges.each do |exchange|
-      fee = exchange.withdrawal_fee_for(asset: asset)
-      fees[exchange.id] = fee&.to_s('F')
-    end
-    fees
   end
 
   def filter_exchanges_by_query(exchanges:, query:)

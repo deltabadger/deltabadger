@@ -6,7 +6,7 @@
 
     <div class="conversational conversational--bot-setup">
       <%= t('bot.setup.sentence.invest_in') %>
-      <%= link_to @bot.base_asset.symbol, new_bots_dca_single_assets_pick_buyable_asset_path, data: { turbo_frame: "modal_content" }, class: "ticker", style: "background: #{base_color}" %>
+      <%= link_to @bot.base_asset.symbol, new_bots_dca_single_assets_pick_buyable_asset_path, data: { turbo_frame: "modal_content" }, class: ticker_class(@bot.base_asset), style: "background: #{base_color}" %>
       <%= t('bot.setup.sentence.at') %>
       <%= form_with url: new_bots_dca_single_assets_pick_exchange_path, method: :get, data: { controller: "form--submit-after-delay", turbo_frame: "exchange-picker" } do |f| %>
         <%= f.text_field :query, autofocus: true, autocomplete: "off", placeholder: "…", data: { action: "input->form--submit-after-delay#submit" }, class: "conversational__input sinput" %>
@@ -18,12 +18,11 @@
         <div><%= t('bot.fees') %>:</div>
         <div>Maker</div>
         <div>Taker</div>
-        <div><%= t('bot.withdrawal_fee') %></div>
       </div>
       <div class="selectable-options">
         <%= form_with model: @bot, url: bots_dca_single_assets_pick_exchange_path, method: :post do |f| %>
           <% @exchanges.each do |exchange| %>
-            <%= render partial: "bots/exchange_search_result", locals: { bot: @bot, exchange: exchange, withdrawal_fees: @withdrawal_fees } %>
+            <%= render partial: "bots/exchange_search_result", locals: { bot: @bot, exchange: exchange } %>
           <% end %>
         <% end %>
       </div>

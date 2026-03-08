@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_02_28_152720) do
+ActiveRecord::Schema[8.1].define(version: 2026_03_08_090843) do
   create_table "api_keys", force: :cascade do |t|
     t.datetime "created_at", precision: nil, null: false
     t.bigint "exchange_id", null: false

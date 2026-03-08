@@ -45,6 +45,16 @@ en:
             signal:
                 title: "Signal"
                 description: "Trade based on external signals"
+            dca_stocks:
+                title: "DCA (stocks)"
+                description: "Buy stocks with Alpaca"
+        dca_stocks:
+            connect_alpaca_intro: "Connect your Alpaca account to start investing in stocks"
+            pick_stock: "Search for a stock"
+            no_results: "No stocks found"
+            stock_not_found: "Stock not found on Alpaca"
+            mode_paper: "Paper trading"
+            mode_live: "Live trading"
         status:
             setting_orders: "Setting orders…"
             paused: "Paused"

@@ -13,7 +13,7 @@ class Bots::DcaSingleAssets::AddApiKeysController < ApplicationController
         result = @api_key.get_validity
         @api_key.update_status!(result)
       end
-      redirect_to new_bots_dca_single_assets_pick_spendable_asset_path if @api_key.correct?
+      redirect_to after_api_key_path if @api_key.correct?
     end
   end
 
@@ -27,7 +27,8 @@ class Bots::DcaSingleAssets::AddApiKeysController < ApplicationController
     result = @api_key.get_validity
     @api_key.update_status!(result)
     if @api_key.correct?
-      render turbo_stream: turbo_stream_redirect(new_bots_dca_single_assets_pick_spendable_asset_path)
+      sync_alpaca_settings(@api_key) if @bot.exchange.is_a?(Exchanges::Alpaca)
+      render turbo_stream: turbo_stream_redirect(after_api_key_path)
     elsif @api_key.incorrect?
       flash.now[:alert] = t('errors.incorrect_api_key_permissions')
       render :new, status: :unprocessable_entity
@@ -41,5 +42,20 @@ class Bots::DcaSingleAssets::AddApiKeysController < ApplicationController
 
   def api_key_params
     params.require(:api_key).permit(:key, :secret, :passphrase)
+  end
+
+  def stock_bot?
+    @bot.base_asset&.category == 'Stock'
+  end
+
+  def after_api_key_path
+    stock_bot? ? new_bots_dca_single_assets_confirm_settings_path : new_bots_dca_single_assets_pick_spendable_asset_path
+  end
+
+  def sync_alpaca_settings(api_key)
+    AppConfig.set('alpaca_api_key', api_key.key)
+    AppConfig.set('alpaca_api_secret', api_key.secret)
+    AppConfig.set('alpaca_mode', api_key.passphrase == 'live' ? 'live' : 'paper')
+    Exchange::SyncAlpacaAssetsJob.perform_later
   end
 end

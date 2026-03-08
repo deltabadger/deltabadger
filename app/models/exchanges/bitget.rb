@@ -97,8 +97,8 @@ class Exchanges::Bitget < Exchange
     return Result::Failure.new("Failed to get #{name} balances") if data.nil?
 
     asset_ids ||= assets.pluck(:id)
-    balances = asset_ids.each_with_object({}) do |asset_id, balances_hash|
-      balances_hash[asset_id] = { free: 0, locked: 0 }
+    balances = asset_ids.to_h do |asset_id|
+      [asset_id, { free: 0, locked: 0 }]
     end
     data.each do |balance|
       coin = Utilities::Hash.dig_or_raise(balance, 'coin')

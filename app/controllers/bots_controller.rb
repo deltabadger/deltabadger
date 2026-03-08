@@ -9,6 +9,12 @@ class BotsController < ApplicationController
     non_deleted_bots = current_user.bots.not_deleted
     redirect_to bot_path(non_deleted_bots.first) and return if non_deleted_bots.size == 1
 
+    # Auto-open DCA single asset creation flow on first visit after login with no bots
+    if non_deleted_bots.empty? && session.delete(:auto_open_bot_wizard)
+      @auto_open_dca = true
+      session[:bot_config] = {}
+    end
+
     @filter = params[:filter] || 'all'
     @bots = non_deleted_bots.includes(:exchange)
     case @filter

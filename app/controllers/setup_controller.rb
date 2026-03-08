@@ -19,6 +19,7 @@ class SetupController < ApplicationController
 
     if @user.save
       sign_in(@user)
+      session[:auto_open_bot_wizard] = true
       redirect_to bots_path
     else
       set_form_instance_variables

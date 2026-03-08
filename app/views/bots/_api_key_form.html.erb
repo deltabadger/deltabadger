@@ -10,7 +10,12 @@
             <%= f.text_field :secret, autocomplete: "off", class: "form__input form__input--large", rows: 3 %>
             <%= f.label :secret, t("bot.api.#{bot.exchange.name_id}.private_key", default: "API Secret"), class: "form__label" %>
           </div>
-          <% if bot.exchange.requires_passphrase? %>
+          <% if bot.exchange.is_a?(Exchanges::Alpaca) %>
+            <div class="form__row form__row--input">
+              <%= f.select :passphrase, [[t('settings.stocks.mode_paper'), 'paper'], [t('settings.stocks.mode_live'), 'live']], { selected: api_key.passphrase || 'paper' }, class: "form__input form__input--large" %>
+              <%= f.label :passphrase, "Mode", class: "form__label" %>
+            </div>
+          <% elsif bot.exchange.requires_passphrase? %>
             <div class="form__row form__row--input">
               <%= f.text_field :passphrase, autocomplete: "off", class: "form__input form__input--large" %>
               <%= f.label :passphrase, "API Passphrase", class: "form__label" %>

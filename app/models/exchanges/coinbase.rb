@@ -87,8 +87,8 @@ class Exchanges::Coinbase < Exchange
     return result if result.failure?
 
     asset_ids ||= assets.pluck(:id)
-    balances = asset_ids.each_with_object({}) do |asset_id, balances_hash|
-      balances_hash[asset_id] = { free: 0, locked: 0 }
+    balances = asset_ids.to_h do |asset_id|
+      [asset_id, { free: 0, locked: 0 }]
     end
     breakdown = Utilities::Hash.dig_or_raise(result.data, 'breakdown', 'spot_positions')
     breakdown.each do |position|

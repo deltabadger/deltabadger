@@ -24,6 +24,15 @@
 .ticker
     display: block
     min-width: 11rem
+    &--stock
+        border: 2px solid var(--link)
+        color: var(--link)
+        background: var(--washed) !important
+        line-height: 2.5rem
+        &:hover, &:focus
+            color: var(--link)
+        @media (min-width: 768px)
+            line-height: 3rem
 .ticker-group
     display: flex
     .ticker
@@ -152,6 +161,10 @@
             height: 2.5rem
             max-width: 2.5rem
             min-width: 2.5rem
+        &--alpaca
+            color: var(--ink) !important
+            svg path
+                fill: var(--ink) !important
         &--binance,&--binance_us
             color: #f3bb30 !important
             svg path
@@ -179,9 +192,9 @@
             svg path
                 fill: #f7a600 !important
         &--gemini
-            color: #00dcfa !important
+            color: #fd4d16 !important
             svg path
-                fill: #00dcfa !important
+                fill: #fd4d16 !important
         &--kucoin
             color: #23af91 !important
             svg path

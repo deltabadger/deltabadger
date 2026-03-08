@@ -3,7 +3,9 @@
 
 <div id="<%= bot.new_record? ? "new-settings" : "settings" %>" class="column gap-1">
   <%= render partial: "bots/dca_dual_assets/settings/main", locals: { bot: bot, method: method, path: path } %>
-  <%= render partial: "bots/dca_dual_assets/settings/marketcap_allocation", locals: { bot: bot, method: method, path: path } %>
+  <% if bot.base0_asset&.market_cap.present? && bot.base1_asset&.market_cap.present? %>
+    <%= render partial: "bots/dca_dual_assets/settings/marketcap_allocation", locals: { bot: bot, method: method, path: path } %>
+  <% end %>
   <%= render partial: "bots/settings/smart_intervals", locals: { bot: bot, method: method, path: path } %>
   <%= render partial: "bots/settings/limit_orders", locals: { bot: bot, method: method, path: path } %>
   <%#= render partial: "bots/settings/weekday", locals: { bot: bot, method: method, path: path } %>
