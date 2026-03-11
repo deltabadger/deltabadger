@@ -298,7 +298,8 @@ class Exchanges::Bitrue < Exchange
     ).account_information
 
     if result.success?
-      Result::Success.new(true)
+      valid = api_key.withdrawal? || result.data['canTrade'] == true
+      Result::Success.new(valid)
     elsif result.data.is_a?(Hash) && result.data[:status] == 401
       Result::Success.new(false)
     else

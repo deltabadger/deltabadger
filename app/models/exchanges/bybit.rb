@@ -326,10 +326,16 @@ class Exchanges::Bybit < Exchange
   end
 
   def get_api_key_validity(api_key:)
-    result = Clients::Bybit.new(
+    temp_client = Clients::Bybit.new(
       api_key: api_key.key,
       api_secret: api_key.secret
-    ).wallet_balance(account_type: 'UNIFIED')
+    )
+
+    result = if api_key.withdrawal?
+               temp_client.wallet_balance(account_type: 'UNIFIED')
+             else
+               temp_client.cancel_order(category: 'spot', symbol: 'BTCUSDT', order_id: '0')
+             end
 
     if result.success?
       ret_code = result.data['retCode']
@@ -338,7 +344,8 @@ class Exchanges::Bybit < Exchange
       elsif ret_code.to_s.in?(ERRORS[:invalid_key])
         Result::Success.new(false)
       else
-        Result::Failure.new(result.data['retMsg'])
+        # For trading keys: non-auth errors (e.g. order not found) mean the key has trade permissions
+        api_key.withdrawal? ? Result::Failure.new(result.data['retMsg']) : Result::Success.new(true)
       end
     else
       error = parse_error_message(result)

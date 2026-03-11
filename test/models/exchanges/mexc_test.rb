@@ -39,4 +39,43 @@ class Exchanges::MexcTest < ActiveSupport::TestCase
   test 'requires_passphrase? returns false' do
     assert_equal false, @exchange.requires_passphrase?
   end
+
+  test 'get_api_key_validity checks canTrade for trading keys' do
+    Rails.configuration.stubs(:dry_run).returns(false)
+    api_key = create(:api_key, exchange: @exchange, key_type: :trading, key: 'test_key', secret: 'test_secret')
+
+    Clients::Mexc.any_instance.stubs(:account_information).returns(
+      Result::Success.new({ 'canTrade' => true, 'canWithdraw' => false, 'balances' => [] })
+    )
+
+    result = @exchange.get_api_key_validity(api_key: api_key)
+    assert result.success?
+    assert_equal true, result.data
+  end
+
+  test 'get_api_key_validity rejects trading key without canTrade' do
+    Rails.configuration.stubs(:dry_run).returns(false)
+    api_key = create(:api_key, exchange: @exchange, key_type: :trading, key: 'test_key', secret: 'test_secret')
+
+    Clients::Mexc.any_instance.stubs(:account_information).returns(
+      Result::Success.new({ 'canTrade' => false, 'canWithdraw' => true, 'balances' => [] })
+    )
+
+    result = @exchange.get_api_key_validity(api_key: api_key)
+    assert result.success?
+    assert_equal false, result.data
+  end
+
+  test 'get_api_key_validity accepts withdrawal key with successful account_information' do
+    Rails.configuration.stubs(:dry_run).returns(false)
+    api_key = create(:api_key, exchange: @exchange, key_type: :withdrawal, key: 'test_key', secret: 'test_secret')
+
+    Clients::Mexc.any_instance.stubs(:account_information).returns(
+      Result::Success.new({ 'canTrade' => false, 'canWithdraw' => true, 'balances' => [] })
+    )
+
+    result = @exchange.get_api_key_validity(api_key: api_key)
+    assert result.success?
+    assert_equal true, result.data
+  end
 end

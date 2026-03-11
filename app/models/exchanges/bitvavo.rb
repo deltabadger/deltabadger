@@ -265,12 +265,19 @@ class Exchanges::Bitvavo < Exchange
   end
 
   def get_api_key_validity(api_key:)
-    result = Clients::Bitvavo.new(
+    temp_client = Clients::Bitvavo.new(
       api_key: api_key.key,
       api_secret: api_key.secret
-    ).balance
+    )
+
+    result = if api_key.withdrawal?
+               temp_client.balance
+             else
+               temp_client.cancel_order(market: 'BTC-EUR', order_id: '00000000-0000-0000-0000-000000000000')
+             end
 
     if result.success?
+      # For trading keys: any non-error response (including "order not found") means the key has trade permissions
       Result::Success.new(true)
     elsif result.data.is_a?(Hash) && result.data[:status] == 401
       Result::Success.new(false)
@@ -279,7 +286,8 @@ class Exchanges::Bitvavo < Exchange
       if error_msg.present? && ERRORS[:invalid_key].any? { |msg| error_msg.include?(msg) }
         Result::Success.new(false)
       else
-        result
+        # For trading keys: non-auth errors (e.g. order not found) mean the key has trade permissions
+        api_key.withdrawal? ? result : Result::Success.new(true)
       end
     end
   end

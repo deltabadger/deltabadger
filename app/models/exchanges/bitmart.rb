@@ -306,31 +306,26 @@ class Exchanges::Bitmart < Exchange
   end
 
   def get_api_key_validity(api_key:)
-    result = Clients::Bitmart.new(
+    temp_client = Clients::Bitmart.new(
       api_key: api_key.key,
       api_secret: api_key.secret,
       memo: api_key.passphrase
-    ).get_wallet
+    )
 
-    if result.success?
-      if result.data['code'] == 1000
-        Result::Success.new(true)
-      else
-        error_msg = result.data['message']
-        if ERRORS[:invalid_key].any? { |msg| error_msg&.include?(msg) }
-          Result::Success.new(false)
-        else
-          Result::Failure.new(error_msg)
-        end
-      end
-    else
-      error = parse_error_message(result)
-      if error.present? && ERRORS[:invalid_key].any? { |msg| error.include?(msg) }
-        Result::Success.new(false)
-      else
-        result
-      end
-    end
+    result = if api_key.withdrawal?
+               temp_client.get_wallet
+             else
+               temp_client.cancel_order(symbol: 'BTC_USDT', order_id: '0')
+             end
+
+    return check_bitmart_api_key_error(result) unless result.success?
+    return Result::Success.new(true) if result.data['code'] == 1000
+
+    error_msg = result.data['message']
+    return Result::Success.new(false) if ERRORS[:invalid_key].any? { |msg| error_msg&.include?(msg) }
+
+    # For trading keys: non-auth errors (e.g. order not found) mean the key has trade permissions
+    api_key.withdrawal? ? Result::Failure.new(error_msg) : Result::Success.new(true)
   end
 
   def minimum_amount_logic(**)
@@ -379,6 +374,15 @@ class Exchanges::Bitmart < Exchange
   end
 
   private
+
+  def check_bitmart_api_key_error(result)
+    error = parse_error_message(result)
+    if error.present? && ERRORS[:invalid_key].any? { |msg| error.include?(msg) }
+      Result::Success.new(false)
+    else
+      result
+    end
+  end
 
   def client
     @client ||= set_client

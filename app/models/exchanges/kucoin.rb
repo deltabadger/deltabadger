@@ -295,12 +295,23 @@ class Exchanges::Kucoin < Exchange
       api_secret: api_key.secret,
       passphrase: api_key.passphrase
     )
-    result = temp_client.get_accounts(type: 'trade')
+
+    result = if api_key.withdrawal?
+               temp_client.get_accounts(type: 'trade')
+             else
+               temp_client.cancel_order(order_id: '000000000000000000000000')
+             end
 
     if result.success? && result.data['code'] == '200000'
       Result::Success.new(true)
     elsif result.success?
-      Result::Success.new(false)
+      error_msg = result.data['msg']
+      if ERRORS[:invalid_key].any? { |msg| error_msg&.include?(msg) }
+        Result::Success.new(false)
+      else
+        # For trading keys: non-auth errors (e.g. order not found) mean the key has trade permissions
+        api_key.withdrawal? ? Result::Success.new(false) : Result::Success.new(true)
+      end
     elsif result.data.is_a?(Hash) && result.data[:status] == 401
       Result::Success.new(false)
     else
