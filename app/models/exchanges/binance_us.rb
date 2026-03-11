@@ -47,18 +47,26 @@ class Exchanges::BinanceUs < Exchanges::Binance
     ).api_description
 
     if result.success?
-      valid = result.data['ipRestrict'] == true &&
-              result.data['enableFixApiTrade'] == false &&
-              result.data['enableFixReadOnly'] == false &&
-              result.data['enableFutures'] == false &&
-              result.data['enableInternalTransfer'] == false &&
-              result.data['enableMargin'] == false &&
-              result.data['enablePortfolioMarginTrading'] == false &&
-              result.data['enableReading'] == true &&
-              result.data['enableSpotAndMarginTrading'] == true &&
-              result.data['enableVanillaOptions'] == false &&
-              result.data['enableWithdrawals'] == false &&
-              result.data['permitsUniversalTransfer'] == false
+      common_checks = result.data['ipRestrict'] == true &&
+                      result.data['enableFixApiTrade'] == false &&
+                      result.data['enableFixReadOnly'] == false &&
+                      result.data['enableFutures'] == false &&
+                      result.data['enableInternalTransfer'] == false &&
+                      result.data['enableMargin'] == false &&
+                      result.data['enablePortfolioMarginTrading'] == false &&
+                      result.data['enableReading'] == true &&
+                      result.data['enableVanillaOptions'] == false &&
+                      result.data['permitsUniversalTransfer'] == false
+
+      valid = if api_key.withdrawal?
+                common_checks &&
+                  result.data['enableWithdrawals'] == true &&
+                  result.data['enableSpotAndMarginTrading'] == false
+              else
+                common_checks &&
+                  result.data['enableSpotAndMarginTrading'] == true &&
+                  result.data['enableWithdrawals'] == false
+              end
       Result::Success.new(valid)
     elsif parse_error_code(result).in?(ERROR_CODES[:invalid_key])
       Result::Success.new(false)

@@ -296,30 +296,26 @@ class Exchanges::Bingx < Exchange
   end
 
   def get_api_key_validity(api_key:)
-    result = Clients::Bingx.new(
+    temp_client = Clients::Bingx.new(
       api_key: api_key.key,
       api_secret: api_key.secret
-    ).get_balances
+    )
 
-    if result.success?
-      if result.data['code'].to_i.zero?
-        Result::Success.new(true)
-      else
-        error_msg = result.data['msg']
-        if ERRORS[:invalid_key].any? { |msg| error_msg&.include?(msg) }
-          Result::Success.new(false)
-        else
-          Result::Failure.new(error_msg)
-        end
-      end
-    else
-      error = parse_error_message(result)
-      if error.present? && ERRORS[:invalid_key].any? { |msg| error.include?(msg) }
-        Result::Success.new(false)
-      else
-        result
-      end
-    end
+    result = if api_key.withdrawal?
+               temp_client.get_balances
+             else
+               temp_client.cancel_order(symbol: 'BTC-USDT', order_id: '0')
+             end
+
+    return check_bingx_api_key_error(result) unless result.success?
+
+    return Result::Success.new(true) if result.data['code'].to_i.zero?
+
+    error_msg = result.data['msg']
+    return Result::Success.new(false) if ERRORS[:invalid_key].any? { |msg| error_msg&.include?(msg) }
+
+    # For trading keys: non-auth errors (e.g. order not found) mean the key has trade permissions
+    api_key.withdrawal? ? Result::Failure.new(error_msg) : Result::Success.new(true)
   end
 
   def minimum_amount_logic(**)
@@ -389,6 +385,15 @@ class Exchanges::Bingx < Exchange
   end
 
   private
+
+  def check_bingx_api_key_error(result)
+    error = parse_error_message(result)
+    if error.present? && ERRORS[:invalid_key].any? { |msg| error.include?(msg) }
+      Result::Success.new(false)
+    else
+      result
+    end
+  end
 
   def client
     @client ||= set_client

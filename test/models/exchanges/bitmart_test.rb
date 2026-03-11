@@ -35,4 +35,48 @@ class Exchanges::BitmartTest < ActiveSupport::TestCase
   test 'requires_passphrase? returns true' do
     assert_equal true, @exchange.requires_passphrase?
   end
+
+  test 'get_api_key_validity uses cancel_order for trading keys' do
+    Rails.configuration.stubs(:dry_run).returns(false)
+    api_key = create(:api_key, exchange: @exchange, key_type: :trading, key: 'test_key', secret: 'test_secret',
+                               raw_passphrase: 'test_memo')
+
+    Clients::Bitmart.any_instance.stubs(:cancel_order).returns(
+      Result::Success.new({ 'code' => 50_030, 'message' => 'Order not found' })
+    )
+    Clients::Bitmart.any_instance.expects(:get_wallet).never
+
+    result = @exchange.get_api_key_validity(api_key: api_key)
+    assert result.success?
+    assert_equal true, result.data
+  end
+
+  test 'get_api_key_validity uses get_wallet for withdrawal keys' do
+    Rails.configuration.stubs(:dry_run).returns(false)
+    api_key = create(:api_key, exchange: @exchange, key_type: :withdrawal, key: 'test_key', secret: 'test_secret',
+                               raw_passphrase: 'test_memo')
+
+    Clients::Bitmart.any_instance.stubs(:get_wallet).returns(
+      Result::Success.new({ 'code' => 1000, 'data' => { 'wallet' => [] } })
+    )
+    Clients::Bitmart.any_instance.expects(:cancel_order).never
+
+    result = @exchange.get_api_key_validity(api_key: api_key)
+    assert result.success?
+    assert_equal true, result.data
+  end
+
+  test 'get_api_key_validity returns false for invalid trading key' do
+    Rails.configuration.stubs(:dry_run).returns(false)
+    api_key = create(:api_key, exchange: @exchange, key_type: :trading, key: 'bad_key', secret: 'bad_secret',
+                               raw_passphrase: 'test_memo')
+
+    Clients::Bitmart.any_instance.stubs(:cancel_order).returns(
+      Result::Success.new({ 'code' => 30_006, 'message' => 'Invalid ACCESS_KEY' })
+    )
+
+    result = @exchange.get_api_key_validity(api_key: api_key)
+    assert result.success?
+    assert_equal false, result.data
+  end
 end

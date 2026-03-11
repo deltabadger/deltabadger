@@ -236,15 +236,26 @@ class Exchanges::Gemini < Exchange
       api_key: api_key.key,
       api_secret: api_key.secret
     )
-    result = temp_client.get_balances
 
-    if result.success? && result.data.is_a?(Array)
-      Result::Success.new(true)
-    elsif result.data.is_a?(Hash) && result.data[:status] == 400
-      Result::Success.new(false)
-    else
-      result
+    result = if api_key.withdrawal?
+               temp_client.get_balances
+             else
+               temp_client.cancel_order(order_id: 0)
+             end
+
+    unless result.success?
+      return Result::Success.new(false) if result.data.is_a?(Hash) && result.data[:status] == 400
+
+      return result
     end
+
+    return Result::Success.new(true) unless result.data.is_a?(Hash) && result.data['result'] == 'error'
+
+    reason = result.data['reason']
+    return Result::Success.new(false) if ERRORS[:invalid_key].any? { |msg| reason&.include?(msg) }
+
+    # For trading keys: non-auth errors (e.g. order not found) mean the key has trade permissions
+    api_key.withdrawal? ? Result::Failure.new(result.data['message']) : Result::Success.new(true)
   end
 
   def minimum_amount_logic(**)

@@ -42,4 +42,48 @@ class Exchanges::BitgetTest < ActiveSupport::TestCase
     assert_nil @exchange.api_key
     assert_kind_of Clients::Bitget, @exchange.instance_variable_get(:@client)
   end
+
+  test 'get_api_key_validity uses cancel_order for trading keys' do
+    Rails.configuration.stubs(:dry_run).returns(false)
+    api_key = create(:api_key, exchange: @exchange, key_type: :trading, key: 'test_key', secret: 'test_secret',
+                               raw_passphrase: 'test_pass')
+
+    Clients::Bitget.any_instance.stubs(:cancel_order).returns(
+      Result::Success.new({ 'code' => '43025', 'msg' => 'Order does not exist' })
+    )
+    Clients::Bitget.any_instance.expects(:get_assets).never
+
+    result = @exchange.get_api_key_validity(api_key: api_key)
+    assert result.success?
+    assert_equal true, result.data
+  end
+
+  test 'get_api_key_validity uses get_assets for withdrawal keys' do
+    Rails.configuration.stubs(:dry_run).returns(false)
+    api_key = create(:api_key, exchange: @exchange, key_type: :withdrawal, key: 'test_key', secret: 'test_secret',
+                               raw_passphrase: 'test_pass')
+
+    Clients::Bitget.any_instance.stubs(:get_assets).returns(
+      Result::Success.new({ 'code' => '00000', 'data' => [] })
+    )
+    Clients::Bitget.any_instance.expects(:cancel_order).never
+
+    result = @exchange.get_api_key_validity(api_key: api_key)
+    assert result.success?
+    assert_equal true, result.data
+  end
+
+  test 'get_api_key_validity returns false for invalid trading key' do
+    Rails.configuration.stubs(:dry_run).returns(false)
+    api_key = create(:api_key, exchange: @exchange, key_type: :trading, key: 'bad_key', secret: 'bad_secret',
+                               raw_passphrase: 'test_pass')
+
+    Clients::Bitget.any_instance.stubs(:cancel_order).returns(
+      Result::Success.new({ 'code' => '40014', 'msg' => 'Invalid Api Key' })
+    )
+
+    result = @exchange.get_api_key_validity(api_key: api_key)
+    assert result.success?
+    assert_equal false, result.data
+  end
 end
