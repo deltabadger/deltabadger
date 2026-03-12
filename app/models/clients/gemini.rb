@@ -149,6 +149,23 @@ class Clients::Gemini < Client
     end
   end
 
+  # https://docs.gemini.com/rest-api/#approved-addresses
+  # @param network [String] Network name (e.g., "bitcoin", "ethereum", "solana")
+  def get_approved_addresses(network:)
+    with_rescue do
+      path = "/v1/approvedAddresses/account/#{network}"
+      payload = {
+        request: path,
+        nonce: nonce
+      }
+      response = self.class.connection.post do |req|
+        req.url path
+        req.headers = authenticated_headers(payload)
+      end
+      Result::Success.new(response.body)
+    end
+  end
+
   # https://docs.gemini.com/rest-api/#withdraw-crypto-funds
   # @param currency [String] Currency code (e.g., "BTC")
   # @param address [String] Withdrawal address

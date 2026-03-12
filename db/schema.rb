@@ -10,7 +10,73 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_03_08_090843) do
+ActiveRecord::Schema[8.1].define(version: 2026_03_11_145662) do
+  create_table "action_mcp_session_messages", force: :cascade do |t|
+    t.datetime "created_at", null: false
+    t.string "direction", default: "client", null: false
+    t.boolean "is_ping", default: false, null: false
+    t.string "jsonrpc_id"
+    t.json "message_json"
+    t.string "message_type", null: false
+    t.boolean "request_acknowledged", default: false, null: false
+    t.boolean "request_cancelled", default: false, null: false
+    t.string "session_id", null: false
+    t.datetime "updated_at", null: false
+    t.index ["session_id"], name: "index_action_mcp_session_messages_on_session_id"
+  end
+
+  create_table "action_mcp_session_subscriptions", force: :cascade do |t|
+    t.datetime "created_at", null: false
+    t.datetime "last_notification_at"
+    t.string "session_id", null: false
+    t.datetime "updated_at", null: false
+    t.string "uri", null: false
+    t.index ["session_id"], name: "index_action_mcp_session_subscriptions_on_session_id"
+  end
+
+  create_table "action_mcp_session_tasks", id: :string, force: :cascade do |t|
+    t.json "continuation_state", default: {}
+    t.datetime "created_at", null: false
+    t.datetime "last_step_at"
+    t.datetime "last_updated_at", null: false
+    t.integer "poll_interval"
+    t.string "progress_message"
+    t.integer "progress_percent"
+    t.string "request_method"
+    t.string "request_name"
+    t.json "request_params"
+    t.json "result_payload"
+    t.string "session_id", null: false
+    t.string "status", default: "working", null: false
+    t.string "status_message"
+    t.integer "ttl"
+    t.datetime "updated_at", null: false
+    t.index ["created_at"], name: "index_action_mcp_session_tasks_on_created_at"
+    t.index ["session_id", "status"], name: "index_action_mcp_session_tasks_on_session_id_and_status"
+    t.index ["session_id"], name: "index_action_mcp_session_tasks_on_session_id"
+    t.index ["status"], name: "index_action_mcp_session_tasks_on_status"
+  end
+
+  create_table "action_mcp_sessions", id: :string, force: :cascade do |t|
+    t.json "client_capabilities"
+    t.json "client_info"
+    t.json "consents", default: {}, null: false
+    t.datetime "created_at", null: false
+    t.datetime "ended_at"
+    t.boolean "initialized", default: false, null: false
+    t.integer "messages_count", default: 0, null: false
+    t.json "prompt_registry", default: []
+    t.string "protocol_version"
+    t.json "resource_registry", default: []
+    t.string "role", default: "server", null: false
+    t.json "server_capabilities"
+    t.json "server_info"
+    t.json "session_data", default: {}, null: false
+    t.string "status", default: "pre_initialize", null: false
+    t.json "tool_registry", default: []
+    t.datetime "updated_at", null: false
+  end
+
   create_table "api_keys", force: :cascade do |t|
     t.datetime "created_at", precision: nil, null: false
     t.bigint "exchange_id", null: false
@@ -275,6 +341,9 @@ ActiveRecord::Schema[8.1].define(version: 2026_03_08_090843) do
     t.index ["reset_password_token"], name: "index_users_on_reset_password_token", unique: true
   end
 
+  add_foreign_key "action_mcp_session_messages", "action_mcp_sessions", column: "session_id", on_update: :cascade, on_delete: :cascade
+  add_foreign_key "action_mcp_session_subscriptions", "action_mcp_sessions", column: "session_id", on_delete: :cascade
+  add_foreign_key "action_mcp_session_tasks", "action_mcp_sessions", column: "session_id", on_update: :cascade, on_delete: :cascade
   add_foreign_key "api_keys", "exchanges"
   add_foreign_key "api_keys", "users"
   add_foreign_key "bot_index_assets", "assets"

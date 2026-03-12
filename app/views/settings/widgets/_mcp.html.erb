@@ -1,0 +1,18 @@
+<%= turbo_frame_tag "mcp_settings" do %>
+  <div class="widget widget--settings">
+    <h4 class="modal__title"><%= t('settings.mcp.title') %></h4>
+
+    <% if AppConfig.mcp_configured? %>
+      <p class="text-center"><%= t('settings.mcp.description') %> <%= t('settings.mcp.warning') %></p>
+      <span class="tag tag--copy" id="mcp_url_display" data-url="<%= AppConfig.mcp_url %>" onclick="navigator.clipboard.writeText(this.dataset.url)" title="<%= t('button.copy') %>"><%= render 'svg/16x16_copy' %><%= AppConfig.mcp_url&.sub(%r{\Ahttps?://}, '') %></span>
+      <div class="setting-form">
+        <%= link_to t('settings.mcp.revoke'), settings_confirm_revoke_mcp_path, data: { turbo_frame: "modal" }, class: "button button--danger" %>
+      </div>
+    <% else %>
+      <div class="text-center">
+        <p><%= t('settings.mcp.description') %></p>
+        <%= link_to t('button.enable'), settings_update_mcp_path, data: { turbo_method: :patch, turbo_frame: "mcp_settings" }, class: "button button--success" %>
+      </div>
+    <% end %>
+  </div>
+<% end %>

@@ -1,0 +1,20 @@
+<%= render 'layouts/modal/base' do %>
+  <div class="modal">
+    <%= button_tag type: 'button', class: 'modal__close', data: { action: 'modal--base#animateOutCloseAndCleanUp' } do %>
+      <%= render partial: 'svg/24x24_close' %>
+    <% end %>
+    <div class="modal__header">
+      <h1 class="modal__title"><%= t('settings.mcp.title') %></h1>
+    </div>
+    <div class="modal__body text-center">
+    <p>
+      <%= t('settings.mcp.confirm_revoke') %>
+    </p>
+    <div class="buttons buttons--row--2">
+      <%= button_tag type: 'button', class: 'button button--outline button--large', data: { action: 'modal--base#animateOutCloseAndCleanUp' } do %>
+        <%= t('button.cancel') %>
+      <% end %>
+      <%= button_to t('settings.mcp.revoke'), settings_revoke_mcp_path, method: :delete, class: 'button button--danger button--large', data: { turbo_frame: "mcp_settings", action: 'modal--base#animateOutCloseAndCleanUp' } %>
+    </div>
+  </div>
+<% end %>

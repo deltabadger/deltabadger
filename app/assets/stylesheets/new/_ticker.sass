@@ -71,19 +71,42 @@
     color: var(--stone) !important
     display: flex
     gap: .5rem
-    &--address
+    &--address,&--copy
         text-overflow: ellipsis
         overflow: hidden
         display: block !important
-        max-width: 12rem
         font-family: monospace !important
         color: var(--link) !important
         padding-left: 3.5rem !important
         position: relative
+        span
+            text-overflow: ellipsis
+            overflow: hidden
+            display: block !important
         svg
             position: absolute
             left: 1rem
+    &--address
+        max-width: 12rem
+        svg
             top: 0.6rem
+        select
+            opacity: 0
+            position: absolute
+            top: 0
+            left: 0
+            width: 100%
+            height: 100%
+            cursor: pointer
+    &--copy
+        cursor: pointer
+        width: fit-content
+        margin: 0 auto
+        padding-left: 4rem !important
+        svg
+            left: 1.25rem
+            top: 0.7rem
+
     @media (prefers-color-scheme: dark)
         background: var(--steel) !important
         color: var(--ash) !important
@@ -133,6 +156,9 @@
         fill: var(--white)
 
     // Color variants (solid background)
+    &--sky, &--success, &--danger
+        &:hover 
+            color: var(--white) !important
     &--sky
         background: var(--sky)
     &--success

@@ -138,6 +138,10 @@ class Exchange < ApplicationRecord
     true
   end
 
+  def list_withdrawal_addresses(asset:) # rubocop:disable Lint/UnusedMethodArgument
+    nil
+  end
+
   def withdraw(asset:, amount:, address:, network: nil, address_tag: nil)
     raise NotImplementedError, "#{self.class.name} must implement withdraw"
   end

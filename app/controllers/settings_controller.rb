@@ -5,6 +5,7 @@ class SettingsController < ApplicationController
     update_email_notifications disconnect_email send_test_email
     update_market_data disconnect_market_data update_coingecko_key destroy_coingecko_key resync_assets
     update_stocks disconnect_stocks
+    update_mcp confirm_revoke_mcp revoke_mcp
   ]
 
   def index
@@ -288,6 +289,28 @@ class SettingsController < ApplicationController
 
     render turbo_stream: [
       turbo_stream.replace('email_notifications', partial: 'settings/widgets/email_notifications'),
+      turbo_stream.prepend('flash', partial: 'layouts/flash')
+    ]
+  end
+
+  def update_mcp
+    AppConfig.generate_mcp_access_token!
+    flash.now[:notice] = t('settings.mcp.enabled')
+
+    render turbo_stream: [
+      turbo_stream.replace('mcp_settings', partial: 'settings/widgets/mcp'),
+      turbo_stream.prepend('flash', partial: 'layouts/flash')
+    ]
+  end
+
+  def confirm_revoke_mcp; end
+
+  def revoke_mcp
+    AppConfig.generate_mcp_access_token!
+    flash.now[:notice] = t('settings.mcp.revoked')
+
+    render turbo_stream: [
+      turbo_stream.replace('mcp_settings', partial: 'settings/widgets/mcp'),
       turbo_stream.prepend('flash', partial: 'layouts/flash')
     ]
   end

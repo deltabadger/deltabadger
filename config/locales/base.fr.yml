@@ -26,11 +26,13 @@ fr:
         start: 'Démarrer'
         next: 'Suivant'
         connect: 'Connecter'
+        reconnect: 'Ajouter de nouvelles clés'
         get_started: Commencer
         select_plan: 'Sélectionner'
         back_to_dashboard: 'Aller au tableau de bord'
         subscribe: 'S''abonner'
         unlock: 'Débloquer'
+        check_again: 'Vérifier à nouveau'
     data_labels:
         invested: "Total Investi"
         portfolio_value: "Valeur du Portefeuille"
@@ -155,6 +157,14 @@ fr:
             not_configured: 'Les notifications par e-mail ne sont pas configurées.'
             disconnect: 'Déconnecter'
             disconnected: 'Fournisseur e-mail déconnecté.'
+        mcp:
+            title: 'MCP'
+            description: "Utilise cette URL pour connecter Claude (et d'autres modèles d'IA). Elle offre un accès en lecture seule à tes bots et exchanges, pour poser des questions comme : « Résume mon activité de trading sur Binance cette année » ou « Comment vont mes bots DCA ? »"
+            warning: 'Ne la partage jamais avec des personnes non fiables.'
+            enabled: 'Accès MCP activé.'
+            revoked: "URL MCP régénérée. Mets à jour l'URL dans ton assistant IA."
+            revoke: 'Révoquer'
+            confirm_revoke: "L'URL MCP sera régénérée. L'accès via l'ancienne URL ne sera plus possible."
     utils:
         assets: Actifs
         cash: Liquidités
@@ -222,7 +232,7 @@ fr:
                 on_network: 'sur'
                 fee: 'frais'
                 when: 'quand'
-                fee_less_than: 'frais inférieurs à'
+                fee_less_than: 'les frais sont inférieurs à'
                 amount_crosses: 'le montant atteint'
                 of_the_amount: '%'
             pick_exchange:
@@ -232,18 +242,18 @@ fr:
                 submitting: 'Création…'
             confirm_destroy:
                 message: 'Voulez-vous supprimer cette règle de retrait ?'
-            confirm_settings:
-                min_amount_html: 'Selon les frais actuels de <b>%{fee} %{symbol}</b>, le retrait sera déclenché lorsque le solde atteindra <b>%{amount} %{symbol}</b>.'
         tile:
             withdrawal: 'Retrait'
             network: 'Réseau'
             memo: 'Mémo'
             activated: 'La règle est active.'
             deactivated: 'La règle a été désactivée.'
-            min_amount_info: 'Selon les frais actuels de %{fee} %{symbol}, le retrait sera déclenché lorsque le solde atteindra %{amount} %{symbol}.'
+            min_amount_info_html: 'Les frais actuels sont de %{fee} %{symbol}, le retrait sera donc déclenché à <b>%{amount} %{symbol}</b>.'
             no_fee_info: '%{exchange} n''indique aucun frais de retrait pour cet actif. La règle retirera tout solde disponible.'
             unknown_fee_info: 'Données de frais indisponibles pour %{exchange}. La règle retirera tout solde disponible.'
             fixed_amount_info: 'Le retrait sera déclenché lorsque le solde atteindra %{amount} %{symbol}.'
+            fixed_amount_fee_html: 'Les frais actuels sont de %{fee} %{symbol}, tu paieras donc <b>%{fee_pct}</b>.'
+            no_wallet_html: 'Aucune adresse de retrait %{symbol} trouvée sur %{exchange}. Ajoute-en une d''abord sur l''exchange.'
         logs:
             date: 'Date'
             status: 'Statut'
@@ -252,10 +262,13 @@ fr:
         add_address:
             label: 'Adresse de retrait'
             placeholder: 'Collez l''adresse ici…'
+            select_address: 'Sélectionner une adresse…'
             address_tag_label: 'Mémo / Tag (optionnel)'
             address_tag_placeholder: 'Mémo, tag ou identifiant de paiement…'
             instructions_title: 'Ajouter une adresse de retrait sur %{exchange}'
             warning_html: 'Assurez-vous qu''il s''agit d''une adresse <b>%{symbol}</b> sur le bon réseau. Envoyer à la mauvaise adresse ou sur le mauvais réseau entraînera une perte définitive des fonds.'
+            no_addresses_html: 'Aucune adresse de retrait n''est définie pour <b>%{symbol}</b>. Configurez-la d''abord sur %{exchange}.'
+            fetch_failed_html: 'Impossible de récupérer les adresses de retrait depuis %{exchange}. Veuillez réessayer plus tard.'
         add_api_key:
             title: 'Ajouter une clé API de retrait pour %{exchange}'
             instructions_title: 'Comment obtenir les clés de %{exchange}'

@@ -378,6 +378,24 @@ class Exchanges::Kraken < Exchange
     end
   end
 
+  def list_withdrawal_addresses(asset:)
+    symbol = symbol_from_asset(asset)
+    return nil if symbol.blank?
+
+    result = client.get_withdraw_addresses(asset: symbol)
+    return nil if result.failure?
+
+    error = result.data['error']
+    return nil if error.present? && error.any?
+
+    addresses = result.data['result'] || []
+    addresses.filter_map do |addr|
+      next unless addr['verified']
+
+      { name: addr['address'], label: "#{addr['address']} (#{addr['method']})" }
+    end
+  end
+
   def withdraw(asset:, amount:, address:, network: nil, address_tag: nil) # rubocop:disable Lint/UnusedMethodArgument
     symbol = symbol_from_asset(asset)
     return Result::Failure.new("Unknown symbol for asset #{asset.symbol}") if symbol.blank?
@@ -393,13 +411,38 @@ class Exchanges::Kraken < Exchange
   end
 
   def fetch_withdrawal_fees!
-    Result::Success.new({})
+    result = client.get_withdraw_methods
+    return result if result.failure?
+
+    error = result.data['error']
+    return Result::Failure.new(*error) if error.present? && error.any?
+
+    methods = result.data['result'] || []
+    grouped = methods.group_by { |m| m['asset'] }
+
+    fees = {}
+    chains = {}
+    grouped.each do |symbol, entries|
+      first = entries.first
+      fees[symbol] = extract_fee(first['fee'])
+      chains[symbol] = entries.each_with_index.map do |entry, i|
+        { 'name' => entry['network'], 'fee' => extract_fee(entry['fee']), 'is_default' => i.zero? }
+      end
+    end
+
+    update_exchange_asset_fees!(fees, chains: chains)
   end
 
   private
 
   def client
     @client ||= set_client
+  end
+
+  # Kraken API returns fee as either a string ("0.00015") or a hash
+  # ({"aclass" => "currency", "asset" => "XETH", "fee" => "0.00014"}).
+  def extract_fee(fee)
+    fee.is_a?(Hash) ? fee['fee'] : fee
   end
 
   def asset_from_symbol(symbol)

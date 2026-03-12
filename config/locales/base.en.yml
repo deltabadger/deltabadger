@@ -26,12 +26,14 @@ en:
         start: 'Start'
         next: 'Next'
         connect: 'Connect'
+        reconnect: 'Add new keys'
         understand: 'Got it!'
         get_started: 'Get Started'
         select_plan: 'Select plan'
         back_to_dashboard: 'Go to dashboard'
         subscribe: 'Subscribe'
         unlock: 'Unlock'
+        check_again: 'Check again'
     data_labels:
         invested: "Total Invested"
         portfolio_value: "Portfolio Value"
@@ -147,6 +149,14 @@ en:
             disconnect: 'Disconnect'
             mode_paper: 'Paper'
             mode_live: 'Live'
+        mcp:
+            title: 'MCP'
+            description: 'Use this URL to connect Claude (and other AI models). It provides read-only access to your bots and exchanges, so you can ask questions like: "Summarize my trading activity on Binance this year" or "How my DCA bots are doing?"'
+            warning: 'Never share it with untrusted parties.'
+            enabled: 'MCP access enabled.'
+            revoked: 'MCP URL regenerated. Update the URL in your AI assistant.'
+            revoke: 'Revoke'
+            confirm_revoke: 'This will regenerate the MCP URL. Access through the old URL will no longer be possible.'
         email_notifications:
             none: 'None'
             smtp_host: 'SMTP host'
@@ -244,18 +254,18 @@ en:
                 submitting: 'Creating…'
             confirm_destroy:
                 message: 'Do you want to delete this withdrawal rule?'
-            confirm_settings:
-                min_amount_html: 'Based on the current fee of <b>%{fee} %{symbol}</b>, the withdrawal will be triggered when the balance reaches <b>%{amount} %{symbol}</b>.'
         tile:
             withdrawal: 'Withdrawal'
             network: 'Network'
             memo: 'Memo'
             activated: 'The rule is active.'
             deactivated: 'The rule has been deactivated.'
-            min_amount_info: 'Based on the current fee of %{fee} %{symbol}, the withdrawal will be triggered when the balance reaches %{amount} %{symbol}.'
+            min_amount_info_html: 'The current fee is %{fee} %{symbol}, so the withdrawal will be triggered at <b>%{amount} %{symbol}</b>.'
             no_fee_info: '%{exchange} reports no withdrawal fee for this asset. The rule will withdraw any available balance.'
             unknown_fee_info: 'Fee data unavailable for %{exchange}. The rule will withdraw any available balance.'
             fixed_amount_info: 'The withdrawal will be triggered when the balance reaches %{amount} %{symbol}.'
+            fixed_amount_fee_html: 'The current fee is %{fee} %{symbol}, so you''ll pay <b>%{fee_pct}</b>.'
+            no_wallet_html: 'No %{symbol} withdrawal address found on %{exchange}. Add one on the exchange first.'
         logs:
             date: 'Date'
             status: 'Status'
@@ -264,10 +274,13 @@ en:
         add_address:
             label: 'Withdrawal address'
             placeholder: 'Paste address here…'
+            select_address: 'Select address…'
             address_tag_label: 'Memo / Tag (optional)'
             address_tag_placeholder: 'Memo, tag, or payment ID…'
             instructions_title: 'Adding a withdrawal address on %{exchange}'
             warning_html: 'Make sure this is a <b>%{symbol}</b> address on the correct network. Sending to the wrong address or network will result in permanent loss of funds.'
+            no_addresses_html: 'There is no defined withdrawal address for <b>%{symbol}</b>. Set it up on %{exchange} first.'
+            fetch_failed_html: 'Could not fetch withdrawal addresses from %{exchange}. Please try again later.'
         add_api_key:
             title: 'Add withdrawal API key for %{exchange}'
             instructions_title: 'How to get keys from %{exchange}'
