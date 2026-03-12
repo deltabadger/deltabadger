@@ -1,0 +1,102 @@
+<% asset_color = ensure_contrast(@asset.color || "#8A9BA8") %>
+<% fee_known = @rule.withdrawal_fee_known? %>
+<% selected_threshold = @rule.threshold_type %>
+<% fee = @rule.withdrawal_fee_amount %>
+<% min = @rule.min_amount || '0.1' %>
+
+<div id="rule-preview">
+  <div class="widget main-rule">
+    <div class="conversational flex-justify-center">
+      <%= t('rules.withdrawals.sentence.withdraw_all') %>
+      <%= link_to @asset.symbol, new_rules_withdrawals_pick_asset_path, data: { turbo_frame: "modal_content" }, class: "ticker", style: "background: #{asset_color}" %>
+      <%= t('rules.withdrawals.sentence.from') %>
+      <%= link_to new_rules_withdrawals_pick_exchange_path, data: { turbo_frame: "modal_content" }, class: "sbutton sbutton--exchange sbutton--exchange--#{@exchange.name_id}" do %>
+        <%= render "svg/exchange-#{@exchange.name_id}", title: @exchange.name %>
+        <span class="hide-on-mobile"><%= @exchange.name %></span>
+      <% end %>
+      <%= t('rules.withdrawals.sentence.to') %>
+      <% if @withdrawal_addresses.present? %>
+        <div class="tag tag--address" data-controller="form--select-display">
+          <%= render 'svg/16x16_wallet' %>
+          <span data-form--select-display-target="label"><%= @address %></span>
+          <select name="address" data-action="change->form--select-display#update change->form--submit#submit">
+            <% @withdrawal_addresses.each do |a| %>
+              <option value="<%= a[:name] %>" <%= 'selected' if a[:name] == @address %>><%= a[:label] %></option>
+            <% end %>
+          </select>
+        </div>
+      <% else %>
+        <%= link_to new_rules_withdrawals_add_address_path, data: { turbo_frame: "modal_content" }, class: "tag tag--address" do %><%= render 'svg/16x16_wallet' %><%= truncate(@address, length: 16) %><% end %>
+      <% end %>
+
+      <% if @chains.present? && @chains.size > 1 %>
+        <% selected_network = @rule.network %>
+        <% selected_chain = @chains.find { |c| c['name'] == selected_network } %>
+        <% selected_network_label = selected_chain ? "#{selected_chain['name']} (#{t('rules.withdrawals.sentence.fee')}: #{selected_chain['fee']})" : selected_network %>
+        <%= t('rules.withdrawals.sentence.on_network') %>
+        <div class="sinput sinput--select" data-controller="form--select-display">
+          <span data-form--select-display-target="label"><%= selected_network_label %></span>
+          <select name="network" data-action="change->form--select-display#update change->form--submit#submit">
+            <% @chains.each do |c| %>
+              <option value="<%= c['name'] %>" <%= 'selected' if c['name'] == selected_network %>><%= "#{c['name']} (#{t('rules.withdrawals.sentence.fee')}: #{c['fee']})" %></option>
+            <% end %>
+          </select>
+        </div>
+      <% elsif @chains.present? && @chains.size == 1 %>
+        <input type="hidden" name="network" value="<%= @chains.first['name'] %>">
+      <% end %>
+
+      <div data-controller="form--select-toggle" style="display: contents">
+        <%= t('rules.withdrawals.sentence.when') %>
+        <% if fee_known %>
+          <div class="sinput sinput--select" data-controller="form--select-display">
+            <span data-form--select-display-target="label"><%= selected_threshold == 'fee_percentage' ? t('rules.withdrawals.sentence.fee_less_than') : t('rules.withdrawals.sentence.amount_crosses') %></span>
+            <select name="threshold_type" data-action="change->form--select-display#update change->form--select-toggle#toggle change->form--submit#submit">
+              <option value="fee_percentage" <%= 'selected' if selected_threshold == 'fee_percentage' %>><%= t('rules.withdrawals.sentence.fee_less_than') %></option>
+              <option value="min_amount" <%= 'selected' if selected_threshold == 'min_amount' %>><%= t('rules.withdrawals.sentence.amount_crosses') %></option>
+            </select>
+          </div>
+        <% else %>
+          <input type="hidden" name="threshold_type" value="min_amount">
+          <%= t('rules.withdrawals.sentence.amount_crosses') %>
+        <% end %>
+
+        <span data-form--select-toggle-target="section" data-select-toggle-value="fee_percentage" style="<%= 'display:none' unless selected_threshold == 'fee_percentage' %>">
+          <input type="number" name="max_fee_percentage" value="<%= @rule.max_fee_percentage %>" class="sinput numeric-input" step="any" min="0.01" max="100" size="2" <%= 'required' if selected_threshold == 'fee_percentage' %> placeholder="0.5" data-controller="autowidth-input" data-action="input->autowidth-input#resize input->form--submit#submit" style="width: 50px;">
+          <%= t('rules.withdrawals.sentence.of_the_amount') %>
+        </span>
+
+        <span data-form--select-toggle-target="section" data-select-toggle-value="min_amount" style="<%= 'display:none' unless selected_threshold == 'min_amount' %>">
+          <input type="number" name="min_amount" value="<%= @rule.min_amount %>" class="sinput numeric-input" step="any" min="0.00000001" size="2" <%= 'required' if selected_threshold == 'min_amount' %> placeholder="0.1" data-controller="autowidth-input" data-action="input->autowidth-input#resize input->form--submit#submit" style="width: 70px;">
+          <%= @asset.symbol %>
+        </span>
+      </div>
+    </div>
+
+    <% amount = BigDecimal(min.to_s) %>
+    <% pct = fee.positive? && amount.positive? ? (fee / amount * 100).to_f.round(2) : 0 %>
+    <div class="small-info" style="<%= 'display:none' unless selected_threshold == 'min_amount' && fee.positive? && amount.positive? %>">
+      <%= t('rules.tile.fixed_amount_fee_html',
+            fee: fee.to_s('F'),
+            symbol: @asset.symbol,
+            fee_pct: pct > 1 ? tag.span("#{pct}%", class: 'text-danger') : "#{pct}%") %>
+    </div>
+
+    <div class="small-info" style="<%= 'display:none' unless selected_threshold == 'min_amount' && (!fee.positive? || !amount.positive?) %>">
+      <%= t('rules.tile.fixed_amount_info', amount: min, symbol: @asset.symbol) %>
+    </div>
+
+    <% max_pct = BigDecimal((@rule.max_fee_percentage || '0.5').to_s) %>
+    <% min_withdrawal = fee.positive? && max_pct.positive? ? (fee / (max_pct / 100)).round(8) : BigDecimal('0') %>
+    <div class="small-info" style="<%= 'display:none' unless selected_threshold == 'fee_percentage' && fee.positive? && max_pct.positive? %>">
+      <%= t('rules.tile.min_amount_info_html',
+            fee: fee.to_s('F'),
+            symbol: @asset.symbol,
+            amount: min_withdrawal.to_s('F')) %>
+    </div>
+
+    <div class="small-info" style="<%= 'display:none' unless selected_threshold == 'fee_percentage' && fee_known && fee.zero? %>">
+      <%= t('rules.tile.no_fee_info', exchange: @exchange.name) %>
+    </div>
+  </div>
+</div>

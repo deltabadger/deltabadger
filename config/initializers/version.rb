@@ -10,3 +10,5 @@ Rails.application.config.version = begin
     "0.0.0"
   end
 end
+
+Rails.application.config.action_mcp.version = Rails.application.config.version

@@ -1,5 +1,3 @@
-<% asset_color = ensure_contrast(@asset.color || "#8A9BA8") %>
-
 <%= render layout: 'layouts/modal/full_page', locals: { close_url: rules_path } do %>
   <div class="bot-creation-layout">
     <%= render "bots/new_step_progress_bar", current_step: :settings, steps: { pick_asset: 20, pick_exchange: 40, api: 60, address: 80, settings: 100 } %>
@@ -7,7 +5,7 @@
       <%= form_with url: rules_withdrawals_confirm_settings_path, method: :post,
                     class: "bot-creation-preview",
                     data: {
-                      controller: "form--html5-validations",
+                      controller: "form--html5-validations form--submit",
                       turbo_stream: true
                     } do |f| %>
         <div class="flex-row">
@@ -15,88 +13,13 @@
             <%= f.submit t('rules.withdrawals.form.submit'), class: 'sbutton button--success' %>
           </div>
         </div>
-        <div class="widget main-rule">
-          <div class="conversational flex-justify-center">
-            <%= t('rules.withdrawals.sentence.withdraw_all') %>
-            <%= link_to @asset.symbol, new_rules_withdrawals_pick_asset_path, data: { turbo_frame: "modal_content" }, class: "ticker", style: "background: #{asset_color}" %>
-            <%= t('rules.withdrawals.sentence.from') %>
-            <%= link_to new_rules_withdrawals_pick_exchange_path, data: { turbo_frame: "modal_content" }, class: "sbutton sbutton--exchange sbutton--exchange--#{@exchange.name_id}" do %>
-              <%= render "svg/exchange-#{@exchange.name_id}", title: @exchange.name %>
-              <span class="hide-on-mobile"><%= @exchange.name %></span>
-            <% end %>
-            <%= t('rules.withdrawals.sentence.to') %>
-            <%= link_to new_rules_withdrawals_add_address_path, data: { turbo_frame: "modal_content" }, class: "tag tag--address" do %><%= render 'svg/16x16_wallet' %><%= truncate(@address, length: 16) %><% end %>
-
-            <% if @chains.present? && @chains.size > 1 %>
-              <% selected_network = @rule.network || @chains.find { |c| c['is_default'] }&.dig('name') || @chains.first&.dig('name') %>
-              <% selected_chain = @chains.find { |c| c['name'] == selected_network } %>
-              <% selected_network_label = selected_chain ? "#{selected_chain['name']} (#{t('rules.withdrawals.sentence.fee')}: #{selected_chain['fee']})" : selected_network %>
-              <%= t('rules.withdrawals.sentence.on_network') %>
-              <div class="sinput sinput--select" data-controller="form--select-display">
-                <span data-form--select-display-target="label"><%= selected_network_label %></span>
-                <%= f.select :network,
-                      options_for_select(
-                        @chains.map { |c| ["#{c['name']} (#{t('rules.withdrawals.sentence.fee')}: #{c['fee']})", c['name']] },
-                        selected_network
-                      ),
-                      {},
-                      data: { action: "change->form--select-display#update" } %>
-              </div>
-            <% elsif @chains.present? && @chains.size == 1 %>
-              <%= f.hidden_field :network, value: @chains.first['name'] %>
-            <% end %>
-            <% fee_known = @rule.withdrawal_fee_known? %>
-            <% default_threshold = fee_known ? 'fee_percentage' : 'min_amount' %>
-            <% selected_threshold = @rule.threshold_type || default_threshold %>
-
-            <span data-controller="form--select-toggle">
-              <%= t('rules.withdrawals.sentence.when') %>
-              <% if fee_known %>
-                <div class="sinput sinput--select" data-controller="form--select-display">
-                  <span data-form--select-display-target="label"><%= selected_threshold == 'fee_percentage' ? t('rules.withdrawals.sentence.fee_less_than') : t('rules.withdrawals.sentence.amount_crosses') %></span>
-                  <%= f.select :threshold_type,
-                        options_for_select([
-                          [t('rules.withdrawals.sentence.fee_less_than'), 'fee_percentage'],
-                          [t('rules.withdrawals.sentence.amount_crosses'), 'min_amount']
-                        ], selected_threshold),
-                        {},
-                        data: { action: "change->form--select-display#update change->form--select-toggle#toggle" } %>
-                </div>
-              <% else %>
-                <%= f.hidden_field :threshold_type, value: 'min_amount' %>
-                <%= t('rules.withdrawals.sentence.amount_crosses') %>
-              <% end %>
-
-              <span data-form--select-toggle-target="section" data-select-toggle-value="fee_percentage" style="<%= 'display:none' unless selected_threshold == 'fee_percentage' %>">
-                <%= f.number_field :max_fee_percentage, value: @rule.max_fee_percentage || 0.5, class: 'sinput numeric-input', step: :any, min: 0.01, max: 100, size: 2, required: selected_threshold == 'fee_percentage', placeholder: "0.5", data: { controller: "autowidth-input", action: "input->autowidth-input#resize" }, style: "width: 50px;" %>
-                <%= t('rules.withdrawals.sentence.of_the_amount') %>
-              </span>
-
-              <span data-form--select-toggle-target="section" data-select-toggle-value="min_amount" style="<%= 'display:none' unless selected_threshold == 'min_amount' %>">
-                <%= f.number_field :min_amount, value: @rule.min_amount || 0.1, class: 'sinput numeric-input', step: :any, min: 0.00000001, size: 2, required: selected_threshold == 'min_amount', placeholder: "0.1", data: { controller: "autowidth-input", action: "input->autowidth-input#resize" }, style: "width: 70px;" %>
-                <%= @asset.symbol %>
-              </span>
-            </span>
-          </div>
-          <% if selected_threshold == 'min_amount' %>
-            <small>
-              <%= t('rules.tile.fixed_amount_info',
-                    amount: @rule.min_amount || 0.1,
-                    symbol: @asset.symbol) %>
-            </small>
-          <% elsif @rule.minimum_withdrawal_amount %>
-            <small>
-              <%= t('rules.withdrawals.confirm_settings.min_amount_html',
-                    fee: @rule.withdrawal_fee_amount.to_s('F'),
-                    symbol: @asset.symbol,
-                    amount: @rule.minimum_withdrawal_amount).html_safe %>
-            </small>
-          <% elsif @rule.withdrawal_fee_known? && @rule.withdrawal_fee_amount.zero? %>
-            <small>
-              <%= t('rules.tile.no_fee_info', exchange: @exchange.name) %>
-            </small>
-          <% end %>
-        </div>
+        <button type="submit"
+                formaction="<%= preview_rules_withdrawals_confirm_settings_path %>"
+                formnovalidate
+                hidden
+                data-form--submit-target="trigger">
+        </button>
+        <%= render "rule_preview" %>
       <% end %>
   </div>
 <% end %>

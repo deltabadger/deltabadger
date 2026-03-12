@@ -26,11 +26,13 @@ ru:
         start: 'Начать'
         next: 'Далее'
         connect: 'Подключить'
+        reconnect: 'Добавить новые ключи'
         get_started: Начать
         select_plan: 'Выбрать план'
         back_to_dashboard: 'Перейти к панели'
         subscribe: 'Подписаться'
         unlock: 'Разблокировать'
+        check_again: 'Проверить снова'
     data_labels:
         invested: "Всего вложено"
         portfolio_value: "Стоимость портфеля"
@@ -157,6 +159,14 @@ ru:
             not_configured: 'Уведомления по почте не настроены.'
             disconnect: 'Отключить'
             disconnected: 'Поставщик почты отключен.'
+        mcp:
+            title: 'MCP'
+            description: 'Используй этот URL для подключения Claude (и других моделей ИИ). Он предоставляет доступ только для чтения к твоим ботам и биржам, чтобы можно было задавать вопросы вроде: «Подведи итоги моей торговли на Binance за этот год» или «Как дела у моих DCA-ботов?»'
+            warning: 'Никогда не делись им с теми, кому не доверяешь.'
+            enabled: 'Доступ по MCP активирован.'
+            revoked: 'URL MCP перегенерирован. Обнови URL в своём ИИ-ассистенте.'
+            revoke: 'Отозвать'
+            confirm_revoke: 'URL MCP будет перегенерирован. Доступ по старому URL станет невозможен.'
     utils:
         pnl: 'П/У'
         assets: Активы
@@ -235,18 +245,18 @@ ru:
                 submitting: 'Создание…'
             confirm_destroy:
                 message: 'Вы хотите удалить это правило вывода?'
-            confirm_settings:
-                min_amount_html: 'Исходя из текущей комиссии <b>%{fee} %{symbol}</b>, вывод будет выполнен, когда баланс достигнет <b>%{amount} %{symbol}</b>.'
         tile:
             withdrawal: 'Вывод'
             network: 'Сеть'
             memo: 'Мемо'
             activated: 'Правило активно.'
             deactivated: 'Правило деактивировано.'
-            min_amount_info: 'Исходя из текущей комиссии %{fee} %{symbol}, вывод будет выполнен, когда баланс достигнет %{amount} %{symbol}.'
+            min_amount_info_html: 'Текущая комиссия — %{fee} %{symbol}, вывод будет выполнен при <b>%{amount} %{symbol}</b>.'
             no_fee_info: '%{exchange} не указывает комиссию за вывод этого актива. Правило выведет любой доступный баланс.'
             unknown_fee_info: 'Данные о комиссии для %{exchange} недоступны. Правило выведет любой доступный баланс.'
             fixed_amount_info: 'Вывод будет выполнен, когда баланс достигнет %{amount} %{symbol}.'
+            fixed_amount_fee_html: 'Текущая комиссия — %{fee} %{symbol}, заплатишь <b>%{fee_pct}</b>.'
+            no_wallet_html: 'Адрес для вывода %{symbol} на %{exchange} не найден. Сначала добавь его на бирже.'
         logs:
             date: 'Дата'
             status: 'Статус'
@@ -255,10 +265,13 @@ ru:
         add_address:
             label: 'Адрес вывода'
             placeholder: 'Вставьте адрес сюда…'
+            select_address: 'Выберите адрес…'
             address_tag_label: 'Мемо / Тег (необязательно)'
             address_tag_placeholder: 'Мемо, тег или идентификатор платежа…'
             instructions_title: 'Добавление адреса вывода на %{exchange}'
             warning_html: 'Убедитесь, что это адрес <b>%{symbol}</b> в правильной сети. Отправка на неверный адрес или в неверную сеть приведет к безвозвратной потере средств.'
+            no_addresses_html: 'Адрес для вывода <b>%{symbol}</b> не задан. Сначала настройте его на %{exchange}.'
+            fetch_failed_html: 'Не удалось получить адреса вывода с %{exchange}. Попробуйте позже.'
         add_api_key:
             title: 'Добавить API-ключ для вывода на %{exchange}'
             instructions_title: 'Как получить ключи от %{exchange}'

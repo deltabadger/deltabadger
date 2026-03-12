@@ -188,6 +188,21 @@ class Rules::WithdrawalTest < ActiveSupport::TestCase
     assert_equal '0.25', rule.min_amount
   end
 
+  test 'parse_params updates address' do
+    rule = build_rule
+    rule.parse_params(address: 'new-wallet-address')
+
+    assert_equal 'new-wallet-address', rule.address
+  end
+
+  test 'parse_params does not clear address with blank value' do
+    rule = build_rule
+    original = rule.address
+    rule.parse_params(address: '')
+
+    assert_equal original, rule.address
+  end
+
   # Validation tests
 
   test 'validates max_fee_percentage required in fee_percentage mode' do

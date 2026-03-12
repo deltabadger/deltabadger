@@ -23,7 +23,7 @@
 
     <div class="rules-list">
       <% @withdrawal_rules.each do |rule| %>
-        <%= render partial: 'rules/rule_tile', locals: { rule: rule } %>
+        <%= render partial: 'rules/rule_tile', locals: { rule: rule, withdrawal_addresses: @withdrawal_addresses[rule.id] } %>
       <% end %>
     </div>
 

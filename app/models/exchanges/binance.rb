@@ -450,6 +450,23 @@ class Exchanges::Binance < Exchange
     end
   end
 
+  def list_withdrawal_addresses(asset:)
+    symbol = symbol_from_asset(asset)
+    return nil if symbol.blank?
+
+    result = client.get_withdraw_addresses
+    return nil if result.failure?
+
+    addresses = Array(result.data)
+    addresses.filter_map do |addr|
+      next unless addr['coin'] == symbol
+
+      address = addr['address']
+      label_parts = [address, addr['name'], addr['network']].compact_blank
+      { name: address, label: label_parts.join(' - ') }
+    end
+  end
+
   def withdraw(asset:, amount:, address:, network: nil, address_tag: nil)
     symbol = symbol_from_asset(asset)
     return Result::Failure.new("Unknown symbol for asset #{asset.symbol}") if symbol.blank?

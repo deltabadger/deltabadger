@@ -410,6 +410,23 @@ class Clients::Binance < Client
     end
   end
 
+  # https://developers.binance.com/docs/wallet/capital/withdraw-address-list
+  # @param recv_window [Integer] The value cannot be greater than 60000
+  def get_withdraw_addresses(recv_window: 5000)
+    with_rescue do
+      response = self.class.connection.get do |req|
+        req.url '/sapi/v1/capital/withdraw/address/list'
+        req.headers = headers
+        req.params = {
+          recvWindow: recv_window,
+          timestamp: timestamp
+        }.compact
+        req.params[:signature] = hmac_signature(req.params)
+      end
+      Result::Success.new(response.body)
+    end
+  end
+
   # https://developers.binance.com/docs/wallet/capital/withdraw
   # @param coin [String] Coin name (e.g., "BTC")
   # @param address [String] Withdrawal address

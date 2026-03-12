@@ -26,11 +26,13 @@ de:
         start: 'Starten'
         next: 'Weiter'
         connect: "Verbinden"
+        reconnect: 'Neue Schlüssel hinzufügen'
         get_started: Loslegen
         select_plan: 'Plan auswählen'
         back_to_dashboard: 'Zum Dashboard'
         subscribe: 'Abonnieren'
         unlock: 'Entsperren'
+        check_again: 'Erneut prüfen'
     data_labels:
         invested: "Gesamtinvestition"
         portfolio_value: "Portfoliowert"
@@ -154,6 +156,14 @@ de:
             not_configured: 'E-Mail-Benachrichtigungen sind nicht konfiguriert.'
             disconnect: 'Trennen'
             disconnected: 'E-Mail-Anbieter getrennt.'
+        mcp:
+            title: 'MCP'
+            description: 'Verwende diese URL, um Claude (und andere KI-Modelle) zu verbinden. Sie bietet schreibgeschützten Zugriff auf deine Bots und Börsen, sodass du Fragen stellen kannst wie: „Fasse meine Handelsaktivitäten auf Binance dieses Jahr zusammen" oder „Wie laufen meine DCA-Bots?"'
+            warning: 'Teile sie niemals mit nicht vertrauenswürdigen Personen.'
+            enabled: 'MCP-Zugang aktiviert.'
+            revoked: 'MCP-URL neu generiert. Aktualisiere die URL in deinem KI-Assistenten.'
+            revoke: 'Widerrufen'
+            confirm_revoke: 'Die MCP-URL wird neu generiert. Der Zugang über die alte URL ist danach nicht mehr möglich.'
     utils:
         pnl: 'G/V'
         assets: Vermögenswerte
@@ -222,7 +232,7 @@ de:
                 on_network: 'über'
                 fee: 'Gebühr'
                 when: 'wenn'
-                fee_less_than: 'Gebühr unter'
+                fee_less_than: 'die Gebühr unter'
                 amount_crosses: 'der Betrag erreicht'
                 of_the_amount: '%'
             pick_exchange:
@@ -232,18 +242,18 @@ de:
                 submitting: 'Wird erstellt…'
             confirm_destroy:
                 message: 'Möchten Sie diese Auszahlungsregel löschen?'
-            confirm_settings:
-                min_amount_html: 'Basierend auf der aktuellen Gebühr von <b>%{fee} %{symbol}</b> wird die Auszahlung ausgelöst, wenn das Guthaben <b>%{amount} %{symbol}</b> erreicht.'
         tile:
             withdrawal: 'Auszahlung'
             network: 'Netzwerk'
             memo: 'Memo'
             activated: 'Die Regel ist aktiv.'
             deactivated: 'Die Regel wurde deaktiviert.'
-            min_amount_info: 'Basierend auf der aktuellen Gebühr von %{fee} %{symbol} wird die Auszahlung ausgelöst, wenn das Guthaben %{amount} %{symbol} erreicht.'
+            min_amount_info_html: 'Die aktuelle Gebühr beträgt %{fee} %{symbol}, die Auszahlung wird bei <b>%{amount} %{symbol}</b> ausgelöst.'
             no_fee_info: '%{exchange} meldet keine Auszahlungsgebühr für dieses Asset. Die Regel zahlt jedes verfügbare Guthaben aus.'
             unknown_fee_info: 'Gebührendaten für %{exchange} nicht verfügbar. Die Regel zahlt jedes verfügbare Guthaben aus.'
             fixed_amount_info: 'Die Auszahlung wird ausgelöst, wenn das Guthaben %{amount} %{symbol} erreicht.'
+            fixed_amount_fee_html: 'Die aktuelle Gebühr beträgt %{fee} %{symbol}, du zahlst also <b>%{fee_pct}</b>.'
+            no_wallet_html: 'Keine %{symbol}-Auszahlungsadresse auf %{exchange} gefunden. Füge zuerst eine auf der Börse hinzu.'
         logs:
             date: 'Datum'
             status: 'Status'
@@ -252,10 +262,13 @@ de:
         add_address:
             label: 'Auszahlungsadresse'
             placeholder: 'Adresse hier einfügen…'
+            select_address: 'Adresse auswählen…'
             address_tag_label: 'Memo / Tag (optional)'
             address_tag_placeholder: 'Memo, Tag oder Zahlungs-ID…'
             instructions_title: 'Auszahlungsadresse auf %{exchange} hinzufügen'
             warning_html: 'Stellen Sie sicher, dass dies eine <b>%{symbol}</b>-Adresse im richtigen Netzwerk ist. Das Senden an die falsche Adresse oder das falsche Netzwerk führt zu dauerhaftem Verlust der Mittel.'
+            no_addresses_html: 'Es ist keine Auszahlungsadresse für <b>%{symbol}</b> hinterlegt. Richten Sie diese zuerst auf %{exchange} ein.'
+            fetch_failed_html: 'Auszahlungsadressen konnten nicht von %{exchange} abgerufen werden. Bitte versuchen Sie es später erneut.'
         add_api_key:
             title: 'Auszahlungs-API-Schlüssel für %{exchange} hinzufügen'
             instructions_title: 'So erhalten Sie Schlüssel von %{exchange}'
