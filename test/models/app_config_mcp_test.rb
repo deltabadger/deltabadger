@@ -48,21 +48,22 @@ class AppConfigMcpTest < ActiveSupport::TestCase
     token = AppConfig.generate_mcp_access_token!
     url = AppConfig.mcp_url
 
-    assert_match(%r{:3001/#{token}\z}, url)
+    assert_match(%r{/#{token}\z}, url)
+    assert_no_match(/:3001/, url)
   end
 
   test 'mcp_url returns nil when not configured' do
     assert_nil AppConfig.mcp_url
   end
 
-  test 'mcp_url uses MCP_PORT env var' do
+  test 'mcp_url uses APP_ROOT_URL' do
     token = AppConfig.generate_mcp_access_token!
 
-    original = ENV['MCP_PORT']
-    ENV['MCP_PORT'] = '4000'
+    original = ENV['APP_ROOT_URL']
+    ENV['APP_ROOT_URL'] = 'https://mybot.deltabadger.com'
     url = AppConfig.mcp_url
-    assert_match(%r{:4000/#{token}\z}, url)
+    assert_equal "https://mybot.deltabadger.com/#{token}", url
   ensure
-    ENV['MCP_PORT'] = original
+    ENV['APP_ROOT_URL'] = original
   end
 end

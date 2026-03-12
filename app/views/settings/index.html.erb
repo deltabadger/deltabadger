@@ -41,7 +41,7 @@
       <%= render partial: 'settings/widgets/stocks' %>
     <% end %>
 
-    <% if current_user.admin? %>
+    <% if current_user.admin? && ENV["MCP_ENABLED"] == "true" %>
       <%= render partial: 'settings/widgets/mcp' %>
     <% end %>
   </div>

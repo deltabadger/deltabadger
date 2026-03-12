@@ -42,8 +42,14 @@ module Deltabadger
 
     config.session_store :cookie_store, key: '_deltabadger_session', expire_after: 30.days
 
-    # ActionMCP
+    # ActionMCP — mounted as middleware so it shares port 3000 with Rails.
+    # Requests matching /<secret_token>/... are routed to ActionMCP.server;
+    # everything else passes through to Rails normally.
     config.action_mcp.name = "Deltabadger"
+    if ENV['MCP_ENABLED'] == 'true'
+      require_relative '../lib/middleware/mcp_secret_path_auth'
+      config.middleware.use MCPSecretPathAuth
+    end
 
     # Don't generate system test files.
     config.generators.system_tests = nil

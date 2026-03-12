@@ -157,9 +157,8 @@ RUN mkdir -p /app/tmp/pids /app/tmp/cache /app/tmp/sockets /app/log /app/storage
 # This allows the container to fix volume permissions when needed (e.g., Umbrel)
 # For regular Docker usage, specify user: "1000:1000" in docker-compose.yml
 
-# Expose ports (3000 = web, 3001 = MCP server)
+# Expose port (MCP is served on same port via middleware)
 EXPOSE 3000
-EXPOSE 3001
 
 # Health check
 HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \

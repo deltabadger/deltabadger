@@ -154,24 +154,8 @@ main() {
             # Run Solid Queue in Puma process
             export SOLID_QUEUE_IN_PUMA=true
 
-            # Optionally start MCP server as background process
-            if [ "${MCP_ENABLED:-false}" = "true" ]; then
-                local mcp_port="${MCP_PORT:-3001}"
-                echo "Starting MCP server on port $mcp_port..."
-                bundle exec puma mcp/config.ru -p "$mcp_port" -e production &
-            fi
-
             echo "Starting web server with in-process job worker..."
             exec bundle exec puma -C config/puma.rb
-            ;;
-
-        mcp)
-            echo "Starting Deltabadger MCP Server..."
-            setup_secrets
-
-            local mcp_port="${MCP_PORT:-3001}"
-            echo "MCP server starting on port $mcp_port..."
-            exec bundle exec puma mcp/config.ru -p "$mcp_port" -e production
             ;;
 
         web)
