@@ -248,8 +248,22 @@ class Rules::WithdrawalExecutionTest < ActiveSupport::TestCase
 
   # Execute when fee is unknown (zero)
 
-  test 'execute refreshes fee when fee is zero and minimum_withdrawal_amount is nil' do
+  test 'execute skips in fee_percentage mode when fee stays unknown after refresh' do
     @ea.update!(withdrawal_fee: nil, withdrawal_fee_updated_at: nil)
+
+    stub_exchange_balance(@exchange, asset_id: @asset.id, free: 1.0, locked: 0)
+    @exchange.stubs(:fetch_withdrawal_fees!).returns(Result::Success.new({}))
+
+    result = @rule.execute
+
+    assert result.success?
+    assert result.data[:skipped]
+    assert_includes @rule.rule_logs.last.message, 'fee unknown'
+  end
+
+  test 'execute proceeds in min_amount mode when fee is unknown' do
+    @ea.update!(withdrawal_fee: nil, withdrawal_fee_updated_at: nil)
+    @rule.update!(threshold_type: 'min_amount', min_amount: '0.5')
 
     stub_exchange_balance(@exchange, asset_id: @asset.id, free: 1.0, locked: 0)
     @exchange.stubs(:fetch_withdrawal_fees!).returns(Result::Success.new({}))
@@ -259,5 +273,6 @@ class Rules::WithdrawalExecutionTest < ActiveSupport::TestCase
     result = @rule.execute
 
     assert result.success?
+    refute result.data[:skipped]
   end
 end

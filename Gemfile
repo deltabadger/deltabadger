@@ -30,6 +30,7 @@ gem 'solid_cable'
 gem 'sprockets-rails'
 gem 'kraken_ruby_client', git: 'https://github.com/guillemap/kraken_ruby_client', branch: 'add-withdrawal-endpoints'
 gem 'mission_control-jobs'
+gem 'actionmcp'
 
 group :development, :test do
   gem 'debug'

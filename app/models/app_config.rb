@@ -24,6 +24,9 @@ class AppConfig < ApplicationRecord
   ALPACA_API_SECRET = 'alpaca_api_secret'.freeze
   ALPACA_MODE = 'alpaca_mode'.freeze # 'paper' or 'live'
 
+  # MCP (Model Context Protocol) settings
+  MCP_ACCESS_TOKEN = 'mcp_access_token'.freeze
+
   SMTP_PROVIDER = 'smtp_provider'.freeze # 'custom_smtp' or 'env_smtp'
   SMTP_USERNAME = 'smtp_username'.freeze
   SMTP_PASSWORD = 'smtp_password'.freeze
@@ -234,5 +237,38 @@ class AppConfig < ApplicationRecord
     delete(MARKET_DATA_PROVIDER)
     delete(MARKET_DATA_URL)
     delete(MARKET_DATA_TOKEN)
+  end
+
+  # MCP configuration methods
+  def self.mcp_access_token
+    get(MCP_ACCESS_TOKEN)
+  end
+
+  def self.mcp_access_token=(value)
+    set(MCP_ACCESS_TOKEN, value)
+  end
+
+  def self.mcp_configured?
+    mcp_access_token.present?
+  end
+
+  def self.mcp_url
+    token = mcp_access_token
+    return nil if token.blank?
+
+    base = ENV.fetch('APP_ROOT_URL', 'http://localhost:3000')
+    port = ENV.fetch('MCP_PORT', '3001')
+    # Replace the port in the base URL
+    base_with_port = base.sub(/:\d+\z/, '') + ":#{port}"
+    "#{base_with_port}/#{token}"
+  end
+
+  def self.generate_mcp_access_token!
+    self.mcp_access_token = SecureRandom.hex(16)
+    mcp_access_token
+  end
+
+  def self.clear_mcp_settings!
+    delete(MCP_ACCESS_TOKEN)
   end
 end

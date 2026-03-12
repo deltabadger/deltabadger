@@ -15,20 +15,23 @@ class Rules::Withdrawals::ConfirmSettingsController < ApplicationController
     elsif @address.blank?
       redirect_to new_rules_withdrawals_add_address_path
     else
-      @exchange.fetch_withdrawal_fees! unless @exchange.withdrawal_fee_fresh?(asset: @asset)
+      setup_rule_from_config(@rule_config)
+    end
+  end
 
-      @rule = Rules::Withdrawal.new(
-        asset: @asset,
-        exchange: @exchange,
-        address: @address,
-        address_tag: @rule_config['address_tag'],
-        network: @rule_config['network'],
-        threshold_type: @rule_config['threshold_type'],
-        max_fee_percentage: @rule_config['max_fee_percentage'],
-        min_amount: @rule_config['min_amount']
-      )
+  def preview
+    config = session[:withdrawal_rule_config] || {}
+    config.merge!(rule_params.to_h)
+    session[:withdrawal_rule_config] = config
 
-      @chains = @rule.available_chains
+    @asset = Asset.find_by(id: config['asset_id'])
+    @exchange = Exchange.find_by(id: config['exchange_id'])
+    @address = config['address']
+
+    setup_rule_from_config(config)
+
+    respond_to do |format|
+      format.turbo_stream { render turbo_stream: turbo_stream.replace('rule-preview', partial: 'rule_preview') }
     end
   end
 
@@ -84,7 +87,45 @@ class Rules::Withdrawals::ConfirmSettingsController < ApplicationController
 
   private
 
+  def setup_rule_from_config(config)
+    api_key = current_user.api_keys.find_by(exchange: @exchange, key_type: :withdrawal)
+    if api_key
+      @exchange.set_client(api_key: api_key)
+      @withdrawal_addresses = @exchange.list_withdrawal_addresses(asset: @asset)
+
+      if @withdrawal_addresses.is_a?(Array) && @withdrawal_addresses.any? &&
+         @withdrawal_addresses.none? { |a| a[:name] == @address }
+        session[:withdrawal_rule_config].delete('address')
+        redirect_to new_rules_withdrawals_add_address_path
+        return
+      end
+    end
+
+    unless @exchange.withdrawal_fee_fresh?(asset: @asset)
+      @exchange.set_client(api_key: api_key) if api_key && @exchange.api_key.blank?
+      @exchange.fetch_withdrawal_fees!
+    end
+
+    @rule = Rules::Withdrawal.new(
+      asset: @asset,
+      exchange: @exchange,
+      address: @address,
+      address_tag: config['address_tag'],
+      threshold_type: config['threshold_type'],
+      max_fee_percentage: config['max_fee_percentage'],
+      min_amount: config['min_amount']
+    )
+
+    @chains = @rule.available_chains
+
+    fee_known = @rule.withdrawal_fee_known?
+    @rule.threshold_type ||= fee_known ? 'fee_percentage' : 'min_amount'
+    @rule.max_fee_percentage ||= '0.5'
+    @rule.min_amount ||= '0.1'
+    @rule.network = config['network'] || @chains.find { |c| c['is_default'] }&.dig('name') || @chains.first&.dig('name')
+  end
+
   def rule_params
-    params.permit(:threshold_type, :max_fee_percentage, :min_amount, :network)
+    params.permit(:threshold_type, :max_fee_percentage, :min_amount, :network, :address)
   end
 end

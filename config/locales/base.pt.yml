@@ -26,11 +26,13 @@ pt:
         start: 'Iniciar'
         next: 'Seguinte'
         connect: 'Conectar'
+        reconnect: 'Adicionar novas chaves'
         get_started: Começar
         select_plan: 'Selecionar Plano'
         back_to_dashboard: 'Ir para o painel'
         subscribe: 'Subscrever'
         unlock: 'Desbloquear'
+        check_again: 'Verificar novamente'
     data_labels:
         invested: "Total Investido"
         portfolio_value: "Valor da Carteira"
@@ -153,6 +155,14 @@ pt:
             not_configured: 'As notificações por e-mail não estão configuradas.'
             disconnect: 'Desconectar'
             disconnected: 'Fornecedor de e-mail desconectado.'
+        mcp:
+            title: 'MCP'
+            description: 'Usa este URL para ligar o Claude (e outros modelos de IA). Oferece acesso só de leitura aos teus bots e exchanges, para poderes fazer perguntas como: "Resume a minha atividade de trading na Binance este ano" ou "Como estão os meus bots de DCA?"'
+            warning: 'Nunca o partilhes com pessoas em quem não confias.'
+            enabled: 'Acesso MCP ativado.'
+            revoked: 'URL de MCP regenerado. Atualiza o URL no teu assistente de IA.'
+            revoke: 'Revogar'
+            confirm_revoke: 'O URL de MCP será regenerado. O acesso através do URL anterior deixará de funcionar.'
     utils:
         pnl: 'L/P'
         assets: Ativos
@@ -221,7 +231,7 @@ pt:
                 on_network: 'na'
                 fee: 'taxa'
                 when: 'quando'
-                fee_less_than: 'taxa inferior a'
+                fee_less_than: 'a taxa é inferior a'
                 amount_crosses: 'o montante atinge'
                 of_the_amount: '%'
             pick_exchange:
@@ -231,18 +241,18 @@ pt:
                 submitting: 'A criar…'
             confirm_destroy:
                 message: 'Pretende eliminar esta regra de levantamento?'
-            confirm_settings:
-                min_amount_html: 'Com base na taxa atual de <b>%{fee} %{symbol}</b>, o levantamento será acionado quando o saldo atingir <b>%{amount} %{symbol}</b>.'
         tile:
             withdrawal: 'Levantamento'
             network: 'Rede'
             memo: 'Memo'
             activated: 'A regra está ativa.'
             deactivated: 'A regra foi desativada.'
-            min_amount_info: 'Com base na taxa atual de %{fee} %{symbol}, o levantamento será acionado quando o saldo atingir %{amount} %{symbol}.'
+            min_amount_info_html: 'A taxa atual é de %{fee} %{symbol}, pelo que o levantamento será acionado a partir de <b>%{amount} %{symbol}</b>.'
             no_fee_info: '%{exchange} não reporta taxa de levantamento para este ativo. A regra levantará qualquer saldo disponível.'
             unknown_fee_info: 'Dados de taxa indisponíveis para %{exchange}. A regra levantará qualquer saldo disponível.'
             fixed_amount_info: 'O levantamento será acionado quando o saldo atingir %{amount} %{symbol}.'
+            fixed_amount_fee_html: 'A taxa atual é de %{fee} %{symbol}, por isso vais pagar <b>%{fee_pct}</b>.'
+            no_wallet_html: 'Nenhum endereço de levantamento de %{symbol} encontrado na %{exchange}. Adiciona um primeiro na exchange.'
         logs:
             date: 'Data'
             status: 'Estado'
@@ -251,10 +261,13 @@ pt:
         add_address:
             label: 'Endereço de levantamento'
             placeholder: 'Cole o endereço aqui…'
+            select_address: 'Selecionar endereço…'
             address_tag_label: 'Memo / Tag (opcional)'
             address_tag_placeholder: 'Memo, tag ou ID de pagamento…'
             instructions_title: 'Adicionar um endereço de levantamento em %{exchange}'
             warning_html: 'Certifique-se de que é um endereço <b>%{symbol}</b> na rede correta. Enviar para o endereço ou rede errados resultará na perda permanente dos fundos.'
+            no_addresses_html: 'Não há nenhum endereço de levantamento definido para <b>%{symbol}</b>. Configure-o primeiro na %{exchange}.'
+            fetch_failed_html: 'Não foi possível obter os endereços de levantamento da %{exchange}. Tente novamente mais tarde.'
         add_api_key:
             title: 'Adicionar chave API de levantamento para %{exchange}'
             instructions_title: 'Como obter as chaves de %{exchange}'

@@ -161,6 +161,17 @@ class Clients::Bitmart < Client
     end
   end
 
+  # https://developer-pro.bitmart.com/en/spot/#get-withdraw-address
+  def get_withdraw_addresses
+    with_rescue do
+      response = self.class.connection.get do |req|
+        req.url '/account/v1/withdraw/address/list'
+        req.headers = authenticated_headers
+      end
+      Result::Success.new(response.body)
+    end
+  end
+
   # https://developer-pro.bitmart.com/en/spot/#withdraw-signed
   # @param currency [String] Coin name (e.g., "BTC")
   # @param amount [String] Withdrawal amount

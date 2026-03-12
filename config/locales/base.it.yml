@@ -26,11 +26,13 @@ it:
         start: 'Inizia'
         next: 'Avanti'
         connect: 'Connetti'
+        reconnect: 'Aggiungi nuove chiavi'
         get_started: Inizia
         select_plan: 'Seleziona Piano'
         back_to_dashboard: 'Vai alla dashboard'
         subscribe: 'Abbonati'
         unlock: 'Sblocca'
+        check_again: 'Verifica di nuovo'
     data_labels:
         invested: "Totale Investito"
         portfolio_value: "Valore del Portafoglio"
@@ -154,6 +156,14 @@ it:
             not_configured: 'Le notifiche e-mail non sono configurate.'
             disconnect: 'Disconnetti'
             disconnected: 'Fornitore e-mail disconnesso.'
+        mcp:
+            title: 'MCP'
+            description: 'Usa questo URL per collegare Claude (e altri modelli di IA). Offre accesso in sola lettura ai tuoi bot e agli exchange, così puoi fare domande come: "Riassumi la mia attività di trading su Binance quest''anno" o "Come vanno i miei bot DCA?"'
+            warning: 'Non condividerlo mai con persone non fidate.'
+            enabled: 'Accesso MCP attivato.'
+            revoked: "URL MCP rigenerato. Aggiorna l'URL nel tuo assistente IA."
+            revoke: 'Revoca'
+            confirm_revoke: "L'URL MCP verrà rigenerato. L'accesso tramite il vecchio URL non sarà più possibile."
     utils:
         pnl: 'G/L'
         assets: Asset
@@ -222,7 +232,7 @@ it:
                 on_network: 'su'
                 fee: 'commissione'
                 when: 'quando'
-                fee_less_than: 'commissione inferiore a'
+                fee_less_than: 'la commissione è inferiore a'
                 amount_crosses: 'l''importo raggiunge'
                 of_the_amount: '%'
             pick_exchange:
@@ -232,18 +242,18 @@ it:
                 submitting: 'Creazione…'
             confirm_destroy:
                 message: 'Vuoi eliminare questa regola di prelievo?'
-            confirm_settings:
-                min_amount_html: 'In base alla commissione attuale di <b>%{fee} %{symbol}</b>, il prelievo verrà attivato quando il saldo raggiunge <b>%{amount} %{symbol}</b>.'
         tile:
             withdrawal: 'Prelievo'
             network: 'Rete'
             memo: 'Memo'
             activated: 'La regola è attiva.'
             deactivated: 'La regola è stata disattivata.'
-            min_amount_info: 'In base alla commissione attuale di %{fee} %{symbol}, il prelievo verrà attivato quando il saldo raggiunge %{amount} %{symbol}.'
+            min_amount_info_html: 'La commissione attuale è di %{fee} %{symbol}, quindi il prelievo verrà attivato a <b>%{amount} %{symbol}</b>.'
             no_fee_info: '%{exchange} non indica commissioni di prelievo per questo asset. La regola preleverà qualsiasi saldo disponibile.'
             unknown_fee_info: 'Dati sulle commissioni non disponibili per %{exchange}. La regola preleverà qualsiasi saldo disponibile.'
             fixed_amount_info: 'Il prelievo verrà attivato quando il saldo raggiunge %{amount} %{symbol}.'
+            fixed_amount_fee_html: 'La commissione attuale è di %{fee} %{symbol}, quindi pagherai <b>%{fee_pct}</b>.'
+            no_wallet_html: 'Nessun indirizzo di prelievo %{symbol} trovato su %{exchange}. Aggiungine uno prima sull''exchange.'
         logs:
             date: 'Data'
             status: 'Stato'
@@ -252,10 +262,13 @@ it:
         add_address:
             label: 'Indirizzo di prelievo'
             placeholder: 'Incolla l''indirizzo qui…'
+            select_address: 'Seleziona indirizzo…'
             address_tag_label: 'Memo / Tag (opzionale)'
             address_tag_placeholder: 'Memo, tag o ID pagamento…'
             instructions_title: 'Aggiungere un indirizzo di prelievo su %{exchange}'
             warning_html: 'Assicurati che sia un indirizzo <b>%{symbol}</b> sulla rete corretta. Inviare all''indirizzo o alla rete sbagliata comporterà la perdita permanente dei fondi.'
+            no_addresses_html: 'Non è definito alcun indirizzo di prelievo per <b>%{symbol}</b>. Configuralo prima su %{exchange}.'
+            fetch_failed_html: 'Impossibile recuperare gli indirizzi di prelievo da %{exchange}. Riprova più tardi.'
         add_api_key:
             title: 'Aggiungi chiave API di prelievo per %{exchange}'
             instructions_title: 'Come ottenere le chiavi da %{exchange}'

@@ -40,5 +40,9 @@
     <% if current_user.admin? %>
       <%= render partial: 'settings/widgets/stocks' %>
     <% end %>
+
+    <% if current_user.admin? %>
+      <%= render partial: 'settings/widgets/mcp' %>
+    <% end %>
   </div>
 </div>

@@ -35,6 +35,7 @@ class Rules::Withdrawal < Rule
     self.min_amount = params[:min_amount] if params[:min_amount].present?
     self.network = params[:network] if params.key?(:network)
     self.address_tag = params[:address_tag] if params.key?(:address_tag)
+    self.address = params[:address] if params[:address].present?
   end
 
   def execute
@@ -56,6 +57,11 @@ class Rules::Withdrawal < Rule
       end
       reload # pick up updated exchange_asset
       min_amount = minimum_withdrawal_amount
+
+      if min_amount.nil? && threshold_type != 'min_amount'
+        log_skipped("Withdrawal fee unknown for #{asset.symbol} — cannot evaluate fee percentage threshold")
+        return Result::Success.new(skipped: true)
+      end
     end
 
     if min_amount.present? && free_balance < min_amount

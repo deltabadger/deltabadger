@@ -42,6 +42,9 @@ module Deltabadger
 
     config.session_store :cookie_store, key: '_deltabadger_session', expire_after: 30.days
 
+    # ActionMCP
+    config.action_mcp.name = "Deltabadger"
+
     # Don't generate system test files.
     config.generators.system_tests = nil
 

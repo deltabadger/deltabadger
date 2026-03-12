@@ -185,12 +185,112 @@ class ExchangeWithdrawalFeesTest < ActiveSupport::TestCase
     assert_equal({}, result.data)
   end
 
-  # Kraken stub test
+  # Kraken fetch_withdrawal_fees! tests
 
-  test 'Kraken fetch_withdrawal_fees! returns empty success' do
+  test 'Kraken fetch_withdrawal_fees! parses API response and updates exchange_assets' do
     Rails.configuration.stubs(:dry_run).returns(false)
 
     exchange = create(:kraken_exchange)
+    asset = create(:asset, symbol: 'BTC')
+    quote = create(:asset)
+    create(:ticker, exchange: exchange, base_asset: asset, quote_asset: quote, base: 'XBT')
+    ea = ExchangeAsset.find_by(exchange: exchange, asset: asset)
+
+    api_response = {
+      'error' => [],
+      'result' => [
+        { 'asset' => 'XBT', 'method' => 'Bitcoin', 'network' => 'Bitcoin', 'minimum' => '0.0004', 'fee' => '0.00015' },
+        { 'asset' => 'XBT', 'method' => 'Bitcoin Lightning', 'network' => 'Lightning', 'minimum' => '0.00001', 'fee' => '0.00001' }
+      ]
+    }
+
+    Clients::Kraken.any_instance
+                   .stubs(:get_withdraw_methods)
+                   .returns(Result::Success.new(api_response))
+
+    exchange.set_client
+    result = exchange.fetch_withdrawal_fees!
+
+    assert result.success?
+    ea.reload
+    assert_equal '0.00015', ea.withdrawal_fee
+    assert_not_nil ea.withdrawal_fee_updated_at
+
+    chains = ea.withdrawal_chains
+    assert_equal 2, chains.size
+    assert_equal 'Bitcoin', chains[0]['name']
+    assert_equal '0.00015', chains[0]['fee']
+    assert_equal true, chains[0]['is_default']
+    assert_equal 'Lightning', chains[1]['name']
+    assert_equal '0.00001', chains[1]['fee']
+    assert_equal false, chains[1]['is_default']
+  end
+
+  test 'Kraken fetch_withdrawal_fees! handles fee as hash' do
+    Rails.configuration.stubs(:dry_run).returns(false)
+
+    exchange = create(:kraken_exchange)
+    asset = create(:asset, symbol: 'ETH')
+    quote = create(:asset)
+    create(:ticker, exchange: exchange, base_asset: asset, quote_asset: quote, base: 'ETH')
+    ea = ExchangeAsset.find_by(exchange: exchange, asset: asset)
+
+    api_response = {
+      'error' => [],
+      'result' => [
+        {
+          'asset' => 'ETH', 'method' => 'Ethereum', 'network' => 'Ethereum',
+          'minimum' => '0.01',
+          'fee' => { 'aclass' => 'currency', 'asset' => 'XETH', 'fee' => '0.00014' }
+        }
+      ]
+    }
+
+    Clients::Kraken.any_instance
+                   .stubs(:get_withdraw_methods)
+                   .returns(Result::Success.new(api_response))
+
+    exchange.set_client
+    result = exchange.fetch_withdrawal_fees!
+
+    assert result.success?
+    ea.reload
+    assert_equal '0.00014', ea.withdrawal_fee
+    assert_equal '0.00014', ea.withdrawal_chains.first['fee']
+  end
+
+  test 'Kraken fetch_withdrawal_fees! returns failure on API error' do
+    Rails.configuration.stubs(:dry_run).returns(false)
+
+    exchange = create(:kraken_exchange)
+
+    Clients::Kraken.any_instance
+                   .stubs(:get_withdraw_methods)
+                   .returns(Result::Success.new({ 'error' => ['EAPI:Invalid key'], 'result' => [] }))
+
+    exchange.set_client
+    result = exchange.fetch_withdrawal_fees!
+
+    assert result.failure?
+  end
+
+  test 'Kraken fetch_withdrawal_fees! skips assets not in tickers' do
+    Rails.configuration.stubs(:dry_run).returns(false)
+
+    exchange = create(:kraken_exchange)
+
+    api_response = {
+      'error' => [],
+      'result' => [
+        { 'asset' => 'UNKNOWN', 'method' => 'Unknown', 'network' => 'Unknown', 'minimum' => '1', 'fee' => '0.5' }
+      ]
+    }
+
+    Clients::Kraken.any_instance
+                   .stubs(:get_withdraw_methods)
+                   .returns(Result::Success.new(api_response))
+
+    exchange.set_client
     result = exchange.fetch_withdrawal_fees!
 
     assert result.success?

@@ -26,11 +26,13 @@ es:
         start: 'Empezar'
         next: 'Siguiente'
         connect: 'Conectar'
+        reconnect: 'Añadir nuevas claves'
         get_started: Empezar
         select_plan: 'Seleccionar Plan'
         back_to_dashboard: 'Ir al panel'
         subscribe: 'Suscribirse'
         unlock: 'Desbloquear'
+        check_again: 'Comprobar de nuevo'
     data_labels:
         invested: "Total invertido"
         portfolio_value: "Valor de la cartera"
@@ -154,6 +156,14 @@ es:
             not_configured: 'Las notificaciones por correo no están configuradas.'
             disconnect: 'Desconectar'
             disconnected: 'Proveedor de correo desconectado.'
+        mcp:
+            title: 'MCP'
+            description: 'Usa esta URL para conectar Claude (y otros modelos de IA). Ofrece acceso de solo lectura a tus bots y exchanges, para que puedas hacer preguntas como: "Resume mi actividad de trading en Binance este año" o "¿Cómo van mis bots de DCA?"'
+            warning: 'No la compartas con personas en las que no confíes.'
+            enabled: 'Acceso MCP activado.'
+            revoked: 'URL de MCP regenerada. Actualiza la URL en tu asistente de IA.'
+            revoke: 'Revocar'
+            confirm_revoke: 'Se regenerará la URL de MCP. El acceso a través de la URL anterior dejará de funcionar.'
     utils:
         pnl: 'G/P'
         assets: Activos
@@ -222,7 +232,7 @@ es:
                 on_network: 'en'
                 fee: 'comisión'
                 when: 'cuando'
-                fee_less_than: 'comisión menor que'
+                fee_less_than: 'la comisión sea menor de'
                 amount_crosses: 'el monto alcance'
                 of_the_amount: '%'
             pick_exchange:
@@ -232,18 +242,18 @@ es:
                 submitting: 'Creando…'
             confirm_destroy:
                 message: '¿Quieres eliminar esta regla de retiro?'
-            confirm_settings:
-                min_amount_html: 'Según la comisión actual de <b>%{fee} %{symbol}</b>, el retiro se activará cuando el saldo alcance <b>%{amount} %{symbol}</b>.'
         tile:
             withdrawal: 'Retiro'
             network: 'Red'
             memo: 'Memo'
             activated: 'La regla está activa.'
             deactivated: 'La regla ha sido desactivada.'
-            min_amount_info: 'Según la comisión actual de %{fee} %{symbol}, el retiro se activará cuando el saldo alcance %{amount} %{symbol}.'
+            min_amount_info_html: 'La comisión actual es de %{fee} %{symbol}, por lo que el retiro se activará en <b>%{amount} %{symbol}</b>.'
             no_fee_info: '%{exchange} no reporta comisión de retiro para este activo. La regla retirará cualquier saldo disponible.'
             unknown_fee_info: 'Datos de comisión no disponibles para %{exchange}. La regla retirará cualquier saldo disponible.'
             fixed_amount_info: 'El retiro se activará cuando el saldo alcance %{amount} %{symbol}.'
+            fixed_amount_fee_html: 'La comisión actual es de %{fee} %{symbol}, así que pagarás <b>%{fee_pct}</b>.'
+            no_wallet_html: 'No se encontró ninguna dirección de retiro de %{symbol} en %{exchange}. Añade una primero en el exchange.'
         logs:
             date: 'Fecha'
             status: 'Estado'
@@ -252,10 +262,13 @@ es:
         add_address:
             label: 'Dirección de retiro'
             placeholder: 'Pega la dirección aquí…'
+            select_address: 'Seleccionar dirección…'
             address_tag_label: 'Memo / Tag (opcional)'
             address_tag_placeholder: 'Memo, tag o ID de pago…'
             instructions_title: 'Añadir una dirección de retiro en %{exchange}'
             warning_html: 'Asegúrate de que sea una dirección <b>%{symbol}</b> en la red correcta. Enviar a la dirección o red incorrecta provocará la pérdida permanente de los fondos.'
+            no_addresses_html: 'No hay ninguna dirección de retiro definida para <b>%{symbol}</b>. Configúrala primero en %{exchange}.'
+            fetch_failed_html: 'No se pudieron obtener las direcciones de retiro de %{exchange}. Inténtalo de nuevo más tarde.'
         add_api_key:
             title: 'Añadir clave API de retiro para %{exchange}'
             instructions_title: 'Cómo obtener las claves de %{exchange}'

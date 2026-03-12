@@ -26,11 +26,13 @@ nl:
         start: 'Starten'
         next: 'Volgende'
         connect: 'Verbinden'
+        reconnect: 'Nieuwe sleutels toevoegen'
         get_started: Beginnen
         select_plan: 'Selecteer plan'
         back_to_dashboard: 'Ga naar dashboard'
         subscribe: 'Abonneren'
         unlock: 'Ontgrendelen'
+        check_again: 'Opnieuw controleren'
     data_labels:
         invested: "Totaal geïnvesteerd"
         portfolio_value: "Portfoliowaarde"
@@ -154,6 +156,14 @@ nl:
             not_configured: 'E-mailmeldingen zijn niet geconfigureerd.'
             disconnect: 'Ontkoppelen'
             disconnected: 'E-mailprovider ontkoppeld.'
+        mcp:
+            title: 'MCP'
+            description: 'Gebruik deze URL om Claude (en andere AI-modellen) te verbinden. Het biedt alleen-lezen toegang tot je bots en exchanges, zodat je vragen kunt stellen zoals: "Vat mijn handelsactiviteit op Binance dit jaar samen" of "Hoe doen mijn DCA-bots het?"'
+            warning: 'Deel deze nooit met onbetrouwbare partijen.'
+            enabled: 'MCP-toegang geactiveerd.'
+            revoked: 'MCP-URL opnieuw gegenereerd. Werk de URL bij in je AI-assistent.'
+            revoke: 'Intrekken'
+            confirm_revoke: 'De MCP-URL wordt opnieuw gegenereerd. Toegang via de oude URL is daarna niet meer mogelijk.'
     utils:
         pnl: 'W/V'
         assets: Activa
@@ -222,7 +232,7 @@ nl:
                 on_network: 'via'
                 fee: 'kosten'
                 when: 'wanneer'
-                fee_less_than: 'kosten lager dan'
+                fee_less_than: 'de kosten lager dan'
                 amount_crosses: 'het bedrag bereikt'
                 of_the_amount: '%'
             pick_exchange:
@@ -232,18 +242,18 @@ nl:
                 submitting: 'Aanmaken…'
             confirm_destroy:
                 message: 'Wilt u deze opnameregel verwijderen?'
-            confirm_settings:
-                min_amount_html: 'Op basis van de huidige kosten van <b>%{fee} %{symbol}</b> wordt de opname geactiveerd wanneer het saldo <b>%{amount} %{symbol}</b> bereikt.'
         tile:
             withdrawal: 'Opname'
             network: 'Netwerk'
             memo: 'Memo'
             activated: 'De regel is actief.'
             deactivated: 'De regel is gedeactiveerd.'
-            min_amount_info: 'Op basis van de huidige kosten van %{fee} %{symbol} wordt de opname geactiveerd wanneer het saldo %{amount} %{symbol} bereikt.'
+            min_amount_info_html: 'De huidige kosten zijn %{fee} %{symbol}, de opname wordt geactiveerd bij <b>%{amount} %{symbol}</b>.'
             no_fee_info: '%{exchange} meldt geen opnamekosten voor dit asset. De regel neemt elk beschikbaar saldo op.'
             unknown_fee_info: 'Kostengegevens niet beschikbaar voor %{exchange}. De regel neemt elk beschikbaar saldo op.'
             fixed_amount_info: 'De opname wordt geactiveerd wanneer het saldo %{amount} %{symbol} bereikt.'
+            fixed_amount_fee_html: 'De huidige kosten zijn %{fee} %{symbol}, je betaalt dus <b>%{fee_pct}</b>.'
+            no_wallet_html: 'Geen %{symbol}-opnameadres gevonden op %{exchange}. Voeg er eerst een toe op de exchange.'
         logs:
             date: 'Datum'
             status: 'Status'
@@ -252,10 +262,13 @@ nl:
         add_address:
             label: 'Opnameadres'
             placeholder: 'Plak hier het adres…'
+            select_address: 'Selecteer adres…'
             address_tag_label: 'Memo / Tag (optioneel)'
             address_tag_placeholder: 'Memo, tag of betalings-ID…'
             instructions_title: 'Een opnameadres toevoegen op %{exchange}'
             warning_html: 'Zorg ervoor dat dit een <b>%{symbol}</b>-adres op het juiste netwerk is. Verzenden naar het verkeerde adres of netwerk leidt tot permanent verlies van fondsen.'
+            no_addresses_html: 'Er is geen opnameadres gedefinieerd voor <b>%{symbol}</b>. Stel dit eerst in op %{exchange}.'
+            fetch_failed_html: 'Kon opnameadressen niet ophalen van %{exchange}. Probeer het later opnieuw.'
         add_api_key:
             title: 'Opname-API-sleutel toevoegen voor %{exchange}'
             instructions_title: 'Hoe u sleutels van %{exchange} verkrijgt'

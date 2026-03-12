@@ -33,17 +33,19 @@ Rails.application.routes.draw do
 
     resources :rules, only: [:index]
     namespace :rules do
-      resources :withdrawals, only: [:create, :update, :destroy] do
-        member do
-          get :confirm_destroy
-        end
-      end
       namespace :withdrawals do
         resource :pick_asset, only: %i[new create]
         resource :pick_exchange, only: %i[new create]
         resource :add_api_key, only: %i[new create]
         resource :add_address, only: %i[new create]
-        resource :confirm_settings, only: %i[new create]
+        resource :confirm_settings, only: %i[new create] do
+          post :preview, on: :collection
+        end
+      end
+      resources :withdrawals, only: [:create, :update, :destroy] do
+        member do
+          get :confirm_destroy
+        end
       end
     end
 
@@ -66,6 +68,9 @@ Rails.application.routes.draw do
       delete :disconnect_market_data
       patch :update_stocks
       delete :disconnect_stocks
+      patch :update_mcp
+      get :confirm_revoke_mcp
+      delete :revoke_mcp
       patch :update_registration
       patch :update_email_notifications
       post :send_test_email

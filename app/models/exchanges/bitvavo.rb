@@ -17,6 +17,10 @@ class Exchanges::Bitvavo < Exchange
     ERRORS
   end
 
+  def supports_withdrawal?
+    false
+  end
+
   def set_client(api_key: nil)
     @api_key = api_key
     @client = Clients::Bitvavo.new(

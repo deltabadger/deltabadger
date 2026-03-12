@@ -1,0 +1,26 @@
+# ActionMCP Configuration
+
+shared:
+  authentication: ["bearer_token"]
+  session_store_type: volatile
+
+  profiles:
+    primary:
+      tools:
+        - all
+      prompts: []
+      resources: []
+      options:
+        list_changed: false
+        logging_enabled: true
+        resources_subscribe: false
+
+development:
+  # Use no auth in development for easier testing
+  # authentication: ["none"]
+
+test:
+  authentication: ["none"]
+
+production:
+  authentication: ["bearer_token"]

@@ -23,7 +23,7 @@ class Rules::Withdrawals::AddApiKeysController < ApplicationController
       @api_key.update_status!(result)
     end
 
-    redirect_to new_rules_withdrawals_add_address_path if @api_key.correct?
+    redirect_to next_step_path if @api_key.correct?
   end
 
   def create
@@ -39,7 +39,7 @@ class Rules::Withdrawals::AddApiKeysController < ApplicationController
     @api_key.update_status!(result)
 
     if @api_key.correct?
-      render turbo_stream: turbo_stream_redirect(new_rules_withdrawals_add_address_path)
+      render turbo_stream: turbo_stream_redirect(next_step_path)
     elsif @api_key.incorrect?
       flash.now[:alert] = t('errors.incorrect_api_key_permissions')
       render turbo_stream: turbo_stream_prepend_flash, status: :unprocessable_entity
@@ -53,5 +53,27 @@ class Rules::Withdrawals::AddApiKeysController < ApplicationController
 
   def api_key_params
     params.require(:api_key).permit(:key, :secret, :passphrase)
+  end
+
+  def next_step_path
+    result = auto_select_withdrawal_address
+    if result == :selected
+      new_rules_withdrawals_confirm_settings_path
+    else
+      new_rules_withdrawals_add_address_path
+    end
+  end
+
+  def auto_select_withdrawal_address
+    return :no_key unless @exchange && @asset && @api_key&.correct?
+
+    @exchange.set_client(api_key: @api_key)
+    addresses = @exchange.list_withdrawal_addresses(asset: @asset)
+    return :no_listing if addresses.nil?
+    return :no_addresses if addresses.empty?
+
+    session[:withdrawal_rule_config] ||= {}
+    session[:withdrawal_rule_config]['address'] = addresses.first[:name]
+    :selected
   end
 end

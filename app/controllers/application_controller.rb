@@ -14,14 +14,7 @@ class ApplicationController < ActionController::Base
   end
 
   def switch_locale(&action)
-    # Only update user's locale if they explicitly chose one (via language dropdown)
-    # Otherwise, use their saved preference
-    if params[:locale].present?
-      locale = params[:locale]
-      current_user.update(locale:) if current_user.present?
-    else
-      locale = current_user.try(:locale) || I18n.default_locale
-    end
+    locale = params[:locale].presence || current_user.try(:locale) || I18n.default_locale
     I18n.with_locale(locale, &action)
   end
 

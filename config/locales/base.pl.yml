@@ -26,11 +26,13 @@ pl:
         start: 'Start'
         next: 'Dalej'
         connect: 'Połącz'
+        reconnect: 'Dodaj nowe klucze'
         get_started: Zacznij
         select_plan: 'Wybierz plan'
         back_to_dashboard: 'Przejdź do panelu'
         subscribe: 'Subskrybuj'
         unlock: 'Odblokuj'
+        check_again: 'Sprawdź ponownie'
     data_labels:
         invested: "Łącznie zainwestowano"
         portfolio_value: "Wartość portfela"
@@ -156,6 +158,14 @@ pl:
             not_configured: 'Powiadomienia e-mail nie są skonfigurowane.'
             disconnect: 'Odłącz'
             disconnected: 'Dostawca e-mail odłączony.'
+        mcp:
+            title: 'MCP'
+            description: 'Użyj tego URL, aby połączyć Claude''a (i inne modele AI). Zapewnia dostęp tylko do odczytu do twoich botów i giełd, dzięki czemu możesz zadawać pytania typu: „Podsumuj moją aktywność handlową na Binance w tym roku" lub „Jak radzą sobie moje boty DCA?"'
+            warning: 'Nigdy nie udostępniaj go osobom, którym nie ufasz.'
+            enabled: 'Dostęp MCP aktywowany.'
+            revoked: 'URL MCP wygenerowany ponownie. Zaktualizuj URL w swoim asystencie AI.'
+            revoke: 'Unieważnij'
+            confirm_revoke: 'URL MCP zostanie wygenerowany ponownie. Dostęp przez stary URL nie będzie już możliwy.'
     utils:
         pnl: 'Z/S'
         assets: Aktywa
@@ -224,7 +234,7 @@ pl:
                 on_network: 'w sieci'
                 fee: 'opłata'
                 when: 'gdy'
-                fee_less_than: 'opłata mniejsza niż'
+                fee_less_than: 'opłata jest mniejsza niż'
                 amount_crosses: 'kwota osiągnie'
                 of_the_amount: '%'
             pick_exchange:
@@ -234,18 +244,18 @@ pl:
                 submitting: 'Tworzenie…'
             confirm_destroy:
                 message: 'Czy chcesz usunąć tę regułę wypłaty?'
-            confirm_settings:
-                min_amount_html: 'Na podstawie aktualnej opłaty w wysokości <b>%{fee} %{symbol}</b> wypłata zostanie uruchomiona, gdy saldo osiągnie <b>%{amount} %{symbol}</b>.'
         tile:
             withdrawal: 'Wypłata'
             network: 'Sieć'
             memo: 'Memo'
             activated: 'Reguła jest aktywna.'
             deactivated: 'Reguła została dezaktywowana.'
-            min_amount_info: 'Na podstawie aktualnej opłaty w wysokości %{fee} %{symbol} wypłata zostanie uruchomiona, gdy saldo osiągnie %{amount} %{symbol}.'
+            min_amount_info_html: 'Aktualna opłata wynosi %{fee} %{symbol}, więc wypłata zostanie uruchomiona przy <b>%{amount} %{symbol}</b>.'
             no_fee_info: '%{exchange} nie zgłasza opłaty za wypłatę tego aktywa. Reguła wypłaci każde dostępne saldo.'
             unknown_fee_info: 'Dane o opłatach niedostępne dla %{exchange}. Reguła wypłaci każde dostępne saldo.'
             fixed_amount_info: 'Wypłata zostanie uruchomiona, gdy saldo osiągnie %{amount} %{symbol}.'
+            fixed_amount_fee_html: 'Aktualna opłata wynosi %{fee} %{symbol}, więc zapłacisz <b>%{fee_pct}</b>.'
+            no_wallet_html: 'Nie znaleziono adresu wypłaty %{symbol} na %{exchange}. Najpierw dodaj go na giełdzie.'
         logs:
             date: 'Data'
             status: 'Status'
@@ -254,10 +264,13 @@ pl:
         add_address:
             label: 'Adres wypłaty'
             placeholder: 'Wklej adres tutaj…'
+            select_address: 'Wybierz adres…'
             address_tag_label: 'Memo / Tag (opcjonalnie)'
             address_tag_placeholder: 'Memo, tag lub ID płatności…'
             instructions_title: 'Dodawanie adresu wypłaty na %{exchange}'
             warning_html: 'Upewnij się, że jest to adres <b>%{symbol}</b> w odpowiedniej sieci. Wysłanie na zły adres lub do złej sieci spowoduje trwałą utratę środków.'
+            no_addresses_html: 'Nie ma zdefiniowanego adresu wypłaty dla <b>%{symbol}</b>. Skonfiguruj go najpierw na %{exchange}.'
+            fetch_failed_html: 'Nie udało się pobrać adresów wypłat z %{exchange}. Spróbuj ponownie później.'
         add_api_key:
             title: 'Dodaj klucz API do wypłat dla %{exchange}'
             instructions_title: 'Jak uzyskać klucze z %{exchange}'

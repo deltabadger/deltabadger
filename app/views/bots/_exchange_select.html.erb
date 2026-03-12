@@ -1,13 +1,35 @@
 <%= form_with model: bot, url: bot_path(bot), method: :patch, id: "exchange_select", class: "flex-row", data: { controller: "form--submit" } do |f| %>
-  <div class="sbutton sbutton--exchange sbutton--exchange--<%= bot.exchange.name_id %> <%= 'sinput--disabled' unless bot.stopped? %>">
-    <%= render "svg/exchange-#{bot.exchange.name_id}", title: bot.exchange.name %>
-    <span class="hide-on-mobile"><%= bot.exchange&.name || t('bot.pick_exchange') %></span>
-    <% exchange_options = bot.available_exchanges_for_current_settings.pluck(:name, :id).map { |name, id| [name.capitalize, id] } %>
-
-    <%= f.select :exchange_id, exchange_options, { selected: bot.exchange_id }, data: { action: "change->form--submit#submit" }, disabled: !bot.stopped? %>
+  <div data-controller="dropdown" data-action="click->dropdown#toggle" data-dropdown-target="wrapper" class="dropdown-wrapper">
+    <div class="sbutton sbutton--exchange sbutton--exchange--<%= bot.exchange.name_id %> <%= 'sinput--disabled' unless bot.stopped? %>">
+      <%= render "svg/exchange-#{bot.exchange.name_id}", title: bot.exchange.name %>
+      <span class="hide-on-mobile"><%= bot.exchange&.name || t('bot.pick_exchange') %></span>
+    </div>
+    <% if bot.stopped? %>
+      <div class="dropdown dropdown--exchanges">
+        <% if bot.api_key.correct? %>
+          <%= link_to new_bot_add_api_key_path(bot), class: "dropdown__item", data: { turbo_frame: "modal" } do %>
+            <%= t('button.reconnect') %>
+          <% end %>
+        <% end %>
+        <% other_exchanges = bot.available_exchanges_for_current_settings.where.not(id: bot.exchange_id) %>
+        <% if other_exchanges.any? %>
+          <% if bot.api_key.correct? %>
+            <div class="dropdown__item dropdown__item--divider"></div>
+          <% end %>
+          <% exchanges_with_keys = bot.user.api_keys.correct.where(exchange: other_exchanges).pluck(:exchange_id).to_set %>
+          <% other_exchanges.each do |exchange| %>
+            <% highlight = exchanges_with_keys.include?(exchange.id) ? " dropdown__item--highlight" : "" %>
+            <%= f.button name: "#{bot.model_name.param_key}[exchange_id]", value: exchange.id, type: :submit, class: "dropdown__item#{highlight}" do %>
+              <%= render "svg/exchange-#{exchange.name_id}" %>
+              <%= exchange.name.capitalize %>
+            <% end %>
+          <% end %>
+        <% end %>
+      </div>
+    <% end %>
   </div>
 
   <% if bot.exchange.present? && !bot.api_key.correct? %>
-    <%= link_to t('button.connect', exchange: bot.exchange.name), new_bot_add_api_key_path(bot), class: "button button--success", data: { turbo_frame: "modal" } %>
+    <%= link_to t('button.connect'), new_bot_add_api_key_path(bot), class: "sbutton sbutton--success", data: { turbo_frame: "modal" } %>
   <% end %>
 <% end %>

@@ -1,7 +1,8 @@
 <%= form_with model: rule, url: rules_withdrawal_path(rule), method: :patch,
+              id: dom_id(rule),
               class: "widget rule #{rule.scheduled? ? "rule--active" : "rule--inactive"}",
               data: {
-                controller: "class-toggle form--submit",
+                controller: "class-toggle form--submit form--submit-after-delay form--move-cursor-to-end",
                 class_toggle_target: "togglable",
                 class_toggle_toggle_classes_value: ["rule--active", "rule--inactive"],
                 turbo_stream: true
@@ -20,7 +21,7 @@
     </div>
     <div class="toggle-group__info">
       <div class="toggle-group__info__label">
-        <div class="conversational conversational--small" data-controller="form--select-toggle">
+        <div class="conversational conversational--small">
           <span><%= t('rules.withdrawals.sentence.withdraw_all') %></span>
           <span class="ticker" style="background: <%= ensure_contrast(rule.asset.color || "#8A9BA8") %>"><%= rule.asset.symbol %></span>
           <span><%= t('rules.withdrawals.sentence.from') %></span>
@@ -30,63 +31,89 @@
           </span>
           <span><%= t('rules.withdrawals.sentence.to') %></span>
           <% has_address_details = rule.network.present? || rule.address_tag.present? %>
-          <% if has_address_details %>
-          <span style="position: relative" data-controller="tooltip" data-action="mouseenter->tooltip#showTooltip mouseleave->tooltip#hideTooltip">
+          <% addresses = local_assigns[:withdrawal_addresses] %>
+          <% if rule.stopped? && addresses.is_a?(Array) && addresses.any? %>
+            <div class="tag tag--address" data-controller="form--select-display">
+              <%= render 'svg/16x16_wallet' %>
+              <span data-form--select-display-target="label"><%= rule.address %></span>
+              <%= f.select :address,
+                    options_for_select(
+                      addresses.map { |a| [a[:label], a[:name]] },
+                      rule.address
+                    ),
+                    {},
+                    data: { action: "change->form--select-display#update change->form--submit#submit" } %>
+            </div>
+          <% elsif rule.stopped? && addresses.is_a?(Array) && addresses.empty? %>
+            <span class="tag tag--address"><%= render 'svg/16x16_wallet' %></span>
           <% else %>
-          <span>
-          <% end %>
-            <span class="tag tag--address"><%= render 'svg/16x16_wallet' %><%= rule.address %></span>
             <% if has_address_details %>
-              <div class="tooltip tooltip--address">
-                <div><b><%= rule.address %></b></div>
-                <% if rule.network.present? %>
-                  <div><b><%= t('rules.tile.network') %>:</b> <%= rule.network %></div>
-                <% end %>
-                <% if rule.address_tag.present? %>
-                  <div><b><%= t('rules.tile.memo') %>:</b> <%= rule.address_tag %></div>
-                <% end %>
-              </div>
+            <span style="position: relative" data-controller="tooltip" data-action="mouseenter->tooltip#showTooltip mouseleave->tooltip#hideTooltip">
+            <% else %>
+            <span>
             <% end %>
-          </span>
+              <span class="tag tag--address"><%= render 'svg/16x16_wallet' %><%= rule.address %></span>
+              <% if has_address_details %>
+                <div class="tooltip tooltip--address">
+                  <div><b><%= rule.address %></b></div>
+                  <% if rule.network.present? %>
+                    <div><b><%= t('rules.tile.network') %>:</b> <%= rule.network %></div>
+                  <% end %>
+                  <% if rule.address_tag.present? %>
+                    <div><b><%= t('rules.tile.memo') %>:</b> <%= rule.address_tag %></div>
+                  <% end %>
+                </div>
+              <% end %>
+            </span>
+          <% end %>
           <% fee_known = rule.withdrawal_fee_known? %>
           <% current_threshold = rule.threshold_type || (fee_known ? 'fee_percentage' : 'min_amount') %>
-          <span><%= t('rules.withdrawals.sentence.when') %></span>
-          <% if fee_known %>
-            <div class="sinput sinput--select <%= 'sinput--disabled' if rule.scheduled? %>">
-              <%= current_threshold == 'fee_percentage' ? t('rules.withdrawals.sentence.fee_less_than') : t('rules.withdrawals.sentence.amount_crosses') %>
-              <%= f.select :threshold_type,
-                    options_for_select([
-                      [t('rules.withdrawals.sentence.fee_less_than'), 'fee_percentage'],
-                      [t('rules.withdrawals.sentence.amount_crosses'), 'min_amount']
-                    ], current_threshold),
-                    {},
-                    disabled: rule.scheduled?, data: { action: "change->form--select-toggle#toggle change->form--submit#submit" } %>
-            </div>
-          <% else %>
-            <%= f.hidden_field :threshold_type, value: 'min_amount' %>
-            <span><%= t('rules.withdrawals.sentence.amount_crosses') %></span>
-          <% end %>
+          <div data-controller="form--select-toggle" style="display: contents">
+            <span><%= t('rules.withdrawals.sentence.when') %></span>
+            <% if fee_known %>
+              <div class="sinput sinput--select <%= 'sinput--disabled' if rule.scheduled? %>">
+                <%= current_threshold == 'fee_percentage' ? t('rules.withdrawals.sentence.fee_less_than') : t('rules.withdrawals.sentence.amount_crosses') %>
+                <%= f.select :threshold_type,
+                      options_for_select([
+                        [t('rules.withdrawals.sentence.fee_less_than'), 'fee_percentage'],
+                        [t('rules.withdrawals.sentence.amount_crosses'), 'min_amount']
+                      ], current_threshold),
+                      {},
+                      disabled: rule.scheduled?, data: { action: "change->form--select-toggle#toggle change->form--submit#submit" } %>
+              </div>
+            <% else %>
+              <%= f.hidden_field :threshold_type, value: 'min_amount' %>
+              <span><%= t('rules.withdrawals.sentence.amount_crosses') %></span>
+            <% end %>
 
-          <span data-form--select-toggle-target="section" data-select-toggle-value="fee_percentage" style="<%= 'display:none' unless current_threshold == 'fee_percentage' %>">
-            <%= f.number_field :max_fee_percentage, value: rule.max_fee_percentage, class: 'sinput numeric-input', step: :any, min: 0.01, max: 100, size: 2, required: current_threshold == 'fee_percentage', disabled: rule.scheduled?, data: { controller: "autowidth-input", action: "input->autowidth-input#resize change->form--submit#submit" }, style: "width: 50px;" %>
-            <span><%= t('rules.withdrawals.sentence.of_the_amount') %></span>
-          </span>
+            <span data-form--select-toggle-target="section" data-select-toggle-value="fee_percentage" style="<%= 'display:none' unless current_threshold == 'fee_percentage' %>">
+              <%= f.number_field :max_fee_percentage, value: rule.max_fee_percentage || 0.5, class: 'sinput numeric-input', step: :any, min: 0.01, max: 100, size: 2, required: current_threshold == 'fee_percentage', disabled: rule.scheduled?, data: { controller: "autowidth-input", action: "input->autowidth-input#resize input->form--submit-after-delay#submit", form__move_cursor_to_end_target: "input" }, style: "width: 50px;" %>
+              <span><%= t('rules.withdrawals.sentence.of_the_amount') %></span>
+            </span>
 
-          <span data-form--select-toggle-target="section" data-select-toggle-value="min_amount" style="<%= 'display:none' unless current_threshold == 'min_amount' %>">
-            <%= f.number_field :min_amount, value: rule.min_amount, class: 'sinput numeric-input', step: :any, min: 0.00000001, size: 2, required: current_threshold == 'min_amount', disabled: rule.scheduled?, data: { controller: "autowidth-input", action: "input->autowidth-input#resize change->form--submit#submit" }, style: "width: 70px;" %>
-            <span><%= rule.asset.symbol %></span>
-          </span>
+            <span data-form--select-toggle-target="section" data-select-toggle-value="min_amount" style="<%= 'display:none' unless current_threshold == 'min_amount' %>">
+              <%= f.number_field :min_amount, value: rule.min_amount || 0.1, class: 'sinput numeric-input', step: :any, min: 0.00000001, size: 2, required: current_threshold == 'min_amount', disabled: rule.scheduled?, data: { controller: "autowidth-input", action: "input->autowidth-input#resize input->form--submit-after-delay#submit", form__move_cursor_to_end_target: "input" }, style: "width: 70px;" %>
+              <span><%= rule.asset.symbol %></span>
+            </span>
+          </div>
         </div>
       </div>
-      <% if current_threshold == 'min_amount' && rule.min_amount.present? %>
+      <% if current_threshold == 'min_amount' %>
+        <% min = rule.min_amount || '0.1' %>
         <div class="small-info">
-          <%= t('rules.tile.fixed_amount_info',
-                amount: rule.min_amount,
-                symbol: rule.asset.symbol) %>
+          <% fee = rule.withdrawal_fee_amount %>
+          <% amount = BigDecimal(min.to_s) %>
+          <% if fee.positive? && amount.positive? %>
+            <% pct = (fee / amount * 100).to_f.round(2) %>
+            <% fee_pct = pct > 1 ? tag.span("#{pct}%", class: 'text-danger') : "#{pct}%" %>
+            <%= t('rules.tile.fixed_amount_fee_html', fee: fee.to_s('F'), symbol: rule.asset.symbol, fee_pct: fee_pct) %>
+          <% else %>
+            <%= t('rules.tile.fixed_amount_info', amount: min, symbol: rule.asset.symbol) %>
+          <% end %>
         </div>
       <% elsif current_threshold != 'min_amount' && rule.minimum_withdrawal_amount %>
         <div class="small-info">
-          <%= t('rules.tile.min_amount_info',
+          <%= t('rules.tile.min_amount_info_html',
                 fee: rule.withdrawal_fee_amount.to_s('F'),
                 symbol: rule.asset.symbol,
                 amount: rule.minimum_withdrawal_amount) %>
@@ -94,6 +121,11 @@
       <% elsif current_threshold != 'min_amount' && rule.withdrawal_fee_known? && rule.withdrawal_fee_amount.zero? %>
         <div class="small-info">
           <%= t('rules.tile.no_fee_info', exchange: rule.exchange.name) %>
+        </div>
+      <% end %>
+      <% if rule.stopped? && addresses.is_a?(Array) && addresses.empty? %>
+        <div class="small-info text-danger">
+          <%= t('rules.tile.no_wallet_html', symbol: rule.asset.symbol, exchange: rule.exchange.name) %>
         </div>
       <% end %>
     </div>

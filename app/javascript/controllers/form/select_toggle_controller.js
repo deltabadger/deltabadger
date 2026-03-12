@@ -14,12 +14,21 @@ export default class extends Controller {
   }
 
   toggle() {
-    const selected = this.element.querySelector("select")?.value
+    const select = this.element.querySelector("select")
+    const selected = select ? select.value : this.element.querySelector("input[type=hidden]")?.value
+    if (!selected) return
+
     this.sectionTargets.forEach(el => {
       const visible = el.dataset.selectToggleValue === selected
       el.style.display = visible ? "" : "none"
       el.querySelectorAll("input, select").forEach(input => {
-        input.disabled = !visible
+        if (!visible) {
+          if (!input.disabled) input.dataset.disabledByToggle = ""
+          input.disabled = true
+        } else if (input.hasOwnProperty("dataset") && "disabledByToggle" in input.dataset) {
+          input.disabled = false
+          delete input.dataset.disabledByToggle
+        }
       })
     })
   }

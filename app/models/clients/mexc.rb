@@ -211,6 +211,23 @@ class Clients::Mexc < Client
     end
   end
 
+  # https://mexcdevelop.github.io/apidocs/spot_v3_en/#withdraw-address
+  # @param recv_window [Integer]
+  def get_withdraw_addresses(recv_window: 5000)
+    with_rescue do
+      response = self.class.connection.get do |req|
+        req.url '/api/v3/capital/withdraw/address'
+        req.headers = headers
+        req.params = {
+          recvWindow: recv_window,
+          timestamp: timestamp
+        }.compact
+        req.params[:signature] = hmac_signature(req.params)
+      end
+      Result::Success.new(response.body)
+    end
+  end
+
   # https://mexcdevelop.github.io/apidocs/spot_v3_en/#withdraw
   # @param coin [String] Coin name (e.g., "BTC")
   # @param address [String] Withdrawal address

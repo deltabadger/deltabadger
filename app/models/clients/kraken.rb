@@ -249,6 +249,39 @@ class Clients::Kraken < Client
     end
   end
 
+  # https://docs.kraken.com/api/docs/rest-api/get-withdrawal-addresses
+  # @param asset [String] Filter addresses by asset (optional)
+  # @param method [String] Filter addresses by withdrawal method (optional)
+  def get_withdraw_addresses(asset: nil, method: nil)
+    with_rescue do
+      response = self.class.connection.post do |req|
+        req.url '/0/private/WithdrawAddresses'
+        req.body = {
+          nonce: nonce,
+          asset: asset,
+          method: method
+        }.compact.to_query
+        req.headers = headers(req.path, req.body)
+      end
+      Result::Success.new(response.body)
+    end
+  end
+
+  # https://docs.kraken.com/api/docs/rest-api/get-withdrawal-methods
+  def get_withdraw_methods(asset: nil)
+    with_rescue do
+      response = self.class.connection.post do |req|
+        req.url '/0/private/WithdrawMethods'
+        req.body = {
+          nonce: nonce,
+          asset: asset
+        }.compact.to_query
+        req.headers = headers(req.path, req.body)
+      end
+      Result::Success.new(response.body)
+    end
+  end
+
   # https://docs.kraken.com/api/docs/rest-api/withdraw-funds
   # @param asset [String] Asset being withdrawn (e.g., "XBT")
   # @param key [String] Withdrawal key name (as set up in Kraken account)

@@ -262,6 +262,50 @@ class Exchanges::Gemini < Exchange
     :base
   end
 
+  NETWORK_MAP = {
+    'BTC' => 'bitcoin',
+    'ETH' => 'ethereum',
+    'LTC' => 'litecoin',
+    'SOL' => 'solana',
+    'BCH' => 'bitcoincash',
+    'DOGE' => 'dogecoin',
+    'FIL' => 'filecoin',
+    'MATIC' => 'polygon',
+    'DOT' => 'polkadot',
+    'XRP' => 'ripple',
+    'XLM' => 'stellar',
+    'AVAX' => 'avalanche',
+    'ADA' => 'cardano',
+    'ATOM' => 'cosmos',
+    'ALGO' => 'algorand',
+    'NEAR' => 'near',
+    'APT' => 'aptos',
+    'SUI' => 'sui',
+    'XTZ' => 'tezos',
+    'EOS' => 'eos',
+    'LINK' => 'chainlink'
+  }.freeze
+
+  def list_withdrawal_addresses(asset:)
+    symbol = symbol_from_asset(asset)
+    return nil if symbol.blank?
+
+    network = NETWORK_MAP[symbol]
+    return nil if network.blank?
+
+    result = client.get_approved_addresses(network: network)
+    return nil if result.failure?
+
+    addresses = result.data['approvedAddresses'] || []
+    addresses.filter_map do |addr|
+      next unless addr['status'] == 'active'
+
+      address = addr['address']
+      label = addr['label'].present? ? "#{address} (#{addr['label']})" : address
+      { name: address, label: label }
+    end
+  end
+
   def withdraw(asset:, amount:, address:, network: nil, address_tag: nil) # rubocop:disable Lint/UnusedMethodArgument
     symbol = symbol_from_asset(asset)
     return Result::Failure.new("Unknown symbol for asset #{asset.symbol}") if symbol.blank?
