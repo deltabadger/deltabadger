@@ -148,6 +148,15 @@ class Rules::Withdrawal < Rule
     end
   end
 
+  def last_known_balance
+    log = rule_logs.order(created_at: :desc).first
+    return nil unless log
+    return BigDecimal('0') if log.success?
+
+    match = log.message&.match(/^Balance (\d+\.?\d*)/)
+    BigDecimal(match[1]) if match
+  end
+
   private
 
   def fee_for_selected_chain

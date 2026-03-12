@@ -130,4 +130,19 @@
       <% end %>
     </div>
   </div>
+  <% min_amount = rule.minimum_withdrawal_amount %>
+  <% if min_amount && min_amount.positive? %>
+    <% balance = rule.last_known_balance %>
+    <% progress = balance ? [(balance / min_amount * 100).to_f.round(1), 100].min : 0 %>
+    <div class="slider-group">
+      <div class="label"><%= progress %>%</div>
+      <div class="slider">
+        <div class="slider__style">
+          <div class="slider__style__track" style="grid-template-columns: <%= progress %>% auto">
+            <div class="slider__style__progress"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  <% end %>
 <% end %>

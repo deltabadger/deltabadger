@@ -3,7 +3,7 @@ class RulesController < ApplicationController
 
   def index
     @withdrawal_rules = current_user.rules.where(type: 'Rules::Withdrawal').where.not(status: :deleted).includes(:exchange, :asset)
-    @rule_logs = RuleLog.where(rule_id: current_user.rules.select(:id)).order(created_at: :desc).limit(50)
+    @rule_logs = RuleLog.where(rule_id: current_user.rules.select(:id)).where.not(status: :pending).order(created_at: :desc).limit(50)
     @exchanges = Exchange.where(available: true).order(:name)
     @assets = Asset.where(category: 'Cryptocurrency').order(:name)
 
