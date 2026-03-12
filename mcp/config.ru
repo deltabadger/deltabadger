@@ -1,22 +1,15 @@
 # frozen_string_literal: true
 
 # ============================================================================
-# ActionMCP Standalone Server - Rackup Configuration
+# ActionMCP Standalone Server - Rackup Configuration (local development only)
 # ============================================================================
 #
-# ActionMCP runs as a STANDALONE Rack application on its own port.
-# Do NOT mount ActionMCP::Engine in your routes.rb — it won't work correctly.
+# In production, MCP is served by the main Rails app via MCPSecretPathAuth
+# middleware on the same port (3000). This standalone config is only needed
+# for local development/testing without the full Rails server.
 #
-# Authentication is via secret URL path: the MCP access token from AppConfig
-# is embedded in the URL (e.g., https://host:3001/<token>). This allows
-# Claude.ai web to connect without OAuth (using "no auth" + secret URL).
-#
-# Start this server with:
-#   bin/mcp                                              # Uses Falcon (recommended)
-#   bundle exec falcon serve --bind http://0.0.0.0:62770 mcp/config.ru
-#   bundle exec rails s -c mcp/config.ru -p 62770       # Uses Puma (fallback)
-#
-# Port 62770 = MCPS0 on a phone keypad (MCP Server, instance 0)
+# Start with:
+#   bin/mcp
 #
 # ============================================================================
 

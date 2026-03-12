@@ -6,10 +6,13 @@ class SettingsMcpTest < ActionDispatch::IntegrationTest
   setup do
     @admin = create(:user, admin: true, setup_completed: true)
     sign_in @admin
+    @original_mcp_enabled = ENV['MCP_ENABLED']
+    ENV['MCP_ENABLED'] = 'true'
   end
 
   teardown do
     AppConfig.clear_mcp_settings!
+    ENV['MCP_ENABLED'] = @original_mcp_enabled
   end
 
   test 'mcp widget shows enable button when not configured' do
@@ -66,6 +69,14 @@ class SettingsMcpTest < ActionDispatch::IntegrationTest
 
     delete settings_revoke_mcp_path
     assert_response :forbidden
+  end
+
+  test 'mcp widget is hidden when MCP_ENABLED is not true' do
+    ENV['MCP_ENABLED'] = nil
+
+    get settings_path
+    assert_response :success
+    assert_select 'turbo-frame#mcp_settings', count: 0
   end
 
   test 'mcp widget is not shown to non-admin users' do
