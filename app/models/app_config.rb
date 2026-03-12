@@ -257,10 +257,7 @@ class AppConfig < ApplicationRecord
     return nil if token.blank?
 
     base = ENV.fetch('APP_ROOT_URL', 'http://localhost:3000')
-    port = ENV.fetch('MCP_PORT', '3001')
-    # Replace the port in the base URL
-    base_with_port = base.sub(/:\d+\z/, '') + ":#{port}"
-    "#{base_with_port}/#{token}"
+    "#{base}/#{token}"
   end
 
   def self.generate_mcp_access_token!
