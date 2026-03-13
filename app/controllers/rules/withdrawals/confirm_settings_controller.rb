@@ -55,6 +55,7 @@ class Rules::Withdrawals::ConfirmSettingsController < ApplicationController
     if @rule
       @rule.assign_attributes(
         address: config['address'],
+        address_name: config['address_name'],
         address_tag: config['address_tag'],
         network: config['network'],
         threshold_type: config['threshold_type'],
@@ -68,6 +69,7 @@ class Rules::Withdrawals::ConfirmSettingsController < ApplicationController
         asset: @asset,
         exchange: @exchange,
         address: config['address'],
+        address_name: config['address_name'],
         address_tag: config['address_tag'],
         network: config['network'],
         threshold_type: config['threshold_type'],
@@ -93,11 +95,16 @@ class Rules::Withdrawals::ConfirmSettingsController < ApplicationController
       @exchange.set_client(api_key: api_key)
       @withdrawal_addresses = @exchange.list_withdrawal_addresses(asset: @asset)
 
-      if @withdrawal_addresses.is_a?(Array) && @withdrawal_addresses.any? &&
-         @withdrawal_addresses.none? { |a| a[:name] == @address }
-        session[:withdrawal_rule_config].delete('address')
-        redirect_to new_rules_withdrawals_add_address_path
-        return
+      if @withdrawal_addresses.is_a?(Array) && @withdrawal_addresses.any?
+        if @withdrawal_addresses.none? { |a| a[:name] == @address }
+          session[:withdrawal_rule_config].delete('address')
+          session[:withdrawal_rule_config].delete('address_name')
+          redirect_to new_rules_withdrawals_add_address_path
+          return
+        end
+
+        selected = @withdrawal_addresses.find { |a| a[:name] == @address }
+        session[:withdrawal_rule_config]['address_name'] = selected[:key] if selected
       end
     end
 

@@ -104,7 +104,7 @@ module Automation::Schedulable
     SolidQueue::ScheduledExecution.joins(:job)
                                   .where(solid_queue_jobs: { class_name: job_class.to_s })
                                   .order(:scheduled_at)
-                                  .find_each do |execution|
+                                  .each do |execution|
       return execution.scheduled_at.in_time_zone if job_matches_record?(execution.job, global_id)
     end
 

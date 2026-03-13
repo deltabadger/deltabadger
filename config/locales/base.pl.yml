@@ -160,12 +160,56 @@ pl:
             disconnected: 'Dostawca e-mail odłączony.'
         mcp:
             title: 'MCP'
-            description: 'Użyj tego URL, aby połączyć Claude''a (i inne modele AI). Zapewnia dostęp tylko do odczytu do twoich botów i giełd, dzięki czemu możesz zadawać pytania typu: „Podsumuj moją aktywność handlową na Binance w tym roku" lub „Jak radzą sobie moje boty DCA?"'
+            description: 'Użyj tego URL, aby połączyć Claude''a (i inne modele AI). Dzięki niemu twój asystent AI uzyska dostęp do twoich botów i giełd.'
             warning: 'Nigdy nie udostępniaj go osobom, którym nie ufasz.'
             enabled: 'Dostęp MCP aktywowany.'
             revoked: 'URL MCP wygenerowany ponownie. Zaktualizuj URL w swoim asystencie AI.'
             revoke: 'Unieważnij'
             confirm_revoke: 'URL MCP zostanie wygenerowany ponownie. Dostęp przez stary URL nie będzie już możliwy.'
+            tools_title: 'Uprawnienia narzędzi'
+            tools_read: 'Odczyt'
+            tools_control: 'Sterowanie'
+            tools_trade: 'Handel'
+            tools:
+                list_bots:
+                    label: 'Lista botów'
+                    description: 'Wyświetl wszystkie boty DCA i ich status'
+                get_bot_details:
+                    label: 'Szczegóły bota'
+                    description: 'Wyświetl szczegółowe informacje i wyniki bota'
+                list_exchanges:
+                    label: 'Lista giełd'
+                    description: 'Wyświetl podłączone giełdy'
+                get_exchange_balances:
+                    label: 'Salda giełdowe'
+                    description: 'Pobierz aktualne salda z giełdy'
+                get_portfolio_summary:
+                    label: 'Podsumowanie portfela'
+                    description: 'Wyświetl łączny Z/S i rozbicie na boty'
+                list_transactions:
+                    label: 'Lista transakcji'
+                    description: 'Wyświetl ostatnie transakcje'
+                start_bot:
+                    label: 'Uruchom bota'
+                    description: 'Uruchom zatrzymanego bota'
+                stop_bot:
+                    label: 'Zatrzymaj bota'
+                    description: 'Zatrzymaj działającego bota'
+                update_bot_settings:
+                    label: 'Zmień ustawienia bota'
+                    description: 'Zmień kwotę lub etykietę zatrzymanego bota'
+                start_rule:
+                    label: 'Uruchom regułę'
+                    description: 'Uruchom zatrzymaną regułę'
+                stop_rule:
+                    label: 'Zatrzymaj regułę'
+                    description: 'Zatrzymaj aktywną regułę'
+                market_buy:
+                    label: 'Kup po cenie rynkowej'
+                    description: 'Wykonaj zlecenie kupna po cenie rynkowej'
+                market_sell:
+                    label: 'Sprzedaj po cenie rynkowej'
+                    description: 'Wykonaj zlecenie sprzedaży po cenie rynkowej'
     utils:
         pnl: 'Z/S'
         assets: Aktywa

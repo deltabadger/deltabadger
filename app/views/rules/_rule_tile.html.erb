@@ -2,7 +2,7 @@
               id: dom_id(rule),
               class: "widget rule #{rule.scheduled? ? "rule--active" : "rule--inactive"}",
               data: {
-                controller: "class-toggle form--submit form--submit-after-delay form--move-cursor-to-end",
+                controller: "class-toggle form--submit form--submit-after-delay form--move-cursor-to-end rule-toggle",
                 class_toggle_target: "togglable",
                 class_toggle_toggle_classes_value: ["rule--active", "rule--inactive"],
                 turbo_stream: true
@@ -10,7 +10,7 @@
   <div class="toggle-group">
     <div class="toggle-group__controls">
       <div class="toggle">
-        <%= f.check_box :status, { checked: rule.scheduled?, data: { action: "change->form--submit#submit change->class-toggle#toggle" } }, "scheduled", "stopped" %>
+        <%= f.check_box :status, { checked: rule.scheduled?, data: { rule_toggle_target: "checkbox", action: "change->form--submit#submit change->class-toggle#toggle change->rule-toggle#disable" } }, "scheduled", "stopped" %>
         <div class="toggle__style"></div>
       </div>
       <% if rule.stopped? %>
@@ -31,14 +31,15 @@
           </span>
           <span><%= t('rules.withdrawals.sentence.to') %></span>
           <% has_address_details = rule.network.present? || rule.address_tag.present? %>
+          <% display_name = rule.address_name.presence || rule.address %>
           <% addresses = local_assigns[:withdrawal_addresses] %>
           <% if rule.stopped? && addresses.is_a?(Array) && addresses.any? %>
             <div class="tag tag--address" data-controller="form--select-display">
               <%= render 'svg/16x16_wallet' %>
-              <span data-form--select-display-target="label"><%= rule.address %></span>
+              <span data-form--select-display-target="label"><%= display_name %></span>
               <%= f.select :address,
                     options_for_select(
-                      addresses.map { |a| [a[:label], a[:name]] },
+                      addresses.map { |a| [a[:key].presence || a[:name], a[:name]] },
                       rule.address
                     ),
                     {},
@@ -47,13 +48,14 @@
           <% elsif rule.stopped? && addresses.is_a?(Array) && addresses.empty? %>
             <span class="tag tag--address"><%= render 'svg/16x16_wallet' %></span>
           <% else %>
-            <% if has_address_details %>
+            <% has_tooltip = has_address_details || rule.address_name.present? %>
+            <% if has_tooltip %>
             <span style="position: relative" data-controller="tooltip" data-action="mouseenter->tooltip#showTooltip mouseleave->tooltip#hideTooltip">
             <% else %>
             <span>
             <% end %>
-              <span class="tag tag--address"><%= render 'svg/16x16_wallet' %><%= rule.address %></span>
-              <% if has_address_details %>
+              <span class="tag tag--address"><%= render 'svg/16x16_wallet' %><%= display_name %></span>
+              <% if has_tooltip %>
                 <div class="tooltip tooltip--address">
                   <div><b><%= rule.address %></b></div>
                   <% if rule.network.present? %>

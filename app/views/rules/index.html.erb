@@ -1,3 +1,4 @@
+<%= turbo_stream_from "user_#{current_user.id}", :rule_updates %>
 <% if @withdrawal_rules.empty? && @rule_logs.empty? %>
   <div class="menu-start">
     <div class="introtiles">

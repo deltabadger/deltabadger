@@ -45,6 +45,7 @@ class Rules::Withdrawals::AddAddressesController < ApplicationController
 
     session[:withdrawal_rule_config] ||= {}
     session[:withdrawal_rule_config]['address'] ||= addresses.first[:name]
+    session[:withdrawal_rule_config]['address_name'] ||= addresses.first[:key]
     :selected
   end
 end

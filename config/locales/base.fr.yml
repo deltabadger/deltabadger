@@ -159,12 +159,56 @@ fr:
             disconnected: 'Fournisseur e-mail déconnecté.'
         mcp:
             title: 'MCP'
-            description: "Utilise cette URL pour connecter Claude (et d'autres modèles d'IA). Elle offre un accès en lecture seule à tes bots et exchanges, pour poser des questions comme : « Résume mon activité de trading sur Binance cette année » ou « Comment vont mes bots DCA ? »"
+            description: "Utilise cette URL pour connecter Claude (et d'autres modèles d'IA). Elle donne à ton assistant IA accès à tes bots et exchanges."
             warning: 'Ne la partage jamais avec des personnes non fiables.'
             enabled: 'Accès MCP activé.'
             revoked: "URL MCP régénérée. Mets à jour l'URL dans ton assistant IA."
             revoke: 'Révoquer'
             confirm_revoke: "L'URL MCP sera régénérée. L'accès via l'ancienne URL ne sera plus possible."
+            tools_title: 'Permissions des outils'
+            tools_read: 'Lecture'
+            tools_control: 'Contrôle'
+            tools_trade: 'Trading'
+            tools:
+                list_bots:
+                    label: 'Lister les bots'
+                    description: 'Voir tous les bots DCA et leur statut'
+                get_bot_details:
+                    label: 'Détails du bot'
+                    description: 'Voir les infos détaillées et la performance d''un bot'
+                list_exchanges:
+                    label: 'Lister les exchanges'
+                    description: 'Voir les exchanges connectés'
+                get_exchange_balances:
+                    label: 'Soldes de l''exchange'
+                    description: 'Récupérer les soldes en direct d''un exchange'
+                get_portfolio_summary:
+                    label: 'Résumé du portefeuille'
+                    description: 'Voir le P/L global et le détail par bot'
+                list_transactions:
+                    label: 'Lister les transactions'
+                    description: 'Voir les trades récents'
+                start_bot:
+                    label: 'Démarrer le bot'
+                    description: 'Démarrer un bot arrêté'
+                stop_bot:
+                    label: 'Arrêter le bot'
+                    description: 'Arrêter un bot en cours d''exécution'
+                update_bot_settings:
+                    label: 'Modifier les paramètres du bot'
+                    description: 'Changer le montant ou le libellé d''un bot arrêté'
+                start_rule:
+                    label: 'Démarrer la règle'
+                    description: 'Démarrer une règle arrêtée'
+                stop_rule:
+                    label: 'Arrêter la règle'
+                    description: 'Arrêter une règle active'
+                market_buy:
+                    label: 'Achat au marché'
+                    description: 'Exécuter un ordre d''achat au marché'
+                market_sell:
+                    label: 'Vente au marché'
+                    description: 'Exécuter un ordre de vente au marché'
     utils:
         assets: Actifs
         cash: Liquidités

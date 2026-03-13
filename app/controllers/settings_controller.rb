@@ -5,7 +5,7 @@ class SettingsController < ApplicationController
     update_email_notifications disconnect_email send_test_email
     update_market_data disconnect_market_data update_coingecko_key destroy_coingecko_key resync_assets
     update_stocks disconnect_stocks
-    update_mcp confirm_revoke_mcp revoke_mcp
+    update_mcp confirm_revoke_mcp revoke_mcp update_mcp_tool_permissions
   ]
 
   def index
@@ -301,6 +301,20 @@ class SettingsController < ApplicationController
       turbo_stream.replace('mcp_settings', partial: 'settings/widgets/mcp'),
       turbo_stream.prepend('flash', partial: 'layouts/flash')
     ]
+  end
+
+  def update_mcp_tool_permissions
+    tool_name = params[:tool_name]
+
+    unless AppConfig::MCP_TOOL_DEFAULTS.key?(tool_name)
+      head :unprocessable_entity
+      return
+    end
+
+    enabled = params[:enabled] == '1'
+    AppConfig.set_mcp_tool_enabled(tool_name, enabled)
+
+    render turbo_stream: turbo_stream.replace('mcp_settings', partial: 'settings/widgets/mcp')
   end
 
   def confirm_revoke_mcp; end

@@ -240,4 +240,60 @@ class Rules::WithdrawalTest < ActiveSupport::TestCase
 
     assert rule.valid?
   end
+
+  # start enqueues evaluation
+
+  test 'start enqueues Rule::EvaluateAllJob' do
+    rule = build_rule
+    rule.save!
+    rule.update!(status: :stopped)
+
+    Rule::EvaluateAllJob.expects(:perform_later).once
+
+    rule.start
+  end
+
+  # last_known_balance tests
+
+  test 'last_known_balance returns balance from details free_balance' do
+    rule = build_rule
+    rule.save!
+    rule.rule_logs.create!(status: :pending, message: 'Balance 0.03 BTC below minimum 0.05 BTC',
+                           details: { 'free_balance' => '0.03' })
+
+    assert_equal BigDecimal('0.03'), rule.last_known_balance
+  end
+
+  test 'last_known_balance returns balance from details on failed log' do
+    rule = build_rule
+    rule.save!
+    rule.rule_logs.create!(status: :failed, message: 'Withdrawal failed: some error',
+                           details: { 'free_balance' => '1.5', 'amount' => '1.4995' })
+
+    assert_equal BigDecimal('1.5'), rule.last_known_balance
+  end
+
+  test 'last_known_balance falls back to message regex when no details' do
+    rule = build_rule
+    rule.save!
+    rule.rule_logs.create!(status: :pending, message: 'Balance 0.03 BTC below minimum 0.05 BTC', details: {})
+
+    assert_equal BigDecimal('0.03'), rule.last_known_balance
+  end
+
+  test 'last_known_balance returns nil when no logs' do
+    rule = build_rule
+    rule.save!
+
+    assert_nil rule.last_known_balance
+  end
+
+  test 'last_known_balance returns zero for successful withdrawal' do
+    rule = build_rule
+    rule.save!
+    rule.rule_logs.create!(status: :success, message: 'Withdrew 0.9995 BTC',
+                           details: { 'free_balance' => '1.0' })
+
+    assert_equal BigDecimal('0'), rule.last_known_balance
+  end
 end

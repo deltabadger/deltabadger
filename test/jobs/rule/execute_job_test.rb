@@ -47,4 +47,22 @@ class Rule::ExecuteJobTest < ActiveSupport::TestCase
     assert @rule.rule_logs.last.failed?
     assert_includes @rule.rule_logs.last.message, 'Something broke'
   end
+
+  test 'broadcasts tile update after execution' do
+    stub_exchange_balance(@exchange, asset_id: @asset.id, free: 1.0, locked: 0)
+    @exchange.stubs(:withdrawal_fee_fresh?).returns(true)
+    @exchange.stubs(:withdraw).returns(Result::Success.new({ withdrawal_id: 'broadcast-test' }))
+
+    @rule.expects(:broadcast_tile_update).once
+
+    Rule::ExecuteJob.perform_now(@rule)
+  end
+
+  test 'broadcasts tile update even when execution raises' do
+    @rule.stubs(:execute).raises(StandardError, 'Something broke')
+
+    @rule.expects(:broadcast_tile_update).once
+
+    Rule::ExecuteJob.perform_now(@rule)
+  end
 end

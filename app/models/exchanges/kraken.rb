@@ -392,7 +392,8 @@ class Exchanges::Kraken < Exchange
     addresses.filter_map do |addr|
       next unless addr['verified']
 
-      { name: addr['address'], label: "#{addr['address']} (#{addr['method']})" }
+      label_parts = [addr['address'], addr['key'], addr['method']].compact_blank
+      { name: addr['address'], key: addr['key'], label: label_parts.join(' - ') }
     end
   end
 
@@ -400,7 +401,8 @@ class Exchanges::Kraken < Exchange
     symbol = symbol_from_asset(asset)
     return Result::Failure.new("Unknown symbol for asset #{asset.symbol}") if symbol.blank?
 
-    result = client.withdraw(asset: symbol, key: address, amount: amount.to_d.to_s('F'), address: address)
+    key_name = find_withdrawal_key_name(asset: asset, address: address) || address
+    result = client.withdraw(asset: symbol, key: key_name, amount: amount.to_d.to_s('F'), address: address)
     return result if result.failure?
 
     error = result.data['error']
@@ -434,6 +436,14 @@ class Exchanges::Kraken < Exchange
   end
 
   private
+
+  def find_withdrawal_key_name(asset:, address:)
+    addresses = list_withdrawal_addresses(asset: asset)
+    return nil unless addresses
+
+    entry = addresses.find { |a| a[:name] == address }
+    entry&.dig(:key)
+  end
 
   def client
     @client ||= set_client

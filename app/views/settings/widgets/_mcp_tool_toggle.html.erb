@@ -1,0 +1,13 @@
+<div class="mcp-tool-toggle">
+  <label class="mcp-tool-toggle__label">
+    <span class="mcp-tool-toggle__name"><%= t("settings.mcp.tools.#{tool}.label") %></span>
+    <span class="mcp-tool-toggle__description"><%= t("settings.mcp.tools.#{tool}.description") %></span>
+  </label>
+  <%= form_with url: settings_update_mcp_tool_permissions_path, method: :patch, data: { turbo_frame: "mcp_settings" } do |f| %>
+    <%= f.hidden_field :tool_name, value: tool %>
+    <%= f.hidden_field :enabled, value: enabled ? '0' : '1' %>
+    <button type="submit" class="toggle-switch <%= 'toggle-switch--active' if enabled %>" aria-label="<%= t("settings.mcp.tools.#{tool}.label") %>">
+      <span class="toggle-switch__slider"></span>
+    </button>
+  <% end %>
+</div>

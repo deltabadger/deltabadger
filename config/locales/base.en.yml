@@ -151,12 +151,56 @@ en:
             mode_live: 'Live'
         mcp:
             title: 'MCP'
-            description: 'Use this URL to connect Claude (and other AI models). It provides read-only access to your bots and exchanges, so you can ask questions like: "Summarize my trading activity on Binance this year" or "How my DCA bots are doing?"'
+            description: 'Use this URL to connect Claude (and other AI models). It gives your AI assistant access to your bots and exchanges.'
             warning: 'Never share it with untrusted parties.'
             enabled: 'MCP access enabled.'
             revoked: 'MCP URL regenerated. Update the URL in your AI assistant.'
             revoke: 'Revoke'
             confirm_revoke: 'This will regenerate the MCP URL. Access through the old URL will no longer be possible.'
+            tools_title: 'Tool permissions'
+            tools_read: 'Read'
+            tools_control: 'Control'
+            tools_trade: 'Trade'
+            tools:
+                list_bots:
+                    label: 'List bots'
+                    description: 'View all DCA bots and their status'
+                get_bot_details:
+                    label: 'Bot details'
+                    description: 'View detailed bot info and performance'
+                list_exchanges:
+                    label: 'List exchanges'
+                    description: 'View connected exchanges'
+                get_exchange_balances:
+                    label: 'Exchange balances'
+                    description: 'Fetch live balances from an exchange'
+                get_portfolio_summary:
+                    label: 'Portfolio summary'
+                    description: 'View global P/L and bot breakdown'
+                list_transactions:
+                    label: 'List transactions'
+                    description: 'View recent trades'
+                start_bot:
+                    label: 'Start bot'
+                    description: 'Start a stopped bot'
+                stop_bot:
+                    label: 'Stop bot'
+                    description: 'Stop a running bot'
+                update_bot_settings:
+                    label: 'Update bot settings'
+                    description: 'Change amount or label on a stopped bot'
+                start_rule:
+                    label: 'Start rule'
+                    description: 'Start a stopped rule'
+                stop_rule:
+                    label: 'Stop rule'
+                    description: 'Stop an active rule'
+                market_buy:
+                    label: 'Market buy'
+                    description: 'Execute a market buy order'
+                market_sell:
+                    label: 'Market sell'
+                    description: 'Execute a market sell order'
         email_notifications:
             none: 'None'
             smtp_host: 'SMTP host'

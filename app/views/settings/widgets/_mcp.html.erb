@@ -8,6 +8,33 @@
       <div class="setting-form">
         <%= link_to t('settings.mcp.revoke'), settings_confirm_revoke_mcp_path, data: { turbo_frame: "modal" }, class: "button button--danger" %>
       </div>
+
+      <div id="mcp_tool_permissions" class="mcp-tool-permissions">
+        <h5 class="mcp-tool-permissions__title"><%= t('settings.mcp.tools_title') %></h5>
+
+        <% permissions = AppConfig.mcp_tool_permissions %>
+
+        <div class="mcp-tool-permissions__group">
+          <h6 class="mcp-tool-permissions__group-title"><%= t('settings.mcp.tools_read') %></h6>
+          <% %w[list_bots get_bot_details list_exchanges get_exchange_balances get_portfolio_summary list_transactions].each do |tool| %>
+            <%= render 'settings/widgets/mcp_tool_toggle', tool: tool, enabled: permissions[tool] %>
+          <% end %>
+        </div>
+
+        <div class="mcp-tool-permissions__group">
+          <h6 class="mcp-tool-permissions__group-title"><%= t('settings.mcp.tools_control') %></h6>
+          <% %w[start_bot stop_bot update_bot_settings start_rule stop_rule].each do |tool| %>
+            <%= render 'settings/widgets/mcp_tool_toggle', tool: tool, enabled: permissions[tool] %>
+          <% end %>
+        </div>
+
+        <div class="mcp-tool-permissions__group">
+          <h6 class="mcp-tool-permissions__group-title"><%= t('settings.mcp.tools_trade') %></h6>
+          <% %w[market_buy market_sell].each do |tool| %>
+            <%= render 'settings/widgets/mcp_tool_toggle', tool: tool, enabled: permissions[tool] %>
+          <% end %>
+        </div>
+      </div>
     <% else %>
       <div class="text-center">
         <p><%= t('settings.mcp.description') %></p>
