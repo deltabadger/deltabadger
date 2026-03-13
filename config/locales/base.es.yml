@@ -208,6 +208,12 @@ es:
                 market_sell:
                     label: 'Venta a mercado'
                     description: 'Ejecutar una orden de venta a mercado'
+                limit_buy:
+                    label: 'Compra limitada'
+                    description: 'Colocar una orden de compra limitada a un precio específico'
+                limit_sell:
+                    label: 'Venta limitada'
+                    description: 'Colocar una orden de venta limitada a un precio específico'
     utils:
         pnl: 'G/P'
         assets: Activos

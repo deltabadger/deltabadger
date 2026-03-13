@@ -1,0 +1,51 @@
+# frozen_string_literal: true
+
+class LimitBuyTool < ApplicationMCPTool
+  tool_name 'limit_buy'
+  description 'Place a limit buy order on a connected exchange at a specific price'
+  open_world
+  destructive
+
+  property :exchange_name, type: 'string', required: true, description: 'Exchange name (e.g., Binance, Kraken, Coinbase)'
+  property :base_asset, type: 'string', required: true, description: 'Asset symbol to buy (e.g., BTC, ETH)'
+  property :quote_asset, type: 'string', required: true, description: 'Quote currency symbol (e.g., USD, USDT)'
+  property :amount, type: 'number', required: true, description: 'Amount to buy'
+  property :price, type: 'number', required: true, description: 'Limit price per unit in quote currency'
+  property :amount_type, type: 'string',
+                         description: "'quote' (spend in quote currency) or 'base' (buy in base asset). Default: 'quote'"
+
+  def perform
+    exchange = Exchange.where('LOWER(name) = ?', exchange_name.downcase).first
+    unless exchange
+      render text: "Exchange '#{exchange_name}' not found. Available: #{Exchange.where(available: true).pluck(:name).join(', ')}"
+      return
+    end
+
+    user = current_user
+    api_key = user.api_keys.find_by(exchange: exchange, key_type: :trading, status: :correct)
+    unless api_key
+      render text: "No valid API key found for #{exchange.name}. Please add an API key in Settings."
+      return
+    end
+
+    ticker = exchange.tickers.joins(:base_asset, :quote_asset)
+                     .where(assets: { symbol: base_asset.upcase })
+                     .where(quote_assets_tickers: { symbol: quote_asset.upcase })
+                     .first
+    unless ticker
+      render text: "Trading pair #{base_asset.upcase}/#{quote_asset.upcase} not found on #{exchange.name}."
+      return
+    end
+
+    exchange.set_client(api_key: api_key)
+    effective_amount_type = amount_type.present? ? amount_type : 'quote'
+    result = exchange.limit_buy(ticker: ticker, amount: amount, amount_type: effective_amount_type, price: price)
+
+    if result.success?
+      pair = "#{base_asset.upcase}/#{quote_asset.upcase}"
+      render text: "Limit buy order placed on #{exchange.name}: #{pair} @ #{price}. #{result.data}"
+    else
+      render text: "Order failed: #{result.errors.join(', ')}"
+    end
+  end
+end

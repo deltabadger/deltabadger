@@ -208,6 +208,12 @@ de:
                 market_sell:
                     label: 'Market-Verkauf'
                     description: 'Einen Market-Verkaufsauftrag ausführen'
+                limit_buy:
+                    label: 'Limit-Kauf'
+                    description: 'Einen Limit-Kaufauftrag zu einem bestimmten Preis aufgeben'
+                limit_sell:
+                    label: 'Limit-Verkauf'
+                    description: 'Einen Limit-Verkaufsauftrag zu einem bestimmten Preis aufgeben'
     utils:
         pnl: 'G/V'
         assets: Vermögenswerte

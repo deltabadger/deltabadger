@@ -210,6 +210,12 @@ pl:
                 market_sell:
                     label: 'Sprzedaj po cenie rynkowej'
                     description: 'Wykonaj zlecenie sprzedaży po cenie rynkowej'
+                limit_buy:
+                    label: 'Kupno z limitem'
+                    description: 'Złóż zlecenie kupna z limitem po określonej cenie'
+                limit_sell:
+                    label: 'Sprzedaż z limitem'
+                    description: 'Złóż zlecenie sprzedaży z limitem po określonej cenie'
     utils:
         pnl: 'Z/S'
         assets: Aktywa
