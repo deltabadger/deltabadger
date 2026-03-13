@@ -4,7 +4,7 @@ class Rules::Withdrawal < Rule
 
   encrypts :address
 
-  store_accessor :settings, :max_fee_percentage, :network, :address_tag, :threshold_type, :min_amount
+  store_accessor :settings, :max_fee_percentage, :network, :address_tag, :threshold_type, :min_amount, :address_name
 
   validates :address, presence: true
   validates :max_fee_percentage, presence: true,
@@ -19,6 +19,7 @@ class Rules::Withdrawal < Rule
 
   def start(_start_fresh: true)
     update!(status: :scheduled)
+    Rule::EvaluateAllJob.perform_later
   end
 
   def stop(_stop_message_key: nil)
@@ -52,20 +53,23 @@ class Rules::Withdrawal < Rule
       # Fee is zero or unknown — refresh and re-check
       refresh_fee_result = with_api_key { exchange.fetch_withdrawal_fees! }
       if refresh_fee_result.failure?
-        log_failed("Failed to refresh withdrawal fees: #{refresh_fee_result.errors.first}")
+        log_failed("Failed to refresh withdrawal fees: #{refresh_fee_result.errors.first}",
+                   details: { free_balance: free_balance.to_s('F') })
         return refresh_fee_result
       end
       reload # pick up updated exchange_asset
       min_amount = minimum_withdrawal_amount
 
       if min_amount.nil? && threshold_type != 'min_amount'
-        log_skipped("Withdrawal fee unknown for #{asset.symbol} — cannot evaluate fee percentage threshold")
+        log_skipped("Withdrawal fee unknown for #{asset.symbol} — cannot evaluate fee percentage threshold",
+                    details: { free_balance: free_balance.to_s('F') })
         return Result::Success.new(skipped: true)
       end
     end
 
     if min_amount.present? && free_balance < min_amount
-      log_skipped("Balance #{free_balance} #{asset.symbol} below minimum #{min_amount} #{asset.symbol}")
+      log_skipped("Balance #{free_balance} #{asset.symbol} below minimum #{min_amount} #{asset.symbol}",
+                  details: { free_balance: free_balance.to_s('F') })
       return Result::Success.new(skipped: true)
     end
 
@@ -73,7 +77,8 @@ class Rules::Withdrawal < Rule
     unless exchange.withdrawal_fee_fresh?(asset: asset)
       refresh_result = with_api_key { exchange.fetch_withdrawal_fees! }
       if refresh_result.failure?
-        log_failed("Failed to refresh withdrawal fees: #{refresh_result.errors.first}")
+        log_failed("Failed to refresh withdrawal fees: #{refresh_result.errors.first}",
+                   details: { free_balance: free_balance.to_s('F') })
         return refresh_result
       end
       exchange.exchange_assets.reset
@@ -83,13 +88,15 @@ class Rules::Withdrawal < Rule
     amount = free_balance - fee
 
     if amount <= 0
-      log_skipped("Balance #{free_balance} #{asset.symbol} does not cover fee #{fee} #{asset.symbol}")
+      log_skipped("Balance #{free_balance} #{asset.symbol} does not cover fee #{fee} #{asset.symbol}",
+                  details: { free_balance: free_balance.to_s('F') })
       return Result::Success.new(skipped: true)
     end
 
     # Re-check fee percentage against actual amount
     if fee.positive? && min_amount.present? && free_balance < min_amount
-      log_skipped("Balance #{free_balance} #{asset.symbol} below minimum #{min_amount} #{asset.symbol} after fee refresh")
+      log_skipped("Balance #{free_balance} #{asset.symbol} below minimum #{min_amount} #{asset.symbol} after fee refresh",
+                  details: { free_balance: free_balance.to_s('F') })
       return Result::Success.new(skipped: true)
     end
 
@@ -99,13 +106,15 @@ class Rules::Withdrawal < Rule
     end
     if withdraw_result.failure?
       log_failed("Withdrawal failed: #{withdraw_result.errors.first}",
-                 details: { amount: amount.to_s('F'), fee: fee.to_s('F'), address: address,
+                 details: { free_balance: free_balance.to_s('F'), amount: amount.to_s('F'),
+                            fee: fee.to_s('F'), address: address,
                             network: network, address_tag: address_tag })
       return withdraw_result
     end
 
     log_success("Withdrew #{amount.to_s('F')} #{asset.symbol}",
                 details: {
+                  free_balance: free_balance.to_s('F'),
                   amount: amount.to_s('F'),
                   fee: fee.to_s('F'),
                   address: address,
@@ -152,6 +161,8 @@ class Rules::Withdrawal < Rule
     log = rule_logs.order(created_at: :desc).first
     return nil unless log
     return BigDecimal('0') if log.success?
+
+    return BigDecimal(log.details['free_balance']) if log.details&.dig('free_balance').present?
 
     match = log.message&.match(/^Balance (\d+\.?\d*)/)
     BigDecimal(match[1]) if match

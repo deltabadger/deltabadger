@@ -261,6 +261,42 @@ class Rules::WithdrawalExecutionTest < ActiveSupport::TestCase
     assert_includes @rule.rule_logs.last.message, 'fee unknown'
   end
 
+  # free_balance stored in log details
+
+  test 'execute stores free_balance in skip log details' do
+    stub_exchange_balance(@exchange, asset_id: @asset.id, free: 0.01, locked: 0)
+
+    @rule.execute
+
+    log = @rule.rule_logs.last
+    assert log.pending?
+    assert_equal '0.01', log.details['free_balance']
+  end
+
+  test 'execute stores free_balance in failure log details' do
+    stub_exchange_balance(@exchange, asset_id: @asset.id, free: 1.0, locked: 0)
+    @exchange.stubs(:withdrawal_fee_fresh?).returns(true)
+    @exchange.stubs(:withdraw).returns(Result::Failure.new('Withdrawal disabled'))
+
+    @rule.execute
+
+    log = @rule.rule_logs.last
+    assert log.failed?
+    assert_equal '1.0', log.details['free_balance']
+  end
+
+  test 'execute stores free_balance in success log details' do
+    stub_exchange_balance(@exchange, asset_id: @asset.id, free: 1.0, locked: 0)
+    @exchange.stubs(:withdrawal_fee_fresh?).returns(true)
+    @exchange.stubs(:withdraw).returns(Result::Success.new({ withdrawal_id: 'balance-test' }))
+
+    @rule.execute
+
+    log = @rule.rule_logs.last
+    assert log.success?
+    assert_equal '1.0', log.details['free_balance']
+  end
+
   test 'execute proceeds in min_amount mode when fee is unknown' do
     @ea.update!(withdrawal_fee: nil, withdrawal_fee_updated_at: nil)
     @rule.update!(threshold_type: 'min_amount', min_amount: '0.5')

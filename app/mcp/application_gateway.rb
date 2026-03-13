@@ -5,5 +5,6 @@ class ApplicationGateway < ActionMCP::Gateway
 
   def configure_session(session)
     session.session_data = { 'user_id' => user.id }
+    session.tool_registry = AppConfig.enabled_mcp_tool_names
   end
 end

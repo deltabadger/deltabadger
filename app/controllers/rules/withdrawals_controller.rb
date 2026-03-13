@@ -11,6 +11,7 @@ class Rules::WithdrawalsController < ApplicationController
 
     if settings_params.present?
       @rule.parse_params(settings_params)
+      resolve_address_name if settings_params[:address].present?
       unless @rule.save
         flash.now[:alert] = @rule.errors.full_messages.to_sentence
         return render turbo_stream: [turbo_stream_prepend_flash, turbo_stream_page_refresh], status: :unprocessable_entity
@@ -64,6 +65,14 @@ class Rules::WithdrawalsController < ApplicationController
 
     rule.exchange.set_client(api_key: api_key)
     rule.exchange.list_withdrawal_addresses(asset: rule.asset)
+  end
+
+  def resolve_address_name
+    addresses = fetch_withdrawal_addresses(@rule)
+    return unless addresses.is_a?(Array)
+
+    selected = addresses.find { |a| a[:name] == @rule.address }
+    @rule.address_name = selected ? selected[:key] : nil
   end
 
   def update_params
