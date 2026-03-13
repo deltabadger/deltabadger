@@ -209,6 +209,12 @@ fr:
                 market_sell:
                     label: 'Vente au marché'
                     description: 'Exécuter un ordre de vente au marché'
+                limit_buy:
+                    label: 'Achat limite'
+                    description: 'Placer un ordre d''achat limite à un prix spécifique'
+                limit_sell:
+                    label: 'Vente limite'
+                    description: 'Placer un ordre de vente limite à un prix spécifique'
     utils:
         assets: Actifs
         cash: Liquidités

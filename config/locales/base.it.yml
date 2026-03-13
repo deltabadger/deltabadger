@@ -208,6 +208,12 @@ it:
                 market_sell:
                     label: 'Vendita a mercato'
                     description: 'Esegui un ordine di vendita a mercato'
+                limit_buy:
+                    label: 'Acquisto limite'
+                    description: 'Inserire un ordine di acquisto limite a un prezzo specifico'
+                limit_sell:
+                    label: 'Vendita limite'
+                    description: 'Inserire un ordine di vendita limite a un prezzo specifico'
     utils:
         pnl: 'G/L'
         assets: Asset

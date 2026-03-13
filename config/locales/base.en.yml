@@ -201,6 +201,12 @@ en:
                 market_sell:
                     label: 'Market sell'
                     description: 'Execute a market sell order'
+                limit_buy:
+                    label: 'Limit buy'
+                    description: 'Place a limit buy order at a specific price'
+                limit_sell:
+                    label: 'Limit sell'
+                    description: 'Place a limit sell order at a specific price'
         email_notifications:
             none: 'None'
             smtp_host: 'SMTP host'

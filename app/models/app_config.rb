@@ -41,7 +41,9 @@ class AppConfig < ApplicationRecord
     'start_rule' => false,
     'stop_rule' => false,
     'market_buy' => false,
-    'market_sell' => false
+    'market_sell' => false,
+    'limit_buy' => false,
+    'limit_sell' => false
   }.freeze
 
   SMTP_PROVIDER = 'smtp_provider'.freeze # 'custom_smtp' or 'env_smtp'

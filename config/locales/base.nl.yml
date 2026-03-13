@@ -208,6 +208,12 @@ nl:
                 market_sell:
                     label: 'Marktverkoop'
                     description: 'Een marktverkooporder uitvoeren'
+                limit_buy:
+                    label: 'Limietaankoop'
+                    description: 'Een limietaankooporder plaatsen tegen een specifieke prijs'
+                limit_sell:
+                    label: 'Limietverkoop'
+                    description: 'Een limietverkooporder plaatsen tegen een specifieke prijs'
     utils:
         pnl: 'W/V'
         assets: Activa

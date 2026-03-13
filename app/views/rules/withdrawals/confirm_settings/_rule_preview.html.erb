@@ -16,12 +16,14 @@
       <% end %>
       <%= t('rules.withdrawals.sentence.to') %>
       <% if @withdrawal_addresses.present? %>
+        <% selected_addr = @withdrawal_addresses.find { |a| a[:name] == @address } %>
+        <% address_display = selected_addr&.dig(:key).presence || @address %>
         <div class="tag tag--address" data-controller="form--select-display">
           <%= render 'svg/16x16_wallet' %>
-          <span data-form--select-display-target="label"><%= @address %></span>
+          <span data-form--select-display-target="label"><%= address_display %></span>
           <select name="address" data-action="change->form--select-display#update change->form--submit#submit">
             <% @withdrawal_addresses.each do |a| %>
-              <option value="<%= a[:name] %>" <%= 'selected' if a[:name] == @address %>><%= a[:label] %></option>
+              <option value="<%= a[:name] %>" <%= 'selected' if a[:name] == @address %>><%= a[:key].presence || a[:name] %></option>
             <% end %>
           </select>
         </div>
