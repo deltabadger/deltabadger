@@ -24,6 +24,8 @@ class AppConfigMcpToolPermissionsTest < ActiveSupport::TestCase
     assert_not AppConfig.mcp_tool_enabled?('stop_rule')
     assert_not AppConfig.mcp_tool_enabled?('market_buy')
     assert_not AppConfig.mcp_tool_enabled?('market_sell')
+    assert_not AppConfig.mcp_tool_enabled?('limit_buy')
+    assert_not AppConfig.mcp_tool_enabled?('limit_sell')
   end
 
   test 'set_mcp_tool_enabled enables a tool' do
@@ -69,6 +71,7 @@ class AppConfigMcpToolPermissionsTest < ActiveSupport::TestCase
       start_bot stop_bot update_bot_settings
       start_rule stop_rule
       market_buy market_sell
+      limit_buy limit_sell
     ]
     assert_equal expected.sort, AppConfig::MCP_TOOL_DEFAULTS.keys.sort
   end
