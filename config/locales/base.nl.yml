@@ -158,12 +158,56 @@ nl:
             disconnected: 'E-mailprovider ontkoppeld.'
         mcp:
             title: 'MCP'
-            description: 'Gebruik deze URL om Claude (en andere AI-modellen) te verbinden. Het biedt alleen-lezen toegang tot je bots en exchanges, zodat je vragen kunt stellen zoals: "Vat mijn handelsactiviteit op Binance dit jaar samen" of "Hoe doen mijn DCA-bots het?"'
+            description: 'Gebruik deze URL om Claude (en andere AI-modellen) te verbinden. Hiermee geef je je AI-assistent toegang tot je bots en exchanges.'
             warning: 'Deel deze nooit met onbetrouwbare partijen.'
             enabled: 'MCP-toegang geactiveerd.'
             revoked: 'MCP-URL opnieuw gegenereerd. Werk de URL bij in je AI-assistent.'
             revoke: 'Intrekken'
             confirm_revoke: 'De MCP-URL wordt opnieuw gegenereerd. Toegang via de oude URL is daarna niet meer mogelijk.'
+            tools_title: 'Toolmachtigingen'
+            tools_read: 'Lezen'
+            tools_control: 'Besturing'
+            tools_trade: 'Handel'
+            tools:
+                list_bots:
+                    label: 'Bots weergeven'
+                    description: 'Alle DCA-bots en hun status bekijken'
+                get_bot_details:
+                    label: 'Botdetails'
+                    description: 'Gedetailleerde botinfo en prestaties bekijken'
+                list_exchanges:
+                    label: 'Exchanges weergeven'
+                    description: 'Verbonden exchanges bekijken'
+                get_exchange_balances:
+                    label: 'Exchangesaldi'
+                    description: 'Live saldi van een exchange ophalen'
+                get_portfolio_summary:
+                    label: 'Portfoliooverzicht'
+                    description: 'Totale W/V en uitsplitsing per bot bekijken'
+                list_transactions:
+                    label: 'Transacties weergeven'
+                    description: 'Recente trades bekijken'
+                start_bot:
+                    label: 'Bot starten'
+                    description: 'Een gestopte bot starten'
+                stop_bot:
+                    label: 'Bot stoppen'
+                    description: 'Een actieve bot stoppen'
+                update_bot_settings:
+                    label: 'Botinstellingen wijzigen'
+                    description: 'Bedrag of label van een gestopte bot wijzigen'
+                start_rule:
+                    label: 'Regel starten'
+                    description: 'Een gestopte regel starten'
+                stop_rule:
+                    label: 'Regel stoppen'
+                    description: 'Een actieve regel stoppen'
+                market_buy:
+                    label: 'Marktaankoop'
+                    description: 'Een marktaankooporder uitvoeren'
+                market_sell:
+                    label: 'Marktverkoop'
+                    description: 'Een marktverkooporder uitvoeren'
     utils:
         pnl: 'W/V'
         assets: Activa

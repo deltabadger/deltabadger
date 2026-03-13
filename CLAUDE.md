@@ -11,10 +11,9 @@ Deltabadger is an open-source Dollar Cost Averaging (DCA) bot for cryptocurrency
 - Sass (.sass)
 
 ## Development
-
+- before doing anything always ask yourself: what is the best/the smartest way to do it
 - when adding a new feature, write tests first, and present it to review
 - Use Rails style guidelines: `.claude/rails.md`
-
 - Always check if our stack doesn't have built in solution already
 - After every change in dependencies or deployment look check Docker and Tauri if they need updates
 - Environment variables: see `.env.example`

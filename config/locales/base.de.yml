@@ -158,12 +158,56 @@ de:
             disconnected: 'E-Mail-Anbieter getrennt.'
         mcp:
             title: 'MCP'
-            description: 'Verwende diese URL, um Claude (und andere KI-Modelle) zu verbinden. Sie bietet schreibgeschützten Zugriff auf deine Bots und Börsen, sodass du Fragen stellen kannst wie: „Fasse meine Handelsaktivitäten auf Binance dieses Jahr zusammen" oder „Wie laufen meine DCA-Bots?"'
+            description: 'Verwende diese URL, um Claude (und andere KI-Modelle) zu verbinden. Damit erhält dein KI-Assistent Zugriff auf deine Bots und Börsen.'
             warning: 'Teile sie niemals mit nicht vertrauenswürdigen Personen.'
             enabled: 'MCP-Zugang aktiviert.'
             revoked: 'MCP-URL neu generiert. Aktualisiere die URL in deinem KI-Assistenten.'
             revoke: 'Widerrufen'
             confirm_revoke: 'Die MCP-URL wird neu generiert. Der Zugang über die alte URL ist danach nicht mehr möglich.'
+            tools_title: 'Werkzeugberechtigungen'
+            tools_read: 'Lesen'
+            tools_control: 'Steuerung'
+            tools_trade: 'Handel'
+            tools:
+                list_bots:
+                    label: 'Bots auflisten'
+                    description: 'Alle DCA-Bots und ihren Status anzeigen'
+                get_bot_details:
+                    label: 'Bot-Details'
+                    description: 'Detaillierte Bot-Infos und Performance anzeigen'
+                list_exchanges:
+                    label: 'Börsen auflisten'
+                    description: 'Verbundene Börsen anzeigen'
+                get_exchange_balances:
+                    label: 'Börsenguthaben'
+                    description: 'Live-Guthaben einer Börse abrufen'
+                get_portfolio_summary:
+                    label: 'Portfolio-Zusammenfassung'
+                    description: 'Gesamt-G/V und Bot-Aufschlüsselung anzeigen'
+                list_transactions:
+                    label: 'Transaktionen auflisten'
+                    description: 'Letzte Trades anzeigen'
+                start_bot:
+                    label: 'Bot starten'
+                    description: 'Einen gestoppten Bot starten'
+                stop_bot:
+                    label: 'Bot stoppen'
+                    description: 'Einen laufenden Bot stoppen'
+                update_bot_settings:
+                    label: 'Bot-Einstellungen ändern'
+                    description: 'Betrag oder Label eines gestoppten Bots ändern'
+                start_rule:
+                    label: 'Regel starten'
+                    description: 'Eine gestoppte Regel starten'
+                stop_rule:
+                    label: 'Regel stoppen'
+                    description: 'Eine aktive Regel stoppen'
+                market_buy:
+                    label: 'Market-Kauf'
+                    description: 'Einen Market-Kaufauftrag ausführen'
+                market_sell:
+                    label: 'Market-Verkauf'
+                    description: 'Einen Market-Verkaufsauftrag ausführen'
     utils:
         pnl: 'G/V'
         assets: Vermögenswerte

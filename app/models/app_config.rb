@@ -26,6 +26,23 @@ class AppConfig < ApplicationRecord
 
   # MCP (Model Context Protocol) settings
   MCP_ACCESS_TOKEN = 'mcp_access_token'.freeze
+  MCP_TOOL_PERMISSIONS = 'mcp_tool_permissions'.freeze
+
+  MCP_TOOL_DEFAULTS = {
+    'list_bots' => true,
+    'get_bot_details' => true,
+    'list_exchanges' => true,
+    'get_exchange_balances' => true,
+    'get_portfolio_summary' => true,
+    'list_transactions' => true,
+    'start_bot' => false,
+    'stop_bot' => false,
+    'update_bot_settings' => false,
+    'start_rule' => false,
+    'stop_rule' => false,
+    'market_buy' => false,
+    'market_sell' => false
+  }.freeze
 
   SMTP_PROVIDER = 'smtp_provider'.freeze # 'custom_smtp' or 'env_smtp'
   SMTP_USERNAME = 'smtp_username'.freeze
@@ -265,7 +282,32 @@ class AppConfig < ApplicationRecord
     mcp_access_token
   end
 
+  def self.mcp_tool_enabled?(tool_name)
+    return false unless MCP_TOOL_DEFAULTS.key?(tool_name)
+
+    overrides = JSON.parse(get(MCP_TOOL_PERMISSIONS) || '{}')
+    return overrides[tool_name] if overrides.key?(tool_name)
+
+    MCP_TOOL_DEFAULTS[tool_name]
+  end
+
+  def self.set_mcp_tool_enabled(tool_name, enabled)
+    overrides = JSON.parse(get(MCP_TOOL_PERMISSIONS) || '{}')
+    overrides[tool_name] = enabled
+    set(MCP_TOOL_PERMISSIONS, overrides.to_json)
+  end
+
+  def self.mcp_tool_permissions
+    overrides = JSON.parse(get(MCP_TOOL_PERMISSIONS) || '{}')
+    MCP_TOOL_DEFAULTS.merge(overrides)
+  end
+
+  def self.enabled_mcp_tool_names
+    mcp_tool_permissions.select { |_, enabled| enabled }.keys
+  end
+
   def self.clear_mcp_settings!
     delete(MCP_ACCESS_TOKEN)
+    delete(MCP_TOOL_PERMISSIONS)
   end
 end

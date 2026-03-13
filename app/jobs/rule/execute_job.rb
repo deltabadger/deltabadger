@@ -13,5 +13,7 @@ class Rule::ExecuteJob < ApplicationJob
   rescue StandardError => e
     Rails.logger.error("Rule::ExecuteJob for rule #{rule.id} failed: #{e.message}")
     rule.rule_logs.create!(status: :failed, message: "Unexpected error: #{e.message}")
+  ensure
+    rule.broadcast_tile_update
   end
 end
