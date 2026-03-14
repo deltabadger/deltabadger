@@ -38,14 +38,18 @@ class MarketBuyTool < ApplicationMCPTool
 
     exchange.set_client(api_key: api_key)
     effective_amount_type = amount_type.present? ? amount_type : 'quote'
-    result = exchange.market_buy(ticker: ticker, amount: amount, amount_type: effective_amount_type)
 
+    result = with_dry_run_if_enabled do
+      exchange.market_buy(ticker: ticker, amount: amount, amount_type: effective_amount_type)
+    end
+
+    dry_prefix = AppConfig.mcp_dry_run? ? '[DRY RUN] ' : ''
     if result.success?
       currency = effective_amount_type == 'quote' ? quote_asset.upcase : base_asset.upcase
       pair = "#{base_asset.upcase}/#{quote_asset.upcase}"
-      render text: "Market buy order placed on #{exchange.name}: #{amount} #{currency} of #{pair}. #{result.data}"
+      render text: "#{dry_prefix}Market buy order placed on #{exchange.name}: #{amount} #{currency} of #{pair}. #{result.data}"
     else
-      render text: "Order failed: #{result.errors.join(', ')}"
+      render text: "#{dry_prefix}Order failed: #{result.errors.join(', ')}"
     end
   end
 end

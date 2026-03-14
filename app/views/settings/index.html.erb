@@ -4,6 +4,15 @@
 
 <div class="columns">
   <div class="column gap-1">
+    <%= render partial: 'settings/widgets/two_fa', locals: { two_fa_button_text: @two_fa_button_text } %>
+
+    <% if current_user.admin? %>
+      <%= render partial: 'settings/widgets/registration' %>
+    <% end %>
+
+    <% if current_user.admin? %>
+      <%= render partial: 'settings/widgets/email_notifications' %>
+    <% end %>
     <%= render partial: 'settings/widgets/name', locals: { name_pattern: @name_pattern } %>
     <%= render partial: 'settings/widgets/email', locals: { email_address_pattern: @email_address_pattern } %>
     <%= render partial: 'settings/widgets/password', locals: {
@@ -19,14 +28,12 @@
 
   <div class="column gap-1">
 
-    <%= render partial: 'settings/widgets/two_fa', locals: { two_fa_button_text: @two_fa_button_text } %>
-
     <% if current_user.admin? %>
-      <%= render partial: 'settings/widgets/registration' %>
+      <%= render partial: 'settings/widgets/stocks' %>
     <% end %>
 
-    <% if current_user.admin? %>
-      <%= render partial: 'settings/widgets/email_notifications' %>
+    <% if current_user.admin? && ENV["MCP_ENABLED"] == "true" %>
+      <%= render partial: 'settings/widgets/mcp' %>
     <% end %>
 
     <%= render partial: 'settings/widgets/api_keys', locals: {
@@ -35,14 +42,6 @@
 
     <% if current_user.admin? %>
       <%= render partial: 'settings/widgets/market_data' %>
-    <% end %>
-
-    <% if current_user.admin? %>
-      <%= render partial: 'settings/widgets/stocks' %>
-    <% end %>
-
-    <% if current_user.admin? && ENV["MCP_ENABLED"] == "true" %>
-      <%= render partial: 'settings/widgets/mcp' %>
     <% end %>
   </div>
 </div>

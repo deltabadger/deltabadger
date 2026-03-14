@@ -195,7 +195,7 @@ fr:
                     label: 'Arrêter le bot'
                     description: 'Arrêter un bot en cours d''exécution'
                 update_bot_settings:
-                    label: 'Modifier les paramètres du bot'
+                    label: 'Modifier les bots'
                     description: 'Changer le montant ou le libellé d''un bot arrêté'
                 start_rule:
                     label: 'Démarrer la règle'
@@ -203,6 +203,9 @@ fr:
                 stop_rule:
                     label: 'Arrêter la règle'
                     description: 'Arrêter une règle active'
+                update_rule_settings:
+                    label: 'Modifier les règles'
+                    description: "Changer les paramètres d'une règle arrêtée"
                 market_buy:
                     label: 'Achat au marché'
                     description: 'Exécuter un ordre d''achat au marché'
@@ -215,6 +218,15 @@ fr:
                 limit_sell:
                     label: 'Vente limite'
                     description: 'Placer un ordre de vente limite à un prix spécifique'
+                cancel_order:
+                    label: 'Annuler un ordre'
+                    description: 'Annuler un ordre ouvert'
+                list_open_orders:
+                    label: 'Ordres ouverts'
+                    description: 'Voir les ordres ouverts (non exécutés) en cours'
+            dry_run_title: 'Paper Trading'
+            dry_run_description: "Simule des transactions avec les prix réels du marché. Aucun ordre réel n'est passé."
+            dry_run_label: 'Activer le paper trading pour les outils de trading'
     utils:
         assets: Actifs
         cash: Liquidités

@@ -194,7 +194,7 @@ de:
                     label: 'Bot stoppen'
                     description: 'Einen laufenden Bot stoppen'
                 update_bot_settings:
-                    label: 'Bot-Einstellungen ändern'
+                    label: 'Bots aktualisieren'
                     description: 'Betrag oder Label eines gestoppten Bots ändern'
                 start_rule:
                     label: 'Regel starten'
@@ -202,6 +202,9 @@ de:
                 stop_rule:
                     label: 'Regel stoppen'
                     description: 'Eine aktive Regel stoppen'
+                update_rule_settings:
+                    label: 'Regeln aktualisieren'
+                    description: 'Einstellungen einer gestoppten Regel ändern'
                 market_buy:
                     label: 'Market-Kauf'
                     description: 'Einen Market-Kaufauftrag ausführen'
@@ -214,6 +217,15 @@ de:
                 limit_sell:
                     label: 'Limit-Verkauf'
                     description: 'Einen Limit-Verkaufsauftrag zu einem bestimmten Preis aufgeben'
+                cancel_order:
+                    label: 'Order stornieren'
+                    description: 'Eine offene Order stornieren'
+                list_open_orders:
+                    label: 'Offene Orders'
+                    description: 'Aktuell offene (nicht ausgeführte) Orders anzeigen'
+            dry_run_title: 'Papierhandel'
+            dry_run_description: 'Trades mit echten Marktpreisen simulieren. Es werden keine echten Orders ausgeführt.'
+            dry_run_label: 'Papierhandel für Trade-Tools aktivieren'
     utils:
         pnl: 'G/V'
         assets: Vermögenswerte

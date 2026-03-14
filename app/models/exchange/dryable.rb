@@ -56,7 +56,7 @@ module Exchange::Dryable
   private
 
   def dry_run?
-    Rails.configuration.dry_run
+    Thread.current[:force_dry_run] || Rails.configuration.dry_run
   end
 
   def get_dry_balances(asset_ids: nil)
