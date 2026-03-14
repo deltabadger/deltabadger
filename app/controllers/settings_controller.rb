@@ -5,7 +5,7 @@ class SettingsController < ApplicationController
     update_email_notifications disconnect_email send_test_email
     update_market_data disconnect_market_data update_coingecko_key destroy_coingecko_key resync_assets
     update_stocks disconnect_stocks
-    update_mcp confirm_revoke_mcp revoke_mcp update_mcp_tool_permissions
+    update_mcp confirm_revoke_mcp revoke_mcp update_mcp_tool_permissions update_mcp_dry_run
   ]
 
   def index
@@ -314,6 +314,11 @@ class SettingsController < ApplicationController
     enabled = params[:enabled] == '1'
     AppConfig.set_mcp_tool_enabled(tool_name, enabled)
 
+    render turbo_stream: turbo_stream.replace('mcp_settings', partial: 'settings/widgets/mcp')
+  end
+
+  def update_mcp_dry_run
+    AppConfig.mcp_dry_run = params[:enabled] == '1'
     render turbo_stream: turbo_stream.replace('mcp_settings', partial: 'settings/widgets/mcp')
   end
 
