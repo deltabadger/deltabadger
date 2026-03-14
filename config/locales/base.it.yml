@@ -194,7 +194,7 @@ it:
                     label: 'Ferma bot'
                     description: 'Ferma un bot in esecuzione'
                 update_bot_settings:
-                    label: 'Modifica impostazioni del bot'
+                    label: 'Aggiorna bot'
                     description: 'Cambia importo o etichetta di un bot fermo'
                 start_rule:
                     label: 'Avvia regola'
@@ -202,6 +202,9 @@ it:
                 stop_rule:
                     label: 'Ferma regola'
                     description: 'Ferma una regola attiva'
+                update_rule_settings:
+                    label: 'Aggiorna regole'
+                    description: 'Cambiare le impostazioni di una regola ferma'
                 market_buy:
                     label: 'Acquisto a mercato'
                     description: 'Esegui un ordine di acquisto a mercato'
@@ -214,6 +217,15 @@ it:
                 limit_sell:
                     label: 'Vendita limite'
                     description: 'Inserire un ordine di vendita limite a un prezzo specifico'
+                cancel_order:
+                    label: 'Annulla ordine'
+                    description: 'Annullare un ordine aperto'
+                list_open_orders:
+                    label: 'Ordini aperti'
+                    description: 'Visualizzare gli ordini aperti (non eseguiti) attualmente'
+            dry_run_title: 'Paper Trading'
+            dry_run_description: 'Simula operazioni con prezzi di mercato reali. Non vengono effettuati ordini reali.'
+            dry_run_label: 'Attiva il paper trading per gli strumenti di trading'
     utils:
         pnl: 'G/L'
         assets: Asset

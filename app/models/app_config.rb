@@ -27,6 +27,7 @@ class AppConfig < ApplicationRecord
   # MCP (Model Context Protocol) settings
   MCP_ACCESS_TOKEN = 'mcp_access_token'.freeze
   MCP_TOOL_PERMISSIONS = 'mcp_tool_permissions'.freeze
+  MCP_DRY_RUN = 'mcp_dry_run'.freeze
 
   MCP_TOOL_DEFAULTS = {
     'list_bots' => true,
@@ -40,10 +41,13 @@ class AppConfig < ApplicationRecord
     'update_bot_settings' => false,
     'start_rule' => false,
     'stop_rule' => false,
+    'update_rule_settings' => false,
+    'list_open_orders' => true,
     'market_buy' => false,
     'market_sell' => false,
     'limit_buy' => false,
-    'limit_sell' => false
+    'limit_sell' => false,
+    'cancel_order' => false
   }.freeze
 
   SMTP_PROVIDER = 'smtp_provider'.freeze # 'custom_smtp' or 'env_smtp'
@@ -308,8 +312,17 @@ class AppConfig < ApplicationRecord
     mcp_tool_permissions.select { |_, enabled| enabled }.keys
   end
 
+  def self.mcp_dry_run?
+    get(MCP_DRY_RUN) == 'true'
+  end
+
+  def self.mcp_dry_run=(value)
+    set(MCP_DRY_RUN, value ? 'true' : 'false')
+  end
+
   def self.clear_mcp_settings!
     delete(MCP_ACCESS_TOKEN)
     delete(MCP_TOOL_PERMISSIONS)
+    delete(MCP_DRY_RUN)
   end
 end

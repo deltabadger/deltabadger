@@ -187,7 +187,7 @@ en:
                     label: 'Stop bot'
                     description: 'Stop a running bot'
                 update_bot_settings:
-                    label: 'Update bot settings'
+                    label: 'Update bots'
                     description: 'Change amount or label on a stopped bot'
                 start_rule:
                     label: 'Start rule'
@@ -195,6 +195,9 @@ en:
                 stop_rule:
                     label: 'Stop rule'
                     description: 'Stop an active rule'
+                update_rule_settings:
+                    label: 'Update rules'
+                    description: 'Change settings on a stopped rule'
                 market_buy:
                     label: 'Market buy'
                     description: 'Execute a market buy order'
@@ -207,6 +210,15 @@ en:
                 limit_sell:
                     label: 'Limit sell'
                     description: 'Place a limit sell order at a specific price'
+                cancel_order:
+                    label: 'Cancel order'
+                    description: 'Cancel an open order'
+                list_open_orders:
+                    label: 'List open orders'
+                    description: 'View currently open (unfilled) orders'
+            dry_run_title: 'Paper Trading'
+            dry_run_description: 'Simulate trades with real market prices. No real orders are placed.'
+            dry_run_label: 'Enable paper trading for trade tools'
         email_notifications:
             none: 'None'
             smtp_host: 'SMTP host'

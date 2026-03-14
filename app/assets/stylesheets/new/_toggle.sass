@@ -81,6 +81,17 @@ input[type=checkbox]
     justify-content: flex-start
     @media (min-width: 768px)
         gap: 1.5rem
+    &__label
+        display: flex
+        align-items: flex-start
+        gap: 1rem
+        cursor: pointer
+        font-weight: 500
+        color: var(--concrete)
+        &--active
+            color: var(--ink)
+        @media (min-width: 768px)
+            gap: 1.5rem
     &__info
         display: flex
         flex-direction: column

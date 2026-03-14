@@ -2,9 +2,11 @@
              data: { controller: "form--submit", turbo_frame: "mcp_settings" }, class: "toggle-group" do |f| %>
   <%= f.hidden_field :tool_name, value: tool %>
   <%= f.hidden_field :enabled, value: enabled ? '0' : '1' %>
-  <div class="toggle">
-    <input type="checkbox" <%= 'checked' if enabled %> data-action="change->form--submit#submit" />
-    <div class="toggle__style"></div>
-  </div>
-  <label><%= t("settings.mcp.tools.#{tool}.label") %></label>
+  <label class="toggle-group__label <%= 'toggle-group__label--active' if enabled %>">
+    <div class="toggle">
+      <input type="checkbox" <%= 'checked' if enabled %> data-action="change->form--submit#submit" />
+      <div class="toggle__style"></div>
+    </div>
+    <span><%= t("settings.mcp.tools.#{tool}.label") %></span>
+  </label>
 <% end %>

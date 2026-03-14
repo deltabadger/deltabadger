@@ -193,7 +193,7 @@ pt:
                     label: 'Parar bot'
                     description: 'Parar um bot em execução'
                 update_bot_settings:
-                    label: 'Alterar definições do bot'
+                    label: 'Atualizar bots'
                     description: 'Alterar montante ou etiqueta de um bot parado'
                 start_rule:
                     label: 'Iniciar regra'
@@ -201,6 +201,9 @@ pt:
                 stop_rule:
                     label: 'Parar regra'
                     description: 'Parar uma regra ativa'
+                update_rule_settings:
+                    label: 'Atualizar regras'
+                    description: 'Alterar definições de uma regra parada'
                 market_buy:
                     label: 'Compra a mercado'
                     description: 'Executar uma ordem de compra a mercado'
@@ -213,6 +216,15 @@ pt:
                 limit_sell:
                     label: 'Venda limitada'
                     description: 'Colocar uma ordem de venda limitada a um preço específico'
+                cancel_order:
+                    label: 'Cancelar ordem'
+                    description: 'Cancelar uma ordem aberta'
+                list_open_orders:
+                    label: 'Ordens abertas'
+                    description: 'Ver as ordens abertas (não executadas) atualmente'
+            dry_run_title: 'Paper Trading'
+            dry_run_description: 'Simula transações com preços reais de mercado. Nenhuma ordem real é executada.'
+            dry_run_label: 'Ativar paper trading para ferramentas de trading'
     utils:
         pnl: 'L/P'
         assets: Ativos

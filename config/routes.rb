@@ -70,6 +70,7 @@ Rails.application.routes.draw do
       delete :disconnect_stocks
       patch :update_mcp
       patch :update_mcp_tool_permissions
+      patch :update_mcp_dry_run
       get :confirm_revoke_mcp
       delete :revoke_mcp
       patch :update_registration

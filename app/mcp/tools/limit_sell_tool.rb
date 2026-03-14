@@ -39,13 +39,17 @@ class LimitSellTool < ApplicationMCPTool
 
     exchange.set_client(api_key: api_key)
     effective_amount_type = amount_type.present? ? amount_type : 'base'
-    result = exchange.limit_sell(ticker: ticker, amount: amount, amount_type: effective_amount_type, price: price)
 
+    result = with_dry_run_if_enabled do
+      exchange.limit_sell(ticker: ticker, amount: amount, amount_type: effective_amount_type, price: price)
+    end
+
+    dry_prefix = AppConfig.mcp_dry_run? ? '[DRY RUN] ' : ''
     if result.success?
       pair = "#{base_asset.upcase}/#{quote_asset.upcase}"
-      render text: "Limit sell order placed on #{exchange.name}: #{pair} @ #{price}. #{result.data}"
+      render text: "#{dry_prefix}Limit sell order placed on #{exchange.name}: #{pair} @ #{price}. #{result.data}"
     else
-      render text: "Order failed: #{result.errors.join(', ')}"
+      render text: "#{dry_prefix}Order failed: #{result.errors.join(', ')}"
     end
   end
 end

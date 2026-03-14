@@ -196,7 +196,7 @@ pl:
                     label: 'Zatrzymaj bota'
                     description: 'Zatrzymaj działającego bota'
                 update_bot_settings:
-                    label: 'Zmień ustawienia bota'
+                    label: 'Aktualizuj boty'
                     description: 'Zmień kwotę lub etykietę zatrzymanego bota'
                 start_rule:
                     label: 'Uruchom regułę'
@@ -204,6 +204,9 @@ pl:
                 stop_rule:
                     label: 'Zatrzymaj regułę'
                     description: 'Zatrzymaj aktywną regułę'
+                update_rule_settings:
+                    label: 'Aktualizuj reguły'
+                    description: 'Zmień ustawienia zatrzymanej reguły'
                 market_buy:
                     label: 'Kup po cenie rynkowej'
                     description: 'Wykonaj zlecenie kupna po cenie rynkowej'
@@ -216,6 +219,15 @@ pl:
                 limit_sell:
                     label: 'Sprzedaż z limitem'
                     description: 'Złóż zlecenie sprzedaży z limitem po określonej cenie'
+                cancel_order:
+                    label: 'Anuluj zlecenie'
+                    description: 'Anuluj otwarte zlecenie'
+                list_open_orders:
+                    label: 'Otwarte zlecenia'
+                    description: 'Pokaż otwarte (niezrealizowane) zlecenia'
+            dry_run_title: 'Paper Trading'
+            dry_run_description: 'Symuluj transakcje z rzeczywistymi cenami rynkowymi. Żadne prawdziwe zlecenia nie są składane.'
+            dry_run_label: 'Włącz paper trading dla narzędzi handlowych'
     utils:
         pnl: 'Z/S'
         assets: Aktywa

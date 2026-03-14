@@ -197,7 +197,7 @@ ru:
                     label: 'Остановить бота'
                     description: 'Остановить работающего бота'
                 update_bot_settings:
-                    label: 'Изменить настройки бота'
+                    label: 'Обновить ботов'
                     description: 'Изменить сумму или метку остановленного бота'
                 start_rule:
                     label: 'Запустить правило'
@@ -205,6 +205,9 @@ ru:
                 stop_rule:
                     label: 'Остановить правило'
                     description: 'Остановить активное правило'
+                update_rule_settings:
+                    label: 'Обновить правила'
+                    description: 'Изменить настройки остановленного правила'
                 market_buy:
                     label: 'Покупка по рынку'
                     description: 'Выполнить рыночный ордер на покупку'
@@ -217,6 +220,15 @@ ru:
                 limit_sell:
                     label: 'Лимитная продажа'
                     description: 'Разместить лимитный ордер на продажу по указанной цене'
+                cancel_order:
+                    label: 'Отменить ордер'
+                    description: 'Отменить открытый ордер'
+                list_open_orders:
+                    label: 'Открытые ордера'
+                    description: 'Просмотр открытых (неисполненных) ордеров'
+            dry_run_title: 'Paper Trading'
+            dry_run_description: 'Симуляция сделок с реальными рыночными ценами. Реальные ордера не размещаются.'
+            dry_run_label: 'Включить paper trading для торговых инструментов'
     utils:
         pnl: 'П/У'
         assets: Активы

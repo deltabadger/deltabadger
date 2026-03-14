@@ -194,7 +194,7 @@ nl:
                     label: 'Bot stoppen'
                     description: 'Een actieve bot stoppen'
                 update_bot_settings:
-                    label: 'Botinstellingen wijzigen'
+                    label: 'Bots bijwerken'
                     description: 'Bedrag of label van een gestopte bot wijzigen'
                 start_rule:
                     label: 'Regel starten'
@@ -202,6 +202,9 @@ nl:
                 stop_rule:
                     label: 'Regel stoppen'
                     description: 'Een actieve regel stoppen'
+                update_rule_settings:
+                    label: 'Regels bijwerken'
+                    description: 'Instellingen van een gestopte regel wijzigen'
                 market_buy:
                     label: 'Marktaankoop'
                     description: 'Een marktaankooporder uitvoeren'
@@ -214,6 +217,15 @@ nl:
                 limit_sell:
                     label: 'Limietverkoop'
                     description: 'Een limietverkooporder plaatsen tegen een specifieke prijs'
+                cancel_order:
+                    label: 'Order annuleren'
+                    description: 'Een openstaande order annuleren'
+                list_open_orders:
+                    label: 'Open orders'
+                    description: 'Bekijk openstaande (niet-uitgevoerde) orders'
+            dry_run_title: 'Paper Trading'
+            dry_run_description: 'Simuleer transacties met echte marktprijzen. Er worden geen echte orders geplaatst.'
+            dry_run_label: 'Paper trading voor handelstools inschakelen'
     utils:
         pnl: 'W/V'
         assets: Activa

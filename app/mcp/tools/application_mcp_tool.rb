@@ -15,4 +15,19 @@ class ApplicationMCPTool < ActionMCP::Tool
   end
 
   alias execute call
+
+  private
+
+  def with_dry_run_if_enabled
+    if AppConfig.mcp_dry_run?
+      Thread.current[:force_dry_run] = true
+      begin
+        yield
+      ensure
+        Thread.current[:force_dry_run] = nil
+      end
+    else
+      yield
+    end
+  end
 end
