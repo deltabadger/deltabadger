@@ -98,6 +98,11 @@
               <span><%= rule.asset.symbol %></span>
             </span>
           </div>
+          <% if rule.max_interval.present? || !rule.scheduled? %>
+            <span><%= t('rules.withdrawals.sentence.or_at_least_every') %></span>
+            <%= f.number_field :max_interval, value: rule.max_interval, class: 'sinput numeric-input', step: 1, min: 1, max: 365, size: 2, disabled: rule.scheduled?, placeholder: '30', data: { controller: "autowidth-input", action: "input->autowidth-input#resize input->form--submit-after-delay#submit", form__move_cursor_to_end_target: "input" }, style: "width: 50px;" %>
+            <span><%= t('rules.withdrawals.sentence.days') %></span>
+          <% end %>
         </div>
       </div>
       <% if current_threshold == 'min_amount' %>

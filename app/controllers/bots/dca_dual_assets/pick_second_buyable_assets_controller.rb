@@ -4,7 +4,7 @@ class Bots::DcaDualAssets::PickSecondBuyableAssetsController < ApplicationContro
   include Bots::Searchable
 
   def new
-    @bot = current_user.bots.dca_dual_asset.new(session[:bot_config])
+    @bot = current_user.bots.dca_dual_asset.new(sanitized_bot_config)
 
     if @bot.base0_asset_id.blank?
       redirect_to new_bots_dca_dual_assets_pick_first_buyable_asset_path
@@ -17,7 +17,7 @@ class Bots::DcaDualAssets::PickSecondBuyableAssetsController < ApplicationContro
 
   def create
     if bot_params[:base1_asset_id].present?
-      bot = current_user.bots.dca_dual_asset.new(session[:bot_config])
+      bot = current_user.bots.dca_dual_asset.new(sanitized_bot_config)
       session[:bot_config].deep_merge!({ settings: bot.parse_params(bot_params) }.deep_stringify_keys)
 
       base0 = Asset.find_by(id: session.dig(:bot_config, 'settings', 'base0_asset_id'))

@@ -9,16 +9,16 @@ class Bots::DcaIndexes::ConfirmSettingsController < ApplicationController
     session[:bot_config]['settings']['quote_amount'] ||= 100
     session[:bot_config]['settings']['num_coins'] ||= 10
     session[:bot_config]['settings']['allocation_flattening'] ||= 0.0
-    @bot = current_user.bots.dca_index.new(session[:bot_config])
+    @bot = current_user.bots.dca_index.new(sanitized_bot_config)
 
     # Fetch preview of index composition
     @index_preview = fetch_index_preview(@bot)
   end
 
   def create
-    bot = current_user.bots.dca_index.new(session[:bot_config])
+    bot = current_user.bots.dca_index.new(sanitized_bot_config)
     session[:bot_config].deep_merge!({ settings: bot.parse_params(bot_params) }.deep_stringify_keys)
-    @bot = current_user.bots.dca_index.new(session[:bot_config])
+    @bot = current_user.bots.dca_index.new(sanitized_bot_config)
 
     # Refresh preview with new settings
     @index_preview = fetch_index_preview(@bot)

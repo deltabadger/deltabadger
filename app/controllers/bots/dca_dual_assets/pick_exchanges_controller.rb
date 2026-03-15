@@ -4,7 +4,7 @@ class Bots::DcaDualAssets::PickExchangesController < ApplicationController
   include Bots::Searchable
 
   def new
-    @bot = current_user.bots.dca_dual_asset.new(session[:bot_config])
+    @bot = current_user.bots.dca_dual_asset.new(sanitized_bot_config)
 
     if @bot.base1_asset_id.blank?
       redirect_to new_bots_dca_dual_assets_pick_second_buyable_asset_path
