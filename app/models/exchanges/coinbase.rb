@@ -298,10 +298,12 @@ class Exchanges::Coinbase < Exchange
   end
 
   def get_api_key_validity(api_key:)
-    result = Clients::Coinbase.new(
+    client = Clients::Coinbase.new(
       api_key: api_key.key,
       api_secret: api_key.secret
-    ).get_api_key_permissions
+    )
+
+    result = client.get_api_key_permissions
 
     if result.success?
       valid = if api_key.withdrawal?
@@ -316,6 +318,10 @@ class Exchanges::Coinbase < Exchange
       Result::Success.new(valid)
     elsif result.data&.dig(:status) == 401 # unauthorized (due to invalid key)
       Result::Success.new(false)
+    elsif result.data&.dig(:status) == 500
+      # Coinbase key_permissions endpoint sometimes returns 500 for valid keys.
+      # Fall back to probing permissions directly.
+      validate_api_key_by_probing(client: client, api_key: api_key)
     else
       result
     end
@@ -356,6 +362,28 @@ class Exchanges::Coinbase < Exchange
   end
 
   private
+
+  # Fallback when Coinbase's key_permissions endpoint returns 500.
+  # Probes actual permissions: list_accounts for view, a small order for trade.
+  def validate_api_key_by_probing(client:, api_key:)
+    accounts_result = client.list_accounts
+    return Result::Success.new(false) if accounts_result.failure?
+
+    if api_key.trading?
+      # Attempt a tiny order that will be rejected for insufficient funds.
+      # HTTP 200 with success=false (e.g. INSUFFICIENT_FUND) proves trade permission.
+      # HTTP 403 (Faraday error) means no trade permission.
+      order_result = client.create_order(
+        client_order_id: SecureRandom.uuid,
+        product_id: 'BTC-USD',
+        side: 'BUY',
+        order_configuration: { market_market_ioc: { quote_size: '1' } }
+      )
+      Result::Success.new(order_result.success?)
+    else
+      Result::Success.new(true)
+    end
+  end
 
   def client
     @client ||= set_client
