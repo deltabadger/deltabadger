@@ -314,7 +314,7 @@ class Exchanges::Coinbase < Exchange
                   result.data['can_transfer'] == false
               end
       Result::Success.new(valid)
-    elsif result.data[:status] == 401 # unauthorized (due to invalid key)
+    elsif result.data&.dig(:status) == 401 # unauthorized (due to invalid key)
       Result::Success.new(false)
     else
       result
