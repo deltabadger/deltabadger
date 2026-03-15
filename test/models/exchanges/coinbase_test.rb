@@ -65,4 +65,15 @@ class Exchanges::CoinbaseTest < ActiveSupport::TestCase
     assert result.success?
     assert_equal false, result.data
   end
+
+  test 'get_api_key_validity handles non-HTTP errors without raising' do
+    api_key = create(:api_key, exchange: @exchange, key_type: :trading, key: 'test_key', secret: 'test_secret')
+
+    Clients::Coinbase.any_instance.stubs(:get_api_key_permissions).returns(
+      Result::Failure.new('Connection reset by peer')
+    )
+
+    result = @exchange.get_api_key_validity(api_key: api_key)
+    assert result.failure?
+  end
 end
