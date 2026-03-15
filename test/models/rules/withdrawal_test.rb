@@ -296,4 +296,56 @@ class Rules::WithdrawalTest < ActiveSupport::TestCase
 
     assert_equal BigDecimal('0'), rule.last_known_balance
   end
+
+  # max_interval tests
+
+  test 'max_interval_elapsed? returns false when no max_interval set' do
+    rule = build_rule
+    rule.save!
+
+    assert_not rule.max_interval_elapsed?
+  end
+
+  test 'max_interval_elapsed? returns true when no successful withdrawal ever' do
+    rule = build_rule
+    rule.max_interval = '30'
+    rule.save!
+
+    assert rule.max_interval_elapsed?
+  end
+
+  test 'max_interval_elapsed? returns true when last success is older than interval' do
+    rule = build_rule
+    rule.max_interval = '30'
+    rule.save!
+    rule.rule_logs.create!(status: :success, message: 'Withdrew 1.0 BTC',
+                           created_at: 31.days.ago)
+
+    assert rule.max_interval_elapsed?
+  end
+
+  test 'max_interval_elapsed? returns false when last success is within interval' do
+    rule = build_rule
+    rule.max_interval = '30'
+    rule.save!
+    rule.rule_logs.create!(status: :success, message: 'Withdrew 1.0 BTC',
+                           created_at: 10.days.ago)
+
+    assert_not rule.max_interval_elapsed?
+  end
+
+  test 'parse_params updates max_interval' do
+    rule = build_rule
+    rule.parse_params(max_interval: '14')
+
+    assert_equal '14', rule.max_interval
+  end
+
+  test 'parse_params clears max_interval with empty string' do
+    rule = build_rule
+    rule.max_interval = '30'
+    rule.parse_params(max_interval: '')
+
+    assert_nil rule.max_interval
+  end
 end

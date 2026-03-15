@@ -4,7 +4,8 @@ class Rules::Withdrawal < Rule
 
   encrypts :address
 
-  store_accessor :settings, :max_fee_percentage, :network, :address_tag, :threshold_type, :min_amount, :address_name
+  store_accessor :settings, :max_fee_percentage, :network, :address_tag, :threshold_type, :min_amount, :address_name,
+                 :max_interval
 
   validates :address, presence: true
   validates :max_fee_percentage, presence: true,
@@ -34,6 +35,7 @@ class Rules::Withdrawal < Rule
     self.threshold_type = params[:threshold_type] if params.key?(:threshold_type)
     self.max_fee_percentage = params[:max_fee_percentage] if params[:max_fee_percentage].present?
     self.min_amount = params[:min_amount] if params[:min_amount].present?
+    self.max_interval = params[:max_interval].presence if params.key?(:max_interval)
     self.network = params[:network] if params.key?(:network)
     self.address_tag = params[:address_tag] if params.key?(:address_tag)
     self.address = params[:address] if params[:address].present?
@@ -67,7 +69,9 @@ class Rules::Withdrawal < Rule
       end
     end
 
-    if min_amount.present? && free_balance < min_amount
+    interval_bypass = max_interval_elapsed?
+
+    if min_amount.present? && free_balance < min_amount && !interval_bypass
       log_skipped("Balance #{free_balance} #{asset.symbol} below minimum #{min_amount} #{asset.symbol}",
                   details: { free_balance: free_balance.to_s('F') })
       return Result::Success.new(skipped: true)
@@ -94,7 +98,7 @@ class Rules::Withdrawal < Rule
     end
 
     # Re-check fee percentage against actual amount
-    if fee.positive? && min_amount.present? && free_balance < min_amount
+    if fee.positive? && min_amount.present? && free_balance < min_amount && !interval_bypass
       log_skipped("Balance #{free_balance} #{asset.symbol} below minimum #{min_amount} #{asset.symbol} after fee refresh",
                   details: { free_balance: free_balance.to_s('F') })
       return Result::Success.new(skipped: true)
@@ -155,6 +159,15 @@ class Rules::Withdrawal < Rule
 
       (fee / (pct / 100)).round(8)
     end
+  end
+
+  def max_interval_elapsed?
+    return false if max_interval.blank?
+
+    last_success = rule_logs.where(status: :success).order(created_at: :desc).first
+    return true unless last_success
+
+    last_success.created_at < max_interval.to_i.days.ago
   end
 
   def last_known_balance

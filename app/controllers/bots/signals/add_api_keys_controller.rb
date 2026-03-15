@@ -2,7 +2,7 @@ class Bots::Signals::AddApiKeysController < ApplicationController
   before_action :authenticate_user!
 
   def new
-    @bot = current_user.bots.signal.new(session[:bot_config]&.except('signals'))
+    @bot = current_user.bots.signal.new(sanitized_bot_config)
 
     if @bot.exchange_id.blank?
       redirect_to new_bots_signals_pick_exchange_path
@@ -17,8 +17,7 @@ class Bots::Signals::AddApiKeysController < ApplicationController
   end
 
   def create
-    bot_config = session[:bot_config]
-    @bot = current_user.bots.signal.new(bot_config&.except('signals'))
+    @bot = current_user.bots.signal.new(sanitized_bot_config)
     @api_key = @bot.api_key
     @api_key.key = api_key_params[:key]
     @api_key.secret = api_key_params[:secret]

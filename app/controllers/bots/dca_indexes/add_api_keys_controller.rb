@@ -3,7 +3,7 @@ class Bots::DcaIndexes::AddApiKeysController < ApplicationController
   before_action :require_market_data_configured
 
   def new
-    @bot = current_user.bots.dca_index.new(session[:bot_config])
+    @bot = current_user.bots.dca_index.new(sanitized_bot_config)
 
     if @bot.exchange_id.blank?
       redirect_to new_bots_dca_indexes_pick_exchange_path
@@ -19,8 +19,7 @@ class Bots::DcaIndexes::AddApiKeysController < ApplicationController
   end
 
   def create
-    bot_config = session[:bot_config]
-    @bot = current_user.bots.dca_index.new(bot_config)
+    @bot = current_user.bots.dca_index.new(sanitized_bot_config)
     @api_key = @bot.api_key
     @api_key.key = api_key_params[:key]
     @api_key.secret = api_key_params[:secret]

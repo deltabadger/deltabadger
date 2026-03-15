@@ -297,6 +297,49 @@ class Rules::WithdrawalExecutionTest < ActiveSupport::TestCase
     assert_equal '1.0', log.details['free_balance']
   end
 
+  # max_interval execution tests
+
+  test 'execute withdraws when balance below threshold but max_interval elapsed' do
+    @rule.update!(max_interval: '30')
+    # Balance 0.01 is below minimum 0.05, but no prior withdrawal → interval elapsed
+    stub_exchange_balance(@exchange, asset_id: @asset.id, free: 0.01, locked: 0)
+    @exchange.stubs(:withdrawal_fee_fresh?).returns(true)
+    @exchange.stubs(:withdraw).returns(Result::Success.new({ withdrawal_id: 'interval-123' }))
+
+    result = @rule.execute
+
+    assert result.success?
+    refute result.data[:skipped]
+    assert @rule.rule_logs.last.success?
+    assert_includes @rule.rule_logs.last.message, 'Withdrew'
+  end
+
+  test 'execute skips when balance below threshold and max_interval not elapsed' do
+    @rule.update!(max_interval: '30')
+    @rule.rule_logs.create!(status: :success, message: 'Withdrew 1.0 BTC', created_at: 5.days.ago)
+
+    stub_exchange_balance(@exchange, asset_id: @asset.id, free: 0.01, locked: 0)
+
+    result = @rule.execute
+
+    assert result.success?
+    assert result.data[:skipped]
+    assert_includes @rule.rule_logs.last.message, 'below minimum'
+  end
+
+  test 'execute skips interval withdrawal when balance does not cover fee' do
+    @rule.update!(max_interval: '30')
+    # Balance equals fee — amount would be 0
+    stub_exchange_balance(@exchange, asset_id: @asset.id, free: 0.0005, locked: 0)
+    @exchange.stubs(:withdrawal_fee_fresh?).returns(true)
+
+    result = @rule.execute
+
+    assert result.success?
+    assert result.data[:skipped]
+    assert_includes @rule.rule_logs.last.message, 'does not cover fee'
+  end
+
   test 'execute proceeds in min_amount mode when fee is unknown' do
     @ea.update!(withdrawal_fee: nil, withdrawal_fee_updated_at: nil)
     @rule.update!(threshold_type: 'min_amount', min_amount: '0.5')

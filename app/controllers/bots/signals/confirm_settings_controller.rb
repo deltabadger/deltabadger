@@ -7,7 +7,7 @@ class Bots::Signals::ConfirmSettingsController < ApplicationController
   end
 
   def create
-    @bot = current_user.bots.signal.new(session[:bot_config]&.except('signals'))
+    @bot = current_user.bots.signal.new(sanitized_bot_config)
     return render :create if @bot.valid?
 
     flash.now[:alert] = @bot.errors.messages.values.flatten.to_sentence
@@ -53,7 +53,7 @@ class Bots::Signals::ConfirmSettingsController < ApplicationController
   private
 
   def build_bot_with_signals
-    bot = current_user.bots.signal.new(session[:bot_config].except('signals'))
+    bot = current_user.bots.signal.new(sanitized_bot_config)
     session[:bot_config]['signals'].each do |wh|
       bot.bot_signals.build(direction: wh['direction'], amount: wh['amount'], enabled: wh.fetch('enabled', true),
                             amount_type: wh.fetch('amount_type', 'fixed'))

@@ -4,7 +4,7 @@ class Bots::Signals::PickSpendableAssetsController < ApplicationController
   include Bots::Searchable
 
   def new
-    @bot = current_user.bots.signal.new(session[:bot_config]&.except('signals'))
+    @bot = current_user.bots.signal.new(sanitized_bot_config)
     @api_key = @bot.api_key
 
     if @api_key.correct?
@@ -18,7 +18,7 @@ class Bots::Signals::PickSpendableAssetsController < ApplicationController
 
   def create
     if bot_params[:quote_asset_id].present?
-      bot = current_user.bots.signal.new(session[:bot_config].except('signals'))
+      bot = current_user.bots.signal.new(sanitized_bot_config)
       session[:bot_config].deep_merge!({ settings: bot.parse_params(bot_params) }.deep_stringify_keys)
       redirect_to new_bots_signals_confirm_settings_path
     else

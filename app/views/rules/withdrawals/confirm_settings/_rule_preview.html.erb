@@ -73,6 +73,9 @@
           <%= @asset.symbol %>
         </span>
       </div>
+      <%= t('rules.withdrawals.sentence.or_at_least_every') %>
+      <input type="number" name="max_interval" value="<%= @rule.max_interval %>" class="sinput numeric-input" step="1" min="1" max="365" size="2" placeholder="30" data-controller="autowidth-input" data-action="input->autowidth-input#resize input->form--submit#submit" style="width: 50px;">
+      <%= t('rules.withdrawals.sentence.days') %>
     </div>
 
     <% amount = BigDecimal(min.to_s) %>
