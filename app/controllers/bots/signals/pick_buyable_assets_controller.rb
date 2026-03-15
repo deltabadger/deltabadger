@@ -5,7 +5,7 @@ class Bots::Signals::PickBuyableAssetsController < ApplicationController
 
   def new
     session[:bot_config] ||= {}
-    @bot = current_user.bots.signal.new(session[:bot_config].except('signals'))
+    @bot = current_user.bots.signal.new(sanitized_bot_config)
     @bot.base_asset_id = nil
     @bot.exchange_id = nil
     session[:bot_config]['label'] ||= @bot.label
@@ -15,7 +15,7 @@ class Bots::Signals::PickBuyableAssetsController < ApplicationController
 
   def create
     if bot_params[:base_asset_id].present?
-      bot = current_user.bots.signal.new(session[:bot_config].except('signals'))
+      bot = current_user.bots.signal.new(sanitized_bot_config)
       session[:bot_config].deep_merge!({ settings: bot.parse_params(bot_params) }.deep_stringify_keys)
       redirect_to new_bots_signals_pick_exchange_path
     else

@@ -37,6 +37,10 @@ class ApplicationController < ActionController::Base
     controller_name == 'sessions' && action_name == 'destroy' && devise_controller?
   end
 
+  def sanitized_bot_config
+    (session[:bot_config] || {}).slice('exchange_id', 'label', 'settings')
+  end
+
   def redirect_to_setup_if_needed
     return if setup_controller?
 

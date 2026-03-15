@@ -61,6 +61,7 @@ class Rules::Withdrawals::ConfirmSettingsController < ApplicationController
         threshold_type: config['threshold_type'],
         max_fee_percentage: config['max_fee_percentage'],
         min_amount: config['min_amount'],
+        max_interval: config['max_interval'].presence,
         status: :created
       )
     else
@@ -74,7 +75,8 @@ class Rules::Withdrawals::ConfirmSettingsController < ApplicationController
         network: config['network'],
         threshold_type: config['threshold_type'],
         max_fee_percentage: config['max_fee_percentage'],
-        min_amount: config['min_amount']
+        min_amount: config['min_amount'],
+        max_interval: config['max_interval'].presence
       )
     end
 
@@ -133,6 +135,6 @@ class Rules::Withdrawals::ConfirmSettingsController < ApplicationController
   end
 
   def rule_params
-    params.permit(:threshold_type, :max_fee_percentage, :min_amount, :network, :address)
+    params.permit(:threshold_type, :max_fee_percentage, :min_amount, :max_interval, :network, :address)
   end
 end

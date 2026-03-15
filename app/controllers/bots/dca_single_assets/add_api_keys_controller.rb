@@ -2,7 +2,7 @@ class Bots::DcaSingleAssets::AddApiKeysController < ApplicationController
   before_action :authenticate_user!
 
   def new
-    @bot = current_user.bots.dca_single_asset.new(session[:bot_config])
+    @bot = current_user.bots.dca_single_asset.new(sanitized_bot_config)
 
     if @bot.exchange_id.blank?
       redirect_to new_bots_dca_single_assets_pick_exchange_path
@@ -18,8 +18,7 @@ class Bots::DcaSingleAssets::AddApiKeysController < ApplicationController
   end
 
   def create
-    bot_config = session[:bot_config]
-    @bot = current_user.bots.dca_single_asset.new(bot_config)
+    @bot = current_user.bots.dca_single_asset.new(sanitized_bot_config)
     @api_key = @bot.api_key
     @api_key.key = api_key_params[:key]
     @api_key.secret = api_key_params[:secret]

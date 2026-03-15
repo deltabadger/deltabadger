@@ -7,7 +7,7 @@ class Bots::DcaIndexes::PickExchangesController < ApplicationController
 
   def new
     session[:bot_config] ||= {}
-    @bot = current_user.bots.dca_index.new(session[:bot_config])
+    @bot = current_user.bots.dca_index.new(sanitized_bot_config)
     @bot.exchange_id = nil
     session[:bot_config]['label'] ||= @bot.label
     @exchanges = exchange_search_results_for_index_bot(@bot, search_params[:query])

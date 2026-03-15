@@ -4,13 +4,13 @@ class Bots::DcaSingleAssets::ConfirmSettingsController < ApplicationController
   def new
     session[:bot_config]['settings']['interval'] ||= 'week'
     session[:bot_config]['settings']['quote_amount'] ||= 100
-    @bot = current_user.bots.dca_single_asset.new(session[:bot_config])
+    @bot = current_user.bots.dca_single_asset.new(sanitized_bot_config)
   end
 
   def create
-    bot = current_user.bots.dca_single_asset.new(session[:bot_config])
+    bot = current_user.bots.dca_single_asset.new(sanitized_bot_config)
     session[:bot_config].deep_merge!({ settings: bot.parse_params(bot_params) }.deep_stringify_keys)
-    @bot = current_user.bots.dca_single_asset.new(session[:bot_config])
+    @bot = current_user.bots.dca_single_asset.new(sanitized_bot_config)
     return render :create if @bot.quote_amount.blank? || @bot.valid?
 
     flash.now[:alert] = @bot.errors.messages.values.flatten.to_sentence

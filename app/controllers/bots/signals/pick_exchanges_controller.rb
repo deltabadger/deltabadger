@@ -4,7 +4,7 @@ class Bots::Signals::PickExchangesController < ApplicationController
   include Bots::Searchable
 
   def new
-    @bot = current_user.bots.signal.new(session[:bot_config]&.except('signals'))
+    @bot = current_user.bots.signal.new(sanitized_bot_config)
 
     if @bot.base_asset_id.blank?
       redirect_to new_bots_signals_pick_buyable_asset_path
