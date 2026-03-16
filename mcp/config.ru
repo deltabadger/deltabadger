@@ -4,9 +4,9 @@
 # ActionMCP Standalone Server - Rackup Configuration (local development only)
 # ============================================================================
 #
-# In production, MCP is served by the main Rails app via MCPSecretPathAuth
-# middleware on the same port (3000). This standalone config is only needed
-# for local development/testing without the full Rails server.
+# In production, MCP is served by the main Rails app via ActionMCP::Engine
+# mounted at /mcp, with OAuth 2.1 (Doorkeeper) for authentication.
+# This standalone config is only needed for local development/testing.
 #
 # Start with:
 #   bin/mcp
@@ -32,9 +32,6 @@ Signal.trap('TERM') do
   puts "\nReceived termination signal. Shutting down gracefully..."
   exit(0)
 end
-
-require_relative '../lib/middleware/mcp_secret_path_auth'
-use MCPSecretPathAuth
 
 # IMPORTANT: Use ActionMCP.server (not ActionMCP::Engine directly).
 # ActionMCP.server initializes PubSub and other required subsystems.

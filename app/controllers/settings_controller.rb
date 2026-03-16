@@ -5,7 +5,7 @@ class SettingsController < ApplicationController
     update_email_notifications disconnect_email send_test_email
     update_market_data disconnect_market_data update_coingecko_key destroy_coingecko_key resync_assets
     update_stocks disconnect_stocks
-    update_mcp confirm_revoke_mcp revoke_mcp update_mcp_tool_permissions update_mcp_dry_run
+    update_mcp_tool_permissions update_mcp_dry_run revoke_mcp_client
   ]
 
   def index
@@ -293,16 +293,6 @@ class SettingsController < ApplicationController
     ]
   end
 
-  def update_mcp
-    AppConfig.generate_mcp_access_token!
-    flash.now[:notice] = t('settings.mcp.enabled')
-
-    render turbo_stream: [
-      turbo_stream.replace('mcp_settings', partial: 'settings/widgets/mcp'),
-      turbo_stream.prepend('flash', partial: 'layouts/flash')
-    ]
-  end
-
   def update_mcp_tool_permissions
     tool_name = params[:tool_name]
 
@@ -322,11 +312,11 @@ class SettingsController < ApplicationController
     render turbo_stream: turbo_stream.replace('mcp_settings', partial: 'settings/widgets/mcp')
   end
 
-  def confirm_revoke_mcp; end
-
-  def revoke_mcp
-    AppConfig.generate_mcp_access_token!
-    flash.now[:notice] = t('settings.mcp.revoked')
+  def revoke_mcp_client
+    application = Doorkeeper::Application.find(params[:id])
+    Doorkeeper::AccessToken.where(application: application).update_all(revoked_at: Time.current)
+    application.destroy!
+    flash.now[:notice] = t('settings.mcp.client_revoked')
 
     render turbo_stream: [
       turbo_stream.replace('mcp_settings', partial: 'settings/widgets/mcp'),

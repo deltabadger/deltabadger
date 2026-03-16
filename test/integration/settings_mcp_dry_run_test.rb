@@ -8,7 +8,6 @@ class SettingsMcpDryRunTest < ActionDispatch::IntegrationTest
     sign_in @admin
     @original_mcp_enabled = ENV['MCP_ENABLED']
     ENV['MCP_ENABLED'] = 'true'
-    AppConfig.generate_mcp_access_token!
   end
 
   teardown do

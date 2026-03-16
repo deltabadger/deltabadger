@@ -1,4 +1,17 @@
 Rails.application.routes.draw do
+  # OAuth 2.1 well-known endpoints (RFC 9728, RFC 8414)
+  get '/.well-known/oauth-protected-resource', to: 'oauth/well_known#oauth_protected_resource'
+  get '/.well-known/oauth-authorization-server', to: 'oauth/well_known#oauth_authorization_server'
+
+  # Dynamic Client Registration (RFC 7591)
+  post '/oauth/register', to: 'oauth/dynamic_registration#create'
+
+  # Doorkeeper OAuth routes (/oauth/authorize, /oauth/token, /oauth/revoke)
+  use_doorkeeper
+
+  # MCP endpoint (OAuth-protected)
+  mount ActionMCP::Engine, at: '/mcp' if ENV['MCP_ENABLED'] == 'true'
+
   # Setup wizard for initial admin configuration
   get '/setup', to: 'setup#new', as: :new_setup
   post '/setup', to: 'setup#create', as: :setup
@@ -68,11 +81,9 @@ Rails.application.routes.draw do
       delete :disconnect_market_data
       patch :update_stocks
       delete :disconnect_stocks
-      patch :update_mcp
       patch :update_mcp_tool_permissions
       patch :update_mcp_dry_run
-      get :confirm_revoke_mcp
-      delete :revoke_mcp
+      delete 'revoke_mcp_client/:id', action: :revoke_mcp_client, as: :revoke_mcp_client
       patch :update_registration
       patch :update_email_notifications
       post :send_test_email

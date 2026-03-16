@@ -31,6 +31,7 @@ gem 'sprockets-rails'
 gem 'kraken_ruby_client', git: 'https://github.com/guillemap/kraken_ruby_client', branch: 'add-withdrawal-endpoints'
 gem 'mission_control-jobs'
 gem 'actionmcp'
+gem 'doorkeeper', github: 'doorkeeper-gem/doorkeeper'
 
 group :development, :test do
   gem 'debug'

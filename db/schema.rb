@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_03_11_145662) do
+ActiveRecord::Schema[8.1].define(version: 2026_03_16_000001) do
   create_table "action_mcp_session_messages", force: :cascade do |t|
     t.datetime "created_at", null: false
     t.string "direction", default: "client", null: false
@@ -223,6 +223,55 @@ ActiveRecord::Schema[8.1].define(version: 2026_03_11_145662) do
     t.integer "weight", default: 0, null: false
     t.index ["external_id", "source"], name: "index_indices_on_external_id_and_source", unique: true
     t.index ["weight"], name: "index_indices_on_weight"
+  end
+
+  create_table "oauth_access_grants", force: :cascade do |t|
+    t.integer "application_id", null: false
+    t.string "code_challenge"
+    t.string "code_challenge_method"
+    t.datetime "created_at", null: false
+    t.integer "expires_in", null: false
+    t.text "redirect_uri", null: false
+    t.integer "resource_owner_id", null: false
+    t.datetime "revoked_at"
+    t.string "scopes", default: "", null: false
+    t.string "token", null: false
+    t.index ["application_id"], name: "index_oauth_access_grants_on_application_id"
+    t.index ["resource_owner_id"], name: "index_oauth_access_grants_on_resource_owner_id"
+    t.index ["token"], name: "index_oauth_access_grants_on_token", unique: true
+  end
+
+  create_table "oauth_access_tokens", force: :cascade do |t|
+    t.integer "application_id", null: false
+    t.datetime "created_at", null: false
+    t.integer "expires_in"
+    t.string "previous_refresh_token", default: "", null: false
+    t.string "refresh_token"
+    t.integer "resource_owner_id"
+    t.datetime "revoked_at"
+    t.string "scopes", default: "", null: false
+    t.string "token", null: false
+    t.index ["application_id"], name: "index_oauth_access_tokens_on_application_id"
+    t.index ["refresh_token"], name: "index_oauth_access_tokens_on_refresh_token", unique: true
+    t.index ["resource_owner_id"], name: "index_oauth_access_tokens_on_resource_owner_id"
+    t.index ["token"], name: "index_oauth_access_tokens_on_token", unique: true
+  end
+
+  create_table "oauth_applications", force: :cascade do |t|
+    t.boolean "confidential", default: false, null: false
+    t.datetime "created_at", null: false
+    t.string "grant_types", default: "authorization_code"
+    t.string "name", null: false
+    t.text "redirect_uri"
+    t.string "registration_access_token"
+    t.string "response_types", default: "code"
+    t.string "scopes", default: "", null: false
+    t.string "secret"
+    t.string "token_endpoint_auth_method", default: "none"
+    t.string "uid", null: false
+    t.datetime "updated_at", null: false
+    t.index ["registration_access_token"], name: "index_oauth_applications_on_registration_access_token", unique: true
+    t.index ["uid"], name: "index_oauth_applications_on_uid", unique: true
   end
 
   create_table "rule_logs", force: :cascade do |t|

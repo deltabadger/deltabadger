@@ -25,7 +25,6 @@ class AppConfig < ApplicationRecord
   ALPACA_MODE = 'alpaca_mode'.freeze # 'paper' or 'live'
 
   # MCP (Model Context Protocol) settings
-  MCP_ACCESS_TOKEN = 'mcp_access_token'.freeze
   MCP_TOOL_PERMISSIONS = 'mcp_tool_permissions'.freeze
   MCP_DRY_RUN = 'mcp_dry_run'.freeze
 
@@ -263,29 +262,13 @@ class AppConfig < ApplicationRecord
   end
 
   # MCP configuration methods
-  def self.mcp_access_token
-    get(MCP_ACCESS_TOKEN)
-  end
-
-  def self.mcp_access_token=(value)
-    set(MCP_ACCESS_TOKEN, value)
-  end
-
   def self.mcp_configured?
-    mcp_access_token.present?
+    ENV['MCP_ENABLED'] == 'true'
   end
 
   def self.mcp_url
-    token = mcp_access_token
-    return nil if token.blank?
-
     base = ENV.fetch('APP_ROOT_URL', 'http://localhost:3000')
-    "#{base}/#{token}"
-  end
-
-  def self.generate_mcp_access_token!
-    self.mcp_access_token = SecureRandom.hex(16)
-    mcp_access_token
+    "#{base}/mcp"
   end
 
   def self.mcp_tool_enabled?(tool_name)
@@ -321,7 +304,6 @@ class AppConfig < ApplicationRecord
   end
 
   def self.clear_mcp_settings!
-    delete(MCP_ACCESS_TOKEN)
     delete(MCP_TOOL_PERMISSIONS)
     delete(MCP_DRY_RUN)
   end

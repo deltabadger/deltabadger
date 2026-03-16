@@ -7,6 +7,13 @@ GIT
       faraday (>= 1.3)
 
 GIT
+  remote: https://github.com/doorkeeper-gem/doorkeeper.git
+  revision: 6cf6c526e0827653bd27f6c8704ff865fb4c09ee
+  specs:
+    doorkeeper (5.9.0)
+      railties (>= 5)
+
+GIT
   remote: https://github.com/guillemap/kraken_ruby_client
   revision: b9127591dca64ae677add72122bbc384fce1ac86
   branch: add-withdrawal-endpoints
@@ -575,6 +582,7 @@ DEPENDENCIES
   dartsass-rails (~> 0.5.1)
   debug
   devise
+  doorkeeper!
   dotenv-rails
   dotiw
   factory_bot_rails
@@ -657,6 +665,7 @@ CHECKSUMS
   date (3.5.1) sha256=750d06384d7b9c15d562c76291407d89e368dda4d4fff957eb94962d325a0dc0
   debug (1.11.1) sha256=2e0b0ac6119f2207a6f8ac7d4a73ca8eb4e440f64da0a3136c30343146e952b6
   devise (5.0.2) sha256=254330c9290e612ad9681e8a18c96aa21fb95bc391af936b84480965444bb0b6
+  doorkeeper (5.9.0)
   dotenv (3.2.0) sha256=e375b83121ea7ca4ce20f214740076129ab8514cd81378161f11c03853fe619d
   dotenv-rails (3.2.0) sha256=657e25554ba622ffc95d8c4f1670286510f47f2edda9f68293c3f661b303beab
   dotiw (5.5.0) sha256=afa6ff5f2f1348c777fbb2822f34e32de758f17eb6943676fe30a60ad3493782

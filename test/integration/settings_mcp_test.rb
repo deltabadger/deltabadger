@@ -12,62 +12,49 @@ class SettingsMcpTest < ActionDispatch::IntegrationTest
 
   teardown do
     AppConfig.clear_mcp_settings!
+    Doorkeeper::Application.destroy_all
+    Doorkeeper::AccessToken.delete_all
     ENV['MCP_ENABLED'] = @original_mcp_enabled
   end
 
-  test 'mcp widget shows enable button when not configured' do
+  test 'mcp widget shows URL when MCP enabled' do
     get settings_path
     assert_response :success
-    assert_select 'turbo-frame#mcp_settings'
+    assert_select '#mcp_url_display'
   end
 
-  test 'mcp widget shows URL when configured' do
-    token = AppConfig.generate_mcp_access_token!
+  test 'mcp widget shows connected clients section' do
     get settings_path
     assert_response :success
-    assert_select '#mcp_url_display', /#{token}/
+    assert_select '#mcp_connected_clients'
   end
 
-  test 'enable creates access token' do
-    assert_not AppConfig.mcp_configured?
+  test 'mcp widget shows client when one exists' do
+    Doorkeeper::Application.create!(name: 'Test Client', redirect_uri: 'http://localhost/callback', confidential: false)
 
-    patch settings_update_mcp_path
+    get settings_path
     assert_response :success
-
-    assert AppConfig.mcp_configured?
-    assert_match(/\A[a-f0-9]{32}\z/, AppConfig.mcp_access_token)
+    assert_select '#mcp_connected_clients', /Test Client/
   end
 
-  test 'revoke regenerates access token' do
-    old_token = AppConfig.generate_mcp_access_token!
+  test 'revoke client removes application and tokens' do
+    app = Doorkeeper::Application.create!(name: 'Test Client', redirect_uri: 'http://localhost/callback', confidential: false)
+    Doorkeeper::AccessToken.create!(application: app, resource_owner_id: @admin.id, token: SecureRandom.hex(32), expires_in: 3600)
 
-    delete settings_revoke_mcp_path
+    assert_difference 'Doorkeeper::Application.count', -1 do
+      delete settings_revoke_mcp_client_path(id: app.id)
+    end
+
     assert_response :success
-
-    assert AppConfig.mcp_configured?
-    assert_not_equal old_token, AppConfig.mcp_access_token
+    assert Doorkeeper::AccessToken.where(application_id: app.id).all?(&:revoked?)
   end
 
-  test 'confirm revoke shows modal' do
-    AppConfig.generate_mcp_access_token!
-
-    get settings_confirm_revoke_mcp_path
-    assert_response :success
-  end
-
-  test 'non-admin cannot enable' do
+  test 'non-admin cannot revoke client' do
     regular_user = create(:user, setup_completed: true)
     sign_in regular_user
+    app = Doorkeeper::Application.create!(name: 'Test Client', redirect_uri: 'http://localhost/callback', confidential: false)
 
-    patch settings_update_mcp_path
-    assert_response :forbidden
-  end
-
-  test 'non-admin cannot revoke' do
-    regular_user = create(:user, setup_completed: true)
-    sign_in regular_user
-
-    delete settings_revoke_mcp_path
+    delete settings_revoke_mcp_client_path(id: app.id)
     assert_response :forbidden
   end
 
