@@ -47,10 +47,12 @@ module Bot::OrderSetter
       amount = order_data[:amount]
     end
 
+    adjusted_amount = ticker.adjusted_amount(amount: amount, amount_type: amount_type)
+
     {
       amount_type: amount_type,
       amount: amount,
-      below_minimum_amount: amount < minimum_amount
+      below_minimum_amount: adjusted_amount < minimum_amount
     }
   end
 

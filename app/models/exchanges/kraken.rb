@@ -94,7 +94,7 @@ class Exchanges::Kraken < Exchange
     Result::Success.new(tickers_info)
   end
 
-  def get_tickers_prices(force: false)
+  def get_tickers_prices(force: false, symbols: nil)
     cache_key = "exchange_#{id}_prices"
     tickers_prices = Rails.cache.fetch(cache_key, expires_in: 1.minute, force:) do
       result = client.get_ticker_information
@@ -397,7 +397,7 @@ class Exchanges::Kraken < Exchange
     end
   end
 
-  def withdraw(asset:, amount:, address:, network: nil, address_tag: nil) # rubocop:disable Lint/UnusedMethodArgument
+  def withdraw(asset:, amount:, address:, network: nil, address_tag: nil)
     symbol = symbol_from_asset(asset)
     return Result::Failure.new("Unknown symbol for asset #{asset.symbol}") if symbol.blank?
 
