@@ -53,6 +53,7 @@ nl:
             next_try: "Volgende poging in"
             waiting: "Wachten tot aan alle voorwaarden is voldaan"
             listening: "Luistert"
+            market_opens_in: "Markt opent over"
         conversational:
             invest: "Investeren"
             into: "naar"
