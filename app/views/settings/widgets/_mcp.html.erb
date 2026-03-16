@@ -2,24 +2,8 @@
   <div class="widget widget--settings">
     <h4 class="modal__title"><%= t('settings.mcp.title') %></h4>
 
-    <p class="text-center"><%= t('settings.mcp.description') %></p>
-    <p class="text-center text--secondary"><%= t('settings.mcp.mcp_url_description') %></p>
+    <p class="text-center" style="text-wrap: balance"><%= t('settings.mcp.description') %></p>
     <span class="tag tag--copy" id="mcp_url_display" data-url="<%= AppConfig.mcp_url %>" onclick="navigator.clipboard.writeText(this.dataset.url)" title="<%= t('button.copy') %>"><%= render 'svg/16x16_copy' %><%= AppConfig.mcp_url&.sub(%r{\Ahttps?://}, '') %></span>
-
-    <div id="mcp_connected_clients" class="mcp-tool-permissions" style="margin-top: 1rem;">
-      <h3 class="mcp-tool-permissions__group-title"><%= t('settings.mcp.connected_clients') %></h3>
-      <% clients = Doorkeeper::Application.order(created_at: :desc) %>
-      <% if clients.any? %>
-        <% clients.each do |client| %>
-          <div class="toggle-group" style="justify-content: space-between; align-items: center;">
-            <span><%= client.name %> <small class="text--secondary">(<%= l(client.created_at, format: :short) %>)</small></span>
-            <%= button_to t('settings.mcp.revoke_client'), settings_revoke_mcp_client_path(client), method: :delete, data: { turbo_frame: "mcp_settings", turbo_confirm: t('settings.mcp.revoke_client_confirm') }, class: "button button--danger button--small" %>
-          </div>
-        <% end %>
-      <% else %>
-        <p class="text--secondary text-center"><%= t('settings.mcp.no_clients') %></p>
-      <% end %>
-    </div>
 
     <div id="mcp_tool_permissions" class="mcp-tool-permissions">
 
@@ -65,6 +49,21 @@
           </label>
         <% end %>
       </div>
+    </div>
+
+    <div id="mcp_connected_clients" class="mcp-tool-permissions" style="margin-top: 1rem;">
+      <h3 class="mcp-tool-permissions__group-title"><%= t('settings.mcp.connected_clients') %></h3>
+      <% clients = Doorkeeper::Application.order(created_at: :desc) %>
+      <% if clients.any? %>
+        <% clients.each do |client| %>
+          <div class="toggle-group" style="justify-content: space-between; align-items: center;">
+            <span><%= client.name %> <small class="text--secondary">(<%= l(client.created_at, format: :short) %>)</small></span>
+            <%= button_to t('settings.mcp.revoke_client'), settings_revoke_mcp_client_path(client), method: :delete, data: { turbo_frame: "mcp_settings", turbo_confirm: t('settings.mcp.revoke_client_confirm') }, class: "button button--danger button--small" %>
+          </div>
+        <% end %>
+      <% else %>
+        <p class="text--secondary text-center"><%= t('settings.mcp.no_clients') %></p>
+      <% end %>
     </div>
   </div>
 <% end %>

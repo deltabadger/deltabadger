@@ -161,7 +161,6 @@ fr:
         mcp:
             title: 'MCP'
             description: "Utilise cette URL pour connecter Claude (et d'autres modèles d'IA). Elle donne à ton assistant IA accès à tes bots et exchanges."
-            mcp_url_description: "Colle cette URL dans ton assistant IA. Tu seras invité à autoriser l'accès."
             connected_clients: 'Clients connectés'
             no_clients: 'Aucun client connecté pour le moment.'
             revoke_client: 'Révoquer'

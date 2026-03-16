@@ -160,7 +160,6 @@ de:
         mcp:
             title: 'MCP'
             description: 'Verwende diese URL, um Claude (und andere KI-Modelle) zu verbinden. Damit erhält dein KI-Assistent Zugriff auf deine Bots und Börsen.'
-            mcp_url_description: 'Füge diese URL in deinen KI-Assistenten ein. Du wirst aufgefordert, den Zugriff zu autorisieren.'
             connected_clients: 'Verbundene Clients'
             no_clients: 'Noch keine Clients verbunden.'
             revoke_client: 'Widerrufen'

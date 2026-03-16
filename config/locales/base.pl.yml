@@ -162,7 +162,6 @@ pl:
         mcp:
             title: 'MCP'
             description: 'Użyj tego URL, aby połączyć Claude''a (i inne modele AI). Dzięki niemu twój asystent AI uzyska dostęp do twoich botów i giełd.'
-            mcp_url_description: 'Wklej ten URL w swoim asystencie AI. Zostaniesz poproszony o autoryzację dostępu.'
             connected_clients: 'Połączeni klienci'
             no_clients: 'Brak połączonych klientów.'
             revoke_client: 'Unieważnij'
