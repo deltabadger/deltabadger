@@ -51,14 +51,15 @@
       </div>
     </div>
 
-    <div id="mcp_connected_clients" class="mcp-tool-permissions" style="margin-top: 1rem;">
-      <h3 class="mcp-tool-permissions__group-title"><%= t('settings.mcp.connected_clients') %></h3>
+    <div id="mcp_connected_clients" class="mcp-connected-clients" >
+      <h3 class="mcp-tool-permissions__group-title" style="margin: 2rem 0"><%= t('settings.mcp.connected_clients') %></h3>
       <% clients = Doorkeeper::Application.order(created_at: :desc) %>
       <% if clients.any? %>
         <% clients.each do |client| %>
-          <div class="toggle-group" style="justify-content: space-between; align-items: center;">
-            <span><%= client.name %> <small class="text--secondary">(<%= l(client.created_at, format: :short) %>)</small></span>
-            <%= button_to t('settings.mcp.revoke_client'), settings_revoke_mcp_client_path(client), method: :delete, data: { turbo_frame: "mcp_settings", turbo_confirm: t('settings.mcp.revoke_client_confirm') }, class: "button button--danger button--small" %>
+          <div>
+            <b><%= client.name %></b>
+            <small><%= l(client.created_at, format: :short) %></small> 
+            <%= link_to t('settings.mcp.revoke_client'), settings_revoke_mcp_client_path(client), data: { turbo_method: :delete, turbo_frame: "mcp_settings", turbo_confirm: t('settings.mcp.revoke_client_confirm') }, class: "text-danger" %>
           </div>
         <% end %>
       <% else %>
