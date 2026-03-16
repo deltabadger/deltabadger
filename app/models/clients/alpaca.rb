@@ -124,6 +124,23 @@ class Clients::Alpaca < Client
     end
   end
 
+  # https://docs.alpaca.markets/reference/getallorders
+  # @param status [String] 'open', 'closed', or 'all'
+  # @param limit [Integer] max number of orders (default 50, max 500)
+  # @param after [String] RFC 3339 timestamp
+  # @param until_time [String] RFC 3339 timestamp
+  # @param direction [String] 'asc' or 'desc'
+  def list_orders(status: 'open', limit: 50, after: nil, until_time: nil, direction: nil)
+    with_rescue do
+      response = trading_connection.get do |req|
+        req.url '/v2/orders'
+        req.headers = authenticated_headers
+        req.params = { status: status, limit: limit, after: after, until: until_time, direction: direction }.compact
+      end
+      Result::Success.new(response.body)
+    end
+  end
+
   # https://docs.alpaca.markets/reference/deleteorderbyorderid
   # @param order_id [String] order ID
   def cancel_order(order_id:)

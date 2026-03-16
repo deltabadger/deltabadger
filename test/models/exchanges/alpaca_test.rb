@@ -74,6 +74,33 @@ class Exchanges::AlpacaTest < ActiveSupport::TestCase
     refute client.instance_variable_get(:@paper)
   end
 
+  test 'list_open_orders returns parsed orders' do
+    btc = Asset.find_by(symbol: 'BTC') || create(:asset, :bitcoin)
+    usd = Asset.find_by(symbol: 'USD') || create(:asset, :usd)
+    create(:ticker, exchange: @exchange, base_asset: btc, quote_asset: usd)
+
+    raw_orders = [
+      { 'id' => 'uuid-1', 'symbol' => 'BTC', 'side' => 'buy', 'type' => 'limit', 'status' => 'new',
+        'qty' => '0.5', 'limit_price' => '50000', 'filled_qty' => '0', 'filled_avg_price' => nil,
+        'notional' => nil }
+    ]
+    Clients::Alpaca.any_instance.stubs(:list_orders).returns(Result::Success.new(raw_orders))
+
+    result = @exchange.list_open_orders
+    assert_predicate result, :success?
+    assert_equal 1, result.data.size
+    assert_equal 'uuid-1', result.data[0][:order_id]
+    assert_equal :buy, result.data[0][:side]
+    assert_equal :limit_order, result.data[0][:order_type]
+  end
+
+  test 'list_open_orders returns failure when API fails' do
+    Clients::Alpaca.any_instance.stubs(:list_orders).returns(Result::Failure.new('connection error'))
+
+    result = @exchange.list_open_orders
+    assert_predicate result, :failure?
+  end
+
   test 'fetch_withdrawal_fees! returns empty success' do
     result = @exchange.fetch_withdrawal_fees!
     assert_predicate result, :success?

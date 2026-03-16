@@ -82,6 +82,18 @@ class Clients::AlpacaTest < ActiveSupport::TestCase
     assert_equal 'filled', result.data['status']
   end
 
+  test 'list_orders returns success result' do
+    mock_response = stub(body: [{ 'id' => 'order-1', 'status' => 'new', 'symbol' => 'AAPL', 'side' => 'buy' }])
+    connection = stub
+    connection.expects(:get).yields(stub_request('/v2/orders')).returns(mock_response)
+    @client.stubs(:trading_connection).returns(connection)
+
+    result = @client.list_orders(status: 'open')
+    assert_predicate result, :success?
+    assert_equal 1, result.data.size
+    assert_equal 'order-1', result.data[0]['id']
+  end
+
   test 'cancel_order returns success result' do
     mock_response = stub(body: nil)
     connection = stub
