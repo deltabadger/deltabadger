@@ -37,7 +37,7 @@ class MarketBuyTool < ApplicationMCPTool
     end
 
     exchange.set_client(api_key: api_key)
-    effective_amount_type = amount_type.present? ? amount_type : 'quote'
+    effective_amount_type = (amount_type.presence || 'quote').to_sym
 
     result = with_dry_run_if_enabled do
       exchange.market_buy(ticker: ticker, amount: amount, amount_type: effective_amount_type)
