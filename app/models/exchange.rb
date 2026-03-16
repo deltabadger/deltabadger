@@ -67,7 +67,7 @@ class Exchange < ApplicationRecord
     raise NotImplementedError, "#{self.class.name} must implement get_tickers_info"
   end
 
-  def get_tickers_prices(force: false)
+  def get_tickers_prices(force: false, symbols: nil)
     raise NotImplementedError, "#{self.class.name} must implement get_tickers_prices"
   end
 
@@ -138,7 +138,7 @@ class Exchange < ApplicationRecord
     true
   end
 
-  def list_withdrawal_addresses(asset:) # rubocop:disable Lint/UnusedMethodArgument
+  def list_withdrawal_addresses(asset:)
     nil
   end
 

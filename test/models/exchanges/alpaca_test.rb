@@ -123,4 +123,57 @@ class Exchanges::AlpacaTest < ActiveSupport::TestCase
     assert_predicate result, :success?
     assert_equal({}, result.data)
   end
+
+  # == get_tickers_prices with symbols parameter ==
+
+  test 'get_tickers_prices with symbols fetches only requested symbols via snapshots' do
+    snapshot_data = {
+      'AAPL' => { 'latestTrade' => { 'p' => 150.25 } },
+      'MSFT' => { 'latestTrade' => { 'p' => 310.50 } }
+    }
+    Clients::Alpaca.any_instance.stubs(:get_snapshots).with(symbols: %w[AAPL MSFT])
+                   .returns(Result::Success.new(snapshot_data))
+
+    result = @exchange.get_tickers_prices(symbols: %w[AAPL MSFT])
+    assert_predicate result, :success?
+    assert_equal 150.25.to_d, result.data['AAPL']
+    assert_equal 310.50.to_d, result.data['MSFT']
+  end
+
+  test 'get_tickers_prices with symbols returns failure when snapshots fail' do
+    Clients::Alpaca.any_instance.stubs(:get_snapshots)
+                   .returns(Result::Failure.new('connection error'))
+
+    result = @exchange.get_tickers_prices(symbols: %w[AAPL])
+    assert_predicate result, :failure?
+  end
+
+  test 'get_tickers_prices with symbols uses different cache keys for different symbols' do
+    snapshot_aapl = { 'AAPL' => { 'latestTrade' => { 'p' => 150.0 } } }
+    snapshot_msft = { 'MSFT' => { 'latestTrade' => { 'p' => 310.0 } } }
+    Clients::Alpaca.any_instance.stubs(:get_snapshots).with(symbols: %w[AAPL])
+                   .returns(Result::Success.new(snapshot_aapl))
+    Clients::Alpaca.any_instance.stubs(:get_snapshots).with(symbols: %w[MSFT])
+                   .returns(Result::Success.new(snapshot_msft))
+
+    result1 = @exchange.get_tickers_prices(symbols: %w[AAPL])
+    result2 = @exchange.get_tickers_prices(symbols: %w[MSFT])
+
+    assert_equal({ 'AAPL' => 150.0.to_d }, result1.data)
+    assert_equal({ 'MSFT' => 310.0.to_d }, result2.data)
+  end
+
+  test 'get_tickers_prices without symbols falls back to all tickers' do
+    btc = Asset.find_by(symbol: 'BTC') || create(:asset, :bitcoin)
+    usd = Asset.find_by(symbol: 'USD') || create(:asset, :usd)
+    create(:ticker, exchange: @exchange, base_asset: btc, quote_asset: usd)
+
+    snapshot_data = { 'BTC' => { 'latestTrade' => { 'p' => 50_000.0 } } }
+    Clients::Alpaca.any_instance.stubs(:get_snapshots).with(symbols: %w[BTC])
+                   .returns(Result::Success.new(snapshot_data))
+
+    result = @exchange.get_tickers_prices
+    assert_predicate result, :success?
+    assert_equal 50_000.0.to_d, result.data['BTC']
+  end
 end

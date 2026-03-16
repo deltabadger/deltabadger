@@ -63,7 +63,7 @@ class Exchanges::Hyperliquid < Exchange
     Result::Success.new(tickers_info)
   end
 
-  def get_tickers_prices(force: false)
+  def get_tickers_prices(force: false, symbols: nil)
     cache_key = "exchange_#{id}_prices"
     tickers_prices = Rails.cache.fetch(cache_key, expires_in: 1.minute, force:) do
       result = client.all_mids

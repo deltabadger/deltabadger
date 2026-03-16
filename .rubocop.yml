@@ -99,6 +99,8 @@ Lint/NoReturnInBeginEndBlocks:
   Enabled: false
 Lint/UselessConstantScoping:
   Enabled: false
+Lint/UnusedMethodArgument:
+  AllowUnusedKeywordArguments: true
 Lint/MissingSuper:
   Exclude:
     - 'app/services/**/*'

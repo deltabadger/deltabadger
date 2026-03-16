@@ -73,7 +73,7 @@ module Bots::DcaIndex::Measurable
       metrics_data = metrics.deep_dup
       return metrics_data if metrics_data[:chart][:labels].empty?
 
-      result = exchange.get_tickers_prices
+      result = exchange.get_tickers_prices(symbols: tickers.map(&:ticker))
       return metrics_data if result.failure?
 
       ticker_prices = result.data
