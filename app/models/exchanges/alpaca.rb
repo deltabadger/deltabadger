@@ -369,7 +369,7 @@ class Exchanges::Alpaca < Exchange
       symbol: ticker.base,
       side: side.to_s,
       type: 'limit',
-      time_in_force: 'gtc',
+      time_in_force: 'day',
       qty: qty.to_d.to_s('F'),
       limit_price: price.to_d.to_s('F')
     )

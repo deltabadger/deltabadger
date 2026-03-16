@@ -82,7 +82,9 @@ Rails.application.routes.draw do
       patch :update_stocks
       delete :disconnect_stocks
       patch :update_mcp_tool_permissions
+      patch :update_mcp_tool_group_permissions
       patch :update_mcp_dry_run
+      get 'confirm_revoke_mcp_client/:id', action: :confirm_revoke_mcp_client, as: :confirm_revoke_mcp_client
       delete 'revoke_mcp_client/:id', action: :revoke_mcp_client, as: :revoke_mcp_client
       patch :update_registration
       patch :update_email_notifications
