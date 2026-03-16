@@ -159,7 +159,6 @@ pt:
         mcp:
             title: 'MCP'
             description: 'Usa este URL para ligar o Claude (e outros modelos de IA). Permite que o teu assistente de IA aceda aos teus bots e exchanges.'
-            mcp_url_description: 'Cola este URL no teu assistente de IA. Ser-te-á pedido para autorizar o acesso.'
             connected_clients: 'Clientes ligados'
             no_clients: 'Ainda sem clientes ligados.'
             revoke_client: 'Revogar'

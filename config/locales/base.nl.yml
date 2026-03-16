@@ -160,7 +160,6 @@ nl:
         mcp:
             title: 'MCP'
             description: 'Gebruik deze URL om Claude (en andere AI-modellen) te verbinden. Hiermee geef je je AI-assistent toegang tot je bots en exchanges.'
-            mcp_url_description: 'Plak deze URL in je AI-assistent. Je wordt gevraagd om toegang te autoriseren.'
             connected_clients: 'Verbonden clients'
             no_clients: 'Nog geen clients verbonden.'
             revoke_client: 'Intrekken'
