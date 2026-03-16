@@ -166,7 +166,7 @@ nl:
             revoke_client_confirm: 'Deze client wordt losgekoppeld. Hij moet opnieuw autoriseren om weer te verbinden.'
             client_revoked: 'Client losgekoppeld.'
             authorize_title: 'Toegang autoriseren'
-            authorize_description: '%{client_name} vraagt toegang tot je Deltabadger-instantie.'
+            authorize_description: '%{client_name} wil toegang tot je Deltabadger-server.'
             tools_title: 'Toolmachtigingen'
             tools_read: 'Lezen'
             tools_control: 'Besturing'
