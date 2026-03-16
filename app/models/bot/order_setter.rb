@@ -37,6 +37,10 @@ module Bot::OrderSetter
       minimum_amount = [minimum_quote_size_in_base, ticker.minimum_base_size].max
       amount_type = :base
       amount = order_data[:amount]
+    when :quote
+      minimum_amount = ticker.minimum_quote_size
+      amount_type = :quote
+      amount = order_data[:quote_amount]
     when :base
       minimum_amount = ticker.minimum_base_size
       amount_type = :base

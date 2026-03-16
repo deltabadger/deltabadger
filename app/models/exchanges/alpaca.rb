@@ -388,7 +388,7 @@ class Exchanges::Alpaca < Exchange
     notional = order_data['notional']&.to_d
     qty = order_data['qty']&.to_d
     limit_price = order_data['limit_price']&.to_d
-    price = filled_avg_price.present? && filled_avg_price.positive? ? filled_avg_price : limit_price
+    price = filled_avg_price.present? && filled_avg_price.positive? ? filled_avg_price : (limit_price || 0)
 
     {
       order_id: order_data['id'],

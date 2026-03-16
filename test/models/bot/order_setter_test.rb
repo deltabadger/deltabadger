@@ -155,6 +155,32 @@ class Bot::OrderSetterTest < ActiveSupport::TestCase
     end
   end
 
+  # == Alpaca (quote minimum_amount_logic) ==
+
+  test 'single asset alpaca: creates a skipped transaction when below minimum' do
+    exchange = create(:alpaca_exchange)
+    bot = create(:dca_single_asset, :started, exchange: exchange)
+    setup_bot_execution_mocks(bot, price: 200.0)
+    bot.stubs(:broadcast_below_minimums_warning)
+
+    assert_equal :quote, exchange.minimum_amount_logic
+
+    assert_difference -> { bot.transactions.skipped.count }, 1 do
+      bot.set_order(order_amount_in_quote: 0.5) # $0.50 is below minimum_quote_size of $1
+    end
+  end
+
+  test 'single asset alpaca: calls exchange API when amount meets minimum' do
+    exchange = create(:alpaca_exchange)
+    bot = create(:dca_single_asset, :started, exchange: exchange)
+    setup_bot_execution_mocks(bot, price: 200.0)
+    bot.stubs(:broadcast_below_minimums_warning)
+    bot.exchange.unstub(:market_buy)
+    bot.exchange.expects(:market_buy).once.returns(Result::Success.new(order_id: 'test'))
+
+    bot.set_order(order_amount_in_quote: 100.0)
+  end
+
   # == Buffer accumulation across intervals ==
 
   test 'accumulates pending amount when orders are skipped' do
