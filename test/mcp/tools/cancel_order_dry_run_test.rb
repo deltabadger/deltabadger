@@ -25,7 +25,7 @@ class CancelOrderDryRunTest < ActiveSupport::TestCase
 
     Transaction.any_instance.stubs(:cancel).returns(Result::Success.new(@transaction))
 
-    response = CancelOrderTool.new(order_id: @transaction.id).execute
+    response = CancelOrderTool.new(order_id: @transaction.id.to_s).execute
     text = response.contents.first.text
 
     assert_match(/\[DRY RUN\]/, text)
@@ -37,7 +37,7 @@ class CancelOrderDryRunTest < ActiveSupport::TestCase
 
     Transaction.any_instance.stubs(:cancel).returns(Result::Success.new(@transaction))
 
-    response = CancelOrderTool.new(order_id: @transaction.id).execute
+    response = CancelOrderTool.new(order_id: @transaction.id.to_s).execute
     text = response.contents.first.text
 
     assert_no_match(/\[DRY RUN\]/, text)
@@ -49,7 +49,7 @@ class CancelOrderDryRunTest < ActiveSupport::TestCase
 
     Transaction.any_instance.stubs(:cancel).returns(Result::Success.new(@transaction))
 
-    CancelOrderTool.new(order_id: @transaction.id).execute
+    CancelOrderTool.new(order_id: @transaction.id.to_s).execute
 
     assert_nil Thread.current[:force_dry_run]
   end
