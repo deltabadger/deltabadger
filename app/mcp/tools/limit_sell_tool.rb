@@ -2,12 +2,12 @@
 
 class LimitSellTool < ApplicationMCPTool
   tool_name 'limit_sell'
-  description 'Place a limit sell order on a connected exchange at a specific price'
+  description 'Place a limit sell order on a connected exchange (crypto or stocks via Alpaca) at a specific price'
   open_world
   destructive
 
-  property :exchange_name, type: 'string', required: true, description: 'Exchange name (e.g., Binance, Kraken, Coinbase)'
-  property :base_asset, type: 'string', required: true, description: 'Asset symbol to sell (e.g., BTC, ETH)'
+  property :exchange_name, type: 'string', required: true, description: 'Exchange name (e.g., Binance, Kraken, Coinbase, Alpaca)'
+  property :base_asset, type: 'string', required: true, description: 'Asset symbol to sell (e.g., BTC, ETH, QQQM, AAPL)'
   property :quote_asset, type: 'string', required: true, description: 'Quote currency symbol (e.g., USD, USDT)'
   property :amount, type: 'number', required: true, description: 'Amount to sell'
   property :price, type: 'number', required: true, description: 'Limit price per unit in quote currency'

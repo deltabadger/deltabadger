@@ -241,6 +241,14 @@ class Exchanges::Alpaca < Exchange
     Result::Success.new(orders)
   end
 
+  def list_open_orders
+    result = client.list_orders(status: 'open')
+    return result if result.failure?
+
+    orders = result.data.map { |order| parse_order_data(order) }
+    Result::Success.new(orders)
+  end
+
   def cancel_order(order_id:)
     result = client.cancel_order(order_id: order_id)
     return result if result.failure?
