@@ -97,6 +97,24 @@ class Bot::OrderSetterTest < ActiveSupport::TestCase
     bot.set_order(order_amount_in_quote: ticker.minimum_quote_size)
   end
 
+  test 'single asset: skips order when amount rounds below minimum after adjusting decimals' do
+    bot = create(:dca_single_asset, :started)
+    # minimum_base_size has more precision than base_decimals allows:
+    # 0.001 requires 3 decimals, but base_decimals is only 2
+    bot.ticker.update!(base_decimals: 2, minimum_base_size: 0.001)
+    setup_bot_execution_mocks(bot, price: 50_000.0)
+    bot.stubs(:broadcast_below_minimums_warning)
+    bot.exchange.stubs(:minimum_amount_logic).returns(:base)
+    bot.exchange.unstub(:market_buy)
+    bot.exchange.expects(:market_buy).never
+
+    # $70 at $50,000 = 0.0014 base → above minimum 0.001
+    # but floor(0.0014, 2) = 0.00 → below minimum 0.001
+    assert_difference -> { bot.transactions.skipped.count }, 1 do
+      bot.set_order(order_amount_in_quote: 70)
+    end
+  end
+
   # == DcaDualAsset below minimum amount ==
 
   test 'dual asset: creates skipped transactions when below minimum' do

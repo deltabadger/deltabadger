@@ -76,17 +76,17 @@ class Exchanges::Alpaca < Exchange
     Result::Success.new(tickers_info)
   end
 
-  def get_tickers_prices(force: false)
-    cache_key = "exchange_#{id}_prices"
-    tickers_prices = Rails.cache.fetch(cache_key, expires_in: 1.minute, force: force) do
-      prices = {}
-      tickers.available.pluck(:base).each do |symbol|
-        result = client.get_latest_trade(symbol: symbol)
-        next if result.failure?
+  def get_tickers_prices(force: false, symbols: nil)
+    symbols ||= tickers.available.pluck(:base)
+    return Result::Success.new({}) if symbols.empty?
 
-        prices[symbol] = result.data.dig('trade', 'p').to_d
-      end
-      prices
+    symbols = symbols.sort
+    cache_key = "exchange_#{id}_prices_#{Digest::MD5.hexdigest(symbols.join(','))}"
+    tickers_prices = Rails.cache.fetch(cache_key, expires_in: 1.minute, force: force) do
+      result = client.get_snapshots(symbols: symbols)
+      return result if result.failure?
+
+      result.data.transform_values { |snapshot| snapshot.dig('latestTrade', 'p').to_d }
     end
 
     Result::Success.new(tickers_prices)

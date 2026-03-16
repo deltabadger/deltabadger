@@ -65,7 +65,7 @@ class Exchanges::Gemini < Exchange
     Result::Success.new(tickers_info)
   end
 
-  def get_tickers_prices(force: false)
+  def get_tickers_prices(force: false, symbols: nil)
     cache_key = "exchange_#{id}_prices"
     tickers_prices = Rails.cache.fetch(cache_key, expires_in: 1.minute, force: force) do
       result = client.get_price_feed
@@ -152,7 +152,7 @@ class Exchanges::Gemini < Exchange
     Result::Success.new(price)
   end
 
-  def get_candles(ticker:, start_at:, timeframe:) # rubocop:disable Lint/UnusedMethodArgument
+  def get_candles(ticker:, start_at:, timeframe:)
     # Gemini does not have a candle/OHLC endpoint in v1
     # Return empty candles as a fallback
     Result::Success.new([])
@@ -306,7 +306,7 @@ class Exchanges::Gemini < Exchange
     end
   end
 
-  def withdraw(asset:, amount:, address:, network: nil, address_tag: nil) # rubocop:disable Lint/UnusedMethodArgument
+  def withdraw(asset:, amount:, address:, network: nil, address_tag: nil)
     symbol = symbol_from_asset(asset)
     return Result::Failure.new("Unknown symbol for asset #{asset.symbol}") if symbol.blank?
 

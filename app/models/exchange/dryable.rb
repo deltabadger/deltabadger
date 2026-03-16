@@ -90,7 +90,7 @@ module Exchange::Dryable
     Result::Success.new(orders)
   end
 
-  def dry_withdraw(asset:, amount:, address:, network: nil, address_tag: nil) # rubocop:disable Lint/UnusedMethodArgument
+  def dry_withdraw(asset:, amount:, address:, network: nil, address_tag: nil)
     Result::Success.new({ withdrawal_id: "dry-withdrawal-#{SecureRandom.uuid}" })
   end
 
@@ -105,7 +105,7 @@ module Exchange::Dryable
     Result::Success.new({})
   end
 
-  def dry_cancel_order(order_id:) # rubocop:disable Lint/UnusedMethodArgument
+  def dry_cancel_order(order_id:)
     raise StandardError, 'Dry run mode does not support cancel_order'
   end
 

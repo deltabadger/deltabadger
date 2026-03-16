@@ -153,6 +153,19 @@ class Clients::Alpaca < Client
     end
   end
 
+  # https://docs.alpaca.markets/reference/stocksnapshots
+  # @param symbols [Array<String>] stock symbols
+  def get_snapshots(symbols:)
+    with_rescue do
+      response = data_connection.get do |req|
+        req.url '/v2/stocks/snapshots'
+        req.headers = authenticated_headers
+        req.params = { symbols: symbols.join(',') }
+      end
+      Result::Success.new(response.body)
+    end
+  end
+
   # https://docs.alpaca.markets/reference/stocklatestquote
   # @param symbol [String] stock symbol
   def get_latest_quote(symbol:)
