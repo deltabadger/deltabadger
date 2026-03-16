@@ -153,7 +153,7 @@ en:
         mcp:
             title: 'MCP'
             description: 'Use this URL to connect Claude (and other AI models). It gives your AI assistant access to your bots and exchanges.'
-            connected_clients: 'Connected clients'
+            connected_clients: 'Connected'
             no_clients: 'No clients connected yet.'
             revoke_client: 'Revoke'
             revoke_client_confirm: 'This will disconnect this client. It will need to re-authorize to connect again.'
