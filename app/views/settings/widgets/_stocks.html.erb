@@ -2,7 +2,7 @@
   <div class="widget widget--settings">
     <% is_configured = AppConfig.alpaca_configured? %>
     <h4 class="modal__title">
-      <%= t('settings.stocks.title') %>:
+      <%= t('settings.stocks.title_html') %>:
       <% if is_configured %>
         <span class="text-success">ON</span>
       <% else %>
