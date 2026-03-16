@@ -166,7 +166,7 @@ de:
             revoke_client_confirm: 'Dieser Client wird getrennt. Er muss sich erneut autorisieren, um sich wieder zu verbinden.'
             client_revoked: 'Client getrennt.'
             authorize_title: 'Zugriff autorisieren'
-            authorize_description: '%{client_name} fordert Zugriff auf deine Deltabadger-Instanz an.'
+            authorize_description: '%{client_name} möchte auf deinen Deltabadger-Server zugreifen.'
             tools_title: 'Werkzeugberechtigungen'
             tools_read: 'Lesen'
             tools_control: 'Steuerung'

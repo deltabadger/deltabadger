@@ -6,7 +6,7 @@ class Oauth::WellKnownControllerTest < ActionDispatch::IntegrationTest
     assert_response :success
 
     json = JSON.parse(response.body)
-    assert_equal 'http://www.example.com', json['resource']
+    assert_equal 'http://www.example.com/mcp', json['resource']
     assert_includes json['authorization_servers'], 'http://www.example.com'
     assert_includes json['bearer_methods_supported'], 'header'
   end

@@ -5,7 +5,7 @@ module Oauth
     # RFC 9728: OAuth Protected Resource Metadata
     def oauth_protected_resource
       render json: {
-        resource: request.base_url,
+        resource: "#{request.base_url}/mcp",
         authorization_servers: [request.base_url],
         bearer_methods_supported: %w[header]
       }

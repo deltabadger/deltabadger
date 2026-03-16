@@ -168,7 +168,7 @@ pl:
             revoke_client_confirm: 'Ten klient zostanie rozłączony. Będzie musiał ponownie się autoryzować, aby połączyć się ponownie.'
             client_revoked: 'Klient rozłączony.'
             authorize_title: 'Autoryzuj dostęp'
-            authorize_description: '%{client_name} prosi o dostęp do twojej instancji Deltabadger.'
+            authorize_description: '%{client_name} chce uzyskać dostęp do twojego serwera Deltabadger.'
             tools_title: 'Uprawnienia narzędzi'
             tools_read: 'Odczyt'
             tools_control: 'Sterowanie'

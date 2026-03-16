@@ -5,6 +5,7 @@ module Oauth
     # Inherits from ActionController::Base (not ApplicationController) to avoid
     # Devise's authenticate_user!, setup redirect, and locale switching that
     # would break OAuth JSON endpoints.
+    layout false
     protect_from_forgery with: :exception
   end
 end
