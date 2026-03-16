@@ -11,26 +11,20 @@
 
       <div class="mcp-tool-permissions__grid">
 
-        <div class="mcp-tool-permissions__group">
-          <h3 class="mcp-tool-permissions__group-title"><%= t('settings.mcp.tools_read') %></h3>
-          <% %w[list_bots get_bot_details list_exchanges get_exchange_balances get_portfolio_summary list_transactions list_open_orders].each do |tool| %>
-            <%= render 'settings/widgets/mcp_tool_toggle', tool: tool, enabled: permissions[tool] %>
-          <% end %>
-        </div>
-
-        <div class="mcp-tool-permissions__group">
-          <h3 class="mcp-tool-permissions__group-title"><%= t('settings.mcp.tools_control') %></h3>
-          <% %w[start_bot stop_bot update_bot_settings start_rule stop_rule update_rule_settings].each do |tool| %>
-            <%= render 'settings/widgets/mcp_tool_toggle', tool: tool, enabled: permissions[tool] %>
-          <% end %>
-        </div>
-
-        <div class="mcp-tool-permissions__group">
-          <h3 class="mcp-tool-permissions__group-title"><%= t('settings.mcp.tools_trade') %></h3>
-          <% %w[market_buy market_sell limit_buy limit_sell cancel_order].each do |tool| %>
-            <%= render 'settings/widgets/mcp_tool_toggle', tool: tool, enabled: permissions[tool] %>
-          <% end %>
-        </div>
+        <% AppConfig::MCP_TOOL_GROUPS.each do |group, tools| %>
+          <div class="mcp-tool-permissions__group">
+            <% all_enabled = tools.all? { |t| permissions[t] } %>
+            <%= form_with url: settings_update_mcp_tool_group_permissions_path, method: :patch,
+                         data: { turbo_frame: "mcp_settings" }, class: "mcp-tool-permissions__group-title-form" do |f| %>
+              <%= f.hidden_field :group, value: group %>
+              <%= f.hidden_field :enabled, value: all_enabled ? '0' : '1' %>
+              <h3 class="mcp-tool-permissions__group-title mcp-tool-permissions__group-title--clickable"><%= f.submit t("settings.mcp.tools_#{group}") %></h3>
+            <% end %>
+            <% tools.each do |tool| %>
+              <%= render 'settings/widgets/mcp_tool_toggle', tool: tool, enabled: permissions[tool] %>
+            <% end %>
+          </div>
+        <% end %>
 
       </div>
 
@@ -59,7 +53,7 @@
           <div>
             <b><%= client.name %></b>
             <small><%= l(client.created_at, format: :short) %></small> 
-            <%= link_to t('settings.mcp.revoke_client'), settings_revoke_mcp_client_path(client), data: { turbo_method: :delete, turbo_frame: "mcp_settings", turbo_confirm: t('settings.mcp.revoke_client_confirm') }, class: "text-danger" %>
+            <%= link_to t('settings.mcp.revoke_client'), settings_confirm_revoke_mcp_client_path(client), data: { turbo_frame: "modal" }, class: "text-danger" %>
           </div>
         <% end %>
       <% else %>

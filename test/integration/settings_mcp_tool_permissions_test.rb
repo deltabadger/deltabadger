@@ -49,4 +49,26 @@ class SettingsMcpToolPermissionsTest < ActionDispatch::IntegrationTest
     patch settings_update_mcp_tool_permissions_path, params: { tool_name: 'start_bot', enabled: '1' }
     assert_response :forbidden
   end
+
+  test 'update_mcp_tool_group_permissions enables all tools in a group' do
+    patch settings_update_mcp_tool_group_permissions_path, params: { group: 'trade', enabled: '1' }
+    assert_response :success
+    %w[market_buy market_sell limit_buy limit_sell cancel_order].each do |tool|
+      assert AppConfig.mcp_tool_enabled?(tool), "Expected #{tool} to be enabled"
+    end
+  end
+
+  test 'update_mcp_tool_group_permissions disables all tools in a group' do
+    AppConfig::MCP_TOOL_GROUPS['read'].each { |tool| AppConfig.set_mcp_tool_enabled(tool, true) }
+    patch settings_update_mcp_tool_group_permissions_path, params: { group: 'read', enabled: '0' }
+    assert_response :success
+    %w[list_bots get_bot_details list_exchanges get_exchange_balances get_portfolio_summary list_transactions list_open_orders].each do |tool|
+      assert_not AppConfig.mcp_tool_enabled?(tool), "Expected #{tool} to be disabled"
+    end
+  end
+
+  test 'rejects unknown group names' do
+    patch settings_update_mcp_tool_group_permissions_path, params: { group: 'unknown', enabled: '1' }
+    assert_response :unprocessable_entity
+  end
 end
