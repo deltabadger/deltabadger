@@ -54,6 +54,7 @@ de:
             next_try: "Nächster Versuch in"
             waiting: "Warten bis alle Bedingungen erfüllt sind"
             listening: "Empfangsbereit"
+            market_opens_in: "Marktöffnung in"
         conversational:
             invest: "Investieren"
             into: "in"

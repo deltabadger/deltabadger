@@ -56,6 +56,7 @@ pt:
             next_try: "Próxima tentativa em"
             waiting: "À espera que todas as condições sejam cumpridas"
             listening: "A escutar"
+            market_opens_in: "O mercado abre em"
         conversational:
             invest: "Investir"
             into: "em"

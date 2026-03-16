@@ -53,6 +53,7 @@ ru:
             next_try: "Следующая попытка через"
             waiting: "Ожидание выполнения всех условий"
             listening: "Ожидание сигнала"
+            market_opens_in: "Рынок откроется через"
         conversational:
             invest: "Инвестировать"
             into: "в"
