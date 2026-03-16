@@ -49,6 +49,12 @@ class AppConfig < ApplicationRecord
     'cancel_order' => false
   }.freeze
 
+  MCP_TOOL_GROUPS = {
+    'read' => %w[list_bots get_bot_details list_exchanges get_exchange_balances get_portfolio_summary list_transactions list_open_orders],
+    'control' => %w[start_bot stop_bot update_bot_settings start_rule stop_rule update_rule_settings],
+    'trade' => %w[market_buy market_sell limit_buy limit_sell cancel_order]
+  }.freeze
+
   SMTP_PROVIDER = 'smtp_provider'.freeze # 'custom_smtp' or 'env_smtp'
   SMTP_USERNAME = 'smtp_username'.freeze
   SMTP_PASSWORD = 'smtp_password'.freeze
@@ -283,6 +289,13 @@ class AppConfig < ApplicationRecord
   def self.set_mcp_tool_enabled(tool_name, enabled)
     overrides = JSON.parse(get(MCP_TOOL_PERMISSIONS) || '{}')
     overrides[tool_name] = enabled
+    set(MCP_TOOL_PERMISSIONS, overrides.to_json)
+  end
+
+  def self.set_mcp_tool_group_enabled(group, enabled)
+    tools = MCP_TOOL_GROUPS[group]
+    overrides = JSON.parse(get(MCP_TOOL_PERMISSIONS) || '{}')
+    tools.each { |tool| overrides[tool] = enabled }
     set(MCP_TOOL_PERMISSIONS, overrides.to_json)
   end
 

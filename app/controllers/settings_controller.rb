@@ -307,9 +307,27 @@ class SettingsController < ApplicationController
     render turbo_stream: turbo_stream.replace('mcp_settings', partial: 'settings/widgets/mcp')
   end
 
+  def update_mcp_tool_group_permissions
+    group = params[:group]
+
+    unless AppConfig::MCP_TOOL_GROUPS.key?(group)
+      head :unprocessable_entity
+      return
+    end
+
+    enabled = params[:enabled] == '1'
+    AppConfig.set_mcp_tool_group_enabled(group, enabled)
+
+    render turbo_stream: turbo_stream.replace('mcp_settings', partial: 'settings/widgets/mcp')
+  end
+
   def update_mcp_dry_run
     AppConfig.mcp_dry_run = params[:enabled] == '1'
     render turbo_stream: turbo_stream.replace('mcp_settings', partial: 'settings/widgets/mcp')
+  end
+
+  def confirm_revoke_mcp_client
+    @mcp_client = Doorkeeper::Application.find(params[:id])
   end
 
   def revoke_mcp_client
