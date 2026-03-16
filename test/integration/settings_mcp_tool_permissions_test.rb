@@ -10,7 +10,6 @@ class SettingsMcpToolPermissionsTest < ActionDispatch::IntegrationTest
     sign_in @admin
     @original_mcp_enabled = ENV['MCP_ENABLED']
     ENV['MCP_ENABLED'] = 'true'
-    AppConfig.generate_mcp_access_token!
   end
 
   teardown do
@@ -19,7 +18,7 @@ class SettingsMcpToolPermissionsTest < ActionDispatch::IntegrationTest
     ENV['MCP_ENABLED'] = @original_mcp_enabled
   end
 
-  test 'mcp widget shows tool toggles when configured' do
+  test 'mcp widget shows tool toggles' do
     get settings_path
     assert_response :success
     assert_select '#mcp_tool_permissions'

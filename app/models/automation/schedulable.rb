@@ -67,11 +67,18 @@ module Automation::Schedulable
   end
 
   def progress_percentage
-    if last_action_job_at.present? && next_action_job_at.present?
-      (Time.current - last_action_job_at) / (next_action_job_at - last_action_job_at)
+    start_time = last_action_job_at || last_interval_checkpoint_at
+    end_time = next_action_job_at
+
+    if start_time.present? && end_time.present? && end_time > start_time
+      (Time.current - start_time) / (end_time - start_time)
     else
       0
     end
+  end
+
+  def progress_start_time
+    last_action_job_at || last_interval_checkpoint_at
   end
 
   private

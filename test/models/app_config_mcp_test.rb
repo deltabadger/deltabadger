@@ -5,65 +5,43 @@ class AppConfigMcpTest < ActiveSupport::TestCase
     AppConfig.clear_mcp_settings!
   end
 
-  test 'generate_mcp_access_token! creates a 64-char hex token' do
-    token = AppConfig.generate_mcp_access_token!
-    assert_match(/\A[a-f0-9]{32}\z/, token)
-  end
-
-  test 'mcp_access_token returns the stored token' do
-    AppConfig.generate_mcp_access_token!
-    assert_equal AppConfig.get('mcp_access_token'), AppConfig.mcp_access_token
-  end
-
-  test 'mcp_access_token returns nil when not set' do
-    assert_nil AppConfig.mcp_access_token
-  end
-
-  test 'mcp_configured? returns true when token exists' do
-    AppConfig.generate_mcp_access_token!
+  test 'mcp_configured? returns true when MCP_ENABLED is true' do
+    original = ENV['MCP_ENABLED']
+    ENV['MCP_ENABLED'] = 'true'
     assert AppConfig.mcp_configured?
+  ensure
+    ENV['MCP_ENABLED'] = original
   end
 
-  test 'mcp_configured? returns false when token not set' do
+  test 'mcp_configured? returns false when MCP_ENABLED is not set' do
+    original = ENV['MCP_ENABLED']
+    ENV['MCP_ENABLED'] = nil
     assert_not AppConfig.mcp_configured?
+  ensure
+    ENV['MCP_ENABLED'] = original
   end
 
-  test 'clear_mcp_settings! removes the token' do
-    AppConfig.generate_mcp_access_token!
-    assert AppConfig.mcp_configured?
-
-    AppConfig.clear_mcp_settings!
-    assert_not AppConfig.mcp_configured?
-  end
-
-  test 'generate_mcp_access_token! overwrites existing token' do
-    first_token = AppConfig.generate_mcp_access_token!
-    second_token = AppConfig.generate_mcp_access_token!
-
-    assert_not_equal first_token, second_token
-    assert_equal second_token, AppConfig.mcp_access_token
-  end
-
-  test 'mcp_url includes token in path' do
-    token = AppConfig.generate_mcp_access_token!
+  test 'mcp_url returns fixed /mcp path' do
     url = AppConfig.mcp_url
-
-    assert_match(%r{/#{token}\z}, url)
-    assert_no_match(/:3001/, url)
-  end
-
-  test 'mcp_url returns nil when not configured' do
-    assert_nil AppConfig.mcp_url
+    assert_equal 'http://localhost:3000/mcp', url
   end
 
   test 'mcp_url uses APP_ROOT_URL' do
-    token = AppConfig.generate_mcp_access_token!
-
     original = ENV['APP_ROOT_URL']
     ENV['APP_ROOT_URL'] = 'https://mybot.deltabadger.com'
     url = AppConfig.mcp_url
-    assert_equal "https://mybot.deltabadger.com/#{token}", url
+    assert_equal 'https://mybot.deltabadger.com/mcp', url
   ensure
     ENV['APP_ROOT_URL'] = original
+  end
+
+  test 'clear_mcp_settings! removes tool permissions and dry run' do
+    AppConfig.set_mcp_tool_enabled('start_bot', true)
+    AppConfig.mcp_dry_run = true
+
+    AppConfig.clear_mcp_settings!
+
+    assert_not AppConfig.mcp_dry_run?
+    assert_not AppConfig.mcp_tool_enabled?('start_bot')
   end
 end

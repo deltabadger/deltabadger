@@ -2,63 +2,69 @@
   <div class="widget widget--settings">
     <h4 class="modal__title"><%= t('settings.mcp.title') %></h4>
 
-    <% if AppConfig.mcp_configured? %>
-      <p class="text-center"><%= t('settings.mcp.description') %> <%= t('settings.mcp.warning') %></p>
-      <span class="tag tag--copy" id="mcp_url_display" data-url="<%= AppConfig.mcp_url %>" onclick="navigator.clipboard.writeText(this.dataset.url)" title="<%= t('button.copy') %>"><%= render 'svg/16x16_copy' %><%= AppConfig.mcp_url&.sub(%r{\Ahttps?://}, '') %></span>
-      <div class="setting-form">
-        <%= link_to t('settings.mcp.revoke'), settings_confirm_revoke_mcp_path, data: { turbo_frame: "modal" }, class: "button button--danger" %>
-      </div>
+    <p class="text-center"><%= t('settings.mcp.description') %></p>
+    <p class="text-center text--secondary"><%= t('settings.mcp.mcp_url_description') %></p>
+    <span class="tag tag--copy" id="mcp_url_display" data-url="<%= AppConfig.mcp_url %>" onclick="navigator.clipboard.writeText(this.dataset.url)" title="<%= t('button.copy') %>"><%= render 'svg/16x16_copy' %><%= AppConfig.mcp_url&.sub(%r{\Ahttps?://}, '') %></span>
 
-      <div id="mcp_tool_permissions" class="mcp-tool-permissions">
-
-        <% permissions = AppConfig.mcp_tool_permissions %>
-
-        <div class="mcp-tool-permissions__grid">
-
-          <div class="mcp-tool-permissions__group">
-            <h3 class="mcp-tool-permissions__group-title"><%= t('settings.mcp.tools_read') %></h3>
-            <% %w[list_bots get_bot_details list_exchanges get_exchange_balances get_portfolio_summary list_transactions list_open_orders].each do |tool| %>
-              <%= render 'settings/widgets/mcp_tool_toggle', tool: tool, enabled: permissions[tool] %>
-            <% end %>
+    <div id="mcp_connected_clients" class="mcp-tool-permissions" style="margin-top: 1rem;">
+      <h3 class="mcp-tool-permissions__group-title"><%= t('settings.mcp.connected_clients') %></h3>
+      <% clients = Doorkeeper::Application.order(created_at: :desc) %>
+      <% if clients.any? %>
+        <% clients.each do |client| %>
+          <div class="toggle-group" style="justify-content: space-between; align-items: center;">
+            <span><%= client.name %> <small class="text--secondary">(<%= l(client.created_at, format: :short) %>)</small></span>
+            <%= button_to t('settings.mcp.revoke_client'), settings_revoke_mcp_client_path(client), method: :delete, data: { turbo_frame: "mcp_settings", turbo_confirm: t('settings.mcp.revoke_client_confirm') }, class: "button button--danger button--small" %>
           </div>
+        <% end %>
+      <% else %>
+        <p class="text--secondary text-center"><%= t('settings.mcp.no_clients') %></p>
+      <% end %>
+    </div>
 
-          <div class="mcp-tool-permissions__group">
-            <h3 class="mcp-tool-permissions__group-title"><%= t('settings.mcp.tools_control') %></h3>
-            <% %w[start_bot stop_bot update_bot_settings start_rule stop_rule update_rule_settings].each do |tool| %>
-              <%= render 'settings/widgets/mcp_tool_toggle', tool: tool, enabled: permissions[tool] %>
-            <% end %>
-          </div>
+    <div id="mcp_tool_permissions" class="mcp-tool-permissions">
 
-          <div class="mcp-tool-permissions__group">
-            <h3 class="mcp-tool-permissions__group-title"><%= t('settings.mcp.tools_trade') %></h3>
-            <% %w[market_buy market_sell limit_buy limit_sell cancel_order].each do |tool| %>
-              <%= render 'settings/widgets/mcp_tool_toggle', tool: tool, enabled: permissions[tool] %>
-            <% end %>
-          </div>
+      <% permissions = AppConfig.mcp_tool_permissions %>
 
+      <div class="mcp-tool-permissions__grid">
+
+        <div class="mcp-tool-permissions__group">
+          <h3 class="mcp-tool-permissions__group-title"><%= t('settings.mcp.tools_read') %></h3>
+          <% %w[list_bots get_bot_details list_exchanges get_exchange_balances get_portfolio_summary list_transactions list_open_orders].each do |tool| %>
+            <%= render 'settings/widgets/mcp_tool_toggle', tool: tool, enabled: permissions[tool] %>
+          <% end %>
         </div>
 
         <div class="mcp-tool-permissions__group">
-          <h3 class="mcp-tool-permissions__group-title"><%= t('settings.mcp.dry_run_title') %></h3>
-          <p class="mcp-tool-permissions__description"><%= t('settings.mcp.dry_run_description') %></p>
-          <%= form_with url: settings_update_mcp_dry_run_path, method: :patch,
-                       data: { controller: "form--submit", turbo_frame: "mcp_settings" }, class: "toggle-group" do |f| %>
-            <%= f.hidden_field :enabled, value: AppConfig.mcp_dry_run? ? '0' : '1' %>
-            <label class="toggle-group__label <%= 'toggle-group__label--active' if AppConfig.mcp_dry_run? %>">
-              <div class="toggle">
-                <input type="checkbox" <%= 'checked' if AppConfig.mcp_dry_run? %> data-action="change->form--submit#submit" />
-                <div class="toggle__style"></div>
-              </div>
-              <span><%= t('settings.mcp.dry_run_label') %></span>
-            </label>
+          <h3 class="mcp-tool-permissions__group-title"><%= t('settings.mcp.tools_control') %></h3>
+          <% %w[start_bot stop_bot update_bot_settings start_rule stop_rule update_rule_settings].each do |tool| %>
+            <%= render 'settings/widgets/mcp_tool_toggle', tool: tool, enabled: permissions[tool] %>
           <% end %>
         </div>
+
+        <div class="mcp-tool-permissions__group">
+          <h3 class="mcp-tool-permissions__group-title"><%= t('settings.mcp.tools_trade') %></h3>
+          <% %w[market_buy market_sell limit_buy limit_sell cancel_order].each do |tool| %>
+            <%= render 'settings/widgets/mcp_tool_toggle', tool: tool, enabled: permissions[tool] %>
+          <% end %>
+        </div>
+
       </div>
-    <% else %>
-      <div class="text-center">
-        <p><%= t('settings.mcp.description') %></p>
-        <%= link_to t('button.enable'), settings_update_mcp_path, data: { turbo_method: :patch, turbo_frame: "mcp_settings" }, class: "button button--success" %>
+
+      <div class="mcp-tool-permissions__group">
+        <h3 class="mcp-tool-permissions__group-title"><%= t('settings.mcp.dry_run_title') %></h3>
+        <p class="mcp-tool-permissions__description"><%= t('settings.mcp.dry_run_description') %></p>
+        <%= form_with url: settings_update_mcp_dry_run_path, method: :patch,
+                     data: { controller: "form--submit", turbo_frame: "mcp_settings" }, class: "toggle-group" do |f| %>
+          <%= f.hidden_field :enabled, value: AppConfig.mcp_dry_run? ? '0' : '1' %>
+          <label class="toggle-group__label <%= 'toggle-group__label--active' if AppConfig.mcp_dry_run? %>">
+            <div class="toggle">
+              <input type="checkbox" <%= 'checked' if AppConfig.mcp_dry_run? %> data-action="change->form--submit#submit" />
+              <div class="toggle__style"></div>
+            </div>
+            <span><%= t('settings.mcp.dry_run_label') %></span>
+          </label>
+        <% end %>
       </div>
-    <% end %>
+    </div>
   </div>
 <% end %>

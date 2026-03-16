@@ -5,11 +5,17 @@ class MCPTokenIdentifier < ActionMCP::GatewayIdentifier
   authenticates :bearer_token
 
   def resolve
-    # Authentication is handled by the secret URL middleware in mcp/config.ru.
-    # This identifier only resolves the admin user for ActionMCP::Current.user.
-    admin = User.find_by(admin: true)
-    raise Unauthorized, 'No admin user found' unless admin
+    token_string = extract_bearer_token
+    raise Unauthorized, 'Missing bearer token' if token_string.blank?
 
-    admin
+    access_token = Doorkeeper::AccessToken.by_token(token_string)
+    raise Unauthorized, 'Invalid access token' unless access_token
+    raise Unauthorized, 'Access token revoked' if access_token.revoked?
+    raise Unauthorized, 'Access token expired' if access_token.expired?
+
+    user = User.find_by(id: access_token.resource_owner_id)
+    raise Unauthorized, 'User not found' unless user
+
+    user
   end
 end

@@ -15,6 +15,7 @@ fr:
         cancel: 'Annuler'
         close: 'Fermer'
         enable: 'Activer'
+        authorize: 'Autoriser'
         disable: 'Désactiver'
         delete: 'Supprimer'
         duplicate: 'Dupliquer'
@@ -160,11 +161,14 @@ fr:
         mcp:
             title: 'MCP'
             description: "Utilise cette URL pour connecter Claude (et d'autres modèles d'IA). Elle donne à ton assistant IA accès à tes bots et exchanges."
-            warning: 'Ne la partage jamais avec des personnes non fiables.'
-            enabled: 'Accès MCP activé.'
-            revoked: "URL MCP régénérée. Mets à jour l'URL dans ton assistant IA."
-            revoke: 'Révoquer'
-            confirm_revoke: "L'URL MCP sera régénérée. L'accès via l'ancienne URL ne sera plus possible."
+            mcp_url_description: "Colle cette URL dans ton assistant IA. Tu seras invité à autoriser l'accès."
+            connected_clients: 'Clients connectés'
+            no_clients: 'Aucun client connecté pour le moment.'
+            revoke_client: 'Révoquer'
+            revoke_client_confirm: 'Ce client sera déconnecté. Il devra se réautoriser pour se reconnecter.'
+            client_revoked: 'Client déconnecté.'
+            authorize_title: "Autoriser l'accès"
+            authorize_description: '%{client_name} demande l''accès à ton instance Deltabadger.'
             tools_title: 'Permissions des outils'
             tools_read: 'Lecture'
             tools_control: 'Contrôle'
