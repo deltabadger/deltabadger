@@ -101,6 +101,23 @@ class Exchanges::AlpacaTest < ActiveSupport::TestCase
     assert_predicate result, :failure?
   end
 
+  test 'parse_order_data handles nil filled_avg_price and nil limit_price' do
+    btc = Asset.find_by(symbol: 'BTC') || create(:asset, :bitcoin)
+    usd = Asset.find_by(symbol: 'USD') || create(:asset, :usd)
+    unless Ticker.exists?(exchange: @exchange, base_asset: btc, quote_asset: usd)
+      create(:ticker, exchange: @exchange, base_asset: btc, quote_asset: usd)
+    end
+
+    order_data = {
+      'id' => 'uuid-1', 'symbol' => 'BTC', 'side' => 'buy', 'type' => 'market', 'status' => 'accepted',
+      'qty' => '1.0', 'limit_price' => nil, 'filled_qty' => '0', 'filled_avg_price' => nil,
+      'notional' => '50000'
+    }
+
+    parsed = @exchange.send(:parse_order_data, order_data)
+    assert_equal 0, parsed[:price]
+  end
+
   test 'fetch_withdrawal_fees! returns empty success' do
     result = @exchange.fetch_withdrawal_fees!
     assert_predicate result, :success?
