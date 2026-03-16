@@ -54,6 +54,7 @@ it:
             next_try: "Prossimo tentativo in"
             waiting: "In attesa che tutte le condizioni siano soddisfatte"
             listening: "In ascolto"
+            market_opens_in: "Il mercato apre tra"
         pick_exchange: "Scegli Exchange"
         conversational:
             invest: "Investi"
