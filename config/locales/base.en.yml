@@ -159,7 +159,7 @@ en:
             revoke_client_confirm: 'This will disconnect this client. It will need to re-authorize to connect again.'
             client_revoked: 'Client disconnected.'
             authorize_title: 'Authorize access'
-            authorize_description: '%{client_name} is requesting access to your Deltabadger instance.'
+            authorize_description_html: '<b>%{client_name}</b> wants to access your Deltabadger server.'
             tools_title: 'Tool permissions'
             tools_read: 'Read'
             tools_control: 'Control'

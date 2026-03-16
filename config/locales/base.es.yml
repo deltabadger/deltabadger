@@ -166,7 +166,7 @@ es:
             revoke_client_confirm: 'Se desconectará este cliente. Tendrá que volver a autorizarse para conectarse de nuevo.'
             client_revoked: 'Cliente desconectado.'
             authorize_title: 'Autorizar acceso'
-            authorize_description: '%{client_name} solicita acceso a tu instancia de Deltabadger.'
+            authorize_description: '%{client_name} quiere acceder a tu servidor Deltabadger.'
             tools_title: 'Permisos de herramientas'
             tools_read: 'Lectura'
             tools_control: 'Control'

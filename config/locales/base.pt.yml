@@ -165,7 +165,7 @@ pt:
             revoke_client_confirm: 'Este cliente será desligado. Terá de se reautorizar para voltar a ligar-se.'
             client_revoked: 'Cliente desligado.'
             authorize_title: 'Autorizar acesso'
-            authorize_description: '%{client_name} está a pedir acesso à tua instância Deltabadger.'
+            authorize_description: '%{client_name} quer aceder ao teu servidor Deltabadger.'
             tools_title: 'Permissões das ferramentas'
             tools_read: 'Leitura'
             tools_control: 'Controlo'

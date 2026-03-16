@@ -169,7 +169,7 @@ ru:
             revoke_client_confirm: 'Этот клиент будет отключён. Для повторного подключения потребуется новая авторизация.'
             client_revoked: 'Клиент отключён.'
             authorize_title: 'Авторизация доступа'
-            authorize_description: '%{client_name} запрашивает доступ к твоей инстанции Deltabadger.'
+            authorize_description: '%{client_name} запрашивает доступ к твоему серверу Deltabadger.'
             tools_title: 'Разрешения инструментов'
             tools_read: 'Чтение'
             tools_control: 'Управление'
