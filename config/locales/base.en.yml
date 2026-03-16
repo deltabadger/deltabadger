@@ -141,7 +141,7 @@ en:
             disconnect: 'Disconnect'
             disconnected: 'Market data provider disconnected.'
         stocks:
-            title: 'Stocks (Alpaca)'
+            title_html: 'Stocks (<a href="https://alpaca.markets/" target="_blank">Alpaca</a>)'
             enabled: 'Stocks enabled. Syncing assets from Alpaca...'
             disabled: 'Stocks disabled.'
             disconnected: 'Alpaca disconnected. Stock tickers marked unavailable.'
