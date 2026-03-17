@@ -57,6 +57,25 @@ module ActionJobBehaviorTests
       Bot::ActionJob.new.perform(bot)
     end
 
+    test 'sets waiting_for_market_open when market is closed' do
+      bot = create_bot
+      setup_action_job_mocks(bot)
+      bot.exchange.stubs(:market_open?).returns(false)
+      bot.exchange.stubs(:next_market_open_at).returns(1.hour.from_now)
+
+      Bot::ActionJob.new.perform(bot)
+      assert bot.reload.waiting_for_market_open
+    end
+
+    test 'clears waiting_for_market_open when market is open' do
+      bot = create_bot
+      bot.update!(waiting_for_market_open: true)
+      setup_action_job_mocks(bot)
+
+      Bot::ActionJob.new.perform(bot)
+      assert_nil bot.reload.waiting_for_market_open
+    end
+
     test 'executes action when bot is retrying' do
       bot = create_bot
       bot.update!(status: :retrying)

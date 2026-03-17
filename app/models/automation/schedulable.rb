@@ -10,7 +10,8 @@ module Automation::Schedulable
 
   included do
     store_accessor :transient_data,
-                   :last_action_job_at
+                   :last_action_job_at,
+                   :waiting_for_market_open
 
     validates :interval, presence: true, inclusion: { in: INTERVALS.keys }
   end
