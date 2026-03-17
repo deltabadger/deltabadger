@@ -193,6 +193,9 @@ ru:
                 list_transactions:
                     label: 'Список транзакций'
                     description: 'Просмотр последних сделок'
+                create_bot:
+                    label: 'Создать бота'
+                    description: 'Создать нового DCA-бота'
                 start_bot:
                     label: 'Запустить бота'
                     description: 'Запустить остановленного бота'

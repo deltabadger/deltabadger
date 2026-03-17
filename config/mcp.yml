@@ -2,7 +2,7 @@
 
 shared:
   authentication: ["bearer_token"]
-  session_store_type: volatile
+  session_store_type: active_record
 
   profiles:
     primary:

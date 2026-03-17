@@ -7,7 +7,6 @@ module Bot::SmartIntervalable
                    :smart_interval_quote_amount
 
     after_initialize :initialize_smart_intervalable_settings
-    before_save :readjust_smart_interval_quote_amount, if: :will_save_change_to_settings?
 
     validates :smart_intervaled, inclusion: { in: [true, false] }
     validates :smart_interval_quote_amount,
@@ -82,17 +81,6 @@ module Bot::SmartIntervalable
   # For Index bots, this returns the highest minimum_quote_size among tickers
   def minimum_for_exchange
     0
-  end
-
-  def readjust_smart_interval_quote_amount
-    return unless smart_intervaled?
-    return unless quote_amount_was.present? && quote_amount.present? && quote_amount_was != quote_amount
-
-    previous_ratio = quote_amount_was.to_f / smart_interval_quote_amount_was
-    self.smart_interval_quote_amount = [
-      quote_amount.to_f / previous_ratio,
-      minimum_smart_interval_quote_amount
-    ].max.round(least_precise_quote_decimals)
   end
 
   def least_precise_quote_decimals
