@@ -190,6 +190,9 @@ nl:
                 list_transactions:
                     label: 'Transacties weergeven'
                     description: 'Recente trades bekijken'
+                create_bot:
+                    label: 'Bot aanmaken'
+                    description: 'Een nieuwe DCA-bot aanmaken'
                 start_bot:
                     label: 'Bot starten'
                     description: 'Een gestopte bot starten'

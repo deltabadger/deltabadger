@@ -190,6 +190,9 @@ it:
                 list_transactions:
                     label: 'Elenco transazioni'
                     description: 'Visualizza le operazioni recenti'
+                create_bot:
+                    label: 'Crea bot'
+                    description: 'Crea un nuovo bot DCA'
                 start_bot:
                     label: 'Avvia bot'
                     description: 'Avvia un bot fermo'

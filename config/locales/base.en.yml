@@ -183,6 +183,9 @@ en:
                 list_transactions:
                     label: 'List transactions'
                     description: 'View recent trades'
+                create_bot:
+                    label: 'Create bot'
+                    description: 'Create a new DCA bot'
                 start_bot:
                     label: 'Start bot'
                     description: 'Start a stopped bot'
