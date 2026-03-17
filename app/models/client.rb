@@ -10,7 +10,12 @@ class Client
   def with_rescue
     yield
   rescue Faraday::Error => e
-    error_message = e.response_body.presence || e.message.presence || 'Unknown API error'
+    body = e.response_body.presence
+    error_message = if body&.match?(/<\s*html/i)
+                      "HTTP #{e.response_status || 'error'}"
+                    else
+                      body || e.message.presence || 'Unknown API error'
+                    end
     Result::Failure.new(error_message, data: { status: e.response_status })
   rescue StandardError => e
     Result::Failure.new(e.message.presence || 'Unknown error')
