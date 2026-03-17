@@ -10,12 +10,13 @@ class Bot::ActionJob < BotJob
     bot.ensure_exchange_authenticated
     unless bot.exchange.market_open?
       Rails.logger.info("ActionJob for bot #{bot.id}: market closed, rescheduling to #{bot.exchange.next_market_open_at}")
+      bot.update!(waiting_for_market_open: true)
       Bot::ActionJob.set(wait_until: bot.exchange.next_market_open_at).perform_later(bot)
       Bot::BroadcastAfterScheduledActionJob.perform_later(bot)
       return
     end
 
-    bot.update!(last_action_job_at: Time.current)
+    bot.update!(last_action_job_at: Time.current, waiting_for_market_open: nil)
     result = bot.execute_action
     if result.failure?
       Rails.logger.error("ActionJob for bot #{bot.id} failed to execute action. Errors: #{result.errors.to_sentence}")

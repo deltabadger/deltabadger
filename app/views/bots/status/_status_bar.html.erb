@@ -46,7 +46,7 @@
         <% else %>
           <%= t('bot.status.next_try') %>
         <% end %>
-      <% elsif !bot.exchange.market_open? %>
+      <% elsif bot.waiting_for_market_open %>
         <%= t('bot.status.market_opens_in') %>
       <% end %>
       <div style="display: inline-block; min-width: 9em;">

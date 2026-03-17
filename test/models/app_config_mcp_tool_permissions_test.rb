@@ -68,7 +68,7 @@ class AppConfigMcpToolPermissionsTest < ActiveSupport::TestCase
     expected = %w[
       list_bots get_bot_details list_exchanges get_exchange_balances
       get_portfolio_summary list_transactions list_open_orders
-      start_bot stop_bot update_bot_settings
+      create_bot start_bot stop_bot update_bot_settings
       start_rule stop_rule update_rule_settings
       market_buy market_sell
       limit_buy limit_sell cancel_order

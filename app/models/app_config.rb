@@ -35,6 +35,7 @@ class AppConfig < ApplicationRecord
     'get_exchange_balances' => true,
     'get_portfolio_summary' => true,
     'list_transactions' => true,
+    'create_bot' => false,
     'start_bot' => false,
     'stop_bot' => false,
     'update_bot_settings' => false,
@@ -51,7 +52,7 @@ class AppConfig < ApplicationRecord
 
   MCP_TOOL_GROUPS = {
     'read' => %w[list_bots get_bot_details list_exchanges get_exchange_balances get_portfolio_summary list_transactions list_open_orders],
-    'control' => %w[start_bot stop_bot update_bot_settings start_rule stop_rule update_rule_settings],
+    'control' => %w[create_bot start_bot stop_bot update_bot_settings start_rule stop_rule update_rule_settings],
     'trade' => %w[market_buy market_sell limit_buy limit_sell cancel_order]
   }.freeze
 
