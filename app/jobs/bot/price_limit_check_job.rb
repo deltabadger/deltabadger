@@ -6,8 +6,9 @@ class Bot::PriceLimitCheckJob < ApplicationJob
 
     result = bot.get_price_limit_condition_met?
     if result.failure?
-      raise "Failed to check price limit condition for bot #{bot.id}. " \
-            "Errors: #{result.errors.to_sentence}"
+      Rails.logger.warn("PriceLimitCheckJob for bot #{bot.id} failed: #{result.errors.to_sentence}. Retrying in 1 minute.")
+      Bot::PriceLimitCheckJob.set(wait_until: 1.minute.from_now).perform_later(bot)
+      return
     end
 
     if result.data

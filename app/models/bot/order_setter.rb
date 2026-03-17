@@ -6,12 +6,7 @@ module Bot::OrderSetter
   def calculate_best_amount_info(order_data)
     ticker = order_data[:ticker]
     case exchange.minimum_amount_logic(side: order_data[:side], order_type: order_data[:order_type])
-    when :base_or_quote
-      minimum_quote_size_in_base = ticker.minimum_quote_size / order_data[:price]
-      amount_type = minimum_quote_size_in_base < ticker.minimum_base_size ? :quote : :base
-      amount = amount_type == :base ? order_data[:amount] : order_data[:quote_amount]
-      minimum_amount = amount_type == :base ? ticker.minimum_base_size : ticker.minimum_quote_size
-    when :base_and_quote
+    when :base_or_quote, :base_and_quote
       minimum_base_size_in_quote = ticker.adjusted_amount(
         amount: ticker.minimum_base_size * order_data[:price],
         amount_type: :quote,
