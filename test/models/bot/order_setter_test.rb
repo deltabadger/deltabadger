@@ -115,6 +115,22 @@ class Bot::OrderSetterTest < ActiveSupport::TestCase
     end
   end
 
+  test 'single asset: skips order when base_or_quote passes quote minimum but base equivalent is below base minimum' do
+    bot = create(:dca_single_asset, :started)
+    # Kraken-like scenario: minimum_quote_size=0.50, minimum_base_size=0.00005
+    # At price 65000, $2 quote buys 0.00003 base — below 0.00005 base minimum
+    bot.ticker.update!(minimum_quote_size: 0.5, minimum_base_size: 0.00005, base_decimals: 8, quote_decimals: 5)
+    setup_bot_execution_mocks(bot, price: 65_000.0)
+    bot.stubs(:broadcast_below_minimums_warning)
+    bot.exchange.stubs(:minimum_amount_logic).returns(:base_or_quote)
+    bot.exchange.unstub(:market_buy)
+    bot.exchange.expects(:market_buy).never
+
+    assert_difference -> { bot.transactions.skipped.count }, 1 do
+      bot.set_order(order_amount_in_quote: 2.0)
+    end
+  end
+
   # == DcaDualAsset below minimum amount ==
 
   test 'dual asset: creates skipped transactions when below minimum' do

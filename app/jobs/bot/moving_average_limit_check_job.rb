@@ -6,8 +6,9 @@ class Bot::MovingAverageLimitCheckJob < ApplicationJob
 
     result = bot.get_moving_average_limit_condition_met?
     if result.failure?
-      raise "Failed to check moving average limit condition for bot #{bot.id}. " \
-            "Errors: #{result.errors.to_sentence}"
+      Rails.logger.warn("MovingAverageLimitCheckJob for bot #{bot.id} failed: #{result.errors.to_sentence}. Retrying in 1 minute.")
+      Bot::MovingAverageLimitCheckJob.set(wait_until: 1.minute.from_now).perform_later(bot)
+      return
     end
 
     if result.data
