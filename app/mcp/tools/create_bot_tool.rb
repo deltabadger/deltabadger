@@ -94,11 +94,9 @@ class CreateBotTool < ApplicationMCPTool
     second = find_asset_with_ticker(exchange, second_base_asset, quote_asset)
     return unless second
 
-    if allocation.present?
-      unless allocation.to_f.between?(0, 100)
-        render text: "Invalid allocation '#{allocation}'. Must be a percentage between 0 and 100."
-        return
-      end
+    if allocation.present? && !allocation.to_f.between?(0, 100)
+      render text: "Invalid allocation '#{allocation}'. Must be a percentage between 0 and 100."
+      return
     end
 
     effective_allocation = allocation.present? ? (allocation.to_f / 100) : 0.5

@@ -192,6 +192,9 @@ pl:
                 list_transactions:
                     label: 'Lista transakcji'
                     description: 'Wyświetl ostatnie transakcje'
+                create_bot:
+                    label: 'Utwórz bota'
+                    description: 'Utwórz nowego bota DCA'
                 start_bot:
                     label: 'Uruchom bota'
                     description: 'Uruchom zatrzymanego bota'
