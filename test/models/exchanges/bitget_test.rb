@@ -17,8 +17,8 @@ class Exchanges::BitgetTest < ActiveSupport::TestCase
     assert_kind_of Array, errors[:invalid_key]
   end
 
-  test 'minimum_amount_logic returns base_or_quote' do
-    assert_equal :base_or_quote, @exchange.minimum_amount_logic
+  test 'minimum_amount_logic returns base_and_quote_in_base' do
+    assert_equal :base_and_quote_in_base, @exchange.minimum_amount_logic
   end
 
   test 'requires_passphrase? returns true' do
