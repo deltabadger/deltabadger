@@ -4,7 +4,9 @@ class Bots::DcaSingleAssets::AddApiKeysController < ApplicationController
   def new
     @bot = current_user.bots.dca_single_asset.new(sanitized_bot_config)
 
-    if @bot.exchange_id.blank?
+    if @bot.base_asset.blank?
+      redirect_to new_bots_dca_single_assets_pick_buyable_asset_path
+    elsif @bot.exchange_id.blank?
       redirect_to new_bots_dca_single_assets_pick_exchange_path
     else
       @api_key = @bot.api_key
