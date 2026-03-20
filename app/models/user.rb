@@ -4,7 +4,7 @@ class User < ApplicationRecord
   attr_accessor :otp_code_token
 
   devise :database_authenticatable, :registerable,
-         :recoverable, :rememberable, :validatable, :confirmable
+         :recoverable, :rememberable, :validatable, :confirmable, :lockable
 
   encrypts :otp_secret_key
   has_one_time_password
