@@ -2,30 +2,22 @@
 # Deltabadger - Multi-stage Dockerfile for Umbrel/Docker deployment
 
 # Stage 1: Build frontend assets
-FROM node:20-slim AS frontend-builder
+FROM oven/bun:latest AS frontend-builder
 
 WORKDIR /app
 
-# Install build dependencies
-RUN apt-get update -qq && \
-    apt-get install -y --no-install-recommends \
-    git \
-    python3 \
-    build-essential && \
-    rm -rf /var/lib/apt/lists/*
-
 # Copy package files
-COPY package.json package-lock.json ./
+COPY package.json bun.lockb ./
 
-# Install Node dependencies
-RUN npm ci
+# Install dependencies
+RUN bun install --frozen-lockfile
 
 # Copy frontend source files
 COPY app/javascript ./app/javascript
 COPY app/assets ./app/assets
 
 # Build JavaScript with esbuild
-RUN npm run build
+RUN bun run build
 
 # Stage 2: Build Ruby dependencies and compile assets
 FROM ruby:3.4.8-slim AS builder
@@ -39,7 +31,7 @@ ENV RAILS_ENV=production \
     BUNDLE_DEPLOYMENT=1 \
     BUNDLE_PATH=/app/vendor/bundle
 
-# Install system dependencies for building (without nodejs/npm)
+# Install system dependencies for building
 RUN apt-get update -qq && \
     apt-get install -y --no-install-recommends \
     build-essential \
@@ -54,10 +46,10 @@ RUN apt-get update -qq && \
     automake && \
     rm -rf /var/lib/apt/lists/*
 
-# Install Node 20.x for dartsass-rails and esbuild for jsbundling
-RUN curl -fsSL https://deb.nodesource.com/setup_20.x | bash - && \
-    apt-get install -y nodejs && \
-    npm install -g esbuild
+# Install Bun for dartsass-rails and esbuild for jsbundling
+RUN curl -fsSL https://bun.sh/install | bash && \
+    ln -s /root/.bun/bin/bun /usr/local/bin/bun && \
+    bun install -g esbuild
 
 # Copy Gemfile first for caching
 COPY Gemfile Gemfile.lock ./
