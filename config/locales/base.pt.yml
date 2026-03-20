@@ -25,6 +25,7 @@ pt:
         add: 'Adicionar'
         remove: 'Remover'
         start: 'Iniciar'
+        stop: 'Parar'
         next: 'Seguinte'
         connect: 'Conectar'
         reconnect: 'Adicionar novas chaves'

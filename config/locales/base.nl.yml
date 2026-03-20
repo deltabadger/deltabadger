@@ -25,6 +25,7 @@ nl:
         add: 'Toevoegen'
         remove: 'Verwijderen'
         start: 'Starten'
+        stop: 'Stoppen'
         next: 'Volgende'
         connect: 'Verbinden'
         reconnect: 'Nieuwe sleutels toevoegen'
