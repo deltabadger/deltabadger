@@ -43,7 +43,8 @@ RUN apt-get update -qq && \
     libyaml-dev \
     libtool \
     autoconf \
-    automake && \
+    automake \
+    unzip && \
     rm -rf /var/lib/apt/lists/*
 
 # Install Bun for dartsass-rails and esbuild for jsbundling
