@@ -5,27 +5,30 @@
       <span class="hide-on-mobile"><%= bot.exchange&.name || t('bot.pick_exchange') %></span>
     </div>
     <% if bot.stopped? %>
-      <div class="dropdown dropdown--exchanges">
-        <% if bot.api_key.correct? %>
-          <%= link_to new_bot_add_api_key_path(bot), class: "dropdown__item", data: { turbo_frame: "modal" } do %>
-            <%= t('button.reconnect') %>
-          <% end %>
-        <% end %>
-        <% other_exchanges = bot.available_exchanges_for_current_settings.where.not(id: bot.exchange_id) %>
-        <% if other_exchanges.any? %>
+      <% other_exchanges = bot.available_exchanges_for_current_settings.where.not(id: bot.exchange_id) %>
+      <% has_dropdown_items = bot.api_key.correct? || other_exchanges.any? %>
+      <% if has_dropdown_items %>
+        <div class="dropdown dropdown--exchanges">
           <% if bot.api_key.correct? %>
-            <div class="dropdown__item dropdown__item--divider"></div>
-          <% end %>
-          <% exchanges_with_keys = bot.user.api_keys.correct.where(exchange: other_exchanges).pluck(:exchange_id).to_set %>
-          <% other_exchanges.each do |exchange| %>
-            <% highlight = exchanges_with_keys.include?(exchange.id) ? " dropdown__item--highlight" : "" %>
-            <%= f.button name: "#{bot.model_name.param_key}[exchange_id]", value: exchange.id, type: :submit, class: "dropdown__item#{highlight}" do %>
-              <%= render "svg/exchange-#{exchange.name_id}" %>
-              <%= exchange.name.capitalize %>
+            <%= link_to new_bot_add_api_key_path(bot), class: "dropdown__item", data: { turbo_frame: "modal" } do %>
+              <%= t('button.reconnect') %>
             <% end %>
           <% end %>
-        <% end %>
-      </div>
+          <% if other_exchanges.any? %>
+            <% if bot.api_key.correct? %>
+              <div class="dropdown__item dropdown__item--divider"></div>
+            <% end %>
+            <% exchanges_with_keys = bot.user.api_keys.correct.where(exchange: other_exchanges).pluck(:exchange_id).to_set %>
+            <% other_exchanges.each do |exchange| %>
+              <% highlight = exchanges_with_keys.include?(exchange.id) ? " dropdown__item--highlight" : "" %>
+              <%= f.button name: "#{bot.model_name.param_key}[exchange_id]", value: exchange.id, type: :submit, class: "dropdown__item#{highlight}" do %>
+                <%= render "svg/exchange-#{exchange.name_id}" %>
+                <%= exchange.name.capitalize %>
+              <% end %>
+            <% end %>
+          <% end %>
+        </div>
+      <% end %>
     <% end %>
   </div>
 
