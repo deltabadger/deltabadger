@@ -25,6 +25,7 @@ en:
         add: 'Add'
         remove: 'Remove'
         start: 'Start'
+        stop: 'Stop'
         next: 'Next'
         connect: 'Connect'
         reconnect: 'Add new keys'

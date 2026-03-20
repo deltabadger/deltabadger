@@ -2,7 +2,7 @@
 .db-navbar.sticky-top--inactive
   .container
     %nav.navbar.navbar-light
-      = link_to bots_path, class: 'menu__logo' do
+      = link_to bots_path, class: 'menu__logo', 'aria-label': 'Deltabadger' do
         = render 'svg/40x30_logo'
       %div.menu-light
 

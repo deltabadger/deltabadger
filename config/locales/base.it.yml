@@ -25,6 +25,7 @@ it:
         add: 'Aggiungi'
         remove: 'Rimuovi'
         start: 'Inizia'
+        stop: 'Ferma'
         next: 'Avanti'
         connect: 'Connetti'
         reconnect: 'Aggiungi nuove chiavi'

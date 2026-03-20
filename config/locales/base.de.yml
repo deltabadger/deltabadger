@@ -25,6 +25,7 @@ de:
         add: 'Hinzufügen'
         remove: 'Entfernen'
         start: 'Starten'
+        stop: 'Stoppen'
         next: 'Weiter'
         connect: "Verbinden"
         reconnect: 'Neue Schlüssel hinzufügen'

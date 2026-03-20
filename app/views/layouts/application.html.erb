@@ -11,9 +11,6 @@
     <%= csp_meta_tag %>
 
     <title><%= content_for?(:title) ? yield(:title) : t('meta.title') %></title>
-
-    <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
-
     <%= render 'application/favicon' %>
 
     <%= stylesheet_link_tag 'application', media: 'all', "data-turbo-track": "reload" %>
@@ -65,11 +62,11 @@
 
     <%= render 'layouts/navbar' %>
 
-    <div class="main">
+    <main class="main">
       <div class="main-content">
         <%= yield %>
       </div>
-    </div>
+    </main>
 
     <%= turbo_frame_tag 'modal', src: (content_for(:modal_src) if content_for?(:modal_src)) %>
 
