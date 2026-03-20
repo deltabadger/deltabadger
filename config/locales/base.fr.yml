@@ -25,6 +25,7 @@ fr:
         add: 'Ajouter'
         remove: 'Supprimer'
         start: 'Démarrer'
+        stop: 'Arrêter'
         next: 'Suivant'
         connect: 'Connecter'
         reconnect: 'Ajouter de nouvelles clés'

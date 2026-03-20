@@ -25,6 +25,7 @@ pl:
         add: 'Dodaj'
         remove: 'Usuń'
         start: 'Start'
+        stop: 'Stop'
         next: 'Dalej'
         connect: 'Połącz'
         reconnect: 'Dodaj nowe klucze'
