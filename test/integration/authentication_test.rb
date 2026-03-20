@@ -113,6 +113,60 @@ class AuthenticationTest < ActionDispatch::IntegrationTest
     assert_response :unprocessable_content
   end
 
+  # == Account lockout ==
+
+  test 'locks account after 5 failed login attempts' do
+    user = create(:user, password: 'SecurePass1!')
+
+    5.times do
+      post user_session_path, params: {
+        user: { email: user.email, password: 'wrongpassword' }
+      }
+    end
+
+    user.reload
+    assert user.access_locked?, 'Account should be locked after 5 failed attempts'
+  end
+
+  test 'rejects login on locked account even with correct password' do
+    user = create(:user, password: 'SecurePass1!')
+
+    5.times do
+      post user_session_path, params: {
+        user: { email: user.email, password: 'wrongpassword' }
+      }
+    end
+
+    post user_session_path, params: {
+      user: { email: user.email, password: 'SecurePass1!' }
+    }
+
+    assert_response :unprocessable_content
+  end
+
+  test 'unlocks account after 15 minutes' do
+    user = create(:user, password: 'SecurePass1!')
+
+    5.times do
+      post user_session_path, params: {
+        user: { email: user.email, password: 'wrongpassword' }
+      }
+    end
+
+    user.reload
+    assert user.access_locked?
+
+    travel 16.minutes
+
+    post user_session_path, params: {
+      user: { email: user.email, password: 'SecurePass1!' }
+    }
+
+    assert_response :redirect
+    follow_redirect!
+    assert_equal user, controller.current_user
+  end
+
   # == Logout ==
 
   test 'signs out the user' do

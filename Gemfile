@@ -21,6 +21,7 @@ gem 'net-imap', require: false
 gem 'net-pop', require: false
 gem 'sqlite3', '~> 2.9'
 gem 'puma', '~> 7.2'
+gem 'rack-attack'
 gem 'rack-cors'
 gem 'rails', '~> 8.1.1'
 gem 'rqrcode'
