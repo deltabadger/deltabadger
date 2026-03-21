@@ -42,6 +42,8 @@ module Deltabadger
 
     config.session_store :cookie_store, key: '_deltabadger_session', expire_after: 30.days
 
+    config.active_storage.variant_processor = :disabled
+
     config.action_mcp.name = "Deltabadger"
 
     # Return 401 with WWW-Authenticate header for unauthenticated MCP requests.
