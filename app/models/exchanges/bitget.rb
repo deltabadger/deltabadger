@@ -321,7 +321,7 @@ class Exchanges::Bitget < Exchange
   end
 
   def minimum_amount_logic(**)
-    :base_and_quote_in_base
+    :base_or_quote
   end
 
   def withdraw(asset:, amount:, address:, network: nil, address_tag: nil)
@@ -421,8 +421,9 @@ class Exchanges::Bitget < Exchange
       symbol: ticker.ticker,
       side: side.to_s,
       order_type: 'market',
-      force: 'gtc',
-      size: amount.to_d.to_s('F')
+      force: 'ioc',
+      size: amount_type == :base ? amount.to_d.to_s('F') : nil,
+      quote_size: amount_type == :quote ? amount.to_d.to_s('F') : nil
     }
     result = client.place_order(**order_settings)
     return result if result.failure?
