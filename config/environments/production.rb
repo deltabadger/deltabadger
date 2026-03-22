@@ -23,7 +23,7 @@ Rails.application.configure do
   # Apache or NGINX already handles this.
   config.public_file_server.enabled = ENV['RAILS_SERVE_STATIC_FILES'].present?
 
-  # CSS is compiled and compressed by dartsass-rails, JS by esbuild
+  # CSS is compiled and compressed by dartsass-rails, JS by bun
   # No additional Sprockets compression needed
   config.assets.css_compressor = nil
 

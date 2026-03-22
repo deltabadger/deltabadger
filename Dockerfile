@@ -16,7 +16,7 @@ RUN bun install --frozen-lockfile
 COPY app/javascript ./app/javascript
 COPY app/assets ./app/assets
 
-# Build JavaScript with esbuild
+# Build JavaScript with bun
 RUN bun run build
 
 # Stage 2: Build Ruby dependencies and compile assets
@@ -47,10 +47,9 @@ RUN apt-get update -qq && \
     unzip && \
     rm -rf /var/lib/apt/lists/*
 
-# Install Bun for dartsass-rails and esbuild for jsbundling
+# Install Bun for dartsass-rails and jsbundling
 RUN curl -fsSL https://bun.sh/install | bash && \
-    ln -s /root/.bun/bin/bun /usr/local/bin/bun && \
-    bun install -g esbuild
+    ln -s /root/.bun/bin/bun /usr/local/bin/bun
 
 # Copy Gemfile first for caching
 COPY Gemfile Gemfile.lock ./
@@ -62,8 +61,7 @@ RUN bundle config set --local without 'development test' && \
     find /app/vendor/bundle/ruby/*/gems/ -name "*.c" -delete && \
     find /app/vendor/bundle/ruby/*/gems/ -name "*.o" -delete
 
-# Copy node_modules and built JS from frontend builder
-COPY --from=frontend-builder /app/node_modules ./node_modules
+# Copy built JS from frontend builder
 COPY --from=frontend-builder /app/app/assets/builds ./app/assets/builds
 
 # Copy application code
@@ -71,9 +69,6 @@ COPY . .
 
 # Create writable directories for asset compilation
 RUN mkdir -p /app/tmp/cache/assets /app/tmp/pids /app/log
-
-# Add node_modules/.bin to PATH for esbuild
-ENV PATH="/app/node_modules/.bin:$PATH"
 
 # Precompile assets - all ENV.fetch calls need placeholder values during build
 RUN SECRET_KEY_BASE=placeholder \
