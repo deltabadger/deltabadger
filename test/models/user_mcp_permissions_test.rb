@@ -59,6 +59,33 @@ class UserMcpPermissionsTest < ActiveSupport::TestCase
     assert_not @user.mcp_tool_enabled?('nonexistent_tool')
   end
 
+  test 'permissions are independent per user' do
+    user_b = create(:user)
+
+    @user.set_mcp_tool_enabled('market_buy', true)
+
+    assert @user.reload.mcp_tool_enabled?('market_buy')
+    assert_not user_b.reload.mcp_tool_enabled?('market_buy')
+  end
+
+  test 'set_mcp_tool_group_enabled enables all tools in a group' do
+    @user.set_mcp_tool_group_enabled('trade', true)
+    @user.reload
+
+    %w[market_buy market_sell limit_buy limit_sell cancel_order].each do |tool|
+      assert @user.mcp_tool_enabled?(tool), "Expected #{tool} to be enabled"
+    end
+  end
+
+  test 'set_mcp_tool_group_enabled disables all tools in a group' do
+    @user.set_mcp_tool_group_enabled('read', false)
+    @user.reload
+
+    %w[list_bots get_bot_details list_exchanges get_exchange_balances get_portfolio_summary list_transactions list_open_orders].each do |tool|
+      assert_not @user.mcp_tool_enabled?(tool), "Expected #{tool} to be disabled"
+    end
+  end
+
   test 'MCP_TOOL_DEFAULTS contains all expected tools' do
     expected = %w[
       list_bots get_bot_details list_exchanges get_exchange_balances

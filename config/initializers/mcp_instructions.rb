@@ -3,8 +3,6 @@
 # Set MCP server instructions dynamically so they include the actual
 # list of available exchanges from the database.
 Rails.application.config.after_initialize do
-  next unless ENV['MCP_ENABLED'] == 'true'
-
   exchanges = begin
     Exchange.where(available: true).pluck(:name).join(', ')
   rescue StandardError
