@@ -25,9 +25,6 @@ class AppConfig < ApplicationRecord
   ALPACA_MODE = 'alpaca_mode'.freeze # 'paper' or 'live'
 
   # MCP (Model Context Protocol) settings
-  MCP_TOOL_PERMISSIONS = 'mcp_tool_permissions'.freeze
-  MCP_DRY_RUN = 'mcp_dry_run'.freeze
-
   MCP_TOOL_DEFAULTS = {
     'list_bots' => true,
     'get_bot_details' => true,
@@ -276,49 +273,5 @@ class AppConfig < ApplicationRecord
   def self.mcp_url
     base = ENV.fetch('APP_ROOT_URL', 'http://localhost:3000')
     "#{base}/mcp"
-  end
-
-  def self.mcp_tool_enabled?(tool_name)
-    return false unless MCP_TOOL_DEFAULTS.key?(tool_name)
-
-    overrides = JSON.parse(get(MCP_TOOL_PERMISSIONS) || '{}')
-    return overrides[tool_name] if overrides.key?(tool_name)
-
-    MCP_TOOL_DEFAULTS[tool_name]
-  end
-
-  def self.set_mcp_tool_enabled(tool_name, enabled)
-    overrides = JSON.parse(get(MCP_TOOL_PERMISSIONS) || '{}')
-    overrides[tool_name] = enabled
-    set(MCP_TOOL_PERMISSIONS, overrides.to_json)
-  end
-
-  def self.set_mcp_tool_group_enabled(group, enabled)
-    tools = MCP_TOOL_GROUPS[group]
-    overrides = JSON.parse(get(MCP_TOOL_PERMISSIONS) || '{}')
-    tools.each { |tool| overrides[tool] = enabled }
-    set(MCP_TOOL_PERMISSIONS, overrides.to_json)
-  end
-
-  def self.mcp_tool_permissions
-    overrides = JSON.parse(get(MCP_TOOL_PERMISSIONS) || '{}')
-    MCP_TOOL_DEFAULTS.merge(overrides)
-  end
-
-  def self.enabled_mcp_tool_names
-    mcp_tool_permissions.select { |_, enabled| enabled }.keys
-  end
-
-  def self.mcp_dry_run?
-    get(MCP_DRY_RUN) == 'true'
-  end
-
-  def self.mcp_dry_run=(value)
-    set(MCP_DRY_RUN, value ? 'true' : 'false')
-  end
-
-  def self.clear_mcp_settings!
-    delete(MCP_TOOL_PERMISSIONS)
-    delete(MCP_DRY_RUN)
   end
 end

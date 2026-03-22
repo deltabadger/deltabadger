@@ -16,12 +16,11 @@ class StopRuleToolTest < ActiveSupport::TestCase
       settings: { 'max_fee_percentage' => '5', 'threshold_type' => 'max_fee_percentage' }
     )
     ActionMCP::Current.user = @user
-    AppConfig.set_mcp_tool_enabled('stop_rule', true)
+    @user.set_mcp_tool_enabled('stop_rule', true)
   end
 
   teardown do
     ActionMCP::Current.reset
-    AppConfig.delete(AppConfig::MCP_TOOL_PERMISSIONS)
   end
 
   test 'stops an active rule' do
@@ -47,7 +46,7 @@ class StopRuleToolTest < ActiveSupport::TestCase
   end
 
   test 'returns error when tool is disabled' do
-    AppConfig.set_mcp_tool_enabled('stop_rule', false)
+    @user.set_mcp_tool_enabled('stop_rule', false)
 
     response = StopRuleTool.new(rule_id: @rule.id).execute
 

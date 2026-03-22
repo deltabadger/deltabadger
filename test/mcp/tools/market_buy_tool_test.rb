@@ -11,12 +11,11 @@ class MarketBuyToolTest < ActiveSupport::TestCase
     @ticker = create(:ticker, exchange: @exchange, base_asset: @btc, quote_asset: @usd)
     @api_key = create(:api_key, user: @user, exchange: @exchange, key_type: :trading, status: :correct)
     ActionMCP::Current.user = @user
-    AppConfig.set_mcp_tool_enabled('market_buy', true)
+    @user.set_mcp_tool_enabled('market_buy', true)
   end
 
   teardown do
     ActionMCP::Current.reset
-    AppConfig.delete(AppConfig::MCP_TOOL_PERMISSIONS)
   end
 
   test 'executes a market buy order' do
@@ -49,7 +48,7 @@ class MarketBuyToolTest < ActiveSupport::TestCase
   end
 
   test 'returns error when tool is disabled' do
-    AppConfig.set_mcp_tool_enabled('market_buy', false)
+    @user.set_mcp_tool_enabled('market_buy', false)
     response = MarketBuyTool.new(exchange_name: 'Binance', base_asset: 'BTC', quote_asset: 'USD', amount: 100.0).execute
 
     assert_match(/disabled/, response.contents.first.text)

@@ -11,7 +11,6 @@ class SettingsMcpTest < ActionDispatch::IntegrationTest
   end
 
   teardown do
-    AppConfig.clear_mcp_settings!
     Doorkeeper::Application.destroy_all
     Doorkeeper::AccessToken.delete_all
     ENV['MCP_ENABLED'] = @original_mcp_enabled
@@ -30,7 +29,8 @@ class SettingsMcpTest < ActionDispatch::IntegrationTest
   end
 
   test 'mcp widget shows client when one exists' do
-    Doorkeeper::Application.create!(name: 'Test Client', redirect_uri: 'http://localhost/callback', confidential: false)
+    app = Doorkeeper::Application.create!(name: 'Test Client', redirect_uri: 'http://localhost/callback', confidential: false)
+    Doorkeeper::AccessToken.create!(application: app, resource_owner_id: @admin.id, token: SecureRandom.hex(32), expires_in: 3600)
 
     get settings_path
     assert_response :success
@@ -49,13 +49,16 @@ class SettingsMcpTest < ActionDispatch::IntegrationTest
     assert Doorkeeper::AccessToken.where(application_id: app.id).all?(&:revoked?)
   end
 
-  test 'non-admin cannot revoke client' do
+  test 'user cannot revoke another users client' do
     regular_user = create(:user, setup_completed: true)
     sign_in regular_user
     app = Doorkeeper::Application.create!(name: 'Test Client', redirect_uri: 'http://localhost/callback', confidential: false)
+    Doorkeeper::AccessToken.create!(application: app, resource_owner_id: @admin.id, token: SecureRandom.hex(32), expires_in: 3600)
 
-    delete settings_revoke_mcp_client_path(id: app.id)
-    assert_response :forbidden
+    assert_no_difference 'Doorkeeper::Application.count' do
+      delete settings_revoke_mcp_client_path(id: app.id)
+    end
+    assert_response :not_found
   end
 
   test 'mcp widget is hidden when MCP_ENABLED is not true' do
@@ -66,12 +69,12 @@ class SettingsMcpTest < ActionDispatch::IntegrationTest
     assert_select 'turbo-frame#mcp_settings', count: 0
   end
 
-  test 'mcp widget is not shown to non-admin users' do
+  test 'mcp widget is shown to non-admin users' do
     regular_user = create(:user, setup_completed: true)
     sign_in regular_user
 
     get settings_path
     assert_response :success
-    assert_select 'turbo-frame#mcp_settings', count: 0
+    assert_select 'turbo-frame#mcp_settings'
   end
 end
