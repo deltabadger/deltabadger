@@ -48,10 +48,8 @@ module Deltabadger
 
     # Return 401 with WWW-Authenticate header for unauthenticated MCP requests.
     # Required by RFC 9728 so OAuth clients can discover the authorization flow.
-    if ENV['MCP_ENABLED'] == 'true'
-      require_relative '../lib/middleware/mcp_oauth_challenge'
-      config.middleware.use McpOauthChallenge
-    end
+    require_relative '../lib/middleware/mcp_oauth_challenge'
+    config.middleware.use McpOauthChallenge
 
     # Don't generate system test files.
     config.generators.system_tests = nil

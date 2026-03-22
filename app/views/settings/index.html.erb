@@ -5,9 +5,7 @@
 <div class="columns">
   <div class="column gap-1">
 
-    <% if ENV["MCP_ENABLED"] == "true" %>
-      <%= render partial: 'settings/widgets/mcp' %>
-    <% end %>
+    <%= render partial: 'settings/widgets/mcp' %>
 
     <% if current_user.admin? %>
       <%= render partial: 'settings/widgets/stocks' %>

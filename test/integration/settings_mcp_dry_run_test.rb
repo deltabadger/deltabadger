@@ -6,12 +6,6 @@ class SettingsMcpDryRunTest < ActionDispatch::IntegrationTest
   setup do
     @admin = create(:user, admin: true, setup_completed: true)
     sign_in @admin
-    @original_mcp_enabled = ENV['MCP_ENABLED']
-    ENV['MCP_ENABLED'] = 'true'
-  end
-
-  teardown do
-    ENV['MCP_ENABLED'] = @original_mcp_enabled
   end
 
   test 'toggle dry run on' do

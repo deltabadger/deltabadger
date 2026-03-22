@@ -6,17 +6,14 @@ class SettingsMcpTest < ActionDispatch::IntegrationTest
   setup do
     @admin = create(:user, admin: true, setup_completed: true)
     sign_in @admin
-    @original_mcp_enabled = ENV['MCP_ENABLED']
-    ENV['MCP_ENABLED'] = 'true'
   end
 
   teardown do
     Doorkeeper::Application.destroy_all
     Doorkeeper::AccessToken.delete_all
-    ENV['MCP_ENABLED'] = @original_mcp_enabled
   end
 
-  test 'mcp widget shows URL when MCP enabled' do
+  test 'mcp widget shows URL' do
     get settings_path
     assert_response :success
     assert_select '#mcp_url_display'
@@ -59,14 +56,6 @@ class SettingsMcpTest < ActionDispatch::IntegrationTest
       delete settings_revoke_mcp_client_path(id: app.id)
     end
     assert_response :not_found
-  end
-
-  test 'mcp widget is hidden when MCP_ENABLED is not true' do
-    ENV['MCP_ENABLED'] = nil
-
-    get settings_path
-    assert_response :success
-    assert_select 'turbo-frame#mcp_settings', count: 0
   end
 
   test 'mcp widget is shown to non-admin users' do
