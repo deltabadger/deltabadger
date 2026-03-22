@@ -66,7 +66,7 @@ gem "rbnacl"
 gem "jaro_winkler", "~> 1.7"
 gem "oj", "~> 3.16"
 gem "dartsass-rails", "~> 0.5.1"
-gem "pagy", "~> 43.3"
+gem "pagy", "~> 43.4"
 gem "haikunator", "~> 1.1"
 gem "sqids" # for obfuscating IDs
 gem 'ruby-technical-analysis', git: 'https://github.com/guillemap/ruby-technical-analysis' # TODO: use the official gem once https://github.com/johnnypaper/ruby-technical-analysis/pull/32 is merged
