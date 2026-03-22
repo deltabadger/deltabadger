@@ -16,12 +16,11 @@ class UpdateRuleSettingsToolTest < ActiveSupport::TestCase
       settings: { 'max_fee_percentage' => '5', 'threshold_type' => 'max_fee_percentage' }
     )
     ActionMCP::Current.user = @user
-    AppConfig.set_mcp_tool_enabled('update_rule_settings', true)
+    @user.set_mcp_tool_enabled('update_rule_settings', true)
   end
 
   teardown do
     ActionMCP::Current.reset
-    AppConfig.delete(AppConfig::MCP_TOOL_PERMISSIONS)
   end
 
   test 'updates rule max_fee_percentage' do
@@ -59,7 +58,7 @@ class UpdateRuleSettingsToolTest < ActiveSupport::TestCase
   end
 
   test 'returns error when tool is disabled' do
-    AppConfig.set_mcp_tool_enabled('update_rule_settings', false)
+    @user.set_mcp_tool_enabled('update_rule_settings', false)
     response = UpdateRuleSettingsTool.new(rule_id: @rule.id, max_fee_percentage: 1.0).execute
 
     assert_match(/disabled/, response.contents.first.text)

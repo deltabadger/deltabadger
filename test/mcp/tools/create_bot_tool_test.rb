@@ -13,12 +13,11 @@ class CreateBotToolTest < ActiveSupport::TestCase
     @ticker_eth = create(:ticker, exchange: @exchange, base_asset: @eth, quote_asset: @usd)
     @api_key = create(:api_key, user: @user, exchange: @exchange, key_type: :trading, status: :correct)
     ActionMCP::Current.user = @user
-    AppConfig.set_mcp_tool_enabled('create_bot', true)
+    @user.set_mcp_tool_enabled('create_bot', true)
   end
 
   teardown do
     ActionMCP::Current.reset
-    AppConfig.delete(AppConfig::MCP_TOOL_PERMISSIONS)
   end
 
   # --- Single Asset ---
@@ -201,7 +200,7 @@ class CreateBotToolTest < ActiveSupport::TestCase
   end
 
   test 'returns error when tool is disabled' do
-    AppConfig.set_mcp_tool_enabled('create_bot', false)
+    @user.set_mcp_tool_enabled('create_bot', false)
 
     response = CreateBotTool.new(
       exchange_name: 'Binance',

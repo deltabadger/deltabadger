@@ -5,7 +5,6 @@ class SettingsController < ApplicationController
     update_email_notifications disconnect_email send_test_email
     update_market_data disconnect_market_data update_coingecko_key destroy_coingecko_key resync_assets
     update_stocks disconnect_stocks
-    update_mcp_tool_permissions update_mcp_dry_run revoke_mcp_client
   ]
 
   def index
@@ -302,7 +301,7 @@ class SettingsController < ApplicationController
     end
 
     enabled = params[:enabled] == '1'
-    AppConfig.set_mcp_tool_enabled(tool_name, enabled)
+    current_user.set_mcp_tool_enabled(tool_name, enabled)
 
     render turbo_stream: turbo_stream.replace('mcp_settings', partial: 'settings/widgets/mcp')
   end
@@ -316,23 +315,23 @@ class SettingsController < ApplicationController
     end
 
     enabled = params[:enabled] == '1'
-    AppConfig.set_mcp_tool_group_enabled(group, enabled)
+    current_user.set_mcp_tool_group_enabled(group, enabled)
 
     render turbo_stream: turbo_stream.replace('mcp_settings', partial: 'settings/widgets/mcp')
   end
 
   def update_mcp_dry_run
-    AppConfig.mcp_dry_run = params[:enabled] == '1'
+    current_user.mcp_dry_run = params[:enabled] == '1'
     render turbo_stream: turbo_stream.replace('mcp_settings', partial: 'settings/widgets/mcp')
   end
 
   def confirm_revoke_mcp_client
-    @mcp_client = Doorkeeper::Application.find(params[:id])
+    @mcp_client = current_user.mcp_applications.find(params[:id])
   end
 
   def revoke_mcp_client
-    application = Doorkeeper::Application.find(params[:id])
-    Doorkeeper::AccessToken.where(application: application).update_all(revoked_at: Time.current)
+    application = current_user.mcp_applications.find(params[:id])
+    Doorkeeper::AccessToken.where(application: application, resource_owner_id: current_user.id).update_all(revoked_at: Time.current)
     application.destroy!
     flash.now[:notice] = t('settings.mcp.client_revoked')
 

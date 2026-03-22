@@ -43,7 +43,7 @@ class MarketBuyTool < ApplicationMCPTool
       exchange.market_buy(ticker: ticker, amount: amount, amount_type: effective_amount_type)
     end
 
-    dry_prefix = AppConfig.mcp_dry_run? ? '[DRY RUN] ' : ''
+    dry_prefix = current_user.mcp_dry_run? ? '[DRY RUN] ' : ''
     if result.success?
       currency = effective_amount_type == 'quote' ? quote_asset.upcase : base_asset.upcase
       pair = "#{base_asset.upcase}/#{quote_asset.upcase}"

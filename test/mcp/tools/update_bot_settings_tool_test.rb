@@ -7,12 +7,11 @@ class UpdateBotSettingsToolTest < ActiveSupport::TestCase
     @user = create(:user, admin: true)
     @bot = create(:dca_single_asset, user: @user, status: :stopped)
     ActionMCP::Current.user = @user
-    AppConfig.set_mcp_tool_enabled('update_bot_settings', true)
+    @user.set_mcp_tool_enabled('update_bot_settings', true)
   end
 
   teardown do
     ActionMCP::Current.reset
-    AppConfig.delete(AppConfig::MCP_TOOL_PERMISSIONS)
   end
 
   test 'updates quote_amount on a stopped bot' do
@@ -45,7 +44,7 @@ class UpdateBotSettingsToolTest < ActiveSupport::TestCase
   end
 
   test 'returns error when tool is disabled' do
-    AppConfig.set_mcp_tool_enabled('update_bot_settings', false)
+    @user.set_mcp_tool_enabled('update_bot_settings', false)
 
     response = UpdateBotSettingsTool.new(bot_id: @bot.id, quote_amount: 50.0).execute
 

@@ -44,7 +44,7 @@ class LimitBuyTool < ApplicationMCPTool
       exchange.limit_buy(ticker: ticker, amount: amount, amount_type: effective_amount_type, price: price)
     end
 
-    dry_prefix = AppConfig.mcp_dry_run? ? '[DRY RUN] ' : ''
+    dry_prefix = current_user.mcp_dry_run? ? '[DRY RUN] ' : ''
     if result.success?
       pair = "#{base_asset.upcase}/#{quote_asset.upcase}"
       render text: "#{dry_prefix}Limit buy order placed on #{exchange.name}: #{pair} @ #{price}. #{result.data}"

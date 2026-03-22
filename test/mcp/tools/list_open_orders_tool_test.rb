@@ -8,12 +8,11 @@ class ListOpenOrdersToolTest < ActiveSupport::TestCase
     @bot = create(:dca_single_asset, user: @user)
     @exchange = @bot.exchange
     ActionMCP::Current.user = @user
-    AppConfig.set_mcp_tool_enabled('list_open_orders', true)
+    @user.set_mcp_tool_enabled('list_open_orders', true)
   end
 
   teardown do
     ActionMCP::Current.reset
-    AppConfig.delete(AppConfig::MCP_TOOL_PERMISSIONS)
   end
 
   test 'lists open orders from local DB' do
@@ -93,7 +92,7 @@ class ListOpenOrdersToolTest < ActiveSupport::TestCase
   end
 
   test 'returns error when tool is disabled' do
-    AppConfig.set_mcp_tool_enabled('list_open_orders', false)
+    @user.set_mcp_tool_enabled('list_open_orders', false)
     response = ListOpenOrdersTool.new.execute
 
     assert_match(/disabled/, response.contents.first.text)

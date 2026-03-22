@@ -8,12 +8,11 @@ class CancelOrderToolTest < ActiveSupport::TestCase
     @bot = create(:dca_single_asset, user: @user)
     @exchange = @bot.exchange
     ActionMCP::Current.user = @user
-    AppConfig.set_mcp_tool_enabled('cancel_order', true)
+    @user.set_mcp_tool_enabled('cancel_order', true)
   end
 
   teardown do
     ActionMCP::Current.reset
-    AppConfig.delete(AppConfig::MCP_TOOL_PERMISSIONS)
   end
 
   test 'cancels an open order by DB ID' do
@@ -85,7 +84,7 @@ class CancelOrderToolTest < ActiveSupport::TestCase
   end
 
   test 'returns error when tool is disabled' do
-    AppConfig.set_mcp_tool_enabled('cancel_order', false)
+    @user.set_mcp_tool_enabled('cancel_order', false)
     response = CancelOrderTool.new(order_id: '1').execute
 
     assert_match(/disabled/, response.contents.first.text)

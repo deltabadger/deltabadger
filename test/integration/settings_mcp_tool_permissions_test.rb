@@ -13,8 +13,6 @@ class SettingsMcpToolPermissionsTest < ActionDispatch::IntegrationTest
   end
 
   teardown do
-    AppConfig.clear_mcp_settings!
-    AppConfig.delete(AppConfig::MCP_TOOL_PERMISSIONS)
     ENV['MCP_ENABLED'] = @original_mcp_enabled
   end
 
@@ -27,14 +25,14 @@ class SettingsMcpToolPermissionsTest < ActionDispatch::IntegrationTest
   test 'update_mcp_tool_permissions enables a tool' do
     patch settings_update_mcp_tool_permissions_path, params: { tool_name: 'start_bot', enabled: '1' }
     assert_response :success
-    assert AppConfig.mcp_tool_enabled?('start_bot')
+    assert @admin.reload.mcp_tool_enabled?('start_bot')
   end
 
   test 'update_mcp_tool_permissions disables a tool' do
-    AppConfig.set_mcp_tool_enabled('start_bot', true)
+    @admin.set_mcp_tool_enabled('start_bot', true)
     patch settings_update_mcp_tool_permissions_path, params: { tool_name: 'start_bot', enabled: '0' }
     assert_response :success
-    assert_not AppConfig.mcp_tool_enabled?('start_bot')
+    assert_not @admin.reload.mcp_tool_enabled?('start_bot')
   end
 
   test 'rejects unknown tool names' do
@@ -42,28 +40,31 @@ class SettingsMcpToolPermissionsTest < ActionDispatch::IntegrationTest
     assert_response :unprocessable_entity
   end
 
-  test 'non-admin cannot update tool permissions' do
+  test 'non-admin can update their own tool permissions' do
     regular_user = create(:user, setup_completed: true)
     sign_in regular_user
 
     patch settings_update_mcp_tool_permissions_path, params: { tool_name: 'start_bot', enabled: '1' }
-    assert_response :forbidden
+    assert_response :success
+    assert regular_user.reload.mcp_tool_enabled?('start_bot')
   end
 
   test 'update_mcp_tool_group_permissions enables all tools in a group' do
     patch settings_update_mcp_tool_group_permissions_path, params: { group: 'trade', enabled: '1' }
     assert_response :success
+    @admin.reload
     %w[market_buy market_sell limit_buy limit_sell cancel_order].each do |tool|
-      assert AppConfig.mcp_tool_enabled?(tool), "Expected #{tool} to be enabled"
+      assert @admin.mcp_tool_enabled?(tool), "Expected #{tool} to be enabled"
     end
   end
 
   test 'update_mcp_tool_group_permissions disables all tools in a group' do
-    AppConfig::MCP_TOOL_GROUPS['read'].each { |tool| AppConfig.set_mcp_tool_enabled(tool, true) }
+    AppConfig::MCP_TOOL_GROUPS['read'].each { |tool| @admin.set_mcp_tool_enabled(tool, true) }
     patch settings_update_mcp_tool_group_permissions_path, params: { group: 'read', enabled: '0' }
     assert_response :success
+    @admin.reload
     %w[list_bots get_bot_details list_exchanges get_exchange_balances get_portfolio_summary list_transactions list_open_orders].each do |tool|
-      assert_not AppConfig.mcp_tool_enabled?(tool), "Expected #{tool} to be disabled"
+      assert_not @admin.mcp_tool_enabled?(tool), "Expected #{tool} to be disabled"
     end
   end
 
