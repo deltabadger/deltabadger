@@ -14,6 +14,8 @@ class User < ApplicationRecord
   has_many :bots
   has_many :transactions, through: :bots
   has_many :rules, dependent: :destroy
+  has_many :oauth_access_tokens, class_name: 'Doorkeeper::AccessToken', foreign_key: :resource_owner_id, dependent: :destroy
+  has_many :mcp_applications, -> { distinct }, through: :oauth_access_tokens, source: :application, class_name: 'Doorkeeper::Application'
 
   validates :name, presence: true, if: -> { new_record? }
   validate :validate_name, if: -> { new_record? || name_changed? }
@@ -73,6 +75,50 @@ class User < ApplicationRecord
       partial: 'bots/global_pnl',
       locals: { global_pnl: global_pnl, loading: false }
     )
+  end
+
+  # MCP permissions (per-user)
+
+  def mcp_tool_enabled?(tool_name)
+    return false unless AppConfig::MCP_TOOL_DEFAULTS.key?(tool_name)
+
+    overrides = mcp_settings['tool_permissions'] || {}
+    return overrides[tool_name] if overrides.key?(tool_name)
+
+    AppConfig::MCP_TOOL_DEFAULTS[tool_name]
+  end
+
+  def set_mcp_tool_enabled(tool_name, enabled)
+    self.mcp_settings = mcp_settings.merge(
+      'tool_permissions' => (mcp_settings['tool_permissions'] || {}).merge(tool_name => enabled)
+    )
+    save!
+  end
+
+  def set_mcp_tool_group_enabled(group, enabled)
+    tools = AppConfig::MCP_TOOL_GROUPS[group]
+    perms = mcp_settings['tool_permissions'] || {}
+    tools.each { |t| perms[t] = enabled }
+    self.mcp_settings = mcp_settings.merge('tool_permissions' => perms)
+    save!
+  end
+
+  def mcp_tool_permissions
+    overrides = mcp_settings['tool_permissions'] || {}
+    AppConfig::MCP_TOOL_DEFAULTS.merge(overrides)
+  end
+
+  def enabled_mcp_tool_names
+    mcp_tool_permissions.select { |_, v| v }.keys
+  end
+
+  def mcp_dry_run?
+    mcp_settings['dry_run'] == true
+  end
+
+  def mcp_dry_run=(value)
+    self.mcp_settings = mcp_settings.merge('dry_run' => value ? true : false)
+    save!
   end
 
   private

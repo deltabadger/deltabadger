@@ -16,12 +16,11 @@ class StartRuleToolTest < ActiveSupport::TestCase
       settings: { 'max_fee_percentage' => '5', 'threshold_type' => 'max_fee_percentage' }
     )
     ActionMCP::Current.user = @user
-    AppConfig.set_mcp_tool_enabled('start_rule', true)
+    @user.set_mcp_tool_enabled('start_rule', true)
   end
 
   teardown do
     ActionMCP::Current.reset
-    AppConfig.delete(AppConfig::MCP_TOOL_PERMISSIONS)
   end
 
   test 'starts a stopped rule' do
@@ -47,7 +46,7 @@ class StartRuleToolTest < ActiveSupport::TestCase
   end
 
   test 'returns error when tool is disabled' do
-    AppConfig.set_mcp_tool_enabled('start_rule', false)
+    @user.set_mcp_tool_enabled('start_rule', false)
 
     response = StartRuleTool.new(rule_id: @rule.id).execute
 

@@ -7,7 +7,7 @@
 
     <div id="mcp_tool_permissions" class="mcp-tool-permissions">
 
-      <% permissions = AppConfig.mcp_tool_permissions %>
+      <% permissions = current_user.mcp_tool_permissions %>
 
       <div class="mcp-tool-permissions__grid">
 
@@ -33,10 +33,10 @@
         <p class="mcp-tool-permissions__description"><%= t('settings.mcp.dry_run_description') %></p>
         <%= form_with url: settings_update_mcp_dry_run_path, method: :patch,
                      data: { controller: "form--submit", turbo_frame: "mcp_settings" }, class: "toggle-group" do |f| %>
-          <%= f.hidden_field :enabled, value: AppConfig.mcp_dry_run? ? '0' : '1' %>
-          <label class="toggle-group__label <%= 'toggle-group__label--active' if AppConfig.mcp_dry_run? %>">
+          <%= f.hidden_field :enabled, value: current_user.mcp_dry_run? ? '0' : '1' %>
+          <label class="toggle-group__label <%= 'toggle-group__label--active' if current_user.mcp_dry_run? %>">
             <div class="toggle">
-              <input type="checkbox" <%= 'checked' if AppConfig.mcp_dry_run? %> data-action="change->form--submit#submit" />
+              <input type="checkbox" <%= 'checked' if current_user.mcp_dry_run? %> data-action="change->form--submit#submit" />
               <div class="toggle__style"></div>
             </div>
             <span><%= t('settings.mcp.dry_run_label') %></span>
@@ -47,7 +47,7 @@
 
     <div id="mcp_connected_clients" class="mcp-connected-clients" >
       <h3 class="mcp-tool-permissions__group-title" style="margin: 2rem 0"><%= t('settings.mcp.connected_clients') %></h3>
-      <% clients = Doorkeeper::Application.order(created_at: :desc) %>
+      <% clients = current_user.mcp_applications.order(created_at: :desc) %>
       <% if clients.any? %>
         <% clients.each do |client| %>
           <div>

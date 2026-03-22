@@ -7,12 +7,11 @@ class StopBotToolTest < ActiveSupport::TestCase
     @user = create(:user, admin: true)
     @bot = create(:dca_single_asset, user: @user, status: :scheduled)
     ActionMCP::Current.user = @user
-    AppConfig.set_mcp_tool_enabled('stop_bot', true)
+    @user.set_mcp_tool_enabled('stop_bot', true)
   end
 
   teardown do
     ActionMCP::Current.reset
-    AppConfig.delete(AppConfig::MCP_TOOL_PERMISSIONS)
   end
 
   test 'stops a running bot' do
@@ -38,7 +37,7 @@ class StopBotToolTest < ActiveSupport::TestCase
   end
 
   test 'returns error when tool is disabled' do
-    AppConfig.set_mcp_tool_enabled('stop_bot', false)
+    @user.set_mcp_tool_enabled('stop_bot', false)
 
     response = StopBotTool.new(bot_id: @bot.id).execute
 

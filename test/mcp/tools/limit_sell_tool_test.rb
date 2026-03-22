@@ -11,12 +11,11 @@ class LimitSellToolTest < ActiveSupport::TestCase
     @ticker = create(:ticker, exchange: @exchange, base_asset: @btc, quote_asset: @usd)
     @api_key = create(:api_key, user: @user, exchange: @exchange, key_type: :trading, status: :correct)
     ActionMCP::Current.user = @user
-    AppConfig.set_mcp_tool_enabled('limit_sell', true)
+    @user.set_mcp_tool_enabled('limit_sell', true)
   end
 
   teardown do
     ActionMCP::Current.reset
-    AppConfig.delete(AppConfig::MCP_TOOL_PERMISSIONS)
   end
 
   test 'executes a limit sell order' do
@@ -49,7 +48,7 @@ class LimitSellToolTest < ActiveSupport::TestCase
   end
 
   test 'returns error when tool is disabled' do
-    AppConfig.set_mcp_tool_enabled('limit_sell', false)
+    @user.set_mcp_tool_enabled('limit_sell', false)
     response = LimitSellTool.new(
       exchange_name: 'Binance', base_asset: 'BTC', quote_asset: 'USD', amount: 0.5, price: 60_000.0
     ).execute

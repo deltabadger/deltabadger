@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_03_20_042623) do
+ActiveRecord::Schema[8.1].define(version: 2026_03_22_140051) do
   create_table "action_mcp_session_messages", force: :cascade do |t|
     t.datetime "created_at", null: false
     t.string "direction", default: "client", null: false
@@ -375,6 +375,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_03_20_042623) do
     t.datetime "last_otp_at", precision: nil
     t.string "locale"
     t.datetime "locked_at"
+    t.json "mcp_settings", default: {}
     t.string "name"
     t.integer "otp_module", default: 0
     t.string "otp_secret_key"

@@ -20,7 +20,7 @@ class CancelOrderTool < ApplicationMCPTool
       if transaction
         result = with_dry_run_if_enabled { transaction.cancel }
 
-        dry_prefix = AppConfig.mcp_dry_run? ? '[DRY RUN] ' : ''
+        dry_prefix = current_user.mcp_dry_run? ? '[DRY RUN] ' : ''
         if result.success?
           pair = "#{transaction.base}/#{transaction.quote}"
           render text: "#{dry_prefix}Order ##{transaction.id} (#{transaction.side.upcase} #{pair} " \
@@ -56,7 +56,7 @@ class CancelOrderTool < ApplicationMCPTool
       exchange.cancel_order(order_id: order_id)
     end
 
-    dry_prefix = AppConfig.mcp_dry_run? ? '[DRY RUN] ' : ''
+    dry_prefix = current_user.mcp_dry_run? ? '[DRY RUN] ' : ''
     if result.success?
       render text: "#{dry_prefix}Order #{order_id} cancellation submitted on #{exchange.name}."
     else

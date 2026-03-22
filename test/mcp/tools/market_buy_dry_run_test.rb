@@ -9,17 +9,16 @@ class MarketBuyDryRunTest < ActiveSupport::TestCase
     @ticker = create(:ticker, exchange: @exchange, base_asset: @btc, quote_asset: @usd)
     @api_key = create(:api_key, user: @user, exchange: @exchange, key_type: :trading, status: :correct)
     ActionMCP::Current.user = @user
-    AppConfig.set_mcp_tool_enabled('market_buy', true)
+    @user.set_mcp_tool_enabled('market_buy', true)
   end
 
   teardown do
     ActionMCP::Current.reset
-    AppConfig.clear_mcp_settings!
     Thread.current[:force_dry_run] = nil
   end
 
   test 'dry run enabled: response contains DRY RUN prefix' do
-    AppConfig.mcp_dry_run = true
+    @user.mcp_dry_run = true
 
     order_data = { order_id: 'dry-order-123', status: 'filled' }
     Exchanges::Binance.any_instance.stubs(:set_client)
@@ -33,7 +32,7 @@ class MarketBuyDryRunTest < ActiveSupport::TestCase
   end
 
   test 'dry run disabled: response does not contain DRY RUN prefix' do
-    AppConfig.mcp_dry_run = false
+    @user.mcp_dry_run = false
 
     order_data = { order_id: '12345', status: 'filled' }
     Exchanges::Binance.any_instance.stubs(:set_client)
@@ -47,7 +46,7 @@ class MarketBuyDryRunTest < ActiveSupport::TestCase
   end
 
   test 'thread-local is cleaned up after execution' do
-    AppConfig.mcp_dry_run = true
+    @user.mcp_dry_run = true
 
     order_data = { order_id: 'dry-order-123', status: 'filled' }
     Exchanges::Binance.any_instance.stubs(:set_client)
