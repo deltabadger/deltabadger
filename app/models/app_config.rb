@@ -266,10 +266,6 @@ class AppConfig < ApplicationRecord
   end
 
   # MCP configuration methods
-  def self.mcp_configured?
-    ENV['MCP_ENABLED'] == 'true'
-  end
-
   def self.mcp_url
     base = ENV.fetch('APP_ROOT_URL', 'http://localhost:3000')
     "#{base}/mcp"

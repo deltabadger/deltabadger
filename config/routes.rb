@@ -10,7 +10,7 @@ Rails.application.routes.draw do
   use_doorkeeper
 
   # MCP endpoint (OAuth-protected)
-  mount ActionMCP::Engine, at: '/mcp' if ENV['MCP_ENABLED'] == 'true'
+  mount ActionMCP::Engine, at: '/mcp'
 
   # Setup wizard for initial admin configuration
   get '/setup', to: 'setup#new', as: :new_setup
