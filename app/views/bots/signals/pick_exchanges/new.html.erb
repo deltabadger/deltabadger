@@ -22,7 +22,7 @@
       <div class="selectable-options">
         <%= form_with model: @bot, url: bots_signals_pick_exchange_path, method: :post do |f| %>
           <% @exchanges.each do |exchange| %>
-            <%= render partial: "bots/exchange_search_result", locals: { bot: @bot, exchange: exchange } %>
+            <%= render partial: "shared/exchange_search_result", locals: { exchange: exchange, param_name: "#{@bot.model_name.param_key}[exchange_id]" } %>
           <% end %>
         <% end %>
       </div>

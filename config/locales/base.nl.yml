@@ -94,6 +94,7 @@ nl:
         earn: Verdien
         resend_link: 'Link verzenden'
         rules: Regels
+        tracker: Tracker
         settings: Instellingen
         connections: Verbinden
         account: Account
@@ -344,6 +345,41 @@ nl:
             title: 'Opname-API-sleutel toevoegen voor %{exchange}'
             instructions_title: 'Hoe u sleutels van %{exchange} verkrijgt'
             instructions_body: 'Maak een API-sleutel met opnamerechten aan op %{exchange} en plak de gegevens hier.'
+    tracker:
+        sync: 'Synchroniseren'
+        sync_started: 'Transacties worden gesynchroniseerd van je exchanges...'
+        export: 'CSV exporteren'
+        filter: 'Filteren'
+        no_results: 'Geen transacties gevonden voor de geselecteerde filters.'
+        connect_exchange: 'Exchange verbinden'
+        import_from: 'Transacties importeren van'
+        search_exchange: 'Exchange zoeken...'
+        filters:
+            all: 'Alle'
+        columns:
+            date: 'Datum'
+            type: 'Type'
+            base: 'Asset'
+            amount: 'Bedrag'
+            quote: 'Noteringen'
+            quote_amount: 'Waarde'
+            fee: 'Kosten'
+            exchange: 'Exchange'
+            bot: 'Bot'
+        types:
+            buy: 'Koop'
+            sell: 'Verkoop'
+            swap_in: 'Swap in'
+            swap_out: 'Swap uit'
+            deposit: 'Storting'
+            withdrawal: 'Opname'
+            staking_reward: 'Staking'
+            lending_interest: 'Rente'
+            airdrop: 'Airdrop'
+            mining: 'Mining'
+            fee: 'Kosten'
+            other_income: 'Inkomen'
+            lost: 'Verloren'
     order_filters:
         all: 'Alle'
         successful: 'Geslaagd'

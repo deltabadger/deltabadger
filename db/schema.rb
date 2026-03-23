@@ -10,7 +10,34 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_03_22_140051) do
+ActiveRecord::Schema[8.1].define(version: 2026_03_23_052902) do
+  create_table "account_transactions", force: :cascade do |t|
+    t.integer "api_key_id", null: false
+    t.decimal "base_amount", null: false
+    t.string "base_currency", null: false
+    t.datetime "created_at", null: false
+    t.string "description"
+    t.integer "entry_type", null: false
+    t.integer "exchange_id", null: false
+    t.decimal "fee_amount"
+    t.string "fee_currency"
+    t.string "group_id"
+    t.decimal "quote_amount"
+    t.string "quote_currency"
+    t.json "raw_data", default: {}
+    t.datetime "transacted_at", null: false
+    t.integer "transaction_id"
+    t.string "tx_id"
+    t.datetime "updated_at", null: false
+    t.index ["api_key_id", "transacted_at"], name: "index_account_transactions_on_api_key_id_and_transacted_at"
+    t.index ["api_key_id"], name: "index_account_transactions_on_api_key_id"
+    t.index ["exchange_id", "tx_id"], name: "index_account_transactions_on_exchange_id_and_tx_id", unique: true, where: "tx_id IS NOT NULL"
+    t.index ["exchange_id"], name: "index_account_transactions_on_exchange_id"
+    t.index ["group_id"], name: "index_account_transactions_on_group_id"
+    t.index ["transacted_at"], name: "index_account_transactions_on_transacted_at"
+    t.index ["transaction_id"], name: "index_account_transactions_on_transaction_id"
+  end
+
   create_table "action_mcp_session_messages", force: :cascade do |t|
     t.datetime "created_at", null: false
     t.string "direction", default: "client", null: false
@@ -83,6 +110,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_03_22_140051) do
     t.boolean "german_trading_agreement"
     t.string "key"
     t.integer "key_type", default: 0, null: false
+    t.datetime "last_synced_at"
     t.string "passphrase"
     t.string "secret"
     t.integer "status", default: 0, null: false
@@ -393,6 +421,9 @@ ActiveRecord::Schema[8.1].define(version: 2026_03_22_140051) do
     t.index ["reset_password_token"], name: "index_users_on_reset_password_token", unique: true
   end
 
+  add_foreign_key "account_transactions", "api_keys"
+  add_foreign_key "account_transactions", "exchanges"
+  add_foreign_key "account_transactions", "transactions"
   add_foreign_key "action_mcp_session_messages", "action_mcp_sessions", column: "session_id", on_update: :cascade, on_delete: :cascade
   add_foreign_key "action_mcp_session_subscriptions", "action_mcp_sessions", column: "session_id", on_delete: :cascade
   add_foreign_key "action_mcp_session_tasks", "action_mcp_sessions", column: "session_id", on_update: :cascade, on_delete: :cascade

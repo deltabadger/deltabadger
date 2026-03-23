@@ -96,6 +96,7 @@ ru:
         earn: Зарабатывай
         resend_link: 'Отправить ссылку повторно'
         rules: Правила
+        tracker: Трекер
         settings: Настройки
         connections: Подключить
         account: Аккаунт
@@ -347,6 +348,41 @@ ru:
             title: 'Добавить API-ключ для вывода на %{exchange}'
             instructions_title: 'Как получить ключи от %{exchange}'
             instructions_body: 'Создайте API-ключ с разрешением на вывод средств на %{exchange} и вставьте учетные данные здесь.'
+    tracker:
+        sync: 'Синхронизировать'
+        sync_started: 'Синхронизация транзакций с ваших бирж...'
+        export: 'Экспорт CSV'
+        filter: 'Фильтр'
+        no_results: 'Транзакции не найдены для выбранных фильтров.'
+        connect_exchange: 'Подключить биржу'
+        import_from: 'Импортировать транзакции из'
+        search_exchange: 'Поиск биржи...'
+        filters:
+            all: 'Все'
+        columns:
+            date: 'Дата'
+            type: 'Тип'
+            base: 'Актив'
+            amount: 'Количество'
+            quote: 'Котировка'
+            quote_amount: 'Стоимость'
+            fee: 'Комиссия'
+            exchange: 'Биржа'
+            bot: 'Бот'
+        types:
+            buy: 'Покупка'
+            sell: 'Продажа'
+            swap_in: 'Swap вход'
+            swap_out: 'Swap выход'
+            deposit: 'Пополнение'
+            withdrawal: 'Вывод'
+            staking_reward: 'Стейкинг'
+            lending_interest: 'Проценты'
+            airdrop: 'Аirdrop'
+            mining: 'Майнинг'
+            fee: 'Комиссия'
+            other_income: 'Доход'
+            lost: 'Потеряно'
     order_filters:
         all: 'Все'
         successful: 'Выполненные'

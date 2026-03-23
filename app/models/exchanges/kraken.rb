@@ -435,7 +435,99 @@ class Exchanges::Kraken < Exchange
     update_exchange_asset_fees!(fees, chains: chains)
   end
 
+  KRAKEN_LEDGER_TYPES = {
+    'trade' => nil, # handled specially — mapped to buy/sell/swap
+    'deposit' => :deposit,
+    'withdrawal' => :withdrawal,
+    'staking' => :staking_reward,
+    'transfer' => nil, # internal transfers, skip
+    'margin' => nil,
+    'rollover' => nil,
+    'spend' => nil, # part of instant buy, skip (covered by trade)
+    'receive' => nil, # part of instant buy, skip (covered by trade)
+    'settled' => nil,
+    'adjustment' => nil,
+    'reward' => :staking_reward,
+    'sale' => nil,
+    'conversion' => nil,
+    'dividend' => :other_income,
+    'creator_fee' => :fee,
+    'nft_trade' => nil
+  }.freeze
+
+  def get_ledger(api_key:, start_time: nil)
+    hm_client = honeymaker_client(api_key)
+    start_unix = start_time&.to_i
+    entries = []
+
+    # Paginate through ledger
+    offset = 0
+    loop do
+      result = hm_client.get_ledgers(start: start_unix, ofs: offset)
+      return result if result.failure?
+
+      errors = result.data['error']
+      return Result::Failure.new(*errors) if errors.is_a?(Array) && errors.any?
+
+      ledger = result.data.dig('result', 'ledger') || {}
+      break if ledger.empty?
+
+      ledger.each do |ledger_id, entry|
+        normalized = normalize_kraken_ledger_entry(ledger_id, entry)
+        entries << normalized if normalized
+      end
+
+      count = result.data.dig('result', 'count').to_i
+      offset += ledger.size
+      break if offset >= count
+    end
+
+    Result::Success.new(entries)
+  end
+
   private
+
+  def honeymaker_client(api_key)
+    Honeymaker.client('kraken',
+                      api_key: api_key.key,
+                      api_secret: api_key.secret,
+                      proxy: ENV['PROXY_KRAKEN'])
+  end
+
+  def normalize_kraken_ledger_entry(ledger_id, entry)
+    type = entry['type']
+    entry_type = KRAKEN_LEDGER_TYPES[type]
+    return nil if entry_type.nil? && type != 'trade'
+
+    asset_raw = entry['asset']
+    asset = ASSET_MAP[asset_raw] || asset_raw
+    # Kraken uses XBT, normalize to BTC
+    asset = 'BTC' if asset == 'XBT'
+    amount = entry['amount'].to_d.abs
+    fee = entry['fee'].to_d
+    transacted_at = Time.at(entry['time']).utc
+
+    if type == 'trade'
+      # Trades: positive amount = buy/swap_in, negative = sell/swap_out
+      is_credit = entry['amount'].to_d.positive?
+      entry_type = is_credit ? :buy : :sell
+    end
+
+    {
+      entry_type: entry_type,
+      base_currency: asset,
+      base_amount: amount,
+      quote_currency: nil,
+      quote_amount: nil,
+      fee_currency: fee.positive? ? asset : nil,
+      fee_amount: fee.positive? ? fee : nil,
+      tx_id: ledger_id,
+      group_id: entry['refid'],
+      description: nil,
+      transacted_at: transacted_at,
+      raw_data: entry
+    }
+  end
 
   def find_withdrawal_key_name(asset:, address:)
     addresses = list_withdrawal_addresses(asset: asset)

@@ -528,6 +528,43 @@ FactoryBot.define do
     end
   end
 
+  # AccountTransaction factory
+  factory :account_transaction do
+    api_key
+    exchange { api_key.exchange }
+    entry_type { :buy }
+    base_currency { 'BTC' }
+    base_amount { 0.5 }
+    quote_currency { 'USD' }
+    quote_amount { 25_000.0 }
+    transacted_at { Time.current }
+    sequence(:tx_id) { |n| "tx-#{n}" }
+
+    trait :sell do
+      entry_type { :sell }
+    end
+
+    trait :deposit do
+      entry_type { :deposit }
+      quote_currency { nil }
+      quote_amount { nil }
+    end
+
+    trait :withdrawal do
+      entry_type { :withdrawal }
+      quote_currency { nil }
+      quote_amount { nil }
+    end
+
+    trait :swap_in do
+      entry_type { :swap_in }
+    end
+
+    trait :swap_out do
+      entry_type { :swap_out }
+    end
+  end
+
   # Transaction factory
   factory :transaction do
     bot { association :dca_single_asset }

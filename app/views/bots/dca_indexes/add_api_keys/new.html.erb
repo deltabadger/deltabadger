@@ -9,8 +9,8 @@
         <span class="hide-on-mobile"><%= @bot.exchange.name %></span>
       <% end %>
     </div>
-    <%= render partial: 'bots/api_key_form', locals: {
-      bot: @bot,
+    <%= render partial: 'shared/api_key_form', locals: {
+      exchange: @bot.exchange,
       api_key: @api_key,
       path: bots_dca_indexes_add_api_key_path,
       form_data: { controller: "form--label-animations form--html5-validations", turbo_frame: 'modal_content' }

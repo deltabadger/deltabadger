@@ -94,6 +94,7 @@ de:
         earn: Erzielen
         resend_link: Link erneut senden
         rules: Regeln
+        tracker: Tracker
         settings: Einstellungen
         connections: Verbinden
         account: Konto
@@ -344,6 +345,42 @@ de:
             title: 'Auszahlungs-API-Schlüssel für %{exchange} hinzufügen'
             instructions_title: 'So erhalten Sie Schlüssel von %{exchange}'
             instructions_body: 'Erstellen Sie einen API-Schlüssel mit Auszahlungsberechtigung auf %{exchange} und fügen Sie die Zugangsdaten hier ein.'
+    tracker:
+        sync: 'Synchronisieren'
+        sync_started: 'Transaktionen werden von deinen Börsen synchronisiert...'
+        export: 'CSV exportieren'
+        filter: 'Filtern'
+        bot: 'Bot'
+        no_results: 'Keine Transaktionen für die ausgewählten Filter gefunden.'
+        connect_exchange: 'Börse verbinden'
+        import_from: 'Transaktionen importieren von'
+        search_exchange: 'Börse suchen...'
+        filters:
+            all: 'Alle'
+        columns:
+            date: 'Datum'
+            type: 'Typ'
+            base: 'Asset'
+            amount: 'Menge'
+            quote: 'Gegenwährung'
+            quote_amount: 'Wert'
+            fee: 'Gebühr'
+            exchange: 'Börse'
+            bot: 'Bot'
+        types:
+            buy: 'Kauf'
+            sell: 'Verkauf'
+            swap_in: 'Tausch rein'
+            swap_out: 'Tausch raus'
+            deposit: 'Einzahlung'
+            withdrawal: 'Auszahlung'
+            staking_reward: 'Staking'
+            lending_interest: 'Zinsen'
+            airdrop: 'Airdrop'
+            mining: 'Mining'
+            fee: 'Gebühr'
+            other_income: 'Einkommen'
+            lost: 'Verloren'
     order_filters:
         all: 'Alle'
         successful: 'Erfolgreich'

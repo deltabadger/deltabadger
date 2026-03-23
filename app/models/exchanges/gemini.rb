@@ -321,6 +321,50 @@ class Exchanges::Gemini < Exchange
     Result::Success.new({})
   end
 
+  def get_ledger(api_key:, start_time: nil)
+    hm_client = Honeymaker.client('gemini', api_key: api_key.key, api_secret: api_key.secret, proxy: ENV['PROXY_GEMINI'])
+    ts_ms = start_time ? (start_time.to_f * 1000).to_i : nil
+    entries = []
+
+    # Trades
+    result = hm_client.get_my_trades(timestamp: ts_ms)
+    unless result.failure?
+      Array(result.data).each do |trade|
+        symbol = trade['symbol'] # e.g. "btcusd"
+        base = symbol[0..2].upcase
+        quote = symbol[3..].upcase
+        is_buyer = trade['type'] == 'Buy'
+        entries << { entry_type: is_buyer ? :buy : :sell,
+                     base_currency: base, base_amount: trade['amount'].to_d,
+                     quote_currency: quote, quote_amount: trade['price'].to_d * trade['amount'].to_d,
+                     fee_currency: trade['fee_currency']&.upcase || quote,
+                     fee_amount: trade['fee_amount'].to_d,
+                     tx_id: trade['tid'].to_s, group_id: nil, description: nil,
+                     transacted_at: Time.at(trade['timestampms'].to_i / 1000.0).utc, raw_data: trade }
+      end
+    end
+
+    # Transfers (deposits + withdrawals)
+    result = hm_client.get_transfers(timestamp: ts_ms)
+    unless result.failure?
+      Array(result.data).each do |transfer|
+        type = transfer['type']
+        next unless %w[Deposit Withdrawal].include?(type)
+
+        entry_type = type == 'Deposit' ? :deposit : :withdrawal
+        entries << { entry_type: entry_type,
+                     base_currency: transfer['currency']&.upcase, base_amount: transfer['amount'].to_d,
+                     quote_currency: nil, quote_amount: nil,
+                     fee_currency: transfer['feeAmount'].to_d.positive? ? transfer['currency']&.upcase : nil,
+                     fee_amount: transfer['feeAmount'].to_d.positive? ? transfer['feeAmount'].to_d : nil,
+                     tx_id: transfer['eid'].to_s, group_id: nil, description: nil,
+                     transacted_at: Time.at(transfer['timestampms'].to_i / 1000.0).utc, raw_data: transfer }
+      end
+    end
+
+    Result::Success.new(entries)
+  end
+
   private
 
   def client
