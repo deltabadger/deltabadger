@@ -94,6 +94,7 @@ fr:
         earn: 'Gagner'
         resend_link: 'Renvoyer le lien'
         rules: Règles
+        tracker: Tracker
         settings: 'Paramètres'
         connections: Connecter
         account: Compte
@@ -344,6 +345,42 @@ fr:
             title: 'Ajouter une clé API de retrait pour %{exchange}'
             instructions_title: 'Comment obtenir les clés de %{exchange}'
             instructions_body: 'Créez une clé API avec autorisation de retrait sur %{exchange} et collez les identifiants ici.'
+    tracker:
+        sync: 'Synchroniser'
+        sync_started: 'Synchronisation des transactions depuis vos plateformes...'
+        export: 'Exporter CSV'
+        filter: 'Filtrer'
+        bot: 'Bot'
+        no_results: 'Aucune transaction trouvée pour les filtres sélectionnés.'
+        connect_exchange: 'Connecter une plateforme'
+        import_from: 'Importer les transactions de'
+        search_exchange: 'Rechercher une plateforme...'
+        filters:
+            all: 'Tous'
+        columns:
+            date: 'Date'
+            type: 'Type'
+            base: 'Actif'
+            amount: 'Montant'
+            quote: 'Cotation'
+            quote_amount: 'Valeur'
+            fee: 'Frais'
+            exchange: 'Plateforme'
+            bot: 'Bot'
+        types:
+            buy: 'Achat'
+            sell: 'Vente'
+            swap_in: 'Swap entrant'
+            swap_out: 'Swap sortant'
+            deposit: 'Dépôt'
+            withdrawal: 'Retrait'
+            staking_reward: 'Staking'
+            lending_interest: 'Intérêts'
+            airdrop: 'Airdrop'
+            mining: 'Minage'
+            fee: 'Frais'
+            other_income: 'Revenu'
+            lost: 'Perdu'
     order_filters:
         all: 'Tous'
         successful: 'Réussis'

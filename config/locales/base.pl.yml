@@ -96,6 +96,7 @@ pl:
         earn: 'Zarabiaj'
         resend_link: 'Wyślij link'
         rules: Reguły
+        tracker: Tracker
         settings: Ustawienia
         connections: Połącz
         account: Konto
@@ -346,6 +347,41 @@ pl:
             title: 'Dodaj klucz API do wypłat dla %{exchange}'
             instructions_title: 'Jak uzyskać klucze z %{exchange}'
             instructions_body: 'Utwórz klucz API z uprawnieniami do wypłat na %{exchange} i wklej tutaj dane uwierzytelniające.'
+    tracker:
+        sync: 'Synchronizuj'
+        sync_started: 'Synchronizacja transakcji z twoich giełd...'
+        export: 'Eksportuj CSV'
+        filter: 'Filtruj'
+        no_results: 'Nie znaleziono transakcji dla wybranych filtrów.'
+        connect_exchange: 'Połącz giełdę'
+        import_from: 'Importuj transakcje z'
+        search_exchange: 'Szukaj giełdy...'
+        filters:
+            all: 'Wszystkie'
+        columns:
+            date: 'Data'
+            type: 'Typ'
+            base: 'Aktywo'
+            amount: 'Kwota'
+            quote: 'Waluta bazowa'
+            quote_amount: 'Wartość'
+            fee: 'Opłata'
+            exchange: 'Giełda'
+            bot: 'Bot'
+        types:
+            buy: 'Kupno'
+            sell: 'Sprzedaż'
+            swap_in: 'Swap wejście'
+            swap_out: 'Swap wyjście'
+            deposit: 'Wpłata'
+            withdrawal: 'Wypłata'
+            staking_reward: 'Staking'
+            lending_interest: 'Odsetki'
+            airdrop: 'Airdrop'
+            mining: 'Mining'
+            fee: 'Opłata'
+            other_income: 'Dochód'
+            lost: 'Utracone'
     order_filters:
         all: 'Wszystkie'
         successful: 'Zrealizowane'

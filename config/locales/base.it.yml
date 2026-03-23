@@ -94,6 +94,7 @@ it:
         earn: 'Guadagna'
         resend_link: 'Reinvia link'
         rules: Regole
+        tracker: Tracker
         settings: Impostazioni
         connections: Connetti
         account: Account
@@ -344,6 +345,41 @@ it:
             title: 'Aggiungi chiave API di prelievo per %{exchange}'
             instructions_title: 'Come ottenere le chiavi da %{exchange}'
             instructions_body: 'Crea una chiave API con autorizzazione al prelievo su %{exchange} e incolla le credenziali qui.'
+    tracker:
+        sync: 'Sincronizza'
+        sync_started: 'Sincronizzazione delle transazioni dai tuoi exchange...'
+        export: 'Esporta CSV'
+        filter: 'Filtra'
+        no_results: 'Nessuna transazione trovata per i filtri selezionati.'
+        connect_exchange: 'Collega exchange'
+        import_from: 'Importa transazioni da'
+        search_exchange: 'Cerca exchange...'
+        filters:
+            all: 'Tutti'
+        columns:
+            date: 'Data'
+            type: 'Tipo'
+            base: 'Asset'
+            amount: 'Quantità'
+            quote: 'Quotazione'
+            quote_amount: 'Valore'
+            fee: 'Commissione'
+            exchange: 'Exchange'
+            bot: 'Bot'
+        types:
+            buy: 'Acquisto'
+            sell: 'Vendita'
+            swap_in: 'Swap entrata'
+            swap_out: 'Swap uscita'
+            deposit: 'Deposito'
+            withdrawal: 'Prelievo'
+            staking_reward: 'Staking'
+            lending_interest: 'Interessi'
+            airdrop: 'Airdrop'
+            mining: 'Mining'
+            fee: 'Commissione'
+            other_income: 'Reddito'
+            lost: 'Perso'
     order_filters:
         all: 'Tutti'
         successful: 'Riusciti'

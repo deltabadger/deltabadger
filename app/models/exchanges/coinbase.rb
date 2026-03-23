@@ -357,11 +357,166 @@ class Exchanges::Coinbase < Exchange
     Result::Success.new({ withdrawal_id: tx_id })
   end
 
+  COINBASE_FIAT = %w[USD EUR GBP CAD AUD JPY CHF].freeze
+
+  def get_ledger(api_key:, start_time: nil)
+    hm_client = honeymaker_client(api_key)
+    entries = []
+
+    # Fills (trade history)
+    cursor = nil
+    loop do
+      result = hm_client.list_fills(
+        start_sequence_timestamp: start_time&.utc&.iso8601,
+        cursor: cursor
+      )
+      return result if result.failure?
+
+      fills = result.data['fills'] || []
+      break if fills.empty?
+
+      fills.each do |fill|
+        entries.concat(normalize_coinbase_fill(fill))
+      end
+
+      cursor = result.data['cursor']
+      break if cursor.blank?
+    end
+
+    # Account transactions (deposits, withdrawals)
+    accounts_result = hm_client.list_accounts
+    return accounts_result if accounts_result.failure?
+
+    accounts = accounts_result.data['accounts'] || []
+    accounts.each do |account|
+      account_id = account['uuid']
+      starting_after = nil
+      loop do
+        result = hm_client.list_transactions(account_id: account_id, limit: 100, starting_after: starting_after)
+        break if result.failure?
+
+        txns = result.data['data'] || []
+        break if txns.empty?
+
+        txns.each do |txn|
+          normalized = normalize_coinbase_transaction(txn)
+          entries << normalized if normalized
+        end
+
+        pagination = result.data['pagination']
+        starting_after = pagination&.dig('next_starting_after')
+        break if starting_after.blank?
+      end
+    end
+
+    Result::Success.new(entries)
+  end
+
   def fetch_withdrawal_fees!
     Result::Success.new({})
   end
 
   private
+
+  def honeymaker_client(api_key)
+    Honeymaker.client('coinbase',
+                      api_key: api_key.key,
+                      api_secret: api_key.secret,
+                      proxy: ENV['PROXY_COINBASE'])
+  end
+
+  def normalize_coinbase_fill(fill)
+    product_id = fill['product_id'] || ''
+    parts = product_id.split('-')
+    base = parts[0]
+    quote = parts[1]
+    is_fiat_quote = COINBASE_FIAT.include?(quote)
+    is_buyer = fill['side'] == 'BUY'
+    trade_id = fill['trade_id'] || fill['entry_id']
+    transacted_at = Time.parse(fill['trade_time']).utc
+    price = fill['price'].to_d
+    size = fill['size'].to_d
+    commission = fill['commission'].to_d
+    quote_amount = (price * size)
+
+    if is_fiat_quote
+      [{
+        entry_type: is_buyer ? :buy : :sell,
+        base_currency: base,
+        base_amount: size,
+        quote_currency: quote,
+        quote_amount: quote_amount,
+        fee_currency: quote,
+        fee_amount: commission,
+        tx_id: trade_id,
+        group_id: nil,
+        description: nil,
+        transacted_at: transacted_at,
+        raw_data: fill
+      }]
+    else
+      group_id = "swap_#{trade_id}"
+      [
+        {
+          entry_type: is_buyer ? :swap_in : :swap_out,
+          base_currency: base,
+          base_amount: size,
+          quote_currency: nil,
+          quote_amount: nil,
+          fee_currency: commission.positive? && is_buyer ? quote : nil,
+          fee_amount: commission.positive? && is_buyer ? commission : nil,
+          tx_id: "#{trade_id}-in",
+          group_id: group_id,
+          description: nil,
+          transacted_at: transacted_at,
+          raw_data: fill
+        },
+        {
+          entry_type: is_buyer ? :swap_out : :swap_in,
+          base_currency: quote,
+          base_amount: quote_amount,
+          quote_currency: nil,
+          quote_amount: nil,
+          fee_currency: commission.positive? && !is_buyer ? quote : nil,
+          fee_amount: commission.positive? && !is_buyer ? commission : nil,
+          tx_id: "#{trade_id}-out",
+          group_id: group_id,
+          description: nil,
+          transacted_at: transacted_at,
+          raw_data: fill
+        }
+      ]
+    end
+  end
+
+  def normalize_coinbase_transaction(txn)
+    type = txn['type']
+    return nil unless %w[send receive].include?(type)
+
+    amount = txn.dig('amount', 'amount')&.to_d&.abs
+    currency = txn.dig('amount', 'currency')
+    return nil unless amount && currency
+
+    entry_type = type == 'receive' ? :deposit : :withdrawal
+    fee = txn.dig('network', 'transaction_fee', 'amount')&.to_d
+    fee_currency = txn.dig('network', 'transaction_fee', 'currency')
+    transacted_at = Time.parse(txn['created_at']).utc
+
+    {
+      entry_type: entry_type,
+      base_currency: currency,
+      base_amount: amount,
+      quote_currency: nil,
+      quote_amount: nil,
+      fee_currency: fee&.positive? ? fee_currency : nil,
+      fee_amount: fee&.positive? ? fee : nil,
+      tx_id: txn['id'],
+      group_id: nil,
+      description: txn['description'],
+      transacted_at: transacted_at,
+      raw_data: txn
+    }
+  end
 
   # Fallback when Coinbase's key_permissions endpoint returns 500.
   # Probes actual permissions: list_accounts for view, a small order for trade.
