@@ -57,6 +57,7 @@ es:
             waiting: "Esperando a que se cumplan todas las condiciones"
             listening: "Escuchando"
             market_opens_in: "El mercado abre en"
+            postponed_till_market_opening: "Pospuesto ~%{hours}h hasta la apertura del mercado."
         conversational:
             invest: "Invertir"
             into: "en"

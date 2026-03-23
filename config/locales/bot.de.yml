@@ -55,6 +55,7 @@ de:
             waiting: "Warten bis alle Bedingungen erfüllt sind"
             listening: "Empfangsbereit"
             market_opens_in: "Marktöffnung in"
+            postponed_till_market_opening: "Verschoben ~%{hours}h bis zur Marktöffnung."
         conversational:
             invest: "Investieren"
             into: "in"
