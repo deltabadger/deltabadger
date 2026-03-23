@@ -54,6 +54,7 @@ ru:
             waiting: "Ожидание выполнения всех условий"
             listening: "Ожидание сигнала"
             market_opens_in: "Рынок откроется через"
+            postponed_till_market_opening: "Отложено ~%{hours}ч до открытия рынка."
         conversational:
             invest: "Инвестировать"
             into: "в"
