@@ -374,6 +374,65 @@ class Exchanges::Kucoin < Exchange
     update_exchange_asset_fees!(fees, chains: chain_data)
   end
 
+  def get_ledger(api_key:, start_time: nil)
+    hm_client = Honeymaker.client('kucoin', api_key: api_key.key, api_secret: api_key.secret,
+                                            passphrase: api_key.passphrase, proxy: ENV['PROXY_KUCOIN'])
+    start_ms = start_time ? (start_time.to_f * 1000).to_i : nil
+    entries = []
+
+    # Fills (paginated)
+    page = 1
+    loop do
+      result = hm_client.get_fills(start_at: start_ms, current_page: page, limit: 500)
+      break if result.failure?
+
+      items = result.data.dig('data', 'items') || []
+      break if items.empty?
+
+      items.each do |fill|
+        symbol = fill['symbol'] # e.g. "BTC-USDT"
+        parts = symbol.split('-')
+        is_buyer = fill['side'] == 'buy'
+        entries << { entry_type: is_buyer ? :buy : :sell,
+                     base_currency: parts[0], base_amount: fill['size'].to_d,
+                     quote_currency: parts[1], quote_amount: fill['funds'].to_d,
+                     fee_currency: fill['feeCurrency'], fee_amount: fill['fee'].to_d.abs,
+                     tx_id: fill['tradeId'], group_id: nil, description: nil,
+                     transacted_at: Time.at(fill['createdAt'].to_i / 1000.0).utc, raw_data: fill }
+      end
+      total_page = result.data.dig('data', 'totalPage').to_i
+      break if page >= total_page
+
+      page += 1
+    end
+
+    # Deposits
+    result = hm_client.get_deposits(start_at: start_ms, status: 'SUCCESS')
+    unless result.failure?
+      (result.data.dig('data', 'items') || []).each do |dep|
+        entries << { entry_type: :deposit, base_currency: dep['currency'], base_amount: dep['amount'].to_d,
+                     quote_currency: nil, quote_amount: nil,
+                     fee_currency: dep['currency'], fee_amount: dep['fee'].to_d,
+                     tx_id: dep['walletTxId'], group_id: nil, description: nil,
+                     transacted_at: Time.at(dep['createdAt'].to_i / 1000.0).utc, raw_data: dep }
+      end
+    end
+
+    # Withdrawals
+    result = hm_client.get_withdrawals(start_at: start_ms, status: 'SUCCESS')
+    unless result.failure?
+      (result.data.dig('data', 'items') || []).each do |wd|
+        entries << { entry_type: :withdrawal, base_currency: wd['currency'], base_amount: wd['amount'].to_d,
+                     quote_currency: nil, quote_amount: nil,
+                     fee_currency: wd['currency'], fee_amount: wd['fee'].to_d,
+                     tx_id: wd['walletTxId'] || wd['id'], group_id: nil, description: nil,
+                     transacted_at: Time.at(wd['createdAt'].to_i / 1000.0).utc, raw_data: wd }
+      end
+    end
+
+    Result::Success.new(entries)
+  end
+
   private
 
   def client

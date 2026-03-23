@@ -114,6 +114,10 @@ module BotHelper
     render_instructions_from('bot.api', bot.exchange)
   end
 
+  def render_api_key_instructions_for(exchange)
+    render_instructions_from('bot.api', exchange)
+  end
+
   def render_withdrawal_api_key_instructions(exchange)
     render_instructions_from('withdrawal_api', exchange)
   end

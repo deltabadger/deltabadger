@@ -329,6 +329,60 @@ class Exchanges::Bitvavo < Exchange
     update_exchange_asset_fees!(fees, chains: chains)
   end
 
+  def get_ledger(api_key:, start_time: nil)
+    hm_client = Honeymaker.client('bitvavo', api_key: api_key.key, api_secret: api_key.secret, proxy: ENV['PROXY_BITVAVO'])
+    start_ms = start_time ? (start_time.to_f * 1000).to_i : nil
+    entries = []
+
+    # Trades per market
+    tickers.available.pluck(:ticker).each do |market| # e.g. "BTC-EUR"
+      result = hm_client.get_trades(market: market, start_time: start_ms)
+      next if result.failure?
+
+      parts = market.split('-')
+      Array(result.data).each do |trade|
+        is_buyer = trade['side'] == 'buy'
+        entries << { entry_type: is_buyer ? :buy : :sell,
+                     base_currency: parts[0], base_amount: trade['amount'].to_d,
+                     quote_currency: parts[1], quote_amount: (trade['amount'].to_d * trade['price'].to_d),
+                     fee_currency: trade['feeCurrency'], fee_amount: trade['fee'].to_d,
+                     tx_id: trade['id'], group_id: nil, description: nil,
+                     transacted_at: Time.at(trade['timestamp'].to_i / 1000.0).utc, raw_data: trade }
+      end
+    end
+
+    # Deposits
+    result = hm_client.get_deposit_history(start_time: start_ms)
+    unless result.failure?
+      Array(result.data).each do |dep|
+        next unless dep['status'] == 'completed'
+
+        entries << { entry_type: :deposit, base_currency: dep['symbol'], base_amount: dep['amount'].to_d,
+                     quote_currency: nil, quote_amount: nil,
+                     fee_currency: dep['fee'].to_d.positive? ? dep['symbol'] : nil,
+                     fee_amount: dep['fee'].to_d.positive? ? dep['fee'].to_d : nil,
+                     tx_id: dep['txId'] || dep['id'], group_id: nil, description: nil,
+                     transacted_at: Time.at(dep['timestamp'].to_i / 1000.0).utc, raw_data: dep }
+      end
+    end
+
+    # Withdrawals
+    result = hm_client.get_withdrawal_history(start_time: start_ms)
+    unless result.failure?
+      Array(result.data).each do |wd|
+        next unless wd['status'] == 'completed'
+
+        entries << { entry_type: :withdrawal, base_currency: wd['symbol'], base_amount: wd['amount'].to_d,
+                     quote_currency: nil, quote_amount: nil,
+                     fee_currency: wd['symbol'], fee_amount: wd['fee'].to_d,
+                     tx_id: wd['txId'] || wd['id'], group_id: nil, description: nil,
+                     transacted_at: Time.at(wd['timestamp'].to_i / 1000.0).utc, raw_data: wd }
+      end
+    end
+
+    Result::Success.new(entries)
+  end
+
   private
 
   def client

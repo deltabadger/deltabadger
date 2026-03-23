@@ -15,6 +15,9 @@
   = link_to rules_path, class: "menu-mobile__item menu-mobile__item--rules #{'menu-mobile__item--active' if current_page?(rules_path)}", data: { controller: 'tooltip', action: 'mouseenter->tooltip#showTooltip mouseleave->tooltip#hideTooltip' } do
     = t('links.rules')
 
+  = link_to tracker_index_path, class: "menu-mobile__item menu-mobile__item--tracker #{'menu-mobile__item--active' if current_page?(tracker_index_path)}", data: { controller: 'tooltip', action: 'mouseenter->tooltip#showTooltip mouseleave->tooltip#hideTooltip' } do
+    = t('links.tracker')
+
   = link_to settings_connect_path, class: "menu-mobile__item menu-mobile__item--connections #{'menu-mobile__item--active' if current_page?(settings_connect_path)}", data: { controller: 'tooltip', action: 'mouseenter->tooltip#showTooltip mouseleave->tooltip#hideTooltip' } do
     = t('links.connections')
 
@@ -51,6 +54,11 @@
       = render 'svg/24x24_withdrawal'
       .tooltip
         = t('links.rules')
+
+    = link_to tracker_index_path, class: "menu__item menu__item--tracker #{'menu__item--active' if current_page?(tracker_index_path)}", data: { controller: 'tooltip', action: 'mouseenter->tooltip#showTooltip mouseleave->tooltip#hideTooltip' } do
+      = render 'svg/24x24_tracker'
+      .tooltip
+        = t('links.tracker')
 
   .menu__section.menu__section--bottom
     .dropdown-wrapper.dropdown-wrapper--bottom-left{ data: { controller: "dropdown", action: "click->dropdown#toggle", dropdown_target: "wrapper", dropdown_active_class: "menu__item--active" } }

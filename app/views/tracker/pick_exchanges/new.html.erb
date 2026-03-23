@@ -1,0 +1,27 @@
+<%= render 'layouts/modal/full_page', close_url: tracker_index_path do %>
+  <div class="bot-creation-layout">
+    <%= render 'bots/new_step_progress_bar', current_step: :exchange, steps: { exchange: 50, connect: 100 } %>
+
+    <div class="conversational conversational--bot-setup">
+      <%= t('tracker.import_from') %>
+      <%= form_with url: new_tracker_pick_exchange_path, method: :get, data: { controller: 'form--submit-after-delay', turbo_frame: 'exchange-picker' } do |f| %>
+        <%= f.text_field :query, autofocus: true, autocomplete: 'off', placeholder: '…', data: { action: 'input->form--submit-after-delay#submit' }, class: 'conversational__input sinput' %>
+      <% end %>
+    </div>
+
+    <%= turbo_frame_tag 'exchange-picker', data: { action: 'keydown@window->arrow-keys-navigation#navigate', controller: 'arrow-keys-navigation' }, class: 'modal--search__assets selectable-options' do %>
+      <div class="exchange-picker__item exchange-picker__item--header">
+        <div><%= t('bot.fees') %>:</div>
+        <div>Maker</div>
+        <div>Taker</div>
+      </div>
+      <div class="selectable-options">
+        <%= form_with url: tracker_pick_exchange_path, method: :post do |_f| %>
+          <% @exchanges.each do |exchange| %>
+            <%= render partial: 'shared/exchange_search_result', locals: { exchange: exchange, param_name: 'exchange_id' } %>
+          <% end %>
+        <% end %>
+      </div>
+    <% end %>
+  </div>
+<% end %>

@@ -31,12 +31,7 @@ class Rules::Withdrawals::AddApiKeysController < ApplicationController
     @asset = Asset.find_by(id: @rule_config['asset_id'])
     @exchange = Exchange.find(params[:exchange_id])
     @api_key = current_user.api_keys.find_or_initialize_by(exchange: @exchange, key_type: :withdrawal)
-    @api_key.key = api_key_params[:key]
-    @api_key.secret = api_key_params[:secret]
-    @api_key.passphrase = api_key_params[:passphrase]
-
-    result = @api_key.get_validity
-    @api_key.update_status!(result)
+    @api_key.validate_credentials!(api_key_params)
 
     if @api_key.correct?
       render turbo_stream: turbo_stream_redirect(next_step_path)

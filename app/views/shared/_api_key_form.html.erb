@@ -1,21 +1,21 @@
     <div class="set-api">
       <div class="set-api__form">
-        <h2 class="set-api__header"><%= t('bot.add_api_keys', exchange: bot.exchange.name) %></h2>
+        <h2 class="set-api__header"><%= t('bot.add_api_keys', exchange: exchange.name) %></h2>
         <%= form_with model: api_key, url: path, method: :post, data: form_data, class: "form" do |f| %>
           <div class="form__row form__row--input">
             <%= f.text_field :key, autofocus: true, autocomplete: "off", data: { controller: "autofocus" }, class: "form__input form__input--large", rows: 3 %>
-            <%= f.label :key, t("bot.api.#{bot.exchange.name_id}.public_key", default: "API Key"), class: "form__label" %>
+            <%= f.label :key, t("bot.api.#{exchange.name_id}.public_key", default: "API Key"), class: "form__label" %>
           </div>
           <div class="form__row form__row--input">
             <%= f.text_field :secret, autocomplete: "off", class: "form__input form__input--large", rows: 3 %>
-            <%= f.label :secret, t("bot.api.#{bot.exchange.name_id}.private_key", default: "API Secret"), class: "form__label" %>
+            <%= f.label :secret, t("bot.api.#{exchange.name_id}.private_key", default: "API Secret"), class: "form__label" %>
           </div>
-          <% if bot.exchange.is_a?(Exchanges::Alpaca) %>
+          <% if exchange.is_a?(Exchanges::Alpaca) %>
             <div class="form__row form__row--input">
               <%= f.select :passphrase, [[t('settings.stocks.mode_paper'), 'paper'], [t('settings.stocks.mode_live'), 'live']], { selected: api_key.passphrase || 'paper' }, class: "form__input form__input--large" %>
               <%= f.label :passphrase, "Mode", class: "form__label" %>
             </div>
-          <% elsif bot.exchange.requires_passphrase? %>
+          <% elsif exchange.requires_passphrase? %>
             <div class="form__row form__row--input">
               <%= f.text_field :passphrase, autocomplete: "off", class: "form__input form__input--large" %>
               <%= f.label :passphrase, "API Passphrase", class: "form__label" %>
@@ -25,7 +25,11 @@
         <% end %>
       </div>
       <div class="set-api__instructions">
-        <h2 class="set-api__header"><%= t('bot.setup.how_to_get_keys', exchange: bot.exchange.name) %></h2>
-        <%= render_api_key_instructions(bot) %>
+        <h2 class="set-api__header"><%= t('bot.setup.how_to_get_keys', exchange: exchange.name) %></h2>
+        <% if local_assigns[:instructions_partial] %>
+          <%= render partial: instructions_partial, locals: { exchange: exchange } %>
+        <% else %>
+          <%= render_api_key_instructions_for(exchange) %>
+        <% end %>
       </div>
     </div>

@@ -1,0 +1,75 @@
+<div class="page-head">
+  <div class="filters">
+    <% if @exchanges.any? %>
+      <%= link_to t('tracker.filters.all'), tracker_index_path(from: params[:from], to: params[:to]), class: ['sbutton sbutton--multi', ('sbutton--multi--active' unless params[:exchange_id].present?)] %>
+      <% @exchanges.each do |exchange| %>
+        <%= link_to exchange.name, tracker_index_path(exchange_id: exchange.id, from: params[:from], to: params[:to]), class: ['sbutton sbutton--multi', ('sbutton--multi--active' if params[:exchange_id].to_s == exchange.id.to_s)] %>
+      <% end %>
+    <% end %>
+    <%= form_tag tracker_index_path, method: :get, class: 'tracker-date-range', data: { controller: 'form--submit' } do %>
+      <% if params[:exchange_id].present? %>
+        <%= hidden_field_tag :exchange_id, params[:exchange_id] %>
+      <% end %>
+      <input type="date" name="from" value="<%= params[:from] %>" class="sinput" data-action="change->form--submit#submit">
+      <input type="date" name="to" value="<%= params[:to] %>" class="sinput" data-action="change->form--submit#submit">
+    <% end %>
+  </div>
+  <div>
+    <% if @exchanges.any? %>
+      <%= link_to export_tracker_index_path(exchange_id: params[:exchange_id], from: params[:from], to: params[:to]), class: 'sbutton sbutton--secondary' do %>
+        <%= t('tracker.export') %>
+      <% end %>
+      <%= button_to sync_tracker_index_path, method: :post, class: 'sbutton sbutton--sky' do %>
+        <%= t('tracker.sync') %>
+      <% end %>
+    <% end %>
+    <%= link_to new_tracker_pick_exchange_path, class: 'sbutton sbutton--sky', data: { turbo_frame: 'modal' } do %>
+      <%= t('tracker.connect_exchange') %>
+    <% end %>
+  </div>
+</div>
+
+<% if @account_transactions.any? %>
+  <div class="widget widget--table tracker-table">
+    <table>
+      <thead>
+        <tr>
+          <th><%= t('tracker.columns.date') %></th>
+          <th><%= t('tracker.columns.type') %></th>
+          <th><%= t('tracker.columns.base') %></th>
+          <th><%= t('tracker.columns.amount') %></th>
+          <th><%= t('tracker.columns.quote') %></th>
+          <th><%= t('tracker.columns.quote_amount') %></th>
+          <th><%= t('tracker.columns.fee') %></th>
+          <th><%= t('tracker.columns.exchange') %></th>
+          <th><%= t('tracker.columns.bot') %></th>
+        </tr>
+      </thead>
+      <tbody>
+        <% @account_transactions.each do |at| %>
+          <tr class="tracker-row tracker-row--<%= at.entry_type %>">
+            <td><%= l(at.transacted_at.in_time_zone(current_user.time_zone), format: :short) %></td>
+            <td><span class="tracker-type tracker-type--<%= at.entry_type %>"><%= t("tracker.types.#{at.entry_type}") %></span></td>
+            <td><%= at.base_currency %></td>
+            <td><%= at.base_amount %></td>
+            <td><%= at.quote_currency || '-' %></td>
+            <td><%= at.quote_amount.present? ? at.quote_amount : '-' %></td>
+            <td><%= at.fee_amount.present? ? "#{at.fee_amount} #{at.fee_currency}" : '-' %></td>
+            <td><%= at.exchange.name %></td>
+            <td>
+              <% if at.bot_transaction.present? %>
+                <%= link_to at.bot_transaction.bot.label || t('tracker.bot'), bot_path(at.bot_transaction.bot) %>
+              <% else %>
+                -
+              <% end %>
+            </td>
+          </tr>
+        <% end %>
+      </tbody>
+    </table>
+  </div>
+<% elsif @exchanges.any? %>
+  <div class="tracker-empty">
+    <p><%= t('tracker.no_results') %></p>
+  </div>
+<% end %>

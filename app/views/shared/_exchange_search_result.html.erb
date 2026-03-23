@@ -1,5 +1,5 @@
 <div data-arrow-keys-navigation-target="item">
-  <%= button_tag name: "#{bot.model_name.param_key}[#{:exchange_id}]", value: exchange.id, type: :submit, class: "exchange-picker__item exchange-picker__item--exchange", data: { arrow_keys_navigation_target: "button", turbo_frame: "modal_content" } do %>
+  <%= button_tag name: param_name, value: exchange.id, type: :submit, class: "exchange-picker__item exchange-picker__item--exchange", data: { arrow_keys_navigation_target: "button", turbo_frame: "modal_content" } do %>
     <div>
       <%= exchange.name %>
       <% if exchange.beta? %>
