@@ -389,10 +389,71 @@ class Exchanges::Mexc < Exchange
     update_exchange_asset_fees!(fees, chains: chains)
   end
 
+  def get_ledger(api_key:, start_time: nil)
+    hm_client = Honeymaker.client('mexc', api_key: api_key.key, api_secret: api_key.secret, proxy: ENV['PROXY_MEXC'])
+    start_ms = start_time ? (start_time.to_f * 1000).to_i : nil
+    entries = []
+
+    # Trades per ticker
+    tickers.available.pluck(:ticker).each do |symbol|
+      result = hm_client.account_trade_list(symbol: symbol, start_time: start_ms)
+      next if result.failure?
+
+      Array(result.data).each do |trade|
+        base = symbol_pair_base(symbol)
+        quote = symbol_pair_quote(symbol)
+        is_buyer = trade['isBuyer']
+        entries << { entry_type: is_buyer ? :buy : :sell,
+                     base_currency: base, base_amount: trade['qty'].to_d,
+                     quote_currency: quote, quote_amount: trade['quoteQty'].to_d,
+                     fee_currency: trade['commissionAsset'], fee_amount: trade['commission'].to_d.abs,
+                     tx_id: "#{symbol}-#{trade['orderId']}-#{trade['id']}", group_id: nil, description: nil,
+                     transacted_at: Time.at(trade['time'].to_i / 1000.0).utc, raw_data: trade }
+      end
+    end
+
+    # Deposits
+    result = hm_client.deposit_history(start_time: start_ms)
+    unless result.failure?
+      Array(result.data).each do |dep|
+        next unless dep['status'].to_i == 1
+
+        entries << { entry_type: :deposit, base_currency: dep['coin'], base_amount: dep['amount'].to_d,
+                     quote_currency: nil, quote_amount: nil, fee_currency: nil, fee_amount: nil,
+                     tx_id: dep['txId'], group_id: nil, description: nil,
+                     transacted_at: Time.at(dep['insertTime'].to_i / 1000.0).utc, raw_data: dep }
+      end
+    end
+
+    # Withdrawals
+    result = hm_client.withdraw_history(start_time: start_ms)
+    unless result.failure?
+      Array(result.data).each do |wd|
+        next unless wd['status'].to_i == 7 # completed
+
+        entries << { entry_type: :withdrawal, base_currency: wd['coin'], base_amount: wd['amount'].to_d,
+                     quote_currency: nil, quote_amount: nil,
+                     fee_currency: wd['coin'], fee_amount: wd['transactionFee']&.to_d,
+                     tx_id: wd['txId'] || wd['id'], group_id: nil, description: nil,
+                     transacted_at: Time.parse(wd['applyTime']).utc, raw_data: wd }
+      end
+    end
+
+    Result::Success.new(entries)
+  end
+
   private
 
   def client
     @client ||= set_client
+  end
+
+  def symbol_pair_base(symbol)
+    tickers.find_by(ticker: symbol)&.base || symbol
+  end
+
+  def symbol_pair_quote(symbol)
+    tickers.find_by(ticker: symbol)&.quote || symbol
   end
 
   def parse_error_message(result)

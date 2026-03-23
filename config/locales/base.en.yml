@@ -95,6 +95,7 @@ en:
         earn: 'Earn'
         resend_link: 'Resend link'
         rules: Rules
+        tracker: Tracker
         settings: Settings
         connections: Connect
         account: Account
@@ -359,6 +360,42 @@ en:
             title: 'Add withdrawal API key for %{exchange}'
             instructions_title: 'How to get keys from %{exchange}'
             instructions_body: 'Create a withdrawal-enabled API key on %{exchange} and paste the credentials here.'
+    tracker:
+        sync: 'Sync'
+        sync_started: 'Syncing transactions from your exchanges...'
+        export: 'Export CSV'
+        filter: 'Filter'
+        bot: 'Bot'
+        no_results: 'No transactions found for the selected filters.'
+        connect_exchange: 'Connect exchange'
+        import_from: 'Import transactions from'
+        search_exchange: 'Search exchange...'
+        filters:
+            all: 'All'
+        columns:
+            date: 'Date'
+            type: 'Type'
+            base: 'Asset'
+            amount: 'Amount'
+            quote: 'Quote'
+            quote_amount: 'Value'
+            fee: 'Fee'
+            exchange: 'Exchange'
+            bot: 'Bot'
+        types:
+            buy: 'Buy'
+            sell: 'Sell'
+            swap_in: 'Swap In'
+            swap_out: 'Swap Out'
+            deposit: 'Deposit'
+            withdrawal: 'Withdrawal'
+            staking_reward: 'Staking'
+            lending_interest: 'Interest'
+            airdrop: 'Airdrop'
+            mining: 'Mining'
+            fee: 'Fee'
+            other_income: 'Income'
+            lost: 'Lost'
     order_filters:
         all: 'All'
         successful: 'Successful'

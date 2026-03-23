@@ -1,0 +1,42 @@
+@use "variables" as *
+
+.tracker-actions
+    display: flex
+    align-items: center
+    gap: 0.5rem
+    flex-wrap: wrap
+
+.tracker-date-range
+    display: flex
+    align-items: center
+    gap: 0.5rem
+    input[type="date"]
+        width: auto
+
+.tracker-table
+    max-height: 70rem
+
+.tracker-type
+    font-size: 0.85em
+    font-weight: 600
+    padding: 0.2rem 0.6rem
+    border-radius: 0.5rem
+    &--buy, &--swap_in
+        color: var(--grass)
+    &--sell, &--swap_out
+        color: var(--berry)
+    &--deposit
+        color: var(--sky)
+    &--withdrawal
+        color: var(--orange, var(--ash))
+    &--staking_reward, &--lending_interest, &--airdrop, &--mining, &--other_income
+        color: var(--link)
+    &--fee
+        color: var(--concrete)
+    &--lost
+        color: var(--berry)
+
+.tracker-empty
+    text-align: center
+    padding: 4rem
+    color: var(--concrete)

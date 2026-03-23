@@ -21,11 +21,7 @@ class Bots::DcaIndexes::AddApiKeysController < ApplicationController
   def create
     @bot = current_user.bots.dca_index.new(sanitized_bot_config)
     @api_key = @bot.api_key
-    @api_key.key = api_key_params[:key]
-    @api_key.secret = api_key_params[:secret]
-    @api_key.passphrase = api_key_params[:passphrase]
-    result = @api_key.get_validity
-    @api_key.update_status!(result)
+    @api_key.validate_credentials!(api_key_params)
     if @api_key.correct?
       render turbo_stream: turbo_stream_redirect(new_bots_dca_indexes_pick_spendable_asset_path)
     elsif @api_key.incorrect?

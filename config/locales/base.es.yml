@@ -94,6 +94,7 @@ es:
         earn: 'Ganar'
         resend_link: 'Reenviar enlace'
         rules: Reglas
+        tracker: Tracker
         settings: Configuración
         connections: Conectar
         account: Cuenta
@@ -344,6 +345,42 @@ es:
             title: 'Añadir clave API de retiro para %{exchange}'
             instructions_title: 'Cómo obtener las claves de %{exchange}'
             instructions_body: 'Crea una clave API con permiso de retiro en %{exchange} y pega las credenciales aquí.'
+    tracker:
+        sync: 'Sincronizar'
+        sync_started: 'Sincronizando transacciones de tus exchanges...'
+        export: 'Exportar CSV'
+        filter: 'Filtrar'
+        bot: 'Bot'
+        no_results: 'No se encontraron transacciones para los filtros seleccionados.'
+        connect_exchange: 'Conectar exchange'
+        import_from: 'Importar transacciones de'
+        search_exchange: 'Buscar exchange...'
+        filters:
+            all: 'Todos'
+        columns:
+            date: 'Fecha'
+            type: 'Tipo'
+            base: 'Activo'
+            amount: 'Cantidad'
+            quote: 'Cotización'
+            quote_amount: 'Valor'
+            fee: 'Comisión'
+            exchange: 'Exchange'
+            bot: 'Bot'
+        types:
+            buy: 'Compra'
+            sell: 'Venta'
+            swap_in: 'Swap entrada'
+            swap_out: 'Swap salida'
+            deposit: 'Depósito'
+            withdrawal: 'Retiro'
+            staking_reward: 'Staking'
+            lending_interest: 'Intereses'
+            airdrop: 'Airdrop'
+            mining: 'Minería'
+            fee: 'Comisión'
+            other_income: 'Ingreso'
+            lost: 'Perdido'
     order_filters:
         all: 'Todos'
         successful: 'Exitosos'

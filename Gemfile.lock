@@ -238,6 +238,11 @@ GEM
       activesupport (>= 5.1)
       haml (>= 4.0.6)
       railties (>= 5.1)
+    honeymaker (0.3.0)
+      faraday (~> 2.0)
+      faraday-net_http_persistent (~> 2.0)
+      jwt (~> 2.0)
+      net-http-persistent (~> 4.0)
     hyperliquid (1.0.2)
       eth (~> 0.5)
       faraday (~> 2.0)
@@ -265,7 +270,7 @@ GEM
       bigdecimal (>= 3.1, < 5)
     jsonrpc-rails (0.5.4)
       railties (>= 8.0.1)
-    jwt (3.1.2)
+    jwt (2.10.2)
       base64
     keccak (1.3.3)
     konstructor (1.0.2)
@@ -594,6 +599,7 @@ DEPENDENCIES
   faraday-net_http_persistent (~> 2.3.0)
   haikunator (~> 1.1)
   haml-rails (~> 3.0)
+  honeymaker (~> 0.3.0)
   hyperliquid
   importmap-rails
   jaro_winkler (~> 1.7)
@@ -708,6 +714,7 @@ CHECKSUMS
   haikunator (1.1.1) sha256=ec99f690b216edf20c518ea9a6d83f6bd479e86c37d89b2afc3376e752b32ca8
   haml (7.2.0) sha256=87fd2b71f7feab1724337b090a7d767f5ab2d42f08c974f3ead673f18cfcd55a
   haml-rails (3.0.0) sha256=091fe496a85ca521d9cac87fb50f1ecf77a57974a99aa7e267130add81a5585f
+  honeymaker (0.3.0) sha256=d1ca0b16989c1958995743536be55ed3ed5b621440ab80a5894ab780863ddc9c
   hyperliquid (1.0.2) sha256=1d8cef2a5f1fde405f8f3b22732c6522ca00e1adbc30bb864e4910d4b8b3055c
   i18n (1.14.8) sha256=285778639134865c5e0f6269e0b818256017e8cde89993fdfcbfb64d088824a5
   importmap-rails (2.2.3) sha256=7101be2a4dc97cf1558fb8f573a718404c5f6bcfe94f304bf1f39e444feeb16a
@@ -718,7 +725,7 @@ CHECKSUMS
   json (2.19.2) sha256=e7e1bd318b2c37c4ceee2444841c86539bc462e81f40d134cf97826cb14e83cf
   json-schema (6.2.0) sha256=e8bff46ed845a22c1ab2bd0d7eccf831c01fe23bb3920caa4c74db4306813666
   jsonrpc-rails (0.5.4) sha256=ca44e5435a39e241c576ec2f1bb63be0bb07d1410a957c0fa1b86f305e7ec3a4
-  jwt (3.1.2) sha256=af6991f19a6bb4060d618d9add7a66f0eeb005ac0bc017cd01f63b42e122d535
+  jwt (2.10.2) sha256=31e1ee46f7359883d5e622446969fe9c118c3da87a0b1dca765ce269c3a0c4f4
   keccak (1.3.3) sha256=970dcb1e78b8c3129ba2baff8a5baa5cebf391136db1f4018e8ccc9130794557
   konstructor (1.0.2) sha256=fd6ac9eb1dadc1e520e06042aa2ef0122d6a070e06cde86db5a54c0c7bfe2e31
   kraken_ruby_client (0.0.1)

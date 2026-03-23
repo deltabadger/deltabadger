@@ -391,6 +391,63 @@ class Exchanges::Bitmart < Exchange
     update_exchange_asset_fees!(fees, chains: chains)
   end
 
+  def get_ledger(api_key:, start_time: nil)
+    hm_client = Honeymaker.client('bitmart', api_key: api_key.key, api_secret: api_key.secret,
+                                             memo: api_key.passphrase, proxy: ENV['PROXY_BITMART'])
+    start_ms = start_time ? (start_time.to_f * 1000).to_i : nil
+    entries = []
+
+    # Trades per symbol
+    tickers.available.pluck(:ticker).each do |symbol| # e.g. "BTC_USDT"
+      result = hm_client.get_trades(symbol: symbol, start_time: start_ms)
+      next if result.failure?
+
+      (result.data['data'] || []).each do |trade|
+        parts = symbol.split('_')
+        is_buyer = trade['side']&.downcase == 'buy'
+        entries << { entry_type: is_buyer ? :buy : :sell,
+                     base_currency: parts[0], base_amount: trade['size'].to_d,
+                     quote_currency: parts[1], quote_amount: trade['notional'].to_d,
+                     fee_currency: parts[1], fee_amount: trade['fee'].to_d.abs,
+                     tx_id: trade['tradeId'] || trade['orderId'], group_id: nil, description: nil,
+                     transacted_at: Time.at(trade['createTime'].to_i / 1000.0).utc, raw_data: trade }
+      end
+    end
+
+    # Deposits
+    result = hm_client.deposit_list
+    unless result.failure?
+      records = result.data.dig('data', 'records') || []
+      records.each do |dep|
+        next unless dep['status'].to_i == 3 # completed
+        next if start_time && Time.at(dep['arrival_amount_time'].to_i / 1000.0) < start_time
+
+        entries << { entry_type: :deposit, base_currency: dep['currency'], base_amount: dep['amount'].to_d,
+                     quote_currency: nil, quote_amount: nil, fee_currency: nil, fee_amount: nil,
+                     tx_id: dep['tx_id'], group_id: nil, description: nil,
+                     transacted_at: Time.at(dep['arrival_amount_time'].to_i / 1000.0).utc, raw_data: dep }
+      end
+    end
+
+    # Withdrawals
+    result = hm_client.withdraw_list
+    unless result.failure?
+      records = result.data.dig('data', 'records') || []
+      records.each do |wd|
+        next unless wd['status'].to_i.zero? # completed
+        next if start_time && Time.at(wd['create_time'].to_i / 1000.0) < start_time
+
+        entries << { entry_type: :withdrawal, base_currency: wd['currency'], base_amount: wd['amount'].to_d,
+                     quote_currency: nil, quote_amount: nil,
+                     fee_currency: wd['currency'], fee_amount: wd['fee'].to_d,
+                     tx_id: wd['tx_id'] || wd['withdraw_id'], group_id: nil, description: nil,
+                     transacted_at: Time.at(wd['create_time'].to_i / 1000.0).utc, raw_data: wd }
+      end
+    end
+
+    Result::Success.new(entries)
+  end
+
   private
 
   def check_bitmart_api_key_error(result)

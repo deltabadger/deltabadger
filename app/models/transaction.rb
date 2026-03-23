@@ -5,6 +5,10 @@ class Transaction < ApplicationRecord
   before_save :round_numeric_fields
   before_save :store_previous_quote_amount_exec
   after_create_commit -> { bot.broadcast_new_order(self) }
+  after_create_commit lambda {
+    api_key = ApiKey.find_by(user_id: bot.user_id, exchange_id: bot.exchange_id, key_type: :trading)
+    AccountTransaction::SyncJob.perform_later(api_key) if api_key
+  }
   after_update_commit -> { bot.broadcast_updated_order(self) }
   after_commit lambda {
                  Bot::UpdateMetricsJob.perform_later(bot) if custom_quote_amount_exec_changed?

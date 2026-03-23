@@ -10,6 +10,7 @@ class Exchange < ApplicationRecord
   has_many :assets, through: :exchange_assets
   has_many :tickers
   has_many :transactions
+  has_many :account_transactions
 
   validates :name, presence: true
   validates :type, uniqueness: true

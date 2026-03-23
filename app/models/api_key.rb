@@ -1,6 +1,7 @@
 class ApiKey < ApplicationRecord
   belongs_to :exchange
   belongs_to :user
+  has_many :account_transactions, dependent: :destroy
 
   encrypts :key
   encrypts :secret
@@ -18,6 +19,23 @@ class ApiKey < ApplicationRecord
 
   def get_validity
     exchange.get_api_key_validity(api_key: self)
+  end
+
+  def validate_credentials!(params)
+    self.key = params[:key]
+    self.secret = params[:secret]
+    self.passphrase = params[:passphrase]
+    result = get_validity
+    if result.success? && result.data
+      update!(status: :correct)
+    elsif result.success?
+      self.status = :incorrect
+      Rails.logger.warn("[#{exchange.name}] API key validation: incorrect key")
+    else
+      self.status = :pending_validation
+      Rails.logger.warn("[#{exchange.name}] API key validation failed: #{result.errors.join(', ')}")
+    end
+    self
   end
 
   def update_status!(result)

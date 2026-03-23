@@ -44,6 +44,17 @@ Rails.application.routes.draw do
       post 'verify_two_factor', to: 'users/sessions#verify_two_factor'
     end
 
+    resources :tracker, only: [:index] do
+      collection do
+        post :sync
+        get :export
+      end
+    end
+    namespace :tracker do
+      resource :pick_exchange, only: %i[new create]
+      resource :add_api_key, only: %i[new create]
+    end
+
     resources :rules, only: [:index]
     namespace :rules do
       namespace :withdrawals do

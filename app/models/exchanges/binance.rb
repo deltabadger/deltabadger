@@ -450,6 +450,73 @@ class Exchanges::Binance < Exchange
     end
   end
 
+  FIAT_CURRENCIES = %w[USD EUR GBP AUD CAD JPY CHF TRY BRL PLN UAH CZK SEK NOK DKK HUF RON BGN ZAR NGN KES].freeze
+
+  def get_ledger(api_key:, start_time: nil)
+    hm_client = honeymaker_client(api_key)
+    start_ms = start_time ? (start_time.to_f * 1000).to_i : nil
+    entries = []
+
+    # Deposits
+    result = hm_client.deposit_history(start_time: start_ms)
+    return result if result.failure?
+
+    Array(result.data).each do |dep|
+      next unless dep['status'] == 1 # 1 = success
+
+      entries << {
+        entry_type: :deposit,
+        base_currency: dep['coin'],
+        base_amount: dep['amount'].to_d,
+        quote_currency: nil,
+        quote_amount: nil,
+        fee_currency: nil,
+        fee_amount: nil,
+        tx_id: dep['txId'],
+        group_id: nil,
+        description: nil,
+        transacted_at: Time.at(dep['insertTime'] / 1000.0).utc,
+        raw_data: dep
+      }
+    end
+
+    # Withdrawals
+    result = hm_client.withdraw_history(start_time: start_ms)
+    return result if result.failure?
+
+    Array(result.data).each do |wd|
+      next unless wd['status'] == 6 # 6 = completed
+
+      entries << {
+        entry_type: :withdrawal,
+        base_currency: wd['coin'],
+        base_amount: wd['amount'].to_d,
+        quote_currency: nil,
+        quote_amount: nil,
+        fee_currency: wd['coin'],
+        fee_amount: wd['transactionFee']&.to_d,
+        tx_id: wd['txId'] || wd['id'],
+        group_id: nil,
+        description: nil,
+        transacted_at: Time.parse(wd['applyTime']).utc,
+        raw_data: wd
+      }
+    end
+
+    # Trades — iterate over tickers that have bots or known activity
+    traded_symbols = tickers.available.pluck(:ticker)
+    traded_symbols.each do |symbol|
+      result = hm_client.account_trade_list(symbol: symbol, start_time: start_ms)
+      next if result.failure? # skip symbols with no access/data
+
+      Array(result.data).each do |trade|
+        entries.concat(normalize_trade(trade, symbol))
+      end
+    end
+
+    Result::Success.new(entries)
+  end
+
   def list_withdrawal_addresses(asset:)
     symbol = symbol_from_asset(asset)
     return nil if symbol.blank?
@@ -513,6 +580,81 @@ class Exchanges::Binance < Exchange
 
   def client
     @client ||= set_client
+  end
+
+  def honeymaker_client(api_key)
+    Honeymaker.client('binance',
+                      api_key: api_key.key,
+                      api_secret: api_key.secret,
+                      proxy: ENV['PROXY_BINANCE'])
+  end
+
+  def normalize_trade(trade, symbol)
+    base_asset_symbol = symbol_pair_base(symbol)
+    quote_asset_symbol = symbol_pair_quote(symbol)
+    is_buyer = trade['isBuyer']
+    is_fiat_quote = FIAT_CURRENCIES.include?(quote_asset_symbol) || quote_asset_symbol.match?(/^USD[TC]?$|^BUSD$|^DAI$|^FDUSD$/)
+    trade_id = "#{symbol}-#{trade['orderId']}-#{trade['id']}"
+    transacted_at = Time.at(trade['time'] / 1000.0).utc
+
+    if is_fiat_quote
+      [{
+        entry_type: is_buyer ? :buy : :sell,
+        base_currency: base_asset_symbol,
+        base_amount: trade['qty'].to_d,
+        quote_currency: quote_asset_symbol,
+        quote_amount: trade['quoteQty'].to_d,
+        fee_currency: trade['commissionAsset'],
+        fee_amount: trade['commission'].to_d,
+        tx_id: trade_id,
+        group_id: nil,
+        description: nil,
+        transacted_at: transacted_at,
+        raw_data: trade
+      }]
+    else
+      group_id = "swap_#{trade_id}"
+      [
+        {
+          entry_type: is_buyer ? :swap_in : :swap_out,
+          base_currency: base_asset_symbol,
+          base_amount: trade['qty'].to_d,
+          quote_currency: nil,
+          quote_amount: nil,
+          fee_currency: is_buyer ? trade['commissionAsset'] : nil,
+          fee_amount: is_buyer ? trade['commission'].to_d : nil,
+          tx_id: "#{trade_id}-in",
+          group_id: group_id,
+          description: nil,
+          transacted_at: transacted_at,
+          raw_data: trade
+        },
+        {
+          entry_type: is_buyer ? :swap_out : :swap_in,
+          base_currency: quote_asset_symbol,
+          base_amount: trade['quoteQty'].to_d,
+          quote_currency: nil,
+          quote_amount: nil,
+          fee_currency: is_buyer ? nil : trade['commissionAsset'],
+          fee_amount: is_buyer ? nil : trade['commission'].to_d,
+          tx_id: "#{trade_id}-out",
+          group_id: group_id,
+          description: nil,
+          transacted_at: transacted_at,
+          raw_data: trade
+        }
+      ]
+    end
+  end
+
+  def symbol_pair_base(symbol)
+    ticker = tickers.find_by(ticker: symbol)
+    ticker&.base || symbol
+  end
+
+  def symbol_pair_quote(symbol)
+    ticker = tickers.find_by(ticker: symbol)
+    ticker&.quote || symbol
   end
 
   def parse_error_code(result)
