@@ -5,6 +5,8 @@ class MarketDataSettings
   PROVIDER_DELTABADGER = 'deltabadger'
 
   def self.current_provider
+    return PROVIDER_DELTABADGER if deltabadger_available?
+
     AppConfig.market_data_provider
   end
 
