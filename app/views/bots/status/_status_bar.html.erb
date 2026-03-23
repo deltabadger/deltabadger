@@ -46,8 +46,11 @@
         <% else %>
           <%= t('bot.status.next_try') %>
         <% end %>
-      <% elsif bot.waiting_for_market_open %>
-        <%= t('bot.status.market_opens_in') %>
+      <% elsif bot.waiting_for_market_open && bot.last_interval_checkpoint_at <= Time.current %>
+        <% postponed_hours = ((bot.next_action_job_at - bot.last_interval_checkpoint_at) / 1.hour).round %>
+        <% if postponed_hours >= 1 %>
+          <%= t('bot.status.postponed_till_market_opening', hours: postponed_hours) %>
+        <% end %>
       <% end %>
       <div style="display: inline-block; min-width: 9em;">
         <span data-countdown-target="days"></span><span data-countdown-target="daysLabel"></span>
