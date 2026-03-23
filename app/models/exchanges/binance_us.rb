@@ -17,6 +17,17 @@ class Exchanges::BinanceUs < Exchanges::Binance
     )
   end
 
+  private
+
+  def honeymaker_client(api_key)
+    Honeymaker.client('binance_us',
+                      api_key: api_key.key,
+                      api_secret: api_key.secret,
+                      proxy: ENV['PROXY_BINANCE_US'])
+  end
+
+  public
+
   def fetch_withdrawal_fees!
     api_key = fee_api_key
     return Result::Success.new({}) if api_key.blank?

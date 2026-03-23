@@ -94,6 +94,7 @@ pt:
         earn: 'Ganhar'
         resend_link: 'Reenviar ligação'
         rules: Regras
+        tracker: Tracker
         settings: Definições
         connections: Ligar
         account: Conta
@@ -343,6 +344,41 @@ pt:
             title: 'Adicionar chave API de levantamento para %{exchange}'
             instructions_title: 'Como obter as chaves de %{exchange}'
             instructions_body: 'Crie uma chave API com permissão de levantamento em %{exchange} e cole as credenciais aqui.'
+    tracker:
+        sync: 'Sincronizar'
+        sync_started: 'A sincronizar transações das suas exchanges...'
+        export: 'Exportar CSV'
+        filter: 'Filtrar'
+        no_results: 'Nenhuma transação encontrada para os filtros selecionados.'
+        connect_exchange: 'Conectar exchange'
+        import_from: 'Importar transações de'
+        search_exchange: 'Pesquisar exchange...'
+        filters:
+            all: 'Todos'
+        columns:
+            date: 'Data'
+            type: 'Tipo'
+            base: 'Ativo'
+            amount: 'Quantidade'
+            quote: 'Cotação'
+            quote_amount: 'Valor'
+            fee: 'Taxa'
+            exchange: 'Exchange'
+            bot: 'Bot'
+        types:
+            buy: 'Compra'
+            sell: 'Venda'
+            swap_in: 'Swap entrada'
+            swap_out: 'Swap saída'
+            deposit: 'Depósito'
+            withdrawal: 'Levantamento'
+            staking_reward: 'Staking'
+            lending_interest: 'Juros'
+            airdrop: 'Airdrop'
+            mining: 'Mineração'
+            fee: 'Taxa'
+            other_income: 'Rendimento'
+            lost: 'Perdido'
     order_filters:
         all: 'Todos'
         successful: 'Bem-sucedidos'

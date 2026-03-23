@@ -380,10 +380,43 @@ class Exchanges::Bitrue < Exchange
     update_exchange_asset_fees!(fees, chains: chains)
   end
 
+  def get_ledger(api_key:, start_time: nil)
+    hm_client = Honeymaker.client('bitrue', api_key: api_key.key, api_secret: api_key.secret, proxy: ENV['PROXY_BITRUE'])
+    start_ms = start_time ? (start_time.to_f * 1000).to_i : nil
+    entries = []
+
+    tickers.available.pluck(:ticker).each do |symbol|
+      result = hm_client.account_trade_list(symbol: symbol, start_time: start_ms)
+      next if result.failure?
+
+      Array(result.data).each do |trade|
+        base = symbol_pair_base(symbol)
+        quote = symbol_pair_quote(symbol)
+        is_buyer = trade['isBuyer']
+        entries << { entry_type: is_buyer ? :buy : :sell,
+                     base_currency: base, base_amount: trade['qty'].to_d,
+                     quote_currency: quote, quote_amount: trade['quoteQty'].to_d,
+                     fee_currency: trade['commissionAsset'], fee_amount: trade['commission'].to_d.abs,
+                     tx_id: "#{symbol}-#{trade['orderId']}-#{trade['id']}", group_id: nil, description: nil,
+                     transacted_at: Time.at(trade['time'].to_i / 1000.0).utc, raw_data: trade }
+      end
+    end
+
+    Result::Success.new(entries)
+  end
+
   private
 
   def client
     @client ||= set_client
+  end
+
+  def symbol_pair_base(symbol)
+    tickers.find_by(ticker: symbol)&.base || symbol
+  end
+
+  def symbol_pair_quote(symbol)
+    tickers.find_by(ticker: symbol)&.quote || symbol
   end
 
   def parse_error_message(result)
