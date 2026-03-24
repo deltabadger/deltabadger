@@ -57,7 +57,7 @@ pl:
             waiting: "Oczekiwanie na spełnienie wszystkich warunków"
             listening: "Nasłuchiwanie"
             market_opens_in: "Otwarcie rynku za"
-            postponed_till_market_opening: "Przełożono ~%{hours}h do otwarcia rynku."
+            market_closed: "Rynek jest teraz zamknięty."
         conversational:
             invest: "Inwestuj"
             into: "w"

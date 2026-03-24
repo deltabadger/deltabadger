@@ -57,7 +57,7 @@ fr:
             waiting: "En attente que toutes les conditions soient remplies"
             listening: "En écoute"
             market_opens_in: "Ouverture du marché dans"
-            postponed_till_market_opening: "Reporté ~%{hours}h jusqu'à l'ouverture du marché."
+            market_closed: "Le marché est actuellement fermé."
         conversational:
             invest: "Investir"
             into: "dans"
