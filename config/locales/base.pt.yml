@@ -95,6 +95,8 @@ pt:
         resend_link: 'Reenviar ligação'
         rules: Regras
         settings: Definições
+        connections: Ligar
+        account: Conta
         sign_up: Registar
     settings:
         language_and_timezone:

@@ -96,6 +96,8 @@ en:
         resend_link: 'Resend link'
         rules: Rules
         settings: Settings
+        connections: Connect
+        account: Account
         sign_up: 'Sign up'
     settings:
         language_and_timezone:
@@ -143,6 +145,7 @@ en:
             disconnected: 'Market data provider disconnected.'
         stocks:
             title_html: 'Stocks (<a href="https://alpaca.markets/" target="_blank">Alpaca</a>)'
+            instructions_html: 'Go to the <a href="https://alpaca.markets" target="_blank">Alpaca dashboard</a> and find the API Keys section on the right sidebar. Click on Generate New Keys and save the generated API credentials.'
             enabled: 'Stocks enabled. Syncing assets from Alpaca...'
             disabled: 'Stocks disabled.'
             disconnected: 'Alpaca disconnected. Stock tickers marked unavailable.'

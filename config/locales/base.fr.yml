@@ -95,6 +95,8 @@ fr:
         resend_link: 'Renvoyer le lien'
         rules: Règles
         settings: 'Paramètres'
+        connections: Connecter
+        account: Compte
         sign_up: 'S''inscrire'
     settings:
         language_and_timezone:

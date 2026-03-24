@@ -1,6 +1,6 @@
 <% flash.each do |flash_type, message| %>
   <% style_class = { alert: 'danger', success: 'success' }[flash_type.to_sym] || 'primary' %>
-  <%= tag.div class: "flash__message salert salert--#{style_class}", data: { controller: "removals", action: "animationend->removals#remove" }, role: "alert" do %>
+  <%= tag.div class: "flash__message salert salert--#{style_class}", data: { controller: "removals" }, role: "alert" do %>
     <%= button_tag class: 'modal__close', data: { action: 'removals#remove' } do %>
       <%= render partial: 'svg/24x24_close' %>
     <% end %>

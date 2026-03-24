@@ -15,8 +15,11 @@
   = link_to rules_path, class: "menu-mobile__item menu-mobile__item--rules #{'menu-mobile__item--active' if current_page?(rules_path)}", data: { controller: 'tooltip', action: 'mouseenter->tooltip#showTooltip mouseleave->tooltip#hideTooltip' } do
     = t('links.rules')
 
-  = link_to settings_path, class: "menu-mobile__item menu-mobile__item--settings #{'menu-mobile__item--active' if current_page?(settings_path)}", data: { controller: 'tooltip', action: 'mouseenter->tooltip#showTooltip mouseleave->tooltip#hideTooltip' } do
-    = t('links.settings')
+  = link_to settings_connect_path, class: "menu-mobile__item menu-mobile__item--connections #{'menu-mobile__item--active' if current_page?(settings_connect_path)}", data: { controller: 'tooltip', action: 'mouseenter->tooltip#showTooltip mouseleave->tooltip#hideTooltip' } do
+    = t('links.connections')
+
+  = link_to settings_account_path, class: "menu-mobile__item menu-mobile__item--account #{'menu-mobile__item--active' if current_page?(settings_account_path)}", data: { controller: 'tooltip', action: 'mouseenter->tooltip#showTooltip mouseleave->tooltip#hideTooltip' } do
+    = t('links.account')
 
   = link_to 'https://t.me/deltabadgerchat', class: "menu-mobile__item menu-mobile__item--community", data: { controller: 'tooltip', action: 'mouseenter->tooltip#showTooltip mouseleave->tooltip#hideTooltip' }, target: "_blank", rel: "noopener" do
     = t('links.telegram')
@@ -51,12 +54,13 @@
 
   .menu__section.menu__section--bottom
     .dropdown-wrapper.dropdown-wrapper--bottom-left{ data: { controller: "dropdown", action: "click->dropdown#toggle", dropdown_target: "wrapper", dropdown_active_class: "menu__item--active" } }
-      .menu__item.menu__button{ data: { dropdown_target: "trigger" } }
+      .menu__item.menu__button{ data: { controller: 'tooltip', action: 'mouseenter->tooltip#showTooltip mouseleave->tooltip#hideTooltip', dropdown_target: "trigger" } }
         = render 'svg/24x24_sliders'
         .tooltip
           = t('links.settings')
       .dropdown
-        = link_to t('links.settings'), settings_path, class: "dropdown__item"
+        = link_to t('links.connections'), settings_connect_path, class: "dropdown__item"
+        = link_to t('links.account'), settings_account_path, class: "dropdown__item"
         = link_to t('links.telegram'), 'https://t.me/deltabadgerchat', class: "dropdown__item", target: "_blank", rel: "noopener"
         .dropdown__item.dropdown__item--divider
         = button_to destroy_user_session_path, method: :delete, class: "dropdown__item dropdown__item--danger", data: { turbo: false } do

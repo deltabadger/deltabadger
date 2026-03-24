@@ -14,13 +14,13 @@ class SettingsMcpTest < ActionDispatch::IntegrationTest
   end
 
   test 'mcp widget shows URL' do
-    get settings_path
+    get settings_connect_path
     assert_response :success
     assert_select '#mcp_url_display'
   end
 
   test 'mcp widget shows connected clients section' do
-    get settings_path
+    get settings_connect_path
     assert_response :success
     assert_select '#mcp_connected_clients'
   end
@@ -29,7 +29,7 @@ class SettingsMcpTest < ActionDispatch::IntegrationTest
     app = Doorkeeper::Application.create!(name: 'Test Client', redirect_uri: 'http://localhost/callback', confidential: false)
     Doorkeeper::AccessToken.create!(application: app, resource_owner_id: @admin.id, token: SecureRandom.hex(32), expires_in: 3600)
 
-    get settings_path
+    get settings_connect_path
     assert_response :success
     assert_select '#mcp_connected_clients', /Test Client/
   end
@@ -62,7 +62,7 @@ class SettingsMcpTest < ActionDispatch::IntegrationTest
     regular_user = create(:user, setup_completed: true)
     sign_in regular_user
 
-    get settings_path
+    get settings_connect_path
     assert_response :success
     assert_select 'turbo-frame#mcp_settings'
   end
