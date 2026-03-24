@@ -34,7 +34,7 @@ export default class extends Controller {
       case "Enter":
         event.preventDefault();
         this.#updateItems();
-        this.buttons[this.index].click();
+        if (this.buttons[this.index]) this.buttons[this.index].click();
         break;
     }
   }
