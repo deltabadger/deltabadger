@@ -95,6 +95,8 @@ es:
         resend_link: 'Reenviar enlace'
         rules: Reglas
         settings: Configuración
+        connections: Conectar
+        account: Cuenta
         sign_up: Registrarse
     settings:
         language_and_timezone:

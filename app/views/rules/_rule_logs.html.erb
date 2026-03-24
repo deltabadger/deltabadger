@@ -1,26 +1,24 @@
-<div>
-  <div class="widget widget--table">
-    <% if rule_logs.any? %>
-      <table class="table">
-        <thead>
+<div class="widget widget--table widget--table--rules">
+  <% if rule_logs.any? %>
+    <table class="table">
+      <thead>
+        <tr>
+          <th><%= t('rules.logs.date') %></th>
+          <th><%= t('rules.logs.status') %></th>
+          <th><%= t('rules.logs.message') %></th>
+        </tr>
+      </thead>
+      <tbody>
+        <% rule_logs.each do |log| %>
           <tr>
-            <th><%= t('rules.logs.date') %></th>
-            <th><%= t('rules.logs.status') %></th>
-            <th><%= t('rules.logs.message') %></th>
+            <td><%= l(log.created_at, format: :short) %></td>
+            <td><span class="rule-log-status rule-log-status--<%= log.status %>"><%= log.status %></span></td>
+            <td><%= log.message %></td>
           </tr>
-        </thead>
-        <tbody>
-          <% rule_logs.each do |log| %>
-            <tr>
-              <td><%= l(log.created_at, format: :short) %></td>
-              <td><span class="rule-log-status rule-log-status--<%= log.status %>"><%= log.status %></span></td>
-              <td><%= log.message %></td>
-            </tr>
-          <% end %>
-        </tbody>
-      </table>
-    <% else %>
-      <p style="padding: 9rem 2rem; text-align: center;"><%= t('rules.logs.empty') %></p>
-    <% end %>
-  </div>
+        <% end %>
+      </tbody>
+    </table>
+  <% else %>
+    <p style="padding: 9rem 2rem; text-align: center;"><%= t('rules.logs.empty') %></p>
+  <% end %>
 </div>

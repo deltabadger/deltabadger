@@ -4,23 +4,6 @@
 
 <div class="columns">
   <div class="column gap-1">
-
-    <%= render partial: 'settings/widgets/mcp' %>
-
-    <% if current_user.admin? %>
-      <%= render partial: 'settings/widgets/stocks' %>
-    <% end %>
-
-    <%= render partial: 'settings/widgets/api_keys', locals: {
-      trading_api_keys: @trading_api_keys
-    } %>
-
-    <% if current_user.admin? %>
-      <%= render partial: 'settings/widgets/market_data' %>
-    <% end %>
-  </div>
-
-  <div class="column gap-1">
     <%= render partial: 'settings/widgets/two_fa', locals: { two_fa_button_text: @two_fa_button_text } %>
 
     <% if current_user.admin? %>
@@ -30,6 +13,11 @@
     <% if current_user.admin? %>
       <%= render partial: 'settings/widgets/email_notifications' %>
     <% end %>
+
+    <%= render partial: 'settings/widgets/language_and_time_zone' %>
+  </div>
+
+  <div class="column gap-1">
     <%= render partial: 'settings/widgets/name', locals: { name_pattern: @name_pattern } %>
     <%= render partial: 'settings/widgets/email', locals: { email_address_pattern: @email_address_pattern } %>
     <%= render partial: 'settings/widgets/password', locals: {
@@ -40,6 +28,5 @@
       password_digit_pattern: @password_digit_pattern,
       password_symbol_pattern: @password_symbol_pattern,
     } %>
-    <%= render partial: 'settings/widgets/language_and_time_zone' %>
   </div>
 </div>

@@ -97,6 +97,8 @@ pl:
         resend_link: 'Wyślij link'
         rules: Reguły
         settings: Ustawienia
+        connections: Połącz
+        account: Konto
         sign_up: 'Stwórz konto'
     settings:
         language_and_timezone:

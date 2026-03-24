@@ -14,13 +14,20 @@
   width: max-content
 
   &__message
-    animation: appear-then-fade 60s both
+    animation: flash-appear 0.3s ease-out both
 
-@keyframes appear-then-fade
-  0%, 100%
-    opacity:0
-  0.5%, 99.5%
-    opacity:1
+.flash__message.flash--fading
+  animation: none
+  opacity: 0
+  transition: opacity 1s ease-out
+
+@keyframes flash-appear
+  from
+    opacity: 0
+    transform: translateY(1rem)
+  to
+    opacity: 1
+    transform: translateY(0)
 
 
 .salert

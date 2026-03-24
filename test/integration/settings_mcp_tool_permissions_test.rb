@@ -11,7 +11,7 @@ class SettingsMcpToolPermissionsTest < ActionDispatch::IntegrationTest
   end
 
   test 'mcp widget shows tool toggles' do
-    get settings_path
+    get settings_connect_path
     assert_response :success
     assert_select '#mcp_tool_permissions'
   end

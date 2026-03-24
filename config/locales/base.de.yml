@@ -95,6 +95,8 @@ de:
         resend_link: Link erneut senden
         rules: Regeln
         settings: Einstellungen
+        connections: Verbinden
+        account: Konto
         sign_up: Registrieren
     settings:
         language_and_timezone:

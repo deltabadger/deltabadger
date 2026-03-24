@@ -95,6 +95,8 @@ it:
         resend_link: 'Reinvia link'
         rules: Regole
         settings: Impostazioni
+        connections: Connetti
+        account: Account
         sign_up: 'Registrati'
     settings:
         language_and_timezone:
