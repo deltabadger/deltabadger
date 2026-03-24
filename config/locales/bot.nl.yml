@@ -54,7 +54,7 @@ nl:
             waiting: "Wachten tot aan alle voorwaarden is voldaan"
             listening: "Luistert"
             market_opens_in: "Markt opent over"
-            postponed_till_market_opening: "Uitgesteld ~%{hours}u tot marktopening."
+            market_closed: "De markt is momenteel gesloten."
         conversational:
             invest: "Investeren"
             into: "naar"

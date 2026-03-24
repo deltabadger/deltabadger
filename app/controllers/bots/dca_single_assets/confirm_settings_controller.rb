@@ -2,6 +2,8 @@ class Bots::DcaSingleAssets::ConfirmSettingsController < ApplicationController
   before_action :authenticate_user!
 
   def new
+    return redirect_to new_bots_dca_single_assets_pick_exchange_path if session.dig(:bot_config, 'exchange_id').blank?
+
     session[:bot_config]['settings']['interval'] ||= 'week'
     session[:bot_config]['settings']['quote_amount'] ||= 100
     @bot = current_user.bots.dca_single_asset.new(sanitized_bot_config)

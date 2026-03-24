@@ -103,7 +103,14 @@ class Asset < ApplicationRecord
     'sportsology-game' => '#E53935',
     'artube' => '#FF6B6B',
     'talki' => '#3B82F6',
-    'bionergy' => '#2ECC71'
+    'bionergy' => '#2ECC71',
+    'decred' => '#2970FF',
+    'pancakeswap-token' => '#D1884F',
+    'virtual-protocol' => '#2A9D8F',
+    'janus-henderson-anemoy-aaa-clo-fund' => '#E87722',
+    'kite-2' => '#B5A88A',
+    'a7a5' => '#CC2222',
+    'river' => '#1E90FF'
   }.freeze
 
   def sync_data_with_coingecko(prefetched_data: nil)
