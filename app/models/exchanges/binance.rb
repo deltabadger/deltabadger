@@ -462,21 +462,13 @@ class Exchanges::Binance < Exchange
     return result if result.failure?
 
     Array(result.data).each do |dep|
-      next unless dep['status'] == 1 # 1 = success
+      next unless dep['status'] == 1
 
       entries << {
-        entry_type: :deposit,
-        base_currency: dep['coin'],
-        base_amount: dep['amount'].to_d,
-        quote_currency: nil,
-        quote_amount: nil,
-        fee_currency: nil,
-        fee_amount: nil,
-        tx_id: dep['txId'],
-        group_id: nil,
-        description: nil,
-        transacted_at: Time.at(dep['insertTime'] / 1000.0).utc,
-        raw_data: dep
+        entry_type: :deposit, base_currency: dep['coin'], base_amount: dep['amount'].to_d,
+        quote_currency: nil, quote_amount: nil, fee_currency: nil, fee_amount: nil,
+        tx_id: dep['txId'], group_id: nil, description: nil,
+        transacted_at: Time.at(dep['insertTime'] / 1000.0).utc, raw_data: dep
       }
     end
 
@@ -485,34 +477,46 @@ class Exchanges::Binance < Exchange
     return result if result.failure?
 
     Array(result.data).each do |wd|
-      next unless wd['status'] == 6 # 6 = completed
+      next unless wd['status'] == 6
 
       entries << {
-        entry_type: :withdrawal,
-        base_currency: wd['coin'],
-        base_amount: wd['amount'].to_d,
-        quote_currency: nil,
-        quote_amount: nil,
-        fee_currency: wd['coin'],
-        fee_amount: wd['transactionFee']&.to_d,
-        tx_id: wd['txId'] || wd['id'],
-        group_id: nil,
-        description: nil,
-        transacted_at: Time.parse(wd['applyTime']).utc,
-        raw_data: wd
+        entry_type: :withdrawal, base_currency: wd['coin'], base_amount: wd['amount'].to_d,
+        quote_currency: nil, quote_amount: nil,
+        fee_currency: wd['coin'], fee_amount: wd['transactionFee']&.to_d,
+        tx_id: wd['txId'] || wd['id'], group_id: nil, description: nil,
+        transacted_at: Time.parse(wd['applyTime']).utc, raw_data: wd
       }
     end
 
-    # Trades — iterate over tickers that have bots or known activity
-    traded_symbols = tickers.available.pluck(:ticker)
+    # Discover traded symbols from balances + deposit/withdrawal coins
+    traded_coins = discover_traded_coins(hm_client, entries)
+    symbols_map = load_exchange_symbols(hm_client)
+    traded_symbols = symbols_map.keys.select { |sym| traded_coins.include?(symbols_map[sym][:base]) }
+
+    # Spot trades
     traded_symbols.each do |symbol|
       result = hm_client.account_trade_list(symbol: symbol, start_time: start_ms)
-      next if result.failure? # skip symbols with no access/data
+      next if result.failure?
 
       Array(result.data).each do |trade|
         entries.concat(normalize_trade(trade, symbol))
       end
     end
+
+    # Convert trades (30-day windows)
+    import_convert_trades(hm_client, start_ms, entries)
+
+    # Fiat buy/sell
+    import_fiat_payments(hm_client, start_ms, entries)
+
+    # Dust conversions
+    import_dust_conversions(hm_client, start_ms, entries)
+
+    # Dividends / airdrops
+    import_dividends(hm_client, start_ms, entries)
+
+    # Earn rewards
+    import_earn_rewards(hm_client, start_ms, entries)
 
     Result::Success.new(entries)
   end
@@ -648,13 +652,172 @@ class Exchanges::Binance < Exchange
   end
 
   def symbol_pair_base(symbol)
-    ticker = tickers.find_by(ticker: symbol)
-    ticker&.base || symbol
+    @exchange_symbols_map&.dig(symbol, :base) || tickers.find_by(ticker: symbol)&.base || symbol
   end
 
   def symbol_pair_quote(symbol)
-    ticker = tickers.find_by(ticker: symbol)
-    ticker&.quote || symbol
+    @exchange_symbols_map&.dig(symbol, :quote) || tickers.find_by(ticker: symbol)&.quote || symbol
+  end
+
+  def discover_traded_coins(hm_client, entries)
+    coins = Set.new
+    entries.each { |e| coins << e[:base_currency] }
+    result = hm_client.account_information(omit_zero_balances: true)
+    if result.success?
+      Array(result.data['balances']).each do |bal|
+        coins << bal['asset'] if bal['free'].to_d.positive? || bal['locked'].to_d.positive?
+      end
+    end
+    coins
+  end
+
+  def load_exchange_symbols(hm_client)
+    @exchange_symbols_map = {}
+    result = hm_client.exchange_information
+    return @exchange_symbols_map if result.failure?
+
+    Array(result.data['symbols']).each do |s|
+      @exchange_symbols_map[s['symbol']] = { base: s['baseAsset'], quote: s['quoteAsset'] }
+    end
+    @exchange_symbols_map
+  end
+
+  def import_convert_trades(hm_client, start_ms, entries)
+    # Convert API requires 30-day windows
+    window_start = start_ms || (Time.utc(2020, 1, 1).to_f * 1000).to_i
+    window_end = (Time.now.utc.to_f * 1000).to_i
+    thirty_days = 30 * 24 * 60 * 60 * 1000
+
+    while window_start < window_end
+      chunk_end = [window_start + thirty_days, window_end].min
+      result = hm_client.convert_trade_flow(start_time: window_start, end_time: chunk_end)
+      break if result.failure?
+
+      Array(result.data['list']).each do |conv|
+        group_id = "convert_#{conv['quoteId']}"
+        transacted_at = Time.at(conv['createTime'].to_i / 1000.0).utc
+        entries << {
+          entry_type: :swap_out, base_currency: conv['fromAsset'], base_amount: conv['fromAmount'].to_d,
+          quote_currency: nil, quote_amount: nil, fee_currency: nil, fee_amount: nil,
+          tx_id: "#{conv['quoteId']}-out", group_id: group_id, description: 'Convert',
+          transacted_at: transacted_at, raw_data: conv
+        }
+        entries << {
+          entry_type: :swap_in, base_currency: conv['toAsset'], base_amount: conv['toAmount'].to_d,
+          quote_currency: nil, quote_amount: nil, fee_currency: nil, fee_amount: nil,
+          tx_id: "#{conv['quoteId']}-in", group_id: group_id, description: 'Convert',
+          transacted_at: transacted_at, raw_data: conv
+        }
+      end
+      window_start = chunk_end
+    end
+  end
+
+  def import_fiat_payments(hm_client, start_ms, entries)
+    # Buy (type 0)
+    result = hm_client.fiat_payments(transaction_type: 0, begin_time: start_ms)
+    if result.success?
+      Array(result.data['data']).each do |pay|
+        next unless pay['status'] == 'Completed'
+
+        entries << {
+          entry_type: :buy, base_currency: pay['cryptoCurrency'], base_amount: pay['obtainAmount'].to_d,
+          quote_currency: pay['fiatCurrency'], quote_amount: pay['sourceAmount'].to_d,
+          fee_currency: pay['fiatCurrency'], fee_amount: pay['totalFee'].to_d,
+          tx_id: "fiat-buy-#{pay['orderNo']}", group_id: nil, description: 'Fiat purchase',
+          transacted_at: Time.at(pay['createTime'].to_i / 1000.0).utc, raw_data: pay
+        }
+      end
+    end
+
+    # Sell (type 1)
+    result = hm_client.fiat_payments(transaction_type: 1, begin_time: start_ms)
+    return unless result.success?
+
+    Array(result.data['data']).each do |pay|
+      next unless pay['status'] == 'Completed'
+
+      entries << {
+        entry_type: :sell, base_currency: pay['cryptoCurrency'], base_amount: pay['sourceAmount'].to_d,
+        quote_currency: pay['fiatCurrency'], quote_amount: pay['obtainAmount'].to_d,
+        fee_currency: pay['fiatCurrency'], fee_amount: pay['totalFee'].to_d,
+        tx_id: "fiat-sell-#{pay['orderNo']}", group_id: nil, description: 'Fiat sale',
+        transacted_at: Time.at(pay['createTime'].to_i / 1000.0).utc, raw_data: pay
+      }
+    end
+  end
+
+  def import_dust_conversions(hm_client, start_ms, entries)
+    result = hm_client.dust_log(start_time: start_ms)
+    return unless result.success?
+
+    Array(result.data['userAssetDribblets']).each do |dribblet|
+      transacted_at = Time.at(dribblet['operateTime'].to_i / 1000.0).utc
+      Array(dribblet['userAssetDribbletDetails']).each do |detail|
+        group_id = "dust_#{detail['transId']}"
+        entries << {
+          entry_type: :swap_out, base_currency: detail['fromAsset'],
+          base_amount: detail['amount'].to_d,
+          quote_currency: nil, quote_amount: nil,
+          fee_currency: nil, fee_amount: nil,
+          tx_id: "dust-#{detail['transId']}-out", group_id: group_id, description: 'Dust conversion',
+          transacted_at: transacted_at, raw_data: detail
+        }
+        entries << {
+          entry_type: :swap_in, base_currency: 'BNB',
+          base_amount: detail['transferedAmount'].to_d,
+          quote_currency: nil, quote_amount: nil,
+          fee_currency: 'BNB', fee_amount: detail['serviceChargeAmount'].to_d,
+          tx_id: "dust-#{detail['transId']}-in", group_id: group_id, description: 'Dust conversion',
+          transacted_at: transacted_at, raw_data: detail
+        }
+      end
+    end
+  end
+
+  def import_dividends(hm_client, start_ms, entries)
+    result = hm_client.asset_dividend(start_time: start_ms)
+    return unless result.success?
+
+    Array(result.data['rows']).each do |div|
+      entries << {
+        entry_type: :airdrop, base_currency: div['asset'], base_amount: div['amount'].to_d,
+        quote_currency: nil, quote_amount: nil, fee_currency: nil, fee_amount: nil,
+        tx_id: "dividend-#{div['id']}", group_id: nil, description: div['enInfo'],
+        transacted_at: Time.at(div['divTime'].to_i / 1000.0).utc, raw_data: div
+      }
+    end
+  end
+
+  def import_earn_rewards(hm_client, start_ms, entries)
+    [
+      [:simple_earn_flexible_rewards, 'flex-reward'],
+      [:simple_earn_locked_rewards, 'lock-reward']
+    ].each do |method, prefix|
+      page = 1
+      loop do
+        result = hm_client.send(method, start_time: start_ms, current: page, size: 100)
+        break if result.failure?
+
+        rows = result.data['rows'] || []
+        break if rows.empty?
+
+        rows.each do |row|
+          entries << {
+            entry_type: :staking_reward, base_currency: row['asset'], base_amount: row['rewards'].to_d,
+            quote_currency: nil, quote_amount: nil, fee_currency: nil, fee_amount: nil,
+            tx_id: "#{prefix}-#{row['time'] || row['id']}-#{row['asset']}", group_id: nil,
+            description: 'Earn reward',
+            transacted_at: Time.at((row['time'] || row['deliverDate']).to_i / 1000.0).utc, raw_data: row
+          }
+        end
+
+        total = result.data['total'].to_i
+        break if page * 100 >= total
+
+        page += 1
+      end
+    end
   end
 
   def parse_error_code(result)

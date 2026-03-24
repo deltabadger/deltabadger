@@ -14,7 +14,7 @@ class TrackerTest < ActionDispatch::IntegrationTest
 
     get tracker_index_path
     assert_response :success
-    assert_select 'a', text: I18n.t('tracker.connect_exchange')
+    assert_match 'pick_exchange', response.body
   end
 
   test 'index page loads with table when transactions exist' do
@@ -30,7 +30,7 @@ class TrackerTest < ActionDispatch::IntegrationTest
 
     get tracker_index_path
     assert_response :success
-    assert_select '.tracker-table'
+    assert_select '.widget--table--tracker'
     assert_select 'td', text: 'BTC'
   end
 
