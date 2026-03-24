@@ -14,9 +14,11 @@
       <input type="date" name="to" value="<%= params[:to] %>" class="sinput" data-action="change->form--submit#submit">
     <% end %>
   </div>
-  <div>
+
+
+  <div style="display: flex; gap: 0.5rem">
     <% if @exchanges.any? %>
-      <%= link_to export_tracker_index_path(exchange_id: params[:exchange_id], from: params[:from], to: params[:to]), class: 'sbutton sbutton--secondary' do %>
+      <%= link_to export_tracker_index_path(exchange_id: params[:exchange_id], from: params[:from], to: params[:to]), class: 'sbutton sbutton--success' do %>
         <%= t('tracker.export') %>
       <% end %>
       <%= button_to sync_tracker_index_path, method: :post, class: 'sbutton sbutton--sky' do %>
@@ -24,13 +26,15 @@
       <% end %>
     <% end %>
     <%= link_to new_tracker_pick_exchange_path, class: 'sbutton sbutton--sky', data: { turbo_frame: 'modal' } do %>
-      <%= t('tracker.connect_exchange') %>
+      <%= t('button.connect') %>
     <% end %>
   </div>
+
+
 </div>
 
 <% if @account_transactions.any? %>
-  <div class="widget widget--table tracker-table">
+  <div class="widget widget--table widget--table--tracker">
     <table>
       <thead>
         <tr>
@@ -48,7 +52,7 @@
       <tbody>
         <% @account_transactions.each do |at| %>
           <tr class="tracker-row tracker-row--<%= at.entry_type %>">
-            <td><%= l(at.transacted_at.in_time_zone(current_user.time_zone), format: :short) %></td>
+            <td><%= at.transacted_at.in_time_zone(current_user.time_zone).strftime('%Y/%m/%d') %></td>
             <td><span class="tracker-type tracker-type--<%= at.entry_type %>"><%= t("tracker.types.#{at.entry_type}") %></span></td>
             <td><%= at.base_currency %></td>
             <td><%= at.base_amount %></td>
