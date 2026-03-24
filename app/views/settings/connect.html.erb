@@ -1,0 +1,23 @@
+<div class="page-head">
+  <div class="stitle"><%= t('links.connections') %></div>
+</div>
+
+<div class="columns">
+  <div class="column gap-1">
+    <%= render partial: 'settings/widgets/mcp' %>
+  </div>
+
+  <div class="column gap-1">
+    <% if current_user.admin? %>
+      <%= render partial: 'settings/widgets/stocks' %>
+    <% end %>
+
+    <%= render partial: 'settings/widgets/api_keys', locals: {
+      trading_api_keys: @trading_api_keys
+    } %>
+
+    <% if current_user.admin? %>
+      <%= render partial: 'settings/widgets/market_data' %>
+    <% end %>
+  </div>
+</div>

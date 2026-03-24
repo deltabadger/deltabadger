@@ -63,7 +63,12 @@ Rails.application.routes.draw do
     end
 
     namespace :settings do
-      get '/', action: :index
+      get '/', to: redirect { |params, request|
+        locale = request.params[:locale]
+        locale ? "/#{locale}/settings/connect" : "/settings/connect"
+      }
+      get :connect
+      get :account
       patch :update_password
       patch :update_email
       patch :update_name

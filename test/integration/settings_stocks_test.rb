@@ -10,7 +10,7 @@ class SettingsStocksTest < ActionDispatch::IntegrationTest
   end
 
   test 'stocks widget shows OFF when not configured' do
-    get settings_path
+    get settings_connect_path
     assert_response :success
     assert_select 'turbo-frame#stocks_settings'
   end

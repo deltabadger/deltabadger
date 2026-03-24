@@ -16,18 +16,21 @@
         <%= link_to t('settings.stocks.disconnect'), settings_disconnect_stocks_path, data: { turbo_method: :delete, turbo_frame: "stocks_settings" }, class: "button button--danger", style: "margin-top: 0" %>
       </div>
     <% else %>
+
+      <p class="text-center" style="text-wrap:balance; margin: 0"><%= t('settings.stocks.instructions_html') %></p>
+      
       <%= form_with url: settings_update_stocks_path, method: :patch, data: {
         turbo_frame: "stocks_settings"
       }, class: "form" do |f| %>
         <div class="set-api__form" style="margin-top: 3rem;">
           <div class="form__radios">
             <label class="form__radio">
-              <%= radio_button_tag :alpaca_mode, 'paper', true %>
-              <span><%= t('settings.stocks.mode_paper') %></span>
+              <%= radio_button_tag :alpaca_mode, 'live', true %>
+              <span><%= t('settings.stocks.mode_live') %></span>
             </label>
             <label class="form__radio">
-              <%= radio_button_tag :alpaca_mode, 'live', false %>
-              <span><%= t('settings.stocks.mode_live') %></span>
+              <%= radio_button_tag :alpaca_mode, 'paper', false %>
+              <span><%= t('settings.stocks.mode_paper') %></span>
             </label>
           </div>
           <div class="form__row form__row--input">
@@ -38,7 +41,7 @@
             <%= tag.input class: "form__input", type: "text", name: "alpaca_api_secret", id: "alpaca_api_secret", placeholder: " ", autocomplete: "off" %>
             <%= label_tag :alpaca_api_secret, "API Secret", class: "form__label" %>
           </div>
-          <div class="setting-form" style="margin-top: 2rem;">
+          <div class="setting-form">
             <%= f.submit t('button.connect'), class: "button button--success", style: "margin-top: 0" %>
           </div>
         </div>

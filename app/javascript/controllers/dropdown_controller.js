@@ -17,8 +17,10 @@ export default class extends Controller {
     }
 
     if (isOpen) {
+      this.#hideTooltip();
       document.addEventListener("click", this.handleOutsideClick);
     } else {
+      this.#showTooltip();
       document.removeEventListener("click", this.handleOutsideClick);
     }
   }
@@ -29,7 +31,18 @@ export default class extends Controller {
       if (this.hasTriggerTarget && this.hasActiveClass) {
         this.triggerTarget.classList.remove(this.activeClass);
       }
+      this.#showTooltip();
       document.removeEventListener("click", this.handleOutsideClick);
     }
+  }
+
+  #hideTooltip() {
+    const tooltip = this.wrapperTarget.querySelector(".tooltip");
+    if (tooltip) tooltip.style.display = "none";
+  }
+
+  #showTooltip() {
+    const tooltip = this.wrapperTarget.querySelector(".tooltip");
+    if (tooltip) tooltip.style.display = "";
   }
 }

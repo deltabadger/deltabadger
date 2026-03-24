@@ -95,6 +95,8 @@ nl:
         resend_link: 'Link verzenden'
         rules: Regels
         settings: Instellingen
+        connections: Verbinden
+        account: Account
         sign_up: Registreren
     settings:
         language_and_timezone:

@@ -7,8 +7,12 @@ class SettingsController < ApplicationController
     update_stocks disconnect_stocks
   ]
 
-  def index
-    set_index_instance_variables
+  def connect
+    set_connect_instance_variables
+  end
+
+  def account
+    set_account_instance_variables
   end
 
   def update_name
@@ -16,8 +20,8 @@ class SettingsController < ApplicationController
       flash.now[:notice] = t('settings.name.updated')
       render turbo_stream: turbo_stream_prepend_flash
     else
-      set_index_instance_variables
-      render :index, status: :unprocessable_entity
+      set_account_instance_variables
+      render :account, status: :unprocessable_entity
     end
   end
 
@@ -42,8 +46,8 @@ class SettingsController < ApplicationController
         end
       end
 
-      set_index_instance_variables
-      render :index, status: :unprocessable_entity
+      set_account_instance_variables
+      render :account, status: :unprocessable_entity
     end
   end
 
@@ -59,7 +63,7 @@ class SettingsController < ApplicationController
 
     flash[:notice] = I18n.t('settings.language_and_timezone.language_updated', locale: current_user.locale)
     new_locale = current_user.locale == I18n.default_locale.to_s ? nil : current_user.locale
-    render turbo_stream: turbo_stream_redirect(settings_path(locale: new_locale))
+    render turbo_stream: turbo_stream_redirect(settings_account_path(locale: new_locale))
   end
 
   def update_password
@@ -69,8 +73,8 @@ class SettingsController < ApplicationController
       flash[:notice] = t('devise.passwords.updated')
       render turbo_stream: turbo_stream_page_refresh
     else
-      set_index_instance_variables
-      render :index, status: :unprocessable_entity
+      set_account_instance_variables
+      render :account, status: :unprocessable_entity
     end
   end
 
@@ -114,7 +118,7 @@ class SettingsController < ApplicationController
   def resync_assets
     AppConfig.setup_sync_status = AppConfig::SYNC_STATUS_IN_PROGRESS
     Setup::SeedAndSyncJob.perform_later
-    redirect_to settings_path
+    redirect_to settings_connect_path
   end
 
   def confirm_destroy_coingecko_key; end
@@ -138,7 +142,7 @@ class SettingsController < ApplicationController
     AppConfig.market_data_provider = MarketDataSettings::PROVIDER_COINGECKO
     AppConfig.setup_sync_status = AppConfig::SYNC_STATUS_IN_PROGRESS
     Setup::SeedAndSyncJob.perform_later
-    redirect_to settings_path
+    redirect_to settings_connect_path
   end
 
   def update_market_data
@@ -344,7 +348,7 @@ class SettingsController < ApplicationController
   def send_test_email
     unless SmtpSettings.configured?
       flash[:alert] = t('settings.email_notifications.not_configured')
-      return redirect_to settings_path
+      return redirect_to settings_account_path
     end
 
     begin
@@ -355,7 +359,7 @@ class SettingsController < ApplicationController
       flash[:alert] = t('settings.email_notifications.test_email_failed', error: e.message)
     end
 
-    redirect_to settings_path
+    redirect_to settings_account_path
   end
 
   private
@@ -383,7 +387,11 @@ class SettingsController < ApplicationController
     result.success?
   end
 
-  def set_index_instance_variables
+  def set_connect_instance_variables
+    @trading_api_keys = current_user.api_keys.includes(:exchange).where(key_type: 'trading')
+  end
+
+  def set_account_instance_variables
     @name_pattern = User::Name::PATTERN
     @email_address_pattern = User::Email::ADDRESS_PATTERN
     @password_length_pattern = User::Password::LENGTH_PATTERN
@@ -393,7 +401,6 @@ class SettingsController < ApplicationController
     @password_symbol_pattern = User::Password::SYMBOL_PATTERN
     @password_pattern = User::Password::PATTERN
     @password_minimum_length = Devise.password_length.min
-    @trading_api_keys = current_user.api_keys.includes(:exchange).where(key_type: 'trading')
     @two_fa_button_text = if current_user.otp_module_enabled?
                             t('helpers.label.settings.disable_two_fa')
                           else
