@@ -385,7 +385,26 @@ class Exchanges::Bitrue < Exchange
     start_ms = start_time ? (start_time.to_f * 1000).to_i : nil
     entries = []
 
-    tickers.available.pluck(:ticker).each do |symbol|
+    # Discover coins from balances
+    coins = Set.new
+    bal_result = hm_client.account_information
+    if bal_result.success?
+      Array(bal_result.data['balances']).each do |bal|
+        coins << bal['asset'] if bal['free'].to_d.positive? || bal['locked'].to_d.positive?
+      end
+    end
+
+    # Load exchange symbols
+    @exchange_symbols_map = {}
+    info_result = hm_client.exchange_information
+    if info_result.success?
+      Array(info_result.data['symbols']).each do |s|
+        @exchange_symbols_map[s['symbol']] = { base: s['baseAsset'], quote: s['quoteAsset'] }
+      end
+    end
+
+    traded_symbols = @exchange_symbols_map.keys.select { |sym| coins.include?(@exchange_symbols_map[sym][:base]) }
+    traded_symbols.each do |symbol|
       result = hm_client.account_trade_list(symbol: symbol, start_time: start_ms)
       next if result.failure?
 
@@ -412,11 +431,11 @@ class Exchanges::Bitrue < Exchange
   end
 
   def symbol_pair_base(symbol)
-    tickers.find_by(ticker: symbol)&.base || symbol
+    @exchange_symbols_map&.dig(symbol, :base) || tickers.find_by(ticker: symbol)&.base || symbol
   end
 
   def symbol_pair_quote(symbol)
-    tickers.find_by(ticker: symbol)&.quote || symbol
+    @exchange_symbols_map&.dig(symbol, :quote) || tickers.find_by(ticker: symbol)&.quote || symbol
   end
 
   def parse_error_message(result)

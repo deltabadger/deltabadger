@@ -56,7 +56,7 @@
         = t('links.rules')
 
     = link_to tracker_index_path, class: "menu__item menu__item--tracker #{'menu__item--active' if current_page?(tracker_index_path)}", data: { controller: 'tooltip', action: 'mouseenter->tooltip#showTooltip mouseleave->tooltip#hideTooltip' } do
-      = render 'svg/24x24_tracker'
+      = render 'svg/24x24_doc'
       .tooltip
         = t('links.tracker')
 
