@@ -111,7 +111,7 @@ setup_secrets() {
 prepare_database() {
     echo "Checking database status..."
 
-    local db_version=$(bundle exec rails db:version 2>/dev/null | grep -oE '[0-9]+$' || echo "none")
+    local db_version=$(bundle exec rails db:version:primary 2>/dev/null | grep -oE '[0-9]+$' || echo "none")
 
     if [ "$db_version" = "none" ] || [ "$db_version" = "0" ]; then
         echo "Database not found, creating..."
@@ -119,6 +119,12 @@ prepare_database() {
     else
         echo "Database at version $db_version, running migrations..."
         bundle exec rails db:migrate
+
+        local asset_count=$(bundle exec rails runner "print Asset.count" 2>/dev/null || echo "0")
+        if [ "$asset_count" = "0" ]; then
+            echo "No assets found, running seeds..."
+            bundle exec rails db:seed
+        fi
     fi
 }
 
