@@ -394,25 +394,7 @@ class Exchanges::Mexc < Exchange
     start_ms = start_time ? (start_time.to_f * 1000).to_i : nil
     entries = []
 
-    # Trades per ticker
-    tickers.available.pluck(:ticker).each do |symbol|
-      result = hm_client.account_trade_list(symbol: symbol, start_time: start_ms)
-      next if result.failure?
-
-      Array(result.data).each do |trade|
-        base = symbol_pair_base(symbol)
-        quote = symbol_pair_quote(symbol)
-        is_buyer = trade['isBuyer']
-        entries << { entry_type: is_buyer ? :buy : :sell,
-                     base_currency: base, base_amount: trade['qty'].to_d,
-                     quote_currency: quote, quote_amount: trade['quoteQty'].to_d,
-                     fee_currency: trade['commissionAsset'], fee_amount: trade['commission'].to_d.abs,
-                     tx_id: "#{symbol}-#{trade['orderId']}-#{trade['id']}", group_id: nil, description: nil,
-                     transacted_at: Time.at(trade['time'].to_i / 1000.0).utc, raw_data: trade }
-      end
-    end
-
-    # Deposits
+    # Deposits first (to discover coins)
     result = hm_client.deposit_history(start_time: start_ms)
     unless result.failure?
       Array(result.data).each do |dep|
@@ -439,6 +421,44 @@ class Exchanges::Mexc < Exchange
       end
     end
 
+    # Discover coins from balances + deposits/withdrawals, then query trades
+    coins = Set.new
+    entries.each { |e| coins << e[:base_currency] }
+    bal_result = hm_client.account_information
+    if bal_result.success?
+      Array(bal_result.data['balances']).each do |bal|
+        coins << bal['asset'] if bal['free'].to_d.positive? || bal['locked'].to_d.positive?
+      end
+    end
+
+    # Load exchange symbols for base/quote mapping
+    @exchange_symbols_map = {}
+    info_result = hm_client.exchange_information
+    if info_result.success?
+      Array(info_result.data['symbols']).each do |s|
+        @exchange_symbols_map[s['symbol']] = { base: s['baseAsset'], quote: s['quoteAsset'] }
+      end
+    end
+
+    # Trades per discovered symbol
+    traded_symbols = @exchange_symbols_map.keys.select { |sym| coins.include?(@exchange_symbols_map[sym][:base]) }
+    traded_symbols.each do |symbol|
+      result = hm_client.account_trade_list(symbol: symbol, start_time: start_ms)
+      next if result.failure?
+
+      Array(result.data).each do |trade|
+        base = symbol_pair_base(symbol)
+        quote = symbol_pair_quote(symbol)
+        is_buyer = trade['isBuyer']
+        entries << { entry_type: is_buyer ? :buy : :sell,
+                     base_currency: base, base_amount: trade['qty'].to_d,
+                     quote_currency: quote, quote_amount: trade['quoteQty'].to_d,
+                     fee_currency: trade['commissionAsset'], fee_amount: trade['commission'].to_d.abs,
+                     tx_id: "#{symbol}-#{trade['orderId']}-#{trade['id']}", group_id: nil, description: nil,
+                     transacted_at: Time.at(trade['time'].to_i / 1000.0).utc, raw_data: trade }
+      end
+    end
+
     Result::Success.new(entries)
   end
 
@@ -449,11 +469,11 @@ class Exchanges::Mexc < Exchange
   end
 
   def symbol_pair_base(symbol)
-    tickers.find_by(ticker: symbol)&.base || symbol
+    @exchange_symbols_map&.dig(symbol, :base) || tickers.find_by(ticker: symbol)&.base || symbol
   end
 
   def symbol_pair_quote(symbol)
-    tickers.find_by(ticker: symbol)&.quote || symbol
+    @exchange_symbols_map&.dig(symbol, :quote) || tickers.find_by(ticker: symbol)&.quote || symbol
   end
 
   def parse_error_message(result)

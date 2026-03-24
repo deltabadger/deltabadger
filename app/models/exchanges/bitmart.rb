@@ -397,24 +397,7 @@ class Exchanges::Bitmart < Exchange
     start_ms = start_time ? (start_time.to_f * 1000).to_i : nil
     entries = []
 
-    # Trades per symbol
-    tickers.available.pluck(:ticker).each do |symbol| # e.g. "BTC_USDT"
-      result = hm_client.get_trades(symbol: symbol, start_time: start_ms)
-      next if result.failure?
-
-      (result.data['data'] || []).each do |trade|
-        parts = symbol.split('_')
-        is_buyer = trade['side']&.downcase == 'buy'
-        entries << { entry_type: is_buyer ? :buy : :sell,
-                     base_currency: parts[0], base_amount: trade['size'].to_d,
-                     quote_currency: parts[1], quote_amount: trade['notional'].to_d,
-                     fee_currency: parts[1], fee_amount: trade['fee'].to_d.abs,
-                     tx_id: trade['tradeId'] || trade['orderId'], group_id: nil, description: nil,
-                     transacted_at: Time.at(trade['createTime'].to_i / 1000.0).utc, raw_data: trade }
-      end
-    end
-
-    # Deposits
+    # Deposits first (to discover coins)
     result = hm_client.deposit_list
     unless result.failure?
       records = result.data.dig('data', 'records') || []
@@ -442,6 +425,43 @@ class Exchanges::Bitmart < Exchange
                      fee_currency: wd['currency'], fee_amount: wd['fee'].to_d,
                      tx_id: wd['tx_id'] || wd['withdraw_id'], group_id: nil, description: nil,
                      transacted_at: Time.at(wd['create_time'].to_i / 1000.0).utc, raw_data: wd }
+      end
+    end
+
+    # Discover coins from deposits/withdrawals + balances
+    coins = Set.new
+    entries.each { |e| coins << e[:base_currency] }
+    wallet_result = hm_client.get_wallet
+    if wallet_result.success?
+      Array(wallet_result.data.dig('data', 'wallet')).each do |w|
+        coins << w['id'] if w['available'].to_d.positive? || w['frozen'].to_d.positive?
+      end
+    end
+
+    # Load exchange symbols
+    symbols_result = hm_client.get_symbols_details
+    symbol_map = {}
+    if symbols_result.success?
+      Array(symbols_result.data.dig('data', 'symbols')).each do |s|
+        symbol_map[s['symbol']] = { base: s['base_currency'], quote: s['quote_currency'] }
+      end
+    end
+
+    traded_symbols = symbol_map.keys.select { |sym| coins.include?(symbol_map[sym][:base]) }
+    traded_symbols.each do |symbol|
+      result = hm_client.get_trades(symbol: symbol, start_time: start_ms)
+      next if result.failure?
+
+      (result.data['data'] || []).each do |trade|
+        base = symbol_map.dig(symbol, :base) || symbol.split('_')[0]
+        quote = symbol_map.dig(symbol, :quote) || symbol.split('_')[1]
+        is_buyer = trade['side']&.downcase == 'buy'
+        entries << { entry_type: is_buyer ? :buy : :sell,
+                     base_currency: base, base_amount: trade['size'].to_d,
+                     quote_currency: quote, quote_amount: trade['notional'].to_d,
+                     fee_currency: quote, fee_amount: trade['fee'].to_d.abs,
+                     tx_id: trade['tradeId'] || trade['orderId'], group_id: nil, description: nil,
+                     transacted_at: Time.at(trade['createTime'].to_i / 1000.0).utc, raw_data: trade }
       end
     end
 

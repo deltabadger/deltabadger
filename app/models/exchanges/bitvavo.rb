@@ -334,8 +334,21 @@ class Exchanges::Bitvavo < Exchange
     start_ms = start_time ? (start_time.to_f * 1000).to_i : nil
     entries = []
 
-    # Trades per market
-    tickers.available.pluck(:ticker).each do |market| # e.g. "BTC-EUR"
+    # Discover coins from balances, then query trades per market
+    coins = Set.new
+    bal_result = hm_client.get_balance
+    if bal_result.success?
+      Array(bal_result.data).each { |b| coins << b['symbol'] if b['available'].to_d.positive? || b['inOrder'].to_d.positive? }
+    end
+
+    markets_result = hm_client.get_markets
+    traded_markets = if markets_result.success?
+                       Array(markets_result.data).select { |m| coins.include?(m['base']) }.map { |m| m['market'] }
+                     else
+                       tickers.available.pluck(:ticker)
+                     end
+
+    traded_markets.each do |market|
       result = hm_client.get_trades(market: market, start_time: start_ms)
       next if result.failure?
 
