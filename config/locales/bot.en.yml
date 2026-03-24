@@ -62,7 +62,7 @@ en:
             waiting: "Waiting for all conditions to be met"
             listening: "Listening"
             market_opens_in: "Market opens in"
-            postponed_till_market_opening: "Postponed ~%{hours}h till market opening."
+            market_closed: "The market is closed now."
         pick_exchange: "Pick Exchange"
         conversational:
             invest: "Invest"

@@ -55,7 +55,7 @@ it:
             waiting: "In attesa che tutte le condizioni siano soddisfatte"
             listening: "In ascolto"
             market_opens_in: "Il mercato apre tra"
-            postponed_till_market_opening: "Posticipato ~%{hours}h fino all'apertura del mercato."
+            market_closed: "Il mercato è chiuso al momento."
         pick_exchange: "Scegli Exchange"
         conversational:
             invest: "Investi"
