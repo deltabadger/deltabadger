@@ -78,7 +78,7 @@ class TrackerTest < ActionDispatch::IntegrationTest
     get export_tracker_index_path
     assert_response :success
     assert_equal 'text/csv; charset=utf-8', response.content_type
-    assert_match 'deltabadger-tax-export-', response.headers['Content-Disposition']
+    assert_match 'deltabadger-transactions-', response.headers['Content-Disposition']
 
     lines = response.body.split("\n")
     assert_equal 'date,type,base_currency,base_amount,quote_currency,quote_amount,fee_currency,fee_amount,exchange,tx_id,group_id,description',
