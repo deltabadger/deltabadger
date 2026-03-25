@@ -48,6 +48,10 @@ Rails.application.routes.draw do
       collection do
         post :sync
         get :export
+        get :export_modal
+        get :tax_report
+        get :download_tax_report
+        patch :save_export_settings
       end
     end
     namespace :tracker do

@@ -7,6 +7,9 @@ import { application } from "./application"
 import AppWakeController from "./app_wake_controller"
 application.register("app-wake", AppWakeController)
 
+import AutoDownloadController from "./auto_download_controller"
+application.register("auto-download", AutoDownloadController)
+
 import ArrowKeysNavigationController from "./arrow_keys_navigation_controller"
 application.register("arrow-keys-navigation", ArrowKeysNavigationController)
 
@@ -123,6 +126,9 @@ application.register("three-dots", ThreeDotsController)
 
 import TooltipController from "./tooltip_controller"
 application.register("tooltip", TooltipController)
+
+import TrackerExportController from "./tracker_export_controller"
+application.register("tracker-export", TrackerExportController)
 
 import TurboFrameTriggerController from "./turbo_frame_trigger_controller"
 application.register("turbo-frame-trigger", TurboFrameTriggerController)
