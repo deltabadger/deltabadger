@@ -1,0 +1,11 @@
+<% percent = local_assigns[:percent] || 0 %>
+<div id="tax-report-progress" class="flash__message salert salert--download">
+  <span><%= t('tracker.tax_report.generating') %> <%= percent %>%</span>
+  <div class="slider">
+    <div class="slider__style">
+      <div class="slider__style__track" style="grid-template-columns: <%= percent %>% auto">
+        <div class="slider__style__progress"></div>
+      </div>
+    </div>
+  </div>
+</div>

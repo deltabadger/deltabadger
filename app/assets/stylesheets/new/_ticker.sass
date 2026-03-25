@@ -166,6 +166,12 @@
         background: var(--grass)
     &--danger
         background: var(--berry)
+    &--secondary
+        color: var(--sky)
+        background: var(--washed)
+        box-shadow: var(--shadow-basic)
+        svg *
+            fill: var(--sky) !important
     &--multi
         color: var(--label-select-inactive)
         min-width: 0 !important
@@ -282,6 +288,9 @@
         &[disabled="disabled"],&[disabled]
             path
                 fill: var(--stone) !important
+    &--icon
+        min-width: 4rem !important
+        padding: 0 !important
 
     &--disabled, &[disabled="disabled"], &[disabled]
         cursor: not-allowed !important

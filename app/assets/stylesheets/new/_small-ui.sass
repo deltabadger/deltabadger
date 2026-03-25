@@ -71,7 +71,7 @@
         width: 15rem
         text-align: center
         &[type="date"]
-            width: 18rem
+            max-width: 19rem
     &--number
         text-align: right
         -moz-appearance: textfield
@@ -127,6 +127,7 @@ select
 
 .filters
     display: flex
+    flex-wrap: wrap
     .sbutton
         color: var(--ink)
         margin-right: -1rem
@@ -134,3 +135,14 @@ select
             box-shadow: none
             background: none
             color: var(--stone)
+    &--tags
+        gap: 0.5rem
+        .sbutton
+            margin-right: 0
+            &:not(.sbutton--multi--active)
+                box-shadow: none
+                background: none
+                color: var(--stone)
+            &--icon
+                path
+                    fill: var(--stone)

@@ -363,13 +363,25 @@ en:
     tracker:
         sync: 'Sync'
         sync_started: 'Syncing transactions from your exchanges...'
-        export: 'Export CSV'
+        export: 'Export'
         filter: 'Filter'
         bot: 'Bot'
         no_results: 'No transactions found for the selected filters.'
         connect_exchange: 'Connect exchange'
         import_from: 'Import transactions from'
         search_exchange: 'Search exchange...'
+        export_modal:
+            title: 'Export'
+            transactions: 'Transactions'
+            tax_report: 'Tax Report'
+            country: 'Country'
+            year: 'Year'
+            download: 'Download'
+        tax_report:
+            invalid_country: 'Invalid country selected.'
+            expired: 'Tax report has expired. Please generate a new one.'
+            generating: 'Generating tax report...'
+            download_ready: 'Tax report is ready. Click to download.'
         filters:
             all: 'All'
         columns:
