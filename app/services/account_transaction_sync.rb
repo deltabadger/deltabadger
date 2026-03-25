@@ -12,6 +12,12 @@ class AccountTransactionSync
     result.data.each do |entry|
       next if entry[:tx_id].present? && AccountTransaction.exists?(exchange: @exchange, tx_id: entry[:tx_id])
 
+      # Nil out zero fees — per spec, empty fields when no fee
+      if entry[:fee_amount].blank? || entry[:fee_amount].to_d.zero?
+        entry[:fee_amount] = nil
+        entry[:fee_currency] = nil
+      end
+
       at = AccountTransaction.new(
         api_key: @api_key,
         exchange: @exchange,

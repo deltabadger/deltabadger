@@ -7,10 +7,13 @@
     flex-wrap: wrap
 
 .tracker-date-range
-    display: flex
+    display: none
     align-items: center
     gap: 0.5rem
+    @media (min-width: 768px)
+        display: flex
     input[type="date"]
+        max-width: 19rem
         width: auto
 
 .tracker-type
@@ -37,3 +40,40 @@
     text-align: center
     padding: 4rem
     color: var(--concrete)
+
+.two-row-filters
+    display: flex
+    flex-direction: column
+    gap: 1rem
+    padding: 1rem 0
+    &__row
+        display: flex
+        gap: 1rem
+        justify-content: space-between
+.tracker-exchange-icon
+    width: 5rem
+    max-width: 5rem
+    padding-right: 0
+    svg
+        width: 2rem
+        height: 2rem
+        min-width: 2rem
+        min-height: 2rem
+        *
+            fill: var(--concrete)
+        display: block
+
+.tracker-row
+    td,th
+        padding-left: 2rem
+
+.text-left
+    text-align: left !important
+
+.salert .slider
+    margin-top: 0.75rem
+    .slider__style__progress
+        background-color: white
+    .slider__style__track
+        border-left-color: white
+        background: rgba(255, 255, 255, 0.2)
