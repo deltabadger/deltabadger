@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_03_23_052902) do
+ActiveRecord::Schema[8.1].define(version: 2026_03_24_132010) do
   create_table "account_transactions", force: :cascade do |t|
     t.integer "api_key_id", null: false
     t.decimal "base_amount", null: false
@@ -414,6 +414,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_03_23_052902) do
     t.boolean "show_smart_intervals_info", default: true, null: false
     t.boolean "subscribed_to_email_marketing", default: true
     t.string "time_zone", default: "UTC", null: false
+    t.json "tracker_settings", default: {}
     t.string "unconfirmed_email"
     t.datetime "updated_at", precision: nil, null: false
     t.index ["confirmation_token"], name: "index_users_on_confirmation_token", unique: true

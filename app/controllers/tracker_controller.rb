@@ -14,10 +14,59 @@ class TrackerController < ApplicationController
   end
 
   def export
+    current_user.update(tracker_settings: (current_user.tracker_settings || {}).merge('export_type' => 'transactions'))
+
     transactions = filtered_transactions
     csv_data = AccountTransaction.to_csv(transactions)
-    filename = "deltabadger-tax-export-#{Date.current.iso8601}.csv"
+    filename = "deltabadger-transactions-#{Date.current.iso8601}.csv"
     send_data csv_data, filename: filename, type: 'text/csv; charset=utf-8'
+  end
+
+  def export_modal
+    @settings = current_user.tracker_settings || {}
+    @jurisdictions = Tax::Jurisdictions.available
+    render layout: false
+  end
+
+  def save_export_settings
+    settings = (current_user.tracker_settings || {}).merge(
+      params.permit(:export_type, :country, :year).to_h.compact_blank
+    )
+    current_user.update(tracker_settings: settings)
+    head :ok
+  end
+
+  def tax_report
+    country = params[:country]
+    year = params[:year].to_i
+    jurisdiction = Tax::Jurisdictions.for(country)
+
+    unless jurisdiction
+      redirect_to tracker_index_path, alert: t('tracker.tax_report.invalid_country')
+      return
+    end
+
+    current_user.update(tracker_settings: (current_user.tracker_settings || {}).merge(
+      'export_type' => 'tax_report', 'country' => country, 'year' => year
+    ))
+
+    Tax::GenerateReportJob.perform_later(current_user.id, country, year)
+
+    render turbo_stream: turbo_stream.append('flash', partial: 'tracker/report_progress')
+  end
+
+  def download_tax_report
+    country = params[:country]
+    year = params[:year].to_i
+    file_path = Rails.root.join('tmp', 'tax_reports', "#{current_user.id}_#{country}_#{year}.csv")
+
+    if File.exist?(file_path)
+      csv_data = File.read(file_path)
+      filename = "deltabadger-tax-report-#{country.downcase}-#{year}.csv"
+      send_data csv_data, filename: filename, type: 'text/csv; charset=utf-8'
+    else
+      redirect_to tracker_index_path, alert: t('tracker.tax_report.expired')
+    end
   end
 
   private
