@@ -10,6 +10,7 @@ class User < ApplicationRecord
   has_one_time_password
   enum :otp_module, %i[disabled enabled], prefix: true
   has_many :api_keys
+  has_many :account_transactions
   has_many :exchanges, through: :api_keys
   has_many :bots
   has_many :transactions, through: :bots

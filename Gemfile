@@ -23,7 +23,7 @@ gem 'sqlite3', '~> 2.9'
 gem 'puma', '~> 7.2'
 gem 'rack-attack'
 gem 'rack-cors'
-gem 'rails', '~> 8.1.1'
+gem 'rails', '~> 8.1.3'
 gem 'rqrcode'
 gem 'solid_queue'
 gem 'solid_cache'
@@ -71,4 +71,4 @@ gem "haikunator", "~> 1.1"
 gem "sqids" # for obfuscating IDs
 gem 'ruby-technical-analysis', git: 'https://github.com/guillemap/ruby-technical-analysis' # TODO: use the official gem once https://github.com/johnnypaper/ruby-technical-analysis/pull/32 is merged
 gem 'hyperliquid'
-gem 'honeymaker', '~> 0.4.0'
+gem 'honeymaker', '~> 0.5.1'

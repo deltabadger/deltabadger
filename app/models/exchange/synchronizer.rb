@@ -13,7 +13,7 @@ module Exchange::Synchronizer
     result = get_tickers_info(force: true)
     return result if result.failure?
 
-    # Only create assets that exist in Coingecko or Eodhd!
+    # Only create assets that exist in CoinGecko or Eodhd!
     create_missing_assets!(external_ids, skip_async_jobs:)
 
     # Never destroy an Asset, ExchangeAsset or Ticker!
@@ -121,9 +121,9 @@ module Exchange::Synchronizer
     return if new_crypto_assets.empty? || skip_async_jobs
 
     if new_crypto_assets.count == 1
-      Asset::FetchDataFromCoingeckoJob.perform_later(new_crypto_assets.first)
+      Asset::FetchDataFromCoinGeckoJob.perform_later(new_crypto_assets.first)
     else
-      Asset::FetchAllAssetsDataFromCoingeckoJob.perform_later
+      Asset::FetchAllAssetsDataFromCoinGeckoJob.perform_later
     end
   end
 

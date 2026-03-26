@@ -94,7 +94,7 @@ es:
         earn: 'Ganar'
         resend_link: 'Reenviar enlace'
         rules: Reglas
-        tracker: Tracker
+        tracker: Reports
         settings: Configuración
         connections: Conectar
         account: Cuenta
@@ -348,13 +348,23 @@ es:
     tracker:
         sync: 'Sincronizar'
         sync_started: 'Sincronizando transacciones de tus exchanges...'
-        export: 'Exportar CSV'
+        importing_from: 'Importando datos de %{exchange}…'
+        get_report: 'Obtener informe'
         filter: 'Filtrar'
         bot: 'Bot'
         no_results: 'No se encontraron transacciones para los filtros seleccionados.'
         connect_exchange: 'Conectar exchange'
         import_from: 'Importar transacciones de'
         search_exchange: 'Buscar exchange...'
+        setup_coingecko: 'Para generar un informe se necesitan precios históricos de CoinGecko. Su plan gratuito cubre hasta 2 años de historial. Para transacciones más antiguas, pasa a CoinGecko Analyst o únete a deltabadger.com, donde los datos de mercado están incluidos.'
+        export_modal:
+            title: 'Generar informe'
+            tax_report: 'Informe fiscal'
+            transactions: 'Todo'
+            country: 'País'
+            year: 'Año'
+            download: 'Generar'
+            stablecoin_as_fiat: 'Tratar stablecoins como fiat (consulta a tu asesor fiscal)'
         filters:
             all: 'Todos'
         columns:
@@ -386,3 +396,23 @@ es:
         successful: 'Exitosos'
         cancelled: 'Cancelados'
         waiting: 'Programados'
+    tax_report:
+        headers:
+            date: 'Fecha'
+            asset: 'Activo'
+            amount: 'Cantidad'
+            proceeds: 'Ingresos'
+            cost_basis: 'Coste de adquisición'
+            gain_loss: 'Ganancia/Pérdida'
+            currency: 'Moneda'
+            holding_days: 'Días de tenencia'
+            fee: 'Comisión'
+            exchange: 'Exchange'
+            tx_id: 'ID de transacción'
+            cost_basis_complete: 'Coste de adquisición completo'
+            acquisition_date: 'Fecha de adquisición'
+            old_stock: 'Stock antiguo'
+            tax_exempt: 'Exento'
+            term: 'Plazo'
+            matching_rule: 'Regla de asignación'
+        no_taxable_transactions: 'No se encontraron transacciones sujetas a impuestos para este período.'

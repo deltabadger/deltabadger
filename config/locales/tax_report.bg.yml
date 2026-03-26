@@ -1,0 +1,26 @@
+bg:
+    tax_report:
+        headers:
+            date: 'Дата'
+            acquisition_date: 'Дата на придобиване'
+            asset: 'Актив'
+            amount: 'Количество'
+            proceeds: 'Приходи'
+            cost_basis: 'Цена на придобиване'
+            gain_loss: 'Печалба/Загуба'
+            currency: 'Валута'
+            holding_days: 'Дни на държане'
+            fee: 'Такса'
+            exchange: 'Борса'
+            tx_id: 'Идентификатор'
+            cost_basis_complete: 'Пълна цена на придобиване'
+        no_taxable_transactions: 'Няма облагаеми транзакции за този период.'
+        summary:
+            total_gains: 'Общи печалби'
+            total_losses: 'Общи загуби'
+            expense_deduction: 'Нормативно признати разходи'
+            taxable_income: 'Облагаем доход'
+            tax_10: 'Данък (10%)'
+        warnings:
+            missing_prices: 'Липсващи исторически цени за'
+            upgrade_hint: 'Надградете плана си за CoinGecko или използвайте deltabadger.com за пълни исторически данни.'

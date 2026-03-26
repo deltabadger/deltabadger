@@ -96,7 +96,7 @@ ru:
         earn: Зарабатывай
         resend_link: 'Отправить ссылку повторно'
         rules: Правила
-        tracker: Трекер
+        tracker: Отчёты
         settings: Настройки
         connections: Подключить
         account: Аккаунт
@@ -351,12 +351,22 @@ ru:
     tracker:
         sync: 'Синхронизировать'
         sync_started: 'Синхронизация транзакций с ваших бирж...'
-        export: 'Экспорт CSV'
+        importing_from: 'Импорт данных из %{exchange}…'
+        get_report: 'Получить отчёт'
         filter: 'Фильтр'
         no_results: 'Транзакции не найдены для выбранных фильтров.'
         connect_exchange: 'Подключить биржу'
         import_from: 'Импортировать транзакции из'
         search_exchange: 'Поиск биржи...'
+        setup_coingecko: 'Для создания отчёта нужны исторические цены из CoinGecko. Бесплатный тариф покрывает до 2 лет истории. Для более старых транзакций перейдите на CoinGecko Analyst или присоединяйтесь к deltabadger.com, где рыночные данные уже включены.'
+        export_modal:
+            title: 'Создать отчёт'
+            tax_report: 'Налоговый отчёт'
+            transactions: 'Все'
+            country: 'Страна'
+            year: 'Год'
+            download: 'Создать'
+            stablecoin_as_fiat: 'Считать стейблкоины фиатом (уточните у бухгалтера)'
         filters:
             all: 'Все'
         columns:
@@ -388,3 +398,23 @@ ru:
         successful: 'Выполненные'
         cancelled: 'Отмененные'
         waiting: 'Ожидающие'
+    tax_report:
+        headers:
+            date: 'Дата'
+            asset: 'Актив'
+            amount: 'Количество'
+            proceeds: 'Выручка'
+            cost_basis: 'Стоимость приобретения'
+            gain_loss: 'Прибыль/Убыток'
+            currency: 'Валюта'
+            holding_days: 'Дни владения'
+            fee: 'Комиссия'
+            exchange: 'Биржа'
+            tx_id: 'ID транзакции'
+            cost_basis_complete: 'Стоимость приобретения полная'
+            acquisition_date: 'Дата приобретения'
+            old_stock: 'Старый запас'
+            tax_exempt: 'Освобождён'
+            term: 'Срок'
+            matching_rule: 'Правило сопоставления'
+        no_taxable_transactions: 'Налогооблагаемые транзакции за этот период не найдены.'

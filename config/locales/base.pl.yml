@@ -96,7 +96,7 @@ pl:
         earn: 'Zarabiaj'
         resend_link: 'Wyślij link'
         rules: Reguły
-        tracker: Tracker
+        tracker: Reports
         settings: Ustawienia
         connections: Połącz
         account: Konto
@@ -350,12 +350,22 @@ pl:
     tracker:
         sync: 'Synchronizuj'
         sync_started: 'Synchronizacja transakcji z twoich giełd...'
-        export: 'Eksportuj CSV'
+        importing_from: 'Importowanie danych z %{exchange}…'
+        get_report: 'Pobierz raport'
         filter: 'Filtruj'
         no_results: 'Nie znaleziono transakcji dla wybranych filtrów.'
         connect_exchange: 'Połącz giełdę'
         import_from: 'Importuj transakcje z'
         search_exchange: 'Szukaj giełdy...'
+        setup_coingecko: 'Do wygenerowania raportu potrzebne są historyczne ceny z CoinGecko. Darmowy plan obejmuje do 2 lat historii. Dla starszych transakcji przejdź na CoinGecko Analyst lub dołącz do deltabadger.com, gdzie dane rynkowe są w cenie.'
+        export_modal:
+            title: 'Generuj raport'
+            tax_report: 'Raport podatkowy'
+            transactions: 'Wszystko'
+            country: 'Kraj'
+            year: 'Rok'
+            download: 'Generuj'
+            stablecoin_as_fiat: 'Traktuj stablecoiny jako fiat (zapytaj swojego księgowego)'
         filters:
             all: 'Wszystkie'
         columns:
@@ -387,3 +397,23 @@ pl:
         successful: 'Zrealizowane'
         cancelled: 'Anulowane'
         waiting: 'Oczekujące'
+    tax_report:
+        headers:
+            date: 'Data'
+            asset: 'Aktywo'
+            amount: 'Ilość'
+            proceeds: 'Przychód'
+            cost_basis: 'Koszt nabycia'
+            gain_loss: 'Zysk/Strata'
+            currency: 'Waluta'
+            holding_days: 'Dni posiadania'
+            fee: 'Opłata'
+            exchange: 'Giełda'
+            tx_id: 'ID transakcji'
+            cost_basis_complete: 'Koszt nabycia kompletny'
+            acquisition_date: 'Data nabycia'
+            old_stock: 'Stary zasób'
+            tax_exempt: 'Zwolniony'
+            term: 'Okres'
+            matching_rule: 'Reguła dopasowania'
+        no_taxable_transactions: 'Nie znaleziono transakcji podlegających opodatkowaniu dla tego okresu.'
