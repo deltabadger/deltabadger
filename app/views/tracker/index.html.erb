@@ -3,6 +3,7 @@
 <% if @pending_report %>
   <div data-controller="auto-download" data-auto-download-url-value="<%= download_tax_report_reports_path(country: @pending_report[:country], year: @pending_report[:year]) %>"></div>
 <% end %>
+<div style="text-wrap: balance; padding: 6rem 0; color: var(--ink); text-align: center;"><%= t('tracker.beta_notice') %></div>
 <div class="two-row-filters">
   <div class="two-row-filters__row">
     <div class="filters">
@@ -37,8 +38,20 @@
         <% end %>
       <% end %>
 
-      <%= link_to new_tracker_pick_exchange_path, class: 'sbutton sbutton--icon', data: { turbo_frame: 'modal' } do %>
-        <%= render "svg/24x24_plus" %>
+      <% if @addable_exchanges.any? %>
+        <div data-controller="dropdown" data-action="click->dropdown#toggle" data-dropdown-target="wrapper" class="dropdown-wrapper">
+          <div class="sbutton sbutton--icon">
+            <%= render "svg/24x24_plus" %>
+          </div>
+          <div class="dropdown dropdown--exchanges">
+            <% @addable_exchanges.each do |exchange| %>
+              <%= link_to new_tracker_add_api_key_path(exchange_id: exchange.id), class: "dropdown__item", data: { turbo_frame: "modal" } do %>
+                <%= render "svg/exchange-#{exchange.name_id}" %>
+                <%= exchange.name %>
+              <% end %>
+            <% end %>
+          </div>
+        </div>
       <% end %>
     </div>
 

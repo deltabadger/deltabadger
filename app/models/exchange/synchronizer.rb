@@ -121,9 +121,9 @@ module Exchange::Synchronizer
     return if new_crypto_assets.empty? || skip_async_jobs
 
     if new_crypto_assets.count == 1
-      Asset::FetchDataFromCoinGeckoJob.perform_later(new_crypto_assets.first)
+      Asset::FetchDataFromCoingeckoJob.perform_later(new_crypto_assets.first)
     else
-      Asset::FetchAllAssetsDataFromCoinGeckoJob.perform_later
+      Asset::FetchAllAssetsDataFromCoingeckoJob.perform_later
     end
   end
 

@@ -488,12 +488,15 @@ class Exchanges::Binance < Exchange
       }
     end
 
-    # Discover traded symbols from balances + deposit/withdrawal coins
-    traded_coins = discover_traded_coins(hm_client, entries)
-    symbols_map = load_exchange_symbols(hm_client)
-    traded_symbols = symbols_map.keys.select { |sym| traded_coins.include?(symbols_map[sym][:base]) }
+    # Discover traded symbols and fetch spot trades
+    if start_time
+      traded_symbols = known_traded_symbols(api_key)
+    else
+      traded_coins = discover_traded_coins(hm_client, entries)
+      symbols_map = load_exchange_symbols(hm_client)
+      traded_symbols = symbols_map.keys.select { |sym| traded_coins.include?(symbols_map[sym][:base]) }
+    end
 
-    # Spot trades
     traded_symbols.each do |symbol|
       result = hm_client.account_trade_list(symbol: symbol, start_time: start_ms)
       next if result.failure?
@@ -669,6 +672,16 @@ class Exchanges::Binance < Exchange
 
   def symbol_pair_quote(symbol)
     @exchange_symbols_map&.dig(symbol, :quote) || tickers.find_by(ticker: symbol)&.quote || symbol
+  end
+
+  def known_traded_symbols(api_key)
+    AccountTransaction.where(api_key: api_key)
+                      .where.not(quote_currency: nil)
+                      .where(entry_type: %i[buy sell swap_in swap_out])
+                      .distinct
+                      .pluck(:base_currency, :quote_currency)
+                      .map { |base, quote| "#{base}#{quote}" }
+                      .uniq
   end
 
   def discover_traded_coins(hm_client, entries)

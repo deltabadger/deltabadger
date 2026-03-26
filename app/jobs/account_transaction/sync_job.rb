@@ -1,6 +1,6 @@
 class AccountTransaction::SyncJob < ApplicationJob
   queue_as :low_priority
-  limits_concurrency to: 1, key: ->(api_key) { "account_sync_#{api_key.exchange.name_id}" }
+  limits_concurrency to: 1, key: ->(api_key) { "account_sync_#{api_key.exchange.name_id}" }, on_conflict: :discard
 
   def perform(api_key)
     exchange_name = api_key.exchange.name
@@ -12,6 +12,9 @@ class AccountTransaction::SyncJob < ApplicationJob
 
     sleep 0.5 # Allow last progress broadcast to be delivered before replacing
     broadcast_done(user_id)
+  rescue StandardError => e
+    broadcast_done(api_key.user_id)
+    raise e
   end
 
   private
@@ -29,9 +32,6 @@ class AccountTransaction::SyncJob < ApplicationJob
     Turbo::StreamsChannel.broadcast_remove_to(
       "user_#{user_id}", :sync,
       target: 'sync-progress'
-    )
-    Turbo::StreamsChannel.broadcast_refresh_to(
-      "user_#{user_id}", :sync
     )
   end
 end

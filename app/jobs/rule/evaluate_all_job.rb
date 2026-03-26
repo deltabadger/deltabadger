@@ -1,6 +1,6 @@
 class Rule::EvaluateAllJob < ApplicationJob
   queue_as :default
-  limits_concurrency to: 1, key: -> { 'evaluate_all_rules' }
+  limits_concurrency to: 1, key: -> { 'evaluate_all_rules' }, on_conflict: :discard
 
   def perform
     Rule.where(status: :scheduled).find_each do |rule|

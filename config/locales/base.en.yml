@@ -371,7 +371,8 @@ en:
         connect_exchange: 'Connect exchange'
         import_from: 'Import transactions from'
         search_exchange: 'Search exchange...'
-        setup_coingecko: 'To generate a report, historical prices from CoinGecko are required. Their free plan covers up to 2 years of history. For older transactions, upgrade to CoinGecko Analyst or join deltabadger.com where market data is included.'
+        setup_coingecko_html: 'To generate a tax report, historical prices are required. <b>CoinGecko</b> free plan covers up to 2 years of history. For older transactions, upgrade to <b>CoinGecko Analyst</b> or join <a href="https://deltabadger.com">deltabadger.com</a> where market data is included.'
+        beta_notice: 'Tax reporting is still in beta. Generate a report, share it with your accountant, and let me know what could be improved. With your feedback, it can be perfect.'
         export_modal:
             title: 'Generate Report'
             tax_report: 'Tax Report'
