@@ -46,7 +46,7 @@ class MarketData
   end
 
   def self.coingecko
-    @coingecko ||= CoinGecko.new(api_key: AppConfig.coingecko_api_key)
+    @coingecko ||= Coingecko.new(api_key: AppConfig.coingecko_api_key)
   end
 
   # CoinGecko sync methods (delegate to existing job logic)
@@ -73,7 +73,7 @@ class MarketData
   def self.sync_indices_from_coingecko!
     return Result::Failure.new('CoinGecko API key not configured') unless AppConfig.coingecko_configured?
 
-    Index::SyncFromCoinGeckoJob.perform_later
+    Index::SyncFromCoingeckoJob.perform_later
     Result::Success.new
   end
 
