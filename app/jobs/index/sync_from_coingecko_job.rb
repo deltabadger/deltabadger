@@ -1,5 +1,6 @@
-class Index::SyncFromCoinGeckoJob < ApplicationJob
+class Index::SyncFromCoingeckoJob < ApplicationJob
   queue_as :low_priority
+  limits_concurrency to: 1, key: -> { name }, on_conflict: :discard, duration: 1.hour
 
   def perform
     return unless MarketData.configured?

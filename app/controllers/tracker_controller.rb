@@ -7,6 +7,7 @@ class TrackerController < ApplicationController
     @exchanges = Exchange.where(id: exchange_ids).order(:name)
     @exchanges_with_valid_keys = current_user.api_keys.where(key_type: :trading, status: :correct).pluck(:exchange_id).to_set
     @has_syncable_keys = @exchanges_with_valid_keys.any?
+    @addable_exchanges = Exchange.available.where.not(id: exchange_ids).order(:name)
     user_transactions = AccountTransaction.for_user(current_user)
     @date_from = params[:from].presence || user_transactions.minimum(:transacted_at)&.to_date&.iso8601
     @date_to = params[:to].presence || Date.current.iso8601
@@ -128,7 +129,7 @@ class TrackerController < ApplicationController
   def validate_coingecko_api_key(api_key)
     return false if api_key.blank?
 
-    coingecko = CoinGecko.new(api_key: api_key)
+    coingecko = Coingecko.new(api_key: api_key)
     result = coingecko.get_top_coins_by_market_cap(limit: 5)
     result.success?
   end

@@ -8,13 +8,13 @@ class TrackerTest < ActionDispatch::IntegrationTest
     sign_in @user
   end
 
-  test 'index page loads with connect button when no exchanges connected' do
+  test 'index page loads with add exchange dropdown when no exchanges connected' do
     user_no_keys = create(:user, setup_completed: true)
     sign_in user_no_keys
 
     get reports_path
     assert_response :success
-    assert_match 'pick_exchange', response.body
+    assert_select '.dropdown--exchanges'
   end
 
   test 'index page loads with table when transactions exist' do

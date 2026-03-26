@@ -33,7 +33,7 @@ Deltabadger is an open-source Dollar Cost Averaging (DCA) bot for cryptocurrency
 - API clients: `app/services/exchange_api/clients/`
 
 **Asset** — cryptocurrencies and fiat currencies
-- Identified by `external_id` (CoinGecko ID)
+- Identified by `external_id` (Coingecko ID)
 - Many-to-many with Exchange through `ExchangeAsset`
 
 **Ticker** — trading pairs on exchanges (e.g., BTC/USD on Kraken)

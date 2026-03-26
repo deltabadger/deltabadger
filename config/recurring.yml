@@ -7,11 +7,11 @@ production:
     schedule: "15 */4 * * *"  # every 4 hours at minute 15
 
   fetch_all_assets_data_from_coingecko_job:
-    class: Asset::FetchAllAssetsDataFromCoinGeckoJob
+    class: Asset::FetchAllAssetsDataFromCoingeckoJob
     schedule: "20 0 * * *"  # Daily at 00:20 UTC
 
   sync_indices_from_coingecko_job:
-    class: Index::SyncFromCoinGeckoJob
+    class: Index::SyncFromCoingeckoJob
     schedule: "50 0 * * *"  # Daily at 00:50 UTC (after asset sync)
 
   repair_orphaned_bots_job:
@@ -36,11 +36,11 @@ development:
     schedule: "15 */4 * * *"  # every 4 hours at minute 15
 
   fetch_all_assets_data_from_coingecko_job:
-    class: Asset::FetchAllAssetsDataFromCoinGeckoJob
+    class: Asset::FetchAllAssetsDataFromCoingeckoJob
     schedule: "20 0 * * *"  # Daily at 00:20 UTC
 
   sync_indices_from_coingecko_job:
-    class: Index::SyncFromCoinGeckoJob
+    class: Index::SyncFromCoingeckoJob
     schedule: "50 0 * * *"  # Daily at 00:50 UTC (after asset sync)
 
   repair_orphaned_bots_job:
