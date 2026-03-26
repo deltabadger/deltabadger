@@ -94,7 +94,7 @@ fr:
         earn: 'Gagner'
         resend_link: 'Renvoyer le lien'
         rules: Règles
-        tracker: Tracker
+        tracker: Reports
         settings: 'Paramètres'
         connections: Connecter
         account: Compte
@@ -348,13 +348,23 @@ fr:
     tracker:
         sync: 'Synchroniser'
         sync_started: 'Synchronisation des transactions depuis vos plateformes...'
-        export: 'Exporter CSV'
+        importing_from: 'Importation des données depuis %{exchange}…'
+        get_report: 'Obtenir le rapport'
         filter: 'Filtrer'
         bot: 'Bot'
         no_results: 'Aucune transaction trouvée pour les filtres sélectionnés.'
         connect_exchange: 'Connecter une plateforme'
         import_from: 'Importer les transactions de'
         search_exchange: 'Rechercher une plateforme...'
+        setup_coingecko: "Pour générer un rapport, les prix historiques de CoinGecko sont nécessaires. Leur offre gratuite couvre jusqu'à 2 ans d'historique. Pour des transactions plus anciennes, passez à CoinGecko Analyst ou rejoignez deltabadger.com où les données de marché sont incluses."
+        export_modal:
+            title: 'Générer le rapport'
+            tax_report: 'Rapport fiscal'
+            transactions: 'Tout'
+            country: 'Pays'
+            year: 'Année'
+            download: 'Générer'
+            stablecoin_as_fiat: 'Traiter les stablecoins comme du fiat (demandez à votre comptable)'
         filters:
             all: 'Tous'
         columns:
@@ -386,3 +396,25 @@ fr:
         successful: 'Réussis'
         cancelled: 'Annulés'
         waiting: 'Programmés'
+    tax_report:
+        headers:
+            date: 'Date'
+            asset: 'Actif'
+            amount: 'Montant'
+            proceeds: 'Produit'
+            cost_basis: 'Coût d''acquisition'
+            gain_loss: 'Plus/Moins-value'
+            currency: 'Devise'
+            holding_days: 'Durée de détention (jours)'
+            fee: 'Frais'
+            exchange: 'Plateforme'
+            tx_id: 'ID de transaction'
+            cost_basis_complete: 'Coût d''acquisition complet'
+            acquisition_date: 'Date d''acquisition'
+            old_stock: 'Ancien stock'
+            tax_exempt: 'Exonéré'
+            term: 'Durée'
+            matching_rule: 'Règle de correspondance'
+            total_acquisition_cost: 'Coût total d''acquisition'
+            portfolio_value: 'Valeur globale du portefeuille'
+        no_taxable_transactions: 'Aucune transaction imposable trouvée pour cette période.'

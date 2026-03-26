@@ -46,7 +46,7 @@ class MarketData
   end
 
   def self.coingecko
-    @coingecko ||= Coingecko.new(api_key: AppConfig.coingecko_api_key)
+    @coingecko ||= CoinGecko.new(api_key: AppConfig.coingecko_api_key)
   end
 
   # CoinGecko sync methods (delegate to existing job logic)
@@ -73,7 +73,7 @@ class MarketData
   def self.sync_indices_from_coingecko!
     return Result::Failure.new('CoinGecko API key not configured') unless AppConfig.coingecko_configured?
 
-    Index::SyncFromCoingeckoJob.perform_later
+    Index::SyncFromCoinGeckoJob.perform_later
     Result::Success.new
   end
 
@@ -132,6 +132,20 @@ class MarketData
       return Result::Failure.new("Price not found for #{coin_id} in #{currency}") if price.nil?
 
       Result::Success.new(price)
+    else
+      Result::Failure.new('No market data provider configured')
+    end
+  end
+
+  def self.get_historical_price_range(coin_id:, currency:, from:, to:)
+    case MarketDataSettings.current_provider
+    when MarketDataSettings::PROVIDER_COINGECKO
+      coingecko.get_historical_price_range(coin_id: coin_id, currency: currency, from: from, to: to)
+    when MarketDataSettings::PROVIDER_DELTABADGER
+      result = client.get_historical_prices(coin_id: coin_id, currency: currency, from: from, to: to)
+      return result if result.success?
+
+      Result::Failure.new('Historical prices not available via data-api. Configure CoinGecko API key directly.')
     else
       Result::Failure.new('No market data provider configured')
     end

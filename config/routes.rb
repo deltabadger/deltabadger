@@ -44,11 +44,12 @@ Rails.application.routes.draw do
       post 'verify_two_factor', to: 'users/sessions#verify_two_factor'
     end
 
-    resources :tracker, only: [:index] do
+    resources :reports, only: [:index], controller: 'tracker' do
       collection do
         post :sync
         get :export
         get :export_modal
+        post :setup_coingecko
         get :tax_report
         get :download_tax_report
         patch :save_export_settings

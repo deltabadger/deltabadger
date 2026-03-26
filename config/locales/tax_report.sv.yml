@@ -1,0 +1,19 @@
+sv:
+    tax_report:
+        headers:
+            date: 'Datum'
+            asset: 'Tillgång'
+            amount: 'Antal'
+            proceeds: 'Försäljningspris'
+            cost_basis: 'Omkostnadsbelopp'
+            gain_loss: 'Vinst/Förlust'
+            currency: 'Valuta'
+            fee: 'Avgift'
+            exchange: 'Börs'
+            tx_id: 'Transaktions-ID'
+            cost_basis_complete: 'Omkostnadsbelopp komplett'
+        no_taxable_transactions: 'Inga skattepliktiga transaktioner hittades för denna period.'
+        summary:
+            total_gains: 'Totala vinster'
+            total_losses: 'Totala förluster'
+            deductible: 'avdragsgill'

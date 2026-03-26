@@ -1,0 +1,25 @@
+el:
+    tax_report:
+        headers:
+            date: 'Ημερομηνία'
+            acquisition_date: 'Ημερομηνία απόκτησης'
+            asset: 'Περιουσιακό στοιχείο'
+            amount: 'Ποσότητα'
+            proceeds: 'Έσοδα'
+            cost_basis: 'Κόστος κτήσης'
+            gain_loss: 'Κέρδος/Ζημία'
+            currency: 'Νόμισμα'
+            holding_days: 'Ημέρες κατοχής'
+            fee: 'Προμήθεια'
+            exchange: 'Ανταλλακτήριο'
+            tx_id: 'Αναγνωριστικό συναλλαγής'
+            cost_basis_complete: 'Πλήρες κόστος κτήσης'
+        no_taxable_transactions: 'Δεν βρέθηκαν φορολογητέες συναλλαγές για αυτήν την περίοδο.'
+        summary:
+            total_gains: 'Συνολικά κέρδη'
+            total_losses: 'Συνολικές ζημίες'
+            taxable_income: 'Φορολογητέο εισόδημα'
+            tax_15: 'Φόρος (15%)'
+        warnings:
+            missing_prices: 'Λείπουν ιστορικές τιμές για'
+            upgrade_hint: 'Αναβαθμίστε το πλάνο CoinGecko ή χρησιμοποιήστε το deltabadger.com για πλήρη ιστορικά δεδομένα.'

@@ -1,4 +1,4 @@
-class Index::SyncFromCoingeckoJob < ApplicationJob
+class Index::SyncFromCoinGeckoJob < ApplicationJob
   queue_as :low_priority
 
   def perform

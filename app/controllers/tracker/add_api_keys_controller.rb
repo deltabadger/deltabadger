@@ -13,7 +13,9 @@ class Tracker::AddApiKeysController < ApplicationController
       result = @api_key.get_validity
       @api_key.update_status!(result)
     end
-    redirect_to tracker_index_path if @api_key.correct?
+    return redirect_to reports_path if @api_key.correct?
+
+    render :reconnect if turbo_frame_request_id == 'modal'
   end
 
   def create
@@ -29,8 +31,7 @@ class Tracker::AddApiKeysController < ApplicationController
     if @api_key.correct?
       session.delete(:tracker_connect)
       AccountTransaction::SyncJob.perform_later(@api_key)
-      flash[:notice] = t('tracker.sync_started')
-      render turbo_stream: turbo_stream_redirect(tracker_index_path)
+      render turbo_stream: turbo_stream_redirect(reports_path)
     elsif @api_key.incorrect?
       flash.now[:alert] = t('errors.incorrect_api_key_permissions')
       render turbo_stream: turbo_stream_prepend_flash, status: :unprocessable_entity
@@ -47,6 +48,13 @@ class Tracker::AddApiKeysController < ApplicationController
   end
 
   def tracker_exchange
+    if params[:exchange_id].present?
+      exchange = Exchange.find_by(id: params[:exchange_id])
+      if exchange
+        session[:tracker_connect] = { 'exchange_id' => exchange.id }
+        return exchange
+      end
+    end
     exchange_id = session.dig('tracker_connect', 'exchange_id')
     Exchange.find_by(id: exchange_id) if exchange_id
   end

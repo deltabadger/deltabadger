@@ -1,0 +1,13 @@
+<%= render 'layouts/modal/base' do %>
+  <div class="modal">
+    <%= button_tag type: 'button', class: 'modal__close', data: { action: 'modal--base#animateOutCloseAndCleanUp' } do %>
+      <%= render partial: 'svg/24x24_close' %>
+    <% end %>
+    <%= render partial: 'shared/api_key_form', locals: {
+      exchange: @exchange,
+      api_key: @api_key,
+      path: tracker_add_api_key_path,
+      form_data: { controller: "", action: "turbo:submit-end->modal--base#submitEnd" }
+    } %>
+  </div>
+<% end %>
