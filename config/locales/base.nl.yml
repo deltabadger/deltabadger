@@ -175,6 +175,7 @@ nl:
             tools_read: 'Lezen'
             tools_control: 'Besturing'
             tools_trade: 'Handel'
+            tools_tax: 'Belasting & rapporten'
             tools:
                 list_bots:
                     label: 'Bots weergeven'
@@ -233,6 +234,24 @@ nl:
                 list_open_orders:
                     label: 'Open orders'
                     description: 'Bekijk openstaande (niet-uitgevoerde) orders'
+                list_tax_jurisdictions:
+                    label: 'Belastingjurisdicties'
+                    description: 'Ondersteunde landen en belastingmethoden bekijken'
+                generate_tax_report:
+                    label: 'Belastingrapport genereren'
+                    description: 'Belastingrapport op de achtergrond genereren'
+                get_tax_report_status:
+                    label: 'Status belastingrapport'
+                    description: 'Controleren of een belastingrapport klaar is'
+                download_tax_report:
+                    label: 'Belastingrapport downloaden'
+                    description: 'Gegenereerd belastingrapport als CSV ophalen'
+                export_transactions_csv:
+                    label: 'Transacties als CSV exporteren'
+                    description: 'Rekeningtransacties als CSV exporteren'
+                list_account_transactions:
+                    label: 'Rekeningtransacties'
+                    description: 'Trackertransacties met filters bekijken'
             dry_run_title: 'Paper Trading'
             dry_run_description: 'Simuleer transacties met echte marktprijzen. Er worden geen echte orders geplaatst.'
             dry_run_label: 'Paper trading voor handelstools inschakelen'
