@@ -94,7 +94,7 @@ it:
         earn: 'Guadagna'
         resend_link: 'Reinvia link'
         rules: Regole
-        tracker: Tracker
+        tracker: Reports
         settings: Impostazioni
         connections: Connetti
         account: Account
@@ -348,12 +348,22 @@ it:
     tracker:
         sync: 'Sincronizza'
         sync_started: 'Sincronizzazione delle transazioni dai tuoi exchange...'
-        export: 'Esporta CSV'
+        importing_from: 'Importazione dati da %{exchange}…'
+        get_report: 'Ottieni report'
         filter: 'Filtra'
         no_results: 'Nessuna transazione trovata per i filtri selezionati.'
         connect_exchange: 'Collega exchange'
         import_from: 'Importa transazioni da'
         search_exchange: 'Cerca exchange...'
+        setup_coingecko: 'Per generare un report servono i prezzi storici di CoinGecko. Il piano gratuito copre fino a 2 anni di storico. Per transazioni più vecchie, passa a CoinGecko Analyst o unisciti a deltabadger.com dove i dati di mercato sono inclusi.'
+        export_modal:
+            title: 'Genera report'
+            tax_report: 'Report fiscale'
+            transactions: 'Tutto'
+            country: 'Paese'
+            year: 'Anno'
+            download: 'Genera'
+            stablecoin_as_fiat: 'Tratta le stablecoin come fiat (chiedi al tuo commercialista)'
         filters:
             all: 'Tutti'
         columns:
@@ -385,3 +395,25 @@ it:
         successful: 'Riusciti'
         cancelled: 'Annullati'
         waiting: 'Programmati'
+    tax_report:
+        headers:
+            date: 'Data'
+            asset: 'Attività'
+            amount: 'Quantità'
+            proceeds: 'Ricavi'
+            cost_basis: 'Costo di acquisto'
+            gain_loss: 'Utile/Perdita'
+            currency: 'Valuta'
+            holding_days: 'Giorni di detenzione'
+            fee: 'Commissione'
+            exchange: 'Exchange'
+            tx_id: 'ID transazione'
+            cost_basis_complete: 'Costo di acquisto completo'
+            acquisition_date: 'Data di acquisto'
+            old_stock: 'Vecchio stock'
+            tax_exempt: 'Esente'
+            term: 'Periodo'
+            matching_rule: 'Regola di abbinamento'
+            tax_rate: 'Aliquota'
+            exempt: 'Esente (soglia)'
+        no_taxable_transactions: 'Nessuna transazione imponibile trovata per questo periodo.'

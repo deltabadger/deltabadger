@@ -94,7 +94,7 @@ nl:
         earn: Verdien
         resend_link: 'Link verzenden'
         rules: Regels
-        tracker: Tracker
+        tracker: Reports
         settings: Instellingen
         connections: Verbinden
         account: Account
@@ -348,12 +348,22 @@ nl:
     tracker:
         sync: 'Synchroniseren'
         sync_started: 'Transacties worden gesynchroniseerd van je exchanges...'
-        export: 'CSV exporteren'
+        importing_from: 'Gegevens worden geïmporteerd van %{exchange}…'
+        get_report: 'Rapport ophalen'
         filter: 'Filteren'
         no_results: 'Geen transacties gevonden voor de geselecteerde filters.'
         connect_exchange: 'Exchange verbinden'
         import_from: 'Transacties importeren van'
         search_exchange: 'Exchange zoeken...'
+        setup_coingecko: 'Om een rapport te genereren zijn historische prijzen van CoinGecko nodig. Het gratis abonnement dekt tot 2 jaar historie. Voor oudere transacties kun je upgraden naar CoinGecko Analyst of je aansluiten bij deltabadger.com waar marktdata inbegrepen is.'
+        export_modal:
+            title: 'Rapport genereren'
+            tax_report: 'Belastingrapport'
+            transactions: 'Alles'
+            country: 'Land'
+            year: 'Jaar'
+            download: 'Genereren'
+            stablecoin_as_fiat: 'Stablecoins als fiat behandelen (vraag het je boekhouder)'
         filters:
             all: 'Alle'
         columns:
@@ -385,3 +395,31 @@ nl:
         successful: 'Geslaagd'
         cancelled: 'Geannuleerd'
         waiting: 'Gepland'
+    tax_report:
+        headers:
+            date: 'Datum'
+            asset: 'Activum'
+            amount: 'Bedrag'
+            proceeds: 'Opbrengst'
+            cost_basis: 'Aanschafkosten'
+            gain_loss: 'Winst/Verlies'
+            currency: 'Valuta'
+            holding_days: 'Houdperiode (dagen)'
+            fee: 'Kosten'
+            exchange: 'Exchange'
+            tx_id: 'Transactie-ID'
+            cost_basis_complete: 'Aanschafkosten volledig'
+            acquisition_date: 'Aanschafdatum'
+            old_stock: 'Oud bezit'
+            tax_exempt: 'Vrijgesteld'
+            term: 'Termijn'
+            matching_rule: 'Toewijzingsregel'
+            value: 'Waarde'
+            reference_date: 'Peildatum'
+        no_taxable_transactions: 'Geen belastbare transacties gevonden voor deze periode.'
+        summary:
+            total_value: 'Totale waarde'
+            allowance: 'Heffingsvrij vermogen'
+            taxable_wealth: 'Belastbaar vermogen'
+            deemed_return: 'Forfaitair rendement'
+            tax: 'Belasting'

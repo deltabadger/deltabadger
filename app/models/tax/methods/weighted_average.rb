@@ -6,7 +6,7 @@ module Tax
       # On disposal, gain = proceeds - (average_cost × amount_sold).
       #
       # Used by: France ("prix moyen pondéré"), Sweden ("genomsnittsmetoden")
-      def calculate(transactions)
+      def calculate(transactions, **_options)
         pools = Hash.new { |h, k| h[k] = { total_amount: 0.to_d, total_cost: 0.to_d } }
         disposals = []
 
@@ -35,6 +35,7 @@ module Tax
               fee: fee_fiat,
               gain_loss: fiat_value - cost_basis - fee_fiat,
               holding_days: nil,
+              cost_basis_complete: pool[:total_amount].positive?,
               tx_id: tx[:tx_id],
               exchange: tx[:exchange]
             }

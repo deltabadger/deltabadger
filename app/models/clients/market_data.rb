@@ -48,6 +48,15 @@ class Clients::MarketData < Client
     end
   end
 
+  def get_historical_prices(coin_id:, currency:, from:, to:)
+    with_rescue do
+      response = connection.get('api/v1/historical_prices') do |req|
+        req.params = { coin_id: coin_id, currency: currency, from: from.to_i, to: to.to_i }
+      end
+      Result::Success.new(response.body)
+    end
+  end
+
   private
 
   def connection

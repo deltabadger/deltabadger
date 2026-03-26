@@ -5,24 +5,24 @@ export default class extends Controller {
   static targets = ["coingeckoFields", "coingeckoButtons", "deltabadgerButtons"]
 
   selectNone(event) {
-    this.#hideCoingeckoForm()
+    this.#hideCoinGeckoForm()
     this.#hideDeltabadgerButtons()
     this.element.requestSubmit()
   }
 
-  selectCoingecko(event) {
+  selectCoinGecko(event) {
     this.#hideDeltabadgerButtons()
     this.element.requestSubmit()
   }
 
   selectDeltabadger(event) {
-    this.#hideCoingeckoForm()
+    this.#hideCoinGeckoForm()
     this.element.requestSubmit()
   }
 
-  #hideCoingeckoForm() {
-    if (this.hasCoingeckoFieldsTarget) this.coingeckoFieldsTarget.style.display = 'none'
-    if (this.hasCoingeckoButtonsTarget) this.coingeckoButtonsTarget.style.display = 'none'
+  #hideCoinGeckoForm() {
+    if (this.hasCoinGeckoFieldsTarget) this.coingeckoFieldsTarget.style.display = 'none'
+    if (this.hasCoinGeckoButtonsTarget) this.coingeckoButtonsTarget.style.display = 'none'
   }
 
   #hideDeltabadgerButtons() {

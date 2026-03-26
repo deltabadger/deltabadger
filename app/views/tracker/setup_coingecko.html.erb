@@ -1,0 +1,27 @@
+<%= render 'layouts/modal/base' do %>
+  <div class="modal">
+    <%= button_tag type: 'button', class: 'modal__close', data: { action: 'modal--base#animateOutCloseAndCleanUp' } do %>
+      <%= render partial: 'svg/24x24_close' %>
+    <% end %>
+    <div class="set-api">
+      <div class="set-api__form">
+        <h2 class="set-api__header"><%= t('setup.coingecko_api_key') %></h2>
+        <p><%= t('tracker.setup_coingecko') %></p>
+        <%= form_with url: setup_coingecko_reports_path, method: :post, data: {
+          controller: 'form--label-animations form--html5-validations',
+          action: 'turbo:submit-end->modal--base#submitEnd'
+        }, class: 'form' do |f| %>
+          <div class="form__row form__row--input">
+            <%= tag.input class: 'form__input form__input--large', type: 'text', name: 'api_key', required: true, id: 'api_key', autocomplete: 'off', autofocus: true, data: { controller: 'autofocus' } %>
+            <%= label_tag :api_key, t('setup.coingecko_api_key'), class: 'form__label' %>
+          </div>
+          <%= f.submit t('button.connect'), class: 'button button--success button--large', data: { turbo_stream: true, turbo_submits_with: t('bot.setup.validating') } %>
+        <% end %>
+      </div>
+      <div class="set-api__instructions">
+        <h2 class="set-api__header"><%= t('setup.coingecko_api_key') %></h2>
+        <%= t('setup.coingecko_api_key_hint_html').html_safe %>
+      </div>
+    </div>
+  </div>
+<% end %>

@@ -1,10 +1,11 @@
 class Tax::GenerateReportJob < ApplicationJob
   queue_as :low_priority
 
-  def perform(user_id, country, year)
+  def perform(user_id, country, year, stablecoin_as_fiat = false) # rubocop:disable Style/OptionalBooleanParameter
     user = User.find(user_id)
     transactions = AccountTransaction.for_user(user)
-    report = Tax::Report.new(country: country, year: year, transactions: transactions)
+    report = Tax::Report.new(country: country, year: year, transactions: transactions,
+                             stablecoin_as_fiat: stablecoin_as_fiat)
 
     last_percent = 0
     csv_data = report.to_csv do |percent, _total|
@@ -17,6 +18,8 @@ class Tax::GenerateReportJob < ApplicationJob
     file_path = tax_report_path(user_id, country, year)
     FileUtils.mkdir_p(File.dirname(file_path))
     File.write(file_path, csv_data)
+
+    sleep 0.5 # Allow last progress broadcast to be delivered before replacing
 
     Turbo::StreamsChannel.broadcast_replace_to(
       "user_#{user_id}", :tax_report,

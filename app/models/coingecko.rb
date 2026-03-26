@@ -1,4 +1,4 @@
-class Coingecko
+class CoinGecko
   def initialize(api_key: nil)
     @api_key = api_key
   end
@@ -30,7 +30,7 @@ class Coingecko
       return Result::Success.new(all_tickers) if result.data['tickers'].count < tickers_per_page
     end
 
-    raise "Too many attempts to get #{exchange_id} tickers by id from Coingecko. " \
+    raise "Too many attempts to get #{exchange_id} tickers by id from CoinGecko. " \
           'Adjust the number of pages in the loop if needed.'
   end
 
@@ -71,7 +71,7 @@ class Coingecko
       end
     end
 
-    raise 'Too many attempts to get coins with market data from Coingecko. ' \
+    raise 'Too many attempts to get coins with market data from CoinGecko. ' \
           'Adjust the number of pages in the loop if needed.'
   end
 
@@ -175,9 +175,17 @@ class Coingecko
     Result::Success.new(categories)
   end
 
+  def get_historical_price_range(coin_id:, currency:, from:, to:)
+    return Result::Failure.new('CoinGecko API key not configured') if @api_key.blank?
+
+    client.coin_historical_chart_data_within_time_range_by_id(
+      coin_id: coin_id, vs_currency: currency, from: from, to: to, interval: 'daily'
+    )
+  end
+
   private
 
   def client
-    @client ||= Clients::Coingecko.new(api_key: @api_key)
+    @client ||= Clients::CoinGecko.new(api_key: @api_key)
   end
 end

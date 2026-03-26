@@ -1,4 +1,4 @@
-class Asset::FetchAllAssetsDataFromCoingeckoJob < ApplicationJob
+class Asset::FetchAllAssetsDataFromCoinGeckoJob < ApplicationJob
   queue_as :low_priority
 
   def perform

@@ -20,4 +20,4 @@ General queues: `mailers`, `api_keys_validation`, `starting_bots`, `low_priority
 - `Bot::FetchAndUpdateOrderJob` — poll exchange for order status
 - `Bot::UpdateMetricsJob` — update bot performance metrics
 - `Exchange::SyncAllTickersAndAssetsJob` — sync market data (recurring)
-- `Asset::FetchAllAssetsDataFromCoingeckoJob` — fetch asset metadata (recurring)
+- `Asset::FetchAllAssetsDataFromCoinGeckoJob` — fetch asset metadata (recurring)
