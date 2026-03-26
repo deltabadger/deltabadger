@@ -1,6 +1,6 @@
 class Exchange::SyncAlpacaAssetsJob < ApplicationJob
   queue_as :default
-  limits_concurrency to: 1, key: -> { name }, on_conflict: :discard, duration: 1.hour
+  limits_concurrency to: 1, key: 'sync_alpaca_assets', on_conflict: :discard, duration: 1.hour
 
   def perform
     api_key = AppConfig.get('alpaca_api_key')

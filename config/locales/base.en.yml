@@ -169,6 +169,7 @@ en:
             tools_read: 'Read'
             tools_control: 'Control'
             tools_trade: 'Trade'
+            tools_tax: 'Tax & Reporting'
             tools:
                 list_bots:
                     label: 'List bots'
@@ -227,6 +228,24 @@ en:
                 list_open_orders:
                     label: 'List open orders'
                     description: 'View currently open (unfilled) orders'
+                list_tax_jurisdictions:
+                    label: 'Tax jurisdictions'
+                    description: 'View supported countries and tax methods'
+                generate_tax_report:
+                    label: 'Generate tax report'
+                    description: 'Start background tax report generation'
+                get_tax_report_status:
+                    label: 'Tax report status'
+                    description: 'Check if a tax report is ready'
+                download_tax_report:
+                    label: 'Download tax report'
+                    description: 'Retrieve generated tax report CSV'
+                export_transactions_csv:
+                    label: 'Export transactions CSV'
+                    description: 'Export account transactions as CSV'
+                list_account_transactions:
+                    label: 'Account transactions'
+                    description: 'View tracker transactions with filters'
             dry_run_title: 'Paper Trading'
             dry_run_description: 'Simulate trades with real market prices. No real orders are placed.'
             dry_run_label: 'Enable paper trading for trade tools'

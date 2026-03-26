@@ -1,6 +1,6 @@
 class Asset::FetchAllAssetsDataFromCoingeckoJob < ApplicationJob
   queue_as :low_priority
-  limits_concurrency to: 1, key: -> { name }, on_conflict: :discard, duration: 1.hour
+  limits_concurrency to: 1, key: 'fetch_all_assets_data_from_coingecko', on_conflict: :discard, duration: 1.hour
 
   def perform
     return unless MarketData.configured?

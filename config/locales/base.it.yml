@@ -175,6 +175,7 @@ it:
             tools_read: 'Lettura'
             tools_control: 'Controllo'
             tools_trade: 'Trading'
+            tools_tax: 'Fisco & report'
             tools:
                 list_bots:
                     label: 'Elenco bot'
@@ -233,6 +234,24 @@ it:
                 list_open_orders:
                     label: 'Ordini aperti'
                     description: 'Visualizzare gli ordini aperti (non eseguiti) attualmente'
+                list_tax_jurisdictions:
+                    label: 'Giurisdizioni fiscali'
+                    description: 'Visualizza i paesi supportati e i metodi fiscali'
+                generate_tax_report:
+                    label: 'Genera report fiscale'
+                    description: 'Avvia la generazione del report fiscale in background'
+                get_tax_report_status:
+                    label: 'Stato del report fiscale'
+                    description: 'Verifica se un report fiscale è pronto'
+                download_tax_report:
+                    label: 'Scarica report fiscale'
+                    description: 'Recupera il report fiscale generato in CSV'
+                export_transactions_csv:
+                    label: 'Esporta transazioni in CSV'
+                    description: 'Esporta le transazioni del conto in CSV'
+                list_account_transactions:
+                    label: 'Transazioni del conto'
+                    description: 'Visualizza le transazioni del tracker con filtri'
             dry_run_title: 'Paper Trading'
             dry_run_description: 'Simula operazioni con prezzi di mercato reali. Non vengono effettuati ordini reali.'
             dry_run_label: 'Attiva il paper trading per gli strumenti di trading'
