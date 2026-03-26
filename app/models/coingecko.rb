@@ -1,4 +1,4 @@
-class CoinGecko
+class Coingecko
   def initialize(api_key: nil)
     @api_key = api_key
   end
@@ -186,6 +186,6 @@ class CoinGecko
   private
 
   def client
-    @client ||= Clients::CoinGecko.new(api_key: @api_key)
+    @client ||= Clients::Coingecko.new(api_key: @api_key)
   end
 end

@@ -1,5 +1,6 @@
 class Bot::RepairOrphanedBotsJob < ApplicationJob
   queue_as :low_priority
+  limits_concurrency to: 1, key: -> { name }, on_conflict: :discard, duration: 15.minutes
 
   def perform
     orphaned_bots = find_orphaned_bots

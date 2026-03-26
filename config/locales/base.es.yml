@@ -356,7 +356,8 @@ es:
         connect_exchange: 'Conectar exchange'
         import_from: 'Importar transacciones de'
         search_exchange: 'Buscar exchange...'
-        setup_coingecko: 'Para generar un informe se necesitan precios históricos de CoinGecko. Su plan gratuito cubre hasta 2 años de historial. Para transacciones más antiguas, pasa a CoinGecko Analyst o únete a deltabadger.com, donde los datos de mercado están incluidos.'
+        setup_coingecko_html: 'Para generar un informe fiscal se necesitan precios históricos. El plan gratuito de <b>CoinGecko</b> cubre hasta 2 años de historial. Para transacciones más antiguas, pasa a <b>CoinGecko Analyst</b> o únete a <a href="https://deltabadger.com">deltabadger.com</a>, donde los datos de mercado están incluidos.'
+        beta_notice: 'Los informes fiscales aún están en fase beta. Genera un informe, compártelo con tu asesor fiscal y dime qué se puede mejorar. Con tu opinión, puede ser perfecto.'
         export_modal:
             title: 'Generar informe'
             tax_report: 'Informe fiscal'

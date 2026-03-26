@@ -1,4 +1,4 @@
-class Bots::DcaIndexes::SetupCoinGeckosController < ApplicationController
+class Bots::DcaIndexes::SetupCoingeckosController < ApplicationController
   before_action :authenticate_user!
 
   def new
@@ -31,7 +31,7 @@ class Bots::DcaIndexes::SetupCoinGeckosController < ApplicationController
   def validate_coingecko_api_key(api_key)
     return false if api_key.blank?
 
-    coingecko = CoinGecko.new(api_key: api_key)
+    coingecko = Coingecko.new(api_key: api_key)
     result = coingecko.get_top_coins_by_market_cap(limit: 5)
     result.success?
   end
