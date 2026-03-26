@@ -94,7 +94,7 @@ de:
         earn: Erzielen
         resend_link: Link erneut senden
         rules: Regeln
-        tracker: Tracker
+        tracker: Reports
         settings: Einstellungen
         connections: Verbinden
         account: Konto
@@ -348,13 +348,23 @@ de:
     tracker:
         sync: 'Synchronisieren'
         sync_started: 'Transaktionen werden von deinen Börsen synchronisiert...'
-        export: 'CSV exportieren'
+        importing_from: 'Daten werden von %{exchange} importiert…'
+        get_report: 'Bericht abrufen'
         filter: 'Filtern'
         bot: 'Bot'
         no_results: 'Keine Transaktionen für die ausgewählten Filter gefunden.'
         connect_exchange: 'Börse verbinden'
         import_from: 'Transaktionen importieren von'
         search_exchange: 'Börse suchen...'
+        setup_coingecko: 'Um einen Bericht zu erstellen, werden historische Kurse von CoinGecko benötigt. Der kostenlose Tarif deckt bis zu 2 Jahre ab. Für ältere Transaktionen auf CoinGecko Analyst upgraden oder deltabadger.com beitreten, wo Marktdaten inklusive sind.'
+        export_modal:
+            title: 'Bericht erstellen'
+            tax_report: 'Steuerbericht'
+            transactions: 'Alle'
+            country: 'Land'
+            year: 'Jahr'
+            download: 'Erstellen'
+            stablecoin_as_fiat: 'Stablecoins als Fiat behandeln (frag deinen Steuerberater)'
         filters:
             all: 'Alle'
         columns:
@@ -387,3 +397,31 @@ de:
         cancelled: 'Storniert'
         waiting: 'Geplant'
 
+    tax_report:
+        headers:
+            date: 'Datum'
+            asset: 'Vermögenswert'
+            amount: 'Menge'
+            proceeds: 'Erlös'
+            cost_basis: 'Anschaffungskosten'
+            gain_loss: 'Gewinn/Verlust'
+            currency: 'Währung'
+            holding_days: 'Haltedauer (Tage)'
+            fee: 'Gebühr'
+            exchange: 'Börse'
+            tx_id: 'Transaktions-ID'
+            cost_basis_complete: 'Anschaffungskosten vollständig'
+            acquisition_date: 'Anschaffungsdatum'
+            tax_exempt: 'Steuerfrei'
+            old_stock: 'Altbestand'
+            term: 'Frist'
+            matching_rule: 'Zuordnungsregel'
+            value: 'Wert'
+            reference_date: 'Stichtag'
+        no_taxable_transactions: 'Keine steuerpflichtigen Transaktionen für diesen Zeitraum gefunden.'
+        summary:
+            total_value: 'Gesamtwert'
+            allowance: 'Freibetrag'
+            taxable_wealth: 'Steuerbares Vermögen'
+            deemed_return: 'Pauschalertrag'
+            tax: 'Steuer'

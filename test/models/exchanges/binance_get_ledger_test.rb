@@ -18,6 +18,14 @@ class Exchanges::BinanceGetLedgerTest < ActiveSupport::TestCase
     hm_client.stubs(:asset_dividend).returns(Result::Success.new({ 'rows' => [] }))
     hm_client.stubs(:simple_earn_flexible_rewards).returns(Result::Success.new({ 'rows' => [], 'total' => 0 }))
     hm_client.stubs(:simple_earn_locked_rewards).returns(Result::Success.new({ 'rows' => [], 'total' => 0 }))
+    hm_client.stubs(:margin_interest_history).returns(Result::Success.new({ 'rows' => [] }))
+    hm_client.stubs(:margin_force_liquidation).returns(Result::Success.new({ 'rows' => [] }))
+    hm_client.stubs(:futures_income_history).returns(Result::Success.new([]))
+    hm_client.stubs(:coin_futures_income_history).returns(Result::Success.new([]))
+    hm_client.stubs(:simple_earn_flexible_subscriptions).returns(Result::Success.new({ 'rows' => [], 'total' => 0 }))
+    hm_client.stubs(:simple_earn_flexible_redemptions).returns(Result::Success.new({ 'rows' => [], 'total' => 0 }))
+    hm_client.stubs(:simple_earn_locked_subscriptions).returns(Result::Success.new({ 'rows' => [], 'total' => 0 }))
+    hm_client.stubs(:simple_earn_locked_redemptions).returns(Result::Success.new({ 'rows' => [], 'total' => 0 }))
 
     balances = extra_coins.map { |c| { 'asset' => c, 'free' => '1.0', 'locked' => '0' } }
     hm_client.stubs(:account_information).returns(Result::Success.new({ 'balances' => balances }))

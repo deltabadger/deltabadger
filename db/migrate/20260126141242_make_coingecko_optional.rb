@@ -1,4 +1,4 @@
-class MakeCoingeckoOptional < ActiveRecord::Migration[8.1]
+class MakeCoinGeckoOptional < ActiveRecord::Migration[8.1]
   def up
     # Mark all existing admin users as setup_completed
     # This ensures they skip the new simplified onboarding flow

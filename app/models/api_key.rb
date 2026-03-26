@@ -1,7 +1,7 @@
 class ApiKey < ApplicationRecord
   belongs_to :exchange
   belongs_to :user
-  has_many :account_transactions, dependent: :destroy
+  has_many :account_transactions, dependent: :nullify
 
   encrypts :key
   encrypts :secret

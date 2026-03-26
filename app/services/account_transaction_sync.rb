@@ -4,12 +4,16 @@ class AccountTransactionSync
     @exchange = api_key.exchange
   end
 
-  def sync!
+  def sync!(&progress)
     result = @exchange.get_ledger(api_key: @api_key, start_time: @api_key.last_synced_at)
     return result if result.failure?
 
+    entries = result.data
+    total = entries.size
     imported = 0
-    result.data.each do |entry|
+    last_percent = 0
+
+    entries.each_with_index do |entry, index|
       next if entry[:tx_id].present? && AccountTransaction.exists?(exchange: @exchange, tx_id: entry[:tx_id])
 
       # Nil out zero fees — per spec, empty fields when no fee
@@ -19,6 +23,7 @@ class AccountTransactionSync
       end
 
       at = AccountTransaction.new(
+        user: @api_key.user,
         api_key: @api_key,
         exchange: @exchange,
         entry_type: entry[:entry_type],
@@ -38,6 +43,14 @@ class AccountTransactionSync
       match_bot_transaction!(at) if at.buy? || at.sell? || at.swap_in? || at.swap_out?
       at.save!
       imported += 1
+
+      next unless progress && total.positive?
+
+      percent = ((index + 1) * 100 / total)
+      next unless percent != last_percent
+
+      last_percent = percent
+      progress.call(percent)
     end
 
     @api_key.update!(last_synced_at: Time.current)

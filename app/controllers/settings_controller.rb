@@ -371,7 +371,7 @@ class SettingsController < ApplicationController
   def validate_coingecko_api_key(api_key)
     return false if api_key.blank?
 
-    coingecko = Coingecko.new(api_key: api_key)
+    coingecko = CoinGecko.new(api_key: api_key)
     result = coingecko.get_coins_list_with_market_data(ids: ['bitcoin'], limit: 1)
     result.success?
   end

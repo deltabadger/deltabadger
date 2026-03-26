@@ -1,7 +1,8 @@
 class AccountTransaction < ApplicationRecord
   require 'csv'
 
-  belongs_to :api_key
+  belongs_to :user
+  belongs_to :api_key, optional: true
   belongs_to :exchange
   belongs_to :bot_transaction, class_name: 'Transaction', foreign_key: 'transaction_id', optional: true
 
@@ -17,7 +18,7 @@ class AccountTransaction < ApplicationRecord
   validates :transacted_at, presence: true
   validates :tx_id, uniqueness: { scope: :exchange_id }, allow_nil: true
 
-  scope :for_user, ->(user) { joins(:api_key).where(api_keys: { user_id: user.id }) }
+  scope :for_user, ->(user) { where(user_id: user.id) }
   scope :for_exchange, ->(exchange) { where(exchange_id: exchange.id) }
   scope :by_date, -> { order(transacted_at: :desc) }
   scope :by_date_asc, -> { order(transacted_at: :asc) }

@@ -1,0 +1,18 @@
+<% percent = local_assigns[:percent] %>
+<% if percent %>
+  <div id="sync-progress" class="flash__message salert salert--download">
+    <span><%= t('tracker.importing_from', exchange: exchange_name) %> <%= percent %>%</span>
+    <div class="slider">
+      <div class="slider__style">
+        <div class="slider__style__track" style="grid-template-columns: <%= percent %>% auto">
+          <div class="slider__style__progress"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+<% else %>
+  <div id="sync-progress" class="flash__message salert salert--syncing">
+    <div class="loader--syncing"></div>
+    <%= t('tracker.importing_from', exchange: exchange_name) %>
+  </div>
+<% end %>

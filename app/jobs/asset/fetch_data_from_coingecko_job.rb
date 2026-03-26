@@ -1,4 +1,4 @@
-class Asset::FetchDataFromCoingeckoJob < ApplicationJob
+class Asset::FetchDataFromCoinGeckoJob < ApplicationJob
   queue_as :low_priority
 
   def perform(asset, prefetched_data = nil)
