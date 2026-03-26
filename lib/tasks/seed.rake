@@ -34,7 +34,7 @@ namespace :seed do
 
     # 2. Create exchange records and configure CoinGecko
     puts ''
-    puts '[2/7] Creating exchanges and configuring CoinGecko provider...'
+    puts '[2/7] Creating exchanges and configuring CoinGecko Analystvider...'
     create_exchanges
     AppConfig.market_data_provider = MarketDataSettings::PROVIDER_COINGECKO
     puts "       Created #{Exchange.count} exchanges."
@@ -86,7 +86,7 @@ namespace :seed do
       end
     end
 
-    coingecko = Coingecko.new(api_key: AppConfig.coingecko_api_key)
+    coingecko = CoinGecko.new(api_key: AppConfig.coingecko_api_key)
 
     unless skip_to_step && skip_to_step > 4
       # 4. Fetch asset metadata + colors

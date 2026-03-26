@@ -518,6 +518,18 @@ class Exchanges::Binance < Exchange
     # Earn rewards
     import_earn_rewards(hm_client, start_ms, entries)
 
+    # Margin interest
+    import_margin_interest(hm_client, start_ms, entries)
+
+    # Margin liquidations
+    import_margin_liquidations(hm_client, start_ms, entries)
+
+    # Futures income (PNL, funding fees, commissions)
+    import_futures_income(hm_client, start_ms, entries)
+
+    # Earn subscriptions/redemptions
+    import_earn_subscriptions(hm_client, start_ms, entries)
+
     Result::Success.new(entries)
   end
 
@@ -809,6 +821,109 @@ class Exchanges::Binance < Exchange
             tx_id: "#{prefix}-#{row['time'] || row['id']}-#{row['asset']}", group_id: nil,
             description: 'Earn reward',
             transacted_at: Time.at((row['time'] || row['deliverDate']).to_i / 1000.0).utc, raw_data: row
+          }
+        end
+
+        total = result.data['total'].to_i
+        break if page * 100 >= total
+
+        page += 1
+      end
+    end
+  end
+
+  def import_margin_interest(hm_client, start_ms, entries)
+    result = hm_client.margin_interest_history(start_time: start_ms)
+    return unless result.success?
+
+    Array(result.data['rows']).each do |row|
+      entries << {
+        entry_type: :fee, base_currency: row['asset'], base_amount: row['interest'].to_d,
+        quote_currency: nil, quote_amount: nil, fee_currency: nil, fee_amount: nil,
+        tx_id: "margin-interest-#{row['interestAccuredTime']}-#{row['asset']}",
+        group_id: nil, description: 'Margin interest',
+        transacted_at: Time.at(row['interestAccuredTime'].to_i / 1000.0).utc, raw_data: row
+      }
+    end
+  end
+
+  def import_margin_liquidations(hm_client, start_ms, entries)
+    result = hm_client.margin_force_liquidation(start_time: start_ms)
+    return unless result.success?
+
+    Array(result.data['rows']).each do |row|
+      entries << {
+        entry_type: :sell, base_currency: row['asset'] || row['symbol'],
+        base_amount: row['qty'].to_d,
+        quote_currency: row['quoteAsset'], quote_amount: row['quoteQty']&.to_d,
+        fee_currency: nil, fee_amount: nil,
+        tx_id: "liquidation-#{row['orderId']}", group_id: nil, description: 'Liquidation',
+        transacted_at: Time.at(row['updatedTime'].to_i / 1000.0).utc, raw_data: row
+      }
+    end
+  end
+
+  def import_futures_income(hm_client, start_ms, entries)
+    # USDT-M futures
+    import_futures_income_from(hm_client, :futures_income_history, 'usdt-futures', start_ms, entries)
+    # COIN-M futures
+    import_futures_income_from(hm_client, :coin_futures_income_history, 'coin-futures', start_ms, entries)
+  end
+
+  def import_futures_income_from(hm_client, method, prefix, start_ms, entries)
+    result = hm_client.send(method, start_time: start_ms)
+    return unless result.success?
+
+    Array(result.data).each do |row|
+      income_type = row['incomeType']
+      amount = row['income'].to_d
+      asset = row['asset']
+
+      entry_type = case income_type
+                   when 'REALIZED_PNL'
+                     amount.positive? ? :other_income : :fee
+                   when 'FUNDING_FEE'
+                     amount.positive? ? :other_income : :fee
+                   when 'COMMISSION'
+                     :fee
+                   else
+                     next
+                   end
+
+      entries << {
+        entry_type: entry_type, base_currency: asset, base_amount: amount.abs,
+        quote_currency: nil, quote_amount: nil, fee_currency: nil, fee_amount: nil,
+        tx_id: "#{prefix}-#{row['tranId'] || row['time']}", group_id: nil,
+        description: "Futures #{income_type.downcase.tr('_', ' ')}",
+        transacted_at: Time.at(row['time'].to_i / 1000.0).utc, raw_data: row
+      }
+    end
+  end
+
+  def import_earn_subscriptions(hm_client, start_ms, entries)
+    # Subscriptions = locking funds (withdrawal from spot perspective)
+    # Redemptions = unlocking funds (deposit back)
+    [
+      [:simple_earn_flexible_subscriptions, :withdrawal, 'flex-sub', 'purchaseAmount'],
+      [:simple_earn_flexible_redemptions, :deposit, 'flex-redeem', 'amount'],
+      [:simple_earn_locked_subscriptions, :withdrawal, 'lock-sub', 'purchaseAmount'],
+      [:simple_earn_locked_redemptions, :deposit, 'lock-redeem', 'amount']
+    ].each do |method, entry_type, prefix, amount_field|
+      page = 1
+      loop do
+        result = hm_client.send(method, start_time: start_ms, current: page, size: 100)
+        break if result.failure?
+
+        rows = result.data['rows'] || []
+        break if rows.empty?
+
+        rows.each do |row|
+          entries << {
+            entry_type: entry_type, base_currency: row['asset'], base_amount: row[amount_field].to_d,
+            quote_currency: nil, quote_amount: nil, fee_currency: nil, fee_amount: nil,
+            tx_id: "#{prefix}-#{row['purchaseId'] || row['redeemId'] || row['time']}", group_id: nil,
+            description: "Earn #{prefix.tr('-', ' ')}",
+            transacted_at: Time.at((row['time'] || row['createTime']).to_i / 1000.0).utc, raw_data: row
           }
         end
 

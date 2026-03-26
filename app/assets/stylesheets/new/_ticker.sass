@@ -167,11 +167,11 @@
     &--danger
         background: var(--berry)
     &--secondary
-        color: var(--sky)
+        color: var(--link)
         background: var(--washed)
         box-shadow: var(--shadow-basic)
         svg *
-            fill: var(--sky) !important
+            fill: var(--link) !important
     &--multi
         color: var(--label-select-inactive)
         min-width: 0 !important
@@ -180,6 +180,11 @@
             color: var(--link)
             background: var(--washed)
             box-shadow: var(--shadow-basic)
+    &--broken
+        color: var(--berry) !important
+        svg 
+            width: 2rem
+            height: 2rem
     &--exchange
         align-items: center
         cursor: pointer

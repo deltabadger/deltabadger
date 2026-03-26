@@ -3,8 +3,11 @@ module Tax
     STABLECOINS = %w[USDT USDC BUSD DAI FDUSD TUSD PYUSD RLUSD].freeze
     FIAT_CURRENCIES = %w[USD EUR GBP CHF SEK PLN].freeze
 
+    attr_reader :warnings
+
     def initialize
       @price_cache = {}
+      @warnings = []
     end
 
     # Pre-fetches all needed prices in bulk: one API call per coin instead of per day.
@@ -46,7 +49,22 @@ module Tax
       return stablecoin_rate(currency, timestamp) if STABLECOINS.include?(asset)
 
       cache_key = "#{asset}/#{currency}/#{timestamp.to_date}"
-      @price_cache[cache_key] || fetch_single_price(asset: asset, currency: currency, timestamp: timestamp)
+      return @price_cache[cache_key] if @price_cache[cache_key]
+
+      # Check DB
+      db_price = HistoricalPrice.lookup(asset: asset, currency: currency, date: timestamp.to_date)
+      if db_price
+        @price_cache[cache_key] = db_price
+        return db_price
+      end
+
+      # Fetch from CoinGecko
+      price = fetch_single_price(asset: asset, currency: currency, timestamp: timestamp)
+      if price.nil? || price.zero?
+        @warnings << "#{asset}/#{currency} #{timestamp.to_date}"
+        return 0.to_d
+      end
+      price
     end
 
     def convert_fiat(amount:, from:, to:, timestamp:)
@@ -57,10 +75,10 @@ module Tax
     end
 
     # Enriches transactions with fiat values for tax calculation.
-    # Progress is split: 0-50% = prefetching prices, 50-100% = enriching transactions.
+    # Progress is split: 0-21% = prefetching prices, 21-100% = enriching transactions.
     def enrich(transactions, currency:, &on_progress)
       prefetch(transactions, currency: currency) do |done, total|
-        percent = total.positive? ? (done.to_f / total * 50).to_i : 0
+        percent = total.positive? ? (done.to_f / total * 21).to_i : 0
         on_progress&.call(percent, 100)
       end
 
@@ -69,7 +87,7 @@ module Tax
         fiat_value = resolve_fiat_value(tx, currency)
         fee_fiat_value = resolve_fee_fiat_value(tx, currency)
 
-        enrich_percent = total.positive? ? 50 + ((index + 1).to_f / total * 50).to_i : 100
+        enrich_percent = total.positive? ? 21 + ((index + 1).to_f / total * 79).to_i : 100
         on_progress&.call(enrich_percent, 100)
 
         {
@@ -107,12 +125,24 @@ module Tax
     end
 
     def fetch_price_range(coin_id:, symbol:, currency:, from:, to:)
-      result = coingecko_client.coin_historical_chart_data_within_time_range_by_id(
+      # Load existing prices from DB first
+      db_prices = HistoricalPrice.where(asset: symbol, currency: currency, date: from..to)
+      db_prices.each do |hp|
+        cache_key = "#{symbol}/#{currency}/#{hp.date}"
+        @price_cache[cache_key] = hp.price
+      end
+
+      # Check if we already have all dates covered
+      db_dates = db_prices.pluck(:date).to_set
+      needed_dates = (from..to).to_a
+      return if needed_dates.all? { |d| db_dates.include?(d) }
+
+      # Fetch missing from MarketData (CoinGecko or data-api)
+      result = MarketData.get_historical_price_range(
         coin_id: coin_id,
-        vs_currency: currency.downcase,
+        currency: currency.downcase,
         from: from.to_time.beginning_of_day,
-        to: (to + 1.day).to_time.beginning_of_day,
-        interval: 'daily'
+        to: (to + 1.day).to_time.beginning_of_day
       )
 
       return if result.failure?
@@ -120,11 +150,17 @@ module Tax
       prices = result.data['prices']
       return if prices.blank?
 
+      records_to_store = []
       prices.each do |timestamp_ms, price|
         date = Time.at(timestamp_ms / 1000.0).utc.to_date
         cache_key = "#{symbol}/#{currency}/#{date}"
+        next if @price_cache[cache_key] # already from DB
+
         @price_cache[cache_key] = price.to_d
+        records_to_store << { asset: symbol, currency: currency, date: date, price: price.to_d }
       end
+
+      HistoricalPrice.bulk_store(records_to_store)
     end
 
     def prefetch_fiat_rates(currency)
@@ -173,23 +209,23 @@ module Tax
 
     def fetch_single_price(asset:, currency:, timestamp:)
       coin_id = asset_to_coingecko_id(asset)
-      return 0.to_d unless coin_id
+      return nil unless coin_id
 
-      result = coingecko_client.coin_historical_chart_data_within_time_range_by_id(
+      result = MarketData.get_historical_price_range(
         coin_id: coin_id,
-        vs_currency: currency.downcase,
+        currency: currency.downcase,
         from: timestamp.beginning_of_day,
-        to: timestamp.end_of_day,
-        interval: 'daily'
+        to: timestamp.end_of_day
       )
 
-      return 0.to_d if result.failure?
+      return nil if result.failure?
 
       prices = result.data['prices']
-      return 0.to_d if prices.blank?
+      return nil if prices.blank?
 
       price = prices.first[1].to_d
       @price_cache["#{asset}/#{currency}/#{timestamp.to_date}"] = price
+      HistoricalPrice.store(asset: asset, currency: currency, date: timestamp.to_date, price: price)
       price
     end
 
@@ -215,10 +251,6 @@ module Tax
 
       @price_cache[fx_key] = rate
       rate
-    end
-
-    def coingecko_client
-      @coingecko_client ||= Clients::Coingecko.new
     end
 
     def asset_to_coingecko_id(symbol)

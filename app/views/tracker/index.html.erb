@@ -1,19 +1,23 @@
 <%= turbo_stream_from "user_#{current_user.id}", :tax_report %>
+<%= turbo_stream_from "user_#{current_user.id}", :sync %>
+<% if @pending_report %>
+  <div data-controller="auto-download" data-auto-download-url-value="<%= download_tax_report_reports_path(country: @pending_report[:country], year: @pending_report[:year]) %>"></div>
+<% end %>
 <div class="two-row-filters">
   <div class="two-row-filters__row">
     <div class="filters">
-      <%= form_tag tracker_index_path, method: :get, class: 'tracker-date-range', data: { controller: 'form--submit' } do %>
+      <%= form_tag reports_path, method: :get, class: 'tracker-date-range', data: { controller: 'form--submit' } do %>
         <% if params[:exchange_id].present? %>
           <%= hidden_field_tag :exchange_id, params[:exchange_id] %>
         <% end %>
-        <input type="date" name="from" value="<%= params[:from] %>" class="sinput" data-action="change->form--submit#submit">
-        <input type="date" name="to" value="<%= params[:to] %>" class="sinput" data-action="change->form--submit#submit">
+        <input type="date" name="from" value="<%= @date_from %>" class="sinput" data-action="change->form--submit#submit">
+        <input type="date" name="to" value="<%= @date_to %>" class="sinput" data-action="change->form--submit#submit">
       <% end %>
     </div>
     <div style="display: flex; gap: 0.5rem">
       <% if @exchanges.any? %>
-        <%= link_to export_modal_tracker_index_path, class: 'sbutton sbutton--success', data: { turbo_frame: 'modal' } do %>
-          <%= t('tracker.export') %>
+        <%= link_to export_modal_reports_path, class: 'sbutton sbutton--success', data: { turbo_frame: 'modal' } do %>
+          <%= t('tracker.get_report') %>
         <% end %>
       <% end %>
     </div>
@@ -21,9 +25,15 @@
   <div class="two-row-filters__row">
     <div class="filters filters--tags">
       <% if @exchanges.any? %>
-        <%= link_to t('tracker.filters.all'), tracker_index_path(from: params[:from], to: params[:to]), class: ['sbutton sbutton--multi', ('sbutton--multi--active' unless params[:exchange_id].present?)] %>
+        <%= link_to t('tracker.filters.all'), reports_path(from: params[:from], to: params[:to]), class: ['sbutton sbutton--multi', ('sbutton--multi--active' unless params[:exchange_id].present?)] %>
         <% @exchanges.each do |exchange| %>
-          <%= link_to exchange.name, tracker_index_path(exchange_id: exchange.id, from: params[:from], to: params[:to]), class: ['sbutton sbutton--multi', ('sbutton--multi--active' if params[:exchange_id].to_s == exchange.id.to_s)] %>
+          <% if @exchanges_with_valid_keys.include?(exchange.id) %>
+            <%= link_to exchange.name, reports_path(exchange_id: exchange.id, from: params[:from], to: params[:to]), class: ['sbutton sbutton--multi', ('sbutton--multi--active' if params[:exchange_id].to_s == exchange.id.to_s)] %>
+          <% else %>
+            <%= link_to new_tracker_add_api_key_path(exchange_id: exchange.id), class: 'sbutton sbutton--multi sbutton--broken', data: { turbo_frame: 'modal' } do %>
+              <%= exchange.name %><%= render 'svg/16x16_broken' %>
+            <% end %>
+          <% end %>
         <% end %>
       <% end %>
 
@@ -32,8 +42,10 @@
       <% end %>
     </div>
 
-    <%= button_to sync_tracker_index_path, method: :post, class: 'sbutton sbutton--secondary' do %>
-      <%= render "svg/24x24_sync" %>
+    <% if @has_syncable_keys %>
+      <%= button_to sync_reports_path, method: :post, class: 'sbutton sbutton--secondary' do %>
+        <%= render "svg/24x24_sync" %>
+      <% end %>
     <% end %>
   </div>
 </div>
@@ -58,7 +70,7 @@
         <% @account_transactions.each do |at| %>
           <tr class="tracker-row tracker-row--<%= at.entry_type %>">
             <td class="tracker-exchange-icon"><%= render "svg/exchange-#{at.exchange.name_id}", title: at.exchange.name %></td>
-            <td  class="text-left"><%= at.transacted_at.in_time_zone(current_user.time_zone).strftime('%Y/%m/%d') %></td>
+            <td  class="text-left"><%= at.transacted_at.in_time_zone(current_user.time_zone).strftime('%Y/%m/%d %H:%M:%S') %></td>
             <td><span class="tracker-type tracker-type--<%= at.entry_type %>"><%= t("tracker.types.#{at.entry_type}") %></span></td>
             <td><%= at.base_currency %></td>
             <td><%= at.base_amount %></td>

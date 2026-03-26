@@ -10,9 +10,9 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_03_24_132010) do
+ActiveRecord::Schema[8.1].define(version: 2026_03_25_221615) do
   create_table "account_transactions", force: :cascade do |t|
-    t.integer "api_key_id", null: false
+    t.integer "api_key_id"
     t.decimal "base_amount", null: false
     t.string "base_currency", null: false
     t.datetime "created_at", null: false
@@ -29,6 +29,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_03_24_132010) do
     t.integer "transaction_id"
     t.string "tx_id"
     t.datetime "updated_at", null: false
+    t.integer "user_id", null: false
     t.index ["api_key_id", "transacted_at"], name: "index_account_transactions_on_api_key_id_and_transacted_at"
     t.index ["api_key_id"], name: "index_account_transactions_on_api_key_id"
     t.index ["exchange_id", "tx_id"], name: "index_account_transactions_on_exchange_id_and_tx_id", unique: true, where: "tx_id IS NOT NULL"
@@ -36,6 +37,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_03_24_132010) do
     t.index ["group_id"], name: "index_account_transactions_on_group_id"
     t.index ["transacted_at"], name: "index_account_transactions_on_transacted_at"
     t.index ["transaction_id"], name: "index_account_transactions_on_transaction_id"
+    t.index ["user_id"], name: "index_account_transactions_on_user_id"
   end
 
   create_table "action_mcp_session_messages", force: :cascade do |t|
@@ -237,6 +239,14 @@ ActiveRecord::Schema[8.1].define(version: 2026_03_24_132010) do
     t.index ["exchange_id"], name: "index_fee_api_keys_on_exchange_id"
   end
 
+  create_table "historical_prices", force: :cascade do |t|
+    t.string "asset", null: false
+    t.string "currency", null: false
+    t.date "date", null: false
+    t.decimal "price", null: false
+    t.index ["asset", "currency", "date"], name: "index_historical_prices_on_asset_and_currency_and_date", unique: true
+  end
+
   create_table "indices", force: :cascade do |t|
     t.json "available_exchanges", default: {}
     t.datetime "created_at", null: false
@@ -425,6 +435,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_03_24_132010) do
   add_foreign_key "account_transactions", "api_keys"
   add_foreign_key "account_transactions", "exchanges"
   add_foreign_key "account_transactions", "transactions"
+  add_foreign_key "account_transactions", "users"
   add_foreign_key "action_mcp_session_messages", "action_mcp_sessions", column: "session_id", on_update: :cascade, on_delete: :cascade
   add_foreign_key "action_mcp_session_subscriptions", "action_mcp_sessions", column: "session_id", on_delete: :cascade
   add_foreign_key "action_mcp_session_tasks", "action_mcp_sessions", column: "session_id", on_update: :cascade, on_delete: :cascade

@@ -531,6 +531,7 @@ FactoryBot.define do
   # AccountTransaction factory
   factory :account_transaction do
     api_key
+    user { api_key.user }
     exchange { api_key.exchange }
     entry_type { :buy }
     base_currency { 'BTC' }
