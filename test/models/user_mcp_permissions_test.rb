@@ -16,6 +16,15 @@ class UserMcpPermissionsTest < ActiveSupport::TestCase
     assert @user.mcp_tool_enabled?('list_transactions')
   end
 
+  test 'mcp_tool_enabled? returns true for tax tools by default' do
+    assert @user.mcp_tool_enabled?('list_tax_jurisdictions')
+    assert @user.mcp_tool_enabled?('generate_tax_report')
+    assert @user.mcp_tool_enabled?('get_tax_report_status')
+    assert @user.mcp_tool_enabled?('download_tax_report')
+    assert @user.mcp_tool_enabled?('export_transactions_csv')
+    assert @user.mcp_tool_enabled?('list_account_transactions')
+  end
+
   test 'mcp_tool_enabled? returns false for write tools by default' do
     assert_not @user.mcp_tool_enabled?('start_bot')
     assert_not @user.mcp_tool_enabled?('stop_bot')
@@ -86,6 +95,24 @@ class UserMcpPermissionsTest < ActiveSupport::TestCase
     end
   end
 
+  test 'set_mcp_tool_group_enabled enables all tools in tax group' do
+    @user.set_mcp_tool_group_enabled('tax', false)
+    @user.reload
+
+    %w[list_tax_jurisdictions generate_tax_report get_tax_report_status download_tax_report export_transactions_csv
+       list_account_transactions].each do |tool|
+      assert_not @user.mcp_tool_enabled?(tool), "Expected #{tool} to be disabled"
+    end
+
+    @user.set_mcp_tool_group_enabled('tax', true)
+    @user.reload
+
+    %w[list_tax_jurisdictions generate_tax_report get_tax_report_status download_tax_report export_transactions_csv
+       list_account_transactions].each do |tool|
+      assert @user.mcp_tool_enabled?(tool), "Expected #{tool} to be enabled"
+    end
+  end
+
   test 'MCP_TOOL_DEFAULTS contains all expected tools' do
     expected = %w[
       list_bots get_bot_details list_exchanges get_exchange_balances
@@ -94,6 +121,8 @@ class UserMcpPermissionsTest < ActiveSupport::TestCase
       start_rule stop_rule update_rule_settings
       market_buy market_sell
       limit_buy limit_sell cancel_order
+      list_tax_jurisdictions generate_tax_report get_tax_report_status
+      download_tax_report export_transactions_csv list_account_transactions
     ]
     assert_equal expected.sort, AppConfig::MCP_TOOL_DEFAULTS.keys.sort
   end

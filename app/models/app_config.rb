@@ -44,13 +44,21 @@ class AppConfig < ApplicationRecord
     'market_sell' => false,
     'limit_buy' => false,
     'limit_sell' => false,
-    'cancel_order' => false
+    'cancel_order' => false,
+    'list_tax_jurisdictions' => true,
+    'generate_tax_report' => true,
+    'get_tax_report_status' => true,
+    'download_tax_report' => true,
+    'export_transactions_csv' => true,
+    'list_account_transactions' => true
   }.freeze
 
   MCP_TOOL_GROUPS = {
     'read' => %w[list_bots get_bot_details list_exchanges get_exchange_balances get_portfolio_summary list_transactions list_open_orders],
     'control' => %w[create_bot start_bot stop_bot update_bot_settings start_rule stop_rule update_rule_settings],
-    'trade' => %w[market_buy market_sell limit_buy limit_sell cancel_order]
+    'trade' => %w[market_buy market_sell limit_buy limit_sell cancel_order],
+    'tax' => %w[list_tax_jurisdictions generate_tax_report get_tax_report_status download_tax_report export_transactions_csv
+                list_account_transactions]
   }.freeze
 
   SMTP_PROVIDER = 'smtp_provider'.freeze # 'custom_smtp' or 'env_smtp'

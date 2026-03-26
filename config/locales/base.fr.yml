@@ -176,6 +176,7 @@ fr:
             tools_read: 'Lecture'
             tools_control: 'Contrôle'
             tools_trade: 'Trading'
+            tools_tax: 'Fiscalité & rapports'
             tools:
                 list_bots:
                     label: 'Lister les bots'
@@ -234,6 +235,24 @@ fr:
                 list_open_orders:
                     label: 'Ordres ouverts'
                     description: 'Voir les ordres ouverts (non exécutés) en cours'
+                list_tax_jurisdictions:
+                    label: 'Juridictions fiscales'
+                    description: 'Voir les pays pris en charge et les méthodes fiscales'
+                generate_tax_report:
+                    label: 'Générer un rapport fiscal'
+                    description: 'Lancer la génération d''un rapport fiscal en arrière-plan'
+                get_tax_report_status:
+                    label: 'Statut du rapport fiscal'
+                    description: 'Vérifier si un rapport fiscal est prêt'
+                download_tax_report:
+                    label: 'Télécharger le rapport fiscal'
+                    description: 'Récupérer le rapport fiscal généré en CSV'
+                export_transactions_csv:
+                    label: 'Exporter les transactions en CSV'
+                    description: 'Exporter les transactions du compte en CSV'
+                list_account_transactions:
+                    label: 'Transactions du compte'
+                    description: 'Voir les transactions du tracker avec filtres'
             dry_run_title: 'Paper Trading'
             dry_run_description: "Simule des transactions avec les prix réels du marché. Aucun ordre réel n'est passé."
             dry_run_label: 'Activer le paper trading pour les outils de trading'

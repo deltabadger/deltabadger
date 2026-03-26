@@ -177,6 +177,7 @@ pl:
             tools_read: 'Odczyt'
             tools_control: 'Sterowanie'
             tools_trade: 'Handel'
+            tools_tax: 'Podatki i raporty'
             tools:
                 list_bots:
                     label: 'Lista botów'
@@ -235,6 +236,24 @@ pl:
                 list_open_orders:
                     label: 'Otwarte zlecenia'
                     description: 'Pokaż otwarte (niezrealizowane) zlecenia'
+                list_tax_jurisdictions:
+                    label: 'Jurysdykcje podatkowe'
+                    description: 'Wyświetl obsługiwane kraje i metody podatkowe'
+                generate_tax_report:
+                    label: 'Generuj raport podatkowy'
+                    description: 'Rozpocznij generowanie raportu podatkowego w tle'
+                get_tax_report_status:
+                    label: 'Status raportu podatkowego'
+                    description: 'Sprawdź, czy raport podatkowy jest gotowy'
+                download_tax_report:
+                    label: 'Pobierz raport podatkowy'
+                    description: 'Pobierz wygenerowany raport podatkowy jako CSV'
+                export_transactions_csv:
+                    label: 'Eksportuj transakcje CSV'
+                    description: 'Eksportuj transakcje konta jako CSV'
+                list_account_transactions:
+                    label: 'Transakcje konta'
+                    description: 'Wyświetl transakcje trackera z filtrami'
             dry_run_title: 'Paper Trading'
             dry_run_description: 'Symuluj transakcje z rzeczywistymi cenami rynkowymi. Żadne prawdziwe zlecenia nie są składane.'
             dry_run_label: 'Włącz paper trading dla narzędzi handlowych'

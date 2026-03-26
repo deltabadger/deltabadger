@@ -175,6 +175,7 @@ de:
             tools_read: 'Lesen'
             tools_control: 'Steuerung'
             tools_trade: 'Handel'
+            tools_tax: 'Steuern & Berichte'
             tools:
                 list_bots:
                     label: 'Bots auflisten'
@@ -233,6 +234,24 @@ de:
                 list_open_orders:
                     label: 'Offene Orders'
                     description: 'Aktuell offene (nicht ausgeführte) Orders anzeigen'
+                list_tax_jurisdictions:
+                    label: 'Steuerliche Zuständigkeiten'
+                    description: 'Unterstützte Länder und Steuermethoden anzeigen'
+                generate_tax_report:
+                    label: 'Steuerbericht erstellen'
+                    description: 'Steuerbericht im Hintergrund generieren'
+                get_tax_report_status:
+                    label: 'Steuerbericht-Status'
+                    description: 'Prüfen, ob ein Steuerbericht fertig ist'
+                download_tax_report:
+                    label: 'Steuerbericht herunterladen'
+                    description: 'Generierten Steuerbericht als CSV abrufen'
+                export_transactions_csv:
+                    label: 'Transaktionen als CSV'
+                    description: 'Kontotransaktionen als CSV exportieren'
+                list_account_transactions:
+                    label: 'Kontotransaktionen'
+                    description: 'Tracker-Transaktionen mit Filtern anzeigen'
             dry_run_title: 'Papierhandel'
             dry_run_description: 'Trades mit echten Marktpreisen simulieren. Es werden keine echten Orders ausgeführt.'
             dry_run_label: 'Papierhandel für Trade-Tools aktivieren'

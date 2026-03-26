@@ -178,6 +178,7 @@ ru:
             tools_read: 'Чтение'
             tools_control: 'Управление'
             tools_trade: 'Торговля'
+            tools_tax: 'Налоги и отчёты'
             tools:
                 list_bots:
                     label: 'Список ботов'
@@ -236,6 +237,24 @@ ru:
                 list_open_orders:
                     label: 'Открытые ордера'
                     description: 'Просмотр открытых (неисполненных) ордеров'
+                list_tax_jurisdictions:
+                    label: 'Налоговые юрисдикции'
+                    description: 'Просмотр поддерживаемых стран и методов расчёта'
+                generate_tax_report:
+                    label: 'Сформировать налоговый отчёт'
+                    description: 'Запустить генерацию налогового отчёта в фоне'
+                get_tax_report_status:
+                    label: 'Статус налогового отчёта'
+                    description: 'Проверить, готов ли налоговый отчёт'
+                download_tax_report:
+                    label: 'Скачать налоговый отчёт'
+                    description: 'Получить сгенерированный налоговый отчёт в CSV'
+                export_transactions_csv:
+                    label: 'Экспорт транзакций CSV'
+                    description: 'Экспортировать транзакции счёта в CSV'
+                list_account_transactions:
+                    label: 'Транзакции счёта'
+                    description: 'Просмотр транзакций трекера с фильтрами'
             dry_run_title: 'Paper Trading'
             dry_run_description: 'Симуляция сделок с реальными рыночными ценами. Реальные ордера не размещаются.'
             dry_run_label: 'Включить paper trading для торговых инструментов'
