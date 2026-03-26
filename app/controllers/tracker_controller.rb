@@ -17,9 +17,9 @@ class TrackerController < ApplicationController
 
   def sync
     api_keys = current_user.api_keys.where(key_type: :trading, status: :correct).includes(:exchange)
-    api_keys.each_with_index do |api_key, i|
-      AccountTransaction::SyncJob.set(wait: i * 30.seconds).perform_later(api_key)
-    end
+    return head :no_content if api_keys.empty?
+
+    AccountTransaction::SyncTrackerJob.perform_later(current_user.id, api_keys.map(&:id))
 
     exchange_names = api_keys.map { |k| k.exchange.name }.join(', ')
     render turbo_stream: turbo_stream.append(

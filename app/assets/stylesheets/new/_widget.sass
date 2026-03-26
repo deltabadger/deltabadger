@@ -76,8 +76,11 @@
         text-wrap: nowrap
         line-height: 3rem
         &--rules,&--tracker
+            max-width: calc(100vw - 2rem)
             @media (min-width: 768px)
                 max-height: calc(100vh - 14rem)
+                max-width: calc(100vw - 11rem)
+            
         table
             margin-bottom: 0
             border-collapse: collapse
