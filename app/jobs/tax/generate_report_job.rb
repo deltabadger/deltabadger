@@ -5,6 +5,7 @@ class Tax::GenerateReportJob < ApplicationJob
   def perform(user_id, country, year, stablecoin_as_fiat = false) # rubocop:disable Style/OptionalBooleanParameter
     user = User.find(user_id)
     transactions = AccountTransaction.for_user(user)
+                                     .where.not(exchange_id: Exchange.where(type: 'Exchanges::Alpaca').select(:id))
     report = Tax::Report.new(country: country, year: year, transactions: transactions,
                              stablecoin_as_fiat: stablecoin_as_fiat)
 
