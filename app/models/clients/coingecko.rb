@@ -1,4 +1,4 @@
-class Clients::CoinGecko < Client
+class Clients::Coingecko < Client
   PRO_URL = 'https://pro-api.coingecko.com/api/v3'.freeze
   DEMO_URL = 'https://api.coingecko.com/api/v3'.freeze
 

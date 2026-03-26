@@ -1,5 +1,6 @@
 class Tax::GenerateReportJob < ApplicationJob
   queue_as :low_priority
+  limits_concurrency to: 1, key: ->(user_id, *) { "tax_report_#{user_id}" }, on_conflict: :discard, duration: 10.minutes
 
   def perform(user_id, country, year, stablecoin_as_fiat = false) # rubocop:disable Style/OptionalBooleanParameter
     user = User.find(user_id)
@@ -27,6 +28,12 @@ class Tax::GenerateReportJob < ApplicationJob
       partial: 'tracker/report_ready',
       locals: { country: country, year: year }
     )
+  rescue StandardError => e
+    Turbo::StreamsChannel.broadcast_remove_to(
+      "user_#{user_id}", :tax_report,
+      target: 'tax-report-progress'
+    )
+    raise e
   end
 
   private

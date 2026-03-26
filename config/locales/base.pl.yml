@@ -357,7 +357,8 @@ pl:
         connect_exchange: 'Połącz giełdę'
         import_from: 'Importuj transakcje z'
         search_exchange: 'Szukaj giełdy...'
-        setup_coingecko: 'Do wygenerowania raportu potrzebne są historyczne ceny z CoinGecko. Darmowy plan obejmuje do 2 lat historii. Dla starszych transakcji przejdź na CoinGecko Analyst lub dołącz do deltabadger.com, gdzie dane rynkowe są w cenie.'
+        setup_coingecko_html: 'Do wygenerowania raportu podatkowego potrzebne są historyczne ceny. Darmowy plan <b>CoinGecko</b> obejmuje do 2 lat historii. Dla starszych transakcji przejdź na <b>CoinGecko Analyst</b> lub dołącz do <a href="https://deltabadger.com">deltabadger.com</a>, gdzie dane rynkowe są w cenie.'
+        beta_notice: 'Raporty podatkowe są jeszcze w fazie beta. Wygeneruj raport, prześlij go swojemu księgowemu i daj mi znać, co można poprawić. Z Twoją pomocą może być idealnie.'
         export_modal:
             title: 'Generuj raport'
             tax_report: 'Raport podatkowy'

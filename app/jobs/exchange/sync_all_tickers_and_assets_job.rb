@@ -1,5 +1,6 @@
 class Exchange::SyncAllTickersAndAssetsJob < ApplicationJob
   queue_as :low_priority
+  limits_concurrency to: 1, key: -> { name }, on_conflict: :discard, duration: 4.hours
 
   def perform
     return unless MarketData.configured?

@@ -5,7 +5,8 @@ class AccountTransactionSync
   end
 
   def sync!(&progress)
-    result = @exchange.get_ledger(api_key: @api_key, start_time: @api_key.last_synced_at)
+    start_time = @api_key.last_synced_at || latest_existing_transaction_time
+    result = @exchange.get_ledger(api_key: @api_key, start_time: start_time)
     return result if result.failure?
 
     entries = result.data
@@ -58,6 +59,10 @@ class AccountTransactionSync
   end
 
   private
+
+  def latest_existing_transaction_time
+    AccountTransaction.where(api_key: @api_key).maximum(:transacted_at)
+  end
 
   def match_bot_transaction!(at)
     return unless at.tx_id.present?
