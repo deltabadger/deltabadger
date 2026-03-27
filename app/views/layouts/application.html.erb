@@ -14,7 +14,7 @@
     <%= render 'application/favicon' %>
 
     <%= stylesheet_link_tag 'application', media: 'all', "data-turbo-track": "reload" %>
-    <%= javascript_include_tag "application", "data-turbo-track": "reload", defer: true %>
+    <%= javascript_include_tag "application", "data-turbo-track": "reload", type: "module" %>
 
     <%= yield :head if content_for?(:head) %>
 
@@ -36,7 +36,7 @@
 
           const { getCurrentWindow } = await import('@tauri-apps/api/window');
           const appWindow = getCurrentWindow();
-          
+
           const dragRegion = document.querySelector('.titlebar-drag-region');
           if (dragRegion) {
             dragRegion.addEventListener('mousedown', async (e) => {
@@ -48,7 +48,6 @@
         }
       })();
     </script>
-    <%= javascript_include_tag "application", "data-turbo-track": "reload", type: "module" %>
     
   </head>
 
