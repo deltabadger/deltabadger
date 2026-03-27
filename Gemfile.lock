@@ -238,7 +238,7 @@ GEM
       activesupport (>= 5.1)
       haml (>= 4.0.6)
       railties (>= 5.1)
-    honeymaker (0.6.0)
+    honeymaker (0.7.0)
       bigdecimal
       faraday (~> 2.0)
       faraday-net_http_persistent (~> 2.0)
@@ -265,7 +265,7 @@ GEM
     jaro_winkler (1.7.0)
     jsbundling-rails (1.3.1)
       railties (>= 6.0.0)
-    json (2.19.2)
+    json (2.19.3)
     json-schema (6.2.0)
       addressable (~> 2.8)
       bigdecimal (>= 3.1, < 5)
@@ -600,7 +600,7 @@ DEPENDENCIES
   faraday-net_http_persistent (~> 2.3.0)
   haikunator (~> 1.1)
   haml-rails (~> 3.0)
-  honeymaker (~> 0.6.0)
+  honeymaker (~> 0.7.0)
   hyperliquid
   importmap-rails
   jaro_winkler (~> 1.7)
@@ -715,7 +715,7 @@ CHECKSUMS
   haikunator (1.1.1) sha256=ec99f690b216edf20c518ea9a6d83f6bd479e86c37d89b2afc3376e752b32ca8
   haml (7.2.0) sha256=87fd2b71f7feab1724337b090a7d767f5ab2d42f08c974f3ead673f18cfcd55a
   haml-rails (3.0.0) sha256=091fe496a85ca521d9cac87fb50f1ecf77a57974a99aa7e267130add81a5585f
-  honeymaker (0.6.0) sha256=e6f8baf86612d5a71671a0eba62133b139d30319c3dee9c864117c374b584531
+  honeymaker (0.7.0) sha256=e74f97cb4d4debafa49b64d588ea73aa5fcb366e58609aed357d53ba8307d966
   hyperliquid (1.0.2) sha256=1d8cef2a5f1fde405f8f3b22732c6522ca00e1adbc30bb864e4910d4b8b3055c
   i18n (1.14.8) sha256=285778639134865c5e0f6269e0b818256017e8cde89993fdfcbfb64d088824a5
   importmap-rails (2.2.3) sha256=7101be2a4dc97cf1558fb8f573a718404c5f6bcfe94f304bf1f39e444feeb16a
@@ -723,7 +723,7 @@ CHECKSUMS
   irb (1.17.0) sha256=168c4ddb93d8a361a045c41d92b2952c7a118fa73f23fe14e55609eb7a863aae
   jaro_winkler (1.7.0) sha256=8daa05a5cd05bf7d27c1c65caa8ab0d47c05419d80210feaa17126db24044ada
   jsbundling-rails (1.3.1) sha256=0fa03f6d051c694cbf55a022d8be53399879f2c4cf38b2968f86379c62b1c2ca
-  json (2.19.2) sha256=e7e1bd318b2c37c4ceee2444841c86539bc462e81f40d134cf97826cb14e83cf
+  json (2.19.3) sha256=289b0bb53052a1fa8c34ab33cc750b659ba14a5c45f3fcf4b18762dc67c78646
   json-schema (6.2.0) sha256=e8bff46ed845a22c1ab2bd0d7eccf831c01fe23bb3920caa4c74db4306813666
   jsonrpc-rails (0.5.4) sha256=ca44e5435a39e241c576ec2f1bb63be0bb07d1410a957c0fa1b86f305e7ec3a4
   jwt (2.10.2) sha256=31e1ee46f7359883d5e622446969fe9c118c3da87a0b1dca765ce269c3a0c4f4

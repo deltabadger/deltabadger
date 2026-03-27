@@ -6,7 +6,7 @@ class CalculateTransactionQuantity < BaseService
     volume = (bot.price.to_f / current_rate)
     return Result::Success.new(volume) unless bot.force_smart_intervals
 
-    market = ExchangeApi::Markets::Get.new.call(bot.exchange_id)
+    market = ExchangeMarket.for(bot.exchange_id)
     symbol = market.symbol(bot.base, bot.quote)
     minimum_params = market.minimum_order_parameters(symbol)
     return minimum_params unless minimum_params.success?

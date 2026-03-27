@@ -1,15 +1,8 @@
 class ApiKeyValidator < BaseService
-  def initialize(
-    get_validator: ExchangeApi::Validators::Get.new
-  )
-    @get_validator = get_validator
-  end
-
   def call(api_key_id)
     api_key = ApiKey.find(api_key_id)
-    validator = @get_validator.call(api_key.exchange_id, api_key.key_type)
 
-    unless api_key.valid? && validator.validate_credentials(**get_params(api_key))
+    unless api_key.valid? && validate(api_key)
       api_key.update(status: 'incorrect')
       return Result::Failure.new(I18n.t('errors.invalid_api_keys'))
     end
@@ -20,13 +13,16 @@ class ApiKeyValidator < BaseService
 
   private
 
-  def get_params(api_key)
-    params = {
-      api_key: api_key.key,
-      api_secret: api_key.secret
-    }
-    params = params.merge(passphrase: api_key.passphrase) if api_key.passphrase.present?
+  def validate(api_key)
+    return true if Rails.configuration.dry_run
 
-    params
+    exchange_name = api_key.exchange.name_id
+    client_params = { api_key: api_key.key, api_secret: api_key.secret }
+    client_params[:passphrase] = api_key.passphrase if api_key.passphrase.present?
+
+    result = Honeymaker.client(exchange_name, **client_params).validate(:trading)
+    result.success?
+  rescue StandardError
+    false
   end
 end
