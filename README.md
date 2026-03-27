@@ -1,6 +1,10 @@
 ![Frame 3 (4)](https://github.com/user-attachments/assets/ffd80181-014d-40ad-9669-b98e5c1f265e)
 
-Auto-DCA for crypto. Automate your Dollar Cost Averaging strategy across multiple exchanges. As a service, [Deltabadger](https://deltabadger.com) helped users invest over $72 million into Bitcoin and other digital assets. Now it's free and open-source!
+[Deltabadger](https://deltabadger.com) is a one-stop-shop for investors in crypto and stocks. As a service, helped users invest over $75 million into Bitcoin and other digital assets. Now it's free and open-source.
+
+* DCA bots for crypto and stocks
+* Crypto Tax Reporting with no transaction limits
+* MCP Server to connect your Claude or Claw
 
 ### Quick Start
 
