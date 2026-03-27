@@ -39,7 +39,7 @@ class CheckExceededFrequency < BaseService
   end
 
   def get_market(exchange_id)
-    ExchangeApi::Markets::Get.new.call(exchange_id)
+    ExchangeMarket.for(exchange_id)
   end
 
   def get_symbol(market, base, quote)
