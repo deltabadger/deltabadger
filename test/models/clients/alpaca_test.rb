@@ -145,6 +145,20 @@ class Clients::AlpacaTest < ActiveSupport::TestCase
     assert_predicate result, :success?
   end
 
+  test 'get_account_activities returns success result' do
+    mock_response = stub(body: [
+                           { 'id' => 'act-1', 'activity_type' => 'FILL', 'symbol' => 'AAPL' }
+                         ])
+    connection = stub
+    connection.expects(:get).yields(stub_request('/v2/account/activities')).returns(mock_response)
+    @client.stubs(:trading_connection).returns(connection)
+
+    result = @client.get_account_activities
+    assert_predicate result, :success?
+    assert_equal 1, result.data.size
+    assert_equal 'FILL', result.data[0]['activity_type']
+  end
+
   test 'handles Faraday errors gracefully' do
     connection = stub
     connection.stubs(:get).raises(Faraday::ClientError.new('Forbidden', { status: 403, body: 'Forbidden' }))
