@@ -74,6 +74,8 @@ module Bot::QuoteAmountLimitable
   end
 
   def minimum_quote_amount_limit
+    return 0 if tickers.empty?
+
     least_precise_quote_decimals = tickers.pluck(:quote_decimals).compact.min
     @minimum_quote_amount_limit ||= 1.0 / (10**least_precise_quote_decimals)
   end
