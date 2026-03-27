@@ -18,6 +18,7 @@ class Bots::DcaDualAsset < Bot
   validate :validate_unchangeable_exchange, on: :update
   validate :validate_tickers_available, on: :start
 
+  after_initialize :initialize_dca_dual_asset_settings
   before_save :set_tickers, if: :will_save_change_to_exchange_id?
 
   include SmartIntervalable      # decorators for: parse_params, effective_quote_amount, effective_interval_duration
@@ -284,6 +285,10 @@ class Bots::DcaDualAsset < Bot
     errors.add(:base0_asset_id, :invalid) unless ticker0.present? && ticker0.available?
     errors.add(:base1_asset_id, :invalid) unless ticker1.present? && ticker1.available?
     errors.add(:quote_asset_id, :invalid)
+  end
+
+  def initialize_dca_dual_asset_settings
+    self.allocation0 ||= 0.5
   end
 
   def set_tickers

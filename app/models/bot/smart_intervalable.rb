@@ -60,6 +60,8 @@ module Bot::SmartIntervalable
   end
 
   def minimum_smart_interval_quote_amount
+    return 0 if tickers.empty?
+
     # the minimum amount would set one order every 5 minutes
     maximum_frequency = 300 # seconds
     minimum_for_frequency = if quote_amount.present?
