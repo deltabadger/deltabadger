@@ -280,6 +280,24 @@ class Exchanges::Alpaca < Exchange
   # Search tradable stocks from Alpaca API
   # @param query [String] search term
   # @return [Array<Hash>] matching stocks
+  def get_ledger(api_key:, start_time: nil)
+    set_client(api_key: api_key)
+
+    params = { direction: 'asc', page_size: 100 }
+    params[:after] = start_time.iso8601 if start_time
+
+    result = client.get_account_activities(**params)
+    return result if result.failure?
+
+    entries = []
+    result.data.each do |activity|
+      entry = normalize_activity(activity)
+      entries << entry if entry
+    end
+
+    Result::Success.new(entries)
+  end
+
   def search_assets(query)
     all_assets = get_cached_assets
     return [] if all_assets.blank? || query.blank?
@@ -320,6 +338,81 @@ class Exchanges::Alpaca < Exchange
 
       result.data.select { |a| a['tradable'] && a['fractionable'] }
     end
+  end
+
+  DIVIDEND_TYPES = %w[DIV DIVCGL DIVFT DIVNRA DIVROC DIVTXEX].freeze
+
+  def normalize_activity(activity)
+    type = activity['activity_type']
+
+    case type
+    when 'FILL'
+      normalize_fill(activity)
+    when 'CSD'
+      normalize_cash_transfer(activity, :deposit)
+    when 'CSW'
+      normalize_cash_transfer(activity, :withdrawal)
+    when *DIVIDEND_TYPES
+      normalize_non_trade(activity, :other_income, "Dividend (#{activity['symbol']})")
+    when 'FEE'
+      normalize_non_trade(activity, :fee, nil)
+    when 'INT'
+      normalize_non_trade(activity, :other_income, nil)
+    end
+  end
+
+  def normalize_fill(activity)
+    qty = activity['qty'].to_d
+    price = activity['price'].to_d
+
+    {
+      entry_type: activity['side'] == 'buy' ? :buy : :sell,
+      base_currency: activity['symbol'],
+      base_amount: qty,
+      quote_currency: 'USD',
+      quote_amount: qty * price,
+      fee_currency: nil,
+      fee_amount: nil,
+      tx_id: activity['id'],
+      group_id: nil,
+      description: nil,
+      transacted_at: Time.parse(activity['transaction_time']).utc,
+      raw_data: activity
+    }
+  end
+
+  def normalize_cash_transfer(activity, entry_type)
+    {
+      entry_type: entry_type,
+      base_currency: 'USD',
+      base_amount: activity['net_amount'].to_d.abs,
+      quote_currency: nil,
+      quote_amount: nil,
+      fee_currency: nil,
+      fee_amount: nil,
+      tx_id: activity['id'],
+      group_id: nil,
+      description: nil,
+      transacted_at: Time.parse(activity['date']).utc,
+      raw_data: activity
+    }
+  end
+
+  def normalize_non_trade(activity, entry_type, description)
+    {
+      entry_type: entry_type,
+      base_currency: 'USD',
+      base_amount: activity['net_amount'].to_d.abs,
+      quote_currency: nil,
+      quote_amount: nil,
+      fee_currency: nil,
+      fee_amount: nil,
+      tx_id: activity['id'],
+      group_id: nil,
+      description: description,
+      transacted_at: Time.parse(activity['date']).utc,
+      raw_data: activity
+    }
   end
 
   def asset_from_symbol(symbol)
