@@ -104,26 +104,12 @@ module BotHelper
     end
   end
 
-  def vs_currencies_select_options
-    Asset::VS_CURRENCIES.map do |currency|
-      [currency.upcase, currency]
-    end
-  end
-
-  def render_api_key_instructions(bot)
-    render_instructions_from('bot.api', bot.exchange)
-  end
-
   def render_api_key_instructions_for(exchange)
     render_instructions_from('bot.api', exchange)
   end
 
   def render_withdrawal_api_key_instructions(exchange)
     render_instructions_from('withdrawal_api', exchange)
-  end
-
-  def render_withdrawal_address_instructions(exchange)
-    render_instructions_from('withdrawal_address', exchange)
   end
 
   def whitelist_ip_for(exchange)

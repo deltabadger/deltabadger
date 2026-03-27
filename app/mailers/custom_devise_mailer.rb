@@ -1,8 +1,6 @@
 class CustomDeviseMailer < Devise::Mailer
   layout 'mailers/transactional'
 
-  helper LocalesHelper
-
   default template_path: 'devise/mailer'
 
   def email_already_taken(email)
