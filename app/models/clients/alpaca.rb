@@ -206,6 +206,29 @@ class Clients::Alpaca < Client
     end
   end
 
+  # https://docs.alpaca.markets/reference/getaccountactivities
+  # @param activity_type [String] filter by type (e.g., 'FILL', 'DIV', 'CSD')
+  # @param after [String] ISO 8601 timestamp — only activities after this time
+  # @param direction [String] 'asc' or 'desc'
+  # @param page_size [Integer] max results per page (default 100, max 100)
+  # @param page_token [String] pagination token
+  def get_account_activities(activity_type: nil, after: nil, direction: nil, page_size: 100, page_token: nil)
+    with_rescue do
+      response = trading_connection.get do |req|
+        req.url '/v2/account/activities'
+        req.headers = authenticated_headers
+        req.params = {
+          activity_type: activity_type,
+          after: after,
+          direction: direction,
+          page_size: page_size,
+          page_token: page_token
+        }.compact
+      end
+      Result::Success.new(response.body)
+    end
+  end
+
   # https://docs.alpaca.markets/reference/getclock-1
   def get_clock
     with_rescue do
