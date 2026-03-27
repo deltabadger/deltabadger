@@ -17,8 +17,8 @@ class ExchangeWithdrawTest < ActiveSupport::TestCase
     create(:ticker, exchange: exchange, base_asset: @asset, quote_asset: @quote_asset)
     create(:api_key, exchange: exchange, key_type: :withdrawal)
 
-    Clients::Bybit.any_instance.expects(:get_coin_query_info).never
-    Clients::Bybit.any_instance.expects(:withdraw).with(
+    Honeymaker::Clients::Bybit.any_instance.expects(:get_coin_query_info).never
+    Honeymaker::Clients::Bybit.any_instance.expects(:withdraw).with(
       coin: @asset.symbol, chain: 'BEP20', address: 'addr1',
       amount: '0.5', tag: 'memo1'
     ).returns(Result::Success.new({ 'result' => { 'id' => 'bybit-123' } }))
@@ -45,9 +45,9 @@ class ExchangeWithdrawTest < ActiveSupport::TestCase
       }
     }
 
-    Clients::Bybit.any_instance.expects(:get_coin_query_info)
-                  .returns(Result::Success.new(coin_response))
-    Clients::Bybit.any_instance.expects(:withdraw).with(
+    Honeymaker::Clients::Bybit.any_instance.expects(:get_coin_query_info)
+                              .returns(Result::Success.new(coin_response))
+    Honeymaker::Clients::Bybit.any_instance.expects(:withdraw).with(
       coin: @asset.symbol, chain: 'BTC', address: 'addr1',
       amount: '0.5', tag: nil
     ).returns(Result::Success.new({ 'result' => { 'id' => 'bybit-456' } }))
@@ -63,8 +63,8 @@ class ExchangeWithdrawTest < ActiveSupport::TestCase
     create(:ticker, exchange: exchange, base_asset: @asset, quote_asset: @quote_asset)
     create(:api_key, exchange: exchange, key_type: :withdrawal)
 
-    Clients::Bitget.any_instance.expects(:get_coins).never
-    Clients::Bitget.any_instance.expects(:withdraw).with(
+    Honeymaker::Clients::Bitget.any_instance.expects(:get_coins).never
+    Honeymaker::Clients::Bitget.any_instance.expects(:withdraw).with(
       coin: @asset.symbol, address: 'addr1', size: '0.5',
       chain: 'ERC20', tag: 'tag1'
     ).returns(Result::Success.new({ 'data' => { 'orderId' => 'bg-123' } }))
@@ -81,8 +81,8 @@ class ExchangeWithdrawTest < ActiveSupport::TestCase
     create(:ticker, exchange: exchange, base_asset: @asset, quote_asset: @quote_asset)
     create(:api_key, exchange: exchange, key_type: :withdrawal)
 
-    Clients::Kucoin.any_instance.expects(:get_currencies).never
-    Clients::Kucoin.any_instance.expects(:withdraw).with(
+    Honeymaker::Clients::Kucoin.any_instance.expects(:get_currencies).never
+    Honeymaker::Clients::Kucoin.any_instance.expects(:withdraw).with(
       currency: @asset.symbol, address: 'addr1', amount: '0.5',
       chain: 'TRC20', memo: 'memo1'
     ).returns(Result::Success.new({ 'data' => { 'withdrawalId' => 'kc-123' } }))
@@ -99,8 +99,8 @@ class ExchangeWithdrawTest < ActiveSupport::TestCase
     create(:ticker, exchange: exchange, base_asset: @asset, quote_asset: @quote_asset)
     create(:api_key, exchange: exchange, key_type: :withdrawal)
 
-    Clients::Mexc.any_instance.expects(:get_all_coins_information).never
-    Clients::Mexc.any_instance.expects(:withdraw).with(
+    Honeymaker::Clients::Mexc.any_instance.expects(:get_all_coins_information).never
+    Honeymaker::Clients::Mexc.any_instance.expects(:withdraw).with(
       coin: @asset.symbol, address: 'addr1', amount: '0.5',
       network: 'BEP20', memo: 'memo1'
     ).returns(Result::Success.new({ 'id' => 'mexc-123' }))
@@ -117,7 +117,7 @@ class ExchangeWithdrawTest < ActiveSupport::TestCase
     create(:ticker, exchange: exchange, base_asset: @asset, quote_asset: @quote_asset)
     create(:api_key, exchange: exchange, key_type: :withdrawal)
 
-    Clients::Binance.any_instance.expects(:withdraw).with(
+    Honeymaker::Clients::Binance.any_instance.expects(:withdraw).with(
       coin: @asset.symbol, address: 'addr1', amount: '0.5',
       network: 'BSC', address_tag: 'tag1'
     ).returns(Result::Success.new({ 'id' => 'bn-123' }))

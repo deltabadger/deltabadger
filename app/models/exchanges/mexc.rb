@@ -19,10 +19,10 @@ class Exchanges::Mexc < Exchange
 
   def set_client(api_key: nil)
     @api_key = api_key
-    @client = Clients::Mexc.new(
-      api_key: api_key&.key,
-      api_secret: api_key&.secret
-    )
+    @client = Honeymaker.client('mexc',
+                                api_key: api_key&.key,
+                                api_secret: api_key&.secret,
+                                proxy: ENV['PROXY_MEXC'])
   end
 
   def get_tickers_info(force: false)
@@ -265,7 +265,7 @@ class Exchanges::Mexc < Exchange
       return error.present? ? Result::Failure.new(error) : result
     end
 
-    normalized_order_data = parse_order_data(order_id, result.data)
+    normalized_order_data = parse_order_data(order_id, result.data[:raw])
 
     Result::Success.new(normalized_order_data)
   end
@@ -294,10 +294,10 @@ class Exchanges::Mexc < Exchange
   end
 
   def get_api_key_validity(api_key:)
-    result = Clients::Mexc.new(
-      api_key: api_key.key,
-      api_secret: api_key.secret
-    ).account_information
+    result = Honeymaker.client('mexc',
+                               api_key: api_key.key,
+                               api_secret: api_key.secret,
+                               proxy: ENV['PROXY_MEXC']).account_information
 
     if result.success?
       valid = api_key.withdrawal? || result.data['canTrade'] == true
@@ -346,7 +346,7 @@ class Exchanges::Mexc < Exchange
     # Use provided network or determine the default
     network_name = network
     if network_name.blank?
-      coins_result = Clients::Mexc.new.get_all_coins_information
+      coins_result = Honeymaker.client('mexc', proxy: ENV['PROXY_MEXC']).get_all_coins_information
       return coins_result if coins_result.failure?
 
       coin_data = Array(coins_result.data).find { |c| c['coin'] == symbol }
@@ -369,7 +369,7 @@ class Exchanges::Mexc < Exchange
   end
 
   def fetch_withdrawal_fees!
-    result = Clients::Mexc.new.get_all_coins_information
+    result = Honeymaker.client('mexc', proxy: ENV['PROXY_MEXC']).get_all_coins_information
     return result if result.failure?
 
     fees = {}
@@ -536,9 +536,8 @@ class Exchanges::Mexc < Exchange
       return error.present? ? Result::Failure.new(error) : result
     end
 
-    ext_order_id = Utilities::Hash.dig_or_raise(result.data, 'orderId')
     data = {
-      order_id: "#{ticker.ticker}-#{ext_order_id}"
+      order_id: result.data[:order_id]
     }
 
     Result::Success.new(data)
@@ -566,9 +565,8 @@ class Exchanges::Mexc < Exchange
       return error.present? ? Result::Failure.new(error) : result
     end
 
-    ext_order_id = Utilities::Hash.dig_or_raise(result.data, 'orderId')
     data = {
-      order_id: "#{ticker.ticker}-#{ext_order_id}"
+      order_id: result.data[:order_id]
     }
 
     Result::Success.new(data)

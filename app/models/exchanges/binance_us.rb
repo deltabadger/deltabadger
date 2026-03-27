@@ -11,31 +11,20 @@ class Exchanges::BinanceUs < Exchanges::Binance
 
   def set_client(api_key: nil)
     @api_key = api_key
-    @client = Clients::BinanceUs.new(
-      api_key: api_key&.key,
-      api_secret: api_key&.secret
-    )
+    @client = Honeymaker.client('binance_us',
+                                api_key: api_key&.key,
+                                api_secret: api_key&.secret,
+                                proxy: ENV['PROXY_BINANCE_US'])
   end
-
-  private
-
-  def honeymaker_client(api_key)
-    Honeymaker.client('binance_us',
-                      api_key: api_key.key,
-                      api_secret: api_key.secret,
-                      proxy: ENV['PROXY_BINANCE_US'])
-  end
-
-  public
 
   def fetch_withdrawal_fees!
     api_key = fee_api_key
     return Result::Success.new({}) if api_key.blank?
 
-    result = Clients::BinanceUs.new(
-      api_key: api_key.key,
-      api_secret: api_key.secret
-    ).get_all_coins_information
+    result = Honeymaker.client('binance_us',
+                               api_key: api_key.key,
+                               api_secret: api_key.secret,
+                               proxy: ENV['PROXY_BINANCE_US']).get_all_coins_information
     return result if result.failure?
 
     fees = {}
@@ -52,10 +41,10 @@ class Exchanges::BinanceUs < Exchanges::Binance
   end
 
   def get_api_key_validity(api_key:)
-    result = Clients::BinanceUs.new(
-      api_key: api_key.key,
-      api_secret: api_key.secret
-    ).api_description
+    result = Honeymaker.client('binance_us',
+                               api_key: api_key.key,
+                               api_secret: api_key.secret,
+                               proxy: ENV['PROXY_BINANCE_US']).api_description
 
     if result.success?
       common_checks = result.data['ipRestrict'] == true &&

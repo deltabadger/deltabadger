@@ -23,10 +23,10 @@ class Exchanges::Bitrue < Exchange
 
   def set_client(api_key: nil)
     @api_key = api_key
-    @client = Clients::Bitrue.new(
-      api_key: api_key&.key,
-      api_secret: api_key&.secret
-    )
+    @client = Honeymaker.client('bitrue',
+                                api_key: api_key&.key,
+                                api_secret: api_key&.secret,
+                                proxy: ENV['PROXY_BITRUE'])
   end
 
   def get_tickers_info(force: false)
@@ -267,7 +267,7 @@ class Exchanges::Bitrue < Exchange
       return error.present? ? Result::Failure.new(error) : result
     end
 
-    normalized_order_data = parse_order_data(order_id, result.data)
+    normalized_order_data = parse_order_data(order_id, result.data[:raw])
 
     Result::Success.new(normalized_order_data)
   end
@@ -296,10 +296,10 @@ class Exchanges::Bitrue < Exchange
   end
 
   def get_api_key_validity(api_key:)
-    result = Clients::Bitrue.new(
-      api_key: api_key.key,
-      api_secret: api_key.secret
-    ).account_information
+    result = Honeymaker.client('bitrue',
+                               api_key: api_key.key,
+                               api_secret: api_key.secret,
+                               proxy: ENV['PROXY_BITRUE']).account_information
 
     if result.success?
       valid = api_key.withdrawal? || result.data['canTrade'] == true
@@ -357,10 +357,10 @@ class Exchanges::Bitrue < Exchange
     api_key = fee_api_key
     return Result::Success.new({}) if api_key.blank?
 
-    result = Clients::Bitrue.new(
-      api_key: api_key.key,
-      api_secret: api_key.secret
-    ).get_all_coins_information
+    result = Honeymaker.client('bitrue',
+                               api_key: api_key.key,
+                               api_secret: api_key.secret,
+                               proxy: ENV['PROXY_BITRUE']).get_all_coins_information
     return result if result.failure?
 
     fees = {}
@@ -498,9 +498,8 @@ class Exchanges::Bitrue < Exchange
       return error.present? ? Result::Failure.new(error) : result
     end
 
-    ext_order_id = Utilities::Hash.dig_or_raise(result.data, 'orderId')
     data = {
-      order_id: "#{ticker.ticker}-#{ext_order_id}"
+      order_id: result.data[:order_id]
     }
 
     Result::Success.new(data)
@@ -528,9 +527,8 @@ class Exchanges::Bitrue < Exchange
       return error.present? ? Result::Failure.new(error) : result
     end
 
-    ext_order_id = Utilities::Hash.dig_or_raise(result.data, 'orderId')
     data = {
-      order_id: "#{ticker.ticker}-#{ext_order_id}"
+      order_id: result.data[:order_id]
     }
 
     Result::Success.new(data)

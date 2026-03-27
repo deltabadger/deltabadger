@@ -25,9 +25,9 @@ class Exchanges::BitrueTest < ActiveSupport::TestCase
     assert_equal :base_and_quote_in_base, @exchange.minimum_amount_logic(order_type: :limit_order)
   end
 
-  test 'set_client creates a Clients::Bitrue instance' do
+  test 'set_client creates a Honeymaker Bitrue client' do
     @exchange.set_client
-    assert_kind_of Clients::Bitrue, @exchange.send(:client)
+    assert_kind_of Honeymaker::Clients::Bitrue, @exchange.send(:client)
   end
 
   test 'set_client with api_key stores the api_key' do
@@ -44,7 +44,7 @@ class Exchanges::BitrueTest < ActiveSupport::TestCase
     Rails.configuration.stubs(:dry_run).returns(false)
     api_key = create(:api_key, exchange: @exchange, key_type: :trading, key: 'test_key', secret: 'test_secret')
 
-    Clients::Bitrue.any_instance.stubs(:account_information).returns(
+    Honeymaker::Clients::Bitrue.any_instance.stubs(:account_information).returns(
       Result::Success.new({ 'canTrade' => true, 'canWithdraw' => false, 'balances' => [] })
     )
 
@@ -57,7 +57,7 @@ class Exchanges::BitrueTest < ActiveSupport::TestCase
     Rails.configuration.stubs(:dry_run).returns(false)
     api_key = create(:api_key, exchange: @exchange, key_type: :trading, key: 'test_key', secret: 'test_secret')
 
-    Clients::Bitrue.any_instance.stubs(:account_information).returns(
+    Honeymaker::Clients::Bitrue.any_instance.stubs(:account_information).returns(
       Result::Success.new({ 'canTrade' => false, 'canWithdraw' => true, 'balances' => [] })
     )
 
@@ -70,7 +70,7 @@ class Exchanges::BitrueTest < ActiveSupport::TestCase
     Rails.configuration.stubs(:dry_run).returns(false)
     api_key = create(:api_key, exchange: @exchange, key_type: :withdrawal, key: 'test_key', secret: 'test_secret')
 
-    Clients::Bitrue.any_instance.stubs(:account_information).returns(
+    Honeymaker::Clients::Bitrue.any_instance.stubs(:account_information).returns(
       Result::Success.new({ 'canTrade' => false, 'canWithdraw' => true, 'balances' => [] })
     )
 

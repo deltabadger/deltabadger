@@ -52,10 +52,10 @@ class Exchanges::Kraken < Exchange
 
   def set_client(api_key: nil)
     @api_key = api_key
-    @client = Clients::Kraken.new(
-      api_key: api_key&.key,
-      api_secret: api_key&.secret
-    )
+    @client = Honeymaker.client('kraken',
+                                api_key: api_key&.key,
+                                api_secret: api_key&.secret,
+                                proxy: ENV['PROXY_KRAKEN'])
   end
 
   def get_tickers_info(force: false)
@@ -301,13 +301,10 @@ class Exchanges::Kraken < Exchange
     result = client.query_orders_info(txid: order_id)
     return result if result.failure?
 
-    error = Utilities::Hash.dig_or_raise(result.data, 'error')
-    return Result::Failure.new(*error) if error.any?
-
-    order_data = Utilities::Hash.dig_or_raise(result.data, 'result')[order_id]
+    order_data = result.data[order_id]
     return Result::Failure.new("Failed to get #{name} order (order_id: #{order_id}). Order data is nil") if order_data.nil?
 
-    normalized_order_data = parse_order_data(order_id, order_data)
+    normalized_order_data = parse_order_data(order_id, order_data[:raw])
 
     Result::Success.new(normalized_order_data)
   end
@@ -318,12 +315,8 @@ class Exchanges::Kraken < Exchange
       result = client.query_orders_info(txid: order_ids_slice.join(','))
       return result if result.failure?
 
-      error = Utilities::Hash.dig_or_raise(result.data, 'error')
-      return Result::Failure.new(*error) if error.any?
-
-      order_datas = Utilities::Hash.dig_or_raise(result.data, 'result')
-      order_datas.each do |order_id, order_data|
-        orders[order_id] = parse_order_data(order_id, order_data)
+      result.data.each do |order_id, order_data|
+        orders[order_id] = parse_order_data(order_id, order_data[:raw])
       end
     end
 
@@ -341,10 +334,10 @@ class Exchanges::Kraken < Exchange
   end
 
   def get_api_key_validity(api_key:)
-    temp_client = Clients::Kraken.new(
-      api_key: api_key.key,
-      api_secret: api_key.secret
-    )
+    temp_client = Honeymaker.client('kraken',
+                                    api_key: api_key.key,
+                                    api_secret: api_key.secret,
+                                    proxy: ENV['PROXY_KRAKEN'])
 
     result = if api_key.withdrawal?
                temp_client.get_extended_balance
@@ -358,15 +351,27 @@ class Exchanges::Kraken < Exchange
                  validate: true
                )
              end
-    return result if result.failure?
 
-    errors = Utilities::Hash.dig_or_raise(result.data, 'error')
-    if errors.empty?
-      Result::Success.new(true)
-    elsif errors.first.in?(ERRORS[:invalid_key])
-      Result::Success.new(false)
+    if result.success?
+      if api_key.withdrawal?
+        errors = Utilities::Hash.dig_or_raise(result.data, 'error')
+        if errors.empty?
+          Result::Success.new(true)
+        elsif errors.first.in?(ERRORS[:invalid_key])
+          Result::Success.new(false)
+        else
+          Result::Failure.new(*errors)
+        end
+      else
+        Result::Success.new(true)
+      end
     else
-      Result::Failure.new(*errors)
+      error_msg = result.errors.first
+      if error_msg.in?(ERRORS[:invalid_key])
+        Result::Success.new(false)
+      else
+        result
+      end
     end
   end
 
@@ -456,7 +461,10 @@ class Exchanges::Kraken < Exchange
   }.freeze
 
   def get_ledger(api_key:, start_time: nil)
-    hm_client = honeymaker_client(api_key)
+    hm_client = Honeymaker.client('kraken',
+                                  api_key: api_key.key,
+                                  api_secret: api_key.secret,
+                                  proxy: ENV['PROXY_KRAKEN'])
     start_unix = start_time&.to_i
     entries = []
 
@@ -486,13 +494,6 @@ class Exchanges::Kraken < Exchange
   end
 
   private
-
-  def honeymaker_client(api_key)
-    Honeymaker.client('kraken',
-                      api_key: api_key.key,
-                      api_secret: api_key.secret,
-                      proxy: ENV['PROXY_KRAKEN'])
-  end
 
   def normalize_kraken_ledger_entry(ledger_id, entry)
     type = entry['type']
@@ -628,10 +629,7 @@ class Exchanges::Kraken < Exchange
     result = client.add_order(**order_settings)
     return result if result.failure?
 
-    error = Utilities::Hash.dig_or_raise(result.data, 'error')
-    return Result::Failure.new(*error) if error.any?
-
-    order_id = Utilities::Hash.dig_or_raise(result.data, 'result', 'txid').first
+    order_id = result.data[:order_id]
     return Result::Failure.new("Failed to set #{name} market order (order_id is nil)") if order_id.nil?
 
     data = {
@@ -660,10 +658,7 @@ class Exchanges::Kraken < Exchange
     result = client.add_order(**order_settings)
     return result if result.failure?
 
-    error = Utilities::Hash.dig_or_raise(result.data, 'error')
-    return Result::Failure.new(*error) if error.any?
-
-    order_id = Utilities::Hash.dig_or_raise(result.data, 'result', 'txid').first
+    order_id = result.data[:order_id]
     return Result::Failure.new("Failed to set #{name} limit order (order_id is nil)") if order_id.nil?
 
     data = {

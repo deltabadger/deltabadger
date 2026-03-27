@@ -21,9 +21,9 @@ class Exchanges::BitmartTest < ActiveSupport::TestCase
     assert_equal :base_and_quote, @exchange.minimum_amount_logic
   end
 
-  test 'set_client creates a Clients::Bitmart instance' do
+  test 'set_client creates a Honeymaker BitMart client' do
     @exchange.set_client
-    assert_kind_of Clients::Bitmart, @exchange.send(:client)
+    assert_kind_of Honeymaker::Clients::BitMart, @exchange.send(:client)
   end
 
   test 'set_client with api_key stores the api_key' do
@@ -41,10 +41,10 @@ class Exchanges::BitmartTest < ActiveSupport::TestCase
     api_key = create(:api_key, exchange: @exchange, key_type: :trading, key: 'test_key', secret: 'test_secret',
                                raw_passphrase: 'test_memo')
 
-    Clients::Bitmart.any_instance.stubs(:cancel_order).returns(
+    Honeymaker::Clients::BitMart.any_instance.stubs(:cancel_order).returns(
       Result::Success.new({ 'code' => 50_030, 'message' => 'Order not found' })
     )
-    Clients::Bitmart.any_instance.expects(:get_wallet).never
+    Honeymaker::Clients::BitMart.any_instance.expects(:get_wallet).never
 
     result = @exchange.get_api_key_validity(api_key: api_key)
     assert result.success?
@@ -56,10 +56,10 @@ class Exchanges::BitmartTest < ActiveSupport::TestCase
     api_key = create(:api_key, exchange: @exchange, key_type: :withdrawal, key: 'test_key', secret: 'test_secret',
                                raw_passphrase: 'test_memo')
 
-    Clients::Bitmart.any_instance.stubs(:get_wallet).returns(
+    Honeymaker::Clients::BitMart.any_instance.stubs(:get_wallet).returns(
       Result::Success.new({ 'code' => 1000, 'data' => { 'wallet' => [] } })
     )
-    Clients::Bitmart.any_instance.expects(:cancel_order).never
+    Honeymaker::Clients::BitMart.any_instance.expects(:cancel_order).never
 
     result = @exchange.get_api_key_validity(api_key: api_key)
     assert result.success?
@@ -71,7 +71,7 @@ class Exchanges::BitmartTest < ActiveSupport::TestCase
     api_key = create(:api_key, exchange: @exchange, key_type: :trading, key: 'bad_key', secret: 'bad_secret',
                                raw_passphrase: 'test_memo')
 
-    Clients::Bitmart.any_instance.stubs(:cancel_order).returns(
+    Honeymaker::Clients::BitMart.any_instance.stubs(:cancel_order).returns(
       Result::Success.new({ 'code' => 30_006, 'message' => 'Invalid ACCESS_KEY' })
     )
 

@@ -85,9 +85,9 @@ class ExchangeWithdrawalFeesTest < ActiveSupport::TestCase
       }
     ]
 
-    Clients::Binance.any_instance
-                    .stubs(:get_all_coins_information)
-                    .returns(Result::Success.new(api_response))
+    Honeymaker::Clients::Binance.any_instance
+                                .stubs(:get_all_coins_information)
+                                .returns(Result::Success.new(api_response))
 
     result = @exchange.fetch_withdrawal_fees!
 
@@ -139,9 +139,9 @@ class ExchangeWithdrawalFeesTest < ActiveSupport::TestCase
       ]
     }
 
-    Clients::Bitget.any_instance
-                   .stubs(:get_coins)
-                   .returns(Result::Success.new(api_response))
+    Honeymaker::Clients::Bitget.any_instance
+                               .stubs(:get_coins)
+                               .returns(Result::Success.new(api_response))
 
     result = exchange.fetch_withdrawal_fees!
 
@@ -204,9 +204,9 @@ class ExchangeWithdrawalFeesTest < ActiveSupport::TestCase
       ]
     }
 
-    Clients::Kraken.any_instance
-                   .stubs(:get_withdraw_methods)
-                   .returns(Result::Success.new(api_response))
+    Honeymaker::Clients::Kraken.any_instance
+                               .stubs(:get_withdraw_methods)
+                               .returns(Result::Success.new(api_response))
 
     exchange.set_client
     result = exchange.fetch_withdrawal_fees!
@@ -246,9 +246,9 @@ class ExchangeWithdrawalFeesTest < ActiveSupport::TestCase
       ]
     }
 
-    Clients::Kraken.any_instance
-                   .stubs(:get_withdraw_methods)
-                   .returns(Result::Success.new(api_response))
+    Honeymaker::Clients::Kraken.any_instance
+                               .stubs(:get_withdraw_methods)
+                               .returns(Result::Success.new(api_response))
 
     exchange.set_client
     result = exchange.fetch_withdrawal_fees!
@@ -264,9 +264,9 @@ class ExchangeWithdrawalFeesTest < ActiveSupport::TestCase
 
     exchange = create(:kraken_exchange)
 
-    Clients::Kraken.any_instance
-                   .stubs(:get_withdraw_methods)
-                   .returns(Result::Success.new({ 'error' => ['EAPI:Invalid key'], 'result' => [] }))
+    Honeymaker::Clients::Kraken.any_instance
+                               .stubs(:get_withdraw_methods)
+                               .returns(Result::Success.new({ 'error' => ['EAPI:Invalid key'], 'result' => [] }))
 
     exchange.set_client
     result = exchange.fetch_withdrawal_fees!
@@ -286,9 +286,9 @@ class ExchangeWithdrawalFeesTest < ActiveSupport::TestCase
       ]
     }
 
-    Clients::Kraken.any_instance
-                   .stubs(:get_withdraw_methods)
-                   .returns(Result::Success.new(api_response))
+    Honeymaker::Clients::Kraken.any_instance
+                               .stubs(:get_withdraw_methods)
+                               .returns(Result::Success.new(api_response))
 
     exchange.set_client
     result = exchange.fetch_withdrawal_fees!

@@ -21,9 +21,9 @@ class Exchanges::BitvavoTest < ActiveSupport::TestCase
     assert_equal :base_or_quote, @exchange.minimum_amount_logic
   end
 
-  test 'set_client creates a Clients::Bitvavo instance' do
+  test 'set_client creates a Honeymaker::Clients::Bitvavo instance' do
     @exchange.set_client
-    assert_kind_of Clients::Bitvavo, @exchange.send(:client)
+    assert_kind_of Honeymaker::Clients::Bitvavo, @exchange.send(:client)
   end
 
   test 'set_client with api_key stores the api_key' do
@@ -40,10 +40,10 @@ class Exchanges::BitvavoTest < ActiveSupport::TestCase
     Rails.configuration.stubs(:dry_run).returns(false)
     api_key = create(:api_key, exchange: @exchange, key_type: :trading, key: 'test_key', secret: 'test_secret')
 
-    Clients::Bitvavo.any_instance.stubs(:cancel_order).returns(
+    Honeymaker::Clients::Bitvavo.any_instance.stubs(:cancel_order).returns(
       Result::Failure.new('Order not found')
     )
-    Clients::Bitvavo.any_instance.expects(:balance).never
+    Honeymaker::Clients::Bitvavo.any_instance.expects(:get_raw_balance).never
 
     result = @exchange.get_api_key_validity(api_key: api_key)
     assert result.success?
@@ -54,10 +54,10 @@ class Exchanges::BitvavoTest < ActiveSupport::TestCase
     Rails.configuration.stubs(:dry_run).returns(false)
     api_key = create(:api_key, exchange: @exchange, key_type: :withdrawal, key: 'test_key', secret: 'test_secret')
 
-    Clients::Bitvavo.any_instance.stubs(:balance).returns(
+    Honeymaker::Clients::Bitvavo.any_instance.stubs(:get_raw_balance).returns(
       Result::Success.new([{ 'symbol' => 'BTC', 'available' => '0.5' }])
     )
-    Clients::Bitvavo.any_instance.expects(:cancel_order).never
+    Honeymaker::Clients::Bitvavo.any_instance.expects(:cancel_order).never
 
     result = @exchange.get_api_key_validity(api_key: api_key)
     assert result.success?
@@ -68,7 +68,7 @@ class Exchanges::BitvavoTest < ActiveSupport::TestCase
     Rails.configuration.stubs(:dry_run).returns(false)
     api_key = create(:api_key, exchange: @exchange, key_type: :trading, key: 'bad_key', secret: 'bad_secret')
 
-    Clients::Bitvavo.any_instance.stubs(:cancel_order).returns(
+    Honeymaker::Clients::Bitvavo.any_instance.stubs(:cancel_order).returns(
       Result::Failure.new('Invalid API key.', data: { status: 401 })
     )
 
