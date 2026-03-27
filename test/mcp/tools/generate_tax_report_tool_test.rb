@@ -8,12 +8,14 @@ class GenerateTaxReportToolTest < ActiveSupport::TestCase
   end
 
   test 'enqueues tax report generation job' do
+    cleanup_report('DE', 2025)
     Tax::GenerateReportJob.expects(:perform_later).with(@user.id, 'DE', 2025, false)
 
     GenerateTaxReportTool.call('country' => 'DE', 'year' => 2025)
   end
 
   test 'returns started message' do
+    cleanup_report('DE', 2025)
     Tax::GenerateReportJob.stubs(:perform_later)
 
     response = GenerateTaxReportTool.call('country' => 'DE', 'year' => 2025)
@@ -24,6 +26,7 @@ class GenerateTaxReportToolTest < ActiveSupport::TestCase
   end
 
   test 'passes stablecoin_as_fiat flag' do
+    cleanup_report('AT', 2025)
     Tax::GenerateReportJob.expects(:perform_later).with(@user.id, 'AT', 2025, true)
 
     GenerateTaxReportTool.call('country' => 'AT', 'year' => 2025, 'stablecoin_as_fiat' => true)
@@ -39,6 +42,7 @@ class GenerateTaxReportToolTest < ActiveSupport::TestCase
   end
 
   test 'rejects when market data not configured' do
+    cleanup_report('DE', 2025)
     MarketData.stubs(:configured?).returns(false)
     Tax::GenerateReportJob.expects(:perform_later).never
 
@@ -49,6 +53,7 @@ class GenerateTaxReportToolTest < ActiveSupport::TestCase
   end
 
   test 'allows wealth snapshot without market data configured' do
+    cleanup_report('NL', 2025)
     MarketData.stubs(:configured?).returns(false)
     Tax::GenerateReportJob.expects(:perform_later).with(@user.id, 'NL', 2025, false)
 
@@ -56,20 +61,22 @@ class GenerateTaxReportToolTest < ActiveSupport::TestCase
   end
 
   test 'detects existing report file' do
-    file_path = Rails.root.join('tmp', 'tax_reports', "#{@user.id}_DE_2025.csv")
-    FileUtils.mkdir_p(File.dirname(file_path))
-    File.write(file_path, 'test')
+    # Use a unique country/year combo so other parallel processes cannot interfere
+    path = report_path('IT', 1999)
+    FileUtils.mkdir_p(File.dirname(path))
+    File.write(path, 'test')
     Tax::GenerateReportJob.expects(:perform_later).never
 
-    response = GenerateTaxReportTool.call('country' => 'DE', 'year' => 2025)
+    response = GenerateTaxReportTool.call('country' => 'IT', 'year' => 1999)
     text = response.contents.first.text
 
     assert_match(/already available/, text)
   ensure
-    FileUtils.rm_f(file_path)
+    FileUtils.rm_f(path)
   end
 
   test 'updates tracker_settings' do
+    cleanup_report('DE', 2025)
     Tax::GenerateReportJob.stubs(:perform_later)
 
     GenerateTaxReportTool.call('country' => 'DE', 'year' => 2025)
@@ -78,5 +85,15 @@ class GenerateTaxReportToolTest < ActiveSupport::TestCase
     assert_equal 'tax_report', @user.tracker_settings['export_type']
     assert_equal 'DE', @user.tracker_settings['country']
     assert_equal 2025, @user.tracker_settings['year']
+  end
+
+  private
+
+  def report_path(country, year)
+    Rails.root.join('tmp', 'tax_reports', "#{@user.id}_#{country}_#{year}.csv")
+  end
+
+  def cleanup_report(country, year)
+    FileUtils.rm_f(report_path(country, year))
   end
 end
