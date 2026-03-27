@@ -8,35 +8,48 @@ class DownloadTaxReportToolTest < ActiveSupport::TestCase
 
   test 'returns CSV content when report exists' do
     csv_content = "date,asset,amount\n2025-01-01,BTC,0.5"
-    file_path = Rails.root.join('tmp', 'tax_reports', "#{@user.id}_DE_2025.csv")
-    FileUtils.mkdir_p(File.dirname(file_path))
-    File.write(file_path, csv_content)
+    path = write_report('PL', 1998, csv_content)
 
-    response = DownloadTaxReportTool.call('country' => 'DE', 'year' => 2025)
+    response = DownloadTaxReportTool.call('country' => 'PL', 'year' => 1998)
     text = response.contents.first.text
 
     assert_equal csv_content, text
   ensure
-    FileUtils.rm_f(file_path)
+    FileUtils.rm_f(path)
   end
 
   test 'does not delete file after reading' do
-    file_path = Rails.root.join('tmp', 'tax_reports', "#{@user.id}_DE_2025.csv")
-    FileUtils.mkdir_p(File.dirname(file_path))
-    File.write(file_path, 'test')
+    path = write_report('PL', 1997, 'test')
 
-    DownloadTaxReportTool.call('country' => 'DE', 'year' => 2025)
+    DownloadTaxReportTool.call('country' => 'PL', 'year' => 1997)
 
-    assert File.exist?(file_path), 'Expected file to still exist after MCP download'
+    assert File.exist?(path), 'Expected file to still exist after MCP download'
   ensure
-    FileUtils.rm_f(file_path)
+    FileUtils.rm_f(path)
   end
 
   test 'returns error when no report found' do
-    response = DownloadTaxReportTool.call('country' => 'DE', 'year' => 2025)
+    # Use a unique combo to avoid collisions with file-creating tests
+    path = report_path('ES', 1996)
+    FileUtils.rm_f(path)
+
+    response = DownloadTaxReportTool.call('country' => 'ES', 'year' => 1996)
     text = response.contents.first.text
 
     assert_match(/No report found/, text)
     assert_match(/generate_tax_report/, text)
+  end
+
+  private
+
+  def report_path(country, year)
+    Rails.root.join('tmp', 'tax_reports', "#{@user.id}_#{country}_#{year}.csv")
+  end
+
+  def write_report(country, year, content)
+    path = report_path(country, year)
+    FileUtils.mkdir_p(File.dirname(path))
+    File.write(path, content)
+    path
   end
 end

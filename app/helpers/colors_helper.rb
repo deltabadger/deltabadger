@@ -16,21 +16,6 @@ module ColorsHelper
     rgb_to_hex(r, g, b)
   end
 
-  def ensure_contrast_text(bg_color, contrast_ratio)
-    return if bg_color.blank?
-
-    r, g, b = hex_to_rgb(bg_color)
-    luminance = calculate_luminance(r, g, b)
-
-    white_luminance = 1.0
-    # black_luminance = 0.0
-
-    white_contrast = (white_luminance + 0.05) / (luminance + 0.05)
-    # black_contrast = (luminance + 0.05) / (black_luminance + 0.05)
-
-    white_contrast >= contrast_ratio ? '#fff' : 'var(--ink)'
-  end
-
   def transparent_color(color, opacity, min_opacity = 0.6)
     adjusted_opacity = min_opacity + ((1 - min_opacity) * opacity)
     alpha = (adjusted_opacity * 255).round.to_s(16).rjust(2, '0')

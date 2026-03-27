@@ -2,8 +2,6 @@ class ApplicationMailer < ActionMailer::Base
   default from: -> { AppConfig.notifications_sender }
   layout 'mailers/transactional'
 
-  helper LocalesHelper
-
   def default_url_options
     { locale: (I18n.locale unless I18n.locale == I18n.default_locale) }
   end
