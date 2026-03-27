@@ -23,16 +23,16 @@ class Exchanges::Bitvavo < Exchange
 
   def set_client(api_key: nil)
     @api_key = api_key
-    @client = Clients::Bitvavo.new(
-      api_key: api_key&.key,
-      api_secret: api_key&.secret
-    )
+    @client = Honeymaker.client('bitvavo',
+                                api_key: api_key&.key,
+                                api_secret: api_key&.secret,
+                                proxy: ENV['PROXY_BITVAVO'])
   end
 
   def get_tickers_info(force: false)
     cache_key = "exchange_#{id}_tickers_info"
     tickers_info = Rails.cache.fetch(cache_key, expires_in: 1.hour, force: force) do
-      result = client.markets
+      result = client.get_markets
       return result if result.failure?
 
       result.data.map do |product|
@@ -62,7 +62,7 @@ class Exchanges::Bitvavo < Exchange
   def get_tickers_prices(force: false, symbols: nil)
     cache_key = "exchange_#{id}_prices"
     tickers_prices = Rails.cache.fetch(cache_key, expires_in: 1.minute, force: force) do
-      result = client.ticker_price
+      result = client.get_ticker_price
       return result if result.failure?
 
       result.data.each_with_object({}) do |item, prices_hash|
@@ -76,7 +76,7 @@ class Exchanges::Bitvavo < Exchange
   end
 
   def get_balances(asset_ids: nil)
-    result = client.balance
+    result = client.get_raw_balance
     return result if result.failure?
 
     asset_ids ||= assets.pluck(:id)
@@ -101,7 +101,7 @@ class Exchanges::Bitvavo < Exchange
   def get_last_price(ticker:, force: false)
     cache_key = "exchange_#{id}_last_price_#{ticker.id}"
     price = Rails.cache.fetch(cache_key, expires_in: 5.seconds, force: force) do
-      result = client.ticker_price(market: ticker.ticker)
+      result = client.get_ticker_price(market: ticker.ticker)
       return result if result.failure?
 
       price = Utilities::Hash.dig_or_raise(result.data, 'price').to_d
@@ -161,7 +161,7 @@ class Exchanges::Bitvavo < Exchange
     limit = 1440
     candles = []
     loop do
-      result = client.candles(
+      result = client.get_candles(
         market: ticker.ticker,
         interval: interval,
         start_time: start_at.to_i * 1000,
@@ -269,13 +269,13 @@ class Exchanges::Bitvavo < Exchange
   end
 
   def get_api_key_validity(api_key:)
-    temp_client = Clients::Bitvavo.new(
-      api_key: api_key.key,
-      api_secret: api_key.secret
-    )
+    temp_client = Honeymaker.client('bitvavo',
+                                    api_key: api_key.key,
+                                    api_secret: api_key.secret,
+                                    proxy: ENV['PROXY_BITVAVO'])
 
     result = if api_key.withdrawal?
-               temp_client.balance
+               temp_client.get_raw_balance
              else
                temp_client.cancel_order(market: 'BTC-EUR', order_id: '00000000-0000-0000-0000-000000000000')
              end
@@ -304,8 +304,8 @@ class Exchanges::Bitvavo < Exchange
     symbol = symbol_from_asset(asset)
     return Result::Failure.new("Unknown symbol for asset #{asset.symbol}") if symbol.blank?
 
-    result = client.withdrawal(symbol: symbol, amount: amount.to_d.to_s('F'), address: address,
-                               payment_id: address_tag)
+    result = client.withdraw(symbol: symbol, amount: amount.to_d.to_s('F'), address: address,
+                             payment_id: address_tag)
     return result if result.failure?
 
     withdrawal_id = result.data['success'] ? "bitvavo-#{SecureRandom.uuid}" : nil
@@ -313,7 +313,7 @@ class Exchanges::Bitvavo < Exchange
   end
 
   def fetch_withdrawal_fees!
-    result = Clients::Bitvavo.new.get_assets
+    result = Honeymaker.client('bitvavo', proxy: ENV['PROXY_BITVAVO']).get_assets
     return result if result.failure?
 
     fees = {}
@@ -413,7 +413,7 @@ class Exchanges::Bitvavo < Exchange
   def get_bid_ask_price(ticker)
     cache_key = "exchange_#{id}_bid_ask_price_#{ticker.id}"
     Rails.cache.fetch(cache_key, expires_in: 1.seconds) do
-      result = client.ticker_book(market: ticker.ticker)
+      result = client.get_ticker_book(market: ticker.ticker)
       return result if result.failure?
 
       formatted = {
@@ -443,7 +443,7 @@ class Exchanges::Bitvavo < Exchange
       amount: amount_type == :base ? amount.to_d.to_s('F') : nil,
       amount_quote: amount_type == :quote ? amount.to_d.to_s('F') : nil
     }
-    result = client.create_order(**order_settings)
+    result = client.place_order(**order_settings)
     return result if result.failure?
 
     ext_order_id = Utilities::Hash.dig_or_raise(result.data, 'orderId')
@@ -469,7 +469,7 @@ class Exchanges::Bitvavo < Exchange
       amount: amount.to_d.to_s('F'),
       price: price.to_d.to_s('F')
     }
-    result = client.create_order(**order_settings)
+    result = client.place_order(**order_settings)
     return result if result.failure?
 
     ext_order_id = Utilities::Hash.dig_or_raise(result.data, 'orderId')

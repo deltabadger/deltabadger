@@ -9,10 +9,10 @@ class Exchanges::KrakenTest < ActiveSupport::TestCase
   test 'get_api_key_validity uses add_order for trading keys' do
     api_key = create(:api_key, exchange: @exchange, key_type: :trading, key: 'test_key', secret: 'dGVzdF9zZWNyZXQ=')
 
-    Clients::Kraken.any_instance.stubs(:add_order).returns(
+    Honeymaker::Clients::Kraken.any_instance.stubs(:add_order).returns(
       Result::Success.new({ 'error' => [] })
     )
-    Clients::Kraken.any_instance.expects(:get_extended_balance).never
+    Honeymaker::Clients::Kraken.any_instance.expects(:get_extended_balance).never
 
     result = @exchange.get_api_key_validity(api_key: api_key)
     assert result.success?
@@ -22,10 +22,10 @@ class Exchanges::KrakenTest < ActiveSupport::TestCase
   test 'get_api_key_validity uses get_extended_balance for withdrawal keys' do
     api_key = create(:api_key, exchange: @exchange, key_type: :withdrawal, key: 'test_key', secret: 'dGVzdF9zZWNyZXQ=')
 
-    Clients::Kraken.any_instance.stubs(:get_extended_balance).returns(
+    Honeymaker::Clients::Kraken.any_instance.stubs(:get_extended_balance).returns(
       Result::Success.new({ 'error' => [], 'result' => {} })
     )
-    Clients::Kraken.any_instance.expects(:add_order).never
+    Honeymaker::Clients::Kraken.any_instance.expects(:add_order).never
 
     result = @exchange.get_api_key_validity(api_key: api_key)
     assert result.success?
@@ -35,7 +35,7 @@ class Exchanges::KrakenTest < ActiveSupport::TestCase
   test 'get_api_key_validity returns incorrect for invalid withdrawal key' do
     api_key = create(:api_key, exchange: @exchange, key_type: :withdrawal, key: 'bad_key', secret: 'dGVzdF9zZWNyZXQ=')
 
-    Clients::Kraken.any_instance.stubs(:get_extended_balance).returns(
+    Honeymaker::Clients::Kraken.any_instance.stubs(:get_extended_balance).returns(
       Result::Success.new({ 'error' => ['EAPI:Invalid key'] })
     )
 
@@ -47,7 +47,7 @@ class Exchanges::KrakenTest < ActiveSupport::TestCase
   test 'get_api_key_validity returns incorrect for permission denied on withdrawal key' do
     api_key = create(:api_key, exchange: @exchange, key_type: :withdrawal, key: 'bad_key', secret: 'dGVzdF9zZWNyZXQ=')
 
-    Clients::Kraken.any_instance.stubs(:get_extended_balance).returns(
+    Honeymaker::Clients::Kraken.any_instance.stubs(:get_extended_balance).returns(
       Result::Success.new({ 'error' => ['EGeneral:Permission denied'] })
     )
 
@@ -62,7 +62,7 @@ class Exchanges::KrakenTest < ActiveSupport::TestCase
     asset = create(:asset, :bitcoin)
     create(:ticker, exchange: @exchange, base_asset: asset, quote_asset: create(:asset, :usd))
 
-    Clients::Kraken.any_instance.stubs(:get_withdraw_addresses).returns(
+    Honeymaker::Clients::Kraken.any_instance.stubs(:get_withdraw_addresses).returns(
       Result::Success.new(
         'error' => [],
         'result' => [
@@ -92,7 +92,7 @@ class Exchanges::KrakenTest < ActiveSupport::TestCase
     api_key = create(:api_key, exchange: @exchange, key_type: :withdrawal, key: 'test_key', secret: 'dGVzdF9zZWNyZXQ=')
     @exchange.set_client(api_key: api_key)
 
-    Clients::Kraken.any_instance.stubs(:get_withdraw_addresses).returns(
+    Honeymaker::Clients::Kraken.any_instance.stubs(:get_withdraw_addresses).returns(
       Result::Success.new(
         'error' => [],
         'result' => [
@@ -101,7 +101,7 @@ class Exchanges::KrakenTest < ActiveSupport::TestCase
       )
     )
 
-    Clients::Kraken.any_instance.expects(:withdraw).with(
+    Honeymaker::Clients::Kraken.any_instance.expects(:withdraw).with(
       asset: 'BTC',
       key: 'My BTC Wallet',
       amount: '0.5',
@@ -121,11 +121,11 @@ class Exchanges::KrakenTest < ActiveSupport::TestCase
     api_key = create(:api_key, exchange: @exchange, key_type: :withdrawal, key: 'test_key', secret: 'dGVzdF9zZWNyZXQ=')
     @exchange.set_client(api_key: api_key)
 
-    Clients::Kraken.any_instance.stubs(:get_withdraw_addresses).returns(
+    Honeymaker::Clients::Kraken.any_instance.stubs(:get_withdraw_addresses).returns(
       Result::Success.new('error' => [], 'result' => [])
     )
 
-    Clients::Kraken.any_instance.expects(:withdraw).with(
+    Honeymaker::Clients::Kraken.any_instance.expects(:withdraw).with(
       asset: 'BTC',
       key: 'bc1q...unknown',
       amount: '0.5',

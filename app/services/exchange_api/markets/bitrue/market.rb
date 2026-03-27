@@ -5,7 +5,7 @@ module ExchangeApi
     module Bitrue
       class Market < BaseMarket
         def initialize
-          @client = Clients::Bitrue.new
+          @client = Honeymaker.client('bitrue')
         end
 
         def fetch_all_symbols

@@ -23,17 +23,17 @@ class Exchanges::Bitmart < Exchange
 
   def set_client(api_key: nil)
     @api_key = api_key
-    @client = Clients::Bitmart.new(
-      api_key: api_key&.key,
-      api_secret: api_key&.secret,
-      memo: api_key&.passphrase
-    )
+    @client = Honeymaker.client('bitmart',
+                                api_key: api_key&.key,
+                                api_secret: api_key&.secret,
+                                memo: api_key&.passphrase,
+                                proxy: ENV['PROXY_BITMART'])
   end
 
   def get_tickers_info(force: false)
     cache_key = "exchange_#{id}_tickers_info"
     tickers_info = Rails.cache.fetch(cache_key, expires_in: 1.hour, force: force) do
-      result = client.get_symbols
+      result = client.get_symbols_details
       if result.failure?
         error = parse_error_message(result)
         return error.present? ? Result::Failure.new(error) : result
@@ -191,7 +191,7 @@ class Exchanges::Bitmart < Exchange
       result = client.get_klines(
         symbol: ticker.ticker,
         step: step,
-        after: start_at.to_i,
+        after_time: start_at.to_i,
         limit: limit
       )
       if result.failure?
@@ -267,10 +267,7 @@ class Exchanges::Bitmart < Exchange
       return error.present? ? Result::Failure.new(error) : result
     end
 
-    return Result::Failure.new(result.data['message']) if result.data['code'] != 1000
-
-    order_data = Utilities::Hash.dig_or_raise(result.data, 'data')
-    normalized_order_data = parse_order_data(order_id, order_data)
+    normalized_order_data = parse_order_data(order_id, result.data[:raw])
 
     Result::Success.new(normalized_order_data)
   end
@@ -295,7 +292,7 @@ class Exchanges::Bitmart < Exchange
       return error.present? ? Result::Failure.new(error) : get_result
     end
 
-    symbol = Utilities::Hash.dig_or_raise(get_result.data, 'data', 'symbol')
+    symbol = get_result.data[:raw]['symbol']
     result = client.cancel_order(symbol: symbol, order_id: order_id)
     if result.failure?
       error = parse_error_message(result)
@@ -306,11 +303,11 @@ class Exchanges::Bitmart < Exchange
   end
 
   def get_api_key_validity(api_key:)
-    temp_client = Clients::Bitmart.new(
-      api_key: api_key.key,
-      api_secret: api_key.secret,
-      memo: api_key.passphrase
-    )
+    temp_client = Honeymaker.client('bitmart',
+                                    api_key: api_key.key,
+                                    api_secret: api_key.secret,
+                                    memo: api_key.passphrase,
+                                    proxy: ENV['PROXY_BITMART'])
 
     result = if api_key.withdrawal?
                temp_client.get_wallet
@@ -355,7 +352,7 @@ class Exchanges::Bitmart < Exchange
     return Result::Failure.new("Unknown symbol for asset #{asset.symbol}") if symbol.blank?
 
     result = client.withdraw(currency: symbol, amount: amount.to_d.to_s('F'),
-                             address: address, network: network, address_memo: address_tag)
+                             address: address, address_memo: address_tag)
     if result.failure?
       error = parse_error_message(result)
       return error.present? ? Result::Failure.new(error) : result
@@ -368,7 +365,7 @@ class Exchanges::Bitmart < Exchange
   end
 
   def fetch_withdrawal_fees!
-    result = Clients::Bitmart.new.get_currencies
+    result = Honeymaker.client('bitmart').get_currencies
     return result if result.failure?
 
     return Result::Failure.new(result.data['message']) if result.data['code'] != 1000
@@ -543,17 +540,14 @@ class Exchanges::Bitmart < Exchange
       notional: amount_type == :quote ? amount.to_d.to_s('F') : nil,
       size: amount_type == :base ? amount.to_d.to_s('F') : nil
     }
-    result = client.create_order(**order_settings)
+    result = client.submit_order(**order_settings)
     if result.failure?
       error = parse_error_message(result)
       return error.present? ? Result::Failure.new(error) : result
     end
 
-    return Result::Failure.new(result.data['message']) if result.data['code'] != 1000
-
-    ext_order_id = Utilities::Hash.dig_or_raise(result.data, 'data', 'order_id')
     data = {
-      order_id: ext_order_id.to_s
+      order_id: result.data[:order_id]
     }
 
     Result::Success.new(data)
@@ -574,17 +568,14 @@ class Exchanges::Bitmart < Exchange
       price: price.to_d.to_s('F'),
       size: amount_type == :base ? amount.to_d.to_s('F') : nil
     }
-    result = client.create_order(**order_settings)
+    result = client.submit_order(**order_settings)
     if result.failure?
       error = parse_error_message(result)
       return error.present? ? Result::Failure.new(error) : result
     end
 
-    return Result::Failure.new(result.data['message']) if result.data['code'] != 1000
-
-    ext_order_id = Utilities::Hash.dig_or_raise(result.data, 'data', 'order_id')
     data = {
-      order_id: ext_order_id.to_s
+      order_id: result.data[:order_id]
     }
 
     Result::Success.new(data)

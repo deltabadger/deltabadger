@@ -5,7 +5,7 @@ module ExchangeApi
     module Mexc
       class Market < BaseMarket
         def initialize
-          @client = Clients::Mexc.new
+          @client = Honeymaker.client('mexc')
         end
 
         def fetch_all_symbols
