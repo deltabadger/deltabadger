@@ -1,7 +1,7 @@
 class GetSmartIntervalsInfo < BaseService
   def call(params, user)
     exchange_id = get_exchange_id(params)
-    exchange_market = ExchangeApi::Markets::Get.call(exchange_id)
+    exchange_market = ExchangeMarket.for(exchange_id)
     symbol = exchange_market.symbol(params.fetch(:base, params['base']),
                                     params.fetch(:quote, params['quote']))
 

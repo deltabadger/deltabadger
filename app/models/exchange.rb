@@ -1,6 +1,4 @@
 class Exchange < ApplicationRecord
-  include ExchangeApi::BinanceEnum
-
   STABLE_TYPES = %w[Exchanges::Binance Exchanges::BinanceUs Exchanges::Coinbase Exchanges::Kraken].freeze
 
   has_many :bots
@@ -25,27 +23,9 @@ class Exchange < ApplicationRecord
   include CandleBuilder
 
   def symbols
-    market = case name.downcase
-             when 'binance' then ExchangeApi::Markets::Binance::Market.new(url_base: EU_URL_BASE)
-             when 'binance.us' then ExchangeApi::Markets::Binance::Market.new(url_base: US_URL_BASE)
-             when 'kraken' then ExchangeApi::Markets::Kraken::Market.new
-             when 'coinbase' then ExchangeApi::Markets::Coinbase::Market.new
-             when 'bitget' then ExchangeApi::Markets::Bitget::Market.new
-             when 'kucoin' then ExchangeApi::Markets::Kucoin::Market.new
-             when 'bybit' then ExchangeApi::Markets::Bybit::Market.new
-             when 'mexc' then ExchangeApi::Markets::Mexc::Market.new
-             when 'gemini' then ExchangeApi::Markets::Gemini::Market.new
-             when 'bitvavo' then ExchangeApi::Markets::Bitvavo::Market.new
-             when 'hyperliquid' then ExchangeApi::Markets::Hyperliquid::Market.new
-             when 'bingx' then ExchangeApi::Markets::Bingx::Market.new
-             when 'bitrue' then ExchangeApi::Markets::Bitrue::Market.new
-             when 'bitmart' then ExchangeApi::Markets::Bitmart::Market.new
-             when 'alpaca' then return Result::Success.new([]) # Alpaca stocks are not synced via symbols
-             else
-               Result::Failure.new("Unsupported exchange #{name}")
-             end
-    cache_key = "#{name.downcase}_all_symbols"
-    market.all_symbols(cache_key)
+    return Result::Success.new([]) if name.downcase == 'alpaca'
+
+    ExchangeMarket.new(self).all_symbols("#{name.downcase}_all_symbols")
   end
 
   def name_id

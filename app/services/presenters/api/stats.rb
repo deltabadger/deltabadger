@@ -1,14 +1,10 @@
 module Presenters
   module Api
     class Stats < BaseService
-      def initialize(get_markets: ExchangeApi::Markets::Get.new)
-        @get_exchange_market = get_markets
-      end
-
       def call(bot:, transactions:)
         return {} if transactions.empty?
 
-        market = @get_exchange_market.call(bot.exchange_id)
+        market = ExchangeMarket.for(bot.exchange_id)
         market_symbol = market.symbol(bot.base, bot.quote)
         current_price_result = market.current_price(market_symbol)
         current_price = current_price_result.or(transactions.last.price)
