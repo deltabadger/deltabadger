@@ -27,11 +27,11 @@ class Exchanges::Bitget < Exchange
 
   def set_client(api_key: nil)
     @api_key = api_key
-    @client = Clients::Bitget.new(
-      api_key: api_key&.key,
-      api_secret: api_key&.secret,
-      passphrase: api_key&.passphrase
-    )
+    @client = Honeymaker.client('bitget',
+                                api_key: api_key&.key,
+                                api_secret: api_key&.secret,
+                                passphrase: api_key&.passphrase,
+                                proxy: ENV['PROXY_BITGET'])
   end
 
   def get_tickers_info(force: false)
@@ -94,7 +94,7 @@ class Exchanges::Bitget < Exchange
   end
 
   def get_balances(asset_ids: nil)
-    result = client.get_assets
+    result = client.get_account_assets
     return result if result.failure?
 
     data = result.data['data']
@@ -292,14 +292,14 @@ class Exchanges::Bitget < Exchange
   end
 
   def get_api_key_validity(api_key:)
-    temp_client = Clients::Bitget.new(
-      api_key: api_key.key,
-      api_secret: api_key.secret,
-      passphrase: api_key.passphrase
-    )
+    temp_client = Honeymaker.client('bitget',
+                                    api_key: api_key.key,
+                                    api_secret: api_key.secret,
+                                    passphrase: api_key.passphrase,
+                                    proxy: ENV['PROXY_BITGET'])
 
     result = if api_key.withdrawal?
-               temp_client.get_assets
+               temp_client.get_account_assets
              else
                temp_client.cancel_order(order_id: '0')
              end
@@ -331,7 +331,7 @@ class Exchanges::Bitget < Exchange
     # Use provided network or determine the default chain
     chain_name = network
     if chain_name.blank?
-      coins_result = Clients::Bitget.new.get_coins
+      coins_result = Honeymaker.client('bitget', proxy: ENV['PROXY_BITGET']).get_coins
       return coins_result if coins_result.failure?
 
       coin_data = Array(coins_result.data['data']).find { |c| c['coin'] == symbol }
@@ -353,7 +353,7 @@ class Exchanges::Bitget < Exchange
   end
 
   def fetch_withdrawal_fees!
-    result = Clients::Bitget.new.get_coins
+    result = Honeymaker.client('bitget', proxy: ENV['PROXY_BITGET']).get_coins
     return result if result.failure?
 
     fees = {}

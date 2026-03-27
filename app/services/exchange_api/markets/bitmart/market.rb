@@ -5,11 +5,11 @@ module ExchangeApi
     module Bitmart
       class Market < BaseMarket
         def initialize
-          @client = Clients::Bitmart.new
+          @client = Honeymaker.client('bitmart')
         end
 
         def fetch_all_symbols
-          result = @client.get_symbols
+          result = @client.get_symbols_details
           return Result::Failure.new('Bitmart exchange info is unavailable', RECOVERABLE.to_s) if result.failure?
 
           items = result.data.dig('data', 'symbols') || []

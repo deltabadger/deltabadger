@@ -19,10 +19,10 @@ class Exchanges::Gemini < Exchange
 
   def set_client(api_key: nil)
     @api_key = api_key
-    @client = Clients::Gemini.new(
-      api_key: api_key&.key,
-      api_secret: api_key&.secret
-    )
+    @client = Honeymaker.client('gemini',
+                                api_key: api_key&.key,
+                                api_secret: api_key&.secret,
+                                proxy: ENV['PROXY_GEMINI'])
   end
 
   def get_tickers_info(force: false)
@@ -232,10 +232,10 @@ class Exchanges::Gemini < Exchange
   end
 
   def get_api_key_validity(api_key:)
-    temp_client = Clients::Gemini.new(
-      api_key: api_key.key,
-      api_secret: api_key.secret
-    )
+    temp_client = Honeymaker.client('gemini',
+                                    api_key: api_key.key,
+                                    api_secret: api_key.secret,
+                                    proxy: ENV['PROXY_GEMINI'])
 
     result = if api_key.withdrawal?
                temp_client.get_balances
@@ -310,7 +310,7 @@ class Exchanges::Gemini < Exchange
     symbol = symbol_from_asset(asset)
     return Result::Failure.new("Unknown symbol for asset #{asset.symbol}") if symbol.blank?
 
-    result = client.withdraw_crypto_funds(currency: symbol.downcase, address: address, amount: amount.to_d.to_s('F'))
+    result = client.withdraw(currency: symbol.downcase, address: address, amount: amount.to_d.to_s('F'))
     return result if result.failure?
 
     withdrawal_id = result.data['txHash'] || result.data['withdrawalId']

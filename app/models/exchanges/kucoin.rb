@@ -27,11 +27,11 @@ class Exchanges::Kucoin < Exchange
 
   def set_client(api_key: nil)
     @api_key = api_key
-    @client = Clients::Kucoin.new(
-      api_key: api_key&.key,
-      api_secret: api_key&.secret,
-      passphrase: api_key&.passphrase
-    )
+    @client = Honeymaker.client('kucoin',
+                                api_key: api_key&.key,
+                                api_secret: api_key&.secret,
+                                passphrase: api_key&.passphrase,
+                                proxy: ENV['PROXY_KUCOIN'])
   end
 
   def get_tickers_info(force: false)
@@ -189,7 +189,7 @@ class Exchanges::Kucoin < Exchange
     candles = []
     loop do
       end_at = [start_at + (1500 * timeframe), Time.now.utc].min
-      result = client.get_candles(
+      result = client.get_klines(
         symbol: ticker.ticker,
         type: interval,
         start_at: start_at.to_i,
@@ -294,11 +294,11 @@ class Exchanges::Kucoin < Exchange
   end
 
   def get_api_key_validity(api_key:)
-    temp_client = Clients::Kucoin.new(
-      api_key: api_key.key,
-      api_secret: api_key.secret,
-      passphrase: api_key.passphrase
-    )
+    temp_client = Honeymaker.client('kucoin',
+                                    api_key: api_key.key,
+                                    api_secret: api_key.secret,
+                                    passphrase: api_key.passphrase,
+                                    proxy: ENV['PROXY_KUCOIN'])
 
     result = if api_key.withdrawal?
                temp_client.get_accounts(type: 'trade')
@@ -334,7 +334,7 @@ class Exchanges::Kucoin < Exchange
     # Use provided network or determine the default chain
     chain_name = network
     if chain_name.blank?
-      currencies_result = Clients::Kucoin.new.get_currencies
+      currencies_result = Honeymaker.client('kucoin', proxy: ENV['PROXY_KUCOIN']).get_currencies
       return currencies_result if currencies_result.failure?
 
       coin_data = Array(currencies_result.data['data']).find { |c| c['currency'] == symbol }
@@ -354,7 +354,7 @@ class Exchanges::Kucoin < Exchange
   end
 
   def fetch_withdrawal_fees!
-    result = Clients::Kucoin.new.get_currencies
+    result = Honeymaker.client('kucoin', proxy: ENV['PROXY_KUCOIN']).get_currencies
     return result if result.failure?
 
     fees = {}
@@ -485,7 +485,7 @@ class Exchanges::Kucoin < Exchange
       size: amount_type == :base ? amount.to_d.to_s('F') : nil,
       funds: amount_type == :quote ? amount.to_d.to_s('F') : nil
     }
-    result = client.create_order(**order_settings)
+    result = client.place_order(**order_settings)
     return result if result.failure?
 
     return Result::Failure.new(result.data['msg'] || "Failed to set #{name} market order") if result.data['code'] != '200000'
@@ -511,7 +511,7 @@ class Exchanges::Kucoin < Exchange
       price: price.to_d.to_s('F'),
       size: amount.to_d.to_s('F')
     }
-    result = client.create_order(**order_settings)
+    result = client.place_order(**order_settings)
     return result if result.failure?
 
     return Result::Failure.new(result.data['msg'] || "Failed to set #{name} limit order") if result.data['code'] != '200000'

@@ -5,7 +5,7 @@ module ExchangeApi
     module Bitvavo
       class Market < BaseMarket
         def initialize
-          @client = Clients::Bitvavo.new
+          @client = Honeymaker.client('bitvavo')
         end
 
         def symbol(base, quote)
@@ -13,7 +13,7 @@ module ExchangeApi
         end
 
         def fetch_all_symbols
-          result = @client.markets
+          result = @client.get_markets
           return Result::Failure.new('Bitvavo exchange info is unavailable', RECOVERABLE.to_s) if result.failure?
 
           market_symbols = result.data.map do |market_info|

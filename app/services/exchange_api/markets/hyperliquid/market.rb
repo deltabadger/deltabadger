@@ -5,7 +5,7 @@ module ExchangeApi
     module Hyperliquid
       class Market < BaseMarket
         def initialize
-          @client = Clients::Hyperliquid.new
+          @client = Honeymaker.client('hyperliquid')
         end
 
         def fetch_all_symbols

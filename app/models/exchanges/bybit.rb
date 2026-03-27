@@ -23,10 +23,10 @@ class Exchanges::Bybit < Exchange
 
   def set_client(api_key: nil)
     @api_key = api_key
-    @client = Clients::Bybit.new(
-      api_key: api_key&.key,
-      api_secret: api_key&.secret
-    )
+    @client = Honeymaker.client('bybit',
+                                api_key: api_key&.key,
+                                api_secret: api_key&.secret,
+                                proxy: ENV['PROXY_BYBIT'])
   end
 
   def get_tickers_info(force: false)
@@ -282,13 +282,7 @@ class Exchanges::Bybit < Exchange
       return error.present? ? Result::Failure.new(error) : result
     end
 
-    ret_code = result.data['retCode']
-    return Result::Failure.new(result.data['retMsg']) if ret_code != 0
-
-    order_list = Utilities::Hash.dig_or_raise(result.data, 'result', 'list')
-    return Result::Failure.new("Failed to get #{name} order (order_id: #{order_id})") if order_list.empty?
-
-    normalized_order_data = parse_order_data(order_id, order_list.first)
+    normalized_order_data = parse_order_data(order_id, result.data[:raw])
 
     Result::Success.new(normalized_order_data)
   end
@@ -313,10 +307,9 @@ class Exchanges::Bybit < Exchange
       return error.present? ? Result::Failure.new(error) : get_result
     end
 
-    order_list = Utilities::Hash.dig_or_raise(get_result.data, 'result', 'list')
-    return Result::Failure.new("Failed to find #{name} order for cancellation") if order_list.empty?
+    symbol = get_result.data[:raw]['symbol']
+    return Result::Failure.new("Failed to find #{name} order for cancellation") if symbol.blank?
 
-    symbol = Utilities::Hash.dig_or_raise(order_list.first, 'symbol')
     result = client.cancel_order(category: 'spot', symbol: symbol, order_id: order_id)
     if result.failure?
       error = parse_error_message(result)
@@ -330,10 +323,10 @@ class Exchanges::Bybit < Exchange
   end
 
   def get_api_key_validity(api_key:)
-    temp_client = Clients::Bybit.new(
-      api_key: api_key.key,
-      api_secret: api_key.secret
-    )
+    temp_client = Honeymaker.client('bybit',
+                                    api_key: api_key.key,
+                                    api_secret: api_key.secret,
+                                    proxy: ENV['PROXY_BYBIT'])
 
     result = if api_key.withdrawal?
                temp_client.wallet_balance(account_type: 'UNIFIED')
@@ -401,10 +394,10 @@ class Exchanges::Bybit < Exchange
     api_key = fee_api_key
     return Result::Success.new({}) if api_key.blank?
 
-    result = Clients::Bybit.new(
-      api_key: api_key.key,
-      api_secret: api_key.secret
-    ).get_coin_query_info
+    result = Honeymaker.client('bybit',
+                               api_key: api_key.key,
+                               api_secret: api_key.secret,
+                               proxy: ENV['PROXY_BYBIT']).get_coin_query_info
     return result if result.failure?
 
     fees = {}
@@ -594,11 +587,8 @@ class Exchanges::Bybit < Exchange
       return error.present? ? Result::Failure.new(error) : result
     end
 
-    ret_code = result.data['retCode']
-    return Result::Failure.new(result.data['retMsg']) if ret_code != 0
-
     data = {
-      order_id: Utilities::Hash.dig_or_raise(result.data, 'result', 'orderId')
+      order_id: result.data[:order_id]
     }
 
     Result::Success.new(data)
@@ -627,11 +617,8 @@ class Exchanges::Bybit < Exchange
       return error.present? ? Result::Failure.new(error) : result
     end
 
-    ret_code = result.data['retCode']
-    return Result::Failure.new(result.data['retMsg']) if ret_code != 0
-
     data = {
-      order_id: Utilities::Hash.dig_or_raise(result.data, 'result', 'orderId')
+      order_id: result.data[:order_id]
     }
 
     Result::Success.new(data)

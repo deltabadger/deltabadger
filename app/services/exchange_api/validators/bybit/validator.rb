@@ -3,14 +3,11 @@ module ExchangeApi
     module Bybit
       class Validator < BaseValidator
         def validate_credentials(api_key:, api_secret:)
-          result = Clients::Bybit.new(
-            api_key: api_key,
-            api_secret: api_secret
-          ).wallet_balance(account_type: 'UNIFIED')
+          result = Honeymaker.client('bybit',
+                                     api_key: api_key,
+                                     api_secret: api_secret).validate(:trading)
 
-          return false if result.failure?
-
-          result.data['retCode'].zero?
+          result.success?
         rescue StandardError
           false
         end

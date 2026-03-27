@@ -5,7 +5,7 @@ module ExchangeApi
     module Bingx
       class Market < BaseMarket
         def initialize
-          @client = Clients::Bingx.new
+          @client = Honeymaker.client('bingx')
         end
 
         def fetch_all_symbols

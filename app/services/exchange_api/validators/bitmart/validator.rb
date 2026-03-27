@@ -3,13 +3,12 @@ module ExchangeApi
     module Bitmart
       class Validator < BaseValidator
         def validate_credentials(api_key:, api_secret:, passphrase: nil)
-          result = Clients::Bitmart.new(
-            api_key: api_key,
-            api_secret: api_secret,
-            memo: passphrase
-          ).get_wallet
+          result = Honeymaker.client('bitmart',
+                                     api_key: api_key,
+                                     api_secret: api_secret,
+                                     memo: passphrase).validate(:trading)
 
-          result.success? && result.data['code'] == 1000
+          result.success?
         rescue StandardError
           false
         end

@@ -23,9 +23,9 @@ class Exchanges::HyperliquidTest < ActiveSupport::TestCase
     assert_equal :base, @exchange.minimum_amount_logic(side: :sell, order_type: :limit_order)
   end
 
-  test 'set_client creates a Clients::Hyperliquid instance' do
+  test 'set_client creates a Honeymaker Hyperliquid client' do
     @exchange.set_client
-    assert_kind_of Clients::Hyperliquid, @exchange.send(:client)
+    assert_kind_of Honeymaker::Clients::Hyperliquid, @exchange.send(:client)
   end
 
   test 'set_client with api_key stores the api_key' do

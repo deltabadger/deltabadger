@@ -3,11 +3,7 @@ module ExchangeApi
     module Bitvavo
       class Validator < BaseValidator
         def validate_credentials(api_key:, api_secret:)
-          result = Clients::Bitvavo.new(
-            api_key: api_key,
-            api_secret: api_secret
-          ).balance
-
+          result = Honeymaker.client('bitvavo', api_key: api_key, api_secret: api_secret).validate(:trading)
           result.success?
         rescue StandardError
           false

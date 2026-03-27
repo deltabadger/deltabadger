@@ -25,10 +25,10 @@ class Exchanges::BitgetTest < ActiveSupport::TestCase
     assert_predicate @exchange, :requires_passphrase?
   end
 
-  test 'set_client creates Clients::Bitget instance' do
+  test 'set_client creates Honeymaker::Clients::Bitget instance' do
     api_key = stub(key: 'test_key', secret: 'test_secret', passphrase: 'test_pass')
     @exchange.set_client(api_key: api_key)
-    assert_kind_of Clients::Bitget, @exchange.instance_variable_get(:@client)
+    assert_kind_of Honeymaker::Clients::Bitget, @exchange.instance_variable_get(:@client)
   end
 
   test 'set_client sets api_key reader' do
@@ -40,7 +40,7 @@ class Exchanges::BitgetTest < ActiveSupport::TestCase
   test 'set_client handles nil api_key' do
     @exchange.set_client(api_key: nil)
     assert_nil @exchange.api_key
-    assert_kind_of Clients::Bitget, @exchange.instance_variable_get(:@client)
+    assert_kind_of Honeymaker::Clients::Bitget, @exchange.instance_variable_get(:@client)
   end
 
   test 'get_api_key_validity uses cancel_order for trading keys' do
@@ -48,10 +48,10 @@ class Exchanges::BitgetTest < ActiveSupport::TestCase
     api_key = create(:api_key, exchange: @exchange, key_type: :trading, key: 'test_key', secret: 'test_secret',
                                raw_passphrase: 'test_pass')
 
-    Clients::Bitget.any_instance.stubs(:cancel_order).returns(
+    Honeymaker::Clients::Bitget.any_instance.stubs(:cancel_order).returns(
       Result::Success.new({ 'code' => '43025', 'msg' => 'Order does not exist' })
     )
-    Clients::Bitget.any_instance.expects(:get_assets).never
+    Honeymaker::Clients::Bitget.any_instance.expects(:get_account_assets).never
 
     result = @exchange.get_api_key_validity(api_key: api_key)
     assert result.success?
@@ -63,10 +63,10 @@ class Exchanges::BitgetTest < ActiveSupport::TestCase
     api_key = create(:api_key, exchange: @exchange, key_type: :withdrawal, key: 'test_key', secret: 'test_secret',
                                raw_passphrase: 'test_pass')
 
-    Clients::Bitget.any_instance.stubs(:get_assets).returns(
+    Honeymaker::Clients::Bitget.any_instance.stubs(:get_account_assets).returns(
       Result::Success.new({ 'code' => '00000', 'data' => [] })
     )
-    Clients::Bitget.any_instance.expects(:cancel_order).never
+    Honeymaker::Clients::Bitget.any_instance.expects(:cancel_order).never
 
     result = @exchange.get_api_key_validity(api_key: api_key)
     assert result.success?
@@ -78,7 +78,7 @@ class Exchanges::BitgetTest < ActiveSupport::TestCase
     api_key = create(:api_key, exchange: @exchange, key_type: :trading, key: 'bad_key', secret: 'bad_secret',
                                raw_passphrase: 'test_pass')
 
-    Clients::Bitget.any_instance.stubs(:cancel_order).returns(
+    Honeymaker::Clients::Bitget.any_instance.stubs(:cancel_order).returns(
       Result::Success.new({ 'code' => '40014', 'msg' => 'Invalid Api Key' })
     )
 

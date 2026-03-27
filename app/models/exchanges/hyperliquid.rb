@@ -23,10 +23,10 @@ class Exchanges::Hyperliquid < Exchange
 
   def set_client(api_key: nil)
     @api_key = api_key
-    @client = Clients::Hyperliquid.new(
-      wallet_address: api_key&.key,
-      agent_key: api_key&.secret
-    )
+    @client = Honeymaker.client('hyperliquid',
+                                api_key: api_key&.key,
+                                api_secret: api_key&.secret,
+                                proxy: ENV['PROXY_HYPERLIQUID'])
   end
 
   def get_tickers_info(force: false)
@@ -221,10 +221,10 @@ class Exchanges::Hyperliquid < Exchange
 
   def get_order(order_id:)
     _coin, oid = parse_order_id(order_id)
-    result = client.order_status(oid: oid.to_i)
+    result = client.order_status(user: api_key&.key, oid: oid.to_i)
     return result if result.failure?
 
-    normalized_order_data = parse_order_data(order_id, result.data)
+    normalized_order_data = parse_order_data(order_id, result.data[:raw])
     Result::Success.new(normalized_order_data)
   end
 
@@ -249,17 +249,11 @@ class Exchanges::Hyperliquid < Exchange
   end
 
   def get_api_key_validity(api_key:)
-    temp_client = Clients::Hyperliquid.new(
-      wallet_address: api_key.key,
-      agent_key: api_key.secret
-    )
-    # Try cancelling a non-existent order. Valid key = order not found error.
-    # Invalid key = authentication error.
-    temp_client.cancel(coin: 'ETH', oid: 0)
-    # If we get here (success or non-auth failure), the key is valid
-    Result::Success.new(true)
-  rescue Hyperliquid::AuthenticationError
-    Result::Success.new(false)
+    result = Honeymaker.client('hyperliquid',
+                               api_key: api_key.key,
+                               api_secret: api_key.secret,
+                               proxy: ENV['PROXY_HYPERLIQUID']).validate(:trading)
+    Result::Success.new(result.success?)
   rescue StandardError
     # Network errors, etc. — don't fail the validation
     Result::Success.new(true)

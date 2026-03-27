@@ -26,7 +26,7 @@ class Exchanges::BinanceTest < ActiveSupport::TestCase
   test 'get_api_key_validity validates trading key permissions' do
     api_key = create(:api_key, exchange: @exchange, key_type: :trading, key: 'test_key', secret: 'test_secret')
 
-    Clients::Binance.any_instance.stubs(:api_description).returns(
+    Honeymaker::Clients::Binance.any_instance.stubs(:api_description).returns(
       Result::Success.new(valid_api_description(trading: true, withdrawal: false))
     )
 
@@ -38,7 +38,7 @@ class Exchanges::BinanceTest < ActiveSupport::TestCase
   test 'get_api_key_validity rejects trading key with withdrawal permissions' do
     api_key = create(:api_key, exchange: @exchange, key_type: :trading, key: 'test_key', secret: 'test_secret')
 
-    Clients::Binance.any_instance.stubs(:api_description).returns(
+    Honeymaker::Clients::Binance.any_instance.stubs(:api_description).returns(
       Result::Success.new(valid_api_description(trading: false, withdrawal: true))
     )
 
@@ -50,7 +50,7 @@ class Exchanges::BinanceTest < ActiveSupport::TestCase
   test 'get_api_key_validity validates withdrawal key permissions' do
     api_key = create(:api_key, exchange: @exchange, key_type: :withdrawal, key: 'test_key', secret: 'test_secret')
 
-    Clients::Binance.any_instance.stubs(:api_description).returns(
+    Honeymaker::Clients::Binance.any_instance.stubs(:api_description).returns(
       Result::Success.new(valid_api_description(trading: false, withdrawal: true))
     )
 
@@ -62,7 +62,7 @@ class Exchanges::BinanceTest < ActiveSupport::TestCase
   test 'get_api_key_validity rejects withdrawal key with trading permissions' do
     api_key = create(:api_key, exchange: @exchange, key_type: :withdrawal, key: 'test_key', secret: 'test_secret')
 
-    Clients::Binance.any_instance.stubs(:api_description).returns(
+    Honeymaker::Clients::Binance.any_instance.stubs(:api_description).returns(
       Result::Success.new(valid_api_description(trading: true, withdrawal: false))
     )
 
@@ -74,7 +74,7 @@ class Exchanges::BinanceTest < ActiveSupport::TestCase
   test 'get_api_key_validity returns false for invalid key' do
     api_key = create(:api_key, exchange: @exchange, key_type: :withdrawal, key: 'bad_key', secret: 'bad_secret')
 
-    Clients::Binance.any_instance.stubs(:api_description).returns(
+    Honeymaker::Clients::Binance.any_instance.stubs(:api_description).returns(
       Result::Failure.new('{"code":-2015,"msg":"Invalid API-key, IP, or permissions for action."}')
     )
 

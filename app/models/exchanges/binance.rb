@@ -22,10 +22,10 @@ class Exchanges::Binance < Exchange
 
   def set_client(api_key: nil)
     @api_key = api_key
-    @client = Clients::Binance.new(
-      api_key: api_key&.key,
-      api_secret: api_key&.secret
-    )
+    @client = Honeymaker.client('binance',
+                                api_key: api_key&.key,
+                                api_secret: api_key&.secret,
+                                proxy: ENV['PROXY_BINANCE'])
   end
 
   def get_tickers_info(force: false)
@@ -271,7 +271,7 @@ class Exchanges::Binance < Exchange
       return error.present? ? Result::Failure.new(error) : result
     end
 
-    normalized_order_data = parse_order_data(order_id, result.data)
+    normalized_order_data = parse_order_data(order_id, result.data[:raw])
     if normalized_order_data[:amount_exec_excl_commission].zero?
       normalized_order_data[:amount_exec] = normalized_order_data.delete(:amount_exec_excl_commission)
       normalized_order_data[:quote_amount_exec] = normalized_order_data.delete(:quote_amount_exec_excl_commission)
@@ -306,13 +306,14 @@ class Exchanges::Binance < Exchange
           return error.present? ? Result::Failure.new(error) : result
         end
 
-        result.data.each do |order_data|
-          ext_order_id = Utilities::Hash.dig_or_raise(order_data, 'orderId')
+        result.data.each do |order_entry|
+          raw_order = order_entry[:raw]
+          ext_order_id = Utilities::Hash.dig_or_raise(raw_order, 'orderId')
           next unless ext_order_id.in?(ext_order_ids)
 
           order_id = "#{symbol}-#{ext_order_id}"
 
-          normalized_order_data = parse_order_data(order_id, order_data)
+          normalized_order_data = parse_order_data(order_id, raw_order)
           if normalized_order_data[:amount_exec_excl_commission].zero?
             normalized_order_data[:amount_exec] = normalized_order_data.delete(:amount_exec_excl_commission)
             normalized_order_data[:quote_amount_exec] = normalized_order_data.delete(:quote_amount_exec_excl_commission)
@@ -408,10 +409,10 @@ class Exchanges::Binance < Exchange
   end
 
   def get_api_key_validity(api_key:)
-    result = Clients::Binance.new(
-      api_key: api_key.key,
-      api_secret: api_key.secret
-    ).api_description
+    result = Honeymaker.client('binance',
+                               api_key: api_key.key,
+                               api_secret: api_key.secret,
+                               proxy: ENV['PROXY_BINANCE']).api_description
 
     if result.success?
       common_checks = result.data['ipRestrict'] == true &&
@@ -453,7 +454,7 @@ class Exchanges::Binance < Exchange
   FIAT_CURRENCIES = %w[USD EUR GBP AUD CAD JPY CHF TRY BRL PLN UAH CZK SEK NOK DKK HUF RON BGN ZAR NGN KES].freeze
 
   def get_ledger(api_key:, start_time: nil)
-    hm_client = honeymaker_client(api_key)
+    hm_client = Honeymaker.client('binance', api_key: api_key.key, api_secret: api_key.secret, proxy: ENV['PROXY_BINANCE'])
     start_ms = start_time ? (start_time.to_f * 1000).to_i : nil
     entries = []
 
@@ -572,10 +573,10 @@ class Exchanges::Binance < Exchange
     api_key = fee_api_key
     return Result::Success.new({}) if api_key.blank?
 
-    result = Clients::Binance.new(
-      api_key: api_key.key,
-      api_secret: api_key.secret
-    ).get_all_coins_information
+    result = Honeymaker.client('binance',
+                               api_key: api_key.key,
+                               api_secret: api_key.secret,
+                               proxy: ENV['PROXY_BINANCE']).get_all_coins_information
     return result if result.failure?
 
     fees = {}
@@ -599,13 +600,6 @@ class Exchanges::Binance < Exchange
 
   def client
     @client ||= set_client
-  end
-
-  def honeymaker_client(api_key)
-    Honeymaker.client('binance',
-                      api_key: api_key.key,
-                      api_secret: api_key.secret,
-                      proxy: ENV['PROXY_BINANCE'])
   end
 
   def normalize_trade(trade, symbol)
@@ -1019,10 +1013,8 @@ class Exchanges::Binance < Exchange
       return error.present? ? Result::Failure.new(error) : result
     end
 
-    # Binance can assign same order id to different symbols
-    ext_order_id = Utilities::Hash.dig_or_raise(result.data, 'orderId')
     data = {
-      order_id: "#{ticker.ticker}-#{ext_order_id}"
+      order_id: result.data[:order_id]
     }
 
     Result::Success.new(data)
@@ -1050,10 +1042,8 @@ class Exchanges::Binance < Exchange
       return error.present? ? Result::Failure.new(error) : result
     end
 
-    # Binance can assign same order id to different symbols
-    ext_order_id = Utilities::Hash.dig_or_raise(result.data, 'orderId')
     data = {
-      order_id: "#{ticker.ticker}-#{ext_order_id}"
+      order_id: result.data[:order_id]
     }
 
     Result::Success.new(data)

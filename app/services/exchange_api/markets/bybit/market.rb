@@ -5,7 +5,7 @@ module ExchangeApi
     module Bybit
       class Market < BaseMarket
         def initialize
-          @client = Clients::Bybit.new
+          @client = Honeymaker.client('bybit')
         end
 
         def fetch_all_symbols

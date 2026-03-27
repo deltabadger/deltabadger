@@ -23,10 +23,10 @@ class Exchanges::Bingx < Exchange
 
   def set_client(api_key: nil)
     @api_key = api_key
-    @client = Clients::Bingx.new(
-      api_key: api_key&.key,
-      api_secret: api_key&.secret
-    )
+    @client = Honeymaker.client('bingx',
+                                api_key: api_key&.key,
+                                api_secret: api_key&.secret,
+                                proxy: ENV['PROXY_BINGX'])
   end
 
   def get_tickers_info(force: false)
@@ -88,7 +88,7 @@ class Exchanges::Bingx < Exchange
   end
 
   def get_balances(asset_ids: nil)
-    result = client.get_balances
+    result = client.get_raw_balances
     if result.failure?
       error = parse_error_message(result)
       return error.present? ? Result::Failure.new(error) : result
@@ -268,10 +268,7 @@ class Exchanges::Bingx < Exchange
       return error.present? ? Result::Failure.new(error) : result
     end
 
-    return Result::Failure.new(result.data['msg']) if result.data['code'].to_i != 0
-
-    order_data = Utilities::Hash.dig_or_raise(result.data, 'data')
-    normalized_order_data = parse_order_data(order_id, order_data)
+    normalized_order_data = parse_order_data(order_id, result.data[:raw])
 
     Result::Success.new(normalized_order_data)
   end
@@ -300,13 +297,13 @@ class Exchanges::Bingx < Exchange
   end
 
   def get_api_key_validity(api_key:)
-    temp_client = Clients::Bingx.new(
-      api_key: api_key.key,
-      api_secret: api_key.secret
-    )
+    temp_client = Honeymaker.client('bingx',
+                                    api_key: api_key.key,
+                                    api_secret: api_key.secret,
+                                    proxy: ENV['PROXY_BINGX'])
 
     result = if api_key.withdrawal?
-               temp_client.get_balances
+               temp_client.get_raw_balances
              else
                temp_client.cancel_order(symbol: 'BTC-USDT', order_id: '0')
              end
@@ -348,7 +345,7 @@ class Exchanges::Bingx < Exchange
     end
 
     result = client.withdraw(coin: symbol, address: address, amount: amount.to_d.to_s('F'),
-                             network: network_name, address_tag: address_tag)
+                             network: network_name, tag: address_tag)
     if result.failure?
       error = parse_error_message(result)
       return error.present? ? Result::Failure.new(error) : result
@@ -364,10 +361,10 @@ class Exchanges::Bingx < Exchange
     api_key = fee_api_key
     return Result::Success.new({}) if api_key.blank?
 
-    result = Clients::Bingx.new(
-      api_key: api_key.key,
-      api_secret: api_key.secret
-    ).get_all_coins_info
+    result = Honeymaker.client('bingx',
+                               api_key: api_key.key,
+                               api_secret: api_key.secret,
+                               proxy: ENV['PROXY_BINGX']).get_all_coins_info
     return result if result.failure?
 
     fees = {}
@@ -514,17 +511,14 @@ class Exchanges::Bingx < Exchange
       quote_order_qty: amount_type == :quote ? amount.to_d.to_s('F') : nil,
       quantity: amount_type == :base ? amount.to_d.to_s('F') : nil
     }
-    result = client.create_order(**order_settings)
+    result = client.place_order(**order_settings)
     if result.failure?
       error = parse_error_message(result)
       return error.present? ? Result::Failure.new(error) : result
     end
 
-    return Result::Failure.new(result.data['msg']) if result.data['code'].to_i != 0
-
-    ext_order_id = Utilities::Hash.dig_or_raise(result.data, 'data', 'orderId')
     data = {
-      order_id: "#{ticker.ticker}-#{ext_order_id}"
+      order_id: result.data[:order_id]
     }
 
     Result::Success.new(data)
@@ -546,17 +540,14 @@ class Exchanges::Bingx < Exchange
       price: price.to_d.to_s('F'),
       quantity: amount_type == :base ? amount.to_d.to_s('F') : nil
     }
-    result = client.create_order(**order_settings)
+    result = client.place_order(**order_settings)
     if result.failure?
       error = parse_error_message(result)
       return error.present? ? Result::Failure.new(error) : result
     end
 
-    return Result::Failure.new(result.data['msg']) if result.data['code'].to_i != 0
-
-    ext_order_id = Utilities::Hash.dig_or_raise(result.data, 'data', 'orderId')
     data = {
-      order_id: "#{ticker.ticker}-#{ext_order_id}"
+      order_id: result.data[:order_id]
     }
 
     Result::Success.new(data)

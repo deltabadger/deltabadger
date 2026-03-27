@@ -27,10 +27,10 @@ class Exchanges::Coinbase < Exchange
 
   def set_client(api_key: nil)
     @api_key = api_key
-    @client = Clients::Coinbase.new(
-      api_key: api_key&.key,
-      api_secret: api_key&.secret
-    )
+    @client = Honeymaker.client('coinbase',
+                                api_key: api_key&.key,
+                                api_secret: api_key&.secret,
+                                proxy: ENV['PROXY_COINBASE'])
   end
 
   def get_tickers_info(force: false)
@@ -263,8 +263,7 @@ class Exchanges::Coinbase < Exchange
     result = client.get_order(order_id: order_id)
     return result if result.failure?
 
-    order_data = Utilities::Hash.dig_or_raise(result.data, 'order')
-    normalized_order_data = parse_order_data(order_id, order_data)
+    normalized_order_data = parse_order_data(order_id, result.data[:raw])
 
     Result::Success.new(normalized_order_data)
   end
@@ -298,10 +297,10 @@ class Exchanges::Coinbase < Exchange
   end
 
   def get_api_key_validity(api_key:)
-    client = Clients::Coinbase.new(
-      api_key: api_key.key,
-      api_secret: api_key.secret
-    )
+    client = Honeymaker.client('coinbase',
+                               api_key: api_key.key,
+                               api_secret: api_key.secret,
+                               proxy: ENV['PROXY_COINBASE'])
 
     result = client.get_api_key_permissions
 
@@ -360,7 +359,10 @@ class Exchanges::Coinbase < Exchange
   COINBASE_FIAT = %w[USD EUR GBP CAD AUD JPY CHF].freeze
 
   def get_ledger(api_key:, start_time: nil)
-    hm_client = honeymaker_client(api_key)
+    hm_client = Honeymaker.client('coinbase',
+                                  api_key: api_key.key,
+                                  api_secret: api_key.secret,
+                                  proxy: ENV['PROXY_COINBASE'])
     entries = []
 
     # Fills (trade history)
@@ -417,13 +419,6 @@ class Exchanges::Coinbase < Exchange
   end
 
   private
-
-  def honeymaker_client(api_key)
-    Honeymaker.client('coinbase',
-                      api_key: api_key.key,
-                      api_secret: api_key.secret,
-                      proxy: ENV['PROXY_COINBASE'])
-  end
 
   def normalize_coinbase_fill(fill)
     product_id = fill['product_id'] || ''
@@ -602,10 +597,8 @@ class Exchanges::Coinbase < Exchange
     result = client.create_order(**order_settings)
     return result if result.failure?
 
-    return Result::Failure.new(result.data.dig('error_response', 'message'), data: result.data) if result.data['success'] == false
-
     data = {
-      order_id: Utilities::Hash.dig_or_raise(result.data, 'success_response', 'order_id')
+      order_id: result.data[:order_id]
     }
 
     Result::Success.new(data)
@@ -634,10 +627,8 @@ class Exchanges::Coinbase < Exchange
     result = client.create_order(**order_settings)
     return result if result.failure?
 
-    return Result::Failure.new(result.data.dig('error_response', 'message'), data: result.data) if result.data['success'] == false
-
     data = {
-      order_id: Utilities::Hash.dig_or_raise(result.data, 'success_response', 'order_id')
+      order_id: result.data[:order_id]
     }
 
     Result::Success.new(data)
