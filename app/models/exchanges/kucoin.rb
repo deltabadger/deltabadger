@@ -266,10 +266,7 @@ class Exchanges::Kucoin < Exchange
     result = client.get_order(order_id: order_id)
     return result if result.failure?
 
-    order_data = result.data['data']
-    return Result::Failure.new("Failed to get #{name} order (order_id: #{order_id})") if order_data.nil?
-
-    normalized_order_data = parse_order_data(order_id, order_data)
+    normalized_order_data = parse_order_data(order_id, result.data[:raw])
 
     Result::Success.new(normalized_order_data)
   end
@@ -488,11 +485,7 @@ class Exchanges::Kucoin < Exchange
     result = client.place_order(**order_settings)
     return result if result.failure?
 
-    return Result::Failure.new(result.data['msg'] || "Failed to set #{name} market order") if result.data['code'] != '200000'
-
-    order_id = Utilities::Hash.dig_or_raise(result.data, 'data', 'orderId')
-
-    Result::Success.new({ order_id: order_id })
+    Result::Success.new({ order_id: result.data[:order_id] })
   end
 
   # @param amount [Float] must be a positive number
@@ -514,11 +507,7 @@ class Exchanges::Kucoin < Exchange
     result = client.place_order(**order_settings)
     return result if result.failure?
 
-    return Result::Failure.new(result.data['msg'] || "Failed to set #{name} limit order") if result.data['code'] != '200000'
-
-    order_id = Utilities::Hash.dig_or_raise(result.data, 'data', 'orderId')
-
-    Result::Success.new({ order_id: order_id })
+    Result::Success.new({ order_id: result.data[:order_id] })
   end
 
   def parse_order_data(order_id, order_data)

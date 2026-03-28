@@ -204,10 +204,7 @@ class Exchanges::Gemini < Exchange
     result = client.order_status(order_id: order_id)
     return result if result.failure?
 
-    order_data = result.data
-    return Result::Failure.new("Failed to get #{name} order (order_id: #{order_id})") if order_data.nil?
-
-    normalized_order_data = parse_order_data(order_id, order_data)
+    normalized_order_data = parse_order_data(order_id, result.data[:raw])
 
     Result::Success.new(normalized_order_data)
   end

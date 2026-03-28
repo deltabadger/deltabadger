@@ -241,7 +241,7 @@ class Exchanges::Bitvavo < Exchange
     result = client.get_order(market: market, order_id: ext_order_id)
     return result if result.failure?
 
-    normalized_order_data = parse_order_data(order_id, result.data)
+    normalized_order_data = parse_order_data(order_id, result.data[:raw])
 
     Result::Success.new(normalized_order_data)
   end
