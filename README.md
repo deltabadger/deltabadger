@@ -1,10 +1,18 @@
-![Frame 3 (4)](https://github.com/user-attachments/assets/ffd80181-014d-40ad-9669-b98e5c1f265e)
+# Deltabadger
 
-[Deltabadger](https://deltabadger.com) is a one-stop-shop for investors in crypto and stocks. As a service, helped users invest over $75 million into Bitcoin and other digital assets. Now it's free and open-source.
+[![CI](https://github.com/deltabadger/deltabadger/actions/workflows/test.yml/badge.svg)](https://github.com/deltabadger/deltabadger/actions)
+[![License](https://img.shields.io/github/license/deltabadger/deltabadger)](LICENSE)
 
-* DCA bots for crypto and stocks
-* Crypto Tax Reporting with no transaction limits
-* MCP Server to connect your Claude or Claw
+[Deltabadger](https://deltabadger.com) is a one-stop-shop for investors in crypto and stocks:
+
+No other tool offers this unique combination:
+
+* **DCA bots** for crypto and stocks
+* **Auto-withdrawals** to keep your assets safe
+* **MCP Server** to connect your exchange accounts to Claude or Claw
+* **Crypto Tax Reporting** tool with no transaction limits
+
+For tax-reporting, and some more advanced features you'll need a free Coingecko account for market data.
 
 ### Quick Start
 
