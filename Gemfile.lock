@@ -121,8 +121,10 @@ GEM
     ast (2.4.3)
     base64 (0.3.0)
     bcrypt (3.1.22)
-    bigdecimal (4.1.0)
+    bigdecimal (3.3.1)
     bindex (0.8.1)
+    bls12-381 (0.3.0)
+      h2c (~> 0.2.0)
     bootsnap (1.23.0)
       msgpack (~> 1.2)
     builder (3.3.0)
@@ -160,15 +162,20 @@ GEM
       activesupport
       i18n
     drb (2.2.3)
+    ecdsa (1.2.0)
     erb (6.0.2)
     erubi (1.13.1)
     et-orbi (1.4.0)
       tzinfo
-    eth (0.5.13)
+    eth (0.5.17)
+      base64 (~> 0.1)
+      bigdecimal (~> 3.1)
+      bls12-381 (~> 0.3)
       forwardable (~> 1.3)
+      httpx (~> 1.6)
       keccak (~> 1.3)
       konstructor (~> 1.0)
-      openssl (>= 2.2, < 4.0)
+      openssl (~> 3.3)
       rbsecp256k1 (~> 6.0)
       scrypt (~> 3.0)
     event_emitter (0.2.6)
@@ -188,8 +195,6 @@ GEM
     faraday-net_http_persistent (2.3.1)
       faraday (~> 2.5)
       net-http-persistent (>= 4.0.4, < 5)
-    faraday-retry (2.4.0)
-      faraday (~> 2.0)
     ffi (1.17.3-aarch64-linux-gnu)
     ffi (1.17.3-aarch64-linux-musl)
     ffi (1.17.3-arm-linux-gnu)
@@ -228,6 +233,8 @@ GEM
     google-protobuf (4.34.0-x86_64-linux-musl)
       bigdecimal
       rake (~> 13.3)
+    h2c (0.2.1)
+      ecdsa (~> 1.2.0)
     haikunator (1.1.1)
     haml (7.2.0)
       temple (>= 0.8.2)
@@ -238,18 +245,20 @@ GEM
       activesupport (>= 5.1)
       haml (>= 4.0.6)
       railties (>= 5.1)
-    honeymaker (0.7.1)
+    honeymaker (0.7.3)
       bigdecimal
       faraday (~> 2.0)
       faraday-net_http_persistent (~> 2.0)
       jwt (~> 2.0)
       net-http-persistent (~> 4.0)
-    hyperliquid (1.0.2)
-      eth (~> 0.5)
+    http-2 (1.1.3)
+    httpx (1.7.5)
+      http-2 (>= 1.1.3)
+    hyperliquid-rb (0.1.0)
+      eth (~> 0.5.17)
       faraday (~> 2.0)
-      faraday-retry (~> 2.0)
       msgpack (~> 1.7)
-      ws_lite (~> 1.0.1)
+      websocket-client-simple (~> 0.9)
     i18n (1.14.8)
       concurrent-ruby (~> 1.0)
     importmap-rails (2.2.3)
@@ -557,15 +566,15 @@ GEM
       bindex (>= 0.4.0)
       railties (>= 8.0.0)
     websocket (1.2.11)
-    websocket-driver (0.8.0)
-      base64
-      websocket-extensions (>= 0.1.0)
-    websocket-extensions (0.1.5)
-    ws_lite (1.0.1)
+    websocket-client-simple (0.9.0)
       base64
       event_emitter
       mutex_m
       websocket
+    websocket-driver (0.8.0)
+      base64
+      websocket-extensions (>= 0.1.0)
+    websocket-extensions (0.1.5)
     yaml (0.4.0)
     zeitwerk (2.7.5)
 
@@ -601,7 +610,7 @@ DEPENDENCIES
   haikunator (~> 1.1)
   haml-rails (~> 3.0)
   honeymaker (~> 0.7.0)
-  hyperliquid
+  hyperliquid-rb
   importmap-rails
   jaro_winkler (~> 1.7)
   jsbundling-rails
@@ -658,8 +667,9 @@ CHECKSUMS
   ast (2.4.3) sha256=954615157c1d6a382bc27d690d973195e79db7f55e9765ac7c481c60bdb4d383
   base64 (0.3.0) sha256=27337aeabad6ffae05c265c450490628ef3ebd4b67be58257393227588f5a97b
   bcrypt (3.1.22) sha256=1f0072e88c2d705d94aff7f2c5cb02eb3f1ec4b8368671e19112527489f29032
-  bigdecimal (4.1.0) sha256=6dc07767aa3dc456ccd48e7ae70a07b474e9afd7c5bc576f80bd6da5c8dd6cae
+  bigdecimal (3.3.1) sha256=eaa01e228be54c4f9f53bf3cc34fe3d5e845c31963e7fcc5bedb05a4e7d52218
   bindex (0.8.1) sha256=7b1ecc9dc539ed8bccfc8cb4d2732046227b09d6f37582ff12e50a5047ceb17e
+  bls12-381 (0.3.0) sha256=1ab36af4f5fcf368c44026767727a7e5f5e0a81bd368bca448ff8ccf064e27b2
   bootsnap (1.23.0) sha256=c1254f458d58558b58be0f8eb8f6eec2821456785b7cdd1e16248e2020d3f214
   builder (3.3.0) sha256=497918d2f9dca528fdca4b88d84e4ef4387256d984b8154e9d5d3fe5a9c8835f
   bundle-audit (0.2.0) sha256=cb499708f7fbc56d2d2e8bab09a1184f8f5b548bdbd628b757e5a1856874ca12
@@ -680,10 +690,11 @@ CHECKSUMS
   dotenv-rails (3.2.0) sha256=657e25554ba622ffc95d8c4f1670286510f47f2edda9f68293c3f661b303beab
   dotiw (5.5.0) sha256=afa6ff5f2f1348c777fbb2822f34e32de758f17eb6943676fe30a60ad3493782
   drb (2.2.3) sha256=0b00d6fdb50995fe4a45dea13663493c841112e4068656854646f418fda13373
+  ecdsa (1.2.0) sha256=b8f7c9541b6c587cbe37e705a1b76be6dc1e85336aa23ac3cf2f07b038bcec55
   erb (6.0.2) sha256=9fe6264d44f79422c87490a1558479bd0e7dad4dd0e317656e67ea3077b5242b
   erubi (1.13.1) sha256=a082103b0885dbc5ecf1172fede897f9ebdb745a4b97a5e8dc63953db1ee4ad9
   et-orbi (1.4.0) sha256=6c7e3c90779821f9e3b324c5e96fda9767f72995d6ae435b96678a4f3e2de8bc
-  eth (0.5.13) sha256=a31d96b7c247d4add4580bc794c9c7af4cbf2d3ee309fa430d885c6fc067191f
+  eth (0.5.17) sha256=5be9caa85b0643613010ae33c92e746a02ce376a35245e6eb5f491e80531f137
   event_emitter (0.2.6) sha256=c72697bd5cce9d36594be1972c17f1c9a573236f44303a4d1d548080364e1391
   factory_bot (6.5.6) sha256=12beb373214dccc086a7a63763d6718c49769d5606f0501e0a4442676917e077
   factory_bot_rails (6.5.1) sha256=d3cc4851eae4dea8a665ec4a4516895045e710554d2b5ac9e68b94d351bc6d68
@@ -692,7 +703,6 @@ CHECKSUMS
   faraday-manual-cache (0.5.0)
   faraday-net_http (3.4.2) sha256=f147758260d3526939bf57ecf911682f94926a3666502e24c69992765875906c
   faraday-net_http_persistent (2.3.1) sha256=23ffba37d6a27807a10f033d01918ec958aa73fa6ff0fccfbcd5ce2d2e68fca3
-  faraday-retry (2.4.0) sha256=7b79c48fb7e56526faf247b12d94a680071ff40c9fda7cf1ec1549439ad11ebe
   ffi (1.17.3-aarch64-linux-gnu) sha256=28ad573df26560f0aedd8a90c3371279a0b2bd0b4e834b16a2baa10bd7a97068
   ffi (1.17.3-aarch64-linux-musl) sha256=020b33b76775b1abacc3b7d86b287cef3251f66d747092deec592c7f5df764b2
   ffi (1.17.3-arm-linux-gnu) sha256=5bd4cea83b68b5ec0037f99c57d5ce2dd5aa438f35decc5ef68a7d085c785668
@@ -712,11 +722,14 @@ CHECKSUMS
   google-protobuf (4.34.0-x86_64-darwin) sha256=4a5b67281993345adca54bb32947f25a289597eafaa240e5b714d0a740f99321
   google-protobuf (4.34.0-x86_64-linux-gnu) sha256=bbb333fbe79c16f35a2e2154cf29f3ce26f60390dba286b339861206d5435ef9
   google-protobuf (4.34.0-x86_64-linux-musl) sha256=0b75858a388b17e73aa4176df2e722762dbc92551b7075fdc562d33c1c6de0b0
+  h2c (0.2.1) sha256=a53b7dfeb95660c97b615235ea1b29ec8e1856edc571845685682d94b6e8e227
   haikunator (1.1.1) sha256=ec99f690b216edf20c518ea9a6d83f6bd479e86c37d89b2afc3376e752b32ca8
   haml (7.2.0) sha256=87fd2b71f7feab1724337b090a7d767f5ab2d42f08c974f3ead673f18cfcd55a
   haml-rails (3.0.0) sha256=091fe496a85ca521d9cac87fb50f1ecf77a57974a99aa7e267130add81a5585f
-  honeymaker (0.7.1) sha256=ccec9f2855b2cf61e65bbdcc42d459633d6adaa81a1d4b6d65c0a1cae9e80b81
-  hyperliquid (1.0.2) sha256=1d8cef2a5f1fde405f8f3b22732c6522ca00e1adbc30bb864e4910d4b8b3055c
+  honeymaker (0.7.3) sha256=2323711ba5f3dcf23cedfb79ece06f84b2f2d29ca0230957b98ca62d03f2290f
+  http-2 (1.1.3) sha256=1b2f379d35a11dbae94f8a1a52c053d8c161eb4a0c98b5d1605ff1b2bf171c9c
+  httpx (1.7.5) sha256=f002b7728ad108b721ab9c4e02b17b5c780581d490cd13245fc3d5c5b7127b6e
+  hyperliquid-rb (0.1.0) sha256=a9c40c379f7eb2d743640d2c9d23985fe52836294ea4894baa1ac3c5ec6cb473
   i18n (1.14.8) sha256=285778639134865c5e0f6269e0b818256017e8cde89993fdfcbfb64d088824a5
   importmap-rails (2.2.3) sha256=7101be2a4dc97cf1558fb8f573a718404c5f6bcfe94f304bf1f39e444feeb16a
   io-console (0.8.2) sha256=d6e3ae7a7cc7574f4b8893b4fca2162e57a825b223a177b7afa236c5ef9814cc
@@ -854,9 +867,9 @@ CHECKSUMS
   warden (1.2.9) sha256=46684f885d35a69dbb883deabf85a222c8e427a957804719e143005df7a1efd0
   web-console (4.3.0) sha256=e13b71301cdfc2093f155b5aa3a622db80b4672d1f2f713119cc7ec7ac6a6da4
   websocket (1.2.11) sha256=b7e7a74e2410b5e85c25858b26b3322f29161e300935f70a0e0d3c35e0462737
+  websocket-client-simple (0.9.0) sha256=f9a37c5e4922b35a711e21e6d73ed1e25892efa47d183203ab2f5beb4e563109
   websocket-driver (0.8.0) sha256=ed0dba4b943c22f17f9a734817e808bc84cdce6a7e22045f5315aa57676d4962
   websocket-extensions (0.1.5) sha256=1c6ba63092cda343eb53fc657110c71c754c56484aad42578495227d717a8241
-  ws_lite (1.0.1) sha256=6cc72117e4955a4220bf9cbba7f8a58868a6d116650666d45d72451f84efd02c
   yaml (0.4.0) sha256=240e69d1e6ce3584d6085978719a0faa6218ae426e034d8f9b02fb54d3471942
   zeitwerk (2.7.5) sha256=d8da92128c09ea6ec62c949011b00ed4a20242b255293dd66bf41545398f73dd
 
