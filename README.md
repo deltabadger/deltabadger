@@ -1,6 +1,7 @@
 # Deltabadger
 
 [![Docker Build](https://github.com/deltabadger/deltabadger/actions/workflows/docker-publish.yml/badge.svg)](https://github.com/deltabadger/deltabadger/actions/workflows/docker-publish.yml)
+[![Docker Image](https://img.shields.io/badge/ghcr.io-deltabadger%2Fdeltabadger-blue?logo=docker)](https://github.com/deltabadger/deltabadger/pkgs/container/deltabadger)
 [![License](https://img.shields.io/github/license/deltabadger/deltabadger)](LICENSE)
 
 [Deltabadger](https://deltabadger.com) is a one-stop-shop for investors in crypto and stocks:
