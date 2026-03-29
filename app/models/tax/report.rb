@@ -74,7 +74,7 @@ module Tax
 
     def csv_headers
       if wealth_snapshot?
-        return %w[reference_date asset amount value].map { |k| I18n.t("tax_report.headers.#{k}", default: k) }
+        return %w[reference_date asset amount value currency].map { |k| I18n.t("tax_report.headers.#{k}", default: k) }
       elsif pvct?
         keys = %w[date asset amount proceeds total_acquisition_cost portfolio_value gain_loss currency fee exchange tx_id]
       elsif weighted_average?
@@ -201,13 +201,14 @@ module Tax
           row[:date].utc.strftime('%Y-%m-%d'),
           row[:asset],
           row[:amount],
-          row[:value]
+          row[:value],
+          currency
         ]
       else
         # Summary row
         label = I18n.t("tax_report.summary.#{row[:label]}", default: row[:label].humanize)
         label = "#{label} (#{row[:rate]})" if row[:rate]
-        [nil, nil, label, row[:value]]
+        [nil, nil, label, row[:value], nil]
       end
     end
 
