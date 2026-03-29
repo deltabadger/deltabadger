@@ -102,7 +102,12 @@ ENV RAILS_ENV=production \
     BUNDLE_PATH=/app/vendor/bundle \
     RAILS_LOG_TO_STDOUT=true \
     RAILS_SERVE_STATIC_FILES=true \
-    MALLOC_ARENA_MAX=2
+    RAILS_MAX_THREADS=1 \
+    MALLOC_ARENA_MAX=2 \
+    MALLOC_CONF="dirty_decay_ms:1000,narenas:2,background_thread:true" \
+    RUBY_YJIT_ENABLE=1 \
+    RUBYOPT="--yjit --yjit-exec-mem-size=16" \
+    RUBY_GC_HEAP_INIT_SLOTS=600000
 
 # Install runtime dependencies only (added gosu)
 RUN apt-get update -qq && \
@@ -114,8 +119,14 @@ RUN apt-get update -qq && \
     libyaml-0-2 \
     tzdata \
     imagemagick \
+    libjemalloc2 \
     gosu && \
     rm -rf /var/lib/apt/lists/* /var/cache/apt/archives/*
+
+# Use jemalloc to reduce memory fragmentation
+# Symlink to arch-independent path so LD_PRELOAD works on both amd64 and arm64
+RUN ln -s $(find /usr/lib -name "libjemalloc.so.2" | head -1) /usr/lib/libjemalloc.so
+ENV LD_PRELOAD=/usr/lib/libjemalloc.so
 
 # Create non-root user for security
 RUN groupadd --gid 1000 deltabadger && \

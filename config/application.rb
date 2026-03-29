@@ -6,7 +6,6 @@ require "rails"
 require "active_model/railtie"
 require "active_job/railtie"
 require "active_record/railtie"
-require "active_storage/engine"
 require "action_controller/railtie"
 require "action_mailer/railtie"
 require "action_view/railtie"
@@ -41,8 +40,6 @@ module Deltabadger
     #cookie
 
     config.session_store :cookie_store, key: '_deltabadger_session', expire_after: 30.days
-
-    config.active_storage.variant_processor = :disabled
 
     config.action_mcp.name = "Deltabadger"
 
