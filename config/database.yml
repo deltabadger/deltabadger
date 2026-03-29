@@ -43,16 +43,24 @@ production:
   primary:
     <<: *default
     database: <%= ENV.fetch("DATABASE_PATH") { "storage/production.sqlite3" } %>
+    pragmas:
+      cache_size: -1000
   queue:
     <<: *default
     database: <%= ENV.fetch("QUEUE_DATABASE_PATH") { "storage/production_queue.sqlite3" } %>
     migrations_paths: db/queue_migrate
     pool: <%= ENV.fetch("RAILS_MAX_THREADS") { 5 }.to_i + 5 %>
+    pragmas:
+      cache_size: -1000
   cache:
     <<: *default
     database: <%= ENV.fetch("CACHE_DATABASE_PATH") { "storage/production_cache.sqlite3" } %>
     migrations_paths: db/cache_migrate
+    pragmas:
+      cache_size: -1000
   cable:
     <<: *default
     database: <%= ENV.fetch("CABLE_DATABASE_PATH") { "storage/production_cable.sqlite3" } %>
     migrations_paths: db/cable_migrate
+    pragmas:
+      cache_size: -1000
