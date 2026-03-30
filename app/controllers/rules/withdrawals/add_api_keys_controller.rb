@@ -29,7 +29,11 @@ class Rules::Withdrawals::AddApiKeysController < ApplicationController
   def create
     @rule_config = session[:withdrawal_rule_config] || {}
     @asset = Asset.find_by(id: @rule_config['asset_id'])
-    @exchange = Exchange.find(params[:exchange_id])
+    @exchange = Exchange.find_by(id: params[:exchange_id])
+    if @exchange.blank?
+      redirect_to new_rules_withdrawals_pick_exchange_path
+      return
+    end
     @api_key = current_user.api_keys.find_or_initialize_by(exchange: @exchange, key_type: :withdrawal)
     @api_key.validate_credentials!(api_key_params)
 

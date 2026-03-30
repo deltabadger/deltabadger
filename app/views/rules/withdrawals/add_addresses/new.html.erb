@@ -23,12 +23,15 @@
         </div>
       </div>
     <% elsif @no_listing %>
-      <div class="set-api widget">
-        <div class="set-api__form">
-          <p><%= t('rules.add_address.fetch_failed_html', exchange: @exchange.name).html_safe %></p>
-          <%= link_to t('button.check_again'), new_rules_withdrawals_add_address_path, data: { turbo_frame: "modal_content" }, class: "button button--success button--large" %>
-        </div>
-      </div>
+      <p class="text-center"><%= t('rules.add_address.fetch_failed_html', exchange: @exchange.name).html_safe %></p>
+
+      <%= render partial: 'shared/api_key_form', locals: {
+        exchange: @exchange,
+        api_key: @api_key,
+        path: rules_withdrawals_add_api_key_path(exchange_id: @exchange.id),
+        form_data: { controller: "form--label-animations form--html5-validations", turbo_frame: 'modal_content' },
+        instructions_partial: 'rules/withdrawals/api_key_instructions'
+      } %>
     <% end %>
   </div>
 <% end %>

@@ -21,6 +21,10 @@ class Bots::DcaSingleAssets::AddApiKeysController < ApplicationController
 
   def create
     @bot = current_user.bots.dca_single_asset.new(sanitized_bot_config)
+    if @bot.exchange_id.blank?
+      redirect_to new_bots_dca_single_assets_pick_exchange_path
+      return
+    end
     @api_key = @bot.api_key
     @api_key.validate_credentials!(api_key_params)
     if @api_key.correct?
