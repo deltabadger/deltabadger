@@ -19,6 +19,7 @@ class Rules::Withdrawals::AddAddressesController < ApplicationController
         @no_addresses = true
       when :no_listing
         @no_listing = true
+        @api_key = current_user.api_keys.find_or_initialize_by(exchange: @exchange, key_type: :withdrawal)
       when :no_key
         redirect_to new_rules_withdrawals_add_api_key_path
       end
