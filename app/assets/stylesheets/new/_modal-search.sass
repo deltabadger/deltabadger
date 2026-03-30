@@ -1,7 +1,7 @@
 @use "variables" as *
 
 .dialog
-    background: var(--modal-backdrop)
+    background: transparent
     position: fixed
     width: 100vw
     height: 100vh
@@ -14,7 +14,15 @@
     border: none
     top: 0
     left: 0
-    backdrop-filter: blur(1rem)
+    backdrop-filter: blur(0)
+    transition: background 0.3s ease, backdrop-filter 0.3s ease
+    &--open
+        background: var(--modal-backdrop)
+        backdrop-filter: blur(1rem)
+    &--closing
+        background: transparent
+        backdrop-filter: blur(0)
+        transition: background 0.15s ease, backdrop-filter 0.15s ease
     &::backdrop
         display: none
     &__vertical-center
@@ -63,14 +71,28 @@
         background: var(--washed)
 #modal
     .modal
-        position: relative
-        top: 20vh
         opacity: 0
-        transition: all 0.2s ease-out
     &[complete]
         .modal
-            top: 0
-            opacity: 1
+            animation: modal-zoom-in 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.075) both
+    .modal--closing
+        animation: modal-zoom-out 0.15s ease-in both !important
+
+@keyframes modal-zoom-in
+    from
+        opacity: 0
+        transform: scale(0.7)
+    to
+        opacity: 1
+        transform: scale(1)
+
+@keyframes modal-zoom-out
+    from
+        opacity: 1
+        transform: scale(1)
+    to
+        opacity: 0
+        transform: scale(0.7)
 .modal
     position: relative
     padding: 3.25rem 4rem 4rem
