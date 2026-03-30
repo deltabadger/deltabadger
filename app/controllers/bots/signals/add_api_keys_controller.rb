@@ -18,6 +18,10 @@ class Bots::Signals::AddApiKeysController < ApplicationController
 
   def create
     @bot = current_user.bots.signal.new(sanitized_bot_config)
+    if @bot.exchange_id.blank?
+      redirect_to new_bots_signals_pick_exchange_path
+      return
+    end
     @api_key = @bot.api_key
     @api_key.validate_credentials!(api_key_params)
     if @api_key.correct?
