@@ -13,7 +13,8 @@
     <% end %>
 
     <%= render partial: 'settings/widgets/api_keys', locals: {
-      trading_api_keys: @trading_api_keys
+      trading_api_keys: @trading_api_keys,
+      withdrawal_api_keys: @withdrawal_api_keys
     } %>
 
     <% if current_user.admin? %>

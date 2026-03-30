@@ -86,8 +86,9 @@ class SettingsController < ApplicationController
     api_key = current_user.api_keys.find(params[:id])
     if api_key.present? && stop_working_bots(api_key) && api_key.destroy
       trading_api_keys = current_user.api_keys.includes(:exchange).where(key_type: 'trading')
+      withdrawal_api_keys = current_user.api_keys.includes(:exchange).where(key_type: 'withdrawal')
       render partial: 'settings/widgets/api_keys',
-             locals: { trading_api_keys: }
+             locals: { trading_api_keys:, withdrawal_api_keys: }
     else
       flash.now[:alert] = api_key.errors.messages.values.flatten.to_sentence
       render turbo_stream: turbo_stream_prepend_flash, status: :unprocessable_entity
@@ -389,6 +390,7 @@ class SettingsController < ApplicationController
 
   def set_connect_instance_variables
     @trading_api_keys = current_user.api_keys.includes(:exchange).where(key_type: 'trading')
+    @withdrawal_api_keys = current_user.api_keys.includes(:exchange).where(key_type: 'withdrawal')
   end
 
   def set_account_instance_variables
