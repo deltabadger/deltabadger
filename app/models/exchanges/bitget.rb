@@ -260,7 +260,8 @@ class Exchanges::Bitget < Exchange
   end
 
   def get_order(order_id:)
-    result = client.get_order(order_id: order_id)
+    _, ext_order_id = parse_order_id(order_id)
+    result = client.get_order(order_id: ext_order_id)
     return result if result.failure?
 
     normalized_order_data = parse_order_data(order_id, result.data[:raw])
@@ -281,7 +282,15 @@ class Exchanges::Bitget < Exchange
   end
 
   def cancel_order(order_id:)
-    result = client.cancel_order(order_id: order_id)
+    symbol, ext_order_id = parse_order_id(order_id)
+    if symbol.nil?
+      # Legacy order without symbol prefix — look it up
+      order_result = client.get_order(order_id: ext_order_id)
+      return order_result if order_result.failure?
+
+      symbol = order_result.data[:raw]['symbol']
+    end
+    result = client.cancel_order(symbol: symbol, order_id: ext_order_id)
     return result if result.failure?
 
     Result::Success.new(order_id)
@@ -297,7 +306,7 @@ class Exchanges::Bitget < Exchange
     result = if api_key.withdrawal?
                temp_client.get_account_assets
              else
-               temp_client.cancel_order(order_id: '0')
+               temp_client.cancel_order(symbol: 'BTCUSDT', order_id: '0')
              end
 
     if result.success?
@@ -538,6 +547,14 @@ class Exchanges::Bitget < Exchange
       status: status,
       exchange_response: order_data
     }
+  end
+
+  def parse_order_id(order_id)
+    if order_id.include?('-')
+      order_id.split('-', 2)
+    else
+      [nil, order_id]
+    end
   end
 
   def parse_order_type(order_type)
