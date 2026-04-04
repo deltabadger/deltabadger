@@ -29,5 +29,20 @@
     <% unless locale == 'ru' %>
       <%= link_to "🇷🇺 Русский", url_for(request.params.merge(locale: 'ru')), class: "dropdown__item", data: { turbo: false } %>
     <% end %>
+    <% unless locale == 'cs' %>
+      <%= link_to "🇨🇿 Čeština", url_for(request.params.merge(locale: 'cs')), class: "dropdown__item", data: { turbo: false } %>
+    <% end %>
+    <% unless locale == 'sk' %>
+      <%= link_to "🇸🇰 Slovenčina", url_for(request.params.merge(locale: 'sk')), class: "dropdown__item", data: { turbo: false } %>
+    <% end %>
+    <% unless locale == 'da' %>
+      <%= link_to "🇩🇰 Dansk", url_for(request.params.merge(locale: 'da')), class: "dropdown__item", data: { turbo: false } %>
+    <% end %>
+    <% unless locale == 'sv' %>
+      <%= link_to "🇸🇪 Svenska", url_for(request.params.merge(locale: 'sv')), class: "dropdown__item", data: { turbo: false } %>
+    <% end %>
+    <% unless locale == 'el' %>
+      <%= link_to "🇬🇷 Ελληνικά", url_for(request.params.merge(locale: 'el')), class: "dropdown__item", data: { turbo: false } %>
+    <% end %>
   </div>
 </div>
