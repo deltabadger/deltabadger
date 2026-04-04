@@ -1,6 +1,6 @@
 <div data-controller="dropdown" data-action="click->dropdown#toggle" data-dropdown-target="wrapper" class="sbutton sbutton--link dropdown-wrapper <%= extra_classes %>">
   <% locale = params[:locale] %>
-  <% language_names = { 'en' => 'English', 'de' => 'Deutsch', 'nl' => 'Nederlands', 'fr' => 'Français', 'es' => 'Español', 'pt' => 'Português', 'it' => 'Italiano', 'pl' => 'Polski', 'ru' => 'Русский', 'cs' => 'Čeština', 'sk' => 'Slovenčina', 'da' => 'Dansk', 'sv' => 'Svenska', 'el' => 'Ελληνικά' } %>
+  <% language_names = { 'en' => 'English', 'de' => 'Deutsch', 'nl' => 'Nederlands', 'fr' => 'Français', 'es' => 'Español', 'pt' => 'Português', 'it' => 'Italiano', 'pl' => 'Polski', 'ru' => 'Русский', 'cs' => 'Čeština', 'sk' => 'Slovenčina', 'da' => 'Dansk', 'sv' => 'Svenska', 'el' => 'Ελληνικά', 'bg' => 'Български' } %>
   <%= language_names[locale] || 'English' %> <%= render "svg/16x16_down" %>
   <div class="dropdown">
     <% unless locale.blank? || locale == 'en' %>
@@ -44,6 +44,9 @@
     <% end %>
     <% unless locale == 'el' %>
       <%= link_to "🇬🇷 Ελληνικά", url_for(request.params.merge(locale: 'el')), class: "dropdown__item", data: { turbo: false } %>
+    <% end %>
+    <% unless locale == 'bg' %>
+      <%= link_to "🇧🇬 Български", url_for(request.params.merge(locale: 'bg')), class: "dropdown__item", data: { turbo: false } %>
     <% end %>
   </div>
 </div>

@@ -1,0 +1,293 @@
+bg:
+    bot:
+        add_api_keys: "Добавяне на API ключове за %{exchange}"
+        bot_name: 'Име на бота'
+        new: "Нов бот"
+        dca_index:
+            setup:
+                step_index: "Индекс"
+                sentence:
+                    build_index: "Съставяне на индексно портфолио"
+                    build_index_at: "Съставяне на портфолио %{index_name}"
+                    portfolio: портфолио
+                pick_index:
+                    top_coins: "Топ криптовалути"
+                    top_coins_description: "Най-големите криптовалути по пазарна капитализация. S&P 500 на криптосвета."
+                    error: "Моля, изберете индекс"
+            num_coins: "Брой монети"
+            allocation_flattening: "Изравняване на алокацията"
+            into_index: "в %{index_name}"
+            into: в
+            index_preview: "Преглед на индекса"
+            fewer_coins_available: "%{available} от %{requested} монети в индекса са налични в %{exchange_name}"
+            num_assets: "Активи в индекса"
+            asset_breakdown: "Разпределение на активите"
+            asset: "Актив"
+            amount: "Количество"
+            avg_price: "Средна цена"
+            value: "Стойност"
+            pl: "П/З"
+            warning:
+                intro: "Някои поръчки (%{skipped_count}) бяха под минималния размер на поръчка в %{exchange_name}. Ето как ботът се справя с това:"
+        types:
+            dca:
+                title: "DCA"
+                description: "Инвестирайте в един актив"
+            dca_dual_asset:
+                title: "Ребалансирано DCA"
+                description: "Ребалансирайте два актива"
+            index_portfolio:
+                title: "Индексно портфолио"
+                description: "Вашият личен крипто ETF"
+            custom_portfolio:
+                title: "Персонализирано портфолио"
+                description: "Ребалансирайте собствен микс от активи"
+            signal:
+                title: "Сигнал"
+                description: "Търгувайте на база външни сигнали"
+            dca_stocks:
+                title: "DCA (акции)"
+                description: "Купувайте акции чрез Alpaca"
+        dca_stocks:
+            connect_alpaca_intro: "Свържете акаунта си в Alpaca и започнете да инвестирате в акции"
+            pick_stock: "Търсене на акция"
+            no_results: "Не са намерени акции"
+            stock_not_found: "Акцията не е намерена в Alpaca"
+            mode_paper: "Хартиена търговия"
+            mode_live: "Реална търговия"
+        status:
+            setting_orders: "Подаване на поръчки…"
+            paused: "На пауза"
+            next_try: "Следващ опит след"
+            waiting: "Изчакване за изпълнение на всички условия"
+            listening: "Слушам"
+            market_opens_in: "Пазарът се отваря след"
+            market_closed: "Пазарът е затворен в момента."
+        pick_exchange: "Изберете борса"
+        conversational:
+            invest: "Инвестирай"
+            into: "в"
+        utils:
+            mkt_cap_adjusted_html: "Коригирано по пазарна капитализация"
+            mkt_cap_adjusted_info_html: |
+                <p><b>Пазарна капитализация</b> е начин да се измери размерът и стойността на една криптовалута. Изчислява се като общият брой монети се умножи по текущата цена на една монета. Във вашия бот монетата с по-голяма пазарна капитализация получава по-голям дял от инвестицията.</p>
+                <p><b>Пример:</b></p>
+                <p><b>Монета A:</b> съществуват 2 милиона монети, всяка по 10 $. Пазарна капитализация = 2M × 10 $ = 20M $.</p>
+                <p><b>Монета B:</b> съществува 1 милион монети, всяка по 1 $. Пазарна капитализация = 1M × 1 $ = 1M $.</p>
+                <p>Ако инвестирате 100 $, ботът ги разпределя пропорционално на пазарната капитализация: 95,2 $ в Монета A, 4,8 $ в Монета B.</p>
+                <p>Ако обаче цената на Монета B се повиши до 3 $, пазарната й капитализация става 3M $. Следващите 100 $ ще се разпределят: 87 $ в Монета A и 13 $ в Монета B.</p>
+        above: "над"
+        below: "под"
+        buttons:
+            automatic_withdrawal: "Автоматично теглене"
+            request_exchange: "Поискай добавяне на борса"
+            move_existing_bot: "Премести бот на друга борса"
+            delete:
+                ok: "Изтрий напълно"
+                warning_html: "Това ще изтрие бота с всички<br>исторически данни. Сигурни ли сте?"
+            dollar_cost_averaging: "Dollar-Cost Averaging"
+            pending:
+                info_html: "Обработване…"
+                text: "Чакащо"
+            start:
+                changed_missed:
+                    continue: "Да, купи и продължи"
+                    info_html: "Искате ли да инвестирате <b>%{amount} %{quote}</b>, които пропуснахте, докато ботът беше спрян? Новият график ще започне след края на текущото отброяване."
+                    skip: "Пропусни пропуснатата част"
+                changed_on_schedule:
+                    continue: "Разбрах"
+                    info_html: "Новият график ще започне след изтичането на оставащите <b>%{time}</b> от предишния."
+                    skip: "Игнорирай и стартирай веднага"
+                missed:
+                    continue: "Да, купи и продължи"
+                    info_html: "Искате ли да инвестирате <b>%{amount} %{quote}</b>, които пропуснахте, докато ботът беше спрян, и да продължите с оригиналния график?"
+                    skip: "Пропусни пропуснатата част"
+                on_schedule:
+                    continue: "Продължи по оригиналния график"
+                    info_html: "До следващата поръчка остават <b>%{time}</b>. Можете да пропуснете чакането и да изпълните поръчка веднага, или да продължите с оригиналното отброяване."
+                    skip: "Пропусни"
+        signal:
+            trade: "Сделка"
+            spending: "с използване на"
+            add_signal: "+ Добави сигнал"
+            url_placeholder: "Webhook URL ще се покаже тук"
+            for: "за"
+            when_triggered: "когато се задейства този webhook:"
+            of_the_balance: "от баланса"
+        buy: Покупка
+        counter: '%{countdown}'
+        day: Ден
+        details:
+            log:
+                date: Дата
+                errors: Грешки
+                title: Лог
+            stats:
+                amount: 'Количество(%{base})'
+                amount1: 'Количество'
+                value: 'Стойност(%{quote})'
+                value1: 'Стойност'
+                average_price: 'Средна цена'
+                bought: Купено
+                chart:
+                    total_invested: 'Общо инвестирано'
+                    value: Стойност
+                csv_download_html: 'Таблицата по-горе показва само последните десет транзакции. Пълния отчет можете да изтеглите като CSV по-долу.'
+                current_value: 'Текуща стойност'
+                current_value_sold: 'Текуща стойност на продадените %{base}'
+                date: Дата
+                download_csv: 'Експорт'
+                generating_csv: 'Генериране на файл...'
+                import_csv: 'Импорт'
+                import_success: 'Успешно импортирани %{count} поръчки.'
+                import_no_new_orders: 'Няма нови поръчки за импорт (всички поръчки вече съществуват или валутите не съвпадат).'
+                import_no_file: 'Моля, изберете CSV файл за импорт.'
+                import_invalid_format: 'Невалиден CSV формат. Използвайте файл, експортиран от това приложение.'
+                import_malformed_csv: 'CSV файлът е повреден и не може да бъде обработен.'
+                import_error: 'Импортът не успя: %{message}'
+                import_currency_mismatch: "Несъответствие на валутите: CSV съдържа ''%{csv_quote}'', но ботът използва ''%{bot_quote}''"
+                exchange_unavailable_html: 'API на борсата не отговаря в момента.<br>Изчисленията са на база последните налични данни.'
+                order: Поръчка
+                profit_loss: Печалба/Загуба
+                price: 'Цена(%{quote})'
+                sold: Продадено
+                title: Статистика
+                total_invested: 'Общо инвестирано'
+                portfolio_value: 'Стойност на портфолиото'
+        for: за
+        force_smart_intervals_html: '<b>Умни интервали</b> · Купувайте на части от по <split>100 $</split> %{currency}.'
+        hour: Час
+        limit_buy: 'Лимитирана покупка'
+        limit_sell: 'Лимитирана продажба'
+        messages:
+            do_you_want_to_delete: 'Искате ли да изтриете този бот?'
+            symbol_not_supported: "%{symbol} не се поддържа"
+            specify_percentage_limit_order: "При създаване на лимитирана поръчка задайте процент"
+            smart_intervals_above_minimum: "Стойността на умните интервали трябва да е по-висока от %{minimum}"
+            invalid_price_range: "Ценовият диапазон е невалиден"
+            subaccounts_not_allowed: "Подсметките не са разрешени за тази борса"
+            no_subaccount_name: "Не е зададено име на подсметка"
+            wrong_subaccount_name: "Грешно име на подсметка"
+            failed_tooltip_explanation: "Тази поръчка не успя: %{error_message}"
+            skipped_tooltip_explanation: "Тази поръчка беше пропусната, тъй като сумата беше под минималния размер на поръчка в %{exchange_name}. Сумата беше добавена към следващата поръчка."
+            cancelled_tooltip_explanation: "Тази поръчка беше отменена или изтече, преди да бъде изпълнена."
+            failed_status_bar_explanation: "Последната поръчка не успя: %{error_message}"
+            order_cancelled: 'Поръчката е отменена'
+            failed_to_cancel_order: 'Неуспешна отмяна на поръчката'
+            failed_to_cancel_order_invalid_api_key: 'Неуспешна отмяна на поръчката: невалиден API ключ. Моля, проверете настройките на API ключовете в %{exchange_name}.'
+            cannot_cancel_imported_order: 'Импортирани поръчки не могат да бъдат отменяни'
+        minimum_withdrawal_disclaimer: 'Минималната сума за теглене е %{minimum} %{currency}.'
+        minimum_withdrawal_disclaimer_usd: 'Минималната сума за теглене е %{minimum} USD.'
+        month: Месец
+        next_buy: 'Следваща след %{countdown}'
+        next_sell: 'Следваща след %{countdown}'
+        next_withdrawal: 'Следващо след %{countdown}'
+        not_found: 'Такъв бот не съществува.'
+        price: 'цена'
+        price_range_buy_html: 'Купувай само в ценови диапазон от <split>100 $</split> до <split>1000 $</split> %{quote} за %{base}.'
+        price_range_sell_html: "Продавай само в ценови диапазон от <split>100 $</split> до <split>1000 $</split> %{quote} за %{base}."
+        sell: "Продажба"
+        buy_all: "Купи всичко"
+        sell_all: "Продай всичко"
+        first_time: "за първи път"
+        every_time: "всеки път"
+        name: "Име:"
+        fees: "Такси"
+        maker_fee: "Maker"
+        taker_fee: "Taker"
+        withdrawal_fee: "Теглене"
+        additional_title: "Двупосочен бот"
+        smart_intervals_disclaimer: 'Размерът на поръчките в %{exchange} е определен в %{currency}. Минималният размер на поръчка е %{minimum}%{currency}.'
+        smart_intervals_disclaimer_base: 'Размерът на поръчките в %{exchange} е определен в %{currency}. Минималният размер на поръчка е %{minimum}%{currency}.'
+        smart_intervals_disclaimer_quote: 'Минималният размер на поръчка е %{minimum}%{currency}.'
+        starting: Стартиране
+        subaccounts_info: 'Използвай подсметка'
+        week: Седмица
+        withdraw_interval_html: 'Тегли на всеки <split>2</split> дни.'
+        withdraw_threshold_html: 'Тегли, когато са налични поне <split>0,001</split> %{currency}.'
+        withdrawal_percentage: '%{percentage}%'
+        withdrawal: 'Теглене'
+        cancel_order: 'Отмени'
+        warning:
+            dca_single_asset:
+                intro: "Сумата за %{missed_symbol} беше под минималния размер на поръчка в %{exchange_name} (%{missed_minimum_base_size} %{missed_symbol} или %{missed_minimum_quote_size} %{quote_symbol} за %{missed_symbol}). Ето как ботът се справя с това:"
+            dca_dual_asset:
+                both_below:
+                    intro: "И двете суми за %{base0_symbol} и %{base1_symbol} са под минималния размер на поръчка в %{exchange_name} (%{base0_minimum_base_size} %{base0_symbol} или %{base0_minimum_quote_size} %{quote_symbol} за %{base0_symbol} и %{base1_minimum_base_size} %{base1_symbol} или %{base1_minimum_quote_size} %{quote_symbol} за %{base1_symbol}). Ето как ботът се справя с това:"
+                one_below:
+                    intro: "Ботът купи %{bought_quote_amount} %{quote_symbol} за %{bought_symbol}, но сумата за %{missed_symbol} беше под минималния размер на поръчка в %{exchange_name} (%{missed_minimum_base_size} %{missed_symbol} или %{missed_minimum_quote_size} %{quote_symbol} за %{missed_symbol}). Ето как ботът се справя с това:"
+            buffer_explanation:
+                one: "Пропуснатата сума е запазена в буфер и ще бъде използвана при следващата планирана поръчка, за да се спазят графикът и алокацията възможно най-точно в рамките на минималните размери на поръчките."
+                other: "Пропуснатите суми са запазени в буфер и ще бъдат използвани при следващите планирани поръчки, за да се спазят графикът и алокацията възможно най-точно в рамките на минималните размери на поръчките."
+            title: "Поздравления! Вашият бот работи."
+            general_note: "Минималните размери на поръчките и необходимите суми за ребалансиране се променят. Транзакциите може понякога да изглеждат нередовни, но ботът винаги се стреми към желаната от вас алокация и график, така че не е нужно да правите нищо допълнително."
+        settings:
+            smart_intervals:
+                sentence_html: '<b>Умни интервали</b> Раздели <span>цялата</span> сума <span>на</span> <span>%{amount_html} %{quote}</span> единици'
+                info: "Разделянето на %{quote_amount} %{quote} / %{interval} на единици по %{amount} %{quote} означава една инвестиция на всеки %{smart_interval}"
+            limit_orders:
+                sentence_html: '<b>FeeCutter</b> <span>Намаляване на таксите</span> чрез <span>лимитирани</span> поръчки <span>%{amount_html}%</span> <span>под цената</span>'
+                info: "За намаляване на таксите до нула задайте %{maker_fee}%, което е maker таксата на %{exchange}. Задайте по-малко за по-бързо изпълнение или повече за потенциално по-добра цена. Следете изпълнението на поръчките в таблицата с поръчки."
+            extra_amount_limit:
+                sentence_html: "Да не се харчи повече от <span>%{value_html} %{quote}</span>"
+                info:
+                    spent: "Цялата сума е инвестирана"
+                    left: "(остават %{amount} %{quote})"
+            extra_price_limit:
+                sentence_html:
+                    one: "%{timing_condition_html} когато <span>цената</span> е <span>%{value_condition_html}</span> <span>%{price_input_html}</span>"
+                    other: "%{timing_condition_html} когато цената на %{base_html} е <span></span> <span>%{value_condition_html}</span> <span>%{price_input_html}</span>"
+                info: "Текущата цена на %{base} е %{current_price} %{quote}"
+                price_limit_input_html: "%{value_html} %{quote}"
+                price_limit_range_input_html: "%{lower_bound_value_html} %{quote} и %{upper_bound_value_html} %{quote}"
+                timing_condition:
+                    while: "Купувай само"
+                    after: "Започни да купуваш"
+                value_condition:
+                    above: "над"
+                    below: "под"
+                    between: "между"
+            extra_price_drop_limit:
+                sentence_html:
+                    one: "Започни да купуваш, когато цената падне с <span>%{value_html}%</span> от своя %{time_window_condition_html}"
+                    other: "Започни да купуваш, когато цената на %{base_html} падне с <span>%{value_html}%</span> от своя %{time_window_condition_html}"
+                info: "Текущият %{time_window_condition} на %{base} е %{condition_high} %{quote}."
+                time_window_condition:
+                    ath: "исторически максимум"
+                    twenty_four_hours: "24-часов максимум"
+            extra_indicator_limit:
+                sentence_html:
+                    one: "<span>%{timing_condition_html}</span> когато <span>%{indicator_html}</span> на %{timeframe_html} <span>свещи</span> е <span>%{value_condition_html} %{value_html}</span>"
+                    other: "<span>%{timing_condition_html}</span> когато <span>%{indicator_html}</span> на %{ticker_html} %{timeframe_html} <span>свещи</span> е <span>%{value_condition_html} %{value_html}</span>"
+                info: "%{indicator} на последната %{timeframe} %{ticker} свещ е %{value}"
+                timing_condition:
+                    while: "Купувай само"
+                    after: "Започни да купуваш"
+                value_condition:
+                    above: "над"
+                    below: "под"
+                timeframe:
+                    one_hour: "часови"
+                    four_hours: "4-часови"
+                    one_day: "дневни"
+                    three_days: "3-дневни"
+                    one_week: "седмични"
+                    one_month: "месечни"
+            extra_moving_average_limit:
+                sentence_html:
+                    one: "<span>%{timing_condition_html}</span> когато цената на %{base} е %{value_condition_html} <span>%{ma_html} %{ma_period_html}</span> на %{timeframe_html} <span>свещи</span>"
+                    other: "<span>%{timing_condition_html}</span> когато цената на %{base} е %{value_condition_html} <span>%{ma_html} %{ma_period_html}</span> на %{ticker_html} %{timeframe_html} <span>свещи</span>"
+                info: "%{ma_type} %{ma_period} на последната %{timeframe} %{ticker} свещ е %{value} %{quote}"
+                timing_condition:
+                    while: "Купувай само"
+                    after: "Започни да купуваш"
+                value_condition:
+                    above: "над"
+                    below: "под"
+                timeframe:
+                    one_hour: "часови"
+                    four_hours: "4-часови"
+                    one_day: "дневни"
+                    three_days: "3-дневни"
+                    one_week: "седмични"
+                    one_month: "месечни"

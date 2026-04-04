@@ -1,0 +1,106 @@
+bg:
+    activerecord:
+        attributes:
+            user:
+                name: "Име"
+                email: "Имейл"
+                password: "Парола"
+        errors:
+            models:
+                bot:
+                    attributes:
+                        smart_interval_quote_amount:
+                            not_a_number: "Трябва да зададете сума за умните интервали"
+                            greater_than_or_equal_to: "Сумата на умните интервали не може да бъде по-малка от %{count} за този график"
+                        price_limit:
+                            not_a_number: "Трябва да зададете цена"
+                            greater_than_or_equal_to: "Цената трябва да е по-голяма или равна на 0"
+                        price_drop_limit:
+                            not_a_number: "Трябва да зададете стойност за спада на цената"
+                            greater_than_or_equal_to: "Стойността за спад на цената трябва да е по-голяма или равна на 0"
+                            less_than_or_equal_to: "Стойността за спад на цената трябва да е по-малка или равна на 100"
+                        indicator_limit:
+                            not_a_number: "Трябва да зададете стойност за %{indicator}"
+                        moving_average_limit_in_period:
+                            not_a_number: "Трябва да зададете период на пълзящата средна"
+                            greater_than: "Периодът на пълзящата средна трябва да е по-голям от 0"
+                        quote_amount:
+                            not_a_number: "Трябва да зададете сума за инвестиране"
+                            greater_than: "Сумата за инвестиране трябва да е по-голяма от 0"
+                        quote_amount_limit:
+                            not_a_number: "Трябва да попълните сумата, която не може да бъде надвишена"
+                            greater_than_or_equal_to: "Лимитът на сумата трябва да е по-голям или равен на %{count}"
+    errors:
+        bitcoin_address_not_updated: 'Bitcoin адресът не можа да бъде обновен'
+        format: '%{attribute} %{message}'
+        frequency_limit: 'Превишен лимит на честотата'
+        invalid_api_keys: 'Невалидни ключове'
+        invalid_risk_free_rate_key: 'Невалиден ключ за безрискова лихва.'
+        api_key_permission_validation_failed: 'Не можахме да проверим разрешенията на API ключа'
+        api_key_already_exists: 'API ключ за %{exchange_name} вече съществува'
+        withdrawal_rule_already_exists: 'Правило за теглене на %{asset_symbol} в %{exchange_name} вече съществува'
+        incorrect_api_key_permissions: 'Неправилни разрешения на API ключа'
+        unable_to_get_risk_free_rate: 'Не можахме да получим безрисковата лихва за %{risk_free_rate_name}. Сървърът Data API е недостъпен.'
+        invalid_number_of_allocations: 'Невалиден брой алокации'
+        invalid_allocation_value: 'Невалидна стойност на алокация'
+        bots:
+            exchange_asset_mismatch: "Не всички активи са налични в %{exchange_name}"
+            exchange_change_while_open_orders: "Преди смяна на борсата отменете всички отворени поръчки на този бот в %{exchange_name}"
+            destroy_success: "Ботът %{bot_label} е изтрит успешно"
+            api_key_success: "API ключовете са запазени успешно"
+            coingecko_required: "За индексни ботове е необходим CoinGecko API ключ"
+            market_data_required: "За индексни ботове трябва да е настроен доставчик на пазарни данни. Отидете в Настройки и го свържете."
+            index_change_after_transactions: "Типът на индекса не може да бъде променен след подаване на поръчки"
+            signal_required: "Необходим е поне един сигнал"
+            signal_minimum: "Последният сигнал не може да бъде премахнат"
+        messages:
+            accepted: 'трябва да бъде прието'
+            already_confirmed: 'вече е потвърдено, опитайте да влезете.'
+            bad_2fa_code: 'Невалиден код. Опитайте отново.'
+            bad_credentials: 'Грешен имейл или парола.'
+            bad_credentials_with_code: 'Грешен имейл, парола или 2FA код.'
+            blank: 'не може да е празно'
+            confirmation: 'не съвпада с полето %{attribute}'
+            confirmation_period_expired: 'трябва да бъде потвърдено в рамките на %{period}, моля, поискайте ново потвърждение.'
+            empty: 'не може да е празно'
+            empty_two_fa_token: 'Липсва 2FA код. Опитайте отново.'
+            equal_to: 'трябва да е равно на %{count}'
+            even: 'трябва да е четно'
+            exclusion: 'е запазено'
+            expired: 'е изтекло, моля, поискайте ново.'
+            greater_than: 'трябва да е по-голямо от %{count}'
+            greater_than_or_equal_to: 'трябва да е по-голямо или равно на %{count}'
+            in: 'трябва да е в диапазона %{count}'
+            inclusion: 'не е в списъка с позволени стойности'
+            invalid: 'е невалидно'
+            less_than: 'трябва да е по-малко от %{count}'
+            less_than_or_equal_to: 'трябва да е по-малко или равно на %{count}'
+            model_invalid: 'Валидацията не успя: %{errors}'
+            not_a_number: 'не е число'
+            not_an_integer: 'трябва да е цяло число'
+            not_found: 'не е намерено.'
+            not_locked: 'не е заключено.'
+            not_saved:
+                one: '1 грешка попречи на запазването на %{resource}:'
+                other: '%{count} грешки попречиха на запазването на %{resource}:'
+            odd: 'трябва да е нечетно'
+            other_than: 'трябва да е различно от %{count}'
+            password_not_match: 'Паролите не съвпадат'
+            present: 'трябва да е празно'
+            too_long:
+                one: 'е прекалено дълго (максимум 1 символ)'
+                other: 'е прекалено дълго (максимум %{count} символа)'
+            too_short:
+                one: 'е прекалено кратко (минимум 1 символ)'
+                other: 'е прекалено кратко (минимум %{count} символа)'
+            too_simple_password: 'Паролата трябва да съдържа символи от всяка от следните категории: главни букви (A-Z), малки букви (a-z), цифри (0-9), специални символи (напр. #,?,!).'
+            wrong_email: 'Грешен имейл.'
+            wrong_length:
+                one: 'е с грешна дължина (трябва да е 1 символ)'
+                other: 'е с грешна дължина (трябва да е %{count} символа)'
+            wrong_password: 'Грешна парола'
+            wrong_two_fa_token: 'Въведеният код е грешен.'
+        unverified_request: 'Моля, опреснете страницата в браузъра и опитайте отново'
+    alert:
+        bot:
+            bot_updated: 'Ботът е обновен успешно.'
