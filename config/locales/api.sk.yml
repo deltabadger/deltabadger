@@ -1,0 +1,231 @@
+sk:
+    bot:
+        api:
+            whitelist_ip_fallback_html: 'IP adresu počítača, na ktorom je Deltabadger nainštalovaný. Ak beží na serveri, použite verejnú IP servera. Ak ide o váš lokálny počítač, <a href="https://whatismyipaddress.com" target="_blank">zistite svoju IP tu</a>'
+            binance: &binance_config
+                instructions:
+                    -   text_html: 'Prihláste sa do svojho účtu na %{exchange_link}.'
+                    -   text_html: 'Prejdite na <a href="https://www.binance.com/en/my/settings/api-management"><b>Account</b> → <b>API Management</b></a>.'
+                    -   text_html: 'Kliknite na <b class="pbutton">Create API</b>.'
+                    -   text_html: 'Vyberte <b class="pbutton">System generated</b>.'
+                    -   text_html: 'Pomenujte kľúče (napr. „deltabadger") a v prípade potreby prejdite bezpečnostným overením.'
+                    -   text_html: 'Kliknite na <b class="pbutton">Edit restrictions</b> v pravom hornom rohu dlaždice s kľúčmi.'
+                        sub_instructions:
+                            -   text_html: "🔘 Restrict access to trusted IPs only: pridajte %{whitelist_ip}.<br><strong>⚠️ Dôležité:</strong> Urobte najprv tento krok, aby sa sprístupnil nasledujúci."
+                            -   text_html: "Zaškrtnite:<br>☑️ <b>Enable Reading</b><br>☑️ <b>Enable Spot & Margin Trading</b>.<br><strong>⚠️ Dôležité:</strong> Kľúče nebudú fungovať, ak povolíte ďalšie oprávnenia."
+                    -   text_html: 'Kliknite na <b>Save</b> a v prípade potreby prejdite bezpečnostným overením.'
+                    -   text_html: 'Skopírujte a vložte svoje nové API kľúče vyššie.'
+                private_key: 'Secret Key'
+                public_key: 'API Key'
+            binance_us: *binance_config
+            coinbase:
+                instructions:
+                    -   text_html: 'Prihláste sa do svojho účtu na %{exchange_link}.'
+                    -   text_html: 'V ľavom paneli vyberte záložku <b>More</b>.'
+                    -   text_html: 'Vyberte <b>Advanced API</b>.'
+                    -   text_html: 'Kliknite na <b>Create your API key</b>. Ak ju nemôžete nájsť, prejdite priamo <a href="https://www.coinbase.com/settings/api">sem</a>.'
+                    -   text_html: 'Na záložke <b>API keys</b> kliknite na <b>Create API key</b>.'
+                    -   text_html: 'V dialógovom okne nastavte:'
+                        sub_instructions:
+                            -   text_html: 'API key nickname'
+                                sub_instructions:
+                                    -   text_html: 'Zvoľte ľubovoľný názov, <b>Deltabadger</b> sa hodí na neskoršie rozpoznanie.'
+                            -   text_html: 'Portfolio'
+                                sub_instructions:
+                                    -   text_html: '<b>Default</b>, alebo portfólio, ku ktorému chcete Deltabadger prístup, ak nepoužívate Coinbase Portfolios.'
+                                    -   text_html: '<b>View</b> (len na čítanie)'
+                                    -   text_html: '<b>Trade</b> (vykonávanie obchodov za vás)<br><strong>⚠️ Dôležité:</strong> Kľúče nebudú fungovať, ak povolíte ďalšie oprávnenia.'
+                            -   text_html: 'IP whitelist'
+                                sub_instructions:
+                                    -   text_html: '🔘 Pridajte %{whitelist_ip}.'
+                    -   text_html: 'Kliknite na <b>Create & download</b> a dokončite dvojfázové overenie.'
+                    -   text_html: 'Skopírujte a vložte svoje nové API kľúče do formulára vyššie.'
+                private_key: 'Secret'
+                public_key: 'API key ID'
+            kraken:
+                instructions:
+                    -   text_html: 'Prihláste sa do svojho účtu na %{exchange_link}.'
+                    -   text_html: 'V používateľskom menu prejdite na <b>Settings</b> → <b>Connections & API</b>.'
+                    -   text_html: 'Kliknite na <b>Create API key</b>.'
+                    -   text_html: 'Nastavte oprávnenia pre:'
+                        sub_instructions:
+                            -   text_html: 'Funds permissions:'
+                                sub_instructions:
+                                    -   text_html: '<b>Query</b>'
+                            -   text_html: 'Order and Trades:'
+                                sub_instructions:
+                                    -   text_html: '<b>Query open orders & trades</b>'
+                                    -   text_html: '<b>Query closed orders & trades</b>'
+                                    -   text_html: '<b>Create & modify orders</b>'
+                                    -   text_html: '<b>Cancel & close orders</b><br><strong>⚠️ Dôležité:</strong> Kľúče nebudú fungovať, ak povolíte ďalšie oprávnenia.'
+                            -   text_html: 'IP address restriction:'
+                                sub_instructions:
+                                    -   text_html: '🔘 Pridajte %{whitelist_ip}.'
+                    -   text_html: 'Kliknite na <b>Generate key</b>.'
+                    -   text_html: 'Skopírujte a vložte svoje nové API kľúče do formulára vyššie.'
+                private_key: 'Private Key'
+                public_key: 'API Key'
+            bitget:
+                instructions:
+                    -   text_html: 'Prihláste sa do svojho účtu na %{exchange_link}.'
+                    -   text_html: 'Prejdite na <a href="https://www.bitget.com/account/newapi"><b>Account</b> → <b>API Management</b></a>.'
+                    -   text_html: 'Kliknite na <b>Create API Key</b>.'
+                    -   text_html: 'Vyberte <b>System generated</b>.'
+                    -   text_html: 'Pomenujte kľúč (napr. „Deltabadger") a nastavte <b>Passphrase</b>.'
+                    -   text_html: 'Nastavte oprávnenia:'
+                        sub_instructions:
+                            -   text_html: '☑️ <b>Read</b>'
+                            -   text_html: '☑️ <b>Spot Trading</b><br><strong>⚠️ Dôležité:</strong> Nepovoľujte oprávnenia Withdraw ani Futures.'
+                            -   text_html: 'IP whitelist:'
+                                sub_instructions:
+                                    -   text_html: '🔘 Pridajte %{whitelist_ip}.'
+                    -   text_html: 'Kliknite na <b>Next</b> a dokončite overenie.'
+                    -   text_html: 'Skopírujte a vložte API Key, Secret Key a Passphrase do formulára vyššie.'
+                private_key: 'Secret Key'
+                public_key: 'API Key'
+            kucoin:
+                instructions:
+                    -   text_html: 'Prihláste sa do svojho účtu na %{exchange_link}.'
+                    -   text_html: 'Prejdite na <a href="https://www.kucoin.com/account/api"><b>Account</b> → <b>API Management</b></a>.'
+                    -   text_html: 'Kliknite na <b>Create API</b>.'
+                    -   text_html: 'Pomenujte kľúč (napr. „Deltabadger") a nastavte <b>Passphrase</b>.'
+                    -   text_html: 'Nastavte oprávnenia:'
+                        sub_instructions:
+                            -   text_html: '☑️ <b>General</b> (na čítanie údajov účtu)'
+                            -   text_html: '☑️ <b>Spot Trading</b><br><strong>⚠️ Dôležité:</strong> Nepovoľujte oprávnenia Withdraw ani Futures.'
+                            -   text_html: 'IP whitelist:'
+                                sub_instructions:
+                                    -   text_html: '🔘 Pridajte %{whitelist_ip}.'
+                    -   text_html: 'Kliknite na <b>Confirm</b> a dokončite overenie.'
+                    -   text_html: 'Skopírujte a vložte API Key, Secret Key a Passphrase do formulára vyššie.'
+                private_key: 'API Secret'
+                public_key: 'API Key'
+            bybit:
+                instructions:
+                    -   text_html: 'Prihláste sa do svojho účtu na %{exchange_link}.'
+                    -   text_html: 'Prejdite na <a href="https://www.bybit.com/app/user/api-management"><b>Account</b> → <b>API Management</b></a>.'
+                    -   text_html: 'Kliknite na <b>Create New Key</b>.'
+                    -   text_html: 'Vyberte <b>System-generated API Keys</b>.'
+                    -   text_html: 'Pomenujte kľúč (napr. „Deltabadger").'
+                    -   text_html: 'Nastavte oprávnenia:'
+                        sub_instructions:
+                            -   text_html: '☑️ <b>Read-Only</b>'
+                            -   text_html: '☑️ <b>Spot Trading</b><br><strong>⚠️ Dôležité:</strong> Nepovoľujte oprávnenia Withdraw ani Derivatives.'
+                            -   text_html: 'IP whitelist:'
+                                sub_instructions:
+                                    -   text_html: '🔘 Pridajte %{whitelist_ip}.'
+                    -   text_html: 'Kliknite na <b>Submit</b> a dokončite overenie.'
+                    -   text_html: 'Skopírujte a vložte svoje nové API kľúče do formulára vyššie.'
+                private_key: 'API Secret'
+                public_key: 'API Key'
+            mexc:
+                instructions:
+                    -   text_html: 'Prihláste sa do svojho účtu na %{exchange_link}.'
+                    -   text_html: 'Prejdite na <a href="https://www.mexc.com/user/openapi"><b>Account</b> → <b>API Management</b></a>.'
+                    -   text_html: 'Kliknite na <b>Create API Key</b>.'
+                    -   text_html: 'Pomenujte kľúč (napr. „Deltabadger").'
+                    -   text_html: 'Nastavte oprávnenia:'
+                        sub_instructions:
+                            -   text_html: '☑️ <b>View Order Details</b>'
+                            -   text_html: '☑️ <b>Trade</b><br><strong>⚠️ Dôležité:</strong> Nepovoľujte oprávnenia Withdraw.'
+                            -   text_html: 'Link IP Address:'
+                                sub_instructions:
+                                    -   text_html: '🔘 Pridajte %{whitelist_ip}.'
+                    -   text_html: 'Kliknite na <b>Confirm</b> a dokončite overenie.'
+                    -   text_html: 'Skopírujte a vložte svoje nové API kľúče do formulára vyššie.'
+                private_key: 'Secret Key'
+                public_key: 'Access Key'
+            gemini:
+                instructions:
+                    -   text_html: 'Prihláste sa do svojho účtu na %{exchange_link}.'
+                    -   text_html: 'Prejdite na <a href="https://exchange.gemini.com/settings/api"><b>Settings</b> → <b>API</b></a>.'
+                    -   text_html: 'Kliknite na <b>Create a New API Key</b>.'
+                    -   text_html: 'Nastavte rozsah kľúča na <b>Primary</b>.'
+                    -   text_html: 'Nastavte oprávnenia:'
+                        sub_instructions:
+                            -   text_html: '☑️ <b>Order Placement</b>'
+                            -   text_html: '☑️ <b>Order Status</b>'
+                            -   text_html: '☑️ <b>Account Balance</b><br><strong>⚠️ Dôležité:</strong> Nepovoľujte oprávnenia Fund Management ani Withdrawal.'
+                    -   text_html: 'Kliknite na <b>Create API Key</b> a dokončite overenie.'
+                    -   text_html: 'Skopírujte a vložte svoje nové API kľúče do formulára vyššie.'
+                private_key: 'API Secret'
+                public_key: 'API Key'
+            bitvavo:
+                instructions:
+                    -   text_html: 'Prihláste sa do svojho účtu na %{exchange_link}.'
+                    -   text_html: 'Prejdite na <a href="https://account.bitvavo.com/user/api"><b>Settings</b> → <b>API</b></a>.'
+                    -   text_html: 'Kliknite na <b>Generate new key</b>.'
+                    -   text_html: 'Nastavte oprávnenia:'
+                        sub_instructions:
+                            -   text_html: '☑️ <b>View</b>'
+                            -   text_html: '☑️ <b>Trade</b><br><strong>⚠️ Dôležité:</strong> Nepovoľujte oprávnenia Withdraw.'
+                            -   text_html: 'IP whitelist:'
+                                sub_instructions:
+                                    -   text_html: '🔘 Pridajte %{whitelist_ip}.'
+                    -   text_html: 'Kliknite na <b>Generate</b>.'
+                    -   text_html: 'Skopírujte a vložte svoje nové API kľúče do formulára vyššie.'
+                private_key: 'API Secret'
+                public_key: 'API Key'
+            hyperliquid:
+                instructions:
+                    -   text_html: 'Prihláste sa do svojho účtu na %{exchange_link}.'
+                    -   text_html: 'V ľavom paneli prejdite na <a href="https://app.hyperliquid.xyz/API"><b>API</b></a>.'
+                    -   text_html: 'Kliknite na <b>Generate API agent</b>.'
+                    -   text_html: 'Skopírujte zobrazený <b>Agent Private Key</b>. <strong>⚠️ Dôležité:</strong> Zobrazí sa iba raz.'
+                    -   text_html: 'Vaša <b>Wallet Address</b> je viditeľná v pravom hornom rohu stránky (začína na 0x...).'
+                    -   text_html: 'Vložte svoju Wallet Address a Agent Private Key do formulára vyššie.'
+                    -   text_html: '<strong>⚠️ Bezpečnosť:</strong> Používajte iba <b>Agent keys</b> (len na obchodovanie). <b>Nikdy</b> nezadávajte svoj hlavný privátny kľúč peňaženky.'
+                    -   text_html: '<strong>ℹ️ Poznámka:</strong> Hyperliquid je decentralizovaná burza. Všetky príkazy sú verejne viditeľné na blockchaine.'
+                private_key: 'Agent Private Key'
+                public_key: 'Wallet Address'
+            bingx:
+                instructions:
+                    -   text_html: 'Prihláste sa do svojho účtu na %{exchange_link}.'
+                    -   text_html: 'Prejdite na <a href="https://bingx.com/account/api"><b>Account</b> → <b>API Management</b></a>.'
+                    -   text_html: 'Kliknite na <b>Create API</b>.'
+                    -   text_html: 'Pomenujte kľúč (napr. „Deltabadger").'
+                    -   text_html: 'Nastavte oprávnenia:'
+                        sub_instructions:
+                            -   text_html: '☑️ <b>Read</b>'
+                            -   text_html: '☑️ <b>Spot Trading</b><br><strong>⚠️ Dôležité:</strong> Nepovoľujte oprávnenia Withdraw ani Futures.'
+                            -   text_html: 'IP whitelist:'
+                                sub_instructions:
+                                    -   text_html: '🔘 Pridajte %{whitelist_ip}.'
+                    -   text_html: 'Kliknite na <b>Confirm</b> a dokončite overenie.'
+                    -   text_html: 'Skopírujte a vložte svoje nové API kľúče do formulára vyššie.'
+                private_key: 'Secret Key'
+                public_key: 'API Key'
+            bitrue:
+                instructions:
+                    -   text_html: 'Prihláste sa do svojho účtu na %{exchange_link}.'
+                    -   text_html: 'Prejdite na <a href="https://www.bitrue.com/account/api"><b>Account</b> → <b>API Management</b></a>.'
+                    -   text_html: 'Kliknite na <b>Create API Key</b>.'
+                    -   text_html: 'Pomenujte kľúč (napr. „Deltabadger").'
+                    -   text_html: 'Nastavte oprávnenia:'
+                        sub_instructions:
+                            -   text_html: '☑️ <b>Read Info</b>'
+                            -   text_html: '☑️ <b>Trade</b><br><strong>⚠️ Dôležité:</strong> Nepovoľujte oprávnenia Withdraw.'
+                            -   text_html: 'IP whitelist:'
+                                sub_instructions:
+                                    -   text_html: '🔘 Pridajte %{whitelist_ip}.'
+                    -   text_html: 'Kliknite na <b>Confirm</b> a dokončite overenie.'
+                    -   text_html: 'Skopírujte a vložte svoje nové API kľúče do formulára vyššie.'
+                private_key: 'Secret Key'
+                public_key: 'API Key'
+            bitmart:
+                instructions:
+                    -   text_html: 'Prihláste sa do svojho účtu na %{exchange_link}.'
+                    -   text_html: 'Prejdite na <a href="https://www.bitmart.com/api-management"><b>Account</b> → <b>API Management</b></a>.'
+                    -   text_html: 'Kliknite na <b>Create API Key</b>.'
+                    -   text_html: 'Pomenujte kľúč (napr. „Deltabadger") a nastavte <b>Memo</b> (heslo).'
+                    -   text_html: 'Nastavte oprávnenia:'
+                        sub_instructions:
+                            -   text_html: '☑️ <b>Read</b>'
+                            -   text_html: '☑️ <b>Spot Trading</b><br><strong>⚠️ Dôležité:</strong> Nepovoľujte oprávnenia Withdraw ani Futures.'
+                            -   text_html: 'IP whitelist:'
+                                sub_instructions:
+                                    -   text_html: '🔘 Pridajte %{whitelist_ip}.'
+                    -   text_html: 'Kliknite na <b>Confirm</b> a dokončite overenie.'
+                    -   text_html: 'Skopírujte a vložte API Key, Secret Key a Memo do formulára vyššie.'
+                private_key: 'Secret Key'
+                public_key: 'API Key'
