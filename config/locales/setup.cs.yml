@@ -1,0 +1,119 @@
+cs:
+    bot:
+        setup:
+            api_not_available: "API burzy není dostupné"
+            progress_steps:
+                currencies: "Vyberte aktivum"
+                currencies2: "Druhé aktivum"
+                exchange: "Burza"
+                spendable: "Měna"
+                api: "Připojit burzu"
+                schedule: "Nastavit rozvrh"
+                coingecko: "Připojit CoinGecko"
+                index: "Vybrat index"
+                pick_asset: "Vybrat aktivum"
+                pick_exchange: "Vybrat burzu"
+                stock: "Vybrat akcii"
+                address: "Adresa"
+                settings: "Nastavení"
+                confirm: "Potvrdit"
+            sentence:
+                invest_in: "Investovat do"
+                and: "a"
+                at: "na"
+                spending: "s využitím"
+            binance:
+                instructions_1_html: 'Přihlaste se ke svému účtu na %{exchange_link}.'
+                instructions_2_html: 'V uživatelském menu (kulatá ikona vpravo nahoře) přejděte na <b>API Management</b>.'
+                instructions_3_html: 'Pojmenujte nový API klíč a klikněte na <b>Create</b>.'
+                instructions_4_html: 'Potvrďte vytvoření jednorázovým kódem.'
+                instructions_5_html: 'Ujistěte se, že je zaškrtnuto <b>Enable Spot & Margin Trading</b>.'
+                instructions_6_html: 'Pokud chcete omezit přístup ke klíči pouze pro Deltabadger, klikněte na <b>Edit restrictions</b>, zaškrtněte <b>Restrict access to trusted IPs only (Recommended)</b> a přidejte tuto IP v dalším kroku: <b>%{whitelist_ip}</b>'
+                instructions_7_html: 'Klikněte na <b>Save</b> a v případě potřeby potvrďte dalším jednorázovým kódem.'
+                instructions_8_html: 'Pamatujte, že Secret Key je viditelný pouze při vytvoření, proto si oba klíče zkopírujte, než opustíte stránku.'
+                instructions_9_html: 'Zkopírujte a vložte své nové API klíče do formuláře výše.'
+                private_key: 'Secret Key'
+                public_key: 'API Key'
+            coinbase:
+                instructions_1_html: 'Přihlaste se ke svému účtu na %{exchange_link}.'
+                instructions_2_html: 'V levém panelu vyberte záložku <b>More</b>.'
+                instructions_3_html: 'Vyberte <b>Advanced API</b> a klikněte na <b>Create your API key</b>. Pokud ji nemůžete najít, přejděte přímo <a href="https://portal.cdp.coinbase.com/">sem</a>.'
+                instructions_4_html: 'Vyberte záložku <b>API Keys</b>.'
+                instructions_5_html: 'Klikněte na tlačítko <b>Create API key</b>.'
+                instructions_6_1_html: 'V dialogovém okně rozbalte <b>API restrictions</b> a nastavte:'
+                instructions_6_2_html: '<b>API key nickname</b>: Zvolte libovolný název, <b>Deltabadger</b> se hodí pro snadné rozpoznání.'
+                instructions_6_3_html: '<b>IP whitelist</b>: <b>%{whitelist_ip}</b>.'
+                instructions_6_4_html: '<b>Portfolio</b>: Vyberte portfolio, ke kterému chcete Deltabadger přístup, <b>Default</b> pokud nepoužíváte Coinbase Portfolios.'
+                instructions_6_5_html: '<b>Permissions</b>:<br>&middot; <b>View</b> (pouze čtení)<br>&middot; <b>Trade</b> (provádění obchodů za vás)'
+                instructions_7_html: 'Klikněte na <b>Create & download</b> a dokončete dvoufázové ověření.'
+                instructions_8_html: 'Zkopírujte a vložte své nové API klíče do formuláře výše.'
+                private_key: 'Secret'
+                public_key: 'API key'
+            alpaca:
+                instructions_1_html: 'Zaregistrujte se nebo se přihlaste ke svému účtu na %{exchange_link}.'
+                instructions_2_html: 'Přejděte na <b>Paper Trading</b> nebo <b>Live Trading</b> dashboard.'
+                instructions_3_html: 'V levém panelu přejděte na <b>API Keys</b>.'
+                instructions_4_html: 'Klikněte na <b>Generate New Key</b>.'
+                instructions_5_html: 'Zkopírujte a vložte svůj nový API Key ID a Secret Key do formuláře výše.'
+                private_key: 'Secret Key'
+                public_key: 'API Key ID'
+            error_info: 'Ověření selhalo. Zkuste to znovu nebo vygenerujte nové klíče.'
+            frequency_limit:
+                back_to_settings: 'Zpět na nastavení'
+                limit_exceeded: 'Pro dodržení limitu bota %{frequency_limit} transakcí za hodinu bude váš rozvrh prováděn v příkazech po %{price}%{currency}.'
+                start_the_bot: 'Upravit a spustit'
+            how_to_add_withdrawal_bot: 'Jak nastavit bota pro výběr:'
+            how_to_get_keys: 'Jak získat API klíče z %{exchange}:'
+            kraken:
+                instructions_1_html: 'Přihlaste se ke svému účtu na %{exchange_link}.'
+                instructions_2_html: 'V uživatelském menu přejděte na <b>Security</b> → <b>API</b>.'
+                instructions_3_html: 'Klikněte na <b>Generate New Key</b>.'
+                instructions_4_html: 'Nastavte oprávnění pro:'
+                instructions_5_1_html: 'Funds:'
+                instructions_5_2_html: '<b>Query Funds</b>'
+                instructions_6_1_html: 'Order & Trades:'
+                instructions_6_2_html: '<b>Query Open Orders & Trades</b>'
+                instructions_6_3_html: '<b>Query Closed Orders & Trades</b>'
+                instructions_6_4_html: '<b>Create and modify orders</b>'
+                instructions_6_5_html: '<b>Cancel/Close Orders</b>'
+                instructions_7_html: 'Klikněte na <b>Generate Key</b>.'
+                instructions_8_html: 'Zkopírujte a vložte své nové API klíče do formuláře výše.'
+                private_key: 'Private Key'
+                public_key: 'API Key'
+                trading_agreement_html: '<b>Pozor!</b> Pokud je váš Kraken účet ověřen s německou adresou, budete muset přijmout <a href="https://support.kraken.com/hc/en-us/articles/360036157952" target="_blank" rel="nofollow" title="Trading agreement">obchodní dohodu</a> pro zadávání tržních a maržových příkazů.'
+                trading_agreement_label_html: 'Přijímám <a href="https://support.kraken.com/hc/en-us/articles/360036157952" target="_blank" rel="nofollow" title="Trading agreement">obchodní dohodu</a>.'
+            limit_warning: 'Nastavení příkazů na výši poplatku efektivně snižuje poplatky na nulu. Limitní příkazy sice mohou trvat déle, ale obecně jsou dobrý nápad. Výchozí nastavení to dělá za vás, takže pokud si nejste jistí, je nejlepší ho ponechat.'
+            next: Další
+            no_wallet_found: 'Peněženka nenalezena. Přejděte na %{exchangeName} a přidejte peněženku pro výběr.'
+            set: Nastavit
+            smart_intervals:
+                dont_show_again: 'Nezobrazovat znovu'
+                info_html:
+                    force_smart_intervals: 'Pro %{base}%{quote} má %{exchangeName} minimální velikost příkazu <b>%{minimumValue}%{minimumCurrency}</b>%{approximatedQuote}. Deltabadger provede tento rozvrh pomocí příkazů po %{minimumValue}%{minimumCurrency} a přizpůsobí časový interval vašemu rozvrhu. Říkáme tomu <i>chytré intervaly</i>.'
+                    other: 'Pro %{base}%{quote} má %{exchangeName} minimální velikost příkazu <b>%{minimumValue}%{minimumCurrency}</b>%{approximatedQuote}. Deltabadger může provést tento rozvrh pomocí příkazů po %{minimumValue}%{minimumCurrency} a přizpůsobit časový interval vašemu rozvrhu. Říkáme tomu <i>chytré intervaly</i>.'
+            step_api_key: 'API klíč'
+            step_assets: Aktiva
+            step_exchange: Burza
+            step_schedule: Rozvrh
+            step_settings: Nastavení
+            step_type: Typ
+            validating: Ověřování…
+            withdrawal:
+                kraken:
+                    instructions_1_html: 'Přihlaste se ke svému účtu na %{exchange_link}.'
+                    instructions_2_html: 'V uživatelském menu přejděte na <b>Security</b> → <b>API</b>.'
+                    instructions_3_html: 'Klikněte na <b>Generate New Key</b>.'
+                    instructions_4_html: 'Nastavte oprávnění pro:'
+                    instructions_5_1_html: 'Funds:'
+                    instructions_5_2_html: '<b>Query Funds</b>'
+                    instructions_5_3_html: '<b>Withdraw Funds</b>'
+                    instructions_6_html: 'Klikněte na <b>Generate Key</b>.'
+                    instructions_7_html: 'Zkopírujte a vložte své nové API klíče do formuláře výše.'
+            withdrawal_address:
+                kraken:
+                    instructions_1_html: 'Přihlaste se ke svému účtu na %{exchange_link}.'
+                    instructions_2_html: 'Přejděte na <b>Funding</b> → <b>Withdraw</b>.'
+                    instructions_3_html: 'Vyberte aktivum, které vás zajímá.'
+                    instructions_4_html: 'Přidejte novou adresu pro výběr nebo spravujte stávající.'
+                    instructions_5_html: 'Zkopírujte název, který jste přiřadili adrese pro výběr, do formuláře výše.'
+            withdrawal_html: 'Vybrat <split>%{currency}</split> na peněženku <split>%{address}</split>.'

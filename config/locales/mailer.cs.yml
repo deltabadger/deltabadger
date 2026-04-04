@@ -1,0 +1,23 @@
+cs:
+    mailer:
+        greeting: 'Ahoj legendární investore,'
+        greeting_name: 'Ahoj %{name},'
+        best_html: '<p>S pozdravem,<br>Jan</p>'
+        unsubscribe: 'Odhlásit se'
+    test_mailer:
+        test_email:
+            subject: "Deltabadger – testovací e-mail"
+            body: "Toto je testovací e-mail z vaší instance Deltabadger. Pokud jste ho obdrželi, e-mailová upozornění fungují správně."
+    bot_alerts_mailer:
+        end_of_funds:
+            subject: "Na účtu %{exchange_name} vám dochází %{quote}"
+            template_html: "<p>Na vašem účtu %{exchange_name} dochází %{quote}.</p><p>Převeďte prostředky na %{exchange_name}, aby vaši boti mohli nepřetržitě fungovat.</p>"
+        notify_about_error:
+            subject: "Něco se pokazilo u %{label}"
+            template_html: "<p>Při zpracování poslední transakce bota <b>%{label}</b> se něco pokazilo.</p><p>Chybu najdete v logu bota. Přihlaste se a zkontrolujte ji.</p><p>Chyby:</p><blockquote> <b>%{exchange_name}:</b> <b>%{errors}</b></blockquote>"
+        notify_about_restart:
+            subject: "Jejda! Zkusíme to znovu…"
+            template_html: "<p>Bot <b>%{label}</b> nemohl provést váš příkaz. Vypadá to na problém burzy. Zkusíme to znovu za %{delay}.</p><p>Všechny chyby najdete v logu bota. Přihlaste se a podívejte se.</p><p>Chyby:</p><blockquote> <b>%{exchange_name}:</b> <b>%{errors}</b> </blockquote>"
+        stopped_by_amount_limit:
+            subject: "%{label} investoval celou částku"
+            template_html: "<p>Váš bot <b>%{label}</b> dosáhl cíle a investoval celých %{amount} %{quote}.</p><p>Byl automaticky zastaven. Pro obnovení cíle vypněte limit částky.</p>"

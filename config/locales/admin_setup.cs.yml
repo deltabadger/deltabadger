@@ -1,0 +1,27 @@
+cs:
+  setup:
+    title: "Vítejte v Deltabadger"
+    admin_account: "Administrátorský účet"
+    validations:
+      name_required: "Jméno je povinné"
+      email_required: "E-mail je povinný"
+      password_required: "Heslo je povinné"
+    api_configuration: "Bot využívá tržní data od CoinGecko. Přístup k CoinGecko API je zdarma, ale je potřeba se zaregistrovat a vytvořit API klíč. Návod najdete níže."
+    coingecko_api_key: "CoinGecko API klíč"
+    coingecko_api_key_hint_html: |
+      <ol>
+        <li>Zaregistrujte se na <a href="https://www.coingecko.com/en/api" target="_blank" rel="noopener">CoinGecko</a></li>
+        <li>Přejděte do sekce <a href="https://www.coingecko.com/en/api" target="_blank" rel="noopener">API</a></li>
+        <li>Klikněte na <b>Get Your API Key Now</b></li>
+        <li><b>Create Free Account</b> se nachází pod ceníkem</li>
+        <li>Vyplňte formulář</li>
+        <li>Klikněte na <b>Create API key</b></li>
+        <li><b>Zkopírujte API klíč</b> a vložte ho výše</li>
+      </ol>
+    continue: "Pokračovat"
+    submit: "Spustit"
+    success: "Nastavení bylo úspěšně dokončeno. Vítejte v Deltabadger!"
+    syncing_message: "Synchronizace aktiv…"
+    syncing_hint: "Může to trvat několik minut"
+    invalid_coingecko_api_key: "Neplatný CoinGecko API klíč. Zkontrolujte prosím svůj klíč a zkuste to znovu."
+    retry: "Zkusit znovu"

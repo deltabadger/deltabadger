@@ -1,0 +1,111 @@
+cs:
+    devise:
+        confirmations:
+            confirmed: 'Vaše e-mailová adresa byla úspěšně potvrzena.'
+            new:
+                submit: 'Odeslat znovu'
+                title: 'Znovu odeslat pokyny'
+            send_instructions: 'Za několik minut obdržíte e-mail s pokyny k potvrzení e-mailové adresy.'
+            send_paranoid_instructions: 'Pokud je vaše e-mailová adresa v naší databázi, za několik minut obdržíte e-mail s pokyny k potvrzení.'
+        passwords:
+            edit:
+                submit: 'Změnit heslo'
+                title: 'Změna hesla'
+            new:
+                submit: 'Odeslat pokyny'
+                title: 'Zapomněli jste heslo?'
+            no_token: 'Na tuto stránku nemůžete přistoupit bez odkazu z e-mailu pro obnovení hesla. Pokud jste přišli z e-mailu, ujistěte se, že jste použili celou URL.'
+            send_instructions: 'Za několik minut obdržíte e-mail s pokyny k obnovení hesla.'
+            send_paranoid_instructions: 'Pokud je vaše e-mailová adresa v naší databázi, za několik minut obdržíte odkaz pro obnovení hesla.'
+            updated: 'Vaše heslo bylo úspěšně změněno. Nyní jste přihlášeni.'
+            updated_not_active: 'Vaše heslo bylo úspěšně změněno.'
+            token_expired: 'Platnost odkazu pro obnovení hesla vypršela. Vyžádejte si prosím nový.'
+            validations:
+                length: 'Alespoň %{count} znaků'
+                uppercase: 'Obsahuje velké písmeno'
+                lowercase: 'Obsahuje malé písmeno'
+                digit: 'Obsahuje číslici'
+                symbol: 'Obsahuje speciální znak'
+                match: 'Hesla se shodují'
+        registrations:
+            edit:
+                awaiting_confirmation: 'Čeká se na potvrzení adresy: %{email}'
+            new:
+                email_invalid: 'Neplatný e-mail!'
+                email_suggestion_html: 'Neplatný e-mail! Nemysleli jste: <b>%{suggestion}</b>'
+                name_invalid: 'Nemusí být skutečné 👻'
+                submit: 'Registrovat'
+                title: 'Nový účet'
+            signed_up: 'Vítejte! Registrace proběhla úspěšně.'
+            signed_up_but_inactive: 'Registrace proběhla úspěšně, ale nemohli jsme vás přihlásit, protože váš účet ještě není aktivován.'
+            signed_up_but_unconfirmed: 'Na vaši e-mailovou adresu jsme odeslali zprávu s potvrzovacím odkazem. Klikněte na odkaz pro aktivaci účtu.'
+            update_needs_confirmation: 'Účet byl úspěšně aktualizován, ale potřebujeme ověřit vaši novou e-mailovou adresu. Zkontrolujte e-mail a klikněte na potvrzovací odkaz.'
+            updated: 'Váš účet byl úspěšně aktualizován.'
+            updated_but_not_signed_in: 'Váš účet byl úspěšně aktualizován, ale protože bylo změněno heslo, je potřeba se znovu přihlásit.'
+            destroyed: 'Sbohem! Váš účet byl úspěšně zrušen. Doufáme, že se brzy uvidíme.'
+        sessions:
+            new:
+                forgot_password: 'Zapomněli jste heslo?'
+                submit: 'Přihlásit se'
+                title: 'Vítejte zpět!'
+            signed_in: 'Přihlášení proběhlo úspěšně.'
+            signed_out: 'Odhlášení proběhlo úspěšně.'
+            already_signed_out: 'Odhlášení proběhlo úspěšně.'
+            two_factor:
+                submit: "Ověřit"
+                invalid_code: "Nesprávný kód. Zkuste to znovu."
+        failure:
+            already_authenticated: 'Již jste přihlášeni.'
+            inactive: 'Váš účet ještě není aktivován.'
+            invalid: 'Neplatný %{authentication_keys} nebo heslo.'
+            not_found_in_database: 'Neplatný %{authentication_keys} nebo heslo.'
+            timeout: 'Platnost vaší relace vypršela. Pro pokračování se prosím přihlaste znovu.'
+            unauthenticated: 'Pro pokračování se musíte přihlásit nebo zaregistrovat.'
+            unconfirmed: 'Před pokračováním musíte potvrdit svou e-mailovou adresu.'
+        mailer:
+            confirmation_instructions:
+                subject: 'Potvrďte svůj e-mail'
+                template_html: |
+                    <p>Vítejte v Deltabadger!</p>
+                    <p>Klikněte na odkaz níže pro potvrzení e-mailové adresy:</p>
+                confirm_button: 'Potvrdit e-mail'
+            email_changed:
+                subject: 'Váš e-mail byl změněn'
+                template_html: |
+                    <p>Informujeme vás, že váš e-mail byl změněn na %{email}.</p>
+            confirm_email:
+                subject: 'Potvrďte novou e-mailovou adresu'
+                template_html: |
+                    <p>Informujeme vás, že váš e-mail se mění na %{unconfirmed_email}.</p>
+            password_change:
+                subject: 'Heslo bylo změněno'
+                template_html: |
+                    <p>Informujeme vás, že vaše heslo bylo změněno.</p>
+            reset_password_instructions:
+                subject: 'Pokyny k obnovení hesla'
+                template_html: |
+                    <p>Někdo požádal o odkaz ke změně vašeho hesla.</p>
+                    <p>Můžete to provést přes následující odkaz:</p>
+                change_password_button: 'Změnit heslo'
+                ignore_mail_html: |
+                    <p>Pokud jste o to nežádali, tento e-mail ignorujte a vaše heslo zůstane beze změny.</p>
+                wont_change_html: |
+                    <p>Vaše heslo se nezmění, dokud nepřejdete na výše uvedený odkaz a nevytvoříte nové.</p>
+            email_already_taken:
+                subject: 'E-mail je již zaregistrován'
+                message: 'Tento e-mail je již zaregistrován.'
+                reset_password_message: 'Pokud je to váš účet, můžete si obnovit heslo zde:'
+                reset_password_button: 'Obnovit heslo'
+        unlocks:
+            send_instructions: 'Za několik minut obdržíte e-mail s pokyny k odemknutí účtu.'
+            send_paranoid_instructions: 'Pokud váš účet existuje, za několik minut obdržíte e-mail s pokyny k odemknutí.'
+            unlocked: 'Váš účet byl úspěšně odemknut. Pro pokračování se prosím přihlaste.'
+    shared:
+        links:
+            log_in_with_google: "Přihlásit se přes Google"
+            signup_with_google: "Registrovat se přes Google"
+            signup_with_email: "Registrovat se e-mailem"
+            or: "nebo"
+            sign_in: "Přihlásit se"
+            sign_up: "Registrovat se"
+            forgot_your_password: "Zapomněli jste heslo?"
