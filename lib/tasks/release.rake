@@ -67,6 +67,7 @@ namespace :release do
     system("git add #{files}") || abort('git add failed')
     system("git commit -m 'Bump version to #{version}'") || abort('git commit failed')
     system('git push origin main') || abort('git push failed')
+    system('git push origin main:nightly') || abort('git push to nightly failed')
     system("git tag -s v#{version} -m 'v#{version}'") || abort('git tag failed')
     system("git push origin v#{version}") || abort('git tag push failed')
   end
