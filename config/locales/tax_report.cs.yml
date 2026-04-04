@@ -1,0 +1,25 @@
+cs:
+    tax_report:
+        headers:
+            date: 'Datum'
+            asset: 'Aktivum'
+            amount: 'Množství'
+            proceeds: 'Výnosy z prodeje'
+            cost_basis: 'Pořizovací cena'
+            gain_loss: 'Zisk/Ztráta'
+            currency: 'Měna'
+            holding_days: 'Dny držení'
+            fee: 'Poplatek'
+            exchange: 'Burza'
+            tx_id: 'ID transakce'
+            cost_basis_complete: 'Pořizovací cena kompletní'
+            acquisition_date: 'Datum pořízení'
+            tax_exempt: 'Osvobozeno od daně'
+        no_taxable_transactions: 'Za toto období nebyly nalezeny žádné zdanitelné transakce.'
+        summary:
+            total_gains: 'Celkové zisky'
+            total_losses: 'Celkové ztráty'
+            deductible: 'odečitatelné'
+        warnings:
+            missing_prices: 'Chybějící historické ceny pro'
+            upgrade_hint: 'Upgradujte svůj plán CoinGecko, nebo použijte deltabadger.com pro kompletní historická data.'

@@ -1,0 +1,106 @@
+cs:
+    activerecord:
+        attributes:
+            user:
+                name: "Jméno"
+                email: "E-mail"
+                password: "Heslo"
+        errors:
+            models:
+                bot:
+                    attributes:
+                        smart_interval_quote_amount:
+                            not_a_number: "Musíte zadat částku pro chytré intervaly"
+                            greater_than_or_equal_to: "Pro tento rozvrh nesmí být částka chytrých intervalů menší než %{count}"
+                        price_limit:
+                            not_a_number: "Musíte zadat cenu"
+                            greater_than_or_equal_to: "Cena musí být větší nebo rovna 0"
+                        price_drop_limit:
+                            not_a_number: "Musíte zadat hodnotu poklesu ceny"
+                            greater_than_or_equal_to: "Hodnota poklesu ceny musí být větší nebo rovna 0"
+                            less_than_or_equal_to: "Hodnota poklesu ceny musí být menší nebo rovna 100"
+                        indicator_limit:
+                            not_a_number: "Musíte zadat hodnotu %{indicator}"
+                        moving_average_limit_in_period:
+                            not_a_number: "Musíte zadat periodu klouzavého průměru"
+                            greater_than: "Perioda klouzavého průměru musí být větší než 0"
+                        quote_amount:
+                            not_a_number: "Musíte zadat částku k investici"
+                            greater_than: "Investovaná částka musí být větší než 0"
+                        quote_amount_limit:
+                            not_a_number: "Musíte vyplnit částku, kterou nelze překročit"
+                            greater_than_or_equal_to: "Limit částky musí být větší nebo roven %{count}"
+    errors:
+        bitcoin_address_not_updated: 'Bitcoin adresu se nepodařilo aktualizovat'
+        format: '%{attribute} %{message}'
+        frequency_limit: 'Překročen limit četnosti'
+        invalid_api_keys: 'Neplatné tokeny'
+        invalid_risk_free_rate_key: 'Neplatný klíč bezrizikové sazby.'
+        api_key_permission_validation_failed: 'Nepodařilo se ověřit oprávnění API klíče'
+        api_key_already_exists: 'API klíč pro %{exchange_name} již existuje'
+        withdrawal_rule_already_exists: 'Pravidlo pro výběr %{asset_symbol} na %{exchange_name} již existuje'
+        incorrect_api_key_permissions: 'Nesprávná oprávnění API klíče'
+        unable_to_get_risk_free_rate: 'Nepodařilo se získat bezrizikovou sazbu pro %{risk_free_rate_name}. Server Data API je nedostupný.'
+        invalid_number_of_allocations: 'Neplatný počet alokací'
+        invalid_allocation_value: 'Neplatná hodnota alokace'
+        bots:
+            exchange_asset_mismatch: "Ne všechna aktiva jsou dostupná na %{exchange_name}"
+            exchange_change_while_open_orders: "Před změnou burzy zrušte všechny otevřené příkazy tohoto bota na %{exchange_name}"
+            destroy_success: "Bot %{bot_label} byl úspěšně smazán"
+            api_key_success: "API klíče byly úspěšně uloženy"
+            coingecko_required: "Pro indexové boty je vyžadován CoinGecko API klíč"
+            market_data_required: "Pro indexové boty musí být nakonfigurován poskytovatel tržních dat. Přejděte do Nastavení a připojte ho."
+            index_change_after_transactions: "Typ indexu nelze změnit po zadání příkazů"
+            signal_required: "Je vyžadován alespoň jeden signál"
+            signal_minimum: "Poslední signál nelze odebrat"
+        messages:
+            accepted: 'musí být přijato'
+            already_confirmed: 'již bylo potvrzeno, zkuste se přihlásit.'
+            bad_2fa_code: 'Neplatný kód. Zkuste to znovu.'
+            bad_credentials: 'Nesprávný e-mail nebo heslo.'
+            bad_credentials_with_code: 'Nesprávný e-mail, heslo nebo 2FA kód.'
+            blank: 'nemůže být prázdné'
+            confirmation: 'nesouhlasí s polem %{attribute}'
+            confirmation_period_expired: 'musí být potvrzeno do %{period}, vyžádejte si prosím nové potvrzení.'
+            empty: 'nemůže být prázdné'
+            empty_two_fa_token: 'Chybí 2FA kód. Zkuste to znovu.'
+            equal_to: 'musí být rovno %{count}'
+            even: 'musí být sudé'
+            exclusion: 'je vyhrazeno'
+            expired: 'vypršelo, vyžádejte si prosím nové.'
+            greater_than: 'musí být větší než %{count}'
+            greater_than_or_equal_to: 'musí být větší nebo rovno %{count}'
+            in: 'musí být v rozsahu %{count}'
+            inclusion: 'není v seznamu povolených hodnot'
+            invalid: 'je neplatné'
+            less_than: 'musí být menší než %{count}'
+            less_than_or_equal_to: 'musí být menší nebo rovno %{count}'
+            model_invalid: 'Ověření selhalo: %{errors}'
+            not_a_number: 'není číslo'
+            not_an_integer: 'musí být celé číslo'
+            not_found: 'nenalezeno.'
+            not_locked: 'nebylo uzamčeno.'
+            not_saved:
+                one: '1 chyba bránila uložení %{resource}:'
+                other: '%{count} chyb bránilo uložení %{resource}:'
+            odd: 'musí být liché'
+            other_than: 'musí být jiné než %{count}'
+            password_not_match: 'Hesla se neshodují'
+            present: 'musí být prázdné'
+            too_long:
+                one: 'je příliš dlouhé (maximum je 1 znak)'
+                other: 'je příliš dlouhé (maximum je %{count} znaků)'
+            too_short:
+                one: 'je příliš krátké (minimum je 1 znak)'
+                other: 'je příliš krátké (minimum je %{count} znaků)'
+            too_simple_password: 'Heslo musí obsahovat znaky z každé z následujících kategorií: velká písmena (A-Z), malá písmena (a-z), číslice (0-9), speciální znaky (např. #,?,!).'
+            wrong_email: 'Nesprávný e-mail.'
+            wrong_length:
+                one: 'má nesprávnou délku (měl by mít 1 znak)'
+                other: 'má nesprávnou délku (měl by mít %{count} znaků)'
+            wrong_password: 'Nesprávné heslo'
+            wrong_two_fa_token: 'Zadaný kód je nesprávný.'
+        unverified_request: 'Obnovte prosím stránku v prohlížeči a zkuste to znovu'
+    alert:
+        bot:
+            bot_updated: 'Bot byl úspěšně aktualizován.'
