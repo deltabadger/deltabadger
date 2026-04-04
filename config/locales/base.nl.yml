@@ -3,7 +3,6 @@ nl:
         title: 'Deltabadger'
     header:
         start_investing: 'Start investeren:'
-        trading_options: 'Opties voor traders:'
     ads:
         dca_profit_html: |
             <p>Als u de afgelopen %{years}&nbsp;jaar aan dollar-cost averaging had gedaan met Bitcoin, zou u nu <b style="color: #00A36C;">%{profit}%</b> in de plus staan.</p>
