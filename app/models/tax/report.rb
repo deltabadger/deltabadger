@@ -39,9 +39,11 @@ module Tax
         apply_holding_exemption(results) if jurisdiction[:holding_exemption]
         apply_short_long_term(results) if jurisdiction[:short_long_term]
         apply_tax_rate(results) if jurisdiction[:tax_rate]
+        apply_holding_tax_rate(results) if jurisdiction[:holding_tax_rate]
         apply_exemption_threshold(results) if jurisdiction[:exemption_threshold]
         apply_expense_deduction(results) if jurisdiction[:expense_deduction]
         apply_danish_wash_sale(results, enriched) if jurisdiction[:danish_wash_sale]
+        apply_czech_exemptions(results) if jurisdiction[:czech_exemptions]
       end
 
       I18n.with_locale(jurisdiction[:locale]) do
@@ -56,6 +58,7 @@ module Tax
             append_expense_deduction_summary(csv, results) if jurisdiction[:expense_deduction]
             append_flat_tax_summary(csv, results) if jurisdiction[:flat_tax_rate]
             append_danish_summary(csv, results) if jurisdiction[:per_asset_summary]
+            append_czech_summary(csv, results) if jurisdiction[:czech_exemptions]
           end
           append_warnings(csv) if @price_service.warnings.any?
         end
@@ -89,9 +92,10 @@ module Tax
         keys << 'term' if jurisdiction[:short_long_term]
         keys << 'matching_rule' if jurisdiction[:method].in?(%i[share_pooling fifo_4week])
         keys << 'period' if jurisdiction[:split_payment]
-        keys << 'tax_rate' if jurisdiction[:tax_rate]
+        keys << 'tax_rate' if jurisdiction[:tax_rate] || jurisdiction[:holding_tax_rate]
         keys << 'exempt' if jurisdiction[:exemption_threshold]
         keys << 'loss_denied' if jurisdiction[:danish_wash_sale]
+        keys.push('tax_exempt', 'exempt_reason') if jurisdiction[:czech_exemptions]
       end
 
       keys.map { |k| I18n.t("tax_report.headers.#{k}", default: k) }
@@ -136,12 +140,13 @@ module Tax
         ]
         row << disposal[:tax_exempt] if jurisdiction[:holding_exemption]
         row << disposal[:old_stock] if jurisdiction[:old_stock_cutoff]
-        row << disposal[:term] if jurisdiction[:short_long_term]
+        row << I18n.t("tax_report.values.term_#{disposal[:term]}", default: disposal[:term]) if jurisdiction[:short_long_term]
         row << disposal[:matching_rule] if jurisdiction[:method].in?(%i[share_pooling fifo_4week])
         row << disposal[:period] if jurisdiction[:split_payment]
-        row << disposal[:tax_rate] if jurisdiction[:tax_rate]
+        row << disposal[:tax_rate] if jurisdiction[:tax_rate] || jurisdiction[:holding_tax_rate]
         row << disposal[:exempt] if jurisdiction[:exemption_threshold]
         row << (disposal[:loss_denied] ? I18n.t('tax_report.summary.denied_losses') : nil) if jurisdiction[:danish_wash_sale]
+        row.push(disposal[:tax_exempt], disposal[:exempt_reason]) if jurisdiction[:czech_exemptions]
         row
       end
     end
@@ -325,6 +330,58 @@ module Tax
       csv << [I18n.t('tax_report.summary.total_losses', default: 'Total losses'), losses.round(2)]
       csv << [I18n.t('tax_report.summary.taxable_income', default: 'Taxable income'), net.round(2)]
       csv << [I18n.t("tax_report.summary.tax_#{pct}", default: "Tax (#{pct}%)"), tax]
+    end
+
+    def apply_holding_tax_rate(disposals)
+      config = jurisdiction[:holding_tax_rate]
+      disposals.each { |d| d[:tax_rate] = config[d[:term].to_sym] }
+    end
+
+    def apply_czech_exemptions(disposals)
+      config = jurisdiction[:czech_exemptions]
+      threshold_days = (config[:time_test] / 1.day).to_i
+
+      total_proceeds = disposals.sum { |d| d[:proceeds] || 0 }
+      value_test_passed = total_proceeds <= config[:value_test]
+
+      disposals.each do |d|
+        if value_test_passed
+          d[:tax_exempt] = true
+          d[:exempt_reason] = 'hodnotový test'
+        elsif d[:holding_days].present? && d[:holding_days] > threshold_days
+          d[:tax_exempt] = true
+          d[:exempt_reason] = 'časový test'
+        else
+          d[:tax_exempt] = false
+          d[:exempt_reason] = nil
+        end
+      end
+    end
+
+    def append_czech_summary(csv, results)
+      total_proceeds = results.sum { |d| d[:proceeds] || 0 }
+      total_costs = results.sum { |d| d[:cost_basis] || 0 }
+      total_gain = results.sum { |d| d[:gain_loss] || 0 }
+
+      exempt_time = results.select { |d| d[:tax_exempt] && d[:exempt_reason] == 'časový test' && d[:gain_loss]&.positive? }
+                           .sum { |d| d[:gain_loss] }
+      value_test_passed = results.any? { |d| d[:exempt_reason] == 'hodnotový test' }
+
+      exempt_gains = results.select { |d| d[:tax_exempt] && d[:gain_loss]&.positive? }.sum { |d| d[:gain_loss] }
+      taxable = [total_gain - exempt_gains, 0].max
+
+      csv << []
+      csv << [I18n.t('tax_report.summary.total_proceeds', default: 'Total proceeds'), total_proceeds.round(2)]
+      csv << [I18n.t('tax_report.summary.total_costs', default: 'Total costs'), total_costs.round(2)]
+      csv << [I18n.t('tax_report.summary.total_gain', default: 'Total gain'), total_gain.round(2)]
+      csv << [I18n.t('tax_report.summary.exempt_time_test', default: 'Exempt (time test)'), exempt_time.round(2)]
+      value_label = if value_test_passed
+                      I18n.t('tax_report.summary.yes', default: 'Yes')
+                    else
+                      I18n.t('tax_report.summary.no', default: 'No')
+                    end
+      csv << [I18n.t('tax_report.summary.exempt_value_test', default: 'Exempt (value test)'), value_label]
+      csv << [I18n.t('tax_report.summary.taxable_gain', default: 'Taxable gain'), taxable.round(2)]
     end
 
     ACQUISITION_ENTRY_TYPES = %w[buy deposit swap_in staking_reward lending_interest airdrop mining other_income].freeze

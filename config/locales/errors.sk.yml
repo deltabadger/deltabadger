@@ -1,0 +1,110 @@
+sk:
+    activerecord:
+        attributes:
+            user:
+                name: "Meno"
+                email: "E-mail"
+                password: "Heslo"
+        errors:
+            models:
+                bot:
+                    attributes:
+                        smart_interval_quote_amount:
+                            not_a_number: "Musite zadat sumu pre inteligentne intervaly"
+                            greater_than_or_equal_to: "Pre tento rozvrh nesmie byt suma inteligentnych intervalov mensia ako %{count}"
+                        price_limit:
+                            not_a_number: "Musite zadat cenu"
+                            greater_than_or_equal_to: "Cena musi byt vacsia alebo rovna 0"
+                        price_drop_limit:
+                            not_a_number: "Musite zadat hodnotu poklesu ceny"
+                            greater_than_or_equal_to: "Hodnota poklesu ceny musi byt vacsia alebo rovna 0"
+                            less_than_or_equal_to: "Hodnota poklesu ceny musi byt mensia alebo rovna 100"
+                        indicator_limit:
+                            not_a_number: "Musite zadat hodnotu %{indicator}"
+                        moving_average_limit_in_period:
+                            not_a_number: "Musite zadat periodu klzaveho priemeru"
+                            greater_than: "Perioda klzaveho priemeru musi byt vacsia ako 0"
+                        quote_amount:
+                            not_a_number: "Musite zadat sumu na investovanie"
+                            greater_than: "Investovana suma musi byt vacsia ako 0"
+                        quote_amount_limit:
+                            not_a_number: "Musite vyplnit sumu, ktoru nemozno prekrocit"
+                            greater_than_or_equal_to: "Limit sumy musi byt vacsi alebo rovny %{count}"
+    errors:
+        bitcoin_address_not_updated: 'Bitcoin adresu sa nepodarilo aktualizovat'
+        format: '%{attribute} %{message}'
+        frequency_limit: 'Prekroceny limit frekvencie'
+        invalid_api_keys: 'Neplatne tokeny'
+        invalid_risk_free_rate_key: 'Neplatny kluc bezrizikovej sadzby.'
+        api_key_permission_validation_failed: 'Nepodarilo sa overit opravnenia API kluca'
+        api_key_already_exists: 'API kluc pre %{exchange_name} uz existuje'
+        withdrawal_rule_already_exists: 'Pravidlo pre vyber %{asset_symbol} na %{exchange_name} uz existuje'
+        incorrect_api_key_permissions: 'Nespravne opravnenia API kluca'
+        unable_to_get_risk_free_rate: 'Nepodarilo sa ziskat bezrizikovu sadzbu pre %{risk_free_rate_name}. Server Data API je nedostupny.'
+        invalid_number_of_allocations: 'Neplatny pocet alokacii'
+        invalid_allocation_value: 'Neplatna hodnota alokacie'
+        bots:
+            exchange_asset_mismatch: "Nie vsetky aktiva su dostupne na %{exchange_name}"
+            exchange_change_while_open_orders: "Pred zmenou burzy zruste vsetky otvorene prikazy tohto bota na %{exchange_name}"
+            destroy_success: "Bot %{bot_label} bol uspesne vymazany"
+            api_key_success: "API kluce boli uspesne ulozene"
+            coingecko_required: "Pre indexovych botov je potrebny CoinGecko API kluc"
+            market_data_required: "Pre indexovych botov musi byt nastaveny poskytovatel trznych dat. Prejdite do Nastaveni a pripojte ho."
+            index_change_after_transactions: "Typ indexu nemozno zmenit po zadani prikazov"
+            signal_required: "Je potrebny aspon jeden signal"
+            signal_minimum: "Posledny signal nemozno odobrat"
+        messages:
+            accepted: 'musi byt prijate'
+            already_confirmed: 'uz bolo potvrdene, skuste sa prihlasit.'
+            bad_2fa_code: 'Neplatny kod. Skuste to znova.'
+            bad_credentials: 'Nespravny e-mail alebo heslo.'
+            bad_credentials_with_code: 'Nespravny e-mail, heslo alebo 2FA kod.'
+            blank: 'nemoze byt prazdne'
+            confirmation: 'nesuhlasi s polom %{attribute}'
+            confirmation_period_expired: 'musi byt potvrdene do %{period}, poziadajte o nove potvrdenie.'
+            empty: 'nemoze byt prazdne'
+            empty_two_fa_token: 'Chyba 2FA kod. Skuste to znova.'
+            equal_to: 'musi byt rovne %{count}'
+            even: 'musi byt parne'
+            exclusion: 'je vyhradene'
+            expired: 'vyprsalo, poziadajte o nove.'
+            greater_than: 'musi byt vacsie ako %{count}'
+            greater_than_or_equal_to: 'musi byt vacsie alebo rovne %{count}'
+            in: 'musi byt v rozsahu %{count}'
+            inclusion: 'nie je v zozname povolenych hodnot'
+            invalid: 'je neplatne'
+            less_than: 'musi byt mensie ako %{count}'
+            less_than_or_equal_to: 'musi byt mensie alebo rovne %{count}'
+            model_invalid: 'Overenie zlyhalo: %{errors}'
+            not_a_number: 'nie je cislo'
+            not_an_integer: 'musi byt cele cislo'
+            not_found: 'nenajdene.'
+            not_locked: 'nebolo zamknute.'
+            not_saved:
+                one: '1 chyba branila ulozeniu %{resource}:'
+                few: '%{count} chyby branili ulozeniu %{resource}:'
+                other: '%{count} chyb branilo ulozeniu %{resource}:'
+            odd: 'musi byt neparne'
+            other_than: 'musi byt ine ako %{count}'
+            password_not_match: 'Hesla sa nezhoduju'
+            present: 'musi byt prazdne'
+            too_long:
+                one: 'je prilis dlhe (maximum je 1 znak)'
+                few: 'je prilis dlhe (maximum su %{count} znaky)'
+                other: 'je prilis dlhe (maximum je %{count} znakov)'
+            too_short:
+                one: 'je prilis kratke (minimum je 1 znak)'
+                few: 'je prilis kratke (minimum su %{count} znaky)'
+                other: 'je prilis kratke (minimum je %{count} znakov)'
+            too_simple_password: 'Heslo musi obsahovat znaky z kazdej z nasledujucich kategorii: velke pismena (A-Z), male pismena (a-z), cislice (0-9), specialne znaky (napr. #,?,!).'
+            wrong_email: 'Nespravny e-mail.'
+            wrong_length:
+                one: 'ma nespravnu dlzku (ma mat 1 znak)'
+                few: 'ma nespravnu dlzku (ma mat %{count} znaky)'
+                other: 'ma nespravnu dlzku (ma mat %{count} znakov)'
+            wrong_password: 'Nespravne heslo'
+            wrong_two_fa_token: 'Zadany kod je nespravny.'
+        unverified_request: 'Obnovte stranku v prehliadaci a skuste to znova'
+    alert:
+        bot:
+            bot_updated: 'Bot bol uspesne aktualizovany.'

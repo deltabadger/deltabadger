@@ -1,0 +1,482 @@
+sk:
+    meta:
+        title: 'Deltabadger'
+    header:
+        start_investing: 'Začnite investovať:'
+    ads:
+        dca_profit_html: |
+            <p>Keby ste pravidelne investovali do Bitcoinu za posledných %{years}&nbsp;rokov, boli by ste teraz v zisku <b style="color: #00A36C;">%{profit}%</b>.</p>
+            <p>To je o <b style="color: #00A36C;">%{sp500_diff}%</b> viac než S&P 500 za rovnaké obdobie.</p>
+    button:
+        ok: 'OK'
+        update: 'Aktualizovať'
+        save: 'Uložiť'
+        cancel: 'Zrušiť'
+        close: 'Zavrieť'
+        enable: 'Zapnúť'
+        authorize: 'Autorizovať'
+        disable: 'Vypnúť'
+        delete: 'Zmazať'
+        duplicate: 'Duplikovať'
+        copy: 'Kopírovať'
+        submit: 'Odoslať'
+        reset: 'Resetovať'
+        add: 'Pridať'
+        remove: 'Odobrať'
+        start: 'Spustiť'
+        stop: 'Zastaviť'
+        next: 'Ďalej'
+        connect: 'Pripojiť'
+        reconnect: 'Pridať nové kľúče'
+        understand: 'Rozumiem!'
+        get_started: 'Začať'
+        select_plan: 'Vybrať plán'
+        back_to_dashboard: 'Prejsť na prehľad'
+        subscribe: 'Predplatiť'
+        unlock: 'Odomknúť'
+        check_again: 'Skontrolovať znova'
+    data_labels:
+        invested: "Celkom investované"
+        portfolio_value: "Hodnota portfólia"
+        value: "Hodnota"
+        value_symbol: "Hodnota (%{symbol})"
+        invested_symbol: "Investované (%{symbol})"
+        date: "Dátum"
+        asset: "Aktívum"
+        amount: "Množstvo"
+        avg_price: "Priem. cena"
+        price: "Cena"
+        pnl: "Z/S"
+        bought: "Nakúpené"
+        current_price: "Aktuálna cena"
+    days_left:
+        one: 'zostáva 1 deň'
+        few: 'zostávajú %{count} dni'
+        other: 'zostáva %{count} dní'
+    forms:
+        for_confirmation: '(na potvrdenie)'
+        minimum_length: 'minimálne %{length} znakov'
+    helpers:
+        label:
+            settings:
+                current_status: 'Aktuálny stav:'
+                disable_two_fa: 'Vypnúť 2FA'
+                disabled: Vypnuté
+                enable_two_fa: 'Zapnúť 2FA'
+                enabled: Zapnuté
+                enter_two_fa_code: 'Zadajte 2FA kód'
+                scan_code_info: 'Naskenujte QR kód alebo skopírujte kód nižšie:'
+            user:
+                name: Meno
+                current_password: 'Aktuálne heslo'
+                email: E-mail
+                new_name: 'Nové meno'
+                new_email: 'Nový e-mail'
+                new_password: 'Nové heslo'
+                new_password_confirmation: 'Potvrdenie nového hesla'
+                password: Heslo
+                password_confirmation: 'Potvrdenie hesla'
+                remember_me: 'Zapamätať si ma'
+    home:
+        confirm_registration:
+            text_html: 'Skontrolujte si e-mail a kliknite na <b>potvrdzovací odkaz</b>, ktorý sme vám zaslali. Potom prejdite na prihlasovaciu stránku.'
+            title: Ďakujeme!
+    links:
+        about: O nás
+        telegram: 'Telegram'
+        create_account: 'Vytvoriť účet zadarmo'
+        bot: Bot
+        bots: Boty
+        dashboard: Prehľad
+        homepage: 'Odkaz na hlavnú stránku'
+        log_in: 'Prihlásiť sa'
+        log_out: Odhlásiť sa
+        menu: Menu
+        earn: 'Zárobok'
+        resend_link: 'Odoslať znova'
+        rules: Pravidlá
+        tracker: Prehľady
+        settings: Nastavenia
+        connections: Pripojiť
+        account: Účet
+        sign_up: 'Registrácia'
+    settings:
+        language_and_timezone:
+            title: 'Jazyk a časové pásmo'
+            language_updated: "Jazyk bol aktualizovaný."
+            updated: "Časové pásmo bolo aktualizované."
+            current_time_is: "Toto časové pásmo sa použije v logoch bota. Podľa neho je aktuálny čas"
+        name:
+            updated: "Meno bolo aktualizované."
+        two_fa:
+            disabled: 'Dvojfaktorové overenie bolo vypnuté.'
+            enabled: 'Dvojfaktorové overenie bolo zapnuté.'
+        api_keys:
+            confirm_delete: 'Chcete zmazať tento API kľúč?'
+        index:
+            api_key_confirmation: 'Ste si istí?'
+            api_keys_section: 'API kľúče'
+            trading_keys_section: 'Obchodné kľúče'
+            withdrawal_keys_section: 'Kľúče na výber'
+            email_section: E-mail
+            name_section: Meno
+            password_section: Heslo
+            free_plan_reset_date_html: 'Váš limit sa obnoví <b>%{end_time}</b>.'
+            title: Nastavenia
+            two_factor_section: 'Dvojfaktorové overenie'
+            resync_assets_section: 'Trhové dáta'
+            email_notifications_section: 'E-mailové upozornenia'
+            registration_section: 'Viacero účtov'
+        registration:
+            enable_sign_up: 'Povoliť registráciu'
+            disable_sign_up: 'Zakázať registráciu'
+            updated: 'Nastavenie registrácie bolo aktualizované.'
+        resync_assets:
+            button: 'Synchronizovať'
+            hint: 'Znova synchronizujte obchodné páry a dáta aktív z CoinGecko. Použite, ak niektoré burzy alebo aktíva chýbajú.'
+        coingecko_key:
+            confirm_delete: 'Chcete odobrať tento CoinGecko API kľúč?'
+        market_data:
+            none: 'Žiadny'
+            disabled: 'Synchronizácia trhových dát bola vypnutá.'
+            updated: 'Nastavenie trhových dát bolo aktualizované.'
+            coingecko_configured: 'Pripojené ku CoinGecko pre aktuálne trhové dáta.'
+            deltabadger_configured: 'Pripojené k %{provider_name} pre aktuálne trhové dáta.'
+            disconnect: 'Odpojiť'
+            disconnected: 'Poskytovateľ trhových dát bol odpojený.'
+        stocks:
+            title_html: 'Akcie (<a href="https://alpaca.markets/" target="_blank">Alpaca</a>)'
+            instructions_html: 'Prejdite na <a href="https://alpaca.markets" target="_blank">Alpaca dashboard</a> a nájdite sekciu API Keys v pravom paneli. Kliknite na Generate New Keys a uložte vygenerované prihlasovacie údaje.'
+            enabled: 'Akcie zapnuté. Synchronizácia aktív z Alpaca...'
+            disabled: 'Akcie vypnuté.'
+            disconnected: 'Alpaca odpojené. Akciové páry označené ako nedostupné.'
+            configured: 'Pripojené k Alpaca (%{mode}). Akciové aktíva sú synchronizované.'
+            invalid_api_key: 'Neplatný Alpaca API kľúč. Skontrolujte prosím svoje prihlasovacie údaje.'
+            disconnect: 'Odpojiť'
+            mode_paper: 'Papierové'
+            mode_live: 'Živé'
+        mcp:
+            title: 'MCP'
+            description: 'Použite túto URL na pripojenie Claude (a ďalších AI modelov). Dá vášmu AI asistentovi prístup k vašim botom a burzám.'
+            connected_clients: 'Pripojené'
+            no_clients: 'Zatiaľ nie sú pripojení žiadni klienti.'
+            revoke_client: 'Odvolať'
+            revoke_client_confirm: 'Tým sa tento klient odpojí. Na opätovné pripojenie bude potrebná nová autorizácia.'
+            client_revoked: 'Klient odpojený.'
+            authorize_title: 'Autorizovať prístup'
+            authorize_description_html: '<b>%{client_name}</b> žiada o prístup k vášmu Deltabadger serveru.'
+            tools_title: 'Oprávnenia nástrojov'
+            tools_read: 'Čítanie'
+            tools_control: 'Ovládanie'
+            tools_trade: 'Obchodovanie'
+            tools_tax: 'Dane a prehľady'
+            tools:
+                list_bots:
+                    label: 'Zoznam botov'
+                    description: 'Zobraziť všetkých DCA botov a ich stav'
+                get_bot_details:
+                    label: 'Detail bota'
+                    description: 'Zobraziť podrobné informácie a výkonnosť bota'
+                list_exchanges:
+                    label: 'Zoznam búrz'
+                    description: 'Zobraziť pripojené burzy'
+                get_exchange_balances:
+                    label: 'Zostatky na burze'
+                    description: 'Načítať aktuálne zostatky z burzy'
+                get_portfolio_summary:
+                    label: 'Prehľad portfólia'
+                    description: 'Zobraziť celkový Z/S a prehľad botov'
+                list_transactions:
+                    label: 'Zoznam transakcií'
+                    description: 'Zobraziť nedávne obchody'
+                create_bot:
+                    label: 'Vytvoriť bota'
+                    description: 'Vytvoriť nového DCA bota'
+                start_bot:
+                    label: 'Spustiť bota'
+                    description: 'Spustiť zastaveného bota'
+                stop_bot:
+                    label: 'Zastaviť bota'
+                    description: 'Zastaviť bežiaceho bota'
+                update_bot_settings:
+                    label: 'Upraviť botov'
+                    description: 'Zmeniť čiastku alebo názov zastaveného bota'
+                start_rule:
+                    label: 'Spustiť pravidlo'
+                    description: 'Spustiť zastavené pravidlo'
+                stop_rule:
+                    label: 'Zastaviť pravidlo'
+                    description: 'Zastaviť aktívne pravidlo'
+                update_rule_settings:
+                    label: 'Upraviť pravidlá'
+                    description: 'Zmeniť nastavenia zastaveného pravidla'
+                market_buy:
+                    label: 'Trhový nákup'
+                    description: 'Vykonať trhový nákupný príkaz'
+                market_sell:
+                    label: 'Trhový predaj'
+                    description: 'Vykonať trhový predajný príkaz'
+                limit_buy:
+                    label: 'Limitný nákup'
+                    description: 'Zadať limitný nákupný príkaz za konkrétnu cenu'
+                limit_sell:
+                    label: 'Limitný predaj'
+                    description: 'Zadať limitný predajný príkaz za konkrétnu cenu'
+                cancel_order:
+                    label: 'Zrušiť príkaz'
+                    description: 'Zrušiť otvorený príkaz'
+                list_open_orders:
+                    label: 'Otvorené príkazy'
+                    description: 'Zobraziť aktuálne otvorené (nevyplnené) príkazy'
+                list_tax_jurisdictions:
+                    label: 'Daňové jurisdikcie'
+                    description: 'Zobraziť podporované krajiny a daňové metódy'
+                generate_tax_report:
+                    label: 'Generovať daňový prehľad'
+                    description: 'Spustiť generovanie daňového prehľadu na pozadí'
+                get_tax_report_status:
+                    label: 'Stav daňového prehľadu'
+                    description: 'Skontrolovať, či je daňový prehľad pripravený'
+                download_tax_report:
+                    label: 'Stiahnuť daňový prehľad'
+                    description: 'Stiahnuť vygenerovaný daňový prehľad CSV'
+                export_transactions_csv:
+                    label: 'Export transakcií CSV'
+                    description: 'Exportovať transakcie účtu ako CSV'
+                list_account_transactions:
+                    label: 'Transakcie účtu'
+                    description: 'Zobraziť transakcie s filtrami'
+            dry_run_title: 'Papierové obchodovanie'
+            dry_run_description: 'Simulujte obchody s reálnymi trhovými cenami. Žiadne skutočné príkazy sa nezadávajú.'
+            dry_run_label: 'Zapnúť papierové obchodovanie pre obchodné nástroje'
+        email_notifications:
+            none: 'Žiadne'
+            smtp_host: 'SMTP server'
+            smtp_port: 'Port'
+            smtp_username: 'Používateľské meno'
+            smtp_password: 'Heslo'
+            smtp_hint_html: 'Pre Gmail použite <a href="https://support.google.com/accounts/answer/185833" target="_blank">heslo pre aplikáciu</a> ako heslo.'
+            updated: 'Nastavenie e-mailových upozornení bolo aktualizované.'
+            disabled: 'E-mailové upozornenia boli vypnuté.'
+            smtp_credentials_required: 'Používateľské meno a heslo SMTP sú povinné.'
+            set: 'Nastavené'
+            smtp_configured_html: 'Nakonfigurované s <b>%{host}</b>.'
+            send_test: 'Odoslať testovací e-mail'
+            test_email_sent: 'Testovací e-mail odoslaný na %{email}.'
+            test_email_failed: 'Odoslanie testovacieho e-mailu zlyhalo: %{error}'
+            not_configured: 'E-mailové upozornenia nie sú nakonfigurované.'
+            disconnect: 'Odpojiť'
+            disconnected: 'Poskytovateľ e-mailu odpojený.'
+    utils:
+        pnl: 'Z/S'
+        assets: Aktíva
+        beta: Beta
+        cash: Hotovosť
+        bonds: Dlhopisy
+        gold: Zlato
+        are_you_sure: 'Ste si istí?'
+        change_name: 'Zmeniť názov'
+        important: 'Dôležité!'
+        new: 'Nové'
+        since: 'od'
+        soon: 'Čoskoro'
+        see_at_coingecko: 'Zobraziť na CoinGecko'
+        search:
+            placeholder:
+                asset: 'Hľadať aktívum…'
+                index: 'Hľadať index…'
+            no_results: 'Neboli nájdené žiadne výsledky'
+        time_periods:
+            ytd: 'YTD'
+            ytd_title: 'Od začiatku roka'
+            one_year: '1R'
+            one_year_title: 'Pred 1 rokom'
+            three_years: '3R'
+            three_years_title: 'Pred 3 rokmi'
+            five_years: '5R'
+            five_years_title: 'Pred 5 rokmi'
+        years:
+            one: "%{count} rok"
+            few: "%{count} roky"
+            other: "%{count} rokov"
+        months:
+            one: "%{count} mesiac"
+            few: "%{count} mesiace"
+            other: "%{count} mesiacov"
+        days:
+            one: "%{count} deň"
+            few: "%{count} dni"
+            other: "%{count} dní"
+        hours:
+            one: "%{count} hodina"
+            few: "%{count} hodiny"
+            other: "%{count} hodín"
+        minutes:
+            one: "%{count} minúta"
+            few: "%{count} minúty"
+            other: "%{count} minút"
+        seconds:
+            one: "%{count} sekunda"
+            few: "%{count} sekundy"
+            other: "%{count} sekúnd"
+        days_short: 'd'
+        hours_short: 'h'
+        minutes_short: 'm'
+        seconds_short: 's'
+    bot_filters:
+        all: 'Všetky'
+        active: 'Aktívne'
+        inactive: 'Neaktívne'
+    rules:
+        index:
+            title: 'Pravidlá'
+        types:
+            withdrawal:
+                title: 'Automatický výber'
+                description: 'Výber prostriedkov z búrz'
+        withdrawals:
+            sentence:
+                withdraw_all: 'Vybrať'
+                from: 'z'
+                to: 'na'
+                on_network: 'na'
+                fee: 'poplatok'
+                when: 'keď'
+                fee_less_than: 'poplatok je nižší ako'
+                amount_crosses: 'čiastka prekročí'
+                of_the_amount: '%'
+                or_at_least_every: 'alebo aspoň každých'
+                days: 'dní'
+            pick_exchange:
+                withdrawal_fee: 'Výber'
+            form:
+                submit: 'Vytvoriť pravidlo'
+                submitting: 'Vytváranie…'
+            confirm_destroy:
+                message: 'Chcete zmazať toto pravidlo výberu?'
+        tile:
+            withdrawal: 'Výber'
+            network: 'Sieť'
+            memo: 'Memo'
+            activated: 'Pravidlo je aktívne.'
+            deactivated: 'Pravidlo bolo deaktivované.'
+            min_amount_info_html: 'Aktuálny poplatok je %{fee} %{symbol}, takže výber bude spustený pri <b>%{amount} %{symbol}</b>.'
+            no_fee_info: '%{exchange} neuvádza žiadny poplatok za výber tohto aktíva. Pravidlo vyberie akýkoľvek dostupný zostatok.'
+            unknown_fee_info: 'Údaje o poplatkoch pre %{exchange} nie sú k dispozícii. Pravidlo vyberie akýkoľvek dostupný zostatok.'
+            fixed_amount_info: 'Výber bude spustený, keď zostatok dosiahne %{amount} %{symbol}.'
+            fixed_amount_fee_html: 'Aktuálny poplatok je %{fee} %{symbol}, takže zaplatíte <b>%{fee_pct}</b>.'
+            no_wallet_html: 'Pre %{symbol} nebola nájdená adresa na výber na %{exchange}. Najprv ju pridajte na burze.'
+        logs:
+            date: 'Dátum'
+            status: 'Stav'
+            message: 'Správa'
+            empty: 'Zatiaľ žiadne záznamy.'
+        add_address:
+            label: 'Adresa na výber'
+            placeholder: 'Vložte adresu sem…'
+            select_address: 'Vyberte adresu…'
+            address_tag_label: 'Memo / Tag (voliteľné)'
+            address_tag_placeholder: 'Memo, tag alebo ID platby…'
+            instructions_title: 'Pridanie adresy na výber na %{exchange}'
+            warning_html: 'Uistite sa, že ide o adresu <b>%{symbol}</b> na správnej sieti. Odoslanie na nesprávnu adresu alebo sieť povedie k trvalej strate prostriedkov.'
+            no_addresses_html: 'Pre <b>%{symbol}</b> nie je definovaná žiadna adresa na výber. Najprv ju nastavte na %{exchange}.'
+            fetch_failed_html: 'Nepodarilo sa načítať adresy na výber z %{exchange}. Skúste to prosím neskôr.'
+        add_api_key:
+            title: 'Pridať API kľúč na výber na %{exchange}'
+            instructions_title: 'Ako získať kľúče z %{exchange}'
+            instructions_body: 'Vytvorte API kľúč s oprávnením na výber na %{exchange} a vložte prihlasovacie údaje sem.'
+    tracker:
+        sync: 'Synchronizovať'
+        sync_started: 'Synchronizácia transakcií z vašich búrz...'
+        importing_from: 'Import dát z %{exchange}…'
+        get_report: 'Získať prehľad'
+        filter: 'Filter'
+        bot: 'Bot'
+        no_results: 'Pre vybrané filtre neboli nájdené žiadne transakcie.'
+        connect_exchange: 'Pripojiť burzu'
+        import_from: 'Importovať transakcie z'
+        search_exchange: 'Hľadať burzu...'
+        setup_coingecko_html: 'Na generovanie daňového prehľadu sú potrebné historické ceny. Bezplatný plán <b>CoinGecko</b> pokrýva až 2 roky histórie. Pre staršie transakcie prejdite na <b>CoinGecko Analyst</b> alebo sa pripojte k <a href="https://deltabadger.com">deltabadger.com</a>, kde sú trhové dáta zahrnuté.'
+        export_modal:
+            title: 'Generovať prehľad'
+            tax_report: 'Daňový prehľad'
+            transactions: 'Všetky'
+            country: 'Krajina'
+            year: 'Rok'
+            generate: 'Generovať'
+            download_label: 'Stiahnuť'
+            from: 'Od'
+            to: 'Do'
+            stablecoin_as_fiat: 'Považovať stablecoiny za fiat (poraďte sa s účtovníkom)'
+        tax_report:
+            invalid_country: 'Vybraná neplatná krajina.'
+            expired: 'Daňový prehľad vypršal. Vygenerujte prosím nový.'
+            generating: 'Generujem daňový prehľad...'
+            download_ready: 'Daňový prehľad je pripravený. Kliknite na stiahnutie.'
+        filters:
+            all: 'Všetky'
+        columns:
+            date: 'Dátum'
+            type: 'Typ'
+            base: 'Aktívum'
+            amount: 'Množstvo'
+            quote: 'Mena'
+            quote_amount: 'Hodnota'
+            fee: 'Poplatok'
+            exchange: 'Burza'
+            bot: 'Bot'
+        types:
+            buy: 'Nákup'
+            sell: 'Predaj'
+            swap_in: 'Výmena (príjem)'
+            swap_out: 'Výmena (výdaj)'
+            deposit: 'Vklad'
+            withdrawal: 'Výber'
+            staking_reward: 'Staking'
+            lending_interest: 'Úrok'
+            airdrop: 'Airdrop'
+            mining: 'Ťažba'
+            fee: 'Poplatok'
+            other_income: 'Príjem'
+            lost: 'Strata'
+    order_filters:
+        all: 'Všetky'
+        successful: 'Úspešné'
+        cancelled: 'Zrušené'
+        waiting: 'Naplánované'
+    tax_report:
+        headers:
+            date: 'Dátum'
+            asset: 'Aktívum'
+            amount: 'Množstvo'
+            proceeds: 'Výnosy'
+            cost_basis: 'Obstarávacia cena'
+            gain_loss: 'Zisk/Strata'
+            currency: 'Mena'
+            holding_days: 'Dni držania'
+            fee: 'Poplatok'
+            exchange: 'Burza'
+            tx_id: 'ID transakcie'
+            cost_basis_complete: 'Obstarávacia cena kompletná'
+            acquisition_date: 'Dátum obstarania'
+            tax_exempt: 'Oslobodené od dane'
+            old_stock: 'Starý stav'
+            term: 'Doba držania'
+            matching_rule: 'Pravidlo párovania'
+            total_acquisition_cost: 'Celkové obstarávacie náklady'
+            portfolio_value: 'Hodnota portfólia'
+            tax_rate: 'Daňová sadzba'
+            exempt: 'Oslobodené (limit)'
+            value: 'Hodnota'
+            reference_date: 'Referenčný dátum'
+            period: 'Obdobie'
+        no_taxable_transactions: 'Za toto obdobie neboli nájdené žiadne zdaniteľné transakcie.'
+        summary:
+            total_value: 'Celková hodnota'
+            allowance: 'Nezdaniteľná čiastka'
+            taxable_wealth: 'Zdaniteľný majetok'
+            deemed_return: 'Fiktívny výnos'
+            tax: 'Daň'
+            total_gains: 'Celkové zisky'
+            total_losses: 'Celkové straty'
+            deductible: 'odpočítateľné'

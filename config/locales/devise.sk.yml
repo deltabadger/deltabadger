@@ -1,0 +1,111 @@
+sk:
+    devise:
+        confirmations:
+            confirmed: 'Vaša e-mailova adresa bola uspesne potvrdena.'
+            new:
+                submit: 'Odoslat znova'
+                title: 'Znovu odoslat pokyny'
+            send_instructions: 'O niekolko minut dostanete e-mail s pokynmi na potvrdenie e-mailovej adresy.'
+            send_paranoid_instructions: 'Ak sa vasa e-mailova adresa nachadza v nasei databaze, o niekolko minut dostanete e-mail s pokynmi na potvrdenie.'
+        passwords:
+            edit:
+                submit: 'Zmenit heslo'
+                title: 'Zmena hesla'
+            new:
+                submit: 'Odoslat pokyny'
+                title: 'Zabudli ste heslo?'
+            no_token: 'Na tuto stranku sa nedostanete bez odkazu z e-mailu na obnovenie hesla. Ak ste prisli z takehoto e-mailu, uistite sa, ze ste pouzili celu URL adresu.'
+            send_instructions: 'O niekolko minut dostanete e-mail s pokynmi na obnovenie hesla.'
+            send_paranoid_instructions: 'Ak sa vasa e-mailova adresa nachadza v nasei databaze, o niekolko minut dostanete odkaz na obnovenie hesla.'
+            updated: 'Vase heslo bolo uspesne zmenene. Teraz ste prihlaseny.'
+            updated_not_active: 'Vase heslo bolo uspesne zmenene.'
+            token_expired: 'Platnost odkazu na obnovenie hesla vyprsala. Poziadajte o novy.'
+            validations:
+                length: 'Aspon %{count} znakov'
+                uppercase: 'Obsahuje velke pismeno'
+                lowercase: 'Obsahuje male pismeno'
+                digit: 'Obsahuje cislicu'
+                symbol: 'Obsahuje specialny znak'
+                match: 'Hesla sa zhoduju'
+        registrations:
+            edit:
+                awaiting_confirmation: 'Caka sa na potvrdenie adresy: %{email}'
+            new:
+                email_invalid: 'Neplatny e-mail!'
+                email_suggestion_html: 'Neplatny e-mail! Nemysleli ste: <b>%{suggestion}</b>'
+                name_invalid: 'Nemusi byt skutocne 👻'
+                submit: 'Registrovat sa'
+                title: 'Novy ucet'
+            signed_up: 'Vitajte! Registracia prebehla uspesne.'
+            signed_up_but_inactive: 'Registracia prebehla uspesne, ale nemohli sme vas prihlasit, pretoze vas ucet este nie je aktivovany.'
+            signed_up_but_unconfirmed: 'Na vasu e-mailovu adresu sme odoslali spravu s potvrdzovacim odkazom. Kliknite na odkaz pre aktivaciu uctu.'
+            update_needs_confirmation: 'Ucet bol uspesne aktualizovany, ale potrebujeme overit vasu novu e-mailovu adresu. Skontrolujte si e-mail a kliknite na potvrdzovaci odkaz.'
+            updated: 'Vas ucet bol uspesne aktualizovany.'
+            updated_but_not_signed_in: 'Vas ucet bol uspesne aktualizovany, ale kedze bolo zmenene heslo, musite sa znova prihlasit.'
+            destroyed: 'Dovidenia! Vas ucet bol uspesne zruseny. Dufame, ze sa coskoro uvidime.'
+        sessions:
+            new:
+                forgot_password: 'Zabudli ste heslo?'
+                submit: 'Prihlasit sa'
+                title: 'Vitajte spat!'
+            signed_in: 'Prihlasenie prebehlo uspesne.'
+            signed_out: 'Odhlasenie prebehlo uspesne.'
+            already_signed_out: 'Odhlasenie prebehlo uspesne.'
+            two_factor:
+                submit: "Overit"
+                invalid_code: "Nespravny kod. Skuste to znova."
+        failure:
+            already_authenticated: 'Uz ste prihlaseny.'
+            inactive: 'Vas ucet este nie je aktivovany.'
+            invalid: 'Neplatny %{authentication_keys} alebo heslo.'
+            not_found_in_database: 'Neplatny %{authentication_keys} alebo heslo.'
+            timeout: 'Platnost vasej relacie vyprsala. Pre pokracovanie sa prosim znova prihlasite.'
+            unauthenticated: 'Pre pokracovanie sa musite prihlasit alebo zaregistrovat.'
+            unconfirmed: 'Pred pokracovanim musite potvrdit svoju e-mailovu adresu.'
+        mailer:
+            confirmation_instructions:
+                subject: 'Potvrdte svoj e-mail'
+                template_html: |
+                    <p>Vitajte v Deltabadger!</p>
+                    <p>Kliknite na odkaz nizsie pre potvrdenie e-mailovej adresy:</p>
+                confirm_button: 'Potvrdit e-mail'
+            email_changed:
+                subject: 'Vas e-mail bol zmeneny'
+                template_html: |
+                    <p>Informujeme vas, ze vas e-mail bol zmeneny na %{email}.</p>
+            confirm_email:
+                subject: 'Potvrdte novu e-mailovu adresu'
+                template_html: |
+                    <p>Informujeme vas, ze vas e-mail sa meni na %{unconfirmed_email}.</p>
+            password_change:
+                subject: 'Heslo bolo zmenene'
+                template_html: |
+                    <p>Informujeme vas, ze vase heslo bolo zmenene.</p>
+            reset_password_instructions:
+                subject: 'Pokyny na obnovenie hesla'
+                template_html: |
+                    <p>Niekto poziadal o odkaz na zmenu vasho hesla.</p>
+                    <p>Mozete tak urobit cez nasledujuci odkaz:</p>
+                change_password_button: 'Zmenit heslo'
+                ignore_mail_html: |
+                    <p>Ak ste o to neziadali, tento e-mail ignorujte a vase heslo zostane nezmenene.</p>
+                wont_change_html: |
+                    <p>Vase heslo sa nezmeni, kym neprejdete na vyssie uvedeny odkaz a nevytvorite nove.</p>
+            email_already_taken:
+                subject: 'E-mail je uz zaregistrovany'
+                message: 'Tento e-mail je uz zaregistrovany.'
+                reset_password_message: 'Ak je to vas ucet, heslo si mozete obnovit tu:'
+                reset_password_button: 'Obnovit heslo'
+        unlocks:
+            send_instructions: 'O niekolko minut dostanete e-mail s pokynmi na odomknutie uctu.'
+            send_paranoid_instructions: 'Ak vas ucet existuje, o niekolko minut dostanete e-mail s pokynmi na odomknutie.'
+            unlocked: 'Vas ucet bol uspesne odomknuty. Pre pokracovanie sa prosim prihlasite.'
+    shared:
+        links:
+            log_in_with_google: "Prihlasit sa cez Google"
+            signup_with_google: "Registrovat sa cez Google"
+            signup_with_email: "Registrovat sa e-mailom"
+            or: "alebo"
+            sign_in: "Prihlasit sa"
+            sign_up: "Registrovat sa"
+            forgot_your_password: "Zabudli ste heslo?"

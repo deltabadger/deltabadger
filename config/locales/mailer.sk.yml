@@ -1,0 +1,23 @@
+sk:
+    mailer:
+        greeting: 'Ahoj legenda,'
+        greeting_name: 'Ahoj %{name},'
+        best_html: '<p>S pozdravom,<br>Jan</p>'
+        unsubscribe: 'Odhlasit sa'
+    test_mailer:
+        test_email:
+            subject: "Deltabadger – testovaci e-mail"
+            body: "Toto je testovaci e-mail z vasej instancie Deltabadger. Ak ste ho dostali, e-mailove upozornenia funguju spravne."
+    bot_alerts_mailer:
+        end_of_funds:
+            subject: "Na ucte %{exchange_name} vam dochadza %{quote}"
+            template_html: "<p>Na vasom ucte %{exchange_name} dochadza %{quote}.</p><p>Prevedte prostriedky na %{exchange_name}, aby vasi boti mohli nepretrzite fungovat.</p>"
+        notify_about_error:
+            subject: "Nieco sa pokazilo u %{label}"
+            template_html: "<p>Pri spracovani poslednej transakcie bota <b>%{label}</b> sa nieco pokazilo.</p><p>Chybu najdete v logu bota. Prihlasite sa a skontrolujte ju.</p><p>Chyby:</p><blockquote> <b>%{exchange_name}:</b> <b>%{errors}</b></blockquote>"
+        notify_about_restart:
+            subject: "Ups! Skusime to znova…"
+            template_html: "<p>Bot <b>%{label}</b> nemohol vykonat vas prikaz. Vyzera to na problem burzy. Skusime to znova o %{delay}.</p><p>Vsetky chyby najdete v logu bota. Prihlasite sa a pozrite sa.</p><p>Chyby:</p><blockquote> <b>%{exchange_name}:</b> <b>%{errors}</b> </blockquote>"
+        stopped_by_amount_limit:
+            subject: "%{label} investoval celu sumu"
+            template_html: "<p>Vas bot <b>%{label}</b> dosiahol ciel a investoval celych %{amount} %{quote}.</p><p>Bol automaticky zastaveny. Pre obnovenie ciela vypnite limit sumy.</p>"

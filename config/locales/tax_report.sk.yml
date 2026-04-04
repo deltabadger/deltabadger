@@ -1,0 +1,28 @@
+sk:
+    tax_report:
+        headers:
+            date: 'Dátum'
+            acquisition_date: 'Dátum nadobudnutia'
+            asset: 'Aktívum'
+            amount: 'Množstvo'
+            proceeds: 'Príjem'
+            cost_basis: 'Obstarávacia cena'
+            gain_loss: 'Zisk/Strata'
+            currency: 'Mena'
+            holding_days: 'Dni držania'
+            fee: 'Poplatok'
+            exchange: 'Burza'
+            tx_id: 'ID transakcie'
+            cost_basis_complete: 'Obstarávacia cena úplná'
+            tax_rate: 'Sadzba'
+            term: 'Obdobie'
+        values:
+            term_short: 'Krátkodobý'
+            term_long: 'Dlhodobý'
+        no_taxable_transactions: 'Za toto obdobie neboli nájdené žiadne zdaniteľné transakcie.'
+        summary:
+            total_gains: 'Celkové zisky'
+            total_losses: 'Celkové straty'
+        warnings:
+            missing_prices: 'Chýbajúce historické ceny pre'
+            upgrade_hint: 'Aktualizujte si plán CoinGecko, alebo použite deltabadger.com pre kompletné historické dáta.'
