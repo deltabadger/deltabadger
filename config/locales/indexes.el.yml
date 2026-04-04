@@ -1,0 +1,47 @@
+el:
+    index:
+        bitcoin:
+            title: "Bitcoin"
+            info: "Η μέση τιμή κόστους σε Bitcoin είναι η βασική στρατηγική για μακροπρόθεσμους επενδυτές."
+        crypto_berbell:
+            title: "Crypto Barbell"
+            info: "Κάλυψε το 74% της αγοράς crypto με ένα απλό, αυτόματο χαρτοφυλάκιο που εξισορροπείται μόνο του."
+        crypto_index:
+            title: "Crypto Index"
+            info: "Δεν υπάρχει S&P 500 για τα crypto, αλλά τώρα μπορείς να φτιάξεις ένα. Αυτοματοποίησε ένα χαρτοφυλάκιο δείκτη με τα κορυφαία crypto."
+        altcoin_season:
+            title: "Altcoin Season"
+            info: "Επένδυσε σε ένα χαρτοφυλάκιο με κερδοφόρα altcoins με ασφάλεια. Μείωσε τον κίνδυνο μικρής κεφαλαιοποίησης αντικαθιστώντας τη χειροκίνητη κατανομή με αυτόματη δεικτοποίηση."
+        layer_1:
+            title: "Layer 1"
+            info: "Βασικά δίκτυα blockchain που επεξεργάζονται απευθείας συναλλαγές και αποτελούν τη βάση της υποδομής blockchain."
+        made_in_usa:
+            title: "Made in USA"
+            info: "Κρυπτονομίσματα με σημαντική σχέση με τις Ηνωμένες Πολιτείες μέσω των ιδρυτικών ομάδων ή της έδρας τους."
+        alleged_sec_securities:
+            title: "Alleged SEC Securities"
+            info: "Tokens και κρυπτονομίσματα που έχουν χαρακτηριστεί ως τίτλοι αξιών από την Επιτροπή Κεφαλαιαγοράς των ΗΠΑ (SEC)."
+        memecoins:
+            title: "Memecoins"
+            info: "Νομίσματα που αντλούν αξία από memes του internet και τον ενθουσιασμό της κοινότητας αντί για τεχνολογία ή χρησιμότητα."
+        elon_musk_inspired:
+            title: "Elon Musk Inspired"
+            info: "Meme coins εμπνευσμένα από τον Elon Musk. Κανένα από αυτά τα projects δεν είναι (κατ'' ανάγκη) εγκεκριμένο ή δημιουργημένο από τον Elon Musk."
+        ai_portfolio:
+            title: "AI Portfolio"
+            info: "Τα tokens Τεχνητής Νοημοσύνης (AI) είναι κρυπτονομίσματα που τροφοδοτούν projects σχετικά με AI."
+        layer_2:
+            title: "Layer 2"
+            info: "Οι λύσεις Layer 2 είναι λύσεις κλιμάκωσης πάνω σε blockchains Layer 1 για βελτίωση ταχύτητας συναλλαγών και μείωση κόστους."
+        layer_0:
+            title: "Layer 0"
+            info: "Τα πρωτόκολλα Layer 0 παρέχουν τη θεμελιώδη υποδομή για κατασκευή και σύνδεση πολλαπλών blockchains."
+        gamefi:
+            title: "GameFi"
+            info: "Τα tokens GameFi τροφοδοτούν πλατφόρμες gaming βασισμένες σε blockchain και εικονικούς κόσμους, συνδυάζοντας gaming με αποκεντρωμένα χρηματοοικονομικά."
+        yield_farming:
+            title: "Yield Farming"
+            info: "Τα tokens yield farming επιτρέπουν στους χρήστες να κερδίζουν ανταμοιβές παρέχοντας ρευστότητα σε πρωτόκολλα αποκεντρωμένων χρηματοοικονομικών."
+        consensys_portfolio:
+            title: "Consensys Portfolio"
+            info: "Πρωτόκολλα και tokens στα οποία η Consensys έχει επενδύσει."
