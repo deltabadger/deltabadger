@@ -1,0 +1,293 @@
+sk:
+    bot:
+        add_api_keys: "Pridať API kľúče pre %{exchange}"
+        bot_name: 'Názov bota'
+        new: "Nový bot"
+        dca_index:
+            setup:
+                step_index: "Index"
+                sentence:
+                    build_index: "Zostaviť indexové portfólio"
+                    build_index_at: "Zostaviť portfólio %{index_name}"
+                    portfolio: portfólio
+                pick_index:
+                    top_coins: "Top kryptomeny"
+                    top_coins_description: "Najväčšie kryptomeny podľa trhovej kapitalizácie. S&P 500 kryptosveta."
+                    error: "Prosím vyberte index"
+            num_coins: "Počet mincí"
+            allocation_flattening: "Vyrovnanie alokácie"
+            into_index: "do %{index_name}"
+            into: do
+            index_preview: "Náhľad indexu"
+            fewer_coins_available: "%{available} z %{requested} mincí v indexe je dostupných na %{exchange_name}"
+            num_assets: "Aktíva v indexe"
+            asset_breakdown: "Rozloženie aktív"
+            asset: "Aktívum"
+            amount: "Množstvo"
+            avg_price: "Priem. cena"
+            value: "Hodnota"
+            pl: "Z/S"
+            warning:
+                intro: "Niektoré príkazy (%{skipped_count}) boli pod minimálnou veľkosťou príkazu na %{exchange_name}. Takto to bot rieši:"
+        types:
+            dca:
+                title: "DCA"
+                description: "Investujte do jedného aktíva"
+            dca_dual_asset:
+                title: "Rebalancované DCA"
+                description: "Rebalancujte dve aktíva"
+            index_portfolio:
+                title: "Indexové portfólio"
+                description: "Vaše osobné krypto ETF"
+            custom_portfolio:
+                title: "Vlastné portfólio"
+                description: "Rebalancujte vlastný mix aktív"
+            signal:
+                title: "Signál"
+                description: "Obchodujte na základe externých signálov"
+            dca_stocks:
+                title: "DCA (akcie)"
+                description: "Nakupujte akcie cez Alpaca"
+        dca_stocks:
+            connect_alpaca_intro: "Pripojte svoj účet Alpaca a začnite investovať do akcií"
+            pick_stock: "Hľadať akciu"
+            no_results: "Žiadne akcie nenájdené"
+            stock_not_found: "Akcia nebola nájdená na Alpaca"
+            mode_paper: "Papierové obchodovanie"
+            mode_live: "Živé obchodovanie"
+        status:
+            setting_orders: "Zadávanie príkazov…"
+            paused: "Pozastavené"
+            next_try: "Ďalší pokus za"
+            waiting: "Čakanie na splnenie všetkých podmienok"
+            listening: "Počúvam"
+            market_opens_in: "Trh sa otvára za"
+            market_closed: "Trh je momentálne zatvorený."
+        pick_exchange: "Výber burzy"
+        conversational:
+            invest: "Investovať"
+            into: "do"
+        utils:
+            mkt_cap_adjusted_html: "Upravené podľa trhovej kapitalizácie"
+            mkt_cap_adjusted_info_html: |
+                <p><b>Trhová kapitalizácia</b> je spôsob, ako merať veľkosť a hodnotu kryptomeny. Vypočíta sa vynásobením celkového počtu mincí aktuálnou cenou jednej mince. Vo vašom botovi dostane minca s väčšou trhovou kapitalizáciou väčší podiel z investície.</p>
+                <p><b>Príklad:</b></p>
+                <p><b>Minca A:</b> existujú 2 milióny mincí, každá za 10 $. Trhová kapitalizácia = 2M × 10 $ = 20M $.</p>
+                <p><b>Minca B:</b> existuje 1 milión mincí, každá za 1 $. Trhová kapitalizácia = 1M × 1 $ = 1M $.</p>
+                <p>Ak investujete 100 $, bot ich rozdelí úmerne trhovej kapitalizácii: 95,2 $ do Mince A, 4,8 $ do Mince B.</p>
+                <p>Ak ale cena Mince B vzrastie na 3 $, jej trhová kapitalizácia bude 3M $. Ďalších 100 $ sa potom rozdelí 87 $ do Mince A a 13 $ do Mince B.</p>
+        above: "nad"
+        below: "pod"
+        buttons:
+            automatic_withdrawal: "Automatický výber"
+            request_exchange: "Požiadať o pridanie burzy"
+            move_existing_bot: "Presunúť existujúceho bota na inú burzu"
+            delete:
+                ok: "Odstrániť kompletne"
+                warning_html: "Tým odstránite bota so všetkými<br>historickými dátami. Ste si istí?"
+            dollar_cost_averaging: "Dollar-Cost Averaging"
+            pending:
+                info_html: "Spracovanie…"
+                text: "Čakajúce"
+            start:
+                changed_missed:
+                    continue: "Áno, nakúpiť a pokračovať"
+                    info_html: "Chcete investovať <b>%{amount} %{quote}</b>, ktoré ste zmeškali, kým bol bot pozastavený? Nový rozvrh začne po dokončení aktuálneho odpočtu."
+                    skip: "Preskočiť zmeškanú časť"
+                changed_on_schedule:
+                    continue: "Rozumiem"
+                    info_html: "Nový rozvrh začne po uplynutí zostávajúcich <b>%{time}</b> z posledného."
+                    skip: "Ignorovať a spustiť ihneď"
+                missed:
+                    continue: "Áno, nakúpiť a pokračovať"
+                    info_html: "Chcete investovať <b>%{amount} %{quote}</b>, ktoré ste zmeškali, kým bol bot pozastavený, a pokračovať v pôvodnom rozvrhu?"
+                    skip: "Preskočiť zmeškanú časť"
+                on_schedule:
+                    continue: "Pokračovať v pôvodnom rozvrhu"
+                    info_html: "Do ďalšieho príkazu zostáva <b>%{time}</b>. Môžete to preskočiť a vykonať príkaz ihneď, alebo pokračovať v pôvodnom odpočte."
+                    skip: "Preskočiť"
+        signal:
+            trade: "Obchod"
+            spending: "s využitím"
+            add_signal: "+ Pridať signál"
+            url_placeholder: "Webhook URL sa zobrazí tu"
+            for: "za"
+            when_triggered: "keď je spustený tento webhook:"
+            of_the_balance: "zo zostatku"
+        buy: Nákup
+        counter: '%{countdown}'
+        day: Deň
+        details:
+            log:
+                date: Dátum
+                errors: Chyby
+                title: Log
+            stats:
+                amount: 'Množstvo(%{base})'
+                amount1: 'Množstvo'
+                value: 'Hodnota(%{quote})'
+                value1: 'Hodnota'
+                average_price: 'Priemerná cena'
+                bought: Nakúpené
+                chart:
+                    total_invested: 'Celkom investované'
+                    value: Hodnota
+                csv_download_html: 'Tabuľka vyššie zobrazuje iba posledných desať transakcií. Celý prehľad si môžete stiahnuť vo formáte CSV nižšie.'
+                current_value: 'Aktuálna hodnota'
+                current_value_sold: 'Aktuálna hodnota predaných %{base}'
+                date: Dátum
+                download_csv: 'Export'
+                generating_csv: 'Generujem súbor...'
+                import_csv: 'Import'
+                import_success: 'Úspešne importovaných %{count} príkaz(ov).'
+                import_no_new_orders: 'Žiadne nové príkazy na import (všetky príkazy už existujú alebo meny sa nezhodujú).'
+                import_no_file: 'Vyberte prosím CSV súbor na import.'
+                import_invalid_format: 'Neplatný formát CSV. Použite súbor exportovaný z tejto aplikácie.'
+                import_malformed_csv: 'CSV súbor je poškodený a nedá sa spracovať.'
+                import_error: 'Import zlyhal: %{message}'
+                import_currency_mismatch: "Nesúlad mien: CSV obsahuje ''%{csv_quote}'', ale bot používa ''%{bot_quote}''"
+                exchange_unavailable_html: 'API burzy momentálne neodpovedá.<br>Výpočty vychádzajú z posledných dostupných dát.'
+                order: Príkaz
+                profit_loss: Zisk/Strata
+                price: 'Cena(%{quote})'
+                sold: Predané
+                title: Štatistiky
+                total_invested: 'Celkom investované'
+                portfolio_value: 'Hodnota portfólia'
+        for: za
+        force_smart_intervals_html: '<b>Inteligentné intervaly</b> · Nakupujte po čiastkach <split>100 $</split> %{currency}.'
+        hour: Hodina
+        limit_buy: 'Limitný nákup'
+        limit_sell: 'Limitný predaj'
+        messages:
+            do_you_want_to_delete: 'Chcete zmazať tohto bota?'
+            symbol_not_supported: "%{symbol} nie je podporovaný"
+            specify_percentage_limit_order: "Pri vytváraní limitného príkazu zadajte percento"
+            smart_intervals_above_minimum: "Hodnota inteligentných intervalov musí byť vyššia ako %{minimum}"
+            invalid_price_range: "Cenový rozsah je neplatný"
+            subaccounts_not_allowed: "Podúčty nie sú na tejto burze povolené"
+            no_subaccount_name: "Nie je zadaný názov podúčtu"
+            wrong_subaccount_name: "Nesprávny názov podúčtu"
+            failed_tooltip_explanation: "Tento príkaz zlyhal: %{error_message}"
+            skipped_tooltip_explanation: "Tento príkaz bol preskočený, pretože čiastka bola pod minimálnou veľkosťou príkazu na %{exchange_name}. Čiastka bola pridaná k ďalšiemu príkazu."
+            cancelled_tooltip_explanation: "Tento príkaz bol zrušený alebo vypršal skôr, než bol vyplnený."
+            failed_status_bar_explanation: "Posledný príkaz zlyhal: %{error_message}"
+            order_cancelled: 'Príkaz zrušený'
+            failed_to_cancel_order: 'Nepodarilo sa zrušiť príkaz'
+            failed_to_cancel_order_invalid_api_key: 'Nepodarilo sa zrušiť príkaz: Neplatný API kľúč. Skontrolujte prosím nastavenie API kľúčov na %{exchange_name}.'
+            cannot_cancel_imported_order: 'Importované príkazy nie je možné zrušiť'
+        minimum_withdrawal_disclaimer: 'Minimálna výška výberu je %{minimum} %{currency}.'
+        minimum_withdrawal_disclaimer_usd: 'Minimálna výška výberu je %{minimum} USD.'
+        month: Mesiac
+        next_buy: 'Ďalší za %{countdown}'
+        next_sell: 'Ďalší za %{countdown}'
+        next_withdrawal: 'Ďalší za %{countdown}'
+        not_found: 'Taký bot neexistuje.'
+        price: 'cena'
+        price_range_buy_html: 'Nakupovať iba v cenovom rozsahu od <split>100 $</split> do <split>1000 $</split> %{quote} za %{base}.'
+        price_range_sell_html: "Predávať iba v cenovom rozsahu od <split>100 $</split> do <split>1000 $</split> %{quote} za %{base}."
+        sell: "Predaj"
+        buy_all: "Nakúpiť všetko"
+        sell_all: "Predať všetko"
+        first_time: "prvýkrát"
+        every_time: "zakaždým"
+        name: "Názov:"
+        fees: "Poplatky"
+        maker_fee: "Maker"
+        taker_fee: "Taker"
+        withdrawal_fee: "Výber"
+        additional_title: "Obojsmerný bot"
+        smart_intervals_disclaimer: 'Veľkosť príkazov na %{exchange} je definovaná v %{currency}. Minimálna veľkosť príkazu je %{minimum}%{currency}.'
+        smart_intervals_disclaimer_base: 'Veľkosť príkazov na %{exchange} je definovaná v %{currency}. Minimálna veľkosť príkazu je %{minimum}%{currency}.'
+        smart_intervals_disclaimer_quote: 'Minimálna veľkosť príkazu je %{minimum}%{currency}.'
+        starting: Spúšťanie
+        subaccounts_info: 'Použiť podúčet'
+        week: Týždeň
+        withdraw_interval_html: 'Vyberať každých <split>2</split> dní.'
+        withdraw_threshold_html: 'Vyberať, keď je k dispozícii aspoň <split>0,001</split> %{currency}.'
+        withdrawal_percentage: '%{percentage}%'
+        withdrawal: 'Výber'
+        cancel_order: 'Zrušiť'
+        warning:
+            dca_single_asset:
+                intro: "Čiastka pre %{missed_symbol} bola pod minimálnou veľkosťou príkazu na %{exchange_name} (%{missed_minimum_base_size} %{missed_symbol} alebo %{missed_minimum_quote_size} %{quote_symbol} pre %{missed_symbol}). Takto to bot rieši:"
+            dca_dual_asset:
+                both_below:
+                    intro: "Obe čiastky pre %{base0_symbol} a %{base1_symbol} sú pod minimálnou veľkosťou príkazu na %{exchange_name} (%{base0_minimum_base_size} %{base0_symbol} alebo %{base0_minimum_quote_size} %{quote_symbol} pre %{base0_symbol} a %{base1_minimum_base_size} %{base1_symbol} alebo %{base1_minimum_quote_size} %{quote_symbol} pre %{base1_symbol}). Takto to bot rieši:"
+                one_below:
+                    intro: "Bot nakúpil %{bought_quote_amount} %{quote_symbol} za %{bought_symbol}, ale čiastka pre %{missed_symbol} bola pod minimálnou veľkosťou príkazu na %{exchange_name} (%{missed_minimum_base_size} %{missed_symbol} alebo %{missed_minimum_quote_size} %{quote_symbol} pre %{missed_symbol}). Takto to bot rieši:"
+            buffer_explanation:
+                one: "Zmeškaná čiastka bola uložená do zásobníka a bude použitá s ďalším plánovaným príkazom, aby boli váš rozvrh a alokácia dodržané čo najpresnejšie v rámci minimálnych veľkostí príkazov."
+                other: "Zmeškané čiastky boli uložené do zásobníka a budú použité s ďalšími plánovanými príkazmi, aby boli váš rozvrh a alokácia dodržané čo najpresnejšie v rámci minimálnych veľkostí príkazov."
+            title: "Gratulujeme! Váš bot beží."
+            general_note: "Minimálne veľkosti príkazov a potrebné čiastky na rebalancovanie sa menia. Transakcie môžu občas vyzerať nepravidelne, ale bot vždy smeruje k vašej požadovanej alokácii a rozvrhu, takže nie je potrebné nič ďalšie robiť."
+        settings:
+            smart_intervals:
+                sentence_html: '<b>Inteligentné intervaly</b> Rozdeliť <span>celú</span> čiastku <span>na</span> <span>%{amount_html} %{quote}</span> jednotky'
+                info: "Rozdelenie %{quote_amount} %{quote} / %{interval} na jednotky po %{amount} %{quote} bude znamenať jednu investíciu každých %{smart_interval}"
+            limit_orders:
+                sentence_html: '<b>FeeCutter</b> <span>Znížiť poplatky</span> pomocou <span>limitných</span> príkazov <span>%{amount_html}%</span> <span>pod cenou</span>'
+                info: "Na zníženie poplatkov na nulu nastavte %{maker_fee}%, čo je maker poplatok na %{exchange}. Nastavte nižšie pre rýchlejšie vykonanie, alebo vyššie pre potenciálne lepšiu cenu. Sledujte vykonanie príkazov v tabuľke príkazov."
+            extra_amount_limit:
+                sentence_html: "Neutratit viac ako <span>%{value_html} %{quote}</span>"
+                info:
+                    spent: "Celá čiastka bola investovaná"
+                    left: "(zostáva %{amount} %{quote})"
+            extra_price_limit:
+                sentence_html:
+                    one: "%{timing_condition_html} keď je <span>cena</span> <span>%{value_condition_html}</span> <span>%{price_input_html}</span>"
+                    other: "%{timing_condition_html} keď je cena %{base_html} <span></span> <span>%{value_condition_html}</span> <span>%{price_input_html}</span>"
+                info: "Aktuálna cena %{base} je %{current_price} %{quote}"
+                price_limit_input_html: "%{value_html} %{quote}"
+                price_limit_range_input_html: "%{lower_bound_value_html} %{quote} a %{upper_bound_value_html} %{quote}"
+                timing_condition:
+                    while: "Nakupovať len"
+                    after: "Začať nakupovať"
+                value_condition:
+                    above: "nad"
+                    below: "pod"
+                    between: "medzi"
+            extra_price_drop_limit:
+                sentence_html:
+                    one: "Začať nakupovať, keď cena klesne o <span>%{value_html}%</span> od svojho %{time_window_condition_html}"
+                    other: "Začať nakupovať, keď cena %{base_html} klesne o <span>%{value_html}%</span> od svojho %{time_window_condition_html}"
+                info: "Aktuálne %{time_window_condition} %{base} je %{condition_high} %{quote}."
+                time_window_condition:
+                    ath: "historického maxima"
+                    twenty_four_hours: "24h maxima"
+            extra_indicator_limit:
+                sentence_html:
+                    one: "<span>%{timing_condition_html}</span> keď je <span>%{indicator_html}</span> na %{timeframe_html} <span>sviečkach</span> <span>%{value_condition_html} %{value_html}</span>"
+                    other: "<span>%{timing_condition_html}</span> keď je <span>%{indicator_html}</span> na %{ticker_html} %{timeframe_html} <span>sviečkach</span> <span>%{value_condition_html} %{value_html}</span>"
+                info: "%{indicator} na poslednej %{timeframe} %{ticker} sviečke je %{value}"
+                timing_condition:
+                    while: "Nakupovať len"
+                    after: "Začať nakupovať"
+                value_condition:
+                    above: "nad"
+                    below: "pod"
+                timeframe:
+                    one_hour: "hodinových"
+                    four_hours: "4hodinových"
+                    one_day: "denných"
+                    three_days: "3denných"
+                    one_week: "týždenných"
+                    one_month: "mesačných"
+            extra_moving_average_limit:
+                sentence_html:
+                    one: "<span>%{timing_condition_html}</span> keď je cena %{base} %{value_condition_html} <span>%{ma_html} %{ma_period_html}</span> na %{timeframe_html} <span>sviečkach</span>"
+                    other: "<span>%{timing_condition_html}</span> keď je cena %{base} %{value_condition_html} <span>%{ma_html} %{ma_period_html}</span> na %{ticker_html} %{timeframe_html} <span>sviečkach</span>"
+                info: "%{ma_type} %{ma_period} na poslednej %{timeframe} %{ticker} sviečke je %{value} %{quote}"
+                timing_condition:
+                    while: "Nakupovať len"
+                    after: "Začať nakupovať"
+                value_condition:
+                    above: "nad"
+                    below: "pod"
+                timeframe:
+                    one_hour: "hodinových"
+                    four_hours: "4hodinových"
+                    one_day: "denných"
+                    three_days: "3denných"
+                    one_week: "týždenných"
+                    one_month: "mesačných"

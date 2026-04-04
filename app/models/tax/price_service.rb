@@ -1,7 +1,7 @@
 module Tax
   class PriceService
     STABLECOINS = %w[USDT USDC BUSD DAI FDUSD TUSD PYUSD RLUSD].freeze
-    FIAT_CURRENCIES = %w[USD EUR GBP CHF SEK PLN DKK].freeze
+    FIAT_CURRENCIES = %w[USD EUR GBP CHF SEK PLN DKK CZK].freeze
 
     attr_reader :warnings
 

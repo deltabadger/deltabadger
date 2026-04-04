@@ -35,7 +35,12 @@ module Tax
                 annual_exemption: 1270, split_payment: true },
       'DK' => { name: 'Denmark', method: :fifo, currency: 'DKK', locale: :da,
                 danish_wash_sale: true, per_asset_summary: true,
-                loss_deduction_rate_on_losses: 0.26 }
+                loss_deduction_rate_on_losses: 0.26 },
+      'CZ' => { name: 'Czech Republic', method: :fifo, currency: 'CZK', locale: :cs,
+                czech_exemptions: { time_test: 3.years, value_test: 100_000, annual_cap: 40_000_000 } },
+      'SK' => { name: 'Slovakia', method: :fifo, currency: 'EUR', locale: :sk,
+                crypto_to_crypto_taxable: false, stablecoin_ambiguous: true,
+                short_long_term: true, holding_tax_rate: { short: '19%', long: '7%' } }
     }.freeze
 
     def self.for(code)
