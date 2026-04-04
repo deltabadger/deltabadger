@@ -374,7 +374,6 @@ nl:
         import_from: 'Transacties importeren van'
         search_exchange: 'Exchange zoeken...'
         setup_coingecko_html: 'Om een belastingrapport te genereren zijn historische prijzen nodig. Het gratis abonnement van <b>CoinGecko</b> dekt tot 2 jaar historie. Voor oudere transacties kun je upgraden naar <b>CoinGecko Analyst</b> of je aansluiten bij <a href="https://deltabadger.com">deltabadger.com</a> waar marktdata inbegrepen is.'
-        beta_notice: 'Belastingrapportage is nog in bèta. Genereer een rapport, deel het met je boekhouder en laat me weten wat er beter kan. Met jouw feedback wordt het perfect.'
         export_modal:
             title: 'Rapport genereren'
             tax_report: 'Belastingrapport'
