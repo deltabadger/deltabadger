@@ -1,0 +1,47 @@
+cs:
+    index:
+        bitcoin:
+            title: "Bitcoin"
+            info: "Pravidelné investování do Bitcoinu je zlatý standard pro dlouhodobé investory."
+        crypto_berbell:
+            title: "Krypto činky"
+            info: "Pokryjte 74 % kryptotrhu jednoduchým portfoliem, které se automaticky rebalancuje."
+        crypto_index:
+            title: "Krypto index"
+            info: "Krypto S&P 500 neexistuje, ale teď si ho můžete sestavit sami. Automatizované indexové portfolio z nejlepších kryptoměn."
+        altcoin_season:
+            title: "Sezóna altcoinů"
+            info: "Investujte do portfolia úspěšných altcoinů s rozvahou. Snižte riziko malých kryptoměn nahrazením ruční alokace automatickým indexováním."
+        layer_1:
+            title: "Layer 1"
+            info: "Primární blockchainové sítě, které přímo zpracovávají transakce a tvoří základ blockchainové infrastruktury."
+        made_in_usa:
+            title: "Made in USA"
+            info: "Kryptoměny s výraznou vazbou na Spojené státy prostřednictvím zakladatelských týmů nebo sídel společností."
+        alleged_sec_securities:
+            title: "Údajné cenné papíry dle SEC"
+            info: "Tokeny a kryptoměny, které americká Komise pro cenné papíry (SEC) označila za cenné papíry."
+        memecoins:
+            title: "Memecoiny"
+            info: "Mince, jejichž hodnota vychází z internetových memů a nadšení komunity spíše než z technologie nebo užitečnosti."
+        elon_musk_inspired:
+            title: "Inspirováno Elonem Muskem"
+            info: "Meme mince inspirované Elonem Muskem. Žádný z těchto projektů není (nutně) podporován ani vytvořen Elonem Muskem."
+        ai_portfolio:
+            title: "AI portfolio"
+            info: "Tokeny umělé inteligence (AI) jsou kryptoměny, které pohánějí projekty spojené s AI."
+        layer_2:
+            title: "Layer 2"
+            info: "Layer 2 řešení jsou škálovací technologie postavené nad Layer 1 blockchainy pro zrychlení transakcí a snížení nákladů."
+        layer_0:
+            title: "Layer 0"
+            info: "Layer 0 protokoly poskytují základní infrastrukturu pro budování a propojování více blockchainů."
+        gamefi:
+            title: "GameFi"
+            info: "GameFi tokeny pohánějí herní platformy a virtuální světy na blockchainu, které kombinují hraní s decentralizovanými financemi."
+        yield_farming:
+            title: "Yield Farming"
+            info: "Yield farming tokeny umožňují uživatelům získávat odměny za poskytování likvidity protokolům decentralizovaných financí."
+        consensys_portfolio:
+            title: "Portfolio Consensys"
+            info: "Protokoly a tokeny, do kterých Consensys investoval."
