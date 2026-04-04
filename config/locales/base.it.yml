@@ -3,7 +3,6 @@ it:
         title: 'Deltabadger'
     header:
         start_investing: 'Inizia a investire:'
-        trading_options: 'Opzioni per traders:'
     ads:
         dca_profit_html: |
             <p>Se avessi fatto dollar-cost averaging in Bitcoin negli ultimi %{years}&nbsp;anni, ora saresti in attivo del <b style="color: #00A36C;">%{profit}%</b>.</p>
