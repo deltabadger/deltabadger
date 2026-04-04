@@ -375,7 +375,6 @@ de:
         import_from: 'Transaktionen importieren von'
         search_exchange: 'Börse suchen...'
         setup_coingecko_html: 'Um einen Steuerbericht zu erstellen, werden historische Kurse benötigt. Der kostenlose Tarif von <b>CoinGecko</b> deckt bis zu 2 Jahre ab. Für ältere Transaktionen auf <b>CoinGecko Analyst</b> upgraden oder <a href="https://deltabadger.com">deltabadger.com</a> beitreten, wo Marktdaten inklusive sind.'
-        beta_notice: 'Steuerberichte sind noch in der Betaphase. Erstelle einen Bericht, teile ihn mit deinem Steuerberater und sag mir, was verbessert werden kann. Mit deinem Feedback wird es perfekt.'
         export_modal:
             title: 'Bericht erstellen'
             tax_report: 'Steuerbericht'

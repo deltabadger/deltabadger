@@ -390,7 +390,6 @@ da:
         import_from: 'Importér transaktioner fra'
         search_exchange: 'Søg børs...'
         setup_coingecko_html: 'For at generere en skatterapport kræves historiske priser. <b>CoinGecko</b>-gratisplanen dækker op til 2 års historik. For ældre transaktioner, opgrader til <b>CoinGecko Analyst</b> eller tilmeld dig <a href="https://deltabadger.com">deltabadger.com</a>, hvor markedsdata er inkluderet.'
-        beta_notice: 'Skatterapportering er stadig i beta. Generér en rapport, del den med din revisor, og lad mig vide, hvad der kan forbedres. Med din feedback kan den blive perfekt.'
         export_modal:
             title: 'Generér rapport'
             tax_report: 'Skatterapport'
