@@ -3,7 +3,6 @@
 <% if @pending_report %>
   <div data-controller="auto-download" data-auto-download-url-value="<%= download_tax_report_reports_path(country: @pending_report[:country], year: @pending_report[:year]) %>"></div>
 <% end %>
-<div style="text-wrap: balance; padding: 6rem 0; color: var(--ink); text-align: center;"><%= t('tracker.beta_notice') %></div>
 <div class="two-row-filters">
   <div class="two-row-filters__row">
     <div class="filters">
