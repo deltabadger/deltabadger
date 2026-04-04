@@ -1,0 +1,23 @@
+bg:
+    mailer:
+        greeting: 'Здравей, легендарен инвеститоре,'
+        greeting_name: 'Здравей %{name},'
+        best_html: '<p>С поздрави,<br>Ян</p>'
+        unsubscribe: 'Отписване'
+    test_mailer:
+        test_email:
+            subject: "Deltabadger – тестов имейл"
+            body: "Това е тестов имейл от вашата Deltabadger инстанция. Ако сте го получили, имейл известията работят правилно."
+    bot_alerts_mailer:
+        end_of_funds:
+            subject: "Свършват ви %{quote} в %{exchange_name}"
+            template_html: "<p>%{quote} в акаунта ви в %{exchange_name} свършват.</p><p>Прехвърлете средства в %{exchange_name}, за да могат ботовете ви да продължат да работят.</p>"
+        notify_about_error:
+            subject: "Нещо се обърка с %{label}"
+            template_html: "<p>Нещо се обърка при обработката на последната транзакция на бота <b>%{label}</b>.</p><p>Грешката ще намерите в лога на бота. Влезте и я проверете.</p><p>Грешки:</p><blockquote> <b>%{exchange_name}:</b> <b>%{errors}</b></blockquote>"
+        notify_about_restart:
+            subject: "Опа! Ще опитаме отново…"
+            template_html: "<p>Ботът <b>%{label}</b> не успя да изпълни поръчката ви. Изглежда проблемът е от борсата. Ще опитаме отново след %{delay}.</p><p>Всички грешки ще намерите в лога на бота. Влезте и проверете.</p><p>Грешки:</p><blockquote> <b>%{exchange_name}:</b> <b>%{errors}</b> </blockquote>"
+        stopped_by_amount_limit:
+            subject: "%{label} инвестира цялата сума"
+            template_html: "<p>Вашият бот <b>%{label}</b> достигна целта и инвестира всичките %{amount} %{quote}.</p><p>Беше автоматично спрян. За да подновите целта, изключете лимита на сумата.</p>"

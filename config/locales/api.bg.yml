@@ -1,0 +1,231 @@
+bg:
+    bot:
+        api:
+            whitelist_ip_fallback_html: 'IP адреса на компютъра, на който е инсталиран Deltabadger. Ако работи на сървър, използвайте публичния IP на сървъра. Ако е на локалния ви компютър, <a href="https://whatismyipaddress.com" target="_blank">проверете IP адреса си тук</a>'
+            binance: &binance_config
+                instructions:
+                    -   text_html: 'Влезте в акаунта си в %{exchange_link}.'
+                    -   text_html: 'Отидете на <a href="https://www.binance.com/en/my/settings/api-management"><b>Account</b> → <b>API Management</b></a>.'
+                    -   text_html: 'Натиснете <b class="pbutton">Create API</b>.'
+                    -   text_html: 'Изберете <b class="pbutton">System generated</b>.'
+                    -   text_html: 'Дайте име на ключовете (напр. „deltabadger") и при необходимост преминете през проверка за сигурност.'
+                    -   text_html: 'Натиснете <b class="pbutton">Edit restrictions</b> в горния десен ъгъл на плочката с ключовете.'
+                        sub_instructions:
+                            -   text_html: "🔘 Restrict access to trusted IPs only: добавете %{whitelist_ip}.<br><strong>⚠️ Важно:</strong> Направете първо тази стъпка, за да се отключи следващата."
+                            -   text_html: "Отметнете:<br>☑️ <b>Enable Reading</b><br>☑️ <b>Enable Spot & Margin Trading</b>.<br><strong>⚠️ Важно:</strong> Ключовете няма да работят, ако активирате допълнителни разрешения."
+                    -   text_html: 'Натиснете <b>Save</b> и при необходимост преминете през проверка за сигурност.'
+                    -   text_html: 'Копирайте и поставете новите си API ключове по-горе.'
+                private_key: 'Secret Key'
+                public_key: 'API Key'
+            binance_us: *binance_config
+            coinbase:
+                instructions:
+                    -   text_html: 'Влезте в акаунта си в %{exchange_link}.'
+                    -   text_html: 'В левия панел изберете раздела <b>More</b>.'
+                    -   text_html: 'Изберете <b>Advanced API</b>.'
+                    -   text_html: 'Натиснете <b>Create your API key</b>. Ако не можете да го намерите, отидете директно <a href="https://www.coinbase.com/settings/api">тук</a>.'
+                    -   text_html: 'В раздела <b>API keys</b> натиснете <b>Create API key</b>.'
+                    -   text_html: 'В диалоговия прозорец задайте:'
+                        sub_instructions:
+                            -   text_html: 'API key nickname'
+                                sub_instructions:
+                                    -   text_html: 'Изберете произволно име, <b>Deltabadger</b> е подходящо за лесно разпознаване.'
+                            -   text_html: 'Portfolio'
+                                sub_instructions:
+                                    -   text_html: '<b>Default</b> или портфолиото, до което искате Deltabadger да има достъп, ако не използвате Coinbase Portfolios.'
+                                    -   text_html: '<b>View</b> (само за четене)'
+                                    -   text_html: '<b>Trade</b> (извършване на сделки вместо вас)<br><strong>⚠️ Важно:</strong> Ключовете няма да работят, ако активирате допълнителни разрешения.'
+                            -   text_html: 'IP whitelist'
+                                sub_instructions:
+                                    -   text_html: '🔘 Добавете %{whitelist_ip}.'
+                    -   text_html: 'Натиснете <b>Create & download</b> и завършете двуфакторната проверка.'
+                    -   text_html: 'Копирайте и поставете новите си API ключове във формуляра по-горе.'
+                private_key: 'Secret'
+                public_key: 'API key ID'
+            kraken:
+                instructions:
+                    -   text_html: 'Влезте в акаунта си в %{exchange_link}.'
+                    -   text_html: 'В потребителското меню отидете на <b>Settings</b> → <b>Connections & API</b>.'
+                    -   text_html: 'Натиснете <b>Create API key</b>.'
+                    -   text_html: 'Задайте разрешения за:'
+                        sub_instructions:
+                            -   text_html: 'Funds permissions:'
+                                sub_instructions:
+                                    -   text_html: '<b>Query</b>'
+                            -   text_html: 'Order and Trades:'
+                                sub_instructions:
+                                    -   text_html: '<b>Query open orders & trades</b>'
+                                    -   text_html: '<b>Query closed orders & trades</b>'
+                                    -   text_html: '<b>Create & modify orders</b>'
+                                    -   text_html: '<b>Cancel & close orders</b><br><strong>⚠️ Важно:</strong> Ключовете няма да работят, ако активирате допълнителни разрешения.'
+                            -   text_html: 'IP address restriction:'
+                                sub_instructions:
+                                    -   text_html: '🔘 Добавете %{whitelist_ip}.'
+                    -   text_html: 'Натиснете <b>Generate key</b>.'
+                    -   text_html: 'Копирайте и поставете новите си API ключове във формуляра по-горе.'
+                private_key: 'Private Key'
+                public_key: 'API Key'
+            bitget:
+                instructions:
+                    -   text_html: 'Влезте в акаунта си в %{exchange_link}.'
+                    -   text_html: 'Отидете на <a href="https://www.bitget.com/account/newapi"><b>Account</b> → <b>API Management</b></a>.'
+                    -   text_html: 'Натиснете <b>Create API Key</b>.'
+                    -   text_html: 'Изберете <b>System generated</b>.'
+                    -   text_html: 'Дайте име на ключа (напр. „Deltabadger") и задайте <b>Passphrase</b>.'
+                    -   text_html: 'Задайте разрешения:'
+                        sub_instructions:
+                            -   text_html: '☑️ <b>Read</b>'
+                            -   text_html: '☑️ <b>Spot Trading</b><br><strong>⚠️ Важно:</strong> Не активирайте разрешения за Withdraw и Futures.'
+                            -   text_html: 'IP whitelist:'
+                                sub_instructions:
+                                    -   text_html: '🔘 Добавете %{whitelist_ip}.'
+                    -   text_html: 'Натиснете <b>Next</b> и завършете проверката.'
+                    -   text_html: 'Копирайте и поставете API Key, Secret Key и Passphrase във формуляра по-горе.'
+                private_key: 'Secret Key'
+                public_key: 'API Key'
+            kucoin:
+                instructions:
+                    -   text_html: 'Влезте в акаунта си в %{exchange_link}.'
+                    -   text_html: 'Отидете на <a href="https://www.kucoin.com/account/api"><b>Account</b> → <b>API Management</b></a>.'
+                    -   text_html: 'Натиснете <b>Create API</b>.'
+                    -   text_html: 'Дайте име на ключа (напр. „Deltabadger") и задайте <b>Passphrase</b>.'
+                    -   text_html: 'Задайте разрешения:'
+                        sub_instructions:
+                            -   text_html: '☑️ <b>General</b> (за четене на данни от акаунта)'
+                            -   text_html: '☑️ <b>Spot Trading</b><br><strong>⚠️ Важно:</strong> Не активирайте разрешения за Withdraw и Futures.'
+                            -   text_html: 'IP whitelist:'
+                                sub_instructions:
+                                    -   text_html: '🔘 Добавете %{whitelist_ip}.'
+                    -   text_html: 'Натиснете <b>Confirm</b> и завършете проверката.'
+                    -   text_html: 'Копирайте и поставете API Key, Secret Key и Passphrase във формуляра по-горе.'
+                private_key: 'API Secret'
+                public_key: 'API Key'
+            bybit:
+                instructions:
+                    -   text_html: 'Влезте в акаунта си в %{exchange_link}.'
+                    -   text_html: 'Отидете на <a href="https://www.bybit.com/app/user/api-management"><b>Account</b> → <b>API Management</b></a>.'
+                    -   text_html: 'Натиснете <b>Create New Key</b>.'
+                    -   text_html: 'Изберете <b>System-generated API Keys</b>.'
+                    -   text_html: 'Дайте име на ключа (напр. „Deltabadger").'
+                    -   text_html: 'Задайте разрешения:'
+                        sub_instructions:
+                            -   text_html: '☑️ <b>Read-Only</b>'
+                            -   text_html: '☑️ <b>Spot Trading</b><br><strong>⚠️ Важно:</strong> Не активирайте разрешения за Withdraw и Derivatives.'
+                            -   text_html: 'IP whitelist:'
+                                sub_instructions:
+                                    -   text_html: '🔘 Добавете %{whitelist_ip}.'
+                    -   text_html: 'Натиснете <b>Submit</b> и завършете проверката.'
+                    -   text_html: 'Копирайте и поставете новите си API ключове във формуляра по-горе.'
+                private_key: 'API Secret'
+                public_key: 'API Key'
+            mexc:
+                instructions:
+                    -   text_html: 'Влезте в акаунта си в %{exchange_link}.'
+                    -   text_html: 'Отидете на <a href="https://www.mexc.com/user/openapi"><b>Account</b> → <b>API Management</b></a>.'
+                    -   text_html: 'Натиснете <b>Create API Key</b>.'
+                    -   text_html: 'Дайте име на ключа (напр. „Deltabadger").'
+                    -   text_html: 'Задайте разрешения:'
+                        sub_instructions:
+                            -   text_html: '☑️ <b>View Order Details</b>'
+                            -   text_html: '☑️ <b>Trade</b><br><strong>⚠️ Важно:</strong> Не активирайте разрешение за Withdraw.'
+                            -   text_html: 'Link IP Address:'
+                                sub_instructions:
+                                    -   text_html: '🔘 Добавете %{whitelist_ip}.'
+                    -   text_html: 'Натиснете <b>Confirm</b> и завършете проверката.'
+                    -   text_html: 'Копирайте и поставете новите си API ключове във формуляра по-горе.'
+                private_key: 'Secret Key'
+                public_key: 'Access Key'
+            gemini:
+                instructions:
+                    -   text_html: 'Влезте в акаунта си в %{exchange_link}.'
+                    -   text_html: 'Отидете на <a href="https://exchange.gemini.com/settings/api"><b>Settings</b> → <b>API</b></a>.'
+                    -   text_html: 'Натиснете <b>Create a New API Key</b>.'
+                    -   text_html: 'Задайте обхвата на ключа на <b>Primary</b>.'
+                    -   text_html: 'Задайте разрешения:'
+                        sub_instructions:
+                            -   text_html: '☑️ <b>Order Placement</b>'
+                            -   text_html: '☑️ <b>Order Status</b>'
+                            -   text_html: '☑️ <b>Account Balance</b><br><strong>⚠️ Важно:</strong> Не активирайте разрешения за Fund Management и Withdrawal.'
+                    -   text_html: 'Натиснете <b>Create API Key</b> и завършете проверката.'
+                    -   text_html: 'Копирайте и поставете новите си API ключове във формуляра по-горе.'
+                private_key: 'API Secret'
+                public_key: 'API Key'
+            bitvavo:
+                instructions:
+                    -   text_html: 'Влезте в акаунта си в %{exchange_link}.'
+                    -   text_html: 'Отидете на <a href="https://account.bitvavo.com/user/api"><b>Settings</b> → <b>API</b></a>.'
+                    -   text_html: 'Натиснете <b>Generate new key</b>.'
+                    -   text_html: 'Задайте разрешения:'
+                        sub_instructions:
+                            -   text_html: '☑️ <b>View</b>'
+                            -   text_html: '☑️ <b>Trade</b><br><strong>⚠️ Важно:</strong> Не активирайте разрешение за Withdraw.'
+                            -   text_html: 'IP whitelist:'
+                                sub_instructions:
+                                    -   text_html: '🔘 Добавете %{whitelist_ip}.'
+                    -   text_html: 'Натиснете <b>Generate</b>.'
+                    -   text_html: 'Копирайте и поставете новите си API ключове във формуляра по-горе.'
+                private_key: 'API Secret'
+                public_key: 'API Key'
+            hyperliquid:
+                instructions:
+                    -   text_html: 'Влезте в акаунта си в %{exchange_link}.'
+                    -   text_html: 'В левия панел отидете на <a href="https://app.hyperliquid.xyz/API"><b>API</b></a>.'
+                    -   text_html: 'Натиснете <b>Generate API agent</b>.'
+                    -   text_html: 'Копирайте показания <b>Agent Private Key</b>. <strong>⚠️ Важно:</strong> Показва се само веднъж.'
+                    -   text_html: 'Вашият <b>Wallet Address</b> се вижда в горния десен ъгъл на страницата (започва с 0x...).'
+                    -   text_html: 'Поставете Wallet Address и Agent Private Key във формуляра по-горе.'
+                    -   text_html: '<strong>⚠️ Сигурност:</strong> Използвайте само <b>Agent keys</b> (само за търговия). <b>Никога</b> не въвеждайте основния частен ключ на портфейла си.'
+                    -   text_html: '<strong>ℹ️ Забележка:</strong> Hyperliquid е децентрализирана борса. Всички поръчки са публично видими на блокчейна.'
+                private_key: 'Agent Private Key'
+                public_key: 'Wallet Address'
+            bingx:
+                instructions:
+                    -   text_html: 'Влезте в акаунта си в %{exchange_link}.'
+                    -   text_html: 'Отидете на <a href="https://bingx.com/account/api"><b>Account</b> → <b>API Management</b></a>.'
+                    -   text_html: 'Натиснете <b>Create API</b>.'
+                    -   text_html: 'Дайте име на ключа (напр. „Deltabadger").'
+                    -   text_html: 'Задайте разрешения:'
+                        sub_instructions:
+                            -   text_html: '☑️ <b>Read</b>'
+                            -   text_html: '☑️ <b>Spot Trading</b><br><strong>⚠️ Важно:</strong> Не активирайте разрешения за Withdraw и Futures.'
+                            -   text_html: 'IP whitelist:'
+                                sub_instructions:
+                                    -   text_html: '🔘 Добавете %{whitelist_ip}.'
+                    -   text_html: 'Натиснете <b>Confirm</b> и завършете проверката.'
+                    -   text_html: 'Копирайте и поставете новите си API ключове във формуляра по-горе.'
+                private_key: 'Secret Key'
+                public_key: 'API Key'
+            bitrue:
+                instructions:
+                    -   text_html: 'Влезте в акаунта си в %{exchange_link}.'
+                    -   text_html: 'Отидете на <a href="https://www.bitrue.com/account/api"><b>Account</b> → <b>API Management</b></a>.'
+                    -   text_html: 'Натиснете <b>Create API Key</b>.'
+                    -   text_html: 'Дайте име на ключа (напр. „Deltabadger").'
+                    -   text_html: 'Задайте разрешения:'
+                        sub_instructions:
+                            -   text_html: '☑️ <b>Read Info</b>'
+                            -   text_html: '☑️ <b>Trade</b><br><strong>⚠️ Важно:</strong> Не активирайте разрешение за Withdraw.'
+                            -   text_html: 'IP whitelist:'
+                                sub_instructions:
+                                    -   text_html: '🔘 Добавете %{whitelist_ip}.'
+                    -   text_html: 'Натиснете <b>Confirm</b> и завършете проверката.'
+                    -   text_html: 'Копирайте и поставете новите си API ключове във формуляра по-горе.'
+                private_key: 'Secret Key'
+                public_key: 'API Key'
+            bitmart:
+                instructions:
+                    -   text_html: 'Влезте в акаунта си в %{exchange_link}.'
+                    -   text_html: 'Отидете на <a href="https://www.bitmart.com/api-management"><b>Account</b> → <b>API Management</b></a>.'
+                    -   text_html: 'Натиснете <b>Create API Key</b>.'
+                    -   text_html: 'Дайте име на ключа (напр. „Deltabadger") и задайте <b>Memo</b> (парола).'
+                    -   text_html: 'Задайте разрешения:'
+                        sub_instructions:
+                            -   text_html: '☑️ <b>Read</b>'
+                            -   text_html: '☑️ <b>Spot Trading</b><br><strong>⚠️ Важно:</strong> Не активирайте разрешения за Withdraw и Futures.'
+                            -   text_html: 'IP whitelist:'
+                                sub_instructions:
+                                    -   text_html: '🔘 Добавете %{whitelist_ip}.'
+                    -   text_html: 'Натиснете <b>Confirm</b> и завършете проверката.'
+                    -   text_html: 'Копирайте и поставете API Key, Secret Key и Memo във формуляра по-горе.'
+                private_key: 'Secret Key'
+                public_key: 'API Key'
