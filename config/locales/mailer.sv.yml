@@ -1,0 +1,23 @@
+sv:
+    mailer:
+        greeting: 'Hej legend,'
+        greeting_name: 'Hej %{name},'
+        best_html: '<p>Bästa hälsningar,<br>Jan</p>'
+        unsubscribe: 'Avsluta prenumeration'
+    test_mailer:
+        test_email:
+            subject: "Deltabadger testmail"
+            body: "Det här är ett testmail från din Deltabadger-instans. Om du fick detta fungerar dina e-postnotiser."
+    bot_alerts_mailer:
+        end_of_funds:
+            subject: "Ditt %{exchange_name}-konto håller på att få slut på %{quote}"
+            template_html: "<p>Ditt %{exchange_name}-konto håller på att få slut på %{quote}.</p><p>Gör en överföring till %{exchange_name} för att säkerställa att dina botar körs utan avbrott.</p>"
+        notify_about_error:
+            subject: "Något gick fel med %{label}"
+            template_html: "<p>Något gick fel vid bearbetningen av den senaste transaktionen för bot <b>%{label}</b>.</p><p>Du kan se felet i botloggen. Logga in för att kontrollera.</p><p>Fel:</p><blockquote> <b>%{exchange_name}:</b> <b>%{errors}</b></blockquote>"
+        notify_about_restart:
+            subject: "Hoppsan! Nytt försök…"
+            template_html: "<p>Boten <b>%{label}</b> kunde inte genomföra din order. Det verkar vara ett börsproblem. Vi försöker igen om %{delay}.</p><p>Alla fel syns i botloggen. Logga in för att kolla.</p><p>Fel:</p><blockquote> <b>%{exchange_name}:</b> <b>%{errors}</b> </blockquote>"
+        stopped_by_amount_limit:
+            subject: "%{label} har investerat hela beloppet"
+            template_html: "<p>Din bot <b>%{label}</b> nådde ditt mål och investerade hela %{amount} %{quote}.</p><p>Den har stoppats automatiskt. Stäng av beloppsgränsen för att nollställa målet.</p>"

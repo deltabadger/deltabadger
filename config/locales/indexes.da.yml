@@ -1,0 +1,47 @@
+da:
+    index:
+        bitcoin:
+            title: "Bitcoin"
+            info: "At gennemsnitsomkostningsinvestere i Bitcoin er guldstandarden for langsigtede investorer."
+        crypto_berbell:
+            title: "Crypto Barbell"
+            info: "Dæk 74% af kryptomarkedet med en enkel, bekymringsfri portefølje, der rebalancerer automatisk."
+        crypto_index:
+            title: "Kryptoindeks"
+            info: "Der findes ingen krypto-S&P 500, men nu kan du bygge dit eget. Automatisér en indeksportefølje af top-krypto."
+        altcoin_season:
+            title: "Altcoin-sæson"
+            info: "Investér i en portefølje af vindende altcoins på en sikker måde. Reducér risikoen ved small-cap krypto ved at erstatte manuel allokering med automatisk indeksering."
+        layer_1:
+            title: "Layer 1"
+            info: "Primære blockchainnetværk, der behandler transaktioner direkte og udgør fundamentet for blockchaininfrastrukturen."
+        made_in_usa:
+            title: "Made in USA"
+            info: "Kryptovalutaer med stærke forbindelser til USA gennem deres grundlæggerteams eller virksomhedshovedkvarterer."
+        alleged_sec_securities:
+            title: "Påståede SEC-værdipapirer"
+            info: "Tokens og kryptovalutaer, som den amerikanske Securities and Exchange Commission har påstået er værdipapirer."
+        memecoins:
+            title: "Memecoins"
+            info: "Coins, der henter deres værdi fra internetmemes og fællesskabshype fremfor underliggende teknologi eller nytte."
+        elon_musk_inspired:
+            title: "Elon Musk-inspirerede"
+            info: "Memecoins inspireret af Elon Musk. Ingen af disse projekter er (nødvendigvis) godkendt eller skabt af Elon Musk."
+        ai_portfolio:
+            title: "AI-portefølje"
+            info: "Kunstig intelligens (AI)-tokens er kryptovalutaer, der driver AI-relaterede projekter."
+        layer_2:
+            title: "Layer 2"
+            info: "Layer 2-løsninger er skaleringsløsninger bygget oven på Layer 1-blockchains for at forbedre transaktionshastighed og reducere omkostninger."
+        layer_0:
+            title: "Layer 0"
+            info: "Layer 0-protokoller leverer den grundlæggende infrastruktur til at bygge og forbinde flere blockchains."
+        gamefi:
+            title: "GameFi"
+            info: "GameFi-tokens driver blockchainbaserede spilplatforme og virtuelle verdener, der kombinerer gaming med decentraliseret finans."
+        yield_farming:
+            title: "Yield Farming"
+            info: "Yield farming-tokens gør det muligt for brugere at optjene belønninger ved at stille likviditet til rådighed for decentraliserede finansprotokoller."
+        consensys_portfolio:
+            title: "Consensys-portefølje"
+            info: "Protokoller og tokens, som Consensys har investeret i."

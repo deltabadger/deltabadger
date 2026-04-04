@@ -1,0 +1,293 @@
+el:
+    bot:
+        add_api_keys: "Πρόσθεσε κλειδιά API για %{exchange}"
+        bot_name: 'Όνομα bot'
+        new: "Νέο bot"
+        dca_index:
+            setup:
+                step_index: "Δείκτης"
+                sentence:
+                    build_index: "Δημιουργία χαρτοφυλακίου δείκτη"
+                    build_index_at: "Δημιουργία χαρτοφυλακίου %{index_name}"
+                    portfolio: χαρτοφυλάκιο
+                pick_index:
+                    top_coins: "Κορυφαία νομίσματα"
+                    top_coins_description: "Τα κορυφαία κρυπτονομίσματα κατά κεφαλαιοποίηση. Ο S&P 500 των crypto."
+                    error: "Επίλεξε έναν δείκτη"
+            num_coins: "Αριθμός νομισμάτων"
+            allocation_flattening: "Εξομάλυνση κατανομής"
+            into_index: "σε %{index_name}"
+            into: σε
+            index_preview: "Προεπισκόπηση δείκτη"
+            fewer_coins_available: "%{available} από τα %{requested} νομίσματα του δείκτη είναι διαθέσιμα στο %{exchange_name}"
+            num_assets: "Assets στον δείκτη"
+            asset_breakdown: "Ανάλυση assets"
+            asset: "Asset"
+            amount: "Ποσό"
+            avg_price: "Μ.Ο. τιμής"
+            value: "Αξία"
+            pl: "Κ/Ζ"
+            warning:
+                intro: "Κάποιες εντολές (%{skipped_count}) ήταν κάτω από το ελάχιστο μέγεθος εντολής του %{exchange_name}. Δες πώς το χειρίζεται το bot:"
+        types:
+            dca:
+                title: "DCA"
+                description: "Επένδυση σε ένα asset"
+            dca_dual_asset:
+                title: "DCA με εξισορρόπηση"
+                description: "Εξισορρόπηση δύο assets"
+            index_portfolio:
+                title: "Χαρτοφυλάκιο δείκτη"
+                description: "Το δικό σου crypto ETF"
+            custom_portfolio:
+                title: "Προσαρμοσμένο χαρτοφυλάκιο"
+                description: "Εξισορρόπηση δικού σου μείγματος assets"
+            signal:
+                title: "Σήμα"
+                description: "Συναλλαγές βάσει εξωτερικών σημάτων"
+            dca_stocks:
+                title: "DCA (μετοχές)"
+                description: "Αγορά μετοχών μέσω Alpaca"
+        dca_stocks:
+            connect_alpaca_intro: "Σύνδεσε τον λογαριασμό σου στο Alpaca για να ξεκινήσεις να επενδύεις σε μετοχές"
+            pick_stock: "Αναζήτηση μετοχής"
+            no_results: "Δεν βρέθηκαν μετοχές"
+            stock_not_found: "Η μετοχή δεν βρέθηκε στο Alpaca"
+            mode_paper: "Εικονικές συναλλαγές"
+            mode_live: "Πραγματικές συναλλαγές"
+        status:
+            setting_orders: "Ρύθμιση εντολών…"
+            paused: "Σε παύση"
+            next_try: "Επόμενη προσπάθεια σε"
+            waiting: "Αναμονή για πλήρωση όλων των συνθηκών"
+            listening: "Σε ακρόαση"
+            market_opens_in: "Η αγορά ανοίγει σε"
+            market_closed: "Η αγορά είναι κλειστή αυτή τη στιγμή."
+        pick_exchange: "Επίλεξε ανταλλακτήριο"
+        conversational:
+            invest: "Επένδυσε"
+            into: "σε"
+        utils:
+            mkt_cap_adjusted_html: "Προσαρμοσμένη κεφαλαιοποίηση"
+            mkt_cap_adjusted_info_html: |
+                <p><b>Κεφαλαιοποίηση</b> είναι ένας τρόπος μέτρησης του μεγέθους ή της αξίας ενός νομίσματος. Υπολογίζεται πολλαπλασιάζοντας τον συνολικό αριθμό νομισμάτων με την τρέχουσα τιμή ενός. Στο bot σου, το νόμισμα με τη μεγαλύτερη κεφαλαιοποίηση παίρνει μεγαλύτερο μερίδιο της επένδυσής σου.</p>
+                <p><b>Παράδειγμα:</b></p>
+                <p><b>Νόμισμα A:</b> Υπάρχουν 2 εκατομμύρια νομίσματα, αξίας $10 το καθένα. Κεφαλαιοποίηση = 2M × $10 = $20M.</p>
+                <p><b>Νόμισμα B:</b> Υπάρχει 1 εκατομμύριο νομίσματα, αξίας $1 το καθένα. Κεφαλαιοποίηση = 1M × $1 = $1M.</p>
+                <p>Αν επενδύσεις $100, το bot θα τα μοιράσει αναλογικά με τις κεφαλαιοποιήσεις: $95,2 στο Νόμισμα A, $4,8 στο Νόμισμα B.</p>
+                <p>Αν όμως η τιμή του Νομίσματος B ανέβει στα $3, η κεφαλαιοποίησή του γίνεται $3M. Τώρα, τα επόμενα $100 θα κατανεμηθούν $87 στο Νόμισμα A και $13 στο Νόμισμα B.</p>
+        above: "πάνω από"
+        below: "κάτω από"
+        buttons:
+            automatic_withdrawal: "Αυτόματη ανάληψη"
+            request_exchange: "Ζήτησε προσθήκη ανταλλακτηρίου"
+            move_existing_bot: "Μετακίνησε υπάρχον bot σε άλλο ανταλλακτήριο"
+            delete:
+                ok: "Διαγραφή οριστικά"
+                warning_html: "Αυτό θα διαγράψει το bot μαζί με<br>όλα τα ιστορικά δεδομένα του. Είσαι σίγουρος;"
+            dollar_cost_averaging: "Μέση τιμή κόστους"
+            pending:
+                info_html: "Επεξεργασία…"
+                text: "Σε εκκρεμότητα"
+            start:
+                changed_missed:
+                    continue: "Ναι, αγόρασε και συνέχισε"
+                    info_html: "Θέλεις να επενδύσεις <b>%{amount} %{quote}</b> που χάθηκαν ενώ το bot ήταν σε παύση; Το νέο πρόγραμμα θα ξεκινήσει αφού ολοκληρωθεί η τρέχουσα αντίστροφη μέτρηση."
+                    skip: "Αγνόησε το χαμένο μέρος"
+                changed_on_schedule:
+                    continue: "Κατάλαβα"
+                    info_html: "Το νέο πρόγραμμα θα ξεκινήσει αφού ολοκληρωθούν τα υπόλοιπα <b>%{time}</b> του προηγούμενου."
+                    skip: "Αγνόησέ το και ξεκίνα αμέσως"
+                missed:
+                    continue: "Ναι, αγόρασε και συνέχισε"
+                    info_html: "Θέλεις να επενδύσεις <b>%{amount} %{quote}</b> που χάθηκαν ενώ το bot ήταν σε παύση, και να συνεχίσεις το αρχικό χρονοδιάγραμμα;"
+                    skip: "Παράλειψε το χαμένο μέρος"
+                on_schedule:
+                    continue: "Συνέχισε το αρχικό πρόγραμμα"
+                    info_html: "Απομένουν ακόμα <b>%{time}</b> μέχρι την επόμενη εντολή. Μπορείς να τα παραλείψεις και να εκτελέσεις αμέσως, ή να συνεχίσεις την αρχική αντίστροφη μέτρηση."
+                    skip: "Παράλειψε"
+        signal:
+            trade: "Συναλλαγή"
+            spending: "δαπανώντας"
+            add_signal: "+ Προσθήκη σήματος"
+            url_placeholder: "Το Webhook URL θα εμφανιστεί εδώ"
+            for: "για"
+            when_triggered: "όταν ενεργοποιηθεί αυτό το webhook:"
+            of_the_balance: "του υπολοίπου"
+        buy: Αγορά
+        counter: '%{countdown}'
+        day: Ημέρα
+        details:
+            log:
+                date: Ημερομηνία
+                errors: Σφάλματα
+                title: Αρχείο καταγραφής
+            stats:
+                amount: 'Ποσό(%{base})'
+                amount1: 'Ποσό'
+                value: 'Αξία(%{quote})'
+                value1: 'Αξία'
+                average_price: 'Μέση τιμή'
+                bought: Αγοράστηκε
+                chart:
+                    total_invested: 'Σύνολο επένδυσης'
+                    value: Αξία
+                csv_download_html: 'Ο παραπάνω πίνακας δείχνει μόνο τις τελευταίες δέκα συναλλαγές. Η πλήρης αναφορά είναι διαθέσιμη για λήψη σε μορφή CSV παρακάτω.'
+                current_value: 'Τρέχουσα αξία'
+                current_value_sold: 'Τρέχουσα αξία των %{base} που πωλήθηκαν'
+                date: Ημερομηνία
+                download_csv: 'Εξαγωγή'
+                generating_csv: 'Δημιουργία αρχείου...'
+                import_csv: 'Εισαγωγή'
+                import_success: 'Εισήχθησαν επιτυχώς %{count} εντολή(ές).'
+                import_no_new_orders: 'Δεν υπάρχουν νέες εντολές για εισαγωγή (όλες υπάρχουν ήδη ή τα νομίσματα δεν ταιριάζουν).'
+                import_no_file: 'Επίλεξε ένα αρχείο CSV για εισαγωγή.'
+                import_invalid_format: 'Μη έγκυρη μορφή CSV. Χρησιμοποίησε αρχείο που εξήχθη από αυτήν την εφαρμογή.'
+                import_malformed_csv: 'Το αρχείο CSV είναι κατεστραμμένο και δεν μπορεί να αναλυθεί.'
+                import_error: 'Η εισαγωγή απέτυχε: %{message}'
+                import_currency_mismatch: "Αναντιστοιχία νομίσματος: Το CSV έχει '%{csv_quote}' αλλά το bot χρησιμοποιεί '%{bot_quote}'"
+                exchange_unavailable_html: 'Το API του ανταλλακτηρίου δεν ανταποκρίνεται αυτή τη στιγμή.<br>Οι υπολογισμοί βασίζονται στα τελευταία διαθέσιμα δεδομένα.'
+                order: Εντολή
+                profit_loss: Κέρδος/Ζημία
+                price: 'Τιμή(%{quote})'
+                sold: Πωλήθηκε
+                title: Στατιστικά
+                total_invested: 'Σύνολο επένδυσης'
+                portfolio_value: 'Αξία χαρτοφυλακίου'
+        for: για
+        force_smart_intervals_html: '<b>Έξυπνα διαστήματα</b> · Αγορά με εντολές των <split>$100</split> %{currency} η καθεμία.'
+        hour: Ώρα
+        limit_buy: 'Αγορά limit'
+        limit_sell: 'Πώληση limit'
+        messages:
+            do_you_want_to_delete: 'Θέλεις να διαγράψεις αυτό το bot;'
+            symbol_not_supported: "Το %{symbol} δεν υποστηρίζεται"
+            specify_percentage_limit_order: "Όρισε ποσοστό κατά τη δημιουργία εντολής limit"
+            smart_intervals_above_minimum: "Η τιμή των έξυπνων διαστημάτων πρέπει να είναι μεγαλύτερη από %{minimum}"
+            invalid_price_range: "Μη έγκυρο εύρος τιμής"
+            subaccounts_not_allowed: "Δεν επιτρέπονται υπολογαριασμοί σε αυτό το ανταλλακτήριο"
+            no_subaccount_name: "Δεν δόθηκε όνομα υπολογαριασμού"
+            wrong_subaccount_name: "Λάθος όνομα υπολογαριασμού"
+            failed_tooltip_explanation: "Αυτή η εντολή απέτυχε: %{error_message}"
+            skipped_tooltip_explanation: "Αυτή η εντολή παραλείφθηκε επειδή το ποσό ήταν κάτω από το ελάχιστο μέγεθος εντολής του %{exchange_name}. Το ποσό αποθηκεύτηκε στο buffer και θα προστεθεί στην επόμενη εντολή."
+            cancelled_tooltip_explanation: "Αυτή η εντολή ακυρώθηκε ή έληξε πριν εκτελεστεί."
+            failed_status_bar_explanation: "Η τελευταία εντολή απέτυχε: %{error_message}"
+            order_cancelled: 'Η εντολή ακυρώθηκε'
+            failed_to_cancel_order: 'Αποτυχία ακύρωσης εντολής'
+            failed_to_cancel_order_invalid_api_key: 'Αποτυχία ακύρωσης εντολής: Μη έγκυρο κλειδί API. Έλεγξε τις ρυθμίσεις κλειδιού API στο %{exchange_name}.'
+            cannot_cancel_imported_order: 'Δεν είναι δυνατή η ακύρωση εισαγόμενων εντολών'
+        minimum_withdrawal_disclaimer: 'Το ελάχιστο ποσό ανάληψης είναι %{minimum} %{currency}.'
+        minimum_withdrawal_disclaimer_usd: 'Το ελάχιστο ποσό ανάληψης είναι %{minimum} USD.'
+        month: Μήνας
+        next_buy: 'Επόμενη σε %{countdown}'
+        next_sell: 'Επόμενη σε %{countdown}'
+        next_withdrawal: 'Επόμενη σε %{countdown}'
+        not_found: 'Αυτό το bot δεν υπάρχει.'
+        price: 'η τιμή'
+        price_range_buy_html: 'Αγορά μόνο στο εύρος τιμής από <split>$100</split> έως <split>$1000</split> %{quote} ανά %{base}.'
+        price_range_sell_html: "Πώληση μόνο στο εύρος τιμής από <split>$100</split> έως <split>$1000</split> %{quote} ανά %{base}."
+        sell: "Πώληση"
+        buy_all: "Αγορά όλων"
+        sell_all: "Πώληση όλων"
+        first_time: "πρώτη φορά"
+        every_time: "κάθε φορά"
+        name: "Όνομα:"
+        fees: "Προμήθειες"
+        maker_fee: "Maker"
+        taker_fee: "Taker"
+        withdrawal_fee: "Ανάληψη"
+        additional_title: "Bot δύο κατευθύνσεων"
+        smart_intervals_disclaimer: 'Το μέγεθος εντολών στο %{exchange} ορίζεται σε %{currency}. Το ελάχιστο μέγεθος εντολής είναι %{minimum}%{currency}.'
+        smart_intervals_disclaimer_base: 'Το μέγεθος εντολών στο %{exchange} ορίζεται σε %{currency}. Το ελάχιστο μέγεθος εντολής είναι %{minimum}%{currency}.'
+        smart_intervals_disclaimer_quote: 'Το ελάχιστο μέγεθος εντολής είναι %{minimum}%{currency}.'
+        starting: Εκκίνηση
+        subaccounts_info: 'Χρήση υπολογαριασμού'
+        week: Εβδομάδα
+        withdraw_interval_html: 'Ανάληψη κάθε <split>2</split> ημέρες.'
+        withdraw_threshold_html: 'Ανάληψη όταν υπάρχουν τουλάχιστον <split>0.001</split> %{currency} διαθέσιμα.'
+        withdrawal_percentage: '%{percentage}%'
+        withdrawal: 'Ανάληψη'
+        cancel_order: 'Ακύρωση'
+        warning:
+            dca_single_asset:
+                intro: "Το ποσό %{missed_symbol} ήταν κάτω από το ελάχιστο μέγεθος εντολής του %{exchange_name} (%{missed_minimum_base_size} %{missed_symbol} ή %{missed_minimum_quote_size} %{quote_symbol} για %{missed_symbol}). Δες πώς το χειρίζεται το bot:"
+            dca_dual_asset:
+                both_below:
+                    intro: "Ωστόσο, τα ποσά τόσο για %{base0_symbol} όσο και για %{base1_symbol} είναι κάτω από τα ελάχιστα μεγέθη εντολών του %{exchange_name} (%{base0_minimum_base_size} %{base0_symbol} ή %{base0_minimum_quote_size} %{quote_symbol} για %{base0_symbol} και %{base1_minimum_base_size} %{base1_symbol} ή %{base1_minimum_quote_size} %{quote_symbol} για %{base1_symbol}). Δες πώς το χειρίζεται το bot:"
+                one_below:
+                    intro: "Το bot αγόρασε %{bought_quote_amount} %{quote_symbol} σε %{bought_symbol}, αλλά το ποσό %{missed_symbol} ήταν κάτω από το ελάχιστο μέγεθος εντολής του %{exchange_name} (%{missed_minimum_base_size} %{missed_symbol} ή %{missed_minimum_quote_size} %{quote_symbol} για %{missed_symbol}). Δες πώς το χειρίζεται το bot:"
+            buffer_explanation:
+                one: "Το χαμένο ποσό αποθηκεύτηκε στο buffer και θα χρησιμοποιηθεί στην επόμενη προγραμματισμένη εντολή, διασφαλίζοντας ότι το πρόγραμμα και η κατανομή σου τηρούνται όσο πιο πιστά επιτρέπουν τα ελάχιστα του ανταλλακτηρίου."
+                other: "Τα χαμένα ποσά αποθηκεύτηκαν στο buffer και θα χρησιμοποιηθούν στις επόμενες προγραμματισμένες εντολές, διασφαλίζοντας ότι το πρόγραμμα και η κατανομή σου τηρούνται όσο πιο πιστά επιτρέπουν τα ελάχιστα του ανταλλακτηρίου."
+            title: "Συγχαρητήρια! Το bot σου τρέχει."
+            general_note: "Τα ελάχιστα ανταλλακτηρίων και τα απαιτούμενα ποσά εξισορρόπησης αλλάζουν. Οι συναλλαγές μπορεί μερικές φορές να φαίνονται ακανόνιστες, αλλά το bot στοχεύει πάντα στην επιθυμητή κατανομή και πρόγραμμά σου, χωρίς να χρειάζεται επιπλέον δουλειά."
+        settings:
+            smart_intervals:
+                sentence_html: '<b>Έξυπνα διαστήματα</b> Χωρισμός <span>του</span> ποσού <span>σε</span> <span>%{amount_html} %{quote}</span> μονάδες'
+                info: "Ο χωρισμός των %{quote_amount} %{quote} / %{interval} σε μονάδες των %{amount} %{quote} θα κάνει μία επένδυση κάθε %{smart_interval}"
+            limit_orders:
+                sentence_html: '<b>FeeCutter</b> <span>Μείωσε τις προμήθειες</span> με εντολές <span>limit</span> <span>%{amount_html}%</span> <span>κάτω από την τιμή</span>'
+                info: "Για να μηδενίσεις τις προμήθειες, όρισέ το στο %{maker_fee}% που είναι η προμήθεια maker του %{exchange}. Μείωσέ το για ταχύτερη εκτέλεση, ή αύξησέ το για πιθανώς καλύτερη τιμή. Παρακολούθησε την εκτέλεση στον πίνακα εντολών."
+            extra_amount_limit:
+                sentence_html: "Μην ξοδέψεις πάνω από <span>%{value_html} %{quote}</span>"
+                info:
+                    spent: "Ολόκληρο το ποσό επενδύθηκε"
+                    left: "(απομένουν %{amount} %{quote})"
+            extra_price_limit:
+                sentence_html:
+                    one: "%{timing_condition_html} όταν η <span>τιμή</span> είναι <span>%{value_condition_html}</span> <span>%{price_input_html}</span>"
+                    other: "%{timing_condition_html} όταν η τιμή του %{base_html} είναι <span>%{value_condition_html}</span> <span>%{price_input_html}</span>"
+                info: "Η τρέχουσα τιμή %{base} είναι %{current_price} %{quote}"
+                price_limit_input_html: "%{value_html} %{quote}"
+                price_limit_range_input_html: "%{lower_bound_value_html} %{quote} και %{upper_bound_value_html} %{quote}"
+                timing_condition:
+                    while: "Αγορά μόνο"
+                    after: "Ξεκίνα αγορές"
+                value_condition:
+                    above: "πάνω από"
+                    below: "κάτω από"
+                    between: "μεταξύ"
+            extra_price_drop_limit:
+                sentence_html:
+                    one: "Ξεκίνα αγορές όταν η τιμή πέσει <span>%{value_html}%</span> από το %{time_window_condition_html}"
+                    other: "Ξεκίνα αγορές όταν η τιμή του %{base_html} πέσει <span>%{value_html}%</span> από το %{time_window_condition_html}"
+                info: "Το τρέχον %{time_window_condition} του %{base} είναι %{condition_high} %{quote}."
+                time_window_condition:
+                    ath: "ιστορικό υψηλό"
+                    twenty_four_hours: "υψηλό 24ώρου"
+            extra_indicator_limit:
+                sentence_html:
+                    one: "<span>%{timing_condition_html}</span> όταν ο <span>%{indicator_html}</span> σε %{timeframe_html} <span>κεριά</span> είναι <span>%{value_condition_html} %{value_html}</span>"
+                    other: "<span>%{timing_condition_html}</span> όταν ο <span>%{indicator_html}</span> σε %{ticker_html} %{timeframe_html} <span>κεριά</span> είναι <span>%{value_condition_html} %{value_html}</span>"
+                info: "Ο %{indicator} στο τελευταίο %{timeframe} κερί κλεισίματος %{ticker} είναι %{value}"
+                timing_condition:
+                    while: "Αγορά μόνο"
+                    after: "Ξεκίνα αγορές"
+                value_condition:
+                    above: "πάνω από"
+                    below: "κάτω από"
+                timeframe:
+                    one_hour: "ωριαία"
+                    four_hours: "4ωρα"
+                    one_day: "ημερήσια"
+                    three_days: "3ήμερα"
+                    one_week: "εβδομαδιαία"
+                    one_month: "μηνιαία"
+            extra_moving_average_limit:
+                sentence_html:
+                    one: "<span>%{timing_condition_html}</span> όταν η τιμή %{base} είναι %{value_condition_html} τον <span>%{ma_html} %{ma_period_html}</span> σε %{timeframe_html} <span>κεριά</span>"
+                    other: "<span>%{timing_condition_html}</span> όταν η τιμή %{base} είναι %{value_condition_html} τον <span>%{ma_html} %{ma_period_html}</span> σε %{ticker_html} %{timeframe_html} <span>κεριά</span>"
+                info: "Ο %{ma_type} %{ma_period} στο τελευταίο %{timeframe} κερί κλεισίματος %{ticker} είναι %{value} %{quote}"
+                timing_condition:
+                    while: "Αγορά μόνο"
+                    after: "Ξεκίνα αγορές"
+                value_condition:
+                    above: "πάνω από"
+                    below: "κάτω από"
+                timeframe:
+                    one_hour: "ωριαία"
+                    four_hours: "4ωρα"
+                    one_day: "ημερήσια"
+                    three_days: "3ήμερα"
+                    one_week: "εβδομαδιαία"
+                    one_month: "μηνιαία"

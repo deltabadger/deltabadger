@@ -1,0 +1,476 @@
+el:
+    meta:
+        title: 'Deltabadger'
+    header:
+        start_investing: 'Ξεκίνα να επενδύεις:'
+    ads:
+        dca_profit_html: |
+            <p>Αν έκανες μέση τιμή κόστους σε Bitcoin τα τελευταία %{years}&nbsp;χρόνια, τώρα θα ήσουν <b style="color: #00A36C;">%{profit}%</b> στο πλεονέκτημα.</p>
+            <p>Δηλαδή <b style="color: #00A36C;">%{sp500_diff}%</b> περισσότερο από τον S&P 500 στο ίδιο διάστημα.</p>
+    button:
+        ok: 'OK'
+        update: 'Ενημέρωση'
+        save: 'Αποθήκευση'
+        cancel: 'Ακύρωση'
+        close: 'Κλείσιμο'
+        enable: 'Ενεργοποίηση'
+        authorize: 'Εξουσιοδότηση'
+        disable: 'Απενεργοποίηση'
+        delete: 'Διαγραφή'
+        duplicate: 'Αντιγραφή'
+        copy: 'Αντιγραφή'
+        submit: 'Υποβολή'
+        reset: 'Επαναφορά'
+        add: 'Προσθήκη'
+        remove: 'Αφαίρεση'
+        start: 'Έναρξη'
+        stop: 'Διακοπή'
+        next: 'Επόμενο'
+        connect: 'Σύνδεση'
+        reconnect: 'Προσθήκη νέων κλειδιών'
+        understand: 'Κατάλαβα!'
+        get_started: 'Ξεκίνα'
+        select_plan: 'Επίλεξε πλάνο'
+        back_to_dashboard: 'Στον πίνακα ελέγχου'
+        subscribe: 'Εγγραφή'
+        unlock: 'Ξεκλείδωμα'
+        check_again: 'Έλεγξε ξανά'
+    data_labels:
+        invested: "Σύνολο επένδυσης"
+        portfolio_value: "Αξία χαρτοφυλακίου"
+        value: "Αξία"
+        value_symbol: "Αξία (%{symbol})"
+        invested_symbol: "Επένδυση (%{symbol})"
+        date: "Ημερομηνία"
+        asset: "Asset"
+        amount: "Ποσό"
+        avg_price: "Μ.Ο. τιμής"
+        price: "Τιμή"
+        pnl: "Κ/Ζ"
+        bought: "Αγοράστηκε"
+        current_price: "Τρέχουσα τιμή"
+    days_left:
+        one: 'Απομένει 1 ημέρα'
+        other: 'Απομένουν %{count} ημέρες'
+    forms:
+        for_confirmation: '(για επιβεβαίωση)'
+        minimum_length: 'Ελάχιστο %{length} χαρακτήρες'
+    helpers:
+        label:
+            settings:
+                current_status: 'Τρέχουσα κατάσταση:'
+                disable_two_fa: 'Απενεργοποίηση 2FA'
+                disabled: Απενεργοποιημένο
+                enable_two_fa: 'Ενεργοποίηση 2FA'
+                enabled: Ενεργοποιημένο
+                enter_two_fa_code: 'Εισάγετε κωδικό 2FA'
+                scan_code_info: 'Σκανάρετε τον κωδικό QR ή αντιγράψτε τον κωδικό παρακάτω:'
+            user:
+                name: Όνομα
+                current_password: 'Τρέχων κωδικός'
+                email: Email
+                new_name: 'Νέο όνομα'
+                new_email: 'Νέο email'
+                new_password: 'Νέος κωδικός'
+                new_password_confirmation: 'Επιβεβαίωση νέου κωδικού'
+                password: Κωδικός
+                password_confirmation: 'Επιβεβαίωση κωδικού'
+                remember_me: 'Να με θυμάσαι'
+    home:
+        confirm_registration:
+            text_html: 'Έλεγξε τα εισερχόμενά σου και πάτησε τον <b>σύνδεσμο επιβεβαίωσης</b> που σου στείλαμε. Μετά πήγαινε στη σελίδα σύνδεσης.'
+            title: Ευχαριστούμε!
+    links:
+        about: Σχετικά
+        telegram: 'Telegram'
+        create_account: 'Δημιούργησε δωρεάν λογαριασμό'
+        bot: Bot
+        bots: Bots
+        dashboard: Πίνακας ελέγχου
+        homepage: 'Σύνδεσμος αρχικής σελίδας'
+        log_in: 'Σύνδεση'
+        log_out: Αποσύνδεση
+        menu: Μενού
+        earn: 'Κέρδισε'
+        resend_link: 'Αποστολή ξανά'
+        rules: Κανόνες
+        tracker: Αναφορές
+        settings: Ρυθμίσεις
+        connections: Σύνδεση
+        account: Λογαριασμός
+        sign_up: 'Εγγραφή'
+    settings:
+        language_and_timezone:
+            title: 'Γλώσσα & ζώνη ώρας'
+            language_updated: "Η γλώσσα σου ενημερώθηκε."
+            updated: "Η ζώνη ώρας σου ενημερώθηκε."
+            current_time_is: "Αυτή η ζώνη ώρας θα χρησιμοποιείται στα αρχεία καταγραφής του bot. Σύμφωνα με αυτήν, η τρέχουσα ώρα είναι"
+        name:
+            updated: "Το όνομά σου ενημερώθηκε."
+        two_fa:
+            disabled: 'Η ταυτοποίηση δύο παραγόντων απενεργοποιήθηκε.'
+            enabled: 'Η ταυτοποίηση δύο παραγόντων ενεργοποιήθηκε.'
+        api_keys:
+            confirm_delete: 'Θέλεις να διαγράψεις αυτό το κλειδί API;'
+        index:
+            api_key_confirmation: 'Είσαι σίγουρος;'
+            api_keys_section: 'Κλειδιά API'
+            trading_keys_section: 'Κλειδιά συναλλαγών'
+            withdrawal_keys_section: 'Κλειδιά ανάληψης'
+            email_section: Email
+            name_section: Όνομα
+            password_section: Κωδικός
+            free_plan_reset_date_html: 'Το όριό σου ανανεώνεται στις <b>%{end_time}</b>.'
+            title: Ρυθμίσεις
+            two_factor_section: 'Ταυτοποίηση δύο παραγόντων'
+            resync_assets_section: 'Δεδομένα αγοράς'
+            email_notifications_section: 'Ειδοποιήσεις email'
+            registration_section: 'Πολλαπλοί λογαριασμοί'
+        registration:
+            enable_sign_up: 'Ενεργοποίηση εγγραφής'
+            disable_sign_up: 'Απενεργοποίηση εγγραφής'
+            updated: 'Η ρύθμιση εγγραφής ενημερώθηκε.'
+        resync_assets:
+            button: 'Συγχρονισμός'
+            hint: 'Επανασυγχρονισμός ζευγαριών ανταλλακτηρίων και δεδομένων assets από το CoinGecko. Χρησιμοποίησέ το αν λείπουν κάποια ανταλλακτήρια ή assets.'
+        coingecko_key:
+            confirm_delete: 'Θέλεις να αφαιρέσεις αυτό το κλειδί CoinGecko API;'
+        market_data:
+            none: 'Κανένα'
+            disabled: 'Ο συγχρονισμός δεδομένων αγοράς απενεργοποιήθηκε.'
+            updated: 'Οι ρυθμίσεις δεδομένων αγοράς ενημερώθηκαν.'
+            coingecko_configured: 'Συνδεδεμένο στο CoinGecko για ζωντανά δεδομένα αγοράς.'
+            deltabadger_configured: 'Συνδεδεμένο στο %{provider_name} για ζωντανά δεδομένα αγοράς.'
+            disconnect: 'Αποσύνδεση'
+            disconnected: 'Ο πάροχος δεδομένων αγοράς αποσυνδέθηκε.'
+        stocks:
+            title_html: 'Μετοχές (<a href="https://alpaca.markets/" target="_blank">Alpaca</a>)'
+            instructions_html: 'Πήγαινε στον <a href="https://alpaca.markets" target="_blank">πίνακα ελέγχου του Alpaca</a> και βρες την ενότητα API Keys στη δεξιά πλαϊνή μπάρα. Πάτησε Generate New Keys και αποθήκευσε τα κλειδιά API.'
+            enabled: 'Οι μετοχές ενεργοποιήθηκαν. Συγχρονισμός assets από Alpaca...'
+            disabled: 'Οι μετοχές απενεργοποιήθηκαν.'
+            disconnected: 'Το Alpaca αποσυνδέθηκε. Τα ζευγάρια μετοχών σημειώθηκαν ως μη διαθέσιμα.'
+            configured: 'Συνδεδεμένο στο Alpaca (%{mode}). Τα assets μετοχών συγχρονίστηκαν.'
+            invalid_api_key: 'Μη έγκυρο κλειδί Alpaca API. Έλεγξε τα στοιχεία σύνδεσης.'
+            disconnect: 'Αποσύνδεση'
+            mode_paper: 'Εικονικό'
+            mode_live: 'Πραγματικό'
+        mcp:
+            title: 'MCP'
+            description: 'Χρησιμοποίησε αυτό το URL για να συνδέσεις τον Claude (και άλλα AI μοντέλα). Δίνει στον βοηθό AI πρόσβαση στα bots και τα ανταλλακτήριά σου.'
+            connected_clients: 'Συνδεδεμένοι'
+            no_clients: 'Δεν υπάρχουν ακόμα συνδεδεμένοι πελάτες.'
+            revoke_client: 'Ανάκληση'
+            revoke_client_confirm: 'Αυτό θα αποσυνδέσει τον πελάτη. Θα χρειαστεί να εξουσιοδοτηθεί ξανά.'
+            client_revoked: 'Ο πελάτης αποσυνδέθηκε.'
+            authorize_title: 'Εξουσιοδότηση πρόσβασης'
+            authorize_description_html: 'Ο/Η <b>%{client_name}</b> ζητά πρόσβαση στον Deltabadger server σου.'
+            tools_title: 'Δικαιώματα εργαλείων'
+            tools_read: 'Ανάγνωση'
+            tools_control: 'Έλεγχος'
+            tools_trade: 'Συναλλαγές'
+            tools_tax: 'Φόροι & αναφορές'
+            tools:
+                list_bots:
+                    label: 'Λίστα bots'
+                    description: 'Προβολή όλων των DCA bots και της κατάστασής τους'
+                get_bot_details:
+                    label: 'Λεπτομέρειες bot'
+                    description: 'Προβολή αναλυτικών πληροφοριών και απόδοσης bot'
+                list_exchanges:
+                    label: 'Λίστα ανταλλακτηρίων'
+                    description: 'Προβολή συνδεδεμένων ανταλλακτηρίων'
+                get_exchange_balances:
+                    label: 'Υπόλοιπα ανταλλακτηρίου'
+                    description: 'Ανάκτηση ζωντανών υπολοίπων από ανταλλακτήριο'
+                get_portfolio_summary:
+                    label: 'Σύνοψη χαρτοφυλακίου'
+                    description: 'Προβολή συνολικού Κ/Ζ και ανάλυσης ανά bot'
+                list_transactions:
+                    label: 'Λίστα συναλλαγών'
+                    description: 'Προβολή πρόσφατων συναλλαγών'
+                create_bot:
+                    label: 'Δημιουργία bot'
+                    description: 'Δημιουργία νέου DCA bot'
+                start_bot:
+                    label: 'Εκκίνηση bot'
+                    description: 'Εκκίνηση σταματημένου bot'
+                stop_bot:
+                    label: 'Διακοπή bot'
+                    description: 'Διακοπή ενεργού bot'
+                update_bot_settings:
+                    label: 'Ενημέρωση bots'
+                    description: 'Αλλαγή ποσού ή ετικέτας σε σταματημένο bot'
+                start_rule:
+                    label: 'Εκκίνηση κανόνα'
+                    description: 'Εκκίνηση σταματημένου κανόνα'
+                stop_rule:
+                    label: 'Διακοπή κανόνα'
+                    description: 'Διακοπή ενεργού κανόνα'
+                update_rule_settings:
+                    label: 'Ενημέρωση κανόνων'
+                    description: 'Αλλαγή ρυθμίσεων σε σταματημένο κανόνα'
+                market_buy:
+                    label: 'Αγορά market'
+                    description: 'Εκτέλεση εντολής αγοράς σε τιμή αγοράς'
+                market_sell:
+                    label: 'Πώληση market'
+                    description: 'Εκτέλεση εντολής πώλησης σε τιμή αγοράς'
+                limit_buy:
+                    label: 'Αγορά limit'
+                    description: 'Τοποθέτηση εντολής αγοράς σε συγκεκριμένη τιμή'
+                limit_sell:
+                    label: 'Πώληση limit'
+                    description: 'Τοποθέτηση εντολής πώλησης σε συγκεκριμένη τιμή'
+                cancel_order:
+                    label: 'Ακύρωση εντολής'
+                    description: 'Ακύρωση ανοιχτής εντολής'
+                list_open_orders:
+                    label: 'Ανοιχτές εντολές'
+                    description: 'Προβολή τρεχουσών ανοιχτών (ανεκτέλεστων) εντολών'
+                list_tax_jurisdictions:
+                    label: 'Φορολογικές δικαιοδοσίες'
+                    description: 'Προβολή υποστηριζόμενων χωρών και φορολογικών μεθόδων'
+                generate_tax_report:
+                    label: 'Δημιουργία φορολογικής αναφοράς'
+                    description: 'Εκκίνηση δημιουργίας φορολογικής αναφοράς στο παρασκήνιο'
+                get_tax_report_status:
+                    label: 'Κατάσταση φορολογικής αναφοράς'
+                    description: 'Έλεγχος αν η φορολογική αναφορά είναι έτοιμη'
+                download_tax_report:
+                    label: 'Λήψη φορολογικής αναφοράς'
+                    description: 'Ανάκτηση δημιουργημένης φορολογικής αναφοράς CSV'
+                export_transactions_csv:
+                    label: 'Εξαγωγή συναλλαγών CSV'
+                    description: 'Εξαγωγή συναλλαγών λογαριασμού σε CSV'
+                list_account_transactions:
+                    label: 'Συναλλαγές λογαριασμού'
+                    description: 'Προβολή συναλλαγών tracker με φίλτρα'
+            dry_run_title: 'Εικονικές συναλλαγές'
+            dry_run_description: 'Προσομοίωση συναλλαγών με πραγματικές τιμές αγοράς. Δεν εκτελούνται πραγματικές εντολές.'
+            dry_run_label: 'Ενεργοποίηση εικονικών συναλλαγών για τα εργαλεία συναλλαγών'
+        email_notifications:
+            none: 'Κανένα'
+            smtp_host: 'SMTP host'
+            smtp_port: 'Θύρα'
+            smtp_username: 'Όνομα χρήστη'
+            smtp_password: 'Κωδικός'
+            smtp_hint_html: 'Για Gmail, χρησιμοποίησε έναν <a href="https://support.google.com/accounts/answer/185833" target="_blank">κωδικό εφαρμογής</a> ως κωδικό.'
+            updated: 'Οι ρυθμίσεις ειδοποιήσεων email ενημερώθηκαν.'
+            disabled: 'Οι ειδοποιήσεις email απενεργοποιήθηκαν.'
+            smtp_credentials_required: 'Το όνομα χρήστη και ο κωδικός SMTP είναι υποχρεωτικά.'
+            set: 'Ορισμός'
+            smtp_configured_html: 'Ρυθμισμένο με <b>%{host}</b>.'
+            send_test: 'Αποστολή δοκιμαστικού email'
+            test_email_sent: 'Δοκιμαστικό email στάλθηκε στο %{email}.'
+            test_email_failed: 'Αποτυχία αποστολής δοκιμαστικού email: %{error}'
+            not_configured: 'Οι ειδοποιήσεις email δεν έχουν ρυθμιστεί.'
+            disconnect: 'Αποσύνδεση'
+            disconnected: 'Ο πάροχος email αποσυνδέθηκε.'
+    utils:
+        pnl: 'Κ/Ζ'
+        assets: Assets
+        beta: Beta
+        cash: Μετρητά
+        bonds: Ομόλογα
+        gold: Χρυσός
+        are_you_sure: 'Είσαι σίγουρος;'
+        change_name: 'Αλλαγή ονόματος'
+        important: 'Σημαντικό!'
+        new: 'Νέο'
+        since: 'από'
+        soon: 'Σύντομα'
+        see_at_coingecko: 'Δες στο CoinGecko'
+        search:
+            placeholder:
+                asset: 'Αναζήτηση asset…'
+                index: 'Αναζήτηση δείκτη…'
+            no_results: 'Δεν βρέθηκαν αποτελέσματα'
+        time_periods:
+            ytd: 'YTD'
+            ytd_title: 'Αρχή του έτους'
+            one_year: '1Ε'
+            one_year_title: 'Πριν 1 χρόνο'
+            three_years: '3Ε'
+            three_years_title: 'Πριν 3 χρόνια'
+            five_years: '5Ε'
+            five_years_title: 'Πριν 5 χρόνια'
+        years:
+            one: "%{count} χρόνος"
+            other: "%{count} χρόνια"
+        months:
+            one: "%{count} μήνας"
+            other: "%{count} μήνες"
+        days:
+            one: "%{count} ημέρα"
+            other: "%{count} ημέρες"
+        hours:
+            one: "%{count} ώρα"
+            other: "%{count} ώρες"
+        minutes:
+            one: "%{count} λεπτό"
+            other: "%{count} λεπτά"
+        seconds:
+            one: "%{count} δευτερόλεπτο"
+            other: "%{count} δευτερόλεπτα"
+        days_short: 'η'
+        hours_short: 'ω'
+        minutes_short: 'λ'
+        seconds_short: 'δ'
+    bot_filters:
+        all: 'Όλα'
+        active: 'Ενεργά'
+        inactive: 'Ανενεργά'
+    rules:
+        index:
+            title: 'Κανόνες'
+        types:
+            withdrawal:
+                title: 'Αυτόματη ανάληψη'
+                description: 'Ανάληψη κεφαλαίων από ανταλλακτήρια'
+        withdrawals:
+            sentence:
+                withdraw_all: 'Ανάληψη'
+                from: 'από'
+                to: 'σε'
+                on_network: 'στο'
+                fee: 'προμήθεια'
+                when: 'όταν'
+                fee_less_than: 'η προμήθεια είναι κάτω από'
+                amount_crosses: 'το ποσό ξεπερνά'
+                of_the_amount: '%'
+                or_at_least_every: 'ή τουλάχιστον κάθε'
+                days: 'ημέρες'
+            pick_exchange:
+                withdrawal_fee: 'Ανάληψη'
+            form:
+                submit: 'Δημιουργία κανόνα'
+                submitting: 'Δημιουργία…'
+            confirm_destroy:
+                message: 'Θέλεις να διαγράψεις αυτόν τον κανόνα ανάληψης;'
+        tile:
+            withdrawal: 'Ανάληψη'
+            network: 'Δίκτυο'
+            memo: 'Memo'
+            activated: 'Ο κανόνας είναι ενεργός.'
+            deactivated: 'Ο κανόνας απενεργοποιήθηκε.'
+            min_amount_info_html: 'Η τρέχουσα προμήθεια είναι %{fee} %{symbol}, οπότε η ανάληψη θα γίνει στα <b>%{amount} %{symbol}</b>.'
+            no_fee_info: 'Το %{exchange} δεν αναφέρει προμήθεια ανάληψης για αυτό το asset. Ο κανόνας θα κάνει ανάληψη οποιουδήποτε διαθέσιμου υπολοίπου.'
+            unknown_fee_info: 'Τα δεδομένα προμήθειας δεν είναι διαθέσιμα για το %{exchange}. Ο κανόνας θα κάνει ανάληψη οποιουδήποτε διαθέσιμου υπολοίπου.'
+            fixed_amount_info: 'Η ανάληψη θα γίνει όταν το υπόλοιπο φτάσει τα %{amount} %{symbol}.'
+            fixed_amount_fee_html: 'Η τρέχουσα προμήθεια είναι %{fee} %{symbol}, οπότε θα πληρώσεις <b>%{fee_pct}</b>.'
+            no_wallet_html: 'Δεν βρέθηκε διεύθυνση ανάληψης %{symbol} στο %{exchange}. Πρόσθεσε μία στο ανταλλακτήριο πρώτα.'
+        logs:
+            date: 'Ημερομηνία'
+            status: 'Κατάσταση'
+            message: 'Μήνυμα'
+            empty: 'Δεν υπάρχουν καταγραφές ακόμα.'
+        add_address:
+            label: 'Διεύθυνση ανάληψης'
+            placeholder: 'Επικόλλησε τη διεύθυνση εδώ…'
+            select_address: 'Επίλεξε διεύθυνση…'
+            address_tag_label: 'Memo / Tag (προαιρετικό)'
+            address_tag_placeholder: 'Memo, tag ή payment ID…'
+            instructions_title: 'Προσθήκη διεύθυνσης ανάληψης στο %{exchange}'
+            warning_html: 'Βεβαιώσου ότι αυτή είναι διεύθυνση <b>%{symbol}</b> στο σωστό δίκτυο. Αποστολή σε λάθος διεύθυνση ή δίκτυο θα οδηγήσει σε μόνιμη απώλεια κεφαλαίων.'
+            no_addresses_html: 'Δεν υπάρχει ορισμένη διεύθυνση ανάληψης για <b>%{symbol}</b>. Ρύθμισέ την στο %{exchange} πρώτα.'
+            fetch_failed_html: 'Δεν ήταν δυνατή η ανάκτηση διευθύνσεων ανάληψης από το %{exchange}. Δοκίμασε ξανά αργότερα.'
+        add_api_key:
+            title: 'Προσθήκη κλειδιού API ανάληψης για %{exchange}'
+            instructions_title: 'Πώς να πάρεις κλειδιά από %{exchange}'
+            instructions_body: 'Δημιούργησε ένα κλειδί API με δικαιώματα ανάληψης στο %{exchange} και επικόλλησε τα στοιχεία εδώ.'
+    tracker:
+        sync: 'Συγχρονισμός'
+        sync_started: 'Συγχρονισμός συναλλαγών από τα ανταλλακτήριά σου...'
+        importing_from: 'Εισαγωγή δεδομένων από %{exchange}…'
+        get_report: 'Λήψη αναφοράς'
+        filter: 'Φίλτρο'
+        bot: 'Bot'
+        no_results: 'Δεν βρέθηκαν συναλλαγές για τα επιλεγμένα φίλτρα.'
+        connect_exchange: 'Σύνδεση ανταλλακτηρίου'
+        import_from: 'Εισαγωγή συναλλαγών από'
+        search_exchange: 'Αναζήτηση ανταλλακτηρίου...'
+        setup_coingecko_html: 'Για τη δημιουργία φορολογικής αναφοράς απαιτούνται ιστορικές τιμές. Το δωρεάν πλάνο του <b>CoinGecko</b> καλύπτει ιστορικό μέχρι 2 χρόνια. Για παλαιότερες συναλλαγές, αναβάθμισε σε <b>CoinGecko Analyst</b> ή γίνε μέλος στο <a href="https://deltabadger.com">deltabadger.com</a> όπου τα δεδομένα αγοράς περιλαμβάνονται.'
+        beta_notice: 'Η φορολογική αναφορά είναι ακόμα σε beta. Δημιούργησε μια αναφορά, μοιράσου τη με τον λογιστή σου και πες μου τι μπορεί να βελτιωθεί. Με τα σχόλιά σου, μπορεί να γίνει τέλεια.'
+        export_modal:
+            title: 'Δημιουργία αναφοράς'
+            tax_report: 'Φορολογική αναφορά'
+            transactions: 'Όλα'
+            country: 'Χώρα'
+            year: 'Έτος'
+            generate: 'Δημιουργία'
+            download_label: 'Λήψη'
+            from: 'Από'
+            to: 'Έως'
+            stablecoin_as_fiat: 'Αντιμετώπιση stablecoins ως fiat (ρώτησε τον λογιστή σου)'
+        tax_report:
+            invalid_country: 'Μη έγκυρη επιλογή χώρας.'
+            expired: 'Η φορολογική αναφορά έληξε. Δημιούργησε μια νέα.'
+            generating: 'Δημιουργία φορολογικής αναφοράς...'
+            download_ready: 'Η φορολογική αναφορά είναι έτοιμη. Πάτησε για λήψη.'
+        filters:
+            all: 'Όλα'
+        columns:
+            date: 'Ημερομηνία'
+            type: 'Τύπος'
+            base: 'Asset'
+            amount: 'Ποσό'
+            quote: 'Quote'
+            quote_amount: 'Αξία'
+            fee: 'Προμήθεια'
+            exchange: 'Ανταλλακτήριο'
+            bot: 'Bot'
+        types:
+            buy: 'Αγορά'
+            sell: 'Πώληση'
+            swap_in: 'Swap εισερχόμενο'
+            swap_out: 'Swap εξερχόμενο'
+            deposit: 'Κατάθεση'
+            withdrawal: 'Ανάληψη'
+            staking_reward: 'Staking'
+            lending_interest: 'Τόκοι'
+            airdrop: 'Airdrop'
+            mining: 'Mining'
+            fee: 'Προμήθεια'
+            other_income: 'Έσοδα'
+            lost: 'Απώλεια'
+    order_filters:
+        all: 'Όλες'
+        successful: 'Επιτυχημένες'
+        cancelled: 'Ακυρωμένες'
+        waiting: 'Προγραμματισμένες'
+    tax_report:
+        headers:
+            date: 'Ημερομηνία'
+            asset: 'Asset'
+            amount: 'Ποσό'
+            proceeds: 'Έσοδα'
+            cost_basis: 'Κόστος κτήσης'
+            gain_loss: 'Κέρδος/Ζημία'
+            currency: 'Νόμισμα'
+            holding_days: 'Ημέρες κατοχής'
+            fee: 'Προμήθεια'
+            exchange: 'Ανταλλακτήριο'
+            tx_id: 'ID συναλλαγής'
+            cost_basis_complete: 'Πλήρες κόστος κτήσης'
+            acquisition_date: 'Ημερομηνία απόκτησης'
+            tax_exempt: 'Αφορολόγητο'
+            old_stock: 'Παλαιό απόθεμα'
+            term: 'Περίοδος'
+            matching_rule: 'Κανόνας αντιστοίχισης'
+            total_acquisition_cost: 'Συνολικό κόστος απόκτησης'
+            portfolio_value: 'Αξία χαρτοφυλακίου'
+            tax_rate: 'Φορολογικός συντελεστής'
+            exempt: 'Αφορολόγητο (κατώφλι)'
+            value: 'Αξία'
+            reference_date: 'Ημερομηνία αναφοράς'
+            period: 'Περίοδος'
+        no_taxable_transactions: 'Δεν βρέθηκαν φορολογητέες συναλλαγές για αυτή την περίοδο.'
+        summary:
+            total_value: 'Συνολική αξία'
+            allowance: 'Αφορολόγητο όριο'
+            taxable_wealth: 'Φορολογητέα περιουσία'
+            deemed_return: 'Τεκμαρτή απόδοση'
+            tax: 'Φόρος'
+            total_gains: 'Συνολικά κέρδη'
+            total_losses: 'Συνολικές ζημίες'
+            deductible: 'εκπεστέο'

@@ -1,0 +1,106 @@
+el:
+    activerecord:
+        attributes:
+            user:
+                name: "Όνομα"
+                email: "Email"
+                password: "Κωδικός"
+        errors:
+            models:
+                bot:
+                    attributes:
+                        smart_interval_quote_amount:
+                            not_a_number: "Πρέπει να ορίσεις ένα ποσό για τα έξυπνα διαστήματα"
+                            greater_than_or_equal_to: "Για αυτό το πρόγραμμα, το ποσό έξυπνων διαστημάτων δεν μπορεί να είναι μικρότερο από %{count}"
+                        price_limit:
+                            not_a_number: "Πρέπει να ορίσεις μια τιμή"
+                            greater_than_or_equal_to: "Η τιμή πρέπει να είναι μεγαλύτερη ή ίση με 0"
+                        price_drop_limit:
+                            not_a_number: "Πρέπει να ορίσεις μια τιμή πτώσης"
+                            greater_than_or_equal_to: "Η τιμή πτώσης πρέπει να είναι μεγαλύτερη ή ίση με 0"
+                            less_than_or_equal_to: "Η τιμή πτώσης πρέπει να είναι μικρότερη ή ίση με 100"
+                        indicator_limit:
+                            not_a_number: "Πρέπει να ορίσεις την τιμή του %{indicator}"
+                        moving_average_limit_in_period:
+                            not_a_number: "Πρέπει να ορίσεις την περίοδο κινητού μέσου"
+                            greater_than: "Η περίοδος κινητού μέσου πρέπει να είναι μεγαλύτερη από 0"
+                        quote_amount:
+                            not_a_number: "Πρέπει να προσθέσεις ένα ποσό επένδυσης"
+                            greater_than: "Το ποσό επένδυσης πρέπει να είναι μεγαλύτερο από 0"
+                        quote_amount_limit:
+                            not_a_number: "Πρέπει να ορίσεις ποιο ποσό δεν μπορεί να ξεπεραστεί"
+                            greater_than_or_equal_to: "Το όριο ποσού πρέπει να είναι μεγαλύτερο ή ίσο με %{count}"
+    errors:
+        bitcoin_address_not_updated: 'Η διεύθυνση Bitcoin δεν μπόρεσε να ενημερωθεί'
+        format: '%{attribute} %{message}'
+        frequency_limit: 'Υπέρβαση ορίου συχνότητας'
+        invalid_api_keys: 'Μη έγκυρα κλειδιά'
+        invalid_risk_free_rate_key: 'Μη έγκυρο κλειδί Risk Free Rate.'
+        api_key_permission_validation_failed: 'Αποτυχία επαλήθευσης δικαιωμάτων κλειδιού API'
+        api_key_already_exists: 'Υπάρχει ήδη κλειδί API για %{exchange_name}'
+        withdrawal_rule_already_exists: 'Υπάρχει ήδη κανόνας ανάληψης για %{asset_symbol} στο %{exchange_name}'
+        incorrect_api_key_permissions: 'Λανθασμένα δικαιώματα κλειδιού API'
+        unable_to_get_risk_free_rate: 'Αδυναμία λήψης του risk free rate για %{risk_free_rate_name}. Ο server Data API δεν ανταποκρίνεται.'
+        invalid_number_of_allocations: 'Μη έγκυρος αριθμός κατανομών'
+        invalid_allocation_value: 'Μη έγκυρη τιμή κατανομής'
+        bots:
+            exchange_asset_mismatch: "Δεν είναι όλα τα assets διαθέσιμα στο %{exchange_name}"
+            exchange_change_while_open_orders: "Ακύρωσε όλες τις ανοιχτές εντολές που έχει αυτό το bot στο %{exchange_name} πριν αλλάξεις ανταλλακτήριο"
+            destroy_success: "Το bot %{bot_label} διαγράφηκε επιτυχώς"
+            api_key_success: "Τα κλειδιά API αποθηκεύτηκαν επιτυχώς"
+            coingecko_required: "Απαιτείται κλειδί CoinGecko API για bots δείκτη"
+            market_data_required: "Πρέπει να ρυθμιστεί πάροχος δεδομένων αγοράς για bots δείκτη. Πήγαινε στις ρυθμίσεις για σύνδεση."
+            index_change_after_transactions: "Ο τύπος δείκτη δεν μπορεί να αλλάξει μετά την τοποθέτηση εντολών"
+            signal_required: "Απαιτείται τουλάχιστον ένα σήμα"
+            signal_minimum: "Δεν μπορείς να αφαιρέσεις το τελευταίο σήμα"
+        messages:
+            accepted: 'πρέπει να γίνει αποδεκτό'
+            already_confirmed: 'έχει ήδη επιβεβαιωθεί, δοκίμασε να συνδεθείς.'
+            bad_2fa_code: 'Μη έγκυρος κωδικός. Δοκίμασε ξανά.'
+            bad_credentials: 'Λάθος email ή κωδικός.'
+            bad_credentials_with_code: 'Λάθος email, κωδικός ή κωδικός 2FA.'
+            blank: 'δεν μπορεί να είναι κενό'
+            confirmation: 'δεν ταιριάζει με %{attribute}'
+            confirmation_period_expired: 'πρέπει να επιβεβαιωθεί εντός %{period}, ζήτησε νέο.'
+            empty: 'δεν μπορεί να είναι κενό'
+            empty_two_fa_token: 'Λείπει ο κωδικός 2FA. Δοκίμασε ξανά.'
+            equal_to: 'πρέπει να είναι ίσο με %{count}'
+            even: 'πρέπει να είναι ζυγός'
+            exclusion: 'είναι δεσμευμένο'
+            expired: 'έχει λήξει, ζήτησε νέο.'
+            greater_than: 'πρέπει να είναι μεγαλύτερο από %{count}'
+            greater_than_or_equal_to: 'πρέπει να είναι μεγαλύτερο ή ίσο με %{count}'
+            in: 'πρέπει να είναι μέσα σε %{count}'
+            inclusion: 'δεν περιλαμβάνεται στη λίστα'
+            invalid: 'δεν είναι έγκυρο'
+            less_than: 'πρέπει να είναι μικρότερο από %{count}'
+            less_than_or_equal_to: 'πρέπει να είναι μικρότερο ή ίσο με %{count}'
+            model_invalid: 'Αποτυχία επικύρωσης: %{errors}'
+            not_a_number: 'δεν είναι αριθμός'
+            not_an_integer: 'πρέπει να είναι ακέραιος'
+            not_found: 'δεν βρέθηκε.'
+            not_locked: 'δεν ήταν κλειδωμένο.'
+            not_saved:
+                one: '1 σφάλμα εμπόδισε την αποθήκευση αυτού του %{resource}:'
+                other: '%{count} σφάλματα εμπόδισαν την αποθήκευση αυτού του %{resource}:'
+            odd: 'πρέπει να είναι μονός'
+            other_than: 'πρέπει να είναι διαφορετικό από %{count}'
+            password_not_match: 'Οι κωδικοί δεν ταιριάζουν'
+            present: 'πρέπει να είναι κενό'
+            too_long:
+                one: 'είναι πολύ μεγάλο (μέγιστο 1 χαρακτήρας)'
+                other: 'είναι πολύ μεγάλο (μέγιστο %{count} χαρακτήρες)'
+            too_short:
+                one: 'είναι πολύ μικρό (ελάχιστο 1 χαρακτήρας)'
+                other: 'είναι πολύ μικρό (ελάχιστο %{count} χαρακτήρες)'
+            too_simple_password: 'Ο κωδικός πρέπει να περιέχει χαρακτήρες από κάθε μία από τις παρακάτω κατηγορίες: κεφαλαία (A-Z), πεζά (a-z), αριθμούς (0-9), ειδικούς χαρακτήρες (π.χ. #,?,!).'
+            wrong_email: 'Λάθος email.'
+            wrong_length:
+                one: 'έχει λάθος μήκος (πρέπει να είναι 1 χαρακτήρας)'
+                other: 'έχει λάθος μήκος (πρέπει να είναι %{count} χαρακτήρες)'
+            wrong_password: 'Λάθος κωδικός'
+            wrong_two_fa_token: 'Ο κωδικός που δόθηκε είναι λάθος.'
+        unverified_request: 'Ανανέωσε τον browser και δοκίμασε ξανά'
+    alert:
+        bot:
+            bot_updated: 'Το bot ενημερώθηκε επιτυχώς.'

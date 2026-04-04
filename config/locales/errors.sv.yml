@@ -1,0 +1,106 @@
+sv:
+    activerecord:
+        attributes:
+            user:
+                name: "Namn"
+                email: "E-post"
+                password: "Lösenord"
+        errors:
+            models:
+                bot:
+                    attributes:
+                        smart_interval_quote_amount:
+                            not_a_number: "Du måste ange ett belopp för smarta intervall"
+                            greater_than_or_equal_to: "Med detta schema kan smarta intervall-beloppet inte vara lägre än %{count}"
+                        price_limit:
+                            not_a_number: "Du måste ange ett pris"
+                            greater_than_or_equal_to: "Priset måste vara större än eller lika med 0"
+                        price_drop_limit:
+                            not_a_number: "Du måste ange ett prisfall-värde"
+                            greater_than_or_equal_to: "Prisfall-värdet måste vara större än eller lika med 0"
+                            less_than_or_equal_to: "Prisfall-värdet måste vara mindre än eller lika med 100"
+                        indicator_limit:
+                            not_a_number: "Du måste ange %{indicator}-värdet"
+                        moving_average_limit_in_period:
+                            not_a_number: "Du måste ange perioden för glidande medelvärde"
+                            greater_than: "Perioden för glidande medelvärde måste vara större än 0"
+                        quote_amount:
+                            not_a_number: "Du måste ange ett belopp att investera"
+                            greater_than: "Investeringsbeloppet måste vara större än 0"
+                        quote_amount_limit:
+                            not_a_number: "Du måste ange vilket belopp som inte får överskridas"
+                            greater_than_or_equal_to: "Beloppsgränsen måste vara större än eller lika med %{count}"
+    errors:
+        bitcoin_address_not_updated: 'Bitcoin-adressen kunde inte uppdateras'
+        format: '%{attribute} %{message}'
+        frequency_limit: 'Frekvensgränsen har överskridits'
+        invalid_api_keys: 'Ogiltiga nycklar'
+        invalid_risk_free_rate_key: 'Ogiltig riskfri räntenyckel.'
+        api_key_permission_validation_failed: 'Kunde inte validera API-nyckelns behörigheter'
+        api_key_already_exists: 'En API-nyckel för %{exchange_name} finns redan'
+        withdrawal_rule_already_exists: 'En uttagsregel för %{asset_symbol} på %{exchange_name} finns redan'
+        incorrect_api_key_permissions: 'Felaktiga API-nyckelbehörigheter'
+        unable_to_get_risk_free_rate: 'Kunde inte hämta den riskfria räntan för %{risk_free_rate_name}. Data API-servern går inte att nå.'
+        invalid_number_of_allocations: 'Ogiltigt antal allokeringar'
+        invalid_allocation_value: 'Ogiltigt allokeringsvärde'
+        bots:
+            exchange_asset_mismatch: "Alla tillgångar är inte listade på %{exchange_name}"
+            exchange_change_while_open_orders: "Avbryt alla öppna ordrar som denna bot har på %{exchange_name} innan du byter börs"
+            destroy_success: "Bot %{bot_label} har tagits bort"
+            api_key_success: "API-nycklar sparade"
+            coingecko_required: "CoinGecko API-nyckel krävs för indexbotar"
+            market_data_required: "En marknadsdataleverantör måste konfigureras för indexbotar. Gå till Inställningar för att ansluta en."
+            index_change_after_transactions: "Indextyp kan inte ändras efter att ordrar har lagts"
+            signal_required: "Minst en signal krävs"
+            signal_minimum: "Kan inte ta bort den sista signalen"
+        messages:
+            accepted: 'måste accepteras'
+            already_confirmed: 'har redan bekräftats, försök logga in.'
+            bad_2fa_code: 'Ogiltig kod. Försök igen.'
+            bad_credentials: 'Fel e-post eller lösenord.'
+            bad_credentials_with_code: 'Fel e-post, lösenord eller 2FA-kod.'
+            blank: 'får inte vara tomt'
+            confirmation: 'matchar inte %{attribute}'
+            confirmation_period_expired: 'måste bekräftas inom %{period}, begär en ny.'
+            empty: 'får inte vara tomt'
+            empty_two_fa_token: '2FA-kod saknas. Försök igen.'
+            equal_to: 'måste vara lika med %{count}'
+            even: 'måste vara jämnt'
+            exclusion: 'är reserverat'
+            expired: 'har gått ut, begär en ny.'
+            greater_than: 'måste vara större än %{count}'
+            greater_than_or_equal_to: 'måste vara större än eller lika med %{count}'
+            in: 'måste vara i %{count}'
+            inclusion: 'finns inte i listan'
+            invalid: 'är ogiltigt'
+            less_than: 'måste vara mindre än %{count}'
+            less_than_or_equal_to: 'måste vara mindre än eller lika med %{count}'
+            model_invalid: 'Validering misslyckades: %{errors}'
+            not_a_number: 'är inte ett tal'
+            not_an_integer: 'måste vara ett heltal'
+            not_found: 'hittades inte.'
+            not_locked: 'var inte låst.'
+            not_saved:
+                one: '1 fel förhindrade att %{resource} sparades:'
+                other: '%{count} fel förhindrade att %{resource} sparades:'
+            odd: 'måste vara udda'
+            other_than: 'måste vara annat än %{count}'
+            password_not_match: 'Lösenorden matchar inte'
+            present: 'måste vara tomt'
+            too_long:
+                one: 'är för långt (max 1 tecken)'
+                other: 'är för långt (max %{count} tecken)'
+            too_short:
+                one: 'är för kort (minimum 1 tecken)'
+                other: 'är för kort (minimum %{count} tecken)'
+            too_simple_password: 'Lösenordet måste innehålla tecken från var och en av följande kategorier: stora bokstäver (A-Ö), små bokstäver (a-ö), siffror (0-9), specialtecken (t.ex. #,?,!).'
+            wrong_email: 'Fel e-post.'
+            wrong_length:
+                one: 'har fel längd (ska vara 1 tecken)'
+                other: 'har fel längd (ska vara %{count} tecken)'
+            wrong_password: 'Fel lösenord'
+            wrong_two_fa_token: 'Angiven kod är fel.'
+        unverified_request: 'Uppdatera webbläsaren och försök igen'
+    alert:
+        bot:
+            bot_updated: 'Boten har uppdaterats.'

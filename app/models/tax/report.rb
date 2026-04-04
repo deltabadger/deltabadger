@@ -41,6 +41,7 @@ module Tax
         apply_tax_rate(results) if jurisdiction[:tax_rate]
         apply_exemption_threshold(results) if jurisdiction[:exemption_threshold]
         apply_expense_deduction(results) if jurisdiction[:expense_deduction]
+        apply_danish_wash_sale(results, enriched) if jurisdiction[:danish_wash_sale]
       end
 
       I18n.with_locale(jurisdiction[:locale]) do
@@ -54,6 +55,7 @@ module Tax
             append_irish_summary(csv, results) if jurisdiction[:annual_exemption]
             append_expense_deduction_summary(csv, results) if jurisdiction[:expense_deduction]
             append_flat_tax_summary(csv, results) if jurisdiction[:flat_tax_rate]
+            append_danish_summary(csv, results) if jurisdiction[:per_asset_summary]
           end
           append_warnings(csv) if @price_service.warnings.any?
         end
@@ -89,6 +91,7 @@ module Tax
         keys << 'period' if jurisdiction[:split_payment]
         keys << 'tax_rate' if jurisdiction[:tax_rate]
         keys << 'exempt' if jurisdiction[:exemption_threshold]
+        keys << 'loss_denied' if jurisdiction[:danish_wash_sale]
       end
 
       keys.map { |k| I18n.t("tax_report.headers.#{k}", default: k) }
@@ -138,6 +141,7 @@ module Tax
         row << disposal[:period] if jurisdiction[:split_payment]
         row << disposal[:tax_rate] if jurisdiction[:tax_rate]
         row << disposal[:exempt] if jurisdiction[:exemption_threshold]
+        row << (disposal[:loss_denied] ? I18n.t('tax_report.summary.denied_losses') : nil) if jurisdiction[:danish_wash_sale]
         row
       end
     end
@@ -321,6 +325,45 @@ module Tax
       csv << [I18n.t('tax_report.summary.total_losses', default: 'Total losses'), losses.round(2)]
       csv << [I18n.t('tax_report.summary.taxable_income', default: 'Taxable income'), net.round(2)]
       csv << [I18n.t("tax_report.summary.tax_#{pct}", default: "Tax (#{pct}%)"), tax]
+    end
+
+    ACQUISITION_ENTRY_TYPES = %w[buy deposit swap_in staking_reward lending_interest airdrop mining other_income].freeze
+
+    def apply_danish_wash_sale(disposals, enriched)
+      buys_by_asset = enriched
+                      .select { |tx| ACQUISITION_ENTRY_TYPES.include?(tx[:entry_type].to_s) }
+                      .group_by { |tx| tx[:base_currency] }
+
+      disposals.each do |d|
+        next unless d[:gain_loss]&.negative?
+        next unless d[:acquisition_date] && d[:date]
+
+        asset_buys = buys_by_asset[d[:asset]] || []
+        d[:loss_denied] = asset_buys.any? do |buy|
+          buy[:transacted_at] > d[:acquisition_date] && buy[:transacted_at] < d[:date]
+        end
+      end
+    end
+
+    def append_danish_summary(csv, results)
+      rate = jurisdiction[:loss_deduction_rate_on_losses]
+      by_asset = results.group_by { |d| d[:asset] }
+
+      by_asset.each do |asset, disposals|
+        gains = disposals.select { |d| d[:gain_loss]&.positive? }.sum { |d| d[:gain_loss] }
+        allowed_losses = disposals.select { |d| d[:gain_loss]&.negative? && !d[:loss_denied] }
+                                  .sum { |d| d[:gain_loss] }.abs
+        denied_losses = disposals.select { |d| d[:gain_loss]&.negative? && d[:loss_denied] }
+                                 .sum { |d| d[:gain_loss] }.abs
+        deduction = (allowed_losses * rate).round(2)
+
+        csv << []
+        csv << ["#{asset}:"]
+        csv << ["  #{I18n.t('tax_report.summary.gains_box_20')}", gains.round(2)]
+        csv << ["  #{I18n.t('tax_report.summary.losses_box_58')}", allowed_losses.round(2),
+                "#{(rate * 100).to_i}% #{I18n.t('tax_report.summary.deduction')}", deduction]
+        csv << ["  #{I18n.t('tax_report.summary.denied_losses')}", denied_losses.round(2)] if denied_losses.positive?
+      end
     end
 
     def append_warnings(csv)

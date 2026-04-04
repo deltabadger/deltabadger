@@ -1,0 +1,47 @@
+sv:
+    index:
+        bitcoin:
+            title: "Bitcoin"
+            info: "Att regelbundet spara i Bitcoin är guldstandarden för långsiktiga investerare."
+        crypto_berbell:
+            title: "Kryptoskivstång"
+            info: "Täck 74% av kryptomarknaden med en enkel, krångelfri portfölj som ombalanserar på autopilot."
+        crypto_index:
+            title: "Kryptoindex"
+            info: "Det finns inget S&P 500 för krypto, men nu kan du bygga ett. Automatisera en indexportfölj av de största kryptovalutorna."
+        altcoin_season:
+            title: "Altcoinsäsong"
+            info: "Investera i en portfölj av vinnande altcoins på ett säkert sätt. Minska riskerna med småbolagskrypto genom att ersätta manuell allokering med automatisk indexering."
+        layer_1:
+            title: "Layer 1"
+            info: "Primära blockkedjenätverk som bearbetar transaktioner direkt och utgör grunden för blockkedjeinfrastrukturen."
+        made_in_usa:
+            title: "Made in USA"
+            info: "Kryptovalutor med starka kopplingar till USA genom sina grundarteam eller företagshuvudkontor."
+        alleged_sec_securities:
+            title: "Påstådda SEC-värdepapper"
+            info: "Tokens och kryptovalutor som har pekats ut som värdepapper av den amerikanska finansinspektionen (SEC)."
+        memecoins:
+            title: "Memecoins"
+            info: "Mynt som får sitt värde från internetmemes och communityengagemang snarare än underliggande teknik eller nytta."
+        elon_musk_inspired:
+            title: "Elon Musk-inspirerade"
+            info: "Memecoins inspirerade av Elon Musk. Inget av dessa projekt är (nödvändigtvis) godkänt eller skapat av Elon Musk."
+        ai_portfolio:
+            title: "AI-portfölj"
+            info: "AI-tokens är kryptovalutor som driver AI-relaterade projekt."
+        layer_2:
+            title: "Layer 2"
+            info: "Layer 2-lösningar är skalningslösningar byggda ovanpå Layer 1-blockkedjor för att förbättra transaktionshastigheten och minska kostnaderna."
+        layer_0:
+            title: "Layer 0"
+            info: "Layer 0-protokoll tillhandahåller den grundläggande infrastrukturen för att bygga och koppla samman flera blockkedjor."
+        gamefi:
+            title: "GameFi"
+            info: "GameFi-tokens driver blockkedjebaserade spelplattformar och virtuella världar, och kombinerar spel med decentraliserad finans."
+        yield_farming:
+            title: "Avkastningsodling"
+            info: "Avkastningsodlingstokens gör det möjligt att tjäna belöningar genom att tillhandahålla likviditet till decentraliserade finansprotokoll."
+        consensys_portfolio:
+            title: "Consensys-portföljen"
+            info: "Protokoll och tokens som Consensys har investerat i."
