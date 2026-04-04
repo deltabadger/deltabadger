@@ -1,5 +1,6 @@
 @use "sass:color"
 
+// Font: Montserrat (default)
 @font-face
   font-family: 'Montserrat'
   src: url('/fonts/Montserrat-VariableFont_wght.woff2') format('woff2')
@@ -7,10 +8,40 @@
   font-style: normal
   font-display: swap
 
-\:root
-  font-size: 8px
-  font-family: 'Montserrat', sans-serif
+// Font: Google Sans (Greek locale)
+@font-face
+  font-family: 'Google Sans'
+  src: url('/fonts/GoogleSans-latin.woff2') format('woff2')
+  font-weight: 100 900
+  font-style: normal
+  font-display: swap
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD
 
+@font-face
+  font-family: 'Google Sans'
+  src: url('/fonts/GoogleSans-greek.woff2') format('woff2')
+  font-weight: 100 900
+  font-style: normal
+  font-display: swap
+  unicode-range: U+0370-0377, U+037A-037F, U+0384-038A, U+038C, U+038E-03A1, U+03A3-03FF
+
+@font-face
+  font-family: 'Google Sans'
+  src: url('/fonts/GoogleSans-greek-ext.woff2') format('woff2')
+  font-weight: 100 900
+  font-style: normal
+  font-display: swap
+  unicode-range: U+1F00-1FFF
+
+\:root
+  --font-family: 'Montserrat', sans-serif
+  font-size: 8px
+  font-family: var(--font-family)
+
+[data-locale="el"]
+  --font-family: 'Google Sans', sans-serif
+
+\:root
   --ui-padding: 2rem
   @media (min-width: 768px)
     --ui-padding: 3rem
@@ -215,9 +246,8 @@ $introBoxHeight:     60vh
 $introBoxMaxHeight:  87rem
 $introBoxMinHeight:  70rem
 
-$fontText:           'Montserrat', 'Raleway', 'Roboto', sans-serif
-$fontTextCyrilic:    'Montserrat', 'Raleway', 'Roboto', sans-serif
-$fontBrand:          'Montserrat', 'Raleway', 'Roboto', sans-serif
+$fontText:           var(--font-family)
+$fontBrand:          var(--font-family)
 $fontHeader:         $fontBrand
 $fontButton:         $fontBrand
 

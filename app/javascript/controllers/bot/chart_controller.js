@@ -137,7 +137,7 @@ export default class extends Controller {
       return { x: x, y: y };
     };
 
-    Chart.defaults.font.family = "Montserrat";
+    Chart.defaults.font.family = getComputedStyle(document.documentElement).getPropertyValue('--font-family').trim() || 'Montserrat';
     if (this.chart) {
       this.chart.destroy();
     }
