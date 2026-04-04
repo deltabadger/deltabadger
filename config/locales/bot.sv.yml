@@ -1,0 +1,293 @@
+sv:
+    bot:
+        add_api_keys: "Lägg till API-nycklar för %{exchange}"
+        bot_name: 'Botnamn'
+        new: "Ny bot"
+        dca_index:
+            setup:
+                step_index: "Index"
+                sentence:
+                    build_index: "Bygg indexportfölj"
+                    build_index_at: "Bygg %{index_name}-portfölj"
+                    portfolio: portfölj
+                pick_index:
+                    top_coins: "Toppvaluta"
+                    top_coins_description: "De största kryptovalutorna efter börsvärde. Kryptons S&P 500."
+                    error: "Välj ett index"
+            num_coins: "Antal mynt"
+            allocation_flattening: "Allokeringsutjämning"
+            into_index: "i %{index_name}"
+            into: i
+            index_preview: "Förhandsgranskning av index"
+            fewer_coins_available: "%{available} av %{requested} mynt i indexet finns tillgängliga på %{exchange_name}"
+            num_assets: "Tillgångar i index"
+            asset_breakdown: "Tillgångsfördelning"
+            asset: "Tillgång"
+            amount: "Belopp"
+            avg_price: "Snittpris"
+            value: "Värde"
+            pl: "V/F"
+            warning:
+                intro: "Vissa ordrar (%{skipped_count}) var under %{exchange_name}s minsta orderstorlek. Så här hanterar boten det:"
+        types:
+            dca:
+                title: "DCA"
+                description: "Investera i en tillgång"
+            dca_dual_asset:
+                title: "Ombalanserad DCA"
+                description: "Ombalansera två tillgångar"
+            index_portfolio:
+                title: "Indexportfölj"
+                description: "Din personliga krypto-ETF"
+            custom_portfolio:
+                title: "Egen portfölj"
+                description: "Ombalansera egen tillgångsmix"
+            signal:
+                title: "Signal"
+                description: "Handla baserat på externa signaler"
+            dca_stocks:
+                title: "DCA (aktier)"
+                description: "Köp aktier via Alpaca"
+        dca_stocks:
+            connect_alpaca_intro: "Anslut ditt Alpaca-konto för att börja investera i aktier"
+            pick_stock: "Sök efter en aktie"
+            no_results: "Inga aktier hittades"
+            stock_not_found: "Aktien hittades inte på Alpaca"
+            mode_paper: "Pappershandel"
+            mode_live: "Riktig handel"
+        status:
+            setting_orders: "Lägger ordrar…"
+            paused: "Pausad"
+            next_try: "Nästa försök om"
+            waiting: "Väntar på att alla villkor ska uppfyllas"
+            listening: "Lyssnar"
+            market_opens_in: "Marknaden öppnar om"
+            market_closed: "Marknaden är stängd nu."
+        pick_exchange: "Välj börs"
+        conversational:
+            invest: "Investera"
+            into: "i"
+        utils:
+            mkt_cap_adjusted_html: "Börsvärdesjusterad"
+            mkt_cap_adjusted_info_html: |
+                <p><b>Börsvärde</b> är ett sätt att mäta hur stor eller värdefull en kryptovaluta är. Det beräknas genom att multiplicera det totala antalet mynt med priset per mynt. I din bot får myntet med högre börsvärde en större andel av din investering.</p>
+                <p><b>Exempel:</b></p>
+                <p><b>Mynt A:</b> 2 miljoner mynt finns, vardera värt $10. Börsvärdet blir 2M × $10 = $20M.</p>
+                <p><b>Mynt B:</b> 1 miljon mynt finns, vardera värt $1. Börsvärde = 1M × $1 = $1M.</p>
+                <p>Om du investerar $100 delar boten upp det proportionellt efter börsvärde: $95,2 till Mynt A, $4,8 till Mynt B.</p>
+                <p>Men om Mynt B:s pris stiger till $3 blir dess börsvärde $3M. Då fördelas nästa $100 som $87 till Mynt A och $13 till Mynt B.</p>
+        above: "över"
+        below: "under"
+        buttons:
+            automatic_withdrawal: "Automatiskt uttag"
+            request_exchange: "Be om att lägga till en börs"
+            move_existing_bot: "Flytta befintlig bot till en annan börs"
+            delete:
+                ok: "Ta bort helt"
+                warning_html: "Det tar bort boten med all<br>dess historiska data. Är du säker?"
+            dollar_cost_averaging: "Periodiskt sparande"
+            pending:
+                info_html: "Bearbetar…"
+                text: "Väntar"
+            start:
+                changed_missed:
+                    continue: "Ja, köp och fortsätt"
+                    info_html: "Vill du investera <b>%{amount} %{quote}</b> som missades medan boten var pausad? Det nya schemat startar efter att den pågående nedräkningen är klar."
+                    skip: "Hoppa över den missade delen"
+                changed_on_schedule:
+                    continue: "Jag förstår"
+                    info_html: "Det nya schemat startar efter att de återstående <b>%{time}</b> av det förra är klara."
+                    skip: "Strunta i det och starta direkt"
+                missed:
+                    continue: "Ja, köp och fortsätt"
+                    info_html: "Vill du investera <b>%{amount} %{quote}</b> som missades medan boten var pausad, och fortsätta det ursprungliga tidsschemat?"
+                    skip: "Hoppa över den missade delen"
+                on_schedule:
+                    continue: "Fortsätt ursprungligt schema"
+                    info_html: "Det är <b>%{time}</b> kvar till nästa order. Du kan hoppa över den och köra nästa order direkt, eller fortsätta den ursprungliga nedräkningen."
+                    skip: "Hoppa över"
+        signal:
+            trade: "Handel"
+            spending: "för"
+            add_signal: "+ Lägg till signal"
+            url_placeholder: "Webhook-URL visas här"
+            for: "för"
+            when_triggered: "när denna webhook utlöses:"
+            of_the_balance: "av saldot"
+        buy: Köp
+        counter: '%{countdown}'
+        day: Dag
+        details:
+            log:
+                date: Datum
+                errors: Fel
+                title: Logg
+            stats:
+                amount: 'Belopp(%{base})'
+                amount1: 'Belopp'
+                value: 'Värde(%{quote})'
+                value1: 'Värde'
+                average_price: 'Snittpris'
+                bought: Köpt
+                chart:
+                    total_invested: 'Totalt investerat'
+                    value: Värde
+                csv_download_html: 'Tabellen ovan visar bara de senaste tio transaktionerna. Den fullständiga rapporten kan laddas ner i CSV-format nedan.'
+                current_value: 'Aktuellt värde'
+                current_value_sold: 'Aktuellt värde av såld %{base}'
+                date: Datum
+                download_csv: 'Exportera'
+                generating_csv: 'Genererar fil...'
+                import_csv: 'Importera'
+                import_success: '%{count} order(s) importerade.'
+                import_no_new_orders: 'Inga nya ordrar att importera (alla ordrar finns redan eller valutorna stämmer inte).'
+                import_no_file: 'Välj en CSV-fil att importera.'
+                import_invalid_format: 'Ogiltigt CSV-format. Använd en fil exporterad från denna applikation.'
+                import_malformed_csv: 'CSV-filen är felformaterad och kan inte tolkas.'
+                import_error: 'Import misslyckades: %{message}'
+                import_currency_mismatch: "Valutafel: CSV har '%{csv_quote}' men boten använder '%{bot_quote}'"
+                exchange_unavailable_html: 'Börsens API svarar inte just nu.<br>Beräkningarna baseras på senast tillgängliga data.'
+                order: Order
+                profit_loss: Vinst/förlust
+                price: 'Kurs(%{quote})'
+                sold: Sålt
+                title: Statistik
+                total_invested: 'Totalt investerat'
+                portfolio_value: 'Portföljvärde'
+        for: för
+        force_smart_intervals_html: '<b>Smarta intervall</b> · Köp med ordrar på <split>$100</split> %{currency} vardera.'
+        hour: Timme
+        limit_buy: 'Limitköp'
+        limit_sell: 'Limitsälj'
+        messages:
+            do_you_want_to_delete: 'Vill du ta bort denna bot?'
+            symbol_not_supported: "%{symbol} stöds inte"
+            specify_percentage_limit_order: "Ange procentsats vid limitorder"
+            smart_intervals_above_minimum: "Smarta intervall-beloppet måste vara större än %{minimum}"
+            invalid_price_range: "Ogiltigt prisintervall"
+            subaccounts_not_allowed: "Underkonton tillåts inte på denna börs"
+            no_subaccount_name: "Inget underkontonamn angivet"
+            wrong_subaccount_name: "Fel underkontonamn"
+            failed_tooltip_explanation: "Denna order misslyckades: %{error_message}"
+            skipped_tooltip_explanation: "Denna order hoppades över eftersom beloppet var under %{exchange_name}s minsta orderstorlek. Beloppet har buffrats och läggs till nästa order."
+            cancelled_tooltip_explanation: "Denna order avbröts eller gick ut innan den fylldes."
+            failed_status_bar_explanation: "Senaste ordern misslyckades: %{error_message}"
+            order_cancelled: 'Order avbruten'
+            failed_to_cancel_order: 'Kunde inte avbryta order'
+            failed_to_cancel_order_invalid_api_key: 'Kunde inte avbryta order: Ogiltig API-nyckel. Kontrollera dina API-nyckelinställningar på %{exchange_name}.'
+            cannot_cancel_imported_order: 'Kan inte avbryta importerade ordrar'
+        minimum_withdrawal_disclaimer: 'Minsta uttagsstorlek är %{minimum} %{currency}.'
+        minimum_withdrawal_disclaimer_usd: 'Minsta uttagsstorlek är %{minimum} USD.'
+        month: Månad
+        next_buy: 'Nästa om %{countdown}'
+        next_sell: 'Nästa om %{countdown}'
+        next_withdrawal: 'Nästa om %{countdown}'
+        not_found: 'En sådan bot finns inte.'
+        price: 'priset'
+        price_range_buy_html: 'Köp bara i prisintervallet från <split>$100</split> till <split>$1000</split> %{quote} per %{base}.'
+        price_range_sell_html: "Sälj bara i prisintervallet från <split>$100</split> till <split>$1000</split> %{quote} per %{base}."
+        sell: "Sälj"
+        buy_all: "Köp alla"
+        sell_all: "Sälj alla"
+        first_time: "första gången"
+        every_time: "varje gång"
+        name: "Namn:"
+        fees: "Avgifter"
+        maker_fee: "Maker"
+        taker_fee: "Taker"
+        withdrawal_fee: "Uttag"
+        additional_title: "Tvåvägsbot"
+        smart_intervals_disclaimer: 'Orderstorleken på %{exchange} definieras i %{currency}. Minsta orderstorlek är %{minimum}%{currency}.'
+        smart_intervals_disclaimer_base: 'Orderstorleken på %{exchange} definieras i %{currency}. Minsta orderstorlek är %{minimum}%{currency}.'
+        smart_intervals_disclaimer_quote: 'Minsta orderstorlek är %{minimum}%{currency}.'
+        starting: Startar
+        subaccounts_info: 'Använd underkonto'
+        week: Vecka
+        withdraw_interval_html: 'Ta ut var <split>2</split> dagar.'
+        withdraw_threshold_html: 'Ta ut när minst <split>0.001</split> %{currency} finns tillgängligt.'
+        withdrawal_percentage: '%{percentage}%'
+        withdrawal: 'Uttag'
+        cancel_order: 'Avbryt'
+        warning:
+            dca_single_asset:
+                intro: "Beloppet för %{missed_symbol} var under %{exchange_name}s minsta orderstorlek (%{missed_minimum_base_size} %{missed_symbol} eller %{missed_minimum_quote_size} %{quote_symbol} för %{missed_symbol}). Så här hanterar boten det:"
+            dca_dual_asset:
+                both_below:
+                    intro: "Båda orderbeloppen för %{base0_symbol} och %{base1_symbol} är under %{exchange_name}s minsta orderstorlekar (%{base0_minimum_base_size} %{base0_symbol} eller %{base0_minimum_quote_size} %{quote_symbol} för %{base0_symbol} och %{base1_minimum_base_size} %{base1_symbol} eller %{base1_minimum_quote_size} %{quote_symbol} för %{base1_symbol}). Så här hanterar boten det:"
+                one_below:
+                    intro: "Din bot köpte %{bought_quote_amount} %{quote_symbol} av %{bought_symbol}, men beloppet för %{missed_symbol} var under %{exchange_name}s minsta orderstorlek (%{missed_minimum_base_size} %{missed_symbol} eller %{missed_minimum_quote_size} %{quote_symbol} för %{missed_symbol}). Så här hanterar boten det:"
+            buffer_explanation:
+                one: "Det missade beloppet har buffrats och kommer att användas vid nästa schemalagda order, så att ditt schema och din allokering följs så nära börsens minimigränser tillåter."
+                other: "De missade beloppen har buffrats och kommer att användas vid nästa schemalagda ordrar, så att ditt schema och din allokering följs så nära börsens minimigränser tillåter."
+            title: "Grattis! Din bot körs."
+            general_note: "Börsminiminivåer och nödvändiga ombalanseringsbelopp ändras. Transaktioner kan ibland se oregelbundna ut, men boten siktar alltid på din önskade allokering och schema, så inget extra arbete behövs."
+        settings:
+            smart_intervals:
+                sentence_html: '<b>Smarta intervall</b> Dela upp <span>beloppet</span> <span>i</span> <span>%{amount_html} %{quote}</span>-enheter'
+                info: "Att dela upp dina %{quote_amount} %{quote} / %{interval} i enheter om %{amount} %{quote} ger en investering var %{smart_interval}"
+            limit_orders:
+                sentence_html: '<b>FeeCutter</b> <span>Slipp avgifter</span> med <span>limit</span>ordrar <span>%{amount_html}%</span> <span>under priset</span>'
+                info: "För att sänka avgifterna till noll, ställ in på %{maker_fee}% som är %{exchange}s maker-avgift. Sänk värdet för snabbare utförande, eller höj det för en potentiellt bättre affär. Följ dina ordrar i ordertabellen."
+            extra_amount_limit:
+                sentence_html: "Spendera inte mer än <span>%{value_html} %{quote}</span>"
+                info:
+                    spent: "Hela beloppet har investerats"
+                    left: "(%{amount} %{quote} kvar)"
+            extra_price_limit:
+                sentence_html:
+                    one: "%{timing_condition_html} när <span>priset</span> är <span>%{value_condition_html}</span> <span>%{price_input_html}</span>"
+                    other: "%{timing_condition_html} när %{base_html} <span>priset</span> är <span>%{value_condition_html}</span> <span>%{price_input_html}</span>"
+                info: "Aktuellt %{base}-pris är %{current_price} %{quote}"
+                price_limit_input_html: "%{value_html} %{quote}"
+                price_limit_range_input_html: "%{lower_bound_value_html} %{quote} och %{upper_bound_value_html} %{quote}"
+                timing_condition:
+                    while: "Köp bara"
+                    after: "Börja köpa"
+                value_condition:
+                    above: "över"
+                    below: "under"
+                    between: "mellan"
+            extra_price_drop_limit:
+                sentence_html:
+                    one: "Börja köpa när priset faller <span>%{value_html}%</span> från sin %{time_window_condition_html}"
+                    other: "Börja köpa när %{base_html}-priset faller <span>%{value_html}%</span> från sin %{time_window_condition_html}"
+                info: "Aktuellt %{base} %{time_window_condition} är %{condition_high} %{quote}."
+                time_window_condition:
+                    ath: "all time high"
+                    twenty_four_hours: "24h-topp"
+            extra_indicator_limit:
+                sentence_html:
+                    one: "<span>%{timing_condition_html}</span> när <span>%{indicator_html}</span> på %{timeframe_html} <span>ljus</span> är <span>%{value_condition_html} %{value_html}</span>"
+                    other: "<span>%{timing_condition_html}</span> när <span>%{indicator_html}</span> på %{ticker_html} %{timeframe_html} <span>ljus</span> är <span>%{value_condition_html} %{value_html}</span>"
+                info: "%{indicator} vid senaste %{timeframe} %{ticker}-ljusets stängning är %{value}"
+                timing_condition:
+                    while: "Köp bara"
+                    after: "Börja köpa"
+                value_condition:
+                    above: "över"
+                    below: "under"
+                timeframe:
+                    one_hour: "timvis"
+                    four_hours: "4-timmars"
+                    one_day: "daglig"
+                    three_days: "3-dagars"
+                    one_week: "veckovis"
+                    one_month: "månadsvis"
+            extra_moving_average_limit:
+                sentence_html:
+                    one: "<span>%{timing_condition_html}</span> när %{base}-priset är %{value_condition_html} <span>%{ma_html} %{ma_period_html}</span> på %{timeframe_html} <span>ljus</span>"
+                    other: "<span>%{timing_condition_html}</span> när %{base}-priset är %{value_condition_html} <span>%{ma_html} %{ma_period_html}</span> på %{ticker_html} %{timeframe_html} <span>ljus</span>"
+                info: "%{ma_type} %{ma_period} vid senaste %{timeframe} %{ticker}-ljusets stängning är %{value} %{quote}"
+                timing_condition:
+                    while: "Köp bara"
+                    after: "Börja köpa"
+                value_condition:
+                    above: "över"
+                    below: "under"
+                timeframe:
+                    one_hour: "timvis"
+                    four_hours: "4-timmars"
+                    one_day: "daglig"
+                    three_days: "3-dagars"
+                    one_week: "veckovis"
+                    one_month: "månadsvis"

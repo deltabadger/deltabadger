@@ -1,0 +1,119 @@
+el:
+    bot:
+        setup:
+            api_not_available: "Το API του ανταλλακτηρίου δεν είναι διαθέσιμο"
+            progress_steps:
+                currencies: "Επιλογή asset"
+                currencies2: "Δεύτερο asset"
+                exchange: "Ανταλλακτήριο"
+                spendable: "Νόμισμα"
+                api: "Σύνδεση ανταλλακτηρίου"
+                schedule: "Ορισμός προγράμματος"
+                coingecko: "Σύνδεση CoinGecko"
+                index: "Επιλογή δείκτη"
+                pick_asset: "Επιλογή asset"
+                pick_exchange: "Επιλογή ανταλλακτηρίου"
+                stock: "Επιλογή μετοχής"
+                address: "Διεύθυνση"
+                settings: "Ρυθμίσεις"
+                confirm: "Επιβεβαίωση"
+            sentence:
+                invest_in: "Επένδυσε σε"
+                and: "και"
+                at: "στο"
+                spending: "ξοδεύοντας"
+            binance:
+                instructions_1_html: 'Συνδέσου στον λογαριασμό σου στο %{exchange_link}.'
+                instructions_2_html: 'Στο μενού χρήστη (στρογγυλό εικονίδιο πάνω δεξιά) πήγαινε στο <b>API Management</b>.'
+                instructions_3_html: 'Δώσε όνομα στο νέο κλειδί API πατώντας <b>Create</b>.'
+                instructions_4_html: 'Επιβεβαίωσε τη δημιουργία με κωδικό(ούς) μιας χρήσης.'
+                instructions_5_html: 'Βεβαιώσου ότι το <b>Enable Spot & Margin Trading</b> είναι τσεκαρισμένο.'
+                instructions_6_html: 'Αν θέλεις να περιορίσεις την πρόσβαση στο κλειδί μόνο για το Deltabadger, πάτησε <b>Edit restrictions</b>, τσέκαρε <b>Restrict access to trusted IPs only (Recommended)</b>, και πρόσθεσε αυτήν την IP στο επόμενο βήμα: <b>%{whitelist_ip}</b>'
+                instructions_7_html: 'Πάτησε <b>Save</b> και επιβεβαίωσε με κωδικό μιας χρήσης αν χρειαστεί.'
+                instructions_8_html: 'Να θυμάσαι ότι το Secret Key φαίνεται μόνο κατά τη δημιουργία, οπότε βεβαιώσου ότι αντέγραψες και τα δύο κλειδιά πριν φύγεις από τη σελίδα.'
+                instructions_9_html: 'Αντέγραψε και επικόλλησε τα νέα κλειδιά API στη φόρμα παραπάνω.'
+                private_key: 'Secret Key'
+                public_key: 'API Key'
+            coinbase:
+                instructions_1_html: 'Συνδέσου στον λογαριασμό σου στο %{exchange_link}.'
+                instructions_2_html: 'Επίλεξε την καρτέλα <b>More</b> από την αριστερή πλαϊνή μπάρα.'
+                instructions_3_html: 'Επίλεξε <b>Advanced API</b> και πάτησε <b>Create your API key</b>. Αν δεν το βρίσκεις, πήγαινε απευθείας <a href="https://portal.cdp.coinbase.com/">εδώ</a>.'
+                instructions_4_html: 'Επίλεξε την καρτέλα <b>API Keys</b>.'
+                instructions_5_html: 'Πάτησε <b>Create API key</b>.'
+                instructions_6_1_html: 'Στο παράθυρο διαλόγου, ανάπτυξε τα <b>API restrictions</b> και ρύθμισε:'
+                instructions_6_2_html: '<b>API key nickname</b>: Δώσε ένα όνομα, <b>Deltabadger</b> είναι καλό για αναγνώριση αργότερα.'
+                instructions_6_3_html: '<b>IP whitelist</b>: <b>%{whitelist_ip}</b>.'
+                instructions_6_4_html: '<b>Portfolio</b>: Επίλεξε το portfolio που θέλεις να χρησιμοποιεί το Deltabadger, <b>Default</b> αν δεν χρησιμοποιείς Coinbase Portfolios.'
+                instructions_6_5_html: '<b>Permissions</b>:<br>&middot; <b>View</b> (μόνο ανάγνωση)<br>&middot; <b>Trade</b> (εκτέλεση συναλλαγών)'
+                instructions_7_html: 'Πάτησε <b>Create & download</b> και ολοκλήρωσε την επαλήθευση δύο βημάτων.'
+                instructions_8_html: 'Αντέγραψε και επικόλλησε τα νέα κλειδιά API στη φόρμα παραπάνω.'
+                private_key: 'Secret'
+                public_key: 'API key'
+            alpaca:
+                instructions_1_html: 'Κάνε εγγραφή ή συνδέσου στον λογαριασμό σου στο %{exchange_link}.'
+                instructions_2_html: 'Πήγαινε στο <b>Paper Trading</b> ή <b>Live Trading</b> dashboard.'
+                instructions_3_html: 'Πλοηγήσου στα <b>API Keys</b> στην αριστερή πλαϊνή μπάρα.'
+                instructions_4_html: 'Πάτησε <b>Generate New Key</b>.'
+                instructions_5_html: 'Αντέγραψε και επικόλλησε το API Key ID και Secret Key στη φόρμα παραπάνω.'
+                private_key: 'Secret Key'
+                public_key: 'API Key ID'
+            error_info: 'Η επαλήθευση απέτυχε. Δοκίμασε ξανά ή δημιούργησε νέα κλειδιά.'
+            frequency_limit:
+                back_to_settings: 'Πίσω στις ρυθμίσεις'
+                limit_exceeded: 'Για να τηρηθεί το όριο του bot σε %{frequency_limit} συναλλαγές ανά ώρα, το πρόγραμμα θα εκτελείται σε εντολές των %{price}%{currency} η καθεμία.'
+                start_the_bot: 'Τροποποίηση και εκκίνηση'
+            how_to_add_withdrawal_bot: 'Πώς να ρυθμίσεις bot ανάληψης:'
+            how_to_get_keys: 'Πώς να πάρεις κλειδιά API από %{exchange}:'
+            kraken:
+                instructions_1_html: 'Συνδέσου στον λογαριασμό σου στο %{exchange_link}.'
+                instructions_2_html: 'Στο μενού χρήστη πήγαινε στο <b>Security</b> → <b>API</b>.'
+                instructions_3_html: 'Πάτησε <b>Generate New Key</b>.'
+                instructions_4_html: 'Ρύθμισε τα δικαιώματα:'
+                instructions_5_1_html: 'Funds:'
+                instructions_5_2_html: '<b>Query Funds</b>'
+                instructions_6_1_html: 'Order & Trades:'
+                instructions_6_2_html: '<b>Query Open Orders & Trades</b>'
+                instructions_6_3_html: '<b>Query Closed Orders & Trades</b>'
+                instructions_6_4_html: '<b>Create and modify orders</b>'
+                instructions_6_5_html: '<b>Cancel/Close Orders</b>'
+                instructions_7_html: 'Πάτησε <b>Generate Key</b>.'
+                instructions_8_html: 'Αντέγραψε και επικόλλησε τα νέα κλειδιά API στη φόρμα παραπάνω.'
+                private_key: 'Private Key'
+                public_key: 'API Key'
+                trading_agreement_html: '<b>Hallo!</b> Αν ο λογαριασμός σου στο Kraken είναι επιβεβαιωμένος με γερμανική διεύθυνση, θα χρειαστεί να αποδεχτείς μια <a href="https://support.kraken.com/hc/en-us/articles/360036157952" target="_blank" rel="nofollow" title="Trading agreement">συμφωνία συναλλαγών</a> για να τοποθετήσεις εντολές market και margin.'
+                trading_agreement_label_html: 'Αποδέχομαι τη <a href="https://support.kraken.com/hc/en-us/articles/360036157952" target="_blank" rel="nofollow" title="Trading agreement">συμφωνία συναλλαγών</a>.'
+            limit_warning: 'Ορίζοντας τις εντολές σου στο ποσό της προμήθειας, ουσιαστικά μηδενίζεις την προμήθεια. Οι εντολές limit μπορεί να αργήσουν λίγο παραπάνω, αλλά γενικά είναι καλή ιδέα. Η προεπιλεγμένη ρύθμιση το κάνει αυτό αυτόματα, οπότε αν δεν είσαι σίγουρος, κράτησέ την ως έχει.'
+            next: Επόμενο
+            no_wallet_found: 'Δεν βρέθηκε πορτοφόλι. Πήγαινε στο %{exchangeName} και πρόσθεσε πορτοφόλι ανάληψης.'
+            set: Ορισμός
+            smart_intervals:
+                dont_show_again: 'Μην εμφανίζεται ξανά'
+                info_html:
+                    force_smart_intervals: 'Για %{base}%{quote}, το %{exchangeName} έχει ελάχιστο μέγεθος εντολής <b>%{minimumValue}%{minimumCurrency}</b>%{approximatedQuote}. Το Deltabadger θα εκτελεί αυτό το πρόγραμμα με εντολές %{minimumValue}%{minimumCurrency}, προσαρμόζοντας το χρονικό διάστημα. Το ονομάζουμε <i>έξυπνα διαστήματα</i>.'
+                    other: 'Για %{base}%{quote}, το %{exchangeName} έχει ελάχιστο μέγεθος εντολής <b>%{minimumValue}%{minimumCurrency}</b>%{approximatedQuote}. Το Deltabadger μπορεί να εκτελεί αυτό το πρόγραμμα με εντολές %{minimumValue}%{minimumCurrency}, προσαρμόζοντας το χρονικό διάστημα. Το ονομάζουμε <i>έξυπνα διαστήματα</i>.'
+            step_api_key: 'Κλειδί API'
+            step_assets: Assets
+            step_exchange: Ανταλλακτήριο
+            step_schedule: Πρόγραμμα
+            step_settings: Ρυθμίσεις
+            step_type: Τύπος
+            validating: Επαλήθευση…
+            withdrawal:
+                kraken:
+                    instructions_1_html: 'Συνδέσου στον λογαριασμό σου στο %{exchange_link}.'
+                    instructions_2_html: 'Στο μενού χρήστη πήγαινε στο <b>Security</b> → <b>API</b>.'
+                    instructions_3_html: 'Πάτησε <b>Generate New Key</b>.'
+                    instructions_4_html: 'Ρύθμισε τα δικαιώματα:'
+                    instructions_5_1_html: 'Funds:'
+                    instructions_5_2_html: '<b>Query Funds</b>'
+                    instructions_5_3_html: '<b>Withdraw Funds</b>'
+                    instructions_6_html: 'Πάτησε <b>Generate Key</b>.'
+                    instructions_7_html: 'Αντέγραψε και επικόλλησε τα νέα κλειδιά API στη φόρμα παραπάνω.'
+            withdrawal_address:
+                kraken:
+                    instructions_1_html: 'Συνδέσου στον λογαριασμό σου στο %{exchange_link}.'
+                    instructions_2_html: 'Πήγαινε στο <b>Funding</b> → <b>Withdraw</b>.'
+                    instructions_3_html: 'Επίλεξε το asset που σε ενδιαφέρει.'
+                    instructions_4_html: 'Πρόσθεσε νέα διεύθυνση ανάληψης ή διαχειρίσου τις υπάρχουσες.'
+                    instructions_5_html: 'Αντέγραψε την περιγραφή που έδωσες στη διεύθυνση ανάληψης στη φόρμα παραπάνω.'
+            withdrawal_html: 'Ανάληψη <split>%{currency}</split> στο πορτοφόλι <split>%{address}</split>.'

@@ -1,0 +1,30 @@
+da:
+    tax_report:
+        headers:
+            date: 'Dato'
+            asset: 'Aktiv'
+            amount: 'Antal'
+            proceeds: 'Salgspris'
+            cost_basis: 'Anskaffelsespris'
+            gain_loss: 'Gevinst/Tab'
+            currency: 'Valuta'
+            holding_days: 'Holdedage'
+            fee: 'Gebyr'
+            exchange: 'Børs'
+            tx_id: 'Transaktions-ID'
+            cost_basis_complete: 'Anskaffelsespris komplet'
+            acquisition_date: 'Anskaffelsesdato'
+            tax_exempt: 'Skattefri'
+            loss_denied: 'Tab af fradrag'
+        no_taxable_transactions: 'Ingen skattepligtige transaktioner fundet for denne periode.'
+        summary:
+            total_gains: 'Samlede gevinster'
+            total_losses: 'Samlede tab'
+            deductible: 'fradragsberettiget'
+            gains_box_20: 'Gevinster (Rubrik 20)'
+            losses_box_58: 'Tab (Rubrik 58)'
+            deduction: 'fradrag'
+            denied_losses: 'Tab uden fradrag'
+        warnings:
+            missing_prices: 'Manglende historiske priser for'
+            upgrade_hint: 'Opgrader din CoinGecko-plan, eller brug deltabadger.com for komplette historiske data.'

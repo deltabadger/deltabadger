@@ -1,0 +1,231 @@
+da:
+    bot:
+        api:
+            whitelist_ip_fallback_html: 'IP-adressen på maskinen, hvor Deltabadger er installeret. Hvis den kører på en server, brug serverens offentlige IP. Hvis det er din lokale computer, <a href="https://whatismyipaddress.com" target="_blank">tjek din IP her</a>'
+            binance: &binance_config
+                instructions:
+                    -   text_html: 'Log ind på din %{exchange_link}-konto.'
+                    -   text_html: 'Gå til <a href="https://www.binance.com/en/my/settings/api-management"><b>Account</b> → <b>API Management</b></a>.'
+                    -   text_html: 'Klik på <b class="pbutton">Create API</b>.'
+                    -   text_html: 'Vælg <b class="pbutton">System generated</b>.'
+                    -   text_html: 'Giv dine nøgler et navn (f.eks. "deltabadger") og gennemfør sikkerhedsbekræftelsen om nødvendigt.'
+                    -   text_html: 'Klik på <b class="pbutton">Edit restrictions</b> i øverste højre hjørne af nøglefeltet.'
+                        sub_instructions:
+                            -   text_html: "🔘 Restrict access to trusted IPs only: tilføj %{whitelist_ip}.<br><strong>⚠️ Vigtigt:</strong> Gør dette først for at aktivere næste trin."
+                            -   text_html: "Markér:<br>☑️ <b>Enable Reading</b><br>☑️ <b>Enable Spot & Margin Trading</b>.<br><strong>⚠️ Vigtigt:</strong> Nøglerne virker ikke, hvis du tilføjer flere tilladelser."
+                    -   text_html: 'Klik på <b>Save</b> og gennemfør sikkerhedsbekræftelsen om nødvendigt.'
+                    -   text_html: 'Kopiér og indsæt dine nye API-nøgler ovenfor.'
+                private_key: 'Secret Key'
+                public_key: 'API Key'
+            binance_us: *binance_config
+            coinbase:
+                instructions:
+                    -   text_html: 'Log ind på din %{exchange_link}-konto.'
+                    -   text_html: 'Vælg fanen <b>More</b> i venstre sidepanel.'
+                    -   text_html: 'Vælg <b>Advanced API</b>.'
+                    -   text_html: 'Klik på <b>Create your API key</b>. Hvis du ikke kan finde den, gå direkte til <a href="https://www.coinbase.com/settings/api">denne side</a>.'
+                    -   text_html: 'Under fanen <b>API keys</b> klikker du på <b>Create API key</b>.'
+                    -   text_html: 'Konfigurér følgende i pop op-vinduet:'
+                        sub_instructions:
+                            -   text_html: 'API key nickname'
+                                sub_instructions:
+                                    -   text_html: 'Vælg et navn, f.eks. <b>Deltabadger</b>, så du nemt kan genkende den senere.'
+                            -   text_html: 'Portfolio'
+                                sub_instructions:
+                                    -   text_html: '<b>Default</b>, eller den portefølje Deltabadger skal have adgang til, hvis du ikke bruger Coinbase Portfolios.'
+                                    -   text_html: '<b>View</b> (skrivebeskyttet)'
+                                    -   text_html: '<b>Trade</b> (udfør handler på dine vegne)<br><strong>⚠️ Vigtigt:</strong> Nøglerne virker ikke, hvis du tilføjer flere tilladelser.'
+                            -   text_html: 'IP whitelist'
+                                sub_instructions:
+                                    -   text_html: '🔘 Tilføj %{whitelist_ip}.'
+                    -   text_html: 'Klik på <b>Create & download</b> og gennemfør 2-trins-bekræftelsen.'
+                    -   text_html: 'Kopiér og indsæt dine nye API-nøgler i formularen ovenfor.'
+                private_key: 'Secret'
+                public_key: 'API key ID'
+            kraken:
+                instructions:
+                    -   text_html: 'Log ind på din %{exchange_link}-konto.'
+                    -   text_html: 'Gå til brugermenuen og vælg <b>Settings</b> → <b>Connections & API</b>.'
+                    -   text_html: 'Klik på <b>Create API key</b>.'
+                    -   text_html: 'Indstil tilladelser for:'
+                        sub_instructions:
+                            -   text_html: 'Funds permissions:'
+                                sub_instructions:
+                                    -   text_html: '<b>Query</b>'
+                            -   text_html: 'Order and Trades:'
+                                sub_instructions:
+                                    -   text_html: '<b>Query open orders & trades</b>'
+                                    -   text_html: '<b>Query closed orders & trades</b>'
+                                    -   text_html: '<b>Create & modify orders</b>'
+                                    -   text_html: '<b>Cancel & close orders</b><br><strong>⚠️ Vigtigt:</strong> Nøglerne virker ikke, hvis du tilføjer flere tilladelser.'
+                            -   text_html: 'IP address restriction:'
+                                sub_instructions:
+                                    -   text_html: '🔘 Tilføj %{whitelist_ip}.'
+                    -   text_html: 'Klik på <b>Generate key</b>.'
+                    -   text_html: 'Kopiér og indsæt dine nye API-nøgler i formularen ovenfor.'
+                private_key: 'Private Key'
+                public_key: 'API Key'
+            bitget:
+                instructions:
+                    -   text_html: 'Log ind på din %{exchange_link}-konto.'
+                    -   text_html: 'Gå til <a href="https://www.bitget.com/account/newapi"><b>Account</b> → <b>API Management</b></a>.'
+                    -   text_html: 'Klik på <b>Create API Key</b>.'
+                    -   text_html: 'Vælg <b>System generated</b>.'
+                    -   text_html: 'Giv din nøgle et navn (f.eks. "Deltabadger") og angiv en <b>Passphrase</b>.'
+                    -   text_html: 'Indstil tilladelser:'
+                        sub_instructions:
+                            -   text_html: '☑️ <b>Read</b>'
+                            -   text_html: '☑️ <b>Spot Trading</b><br><strong>⚠️ Vigtigt:</strong> Aktivér ikke Withdraw eller Futures-tilladelser.'
+                            -   text_html: 'IP whitelist:'
+                                sub_instructions:
+                                    -   text_html: '🔘 Tilføj %{whitelist_ip}.'
+                    -   text_html: 'Klik på <b>Next</b> og gennemfør bekræftelsen.'
+                    -   text_html: 'Kopiér og indsæt din API Key, Secret Key og Passphrase i formularen ovenfor.'
+                private_key: 'Secret Key'
+                public_key: 'API Key'
+            kucoin:
+                instructions:
+                    -   text_html: 'Log ind på din %{exchange_link}-konto.'
+                    -   text_html: 'Gå til <a href="https://www.kucoin.com/account/api"><b>Account</b> → <b>API Management</b></a>.'
+                    -   text_html: 'Klik på <b>Create API</b>.'
+                    -   text_html: 'Giv din nøgle et navn (f.eks. "Deltabadger") og angiv en <b>Passphrase</b>.'
+                    -   text_html: 'Indstil tilladelser:'
+                        sub_instructions:
+                            -   text_html: '☑️ <b>General</b> (til at læse kontodata)'
+                            -   text_html: '☑️ <b>Spot Trading</b><br><strong>⚠️ Vigtigt:</strong> Aktivér ikke Withdraw eller Futures-tilladelser.'
+                            -   text_html: 'IP whitelist:'
+                                sub_instructions:
+                                    -   text_html: '🔘 Tilføj %{whitelist_ip}.'
+                    -   text_html: 'Klik på <b>Confirm</b> og gennemfør bekræftelsen.'
+                    -   text_html: 'Kopiér og indsæt din API Key, Secret Key og Passphrase i formularen ovenfor.'
+                private_key: 'API Secret'
+                public_key: 'API Key'
+            bybit:
+                instructions:
+                    -   text_html: 'Log ind på din %{exchange_link}-konto.'
+                    -   text_html: 'Gå til <a href="https://www.bybit.com/app/user/api-management"><b>Account</b> → <b>API Management</b></a>.'
+                    -   text_html: 'Klik på <b>Create New Key</b>.'
+                    -   text_html: 'Vælg <b>System-generated API Keys</b>.'
+                    -   text_html: 'Giv din nøgle et navn (f.eks. "Deltabadger").'
+                    -   text_html: 'Indstil tilladelser:'
+                        sub_instructions:
+                            -   text_html: '☑️ <b>Read-Only</b>'
+                            -   text_html: '☑️ <b>Spot Trading</b><br><strong>⚠️ Vigtigt:</strong> Aktivér ikke Withdraw eller Derivatives-tilladelser.'
+                            -   text_html: 'IP whitelist:'
+                                sub_instructions:
+                                    -   text_html: '🔘 Tilføj %{whitelist_ip}.'
+                    -   text_html: 'Klik på <b>Submit</b> og gennemfør bekræftelsen.'
+                    -   text_html: 'Kopiér og indsæt dine nye API-nøgler i formularen ovenfor.'
+                private_key: 'API Secret'
+                public_key: 'API Key'
+            mexc:
+                instructions:
+                    -   text_html: 'Log ind på din %{exchange_link}-konto.'
+                    -   text_html: 'Gå til <a href="https://www.mexc.com/user/openapi"><b>Account</b> → <b>API Management</b></a>.'
+                    -   text_html: 'Klik på <b>Create API Key</b>.'
+                    -   text_html: 'Giv din nøgle et navn (f.eks. "Deltabadger").'
+                    -   text_html: 'Indstil tilladelser:'
+                        sub_instructions:
+                            -   text_html: '☑️ <b>View Order Details</b>'
+                            -   text_html: '☑️ <b>Trade</b><br><strong>⚠️ Vigtigt:</strong> Aktivér ikke Withdraw-tilladelser.'
+                            -   text_html: 'Link IP Address:'
+                                sub_instructions:
+                                    -   text_html: '🔘 Tilføj %{whitelist_ip}.'
+                    -   text_html: 'Klik på <b>Confirm</b> og gennemfør bekræftelsen.'
+                    -   text_html: 'Kopiér og indsæt dine nye API-nøgler i formularen ovenfor.'
+                private_key: 'Secret Key'
+                public_key: 'Access Key'
+            gemini:
+                instructions:
+                    -   text_html: 'Log ind på din %{exchange_link}-konto.'
+                    -   text_html: 'Gå til <a href="https://exchange.gemini.com/settings/api"><b>Settings</b> → <b>API</b></a>.'
+                    -   text_html: 'Klik på <b>Create a New API Key</b>.'
+                    -   text_html: 'Sæt nøglens omfang til <b>Primary</b>.'
+                    -   text_html: 'Indstil tilladelser:'
+                        sub_instructions:
+                            -   text_html: '☑️ <b>Order Placement</b>'
+                            -   text_html: '☑️ <b>Order Status</b>'
+                            -   text_html: '☑️ <b>Account Balance</b><br><strong>⚠️ Vigtigt:</strong> Aktivér ikke Fund Management eller Withdrawal-tilladelser.'
+                    -   text_html: 'Klik på <b>Create API Key</b> og gennemfør bekræftelsen.'
+                    -   text_html: 'Kopiér og indsæt dine nye API-nøgler i formularen ovenfor.'
+                private_key: 'API Secret'
+                public_key: 'API Key'
+            bitvavo:
+                instructions:
+                    -   text_html: 'Log ind på din %{exchange_link}-konto.'
+                    -   text_html: 'Gå til <a href="https://account.bitvavo.com/user/api"><b>Settings</b> → <b>API</b></a>.'
+                    -   text_html: 'Klik på <b>Generate new key</b>.'
+                    -   text_html: 'Indstil tilladelser:'
+                        sub_instructions:
+                            -   text_html: '☑️ <b>View</b>'
+                            -   text_html: '☑️ <b>Trade</b><br><strong>⚠️ Vigtigt:</strong> Aktivér ikke Withdraw-tilladelser.'
+                            -   text_html: 'IP whitelist:'
+                                sub_instructions:
+                                    -   text_html: '🔘 Tilføj %{whitelist_ip}.'
+                    -   text_html: 'Klik på <b>Generate</b>.'
+                    -   text_html: 'Kopiér og indsæt dine nye API-nøgler i formularen ovenfor.'
+                private_key: 'API Secret'
+                public_key: 'API Key'
+            hyperliquid:
+                instructions:
+                    -   text_html: 'Log ind på din %{exchange_link}-konto.'
+                    -   text_html: 'Gå til <a href="https://app.hyperliquid.xyz/API"><b>API</b></a> i venstre sidepanel.'
+                    -   text_html: 'Klik på <b>Generate API agent</b>.'
+                    -   text_html: 'Kopiér den viste <b>Agent Private Key</b>. <strong>⚠️ Vigtigt:</strong> Denne vises kun én gang.'
+                    -   text_html: 'Din <b>Wallet Address</b> er synlig i øverste højre hjørne af siden (starter med 0x...).'
+                    -   text_html: 'Indsæt din Wallet Address og Agent Private Key i formularen ovenfor.'
+                    -   text_html: '<strong>⚠️ Sikkerhed:</strong> Brug kun <b>Agent keys</b> (kun til handel). Indtast <b>aldrig</b> din primære wallet-privatnøgle.'
+                    -   text_html: '<strong>ℹ️ Bemærk:</strong> Hyperliquid er en decentraliseret børs. Alle ordrer er offentligt synlige on-chain.'
+                private_key: 'Agent Private Key'
+                public_key: 'Wallet Address'
+            bingx:
+                instructions:
+                    -   text_html: 'Log ind på din %{exchange_link}-konto.'
+                    -   text_html: 'Gå til <a href="https://bingx.com/account/api"><b>Account</b> → <b>API Management</b></a>.'
+                    -   text_html: 'Klik på <b>Create API</b>.'
+                    -   text_html: 'Giv din nøgle et navn (f.eks. "Deltabadger").'
+                    -   text_html: 'Indstil tilladelser:'
+                        sub_instructions:
+                            -   text_html: '☑️ <b>Read</b>'
+                            -   text_html: '☑️ <b>Spot Trading</b><br><strong>⚠️ Vigtigt:</strong> Aktivér ikke Withdraw eller Futures-tilladelser.'
+                            -   text_html: 'IP whitelist:'
+                                sub_instructions:
+                                    -   text_html: '🔘 Tilføj %{whitelist_ip}.'
+                    -   text_html: 'Klik på <b>Confirm</b> og gennemfør bekræftelsen.'
+                    -   text_html: 'Kopiér og indsæt dine nye API-nøgler i formularen ovenfor.'
+                private_key: 'Secret Key'
+                public_key: 'API Key'
+            bitrue:
+                instructions:
+                    -   text_html: 'Log ind på din %{exchange_link}-konto.'
+                    -   text_html: 'Gå til <a href="https://www.bitrue.com/account/api"><b>Account</b> → <b>API Management</b></a>.'
+                    -   text_html: 'Klik på <b>Create API Key</b>.'
+                    -   text_html: 'Giv din nøgle et navn (f.eks. "Deltabadger").'
+                    -   text_html: 'Indstil tilladelser:'
+                        sub_instructions:
+                            -   text_html: '☑️ <b>Read Info</b>'
+                            -   text_html: '☑️ <b>Trade</b><br><strong>⚠️ Vigtigt:</strong> Aktivér ikke Withdraw-tilladelser.'
+                            -   text_html: 'IP whitelist:'
+                                sub_instructions:
+                                    -   text_html: '🔘 Tilføj %{whitelist_ip}.'
+                    -   text_html: 'Klik på <b>Confirm</b> og gennemfør bekræftelsen.'
+                    -   text_html: 'Kopiér og indsæt dine nye API-nøgler i formularen ovenfor.'
+                private_key: 'Secret Key'
+                public_key: 'API Key'
+            bitmart:
+                instructions:
+                    -   text_html: 'Log ind på din %{exchange_link}-konto.'
+                    -   text_html: 'Gå til <a href="https://www.bitmart.com/api-management"><b>Account</b> → <b>API Management</b></a>.'
+                    -   text_html: 'Klik på <b>Create API Key</b>.'
+                    -   text_html: 'Giv din nøgle et navn (f.eks. "Deltabadger") og angiv en <b>Memo</b> (adgangsfrase).'
+                    -   text_html: 'Indstil tilladelser:'
+                        sub_instructions:
+                            -   text_html: '☑️ <b>Read</b>'
+                            -   text_html: '☑️ <b>Spot Trading</b><br><strong>⚠️ Vigtigt:</strong> Aktivér ikke Withdraw eller Futures-tilladelser.'
+                            -   text_html: 'IP whitelist:'
+                                sub_instructions:
+                                    -   text_html: '🔘 Tilføj %{whitelist_ip}.'
+                    -   text_html: 'Klik på <b>Confirm</b> og gennemfør bekræftelsen.'
+                    -   text_html: 'Kopiér og indsæt din API Key, Secret Key og Memo i formularen ovenfor.'
+                private_key: 'Secret Key'
+                public_key: 'API Key'

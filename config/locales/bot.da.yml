@@ -1,0 +1,293 @@
+da:
+    bot:
+        add_api_keys: "Tilføj API-nøgler for %{exchange}"
+        bot_name: 'Botnavn'
+        new: "Ny bot"
+        dca_index:
+            setup:
+                step_index: "Indeks"
+                sentence:
+                    build_index: "Byg indeksportefølje"
+                    build_index_at: "Byg %{index_name}-portefølje"
+                    portfolio: portefølje
+                pick_index:
+                    top_coins: "Top-coins"
+                    top_coins_description: "De største kryptovalutaer efter markedsværdi. Kryptoens svar på S&P 500."
+                    error: "Vælg venligst et indeks"
+            num_coins: "Antal coins"
+            allocation_flattening: "Allokeringsudjævning"
+            into_index: "i %{index_name}"
+            into: i
+            index_preview: "Indeksforhåndsvisning"
+            fewer_coins_available: "%{available} af %{requested} coins i indekset er tilgængelige på %{exchange_name}"
+            num_assets: "Aktiver i indeks"
+            asset_breakdown: "Aktivopdeling"
+            asset: "Aktiv"
+            amount: "Beløb"
+            avg_price: "Gns. pris"
+            value: "Værdi"
+            pl: "G/T"
+            warning:
+                intro: "Nogle ordrer (%{skipped_count}) var under %{exchange_name}s minimumsordrestørrelse. Sådan håndterer botten det:"
+        types:
+            dca:
+                title: "DCA"
+                description: "Investér i ét aktiv"
+            dca_dual_asset:
+                title: "Rebalanceret DCA"
+                description: "Rebalancér to aktiver"
+            index_portfolio:
+                title: "Indeksportefølje"
+                description: "Din personlige krypto-ETF"
+            custom_portfolio:
+                title: "Tilpasset portefølje"
+                description: "Rebalancér valgfrit aktivmix"
+            signal:
+                title: "Signal"
+                description: "Handl baseret på eksterne signaler"
+            dca_stocks:
+                title: "DCA (aktier)"
+                description: "Køb aktier med Alpaca"
+        dca_stocks:
+            connect_alpaca_intro: "Forbind din Alpaca-konto for at begynde at investere i aktier"
+            pick_stock: "Søg efter en aktie"
+            no_results: "Ingen aktier fundet"
+            stock_not_found: "Aktie ikke fundet på Alpaca"
+            mode_paper: "Papirhandel"
+            mode_live: "Live handel"
+        status:
+            setting_orders: "Opretter ordrer…"
+            paused: "Sat på pause"
+            next_try: "Næste forsøg om"
+            waiting: "Venter på, at alle betingelser opfyldes"
+            listening: "Lytter"
+            market_opens_in: "Markedet åbner om"
+            market_closed: "Markedet er lukket nu."
+        pick_exchange: "Vælg børs"
+        conversational:
+            invest: "Investér"
+            into: "i"
+        utils:
+            mkt_cap_adjusted_html: "Markedsværdijusteret"
+            mkt_cap_adjusted_info_html: |
+                <p><b>Markedsværdi</b> er en måde at måle, hvor stor eller værdifuld en coin er. Den beregnes ved at gange det samlede antal coins med den aktuelle pris per coin. I din bot får coinen med den største markedsværdi en større andel af din investering.</p>
+                <p><b>Eksempel:</b></p>
+                <p><b>Coin A:</b> Der findes 2 millioner coins, hver til 10 kr. Markedsværdien er 2M × 10 kr. = 20M kr.</p>
+                <p><b>Coin B:</b> Der findes 1 million coins, hver til 1 kr. Markedsværdi = 1M × 1 kr. = 1M kr.</p>
+                <p>Hvis du investerer 100 kr., fordeler botten dem proportionelt efter markedsværdi: 95,2 kr. til Coin A, 4,8 kr. til Coin B.</p>
+                <p>Men hvis Coin B''s pris stiger til 3 kr., bliver dens markedsværdi 3M kr. Nu vil de næste 100 kr. fordeles med 87 kr. til Coin A og 13 kr. til Coin B.</p>
+        above: "over"
+        below: "under"
+        buttons:
+            automatic_withdrawal: "Automatisk udbetaling"
+            request_exchange: "Anmod om tilføjelse af en børs"
+            move_existing_bot: "Flyt eksisterende bot til en anden børs"
+            delete:
+                ok: "Fjern helt"
+                warning_html: "Det fjerner botten med alle<br>dens historiske data. Er du sikker?"
+            dollar_cost_averaging: "Dollar-Cost Averaging"
+            pending:
+                info_html: "Behandler…"
+                text: "Afventer"
+            start:
+                changed_missed:
+                    continue: "Ja, køb og fortsæt"
+                    info_html: "Vil du investere <b>%{amount} %{quote}</b>, der blev sprunget over, mens botten var på pause? Den nye tidsplan starter, når den aktuelle nedtælling er slut."
+                    skip: "Ignorér den manglende del"
+                changed_on_schedule:
+                    continue: "Det forstår jeg"
+                    info_html: "Den nye tidsplan starter, når de resterende <b>%{time}</b> af den sidste er udløbet."
+                    skip: "Ignorér og start med det samme"
+                missed:
+                    continue: "Ja, køb og fortsæt"
+                    info_html: "Vil du investere <b>%{amount} %{quote}</b>, der blev sprunget over, mens botten var på pause, og fortsætte den oprindelige tidsplan?"
+                    skip: "Spring den manglende del over"
+                on_schedule:
+                    continue: "Fortsæt oprindelig tidsplan"
+                    info_html: "Der er stadig <b>%{time}</b> tilbage til næste ordre. Du kan springe den over og udføre næste ordre med det samme, eller fortsætte den oprindelige nedtælling."
+                    skip: "Spring over"
+        signal:
+            trade: "Handl"
+            spending: "brug"
+            add_signal: "+ Tilføj signal"
+            url_placeholder: "Webhook-URL vises her"
+            for: "for"
+            when_triggered: "når denne webhook udløses:"
+            of_the_balance: "af saldoen"
+        buy: Køb
+        counter: '%{countdown}'
+        day: Dag
+        details:
+            log:
+                date: Dato
+                errors: Fejl
+                title: Log
+            stats:
+                amount: 'Beløb(%{base})'
+                amount1: 'Beløb'
+                value: 'Værdi(%{quote})'
+                value1: 'Værdi'
+                average_price: 'Gennemsnitspris'
+                bought: Købt
+                chart:
+                    total_invested: 'Samlet investeret'
+                    value: Værdi
+                csv_download_html: 'Tabellen ovenfor viser kun de seneste ti transaktioner. Den fulde rapport kan downloades i CSV-format nedenfor.'
+                current_value: 'Aktuel værdi'
+                current_value_sold: 'Aktuel værdi af de solgte %{base}'
+                date: Dato
+                download_csv: 'Eksportér'
+                generating_csv: 'Genererer fil...'
+                import_csv: 'Importér'
+                import_success: '%{count} ordre(r) importeret.'
+                import_no_new_orders: 'Ingen nye ordrer at importere (alle ordrer findes allerede, eller valutaerne passer ikke).'
+                import_no_file: 'Vælg venligst en CSV-fil at importere.'
+                import_invalid_format: 'Ugyldigt CSV-format. Brug en fil eksporteret fra denne applikation.'
+                import_malformed_csv: 'CSV-filen er fejlformateret og kan ikke læses.'
+                import_error: 'Import mislykkedes: %{message}'
+                import_currency_mismatch: "Valutauoverensstemmelse: CSV har '%{csv_quote}', men botten bruger '%{bot_quote}'"
+                exchange_unavailable_html: 'Børsens API svarer ikke i øjeblikket.<br>Beregninger er baseret på de senest tilgængelige data.'
+                order: Ordre
+                profit_loss: Gevinst/Tab
+                price: 'Kurs(%{quote})'
+                sold: Solgt
+                title: Statistik
+                total_invested: 'Samlet investeret'
+                portfolio_value: 'Porteføljeværdi'
+        for: for
+        force_smart_intervals_html: '<b>Smarte intervaller</b> · Køb med ordrer på <split>$100</split> %{currency} ad gangen.'
+        hour: Time
+        limit_buy: 'Limitkøb'
+        limit_sell: 'Limitsalg'
+        messages:
+            do_you_want_to_delete: 'Vil du slette denne bot?'
+            symbol_not_supported: "%{symbol} understøttes ikke"
+            specify_percentage_limit_order: "Angiv en procentdel for limitordrer"
+            smart_intervals_above_minimum: "Smarte intervallers værdi skal være større end %{minimum}"
+            invalid_price_range: "Prisintervallet er ugyldigt"
+            subaccounts_not_allowed: "Underkonti er ikke tilladt på denne børs"
+            no_subaccount_name: "Intet underkonto-navn angivet"
+            wrong_subaccount_name: "Forkert underkonto-navn"
+            failed_tooltip_explanation: "Denne ordre mislykkedes: %{error_message}"
+            skipped_tooltip_explanation: "Denne ordre blev sprunget over, fordi beløbet var under %{exchange_name}s minimumsordrestørrelse. Beløbet er bufferet og tilføjet til næste ordre."
+            cancelled_tooltip_explanation: "Denne ordre blev annulleret eller udløb, før den blev udfyldt."
+            failed_status_bar_explanation: "Sidste ordre mislykkedes: %{error_message}"
+            order_cancelled: 'Ordre annulleret'
+            failed_to_cancel_order: 'Kunne ikke annullere ordre'
+            failed_to_cancel_order_invalid_api_key: 'Kunne ikke annullere ordre: Ugyldig API-nøgle. Tjek dine API-nøgleindstillinger på %{exchange_name}.'
+            cannot_cancel_imported_order: 'Kan ikke annullere importerede ordrer'
+        minimum_withdrawal_disclaimer: 'Minimumsudbetaling er %{minimum} %{currency}.'
+        minimum_withdrawal_disclaimer_usd: 'Minimumsudbetaling er %{minimum} USD.'
+        month: Måned
+        next_buy: 'Næste om %{countdown}'
+        next_sell: 'Næste om %{countdown}'
+        next_withdrawal: 'Næste om %{countdown}'
+        not_found: 'Denne bot findes ikke.'
+        price: 'prisen'
+        price_range_buy_html: 'Køb kun i prisintervallet fra <split>$100</split> til <split>$1000</split> %{quote} per %{base}.'
+        price_range_sell_html: "Sælg kun i prisintervallet fra <split>$100</split> til <split>$1000</split> %{quote} per %{base}."
+        sell: "Sælg"
+        buy_all: "Køb alt"
+        sell_all: "Sælg alt"
+        first_time: "første gang"
+        every_time: "hver gang"
+        name: "Navn:"
+        fees: "Gebyrer"
+        maker_fee: "Maker"
+        taker_fee: "Taker"
+        withdrawal_fee: "Udbetaling"
+        additional_title: "Tovejs-bot"
+        smart_intervals_disclaimer: 'Ordrestørrelsen på %{exchange} er defineret i %{currency}. Minimumsordrestørrelsen er %{minimum}%{currency}.'
+        smart_intervals_disclaimer_base: 'Ordrestørrelsen på %{exchange} er defineret i %{currency}. Minimumsordrestørrelsen er %{minimum}%{currency}.'
+        smart_intervals_disclaimer_quote: 'Minimumsordrestørrelsen er %{minimum}%{currency}.'
+        starting: Starter
+        subaccounts_info: 'Brug underkonto'
+        week: Uge
+        withdraw_interval_html: 'Udbetal hver <split>2</split> dag.'
+        withdraw_threshold_html: 'Udbetal, når mindst <split>0.001</split> %{currency} er tilgængeligt.'
+        withdrawal_percentage: '%{percentage}%'
+        withdrawal: 'Udbetaling'
+        cancel_order: 'Annullér'
+        warning:
+            dca_single_asset:
+                intro: "Beløbet for %{missed_symbol} var under %{exchange_name}s minimumsordrestørrelse (%{missed_minimum_base_size} %{missed_symbol} eller %{missed_minimum_quote_size} %{quote_symbol} for %{missed_symbol}). Sådan håndterer botten det:"
+            dca_dual_asset:
+                both_below:
+                    intro: "Begge ordrebeløb for %{base0_symbol} og %{base1_symbol} er under %{exchange_name}s minimumsordrestørrelser (%{base0_minimum_base_size} %{base0_symbol} eller %{base0_minimum_quote_size} %{quote_symbol} for %{base0_symbol} og %{base1_minimum_base_size} %{base1_symbol} eller %{base1_minimum_quote_size} %{quote_symbol} for %{base1_symbol}). Sådan håndterer botten det:"
+                one_below:
+                    intro: "Din bot købte %{bought_quote_amount} %{quote_symbol} af %{bought_symbol}, men beløbet for %{missed_symbol} var under %{exchange_name}s minimumsordrestørrelse (%{missed_minimum_base_size} %{missed_symbol} eller %{missed_minimum_quote_size} %{quote_symbol} for %{missed_symbol}). Sådan håndterer botten det:"
+            buffer_explanation:
+                one: "Det manglende beløb er bufferet og bruges ved næste planlagte ordre, så din tidsplan og allokering holdes så tæt på børsminimum som muligt."
+                other: "De manglende beløb er bufferet og bruges ved de næste planlagte ordrer, så din tidsplan og allokering holdes så tæt på børsminimum som muligt."
+            title: "Tillykke! Din bot kører."
+            general_note: "Børsminimum og nødvendige rebalanceringsbeløb ændrer sig. Transaktioner kan nogle gange se uregelmæssige ud, men botten sigter altid efter din ønskede allokering og tidsplan, så der kræves ingen ekstra indsats."
+        settings:
+            smart_intervals:
+                sentence_html: '<b>Smarte intervaller</b> Opdel <span>beløbet</span> <span>i</span> <span>%{amount_html} %{quote}</span> enheder'
+                info: "Opdeling af dine %{quote_amount} %{quote} / %{interval} i enheder af %{amount} %{quote} resulterer i én investering hver %{smart_interval}"
+            limit_orders:
+                sentence_html: '<b>FeeCutter</b> <span>Eliminér gebyrer</span> med <span>limit</span>-ordrer <span>%{amount_html}%</span> <span>under prisen</span>'
+                info: "For at eliminere gebyrer helt, sæt den til %{maker_fee}%, som er %{exchange}s maker-gebyr. Sæt den lavere for hurtigere udførelse, eller højere for potentielt bedre pris. Følg din ordreudførelse i ordretabellen."
+            extra_amount_limit:
+                sentence_html: "Brug ikke mere end <span>%{value_html} %{quote}</span>"
+                info:
+                    spent: "Hele beløbet er investeret"
+                    left: "(%{amount} %{quote} tilbage)"
+            extra_price_limit:
+                sentence_html:
+                    one: "%{timing_condition_html} når <span>prisen</span> er <span>%{value_condition_html}</span> <span>%{price_input_html}</span>"
+                    other: "%{timing_condition_html} når %{base_html} <span>prisen</span> er <span>%{value_condition_html}</span> <span>%{price_input_html}</span>"
+                info: "Aktuel %{base}-pris er %{current_price} %{quote}"
+                price_limit_input_html: "%{value_html} %{quote}"
+                price_limit_range_input_html: "%{lower_bound_value_html} %{quote} og %{upper_bound_value_html} %{quote}"
+                timing_condition:
+                    while: "Køb kun"
+                    after: "Begynd at købe"
+                value_condition:
+                    above: "over"
+                    below: "under"
+                    between: "mellem"
+            extra_price_drop_limit:
+                sentence_html:
+                    one: "Begynd at købe, når prisen falder <span>%{value_html}%</span> fra dens %{time_window_condition_html}"
+                    other: "Begynd at købe, når %{base_html}-prisen falder <span>%{value_html}%</span> fra dens %{time_window_condition_html}"
+                info: "Aktuel %{base} %{time_window_condition} er %{condition_high} %{quote}."
+                time_window_condition:
+                    ath: "all-time high"
+                    twenty_four_hours: "24t-højeste"
+            extra_indicator_limit:
+                sentence_html:
+                    one: "<span>%{timing_condition_html}</span> når <span>%{indicator_html}</span> på %{timeframe_html} <span>stearinlys</span> er <span>%{value_condition_html} %{value_html}</span>"
+                    other: "<span>%{timing_condition_html}</span> når <span>%{indicator_html}</span> på %{ticker_html} %{timeframe_html} <span>stearinlys</span> er <span>%{value_condition_html} %{value_html}</span>"
+                info: "%{indicator} på det seneste %{timeframe} %{ticker}-stearinlys-luk er %{value}"
+                timing_condition:
+                    while: "Køb kun"
+                    after: "Begynd at købe"
+                value_condition:
+                    above: "over"
+                    below: "under"
+                timeframe:
+                    one_hour: "time"
+                    four_hours: "4-timers"
+                    one_day: "dagligt"
+                    three_days: "3-dages"
+                    one_week: "ugentligt"
+                    one_month: "månedligt"
+            extra_moving_average_limit:
+                sentence_html:
+                    one: "<span>%{timing_condition_html}</span> når %{base}-prisen er %{value_condition_html} <span>%{ma_html} %{ma_period_html}</span> på %{timeframe_html} <span>stearinlys</span>"
+                    other: "<span>%{timing_condition_html}</span> når %{base}-prisen er %{value_condition_html} <span>%{ma_html} %{ma_period_html}</span> på %{ticker_html} %{timeframe_html} <span>stearinlys</span>"
+                info: "%{ma_type} %{ma_period} på det seneste %{timeframe} %{ticker}-stearinlys-luk er %{value} %{quote}"
+                timing_condition:
+                    while: "Køb kun"
+                    after: "Begynd at købe"
+                value_condition:
+                    above: "over"
+                    below: "under"
+                timeframe:
+                    one_hour: "time"
+                    four_hours: "4-timers"
+                    one_day: "dagligt"
+                    three_days: "3-dages"
+                    one_week: "ugentligt"
+                    one_month: "månedligt"

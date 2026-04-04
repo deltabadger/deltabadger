@@ -1,0 +1,476 @@
+da:
+    meta:
+        title: 'Deltabadger'
+    header:
+        start_investing: 'Begynd at investere:'
+    ads:
+        dca_profit_html: |
+            <p>Hvis du havde gennemsnitsomkostningsinvesteret i Bitcoin de sidste %{years}&nbsp;år, ville du nu være oppe med <b style="color: #00A36C;">%{profit}%</b>.</p>
+            <p>Det er <b style="color: #00A36C;">%{sp500_diff}%</b> mere end S&P 500 i samme periode.</p>
+    button:
+        ok: 'OK'
+        update: 'Opdatér'
+        save: 'Gem'
+        cancel: 'Annullér'
+        close: 'Luk'
+        enable: 'Aktivér'
+        authorize: 'Godkend'
+        disable: 'Deaktivér'
+        delete: 'Slet'
+        duplicate: 'Duplikér'
+        copy: 'Kopiér'
+        submit: 'Send'
+        reset: 'Nulstil'
+        add: 'Tilføj'
+        remove: 'Fjern'
+        start: 'Start'
+        stop: 'Stop'
+        next: 'Næste'
+        connect: 'Forbind'
+        reconnect: 'Tilføj nye nøgler'
+        understand: 'Forstået!'
+        get_started: 'Kom i gang'
+        select_plan: 'Vælg plan'
+        back_to_dashboard: 'Gå til oversigt'
+        subscribe: 'Abonnér'
+        unlock: 'Lås op'
+        check_again: 'Tjek igen'
+    data_labels:
+        invested: "Samlet investeret"
+        portfolio_value: "Porteføljeværdi"
+        value: "Værdi"
+        value_symbol: "Værdi (%{symbol})"
+        invested_symbol: "Investeret (%{symbol})"
+        date: "Dato"
+        asset: "Aktiv"
+        amount: "Beløb"
+        avg_price: "Gns. pris"
+        price: "Pris"
+        pnl: "G/T"
+        bought: "Købt"
+        current_price: "Aktuel pris"
+    days_left:
+        one: '1 dag tilbage'
+        other: '%{count} dage tilbage'
+    forms:
+        for_confirmation: '(til bekræftelse)'
+        minimum_length: 'Mindst %{length} tegn'
+    helpers:
+        label:
+            settings:
+                current_status: 'Nuværende status:'
+                disable_two_fa: 'Deaktivér 2FA'
+                disabled: Deaktiveret
+                enable_two_fa: 'Aktivér 2FA'
+                enabled: Aktiveret
+                enter_two_fa_code: 'Indtast 2FA-kode'
+                scan_code_info: 'Scan QR-koden eller kopiér koden nedenfor:'
+            user:
+                name: Navn
+                current_password: 'Nuværende adgangskode'
+                email: E-mail
+                new_name: 'Nyt navn'
+                new_email: 'Ny e-mail'
+                new_password: 'Ny adgangskode'
+                new_password_confirmation: 'Bekræft ny adgangskode'
+                password: Adgangskode
+                password_confirmation: 'Bekræft adgangskode'
+                remember_me: 'Husk mig'
+    home:
+        confirm_registration:
+            text_html: 'Tjek din indbakke og klik på det <b>bekræftelseslink</b>, vi har sendt til dig. Gå derefter til login-siden.'
+            title: Tak!
+    links:
+        about: Om
+        telegram: 'Telegram'
+        create_account: 'Opret gratis konto'
+        bot: Bot
+        bots: Bots
+        dashboard: Oversigt
+        homepage: 'Link til forsiden'
+        log_in: 'Log ind'
+        log_out: Log ud
+        menu: Menu
+        earn: 'Tjen'
+        resend_link: 'Send link igen'
+        rules: Regler
+        tracker: Rapporter
+        settings: Indstillinger
+        connections: Forbind
+        account: Konto
+        sign_up: 'Opret konto'
+    settings:
+        language_and_timezone:
+            title: 'Sprog og tidszone'
+            language_updated: "Dit sprog er blevet opdateret."
+            updated: "Din tidszone er blevet opdateret."
+            current_time_is: "Denne tidszone bruges i bot-loggen. Ifølge den er klokken nu"
+        name:
+            updated: "Dit navn er blevet opdateret."
+        two_fa:
+            disabled: 'Tofaktorgodkendelse er blevet deaktiveret.'
+            enabled: 'Tofaktorgodkendelse er blevet aktiveret.'
+        api_keys:
+            confirm_delete: 'Vil du slette denne API-nøgle?'
+        index:
+            api_key_confirmation: 'Er du sikker?'
+            api_keys_section: 'API-nøgler'
+            trading_keys_section: 'Handelsnøgler'
+            withdrawal_keys_section: 'Udbetalingsnøgler'
+            email_section: E-mail
+            name_section: Navn
+            password_section: Adgangskode
+            free_plan_reset_date_html: 'Din grænse nulstilles den <b>%{end_time}</b>.'
+            title: Indstillinger
+            two_factor_section: 'Tofaktorgodkendelse'
+            resync_assets_section: 'Markedsdata'
+            email_notifications_section: 'E-mailnotifikationer'
+            registration_section: 'Flere konti'
+        registration:
+            enable_sign_up: 'Aktivér tilmelding'
+            disable_sign_up: 'Deaktivér tilmelding'
+            updated: 'Registreringsindstillingen er opdateret.'
+        resync_assets:
+            button: 'Synkronisér'
+            hint: 'Synkronisér børstickers og aktivdata fra CoinGecko igen. Brug dette, hvis nogle børser eller aktiver mangler.'
+        coingecko_key:
+            confirm_delete: 'Vil du fjerne denne CoinGecko API-nøgle?'
+        market_data:
+            none: 'Ingen'
+            disabled: 'Synkronisering af markedsdata deaktiveret.'
+            updated: 'Markedsdataindstillinger opdateret.'
+            coingecko_configured: 'Forbundet til CoinGecko for live markedsdata.'
+            deltabadger_configured: 'Forbundet til %{provider_name} for live markedsdata.'
+            disconnect: 'Afbryd'
+            disconnected: 'Markedsdataudbyder afbrudt.'
+        stocks:
+            title_html: 'Aktier (<a href="https://alpaca.markets/" target="_blank">Alpaca</a>)'
+            instructions_html: 'Gå til <a href="https://alpaca.markets" target="_blank">Alpaca-oversigten</a> og find API Keys-sektionen i højre sidepanel. Klik på Generate New Keys og gem de genererede API-legitimationsoplysninger.'
+            enabled: 'Aktier aktiveret. Synkroniserer aktiver fra Alpaca...'
+            disabled: 'Aktier deaktiveret.'
+            disconnected: 'Alpaca afbrudt. Aktietickers markeret som utilgængelige.'
+            configured: 'Forbundet til Alpaca (%{mode}). Aktieaktiver er synkroniseret.'
+            invalid_api_key: 'Ugyldig Alpaca API-nøgle. Tjek dine legitimationsoplysninger.'
+            disconnect: 'Afbryd'
+            mode_paper: 'Papir'
+            mode_live: 'Live'
+        mcp:
+            title: 'MCP'
+            description: 'Brug denne URL til at forbinde Claude (og andre AI-modeller). Det giver din AI-assistent adgang til dine bots og børser.'
+            connected_clients: 'Forbundet'
+            no_clients: 'Ingen klienter forbundet endnu.'
+            revoke_client: 'Fjern adgang'
+            revoke_client_confirm: 'Dette afbryder forbindelsen til denne klient. Den skal godkendes igen for at oprette forbindelse.'
+            client_revoked: 'Klient afbrudt.'
+            authorize_title: 'Godkend adgang'
+            authorize_description_html: '<b>%{client_name}</b> vil have adgang til din Deltabadger-server.'
+            tools_title: 'Værktøjstilladelser'
+            tools_read: 'Læs'
+            tools_control: 'Styr'
+            tools_trade: 'Handel'
+            tools_tax: 'Skat og rapportering'
+            tools:
+                list_bots:
+                    label: 'Vis bots'
+                    description: 'Se alle DCA-bots og deres status'
+                get_bot_details:
+                    label: 'Botdetaljer'
+                    description: 'Se detaljeret botinfo og afkast'
+                list_exchanges:
+                    label: 'Vis børser'
+                    description: 'Se forbundne børser'
+                get_exchange_balances:
+                    label: 'Børssaldoer'
+                    description: 'Hent live saldoer fra en børs'
+                get_portfolio_summary:
+                    label: 'Porteføljeoversigt'
+                    description: 'Se samlet G/T og botopdeling'
+                list_transactions:
+                    label: 'Vis transaktioner'
+                    description: 'Se seneste handler'
+                create_bot:
+                    label: 'Opret bot'
+                    description: 'Opret en ny DCA-bot'
+                start_bot:
+                    label: 'Start bot'
+                    description: 'Start en stoppet bot'
+                stop_bot:
+                    label: 'Stop bot'
+                    description: 'Stop en kørende bot'
+                update_bot_settings:
+                    label: 'Opdatér bots'
+                    description: 'Ændr beløb eller navn på en stoppet bot'
+                start_rule:
+                    label: 'Start regel'
+                    description: 'Start en stoppet regel'
+                stop_rule:
+                    label: 'Stop regel'
+                    description: 'Stop en aktiv regel'
+                update_rule_settings:
+                    label: 'Opdatér regler'
+                    description: 'Ændr indstillinger på en stoppet regel'
+                market_buy:
+                    label: 'Markedskøb'
+                    description: 'Udfør en markedskøbsordre'
+                market_sell:
+                    label: 'Markedssalg'
+                    description: 'Udfør en markedssalgsordre'
+                limit_buy:
+                    label: 'Limitkøb'
+                    description: 'Placér en limitkøbsordre til en bestemt pris'
+                limit_sell:
+                    label: 'Limitsalg'
+                    description: 'Placér en limitsalgsordre til en bestemt pris'
+                cancel_order:
+                    label: 'Annullér ordre'
+                    description: 'Annullér en åben ordre'
+                list_open_orders:
+                    label: 'Vis åbne ordrer'
+                    description: 'Se aktuelle åbne (uudfyldte) ordrer'
+                list_tax_jurisdictions:
+                    label: 'Skattejurisdiktioner'
+                    description: 'Se understøttede lande og skattemetoder'
+                generate_tax_report:
+                    label: 'Generér skatterapport'
+                    description: 'Start generering af skatterapport i baggrunden'
+                get_tax_report_status:
+                    label: 'Skatterapportstatus'
+                    description: 'Tjek om en skatterapport er klar'
+                download_tax_report:
+                    label: 'Download skatterapport'
+                    description: 'Hent genereret skatterapport som CSV'
+                export_transactions_csv:
+                    label: 'Eksportér transaktioner som CSV'
+                    description: 'Eksportér kontotransaktioner som CSV'
+                list_account_transactions:
+                    label: 'Kontotransaktioner'
+                    description: 'Se tracker-transaktioner med filtre'
+            dry_run_title: 'Papirhandel'
+            dry_run_description: 'Simulér handler med reelle markedspriser. Der udføres ingen rigtige ordrer.'
+            dry_run_label: 'Aktivér papirhandel for handelsværktøjer'
+        email_notifications:
+            none: 'Ingen'
+            smtp_host: 'SMTP-vært'
+            smtp_port: 'Port'
+            smtp_username: 'Brugernavn'
+            smtp_password: 'Adgangskode'
+            smtp_hint_html: 'For Gmail, brug en <a href="https://support.google.com/accounts/answer/185833" target="_blank">App-adgangskode</a> som adgangskode.'
+            updated: 'Indstillinger for e-mailnotifikationer opdateret.'
+            disabled: 'E-mailnotifikationer deaktiveret.'
+            smtp_credentials_required: 'SMTP-brugernavn og adgangskode er påkrævet.'
+            set: 'Indstil'
+            smtp_configured_html: 'Konfigureret med <b>%{host}</b>.'
+            send_test: 'Send testmail'
+            test_email_sent: 'Testmail sendt til %{email}.'
+            test_email_failed: 'Kunne ikke sende testmail: %{error}'
+            not_configured: 'E-mailnotifikationer er ikke konfigureret.'
+            disconnect: 'Afbryd'
+            disconnected: 'E-mailudbyder afbrudt.'
+    utils:
+        pnl: 'G/T'
+        assets: Aktiver
+        beta: Beta
+        cash: Kontanter
+        bonds: Obligationer
+        gold: Guld
+        are_you_sure: 'Er du sikker?'
+        change_name: 'Skift navn'
+        important: 'Vigtigt!'
+        new: 'Ny'
+        since: 'siden'
+        soon: 'Snart'
+        see_at_coingecko: 'Se på CoinGecko'
+        search:
+            placeholder:
+                asset: 'Søg efter et aktiv…'
+                index: 'Søg efter et indeks…'
+            no_results: 'Ingen resultater fundet'
+        time_periods:
+            ytd: 'ÅTD'
+            ytd_title: 'Fra årets begyndelse'
+            one_year: '1Å'
+            one_year_title: '1 år siden'
+            three_years: '3Å'
+            three_years_title: '3 år siden'
+            five_years: '5Å'
+            five_years_title: '5 år siden'
+        years:
+            one: "%{count} år"
+            other: "%{count} år"
+        months:
+            one: "%{count} måned"
+            other: "%{count} måneder"
+        days:
+            one: "%{count} dag"
+            other: "%{count} dage"
+        hours:
+            one: "%{count} time"
+            other: "%{count} timer"
+        minutes:
+            one: "%{count} minut"
+            other: "%{count} minutter"
+        seconds:
+            one: "%{count} sekund"
+            other: "%{count} sekunder"
+        days_short: 'd'
+        hours_short: 't'
+        minutes_short: 'm'
+        seconds_short: 's'
+    bot_filters:
+        all: 'Alle'
+        active: 'Aktive'
+        inactive: 'Inaktive'
+    rules:
+        index:
+            title: 'Regler'
+        types:
+            withdrawal:
+                title: 'Automatisk udbetaling'
+                description: 'Udbetal midler fra børser'
+        withdrawals:
+            sentence:
+                withdraw_all: 'Udbetal'
+                from: 'fra'
+                to: 'til'
+                on_network: 'på'
+                fee: 'gebyr'
+                when: 'når'
+                fee_less_than: 'gebyret er mindre end'
+                amount_crosses: 'beløbet overstiger'
+                of_the_amount: '%'
+                or_at_least_every: 'eller mindst hver'
+                days: 'dage'
+            pick_exchange:
+                withdrawal_fee: 'Udbetaling'
+            form:
+                submit: 'Opret regel'
+                submitting: 'Opretter…'
+            confirm_destroy:
+                message: 'Vil du slette denne udbetalingsregel?'
+        tile:
+            withdrawal: 'Udbetaling'
+            network: 'Netværk'
+            memo: 'Memo'
+            activated: 'Reglen er aktiv.'
+            deactivated: 'Reglen er blevet deaktiveret.'
+            min_amount_info_html: 'Det aktuelle gebyr er %{fee} %{symbol}, så udbetalingen udløses ved <b>%{amount} %{symbol}</b>.'
+            no_fee_info: '%{exchange} rapporterer intet udbetalingsgebyr for dette aktiv. Reglen udbetaler enhver tilgængelig saldo.'
+            unknown_fee_info: 'Gebyrdata er ikke tilgængelige for %{exchange}. Reglen udbetaler enhver tilgængelig saldo.'
+            fixed_amount_info: 'Udbetalingen udløses, når saldoen når %{amount} %{symbol}.'
+            fixed_amount_fee_html: 'Det aktuelle gebyr er %{fee} %{symbol}, så du betaler <b>%{fee_pct}</b>.'
+            no_wallet_html: 'Ingen %{symbol}-udbetalingsadresse fundet på %{exchange}. Tilføj en på børsen først.'
+        logs:
+            date: 'Dato'
+            status: 'Status'
+            message: 'Besked'
+            empty: 'Ingen logfiler endnu.'
+        add_address:
+            label: 'Udbetalingsadresse'
+            placeholder: 'Indsæt adresse her…'
+            select_address: 'Vælg adresse…'
+            address_tag_label: 'Memo / Tag (valgfrit)'
+            address_tag_placeholder: 'Memo, tag eller betalings-ID…'
+            instructions_title: 'Tilføj en udbetalingsadresse på %{exchange}'
+            warning_html: 'Sørg for, at dette er en <b>%{symbol}</b>-adresse på det korrekte netværk. Afsendelse til den forkerte adresse eller det forkerte netværk medfører permanent tab af midler.'
+            no_addresses_html: 'Der er ingen defineret udbetalingsadresse for <b>%{symbol}</b>. Opret den på %{exchange} først.'
+            fetch_failed_html: 'Kunne ikke hente udbetalingsadresser fra %{exchange}. Prøv igen senere.'
+        add_api_key:
+            title: 'Tilføj udbetalings-API-nøgle for %{exchange}'
+            instructions_title: 'Sådan får du nøgler fra %{exchange}'
+            instructions_body: 'Opret en udbetalingsaktiveret API-nøgle på %{exchange} og indsæt legitimationsoplysningerne her.'
+    tracker:
+        sync: 'Synkronisér'
+        sync_started: 'Synkroniserer transaktioner fra dine børser...'
+        importing_from: 'Importerer data fra %{exchange}…'
+        get_report: 'Hent rapport'
+        filter: 'Filtrér'
+        bot: 'Bot'
+        no_results: 'Ingen transaktioner fundet for de valgte filtre.'
+        connect_exchange: 'Forbind børs'
+        import_from: 'Importér transaktioner fra'
+        search_exchange: 'Søg børs...'
+        setup_coingecko_html: 'For at generere en skatterapport kræves historiske priser. <b>CoinGecko</b>-gratisplanen dækker op til 2 års historik. For ældre transaktioner, opgrader til <b>CoinGecko Analyst</b> eller tilmeld dig <a href="https://deltabadger.com">deltabadger.com</a>, hvor markedsdata er inkluderet.'
+        beta_notice: 'Skatterapportering er stadig i beta. Generér en rapport, del den med din revisor, og lad mig vide, hvad der kan forbedres. Med din feedback kan den blive perfekt.'
+        export_modal:
+            title: 'Generér rapport'
+            tax_report: 'Skatterapport'
+            transactions: 'Alle'
+            country: 'Land'
+            year: 'År'
+            generate: 'Generér'
+            download_label: 'Download'
+            from: 'Fra'
+            to: 'Til'
+            stablecoin_as_fiat: 'Behandl stablecoins som fiat (spørg din revisor)'
+        tax_report:
+            invalid_country: 'Ugyldigt land valgt.'
+            expired: 'Skatterapport er udløbet. Generér venligst en ny.'
+            generating: 'Genererer skatterapport...'
+            download_ready: 'Skatterapport er klar. Klik for at downloade.'
+        filters:
+            all: 'Alle'
+        columns:
+            date: 'Dato'
+            type: 'Type'
+            base: 'Aktiv'
+            amount: 'Beløb'
+            quote: 'Valuta'
+            quote_amount: 'Værdi'
+            fee: 'Gebyr'
+            exchange: 'Børs'
+            bot: 'Bot'
+        types:
+            buy: 'Køb'
+            sell: 'Salg'
+            swap_in: 'Swap ind'
+            swap_out: 'Swap ud'
+            deposit: 'Indbetaling'
+            withdrawal: 'Udbetaling'
+            staking_reward: 'Staking'
+            lending_interest: 'Rente'
+            airdrop: 'Airdrop'
+            mining: 'Mining'
+            fee: 'Gebyr'
+            other_income: 'Indkomst'
+            lost: 'Tabt'
+    order_filters:
+        all: 'Alle'
+        successful: 'Gennemført'
+        cancelled: 'Annulleret'
+        waiting: 'Planlagt'
+    tax_report:
+        headers:
+            date: 'Dato'
+            asset: 'Aktiv'
+            amount: 'Beløb'
+            proceeds: 'Provenu'
+            cost_basis: 'Kostpris'
+            gain_loss: 'Gevinst/Tab'
+            currency: 'Valuta'
+            holding_days: 'Ejerperiode (dage)'
+            fee: 'Gebyr'
+            exchange: 'Børs'
+            tx_id: 'Transaktions-ID'
+            cost_basis_complete: 'Kostpris komplet'
+            acquisition_date: 'Anskaffelsesdato'
+            tax_exempt: 'Skattefri'
+            old_stock: 'Gammel beholdning'
+            term: 'Periode'
+            matching_rule: 'Matchningsregel'
+            total_acquisition_cost: 'Samlet anskaffelsespris'
+            portfolio_value: 'Porteføljeværdi'
+            tax_rate: 'Skattesats'
+            exempt: 'Fritaget (grænse)'
+            value: 'Værdi'
+            reference_date: 'Referencedato'
+            period: 'Periode'
+        no_taxable_transactions: 'Ingen skattepligtige transaktioner fundet for denne periode.'
+        summary:
+            total_value: 'Samlet værdi'
+            allowance: 'Skattefrit fradrag'
+            taxable_wealth: 'Skattepligtig formue'
+            deemed_return: 'Forventet afkast'
+            tax: 'Skat'
+            total_gains: 'Samlede gevinster'
+            total_losses: 'Samlede tab'
+            deductible: 'fradragsberettiget'

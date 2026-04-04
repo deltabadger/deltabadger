@@ -32,7 +32,10 @@ module Tax
       'SE' => { name: 'Sweden', method: :weighted_average, currency: 'SEK', locale: :sv,
                 loss_deduction_rate: 0.7 },
       'IE' => { name: 'Ireland', method: :fifo_4week, currency: 'EUR', locale: :en,
-                annual_exemption: 1270, split_payment: true }
+                annual_exemption: 1270, split_payment: true },
+      'DK' => { name: 'Denmark', method: :fifo, currency: 'DKK', locale: :da,
+                danish_wash_sale: true, per_asset_summary: true,
+                loss_deduction_rate_on_losses: 0.26 }
     }.freeze
 
     def self.for(code)

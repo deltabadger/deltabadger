@@ -1,0 +1,111 @@
+sv:
+    devise:
+        confirmations:
+            confirmed: 'Din e-postadress har bekräftats.'
+            new:
+                submit: 'Skicka igen'
+                title: 'Skicka instruktioner igen'
+            send_instructions: 'Du kommer att få ett e-postmeddelande med instruktioner om hur du bekräftar din e-postadress inom några minuter.'
+            send_paranoid_instructions: 'Om din e-postadress finns i vår databas kommer du att få ett e-postmeddelande med instruktioner om hur du bekräftar din e-postadress inom några minuter.'
+        passwords:
+            edit:
+                submit: 'Byt lösenord'
+                title: 'Byt lösenord'
+            new:
+                submit: 'Skicka instruktioner'
+                title: 'Glömt ditt lösenord?'
+            no_token: 'Du kan inte komma åt denna sida utan att komma från ett e-postmeddelande för lösenordsåterställning. Om du kommer från ett sådant e-postmeddelande, kontrollera att du använde hela URL:en.'
+            send_instructions: 'Du kommer att få ett e-postmeddelande med instruktioner om hur du återställer ditt lösenord inom några minuter.'
+            send_paranoid_instructions: 'Om din e-postadress finns i vår databas kommer du att få en länk för lösenordsåterställning inom några minuter.'
+            updated: 'Ditt lösenord har ändrats. Du är nu inloggad.'
+            updated_not_active: 'Ditt lösenord har ändrats.'
+            token_expired: 'Din länk för lösenordsåterställning har gått ut. Begär en ny länk.'
+            validations:
+                length: 'Minst %{count} tecken'
+                uppercase: 'Innehåller en stor bokstav'
+                lowercase: 'Innehåller en liten bokstav'
+                digit: 'Innehåller en siffra'
+                symbol: 'Innehåller ett specialtecken'
+                match: 'Lösenorden matchar'
+        registrations:
+            edit:
+                awaiting_confirmation: 'Väntar på bekräftelse för: %{email}'
+            new:
+                email_invalid: 'Ogiltig e-post!'
+                email_suggestion_html: 'Ogiltig e-post! Menade du: <b>%{suggestion}</b>'
+                name_invalid: 'Det behöver inte vara ditt riktiga namn 👻'
+                submit: 'Skapa konto'
+                title: 'Nytt konto'
+            signed_up: 'Välkommen! Ditt konto har skapats.'
+            signed_up_but_inactive: 'Ditt konto har skapats, men vi kunde inte logga in dig eftersom kontot ännu inte är aktiverat.'
+            signed_up_but_unconfirmed: 'Ett meddelande med en bekräftelselänk har skickats till din e-postadress. Följ länken för att aktivera ditt konto.'
+            update_needs_confirmation: 'Ditt konto har uppdaterats, men vi behöver verifiera din nya e-postadress. Kolla din e-post och följ bekräftelselänken.'
+            updated: 'Ditt konto har uppdaterats.'
+            updated_but_not_signed_in: 'Ditt konto har uppdaterats, men eftersom ditt lösenord ändrades behöver du logga in igen.'
+            destroyed: 'Hej då! Ditt konto har tagits bort. Vi hoppas att vi ses igen snart.'
+        sessions:
+            new:
+                forgot_password: 'Glömt lösenordet?'
+                submit: 'Logga in'
+                title: 'Välkommen tillbaka!'
+            signed_in: 'Inloggad.'
+            signed_out: 'Utloggad.'
+            already_signed_out: 'Utloggad.'
+            two_factor:
+                submit: "Verifiera"
+                invalid_code: "Fel kod. Försök igen."
+        failure:
+            already_authenticated: 'Du är redan inloggad.'
+            inactive: 'Ditt konto är inte aktiverat ännu.'
+            invalid: 'Ogiltig %{authentication_keys} eller lösenord.'
+            not_found_in_database: 'Ogiltig %{authentication_keys} eller lösenord.'
+            timeout: 'Din session har gått ut. Logga in igen för att fortsätta.'
+            unauthenticated: 'Du måste logga in eller skapa ett konto för att fortsätta.'
+            unconfirmed: 'Du måste bekräfta din e-postadress innan du kan fortsätta.'
+        mailer:
+            confirmation_instructions:
+                subject: 'Bekräfta din e-post'
+                template_html: |
+                    <p>Välkommen till Deltabadger!</p>
+                    <p>Klicka på länken nedan för att bekräfta din e-postadress:</p>
+                confirm_button: 'Bekräfta min e-post'
+            email_changed:
+                subject: 'Din e-post har ändrats'
+                template_html: |
+                    <p>Vi meddelar dig att din e-post har ändrats till %{email}.</p>
+            confirm_email:
+                subject: 'Bekräfta din nya e-postadress'
+                template_html: |
+                    <p>Vi meddelar dig att din e-post håller på att ändras till %{unconfirmed_email}.</p>
+            password_change:
+                subject: 'Lösenord ändrat'
+                template_html: |
+                    <p>Vi meddelar dig att ditt lösenord har ändrats.</p>
+            reset_password_instructions:
+                subject: 'Instruktioner för lösenordsåterställning'
+                template_html: |
+                    <p>Någon har begärt en länk för att ändra ditt lösenord.</p>
+                    <p>Du kan göra det via länken nedan:</p>
+                change_password_button: 'Ändra mitt lösenord'
+                ignore_mail_html: |
+                    <p>Om du inte begärde detta, ignorera detta e-postmeddelande så förblir ditt lösenord oförändrat.</p>
+                wont_change_html: |
+                    <p>Ditt lösenord ändras inte förrän du klickar på länken ovan och skapar ett nytt.</p>
+            email_already_taken:
+                subject: 'E-posten är redan registrerad'
+                message: 'Denna e-post är redan registrerad.'
+                reset_password_message: 'Om detta är ditt konto kan du återställa ditt lösenord här:'
+                reset_password_button: 'Återställ lösenord'
+        unlocks:
+            send_instructions: 'Du kommer att få ett e-postmeddelande med instruktioner om hur du låser upp ditt konto inom några minuter.'
+            send_paranoid_instructions: 'Om ditt konto finns kommer du att få ett e-postmeddelande med instruktioner om hur du låser upp det inom några minuter.'
+            unlocked: 'Ditt konto har låsts upp. Logga in för att fortsätta.'
+    shared:
+        links:
+            log_in_with_google: "Logga in med Google"
+            signup_with_google: "Skapa konto med Google"
+            signup_with_email: "Skapa konto med e-post"
+            or: "eller"
+            sign_in: "Logga in"
+            sign_up: "Skapa konto"
+            forgot_your_password: "Glömt ditt lösenord?"

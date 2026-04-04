@@ -1,0 +1,119 @@
+da:
+    bot:
+        setup:
+            api_not_available: "Børsens API er ikke tilgængeligt"
+            progress_steps:
+                currencies: "Vælg aktiv"
+                currencies2: "Andet aktiv"
+                exchange: "Børs"
+                spendable: "Valuta"
+                api: "Forbind børs"
+                schedule: "Angiv tidsplan"
+                coingecko: "Forbind CoinGecko"
+                index: "Vælg indeks"
+                pick_asset: "Vælg aktiv"
+                pick_exchange: "Vælg børs"
+                stock: "Vælg aktie"
+                address: "Adresse"
+                settings: "Indstillinger"
+                confirm: "Bekræft"
+            sentence:
+                invest_in: "Investér i"
+                and: "og"
+                at: "på"
+                spending: "brug"
+            binance:
+                instructions_1_html: 'Log ind på din %{exchange_link}-konto.'
+                instructions_2_html: 'Gå til brugermenuen (det runde ikon i øverste højre hjørne) og vælg <b>API Management</b>.'
+                instructions_3_html: 'Navngiv den nye API-nøgle og klik på <b>Create</b>.'
+                instructions_4_html: 'Bekræft oprettelsen med engangskode(r).'
+                instructions_5_html: 'Sørg for, at <b>Enable Spot & Margin Trading</b> er markeret.'
+                instructions_6_html: 'Hvis du vil begrænse adgangen til nøglen kun til Deltabadger, klik <b>Edit restrictions</b>, markér <b>Restrict access to trusted IPs only (Recommended)</b>, og tilføj denne IP i næste trin: <b>%{whitelist_ip}</b>'
+                instructions_7_html: 'Klik <b>Save</b> og bekræft med en ny engangskode om nødvendigt.'
+                instructions_8_html: 'Husk, at Secret Key kun er synlig under oprettelsen, så sørg for at kopiere begge nøgler, inden du forlader siden.'
+                instructions_9_html: 'Kopiér og indsæt dine nye API-nøgler i formularen ovenfor.'
+                private_key: 'Secret Key'
+                public_key: 'API Key'
+            coinbase:
+                instructions_1_html: 'Log ind på din %{exchange_link}-konto.'
+                instructions_2_html: 'Vælg fanen <b>More</b> i venstre sidepanel.'
+                instructions_3_html: 'Vælg <b>Advanced API</b> og klik derefter på <b>Create your API key</b>. Hvis du ikke kan finde det, gå direkte til <a href="https://portal.cdp.coinbase.com/">denne side</a>.'
+                instructions_4_html: 'Vælg fanen <b>API Keys</b>.'
+                instructions_5_html: 'Klik på knappen <b>Create API key</b>.'
+                instructions_6_1_html: 'I pop op-vinduet, udvid <b>API restrictions</b> og konfigurér:'
+                instructions_6_2_html: '<b>API key nickname</b>: Vælg et navn, f.eks. <b>Deltabadger</b>, så du nemt kan genkende den senere.'
+                instructions_6_3_html: '<b>IP whitelist</b>: <b>%{whitelist_ip}</b>.'
+                instructions_6_4_html: '<b>Portfolio</b>: Vælg den portefølje, Deltabadger skal have adgang til, <b>Default</b> hvis du ikke bruger Coinbase Portfolios.'
+                instructions_6_5_html: '<b>Permissions</b>:<br>&middot; <b>View</b> (skrivebeskyttet)<br>&middot; <b>Trade</b> (udfør handler på dine vegne)'
+                instructions_7_html: 'Klik på <b>Create & download</b> og gennemfør 2-trins-bekræftelsen.'
+                instructions_8_html: 'Kopiér og indsæt dine nye API-nøgler i formularen ovenfor.'
+                private_key: 'Secret'
+                public_key: 'API key'
+            alpaca:
+                instructions_1_html: 'Opret en konto eller log ind på din %{exchange_link}-konto.'
+                instructions_2_html: 'Gå til <b>Paper Trading</b> eller <b>Live Trading</b>-oversigten.'
+                instructions_3_html: 'Naviger til <b>API Keys</b> i venstre sidepanel.'
+                instructions_4_html: 'Klik på <b>Generate New Key</b>.'
+                instructions_5_html: 'Kopiér og indsæt din nye API Key ID og Secret Key i formularen ovenfor.'
+                private_key: 'Secret Key'
+                public_key: 'API Key ID'
+            error_info: 'Validering fejlede. Prøv igen eller generér nye nøgler.'
+            frequency_limit:
+                back_to_settings: 'Tilbage til indstillinger'
+                limit_exceeded: 'For at overholde botgrænsen på %{frequency_limit} transaktioner i timen, vil din tidsplan udføres med ordrer på %{price}%{currency} ad gangen.'
+                start_the_bot: 'Tilpas og start'
+            how_to_add_withdrawal_bot: 'Sådan opsættes en udbetalingsbot:'
+            how_to_get_keys: 'Sådan får du API-nøgler fra %{exchange}:'
+            kraken:
+                instructions_1_html: 'Log ind på din %{exchange_link}-konto.'
+                instructions_2_html: 'Gå til brugermenuen og vælg <b>Security</b> → <b>API</b>.'
+                instructions_3_html: 'Klik på <b>Generate New Key</b>.'
+                instructions_4_html: 'Indstil tilladelser for:'
+                instructions_5_1_html: 'Funds:'
+                instructions_5_2_html: '<b>Query Funds</b>'
+                instructions_6_1_html: 'Order & Trades:'
+                instructions_6_2_html: '<b>Query Open Orders & Trades</b>'
+                instructions_6_3_html: '<b>Query Closed Orders & Trades</b>'
+                instructions_6_4_html: '<b>Create and modify orders</b>'
+                instructions_6_5_html: '<b>Cancel/Close Orders</b>'
+                instructions_7_html: 'Klik på <b>Generate Key</b>.'
+                instructions_8_html: 'Kopiér og indsæt dine nye API-nøgler i formularen ovenfor.'
+                private_key: 'Private Key'
+                public_key: 'API Key'
+                trading_agreement_html: '<b>Hallo!</b> Hvis din Kraken-konto er verificeret med en tysk adresse, skal du acceptere en <a href="https://support.kraken.com/hc/en-us/articles/360036157952" target="_blank" rel="nofollow" title="Trading agreement">handelsaftale</a> for at kunne placere markeds- og marginordrer.'
+                trading_agreement_label_html: 'Jeg accepterer <a href="https://support.kraken.com/hc/en-us/articles/360036157952" target="_blank" rel="nofollow" title="Trading agreement">handelsaftalen</a>.'
+            limit_warning: 'Hvis du sætter dine ordrer til gebyrbeløbet, reducerer du reelt gebyret til nul. Selvom limitordrer kan tage længere tid at udføre, er de generelt en god idé. Standardindstillingen gør dette for dig, så det er bedst at beholde den, hvis du er i tvivl.'
+            next: Næste
+            no_wallet_found: 'Ingen wallet fundet. Gå til %{exchangeName} og tilføj en udbetalingswallet.'
+            set: Indstil
+            smart_intervals:
+                dont_show_again: 'Vis ikke igen'
+                info_html:
+                    force_smart_intervals: 'For %{base}%{quote} har %{exchangeName} en minimumsordrestørrelse på <b>%{minimumValue}%{minimumCurrency}</b>%{approximatedQuote}. Deltabadger udfører denne tidsplan med ordrer på %{minimumValue}%{minimumCurrency} og tilpasser tidsintervallet til din tidsplan. Vi kalder det <i>smarte intervaller</i>.'
+                    other: 'For %{base}%{quote} har %{exchangeName} en minimumsordrestørrelse på <b>%{minimumValue}%{minimumCurrency}</b>%{approximatedQuote}. Deltabadger kan udføre denne tidsplan med ordrer på %{minimumValue}%{minimumCurrency} og tilpasse tidsintervallet til din tidsplan. Vi kalder det <i>smarte intervaller</i>.'
+            step_api_key: 'API-nøgle'
+            step_assets: Aktiver
+            step_exchange: Børs
+            step_schedule: Tidsplan
+            step_settings: Indstillinger
+            step_type: Type
+            validating: Validerer…
+            withdrawal:
+                kraken:
+                    instructions_1_html: 'Log ind på din %{exchange_link}-konto.'
+                    instructions_2_html: 'Gå til brugermenuen og vælg <b>Security</b> → <b>API</b>.'
+                    instructions_3_html: 'Klik på <b>Generate New Key</b>.'
+                    instructions_4_html: 'Indstil tilladelser for:'
+                    instructions_5_1_html: 'Funds:'
+                    instructions_5_2_html: '<b>Query Funds</b>'
+                    instructions_5_3_html: '<b>Withdraw Funds</b>'
+                    instructions_6_html: 'Klik på <b>Generate Key</b>.'
+                    instructions_7_html: 'Kopiér og indsæt dine nye API-nøgler i formularen ovenfor.'
+            withdrawal_address:
+                kraken:
+                    instructions_1_html: 'Log ind på din %{exchange_link}-konto.'
+                    instructions_2_html: 'Gå til <b>Funding</b> → <b>Withdraw</b>.'
+                    instructions_3_html: 'Vælg det aktiv, du er interesseret i.'
+                    instructions_4_html: 'Tilføj en ny udbetalingsadresse eller administrér allerede oprettede adresser.'
+                    instructions_5_html: 'Kopiér beskrivelsen, du gav udbetalingsadressen, og indsæt den i formularen ovenfor.'
+            withdrawal_html: 'Udbetal <split>%{currency}</split> til <split>%{address}</split>-wallet.'

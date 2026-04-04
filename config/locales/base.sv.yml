@@ -1,0 +1,476 @@
+sv:
+    meta:
+        title: 'Deltabadger'
+    header:
+        start_investing: 'Börja investera:'
+    ads:
+        dca_profit_html: |
+            <p>Om du hade sparat regelbundet i Bitcoin de senaste %{years}&nbsp;åren, hade du nu gått <b style="color: #00A36C;">%{profit}%</b> plus.</p>
+            <p>Det är <b style="color: #00A36C;">%{sp500_diff}%</b> mer än S&P 500 under samma period.</p>
+    button:
+        ok: 'OK'
+        update: 'Uppdatera'
+        save: 'Spara'
+        cancel: 'Avbryt'
+        close: 'Stäng'
+        enable: 'Aktivera'
+        authorize: 'Auktorisera'
+        disable: 'Inaktivera'
+        delete: 'Ta bort'
+        duplicate: 'Duplicera'
+        copy: 'Kopiera'
+        submit: 'Skicka'
+        reset: 'Återställ'
+        add: 'Lägg till'
+        remove: 'Ta bort'
+        start: 'Starta'
+        stop: 'Stoppa'
+        next: 'Nästa'
+        connect: 'Anslut'
+        reconnect: 'Lägg till nya nycklar'
+        understand: 'Uppfattat!'
+        get_started: 'Kom igång'
+        select_plan: 'Välj plan'
+        back_to_dashboard: 'Gå till instrumentpanelen'
+        subscribe: 'Prenumerera'
+        unlock: 'Lås upp'
+        check_again: 'Kontrollera igen'
+    data_labels:
+        invested: "Totalt investerat"
+        portfolio_value: "Portföljvärde"
+        value: "Värde"
+        value_symbol: "Värde (%{symbol})"
+        invested_symbol: "Investerat (%{symbol})"
+        date: "Datum"
+        asset: "Tillgång"
+        amount: "Belopp"
+        avg_price: "Snittpris"
+        price: "Pris"
+        pnl: "V/F"
+        bought: "Köpt"
+        current_price: "Aktuellt pris"
+    days_left:
+        one: '1 dag kvar'
+        other: '%{count} dagar kvar'
+    forms:
+        for_confirmation: '(för bekräftelse)'
+        minimum_length: 'minst %{length} tecken'
+    helpers:
+        label:
+            settings:
+                current_status: 'Nuvarande status:'
+                disable_two_fa: 'Inaktivera 2FA'
+                disabled: Inaktiverad
+                enable_two_fa: 'Aktivera 2FA'
+                enabled: Aktiverad
+                enter_two_fa_code: 'Ange 2FA-kod'
+                scan_code_info: 'Skanna QR-koden eller kopiera koden nedan:'
+            user:
+                name: Namn
+                current_password: 'Nuvarande lösenord'
+                email: E-post
+                new_name: 'Nytt namn'
+                new_email: 'Ny e-post'
+                new_password: 'Nytt lösenord'
+                new_password_confirmation: 'Bekräfta nytt lösenord'
+                password: Lösenord
+                password_confirmation: 'Bekräfta lösenord'
+                remember_me: 'Kom ihåg mig'
+    home:
+        confirm_registration:
+            text_html: 'Kolla din inkorg och klicka på <b>bekräftelselänken</b> vi har skickat till dig. Gå sedan till inloggningssidan.'
+            title: Tack!
+    links:
+        about: Om
+        telegram: 'Telegram'
+        create_account: 'Skapa gratiskonto'
+        bot: Bot
+        bots: Botar
+        dashboard: Instrumentpanel
+        homepage: 'Länk till startsidan'
+        log_in: 'Logga in'
+        log_out: Logga ut
+        menu: Meny
+        earn: 'Tjäna'
+        resend_link: 'Skicka länk igen'
+        rules: Regler
+        tracker: Rapporter
+        settings: Inställningar
+        connections: Anslut
+        account: Konto
+        sign_up: 'Skapa konto'
+    settings:
+        language_and_timezone:
+            title: 'Språk och tidszon'
+            language_updated: "Ditt språk har uppdaterats."
+            updated: "Din tidszon har uppdaterats."
+            current_time_is: "Denna tidszon används i botloggen. Enligt den är klockan nu"
+        name:
+            updated: "Ditt namn har uppdaterats."
+        two_fa:
+            disabled: 'Tvåfaktorsautentisering har inaktiverats.'
+            enabled: 'Tvåfaktorsautentisering har aktiverats.'
+        api_keys:
+            confirm_delete: 'Vill du ta bort denna API-nyckel?'
+        index:
+            api_key_confirmation: 'Är du säker?'
+            api_keys_section: 'API-nycklar'
+            trading_keys_section: 'Handelsnycklar'
+            withdrawal_keys_section: 'Uttagsnycklar'
+            email_section: E-post
+            name_section: Namn
+            password_section: Lösenord
+            free_plan_reset_date_html: 'Din gräns återställs <b>%{end_time}</b>.'
+            title: Inställningar
+            two_factor_section: 'Tvåfaktorsautentisering'
+            resync_assets_section: 'Marknadsdata'
+            email_notifications_section: 'E-postnotiser'
+            registration_section: 'Flera konton'
+        registration:
+            enable_sign_up: 'Aktivera registrering'
+            disable_sign_up: 'Inaktivera registrering'
+            updated: 'Registreringsinställningen har uppdaterats.'
+        resync_assets:
+            button: 'Synkronisera'
+            hint: 'Synkronisera om börstickers och tillgångsdata från CoinGecko. Använd detta om några börser eller tillgångar saknas.'
+        coingecko_key:
+            confirm_delete: 'Vill du ta bort denna CoinGecko API-nyckel?'
+        market_data:
+            none: 'Ingen'
+            disabled: 'Synkronisering av marknadsdata inaktiverad.'
+            updated: 'Marknadsdatainställningar uppdaterade.'
+            coingecko_configured: 'Ansluten till CoinGecko för marknadsdata i realtid.'
+            deltabadger_configured: 'Ansluten till %{provider_name} för marknadsdata i realtid.'
+            disconnect: 'Koppla från'
+            disconnected: 'Marknadsdataleverantör frånkopplad.'
+        stocks:
+            title_html: 'Aktier (<a href="https://alpaca.markets/" target="_blank">Alpaca</a>)'
+            instructions_html: 'Gå till <a href="https://alpaca.markets" target="_blank">Alpaca-panelen</a> och hitta API Keys-sektionen i höger sidofält. Klicka på Generate New Keys och spara de genererade API-uppgifterna.'
+            enabled: 'Aktier aktiverade. Synkroniserar tillgångar från Alpaca...'
+            disabled: 'Aktier inaktiverade.'
+            disconnected: 'Alpaca frånkopplad. Aktietickers markerade som ej tillgängliga.'
+            configured: 'Ansluten till Alpaca (%{mode}). Aktietillgångar är synkroniserade.'
+            invalid_api_key: 'Ogiltig Alpaca API-nyckel. Kontrollera dina uppgifter.'
+            disconnect: 'Koppla från'
+            mode_paper: 'Papper'
+            mode_live: 'Live'
+        mcp:
+            title: 'MCP'
+            description: 'Använd denna URL för att ansluta Claude (och andra AI-modeller). Den ger din AI-assistent åtkomst till dina botar och börser.'
+            connected_clients: 'Anslutna'
+            no_clients: 'Inga klienter anslutna ännu.'
+            revoke_client: 'Återkalla'
+            revoke_client_confirm: 'Detta kopplar från klienten. Den behöver auktoriseras igen för att ansluta.'
+            client_revoked: 'Klient frånkopplad.'
+            authorize_title: 'Auktorisera åtkomst'
+            authorize_description_html: '<b>%{client_name}</b> vill komma åt din Deltabadger-server.'
+            tools_title: 'Verktygsbehörigheter'
+            tools_read: 'Läsa'
+            tools_control: 'Kontrollera'
+            tools_trade: 'Handla'
+            tools_tax: 'Skatt och rapportering'
+            tools:
+                list_bots:
+                    label: 'Lista botar'
+                    description: 'Visa alla DCA-botar och deras status'
+                get_bot_details:
+                    label: 'Botdetaljer'
+                    description: 'Visa detaljerad botinfo och resultat'
+                list_exchanges:
+                    label: 'Lista börser'
+                    description: 'Visa anslutna börser'
+                get_exchange_balances:
+                    label: 'Börssaldon'
+                    description: 'Hämta saldon i realtid från en börs'
+                get_portfolio_summary:
+                    label: 'Portföljöversikt'
+                    description: 'Visa total V/F och botfördelning'
+                list_transactions:
+                    label: 'Lista transaktioner'
+                    description: 'Visa senaste affärer'
+                create_bot:
+                    label: 'Skapa bot'
+                    description: 'Skapa en ny DCA-bot'
+                start_bot:
+                    label: 'Starta bot'
+                    description: 'Starta en stoppad bot'
+                stop_bot:
+                    label: 'Stoppa bot'
+                    description: 'Stoppa en aktiv bot'
+                update_bot_settings:
+                    label: 'Uppdatera botar'
+                    description: 'Ändra belopp eller namn på en stoppad bot'
+                start_rule:
+                    label: 'Starta regel'
+                    description: 'Starta en stoppad regel'
+                stop_rule:
+                    label: 'Stoppa regel'
+                    description: 'Stoppa en aktiv regel'
+                update_rule_settings:
+                    label: 'Uppdatera regler'
+                    description: 'Ändra inställningar på en stoppad regel'
+                market_buy:
+                    label: 'Marknadsköp'
+                    description: 'Utför en marknadsköporder'
+                market_sell:
+                    label: 'Marknadssälj'
+                    description: 'Utför en marknadssäljorder'
+                limit_buy:
+                    label: 'Limitköp'
+                    description: 'Lägg en limitköporder till ett specifikt pris'
+                limit_sell:
+                    label: 'Limitsälj'
+                    description: 'Lägg en limitsäljorder till ett specifikt pris'
+                cancel_order:
+                    label: 'Avbryt order'
+                    description: 'Avbryt en öppen order'
+                list_open_orders:
+                    label: 'Lista öppna ordrar'
+                    description: 'Visa öppna (ej fyllda) ordrar'
+                list_tax_jurisdictions:
+                    label: 'Skattejurisdiktioner'
+                    description: 'Visa länder och skattemetoder som stöds'
+                generate_tax_report:
+                    label: 'Generera skatterapport'
+                    description: 'Starta generering av skatterapport i bakgrunden'
+                get_tax_report_status:
+                    label: 'Skatterapportstatus'
+                    description: 'Kontrollera om en skatterapport är klar'
+                download_tax_report:
+                    label: 'Ladda ner skatterapport'
+                    description: 'Hämta genererad skatterapport i CSV'
+                export_transactions_csv:
+                    label: 'Exportera transaktioner CSV'
+                    description: 'Exportera kontotransaktioner som CSV'
+                list_account_transactions:
+                    label: 'Kontotransaktioner'
+                    description: 'Visa spårartransaktioner med filter'
+            dry_run_title: 'Pappershandel'
+            dry_run_description: 'Simulera affärer med riktiga marknadspriser. Inga riktiga ordrar läggs.'
+            dry_run_label: 'Aktivera pappershandel för handelsverktyg'
+        email_notifications:
+            none: 'Ingen'
+            smtp_host: 'SMTP-värd'
+            smtp_port: 'Port'
+            smtp_username: 'Användarnamn'
+            smtp_password: 'Lösenord'
+            smtp_hint_html: 'För Gmail, använd ett <a href="https://support.google.com/accounts/answer/185833" target="_blank">App Password</a> som lösenord.'
+            updated: 'Inställningar för e-postnotiser uppdaterade.'
+            disabled: 'E-postnotiser inaktiverade.'
+            smtp_credentials_required: 'SMTP-användarnamn och lösenord krävs.'
+            set: 'Ange'
+            smtp_configured_html: 'Konfigurerad med <b>%{host}</b>.'
+            send_test: 'Skicka testmail'
+            test_email_sent: 'Testmail skickat till %{email}.'
+            test_email_failed: 'Kunde inte skicka testmail: %{error}'
+            not_configured: 'E-postnotiser är inte konfigurerade.'
+            disconnect: 'Koppla från'
+            disconnected: 'E-postleverantör frånkopplad.'
+    utils:
+        pnl: 'V/F'
+        assets: Tillgångar
+        beta: Beta
+        cash: Kontanter
+        bonds: Obligationer
+        gold: Guld
+        are_you_sure: 'Är du säker?'
+        change_name: 'Byt namn'
+        important: 'Viktigt!'
+        new: 'Ny'
+        since: 'sedan'
+        soon: 'Snart'
+        see_at_coingecko: 'Se på CoinGecko'
+        search:
+            placeholder:
+                asset: 'Sök efter en tillgång…'
+                index: 'Sök efter ett index…'
+            no_results: 'Inga resultat hittades'
+        time_periods:
+            ytd: 'ÅHD'
+            ytd_title: 'Årets början'
+            one_year: '1Å'
+            one_year_title: '1 år sedan'
+            three_years: '3Å'
+            three_years_title: '3 år sedan'
+            five_years: '5Å'
+            five_years_title: '5 år sedan'
+        years:
+            one: "%{count} år"
+            other: "%{count} år"
+        months:
+            one: "%{count} månad"
+            other: "%{count} månader"
+        days:
+            one: "%{count} dag"
+            other: "%{count} dagar"
+        hours:
+            one: "%{count} timme"
+            other: "%{count} timmar"
+        minutes:
+            one: "%{count} minut"
+            other: "%{count} minuter"
+        seconds:
+            one: "%{count} sekund"
+            other: "%{count} sekunder"
+        days_short: 'd'
+        hours_short: 'h'
+        minutes_short: 'm'
+        seconds_short: 's'
+    bot_filters:
+        all: 'Alla'
+        active: 'Aktiva'
+        inactive: 'Inaktiva'
+    rules:
+        index:
+            title: 'Regler'
+        types:
+            withdrawal:
+                title: 'Automatiskt uttag'
+                description: 'Ta ut medel från börser'
+        withdrawals:
+            sentence:
+                withdraw_all: 'Ta ut'
+                from: 'från'
+                to: 'till'
+                on_network: 'på'
+                fee: 'avgift'
+                when: 'när'
+                fee_less_than: 'avgiften är lägre än'
+                amount_crosses: 'beloppet överstiger'
+                of_the_amount: '%'
+                or_at_least_every: 'eller minst var'
+                days: 'dagar'
+            pick_exchange:
+                withdrawal_fee: 'Uttag'
+            form:
+                submit: 'Skapa regel'
+                submitting: 'Skapar…'
+            confirm_destroy:
+                message: 'Vill du ta bort denna uttagsregel?'
+        tile:
+            withdrawal: 'Uttag'
+            network: 'Nätverk'
+            memo: 'Memo'
+            activated: 'Regeln är aktiv.'
+            deactivated: 'Regeln har inaktiverats.'
+            min_amount_info_html: 'Den aktuella avgiften är %{fee} %{symbol}, så uttaget utlöses vid <b>%{amount} %{symbol}</b>.'
+            no_fee_info: '%{exchange} rapporterar ingen uttagsavgift för denna tillgång. Regeln tar ut alla tillgängliga medel.'
+            unknown_fee_info: 'Avgiftsdata ej tillgänglig för %{exchange}. Regeln tar ut alla tillgängliga medel.'
+            fixed_amount_info: 'Uttaget utlöses när saldot når %{amount} %{symbol}.'
+            fixed_amount_fee_html: 'Den aktuella avgiften är %{fee} %{symbol}, så du betalar <b>%{fee_pct}</b>.'
+            no_wallet_html: 'Ingen %{symbol}-uttagsadress hittades på %{exchange}. Lägg till en på börsen först.'
+        logs:
+            date: 'Datum'
+            status: 'Status'
+            message: 'Meddelande'
+            empty: 'Inga loggar ännu.'
+        add_address:
+            label: 'Uttagsadress'
+            placeholder: 'Klistra in adress här…'
+            select_address: 'Välj adress…'
+            address_tag_label: 'Memo / Tag (valfritt)'
+            address_tag_placeholder: 'Memo, tag eller betalnings-ID…'
+            instructions_title: 'Lägg till en uttagsadress på %{exchange}'
+            warning_html: 'Kontrollera att detta är en <b>%{symbol}</b>-adress på rätt nätverk. Att skicka till fel adress eller nätverk leder till permanent förlust av medel.'
+            no_addresses_html: 'Det finns ingen definierad uttagsadress för <b>%{symbol}</b>. Konfigurera den på %{exchange} först.'
+            fetch_failed_html: 'Kunde inte hämta uttagsadresser från %{exchange}. Försök igen senare.'
+        add_api_key:
+            title: 'Lägg till uttags-API-nyckel för %{exchange}'
+            instructions_title: 'Hur du får nycklar från %{exchange}'
+            instructions_body: 'Skapa en uttagsaktiverad API-nyckel på %{exchange} och klistra in uppgifterna här.'
+    tracker:
+        sync: 'Synka'
+        sync_started: 'Synkroniserar transaktioner från dina börser...'
+        importing_from: 'Importerar data från %{exchange}…'
+        get_report: 'Hämta rapport'
+        filter: 'Filter'
+        bot: 'Bot'
+        no_results: 'Inga transaktioner hittades för de valda filtren.'
+        connect_exchange: 'Anslut börs'
+        import_from: 'Importera transaktioner från'
+        search_exchange: 'Sök börs...'
+        setup_coingecko_html: 'För att generera en skatterapport krävs historiska priser. <b>CoinGecko</b>-gratisplanen täcker upp till 2 års historik. För äldre transaktioner, uppgradera till <b>CoinGecko Analyst</b> eller gå med på <a href="https://deltabadger.com">deltabadger.com</a> där marknadsdata ingår.'
+        beta_notice: 'Skatterapportering är fortfarande i beta. Generera en rapport, dela den med din revisor och berätta vad som kan förbättras. Med din feedback kan den bli perfekt.'
+        export_modal:
+            title: 'Generera rapport'
+            tax_report: 'Skatterapport'
+            transactions: 'Alla'
+            country: 'Land'
+            year: 'År'
+            generate: 'Generera'
+            download_label: 'Ladda ner'
+            from: 'Från'
+            to: 'Till'
+            stablecoin_as_fiat: 'Behandla stablecoins som fiat (fråga din revisor)'
+        tax_report:
+            invalid_country: 'Ogiltigt land valt.'
+            expired: 'Skatterapporten har gått ut. Generera en ny.'
+            generating: 'Genererar skatterapport...'
+            download_ready: 'Skatterapporten är klar. Klicka för att ladda ner.'
+        filters:
+            all: 'Alla'
+        columns:
+            date: 'Datum'
+            type: 'Typ'
+            base: 'Tillgång'
+            amount: 'Belopp'
+            quote: 'Valuta'
+            quote_amount: 'Värde'
+            fee: 'Avgift'
+            exchange: 'Börs'
+            bot: 'Bot'
+        types:
+            buy: 'Köp'
+            sell: 'Sälj'
+            swap_in: 'Byte in'
+            swap_out: 'Byte ut'
+            deposit: 'Insättning'
+            withdrawal: 'Uttag'
+            staking_reward: 'Staking'
+            lending_interest: 'Ränta'
+            airdrop: 'Airdrop'
+            mining: 'Mining'
+            fee: 'Avgift'
+            other_income: 'Inkomst'
+            lost: 'Förlorad'
+    order_filters:
+        all: 'Alla'
+        successful: 'Lyckade'
+        cancelled: 'Avbrutna'
+        waiting: 'Schemalagda'
+    tax_report:
+        headers:
+            date: 'Datum'
+            asset: 'Tillgång'
+            amount: 'Belopp'
+            proceeds: 'Intäkter'
+            cost_basis: 'Anskaffningsvärde'
+            gain_loss: 'Vinst/förlust'
+            currency: 'Valuta'
+            holding_days: 'Innehavsdagar'
+            fee: 'Avgift'
+            exchange: 'Börs'
+            tx_id: 'Transaktions-ID'
+            cost_basis_complete: 'Anskaffningsvärde komplett'
+            acquisition_date: 'Anskaffningsdatum'
+            tax_exempt: 'Skattefri'
+            old_stock: 'Gammalt innehav'
+            term: 'Period'
+            matching_rule: 'Matchningsregel'
+            total_acquisition_cost: 'Total anskaffningskostnad'
+            portfolio_value: 'Portföljvärde'
+            tax_rate: 'Skattesats'
+            exempt: 'Undantag (tröskel)'
+            value: 'Värde'
+            reference_date: 'Referensdatum'
+            period: 'Period'
+        no_taxable_transactions: 'Inga skattepliktiga transaktioner hittades för denna period.'
+        summary:
+            total_value: 'Totalt värde'
+            allowance: 'Skattefritt grundavdrag'
+            taxable_wealth: 'Skattepliktig förmögenhet'
+            deemed_return: 'Schablonintäkt'
+            tax: 'Skatt'
+            total_gains: 'Totala vinster'
+            total_losses: 'Totala förluster'
+            deductible: 'avdragsgill'

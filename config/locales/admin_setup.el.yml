@@ -1,0 +1,27 @@
+el:
+  setup:
+    title: "Καλωσήρθες στο Deltabadger"
+    admin_account: "Λογαριασμός διαχειριστή"
+    validations:
+      name_required: "Το όνομα είναι υποχρεωτικό"
+      email_required: "Το email είναι υποχρεωτικό"
+      password_required: "Ο κωδικός είναι υποχρεωτικός"
+    api_configuration: "Το bot χρησιμοποιεί δεδομένα αγοράς από το CoinGecko. Η πρόσβαση στο CoinGecko API είναι δωρεάν, αλλά πρέπει να δημιουργήσεις λογαριασμό και κλειδί API. Δες τις οδηγίες παρακάτω."
+    coingecko_api_key: "Κλειδί CoinGecko API"
+    coingecko_api_key_hint_html: |
+      <ol>
+        <li>Κάνε εγγραφή στο <a href="https://www.coingecko.com/en/api" target="_blank" rel="noopener">CoinGecko</a></li>
+        <li>Πήγαινε στην ενότητα <a href="https://www.coingecko.com/en/api" target="_blank" rel="noopener">API</a></li>
+        <li>Πάτησε <b>Get Your API Key Now</b></li>
+        <li>Το <b>Create Free Account</b> βρίσκεται κάτω από τις τιμές</li>
+        <li>Συμπλήρωσε τη φόρμα</li>
+        <li>Πάτησε <b>Create API key</b></li>
+        <li><b>Αντέγραψε το κλειδί API</b> και επικόλλησέ το παραπάνω</li>
+      </ol>
+    continue: "Συνέχεια"
+    submit: "Ξεκίνα"
+    success: "Η ρύθμιση ολοκληρώθηκε με επιτυχία. Καλωσήρθες στο Deltabadger!"
+    syncing_message: "Συγχρονισμός assets…"
+    syncing_hint: "Μπορεί να πάρει μερικά λεπτά"
+    invalid_coingecko_api_key: "Μη έγκυρο κλειδί CoinGecko API. Έλεγξέ το και δοκίμασε ξανά."
+    retry: "Δοκίμασε ξανά"

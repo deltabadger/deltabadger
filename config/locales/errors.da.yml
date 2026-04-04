@@ -1,0 +1,106 @@
+da:
+    activerecord:
+        attributes:
+            user:
+                name: "Navn"
+                email: "E-mail"
+                password: "Adgangskode"
+        errors:
+            models:
+                bot:
+                    attributes:
+                        smart_interval_quote_amount:
+                            not_a_number: "Du skal angive et beløb for smarte intervaller"
+                            greater_than_or_equal_to: "For denne tidsplan kan beløbet for smarte intervaller ikke være mindre end %{count}"
+                        price_limit:
+                            not_a_number: "Du skal angive en pris"
+                            greater_than_or_equal_to: "Prisen skal være større end eller lig med 0"
+                        price_drop_limit:
+                            not_a_number: "Du skal angive en prisfaldværdi"
+                            greater_than_or_equal_to: "Prisfaldværdien skal være større end eller lig med 0"
+                            less_than_or_equal_to: "Prisfaldværdien skal være mindre end eller lig med 100"
+                        indicator_limit:
+                            not_a_number: "Du skal angive %{indicator}-værdien"
+                        moving_average_limit_in_period:
+                            not_a_number: "Du skal angive perioden for det glidende gennemsnit"
+                            greater_than: "Perioden for det glidende gennemsnit skal være større end 0"
+                        quote_amount:
+                            not_a_number: "Du skal tilføje et beløb at investere"
+                            greater_than: "Det investerede beløb skal være større end 0"
+                        quote_amount_limit:
+                            not_a_number: "Du skal udfylde, hvilket beløb der ikke må overskrides"
+                            greater_than_or_equal_to: "Beløbsgrænsen skal være større end eller lig med %{count}"
+    errors:
+        bitcoin_address_not_updated: 'Bitcoin-adresse kunne ikke opdateres'
+        format: '%{attribute} %{message}'
+        frequency_limit: 'Frekvensgrænse overskredet'
+        invalid_api_keys: 'Ugyldige nøgler'
+        invalid_risk_free_rate_key: 'Ugyldig risikofri rentenøgle.'
+        api_key_permission_validation_failed: 'Kunne ikke validere API-nøgletilladelser'
+        api_key_already_exists: 'En API-nøgle for %{exchange_name} findes allerede'
+        withdrawal_rule_already_exists: 'En udbetalingsregel for %{asset_symbol} på %{exchange_name} findes allerede'
+        incorrect_api_key_permissions: 'Forkerte API-nøgletilladelser'
+        unable_to_get_risk_free_rate: 'Kan ikke hente den risikofrie rente for %{risk_free_rate_name}. Data API-serveren kan ikke nås.'
+        invalid_number_of_allocations: 'Ugyldigt antal allokeringer'
+        invalid_allocation_value: 'Ugyldig allokeringsværdi'
+        bots:
+            exchange_asset_mismatch: "Ikke alle aktiverne er noteret på %{exchange_name}"
+            exchange_change_while_open_orders: "Annullér alle åbne ordrer, denne bot har på %{exchange_name}, før du skifter børs"
+            destroy_success: "Bot %{bot_label} er slettet"
+            api_key_success: "API-nøgler gemt"
+            coingecko_required: "CoinGecko API-nøgle er påkrævet for indeksbots"
+            market_data_required: "En markedsdataudbyder skal konfigureres for indeksbots. Gå til Indstillinger for at forbinde en."
+            index_change_after_transactions: "Indekstype kan ikke ændres, efter ordrer er blevet afgivet"
+            signal_required: "Mindst ét signal er påkrævet"
+            signal_minimum: "Kan ikke fjerne det sidste signal"
+        messages:
+            accepted: 'skal accepteres'
+            already_confirmed: 'er allerede bekræftet, prøv venligst at logge ind.'
+            bad_2fa_code: 'Ugyldig kode. Prøv igen.'
+            bad_credentials: 'Forkert e-mail eller adgangskode.'
+            bad_credentials_with_code: 'Forkert e-mail, adgangskode eller 2FA-kode.'
+            blank: 'må ikke være tomt'
+            confirmation: 'stemmer ikke overens med %{attribute}'
+            confirmation_period_expired: 'skal bekræftes inden for %{period}, anmod venligst om en ny.'
+            empty: 'må ikke være tomt'
+            empty_two_fa_token: 'Manglende 2FA-kode. Prøv igen.'
+            equal_to: 'skal være lig med %{count}'
+            even: 'skal være et lige tal'
+            exclusion: 'er reserveret'
+            expired: 'er udløbet, anmod venligst om en ny.'
+            greater_than: 'skal være større end %{count}'
+            greater_than_or_equal_to: 'skal være større end eller lig med %{count}'
+            in: 'skal være i %{count}'
+            inclusion: 'er ikke inkluderet i listen'
+            invalid: 'er ugyldig'
+            less_than: 'skal være mindre end %{count}'
+            less_than_or_equal_to: 'skal være mindre end eller lig med %{count}'
+            model_invalid: 'Validering fejlede: %{errors}'
+            not_a_number: 'er ikke et tal'
+            not_an_integer: 'skal være et heltal'
+            not_found: 'ikke fundet.'
+            not_locked: 'var ikke låst.'
+            not_saved:
+                one: '1 fejl forhindrede denne %{resource} i at blive gemt:'
+                other: '%{count} fejl forhindrede denne %{resource} i at blive gemt:'
+            odd: 'skal være et ulige tal'
+            other_than: 'skal være andet end %{count}'
+            password_not_match: 'Adgangskoderne stemmer ikke overens'
+            present: 'skal være tomt'
+            too_long:
+                one: 'er for lang (maks. 1 tegn)'
+                other: 'er for lang (maks. %{count} tegn)'
+            too_short:
+                one: 'er for kort (min. 1 tegn)'
+                other: 'er for kort (min. %{count} tegn)'
+            too_simple_password: 'Adgangskoden skal indeholde tegn fra hver af følgende kategorier: store bogstaver (A-Z), små bogstaver (a-z), cifre (0-9), specialtegn (f.eks. #,?,!).'
+            wrong_email: 'Forkert e-mail.'
+            wrong_length:
+                one: 'har forkert længde (skal være 1 tegn)'
+                other: 'har forkert længde (skal være %{count} tegn)'
+            wrong_password: 'Forkert adgangskode'
+            wrong_two_fa_token: 'Den indtastede kode er forkert.'
+        unverified_request: 'Opdatér venligst din browser og prøv igen'
+    alert:
+        bot:
+            bot_updated: 'Botten er opdateret.'

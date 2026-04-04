@@ -1,0 +1,27 @@
+sv:
+  setup:
+    title: "Välkommen till Deltabadger"
+    admin_account: "Administratörskonto"
+    validations:
+      name_required: "Namn krävs"
+      email_required: "E-post krävs"
+      password_required: "Lösenord krävs"
+    api_configuration: "Boten använder marknadsdata från CoinGecko. CoinGecko API är gratis att använda, men du behöver skapa ett konto och en API-nyckel. Se instruktionerna nedan."
+    coingecko_api_key: "CoinGecko API-nyckel"
+    coingecko_api_key_hint_html: |
+      <ol>
+        <li>Skapa ett konto på <a href="https://www.coingecko.com/en/api" target="_blank" rel="noopener">CoinGecko</a></li>
+        <li>Gå till <a href="https://www.coingecko.com/en/api" target="_blank" rel="noopener">API-sektionen</a></li>
+        <li>Klicka på <b>Get Your API Key Now</b></li>
+        <li><b>Create Free Account</b> finns under prissättningen</li>
+        <li>Fyll i formuläret</li>
+        <li>Klicka på <b>Create API key</b></li>
+        <li><b>Copy API key</b> och klistra in den ovan</li>
+      </ol>
+    continue: "Fortsätt"
+    submit: "Starta"
+    success: "Installationen är klar. Välkommen till Deltabadger!"
+    syncing_message: "Synkroniserar tillgångar…"
+    syncing_hint: "Det kan ta några minuter"
+    invalid_coingecko_api_key: "Ogiltig CoinGecko API-nyckel. Kontrollera din nyckel och försök igen."
+    retry: "Försök igen"

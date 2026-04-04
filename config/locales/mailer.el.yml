@@ -1,0 +1,23 @@
+el:
+    mailer:
+        greeting: 'Γεια σου θρύλε,'
+        greeting_name: 'Γεια σου %{name},'
+        best_html: '<p>Με εκτίμηση,<br>Jan</p>'
+        unsubscribe: 'Απεγγραφή'
+    test_mailer:
+        test_email:
+            subject: "Δοκιμαστικό email Deltabadger"
+            body: "Αυτό είναι ένα δοκιμαστικό email από το Deltabadger. Αν το έλαβες, οι ειδοποιήσεις email λειτουργούν κανονικά."
+    bot_alerts_mailer:
+        end_of_funds:
+            subject: "Ο λογαριασμός σου στο %{exchange_name} εξαντλεί τα %{quote}"
+            template_html: "<p>Ο λογαριασμός σου στο %{exchange_name} εξαντλεί τα %{quote}.</p><p>Κάνε μεταφορά στο %{exchange_name} για να εξασφαλίσεις τη συνεχή λειτουργία των bots σου.</p>"
+        notify_about_error:
+            subject: "Κάτι πήγε στραβά με %{label}"
+            template_html: "<p>Κάτι πήγε στραβά κατά την επεξεργασία της τελευταίας συναλλαγής του bot <b>%{label}</b>.</p><p>Μπορείς να δεις το σφάλμα στο αρχείο καταγραφής του bot. Συνδέσου για να το ελέγξεις.</p><p>Σφάλματα:</p><blockquote> <b>%{exchange_name}:</b> <b>%{errors}</b></blockquote>"
+        notify_about_restart:
+            subject: "Ωχ! Επόμενη προσπάθεια…"
+            template_html: "<p>Το bot <b>%{label}</b> δεν κατάφερε να εκτελέσει την εντολή σου. Μοιάζει με πρόβλημα του ανταλλακτηρίου. Θα δοκιμάσουμε ξανά σε %{delay}.</p><p>Όλα τα σφάλματα φαίνονται στο αρχείο καταγραφής του bot. Συνδέσου για να τα ελέγξεις.</p><p>Σφάλματα:</p><blockquote> <b>%{exchange_name}:</b> <b>%{errors}</b> </blockquote>"
+        stopped_by_amount_limit:
+            subject: "Το %{label} επένδυσε ολόκληρο το ποσό"
+            template_html: "<p>Το bot σου <b>%{label}</b> έφτασε τον στόχο και επένδυσε ολόκληρο το ποσό %{amount} %{quote}.</p><p>Σταμάτησε αυτόματα. Απενεργοποίησε το όριο ποσού για να μηδενίσεις τον στόχο.</p>"

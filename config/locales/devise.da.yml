@@ -1,0 +1,111 @@
+da:
+    devise:
+        confirmations:
+            confirmed: 'Din e-mailadresse er blevet bekræftet.'
+            new:
+                submit: 'Send igen'
+                title: 'Send vejledning igen'
+            send_instructions: 'Du modtager om et øjeblik en e-mail med vejledning til, hvordan du bekræfter din e-mailadresse.'
+            send_paranoid_instructions: 'Hvis din e-mailadresse findes i vores database, modtager du om et øjeblik en e-mail med vejledning til, hvordan du bekræfter din e-mailadresse.'
+        passwords:
+            edit:
+                submit: 'Skift adgangskode'
+                title: 'Skift adgangskode'
+            new:
+                submit: 'Send vejledning'
+                title: 'Glemt din adgangskode?'
+            no_token: 'Du kan ikke tilgå denne side uden at komme fra en e-mail om nulstilling af adgangskode. Hvis du kommer fra en sådan e-mail, skal du sikre, at du brugte den fulde URL.'
+            send_instructions: 'Du modtager om et øjeblik en e-mail med vejledning til, hvordan du nulstiller din adgangskode.'
+            send_paranoid_instructions: 'Hvis din e-mailadresse findes i vores database, modtager du om et øjeblik et link til nulstilling af adgangskode.'
+            updated: 'Din adgangskode er blevet ændret. Du er nu logget ind.'
+            updated_not_active: 'Din adgangskode er blevet ændret.'
+            token_expired: 'Dit link til nulstilling af adgangskode er udløbet. Anmod venligst om et nyt link.'
+            validations:
+                length: 'Mindst %{count} tegn'
+                uppercase: 'Indeholder et stort bogstav'
+                lowercase: 'Indeholder et lille bogstav'
+                digit: 'Indeholder et ciffer'
+                symbol: 'Indeholder et specialtegn'
+                match: 'Adgangskoderne matcher'
+        registrations:
+            edit:
+                awaiting_confirmation: 'Afventer bekræftelse for: %{email}'
+            new:
+                email_invalid: 'Ugyldig e-mail!'
+                email_suggestion_html: 'Ugyldig e-mail! Mente du: <b>%{suggestion}</b>'
+                name_invalid: 'Det behøver ikke at være dit rigtige navn 👻'
+                submit: 'Opret konto'
+                title: 'Ny konto'
+            signed_up: 'Velkommen! Du har oprettet en konto.'
+            signed_up_but_inactive: 'Du har oprettet en konto. Vi kunne dog ikke logge dig ind, da din konto endnu ikke er aktiveret.'
+            signed_up_but_unconfirmed: 'En besked med et bekræftelseslink er sendt til din e-mailadresse. Følg linket for at aktivere din konto.'
+            update_needs_confirmation: 'Din konto er opdateret, men vi skal bekræfte din nye e-mailadresse. Tjek din e-mail og følg bekræftelseslinket.'
+            updated: 'Din konto er blevet opdateret.'
+            updated_but_not_signed_in: 'Din konto er blevet opdateret, men da din adgangskode blev ændret, skal du logge ind igen.'
+            destroyed: 'Farvel! Din konto er blevet slettet. Vi håber at se dig igen snart.'
+        sessions:
+            new:
+                forgot_password: 'Glemt adgangskode?'
+                submit: 'Log ind'
+                title: 'Velkommen tilbage!'
+            signed_in: 'Du er nu logget ind.'
+            signed_out: 'Du er nu logget ud.'
+            already_signed_out: 'Du er nu logget ud.'
+            two_factor:
+                submit: "Bekræft"
+                invalid_code: "Forkert kode. Prøv igen."
+        failure:
+            already_authenticated: 'Du er allerede logget ind.'
+            inactive: 'Din konto er endnu ikke aktiveret.'
+            invalid: 'Ugyldig %{authentication_keys} eller adgangskode.'
+            not_found_in_database: 'Ugyldig %{authentication_keys} eller adgangskode.'
+            timeout: 'Din session er udløbet. Log venligst ind igen for at fortsætte.'
+            unauthenticated: 'Du skal logge ind eller oprette en konto for at fortsætte.'
+            unconfirmed: 'Du skal bekræfte din e-mailadresse, før du kan fortsætte.'
+        mailer:
+            confirmation_instructions:
+                subject: 'Bekræft din e-mail'
+                template_html: |
+                    <p>Velkommen til Deltabadger!</p>
+                    <p>Klik på linket nedenfor for at bekræfte din e-mailadresse:</p>
+                confirm_button: 'Bekræft min e-mail'
+            email_changed:
+                subject: 'Din e-mail er blevet ændret'
+                template_html: |
+                    <p>Vi kontakter dig for at oplyse, at din e-mail er blevet ændret til %{email}.</p>
+            confirm_email:
+                subject: 'Bekræft din nye e-mailadresse'
+                template_html: |
+                    <p>Vi kontakter dig for at oplyse, at din e-mail er ved at blive ændret til %{unconfirmed_email}.</p>
+            password_change:
+                subject: 'Adgangskode ændret'
+                template_html: |
+                    <p>Vi kontakter dig for at oplyse, at din adgangskode er blevet ændret.</p>
+            reset_password_instructions:
+                subject: 'Vejledning til nulstilling af adgangskode'
+                template_html: |
+                    <p>Nogen har anmodet om et link til at ændre din adgangskode.</p>
+                    <p>Du kan gøre det via linket nedenfor:</p>
+                change_password_button: 'Ændr min adgangskode'
+                ignore_mail_html: |
+                    <p>Hvis du ikke har anmodet om dette, kan du ignorere denne e-mail, og din adgangskode forbliver uændret.</p>
+                wont_change_html: |
+                    <p>Din adgangskode ændres ikke, før du tilgår linket ovenfor og opretter en ny.</p>
+            email_already_taken:
+                subject: 'E-mail allerede i brug'
+                message: 'Denne e-mail er allerede registreret.'
+                reset_password_message: 'Hvis dette er din konto, kan du nulstille din adgangskode her:'
+                reset_password_button: 'Nulstil adgangskode'
+        unlocks:
+            send_instructions: 'Du modtager om et øjeblik en e-mail med vejledning til, hvordan du låser din konto op.'
+            send_paranoid_instructions: 'Hvis din konto findes, modtager du om et øjeblik en e-mail med vejledning til, hvordan du låser den op.'
+            unlocked: 'Din konto er blevet låst op. Log venligst ind for at fortsætte.'
+    shared:
+        links:
+            log_in_with_google: "Log ind med Google"
+            signup_with_google: "Opret konto med Google"
+            signup_with_email: "Opret konto med e-mail"
+            or: "eller"
+            sign_in: "Log ind"
+            sign_up: "Opret konto"
+            forgot_your_password: "Glemt din adgangskode?"
