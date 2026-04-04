@@ -44,5 +44,8 @@
     <% unless locale == 'el' %>
       <%= link_to "🇬🇷 Ελληνικά", url_for(request.params.merge(locale: 'el')), class: "dropdown__item", data: { turbo: false } %>
     <% end %>
+    <% unless locale == 'bg' %>
+      <%= link_to "🇧🇬 Български", url_for(request.params.merge(locale: 'bg')), class: "dropdown__item", data: { turbo: false } %>
+    <% end %>
   </div>
 </div>

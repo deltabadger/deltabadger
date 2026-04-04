@@ -1,0 +1,119 @@
+bg:
+    bot:
+        setup:
+            api_not_available: "API на борсата не е достъпно"
+            progress_steps:
+                currencies: "Изберете актив"
+                currencies2: "Втори актив"
+                exchange: "Борса"
+                spendable: "Валута"
+                api: "Свързване на борса"
+                schedule: "Настройка на график"
+                coingecko: "Свързване с CoinGecko"
+                index: "Избор на индекс"
+                pick_asset: "Избор на актив"
+                pick_exchange: "Избор на борса"
+                stock: "Избор на акция"
+                address: "Адрес"
+                settings: "Настройки"
+                confirm: "Потвърждение"
+            sentence:
+                invest_in: "Инвестиране в"
+                and: "и"
+                at: "в"
+                spending: "с използване на"
+            binance:
+                instructions_1_html: 'Влезте в акаунта си в %{exchange_link}.'
+                instructions_2_html: 'В потребителското меню (кръглата икона горе вдясно) отидете на <b>API Management</b>.'
+                instructions_3_html: 'Дайте име на новия API ключ и натиснете <b>Create</b>.'
+                instructions_4_html: 'Потвърдете създаването с еднократен код.'
+                instructions_5_html: 'Уверете се, че <b>Enable Spot & Margin Trading</b> е отметнато.'
+                instructions_6_html: 'Ако искате да ограничите достъпа до ключа само за Deltabadger, натиснете <b>Edit restrictions</b>, отметнете <b>Restrict access to trusted IPs only (Recommended)</b> и добавете този IP в следващата стъпка: <b>%{whitelist_ip}</b>'
+                instructions_7_html: 'Натиснете <b>Save</b> и при необходимост потвърдете с допълнителен еднократен код.'
+                instructions_8_html: 'Имайте предвид, че Secret Key се показва само при създаването, затова копирайте и двата ключа, преди да напуснете страницата.'
+                instructions_9_html: 'Копирайте и поставете новите си API ключове във формуляра по-горе.'
+                private_key: 'Secret Key'
+                public_key: 'API Key'
+            coinbase:
+                instructions_1_html: 'Влезте в акаунта си в %{exchange_link}.'
+                instructions_2_html: 'В левия панел изберете раздела <b>More</b>.'
+                instructions_3_html: 'Изберете <b>Advanced API</b> и натиснете <b>Create your API key</b>. Ако не можете да го намерите, отидете директно <a href="https://portal.cdp.coinbase.com/">тук</a>.'
+                instructions_4_html: 'Изберете раздела <b>API Keys</b>.'
+                instructions_5_html: 'Натиснете бутона <b>Create API key</b>.'
+                instructions_6_1_html: 'В диалоговия прозорец разгънете <b>API restrictions</b> и задайте:'
+                instructions_6_2_html: '<b>API key nickname</b>: Изберете произволно име, <b>Deltabadger</b> е подходящо за лесно разпознаване.'
+                instructions_6_3_html: '<b>IP whitelist</b>: <b>%{whitelist_ip}</b>.'
+                instructions_6_4_html: '<b>Portfolio</b>: Изберете портфолиото, до което искате Deltabadger да има достъп, <b>Default</b>, ако не използвате Coinbase Portfolios.'
+                instructions_6_5_html: '<b>Permissions</b>:<br>&middot; <b>View</b> (само за четене)<br>&middot; <b>Trade</b> (извършване на сделки вместо вас)'
+                instructions_7_html: 'Натиснете <b>Create & download</b> и завършете двуфакторната проверка.'
+                instructions_8_html: 'Копирайте и поставете новите си API ключове във формуляра по-горе.'
+                private_key: 'Secret'
+                public_key: 'API key'
+            alpaca:
+                instructions_1_html: 'Регистрирайте се или влезте в акаунта си в %{exchange_link}.'
+                instructions_2_html: 'Отидете на таблото <b>Paper Trading</b> или <b>Live Trading</b>.'
+                instructions_3_html: 'В левия панел отидете на <b>API Keys</b>.'
+                instructions_4_html: 'Натиснете <b>Generate New Key</b>.'
+                instructions_5_html: 'Копирайте и поставете новия си API Key ID и Secret Key във формуляра по-горе.'
+                private_key: 'Secret Key'
+                public_key: 'API Key ID'
+            error_info: 'Проверката не успя. Опитайте отново или генерирайте нови ключове.'
+            frequency_limit:
+                back_to_settings: 'Обратно към настройките'
+                limit_exceeded: 'За спазване на лимита на бота от %{frequency_limit} транзакции на час, графикът ви ще се изпълнява с поръчки по %{price}%{currency}.'
+                start_the_bot: 'Редактирай и стартирай'
+            how_to_add_withdrawal_bot: 'Как да настроите бот за теглене:'
+            how_to_get_keys: 'Как да получите API ключове от %{exchange}:'
+            kraken:
+                instructions_1_html: 'Влезте в акаунта си в %{exchange_link}.'
+                instructions_2_html: 'В потребителското меню отидете на <b>Security</b> → <b>API</b>.'
+                instructions_3_html: 'Натиснете <b>Generate New Key</b>.'
+                instructions_4_html: 'Задайте разрешения за:'
+                instructions_5_1_html: 'Funds:'
+                instructions_5_2_html: '<b>Query Funds</b>'
+                instructions_6_1_html: 'Order & Trades:'
+                instructions_6_2_html: '<b>Query Open Orders & Trades</b>'
+                instructions_6_3_html: '<b>Query Closed Orders & Trades</b>'
+                instructions_6_4_html: '<b>Create and modify orders</b>'
+                instructions_6_5_html: '<b>Cancel/Close Orders</b>'
+                instructions_7_html: 'Натиснете <b>Generate Key</b>.'
+                instructions_8_html: 'Копирайте и поставете новите си API ключове във формуляра по-горе.'
+                private_key: 'Private Key'
+                public_key: 'API Key'
+                trading_agreement_html: '<b>Внимание!</b> Ако вашият Kraken акаунт е верифициран с немски адрес, ще трябва да приемете <a href="https://support.kraken.com/hc/en-us/articles/360036157952" target="_blank" rel="nofollow" title="Trading agreement">търговското споразумение</a>, за да подавате пазарни и маржин поръчки.'
+                trading_agreement_label_html: 'Приемам <a href="https://support.kraken.com/hc/en-us/articles/360036157952" target="_blank" rel="nofollow" title="Trading agreement">търговското споразумение</a>.'
+            limit_warning: 'Настройването на поръчки на размера на таксата ефективно намалява таксите до нула. Лимитираните поръчки може да отнемат повече време, но като цяло са добра идея. Настройката по подразбиране прави това вместо вас, така че ако не сте сигурни, най-добре е да я оставите.'
+            next: Напред
+            no_wallet_found: 'Портфейлът не е намерен. Отидете на %{exchangeName} и добавете портфейл за теглене.'
+            set: Задай
+            smart_intervals:
+                dont_show_again: 'Не показвай отново'
+                info_html:
+                    force_smart_intervals: 'За %{base}%{quote} %{exchangeName} има минимален размер на поръчка от <b>%{minimumValue}%{minimumCurrency}</b>%{approximatedQuote}. Deltabadger ще изпълни този график с поръчки по %{minimumValue}%{minimumCurrency} и ще адаптира интервала от време към вашия график. Наричаме го <i>умни интервали</i>.'
+                    other: 'За %{base}%{quote} %{exchangeName} има минимален размер на поръчка от <b>%{minimumValue}%{minimumCurrency}</b>%{approximatedQuote}. Deltabadger може да изпълни този график с поръчки по %{minimumValue}%{minimumCurrency} и да адаптира интервала от време към вашия график. Наричаме го <i>умни интервали</i>.'
+            step_api_key: 'API ключ'
+            step_assets: Активи
+            step_exchange: Борса
+            step_schedule: График
+            step_settings: Настройки
+            step_type: Тип
+            validating: Проверка…
+            withdrawal:
+                kraken:
+                    instructions_1_html: 'Влезте в акаунта си в %{exchange_link}.'
+                    instructions_2_html: 'В потребителското меню отидете на <b>Security</b> → <b>API</b>.'
+                    instructions_3_html: 'Натиснете <b>Generate New Key</b>.'
+                    instructions_4_html: 'Задайте разрешения за:'
+                    instructions_5_1_html: 'Funds:'
+                    instructions_5_2_html: '<b>Query Funds</b>'
+                    instructions_5_3_html: '<b>Withdraw Funds</b>'
+                    instructions_6_html: 'Натиснете <b>Generate Key</b>.'
+                    instructions_7_html: 'Копирайте и поставете новите си API ключове във формуляра по-горе.'
+            withdrawal_address:
+                kraken:
+                    instructions_1_html: 'Влезте в акаунта си в %{exchange_link}.'
+                    instructions_2_html: 'Отидете на <b>Funding</b> → <b>Withdraw</b>.'
+                    instructions_3_html: 'Изберете актива, който ви интересува.'
+                    instructions_4_html: 'Добавете нов адрес за теглене или управлявайте съществуващите.'
+                    instructions_5_html: 'Копирайте името, което сте задали на адреса за теглене, във формуляра по-горе.'
+            withdrawal_html: 'Изтегли <split>%{currency}</split> към портфейл <split>%{address}</split>.'

@@ -1,0 +1,475 @@
+bg:
+    meta:
+        title: 'Deltabadger'
+    header:
+        start_investing: 'Започнете да инвестирате:'
+    ads:
+        dca_profit_html: |
+            <p>Ако редовно инвестирахте в Bitcoin през последните %{years}&nbsp;години, щяхте да сте на печалба от <b style="color: #00A36C;">%{profit}%</b>.</p>
+            <p>Това е с <b style="color: #00A36C;">%{sp500_diff}%</b> повече от S&P 500 за същия период.</p>
+    button:
+        ok: 'OK'
+        update: 'Обнови'
+        save: 'Запази'
+        cancel: 'Отмени'
+        close: 'Затвори'
+        enable: 'Включи'
+        authorize: 'Оторизирай'
+        disable: 'Изключи'
+        delete: 'Изтрий'
+        duplicate: 'Дублирай'
+        copy: 'Копирай'
+        submit: 'Изпрати'
+        reset: 'Нулирай'
+        add: 'Добави'
+        remove: 'Премахни'
+        start: 'Стартирай'
+        stop: 'Спри'
+        next: 'Напред'
+        connect: 'Свържи'
+        reconnect: 'Добави нови ключове'
+        understand: 'Разбрах!'
+        get_started: 'Започни'
+        select_plan: 'Избери план'
+        back_to_dashboard: 'Към табло'
+        subscribe: 'Абонирай се'
+        unlock: 'Отключи'
+        check_again: 'Провери отново'
+    data_labels:
+        invested: "Общо инвестирано"
+        portfolio_value: "Стойност на портфолиото"
+        value: "Стойност"
+        value_symbol: "Стойност (%{symbol})"
+        invested_symbol: "Инвестирано (%{symbol})"
+        date: "Дата"
+        asset: "Актив"
+        amount: "Количество"
+        avg_price: "Средна цена"
+        price: "Цена"
+        pnl: "П/З"
+        bought: "Купено"
+        current_price: "Текуща цена"
+    days_left:
+        one: 'остава 1 ден'
+        other: 'остават %{count} дни'
+    forms:
+        for_confirmation: '(за потвърждение)'
+        minimum_length: 'минимум %{length} символа'
+    helpers:
+        label:
+            settings:
+                current_status: 'Текущо състояние:'
+                disable_two_fa: 'Изключи 2FA'
+                disabled: Изключено
+                enable_two_fa: 'Включи 2FA'
+                enabled: Включено
+                enter_two_fa_code: 'Въведете 2FA код'
+                scan_code_info: 'Сканирайте QR кода или копирайте кода по-долу:'
+            user:
+                name: Име
+                current_password: 'Текуща парола'
+                email: Имейл
+                new_name: 'Ново име'
+                new_email: 'Нов имейл'
+                new_password: 'Нова парола'
+                new_password_confirmation: 'Потвърждение на новата парола'
+                password: Парола
+                password_confirmation: 'Потвърждение на паролата'
+                remember_me: 'Запомни ме'
+    home:
+        confirm_registration:
+            text_html: 'Проверете имейла си и натиснете <b>линка за потвърждение</b>, който ви изпратихме. След това отидете на страницата за вход.'
+            title: Благодарим!
+    links:
+        about: За нас
+        telegram: 'Telegram'
+        create_account: 'Създай безплатен акаунт'
+        bot: Бот
+        bots: Ботове
+        dashboard: Табло
+        homepage: 'Към началната страница'
+        log_in: 'Вход'
+        log_out: Изход
+        menu: Меню
+        earn: 'Печалба'
+        resend_link: 'Изпрати отново'
+        rules: Правила
+        tracker: Отчети
+        settings: Настройки
+        connections: Свързване
+        account: Акаунт
+        sign_up: 'Регистрация'
+    settings:
+        language_and_timezone:
+            title: 'Език и часова зона'
+            language_updated: "Езикът е обновен."
+            updated: "Часовата зона е обновена."
+            current_time_is: "Тази часова зона ще се използва в логовете на бота. Текущото време в нея е"
+        name:
+            updated: "Името е обновено."
+        two_fa:
+            disabled: 'Двуфакторната проверка е изключена.'
+            enabled: 'Двуфакторната проверка е включена.'
+        api_keys:
+            confirm_delete: 'Искате ли да изтриете този API ключ?'
+        index:
+            api_key_confirmation: 'Сигурни ли сте?'
+            api_keys_section: 'API ключове'
+            trading_keys_section: 'Ключове за търговия'
+            withdrawal_keys_section: 'Ключове за теглене'
+            email_section: Имейл
+            name_section: Име
+            password_section: Парола
+            free_plan_reset_date_html: 'Лимитът ви ще се обнови на <b>%{end_time}</b>.'
+            title: Настройки
+            two_factor_section: 'Двуфакторна проверка'
+            resync_assets_section: 'Пазарни данни'
+            email_notifications_section: 'Имейл известия'
+            registration_section: 'Допълнителни акаунти'
+        registration:
+            enable_sign_up: 'Разреши регистрация'
+            disable_sign_up: 'Забрани регистрация'
+            updated: 'Настройките за регистрация са обновени.'
+        resync_assets:
+            button: 'Синхронизирай'
+            hint: 'Синхронизирайте отново търговските двойки и данните за активите от CoinGecko. Използвайте, ако някои борси или активи липсват.'
+        coingecko_key:
+            confirm_delete: 'Искате ли да премахнете този CoinGecko API ключ?'
+        market_data:
+            none: 'Няма'
+            disabled: 'Синхронизацията на пазарни данни е изключена.'
+            updated: 'Настройките за пазарни данни са обновени.'
+            coingecko_configured: 'Свързано с CoinGecko за актуални пазарни данни.'
+            deltabadger_configured: 'Свързано с %{provider_name} за актуални пазарни данни.'
+            disconnect: 'Прекъсни'
+            disconnected: 'Доставчикът на пазарни данни е прекъснат.'
+        stocks:
+            title_html: 'Акции (<a href="https://alpaca.markets/" target="_blank">Alpaca</a>)'
+            instructions_html: 'Отидете на <a href="https://alpaca.markets" target="_blank">таблото на Alpaca</a> и намерете секцията API Keys в десния панел. Натиснете Generate New Keys и запазете генерираните данни за достъп.'
+            enabled: 'Акциите са включени. Синхронизиране на активи от Alpaca...'
+            disabled: 'Акциите са изключени.'
+            disconnected: 'Alpaca е прекъснато. Двойките с акции са маркирани като недостъпни.'
+            configured: 'Свързано с Alpaca (%{mode}). Активите с акции са синхронизирани.'
+            invalid_api_key: 'Невалиден Alpaca API ключ. Моля, проверете данните си за достъп.'
+            disconnect: 'Прекъсни'
+            mode_paper: 'Хартиени'
+            mode_live: 'Реални'
+        mcp:
+            title: 'MCP'
+            description: 'Използвайте този URL за свързване на Claude (и други AI модели). Ще даде на вашия AI асистент достъп до ботовете и борсите ви.'
+            connected_clients: 'Свързани'
+            no_clients: 'Все още няма свързани клиенти.'
+            revoke_client: 'Отмени достъп'
+            revoke_client_confirm: 'Това ще прекъсне връзката с този клиент. За повторно свързване ще е необходима нова оторизация.'
+            client_revoked: 'Клиентът е прекъснат.'
+            authorize_title: 'Оторизиране на достъп'
+            authorize_description_html: '<b>%{client_name}</b> иска достъп до вашия Deltabadger сървър.'
+            tools_title: 'Разрешения за инструменти'
+            tools_read: 'Четене'
+            tools_control: 'Управление'
+            tools_trade: 'Търговия'
+            tools_tax: 'Данъци и отчети'
+            tools:
+                list_bots:
+                    label: 'Списък с ботове'
+                    description: 'Показване на всички DCA ботове и техния статус'
+                get_bot_details:
+                    label: 'Детайли за бот'
+                    description: 'Подробна информация и ефективност на бота'
+                list_exchanges:
+                    label: 'Списък с борси'
+                    description: 'Показване на свързаните борси'
+                get_exchange_balances:
+                    label: 'Баланси на борса'
+                    description: 'Зареждане на текущите баланси от борса'
+                get_portfolio_summary:
+                    label: 'Обобщение на портфолиото'
+                    description: 'Общ П/З и обобщение на ботовете'
+                list_transactions:
+                    label: 'Списък с транзакции'
+                    description: 'Показване на последните сделки'
+                create_bot:
+                    label: 'Създай бот'
+                    description: 'Създаване на нов DCA бот'
+                start_bot:
+                    label: 'Стартирай бот'
+                    description: 'Стартиране на спрян бот'
+                stop_bot:
+                    label: 'Спри бот'
+                    description: 'Спиране на работещ бот'
+                update_bot_settings:
+                    label: 'Редактирай ботове'
+                    description: 'Промяна на сумата или името на спрян бот'
+                start_rule:
+                    label: 'Стартирай правило'
+                    description: 'Стартиране на спряно правило'
+                stop_rule:
+                    label: 'Спри правило'
+                    description: 'Спиране на активно правило'
+                update_rule_settings:
+                    label: 'Редактирай правила'
+                    description: 'Промяна на настройките на спряно правило'
+                market_buy:
+                    label: 'Пазарна покупка'
+                    description: 'Изпълнение на пазарна поръчка за покупка'
+                market_sell:
+                    label: 'Пазарна продажба'
+                    description: 'Изпълнение на пазарна поръчка за продажба'
+                limit_buy:
+                    label: 'Лимитирана покупка'
+                    description: 'Поставяне на лимитирана поръчка за покупка на определена цена'
+                limit_sell:
+                    label: 'Лимитирана продажба'
+                    description: 'Поставяне на лимитирана поръчка за продажба на определена цена'
+                cancel_order:
+                    label: 'Отмени поръчка'
+                    description: 'Отмяна на отворена поръчка'
+                list_open_orders:
+                    label: 'Отворени поръчки'
+                    description: 'Показване на текущо отворени (неизпълнени) поръчки'
+                list_tax_jurisdictions:
+                    label: 'Данъчни юрисдикции'
+                    description: 'Показване на поддържаните държави и данъчни методи'
+                generate_tax_report:
+                    label: 'Генериране на данъчен отчет'
+                    description: 'Стартиране на генерирането на данъчен отчет на заден план'
+                get_tax_report_status:
+                    label: 'Статус на данъчен отчет'
+                    description: 'Проверка дали данъчният отчет е готов'
+                download_tax_report:
+                    label: 'Изтегляне на данъчен отчет'
+                    description: 'Изтегляне на генериран данъчен отчет CSV'
+                export_transactions_csv:
+                    label: 'Експорт на транзакции CSV'
+                    description: 'Експортиране на транзакциите от акаунта като CSV'
+                list_account_transactions:
+                    label: 'Транзакции на акаунта'
+                    description: 'Показване на транзакции с филтри'
+            dry_run_title: 'Хартиена търговия'
+            dry_run_description: 'Симулирайте сделки с реални пазарни цени. Не се подават истински поръчки.'
+            dry_run_label: 'Включи хартиена търговия за инструментите за търговия'
+        email_notifications:
+            none: 'Няма'
+            smtp_host: 'SMTP сървър'
+            smtp_port: 'Порт'
+            smtp_username: 'Потребителско име'
+            smtp_password: 'Парола'
+            smtp_hint_html: 'За Gmail използвайте <a href="https://support.google.com/accounts/answer/185833" target="_blank">парола за приложение</a> като парола.'
+            updated: 'Настройките за имейл известия са обновени.'
+            disabled: 'Имейл известията са изключени.'
+            smtp_credentials_required: 'Потребителското име и паролата за SMTP са задължителни.'
+            set: 'Зададено'
+            smtp_configured_html: 'Настроено с <b>%{host}</b>.'
+            send_test: 'Изпрати тестов имейл'
+            test_email_sent: 'Тестов имейл е изпратен до %{email}.'
+            test_email_failed: 'Изпращането на тестовия имейл не успя: %{error}'
+            not_configured: 'Имейл известията не са настроени.'
+            disconnect: 'Прекъсни'
+            disconnected: 'Имейл доставчикът е прекъснат.'
+    utils:
+        pnl: 'П/З'
+        assets: Активи
+        beta: Бета
+        cash: Кеш
+        bonds: Облигации
+        gold: Злато
+        are_you_sure: 'Сигурни ли сте?'
+        change_name: 'Промяна на име'
+        important: 'Важно!'
+        new: 'Ново'
+        since: 'от'
+        soon: 'Скоро'
+        see_at_coingecko: 'Виж в CoinGecko'
+        search:
+            placeholder:
+                asset: 'Търсене на актив…'
+                index: 'Търсене на индекс…'
+            no_results: 'Няма намерени резултати'
+        time_periods:
+            ytd: 'ОНГ'
+            ytd_title: 'От началото на годината'
+            one_year: '1Г'
+            one_year_title: 'Преди 1 година'
+            three_years: '3Г'
+            three_years_title: 'Преди 3 години'
+            five_years: '5Г'
+            five_years_title: 'Преди 5 години'
+        years:
+            one: "%{count} година"
+            other: "%{count} години"
+        months:
+            one: "%{count} месец"
+            other: "%{count} месеца"
+        days:
+            one: "%{count} ден"
+            other: "%{count} дни"
+        hours:
+            one: "%{count} час"
+            other: "%{count} часа"
+        minutes:
+            one: "%{count} минута"
+            other: "%{count} минути"
+        seconds:
+            one: "%{count} секунда"
+            other: "%{count} секунди"
+        days_short: 'д'
+        hours_short: 'ч'
+        minutes_short: 'м'
+        seconds_short: 'с'
+    bot_filters:
+        all: 'Всички'
+        active: 'Активни'
+        inactive: 'Неактивни'
+    rules:
+        index:
+            title: 'Правила'
+        types:
+            withdrawal:
+                title: 'Автоматично теглене'
+                description: 'Теглене на средства от борси'
+        withdrawals:
+            sentence:
+                withdraw_all: 'Изтегли'
+                from: 'от'
+                to: 'на'
+                on_network: 'по'
+                fee: 'такса'
+                when: 'когато'
+                fee_less_than: 'таксата е по-ниска от'
+                amount_crosses: 'сумата надвиши'
+                of_the_amount: '%'
+                or_at_least_every: 'или поне на всеки'
+                days: 'дни'
+            pick_exchange:
+                withdrawal_fee: 'Теглене'
+            form:
+                submit: 'Създай правило'
+                submitting: 'Създаване…'
+            confirm_destroy:
+                message: 'Искате ли да изтриете това правило за теглене?'
+        tile:
+            withdrawal: 'Теглене'
+            network: 'Мрежа'
+            memo: 'Мемо'
+            activated: 'Правилото е активно.'
+            deactivated: 'Правилото е деактивирано.'
+            min_amount_info_html: 'Текущата такса е %{fee} %{symbol}, затова теглене ще се задейства при <b>%{amount} %{symbol}</b>.'
+            no_fee_info: '%{exchange} не посочва такса за теглене на този актив. Правилото ще изтегли наличния баланс.'
+            unknown_fee_info: 'Данни за таксите на %{exchange} не са налични. Правилото ще изтегли наличния баланс.'
+            fixed_amount_info: 'Теглене ще се задейства, когато балансът достигне %{amount} %{symbol}.'
+            fixed_amount_fee_html: 'Текущата такса е %{fee} %{symbol}, което означава <b>%{fee_pct}</b>.'
+            no_wallet_html: 'Не е намерен адрес за теглене на %{symbol} в %{exchange}. Първо го добавете в борсата.'
+        logs:
+            date: 'Дата'
+            status: 'Статус'
+            message: 'Съобщение'
+            empty: 'Все още няма записи.'
+        add_address:
+            label: 'Адрес за теглене'
+            placeholder: 'Поставете адреса тук…'
+            select_address: 'Изберете адрес…'
+            address_tag_label: 'Мемо / Таг (незадължително)'
+            address_tag_placeholder: 'Мемо, таг или идентификатор на плащане…'
+            instructions_title: 'Добавяне на адрес за теглене в %{exchange}'
+            warning_html: 'Уверете се, че това е адрес за <b>%{symbol}</b> в правилната мрежа. Изпращането на грешен адрес или мрежа ще доведе до безвъзвратна загуба на средства.'
+            no_addresses_html: 'Няма зададен адрес за теглене на <b>%{symbol}</b>. Първо го настройте в %{exchange}.'
+            fetch_failed_html: 'Не можахме да заредим адресите за теглене от %{exchange}. Моля, опитайте по-късно.'
+        add_api_key:
+            title: 'Добавяне на API ключ за теглене в %{exchange}'
+            instructions_title: 'Как да получите ключове от %{exchange}'
+            instructions_body: 'Създайте API ключ с разрешение за теглене в %{exchange} и поставете данните за достъп тук.'
+    tracker:
+        sync: 'Синхронизирай'
+        sync_started: 'Синхронизиране на транзакции от борсите ви...'
+        importing_from: 'Импортиране на данни от %{exchange}…'
+        get_report: 'Получи отчет'
+        filter: 'Филтър'
+        bot: 'Бот'
+        no_results: 'Не са намерени транзакции за избраните филтри.'
+        connect_exchange: 'Свържи борса'
+        import_from: 'Импортирай транзакции от'
+        search_exchange: 'Търсене на борса...'
+        setup_coingecko_html: 'За генериране на данъчен отчет са нужни исторически цени. Безплатният план на <b>CoinGecko</b> покрива до 2 години история. За по-стари транзакции преминете на <b>CoinGecko Analyst</b> или се свържете с <a href="https://deltabadger.com">deltabadger.com</a>, където пазарните данни са включени.'
+        export_modal:
+            title: 'Генериране на отчет'
+            tax_report: 'Данъчен отчет'
+            transactions: 'Всички'
+            country: 'Държава'
+            year: 'Година'
+            generate: 'Генерирай'
+            download_label: 'Изтегляне'
+            from: 'От'
+            to: 'До'
+            stablecoin_as_fiat: 'Третирай стейбълкойните като фиат (консултирайте се със счетоводител)'
+        tax_report:
+            invalid_country: 'Избрана е невалидна държава.'
+            expired: 'Данъчният отчет е изтекъл. Моля, генерирайте нов.'
+            generating: 'Генериране на данъчен отчет...'
+            download_ready: 'Данъчният отчет е готов. Натиснете за изтегляне.'
+        filters:
+            all: 'Всички'
+        columns:
+            date: 'Дата'
+            type: 'Тип'
+            base: 'Актив'
+            amount: 'Количество'
+            quote: 'Валута'
+            quote_amount: 'Стойност'
+            fee: 'Такса'
+            exchange: 'Борса'
+            bot: 'Бот'
+        types:
+            buy: 'Покупка'
+            sell: 'Продажба'
+            swap_in: 'Замяна (вход)'
+            swap_out: 'Замяна (изход)'
+            deposit: 'Депозит'
+            withdrawal: 'Теглене'
+            staking_reward: 'Стейкинг'
+            lending_interest: 'Лихва'
+            airdrop: 'Еърдроп'
+            mining: 'Копаене'
+            fee: 'Такса'
+            other_income: 'Приход'
+            lost: 'Загуба'
+    order_filters:
+        all: 'Всички'
+        successful: 'Успешни'
+        cancelled: 'Отменени'
+        waiting: 'Насрочени'
+    tax_report:
+        headers:
+            date: 'Дата'
+            asset: 'Актив'
+            amount: 'Количество'
+            proceeds: 'Приходи'
+            cost_basis: 'Цена на придобиване'
+            gain_loss: 'Печалба/Загуба'
+            currency: 'Валута'
+            holding_days: 'Дни на държане'
+            fee: 'Такса'
+            exchange: 'Борса'
+            tx_id: 'Идентификатор'
+            cost_basis_complete: 'Пълна цена на придобиване'
+            acquisition_date: 'Дата на придобиване'
+            tax_exempt: 'Освободено от данък'
+            old_stock: 'Стар запас'
+            term: 'Срок на държане'
+            matching_rule: 'Правило за съпоставяне'
+            total_acquisition_cost: 'Общи разходи за придобиване'
+            portfolio_value: 'Стойност на портфолиото'
+            tax_rate: 'Данъчна ставка'
+            exempt: 'Освободено (лимит)'
+            value: 'Стойност'
+            reference_date: 'Референтна дата'
+            period: 'Период'
+        no_taxable_transactions: 'Няма облагаеми транзакции за този период.'
+        summary:
+            total_value: 'Обща стойност'
+            allowance: 'Необлагаема сума'
+            taxable_wealth: 'Облагаемо имущество'
+            deemed_return: 'Предполагаема доходност'
+            tax: 'Данък'
+            total_gains: 'Общи печалби'
+            total_losses: 'Общи загуби'
+            deductible: 'приспадащи се'

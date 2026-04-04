@@ -1,0 +1,27 @@
+bg:
+  setup:
+    title: "Добре дошли в Deltabadger"
+    admin_account: "Администраторски акаунт"
+    validations:
+      name_required: "Името е задължително"
+      email_required: "Имейлът е задължителен"
+      password_required: "Паролата е задължителна"
+    api_configuration: "Ботът използва пазарни данни от CoinGecko. Достъпът до CoinGecko API е безплатен, но е необходима регистрация и създаване на API ключ. Инструкциите са по-долу."
+    coingecko_api_key: "CoinGecko API ключ"
+    coingecko_api_key_hint_html: |
+      <ol>
+        <li>Регистрирайте се в <a href="https://www.coingecko.com/en/api" target="_blank" rel="noopener">CoinGecko</a></li>
+        <li>Отидете в секцията <a href="https://www.coingecko.com/en/api" target="_blank" rel="noopener">API</a></li>
+        <li>Натиснете <b>Get Your API Key Now</b></li>
+        <li><b>Create Free Account</b> се намира под ценоразписа</li>
+        <li>Попълнете формуляра</li>
+        <li>Натиснете <b>Create API key</b></li>
+        <li><b>Копирайте API ключа</b> и го поставете по-горе</li>
+      </ol>
+    continue: "Продължи"
+    submit: "Стартирай"
+    success: "Настройката е завършена успешно. Добре дошли в Deltabadger!"
+    syncing_message: "Синхронизиране на активите…"
+    syncing_hint: "Може да отнеме няколко минути"
+    invalid_coingecko_api_key: "Невалиден CoinGecko API ключ. Моля, проверете ключа си и опитайте отново."
+    retry: "Опитай отново"
