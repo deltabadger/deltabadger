@@ -29,7 +29,7 @@
         <div class="form__row form__row--input">
           <select name="country" class="form__input" data-tracker-export-target="country" data-action="change->tracker-export#changeCountry">
             <% @jurisdictions.each do |code, config| %>
-              <option value="<%= code %>" <%= 'selected' if @settings['country'] == code %> data-stablecoin-ambiguous="<%= config.fetch(:stablecoin_ambiguous, false) %>"><%= config[:name] %></option>
+              <option value="<%= code %>" <%= 'selected' if @settings['country'] == code %> data-stablecoin-ambiguous="<%= config.fetch(:stablecoin_ambiguous, false) %>"><%= t("tracker.export_modal.countries.#{code}", default: config[:name]) %></option>
             <% end %>
           </select>
           <label class="form__label form__label--active"><%= t('tracker.export_modal.country') %></label>

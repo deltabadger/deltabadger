@@ -155,6 +155,30 @@ class TrackerTest < ActionDispatch::IntegrationTest
     assert_select "form[action='#{sync_reports_path}']"
   end
 
+  test 'export modal shows localized country names' do
+    ENV['MARKET_DATA_URL'] = 'http://test:3000'
+    @user.update!(locale: 'pl')
+
+    get export_modal_reports_path(locale: 'pl')
+    assert_response :success
+    assert_select 'option[value="DE"]', text: 'Niemcy'
+    assert_select 'option[value="PL"]', text: 'Polska'
+    assert_select 'option[value="US"]', text: 'Stany Zjednoczone'
+  ensure
+    ENV.delete('MARKET_DATA_URL')
+  end
+
+  test 'export modal shows English country names by default' do
+    ENV['MARKET_DATA_URL'] = 'http://test:3000'
+
+    get export_modal_reports_path
+    assert_response :success
+    assert_select 'option[value="DE"]', text: 'Germany'
+    assert_select 'option[value="PL"]', text: 'Poland'
+  ensure
+    ENV.delete('MARKET_DATA_URL')
+  end
+
   test 'requires authentication' do
     sign_out @user
     get reports_path
