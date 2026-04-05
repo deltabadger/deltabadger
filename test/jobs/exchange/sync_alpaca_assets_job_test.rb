@@ -98,6 +98,33 @@ class Exchange::SyncAlpacaAssetsJobTest < ActiveSupport::TestCase
     assert msft_ticker.available?
   end
 
+  test 'handles Alpaca reassigning asset IDs for the same symbol' do
+    Clients::Alpaca.any_instance.stubs(:get_assets).returns(Result::Success.new(@alpaca_assets_response))
+    Exchange::SyncAlpacaAssetsJob.perform_now
+
+    aapl = Asset.find_by(external_id: 'alpaca_uuid-aapl')
+    old_ticker = Ticker.find_by(exchange: @exchange, base_asset: aapl)
+    assert old_ticker.available?
+
+    # Alpaca reassigns AAPL to a new UUID
+    reassigned_response = [
+      { 'id' => 'uuid-aapl-v2', 'symbol' => 'AAPL', 'name' => 'Apple Inc', 'exchange' => 'NASDAQ', 'tradable' => true, 'fractionable' => true },
+      @alpaca_assets_response[1] # MSFT unchanged
+    ]
+    Clients::Alpaca.any_instance.stubs(:get_assets).returns(Result::Success.new(reassigned_response))
+
+    assert_no_difference 'Ticker.count' do
+      Exchange::SyncAlpacaAssetsJob.perform_now
+    end
+
+    new_asset = Asset.find_by(external_id: 'alpaca_uuid-aapl-v2')
+    assert new_asset.present?
+
+    old_ticker.reload
+    assert_equal new_asset.id, old_ticker.base_asset_id
+    assert old_ticker.available?
+  end
+
   test 'does nothing when Alpaca credentials are not configured' do
     AppConfig.delete('alpaca_api_key')
     AppConfig.delete('alpaca_api_secret')
