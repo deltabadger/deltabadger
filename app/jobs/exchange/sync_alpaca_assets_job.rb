@@ -36,19 +36,28 @@ class Exchange::SyncAlpacaAssetsJob < ApplicationJob
       ExchangeAsset.find_or_create_by!(exchange: exchange, asset: asset)
       ExchangeAsset.find_or_create_by!(exchange: exchange, asset: usd_asset)
 
-      ticker = Ticker.find_or_create_by!(exchange: exchange, base_asset: asset, quote_asset: usd_asset) do |t|
-        t.base = stock['symbol']
-        t.quote = 'USD'
-        t.ticker = stock['symbol']
-        t.minimum_base_size = 0.000000001
-        t.minimum_quote_size = 1
-        t.maximum_base_size = 100_000
-        t.maximum_quote_size = 10_000_000
-        t.base_decimals = 9
-        t.quote_decimals = 2
-        t.price_decimals = 2
+      ticker = exchange.tickers.find_by(base_asset: asset, quote_asset: usd_asset) ||
+               exchange.tickers.find_by(ticker: stock['symbol'])
+
+      if ticker
+        ticker.update!(base_asset: asset, quote_asset: usd_asset, available: true)
+      else
+        ticker = exchange.tickers.create!(
+          base_asset: asset,
+          quote_asset: usd_asset,
+          base: stock['symbol'],
+          quote: 'USD',
+          ticker: stock['symbol'],
+          minimum_base_size: 0.000000001,
+          minimum_quote_size: 1,
+          maximum_base_size: 100_000,
+          maximum_quote_size: 10_000_000,
+          base_decimals: 9,
+          quote_decimals: 2,
+          price_decimals: 2,
+          available: true
+        )
       end
-      ticker.update!(available: true) unless ticker.available?
       synced_ticker_ids << ticker.id
     end
 
