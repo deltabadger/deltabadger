@@ -424,6 +424,8 @@ class Exchanges::Alpaca < Exchange
   end
 
   def set_market_order(ticker:, amount:, amount_type:, side:)
+    amount = ticker.adjusted_amount(amount: amount, amount_type: amount_type)
+
     result = if amount_type == :quote
                # Use notional (dollar amount) for market orders
                client.create_order(
@@ -449,12 +451,15 @@ class Exchanges::Alpaca < Exchange
   end
 
   def set_limit_order(ticker:, amount:, amount_type:, side:, price:)
+    amount = ticker.adjusted_amount(amount: amount, amount_type: amount_type)
+
     # Limit orders require qty (shares), not notional
     qty = if amount_type == :quote
             (amount.to_d / price.to_d)
           else
             amount.to_d
           end
+    qty = ticker.adjusted_amount(amount: qty, amount_type: :base)
 
     price = ticker.adjusted_price(price: price)
 

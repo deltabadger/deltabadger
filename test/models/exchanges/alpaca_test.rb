@@ -118,6 +118,49 @@ class Exchanges::AlpacaTest < ActiveSupport::TestCase
     assert_equal 0, parsed[:price]
   end
 
+  # == set_market_order ==
+
+  test 'set_market_order rounds notional to quote_decimals when amount_type is quote' do
+    btc = Asset.find_by(symbol: 'BTC') || create(:asset, :bitcoin)
+    usd = Asset.find_by(symbol: 'USD') || create(:asset, :usd)
+    ticker = create(:ticker, exchange: @exchange, base_asset: btc, quote_asset: usd, quote_decimals: 2)
+
+    Clients::Alpaca.any_instance.stubs(:create_order).with do |params|
+      params[:notional] == '100.12' && params[:type] == 'market'
+    end.returns(Result::Success.new({ 'id' => 'order-1' }))
+
+    result = @exchange.send(:set_market_order, ticker: ticker, amount: 100.12345, amount_type: :quote, side: :buy)
+    assert_predicate result, :success?
+  end
+
+  test 'set_market_order rounds qty to base_decimals when amount_type is base' do
+    btc = Asset.find_by(symbol: 'BTC') || create(:asset, :bitcoin)
+    usd = Asset.find_by(symbol: 'USD') || create(:asset, :usd)
+    ticker = create(:ticker, exchange: @exchange, base_asset: btc, quote_asset: usd, base_decimals: 8)
+
+    Clients::Alpaca.any_instance.stubs(:create_order).with do |params|
+      params[:qty] == '0.12345678' && params[:type] == 'market'
+    end.returns(Result::Success.new({ 'id' => 'order-1' }))
+
+    result = @exchange.send(:set_market_order, ticker: ticker, amount: 0.123456789, amount_type: :base, side: :buy)
+    assert_predicate result, :success?
+  end
+
+  # == set_limit_order ==
+
+  test 'set_limit_order rounds qty to base_decimals' do
+    btc = Asset.find_by(symbol: 'BTC') || create(:asset, :bitcoin)
+    usd = Asset.find_by(symbol: 'USD') || create(:asset, :usd)
+    ticker = create(:ticker, exchange: @exchange, base_asset: btc, quote_asset: usd, base_decimals: 8, price_decimals: 2)
+
+    Clients::Alpaca.any_instance.stubs(:create_order).with do |params|
+      params[:qty] == '0.00200000' && params[:type] == 'limit'
+    end.returns(Result::Success.new({ 'id' => 'order-2' }))
+
+    result = @exchange.send(:set_limit_order, ticker: ticker, amount: 100.12345, amount_type: :quote, side: :buy, price: 50_000.0)
+    assert_predicate result, :success?
+  end
+
   test 'fetch_withdrawal_fees! returns empty success' do
     result = @exchange.fetch_withdrawal_fees!
     assert_predicate result, :success?
