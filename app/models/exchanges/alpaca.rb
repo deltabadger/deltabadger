@@ -433,7 +433,7 @@ class Exchanges::Alpaca < Exchange
                  side: side.to_s,
                  type: 'market',
                  time_in_force: 'day',
-                 notional: amount.to_d.to_s('F')
+                 notional: format("%.#{ticker.quote_decimals}f", amount.to_d)
                )
              else
                client.create_order(
@@ -441,7 +441,7 @@ class Exchanges::Alpaca < Exchange
                  side: side.to_s,
                  type: 'market',
                  time_in_force: 'day',
-                 qty: amount.to_d.to_s('F')
+                 qty: format("%.#{ticker.base_decimals}f", amount.to_d)
                )
              end
     return result if result.failure?
@@ -468,8 +468,8 @@ class Exchanges::Alpaca < Exchange
       side: side.to_s,
       type: 'limit',
       time_in_force: 'day',
-      qty: qty.to_d.to_s('F'),
-      limit_price: price.to_d.to_s('F')
+      qty: format("%.#{ticker.base_decimals}f", qty.to_d),
+      limit_price: format("%.#{ticker.price_decimals}f", price.to_d)
     )
     return result if result.failure?
 

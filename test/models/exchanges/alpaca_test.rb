@@ -133,6 +133,19 @@ class Exchanges::AlpacaTest < ActiveSupport::TestCase
     assert_predicate result, :success?
   end
 
+  test 'set_market_order pads notional to quote_decimals when amount floors to whole number' do
+    btc = Asset.find_by(symbol: 'BTC') || create(:asset, :bitcoin)
+    usd = Asset.find_by(symbol: 'USD') || create(:asset, :usd)
+    ticker = create(:ticker, exchange: @exchange, base_asset: btc, quote_asset: usd, quote_decimals: 2)
+
+    Clients::Alpaca.any_instance.stubs(:create_order).with do |params|
+      params[:notional] == '40.00' && params[:type] == 'market'
+    end.returns(Result::Success.new({ 'id' => 'order-1' }))
+
+    result = @exchange.send(:set_market_order, ticker: ticker, amount: BigDecimal('40.00000002825'), amount_type: :quote, side: :buy)
+    assert_predicate result, :success?
+  end
+
   test 'set_market_order rounds qty to base_decimals when amount_type is base' do
     btc = Asset.find_by(symbol: 'BTC') || create(:asset, :bitcoin)
     usd = Asset.find_by(symbol: 'USD') || create(:asset, :usd)
