@@ -71,4 +71,4 @@ gem "haikunator", "~> 1.1"
 gem "sqids" # for obfuscating IDs
 gem 'ruby-technical-analysis', git: 'https://github.com/guillemap/ruby-technical-analysis' # TODO: use the official gem once https://github.com/johnnypaper/ruby-technical-analysis/pull/32 is merged
 gem 'hyperliquid-rb'
-gem 'honeymaker', '~> 0.7.0'
+gem 'honeymaker', '~> 0.7.6'
