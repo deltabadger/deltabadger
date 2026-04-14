@@ -28,14 +28,25 @@
   display: grid
   grid-template-columns: 1fr 1fr
   gap: 1rem
-  padding: 2rem
+  padding: 0 2rem
   @media (min-width: 768px)
-    padding: 4rem
+    padding: 0 4rem
     grid-template-columns: 1fr 1fr 1fr
   &__item
     background: var(--paper)
     border-radius: 1rem
-    height: 16rem
+    height: 10rem
     display: flex
     justify-content: center
     align-items: center
+    border: none
+    &:hover
+      background: var(--sky)
+      svg
+        *
+          fill: var(--white)
+    svg
+      height: 3rem
+      width: auto
+      *
+        fill: var(--ash)

@@ -4,7 +4,7 @@ pl:
             api_not_available: 'API giełdy nie jest dostępne'
             progress_steps:
                 currencies: "Wybierz aktywo"
-                currencies2: "Drugie aktywo"
+                currencies2: "Drugie aktywo (opcjonalnie)"
                 exchange: "Giełda"
                 spendable: "Waluta"
                 api: "Połącz giełdę"

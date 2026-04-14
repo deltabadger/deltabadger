@@ -48,6 +48,9 @@ class BotsController < ApplicationController
   def new
     # make every every new bot config start fresh
     session[:bot_config] = {}
+    # When advanced bot types are disabled the menu only offers DCA — skip it
+    # and take the user straight into the DCA wizard.
+    redirect_to new_bots_dca_single_assets_pick_buyable_asset_path unless current_user.advanced_bots_enabled?
   end
 
   def show

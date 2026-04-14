@@ -4,7 +4,7 @@ el:
             api_not_available: "Το API του ανταλλακτηρίου δεν είναι διαθέσιμο"
             progress_steps:
                 currencies: "Επιλογή asset"
-                currencies2: "Δεύτερο asset"
+                currencies2: "Δεύτερο asset (προαιρετικό)"
                 exchange: "Ανταλλακτήριο"
                 spendable: "Νόμισμα"
                 api: "Σύνδεση ανταλλακτηρίου"

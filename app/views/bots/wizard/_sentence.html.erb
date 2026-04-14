@@ -92,7 +92,10 @@
   </div>
 
   <%# ── exchange slot ── %>
-  <% if active_slot == :exchange || exchange %>
+  <%# Exchange slot renders once the user is past the first-asset step.
+      On :currencies (picking first asset) it must be hidden even if the
+      session still carries a stale exchange_id from a previous flow. %>
+  <% if active_slot == :exchange || (first_asset && (exchange || current_step == :currencies2)) %>
     <span class="conversational__lead">on</span>
     <% if active_slot == :exchange %>
       <%= form_with url: exchange_back_url, method: :get,
@@ -100,6 +103,15 @@
                     class: "conversational__link active" do |f| %>
         <%= f.text_field :query, autofocus: true, autocomplete: "off", placeholder: "exchange",
                          data: { action: "input->form--submit-after-delay#submit" } %>
+      <% end %>
+    <% elsif current_step == :currencies2 %>
+      <%# Exchange visible on :currencies2 whether picked yet or not —
+          clicking it demotes the bot back to single and returns to single :exchange. %>
+      <%= form_with url: demote_to_single_bots_dca_dual_assets_pick_second_buyable_asset_path,
+                    method: :post,
+                    class: "conversational__link#{' filled' if exchange}",
+                    data: { turbo_frame: "modal_content", wizard_dir: "back" } do %>
+        <input value="<%= exchange&.name %>" placeholder="exchange" readonly tabindex="-1">
       <% end %>
     <% else %>
       <%= form_with url: exchange_back_url, method: :get, class: "conversational__link filled",

@@ -9,7 +9,9 @@
     padding: 2rem 2.25rem
     border-radius: 1rem
     box-shadow: 0 0rem 5rem 0.5rem rgba(0, 0, 0, 0.1)
-    transition: 0.1s ease-out
+    // Transition only opacity — transitioning `top`/`left` makes the tooltip
+    // visibly fly in from its pre-positioned 0,0 corner.
+    transition: opacity 0.1s ease-out
     pointer-events: none
     z-index: 1000000
     user-select: none
@@ -21,7 +23,7 @@
         transform: translateX(-50%)
         border: 1rem solid transparent
         border-bottom-color: var(--sky)
-        z-index: 1 
+        z-index: 1
     b
         color: #fff !important
         font-weight: 600 !important

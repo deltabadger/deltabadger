@@ -34,10 +34,12 @@
         flex-wrap: wrap
         justify-content: center
         align-items: center
+    .ticker
+        background: var(--steel)
+
     &__assets
         display: flex
         .ticker
-            background: var(--steel)
             &:first-child
                 z-index: 1
             &:not(:first-child)
@@ -45,8 +47,7 @@
                 &.active
                     margin-left: -1rem
                 &.filled
-                    &:hover
-                        margin-left: -5rem
+                    margin-left: -5rem
     &__link
         input
             color: var(--link)

@@ -4,7 +4,7 @@ fr:
             api_not_available: 'L''API de l''exchange n''est pas disponible.'
             progress_steps:
                 currencies: "Choisir l'actif"
-                currencies2: "Second actif"
+                currencies2: "Second actif (facultatif)"
                 exchange: "Exchange"
                 spendable: "Devise"
                 api: "Connecter l'exchange"

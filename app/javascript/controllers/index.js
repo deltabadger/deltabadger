@@ -127,6 +127,9 @@ application.register("removals", RemovalsController)
 import RuleToggleController from "./rule_toggle_controller"
 application.register("rule-toggle", RuleToggleController)
 
+import ScrollStateController from "./scroll_state_controller"
+application.register("scroll-state", ScrollStateController)
+
 import SliderController from "./slider_controller"
 application.register("slider", SliderController)
 

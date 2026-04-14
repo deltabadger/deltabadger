@@ -4,7 +4,7 @@ bg:
             api_not_available: "API на борсата не е достъпно"
             progress_steps:
                 currencies: "Изберете актив"
-                currencies2: "Втори актив"
+                currencies2: "Втори актив (по избор)"
                 exchange: "Борса"
                 spendable: "Валута"
                 api: "Свързване на борса"

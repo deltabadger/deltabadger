@@ -4,7 +4,7 @@ de:
             api_not_available: "Exchange API ist nicht verfügbar"
             progress_steps:
                 currencies: "Asset wählen"
-                currencies2: "Zweites Asset"
+                currencies2: "Zweites Asset (optional)"
                 exchange: "Börse"
                 spendable: "Währung"
                 api: "Börse verbinden"

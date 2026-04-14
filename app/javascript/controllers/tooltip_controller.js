@@ -40,8 +40,11 @@ export default class extends Controller {
 
   #setTooltipTimeout() {
     this.showTooltipTimeout = setTimeout(() => {
-      this.element.classList.add("show-tooltip");
+      // Position first (while tooltip is still opacity:0), then reveal —
+      // otherwise the browser paints it at its pre-positioned corner (0,0)
+      // before the coordinates are updated.
       this.#adjustPosition();
+      this.element.classList.add("show-tooltip");
     }, this.constructor.dynamicDelay);
   }
 

@@ -30,7 +30,7 @@
     </div>
     <div style="display: flex; gap: 0.5rem">
       <% if @exchanges.any? %>
-        <%= link_to export_modal_tracker_path, class: 'sbutton sbutton--success', data: { turbo_frame: 'modal' } do %>
+        <%= link_to export_modal_tracker_path, class: 'sbutton sbutton--sky', data: { turbo_frame: 'modal' } do %>
           <%= t('tracker.get_report') %>
         <% end %>
       <% end %>
