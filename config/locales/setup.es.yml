@@ -4,7 +4,7 @@ es:
             api_not_available: 'La API del Exchange no está disponible'
             progress_steps:
                 currencies: "Elegir activo"
-                currencies2: "Segundo activo"
+                currencies2: "Segundo activo (opcional)"
                 exchange: "Exchange"
                 spendable: "Moneda"
                 api: "Conectar exchange"

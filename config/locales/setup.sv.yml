@@ -4,7 +4,7 @@ sv:
             api_not_available: "Börsens API är inte tillgängligt"
             progress_steps:
                 currencies: "Välj tillgång"
-                currencies2: "Andra tillgången"
+                currencies2: "Andra tillgången (valfritt)"
                 exchange: "Börs"
                 spendable: "Valuta"
                 api: "Anslut börs"

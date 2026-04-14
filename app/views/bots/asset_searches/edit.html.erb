@@ -7,7 +7,7 @@
         <%= f.text_field :query, autofocus: true, autocomplete: "off", placeholder: t('utils.search.placeholder.asset'), data: { action: "input->form--submit-after-delay#submit" }, class: "modal--search__input" %>
       <% end %>
 
-      <%= turbo_frame_tag "asset-picker", data: { action: "turbo:submit-end->modal--base#submitEnd keydown@window->arrow-keys-navigation#navigate", controller: "arrow-keys-navigation" }, class: "modal--search__assets selectable-options" do %>
+      <%= turbo_frame_tag "asset-picker", data: { action: "turbo:submit-end->modal--base#submitEnd keydown@window->arrow-keys-navigation#navigate", controller: "arrow-keys-navigation scroll-state" }, class: "modal--search__assets selectable-options" do %>
         <%= form_with model: @bot, url: bot_path(@bot), method: :patch do |f| %>
           <% @assets.each do |id, symbol, name, color, category, exchanges| %>
             <%= render partial: "bots/asset_search_result", locals: { bot: @bot, asset_field: @asset_field, id: id, symbol: symbol, name: name, color: color, category: category, exchanges: exchanges } %>
