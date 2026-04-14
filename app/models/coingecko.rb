@@ -16,6 +16,25 @@ class Coingecko
     Result::Success.new(price)
   end
 
+  # Batch price lookup. Returns Result::Success with { coin_id => price_float }.
+  # Missing coins are simply absent from the hash.
+  def get_prices(coin_ids:, currency: 'usd')
+    return Result::Failure.new('CoinGecko API key not configured') if @api_key.blank?
+
+    coin_ids = Array(coin_ids).compact.uniq
+    return Result::Success.new({}) if coin_ids.empty?
+
+    currency = currency.downcase
+    result = client.coin_price_by_ids(coin_ids: coin_ids, vs_currencies: [currency])
+    return result if result.failure?
+
+    prices = coin_ids.each_with_object({}) do |id, h|
+      price = result.data.dig(id, currency)
+      h[id] = price.to_f if price
+    end
+    Result::Success.new(prices)
+  end
+
   def get_exchange_tickers_by_id(exchange_id:)
     return Result::Failure.new('CoinGecko API key not configured') if @api_key.blank?
 

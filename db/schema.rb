@@ -10,7 +10,25 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_03_25_221615) do
+ActiveRecord::Schema[8.1].define(version: 2026_04_13_150000) do
+  create_table "account_balances", force: :cascade do |t|
+    t.integer "asset_id", null: false
+    t.datetime "created_at", null: false
+    t.integer "exchange_id", null: false
+    t.decimal "free", precision: 32, scale: 16, default: "0.0", null: false
+    t.decimal "locked", precision: 32, scale: 16, default: "0.0", null: false
+    t.datetime "priced_at"
+    t.datetime "synced_at", null: false
+    t.datetime "updated_at", null: false
+    t.decimal "usd_price", precision: 20, scale: 8
+    t.decimal "usd_value", precision: 20, scale: 8
+    t.integer "user_id", null: false
+    t.index ["asset_id"], name: "index_account_balances_on_asset_id"
+    t.index ["exchange_id"], name: "index_account_balances_on_exchange_id"
+    t.index ["user_id", "exchange_id", "asset_id"], name: "idx_account_balances_user_exchange_asset", unique: true
+    t.index ["user_id"], name: "index_account_balances_on_user_id"
+  end
+
   create_table "account_transactions", force: :cascade do |t|
     t.integer "api_key_id"
     t.decimal "base_amount", null: false
@@ -403,6 +421,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_03_25_221615) do
 
   create_table "users", force: :cascade do |t|
     t.boolean "admin", default: false, null: false
+    t.boolean "advanced_bots_enabled", default: false, null: false
     t.datetime "confirmation_sent_at", precision: nil
     t.string "confirmation_token"
     t.datetime "confirmed_at", precision: nil
@@ -432,6 +451,9 @@ ActiveRecord::Schema[8.1].define(version: 2026_03_25_221615) do
     t.index ["reset_password_token"], name: "index_users_on_reset_password_token", unique: true
   end
 
+  add_foreign_key "account_balances", "assets"
+  add_foreign_key "account_balances", "exchanges"
+  add_foreign_key "account_balances", "users"
   add_foreign_key "account_transactions", "api_keys"
   add_foreign_key "account_transactions", "exchanges"
   add_foreign_key "account_transactions", "transactions"

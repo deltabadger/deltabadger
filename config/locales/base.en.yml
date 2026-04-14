@@ -94,12 +94,15 @@ en:
         earn: 'Earn'
         resend_link: 'Resend link'
         rules: Rules
-        tracker: Reports
+        tracker: Tracker
         settings: Settings
         connections: Connect
         account: Account
         sign_up: 'Sign up'
     settings:
+        advanced_bots:
+            title: Advanced Bots
+            toggle_label: Show advanced bots
         language_and_timezone:
             title: 'Language & Timezone'
             language_updated: "Your language has been updated."
@@ -379,6 +382,12 @@ en:
             instructions_title: 'How to get keys from %{exchange}'
             instructions_body: 'Create a withdrawal-enabled API key on %{exchange} and paste the credentials here.'
     tracker:
+        sync_key_error_html: "<strong>%{exchange}</strong> sync failed: %{message}. Please update the API key below."
+        pricing_warning_html: Balances synced, but USD pricing is unavailable right now (%{message}). The chart will use the last known prices until pricing is restored.
+        portfolio:
+            never_synced: Click Sync to load your portfolio.
+            no_balances: No balances found on your connected exchanges.
+            unpriced: 'Pricing unavailable for: %{assets}'
         sync: 'Sync'
         sync_started: 'Syncing transactions from your exchanges...'
         importing_from: 'Importing data from %{exchange}…'
@@ -457,6 +466,12 @@ en:
         cancelled: 'Cancelled'
         waiting: 'Scheduled'
     tax_report:
+        warnings:
+            missing_prices: Missing historical prices for
+            upgrade_hint: Upgrade your CoinGecko plan or use deltabadger.com for full historical data.
+        values:
+            term_long: Long-term
+            term_short: Short-term
         headers:
             date: 'Date'
             asset: 'Asset'
@@ -484,6 +499,23 @@ en:
             period: 'Period'
         no_taxable_transactions: 'No taxable transactions found for this period.'
         summary:
+            annual_exemption: Annual exemption
+            taxable_gains: Taxable gains
+            cgt_33: CGT (33%)
+            due_dec_15: Due Dec 15 (Jan-Nov gains)
+            due_jan_31: Due Jan 31 (Dec gains)
+            expense_deduction: Expense deduction
+            taxable_income: Taxable income
+            tax_10: Tax (10%)
+            tax_percent: Tax (%{pct}%)
+            total_proceeds: Total proceeds
+            total_costs: Total costs
+            total_gain: Total gain
+            exempt_time_test: Exempt (time test)
+            exempt_value_test: Exempt (value test)
+            taxable_gain: Taxable gain
+            yes: 'Yes'
+            no: 'No'
             total_value: 'Total value'
             allowance: 'Tax-free allowance'
             taxable_wealth: 'Taxable wealth'

@@ -2,7 +2,7 @@ class Exchanges::Bitget < Exchange
   COINGECKO_ID = 'bitget'.freeze # https://docs.coingecko.com/reference/exchanges-list
   ERRORS = {
     insufficient_funds: ['Insufficient balance', 'Insufficient account balance'],
-    invalid_key: ['Invalid Api Key', 'Invalid ACCESS_KEY', 'Invalid signature']
+    invalid_key: ['Invalid Api Key', 'Invalid ACCESS_KEY', 'Invalid signature', 'Apikey does not exist']
   }.freeze
 
   include Exchange::Dryable # decorators for: get_order, get_orders, cancel_order, get_api_key_validity, set_market_order, set_limit_order

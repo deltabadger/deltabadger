@@ -93,12 +93,15 @@ fr:
         earn: 'Gagner'
         resend_link: 'Renvoyer le lien'
         rules: Règles
-        tracker: Reports
+        tracker: Tracker
         settings: 'Paramètres'
         connections: Connecter
         account: Compte
         sign_up: 'S''inscrire'
     settings:
+        advanced_bots:
+            title: Bots avancés
+            toggle_label: Afficher les bots avancés
         language_and_timezone:
             title: 'Langue et fuseau horaire'
             language_updated: 'Votre langue a été mise à jour.'
@@ -364,6 +367,12 @@ fr:
             instructions_title: 'Comment obtenir les clés de %{exchange}'
             instructions_body: 'Créez une clé API avec autorisation de retrait sur %{exchange} et collez les identifiants ici.'
     tracker:
+        sync_key_error_html: 'Échec de la synchronisation avec <strong>%{exchange}</strong> : %{message}. Veuillez mettre à jour la clé API ci-dessous.'
+        pricing_warning_html: Soldes synchronisés, mais les prix en USD sont indisponibles pour le moment (%{message}). Le graphique utilisera les derniers prix connus en attendant le rétablissement du service.
+        portfolio:
+            never_synced: Cliquez sur Synchroniser pour charger votre portefeuille.
+            no_balances: Aucun solde trouvé sur vos plateformes connectées.
+            unpriced: 'Prix indisponible pour : %{assets}'
         sync: 'Synchroniser'
         sync_started: 'Synchronisation des transactions depuis vos plateformes...'
         importing_from: 'Importation des données depuis %{exchange}…'
@@ -434,6 +443,13 @@ fr:
         cancelled: 'Annulés'
         waiting: 'Programmés'
     tax_report:
+        warnings:
+            missing_prices: Prix historiques manquants pour
+            upgrade_hint: Passez à un plan CoinGecko supérieur ou utilisez deltabadger.com pour l'historique complet.
+        summary:
+            total_gains: Plus-values totales
+            total_losses: Moins-values totales
+            tax_percent: Impôt (%{pct}%)
         headers:
             date: 'Date'
             asset: 'Actif'

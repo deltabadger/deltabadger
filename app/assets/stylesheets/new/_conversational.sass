@@ -34,11 +34,29 @@
         flex-wrap: wrap
         justify-content: center
         align-items: center
+    &__assets
+        display: flex
+        .ticker
+            background: var(--steel)
+            &:first-child
+                z-index: 1
+            &:not(:first-child)
+                margin-left: -8rem
+                &.active
+                    margin-left: -1rem
+                &.filled
+                    &:hover
+                        margin-left: -5rem
     &__link
-        color: var(--link)
-        text-decoration: none
-        text-decoration-style: dashed
-        text-underline-offset: 0.3rem
+        input
+            color: var(--link)
+            background: none
+            border: none
+            field-sizing: content
+            &:focus
+                outline: none
+            &::placeholder
+                color: var(--concrete) !important
     &__input
         border: none
         margin: 0
@@ -99,11 +117,13 @@
     max-width: 100rem
     width: 100%
     margin: 0 auto
-    padding: 0 1rem
+    padding: 2rem 2rem 1rem
     display: flex
     flex-direction: column
     gap: 2rem
     align-items: center
+    @media (min-width: 768px)
+        padding: 4rem 4rem 1rem
     h4
         color: var(--link)
     .slider__style__track
@@ -111,6 +131,9 @@
     .slider__style__progress
         background: var(--link)
         border-radius: 1rem
+        // Stable vt-name lets the browser morph width across modal_content
+        // frame swaps (the element is otherwise replaced per step).
+        view-transition-name: step-progress
 
 .bot-creation-layout
     position: relative

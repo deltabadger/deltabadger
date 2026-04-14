@@ -10,7 +10,13 @@
     </div>
     <div class="modal--search__cell modal--search__cell--exchanges">
       <% exchanges.each do |exchange_name_id, exchange_name| %>
-        <%= exchange_icon_svg(exchange_name_id) %>
+        <span style="display: inline-flex"
+              data-controller="tooltip"
+              data-tooltip-fixed-value="true"
+              data-action="mouseenter->tooltip#showTooltip mouseleave->tooltip#hideTooltip">
+          <%= exchange_icon_svg(exchange_name_id) %>
+          <div class="tooltip"><%= exchange_name %></div>
+        </span>
       <% end %>
     </div>
   <% end %>

@@ -1,0 +1,52 @@
+// View Transitions for the bot creation wizard.
+// Activates only in browsers where document.startViewTransition exists
+// (Chrome/Edge/Safari 18+). Firefox falls back to instant frame swaps.
+//
+// With the one-input-per-slot sentence (see _sentence.html.erb) each slot is
+// either present or absent per render — no always-in-DOM collapse/reveal. The
+// browser's default entry/exit is sufficient for slots that appear or
+// disappear between steps; we only add an explicit slide for the step body
+// and reverse it when navigating back.
+
+::view-transition-group(*)
+    animation-duration: 220ms
+    animation-timing-function: cubic-bezier(0.4, 0, 0.2, 1)
+
+.vt-step-body
+    view-transition-name: vt-step-body
+
+// Step-body slide runs inside the View Transition as a single, uninterrupted
+// animation on the ::view-transition-old/new pseudos. A CSS keyframe on the
+// real element would be double-captured by the VT snapshots and play a
+// second time after the VT ends (producing the back/back/forward jitter).
+// Tradeoff: VT pseudos render in the top layer and ignore ancestor
+// `overflow: hidden`, so the translate distance is intentionally small (4%)
+// to keep any overshoot unnoticeable against the modal's own backdrop.
+
+::view-transition-old(vt-step-body)
+    animation: vt-step-body-out-left 220ms both cubic-bezier(0.4, 0, 0.2, 1)
+::view-transition-new(vt-step-body)
+    animation: vt-step-body-in-right 220ms both cubic-bezier(0.4, 0, 0.2, 1)
+
+html[data-wizard-dir="back"]
+    &::view-transition-old(vt-step-body)
+        animation-name: vt-step-body-out-right
+    &::view-transition-new(vt-step-body)
+        animation-name: vt-step-body-in-left
+
+@keyframes vt-step-body-out-left
+    to
+        transform: translateX(-4%)
+        opacity: 0
+@keyframes vt-step-body-in-right
+    from
+        transform: translateX(4%)
+        opacity: 0
+@keyframes vt-step-body-out-right
+    to
+        transform: translateX(4%)
+        opacity: 0
+@keyframes vt-step-body-in-left
+    from
+        transform: translateX(-4%)
+        opacity: 0

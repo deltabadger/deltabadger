@@ -93,12 +93,15 @@ it:
         earn: 'Guadagna'
         resend_link: 'Reinvia link'
         rules: Regole
-        tracker: Reports
+        tracker: Tracker
         settings: Impostazioni
         connections: Connetti
         account: Account
         sign_up: 'Registrati'
     settings:
+        advanced_bots:
+            title: Bot avanzati
+            toggle_label: Mostra bot avanzati
         language_and_timezone:
             title: 'Lingua e fuso orario'
             language_updated: 'La tua lingua è stata aggiornata.'
@@ -364,6 +367,12 @@ it:
             instructions_title: 'Come ottenere le chiavi da %{exchange}'
             instructions_body: 'Crea una chiave API con autorizzazione al prelievo su %{exchange} e incolla le credenziali qui.'
     tracker:
+        sync_key_error_html: 'Sincronizzazione con <strong>%{exchange}</strong> fallita: %{message}. Aggiorna la chiave API qui sotto.'
+        pricing_warning_html: Saldi sincronizzati, ma i prezzi in USD non sono disponibili al momento (%{message}). Il grafico userà gli ultimi prezzi noti finché il servizio non sarà ripristinato.
+        portfolio:
+            never_synced: Clicca su Sincronizza per caricare il portafoglio.
+            no_balances: Nessun saldo trovato sui tuoi exchange collegati.
+            unpriced: 'Prezzo non disponibile per: %{assets}'
         sync: 'Sincronizza'
         sync_started: 'Sincronizzazione delle transazioni dai tuoi exchange...'
         importing_from: 'Importazione dati da %{exchange}…'
@@ -433,6 +442,13 @@ it:
         cancelled: 'Annullati'
         waiting: 'Programmati'
     tax_report:
+        warnings:
+            missing_prices: Prezzi storici mancanti per
+            upgrade_hint: Aggiorna il tuo piano CoinGecko o usa deltabadger.com per dati storici completi.
+        summary:
+            total_gains: Plusvalenze totali
+            total_losses: Minusvalenze totali
+            tax_percent: Imposta (%{pct}%)
         headers:
             date: 'Data'
             asset: 'Attività'

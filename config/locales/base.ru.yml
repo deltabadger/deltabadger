@@ -95,7 +95,7 @@ ru:
         earn: Зарабатывай
         resend_link: 'Отправить ссылку повторно'
         rules: Правила
-        tracker: Отчёты
+        tracker: Трекер
         settings: Настройки
         connections: Подключить
         account: Аккаунт
@@ -103,6 +103,9 @@ ru:
         start_fast: 'Начать за 5 минут'
         start_fast_longer_html: 'Начать <span class="d-none d-sm-inline">бесплатно</span> через 5 минут'
     settings:
+        advanced_bots:
+            title: Расширенные боты
+            toggle_label: Показать расширенные боты
         language_and_timezone:
             title: 'Язык и часовой пояс'
             language_updated: 'Ваш язык был обновлен.'
@@ -367,6 +370,12 @@ ru:
             instructions_title: 'Как получить ключи от %{exchange}'
             instructions_body: 'Создайте API-ключ с разрешением на вывод средств на %{exchange} и вставьте учетные данные здесь.'
     tracker:
+        sync_key_error_html: 'Не удалось синхронизировать <strong>%{exchange}</strong>: %{message}. Обновите API-ключ ниже.'
+        pricing_warning_html: Балансы синхронизированы, но цены в USD сейчас недоступны (%{message}). На графике будут использованы последние известные цены до восстановления сервиса.
+        portfolio:
+            never_synced: Нажмите «Синхронизировать», чтобы загрузить портфель.
+            no_balances: На подключённых биржах балансы не найдены.
+            unpriced: 'Цена недоступна для: %{assets}'
         sync: 'Синхронизировать'
         sync_started: 'Синхронизация транзакций с ваших бирж...'
         importing_from: 'Импорт данных из %{exchange}…'
@@ -436,6 +445,9 @@ ru:
         cancelled: 'Отмененные'
         waiting: 'Ожидающие'
     tax_report:
+        warnings:
+            missing_prices: Отсутствуют исторические цены для
+            upgrade_hint: Обнови план CoinGecko или используй deltabadger.com для полных исторических данных.
         headers:
             date: 'Дата'
             asset: 'Актив'

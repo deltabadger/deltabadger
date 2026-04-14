@@ -7,11 +7,11 @@ import { application } from "./application"
 import AppWakeController from "./app_wake_controller"
 application.register("app-wake", AppWakeController)
 
-import AutoDownloadController from "./auto_download_controller"
-application.register("auto-download", AutoDownloadController)
-
 import ArrowKeysNavigationController from "./arrow_keys_navigation_controller"
 application.register("arrow-keys-navigation", ArrowKeysNavigationController)
+
+import AutoDownloadController from "./auto_download_controller"
+application.register("auto-download", AutoDownloadController)
 
 import AutofocusController from "./autofocus_controller"
 application.register("autofocus", AutofocusController)
@@ -40,6 +40,9 @@ application.register("clock", ClockController)
 import CountdownController from "./countdown_controller"
 application.register("countdown", CountdownController)
 
+import DonutChartController from "./donut_chart_controller"
+application.register("donut-chart", DonutChartController)
+
 import DropdownController from "./dropdown_controller"
 application.register("dropdown", DropdownController)
 
@@ -52,14 +55,14 @@ application.register("form--checkbox-enables", Form__CheckboxEnablesController)
 import Form__EmailNotificationsController from "./form/email_notifications_controller"
 application.register("form--email-notifications", Form__EmailNotificationsController)
 
-import Form__MarketDataController from "./form/market_data_controller"
-application.register("form--market-data", Form__MarketDataController)
-
 import Form__Html5ValidationsController from "./form/html5_validations_controller"
 application.register("form--html5-validations", Form__Html5ValidationsController)
 
 import Form__LabelAnimationsController from "./form/label_animations_controller"
 application.register("form--label-animations", Form__LabelAnimationsController)
+
+import Form__MarketDataController from "./form/market_data_controller"
+application.register("form--market-data", Form__MarketDataController)
 
 import Form__MoveCursorToEndController from "./form/move_cursor_to_end_controller"
 application.register("form--move-cursor-to-end", Form__MoveCursorToEndController)
@@ -106,6 +109,9 @@ application.register("modal--open-and-submit-on-key-press", Modal__OpenAndSubmit
 import NestedLinkInButtonController from "./nested_link_in_button_controller"
 application.register("nested-link-in-button", NestedLinkInButtonController)
 
+import ConversationalSentenceController from "./conversational_sentence_controller"
+application.register("conversational-sentence", ConversationalSentenceController)
+
 import OrderFilterController from "./order_filter_controller"
 application.register("order-filter", OrderFilterController)
 
@@ -117,6 +123,9 @@ application.register("progress-bar", ProgressBarController)
 
 import RemovalsController from "./removals_controller"
 application.register("removals", RemovalsController)
+
+import RuleToggleController from "./rule_toggle_controller"
+application.register("rule-toggle", RuleToggleController)
 
 import SliderController from "./slider_controller"
 application.register("slider", SliderController)

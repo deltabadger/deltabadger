@@ -23,7 +23,9 @@
         height: 3.5rem
 .ticker
     display: block
-    min-width: 11rem
+    min-width: 8rem
+    @media (min-width: 768px)
+        min-width: 10rem
     &--stock
         border: 2px solid var(--link)
         color: var(--link)
@@ -33,6 +35,18 @@
             color: var(--link)
         @media (min-width: 768px)
             line-height: 3rem
+    input
+        background: none
+        border: none
+        text-align: center
+        max-width: 6rem
+        text-transform: uppercase
+        @media (min-width: 768px)
+            max-width: 8rem
+        &::placeholder
+            color: var(--paper) !important
+        &:focus
+            outline: none
 .ticker-group
     display: flex
     .ticker
@@ -172,14 +186,24 @@
         box-shadow: var(--shadow-basic)
         svg *
             fill: var(--link) !important
-    &--multi
-        color: var(--label-select-inactive)
-        min-width: 0 !important
-        &--active
-            cursor: default
-            color: var(--link)
-            background: var(--washed)
-            box-shadow: var(--shadow-basic)
+    &--add
+        color: var(--link)
+        background: var(--washed)
+        box-shadow: var(--shadow-basic)
+        min-width: 0
+        width: 3.5rem
+        padding: 0
+        font-size: 2.5rem
+        line-height: 1
+        font-weight: 400
+        outline: none
+        transition: transform 120ms ease
+        &:focus, &:focus-visible
+            outline: none
+            box-shadow: var(--shadow-basic), 0 0 0 2px var(--link)
+        &:active
+            transform: scale(0.96)
+
     &--broken
         color: var(--berry) !important
         svg 
@@ -307,3 +331,14 @@
         padding: 0 calc(2rem - 0.25rem) !important
         .animicon *
             background-color: var(--concrete) !important
+    &--multi
+        color: var(--label-select-inactive)
+        min-width: 0 !important
+        &--active
+            cursor: default
+            color: var(--link)
+            background: var(--washed)
+            box-shadow: var(--shadow-basic)
+
+.sbutton-form-inline
+    display: contents

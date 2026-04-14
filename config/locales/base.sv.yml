@@ -94,12 +94,15 @@ sv:
         earn: 'Tjäna'
         resend_link: 'Skicka länk igen'
         rules: Regler
-        tracker: Rapporter
+        tracker: Tracker
         settings: Inställningar
         connections: Anslut
         account: Konto
         sign_up: 'Skapa konto'
     settings:
+        advanced_bots:
+            title: Avancerade bots
+            toggle_label: Visa avancerade bots
         language_and_timezone:
             title: 'Språk och tidszon'
             language_updated: "Ditt språk har uppdaterats."
@@ -379,6 +382,12 @@ sv:
             instructions_title: 'Hur du får nycklar från %{exchange}'
             instructions_body: 'Skapa en uttagsaktiverad API-nyckel på %{exchange} och klistra in uppgifterna här.'
     tracker:
+        sync_key_error_html: 'Synkroniseringen med <strong>%{exchange}</strong> misslyckades: %{message}. Uppdatera API-nyckeln nedan.'
+        pricing_warning_html: Saldon synkade, men USD-priser är inte tillgängliga just nu (%{message}). Diagrammet använder de senast kända priserna tills prissättningen är återställd.
+        portfolio:
+            never_synced: Klicka på „Synka" för att ladda din portfölj.
+            no_balances: Inga saldon hittades på dina anslutna börser.
+            unpriced: 'Pris saknas för: %{assets}'
         sync: 'Synka'
         sync_started: 'Synkroniserar transaktioner från dina börser...'
         importing_from: 'Importerar data från %{exchange}…'
@@ -457,6 +466,9 @@ sv:
         cancelled: 'Avbrutna'
         waiting: 'Schemalagda'
     tax_report:
+        warnings:
+            missing_prices: Historiska priser saknas för
+            upgrade_hint: Uppgradera ditt CoinGecko-abonnemang eller använd deltabadger.com för fullständig historik.
         headers:
             date: 'Datum'
             asset: 'Tillgång'
@@ -484,6 +496,7 @@ sv:
             period: 'Period'
         no_taxable_transactions: 'Inga skattepliktiga transaktioner hittades för denna period.'
         summary:
+            tax_percent: Skatt (%{pct}%)
             total_value: 'Totalt värde'
             allowance: 'Skattefritt grundavdrag'
             taxable_wealth: 'Skattepliktig förmögenhet'
