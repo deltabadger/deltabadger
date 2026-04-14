@@ -9,6 +9,7 @@
 
     <%= csrf_meta_tags %>
     <%= csp_meta_tag %>
+    <meta name="turbo-prefetch" content="false">
 
     <title><%= content_for?(:title) ? yield(:title) : t('meta.title') %></title>
     <%= render 'application/favicon' %>

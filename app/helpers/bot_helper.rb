@@ -3,6 +3,16 @@ module BotHelper
     Automation::Schedulable::INTERVALS.keys.map { |interval| [t("bot.#{interval}"), interval] }
   end
 
+  # Per-exchange label for the API key field, with a generic translated fallback.
+  # Each exchange MAY define its own `bot.api.<exchange>.public_key` /
+  # `private_key`; when it doesn't, we use the localized generic label under
+  # `bot.api.public_key_label` / `private_key_label`.
+  def api_key_field_label(exchange, field)
+    specific = "bot.api.#{exchange.name_id}.#{field}"
+    generic  = "bot.api.#{field}_label"
+    I18n.exists?(specific) ? t(specific) : t(generic)
+  end
+
   def bot_type_label(bot)
     {
       'Bots::DcaDualAsset' => 'Rebalanced DCA',
@@ -138,7 +148,10 @@ module BotHelper
     exchange_key = exchange.name_id
     exchange_name = exchange.name
     whitelist_ip = whitelist_ip_html_for(exchange_key)
-    instructions = t("#{locale_prefix}.#{exchange_key}.instructions", default: nil)
+    instructions_key = "#{locale_prefix}.#{exchange_key}.instructions"
+    return nil unless I18n.exists?(instructions_key)
+
+    instructions = t(instructions_key)
     return nil unless instructions.is_a?(Array)
 
     content_tag(:ol, class: 'set__list') do

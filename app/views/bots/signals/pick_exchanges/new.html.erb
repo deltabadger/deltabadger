@@ -13,19 +13,12 @@
       <% end %>
     </div>
 
-    <%= turbo_frame_tag "exchange-picker", data: { action: "keydown@window->arrow-keys-navigation#navigate", controller: "arrow-keys-navigation" }, class: "modal--search__assets selectable-options" do %>
-      <div class="exchange-picker__item exchange-picker__item--header">
-        <div><%= t('bot.fees') %>:</div>
-        <div>Maker</div>
-        <div>Taker</div>
-      </div>
-      <div class="selectable-options">
-        <%= form_with model: @bot, url: bots_signals_pick_exchange_path, method: :post do |f| %>
-          <% @exchanges.each do |exchange| %>
-            <%= render partial: "shared/exchange_search_result", locals: { exchange: exchange, param_name: "#{@bot.model_name.param_key}[exchange_id]" } %>
-          <% end %>
-        <% end %>
-      </div>
-    <% end %>
+    <%= render "bots/pick_exchanges/table",
+      bot: @bot,
+      exchanges: @exchanges,
+      submit_url: bots_signals_pick_exchange_path,
+      header: ["#{t('bot.fees')}:", "Maker", "Taker"],
+      row_partial: "shared/exchange_search_result",
+      row_locals: ->(exchange) { { exchange: exchange, param_name: "#{@bot.model_name.param_key}[exchange_id]" } } %>
   </div>
 <% end %>

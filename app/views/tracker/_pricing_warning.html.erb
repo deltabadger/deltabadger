@@ -1,0 +1,7 @@
+<%# Locals: message %>
+<div class="flash__message salert salert--primary" data-controller="removals" role="alert">
+  <button class="modal__close" data-action="removals#remove">
+    <%= render 'svg/24x24_close' %>
+  </button>
+  <%= t('tracker.pricing_warning_html', message: message).html_safe %>
+</div>

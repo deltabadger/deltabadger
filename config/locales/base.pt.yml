@@ -93,12 +93,15 @@ pt:
         earn: 'Ganhar'
         resend_link: 'Reenviar ligação'
         rules: Regras
-        tracker: Reports
+        tracker: Tracker
         settings: Definições
         connections: Ligar
         account: Conta
         sign_up: Registar
     settings:
+        advanced_bots:
+            title: Bots avançados
+            toggle_label: Mostrar bots avançados
         language_and_timezone:
             title: 'Idioma e fuso horário'
             language_updated: 'O seu idioma foi atualizado.'
@@ -363,6 +366,12 @@ pt:
             instructions_title: 'Como obter as chaves de %{exchange}'
             instructions_body: 'Crie uma chave API com permissão de levantamento em %{exchange} e cole as credenciais aqui.'
     tracker:
+        sync_key_error_html: 'Falha ao sincronizar <strong>%{exchange}</strong>: %{message}. Atualiza a chave API em baixo.'
+        pricing_warning_html: Saldos sincronizados, mas os preços em USD não estão disponíveis de momento (%{message}). O gráfico usará os últimos preços conhecidos até o serviço ser restabelecido.
+        portfolio:
+            never_synced: Clica em Sincronizar para carregar a tua carteira.
+            no_balances: Nenhum saldo encontrado nas exchanges ligadas.
+            unpriced: 'Preço indisponível para: %{assets}'
         sync: 'Sincronizar'
         sync_started: 'A sincronizar transações das suas exchanges...'
         importing_from: 'A importar dados de %{exchange}…'
@@ -432,6 +441,13 @@ pt:
         cancelled: 'Cancelados'
         waiting: 'Programados'
     tax_report:
+        warnings:
+            missing_prices: Faltam preços históricos para
+            upgrade_hint: Atualiza o teu plano CoinGecko ou usa deltabadger.com para dados históricos completos.
+        summary:
+            total_gains: Ganhos totais
+            total_losses: Perdas totais
+            tax_percent: Imposto (%{pct}%)
         headers:
             date: 'Data'
             asset: 'Ativo'

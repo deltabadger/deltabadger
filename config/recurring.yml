@@ -30,6 +30,10 @@ production:
     class: AccountTransaction::SyncAllJob
     schedule: "0 2 * * *"  # Daily at 2 AM
 
+  sync_all_account_balances_job:
+    class: AccountBalance::SyncAllJob
+    schedule: "30 2 * * *"  # Daily at 2:30 AM (after transactions sync)
+
 development:
   sync_all_tickers_and_assets_job:
     class: Exchange::SyncAllTickersAndAssetsJob
@@ -58,3 +62,7 @@ development:
   sync_all_account_transactions_job:
     class: AccountTransaction::SyncAllJob
     schedule: "0 2 * * *"  # Daily at 2 AM
+
+  sync_all_account_balances_job:
+    class: AccountBalance::SyncAllJob
+    schedule: "30 2 * * *"  # Daily at 2:30 AM (after transactions sync)

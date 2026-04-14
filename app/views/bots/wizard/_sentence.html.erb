@@ -1,0 +1,122 @@
+<%#
+  Unified conversational sentence for the bot-creation wizard.
+
+  Every slot is a <form> wrapping a single <input>. The form carries the
+  visual class (.ticker / .conversational__link) and .active state; the
+  input is a transparent text field.
+
+    - filled (past step)  : form GETs back-nav URL; input is readonly/value
+    - active (this step)  : form GETs search URL; input has name="query"
+    - optional / promote  : form POSTs promote_to_dual; input is placeholder-only
+    - future              : not rendered
+
+  Locals:
+    bot:          @bot (DcaSingleAsset or DcaDualAsset)
+    current_step: :currencies | :currencies2 | :exchange | :api | :spendable
+%>
+<%
+  bot_kind     = bot.is_a?(Bots::DcaDualAsset) ? "dual" : "single"
+  first_asset  = bot.respond_to?(:base0_asset) ? bot.base0_asset : bot.base_asset
+  second_asset = bot.respond_to?(:base1_asset) ? bot.base1_asset : nil
+  exchange     = bot.exchange_id.present? ? bot.exchange : nil
+  first_color  = ensure_contrast(first_asset.color)  if first_asset
+  second_color = ensure_contrast(second_asset.color) if second_asset
+
+  base_back_url     = new_bots_dca_single_assets_pick_buyable_asset_path
+  base1_back_url    = new_bots_dca_dual_assets_pick_second_buyable_asset_path
+  exchange_back_url = bot_kind == "dual" ? new_bots_dca_dual_assets_pick_exchange_path
+                                           : new_bots_dca_single_assets_pick_exchange_path
+
+  active_slot =
+    case current_step
+    when :currencies  then :base
+    when :currencies2 then :base1
+    when :exchange    then :exchange
+    when :spendable   then :quote
+    end
+
+  base_search_url  = new_bots_dca_single_assets_pick_buyable_asset_path
+  base1_search_url = new_bots_dca_dual_assets_pick_second_buyable_asset_path
+  quote_search_url = bot_kind == "dual" ? new_bots_dca_dual_assets_pick_spendable_asset_path
+                                           : new_bots_dca_single_assets_pick_spendable_asset_path
+%>
+
+<div class="conversational conversational--bot-setup"
+     data-bot-kind="<%= bot_kind %>" data-wizard-step="<%= current_step %>"
+     data-controller="conversational-sentence"
+     data-action="click->conversational-sentence#activate">
+
+  <span class="conversational__lead">Buy</span>
+
+  <div class="conversational__assets">
+    <%# ── first base asset ── %>
+    <% if active_slot == :base %>
+      <%= form_with url: base_search_url, method: :get,
+                    data: { controller: "form--submit-after-delay", turbo_frame: "asset-picker" },
+                    class: "ticker active" do |f| %>
+        <%= f.text_field :query, autofocus: true, autocomplete: "off", placeholder: "…",
+                         data: { action: "input->form--submit-after-delay#submit" } %>
+      <% end %>
+    <% elsif first_asset %>
+      <%= form_with url: base_back_url, method: :get,
+                    data: { turbo_frame: "modal_content", wizard_dir: "back" },
+                    html: { class: "ticker filled", style: "background: #{first_color}" } do %>
+        <input value="<%= first_asset.symbol %>" readonly tabindex="-1">
+      <% end %>
+    <% end %>
+
+    <%# ── second base asset ──
+         dual/active: editable input.
+         dual/filled: chip link back to pick step.
+         single + first_asset picked: empty placeholder that promotes to dual on click. %>
+    <% if active_slot == :base1 %>
+      <%= form_with url: base1_search_url, method: :get,
+                    data: { controller: "form--submit-after-delay", turbo_frame: "asset-picker" },
+                    class: "ticker active" do |f| %>
+        <%= f.text_field :query, autofocus: true, autocomplete: "off", placeholder: "…",
+                         data: { action: "input->form--submit-after-delay#submit" } %>
+      <% end %>
+    <% elsif bot_kind == "dual" && second_asset %>
+      <%= form_with url: base1_back_url, method: :get,
+                    data: { turbo_frame: "modal_content", wizard_dir: "back" },
+                    html: { class: "ticker filled", style: "background: #{second_color}" } do %>
+        <input value="<%= second_asset.symbol %>" readonly tabindex="-1">
+      <% end %>
+    <% elsif bot_kind == "single" && first_asset %>
+      <%= form_with url: promote_to_dual_bots_dca_single_assets_pick_exchange_path,
+                    method: :post, class: "ticker",
+                    data: { turbo_frame: "modal_content" } do %>
+        <input placeholder="…">
+      <% end %>
+    <% end %>
+  </div>
+
+  <%# ── exchange slot ── %>
+  <% if active_slot == :exchange || exchange %>
+    <span class="conversational__lead">on</span>
+    <% if active_slot == :exchange %>
+      <%= form_with url: exchange_back_url, method: :get,
+                    data: { controller: "form--submit-after-delay", turbo_frame: "exchange-picker" },
+                    class: "conversational__link active" do |f| %>
+        <%= f.text_field :query, autofocus: true, autocomplete: "off", placeholder: "exchange",
+                         data: { action: "input->form--submit-after-delay#submit" } %>
+      <% end %>
+    <% else %>
+      <%= form_with url: exchange_back_url, method: :get, class: "conversational__link filled",
+                    data: { turbo_frame: "modal_content", wizard_dir: "back" } do %>
+        <input value="<%= exchange.name %>" readonly tabindex="-1">
+      <% end %>
+    <% end %>
+  <% end %>
+
+  <%# ── quote (spending) slot — active only on :spendable ── %>
+  <% if active_slot == :quote %>
+    <span class="conversational__lead">spending</span>
+    <%= form_with url: quote_search_url, method: :get,
+                  data: { controller: "form--submit-after-delay", turbo_frame: "asset-picker" },
+                  class: "ticker active" do |f| %>
+      <%= f.text_field :query, autofocus: true, autocomplete: "off", placeholder: "USD",
+                       data: { action: "input->form--submit-after-delay#submit" } %>
+    <% end %>
+  <% end %>
+</div>

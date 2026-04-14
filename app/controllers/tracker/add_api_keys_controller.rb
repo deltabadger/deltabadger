@@ -13,7 +13,7 @@ class Tracker::AddApiKeysController < ApplicationController
       result = @api_key.get_validity
       @api_key.update_status!(result)
     end
-    return redirect_to reports_path if @api_key.correct?
+    return redirect_to tracker_path if @api_key.correct?
 
     render :reconnect if turbo_frame_request_id == 'modal'
   end
@@ -31,7 +31,7 @@ class Tracker::AddApiKeysController < ApplicationController
     if @api_key.correct?
       session.delete(:tracker_connect)
       AccountTransaction::SyncJob.perform_later(@api_key)
-      render turbo_stream: turbo_stream_redirect(reports_path)
+      render turbo_stream: turbo_stream_redirect(tracker_path)
     elsif @api_key.incorrect?
       flash.now[:alert] = t('errors.incorrect_api_key_permissions')
       render turbo_stream: turbo_stream_prepend_flash, status: :unprocessable_entity

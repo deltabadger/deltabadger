@@ -50,7 +50,9 @@ class Bots::DcaSingleAssets::AddApiKeysController < ApplicationController
   end
 
   def after_api_key_path
-    stock_bot? ? new_bots_dca_single_assets_confirm_settings_path : new_bots_dca_single_assets_pick_spendable_asset_path
+    # Stock bots get their quote asset auto-filled in set_stock_defaults, so
+    # pick_spendable_asset#new will short-circuit and persist the bot.
+    new_bots_dca_single_assets_pick_spendable_asset_path
   end
 
   def sync_alpaca_settings(api_key)

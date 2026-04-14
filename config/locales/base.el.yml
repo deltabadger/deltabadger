@@ -94,12 +94,15 @@ el:
         earn: 'Κέρδισε'
         resend_link: 'Αποστολή ξανά'
         rules: Κανόνες
-        tracker: Αναφορές
+        tracker: Tracker
         settings: Ρυθμίσεις
         connections: Σύνδεση
         account: Λογαριασμός
         sign_up: 'Εγγραφή'
     settings:
+        advanced_bots:
+            title: Προχωρημένα bot
+            toggle_label: Εμφάνιση προχωρημένων bot
         language_and_timezone:
             title: 'Γλώσσα & ζώνη ώρας'
             language_updated: "Η γλώσσα σου ενημερώθηκε."
@@ -379,6 +382,12 @@ el:
             instructions_title: 'Πώς να πάρεις κλειδιά από %{exchange}'
             instructions_body: 'Δημιούργησε ένα κλειδί API με δικαιώματα ανάληψης στο %{exchange} και επικόλλησε τα στοιχεία εδώ.'
     tracker:
+        sync_key_error_html: 'Ο συγχρονισμός με το <strong>%{exchange}</strong> απέτυχε: %{message}. Ενημέρωσε το κλειδί API παρακάτω.'
+        pricing_warning_html: Τα υπόλοιπα συγχρονίστηκαν, αλλά οι τιμές σε USD δεν είναι διαθέσιμες αυτή τη στιγμή (%{message}). Το γράφημα θα χρησιμοποιήσει τις τελευταίες γνωστές τιμές μέχρι να αποκατασταθεί η υπηρεσία.
+        portfolio:
+            never_synced: Πάτα «Συγχρονισμός» για να φορτώσεις το χαρτοφυλάκιο.
+            no_balances: Δεν βρέθηκαν υπόλοιπα στα συνδεδεμένα ανταλλακτήρια.
+            unpriced: 'Μη διαθέσιμη τιμή για: %{assets}'
         sync: 'Συγχρονισμός'
         sync_started: 'Συγχρονισμός συναλλαγών από τα ανταλλακτήριά σου...'
         importing_from: 'Εισαγωγή δεδομένων από %{exchange}…'
@@ -457,6 +466,9 @@ el:
         cancelled: 'Ακυρωμένες'
         waiting: 'Προγραμματισμένες'
     tax_report:
+        warnings:
+            missing_prices: Λείπουν ιστορικές τιμές για
+            upgrade_hint: Αναβάθμισε το πρόγραμμα CoinGecko ή χρησιμοποίησε το deltabadger.com για πλήρη ιστορικά δεδομένα.
         headers:
             date: 'Ημερομηνία'
             asset: 'Asset'
@@ -484,6 +496,8 @@ el:
             period: 'Περίοδος'
         no_taxable_transactions: 'Δεν βρέθηκαν φορολογητέες συναλλαγές για αυτή την περίοδο.'
         summary:
+            taxable_income: Φορολογητέο εισόδημα
+            tax_percent: Φόρος (%{pct}%)
             total_value: 'Συνολική αξία'
             allowance: 'Αφορολόγητο όριο'
             taxable_wealth: 'Φορολογητέα περιουσία'

@@ -16,14 +16,20 @@ class Bots::DcaDualAssetsCreationTest < ActionDispatch::IntegrationTest
     Bot::ActionJob.stubs(:perform_later)
   end
 
+  # Dual-asset creation starts in the single-asset flow and is promoted to dual via the "+" button.
   test 'creates a bot when completing all wizard steps' do
-    # Step 1: Pick first asset
-    get new_bots_dca_dual_assets_pick_first_buyable_asset_path
+    # Step 1: Pick first asset (via unified single-asset entry)
+    get new_bots_dca_single_assets_pick_buyable_asset_path
     assert_response :ok
 
-    post bots_dca_dual_assets_pick_first_buyable_asset_path, params: {
-      bots_dca_dual_asset: { base0_asset_id: @bitcoin.id }
+    post bots_dca_single_assets_pick_buyable_asset_path, params: {
+      bots_dca_single_asset: { base_asset_id: @bitcoin.id }
     }
+    assert_redirected_to new_bots_dca_single_assets_pick_exchange_path
+    follow_redirect!
+
+    # Step 1b: Promote to dual via "+"
+    post promote_to_dual_bots_dca_single_assets_pick_exchange_path
     assert_redirected_to new_bots_dca_dual_assets_pick_second_buyable_asset_path
     follow_redirect!
 
@@ -52,81 +58,36 @@ class Bots::DcaDualAssetsCreationTest < ActionDispatch::IntegrationTest
     # Step 5: Pick spendable asset
     assert_response :ok
 
-    post bots_dca_dual_assets_pick_spendable_asset_path, params: {
-      bots_dca_dual_asset: { quote_asset_id: @usd.id }
-    }
-    assert_redirected_to new_bots_dca_dual_assets_confirm_settings_path
-    follow_redirect!
-
-    # Step 6: Confirm settings
-    assert_response :ok
-
-    post bots_dca_dual_assets_confirm_settings_path, params: {
-      bots_dca_dual_asset: { quote_amount: 200, interval: 'day', allocation0: 0.6 }
-    }, as: :turbo_stream
-    assert_response :ok
-
-    # Step 7: Create bot
+    # Picking the spendable asset persists the bot in :created state with defaults —
+    # no separate confirm step.
     assert_difference 'Bots::DcaDualAsset.count', 1 do
-      post bots_dca_dual_assets_path, as: :turbo_stream
+      post bots_dca_dual_assets_pick_spendable_asset_path, params: {
+        bots_dca_dual_asset: { quote_asset_id: @usd.id }
+      }, as: :turbo_stream
     end
+    assert_response :ok
 
     bot = Bots::DcaDualAsset.last
     assert_equal @bitcoin, bot.base0_asset
     assert_equal @ethereum, bot.base1_asset
     assert_equal @usd, bot.quote_asset
     assert_equal @exchange, bot.exchange
-    assert_equal 200, bot.quote_amount
-    assert_equal 0.6, bot.allocation0
-    assert_predicate bot, :scheduled?
-  end
-
-  test 'creates bot with custom allocation' do
-    get new_bots_dca_dual_assets_pick_first_buyable_asset_path
-
-    post bots_dca_dual_assets_pick_first_buyable_asset_path, params: {
-      bots_dca_dual_asset: { base0_asset_id: @bitcoin.id }
-    }
-    follow_redirect!
-
-    post bots_dca_dual_assets_pick_second_buyable_asset_path, params: {
-      bots_dca_dual_asset: { base1_asset_id: @ethereum.id }
-    }
-    follow_redirect!
-
-    post bots_dca_dual_assets_pick_exchange_path, params: {
-      bots_dca_dual_asset: { exchange_id: @exchange.id }
-    }
-    follow_redirect!
-    follow_redirect! # skip API key
-
-    post bots_dca_dual_assets_pick_spendable_asset_path, params: {
-      bots_dca_dual_asset: { quote_asset_id: @usd.id }
-    }
-    follow_redirect!
-
-    post bots_dca_dual_assets_confirm_settings_path, params: {
-      bots_dca_dual_asset: { quote_amount: 100, interval: 'week', allocation0: 0.8 }
-    }, as: :turbo_stream
-
-    assert_difference 'Bots::DcaDualAsset.count', 1 do
-      post bots_dca_dual_assets_path, as: :turbo_stream
-    end
-
-    bot = Bots::DcaDualAsset.last
-    assert_equal 0.8, bot.allocation0
+    assert_equal 100, bot.quote_amount
     assert_equal 'week', bot.interval
+    assert_equal 0.5, bot.allocation0
+    assert_predicate bot, :created?
+    assert_match %(action="redirect" target="#{bot_path(bot)}"), response.body
   end
 
-  test 'redirects to first asset when accessing second asset step directly' do
+  test 'redirects to single-asset picker when accessing second asset step without a first asset' do
     get new_bots_dca_dual_assets_pick_second_buyable_asset_path
-    assert_redirected_to new_bots_dca_dual_assets_pick_first_buyable_asset_path
+    assert_redirected_to new_bots_dca_single_assets_pick_buyable_asset_path
   end
 
   test 'requires authentication for wizard' do
     sign_out @user
 
-    get new_bots_dca_dual_assets_pick_first_buyable_asset_path
+    get new_bots_dca_single_assets_pick_buyable_asset_path
     assert_redirected_to new_user_session_path
   end
 end

@@ -8,7 +8,6 @@ cs:
                 exchange: "Burza"
                 spendable: "Měna"
                 api: "Připojit burzu"
-                schedule: "Nastavit rozvrh"
                 coingecko: "Připojit CoinGecko"
                 index: "Vybrat index"
                 pick_asset: "Vybrat aktivum"

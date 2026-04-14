@@ -8,7 +8,6 @@ bg:
                 exchange: "Борса"
                 spendable: "Валута"
                 api: "Свързване на борса"
-                schedule: "Настройка на график"
                 coingecko: "Свързване с CoinGecko"
                 index: "Избор на индекс"
                 pick_asset: "Избор на актив"

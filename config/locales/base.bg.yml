@@ -94,12 +94,15 @@ bg:
         earn: 'Печалба'
         resend_link: 'Изпрати отново'
         rules: Правила
-        tracker: Отчети
+        tracker: Тракер
         settings: Настройки
         connections: Свързване
         account: Акаунт
         sign_up: 'Регистрация'
     settings:
+        advanced_bots:
+            title: Разширени ботове
+            toggle_label: Показване на разширени ботове
         language_and_timezone:
             title: 'Език и часова зона'
             language_updated: "Езикът е обновен."
@@ -379,6 +382,12 @@ bg:
             instructions_title: 'Как да получите ключове от %{exchange}'
             instructions_body: 'Създайте API ключ с разрешение за теглене в %{exchange} и поставете данните за достъп тук.'
     tracker:
+        sync_key_error_html: 'Синхронизацията с <strong>%{exchange}</strong> е неуспешна: %{message}. Моля, обнови API ключа по-долу.'
+        pricing_warning_html: Балансите са синхронизирани, но цените в USD в момента не са налични (%{message}). Графиката ще използва последните известни цени, докато услугата бъде възстановена.
+        portfolio:
+            never_synced: Натисни „Синхронизирай", за да заредиш портфейла си.
+            no_balances: Не са намерени баланси на свързаните борси.
+            unpriced: 'Цена не е налична за: %{assets}'
         sync: 'Синхронизирай'
         sync_started: 'Синхронизиране на транзакции от борсите ви...'
         importing_from: 'Импортиране на данни от %{exchange}…'
@@ -457,6 +466,9 @@ bg:
         cancelled: 'Отменени'
         waiting: 'Насрочени'
     tax_report:
+        warnings:
+            missing_prices: Липсват исторически цени за
+            upgrade_hint: Надгради плана си в CoinGecko или използвай deltabadger.com за пълни исторически данни.
         headers:
             date: 'Дата'
             asset: 'Актив'
@@ -484,6 +496,10 @@ bg:
             period: 'Период'
         no_taxable_transactions: 'Няма облагаеми транзакции за този период.'
         summary:
+            expense_deduction: Признати разходи
+            taxable_income: Облагаем доход
+            tax_10: Данък (10%)
+            tax_percent: Данък (%{pct}%)
             total_value: 'Обща стойност'
             allowance: 'Необлагаема сума'
             taxable_wealth: 'Облагаемо имущество'

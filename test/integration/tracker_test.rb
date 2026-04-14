@@ -12,7 +12,7 @@ class TrackerTest < ActionDispatch::IntegrationTest
     user_no_keys = create(:user, setup_completed: true)
     sign_in user_no_keys
 
-    get reports_path
+    get tracker_path
     assert_response :success
     assert_select '.dropdown--exchanges'
   end
@@ -28,7 +28,7 @@ class TrackerTest < ActionDispatch::IntegrationTest
            quote_amount: 25_000.0,
            transacted_at: 1.day.ago)
 
-    get reports_path
+    get tracker_path
     assert_response :success
     assert_select '.widget--table--tracker'
     assert_select 'td', text: 'BTC'
@@ -41,7 +41,7 @@ class TrackerTest < ActionDispatch::IntegrationTest
     create(:account_transaction, api_key: @api_key, exchange: @exchange, base_currency: 'BTC', transacted_at: 1.day.ago)
     create(:account_transaction, api_key: other_api_key, exchange: other_exchange, base_currency: 'ETH', transacted_at: 1.day.ago)
 
-    get reports_path(exchange_id: @exchange.id)
+    get tracker_path(exchange_id: @exchange.id)
     assert_response :success
     assert_select 'td', text: 'BTC'
     assert_select 'td', text: 'ETH', count: 0
@@ -51,14 +51,14 @@ class TrackerTest < ActionDispatch::IntegrationTest
     create(:account_transaction, api_key: @api_key, exchange: @exchange, base_currency: 'BTC', transacted_at: 10.days.ago)
     create(:account_transaction, api_key: @api_key, exchange: @exchange, base_currency: 'ETH', transacted_at: 1.day.ago)
 
-    get reports_path(from: 5.days.ago.to_date.iso8601, to: Date.current.iso8601)
+    get tracker_path(from: 5.days.ago.to_date.iso8601, to: Date.current.iso8601)
     assert_response :success
     assert_select 'td', text: 'ETH'
     assert_select 'td', text: 'BTC', count: 0
   end
 
   test 'sync enqueues sync jobs and shows progress' do
-    post sync_reports_path, as: :turbo_stream
+    post sync_tracker_path, as: :turbo_stream
     assert_response :success
     assert_match 'sync-progress', response.body
     assert_match @exchange.name, response.body
@@ -75,7 +75,7 @@ class TrackerTest < ActionDispatch::IntegrationTest
            quote_amount: 25_000.0,
            transacted_at: Time.utc(2026, 3, 20, 10, 0, 0))
 
-    get export_reports_path
+    get export_tracker_path
     assert_response :success
     assert_equal 'text/csv; charset=utf-8', response.content_type
     assert_match 'deltabadger-transactions-', response.headers['Content-Disposition']
@@ -93,7 +93,7 @@ class TrackerTest < ActionDispatch::IntegrationTest
     create(:account_transaction, api_key: @api_key, exchange: @exchange, base_currency: 'OLD', transacted_at: 30.days.ago)
     create(:account_transaction, api_key: @api_key, exchange: @exchange, base_currency: 'NEW', transacted_at: 1.day.ago)
 
-    get export_reports_path(from: 5.days.ago.to_date.iso8601)
+    get export_tracker_path(from: 5.days.ago.to_date.iso8601)
     lines = response.body.split("\n")
     assert_equal 2, lines.length
     assert_includes lines[1], 'NEW'
@@ -106,7 +106,7 @@ class TrackerTest < ActionDispatch::IntegrationTest
     create(:account_transaction, api_key: @api_key, exchange: @exchange, base_currency: 'BTC', transacted_at: 1.day.ago)
     create(:account_transaction, api_key: other_api_key, exchange: other_exchange, base_currency: 'ETH', transacted_at: 1.day.ago)
 
-    get export_reports_path(exchange_id: other_exchange.id)
+    get export_tracker_path(exchange_id: other_exchange.id)
     lines = response.body.split("\n")
     assert_equal 2, lines.length
     assert_includes lines[1], 'ETH'
@@ -117,7 +117,7 @@ class TrackerTest < ActionDispatch::IntegrationTest
 
     @api_key.destroy!
 
-    get reports_path
+    get tracker_path
     assert_response :success
     assert_select 'td', text: 'BTC'
   end
@@ -126,7 +126,7 @@ class TrackerTest < ActionDispatch::IntegrationTest
     create(:account_transaction, api_key: @api_key, exchange: @exchange, base_currency: 'BTC', transacted_at: 1.day.ago)
     @api_key.destroy!
 
-    get reports_path
+    get tracker_path
     assert_response :success
     assert_select 'a.sbutton--broken', text: /#{@exchange.name}/
   end
@@ -134,7 +134,7 @@ class TrackerTest < ActionDispatch::IntegrationTest
   test 'exchange button links to filter when api key is valid' do
     create(:account_transaction, api_key: @api_key, exchange: @exchange, base_currency: 'BTC', transacted_at: 1.day.ago)
 
-    get reports_path
+    get tracker_path
     assert_response :success
     assert_select 'a.sbutton--broken', count: 0
     assert_select 'a.sbutton--multi', text: @exchange.name
@@ -144,22 +144,22 @@ class TrackerTest < ActionDispatch::IntegrationTest
     create(:account_transaction, api_key: @api_key, exchange: @exchange, base_currency: 'BTC', transacted_at: 1.day.ago)
     @api_key.destroy!
 
-    get reports_path
+    get tracker_path
     assert_response :success
-    assert_select "form[action='#{sync_reports_path}']", count: 0
+    assert_select "form[action='#{sync_tracker_path}']", count: 0
   end
 
   test 'sync button visible when valid api keys exist' do
-    get reports_path
+    get tracker_path
     assert_response :success
-    assert_select "form[action='#{sync_reports_path}']"
+    assert_select "form[action='#{sync_tracker_path}']"
   end
 
   test 'export modal shows localized country names' do
     ENV['MARKET_DATA_URL'] = 'http://test:3000'
     @user.update!(locale: 'pl')
 
-    get export_modal_reports_path(locale: 'pl')
+    get export_modal_tracker_path(locale: 'pl')
     assert_response :success
     assert_select 'option[value="DE"]', text: 'Niemcy'
     assert_select 'option[value="PL"]', text: 'Polska'
@@ -171,7 +171,7 @@ class TrackerTest < ActionDispatch::IntegrationTest
   test 'export modal shows English country names by default' do
     ENV['MARKET_DATA_URL'] = 'http://test:3000'
 
-    get export_modal_reports_path
+    get export_modal_tracker_path
     assert_response :success
     assert_select 'option[value="DE"]', text: 'Germany'
     assert_select 'option[value="PL"]', text: 'Poland'
@@ -181,7 +181,7 @@ class TrackerTest < ActionDispatch::IntegrationTest
 
   test 'requires authentication' do
     sign_out @user
-    get reports_path
+    get tracker_path
     assert_response :redirect
   end
 end

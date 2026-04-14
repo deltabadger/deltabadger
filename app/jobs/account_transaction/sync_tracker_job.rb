@@ -1,4 +1,6 @@
 class AccountTransaction::SyncTrackerJob < ApplicationJob
+  include ApiKeyFailureHandling
+
   queue_as :low_priority
   limits_concurrency to: 1, key: ->(user_id, *) { "sync_tracker_#{user_id}" }, on_conflict: :discard
 
@@ -21,9 +23,10 @@ class AccountTransaction::SyncTrackerJob < ApplicationJob
   def sync_exchange(user_id, api_key)
     exchange_name = api_key.exchange.name
 
-    AccountTransactionSync.new(api_key).sync! do |percent|
+    result = AccountTransactionSync.new(api_key).sync! do |percent|
       broadcast_progress(user_id, exchange_name, percent)
     end
+    handle_api_key_failure(api_key, result)
   rescue StandardError => e
     Rails.logger.error("[SyncTracker] #{api_key.exchange.name} failed: #{e.message}")
   end

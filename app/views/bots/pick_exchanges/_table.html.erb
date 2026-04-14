@@ -1,0 +1,14 @@
+<%= turbo_frame_tag "exchange-picker", data: { action: "keydown@window->arrow-keys-navigation#navigate", controller: "arrow-keys-navigation" } do %>
+  <%= form_with model: bot, url: submit_url, method: :post do |f| %>
+    <div class="exchange-grid">
+      <% exchanges.each do |exchange| %>
+        <%= button_tag name: "#{bot.model_name.param_key}[exchange_id]",
+                       value: exchange.id, type: :submit,
+                       class: "exchange-grid__item",
+                       data: { arrow_keys_navigation_target: "item button", turbo_frame: "modal_content" } do %>
+          <%= render "svg/exchanges/#{exchange.name_id}" %>
+        <% end %>
+      <% end %>
+    </div>
+  <% end %>
+<% end %>

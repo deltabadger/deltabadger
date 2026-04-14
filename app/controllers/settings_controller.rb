@@ -330,6 +330,11 @@ class SettingsController < ApplicationController
     render turbo_stream: turbo_stream.replace('mcp_settings', partial: 'settings/widgets/mcp')
   end
 
+  def update_advanced_bots
+    current_user.update!(advanced_bots_enabled: params[:enabled] == '1')
+    render turbo_stream: turbo_stream.replace('advanced_bots', partial: 'settings/widgets/advanced_bots')
+  end
+
   def confirm_revoke_mcp_client
     @mcp_client = current_user.mcp_applications.find(params[:id])
   end

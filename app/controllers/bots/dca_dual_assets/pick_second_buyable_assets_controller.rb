@@ -7,12 +7,23 @@ class Bots::DcaDualAssets::PickSecondBuyableAssetsController < ApplicationContro
     @bot = current_user.bots.dca_dual_asset.new(sanitized_bot_config)
 
     if @bot.base0_asset_id.blank?
-      redirect_to new_bots_dca_dual_assets_pick_first_buyable_asset_path
+      redirect_to new_bots_dca_single_assets_pick_buyable_asset_path
     else
       @bot.base1_asset_id = nil
       @assets = asset_search_results(@bot, search_params[:query], :base_asset)
       nil if render_asset_page(bot: @bot, asset_field: :base1_asset_id)
     end
+  end
+
+  def demote_to_single
+    cfg = session[:bot_config] || {}
+    settings = cfg['settings'] || {}
+    base = settings['base0_asset_id'] || settings['base_asset_id']
+    session[:bot_config] = {
+      'label' => Bots::DcaSingleAsset.new.label,
+      'settings' => { 'base_asset_id' => base }.compact
+    }
+    redirect_to new_bots_dca_single_assets_pick_exchange_path
   end
 
   def create

@@ -1,6 +1,8 @@
 el:
     bot:
         api:
+            public_key_label: Κλειδί API
+            private_key_label: Secret API
             whitelist_ip_fallback_html: 'τη διεύθυνση IP του μηχανήματος όπου είναι εγκατεστημένο το Deltabadger. Αν τρέχει σε server, χρησιμοποίησε τη δημόσια IP του server. Αν είναι ο προσωπικός σου υπολογιστής, <a href="https://whatismyipaddress.com" target="_blank">δες την IP σου εδώ</a>'
             binance: &binance_config
                 instructions:

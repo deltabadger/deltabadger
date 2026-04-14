@@ -79,7 +79,7 @@ module Tax
 
     def csv_headers
       if wealth_snapshot?
-        return %w[reference_date asset amount value currency].map { |k| I18n.t("tax_report.headers.#{k}", default: k) }
+        return %w[reference_date asset amount value currency].map { |k| I18n.t("tax_report.headers.#{k}") }
       elsif pvct?
         keys = %w[date asset amount proceeds total_acquisition_cost portfolio_value gain_loss currency fee exchange tx_id]
       elsif weighted_average?
@@ -98,7 +98,7 @@ module Tax
         keys.push('tax_exempt', 'exempt_reason') if jurisdiction[:czech_exemptions]
       end
 
-      keys.map { |k| I18n.t("tax_report.headers.#{k}", default: k) }
+      keys.map { |k| I18n.t("tax_report.headers.#{k}") }
     end
 
     def csv_row(disposal)
@@ -140,7 +140,7 @@ module Tax
         ]
         row << disposal[:tax_exempt] if jurisdiction[:holding_exemption]
         row << disposal[:old_stock] if jurisdiction[:old_stock_cutoff]
-        row << I18n.t("tax_report.values.term_#{disposal[:term]}", default: disposal[:term]) if jurisdiction[:short_long_term]
+        row << I18n.t("tax_report.values.term_#{disposal[:term]}") if jurisdiction[:short_long_term]
         row << disposal[:matching_rule] if jurisdiction[:method].in?(%i[share_pooling fifo_4week])
         row << disposal[:period] if jurisdiction[:split_payment]
         row << disposal[:tax_rate] if jurisdiction[:tax_rate] || jurisdiction[:holding_tax_rate]
@@ -215,7 +215,7 @@ module Tax
         ]
       else
         # Summary row
-        label = I18n.t("tax_report.summary.#{row[:label]}", default: row[:label].humanize)
+        label = I18n.t("tax_report.summary.#{row[:label]}")
         label = "#{label} (#{row[:rate]})" if row[:rate]
         [nil, nil, label, row[:value], nil]
       end
@@ -278,14 +278,14 @@ module Tax
       later_proportion = 1 - initial_proportion
 
       csv << []
-      csv << [I18n.t('tax_report.summary.total_gains', default: 'Total gains'), gains.round(2)]
-      csv << [I18n.t('tax_report.summary.total_losses', default: 'Total losses'), losses.round(2)]
-      csv << [I18n.t('tax_report.summary.annual_exemption', default: 'Annual exemption'), exemption]
-      csv << [I18n.t('tax_report.summary.taxable_gains', default: 'Taxable gains'), taxable.round(2)]
-      csv << [I18n.t('tax_report.summary.cgt_33', default: 'CGT (33%)'), cgt]
-      csv << ["  #{I18n.t('tax_report.summary.due_dec_15', default: 'Due Dec 15 (Jan-Nov gains)')}",
+      csv << [I18n.t('tax_report.summary.total_gains'), gains.round(2)]
+      csv << [I18n.t('tax_report.summary.total_losses'), losses.round(2)]
+      csv << [I18n.t('tax_report.summary.annual_exemption'), exemption]
+      csv << [I18n.t('tax_report.summary.taxable_gains'), taxable.round(2)]
+      csv << [I18n.t('tax_report.summary.cgt_33'), cgt]
+      csv << ["  #{I18n.t('tax_report.summary.due_dec_15')}",
               (cgt * initial_proportion).round(2)]
-      csv << ["  #{I18n.t('tax_report.summary.due_jan_31', default: 'Due Jan 31 (Dec gains)')}",
+      csv << ["  #{I18n.t('tax_report.summary.due_jan_31')}",
               (cgt * later_proportion).round(2)]
     end
 
@@ -309,12 +309,12 @@ module Tax
       tax = (net * 0.1).round(2)
 
       csv << []
-      csv << [I18n.t('tax_report.summary.total_gains', default: 'Total gains'), gains.round(2)]
-      csv << [I18n.t('tax_report.summary.total_losses', default: 'Total losses'), losses.round(2)]
-      csv << [I18n.t('tax_report.summary.expense_deduction', default: 'Expense deduction'),
+      csv << [I18n.t('tax_report.summary.total_gains'), gains.round(2)]
+      csv << [I18n.t('tax_report.summary.total_losses'), losses.round(2)]
+      csv << [I18n.t('tax_report.summary.expense_deduction'),
               total_deduction.round(2), "#{(rate * 100).to_i}%"]
-      csv << [I18n.t('tax_report.summary.taxable_income', default: 'Taxable income'), net.round(2)]
-      csv << [I18n.t('tax_report.summary.tax_10', default: 'Tax (10%)'), tax]
+      csv << [I18n.t('tax_report.summary.taxable_income'), net.round(2)]
+      csv << [I18n.t('tax_report.summary.tax_10'), tax]
     end
 
     def append_flat_tax_summary(csv, results)
@@ -326,10 +326,10 @@ module Tax
       pct = (rate * 100).to_i
 
       csv << []
-      csv << [I18n.t('tax_report.summary.total_gains', default: 'Total gains'), gains.round(2)]
-      csv << [I18n.t('tax_report.summary.total_losses', default: 'Total losses'), losses.round(2)]
-      csv << [I18n.t('tax_report.summary.taxable_income', default: 'Taxable income'), net.round(2)]
-      csv << [I18n.t("tax_report.summary.tax_#{pct}", default: "Tax (#{pct}%)"), tax]
+      csv << [I18n.t('tax_report.summary.total_gains'), gains.round(2)]
+      csv << [I18n.t('tax_report.summary.total_losses'), losses.round(2)]
+      csv << [I18n.t('tax_report.summary.taxable_income'), net.round(2)]
+      csv << [I18n.t('tax_report.summary.tax_percent', pct: pct), tax]
     end
 
     def apply_holding_tax_rate(disposals)
@@ -371,17 +371,17 @@ module Tax
       taxable = [total_gain - exempt_gains, 0].max
 
       csv << []
-      csv << [I18n.t('tax_report.summary.total_proceeds', default: 'Total proceeds'), total_proceeds.round(2)]
-      csv << [I18n.t('tax_report.summary.total_costs', default: 'Total costs'), total_costs.round(2)]
-      csv << [I18n.t('tax_report.summary.total_gain', default: 'Total gain'), total_gain.round(2)]
-      csv << [I18n.t('tax_report.summary.exempt_time_test', default: 'Exempt (time test)'), exempt_time.round(2)]
+      csv << [I18n.t('tax_report.summary.total_proceeds'), total_proceeds.round(2)]
+      csv << [I18n.t('tax_report.summary.total_costs'), total_costs.round(2)]
+      csv << [I18n.t('tax_report.summary.total_gain'), total_gain.round(2)]
+      csv << [I18n.t('tax_report.summary.exempt_time_test'), exempt_time.round(2)]
       value_label = if value_test_passed
-                      I18n.t('tax_report.summary.yes', default: 'Yes')
+                      I18n.t('tax_report.summary.yes')
                     else
-                      I18n.t('tax_report.summary.no', default: 'No')
+                      I18n.t('tax_report.summary.no')
                     end
-      csv << [I18n.t('tax_report.summary.exempt_value_test', default: 'Exempt (value test)'), value_label]
-      csv << [I18n.t('tax_report.summary.taxable_gain', default: 'Taxable gain'), taxable.round(2)]
+      csv << [I18n.t('tax_report.summary.exempt_value_test'), value_label]
+      csv << [I18n.t('tax_report.summary.taxable_gain'), taxable.round(2)]
     end
 
     ACQUISITION_ENTRY_TYPES = %w[buy deposit swap_in staking_reward lending_interest airdrop mining other_income].freeze
@@ -425,10 +425,9 @@ module Tax
 
     def append_warnings(csv)
       csv << []
-      csv << ["WARNING: #{I18n.t('tax_report.warnings.missing_prices', default: 'Missing historical prices for')}:"]
+      csv << ["WARNING: #{I18n.t('tax_report.warnings.missing_prices')}:"]
       @price_service.warnings.uniq.each { |w| csv << [w] }
-      csv << [I18n.t('tax_report.warnings.upgrade_hint',
-                     default: 'Upgrade your CoinGecko plan or use deltabadger.com for full historical data.')]
+      csv << [I18n.t('tax_report.warnings.upgrade_hint')]
     end
   end
 end
