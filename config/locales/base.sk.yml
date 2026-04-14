@@ -95,12 +95,15 @@ sk:
         earn: 'Zárobok'
         resend_link: 'Odoslať znova'
         rules: Pravidlá
-        tracker: Prehľady
+        tracker: Tracker
         settings: Nastavenia
         connections: Pripojiť
         account: Účet
         sign_up: 'Registrácia'
     settings:
+        advanced_bots:
+            title: Pokročilí boti
+            toggle_label: Zobraziť pokročilých botov
         language_and_timezone:
             title: 'Jazyk a časové pásmo'
             language_updated: "Jazyk bol aktualizovaný."
@@ -386,6 +389,12 @@ sk:
             instructions_title: 'Ako získať kľúče z %{exchange}'
             instructions_body: 'Vytvorte API kľúč s oprávnením na výber na %{exchange} a vložte prihlasovacie údaje sem.'
     tracker:
+        sync_key_error_html: 'Synchronizácia s <strong>%{exchange}</strong> zlyhala: %{message}. Aktualizuj API kľúč nižšie.'
+        pricing_warning_html: Zostatky synchronizované, ale ceny v USD nie sú momentálne dostupné (%{message}). Graf použije posledné známe ceny, kým sa služba neobnoví.
+        portfolio:
+            never_synced: Klikni na „Synchronizovať", aby si načítal svoje portfólio.
+            no_balances: Na pripojených burzách sa nenašli žiadne zostatky.
+            unpriced: 'Cena nie je dostupná pre: %{assets}'
         sync: 'Synchronizovať'
         sync_started: 'Synchronizácia transakcií z vašich búrz...'
         importing_from: 'Import dát z %{exchange}…'
@@ -464,6 +473,9 @@ sk:
         cancelled: 'Zrušené'
         waiting: 'Naplánované'
     tax_report:
+        warnings:
+            missing_prices: Chýbajú historické ceny pre
+            upgrade_hint: Aktualizuj svoj plán CoinGecko alebo použi deltabadger.com pre kompletné historické dáta.
         headers:
             date: 'Dátum'
             asset: 'Aktívum'
@@ -491,6 +503,7 @@ sk:
             period: 'Obdobie'
         no_taxable_transactions: 'Za toto obdobie neboli nájdené žiadne zdaniteľné transakcie.'
         summary:
+            tax_percent: Daň (%{pct}%)
             total_value: 'Celková hodnota'
             allowance: 'Nezdaniteľná čiastka'
             taxable_wealth: 'Zdaniteľný majetok'

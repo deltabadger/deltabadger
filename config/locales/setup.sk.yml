@@ -8,7 +8,6 @@ sk:
                 exchange: "Burza"
                 spendable: "Mena"
                 api: "Pripojit burzu"
-                schedule: "Nastavit rozvrh"
                 coingecko: "Pripojit CoinGecko"
                 index: "Vybrat index"
                 pick_asset: "Vybrat aktivum"

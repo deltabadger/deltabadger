@@ -8,7 +8,6 @@ en:
                 exchange: "Exchange"
                 spendable: "Currency"
                 api: "Connect exchange"
-                schedule: "Set schedule"
                 coingecko: "Connect CoinGecko"
                 index: "Pick index"
                 pick_asset: "Pick asset"

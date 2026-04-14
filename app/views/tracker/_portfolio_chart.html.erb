@@ -1,0 +1,41 @@
+<%
+  slices = (@portfolio_slices || []).map do |s|
+    {
+      label: s[:asset].symbol,
+      symbol: s[:asset].symbol,
+      name: s[:asset].name,
+      value: s[:usd_value].to_f,
+      color: s[:asset].color.presence || '#888888'
+    }
+  end
+%>
+<%= turbo_frame_tag 'tracker-portfolio-chart', class: 'tracker-portfolio' do %>
+  <% if @portfolio_never_synced %>
+    <div class="tracker-portfolio__empty">
+      <%= t('tracker.portfolio.never_synced') %>
+    </div>
+  <% elsif slices.empty? && (@portfolio_unpriced_assets || []).empty? %>
+    <% if @portfolio_has_keys %>
+      <div class="tracker-portfolio__empty">
+        <%= t('tracker.portfolio.no_balances') %>
+      </div>
+    <% end %>
+  <% else %>
+    <% if slices.any? %>
+      <div data-controller="donut-chart"
+           data-donut-chart-data-value="<%= slices.to_json %>"
+           class="tracker-portfolio__chart">
+        <svg data-donut-chart-target="svg"
+             style="width: 100%; display: block; margin: 0 auto;"></svg>
+        <div data-donut-chart-target="legend" class="pie-legend"></div>
+      </div>
+    <% end %>
+
+    <% if (@portfolio_unpriced_assets || []).any? %>
+      <div class="tracker-portfolio__unpriced">
+        <%= t('tracker.portfolio.unpriced',
+              assets: @portfolio_unpriced_assets.map(&:symbol).join(', ')) %>
+      </div>
+    <% end %>
+  <% end %>
+<% end %>

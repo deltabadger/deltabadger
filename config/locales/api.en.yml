@@ -1,6 +1,8 @@
 en:
     bot:
         api:
+            public_key_label: API Key
+            private_key_label: API Secret
             whitelist_ip_fallback_html: 'the IP address of the machine where Deltabadger is installed. If running on a server, use the server''s public IP. If it''s your local computer <a href="https://whatismyipaddress.com" target="_blank">check your IP here</a>'
             binance: &binance_config
                 instructions:

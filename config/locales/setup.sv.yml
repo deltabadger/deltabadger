@@ -8,7 +8,6 @@ sv:
                 exchange: "Börs"
                 spendable: "Valuta"
                 api: "Anslut börs"
-                schedule: "Ange schema"
                 coingecko: "Anslut CoinGecko"
                 index: "Välj index"
                 pick_asset: "Välj tillgång"

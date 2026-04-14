@@ -37,7 +37,6 @@
     // filter: drop-shadow(0 0 10rem #0000000f)
 
 .dialogview
-    background: var(--paper)
     border: none
     width: 100vw
     height: 100vh
@@ -59,23 +58,29 @@
             top:   3rem
             right: 3rem
     &__vertical-center
+        position: relative
         height: 100vh
         max-width: 100rem
         width: 100%
-        padding: 2rem 0
+        background: var(--washed)
+        overflow: hidden
         @media screen and (min-width: 768px)
-            padding: 4rem 0
-    .modal--search__assets
-        max-height: none !important
+            border-radius: 2rem
+            filter: drop-shadow(0 0 10rem #0000000f)
+            top: 0
+            max-height: calc(100vh - 4rem)
     .sinput:not(.widget *)
         background: var(--washed)
 #modal
-    .modal
+    .modal,
+    .dialogview__vertical-center
         opacity: 0
     &[complete]
-        .modal
+        .modal,
+        .dialogview__vertical-center
             animation: modal-zoom-in 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.075) both
-    .modal--closing
+    .modal--closing,
+    .dialogview__vertical-center--closing
         animation: modal-zoom-out 0.15s ease-in both !important
 
 @keyframes modal-zoom-in
@@ -110,7 +115,7 @@
             width: 104rem
         &--large,&--xlarge
             width: 156rem
-    &--xlarge
+    &--xlarge,&--medium
         background: none
         padding: 1rem 0 0
         @media screen and (min-width: 768px)
@@ -226,7 +231,6 @@
         &::placeholder
             color: var(--modal-search-placeholder)
     &__assets
-        max-height: 56.875rem !important
         display: block
         scrollbar-width: none
         .loader
@@ -236,26 +240,23 @@
                 display: block
         &__item
             @media screen and (min-width: 768px)
-                border-radius: var(--ui-radius)
             &:last-child
                 border-bottom: none !important
             &:hover
-                background: var(--washed)
-                box-shadow: var(--shadow-basic)
+                background: var(--silver)
             &__highlight
-                background: var(--washed) !important
-                box-shadow: var(--shadow-basic)
-                border-radius: var(--ui-radius)
+                background: var(--silver) !important
                 &:hover
-                    background: var(--washed) !important    
-                    box-shadow: var(--shadow-basic)
+                    background: var(--silver) !important    
             button
                 background: none
                 border: none
                 display: grid
-                grid-template-columns: 13.25rem 1fr 1fr
+                grid-template-columns: 11.25rem 1fr 1fr
                 width: 100%
                 cursor: pointer
+                @media (min-width: 768px)
+                    grid-template-columns: 15.25rem 1fr 1fr
     &__cell
         font-size: 1.75rem
         text-align: left
@@ -267,6 +268,8 @@
         text-wrap: nowrap
         @media screen and (min-width: 768px)
             line-height: 3.5rem
+            &:first-child
+                padding-left: 4rem
         &--ticker
             font-weight: 600
             color: var(--ink)
@@ -288,6 +291,8 @@
             color: var(--stone)
             text-align: end
             padding-right: 2.5rem
+            @media (min-width: 768px)
+                padding-right: 4rem
             svg
                 width: 2rem
                 height: 2rem
@@ -310,13 +315,20 @@
     &__illustration
         width: 16rem !important
         display: block
-        @media screen and (min-width: 786px)
+        @media screen and (min-width: 768px)
             width: 24rem !important
-    @media screen and (min-width: 786px)
+    @media screen and (min-width: 768px)
         padding: 6rem 4rem 4rem
         flex-direction: row
         padding: 10rem
         gap: 8rem
+
+.selectable-options
+    overflow: scroll
+    max-height: calc(100vh - 18rem)
+    @media (min-width: 768px)
+        max-height: calc(100vh - 32rem)
+
 .selectable-options:hover
     .modal--search__assets__item__highlight 
         background: none !important

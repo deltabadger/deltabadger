@@ -7,7 +7,7 @@
       <div class="set-api__form">
         <h2 class="set-api__header"><%= t('setup.coingecko_api_key') %></h2>
         <p><%= t('tracker.setup_coingecko_html') %></p>
-        <%= form_with url: setup_coingecko_reports_path, method: :post, data: {
+        <%= form_with url: setup_coingecko_tracker_path, method: :post, data: {
           controller: 'form--label-animations form--html5-validations',
           action: 'turbo:submit-end->modal--base#submitEnd'
         }, class: 'form' do |f| %>

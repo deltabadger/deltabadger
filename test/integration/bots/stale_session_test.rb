@@ -88,17 +88,11 @@ class Bots::StaleSessionTest < ActionDispatch::IntegrationTest
     follow_redirect!
     follow_redirect! # skip API key
 
-    post bots_dca_single_assets_pick_spendable_asset_path, params: {
-      bots_dca_single_asset: { quote_asset_id: @usd.id }
-    }
-    follow_redirect!
-
-    post bots_dca_single_assets_confirm_settings_path, params: {
-      bots_dca_single_asset: { quote_amount: 100, interval: 'day' }
-    }, as: :turbo_stream
-
+    # Picking the spendable asset persists the bot in :created state — no confirm step.
     assert_difference 'Bots::DcaSingleAsset.count', 1 do
-      post bots_dca_single_assets_path, as: :turbo_stream
+      post bots_dca_single_assets_pick_spendable_asset_path, params: {
+        bots_dca_single_asset: { quote_asset_id: @usd.id }
+      }
     end
   end
 

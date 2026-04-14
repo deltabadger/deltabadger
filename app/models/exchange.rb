@@ -107,6 +107,19 @@ class Exchange < ApplicationRecord
     raise NotImplementedError, "#{self.class.name} must implement cancel_order"
   end
 
+  # Heuristic: does the given errors array look like an invalid-key / auth error?
+  # Used by sync jobs to decide whether to flip an API key's status to :incorrect
+  # when a live call (get_balances, get_ledger, etc.) fails.
+  def invalid_key_error?(errors)
+    invalid_messages = (known_errors[:invalid_key] || []).map(&:to_s)
+    return false if invalid_messages.empty?
+
+    Array(errors).any? do |err|
+      msg = err.to_s
+      invalid_messages.any? { |m| msg.include?(m) }
+    end
+  end
+
   def market_open?
     true
   end

@@ -8,7 +8,6 @@ da:
                 exchange: "Børs"
                 spendable: "Valuta"
                 api: "Forbind børs"
-                schedule: "Angiv tidsplan"
                 coingecko: "Forbind CoinGecko"
                 index: "Vælg indeks"
                 pick_asset: "Vælg aktiv"

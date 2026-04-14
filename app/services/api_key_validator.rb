@@ -8,7 +8,14 @@ class ApiKeyValidator < BaseService
     end
 
     api_key.update(status: 'correct')
+    enqueue_balance_sync(api_key)
     Result::Success.new
+  end
+
+  def enqueue_balance_sync(api_key)
+    return unless api_key.key_type == 'trading'
+
+    AccountBalance::SyncJob.perform_later(api_key.user_id, [api_key.id])
   end
 
   private

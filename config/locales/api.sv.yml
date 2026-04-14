@@ -1,6 +1,8 @@
 sv:
     bot:
         api:
+            public_key_label: API-nyckel
+            private_key_label: API-hemlighet
             whitelist_ip_fallback_html: 'IP-adressen till maskinen där Deltabadger är installerad. Om den körs på en server, använd serverns publika IP. Om det är din lokala dator <a href="https://whatismyipaddress.com" target="_blank">kontrollera din IP här</a>'
             binance: &binance_config
                 instructions:

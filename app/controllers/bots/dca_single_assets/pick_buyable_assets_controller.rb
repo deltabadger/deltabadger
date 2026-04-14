@@ -4,14 +4,25 @@ class Bots::DcaSingleAssets::PickBuyableAssetsController < ApplicationController
   include Bots::Searchable
 
   def new
-    session[:bot_config] = { 'label' => session.dig(:bot_config, 'label') || Bots::DcaSingleAsset.new.label }
+    # Idempotent: do not mutate session here. Turbo prefetches GET requests on
+    # hover, so any state mutation here would wipe wizard state from a link hover
+    # and cause the wizard to loop back to step 1.
+    session[:bot_config] ||= {}
+    session[:bot_config]['label'] ||= Bots::DcaSingleAsset.new.label
     @bot = current_user.bots.dca_single_asset.new(sanitized_bot_config)
+    # Clear any previously-picked base in memory so the list isn't filtered against it —
+    # coming back to step 1 should show the full set, including the current pick.
+    @bot.base_asset_id = nil
     @assets = asset_search_results(@bot, search_params[:query], :base_asset)
     nil if render_asset_page(bot: @bot, asset_field: :base_asset_id)
   end
 
   def create
     if bot_params[:base_asset_id].present?
+      # Re-picking the first asset means restarting the wizard: drop any
+      # downstream state (exchange, quote, second asset) before storing the new pick.
+      label = session.dig(:bot_config, 'label') || Bots::DcaSingleAsset.new.label
+      session[:bot_config] = { 'label' => label }
       bot = current_user.bots.dca_single_asset.new(sanitized_bot_config)
       session[:bot_config].deep_merge!({ settings: bot.parse_params(bot_params) }.deep_stringify_keys)
 

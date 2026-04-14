@@ -95,12 +95,15 @@ pl:
         earn: 'Zarabiaj'
         resend_link: 'Wyślij link'
         rules: Reguły
-        tracker: Reports
+        tracker: Tracker
         settings: Ustawienia
         connections: Połącz
         account: Konto
         sign_up: 'Stwórz konto'
     settings:
+        advanced_bots:
+            title: Zaawansowane boty
+            toggle_label: Pokaż zaawansowane boty
         language_and_timezone:
             title: 'Język i strefa czasowa'
             language_updated: 'Twój język został zaktualizowany.'
@@ -366,6 +369,12 @@ pl:
             instructions_title: 'Jak uzyskać klucze z %{exchange}'
             instructions_body: 'Utwórz klucz API z uprawnieniami do wypłat na %{exchange} i wklej tutaj dane uwierzytelniające.'
     tracker:
+        sync_key_error_html: 'Synchronizacja z <strong>%{exchange}</strong> nie powiodła się: %{message}. Zaktualizuj klucz API poniżej.'
+        pricing_warning_html: Salda zsynchronizowane, ale ceny w USD są chwilowo niedostępne (%{message}). Wykres użyje ostatnich znanych cen do czasu przywrócenia wyceny.
+        portfolio:
+            never_synced: Kliknij „Synchronizuj", aby załadować portfel.
+            no_balances: Nie znaleziono sald na podłączonych giełdach.
+            unpriced: 'Cena niedostępna dla: %{assets}'
         sync: 'Synchronizuj'
         sync_started: 'Synchronizacja transakcji z twoich giełd...'
         importing_from: 'Importowanie danych z %{exchange}…'
@@ -435,6 +444,14 @@ pl:
         cancelled: 'Anulowane'
         waiting: 'Oczekujące'
     tax_report:
+        warnings:
+            missing_prices: Brak historycznych cen dla
+            upgrade_hint: Zaktualizuj plan CoinGecko lub użyj deltabadger.com, aby uzyskać pełne dane historyczne.
+        summary:
+            total_gains: Łączne zyski
+            total_losses: Łączne straty
+            taxable_income: Dochód do opodatkowania
+            tax_percent: Podatek (%{pct}%)
         headers:
             date: 'Data'
             asset: 'Aktywo'

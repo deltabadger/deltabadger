@@ -23,6 +23,17 @@ class Bots::DcaSingleAssets::PickExchangesController < ApplicationController
     end
   end
 
+  def promote_to_dual
+    cfg = session[:bot_config] || {}
+    settings = cfg['settings'] || {}
+    base = settings.delete('base_asset_id') || settings['base0_asset_id']
+    session[:bot_config] = {
+      'label' => Bots::DcaDualAsset.new.label,
+      'settings' => { 'base0_asset_id' => base }.compact
+    }
+    redirect_to new_bots_dca_dual_assets_pick_second_buyable_asset_path
+  end
+
   private
 
   def search_params

@@ -94,12 +94,15 @@ da:
         earn: 'Tjen'
         resend_link: 'Send link igen'
         rules: Regler
-        tracker: Rapporter
+        tracker: Tracker
         settings: Indstillinger
         connections: Forbind
         account: Konto
         sign_up: 'Opret konto'
     settings:
+        advanced_bots:
+            title: Avancerede bots
+            toggle_label: Vis avancerede bots
         language_and_timezone:
             title: 'Sprog og tidszone'
             language_updated: "Dit sprog er blevet opdateret."
@@ -379,6 +382,12 @@ da:
             instructions_title: 'Sådan får du nøgler fra %{exchange}'
             instructions_body: 'Opret en udbetalingsaktiveret API-nøgle på %{exchange} og indsæt legitimationsoplysningerne her.'
     tracker:
+        sync_key_error_html: 'Synkronisering med <strong>%{exchange}</strong> mislykkedes: %{message}. Opdatér API-nøglen nedenfor.'
+        pricing_warning_html: Saldi synkroniseret, men USD-priser er ikke tilgængelige lige nu (%{message}). Diagrammet bruger de sidst kendte priser, indtil prissætningen er genoprettet.
+        portfolio:
+            never_synced: Klik på „Synkronisér" for at indlæse din portefølje.
+            no_balances: Ingen saldi fundet på dine tilknyttede børser.
+            unpriced: 'Pris ikke tilgængelig for: %{assets}'
         sync: 'Synkronisér'
         sync_started: 'Synkroniserer transaktioner fra dine børser...'
         importing_from: 'Importerer data fra %{exchange}…'
@@ -457,6 +466,9 @@ da:
         cancelled: 'Annulleret'
         waiting: 'Planlagt'
     tax_report:
+        warnings:
+            missing_prices: Manglende historiske priser for
+            upgrade_hint: Opgradér dit CoinGecko-abonnement, eller brug deltabadger.com for fuld historik.
         headers:
             date: 'Dato'
             asset: 'Aktiv'
@@ -484,6 +496,11 @@ da:
             period: 'Periode'
         no_taxable_transactions: 'Ingen skattepligtige transaktioner fundet for denne periode.'
         summary:
+            gains_box_20: Gevinster (rubrik 20)
+            losses_box_58: Tab (rubrik 58)
+            deduction: fradrag
+            denied_losses: Afviste tab
+            tax_percent: Skat (%{pct}%)
             total_value: 'Samlet værdi'
             allowance: 'Skattefrit fradrag'
             taxable_wealth: 'Skattepligtig formue'

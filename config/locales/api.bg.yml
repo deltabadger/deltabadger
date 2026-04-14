@@ -1,6 +1,8 @@
 bg:
     bot:
         api:
+            public_key_label: API ключ
+            private_key_label: API секрет
             whitelist_ip_fallback_html: 'IP адреса на компютъра, на който е инсталиран Deltabadger. Ако работи на сървър, използвайте публичния IP на сървъра. Ако е на локалния ви компютър, <a href="https://whatismyipaddress.com" target="_blank">проверете IP адреса си тук</a>'
             binance: &binance_config
                 instructions:

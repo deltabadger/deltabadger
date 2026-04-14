@@ -7,7 +7,7 @@
       <h1 class="modal__title"><%= t('tracker.export_modal.title') %></h1>
     </div>
 
-    <div class="modal__form" data-controller="tracker-export" data-tracker-export-save-url="<%= save_export_settings_reports_path %>">
+    <div class="modal__form" data-controller="tracker-export" data-tracker-export-save-url="<%= save_export_settings_tracker_path %>">
       <div class="flex form__row flex-center gap-3">
         <label class="form__radio-group">
           <input type="radio" name="export_type" value="tax_report"
@@ -29,7 +29,7 @@
         <div class="form__row form__row--input">
           <select name="country" class="form__input" data-tracker-export-target="country" data-action="change->tracker-export#changeCountry">
             <% @jurisdictions.each do |code, config| %>
-              <option value="<%= code %>" <%= 'selected' if @settings['country'] == code %> data-stablecoin-ambiguous="<%= config.fetch(:stablecoin_ambiguous, false) %>"><%= t("tracker.export_modal.countries.#{code}", default: config[:name]) %></option>
+              <option value="<%= code %>" <%= 'selected' if @settings['country'] == code %> data-stablecoin-ambiguous="<%= config.fetch(:stablecoin_ambiguous, false) %>"><%= t("tracker.export_modal.countries.#{code}") %></option>
             <% end %>
           </select>
           <label class="form__label form__label--active"><%= t('tracker.export_modal.country') %></label>
@@ -71,8 +71,8 @@
       <a href="#" class="button button--success button--large"
          data-action="click->tracker-export#download"
          data-tracker-export-target="downloadBtn"
-         data-transactions-url="<%= export_reports_path %>"
-         data-tax-report-url="<%= tax_report_reports_path %>"
+         data-transactions-url="<%= export_tracker_path %>"
+         data-tax-report-url="<%= tax_report_tracker_path %>"
          data-label-generate="<%= t('tracker.export_modal.generate') %>"
          data-label-download="<%= t('tracker.export_modal.download_label') %>">
         <%= @settings['export_type'] == 'transactions' ? t('tracker.export_modal.download_label') : t('tracker.export_modal.generate') %>

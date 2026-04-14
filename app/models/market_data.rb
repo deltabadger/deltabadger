@@ -137,6 +137,32 @@ class MarketData
     end
   end
 
+  # Batch price lookup for multiple coins.
+  # Prefers the Data API when available; falls back to CoinGecko on failure or
+  # when Data API is not configured. Returns Result::Success with a hash of
+  # { coin_id => price_float }. Missing coins are simply absent from the hash.
+  def self.get_prices(coin_ids:, currency: 'usd')
+    coin_ids = Array(coin_ids).compact.uniq
+    return Result::Success.new({}) if coin_ids.empty?
+
+    if MarketDataSettings.deltabadger?
+      result = client.get_prices(coin_ids: coin_ids, vs_currencies: [currency])
+      if result.success?
+        prices = coin_ids.each_with_object({}) do |id, h|
+          price = result.data.dig('data', id, currency)
+          h[id] = price.to_f if price
+        end
+        return Result::Success.new(prices)
+      end
+
+      Rails.logger.warn("[MarketData] Data API get_prices failed, falling back to CoinGecko: #{result.errors.join(', ')}")
+    end
+
+    return coingecko.get_prices(coin_ids: coin_ids, currency: currency) if AppConfig.coingecko_configured?
+
+    Result::Failure.new('No market data provider available for prices')
+  end
+
   def self.get_historical_price_range(coin_id:, currency:, from:, to:)
     case MarketDataSettings.current_provider
     when MarketDataSettings::PROVIDER_COINGECKO

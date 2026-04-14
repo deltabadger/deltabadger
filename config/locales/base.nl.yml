@@ -93,12 +93,15 @@ nl:
         earn: Verdien
         resend_link: 'Link verzenden'
         rules: Regels
-        tracker: Reports
+        tracker: Tracker
         settings: Instellingen
         connections: Verbinden
         account: Account
         sign_up: Registreren
     settings:
+        advanced_bots:
+            title: Geavanceerde bots
+            toggle_label: Geavanceerde bots tonen
         language_and_timezone:
             title: 'Taal & Tijdzone'
             language_updated: 'Uw taal is bijgewerkt.'
@@ -364,6 +367,12 @@ nl:
             instructions_title: 'Hoe u sleutels van %{exchange} verkrijgt'
             instructions_body: 'Maak een API-sleutel met opnamerechten aan op %{exchange} en plak de gegevens hier.'
     tracker:
+        sync_key_error_html: 'Synchroniseren met <strong>%{exchange}</strong> mislukt: %{message}. Werk de API-sleutel hieronder bij.'
+        pricing_warning_html: Saldi gesynchroniseerd, maar USD-prijzen zijn nu niet beschikbaar (%{message}). De grafiek gebruikt de laatst bekende prijzen tot de prijsbepaling is hersteld.
+        portfolio:
+            never_synced: Klik op Synchroniseren om je portefeuille te laden.
+            no_balances: Geen saldo gevonden op je gekoppelde exchanges.
+            unpriced: 'Prijs niet beschikbaar voor: %{assets}'
         sync: 'Synchroniseren'
         sync_started: 'Transacties worden gesynchroniseerd van je exchanges...'
         importing_from: 'Gegevens worden geïmporteerd van %{exchange}…'
@@ -433,6 +442,9 @@ nl:
         cancelled: 'Geannuleerd'
         waiting: 'Gepland'
     tax_report:
+        warnings:
+            missing_prices: Historische prijzen ontbreken voor
+            upgrade_hint: Upgrade je CoinGecko-abonnement of gebruik deltabadger.com voor volledige historische data.
         headers:
             date: 'Datum'
             asset: 'Activum'
@@ -455,6 +467,7 @@ nl:
             reference_date: 'Peildatum'
         no_taxable_transactions: 'Geen belastbare transacties gevonden voor deze periode.'
         summary:
+            tax_percent: Belasting (%{pct}%)
             total_value: 'Totale waarde'
             allowance: 'Heffingsvrij vermogen'
             taxable_wealth: 'Belastbaar vermogen'

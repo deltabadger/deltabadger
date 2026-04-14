@@ -22,12 +22,16 @@ export default class extends Controller {
     document.addEventListener("turbo:before-stream-render", this.#handleStreamEvent);
     document.addEventListener("turbo:before-frame-render", this.#handleFrameEvent);
     document.addEventListener("turbo:submit-end", this.#trackFormSubmission);
+    document.addEventListener("click", this.#handleClickEvent, true);
+    document.addEventListener("submit", this.#handleClickEvent, true);
   }
 
   disconnect() {
     document.removeEventListener("turbo:before-stream-render", this.#handleStreamEvent);
     document.removeEventListener("turbo:before-frame-render", this.#handleFrameEvent);
     document.removeEventListener("turbo:submit-end", this.#trackFormSubmission);
+    document.removeEventListener("click", this.#handleClickEvent, true);
+    document.removeEventListener("submit", this.#handleClickEvent, true);
   }
 
   #trackFormSubmission = (event) => {
@@ -43,12 +47,35 @@ export default class extends Controller {
   }
 
   #handleFrameEvent = (event) => {
-    if (this.lastFormSubmissionSuccessful !== false) {
-      this.#animateElementToRemove(event.detail.newFrame.id, "", event);
-      this.#animateElementToAdd(event.detail.newFrame, "");
-    } else {
+    if (this.lastFormSubmissionSuccessful === false) {
       this.lastFormSubmissionSuccessful = null;
+      return;
     }
+
+    // Wrap the wizard frame swap in a View Transition so named parts
+    // (conversational sentence + step body) can morph / slide.
+    if (event.target.id === "modal_content" && document.startViewTransition) {
+      const originalRender = event.detail.render;
+      event.detail.render = (currentElement, newElement) => {
+        const transition = document.startViewTransition(() => originalRender(currentElement, newElement));
+        transition.finished.finally(() => {
+          delete document.documentElement.dataset.wizardDir;
+        });
+      };
+      return;
+    }
+
+    // Fallback: existing class-based animate-in/out path.
+    this.#animateElementToRemove(event.detail.newFrame.id, "", event);
+    this.#animateElementToAdd(event.detail.newFrame, "");
+  }
+
+  // Set the wizard direction flag *before* Turbo kicks off the transition, so the
+  // CSS in _wizard-transitions.sass can pick the matching slide direction.
+  #handleClickEvent = (event) => {
+    const trigger = event.target.closest("[data-wizard-dir]");
+    if (!trigger) return;
+    document.documentElement.dataset.wizardDir = trigger.dataset.wizardDir;
   }
 
   #capitalizeAction(action) {

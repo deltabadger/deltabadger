@@ -1,6 +1,8 @@
 sk:
     bot:
         api:
+            public_key_label: API kľúč
+            private_key_label: API tajný kľúč
             whitelist_ip_fallback_html: 'IP adresu počítača, na ktorom je Deltabadger nainštalovaný. Ak beží na serveri, použite verejnú IP servera. Ak ide o váš lokálny počítač, <a href="https://whatismyipaddress.com" target="_blank">zistite svoju IP tu</a>'
             binance: &binance_config
                 instructions:

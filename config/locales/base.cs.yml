@@ -95,12 +95,15 @@ cs:
         earn: 'Výdělek'
         resend_link: 'Odeslat znovu'
         rules: Pravidla
-        tracker: Přehledy
+        tracker: Tracker
         settings: Nastavení
         connections: Připojit
         account: Účet
         sign_up: 'Registrace'
     settings:
+        advanced_bots:
+            title: Pokročilí boti
+            toggle_label: Zobrazit pokročilé boty
         language_and_timezone:
             title: 'Jazyk a časové pásmo'
             language_updated: "Jazyk byl aktualizován."
@@ -386,6 +389,12 @@ cs:
             instructions_title: 'Jak získat klíče z %{exchange}'
             instructions_body: 'Vytvořte API klíč s oprávněním pro výběr na %{exchange} a vložte přihlašovací údaje sem.'
     tracker:
+        sync_key_error_html: 'Synchronizace s <strong>%{exchange}</strong> selhala: %{message}. Aktualizuj API klíč níže.'
+        pricing_warning_html: Zůstatky synchronizovány, ale ceny v USD teď nejsou dostupné (%{message}). Graf použije poslední známé ceny, dokud se služba neobnoví.
+        portfolio:
+            never_synced: Klikni na „Synchronizovat", abys načetl své portfolio.
+            no_balances: Na připojených burzách nebyly nalezeny žádné zůstatky.
+            unpriced: 'Cena není k dispozici pro: %{assets}'
         sync: 'Synchronizovat'
         sync_started: 'Synchronizace transakcí z vašich burz...'
         importing_from: 'Import dat z %{exchange}…'
@@ -464,6 +473,9 @@ cs:
         cancelled: 'Zrušené'
         waiting: 'Naplánované'
     tax_report:
+        warnings:
+            missing_prices: Chybějí historické ceny pro
+            upgrade_hint: Aktualizuj svůj CoinGecko plán nebo použij deltabadger.com pro kompletní historická data.
         headers:
             date: 'Datum'
             asset: 'Aktivum'
@@ -491,6 +503,15 @@ cs:
             period: 'Období'
         no_taxable_transactions: 'Za toto období nebyly nalezeny žádné zdanitelné transakce.'
         summary:
+            total_proceeds: Celkové výnosy
+            total_costs: Celkové náklady
+            total_gain: Celkový zisk
+            exempt_time_test: Osvobozeno (časový test)
+            exempt_value_test: Osvobozeno (hodnotový test)
+            taxable_gain: Zdanitelný zisk
+            yes: Ano
+            no: Ne
+            tax_percent: Daň (%{pct}%)
             total_value: 'Celková hodnota'
             allowance: 'Nezdanitelná částka'
             taxable_wealth: 'Zdanitelný majetek'

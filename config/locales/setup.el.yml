@@ -8,7 +8,6 @@ el:
                 exchange: "Ανταλλακτήριο"
                 spendable: "Νόμισμα"
                 api: "Σύνδεση ανταλλακτηρίου"
-                schedule: "Ορισμός προγράμματος"
                 coingecko: "Σύνδεση CoinGecko"
                 index: "Επιλογή δείκτη"
                 pick_asset: "Επιλογή asset"

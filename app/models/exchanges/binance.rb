@@ -2,7 +2,7 @@ class Exchanges::Binance < Exchange
   COINGECKO_ID = 'binance'.freeze # https://docs.coingecko.com/reference/exchanges-list
   ERRORS = {
     insufficient_funds: ['Account has insufficient balance for requested action.'],
-    invalid_key: ['API-key format invalid.', 'Invalid API-key, IP, or permissions for action.']
+    invalid_key: ['API-key format invalid.', 'Invalid API-key, IP, or permissions for action.', 'Invalid Api-Key ID.']
   }.freeze # https://developers.binance.com/docs/binance-spot-api-docs/errors
   ERROR_CODES = {
     invalid_key: [-2014, -2015]

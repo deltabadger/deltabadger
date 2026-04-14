@@ -4,11 +4,11 @@
         <%= form_with model: api_key, url: path, method: :post, data: form_data, class: "form" do |f| %>
           <div class="form__row form__row--input">
             <%= f.text_field :key, autofocus: true, autocomplete: "off", data: { controller: "autofocus" }, class: "form__input form__input--large", rows: 3 %>
-            <%= f.label :key, t("bot.api.#{exchange.name_id}.public_key", default: "API Key"), class: "form__label" %>
+            <%= f.label :key, api_key_field_label(exchange, :public_key), class: "form__label" %>
           </div>
           <div class="form__row form__row--input">
             <%= f.text_field :secret, autocomplete: "off", class: "form__input form__input--large", rows: 3 %>
-            <%= f.label :secret, t("bot.api.#{exchange.name_id}.private_key", default: "API Secret"), class: "form__label" %>
+            <%= f.label :secret, api_key_field_label(exchange, :private_key), class: "form__label" %>
           </div>
           <% if exchange.is_a?(Exchanges::Alpaca) %>
             <div class="form__row form__row--input">

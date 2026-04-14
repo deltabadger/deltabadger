@@ -12,20 +12,17 @@
     = link_to bots_path, class: "menu-mobile__item menu-mobile__item--bots #{'menu-mobile__item--active' if current_page?(bots_path)}", data: { controller: 'tooltip', action: 'mouseenter->tooltip#showTooltip mouseleave->tooltip#hideTooltip' } do
       = t('links.bots')
 
+  = link_to tracker_path, class: "menu-mobile__item menu-mobile__item--tracker #{'menu-mobile__item--active' if current_page?(tracker_path)}", data: { controller: 'tooltip', action: 'mouseenter->tooltip#showTooltip mouseleave->tooltip#hideTooltip' } do
+    = t('links.tracker')
+
   = link_to rules_path, class: "menu-mobile__item menu-mobile__item--rules #{'menu-mobile__item--active' if current_page?(rules_path)}", data: { controller: 'tooltip', action: 'mouseenter->tooltip#showTooltip mouseleave->tooltip#hideTooltip' } do
     = t('links.rules')
-
-  = link_to reports_path, class: "menu-mobile__item menu-mobile__item--tracker #{'menu-mobile__item--active' if current_page?(reports_path)}", data: { controller: 'tooltip', action: 'mouseenter->tooltip#showTooltip mouseleave->tooltip#hideTooltip' } do
-    = t('links.tracker')
 
   = link_to settings_connect_path, class: "menu-mobile__item menu-mobile__item--connections #{'menu-mobile__item--active' if current_page?(settings_connect_path)}", data: { controller: 'tooltip', action: 'mouseenter->tooltip#showTooltip mouseleave->tooltip#hideTooltip' } do
     = t('links.connections')
 
   = link_to settings_account_path, class: "menu-mobile__item menu-mobile__item--account #{'menu-mobile__item--active' if current_page?(settings_account_path)}", data: { controller: 'tooltip', action: 'mouseenter->tooltip#showTooltip mouseleave->tooltip#hideTooltip' } do
     = t('links.account')
-
-  = link_to 'https://t.me/deltabadgerchat', class: "menu-mobile__item menu-mobile__item--community", data: { controller: 'tooltip', action: 'mouseenter->tooltip#showTooltip mouseleave->tooltip#hideTooltip' }, target: "_blank", rel: "noopener" do
-    = t('links.telegram')
 
   .menu-mobile__divider
   = button_to destroy_user_session_path, method: :delete, class: "menu-mobile__item menu-mobile__button", data: { turbo: false } do
@@ -50,15 +47,15 @@
         .tooltip
           = t('links.bots')
 
+    = link_to tracker_path, class: "menu__item menu__item--tracker #{'menu__item--active' if current_page?(tracker_path)}", data: { controller: 'tooltip', action: 'mouseenter->tooltip#showTooltip mouseleave->tooltip#hideTooltip' } do
+      = render 'svg/24x24_piechart'
+      .tooltip
+        = t('links.tracker')
+
     = link_to rules_path, class: "menu__item menu__item--rules #{'menu__item--active' if current_page?(rules_path)}", data: { controller: 'tooltip', action: 'mouseenter->tooltip#showTooltip mouseleave->tooltip#hideTooltip' } do
       = render 'svg/24x24_withdrawal'
       .tooltip
         = t('links.rules')
-
-    = link_to reports_path, class: "menu__item menu__item--tracker #{'menu__item--active' if current_page?(reports_path)}", data: { controller: 'tooltip', action: 'mouseenter->tooltip#showTooltip mouseleave->tooltip#hideTooltip' } do
-      = render 'svg/24x24_doc'
-      .tooltip
-        = t('links.tracker')
 
   .menu__section.menu__section--bottom
     .dropdown-wrapper.dropdown-wrapper--bottom-left{ data: { controller: "dropdown", action: "click->dropdown#toggle", dropdown_target: "wrapper", dropdown_active_class: "menu__item--active" } }
@@ -69,7 +66,6 @@
       .dropdown
         = link_to t('links.connections'), settings_connect_path, class: "dropdown__item"
         = link_to t('links.account'), settings_account_path, class: "dropdown__item"
-        = link_to t('links.telegram'), 'https://t.me/deltabadgerchat', class: "dropdown__item", target: "_blank", rel: "noopener"
         .dropdown__item.dropdown__item--divider
         = button_to destroy_user_session_path, method: :delete, class: "dropdown__item dropdown__item--danger", data: { turbo: false } do
           = t('links.logout')

@@ -32,8 +32,6 @@
             width: 100%
             border-left: 1rem solid var(--slider-progress)
             border-right: 1rem solid transparent
-            display: grid
-            grid-template-columns: 0% auto
         &__progress,&__othervalue
             align-items: center
             position: relative
@@ -44,6 +42,7 @@
             border-top-right-radius: 1rem
             border-bottom-right-radius: 1rem
             z-index: 1
+            transition: width 320ms cubic-bezier(0.4, 0, 0.2, 1)
         &__othervalue
             border-top-left-radius: 1rem
             border-bottom-left-radius: 1rem

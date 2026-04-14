@@ -44,17 +44,14 @@ Rails.application.routes.draw do
       post 'verify_two_factor', to: 'users/sessions#verify_two_factor'
     end
 
-    resources :reports, only: [:index], controller: 'tracker' do
-      collection do
-        post :sync
-        get :export
-        get :export_modal
-        post :setup_coingecko
-        get :tax_report
-        get :download_tax_report
-        patch :save_export_settings
-      end
-    end
+    get    '/tracker',                      to: 'tracker#index',                as: :tracker
+    post   '/tracker/sync',                 to: 'tracker#sync',                 as: :sync_tracker
+    get    '/tracker/export',               to: 'tracker#export',               as: :export_tracker
+    get    '/tracker/export_modal',         to: 'tracker#export_modal',         as: :export_modal_tracker
+    post   '/tracker/setup_coingecko',      to: 'tracker#setup_coingecko',      as: :setup_coingecko_tracker
+    get    '/tracker/tax_report',           to: 'tracker#tax_report',           as: :tax_report_tracker
+    get    '/tracker/download_tax_report',  to: 'tracker#download_tax_report',  as: :download_tax_report_tracker
+    patch  '/tracker/save_export_settings', to: 'tracker#save_export_settings', as: :save_export_settings_tracker
     namespace :tracker do
       resource :pick_exchange, only: %i[new create]
       resource :add_api_key, only: %i[new create]
@@ -105,6 +102,7 @@ Rails.application.routes.draw do
       patch :update_mcp_tool_permissions
       patch :update_mcp_tool_group_permissions
       patch :update_mcp_dry_run
+      patch :update_advanced_bots
       get 'confirm_revoke_mcp_client/:id', action: :confirm_revoke_mcp_client, as: :confirm_revoke_mcp_client
       delete 'revoke_mcp_client/:id', action: :revoke_mcp_client, as: :revoke_mcp_client
       patch :update_registration
@@ -121,19 +119,20 @@ Rails.application.routes.draw do
       resources :dca_single_assets, only: [:create]
       namespace :dca_single_assets do
         resource :pick_buyable_asset, only: [:new, :create]
-        resource :pick_exchange, only: [:new, :create]
+        resource :pick_exchange, only: [:new, :create] do
+          post :promote_to_dual, on: :collection
+        end
         resource :add_api_key, only: [:new, :create]
         resource :pick_spendable_asset, only: [:new, :create]
-        resource :confirm_settings, only: [:new, :create]
       end
       resources :dca_dual_assets, only: [:create]
       namespace :dca_dual_assets do
-        resource :pick_first_buyable_asset, only: [:new, :create]
-        resource :pick_second_buyable_asset, only: [:new, :create]
+        resource :pick_second_buyable_asset, only: [:new, :create] do
+          post :demote_to_single, on: :collection
+        end
         resource :pick_exchange, only: [:new, :create]
         resource :add_api_key, only: [:new, :create]
         resource :pick_spendable_asset, only: [:new, :create]
-        resource :confirm_settings, only: [:new, :create]
       end
       resources :dca_indexes, only: [:create]
       namespace :dca_indexes do

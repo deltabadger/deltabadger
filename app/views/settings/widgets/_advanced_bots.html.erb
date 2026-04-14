@@ -1,0 +1,26 @@
+<%= turbo_frame_tag 'advanced_bots' do %>
+  <div class="widget widget--settings">
+    <h4 class="modal__title">
+      <%= t('settings.advanced_bots.title') %>:
+      <% if current_user.advanced_bots_enabled? %>
+        <span class="text-success">ON</span>
+      <% else %>
+        <span class="text-danger">OFF</span>
+      <% end %>
+    </h4>
+
+    <%= form_with url: settings_update_advanced_bots_path, method: :patch,
+                  data: { controller: 'form--submit', turbo_frame: 'advanced_bots' },
+                  class: 'toggle-group',
+                  style: 'justify-content: center;' do |f| %>
+      <%= f.hidden_field :enabled, value: current_user.advanced_bots_enabled? ? '0' : '1' %>
+      <label class="toggle-group__label <%= 'toggle-group__label--active' if current_user.advanced_bots_enabled? %>">
+        <div class="toggle">
+          <input type="checkbox" <%= 'checked' if current_user.advanced_bots_enabled? %> data-action="change->form--submit#submit" />
+          <div class="toggle__style"></div>
+        </div>
+        <span><%= t('settings.advanced_bots.toggle_label') %></span>
+      </label>
+    <% end %>
+  </div>
+<% end %>

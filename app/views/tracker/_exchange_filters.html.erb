@@ -1,0 +1,39 @@
+<div class="two-row-filters__row">
+  <div class="filters-clipper">
+    <div class="filters filters--tags">
+      <% if @exchanges.any? %>
+        <%= link_to t('tracker.filters.all'), tracker_path(from: params[:from], to: params[:to]), class: ['sbutton sbutton--multi', ('sbutton--multi--active' unless params[:exchange_id].present?)] %>
+        <% @exchanges.each do |exchange| %>
+          <% if @exchanges_with_valid_keys.include?(exchange.id) %>
+            <%= link_to exchange.name, tracker_path(exchange_id: exchange.id, from: params[:from], to: params[:to]), class: ['sbutton sbutton--multi', ('sbutton--multi--active' if params[:exchange_id].to_s == exchange.id.to_s)] %>
+          <% else %>
+            <%= link_to new_tracker_add_api_key_path(exchange_id: exchange.id), class: 'sbutton sbutton--multi sbutton--broken', data: { turbo_frame: 'modal' } do %>
+              <%= exchange.name %><%= render 'svg/16x16_broken' %>
+            <% end %>
+          <% end %>
+        <% end %>
+      <% end %>
+
+      <% if @addable_exchanges.any? %>
+        <div data-controller="dropdown" data-action="click->dropdown#toggle" data-dropdown-target="wrapper" class="dropdown-wrapper">
+          <div class="sbutton sbutton--icon">
+            <%= render "svg/24x24_plus" %>
+          </div>
+          <div class="dropdown dropdown--exchanges">
+            <% @addable_exchanges.each do |exchange| %>
+              <%= link_to new_tracker_add_api_key_path(exchange_id: exchange.id), class: "dropdown__item", data: { turbo_frame: "modal" } do %>
+                <%= render "svg/exchange-#{exchange.name_id}" %>
+                <%= exchange.name %>
+              <% end %>
+            <% end %>
+          </div>
+        </div>
+      <% end %>
+    </div>
+  </div>
+  <% if @has_syncable_keys %>
+    <%= button_to sync_tracker_path, method: :post, class: 'sbutton sbutton--secondary' do %>
+      <%= render "svg/24x24_sync" %>
+    <% end %>
+  <% end %>
+</div>

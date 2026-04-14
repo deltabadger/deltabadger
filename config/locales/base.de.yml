@@ -93,12 +93,15 @@ de:
         earn: Erzielen
         resend_link: Link erneut senden
         rules: Regeln
-        tracker: Reports
+        tracker: Tracker
         settings: Einstellungen
         connections: Verbinden
         account: Konto
         sign_up: Registrieren
     settings:
+        advanced_bots:
+            title: Erweiterte Bots
+            toggle_label: Erweiterte Bots anzeigen
         language_and_timezone:
             title: 'Sprache & Zeitzone'
             language_updated: 'Ihre Sprache wurde aktualisiert.'
@@ -364,6 +367,12 @@ de:
             instructions_title: 'So erhalten Sie Schlüssel von %{exchange}'
             instructions_body: 'Erstellen Sie einen API-Schlüssel mit Auszahlungsberechtigung auf %{exchange} und fügen Sie die Zugangsdaten hier ein.'
     tracker:
+        sync_key_error_html: 'Synchronisierung mit <strong>%{exchange}</strong> fehlgeschlagen: %{message}. Bitte API-Schlüssel unten aktualisieren.'
+        pricing_warning_html: Guthaben synchronisiert, aber USD-Preise sind gerade nicht verfügbar (%{message}). Das Diagramm nutzt die zuletzt bekannten Preise, bis die Preisermittlung wiederhergestellt ist.
+        portfolio:
+            never_synced: Auf „Sync" klicken, um dein Portfolio zu laden.
+            no_balances: Keine Guthaben auf deinen verbundenen Börsen gefunden.
+            unpriced: 'Preis nicht verfügbar für: %{assets}'
         sync: 'Synchronisieren'
         sync_started: 'Transaktionen werden von deinen Börsen synchronisiert...'
         importing_from: 'Daten werden von %{exchange} importiert…'
@@ -435,6 +444,9 @@ de:
         waiting: 'Geplant'
 
     tax_report:
+        warnings:
+            missing_prices: Historische Preise fehlen für
+            upgrade_hint: Aktualisiere deinen CoinGecko-Plan oder nutze deltabadger.com für vollständige historische Daten.
         headers:
             date: 'Datum'
             asset: 'Vermögenswert'
@@ -457,6 +469,7 @@ de:
             reference_date: 'Stichtag'
         no_taxable_transactions: 'Keine steuerpflichtigen Transaktionen für diesen Zeitraum gefunden.'
         summary:
+            tax_percent: Steuer (%{pct}%)
             total_value: 'Gesamtwert'
             allowance: 'Freibetrag'
             taxable_wealth: 'Steuerbares Vermögen'

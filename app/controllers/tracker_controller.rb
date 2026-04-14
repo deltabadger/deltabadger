@@ -12,6 +12,7 @@ class TrackerController < ApplicationController
     @date_from = params[:from].presence || user_transactions.minimum(:transacted_at)&.to_date&.iso8601
     @date_to = params[:to].presence || Date.current.iso8601
     @account_transactions = filtered_transactions.by_date.includes(:exchange, :bot_transaction)
+    load_portfolio
     check_pending_report
   end
 
@@ -20,6 +21,7 @@ class TrackerController < ApplicationController
     return head :no_content if api_keys.empty?
 
     AccountTransaction::SyncTrackerJob.perform_later(current_user.id, api_keys.map(&:id))
+    AccountBalance::SyncJob.perform_later(current_user.id, api_keys.map(&:id))
 
     exchange_names = api_keys.map { |k| k.exchange.name }.join(', ')
     render turbo_stream: turbo_stream.append(
@@ -63,7 +65,7 @@ class TrackerController < ApplicationController
     AppConfig.market_data_provider = MarketDataSettings::PROVIDER_COINGECKO
     Setup::SeedAndSyncJob.perform_later
 
-    render turbo_stream: turbo_stream_redirect(reports_path)
+    render turbo_stream: turbo_stream_redirect(tracker_path)
   end
 
   def save_export_settings
@@ -80,7 +82,7 @@ class TrackerController < ApplicationController
     jurisdiction = Tax::Jurisdictions.for(country)
 
     unless jurisdiction
-      redirect_to reports_path, alert: t('tracker.tax_report.invalid_country')
+      redirect_to tracker_path, alert: t('tracker.tax_report.invalid_country')
       return
     end
 
@@ -105,11 +107,34 @@ class TrackerController < ApplicationController
       filename = "deltabadger-tax-report-#{country.downcase}-#{year}.csv"
       send_data csv_data, filename: filename, type: 'text/csv; charset=utf-8'
     else
-      redirect_to reports_path, alert: t('tracker.tax_report.expired')
+      redirect_to tracker_path, alert: t('tracker.tax_report.expired')
     end
   end
 
   private
+
+  def load_portfolio
+    base = AccountBalance.for_user(current_user).nonzero.includes(:asset)
+    base = base.for_exchange(Exchange.find(params[:exchange_id])) if params[:exchange_id].present?
+    balances = base.to_a
+
+    priced, unpriced = balances.partition { |b| b.usd_value.to_d.positive? }
+
+    @portfolio_slices = priced.group_by(&:asset).map do |asset, rows|
+      { asset: asset, usd_value: rows.sum { |r| r.usd_value.to_d } }
+    end.sort_by { |s| -s[:usd_value] }
+
+    @portfolio_total_usd = @portfolio_slices.sum { |s| s[:usd_value] }
+    @portfolio_unpriced_assets = unpriced.map(&:asset).uniq
+    @portfolio_last_synced_at = balances.map(&:synced_at).compact.max
+    @portfolio_oldest_priced_at = priced.map(&:priced_at).compact.min
+    @portfolio_has_stale_prices = @portfolio_oldest_priced_at.present? &&
+                                  @portfolio_last_synced_at.present? &&
+                                  (@portfolio_last_synced_at - @portfolio_oldest_priced_at) > 5.minutes
+    @portfolio_has_keys = current_user.api_keys.where(key_type: :trading, status: :correct).exists?
+    @portfolio_never_synced = @portfolio_has_keys && balances.empty? &&
+                              !AccountBalance.for_user(current_user).exists?
+  end
 
   def check_pending_report
     settings = current_user.tracker_settings || {}

@@ -1,6 +1,8 @@
 nl:
     bot:
         api:
+            public_key_label: API-sleutel
+            private_key_label: API-secret
             whitelist_ip_fallback_html: 'het IP-adres van de machine waar Deltabadger is geïnstalleerd. Als het op een server draait, gebruik dan het publieke IP van de server. Als het je lokale computer is, <a href="https://whatismyipaddress.com" target="_blank">controleer je IP hier</a>'
             binance: &binance_config
                 instructions:

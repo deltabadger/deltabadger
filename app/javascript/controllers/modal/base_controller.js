@@ -27,9 +27,12 @@ export default class extends Controller {
     const frame = document.getElementById('modal')
     if (!frame) return
 
-    const modal = frame.querySelector('.modal')
-    if (modal) {
-      modal.classList.add('modal--closing')
+    // Support both the small modal (.modal) and the full-page wizard (.dialogview).
+    const smallCard = frame.querySelector('.modal')
+    const fullCard  = frame.querySelector('.dialogview__vertical-center')
+    const card = smallCard || fullCard
+    if (card) {
+      card.classList.add(smallCard ? 'modal--closing' : 'dialogview__vertical-center--closing')
       this.element.classList.remove('dialog--open')
       this.element.classList.add('dialog--closing')
 
@@ -41,7 +44,7 @@ export default class extends Controller {
         }
       }
 
-      modal.addEventListener('animationend', close, { once: true })
+      card.addEventListener('animationend', close, { once: true })
       setTimeout(close, 200)
     } else {
       this.#closeAndCleanUp()
