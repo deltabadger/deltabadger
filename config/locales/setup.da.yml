@@ -4,7 +4,7 @@ da:
             api_not_available: "Børsens API er ikke tilgængeligt"
             progress_steps:
                 currencies: "Vælg aktiv"
-                currencies2: "Andet aktiv"
+                currencies2: "Andet aktiv (valgfrit)"
                 exchange: "Børs"
                 spendable: "Valuta"
                 api: "Forbind børs"

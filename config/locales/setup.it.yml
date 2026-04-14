@@ -4,7 +4,7 @@ it:
             api_not_available: "L'API dell'exchange non è disponibile"
             progress_steps:
                 currencies: "Scegli asset"
-                currencies2: "Secondo asset"
+                currencies2: "Secondo asset (facoltativo)"
                 exchange: "Exchange"
                 spendable: "Valuta"
                 api: "Connetti exchange"

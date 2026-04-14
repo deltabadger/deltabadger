@@ -4,7 +4,7 @@ nl:
             api_not_available: 'Exchange API is niet beschikbaar'
             progress_steps:
                 currencies: "Kies asset"
-                currencies2: "Tweede asset"
+                currencies2: "Tweede asset (optioneel)"
                 exchange: "Exchange"
                 spendable: "Valuta"
                 api: "Verbind exchange"

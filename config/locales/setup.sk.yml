@@ -4,7 +4,7 @@ sk:
             api_not_available: "API burzy nie je dostupne"
             progress_steps:
                 currencies: "Vyberte aktivum"
-                currencies2: "Druhe aktivum"
+                currencies2: "Druhe aktivum (voliteľné)"
                 exchange: "Burza"
                 spendable: "Mena"
                 api: "Pripojit burzu"

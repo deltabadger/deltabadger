@@ -29,8 +29,9 @@ class Bots::DcaSingleAssets::PickExchangesController < ApplicationController
     base = settings.delete('base_asset_id') || settings['base0_asset_id']
     session[:bot_config] = {
       'label' => Bots::DcaDualAsset.new.label,
+      'exchange_id' => cfg['exchange_id'],
       'settings' => { 'base0_asset_id' => base }.compact
-    }
+    }.compact
     redirect_to new_bots_dca_dual_assets_pick_second_buyable_asset_path
   end
 
