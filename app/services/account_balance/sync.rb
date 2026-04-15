@@ -23,12 +23,27 @@ class AccountBalance::Sync
 
     assets_by_id = Asset.where(id: nonzero.keys).index_by(&:id)
 
-    price_result = MarketData.get_prices(
-      coin_ids: assets_by_id.values.map(&:external_id).compact,
-      currency: 'usd'
-    )
-    fresh_prices = price_result.success? ? price_result.data : {}
-    pricing_error = price_result.failure? ? Array(price_result.errors).first.to_s : nil
+    assets = assets_by_id.values
+
+    # Ask the exchange for any USD prices it can quote directly (e.g. Alpaca
+    # for stocks). Only the remaining external_ids round-trip through
+    # MarketData, and the exchange's quotes win in the merge.
+    override_result = @exchange.get_usd_prices(assets: assets)
+    override_prices = override_result.success? ? override_result.data : {}
+    override_error  = override_result.failure? ? Array(override_result.errors).first.to_s : nil
+
+    remaining_ids = assets.map(&:external_id).compact - override_prices.keys
+    if remaining_ids.any?
+      market_result = MarketData.get_prices(coin_ids: remaining_ids, currency: 'usd')
+      market_prices = market_result.success? ? market_result.data : {}
+      market_error  = market_result.failure? ? Array(market_result.errors).first.to_s : nil
+    else
+      market_prices = {}
+      market_error  = nil
+    end
+
+    fresh_prices  = market_prices.merge(override_prices)
+    pricing_error = [override_error, market_error].compact.join('; ').presence
 
     synced_at = Time.current
     priced_fresh = 0

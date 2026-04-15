@@ -115,6 +115,27 @@ class AccountBalance::SyncTest < ActiveSupport::TestCase
     assert_equal 1, AccountBalance.count
   end
 
+  test 'Alpaca stocks are priced from the exchange, not from MarketData' do
+    alpaca = create(:alpaca_exchange)
+    alpaca_key = create(:api_key, user: @user, exchange: alpaca)
+    aapl = create(:asset, external_id: 'alpaca_AAPL', symbol: 'AAPL', name: 'Apple', category: 'Stock')
+    alpaca.stubs(:set_client)
+    alpaca.stubs(:get_balances).returns(Result::Success.new(
+                                          aapl.id => { free: 10.to_d, locked: 0 }
+                                        ))
+    alpaca.expects(:get_tickers_prices).with(symbols: ['AAPL']).returns(Result::Success.new('AAPL' => 180.5))
+    # Only the non-stock external_ids should reach MarketData. With nothing
+    # left after the override, MarketData is not called at all.
+    MarketData.expects(:get_prices).never
+
+    result = AccountBalance::Sync.new(alpaca_key).sync!
+    assert result.success?
+
+    aapl_bal = AccountBalance.find_by(user: @user, asset: aapl)
+    assert_equal 180.5.to_d, aapl_bal.usd_price
+    assert_equal (10.to_d * 180.5.to_d), aapl_bal.usd_value
+  end
+
   test 'returns failure when exchange get_balances fails' do
     @exchange.stubs(:get_balances).returns(Result::Failure.new('api error'))
 
