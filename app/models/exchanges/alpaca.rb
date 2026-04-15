@@ -76,6 +76,24 @@ class Exchanges::Alpaca < Exchange
     Result::Success.new(tickers_info)
   end
 
+  # Alpaca quotes stock prices directly in USD; the central MarketData feed
+  # (crypto-only) has no entries for them. Only map stock assets here — USD
+  # cash (category 'Fiat') is still priced via MarketData (always 1.0).
+  def get_usd_prices(assets:)
+    stock_assets = Array(assets).select { |a| a.category == 'Stock' }
+    return Result::Success.new({}) if stock_assets.empty?
+
+    result = get_tickers_prices(symbols: stock_assets.map(&:symbol).uniq)
+    return result if result.failure?
+
+    prices_by_symbol = result.data
+    mapped = stock_assets.each_with_object({}) do |asset, h|
+      price = prices_by_symbol[asset.symbol]
+      h[asset.external_id] = price if price
+    end
+    Result::Success.new(mapped)
+  end
+
   def get_tickers_prices(force: false, symbols: nil)
     symbols ||= tickers.available.pluck(:base)
     return Result::Success.new({}) if symbols.empty?

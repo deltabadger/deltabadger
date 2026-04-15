@@ -67,6 +67,14 @@ class Exchange < ApplicationRecord
     raise NotImplementedError, "#{self.class.name} must implement get_last_price"
   end
 
+  # Exchanges may quote the USD price of some assets directly (e.g. Alpaca
+  # knows stock prices). Override in subclasses. Returns a Result wrapping
+  # { external_id => usd_price } for only the assets this exchange can price;
+  # AccountBalance::Sync falls back to MarketData for anything missing.
+  def get_usd_prices(assets:)
+    Result::Success.new({})
+  end
+
   def get_bid_price(ticker:, force: false)
     raise NotImplementedError, "#{self.class.name} must implement get_bid_price"
   end
