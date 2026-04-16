@@ -326,6 +326,9 @@ el:
     rules:
         index:
             title: 'Κανόνες'
+            welcome:
+                keep_coins_safe: "Κράτησε τα assets σου ασφαλή με αυτόματες αναλήψεις στο hardware wallet σου."
+                create_first: "Δημιούργησε τον πρώτο σου κανόνα ανάληψης."
         types:
             withdrawal:
                 title: 'Αυτόματη ανάληψη'
@@ -382,6 +385,8 @@ el:
             instructions_title: 'Πώς να πάρεις κλειδιά από %{exchange}'
             instructions_body: 'Δημιούργησε ένα κλειδί API με δικαιώματα ανάληψης στο %{exchange} και επικόλλησε τα στοιχεία εδώ.'
     tracker:
+        welcome:
+            connect_and_track: "Σύνδεσε το exchange σου και άρχισε να παρακολουθείς το portfolio σου."
         sync_key_error_html: 'Ο συγχρονισμός με το <strong>%{exchange}</strong> απέτυχε: %{message}. Ενημέρωσε το κλειδί API παρακάτω.'
         pricing_warning_html: Τα υπόλοιπα συγχρονίστηκαν, αλλά οι τιμές σε USD δεν είναι διαθέσιμες αυτή τη στιγμή (%{message}). Το γράφημα θα χρησιμοποιήσει τις τελευταίες γνωστές τιμές μέχρι να αποκατασταθεί η υπηρεσία.
         portfolio:

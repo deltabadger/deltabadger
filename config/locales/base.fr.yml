@@ -313,6 +313,9 @@ fr:
     rules:
         index:
             title: 'Règles'
+            welcome:
+                keep_coins_safe: "Protège tes actifs grâce à des retraits automatiques vers ton portefeuille matériel."
+                create_first: "Crée ta première règle de retrait."
         types:
             withdrawal:
                 title: 'Retrait automatique'
@@ -367,6 +370,8 @@ fr:
             instructions_title: 'Comment obtenir les clés de %{exchange}'
             instructions_body: 'Créez une clé API avec autorisation de retrait sur %{exchange} et collez les identifiants ici.'
     tracker:
+        welcome:
+            connect_and_track: "Connecte ta plateforme d'échange et commence à suivre ton portefeuille."
         sync_key_error_html: 'Échec de la synchronisation avec <strong>%{exchange}</strong> : %{message}. Veuillez mettre à jour la clé API ci-dessous.'
         pricing_warning_html: Soldes synchronisés, mais les prix en USD sont indisponibles pour le moment (%{message}). Le graphique utilisera les derniers prix connus en attendant le rétablissement du service.
         portfolio:

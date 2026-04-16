@@ -313,6 +313,9 @@ it:
     rules:
         index:
             title: 'Regole'
+            welcome:
+                keep_coins_safe: "Tieni al sicuro i tuoi asset con prelievi automatici sul tuo hardware wallet."
+                create_first: "Crea la tua prima regola di prelievo."
         types:
             withdrawal:
                 title: 'Prelievo automatico'
@@ -367,6 +370,8 @@ it:
             instructions_title: 'Come ottenere le chiavi da %{exchange}'
             instructions_body: 'Crea una chiave API con autorizzazione al prelievo su %{exchange} e incolla le credenziali qui.'
     tracker:
+        welcome:
+            connect_and_track: "Collega il tuo exchange e inizia a tracciare il tuo portafoglio."
         sync_key_error_html: 'Sincronizzazione con <strong>%{exchange}</strong> fallita: %{message}. Aggiorna la chiave API qui sotto.'
         pricing_warning_html: Saldi sincronizzati, ma i prezzi in USD non sono disponibili al momento (%{message}). Il grafico userà gli ultimi prezzi noti finché il servizio non sarà ripristinato.
         portfolio:
