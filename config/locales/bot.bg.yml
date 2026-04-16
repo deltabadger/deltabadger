@@ -3,6 +3,10 @@ bg:
         add_api_keys: "Добавяне на API ключове за %{exchange}"
         bot_name: 'Име на бота'
         new: "Нов бот"
+        welcome:
+            pick_asset_first: "Първо избери актив — след това ще видиш борсите, на които е наличен."
+            connect_alpaca_html: "За да инвестираш в акции, първо свържи Alpaca в %{settings_link}."
+            settings_link: "Настройки"
         dca_index:
             setup:
                 step_index: "Индекс"

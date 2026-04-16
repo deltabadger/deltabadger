@@ -3,6 +3,10 @@ da:
         add_api_keys: "Tilføj API-nøgler for %{exchange}"
         bot_name: 'Botnavn'
         new: "Ny bot"
+        welcome:
+            pick_asset_first: "Vælg et aktiv først — derefter ser du de børser, hvor det findes."
+            connect_alpaca_html: "For at investere i aktier skal du først forbinde Alpaca i %{settings_link}."
+            settings_link: "Indstillinger"
         dca_index:
             setup:
                 step_index: "Indeks"
