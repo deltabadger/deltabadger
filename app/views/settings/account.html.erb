@@ -4,6 +4,7 @@
 
 <div class="columns">
   <div class="column gap-1">
+    <%= render partial: 'settings/widgets/language_and_time_zone' %>
     <%= render partial: 'settings/widgets/two_fa', locals: { two_fa_button_text: @two_fa_button_text } %>
 
     <% if current_user.admin? %>
@@ -14,7 +15,7 @@
       <%= render partial: 'settings/widgets/email_notifications' %>
     <% end %>
 
-    <%= render partial: 'settings/widgets/language_and_time_zone' %>
+    
   </div>
 
   <div class="column gap-1">

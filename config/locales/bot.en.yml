@@ -3,6 +3,10 @@ en:
         add_api_keys: "Add API keys for %{exchange}"
         bot_name: 'Bot name'
         new: "New bot"
+        welcome:
+            pick_asset_first: "Pick an asset first — then see the exchanges that support it."
+            connect_alpaca_html: "To invest in stocks, connect Alpaca in %{settings_link} first."
+            settings_link: "Settings"
         dca_index:
             setup:
                 step_index: "Index"

@@ -5,6 +5,10 @@ nl:
         withdrawal_fee: "Opname"
         bot_name: 'Bot naam'
         new: "Nieuwe bot"
+        welcome:
+            pick_asset_first: "Kies eerst een asset — daarna zie je op welke exchanges die beschikbaar is."
+            connect_alpaca_html: "Wil je in aandelen beleggen? Koppel eerst Alpaca via %{settings_link}."
+            settings_link: "Instellingen"
         dca_index:
             setup:
                 step_index: "Index"

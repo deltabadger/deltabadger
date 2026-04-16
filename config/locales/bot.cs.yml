@@ -3,6 +3,10 @@ cs:
         add_api_keys: "Přidat API klíče pro %{exchange}"
         bot_name: 'Název bota'
         new: "Nový bot"
+        welcome:
+            pick_asset_first: "Nejdřív vyber aktivum — pak uvidíš burzy, kde je dostupné."
+            connect_alpaca_html: "Pokud chceš investovat do akcií, nejdřív propoj Alpaca v %{settings_link}."
+            settings_link: "Nastavení"
         dca_index:
             setup:
                 step_index: "Index"

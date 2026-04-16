@@ -5,6 +5,10 @@ fr:
         withdrawal_fee: "Retrait"
         bot_name: 'Nom du bot'
         new: "Nouveau bot"
+        welcome:
+            pick_asset_first: "Choisis d'abord un actif — tu verras ensuite les plateformes qui le proposent."
+            connect_alpaca_html: "Pour investir en actions, connecte d'abord Alpaca dans les %{settings_link}."
+            settings_link: "Réglages"
         dca_index:
             setup:
                 step_index: "Indice"

@@ -170,6 +170,7 @@
     gap: 0.5rem
     position: relative
     text-decoration: none
+    transition: all 0.25s ease-in
     svg,.fill--icon
         fill: var(--white)
 
@@ -328,12 +329,7 @@
         cursor: not-allowed !important
         pointer-events: none !important
         box-shadow: none !important
-        background: none !important
-        border: 0.25rem solid var(--concrete) !important
-        color: var(--concrete) !important
-        padding: 0 calc(2rem - 0.25rem) !important
-        .animicon *
-            background-color: var(--concrete) !important
+        opacity: 0.5
     &--multi
         color: var(--label-select-inactive)
         min-width: 0 !important
