@@ -315,6 +315,9 @@ pl:
     rules:
         index:
             title: 'Reguły'
+            welcome:
+                keep_coins_safe: "Trzymaj swoje aktywa bezpiecznie dzięki automatycznym wypłatom na portfel sprzętowy."
+                create_first: "Utwórz swoją pierwszą regułę wypłaty."
         types:
             withdrawal:
                 title: 'Automatyczna wypłata'
@@ -369,6 +372,8 @@ pl:
             instructions_title: 'Jak uzyskać klucze z %{exchange}'
             instructions_body: 'Utwórz klucz API z uprawnieniami do wypłat na %{exchange} i wklej tutaj dane uwierzytelniające.'
     tracker:
+        welcome:
+            connect_and_track: "Podłącz giełdę i zacznij śledzić swoje portfolio."
         sync_key_error_html: 'Synchronizacja z <strong>%{exchange}</strong> nie powiodła się: %{message}. Zaktualizuj klucz API poniżej.'
         pricing_warning_html: Salda zsynchronizowane, ale ceny w USD są chwilowo niedostępne (%{message}). Wykres użyje ostatnich znanych cen do czasu przywrócenia wyceny.
         portfolio:

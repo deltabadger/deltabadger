@@ -326,6 +326,9 @@ en:
     rules:
         index:
             title: 'Rules'
+            welcome:
+                keep_coins_safe: "Keep your assets safe with automated withdrawals to your hardware wallet."
+                create_first: "Create your first withdrawal rule."
         types:
             withdrawal:
                 title: 'Auto-withdrawal'
@@ -382,6 +385,8 @@ en:
             instructions_title: 'How to get keys from %{exchange}'
             instructions_body: 'Create a withdrawal-enabled API key on %{exchange} and paste the credentials here.'
     tracker:
+        welcome:
+            connect_and_track: "Connect your exchange and start tracking your portfolio."
         sync_key_error_html: "<strong>%{exchange}</strong> sync failed: %{message}. Please update the API key below."
         pricing_warning_html: Balances synced, but USD pricing is unavailable right now (%{message}). The chart will use the last known prices until pricing is restored.
         portfolio:

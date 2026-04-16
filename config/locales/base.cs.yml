@@ -333,6 +333,9 @@ cs:
     rules:
         index:
             title: 'Pravidla'
+            welcome:
+                keep_coins_safe: "Měj svá aktiva v bezpečí s automatickými výběry na hardwarovou peněženku."
+                create_first: "Vytvoř si první pravidlo pro výběr."
         types:
             withdrawal:
                 title: 'Automatický výběr'
@@ -389,6 +392,8 @@ cs:
             instructions_title: 'Jak získat klíče z %{exchange}'
             instructions_body: 'Vytvořte API klíč s oprávněním pro výběr na %{exchange} a vložte přihlašovací údaje sem.'
     tracker:
+        welcome:
+            connect_and_track: "Připoj svou burzu a začni sledovat své portfolio."
         sync_key_error_html: 'Synchronizace s <strong>%{exchange}</strong> selhala: %{message}. Aktualizuj API klíč níže.'
         pricing_warning_html: Zůstatky synchronizovány, ale ceny v USD teď nejsou dostupné (%{message}). Graf použije poslední známé ceny, dokud se služba neobnoví.
         portfolio:
