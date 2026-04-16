@@ -3,6 +3,16 @@
 <% if @pending_report %>
   <div data-controller="auto-download" data-auto-download-url-value="<%= download_tax_report_tracker_path(country: @pending_report[:country], year: @pending_report[:year]) %>"></div>
 <% end %>
+<% if @exchanges.empty? && @account_transactions.empty? %>
+  <div class="welcome-screen">
+    <p><%= t('tracker.welcome.connect_and_track') %></p>
+    <div style="margin-top: 2rem; transform: scale(1.5)">
+      <%= link_to new_tracker_pick_exchange_path, class: "sbutton sbutton--icon", data: { turbo_frame: "modal" }, aria: { label: t('tracker.connect_exchange') } do %>
+        <%= render partial: 'svg/24x24_plus' %>
+      <% end %>
+    </div>
+  </div>
+<% else %>
 <% if @portfolio_total_usd && @portfolio_total_usd.positive? %>
   <section class="dash-intro">
     <h1 class="header header--1">
@@ -81,4 +91,5 @@
   <div class="tracker-empty">
     <p><%= t('tracker.no_results') %></p>
   </div>
+<% end %>
 <% end %>

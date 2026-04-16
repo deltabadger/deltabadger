@@ -326,6 +326,9 @@ bg:
     rules:
         index:
             title: 'Правила'
+            welcome:
+                keep_coins_safe: "Дръж активите си в безопасност с автоматични тегления към хардуерен портфейл."
+                create_first: "Създай първото си правило за теглене."
         types:
             withdrawal:
                 title: 'Автоматично теглене'
@@ -382,6 +385,8 @@ bg:
             instructions_title: 'Как да получите ключове от %{exchange}'
             instructions_body: 'Създайте API ключ с разрешение за теглене в %{exchange} и поставете данните за достъп тук.'
     tracker:
+        welcome:
+            connect_and_track: "Свържи борсата си и започни да следиш портфолиото си."
         sync_key_error_html: 'Синхронизацията с <strong>%{exchange}</strong> е неуспешна: %{message}. Моля, обнови API ключа по-долу.'
         pricing_warning_html: Балансите са синхронизирани, но цените в USD в момента не са налични (%{message}). Графиката ще използва последните известни цени, докато услугата бъде възстановена.
         portfolio:

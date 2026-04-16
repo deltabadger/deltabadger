@@ -316,6 +316,9 @@ ru:
     rules:
         index:
             title: 'Правила'
+            welcome:
+                keep_coins_safe: "Храни свои активы в безопасности — настрой автоматические выводы на аппаратный кошелёк."
+                create_first: "Создай своё первое правило вывода."
         types:
             withdrawal:
                 title: 'Автоматический вывод'
@@ -370,6 +373,8 @@ ru:
             instructions_title: 'Как получить ключи от %{exchange}'
             instructions_body: 'Создайте API-ключ с разрешением на вывод средств на %{exchange} и вставьте учетные данные здесь.'
     tracker:
+        welcome:
+            connect_and_track: "Подключи биржу и начни отслеживать свой портфель."
         sync_key_error_html: 'Не удалось синхронизировать <strong>%{exchange}</strong>: %{message}. Обновите API-ключ ниже.'
         pricing_warning_html: Балансы синхронизированы, но цены в USD сейчас недоступны (%{message}). На графике будут использованы последние известные цены до восстановления сервиса.
         portfolio:

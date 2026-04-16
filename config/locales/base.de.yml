@@ -313,6 +313,9 @@ de:
     rules:
         index:
             title: 'Regeln'
+            welcome:
+                keep_coins_safe: "Halte deine Assets sicher mit automatischen Auszahlungen auf deine Hardware-Wallet."
+                create_first: "Erstell deine erste Auszahlungsregel."
         types:
             withdrawal:
                 title: 'Automatische Auszahlung'
@@ -367,6 +370,8 @@ de:
             instructions_title: 'So erhalten Sie Schlüssel von %{exchange}'
             instructions_body: 'Erstellen Sie einen API-Schlüssel mit Auszahlungsberechtigung auf %{exchange} und fügen Sie die Zugangsdaten hier ein.'
     tracker:
+        welcome:
+            connect_and_track: "Verbinde deine Börse und beginne, dein Portfolio zu tracken."
         sync_key_error_html: 'Synchronisierung mit <strong>%{exchange}</strong> fehlgeschlagen: %{message}. Bitte API-Schlüssel unten aktualisieren.'
         pricing_warning_html: Guthaben synchronisiert, aber USD-Preise sind gerade nicht verfügbar (%{message}). Das Diagramm nutzt die zuletzt bekannten Preise, bis die Preisermittlung wiederhergestellt ist.
         portfolio:

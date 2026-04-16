@@ -312,6 +312,9 @@ pt:
     rules:
         index:
             title: 'Regras'
+            welcome:
+                keep_coins_safe: "Mantém os teus ativos seguros com levantamentos automáticos para a tua hardware wallet."
+                create_first: "Cria a tua primeira regra de levantamento."
         types:
             withdrawal:
                 title: 'Levantamento automático'
@@ -366,6 +369,8 @@ pt:
             instructions_title: 'Como obter as chaves de %{exchange}'
             instructions_body: 'Crie uma chave API com permissão de levantamento em %{exchange} e cole as credenciais aqui.'
     tracker:
+        welcome:
+            connect_and_track: "Liga a tua exchange e começa a acompanhar a tua carteira."
         sync_key_error_html: 'Falha ao sincronizar <strong>%{exchange}</strong>: %{message}. Atualiza a chave API em baixo.'
         pricing_warning_html: Saldos sincronizados, mas os preços em USD não estão disponíveis de momento (%{message}). O gráfico usará os últimos preços conhecidos até o serviço ser restabelecido.
         portfolio:

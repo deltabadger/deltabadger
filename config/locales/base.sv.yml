@@ -326,6 +326,9 @@ sv:
     rules:
         index:
             title: 'Regler'
+            welcome:
+                keep_coins_safe: "Håll dina tillgångar säkra med automatiska uttag till din hårdvaruplånbok."
+                create_first: "Skapa din första uttagsregel."
         types:
             withdrawal:
                 title: 'Automatiskt uttag'
@@ -382,6 +385,8 @@ sv:
             instructions_title: 'Hur du får nycklar från %{exchange}'
             instructions_body: 'Skapa en uttagsaktiverad API-nyckel på %{exchange} och klistra in uppgifterna här.'
     tracker:
+        welcome:
+            connect_and_track: "Anslut din börs och börja spåra din portfölj."
         sync_key_error_html: 'Synkroniseringen med <strong>%{exchange}</strong> misslyckades: %{message}. Uppdatera API-nyckeln nedan.'
         pricing_warning_html: Saldon synkade, men USD-priser är inte tillgängliga just nu (%{message}). Diagrammet använder de senast kända priserna tills prissättningen är återställd.
         portfolio:

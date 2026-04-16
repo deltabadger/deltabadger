@@ -1,12 +1,13 @@
 <%= turbo_stream_from "user_#{current_user.id}", :rule_updates %>
 <% if @withdrawal_rules.empty? && @rule_logs.empty? %>
-  <div class="menu-start">
-    <div class="introtiles">
-      <%= link_to new_rules_withdrawals_pick_asset_path, class: 'itile itile--bot-type', data: { turbo_frame: "modal" } do %>
-        <%= render partial: 'svg/24x24_withdrawal' %>
-        <div class="index-title"><%= t('rules.types.withdrawal.title') %></div>
-        <div class="index-info"><%= t('rules.types.withdrawal.description') %></div>
-      <% end %>
+  <div class="welcome-screen">
+    <p><%= t('rules.index.welcome.keep_coins_safe') %></p>
+    <p><%= t('rules.index.welcome.create_first') %></p>
+    <div style="margin-top: 2rem; transform: scale(1.5)">
+        <%= link_to new_rules_withdrawals_pick_asset_path, class: "sbutton sbutton--sky", data: { turbo_frame: "modal" } do %>
+          <span class="d-none d-sm-inline"><%= t('button.add') %></span>
+          <%= render partial: 'svg/24x24_plus' %>
+        <% end %>
     </div>
   </div>
 <% else %>
@@ -19,15 +20,12 @@
       <% end %>
     </div>
   </div>
-
   <div class="rules">
-
     <div class="rules-list">
       <% @withdrawal_rules.each do |rule| %>
         <%= render partial: 'rules/rule_tile', locals: { rule: rule, withdrawal_addresses: @withdrawal_addresses[rule.id] } %>
       <% end %>
     </div>
-
     <%= render partial: 'rules/rule_logs', locals: { rule_logs: @rule_logs } %>
   </div>
 <% end %>

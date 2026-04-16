@@ -326,6 +326,9 @@ da:
     rules:
         index:
             title: 'Regler'
+            welcome:
+                keep_coins_safe: "Hold dine aktiver sikre med automatiske udbetalinger til din hardware wallet."
+                create_first: "Opret din første udbetalingsregel."
         types:
             withdrawal:
                 title: 'Automatisk udbetaling'
@@ -382,6 +385,8 @@ da:
             instructions_title: 'Sådan får du nøgler fra %{exchange}'
             instructions_body: 'Opret en udbetalingsaktiveret API-nøgle på %{exchange} og indsæt legitimationsoplysningerne her.'
     tracker:
+        welcome:
+            connect_and_track: "Tilslut din børs og begynd at følge din portefølje."
         sync_key_error_html: 'Synkronisering med <strong>%{exchange}</strong> mislykkedes: %{message}. Opdatér API-nøglen nedenfor.'
         pricing_warning_html: Saldi synkroniseret, men USD-priser er ikke tilgængelige lige nu (%{message}). Diagrammet bruger de sidst kendte priser, indtil prissætningen er genoprettet.
         portfolio:

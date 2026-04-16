@@ -313,6 +313,9 @@ es:
     rules:
         index:
             title: 'Reglas'
+            welcome:
+                keep_coins_safe: "Mantén tus activos seguros con retiros automáticos a tu monedero hardware."
+                create_first: "Crea tu primera regla de retiro."
         types:
             withdrawal:
                 title: 'Retiro automático'
@@ -367,6 +370,8 @@ es:
             instructions_title: 'Cómo obtener las claves de %{exchange}'
             instructions_body: 'Crea una clave API con permiso de retiro en %{exchange} y pega las credenciales aquí.'
     tracker:
+        welcome:
+            connect_and_track: "Conecta tu exchange y empieza a trackear tu portafolio."
         sync_key_error_html: 'Fallo al sincronizar <strong>%{exchange}</strong>: %{message}. Actualiza la clave API a continuación.'
         pricing_warning_html: Saldos sincronizados, pero los precios en USD no están disponibles ahora (%{message}). El gráfico usará los últimos precios conocidos hasta que se restablezca el servicio.
         portfolio:

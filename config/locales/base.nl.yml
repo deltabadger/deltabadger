@@ -313,6 +313,9 @@ nl:
     rules:
         index:
             title: 'Regels'
+            welcome:
+                keep_coins_safe: "Houd je assets veilig met automatische opnames naar je hardware wallet."
+                create_first: "Maak je eerste opnameregel aan."
         types:
             withdrawal:
                 title: 'Automatische opname'
@@ -367,6 +370,8 @@ nl:
             instructions_title: 'Hoe u sleutels van %{exchange} verkrijgt'
             instructions_body: 'Maak een API-sleutel met opnamerechten aan op %{exchange} en plak de gegevens hier.'
     tracker:
+        welcome:
+            connect_and_track: "Koppel je exchange en begin met het volgen van je portfolio."
         sync_key_error_html: 'Synchroniseren met <strong>%{exchange}</strong> mislukt: %{message}. Werk de API-sleutel hieronder bij.'
         pricing_warning_html: Saldi gesynchroniseerd, maar USD-prijzen zijn nu niet beschikbaar (%{message}). De grafiek gebruikt de laatst bekende prijzen tot de prijsbepaling is hersteld.
         portfolio:
