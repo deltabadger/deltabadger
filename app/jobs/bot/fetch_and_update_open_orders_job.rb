@@ -12,8 +12,9 @@ class Bot::FetchAndUpdateOpenOrdersJob < BotJob
 
     calc_since = [bot.started_at, bot.settings_changed_at].compact.max
     result.data.each do |order_id, order_data|
-      order = bot.transactions.submitted.open.find_by(external_id: order_id)
+      order = bot.transactions.find_by(external_id: order_id)
       raise "Order #{order_id} not found" if order.nil?
+      next unless order.submitted? && order.open?
 
       quote_amount_diff = order_data[:quote_amount_exec] - (order.quote_amount_exec || 0)
       case order_data[:status]
