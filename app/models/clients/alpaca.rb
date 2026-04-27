@@ -242,6 +242,33 @@ class Clients::Alpaca < Client
 
   private
 
+  def with_rescue
+    yield
+  rescue Faraday::Error => e
+    body = e.response_body.presence
+    error_message = if body.is_a?(String) && body.match?(/<\s*html/i)
+                      "HTTP #{e.response_status || 'error'}"
+                    else
+                      extract_alpaca_message(body) || body || e.message.presence || 'Unknown API error'
+                    end
+    Result::Failure.new(error_message, data: { status: e.response_status })
+  rescue StandardError => e
+    Result::Failure.new(e.message.presence || 'Unknown error')
+  end
+
+  def extract_alpaca_message(body)
+    parsed = if body.is_a?(Hash)
+               body
+             else
+               begin
+                 JSON.parse(body)
+               rescue JSON::ParserError, TypeError
+                 nil
+               end
+             end
+    parsed.is_a?(Hash) ? parsed['message'].presence : nil
+  end
+
   def authenticated_headers
     {
       'APCA-API-KEY-ID' => @api_key.to_s,

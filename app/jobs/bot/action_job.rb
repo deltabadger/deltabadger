@@ -35,8 +35,9 @@ class Bot::ActionJob < BotJob
   rescue StandardError => e
     Rails.logger.error("ActionJob for bot #{bot.id} failed to perform. Errors: #{e.message}")
     bot.update!(status: :retrying)
-    if ignorable_error?(bot, e)
-      bot.notify_about_error(errors: [e.message])
+    category = ignorable_error_category(bot, e)
+    if category
+      notify_ignorable(bot, category, e)
       schedule_next_action_job(bot)
     else
       notify_retry(bot, e)
@@ -47,9 +48,20 @@ class Bot::ActionJob < BotJob
 
   private
 
-  def ignorable_error?(bot, error)
-    errors = bot.exchange.known_errors.values_at(*DO_NOT_RETRY_ERRORS).flatten.compact
-    error.message.in?(errors)
+  def ignorable_error_category(bot, error)
+    DO_NOT_RETRY_ERRORS.find do |category|
+      messages = Array(bot.exchange.known_errors[category]).compact
+      error.message.in?(messages)
+    end
+  end
+
+  def notify_ignorable(bot, category, error)
+    case category
+    when :insufficient_funds
+      bot.notify_end_of_funds
+    else
+      bot.notify_about_error(errors: [error.message])
+    end
   end
 
   def estimated_retry_delay

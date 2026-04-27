@@ -168,6 +168,40 @@ class Clients::AlpacaTest < ActiveSupport::TestCase
     assert_predicate result, :failure?
   end
 
+  test 'extracts message field from JSON error body so it matches known_errors' do
+    body = '{"buying_power":"0","code":40310000,"cost_basis":"20","message":"insufficient buying power"}'
+    connection = stub
+    connection.stubs(:post).raises(Faraday::ForbiddenError.new('403', { status: 403, body: body }))
+    @client.stubs(:trading_connection).returns(connection)
+
+    result = @client.create_order(
+      symbol: 'AAPL', side: 'buy', type: 'market', time_in_force: 'day', notional: '20'
+    )
+    assert_predicate result, :failure?
+    assert_equal 'insufficient buying power', result.errors.first
+  end
+
+  test 'falls back to raw body when JSON has no message field' do
+    body = '{"code":12345,"detail":"something else"}'
+    connection = stub
+    connection.stubs(:get).raises(Faraday::ClientError.new('400', { status: 400, body: body }))
+    @client.stubs(:trading_connection).returns(connection)
+
+    result = @client.get_account
+    assert_predicate result, :failure?
+    assert_equal body, result.errors.first
+  end
+
+  test 'falls back to raw body when error body is not JSON' do
+    connection = stub
+    connection.stubs(:get).raises(Faraday::ClientError.new('500', { status: 500, body: 'Internal Server Error' }))
+    @client.stubs(:trading_connection).returns(connection)
+
+    result = @client.get_account
+    assert_predicate result, :failure?
+    assert_equal 'Internal Server Error', result.errors.first
+  end
+
   private
 
   def stub_request(_url)
