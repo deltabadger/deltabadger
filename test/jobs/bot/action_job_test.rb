@@ -130,6 +130,30 @@ module ActionJobBehaviorTests
       assert_equal 'retrying', bot.reload.status
     end
 
+    test 'sends end_of_funds notification (not generic error) when error is insufficient_funds' do
+      bot = create_bot
+      setup_action_job_mocks(bot)
+      bot.stubs(:execute_action).returns(Result::Failure.new('insufficient buying power'))
+      bot.exchange.stubs(:known_errors).returns(insufficient_funds: ['insufficient buying power'])
+      bot.expects(:notify_end_of_funds).once
+      bot.expects(:notify_about_error).never
+
+      Bot::ActionJob.new.perform(bot)
+      assert_equal 'retrying', bot.reload.status
+    end
+
+    test 'does not re-raise when error is insufficient_funds' do
+      bot = create_bot
+      setup_action_job_mocks(bot)
+      bot.stubs(:execute_action).returns(Result::Failure.new('insufficient buying power'))
+      bot.exchange.stubs(:known_errors).returns(insufficient_funds: ['insufficient buying power'])
+      bot.stubs(:notify_end_of_funds)
+
+      assert_nothing_raised do
+        Bot::ActionJob.new.perform(bot)
+      end
+    end
+
     test 'does not schedule next job when break_reschedule is true' do
       bot = create_bot
       setup_action_job_mocks(bot)
