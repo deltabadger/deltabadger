@@ -23,6 +23,9 @@
       <div class="toggle-group__info__label">
         <div class="conversational conversational--small">
           <span><%= t('rules.withdrawals.sentence.withdraw_all') %></span>
+          <%= f.number_field :withdrawal_percentage, value: rule.withdrawal_percentage.presence || 100, class: 'sinput numeric-input', step: :any, min: 0.01, max: 100, size: 2, disabled: rule.scheduled?, data: { controller: "autowidth-input", action: "input->autowidth-input#resize input->form--submit-after-delay#submit", form__move_cursor_to_end_target: "input" }, style: "width: 50px;" %>
+          <span><%= t('rules.withdrawals.sentence.of_the_amount') %></span>
+          <span><%= t('rules.withdrawals.sentence.of') %></span>
           <span class="ticker" style="background: <%= ensure_contrast(rule.asset.color || "#8A9BA8") %>"><%= rule.asset.symbol %></span>
           <span><%= t('rules.withdrawals.sentence.from') %></span>
           <span class="sbutton sbutton--exchange sbutton--exchange--<%= rule.exchange.name_id %>">
@@ -115,7 +118,7 @@
             <% fee_pct = pct > 1 ? tag.span("#{pct}%", class: 'text-danger') : "#{pct}%" %>
             <%= t('rules.tile.fixed_amount_fee_html', fee: fee.to_s('F'), symbol: rule.asset.symbol, fee_pct: fee_pct) %>
           <% else %>
-            <%= t('rules.tile.fixed_amount_info', amount: min, symbol: rule.asset.symbol) %>
+            <%= t('rules.tile.fixed_amount_info', amount: rule.minimum_withdrawal_amount || min, symbol: rule.asset.symbol) %>
           <% end %>
         </div>
       <% elsif current_threshold != 'min_amount' && rule.minimum_withdrawal_amount %>

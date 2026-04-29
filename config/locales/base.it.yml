@@ -331,6 +331,7 @@ it:
                 fee_less_than: 'la commissione è inferiore a'
                 amount_crosses: 'l''importo raggiunge'
                 of_the_amount: '%'
+                of: 'di'
             pick_exchange:
                 withdrawal_fee: 'Prelievo'
             form:
