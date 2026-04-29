@@ -330,6 +330,7 @@ pt:
                 fee_less_than: 'a taxa é inferior a'
                 amount_crosses: 'o montante atinge'
                 of_the_amount: '%'
+                of: 'de'
             pick_exchange:
                 withdrawal_fee: 'Levantamento'
             form:

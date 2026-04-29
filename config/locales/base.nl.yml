@@ -331,6 +331,7 @@ nl:
                 fee_less_than: 'de kosten lager dan'
                 amount_crosses: 'het bedrag bereikt'
                 of_the_amount: '%'
+                of: 'van'
             pick_exchange:
                 withdrawal_fee: 'Opname'
             form:

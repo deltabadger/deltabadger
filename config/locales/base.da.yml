@@ -344,6 +344,7 @@ da:
                 fee_less_than: 'gebyret er mindre end'
                 amount_crosses: 'beløbet overstiger'
                 of_the_amount: '%'
+                of: 'af'
                 or_at_least_every: 'eller mindst hver'
                 days: 'dage'
             pick_exchange:

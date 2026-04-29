@@ -4,10 +4,14 @@ class Rules::Withdrawal < Rule
 
   encrypts :address
 
+  before_validation :default_withdrawal_percentage
+
   store_accessor :settings, :max_fee_percentage, :network, :address_tag, :threshold_type, :min_amount, :address_name,
-                 :max_interval
+                 :max_interval, :withdrawal_percentage
 
   validates :address, presence: true
+  validates :withdrawal_percentage, numericality: { greater_than: 0, less_than_or_equal_to: 100 },
+                                    if: -> { scheduled? }
   validates :max_fee_percentage, presence: true,
                                  numericality: { greater_than: 0, less_than_or_equal_to: 100 },
                                  unless: -> { threshold_type == 'min_amount' },
@@ -32,6 +36,7 @@ class Rules::Withdrawal < Rule
   end
 
   def parse_params(params)
+    self.withdrawal_percentage = params[:withdrawal_percentage] if params[:withdrawal_percentage].present?
     self.threshold_type = params[:threshold_type] if params.key?(:threshold_type)
     self.max_fee_percentage = params[:max_fee_percentage] if params[:max_fee_percentage].present?
     self.min_amount = params[:min_amount] if params[:min_amount].present?
@@ -89,11 +94,13 @@ class Rules::Withdrawal < Rule
     end
 
     fee = exchange.withdrawal_fee_for(asset: asset) || BigDecimal('0')
-    amount = free_balance - fee
+    amount_before_fee = withdrawal_amount_before_fee(free_balance)
+    amount = amount_before_fee - fee
 
     if amount <= 0
-      log_skipped("Balance #{free_balance} #{asset.symbol} does not cover fee #{fee} #{asset.symbol}",
-                  details: { free_balance: free_balance.to_s('F') })
+      log_skipped("Withdrawal amount #{amount_before_fee.to_s('F')} #{asset.symbol} does not cover fee #{fee} #{asset.symbol}",
+                  details: { free_balance: free_balance.to_s('F'),
+                             withdrawal_percentage: effective_withdrawal_percentage.to_s('F') })
       return Result::Success.new(skipped: true)
     end
 
@@ -112,7 +119,8 @@ class Rules::Withdrawal < Rule
       log_failed("Withdrawal failed: #{withdraw_result.errors.first}",
                  details: { free_balance: free_balance.to_s('F'), amount: amount.to_s('F'),
                             fee: fee.to_s('F'), address: address,
-                            network: network, address_tag: address_tag })
+                            network: network, address_tag: address_tag,
+                            withdrawal_percentage: effective_withdrawal_percentage.to_s('F') })
       return withdraw_result
     end
 
@@ -124,6 +132,7 @@ class Rules::Withdrawal < Rule
                   address: address,
                   network: network,
                   address_tag: address_tag,
+                  withdrawal_percentage: effective_withdrawal_percentage.to_s('F'),
                   withdrawal_id: withdraw_result.data[:withdrawal_id]
                 })
     withdraw_result
@@ -145,10 +154,13 @@ class Rules::Withdrawal < Rule
   end
 
   def minimum_withdrawal_amount
+    withdrawal_fraction = effective_withdrawal_percentage / 100
+    return nil unless withdrawal_fraction.positive?
+
     if threshold_type == 'min_amount'
       return nil if min_amount.blank?
 
-      BigDecimal(min_amount.to_s)
+      (BigDecimal(min_amount.to_s) / withdrawal_fraction).round(8)
     else
       return nil if max_fee_percentage.blank?
 
@@ -157,8 +169,14 @@ class Rules::Withdrawal < Rule
       return nil if pct.zero?
       return nil if fee.zero?
 
-      (fee / (pct / 100)).round(8)
+      ((fee / (pct / 100)) / withdrawal_fraction).round(8)
     end
+  end
+
+  def effective_withdrawal_percentage
+    return BigDecimal('100') if withdrawal_percentage.blank?
+
+    BigDecimal(withdrawal_percentage.to_s)
   end
 
   def max_interval_elapsed?
@@ -183,10 +201,18 @@ class Rules::Withdrawal < Rule
 
   private
 
+  def default_withdrawal_percentage
+    self.withdrawal_percentage = '100' if withdrawal_percentage.blank?
+  end
+
   def fee_for_selected_chain
     return nil if network.blank?
 
     chain = available_chains.find { |c| c['name'] == network }
     chain&.dig('fee')
+  end
+
+  def withdrawal_amount_before_fee(free_balance)
+    (free_balance * (effective_withdrawal_percentage / 100)).round(8)
   end
 end

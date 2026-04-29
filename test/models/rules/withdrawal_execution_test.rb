@@ -71,6 +71,25 @@ class Rules::WithdrawalExecutionTest < ActiveSupport::TestCase
     assert_equal 'test-123', @rule.rule_logs.last.details['withdrawal_id']
   end
 
+  test 'execute withdraws configured percentage when balance percentage exceeds minimum' do
+    @rule.update!(threshold_type: 'min_amount', min_amount: '0.1', withdrawal_percentage: '80')
+    stub_exchange_balance(@exchange, asset_id: @asset.id, free: 0.125, locked: 0)
+    @exchange.stubs(:withdrawal_fee_fresh?).returns(true)
+
+    @exchange.expects(:withdraw).with(
+      asset: @asset,
+      amount: BigDecimal('0.0995'),
+      address: @rule.address,
+      network: nil,
+      address_tag: nil
+    ).returns(Result::Success.new({ withdrawal_id: 'pct-123' }))
+
+    result = @rule.execute
+
+    assert result.success?
+    assert_equal '0.0995', @rule.rule_logs.last.details['amount']
+  end
+
   # Execute with insufficient balance
 
   test 'execute skips when balance below minimum' do
@@ -84,6 +103,17 @@ class Rules::WithdrawalExecutionTest < ActiveSupport::TestCase
     assert result.data[:skipped]
     assert_equal 1, @rule.rule_logs.count
     assert @rule.rule_logs.last.pending?
+    assert_includes @rule.rule_logs.last.message, 'below minimum'
+  end
+
+  test 'execute skips when configured percentage is below fixed threshold' do
+    @rule.update!(threshold_type: 'min_amount', min_amount: '0.1', withdrawal_percentage: '80')
+    stub_exchange_balance(@exchange, asset_id: @asset.id, free: 0.124, locked: 0)
+
+    result = @rule.execute
+
+    assert result.success?
+    assert result.data[:skipped]
     assert_includes @rule.rule_logs.last.message, 'below minimum'
   end
 

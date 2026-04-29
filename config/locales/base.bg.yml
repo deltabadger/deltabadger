@@ -344,6 +344,7 @@ bg:
                 fee_less_than: 'таксата е по-ниска от'
                 amount_crosses: 'сумата надвиши'
                 of_the_amount: '%'
+                of: 'от'
                 or_at_least_every: 'или поне на всеки'
                 days: 'дни'
             pick_exchange:
