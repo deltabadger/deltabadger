@@ -3,24 +3,33 @@
     <div class="bot-tile__header">
       <div class="bot-tile__hgroup">
         <div class="bot-tile__title">
+          <% hide_quote = bot.exchange&.name_id == "alpaca" %>
           <% if bot.dca_single_asset? && bot.quote_asset_id.present? && bot.base_asset_id.present? %>
-            <span><%= bot.quote_asset.symbol %></span>
-            <span class="bot-tile__operator">&rarr;</span>
+            <% unless hide_quote %>
+              <span><%= bot.quote_asset.symbol %></span>
+              <span class="bot-tile__operator">&rarr;</span>
+            <% end %>
             <span><%= bot.base_asset.symbol %></span>
           <% elsif bot.dca_dual_asset? && bot.quote_asset_id.present? && bot.base0_asset_id.present? && bot.base1_asset_id.present? %>
-            <span><%= bot.quote_asset.symbol %></span>
-            <span class="bot-tile__operator">&rarr;</span>
+            <% unless hide_quote %>
+              <span><%= bot.quote_asset.symbol %></span>
+              <span class="bot-tile__operator">&rarr;</span>
+            <% end %>
             <span>
               <span><%= bot.base0_asset.symbol %></span>,
               <span><%= bot.base1_asset.symbol %></span>
             </span>
           <% elsif bot.dca_index? && bot.quote_asset_id.present? && bot.num_coins.present? %>
-            <span><%= bot.quote_asset.symbol %></span>
-            <span class="bot-tile__operator">&rarr;</span>
+            <% unless hide_quote %>
+              <span><%= bot.quote_asset.symbol %></span>
+              <span class="bot-tile__operator">&rarr;</span>
+            <% end %>
             <span><%= bot.display_index_name %></span>
           <% elsif bot.signal? && bot.quote_asset_id.present? && bot.base_asset_id.present? %>
-            <span><%= bot.quote_asset.symbol %></span>
-            <span class="bot-tile__operator">&rarr;</span>
+            <% unless hide_quote %>
+              <span><%= bot.quote_asset.symbol %></span>
+              <span class="bot-tile__operator">&rarr;</span>
+            <% end %>
             <span><%= bot.base_asset.symbol %></span>
           <% end %>
           <% if bot.exchange.present? %>
