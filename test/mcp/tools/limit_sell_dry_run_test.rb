@@ -22,9 +22,7 @@ class LimitSellDryRunTest < ActiveSupport::TestCase
   test 'dry run enabled: response contains DRY RUN prefix' do
     @user.mcp_dry_run = true
 
-    order_data = { order_id: 'dry-order-123', status: 'new' }
-    Exchanges::Binance.any_instance.stubs(:set_client)
-    Exchanges::Binance.any_instance.stubs(:limit_sell).returns(Result::Success.new(order_data))
+    Exchanges::Binance.any_instance.expects(:set_client).with(api_key: @api_key)
 
     response = LimitSellTool.new(exchange_name: 'Binance', base_asset: 'BTC', quote_asset: 'USD',
                                  amount: 0.5, price: 55_000).execute
@@ -32,14 +30,20 @@ class LimitSellDryRunTest < ActiveSupport::TestCase
 
     assert_match(/\[DRY RUN\]/, text)
     assert_match(/order placed/i, text)
+    assert_match(/dry-order-/, text)
   end
 
   test 'dry run disabled: response does not contain DRY RUN prefix' do
     @user.mcp_dry_run = false
 
     order_data = { order_id: '12345', status: 'new' }
-    Exchanges::Binance.any_instance.stubs(:set_client)
-    Exchanges::Binance.any_instance.stubs(:limit_sell).returns(Result::Success.new(order_data))
+    Exchanges::Binance.any_instance.expects(:set_client).with(api_key: @api_key)
+    Exchanges::Binance.any_instance.expects(:limit_sell).with(
+      ticker: @ticker,
+      amount: 0.5,
+      amount_type: :base,
+      price: 55_000
+    ).returns(Result::Success.new(order_data))
 
     response = LimitSellTool.new(exchange_name: 'Binance', base_asset: 'BTC', quote_asset: 'USD',
                                  amount: 0.5, price: 55_000).execute
@@ -52,9 +56,7 @@ class LimitSellDryRunTest < ActiveSupport::TestCase
   test 'thread-local is cleaned up after execution' do
     @user.mcp_dry_run = true
 
-    order_data = { order_id: 'dry-order-123', status: 'new' }
     Exchanges::Binance.any_instance.stubs(:set_client)
-    Exchanges::Binance.any_instance.stubs(:limit_sell).returns(Result::Success.new(order_data))
 
     LimitSellTool.new(exchange_name: 'Binance', base_asset: 'BTC', quote_asset: 'USD',
                       amount: 0.5, price: 55_000).execute

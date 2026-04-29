@@ -20,23 +20,27 @@ class MarketBuyDryRunTest < ActiveSupport::TestCase
   test 'dry run enabled: response contains DRY RUN prefix' do
     @user.mcp_dry_run = true
 
-    order_data = { order_id: 'dry-order-123', status: 'filled' }
-    Exchanges::Binance.any_instance.stubs(:set_client)
-    Exchanges::Binance.any_instance.stubs(:market_buy).returns(Result::Success.new(order_data))
+    Exchanges::Binance.any_instance.expects(:set_client).with(api_key: @api_key)
+    Exchanges::Binance.any_instance.stubs(:get_ask_price).returns(Result::Success.new(50_000.0))
 
     response = MarketBuyTool.new(exchange_name: 'Binance', base_asset: 'BTC', quote_asset: 'USD', amount: 100.0).execute
     text = response.contents.first.text
 
     assert_match(/\[DRY RUN\]/, text)
     assert_match(/order placed/i, text)
+    assert_match(/dry-order-/, text)
   end
 
   test 'dry run disabled: response does not contain DRY RUN prefix' do
     @user.mcp_dry_run = false
 
     order_data = { order_id: '12345', status: 'filled' }
-    Exchanges::Binance.any_instance.stubs(:set_client)
-    Exchanges::Binance.any_instance.stubs(:market_buy).returns(Result::Success.new(order_data))
+    Exchanges::Binance.any_instance.expects(:set_client).with(api_key: @api_key)
+    Exchanges::Binance.any_instance.expects(:market_buy).with(
+      ticker: @ticker,
+      amount: 100.0,
+      amount_type: :quote
+    ).returns(Result::Success.new(order_data))
 
     response = MarketBuyTool.new(exchange_name: 'Binance', base_asset: 'BTC', quote_asset: 'USD', amount: 100.0).execute
     text = response.contents.first.text
@@ -48,9 +52,8 @@ class MarketBuyDryRunTest < ActiveSupport::TestCase
   test 'thread-local is cleaned up after execution' do
     @user.mcp_dry_run = true
 
-    order_data = { order_id: 'dry-order-123', status: 'filled' }
     Exchanges::Binance.any_instance.stubs(:set_client)
-    Exchanges::Binance.any_instance.stubs(:market_buy).returns(Result::Success.new(order_data))
+    Exchanges::Binance.any_instance.stubs(:get_ask_price).returns(Result::Success.new(50_000.0))
 
     MarketBuyTool.new(exchange_name: 'Binance', base_asset: 'BTC', quote_asset: 'USD', amount: 100.0).execute
 

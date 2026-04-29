@@ -20,8 +20,12 @@ class MarketSellToolTest < ActiveSupport::TestCase
 
   test 'executes a market sell order' do
     order_data = { order_id: '12345', status: 'filled' }
-    Exchanges::Binance.any_instance.stubs(:set_client)
-    Exchanges::Binance.any_instance.stubs(:market_sell).returns(Result::Success.new(order_data))
+    Exchanges::Binance.any_instance.expects(:set_client).with(api_key: @api_key)
+    Exchanges::Binance.any_instance.expects(:market_sell).with(
+      ticker: @ticker,
+      amount: 0.5,
+      amount_type: :base
+    ).returns(Result::Success.new(order_data))
 
     response = MarketSellTool.new(exchange_name: 'Binance', base_asset: 'BTC', quote_asset: 'USD', amount: 0.5).execute
 
@@ -46,5 +50,18 @@ class MarketSellToolTest < ActiveSupport::TestCase
     response = MarketSellTool.new(exchange_name: 'Binance', base_asset: 'BTC', quote_asset: 'USD', amount: 0.5).execute
 
     assert_match(/disabled/, response.contents.first.text)
+  end
+
+  test 'returns error on exchange API failure' do
+    Exchanges::Binance.any_instance.expects(:set_client).with(api_key: @api_key)
+    Exchanges::Binance.any_instance.expects(:market_sell).with(
+      ticker: @ticker,
+      amount: 0.5,
+      amount_type: :base
+    ).returns(Result::Failure.new('Insufficient funds'))
+
+    response = MarketSellTool.new(exchange_name: 'Binance', base_asset: 'BTC', quote_asset: 'USD', amount: 0.5).execute
+
+    assert_match(/Insufficient funds/, response.contents.first.text)
   end
 end

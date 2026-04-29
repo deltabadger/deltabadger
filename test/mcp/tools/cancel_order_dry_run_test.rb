@@ -22,7 +22,7 @@ class CancelOrderDryRunTest < ActiveSupport::TestCase
   test 'dry run enabled: response contains DRY RUN prefix' do
     @user.mcp_dry_run = true
 
-    Transaction.any_instance.stubs(:cancel).returns(Result::Success.new(@transaction))
+    Transaction.any_instance.expects(:cancel).once.returns(Result::Success.new(@transaction))
 
     response = CancelOrderTool.new(order_id: @transaction.id.to_s).execute
     text = response.contents.first.text
@@ -34,7 +34,7 @@ class CancelOrderDryRunTest < ActiveSupport::TestCase
   test 'dry run disabled: response does not contain DRY RUN prefix' do
     @user.mcp_dry_run = false
 
-    Transaction.any_instance.stubs(:cancel).returns(Result::Success.new(@transaction))
+    Transaction.any_instance.expects(:cancel).once.returns(Result::Success.new(@transaction))
 
     response = CancelOrderTool.new(order_id: @transaction.id.to_s).execute
     text = response.contents.first.text
@@ -46,7 +46,7 @@ class CancelOrderDryRunTest < ActiveSupport::TestCase
   test 'thread-local is cleaned up after execution' do
     @user.mcp_dry_run = true
 
-    Transaction.any_instance.stubs(:cancel).returns(Result::Success.new(@transaction))
+    Transaction.any_instance.expects(:cancel).once.returns(Result::Success.new(@transaction))
 
     CancelOrderTool.new(order_id: @transaction.id.to_s).execute
 

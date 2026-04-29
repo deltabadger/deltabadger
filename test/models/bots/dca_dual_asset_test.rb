@@ -49,7 +49,7 @@ class Bots::DcaDualAssetTest < ActiveSupport::TestCase
   test 'accepts positive quote_amount' do
     bot = build(:dca_dual_asset)
     bot.quote_amount = 100
-    assert bot.errors[:quote_amount].empty?
+    assert_predicate bot, :valid?
   end
 
   # == Validations: allocation0 ==
@@ -79,7 +79,7 @@ class Bots::DcaDualAssetTest < ActiveSupport::TestCase
     bot = build(:dca_dual_asset)
     [0, 0.3, 0.5, 0.7, 1].each do |value|
       bot.allocation0 = value
-      assert bot.errors[:allocation0].empty?
+      assert_predicate bot, :valid?
     end
   end
 
@@ -96,7 +96,7 @@ class Bots::DcaDualAssetTest < ActiveSupport::TestCase
     bot = build(:dca_dual_asset)
     %w[hour day week month].each do |interval|
       bot.interval = interval
-      assert bot.errors[:interval].empty?
+      assert_predicate bot, :valid?
     end
   end
 
@@ -562,6 +562,23 @@ class Bots::DcaDualAssetTest < ActiveSupport::TestCase
 
     result = bot.execute_action
     assert_predicate result, :success?
+  end
+
+  test 'execute_action enqueues order creation after submitting through exchange' do
+    bot = create(:dca_dual_asset, :started)
+    order_id = setup_bot_execution_mocks(bot)
+    bot.stubs(:broadcast_below_minimums_warning)
+    Bot::FetchAndUpdateOpenOrdersJob.stubs(:perform_now)
+    Bot::FetchAndCreateOrderJob.expects(:perform_later).with(
+      bot,
+      order_id,
+      update_missed_quote_amount: true
+    ).at_least_once
+
+    result = bot.execute_action
+
+    assert_predicate result, :success?
+    assert_equal 'waiting', bot.reload.status
   end
 
   test 'execute_action returns failure when set_orders fails' do
