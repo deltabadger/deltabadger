@@ -20,8 +20,13 @@ class LimitBuyToolTest < ActiveSupport::TestCase
 
   test 'executes a limit buy order' do
     order_data = { order_id: '12345', status: 'open' }
-    Exchanges::Binance.any_instance.stubs(:set_client)
-    Exchanges::Binance.any_instance.stubs(:limit_buy).returns(Result::Success.new(order_data))
+    Exchanges::Binance.any_instance.expects(:set_client).with(api_key: @api_key)
+    Exchanges::Binance.any_instance.expects(:limit_buy).with(
+      ticker: @ticker,
+      amount: 100.0,
+      amount_type: :quote,
+      price: 50_000.0
+    ).returns(Result::Success.new(order_data))
 
     response = LimitBuyTool.new(
       exchange_name: 'Binance', base_asset: 'BTC', quote_asset: 'USD', amount: 100.0, price: 50_000.0
@@ -57,8 +62,13 @@ class LimitBuyToolTest < ActiveSupport::TestCase
   end
 
   test 'returns error on exchange API failure' do
-    Exchanges::Binance.any_instance.stubs(:set_client)
-    Exchanges::Binance.any_instance.stubs(:limit_buy).returns(Result::Failure.new('Insufficient funds'))
+    Exchanges::Binance.any_instance.expects(:set_client).with(api_key: @api_key)
+    Exchanges::Binance.any_instance.expects(:limit_buy).with(
+      ticker: @ticker,
+      amount: 100.0,
+      amount_type: :quote,
+      price: 50_000.0
+    ).returns(Result::Failure.new('Insufficient funds'))
 
     response = LimitBuyTool.new(
       exchange_name: 'Binance', base_asset: 'BTC', quote_asset: 'USD', amount: 100.0, price: 50_000.0

@@ -19,21 +19,23 @@ class CancelOrderToolTest < ActiveSupport::TestCase
     transaction = create(:transaction, bot: @bot, exchange: @exchange, status: :submitted, external_status: :open,
                                        side: :buy, order_type: :limit_order, base: 'BTC', quote: 'USD',
                                        amount: 0.5, price: 50_000, external_id: 'order-123')
-
-    Transaction.any_instance.stubs(:cancel).returns(Result::Success.new(transaction))
+    Transaction.any_instance.expects(:cancel).once.returns(Result::Success.new(transaction))
 
     response = CancelOrderTool.new(order_id: transaction.id.to_s).execute
     text = response.contents.first.text
 
     assert_match(/cancel/i, text)
+    assert_match(/##{transaction.id}/, text)
   end
 
   test 'cancels an order by exchange order ID' do
     alpaca = create(:alpaca_exchange)
     create(:api_key, user: @user, exchange: alpaca, key_type: :trading, status: :correct)
 
-    Exchanges::Alpaca.any_instance.stubs(:set_client)
-    Exchanges::Alpaca.any_instance.stubs(:cancel_order).returns(Result::Success.new('abc-uuid-123'))
+    api_key = ApiKey.find_by!(user: @user, exchange: alpaca, key_type: :trading, status: :correct)
+    Exchanges::Alpaca.any_instance.expects(:set_client).with(api_key: api_key)
+    Exchanges::Alpaca.any_instance.expects(:cancel_order).with(order_id: 'abc-uuid-123')
+                     .returns(Result::Success.new('abc-uuid-123'))
 
     response = CancelOrderTool.new(order_id: 'abc-uuid-123', exchange_name: 'Alpaca').execute
     text = response.contents.first.text
@@ -60,8 +62,10 @@ class CancelOrderToolTest < ActiveSupport::TestCase
     alpaca = create(:alpaca_exchange)
     create(:api_key, user: @user, exchange: alpaca, key_type: :trading, status: :correct)
 
-    Exchanges::Alpaca.any_instance.stubs(:set_client)
-    Exchanges::Alpaca.any_instance.stubs(:cancel_order).returns(Result::Failure.new('Order not found'))
+    api_key = ApiKey.find_by!(user: @user, exchange: alpaca, key_type: :trading, status: :correct)
+    Exchanges::Alpaca.any_instance.expects(:set_client).with(api_key: api_key)
+    Exchanges::Alpaca.any_instance.expects(:cancel_order).with(order_id: 'abc-uuid-123')
+                     .returns(Result::Failure.new('Order not found'))
 
     response = CancelOrderTool.new(order_id: 'abc-uuid-123', exchange_name: 'Alpaca').execute
     text = response.contents.first.text
@@ -74,7 +78,7 @@ class CancelOrderToolTest < ActiveSupport::TestCase
                                        side: :buy, order_type: :limit_order, base: 'BTC', quote: 'USD',
                                        amount: 0.5, price: 50_000, external_id: 'order-456')
 
-    Transaction.any_instance.stubs(:cancel).returns(Result::Failure.new('Exchange rejected cancellation'))
+    Transaction.any_instance.expects(:cancel).once.returns(Result::Failure.new('Exchange rejected cancellation'))
 
     response = CancelOrderTool.new(order_id: transaction.id.to_s).execute
     text = response.contents.first.text
