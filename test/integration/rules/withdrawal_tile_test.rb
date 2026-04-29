@@ -29,8 +29,18 @@ class Rules::WithdrawalTileTest < ActionDispatch::IntegrationTest
 
     get rules_path
     assert_response :ok
+    assert_select 'input[name="rules_withdrawal[withdrawal_percentage]"][disabled]'
     assert_select 'input[name="rules_withdrawal[max_fee_percentage]"][disabled]'
     assert_select 'select[name="rules_withdrawal[threshold_type]"][disabled]'
+  end
+
+  test 'stopped rule shows withdrawal percentage input' do
+    Exchanges::Binance.any_instance.stubs(:set_client)
+    Exchanges::Binance.any_instance.stubs(:list_withdrawal_addresses).returns(nil)
+
+    get rules_path
+    assert_response :ok
+    assert_select 'input[name="rules_withdrawal[withdrawal_percentage]"][value="100"]'
   end
 
   test 'stopped rule shows address dropdown when exchange has addresses' do
@@ -96,6 +106,15 @@ class Rules::WithdrawalTileTest < ActionDispatch::IntegrationTest
     assert_response :ok
     @rule.reload
     assert_equal 'wallet-new', @rule.address
+  end
+
+  test 'update action accepts withdrawal percentage change' do
+    patch rules_withdrawal_path(id: @rule.id), params: {
+      rules_withdrawal: { withdrawal_percentage: '80' }
+    }, headers: { 'Accept' => 'text/vnd.turbo-stream.html' }
+
+    assert_response :ok
+    assert_equal '80', @rule.reload.withdrawal_percentage
   end
 
   test 'scheduled rule does not show address dropdown' do

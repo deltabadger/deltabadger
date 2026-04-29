@@ -334,6 +334,7 @@ ru:
                 fee_less_than: 'комиссия меньше'
                 amount_crosses: 'сумма достигнет'
                 of_the_amount: '%'
+                of: 'от'
             pick_exchange:
                 withdrawal_fee: 'Вывод'
             form:

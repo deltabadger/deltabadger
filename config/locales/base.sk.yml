@@ -351,6 +351,7 @@ sk:
                 fee_less_than: 'poplatok je nižší ako'
                 amount_crosses: 'čiastka prekročí'
                 of_the_amount: '%'
+                of: 'z'
                 or_at_least_every: 'alebo aspoň každých'
                 days: 'dní'
             pick_exchange:

@@ -9,7 +9,8 @@ class Rules::WithdrawalTest < ActiveSupport::TestCase
     @ea = ExchangeAsset.find_by(exchange: @exchange, asset: @asset)
   end
 
-  def build_rule(max_fee_percentage: '1.0', threshold_type: 'fee_percentage', min_amount: nil)
+  def build_rule(max_fee_percentage: '1.0', threshold_type: 'fee_percentage', min_amount: nil,
+                 withdrawal_percentage: nil)
     Rules::Withdrawal.new(
       user: @user,
       exchange: @exchange,
@@ -17,7 +18,8 @@ class Rules::WithdrawalTest < ActiveSupport::TestCase
       address: '1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa',
       threshold_type: threshold_type,
       max_fee_percentage: max_fee_percentage,
-      min_amount: min_amount
+      min_amount: min_amount,
+      withdrawal_percentage: withdrawal_percentage
     )
   end
 
@@ -74,6 +76,12 @@ class Rules::WithdrawalTest < ActiveSupport::TestCase
     rule = build_rule(threshold_type: 'min_amount', min_amount: '0.05')
 
     assert_equal BigDecimal('0.05'), rule.minimum_withdrawal_amount
+  end
+
+  test 'minimum_withdrawal_amount scales fixed amount by withdrawal percentage' do
+    rule = build_rule(threshold_type: 'min_amount', min_amount: '0.1', withdrawal_percentage: '80')
+
+    assert_equal BigDecimal('0.125'), rule.minimum_withdrawal_amount
   end
 
   test 'minimum_withdrawal_amount returns nil when min_amount is blank' do
@@ -143,6 +151,13 @@ class Rules::WithdrawalTest < ActiveSupport::TestCase
     assert_equal BigDecimal('0.001'), rule.minimum_withdrawal_amount
   end
 
+  test 'minimum_withdrawal_amount scales fee percentage threshold by withdrawal percentage' do
+    @ea.update!(withdrawal_fee: '0.001', withdrawal_fee_updated_at: Time.current)
+    rule = build_rule(max_fee_percentage: '1.0', withdrawal_percentage: '80')
+
+    assert_equal BigDecimal('0.125'), rule.minimum_withdrawal_amount
+  end
+
   # parse_params tests
 
   test 'parse_params updates max_fee_percentage' do
@@ -150,6 +165,13 @@ class Rules::WithdrawalTest < ActiveSupport::TestCase
     rule.parse_params(max_fee_percentage: '2.5')
 
     assert_equal '2.5', rule.max_fee_percentage
+  end
+
+  test 'parse_params updates withdrawal_percentage' do
+    rule = build_rule
+    rule.parse_params(withdrawal_percentage: '80')
+
+    assert_equal '80', rule.withdrawal_percentage
   end
 
   test 'parse_params updates network' do
@@ -239,6 +261,14 @@ class Rules::WithdrawalTest < ActiveSupport::TestCase
     rule = build_rule(threshold_type: 'fee_percentage', min_amount: nil)
 
     assert rule.valid?
+  end
+
+  test 'validates withdrawal_percentage must be positive' do
+    rule = build_rule(withdrawal_percentage: '0')
+    rule.status = :scheduled
+
+    assert_not rule.valid?
+    assert rule.errors[:withdrawal_percentage].any?
   end
 
   # start enqueues evaluation

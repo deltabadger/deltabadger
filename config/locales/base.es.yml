@@ -331,6 +331,7 @@ es:
                 fee_less_than: 'la comisión sea menor de'
                 amount_crosses: 'el monto alcance'
                 of_the_amount: '%'
+                of: 'de'
             pick_exchange:
                 withdrawal_fee: 'Retiro'
             form:

@@ -351,6 +351,7 @@ cs:
                 fee_less_than: 'poplatek je nižší než'
                 amount_crosses: 'částka překročí'
                 of_the_amount: '%'
+                of: 'z'
                 or_at_least_every: 'nebo alespoň každých'
                 days: 'dní'
             pick_exchange:

@@ -58,6 +58,7 @@ class Rules::Withdrawals::ConfirmSettingsController < ApplicationController
         address_name: config['address_name'],
         address_tag: config['address_tag'],
         network: config['network'],
+        withdrawal_percentage: config['withdrawal_percentage'],
         threshold_type: config['threshold_type'],
         max_fee_percentage: config['max_fee_percentage'],
         min_amount: config['min_amount'],
@@ -73,6 +74,7 @@ class Rules::Withdrawals::ConfirmSettingsController < ApplicationController
         address_name: config['address_name'],
         address_tag: config['address_tag'],
         network: config['network'],
+        withdrawal_percentage: config['withdrawal_percentage'],
         threshold_type: config['threshold_type'],
         max_fee_percentage: config['max_fee_percentage'],
         min_amount: config['min_amount'],
@@ -120,6 +122,7 @@ class Rules::Withdrawals::ConfirmSettingsController < ApplicationController
       exchange: @exchange,
       address: @address,
       address_tag: config['address_tag'],
+      withdrawal_percentage: config['withdrawal_percentage'],
       threshold_type: config['threshold_type'],
       max_fee_percentage: config['max_fee_percentage'],
       min_amount: config['min_amount']
@@ -129,12 +132,13 @@ class Rules::Withdrawals::ConfirmSettingsController < ApplicationController
 
     fee_known = @rule.withdrawal_fee_known?
     @rule.threshold_type ||= fee_known ? 'fee_percentage' : 'min_amount'
+    @rule.withdrawal_percentage = @rule.withdrawal_percentage.presence || '100'
     @rule.max_fee_percentage ||= '0.5'
     @rule.min_amount ||= '0.1'
     @rule.network = config['network'] || @chains.find { |c| c['is_default'] }&.dig('name') || @chains.first&.dig('name')
   end
 
   def rule_params
-    params.permit(:threshold_type, :max_fee_percentage, :min_amount, :max_interval, :network, :address)
+    params.permit(:withdrawal_percentage, :threshold_type, :max_fee_percentage, :min_amount, :max_interval, :network, :address)
   end
 end

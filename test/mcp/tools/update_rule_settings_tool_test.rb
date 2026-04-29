@@ -30,6 +30,13 @@ class UpdateRuleSettingsToolTest < ActiveSupport::TestCase
     assert_equal '1.5', @rule.reload.max_fee_percentage
   end
 
+  test 'updates rule withdrawal_percentage' do
+    response = UpdateRuleSettingsTool.new(rule_id: @rule.id, withdrawal_percentage: 80).execute
+
+    assert_match(/updated/, response.contents.first.text)
+    assert_equal '80.0', @rule.reload.withdrawal_percentage
+  end
+
   test 'updates rule threshold_type' do
     response = UpdateRuleSettingsTool.new(rule_id: @rule.id, threshold_type: 'min_amount', min_amount: 10).execute
 

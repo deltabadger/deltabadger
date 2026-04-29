@@ -344,6 +344,7 @@ en:
                 fee_less_than: 'fee is less than'
                 amount_crosses: 'the amount crosses'
                 of_the_amount: '%'
+                of: 'of'
                 or_at_least_every: 'or at least every'
                 days: 'days'
             pick_exchange:

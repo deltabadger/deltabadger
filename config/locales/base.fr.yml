@@ -331,6 +331,7 @@ fr:
                 fee_less_than: 'les frais sont inférieurs à'
                 amount_crosses: 'le montant atteint'
                 of_the_amount: '%'
+                of: 'de'
             pick_exchange:
                 withdrawal_fee: 'Retrait'
             form:

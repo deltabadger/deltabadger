@@ -333,6 +333,7 @@ pl:
                 fee_less_than: 'opłata jest mniejsza niż'
                 amount_crosses: 'kwota osiągnie'
                 of_the_amount: '%'
+                of: 'z'
             pick_exchange:
                 withdrawal_fee: 'Wypłata'
             form:

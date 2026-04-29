@@ -344,6 +344,7 @@ el:
                 fee_less_than: 'η προμήθεια είναι κάτω από'
                 amount_crosses: 'το ποσό ξεπερνά'
                 of_the_amount: '%'
+                of: 'του'
                 or_at_least_every: 'ή τουλάχιστον κάθε'
                 days: 'ημέρες'
             pick_exchange:

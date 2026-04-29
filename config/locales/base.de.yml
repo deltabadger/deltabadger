@@ -331,6 +331,7 @@ de:
                 fee_less_than: 'die Gebühr unter'
                 amount_crosses: 'der Betrag erreicht'
                 of_the_amount: '%'
+                of: 'von'
             pick_exchange:
                 withdrawal_fee: 'Auszahlung'
             form:

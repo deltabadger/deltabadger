@@ -344,6 +344,7 @@ sv:
                 fee_less_than: 'avgiften är lägre än'
                 amount_crosses: 'beloppet överstiger'
                 of_the_amount: '%'
+                of: 'av'
                 or_at_least_every: 'eller minst var'
                 days: 'dagar'
             pick_exchange:

@@ -3,11 +3,15 @@
 <% selected_threshold = @rule.threshold_type %>
 <% fee = @rule.withdrawal_fee_amount %>
 <% min = @rule.min_amount || '0.1' %>
+<% withdrawal_percentage = @rule.withdrawal_percentage.presence || '100' %>
 
 <div id="rule-preview">
   <div class="widget main-rule">
     <div class="conversational flex-justify-center">
       <%= t('rules.withdrawals.sentence.withdraw_all') %>
+      <input type="number" name="withdrawal_percentage" value="<%= withdrawal_percentage %>" class="sinput numeric-input" step="any" min="0.01" max="100" size="2" required data-controller="autowidth-input" data-action="input->autowidth-input#resize input->form--submit#submit" style="width: 50px;">
+      <%= t('rules.withdrawals.sentence.of_the_amount') %>
+      <%= t('rules.withdrawals.sentence.of') %>
       <%= link_to @asset.symbol, new_rules_withdrawals_pick_asset_path, data: { turbo_frame: "modal_content" }, class: "ticker", style: "background: #{asset_color}" %>
       <%= t('rules.withdrawals.sentence.from') %>
       <%= link_to new_rules_withdrawals_pick_exchange_path, data: { turbo_frame: "modal_content" }, class: "sbutton sbutton--exchange sbutton--exchange--#{@exchange.name_id}" do %>
@@ -88,11 +92,12 @@
     </div>
 
     <div class="small-info" style="<%= 'display:none' unless selected_threshold == 'min_amount' && (!fee.positive? || !amount.positive?) %>">
-      <%= t('rules.tile.fixed_amount_info', amount: min, symbol: @asset.symbol) %>
+      <%= t('rules.tile.fixed_amount_info', amount: @rule.minimum_withdrawal_amount || min, symbol: @asset.symbol) %>
     </div>
 
     <% max_pct = BigDecimal((@rule.max_fee_percentage || '0.5').to_s) %>
-    <% min_withdrawal = fee.positive? && max_pct.positive? ? (fee / (max_pct / 100)).round(8) : BigDecimal('0') %>
+    <% withdrawal_fraction = BigDecimal(withdrawal_percentage.to_s) / 100 %>
+    <% min_withdrawal = fee.positive? && max_pct.positive? && withdrawal_fraction.positive? ? ((fee / (max_pct / 100)) / withdrawal_fraction).round(8) : BigDecimal('0') %>
     <div class="small-info" style="<%= 'display:none' unless selected_threshold == 'fee_percentage' && fee.positive? && max_pct.positive? %>">
       <%= t('rules.tile.min_amount_info_html',
             fee: fee.to_s('F'),
