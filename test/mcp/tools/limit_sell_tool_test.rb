@@ -20,8 +20,13 @@ class LimitSellToolTest < ActiveSupport::TestCase
 
   test 'executes a limit sell order' do
     order_data = { order_id: '12345', status: 'open' }
-    Exchanges::Binance.any_instance.stubs(:set_client)
-    Exchanges::Binance.any_instance.stubs(:limit_sell).returns(Result::Success.new(order_data))
+    Exchanges::Binance.any_instance.expects(:set_client).with(api_key: @api_key)
+    Exchanges::Binance.any_instance.expects(:limit_sell).with(
+      ticker: @ticker,
+      amount: 0.5,
+      amount_type: :base,
+      price: 60_000.0
+    ).returns(Result::Success.new(order_data))
 
     response = LimitSellTool.new(
       exchange_name: 'Binance', base_asset: 'BTC', quote_asset: 'USD', amount: 0.5, price: 60_000.0
@@ -54,5 +59,21 @@ class LimitSellToolTest < ActiveSupport::TestCase
     ).execute
 
     assert_match(/disabled/, response.contents.first.text)
+  end
+
+  test 'returns error on exchange API failure' do
+    Exchanges::Binance.any_instance.expects(:set_client).with(api_key: @api_key)
+    Exchanges::Binance.any_instance.expects(:limit_sell).with(
+      ticker: @ticker,
+      amount: 0.5,
+      amount_type: :base,
+      price: 60_000.0
+    ).returns(Result::Failure.new('Insufficient funds'))
+
+    response = LimitSellTool.new(
+      exchange_name: 'Binance', base_asset: 'BTC', quote_asset: 'USD', amount: 0.5, price: 60_000.0
+    ).execute
+
+    assert_match(/Insufficient funds/, response.contents.first.text)
   end
 end
