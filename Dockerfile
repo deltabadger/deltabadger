@@ -2,19 +2,21 @@
 # Deltabadger - Multi-stage Dockerfile for Umbrel/Docker deployment
 
 # Stage 1: Build frontend assets
-FROM oven/bun:latest AS frontend-builder
+FROM oven/bun:1.3-slim AS frontend-builder
 
 WORKDIR /app
+RUN chown bun:bun /app
+USER bun
 
 # Copy package files
-COPY package.json bun.lock ./
+COPY --chown=bun:bun package.json bun.lock ./
 
 # Install dependencies
 RUN bun install --frozen-lockfile
 
 # Copy frontend source files
-COPY app/javascript ./app/javascript
-COPY app/assets ./app/assets
+COPY --chown=bun:bun app/javascript ./app/javascript
+COPY --chown=bun:bun app/assets ./app/assets
 
 # Build JavaScript with bun
 RUN bun run build
