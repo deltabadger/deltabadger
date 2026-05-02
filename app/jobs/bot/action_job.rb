@@ -60,8 +60,12 @@ class Bot::ActionJob < BotJob
     when :insufficient_funds
       bot.notify_end_of_funds
     else
-      bot.notify_about_error(errors: [error.message])
+      bot.notify_about_error(errors: humanized_errors(bot, error))
     end
+  end
+
+  def humanized_errors(bot, error)
+    [bot.exchange.humanize_error(error.message)]
   end
 
   def estimated_retry_delay
@@ -73,9 +77,9 @@ class Bot::ActionJob < BotJob
 
   def notify_retry(bot, error)
     if estimated_retry_delay > bot.effective_interval_duration
-      bot.notify_about_error(errors: [error.message])
+      bot.notify_about_error(errors: humanized_errors(bot, error))
     elsif estimated_retry_delay > 1.minute # 3 failed attempts
-      bot.notify_about_error(errors: [error.message])
+      bot.notify_about_error(errors: humanized_errors(bot, error))
     end
   end
 

@@ -43,6 +43,8 @@ bg:
         unable_to_get_risk_free_rate: 'Не можахме да получим безрисковата лихва за %{risk_free_rate_name}. Сървърът Data API е недостъпен.'
         invalid_number_of_allocations: 'Невалиден брой алокации'
         invalid_allocation_value: 'Невалидна стойност на алокация'
+        exchange:
+            regional_restriction: "%{exchange} ограничава търговията с %{asset} в %{country}"
         bots:
             exchange_asset_mismatch: "Не всички активи са налични в %{exchange_name}"
             exchange_change_while_open_orders: "Преди смяна на борсата отменете всички отворени поръчки на този бот в %{exchange_name}"

@@ -115,6 +115,24 @@ class Exchange < ApplicationRecord
     raise NotImplementedError, "#{self.class.name} must implement cancel_order"
   end
 
+  # Translate a raw exchange error string into a user-friendly localized
+  # message via Honeymaker's per-exchange classifier. Falls back to the raw
+  # message when the exchange or pattern is unknown, so unmatched errors
+  # still surface verbatim instead of disappearing.
+  def humanize_error(message)
+    return nil if message.nil?
+
+    klass = Honeymaker::EXCHANGES[name_id]
+    return message unless klass
+
+    classification = klass.new.classify_error(message)
+    return message unless classification
+
+    code = classification[:code]
+    params = classification.except(:code).merge(exchange: name)
+    I18n.t("errors.exchange.#{code}", **params)
+  end
+
   # Heuristic: does the given errors array look like an invalid-key / auth error?
   # Used by sync jobs to decide whether to flip an API key's status to :incorrect
   # when a live call (get_balances, get_ledger, etc.) fails.

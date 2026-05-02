@@ -43,6 +43,8 @@ it:
         unable_to_get_risk_free_rate: 'Impossibile ottenere il tasso privo di rischio per %{risk_free_rate_name}. Il server API dei dati non è raggiungibile.'
         invalid_number_of_allocations: 'Numero di allocazioni non valido'
         invalid_allocation_value: 'Valore di allocazione non valido'
+        exchange:
+            regional_restriction: "%{exchange} limita il trading di %{asset} in %{country}"
         bots:
             exchange_asset_mismatch: "Non tutte le attività sono quotate su %{exchange_name}"
             exchange_change_while_open_orders: "Annulla tutte le ordini aperti di questo bot su %{exchange_name} prima di cambiare l'exchange"

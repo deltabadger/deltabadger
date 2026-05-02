@@ -43,6 +43,8 @@ sk:
         unable_to_get_risk_free_rate: 'Nepodarilo sa ziskat bezrizikovu sadzbu pre %{risk_free_rate_name}. Server Data API je nedostupny.'
         invalid_number_of_allocations: 'Neplatny pocet alokacii'
         invalid_allocation_value: 'Neplatna hodnota alokacie'
+        exchange:
+            regional_restriction: "%{exchange} obmedzuje obchodovanie s %{asset} v krajine %{country}"
         bots:
             exchange_asset_mismatch: "Nie vsetky aktiva su dostupne na %{exchange_name}"
             exchange_change_while_open_orders: "Pred zmenou burzy zruste vsetky otvorene prikazy tohto bota na %{exchange_name}"

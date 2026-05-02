@@ -246,7 +246,7 @@ GEM
       activesupport (>= 5.1)
       haml (>= 4.0.6)
       railties (>= 5.1)
-    honeymaker (0.7.6)
+    honeymaker (0.8.0)
       bigdecimal
       faraday (~> 2.0)
       faraday-net_http_persistent (~> 2.0)
@@ -604,7 +604,7 @@ DEPENDENCIES
   faraday-net_http_persistent (~> 2.3.0)
   haikunator (~> 1.1)
   haml-rails (~> 3.0)
-  honeymaker (~> 0.7.6)
+  honeymaker (~> 0.8.0)
   hyperliquid-rb
   importmap-rails
   jaro_winkler (~> 1.7)
@@ -721,7 +721,7 @@ CHECKSUMS
   haikunator (1.1.1) sha256=ec99f690b216edf20c518ea9a6d83f6bd479e86c37d89b2afc3376e752b32ca8
   haml (7.2.0) sha256=87fd2b71f7feab1724337b090a7d767f5ab2d42f08c974f3ead673f18cfcd55a
   haml-rails (3.0.0) sha256=091fe496a85ca521d9cac87fb50f1ecf77a57974a99aa7e267130add81a5585f
-  honeymaker (0.7.6) sha256=aa6e9465b13c455d16c11152762e9ebbca8982ca6062eac60c18c7bec656c0e2
+  honeymaker (0.8.0) sha256=51683b444d574dedd81b1abcb829de48214a208aab503338445dc7646c3b0424
   http-2 (1.1.3) sha256=1b2f379d35a11dbae94f8a1a52c053d8c161eb4a0c98b5d1605ff1b2bf171c9c
   httpx (1.7.6) sha256=82d825abc9876a132adc3492c56a0c528478ac238dd6f74d3422ab0036c6b5c8
   hyperliquid-rb (0.1.0) sha256=a9c40c379f7eb2d743640d2c9d23985fe52836294ea4894baa1ac3c5ec6cb473
