@@ -232,6 +232,7 @@ cs:
             limit_orders:
                 sentence_html: '<b>FeeCutter</b> <span>Snížit poplatky</span> pomocí <span>limitních</span> příkazů <span>%{amount_html}%</span> <span>pod cenou</span>'
                 info: "Pro snížení poplatků na nulu nastavte %{maker_fee}%, což je maker poplatek na %{exchange}. Nastavte nižší pro rychlejší provedení, nebo vyšší pro potenciálně lepší cenu. Sledujte provedení příkazů v tabulce příkazů."
+                locked_tooltip: "Hyperliquid nepodporuje tržní příkazy na spotovém trhu."
             extra_amount_limit:
                 sentence_html: "Neutratit více než <span>%{value_html} %{quote}</span>"
                 info:

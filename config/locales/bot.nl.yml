@@ -201,6 +201,7 @@ nl:
             limit_orders:
                 sentence_html: '<b>FeeCutter</b> Verlaag kosten met limietorders <span>%{amount_html}%</span> onder de prijs'
                 info: "Om de kosten tot nul te verlagen, stel het in op %{maker_fee}% wat de maker fee van %{exchange} is. Stel het lager in voor snellere uitvoering, of hoger voor mogelijk een betere prijs. Volg de uitvoering van je orders in de ordertabel."
+                locked_tooltip: "Hyperliquid ondersteunt geen market orders op spot."
             extra_amount_limit:
                 sentence_html: "Besteed niet meer dan <span>%{value_html} %{quote}</span>"
                 info:

@@ -232,6 +232,7 @@ da:
             limit_orders:
                 sentence_html: '<b>FeeCutter</b> <span>Eliminér gebyrer</span> med <span>limit</span>-ordrer <span>%{amount_html}%</span> <span>under prisen</span>'
                 info: "For at eliminere gebyrer helt, sæt den til %{maker_fee}%, som er %{exchange}s maker-gebyr. Sæt den lavere for hurtigere udførelse, eller højere for potentielt bedre pris. Følg din ordreudførelse i ordretabellen."
+                locked_tooltip: "Hyperliquid understøtter ikke markedsordrer på spot."
             extra_amount_limit:
                 sentence_html: "Brug ikke mere end <span>%{value_html} %{quote}</span>"
                 info:

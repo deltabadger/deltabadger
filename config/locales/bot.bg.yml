@@ -232,6 +232,7 @@ bg:
             limit_orders:
                 sentence_html: '<b>FeeCutter</b> <span>Намаляване на таксите</span> чрез <span>лимитирани</span> поръчки <span>%{amount_html}%</span> <span>под цената</span>'
                 info: "За намаляване на таксите до нула задайте %{maker_fee}%, което е maker таксата на %{exchange}. Задайте по-малко за по-бързо изпълнение или повече за потенциално по-добра цена. Следете изпълнението на поръчките в таблицата с поръчки."
+                locked_tooltip: "Hyperliquid не поддържа пазарни поръчки в спот."
             extra_amount_limit:
                 sentence_html: "Да не се харчи повече от <span>%{value_html} %{quote}</span>"
                 info:
