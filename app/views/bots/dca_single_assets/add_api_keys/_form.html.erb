@@ -1,0 +1,12 @@
+<div class="bot-creation-layout">
+  <%= render partial: 'bots/dca_single_assets/new_step_progress_bar', locals: { current_step: :api } %>
+  <%= render "bots/wizard/sentence", bot: bot, current_step: :api %>
+  <div class="vt-step-body">
+    <%= render partial: 'shared/api_key_form', locals: {
+      exchange: bot.exchange,
+      api_key: api_key,
+      path: bots_dca_single_assets_add_api_key_path,
+      form_data: { controller: "form--label-animations form--html5-validations", turbo_frame: 'modal_content' }
+    } %>
+  </div>
+</div>

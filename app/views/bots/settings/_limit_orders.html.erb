@@ -9,10 +9,14 @@
                 turbo_stream: true
               } do |f| %>
   <div class="toggle-group">
-    <div class="toggle">
-      <%= f.check_box :limit_ordered, data: { action: "change->form--submit#submit change->class-toggle#toggle" }, disabled: bot.working? %>
+    <% toggle_data = bot.limit_orders_locked? ? { controller: "tooltip", action: "mouseenter->tooltip#showTooltip mouseleave->tooltip#hideTooltip", tooltip_fixed_value: true } : {} %>
+    <%= tag.div class: "toggle", data: toggle_data do %>
+      <%= f.check_box :limit_ordered, data: { action: "change->form--submit#submit change->class-toggle#toggle" }, disabled: bot.working? || bot.limit_orders_locked?, checked: bot.limit_ordered? %>
       <div class="toggle__style"></div>
-    </div>
+      <% if bot.limit_orders_locked? %>
+        <%= tag.div t('bot.settings.limit_orders.locked_tooltip'), class: "tooltip tooltip--smart-allocation" %>
+      <% end %>
+    <% end %>
     <div class="toggle-group__info">
       <div class="toggle-group__info__label">
         <%= f.label :limit_ordered, class: "conversational conversational--small conversational--disabled" do %>

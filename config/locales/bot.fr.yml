@@ -205,6 +205,7 @@ fr:
             limit_orders:
                 sentence_html: '<b>FeeCutter</b> Réduisez les frais en utilisant des ordres limites <span>%{amount_html}%</span> en dessous du prix'
                 info: "Pour réduire les frais à zéro, réglez-le à %{maker_fee}% qui correspond aux frais maker de %{exchange}. Réglez-le plus bas pour une exécution plus rapide, ou plus haut pour obtenir potentiellement un meilleur prix. Suivez l'exécution de vos ordres dans le tableau des ordres."
+                locked_tooltip: "Hyperliquid ne prend pas en charge les ordres au marché en spot."
             extra_amount_limit:
                 sentence_html: "Ne pas dépenser plus de <span>%{value_html} %{quote}</span>"
                 info:

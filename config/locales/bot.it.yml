@@ -213,6 +213,7 @@ it:
             limit_orders:
                 sentence_html: '<b>FeeCutter</b> Riduci le commissioni usando ordini limite <span>%{amount_html}%</span> sotto il prezzo'
                 info: "Per azzerare le commissioni, impostalo al %{maker_fee}% che è la commissione maker di %{exchange}. Impostalo più basso per un'esecuzione più veloce, o più alto per ottenere potenzialmente un prezzo migliore. Monitora l'esecuzione dei tuoi ordini nella tabella degli ordini."
+                locked_tooltip: "Hyperliquid non supporta gli ordini a mercato sullo spot."
             extra_amount_limit:
                 sentence_html: "Non spendere più di <span>%{value_html} %{quote}</span>"
                 info:
