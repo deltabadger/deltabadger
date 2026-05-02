@@ -7,7 +7,7 @@ el:
             binance: &binance_config
                 instructions:
                     -   text_html: 'Συνδέσου στον λογαριασμό σου στο %{exchange_link}.'
-                    -   text_html: 'Πήγαινε στο <a href="https://www.binance.com/en/my/settings/api-management"><b>Account</b> → <b>API Management</b></a>.'
+                    -   text_html: 'Πήγαινε στο <a href="https://www.binance.com/en/my/settings/api-management"><b>Account</b> → <b>API Keys</b></a>.'
                     -   text_html: 'Πάτησε <b class="pbutton">Create API</b>.'
                     -   text_html: 'Επίλεξε <b class="pbutton">System generated</b>.'
                     -   text_html: 'Δώσε ένα όνομα στα κλειδιά (π.χ. "deltabadger") και ολοκλήρωσε την επαλήθευση ασφαλείας αν χρειαστεί.'
@@ -70,14 +70,14 @@ el:
             bitget:
                 instructions:
                     -   text_html: 'Συνδέσου στον λογαριασμό σου στο %{exchange_link}.'
-                    -   text_html: 'Πήγαινε στο <a href="https://www.bitget.com/account/newapi"><b>Account</b> → <b>API Management</b></a>.'
-                    -   text_html: 'Πάτησε <b>Create API Key</b>.'
-                    -   text_html: 'Επίλεξε <b>System generated</b>.'
+                    -   text_html: 'Πήγαινε στο <a href="https://www.bitget.com/account/newapi"><b>Account</b> → <b>API Keys</b></a>.'
+                    -   text_html: 'Πάτησε <b>+ Create API Key</b>.'
+                    -   text_html: 'Επίλεξε <b>System-generated API key</b>.'
                     -   text_html: 'Δώσε ένα όνομα στο κλειδί (π.χ. "Deltabadger") και όρισε ένα <b>Passphrase</b>.'
                     -   text_html: 'Ρύθμισε τα δικαιώματα:'
                         sub_instructions:
-                            -   text_html: '☑️ <b>Read</b>'
-                            -   text_html: '☑️ <b>Spot Trading</b><br><strong>⚠️ Σημαντικό:</strong> Μην ενεργοποιήσεις δικαιώματα Withdraw ή Futures.'
+                            -   text_html: '☑️ <b>Read-write</b>'
+                            -   text_html: '☑️ <b>Spot - Trade</b><br><strong>⚠️ Σημαντικό:</strong> Μην ενεργοποιήσεις δικαιώματα Withdraw ή Futures.'
                             -   text_html: 'IP whitelist:'
                                 sub_instructions:
                                     -   text_html: '🔘 Πρόσθεσε %{whitelist_ip}.'
@@ -88,13 +88,13 @@ el:
             kucoin:
                 instructions:
                     -   text_html: 'Συνδέσου στον λογαριασμό σου στο %{exchange_link}.'
-                    -   text_html: 'Πήγαινε στο <a href="https://www.kucoin.com/account/api"><b>Account</b> → <b>API Management</b></a>.'
+                    -   text_html: 'Πήγαινε στο <a href="https://www.kucoin.com/account/api"><b>Account</b> → <b>API Keys</b></a>.'
                     -   text_html: 'Πάτησε <b>Create API</b>.'
                     -   text_html: 'Δώσε ένα όνομα στο κλειδί (π.χ. "Deltabadger") και όρισε ένα <b>Passphrase</b>.'
                     -   text_html: 'Ρύθμισε τα δικαιώματα:'
                         sub_instructions:
                             -   text_html: '☑️ <b>General</b> (για ανάγνωση δεδομένων λογαριασμού)'
-                            -   text_html: '☑️ <b>Spot Trading</b><br><strong>⚠️ Σημαντικό:</strong> Μην ενεργοποιήσεις δικαιώματα Withdraw ή Futures.'
+                            -   text_html: '☑️ <b>Spot - Trade</b><br><strong>⚠️ Σημαντικό:</strong> Μην ενεργοποιήσεις δικαιώματα Withdraw ή Futures.'
                             -   text_html: 'IP whitelist:'
                                 sub_instructions:
                                     -   text_html: '🔘 Πρόσθεσε %{whitelist_ip}.'
@@ -105,14 +105,14 @@ el:
             bybit:
                 instructions:
                     -   text_html: 'Συνδέσου στον λογαριασμό σου στο %{exchange_link}.'
-                    -   text_html: 'Πήγαινε στο <a href="https://www.bybit.com/app/user/api-management"><b>Account</b> → <b>API Management</b></a>.'
+                    -   text_html: 'Πήγαινε στο <a href="https://www.bybit.com/app/user/api-management"><b>Account</b> → <b>API Keys</b></a>.'
                     -   text_html: 'Πάτησε <b>Create New Key</b>.'
                     -   text_html: 'Επίλεξε <b>System-generated API Keys</b>.'
                     -   text_html: 'Δώσε ένα όνομα στο κλειδί (π.χ. "Deltabadger").'
                     -   text_html: 'Ρύθμισε τα δικαιώματα:'
                         sub_instructions:
                             -   text_html: '☑️ <b>Read-Only</b>'
-                            -   text_html: '☑️ <b>Spot Trading</b><br><strong>⚠️ Σημαντικό:</strong> Μην ενεργοποιήσεις δικαιώματα Withdraw ή Derivatives.'
+                            -   text_html: '☑️ <b>Spot - Trade</b><br><strong>⚠️ Σημαντικό:</strong> Μην ενεργοποιήσεις δικαιώματα Withdraw ή Derivatives.'
                             -   text_html: 'IP whitelist:'
                                 sub_instructions:
                                     -   text_html: '🔘 Πρόσθεσε %{whitelist_ip}.'
@@ -123,8 +123,8 @@ el:
             mexc:
                 instructions:
                     -   text_html: 'Συνδέσου στον λογαριασμό σου στο %{exchange_link}.'
-                    -   text_html: 'Πήγαινε στο <a href="https://www.mexc.com/user/openapi"><b>Account</b> → <b>API Management</b></a>.'
-                    -   text_html: 'Πάτησε <b>Create API Key</b>.'
+                    -   text_html: 'Πήγαινε στο <a href="https://www.mexc.com/user/openapi"><b>Account</b> → <b>API Keys</b></a>.'
+                    -   text_html: 'Πάτησε <b>+ Create API Key</b>.'
                     -   text_html: 'Δώσε ένα όνομα στο κλειδί (π.χ. "Deltabadger").'
                     -   text_html: 'Ρύθμισε τα δικαιώματα:'
                         sub_instructions:
@@ -148,7 +148,7 @@ el:
                             -   text_html: '☑️ <b>Order Placement</b>'
                             -   text_html: '☑️ <b>Order Status</b>'
                             -   text_html: '☑️ <b>Account Balance</b><br><strong>⚠️ Σημαντικό:</strong> Μην ενεργοποιήσεις δικαιώματα Fund Management ή Withdrawal.'
-                    -   text_html: 'Πάτησε <b>Create API Key</b> και ολοκλήρωσε την επαλήθευση.'
+                    -   text_html: 'Πάτησε <b>+ Create API Key</b> και ολοκλήρωσε την επαλήθευση.'
                     -   text_html: 'Αντέγραψε και επικόλλησε τα νέα κλειδιά API στη φόρμα παραπάνω.'
                 private_key: 'API Secret'
                 public_key: 'API Key'
@@ -183,13 +183,13 @@ el:
             bingx:
                 instructions:
                     -   text_html: 'Συνδέσου στον λογαριασμό σου στο %{exchange_link}.'
-                    -   text_html: 'Πήγαινε στο <a href="https://bingx.com/account/api"><b>Account</b> → <b>API Management</b></a>.'
+                    -   text_html: 'Πήγαινε στο <a href="https://bingx.com/account/api"><b>Account</b> → <b>API Keys</b></a>.'
                     -   text_html: 'Πάτησε <b>Create API</b>.'
                     -   text_html: 'Δώσε ένα όνομα στο κλειδί (π.χ. "Deltabadger").'
                     -   text_html: 'Ρύθμισε τα δικαιώματα:'
                         sub_instructions:
-                            -   text_html: '☑️ <b>Read</b>'
-                            -   text_html: '☑️ <b>Spot Trading</b><br><strong>⚠️ Σημαντικό:</strong> Μην ενεργοποιήσεις δικαιώματα Withdraw ή Futures.'
+                            -   text_html: '☑️ <b>Read-write</b>'
+                            -   text_html: '☑️ <b>Spot - Trade</b><br><strong>⚠️ Σημαντικό:</strong> Μην ενεργοποιήσεις δικαιώματα Withdraw ή Futures.'
                             -   text_html: 'IP whitelist:'
                                 sub_instructions:
                                     -   text_html: '🔘 Πρόσθεσε %{whitelist_ip}.'
@@ -200,8 +200,8 @@ el:
             bitrue:
                 instructions:
                     -   text_html: 'Συνδέσου στον λογαριασμό σου στο %{exchange_link}.'
-                    -   text_html: 'Πήγαινε στο <a href="https://www.bitrue.com/account/api"><b>Account</b> → <b>API Management</b></a>.'
-                    -   text_html: 'Πάτησε <b>Create API Key</b>.'
+                    -   text_html: 'Πήγαινε στο <a href="https://www.bitrue.com/account/api"><b>Account</b> → <b>API Keys</b></a>.'
+                    -   text_html: 'Πάτησε <b>+ Create API Key</b>.'
                     -   text_html: 'Δώσε ένα όνομα στο κλειδί (π.χ. "Deltabadger").'
                     -   text_html: 'Ρύθμισε τα δικαιώματα:'
                         sub_instructions:
@@ -217,13 +217,13 @@ el:
             bitmart:
                 instructions:
                     -   text_html: 'Συνδέσου στον λογαριασμό σου στο %{exchange_link}.'
-                    -   text_html: 'Πήγαινε στο <a href="https://www.bitmart.com/api-management"><b>Account</b> → <b>API Management</b></a>.'
-                    -   text_html: 'Πάτησε <b>Create API Key</b>.'
+                    -   text_html: 'Πήγαινε στο <a href="https://www.bitmart.com/api-management"><b>Account</b> → <b>API Keys</b></a>.'
+                    -   text_html: 'Πάτησε <b>+ Create API Key</b>.'
                     -   text_html: 'Δώσε ένα όνομα στο κλειδί (π.χ. "Deltabadger") και όρισε ένα <b>Memo</b> (κωδική φράση).'
                     -   text_html: 'Ρύθμισε τα δικαιώματα:'
                         sub_instructions:
-                            -   text_html: '☑️ <b>Read</b>'
-                            -   text_html: '☑️ <b>Spot Trading</b><br><strong>⚠️ Σημαντικό:</strong> Μην ενεργοποιήσεις δικαιώματα Withdraw ή Futures.'
+                            -   text_html: '☑️ <b>Read-write</b>'
+                            -   text_html: '☑️ <b>Spot - Trade</b><br><strong>⚠️ Σημαντικό:</strong> Μην ενεργοποιήσεις δικαιώματα Withdraw ή Futures.'
                             -   text_html: 'IP whitelist:'
                                 sub_instructions:
                                     -   text_html: '🔘 Πρόσθεσε %{whitelist_ip}.'
