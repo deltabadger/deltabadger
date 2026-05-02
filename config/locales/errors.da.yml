@@ -43,6 +43,8 @@ da:
         unable_to_get_risk_free_rate: 'Kan ikke hente den risikofrie rente for %{risk_free_rate_name}. Data API-serveren kan ikke nås.'
         invalid_number_of_allocations: 'Ugyldigt antal allokeringer'
         invalid_allocation_value: 'Ugyldig allokeringsværdi'
+        exchange:
+            regional_restriction: "%{exchange} begrænser handel med %{asset} i %{country}"
         bots:
             exchange_asset_mismatch: "Ikke alle aktiverne er noteret på %{exchange_name}"
             exchange_change_while_open_orders: "Annullér alle åbne ordrer, denne bot har på %{exchange_name}, før du skifter børs"

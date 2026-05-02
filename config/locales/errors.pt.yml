@@ -43,6 +43,8 @@ pt:
         unable_to_get_risk_free_rate: 'Não é possível obter a taxa livre de risco para %{risk_free_rate_name}. O servidor da API de dados está inacessível.'
         invalid_number_of_allocations: 'Número de alocações inválido'
         invalid_allocation_value: 'Valor de alocação inválido'
+        exchange:
+            regional_restriction: "%{exchange} restringe a negociação de %{asset} em %{country}"
         bots:
             exchange_asset_mismatch: "Nem todos os ativos estão listados em %{exchange_name}"
             exchange_change_while_open_orders: "Cancela todas as ordens abertas deste bot em %{exchange_name} antes de alterar o exchange"

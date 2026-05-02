@@ -43,6 +43,8 @@ pl:
         unable_to_get_risk_free_rate: 'Nie można uzyskać stopy wolnej od ryzyka dla %{risk_free_rate_name}. Serwer API danych jest nieosiągalny.'
         invalid_number_of_allocations: 'Nieprawidłowa liczba alokacji'
         invalid_allocation_value: 'Nieprawidłowa wartość alokacji'
+        exchange:
+            regional_restriction: "%{exchange} ogranicza handel %{asset} w kraju %{country}"
         bots:
             exchange_asset_mismatch: "Nie wszystkie aktywa są notowane na %{exchange_name}"
             exchange_change_while_open_orders: "Anuluj wszystkie otwarte zlecenia tego bot na %{exchange_name} przed zmianą exchange"
