@@ -204,6 +204,7 @@ pl:
             limit_orders:
                 sentence_html: '<b>FeeCutter</b> Zmniejsz opłaty używając zleceń limit <span>%{amount_html}%</span> poniżej ceny'
                 info: "Aby zredukować opłaty do zera, ustaw je na %{maker_fee}%, czyli opłatę maker na %{exchange}. Ustaw niżej, aby uzyskać szybszą realizację, lub wyżej, aby potencjalnie uzyskać lepszą cenę. Śledź realizację swoich zleceń w tabeli zleceń."
+                locked_tooltip: "Hyperliquid nie obsługuje zleceń rynkowych na spocie."
             extra_amount_limit:
                 sentence_html: "Nie wydawaj więcej niż <span>%{value_html} %{quote}</span>"
                 info:
