@@ -70,14 +70,14 @@ it:
             bitget:
                 instructions:
                     -   text_html: 'Log into your %{exchange_link} account.'
-                    -   text_html: 'Go to <a href="https://www.bitget.com/account/newapi"><b>Account</b> → <b>API Management</b></a>.'
-                    -   text_html: 'Click <b>Create API Key</b>.'
-                    -   text_html: 'Select <b>System generated</b>.'
+                    -   text_html: 'Go to <a href="https://www.bitget.com/account/newapi"><b>Account</b> → <b>API Keys</b></a>.'
+                    -   text_html: 'Click <b>+ Create API Key</b>.'
+                    -   text_html: 'Select <b>System-generated API key</b>.'
                     -   text_html: 'Label your key (e.g. "Deltabadger") and set a <b>Passphrase</b>.'
                     -   text_html: 'Set permissions:'
                         sub_instructions:
-                            -   text_html: '☑️ <b>Read</b>'
-                            -   text_html: '☑️ <b>Spot Trading</b><br><strong>⚠️ Important:</strong> Do not enable Withdraw or Futures permissions.'
+                            -   text_html: '☑️ <b>Read-write</b>'
+                            -   text_html: '☑️ <b>Spot - Trade</b><br><strong>⚠️ Important:</strong> Do not enable Withdraw or Futures permissions.'
                             -   text_html: 'IP whitelist:'
                                 sub_instructions:
                                     -   text_html: '🔘 Whitelist %{whitelist_ip}.'
@@ -88,13 +88,13 @@ it:
             kucoin:
                 instructions:
                     -   text_html: 'Log into your %{exchange_link} account.'
-                    -   text_html: 'Go to <a href="https://www.kucoin.com/account/api"><b>Account</b> → <b>API Management</b></a>.'
+                    -   text_html: 'Go to <a href="https://www.kucoin.com/account/api"><b>Account</b> → <b>API Keys</b></a>.'
                     -   text_html: 'Click <b>Create API</b>.'
                     -   text_html: 'Label your key (e.g. "Deltabadger") and set a <b>Passphrase</b>.'
                     -   text_html: 'Set permissions:'
                         sub_instructions:
                             -   text_html: '☑️ <b>General</b>'
-                            -   text_html: '☑️ <b>Spot Trading</b><br><strong>⚠️ Important:</strong> Do not enable Withdraw or Futures permissions.'
+                            -   text_html: '☑️ <b>Spot - Trade</b><br><strong>⚠️ Important:</strong> Do not enable Withdraw or Futures permissions.'
                             -   text_html: 'IP whitelist:'
                                 sub_instructions:
                                     -   text_html: '🔘 Whitelist %{whitelist_ip}.'
@@ -105,14 +105,14 @@ it:
             bybit:
                 instructions:
                     -   text_html: 'Log into your %{exchange_link} account.'
-                    -   text_html: 'Go to <a href="https://www.bybit.com/app/user/api-management"><b>Account</b> → <b>API Management</b></a>.'
+                    -   text_html: 'Go to <a href="https://www.bybit.com/app/user/api-management"><b>Account</b> → <b>API Keys</b></a>.'
                     -   text_html: 'Click <b>Create New Key</b>.'
                     -   text_html: 'Select <b>System-generated API Keys</b>.'
                     -   text_html: 'Label your key (e.g. "Deltabadger").'
                     -   text_html: 'Set permissions:'
                         sub_instructions:
                             -   text_html: '☑️ <b>Read-Only</b>'
-                            -   text_html: '☑️ <b>Spot Trading</b><br><strong>⚠️ Important:</strong> Do not enable Withdraw or Derivatives permissions.'
+                            -   text_html: '☑️ <b>Spot - Trade</b><br><strong>⚠️ Important:</strong> Do not enable Withdraw or Derivatives permissions.'
                             -   text_html: 'IP whitelist:'
                                 sub_instructions:
                                     -   text_html: '🔘 Whitelist %{whitelist_ip}.'
@@ -123,8 +123,8 @@ it:
             mexc:
                 instructions:
                     -   text_html: 'Log into your %{exchange_link} account.'
-                    -   text_html: 'Go to <a href="https://www.mexc.com/user/openapi"><b>Account</b> → <b>API Management</b></a>.'
-                    -   text_html: 'Click <b>Create API Key</b>.'
+                    -   text_html: 'Go to <a href="https://www.mexc.com/user/openapi"><b>Account</b> → <b>API Keys</b></a>.'
+                    -   text_html: 'Click <b>+ Create API Key</b>.'
                     -   text_html: 'Label your key (e.g. "Deltabadger").'
                     -   text_html: 'Set permissions:'
                         sub_instructions:
@@ -148,7 +148,7 @@ it:
                             -   text_html: '☑️ <b>Order Placement</b>'
                             -   text_html: '☑️ <b>Order Status</b>'
                             -   text_html: '☑️ <b>Account Balance</b><br><strong>⚠️ Important:</strong> Do not enable Fund Management or Withdrawal permissions.'
-                    -   text_html: 'Click <b>Create API Key</b> and complete the verification.'
+                    -   text_html: 'Click <b>+ Create API Key</b> and complete the verification.'
                     -   text_html: 'Copy and paste your new API keys into the form above.'
                 private_key: 'API Secret'
                 public_key: 'API Key'
