@@ -43,6 +43,8 @@ nl:
         unable_to_get_risk_free_rate: 'Kan de risicovrije rente voor %{risk_free_rate_name} niet ophalen. De Data API-server is niet bereikbaar.'
         invalid_number_of_allocations: 'Ongeldig aantal toewijzingen'
         invalid_allocation_value: 'Ongeldige toewijzingswaarde'
+        exchange:
+            regional_restriction: "%{exchange} beperkt de handel in %{asset} in %{country}"
         bots:
             exchange_asset_mismatch: "Niet alle activa staan genoteerd op %{exchange_name}"
             exchange_change_while_open_orders: "Annuleer alle openstaande bestellingen van deze bot op %{exchange_name} voordat u de exchange wijzigt"

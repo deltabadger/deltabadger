@@ -43,6 +43,8 @@ sv:
         unable_to_get_risk_free_rate: 'Kunde inte hämta den riskfria räntan för %{risk_free_rate_name}. Data API-servern går inte att nå.'
         invalid_number_of_allocations: 'Ogiltigt antal allokeringar'
         invalid_allocation_value: 'Ogiltigt allokeringsvärde'
+        exchange:
+            regional_restriction: "%{exchange} begränsar handel med %{asset} i %{country}"
         bots:
             exchange_asset_mismatch: "Alla tillgångar är inte listade på %{exchange_name}"
             exchange_change_while_open_orders: "Avbryt alla öppna ordrar som denna bot har på %{exchange_name} innan du byter börs"

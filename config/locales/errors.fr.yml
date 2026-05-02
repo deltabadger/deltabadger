@@ -31,6 +31,8 @@ fr:
                             not_a_number: "Vous devez indiquer le montant qui ne peut pas être dépassé"
                             greater_than_or_equal_to: "La limite du montant doit être supérieure ou égale à %{count}"
     errors:
+        exchange:
+            regional_restriction: "%{exchange} restreint le trading de %{asset} en %{country}"
         bots:
             exchange_asset_mismatch: "Tous les actifs ne sont pas répertoriés sur %{exchange_name}"
             exchange_change_while_open_orders: "Veuillez annuler toutes les commandes ouvertes de ce bot sur %{exchange_name} avant de changer l''exchange"

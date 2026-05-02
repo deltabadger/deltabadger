@@ -172,6 +172,66 @@ module ActionJobBehaviorTests
       Bot::ActionJob.new.perform(bot)
       assert_equal original_status, bot.reload.status
     end
+
+    test 'humanized_errors helper humanizes the raw error message' do
+      bot = create_bot
+      raw = 'EAccount:Invalid permissions:XAUT trading restricted for DK.'
+      error = StandardError.new(raw)
+      bot.exchange.stubs(:humanize_error).with(raw).returns('humanized message')
+
+      assert_equal ['humanized message'], Bot::ActionJob.new.send(:humanized_errors, bot, error)
+    end
+
+    test 'notify_retry long-delay branch passes humanized message' do
+      bot = create_bot
+      setup_action_job_mocks(bot)
+      raw = 'boom'
+      bot.stubs(:execute_action).returns(Result::Failure.new(raw))
+      bot.exchange.stubs(:humanize_error).with(raw).returns('humanized')
+      bot.expects(:notify_about_error).with(errors: ['humanized'])
+
+      job = Bot::ActionJob.new
+      # estimated_retry_delay > 1.minute and <= effective_interval_duration -> line 78 branch
+      job.stubs(:estimated_retry_delay).returns(2.minutes)
+
+      begin
+        job.perform(bot)
+      rescue StandardError
+        nil
+      end
+      assert_equal 'retrying', bot.reload.status
+    end
+
+    test 'notify_ignorable for a non-insufficient_funds category passes humanized message' do
+      bot = create_bot
+      raw = 'some other ignorable error'
+      error = StandardError.new(raw)
+      bot.exchange.stubs(:humanize_error).with(raw).returns('humanized')
+      bot.expects(:notify_about_error).with(errors: ['humanized'])
+
+      Bot::ActionJob.new.send(:notify_ignorable, bot, :some_other_category, error)
+    end
+
+    test 'notify_retry past-interval branch passes humanized message' do
+      bot = create_bot
+      setup_action_job_mocks(bot)
+      raw = 'boom'
+      bot.stubs(:execute_action).returns(Result::Failure.new(raw))
+      bot.stubs(:effective_interval_duration).returns(10.seconds)
+      bot.exchange.stubs(:humanize_error).with(raw).returns('humanized')
+      bot.expects(:notify_about_error).with(errors: ['humanized'])
+
+      job = Bot::ActionJob.new
+      # estimated_retry_delay > effective_interval_duration -> line 76 branch
+      job.stubs(:estimated_retry_delay).returns(1.minute)
+
+      begin
+        job.perform(bot)
+      rescue StandardError
+        nil
+      end
+      assert_equal 'retrying', bot.reload.status
+    end
   end
 
   private
