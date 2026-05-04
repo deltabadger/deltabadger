@@ -91,7 +91,7 @@ module Bots::DcaIndex::OrderSetter
       end
 
       price = if limit_ordered?
-                ticker.adjusted_price(price: price_result.data * (1 - limit_order_pcnt_distance))
+                ticker.adjusted_price(price: price_result.data * (1.to_d - limit_order_pcnt_distance_decimal))
               else
                 price_result.data
               end

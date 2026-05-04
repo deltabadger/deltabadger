@@ -80,7 +80,7 @@ module Bots::DcaDualAsset::OrderSetter
     end
 
     price0 = if limit_ordered?
-               ticker0.adjusted_price(price: result0.data * (1 - limit_order_pcnt_distance))
+               ticker0.adjusted_price(price: result0.data * (1.to_d - limit_order_pcnt_distance_decimal))
              else
                result0.data
              end
@@ -97,7 +97,7 @@ module Bots::DcaDualAsset::OrderSetter
     end
 
     price1 = if limit_ordered?
-               ticker1.adjusted_price(price: result1.data * (1 - limit_order_pcnt_distance))
+               ticker1.adjusted_price(price: result1.data * (1.to_d - limit_order_pcnt_distance_decimal))
              else
                result1.data
              end
