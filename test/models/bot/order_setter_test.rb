@@ -304,6 +304,32 @@ class Bot::OrderSetterTest < ActiveSupport::TestCase
     assert_equal 5.0, bot.missed_quote_amount
   end
 
+  # == String-backed limit_order_pcnt_distance regression ==
+
+  test 'single asset: limit-order branch does not raise when limit_order_pcnt_distance is a String' do
+    exchange = create(:hyperliquid_exchange)
+    bot = create(:dca_single_asset, :started, exchange: exchange, with_api_key: false)
+    create(:api_key, user: bot.user, exchange: exchange, key_type: :trading,
+                     raw_key: "0x#{'a' * 40}", raw_secret: 'b' * 64)
+    # Simulate legacy data: value persisted as String inside the JSON settings column.
+    # update_columns bypasses parse_params/validations/callbacks, reproducing the production shape.
+    bot.update_columns(settings: bot.settings.merge('limit_order_pcnt_distance' => '0.001'))
+    bot.reload
+
+    setup_bot_execution_mocks(bot, price: 50_000.0)
+    bot.stubs(:broadcast_below_minimums_warning)
+    bot.exchange.expects(:limit_buy).with do |args|
+      # Expected: 50_000 * (1 - 0.001) = 49_950, then ticker.adjusted_price rounding.
+      # Tolerate small rounding from price_decimals.
+      price = args[:price]
+      price.present? && (price.to_d - BigDecimal('49950')).abs < BigDecimal('1')
+    end.returns(Result::Success.new(order_id: 'test'))
+
+    assert_nothing_raised do
+      bot.set_order(order_amount_in_quote: 100.0)
+    end
+  end
+
   test 'clears missed_quote_amount on bot start' do
     bot = create(:dca_single_asset, :started)
     bot.update!(missed_quote_amount: 50.0, status: :stopped)
