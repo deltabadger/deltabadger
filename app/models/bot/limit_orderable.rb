@@ -50,6 +50,13 @@ module Bot::LimitOrderable
 
   private
 
+  def limit_order_pcnt_distance_decimal
+    value = limit_order_pcnt_distance
+    return BigDecimal('0.001') if value.blank?
+
+    value.to_d
+  end
+
   def initialize_limit_orderable_settings
     self.limit_ordered ||= false
     self.limit_order_pcnt_distance ||= 0.001

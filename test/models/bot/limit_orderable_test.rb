@@ -53,4 +53,41 @@ class Bot::LimitOrderableTest < ActiveSupport::TestCase
     assert_not bot.valid?
     assert bot.errors[:limit_ordered].present?
   end
+
+  # == limit_order_pcnt_distance_decimal coercion ==
+
+  test 'limit_order_pcnt_distance_decimal returns BigDecimal for String input' do
+    bot = build(:dca_single_asset)
+    bot.settings = bot.settings.merge('limit_order_pcnt_distance' => '0.005')
+
+    result = bot.send(:limit_order_pcnt_distance_decimal)
+    assert_kind_of BigDecimal, result
+    assert_equal BigDecimal('0.005'), result
+  end
+
+  test 'limit_order_pcnt_distance_decimal returns BigDecimal for Float input' do
+    bot = build(:dca_single_asset)
+    bot.limit_order_pcnt_distance = 0.005
+
+    result = bot.send(:limit_order_pcnt_distance_decimal)
+    assert_kind_of BigDecimal, result
+    assert_equal BigDecimal('0.005'), result
+  end
+
+  test 'limit_order_pcnt_distance_decimal falls back to 0.001 default when nil' do
+    bot = build(:dca_single_asset)
+    bot.settings = bot.settings.merge('limit_order_pcnt_distance' => nil)
+
+    result = bot.send(:limit_order_pcnt_distance_decimal)
+    assert_kind_of BigDecimal, result
+    assert_equal BigDecimal('0.001'), result
+  end
+
+  test 'limit_order_pcnt_distance_decimal falls back to 0.001 default when empty string' do
+    bot = build(:dca_single_asset)
+    bot.settings = bot.settings.merge('limit_order_pcnt_distance' => '')
+
+    result = bot.send(:limit_order_pcnt_distance_decimal)
+    assert_equal BigDecimal('0.001'), result
+  end
 end
