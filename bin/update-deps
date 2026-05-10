@@ -1,0 +1,14 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+bundle update --all
+bin/rails test
+
+if git diff --quiet && git diff --cached --quiet; then
+  echo "No changes after bundle update — nothing to commit."
+  exit 0
+fi
+
+git commit -am "dependency update"
+git push origin main
+git push origin main:nightly
