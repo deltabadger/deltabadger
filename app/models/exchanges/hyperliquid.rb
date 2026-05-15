@@ -347,8 +347,8 @@ class Exchanges::Hyperliquid < Exchange
     result = client.order(
       coin: ticker.ticker,
       is_buy: side == :buy,
-      size: amount.to_d.to_s('F'),
-      limit_px: price.to_d.to_s('F')
+      size: amount.to_d,
+      limit_px: price.to_d
     )
     return result if result.failure?
 
