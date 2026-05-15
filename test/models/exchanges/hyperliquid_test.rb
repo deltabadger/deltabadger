@@ -173,4 +173,33 @@ class Exchanges::HyperliquidTest < ActiveSupport::TestCase
     end
     assert_match(/does not support market orders/, error.message)
   end
+
+  test 'limit_buy passes numeric size and limit_px so the gem can serialize them' do
+    @exchange.set_client
+    client = @exchange.send(:client)
+
+    usdc = create(:asset, external_id: 'usdc', symbol: 'USDC', name: 'USDC')
+    purr = create(:asset, external_id: 'purr', symbol: 'PURR', name: 'Purr')
+    ticker = create(:ticker, exchange: @exchange, base_asset: purr, quote_asset: usdc,
+                             ticker: 'PURR/USDC', base: 'PURR', quote: 'USDC',
+                             base_decimals: 4, price_decimals: 5)
+
+    captured = {}
+    client.define_singleton_method(:order) do |**kwargs|
+      captured.merge!(kwargs)
+      # Mirror the gem: float_to_wire does Float(rounded) - x, which raises
+      # "String can't be coerced into Float" if non-numeric input is passed.
+      [kwargs[:size], kwargs[:limit_px]].each { |x| (Float(format('%.8f', x)) - x).abs }
+      Result::Success.new('status' => 'ok',
+                          'response' => { 'data' => { 'statuses' => [{ 'resting' => { 'oid' => 123 } }] } })
+    end
+
+    @exchange.stubs(:dry_run?).returns(false)
+    result = @exchange.limit_buy(ticker: ticker, amount: BigDecimal('1.2345'),
+                                 amount_type: :base, price: BigDecimal('0.45678'))
+
+    assert result.success?, "expected success, got #{result.inspect}; captured=#{captured.inspect}"
+    assert_kind_of Numeric, captured[:size]
+    assert_kind_of Numeric, captured[:limit_px]
+  end
 end
