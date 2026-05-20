@@ -448,8 +448,29 @@ ru:
     order_filters:
         all: 'Все'
         successful: 'Выполненные'
+        transactions: 'Транзакции'
         cancelled: 'Отмененные'
         waiting: 'Ожидающие'
+    bot_activity:
+        events:
+            started: 'Бот запущен'
+            stopped: 'Бот остановлен'
+            reschedule_disabled: 'Автопланирование приостановлено'
+            market_closed: 'Рынок закрыт — следующее открытие %{time}'
+            limit_paused: 'Приостановлено: лимит %{limit} не достигнут'
+            execution_failed: 'Попытка ордера не удалась'
+            execution_failed_with_error: 'Попытка ордера не удалась: %{error}'
+        transactions:
+            bought: 'Куплено %{amount} %{base} за %{quote_amount} %{quote}'
+            sold: 'Продано %{amount} %{base} за %{quote_amount} %{quote}'
+            buying: 'Покупка %{amount} %{base} за %{quote_amount} %{quote}…'
+            selling: 'Продажа %{amount} %{base} за %{quote_amount} %{quote}…'
+            cancelled: 'Ордер отменён'
+            failed: 'Ордер не выполнен'
+            failed_with_error: 'Ордер не выполнен: %{error}'
+            failed_buy: 'Неудачная попытка купить %{amount} %{base} за %{quote_amount} %{quote}'
+            failed_sell: 'Неудачная попытка продать %{amount} %{base} за %{quote_amount} %{quote}'
+            skipped: 'Пропущено (ниже минимума)'
     tax_report:
         warnings:
             missing_prices: Отсутствуют исторические цены для

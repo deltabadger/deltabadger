@@ -1,0 +1,6 @@
+<%# Activity row in the unified "All" timeline. order_type "timeline" means the
+    client-side filter shows it only under "All", never the columnar tabs. %>
+<%= tag.tr id: dom_id(activity), class: "text-inactive", data: { hw_animate_in_prepend: "animate-order-in", order_filter_target: "row", order_type: "timeline" } do %>
+  <td scope="row"><%= activity.created_at.in_time_zone(current_user.time_zone).strftime("%Y-%m-%d %I:%M %p") %></td>
+  <td colspan="3" style="text-align: left;"><%= bot_activity_summary(activity) %></td>
+<% end %>

@@ -1,11 +1,20 @@
 <%= turbo_stream.append 'orders_list' do %>
-  <% @orders.each do |order| %>
-    <%= render partial: "bots/orders/order", locals: { order: order, decimals: @decimals, exchange_name: @bot.exchange.name, fetch: order.open? } %>
+  <% @feed_items.each do |item| %>
+    <% if item.is_a?(Transaction) %>
+      <%# columnar row for the Transactions/Waiting/Cancelled tabs (submitted orders only) %>
+      <% if item.submitted? %>
+        <%= render partial: "bots/orders/order", locals: { order: item, decimals: @decimals, exchange_name: @bot.exchange.name, fetch: item.open? } %>
+      <% end %>
+      <%# sentence row for the "All" timeline %>
+      <%= render partial: "bots/orders/order_timeline", locals: { order: item, decimals: @decimals } %>
+    <% else %>
+      <%= render partial: "bots/orders/activity", locals: { activity: item } %>
+    <% end %>
   <% end %>
 <% end %>
 
-<% if @pagy.next.present? %>
+<% if @next_cursor.present? %>
   <%= turbo_stream.replace 'orders_pagination' do %>
-    <%= turbo_frame_tag 'orders_pagination', src: bot_path(page: @pagy.next, format: :turbo_stream, params: { decimals: @decimals }) %>
+    <%= turbo_frame_tag 'orders_pagination', src: bot_path(before: @next_cursor, format: :turbo_stream, params: { decimals: @decimals }) %>
   <% end %>
 <% end %>

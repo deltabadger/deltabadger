@@ -1,13 +1,15 @@
 import { Controller } from "@hotwired/stimulus"
 
 // Connects to data-controller="order-filter"
-// Filters order rows based on type (all, successful, waiting)
+// "all" shows the unified timeline rows (order_type "timeline"); the other tabs
+// (successful/waiting/cancelled) show the columnar rows of that type. The columnar
+// Amount/Value headers are hidden while the timeline is shown.
 export default class extends Controller {
-  static targets = ["row", "filter"]
+  static targets = ["row", "filter", "columnHeader"]
   static values = { current: { type: String, default: "all" } }
 
   connect() {
-    // Visibility is set server-side initially, only update when rows load
+    this.updateHeader()
   }
 
   rowTargetConnected() {
@@ -19,6 +21,7 @@ export default class extends Controller {
     this.currentValue = event.currentTarget.dataset.filterType
     this.updateActiveButton()
     this.updateVisibility()
+    this.updateHeader()
   }
 
   updateActiveButton() {
@@ -29,11 +32,17 @@ export default class extends Controller {
   }
 
   updateVisibility() {
+    const timeline = this.currentValue === "all"
     this.rowTargets.forEach(row => {
       const orderType = row.dataset.orderType
-      const visible = this.currentValue === "all" || orderType === this.currentValue
+      const visible = timeline ? orderType === "timeline" : orderType === this.currentValue
       row.style.display = visible ? "" : "none"
     })
+  }
+
+  updateHeader() {
+    const timeline = this.currentValue === "all"
+    this.columnHeaderTargets.forEach(th => { th.style.display = timeline ? "none" : "" })
   }
 
 }

@@ -469,8 +469,31 @@ sv:
     order_filters:
         all: 'Alla'
         successful: 'Lyckade'
+        transactions: 'Transactions' # TODO: translate (English placeholder)
         cancelled: 'Avbrutna'
         waiting: 'Schemalagda'
+    # TODO: translate bot_activity events (English placeholders)
+    bot_activity:
+        events:
+            started: 'Bot started'
+            stopped: 'Bot stopped'
+            reschedule_disabled: 'Auto scheduling paused'
+            market_closed: 'Market closed — next open %{time}'
+            limit_paused: 'Paused: %{limit} limit not met'
+            execution_failed: 'Order attempt failed'
+            execution_failed_with_error: 'Order attempt failed: %{error}'
+        # TODO: translate transactions (English placeholders)
+        transactions:
+            bought: 'Bought %{amount} %{base} for %{quote_amount} %{quote}'
+            sold: 'Sold %{amount} %{base} for %{quote_amount} %{quote}'
+            buying: 'Buying %{amount} %{base} for %{quote_amount} %{quote}…'
+            selling: 'Selling %{amount} %{base} for %{quote_amount} %{quote}…'
+            cancelled: 'Order cancelled'
+            failed: 'Order failed'
+            failed_with_error: 'Order failed: %{error}'
+            failed_buy: 'Failed attempt to buy %{amount} %{base} for %{quote_amount} %{quote}'
+            failed_sell: 'Failed attempt to sell %{amount} %{base} for %{quote_amount} %{quote}'
+            skipped: 'Skipped (below minimum)'
     tax_report:
         warnings:
             missing_prices: Historiska priser saknas för
