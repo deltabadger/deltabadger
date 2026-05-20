@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_04_13_150000) do
+ActiveRecord::Schema[8.1].define(version: 2026_05_20_000000) do
   create_table "account_balances", force: :cascade do |t|
     t.integer "asset_id", null: false
     t.datetime "created_at", null: false
@@ -168,6 +168,17 @@ ActiveRecord::Schema[8.1].define(version: 2026_04_13_150000) do
     t.index ["isin"], name: "index_assets_on_isin"
     t.index ["name"], name: "index_assets_on_name"
     t.index ["symbol"], name: "index_assets_on_symbol"
+  end
+
+  create_table "bot_activity_logs", force: :cascade do |t|
+    t.integer "bot_id", null: false
+    t.datetime "created_at", null: false
+    t.json "details", default: {}, null: false
+    t.string "event", null: false
+    t.integer "level", default: 0, null: false
+    t.string "message"
+    t.index ["bot_id", "created_at"], name: "index_bot_activity_logs_on_bot_id_and_created_at"
+    t.index ["bot_id"], name: "index_bot_activity_logs_on_bot_id"
   end
 
   create_table "bot_index_assets", force: :cascade do |t|
@@ -463,6 +474,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_04_13_150000) do
   add_foreign_key "action_mcp_session_tasks", "action_mcp_sessions", column: "session_id", on_update: :cascade, on_delete: :cascade
   add_foreign_key "api_keys", "exchanges"
   add_foreign_key "api_keys", "users"
+  add_foreign_key "bot_activity_logs", "bots"
   add_foreign_key "bot_index_assets", "assets"
   add_foreign_key "bot_index_assets", "bots"
   add_foreign_key "bot_index_assets", "tickers"

@@ -36,6 +36,7 @@ class Bots::Signal < Bot
     self.started_at = Time.current if start_fresh
 
     if valid?(:start) && save
+      log_activity('started', details: { start_fresh: start_fresh })
       true
     else
       false
@@ -43,11 +44,16 @@ class Bots::Signal < Bot
   end
 
   def stop(stop_message_key: nil)
-    update(
+    if update(
       status: :stopped,
       stopped_at: Time.current,
       stop_message_key:
     )
+      log_activity('stopped', details: { stop_message_key: stop_message_key }.compact)
+      true
+    else
+      false
+    end
   end
 
   def delete
@@ -155,7 +161,7 @@ class Bots::Signal < Bot
 
   def validate_unchangeable_exchange
     return unless exchange_id_changed?
-    return unless transactions.open.any?
+    return unless transactions.waiting.any?
 
     errors.add(:exchange, :unchangeable,
                message: I18n.t('errors.bots.exchange_change_while_open_orders', exchange_name: exchange.name))

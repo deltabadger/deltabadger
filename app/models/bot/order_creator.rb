@@ -19,6 +19,14 @@ module Bot::OrderCreator
     transactions.create!(order_values)
   end
 
+  # Persist a durable record the instant the exchange accepts the order. Execution
+  # amounts are unknown until Bot::FetchAndUpdateOrderJob confirms them. Idempotent:
+  # never duplicate a row for an external_id we already have.
+  def persist_accepted_order!(order_data, order_id)
+    transactions.find_by(external_id: order_id) ||
+      create_submitted_order!(order_data.merge(order_id: order_id, status: :unknown))
+  end
+
   def create_failed_order!(order_data)
     order_values = base_order_values.merge(
       status: :failed,

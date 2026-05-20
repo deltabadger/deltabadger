@@ -53,6 +53,7 @@ module Bot::PriceLimitable
           super
         else
           update!(status: :waiting)
+          log_activity('limit_paused', details: { limit_type: :price })
           next_check_at = Time.now.utc.end_of_minute
           Bot::PriceLimitCheckJob.set(wait_until: next_check_at).perform_later(self)
           Result::Success.new({ break_reschedule: true })

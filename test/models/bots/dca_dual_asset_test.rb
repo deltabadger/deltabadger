@@ -564,14 +564,17 @@ class Bots::DcaDualAssetTest < ActiveSupport::TestCase
     assert_predicate result, :success?
   end
 
-  test 'execute_action enqueues order creation after submitting through exchange' do
+  test 'execute_action persists orders and enqueues updates after submitting through exchange' do
     bot = create(:dca_dual_asset, :started)
-    order_id = setup_bot_execution_mocks(bot)
+    setup_bot_execution_mocks(bot)
     bot.stubs(:broadcast_below_minimums_warning)
     Bot::FetchAndUpdateOpenOrdersJob.stubs(:perform_now)
-    Bot::FetchAndCreateOrderJob.expects(:perform_later).with(
-      bot,
-      order_id,
+    # Each leg gets a distinct exchange order id (the shared helper returns a fixed one).
+    bot.exchange.unstub(:market_buy)
+    bot.exchange.stubs(:market_buy)
+       .returns(Result::Success.new(order_id: 'dual-0'), Result::Success.new(order_id: 'dual-1'))
+    Bot::FetchAndUpdateOrderJob.expects(:perform_later).with(
+      instance_of(Transaction),
       update_missed_quote_amount: true
     ).at_least_once
 
@@ -579,6 +582,7 @@ class Bots::DcaDualAssetTest < ActiveSupport::TestCase
 
     assert_predicate result, :success?
     assert_equal 'waiting', bot.reload.status
+    assert_equal 2, bot.transactions.submitted.where(external_status: :unknown).count
   end
 
   test 'execute_action returns failure when set_orders fails' do

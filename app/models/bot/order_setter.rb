@@ -3,6 +3,23 @@ module Bot::OrderSetter
 
   private
 
+  # Stable, aggregatable fields for an order — used for both log lines and the
+  # bot_activity_logs details payload (avoids dumping the whole order_data object).
+  def order_log_details(order_data)
+    ticker = order_data[:ticker]
+    {
+      base: ticker&.base_asset&.symbol,
+      quote: ticker&.quote_asset&.symbol,
+      amount: order_data[:amount],
+      quote_amount: order_data[:quote_amount],
+      price: order_data[:price]
+    }
+  end
+
+  def order_log_fields(order_data)
+    order_log_details(order_data).map { |k, v| "#{k}=#{v}" }.join(' ')
+  end
+
   def calculate_best_amount_info(order_data)
     ticker = order_data[:ticker]
     case exchange.minimum_amount_logic(side: order_data[:side], order_type: order_data[:order_type])

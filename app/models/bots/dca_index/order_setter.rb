@@ -21,35 +21,34 @@ module Bots::DcaIndex::OrderSetter
     orders_data = result.data
     orders_data.each do |order_data|
       if order_data[:amount].zero?
-        Rails.logger.info("set_orders for index bot #{id} ignoring order #{order_data.inspect}")
+        Rails.logger.info("set_orders index bot=#{id} event=order_ignored #{order_log_fields(order_data)}")
+        log_activity('order_ignored', details: order_log_details(order_data))
         next
       end
 
       amount_info = calculate_best_amount_info(order_data)
       if amount_info[:below_minimum_amount]
-        Rails.logger.info("set_orders for index bot #{id} creating skipped order #{order_data.inspect}")
+        Rails.logger.info("set_orders index bot=#{id} event=order_skipped #{order_log_fields(order_data)}")
+        log_activity('order_skipped', level: :warning, details: order_log_details(order_data))
         create_skipped_order!(order_data)
         next
       end
 
-      Rails.logger.info(
-        "set_orders for index bot #{id} creating order #{order_data.inspect} " \
-        "with amount info #{amount_info.inspect}"
-      )
+      Rails.logger.info("set_orders index bot=#{id} event=order_creating #{order_log_fields(order_data)}")
       result = create_order(order_data, amount_info)
       if result.failure?
         Rails.logger.error(
-          "set_orders for index bot #{id} failed to create order #{order_data.inspect} with amount info #{amount_info.inspect}. " \
-          "Errors: #{result.errors.to_sentence}"
+          "set_orders index bot=#{id} event=order_failed #{order_log_fields(order_data)} " \
+          "errors=#{result.errors.to_sentence}"
         )
         create_failed_order!(order_data.merge!(error_messages: result.errors))
         return result
       else
         order_id = result.data[:order_id]
-        Rails.logger.info("set_orders for index bot #{id} created order #{order_id} with amount info #{amount_info.inspect}")
-        Bot::FetchAndCreateOrderJob.perform_later(
-          self,
-          order_id,
+        Rails.logger.info("set_orders index bot=#{id} event=order_accepted order_id=#{order_id} #{order_log_fields(order_data)}")
+        transaction = persist_accepted_order!(order_data, order_id)
+        Bot::FetchAndUpdateOrderJob.perform_later(
+          transaction,
           update_missed_quote_amount: update_missed_quote_amount
         )
       end

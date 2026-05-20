@@ -11,6 +11,7 @@ class Bot < ApplicationRecord
   include Rankable
   include Notifyable
   include ExchangeUser
+  include ActivityLoggable
 
   belongs_to :user
   has_many :transactions, dependent: :destroy

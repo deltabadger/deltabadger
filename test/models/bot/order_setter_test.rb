@@ -131,6 +131,96 @@ class Bot::OrderSetterTest < ActiveSupport::TestCase
     end
   end
 
+  # == Immediate persist on exchange acceptance (Finding 1) ==
+  # The moment create_order succeeds the order is live on the exchange. We must
+  # persist a durable Transaction (submitted / external_status unknown) right away,
+  # then hand off to FetchAndUpdateOrderJob to fill in execution amounts — so a
+  # failed confirmation fetch can never leave an untracked real order.
+
+  test 'single asset: persists a submitted/unknown transaction immediately on acceptance' do
+    bot = create(:dca_single_asset, :started)
+    order_id = setup_bot_execution_mocks(bot, price: 50_000.0)
+    bot.stubs(:broadcast_below_minimums_warning)
+    Bot::FetchAndUpdateOrderJob.stubs(:perform_later)
+
+    assert_difference -> { bot.transactions.submitted.count }, 1 do
+      bot.set_order(order_amount_in_quote: 100.0)
+    end
+
+    txn = bot.transactions.order(:created_at).last
+    assert_equal 'submitted', txn.status
+    assert_equal 'unknown', txn.external_status
+    assert_equal order_id, txn.external_id
+    assert txn.quote_amount.present?
+  end
+
+  test 'single asset: enqueues FetchAndUpdateOrderJob with the persisted transaction' do
+    bot = create(:dca_single_asset, :started)
+    setup_bot_execution_mocks(bot, price: 50_000.0)
+    bot.stubs(:broadcast_below_minimums_warning)
+    Bot::FetchAndUpdateOrderJob.expects(:perform_later).with(
+      instance_of(Transaction),
+      update_missed_quote_amount: false
+    )
+
+    bot.set_order(order_amount_in_quote: 100.0)
+  end
+
+  test 'single asset: does not create a duplicate when external_id already exists' do
+    bot = create(:dca_single_asset, :started)
+    order_id = setup_bot_execution_mocks(bot, price: 50_000.0)
+    bot.stubs(:broadcast_below_minimums_warning)
+    Bot::FetchAndUpdateOrderJob.stubs(:perform_later)
+    create(:transaction, bot: bot, status: :submitted, external_status: :unknown, external_id: order_id)
+
+    assert_no_difference -> { bot.transactions.count } do
+      bot.set_order(order_amount_in_quote: 100.0)
+    end
+  end
+
+  test 'dual asset: persists submitted/unknown transactions immediately on acceptance' do
+    bot = create(:dca_dual_asset, :started)
+    setup_bot_execution_mocks(bot, price: 50_000.0)
+    bot.stubs(:broadcast_below_minimums_warning)
+    bot.stubs(:metrics).returns({ total_base0_amount: 0, total_base1_amount: 0 })
+    Bot::FetchAndUpdateOrderJob.stubs(:perform_later)
+    # Each leg gets a distinct exchange order id (the shared helper returns a fixed one).
+    bot.exchange.unstub(:market_buy)
+    bot.exchange.stubs(:market_buy)
+       .returns(Result::Success.new(order_id: 'dual-0'), Result::Success.new(order_id: 'dual-1'))
+
+    assert_difference -> { bot.transactions.submitted.where(external_status: :unknown).count }, 2 do
+      bot.set_orders(total_orders_amount_in_quote: 200.0)
+    end
+  end
+
+  # == Activity logging (Finding 3) ==
+
+  test 'single asset: logs an order_skipped activity when below minimum' do
+    bot = create(:dca_single_asset, :started)
+    setup_bot_execution_mocks(bot, price: 50_000.0)
+    bot.stubs(:broadcast_below_minimums_warning)
+    Bot::FetchAndUpdateOrderJob.stubs(:perform_later)
+
+    assert_difference -> { bot.bot_activity_logs.where(event: 'order_skipped').count }, 1 do
+      bot.set_order(order_amount_in_quote: 1.0)
+    end
+  end
+
+  test 'single asset: logs an order_ignored activity when the computed amount is zero' do
+    bot = create(:dca_single_asset, :started)
+    bot.stubs(:broadcast_below_minimums_warning)
+    # Reach the defensive zero-amount branch directly (unreachable via price math for single asset).
+    bot.stubs(:get_order_data).returns(
+      Result::Success.new(ticker: bot.ticker, price: 50_000, amount: 0, quote_amount: 0,
+                          side: :buy, order_type: :market_order)
+    )
+
+    assert_difference -> { bot.bot_activity_logs.where(event: 'order_ignored').count }, 1 do
+      bot.set_order(order_amount_in_quote: 100.0)
+    end
+  end
+
   # == DcaDualAsset below minimum amount ==
 
   test 'dual asset: creates skipped transactions when below minimum' do

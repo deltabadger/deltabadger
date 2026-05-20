@@ -1,6 +1,13 @@
+# Compatibility shim. New code persists the order at placement and enqueues
+# Bot::FetchAndUpdateOrderJob instead. This class is retained only so jobs already
+# queued at deploy time still deserialize; remove it once none can be in flight.
 class Bot::FetchAndCreateOrderJob < BotJob
   def perform(bot, order_id, update_missed_quote_amount: false)
-    raise "Order #{order_id} already exists" if Transaction.exists?(external_id: order_id)
+    existing = bot.transactions.find_by(external_id: order_id)
+    if existing
+      Bot::FetchAndUpdateOrderJob.perform_later(existing, update_missed_quote_amount: update_missed_quote_amount)
+      return
+    end
 
     result = fetch_order(bot, order_id)
     raise "Failed to fetch order #{order_id} result: #{result.errors}" if result.failure?
