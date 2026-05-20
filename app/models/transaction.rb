@@ -20,6 +20,10 @@ class Transaction < ApplicationRecord
   scope :for_bot, ->(bot) { where(bot_id: bot.id).order(created_at: :desc) }
   scope :today_for_bot, ->(bot) { for_bot(bot).where('created_at >= ?', Date.today.beginning_of_day) }
   scope :for_bot_by_status, ->(bot, status: :submitted) { where(bot_id: bot.id).where(status: status).order(created_at: :desc) }
+  # Orders accepted by the exchange whose execution is not yet confirmed: submitted
+  # rows with external_status open OR unknown. unknown rows are persisted at placement
+  # (before the first confirmation fetch) and must be treated as in-flight everywhere.
+  scope :waiting, -> { submitted.where(external_status: %i[open unknown]) }
 
   validates :bot, presence: true
 

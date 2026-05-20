@@ -34,6 +34,10 @@ production:
     class: AccountBalance::SyncAllJob
     schedule: "30 2 * * *"  # Daily at 2:30 AM (after transactions sync)
 
+  prune_bot_activity_logs_job:
+    class: BotActivityLog::PruneJob
+    schedule: "0 4 * * *"  # Daily at 04:00 UTC
+
 development:
   sync_all_tickers_and_assets_job:
     class: Exchange::SyncAllTickersAndAssetsJob
@@ -66,3 +70,7 @@ development:
   sync_all_account_balances_job:
     class: AccountBalance::SyncAllJob
     schedule: "30 2 * * *"  # Daily at 2:30 AM (after transactions sync)
+
+  prune_bot_activity_logs_job:
+    class: BotActivityLog::PruneJob
+    schedule: "0 4 * * *"  # Daily at 04:00 UTC

@@ -476,14 +476,13 @@ class Bots::DcaSingleAssetTest < ActiveSupport::TestCase
     assert_predicate result, :success?
   end
 
-  test 'execute_action enqueues order creation after submitting through exchange' do
+  test 'execute_action persists order and enqueues update after submitting through exchange' do
     bot = create(:dca_single_asset, :started)
     order_id = setup_bot_execution_mocks(bot)
     bot.stubs(:broadcast_below_minimums_warning)
     Bot::FetchAndUpdateOpenOrdersJob.stubs(:perform_now)
-    Bot::FetchAndCreateOrderJob.expects(:perform_later).with(
-      bot,
-      order_id,
+    Bot::FetchAndUpdateOrderJob.expects(:perform_later).with(
+      instance_of(Transaction),
       update_missed_quote_amount: true
     )
 
@@ -491,6 +490,9 @@ class Bots::DcaSingleAssetTest < ActiveSupport::TestCase
 
     assert_predicate result, :success?
     assert_equal 'waiting', bot.reload.status
+    txn = bot.transactions.order(:created_at).last
+    assert_equal order_id, txn.external_id
+    assert_equal 'unknown', txn.external_status
   end
 
   test 'execute_action returns failure when set_order fails' do

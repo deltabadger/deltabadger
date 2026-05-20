@@ -11,6 +11,7 @@ class Bot::ActionJob < BotJob
     unless bot.exchange.market_open?
       Rails.logger.info("ActionJob for bot #{bot.id}: market closed, rescheduling to #{bot.exchange.next_market_open_at}")
       bot.update!(waiting_for_market_open: true)
+      bot.log_activity('market_closed', details: { next_market_open_at: bot.exchange.next_market_open_at })
       Bot::ActionJob.set(wait_until: bot.exchange.next_market_open_at).perform_later(bot)
       Bot::BroadcastAfterScheduledActionJob.perform_later(bot)
       return
@@ -25,6 +26,7 @@ class Bot::ActionJob < BotJob
 
     if result.data.present? && result.data[:break_reschedule]
       Rails.logger.info("ActionJob for bot #{bot.id} reschedule disabled.")
+      bot.log_activity('reschedule_disabled')
     else
       # Skip the automatic broadcast - BroadcastAfterScheduledActionJob will handle it
       # after the next job is actually scheduled
@@ -36,6 +38,7 @@ class Bot::ActionJob < BotJob
     Rails.logger.error("ActionJob for bot #{bot.id} failed to perform. Errors: #{e.message}")
     bot.update!(status: :retrying)
     category = ignorable_error_category(bot, e)
+    bot.log_activity('execution_failed', level: :error, details: { error: e.message, ignorable: category })
     if category
       notify_ignorable(bot, category, e)
       schedule_next_action_job(bot)

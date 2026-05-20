@@ -55,12 +55,12 @@ module Bot::QuoteAmountLimitable
                                       .pluck(:quote_amount_exec)
                                       .sum
 
-    open_quote_amount = transactions.submitted
-                                    .where('created_at >= ?', quote_amount_limit_enabled_at)
-                                    .open
-                                    .pluck(:quote_amount, :amount, :price)
-                                    .map { |quote_amount, amount, price| quote_amount || (amount * price) }
-                                    .sum
+    open_quote_amount = transactions
+                        .where('created_at >= ?', quote_amount_limit_enabled_at)
+                        .waiting
+                        .pluck(:quote_amount, :amount, :price)
+                        .map { |quote_amount, amount, price| quote_amount || (amount * price) }
+                        .sum
 
     total_quote_amount_invested = closed_quote_amount + open_quote_amount
 

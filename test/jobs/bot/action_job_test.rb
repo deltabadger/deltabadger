@@ -232,6 +232,45 @@ module ActionJobBehaviorTests
       end
       assert_equal 'retrying', bot.reload.status
     end
+
+    # == Activity logging (Finding 3) ==
+
+    test 'logs a market_closed activity when the market is closed' do
+      bot = create_bot
+      setup_action_job_mocks(bot)
+      bot.exchange.stubs(:market_open?).returns(false)
+      bot.exchange.stubs(:next_market_open_at).returns(1.hour.from_now)
+
+      assert_difference -> { bot.bot_activity_logs.where(event: 'market_closed').count }, 1 do
+        Bot::ActionJob.new.perform(bot)
+      end
+    end
+
+    test 'logs an execution_failed activity tagged with the ignorable category' do
+      bot = create_bot
+      setup_action_job_mocks(bot)
+      bot.stubs(:execute_action).returns(Result::Failure.new('insufficient buying power'))
+      bot.exchange.stubs(:known_errors).returns(insufficient_funds: ['insufficient buying power'])
+      bot.stubs(:notify_end_of_funds)
+
+      assert_difference -> { bot.bot_activity_logs.where(event: 'execution_failed').count }, 1 do
+        Bot::ActionJob.new.perform(bot)
+      end
+
+      log = bot.bot_activity_logs.where(event: 'execution_failed').last
+      assert_equal 'error', log.level
+      assert_equal 'insufficient_funds', log.details['ignorable']
+    end
+
+    test 'logs a reschedule_disabled activity when break_reschedule is set' do
+      bot = create_bot
+      setup_action_job_mocks(bot)
+      bot.stubs(:execute_action).returns(Result::Success.new(break_reschedule: true))
+
+      assert_difference -> { bot.bot_activity_logs.where(event: 'reschedule_disabled').count }, 1 do
+        Bot::ActionJob.new.perform(bot)
+      end
+    end
   end
 
   private
