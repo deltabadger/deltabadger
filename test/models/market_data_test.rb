@@ -63,8 +63,14 @@ class MarketDataImportTickersTest < ActiveSupport::TestCase
     end
 
     assert_equal 'XBTUSD', a.reload.ticker, "A's pair should be renamed to the incoming ticker string"
-    assert_not Ticker.exists?(b.id), 'stale holder of the reassigned ticker string should be removed'
-    assert_equal 1, @exchange.tickers.where(ticker: 'XBTUSD').count, 'exactly one ticker should own the string'
+
+    # Tickers are undeletable (and referenced by bot_index_assets FK), so the stale holder is
+    # preserved — moved out of the unique namespace and marked unavailable, not deleted.
+    assert Ticker.exists?(b.id), 'stale holder must be preserved (tickers are undeletable)'
+    b.reload
+    assert_not b.available?, 'stale holder should be marked unavailable'
+    assert_not_equal 'XBTUSD', b.ticker, 'stale holder must no longer occupy the reassigned ticker string'
+    assert_equal 1, @exchange.tickers.available.where(ticker: 'XBTUSD').count, 'exactly one available ticker owns the string'
     assert_equal @btc.id, @exchange.tickers.find_by(ticker: 'XBTUSD').base_asset_id
   end
 
