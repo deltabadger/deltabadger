@@ -4,6 +4,7 @@ class Bot::ActionJob < BotJob
   ].freeze
 
   def perform(bot)
+    action_started_at = Time.current
     return unless bot.scheduled? || bot.retrying?
     raise "ActionJob for bot #{bot.id}: The bot already has an action job scheduled" if bot.next_action_job_at.present?
 
@@ -38,7 +39,11 @@ class Bot::ActionJob < BotJob
     Rails.logger.error("ActionJob for bot #{bot.id} failed to perform. Errors: #{e.message}")
     bot.update!(status: :retrying)
     category = ignorable_error_category(bot, e)
-    bot.log_activity('execution_failed', level: :error, details: { error: e.message, ignorable: category })
+    # A failed order already records its own Transaction row; only log execution_failed
+    # for failures that left no transaction (auth, market/API, unexpected errors).
+    unless bot.transactions.failed.where('created_at >= ?', action_started_at).exists?
+      bot.log_activity('execution_failed', level: :error, details: { error: e.message, ignorable: category })
+    end
     if category
       notify_ignorable(bot, category, e)
       schedule_next_action_job(bot)
