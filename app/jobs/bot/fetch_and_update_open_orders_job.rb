@@ -2,7 +2,7 @@ class Bot::FetchAndUpdateOpenOrdersJob < BotJob
   def perform(bot, update_missed_quote_amount: false, success_or_kill: false)
     # TODO: The imported filter may be removed in the future once all users have re-exported
     # from the old app (which now correctly excludes unfilled orders from export)
-    external_order_ids = bot.transactions.submitted.open
+    external_order_ids = bot.transactions.waiting
                             .where.not("external_id LIKE 'imported_%'")
                             .pluck(:external_id)
     return if external_order_ids.empty?
@@ -14,7 +14,7 @@ class Bot::FetchAndUpdateOpenOrdersJob < BotJob
     result.data.each do |order_id, order_data|
       order = bot.transactions.find_by(external_id: order_id)
       raise "Order #{order_id} not found" if order.nil?
-      next unless order.submitted? && order.open?
+      next unless order.submitted? && (order.open? || order.unknown?)
 
       quote_amount_diff = order_data[:quote_amount_exec] - (order.quote_amount_exec || 0)
       case order_data[:status]
@@ -30,7 +30,14 @@ class Bot::FetchAndUpdateOpenOrdersJob < BotJob
       end
     end
   rescue StandardError => e
-    return if success_or_kill
+    if success_or_kill
+      Rails.logger.warn(
+        'FetchAndUpdateOpenOrdersJob suppressed error ' \
+        "bot_id=#{bot.id} exchange_id=#{bot.exchange_id} " \
+        "order_ids=#{Array(external_order_ids).join(',')} error=#{e.message}"
+      )
+      return
+    end
 
     raise e
   end

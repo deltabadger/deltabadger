@@ -86,6 +86,7 @@ class Bots::DcaIndex < Bot
         Bot::ActionJob.set(wait_until: next_interval_checkpoint_at).perform_later(self)
         Bot::BroadcastAfterScheduledActionJob.perform_later(self)
       end
+      log_activity('started', details: { start_fresh: start_fresh })
       true
     else
       false
@@ -99,6 +100,7 @@ class Bots::DcaIndex < Bot
       stop_message_key:
     )
       cancel_scheduled_action_jobs
+      log_activity('stopped', details: { stop_message_key: stop_message_key }.compact)
       true
     else
       false
@@ -294,7 +296,7 @@ class Bots::DcaIndex < Bot
 
   def validate_unchangeable_exchange
     return unless exchange_id_changed?
-    return unless transactions.open.any?
+    return unless transactions.waiting.any?
 
     errors.add(:exchange, :unchangeable,
                message: I18n.t('errors.bots.exchange_change_while_open_orders', exchange_name: exchange.name))

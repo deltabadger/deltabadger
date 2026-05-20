@@ -1,4 +1,4 @@
-<% has_waiting = bot.transactions.open.exists? %>
+<% has_waiting = bot.transactions.waiting.exists? %>
 
 <% order_filter = params[:order_filter] || 'all' %>
 <div data-controller="order-filter" data-order-filter-current-value="<%= order_filter %>" style="gap: 1rem; display: flex; flex-direction: column">
