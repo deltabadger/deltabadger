@@ -9,6 +9,7 @@ module Bots::DcaDualAsset::Measurable
                                                                                 :price,
                                                                                 :amount_exec,
                                                                                 :quote_amount_exec,
+                                                                                :amount,
                                                                                 :base)
       return data if transactions_array.empty?
 
@@ -19,8 +20,12 @@ module Bots::DcaDualAsset::Measurable
       }
 
       totals = initialize_totals_data
-      transactions_array.each do |created_at, price, amount_exec, quote_amount_exec, base|
-        next if price.blank? || quote_amount_exec.zero? || amount_exec.zero?
+      transactions_array.each do |created_at, price, amount_exec, quote_amount_exec, amount, base|
+        # Workaround for old legacy transactions in which we could not fetch the real executed amounts
+        quote_amount_exec ||= price * amount
+        amount_exec ||= amount
+        next if price.blank? || quote_amount_exec.blank? || amount_exec.blank?
+        next if quote_amount_exec.zero? || amount_exec.zero?
 
         # chart data
         data[:chart][:labels] << created_at
