@@ -1,0 +1,16 @@
+<%# Transaction rendered as a sentence for the unified "All" timeline. The columnar
+    Date|Amount|Value layout (_order) is used by the Transactions/Waiting/Cancelled
+    tabs instead. order_type "timeline" => shown only under "All". %>
+<% row_class = order.failed? ? 'text-danger' : (order.skipped? || order.cancelled?) ? 'text-inactive' : '' %>
+<%= tag.tr id: dom_id(order, :timeline), class: row_class, data: { hw_animate_in_prepend: "animate-order-in", order_filter_target: "row", order_type: "timeline" } do %>
+  <td scope="row"><%= order.created_at.in_time_zone(current_user.time_zone).strftime("%Y-%m-%d %I:%M %p") %></td>
+  <td colspan="2" style="text-align: left;"><%= transaction_summary(order, decimals) %></td>
+  <td>
+    <% if order.open? %>
+      <div data-controller="class-toggle" data-class-toggle-toggle-classes-value='["hidden"]'>
+        <%= button_to t('bot.cancel_order'), bot_transaction_path(order.bot, order), method: :delete, class: 'sinput sinput--small sinput--hover-warning', data: { class_toggle_target: "togglable", action: "click->class-toggle#toggle" } %>
+        <div class="loader--small hidden" style="position: unset; float: right; margin-right: 0.5rem;" data-class-toggle-target="togglable"></div>
+      </div>
+    <% end %>
+  </td>
+<% end %>

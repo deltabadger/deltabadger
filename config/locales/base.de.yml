@@ -446,8 +446,29 @@ de:
     order_filters:
         all: 'Alle'
         successful: 'Erfolgreich'
+        transactions: 'Transaktionen'
         cancelled: 'Storniert'
         waiting: 'Geplant'
+    bot_activity:
+        events:
+            started: 'Bot gestartet'
+            stopped: 'Bot gestoppt'
+            reschedule_disabled: 'Automatische Planung pausiert'
+            market_closed: 'Markt geschlossen — nächste Öffnung %{time}'
+            limit_paused: 'Pausiert: Limit %{limit} nicht erfüllt'
+            execution_failed: 'Orderversuch fehlgeschlagen'
+            execution_failed_with_error: 'Orderversuch fehlgeschlagen: %{error}'
+        transactions:
+            bought: 'Gekauft: %{amount} %{base} für %{quote_amount} %{quote}'
+            sold: 'Verkauft: %{amount} %{base} für %{quote_amount} %{quote}'
+            buying: 'Kaufe %{amount} %{base} für %{quote_amount} %{quote}…'
+            selling: 'Verkaufe %{amount} %{base} für %{quote_amount} %{quote}…'
+            cancelled: 'Order storniert'
+            failed: 'Order fehlgeschlagen'
+            failed_with_error: 'Order fehlgeschlagen: %{error}'
+            failed_buy: 'Fehlgeschlagener Kaufversuch von %{amount} %{base} für %{quote_amount} %{quote}'
+            failed_sell: 'Fehlgeschlagener Verkaufsversuch von %{amount} %{base} für %{quote_amount} %{quote}'
+            skipped: 'Übersprungen (unter Minimum)'
 
     tax_report:
         warnings:

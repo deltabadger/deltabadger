@@ -446,8 +446,29 @@ es:
     order_filters:
         all: 'Todos'
         successful: 'Exitosos'
+        transactions: 'Transacciones'
         cancelled: 'Cancelados'
         waiting: 'Programados'
+    bot_activity:
+        events:
+            started: 'Bot iniciado'
+            stopped: 'Bot detenido'
+            reschedule_disabled: 'Programación automática en pausa'
+            market_closed: 'Mercado cerrado — próxima apertura %{time}'
+            limit_paused: 'En pausa: límite %{limit} no alcanzado'
+            execution_failed: 'Intento de orden fallido'
+            execution_failed_with_error: 'Intento de orden fallido: %{error}'
+        transactions:
+            bought: 'Comprado %{amount} %{base} por %{quote_amount} %{quote}'
+            sold: 'Vendido %{amount} %{base} por %{quote_amount} %{quote}'
+            buying: 'Comprando %{amount} %{base} por %{quote_amount} %{quote}…'
+            selling: 'Vendiendo %{amount} %{base} por %{quote_amount} %{quote}…'
+            cancelled: 'Orden cancelada'
+            failed: 'Orden fallida'
+            failed_with_error: 'Orden fallida: %{error}'
+            failed_buy: 'Intento fallido de compra de %{amount} %{base} por %{quote_amount} %{quote}'
+            failed_sell: 'Intento fallido de venta de %{amount} %{base} por %{quote_amount} %{quote}'
+            skipped: 'Omitido (por debajo del mínimo)'
     tax_report:
         warnings:
             missing_prices: Faltan precios históricos para

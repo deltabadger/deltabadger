@@ -445,8 +445,29 @@ nl:
     order_filters:
         all: 'Alle'
         successful: 'Geslaagd'
+        transactions: 'Transacties'
         cancelled: 'Geannuleerd'
         waiting: 'Gepland'
+    bot_activity:
+        events:
+            started: 'Bot gestart'
+            stopped: 'Bot gestopt'
+            reschedule_disabled: 'Automatische planning gepauzeerd'
+            market_closed: 'Markt gesloten — volgende opening %{time}'
+            limit_paused: 'Gepauzeerd: %{limit}-limiet niet bereikt'
+            execution_failed: 'Orderpoging mislukt'
+            execution_failed_with_error: 'Orderpoging mislukt: %{error}'
+        transactions:
+            bought: 'Gekocht %{amount} %{base} voor %{quote_amount} %{quote}'
+            sold: 'Verkocht %{amount} %{base} voor %{quote_amount} %{quote}'
+            buying: 'Kopen van %{amount} %{base} voor %{quote_amount} %{quote}…'
+            selling: 'Verkopen van %{amount} %{base} voor %{quote_amount} %{quote}…'
+            cancelled: 'Order geannuleerd'
+            failed: 'Order mislukt'
+            failed_with_error: 'Order mislukt: %{error}'
+            failed_buy: 'Mislukte kooppoging van %{amount} %{base} voor %{quote_amount} %{quote}'
+            failed_sell: 'Mislukte verkooppoging van %{amount} %{base} voor %{quote_amount} %{quote}'
+            skipped: 'Overgeslagen (onder minimum)'
     tax_report:
         warnings:
             missing_prices: Historische prijzen ontbreken voor

@@ -55,7 +55,9 @@ class BotsController < ApplicationController
 
   def show
     if request.format.turbo_stream?
-      @pagy, @orders = pagy(:countless, @bot.transactions.order(created_at: :desc), limit: 10)
+      feed = BotActivityFeed.new(bot: @bot, before: params[:before], limit: 10)
+      @feed_items = feed.items
+      @next_cursor = feed.next_cursor
       permitted_params = params.require(:decimals).permit(*Asset.all.pluck(:symbol))
       @decimals = permitted_params.transform_values(&:to_i)
     else
