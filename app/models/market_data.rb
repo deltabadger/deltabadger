@@ -285,6 +285,8 @@ class MarketData
     Result::Failure.new(e.message)
   end
 
+  TICKER_TOMBSTONE_PREFIX = '__stale_'.freeze
+
   private_class_method def self.reconcile_ticker_conflicts!(exchange, ticker_records)
     existing_tickers = Ticker.where(exchange_id: exchange.id)
     return if existing_tickers.empty?
@@ -292,41 +294,39 @@ class MarketData
     by_asset_pair = existing_tickers.index_by { |t| [t.base_asset_id, t.quote_asset_id] }
     by_ticker = existing_tickers.index_by(&:ticker)
 
+    # The two passes are deliberately sequential: every stale holder must be freed before any
+    # rename runs, so they can't be merged into one loop.
+    # rubocop:disable Style/CombinableLoops
     Ticker.transaction do
-      # Pass 1: same ticker string, different asset pair — delete the stale holder FIRST so the
-      # rename below can't collide with it on the [exchange_id, ticker] unique index.
-      stale_ids = []
+      # Pass 1: a ticker string is being reassigned to a different asset pair. Tickers are never
+      # deleted in this codebase (Undeletable + the bot_index_assets FK), so move the stale holder
+      # OUT of the [exchange_id, ticker] unique namespace with a tombstone and mark it unavailable.
+      # This frees the string so the rename below cannot collide.
       ticker_records.each do |record|
         existing = by_ticker[record[:ticker]]
         next unless existing
         next if existing.base_asset_id == record[:base_asset_id] && existing.quote_asset_id == record[:quote_asset_id]
 
-        stale_ids << existing.id
+        existing.update_columns(
+          ticker: "#{TICKER_TOMBSTONE_PREFIX}#{existing.id}_#{existing.ticker}",
+          available: false
+        )
       end
-      Ticker.where(id: stale_ids).delete_all if stale_ids.any?
 
-      # Pass 2: same asset pair, different ticker string — rename in place.
+      # Pass 2: same asset pair, different base/quote/ticker — align the kept row in place onto the
+      # now-free namespace so the asset-pair upsert won't trip the secondary unique indexes.
       ticker_records.each do |record|
         existing = by_asset_pair[[record[:base_asset_id], record[:quote_asset_id]]]
         next unless existing
-        next if stale_ids.include?(existing.id) # deleted above; the upsert will reinsert it
 
         updates = {}
         updates[:base] = record[:base] if existing.base != record[:base]
         updates[:quote] = record[:quote] if existing.quote != record[:quote]
-        if existing.ticker != record[:ticker]
-          # Defensive: only rename if the target string is free (or already ours). Should always
-          # hold after the delete pass; guards against an unexpected feed shape crashing seed.
-          conflict = Ticker.where(exchange_id: exchange.id, ticker: record[:ticker]).where.not(id: existing.id).exists?
-          if conflict
-            Rails.logger.warn("[MarketData] Skipping ticker rename to #{record[:ticker]} for exchange #{exchange.id}: target still occupied")
-          else
-            updates[:ticker] = record[:ticker]
-          end
-        end
+        updates[:ticker] = record[:ticker] if existing.ticker != record[:ticker]
         existing.update_columns(updates) if updates.any?
       end
     end
+    # rubocop:enable Style/CombinableLoops
   end
 
   def self.upsert_asset_attributes(asset_data)
