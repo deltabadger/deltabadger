@@ -292,28 +292,41 @@ class MarketData
     by_asset_pair = existing_tickers.index_by { |t| [t.base_asset_id, t.quote_asset_id] }
     by_ticker = existing_tickers.index_by(&:ticker)
 
-    # Pass 1: same asset pair, different ticker string — update in place
-    ticker_records.each do |record|
-      existing = by_asset_pair[[record[:base_asset_id], record[:quote_asset_id]]]
-      next unless existing
+    Ticker.transaction do
+      # Pass 1: same ticker string, different asset pair — delete the stale holder FIRST so the
+      # rename below can't collide with it on the [exchange_id, ticker] unique index.
+      stale_ids = []
+      ticker_records.each do |record|
+        existing = by_ticker[record[:ticker]]
+        next unless existing
+        next if existing.base_asset_id == record[:base_asset_id] && existing.quote_asset_id == record[:quote_asset_id]
 
-      updates = {}
-      updates[:base] = record[:base] if existing.base != record[:base]
-      updates[:quote] = record[:quote] if existing.quote != record[:quote]
-      updates[:ticker] = record[:ticker] if existing.ticker != record[:ticker]
-      existing.update_columns(updates) if updates.any?
+        stale_ids << existing.id
+      end
+      Ticker.where(id: stale_ids).delete_all if stale_ids.any?
+
+      # Pass 2: same asset pair, different ticker string — rename in place.
+      ticker_records.each do |record|
+        existing = by_asset_pair[[record[:base_asset_id], record[:quote_asset_id]]]
+        next unless existing
+        next if stale_ids.include?(existing.id) # deleted above; the upsert will reinsert it
+
+        updates = {}
+        updates[:base] = record[:base] if existing.base != record[:base]
+        updates[:quote] = record[:quote] if existing.quote != record[:quote]
+        if existing.ticker != record[:ticker]
+          # Defensive: only rename if the target string is free (or already ours). Should always
+          # hold after the delete pass; guards against an unexpected feed shape crashing seed.
+          conflict = Ticker.where(exchange_id: exchange.id, ticker: record[:ticker]).where.not(id: existing.id).exists?
+          if conflict
+            Rails.logger.warn("[MarketData] Skipping ticker rename to #{record[:ticker]} for exchange #{exchange.id}: target still occupied")
+          else
+            updates[:ticker] = record[:ticker]
+          end
+        end
+        existing.update_columns(updates) if updates.any?
+      end
     end
-
-    # Pass 2: same ticker string, different asset pair — delete stale record so upsert can insert
-    stale_ids = []
-    ticker_records.each do |record|
-      existing = by_ticker[record[:ticker]]
-      next unless existing
-      next if existing.base_asset_id == record[:base_asset_id] && existing.quote_asset_id == record[:quote_asset_id]
-
-      stale_ids << existing.id
-    end
-    Ticker.where(id: stale_ids).delete_all if stale_ids.any?
   end
 
   def self.upsert_asset_attributes(asset_data)
