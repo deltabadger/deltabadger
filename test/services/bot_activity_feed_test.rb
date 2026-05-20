@@ -63,6 +63,25 @@ class BotActivityFeedTest < ActiveSupport::TestCase
     assert_equal collected.size, collected.map { |r| [r.class.name, r.id] }.uniq.size, 'no duplicates across pages'
   end
 
+  test 'walks every record exactly once when many rows share one created_at (high cardinality)' do
+    t = Time.utc(2026, 5, 1, 12, 0, 0)
+    records = Array.new(25) { |i| activity(at: t, event: "e#{i}") }
+
+    collected = []
+    cursor = nil
+    loop do
+      feed = BotActivityFeed.new(bot: @bot, before: cursor, limit: 3)
+      collected.concat(feed.items)
+      cursor = feed.next_cursor
+      break if cursor.nil?
+    end
+
+    ids = collected.map { |r| [r.class.name, r.id] }
+    assert_equal records.size, collected.size, 'no records skipped'
+    assert_equal ids.uniq.size, ids.size, 'no duplicates across pages'
+    assert_equal records.map { |r| [r.class.name, r.id] }.sort, ids.sort
+  end
+
   test 'records sharing a created_at use a stable documented tiebreaker across pages' do
     # Documented feed order: created_at desc, kind asc (activity before transaction), id desc.
     t = Time.utc(2026, 5, 1, 12, 0, 0)
@@ -83,14 +102,17 @@ class BotActivityFeedTest < ActiveSupport::TestCase
                  'activity should sort before transaction at an identical created_at'
   end
 
-  test 'excludes activity already represented by a transaction (skipped/failed) or noise' do
+  test 'excludes order_skipped/order_ignored but keeps execution_failed' do
     t0 = Time.utc(2026, 5, 1, 12, 0, 0)
-    kept = activity(at: t0, event: 'started')
+    started = activity(at: t0, event: 'started')
     activity(at: t0 + 1.minute, event: 'order_skipped')
     activity(at: t0 + 2.minutes, event: 'order_ignored')
-    activity(at: t0 + 3.minutes, event: 'execution_failed')
+    failed = activity(at: t0 + 3.minutes, event: 'execution_failed')
 
-    assert_equal [kept], BotActivityFeed.new(bot: @bot, limit: 10).items
+    items = BotActivityFeed.new(bot: @bot, limit: 10).items
+    assert_includes items, failed, 'execution_failed (e.g. auth/market errors) must stay visible'
+    assert_includes items, started
+    assert_equal 2, items.size
   end
 
   test 'scopes to the given bot' do
