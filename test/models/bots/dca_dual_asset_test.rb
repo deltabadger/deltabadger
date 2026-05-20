@@ -870,6 +870,28 @@ class Bots::DcaDualAssetTest < ActiveSupport::TestCase
     assert_equal 70, bot.pending_quote_amount
   end
 
+  test 'metrics handles submitted orders whose execution amounts are not confirmed yet' do
+    bot = create(:dca_dual_asset, :started)
+    create(
+      :transaction,
+      bot: bot,
+      base: bot.base0_asset.symbol,
+      quote: bot.quote_asset.symbol,
+      external_status: :unknown,
+      amount_exec: nil,
+      quote_amount_exec: nil,
+      amount: 0.001,
+      quote_amount: 50,
+      price: 50_000,
+      created_at: Time.current
+    )
+
+    metrics = nil
+    assert_nothing_raised { metrics = bot.metrics(force: true) }
+    assert_equal 0.001, metrics[:total_base0_amount]
+    assert_equal 50, metrics[:total_quote_amount_invested]
+  end
+
   test 'set_missed_quote_amount caps at effective_quote_amount' do
     bot = create(:dca_dual_asset, :started)
     bot.set_missed_quote_amount
