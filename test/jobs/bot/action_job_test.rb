@@ -262,6 +262,36 @@ module ActionJobBehaviorTests
       assert_equal 'insufficient_funds', log.details['ignorable']
     end
 
+    test 'does not log execution_failed when a failed transaction was recorded this cycle' do
+      freeze_time do
+        bot = create_bot
+        create(:transaction, bot: bot, status: :failed, external_status: :unknown, created_at: Time.current)
+        setup_action_job_mocks(bot)
+        bot.stubs(:execute_action).returns(Result::Failure.new('boom'))
+        bot.stubs(:notify_about_error)
+
+        assert_no_difference -> { bot.bot_activity_logs.where(event: 'execution_failed').count } do
+          Bot::ActionJob.new.perform(bot)
+        rescue StandardError
+          nil
+        end
+      end
+    end
+
+    test 'logs execution_failed when the only failed transaction is from a previous cycle' do
+      bot = create_bot
+      create(:transaction, bot: bot, status: :failed, external_status: :unknown, created_at: 1.hour.ago)
+      setup_action_job_mocks(bot)
+      bot.stubs(:execute_action).returns(Result::Failure.new('boom'))
+      bot.stubs(:notify_about_error)
+
+      assert_difference -> { bot.bot_activity_logs.where(event: 'execution_failed').count }, 1 do
+        Bot::ActionJob.new.perform(bot)
+      rescue StandardError
+        nil
+      end
+    end
+
     test 'logs a reschedule_disabled activity when break_reschedule is set' do
       bot = create_bot
       setup_action_job_mocks(bot)
