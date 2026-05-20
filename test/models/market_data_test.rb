@@ -44,6 +44,30 @@ class MarketDataImportTickersTest < ActiveSupport::TestCase
     assert t.available
   end
 
+  # Regression: a ticker-string remap (the feed reassigns an existing ticker string to a
+  # different asset pair) must reconcile without hitting the [exchange_id, ticker] unique
+  # index. This crashed db:seed and crash-looped containers on boot.
+  test 'reconciles a ticker string reassigned to a different asset pair without crashing' do
+    # A: same asset pair as incoming, old ticker string
+    a = create(:ticker, exchange: @exchange, base_asset: @btc, quote_asset: @usd,
+                        base: 'BTC', quote: 'USD', ticker: 'BTCUSD')
+    # B: holds the incoming ticker string, but for a different asset pair
+    b = create(:ticker, exchange: @exchange, base_asset: @eth, quote_asset: @usd,
+                        base: 'ETH', quote: 'USD', ticker: 'XBTUSD')
+
+    # incoming wants A's pair (BTC/USD) renamed to B's ticker string ('XBTUSD')
+    data = [ticker_data(base_ext_id: 'bitcoin', quote_ext_id: 'usd', base: 'BTC', quote: 'USD', ticker: 'XBTUSD')]
+
+    assert_nothing_raised do
+      MarketData.import_tickers!(@exchange, data)
+    end
+
+    assert_equal 'XBTUSD', a.reload.ticker, "A's pair should be renamed to the incoming ticker string"
+    assert_not Ticker.exists?(b.id), 'stale holder of the reassigned ticker string should be removed'
+    assert_equal 1, @exchange.tickers.where(ticker: 'XBTUSD').count, 'exactly one ticker should own the string'
+    assert_equal @btc.id, @exchange.tickers.find_by(ticker: 'XBTUSD').base_asset_id
+  end
+
   test 'creates exchange assets for both base and quote' do
     data = [
       ticker_data(base_ext_id: 'bitcoin', quote_ext_id: 'usd', base: 'BTC', quote: 'USD', ticker: 'BTCUSD')
