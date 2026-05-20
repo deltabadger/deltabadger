@@ -10,7 +10,7 @@
   <% if show_filters %>
     <%= link_to t('order_filters.all'), "#", class: ["sbutton sbutton--multi", ("sbutton--multi--active" if order_filter == 'all')], data: { order_filter_target: "filter", filter_type: "all", action: "click->order-filter#filter" } %>
     <% if has_successful %>
-      <%= link_to t('order_filters.successful'), "#", class: ["sbutton sbutton--multi", ("sbutton--multi--active" if order_filter == 'successful')], data: { order_filter_target: "filter", filter_type: "successful", action: "click->order-filter#filter" } %>
+      <%= link_to t('order_filters.transactions'), "#", class: ["sbutton sbutton--multi", ("sbutton--multi--active" if order_filter == 'successful')], data: { order_filter_target: "filter", filter_type: "successful", action: "click->order-filter#filter" } %>
     <% end %>
     <% if has_cancelled %>
       <%= link_to t('order_filters.cancelled'), "#", class: ["sbutton sbutton--multi", ("sbutton--multi--active" if order_filter == 'cancelled')], data: { order_filter_target: "filter", filter_type: "cancelled", action: "click->order-filter#filter" } %>

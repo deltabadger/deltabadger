@@ -13,6 +13,47 @@ module BotHelper
     I18n.exists?(specific) ? t(specific) : t(generic)
   end
 
+  # One-line summary for a BotActivityLog row in the activity feed. Uses the stored
+  # message when present, otherwise a translated label for the event (with light
+  # detail formatting for the few high-value events).
+  def bot_activity_summary(activity)
+    return activity.message if activity.message.present?
+
+    case activity.event
+    when 'market_closed'
+      t('bot_activity.events.market_closed', time: format_activity_time(activity.details['next_market_open_at']))
+    when 'limit_paused'
+      t('bot_activity.events.limit_paused', limit: activity.details['limit_type'].to_s.tr('_', ' '))
+    when 'execution_failed'
+      error = activity.details['error']
+      if error.present?
+        t('bot_activity.events.execution_failed_with_error', error: error)
+      else
+        t('bot_activity.events.execution_failed')
+      end
+    else
+      t("bot_activity.events.#{activity.event}")
+    end
+  end
+
+  # Human sentence for a transaction in the unified "All" timeline (the Transactions
+  # tab keeps the columnar amount/value layout instead).
+  def transaction_summary(order, decimals = {})
+    return transaction_failed_summary(order, decimals) if order.failed?
+    return t('bot_activity.transactions.skipped') if order.skipped?
+    return t('bot_activity.transactions.cancelled') if order.cancelled?
+
+    base_amount = round_amount(order.amount_exec || order.amount, decimals[order.base])
+    quote_amount = round_amount(order.quote_amount_exec || order.quote_amount, decimals[order.quote])
+    pending = order.open? || order.unknown?
+    key = if order.sell?
+            pending ? 'selling' : 'sold'
+          else
+            pending ? 'buying' : 'bought'
+          end
+    t("bot_activity.transactions.#{key}", amount: base_amount, base: order.base, quote_amount: quote_amount, quote: order.quote)
+  end
+
   def bot_type_label(bot)
     {
       'Bots::DcaDualAsset' => 'Rebalanced DCA',
@@ -143,6 +184,39 @@ module BotHelper
   end
 
   private
+
+  def round_amount(value, decimals)
+    return value if value.nil? || decimals.nil?
+
+    value.round(decimals)
+  end
+
+  # Failed orders include the attempted amounts when known (so you can see what
+  # failed); otherwise (e.g. a price-fetch failure) fall back to a plain message.
+  def transaction_failed_summary(order, decimals)
+    error = order.error_messages.to_sentence
+    base_amount = round_amount(order.amount, decimals[order.base])
+    quote_amount = round_amount(order.quote_amount, decimals[order.quote])
+
+    if base_amount.present? || quote_amount.present?
+      key = order.sell? ? 'failed_sell' : 'failed_buy'
+      summary = t("bot_activity.transactions.#{key}", amount: base_amount, base: order.base,
+                                                      quote_amount: quote_amount, quote: order.quote)
+      error.present? ? "#{summary}: #{error}" : summary
+    elsif error.present?
+      t('bot_activity.transactions.failed_with_error', error: error)
+    else
+      t('bot_activity.transactions.failed')
+    end
+  end
+
+  def format_activity_time(value)
+    return value if value.blank?
+
+    Time.iso8601(value.to_s).in_time_zone(current_user.time_zone).strftime('%Y-%m-%d %I:%M %p')
+  rescue ArgumentError
+    value
+  end
 
   def render_instructions_from(locale_prefix, exchange)
     exchange_key = exchange.name_id
