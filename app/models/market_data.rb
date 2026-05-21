@@ -287,6 +287,12 @@ class MarketData
 
   TICKER_TOMBSTONE_PREFIX = '__stale_'.freeze
 
+  private_class_method def self.tombstone_value(id, value)
+    return value if value.to_s.start_with?(TICKER_TOMBSTONE_PREFIX)
+
+    "#{TICKER_TOMBSTONE_PREFIX}#{id}_#{value}"
+  end
+
   private_class_method def self.reconcile_ticker_conflicts!(exchange, ticker_records)
     existing_tickers = Ticker.where(exchange_id: exchange.id)
     return if existing_tickers.empty?
@@ -308,11 +314,13 @@ class MarketData
         holders = [by_ticker[record[:ticker]], by_base_quote[[record[:base], record[:quote]]]].compact.uniq
         holders.each do |holder|
           next if holder.base_asset_id == record[:base_asset_id] && holder.quote_asset_id == record[:quote_asset_id]
-          next if holder.ticker.start_with?(TICKER_TOMBSTONE_PREFIX) # already tombstoned this pass
 
+          # Idempotent per namespace: free BOTH secondary keys, only prefixing one that isn't already
+          # tombstoned. (A 2.9.2-era row may have a tombstoned ticker but an un-tombstoned base, so we
+          # must not skip it just because the ticker is already stale.)
           holder.update_columns(
-            ticker: "#{TICKER_TOMBSTONE_PREFIX}#{holder.id}_#{holder.ticker}",
-            base: "#{TICKER_TOMBSTONE_PREFIX}#{holder.id}_#{holder.base}",
+            ticker: tombstone_value(holder.id, holder.ticker),
+            base: tombstone_value(holder.id, holder.base),
             available: false
           )
         end
