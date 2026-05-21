@@ -74,6 +74,31 @@ class MarketDataImportTickersTest < ActiveSupport::TestCase
     assert_equal @btc.id, @exchange.tickers.find_by(ticker: 'XBTUSD').base_asset_id
   end
 
+  # Regression: the feed reassigns a base/quote SYMBOL pair to a different asset pair. This must
+  # reconcile without hitting the [exchange_id, base, quote] unique index (the symbol index — a
+  # different secondary index than [exchange_id, ticker]). Surfaced via Exchange::SyncTickersAndAssetsJob.
+  test 'reconciles base/quote symbols reassigned to a different asset pair without crashing' do
+    # A: holds the [BTC, USD] symbol pair for the bitcoin/usd asset pair
+    a = create(:ticker, exchange: @exchange, base_asset: @btc, quote_asset: @usd,
+                        base: 'BTC', quote: 'USD', ticker: 'BTCUSD')
+    # B: a different asset pair (eth/usd) with old symbols and its own ticker string
+    b = create(:ticker, exchange: @exchange, base_asset: @eth, quote_asset: @usd,
+                        base: 'ETHOLD', quote: 'USD', ticker: 'ETHUSD')
+
+    # incoming: eth/usd now reports base symbol 'BTC' — collides with A's [BTC, USD], different asset pair
+    data = [ticker_data(base_ext_id: 'ethereum', quote_ext_id: 'usd', base: 'BTC', quote: 'USD', ticker: 'ETHUSD')]
+
+    assert_nothing_raised do
+      MarketData.import_tickers!(@exchange, data)
+    end
+
+    # eth/usd now owns [BTC, USD]; the bitcoin/usd holder was moved out of the way, preserved-but-unavailable
+    assert_equal %w[BTC USD], [b.reload.base, b.quote]
+    assert Ticker.exists?(a.id), 'stale base/quote holder must be preserved (tickers are undeletable)'
+    assert_not a.reload.available?, 'stale holder should be marked unavailable'
+    assert_not_equal %w[BTC USD], [a.base, a.quote], 'stale holder must no longer occupy the [base, quote] pair'
+  end
+
   test 'creates exchange assets for both base and quote' do
     data = [
       ticker_data(base_ext_id: 'bitcoin', quote_ext_id: 'usd', base: 'BTC', quote: 'USD', ticker: 'BTCUSD')
