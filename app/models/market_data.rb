@@ -293,24 +293,29 @@ class MarketData
 
     by_asset_pair = existing_tickers.index_by { |t| [t.base_asset_id, t.quote_asset_id] }
     by_ticker = existing_tickers.index_by(&:ticker)
+    by_base_quote = existing_tickers.index_by { |t| [t.base, t.quote] }
 
     # The two passes are deliberately sequential: every stale holder must be freed before any
     # rename runs, so they can't be merged into one loop.
     # rubocop:disable Style/CombinableLoops
     Ticker.transaction do
-      # Pass 1: a ticker string is being reassigned to a different asset pair. Tickers are never
-      # deleted in this codebase (Undeletable + the bot_index_assets FK), so move the stale holder
-      # OUT of the [exchange_id, ticker] unique namespace with a tombstone and mark it unavailable.
-      # This frees the string so the rename below cannot collide.
+      # Pass 1: free the secondary unique slots. The asset-pair upsert sets base/quote/ticker, which
+      # trips the [exchange_id, ticker] OR [exchange_id, base, quote] index if a DIFFERENT asset-pair
+      # row still holds the value an incoming record needs. Tickers are never deleted here (Undeletable
+      # + the bot_index_assets FK), so move each such stale holder out of BOTH namespaces with a
+      # tombstone and mark it unavailable, so the rename/upsert below cannot collide.
       ticker_records.each do |record|
-        existing = by_ticker[record[:ticker]]
-        next unless existing
-        next if existing.base_asset_id == record[:base_asset_id] && existing.quote_asset_id == record[:quote_asset_id]
+        holders = [by_ticker[record[:ticker]], by_base_quote[[record[:base], record[:quote]]]].compact.uniq
+        holders.each do |holder|
+          next if holder.base_asset_id == record[:base_asset_id] && holder.quote_asset_id == record[:quote_asset_id]
+          next if holder.ticker.start_with?(TICKER_TOMBSTONE_PREFIX) # already tombstoned this pass
 
-        existing.update_columns(
-          ticker: "#{TICKER_TOMBSTONE_PREFIX}#{existing.id}_#{existing.ticker}",
-          available: false
-        )
+          holder.update_columns(
+            ticker: "#{TICKER_TOMBSTONE_PREFIX}#{holder.id}_#{holder.ticker}",
+            base: "#{TICKER_TOMBSTONE_PREFIX}#{holder.id}_#{holder.base}",
+            available: false
+          )
+        end
       end
 
       # Pass 2: same asset pair, different base/quote/ticker — align the kept row in place onto the
