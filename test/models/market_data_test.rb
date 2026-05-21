@@ -99,6 +99,30 @@ class MarketDataImportTickersTest < ActiveSupport::TestCase
     assert_not_equal %w[BTC USD], [a.base, a.quote], 'stale holder must no longer occupy the [base, quote] pair'
   end
 
+  # Regression for the 2.9.2 upgrade path: that release tombstoned `ticker` but NOT `base`, so a
+  # deployed row can have a tombstoned ticker while still owning a real [base, quote] pair. The
+  # reconcile must still free that [base, quote] slot (not skip the row just because its ticker is
+  # already tombstoned).
+  test 'tombstones base even when the stale holder already has a tombstoned ticker' do
+    # R: 2.9.2 intermediate state — ticker tombstoned + unavailable, but base still 'BTC'
+    r = create(:ticker, exchange: @exchange, base_asset: @btc, quote_asset: @usd,
+                        base: 'BTC', quote: 'USD', ticker: '__stale_999_BTCUSD', available: false)
+    # B: a different asset pair whose incoming row will claim [BTC, USD]
+    b = create(:ticker, exchange: @exchange, base_asset: @eth, quote_asset: @usd,
+                        base: 'ETHOLD', quote: 'USD', ticker: 'ETHUSD')
+
+    data = [ticker_data(base_ext_id: 'ethereum', quote_ext_id: 'usd', base: 'BTC', quote: 'USD', ticker: 'ETHUSD')]
+
+    assert_nothing_raised do
+      MarketData.import_tickers!(@exchange, data)
+    end
+
+    assert_equal %w[BTC USD], [b.reload.base, b.quote]
+    assert Ticker.exists?(r.id)
+    assert_not_equal 'BTC', r.reload.base, 'the already-ticker-tombstoned row must also have its base freed'
+    assert_not r.available?
+  end
+
   test 'creates exchange assets for both base and quote' do
     data = [
       ticker_data(base_ext_id: 'bitcoin', quote_ext_id: 'usd', base: 'BTC', quote: 'USD', ticker: 'BTCUSD')
