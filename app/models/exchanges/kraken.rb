@@ -86,7 +86,8 @@ class Exchanges::Kraken < Exchange
           base_decimals: Utilities::Hash.dig_or_raise(info, 'lot_decimals'),
           quote_decimals: Utilities::Hash.dig_or_raise(info, 'cost_decimals'),
           price_decimals: Utilities::Hash.dig_or_raise(info, 'pair_decimals'),
-          available: true
+          available: true,
+          trading_enabled: info.key?('status') ? info['status'] == 'online' : true
         }
       end.compact
     end

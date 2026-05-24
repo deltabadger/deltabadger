@@ -51,7 +51,8 @@ class Exchanges::Bitvavo < Exchange
           base_decimals: Utilities::Hash.dig_or_raise(product, 'orderTypes').include?('market') ? (product['pricePrecision'] || 8) : 8,
           quote_decimals: product['pricePrecision'] || 8,
           price_decimals: product['pricePrecision'] || 8,
-          available: status == 'trading'
+          available: true,
+          trading_enabled: status == 'trading'
         }
       end.compact
     end

@@ -76,6 +76,30 @@ class Bots::DcaIndexTest < ActiveSupport::TestCase
     assert_empty bot.bot_index_assets.in_index
   end
 
+  test 'selection excludes a trading-disabled pair and backfills (even when priced)' do
+    bot = create(:dca_index, exchange: @exchange, quote_asset: @quote)
+    bot.num_coins = 2
+    @ticker_dead.update!(trading_enabled: false)
+    # Everything is priced, so only the trading_enabled filter can exclude the dead pair.
+    stub_all_priced(:get_ask_price)
+    stub_all_priced(:get_last_price)
+
+    result = bot.refresh_index_composition
+
+    assert_predicate result, :success?
+    assert_equal %w[coin-a coin-b], in_index_external_ids(bot)
+  end
+
+  test 'current_index_preview excludes trading-disabled pairs' do
+    bot = create(:dca_index, exchange: @exchange, quote_asset: @quote)
+    @ticker_dead.update!(trading_enabled: false)
+
+    symbols = bot.current_index_preview.map { |p| p[:symbol] }
+
+    assert_not_includes symbols, 'DEAD'
+    assert_includes symbols, 'AAA'
+  end
+
   private
 
   def create_candidate(external_id, symbol)

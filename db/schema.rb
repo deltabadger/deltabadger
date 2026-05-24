@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_05_20_000000) do
+ActiveRecord::Schema[8.1].define(version: 2026_05_24_000000) do
   create_table "account_balances", force: :cascade do |t|
     t.integer "asset_id", null: false
     t.datetime "created_at", null: false
@@ -391,6 +391,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_05_20_000000) do
     t.bigint "quote_asset_id", null: false
     t.integer "quote_decimals", null: false
     t.string "ticker", null: false
+    t.boolean "trading_enabled", default: true, null: false
     t.datetime "updated_at", null: false
     t.index ["base_asset_id"], name: "index_tickers_on_base_asset_id"
     t.index ["exchange_id", "base", "quote"], name: "index_exchange_tickers_on_unique_base_and_quote", unique: true

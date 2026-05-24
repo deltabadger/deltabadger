@@ -67,7 +67,8 @@ class Exchanges::Kucoin < Exchange
           base_decimals: Utilities::Number.decimals(base_increment),
           quote_decimals: Utilities::Number.decimals(quote_increment),
           price_decimals: Utilities::Number.decimals(price_increment),
-          available: enable_trading
+          available: true,
+          trading_enabled: enable_trading
         }
       end.compact
     end

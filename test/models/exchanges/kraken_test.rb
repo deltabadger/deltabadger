@@ -6,6 +6,40 @@ class Exchanges::KrakenTest < ActiveSupport::TestCase
     Rails.configuration.stubs(:dry_run).returns(false)
   end
 
+  def kraken_pairs(status: :none)
+    info = {
+      'altname' => 'XBTUSDT', 'wsname' => 'XBT/USDT', 'ordermin' => '0.0001',
+      'costmin' => '0.5', 'lot_decimals' => 8, 'cost_decimals' => 5, 'pair_decimals' => 1
+    }
+    info['status'] = status unless status == :none
+    { 'error' => [], 'result' => { 'XBTUSDT' => info } }
+  end
+
+  test 'get_tickers_info marks an online pair available and trading_enabled' do
+    @exchange.set_client
+    @exchange.send(:client).stubs(:get_tradable_asset_pairs).returns(Result::Success.new(kraken_pairs(status: 'online')))
+
+    ticker = @exchange.get_tickers_info(force: true).data.first
+    assert ticker[:available]
+    assert ticker[:trading_enabled]
+  end
+
+  test 'get_tickers_info marks a non-online pair listed but not trading_enabled' do
+    @exchange.set_client
+    @exchange.send(:client).stubs(:get_tradable_asset_pairs).returns(Result::Success.new(kraken_pairs(status: 'cancel_only')))
+
+    ticker = @exchange.get_tickers_info(force: true).data.first
+    assert ticker[:available]
+    assert_not ticker[:trading_enabled]
+  end
+
+  test 'get_tickers_info defaults trading_enabled to true when status is absent' do
+    @exchange.set_client
+    @exchange.send(:client).stubs(:get_tradable_asset_pairs).returns(Result::Success.new(kraken_pairs(status: :none)))
+
+    assert @exchange.get_tickers_info(force: true).data.first[:trading_enabled]
+  end
+
   test 'get_api_key_validity uses add_order for trading keys' do
     api_key = create(:api_key, exchange: @exchange, key_type: :trading, key: 'test_key', secret: 'dGVzdF9zZWNyZXQ=')
 

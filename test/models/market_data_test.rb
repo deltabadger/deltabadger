@@ -42,6 +42,20 @@ class MarketDataImportTickersTest < ActiveSupport::TestCase
     assert_equal BigDecimal('0.00001'), t.minimum_base_size
     assert_equal BigDecimal('10'), t.minimum_quote_size
     assert t.available
+    assert t.trading_enabled, 'defaults trading_enabled to true when payload omits it'
+  end
+
+  test 'imports trading_enabled from the payload' do
+    data = [
+      ticker_data(base_ext_id: 'bitcoin', quote_ext_id: 'usd', base: 'BTC', quote: 'USD', ticker: 'BTCUSD')
+        .merge('trading_enabled' => false)
+    ]
+
+    MarketData.import_tickers!(@exchange, data)
+
+    t = @exchange.tickers.find_by(ticker: 'BTCUSD')
+    assert t.available, 'listed pairs stay available'
+    assert_not t.trading_enabled, 'disabled pair imports trading_enabled: false'
   end
 
   # Regression: a ticker-string remap (the feed reassigns an existing ticker string to a

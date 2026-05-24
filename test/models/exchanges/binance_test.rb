@@ -23,6 +23,38 @@ class Exchanges::BinanceTest < ActiveSupport::TestCase
     }
   end
 
+  def binance_product(symbol:, base:, quote:, status:)
+    {
+      'symbol' => symbol, 'baseAsset' => base, 'quoteAsset' => quote,
+      'status' => status, 'quoteAssetPrecision' => 8,
+      'filters' => [
+        { 'filterType' => 'PRICE_FILTER', 'tickSize' => '0.01' },
+        { 'filterType' => 'LOT_SIZE', 'minQty' => '0.00001', 'maxQty' => '9000', 'stepSize' => '0.00001' },
+        { 'filterType' => 'NOTIONAL', 'minNotional' => '10', 'maxNotional' => '1000000' }
+      ]
+    }
+  end
+
+  test 'get_tickers_info marks a trading pair available and trading_enabled' do
+    @exchange.set_client
+    @exchange.send(:client).stubs(:exchange_information)
+             .returns(Result::Success.new({ 'symbols' => [binance_product(symbol: 'BTCUSDT', base: 'BTC', quote: 'USDT', status: 'TRADING')] }))
+
+    ticker = @exchange.get_tickers_info(force: true).data.first
+    assert ticker[:available]
+    assert ticker[:trading_enabled]
+  end
+
+  test 'get_tickers_info marks a non-trading pair listed but not trading_enabled' do
+    @exchange.set_client
+    @exchange.send(:client).stubs(:exchange_information)
+             .returns(Result::Success.new({ 'symbols' => [binance_product(symbol: 'ETHUSDT', base: 'ETH', quote: 'USDT', status: 'BREAK')] }))
+
+    ticker = @exchange.get_tickers_info(force: true).data.first
+    assert ticker[:available] # still listed
+    assert_not ticker[:trading_enabled] # but not trading
+  end
+
   test 'get_api_key_validity validates trading key permissions' do
     api_key = create(:api_key, exchange: @exchange, key_type: :trading, key: 'test_key', secret: 'test_secret')
 

@@ -76,7 +76,7 @@ module Bots::DcaIndex::IndexAllocatable
     return result if result.failure?
 
     top_coins = result.data
-    available_tickers = exchange.tickers.available.where(quote_asset_id:).includes(:base_asset)
+    available_tickers = exchange.tickers.available.trading_enabled.where(quote_asset_id:).includes(:base_asset)
 
     # Build a map of CoinGecko ID to ticker
     ticker_by_coingecko_id = {}
