@@ -463,8 +463,8 @@ ru:
         transactions:
             bought: 'Куплено %{amount} %{base} за %{quote_amount} %{quote}'
             sold: 'Продано %{amount} %{base} за %{quote_amount} %{quote}'
-            buying: 'Покупка %{amount} %{base} за %{quote_amount} %{quote}…'
-            selling: 'Продажа %{amount} %{base} за %{quote_amount} %{quote}…'
+            open_buy: 'Открытый ордер на покупку %{amount} %{base} за %{quote_amount} %{quote}'
+            open_sell: 'Открытый ордер на продажу %{amount} %{base} за %{quote_amount} %{quote}'
             cancelled: 'Ордер отменён'
             failed: 'Ордер не выполнен'
             failed_with_error: 'Ордер не выполнен: %{error}'

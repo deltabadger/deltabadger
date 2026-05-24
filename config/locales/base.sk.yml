@@ -493,8 +493,8 @@ sk:
         transactions:
             bought: 'Bought %{amount} %{base} for %{quote_amount} %{quote}'
             sold: 'Sold %{amount} %{base} for %{quote_amount} %{quote}'
-            buying: 'Buying %{amount} %{base} for %{quote_amount} %{quote}…'
-            selling: 'Selling %{amount} %{base} for %{quote_amount} %{quote}…'
+            open_buy: 'Open order to buy %{amount} %{base} for %{quote_amount} %{quote}'
+            open_sell: 'Open order to sell %{amount} %{base} for %{quote_amount} %{quote}'
             cancelled: 'Order cancelled'
             failed: 'Order failed'
             failed_with_error: 'Order failed: %{error}'

@@ -460,8 +460,8 @@ it:
         transactions:
             bought: 'Acquistato %{amount} %{base} per %{quote_amount} %{quote}'
             sold: 'Venduto %{amount} %{base} per %{quote_amount} %{quote}'
-            buying: 'Acquisto di %{amount} %{base} per %{quote_amount} %{quote}…'
-            selling: 'Vendita di %{amount} %{base} per %{quote_amount} %{quote}…'
+            open_buy: 'Ordine aperto: acquisto di %{amount} %{base} per %{quote_amount} %{quote}'
+            open_sell: 'Ordine aperto: vendita di %{amount} %{base} per %{quote_amount} %{quote}'
             cancelled: 'Ordine annullato'
             failed: 'Ordine fallito'
             failed_with_error: 'Ordine fallito: %{error}'
