@@ -462,8 +462,8 @@ pl:
         transactions:
             bought: 'Kupiono %{amount} %{base} za %{quote_amount} %{quote}'
             sold: 'Sprzedano %{amount} %{base} za %{quote_amount} %{quote}'
-            buying: 'Kupowanie %{amount} %{base} za %{quote_amount} %{quote}…'
-            selling: 'Sprzedawanie %{amount} %{base} za %{quote_amount} %{quote}…'
+            open_buy: 'Otwarte zlecenie kupna %{amount} %{base} za %{quote_amount} %{quote}'
+            open_sell: 'Otwarte zlecenie sprzedaży %{amount} %{base} za %{quote_amount} %{quote}'
             cancelled: 'Zlecenie anulowane'
             failed: 'Zlecenie nieudane'
             failed_with_error: 'Zlecenie nieudane: %{error}'
