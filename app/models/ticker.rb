@@ -11,6 +11,26 @@ class Ticker < ApplicationRecord
   include Undeletable
   include TechnicallyAnalyzable
 
+  # Whether the pair currently has a live, non-zero market price for the relevant
+  # order type (:ask for market orders, :last for limit orders). Tolerates the
+  # exchange price methods raising on a zero price.
+  def priced?(price_type = :last, force: false)
+    method = case price_type
+             when :ask  then :get_ask_price
+             when :last then :get_last_price
+             else raise ArgumentError, "Unsupported price_type: #{price_type.inspect}"
+             end
+
+    begin
+      result = public_send(method, force: force)
+      result.success? && result.data.to_d.positive?
+    rescue StandardError => e
+      Rails.logger.info("Ticker#priced? false for ticker=#{id} (#{ticker}) " \
+                        "type=#{price_type}: #{e.class}: #{e.message}")
+      false
+    end
+  end
+
   def get_last_price(force: false)
     exchange.get_last_price(ticker: self, force: force)
   end

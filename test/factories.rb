@@ -465,6 +465,50 @@ FactoryBot.define do
     end
   end
 
+  # DCA Index bot factory
+  factory :dca_index, class: 'Bots::DcaIndex' do
+    user
+    type { 'Bots::DcaIndex' }
+    status { :created }
+
+    transient do
+      quote_asset { nil }
+      with_api_key { false }
+    end
+
+    after(:build) do |bot, evaluator|
+      quote = evaluator.quote_asset || create(:asset, :eur)
+      bot.exchange ||= create(:kraken_exchange)
+
+      bot.settings = bot.settings.merge(
+        'quote_asset_id' => quote.id,
+        'quote_amount' => 100.0,
+        'interval' => 'week',
+        'num_coins' => 6,
+        'allocation_flattening' => 0.0,
+        'index_type' => Bots::DcaIndex::INDEX_TYPE_TOP,
+        'limit_ordered' => false
+      )
+    end
+
+    before(:create) do |bot, _evaluator|
+      bot.set_missed_quote_amount
+    end
+
+    after(:create) do |bot, evaluator|
+      if evaluator.with_api_key && !ApiKey.exists?(user: bot.user, exchange: bot.exchange, key_type: :trading)
+        create(:api_key, user: bot.user, exchange: bot.exchange)
+      end
+    end
+
+    trait :limit_ordered do
+      after(:build) do |bot|
+        bot.settings['limit_ordered'] = true
+        bot.settings['limit_order_pcnt_distance'] = 0.001
+      end
+    end
+  end
+
   # Signal bot factory
   factory :signal_bot, class: 'Bots::Signal' do
     user
