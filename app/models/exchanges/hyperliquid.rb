@@ -55,7 +55,8 @@ class Exchanges::Hyperliquid < Exchange
           base_decimals: base_token['szDecimals'] || 0,
           quote_decimals: 2, # USDC is always 2 decimals
           price_decimals: 5, # Hyperliquid uses up to 5 significant figures for prices
-          available: true
+          available: true,
+          trading_enabled: true
         }
       end.compact
     end

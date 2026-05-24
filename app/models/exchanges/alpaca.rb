@@ -68,7 +68,8 @@ class Exchanges::Alpaca < Exchange
           base_decimals: 9,
           quote_decimals: 2,
           price_decimals: 2,
-          available: true
+          available: true,
+          trading_enabled: true
         }
       end
     end

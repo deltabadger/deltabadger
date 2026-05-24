@@ -64,9 +64,58 @@ class TickerTest < ActiveSupport::TestCase
     assert @ticker.priced?
   end
 
+  test 'priced? returns true when bid price is positive' do
+    stub_ticker_bid_price(@ticker, price: BigDecimal('100'))
+    assert @ticker.priced?(:bid)
+  end
+
+  test 'priced? returns false when bid price is zero' do
+    stub_ticker_bid_price(@ticker, price: BigDecimal('0'))
+    assert_not @ticker.priced?(:bid)
+  end
+
   # == unsupported price type ==
 
   test 'priced? raises ArgumentError for an unsupported price type' do
-    assert_raises(ArgumentError) { @ticker.priced?(:bid) }
+    assert_raises(ArgumentError) { @ticker.priced?(:mid) }
+  end
+
+  # == #tradeable? ==
+
+  test 'tradeable?(:buy) is true when trading_enabled and the ask is positive' do
+    @ticker.trading_enabled = true
+    stub_ticker_ask_price(@ticker, price: BigDecimal('100'))
+    assert @ticker.tradeable?(:buy)
+  end
+
+  test 'tradeable?(:buy) probes the ask price' do
+    @ticker.trading_enabled = true
+    @ticker.expects(:get_ask_price).returns(Result::Success.new(BigDecimal('100')))
+    @ticker.expects(:get_bid_price).never
+    assert @ticker.tradeable?(:buy)
+  end
+
+  test 'tradeable?(:sell) probes the bid price' do
+    @ticker.trading_enabled = true
+    @ticker.expects(:get_bid_price).returns(Result::Success.new(BigDecimal('100')))
+    @ticker.expects(:get_ask_price).never
+    assert @ticker.tradeable?(:sell)
+  end
+
+  test 'tradeable? short-circuits to false (no price call) when trading is disabled' do
+    @ticker.trading_enabled = false
+    @ticker.expects(:get_ask_price).never
+    @ticker.expects(:get_bid_price).never
+    assert_not @ticker.tradeable?(:buy)
+  end
+
+  test 'tradeable? is false when trading_enabled but unpriced' do
+    @ticker.trading_enabled = true
+    @ticker.stubs(:get_ask_price).returns(Result::Failure.new('boom'))
+    assert_not @ticker.tradeable?(:buy)
+  end
+
+  test 'tradeable? raises ArgumentError for an unsupported side' do
+    assert_raises(ArgumentError) { @ticker.tradeable?(:hodl) }
   end
 end

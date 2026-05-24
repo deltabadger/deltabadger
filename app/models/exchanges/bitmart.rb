@@ -57,7 +57,8 @@ class Exchanges::Bitmart < Exchange
           base_decimals: Utilities::Number.decimals(product['base_min_size']),
           quote_decimals: Utilities::Number.decimals(product['quote_increment']),
           price_decimals: product['price_max_precision'].to_i,
-          available: trade_status == 'trading'
+          available: true,
+          trading_enabled: trade_status == 'trading'
         }
       end
     end

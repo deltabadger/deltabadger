@@ -62,7 +62,8 @@ class Exchanges::Binance < Exchange
           base_decimals: Utilities::Number.decimals(lot_size_filter['stepSize']),
           quote_decimals: Utilities::Hash.dig_or_raise(product, 'quoteAssetPrecision'),
           price_decimals: Utilities::Number.decimals(price_filter['tickSize']),
-          available: status == 'TRADING'
+          available: true,
+          trading_enabled: status == 'TRADING'
         }
       end.compact
     end

@@ -122,7 +122,7 @@ class Bots::DcaDualAsset < Bot
 
   def available_exchanges_for_current_settings
     base_asset_ids = [base0_asset_id, base1_asset_id].compact
-    scope = Ticker.available.where(exchange: Exchange.available)
+    scope = Ticker.available.trading_enabled.where(exchange: Exchange.available)
     scope = scope.where(quote_asset_id:) if quote_asset_id.present?
     scope = scope.where(base_asset_id: base_asset_ids) if base_asset_ids.any?
     exchange_ids = if base_asset_ids.size > 1
@@ -145,16 +145,16 @@ class Bots::DcaDualAsset < Bot
     when :base_asset
       # When picking second asset, narrow to exchanges that also have the first asset
       if exchange.blank? && base_asset_ids.any?
-        shared_exchange_ids = Ticker.available.where(exchange: available_exchanges, base_asset_id: base_asset_ids)
+        shared_exchange_ids = Ticker.available.trading_enabled.where(exchange: available_exchanges, base_asset_id: base_asset_ids)
                                     .pluck(:exchange_id).uniq
         available_exchanges = Exchange.where(id: shared_exchange_ids)
       end
-      scope = Ticker.available
+      scope = Ticker.available.trading_enabled
                     .where(exchange: available_exchanges)
                     .where.not(base_asset_id: base_asset_ids + [quote_asset_id])
       scope = scope.where(quote_asset_id:) if quote_asset_id.present?
     when :quote_asset
-      scope = Ticker.available
+      scope = Ticker.available.trading_enabled
                     .where(exchange: available_exchanges)
                     .where.not(quote_asset_id: base_asset_ids + [quote_asset_id])
       if base_asset_ids.any?
@@ -249,8 +249,8 @@ class Bots::DcaDualAsset < Bot
 
   def validate_bot_exchange
     return if stopped? || deleted?
-    return if exchange.tickers.available.exists?(base_asset: base0_asset, quote_asset:) &&
-              exchange.tickers.available.exists?(base_asset: base1_asset, quote_asset:)
+    return if exchange.tickers.available.trading_enabled.exists?(base_asset: base0_asset, quote_asset:) &&
+              exchange.tickers.available.trading_enabled.exists?(base_asset: base1_asset, quote_asset:)
 
     errors.add(:exchange, :unsupported, message: I18n.t('errors.bots.exchange_asset_mismatch', exchange_name: exchange.name))
   end
@@ -282,10 +282,11 @@ class Bots::DcaDualAsset < Bot
   end
 
   def validate_tickers_available
-    return if ticker0.present? && ticker0.available? && ticker1.present? && ticker1.available?
+    return if ticker0.present? && ticker0.available? && ticker0.trading_enabled? &&
+              ticker1.present? && ticker1.available? && ticker1.trading_enabled?
 
-    errors.add(:base0_asset_id, :invalid) unless ticker0.present? && ticker0.available?
-    errors.add(:base1_asset_id, :invalid) unless ticker1.present? && ticker1.available?
+    errors.add(:base0_asset_id, :invalid) unless ticker0.present? && ticker0.available? && ticker0.trading_enabled?
+    errors.add(:base1_asset_id, :invalid) unless ticker1.present? && ticker1.available? && ticker1.trading_enabled?
     errors.add(:quote_asset_id, :invalid)
   end
 

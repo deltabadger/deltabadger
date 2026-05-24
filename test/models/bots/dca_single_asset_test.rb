@@ -211,6 +211,13 @@ class Bots::DcaSingleAssetTest < ActiveSupport::TestCase
     assert bot.valid?(:start)
   end
 
+  test 'is invalid on start when ticker is listed but not trading_enabled' do
+    bot = create(:dca_single_asset)
+    bot.ticker.update!(available: true, trading_enabled: false)
+    assert_not bot.valid?(:start)
+    assert_includes bot.errors[:base_asset_id], 'is invalid'
+  end
+
   test 'is invalid on start when ticker is not available' do
     bot = create(:dca_single_asset)
     bot.ticker.update!(available: false)

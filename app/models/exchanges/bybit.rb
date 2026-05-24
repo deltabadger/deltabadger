@@ -60,7 +60,8 @@ class Exchanges::Bybit < Exchange
           base_decimals: Utilities::Number.decimals(lot_size_filter['basePrecision']),
           quote_decimals: Utilities::Number.decimals(lot_size_filter['quotePrecision']),
           price_decimals: Utilities::Number.decimals(price_filter['tickSize']),
-          available: status == 'Trading'
+          available: true,
+          trading_enabled: status == 'Trading'
         }
       end.compact
     end
