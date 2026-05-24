@@ -191,6 +191,17 @@ class MarketData
     end
   end
 
+  # Hosted-only { "QQQM" => "#000AD2", … } map for coloring Alpaca-sourced stock assets.
+  # Best-effort cosmetic data: returns {} off-hosted or on any failure so callers never break.
+  def self.stock_colors
+    return {} unless MarketDataSettings.deltabadger?
+
+    result = client.get_stock_colors
+    return {} if result.failure?
+
+    result.data['data'] || {}
+  end
+
   # Import methods — used by both db/seeds.rb (JSON files) and live sync (data-api HTTP)
 
   def self.import_assets!(assets_data)
