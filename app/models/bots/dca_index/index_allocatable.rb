@@ -93,6 +93,7 @@ module Bots::DcaIndex::IndexAllocatable
 
       ticker = ticker_by_coingecko_id[coin['id']]
       next unless ticker.present?
+      next unless ticker.priced?(limit_ordered? ? :last : :ask)
 
       coins_data << {
         asset_id: ticker.base_asset_id,
