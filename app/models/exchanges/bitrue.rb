@@ -65,7 +65,8 @@ class Exchanges::Bitrue < Exchange
                           else
                             Utilities::Hash.dig_or_raise(product, 'quotePrecision')
                           end,
-          available: status == 'TRADING'
+          available: true,
+          trading_enabled: status == 'TRADING'
         }
       end
     end

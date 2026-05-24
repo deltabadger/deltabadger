@@ -58,7 +58,9 @@ class Exchanges::Coinbase < Exchange
           base_decimals: Utilities::Number.decimals(base_increment),
           quote_decimals: Utilities::Number.decimals(quote_increment),
           price_decimals: Utilities::Number.decimals(price_increment),
-          available: true
+          available: true,
+          # Coinbase only signals problems explicitly; absent flags => enabled.
+          trading_enabled: !(product['trading_disabled'] == true || (product.key?('status') && product['status'] != 'online'))
         }
       end.compact
     end

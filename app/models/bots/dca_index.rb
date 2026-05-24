@@ -138,7 +138,7 @@ class Bots::DcaIndex < Bot
   end
 
   def available_exchanges_for_current_settings
-    scope = Ticker.available.where(exchange: Exchange.available)
+    scope = Ticker.available.trading_enabled.where(exchange: Exchange.available)
     scope = scope.where(quote_asset_id:) if quote_asset_id.present?
     exchange_ids = scope.pluck(:exchange_id).uniq
     Exchange.where(id: exchange_ids)
@@ -147,7 +147,7 @@ class Bots::DcaIndex < Bot
   # @param asset_type: :quote_asset (only quote_asset supported for Index bots)
   def available_assets_for_current_settings(asset_type:, include_exchanges: false)
     available_exchanges = exchange.present? ? [exchange] : Exchange.available
-    scope = Ticker.available.where(exchange: available_exchanges)
+    scope = Ticker.available.trading_enabled.where(exchange: available_exchanges)
 
     # For category index bots, only show quote assets that have enough pairs with category coins
     if index_type == INDEX_TYPE_CATEGORY && index_category_id.present? && exchange.present?
@@ -213,7 +213,7 @@ class Bots::DcaIndex < Bot
     return [] if result.failure?
 
     top_coins = result.data
-    available_tickers = exchange.tickers.available.where(quote_asset_id: quote_asset_id).includes(:base_asset)
+    available_tickers = exchange.tickers.available.trading_enabled.where(quote_asset_id: quote_asset_id).includes(:base_asset)
 
     ticker_by_coingecko_id = {}
     available_tickers.each do |ticker|
@@ -273,7 +273,7 @@ class Bots::DcaIndex < Bot
 
   def validate_bot_exchange
     return if stopped? || deleted?
-    return if exchange.tickers.available.exists?(quote_asset_id:)
+    return if exchange.tickers.available.trading_enabled.exists?(quote_asset_id:)
 
     errors.add(:exchange, :unsupported, message: I18n.t('errors.bots.exchange_asset_mismatch', exchange_name: exchange.name))
   end
@@ -322,7 +322,7 @@ class Bots::DcaIndex < Bot
   def set_tickers
     return Ticker.none unless exchange.present?
 
-    @tickers = exchange.tickers.available.where(quote_asset_id:)
+    @tickers = exchange.tickers.available.trading_enabled.where(quote_asset_id:)
   end
 
   def action_job_config

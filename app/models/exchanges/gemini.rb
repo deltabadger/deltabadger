@@ -57,7 +57,8 @@ class Exchanges::Gemini < Exchange
           base_decimals: Utilities::Number.decimals(tick_size.to_s),
           quote_decimals: Utilities::Number.decimals(quote_increment.to_s),
           price_decimals: Utilities::Number.decimals(quote_increment.to_s),
-          available: status == 'open'
+          available: true,
+          trading_enabled: status == 'open'
         }
       end.compact
     end

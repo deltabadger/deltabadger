@@ -64,7 +64,8 @@ class Exchanges::Mexc < Exchange
                             Utilities::Hash.dig_or_raise(product,
                                                          'quotePrecision')
                           end,
-          available: status == '1'
+          available: true,
+          trading_enabled: status == '1'
         }
       end.compact
     end

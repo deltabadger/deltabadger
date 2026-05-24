@@ -7,16 +7,18 @@ class Ticker < ApplicationRecord
   validate :exchange_matches_assets
 
   scope :available, -> { where(available: true) }
+  scope :trading_enabled, -> { where(trading_enabled: true) }
 
   include Undeletable
   include TechnicallyAnalyzable
 
-  # Whether the pair currently has a live, non-zero market price for the relevant
-  # order type (:ask for market orders, :last for limit orders). Tolerates the
-  # exchange price methods raising on a zero price.
+  # Whether the pair currently has a live, non-zero market price for the given
+  # price type (:ask, :bid, :last). Tolerates the exchange price methods raising
+  # on a zero price.
   def priced?(price_type = :last, force: false)
     method = case price_type
              when :ask  then :get_ask_price
+             when :bid  then :get_bid_price
              when :last then :get_last_price
              else raise ArgumentError, "Unsupported price_type: #{price_type.inspect}"
              end
@@ -29,6 +31,20 @@ class Ticker < ApplicationRecord
                         "type=#{price_type}: #{e.class}: #{e.message}")
       false
     end
+  end
+
+  # Whether the pair can actually be traded for the given order side right now:
+  # the exchange reports trading enabled AND there's a live price on the side the
+  # order will use (buy -> ask, sell -> bid). Order-side only by design; discovery
+  # composes `trading_enabled` + `priced?` explicitly.
+  def tradeable?(side, force: false)
+    price_type = case side
+                 when :buy  then :ask
+                 when :sell then :bid
+                 else raise ArgumentError, "Unsupported side: #{side.inspect}"
+                 end
+
+    trading_enabled? && priced?(price_type, force: force)
   end
 
   def get_last_price(force: false)

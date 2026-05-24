@@ -58,6 +58,12 @@ class Bots::SignalTest < ActiveSupport::TestCase
     assert_equal @bot.exchange, @bot.ticker.exchange
   end
 
+  test 'is invalid on start when ticker is listed but not trading_enabled' do
+    @bot.ticker.update!(available: true, trading_enabled: false)
+    assert_not @bot.valid?(:start)
+    assert_includes @bot.errors[:base_asset_id], 'is invalid'
+  end
+
   test 'decimals returns ticker decimals' do
     decimals = @bot.decimals
     assert_predicate decimals[:base], :present?

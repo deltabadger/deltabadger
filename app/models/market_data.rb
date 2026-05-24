@@ -393,6 +393,8 @@ class MarketData
       quote_decimals: ticker_data['quote_decimals'],
       price_decimals: ticker_data['price_decimals'],
       available: true,
+      # Older data-api versions omit the key; treat absent/nil as enabled.
+      trading_enabled: ticker_data['trading_enabled'] != false,
       created_at: Time.current,
       updated_at: Time.current
     }

@@ -116,7 +116,7 @@ class Bots::DcaSingleAsset < Bot
   end
 
   def available_exchanges_for_current_settings
-    scope = Ticker.available.where(exchange: Exchange.available)
+    scope = Ticker.available.trading_enabled.where(exchange: Exchange.available)
     scope = scope.where(quote_asset_id:) if quote_asset_id.present?
     scope = scope.where(base_asset_id:) if base_asset_id.present?
     exchange_ids = scope.pluck(:exchange_id).uniq
@@ -129,12 +129,12 @@ class Bots::DcaSingleAsset < Bot
 
     case asset_type
     when :base_asset
-      scope = Ticker.available
+      scope = Ticker.available.trading_enabled
                     .where(exchange: available_exchanges)
                     .where.not(base_asset_id: [base_asset_id, quote_asset_id])
       scope = scope.where(quote_asset_id:) if quote_asset_id.present?
     when :quote_asset
-      scope = Ticker.available
+      scope = Ticker.available.trading_enabled
                     .where(exchange: available_exchanges)
                     .where.not(quote_asset_id: [base_asset_id, quote_asset_id])
       scope = scope.where(base_asset_id:) if base_asset_id.present?
@@ -209,7 +209,7 @@ class Bots::DcaSingleAsset < Bot
 
   def validate_bot_exchange
     return if stopped? || deleted?
-    return if exchange.tickers.available.exists?(base_asset:, quote_asset:)
+    return if exchange.tickers.available.trading_enabled.exists?(base_asset:, quote_asset:)
 
     errors.add(:exchange, :unsupported, message: I18n.t('errors.bots.exchange_asset_mismatch', exchange_name: exchange.name))
   end
@@ -240,7 +240,7 @@ class Bots::DcaSingleAsset < Bot
   end
 
   def validate_tickers_available
-    return if ticker.present? && ticker.available?
+    return if ticker.present? && ticker.available? && ticker.trading_enabled?
 
     errors.add(:base_asset_id, :invalid)
     errors.add(:quote_asset_id, :invalid)
