@@ -24,14 +24,20 @@ class Exchange::SyncAlpacaAssetsJob < ApplicationJob
       a.category = 'Fiat'
     end
 
+    # Hosted-only stock colors (best-effort, {} in free mode / on failure).
+    colors = MarketData.stock_colors
+
     synced_ticker_ids = []
 
     tradable_stocks.each do |stock|
-      asset = Asset.find_or_create_by!(external_id: "alpaca_#{stock['id']}") do |a|
-        a.symbol = stock['symbol']
-        a.name = stock['name']
-        a.category = 'Stock'
-      end
+      asset = Asset.find_or_initialize_by(external_id: "alpaca_#{stock['id']}")
+      asset.symbol = stock['symbol']
+      asset.name = stock['name']
+      asset.category = 'Stock'
+      # Only touch color when the map carries this symbol — a missing entry must never
+      # clear an existing color (key check, not truthiness).
+      asset.color = colors[stock['symbol']] if colors.key?(stock['symbol'])
+      asset.save!
 
       ExchangeAsset.find_or_create_by!(exchange: exchange, asset: asset)
       ExchangeAsset.find_or_create_by!(exchange: exchange, asset: usd_asset)

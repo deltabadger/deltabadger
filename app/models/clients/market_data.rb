@@ -18,6 +18,13 @@ class Clients::MarketData < Client
     end
   end
 
+  def get_stock_colors
+    with_rescue do
+      response = connection.get('api/v1/stock_colors')
+      Result::Success.new(response.body)
+    end
+  end
+
   def get_tickers(exchange:)
     with_rescue do
       response = connection.get("api/v1/tickers/#{exchange}")

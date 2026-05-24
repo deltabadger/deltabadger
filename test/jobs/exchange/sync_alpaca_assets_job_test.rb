@@ -151,4 +151,51 @@ class Exchange::SyncAlpacaAssetsJobTest < ActiveSupport::TestCase
       Exchange::SyncAlpacaAssetsJob.perform_now
     end
   end
+
+  test 'applies stock colors from the data-api colors map (hosted)' do
+    Clients::Alpaca.any_instance.stubs(:get_assets).returns(Result::Success.new(@alpaca_assets_response))
+    MarketData.stubs(:stock_colors).returns('AAPL' => '#FF0000')
+
+    Exchange::SyncAlpacaAssetsJob.perform_now
+
+    assert_equal '#FF0000', Asset.find_by(external_id: 'alpaca_uuid-aapl').color
+    # MSFT absent from the map → no color
+    assert_nil Asset.find_by(external_id: 'alpaca_uuid-msft').color
+  end
+
+  test 'updates name and color on existing alpaca assets (find_or_create gap fix)' do
+    existing = Asset.create!(external_id: 'alpaca_uuid-aapl', symbol: 'AAPL', name: 'Stale Name', category: 'Stock')
+    assert_nil existing.color
+
+    Clients::Alpaca.any_instance.stubs(:get_assets).returns(Result::Success.new(@alpaca_assets_response))
+    MarketData.stubs(:stock_colors).returns('AAPL' => '#FF0000')
+
+    Exchange::SyncAlpacaAssetsJob.perform_now
+
+    existing.reload
+    assert_equal 'Apple Inc', existing.name
+    assert_equal '#FF0000', existing.color
+  end
+
+  test 'does not clear an existing color when the map lacks the symbol (non-destructive)' do
+    Asset.create!(external_id: 'alpaca_uuid-msft', symbol: 'MSFT', name: 'Microsoft Corporation',
+                  category: 'Stock', color: '#123456')
+
+    Clients::Alpaca.any_instance.stubs(:get_assets).returns(Result::Success.new(@alpaca_assets_response))
+    MarketData.stubs(:stock_colors).returns('AAPL' => '#FF0000') # no MSFT entry
+
+    Exchange::SyncAlpacaAssetsJob.perform_now
+
+    assert_equal '#123456', Asset.find_by(external_id: 'alpaca_uuid-msft').color
+  end
+
+  test 'completes the sync when the colors map is empty (best-effort, free mode)' do
+    Clients::Alpaca.any_instance.stubs(:get_assets).returns(Result::Success.new(@alpaca_assets_response))
+    MarketData.stubs(:stock_colors).returns({})
+
+    assert_difference 'Asset.where(category: "Stock").count', 2 do
+      assert_nothing_raised { Exchange::SyncAlpacaAssetsJob.perform_now }
+    end
+    assert_nil Asset.find_by(external_id: 'alpaca_uuid-aapl').color
+  end
 end
