@@ -25,10 +25,12 @@ class TickerTest < ActiveSupport::TestCase
     assert_not @ticker.priced?(:last)
   end
 
-  test 'priced? returns false and logs ticker id and error class when the exchange raises on zero price' do
+  test 'priced? returns false and logs at debug (not info/error) when the exchange raises on zero price' do
     @ticker.stubs(:get_last_price).raises(RuntimeError.new("Wrong last price for #{@ticker.ticker}: 0.0"))
-    Rails.logger.expects(:info)
-         .with(regexp_matches(/Ticker#priced\? false for ticker=#{@ticker.id}.*RuntimeError/))
+    # Normal flow, not an error — must stay below the log exception scanner's threshold.
+    Rails.logger.expects(:info).never
+    Rails.logger.expects(:debug)
+         .with(regexp_matches(/Ticker#priced\? false for ticker=#{@ticker.id}/))
          .at_least_once
     assert_not @ticker.priced?(:last)
   end

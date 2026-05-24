@@ -27,8 +27,10 @@ class Ticker < ApplicationRecord
       result = public_send(method, force: force)
       result.success? && result.data.to_d.positive?
     rescue StandardError => e
-      Rails.logger.info("Ticker#priced? false for ticker=#{id} (#{ticker}) " \
-                        "type=#{price_type}: #{e.class}: #{e.message}")
+      # Returning false is normal flow (e.g. a listed-but-dead pair with no live price),
+      # not an error — keep at debug so it doesn't trip the log exception scanner.
+      Rails.logger.debug("Ticker#priced? false for ticker=#{id} (#{ticker}) " \
+                         "type=#{price_type}: #{e.class}: #{e.message}")
       false
     end
   end
