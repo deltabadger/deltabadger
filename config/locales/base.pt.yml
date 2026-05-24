@@ -459,8 +459,8 @@ pt:
         transactions:
             bought: 'Comprado %{amount} %{base} por %{quote_amount} %{quote}'
             sold: 'Vendido %{amount} %{base} por %{quote_amount} %{quote}'
-            buying: 'A comprar %{amount} %{base} por %{quote_amount} %{quote}…'
-            selling: 'A vender %{amount} %{base} por %{quote_amount} %{quote}…'
+            open_buy: 'Ordem aberta para comprar %{amount} %{base} por %{quote_amount} %{quote}'
+            open_sell: 'Ordem aberta para vender %{amount} %{base} por %{quote_amount} %{quote}'
             cancelled: 'Ordem cancelada'
             failed: 'Ordem falhou'
             failed_with_error: 'Ordem falhou: %{error}'

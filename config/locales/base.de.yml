@@ -461,8 +461,8 @@ de:
         transactions:
             bought: 'Gekauft: %{amount} %{base} für %{quote_amount} %{quote}'
             sold: 'Verkauft: %{amount} %{base} für %{quote_amount} %{quote}'
-            buying: 'Kaufe %{amount} %{base} für %{quote_amount} %{quote}…'
-            selling: 'Verkaufe %{amount} %{base} für %{quote_amount} %{quote}…'
+            open_buy: 'Offene Order zum Kauf von %{amount} %{base} für %{quote_amount} %{quote}'
+            open_sell: 'Offene Order zum Verkauf von %{amount} %{base} für %{quote_amount} %{quote}'
             cancelled: 'Order storniert'
             failed: 'Order fehlgeschlagen'
             failed_with_error: 'Order fehlgeschlagen: %{error}'

@@ -460,8 +460,8 @@ nl:
         transactions:
             bought: 'Gekocht %{amount} %{base} voor %{quote_amount} %{quote}'
             sold: 'Verkocht %{amount} %{base} voor %{quote_amount} %{quote}'
-            buying: 'Kopen van %{amount} %{base} voor %{quote_amount} %{quote}…'
-            selling: 'Verkopen van %{amount} %{base} voor %{quote_amount} %{quote}…'
+            open_buy: 'Open order om %{amount} %{base} te kopen voor %{quote_amount} %{quote}'
+            open_sell: 'Open order om %{amount} %{base} te verkopen voor %{quote_amount} %{quote}'
             cancelled: 'Order geannuleerd'
             failed: 'Order mislukt'
             failed_with_error: 'Order mislukt: %{error}'

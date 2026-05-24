@@ -43,15 +43,24 @@ module BotHelper
     return t('bot_activity.transactions.skipped') if order.skipped?
     return t('bot_activity.transactions.cancelled') if order.cancelled?
 
-    base_amount = round_amount(order.amount_exec || order.amount, decimals[order.base])
-    quote_amount = round_amount(order.quote_amount_exec || order.quote_amount, decimals[order.quote])
     pending = order.open? || order.unknown?
+    base_amount = round_amount(display_amount(order.amount_exec, order.amount, pending:), decimals[order.base])
+    quote_amount = round_amount(display_amount(order.quote_amount_exec, order.quote_amount, pending:), decimals[order.quote])
     key = if order.sell?
-            pending ? 'selling' : 'sold'
+            pending ? 'open_sell' : 'sold'
           else
-            pending ? 'buying' : 'bought'
+            pending ? 'open_buy' : 'bought'
           end
     t("bot_activity.transactions.#{key}", amount: base_amount, base: order.base, quote_amount: quote_amount, quote: order.quote)
+  end
+
+  # While an order is still open nothing has executed yet (exec amounts are 0, not nil),
+  # so show the requested amount; once it's done show what actually executed, falling
+  # back to the requested amount only when no execution was recorded.
+  def display_amount(executed, requested, pending:)
+    return requested if pending
+
+    executed.to_d.positive? ? executed : requested
   end
 
   def bot_type_label(bot)
