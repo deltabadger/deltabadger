@@ -280,3 +280,30 @@ class MarketDataImportTickersTest < ActiveSupport::TestCase
     assert_equal 2, @exchange.exchange_assets.count
   end
 end
+
+class MarketDataStockColorsTest < ActiveSupport::TestCase
+  test 'returns {} when not in hosted (deltabadger) mode' do
+    MarketDataSettings.stubs(:deltabadger?).returns(false)
+    assert_equal({}, MarketData.stock_colors)
+  end
+
+  test 'returns the data hash from the client in hosted mode' do
+    MarketDataSettings.stubs(:deltabadger?).returns(true)
+    fake = mock
+    fake.stubs(:get_stock_colors).returns(
+      Result::Success.new('metadata' => { 'count' => 1 }, 'data' => { 'QQQM' => '#000AD2' })
+    )
+    MarketData.stubs(:client).returns(fake)
+
+    assert_equal({ 'QQQM' => '#000AD2' }, MarketData.stock_colors)
+  end
+
+  test 'returns {} when the client fails (best-effort, never raises)' do
+    MarketDataSettings.stubs(:deltabadger?).returns(true)
+    fake = mock
+    fake.stubs(:get_stock_colors).returns(Result::Failure.new('boom'))
+    MarketData.stubs(:client).returns(fake)
+
+    assert_equal({}, MarketData.stock_colors)
+  end
+end
