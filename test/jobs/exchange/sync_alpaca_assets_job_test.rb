@@ -3,11 +3,6 @@ require 'test_helper'
 class Exchange::SyncAlpacaAssetsJobTest < ActiveSupport::TestCase
   setup do
     @exchange = create(:alpaca_exchange)
-    @usd_asset = Asset.find_or_create_by!(external_id: 'usd') do |a|
-      a.symbol = 'USD'
-      a.name = 'US Dollar'
-      a.category = 'Fiat'
-    end
 
     AppConfig.set('alpaca_api_key', 'test_key')
     AppConfig.set('alpaca_api_secret', 'test_secret')
@@ -43,7 +38,8 @@ class Exchange::SyncAlpacaAssetsJobTest < ActiveSupport::TestCase
     end
 
     aapl = Asset.find_by(external_id: 'alpaca_uuid-aapl')
-    ticker = Ticker.find_by(exchange: @exchange, base_asset: aapl, quote_asset: @usd_asset)
+    usd_asset = Asset.find_by(external_id: 'usd')
+    ticker = Ticker.find_by(exchange: @exchange, base_asset: aapl, quote_asset: usd_asset)
     assert ticker.present?
     assert_equal 'AAPL', ticker.base
     assert_equal 'USD', ticker.quote
@@ -57,8 +53,9 @@ class Exchange::SyncAlpacaAssetsJobTest < ActiveSupport::TestCase
     Exchange::SyncAlpacaAssetsJob.perform_now
 
     aapl = Asset.find_by(external_id: 'alpaca_uuid-aapl')
+    usd_asset = Asset.find_by(external_id: 'usd')
     assert ExchangeAsset.exists?(exchange: @exchange, asset: aapl)
-    assert ExchangeAsset.exists?(exchange: @exchange, asset: @usd_asset)
+    assert ExchangeAsset.exists?(exchange: @exchange, asset: usd_asset)
   end
 
   test 'skips non-tradable and non-fractionable assets' do
@@ -150,6 +147,37 @@ class Exchange::SyncAlpacaAssetsJobTest < ActiveSupport::TestCase
     assert_nothing_raised do
       Exchange::SyncAlpacaAssetsJob.perform_now
     end
+  end
+
+  test 'creates the Alpaca USD asset with the canonical fiat color' do
+    Clients::Alpaca.any_instance.stubs(:get_assets).returns(Result::Success.new(@alpaca_assets_response))
+
+    assert_nil Asset.find_by(external_id: 'usd')
+    Exchange::SyncAlpacaAssetsJob.perform_now
+
+    usd = Asset.find_by(external_id: 'usd')
+    assert_equal '#355E3B', usd.color
+    assert_equal 'Fiat', usd.category
+  end
+
+  test 'backfills color on an existing uncolored usd row' do
+    Asset.create!(external_id: 'usd', symbol: 'USD', name: 'US Dollar', category: 'Fiat')
+    Clients::Alpaca.any_instance.stubs(:get_assets).returns(Result::Success.new(@alpaca_assets_response))
+
+    Exchange::SyncAlpacaAssetsJob.perform_now
+
+    assert_equal '#355E3B', Asset.find_by(external_id: 'usd').color
+  end
+
+  test 'links the colored usd asset to the Alpaca exchange so the balance path resolves it' do
+    Clients::Alpaca.any_instance.stubs(:get_assets).returns(Result::Success.new(@alpaca_assets_response))
+
+    Exchange::SyncAlpacaAssetsJob.perform_now
+
+    usd = Asset.find_by(external_id: 'usd')
+    assert ExchangeAsset.exists?(exchange: @exchange, asset: usd)
+    # asset_from_symbol('USD') is how get_balances resolves cash (alpaca.rb:128)
+    assert_equal usd, @exchange.send(:asset_from_symbol, 'USD')
   end
 
   test 'applies stock colors from the data-api colors map (hosted)' do
