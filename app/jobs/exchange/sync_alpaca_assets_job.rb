@@ -18,11 +18,16 @@ class Exchange::SyncAlpacaAssetsJob < ApplicationJob
 
     tradable_stocks = result.data.select { |a| a['tradable'] && a['fractionable'] }
 
-    usd_asset = Asset.find_or_create_by!(external_id: 'usd') do |a|
-      a.symbol = 'USD'
-      a.name = 'US Dollar'
-      a.category = 'Fiat'
-    end
+    # Alpaca's cash/quote currency is its own `usd` record (distinct from the canonical
+    # USD.FOREX). Color it from the static fiat palette so the tracker doesn't show it
+    # gray — works in free + hosted mode, no identity migration. find-or-initialize so
+    # existing uncolored rows get backfilled on the next sync.
+    usd_asset = Asset.find_or_initialize_by(external_id: 'usd')
+    usd_asset.symbol = 'USD'
+    usd_asset.name = 'US Dollar'
+    usd_asset.category = 'Fiat'
+    usd_asset.color = Fiat.currencies.find { |c| c[:symbol] == 'USD' }&.dig(:color)
+    usd_asset.save!
 
     # Hosted-only stock colors (best-effort, {} in free mode / on failure).
     colors = MarketData.stock_colors
