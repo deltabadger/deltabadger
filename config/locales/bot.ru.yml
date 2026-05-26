@@ -194,6 +194,18 @@ ru:
             title: "Поздравляем! Ваш бот запущен."
             general_note: "Минимумы биржи и требуемые суммы ребалансировки могут меняться. Ордера иногда могут выглядеть нерегулярными, но бот всегда нацелен на желаемое распределение и расписание, поэтому дополнительная работа не требуется."
         settings:
+            starting_time:
+                start_at_label: "Начать"
+                modes:
+                    hour: "часа"
+                    monday: "понедельника"
+                    tuesday: "вторника"
+                    wednesday: "среды"
+                    thursday: "четверга"
+                    friday: "пятницы"
+                    saturday: "субботы"
+                    sunday: "воскресенья"
+                    date: "даты"
             smart_intervals:
                 sentence_html: '<b>Smart Intervals</b> Разделить <span>сумму</span> на единицы по <span>%{amount_html} %{quote}</span>'
                 info: "Разделение ваших %{quote_amount} %{quote} / %{interval} на единицы по %{amount} %{quote} приведет к одной инвестиции каждые %{smart_interval}"

@@ -30,6 +30,13 @@ de:
                         quote_amount_limit:
                             not_a_number: "Sie müssen angeben, welcher Betrag nicht überschritten werden darf"
                             greater_than_or_equal_to: "Das Betragslimit muss größer oder gleich %{count} sein"
+                        start_at:
+                            blank: "muss gesetzt sein"
+                            must_be_future: "muss in der Zukunft liegen"
+                        start_time_mode:
+                            inclusion: "muss Stunde, Tag oder Datum sein"
+                        start_time_of_day:
+                            invalid: "muss eine gültige Uhrzeit (HH:MM) sein"
     errors:
         bitcoin_address_not_updated: 'Deine Bitcoin-Adresse konnte nicht aktualisiert werden'
         format: '%{attribute} %{message}'

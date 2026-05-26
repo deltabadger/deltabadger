@@ -24,7 +24,7 @@
           <%= f.submit t('button.connect'), class: "button button--success button--large", data: { turbo_stream: true, turbo_submits_with: t('bot.setup.validating') } %>
         <% end %>
       </div>
-      <div class="set-api__instructions">
+      <div class="set-api__instructions" data-controller="scroll-state">
         <h2 class="set-api__header"><%= t('bot.setup.how_to_get_keys', exchange: exchange.name) %></h2>
         <% if local_assigns[:instructions_partial] %>
           <%= render partial: instructions_partial, locals: { exchange: exchange } %>

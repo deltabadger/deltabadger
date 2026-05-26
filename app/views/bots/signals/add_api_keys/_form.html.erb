@@ -1,6 +1,6 @@
 <% base_color = ensure_contrast(bot.base_asset&.color || "#8A9BA8") %>
 
-<div class="bot-creation-layout">
+<div class="bot-creation-layout bot-creation-layout--api">
   <%= render partial: 'bots/signals/new_step_progress_bar', locals: { current_step: :api } %>
   <div class="conversational conversational--bot-setup">
     <%= t('bot.setup.sentence.invest_in') %>

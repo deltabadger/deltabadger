@@ -30,6 +30,13 @@ fr:
                         quote_amount_limit:
                             not_a_number: "Vous devez indiquer le montant qui ne peut pas être dépassé"
                             greater_than_or_equal_to: "La limite du montant doit être supérieure ou égale à %{count}"
+                        start_at:
+                            blank: "doit être renseigné"
+                            must_be_future: "doit être dans le futur"
+                        start_time_mode:
+                            inclusion: "doit être heure, jour ou date"
+                        start_time_of_day:
+                            invalid: "doit être une heure HH:MM valide"
     errors:
         exchange:
             regional_restriction: "%{exchange} restreint le trading de %{asset} en %{country}"

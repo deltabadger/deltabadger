@@ -199,6 +199,18 @@ fr:
             title: "Félicitations ! Votre bot est en cours d'exécution."
             general_note: "Les minimums d'échange et les montants de rééquilibrage requis peuvent changer. Les commandes peuvent parfois sembler irrégulières, mais le bot cible toujours votre allocation et votre calendrier souhaités, donc aucun travail supplémentaire n'est nécessaire."
         settings:
+            starting_time:
+                start_at_label: "Démarrer à"
+                modes:
+                    hour: "heure"
+                    monday: "lundi"
+                    tuesday: "mardi"
+                    wednesday: "mercredi"
+                    thursday: "jeudi"
+                    friday: "vendredi"
+                    saturday: "samedi"
+                    sunday: "dimanche"
+                    date: "date"
             smart_intervals:
                 sentence_html: '<b>Smart Intervals</b> Divise <span>le</span> montant <span>en</span> unités <span>de</span> <span>%{amount_html} %{quote}</span>'
                 info: "Diviser votre %{quote_amount} %{quote} / %{interval} en unités de %{amount} %{quote} entraînera un investissement tous les %{smart_interval}"

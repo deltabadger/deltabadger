@@ -157,11 +157,39 @@
             min-width: 15rem
     .set-api
         margin: 0 2rem
-        padding: 2rem
+        padding: 0 2rem
         @media screen and (min-width: 576px)
-            padding: 4rem
+            padding: 0 4rem
     .itiles
         padding: 0 1rem
+    &--api
+        height: 100vh
+        max-height: fit-content
+        min-height: 0
+        overflow: hidden
+        > .vt-step-body
+            display: flex
+            flex: 1 1 auto
+            min-height: 0
+            flex-direction: column
+        .set-api
+            flex: 1 1 auto
+            min-height: 0
+            overflow: hidden
+        .set-api__form
+            flex: 0 0 auto
+        .set-api__instructions
+            flex: 1 1 auto
+            min-height: 0
+            overflow-y: auto
+            overscroll-behavior: contain
+            padding-right: 1rem
+            &.scrolled
+                box-shadow: inset 0 1px var(--steel)
+        .set__list
+            padding-bottom: 2rem
+            @media (min-width: 768px)
+                padding-bottom: 4rem
 .bot-creation-preview
     display: flex
     flex-direction: column

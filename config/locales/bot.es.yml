@@ -198,6 +198,18 @@ es:
             title: "¡Enhorabuena! Tu bot está en marcha."
             general_note: "Los mínimos del exchange y las cantidades requeridas para el rebalanceo pueden cambiar. Las transacciones a veces pueden parecer irregulares, pero el bot siempre apunta a tu asignación y programación deseadas, así que no necesitas hacer nada más."
         settings:
+            starting_time:
+                start_at_label: "Empezar el"
+                modes:
+                    hour: "hora"
+                    monday: "lunes"
+                    tuesday: "martes"
+                    wednesday: "miércoles"
+                    thursday: "jueves"
+                    friday: "viernes"
+                    saturday: "sábado"
+                    sunday: "domingo"
+                    date: "fecha"
             smart_intervals:
                 sentence_html: '<b>Smart Intervals</b> Divide <span>la</span> cantidad <span>en</span> unidades <span>de</span> <span>%{amount_html} %{quote}</span>'
                 info: "Dividir tus %{quote_amount} %{quote} / %{interval} en unidades de %{amount} %{quote} resultará en una inversión cada %{smart_interval}"

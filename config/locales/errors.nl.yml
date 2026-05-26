@@ -30,6 +30,13 @@ nl:
                         quote_amount_limit:
                             not_a_number: "U moet aangeven welk bedrag niet mag worden overschreden"
                             greater_than_or_equal_to: "De bedragslimiet moet groter dan of gelijk zijn aan %{count}"
+                        start_at:
+                            blank: "moet worden ingevuld"
+                            must_be_future: "moet in de toekomst liggen"
+                        start_time_mode:
+                            inclusion: "moet uur, dag of datum zijn"
+                        start_time_of_day:
+                            invalid: "moet een geldige HH:MM-tijd zijn"
     errors:
         bitcoin_address_not_updated: 'Bitcoin-adres kon niet worden bijgewerkt'
         format: '%{attribute}%{message}'

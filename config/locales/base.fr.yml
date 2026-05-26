@@ -38,6 +38,7 @@ fr:
         invested: "Total Investi"
         portfolio_value: "Valeur du Portefeuille"
         value: "Valeur"
+        unit_price: "Prix unitaire"
         value_symbol: "Valeur (%{symbol})"
         invested_symbol: "Investi (%{symbol})"
         date: "Date"
