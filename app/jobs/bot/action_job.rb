@@ -25,6 +25,10 @@ class Bot::ActionJob < BotJob
       raise result.errors.to_sentence
     end
 
+    # The starting-time feature only affects the FIRST execution; flip it off
+    # afterwards so the rule UI is free to be reconfigured for a future restart.
+    bot.disable_starting_time! if bot.respond_to?(:disable_starting_time!) && bot.start_time_enabled?
+
     if result.data.present? && result.data[:break_reschedule]
       Rails.logger.info("ActionJob for bot #{bot.id} reschedule disabled.")
       bot.log_activity('reschedule_disabled')

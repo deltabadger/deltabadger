@@ -207,6 +207,18 @@ it:
             title: "Congratulazioni! Il tuo bot è in esecuzione."
             general_note: "I minimi dell'exchange e gli importi di ribilanciamento richiesti possono cambiare. Gli ordini potrebbero a volte sembrare irregolari, ma il bot mira sempre all'allocazione e alla pianificazione desiderate, quindi non è necessario alcun lavoro aggiuntivo."
         settings:
+            starting_time:
+                start_at_label: "Inizia il"
+                modes:
+                    hour: "ora"
+                    monday: "lunedì"
+                    tuesday: "martedì"
+                    wednesday: "mercoledì"
+                    thursday: "giovedì"
+                    friday: "venerdì"
+                    saturday: "sabato"
+                    sunday: "domenica"
+                    date: "data"
             smart_intervals:
                 sentence_html: '<b>Smart Intervals</b> Dividi <span>l''importo</span> in unità di <span>%{amount_html} %{quote}</span>'
                 info: "Dividere il tuo %{quote_amount} %{quote} / %{interval} in unità di %{amount} %{quote} risulterà in un investimento ogni %{smart_interval}"

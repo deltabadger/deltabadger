@@ -205,6 +205,18 @@ de:
             title: "Glückwunsch! Dein Bot läuft."
             general_note: "Börsen-Mindestgrößen und erforderliche Rebalancing-Beträge ändern sich. Transaktionen können manchmal unregelmäßig aussehen, aber der Bot hält immer deine gewünschte Allokation und deinen Zeitplan ein, sodass kein zusätzlicher Aufwand nötig ist."
         settings:
+            starting_time:
+                start_at_label: "Start am"
+                modes:
+                    hour: "Stunde"
+                    monday: "Montag"
+                    tuesday: "Dienstag"
+                    wednesday: "Mittwoch"
+                    thursday: "Donnerstag"
+                    friday: "Freitag"
+                    saturday: "Samstag"
+                    sunday: "Sonntag"
+                    date: "Datum"
             smart_intervals:
                 sentence_html: '<b>Smart Intervals</b> Teilt <span>den Betrag</span> in <span>%{amount_html} %{quote}</span> Einheiten auf'
                 info: "Die Aufteilung deiner %{quote_amount} %{quote} / %{interval} in Einheiten von %{amount} %{quote} führt zu einer Investition alle %{smart_interval}"

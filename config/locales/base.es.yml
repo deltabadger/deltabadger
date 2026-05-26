@@ -38,6 +38,7 @@ es:
         invested: "Total invertido"
         portfolio_value: "Valor de la cartera"
         value: "Valor"
+        unit_price: "Precio unitario"
         value_symbol: "Valor (%{symbol})"
         invested_symbol: "Invertido (%{symbol})"
         date: "Fecha"
