@@ -1,0 +1,54 @@
+<% user_zone = current_user.time_zone.presence || 'UTC' %>
+<% zone_abbr = Time.current.in_time_zone(user_zone).strftime('%Z') %>
+<% mode = bot.start_time_mode.presence || 'date' %>
+<% mode_options = Bot::Startable::MODES.map { |m| [t("bot.settings.starting_time.modes.#{m}"), m] } %>
+<%= form_with model: bot,
+              url: path,
+              method: method,
+              class: "widget rule #{bot.start_time_enabled? ? "rule--active" : "rule--inactive"}",
+              data: {
+                controller: "class-toggle form--submit form--submit-after-delay form--move-cursor-to-end form--html5-validations",
+                class_toggle_target: "togglable",
+                class_toggle_toggle_classes_value: ["rule--active", "rule--inactive"],
+                turbo_stream: true
+              } do |f| %>
+  <div class="toggle-group">
+    <div class="toggle">
+      <%= f.check_box :start_time_enabled, data: { action: "change->form--submit#submit change->class-toggle#toggle" }, disabled: bot.working? %>
+      <div class="toggle__style"></div>
+    </div>
+    <div class="toggle-group__info">
+      <div class="toggle-group__info__label">
+        <%# A div, not f.label: the rule contains its own nested form controls (selects and time/date pickers) and nesting them inside a <label> is invalid HTML and breaks click/focus behavior. %>
+        <div class="conversational conversational--small conversational--disabled">
+          <%= t('bot.settings.starting_time.start_at_label') %>
+          <div class="sinput sinput--select <%= 'sinput--disabled' if bot.working? %>">
+            <%= t("bot.settings.starting_time.modes.#{mode}") %>
+            <%= f.select :start_time_mode,
+                         mode_options,
+                         { selected: mode },
+                         data: { action: "change->form--submit#submit" }, disabled: bot.working? %>
+          </div>
+
+          <% if mode == 'date' %>
+            <%# Stored start_at is UTC ISO8601; render input in the user's tz so what they see matches what they typed. %>
+            <% datetime_value = (Time.find_zone!('UTC').parse(bot.start_at.to_s).in_time_zone(user_zone).strftime('%Y-%m-%dT%H:%M') rescue nil) %>
+            <%= f.datetime_field :start_at,
+                                 value: datetime_value,
+                                 class: 'sinput',
+                                 data: { action: "change->form--submit#submit" },
+                                 disabled: bot.working? %>
+          <% else %>
+            <%# hour or weekday mode → a time-of-day picker (user-local clock time) %>
+            <%= f.time_field :start_time_of_day,
+                             value: bot.start_time_of_day.presence || (mode == 'hour' ? '00:00' : '09:00'),
+                             class: 'sinput',
+                             data: { action: "change->form--submit#submit" },
+                             disabled: bot.working? %>
+          <% end %>
+          <span><%= zone_abbr %></span>
+        </div>
+      </div>
+    </div>
+  </div>
+<% end %>
