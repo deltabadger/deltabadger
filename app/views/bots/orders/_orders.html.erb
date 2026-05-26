@@ -19,13 +19,14 @@
           <th scope="col"><%= t('data_labels.date') %></th>
           <th scope="col" data-order-filter-target="columnHeader"><%= t('data_labels.amount') %></th>
           <th scope="col" data-order-filter-target="columnHeader"><%= t('data_labels.value') %></th>
+          <th scope="col" data-order-filter-target="columnHeader"><%= t('data_labels.unit_price') %></th>
           <th></th>
         </tr>
       </thead>
       <tbody id="orders_list">
         <% if BotActivityFeed.new(bot: bot, limit: 1).items.empty? %>
           <tr id="orders_list_placeholder">
-            <td colspan="4" class="text-center text-inactive" style="padding-bottom: 2rem;">. . .</td>
+            <td colspan="5" class="text-center text-inactive" style="padding-bottom: 2rem;">. . .</td>
           </tr>
         <% end %>
       </tbody>

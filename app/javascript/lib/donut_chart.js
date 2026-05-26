@@ -8,13 +8,14 @@
 export function renderDonut(svg, data, opts = {}) {
   const rOuter      = opts.rOuter      ?? 135;
   const rInner      = opts.rInner      ?? 70;
-  const depth       = opts.depth       ?? 44;
-  const minDepth    = opts.minDepth    ?? Math.max(8, depth * 0.25);
+  const minDepth    = opts.minDepth    ?? 16;
+  const depthStep   = opts.depthStep   ?? 0;
+  const depth       = opts.depth       ?? (minDepth + depthStep * Math.max(data.length - 1, 0));
   const TILT        = opts.tilt        ?? (1 / 1.618);
   const showLabels  = opts.showLabels  ?? true;
   const LEADER_MAX  = opts.leaderMax   ?? (showLabels ? 70 : 0);
-  const wallDarken  = opts.wallDarken  ?? 0.35;
-  const innerDarken = opts.innerDarken ?? 0.45;
+  const wallDarken  = opts.wallDarken  ?? 0.175;
+  const innerDarken = opts.innerDarken ?? 0.225;
   const labelColor  = opts.labelColor  ?? '#1a1a1a';
   const valueColor  = opts.valueColor  ?? '#999';
   const labelSize   = opts.labelSize   ?? 13;
@@ -86,16 +87,18 @@ export function renderDonut(svg, data, opts = {}) {
   const total = data.reduce((s, d) => s + d.value, 0);
   if (total <= 0) return;
 
-  const maxValue = Math.max(...data.map(d => d.value));
-  const depthForValue = value => {
-    if (maxValue <= 0 || depth <= minDepth) return depth;
-    return minDepth + (value / maxValue) * (depth - minDepth);
-  };
+  const sliceDepths = new Array(data.length);
+  data
+    .map((d, index) => ({ value: d.value, index }))
+    .sort((a, b) => a.value - b.value || a.index - b.index)
+    .forEach(({ index }, rank) => {
+      sliceDepths[index] = minDepth + rank * depthStep;
+    });
 
   let a = 0;
-  const slices = data.map(d => {
+  const slices = data.map((d, index) => {
     const span = (d.value / total) * 360;
-    const sliceDepth = depthForValue(d.value);
+    const sliceDepth = sliceDepths[index];
     const s = { ...d, a0: a, a1: a + span, mid: a + span / 2, depth: sliceDepth, surfaceCy: cy + depth - sliceDepth };
     a += span;
     return s;

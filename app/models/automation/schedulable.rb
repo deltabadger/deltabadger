@@ -48,9 +48,14 @@ module Automation::Schedulable
   def next_interval_checkpoint_at
     return Time.current if effective_interval_duration.zero?
 
-    # Use raw started_at from DB, not the decorated version that may include
-    # price limit condition timestamps - schedule should be based on when bot started
-    checkpoint = read_attribute(:started_at) || Time.current
+    checkpoint = repeat_anchor_at || Time.current
+
+    # If the anchor itself is in the future, return it as-is. Without this guard
+    # the month-interval loop below would skip the first intended execution
+    # (returning anchor + 1.month), and the non-month formula could produce a
+    # checkpoint that lies before the anchor.
+    return checkpoint if checkpoint.future?
+
     if effective_interval_duration == 1.month
       # handle the month interval independently so Rails can target the next same day of the month
       loop do
@@ -61,6 +66,19 @@ module Automation::Schedulable
       intervals_since_checkpoint = ((Time.current - checkpoint) / effective_interval_duration.seconds).ceil
       checkpoint + (intervals_since_checkpoint * effective_interval_duration)
     end
+  end
+
+  # Default — overridden by Bot::Startable. The baseline for interval math is
+  # the raw started_at from DB (not a decorated version that may include price
+  # limit condition timestamps).
+  def repeat_anchor_at
+    read_attribute(:started_at)
+  end
+
+  # Default — overridden by Bot::Startable. Schedulable models that don't opt
+  # into the starting-time feature behave as the feature were disabled.
+  def start_time_enabled?
+    false
   end
 
   def last_interval_checkpoint_at

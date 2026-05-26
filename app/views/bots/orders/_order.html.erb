@@ -13,6 +13,9 @@
   <% quote_amount = order.price * amount if quote_amount.nil? && order.price.present? && amount.present? %>
   <td><%= quote_amount.nil? ? '-' : decimals[order.quote].nil? ? quote_amount : quote_amount.round(decimals[order.quote]) %> <%= order.quote %></td>
 
+  <% unit_price = (amount && quote_amount && !amount.zero?) ? quote_amount / amount : nil %>
+  <td><% if unit_price.nil? %>-<% else %><%= decimals[order.quote].nil? ? unit_price : unit_price.round(decimals[order.quote]) %> <%= order.quote %><% end %></td>
+
   <td>
     <% if order.open? %>
       <div data-controller="class-toggle" data-class-toggle-toggle-classes-value='["hidden"]'>

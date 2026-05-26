@@ -25,6 +25,13 @@ ru:
                         quote_amount_limit:
                             not_a_number: "Вы должны указать сумму, которая не может быть превышена"
                             greater_than_or_equal_to: "Лимит суммы должен быть больше или равен %{count}"
+                        start_at:
+                            blank: "должно быть указано"
+                            must_be_future: "должно быть в будущем"
+                        start_time_mode:
+                            inclusion: "должно быть час, день или дата"
+                        start_time_of_day:
+                            invalid: "должно быть корректное время HH:MM"
     errors:
         bitcoin_address_not_updated: 'Биткоин-адрес не может быть обновлен'
         format: '%{attribute}%{message}'

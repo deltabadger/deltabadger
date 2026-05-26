@@ -26,6 +26,7 @@ class Bots::DcaSingleAsset < Bot
   include IndicatorLimitable     # decorators for: parse_params, started_at, execute_action, stop
   include Fundable               # decorators for: execute_action
   include Automation::Schedulable
+  include Bot::Startable         # decorators for: parse_params; overrides Schedulable defaults — keep AFTER Schedulable
   include OrderCreator
   include Accountable
   include Exportable
@@ -46,11 +47,21 @@ class Bots::DcaSingleAsset < Bot
   end
 
   def start(start_fresh: true)
+    # Compute exactly once per call; pass the same value to decision, persistence, and wait_until.
+    computed_start_at = start_fresh && start_time_enabled? ? initial_start_at : nil
+    use_delayed_first = computed_start_at&.future?
+
     # call restarting_within_interval? before setting the status to :scheduled
-    set_order_now = start_fresh || !restarting_within_interval?
+    set_order_now = !use_delayed_first && (start_fresh || !restarting_within_interval?)
     self.status = :scheduled
     self.stop_message_key = nil
-    if start_fresh
+    if use_delayed_first
+      settings['start_at'] = computed_start_at.iso8601
+      self.started_at = computed_start_at
+      self.last_action_job_at = nil
+      self.missed_quote_amount = nil
+      set_missed_quote_amount # settings changed → Accountable requires this before save
+    elsif start_fresh
       self.started_at = Time.current
       self.last_action_job_at = nil
       self.missed_quote_amount = nil
@@ -61,7 +72,10 @@ class Bots::DcaSingleAsset < Bot
     @skip_status_bar_broadcast = !set_order_now
 
     if valid?(:start) && save
-      if set_order_now
+      if use_delayed_first
+        Bot::ActionJob.set(wait_until: computed_start_at).perform_later(self)
+        Bot::BroadcastAfterScheduledActionJob.perform_later(self)
+      elsif set_order_now
         Bot::ActionJob.perform_later(self)
       else
         Bot::ActionJob.set(wait_until: next_interval_checkpoint_at).perform_later(self)

@@ -3,6 +3,7 @@
 
 <div id="<%= bot.new_record? ? "new-settings" : "settings" %>" class="column gap-1">
   <%= render partial: "bots/dca_indexes/settings/main", locals: { bot: bot, method: method, path: path, index_preview: local_assigns.fetch(:index_preview, nil) || [] } %>
+  <%= render partial: "bots/settings/starting_time", locals: { bot: bot, method: method, path: path } %>
   <%= render partial: "bots/settings/smart_intervals", locals: { bot: bot, method: method, path: path } %>
   <%= render partial: "bots/settings/limit_orders", locals: { bot: bot, method: method, path: path } %>
 </div>

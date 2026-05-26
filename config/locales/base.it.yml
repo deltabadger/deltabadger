@@ -38,6 +38,7 @@ it:
         invested: "Totale Investito"
         portfolio_value: "Valore del Portafoglio"
         value: "Valore"
+        unit_price: "Prezzo unitario"
         value_symbol: "Valore (%{symbol})"
         invested_symbol: "Investito (%{symbol})"
         date: "Data"

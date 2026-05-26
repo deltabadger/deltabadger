@@ -198,6 +198,18 @@ pl:
             title: "Gratulacje! Twój bot działa."
             general_note: "Minimalne kwoty na giełdach i wymagane kwoty rebalancingu mogą się zmieniać. Zlecenia mogą czasami wyglądać nieregularnie, ale bot zawsze dąży do Twojej pożądanej alokacji i harmonogramu, więc nie jest wymagana dodatkowa praca."
         settings:
+            starting_time:
+                start_at_label: "Zacznij od"
+                modes:
+                    hour: "godziny"
+                    monday: "poniedziałku"
+                    tuesday: "wtorku"
+                    wednesday: "środy"
+                    thursday: "czwartku"
+                    friday: "piątku"
+                    saturday: "soboty"
+                    sunday: "niedzieli"
+                    date: "daty"
             smart_intervals:
                 sentence_html: '<b>Smart Intervals</b> Podziel <span>kwotę</span> na porcje po <span>%{amount_html} %{quote}</span>'
                 info: "Podział twojej kwoty %{quote_amount} %{quote} / %{interval} w porcjach po %{amount} %{quote} spowoduje jedną inwestycję co %{smart_interval}"
