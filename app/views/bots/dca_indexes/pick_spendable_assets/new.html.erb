@@ -12,15 +12,18 @@
         <span class="hide-on-mobile"><%= @bot.exchange.name %></span>
       <% end %>
       <%= t('bot.setup.sentence.spending') %>
-      <%= form_with url: new_bots_dca_indexes_pick_spendable_asset_path, method: :get, data: { controller: "form--submit-after-delay", turbo_frame: "asset-picker" } do |f| %>
-        <%= f.text_field :query, autofocus: true, autocomplete: "off", placeholder: "...", data: { action: "input->form--submit-after-delay#submit" }, class: "conversational__input sinput" %>
+      <%= form_with url: new_bots_dca_indexes_pick_spendable_asset_path, method: :get,
+                    data: { controller: "form--submit-after-delay", turbo_frame: "asset-picker" },
+                    class: "ticker active" do |f| %>
+        <%= f.text_field :query, autofocus: true, autocomplete: "off", placeholder: "...",
+                         data: { action: "input->form--submit-after-delay#submit" } %>
       <% end %>
     </div>
 
     <%= turbo_frame_tag "asset-picker", data: { action: "keydown@window->arrow-keys-navigation#navigate", controller: "arrow-keys-navigation scroll-state" }, class: "modal--search__assets selectable-options" do %>
       <%= form_with model: @bot, url: bots_dca_indexes_pick_spendable_asset_path, method: :post do |f| %>
-        <% @assets.each do |id, symbol, name, color, category, exchanges| %>
-          <%= render partial: "bots/asset_search_result", locals: { bot: @bot, asset_field: :quote_asset_id, id: id, symbol: symbol, name: name, color: color, category: category, exchanges: exchanges } %>
+        <% @assets.each do |id, symbol, name, color, category, _exchanges| %>
+          <%= render partial: "bots/dca_indexes/quote_asset_result", locals: { bot: @bot, asset_field: :quote_asset_id, id: id, symbol: symbol, name: name, color: color, category: category, top_assets: @top_base_assets_by_quote[id] || [] } %>
         <% end %>
       <% end %>
     <% end %>

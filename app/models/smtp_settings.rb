@@ -2,9 +2,15 @@
 
 class SmtpSettings
   def self.current
-    provider = AppConfig.smtp_provider
+    # When platform-provided SMTP is available, it wins — regardless of
+    # whatever the user previously saved in AppConfig.smtp_provider.
+    # Mirrors MarketDataSettings.current_provider's env-takes-precedence
+    # behavior and keeps the locked single-radio UI in the Connect settings
+    # honest (the green ON indicator only lights up when sending will
+    # actually work).
+    return env_settings if AppConfig.smtp_env_available?
 
-    case provider
+    case AppConfig.smtp_provider
     when 'custom_smtp'
       custom_settings
     when 'env_smtp'
