@@ -21,6 +21,8 @@ class Bots::StaleSessionTest < ActionDispatch::IntegrationTest
   # Reproduces the actual production bug: user partially completes Signal wizard
   # (which adds 'signals' to session[:bot_config]), then switches to DcaIndex wizard
   # (which doesn't reset session). DcaIndex.new blows up with UnknownAttributeError.
+  # The DcaIndex bot is now persisted at pick_spendable_asset (matches the
+  # DCA Single Asset flow), so the failure mode would surface there.
   test 'switching from Signal wizard to DcaIndex wizard does not raise UnknownAttributeError' do
     walk_signal_wizard_to_confirm_settings
 
@@ -35,38 +37,16 @@ class Bots::StaleSessionTest < ActionDispatch::IntegrationTest
     follow_redirect!
     follow_redirect! # skip API key (already correct)
 
-    post bots_dca_indexes_pick_spendable_asset_path, params: {
-      bots_dca_index: { quote_asset_id: @usd.id }
-    }
-    follow_redirect!
-
-    post bots_dca_indexes_confirm_settings_path, params: {
-      bots_dca_index: { quote_amount: 100, interval: 'week', num_coins: 10, allocation_flattening: 0.0 }
-    }, as: :turbo_stream
-    assert_response :ok
-
+    # Picking the spendable asset persists the bot in :created state — no confirm step.
     assert_difference 'Bots::DcaIndex.count', 1 do
-      post bots_dca_indexes_path, as: :turbo_stream
+      post bots_dca_indexes_pick_spendable_asset_path, params: {
+        bots_dca_index: { quote_asset_id: @usd.id }
+      }, as: :turbo_stream
     end
-  end
-
-  test 'switching from Signal wizard to DcaIndex confirm settings does not raise' do
-    walk_signal_wizard_to_confirm_settings
-
-    post bots_dca_indexes_pick_index_path, params: { index_type: 'top' }
-    follow_redirect!
-    post bots_dca_indexes_pick_exchange_path, params: {
-      bots_dca_index: { exchange_id: @exchange.id }
-    }
-    follow_redirect!
-    follow_redirect! # skip API key
-    post bots_dca_indexes_pick_spendable_asset_path, params: {
-      bots_dca_index: { quote_asset_id: @usd.id }
-    }
-    follow_redirect!
-
-    get new_bots_dca_indexes_confirm_settings_path
     assert_response :ok
+    bot = Bots::DcaIndex.last
+    assert_predicate bot, :created?
+    assert_match %(action="redirect" target="#{bot_path(bot)}"), response.body
   end
 
   test 'switching from Signal wizard to DCA single asset wizard works cleanly' do

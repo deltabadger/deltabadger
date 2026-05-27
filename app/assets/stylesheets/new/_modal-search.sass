@@ -71,6 +71,19 @@
             top: 0
             height: auto
             max-height: calc(100vh - 4rem)
+    // Content-heavy variant — driven by `data-dialog-size="wide"` on the
+    // CURRENT step's inner wrapper (the element rendered inside the
+    // `modal_content` turbo frame). Using `:has()` instead of a class on the
+    // outer dialog itself means the modifier follows whichever step is
+    // active: when the user advances and the next step's inner content
+    // doesn't carry the marker, the dialog snaps back to default sizing.
+    // Add further custom styles for the "wide" state inside this block as
+    // the use case grows (extra padding, denser grids, taller card, etc.).
+    &__vertical-center:has([data-dialog-size="wide"])
+        @media screen and (min-width: 768px)
+            max-width: calc(100vw - 4rem)
+            max-height: calc(100vh - 2rem)
+            background: none !important
     .sinput:not(.widget *)
         background: var(--washed)
 #modal
@@ -332,7 +345,7 @@
     &.scrolled
         box-shadow: inset 0 3px 8px -8px
     @media (min-width: 768px)
-        max-height: calc(100vh - 32rem)
+        max-height: calc(100vh - 30rem)
 
 .selectable-options:hover
     .modal--search__assets__item__highlight 

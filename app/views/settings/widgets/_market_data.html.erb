@@ -18,25 +18,30 @@
     } do |f| %>
       <% show_coingecko_form = @show_coingecko_form || false %>
       <div class="form__radios" style="display: flex; justify-content: center;">
-        <label class="form__radio">
-          <%= radio_button_tag :market_data_provider, '', !is_configured && !show_coingecko_form, data: { action: "form--market-data#selectNone" } %>
-          <span><%= t('settings.market_data.none') %></span>
-        </label>
-
-        <label class="form__radio">
-          <%= radio_button_tag :market_data_provider, MarketDataSettings::PROVIDER_COINGECKO, is_coingecko_configured || show_coingecko_form, data: { action: "form--market-data#selectCoinGecko" } %>
-          <span>CoinGecko</span>
-        </label>
-
         <% if MarketDataSettings.deltabadger_available? %>
+          <%# Platform-provided market data is available. Lock to it — no other choices, no toggling. %>
           <label class="form__radio">
-            <%= radio_button_tag :market_data_provider, MarketDataSettings::PROVIDER_DELTABADGER, is_deltabadger_configured, data: { action: "form--market-data#selectDeltabadger" } %>
+            <%= radio_button_tag :market_data_provider, MarketDataSettings::PROVIDER_DELTABADGER, true, disabled: true %>
             <span><%= AppConfig.market_data_env_provider_name %></span>
+          </label>
+        <% else %>
+          <label class="form__radio">
+            <%= radio_button_tag :market_data_provider, '', !is_configured && !show_coingecko_form, data: { action: "form--market-data#selectNone" } %>
+            <span><%= t('settings.market_data.none') %></span>
+          </label>
+
+          <label class="form__radio">
+            <%= radio_button_tag :market_data_provider, MarketDataSettings::PROVIDER_COINGECKO, is_coingecko_configured || show_coingecko_form, data: { action: "form--market-data#selectCoinGecko" } %>
+            <span>CoinGecko</span>
           </label>
         <% end %>
       </div>
 
-      <% if is_coingecko_configured %>
+      <% if MarketDataSettings.deltabadger_available? %>
+        <%# Platform provider is the only option; no further UI needed — the
+            green ON indicator already reflects the active state via
+            MarketDataSettings.current_provider. %>
+      <% elsif is_coingecko_configured %>
         <%# CoinGecko configured: show status and actions %>
         <p style="text-align: center; margin-top: 3rem"><%= t('settings.market_data.coingecko_configured') %></p>
         <div class="setting-form">

@@ -4,15 +4,38 @@
 
 
 .index-picker-layout
-  @media screen and (min-width: 768px)
-    width: 90vw
-    margin-left: calc(-45vw + 50rem)
+
+// Hover affordance for the per-currency ticker-group cell on the index
+// `pick_spendable_assets` step. Copied verbatim from the `.itile:hover`
+// block in `_itiles.sass`, scoped to the marker class. Default state
+// from `_ticker.sass` keeps the pills tightly stacked (`margin-right:
+// -5rem`); on row hover the overlap shrinks to `-3.5rem`, the pills'
+// text snaps to white, and the `+N` badge fades.
+.modal--search__assets__item--with-coins:hover
+    .ticker-group
+        .ticker
+            margin-right: -3.5rem
+            color: var(--white)
+        .ticker--more
+            opacity: 0
 
 .index-settings
   display: flex
   flex-direction: column
   gap: 1.5rem
   padding: 1rem 0
+
+// The index settings ("Number of coins" / "Allocation flattening") and the
+// per-coin allocation rows below them size their progress fills via
+// `grid-template-columns: X% auto` on `.slider__style__track`. The base
+// `_slider.sass` rule no longer sets `display: grid` on the track (it
+// moved into `.slider--dual` after the new-bot-creation-flow refactor in
+// 9f86e7ae) — meaning `.slider__style__progress { width: 100% }` was
+// always filling the track regardless of the inline grid template.
+// Restore `display: grid` here so the inline template takes effect again.
+.index-settings .slider__style__track,
+.index-asset .slider__style__track
+    display: grid
 
 .index-setting
   display: flex

@@ -63,6 +63,8 @@
         box-shadow: none
         transition: opacity 0.2s ease-in-out
         text-align: left
+        @media (max-width: 767.9px)
+            margin-left: 5rem
     @for $i from 1 through 20
         .ticker:nth-child(#{$i})
             z-index: 21 - $i
@@ -71,7 +73,9 @@
             margin-right: -1.75rem
     &--many
         .ticker:not(:last-child)
-            margin-right: -8rem
+            margin-right: -7rem
+            @media (max-width: 767.9px)
+                margin-right: -5rem
         .ticker:not(:first-child):not(.ticker--more)
             border-radius: 0 2rem 2rem 0
             color: transparent

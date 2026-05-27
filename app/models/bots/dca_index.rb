@@ -178,6 +178,43 @@ class Bots::DcaIndex < Bot
     include_exchanges ? Asset.includes(:exchanges).where(id: asset_ids) : Asset.where(id: asset_ids)
   end
 
+  # Returns { quote_asset_id => [Asset, Asset, ...] } for the bot's current
+  # index + exchange combo. Each list is sorted by base-asset market-cap rank
+  # (highest market cap first). Used by the quote-currency picker to render
+  # the same ticker-group preview that the index tiles show on step 2.
+  def top_base_assets_by_quote_for_current_setup
+    return {} if exchange.blank?
+
+    index = current_index
+    return {} if index.blank?
+
+    external_ids = index.top_coins_for_exchange(exchange.type)
+    return {} if external_ids.blank?
+
+    base_assets = Asset.where(external_id: external_ids).index_by(&:id)
+    return {} if base_assets.empty?
+
+    Ticker.available.trading_enabled
+          .where(exchange_id: exchange.id, base_asset_id: base_assets.keys)
+          .joins(:base_asset)
+          .order(Arel.sql('assets.market_cap_rank IS NULL'), Arel.sql('assets.market_cap_rank ASC'))
+          .pluck(:quote_asset_id, :base_asset_id)
+          .each_with_object({}) do |(quote_id, base_id), acc|
+            acc[quote_id] ||= []
+            acc[quote_id] << base_assets[base_id]
+          end
+  end
+
+  # Resolves the Index record for the bot's current settings. Categories look
+  # up by `index_category_id`; the "Top" type uses the internal Top Coins index.
+  def current_index
+    if index_type == INDEX_TYPE_CATEGORY && index_category_id.present?
+      Index.find_by(external_id: index_category_id)
+    else
+      Index.find_by(external_id: Index::TOP_COINS_EXTERNAL_ID, source: Index::SOURCE_INTERNAL)
+    end
+  end
+
   def restarting?
     stopped? && last_action_job_at.present?
   end
