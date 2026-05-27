@@ -189,7 +189,6 @@ pt:
             general_note: "Os mínimos da exchange e as quantidades de rebalanceamento necessárias podem mudar. As ordens podem parecer irregulares às vezes, mas o bot sempre visa sua alocação e cronograma desejados, portanto, nenhum trabalho extra é necessário."
         settings:
             starting_time:
-                start_at_label_a11y: "Modo de hora de início"
                 modes:
                     options:
                         hour: "hora"

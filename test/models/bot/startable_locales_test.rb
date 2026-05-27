@@ -7,8 +7,7 @@ require 'yaml'
 class Bot::StartableLocalesTest < ActiveSupport::TestCase
   KEYS = [
     *Bot::Startable::MODES.map { |m| %W[bot settings starting_time modes options #{m}] },
-    *Bot::Startable::MODES.map { |m| %W[bot settings starting_time modes display #{m}] },
-    %w[bot settings starting_time start_at_label_a11y]
+    *Bot::Startable::MODES.map { |m| %W[bot settings starting_time modes display #{m}] }
   ].freeze
 
   test 'every available_locale has the starting_time keys in its bot.<locale>.yml' do

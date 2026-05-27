@@ -206,7 +206,6 @@ de:
             general_note: "Börsen-Mindestgrößen und erforderliche Rebalancing-Beträge ändern sich. Transaktionen können manchmal unregelmäßig aussehen, aber der Bot hält immer deine gewünschte Allokation und deinen Zeitplan ein, sodass kein zusätzlicher Aufwand nötig ist."
         settings:
             starting_time:
-                start_at_label_a11y: "Startzeit-Modus"
                 modes:
                     options:
                         hour: "Stunde"

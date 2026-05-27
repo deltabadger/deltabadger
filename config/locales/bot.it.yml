@@ -208,7 +208,6 @@ it:
             general_note: "I minimi dell'exchange e gli importi di ribilanciamento richiesti possono cambiare. Gli ordini potrebbero a volte sembrare irregolari, ma il bot mira sempre all'allocazione e alla pianificazione desiderate, quindi non è necessario alcun lavoro aggiuntivo."
         settings:
             starting_time:
-                start_at_label_a11y: "Modalità ora di inizio"
                 modes:
                     options:
                         hour: "ora"
