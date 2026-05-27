@@ -6,18 +6,15 @@ class ListExchangesTool < ApplicationMCPTool
   read_only
 
   def perform
-    user = current_user
-    api_keys = user.api_keys.includes(:exchange).where(key_type: :trading)
+    result = BotApi::Exchanges::List.call(user: current_user)
+    data = result.data
 
-    if api_keys.empty?
+    if data[:count].zero?
       render text: 'No exchanges connected. Add an API key when creating a bot.'
       return
     end
 
-    lines = api_keys.map do |key|
-      "- #{key.exchange.name} | API key status: #{key.status}"
-    end
-
-    render text: "Connected Exchanges (#{api_keys.size}):\n#{lines.join("\n")}"
+    lines = data[:exchanges].map { |ex| "- #{ex[:name]} | API key status: #{ex[:api_key_status]}" }
+    render text: "Connected Exchanges (#{data[:count]}):\n#{lines.join("\n")}"
   end
 end

@@ -9,36 +9,11 @@ class UpdateBotSettingsTool < ApplicationMCPTool
   property :label, type: 'string', description: 'Bot label (optional)'
 
   def perform
-    user = current_user
-    bot = user.bots.not_deleted.find_by(id: bot_id.to_i)
+    result = BotApi::Bots::UpdateSettings.call(
+      user: current_user, bot_id: bot_id, quote_amount: quote_amount, label: label
+    )
+    return render(text: result.error_message) unless result.success?
 
-    unless bot
-      render text: 'Bot not found.'
-      return
-    end
-
-    if bot.working?
-      render text: "Bot must be stopped before updating settings. Current status: #{bot.status}."
-      return
-    end
-
-    updates = {}
-    updates[:quote_amount] = quote_amount if quote_amount.present?
-    updates[:label] = label if label.present?
-
-    if updates.empty?
-      render text: 'No settings provided to update.'
-      return
-    end
-
-    bot.quote_amount = updates[:quote_amount] if updates[:quote_amount]
-    bot.label = updates[:label] if updates[:label]
-
-    bot.set_missed_quote_amount
-    if bot.save
-      render text: "Bot '#{bot.label}' settings updated: #{updates.keys.join(', ')}."
-    else
-      render text: "Failed to update bot: #{bot.errors.full_messages.join(', ')}"
-    end
+    render text: "Bot '#{result.data[:label]}' settings updated: #{result.data[:updated].join(', ')}."
   end
 end

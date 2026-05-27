@@ -19,7 +19,7 @@ module Oauth
         token_endpoint: "#{request.base_url}/oauth/token",
         registration_endpoint: "#{request.base_url}/oauth/register",
         revocation_endpoint: "#{request.base_url}/oauth/revoke",
-        scopes_supported: %w[mcp],
+        scopes_supported: %w[mcp api],
         response_types_supported: %w[code],
         grant_types_supported: %w[authorization_code refresh_token],
         token_endpoint_auth_methods_supported: %w[none],

@@ -14,42 +14,18 @@ class MarketBuyTool < ApplicationMCPTool
                          description: "'quote' (spend in quote currency) or 'base' (buy in base asset). Default: 'quote'"
 
   def perform
-    exchange = Exchange.where('LOWER(name) = ?', exchange_name.downcase).first
-    unless exchange
-      render text: "Exchange '#{exchange_name}' not found. Available: #{Exchange.where(available: true).pluck(:name).join(', ')}"
-      return
-    end
+    result = BotApi::Orders::MarketBuy.call(
+      user: current_user,
+      exchange_name: exchange_name, base_asset: base_asset, quote_asset: quote_asset,
+      amount: amount, amount_type: amount_type,
+      dry_run: current_user.mcp_dry_run?
+    )
 
-    user = current_user
-    api_key = user.api_keys.find_by(exchange: exchange, key_type: :trading, status: :correct)
-    unless api_key
-      render text: "No valid API key found for #{exchange.name}. Please add an API key in Settings."
-      return
-    end
+    prefix = current_user.mcp_dry_run? ? '[DRY RUN] ' : ''
+    return render(text: "#{prefix}#{result.error_message}") unless result.success?
 
-    ticker = exchange.tickers.joins(:base_asset, :quote_asset)
-                     .where(assets: { symbol: base_asset.upcase })
-                     .where(quote_assets_tickers: { symbol: quote_asset.upcase })
-                     .first
-    unless ticker
-      render text: "Trading pair #{base_asset.upcase}/#{quote_asset.upcase} not found on #{exchange.name}."
-      return
-    end
-
-    exchange.set_client(api_key: api_key)
-    effective_amount_type = (amount_type.presence || 'quote').to_sym
-
-    result = with_dry_run_if_enabled do
-      exchange.market_buy(ticker: ticker, amount: amount, amount_type: effective_amount_type)
-    end
-
-    dry_prefix = current_user.mcp_dry_run? ? '[DRY RUN] ' : ''
-    if result.success?
-      currency = effective_amount_type == 'quote' ? quote_asset.upcase : base_asset.upcase
-      pair = "#{base_asset.upcase}/#{quote_asset.upcase}"
-      render text: "#{dry_prefix}Market buy order placed on #{exchange.name}: #{amount} #{currency} of #{pair}. #{result.data}"
-    else
-      render text: "#{dry_prefix}Order failed: #{result.errors.join(', ')}"
-    end
+    data = result.data
+    currency = data[:amount_type] == 'quote' ? quote_asset.upcase : base_asset.upcase
+    render text: "#{prefix}Market buy order placed on #{data[:exchange]}: #{amount} #{currency} of #{data[:pair]}. #{data[:upstream]}"
   end
 end

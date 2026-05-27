@@ -9,37 +9,27 @@ class ListTransactionsTool < ApplicationMCPTool
   property :limit, type: 'number', description: 'Number of transactions to return (default: 20, max: 100)'
 
   def perform
-    user = current_user
-    max_limit = [limit&.to_i || 20, 100].min
-    max_limit = 20 if max_limit <= 0
+    result = BotApi::Transactions::List.call(user: current_user, bot_id: bot_id, limit: limit)
+    return render(text: result.error_message) unless result.success?
 
-    transactions = user.transactions.order(created_at: :desc)
-
-    if bot_id.present?
-      bot = user.bots.not_deleted.find_by(id: bot_id.to_i)
-      unless bot
-        render text: 'Bot not found.'
-        return
-      end
-      transactions = transactions.where(bot_id: bot.id)
-    end
-
-    transactions = transactions.limit(max_limit)
-
-    if transactions.empty?
+    if result.data[:count].zero?
       render text: 'No transactions found.'
       return
     end
 
-    lines = transactions.map do |txn|
-      date = txn.created_at.strftime('%Y-%m-%d %H:%M')
-      amount_str = txn.amount_exec ? "#{txn.amount_exec} #{txn.base}" : 'N/A'
-      price_str = txn.price ? "@ #{txn.price} #{txn.quote}" : ''
-      cost_str = txn.quote_amount_exec ? "(#{txn.quote_amount_exec} #{txn.quote})" : ''
+    render text: present(result.data)
+  end
 
-      "- [#{date}] #{txn.side.upcase} #{amount_str} #{price_str} #{cost_str} | #{txn.status}"
+  private
+
+  def present(data)
+    lines = data[:transactions].map do |row|
+      date = row[:created_at].strftime('%Y-%m-%d %H:%M')
+      amount_str = row[:amount_exec] ? "#{row[:amount_exec]} #{row[:base]}" : 'N/A'
+      price_str = row[:price] ? "@ #{row[:price]} #{row[:quote]}" : ''
+      cost_str = row[:quote_amount_exec] ? "(#{row[:quote_amount_exec]} #{row[:quote]})" : ''
+      "- [#{date}] #{row[:side].upcase} #{amount_str} #{price_str} #{cost_str} | #{row[:status]}"
     end
-
-    render text: "Transactions (#{lines.size}):\n#{lines.join("\n")}"
+    "Transactions (#{data[:count]}):\n#{lines.join("\n")}"
   end
 end

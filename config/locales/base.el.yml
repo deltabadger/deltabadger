@@ -157,9 +157,15 @@ el:
             disconnect: 'Αποσύνδεση'
             mode_paper: 'Εικονικό'
             mode_live: 'Πραγματικό'
+        rest:
+            title: 'REST API'
+            description: 'Χειρίσου το Deltabadger από δικά σου scripts.'
+            download_api_docs: 'Λήψη τεκμηρίωσης API'
+            regenerate_token: 'Δημιουργία νέου'
+            regenerate_confirm: 'Να δημιουργηθεί νέο token; Τα scripts που χρησιμοποιούν το τρέχον θα σταματήσουν να λειτουργούν μέχρι να τα ενημερώσεις.'
         mcp:
             title: 'MCP'
-            description: 'Χρησιμοποίησε αυτό το URL για να συνδέσεις τον Claude (και άλλα AI μοντέλα). Δίνει στον βοηθό AI πρόσβαση στα bots και τα ανταλλακτήριά σου.'
+            description: 'Χρησιμοποίησε αυτό το URL για να συνδέσεις τον Claude (και άλλα AI μοντέλα).'
             connected_clients: 'Συνδεδεμένοι'
             no_clients: 'Δεν υπάρχουν ακόμα συνδεδεμένοι πελάτες.'
             revoke_client: 'Ανάκληση'

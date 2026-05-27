@@ -158,9 +158,15 @@ sk:
             disconnect: 'Odpojiť'
             mode_paper: 'Papierové'
             mode_live: 'Živé'
+        rest:
+            title: 'REST API'
+            description: 'Riaď Deltabadger z vlastných skriptov.'
+            download_api_docs: 'Stiahnuť dokumentáciu API'
+            regenerate_token: 'Vygenerovať znova'
+            regenerate_confirm: 'Vygenerovať token znova? Skripty používajúce súčasný prestanú fungovať, kým ich neaktualizuješ.'
         mcp:
             title: 'MCP'
-            description: 'Použite túto URL na pripojenie Claude (a ďalších AI modelov). Dá vášmu AI asistentovi prístup k vašim botom a burzám.'
+            description: 'Použite túto URL na pripojenie Claude (a ďalších AI modelov).'
             connected_clients: 'Pripojené'
             no_clients: 'Zatiaľ nie sú pripojení žiadni klienti.'
             revoke_client: 'Odvolať'

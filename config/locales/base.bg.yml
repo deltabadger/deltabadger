@@ -157,9 +157,15 @@ bg:
             disconnect: 'Прекъсни'
             mode_paper: 'Хартиени'
             mode_live: 'Реални'
+        rest:
+            title: 'REST API'
+            description: 'Управлявай Deltabadger от собствените си скриптове.'
+            download_api_docs: 'Изтегли API документацията'
+            regenerate_token: 'Генерирай отново'
+            regenerate_confirm: 'Да се генерира ли токенът отново? Скриптовете, използващи текущия, ще спрат да работят, докато не ги обновиш.'
         mcp:
             title: 'MCP'
-            description: 'Използвайте този URL за свързване на Claude (и други AI модели). Ще даде на вашия AI асистент достъп до ботовете и борсите ви.'
+            description: 'Използвайте този URL за свързване на Claude (и други AI модели).'
             connected_clients: 'Свързани'
             no_clients: 'Все още няма свързани клиенти.'
             revoke_client: 'Отмени достъп'

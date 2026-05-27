@@ -22,6 +22,7 @@ class Oauth::WellKnownControllerTest < ActionDispatch::IntegrationTest
     assert_equal 'http://www.example.com/oauth/register', json['registration_endpoint']
     assert_equal 'http://www.example.com/oauth/revoke', json['revocation_endpoint']
     assert_includes json['scopes_supported'], 'mcp'
+    assert_includes json['scopes_supported'], 'api'
     assert_includes json['response_types_supported'], 'code'
     assert_includes json['grant_types_supported'], 'authorization_code'
     assert_includes json['token_endpoint_auth_methods_supported'], 'none'

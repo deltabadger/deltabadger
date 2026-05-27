@@ -330,6 +330,45 @@ class SettingsController < ApplicationController
     render turbo_stream: turbo_stream.replace('mcp_settings', partial: 'settings/widgets/mcp')
   end
 
+  def download_api_docs
+    send_file Rails.root.join('docs/api.md'),
+              type: 'text/markdown',
+              disposition: 'attachment; filename="deltabadger-api.md"'
+  end
+
+  def regenerate_api_token
+    current_user.regenerate_personal_api_token!
+    render turbo_stream: turbo_stream.replace('rest_settings', partial: 'settings/widgets/rest')
+  end
+
+  def update_rest_tool_permissions
+    tool_name = params[:tool_name]
+
+    unless AppConfig::REST_TOOL_DEFAULTS.key?(tool_name)
+      head :unprocessable_entity
+      return
+    end
+
+    enabled = params[:enabled] == '1'
+    current_user.set_rest_tool_enabled(tool_name, enabled)
+
+    render turbo_stream: turbo_stream.replace('rest_settings', partial: 'settings/widgets/rest')
+  end
+
+  def update_rest_tool_group_permissions
+    group = params[:group]
+
+    unless AppConfig::REST_TOOL_GROUPS.key?(group)
+      head :unprocessable_entity
+      return
+    end
+
+    enabled = params[:enabled] == '1'
+    current_user.set_rest_tool_group_enabled(group, enabled)
+
+    render turbo_stream: turbo_stream.replace('rest_settings', partial: 'settings/widgets/rest')
+  end
+
   def update_advanced_bots
     current_user.update!(advanced_bots_enabled: params[:enabled] == '1')
     render turbo_stream: turbo_stream.replace('advanced_bots', partial: 'settings/widgets/advanced_bots')

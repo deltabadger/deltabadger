@@ -9,13 +9,39 @@ class GatewayAuthenticationTest < ActiveSupport::TestCase
   test 'resolves user from valid bearer token' do
     admin = create(:user, admin: true)
     app = Doorkeeper::Application.create!(name: 'Test', redirect_uri: 'http://localhost/callback', confidential: false)
-    token = Doorkeeper::AccessToken.create!(application: app, resource_owner_id: admin.id, token: SecureRandom.hex(32), expires_in: 3600)
+    token = Doorkeeper::AccessToken.create!(application: app, resource_owner_id: admin.id, token: SecureRandom.hex(32),
+                                            scopes: 'mcp', expires_in: 3600)
 
     request = mock_request("Bearer #{token.token}")
     identifier = MCPTokenIdentifier.new(request)
     user = identifier.resolve
 
     assert_equal admin, user
+  end
+
+  test 'rejects an api-only token at /mcp (insufficient scope)' do
+    admin = create(:user, admin: true)
+    app = Doorkeeper::Application.create!(name: 'Test', redirect_uri: 'http://localhost/callback', confidential: false)
+    token = Doorkeeper::AccessToken.create!(application: app, resource_owner_id: admin.id, token: SecureRandom.hex(32),
+                                            scopes: 'api', expires_in: 3600)
+
+    request = mock_request("Bearer #{token.token}")
+    identifier = MCPTokenIdentifier.new(request)
+
+    error = assert_raises(ActionMCP::GatewayIdentifier::Unauthorized) { identifier.resolve }
+    assert_match(/scope/i, error.message)
+  end
+
+  test 'accepts a multi-scope token that includes mcp' do
+    admin = create(:user, admin: true)
+    app = Doorkeeper::Application.create!(name: 'Test', redirect_uri: 'http://localhost/callback', confidential: false)
+    token = Doorkeeper::AccessToken.create!(application: app, resource_owner_id: admin.id, token: SecureRandom.hex(32),
+                                            scopes: 'api mcp', expires_in: 3600)
+
+    request = mock_request("Bearer #{token.token}")
+    identifier = MCPTokenIdentifier.new(request)
+
+    assert_equal admin, identifier.resolve
   end
 
   test 'raises Unauthorized when no bearer token' do
@@ -39,7 +65,8 @@ class GatewayAuthenticationTest < ActiveSupport::TestCase
     app = Doorkeeper::Application.create!(name: 'Test', redirect_uri: 'http://localhost/callback', confidential: false)
     token = Doorkeeper::AccessToken.create!(
       application: app, resource_owner_id: admin.id,
-      token: SecureRandom.hex(32), expires_in: 0, created_at: 1.hour.ago
+      token: SecureRandom.hex(32), scopes: 'mcp',
+      expires_in: 0, created_at: 1.hour.ago
     )
 
     request = mock_request("Bearer #{token.token}")
@@ -54,7 +81,8 @@ class GatewayAuthenticationTest < ActiveSupport::TestCase
     app = Doorkeeper::Application.create!(name: 'Test', redirect_uri: 'http://localhost/callback', confidential: false)
     token = Doorkeeper::AccessToken.create!(
       application: app, resource_owner_id: admin.id,
-      token: SecureRandom.hex(32), expires_in: 3600, revoked_at: Time.current
+      token: SecureRandom.hex(32), scopes: 'mcp',
+      expires_in: 3600, revoked_at: Time.current
     )
 
     request = mock_request("Bearer #{token.token}")
