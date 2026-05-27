@@ -226,6 +226,29 @@ el:
             title: "Συγχαρητήρια! Το bot σου τρέχει."
             general_note: "Τα ελάχιστα ανταλλακτηρίων και τα απαιτούμενα ποσά εξισορρόπησης αλλάζουν. Οι συναλλαγές μπορεί μερικές φορές να φαίνονται ακανόνιστες, αλλά το bot στοχεύει πάντα στην επιθυμητή κατανομή και πρόγραμμά σου, χωρίς να χρειάζεται επιπλέον δουλειά."
         settings:
+            starting_time:
+                start_at_label_a11y: "Λειτουργία ώρας έναρξης"
+                modes:
+                    options:
+                        hour: "ώρα"
+                        monday: "Δευτέρα"
+                        tuesday: "Τρίτη"
+                        wednesday: "Τετάρτη"
+                        thursday: "Πέμπτη"
+                        friday: "Παρασκευή"
+                        saturday: "Σάββατο"
+                        sunday: "Κυριακή"
+                        date: "ημερομηνία"
+                    display:
+                        hour: "Έναρξη στις"
+                        monday: "Έναρξη τη Δευτέρα"
+                        tuesday: "Έναρξη την Τρίτη"
+                        wednesday: "Έναρξη την Τετάρτη"
+                        thursday: "Έναρξη την Πέμπτη"
+                        friday: "Έναρξη την Παρασκευή"
+                        saturday: "Έναρξη το Σάββατο"
+                        sunday: "Έναρξη την Κυριακή"
+                        date: "Έναρξη στις"
             smart_intervals:
                 sentence_html: '<b>Έξυπνα διαστήματα</b> Χωρισμός <span>του</span> ποσού <span>σε</span> <span>%{amount_html} %{quote}</span> μονάδες'
                 info: "Ο χωρισμός των %{quote_amount} %{quote} / %{interval} σε μονάδες των %{amount} %{quote} θα κάνει μία επένδυση κάθε %{smart_interval}"

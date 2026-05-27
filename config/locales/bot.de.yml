@@ -206,17 +206,28 @@ de:
             general_note: "Börsen-Mindestgrößen und erforderliche Rebalancing-Beträge ändern sich. Transaktionen können manchmal unregelmäßig aussehen, aber der Bot hält immer deine gewünschte Allokation und deinen Zeitplan ein, sodass kein zusätzlicher Aufwand nötig ist."
         settings:
             starting_time:
-                start_at_label: "Start am"
+                start_at_label_a11y: "Startzeit-Modus"
                 modes:
-                    hour: "Stunde"
-                    monday: "Montag"
-                    tuesday: "Dienstag"
-                    wednesday: "Mittwoch"
-                    thursday: "Donnerstag"
-                    friday: "Freitag"
-                    saturday: "Samstag"
-                    sunday: "Sonntag"
-                    date: "Datum"
+                    options:
+                        hour: "Stunde"
+                        monday: "Montag"
+                        tuesday: "Dienstag"
+                        wednesday: "Mittwoch"
+                        thursday: "Donnerstag"
+                        friday: "Freitag"
+                        saturday: "Samstag"
+                        sunday: "Sonntag"
+                        date: "Datum"
+                    display:
+                        hour: "Starte um"
+                        monday: "Starte am Montag"
+                        tuesday: "Starte am Dienstag"
+                        wednesday: "Starte am Mittwoch"
+                        thursday: "Starte am Donnerstag"
+                        friday: "Starte am Freitag"
+                        saturday: "Starte am Samstag"
+                        sunday: "Starte am Sonntag"
+                        date: "Starte am"
             smart_intervals:
                 sentence_html: '<b>Smart Intervals</b> Teilt <span>den Betrag</span> in <span>%{amount_html} %{quote}</span> Einheiten auf'
                 info: "Die Aufteilung deiner %{quote_amount} %{quote} / %{interval} in Einheiten von %{amount} %{quote} führt zu einer Investition alle %{smart_interval}"

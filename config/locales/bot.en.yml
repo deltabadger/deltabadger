@@ -227,17 +227,28 @@ en:
             general_note: "Exchange minimums and required rebalancing amounts change. Transactions might sometimes look irregular, but the bot always targets your desired allocation and schedule, so no extra work is needed."
         settings:
             starting_time:
-                start_at_label: "Start at"
+                start_at_label_a11y: "Start time mode"
                 modes:
-                    hour: "hour"
-                    monday: "Monday"
-                    tuesday: "Tuesday"
-                    wednesday: "Wednesday"
-                    thursday: "Thursday"
-                    friday: "Friday"
-                    saturday: "Saturday"
-                    sunday: "Sunday"
-                    date: "date"
+                    options:
+                        hour: "hour"
+                        monday: "Monday"
+                        tuesday: "Tuesday"
+                        wednesday: "Wednesday"
+                        thursday: "Thursday"
+                        friday: "Friday"
+                        saturday: "Saturday"
+                        sunday: "Sunday"
+                        date: "date"
+                    display:
+                        hour: "Start at"
+                        monday: "Start on Monday"
+                        tuesday: "Start on Tuesday"
+                        wednesday: "Start on Wednesday"
+                        thursday: "Start on Thursday"
+                        friday: "Start on Friday"
+                        saturday: "Start on Saturday"
+                        sunday: "Start on Sunday"
+                        date: "Start at"
             smart_intervals:
                 sentence_html: '<b>Smart Intervals</b> Split <span>the</span> amount <span>into</span> <span>%{amount_html} %{quote}</span> units'
                 info: "Splitting your %{quote_amount} %{quote} / %{interval} into units of %{amount} %{quote} will result in one investment every %{smart_interval}"

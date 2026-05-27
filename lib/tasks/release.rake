@@ -1,5 +1,20 @@
 # frozen_string_literal: true
 
+# IMPORTANT: this task commits ONLY the three version files listed in
+# RELEASE_VERSION_FILES. It does NOT stage anything else.
+#
+# Before running `release:patch|minor|major`, run `git status` and confirm
+# there are no UNTRACKED files that belong in the release. New files
+# (added in the working tree but never `git add`-ed) are silently left
+# behind by this task, and the resulting tagged commit can ship broken
+# code that references files which don't exist in the image.
+#
+# Past incident (v2.11.0): a model file added `include Bot::Startable`
+# but the new `app/models/bot/startable.rb` was untracked when the
+# release commit was made. The Docker image built fine but crashed on
+# boot with `uninitialized constant Bot::Startable`, taking out every
+# container the launchpad's update rolled to that version.
+
 RELEASE_VERSION_FILES = {
   'src-tauri/Cargo.toml' => /^(version = ")[\d.]+(")/,
   'src-tauri/tauri.conf.json' => /("version": ")[\d.]+(")/,

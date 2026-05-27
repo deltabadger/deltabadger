@@ -196,17 +196,28 @@ nl:
             general_note: "Minimale bedragen van exchanges en vereiste herbalanceringsbedragen kunnen veranderen. Orders kunnen er soms onregelmatig uitzien, maar de bot streeft altijd naar de gewenste toewijzing en schema, dus er is geen extra werk nodig."
         settings:
             starting_time:
-                start_at_label: "Start om"
+                start_at_label_a11y: "Starttijdmodus"
                 modes:
-                    hour: "uur"
-                    monday: "maandag"
-                    tuesday: "dinsdag"
-                    wednesday: "woensdag"
-                    thursday: "donderdag"
-                    friday: "vrijdag"
-                    saturday: "zaterdag"
-                    sunday: "zondag"
-                    date: "datum"
+                    options:
+                        hour: "uur"
+                        monday: "maandag"
+                        tuesday: "dinsdag"
+                        wednesday: "woensdag"
+                        thursday: "donderdag"
+                        friday: "vrijdag"
+                        saturday: "zaterdag"
+                        sunday: "zondag"
+                        date: "datum"
+                    display:
+                        hour: "Start om"
+                        monday: "Start op maandag"
+                        tuesday: "Start op dinsdag"
+                        wednesday: "Start op woensdag"
+                        thursday: "Start op donderdag"
+                        friday: "Start op vrijdag"
+                        saturday: "Start op zaterdag"
+                        sunday: "Start op zondag"
+                        date: "Start op"
             smart_intervals:
                 sentence_html: '<b>Smart Intervals</b> Splits <span>het bedrag</span> in eenheden van <span>%{amount_html} %{quote}</span>'
                 info: "Het splitsen van je %{quote_amount} %{quote} / %{interval} in eenheden van %{amount} %{quote} resulteert in één investering per %{smart_interval}"

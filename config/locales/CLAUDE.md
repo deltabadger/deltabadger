@@ -3,22 +3,31 @@ Understand the meaning, and write sentences that convey essentially the same mes
 — use local idioms and expressions instead of literal translations.
 
 ## Supported Languages
-- **German (DE)** Berlin/Germany variant only
-- **English (EN)** NYC/US variant only
-- **French (FR)** - Paris/France variant only
-- **Italian (IT)** - Rome/Italy variant only
-- **Spanish (ES)** - Madrid/Spain variant only
-- **Portuguese (PT)** - Lisbon/Portugal variant only
-- **Dutch (NL)** - Amsterdam/Netherlands variant only
-- **Polish (PL)** - Warsaw/Poland variant only
-- **Russian (RU)** - Moscow/Russian variant only
 
-**Note**: NEVER use non-European variants of Spanish, French, and Portugese.
+The full list of supported locales is `config.i18n.available_locales` in `config/application.rb`. Currently 15:
+
+- **English (EN)** — NYC/US variant only
+- **German (DE)** — Berlin/Germany variant only
+- **French (FR)** — Paris/France variant only
+- **Italian (IT)** — Rome/Italy variant only
+- **Spanish (ES)** — Madrid/Spain variant only
+- **Portuguese (PT)** — Lisbon/Portugal variant only
+- **Dutch (NL)** — Amsterdam/Netherlands variant only
+- **Polish (PL)** — Warsaw/Poland variant
+- **Russian (RU)** — Moscow/Russian variant
+- **Bulgarian (BG)** — Sofia/Bulgaria variant
+- **Greek (EL)** — Athens/Greece variant
+- **Swedish (SV)** — Stockholm/Sweden variant
+- **Danish (DA)** — Copenhagen/Denmark variant
+- **Czech (CS)** — Prague/Czech Republic variant
+- **Slovak (SK)** — Bratislava/Slovakia variant
+
+**Note**: NEVER use non-European variants of Spanish, French, and Portuguese.
 
 ## Translation Files
 - Location: `config/locales/`
 - Pattern: `[component].[language_code].yml`
-- Language codes: DE, EN, FR, IT, ES, PT, NL, PL, RU
+- Language codes: EN, DE, FR, IT, ES, PT, NL, PL, RU, BG, EL, SV, DA, CS, SK
 - Default fallback: English (EN)
 
 ## Conventions — DO NOT BREAK

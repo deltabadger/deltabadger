@@ -38,7 +38,6 @@ pt:
         invested: "Total Investido"
         portfolio_value: "Valor da Carteira"
         value: "Valor"
-        unit_price: "Preço unitário"
         value_symbol: "Valor (%{symbol})"
         invested_symbol: "Investido (%{symbol})"
         date: "Data"
