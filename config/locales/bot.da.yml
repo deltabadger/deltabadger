@@ -226,6 +226,29 @@ da:
             title: "Tillykke! Din bot kører."
             general_note: "Børsminimum og nødvendige rebalanceringsbeløb ændrer sig. Transaktioner kan nogle gange se uregelmæssige ud, men botten sigter altid efter din ønskede allokering og tidsplan, så der kræves ingen ekstra indsats."
         settings:
+            starting_time:
+                start_at_label_a11y: "Starttidstilstand"
+                modes:
+                    options:
+                        hour: "time"
+                        monday: "mandag"
+                        tuesday: "tirsdag"
+                        wednesday: "onsdag"
+                        thursday: "torsdag"
+                        friday: "fredag"
+                        saturday: "lørdag"
+                        sunday: "søndag"
+                        date: "dato"
+                    display:
+                        hour: "Start kl."
+                        monday: "Start mandag"
+                        tuesday: "Start tirsdag"
+                        wednesday: "Start onsdag"
+                        thursday: "Start torsdag"
+                        friday: "Start fredag"
+                        saturday: "Start lørdag"
+                        sunday: "Start søndag"
+                        date: "Start"
             smart_intervals:
                 sentence_html: '<b>Smarte intervaller</b> Opdel <span>beløbet</span> <span>i</span> <span>%{amount_html} %{quote}</span> enheder'
                 info: "Opdeling af dine %{quote_amount} %{quote} / %{interval} i enheder af %{amount} %{quote} resulterer i én investering hver %{smart_interval}"

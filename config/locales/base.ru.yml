@@ -38,7 +38,6 @@ ru:
         invested: "Всего вложено"
         portfolio_value: "Стоимость портфеля"
         value: "Стоимость"
-        unit_price: "Цена за единицу"
         value_symbol: "Стоимость (%{symbol})"
         invested_symbol: "Вложено (%{symbol})"
         date: "Дата"

@@ -226,6 +226,29 @@ sk:
             title: "Gratulujeme! Váš bot beží."
             general_note: "Minimálne veľkosti príkazov a potrebné čiastky na rebalancovanie sa menia. Transakcie môžu občas vyzerať nepravidelne, ale bot vždy smeruje k vašej požadovanej alokácii a rozvrhu, takže nie je potrebné nič ďalšie robiť."
         settings:
+            starting_time:
+                start_at_label_a11y: "Režim času spustenia"
+                modes:
+                    options:
+                        hour: "hodina"
+                        monday: "pondelok"
+                        tuesday: "utorok"
+                        wednesday: "streda"
+                        thursday: "štvrtok"
+                        friday: "piatok"
+                        saturday: "sobota"
+                        sunday: "nedeľa"
+                        date: "dátum"
+                    display:
+                        hour: "Začni o"
+                        monday: "Začni v pondelok"
+                        tuesday: "Začni v utorok"
+                        wednesday: "Začni v stredu"
+                        thursday: "Začni vo štvrtok"
+                        friday: "Začni v piatok"
+                        saturday: "Začni v sobotu"
+                        sunday: "Začni v nedeľu"
+                        date: "Začni"
             smart_intervals:
                 sentence_html: '<b>Inteligentné intervaly</b> Rozdeliť <span>celú</span> čiastku <span>na</span> <span>%{amount_html} %{quote}</span> jednotky'
                 info: "Rozdelenie %{quote_amount} %{quote} / %{interval} na jednotky po %{amount} %{quote} bude znamenať jednu investíciu každých %{smart_interval}"

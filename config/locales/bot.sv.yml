@@ -226,6 +226,29 @@ sv:
             title: "Grattis! Din bot körs."
             general_note: "Börsminiminivåer och nödvändiga ombalanseringsbelopp ändras. Transaktioner kan ibland se oregelbundna ut, men boten siktar alltid på din önskade allokering och schema, så inget extra arbete behövs."
         settings:
+            starting_time:
+                start_at_label_a11y: "Starttidsläge"
+                modes:
+                    options:
+                        hour: "timme"
+                        monday: "måndag"
+                        tuesday: "tisdag"
+                        wednesday: "onsdag"
+                        thursday: "torsdag"
+                        friday: "fredag"
+                        saturday: "lördag"
+                        sunday: "söndag"
+                        date: "datum"
+                    display:
+                        hour: "Börja kl."
+                        monday: "Börja på måndag"
+                        tuesday: "Börja på tisdag"
+                        wednesday: "Börja på onsdag"
+                        thursday: "Börja på torsdag"
+                        friday: "Börja på fredag"
+                        saturday: "Börja på lördag"
+                        sunday: "Börja på söndag"
+                        date: "Börja"
             smart_intervals:
                 sentence_html: '<b>Smarta intervall</b> Dela upp <span>beloppet</span> <span>i</span> <span>%{amount_html} %{quote}</span>-enheter'
                 info: "Att dela upp dina %{quote_amount} %{quote} / %{interval} i enheter om %{amount} %{quote} ger en investering var %{smart_interval}"

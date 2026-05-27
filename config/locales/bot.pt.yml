@@ -189,17 +189,28 @@ pt:
             general_note: "Os mínimos da exchange e as quantidades de rebalanceamento necessárias podem mudar. As ordens podem parecer irregulares às vezes, mas o bot sempre visa sua alocação e cronograma desejados, portanto, nenhum trabalho extra é necessário."
         settings:
             starting_time:
-                start_at_label: "Começar em"
+                start_at_label_a11y: "Modo de hora de início"
                 modes:
-                    hour: "hora"
-                    monday: "segunda-feira"
-                    tuesday: "terça-feira"
-                    wednesday: "quarta-feira"
-                    thursday: "quinta-feira"
-                    friday: "sexta-feira"
-                    saturday: "sábado"
-                    sunday: "domingo"
-                    date: "data"
+                    options:
+                        hour: "hora"
+                        monday: "segunda-feira"
+                        tuesday: "terça-feira"
+                        wednesday: "quarta-feira"
+                        thursday: "quinta-feira"
+                        friday: "sexta-feira"
+                        saturday: "sábado"
+                        sunday: "domingo"
+                        date: "data"
+                    display:
+                        hour: "Iniciar às"
+                        monday: "Iniciar segunda-feira"
+                        tuesday: "Iniciar terça-feira"
+                        wednesday: "Iniciar quarta-feira"
+                        thursday: "Iniciar quinta-feira"
+                        friday: "Iniciar sexta-feira"
+                        saturday: "Iniciar sábado"
+                        sunday: "Iniciar domingo"
+                        date: "Iniciar a"
             smart_intervals:
                 sentence_html: '<b>Smart Intervals</b> Dividir <span>o montante</span> em unidades de <span>%{amount_html} %{quote}</span>'
                 info: "Dividir o seu %{quote_amount} %{quote} / %{interval} em unidades de %{amount} %{quote} resultará num investimento a cada %{smart_interval}"

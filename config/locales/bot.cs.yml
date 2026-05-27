@@ -226,6 +226,29 @@ cs:
             title: "Gratulujeme! Váš bot běží."
             general_note: "Minimální velikosti příkazů a potřebné částky pro rebalancování se mění. Transakce mohou občas vypadat nepravidelně, ale bot vždy směřuje k vaší požadované alokaci a rozvrhu, takže není potřeba nic dalšího dělat."
         settings:
+            starting_time:
+                start_at_label_a11y: "Režim času spuštění"
+                modes:
+                    options:
+                        hour: "hodina"
+                        monday: "pondělí"
+                        tuesday: "úterý"
+                        wednesday: "středa"
+                        thursday: "čtvrtek"
+                        friday: "pátek"
+                        saturday: "sobota"
+                        sunday: "neděle"
+                        date: "datum"
+                    display:
+                        hour: "Začni v"
+                        monday: "Začni v pondělí"
+                        tuesday: "Začni v úterý"
+                        wednesday: "Začni ve středu"
+                        thursday: "Začni ve čtvrtek"
+                        friday: "Začni v pátek"
+                        saturday: "Začni v sobotu"
+                        sunday: "Začni v neděli"
+                        date: "Začni"
             smart_intervals:
                 sentence_html: '<b>Chytré intervaly</b> Rozdělit <span>celou</span> částku <span>na</span> <span>%{amount_html} %{quote}</span> jednotky'
                 info: "Rozdělení %{quote_amount} %{quote} / %{interval} na jednotky po %{amount} %{quote} bude znamenat jednu investici každých %{smart_interval}"

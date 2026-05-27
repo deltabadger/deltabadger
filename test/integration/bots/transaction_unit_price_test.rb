@@ -10,8 +10,8 @@ class Bots::TransactionUnitPriceTest < ActionDispatch::IntegrationTest
   test 'shows unit price column header on bot show page' do
     get bot_path(id: @bot.id)
     assert_response :ok
-    assert_select 'th', text: I18n.t('data_labels.unit_price')
-    assert_select 'th[data-order-filter-target=columnHeader]', text: I18n.t('data_labels.unit_price')
+    assert_select 'th', text: I18n.t('data_labels.price')
+    assert_select 'th[data-order-filter-target=columnHeader]', text: I18n.t('data_labels.price')
   end
 
   test 'closed submitted order renders unit price from executed amounts' do

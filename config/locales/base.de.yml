@@ -38,7 +38,6 @@ de:
         invested: "Gesamtinvestition"
         portfolio_value: "Portfoliowert"
         value: "Wert"
-        unit_price: "Stückpreis"
         value_symbol: "Wert (%{symbol})"
         invested_symbol: "Investiert (%{symbol})"
         date: "Datum"
