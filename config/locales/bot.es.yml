@@ -199,7 +199,6 @@ es:
             general_note: "Los mínimos del exchange y las cantidades requeridas para el rebalanceo pueden cambiar. Las transacciones a veces pueden parecer irregulares, pero el bot siempre apunta a tu asignación y programación deseadas, así que no necesitas hacer nada más."
         settings:
             starting_time:
-                start_at_label_a11y: "Modo de hora de inicio"
                 modes:
                     options:
                         hour: "hora"

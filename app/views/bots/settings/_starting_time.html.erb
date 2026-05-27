@@ -29,8 +29,7 @@
                          mode_options,
                          { selected: mode },
                          data: { action: "change->form--submit#submit" },
-                         disabled: bot.working?,
-                         aria: { label: t('bot.settings.starting_time.start_at_label_a11y') } %>
+                         disabled: bot.working? %>
           </div>
 
           <% if mode == 'date' %>

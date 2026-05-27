@@ -227,7 +227,6 @@ da:
             general_note: "Børsminimum og nødvendige rebalanceringsbeløb ændrer sig. Transaktioner kan nogle gange se uregelmæssige ud, men botten sigter altid efter din ønskede allokering og tidsplan, så der kræves ingen ekstra indsats."
         settings:
             starting_time:
-                start_at_label_a11y: "Starttidstilstand"
                 modes:
                     options:
                         hour: "time"
