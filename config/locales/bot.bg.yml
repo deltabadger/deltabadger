@@ -226,6 +226,29 @@ bg:
             title: "Поздравления! Вашият бот работи."
             general_note: "Минималните размери на поръчките и необходимите суми за ребалансиране се променят. Транзакциите може понякога да изглеждат нередовни, но ботът винаги се стреми към желаната от вас алокация и график, така че не е нужно да правите нищо допълнително."
         settings:
+            starting_time:
+                start_at_label_a11y: "Режим на началния час"
+                modes:
+                    options:
+                        hour: "час"
+                        monday: "понеделник"
+                        tuesday: "вторник"
+                        wednesday: "сряда"
+                        thursday: "четвъртък"
+                        friday: "петък"
+                        saturday: "събота"
+                        sunday: "неделя"
+                        date: "дата"
+                    display:
+                        hour: "Започни в"
+                        monday: "Започни в понеделник"
+                        tuesday: "Започни във вторник"
+                        wednesday: "Започни в сряда"
+                        thursday: "Започни в четвъртък"
+                        friday: "Започни в петък"
+                        saturday: "Започни в събота"
+                        sunday: "Започни в неделя"
+                        date: "Започни на"
             smart_intervals:
                 sentence_html: '<b>Умни интервали</b> Раздели <span>цялата</span> сума <span>на</span> <span>%{amount_html} %{quote}</span> единици'
                 info: "Разделянето на %{quote_amount} %{quote} / %{interval} на единици по %{amount} %{quote} означава една инвестиция на всеки %{smart_interval}"

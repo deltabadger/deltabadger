@@ -38,7 +38,6 @@ pl:
         invested: "Łącznie zainwestowano"
         portfolio_value: "Wartość portfela"
         value: "Wartość"
-        unit_price: "Cena jednostkowa"
         value_symbol: "Wartość (%{symbol})"
         invested_symbol: "Zainwestowano (%{symbol})"
         date: "Data"

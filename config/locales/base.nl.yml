@@ -38,7 +38,6 @@ nl:
         invested: "Totaal geïnvesteerd"
         portfolio_value: "Portfoliowaarde"
         value: "Waarde"
-        unit_price: "Prijs per stuk"
         value_symbol: "Waarde (%{symbol})"
         invested_symbol: "Geïnvesteerd (%{symbol})"
         date: "Datum"

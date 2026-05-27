@@ -195,17 +195,28 @@ ru:
             general_note: "Минимумы биржи и требуемые суммы ребалансировки могут меняться. Ордера иногда могут выглядеть нерегулярными, но бот всегда нацелен на желаемое распределение и расписание, поэтому дополнительная работа не требуется."
         settings:
             starting_time:
-                start_at_label: "Начать"
+                start_at_label_a11y: "Режим времени запуска"
                 modes:
-                    hour: "часа"
-                    monday: "понедельника"
-                    tuesday: "вторника"
-                    wednesday: "среды"
-                    thursday: "четверга"
-                    friday: "пятницы"
-                    saturday: "субботы"
-                    sunday: "воскресенья"
-                    date: "даты"
+                    options:
+                        hour: "час"
+                        monday: "понедельник"
+                        tuesday: "вторник"
+                        wednesday: "среда"
+                        thursday: "четверг"
+                        friday: "пятница"
+                        saturday: "суббота"
+                        sunday: "воскресенье"
+                        date: "дата"
+                    display:
+                        hour: "Начать в"
+                        monday: "Начать в понедельник"
+                        tuesday: "Начать во вторник"
+                        wednesday: "Начать в среду"
+                        thursday: "Начать в четверг"
+                        friday: "Начать в пятницу"
+                        saturday: "Начать в субботу"
+                        sunday: "Начать в воскресенье"
+                        date: "Начать"
             smart_intervals:
                 sentence_html: '<b>Smart Intervals</b> Разделить <span>сумму</span> на единицы по <span>%{amount_html} %{quote}</span>'
                 info: "Разделение ваших %{quote_amount} %{quote} / %{interval} на единицы по %{amount} %{quote} приведет к одной инвестиции каждые %{smart_interval}"
