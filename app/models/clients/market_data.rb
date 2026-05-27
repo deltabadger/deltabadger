@@ -25,6 +25,20 @@ class Clients::MarketData < Client
     end
   end
 
+  def get_stocks
+    with_rescue do
+      response = v2_connection.get('api/v2/assets', { type: 'stock,etf', include: 'identifiers' })
+      Result::Success.new(response.body)
+    end
+  end
+
+  def get_alpaca_listings
+    with_rescue do
+      response = v2_connection.get('api/v2/listings', { venue_scheme: 'alpaca_exchange' })
+      Result::Success.new(response.body)
+    end
+  end
+
   def get_tickers(exchange:)
     with_rescue do
       response = connection.get("api/v1/tickers/#{exchange}")
@@ -67,7 +81,17 @@ class Clients::MarketData < Client
   private
 
   def connection
-    @connection ||= Faraday.new(url: @url, **OPTIONS) do |config|
+    @connection ||= build_connection
+  end
+
+  # Separate accessor so v2 callers (stocks, alpaca listings) can be stubbed independently
+  # of v1 in tests. The wire protocol is the same; only the URL paths differ.
+  def v2_connection
+    @v2_connection ||= build_connection
+  end
+
+  def build_connection
+    Faraday.new(url: @url, **OPTIONS) do |config|
       config.headers = {
         'Authorization' => "Bearer #{@token}",
         'Accept' => 'application/json'
