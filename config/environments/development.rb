@@ -72,6 +72,16 @@ Rails.application.configure do
   # routes, locales, etc. This feature depends on the listen gem.
   config.file_watcher = ActiveSupport::EventedFileUpdateChecker
 
+  # ActionCable origin allowlist. Rails' dev default is localhost-only and
+  # rejects browser connections coming through a Cloudflare Tunnel (e.g.
+  # `<hex>.deltabadger.com`), which the upgrade handshake surfaces in the
+  # browser console as "WebSocket connection ... /cable failed".
+  config.action_cable.allowed_request_origins = [
+    %r{\Ahttps?://localhost(:\d+)?\z},
+    %r{\Ahttps?://127\.0\.0\.1(:\d+)?\z},
+    %r{\Ahttps?://[a-z0-9-]+\.deltabadger\.com\z}
+  ]
+
   config.action_mailer.delivery_method = :letter_opener
   config.action_mailer.perform_deliveries = true
   config.action_mailer.default_url_options = { host: ENV.fetch('APP_ROOT_URL'), protocol: 'http' }

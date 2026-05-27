@@ -1,0 +1,38 @@
+<%# Mirrors `bots/_asset_search_result.html.erb` but replaces the rightmost
+    exchange-icons cell with a `.ticker-group` showing the chosen index's top
+    base assets that pair with this currency on the selected exchange. Up to
+    `Index::ExchangeAvailability::DISPLAY_COINS_COUNT` pills, then a `+N`
+    overflow badge. Hover affordance matches the index-tile pattern: pills
+    spread out, badge fades. %>
+<div class="modal--search__assets__item modal--search__assets__item--with-coins" data-arrow-keys-navigation-target="item">
+  <%= button_tag name: "#{bot.model_name.param_key}[#{asset_field}]", value: id, type: :submit, data: { arrow_keys_navigation_target: "button", turbo_frame: "modal_content" } do %>
+    <div class="modal--search__cell modal--search__cell--ticker">
+      <div class="ticker<%= ' ticker--stock' if category == 'Stock' %>" style="background: <%= ensure_contrast(color || "#8A9BA8") %>">
+        <%= symbol %>
+      </div>
+    </div>
+    <div class="modal--search__cell modal--search__cell--name">
+      <%= name %>
+    </div>
+    <div class="modal--search__cell modal--search__cell--exchanges">
+      <%# Show up to 7 pills here — wider than the index-tile default of 5
+          (Index::ExchangeAvailability::DISPLAY_COINS_COUNT) because the
+          spendable picker row has more horizontal room than a tile. %>
+      <% display_limit = 6 %>
+      <% all_top = top_assets || [] %>
+      <% visible = all_top.first(display_limit) %>
+      <% if visible.any? %>
+        <div class="ticker-group ticker-group--many">
+          <% visible.each do |asset| %>
+            <% pill_color = ensure_contrast(asset.color || '#8A9BA8') %>
+            <span class="ticker" style="background-color: <%= pill_color %>"><%= asset.symbol %></span>
+          <% end %>
+          <% extra = all_top.size - visible.size %>
+          <% if extra.positive? %>
+            <span class="ticker ticker--more">+<%= extra %></span>
+          <% end %>
+        </div>
+      <% end %>
+    </div>
+  <% end %>
+</div>

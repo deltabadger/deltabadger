@@ -1,5 +1,5 @@
 <%= render 'layouts/modal/full_page' do %>
-  <div class="bot-creation-layout index-picker-layout" data-controller="index-filter">
+  <div class="bot-creation-layout index-picker-layout" data-controller="index-filter" data-dialog-size="wide">
     <%= render partial: 'bots/dca_indexes/new_step_progress_bar', locals: { current_step: :index } %>
 
     <div class="index-search">
@@ -12,7 +12,7 @@
              data-action="input->index-filter#filter">
     </div>
 
-    <%= form_with url: bots_dca_indexes_pick_index_path, method: :post, class: 'itiles', data: { turbo_frame: 'modal_content' } do |f| %>
+    <%= form_with url: bots_dca_indexes_pick_index_path, method: :post, class: 'itiles selectable-options', data: { turbo_frame: 'modal_content' } do |f| %>
       <% if @indices.present? %>
         <% @indices.each_with_index do |index, idx| %>
           <% is_top_coins = index.source == Index::SOURCE_INTERNAL %>

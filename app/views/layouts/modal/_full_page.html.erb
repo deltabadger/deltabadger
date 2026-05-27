@@ -1,3 +1,8 @@
+<%# The outer dialog stays neutral. Per-step sizing/styling is driven by a
+    `data-dialog-size` attribute on the step's inner wrapper (replaced per
+    step via the `modal_content` turbo frame), targeted from CSS via
+    `.dialogview__vertical-center:has([data-dialog-size="wide"])` etc. This
+    keeps the modifier scoped to whichever step is currently rendered. %>
 <%= turbo_frame_tag "modal" do %>
   <dialog data-controller="modal--base" data-modal--base-close-url-value="<%= local_assigns[:close_url] || bots_path %>" class="dialogview" data-hw-animate-in="animate-modal-in" data-hw-animate-out="animate-modal-out">
     <div class="dialogview__vertical-center">

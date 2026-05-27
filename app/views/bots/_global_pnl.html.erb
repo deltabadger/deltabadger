@@ -3,7 +3,7 @@
     <% pnl_percent = global_pnl[:percent] %>
     <% profit_usd = global_pnl[:profit_usd] %>
     <% color_class = pnl_percent.negative? ? 'text-danger' : pnl_percent.positive? ? 'text-success' : '' %>
-    <h1 class="header header--1 <%= color_class %>"
+    <h1 class="header header--1"
         data-controller="value-toggle"
         data-action="click->value-toggle#toggle"
         style="cursor: pointer;">

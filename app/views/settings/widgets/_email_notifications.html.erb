@@ -1,8 +1,13 @@
 <%= turbo_frame_tag "email_notifications" do %>
   <div class="widget widget--settings">
-    <% is_custom_configured = AppConfig.smtp_provider == 'custom_smtp' %>
-    <% is_env_configured = AppConfig.smtp_provider == 'env_smtp' %>
-    <% is_configured = AppConfig.smtp_configured? %>
+    <%# When platform-provided SMTP is available, lock to it regardless of
+        what AppConfig says — mirrors MarketDataSettings.current_provider's
+        env-takes-precedence behavior so the ON indicator agrees with the
+        locked single-radio UI below. %>
+    <% env_available = AppConfig.smtp_env_available? %>
+    <% is_custom_configured = !env_available && AppConfig.smtp_provider == 'custom_smtp' %>
+    <% is_env_configured = env_available || AppConfig.smtp_provider == 'env_smtp' %>
+    <% is_configured = env_available || AppConfig.smtp_configured? %>
     <h4 class="modal__title">
       <%= t('settings.index.email_notifications_section') %>:
       <% if is_configured %>
@@ -19,25 +24,30 @@
     } do |f| %>
       <% show_smtp_form = @show_smtp_form || false %>
       <div class="form__radios" style="display: flex; justify-content: center;">
-        <label class="form__radio">
-          <%= radio_button_tag :smtp_provider, '', !is_configured && !show_smtp_form, data: { action: "form--email-notifications#selectNone" } %>
-          <span><%= t('settings.email_notifications.none') %></span>
-        </label>
-
-        <label class="form__radio">
-          <%= radio_button_tag :smtp_provider, 'custom_smtp', is_custom_configured || show_smtp_form, data: { action: "form--email-notifications#selectCustom" } %>
-          <span>Custom SMTP</span>
-        </label>
-
-        <% if AppConfig.smtp_env_available? %>
+        <% if env_available %>
+          <%# Platform-provided SMTP is available. Lock to it — no other choices, no toggling. %>
           <label class="form__radio">
-            <%= radio_button_tag :smtp_provider, 'env_smtp', is_env_configured, data: { action: "form--email-notifications#selectEnv" } %>
+            <%= radio_button_tag :smtp_provider, 'env_smtp', true, disabled: true %>
             <span><%= AppConfig.smtp_env_provider_name %></span>
+          </label>
+        <% else %>
+          <label class="form__radio">
+            <%= radio_button_tag :smtp_provider, '', !is_configured && !show_smtp_form, data: { action: "form--email-notifications#selectNone" } %>
+            <span><%= t('settings.email_notifications.none') %></span>
+          </label>
+
+          <label class="form__radio">
+            <%= radio_button_tag :smtp_provider, 'custom_smtp', is_custom_configured || show_smtp_form, data: { action: "form--email-notifications#selectCustom" } %>
+            <span>Custom SMTP</span>
           </label>
         <% end %>
       </div>
 
-      <% if is_custom_configured %>
+      <% if env_available %>
+        <%# Platform SMTP is the only option. Skip the Custom SMTP form
+            entirely. The "send test" button still appears below via the
+            existing is_env_configured branch. %>
+      <% elsif is_custom_configured %>
         <%# Custom SMTP configured: show status message %>
         <% smtp_host = AppConfig.smtp_host.presence || 'smtp.gmail.com' %>
         <p style="text-align: center; margin-top: 3rem"><%= t('settings.email_notifications.smtp_configured_html', host: smtp_host) %></p>
