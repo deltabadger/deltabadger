@@ -227,7 +227,6 @@ sv:
             general_note: "Börsminiminivåer och nödvändiga ombalanseringsbelopp ändras. Transaktioner kan ibland se oregelbundna ut, men boten siktar alltid på din önskade allokering och schema, så inget extra arbete behövs."
         settings:
             starting_time:
-                start_at_label_a11y: "Starttidsläge"
                 modes:
                     options:
                         hour: "timme"

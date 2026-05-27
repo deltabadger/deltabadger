@@ -199,7 +199,6 @@ pl:
             general_note: "Minimalne kwoty na giełdach i wymagane kwoty rebalancingu mogą się zmieniać. Zlecenia mogą czasami wyglądać nieregularnie, ale bot zawsze dąży do Twojej pożądanej alokacji i harmonogramu, więc nie jest wymagana dodatkowa praca."
         settings:
             starting_time:
-                start_at_label_a11y: "Tryb czasu rozpoczęcia"
                 modes:
                     options:
                         hour: "godzina"

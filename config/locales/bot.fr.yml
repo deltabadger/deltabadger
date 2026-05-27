@@ -200,7 +200,6 @@ fr:
             general_note: "Les minimums d'échange et les montants de rééquilibrage requis peuvent changer. Les commandes peuvent parfois sembler irrégulières, mais le bot cible toujours votre allocation et votre calendrier souhaités, donc aucun travail supplémentaire n'est nécessaire."
         settings:
             starting_time:
-                start_at_label_a11y: "Mode d'heure de démarrage"
                 modes:
                     options:
                         hour: "heure"

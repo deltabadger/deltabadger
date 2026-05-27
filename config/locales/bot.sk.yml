@@ -227,7 +227,6 @@ sk:
             general_note: "Minimálne veľkosti príkazov a potrebné čiastky na rebalancovanie sa menia. Transakcie môžu občas vyzerať nepravidelne, ale bot vždy smeruje k vašej požadovanej alokácii a rozvrhu, takže nie je potrebné nič ďalšie robiť."
         settings:
             starting_time:
-                start_at_label_a11y: "Režim času spustenia"
                 modes:
                     options:
                         hour: "hodina"

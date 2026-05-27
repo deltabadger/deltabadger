@@ -227,7 +227,6 @@ en:
             general_note: "Exchange minimums and required rebalancing amounts change. Transactions might sometimes look irregular, but the bot always targets your desired allocation and schedule, so no extra work is needed."
         settings:
             starting_time:
-                start_at_label_a11y: "Start time mode"
                 modes:
                     options:
                         hour: "hour"
