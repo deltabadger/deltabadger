@@ -4,8 +4,11 @@
 
     <div class="conversational conversational--bot-setup">
       <%= t('rules.withdrawals.sentence.withdraw_all') %>
-      <%= form_with url: new_rules_withdrawals_pick_asset_path, method: :get, data: { controller: "form--submit-after-delay", turbo_frame: "asset-picker" } do |f| %>
-        <%= f.text_field :query, autofocus: true, autocomplete: "off", placeholder: "…", data: { action: "input->form--submit-after-delay#submit" }, class: "conversational__input sinput" %>
+      <%= form_with url: new_rules_withdrawals_pick_asset_path, method: :get,
+                    data: { controller: "form--submit-after-delay", turbo_frame: "asset-picker" },
+                    class: "ticker active" do |f| %>
+        <%= f.text_field :query, autofocus: true, autocomplete: "off", placeholder: "…",
+                         data: { action: "input->form--submit-after-delay#submit" } %>
       <% end %>
     </div>
 
