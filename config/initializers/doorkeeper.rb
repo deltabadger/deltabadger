@@ -19,6 +19,7 @@ Doorkeeper.configure do
   use_refresh_token
 
   default_scopes :mcp
+  optional_scopes :api
 
   # Always show consent screen — any client can self-register via DCR
   skip_authorization do

@@ -164,6 +164,12 @@ fr:
             not_configured: 'Les notifications par e-mail ne sont pas configurées.'
             disconnect: 'Déconnecter'
             disconnected: 'Fournisseur e-mail déconnecté.'
+        rest:
+            title: 'API REST'
+            description: 'Pilote Deltabadger depuis tes propres scripts.'
+            download_api_docs: 'Télécharger la doc de l''API'
+            regenerate_token: 'Régénérer'
+            regenerate_confirm: 'Régénérer le jeton ? Les scripts utilisant l''actuel cesseront de fonctionner jusqu''à ce que tu les mettes à jour.'
         mcp:
             title: 'MCP'
             description: "Utilise cette URL pour connecter Claude (et d'autres modèles d'IA). Elle donne à ton assistant IA accès à tes bots et exchanges."

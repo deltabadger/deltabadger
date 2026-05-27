@@ -12,39 +12,15 @@ class UpdateRuleSettingsTool < ApplicationMCPTool
                             description: "'fee_percentage' or 'min_amount' — which threshold to use (optional)"
 
   def perform
-    user = current_user
-    rule = user.rules.find_by(id: rule_id.to_i)
+    result = BotApi::Rules::UpdateSettings.call(
+      user: current_user, rule_id: rule_id,
+      withdrawal_percentage: withdrawal_percentage,
+      max_fee_percentage: max_fee_percentage,
+      min_amount: min_amount,
+      threshold_type: threshold_type
+    )
+    return render(text: result.error_message) unless result.success?
 
-    unless rule
-      render text: 'Rule not found.'
-      return
-    end
-
-    if rule.working?
-      render text: "Rule must be stopped before updating settings. Current status: #{rule.status}."
-      return
-    end
-
-    updates = {}
-    updates[:withdrawal_percentage] = withdrawal_percentage.to_s if withdrawal_percentage.present?
-    updates[:max_fee_percentage] = max_fee_percentage.to_s if max_fee_percentage.present?
-    updates[:min_amount] = min_amount.to_s if min_amount.present?
-    updates[:threshold_type] = threshold_type if threshold_type.present?
-
-    if updates.empty?
-      render text: 'No settings provided to update.'
-      return
-    end
-
-    rule.withdrawal_percentage = updates[:withdrawal_percentage] if updates[:withdrawal_percentage]
-    rule.max_fee_percentage = updates[:max_fee_percentage] if updates[:max_fee_percentage]
-    rule.min_amount = updates[:min_amount] if updates[:min_amount]
-    rule.threshold_type = updates[:threshold_type] if updates[:threshold_type]
-
-    if rule.save
-      render text: "Rule ##{rule.id} settings updated: #{updates.keys.join(', ')}."
-    else
-      render text: "Failed to update rule: #{rule.errors.full_messages.join(', ')}"
-    end
+    render text: "Rule ##{result.data[:id]} settings updated: #{result.data[:updated].join(', ')}."
   end
 end

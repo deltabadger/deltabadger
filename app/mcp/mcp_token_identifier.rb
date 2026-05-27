@@ -4,18 +4,25 @@ class MCPTokenIdentifier < ActionMCP::GatewayIdentifier
   identifier :user
   authenticates :bearer_token
 
+  # Errors are surfaced from the shared resolver. Messages are kept stable so
+  # existing client behavior (and existing assertions) don't shift.
+  ERROR_MESSAGES = {
+    missing: 'Missing bearer token',
+    invalid: 'Invalid access token',
+    revoked: 'Access token revoked',
+    expired: 'Access token expired',
+    insufficient_scope: 'Access token missing required scope',
+    user_not_found: 'User not found'
+  }.freeze
+
   def resolve
-    token_string = extract_bearer_token
-    raise Unauthorized, 'Missing bearer token' if token_string.blank?
+    result = OauthBearerTokenResolver.call(
+      authorization_header: @request.env['HTTP_AUTHORIZATION'],
+      required_scope: 'mcp'
+    )
 
-    access_token = Doorkeeper::AccessToken.by_token(token_string)
-    raise Unauthorized, 'Invalid access token' unless access_token
-    raise Unauthorized, 'Access token revoked' if access_token.revoked?
-    raise Unauthorized, 'Access token expired' if access_token.expired?
+    return result.user if result.success?
 
-    user = User.find_by(id: access_token.resource_owner_id)
-    raise Unauthorized, 'User not found' unless user
-
-    user
+    raise Unauthorized, ERROR_MESSAGES.fetch(result.error, 'Unauthorized')
   end
 end

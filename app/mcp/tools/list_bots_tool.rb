@@ -8,34 +8,28 @@ class ListBotsTool < ApplicationMCPTool
   property :status, type: 'string', description: 'Filter by status: scheduled, executing, waiting, retrying, stopped, created (optional)'
 
   def perform
-    user = current_user
-    bots = user.bots.not_deleted.includes(:exchange)
+    result = BotApi::Bots::List.call(user: current_user, status: status)
 
-    bots = bots.where(status: status) if status.present?
-
-    if bots.empty?
+    if result.data[:count].zero?
       render text: 'No bots found.'
       return
     end
 
-    lines = bots.map do |bot|
-      base = bot.respond_to?(:base_asset) ? bot.base_asset&.symbol : nil
-      quote = bot.quote_asset&.symbol
+    render text: present(result.data)
+  end
 
-      pair = if bot.dca_dual_asset?
-               "#{bot.base0_asset&.symbol}+#{bot.base1_asset&.symbol}/#{quote}"
-             elsif base && quote
-               "#{base}/#{quote}"
-             else
-               'N/A'
-             end
+  private
 
-      interval = bot.settings['interval'] || 'N/A'
-      amount = bot.settings['quote_amount']
+  def present(data)
+    lines = data[:bots].map do |row|
+      pair = row[:pair] || 'N/A'
+      exchange = row[:exchange] || 'N/A'
+      interval = row[:interval] || 'N/A'
+      type_label = row[:type].to_s.demodulize.titleize
 
-      "- #{bot.label} | #{bot.type.demodulize.titleize} | #{pair} | #{bot.exchange&.name || 'N/A'} | #{bot.status} | #{amount} #{quote}/#{interval}"
+      "- #{row[:label]} | #{type_label} | #{pair} | #{exchange} | #{row[:status]} | #{row[:quote_amount]} #{row[:quote_asset]}/#{interval}"
     end
 
-    render text: "Bots (#{bots.size}):\n#{lines.join("\n")}"
+    "Bots (#{data[:count]}):\n#{lines.join("\n")}"
   end
 end

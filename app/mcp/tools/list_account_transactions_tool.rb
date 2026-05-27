@@ -14,44 +14,31 @@ class ListAccountTransactionsTool < ApplicationMCPTool
   property :limit, type: 'number', description: 'Number of transactions to return (default: 50, max: 200)'
 
   def perform
-    max_limit = [limit&.to_i || 50, 200].min
-    max_limit = 50 if max_limit <= 0
+    result = BotApi::Transactions::ListAccount.call(
+      user: current_user,
+      exchange_id: exchange_id, from_date: from_date, to_date: to_date,
+      entry_type: entry_type, limit: limit
+    )
+    return render(text: result.error_message) unless result.success?
 
-    scope = AccountTransaction.for_user(current_user).by_date
-
-    if exchange_id.present?
-      exchange = Exchange.find_by(id: exchange_id.to_i)
-      unless exchange
-        render text: "Exchange not found. Use 'list_exchanges' to see available exchanges."
-        return
-      end
-      scope = scope.for_exchange(exchange)
-    end
-
-    from = from_date.present? ? Date.parse(from_date).beginning_of_day : nil
-    to = to_date.present? ? Date.parse(to_date).end_of_day : nil
-    scope = scope.in_date_range(from, to)
-
-    scope = scope.where(entry_type: entry_type) if entry_type.present?
-    scope = scope.limit(max_limit)
-
-    transactions = scope.includes(:exchange)
-
-    if transactions.empty?
+    if result.data[:count].zero?
       render text: 'No account transactions found.'
       return
     end
 
-    lines = transactions.map do |tx|
-      date = tx.transacted_at.strftime('%Y-%m-%d %H:%M')
-      base = "#{tx.base_amount} #{tx.base_currency}"
-      quote = tx.quote_amount.present? ? " / #{tx.quote_amount} #{tx.quote_currency}" : ''
-      fee = tx.fee_amount.present? ? " | Fee: #{tx.fee_amount} #{tx.fee_currency}" : ''
-      exchange_name = tx.exchange&.name || 'N/A'
+    render text: present(result.data)
+  end
 
-      "- [#{date}] #{tx.entry_type.upcase} #{base}#{quote}#{fee} | #{exchange_name}"
+  private
+
+  def present(data)
+    lines = data[:transactions].map do |row|
+      date = row[:transacted_at].strftime('%Y-%m-%d %H:%M')
+      base = "#{row[:base_amount]} #{row[:base_currency]}"
+      quote = row[:quote_amount].present? ? " / #{row[:quote_amount]} #{row[:quote_currency]}" : ''
+      fee = row[:fee_amount].present? ? " | Fee: #{row[:fee_amount]} #{row[:fee_currency]}" : ''
+      "- [#{date}] #{row[:entry_type].upcase} #{base}#{quote}#{fee} | #{row[:exchange] || 'N/A'}"
     end
-
-    render text: "Account transactions (#{lines.size}):\n#{lines.join("\n")}"
+    "Account transactions (#{data[:count]}):\n#{lines.join("\n")}"
   end
 end

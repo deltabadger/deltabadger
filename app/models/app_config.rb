@@ -61,6 +61,39 @@ class AppConfig < ApplicationRecord
                 list_account_transactions]
   }.freeze
 
+  # REST API per-tool permissions. Tool names mirror MCP names; scope is read/control/trade
+  # (no tax report generation, no paper-trading toggles). Defaults are all off — REST is opt-in.
+  REST_TOOL_DEFAULTS = {
+    'list_bots' => false,
+    'get_bot_details' => false,
+    'list_exchanges' => false,
+    'get_exchange_balances' => false,
+    'get_portfolio_summary' => false,
+    'list_transactions' => false,
+    'list_open_orders' => false,
+    'export_transactions_csv' => false,
+    'list_account_transactions' => false,
+    'create_bot' => false,
+    'start_bot' => false,
+    'stop_bot' => false,
+    'update_bot_settings' => false,
+    'start_rule' => false,
+    'stop_rule' => false,
+    'update_rule_settings' => false,
+    'market_buy' => false,
+    'market_sell' => false,
+    'limit_buy' => false,
+    'limit_sell' => false,
+    'cancel_order' => false
+  }.freeze
+
+  REST_TOOL_GROUPS = {
+    'read' => %w[list_bots get_bot_details list_exchanges get_exchange_balances get_portfolio_summary
+                 list_transactions list_open_orders export_transactions_csv list_account_transactions],
+    'control' => %w[create_bot start_bot stop_bot update_bot_settings start_rule stop_rule update_rule_settings],
+    'trade' => %w[market_buy market_sell limit_buy limit_sell cancel_order]
+  }.freeze
+
   SMTP_PROVIDER = 'smtp_provider'.freeze # 'custom_smtp' or 'env_smtp'
   SMTP_USERNAME = 'smtp_username'.freeze
   SMTP_PASSWORD = 'smtp_password'.freeze
@@ -277,5 +310,12 @@ class AppConfig < ApplicationRecord
   def self.mcp_url
     base = ENV.fetch('APP_ROOT_URL', 'http://localhost:3000')
     "#{base}/mcp"
+  end
+
+  # REST API base URL — displayed in Settings → Connect → REST API for users
+  # to copy into their scripts. Same env-var source as `mcp_url` for consistency.
+  def self.api_url
+    base = ENV.fetch('APP_ROOT_URL', 'http://localhost:3000')
+    "#{base}/api/v1"
   end
 end

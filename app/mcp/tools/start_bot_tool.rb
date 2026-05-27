@@ -7,25 +7,9 @@ class StartBotTool < ApplicationMCPTool
   property :bot_id, type: 'number', required: true, description: 'The bot ID'
 
   def perform
-    user = current_user
-    bot = user.bots.not_deleted.find_by(id: bot_id.to_i)
+    result = BotApi::Bots::Start.call(user: current_user, bot_id: bot_id)
+    return render(text: result.error_message) unless result.success?
 
-    unless bot
-      render text: 'Bot not found.'
-      return
-    end
-
-    if bot.working?
-      render text: "Bot '#{bot.label}' is already running (#{bot.status})."
-      return
-    end
-
-    start_fresh = bot.created?
-    bot.set_missed_quote_amount
-    if bot.start(start_fresh: start_fresh)
-      render text: "Bot '#{bot.label}' started successfully."
-    else
-      render text: "Failed to start bot '#{bot.label}': #{bot.errors.full_messages.join(', ')}"
-    end
+    render text: "Bot '#{result.data[:label]}' started successfully."
   end
 end

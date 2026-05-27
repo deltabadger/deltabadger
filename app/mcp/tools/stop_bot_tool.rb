@@ -7,24 +7,9 @@ class StopBotTool < ApplicationMCPTool
   property :bot_id, type: 'number', required: true, description: 'The bot ID'
 
   def perform
-    user = current_user
-    bot = user.bots.not_deleted.find_by(id: bot_id.to_i)
+    result = BotApi::Bots::Stop.call(user: current_user, bot_id: bot_id)
+    return render(text: result.error_message) unless result.success?
 
-    unless bot
-      render text: 'Bot not found.'
-      return
-    end
-
-    unless bot.working?
-      render text: "Bot '#{bot.label}' is not running (#{bot.status})."
-      return
-    end
-
-    bot.set_missed_quote_amount
-    if bot.stop
-      render text: "Bot '#{bot.label}' stopped."
-    else
-      render text: "Failed to stop bot '#{bot.label}'."
-    end
+    render text: "Bot '#{result.data[:label]}' stopped."
   end
 end

@@ -157,9 +157,15 @@ da:
             disconnect: 'Afbryd'
             mode_paper: 'Papir'
             mode_live: 'Live'
+        rest:
+            title: 'REST-API'
+            description: 'Styr Deltabadger fra dine egne scripts.'
+            download_api_docs: 'Hent API-dokumentation'
+            regenerate_token: 'Generér igen'
+            regenerate_confirm: 'Generér token igen? Scripts, der bruger den nuværende, holder op med at virke, indtil du opdaterer dem.'
         mcp:
             title: 'MCP'
-            description: 'Brug denne URL til at forbinde Claude (og andre AI-modeller). Det giver din AI-assistent adgang til dine bots og børser.'
+            description: 'Brug denne URL til at forbinde Claude (og andre AI-modeller).'
             connected_clients: 'Forbundet'
             no_clients: 'Ingen klienter forbundet endnu.'
             revoke_client: 'Fjern adgang'

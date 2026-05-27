@@ -163,9 +163,15 @@ nl:
             not_configured: 'E-mailmeldingen zijn niet geconfigureerd.'
             disconnect: 'Ontkoppelen'
             disconnected: 'E-mailprovider ontkoppeld.'
+        rest:
+            title: 'REST-API'
+            description: 'Stuur Deltabadger aan vanuit je eigen scripts.'
+            download_api_docs: 'API-documentatie downloaden'
+            regenerate_token: 'Opnieuw genereren'
+            regenerate_confirm: 'Token opnieuw genereren? Scripts die de huidige gebruiken werken niet meer totdat je ze bijwerkt.'
         mcp:
             title: 'MCP'
-            description: 'Gebruik deze URL om Claude (en andere AI-modellen) te verbinden. Hiermee geef je je AI-assistent toegang tot je bots en exchanges.'
+            description: 'Gebruik deze URL om Claude (en andere AI-modellen) te verbinden.'
             connected_clients: 'Verbonden clients'
             no_clients: 'Nog geen clients verbonden.'
             revoke_client: 'Intrekken'

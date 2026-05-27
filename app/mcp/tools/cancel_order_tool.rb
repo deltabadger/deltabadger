@@ -12,55 +12,31 @@ class CancelOrderTool < ApplicationMCPTool
                            description: 'Exchange name (required when cancelling by exchange order ID, e.g., Alpaca)'
 
   def perform
-    user = current_user
+    result = BotApi::Orders::Cancel.call(
+      user: current_user, order_id: order_id, exchange_name: exchange_name,
+      dry_run: current_user.mcp_dry_run?
+    )
 
-    # Try local DB first (numeric ID = bot-managed order)
-    if order_id.match?(/\A\d+\z/)
-      transaction = user.transactions.submitted.open.find_by(id: order_id.to_i)
-      if transaction
-        result = with_dry_run_if_enabled { transaction.cancel }
+    prefix = current_user.mcp_dry_run? ? '[DRY RUN] ' : ''
 
-        dry_prefix = current_user.mcp_dry_run? ? '[DRY RUN] ' : ''
-        if result.success?
-          pair = "#{transaction.base}/#{transaction.quote}"
-          render text: "#{dry_prefix}Order ##{transaction.id} (#{transaction.side.upcase} #{pair} " \
-                       "on #{transaction.exchange.name}) cancellation submitted."
-        else
-          render text: "#{dry_prefix}Cancel failed: #{result.errors.join(', ')}"
-        end
-        return
+    unless result.success?
+      # The legacy tool surfaced a verbose usage hint for the "missing
+      # exchange_name" case. Restore that at the MCP boundary so chat
+      # clients get the friendlier copy without REST having to carry it.
+      msg = result.error_message
+      if result.error_code == 'exchange_name_required'
+        msg = "Exchange name is required when cancelling by exchange order ID. Use: cancel_order(order_id: '...', exchange_name: 'Alpaca')"
       end
-    end
-
-    # Exchange order ID — cancel directly via exchange API
-    unless exchange_name.present?
-      render text: "Exchange name is required when cancelling by exchange order ID. Use: cancel_order(order_id: '...', exchange_name: 'Alpaca')"
+      render text: "#{prefix}#{msg}"
       return
     end
 
-    exchange = Exchange.where('LOWER(name) = ?', exchange_name.downcase).first
-    unless exchange
-      render text: "Exchange '#{exchange_name}' not found. Available: #{Exchange.where(available: true).pluck(:name).join(', ')}"
-      return
-    end
-
-    api_key = user.api_keys.find_by(exchange: exchange, key_type: :trading, status: :correct)
-    unless api_key
-      render text: "No valid API key found for #{exchange.name}."
-      return
-    end
-
-    exchange.set_client(api_key: api_key)
-
-    result = with_dry_run_if_enabled do
-      exchange.cancel_order(order_id: order_id)
-    end
-
-    dry_prefix = current_user.mcp_dry_run? ? '[DRY RUN] ' : ''
-    if result.success?
-      render text: "#{dry_prefix}Order #{order_id} cancellation submitted on #{exchange.name}."
+    data = result.data
+    if data[:id]
+      render text: "#{prefix}Order ##{data[:id]} (#{data[:side].upcase} #{data[:pair]} " \
+                   "on #{data[:exchange]}) cancellation submitted."
     else
-      render text: "#{dry_prefix}Cancel failed: #{result.errors.join(', ')}"
+      render text: "#{prefix}Order #{data[:external_id]} cancellation submitted on #{data[:exchange]}."
     end
   end
 end

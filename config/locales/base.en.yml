@@ -157,9 +157,15 @@ en:
             disconnect: 'Disconnect'
             mode_paper: 'Paper'
             mode_live: 'Live'
+        rest:
+            title: 'REST API'
+            description: 'Drive Deltabadger from your own scripts.'
+            download_api_docs: 'Download API docs'
+            regenerate_token: 'Regenerate'
+            regenerate_confirm: 'Regenerate the token? Any scripts using the current one will stop working until you update them.'
         mcp:
             title: 'MCP'
-            description: 'Use this URL to connect Claude (and other AI models). It gives your AI assistant access to your bots and exchanges.'
+            description: 'Use this URL to connect Claude (and other AI models).'
             connected_clients: 'Connected'
             no_clients: 'No clients connected yet.'
             revoke_client: 'Revoke'

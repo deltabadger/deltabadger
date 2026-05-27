@@ -166,9 +166,15 @@ ru:
             not_configured: 'Уведомления по почте не настроены.'
             disconnect: 'Отключить'
             disconnected: 'Поставщик почты отключен.'
+        rest:
+            title: 'REST API'
+            description: 'Управляй Deltabadger из собственных скриптов.'
+            download_api_docs: 'Скачать документацию API'
+            regenerate_token: 'Перевыпустить'
+            regenerate_confirm: 'Перевыпустить токен? Скрипты, использующие текущий, перестанут работать, пока ты их не обновишь.'
         mcp:
             title: 'MCP'
-            description: 'Используй этот URL для подключения Claude (и других моделей ИИ). Он даёт твоему ИИ-ассистенту доступ к твоим ботам и биржам.'
+            description: 'Используй этот URL для подключения Claude (и других моделей ИИ).'
             connected_clients: 'Подключённые клиенты'
             no_clients: 'Пока нет подключённых клиентов.'
             revoke_client: 'Отозвать'

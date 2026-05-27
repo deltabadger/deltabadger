@@ -14,4 +14,16 @@ class AppConfigMcpTest < ActiveSupport::TestCase
   ensure
     ENV['APP_ROOT_URL'] = original
   end
+
+  test 'api_url returns the REST API v1 base under APP_ROOT_URL' do
+    assert_equal 'http://localhost:3000/api/v1', AppConfig.api_url
+  end
+
+  test 'api_url honors APP_ROOT_URL override' do
+    original = ENV['APP_ROOT_URL']
+    ENV['APP_ROOT_URL'] = 'https://mybot.deltabadger.com'
+    assert_equal 'https://mybot.deltabadger.com/api/v1', AppConfig.api_url
+  ensure
+    ENV['APP_ROOT_URL'] = original
+  end
 end

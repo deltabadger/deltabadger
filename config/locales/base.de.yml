@@ -163,9 +163,15 @@ de:
             not_configured: 'E-Mail-Benachrichtigungen sind nicht konfiguriert.'
             disconnect: 'Trennen'
             disconnected: 'E-Mail-Anbieter getrennt.'
+        rest:
+            title: 'REST-API'
+            description: 'Steuere Deltabadger aus deinen eigenen Skripten.'
+            download_api_docs: 'API-Dokumentation herunterladen'
+            regenerate_token: 'Neu erstellen'
+            regenerate_confirm: 'Token neu erstellen? Skripte mit dem aktuellen Token funktionieren nicht mehr, bis du sie aktualisierst.'
         mcp:
             title: 'MCP'
-            description: 'Verwende diese URL, um Claude (und andere KI-Modelle) zu verbinden. Damit erhält dein KI-Assistent Zugriff auf deine Bots und Börsen.'
+            description: 'Verwende diese URL, um Claude (und andere KI-Modelle) zu verbinden.'
             connected_clients: 'Verbundene Clients'
             no_clients: 'Noch keine Clients verbunden.'
             revoke_client: 'Widerrufen'
