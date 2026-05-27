@@ -162,9 +162,15 @@ pt:
             not_configured: 'As notificações por e-mail não estão configuradas.'
             disconnect: 'Desconectar'
             disconnected: 'Fornecedor de e-mail desconectado.'
+        rest:
+            title: 'API REST'
+            description: 'Conduz o Deltabadger a partir dos teus scripts.'
+            download_api_docs: 'Transferir a documentação da API'
+            regenerate_token: 'Regenerar'
+            regenerate_confirm: 'Regenerar o token? Os scripts que usam o atual deixarão de funcionar até que os atualizes.'
         mcp:
             title: 'MCP'
-            description: 'Usa este URL para ligar o Claude (e outros modelos de IA). Permite que o teu assistente de IA aceda aos teus bots e exchanges.'
+            description: 'Usa este URL para ligar o Claude (e outros modelos de IA).'
             connected_clients: 'Clientes ligados'
             no_clients: 'Ainda sem clientes ligados.'
             revoke_client: 'Revogar'

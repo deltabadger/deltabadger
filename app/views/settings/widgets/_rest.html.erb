@@ -1,0 +1,50 @@
+<%= turbo_frame_tag "rest_settings" do %>
+  <div class="widget widget--settings">
+    <h4 class="modal__title"><%= t('settings.rest.title') %></h4>
+
+    <p class="text-center" style="text-wrap: balance"><%= t('settings.rest.description') %></p>
+
+    <p class="text-center">
+      <%= link_to settings_download_api_docs_path, class: 'tag tag--copy', data: { turbo: false } do %>
+        <%= render 'svg/16x16_copy' %><%= t('settings.rest.download_api_docs') %>
+      <% end %>
+    </p>
+
+    <div class="mcp-tool-permissions__group">
+      <span class="tag tag--copy" id="rest_api_url_display" data-url="<%= AppConfig.api_url %>" onclick="navigator.clipboard.writeText(this.dataset.url)" title="<%= t('button.copy') %>"><%= render 'svg/16x16_copy' %><%= AppConfig.api_url&.sub(%r{\Ahttps?://}, '') %></span>
+      <% token = current_user.personal_api_token %>
+      <div class="rest-api-token">
+        <span class="tag tag--copy" data-token="<%= token.token %>" onclick="navigator.clipboard.writeText(this.dataset.token)" title="<%= t('button.copy') %>"><%= render 'svg/16x16_copy' %><%= token.token %></span>
+        <%= button_to t('settings.rest.regenerate_token'),
+          settings_regenerate_api_token_path,
+          method: :post,
+          form: { data: { turbo_frame: 'rest_settings', turbo_confirm: t('settings.rest.regenerate_confirm') } },
+          class: 'sbutton sbutton--outline' %>
+      </div>
+    </div>
+
+    <div id="rest_tool_permissions" class="mcp-tool-permissions">
+
+      <% permissions = current_user.rest_tool_permissions %>
+
+      <div class="mcp-tool-permissions__grid">
+
+        <% AppConfig::REST_TOOL_GROUPS.each do |group, tools| %>
+          <div class="mcp-tool-permissions__group">
+            <% all_enabled = tools.all? { |t| permissions[t] } %>
+            <%= form_with url: settings_update_rest_tool_group_permissions_path, method: :patch,
+                         data: { turbo_frame: "rest_settings" }, class: "mcp-tool-permissions__group-title-form" do |f| %>
+              <%= f.hidden_field :group, value: group %>
+              <%= f.hidden_field :enabled, value: all_enabled ? '0' : '1' %>
+              <h3 class="mcp-tool-permissions__group-title mcp-tool-permissions__group-title--clickable"><%= f.submit t("settings.mcp.tools_#{group}") %></h3>
+            <% end %>
+            <% tools.each do |tool| %>
+              <%= render 'settings/widgets/rest_tool_toggle', tool: tool, enabled: permissions[tool] %>
+            <% end %>
+          </div>
+        <% end %>
+
+      </div>
+    </div>
+  </div>
+<% end %>

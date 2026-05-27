@@ -8,59 +8,42 @@ class GetBotDetailsTool < ApplicationMCPTool
   property :bot_id, type: 'number', required: true, description: 'The bot ID'
 
   def perform
-    user = current_user
-    bot = user.bots.not_deleted.find_by(id: bot_id.to_i)
+    result = BotApi::Bots::Get.call(user: current_user, bot_id: bot_id)
+    return render(text: result.error_message) unless result.success?
 
-    unless bot
-      render text: 'Bot not found.'
-      return
-    end
-
-    lines = []
-    lines << "Bot: #{bot.label}"
-    lines << "Type: #{bot.type.demodulize.titleize}"
-    lines << "Status: #{bot.status}"
-    lines << "Exchange: #{bot.exchange&.name || 'N/A'}"
-
-    if bot.dca_dual_asset?
-      lines << "Pair: #{bot.base0_asset&.symbol}+#{bot.base1_asset&.symbol}/#{bot.quote_asset&.symbol}"
-    elsif bot.respond_to?(:base_asset)
-      lines << "Pair: #{bot.base_asset&.symbol}/#{bot.quote_asset&.symbol}"
-    end
-
-    lines << "Interval: #{bot.settings['interval'] || 'N/A'}"
-    lines << "Amount per order: #{bot.settings['quote_amount']} #{bot.quote_asset&.symbol}"
-    lines << "Orders executed: #{bot.successful_transaction_count}"
-
-    lines << "Started: #{bot.started_at.strftime('%Y-%m-%d %H:%M UTC')}" if bot.started_at
-
-    begin
-      metrics = bot.metrics
-      if metrics.present?
-        lines << ''
-        lines << '--- Performance ---'
-        invested = metrics[:total_quote_amount_invested]
-        value = metrics[:total_amount_value_in_quote]
-        pnl = metrics[:pnl]
-        avg_price = metrics[:average_buy_price]
-
-        lines << "Total invested: #{format_number(invested)} #{bot.quote_asset&.symbol}" if invested
-        lines << "Current value: #{format_number(value)} #{bot.quote_asset&.symbol}" if value
-        lines << "P/L: #{format_percent(pnl)}" if pnl
-        lines << "Average buy price: #{format_number(avg_price)} #{bot.quote_asset&.symbol}" if avg_price
-        if metrics[:total_base_amount]
-          lines << "Total acquired: #{format_number(metrics[:total_base_amount])} #{bot.respond_to?(:base_asset) ? bot.base_asset&.symbol : 'units'}"
-        end
-      end
-    rescue StandardError => e
-      lines << ''
-      lines << "Metrics unavailable: #{e.message}"
-    end
-
-    render text: lines.join("\n")
+    render text: present(result.data)
   end
 
   private
+
+  def present(data)
+    lines = []
+    lines << "Bot: #{data[:label]}"
+    lines << "Type: #{data[:type].to_s.demodulize.titleize}"
+    lines << "Status: #{data[:status]}"
+    lines << "Exchange: #{data[:exchange] || 'N/A'}"
+    lines << "Pair: #{data[:pair]}" if data[:pair]
+    lines << "Interval: #{data[:interval] || 'N/A'}"
+    lines << "Amount per order: #{data[:quote_amount]} #{data[:quote_asset]}"
+    lines << "Orders executed: #{data[:orders_executed]}"
+    lines << "Started: #{data[:started_at].strftime('%Y-%m-%d %H:%M UTC')}" if data[:started_at]
+
+    if data[:metrics]
+      metrics = data[:metrics]
+      lines << ''
+      lines << '--- Performance ---'
+      lines << "Total invested: #{format_number(metrics[:invested])} #{data[:quote_asset]}" if metrics[:invested]
+      lines << "Current value: #{format_number(metrics[:value])} #{data[:quote_asset]}" if metrics[:value]
+      lines << "P/L: #{format_percent(metrics[:pnl])}" if metrics[:pnl]
+      lines << "Average buy price: #{format_number(metrics[:average_buy_price])} #{data[:quote_asset]}" if metrics[:average_buy_price]
+      lines << "Total acquired: #{format_number(metrics[:total_base_amount])} #{data[:base_asset] || 'units'}" if metrics[:total_base_amount]
+    elsif data[:metrics_error]
+      lines << ''
+      lines << "Metrics unavailable: #{data[:metrics_error]}"
+    end
+
+    lines.join("\n")
+  end
 
   def format_number(num)
     return 'N/A' unless num

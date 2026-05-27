@@ -16,7 +16,11 @@ class User < ApplicationRecord
   has_many :transactions, through: :bots
   has_many :rules, dependent: :destroy
   has_many :oauth_access_tokens, class_name: 'Doorkeeper::AccessToken', foreign_key: :resource_owner_id, dependent: :destroy
-  has_many :mcp_applications, -> { distinct }, through: :oauth_access_tokens, source: :application, class_name: 'Doorkeeper::Application'
+  has_many :mcp_applications, -> { where(personal_access_token: [false, nil]).distinct },
+           through: :oauth_access_tokens, source: :application, class_name: 'Doorkeeper::Application'
+  has_one :personal_api_application,
+          -> { where(personal_access_token: true) },
+          class_name: 'Doorkeeper::Application', foreign_key: :personal_owner_id, dependent: :destroy
 
   validates :name, presence: true, if: -> { new_record? }
   validate :validate_name, if: -> { new_record? || name_changed? }
@@ -113,6 +117,43 @@ class User < ApplicationRecord
     mcp_tool_permissions.select { |_, v| v }.keys
   end
 
+  # REST API permissions (per-user). Mirrors MCP; stored in `rest_settings` JSON column.
+
+  def rest_tool_enabled?(tool_name)
+    return false unless AppConfig::REST_TOOL_DEFAULTS.key?(tool_name)
+
+    overrides = rest_settings['tool_permissions'] || {}
+    return overrides[tool_name] if overrides.key?(tool_name)
+
+    AppConfig::REST_TOOL_DEFAULTS[tool_name]
+  end
+
+  def set_rest_tool_enabled(tool_name, enabled)
+    self.rest_settings = rest_settings.merge(
+      'tool_permissions' => (rest_settings['tool_permissions'] || {}).merge(tool_name => enabled)
+    )
+    save!
+  end
+
+  def set_rest_tool_group_enabled(group, enabled)
+    tools = AppConfig::REST_TOOL_GROUPS[group]
+    return unless tools
+
+    perms = rest_settings['tool_permissions'] || {}
+    tools.each { |t| perms[t] = enabled }
+    self.rest_settings = rest_settings.merge('tool_permissions' => perms)
+    save!
+  end
+
+  def rest_tool_permissions
+    overrides = rest_settings['tool_permissions'] || {}
+    AppConfig::REST_TOOL_DEFAULTS.merge(overrides)
+  end
+
+  def enabled_rest_tool_names
+    rest_tool_permissions.select { |_, v| v }.keys
+  end
+
   def mcp_dry_run?
     mcp_settings['dry_run'] == true
   end
@@ -122,7 +163,72 @@ class User < ApplicationRecord
     save!
   end
 
+  # Personal REST API token. One per user, no expiry, scoped to :api only.
+  # Lazy-minted on first read; regenerate replaces (revokes old + mints new)
+  # atomically under the personal-application row lock.
+
+  def personal_api_token
+    ensure_personal_api_token!
+  end
+
+  def ensure_personal_api_token!
+    app = personal_api_application || create_personal_api_app_safely!
+    app.with_lock do
+      active_personal_token_for(app) || mint_personal_token!(app)
+    end
+  end
+
+  def regenerate_personal_api_token!
+    app = personal_api_application || create_personal_api_app_safely!
+    app.with_lock do
+      Doorkeeper::AccessToken
+        .where(application_id: app.id, resource_owner_id: id, revoked_at: nil)
+        .update_all(revoked_at: Time.current)
+      mint_personal_token!(app)
+    end
+  end
+
   private
+
+  # ---- personal API token helpers ----------------------------------------
+
+  # Race-safe app creation. The partial unique index on
+  # oauth_applications(personal_owner_id) WHERE personal_access_token = 1
+  # guarantees that under concurrent first-renders only one INSERT wins;
+  # the loser rescues the unique-violation and re-reads the row.
+  def create_personal_api_app_safely!
+    create_personal_api_application!(
+      name: 'Personal API token',
+      redirect_uri: 'https://localhost/personal-access-token',
+      confidential: false,
+      scopes: 'api',
+      personal_access_token: true
+    )
+  rescue ActiveRecord::RecordNotUnique
+    reload
+    personal_api_application or raise
+  end
+
+  # Explicit query, not Doorkeeper::AccessToken.active_for — that helper's
+  # signature varies between Doorkeeper versions.
+  def active_personal_token_for(app)
+    Doorkeeper::AccessToken
+      .where(application_id: app.id, resource_owner_id: id, revoked_at: nil)
+      .reject(&:expired?)
+      .first
+  end
+
+  # LOAD-BEARING: resource_owner_id must always equal user.id. The User#destroy
+  # cascade story depends on this — every personal token is caught by the
+  # user's own `has_many :oauth_access_tokens, dependent: :destroy`.
+  def mint_personal_token!(app)
+    Doorkeeper::AccessToken.create!(
+      application: app, resource_owner_id: id,
+      token: SecureRandom.hex(32), scopes: 'api', expires_in: nil
+    )
+  end
+
+  # ------------------------------------------------------------------------
 
   def set_default_time_zone
     self.time_zone = 'UTC' if time_zone.blank?

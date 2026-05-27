@@ -6,67 +6,58 @@ class GetPortfolioSummaryTool < ApplicationMCPTool
   read_only
 
   def perform
-    user = current_user
-    bots = user.bots.not_deleted
+    result = BotApi::Portfolio::Summary.call(user: current_user)
+    data = result.data
 
-    if bots.empty?
+    if data[:empty]
       render text: 'No bots found. Create a bot to start tracking your portfolio.'
       return
     end
 
+    render text: present(data)
+  end
+
+  private
+
+  def present(data)
     lines = []
-
-    # Bot count breakdown
-    total = bots.size
-    working = bots.select(&:working?).size
-    stopped = bots.where(status: :stopped).size
-    created = bots.where(status: :created).size
-
+    totals = data[:totals]
     lines << 'Portfolio Summary'
     lines << '================'
-    lines << "Total bots: #{total} (#{working} active, #{stopped} stopped, #{created} not started)"
+    lines << "Total bots: #{totals[:total]} (#{totals[:working]} active, #{totals[:stopped]} stopped, #{totals[:created]} not started)"
     lines << ''
-
-    # Global PnL
-    global_pnl = user.global_pnl(use_cache: true)
-    if global_pnl
-      sign = global_pnl[:percent] >= 0 ? '+' : ''
-      lines << "Global P/L: #{sign}#{(global_pnl[:percent] * 100).round(2)}%"
-      if global_pnl[:profit_usd]
-        profit_sign = global_pnl[:profit_usd] >= 0 ? '+' : ''
-        lines << "Profit (USD): #{profit_sign}$#{global_pnl[:profit_usd].round(2)}"
-      end
-    else
-      lines << 'Global P/L: Not available (needs market data)'
-    end
-
+    lines.concat(global_pnl_lines(data[:global_pnl]))
     lines << ''
     lines << '--- Per-Bot Summary ---'
+    data[:bots].each { |bot| lines << bot_line(bot) }
+    lines.join("\n")
+  end
 
-    bots.each do |bot|
-      pair = if bot.dca_dual_asset?
-               "#{bot.base0_asset&.symbol}+#{bot.base1_asset&.symbol}/#{bot.quote_asset&.symbol}"
-             elsif bot.respond_to?(:base_asset) && bot.base_asset
-               "#{bot.base_asset.symbol}/#{bot.quote_asset&.symbol}"
-             else
-               'N/A'
-             end
+  def global_pnl_lines(pnl)
+    return ['Global P/L: Not available (needs market data)'] unless pnl
 
-      begin
-        metrics = bot.metrics
-        if metrics.present? && metrics[:pnl]
-          pnl_sign = metrics[:pnl] >= 0 ? '+' : ''
-          invested = metrics[:total_quote_amount_invested]&.round(2)
-          pnl_pct = "#{pnl_sign}#{(metrics[:pnl] * 100).round(2)}%"
-          lines << "- #{bot.label} (#{pair}) | #{bot.status} | P/L: #{pnl_pct} | Invested: #{invested} #{bot.quote_asset&.symbol}"
-        else
-          lines << "- #{bot.label} (#{pair}) | #{bot.status} | No metrics yet"
-        end
-      rescue StandardError
-        lines << "- #{bot.label} (#{pair}) | #{bot.status} | Metrics unavailable"
-      end
+    out = []
+    sign = pnl[:percent] >= 0 ? '+' : ''
+    out << "Global P/L: #{sign}#{(pnl[:percent] * 100).round(2)}%"
+    if pnl[:profit_usd]
+      profit_sign = pnl[:profit_usd] >= 0 ? '+' : ''
+      out << "Profit (USD): #{profit_sign}$#{pnl[:profit_usd].round(2)}"
     end
+    out
+  end
 
-    render text: lines.join("\n")
+  def bot_line(bot)
+    pair = bot[:pair] || 'N/A'
+
+    if bot[:metrics_error]
+      "- #{bot[:label]} (#{pair}) | #{bot[:status]} | Metrics unavailable"
+    elsif bot[:metrics]
+      metrics = bot[:metrics]
+      pnl_sign = metrics[:pnl] >= 0 ? '+' : ''
+      invested = metrics[:invested]&.round(2)
+      "- #{bot[:label]} (#{pair}) | #{bot[:status]} | P/L: #{pnl_sign}#{(metrics[:pnl] * 100).round(2)}% | Invested: #{invested} #{bot[:quote_asset]}"
+    else
+      "- #{bot[:label]} (#{pair}) | #{bot[:status]} | No metrics yet"
+    end
   end
 end

@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_05_24_000000) do
+ActiveRecord::Schema[8.1].define(version: 2026_05_27_002000) do
   create_table "account_balances", force: :cascade do |t|
     t.integer "asset_id", null: false
     t.datetime "created_at", null: false
@@ -276,6 +276,21 @@ ActiveRecord::Schema[8.1].define(version: 2026_05_24_000000) do
     t.index ["asset", "currency", "date"], name: "index_historical_prices_on_asset_and_currency_and_date", unique: true
   end
 
+  create_table "idempotency_keys", force: :cascade do |t|
+    t.datetime "created_at", null: false
+    t.string "key", null: false
+    t.datetime "locked_at", null: false
+    t.string "request_fingerprint", null: false
+    t.text "response_body"
+    t.integer "response_status"
+    t.string "state", default: "in_progress", null: false
+    t.datetime "updated_at", null: false
+    t.integer "user_id", null: false
+    t.index ["created_at"], name: "index_idempotency_keys_on_created_at"
+    t.index ["user_id", "key"], name: "index_idempotency_keys_on_user_id_and_key", unique: true
+    t.index ["user_id"], name: "index_idempotency_keys_on_user_id"
+  end
+
   create_table "indices", force: :cascade do |t|
     t.json "available_exchanges", default: {}
     t.datetime "created_at", null: false
@@ -329,6 +344,8 @@ ActiveRecord::Schema[8.1].define(version: 2026_05_24_000000) do
     t.datetime "created_at", null: false
     t.string "grant_types", default: "authorization_code"
     t.string "name", null: false
+    t.boolean "personal_access_token", default: false, null: false
+    t.integer "personal_owner_id"
     t.text "redirect_uri"
     t.string "registration_access_token"
     t.string "response_types", default: "code"
@@ -337,6 +354,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_05_24_000000) do
     t.string "token_endpoint_auth_method", default: "none"
     t.string "uid", null: false
     t.datetime "updated_at", null: false
+    t.index ["personal_owner_id"], name: "index_oauth_applications_unique_personal_owner", unique: true, where: "personal_access_token = 1"
     t.index ["registration_access_token"], name: "index_oauth_applications_on_registration_access_token", unique: true
     t.index ["uid"], name: "index_oauth_applications_on_uid", unique: true
   end
@@ -451,6 +469,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_05_24_000000) do
     t.datetime "remember_created_at", precision: nil
     t.datetime "reset_password_sent_at", precision: nil
     t.string "reset_password_token"
+    t.json "rest_settings", default: {}
     t.boolean "setup_completed", default: false, null: false
     t.boolean "show_smart_intervals_info", default: true, null: false
     t.boolean "subscribed_to_email_marketing", default: true
@@ -485,6 +504,8 @@ ActiveRecord::Schema[8.1].define(version: 2026_05_24_000000) do
   add_foreign_key "exchange_assets", "assets"
   add_foreign_key "exchange_assets", "exchanges"
   add_foreign_key "fee_api_keys", "exchanges"
+  add_foreign_key "idempotency_keys", "users"
+  add_foreign_key "oauth_applications", "users", column: "personal_owner_id"
   add_foreign_key "rule_logs", "rules"
   add_foreign_key "rules", "assets"
   add_foreign_key "rules", "exchanges"
