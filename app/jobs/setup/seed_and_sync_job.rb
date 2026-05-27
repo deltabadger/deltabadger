@@ -68,9 +68,11 @@ class Setup::SeedAndSyncJob < ApplicationJob
     Rails.logger.warn "[Setup] Failed to sync assets from market data service: #{result.errors.to_sentence}" if result.failure?
 
     result = MarketData.sync_indices!
-    return unless result.failure?
+    Rails.logger.warn "[Setup] Failed to sync indices from market data service: #{result.errors.to_sentence}" if result.failure?
 
-    Rails.logger.warn "[Setup] Failed to sync indices from market data service: #{result.errors.to_sentence}"
+    # Hosted-only: pull stock universe + Alpaca tickers from data-api so new containers
+    # have stocks immediately, without waiting for the recurring tick.
+    Asset::SyncStocksFromDeltabadgerJob.perform_later
   end
 
   def mark_sync_in_progress

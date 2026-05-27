@@ -226,4 +226,39 @@ class Exchange::SyncAlpacaAssetsJobTest < ActiveSupport::TestCase
     end
     assert_nil Asset.find_by(external_id: 'alpaca_uuid-aapl').color
   end
+
+  # --- Hosted mode (R4-F4 / F4) -------------------------------------------------------------
+  # On hosted, stock assets + tickers come from data-api. SyncAlpacaAssetsJob would otherwise
+  # create duplicate alpaca_<uuid> rows alongside canonical ones, so it must early-return.
+
+  test 'hosted mode: early-returns without touching Alpaca client or DB' do
+    MarketDataSettings.stubs(:deltabadger?).returns(true)
+
+    Clients::Alpaca.any_instance.expects(:get_assets).never
+    assert_no_difference ['Asset.count', 'Ticker.count', 'ExchangeAsset.count'] do
+      Exchange::SyncAlpacaAssetsJob.perform_now
+    end
+  end
+
+  test 'hosted mode: does not require Alpaca credentials (all responsibilities moved to data-api)' do
+    MarketDataSettings.stubs(:deltabadger?).returns(true)
+    AppConfig.delete('alpaca_api_key')
+    AppConfig.delete('alpaca_api_secret')
+
+    assert_nothing_raised { Exchange::SyncAlpacaAssetsJob.perform_now }
+  end
+
+  # --- Free-mode regression (R4-F4 / F4) ----------------------------------------------------
+  # Open-source containers must keep today's per-user Alpaca-driven path byte-for-byte.
+
+  test 'free mode regression: stocks/tickers/exchange_assets/USD still created as today' do
+    MarketDataSettings.stubs(:deltabadger?).returns(false)
+    Clients::Alpaca.any_instance.stubs(:get_assets).returns(Result::Success.new(@alpaca_assets_response))
+
+    assert_difference 'Asset.where(category: "Stock").count', 2 do
+      Exchange::SyncAlpacaAssetsJob.perform_now
+    end
+    assert Asset.find_by(external_id: 'usd').present?, "free-mode must still create 'usd' (wizard invariant)"
+    assert Ticker.find_by(exchange: @exchange, base_asset: Asset.find_by(external_id: 'alpaca_uuid-aapl')).present?
+  end
 end
